@@ -1,5 +1,6 @@
 import {
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useCallback,
   useMemo,
   useRef,
@@ -19,10 +20,13 @@ import { useLaneRows } from "../hooks/useLaneRows";
 import { useLaneSelect } from "../hooks/useLaneSelect";
 import { useLaneView } from "../hooks/useLaneView";
 import { useLiveCounts } from "../hooks/useLiveCounts";
+import { useTimelineMarkers } from "../hooks/useTimelineMarkers";
+import { type SnapKeys, type TimeSnap, useTimeSnap } from "../hooks/useTimeSnap";
 import type { LaneLayout } from "../utils/histogram";
-import { timeAt, xOf } from "../utils/laneModel";
+import { timeAt, type TimeWindow, xOf } from "../utils/laneModel";
 import { COUNT, LaneRow } from "./LaneRow";
 import { useLaneGestures, VisibilityHeader } from "./laneVisibility";
+import { MarkerLines, MarkerRuler } from "./Markers";
 import { PastRun, Ruler } from "./Ruler";
 import {
   PlayheadFlag,
@@ -32,6 +36,33 @@ import {
   usePlayhead,
   useTimeLine,
 } from "./timeLines";
+
+/**
+ * The ruler with the open system's markers over it, or the ruler alone for a system that has
+ * nowhere to keep markers.
+ */
+function RulerMarkers({
+  view,
+  width,
+  snap,
+  onSeek,
+  children,
+}: {
+  view: TimeWindow;
+  width: number;
+  snap: TimeSnap;
+  onSeek: (time: number) => void;
+  children: ReactNode;
+}) {
+  const markers = useTimelineMarkers();
+  if (markers === null) return children;
+
+  return (
+    <MarkerRuler view={view} width={width} snap={snap} markers={markers} onSeek={onSeek}>
+      {children}
+    </MarkerRuler>
+  );
+}
 
 /** One lane's height in pixels, which the histogram canvas is laid out by. */
 const ROW = 24;
@@ -79,10 +110,15 @@ export function Lanes() {
   const spawned = useLiveCounts(body, canvas, layout);
   const playhead = usePlayhead(view, width);
   const pointer = useTimeLine();
+  const snap = useTimeSnap(view, width, edges);
+  const markers = useTimelineMarkers();
 
   const seekAt = useCallback(
-    (x: number) => seek(Math.max(timeAt(view, width, x), 0)),
-    [seek, view, width],
+    (x: number, keys: SnapKeys) =>
+      seek(
+        Math.max(snap(timeAt(view, width, x), keys, { playhead: true, minorTicks: true }).time, 0),
+      ),
+    [seek, snap, view, width],
   );
   const trackX = (clientX: number) => clientX - (tracks.current?.getBoundingClientRect().left ?? 0);
   const hover = (event: ReactPointerEvent) => {
@@ -119,24 +155,27 @@ export function Lanes() {
             className="absolute inset-y-0 left-0 overflow-hidden"
             style={{ right: COUNT }}
           >
-            <Ruler
-              view={view}
-              width={width}
-              span={span}
-              loop={loop}
-              onSeek={seekAt}
-              onScrubStart={beginScrub}
-              onScrubEnd={endScrub}
-              onLoop={setLoop}
-              onRefit={refit}
-            />
-            <PointerFlag line={pointer} />
-            <PlayheadFlag
-              line={playhead}
-              onScrubStart={beginScrub}
-              onScrub={(clientX) => seekAt(trackX(clientX))}
-              onScrubEnd={endScrub}
-            />
+            <RulerMarkers view={view} width={width} snap={snap} onSeek={seek}>
+              <Ruler
+                view={view}
+                width={width}
+                span={span}
+                loop={loop}
+                snap={snap}
+                onSeek={seekAt}
+                onScrubStart={beginScrub}
+                onScrubEnd={endScrub}
+                onLoop={setLoop}
+                onRefit={refit}
+              />
+              <PointerFlag line={pointer} />
+              <PlayheadFlag
+                line={playhead}
+                onScrubStart={beginScrub}
+                onScrub={(clientX, keys) => seekAt(trackX(clientX), keys)}
+                onScrubEnd={endScrub}
+              />
+            </RulerMarkers>
           </div>
         </div>
       </div>
@@ -162,7 +201,7 @@ export function Lanes() {
               onExpand={expand}
               onSelect={select}
               onSeek={seekAt}
-              edges={edges}
+              snap={snap}
             />
           ))}
           <div
@@ -187,6 +226,9 @@ export function Lanes() {
                 className="absolute top-0 left-0 opacity-70"
                 style={{ width, height: rows.length * ROW }}
               />
+            )}
+            {markers !== null && (
+              <MarkerLines markers={markers.markers} view={view} width={width} />
             )}
             <PointerLine line={pointer} />
             <PlayheadLine line={playhead} />

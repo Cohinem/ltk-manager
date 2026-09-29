@@ -1,6 +1,7 @@
 import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef } from "react";
 
 import { useVfxRun } from "../../playback/state/run";
+import type { SnapKeys } from "../hooks/useTimeSnap";
 import { type TimeWindow, xOf } from "../utils/laneModel";
 
 /** The width of a line's time chip, in pixels. */
@@ -75,7 +76,7 @@ interface PlayheadFlagProps {
   line: TimeLine;
   onScrubStart: () => void;
   /** Seek to where the pointer stands, by its `clientX`. */
-  onScrub: (clientX: number) => void;
+  onScrub: (clientX: number, keys: SnapKeys) => void;
   onScrubEnd: () => void;
 }
 
@@ -93,7 +94,7 @@ export function PlayheadFlag({ line, onScrubStart, onScrub, onScrubEnd }: Playhe
     <div
       ref={line.flag}
       aria-hidden="true"
-      className="pointer-events-none absolute inset-y-0 left-0 w-px bg-accent-400"
+      className="pointer-events-none absolute inset-y-0 left-0 z-10 w-px bg-accent-400"
     >
       <span
         ref={line.chip}
@@ -110,7 +111,7 @@ export function PlayheadFlag({ line, onScrubStart, onScrub, onScrubEnd }: Playhe
           onScrubStart();
         }}
         onPointerMove={(event) => {
-          if (scrubbing.current) onScrub(event.clientX);
+          if (scrubbing.current) onScrub(event.clientX, event);
         }}
         onPointerUp={stop}
         onPointerCancel={stop}

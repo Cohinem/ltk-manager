@@ -119,6 +119,7 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
             pinned: state.pinned,
             shells: state.shells,
             abilities: state.abilities,
+            markers: state.markers,
           },
         },
       })),

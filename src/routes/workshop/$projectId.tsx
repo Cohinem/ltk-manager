@@ -13,6 +13,7 @@ import {
   LoadingState,
   useEditorPersistence,
   useLayerFileReload,
+  usePruneTimelineMarkers,
   useRequestedDocument,
   useWorkshopProjects,
   workshopKeys,
@@ -69,6 +70,7 @@ function HydratedContentBrowser({ project }: { project: WorkshopProject }) {
   useRecordOpened(project.path);
   useRequestedDocument(project.path, ready);
   useLayerFileReload(project.path);
+  usePruneTimelineMarkers(project.path, ready);
 
   if (!ready) return <LoadingState />;
   return <ContentBrowser project={project} />;

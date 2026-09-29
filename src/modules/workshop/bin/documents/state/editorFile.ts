@@ -23,6 +23,7 @@ import {
   type ShellKind,
 } from "../../shell/utils/shellPanes";
 import { type AbilityRecipe, readAbilities } from "../../spells/utils/abilityRecipe";
+import { readMarkers, type TimelineMarkers } from "../../vfx/timeline/utils/markers";
 
 /**
  * The module of one layer's `game_data.yaml` that a declared document's new keys join, by its
@@ -58,6 +59,8 @@ export interface PersistedProjectEditor {
   pinned: readonly string[];
   /** Each shell's tree of panes, which every object tab of its kind draws in. */
   shells: ShellArrangements;
+  /** Each particle system's timeline markers. Absent in a file written before markers. */
+  markers?: TimelineMarkers;
 }
 
 /** The one shell a file written before the skin had a shell carries, which is the particle system's. */
@@ -106,6 +109,7 @@ export function serializeEditorFile(state: PersistedProjectEditor): string {
       pinned: state.pinned,
       shells: state.shells,
       abilities: state.abilities,
+      markers: state.markers,
     },
     null,
     2,
@@ -201,6 +205,7 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
     pinned,
     shells: sanitizeShells(entry),
     ...(entry.abilities === undefined ? {} : { abilities: readAbilities(entry.abilities) }),
+    ...(entry.markers === undefined ? {} : { markers: readMarkers(entry.markers) }),
   };
 }
 

@@ -1,4 +1,5 @@
 import type { AbilityRecipe } from "../../bin/spells/utils/abilityRecipe";
+import type { TimelineMarker } from "../../bin/vfx/timeline/utils/markers";
 import type { EditorSet } from "./editorRoot";
 import { dropStops } from "./navigationStack";
 import { setProject } from "./projectUpdate";
@@ -7,6 +8,14 @@ import { setProject } from "./projectUpdate";
 export interface ProjectActions {
   saveAbility: (projectPath: string, recipe: AbilityRecipe) => void;
   removeAbility: (projectPath: string, id: string) => void;
+  /** Replace one system's timeline markers, dropping its entry when none are left. */
+  setTimelineMarkers: (
+    projectPath: string,
+    key: string,
+    markers: readonly TimelineMarker[],
+  ) => void;
+  /** Drop the markers of systems that no longer exist, by key. */
+  dropTimelineMarkers: (projectPath: string, keys: readonly string[]) => void;
   /** Follows a project whose path changed, so a rename keeps its editor. */
   moveProject: (fromPath: string, toPath: string) => void;
   /** Drops a deleted project, which would otherwise sit in storage forever. */
@@ -26,6 +35,24 @@ export function createProjectActions(set: EditorSet): ProjectActions {
         ...editor,
         abilities: (editor.abilities ?? []).filter((item) => item.id !== id),
       })),
+    setTimelineMarkers: (projectPath, key, markers) =>
+      setProject(set, projectPath, (editor) => {
+        const next = { ...editor.markers };
+        if (markers.length === 0) {
+          delete next[key];
+        } else {
+          next[key] = markers;
+        }
+        return { ...editor, markers: next };
+      }),
+    dropTimelineMarkers: (projectPath, keys) =>
+      setProject(set, projectPath, (editor) => {
+        const next = { ...editor.markers };
+        for (const key of keys) {
+          delete next[key];
+        }
+        return { ...editor, markers: next };
+      }),
 
     moveProject: (fromPath, toPath) =>
       set((state) => {

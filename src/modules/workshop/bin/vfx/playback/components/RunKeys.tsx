@@ -4,6 +4,10 @@ import { useHotkeys } from "react-hotkeys-hook";
 import { useContentVisible } from "@/hooks";
 
 import { useEmitters } from "../../inspector/state/emitterChoice";
+import {
+  type TimelineMarkerList,
+  useTimelineMarkers,
+} from "../../timeline/hooks/useTimelineMarkers";
 import { chosenEmitter } from "../../timeline/utils/selection";
 import { useVfxRun, type VfxRun } from "../state/run";
 import { speedDetent } from "./Transport";
@@ -35,7 +39,10 @@ const SLIDER_KEYS: ReadonlySet<string> = new Set([
 ]);
 
 /** What each key does to the run, "The keys" in docs/ux/BIN_EDITOR.md. Esc is the pane tree's. */
-const KEYS: Record<string, (run: VfxRun, selected: number | null) => void> = {
+const KEYS: Record<
+  string,
+  (run: VfxRun, selected: number | null, markers: TimelineMarkerList | null) => void
+> = {
   space: (run) => run.setPlaying(!run.playing),
   left: (run) => run.step(-1),
   right: (run) => run.step(1),
@@ -52,6 +59,7 @@ const KEYS: Record<string, (run: VfxRun, selected: number | null) => void> = {
   m: (run, selected) => selected !== null && run.toggleMuted(selected),
   bracketleft: (run) => run.setSpeed(speedDetent(run.speed, -1)),
   bracketright: (run) => run.setSpeed(speedDetent(run.speed, 1)),
+  "ctrl+m": (run, _, markers) => markers?.add(run.driver.phase),
 };
 
 /**
@@ -63,17 +71,18 @@ const KEYS: Record<string, (run: VfxRun, selected: number | null) => void> = {
 export function RunKeys({ children }: { children: ReactNode }) {
   const run = useVfxRun();
   const { root } = useEmitters();
+  const markers = useTimelineMarkers();
   const visible = useContentVisible();
 
   const ref = useHotkeys<HTMLDivElement>(
     Object.keys(KEYS).join(", "),
-    (_, handler) => KEYS[handler.hotkey]?.(run, chosenEmitter(run.system, root)),
+    (_, handler) => KEYS[handler.hotkey]?.(run, chosenEmitter(run.system, root), markers),
     {
       preventDefault: true,
       enableOnFormTags: true,
       ignoreEventWhen: ignoredKey,
     },
-    [run, root],
+    [run, root, markers],
   );
 
   useEffect(() => {

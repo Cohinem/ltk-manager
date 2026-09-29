@@ -14,6 +14,7 @@ export * from "../projects/state/workshopSelection";
 export * from "../references/state/references";
 export * from "../shell/hooks/useEditorPersistence";
 export * from "../shell/hooks/useProjectEditor";
+export * from "../shell/hooks/usePruneTimelineMarkers";
 export * from "../shell/hooks/useShellHistory";
 export * from "../shell/state/workshopEditor";
 export * from "./workshopDialogs";

@@ -9,6 +9,8 @@ export function fakeRun(over: Partial<VfxRun> = {}): { run: VfxRun; tick: () => 
   const listeners = new Set<() => void>();
   const run: VfxRun = {
     document: 1,
+    asset: null,
+    entry: "0x00000001",
     system: null,
     error: null,
     pending: false,

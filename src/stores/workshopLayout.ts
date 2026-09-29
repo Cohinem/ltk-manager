@@ -97,6 +97,8 @@ interface PreviewDisplay {
   previewMaterialOnShape: boolean;
   /** The timeline's lanes draw each emitter's live particles per step over its bar. */
   timelineHistogram: boolean;
+  /** A dragged or scrubbed time on the timeline snaps to its markers, edges and ticks. */
+  timelineSnap: boolean;
   /** The inspector lists every field the class declares, the unauthored ones dimmed. */
   inspectorDefaults: boolean;
 }
@@ -261,6 +263,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewTurntable: false,
   previewMaterialOnShape: false,
   timelineHistogram: false,
+  timelineSnap: true,
   inspectorDefaults: false,
 };
 
@@ -460,5 +463,6 @@ export const usePreviewTurntable = () => useWorkshopLayoutStore((s) => s.preview
 export const usePreviewMaterialOnShape = () =>
   useWorkshopLayoutStore((s) => s.previewMaterialOnShape);
 export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timelineHistogram);
+export const useTimelineSnap = () => useWorkshopLayoutStore((s) => s.timelineSnap);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
 export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);
