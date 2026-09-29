@@ -5,6 +5,7 @@ import { FORWARD } from "@/modules/viewport";
 import {
   type Anchor,
   facingAt,
+  FLIGHT_HEIGHT,
   flightPath,
   landed,
   type Motion,
@@ -13,8 +14,8 @@ import {
   phaseAt,
   RIG_PRESETS,
   runLength,
-  STAND_HEIGHT,
   targetAt,
+  withPreset,
 } from "../rig";
 
 /** A path a hundred units long at one unit a second, so a second is one percent of it. */
@@ -162,7 +163,7 @@ describe("flightPath", () => {
 
     expect(path.from[1]).toBe(0);
     expect(path.to[1]).toBe(0);
-    expect(originAt(path, 0, STAND_HEIGHT)[1]).toBe(STAND_HEIGHT);
+    expect(originAt(path, 0, FLIGHT_HEIGHT)[1]).toBe(FLIGHT_HEIGHT);
   });
 });
 
@@ -241,12 +242,18 @@ describe("OPENING_RIG", () => {
 });
 
 describe("RIG_PRESETS", () => {
-  it("plays the rig that moves nothing through once", () => {
+  it("plays the rig that moves nothing through once, on the ground", () => {
     expect(RIG_PRESETS.still).toEqual({
       motion: { kind: "still" },
       life: "once",
-      height: STAND_HEIGHT,
+      height: 0,
     });
+    expect(RIG_PRESETS.burst.height).toBe(0);
+  });
+
+  it("carries the rigs that move at flight height", () => {
+    expect(RIG_PRESETS.missile.height).toBe(FLIGHT_HEIGHT);
+    expect(RIG_PRESETS.trail.height).toBe(FLIGHT_HEIGHT);
   });
 
   it("separates a burst from a still rig by replaying it, not by moving it", () => {
@@ -262,5 +269,27 @@ describe("RIG_PRESETS", () => {
   it("circles a trail without ever restarting it", () => {
     expect(RIG_PRESETS.trail.motion.kind).toBe("orbit");
     expect(RIG_PRESETS.trail.life).toBe("once");
+  });
+});
+
+describe("withPreset", () => {
+  it("takes the new preset's own height where the author tuned none", () => {
+    const next = withPreset({ preset: "burst", rig: RIG_PRESETS.burst }, "missile");
+
+    expect(next.preset).toBe("missile");
+    expect(next.rig.height).toBe(FLIGHT_HEIGHT);
+    expect(next.rig.motion.kind).toBe("path");
+  });
+
+  it("keeps a height the author tuned, and the stop", () => {
+    const tuned = {
+      preset: "still",
+      rig: { ...RIG_PRESETS.still, height: 40, stopAt: 3 },
+    } as const;
+    const next = withPreset(tuned, "trail");
+
+    expect(next.rig.height).toBe(40);
+    expect(next.rig.stopAt).toBe(3);
+    expect(next.rig.life).toBe("once");
   });
 });

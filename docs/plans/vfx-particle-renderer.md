@@ -170,8 +170,9 @@ decision 2.5 keeps it across an edit, so a drag along a slider moves what it is 
 
 The scrub spans `max(systemSpan, runLength)`, so a flight longer than the effect is reachable.
 
-`flightPath` centres its path on the origin at half a champion's height, so an effect authored about
-its own origin is on screen for the whole run and clears the ground plane. The path's direction is
+`flightPath` centres its path on the origin, so an effect authored about its own origin is on screen
+for the whole run. A rig that moves flies at half a champion's height, and one that stands still
+stands on the ground, as the skin, spell and map previews do (ADR-0057). The path's direction is
 not a control: the reader orbits the camera instead.
 
 **A moving origin alone draws no trail**, which is why `bindWeight` (`0xca406316`) joined the field

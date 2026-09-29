@@ -19,6 +19,7 @@ import {
   RIG_PRESETS,
   type RigModel,
   type RigPreset,
+  withPreset,
 } from "../../engine/model/rig";
 import { SliderRow } from "../../preview/components/SliderRow";
 import { useVfxRun } from "../state/run";
@@ -99,7 +100,7 @@ export function RigControl() {
               size="xs"
               aria-label={m.workshop_bin_preview_rig_label()}
               value={choice.preset}
-              onChange={(preset: RigPreset) => setRig({ preset, rig: RIG_PRESETS[preset] })}
+              onChange={(preset: RigPreset) => setRig(withPreset(choice, preset))}
               options={presetOptions()}
             />
 

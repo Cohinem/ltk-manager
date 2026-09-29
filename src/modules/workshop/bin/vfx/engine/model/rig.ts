@@ -15,9 +15,8 @@ export interface RigModel {
   /**
    * How far off the ground the origin stands, in engine units.
    *
-   * A system is authored about whatever carries it, and most of them ride a champion
-   * rather than the floor, so the rig stands one at half a champion's height by default
-   * and a ground effect is the one that asks for zero.
+   * Zero for a rig that stands still, as every other preview stands a system on the ground,
+   * so a ground-layer emitter and its siblings share one origin. ADR-0057.
    */
   readonly height: number;
   /**
@@ -75,8 +74,8 @@ const FLIGHT_RANGE = CHAMPION_HEIGHT * 6;
 /** How fast it travels, in engine units a second. */
 const FLIGHT_SPEED = CHAMPION_HEIGHT * 8;
 
-/** Where a rig stands by default, so an effect authored about its origin clears the ground. */
-export const STAND_HEIGHT = CHAMPION_HEIGHT / 2;
+/** How high a moving rig carries its system, where a missile or a swung weapon flies. */
+export const FLIGHT_HEIGHT = CHAMPION_HEIGHT / 2;
 
 /** How wide an orbiting rig circles, and how long one revolution takes in seconds. */
 const ORBIT = { radius: CHAMPION_HEIGHT * 1.5, period: 3 } as const;
@@ -101,13 +100,13 @@ export function flightPath(distance: number, speed: number): Motion {
 
 /** The rigs the picker offers, each a motion and a lifecycle over it. */
 export const RIG_PRESETS = {
-  still: { motion: { kind: "still" }, life: "once", height: STAND_HEIGHT },
-  burst: { motion: { kind: "still" }, life: "loop", height: STAND_HEIGHT },
-  missile: { motion: flightPath(FLIGHT_RANGE, FLIGHT_SPEED), life: "loop", height: STAND_HEIGHT },
+  still: { motion: { kind: "still" }, life: "once", height: 0 },
+  burst: { motion: { kind: "still" }, life: "loop", height: 0 },
+  missile: { motion: flightPath(FLIGHT_RANGE, FLIGHT_SPEED), life: "loop", height: FLIGHT_HEIGHT },
   trail: {
     motion: { kind: "orbit", radius: ORBIT.radius, period: ORBIT.period },
     life: "once",
-    height: STAND_HEIGHT,
+    height: FLIGHT_HEIGHT,
   },
 } as const satisfies Record<string, RigModel>;
 
@@ -118,6 +117,24 @@ export type RigPreset = keyof typeof RIG_PRESETS;
 export interface RigChoice {
   readonly preset: RigPreset;
   readonly rig: RigModel;
+}
+
+/**
+ * `choice` moved to `preset`, keeping the stop and any height the author tuned away from the
+ * old preset's own.
+ */
+export function withPreset(choice: RigChoice, preset: RigPreset): RigChoice {
+  const next: RigModel = RIG_PRESETS[preset];
+  const tuned = choice.rig.height !== RIG_PRESETS[choice.preset].height;
+
+  return {
+    preset,
+    rig: {
+      ...next,
+      height: tuned ? choice.rig.height : next.height,
+      stopAt: choice.rig.stopAt ?? null,
+    },
+  };
 }
 
 /** The rig a driver starts on and a thumbnail draws with, which moves nothing and plays once. */

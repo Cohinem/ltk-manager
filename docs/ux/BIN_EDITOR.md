@@ -2100,7 +2100,9 @@ already stands there, it turns the camera to the axis's other end, on Orbit.
 
 **The rig pill** names its preset beside an icon of the motion. Its popover holds the motion, the
 loop, the stop, and the seed with its reroll. A system opens on Burst, which moves nothing and
-loops, and the popover's loop is the timeline's Loop switch.
+loops, and the popover's loop is the timeline's Loop switch. Still and Burst stand on the ground,
+and Missile and Trail fly at half a champion's height. A switch of preset keeps the stop and a
+height the author tuned.
 
 **The gizmo** draws the selected emitter's origin and its offset as lines, and its spawn shape as
 a body in faint faces under crisp edges. It is the one gizmo of the editor: the Geometry node's
