@@ -19,8 +19,17 @@ import {
   vfxRunKey,
   type VfxRunMemory,
 } from "../../../../state";
+import { autoRig, autoRigKey } from "../../engine/model/autoRig";
 import type { SystemModel } from "../../engine/model/model";
-import { flightTime, OPENING_RIG, type RigChoice, runLength } from "../../engine/model/rig";
+import {
+  flightTime,
+  type Playback,
+  playbackOf,
+  type RigChoice,
+  type RigModel,
+  runSpan,
+  withPlayback,
+} from "../../engine/model/rig";
 import { lingerTail, systemSpan } from "../../engine/model/systemModel";
 import { createDriver, type Driver } from "../../engine/simulation/driver";
 import {
@@ -70,8 +79,10 @@ export interface VfxRun {
   readonly warming: boolean;
   readonly speed: number;
   readonly seed: number;
+  /** The rig the run plays on: the one chosen for it, else the one the system picks. ADR-0057. */
   readonly rig: RigChoice;
-  /** The run starts over at its end, which is the rig's life. */
+  readonly playback: Playback;
+  /** The run starts over at its end, which is the rig's Replay. */
   readonly looping: boolean;
   /** Emitters of the opened system that draw nothing, by pool index. */
   readonly muted: ReadonlySet<number>;
@@ -96,9 +107,11 @@ export interface VfxRun {
    */
   readonly setWarming: (warming: boolean) => void;
   readonly setSpeed: (speed: number) => void;
-  /** Change the rig. A loop turned on for a run paused at its end plays it from zero. */
+  /** Choose the rig. A loop turned on for a run paused at its end plays it from zero. */
   readonly setRig: (rig: RigChoice) => void;
-  /** Turn the rig's loop on or off, keeping its preset. */
+  /** Drop the chosen rig for the one the system picks. */
+  readonly resetRig: () => void;
+  /** Switch between Replay and Once. A continuous run has no loop to switch. */
   readonly setLooping: (looping: boolean) => void;
   readonly reroll: () => void;
   readonly toggleMuted: (emitter: number) => void;
@@ -178,24 +191,26 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 
   const [seed, setSeed] = useState(kept?.seed ?? FIRST_SEED);
   const [speed, setSpeed] = useState(kept?.speed ?? FIRST_SPEED);
-  const [rig, setRigState] = useState<RigChoice>(kept?.rig ?? OPENING_RIG);
+  const [chosen, setChosen] = useState<RigChoice | null>(kept?.rig ?? null);
+  const auto = useAutoRig(system);
+  const rig = useMemo<RigChoice>(
+    () => chosen ?? { source: AUTO_SOURCE, rig: auto.rig },
+    [chosen, auto.rig],
+  );
   const [muted, setMuted] = useState<ReadonlySet<number>>(() => new Set(kept?.muted));
   const [soloed, setSoloed] = useState<ReadonlySet<number>>(() => new Set(kept?.soloed));
   const [loop, setLoop] = useState<LoopRange | null>(kept?.loop ?? null);
   const [fitRequest, setFitRequest] = useState(0);
   const [pinned, setPinned] = useState<number | null>(kept?.pinned ?? null);
   const looping = rig.rig.life === "loop";
+  const playback = playbackOf(rig.rig.life);
 
   const driver = useMemo(() => createDriver(seed), [seed]);
   const span = useMemo(
     () =>
       system === null
         ? 1
-        : runLength(
-            rig.rig.motion,
-            systemSpan(system),
-            lingerTail(system, flightTime(rig.rig.motion)),
-          ),
+        : runSpan(rig.rig, systemSpan(system), lingerTail(system, flightTime(rig.rig.motion))),
     [system, rig],
   );
 
@@ -259,8 +274,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 
   /* Read through a ref by the loop below, so a speed tick or a rig drag, which moves the
      span, changes the next frame rather than restarting the loop and dropping one. */
-  const pace = useRef({ speed, loop, span, looping });
-  pace.current = { speed, loop, span, looping };
+  const pace = useRef({ speed, loop, span, looping, wrapped: auto.take });
+  pace.current = { speed, loop, span, looping, wrapped: auto.take };
   /* An edit hands over a new system, and restarting the loop on it drops a frame of time. */
   const loaded = system !== null;
   useEffect(() => {
@@ -272,10 +287,12 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       const dt = last === null ? 0 : Math.min((now - last) / 1000, MAX_FRAME);
       last = now;
       if (dt > 0) {
-        const { speed: rate, loop: range, span: length, looping: loops } = pace.current;
+        const { speed: rate, loop: range, span: length, looping: loops, wrapped } = pace.current;
         const room = range === null && !loops ? length - driver.phase : Infinity;
         const spent = Math.min(dt * rate, room);
+        const before = driver.phase;
         if (spent > 0) driver.advance(spent);
+        if (driver.phase < before - END_SLACK) wrapped();
         if (range !== null && driver.phase >= Math.min(range.to, length)) driver.seek(range.from);
         notify();
 
@@ -296,7 +313,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     null!,
   );
   latest.current = {
-    memory: { seed, rig, speed, muted: [...muted], soloed: [...soloed], loop, pinned },
+    memory: { seed, rig: chosen, speed, muted: [...muted], soloed: [...soloed], loop, pinned },
     driver,
     span,
   };
@@ -317,10 +334,12 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     },
     [driver, notify],
   );
+  const takeAuto = auto.take;
   const restart = useCallback(() => {
+    takeAuto();
     driver.restart();
     notify();
-  }, [driver, notify]);
+  }, [driver, notify, takeAuto]);
   const step = useCallback(
     (frames: number) => {
       setPlayingState(false);
@@ -358,10 +377,15 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
         restart();
         setPlayingState(true);
       }
-      setRigState(next);
+      setChosen(next);
     },
     [parked, restart],
   );
+  const resetAuto = auto.reset;
+  const resetRig = useCallback(() => {
+    resetAuto();
+    setChosen(null);
+  }, [resetAuto]);
 
   const beginScrub = useCallback(() => setScrubbing(true), []);
   const endScrub = useCallback(() => setScrubbing(false), []);
@@ -380,6 +404,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       speed,
       seed,
       rig,
+      playback,
       looping,
       muted,
       soloed,
@@ -393,8 +418,11 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       setWarming,
       setSpeed,
       setRig,
-      setLooping: (next) =>
-        setRig({ preset: rig.preset, rig: { ...rig.rig, life: next ? "loop" : "once" } }),
+      resetRig,
+      setLooping: (next) => {
+        if (rig.rig.life === "continuous") return;
+        setRig({ source: CUSTOM_SOURCE, rig: withPlayback(rig.rig, next ? "replay" : "once") });
+      },
       reroll: () => setSeed((current) => current + 1),
       toggleMuted: (emitter) => setMuted((current) => toggled(current, emitter)),
       toggleSoloed: (emitter) => setSoloed((current) => toggled(current, emitter)),
@@ -423,6 +451,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       speed,
       seed,
       rig,
+      playback,
       looping,
       muted,
       soloed,
@@ -433,6 +462,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       fitRequest,
       setPlaying,
       setRig,
+      resetRig,
       seek,
       step,
       seekEnd,
@@ -448,6 +478,42 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       <VfxRunContext value={run}>{children}</VfxRunContext>
     </ForcePreviewProvider>
   );
+}
+
+const AUTO_SOURCE = { kind: "auto" } as const;
+
+const CUSTOM_SOURCE = { kind: "custom" } as const;
+
+/**
+ * The rig `system` picks for itself, taken when the system first lands and afterwards only
+ * when the run starts over, so an edit never moves the run under the author.
+ *
+ * `take` adopts a rig an edit asked for, which a restart and a wrap call, and `reset` adopts
+ * the one the system asks for now, which Reset to auto calls.
+ */
+function useAutoRig(system: SystemModel | null) {
+  const wanted = useMemo(() => autoRig(system), [system]);
+  const [rig, setRig] = useState<RigModel>(wanted);
+  const latest = useRef(wanted);
+  latest.current = wanted;
+
+  const landed = system !== null;
+  const opened = useRef(false);
+  useEffect(() => {
+    if (!landed || opened.current) return;
+
+    opened.current = true;
+    setRig(latest.current);
+  }, [landed]);
+
+  const take = useCallback(() => {
+    if (!opened.current) return;
+
+    setRig((held) => (autoRigKey(held) === autoRigKey(latest.current) ? held : latest.current));
+  }, []);
+  const reset = useCallback(() => setRig(latest.current), []);
+
+  return { rig, take, reset };
 }
 
 /** `phase` has reached the end of a run `span` seconds long. */

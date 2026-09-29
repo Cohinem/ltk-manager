@@ -1,7 +1,7 @@
 /**
  * The rig: how the world carries a system, which its definition does not say.
  *
- * Decision 2.9 in docs/plans/vfx-particle-renderer.md.
+ * Decision 2.9 in docs/plans/vfx-particle-renderer.md, and ADR-0057.
  */
 
 /* The numbers alone rather than the module barrel, for the reason basis.ts gives. */
@@ -62,8 +62,14 @@ export type Motion =
   | { readonly kind: "orbit"; readonly radius: number; readonly period: number }
   | { readonly kind: "bone"; readonly anchor: Anchor; readonly target: Anchor | null };
 
-/** Whether a run plays through once or starts over from its beginning. */
-export type RigLife = "once" | "loop";
+/**
+ * Whether a run plays through once, starts over from its beginning, or plays on for as
+ * long as a seek reaches without ever starting over.
+ */
+export type RigLife = "once" | "loop" | "continuous";
+
+/** How long a continuous run lasts, in seconds, which is as far as a seek replays. */
+export const CONTINUOUS_RUN = 60;
 
 /** The world's own origin, where a system that nothing moves stands. */
 const ORIGIN: Point = [0, 0, 0];
@@ -98,50 +104,97 @@ export function flightPath(distance: number, speed: number): Motion {
   };
 }
 
-/** The rigs the picker offers, each a motion and a lifecycle over it. */
-export const RIG_PRESETS = {
-  still: { motion: { kind: "still" }, life: "once", height: 0 },
-  burst: { motion: { kind: "still" }, life: "loop", height: 0 },
-  missile: { motion: flightPath(FLIGHT_RANGE, FLIGHT_SPEED), life: "loop", height: FLIGHT_HEIGHT },
-  trail: {
-    motion: { kind: "orbit", radius: ORBIT.radius, period: ORBIT.period },
-    life: "once",
-    height: FLIGHT_HEIGHT,
-  },
-} as const satisfies Record<string, RigModel>;
+/** What carries a system, the half of a rig that places its origin. ADR-0057. */
+export type Carrier = "ground" | "bone" | "flight" | "orbit";
 
-/** Which rig the picker is showing, which names the pill the popover hangs off. */
-export type RigPreset = keyof typeof RIG_PRESETS;
+/** When a run starts over, the other half of a rig. */
+export type Playback = "once" | "replay" | "continuous";
 
-/** A rig, and the preset the reader picked before tuning it. */
+/** The carriers an author picks between. Bone comes only from a skin, which holds its joints. */
+export const PICKED_CARRIERS: readonly Exclude<Carrier, "bone">[] = ["ground", "flight", "orbit"];
+
+export const PLAYBACKS: readonly Playback[] = ["once", "replay", "continuous"];
+
+/** Where a rig came from, which the pill names. */
+export type RigSource =
+  | { readonly kind: "auto" }
+  | { readonly kind: "template"; readonly name: string }
+  | { readonly kind: "context"; readonly label: string }
+  | { readonly kind: "custom" };
+
+/** A rig and where it came from. */
 export interface RigChoice {
-  readonly preset: RigPreset;
+  readonly source: RigSource;
   readonly rig: RigModel;
 }
 
+/** The rig that stands on the ground and plays once, which a driver starts on. */
+export const GROUND_RIG: RigModel = { motion: { kind: "still" }, life: "once", height: 0 };
+
+/** The rig a driver starts on and a thumbnail draws with. */
+export const FIRST_RIG: RigChoice = { source: { kind: "auto" }, rig: GROUND_RIG };
+
+/** The carrier a motion is. */
+export function carrierOf(motion: Motion): Carrier {
+  switch (motion.kind) {
+    case "still":
+      return "ground";
+    case "path":
+      return "flight";
+    case "orbit":
+      return "orbit";
+    case "bone":
+      return "bone";
+  }
+}
+
+/** The playback a lifecycle is. */
+export function playbackOf(life: RigLife): Playback {
+  return life === "loop" ? "replay" : life;
+}
+
+/** The motion and the height a carrier starts on when an author picks it. */
+function carried(carrier: Exclude<Carrier, "bone">): Pick<RigModel, "motion" | "height"> {
+  switch (carrier) {
+    case "ground":
+      return { motion: { kind: "still" }, height: 0 };
+    case "flight":
+      return { motion: flightPath(FLIGHT_RANGE, FLIGHT_SPEED), height: FLIGHT_HEIGHT };
+    case "orbit":
+      return {
+        motion: { kind: "orbit", radius: ORBIT.radius, period: ORBIT.period },
+        height: FLIGHT_HEIGHT,
+      };
+  }
+}
+
+/** The height a rig's own carrier starts on, zero for a bone, which its joint places. */
+function carriedHeight(motion: Motion): number {
+  const carrier = carrierOf(motion);
+  return carrier === "bone" ? 0 : carried(carrier).height;
+}
+
 /**
- * `choice` moved to `preset`, keeping the stop and any height the author tuned away from the
- * old preset's own.
+ * `rig` moved onto `carrier`, keeping its playback, its stop and any height the author tuned
+ * away from its old carrier's own.
  */
-export function withPreset(choice: RigChoice, preset: RigPreset): RigChoice {
-  const next: RigModel = RIG_PRESETS[preset];
-  const tuned = choice.rig.height !== RIG_PRESETS[choice.preset].height;
+export function withCarrier(rig: RigModel, carrier: Exclude<Carrier, "bone">): RigModel {
+  const next = carried(carrier);
+  const tuned = rig.height !== carriedHeight(rig.motion);
 
   return {
-    preset,
-    rig: {
-      ...next,
-      height: tuned ? choice.rig.height : next.height,
-      stopAt: choice.rig.stopAt ?? null,
-    },
+    motion: next.motion,
+    life: rig.life,
+    height: tuned ? rig.height : next.height,
+    stopAt: rig.stopAt ?? null,
+    joints: rig.joints ?? null,
   };
 }
 
-/** The rig a driver starts on and a thumbnail draws with, which moves nothing and plays once. */
-export const FIRST_RIG: RigChoice = { preset: "still", rig: RIG_PRESETS.still };
-
-/** The rig a particle system's run opens on: the burst, which moves nothing and replays. */
-export const OPENING_RIG: RigChoice = { preset: "burst", rig: RIG_PRESETS.burst };
+/** `rig` played back as `playback`. */
+export function withPlayback(rig: RigModel, playback: Playback): RigModel {
+  return { ...rig, life: playback === "replay" ? "loop" : playback };
+}
 
 /** Where the origin stands `time` seconds into a run, `height` off the ground. */
 export function originAt(motion: Motion, time: number, height = 0): Point {
@@ -267,6 +320,15 @@ export function runLength(motion: Motion, span: number, tail = 0): number {
   if (motion.kind === "orbit") return Math.max(motion.period, span);
 
   return span;
+}
+
+/**
+ * How long one run of `rig` lasts, which the scrub spans: [`runLength`], and for a continuous
+ * run the whole of [`CONTINUOUS_RUN`], since it never starts over.
+ */
+export function runSpan(rig: RigModel, span: number, tail = 0): number {
+  const length = runLength(rig.motion, span, tail);
+  return rig.life === "continuous" ? Math.max(length, CONTINUOUS_RUN) : length;
 }
 
 /** How long a path takes to fly, and zero for one that never moves. */

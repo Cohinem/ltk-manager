@@ -4,18 +4,22 @@ import { FORWARD } from "@/modules/viewport";
 
 import {
   type Anchor,
+  carrierOf,
+  CONTINUOUS_RUN,
   facingAt,
   FLIGHT_HEIGHT,
   flightPath,
+  GROUND_RIG,
   landed,
   type Motion,
-  OPENING_RIG,
   originAt,
   phaseAt,
-  RIG_PRESETS,
+  playbackOf,
   runLength,
+  runSpan,
   targetAt,
-  withPreset,
+  withCarrier,
+  withPlayback,
 } from "../rig";
 
 /** A path a hundred units long at one unit a second, so a second is one percent of it. */
@@ -175,7 +179,7 @@ describe("runLength", () => {
 
   it("is the scrub's whole window, one flight however long the system", () => {
     expect(runLength(SLOW, 300)).toBe(100);
-    expect(runLength(RIG_PRESETS.still.motion, 6)).toBe(6);
+    expect(runLength(GROUND_RIG.motion, 6)).toBe(6);
   });
 
   it("gives a still rig the system's own span", () => {
@@ -214,7 +218,7 @@ describe("phaseAt", () => {
   });
 
   it("wraps a still rig on the system's own span", () => {
-    expect(phaseAt(RIG_PRESETS.burst, 7, 3)).toBe(1);
+    expect(phaseAt(withPlayback(GROUND_RIG, "replay"), 7, 3)).toBe(1);
   });
 
   it("wraps a looping flight past its linger tail", () => {
@@ -234,62 +238,51 @@ describe("landed", () => {
   });
 });
 
-describe("OPENING_RIG", () => {
-  it("opens a run on the burst, which moves nothing and replays the run", () => {
-    expect(OPENING_RIG).toEqual({ preset: "burst", rig: RIG_PRESETS.burst });
-    expect(OPENING_RIG.rig.life).toBe("loop");
+describe("runSpan", () => {
+  it("is the run's own length for a rig that plays once or replays", () => {
+    expect(runSpan(GROUND_RIG, 4)).toBe(4);
+    expect(runSpan(withPlayback(GROUND_RIG, "replay"), 4)).toBe(4);
+  });
+
+  it("spans all a seek reaches for a continuous run, which never starts over", () => {
+    expect(runSpan(withPlayback(GROUND_RIG, "continuous"), 4)).toBe(CONTINUOUS_RUN);
+    expect(phaseAt(withPlayback(GROUND_RIG, "continuous"), 30, 4)).toBe(30);
   });
 });
 
-describe("RIG_PRESETS", () => {
-  it("plays the rig that moves nothing through once, on the ground", () => {
-    expect(RIG_PRESETS.still).toEqual({
-      motion: { kind: "still" },
-      life: "once",
-      height: 0,
-    });
-    expect(RIG_PRESETS.burst.height).toBe(0);
-  });
-
-  it("carries the rigs that move at flight height", () => {
-    expect(RIG_PRESETS.missile.height).toBe(FLIGHT_HEIGHT);
-    expect(RIG_PRESETS.trail.height).toBe(FLIGHT_HEIGHT);
-  });
-
-  it("separates a burst from a still rig by replaying it, not by moving it", () => {
-    expect(RIG_PRESETS.burst.motion).toEqual(RIG_PRESETS.still.motion);
-    expect(RIG_PRESETS.burst.life).toBe("loop");
-  });
-
-  it("flies a missile and replays it on arrival", () => {
-    expect(RIG_PRESETS.missile.motion.kind).toBe("path");
-    expect(RIG_PRESETS.missile.life).toBe("loop");
-  });
-
-  it("circles a trail without ever restarting it", () => {
-    expect(RIG_PRESETS.trail.motion.kind).toBe("orbit");
-    expect(RIG_PRESETS.trail.life).toBe("once");
+describe("carrierOf and playbackOf", () => {
+  it("names the half of a rig each motion and lifecycle is", () => {
+    expect(carrierOf({ kind: "still" })).toBe("ground");
+    expect(carrierOf(SLOW)).toBe("flight");
+    expect(carrierOf({ kind: "orbit", radius: 1, period: 1 })).toBe("orbit");
+    expect(carrierOf({ kind: "bone", anchor: WALKER, target: null })).toBe("bone");
+    expect(playbackOf("loop")).toBe("replay");
+    expect(playbackOf("once")).toBe("once");
+    expect(playbackOf("continuous")).toBe("continuous");
   });
 });
 
-describe("withPreset", () => {
-  it("takes the new preset's own height where the author tuned none", () => {
-    const next = withPreset({ preset: "burst", rig: RIG_PRESETS.burst }, "missile");
-
-    expect(next.preset).toBe("missile");
-    expect(next.rig.height).toBe(FLIGHT_HEIGHT);
-    expect(next.rig.motion.kind).toBe("path");
+describe("withCarrier", () => {
+  it("stands the ground on the ground and flies the rest at flight height", () => {
+    expect(GROUND_RIG.height).toBe(0);
+    expect(withCarrier(GROUND_RIG, "flight").height).toBe(FLIGHT_HEIGHT);
+    expect(withCarrier(GROUND_RIG, "orbit").height).toBe(FLIGHT_HEIGHT);
+    expect(withCarrier(withCarrier(GROUND_RIG, "flight"), "ground").height).toBe(0);
   });
 
-  it("keeps a height the author tuned, and the stop", () => {
-    const tuned = {
-      preset: "still",
-      rig: { ...RIG_PRESETS.still, height: 40, stopAt: 3 },
-    } as const;
-    const next = withPreset(tuned, "trail");
+  it("keeps the playback, the stop and a height the author tuned", () => {
+    const tuned = { ...withPlayback(GROUND_RIG, "replay"), height: 40, stopAt: 3 };
+    const next = withCarrier(tuned, "orbit");
 
-    expect(next.rig.height).toBe(40);
-    expect(next.rig.stopAt).toBe(3);
-    expect(next.rig.life).toBe("once");
+    expect(next.motion.kind).toBe("orbit");
+    expect(next.height).toBe(40);
+    expect(next.stopAt).toBe(3);
+    expect(next.life).toBe("loop");
+  });
+
+  it("keeps the skeleton a child set spawns on", () => {
+    const joints = () => WALKER;
+
+    expect(withCarrier({ ...GROUND_RIG, joints }, "flight").joints).toBe(joints);
   });
 });

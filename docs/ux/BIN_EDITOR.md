@@ -1655,7 +1655,7 @@ were.
 | VfxSystemDefinitionData  Ahri_Base_Q_mis > Orb [0]   [System|Properties] [Panes] |
 +------------------------------------------------------+---------------------------+
 | PREVIEW  [Ground][Midlane][Gizmo][Stats][Cam v][Fit] | INSPECTOR                 |
-|                                            [Burst v] | [Emission][Birth][Scale]  |
+|                                      [Ground Auto v] | [Emission][Birth][Scale]  |
 |                                                      | v EMISSION                |
 |                      (viewport)                      |   rate           1  ___/  |
 |                                                      |   lifetime       1 s      |
@@ -1870,10 +1870,11 @@ sit at the far end behind a second hairline: Add marker, the Snapping toggle, th
 pinned chance beside the dice, lit while one holds. Loop and Histogram are icon toggles lit while on, and
 their tooltips name them, with Loop's naming its key. Restart plays the run from zero.
 
-**Loop is on by default.** The Loop switch is the rig's loop, the same switch the rig's popover
-shows, and a system opens with it on. With Loop off, the run pauses at the end of its span, and
-Play starts it again from zero. Turning Loop on at the end plays the run from zero, and turning it
-off during a later pass keeps the time the playhead reads.
+**Loop switches the rig between Replay and Once.** A system that ends opens on Replay, so the
+switch is on. With Loop off, the run pauses at the end of its span, and Play starts it again from
+zero. Turning Loop on at the end plays the run from zero, and turning it off during a later pass
+keeps the time the playhead reads. A switch of Loop is a change of the rig, so the rig becomes the
+author's. Under Continuous the switch takes no press, since the run never starts over.
 
 The speed is a number typed to three places, `1.000` by default, between 0.05 and 2, with a pair
 of arrows on its right that nudge it by 0.1, by 0.01 under Alt and by 0.5 under Shift. The bracket keys walk it through 0.05, 0.1, 0.25, 0.5, 1, 1.5
@@ -2098,11 +2099,20 @@ every two. An arm, its head and the face across it wear that axis's channel colo
 face stands the camera on its axis, picking Side, Top or Front. Picked again while the camera
 already stands there, it turns the camera to the axis's other end, on Orbit.
 
-**The rig pill** names its preset beside an icon of the motion. Its popover holds the motion, the
-loop, the stop, and the seed with its reroll. A system opens on Burst, which moves nothing and
-loops, and the popover's loop is the timeline's Loop switch. Still and Burst stand on the ground,
-and Missile and Trail fly at half a champion's height. A switch of preset keeps the stop and a
-height the author tuned.
+**The rig pill** names the carrier beside an icon of its motion, and where the rig came from:
+Auto, Custom, a template's name or the context it was opened from (ADR-0057). Its popover says the
+same in a line, with Reset to auto beside it for a rig that is not the system's own. Under it are
+the carrier (Ground, Flight and Orbit, and Bone while a skin's joint carries the run), the
+playback (Once, Replay and Continuous), the height, the motion's sliders, the stop, and the seed
+with its reroll.
+
+**The system picks its own rig.** A system with an emitter that has no `lifetime` plays
+Continuous, and any other Replays. A system with a trail Orbits, and any other stands on the
+Ground. Ground stands at zero, and Flight and Orbit fly at half a champion's height. A switch of
+carrier keeps the playback, the stop and a height the author tuned. An edit that changes the rig
+the system picks takes effect when the run next starts over, never under the author. A
+Continuous run lasts the minute a seek reaches and never starts over, so a stop shows the
+linger.
 
 **The gizmo** draws the selected emitter's origin and its offset as lines, and its spawn shape as
 a body in faint faces under crisp edges. It is the one gizmo of the editor: the Geometry node's

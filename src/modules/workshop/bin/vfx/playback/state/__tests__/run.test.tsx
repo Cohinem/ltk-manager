@@ -80,12 +80,58 @@ function frames(from: number, count: number) {
 }
 
 describe("VfxRunProvider", () => {
-  it("opens a system looping on the burst rig", () => {
+  it("opens a system on the rig it picks itself, standing on the ground and replaying", () => {
     mount();
 
+    expect(run.rig.source.kind).toBe("auto");
+    expect(run.rig.rig.motion.kind).toBe("still");
+    expect(run.rig.rig.height).toBe(0);
+    expect(run.playback).toBe("replay");
     expect(run.looping).toBe(true);
-    expect(run.rig.preset).toBe("burst");
     expect(run.playing).toBe(true);
+  });
+
+  it("makes a switched loop a rig of the author's, which Reset to auto drops", () => {
+    mount();
+    act(() => run.setLooping(false));
+
+    expect(run.rig.source.kind).toBe("custom");
+    expect(run.playback).toBe("once");
+
+    act(() => run.resetRig());
+
+    expect(run.rig.source.kind).toBe("auto");
+    expect(run.playback).toBe("replay");
+  });
+
+  it("switches no loop on a continuous run", () => {
+    mount();
+    act(() =>
+      run.setRig({
+        source: { kind: "custom" },
+        rig: { ...run.rig.rig, life: "continuous" },
+      }),
+    );
+    act(() => run.setLooping(true));
+
+    expect(run.playback).toBe("continuous");
+    expect(run.span).toBe(60);
+  });
+
+  it("remembers a chosen rig for the session, and none it picked itself", () => {
+    const first = mount();
+    first.unmount();
+    mount(2);
+    expect(run.rig.source.kind).toBe("auto");
+    cleanup();
+
+    const second = mount(3);
+    act(() => run.setLooping(false));
+    second.unmount();
+    mount(4);
+
+    expect(run.rig.source.kind).toBe("custom");
+    expect(run.looping).toBe(false);
   });
 
   it("pauses at the end of its span with the loop off, and plays from zero on Play", () => {

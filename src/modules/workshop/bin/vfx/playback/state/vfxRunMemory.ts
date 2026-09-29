@@ -19,7 +19,8 @@ export interface LoopRange {
  */
 export interface VfxRunMemory {
   readonly seed: number;
-  readonly rig: RigChoice;
+  /** The rig chosen for the run, and null for one that picks itself from the system. */
+  readonly rig: RigChoice | null;
   readonly speed: number;
   readonly muted: readonly number[];
   readonly soloed: readonly number[];

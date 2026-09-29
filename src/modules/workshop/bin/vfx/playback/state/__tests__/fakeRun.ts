@@ -1,6 +1,6 @@
 import { vi } from "vitest";
 
-import { OPENING_RIG } from "../../../engine/model/rig";
+import { GROUND_RIG, withPlayback } from "../../../engine/model/rig";
 import { createDriver } from "../../../engine/simulation/driver";
 import type { VfxRun } from "../run";
 
@@ -19,7 +19,8 @@ export function fakeRun(over: Partial<VfxRun> = {}): { run: VfxRun; tick: () => 
     warming: false,
     speed: 1,
     seed: 1,
-    rig: OPENING_RIG,
+    rig: { source: { kind: "auto" }, rig: withPlayback(GROUND_RIG, "replay") },
+    playback: "replay",
     looping: true,
     muted: new Set(),
     soloed: new Set(),
@@ -33,6 +34,7 @@ export function fakeRun(over: Partial<VfxRun> = {}): { run: VfxRun; tick: () => 
     setWarming: vi.fn(),
     setSpeed: vi.fn(),
     setRig: vi.fn(),
+    resetRig: vi.fn(),
     setLooping: vi.fn(),
     reroll: vi.fn(),
     toggleMuted: vi.fn(),

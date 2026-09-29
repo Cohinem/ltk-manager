@@ -157,6 +157,9 @@ Named behaviours are presets over that pair rather than cases in the evaluator. 
 looping run restarts on `runLength`, which for a path is the flight time, because a missile's system
 dies where the missile lands, and for everything else is the system's own span.
 
+ADR-0057 replaced the presets with a carrier and a playback that the system picks for itself,
+and added a Continuous playback that never starts over.
+
 **Where a run stands is read off the clock, never stored.** `phaseAt` is `time` for a rig that plays
 once and `time % runLength` for one that loops, so nothing the rig remembers about when the reader
 picked it can make a play and a seek disagree, which decision 2.6 does not allow. A rig that counted
