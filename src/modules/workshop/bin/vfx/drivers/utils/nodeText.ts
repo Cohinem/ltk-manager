@@ -4,9 +4,10 @@ import { nameHash } from "../../../shared/utils/binHash";
 import type { DriverNode } from "../../engine/drivers/node";
 import { driverClass } from "../../engine/drivers/registry";
 import type { ValueCurve } from "../../engine/model/model";
+import { type EmitterGroup, GROUP_TITLE } from "../../inspector/utils/emitterGroups";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
 import type { GraphItem, InputItem, RenderItem, ValueItem } from "./graphItems";
-import { renderTexture } from "./renderSection";
+import { GEOMETRY_GROUP, renderTexture } from "./renderSection";
 import { drawsRandom, rangeAt } from "./valueRange";
 
 const EMITTER_CLASS = "VfxShimmerEmitterDefinitionData";
@@ -30,6 +31,12 @@ export function pathAlias(path: string): string {
     .join(".");
 }
 
+/** A master group's heading as the graph names it, where the Geometry node's group is Geometry. */
+export function groupTitle(group: EmitterGroup): string {
+  if (group === GEOMETRY_GROUP) return m.workshop_bin_graph_geometry_label();
+  return GROUP_TITLE[group]();
+}
+
 /** The name a node's header leads with: an emitter's name, a field, a driver's role. */
 export function itemTitle(item: GraphItem): string {
   switch (item.type) {
@@ -45,6 +52,7 @@ export function itemTitle(item: GraphItem): string {
     case "file":
       return fileName(item.path);
     case "render":
+      if (item.role === "geometry") return m.workshop_bin_graph_geometry_label();
       return m.workshop_bin_emitter_group_texture_label();
     case "value":
       if (item.curve.keys.length > 0) return m.workshop_bin_driver_curve_label();
@@ -79,8 +87,15 @@ export function inputSummary(input: InputItem): string {
   }
 }
 
-/** What a Texture node's input row names: its texture's file. */
+/** What a component node's input row names: a Texture node's file, a Geometry node's classes. */
 function renderSummary(item: RenderItem): string {
+  if (item.role === "geometry") {
+    return item.fields
+      .flatMap((field) => (field.input?.type === "struct" ? [field.input.className ?? ""] : []))
+      .filter((name) => name !== "")
+      .join(" · ");
+  }
+
   const texture = renderTexture(item);
   return texture === null ? "" : fileName(texture.path);
 }

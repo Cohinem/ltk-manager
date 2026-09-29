@@ -11,13 +11,19 @@ import {
   type DefaultField,
   type EmitterGroup,
   GROUP_ORDER,
-  GROUP_TITLE,
   unauthoredFields,
 } from "../../inspector/utils/emitterGroups";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
 import type { MasterItem, RenderItem } from "../utils/graphItems";
 import { holderRow } from "../utils/holderRow";
-import { FORCE_FIELD, FORCE_GROUP, masterGroup, RENDER_GROUP } from "../utils/renderSection";
+import { groupTitle } from "../utils/nodeText";
+import {
+  COMPONENT_GROUP,
+  componentOf,
+  FORCE_FIELD,
+  FORCE_GROUP,
+  masterGroup,
+} from "../utils/renderSection";
 import { type AddChoice, AddMenu, type AddSection } from "./AddMenu";
 import { GraphActionsContext } from "./graphActions";
 
@@ -42,13 +48,15 @@ function unwrittenOf(
 function useListed(item: MasterItem | null): ReadonlySet<string> {
   const groups = item?.groups;
   const render = item?.render;
+  const geometry = item?.geometry;
   return useMemo(
     () =>
       new Set([
         ...(groups ?? []).flatMap((each) => each.fields.map((field) => field.hash)),
         ...(render?.fields.map((field) => field.hash) ?? []),
+        ...(geometry?.fields.map((field) => field.hash) ?? []),
       ]),
-    [groups, render],
+    [groups, render, geometry],
   );
 }
 
@@ -102,7 +110,7 @@ export function useQuickFieldSections(item: MasterItem | null): readonly AddSect
   });
   return [
     ...GROUP_ORDER.map((group) => ({
-      title: GROUP_TITLE[group](),
+      title: groupTitle(group),
       choices: choicesOf(group).map(unfold),
     })),
     { title: m.workshop_bin_forces_title(), choices: forces.map(unfold) },
@@ -115,7 +123,7 @@ export function GroupAdd({ item, group }: { item: MasterItem; group: EmitterGrou
   const choicesOf = useFieldChoices(item.id, unwritten);
   const forces = useForceChoices(item);
 
-  const sections: AddSection[] = [{ title: GROUP_TITLE[group](), choices: choicesOf(group) }];
+  const sections: AddSection[] = [{ title: groupTitle(group), choices: choicesOf(group) }];
   if (group === FORCE_GROUP)
     sections.unshift({ title: m.workshop_bin_forces_title(), choices: forces });
   return <AddMenu label={m.workshop_bin_graph_add_field_action()} sections={sections} />;
@@ -127,22 +135,23 @@ export function EmitterAdd({ item }: { item: MasterItem }) {
   const choicesOf = useFieldChoices(item.id, unwritten);
   const present = new Set(item.groups.map((each) => each.group));
 
-  const sections = GROUP_ORDER.filter((group) => !present.has(group) && group !== RENDER_GROUP).map(
-    (group) => ({ title: GROUP_TITLE[group](), choices: choicesOf(group) }),
-  );
+  const sections = GROUP_ORDER.filter(
+    (group) => !present.has(group) && componentOf(group) === null,
+  ).map((group) => ({ title: groupTitle(group), choices: choicesOf(group) }));
   return <AddMenu label={m.workshop_bin_graph_add_field_action()} sections={sections} />;
 }
 
-/** A Texture node header's Add: the texture and render fields the emitter does not write. */
+/** A component node header's Add: the fields of its group the emitter does not write. */
 export function RenderAdd({ item }: { item: RenderItem }) {
   const listed = useMemo(() => new Set(item.fields.map((field) => field.hash)), [item.fields]);
   const unwritten = useUnwritten(item.classHash, listed);
   const choicesOf = useFieldChoices(item.master, unwritten);
+  const group = COMPONENT_GROUP[item.role];
 
   return (
     <AddMenu
       label={m.workshop_bin_graph_add_field_action()}
-      sections={[{ title: GROUP_TITLE[RENDER_GROUP](), choices: choicesOf(RENDER_GROUP) }]}
+      sections={[{ title: groupTitle(group), choices: choicesOf(group) }]}
     />
   );
 }

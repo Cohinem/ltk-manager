@@ -72,18 +72,19 @@ draw shapes the format cannot store.
 A system can hold dozens of emitters and hundreds of fields. A value gets a node of its own only
 when the reader edits it as one unit. Deep nesting in the file does not add nodes by itself.
 
-| Value                                          | Draws as                                                                      | Code                                   |
-| ---------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------- |
-| A leaf: number, vector, string, bool, hash     | A row of its holder, edited in place                                          | `FieldLine` in `FieldLines.tsx`        |
-| A struct, pointer, list or map the file writes | A node on its field's input                                                   | `inputOf` in `utils/emitterGraph.ts`   |
-| A struct whose one field holds another struct  | A section of the same node, so `primitive` over `mMesh` reads as one node     | `structTree`, `nested`                 |
-| A struct inlined from another object           | A leaf, since its fields belong to that object                                | `inputOf`                              |
-| A material, or a struct holding one            | A node even where linked, folded to a shape preview, its lists drawn as lines | `utils/materialNodes.ts`               |
-| The texture and render fields                  | One Texture node, with erosion, distortion and `textureMult` as sections      | `utils/renderSection.ts`               |
-| The force collection                           | A node per force, straight on the emitter rather than through the lists       | `forceTrees`                           |
-| A keyed or random `Value*`                     | A value node, embedded in its socket until popped out                         | `valueTree`, `utils/socketEmbed.ts`    |
-| A shimmer driver                               | A node per driver, a constant or a flat curve embedded in its socket          | `driverTree` in `utils/systemGraph.ts` |
-| A file path under a struct                     | Its holder's row, with the file's picture on the holder node                  | `structTree`, `picture`                |
+| Value                                             | Draws as                                                                      | Code                                   |
+| ------------------------------------------------- | ----------------------------------------------------------------------------- | -------------------------------------- |
+| A leaf: number, vector, string, bool, hash        | A row of its holder, edited in place                                          | `FieldLine` in `FieldLines.tsx`        |
+| A struct, pointer, list or map the file writes    | A node on its field's input                                                   | `inputOf` in `utils/emitterGraph.ts`   |
+| A struct whose one field holds another struct     | A section of the same node, so `primitive` over `mMesh` reads as one node     | `structTree`, `nested`                 |
+| A struct inlined from another object              | A leaf, since its fields belong to that object                                | `inputOf`                              |
+| A material, or a struct holding one               | A node even where linked, folded to a shape preview, its lists drawn as lines | `utils/materialNodes.ts`               |
+| The texture and render fields                     | One Texture node, with erosion, distortion and `textureMult` as sections      | `utils/renderSection.ts`               |
+| The spawn shape, the primitive, their orientation | One Geometry node, the orientation rows over Spawn and Primitive sections     | `utils/renderSection.ts`               |
+| The force collection                              | A node per force, straight on the emitter rather than through the lists       | `forceTrees`                           |
+| A keyed or random `Value*`                        | A value node, embedded in its socket until popped out                         | `valueTree`, `utils/socketEmbed.ts`    |
+| A shimmer driver                                  | A node per driver, a constant or a flat curve embedded in its socket          | `driverTree` in `utils/systemGraph.ts` |
+| A file path under a struct                        | Its holder's row, with the file's picture on the holder node                  | `structTree`, `picture`                |
 
 ### Small values draw inside the socket they feed
 
@@ -112,7 +113,8 @@ and the header title name the type.
   (DS-KIND-HUE, `src/styles/global.css`). The hue is on the sockets, the edges, the header glyph,
   the kind label, the header wash, a single-channel curve line and the minimap.
 - nodes carrying no value kind use one hue per node type: the accent for emitters and the
-  preview, `bin-class` for components, structs and the Texture node, `doc-layer` for files
+  preview, `bin-class` for components, structs and the Texture node, `graph-geometry` for the
+  Geometry node, `doc-layer` for files
   (`itemHue` in `utils/graphTones.ts`)
 - a vector draws its channels in `channel-1` to `channel-4`, the curve panel's X red, Y green and
   Z blue, so a curve reads the same on a node and in the dock
@@ -171,7 +173,7 @@ read, so:
 - a plate covers the node with its most useful face: a curve, a colour band, a random span or a
   constant's value, and otherwise its title. The text is 15 screen pixels, shrunk only to fit
   (`plateFace` in `components/PlateFace.tsx`).
-- a node whose body is a picture, such as an emitter's surface, a file, a spawn shape or a
+- a node whose body is a picture, such as an emitter's surface, a file, a Geometry node or a
   material, keeps its picture and sets its title above its top edge
 - an embedded value draws its own plate over its row (`RowPlate`)
 - an emitter frame's title is 20 screen pixels, so the board reads by emitter
@@ -299,6 +301,9 @@ A handled chord stops at the canvas, because `Ctrl+D` also opens Diagnostics app
   what plugs in there. Typed words match an entry's name or its group.
 - a group heading's plus lists that group's unwritten fields, and an emitter header's plus lists
   the groups the emitter writes nothing of yet
+- a struct's class draws on no line. A struct node's header and a section's heading carry a
+  Change class action, whose tooltip names the class and whose menu lists the classes the field
+  takes (`components/ClassAction.tsx`)
 - an action the document cannot take is not drawn: a read-only document shows no Add menu, no
   enable switch, and no forces or New emitter in the quick add
 
@@ -323,7 +328,7 @@ A handled chord stops at the canvas, because `Ctrl+D` also opens Diagnostics app
 | Pick a master node alone                               | The inspector and the outline open its emitter                             |
 | Pick a value node alone                                | The curve dock aims at its row                                             |
 | Hover any node of an emitter                           | The viewport draws that emitter's gizmo                                    |
-| Spawn Shape node's Show shape switch                   | The viewport's one gizmo turns on for that emitter                         |
+| Geometry node's Show shape switch                      | The viewport's one gizmo turns on for that emitter                         |
 | Mute and solo on a master node                         | The same switches as the timeline lanes                                    |
 | Choose an emitter in the viewport, timeline or outline | The graph selects its master node and centres it                           |
 | Turn on the preview node                               | The viewport moves into the graph, and the Preview pane says where it went |
@@ -351,8 +356,14 @@ on, leave the view where it is (`useGraphFollowsChoice` in `components/viewportL
 - the surface shows the run's own particle at the transport's cursor, follows it until it dies,
   then takes the newest. The loop switch plays one particle from the emitter's first emission
   instead.
-- a spawn shape draws as its analytic body, faint faces under crisp edges, and a point as a
-  crosshair on a stem from the emitter's axes, with its size or place as a caption
+- a Geometry node draws the run's own particles of the emitter at the run's time, as their
+  primitive draws them through the viewport's renderer, over its spawn shape's body in faint
+  faces. It plays, pauses and scrubs with the timeline, and draws nothing while none lives. A
+  point draws no marks. The camera stays on where the particles spawn and turns round it, fitted
+  close to the live particles padded by their size, a mesh's reach included, so particles born
+  at scattered places change how far it stands and never where it looks. A drag
+  orbits, a right drag pans and the wheel zooms, which stops the turning until a double click
+  gives the view back (`components/GeometryPreview.tsx`).
 - a material draws on a sphere, and a switch turns it to a cube, a plane or a cylinder
 - where a preview departs from the game on purpose, a control says so: the distortion strip's
   switch draws the warp eight times stronger, because a particle filling the box covers far more

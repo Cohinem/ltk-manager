@@ -258,19 +258,7 @@ function LiveScene({ drawn }: { drawn: readonly DrawnEmitter[] }) {
     <>
       <color attach="background" args={[backdrop]} />
       <ViewGuard />
-      {framing !== null && (
-        <PerspectiveCamera
-          makeDefault
-          fov={FOV}
-          near={framing.distance / 100}
-          far={framing.distance * 100}
-          position={framing.position}
-          onUpdate={(camera) => {
-            camera.layers.enable(PARTICLE_LAYER);
-            camera.lookAt(...framing.target);
-          }}
-        />
-      )}
+      {framing !== null && <FramedCamera framing={framing} />}
       {framing !== null && <FollowFraming drawn={drawn} meshes={meshes} framing={framing} />}
       {drawn.length > 0 && (
         <VfxSystem
@@ -288,8 +276,25 @@ function LiveScene({ drawn }: { drawn: readonly DrawnEmitter[] }) {
 
 type Triple = [number, number, number];
 
+/** A node preview's camera standing where `framing` puts it, seeing the particles' layer. */
+export function FramedCamera({ framing }: { framing: Framing }) {
+  return (
+    <PerspectiveCamera
+      makeDefault
+      fov={FOV}
+      near={framing.distance / 100}
+      far={framing.distance * 100}
+      position={framing.position}
+      onUpdate={(camera) => {
+        camera.layers.enable(PARTICLE_LAYER);
+        camera.lookAt(...framing.target);
+      }}
+    />
+  );
+}
+
 /** Where the camera stands to hold `bounds` whole, and null for a box with nothing in it. */
-function framingOf(bounds: Bounds): Framing | null {
+export function framingOf(bounds: Bounds): Framing | null {
   const target = [0, 1, 2].map((axis) => (bounds.min[axis]! + bounds.max[axis]!) / 2) as Triple;
   const radius = Math.hypot(...[0, 1, 2].map((axis) => bounds.max[axis]! - bounds.min[axis]!)) / 2;
   if (!Number.isFinite(radius)) return null;

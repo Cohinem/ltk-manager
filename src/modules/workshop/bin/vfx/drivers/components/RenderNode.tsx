@@ -1,4 +1,4 @@
-import { ImageIcon } from "@phosphor-icons/react";
+import { CubeIcon, ImageIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { use, useMemo } from "react";
 
@@ -10,18 +10,24 @@ import { itemSubtitle, itemTitle } from "../utils/nodeText";
 import { outputTop } from "../utils/outputSocket";
 import { drawnInSection } from "../utils/renderSection";
 import { embeddedValues } from "../utils/socketEmbed";
+import { ClassAction } from "./ClassAction";
 import { MasterLine, type MasterLineProps, StructBody } from "./EmitterNodes";
 import { FIELD_PAD, FieldBody, holderRow, SectionLine, useRowsAt } from "./FieldLines";
+import { GeometryPreview } from "./GeometryPreview";
 import { GraphActionsContext } from "./graphActions";
 import { NodeHeader, Output, type RenderFlowNode } from "./GraphNodes";
 import { RenderAdd } from "./MasterAdd";
 import { NodeFrame } from "./NodeFrame";
 import { RenderPreview } from "./RenderPreview";
+import { ShapeInViewButton } from "./ShapeOverlay";
 
 /**
- * An emitter's primitive, texture and render fields as one Texture node, the fields
- * `VfxLegacyRenderComponent` gathers: the primitive's sketch and the texture's picture over
- * the rows, and an input per struct or keyed value the rows hold.
+ * A component node of an emitter's fields, and an input per struct or keyed value its rows hold.
+ *
+ * The Texture node gathers the texture and render fields, the ones `VfxLegacyRenderComponent`
+ * gathers, under the texture's picture. The Geometry node gathers the spawn shape, the primitive
+ * and the fields that orient it, under a view of the emitter's particles over its spawn shape,
+ * and its header shows the shape in the viewport.
  */
 export function RenderNodeView({ data, selected }: NodeProps<RenderFlowNode>) {
   const { item, width, height } = data.placed;
@@ -35,16 +41,23 @@ export function RenderNodeView({ data, selected }: NodeProps<RenderFlowNode>) {
       plate={renderPreviewHeight(item) > 0 ? "none" : "inside"}
     >
       <NodeHeader
-        icon={ImageIcon}
-        iconTone="text-bin-class-text"
+        icon={item.role === "geometry" ? CubeIcon : ImageIcon}
+        /* DS-KIND-HUE, DS-TEXT */
+        iconTone={item.role === "geometry" ? "text-graph-geometry-text" : "text-bin-class-text"}
         title={itemTitle(item)}
         subtitle={itemSubtitle(item)}
         id={item.id}
         wire={item.wire}
         inputs={item.ports.length}
-        extra={<RenderAdd item={item} />}
+        extra={
+          <>
+            {item.role === "geometry" && <ShapeInViewButton id={item.id} />}
+            <RenderAdd item={item} />
+          </>
+        }
       />
-      <RenderPreview item={item} />
+      {item.role === "geometry" && <GeometryPreview item={item} />}
+      {item.role === "texture" && <RenderPreview item={item} />}
       <div className={FIELD_PAD}>
         <RenderBody item={item} />
       </div>
@@ -93,7 +106,7 @@ function RenderLine(props: MasterLineProps) {
   const label = emitterLabel(field.hash, row?.name) ?? row?.name ?? field.hash;
   return (
     <>
-      <SectionLine title={label} />
+      <SectionLine title={label} action={<ClassAction item={field.input} />} />
       <StructBody item={field.input} embedded={embedded} />
     </>
   );

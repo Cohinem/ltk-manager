@@ -49,6 +49,7 @@ export const CANVAS_TONE = {
 const ROLE_HUE = {
   emitter: "var(--color-accent-500)",
   component: "var(--color-bin-class)",
+  geometry: "var(--color-graph-geometry)",
   file: "var(--color-doc-layer)",
 } as const;
 
@@ -64,9 +65,10 @@ export function itemHue(item: GraphItem): string {
     case "emitter":
     case "master":
       return ROLE_HUE.emitter;
+    case "render":
+      return item.role === "geometry" ? ROLE_HUE.geometry : ROLE_HUE.component;
     case "component":
     case "struct":
-    case "render":
       return ROLE_HUE.component;
     case "file":
       return ROLE_HUE.file;

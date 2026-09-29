@@ -2103,7 +2103,7 @@ loop, the stop, and the seed with its reroll. A system opens on Burst, which mov
 loops, and the popover's loop is the timeline's Loop switch.
 
 **The gizmo** draws the selected emitter's origin and its offset as lines, and its spawn shape as
-a body in faint faces under crisp edges. It is the one gizmo of the editor: the Spawn Shape node's
+a body in faint faces under crisp edges. It is the one gizmo of the editor: the Geometry node's
 Show shape switch opens its emitter and turns the gizmo on, pressed while the gizmo shows that
 emitter. Hovering any node of an emitter in the Graph pane draws that emitter's gizmo in a near
 white over the run, and choosing an emitter anywhere, a pick in the viewport included, selects
@@ -3068,7 +3068,8 @@ place as well as its fields. Each gesture is one edit, so one undo step.
 unwritten fields, and the emitter's own header lists those of the groups it writes nothing of,
 a submenu per group. A Texture node's header lists the texture and render fields, and the texture's
 effects, alpha erosion, distortion and reflection, which the node draws as sections of their own
-under its rows rather than as nodes. The Effects
+under its rows rather than as nodes. A Geometry node's header lists the spawn shape, the primitive
+and the fields that orient it, and draws the shape and the primitive as sections. The Effects
 group always draws, so its menu offers the forces before the emitter holds any, and the fields
 leave out the force collection, which adding a force writes when it is missing.
 
