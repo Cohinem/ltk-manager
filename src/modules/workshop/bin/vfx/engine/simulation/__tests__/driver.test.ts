@@ -892,11 +892,31 @@ describe("the rig", () => {
     expect(driver.origin).toEqual([500, 0, 0]);
   });
 
+  it("carries an orbit on a missile's frame, or on a unit's under that orientation", () => {
+    const orbiting = (orientation: "missile" | "unit") => {
+      const driver = run(system(emitter()), 3, 0);
+      driver.steer({
+        motion: { kind: "orbit", radius: 100, period: 60, orientation },
+        life: "once",
+        height: 0,
+      });
+      driver.advance(1 / 60);
+      return [...driver.orientation].map((cell) => Math.round(cell * 100) / 100 + 0);
+    };
+
+    expect(orbiting("missile")).toEqual([-1, 0, 0, 0, 0, 1, 0, 1, 0]);
+    expect(orbiting("unit")).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  });
+
   it("puts the run back to its start when the motion itself changes", () => {
     const driver = run(system(emitter()), 3, 60);
     expect(driver.pool.count).toBeGreaterThan(0);
 
-    driver.steer({ motion: { kind: "orbit", radius: 100, period: 2 }, life: "once", height: 0 });
+    driver.steer({
+      motion: { kind: "orbit", radius: 100, period: 2, orientation: "missile" },
+      life: "once",
+      height: 0,
+    });
 
     expect(driver.pool.count).toBe(0);
     expect(driver.time).toBe(0);
