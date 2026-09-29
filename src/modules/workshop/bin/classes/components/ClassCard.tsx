@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 
 import { Code, ExternalLink, HoverCard, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
@@ -20,6 +20,27 @@ interface ClassCardProps {
 
 /** The text size of the class and field cards, a step above a hover card's own. */
 export const CARD_TEXT = "text-row";
+
+/** A schema card's content over its footer. The content scrolls, so the footer stays in view. */
+export function CardLayout({
+  ui,
+  footer,
+  children,
+}: {
+  /** The card's `data-ui` name. */
+  ui: string;
+  footer: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div data-ui={ui} className="flex max-h-[min(34rem,70vh)] flex-col gap-2.5">
+      <div className="-mr-2 flex min-h-0 flex-col gap-2.5 overflow-y-auto pr-2 scrollbar-md">
+        {children}
+      </div>
+      {footer}
+    </div>
+  );
+}
 
 /**
  * A class name, and what the schema says about it while the pointer is on it.
@@ -64,7 +85,19 @@ function ClassCardBody({ classHash, name }: ClassCardProps) {
   const { data, error, isPending } = useClassSchema(classHash);
 
   return (
-    <div data-ui="ClassCard" className="flex flex-col gap-2">
+    <CardLayout
+      ui="ClassCard"
+      footer={
+        <footer className="flex items-center justify-between gap-3">
+          <Basis pending={isPending} error={error} schema={data} />
+          {name !== null && (
+            <ExternalLink href={classPageUrl(name)} className="shrink-0">
+              {m.workshop_bin_meta_wiki_action()}
+            </ExternalLink>
+          )}
+        </footer>
+      }
+    >
       <header className="flex min-w-0 flex-col gap-0.5">
         {name !== null && (
           <span className="truncate font-medium text-surface-50 select-text">{name}</span>
@@ -74,15 +107,7 @@ function ClassCardBody({ classHash, name }: ClassCardProps) {
       </header>
       {data && <Counts classHash={classHash} schema={data} />}
       <ClassDoc classHash={classHash} />
-      <footer className="flex items-center justify-between gap-3">
-        <Basis pending={isPending} error={error} schema={data} />
-        {name !== null && (
-          <ExternalLink href={classPageUrl(name)} className="shrink-0">
-            {m.workshop_bin_meta_wiki_action()}
-          </ExternalLink>
-        )}
-      </footer>
-    </div>
+    </CardLayout>
   );
 }
 

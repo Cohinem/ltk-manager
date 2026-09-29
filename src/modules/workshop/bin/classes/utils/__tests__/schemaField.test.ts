@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { FieldRevision, FieldSchema } from "@/lib/tauri";
 
-import { defaultText, earlierType } from "../schemaField";
+import { defaultText, earlierType, sameWords } from "../schemaField";
 
 describe("defaultText", () => {
   it("reads a value family as its constant", () => {
@@ -33,6 +33,20 @@ describe("defaultText", () => {
     for (const json of ["{}", '{"mesh": 1}', "null", "[]", '[{"a": 1}]']) {
       expect(defaultText(json, null)).toBeNull();
     }
+  });
+});
+
+describe("sameWords", () => {
+  it("reads a label that only recases or spaces the name as the same words", () => {
+    expect(sameWords("Importance", "importance")).toBe(true);
+    expect(sameWords("Mesh", "mMesh")).toBe(true);
+    expect(sameWords("Birth Scale", "birthScale")).toBe(true);
+  });
+
+  it("reads a label with other words as another name", () => {
+    expect(sameWords("Initial Rotation", "birthRotation0")).toBe(false);
+    expect(sameWords("Emission Rate", "rate")).toBe(false);
+    expect(sameWords("Material", "mask")).toBe(false);
   });
 });
 

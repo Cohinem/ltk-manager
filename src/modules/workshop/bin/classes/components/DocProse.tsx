@@ -10,14 +10,11 @@ import { META_WIKI } from "../utils/metaWiki";
  * The meta wiki's documentation for a class or a field, inside a hover card.
  *
  * Draws the description, then the notes and the examples, each under a label. Long text
- * scrolls inside the card, and relative links open on the wiki.
+ * scrolls with the rest of the card, and relative links open on the wiki.
  */
 export function DocProse({ doc }: { doc: Doc }) {
   return (
-    <div
-      data-ui="DocProse"
-      className="flex max-h-72 flex-col gap-2 overflow-y-auto scrollbar-md select-text"
-    >
+    <div data-ui="DocProse" className="flex flex-col gap-2 select-text">
       {doc.description && <Prose text={doc.description} />}
       {doc.notes.length > 0 && (
         <Part label={m.workshop_bin_doc_notes_label()}>

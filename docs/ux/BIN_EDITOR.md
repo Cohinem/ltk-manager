@@ -1058,7 +1058,7 @@ marks the card without making the name a second click target inside the row.
 
 | Shows       | From                                                                              |
 | ----------- | --------------------------------------------------------------------------------- |
-| Title       | The label the row shows, where it is the inspector's name rather than the field's |
+| Title       | The label the row shows, where it says other words than the field's name          |
 | Signature   | The field's name, then its kind and class after a colon: `rate: embed ValueFloat` |
 | Declared on | The base class that declares the field, where the row's class does not            |
 | Default     | The schema's constructor default, in the row's own notation                       |
@@ -1067,7 +1067,8 @@ marks the card without making the name a second click target inside the row.
 | Prose       | The wiki's documentation for the field, per [the wiki's prose](#the-wikis-prose)  |
 | Meta wiki   | A link to the field's section on the wiki page that documents it, if any          |
 
-The signature is colored as a bin preview colors it: the kind in the kind hue and the class
+The card's content scrolls under a cap and the footer with the wiki link stays in view, so long
+prose never cuts a section in half. The signature is colored as a bin preview colors it: the kind in the kind hue and the class
 in the class hue, per `DS-KIND-HUE`. The card's text is a step larger than a hover card's own.
 A class on the card opens its own class card on hover. A value family's default is its
 constant, the way its row draws it. A struct, a pointer and a container show no default, since

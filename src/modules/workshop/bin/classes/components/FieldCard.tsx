@@ -11,8 +11,8 @@ import { shapeTag } from "../../values/utils/kindTag";
 import { useClassDocs } from "../hooks/useClassDocs";
 import { useClassSchema } from "../hooks/useClassSchema";
 import { fieldPageUrl } from "../utils/metaWiki";
-import { type ColorScale, defaultText, earlierType } from "../utils/schemaField";
-import { CARD_TEXT, ClassRefCard, SchemaClassCard } from "./ClassCard";
+import { type ColorScale, defaultText, earlierType, sameWords } from "../utils/schemaField";
+import { CARD_TEXT, CardLayout, ClassRefCard, SchemaClassCard } from "./ClassCard";
 import { DocProse } from "./DocProse";
 
 interface FieldCardProps {
@@ -105,9 +105,20 @@ function FieldCardBody({
   const shape = declared?.shape ?? field?.declared ?? null;
 
   return (
-    <div data-ui="FieldCard" className="flex flex-col gap-2.5">
+    <CardLayout
+      ui="FieldCard"
+      footer={
+        <Footer
+          classHash={classHash}
+          fieldHash={fieldHash}
+          pending={isPending && classHash !== null}
+          error={error}
+          schema={data}
+        />
+      }
+    >
       <header className="flex min-w-0 flex-col gap-0.5 select-text">
-        {!unnamed && label !== name && (
+        {!unnamed && !sameWords(label, name) && (
           <span className="truncate font-medium text-surface-50">{label}</span>
         )}
         <Signature
@@ -132,14 +143,7 @@ function FieldCardBody({
       )}
       {field && <EarlierType field={field} />}
       {classHash !== null && <FieldDoc classHash={classHash} fieldHash={fieldHash} />}
-      <Footer
-        classHash={classHash}
-        fieldHash={fieldHash}
-        pending={isPending && classHash !== null}
-        error={error}
-        schema={data}
-      />
-    </div>
+    </CardLayout>
   );
 }
 

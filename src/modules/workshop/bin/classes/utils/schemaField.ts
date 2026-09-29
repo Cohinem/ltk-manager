@@ -39,6 +39,15 @@ export function defaultText(json: string, color: ColorScale | null): DefaultText
 }
 
 /**
+ * Whether a row's label says the same words as the field's name, so the card needs no title
+ * above the name. Case, spacing and the engine's `m` prefix do not count.
+ */
+export function sameWords(label: string, name: string): boolean {
+  const words = (text: string) => text.replace(/^m(?=[A-Z])/, "").replace(/[^A-Za-z0-9]/g, "");
+  return words(label).toLowerCase() === words(name).toLowerCase();
+}
+
+/**
  * The type the field had before its current one, and the patch it changed at. Null where
  * every revision has the current type.
  */
