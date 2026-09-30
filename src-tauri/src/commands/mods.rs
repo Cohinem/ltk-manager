@@ -1,9 +1,9 @@
 use super::off_thread;
 use crate::error::{AppResult, IpcResult, Utf8PathExt};
 use crate::mods::{
-    inspect_modpkg_file, with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope,
-    ExportShape, ExportSummary, InstalledMod, ModDocument, ModLibraryState, ModStorage,
-    ModWadReport, ModpkgInfo, WadReportState,
+    with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope, ExportShape,
+    ExportSummary, InstalledMod, ModDocument, ModLibraryState, ModStorage, ModWadReport,
+    WadReportState,
 };
 use crate::patcher::{PatcherError, PatcherState};
 use crate::state::SettingsState;
@@ -259,13 +259,6 @@ pub async fn export_mods(
     .await
 }
 
-/// Inspect a `.modpkg` file and return its metadata.
-#[tauri::command]
-#[specta::specta]
-pub fn inspect_modpkg(file_path: String) -> IpcResult<ModpkgInfo> {
-    inspect_modpkg_file(&file_path).into()
-}
-
 /// Get a mod's cached thumbnail path, extracting from the archive on first access.
 /// Returns `null` if the mod has no thumbnail.
 #[tauri::command]
@@ -333,20 +326,6 @@ pub fn get_storage_directory(
         Ok(storage_dir.display().to_string())
     })();
     result.into()
-}
-
-/// Get the cached WAD footprint report for a single mod, if one exists.
-///
-/// Returns `null` when the mod has never been analyzed nor included in a
-/// successful patch run. Reports include an `is_stale` flag computed at read
-/// time against the most recently observed game-index fingerprint.
-#[tauri::command]
-#[specta::specta]
-pub fn get_mod_wad_report(
-    mod_id: String,
-    reports: State<Arc<WadReportState>>,
-) -> IpcResult<Option<ModWadReport>> {
-    IpcResult::ok(reports.0.lock().get(&mod_id))
 }
 
 /// Get all cached WAD footprint reports in a single batch. Returns a map of

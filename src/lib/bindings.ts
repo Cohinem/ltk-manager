@@ -125,8 +125,6 @@ export const commands = {
 	 *  archive through. Not rejected while the patcher runs: an export only reads.
 	 */
 	exportMods: (scope: ExportScope, shape: ExportShape, destination: string) => __TAURI_INVOKE<({ ok: true; value: ExportSummary }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("export_mods", { scope, shape, destination }),
-	/**  Inspect a `.modpkg` file and return its metadata. */
-	inspectModpkg: (filePath: string) => __TAURI_INVOKE<({ ok: true; value: ModpkgInfo }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("inspect_modpkg", { filePath }),
 	/**
 	 *  Get a mod's cached thumbnail path, extracting from the archive on first access.
 	 *  Returns `null` if the mod has no thumbnail.
@@ -156,14 +154,6 @@ export const commands = {
 	getStorageDirectory: () => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_storage_directory"),
 	/**  Reorder the enabled mods in the active profile. */
 	reorderMods: (modIds: string[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reorder_mods", { modIds }),
-	/**
-	 *  Get the cached WAD footprint report for a single mod, if one exists.
-	 * 
-	 *  Returns `null` when the mod has never been analyzed nor included in a
-	 *  successful patch run. Reports include an `is_stale` flag computed at read
-	 *  time against the most recently observed game-index fingerprint.
-	 */
-	getModWadReport: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModWadReport | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_wad_report", { modId }),
 	/**
 	 *  Get all cached WAD footprint reports in a single batch. Returns a map of
 	 *  mod id → report. Far cheaper than one IPC call per mod.
@@ -284,15 +274,6 @@ export const commands = {
 	resumeHotkeys: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("resume_hotkeys"),
 	/**  Set (or clear) a global hotkey for the given action. */
 	setHotkey: (action: HotkeyAction, accelerator: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_hotkey", { action, accelerator }),
-	/**
-	 *  Kill the League of Legends process, optionally stopping the patcher first.
-	 * 
-	 *  Runs on a blocking thread rather than inline: stopping the patcher waits up
-	 *  to 5 s for the session thread to wind down, which would otherwise hold the
-	 *  IPC handler for the whole duration. Shares [`execute_kill_league`] with the
-	 *  hotkey path so the two cannot drift.
-	 */
-	killLeague: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("kill_league"),
 	/**  Get all profiles. */
 	listModProfiles: () => __TAURI_INVOKE<({ ok: true; value: Profile[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_mod_profiles"),
 	/**  Get the currently active profile. */
@@ -4703,13 +4684,6 @@ export type LayerFilesChanged = {
 	files: LayerFile[],
 };
 
-export type LayerInfo = {
-	name: string,
-	priority: number,
-	description: string | null,
-	fileCount: number,
-};
-
 /**  One row of a layer file that a declaration of the project overrides. ADR-0056. */
 export type LayerOverride = {
 	/**  The layer whose `game_data.yaml` holds the declaration. */
@@ -5530,18 +5504,6 @@ export type ModWadReport = {
 	 *  analysis (e.g. reinstall or "Analyze uncategorized").
 	 */
 	derived?: DerivedCategorization,
-};
-
-/**  Information returned by `inspect_modpkg`. */
-export type ModpkgInfo = {
-	name: string,
-	displayName: string,
-	version: string,
-	description: string | null,
-	authors: string[],
-	layers: LayerInfo[],
-	fileCount: number,
-	totalSize: number,
 };
 
 /**

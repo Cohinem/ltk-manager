@@ -57,14 +57,12 @@ command_table![
     sweep_mod_health,
     get_health_check_readiness,
     export_mods,
-    inspect_modpkg,
     get_mod_thumbnail,
     get_mod_thumbnails,
     get_mod_readme,
     get_mod_license_text,
     get_storage_directory,
     reorder_mods,
-    get_mod_wad_report,
     get_all_mod_wad_reports,
     analyze_mod_wads,
     // Folders
@@ -98,7 +96,6 @@ command_table![
     pause_hotkeys,
     resume_hotkeys,
     set_hotkey,
-    kill_league,
     // Profiles
     list_mod_profiles,
     get_active_mod_profile,

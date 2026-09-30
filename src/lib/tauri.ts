@@ -146,7 +146,6 @@ export const api = {
     commands.editModMetadata(modId, metadata).then(toResult),
   setModStorage: (modId: string, storage: ModStorage) =>
     commands.setModStorage(modId, storage).then(toResult),
-  getModWadReport: (modId: string) => commands.getModWadReport(modId).then(toResult),
   getAllModWadReports: () => commands.getAllModWadReports().then(toResult),
   analyzeModWads: (modId: string) => commands.analyzeModWads(modId).then(toResult),
   checkModHealth: (modId: string) => commands.checkModHealth(modId).then(toResult),
@@ -173,7 +172,6 @@ export const api = {
   getLayoutMigrationState: () => commands.getLayoutMigrationState().then(toResult),
 
   // Inspector
-  inspectModpkg: (filePath: string) => commands.inspectModpkg(filePath).then(toResult),
 
   // Patcher
   startPatcher: (config: PatcherConfig) => commands.startPatcher(config).then(toResult),
@@ -200,7 +198,6 @@ export const api = {
   resumeHotkeys: () => commands.resumeHotkeys().then(toResult),
   setHotkey: (action: HotkeyAction, accelerator: string | null) =>
     commands.setHotkey(action, accelerator).then(toResult),
-  killLeague: () => commands.killLeague().then(toResult),
 
   // Profiles
   listModProfiles: () => commands.listModProfiles().then(toResult),
