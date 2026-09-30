@@ -35,7 +35,7 @@ afterEach(() => {
 /** A backend that has evicted `DOCUMENT` and answers every edit on `FRESH`. */
 function evicted() {
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === commandNames.app.binEdit && args?.document === DOCUMENT)
+    if (command === commandNames.bin.binEdit && args?.document === DOCUMENT)
       return Promise.resolve(NOT_OPEN);
     if (sentEdit(command, args, "dependency")) return landed({ kind: "index", index: 2 });
     if (sentEdit(command, args, "addProperty")) return landed();
@@ -89,7 +89,7 @@ describe("useBinEditor on an evicted document", () => {
 
     expect(reopen).toHaveBeenCalledOnce();
     expect(mockInvoke).toHaveBeenLastCalledWith(
-      commandNames.app.binEdit,
+      commandNames.bin.binEdit,
       expect.objectContaining({
         document: FRESH,
         edit: expect.objectContaining({ kind: "addProperty" }),

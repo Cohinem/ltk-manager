@@ -134,9 +134,9 @@ beforeEach(() => {
   useWorkshopEditorStore.getState().selectLayer(PROJECT.path, "base");
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === commandNames.app.binDeclared)
+    if (command === commandNames.bin.binDeclared)
       return Promise.resolve({ ok: true, value: declared });
-    if (command === commandNames.app.binDeclareInto) {
+    if (command === commandNames.bin.binDeclareInto) {
       declared = {
         ...DECLARED,
         layer: args?.layer as string,
@@ -182,7 +182,7 @@ describe("the Sandbox options of a declared document", () => {
     await user.click(await screen.findByRole("menuitemradio", { name: "Chroma" }));
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binDeclareInto, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binDeclareInto, {
         document: DOCUMENT,
         layer: "chroma",
         module: { kind: "auto" },
@@ -222,7 +222,7 @@ describe("the Sandbox options of a declared document", () => {
     await user.click(screen.getByRole("menuitemradio", { name: "Glow" }));
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binDeclareInto, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binDeclareInto, {
         document: DOCUMENT,
         layer: "base",
         module: { kind: "index", index: 1 },
@@ -239,7 +239,7 @@ describe("the Sandbox options of a declared document", () => {
     await user.type(screen.getByRole("textbox", { name: "Module name" }), "Blue{Enter}");
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binDeclareInto, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binDeclareInto, {
         document: DOCUMENT,
         layer: "base",
         module: { kind: "new", name: "Blue" },

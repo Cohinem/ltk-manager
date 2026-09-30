@@ -29,20 +29,19 @@
 //! See `docs/ERROR_HANDLING.md` for details.
 
 mod app;
-mod bin;
 mod deep_link;
 mod diagnostics;
-mod document_assets;
+pub(crate) mod document_assets;
 mod game_extract;
 mod game_index;
 mod game_wads;
 pub mod hashtables;
 pub(crate) mod hotkeys;
+pub(crate) mod installed;
 mod integrations;
 pub(crate) mod launcher;
 mod map;
 mod material;
-mod meta_docs;
 mod news;
 mod object_index;
 pub(crate) mod patcher;
@@ -60,7 +59,6 @@ mod ui;
 mod vfx;
 
 pub use app::*;
-pub use bin::*;
 pub use deep_link::*;
 pub use diagnostics::*;
 pub use game_extract::*;
@@ -72,7 +70,6 @@ pub use integrations::*;
 pub use launcher::*;
 pub use map::*;
 pub use material::*;
-pub use meta_docs::*;
 pub use news::*;
 pub use object_index::*;
 pub use patcher::*;

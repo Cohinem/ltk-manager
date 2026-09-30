@@ -37,7 +37,7 @@ describe("useLeafEdit", () => {
     expect(landed).toBe(true);
     expect(reopen).toHaveBeenCalledOnce();
     expect(mockInvoke).toHaveBeenLastCalledWith(
-      commandNames.app.binEdit,
+      commandNames.bin.binEdit,
       expect.objectContaining({
         document: 9,
         edit: expect.objectContaining({ kind: "editProperty" }),

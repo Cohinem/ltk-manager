@@ -2,6 +2,38 @@
 // commands. `build.rs` reads this for the permissions, and `services` for the handlers and the
 // bindings, so the two cannot drift. ADR-0059.
 services! {
+    bin("bin") {
+        // A document's lifetime
+        bin_open,
+        bin_open_variant,
+        bin_save,
+        bin_reload,
+        bin_close,
+        // Reads
+        bin_roots,
+        bin_children,
+        bin_read,
+        bin_find,
+        bin_dependencies,
+        bin_choices,
+        bin_copy_value,
+        class_schema,
+        derived_classes,
+        class_docs,
+        sync_meta_docs,
+        // Edits
+        bin_edit,
+        bin_history,
+        bin_changes,
+        bin_revert,
+        // Declarations
+        bin_declared,
+        bin_overrides,
+        bin_set_declaring,
+        bin_declare_into,
+        bin_row_declaration,
+        declarations_module_action,
+    }
     app_update("app-update") {
         check_update,
         download_update,

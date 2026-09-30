@@ -784,7 +784,21 @@ impl BinDocuments {
     /// [`BinDocumentError::ReadOnly`] when the document takes no edit, and with what
     /// [`BinDocument::undo`] raises.
     pub fn undo(&self, id: BinDocumentId) -> Result<Option<Reshape>, BinDocumentError> {
-        self.edit(id, |document| document.step(HistoryStep::Undo))
+        self.step(id, HistoryStep::Undo)
+    }
+
+    /// Move the document under `id` one `step` through its history, answering how the rows
+    /// moved, or `None` where that stack is empty.
+    ///
+    /// # Errors
+    ///
+    /// As [`BinDocuments::undo`].
+    pub fn step(
+        &self,
+        id: BinDocumentId,
+        step: HistoryStep,
+    ) -> Result<Option<Reshape>, BinDocumentError> {
+        self.edit(id, |document| document.step(step))
     }
 
     /// Apply the latest undone edit of the document under `id` again, answering how the
@@ -794,7 +808,7 @@ impl BinDocuments {
     ///
     /// As [`BinDocuments::undo`].
     pub fn redo(&self, id: BinDocumentId) -> Result<Option<Reshape>, BinDocumentError> {
-        self.edit(id, |document| document.step(HistoryStep::Redo))
+        self.step(id, HistoryStep::Redo)
     }
 
     /// Every property and object of the document under `id` that differs from the

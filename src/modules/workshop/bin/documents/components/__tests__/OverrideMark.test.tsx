@@ -41,7 +41,7 @@ beforeEach(() => {
   overrides = [OVERRIDE];
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command) => {
-    if (command === commandNames.app.binOverrides)
+    if (command === commandNames.bin.binOverrides)
       return Promise.resolve({ ok: true, value: overrides });
     return Promise.resolve({ ok: true, value: null });
   });
@@ -72,14 +72,14 @@ it("marks a row of a layer file that a layer's game data overrides", async () =>
   expect(
     await screen.findByRole("img", { name: "The game data of base overrides this at build" }),
   ).toBeInTheDocument();
-  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binOverrides, { document: DOCUMENT });
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binOverrides, { document: DOCUMENT });
 });
 
 it("leaves a row no declaration overrides unmarked", async () => {
   render(<DeclaredRowState rowKey={`${ENTRY}:0000000b`} />, { wrapper: Providers });
 
   await waitFor(() =>
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binOverrides, expect.anything()),
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binOverrides, expect.anything()),
   );
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
 });

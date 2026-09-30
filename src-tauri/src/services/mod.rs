@@ -5,6 +5,7 @@
 //! with the types in the one file every service shares.
 
 pub mod app_update;
+pub mod bin;
 pub mod library;
 pub mod workshop;
 

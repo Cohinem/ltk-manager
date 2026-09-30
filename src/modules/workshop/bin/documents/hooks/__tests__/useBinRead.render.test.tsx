@@ -23,7 +23,7 @@ function Providers({ children }: { children: ReactNode }) {
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command !== commandNames.app.binRead)
+    if (command !== commandNames.bin.binRead)
       return Promise.resolve({ ok: false, error: { code: "UNKNOWN" } });
     const paths = (args?.paths ?? []) as string[];
     return Promise.resolve({ ok: true, value: paths.map(() => PAGE) });

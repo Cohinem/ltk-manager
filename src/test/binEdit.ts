@@ -7,7 +7,7 @@ export function sentEdit<K extends BinEdit["kind"]>(
   args: Record<string, unknown> | undefined,
   kind: K,
 ): Extract<BinEdit, { kind: K }> | null {
-  if (command !== commandNames.app.binEdit) return null;
+  if (command !== commandNames.bin.binEdit) return null;
 
   const edit = args?.edit as BinEdit | undefined;
   return edit?.kind === kind ? (edit as Extract<BinEdit, { kind: K }>) : null;
@@ -27,7 +27,7 @@ export function editCall(
   document: BinDocumentId,
   edit: BinEdit,
 ): [string, Record<string, unknown>] {
-  return [commandNames.app.binEdit, { document, edit }];
+  return [commandNames.bin.binEdit, { document, edit }];
 }
 
 /** A landed edit's envelope, as the mocked backend answers it. */

@@ -68,6 +68,7 @@ fn main() {
                 .build(),
         )
         .plugin(services::app_update::plugin())
+        .plugin(services::bin::plugin())
         .plugin(services::library::plugin())
         .plugin(services::workshop::plugin());
 

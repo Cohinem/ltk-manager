@@ -29,11 +29,6 @@ fn render_with(builder: &Builder<Wry>) -> String {
     fs::read_to_string(&path).expect("the exported bindings to be readable")
 }
 
-/// The bindings as the exporter writes them.
-fn render() -> String {
-    render_with(&builder())
-}
-
 /// A service's commands as its own file, its types imported from the shared bindings.
 ///
 /// Panics where the service renders a type differently from `bindings`, or answers a command
@@ -135,7 +130,7 @@ fn the_envelope_is_the_shape_the_frontend_reads() {
         " | ({ ok: false; error: AppErrorResponse }) & { value?: never }",
     );
 
-    let bindings = render();
+    let bindings = render_with(&crate::services::builder::<crate::services::bin::Table>());
     assert!(
         bindings.contains(ENVELOPE),
         "the envelope is no longer `Result<T>`:

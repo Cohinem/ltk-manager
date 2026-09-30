@@ -17,13 +17,13 @@ use ltk_manager_core::sandbox::{Sandbox, SandboxRef, SandboxState};
 use tauri::{AppHandle, Manager};
 
 /// An object hash a command was handed, `0x` and eight hex digits.
-pub(super) fn parse_entry(entry: &str) -> AppResult<BinHash> {
+pub(crate) fn parse_entry(entry: &str) -> AppResult<BinHash> {
     parse_hash(entry)
         .ok_or_else(|| AppError::ValidationFailed(format!("Not an object hash: {entry}")))
 }
 
 /// The cached snapshot of the sandbox `reference`.
-pub(super) fn sandbox(app: &AppHandle, reference: &SandboxRef) -> Arc<Sandbox> {
+pub(crate) fn sandbox(app: &AppHandle, reference: &SandboxRef) -> Arc<Sandbox> {
     app.state::<SandboxState>().get(reference)
 }
 
@@ -34,7 +34,7 @@ pub(super) fn sandbox(app: &AppHandle, reference: &SandboxRef) -> Arc<Sandbox> {
 /// game index second, and a read is the first to build that index where nothing has. An
 /// install the index cannot be built over leaves every asset unplaced rather than failing
 /// the read.
-pub(super) fn read_resolved<T>(
+pub(crate) fn read_resolved<T>(
     app: &AppHandle,
     document: BinDocumentId,
     read: impl FnOnce(&BinDocument, &dyn RowNames, &dyn AssetLookup) -> AppResult<T>,
@@ -51,7 +51,7 @@ pub(super) fn read_resolved<T>(
 /// For a read that also reads files the document names, which must not hold the store
 /// while the archive is read. Without a document, or with a closed one, names resolve in the
 /// game sandbox, which is what a viewport outside a project uses.
-pub(super) fn with_resolution<T>(
+pub(crate) fn with_resolution<T>(
     app: &AppHandle,
     document: Option<BinDocumentId>,
     resolve: impl FnOnce(&dyn RowNames, &dyn AssetLookup) -> AppResult<T>,
@@ -67,7 +67,7 @@ pub(super) fn with_resolution<T>(
 }
 
 /// Run `read` with the names of the sandbox `reference`, which builds no game index.
-pub(super) fn with_names_in<T>(
+pub(crate) fn with_names_in<T>(
     app: &AppHandle,
     reference: &SandboxRef,
     read: impl FnOnce(&dyn RowNames) -> T,
@@ -87,7 +87,7 @@ pub(super) fn with_names_in<T>(
 ///
 /// Fails when the install's game index cannot be built, so a caller does not keep an empty
 /// answer for a file the install holds.
-pub(super) fn with_assets_in<T>(
+pub(crate) fn with_assets_in<T>(
     app: &AppHandle,
     reference: &SandboxRef,
     locate: impl FnOnce(&dyn AssetLookup) -> T,

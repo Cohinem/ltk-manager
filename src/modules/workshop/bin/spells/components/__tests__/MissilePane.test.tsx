@@ -48,7 +48,7 @@ const EFFECT: EffectSystem = { key: "0x00000001", system: "0x12345678", source: 
 
 function mount(preview: SpellPreview = PREVIEW, effects: EffectSystem[] = [EFFECT]) {
   mockInvoke.mockImplementation(async (command, args) => {
-    if (command === commandNames.app.binOpen)
+    if (command === commandNames.bin.binOpen)
       return { ok: true, value: { document: args.asset.kind === "file" ? 9 : 2 } };
     if (command === commandNames.app.readSpell) return { ok: true, value: preview };
     if (command === commandNames.app.declaredObjects)
@@ -66,7 +66,7 @@ function mount(preview: SpellPreview = PREVIEW, effects: EffectSystem[] = [EFFEC
       };
     if (command === commandNames.app.readSkin)
       return { ok: true, value: { effectSystems: effects } };
-    if (command === commandNames.app.binClose) return { ok: true, value: null };
+    if (command === commandNames.bin.binClose) return { ok: true, value: null };
     throw new Error(`Unexpected command ${command}`);
   });
   render(
@@ -101,7 +101,7 @@ it("resolves the flight key through the selected skin rather than treating it as
 it("opens a foreign effect in its own document", async () => {
   mount(PREVIEW, [{ ...EFFECT, source: { kind: "file", path: "particles.bin" } }]);
   expect(await screen.findByText("Flight 9 0x12345678")).toBeInTheDocument();
-  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binOpen, {
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binOpen, {
     sandbox: { kind: "game" },
     asset: { kind: "file", path: "particles.bin" },
     entry: "0x12345678",

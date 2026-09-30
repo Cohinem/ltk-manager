@@ -55,7 +55,7 @@ describe("a leaf of an editable document", () => {
     );
     await waitFor(
       () =>
-        expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binSave, { document: DOCUMENT }),
+        expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binSave, { document: DOCUMENT }),
       {
         timeout: 2000,
       },
@@ -258,7 +258,7 @@ describe("the add line", () => {
   beforeEach(() => {
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
       if (
-        command === commandNames.app.binChoices &&
+        command === commandNames.bin.binChoices &&
         (args?.query as ChoiceQuery).kind === "addableFields"
       ) {
         return Promise.resolve({ ok: true, value: { kind: "fields", fields: ADDABLE } });

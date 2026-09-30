@@ -47,7 +47,7 @@ describe("the bin save queue", () => {
     await vi.advanceTimersByTimeAsync(600);
 
     expect(mockInvoke).toHaveBeenCalledTimes(1);
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binSave, { document: DOCUMENT });
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binSave, { document: DOCUMENT });
     expect(state()).toBe("clean");
     expect(isQueuedThrough(ASSET, DOCUMENT)).toBe(false);
   });
@@ -70,7 +70,7 @@ describe("the bin save queue", () => {
     expect(result.current).toEqual({ state: "failed", error: { code: "BIN_CHANGED_ON_DISK" } });
 
     await saveBinNow(ASSET, FRESH);
-    expect(mockInvoke).toHaveBeenLastCalledWith(commandNames.app.binSave, { document: FRESH });
+    expect(mockInvoke).toHaveBeenLastCalledWith(commandNames.bin.binSave, { document: FRESH });
     expect(state()).toBe("clean");
   });
 

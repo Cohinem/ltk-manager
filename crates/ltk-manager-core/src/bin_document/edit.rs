@@ -83,7 +83,9 @@ pub(super) enum Edit {
 }
 
 /// Which way a step through an edit history goes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum HistoryStep {
     /// Revert the latest edit.
     Undo,

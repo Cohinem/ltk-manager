@@ -187,7 +187,7 @@ beforeEach(() => {
   useRowBaselineStore.setState({ baselines: new Map() });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === commandNames.app.binRead) {
+    if (command === commandNames.bin.binRead) {
       const paths = (args?.paths ?? []) as string[];
       const answered = paths.map((path) => ELEMENTS[path] ?? FIELDS[path] ?? page([]));
       return Promise.resolve({ ok: true, value: answered });
@@ -248,7 +248,7 @@ describe("ClassView", () => {
 
     await waitFor(() => {
       const reads = mockInvoke.mock.calls.filter(
-        ([command]) => command === commandNames.app.binRead,
+        ([command]) => command === commandNames.bin.binRead,
       );
       expect(reads).toHaveLength(2);
       const held = Object.keys(ELEMENTS).filter((path) => path !== nameHash("switches").slice(2));
@@ -343,7 +343,7 @@ describe("ClassView over a material whose shader answers", () => {
           ],
         });
       }
-      if (command === commandNames.app.binEdit) return landed();
+      if (command === commandNames.bin.binEdit) return landed();
       return read!(command, args);
     });
   });
@@ -475,7 +475,7 @@ describe("ClassView over a material whose shader answers", () => {
         power = 4;
         return landed();
       }
-      if (command === commandNames.app.binRead) {
+      if (command === commandNames.bin.binRead) {
         const paths = (args?.paths ?? []) as string[];
         const answered = paths.map((path) => {
           if (path !== PARAM_PATH) return ELEMENTS[path] ?? FIELDS[path] ?? page([]);
