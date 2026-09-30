@@ -91,6 +91,7 @@ import type {
   SearchPreference,
   UiError,
   SandboxRef,
+  SurfaceSource,
 } from "@/lib/bindings.gen";
 import {
   type BinDocumentId,
@@ -281,9 +282,12 @@ export type {
 export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
 // Atlas's types, per ADR-0029.
 export type {
+  PagePatch,
+  PatchSprite,
   SheetImport,
   SheetSpec,
   SheetSprite,
+  SurfaceSource,
   UiAnchor,
   UiAsset,
   UiBinding,
@@ -733,6 +737,18 @@ export const api = {
       source: string,
       replace: string | null,
     ) => commands.atlasImportSprite(document, sheet, source, replace).then(toResult),
+    atlasMakeSurface: (
+      document: BinDocumentId,
+      sheet: string,
+      name: string,
+      source: SurfaceSource,
+    ) => commands.atlasMakeSurface(document, sheet, name, source).then(toResult),
+    atlasPatchSprite: (
+      document: BinDocumentId,
+      page: string,
+      uv: readonly [number, number, number, number],
+      source: string,
+    ) => commands.atlasPatchSprite(document, page, [...uv], source).then(toResult),
     atlasSheet: (document: BinDocumentId, sheet: string) =>
       commands.atlasSheet(document, sheet).then(toResult),
     readSkin: (document: BinDocumentId, entry: string) =>

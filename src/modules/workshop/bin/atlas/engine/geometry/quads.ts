@@ -77,12 +77,10 @@ export function addSlice(
   const rows = sliceEdges(slice, 1, uv, size);
   if (columns === null || rows === null) return false;
 
-  const [left, right, top, bottom] = slice.edges.map((edge) => edge * scale) as [
-    number,
-    number,
-    number,
-    number,
-  ];
+  const [left, right, top, bottom] = fitted(
+    slice.edges.map((edge) => edge * scale) as [number, number, number, number],
+    rect,
+  );
   const xs =
     columns.length === 4
       ? [rect.x, rect.x + left, rect.x + rect.w - right, rect.x + rect.w]
@@ -104,6 +102,16 @@ export function addSlice(
     }
   }
   return true;
+}
+
+/** The drawn edges, left, right, top and bottom, shrunk to share an axis they overfill. */
+function fitted(
+  [left, right, top, bottom]: readonly [number, number, number, number],
+  rect: PixelRect,
+): [number, number, number, number] {
+  const across = left + right > rect.w && left + right > 0 ? rect.w / (left + right) : 1;
+  const down = top + bottom > rect.h && top + bottom > 0 ? rect.h / (top + bottom) : 1;
+  return [left * across, right * across, top * down, bottom * down];
 }
 
 /**

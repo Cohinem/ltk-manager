@@ -30,6 +30,7 @@ import { useHiddenScenes } from "../hooks/useHiddenScenes";
 import { useSpriteExport } from "../hooks/useSpriteExport";
 import { useAtlasPreviewActions, useViewPreview, viewKey } from "../state/atlasPreview";
 import { ElementEditItems } from "./ElementEditItems";
+import { SurfaceItems } from "./SurfaceItems";
 
 export interface ElementMenuProps {
   readonly document: BinDocumentId;
@@ -190,6 +191,7 @@ export function ElementMenu({
                   {m.workshop_bin_atlas_sprites_export_action()}
                 </ContextMenu.Item>
               )}
+              <SurfaceItems tree={tree} target={target.key} selection={selection} />
             </>
           )}
           {canvas && (

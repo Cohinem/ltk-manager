@@ -9,9 +9,10 @@ import { exportedSprite, spriteId } from "../engine/model/sprites";
 import type { ViewTree } from "../engine/model/tree";
 import type { ViewElement, ViewSprite } from "../engine/model/view";
 import { useSpriteExport } from "../hooks/useSpriteExport";
-import { useSpriteImport } from "../hooks/useSpriteImport";
+import { pageOf, useSpriteImport } from "../hooks/useSpriteImport";
 import { SectionBlock } from "./sectionParts";
 import { SpriteThumb } from "./SpriteThumb";
+import { SurfaceField } from "./SurfaceField";
 
 type ViewTexture = ViewTree["view"]["textures"][number];
 
@@ -27,7 +28,8 @@ export interface SpriteSectionProps {
  * The sprite an icon or effect element draws, and the way to draw another: the picked PNG joins
  * the sheet the project owns for the view and the element points at it, per section 5 of
  * docs/plans/atlas-ui-editor.md. A sprite of that sheet no other element draws is replaced where
- * it stands. Export PNG writes the sprite out for an image editor, read-only view or not.
+ * it stands. Export PNG writes the sprite out for an image editor, read-only view or not, and an
+ * image picks the surface it wears.
  */
 export function SpriteSection({ element, tree }: SpriteSectionProps) {
   const sprites = useSpriteImport(tree.view);
@@ -66,7 +68,13 @@ export function SpriteSection({ element, tree }: SpriteSectionProps) {
                 size="xs"
                 disabled={sprites.importing}
                 left={<ImageSquareIcon weight="bold" className="h-3.5 w-3.5" />}
-                onClick={() => void sprites.run([element.key], replace)}
+                onClick={() =>
+                  void sprites.run(
+                    [element.key],
+                    replace,
+                    texture === undefined ? null : pageOf(texture.path, sprite.uv, sprites.sheet),
+                  )
+                }
               >
                 {m.workshop_bin_atlas_sprites_replace_action()}
               </Button>
@@ -85,12 +93,13 @@ export function SpriteSection({ element, tree }: SpriteSectionProps) {
           </div>
         </div>
       </div>
+      <SurfaceField element={element} tree={tree} sheet={sprites.sheet} />
     </SectionBlock>
   );
 }
 
 /** The sheet sprite `sprite` is, where it sits on the project's sheet and one element alone draws it. */
-function soleKey(
+export function soleKey(
   tree: ViewTree,
   sprite: ViewSprite,
   texture: ViewTexture,

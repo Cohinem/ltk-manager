@@ -104,6 +104,8 @@ migrated![
     read_ui_loadout,
     atlas_export_sprite,
     atlas_import_sprite,
+    atlas_make_surface,
+    atlas_patch_sprite,
     atlas_sheet,
     // Diagnostics
     run_diagnostics,

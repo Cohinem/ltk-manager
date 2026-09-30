@@ -22,7 +22,7 @@ import {
 } from "../engine/model/sprites";
 import { useAtlasView } from "../hooks/useAtlasSources";
 import { useSpriteExport } from "../hooks/useSpriteExport";
-import { type SpriteImport, useSpriteImport } from "../hooks/useSpriteImport";
+import { pageOf, type SpriteImport, useSpriteImport } from "../hooks/useSpriteImport";
 import { useAtlasPreviewActions, useViewPreview, viewKey } from "../state/atlasPreview";
 import { KeyHint } from "./KeyHint";
 import { SpriteThumb } from "./SpriteThumb";
@@ -149,7 +149,11 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
     }
     if (event.key.toUpperCase() === REPLACE_KEY && sprites.available && !sprites.importing) {
       event.preventDefault();
-      void sprites.run(row.sprite.elements, ownKey(row.texture, row.sprite, sprites.sheet));
+      void sprites.run(
+        row.sprite.elements,
+        ownKey(row.texture, row.sprite, sprites.sheet),
+        pageOf(row.texture.path, row.sprite.uv, sprites.sheet),
+      );
     }
   }
 
@@ -369,7 +373,11 @@ function SpriteRowView({
             icon={<ImageSquareIcon weight="bold" className="h-3.5 w-3.5" />}
             onClick={(event) => {
               event.stopPropagation();
-              void sprites.run(sprite.elements, replaceKey);
+              void sprites.run(
+                sprite.elements,
+                replaceKey,
+                pageOf(texture.path, sprite.uv, sprites.sheet),
+              );
             }}
           />
         </Tooltip>

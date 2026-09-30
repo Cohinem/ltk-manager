@@ -1,3 +1,4 @@
+import { classAlias } from "./classNames";
 import type { ViewTree } from "./tree";
 import type { ViewLook } from "./view";
 
@@ -50,6 +51,7 @@ export function layerMatches(tree: ViewTree, query: string): LayerMatches | null
       labelOf(element.label, element.path, element.key),
       element.path ?? "",
       element.class,
+      classAlias(element.class),
     ];
     if (!words.some((word) => word.toLowerCase().includes(needle))) continue;
 
@@ -102,7 +104,7 @@ export function layerRows(
       key,
       depth,
       label: labelOf(element.label, element.path, key),
-      className: element.class,
+      className: classAlias(element.class),
       kind: element.look.kind,
       open: unfolded,
       folds: children.length > 0,

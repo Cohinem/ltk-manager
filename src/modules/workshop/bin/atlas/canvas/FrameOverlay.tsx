@@ -9,26 +9,40 @@ const HANDLE_SIZE = 8;
 const LABEL_RISE = 6;
 /** The band above a frame its name answers a pointer in, in pane pixels. */
 const LABEL_BAND = 20;
+/** Where a nested scene's name sits inside its box, and the band it answers in, in pane pixels. */
+const NESTED_INSET = { x: 4, y: 12, band: 16 } as const;
 
-/** A screen drawn on the board, with the scene heading it and its name, empty for none. */
+/**
+ * A screen drawn on the board, or at `depth` 1 and down a scene nested in one, with the scene it
+ * heads or boxes and its name, empty for none.
+ */
 export interface OverlayFrame {
   readonly rect: PixelRect;
   readonly scene: string | null;
   readonly label: string;
+  readonly depth: number;
 }
 
-/** The named frame whose name is under the pane point `x, y`. */
+/**
+ * The named frame whose name is under the pane point `x, y`: a screen's above it, a nested scene's
+ * inside its top edge, the deepest first.
+ */
 export function frameNameAt(
   frames: readonly OverlayFrame[],
   view: ViewTransform,
   x: number,
   y: number,
 ): OverlayFrame | undefined {
-  return frames.find((frame) => {
+  const deepest = [...frames].sort((a, b) => b.depth - a.depth);
+  return deepest.find((frame) => {
     const left = view.x + frame.rect.x * view.zoom;
     const top = view.y + frame.rect.y * view.zoom;
     const inside = x >= left && x <= left + frame.rect.w * view.zoom;
-    return frame.label !== "" && inside && y >= top - LABEL_BAND && y < top;
+    const band =
+      frame.depth === 0
+        ? y >= top - LABEL_BAND && y < top
+        : y >= top && y < top + NESTED_INSET.band;
+    return frame.label !== "" && inside && band;
   });
 }
 
@@ -49,8 +63,8 @@ export interface FrameOverlayProps {
 }
 
 /**
- * The frames' outlines and names and the marks over them, in pane pixels, so they stay one pixel
- * wide at every zoom: the safe zone, the image placeholders, the hovered and selected rects, the
+ * The frames' outlines and names, a nested scene's boxed inside its frame, and the marks over them,
+ * in pane pixels, so they stay one pixel wide at every zoom: the safe zone, the image placeholders, the hovered and selected rects, the
  * primary selection's handles, a marquee and the snap guides of a drag.
  */
 export function FrameOverlay({
@@ -78,6 +92,20 @@ export function FrameOverlay({
     <svg className="pointer-events-none absolute inset-0 size-full" aria-hidden>
       {frames.map((frame, at) => {
         const [x, y] = toPane(frame.rect.x, frame.rect.y);
+        if (frame.depth > 0) {
+          return (
+            <g key={at}>
+              <rect {...place(frame.rect)} className="fill-none stroke-surface-500/60" />
+              <text
+                x={x + NESTED_INSET.x}
+                y={y + NESTED_INSET.y}
+                className="fill-surface-500 font-sans text-fine"
+              >
+                {frame.label}
+              </text>
+            </g>
+          );
+        }
         return (
           <g key={at}>
             <rect {...place(frame.rect)} className="fill-none stroke-surface-600" />

@@ -132,3 +132,42 @@ fn a_sprite_exports_at_the_page_resolution_whichever_way_its_uv_runs() {
     assert!(sprite_png(&bytes, [0.5, 0.5, 0.5, 0.9]).is_err());
     assert!(sprite_png(b"not a texture", [0.0, 0.0, 1.0, 1.0]).is_err());
 }
+
+/// A 32 x 16 panel with a 4 pixel rim of `rim` around a flat fill.
+fn rimmed(rim: u32) -> RgbaImage {
+    RgbaImage::from_fn(32, 16, |x, y| {
+        let ring = x.min(y).min(31 - x).min(15 - y);
+        if ring < rim {
+            image::Rgba([200, 160, 70, 255])
+        } else {
+            image::Rgba([20, 40, 36, 255])
+        }
+    })
+}
+
+#[test]
+fn a_surface_carries_its_slice_and_remaking_it_updates_it_in_place() {
+    let project = tempfile::tempdir().unwrap();
+
+    let first = import_surface(&target(project.path()), "Panel", rimmed(4)).unwrap();
+    assert_eq!(first.sprite.key, "panel");
+    assert_eq!(first.sprite.slice, Some([4, 4, 4, 4]));
+
+    let plain = import_sprite(
+        &target(project.path()),
+        &png(tempfile::tempdir().unwrap().path(), "icon.png", 8, 8, 255),
+        None,
+    )
+    .unwrap();
+    let kept = plain
+        .sheet
+        .sprites
+        .iter()
+        .find(|sprite| sprite.key == "panel");
+    assert_eq!(kept.and_then(|sprite| sprite.slice), Some([4, 4, 4, 4]));
+
+    let again = import_surface(&target(project.path()), "Panel", rimmed(2)).unwrap();
+    assert_eq!(again.sprite.key, "panel");
+    assert_eq!(again.sprite.slice, Some([2, 2, 2, 2]));
+    assert_eq!(again.sheet.sprites.len(), 2);
+}

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { buttonStateOf, type ViewButton } from "../model/buttons";
+import { buttonsFirst, buttonStateOf, type ViewButton } from "../model/buttons";
+import { buildTree } from "../model/tree";
+import { element, icon, scene, view } from "./fixtures";
 
 const BUTTON: ViewButton = {
   hitRegion: null,
@@ -42,5 +44,48 @@ describe("buttonStateOf", () => {
     expect(buttonStateOf({ ...inactive, selected: true }, REST)).toBe(
       "InactiveSelectedStateElements",
     );
+  });
+});
+
+describe("buttonsFirst", () => {
+  const group = element("button", "s", 0, {
+    kind: "group",
+    children: ["normal", "hover"],
+    states: [
+      { state: "DefaultStateElements", elements: ["normal"], text: null, textFrame: null },
+      { state: "HoverStateElements", elements: ["hover"], text: null, textFrame: null },
+    ],
+    alpha: 1,
+    layout: null,
+    button: BUTTON,
+    meter: null,
+  });
+  const tree = buildTree(
+    view(
+      [scene("s", 0)],
+      [
+        group,
+        element("normal", "s", 1, icon()),
+        element("hover", "s", 2, icon()),
+        element("backdrop", "s", 3, icon()),
+      ],
+    ),
+  );
+
+  it("puts a button before the first of its elements under the pointer", () => {
+    expect(buttonsFirst(tree, ["hover", "normal", "backdrop"])).toEqual([
+      "button",
+      "hover",
+      "normal",
+      "backdrop",
+    ]);
+  });
+
+  it("keeps a button the pointer is over itself where it is, once", () => {
+    expect(buttonsFirst(tree, ["backdrop", "button", "normal"])).toEqual([
+      "backdrop",
+      "button",
+      "normal",
+    ]);
   });
 });

@@ -12,8 +12,20 @@ const NO_MOMENT: ControllerMoment = { show: [], hide: [] };
 
 /** Per "A preview that looks like the game" in docs/plans/atlas-ui-editor.md, by class name. */
 const MOMENTS: ReadonlyMap<string, ControllerMoment> = new Map([
-  /* No skill point to spend. */
-  ["PlayerFrameViewController", { show: [], hide: ["LevelUp", "LevelUpFxIn", "LevelUpFxOut"] }],
+  /* No skill point to spend, and no summoner specialist mode. */
+  [
+    "PlayerFrameViewController",
+    {
+      show: [],
+      hide: [
+        "LevelUp",
+        "LevelUpFxIn",
+        "LevelUpFxOut",
+        "SummonerSpecialistSelector",
+        "SummonerSpecialistToggles",
+      ],
+    },
+  ],
   /* Tab held. */
   ["ScoreboardViewController", { show: ["Scoreboard"], hide: [] }],
   ["ItemShopViewController", { show: ["ItemShop"], hide: [] }],

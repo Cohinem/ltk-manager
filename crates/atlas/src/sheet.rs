@@ -15,9 +15,11 @@ use ltk_texture::{Tex, Texture};
 use serde::{Deserialize, Serialize};
 
 use super::pack::{PackSprite, Packed, Placement, SpritePixels, compose, pack, pack_into};
+use super::surface::detect_insets;
 
 const SPEC_FILE: &str = "sheet.json";
-const SHEETS_DIR: &str = ".ltk/atlas";
+/// The folder of a project the sheets and page patches keep their sources in.
+pub const SHEETS_DIR: &str = ".ltk/atlas";
 const CONTENT_DIR: &str = "content";
 
 /// A sheet's pack spec: where its page goes and where each sprite sits on it.
@@ -45,6 +47,9 @@ pub struct SheetSprite {
     pub y: u32,
     pub width: u32,
     pub height: u32,
+    /// A surface's slice insets, left, right, top and bottom in pixels, which stretch it as a
+    /// nine-slice. None for a plain sprite.
+    pub slice: Option<[u32; 4]>,
 }
 
 /// Where an import lands: the project, the sheet's name, and the layer and archive folder a new
@@ -96,6 +101,37 @@ pub fn import_sprite(
     let image = image::open(source)
         .map_err(|error| AppError::ValidationFailed(format!("{}: {error}", source.display())))?
         .into_rgba8();
+    import_image(target, &key_of(source), image, replace, None)
+}
+
+/// Add `image` to the sheet as a surface keyed for `name`: a sprite that stretches to any size as
+/// a nine-slice, its slice lines found in the image, per section 5 of docs/plans/atlas-ui-editor.md.
+/// A surface of that name already on the sheet takes the image and its slice lines, in place where
+/// the sizes agree.
+///
+/// # Errors
+///
+/// Fails where the sheet would outgrow one page, and where the page, the image or the spec cannot
+/// be written.
+pub fn import_surface(
+    target: &SheetTarget<'_>,
+    name: &str,
+    image: RgbaImage,
+) -> AppResult<SheetImport> {
+    let insets = detect_insets(&image);
+    let key = slug(name);
+    import_image(target, &key, image, Some(&key), Some(insets))
+}
+
+/// Add `image` to the sheet under `key`, or put it in place of the sprite `replace`, with the slice
+/// insets `slice` where it is a surface, and write the page again.
+fn import_image(
+    target: &SheetTarget<'_>,
+    key: &str,
+    image: RgbaImage,
+    replace: Option<&str>,
+    slice: Option<[u32; 4]>,
+) -> AppResult<SheetImport> {
     let dir = sheet_dir(target.project, target.sheet);
     let mut spec = read_sheet(target.project, target.sheet)?.unwrap_or_else(|| SheetSpec {
         path: page_path(target.project, target.sheet),
@@ -110,9 +146,19 @@ pub fn import_sprite(
         |sprite: &&SheetSprite| (sprite.width, sprite.height) == (image.width(), image.height());
     let kept = replace.and_then(|key| spec.sprites.iter().find(|s| s.key == key).filter(same_size));
     let sprite = match kept {
-        Some(sprite) => sprite.clone(),
+        Some(sprite) => {
+            let key = sprite.key.clone();
+            for held in spec.sprites.iter_mut().filter(|held| held.key == key) {
+                held.slice = slice.or(held.slice);
+            }
+            spec.sprites
+                .iter()
+                .find(|held| held.key == key)
+                .cloned()
+                .ok_or_else(|| AppError::InternalState(format!("{key} was not kept")))?
+        }
         None => {
-            let key = unique_key(&spec, &key_of(source));
+            let key = unique_key(&spec, key);
             let wanted = PackSprite {
                 key: key.clone(),
                 width: image.width(),
@@ -125,9 +171,22 @@ pub fn import_sprite(
             }
             .map_err(|error| AppError::ValidationFailed(error.to_string()))?;
 
+            let slices: Vec<_> = spec
+                .sprites
+                .iter()
+                .map(|sprite| (sprite.key.clone(), sprite.slice))
+                .chain([(key.clone(), slice)])
+                .collect();
             spec.width = packed.width;
             spec.height = packed.height;
-            spec.sprites = packed.placements.into_iter().map(sprite_of).collect();
+            spec.sprites = packed
+                .placements
+                .into_iter()
+                .map(|placement| {
+                    let held = slices.iter().find(|(held, _)| *held == placement.key);
+                    sprite_of(placement, held.and_then(|(_, slice)| *slice))
+                })
+                .collect();
             spec.sprites
                 .iter()
                 .find(|s| s.key == key)
@@ -159,33 +218,80 @@ pub fn import_sprite(
 ///
 /// Fails where `texture` does not decode and where the rect covers no pixel of the page.
 pub fn sprite_png(texture: &[u8], uv: [f32; 4]) -> AppResult<Vec<u8>> {
+    png_bytes(&sprite_pixels(texture, uv)?)
+}
+
+/// The pixels of the sprite at `uv` on the page `texture` holds, as `sprite_png` crops them.
+///
+/// # Errors
+///
+/// Fails where `texture` does not decode and where the rect covers no pixel of the page.
+pub fn sprite_pixels(texture: &[u8], uv: [f32; 4]) -> AppResult<RgbaImage> {
+    let page = decode_page(texture)?;
+    let [x, y, width, height] = pixel_rect(uv, page.width(), page.height())?;
+    Ok(image::imageops::crop_imm(&page, x, y, width, height).to_image())
+}
+
+/// The pixels of the image file at `path`.
+///
+/// # Errors
+///
+/// Fails where the file cannot be read or decoded.
+pub fn png_pixels(path: &Path) -> AppResult<RgbaImage> {
+    Ok(image::open(path)
+        .map_err(|error| AppError::ValidationFailed(format!("{}: {error}", path.display())))?
+        .into_rgba8())
+}
+
+/// Rewrite the page of the sheet whose sources sit in the folder `folder` of the project's sheets,
+/// as a watcher does when a source changes. A folder with no spec rewrites nothing.
+///
+/// # Errors
+///
+/// Fails where the spec or a source cannot be read, and where the page cannot be written.
+pub fn rebuild_sheet(project: &Path, folder: &str) -> AppResult<bool> {
+    let Some(spec) = read_sheet(project, folder)? else {
+        return Ok(false);
+    };
+    write_page(project, &spec, &sheet_dir(project, folder))?;
+    Ok(true)
+}
+
+/// A texture's full-resolution pixels.
+pub(super) fn decode_page(texture: &[u8]) -> AppResult<RgbaImage> {
     let invalid = |error: &dyn std::fmt::Display| AppError::ValidationFailed(error.to_string());
     let page = Texture::from_reader(&mut std::io::Cursor::new(texture))
         .map_err(|error| invalid(&error))?;
-    let page = page
-        .decode_mipmap(0)
+    page.decode_mipmap(0)
         .map_err(|error| invalid(&error))?
         .into_rgba_image()
-        .map_err(|error| invalid(&error))?;
+        .map_err(|error| invalid(&error))
+}
 
+/// The whole pixels `uv` covers on a page of `width` by `height`, as `x, y, width, height`.
+///
+/// `uv` is `[u0, v0, u1, v1]`, normalized with v down, in either order along each axis. The rect
+/// rounds to whole pixels and is clamped to the page.
+///
+/// # Errors
+///
+/// Fails where the rect covers no pixel of the page.
+pub(super) fn pixel_rect(uv: [f32; 4], width: u32, height: u32) -> AppResult<[u32; 4]> {
     let span = |a: f32, b: f32, size: u32| {
         let pixel = |t: f32| (t * size as f32).round().clamp(0.0, size as f32) as u32;
         (pixel(a.min(b)), pixel(a.max(b)))
     };
-    let (x0, x1) = span(uv[0], uv[2], page.width());
-    let (y0, y1) = span(uv[1], uv[3], page.height());
+    let (x0, x1) = span(uv[0], uv[2], width);
+    let (y0, y1) = span(uv[1], uv[3], height);
     if x1 <= x0 || y1 <= y0 {
         return Err(AppError::ValidationFailed(
             "The sprite covers no pixel of its page".to_owned(),
         ));
     }
-
-    let sprite = image::imageops::crop_imm(&page, x0, y0, x1 - x0, y1 - y0).to_image();
-    png_bytes(&sprite)
+    Ok([x0, y0, x1 - x0, y1 - y0])
 }
 
-/// Compose the sheet's page from its sources and write it into its layer: BC7 where a sprite
-/// has alpha and BC1 where none does, with no mipmaps, as the game's own pages are.
+/// Compose the sheet's page from its sources and write it into its layer.
 fn write_page(project: &Path, spec: &SheetSpec, dir: &Path) -> AppResult<()> {
     let mut sources = Vec::with_capacity(spec.sprites.len());
     for sprite in &spec.sprites {
@@ -210,6 +316,13 @@ fn write_page(project: &Path, spec: &SheetSpec, dir: &Path) -> AppResult<()> {
     let page = RgbaImage::from_raw(spec.width, spec.height, page)
         .ok_or_else(|| AppError::InternalState("the page is not its size".to_owned()))?;
 
+    let bytes = encode_page(&page, alpha)?;
+    write_into_layer(project, &spec.layer, &spec.archive, &spec.path, &bytes)
+}
+
+/// `page` as the `.tex` a layer ships: BC7 where it has `alpha` and BC1 where it has none, with
+/// no mipmaps, as the game's own pages are.
+pub(super) fn encode_page(page: &RgbaImage, alpha: bool) -> AppResult<Vec<u8>> {
     let format = if alpha {
         EncodeFormat::Bc7
     } else {
@@ -217,20 +330,30 @@ fn write_page(project: &Path, spec: &SheetSpec, dir: &Path) -> AppResult<()> {
             weigh_colour_by_alpha: false,
         }
     };
-    let tex = Tex::encode_rgba_image(&page, EncodeOptions::new(format))
+    let tex = Tex::encode_rgba_image(page, EncodeOptions::new(format))
         .map_err(|error| AppError::Other(error.to_string()))?;
     let mut bytes = Vec::new();
     tex.write(&mut bytes)?;
+    Ok(bytes)
+}
 
+/// Write `bytes` into the archive folder `archive` of the layer `layer` at the chunk path `path`.
+pub(super) fn write_into_layer(
+    project: &Path,
+    layer: &str,
+    archive: &str,
+    path: &str,
+    bytes: &[u8],
+) -> AppResult<()> {
     let target = project
         .join(CONTENT_DIR)
-        .join(&spec.layer)
-        .join(&spec.archive)
-        .join(&spec.path);
+        .join(layer)
+        .join(archive)
+        .join(path);
     if let Some(parent) = target.parent() {
         fs::create_dir_all(parent)?;
     }
-    write_through_temp(&target, &bytes)
+    write_through_temp(&target, bytes)
 }
 
 fn sheet_dir(project: &Path, sheet: &str) -> PathBuf {
@@ -264,13 +387,14 @@ fn packed_of(spec: &SheetSpec) -> Packed {
     }
 }
 
-fn sprite_of(placement: Placement) -> SheetSprite {
+fn sprite_of(placement: Placement, slice: Option<[u32; 4]>) -> SheetSprite {
     SheetSprite {
         key: placement.key,
         x: placement.x,
         y: placement.y,
         width: placement.width,
         height: placement.height,
+        slice,
     }
 }
 
@@ -296,7 +420,7 @@ fn unique_key(spec: &SheetSpec, wanted: &str) -> String {
 }
 
 /// `text` lowercased, with anything but a letter, a digit, `-` or `_` as `_`.
-fn slug(text: &str) -> String {
+pub(super) fn slug(text: &str) -> String {
     let slug: String = text
         .chars()
         .map(|c| {
@@ -314,7 +438,7 @@ fn slug(text: &str) -> String {
     }
 }
 
-fn png_bytes(image: &RgbaImage) -> AppResult<Vec<u8>> {
+pub(super) fn png_bytes(image: &RgbaImage) -> AppResult<Vec<u8>> {
     let mut bytes = std::io::Cursor::new(Vec::new());
     image
         .write_to(&mut bytes, image::ImageFormat::Png)
@@ -323,7 +447,7 @@ fn png_bytes(image: &RgbaImage) -> AppResult<Vec<u8>> {
 }
 
 /// Write `bytes` beside `path` and rename them over it, so a failed write leaves the old file.
-fn write_through_temp(path: &Path, bytes: &[u8]) -> AppResult<()> {
+pub(super) fn write_through_temp(path: &Path, bytes: &[u8]) -> AppResult<()> {
     let mut temp = path.as_os_str().to_owned();
     temp.push(".tmp");
     let temp = PathBuf::from(temp);

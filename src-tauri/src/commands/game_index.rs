@@ -16,6 +16,7 @@ use ltk_manager_core::game_index::{
 use ltk_manager_core::game_wads::{GameArchives, WadCache};
 use ltk_manager_core::hashtables::WadPathResolverState;
 use ltk_manager_core::matcher::{FindQuery, PatternSyntax};
+use ltk_manager_core::preview::AssetRef;
 use tauri::{AppHandle, Manager};
 
 /// Report what the folded game index holds, building it on first use.
@@ -241,6 +242,33 @@ where
 ///
 /// Fails when the install cannot be resolved, the hash tables cannot be
 /// opened, or the build fails.
+/// The installed game's own copy of the file at `path`, whatever a project lays over it: where it
+/// sits and its bytes, none where the game holds no such file.
+///
+/// # Errors
+///
+/// Fails when the index cannot be built or the file cannot be read.
+pub(crate) fn game_file(
+    app_handle: &AppHandle,
+    path: &str,
+) -> AppResult<Option<(AssetRef, Vec<u8>)>> {
+    let config = app_handle.state::<SettingsState>().config();
+    let (index, _) = built_game_index(app_handle, &config)?;
+    let Some(file) = index
+        .file_at(&path.to_lowercase())
+        .or_else(|| index.unnamed_at(WadHash::hash_str(path).0))
+    else {
+        return Ok(None);
+    };
+
+    let asset = AssetRef::GameChunk {
+        wad: file.wad,
+        path_hash: file.path_hash,
+    };
+    let bytes = asset.read(&config, &app_handle.state::<WadCache>())?;
+    Ok(Some((asset, bytes)))
+}
+
 pub(super) fn built_game_index(
     app_handle: &AppHandle,
     config: &Config,
