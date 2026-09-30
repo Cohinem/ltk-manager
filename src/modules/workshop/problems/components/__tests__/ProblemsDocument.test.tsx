@@ -701,8 +701,63 @@ describe("ProblemsDocument", () => {
       await skin0Group();
 
       const alert = screen.getByRole("alert");
-      expect(within(alert).getByText("1 file could not be read")).toBeInTheDocument();
-      expect(within(alert).getByText(SKIN4)).toBeInTheDocument();
+      expect(within(alert).getByText("1 file was not checked")).toBeInTheDocument();
+      expect(
+        within(alert).getByText("data/characters/smolder/skins/skin4.bin"),
+      ).toBeInTheDocument();
+      expect(within(alert).getByText(UNREADABLE.message)).toBeInTheDocument();
+    });
+
+    it("counts a file two rules stopped on once", async () => {
+      const second = { ...UNREADABLE, rule: "tex/block-alignment" };
+      mockBackend({ ok: true, value: run({ failed: [UNREADABLE, second] }) });
+      renderPanel();
+
+      await skin0Group();
+
+      expect(within(screen.getByRole("alert")).getByText("1 file was not checked")).toBeVisible();
+    });
+
+    it("opens a file it could not check on a click", async () => {
+      mockBackend({ ok: true, value: run({ failed: [UNREADABLE] }) });
+      renderPanel();
+
+      await skin0Group();
+      await userEvent.click(
+        within(screen.getByRole("alert")).getByRole("button", { name: /skin4\.bin/ }),
+      );
+
+      expect(openTabs()).toContain(
+        previewDocumentId({ kind: "layer", project: PROJECT.path, layer: "base", path: SKIN4 }),
+      );
+    });
+
+    /// A map overhaul can fail on hundreds of files, and a notice that lists
+    /// them all pushes every problem off screen.
+    it("lists many files it could not check only on request", async () => {
+      const failed = ["a", "b", "c", "d"].map((name) => ({
+        ...UNREADABLE,
+        site: { layer: "base", path: `Smolder.wad.client/${name}.bin`, node: null },
+      }));
+      mockBackend({ ok: true, value: run({ failed }) });
+      renderPanel();
+
+      await skin0Group();
+      const alert = screen.getByRole("alert");
+      expect(within(alert).getByText("4 files were not checked")).toBeVisible();
+      expect(within(alert).queryByText("a.bin")).not.toBeInTheDocument();
+
+      await userEvent.click(within(alert).getByRole("button", { name: "Show files" }));
+
+      expect(within(alert).getByText("a.bin")).toBeVisible();
+    });
+
+    it("does not call a project clean when a file went unchecked", async () => {
+      mockBackend({ ok: true, value: run({ problems: [], failed: [UNREADABLE] }) });
+      renderPanel();
+
+      expect(await screen.findByText("No problems found")).toBeInTheDocument();
+      expect(screen.queryByText("All good")).not.toBeInTheDocument();
     });
 
     it("carries the backend's message into the error state", async () => {

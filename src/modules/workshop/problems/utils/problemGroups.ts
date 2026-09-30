@@ -1,4 +1,4 @@
-import type { Problem, ProblemSeverity, RuleId, RuleInfo } from "@/lib/tauri";
+import type { Problem, ProblemSeverity, RuleFailure, RuleId, RuleInfo, Site } from "@/lib/tauri";
 
 /**
  * How the panel orders severities, worst first.
@@ -347,4 +347,35 @@ export function countBySeverity(problems: readonly Problem[]): SeverityCounts {
     warnings: counts.warning,
     infos: counts.info,
   };
+}
+
+/** One file the run could not check, with every reason a rule gave for it. */
+export interface UncheckedFile {
+  id: string;
+  /** Absent for a rule that stopped on no one file. */
+  site: Site | null;
+  rules: readonly RuleId[];
+  reasons: readonly string[];
+}
+
+/** The run's failures as one entry per file, however many rules stopped on it. */
+export function uncheckedFiles(failed: readonly RuleFailure[]): UncheckedFile[] {
+  const files = new Map<string, { site: Site | null; rules: RuleId[]; reasons: string[] }>();
+
+  for (const failure of failed) {
+    const id = failure.site
+      ? `${failure.site.layer}${NUL}${failure.site.path}`
+      : `${NUL}${failure.rule}`;
+
+    let file = files.get(id);
+    if (!file) {
+      file = { site: failure.site, rules: [], reasons: [] };
+      files.set(id, file);
+    }
+
+    if (!file.rules.includes(failure.rule)) file.rules.push(failure.rule);
+    if (!file.reasons.includes(failure.message)) file.reasons.push(failure.message);
+  }
+
+  return [...files].map(([id, file]) => ({ id, ...file }));
 }

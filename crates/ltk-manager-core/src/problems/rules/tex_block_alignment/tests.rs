@@ -123,6 +123,26 @@ fn an_uncompressed_texture_reports_nothing_at_any_size() {
     assert!(found(&tex_bytes(RAGGED, EncodeFormat::Bgra8)).is_empty());
 }
 
+/// A renamed `.dds` is a file the game reads, so it is neither a finding nor a
+/// file the run could not read, whatever its size.
+#[test]
+fn a_dds_behind_a_tex_name_reports_nothing_and_reads_cleanly() {
+    let mut dds = image_dds::ddsfile::Dds::new_d3d(image_dds::ddsfile::NewD3dParams {
+        height: RAGGED.1,
+        width: RAGGED.0,
+        depth: None,
+        format: image_dds::ddsfile::D3DFormat::DXT1,
+        mipmap_levels: None,
+        caps2: None,
+    })
+    .unwrap();
+    dds.data = vec![0; 2 * 8];
+    let mut bytes = Vec::new();
+    dds.write(&mut bytes).unwrap();
+
+    assert!(found(&bytes).is_empty());
+}
+
 #[test]
 fn the_fix_preview_rounds_down_to_the_block_grid() {
     let problems = found(&tex_bytes(RAGGED, bc3()));

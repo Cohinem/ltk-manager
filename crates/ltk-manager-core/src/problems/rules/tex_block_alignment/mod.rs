@@ -25,12 +25,15 @@
 //! container and asserts on the format, so a cubemap ships as a `.dds` in Bc1
 //! carrying `DDSCAPS2_CUBEMAP`. That is a separate file kind, no rule scans it,
 //! and the format constraint on it is unchecked.
+//!
+//! A `.tex` that contains DDS data, such as a renamed `.dds`, is skipped. The
+//! game detects the container from the magic bytes, so the file is valid.
 
 use std::io::Cursor;
 
 use image::imageops::FilterType;
-use ltk_texture::Tex;
 use ltk_texture::tex::{EncodeFormat, EncodeOptions, Format, MipmapFilter, ResourceType};
+use ltk_texture::{Dds, Tex};
 
 use crate::problems::{
     Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity, Rule, RuleId,
@@ -85,7 +88,7 @@ impl Rule for TexBlockAlignment {
         let headers = pass
             .files(WorkshopFileKind::Texture)
             .head(HEADER_BYTES)
-            .collect(|head| read_header(head.bytes()).map(|tex| Ragged::of(&tex)));
+            .collect(|head| ragged_header(head.bytes()));
         pass.finish(move |finish| {
             for (handle, ragged) in finish.take(headers) {
                 if let Some(ragged) = ragged {
@@ -229,9 +232,18 @@ fn on_grid(size: u32, block: u32) -> u32 {
     (size - size % block).max(block)
 }
 
-/// Read a `.tex` header out of the first bytes of the file.
-fn read_header(head: &[u8]) -> Result<Tex, String> {
-    Tex::from_reader(&mut Cursor::new(head)).map_err(|e| e.to_string())
+/// What the first bytes of a `.tex` say the game will not create, where the
+/// file holds a TEX header at all.
+fn ragged_header(head: &[u8]) -> Result<Option<Ragged>, String> {
+    if head
+        .first_chunk::<4>()
+        .is_some_and(|magic| u32::from_le_bytes(*magic) == Dds::MAGIC)
+    {
+        return Ok(None);
+    }
+
+    let tex = Tex::from_reader(&mut Cursor::new(head)).map_err(|e| e.to_string())?;
+    Ok(Ragged::of(&tex))
 }
 
 /// `tex` resampled to `size` and re-encoded to the format it already had.

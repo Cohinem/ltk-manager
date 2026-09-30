@@ -2348,6 +2348,25 @@
   "workshop_preview_zoom_in_label": "Zoom in",
   "workshop_preview_zoom_out_label": "Zoom out",
   "workshop_preview_zoom_percent_label": "{percent}%",
+  "workshop_problems_clean_description": "The linter found no problems in this project",
+  "workshop_problems_clean_title": "All good",
+  "workshop_problems_failed_title": "Couldn't check this project",
+  "workshop_problems_no_matches_description": "Nothing matches \"{query}\"",
+  "workshop_problems_no_matches_title": "No matches",
+  "workshop_problems_partial_description": "The linter found nothing in the files it could check",
+  "workshop_problems_partial_title": "No problems found",
+  "workshop_problems_unchecked_hide_action": "Hide files",
+  "workshop_problems_unchecked_show_action": "Show files",
+  "workshop_problems_unchecked_title": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} file was not checked",
+        "countPlural=other": "{count} files were not checked"
+      }
+    }
+  ],
   "workshop_project_back_action": "Back to Workshop",
   "workshop_project_not_found_description": "Project not found: {projectId}",
   "workshop_project_unknown_author_label": "Unknown author",
