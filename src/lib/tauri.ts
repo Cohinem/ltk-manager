@@ -286,6 +286,7 @@ export type {
   SheetSprite,
   UiAnchor,
   UiAsset,
+  UiBinding,
   UiButtonState,
   UiEffect,
   UiElement,
@@ -297,9 +298,11 @@ export type {
   UiFontSizes,
   UiLayout,
   UiLayoutKind,
+  UiLoadout,
   UiLook,
   UiPosition,
   UiRect,
+  UiRole,
   UiScene,
   UiShader,
   UiSlice,
@@ -718,6 +721,7 @@ export const api = {
       commands.readUiFont(document, entry).then(toResult),
     readUiPrograms: (document: BinDocumentId | null, shaders: readonly UiShader[]) =>
       commands.readUiPrograms(document, [...shaders]).then(toResult),
+    readUiLoadout: (document: BinDocumentId) => commands.readUiLoadout(document).then(toResult),
     atlasExportSprite: (
       texture: AssetRef,
       uv: readonly [number, number, number, number],

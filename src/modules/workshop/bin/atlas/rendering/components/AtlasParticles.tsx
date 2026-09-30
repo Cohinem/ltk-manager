@@ -135,7 +135,12 @@ function SystemRun({
   playing: boolean;
 }) {
   const system = useMemo(() => readVfxSystem(read), [read]);
-  const drawn = useMemo(() => drawnEmitters(system), [system]);
+  /* The HUD draws over no scene depth for a soft fade to read, so none fades. */
+  const drawn = useMemo(
+    () =>
+      drawnEmitters(system).map((each) => ({ ...each, emitter: { ...each.emitter, soft: null } })),
+    [system],
+  );
   const textures = useVfxTextures(drawn);
   const meshes = useVfxMeshes(drawn);
   const driver = useMemo(() => createDriver(PARTICLE_SEED), []);

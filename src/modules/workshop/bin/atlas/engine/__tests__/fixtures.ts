@@ -84,6 +84,7 @@ export function view(scenes: ViewScene[], elements: ViewElement[]): View {
     fonts: [],
     styleSheets: [],
     repeats: [],
+    bindings: [],
     warnings: [],
   };
 }

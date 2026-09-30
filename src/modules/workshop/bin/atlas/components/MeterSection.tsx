@@ -56,7 +56,7 @@ export function MeterSection({ element, meter, tree, view, editable, apply }: Me
       <FieldLine label={m.workshop_bin_atlas_meter_start_label()}>
         <DraftNumber
           value={Math.round(meter.start * PERCENT * 100) / 100}
-          scrub={m.workshop_bin_atlas_meter_start_label()}
+          label={m.workshop_bin_atlas_meter_start_label()}
           min={0}
           disabled={!editable}
           onCommit={(value) => apply([meterStartEdit(element.key, clamp01(value / PERCENT))])}

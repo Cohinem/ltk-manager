@@ -94,6 +94,47 @@ export function contains(rect: PixelRect, x: number, y: number): boolean {
   return x >= rect.x && y >= rect.y && x < rect.x + rect.w && y < rect.y + rect.h;
 }
 
+/** The elements of `order`, drawn bottom first, whose rect holds `x, y`, topmost first. */
+export function elementsAt(
+  order: readonly string[],
+  rects: ReadonlyMap<string, PixelRect>,
+  x: number,
+  y: number,
+): string[] {
+  const under: string[] = [];
+  for (let at = order.length - 1; at >= 0; at -= 1) {
+    const key = order[at];
+    const rect = key === undefined ? undefined : rects.get(key);
+    if (key !== undefined && rect !== undefined && contains(rect, x, y)) under.push(key);
+  }
+  return under;
+}
+
+/** Whether a click at `client` repeats `last` on `current`, within `reach` pixels of it. */
+export function repeatsClick(
+  last: { readonly client: Point; readonly element: string | null } | null,
+  client: Point,
+  current: string | null,
+  reach: number,
+): boolean {
+  if (last === null || last.element !== current) return false;
+  return Math.hypot(client[0] - last.client[0], client[1] - last.client[1]) <= reach;
+}
+
+/**
+ * The element a click on the stack `under` selects: the one below `current` where the click
+ * repeats on the spot it last picked `current` at, wrapping to the top, and the topmost otherwise.
+ */
+export function clickedIn(
+  under: readonly string[],
+  current: string | null,
+  repeat: boolean,
+): string | null {
+  const at = current === null ? -1 : under.indexOf(current);
+  if (!repeat || at < 0) return under[0] ?? null;
+  return under[(at + 1) % under.length] ?? null;
+}
+
 export function within(inner: PixelRect, outer: PixelRect): boolean {
   return (
     inner.x >= outer.x &&

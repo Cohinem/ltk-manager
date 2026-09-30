@@ -1,3 +1,5 @@
+import type { UiRole } from "@/lib/tauri";
+
 import { labelOf } from "../model/layers";
 
 /** The words an element's name holds, lowercase: `ItemCost_Text2` is `item`, `cost`, `text`. */
@@ -52,3 +54,26 @@ export function sampleText(label: string, path: string | null, key: string): str
   const [first, ...rest] = named;
   return [first.charAt(0).toUpperCase() + first.slice(1), ...rest].join(" ");
 }
+
+/**
+ * What a text a controller binding names reads in the preview, none for a role that fills a
+ * texture. An idle role reads empty, as a cooldown or a charge count does at rest.
+ */
+export function roleText(role: UiRole): string | null {
+  if (role.kind === "hotkey") return role.key;
+  return ROLE_TEXTS[role.kind] ?? null;
+}
+
+/** What a bound text of each role reads, by the role's kind. */
+const ROLE_TEXTS: Partial<Record<UiRole["kind"], string>> = {
+  idle: "",
+  level: "11",
+  health: "1,450 / 2,000",
+  resource: "620 / 1,050",
+  cost: "60",
+  kda: "5 / 2 / 7",
+  creepScore: "142",
+  visionScore: "18",
+  gold: "1,250",
+  playerName: "Player",
+};

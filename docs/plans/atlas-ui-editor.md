@@ -240,16 +240,30 @@ same for one element, and the layers pane and the objects browser show an icon's
 The data holds only what the controller does not create at run time (research section 12). Atlas
 fills the gaps the same way for every view, and never writes any of it:
 
-- **Scene state.** Every scene starts shown, because `Enabled` defaults to false and 614 of 1,018
-  scenes leave it for the controller to set at run time. The layers pane marks the scenes the file
+- **Scene state.** A view whose file enables no scene starts with every scene shown, because
+  `Enabled` defaults to false and 614 of 1,018 scenes leave it for the controller to set at run
+  time. A view that enables some starts with the rest off. The layers pane marks the scenes the file
   enables and toggles any scene for the preview, so the item shop's search overlay can be hidden.
 - **Button and slider state.** A state picker shows default, hover, clicked, selected and inactive,
   drawing only that state's `DisplayElementList`.
 - **Meter fill.** A meter draws its `StartPercentage`, or the live progress while sample content
   shows, and a drag in interact mode or the inspector sets one meter's fill (research section 16).
-- **Sample content.** Text the controller sets shows a sample of the kind its element's name
-  suggests (a timer reads `1:24`, a cost `1,250`), else that name in words. A texture the
-  controller sets (a champion icon, an item) shows a checker placeholder.
+- **Controller moments.** A registry by controller class names the scenes a typical moment
+  switches on and off over the file: the scoreboard with Tab held, the shop open, a target
+  selected, the end of game screen without its error and Vanguard scenes, a loading card.
+- **Bindings.** The controllers build on a few shared definition structures (a spell slot, an
+  item slot, a portrait, a keystone, a score line, a loading card), so the read walks the
+  controller's fields for those and binds each element they name to a role: ability 0 to 3,
+  passive, summoner, item slot, portrait, splash, rune, hotkey, level, KDA and so on. The live
+  install binds 1,238 elements across its views, every one of them in the view's own base.
+- **Sample loadout.** A bound icon the file leaves without a sprite draws the texture a sample
+  loadout reads out of the game: Ahri's abilities, passive, portrait and loading art, Flash and
+  Ignite, Electrocute and Sorcery, and a six-item build with a trinket. A bound text reads its
+  role: the slot's key, empty for a cooldown or a count at rest, a level, a KDA. The fill is a
+  copy of the view for drawing alone, so edits and the inspector read the file.
+- **Sample content.** Any other text the controller sets shows a sample of the kind its
+  element's name suggests (a timer reads `1:24`, a cost `1,250`), else that name in words. Any
+  other texture the controller sets shows a checker placeholder.
 - **Repetition.** Where a controller clones a template at run time, the preview draws the copies
   the file does not hold. A controller field naming a template, a managed layout and a count (the
   player frame's buff rows) places that many copies with the layout. Each scoreboard team row

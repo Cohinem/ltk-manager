@@ -690,6 +690,19 @@ impl GameCopy for Declares {
     }
 }
 
+/// A game copy over every bin of some archives, by the objects each declares.
+struct Shelf(HashMap<BinHash, std::sync::Arc<Vec<u8>>>);
+
+impl GameCopy for Shelf {
+    fn declaring_chunk(&self, entry: BinHash) -> AppResult<Option<Vec<u8>>> {
+        Ok(self.0.get(&entry).map(|bytes| bytes.as_ref().clone()))
+    }
+
+    fn with_names(&self, read: &mut dyn FnMut(&dyn RowNames)) {
+        read(&());
+    }
+}
+
 /// The base loadable of the fixture, which a controller links.
 fn base_loadable() -> BinObject {
     BinObject::builder(h(BASE), h("UiPropertyLoadable"))
@@ -1128,17 +1141,23 @@ impl GameCopy for NoGame {
     }
 }
 
-/// Every chunk of the UI and Bootstrap archives of an install, by path hash.
+/// Every chunk of some archives of an install, by path hash.
 struct Install {
     wads: RefCell<Vec<ltk_wad::Wad<fs_err::File>>>,
 }
 
 impl Install {
+    /// The UI and Bootstrap archives.
     fn open() -> Self {
+        Self::mount(&["UI.wad.client", "Bootstrap.windows.wad.client"])
+    }
+
+    /// The archives `names`, relative to the install's `DATA/FINAL`.
+    fn mount(names: &[&str]) -> Self {
         let Ok(game) = std::env::var("LTK_LIVE_GAME") else {
             panic!("set LTK_LIVE_GAME to the install's DATA/FINAL directory");
         };
-        let wads = ["UI.wad.client", "Bootstrap.windows.wad.client"]
+        let wads = names
             .iter()
             .map(|name| {
                 let file = fs_err::File::open(std::path::Path::new(&game).join(name)).unwrap();
@@ -1177,6 +1196,25 @@ impl Install {
             }
         }
         Declares(declared)
+    }
+
+    /// Every object the archives' bins declare, with the bin declaring it.
+    fn shelf(&self) -> Shelf {
+        let mut declared = HashMap::new();
+        for hash in self.hashes() {
+            let bytes = self.bytes(hash).unwrap();
+            if !bytes.starts_with(b"PROP") {
+                continue;
+            }
+            let Ok(document) = BinDocument::parse(bytes.clone()) else {
+                continue;
+            };
+            let shared = std::sync::Arc::new(bytes);
+            for entry in document.entries() {
+                declared.entry(entry).or_insert_with(|| shared.clone());
+            }
+        }
+        Shelf(declared)
     }
 
     fn bytes(&self, hash: u64) -> Option<Vec<u8>> {
@@ -1253,6 +1291,7 @@ fn every_shipped_controller_resolves_into_a_view() {
     ];
     let mut drawn = 0;
     let mut repeats = 0;
+    let (mut bound, mut unbound) = (0, 0);
     for hash in install.hashes() {
         let bytes = install.bytes(hash).unwrap();
         if !bytes.starts_with(b"PROP") {
@@ -1345,6 +1384,13 @@ fn every_shipped_controller_resolves_into_a_view() {
                     }
                 }
             }
+            for binding in &view.bindings {
+                if known(&binding.element) {
+                    bound += 1;
+                } else {
+                    unbound += 1;
+                }
+            }
             for repeat in &view.repeats {
                 repeats += 1;
                 if !known(&repeat.template) || !known(&repeat.layout) {
@@ -1433,7 +1479,8 @@ fn every_shipped_controller_resolves_into_a_view() {
          {missing} sprites no own manifest holds, {texts} texts with a font, \
          {variants} variants laid with {applied} records applied and {skipped} skipped, \
          {combos} combo boxes, {buttons} buttons ({hit_regions} with a hit region), \
-         {meters} meters ({tips} with a tip), {drawn} overlays and player cards drawn, {repeats} layout repeats"
+         {meters} meters ({tips} with a tip), {drawn} overlays and player cards drawn, {repeats} layout repeats, \
+         {bound} bound elements and {unbound} bindings naming none of the base"
     );
     for failure in &failures {
         println!("{failure}");
@@ -1441,7 +1488,33 @@ fn every_shipped_controller_resolves_into_a_view() {
     assert!(views >= 290);
     assert!(drawn >= 28);
     assert!(repeats > 0);
+    assert!(bound > 1000);
     assert!(failures.is_empty());
+}
+
+#[test]
+#[ignore = "reads a game install, and needs LTK_LIVE_GAME"]
+fn the_sample_loadout_reads_out_of_the_install() {
+    let install = Install::mount(&[
+        "Global.wad.client",
+        "Champions/Ahri.wad.client",
+        "Maps/Shipping/Map11.wad.client",
+        "Maps/Shipping/Map12.wad.client",
+    ]);
+
+    let loadout = read_loadout(&install.shelf(), &install, &());
+
+    println!("{loadout:#?}");
+    assert!(loadout.name_key.is_some());
+    assert!(loadout.abilities.iter().all(Option::is_some));
+    assert!(loadout.passive.is_some());
+    assert!(loadout.portrait.is_some());
+    assert!(loadout.splash.is_some());
+    /* The install ships Ignite's icon in an archive this test does not mount. */
+    assert!(loadout.summoners[0].is_some());
+    assert!(loadout.keystone.is_some());
+    assert!(loadout.substyle.is_some());
+    assert!(loadout.items.iter().flatten().count() >= 5);
 }
 
 #[test]

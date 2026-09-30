@@ -13,12 +13,13 @@ use ltk_meta::path::PropertyPath;
 use ltk_meta::walk::Leaf;
 use ltk_meta::{ApplyReport, Bin, BinObject, PropertyPatch};
 
+use super::bindings;
 use super::fields::*;
 use super::font::{FONTS_PATH, FontBins};
 use super::imaa::Manifest;
 use super::model::{
-    UiComboBox, UiElement, UiFile, UiFileRole, UiRepeat, UiScene, UiVariant, UiVariantRecord,
-    UiView, UiViewWarning,
+    UiBinding, UiComboBox, UiElement, UiFile, UiFileRole, UiRepeat, UiScene, UiVariant,
+    UiVariantRecord, UiView, UiViewWarning,
 };
 use super::resolver::{self, ViewResolver, chunk, file_hash, flag, number, position};
 use super::sprite_key;
@@ -149,6 +150,9 @@ pub fn resolve_view(
         repeats: controller
             .map(|controller| resolver::repeats(&controller.properties))
             .unwrap_or_default(),
+        bindings: controller
+            .map(|controller| bindings::bindings(&controller.properties, controller.class_hash))
+            .unwrap_or_default(),
     };
     Ok(assemble(
         head,
@@ -200,6 +204,7 @@ pub fn resolve_scene_bin(
             .class(object.class_hash)
             .unwrap_or_else(|| hex(object.class_hash)),
         repeats: Vec::new(),
+        bindings: Vec::new(),
     };
     Ok(assemble(
         head,
@@ -220,6 +225,7 @@ struct ViewHead {
     name: Option<String>,
     class: String,
     repeats: Vec<UiRepeat>,
+    bindings: Vec<UiBinding>,
 }
 
 /// The view the base's `objects` draw: its scenes and elements resolved against the manifest
@@ -294,6 +300,7 @@ fn assemble(
         fonts: resolver.fonts,
         style_sheets: resolver.style_sheets,
         repeats: head.repeats,
+        bindings: head.bindings,
         warnings,
     }
 }

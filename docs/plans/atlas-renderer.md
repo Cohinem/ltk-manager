@@ -216,13 +216,15 @@ One hand-written pair that reproduces `UI_Alpha` draws while a program loads and
 
 ### 3.3 The screen is a render target, and the canvas shows it
 
-The view draws into a render target exactly the chosen screen size, say 1920 x 1080. The canvas
-draws that target as one textured quad under the editor's pan and zoom. So:
+The view draws into a render target of the chosen screen size, say 1920 x 1080, times a render
+scale. The canvas draws that target as one textured quad under the editor's pan and zoom. So:
 
-- the client snaps rects to the screen's whole pixels (research section 11), and a target of the
-  screen's size snaps to the same pixels
-- zooming past 100% shows the screen's real pixels, filtered nearest, like a design tool's pixel
-  preview
+- the client snaps rects to the screen's whole pixels (research section 11), and the draws keep
+  those rects, whatever the scale
+- the scale follows the canvas's pixels per screen pixel, the next power of two from 1 within a
+  budget of about an 8K frame, so a zoomed-in frame is rasterized at the density it is shown at
+  and stays sharp, and a zoom does not reallocate the target at each step
+- past the scale, a canvas pixel shows the target texel under it, filtered nearest
 - panning and zooming redraw one quad, and the UI redraws only when the model, the screen, the
   preview state or the clock changes
 
@@ -290,7 +292,9 @@ is the frame's centre, or the projection of the preview rig's position when
 ### 3.9 Hit testing reads the solved rects
 
 Picking, hover and marquee test the solved rects and polygon outlines on the CPU, topmost first, in
-the order of the client's input sort. There is no GPU picking pass.
+the order of the client's input sort. There is no GPU picking pass. A click again on the same spot
+picks the next element down the stack under it, a drag where a selected element lies under others
+moves the selection, and the canvas menu's Select layer lists the whole stack.
 
 ## 4 The backend
 

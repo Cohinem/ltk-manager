@@ -16,14 +16,13 @@ import { blackTexel, FlatViewport, useSceneColors, whiteTexel } from "@/modules/
 
 import { Notice } from "../../vfx/preview/components/Notice";
 import { BaseElsewhereNotice } from "../components/BaseElsewhereNotice";
-import { ElementMenu } from "../components/ElementMenu";
-import { SceneMenu } from "../components/SceneMenu";
 import { boardCommands } from "../engine/commands/board";
 import { type PreviewState, visibleElements } from "../engine/commands/build";
 import { layerEdits } from "../engine/edit/targets";
 import { onBoard, toFrame } from "../engine/layout/board";
 import type { PixelRect, Screen } from "../engine/layout/solve";
 import { labelOf } from "../engine/model/layers";
+import { withRoles } from "../engine/model/loadout";
 import { repeatClones, viewRepeats, withClones } from "../engine/model/repeats";
 import { subtreeOf } from "../engine/model/tree";
 import type { ViewFont, ViewStyleSheet } from "../engine/model/view";
@@ -31,6 +30,7 @@ import { useAtlasLayout } from "../hooks/useAtlasLayout";
 import { useUiPrograms, useUiTextures } from "../hooks/useAtlasSources";
 import { useBoard } from "../hooks/useBoard";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
+import { useLoadoutView } from "../hooks/useLoadoutView";
 import { useTextSource, useViewStrings } from "../hooks/useTextSource";
 import { AtlasFrame } from "../rendering/components/AtlasFrame";
 import { AtlasParticles } from "../rendering/components/AtlasParticles";
@@ -47,6 +47,7 @@ import {
 } from "../state/atlasPreview";
 import { canvasKey } from "./canvasKeys";
 import { frameLocal, overlayFramesOf, placeholderRects } from "./canvasMarks";
+import { CanvasMenu, useCanvasMenu } from "./CanvasMenu";
 import { CanvasStatus, editingOf } from "./CanvasStatus";
 import { FrameOverlay, frameNameAt } from "./FrameOverlay";
 import { previewKey } from "./previewKeys";
@@ -96,10 +97,11 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
     source,
   );
   const programs = useUiPrograms(document);
-  const { textures, sizes } = useUiTextures(view);
+  const frame = useFrameSettings();
+  const drawn = useLoadoutView(document, view, tree, frame.samples && !focus);
+  const { textures, sizes } = useUiTextures(drawn.view);
   const strings = useViewStrings(view);
   const text = useTextSource(view?.fonts ?? NO_FONTS, view?.styleSheets ?? NO_SHEETS, strings);
-  const frame = useFrameSettings();
   const key = viewKey(document, entry);
   const { selected, selection, hiddenElements } = useViewPreview(key);
   const restingScenes = useHiddenScenes(tree, key);
@@ -119,8 +121,6 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   const colors = useSceneColors();
   const edit = useAtlasEdit();
   const [animating, setAnimating] = useState(false);
-  const [menuElement, setMenuElement] = useState<string | null>(null);
-  const [menuScene, setMenuScene] = useState<string | null>(null);
   const [particleDraws] = useState(() => new Map<string, ParticleDraw>());
 
   const [pane, setPane] = useState<Screen | null>(null);
@@ -182,28 +182,39 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   const shown = canvas.shown;
 
   const frames = useMemo(() => {
-    if (tree === null || shown === null || board === null) return [];
+    if (tree === null || drawn.tree === null || shown === null || board === null) return [];
 
     /* The copies a controller clones at run time, which a lone element's preview leaves out. */
     const repeats = focus ? [] : viewRepeats(tree, shown);
     const clones = repeatClones(tree, shown, repeats, new Set(order));
     const built = boardCommands(board, {
-      tree,
+      tree: drawn.tree,
       solved: shown,
       settings,
-      preview: { ...preview, overlay: withClones(preview.overlay, clones) },
+      preview: {
+        ...preview,
+        overlay: withClones(withRoles(preview.overlay, drawn.texts, drawn.hidden), clones),
+      },
       textureSizes: sizes,
       text: text.source,
     });
     text.flush();
     return built;
-  }, [tree, shown, board, settings, preview, sizes, text, focus, order]);
+  }, [tree, drawn, shown, board, settings, preview, sizes, text, focus, order]);
   const commands = useMemo(() => frames.flatMap((each) => each.commands), [frames]);
   const overlayFrames = useMemo(() => overlayFramesOf(board, screen), [board, screen]);
+  const menu = useCanvasMenu({
+    nameAt: (x, y) => frameNameAt(overlayFrames, transform.view, x, y)?.scene,
+    pickAll: canvas.pickAll,
+    selection,
+    select: (element) => select(key, element),
+  });
   const placeholders = useMemo(
     () =>
-      frame.samples && tree !== null && shown !== null ? placeholderRects(tree, shown, order) : [],
-    [frame.samples, tree, shown, order],
+      frame.samples && drawn.tree !== null && shown !== null
+        ? placeholderRects(drawn.tree, shown, order)
+        : [],
+    [frame.samples, drawn.tree, shown, order],
   );
   const inputs = useMemo<FrameInputs>(
     () => ({
@@ -302,16 +313,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
               canvas.cursor,
             ),
           }}
-          onContextMenuCapture={(event) => {
-            const [x, y] = pointAt(event);
-            const named = frameNameAt(overlayFrames, transform.view, x, y);
-            setMenuScene(named?.scene ?? null);
-            if (named !== undefined) return;
-
-            const under = canvas.pick(x, y);
-            setMenuElement(under);
-            if (under !== null && !selection.includes(under)) select(key, under);
-          }}
+          onContextMenuCapture={(event) => menu.aim(...pointAt(event))}
           onPointerDown={(event) => {
             /* Interact mode plays the view with the primary button, and pans with the others. */
             if (interact && event.button === 0) {
@@ -389,16 +391,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
             guides={canvas.guides}
           />
         </ContextMenu.Trigger>
-        {menuScene === null && (
-          <ElementMenu
-            document={document}
-            entry={entry}
-            source={source}
-            element={menuElement}
-            canvas
-          />
-        )}
-        {menuScene !== null && <SceneMenu document={document} entry={entry} scene={menuScene} />}
+        <CanvasMenu document={document} entry={entry} source={source} target={menu.target} />
       </ContextMenu.Root>
       <CanvasStatus
         transform={transform}

@@ -121,6 +121,8 @@ export function buildCommands(raw: BuildInput): Command[] {
     });
   }
   overlay.clones.forEach((clone, at) => {
+    if (overlay.hidden.has(clone.element)) return;
+
     const element = tree.elements.get(clone.element);
     const scene = sceneOf(tree, clone.element);
     if (element === undefined || scene === null || !shownScenes.has(scene)) return;
@@ -144,7 +146,8 @@ export function buildCommands(raw: BuildInput): Command[] {
 
       const scissor = scissors.get(sceneOf(tree, element.key) ?? "") ?? null;
       if (item.clone !== undefined) {
-        commands.push(...drawsOf(element, item.clone.rect, scissor, input, item.clone.text));
+        const text = item.clone.text ?? overlay.texts.get(element.key) ?? null;
+        commands.push(...drawsOf(element, item.clone.rect, scissor, input, text));
         continue;
       }
       if (!item.group) {

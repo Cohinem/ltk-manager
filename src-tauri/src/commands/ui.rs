@@ -7,8 +7,9 @@ use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use atlas::{
-    import_sprite, read_sheet, resolve_font, resolve_scene_bin, resolve_view, sprite_png,
-    SheetImport, SheetSpec, SheetTarget, UiFont, UiShader, UiView, VariantChoice, FONTS_PATH,
+    import_sprite, read_loadout, read_sheet, resolve_font, resolve_scene_bin, resolve_view,
+    sprite_png, SheetImport, SheetSpec, SheetTarget, UiFont, UiLoadout, UiShader, UiView,
+    VariantChoice, FONTS_PATH,
 };
 use ltk_hash::WadHash;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments, Namer, RowNames};
@@ -118,6 +119,32 @@ pub async fn read_ui_scene_view(
                 &mut read,
             )
             .map_err(|e| AppError::ValidationFailed(e.to_string()))
+        })
+    })
+    .await
+}
+
+/// The sample champion, summoner spells, runes and items a preview fills a controller's elements
+/// with, read through the sandbox `document` opens in.
+///
+/// An object the index has not reached, or a texture no archive holds, is absent from the answer.
+///
+/// # Errors
+///
+/// Fails when the document is closed.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_ui_loadout(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<UiLoadout> {
+    off_thread(move || {
+        read_resolved(&app_handle, document, |_, names, assets| {
+            Ok(read_loadout(
+                &InstalledGame(app_handle.clone()),
+                assets,
+                names,
+            ))
         })
     })
     .await

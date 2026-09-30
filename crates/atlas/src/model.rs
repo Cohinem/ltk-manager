@@ -38,6 +38,8 @@ pub struct UiView {
     pub style_sheets: Vec<UiStyleSheet>,
     /// The templates the controller clones into its layouts at run time.
     pub repeats: Vec<UiRepeat>,
+    /// The elements the controller fills at run time, each with what it fills them with.
+    pub bindings: Vec<UiBinding>,
     /// Every reference the read could not follow.
     pub warnings: Vec<UiViewWarning>,
 }
@@ -53,6 +55,71 @@ pub struct UiRepeat {
     pub layout: String,
     /// How many copies the controller makes at most.
     pub count: u32,
+}
+
+/// An element a controller's fields name, and what the controller fills it with.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct UiBinding {
+    /// The element, as `0x` and eight digits.
+    pub element: String,
+    pub role: UiRole,
+}
+
+/// What a controller fills an element with at run time.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub enum UiRole {
+    /// A champion ability's icon, 0 to 3 for Q to R.
+    Ability {
+        slot: u8,
+    },
+    Passive,
+    /// A summoner spell's icon, 0 for D and 1 for F.
+    Summoner {
+        slot: u8,
+    },
+    /// An item's icon, 0 to 6 with the trinket last.
+    Item {
+        slot: u8,
+    },
+    /// The champion's square portrait.
+    Portrait,
+    /// The champion's loading screen art.
+    Splash,
+    Keystone,
+    /// The secondary rune path.
+    Substyle,
+    /// A buff's icon.
+    Buff,
+    /// An element the controller shows only in a state a resting slot is not in: an out of mana
+    /// or crowd control overlay, a disabled border, a cooldown effect, a buff timer, a message, a
+    /// health bar's fading trail, an augment. The elements under it go with it.
+    Hidden,
+    /// The key that casts or uses a slot.
+    Hotkey {
+        key: String,
+    },
+    /// A text the controller leaves blank at rest: a cooldown, a charge or stack count, a respawn
+    /// timer.
+    Idle,
+    Level,
+    Health,
+    /// The ability resource, such as mana.
+    Resource,
+    /// An ability's resource cost.
+    Cost,
+    Kda,
+    CreepScore,
+    VisionScore,
+    Gold,
+    PlayerName,
 }
 
 /// One loadable a controller links.

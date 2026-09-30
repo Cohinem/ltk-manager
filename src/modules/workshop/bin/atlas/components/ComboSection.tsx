@@ -44,7 +44,7 @@ export function ComboSection({ combo, view, editable, apply }: ComboSectionProps
       <FieldLine label={m.workshop_bin_atlas_combo_options_label()}>
         <DraftNumber
           value={state.options}
-          scrub={m.workshop_bin_atlas_combo_options_label()}
+          label={m.workshop_bin_atlas_combo_options_label()}
           min={1}
           disabled={false}
           onCommit={(value) => {
