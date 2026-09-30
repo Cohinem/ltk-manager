@@ -474,6 +474,31 @@ export const commands = {
 	 */
 	atlasImportSprite: (document: BinDocumentId, sheet: string, source: string, replace: string | null) => __TAURI_INVOKE<({ ok: true; value: SheetImport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_import_sprite", { document, sheet, source, replace }),
 	/**
+	 *  Make a surface named `name` on the sheet `sheet` of the project `document` opens in, per
+	 *  section 5 of docs/plans/atlas-ui-editor.md: the image of `source`, its slice lines found in it,
+	 *  so it stretches to any element's size.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the document is closed or opens in no project, when the image cannot be read, and
+	 *  when the sheet would outgrow one page.
+	 */
+	atlasMakeSurface: (document: BinDocumentId, sheet: string, name: string, source: SurfaceSource) => __TAURI_INVOKE<({ ok: true; value: SheetImport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_make_surface", { document, sheet, name, source }),
+	/**
+	 *  Paste the PNG at `source` over the sprite at `uv` of the game texture `page`, and rebuild the
+	 *  page into the layer the document `document` writes to, per section 5 of
+	 *  docs/plans/atlas-ui-editor.md. Every element naming a sprite of the page keeps its rect.
+	 * 
+	 *  Answers none, writing nothing, where the game holds no `.tex` at `page` or the image is not the
+	 *  sprite's size, which an import onto the project's sheet takes instead.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the document is closed or opens in no project, and when the page or the image
+	 *  cannot be read or the page cannot be written.
+	 */
+	atlasPatchSprite: (document: BinDocumentId, page: string, uv: [(number | null), (number | null), (number | null), (number | null)], source: string) => __TAURI_INVOKE<({ ok: true; value: PagePatch | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_patch_sprite", { document, page, uv, source }),
+	/**
 	 *  The spec of the sheet `sheet` of the project `document` opens in, none where it has not made
 	 *  that sheet.
 	 * 
@@ -3317,6 +3342,16 @@ export type OverlayOutcome =
 /**  The DLL never attached, or said nothing. */
 "none";
 
+/**  A game page the project rebuilds: where it goes and the sprites pasted over it. */
+export type PagePatch = {
+	/**  The page's chunk path, the game's own. */
+	path: string,
+	/**  The layer and the archive folder of it the page lands in. */
+	layer: string,
+	archive: string,
+	sprites: PatchSprite[],
+};
+
 /**  Which step of section 11.6 last wrote a parameter. */
 export type ParamSource = 
 /**  `ShaderPhysicalParameter.data`. */
@@ -3428,6 +3463,15 @@ export type PassTexture = {
 	texture: NamedAsset | null,
 	source: TextureSource,
 	sampler: SamplerState,
+};
+
+/**  One sprite pasted over a page, whose image is `<key>.png` beside the spec. */
+export type PatchSprite = {
+	key: string,
+	x: number,
+	y: number,
+	width: number,
+	height: number,
 };
 
 /**  Patcher identities */
@@ -3973,6 +4017,11 @@ export type SheetSprite = {
 	y: number,
 	width: number,
 	height: number,
+	/**
+	 *  A surface's slice insets, left, right, top and bottom in pixels, which stretch it as a
+	 *  nine-slice. None for a plain sprite.
+	 */
+	slice: [number, number, number, number] | null,
 };
 
 /**  What a translated stage binds. */
@@ -4152,6 +4201,9 @@ export type SubmeshOverride = {
 	/**  The override's `Material`, which wins over every texture. */
 	material: MaterialPreview | null,
 };
+
+/**  What a surface is made from: an image file, or a sprite an element already draws. */
+export type SurfaceSource = { kind: "file"; path: string } | { kind: "sprite"; texture: AssetRef; uv: [(number | null), (number | null), (number | null), (number | null)] };
 
 /**  A mod, or a workshop project, that the evidence implicates. */
 export type Suspect = {
@@ -4636,7 +4688,8 @@ export type UiRole =
 { kind: "buff" } | 
 /**
  *  An element the controller shows only in a state a resting slot is not in: an out of mana
- *  or crowd control overlay, a disabled border, a cooldown effect, a buff timer, a message.
+ *  or crowd control overlay, a disabled border, a cooldown effect, a buff timer, a message, a
+ *  health bar's fading trail, an augment. The elements under it go with it.
  */
 { kind: "hidden" } | 
 /**  The key that casts or uses a slot. */

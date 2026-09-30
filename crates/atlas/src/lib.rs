@@ -12,9 +12,11 @@ mod imaa;
 mod loadout;
 mod model;
 pub mod pack;
+mod patch;
 mod program;
 mod resolver;
 mod sheet;
+mod surface;
 mod view;
 
 pub use font::{FONTS_PATH, resolve_font};
@@ -27,9 +29,15 @@ pub use model::{
     UiSprite, UiStyleSheet, UiTextIcon, UiTextStyle, UiTexture, UiTipStyle, UiVariant,
     UiVariantRecord, UiView, UiViewWarning,
 };
+pub use patch::{
+    PAGES_DIR, PagePatch, PatchSprite, PatchTarget, patch_sprite, patchable, read_patch,
+    rebuild_patch,
+};
 pub use program::{UiShader, read_ui_programs};
+pub use sheet::SHEETS_DIR as SOURCES_DIR;
 pub use sheet::{
-    SheetImport, SheetSpec, SheetSprite, SheetTarget, import_sprite, read_sheet, sprite_png,
+    SheetImport, SheetSpec, SheetSprite, SheetTarget, import_sprite, import_surface, png_pixels,
+    read_sheet, rebuild_sheet, sprite_pixels, sprite_png,
 };
 pub use view::{UiViewError, VariantChoice, resolve_scene_bin, resolve_view};
 

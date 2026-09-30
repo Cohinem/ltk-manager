@@ -27,6 +27,9 @@ const QUIET: Duration = Duration::from_millis(300);
 /// The directory under a project that contains its layers, as `AssetRef::layer_file` reads it.
 const CONTENT_DIR: &str = "content";
 
+/// Rebuilds what a batch of changed Atlas source files feeds, given the project and those files.
+pub type SourceRebuild = Arc<dyn Fn(&str, &[PathBuf]) + Send + Sync>;
+
 /// The layer watches of the open workshop projects, by project directory.
 ///
 /// A change clears the project's cached sandboxes before the event is emitted, so a read the
@@ -34,6 +37,8 @@ const CONTENT_DIR: &str = "content";
 pub struct LayerWatches {
     events: Arc<dyn EventSink>,
     sandboxes: SandboxState,
+    /// What a change under a project's Atlas sources rebuilds, and nothing where unset.
+    sources: Option<SourceRebuild>,
     watches: Mutex<HashMap<String, LayerWatch>>,
 }
 
@@ -50,8 +55,17 @@ impl LayerWatches {
         Self {
             events,
             sandboxes,
+            sources: None,
             watches: Mutex::default(),
         }
+    }
+
+    /// The same watches, which also watch each project's Atlas sources and run `rebuild` on the
+    /// source files a batch changed. The page it writes lands in a layer, which the layer watch
+    /// then announces.
+    pub fn with_sources(mut self, rebuild: SourceRebuild) -> Self {
+        self.sources = Some(rebuild);
+        self
     }
 
     /// Watch the layers of `project`, or count one more reference to its running watch.
@@ -102,13 +116,34 @@ impl LayerWatches {
         /* Canonical. FSEvents reports the real path, and a reported path strips only the
         prefix it was reported under. */
         let content = fs::canonicalize(Path::new(project).join(CONTENT_DIR))?;
+        let sources = match &self.sources {
+            Some(_) => {
+                let dir = Path::new(project).join(atlas::SOURCES_DIR);
+                fs::create_dir_all(&dir)?;
+                Some(fs::canonicalize(dir)?)
+            }
+            None => None,
+        };
         let events = Arc::clone(&self.events);
         let sandboxes = self.sandboxes.clone();
+        let rebuild = self.sources.clone();
         let owner = project.to_owned();
         let root = content.clone();
+        let source_root = sources.clone();
 
         let mut debouncer = new_debouncer(QUIET, move |result: DebounceEventResult| match result {
-            Ok(batch) => announce(&*events, &sandboxes, &owner, &root, &batch),
+            Ok(batch) => {
+                let (changed, layers): (Vec<_>, Vec<_>) =
+                    settled_files(&batch).into_iter().partition(|path| {
+                        source_root
+                            .as_ref()
+                            .is_some_and(|dir| path.starts_with(dir))
+                    });
+                if let Some(rebuild) = rebuild.as_ref().filter(|_| !changed.is_empty()) {
+                    rebuild(&owner, &changed);
+                }
+                announce(&*events, &sandboxes, &owner, &root, &layers);
+            }
             Err(error) => tracing::warn!("Layer watch on {owner} failed: {error}"),
         })
         .map_err(watch_error)?;
@@ -116,6 +151,12 @@ impl LayerWatches {
             .watcher()
             .watch(&content, RecursiveMode::Recursive)
             .map_err(watch_error)?;
+        if let Some(sources) = &sources {
+            debouncer
+                .watcher()
+                .watch(sources, RecursiveMode::Recursive)
+                .map_err(watch_error)?;
+        }
 
         tracing::debug!("Watching the layers of {project}");
         Ok(debouncer)
@@ -136,15 +177,14 @@ impl fmt::Debug for LayerWatches {
     }
 }
 
-/// Emit the layer files a debounced batch touched, where it touched any.
+/// Emit the layer files among `paths`, where there are any.
 fn announce(
     events: &dyn EventSink,
     sandboxes: &SandboxState,
     project: &str,
     content: &Path,
-    batch: &[DebouncedEvent],
+    paths: &[PathBuf],
 ) {
-    let paths = settled_files(batch);
     if let Some(change) =
         LayerFilesChanged::collect(project, content, paths.iter().map(PathBuf::as_path))
     {

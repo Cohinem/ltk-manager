@@ -2,13 +2,15 @@
 
 use super::bin::InstalledGame;
 use super::document_assets::{parse_entry, read_resolved, with_resolution};
+use super::game_index::game_file;
 use super::material::translations;
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use atlas::{
-    import_sprite, read_loadout, read_sheet, resolve_font, resolve_scene_bin, resolve_view,
-    sprite_png, SheetImport, SheetSpec, SheetTarget, UiFont, UiLoadout, UiShader, UiView,
+    import_sprite, import_surface, patch_sprite, patchable, png_pixels, read_loadout, read_sheet,
+    resolve_font, resolve_scene_bin, resolve_view, sprite_pixels, sprite_png, PagePatch,
+    PatchTarget, SheetImport, SheetSpec, SheetTarget, UiFont, UiLoadout, UiShader, UiView,
     VariantChoice, FONTS_PATH,
 };
 use ltk_hash::WadHash;
@@ -187,15 +189,7 @@ pub async fn atlas_import_sprite(
         let asset = documents
             .asset_of(document)
             .ok_or_else(|| not_open(document))?;
-        let layer = match (documents.declared_state(document)?, &asset) {
-            (Some(declared), _) => declared.layer,
-            (None, AssetRef::Layer { layer, .. }) => layer.clone(),
-            (None, _) => {
-                return Err(AppError::ValidationFailed(
-                    "The document writes to no layer".to_owned(),
-                ))
-            }
-        };
+        let layer = layer_of(&documents, document, &asset)?;
         let archive = archive_of(&asset).ok_or_else(|| {
             AppError::ValidationFailed("The document is in no archive".to_owned())
         })?;
@@ -211,6 +205,136 @@ pub async fn atlas_import_sprite(
         Ok(imported)
     })
     .await
+}
+
+/// What a surface is made from: an image file, or a sprite an element already draws.
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum SurfaceSource {
+    File { path: String },
+    Sprite { texture: AssetRef, uv: [f32; 4] },
+}
+
+/// Make a surface named `name` on the sheet `sheet` of the project `document` opens in, per
+/// section 5 of docs/plans/atlas-ui-editor.md: the image of `source`, its slice lines found in it,
+/// so it stretches to any element's size.
+///
+/// # Errors
+///
+/// Fails when the document is closed or opens in no project, when the image cannot be read, and
+/// when the sheet would outgrow one page.
+#[tauri::command]
+#[specta::specta]
+pub async fn atlas_make_surface(
+    document: BinDocumentId,
+    sheet: String,
+    name: String,
+    source: SurfaceSource,
+    app_handle: AppHandle,
+) -> IpcResult<SheetImport> {
+    let config = app_handle.state::<SettingsState>().config();
+
+    off_thread(move || {
+        let documents = app_handle.state::<BinDocuments>();
+        let project = project_of(&documents, document)?;
+        let asset = documents
+            .asset_of(document)
+            .ok_or_else(|| not_open(document))?;
+        let layer = layer_of(&documents, document, &asset)?;
+        let archive = archive_of(&asset).ok_or_else(|| {
+            AppError::ValidationFailed("The document is in no archive".to_owned())
+        })?;
+
+        let image = match source {
+            SurfaceSource::File { path } => png_pixels(Path::new(&path))?,
+            SurfaceSource::Sprite { texture, uv } => {
+                sprite_pixels(&texture.read(&config, &app_handle.state::<WadCache>())?, uv)?
+            }
+        };
+        let target = SheetTarget {
+            project: Path::new(&project),
+            sheet: &sheet,
+            layer: &layer,
+            archive: &archive,
+        };
+        let made = import_surface(&target, &name, image)?;
+        app_handle.state::<SandboxState>().invalidate(&project);
+        Ok(made)
+    })
+    .await
+}
+
+/// Paste the PNG at `source` over the sprite at `uv` of the game texture `page`, and rebuild the
+/// page into the layer the document `document` writes to, per section 5 of
+/// docs/plans/atlas-ui-editor.md. Every element naming a sprite of the page keeps its rect.
+///
+/// Answers none, writing nothing, where the game holds no `.tex` at `page` or the image is not the
+/// sprite's size, which an import onto the project's sheet takes instead.
+///
+/// # Errors
+///
+/// Fails when the document is closed or opens in no project, and when the page or the image
+/// cannot be read or the page cannot be written.
+#[tauri::command]
+#[specta::specta]
+pub async fn atlas_patch_sprite(
+    document: BinDocumentId,
+    page: String,
+    uv: [f32; 4],
+    source: String,
+    app_handle: AppHandle,
+) -> IpcResult<Option<PagePatch>> {
+    off_thread(move || {
+        if !patchable(&page) {
+            return Ok(None);
+        }
+
+        let documents = app_handle.state::<BinDocuments>();
+        let project = project_of(&documents, document)?;
+        let asset = documents
+            .asset_of(document)
+            .ok_or_else(|| not_open(document))?;
+        let layer = layer_of(&documents, document, &asset)?;
+        let Some((base, bytes)) = game_file(&app_handle, &page)? else {
+            return Ok(None);
+        };
+        let archive = archive_of(&base)
+            .ok_or_else(|| AppError::ValidationFailed("The page is in no archive".to_owned()))?;
+
+        let path = page.to_lowercase();
+        let target = PatchTarget {
+            project: Path::new(&project),
+            path: &path,
+            layer: &layer,
+            archive: &archive,
+        };
+        let patched = patch_sprite(&target, &bytes, uv, Path::new(&source))?;
+        if patched.is_some() {
+            app_handle.state::<SandboxState>().invalidate(&project);
+        }
+        Ok(patched)
+    })
+    .await
+}
+
+/// The layer an edit of the document `document` writes to: the one it declares into, else the
+/// layer its own file sits in.
+fn layer_of(
+    documents: &BinDocuments,
+    document: BinDocumentId,
+    asset: &AssetRef,
+) -> AppResult<String> {
+    match (documents.declared_state(document)?, asset) {
+        (Some(declared), _) => Ok(declared.layer),
+        (None, AssetRef::Layer { layer, .. }) => Ok(layer.clone()),
+        (None, _) => Err(AppError::ValidationFailed(
+            "The document writes to no layer".to_owned(),
+        )),
+    }
 }
 
 /// The spec of the sheet `sheet` of the project `document` opens in, none where it has not made

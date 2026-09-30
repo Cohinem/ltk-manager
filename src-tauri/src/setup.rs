@@ -143,10 +143,10 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(crate::commands::ReferenceWalkState::default());
     app.manage(mod_library);
     app.manage(workshop);
-    app.manage(crate::workshop::LayerWatches::new(
-        Arc::clone(&events),
-        sandboxes,
-    ));
+    app.manage(
+        crate::workshop::LayerWatches::new(Arc::clone(&events), sandboxes)
+            .with_sources(crate::workshop::source_rebuild(app.handle().clone())),
+    );
     app.manage(hotkey_manager);
     app.manage(deep_link_state);
 

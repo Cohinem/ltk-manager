@@ -118,3 +118,24 @@ fn a_file_saved_into_a_layer_is_announced() {
         }]
     );
 }
+
+#[test]
+fn an_atlas_source_saved_goes_to_the_rebuild_and_is_no_layer_file() {
+    let project = project_with_layer();
+    let path = project.path().to_str().unwrap();
+    let (sender, rebuilt) = mpsc::channel();
+    let sender = Mutex::new(sender);
+    let (watches, changes) = watches_reporting();
+    let watches = watches.with_sources(Arc::new(move |_: &str, changed: &[PathBuf]| {
+        let _ = sender.lock().send(changed.to_vec());
+    }));
+    watches.acquire(path).unwrap();
+
+    let sheet = project.path().join(atlas::SOURCES_DIR).join("hud");
+    fs::create_dir_all(&sheet).unwrap();
+    fs::write(sheet.join("icon.png"), b"pixels").unwrap();
+
+    let changed = rebuilt.recv_timeout(Duration::from_secs(10)).unwrap();
+    assert!(changed.iter().any(|file| file.ends_with("icon.png")));
+    assert!(changes.recv_timeout(Duration::from_secs(1)).is_err());
+}

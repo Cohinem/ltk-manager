@@ -126,3 +126,31 @@ function joined(rects: readonly PixelRect[]): PixelRect | null {
   const bottom = Math.max(...sized.map((rect) => rect.y + rect.h));
   return { x, y, w: right - x, h: bottom - y };
 }
+
+/**
+ * `under`, topmost first, with each button just before the first of the elements it holds, so a
+ * click on a button picks the button and a click again on the spot reaches what it holds.
+ */
+export function buttonsFirst(tree: ViewTree, under: readonly string[]): string[] {
+  const ordered: string[] = [];
+  for (const key of under) {
+    const button = buttonAbove(tree, key);
+    if (button !== null && !ordered.includes(button)) ordered.push(button);
+    if (!ordered.includes(key)) ordered.push(key);
+  }
+  return ordered;
+}
+
+/** The nearest button group holding `key`, none where no button holds it. */
+function buttonAbove(tree: ViewTree, key: string): string | null {
+  const seen = new Set<string>([key]);
+  for (
+    let at = tree.groupOf.get(key);
+    at !== undefined && !seen.has(at);
+    at = tree.groupOf.get(at)
+  ) {
+    if (buttonOf(tree.elements.get(at)) !== null) return at;
+    seen.add(at);
+  }
+  return null;
+}

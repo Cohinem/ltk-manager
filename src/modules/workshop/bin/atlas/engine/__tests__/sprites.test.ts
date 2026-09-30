@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { SheetSpec } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
-import { sheetNameOf, sheetSpriteAt, sheetSpriteEdits } from "../edit/spriteEdits";
+import { sheetNameOf, sheetSpriteAt, sheetSpriteEdits, surfaceEdits } from "../edit/spriteEdits";
 import {
   exportedSprite,
   iconThumb,
@@ -22,8 +22,8 @@ const SHEET: SheetSpec = {
   width: 64,
   height: 32,
   sprites: [
-    { key: "frame", x: 2, y: 2, width: 20, height: 10 },
-    { key: "gem", x: 26, y: 2, width: 8, height: 8 },
+    { key: "frame", x: 2, y: 2, width: 20, height: 10, slice: [3, 4, 2, 2] },
+    { key: "gem", x: 26, y: 2, width: 8, height: 8, slice: null },
   ],
 };
 
@@ -170,5 +170,30 @@ describe("exportedSprite", () => {
     expect(spriteFileName("icon_gold.TEX")).toBe("icon_gold.png");
     expect(spriteFileName('a/b:c*"d')).toBe("a_b_c__d.png");
     expect(spriteFileName("")).toBe("sprite.png");
+  });
+});
+
+describe("surfaceEdits", () => {
+  it("dresses an element in a nine-slice whose edges keep the surface's insets", () => {
+    const frame = SHEET.sprites[0];
+    if (frame === undefined) throw new Error("the sheet holds a frame");
+
+    const [edit] = surfaceEdits(["panel"], SHEET, frame);
+
+    expect(edit?.edits[0]).toEqual({
+      type: "replacePointer",
+      path: "",
+      class: "AtlasData9Slice",
+    });
+    expect(edit?.edits).toContainEqual({
+      type: "setLeaf",
+      path: nameHash("TextureUs").slice(2),
+      value: { type: "vector", values: [2, 5, 18, 22] },
+    });
+    expect(edit?.edits).toContainEqual({
+      type: "setLeaf",
+      path: nameHash("TopBottomHeights").slice(2),
+      value: { type: "vector", values: [2, 2] },
+    });
   });
 });

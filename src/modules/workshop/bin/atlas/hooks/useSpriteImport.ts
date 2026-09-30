@@ -7,6 +7,7 @@ import { errorSummary, m } from "@/i18n";
 import { api, type BinDocumentId, type SheetSpec } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
+import { uiKeys } from "../api/uiQueries";
 import { sheetNameOf, sheetSpriteEdits } from "../engine/edit/spriteEdits";
 import type { View } from "../engine/model/view";
 import { useAtlasEdit } from "../state/atlasEdit";
@@ -20,10 +21,33 @@ export interface SpriteImport {
   /** The project's sheet for the view, null where it has none yet. */
   readonly sheet: SheetSpec | null;
   /**
-   * Pick a PNG, put it on the view's sheet, and point every element of `elements` at it. `replace`
-   * is the sheet sprite the image stands in for, which keeps its rect where the sizes agree.
+   * Pick a PNG and put it in place of the sprite. On a game `page` an image the sprite's size is
+   * pasted over it in a copy of the page the project ships, and the elements keep pointing at it.
+   * Any other image goes on the view's sheet, and every element of `elements` points at it.
+   * `replace` is the sheet sprite the image stands in for, which keeps its rect where the sizes
+   * agree.
    */
-  readonly run: (elements: readonly string[], replace: string | null) => Promise<void>;
+  readonly run: (
+    elements: readonly string[],
+    replace: string | null,
+    page: SpritePage | null,
+  ) => Promise<void>;
+}
+
+/** A sprite of a game texture: the texture's path and the sprite's rect on it. */
+export interface SpritePage {
+  readonly path: string;
+  readonly uv: readonly [number, number, number, number];
+}
+
+/** The game page a sprite at `uv` of the texture `path` sits on, none on the project's own sheet. */
+export function pageOf(
+  path: string,
+  uv: readonly [number, number, number, number],
+  sheet: SheetSpec | null,
+): SpritePage | null {
+  if (sheet !== null && path.toLowerCase() === sheet.path.toLowerCase()) return null;
+  return { path, uv };
 }
 
 /**
@@ -43,7 +67,7 @@ export function useSpriteImport(view: View | null): SpriteImport {
   const sheet = useQuery(sheetQuery(document, name));
 
   const run = useCallback(
-    async (elements: readonly string[], replace: string | null) => {
+    async (elements: readonly string[], replace: string | null, page: SpritePage | null) => {
       if (!available || edit === null || document === null || name === null) return;
 
       const file = await open({
@@ -54,6 +78,19 @@ export function useSpriteImport(view: View | null): SpriteImport {
 
       setImporting(true);
       try {
+        if (page !== null) {
+          const patched = await api.bin.atlasPatchSprite(document, page.path, page.uv, file);
+          if (!patched.ok) {
+            toast.error(m.workshop_bin_atlas_sprites_import_failed(), errorSummary(patched.error));
+            return;
+          }
+          if (patched.value !== null) {
+            /* The first patch of a page turns its texture from the game's copy into the layer's. */
+            await queryClient.invalidateQueries({ queryKey: uiKeys.views });
+            return;
+          }
+        }
+
         const result = await api.bin.atlasImportSprite(document, name, file, replace);
         if (!result.ok) {
           toast.error(m.workshop_bin_atlas_sprites_import_failed(), errorSummary(result.error));
@@ -75,7 +112,7 @@ export function useSpriteImport(view: View | null): SpriteImport {
 }
 
 /** The project's sheet for the view named `name`, read through `document`'s project. */
-function sheetQuery(document: BinDocumentId | null, name: string | null) {
+export function sheetQuery(document: BinDocumentId | null, name: string | null) {
   return queryOptions({
     queryKey: [SHEET_KEY, document, name] as const,
     queryFn: async () =>

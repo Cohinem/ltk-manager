@@ -12,6 +12,7 @@ import { nameHash } from "../../shared/utils/binHash";
 import { BinTree } from "../../tree/components/BinTree";
 import { Notice } from "../../vfx/preview/components/Notice";
 import type { LayoutSettings, PixelRect } from "../engine/layout/solve";
+import { classAlias } from "../engine/model/classNames";
 import { labelOf } from "../engine/model/layers";
 import type { ViewTree } from "../engine/model/tree";
 import type { ViewElement } from "../engine/model/view";
@@ -126,8 +127,11 @@ function ElementFields({
           >
             {labelOf(element.label, element.path, element.key)}
           </span>
-          <span className="min-w-0 shrink truncate text-meta text-surface-400">
-            {element.class}
+          <span
+            title={element.class}
+            className="min-w-0 shrink truncate text-meta text-surface-400"
+          >
+            {classAlias(element.class)}
           </span>
           <Tooltip content={m.workshop_bin_open_object_action()}>
             <IconButton

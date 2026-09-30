@@ -207,12 +207,26 @@ lookup also searches every loaded manifest and caches the first hit by hash, so 
 that repeats a game key does not reliably win. Atlas never writes a key the game's manifests
 already hold into a different manifest.
 
-**Replacing pixels.** A HUD reskin changes the pixels of an existing sprite. The new image joins the
-mod's sheet and every element drawing the sprite points at it, whether the sprite sat on a page or
-on a game sheet, so no file of the game is copied or written (decision 9.4). The starting image is
-Export PNG, in the inspector, the sprites pane (E) and an element's menu. It writes the sprite's rect
-of its page unflipped at the page's full resolution, so an edited copy of the same size replaces a
-sprite on the mod's sheet in place.
+**Replacing pixels.** A HUD reskin changes the pixels of an existing sprite. On a game texture, an
+image the sprite's size is pasted over it in a copy of that page the project ships at the game's own
+path, so every element and manifest entry keeps its rect (decision 9.4). The image and a spec of
+the patched rects sit in `.ltk/atlas/pages/<page>/`, and the page derives from the game's texture and
+those images alone. Any other image, and any image on the mod's own sheet, joins the sheet, and
+every element drawing the sprite points at it. The starting image is Export PNG, in the inspector,
+the sprites pane (E) and an element's menu. It writes the sprite's rect of its page unflipped at
+the page's full resolution, so an edited copy replaces the sprite in place.
+
+**Surfaces.** A surface is a panel style made once and worn by any number of images at their own
+size, with no slice numbers to set. "Make surface from this" on an image, or a PNG, adds its pixels
+to the mod's sheet and finds the slice lines itself: the longest run of columns, and of rows, that
+repeat is the part that stretches, and the art either side of it draws at its own size. An image
+wearing a surface is an `AtlasData9Slice` whose edges keep those insets. "Apply surface" dresses
+every selected image in one undo step, and the inspector's Surface list swaps it. A fill that
+repeats, a flat colour or a soft gradient, stretches cleanly. Grain in the fill stretches with it.
+
+**Sources are watched.** While a project is open, a PNG saved under its `.ltk/atlas/` rebuilds the
+sheet or patched page that holds it, and the layer watch then redraws the view. A page already
+newer than the changed images, as it is right after an import, is not rebuilt again.
 
 **The packer.** It reproduces the game's measured page rules: power-of-two pages up to 2048, 2 px
 of padding per sprite with the edge pixels extruded into it, no mipmaps, BC7 for pages with
@@ -315,8 +329,10 @@ controller does in code.
 3. **Where the sheet lives and who packs it.** Taken in phase 4: the page is
    `assets/ux/<project>/<view>.tex`, the spec and sources sit in `.ltk/atlas/`, and packing runs
    at each import (section 5).
-4. **Whether an existing page is ever rewritten.** Taken in phase 4: never. An edited sprite moves
-   onto the mod's sheet, and the repack of a view's own pages is not offered.
+4. **Whether an existing page is ever rewritten.** Revised after phase 4: a replacement the
+   sprite's size is pasted over a copy of the game's page, so no element or manifest changes. A
+   page is never repacked, since moving a rect breaks every view that reads the page, so an image
+   of another size moves onto the mod's sheet.
 5. **Renderer.** Moved to `docs/plans/atlas-renderer.md`, section 10.
 
 Research section 13 carries the questions still open about the client. None of them blocks phase 1,

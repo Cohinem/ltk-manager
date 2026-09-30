@@ -12,6 +12,7 @@ import { snapRect, type SnapGuide } from "../engine/edit/snap";
 import { type MoveSet, moveSet, resizable } from "../engine/edit/targets";
 import { type Board, frameRect } from "../engine/layout/board";
 import type { LayoutSettings, PixelRect } from "../engine/layout/solve";
+import { buttonsFirst } from "../engine/model/buttons";
 import type { ViewTree } from "../engine/model/tree";
 import type { AtlasEdit } from "../state/atlasEdit";
 import { useAtlasPreviewActions } from "../state/atlasPreview";
@@ -177,9 +178,10 @@ export function useCanvasEdit({
       if (shown === null) return [];
 
       const [sx, sy] = transform.toScreen(x, y);
-      return elementsAt(order, shown, sx, sy);
+      const under = elementsAt(order, shown, sx, sy);
+      return tree === null ? under : buttonsFirst(tree, under);
     },
-    [shown, order, transform],
+    [shown, order, transform, tree],
   );
   const pick = useCallback((x: number, y: number) => pickAll(x, y)[0] ?? null, [pickAll]);
   const lastClick = useRef<{ readonly client: Point; readonly element: string | null } | null>(

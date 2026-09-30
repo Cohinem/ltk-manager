@@ -46,7 +46,7 @@ import {
   viewKey,
 } from "../state/atlasPreview";
 import { canvasKey } from "./canvasKeys";
-import { frameLocal, overlayFramesOf, placeholderRects } from "./canvasMarks";
+import { frameLocal, nestedFramesOf, overlayFramesOf, placeholderRects } from "./canvasMarks";
 import { CanvasMenu, useCanvasMenu } from "./CanvasMenu";
 import { CanvasStatus, editingOf } from "./CanvasStatus";
 import { FrameOverlay, frameNameAt } from "./FrameOverlay";
@@ -202,7 +202,10 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
     return built;
   }, [tree, drawn, shown, board, settings, preview, sizes, text, focus, order]);
   const commands = useMemo(() => frames.flatMap((each) => each.commands), [frames]);
-  const overlayFrames = useMemo(() => overlayFramesOf(board, screen), [board, screen]);
+  const overlayFrames = useMemo(
+    () => [...overlayFramesOf(board, screen), ...nestedFramesOf(board, tree, shown, order)],
+    [board, screen, tree, shown, order],
+  );
   const menu = useCanvasMenu({
     nameAt: (x, y) => frameNameAt(overlayFrames, transform.view, x, y)?.scene,
     pickAll: canvas.pickAll,
