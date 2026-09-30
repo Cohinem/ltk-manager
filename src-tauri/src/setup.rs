@@ -130,7 +130,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_core::game_index::PathSearchGeneration::default());
     app.manage(ltk_manager_core::game_wads::WadCache::default());
     app.manage(ltk_manager_core::material::defs::ShaderDefsCache::default());
-    app.manage(crate::commands::ObjectIndexState::default());
+    app.manage(crate::services::objects::ObjectIndexState::default());
     app.manage(ltk_manager_core::object_index::ObjectSearchGeneration::default());
     app.manage(ltk_manager_core::object_index::ObjectFindGeneration::default());
     app.manage(ltk_manager_core::object_index::ObjectReferenceGeneration::default());
@@ -139,8 +139,8 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let sandboxes = ltk_manager_core::sandbox::SandboxState::default();
     app.manage(sandboxes.clone());
     app.manage(ltk_manager_core::hashtables::BinHashTablesState::default());
-    app.manage(crate::commands::ExtractState::default());
-    app.manage(crate::commands::ReferenceWalkState::default());
+    app.manage(crate::services::game::ExtractState::default());
+    app.manage(crate::services::objects::ReferenceWalkState::default());
     app.manage(mod_library);
     app.manage(workshop);
     app.manage(
@@ -155,7 +155,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // the tables it replaced, and `state` on an unmanaged one is a panic.
     let for_tables = app_handle.clone();
     library.maintain_in_background(settings.config.clone(), move || {
-        crate::commands::hashtables::reopen_after_sync(&for_tables);
+        crate::services::game::hashtables::reopen_after_sync(&for_tables);
     });
 
     crate::telemetry::refresh_from_document(&app_handle);

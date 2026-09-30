@@ -470,7 +470,7 @@ beforeEach(() => {
       return Promise.resolve({ ok: true, value: SCHEMA });
     if (command === commandNames.app.locateFilesNear)
       return Promise.resolve({ ok: true, value: {} });
-    if (command === commandNames.app.declaredObjects) {
+    if (command === commandNames.objects.declaredObjects) {
       const hashes = (args?.objectHashes ?? []) as string[];
       const objects = Object.fromEntries(
         hashes.filter((hash) => hash in DECLARED).map((hash) => [hash, DECLARED[hash]]),
@@ -513,7 +513,7 @@ function asked(): string[] {
 /** Every object hash the link checks have asked the index about, in the order asked. */
 function declaredAsked(): string[] {
   return mockInvoke.mock.calls
-    .filter(([command]) => command === commandNames.app.declaredObjects)
+    .filter(([command]) => command === commandNames.objects.declaredObjects)
     .flatMap(([, args]) => (args as { objectHashes: string[] }).objectHashes);
 }
 
@@ -1930,7 +1930,7 @@ describe("ClassView over sixty emitters", () => {
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
       if (command === commandNames.app.locateFilesNear)
         return Promise.resolve({ ok: true, value: {} });
-      if (command === commandNames.app.declaredObjects) {
+      if (command === commandNames.objects.declaredObjects) {
         return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects: {} } });
       }
       if (command !== commandNames.bin.binRead) {

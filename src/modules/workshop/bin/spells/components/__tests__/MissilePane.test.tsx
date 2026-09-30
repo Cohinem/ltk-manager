@@ -51,7 +51,7 @@ function mount(preview: SpellPreview = PREVIEW, effects: EffectSystem[] = [EFFEC
     if (command === commandNames.bin.binOpen)
       return { ok: true, value: { document: args.asset.kind === "file" ? 9 : 2 } };
     if (command === commandNames.app.readSpell) return { ok: true, value: preview };
-    if (command === commandNames.app.declaredObjects)
+    if (command === commandNames.objects.declaredObjects)
       return {
         ok: true,
         value: {

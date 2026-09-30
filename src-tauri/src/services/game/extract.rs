@@ -7,7 +7,7 @@ use std::time::Instant;
 use parking_lot::Mutex;
 use tauri::{AppHandle, Manager, State};
 
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use crate::state::SettingsState;

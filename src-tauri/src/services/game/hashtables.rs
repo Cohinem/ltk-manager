@@ -1,6 +1,6 @@
 //! Hashtable cache commands: status and sync.
 
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::IpcResult;
 use crate::events::TauriEventSink;
 use crate::mods::ModLibraryState;
@@ -132,7 +132,7 @@ pub fn reopen_after_sync(app: &AppHandle) {
     app.state::<StringKeyIndexState>().clear();
     app.state::<GameIndexState>().clear();
     BinNames::invalidate_game_index();
-    super::object_index::rename_after_sync(app);
+    crate::services::objects::index::rename_after_sync(app);
 }
 
 /// Re-check the library against the tables the sync just installed.

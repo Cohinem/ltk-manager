@@ -167,7 +167,7 @@ beforeEach(() => {
     if (command === commandNames.bin.classSchema)
       return Promise.resolve({ ok: true, value: SCHEMA });
     if (command === commandNames.bin.classDocs) return Promise.resolve({ ok: true, value: DOCS });
-    if (command === commandNames.app.classObjectCount) {
+    if (command === commandNames.objects.classObjectCount) {
       return Promise.resolve({ ok: true, value: { status: "ready", count: 42 } });
     }
     if (command === commandNames.bin.syncMetaDocs) return Promise.resolve({ ok: true, value: 0 });

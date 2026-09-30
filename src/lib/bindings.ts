@@ -157,124 +157,6 @@ export const commands = {
 	 */
 	detectStorageMedium: (path: string) => __TAURI_INVOKE<({ ok: true; value: StorageMedium }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("detect_storage_medium", { path }),
 	/**
-	 *  Search known stringtable field names for the workshop strings editor.
-	 * 
-	 *  The first call builds the suggestion index, reading the shared cache's
-	 *  `rst-xxh3` table and the game stringtable for value previews, so it can take
-	 *  a moment. Subsequent calls are instant.
-	 */
-	searchStringKeys: (query: string, limit: number | null) => __TAURI_INVOKE<({ ok: true; value: StringKeySearchResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_string_keys", { query, limit }),
-	/**
-	 *  Current in-game text for string-table keys, for the override editor and the bin editor.
-	 * 
-	 *  Shares the suggestion index with [`search_string_keys`], first-call build
-	 *  cost included, on a blocking thread because a bin opening asks for it. A key
-	 *  the game does not resolve is absent from the map.
-	 */
-	lookupStringValues: (keys: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: string } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("lookup_string_values", { keys }),
-	/**
-	 *  Report what the shared hashtable cache currently holds.
-	 * 
-	 *  A cache that was never synced is a normal report, not an error.
-	 */
-	getHashtableCacheStatus: () => __TAURI_INVOKE<({ ok: true; value: HashtableCacheStatus }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_hashtable_cache_status"),
-	/**
-	 *  Report what the latest published release has that the cache does not.
-	 * 
-	 *  Reads the remote manifest and nothing else: no download, no install, and no
-	 *  update lock, so this is safe to run unasked and safe while another process
-	 *  is midway through a sync. The meta schema database is asked the same
-	 *  question, and answers for itself.
-	 */
-	checkHashtableUpdates: () => __TAURI_INVOKE<({ ok: true; value: HashtableUpdateCheck_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_hashtable_updates"),
-	/**
-	 *  Download the latest published hashtables into the shared cache.
-	 * 
-	 *  Emits `hashtable-sync-progress` once per asset download. `force`
-	 *  re-downloads every table even when the local copy already matches.
-	 * 
-	 *  A run that installed something drops everything read out of the old tables,
-	 *  so the next caller sees the names the new ones give.
-	 */
-	syncHashtables: (force: boolean) => __TAURI_INVOKE<({ ok: true; value: HashtableSyncReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("sync_hashtables", { force }),
-	/**  List the game's WAD archives under `DATA/FINAL`, sorted by name. */
-	getGameWads: () => __TAURI_INVOKE<({ ok: true; value: GameWadSummary[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_game_wads"),
-	/**
-	 *  Read the chunk list of one game WAD archive.
-	 * 
-	 *  Path hashes resolve through the shared hashtable cache when it is
-	 *  populated. Otherwise every path comes back null.
-	 */
-	readGameWad: (wadName: string) => __TAURI_INVOKE<({ ok: true; value: GameWadEntry[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_game_wad", { wadName }),
-	/**  Report what the folded game index holds, building it on first use. */
-	getGameIndex: () => __TAURI_INVOKE<({ ok: true; value: GameIndexStats }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_game_index"),
-	/**
-	 *  List one directory of the folded game index.
-	 * 
-	 *  `path` is `""` for the root, and otherwise a path a previous listing
-	 *  returned. Path hashes resolve through the shared hashtable cache when it is
-	 *  populated. Otherwise every file reads as its hash.
-	 */
-	readGameDir: (path: string) => __TAURI_INVOKE<({ ok: true; value: GameDirListing }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_game_dir", { path }),
-	/**
-	 *  Drop the built index, so the next read walks the install again.
-	 * 
-	 *  Unmounts the cached archives with it, and drops the object index, which
-	 *  was fed by this one. Asking for a fresh index is the one signal the app
-	 *  gets that the install changed under it, and a mount taken before a patch
-	 *  would keep answering from the chunk table it read then.
-	 */
-	refreshGameIndex: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("refresh_game_index"),
-	/**
-	 *  Rank every file of the install against `query`, best first.
-	 * 
-	 *  The scan reads the index rather than a list of paths, because building
-	 *  819,136 of those per keystroke costs more than the matching does. A call
-	 *  that a later one overtakes gives up part way and says so, so a query typed
-	 *  one character at a time runs one whole scan rather than one per character.
-	 * 
-	 *  An empty query matches nothing. The palette only reaches this source once
-	 *  something is typed.
-	 */
-	searchGameIndex: (query: string) => __TAURI_INVOKE<({ ok: true; value: GameSearchResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_game_index", { query }),
-	/**
-	 *  Every file of the install matching `pattern`, in tree order.
-	 * 
-	 *  The full-results twin of [`search_game_index`]: nothing is ranked, every
-	 *  hit comes back up to the index's own cap, and `regex` reads the pattern as
-	 *  a regular expression rather than as its characters. Either way the match is
-	 *  case-insensitive, which is the only case a resolved WAD path has.
-	 * 
-	 *  An empty pattern matches nothing rather than everything. A pattern that
-	 *  does not parse reports `VALIDATION_FAILED` with the parser's own message,
-	 *  which the search box shows under the input.
-	 */
-	findInGameIndex: (pattern: string, regex: boolean) => __TAURI_INVOKE<({ ok: true; value: GameFindResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_in_game_index", { pattern, regex }),
-	/**
-	 *  What extracting `targets` would write, before anything is written.
-	 * 
-	 *  The dialog's summary line reads this, so a user sees the count, the size and
-	 *  the archives before choosing a destination. `kinds` are the browser's filter
-	 *  chips, and `null` means every kind.
-	 */
-	planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) => __TAURI_INVOKE<({ ok: true; value: ExtractPlan }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plan_game_extract", { targets, kinds }),
-	/**
-	 *  Write every chunk the targets name into `options.destination`.
-	 * 
-	 *  Progress arrives as `extract-progress`, throttled rather than one event per
-	 *  chunk. Answers `None` when an extract is already running, which is what a
-	 *  double-clicked Extract button looks like.
-	 */
-	extractGameFiles: (targets: ExtractTarget[], options: ExtractOptions) => __TAURI_INVOKE<({ ok: true; value: ExtractSummary | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("extract_game_files", { targets, options }),
-	/**
-	 *  Call off the extract that is in flight, if there is one.
-	 * 
-	 *  Answers `false` when nothing was running, which is what a Cancel pressed
-	 *  just as the run finished looks like. The files written so far stay, because
-	 *  each one was written whole.
-	 */
-	cancelExtract: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_extract"),
-	/**
 	 *  Report what a previewable asset holds, without decoding it.
 	 * 
 	 *  A file kind with no viewer comes back as [`AssetInfo::Unsupported`] rather
@@ -331,98 +213,8 @@ export const commands = {
 	changeIntegration: (tool: Tool, action: IntegrationAction, conflicts: MenuConflictPolicy) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("change_integration", { tool, action, conflicts }),
 	/**  Cancel a matching download before registration begins. */
 	cancelIntegrationDownload: (operationId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_integration_download", { operationId }),
-	/**
-	 *  The install's copy of each of `paths`, by path. A path the install does not ship is
-	 *  absent.
-	 * 
-	 *  For the `file` links of a page of bin rows, checked in one call. Lowercased and then
-	 *  looked for by hash, which is what `DocumentAssets::locate` does: a chunk no table
-	 *  names is reached by its path's hash, and the two lookups must not disagree about
-	 *  whether the install holds a file.
-	 */
-	locateGameFiles: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: GameFileEntry } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_game_files", { paths }),
-	/**
-	 *  Rank every file of the install for a path field, the files `preference` names first.
-	 * 
-	 *  Uses a separate ticket counter, so a path field search and a palette search do not cancel
-	 *  each other.
-	 */
-	searchGamePaths: (query: string, preference: SearchPreference) => __TAURI_INVOKE<({ ok: true; value: GameSearchResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_game_paths", { query, preference }),
-	/**
-	 *  Build the object index, unless one is built or building.
-	 * 
-	 *  The game index is built first when it is not, because the object build is
-	 *  fed by it. The call returns once the build lands, and a build that fails
-	 *  leaves the failure in the state for a search to report.
-	 */
-	warmObjectIndex: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("warm_object_index"),
-	/**  Drop the object index, and the result of any build still running. */
-	dropObjectIndex: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("drop_object_index"),
-	/**
-	 *  Rank every bin object of the install against `query`, best first.
-	 * 
-	 *  Answers for the slot the index is in, so a query that arrives while the
-	 *  build runs reads as building rather than as nothing. The scan carries a
-	 *  generation of its own, apart from the game scan's, so a keystroke gives up
-	 *  only the object scan it overtakes.
-	 */
-	searchObjectIndex: (query: string) => __TAURI_INVOKE<({ ok: true; value: ObjectSearch }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_object_index", { query }),
-	/**
-	 *  Every declaration of each of `object_hashes` in `sandbox`, by hash.
-	 * 
-	 *  The install's declarations come from the index, in the slot it is in. The declarations
-	 *  in the sandbox's layer files go before them (ADR-0056), and an install declaration in a
-	 *  chunk a layer ships is removed, because the build packs the layer's copy instead. With
-	 *  `document` open, the document's own declarations are added and every list is ordered as a
-	 *  link resolves it (ADR-0028): this file, then a file the bin depends on, then the rest.
-	 */
-	declaredObjects: (sandbox: SandboxRef, objectHashes: string[], document: number | null) => __TAURI_INVOKE<({ ok: true; value: DeclaredObjects }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("declared_objects", { sandbox, objectHashes, document }),
-	/**
-	 *  What one prefix of the object tree holds.
-	 * 
-	 *  `prefix` is `""` for the root, `?` for the objects no table names, and otherwise a
-	 *  path a listing gave. A prefix no object path runs through reports `INVALID_PATH`.
-	 *  "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
-	 */
-	objectDir: (prefix: string) => __TAURI_INVOKE<({ ok: true; value: ObjectDir }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("object_dir", { prefix }),
-	/**  The install's spells below `Characters/{character}/Spells`. */
-	characterSpells: (character: string) => __TAURI_INVOKE<({ ok: true; value: CharacterSpells }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("character_spells", { character }),
 	/**  The missile inputs written on one spell in an open document. */
 	readSpell: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SpellPreview }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_spell", { document, entry }),
-	/**
-	 *  Every object of the install matching `pattern`, in path order.
-	 * 
-	 *  The full-results twin of [`search_object_index`], the way [`find_in_game_index`]
-	 *  is the game search's. `regex` reads the pattern as a regular expression, and
-	 *  either way the match is case-insensitive. `class_term` is the `class:` term's value,
-	 *  a name prefix or a hash, which narrows the objects to the classes it opens.
-	 * 
-	 *  An empty pattern with no class matches nothing. A pattern that does not parse
-	 *  reports `VALIDATION_FAILED` with the parser's own message.
-	 * 
-	 *  [`find_in_game_index`]: super::game_index::find_in_game_index
-	 */
-	findObjects: (pattern: string, regex: boolean, classTerm: string | null) => __TAURI_INVOKE<({ ok: true; value: ObjectFind }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_objects", { pattern, regex, classTerm }),
-	/**  How many objects of the install declare the class `class_hash`, for the class card. */
-	classObjectCount: (classHash: HexBinHash) => __TAURI_INVOKE<({ ok: true; value: ClassObjectCount }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_object_count", { classHash }),
-	/**
-	 *  What `query` names, grouped by the file that holds it.
-	 * 
-	 *  A class answers from the index with every object the install declares as it. An
-	 *  embedded class, an object and a file answer from a walk of `project`'s layers and
-	 *  the install, reporting `reference-walk-progress` as it reads. The scan carries a
-	 *  generation of its own, so a re-run gives up only the reference scan it overtakes.
-	 * 
-	 *  "The References document" in `docs/ux/PROJECT_EDITOR.md`.
-	 */
-	findReferences: (query: ReferenceQuery, project: string | null) => __TAURI_INVOKE<({ ok: true; value: ObjectReferences }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_references", { query, project }),
-	/**
-	 *  Call off the walk in flight, if there is one.
-	 * 
-	 *  Answers `false` when nothing was walking, which is what a Cancel pressed as the
-	 *  walk finished looks like. The walk answers with what it found.
-	 */
-	cancelReferenceWalk: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_reference_walk"),
 	/**
 	 *  One particle system of an open document, with every reference resolved.
 	 * 
@@ -784,7 +576,7 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","bakeSkinTangents":"bake_skin_tangents","cancelExtract":"cancel_extract","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","cancelReferenceWalk":"cancel_reference_walk","changeIntegration":"change_integration","characterSpells":"character_spells","checkHashtableUpdates":"check_hashtable_updates","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","classObjectCount":"class_object_count","declaredObjects":"declared_objects","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectRitobinIntegration":"detect_ritobin_integration","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","dropObjectIndex":"drop_object_index","extractGameFiles":"extract_game_files","findInGameIndex":"find_in_game_index","findObjects":"find_objects","findReferences":"find_references","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getGameIndex":"get_game_index","getGameWads":"get_game_wads","getHashtableCacheStatus":"get_hashtable_cache_status","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","locateFilesNear":"locate_files_near","locateGameFiles":"locate_game_files","locateMapFiles":"locate_map_files","lookupStringValues":"lookup_string_values","minimizeToTray":"minimize_to_tray","objectDir":"object_dir","openAssetInRitobin":"open_asset_in_ritobin","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","planGameExtract":"plan_game_extract","readAnimationGraph":"read_animation_graph","readAssetInfo":"read_asset_info","readClipHeader":"read_clip_header","readDefaultSkinnedProgram":"read_default_skinned_program","readEmbeddedMaterialProgram":"read_embedded_material_program","readGameDir":"read_game_dir","readGameWad":"read_game_wad","readMap":"read_map","readMapCharacters":"read_map_characters","readMapOutline":"read_map_outline","readMapParticles":"read_map_particles","readMapVariants":"read_map_variants","readMaterialPrograms":"read_material_programs","readParticleProgram":"read_particle_program","readSkin":"read_skin","readSpell":"read_spell","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","readVfxSystem":"read_vfx_system","rebuildOverlay":"rebuild_overlay","refreshGameIndex":"refresh_game_index","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveAssetCopy":"save_asset_copy","saveSettings":"save_settings","searchGameIndex":"search_game_index","searchGamePaths":"search_game_paths","searchObjectIndex":"search_object_index","searchStringKeys":"search_string_keys","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","syncHashtables":"sync_hashtables","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path","vfxTemplates":"vfx_templates","warmObjectIndex":"warm_object_index"} as const;
+export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","bakeSkinTangents":"bake_skin_tangents","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","changeIntegration":"change_integration","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectRitobinIntegration":"detect_ritobin_integration","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","locateFilesNear":"locate_files_near","locateMapFiles":"locate_map_files","minimizeToTray":"minimize_to_tray","openAssetInRitobin":"open_asset_in_ritobin","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","readAnimationGraph":"read_animation_graph","readAssetInfo":"read_asset_info","readClipHeader":"read_clip_header","readDefaultSkinnedProgram":"read_default_skinned_program","readEmbeddedMaterialProgram":"read_embedded_material_program","readMap":"read_map","readMapCharacters":"read_map_characters","readMapOutline":"read_map_outline","readMapParticles":"read_map_particles","readMapVariants":"read_map_variants","readMaterialPrograms":"read_material_programs","readParticleProgram":"read_particle_program","readSkin":"read_skin","readSpell":"read_spell","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","readVfxSystem":"read_vfx_system","rebuildOverlay":"rebuild_overlay","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveAssetCopy":"save_asset_copy","saveSettings":"save_settings","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path","vfxTemplates":"vfx_templates"} as const;
 
 /* Types */
 /**  Accent color configuration. */
@@ -6610,6 +6402,16 @@ export type SchemaTexture = {
 	/**  `samplerName`, the shared sampler that overrides a material's address modes. */
 	sharedSampler: string | null,
 };
+
+/**
+ *  Who a search of the game index ranks for. Each keeps its own ticket counter, so a path
+ *  field search and a palette search do not overtake each other.
+ */
+export type SearchFor = 
+/**  The palette, ranked by the query alone. */
+{ kind: "palette" } | 
+/**  A path field, the files `preference` names first. */
+{ kind: "pathField"; preference: SearchPreference };
 
 /**
  *  The files a path field wants ranked first in a search.

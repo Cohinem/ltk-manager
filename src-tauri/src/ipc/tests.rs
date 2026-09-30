@@ -38,6 +38,7 @@ fn service_file(rendered: &str, bindings: &str) -> String {
         .split_once(TYPES_MARKER)
         .expect("a service to render types after its commands");
 
+    let code = without_comments(commands);
     let mut imports = Vec::new();
     for declaration in types.trim().split("\n\n") {
         assert!(
@@ -49,7 +50,7 @@ fn service_file(rendered: &str, bindings: &str) -> String {
             .find_map(|line| line.strip_prefix("export type "))
             .and_then(|rest| rest.split(|c: char| !is_identifier(c)).next())
             .expect("each declaration to export a type");
-        if mentions(commands, name) {
+        if mentions(&code, name) {
             imports.push(name);
         }
     }
@@ -83,6 +84,20 @@ fn service_file(rendered: &str, bindings: &str) -> String {
 
 fn is_identifier(c: char) -> bool {
     c.is_ascii_alphanumeric() || c == '_'
+}
+
+/// `text` without its `/* */` comments, whose prose can spell a type's name.
+fn without_comments(text: &str) -> String {
+    let mut code = String::new();
+    let mut rest = text;
+    while let Some(start) = rest.find("/*") {
+        code.push_str(&rest[..start]);
+        rest = rest[start..]
+            .find("*/")
+            .map_or("", |end| &rest[start + end + 2..]);
+    }
+    code.push_str(rest);
+    code
 }
 
 /// Whether `name` stands in `text` as a whole identifier.

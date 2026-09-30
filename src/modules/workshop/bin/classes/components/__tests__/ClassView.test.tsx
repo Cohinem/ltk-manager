@@ -194,7 +194,7 @@ beforeEach(() => {
     }
     if (command === commandNames.app.locateFilesNear)
       return Promise.resolve({ ok: true, value: {} });
-    if (command === commandNames.app.declaredObjects) {
+    if (command === commandNames.objects.declaredObjects) {
       return Promise.resolve({
         ok: true,
         value: { index: { status: "ready" }, objects: {} },

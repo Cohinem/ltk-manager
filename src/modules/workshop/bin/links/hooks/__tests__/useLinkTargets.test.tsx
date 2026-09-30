@@ -124,7 +124,7 @@ const LOCATED: Record<string, AssetRef> = {
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === commandNames.app.declaredObjects)
+    if (command === commandNames.objects.declaredObjects)
       return Promise.resolve({ ok: true, value: DECLARED });
     if (command === commandNames.app.locateFilesNear)
       return Promise.resolve({ ok: true, value: LOCATED });
@@ -140,11 +140,11 @@ describe("useCheckLinkTargets", () => {
     await waitFor(() => expect(result.current.pending).toBe(false));
 
     const declaredCalls = mockInvoke.mock.calls.filter(
-      ([command]) => command === commandNames.app.declaredObjects,
+      ([command]) => command === commandNames.objects.declaredObjects,
     );
     expect(declaredCalls).toEqual([
       [
-        commandNames.app.declaredObjects,
+        commandNames.objects.declaredObjects,
         { sandbox: IN_PROJECT, objectHashes: linkHashes(ROOTS), document: 7 },
       ],
     ]);
@@ -180,7 +180,7 @@ describe("useCheckLinkTargets", () => {
 
   it("answers a group's string-table keys with their in-game lines, outside pending", async () => {
     mockInvoke.mockImplementation((command: string) => {
-      if (command === commandNames.app.lookupStringValues) {
+      if (command === commandNames.game.lookupStringValues) {
         return Promise.resolve({ ok: true, value: { hud_Chat_Party: "Party" } });
       }
       return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects: {} } });
@@ -190,7 +190,7 @@ describe("useCheckLinkTargets", () => {
 
     await waitFor(() => expect(result.current.strings.get("hud_Chat_Party")).toBe("Party"));
     expect(result.current.strings.has("hud_Chat_Team")).toBe(false);
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.lookupStringValues, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.game.lookupStringValues, {
       keys: ["hud_Chat_Party", "hud_Chat_Team"],
     });
   });

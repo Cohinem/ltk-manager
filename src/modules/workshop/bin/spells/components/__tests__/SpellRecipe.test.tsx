@@ -43,7 +43,7 @@ function mount(patch: Record<string, unknown> = {}) {
           ...patch,
         },
       };
-    if (command === commandNames.app.declaredObjects)
+    if (command === commandNames.objects.declaredObjects)
       return {
         ok: true,
         value: {

@@ -40,6 +40,29 @@ services! {
         install_update,
         discard_update,
     }
+    game("game") {
+        // Game index
+        get_game_index,
+        read_game_dir,
+        refresh_game_index,
+        search_game_index,
+        find_in_game_index,
+        locate_game_files,
+        // Game WADs
+        get_game_wads,
+        read_game_wad,
+        // Extract to disk
+        plan_game_extract,
+        extract_game_files,
+        cancel_extract,
+        // Hashtables
+        get_hashtable_cache_status,
+        check_hashtable_updates,
+        sync_hashtables,
+        // Strings
+        search_string_keys,
+        lookup_string_values,
+    }
     library("library") {
         // Mods
         get_installed_mods,
@@ -93,6 +116,18 @@ services! {
         import_cslol_mods,
         ;
         debug: time_mod_health,
+    }
+    objects("objects") {
+        warm_object_index,
+        drop_object_index,
+        search_object_index,
+        find_objects,
+        object_dir,
+        character_spells,
+        class_object_count,
+        declared_objects,
+        find_references,
+        cancel_reference_walk,
     }
     workshop("workshop") {
         // Projects
