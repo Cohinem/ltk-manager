@@ -5480,6 +5480,11 @@ export type PatcherStatus = {
 	phase: PatcherPhase,
 	/**  The session in flight. `null` while idle. */
 	session: PatcherSession | null,
+	/**
+	 *  Whether a library edit waits for the running game to end before the
+	 *  overlay is rebuilt.
+	 */
+	changesAfterGame: boolean,
 };
 
 /**  A release newer than the running build. */

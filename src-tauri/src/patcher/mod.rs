@@ -72,6 +72,11 @@ impl PatcherState {
         Ok(())
     }
 
+    /// Ask a running session to rebuild its overlay after a library write.
+    pub fn refresh_overlay(&self) {
+        self.with(PatcherStateInner::request_overlay_refresh);
+    }
+
     /// Ask a running session to stop, reporting whether there was one.
     ///
     /// Only signals — the session unwinds on its own thread, so callers that

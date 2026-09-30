@@ -137,6 +137,10 @@ impl PatcherEvents for TauriPatcherEvents {
         let _ = self.app_handle.emit("patcher-game-exited", ());
     }
 
+    fn overlay_deferred(&self) {
+        let _ = self.app_handle.emit("patcher-status-changed", ());
+    }
+
     fn incident_recorded(&self, incident: Incident) {
         let _ = self.app_handle.emit("incident-recorded", incident);
     }

@@ -58,7 +58,7 @@ const GAME_EXIT_POLL: Duration = Duration::from_millis(100);
 pub fn wait_for_game_exit(timeout: Duration) -> bool {
     let start = Instant::now();
 
-    while ritoclient::processes::is_running(LEAGUE_GAME_EXE) {
+    while is_game_running() {
         if start.elapsed() >= timeout {
             return false;
         }
@@ -66,6 +66,11 @@ pub fn wait_for_game_exit(timeout: Duration) -> bool {
     }
 
     true
+}
+
+/// Whether a League game process is running.
+pub fn is_game_running() -> bool {
+    ritoclient::processes::is_running(LEAGUE_GAME_EXE)
 }
 
 /// The product and patchline the manager launches by default.

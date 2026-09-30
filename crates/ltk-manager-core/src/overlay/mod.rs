@@ -58,6 +58,7 @@ impl ModLibrary {
         force_rebuild: bool,
         called_off: impl Fn() -> bool + Send + Sync + 'static,
     ) -> AppResult<OverlayBuild> {
+        let _building = self.overlay_lock().lock();
         let storage_dir = self.storage_dir(config)?;
 
         storage_dir.invalidate_stale_overlays(self.app_version());

@@ -13,7 +13,7 @@ import {
   SpinnerGapIcon,
   TrashIcon,
 } from "@phosphor-icons/react";
-import { cloneElement, type ReactElement, type ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 
 import {
   AutoPill,
@@ -190,12 +190,9 @@ function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
  * button that is not currently drawn.
  */
 export function ModCardMenu({ view, className }: { view: ModCardView; className?: string }) {
-  const { menuDisabled } = view;
-
   return (
     <Menu.Root>
       <Menu.Trigger
-        disabled={menuDisabled}
         render={
           <IconButton
             icon={<DotsThreeVerticalIcon className="h-4 w-4" weight="bold" />}
@@ -203,7 +200,6 @@ export function ModCardMenu({ view, className }: { view: ModCardView; className?
             size="sm"
             compact
             aria-label={m.library_mod_options_label({ name: view.mod.displayName })}
-            disabled={menuDisabled}
             className={className}
           />
         }
@@ -237,8 +233,6 @@ export function ModCardContextMenu({
   card: ReactElement;
   children: ReactNode;
 }) {
-  if (view.menuDisabled) return cloneElement(card, undefined, children);
-
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger render={card}>{children}</ContextMenu.Trigger>

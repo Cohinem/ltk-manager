@@ -2,7 +2,6 @@ import { Pencil, Power, PowerOff, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { ContextMenu, Dialog } from "@/components";
-import { usePatcherStatus } from "@/modules/patcher";
 
 import { useDeleteFolder, useRenameFolder, useToggleFolder } from "../api";
 import { FolderNameForm } from "./FolderNameForm";
@@ -17,8 +16,6 @@ export function FolderContextMenu({ folderId, folderName, children }: FolderCont
   const deleteFolder = useDeleteFolder();
   const toggleFolder = useToggleFolder();
   const renameFolder = useRenameFolder();
-  const { data: patcherStatus } = usePatcherStatus();
-  const isPatcherActive = patcherStatus?.running ?? false;
   const [renameOpen, setRenameOpen] = useState(false);
 
   return (
@@ -39,14 +36,12 @@ export function FolderContextMenu({ folderId, folderName, children }: FolderCont
               <ContextMenu.Separator />
               <ContextMenu.Item
                 icon={<Power className="h-4 w-4" />}
-                disabled={isPatcherActive}
                 onClick={() => toggleFolder.mutate({ folderId, enabled: true })}
               >
                 Enable All
               </ContextMenu.Item>
               <ContextMenu.Item
                 icon={<PowerOff className="h-4 w-4" />}
-                disabled={isPatcherActive}
                 onClick={() => toggleFolder.mutate({ folderId, enabled: false })}
               >
                 Disable All

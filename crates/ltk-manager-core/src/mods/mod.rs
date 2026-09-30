@@ -133,6 +133,8 @@ pub struct ModLibrary {
     /// Serializes library sweeps, so an install check waits for the startup
     /// sweep instead of sharing its progress state and cancel handle.
     sweep_lock: Arc<Mutex<()>>,
+    /// Serializes overlay builds, since two of one profile write the same files.
+    overlay_lock: Arc<Mutex<()>>,
     index_lock: Arc<Mutex<()>>,
     /// Serializes the read-modify-write of `mod-health-verdicts.json`.
     ///
@@ -161,6 +163,7 @@ impl Clone for ModLibrary {
             health_sweep: Arc::clone(&self.health_sweep),
             health_budget: Arc::clone(&self.health_budget),
             sweep_lock: Arc::clone(&self.sweep_lock),
+            overlay_lock: Arc::clone(&self.overlay_lock),
             index_lock: Arc::clone(&self.index_lock),
             verdict_lock: Arc::clone(&self.verdict_lock),
             last_mutation_epoch_ms: Arc::clone(&self.last_mutation_epoch_ms),
@@ -191,6 +194,7 @@ impl ModLibrary {
             health_sweep: Arc::new(Mutex::new(HealthSweepState::default())),
             health_budget: Arc::new(Mutex::new(None)),
             sweep_lock: Arc::new(Mutex::new(())),
+            overlay_lock: Arc::new(Mutex::new(())),
             index_lock: Arc::new(Mutex::new(())),
             verdict_lock: Arc::new(Mutex::new(())),
             last_mutation_epoch_ms: Arc::new(AtomicI64::new(0)),
@@ -208,6 +212,10 @@ impl ModLibrary {
 
     pub(in crate::mods) fn verdict_lock(&self) -> &Mutex<()> {
         &self.verdict_lock
+    }
+
+    pub(crate) fn overlay_lock(&self) -> &Mutex<()> {
+        &self.overlay_lock
     }
 
     /// Take `budget` as the run now under way, so a cancel can reach it.

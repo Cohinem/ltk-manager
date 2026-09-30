@@ -98,10 +98,7 @@ export const commands = {
 	createModProfile: (name: string) => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:library|create_mod_profile", { name }),
 	/**  Delete a profile by ID. */
 	deleteModProfile: (profileId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:library|delete_mod_profile", { profileId }),
-	/**
-	 *  Switch to a different profile.
-	 *  Returns an error if the patcher is currently running.
-	 */
+	/**  Switch to a different profile. */
 	switchModProfile: (profileId: string) => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:library|switch_mod_profile", { profileId }),
 	/**
 	 *  Rename a profile.

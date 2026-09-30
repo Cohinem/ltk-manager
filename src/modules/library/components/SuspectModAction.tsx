@@ -1,8 +1,7 @@
 import { ProhibitIcon } from "@phosphor-icons/react";
 
-import { Button, Tooltip, useToast } from "@/components";
+import { Button, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
-import { usePatcherStatus } from "@/modules/patcher";
 import { m } from "@/paraglide/messages";
 
 import { useInstalledMods } from "../api/queries";
@@ -16,7 +15,6 @@ import { useToggleMod } from "../api/useToggleMod";
  */
 export function SuspectModAction({ modId }: { modId: string }) {
   const { data: mods } = useInstalledMods();
-  const { data: patcherStatus } = usePatcherStatus();
   const toggleMod = useToggleMod();
   const toast = useToast();
 
@@ -31,12 +29,10 @@ export function SuspectModAction({ modId }: { modId: string }) {
     );
   }
 
-  const patcherRunning = patcherStatus?.running ?? false;
-  const button = (
+  return (
     <Button
       variant="outline"
       size="xs"
-      disabled={patcherRunning}
       loading={toggleMod.isPending}
       left={<ProhibitIcon weight="bold" className="h-3.5 w-3.5" />}
       onClick={() =>
@@ -56,12 +52,5 @@ export function SuspectModAction({ modId }: { modId: string }) {
     >
       {m.diagnostics_suspect_disable_action()}
     </Button>
-  );
-
-  if (!patcherRunning) return button;
-  return (
-    <Tooltip content={m.diagnostics_patcher_busy_hint()}>
-      <span className="inline-flex">{button}</span>
-    </Tooltip>
   );
 }

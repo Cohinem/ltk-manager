@@ -36,26 +36,18 @@ pub async fn import_cslol_mods(
     directory: String,
     selected_folders: Vec<String>,
 ) -> IpcResult<BulkInstallResult> {
-    let setup: AppResult<_> = (|| {
-        let patcher = app_handle.state::<PatcherState>();
-        patcher.reject_if_running()?;
-        let config = app_handle.state::<SettingsState>().0.lock().config.clone();
-        let library = app_handle.state::<ModLibraryState>().0.clone();
-        Ok((config, library))
-    })();
-
-    let (config, library) = match setup {
-        Ok(v) => v,
-        Err(e) => return IpcResult::from(Err::<BulkInstallResult, _>(e)),
-    };
+    let config = app_handle.state::<SettingsState>().config();
+    let library = app_handle.state::<ModLibraryState>().0.clone();
 
     off_thread(move || {
-        crate::mods::import_cslol_mods(
+        let imported = crate::mods::import_cslol_mods(
             &library,
             &config,
             &PathBuf::from(&directory),
             &selected_folders,
-        )
+        );
+        app_handle.state::<PatcherState>().refresh_overlay();
+        imported
     })
     .await
 }

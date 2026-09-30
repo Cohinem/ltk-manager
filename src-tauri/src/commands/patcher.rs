@@ -61,6 +61,9 @@ pub struct PatcherStatus {
     pub phase: PatcherPhase,
     /// The session in flight. `null` while idle.
     pub session: Option<PatcherSession>,
+    /// Whether a library edit waits for the running game to end before the
+    /// overlay is rebuilt.
+    pub changes_after_game: bool,
 }
 
 /// Resolve a bundled resource file (e.g. the injector executable) from the
@@ -340,6 +343,7 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> PatcherStatus {
             } else {
                 None
             },
+            changes_after_game: running && patcher_state.overlay_refresh.waits_for_game(),
         }
     })
 }

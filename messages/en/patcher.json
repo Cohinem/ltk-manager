@@ -6,6 +6,8 @@
   "patcher.INJECTION_FAILED.INJECTION.title": "DLL Injection Failure",
   "patcher.NOT_RUNNING.title": "The patcher is not running",
   "patcher.UNSUPPORTED_PLATFORM.title": "The patcher is not yet available on this platform",
+  "patcher_changes_after_game_hint": "The game already loaded its mods. Your library changes apply to the next game.",
+  "patcher_changes_after_game_label": "Applies after this game",
   "patcher_error_title": "Patcher Error",
   "patcher_rebuild_action": "Rebuild overlay",
   "patcher_rebuild_done_description": "The overlay was regenerated from scratch.",

@@ -1,4 +1,4 @@
-use crate::error::{AppResult, IpcResult};
+use crate::error::IpcResult;
 use crate::mods::{LibraryFolder, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
@@ -56,9 +56,12 @@ pub fn delete_folder(
     folder_id: String,
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
+    patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let config = settings.config();
-    library.0.delete_folder(&config, &folder_id).into()
+    let result = library.0.delete_folder(&config, &folder_id);
+    patcher.refresh_overlay();
+    result.into()
 }
 
 #[tauri::command]
@@ -68,12 +71,12 @@ pub fn move_mod_to_folder(
     folder_id: String,
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
+    patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let config = settings.config();
-    library
-        .0
-        .move_mod_to_folder(&config, &mod_id, &folder_id)
-        .into()
+    let result = library.0.move_mod_to_folder(&config, &mod_id, &folder_id);
+    patcher.refresh_overlay();
+    result.into()
 }
 
 #[tauri::command]
@@ -85,11 +88,9 @@ pub fn toggle_folder(
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
-    let result: AppResult<()> = (|| {
-        patcher.reject_if_running()?;
-        let config = settings.config();
-        library.0.toggle_folder(&config, &folder_id, enabled)
-    })();
+    let config = settings.config();
+    let result = library.0.toggle_folder(&config, &folder_id, enabled);
+    patcher.refresh_overlay();
     result.into()
 }
 
@@ -102,11 +103,9 @@ pub fn reorder_folder_mods(
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
-    let result: AppResult<()> = (|| {
-        patcher.reject_if_running()?;
-        let config = settings.config();
-        library.0.reorder_folder_mods(&config, &folder_id, mod_ids)
-    })();
+    let config = settings.config();
+    let result = library.0.reorder_folder_mods(&config, &folder_id, mod_ids);
+    patcher.refresh_overlay();
     result.into()
 }
 
@@ -118,10 +117,8 @@ pub fn reorder_folders(
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
-    let result: AppResult<()> = (|| {
-        patcher.reject_if_running()?;
-        let config = settings.config();
-        library.0.reorder_folders(&config, folder_order)
-    })();
+    let config = settings.config();
+    let result = library.0.reorder_folders(&config, folder_order);
+    patcher.refresh_overlay();
     result.into()
 }
