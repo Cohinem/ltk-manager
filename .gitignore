@@ -8,6 +8,9 @@ yarn.lock
 # Build output
 dist/
 
+# Permission schemas tauri-build writes on every build
+src-tauri/gen/schemas/
+
 # Editor
 .vscode/
 .idea/
