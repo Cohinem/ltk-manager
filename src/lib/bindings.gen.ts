@@ -429,6 +429,15 @@ export const commands = {
 	 */
 	readUiFont: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: UiFont }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_font", { document, entry }),
 	/**
+	 *  The fonts and faces a text in the open document `document` can draw with: the document's
+	 *  own, then those of the `ux/fonts` its sandbox resolves.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the names or the project chunks the resolution reads are unavailable.
+	 */
+	readUiFontCatalog: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: UiFontCatalog }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_font_catalog", { document }),
+	/**
 	 *  The programs of `shaders`, one for one and in that order, translated.
 	 * 
 	 *  The shaders are the ones `document` resolves against, and the install's alone where it
@@ -460,6 +469,16 @@ export const commands = {
 	 *  `destination` cannot be written.
 	 */
 	atlasExportSprite: (texture: AssetRef, uv: [(number | null), (number | null), (number | null), (number | null)], destination: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_export_sprite", { texture, uv, destination }),
+	/**
+	 *  Copy the `.ttf` or `.otf` at `source` into the layer and archive the document `document`
+	 *  writes to, answering the path a `FontType` names it by.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the document opens in no project or writes to no layer, for a file of another
+	 *  type, and when the copy cannot be written.
+	 */
+	atlasImportFontFile: (document: BinDocumentId, source: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_import_font_file", { document, source }),
 	/**
 	 *  Import the PNG at `source` into the sheet `sheet` of the project `document` opens in, or put
 	 *  it in place of the sprite `replace`, per section 5 of docs/plans/atlas-ui-editor.md.
@@ -3044,6 +3063,13 @@ export type NewObject =
 { type: "clone"; 
 /**  The object copied, `0x` and eight hex digits. */
 source: string } | 
+/**
+ *  A copy of an object another chunk of the game declares: its class, and a `set` of each
+ *  of its properties.
+ */
+{ type: "copy"; 
+/**  The object copied, `0x` and eight hex digits. */
+source: string } | 
 /**  An object of a class holding no property: `class`. */
 { type: "class"; 
 /**  The class, as a name or `0x` and eight hex digits. */
@@ -4484,6 +4510,32 @@ export type UiFont = {
 	autoScale: boolean,
 	/**  The `FontResolutionData`'s sizes, one list per locale. */
 	sizes: UiFontSizes[],
+};
+
+/**  The fonts a text can link and the faces a font can draw with, as a picker lists them. */
+export type UiFontCatalog = {
+	/**  Every `GameFontDescription`, the project's first. */
+	fonts: UiFontChoice[],
+	/**  Every `FontType`, the project's first. */
+	types: UiFontChoice[],
+};
+
+/**  One `GameFontDescription` or `FontType` of a [`UiFontCatalog`]. */
+export type UiFontChoice = {
+	/**  The object, as `0x` and eight hex digits. */
+	entry: string,
+	/**  The object path, or its hash where no table names it. */
+	path: string,
+	/**  A font's `name` field, and empty for a face. */
+	name: string,
+	/**  The file the first locale draws with regularly, a font's through its `typeData`. */
+	face: string | null,
+	/**  A font's `typeData`, the `FontType` it draws with, as `0x` and eight hex digits. */
+	typeData: string | null,
+	/**  How many locales the face lists, a font's through its `typeData`. */
+	locales: number,
+	/**  Whether the open document declares it, rather than the game's `ux/fonts`. */
+	project: boolean,
 };
 
 /**  A `FontLocaleType`: the files a locale draws a font with. */

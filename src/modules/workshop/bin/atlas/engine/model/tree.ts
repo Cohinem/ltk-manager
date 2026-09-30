@@ -66,6 +66,22 @@ export function sceneOf(tree: ViewTree, key: string): string | null {
   return null;
 }
 
+/** The elements selecting the scene `key` selects: those no group holds in it and its scenes. */
+export function sceneMembers(tree: ViewTree, key: string): string[] {
+  const members: string[] = [];
+  const seen = new Set<string>();
+  const visit = (scene: string) => {
+    if (seen.has(scene)) return;
+
+    seen.add(scene);
+    members.push(...(tree.sceneElements.get(scene) ?? []));
+    for (const child of tree.sceneChildren.get(scene) ?? []) visit(child);
+  };
+
+  visit(key);
+  return members;
+}
+
 /** `key` and every element under it, through the groups that list them. */
 export function subtreeOf(tree: ViewTree, key: string): Set<string> {
   const keys = new Set<string>();

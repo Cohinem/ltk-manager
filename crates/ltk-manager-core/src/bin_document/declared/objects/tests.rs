@@ -356,3 +356,80 @@ fn a_template_no_catalog_holds_is_refused_and_writes_nothing() {
     );
     assert!(!has_manifest(dir.path(), "base"));
 }
+
+const FONT: &str = "UX/Fonts/Body";
+
+/// A declared document whose game declares `FONT` in a chunk of its own.
+fn declared_beside_a_font(dir: &Path) -> BinDocument {
+    let font = BinObject::builder(h(FONT), h("GameFontDescription"))
+        .property(h("name"), values::String::new("Body".to_owned()))
+        .property(
+            h("typeData"),
+            values::ObjectLink::new(h("UX/Fonts/Types/Body")),
+        )
+        .build();
+    let mut bytes = std::io::Cursor::new(Vec::new());
+    ltk_meta::Bin::builder()
+        .object(font)
+        .build()
+        .to_writer(&mut bytes)
+        .unwrap();
+
+    let context = super::super::DeclareContext {
+        project: project(dir),
+        schema: crate::meta_schema::PatchSchema::new(crate::meta_schema::shared(None), None),
+        game: Game::declaring(
+            &[SKIN, FONT, "GameFontDescription", "name", "typeData"],
+            std::collections::HashMap::from([(h(FONT), bytes.into_inner())]),
+        ),
+    };
+    BinDocument::declare(
+        super::super::tests::game_bin(),
+        ltk_game_data::path_hash(CHUNK),
+        context,
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_copy_declares_an_object_another_chunk_holds_and_undoes_as_one_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared_beside_a_font(dir.path());
+
+    let created = document
+        .create_object(
+            COPY,
+            &NewObject::Copy {
+                source: hex(h(FONT)),
+            },
+        )
+        .unwrap();
+
+    let copy = document.object_at(created).unwrap();
+    assert_eq!(copy.class_hash, h("GameFontDescription"));
+    assert_eq!(
+        copy.properties.get(&h("typeData")),
+        Some(&values::ObjectLink::new(h("UX/Fonts/Types/Body")).into())
+    );
+    assert!(manifest(dir.path(), "base").contains("class: GameFontDescription"));
+
+    assert!(document.undo().unwrap());
+    assert!(document.object_at(created).is_none());
+    assert!(!document.undo().unwrap());
+}
+
+#[test]
+fn a_copy_of_an_object_the_game_declares_nowhere_is_refused() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(project(dir.path()));
+
+    let outcome = document.create_object(
+        COPY,
+        &NewObject::Copy {
+            source: hex(h(FONT)),
+        },
+    );
+
+    assert_matches!(outcome, Err(BinDocumentError::NodeNotFound { .. }));
+    assert!(!has_manifest(dir.path(), "base"));
+}

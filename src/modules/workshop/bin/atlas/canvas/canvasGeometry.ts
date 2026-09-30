@@ -135,6 +135,26 @@ export function clickedIn(
   return under[(at + 1) % under.length] ?? null;
 }
 
+/**
+ * The element a drag from `x, y` moves: a selected one of `under`, else the primary selection where
+ * the selection's bounds hold the point, as a group's or a scene's do around the gaps between its
+ * elements, else the topmost of `under`.
+ */
+export function grabbedIn(
+  under: readonly string[],
+  selection: readonly string[],
+  rects: ReadonlyMap<string, PixelRect>,
+  x: number,
+  y: number,
+): string | null {
+  const picked = under.find((key) => selection.includes(key));
+  if (picked !== undefined) return picked;
+
+  const bounds = unionOf(rectsOf(rects, selection));
+  if (bounds !== null && contains(bounds, x, y)) return selection.at(-1) ?? null;
+  return under[0] ?? null;
+}
+
 export function within(inner: PixelRect, outer: PixelRect): boolean {
   return (
     inner.x >= outer.x &&
@@ -170,4 +190,24 @@ export function snapTargetsOf(
     if (rect !== undefined && !moving.has(key) && rect.w > 0 && rect.h > 0) targets.push(rect);
   }
   return targets;
+}
+
+/** The pointer a resize handle shows, or the default one away from every handle. */
+export function cursorOf(handle: Handle | null): string {
+  switch (handle) {
+    case "nw":
+    case "se":
+      return "nwse-resize";
+    case "ne":
+    case "sw":
+      return "nesw-resize";
+    case "n":
+    case "s":
+      return "ns-resize";
+    case "e":
+    case "w":
+      return "ew-resize";
+    case null:
+      return "default";
+  }
 }

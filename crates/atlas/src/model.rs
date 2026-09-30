@@ -702,6 +702,38 @@ pub struct UiFont {
     pub sizes: Vec<UiFontSizes>,
 }
 
+/// The fonts a text can link and the faces a font can draw with, as a picker lists them.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct UiFontCatalog {
+    /// Every `GameFontDescription`, the project's first.
+    pub fonts: Vec<UiFontChoice>,
+    /// Every `FontType`, the project's first.
+    pub types: Vec<UiFontChoice>,
+}
+
+/// One `GameFontDescription` or `FontType` of a [`UiFontCatalog`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct UiFontChoice {
+    /// The object, as `0x` and eight hex digits.
+    pub entry: String,
+    /// The object path, or its hash where no table names it.
+    pub path: String,
+    /// A font's `name` field, and empty for a face.
+    pub name: String,
+    /// The file the first locale draws with regularly, a font's through its `typeData`.
+    pub face: Option<String>,
+    /// A font's `typeData`, the `FontType` it draws with, as `0x` and eight hex digits.
+    pub type_data: Option<String>,
+    /// How many locales the face lists, a font's through its `typeData`.
+    pub locales: u32,
+    /// Whether the open document declares it, rather than the game's `ux/fonts`.
+    pub project: bool,
+}
+
 /// A `FontLocaleType`: the files a locale draws a font with.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]

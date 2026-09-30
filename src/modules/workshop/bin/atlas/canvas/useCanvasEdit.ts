@@ -18,7 +18,9 @@ import type { AtlasEdit } from "../state/atlasEdit";
 import { useAtlasPreviewActions } from "../state/atlasPreview";
 import {
   clickedIn,
+  cursorOf,
   elementsAt,
+  grabbedIn,
   repeatsClick,
   type Handle,
   HANDLES,
@@ -125,11 +127,10 @@ export interface CanvasEdit {
  *
  * A click picks the topmost element, and a click again on the same spot picks the one under it,
  * so a stack is reached by clicking through it. A modified click adds the topmost to the selection
- * or takes it out. A drag on an element moves the selection, a selected element under others
- * included, a drag on a handle of the primary selection
- * resizes it, and a drag over nothing draws a marquee. A middle drag, or any drag while Space is
- * held, pans, and so does an element drag where the scene bin takes no edits. A move and a
- * resize snap to the edges and centres of the siblings, the parent and the screen unless Alt is
+ * or takes it out. A drag on an element, or inside a selected group, moves the selection, a drag on
+ * a handle of the primary selection resizes it, and a drag over nothing draws a marquee. A middle
+ * drag, or any drag while Space is held, pans, and so does an element drag where the scene bin
+ * takes no edits. A move and a resize snap to the siblings, the parent and the screen unless Alt is
  * held, and to whole source pixels. What a drag wrote stays drawn until the view is read again.
  */
 export function useCanvasEdit({
@@ -161,8 +162,10 @@ export function useCanvasEdit({
   }, [settling, tree]);
 
   const shown = useMemo(() => {
-    const applied = drag ?? (settling?.tree === tree ? settling?.drag : null) ?? null;
-    return solved === null || applied === null ? solved : withDrag(solved, applied);
+    if (solved === null) return null;
+
+    const settled = settling?.tree === tree ? withDrag(solved, settling.drag) : solved;
+    return drag === null ? settled : withDrag(settled, drag);
   }, [solved, drag, settling, tree]);
 
   const editable = edit?.editable === true;
@@ -270,7 +273,7 @@ export function useCanvasEdit({
       kind: "press",
       client,
       at,
-      element: under.find((key) => selection.includes(key)) ?? under[0] ?? null,
+      element: shown === null ? null : grabbedIn(under, selection, shown, at[0], at[1]),
       under,
       additive: event.shiftKey || event.ctrlKey || event.metaKey,
     };
@@ -442,25 +445,6 @@ function withDrag(
     if (rect !== undefined) shown.set(key, shift(rect, drag.delta));
   }
   return shown;
-}
-
-function cursorOf(handle: Handle | null): string {
-  switch (handle) {
-    case "nw":
-    case "se":
-      return "nwse-resize";
-    case "ne":
-    case "sw":
-      return "nesw-resize";
-    case "n":
-    case "s":
-      return "ns-resize";
-    case "e":
-    case "w":
-      return "ew-resize";
-    case null:
-      return "default";
-  }
 }
 
 function pointIn(event: ReactPointerEvent<HTMLElement>): Point {

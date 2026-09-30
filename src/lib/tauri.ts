@@ -297,6 +297,8 @@ export type {
   UiFile,
   UiFileRole,
   UiFont,
+  UiFontCatalog,
+  UiFontChoice,
   UiFontFace,
   UiFontResolution,
   UiFontSizes,
@@ -723,6 +725,8 @@ export const api = {
       commands.readUiSceneView(document, entry).then(toResult),
     readUiFont: (document: BinDocumentId, entry: string) =>
       commands.readUiFont(document, entry).then(toResult),
+    readUiFontCatalog: (document: BinDocumentId) =>
+      commands.readUiFontCatalog(document).then(toResult),
     readUiPrograms: (document: BinDocumentId | null, shaders: readonly UiShader[]) =>
       commands.readUiPrograms(document, [...shaders]).then(toResult),
     readUiLoadout: (document: BinDocumentId) => commands.readUiLoadout(document).then(toResult),
@@ -731,6 +735,8 @@ export const api = {
       uv: readonly [number, number, number, number],
       destination: string,
     ) => commands.atlasExportSprite(texture, [...uv], destination).then(toResult),
+    atlasImportFontFile: (document: BinDocumentId, source: string) =>
+      commands.atlasImportFontFile(document, source).then(toResult),
     atlasImportSprite: (
       document: BinDocumentId,
       sheet: string,

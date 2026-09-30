@@ -114,6 +114,8 @@ pub(super) const ICON_SCALE: BinHash = named("IconScale");
 /* The unnamed float a shrinking `WrappingMode` scales a text down to at most. */
 pub(super) const MIN_TEXT_SCALE: BinHash = BinHash(0x2497_2bb9);
 
+pub(super) const GAME_FONT_DESCRIPTION: BinHash = named("GameFontDescription");
+pub(super) const FONT_TYPE_CLASS: BinHash = named("FontType");
 pub(super) const FONT_TYPE: BinHash = named("typeData");
 pub(super) const FONT_RESOLUTIONS: BinHash = named("resolutionData");
 pub(super) const OUTLINE_COLOR: BinHash = named("outlineColor");

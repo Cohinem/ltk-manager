@@ -129,10 +129,12 @@ fn an_atlas_source_saved_goes_to_the_rebuild_and_is_no_layer_file() {
     let watches = watches.with_sources(Arc::new(move |_: &str, changed: &[PathBuf]| {
         let _ = sender.lock().send(changed.to_vec());
     }));
-    watches.acquire(path).unwrap();
-
+    /* A sheet's folder exists before its sources are edited. Inotify reports nothing written
+    into a folder made under a watch before it watches that folder too. */
     let sheet = project.path().join(atlas::SOURCES_DIR).join("hud");
     fs::create_dir_all(&sheet).unwrap();
+    watches.acquire(path).unwrap();
+
     fs::write(sheet.join("icon.png"), b"pixels").unwrap();
 
     let changed = rebuilt.recv_timeout(Duration::from_secs(10)).unwrap();

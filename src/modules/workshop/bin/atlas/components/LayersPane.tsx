@@ -21,6 +21,7 @@ import { instantScroll } from "../../tree/hooks/useRowWindow";
 import { Notice } from "../../vfx/preview/components/Notice";
 import { foldsAbove, type LayerRow, layerMatches, layerRows } from "../engine/model/layers";
 import { iconThumb } from "../engine/model/sprites";
+import { sceneMembers } from "../engine/model/tree";
 import { variantPatched } from "../engine/model/variants";
 import { useAtlasView } from "../hooks/useAtlasSources";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
@@ -51,7 +52,8 @@ export interface LayersPaneProps {
  * dot marks the scenes the file enables itself, and an effect row dims while effects are off.
  *
  * The tree is one tab stop: Up and Down walk the rows, Right opens a fold or steps into it, Left
- * closes it or steps out to its parent, Enter or Space selects the row, F frames it, Ctrl+F returns
+ * closes it or steps out to its parent, Enter or Space selects the row, a scene's row every element
+ * in it and its scenes, F frames it, Ctrl+F returns
  * to the box, Ctrl+A selects every element the search finds, and Escape lets go. A click with
  * Ctrl, Shift or Cmd adds a row to the selection, a double click frames it, and a right click
  * selects it and opens its menu, a scene's being `SceneMenu`. A pick on the canvas unfolds the tree to its row. The rows are
@@ -155,9 +157,27 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
 
   const act = (row: LayerRow, additive = false) => {
     setActiveId(row.id);
-    if (row.type === "scene") toggleOpen(row);
+    if (row.type === "scene") selectScene(row.key, additive);
     else if (additive) toggleSelected(key, row.key);
     else select(key, row.key);
+  };
+
+  const sceneChosen = (scene: string) => {
+    const members = tree === null ? [] : sceneMembers(tree, scene);
+    return members.length > 0 && members.every((each) => chosen.has(each));
+  };
+
+  const selectScene = (scene: string, additive: boolean) => {
+    if (tree === null) return;
+
+    const members = sceneMembers(tree, scene);
+    let next = members;
+    if (additive && sceneChosen(scene)) next = selection.filter((each) => !members.includes(each));
+    else if (additive) next = [...new Set([...selection, ...members])];
+
+    /* Selecting a scene leaves its fold as it is, where a pick unfolds to its row. */
+    revealed.current = next.at(-1) ?? null;
+    setSelection(key, next);
   };
 
   const moveTo = (index: number) => {
@@ -279,7 +299,7 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
                       (row.kind === "effect" || row.kind === "particle")
                     }
                     patched={row.type === "element" && patched.has(row.key)}
-                    selected={row.type === "element" && chosen.has(row.key)}
+                    selected={row.type === "scene" ? sceneChosen(row.key) : chosen.has(row.key)}
                     hovered={row.type === "element" && row.key === hovered}
                     active={virtual.index === active && activeId !== null}
                     onFold={() => toggleOpen(row)}

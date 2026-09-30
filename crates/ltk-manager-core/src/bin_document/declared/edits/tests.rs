@@ -5,7 +5,8 @@ use ltk_meta::{Bin, BinObject};
 use super::super::tests::{Game, SKIN, h, manifest, project};
 use super::super::{DeclareContext, DeclaredSign};
 use super::*;
-use crate::bin_document::{LeafValue, NewItem, ValueEdit};
+use crate::bin_document::edit::UNDO_DEPTH;
+use crate::bin_document::{LeafValue, NewItem, PropertyEdit, ValueEdit};
 use crate::meta_schema::{self, PatchSchema};
 use crate::problems::GameBuild;
 
@@ -878,4 +879,33 @@ fn a_property_added_past_the_databases_newest_build_declares_through_the_fallbac
         let lines = outcome.unwrap_or_else(|error| panic!("{name}: {error:?}"));
         assert_eq!(lines.len(), 1, "{name}: {lines:?}");
     }
+}
+
+#[test]
+fn a_batch_deeper_than_the_undo_stack_undoes_as_one_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(dir.path());
+    let rename = |at: usize| PropertyEdit {
+        entry: format!("0x{:08x}", *h(SKIN)),
+        holder: format!("{}[{}]", field("complexEmitterDefinitionData"), at % 3),
+        field: field("emitterName"),
+        edits: vec![ValueEdit::SetLeaf {
+            path: String::new(),
+            value: LeafValue::String {
+                value: format!("renamed_{at}"),
+            },
+        }],
+    };
+
+    document
+        .edit_properties(
+            (0..UNDO_DEPTH + 50).map(rename).collect(),
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+    assert!(manifest(dir.path(), "base").contains("renamed_249"));
+
+    assert!(document.undo().unwrap());
+    assert!(!dir.path().join("content/base/game_data.yaml").exists());
+    assert!(!document.undo().unwrap());
 }

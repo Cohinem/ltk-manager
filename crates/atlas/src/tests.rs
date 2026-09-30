@@ -4,7 +4,7 @@ use std::io::Cursor;
 
 use glam::{Vec2, Vec4};
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_manager_core::bin_document::{AssetLookup, BinDocument, GameCopy, RowNames};
+use ltk_manager_core::bin_document::{AssetLookup, BinDocument, GameCopy, RowNames, hex};
 use ltk_manager_core::error::{AppError, AppResult};
 use ltk_manager_core::preview::AssetRef;
 use ltk_meta::path::PropertyPath;
@@ -525,6 +525,34 @@ fn a_font_description_resolves_alone_against_the_game_fonts_bin() {
     assert!(font.sizes.is_empty());
     assert!(font.auto_scale);
     assert!(resolve_font(&own, h("gone"), Some(&game), &(), &chunks).is_err());
+}
+
+#[test]
+fn the_font_catalog_lists_the_documents_fonts_before_the_games_with_their_faces() {
+    let own = BinDocument::parse(document_of(vec![
+        BinObject::builder(h("mod/font"), h("GameFontDescription"))
+            .property(h("name"), values::String::new("Mine".to_owned()))
+            .property(h("typeData"), values::ObjectLink::new(h(FONT_TYPE)))
+            .build(),
+    ]))
+    .unwrap();
+    let game = BinDocument::parse(fonts_bin()).unwrap();
+
+    let catalog = font_catalog(&own, Some(&game), &());
+
+    let mine = &catalog.fonts[0];
+    assert_eq!((mine.name.as_str(), mine.project), ("Mine", true));
+    assert_eq!(mine.face.as_deref(), Some("ASSETS/UX/Fonts/Beaufort.otf"));
+    assert_eq!(mine.type_data, Some(hex(h(FONT_TYPE))));
+    assert!(catalog.fonts[1..].iter().all(|font| !font.project));
+    assert!(catalog.fonts.iter().any(|font| font.entry == hex(h(FONT))));
+    assert_eq!(mine.locales, 2);
+    assert_eq!(catalog.types.len(), 1);
+    assert_eq!(catalog.types[0].entry, hex(h(FONT_TYPE)));
+    assert_eq!(
+        catalog.types[0].face.as_deref(),
+        Some("ASSETS/UX/Fonts/Beaufort.otf")
+    );
 }
 
 /// Names the base scene bin's chunk, as a hash table does.

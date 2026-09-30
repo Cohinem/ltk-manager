@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, skipToken } from "@tanstack/react-query";
 
 import {
   api,
@@ -9,6 +9,7 @@ import {
   type SandboxRef,
   type ProgramRead,
   type UiFont,
+  type UiFontCatalog,
   type UiLoadout,
   type UiShader,
   type UiView,
@@ -70,6 +71,8 @@ export const uiKeys = {
   sceneView: (document: BinDocumentId, entry: string) =>
     ["ui-scene-view", document, entry] as const,
   font: (document: BinDocumentId, entry: string) => ["ui-font", document, entry] as const,
+  /* Under the font reads, so an edit that lands reads the catalog again. */
+  fontCatalog: (document: BinDocumentId | null) => ["ui-font", "catalog", document] as const,
   programs: (document: BinDocumentId | null) => ["ui-programs", document] as const,
   strings: (keys: readonly string[]) => ["ui-strings", ...keys] as const,
   fontFile: (asset: AssetRef) => ["ui-font-file", assetKey(asset)] as const,
@@ -147,6 +150,17 @@ export const uiQueries = {
     queryOptions<UiFont, AppError>({
       queryKey: uiKeys.font(document, entry),
       queryFn: async () => unwrapForQuery(await api.bin.readUiFont(document, entry)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** The fonts and faces a text in the open `document` can draw with, none while none is open. */
+  fontCatalog: (document: BinDocumentId | null) =>
+    queryOptions<UiFontCatalog, AppError>({
+      queryKey: uiKeys.fontCatalog(document),
+      queryFn:
+        document === null
+          ? skipToken
+          : async () => unwrapForQuery(await api.bin.readUiFontCatalog(document)),
       staleTime: Infinity,
       retry: false,
     }),

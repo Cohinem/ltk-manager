@@ -218,8 +218,10 @@ the page's full resolution, so an edited copy replaces the sprite in place.
 
 **Surfaces.** A surface is a panel style made once and worn by any number of images at their own
 size, with no slice numbers to set. "Make surface from this" on an image, or a PNG, adds its pixels
-to the mod's sheet and finds the slice lines itself: the longest run of columns, and of rows, that
-repeat is the part that stretches, and the art either side of it draws at its own size. An image
+to the mod's sheet and finds the slice lines itself. Scanning in from each side, a column or row
+whose pixels change on average from the next is edge art, and the edge ends at the first calm
+stretch after it, so grain in the fill and a decoration inside it are not taken for edge. The part
+between the edges stretches, and the art either side of it draws at its own size. An image
 wearing a surface is an `AtlasData9Slice` whose edges keep those insets. "Apply surface" dresses
 every selected image in one undo step, and the inspector's Surface list swaps it. A fill that
 repeats, a flat colour or a soft gradient, stretches cleanly. Grain in the fill stretches with it.
@@ -248,6 +250,16 @@ replaces keeps its rect, and any other joins as a new sprite.
 sheets and the project's own. A row selects the elements drawing it, and replacing its image
 points all of them at the new sprite in one undo step. The inspector's Sprite section does the
 same for one element, and the layers pane and the objects browser show an icon's sprite.
+
+**Fonts.** A text's inspector lists every `GameFontDescription` the scene bin and the game's
+`ux/fonts` hold, by name and the file each draws with, and picking one rewrites the text's
+`FontDescription`. A game font is shared by every text that links it, so its look is not edited in
+place. "New font from this one" declares a copy in the project, a `class` and a `set` of each
+property since the font sits in another chunk, and switches the text to it. A font the project
+holds shows its face and its fill, outline, shadow and glow colours. "Import a font file" copies a
+`.ttf` or an `.otf` into the layer under `ASSETS/UX/Fonts/Mods/`, declares a copy of the font's
+`FontType` whose every locale, bold included, draws that file, and points the font at it. Sizes
+stay the `FontResolutionData` the font links.
 
 ## 6 A preview that looks like the game
 

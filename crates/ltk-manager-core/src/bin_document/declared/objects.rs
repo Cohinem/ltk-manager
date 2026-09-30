@@ -14,7 +14,8 @@ use serde::{Deserialize, Serialize};
 use super::super::edit::{Edit, bin_hash};
 use super::super::properties::field_path;
 use super::super::{BinDocument, BinDocumentError, ClassChoice, EditRejection, hex};
-use super::{RenderNames, declaring, entry_name, not_declared};
+use super::{RenderNames, declaring, entry_name, not_declared, read_entry};
+use crate::error::AppError;
 use crate::meta_schema::SchemaAt;
 use crate::vfx::vfx_system_template;
 
@@ -31,6 +32,12 @@ use crate::vfx::vfx_system_template;
 pub enum NewObject {
     /// A copy of an object the document holds: `clone`.
     Clone {
+        /// The object copied, `0x` and eight hex digits.
+        source: String,
+    },
+    /// A copy of an object another chunk of the game declares: its class, and a `set` of each
+    /// of its properties.
+    Copy {
         /// The object copied, `0x` and eight hex digits.
         source: String,
     },
@@ -118,6 +125,16 @@ impl BinDocument {
                 let expected = clone_as(held, &spelled, &name);
                 (ObjectOperation::Clone(spelled), expected)
             }
+            NewObject::Copy { source } => {
+                let source = bin_hash(source).map_err(rejected)?;
+                let held = self.game_object(source)?;
+                let spelled = self.spelled(|names| entry_name(source, names))?;
+                let copy = clone_as(&held, &spelled, &name);
+                let class = self.spelled(|names| class_name(copy.class_hash, names))?;
+                let expected = BinObject::new(entry, copy.class_hash);
+                filling = Some(copy.properties.into_iter().collect());
+                (ObjectOperation::Construct(class), expected)
+            }
             NewObject::Class { class: typed } => {
                 let class = bin_hash(typed).map_err(rejected)?;
                 /* A typed name is the spelling the author chose. A hash is spelled by the
@@ -142,40 +159,33 @@ impl BinDocument {
             }
         };
 
-        let since = self.declared.as_ref().ok_or_else(not_declared)?.written;
         let plan = self.object_edit(name, operation)?;
-        self.declare_object(&[plan], entry, |document| {
-            document.object_at(entry) == Some(&expected)
-        })?;
-        if let Some(properties) = filling {
-            self.fill_object(entry, properties, since)?;
+        let landed = |document: &Self| document.object_at(entry) == Some(&expected);
+        match filling {
+            None => self.declare_object(&[plan], entry, landed)?,
+            // The creation and every key it is filled with undo as one step.
+            Some(properties) => self.declared_group(|document| {
+                document.declare_object(&[plan], entry, landed)?;
+                document.declare_properties(entry, properties)
+            })?,
         }
         Ok(entry)
     }
 
-    /// Declare each of `properties` on the object `entry` just created, and fold the creation
-    /// and every key into one undo step. A refusal takes the object back with its keys.
-    fn fill_object(
-        &mut self,
-        entry: BinHash,
-        properties: Vec<(BinHash, PropertyValueEnum)>,
-        since: usize,
-    ) -> Result<(), BinDocumentError> {
-        let outcome = self.declare_properties(entry, properties);
-        let declared = self.declared.as_mut().ok_or_else(not_declared)?;
-        let folded = declared.fold_undo(since);
-        if outcome.is_ok() {
-            return Ok(());
-        }
-
-        if let Some(folded) = folded {
-            declared
-                .put(&folded.layer, &folded.after, &folded.before)
-                .map_err(declaring)?;
-            declared.undo.pop_back();
-        }
-        self.reapply()?;
-        outcome
+    /// The game's copy of the object `entry`, from whichever chunk declares it.
+    fn game_object(&self, entry: BinHash) -> Result<BinObject, BinDocumentError> {
+        let declared = self.declared.as_ref().ok_or_else(not_declared)?;
+        let name = EntryName::try_from(hex(entry).as_str()).map_err(|_| {
+            BinDocumentError::EditRejected {
+                address: hex(entry),
+                rejection: EditRejection::MalformedHash,
+            }
+        })?;
+        read_entry(declared.context.game.as_ref(), &name)
+            .map_err(|error| declaring(AppError::Other(error.to_string())))?
+            .ok_or_else(|| BinDocumentError::NodeNotFound {
+                address: hex(entry),
+            })
     }
 
     fn declare_properties(

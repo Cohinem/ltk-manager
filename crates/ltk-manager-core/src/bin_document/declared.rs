@@ -111,8 +111,9 @@ pub(super) struct Declared {
     diagnostics: Vec<DeclaredDiagnostic>,
     undo: VecDeque<TextEdit>,
     redo: Vec<TextEdit>,
-    /// How many writes `remember` has held, which counts past the undo stack's depth.
-    written: usize,
+    /// The writes of an open `declared_group`, folded into one as they land, which the undo
+    /// stack's depth never splits.
+    group: Option<Option<TextEdit>>,
     /// The base scene a declared variant lays over. Absent for every other chunk.
     variant: Option<VariantBase>,
 }
@@ -416,7 +417,7 @@ impl BinDocument {
             diagnostics: Vec::new(),
             undo: VecDeque::new(),
             redo: Vec::new(),
-            written: 0,
+            group: None,
             variant,
         };
         let bytes = declared.apply().map_err(declaring)?;
@@ -534,11 +535,14 @@ impl BinDocument {
         &mut self,
         edits: impl FnOnce(&mut Self) -> Result<(), BinDocumentError>,
     ) -> Result<(), BinDocumentError> {
-        let since = self.declared.as_ref().ok_or_else(not_declared)?.written;
+        self.declared.as_mut().ok_or_else(not_declared)?.group = Some(None);
         let outcome = edits(self);
         let declared = self.declared.as_mut().ok_or_else(not_declared)?;
-        let folded = declared.fold_undo(since);
+        let folded = declared.group.take().flatten();
         if outcome.is_ok() {
+            if let Some(folded) = folded {
+                declared.hold(folded);
+            }
             return Ok(());
         }
 
@@ -546,7 +550,6 @@ impl BinDocument {
             declared
                 .put(&folded.layer, &folded.after, &folded.before)
                 .map_err(declaring)?;
-            declared.undo.pop_back();
         }
         self.reapply()?;
         outcome
@@ -963,38 +966,32 @@ impl Declared {
         }))
     }
 
-    /// Hold `edit` for an undo, which empties the redo stack. A new module the edit made
-    /// becomes the chosen one.
+    /// Hold `edit` for an undo, which empties the redo stack, or fold it into the open group's.
+    /// A new module the edit made becomes the chosen one.
     fn remember(&mut self, edit: TextEdit) {
         if let (DeclaredModuleChoice::New { .. }, Some(index)) = (&self.module, edit.module) {
             self.module = DeclaredModuleChoice::Index { index };
         }
+        self.redo.clear();
+
+        match &mut self.group {
+            Some(folded) => {
+                let before = folded.take().map(|first| first.before);
+                *folded = Some(match before {
+                    Some(before) => TextEdit { before, ..edit },
+                    None => edit,
+                });
+            }
+            None => self.hold(edit),
+        }
+    }
+
+    /// Push `edit` onto the undo stack, dropping the oldest past [`UNDO_DEPTH`].
+    fn hold(&mut self, edit: TextEdit) {
         if self.undo.len() == UNDO_DEPTH {
             self.undo.pop_front();
         }
         self.undo.push_back(edit);
-        self.redo.clear();
-        self.written += 1;
-    }
-
-    /// Fold every write held since the count stood at `since` into one undo step, answering
-    /// it, and `None` where none was held.
-    fn fold_undo(&mut self, since: usize) -> Option<TextEdit> {
-        let count = (self.written - since).min(self.undo.len());
-        if count == 0 {
-            return None;
-        }
-
-        let folded: Vec<TextEdit> = self.undo.drain(self.undo.len() - count..).collect();
-        let (first, last) = (folded.first()?, folded.last()?);
-        let edit = TextEdit {
-            layer: last.layer.clone(),
-            before: first.before.clone(),
-            after: last.after.clone(),
-            module: last.module,
-        };
-        self.undo.push_back(edit.clone());
-        Some(edit)
     }
 
     /// Replace the text `from` of `layer`'s manifest with `to`.
