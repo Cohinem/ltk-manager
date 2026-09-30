@@ -20,6 +20,18 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::State;
 
+/// An edited project with its location and last-opened time, which a load leaves at their
+/// defaults.
+fn described(
+    edited: AppResult<WorkshopProject>,
+    workshop: &WorkshopState,
+    settings: &SettingsState,
+) -> IpcResult<WorkshopProject> {
+    edited
+        .map(|project| workshop.0.describe(&settings.config(), project))
+        .into()
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn get_workshop_projects(
@@ -169,8 +181,9 @@ pub fn get_project_content_tree(
 pub fn save_project_config(
     args: SaveProjectConfigArgs,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop.0.save_config(args).into()
+    described(workshop.0.save_config(args), &workshop, &settings)
 }
 
 /// Read the `.modignore` at project-relative `at`, or the root file for none.
@@ -287,12 +300,11 @@ pub fn rename_workshop_project(
     workshop: State<WorkshopState>,
     settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    let config = settings.config();
-    workshop
-        .0
-        .rename_project(&project_path, &new_name)
-        .map(|project| workshop.0.describe(&config, project))
-        .into()
+    described(
+        workshop.0.rename_project(&project_path, &new_name),
+        &workshop,
+        &settings,
+    )
 }
 
 #[tauri::command]
@@ -375,8 +387,13 @@ pub fn set_project_thumbnail(
     project_path: String,
     image_path: String,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop.0.set_thumbnail(&project_path, &image_path).into()
+    described(
+        workshop.0.set_thumbnail(&project_path, &image_path),
+        &workshop,
+        &settings,
+    )
 }
 
 #[tauri::command]
@@ -384,8 +401,13 @@ pub fn set_project_thumbnail(
 pub fn remove_project_thumbnail(
     project_path: String,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop.0.remove_thumbnail(&project_path).into()
+    described(
+        workshop.0.remove_thumbnail(&project_path),
+        &workshop,
+        &settings,
+    )
 }
 
 #[tauri::command]
@@ -404,11 +426,13 @@ pub fn save_layer_string_overrides(
     layer_name: String,
     string_overrides: IndexMap<String, IndexMap<String, String>>,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop
-        .0
-        .save_layer_string_overrides(&project_path, &layer_name, string_overrides)
-        .into()
+    let saved =
+        workshop
+            .0
+            .save_layer_string_overrides(&project_path, &layer_name, string_overrides);
+    described(saved, &workshop, &settings)
 }
 
 #[tauri::command]
@@ -419,13 +443,14 @@ pub fn create_project_layer(
     display_name: Option<String>,
     description: Option<String>,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
     sandboxes: State<SandboxState>,
 ) -> IpcResult<WorkshopProject> {
     let created = workshop
         .0
         .create_layer(&project_path, &name, display_name, description);
     sandboxes.invalidate(&project_path);
-    created.into()
+    described(created, &workshop, &settings)
 }
 
 /// Rename a layer, and move the open documents and sandboxes of the project to the new
@@ -437,6 +462,7 @@ pub fn rename_project_layer(
     layer_name: String,
     new_display_name: String,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
     documents: State<BinDocuments>,
     sandboxes: State<SandboxState>,
 ) -> IpcResult<WorkshopProject> {
@@ -448,7 +474,7 @@ pub fn rename_project_layer(
     if let (Ok(_), Some(to)) = (&renamed, layer_name_for(&new_display_name)) {
         documents.rename_layer(&project_path, &layer_name, &to);
     }
-    renamed.into()
+    described(renamed, &workshop, &settings)
 }
 
 #[tauri::command]
@@ -457,11 +483,12 @@ pub fn delete_project_layer(
     project_path: String,
     layer_name: String,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
     sandboxes: State<SandboxState>,
 ) -> IpcResult<WorkshopProject> {
     let deleted = workshop.0.delete_layer(&project_path, &layer_name);
     sandboxes.invalidate(&project_path);
-    deleted.into()
+    described(deleted, &workshop, &settings)
 }
 
 #[tauri::command]
@@ -471,11 +498,12 @@ pub fn update_layer_description(
     layer_name: String,
     description: Option<String>,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
 ) -> IpcResult<WorkshopProject> {
-    workshop
+    let updated = workshop
         .0
-        .update_layer_description(&project_path, &layer_name, description)
-        .into()
+        .update_layer_description(&project_path, &layer_name, description);
+    described(updated, &workshop, &settings)
 }
 
 #[tauri::command]
@@ -507,11 +535,12 @@ pub fn reorder_project_layers(
     project_path: String,
     layer_names: Vec<String>,
     workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
     sandboxes: State<SandboxState>,
 ) -> IpcResult<WorkshopProject> {
     let reordered = workshop.0.reorder_layers(&project_path, layer_names);
     sandboxes.invalidate(&project_path);
-    reordered.into()
+    described(reordered, &workshop, &settings)
 }
 
 #[tauri::command]
