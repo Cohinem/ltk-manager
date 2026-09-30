@@ -67,7 +67,7 @@ async function findPixels(swatch: HTMLElement): Promise<HTMLImageElement> {
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === commandNames.app.readAssetInfo)
+    if (command === commandNames.preview.readAssetInfo)
       return Promise.resolve({ ok: true, value: TEXTURE });
     return Promise.resolve({ ok: false, error: { code: "UNKNOWN" } });
   });

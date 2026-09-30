@@ -72,6 +72,7 @@ fn main() {
         .plugin(services::game::plugin())
         .plugin(services::library::plugin())
         .plugin(services::objects::plugin())
+        .plugin(services::preview::plugin())
         .plugin(services::workshop::plugin());
 
     builder

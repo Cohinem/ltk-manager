@@ -468,7 +468,7 @@ beforeEach(() => {
     }
     if (command === commandNames.bin.classSchema)
       return Promise.resolve({ ok: true, value: SCHEMA });
-    if (command === commandNames.app.locateFilesNear)
+    if (command === commandNames.preview.locateFilesNear)
       return Promise.resolve({ ok: true, value: {} });
     if (command === commandNames.objects.declaredObjects) {
       const hashes = (args?.objectHashes ?? []) as string[];
@@ -1714,7 +1714,7 @@ describe("A child lane", () => {
     paneWidth = WIDE;
     const served = mockInvoke.getMockImplementation();
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) =>
-      command === commandNames.app.readVfxSystem
+      command === commandNames.preview.readVfxSystem
         ? Promise.resolve({ ok: true, value: RESOLVED })
         : served?.(command, args),
     );
@@ -1835,7 +1835,7 @@ describe("A child lane", () => {
 
     await waitFor(() => {
       const located = mockInvoke.mock.calls
-        .filter(([command]) => command === commandNames.app.locateFilesNear)
+        .filter(([command]) => command === commandNames.preview.locateFilesNear)
         .flatMap(([, args]) => (args as { paths: string[] }).paths);
       expect(located).toContain(CHILD_TEXTURE);
     });
@@ -1928,7 +1928,7 @@ describe("ClassView over sixty emitters", () => {
 
   function renderMany() {
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === commandNames.app.locateFilesNear)
+      if (command === commandNames.preview.locateFilesNear)
         return Promise.resolve({ ok: true, value: {} });
       if (command === commandNames.objects.declaredObjects) {
         return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects: {} } });

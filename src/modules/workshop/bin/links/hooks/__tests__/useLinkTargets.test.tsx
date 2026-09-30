@@ -126,7 +126,7 @@ beforeEach(() => {
   mockInvoke.mockImplementation((command: string) => {
     if (command === commandNames.objects.declaredObjects)
       return Promise.resolve({ ok: true, value: DECLARED });
-    if (command === commandNames.app.locateFilesNear)
+    if (command === commandNames.preview.locateFilesNear)
       return Promise.resolve({ ok: true, value: LOCATED });
     return Promise.resolve({ ok: false, error: { code: "UNKNOWN" } });
   });
@@ -149,10 +149,10 @@ describe("useCheckLinkTargets", () => {
       ],
     ]);
     const locatedCalls = mockInvoke.mock.calls.filter(
-      ([command]) => command === commandNames.app.locateFilesNear,
+      ([command]) => command === commandNames.preview.locateFilesNear,
     );
     expect(locatedCalls).toEqual([
-      [commandNames.app.locateFilesNear, { sandbox: IN_PROJECT, paths: linkPaths(ROOTS) }],
+      [commandNames.preview.locateFilesNear, { sandbox: IN_PROJECT, paths: linkPaths(ROOTS) }],
     ]);
 
     expect(result.current.index).toEqual({ status: "ready" });
@@ -172,7 +172,7 @@ describe("useCheckLinkTargets", () => {
     });
 
     await waitFor(() => expect(result.current.pending).toBe(false));
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.locateFilesNear, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.preview.locateFilesNear, {
       sandbox: { kind: "game" },
       paths: linkPaths(ROOTS),
     });

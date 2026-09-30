@@ -192,7 +192,7 @@ beforeEach(() => {
       const answered = paths.map((path) => ELEMENTS[path] ?? FIELDS[path] ?? page([]));
       return Promise.resolve({ ok: true, value: answered });
     }
-    if (command === commandNames.app.locateFilesNear)
+    if (command === commandNames.preview.locateFilesNear)
       return Promise.resolve({ ok: true, value: {} });
     if (command === commandNames.objects.declaredObjects) {
       return Promise.resolve({
@@ -320,7 +320,7 @@ describe("ClassView over a material whose shader answers", () => {
   beforeEach(() => {
     const read = mockInvoke.getMockImplementation();
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === commandNames.app.readMaterialPrograms) {
+      if (command === commandNames.preview.readMaterialPrograms) {
         return Promise.resolve({
           ok: true,
           value: [

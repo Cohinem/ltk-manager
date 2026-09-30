@@ -65,7 +65,7 @@ function Providers({ children, links }: { children: ReactNode; links: LinkTarget
 
 function renderChip(path: string, sniffed?: AssetInfo) {
   mockInvoke.mockImplementation((command: string) => {
-    if (command === commandNames.app.readAssetInfo && sniffed) {
+    if (command === commandNames.preview.readAssetInfo && sniffed) {
       return Promise.resolve({ ok: true, value: sniffed });
     }
     return Promise.resolve({ ok: false, error: { code: "UNKNOWN" } });
@@ -90,7 +90,10 @@ describe("FileChip", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Texture preview" })).toBeInTheDocument();
     expect(screen.getByText("Aatrox")).toBeInTheDocument();
-    expect(mockInvoke).not.toHaveBeenCalledWith(commandNames.app.readAssetInfo, expect.anything());
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      commandNames.preview.readAssetInfo,
+      expect.anything(),
+    );
   });
 
   it("follows any other kind's chip with its badge and no swatch", () => {
@@ -112,7 +115,7 @@ describe("FileChip", () => {
     });
 
     expect(await screen.findByRole("button", { name: "Texture preview" })).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.readAssetInfo, expect.anything());
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.preview.readAssetInfo, expect.anything());
   });
 
   it("badges a sniffed name by what the bytes say it is", async () => {

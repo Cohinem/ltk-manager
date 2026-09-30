@@ -8,7 +8,7 @@ use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::ritobin::RitobinVerb;
 use tauri::{AppHandle, Manager};
 
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::{AppError, IpcResult};
 use crate::state::SettingsState;
 

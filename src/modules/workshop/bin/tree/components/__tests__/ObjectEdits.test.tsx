@@ -149,7 +149,7 @@ beforeEach(() => {
     const object = sentEdit(command, args, "object");
     if (object?.edit.kind === "create") return landed({ kind: "object", entry: "0x0badf00d" });
     if (object !== null) return landed();
-    if (command === commandNames.app.vfxTemplates)
+    if (command === commandNames.preview.vfxTemplates)
       return Promise.resolve({ ok: true, value: [MISSILE] });
     if (
       command === commandNames.bin.binChoices &&

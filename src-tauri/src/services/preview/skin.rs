@@ -1,9 +1,9 @@
 //! The skin preview's reads: one skin with its files and effects placed, one animation
 //! graph with its maps, and one clip's header.
 
-use super::document_assets::{parse_entry, read_resolved, with_resolution};
 use super::material::shader_defs;
-use super::off_thread;
+use crate::commands::document_assets::{parse_entry, read_resolved, with_resolution};
+use crate::commands::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentError, BinDocumentId, BinDocuments};

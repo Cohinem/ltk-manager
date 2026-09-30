@@ -56,12 +56,6 @@ command_table![
     minimize_to_tray,
     // Storage
     detect_storage_medium,
-    // Asset preview
-    read_asset_info,
-    save_asset_copy,
-    // Ritobin
-    detect_ritobin_integration,
-    open_asset_in_ritobin,
     // Deep Link
     deep_link_install_mod,
     take_pending_deep_link,
@@ -74,27 +68,6 @@ command_table![
     integration_release,
     change_integration,
     cancel_integration_download,
-    // Object index
-    read_spell,
-    // Particle renderer
-    read_vfx_system,
-    vfx_templates,
-    // Skin preview
-    read_skin,
-    read_material_programs,
-    read_embedded_material_program,
-    read_default_skinned_program,
-    read_particle_program,
-    bake_skin_tangents,
-    read_map,
-    read_map_particles,
-    read_map_characters,
-    read_map_variants,
-    read_map_outline,
-    locate_map_files,
-    locate_files_near,
-    read_animation_graph,
-    read_clip_header,
     // Atlas
     read_ui_view,
     read_ui_scene_view,
