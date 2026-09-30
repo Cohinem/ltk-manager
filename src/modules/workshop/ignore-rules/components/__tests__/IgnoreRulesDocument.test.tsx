@@ -27,7 +27,7 @@ const world = {
 
 function answer(command: string): unknown {
   switch (command) {
-    case commandNames.app.getProjectIgnoreRules:
+    case commandNames.workshop.getProjectIgnoreRules:
       return {
         ok: true,
         value: {
@@ -36,7 +36,7 @@ function answer(command: string): unknown {
           missingRecommended: world.text === null ? ["*.psd", "*.fbx"] : ["*.fbx"],
         },
       };
-    case commandNames.app.saveProjectIgnoreRules:
+    case commandNames.workshop.saveProjectIgnoreRules:
       if (world.refusal) {
         return {
           ok: false,
@@ -54,7 +54,7 @@ function answer(command: string): unknown {
           missingRecommended: [],
         },
       };
-    case commandNames.app.addRecommendedIgnoreRules:
+    case commandNames.workshop.addRecommendedIgnoreRules:
       return {
         ok: true,
         value: {
@@ -63,7 +63,7 @@ function answer(command: string): unknown {
           missingRecommended: [],
         },
       };
-    case commandNames.app.recommendedIgnoreRules:
+    case commandNames.workshop.recommendedIgnoreRules:
       return { ok: true, value: RECOMMENDED };
     default:
       return { ok: true, value: null };
@@ -148,8 +148,10 @@ describe("IgnoreRulesDocument", () => {
     const buffer = await screen.findByRole("textbox", { name: "Ignore rules" });
     await user.type(buffer, "*.fbx");
 
-    await waitFor(() => expect(calls(commandNames.app.saveProjectIgnoreRules)).toHaveLength(1));
-    expect(calls(commandNames.app.saveProjectIgnoreRules)[0]?.[1]).toMatchObject({
+    await waitFor(() =>
+      expect(calls(commandNames.workshop.saveProjectIgnoreRules)).toHaveLength(1),
+    );
+    expect(calls(commandNames.workshop.saveProjectIgnoreRules)[0]?.[1]).toMatchObject({
       projectPath: PROJECT_PATH,
       text: "*.psd\n*.fbx",
     });
@@ -183,7 +185,9 @@ describe("IgnoreRulesDocument", () => {
     expect(screen.getByText("Fix the rule to save")).toBeInTheDocument();
 
     /* One attempt, and no loop: the next edit is what asks again. */
-    await waitFor(() => expect(calls(commandNames.app.saveProjectIgnoreRules)).toHaveLength(1));
+    await waitFor(() =>
+      expect(calls(commandNames.workshop.saveProjectIgnoreRules)).toHaveLength(1),
+    );
   });
 
   it("offers the whole default when the project has no file", async () => {
@@ -193,7 +197,9 @@ describe("IgnoreRulesDocument", () => {
 
     await user.click(await screen.findByRole("button", { name: "Write the recommended rules" }));
 
-    await waitFor(() => expect(calls(commandNames.app.addRecommendedIgnoreRules)).toHaveLength(1));
+    await waitFor(() =>
+      expect(calls(commandNames.workshop.addRecommendedIgnoreRules)).toHaveLength(1),
+    );
   });
 
   it("offers only the missing entries when the file is short of some", async () => {
@@ -202,7 +208,9 @@ describe("IgnoreRulesDocument", () => {
 
     await user.click(await screen.findByRole("button", { name: "Add 1 missing recommended rule" }));
 
-    await waitFor(() => expect(calls(commandNames.app.addRecommendedIgnoreRules)).toHaveLength(1));
+    await waitFor(() =>
+      expect(calls(commandNames.workshop.addRecommendedIgnoreRules)).toHaveLength(1),
+    );
   });
 
   /* The rules answer the same find bar the readme does. */

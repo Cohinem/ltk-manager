@@ -49,12 +49,12 @@ it("acquires a watch on the project's layers while mounted", async () => {
   const { unmount } = renderReload();
   await act(() => Promise.resolve());
 
-  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.watchProjectLayers, {
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.workshop.watchProjectLayers, {
     projectPath: PROJECT,
   });
 
   unmount();
-  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.unwatchProjectLayers, {
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.workshop.unwatchProjectLayers, {
     projectPath: PROJECT,
   });
 });

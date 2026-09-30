@@ -1,7 +1,7 @@
 use super::text_files::write_default_readme;
 use super::{
     CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, ProjectDir,
-    ProjectKey, SaveProjectConfigArgs, Workshop, WorkshopProject, is_valid_project_name,
+    ProjectKey, ProjectMetadata, Workshop, WorkshopProject, is_valid_project_name,
 };
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
@@ -127,15 +127,19 @@ impl Workshop {
         Ok(self.describe(config, project))
     }
 
-    /// Save project configuration changes.
-    pub fn save_config(&self, args: SaveProjectConfigArgs) -> AppResult<WorkshopProject> {
-        let project_dir = ProjectDir::open(&args.project_path)?;
+    /// Write `metadata` into the config of the project at `project_path`.
+    pub fn save_config(
+        &self,
+        project_path: &str,
+        metadata: ProjectMetadata,
+    ) -> AppResult<WorkshopProject> {
+        let project_dir = ProjectDir::open(project_path)?;
         let mut mod_project = project_dir.config()?;
 
-        mod_project.display_name = args.display_name;
-        mod_project.version = args.version;
-        mod_project.description = args.description;
-        mod_project.authors = args
+        mod_project.display_name = metadata.display_name;
+        mod_project.version = metadata.version;
+        mod_project.description = metadata.description;
+        mod_project.authors = metadata
             .authors
             .into_iter()
             .map(|a| match a.role {
@@ -143,9 +147,9 @@ impl Workshop {
                 None => ModProjectAuthor::Name(a.name),
             })
             .collect();
-        mod_project.tags = args.tags.into_iter().map(ModTag::from).collect();
-        mod_project.champions = args.champions;
-        mod_project.maps = args.maps.into_iter().map(ModMap::from).collect();
+        mod_project.tags = metadata.tags.into_iter().map(ModTag::from).collect();
+        mod_project.champions = metadata.champions;
+        mod_project.maps = metadata.maps.into_iter().map(ModMap::from).collect();
 
         project_dir.write_config(&mod_project)?;
 

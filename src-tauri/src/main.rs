@@ -68,7 +68,8 @@ fn main() {
                 .build(),
         )
         .plugin(services::app_update::plugin())
-        .plugin(services::library::plugin());
+        .plugin(services::library::plugin())
+        .plugin(services::workshop::plugin());
 
     builder
         /* The preview's pixels come this way rather than over IPC, so an

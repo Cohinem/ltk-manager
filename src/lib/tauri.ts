@@ -35,7 +35,7 @@ import type {
   ReferenceQuery,
   Revision,
   SandboxRef,
-  SaveProjectConfigArgs,
+  ProjectMetadata,
   SearchPreference,
   Settings_Serialize as Settings,
   SurfaceSource,
@@ -47,6 +47,7 @@ import type {
 } from "@/lib/bindings";
 import { commands as appUpdate } from "@/lib/ipc/appUpdate";
 import { commands as library } from "@/lib/ipc/library";
+import { commands as workshop } from "@/lib/ipc/workshop";
 import type { Result } from "@/utils/result";
 
 export type * from "@/lib/bindings";
@@ -81,6 +82,9 @@ export type {
   Verdict_Serialize as Verdict,
 } from "@/lib/bindings";
 export type { Result } from "@/utils/result";
+
+/** A project's metadata and the project it is written to. */
+export type SaveProjectConfigArgs = ProjectMetadata & { projectPath: string };
 export { isErr, isOk, match, unwrap, unwrapOr } from "@/utils/result";
 
 type IpcResponse<T> = { ok: true; value: T } | { ok: false; error: AppError };
@@ -474,116 +478,143 @@ export const api = {
   // A project's ignore rules.
   ignoreRules: {
     read: (projectPath: string, at: string | null) =>
-      commands.getProjectIgnoreRules(projectPath, at).then(toResult),
-    recommended: () => commands.recommendedIgnoreRules().then(toResult),
+      workshop.getProjectIgnoreRules(projectPath, at).then(toResult),
+    recommended: () => workshop.recommendedIgnoreRules().then(toResult),
     save: (projectPath: string, at: string | null, text: string) =>
-      commands.saveProjectIgnoreRules(projectPath, at, text).then(toResult),
+      workshop.saveProjectIgnoreRules(projectPath, at, text).then(toResult),
     addRecommended: (projectPath: string) =>
-      commands.addRecommendedIgnoreRules(projectPath).then(toResult),
+      workshop.addRecommendedIgnoreRules(projectPath).then(toResult),
   },
 
   // Folders opened as projects from anywhere on disk.
   projectFolders: {
-    inspect: (path: string) => commands.inspectProjectFolder(path).then(toResult),
-    open: (path: string) => commands.openProjectFolder(path).then(toResult),
-    recordOpened: (path: string) => commands.recordProjectOpened(path).then(toResult),
-    list: () => commands.getOpenedProjectFolders().then(toResult),
-    forget: (path: string) => commands.forgetProjectFolder(path).then(toResult),
+    inspect: (path: string) => workshop.inspectProjectFolder(path).then(toResult),
+    open: (path: string) => workshop.openProjectFolder(path).then(toResult),
+    recordOpened: (path: string) => workshop.recordProjectOpened(path).then(toResult),
+    list: () => workshop.getOpenedProjectFolders().then(toResult),
+    forget: (path: string) => workshop.forgetProjectFolder(path).then(toResult),
     relocate: (oldPath: string, newPath: string) =>
-      commands.relocateProjectFolder(oldPath, newPath).then(toResult),
-    convert: (args: ConvertFolderArgs) => commands.convertFolderToProject(args).then(toResult),
-    addAll: (paths: readonly string[]) => commands.addProjectFolders([...paths]).then(toResult),
+      workshop.relocateProjectFolder(oldPath, newPath).then(toResult),
+    convert: (args: ConvertFolderArgs) => workshop.convertFolderToProject(args).then(toResult),
+    addAll: (paths: readonly string[]) => workshop.addProjectFolders([...paths]).then(toResult),
   },
 
   // Watches on an open project's layers, which announce `layer-files-changed`.
   layerWatch: {
-    acquire: (projectPath: string) => commands.watchProjectLayers(projectPath).then(toResult),
-    release: (projectPath: string) => commands.unwatchProjectLayers(projectPath).then(toResult),
+    acquire: (projectPath: string) => workshop.watchProjectLayers(projectPath).then(toResult),
+    release: (projectPath: string) => workshop.unwatchProjectLayers(projectPath).then(toResult),
   },
 
   // A project's root text files.
   projectText: {
     read: (projectPath: string, file: ProjectTextFile) =>
-      commands.getProjectText(projectPath, file).then(toResult),
+      workshop.getProjectText(projectPath, file).then(toResult),
     save: (projectPath: string, file: ProjectTextFile, text: string, expected: Revision | null) =>
-      commands.saveProjectText(projectPath, file, text, expected).then(toResult),
+      workshop.saveProjectText(projectPath, file, text, expected).then(toResult),
   },
 
   // A project's game data declarations.
   declarations: {
-    outline: (projectPath: string) => commands.declarationsOutline(projectPath).then(toResult),
+    outline: (projectPath: string) => workshop.declarationsOutline(projectPath).then(toResult),
     /** A module action with no document to undo it, for a view of the manifest itself. */
     moduleAction: (projectPath: string, layer: string, action: ModuleAction) =>
       commands.declarationsModuleAction(projectPath, layer, action).then(toResult),
   },
 
   // Workshop
-  getWorkshopProjects: () => commands.getWorkshopProjects().then(toResult),
+  getWorkshopProjects: () => workshop.getWorkshopProjects().then(toResult),
   createWorkshopProject: (args: CreateProjectArgs) =>
-    commands.createWorkshopProject(args).then(toResult),
+    workshop.createProject({ kind: "new", args }).then(toResult),
   getWorkshopProject: (projectPath: string) =>
-    commands.getWorkshopProject(projectPath).then(toResult),
+    workshop.getWorkshopProject(projectPath).then(toResult),
   getProjectContentTree: (projectPath: string) =>
-    commands.getProjectContentTree(projectPath).then(toResult),
-  saveProjectConfig: (args: SaveProjectConfigArgs) =>
-    commands.saveProjectConfig(args).then(toResult),
+    workshop.getProjectContentTree(projectPath).then(toResult),
+  saveProjectConfig: ({ projectPath, ...metadata }: SaveProjectConfigArgs) =>
+    workshop.editProject(projectPath, { kind: "metadata", metadata }).then(toResult),
   renameWorkshopProject: (projectPath: string, newName: string) =>
-    commands.renameWorkshopProject(projectPath, newName).then(toResult),
+    workshop.renameWorkshopProject(projectPath, newName).then(toResult),
   deleteWorkshopProject: (projectPath: string) =>
-    commands.deleteWorkshopProject(projectPath).then(toResult),
-  packWorkshopProject: (args: PackProjectArgs) => commands.packWorkshopProject(args).then(toResult),
-  importFromModpkg: (filePath: string) => commands.importFromModpkg(filePath).then(toResult),
-  peekFantome: (filePath: string) => commands.peekFantome(filePath).then(toResult),
-  importFromFantome: (args: ImportFantomeArgs) => commands.importFromFantome(args).then(toResult),
-  importFromGitRepo: (args: ImportGitRepoArgs) => commands.importFromGitRepo(args).then(toResult),
-  validateProject: (projectPath: string) => commands.validateProject(projectPath).then(toResult),
-  analyzeProject: (projectPath: string) => commands.analyzeProject(projectPath).then(toResult),
+    workshop.deleteWorkshopProject(projectPath).then(toResult),
+  packWorkshopProject: (args: PackProjectArgs) => workshop.packWorkshopProject(args).then(toResult),
+  importFromModpkg: (filePath: string) =>
+    workshop.createProject({ kind: "modpkg", filePath }).then(toResult),
+  peekFantome: (filePath: string) => workshop.peekFantome(filePath).then(toResult),
+  importFromFantome: (args: ImportFantomeArgs) =>
+    workshop.createProject({ kind: "fantome", args }).then(toResult),
+  importFromGitRepo: (args: ImportGitRepoArgs) =>
+    workshop.createProject({ kind: "gitRepo", args }).then(toResult),
+  validateProject: (projectPath: string) => workshop.validateProject(projectPath).then(toResult),
+  analyzeProject: (projectPath: string) => workshop.analyzeProject(projectPath).then(toResult),
   fixProblems: (projectPath: string, problems: ProblemId[]) =>
-    commands.fixProblems(projectPath, problems).then(toResult),
+    workshop.fixProblems(projectPath, problems).then(toResult),
   setProjectThumbnail: (projectPath: string, imagePath: string) =>
-    commands.setProjectThumbnail(projectPath, imagePath).then(toResult),
+    workshop.editProject(projectPath, { kind: "setThumbnail", imagePath }).then(toResult),
   removeProjectThumbnail: (projectPath: string) =>
-    commands.removeProjectThumbnail(projectPath).then(toResult),
+    workshop.editProject(projectPath, { kind: "removeThumbnail" }).then(toResult),
   getProjectThumbnail: (thumbnailPath: string) =>
-    commands.getProjectThumbnail(thumbnailPath).then(toResult),
+    workshop.getProjectThumbnail(thumbnailPath).then(toResult),
   saveLayerStringOverrides: (
     projectPath: string,
     layerName: string,
     stringOverrides: Record<string, Record<string, string>>,
-  ) => commands.saveLayerStringOverrides(projectPath, layerName, stringOverrides).then(toResult),
+  ) =>
+    workshop
+      .editProject(projectPath, {
+        kind: "stringOverrides",
+        layer: layerName,
+        overrides: stringOverrides,
+      })
+      .then(toResult),
   searchStringKeys: (query: string, limit?: number) =>
     commands.searchStringKeys(query, limit ?? null).then(toResult),
   lookupStringValues: (keys: string[]) => commands.lookupStringValues(keys).then(toResult),
   getLayerContentPath: (projectPath: string, layerName: string) =>
-    commands.getLayerContentPath(projectPath, layerName).then(toResult),
+    workshop.getLayerContentPath(projectPath, layerName).then(toResult),
   getLayerInfo: (projectPath: string, layerNames: string[]) =>
-    commands.getLayerInfo(projectPath, layerNames).then(toResult),
+    workshop.getLayerInfo(projectPath, layerNames).then(toResult),
   createProjectLayer: (
     projectPath: string,
     name: string,
     displayName?: string,
     description?: string,
   ) =>
-    commands
-      .createProjectLayer(projectPath, name, displayName ?? null, description ?? null)
+    workshop
+      .editProject(projectPath, {
+        kind: "createLayer",
+        name,
+        displayName: displayName ?? null,
+        description: description ?? null,
+      })
       .then(toResult),
   renameProjectLayer: (projectPath: string, layerName: string, newDisplayName: string) =>
-    commands.renameProjectLayer(projectPath, layerName, newDisplayName).then(toResult),
+    workshop
+      .editProject(projectPath, {
+        kind: "renameLayer",
+        layer: layerName,
+        displayName: newDisplayName,
+      })
+      .then(toResult),
   deleteProjectLayer: (projectPath: string, layerName: string) =>
-    commands.deleteProjectLayer(projectPath, layerName).then(toResult),
+    workshop.editProject(projectPath, { kind: "deleteLayer", layer: layerName }).then(toResult),
   reorderProjectLayers: (projectPath: string, layerNames: string[]) =>
-    commands.reorderProjectLayers(projectPath, layerNames).then(toResult),
+    workshop.editProject(projectPath, { kind: "reorderLayers", layers: layerNames }).then(toResult),
   updateLayerDescription: (projectPath: string, layerName: string, description?: string) =>
-    commands.updateLayerDescription(projectPath, layerName, description ?? null).then(toResult),
+    workshop
+      .editProject(projectPath, {
+        kind: "describeLayer",
+        layer: layerName,
+        description: description ?? null,
+      })
+      .then(toResult),
   addFilesToLayer: (projectPath: string, layerName: string, sources: string[]) =>
-    commands.addFilesToLayer(projectPath, layerName, sources).then(toResult),
+    workshop.addFilesToLayer(projectPath, layerName, sources).then(toResult),
   deleteLayerContent: (projectPath: string, layerName: string, relativePath: string) =>
-    commands.deleteLayerContent(projectPath, layerName, relativePath).then(toResult),
+    workshop.deleteLayerContent(projectPath, layerName, relativePath).then(toResult),
   // The editor state file is opaque to the backend, so both sides are strings.
   getProjectEditorState: (projectPath: string) =>
-    commands.getProjectEditorState(projectPath).then(toResult),
+    workshop.getProjectEditorState(projectPath).then(toResult),
   saveProjectEditorState: (projectPath: string, content: string) =>
-    commands.saveProjectEditorState(projectPath, content).then(toResult),
+    workshop.saveProjectEditorState(projectPath, content).then(toResult),
 };
 
 /**

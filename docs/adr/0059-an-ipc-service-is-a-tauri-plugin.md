@@ -1,6 +1,6 @@
 # ADR-0059: An IPC service is a Tauri plugin
 
-- **Status:** Proposed (2026-09-30)
+- **Status:** Accepted (2026-09-30)
 - **Date:** 2026-09-30
 - **Crates:** `src-tauri`
 - **Related:** [ADR-0029](0029-the-generated-bindings-describe-the-wire-format-they-do-not-change-it.md),

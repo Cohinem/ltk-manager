@@ -82,7 +82,7 @@ beforeEach(() => {
         value: args?.declaring === "on" ? null : "declarationsOff",
       });
     }
-    if (command === commandNames.app.getProjectContentTree) {
+    if (command === commandNames.workshop.getProjectContentTree) {
       const entries = layerFiles.map((relativePath) => ({ relativePath }));
       return Promise.resolve({ ok: true, value: { layers: [{ name: "base", entries }] } });
     }

@@ -5,7 +5,7 @@
 //! invalidates that state, so the panel's next read re-runs the rules over the
 //! files as they are now.
 
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::ModLibraryState;
 use crate::state::SettingsState;

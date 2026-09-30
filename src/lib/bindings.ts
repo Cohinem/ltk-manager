@@ -156,23 +156,6 @@ export const commands = {
 	 *  blocking the UI.
 	 */
 	detectStorageMedium: (path: string) => __TAURI_INVOKE<({ ok: true; value: StorageMedium }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("detect_storage_medium", { path }),
-	getWorkshopProjects: () => __TAURI_INVOKE<({ ok: true; value: WorkshopProject[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_workshop_projects"),
-	createWorkshopProject: (args: CreateProjectArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("create_workshop_project", { args }),
-	getWorkshopProject: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_workshop_project", { projectPath }),
-	getProjectContentTree: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: ContentTree }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_content_tree", { projectPath }),
-	saveProjectConfig: (args: SaveProjectConfigArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_config", { args }),
-	renameWorkshopProject: (projectPath: string, newName: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rename_workshop_project", { projectPath, newName }),
-	deleteWorkshopProject: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_workshop_project", { projectPath }),
-	packWorkshopProject: (args: PackProjectArgs) => __TAURI_INVOKE<({ ok: true; value: PackResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("pack_workshop_project", { args }),
-	importFromModpkg: (filePath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("import_from_modpkg", { filePath }),
-	peekFantome: (filePath: string) => __TAURI_INVOKE<({ ok: true; value: FantomePeekResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("peek_fantome", { filePath }),
-	importFromFantome: (args: ImportFantomeArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("import_from_fantome", { args }),
-	importFromGitRepo: (args: ImportGitRepoArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("import_from_git_repo", { args }),
-	validateProject: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: ValidationResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("validate_project", { projectPath }),
-	setProjectThumbnail: (projectPath: string, imagePath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_project_thumbnail", { projectPath, imagePath }),
-	removeProjectThumbnail: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("remove_project_thumbnail", { projectPath }),
-	getProjectThumbnail: (thumbnailPath: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_thumbnail", { thumbnailPath }),
-	saveLayerStringOverrides: (projectPath: string, layerName: string, stringOverrides: { [key in string]: { [key in string]: string } }) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_layer_string_overrides", { projectPath, layerName, stringOverrides }),
 	/**
 	 *  Search known stringtable field names for the workshop strings editor.
 	 * 
@@ -189,60 +172,6 @@ export const commands = {
 	 *  the game does not resolve is absent from the map.
 	 */
 	lookupStringValues: (keys: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: string } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("lookup_string_values", { keys }),
-	getLayerContentPath: (projectPath: string, layerName: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_layer_content_path", { projectPath, layerName }),
-	getLayerInfo: (projectPath: string, layerNames: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: WorkshopLayerInfo } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_layer_info", { projectPath, layerNames }),
-	createProjectLayer: (projectPath: string, name: string, displayName: string | null, description: string | null) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("create_project_layer", { projectPath, name, displayName, description }),
-	/**
-	 *  Rename a layer, and move the open documents and sandboxes of the project to the new
-	 *  name. ADR-0056.
-	 */
-	renameProjectLayer: (projectPath: string, layerName: string, newDisplayName: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rename_project_layer", { projectPath, layerName, newDisplayName }),
-	deleteProjectLayer: (projectPath: string, layerName: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_project_layer", { projectPath, layerName }),
-	reorderProjectLayers: (projectPath: string, layerNames: string[]) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reorder_project_layers", { projectPath, layerNames }),
-	updateLayerDescription: (projectPath: string, layerName: string, description: string | null) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("update_layer_description", { projectPath, layerName, description }),
-	addFilesToLayer: (projectPath: string, layerName: string, sources: string[]) => __TAURI_INVOKE<({ ok: true; value: AddFilesReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_files_to_layer", { projectPath, layerName, sources }),
-	/**
-	 *  Delete one file or directory from a layer's content directory.
-	 * 
-	 *  `relative_path` is layer-relative, the way the content tree names its rows.
-	 */
-	deleteLayerContent: (projectPath: string, layerName: string, relativePath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_layer_content", { projectPath, layerName, relativePath }),
-	/**
-	 *  Read the frontend-owned editor state at `<project>/.ltk/editor.json`.
-	 * 
-	 *  The content is opaque here - the frontend versions and interprets it. A
-	 *  missing file reads as `None`, and only a genuine IO failure is an error.
-	 */
-	getProjectEditorState: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_editor_state", { projectPath }),
-	/**
-	 *  Write the frontend-owned editor state to `<project>/.ltk/editor.json`.
-	 * 
-	 *  Creates `.ltk/` on first write, and lands through a temp file in the same
-	 *  directory so a crash mid-write never leaves a truncated file behind.
-	 */
-	saveProjectEditorState: (projectPath: string, content: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_editor_state", { projectPath, content }),
-	/**
-	 *  Run every rule over one project.
-	 * 
-	 *  The run answers inside its budget, 2ms on a skin mod and a few hundred on a
-	 *  60MB map overhaul, so it needs no progress events and no cancel. A few
-	 *  hundred milliseconds is still a frame budget the window does not have, and
-	 *  the first run of a session also pays for the hashtable cache, so the walk
-	 *  happens off the UI thread. See `docs/ux/PROJECT_PROBLEMS.md`.
-	 */
-	analyzeProject: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: Run_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("analyze_project", { projectPath }),
-	/**
-	 *  Apply the fixes of the named problems, and write a restore point first.
-	 * 
-	 *  Fix on a row, Fix on a group and Fix on the panel are this one call with a
-	 *  different list.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Reports a project the backend holds no run for, because the ids name
-	 *  problems only a run can have produced.
-	 */
-	fixProblems: (projectPath: string, problems: ProblemId[]) => __TAURI_INVOKE<({ ok: true; value: FixReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("fix_problems", { projectPath, problems }),
 	/**
 	 *  Report what the shared hashtable cache currently holds.
 	 * 
@@ -987,36 +916,6 @@ export const commands = {
 	 *  rejection all come here and are queued on the one egress path.
 	 */
 	trackUiError: (error: UiError) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("track_ui_error", { error }),
-	/**  Classify a folder picked with Open folder. */
-	inspectProjectFolder: (path: string) => __TAURI_INVOKE<({ ok: true; value: FolderInspection }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("inspect_project_folder", { path }),
-	openProjectFolder: (path: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("open_project_folder", { path }),
-	recordProjectOpened: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("record_project_opened", { path }),
-	getOpenedProjectFolders: () => __TAURI_INVOKE<({ ok: true; value: OpenedProjectFolder[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_opened_project_folders"),
-	forgetProjectFolder: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("forget_project_folder", { path }),
-	relocateProjectFolder: (oldPath: string, newPath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("relocate_project_folder", { oldPath, newPath }),
-	convertFolderToProject: (args: ConvertFolderArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("convert_folder_to_project", { args }),
-	addProjectFolders: (paths: string[]) => __TAURI_INVOKE<({ ok: true; value: AddFoldersReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_project_folders", { paths }),
-	/**  Watch the layers of `project_path` for files saved from outside the app. */
-	watchProjectLayers: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("watch_project_layers", { projectPath }),
-	/**  Release one watch on the layers of `project_path`. */
-	unwatchProjectLayers: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("unwatch_project_layers", { projectPath }),
-	/**  Read the `.modignore` at project-relative `at`, or the root file for none. */
-	getProjectIgnoreRules: (projectPath: string, at: string | null) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_ignore_rules", { projectPath, at }),
-	/**  The starter rules, for the empty state that draws them before writing them. */
-	recommendedIgnoreRules: () => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("recommended_ignore_rules"),
-	/**  Write the `.modignore` at project-relative `at`, or the root file for none. */
-	saveProjectIgnoreRules: (projectPath: string, at: string | null, text: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_ignore_rules", { projectPath, at, text }),
-	addRecommendedIgnoreRules: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: IgnoreRules }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_recommended_ignore_rules", { projectPath }),
-	/**  Read one of the project's root text files, the readme or the license. */
-	getProjectText: (projectPath: string, file: ProjectTextFile) => __TAURI_INVOKE<({ ok: true; value: ProjectText }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_text", { projectPath, file }),
-	/**  Write one of the project's root text files, guarded by `expected`. */
-	saveProjectText: (projectPath: string, file: ProjectTextFile, text: string, expected: {
-	/**  Milliseconds since the Unix epoch, or 0 where the platform has no time. */
-	modifiedMs: number,
-	size: number,
-} | null) => __TAURI_INVOKE<({ ok: true; value: ProjectText }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_text", { projectPath, file, text, expected }),
-	/**  Every layer's declarations manifest as modules, entries and keys, in build order. */
-	declarationsOutline: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: DeclarationsLayer[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("declarations_outline", { projectPath }),
 	/**
 	 *  The install the client's League session runs from, against the one the
 	 *  manager is set up for.
@@ -1038,7 +937,7 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"addFilesToLayer":"add_files_to_layer","addProjectFolders":"add_project_folders","addRecommendedIgnoreRules":"add_recommended_ignore_rules","analyzeProject":"analyze_project","atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","bakeSkinTangents":"bake_skin_tangents","binChanges":"bin_changes","binChildren":"bin_children","binChoices":"bin_choices","binClose":"bin_close","binCopyValue":"bin_copy_value","binDeclareInto":"bin_declare_into","binDeclared":"bin_declared","binDependencies":"bin_dependencies","binEdit":"bin_edit","binFind":"bin_find","binOpen":"bin_open","binOpenVariant":"bin_open_variant","binOverrides":"bin_overrides","binRead":"bin_read","binRedo":"bin_redo","binReload":"bin_reload","binRevert":"bin_revert","binRoots":"bin_roots","binRowDeclaration":"bin_row_declaration","binSave":"bin_save","binSetDeclaring":"bin_set_declaring","binUndo":"bin_undo","cancelExtract":"cancel_extract","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","cancelReferenceWalk":"cancel_reference_walk","changeIntegration":"change_integration","characterSpells":"character_spells","checkHashtableUpdates":"check_hashtable_updates","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","classDocs":"class_docs","classObjectCount":"class_object_count","classSchema":"class_schema","convertFolderToProject":"convert_folder_to_project","createProjectLayer":"create_project_layer","createWorkshopProject":"create_workshop_project","declarationsModuleAction":"declarations_module_action","declarationsOutline":"declarations_outline","declaredObjects":"declared_objects","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","deleteLayerContent":"delete_layer_content","deleteProjectLayer":"delete_project_layer","deleteWorkshopProject":"delete_workshop_project","derivedClasses":"derived_classes","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectRitobinIntegration":"detect_ritobin_integration","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","dropObjectIndex":"drop_object_index","extractGameFiles":"extract_game_files","findInGameIndex":"find_in_game_index","findObjects":"find_objects","findReferences":"find_references","fixProblems":"fix_problems","forgetProjectFolder":"forget_project_folder","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getGameIndex":"get_game_index","getGameWads":"get_game_wads","getHashtableCacheStatus":"get_hashtable_cache_status","getLaunchAvailability":"get_launch_availability","getLayerContentPath":"get_layer_content_path","getLayerInfo":"get_layer_info","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getOpenedProjectFolders":"get_opened_project_folders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getProjectContentTree":"get_project_content_tree","getProjectEditorState":"get_project_editor_state","getProjectIgnoreRules":"get_project_ignore_rules","getProjectText":"get_project_text","getProjectThumbnail":"get_project_thumbnail","getSettings":"get_settings","getWorkshopProject":"get_workshop_project","getWorkshopProjects":"get_workshop_projects","importFromFantome":"import_from_fantome","importFromGitRepo":"import_from_git_repo","importFromModpkg":"import_from_modpkg","incidentReport":"incident_report","incidentToken":"incident_token","inspectProjectFolder":"inspect_project_folder","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","locateFilesNear":"locate_files_near","locateGameFiles":"locate_game_files","locateMapFiles":"locate_map_files","lookupStringValues":"lookup_string_values","minimizeToTray":"minimize_to_tray","objectDir":"object_dir","openAssetInRitobin":"open_asset_in_ritobin","openElevatedTerminal":"open_elevated_terminal","openProjectFolder":"open_project_folder","packWorkshopProject":"pack_workshop_project","pauseHotkeys":"pause_hotkeys","peekFantome":"peek_fantome","planGameExtract":"plan_game_extract","readAnimationGraph":"read_animation_graph","readAssetInfo":"read_asset_info","readClipHeader":"read_clip_header","readDefaultSkinnedProgram":"read_default_skinned_program","readEmbeddedMaterialProgram":"read_embedded_material_program","readGameDir":"read_game_dir","readGameWad":"read_game_wad","readMap":"read_map","readMapCharacters":"read_map_characters","readMapOutline":"read_map_outline","readMapParticles":"read_map_particles","readMapVariants":"read_map_variants","readMaterialPrograms":"read_material_programs","readParticleProgram":"read_particle_program","readSkin":"read_skin","readSpell":"read_spell","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","readVfxSystem":"read_vfx_system","rebuildOverlay":"rebuild_overlay","recommendedIgnoreRules":"recommended_ignore_rules","recordProjectOpened":"record_project_opened","refreshGameIndex":"refresh_game_index","relocateProjectFolder":"relocate_project_folder","removeProjectThumbnail":"remove_project_thumbnail","renameProjectLayer":"rename_project_layer","renameWorkshopProject":"rename_workshop_project","reorderProjectLayers":"reorder_project_layers","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveAssetCopy":"save_asset_copy","saveLayerStringOverrides":"save_layer_string_overrides","saveProjectConfig":"save_project_config","saveProjectEditorState":"save_project_editor_state","saveProjectIgnoreRules":"save_project_ignore_rules","saveProjectText":"save_project_text","saveSettings":"save_settings","searchGameIndex":"search_game_index","searchGamePaths":"search_game_paths","searchObjectIndex":"search_object_index","searchStringKeys":"search_string_keys","setHotkey":"set_hotkey","setProjectThumbnail":"set_project_thumbnail","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","syncHashtables":"sync_hashtables","syncMetaDocs":"sync_meta_docs","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","unwatchProjectLayers":"unwatch_project_layers","updateLayerDescription":"update_layer_description","validateLeaguePath":"validate_league_path","validateProject":"validate_project","vfxTemplates":"vfx_templates","warmObjectIndex":"warm_object_index","watchProjectLayers":"watch_project_layers"} as const;
+export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","bakeSkinTangents":"bake_skin_tangents","binChanges":"bin_changes","binChildren":"bin_children","binChoices":"bin_choices","binClose":"bin_close","binCopyValue":"bin_copy_value","binDeclareInto":"bin_declare_into","binDeclared":"bin_declared","binDependencies":"bin_dependencies","binEdit":"bin_edit","binFind":"bin_find","binOpen":"bin_open","binOpenVariant":"bin_open_variant","binOverrides":"bin_overrides","binRead":"bin_read","binRedo":"bin_redo","binReload":"bin_reload","binRevert":"bin_revert","binRoots":"bin_roots","binRowDeclaration":"bin_row_declaration","binSave":"bin_save","binSetDeclaring":"bin_set_declaring","binUndo":"bin_undo","cancelExtract":"cancel_extract","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","cancelReferenceWalk":"cancel_reference_walk","changeIntegration":"change_integration","characterSpells":"character_spells","checkHashtableUpdates":"check_hashtable_updates","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","classDocs":"class_docs","classObjectCount":"class_object_count","classSchema":"class_schema","declarationsModuleAction":"declarations_module_action","declaredObjects":"declared_objects","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","derivedClasses":"derived_classes","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectRitobinIntegration":"detect_ritobin_integration","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","dropObjectIndex":"drop_object_index","extractGameFiles":"extract_game_files","findInGameIndex":"find_in_game_index","findObjects":"find_objects","findReferences":"find_references","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getGameIndex":"get_game_index","getGameWads":"get_game_wads","getHashtableCacheStatus":"get_hashtable_cache_status","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","locateFilesNear":"locate_files_near","locateGameFiles":"locate_game_files","locateMapFiles":"locate_map_files","lookupStringValues":"lookup_string_values","minimizeToTray":"minimize_to_tray","objectDir":"object_dir","openAssetInRitobin":"open_asset_in_ritobin","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","planGameExtract":"plan_game_extract","readAnimationGraph":"read_animation_graph","readAssetInfo":"read_asset_info","readClipHeader":"read_clip_header","readDefaultSkinnedProgram":"read_default_skinned_program","readEmbeddedMaterialProgram":"read_embedded_material_program","readGameDir":"read_game_dir","readGameWad":"read_game_wad","readMap":"read_map","readMapCharacters":"read_map_characters","readMapOutline":"read_map_outline","readMapParticles":"read_map_particles","readMapVariants":"read_map_variants","readMaterialPrograms":"read_material_programs","readParticleProgram":"read_particle_program","readSkin":"read_skin","readSpell":"read_spell","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","readVfxSystem":"read_vfx_system","rebuildOverlay":"rebuild_overlay","refreshGameIndex":"refresh_game_index","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveAssetCopy":"save_asset_copy","saveSettings":"save_settings","searchGameIndex":"search_game_index","searchGamePaths":"search_game_paths","searchObjectIndex":"search_object_index","searchStringKeys":"search_string_keys","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","syncHashtables":"sync_hashtables","syncMetaDocs":"sync_meta_docs","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path","vfxTemplates":"vfx_templates","warmObjectIndex":"warm_object_index"} as const;
 
 /* Types */
 /**  Accent color configuration. */
@@ -6191,12 +6090,55 @@ defines: string[]; vertex: StageProgram; pixel: StageProgram } |
  */
 { kind: "failed"; reason: string };
 
+/**  One edit of a project's config or its layers, one variant per [`Workshop`] method. */
+export type ProjectEdit = 
+/**  Replace the metadata. [`Workshop::save_config`]. */
+{ kind: "metadata"; metadata: ProjectMetadata } | 
+/**  Make the image at `image_path` the thumbnail. [`Workshop::set_thumbnail`]. */
+{ kind: "setThumbnail"; imagePath: string } | 
+/**  Take the thumbnail away. [`Workshop::remove_thumbnail`]. */
+{ kind: "removeThumbnail" } | 
+/**  Replace the string overrides of `layer`. [`Workshop::save_layer_string_overrides`]. */
+{ kind: "stringOverrides"; layer: string; overrides: { [key in string]: { [key in string]: string } } } | 
+/**  Add a layer named `name`. [`Workshop::create_layer`]. */
+{ kind: "createLayer"; name: string; displayName: string | null; description: string | null } | 
+/**  Show `layer` as `display_name`, which renames its folder. [`Workshop::rename_layer`]. */
+{ kind: "renameLayer"; layer: string; displayName: string } | 
+/**  Take `layer` and its content out. [`Workshop::delete_layer`]. */
+{ kind: "deleteLayer"; layer: string } | 
+/**  Set or clear the description of `layer`. [`Workshop::update_layer_description`]. */
+{ kind: "describeLayer"; layer: string; description: string | null } | 
+/**  Put the layers above the base in the order of `layers`. [`Workshop::reorder_layers`]. */
+{ kind: "reorderLayers"; layers: string[] };
+
 /**  Where a project lives relative to the workshop folder. */
 export type ProjectLocation = 
 /**  A direct child of the workshop folder. */
 "workshop" | 
 /**  A folder opened from anywhere else. */
 "opened";
+
+/**  The metadata a project's config carries: its name shown, version, description and credits. */
+export type ProjectMetadata = {
+	displayName: string,
+	version: string,
+	description: string,
+	authors: WorkshopAuthor[],
+	tags: string[],
+	champions: string[],
+	maps: string[],
+};
+
+/**  Where a new project comes from, one variant per [`Workshop`] method. */
+export type ProjectSource = 
+/**  An empty project. [`Workshop::create_project`]. */
+{ kind: "new"; args: CreateProjectArgs } | 
+/**  The `.modpkg` at `file_path`. [`Workshop::import_from_modpkg`]. */
+{ kind: "modpkg"; filePath: string } | 
+/**  A `.fantome` archive. [`Workshop::import_from_fantome`]. */
+{ kind: "fantome"; args: ImportFantomeArgs } | 
+/**  A GitHub repository. [`Workshop::import_from_git_repo`]. */
+{ kind: "gitRepo"; args: ImportGitRepoArgs };
 
 /**  One of a project's root text files, as the editor reads it. */
 export type ProjectText = {
@@ -6747,18 +6689,6 @@ project: string } |
 project: string; 
 /**  The layer's name. */
 layer: string };
-
-/**  Arguments for saving project configuration changes. */
-export type SaveProjectConfigArgs = {
-	projectPath: string,
-	displayName: string,
-	version: string,
-	description: string,
-	authors: WorkshopAuthor[],
-	tags: string[],
-	champions: string[],
-	maps: string[],
-};
 
 /**  Which scan the DLL ran, as it decided from the flags and the command line. */
 export type ScanMode = "eager" | "lazy";

@@ -85,13 +85,13 @@ describe("api", () => {
     it("getWorkshopProjects invokes get_workshop_projects", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: [] });
       await api.getWorkshopProjects();
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.getWorkshopProjects);
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.workshop.getWorkshopProjects);
     });
 
     it("deleteWorkshopProject invokes with projectPath", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: undefined });
       await api.deleteWorkshopProject("/path/to/project");
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.deleteWorkshopProject, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.workshop.deleteWorkshopProject, {
         projectPath: "/path/to/project",
       });
     });
@@ -99,7 +99,7 @@ describe("api", () => {
     it("getProjectEditorState invokes with projectPath", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: null });
       const result = await api.getProjectEditorState("/path/to/project");
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.getProjectEditorState, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.workshop.getProjectEditorState, {
         projectPath: "/path/to/project",
       });
       expect(result).toEqual({ ok: true, value: null });
@@ -108,7 +108,7 @@ describe("api", () => {
     it("saveProjectEditorState invokes with projectPath and content", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: undefined });
       await api.saveProjectEditorState("/path/to/project", '{"version":1}');
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.saveProjectEditorState, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.workshop.saveProjectEditorState, {
         projectPath: "/path/to/project",
         content: '{"version":1}',
       });

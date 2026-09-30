@@ -9,6 +9,7 @@ mod layers;
 mod packing;
 mod projects;
 mod registry;
+mod requests;
 mod text_files;
 
 pub use chunk_names::LayerChunks;
@@ -26,6 +27,7 @@ pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
 pub use layer_changes::{LayerFile, LayerFilesChanged};
 pub use layers::layer_name_for;
 pub use registry::{OpenedProjectFolder, ProjectKey, ProjectRegistry};
+pub use requests::{ProjectEdit, ProjectSource};
 pub use text_files::{ProjectText, ProjectTextFile, README_FILE_NAME, Revision};
 
 use crate::config::Config;
@@ -322,12 +324,11 @@ pub struct CreateProjectArgs {
     pub authors: Vec<String>,
 }
 
-/// Arguments for saving project configuration changes.
+/// The metadata a project's config carries: its name shown, version, description and credits.
 #[derive(Debug, Clone, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
-pub struct SaveProjectConfigArgs {
-    pub project_path: String,
+pub struct ProjectMetadata {
     pub display_name: String,
     pub version: String,
     pub description: String,
