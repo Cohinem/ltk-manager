@@ -129,6 +129,33 @@ services! {
         find_references,
         cancel_reference_walk,
     }
+    preview("preview") {
+        // Asset preview
+        read_asset_info,
+        save_asset_copy,
+        detect_ritobin_integration,
+        open_asset_in_ritobin,
+        // Programs
+        read_material_programs,
+        read_engine_program,
+        // Maps
+        read_map,
+        read_map_particles,
+        read_map_characters,
+        read_map_variants,
+        read_map_outline,
+        locate_map_files,
+        locate_files_near,
+        // Skins
+        read_skin,
+        read_animation_graph,
+        read_clip_header,
+        bake_skin_tangents,
+        // Spells and VFX
+        read_spell,
+        read_vfx_system,
+        vfx_templates,
+    }
     workshop("workshop") {
         // Projects
         get_workshop_projects,

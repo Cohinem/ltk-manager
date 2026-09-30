@@ -293,7 +293,7 @@ beforeEach(() => {
         value: paths.map((path) => PAGES[`${entry}:${path}`] ?? page([])),
       });
     }
-    if (command === commandNames.app.locateFilesNear) {
+    if (command === commandNames.preview.locateFilesNear) {
       const paths = (args?.paths ?? []) as string[];
       const found = paths.filter((path) => path === SIMPLE_SKIN.toLowerCase());
       return Promise.resolve({

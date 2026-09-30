@@ -1,11 +1,13 @@
 //! The map backdrop's reads: one map's materials, placed against a project first, and
 //! the particles its open `.materials.bin` stands.
 
-use super::document_assets::{parse_entry, read_resolved, with_assets_in, with_resolution};
+use crate::commands::document_assets::{
+    parse_entry, read_resolved, with_assets_in, with_resolution,
+};
 use std::collections::HashMap;
 
 use super::material::shader_defs;
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};

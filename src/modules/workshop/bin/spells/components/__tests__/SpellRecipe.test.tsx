@@ -26,7 +26,7 @@ afterEach(cleanup);
 
 function mount(patch: Record<string, unknown> = {}) {
   mockInvoke.mockImplementation(async (command) => {
-    if (command === commandNames.app.readSpell)
+    if (command === commandNames.preview.readSpell)
       return {
         ok: true,
         value: {

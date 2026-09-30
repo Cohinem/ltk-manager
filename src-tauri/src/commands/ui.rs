@@ -2,10 +2,10 @@
 
 use super::document_assets::{parse_entry, read_resolved, with_resolution};
 use super::installed::InstalledGame;
-use super::material::{shader_defs, translations};
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::services::game::index::game_file;
+use crate::services::preview::material::{shader_defs, translations};
 use crate::state::SettingsState;
 use atlas::{
     font_catalog, import_font_file, import_sprite, import_surface, patch_sprite, patchable,

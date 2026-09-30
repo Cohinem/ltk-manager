@@ -468,7 +468,7 @@ beforeEach(() => {
     }
     if (command === commandNames.bin.classSchema)
       return Promise.resolve({ ok: true, value: SCHEMA });
-    if (command === commandNames.app.locateFilesNear)
+    if (command === commandNames.preview.locateFilesNear)
       return Promise.resolve({ ok: true, value: {} });
     if (command === commandNames.objects.declaredObjects) {
       const hashes = (args?.objectHashes ?? []) as string[];
@@ -526,6 +526,11 @@ function rect(top: number, height: number): DOMRect {
 /** A group's own fold button, which is the only control naming it that expands. */
 function section(group: string, open = true): HTMLElement {
   return screen.getByRole("button", { name: group, expanded: open });
+}
+
+/** A group's fold button, awaited, since a default-only group waits on the class schema. */
+function findSection(group: string, open = true): Promise<HTMLElement> {
+  return screen.findByRole("button", { name: group, expanded: open });
 }
 
 /** A card's group chip, which neither folds a section nor sits in the jump bar. */
@@ -1527,7 +1532,7 @@ describe("The shell frame", () => {
   it("keeps unauthored fields in collapsed sections without requiring a Defaults switch", async () => {
     renderSystem();
     await screen.findByText("Emitter Lifetime");
-    expect(section("Scale", false)).toBeInTheDocument();
+    expect(await findSection("Scale", false)).toBeInTheDocument();
     expect(screen.queryByText("Scale over Lifetime")).not.toBeInTheDocument();
     await userEvent.click(section("Scale", false));
     expect(await screen.findByText("Scale over Lifetime")).toBeInTheDocument();
@@ -1578,7 +1583,7 @@ describe("The shell frame", () => {
     renderSystem();
     await screen.findByText("Emitter Lifetime");
     const search = screen.getByRole("textbox", { name: "Search emitter properties" });
-    expect(section("Scale", false)).toBeInTheDocument();
+    expect(await findSection("Scale", false)).toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: "scale0" } });
     expect(await screen.findByText("Scale over Lifetime")).toBeInTheDocument();
@@ -1597,7 +1602,7 @@ describe("The shell frame", () => {
     const user = userEvent.setup();
     await screen.findByText("Emitter Lifetime");
     const toggle = screen.getByRole("button", { name: "Show only defined properties" });
-    expect(section("Scale", false)).toBeInTheDocument();
+    expect(await findSection("Scale", false)).toBeInTheDocument();
 
     await user.click(toggle);
 
@@ -1714,7 +1719,7 @@ describe("A child lane", () => {
     paneWidth = WIDE;
     const served = mockInvoke.getMockImplementation();
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) =>
-      command === commandNames.app.readVfxSystem
+      command === commandNames.preview.readVfxSystem
         ? Promise.resolve({ ok: true, value: RESOLVED })
         : served?.(command, args),
     );
@@ -1835,7 +1840,7 @@ describe("A child lane", () => {
 
     await waitFor(() => {
       const located = mockInvoke.mock.calls
-        .filter(([command]) => command === commandNames.app.locateFilesNear)
+        .filter(([command]) => command === commandNames.preview.locateFilesNear)
         .flatMap(([, args]) => (args as { paths: string[] }).paths);
       expect(located).toContain(CHILD_TEXTURE);
     });
@@ -1928,7 +1933,7 @@ describe("ClassView over sixty emitters", () => {
 
   function renderMany() {
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === commandNames.app.locateFilesNear)
+      if (command === commandNames.preview.locateFilesNear)
         return Promise.resolve({ ok: true, value: {} });
       if (command === commandNames.objects.declaredObjects) {
         return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects: {} } });

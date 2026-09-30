@@ -50,7 +50,7 @@ function mount(preview: SpellPreview = PREVIEW, effects: EffectSystem[] = [EFFEC
   mockInvoke.mockImplementation(async (command, args) => {
     if (command === commandNames.bin.binOpen)
       return { ok: true, value: { document: args.asset.kind === "file" ? 9 : 2 } };
-    if (command === commandNames.app.readSpell) return { ok: true, value: preview };
+    if (command === commandNames.preview.readSpell) return { ok: true, value: preview };
     if (command === commandNames.objects.declaredObjects)
       return {
         ok: true,
@@ -64,7 +64,7 @@ function mount(preview: SpellPreview = PREVIEW, effects: EffectSystem[] = [EFFEC
           },
         },
       };
-    if (command === commandNames.app.readSkin)
+    if (command === commandNames.preview.readSkin)
       return { ok: true, value: { effectSystems: effects } };
     if (command === commandNames.bin.binClose) return { ok: true, value: null };
     throw new Error(`Unexpected command ${command}`);
@@ -88,11 +88,11 @@ afterEach(cleanup);
 it("resolves the flight key through the selected skin rather than treating it as a system", async () => {
   mount();
   expect(await screen.findByText("Flight 1 0x12345678")).toBeInTheDocument();
-  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.readSpell, {
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.preview.readSpell, {
     document: 2,
     entry: "0x859d7934",
   });
-  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.readSkin, {
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.preview.readSkin, {
     document: 1,
     entry: "0x98765432",
   });

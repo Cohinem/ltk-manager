@@ -3,10 +3,10 @@
 //! The tree is the open document's (ADR-0026), and this answers a subtree of it with
 //! every reference resolved rather than a window of rows.
 
-use super::document_assets::{parse_entry, read_resolved};
-use super::installed::installed_schema;
 use super::material::shader_defs;
-use super::off_thread;
+use crate::commands::document_assets::{parse_entry, read_resolved};
+use crate::commands::installed::installed_schema;
+use crate::commands::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId};

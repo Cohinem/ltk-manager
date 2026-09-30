@@ -4,6 +4,7 @@ import { commandNames as bin } from "@/lib/ipc/bin";
 import { commandNames as game } from "@/lib/ipc/game";
 import { commandNames as library } from "@/lib/ipc/library";
 import { commandNames as objects } from "@/lib/ipc/objects";
+import { commandNames as preview } from "@/lib/ipc/preview";
 import { commandNames as workshop } from "@/lib/ipc/workshop";
 
 /**
@@ -11,4 +12,13 @@ import { commandNames as workshop } from "@/lib/ipc/workshop";
  * match `invoke` calls on. Generated beside the commands (ADR-0059), so a renamed or moved
  * command fails the typecheck.
  */
-export const commandNames = { app, appUpdate, bin, game, library, objects, workshop } as const;
+export const commandNames = {
+  app,
+  appUpdate,
+  bin,
+  game,
+  library,
+  objects,
+  preview,
+  workshop,
+} as const;

@@ -9,6 +9,7 @@ pub mod bin;
 pub mod game;
 pub mod library;
 pub mod objects;
+pub mod preview;
 pub mod workshop;
 
 use specta::Types;

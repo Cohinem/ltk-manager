@@ -50,8 +50,9 @@ import { commands as bin } from "@/lib/ipc/bin";
 import { commands as game } from "@/lib/ipc/game";
 import { commands as library } from "@/lib/ipc/library";
 import { commands as objects } from "@/lib/ipc/objects";
+import { commands as preview } from "@/lib/ipc/preview";
 import { commands as workshop } from "@/lib/ipc/workshop";
-import type { Result } from "@/utils/result";
+import { map as mapResult, type Result } from "@/utils/result";
 
 export type * from "@/lib/bindings";
 /* A serde `default` or `skip_serializing_if` splits a type by phase, and a command answers
@@ -260,14 +261,14 @@ export const api = {
   cancelExtract: () => game.cancelExtract().then(toResult),
 
   // Asset preview
-  readAssetInfo: (asset: AssetRef) => commands.readAssetInfo(asset).then(toResult),
+  readAssetInfo: (asset: AssetRef) => preview.readAssetInfo(asset).then(toResult),
   saveAssetCopy: (asset: AssetRef, destination: string) =>
-    commands.saveAssetCopy(asset, destination).then(toResult),
+    preview.saveAssetCopy(asset, destination).then(toResult),
 
   // Ritobin
-  detectRitobinIntegration: () => commands.detectRitobinIntegration().then(toResult),
+  detectRitobinIntegration: () => preview.detectRitobinIntegration().then(toResult),
   openAssetInRitobin: (asset: AssetRef, name?: string) =>
-    commands.openAssetInRitobin(asset, name ?? null).then(toResult),
+    preview.openAssetInRitobin(asset, name ?? null).then(toResult),
 
   // Deep Link
   deepLinkInstallMod: (
@@ -332,8 +333,8 @@ export const api = {
     classDocs: (classHash: string) => bin.classDocs(classHash).then(toResult),
     syncMetaDocs: () => bin.syncMetaDocs().then(toResult),
     readVfxSystem: (document: BinDocumentId, entry: string) =>
-      commands.readVfxSystem(document, entry).then(toResult),
-    vfxTemplates: () => commands.vfxTemplates().then(toResult),
+      preview.readVfxSystem(document, entry).then(toResult),
+    vfxTemplates: () => preview.vfxTemplates().then(toResult),
     readUiView: (
       document: BinDocumentId,
       entry: string,
@@ -379,46 +380,60 @@ export const api = {
     atlasSheet: (document: BinDocumentId, sheet: string) =>
       commands.atlasSheet(document, sheet).then(toResult),
     readSkin: (document: BinDocumentId, entry: string) =>
-      commands.readSkin(document, entry).then(toResult),
+      preview.readSkin(document, entry).then(toResult),
     readMaterialPrograms: (
       source: MaterialSource,
       entries: readonly string[],
       options: ProgramOptions,
-    ) => commands.readMaterialPrograms(source, [...entries], options).then(toResult),
+    ) =>
+      preview
+        .readMaterialPrograms(
+          source,
+          entries.map((entry) => ({ kind: "object" as const, entry })),
+          options,
+        )
+        .then(toResult),
     readEmbeddedMaterialProgram: (
       source: MaterialSource,
       entry: string,
       path: string,
       options: ProgramOptions,
-    ) => commands.readEmbeddedMaterialProgram(source, entry, path, options).then(toResult),
+    ) =>
+      preview
+        .readMaterialPrograms(source, [{ kind: "embedded", entry, path }], options)
+        .then(toResult)
+        .then((result) => mapResult(result, ([program]) => program ?? null)),
     readDefaultSkinnedProgram: (document: BinDocumentId, options: ProgramOptions) =>
-      commands.readDefaultSkinnedProgram(document, options).then(toResult),
+      preview.readEngineProgram({ kind: "defaultSkinned", document }, options).then(toResult),
     readParticleProgram: (
       document: BinDocumentId | null,
       shader: ParticleShader,
       defines: readonly ParticleDefine[],
       options: ProgramOptions,
-    ) => commands.readParticleProgram(document, shader, [...defines], options).then(toResult),
+    ) =>
+      preview
+        .readEngineProgram({ kind: "particle", document, shader, defines: [...defines] }, options)
+        .then(toResult),
     bakeSkinTangents: (document: BinDocumentId, entry: string) =>
-      commands.bakeSkinTangents(document, entry).then(toResult),
+      preview.bakeSkinTangents(document, entry).then(toResult),
     readMap: (document: BinDocumentId | null, map: string, materials: string[]) =>
-      commands.readMap(document, map, materials).then(toResult),
+      preview.readMap(document, map, materials).then(toResult),
     readMapParticles: (document: BinDocumentId) =>
-      commands.readMapParticles(document).then(toResult),
+      preview.readMapParticles(document).then(toResult),
     readMapCharacters: (document: BinDocumentId) =>
-      commands.readMapCharacters(document).then(toResult),
+      preview.readMapCharacters(document).then(toResult),
     readMapVariants: (document: BinDocumentId, entry: string) =>
-      commands.readMapVariants(document, entry).then(toResult),
-    readMapOutline: (document: BinDocumentId) => commands.readMapOutline(document).then(toResult),
+      preview.readMapVariants(document, entry).then(toResult),
+    readMapOutline: (document: BinDocumentId) => preview.readMapOutline(document).then(toResult),
     locateFilesNear: (sandbox: SandboxRef, paths: readonly string[]) =>
-      commands.locateFilesNear(sandbox, [...paths]).then(toResult),
+      preview.locateFilesNear(sandbox, [...paths]).then(toResult),
     locateMapFiles: (sandbox: SandboxRef, map: string) =>
-      commands.locateMapFiles(sandbox, map).then(toResult),
+      preview.locateMapFiles(sandbox, map).then(toResult),
     readAnimationGraph: (document: BinDocumentId, entry: string) =>
-      commands.readAnimationGraph(document, entry).then(toResult),
-    readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),
+      preview.readAnimationGraph(document, entry).then(toResult),
+    readClipHeader: (asset: AssetRef) => preview.readClipHeader(asset).then(toResult),
     readSpell: (document: BinDocumentId, entry: string) =>
-      commands.readSpell(document, entry).then(toResult),
+      preview.readSpell(document, entry).then(toResult),
   },
 
   // The object index and the install lookups a bin page makes.

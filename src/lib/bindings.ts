@@ -157,34 +157,6 @@ export const commands = {
 	 */
 	detectStorageMedium: (path: string) => __TAURI_INVOKE<({ ok: true; value: StorageMedium }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("detect_storage_medium", { path }),
 	/**
-	 *  Report what a previewable asset holds, without decoding it.
-	 * 
-	 *  A file kind with no viewer comes back as [`AssetInfo::Unsupported`] rather
-	 *  than an error, because a modder clicking through a tree meets one constantly
-	 *  and the viewer draws it as a state.
-	 */
-	readAssetInfo: (asset: AssetRef) => __TAURI_INVOKE<({ ok: true; value: AssetInfo }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_asset_info", { asset }),
-	/**
-	 *  Write one previewed asset to a path the user picked.
-	 * 
-	 *  The extract of a single file, and not through the extractor: the user named
-	 *  the file in a save dialog, so none of the naming rules apply and there is no
-	 *  archive to walk. One chunk, read and written.
-	 * 
-	 *  The archive stays mounted afterwards, because the modder saving a copy of a
-	 *  texture is looking through that archive.
-	 */
-	saveAssetCopy: (asset: AssetRef, destination: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_asset_copy", { asset, destination }),
-	/**  Report whether the ritobin VS Code integration is installed. */
-	detectRitobinIntegration: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("detect_ritobin_integration"),
-	/**
-	 *  Open one asset as ritobin text in VS Code.
-	 * 
-	 *  `name` is what a hash table made of a game chunk's hash, which the reference
-	 *  itself cannot carry. It names the copy the chunk is opened from.
-	 */
-	openAssetInRitobin: (asset: AssetRef, name: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("open_asset_in_ritobin", { asset, name }),
-	/**
 	 *  Install a mod from a deep-link protocol URL.
 	 * 
 	 *  Downloads the file to a temp directory, validates it, then installs
@@ -213,145 +185,6 @@ export const commands = {
 	changeIntegration: (tool: Tool, action: IntegrationAction, conflicts: MenuConflictPolicy) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("change_integration", { tool, action, conflicts }),
 	/**  Cancel a matching download before registration begins. */
 	cancelIntegrationDownload: (operationId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_integration_download", { operationId }),
-	/**  The missile inputs written on one spell in an open document. */
-	readSpell: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SpellPreview }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_spell", { document, entry }),
-	/**
-	 *  One particle system of an open document, with every reference resolved.
-	 * 
-	 *  `entry` is the object's hash as `0x` and eight hex digits. A class or field the hash
-	 *  tables leave unnamed takes the meta schema's name. A custom material the document does
-	 *  not declare is looked for through the files it links, and a linked file that cannot be
-	 *  read is passed over.
-	 */
-	readVfxSystem: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: VfxSystem }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_vfx_system", { document, entry }),
-	/**  Every VFX template of the catalog, which the Graph pane and the inspector offer. ADR-0058. */
-	vfxTemplates: () => __TAURI_INVOKE<({ ok: true; value: VfxTemplate[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("vfx_templates"),
-	/**
-	 *  One skin of an open document, as a viewport draws it.
-	 * 
-	 *  `entry` is the `SkinCharacterDataProperties` object's hash as `0x` and eight hex
-	 *  digits. The shader defs are read beside the skin, the project's copy first, and a
-	 *  read they refuse leaves every material on its own fields. A material or an effect
-	 *  system the document does not declare is looked for through the files it links, as a
-	 *  graph is.
-	 */
-	readSkin: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: SkinModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_skin", { document, entry }),
-	/**
-	 *  The materials `entries` name, each with a translated program per pass.
-	 * 
-	 *  An entry is an object hash as `0x` and eight hex digits, or an object path, which is
-	 *  hashed. The answer is one for one and in order, null where the bin declares no object
-	 *  under the entry. The shader defs are read beside the bin, the project's copy first,
-	 *  and a read they refuse leaves every pass without a shader and says so. Translations
-	 *  are kept under the app's data directory by the blob's hash.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the source bin cannot be read or parsed.
-	 */
-	readMaterialPrograms: (source: MaterialSource, entries: string[], options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: (MaterialProgram | null)[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_material_programs", { source, entries, options }),
-	/**
-	 *  The material embedded at the property path `path` under the object `entry`, with a
-	 *  translated program per pass, and null where the path reaches no struct.
-	 * 
-	 *  The entry is read as [`read_material_programs`] reads one, and the program is keyed by
-	 *  the hash of `entry:path`, since the material has no object of its own.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the source bin cannot be read or parsed.
-	 */
-	readEmbeddedMaterialProgram: (source: MaterialSource, entry: string, path: string, options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: MaterialProgram | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_embedded_material_program", { source, entry, path, options }),
-	/**
-	 *  The pass the engine draws a skinned submesh with where its skin names no material,
-	 *  with `LIT_UBER` translated.
-	 * 
-	 *  The shader cache is the one `document` resolves against. Translations are cached as
-	 *  [`read_material_programs`] caches them.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when no document is open under `document`.
-	 */
-	readDefaultSkinnedProgram: (document: BinDocumentId, options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: PassProgram }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_default_skinned_program", { document, options }),
-	/**
-	 *  An engine particle shader's pass for the defines an emitter sets, translated.
-	 * 
-	 *  The shader cache is the one `document` resolves against, and the install's alone where
-	 *  it is none. Translations are cached as [`read_material_programs`] caches them.
-	 * 
-	 *  # Errors
-	 * 
-	 *  Fails when the names or the project chunks the resolution reads are unavailable.
-	 */
-	readParticleProgram: (document: number | null, shader: ParticleShader, defines: ParticleDefine[], options: ProgramOptions) => __TAURI_INVOKE<({ ok: true; value: PassProgram }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_particle_program", { document, shader, defines, options }),
-	/**
-	 *  Tangents saved into the viewed skin's project-layer mesh.
-	 * 
-	 *  # Errors
-	 *  Fails when the skin or layer mesh is unavailable, baking fails, or the write fails.
-	 */
-	bakeSkinTangents: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: AssetRef }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bake_skin_tangents", { document, entry }),
-	/**
-	 *  The materials a map's submeshes name, and its lighting and screen effects.
-	 * 
-	 *  `map` is `MapContainer.mapPath`, an entry path such as
-	 *  `Maps/MapGeometry/Map11/Base_SRX`, and `materials` are the entry paths the map's own
-	 *  `LTKM` buffer carries, answered one for one and in that order. `document` names any
-	 *  open document of the project whose layer answers first, and none resolves against the
-	 *  install alone.
-	 * 
-	 *  A map nothing holds a `.materials.bin` for leaves every material unresolved rather
-	 *  than failing the read, which draws the map flat. One whose file is there but will not
-	 *  read is reported, because the caller keeps this answer for the app's life and a flat
-	 *  map cached over a momentary failure is a map that never draws again.
-	 */
-	readMap: (document: number | null, map: MapPath, materials: string[]) => __TAURI_INVOKE<({ ok: true; value: MapModel }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map", { document, map, materials }),
-	/**
-	 *  Every particle the open `.materials.bin` under `document` stands in its map.
-	 * 
-	 *  The systems they link are objects of the same document, so `read_vfx_system` answers
-	 *  each against the handle this was asked with.
-	 */
-	readMapParticles: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapParticle[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_particles", { document }),
-	/**
-	 *  Every character the open `.materials.bin` under `document` stands in its map.
-	 * 
-	 *  Each names its skin by entry path, which lives in the character's own skin bin rather
-	 *  than in this document.
-	 */
-	readMapCharacters: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapCharacter[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_characters", { document }),
-	/**
-	 *  The maps the `Map`, `MapSkin` or `MapContainer` at `entry` draws.
-	 * 
-	 *  Empty for a skin that links no container and for an object of any other class.
-	 */
-	readMapVariants: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: MapVariant[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_variants", { document, entry }),
-	/**  Every chunk the open `.materials.bin` under `document` declares, and what each holds. */
-	readMapOutline: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: MapChunk[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_map_outline", { document }),
-	/**
-	 *  Where the two files of `map` live in `sandbox`, its layers checked before the install.
-	 * 
-	 *  So a mod that ships its own geometry draws it, and one that ships only materials draws
-	 *  the install's geometry under them.
-	 */
-	locateMapFiles: (sandbox: SandboxRef, map: MapPath) => __TAURI_INVOKE<({ ok: true; value: MapFiles }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_map_files", { sandbox, map }),
-	/**
-	 *  Where each of `paths` lives in `sandbox`, its layers checked before the install.
-	 * 
-	 *  One call for every file a scene is about to open. A path nothing holds is absent.
-	 */
-	locateFilesNear: (sandbox: SandboxRef, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: AssetRef } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("locate_files_near", { sandbox, paths }),
-	/**
-	 *  One animation graph: its clips with their files placed, and the maps they key into.
-	 * 
-	 *  `entry` is the `AnimationGraphData` object's hash as `0x` and eight hex digits. A
-	 *  graph the open document does not declare is looked for through the files it links,
-	 *  and a linked file that cannot be read is passed over.
-	 */
-	readAnimationGraph: (document: BinDocumentId, entry: string) => __TAURI_INVOKE<({ ok: true; value: AnimationGraph }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_animation_graph", { document, entry }),
-	/**  The rate and the length of one `.anm`, which the clip table's rate column reads. */
-	readClipHeader: (asset: AssetRef) => __TAURI_INVOKE<({ ok: true; value: ClipHeader }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_clip_header", { asset }),
 	/**
 	 *  The view controller at `entry` in the open document `document`, with its base scene bin,
 	 *  its manifest and every sprite resolved through the document's sandbox.
@@ -576,7 +409,7 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","bakeSkinTangents":"bake_skin_tangents","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","changeIntegration":"change_integration","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectRitobinIntegration":"detect_ritobin_integration","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","locateFilesNear":"locate_files_near","locateMapFiles":"locate_map_files","minimizeToTray":"minimize_to_tray","openAssetInRitobin":"open_asset_in_ritobin","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","readAnimationGraph":"read_animation_graph","readAssetInfo":"read_asset_info","readClipHeader":"read_clip_header","readDefaultSkinnedProgram":"read_default_skinned_program","readEmbeddedMaterialProgram":"read_embedded_material_program","readMap":"read_map","readMapCharacters":"read_map_characters","readMapOutline":"read_map_outline","readMapParticles":"read_map_particles","readMapVariants":"read_map_variants","readMaterialPrograms":"read_material_programs","readParticleProgram":"read_particle_program","readSkin":"read_skin","readSpell":"read_spell","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","readVfxSystem":"read_vfx_system","rebuildOverlay":"rebuild_overlay","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveAssetCopy":"save_asset_copy","saveSettings":"save_settings","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path","vfxTemplates":"vfx_templates"} as const;
+export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","changeIntegration":"change_integration","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","minimizeToTray":"minimize_to_tray","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","rebuildOverlay":"rebuild_overlay","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveSettings":"save_settings","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path"} as const;
 
 /* Types */
 /**  Accent color configuration. */
@@ -2300,6 +2133,19 @@ export type Ending = {
 	 */
 	crashed: boolean | null,
 };
+
+/**  A pass the engine draws with its own shader rather than a material's. */
+export type EnginePass = 
+/**
+ *  The pass a skinned submesh draws with where its skin names no material, with
+ *  `LIT_UBER` translated, over the shader cache `document` resolves against.
+ */
+{ kind: "defaultSkinned"; document: BinDocumentId } | 
+/**
+ *  An engine particle shader's pass for the defines an emitter sets, over the shader
+ *  cache `document` resolves against, and the install's alone where it is none.
+ */
+{ kind: "particle"; document: BinDocumentId | null; shader: ParticleShader; defines: ParticleDefine[] };
 
 /**
  *  Which [`AppError`] a failure was, as a name that outlives its message.
@@ -4554,6 +4400,16 @@ export type MaterialSource =
  *  `document` first, where one is open, and in the install second.
  */
 { kind: "map"; map: MapPath; document: BinDocumentId | null };
+
+/**  A material a program read names. */
+export type MaterialTarget = 
+/**  The material declared as the object `entry`. */
+{ kind: "object"; entry: string } | 
+/**
+ *  The material embedded at the property path `path` under the object `entry`, whose
+ *  program is keyed by the hash of `entry:path`, since it has no object of its own.
+ */
+{ kind: "embedded"; entry: string; path: string };
 
 /**  Something the engine does silently that a preview says out loud. */
 export type MaterialWarning = 

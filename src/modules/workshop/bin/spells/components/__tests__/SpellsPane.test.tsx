@@ -55,7 +55,8 @@ const PREVIEW = {
 function answer(command: string) {
   if (command === commandNames.bin.binOpen)
     return Promise.resolve({ ok: true, value: { document: 2 } });
-  if (command === commandNames.app.readSpell) return Promise.resolve({ ok: true, value: PREVIEW });
+  if (command === commandNames.preview.readSpell)
+    return Promise.resolve({ ok: true, value: PREVIEW });
   if (command === commandNames.bin.binClose) return Promise.resolve({ ok: true, value: null });
   return Promise.resolve({ ok: true, value: READY });
 }
@@ -89,7 +90,7 @@ describe("SpellsPane", () => {
     "disables unsupported spells before navigation",
     async (missile) => {
       mockInvoke.mockImplementation((command) =>
-        command === commandNames.app.readSpell
+        command === commandNames.preview.readSpell
           ? Promise.resolve({ ok: true, value: { missile, issues: [] } })
           : answer(command),
       );
@@ -171,7 +172,7 @@ describe("SpellsPane", () => {
 
 it("offers impact-only spells to the ability scene and respects the hit-effect flag", async () => {
   mockInvoke.mockImplementation((command) =>
-    command === commandNames.app.readSpell
+    command === commandNames.preview.readSpell
       ? Promise.resolve({
           ok: true,
           value: {
@@ -192,7 +193,7 @@ it("offers impact-only spells to the ability scene and respects the hit-effect f
     "0x859d7934": "unsupported",
   });
   mockInvoke.mockImplementation((command) =>
-    command === commandNames.app.readSpell
+    command === commandNames.preview.readSpell
       ? Promise.resolve({
           ok: true,
           value: { missile: null, hitEffectKey: "hit", haveHitEffect: false, issues: [] },
