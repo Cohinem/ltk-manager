@@ -7,8 +7,8 @@ use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use atlas::{
-    import_sprite, read_sheet, resolve_font, resolve_scene_bin, resolve_view, SheetImport,
-    SheetSpec, SheetTarget, UiFont, UiShader, UiView, VariantChoice, FONTS_PATH,
+    import_sprite, read_sheet, resolve_font, resolve_scene_bin, resolve_view, sprite_png,
+    SheetImport, SheetSpec, SheetTarget, UiFont, UiShader, UiView, VariantChoice, FONTS_PATH,
 };
 use ltk_hash::WadHash;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments, Namer, RowNames};
@@ -202,6 +202,33 @@ pub async fn atlas_sheet(
     off_thread(move || {
         let project = project_of(&app_handle.state::<BinDocuments>(), document)?;
         read_sheet(Path::new(&project), &sheet)
+    })
+    .await
+}
+
+/// Write the sprite at `uv` on the page `texture` to `destination` as a PNG, at the page's own
+/// resolution, for an image editor to open and the import to take back.
+///
+/// # Errors
+///
+/// Fails when the page cannot be read or decoded, when `uv` covers none of it, and when
+/// `destination` cannot be written.
+#[tauri::command]
+#[specta::specta]
+pub async fn atlas_export_sprite(
+    texture: AssetRef,
+    uv: [f32; 4],
+    destination: String,
+    app_handle: AppHandle,
+) -> IpcResult<()> {
+    let config = app_handle.state::<SettingsState>().config();
+
+    off_thread(move || {
+        let page = texture.read(&config, &app_handle.state::<WadCache>())?;
+        let png = sprite_png(&page, uv)?;
+        fs_err::write(&destination, png)?;
+        tracing::info!(destination = %destination, "Exported a sprite");
+        Ok(())
     })
     .await
 }

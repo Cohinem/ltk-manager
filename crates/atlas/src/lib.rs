@@ -25,7 +25,9 @@ pub use model::{
     UiView, UiViewWarning,
 };
 pub use program::{UiShader, read_ui_programs};
-pub use sheet::{SheetImport, SheetSpec, SheetSprite, SheetTarget, import_sprite, read_sheet};
+pub use sheet::{
+    SheetImport, SheetSpec, SheetSprite, SheetTarget, import_sprite, read_sheet, sprite_png,
+};
 pub use view::{UiViewError, VariantChoice, resolve_scene_bin, resolve_view};
 
 #[cfg(test)]

@@ -255,6 +255,9 @@
     }
   ],
   "workshop_bin_atlas_sprites_empty": "This view draws no sprites",
+  "workshop_bin_atlas_sprites_export_action": "Export PNG",
+  "workshop_bin_atlas_sprites_export_failed": "Could not export the sprite",
+  "workshop_bin_atlas_sprites_exported": "Exported the sprite",
   "workshop_bin_atlas_sprites_import_failed": "Could not import the image",
   "workshop_bin_atlas_sprites_no_match_empty": "No sprites match",
   "workshop_bin_atlas_sprites_owned_value": "Your sheet",

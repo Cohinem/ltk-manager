@@ -4,7 +4,13 @@ import type { SheetSpec } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { sheetNameOf, sheetSpriteAt, sheetSpriteEdits } from "../edit/spriteEdits";
-import { iconThumb, spriteRows, spriteTextures } from "../model/sprites";
+import {
+  exportedSprite,
+  iconThumb,
+  spriteFileName,
+  spriteRows,
+  spriteTextures,
+} from "../model/sprites";
 import { buildTree } from "../model/tree";
 import type { View, ViewElement, ViewLook } from "../model/view";
 import { element, icon, scene, view } from "./fixtures";
@@ -135,5 +141,34 @@ describe("sheetSpriteAt", () => {
   it("names a view's sheet for the view", () => {
     expect(sheetNameOf({ name: "ClientStates/Gameplay/UX/Hud", entry: "0x1" })).toBe("Hud");
     expect(sheetNameOf({ name: null, entry: "0x1" })).toBe("0x1");
+  });
+});
+
+describe("exportedSprite", () => {
+  it("exports an element's sprite from its page under the element's label", () => {
+    const tree = buildTree(
+      twoTextures([
+        element("gem", "s", 0, withSprite([0.25, 0, 0.5, 0.5])),
+        element("blank", "s", 1, {
+          ...(icon(0) as Extract<ViewLook, { kind: "icon" }>),
+          sprite: null,
+        }),
+      ]),
+    );
+
+    expect(exportedSprite(tree, "gem")).toEqual({
+      asset: { kind: "file", path: "sheet.tex" },
+      uv: [0.25, 0, 0.5, 0.5],
+      label: "gem",
+    });
+    expect(exportedSprite(tree, "blank")).toBeNull();
+    expect(exportedSprite(tree, "missing")).toBeNull();
+  });
+
+  it("names the file for the label, with no image extension and nothing a path rejects", () => {
+    expect(spriteFileName("gem")).toBe("gem.png");
+    expect(spriteFileName("icon_gold.TEX")).toBe("icon_gold.png");
+    expect(spriteFileName('a/b:c*"d')).toBe("a_b_c__d.png");
+    expect(spriteFileName("")).toBe("sprite.png");
   });
 });

@@ -10,8 +10,8 @@ use std::path::{Path, PathBuf};
 use fs_err as fs;
 use image::RgbaImage;
 use ltk_manager_core::error::{AppError, AppResult};
-use ltk_texture::Tex;
 use ltk_texture::tex::{EncodeFormat, EncodeOptions};
+use ltk_texture::{Tex, Texture};
 use serde::{Deserialize, Serialize};
 
 use super::pack::{PackSprite, Packed, Placement, SpritePixels, compose, pack, pack_into};
@@ -148,6 +148,40 @@ pub fn import_sprite(
         sheet: spec,
         sprite,
     })
+}
+
+/// The sprite at `uv` on the page `texture` holds, as a PNG at the page's own resolution.
+///
+/// `uv` is `[u0, v0, u1, v1]`, normalized with v down, in either order along each axis. The rect
+/// rounds to whole pixels and is clamped to the page.
+///
+/// # Errors
+///
+/// Fails where `texture` does not decode and where the rect covers no pixel of the page.
+pub fn sprite_png(texture: &[u8], uv: [f32; 4]) -> AppResult<Vec<u8>> {
+    let invalid = |error: &dyn std::fmt::Display| AppError::ValidationFailed(error.to_string());
+    let page = Texture::from_reader(&mut std::io::Cursor::new(texture))
+        .map_err(|error| invalid(&error))?;
+    let page = page
+        .decode_mipmap(0)
+        .map_err(|error| invalid(&error))?
+        .into_rgba_image()
+        .map_err(|error| invalid(&error))?;
+
+    let span = |a: f32, b: f32, size: u32| {
+        let pixel = |t: f32| (t * size as f32).round().clamp(0.0, size as f32) as u32;
+        (pixel(a.min(b)), pixel(a.max(b)))
+    };
+    let (x0, x1) = span(uv[0], uv[2], page.width());
+    let (y0, y1) = span(uv[1], uv[3], page.height());
+    if x1 <= x0 || y1 <= y0 {
+        return Err(AppError::ValidationFailed(
+            "The sprite covers no pixel of its page".to_owned(),
+        ));
+    }
+
+    let sprite = image::imageops::crop_imm(&page, x0, y0, x1 - x0, y1 - y0).to_image();
+    png_bytes(&sprite)
 }
 
 /// Compose the sheet's page from its sources and write it into its layer: BC7 where a sprite
