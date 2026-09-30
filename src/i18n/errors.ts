@@ -2,13 +2,15 @@ import { match } from "ts-pattern";
 
 import type {
   AppError,
+  EditRejection,
   InjectionStage,
+  IntegrationError,
   LauncherError,
   OverlayErrorCategory,
   PatcherError,
+  ReadOnly,
   WorkshopError,
-} from "@/lib/bindings";
-import type { EditRejection, IntegrationError, ReadOnly } from "@/lib/bindings.gen";
+} from "@/lib/tauri";
 import { m } from "@/paraglide/messages";
 import { isAppError } from "@/utils/errors";
 

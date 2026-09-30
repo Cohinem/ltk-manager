@@ -13,7 +13,7 @@ export function useTestProjects() {
   const queryClient = useQueryClient();
   const setTestingProjects = usePatcherSessionStore((s) => s.setTestingProjects);
 
-  return useMutation<void, AppError, TestProjectsArgs>({
+  return useMutation<null, AppError, TestProjectsArgs>({
     mutationFn: async ({ projects }) => {
       const result = await startPatcherSpendingQueue({
         workshopProjects: projects.map((p) => p.path),

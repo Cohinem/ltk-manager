@@ -27,7 +27,7 @@ const TEXTURE: AssetInfo = {
   container: "TEX",
   format: "BC3",
   mipCount: 9,
-  sizeBytes: 43_776n,
+  sizeBytes: 43_776,
 };
 
 /** Past the hover delay a card opens after. */

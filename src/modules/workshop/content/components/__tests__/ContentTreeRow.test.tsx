@@ -9,7 +9,7 @@ import type { DirNode, FileNode } from "../../utils/contentTree";
 import { TreeRow } from "../ContentTreeRow";
 
 function entry(relativePath: string, ignoredBy: IgnoreMatch | null): ContentEntry {
-  return { relativePath, sizeBytes: 12n, kind: "unknown", objects: [], ignoredBy };
+  return { relativePath, sizeBytes: 12, kind: "unknown", objects: [], ignoredBy };
 }
 
 function fileRow(node: FileNode) {

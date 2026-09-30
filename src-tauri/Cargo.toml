@@ -54,12 +54,6 @@ serde_json = { workspace = true }
 regex = "1"
 base64 = { workspace = true }
 
-ts-rs = { workspace = true, features = [
-    "chrono-impl",
-    "serde-json-impl",
-    "indexmap-impl",
-] }
-
 specta = { workspace = true }
 specta-typescript = { workspace = true }
 tauri-specta = { workspace = true }

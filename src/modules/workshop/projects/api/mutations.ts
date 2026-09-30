@@ -35,7 +35,7 @@ export const projectDetailsMutations = {
     }),
 
   remove: (client: QueryClient) =>
-    mutationOptions<void, AppError, string>({
+    mutationOptions<null, AppError, string>({
       mutationFn: async (projectPath) =>
         unwrapForQuery(await api.deleteWorkshopProject(projectPath)),
       onSuccess: (_answer, projectPath) => {

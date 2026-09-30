@@ -143,8 +143,7 @@ pub struct MetaSchema {
 /// on their own schedule, so a database gains patches between two stamps.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct MetaSchemaVersion {
     /// The patch naming the newest build it describes, absent where it names none.
     pub patch: Option<String>,
@@ -293,9 +292,7 @@ impl Shape {
 /// or `map[hash,string]`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct KindShape {
     pub kind: PropertyKind,
     /// A `Map`'s key kind.
@@ -339,9 +336,7 @@ impl From<Shape> for KindShape {
 /// One class as the class card draws it: its name, and its fields typed at one build.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ClassSchema {
     /// The class as the database names it.
     pub name: Option<String>,
@@ -362,9 +357,7 @@ pub struct ClassSchema {
 /// A class as a card names it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ClassRef {
     pub hash: HexBinHash,
     /// The class as the database names it.
@@ -374,9 +367,7 @@ pub struct ClassRef {
 /// One field of a class: its name, its type at the card's build, and every revision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct FieldSchema {
     /// `0x` and eight hex digits.
     pub hash: String,
@@ -398,9 +389,7 @@ pub struct FieldSchema {
 /// One field's type over one span of builds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct FieldRevision {
     /// The first content build the revision holds for.
     pub from: u32,

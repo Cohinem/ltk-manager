@@ -27,9 +27,7 @@ use crate::object_index::ObjectNames;
 /// One layer's declarations manifest, read for an outline.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclarationsLayer {
     pub layer: String,
     /// The manifest's path inside the layer, `None` for a layer with none.
@@ -45,9 +43,7 @@ pub struct DeclarationsLayer {
 /// Why a layer's declarations do not load, and where.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclarationsLoadError {
     pub message: String,
     /// The file the error is in, as the loader names it: the manifest's name or a source path.
@@ -59,9 +55,7 @@ pub struct DeclarationsLoadError {
 /// A range of a text by one-based lines and one-based character columns, the end exclusive.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct LineSpan {
     pub line: u32,
     pub column: u32,
@@ -72,9 +66,7 @@ pub struct LineSpan {
 /// Which selector a module holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ModuleSelector {
     /// One chunk, named by `target`.
     Target,
@@ -85,9 +77,7 @@ pub enum ModuleSelector {
 /// One module of a manifest.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredModule {
     /// The module's position in `modules`, zero-based.
     pub index: u32,
@@ -115,9 +105,7 @@ pub struct DeclaredModule {
 /// One entry a module declares properties of, or one object it creates or removes.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredEntry {
     /// The entry name as spelled.
     pub name: String,
@@ -143,9 +131,7 @@ pub struct DeclaredEntry {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum DeclaredObjectEdit {
     /// A copy of the entry `source`, with the path the hashtables give a hash-spelled one.
     Clone {
@@ -164,9 +150,7 @@ pub enum DeclaredObjectEdit {
 /// The dependencies a body adds to and removes from a chunk's link list. ADR-0050.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredLinks {
     /// The `links` items, in order.
     pub add: Vec<String>,
@@ -195,9 +179,7 @@ impl From<&LinkEdit> for DeclaredLinks {
 /// One signed property key of an entry body.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredKey {
     /// The key as the build reads it, sign included.
     pub key: String,

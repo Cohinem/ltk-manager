@@ -7,7 +7,6 @@
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
-use ts_rs::TS;
 
 use crate::error::{AppError, AppErrorResponse};
 use crate::tray::AppTrayState;
@@ -17,8 +16,7 @@ use ltk_manager_core::patcher::injector::WadScanFailure;
 use ltk_manager_core::patcher::PatcherPhase;
 
 /// One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct WadScanFailureInfo {
     /// The offending archive (e.g. `TahmKench.wad.client`), if its name parsed.
@@ -34,8 +32,7 @@ pub struct WadScanFailureInfo {
 /// Payload for the `patcher-wad-scan-failed` event, emitted when the injected
 /// DLL's integrity scan rejects one or more modded archives. When this fires
 /// the patcher auto-stops and applies no mods for the session.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct WadScanFailedPayload {
     /// The archives that failed the scan, de-duplicated. May be empty if no
@@ -48,8 +45,7 @@ pub struct WadScanFailedPayload {
 /// when `linked_bin_check_enabled`). Injection is non-fatal, so this never blocks the
 /// start - it drives a non-blocking toast. The per-mod badges and the reachable
 /// `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct LinkedBinWarningPayload {
     /// Number of enabled mods flagged in the latest build.
@@ -58,19 +54,16 @@ pub struct LinkedBinWarningPayload {
 
 /// Payload for the `patcher-game-attached` event: the DLL is in the game,
 /// which says nothing yet about whether the overlay went live.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct GameAttachedPayload {
     /// The game's process id, when a `dll` line named it.
-    #[ts(type = "number | null")]
     pub pid: Option<u64>,
 }
 
 /// Payload for the `patcher-game-overlay` event: what the DLL said about the
 /// overlay after it attached.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct GameOverlayPayload {
     pub outcome: OverlayOutcome,

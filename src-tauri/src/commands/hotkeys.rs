@@ -85,6 +85,7 @@ pub(crate) fn execute_kill_league(app_handle: &AppHandle) -> AppResult<()> {
 
 /// Temporarily unregister all hotkeys (e.g. while capturing a new binding).
 #[tauri::command]
+#[specta::specta]
 pub fn pause_hotkeys(
     hotkeys: State<HotkeyManager>,
     settings: State<SettingsState>,
@@ -95,6 +96,7 @@ pub fn pause_hotkeys(
 
 /// Re-register all hotkeys after capture mode ends.
 #[tauri::command]
+#[specta::specta]
 pub fn resume_hotkeys(
     hotkeys: State<HotkeyManager>,
     settings: State<SettingsState>,
@@ -105,6 +107,7 @@ pub fn resume_hotkeys(
 
 /// Set (or clear) a global hotkey for the given action.
 #[tauri::command]
+#[specta::specta]
 pub fn set_hotkey(
     action: HotkeyAction,
     accelerator: Option<String>,
@@ -154,6 +157,7 @@ fn set_hotkey_inner(
 /// IPC handler for the whole duration. Shares [`execute_kill_league`] with the
 /// hotkey path so the two cannot drift.
 #[tauri::command]
+#[specta::specta]
 pub async fn kill_league(app_handle: AppHandle) -> IpcResult<()> {
     off_thread(move || execute_kill_league(&app_handle)).await
 }

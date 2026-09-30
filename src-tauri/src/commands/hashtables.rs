@@ -27,6 +27,7 @@ const SYNC_USER_AGENT: &str = concat!("ltk-manager/", env!("CARGO_PKG_VERSION"))
 ///
 /// A cache that was never synced is a normal report, not an error.
 #[tauri::command]
+#[specta::specta]
 pub async fn get_hashtable_cache_status() -> IpcResult<HashtableCacheStatus> {
     off_thread(|| {
         let tables = HashtableCache::shared()?.status()?;
@@ -42,6 +43,7 @@ pub async fn get_hashtable_cache_status() -> IpcResult<HashtableCacheStatus> {
 /// is midway through a sync. The meta schema database is asked the same
 /// question, and answers for itself.
 #[tauri::command]
+#[specta::specta]
 pub async fn check_hashtable_updates() -> IpcResult<HashtableUpdateCheck> {
     off_thread(|| {
         let tables = HashtableCache::shared()?.check(SYNC_USER_AGENT)?;
@@ -77,6 +79,7 @@ fn check_meta_schema() -> Option<MetaSchemaVersion> {
 /// A run that installed something drops everything read out of the old tables,
 /// so the next caller sees the names the new ones give.
 #[tauri::command]
+#[specta::specta]
 pub async fn sync_hashtables(force: bool, app: AppHandle) -> IpcResult<HashtableSyncReport> {
     off_thread(move || {
         let events = TauriEventSink::new(app.clone());

@@ -229,9 +229,7 @@ static DOUBLED_TINT_SHADER: LazyLock<Regex> =
 /// material takes.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MaterialPreview {
     /// The material's path hash, `0x` and eight hex digits.
     pub hash: String,
@@ -267,9 +265,7 @@ pub struct MaterialPreview {
 /// The texture a preview draws a material's main layer with.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct BaseTexture {
     /// The shader texture's name, which the sampler entry is keyed by.
     pub name: String,
@@ -283,9 +279,7 @@ pub struct BaseTexture {
 /// The rule of section 10.2 that picked a base texture, in the order they are tried.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum BaseRule {
     /// A static switch of the one shader that has such a switch names it.
     SwitchOverride,
@@ -306,9 +300,7 @@ pub enum BaseRule {
 /// A sampler's address mode, `addressU` and `addressV` on the wire.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum Wrap {
     #[default]
     Repeat,
@@ -332,9 +324,7 @@ impl Wrap {
 /// How a pass's fragments reach the target, from the first pass's own fields.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct RenderState {
     pub blending: Blending,
     /// `StaticMaterialPassDef.srcColorBlendFactor`, defaulting to [`BlendFactor::One`].
@@ -374,9 +364,7 @@ impl Default for RenderState {
 /// The blends a preview tells apart.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum Blending {
     Opaque,
     /// Source alpha over one minus source alpha, which most character materials are.
@@ -401,9 +389,7 @@ impl Blending {
 /// One side of the pair a pass blends by, a `StaticMaterialPassDef::BlendFactor`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum BlendFactor {
     Zero,
     One,
@@ -439,9 +425,7 @@ impl BlendFactor {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum MaterialWarning {
     /// The shader defs were not opened, so no default texture, parameter or switch is known.
     NoShaderDefs,

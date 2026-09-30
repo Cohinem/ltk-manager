@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
-use ts_rs::TS;
 
 /// Get the application data directory for storing settings using Tauri's path resolver.
 pub fn get_app_data_dir(app_handle: &AppHandle) -> Option<PathBuf> {
@@ -109,8 +108,7 @@ impl Default for SettingsState {
 }
 
 /// Theme selection for the application.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum Theme {
     #[default]
@@ -120,8 +118,7 @@ pub enum Theme {
 }
 
 /// The page the window opens on.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum OpenOn {
     #[default]
@@ -141,8 +138,7 @@ pub enum OpenOn {
 /// Classic is the default while the launcher is experimental: it is the
 /// behaviour every existing install already has, and it depends on nothing
 /// outside this app.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum LaunchMode {
     #[default]
@@ -151,8 +147,7 @@ pub enum LaunchMode {
 }
 
 /// Accent color configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AccentColor {
     /// Preset name: "ltk" (the brand accent), or one of the generated hues
@@ -164,8 +159,7 @@ pub struct AccentColor {
 }
 
 /// A saved author profile that can be reused across workshop projects.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthorProfile {
     pub id: String,
@@ -184,8 +178,7 @@ fn default_trusted_domains() -> Vec<String> {
 /// Application settings: UI/shell preferences plus the flattened core
 /// [`Config`]. The flatten keeps `settings.json` a single document, so the
 /// split is invisible to both the file on disk and the frontend.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     /// Patching-relevant configuration shared with non-GUI frontends.
@@ -197,7 +190,6 @@ pub struct Settings {
     /// Accent color configuration.
     pub accent_color: AccentColor,
     /// Optional backdrop image path for glassmorphism effect.
-    #[ts(as = "Option<String>")]
     pub backdrop_image: Option<PathBuf>,
     /// Backdrop blur amount in pixels (default: 40).
     pub backdrop_blur: Option<u32>,

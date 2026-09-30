@@ -64,3 +64,6 @@ frontend at the end of it, where 140 are not.
   has a `ts_rs::TS` and a `specta::Type` until the last module moves.
 - **Neutral:** the last module to move deletes `src/lib/bindings/`, `ts-rs`, `TS_RS_EXPORT_DIR`
   and the `api` map, and renames the generated file.
+- **Update (2026-09-30):** the last modules moved together. `ts-rs`, `src/lib/bindings/` and
+  `TS_RS_EXPORT_DIR` are gone and the generated file is `src/lib/bindings.ts`. The `api` map
+  stays, as the module grouping over the flat `commands` object that every call site reads.

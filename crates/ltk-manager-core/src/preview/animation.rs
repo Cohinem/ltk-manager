@@ -54,9 +54,7 @@ const MAX_POSES: usize = 1 << 21;
 /// What one `.anm` says about itself: its rate and its length.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ClipHeader {
     /// Frames per second the clip was authored at.
     pub fps: f32,

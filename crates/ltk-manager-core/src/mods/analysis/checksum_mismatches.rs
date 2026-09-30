@@ -18,8 +18,7 @@ use std::collections::HashMap;
 /// The hashes are hex strings rather than numbers because they are 64-bit
 /// values, which JavaScript numbers cannot carry exactly.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ChecksumMismatchInfo {
     /// Library mod id (matches `InstalledMod.id` on the frontend).

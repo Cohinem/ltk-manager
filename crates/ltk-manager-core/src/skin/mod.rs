@@ -198,9 +198,7 @@ enum Children {
 /// Section 1.3 of docs/research/static-material-studio-rendering.md.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct SkinModel {
     /// The `.skn`, `skinMeshProperties.simpleSkin`.
     pub mesh: Option<NamedAsset>,
@@ -236,9 +234,7 @@ pub struct SkinModel {
 /// One key of the skin's resolver, and the system it stands for.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct EffectSystem {
     /// The key, `0x` and eight hex digits.
     pub key: String,
@@ -251,9 +247,7 @@ pub struct EffectSystem {
 /// One submesh a material override gives its own texture or material.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct SubmeshOverride {
     /// The submesh's name as the `.skn` spells it.
     pub submesh: String,
@@ -266,9 +260,7 @@ pub struct SubmeshOverride {
 /// One effect a skin wears for as long as the character stands.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct IdleEffect {
     /// `effectKey`, `0x` and eight hex digits.
     pub effect_key: String,
@@ -288,9 +280,7 @@ pub struct IdleEffect {
 /// map holds, and every key is named by the tables or written as its hex.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct AnimationGraph {
     /// The linked file declaring the graph, and none where the open document does.
     pub source: Option<AssetRef>,
@@ -307,9 +297,7 @@ pub struct AnimationGraph {
 /// One entry of `mClipDataMap`, of any kind of `ClipBaseData`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct GraphClip {
     /// The clip's key as the tables name it, and its hash where none does.
     pub name: String,
@@ -343,9 +331,7 @@ pub struct GraphClip {
 /// One entry of `mEventDataMap`, of any kind of `BaseEventData`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ClipEvent {
     /// The event's key as the tables name it, and its hash where none does.
     pub name: String,
@@ -364,9 +350,7 @@ pub struct ClipEvent {
 /// What a clip event does, for the kinds a viewport plays, and nothing for the rest.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum EventKind {
     /// `SubmeshVisibilityEventData`: submeshes shown and hidden from the start frame on.
     SubmeshVisibility {
@@ -418,9 +402,7 @@ pub enum EventKind {
 /// One pair of a particle event: the joint the system rides, and the joint it aims at.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct EventSpawn {
     /// `mBoneName`, and none for a pair riding the skeleton's own origin.
     pub bone: Option<HashRef>,
@@ -434,9 +416,7 @@ pub struct EventSpawn {
 /// or the `.skl` spells, which is how the engine reaches them too.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct HashRef {
     /// The hash as the tables name it, and its hex where none does.
     pub name: String,
@@ -447,9 +427,7 @@ pub struct HashRef {
 /// A key one clip names into a map of the graph.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct KeyRef {
     /// The key as the tables name it, and its hash where none does.
     pub name: String,
@@ -462,9 +440,7 @@ pub struct KeyRef {
 /// One entry of `mTrackDataMap`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct Track {
     pub name: String,
     /// The key, `0x` and eight hex digits.
@@ -480,9 +456,7 @@ pub struct Track {
 /// One entry of `mMaskDataMap`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct Mask {
     pub name: String,
     /// The key, `0x` and eight hex digits.
@@ -496,9 +470,7 @@ pub struct Mask {
 /// One entry of `mSyncGroupDataMap`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct SyncGroup {
     pub name: String,
     /// The key, `0x` and eight hex digits.

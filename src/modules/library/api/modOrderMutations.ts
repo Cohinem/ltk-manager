@@ -27,7 +27,7 @@ export const modOrderMutations = {
   /* Takes a partial list - the root mods alone, say - and appends the rest from
      the cache, because the backend is given the whole order or none of it. */
   reorder: (client: QueryClient) =>
-    mutationOptions<void, AppError, string[], ModsRollback>({
+    mutationOptions<null, AppError, string[], ModsRollback>({
       mutationFn: async (modIds) => {
         const all = client.getQueryData<InstalledMod[]>(libraryKeys.mods());
         return unwrapForQuery(await api.reorderMods(fullOrder(modIds, all)));
@@ -46,21 +46,21 @@ export const modOrderMutations = {
     }),
 
   moveToFolder: (client: QueryClient) =>
-    mutationOptions<void, AppError, MoveModVariables>({
+    mutationOptions<null, AppError, MoveModVariables>({
       mutationFn: async ({ modId, folderId }) =>
         unwrapForQuery(await api.moveModToFolder(modId, folderId)),
       onSettled: () => refreshPlacement(client),
     }),
 
   reorderInFolder: (client: QueryClient) =>
-    mutationOptions<void, AppError, ReorderFolderModsVariables>({
+    mutationOptions<null, AppError, ReorderFolderModsVariables>({
       mutationFn: async ({ folderId, modIds }) =>
         unwrapForQuery(await api.reorderFolderMods(folderId, modIds)),
       onSettled: () => refreshPlacement(client),
     }),
 
   reorderFolders: (client: QueryClient) =>
-    mutationOptions<void, AppError, string[]>({
+    mutationOptions<null, AppError, string[]>({
       mutationFn: async (folderOrder) => unwrapForQuery(await api.reorderFolders(folderOrder)),
       onSettled: () => {
         client.invalidateQueries({ queryKey: libraryKeys.folderOrder() });

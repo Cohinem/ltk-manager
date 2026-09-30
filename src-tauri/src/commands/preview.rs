@@ -20,6 +20,7 @@ use tauri::{AppHandle, Manager};
 /// than an error, because a modder clicking through a tree meets one constantly
 /// and the viewer draws it as a state.
 #[tauri::command]
+#[specta::specta]
 pub async fn read_asset_info(asset: AssetRef, app_handle: AppHandle) -> IpcResult<AssetInfo> {
     let config = app_handle.state::<SettingsState>().config();
 
@@ -35,6 +36,7 @@ pub async fn read_asset_info(asset: AssetRef, app_handle: AppHandle) -> IpcResul
 /// The archive stays mounted afterwards, because the modder saving a copy of a
 /// texture is looking through that archive.
 #[tauri::command]
+#[specta::specta]
 pub async fn save_asset_copy(
     asset: AssetRef,
     destination: String,

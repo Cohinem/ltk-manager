@@ -373,9 +373,7 @@ impl Incident {
 /// verdict's number kept beside it, so a token from a newer manager reads as
 /// far as it can and never as an error.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct DecodedIncident {
     /// RFC 3339, UTC, to the minute, or `None` when the token carried no time.
@@ -425,9 +423,7 @@ pub struct DecodedIncident {
 /// One patcher binary as a decoded token presents it: the checksum, and the
 /// build date as a full timestamp.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct DecodedBinary {
     pub hash: String,

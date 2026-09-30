@@ -9,7 +9,6 @@
 
 use serde::{Deserialize, Serialize};
 use specta::datatype::{DataType, Enum, Field, Variant};
-use ts_rs::TS;
 
 use ltk_manager_core::bin_document::{BinDocumentError, EditRejection, ReadOnly};
 use ltk_manager_core::error::message_with_sources;
@@ -25,8 +24,7 @@ use crate::github::{GitHubError, GitHubErrorKind};
 /// The frontend owns every sentence a user reads (ADR-0017), so no variant
 /// carries one. A `detail` is prose from outside the app, such as an OS or
 /// crate error, which the frontend draws as data under a title of its own.
-#[derive(Debug, Clone, Serialize, Deserialize, TS, specta::Type)]
-#[ts(export, rename = "AppError")]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(
     tag = "code",
     rename_all = "SCREAMING_SNAKE_CASE",
@@ -137,8 +135,7 @@ pub enum AppErrorResponse {
 }
 
 /// Which of the things GitHub publishes a read was after.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GitHubFeed {
     Releases,

@@ -75,7 +75,7 @@ function refreshMods(client: QueryClient): void {
 /** Writes against the installed mods. */
 export const modMutations = {
   toggle: (client: QueryClient) =>
-    mutationOptions<void, AppError, ToggleModVariables, ModsRollback>({
+    mutationOptions<null, AppError, ToggleModVariables, ModsRollback>({
       mutationFn: async ({ modId, enabled }) => unwrapForQuery(await api.toggleMod(modId, enabled)),
       onMutate: ({ modId, enabled }) => {
         const promote =
@@ -91,7 +91,7 @@ export const modMutations = {
     }),
 
   setLayers: (client: QueryClient) =>
-    mutationOptions<void, AppError, SetModLayersVariables, ModsRollback>({
+    mutationOptions<null, AppError, SetModLayersVariables, ModsRollback>({
       mutationFn: async ({ modId, layerStates }) =>
         unwrapForQuery(await api.setModLayers(modId, layerStates)),
       onMutate: ({ modId, layerStates }) =>
@@ -103,7 +103,7 @@ export const modMutations = {
     }),
 
   enableWithLayers: (client: QueryClient) =>
-    mutationOptions<void, AppError, SetModLayersVariables, ModsRollback>({
+    mutationOptions<null, AppError, SetModLayersVariables, ModsRollback>({
       mutationFn: async ({ modId, layerStates }) =>
         unwrapForQuery(await api.enableModWithLayers(modId, layerStates)),
       onMutate: ({ modId, layerStates }) => {
@@ -145,7 +145,7 @@ export const modMutations = {
     }),
 
   uninstall: (client: QueryClient) =>
-    mutationOptions<void, AppError, string, ModsRollback>({
+    mutationOptions<null, AppError, string, ModsRollback>({
       mutationFn: async (modId) => unwrapForQuery(await api.uninstallMod(modId)),
       onMutate: (modId) => holdMods(client, (mods) => mods.filter((mod) => mod.id !== modId)),
       onError: (_error, _variables, context) => releaseMods(client, context),

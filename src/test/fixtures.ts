@@ -1,4 +1,4 @@
-import type { InstalledMod, Profile, Settings } from "@/lib/bindings";
+import type { InstalledMod, Profile, Settings } from "@/lib/tauri";
 
 export function createMockSettings(overrides?: Partial<Settings>): Settings {
   return {

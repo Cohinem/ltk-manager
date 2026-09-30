@@ -29,7 +29,7 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     coverage: {
       provider: "v8",
-      exclude: ["src/routeTree.gen.ts", "src/lib/bindings/**", "src/test/**", "**/*.config.*"],
+      exclude: ["src/routeTree.gen.ts", "src/lib/bindings.ts", "src/test/**", "**/*.config.*"],
     },
 
     environment: "node",

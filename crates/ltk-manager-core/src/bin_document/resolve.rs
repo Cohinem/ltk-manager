@@ -22,9 +22,7 @@ use crate::preview::AssetRef;
 /// A path a bin names, and where its bytes live.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct NamedAsset {
     /// The path as the bin spells it, or a chunk's sixteen hex digits where no table
     /// names it.

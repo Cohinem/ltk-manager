@@ -30,10 +30,10 @@ use crate::config::Config;
 use crate::events::{BackendEvent, EventSink};
 
 pub use install::{InstallMismatch, InstalledPatchline, detect_install_mismatch, same_install};
-pub use ritoclient::{LaunchTarget, StopFlag};
+pub use ritoclient::StopFlag;
 pub use types::{
-    LaunchOutcome, LaunchProgress, LaunchRoute, LaunchStage, LauncherError, SessionChanged,
-    SessionEnded, SessionGameRunning, SessionStarted,
+    LaunchOutcome, LaunchProgress, LaunchRoute, LaunchStage, LaunchTarget, LauncherError,
+    SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
 };
 
 /// Lowercase basename of the League client.
@@ -70,11 +70,11 @@ pub fn wait_for_game_exit(timeout: Duration) -> bool {
 
 /// The product and patchline the manager launches by default.
 ///
-/// Deliberately not a `Default` impl on [`LaunchTarget`]: which product to
+/// Deliberately not a `Default` impl on [`ritoclient::LaunchTarget`]: which product to
 /// launch is not the API crate's to assume, and a PBE picker will want to pass
 /// something else here.
-pub fn league_target() -> LaunchTarget {
-    LaunchTarget::new(products::LEAGUE_OF_LEGENDS, patchlines::LIVE)
+pub fn league_target() -> ritoclient::LaunchTarget {
+    ritoclient::LaunchTarget::new(products::LEAGUE_OF_LEGENDS, patchlines::LIVE)
 }
 
 /// Whether a launch is possible right now, and why not if it isn't.
@@ -83,8 +83,7 @@ pub fn league_target() -> LaunchTarget {
 /// named for the one game this application is about, which is what the UI
 /// renders against.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchAvailability {
     /// Whether the platform supports launching and a Riot Client was resolved.
@@ -157,7 +156,7 @@ struct Inner {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct BuiltFor {
     league_path: Option<PathBuf>,
-    target: LaunchTarget,
+    target: ritoclient::LaunchTarget,
 }
 
 impl BuiltFor {
@@ -262,7 +261,7 @@ impl LeagueLauncher {
         let launcher = {
             let mut inner = self.lock();
             if let Some(target) = target {
-                inner.retarget(target, &self.events)?;
+                inner.retarget(target.into(), &self.events)?;
             }
             inner.launcher.clone()
         };
@@ -416,7 +415,7 @@ impl Inner {
     /// Point the launcher at a different product, rebuilding it when it moves.
     fn retarget(
         &mut self,
-        target: LaunchTarget,
+        target: ritoclient::LaunchTarget,
         events: &Arc<dyn EventSink>,
     ) -> Result<(), LauncherError> {
         if self.built_for.target == target {

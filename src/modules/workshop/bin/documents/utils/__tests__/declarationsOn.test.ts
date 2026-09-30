@@ -7,10 +7,10 @@ function tree(...layers: (readonly string[])[]): ContentTree {
     layers: layers.map((paths, at) => ({
       name: `layer${at}`,
       fileCount: paths.length,
-      totalSizeBytes: 0n,
+      totalSizeBytes: 0,
       entries: paths.map((relativePath) => ({
         relativePath,
-        sizeBytes: 0n,
+        sizeBytes: 0,
         kind: "unknown",
         objects: [],
         ignoredBy: null,

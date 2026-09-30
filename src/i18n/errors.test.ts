@@ -1,4 +1,4 @@
-import type { AppError, LauncherError, OverlayErrorCategory } from "@/lib/bindings";
+import type { AppError, LauncherError, OverlayErrorCategory } from "@/lib/tauri";
 import { m } from "@/paraglide/messages";
 
 import {

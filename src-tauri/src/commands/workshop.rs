@@ -21,6 +21,7 @@ use std::sync::Arc;
 use tauri::State;
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_workshop_projects(
     workshop: State<WorkshopState>,
     settings: State<SettingsState>,
@@ -30,6 +31,7 @@ pub fn get_workshop_projects(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_workshop_project(
     args: CreateProjectArgs,
     workshop: State<WorkshopState>,
@@ -40,6 +42,7 @@ pub fn create_workshop_project(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_workshop_project(
     project_path: String,
     workshop: State<WorkshopState>,
@@ -153,6 +156,7 @@ pub fn add_project_folders(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_project_content_tree(
     project_path: String,
     workshop: State<WorkshopState>,
@@ -161,6 +165,7 @@ pub fn get_project_content_tree(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn save_project_config(
     args: SaveProjectConfigArgs,
     workshop: State<WorkshopState>,
@@ -275,6 +280,7 @@ pub fn declarations_outline(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rename_workshop_project(
     project_path: String,
     new_name: String,
@@ -290,6 +296,7 @@ pub fn rename_workshop_project(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_workshop_project(
     project_path: String,
     workshop: State<WorkshopState>,
@@ -298,6 +305,7 @@ pub fn delete_workshop_project(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn pack_workshop_project(
     args: PackProjectArgs,
     workshop: State<WorkshopState>,
@@ -306,6 +314,7 @@ pub fn pack_workshop_project(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn import_from_modpkg(
     file_path: String,
     workshop: State<WorkshopState>,
@@ -316,6 +325,7 @@ pub fn import_from_modpkg(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn peek_fantome(
     file_path: String,
     workshop: State<WorkshopState>,
@@ -324,6 +334,7 @@ pub fn peek_fantome(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn import_from_fantome(
     args: ImportFantomeArgs,
     workshop: State<WorkshopState>,
@@ -339,6 +350,7 @@ pub fn import_from_fantome(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn import_from_git_repo(
     args: ImportGitRepoArgs,
     workshop: State<WorkshopState>,
@@ -349,6 +361,7 @@ pub fn import_from_git_repo(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn validate_project(
     project_path: String,
     workshop: State<WorkshopState>,
@@ -357,6 +370,7 @@ pub fn validate_project(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn set_project_thumbnail(
     project_path: String,
     image_path: String,
@@ -366,6 +380,7 @@ pub fn set_project_thumbnail(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn remove_project_thumbnail(
     project_path: String,
     workshop: State<WorkshopState>,
@@ -374,6 +389,7 @@ pub fn remove_project_thumbnail(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_project_thumbnail(
     thumbnail_path: String,
     workshop: State<WorkshopState>,
@@ -382,6 +398,7 @@ pub fn get_project_thumbnail(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn save_layer_string_overrides(
     project_path: String,
     layer_name: String,
@@ -395,6 +412,7 @@ pub fn save_layer_string_overrides(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_project_layer(
     project_path: String,
     name: String,
@@ -413,6 +431,7 @@ pub fn create_project_layer(
 /// Rename a layer, and move the open documents and sandboxes of the project to the new
 /// name. ADR-0056.
 #[tauri::command]
+#[specta::specta]
 pub fn rename_project_layer(
     project_path: String,
     layer_name: String,
@@ -433,6 +452,7 @@ pub fn rename_project_layer(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_project_layer(
     project_path: String,
     layer_name: String,
@@ -445,6 +465,7 @@ pub fn delete_project_layer(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn update_layer_description(
     project_path: String,
     layer_name: String,
@@ -458,6 +479,7 @@ pub fn update_layer_description(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_layer_content_path(
     project_path: String,
     layer_name: String,
@@ -470,6 +492,7 @@ pub fn get_layer_content_path(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_layer_info(
     project_path: String,
     layer_names: Vec<String>,
@@ -479,6 +502,7 @@ pub fn get_layer_info(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn reorder_project_layers(
     project_path: String,
     layer_names: Vec<String>,
@@ -491,6 +515,7 @@ pub fn reorder_project_layers(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn add_files_to_layer(
     project_path: String,
     layer_name: String,
@@ -511,6 +536,7 @@ pub fn add_files_to_layer(
 ///
 /// `relative_path` is layer-relative, the way the content tree names its rows.
 #[tauri::command]
+#[specta::specta]
 pub fn delete_layer_content(
     project_path: String,
     layer_name: String,
@@ -530,6 +556,7 @@ pub fn delete_layer_content(
 /// The content is opaque here - the frontend versions and interprets it. A
 /// missing file reads as `None`, and only a genuine IO failure is an error.
 #[tauri::command]
+#[specta::specta]
 pub fn get_project_editor_state(project_path: String) -> IpcResult<Option<String>> {
     get_project_editor_state_inner(&project_path).into()
 }
@@ -547,6 +574,7 @@ fn get_project_editor_state_inner(project_path: &str) -> AppResult<Option<String
 /// Creates `.ltk/` on first write, and lands through a temp file in the same
 /// directory so a crash mid-write never leaves a truncated file behind.
 #[tauri::command]
+#[specta::specta]
 pub fn save_project_editor_state(project_path: String, content: String) -> IpcResult<()> {
     save_project_editor_state_inner(&project_path, &content).into()
 }

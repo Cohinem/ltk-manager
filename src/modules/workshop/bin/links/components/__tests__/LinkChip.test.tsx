@@ -107,7 +107,7 @@ describe("FileChip", () => {
       container: "DDS",
       format: null,
       mipCount: 1,
-      sizeBytes: 16_512n,
+      sizeBytes: 16_512,
     });
 
     expect(await screen.findByRole("button", { name: "Texture preview" })).toBeInTheDocument();

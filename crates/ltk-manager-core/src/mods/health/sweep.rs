@@ -21,8 +21,7 @@ use std::path::Path;
 /// What one library sweep concluded.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct HealthSweepReport {
     /// What the sweep checked against.
     pub basis: HealthCheckBasis,
@@ -44,8 +43,7 @@ pub struct HealthSweepReport {
 /// [`LayoutMigrationState`](crate::mods::LayoutMigrationState) is kept.
 #[derive(Debug, Clone, Default, Serialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum HealthSweepState {
     /// The startup pass has not reported yet, so the answer is still coming.
     #[default]

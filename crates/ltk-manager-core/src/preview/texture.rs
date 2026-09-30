@@ -16,8 +16,7 @@ const CUBE_FACES: u32 = 6;
 
 /// What a texture file declares about itself.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct TextureInfo {
     pub width: u32,
@@ -34,8 +33,7 @@ pub struct TextureInfo {
 
 /// The file format a texture arrives in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum TextureContainer {
     /// League's own extended texture format.

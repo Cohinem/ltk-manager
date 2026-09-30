@@ -115,8 +115,7 @@ pub struct Program {
 /// One translated stage of a program.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct StageProgram {
     /// The shader id the TOC lists the permutation under.
     pub id: u32,

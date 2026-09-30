@@ -25,8 +25,7 @@ use super::metadata::read_installed_mod;
 /// Every profile holds every mod, so the only scope narrower than the library
 /// is what the active profile has switched on.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum ExportScope {
     /// What the active profile has on.
@@ -38,8 +37,7 @@ pub enum ExportScope {
 
 /// What an export writes: loose archives, or one zip holding them.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum ExportShape {
     /// One archive per mod, into a directory.
@@ -51,8 +49,7 @@ pub enum ExportShape {
 
 /// What an export wrote, and what it had to leave behind.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportSummary {
     /// How many mods reached the destination.

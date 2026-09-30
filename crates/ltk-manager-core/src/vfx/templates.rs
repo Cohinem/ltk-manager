@@ -16,9 +16,7 @@ const EMITTER_CLASS: &str = "VfxEmitterDefinitionData";
 /// Whether a template is one emitter or a whole system.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum VfxTemplateKind {
     Emitter,
     System,
@@ -27,9 +25,7 @@ pub enum VfxTemplateKind {
 /// What carries a system a template made, per ADR-0057.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum TemplateCarrier {
     Ground,
     Flight,
@@ -39,9 +35,7 @@ pub enum TemplateCarrier {
 /// When a run of a system a template made starts over.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum TemplatePlayback {
     Once,
     Replay,
@@ -51,9 +45,7 @@ pub enum TemplatePlayback {
 /// The rig a system template was tuned on.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct TemplateRig {
     pub carrier: TemplateCarrier,
     pub playback: TemplatePlayback,
@@ -64,9 +56,7 @@ pub struct TemplateRig {
 /// One emitter a template lands, with the name it is written under.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct TemplateEmitter {
     /// The English `emitterName` it holds, which a landing numbers apart from the system's.
     pub name: String,
@@ -77,9 +67,7 @@ pub struct TemplateEmitter {
 /// One template of the catalog.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct VfxTemplate {
     /// The catalog's key, which the frontend's messages are named by.
     pub id: String,

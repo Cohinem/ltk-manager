@@ -10,7 +10,7 @@ use crate::dxbc::{Dimension, Scalar, TypeClass};
 
 /// One uniform block, as the blob's `RDEF` laid it out.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct UniformBlock {
     /// The `RDEF` name: `$Globals`, `PerFrameVertexCB`.
@@ -24,7 +24,7 @@ pub struct UniformBlock {
 
 /// One member of a uniform block.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct BlockMember {
     pub name: String,
@@ -47,7 +47,7 @@ pub struct BlockMember {
 
 /// Which typed view writes a member.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum MemberScalar {
     Float,
@@ -69,7 +69,7 @@ impl MemberScalar {
 
 /// One texture the shader samples, and the GLSL samplers that sample it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct TextureBinding {
     /// The `RDEF` name, suffix and all: `Diffuse_Texture__TX`, `PIXEL_COLOR_REMAP_RAMP_SharedTexture`.
@@ -81,7 +81,7 @@ pub struct TextureBinding {
 
 /// One combined sampler in the GLSL.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SamplerBinding {
     /// The `RDEF` sampler name, or null for a texture read by `Load` alone.
@@ -92,7 +92,7 @@ pub struct SamplerBinding {
 
 /// What a texture uniform is declared as.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum TextureDimension {
     Texture2d,
@@ -122,7 +122,7 @@ impl TextureDimension {
 
 /// One vertex attribute the vertex shader reads.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Attribute {
     /// The semantic without its index: `POSITION`, `BLENDINDICES`.
@@ -136,7 +136,7 @@ pub struct Attribute {
 
 /// What a translated stage binds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Sidecar {
     pub blocks: Vec<UniformBlock>,

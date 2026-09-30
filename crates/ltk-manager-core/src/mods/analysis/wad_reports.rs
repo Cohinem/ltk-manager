@@ -22,10 +22,9 @@ const SCHEMA_VERSION: u32 = 2;
 /// Per-mod WAD footprint summary sent across the IPC boundary.
 ///
 /// Mirrors `ltk_overlay::ModWadReport` but adds the `is_stale` flag derived
-/// at read time and uses TS bindings for the frontend.
+/// at read time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ModWadReport {
     pub mod_id: String,

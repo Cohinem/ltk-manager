@@ -20,9 +20,7 @@ const ATTEMPTS: usize = 2;
 /// What a declaration of the chosen layer does to one dependency of the chunk.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredLinkMark {
     /// The dependency as the applied list spells it, or the game's list for a removal.
     pub path: String,
@@ -32,9 +30,7 @@ pub struct DeclaredLinkMark {
 /// Whether a declaration adds a dependency or removes one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum LinkChange {
     /// A `links` item the applied list holds and the game's does not.
     Added,

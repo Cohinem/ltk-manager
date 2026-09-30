@@ -8,8 +8,8 @@ repository = "https://github.com/LeagueToolkit/ltk-manager"
 publish = false
 
 [features]
-# Derive `ts_rs::TS` and `specta::Type` on what crosses IPC, which takes core's own.
-ts = ["dep:ts-rs", "dep:specta", "ltk-manager-core/ts", "hexshade/ts"]
+# Derive `specta::Type` on what crosses IPC, which takes core's own.
+ts = ["dep:specta", "ltk-manager-core/ts", "hexshade/ts"]
 
 [dependencies]
 hexshade = { workspace = true }
@@ -24,7 +24,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true, optional = true }
 tracing = { workspace = true }
-ts-rs = { workspace = true, optional = true }
 xxhash-rust = { workspace = true }
 
 [dev-dependencies]

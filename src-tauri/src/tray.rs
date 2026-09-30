@@ -102,7 +102,6 @@ pub fn show_update(app: &AppHandle, version: Option<&str>) {
     }
 }
 
-#[tauri::command]
 pub fn set_tray_state(app: tauri::AppHandle, state: AppTrayState) -> Result<(), String> {
     let tray = app.tray_by_id(TRAY_ID).ok_or("Tray not found")?;
 

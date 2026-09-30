@@ -50,8 +50,7 @@ impl EventSink for NullEventSink {
 
 /// Stage of an overlay build.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum OverlayStage {
     Indexing,
@@ -63,8 +62,7 @@ pub enum OverlayStage {
 
 /// Progress of an overlay build.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct OverlayProgress {
     pub stage: OverlayStage,
@@ -75,8 +73,7 @@ pub struct OverlayProgress {
 
 /// Progress of a bulk mod install, emitted per file.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct InstallProgress {
     pub current: usize,
@@ -86,8 +83,7 @@ pub struct InstallProgress {
 
 /// Progress of a mod export, emitted per mod.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportProgress {
     pub current: usize,
@@ -97,8 +93,7 @@ pub struct ExportProgress {
 
 /// Which half of a cslol migration is running.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum MigrationPhase {
     Packaging,
@@ -107,8 +102,7 @@ pub enum MigrationPhase {
 
 /// Progress of a cslol migration, across both phases.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct MigrationProgress {
     pub phase: MigrationPhase,
@@ -122,8 +116,7 @@ pub struct MigrationProgress {
 /// Separate from [`MigrationProgress`], which is the cslol import: the two run
 /// at different moments, mean different things, and share nothing but the word.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LayoutMigrationProgress {
     pub current: usize,
@@ -137,8 +130,7 @@ pub struct LayoutMigrationProgress {
 /// every mod's name, and looking one up here would mean a `mod.config.json`
 /// read per mod on top of the check itself.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HealthSweepProgress {
     /// Mods the sweep has finished, however they turned out.
@@ -154,8 +146,7 @@ pub struct HealthSweepProgress {
 /// Its own payload rather than [`HealthSweepProgress`] reused: the two run at
 /// different moments and a surface drawing one must not be driven by the other.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ModRepairProgress {
     /// Mods the run has finished, however they turned out.
@@ -173,8 +164,7 @@ pub struct ModRepairProgress {
 /// could be drawn from. `Error` has no counterpart there at all, since a failed
 /// import returns rather than reporting, so the caller emits it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum FantomeImportStage {
     Extracting,
@@ -185,8 +175,7 @@ pub enum FantomeImportStage {
 
 /// Progress of a fantome import.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct FantomeImportProgress {
     pub stage: FantomeImportStage,
@@ -204,8 +193,7 @@ pub struct FantomeImportProgress {
 /// must not drive it. The stage is shared, since the two report the same four
 /// states.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ModStorageProgress {
     pub mod_id: String,
@@ -267,8 +255,7 @@ impl From<ltk_mod_project::ImportProgress<'_>> for FantomeImportProgress {
 /// The tables are tens of megabytes each, so the emitter throttles rather than
 /// sending one of these per chunk.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HashtableSyncProgress {
     /// Id of the table being fetched, e.g. `game`.
@@ -292,8 +279,7 @@ pub struct HashtableSyncProgress {
 /// archive, so the emitter throttles rather than sending one of these each
 /// time.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractProgress {
     pub current: u32,
@@ -308,8 +294,7 @@ pub struct ExtractProgress {
 
 /// Stage of a git repository import.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum GitImportStage {
     Downloading,
@@ -320,8 +305,7 @@ pub enum GitImportStage {
 
 /// Progress of a git repository import.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GitImportProgress {
     pub stage: GitImportStage,

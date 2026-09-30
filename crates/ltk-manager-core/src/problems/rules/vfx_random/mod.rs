@@ -21,8 +21,8 @@ use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit, 
 use crate::problems::names::BinNames;
 use crate::problems::walk::{Address, Declared, FieldNames};
 use crate::problems::{
-    Applied, BinVisitor, Detail, FixError, FixRun, NodeAddress, Pass, Problem, Rule, RuleId,
-    Severity, Sink, Walk,
+    Applied, BinVisitor, Detail, FixError, FixRun, NodeAddress, Pass, Problem, ProblemSeverity,
+    Rule, RuleId, Sink, Walk,
 };
 
 /// The id every row of the per-frame rule carries.
@@ -77,8 +77,8 @@ impl Rule for VfxPerFrameRandom {
         "Couldn't move the table because the birth value it was meant for isn't in the file"
     }
 
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Warning)
+    fn severity(&self) -> Option<ProblemSeverity> {
+        Some(ProblemSeverity::Warning)
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -122,8 +122,8 @@ impl Rule for VfxBrokenRandom {
         "Couldn't complete the set because the tables the author meant aren't in the file"
     }
 
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Error)
+    fn severity(&self) -> Option<ProblemSeverity> {
+        Some(ProblemSeverity::Error)
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -195,8 +195,12 @@ impl<'a, V: Declared<'a>> Visitor<'a, V> for Reading<'_, '_> {
         }
         let set = TableSet::read(value)?;
         let finding = match self.fault {
-            Fault::PerFrame => (set.random && rerolled(node)).then_some((Severity::Warning, None)),
-            Fault::Broken => set.fault().map(|message| (Severity::Error, Some(message))),
+            Fault::PerFrame => {
+                (set.random && rerolled(node)).then_some((ProblemSeverity::Warning, None))
+            }
+            Fault::Broken => set
+                .fault()
+                .map(|message| (ProblemSeverity::Error, Some(message))),
         };
         if let Some((severity, message)) = finding {
             let address = Address::of(node.trail(), field, node.class_hash(), &self.names);

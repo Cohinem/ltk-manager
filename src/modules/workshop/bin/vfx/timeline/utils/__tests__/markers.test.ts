@@ -137,7 +137,7 @@ describe("staleMarkerKeys", () => {
   const object = (objectHash: string) => ({ objectHash, path: "", class: "", classHash: "" });
   const entry = (relativePath: string, objects: ReturnType<typeof object>[]) => ({
     relativePath,
-    sizeBytes: 0n,
+    sizeBytes: 0,
     kind: "property_bin" as const,
     objects,
     ignoredBy: null,
@@ -147,7 +147,7 @@ describe("staleMarkerKeys", () => {
       {
         name: "base",
         fileCount: 2,
-        totalSizeBytes: 0n,
+        totalSizeBytes: 0,
         entries: [entry("fx.bin", [object("0x1")]), entry("big.bin", [])],
         ignoredDirectories: [
           { relativePath: "wip", ignoredBy: { pattern: "wip/", source: ".modignore", line: 1 } },

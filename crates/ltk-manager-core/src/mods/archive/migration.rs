@@ -11,8 +11,7 @@ use crate::mods::types::BulkInstallResult;
 
 /// Metadata for a discovered cslol-manager mod, shown in the UI selection step.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct CslolModInfo {
     pub folder_name: String,

@@ -23,7 +23,7 @@ export const profileMutations = {
     }),
 
   remove: (client: QueryClient) =>
-    mutationOptions<void, AppError, string>({
+    mutationOptions<null, AppError, string>({
       mutationFn: async (profileId) => unwrapForQuery(await api.deleteModProfile(profileId)),
       onSuccess: () => {
         client.invalidateQueries({ queryKey: libraryKeys.profiles() });

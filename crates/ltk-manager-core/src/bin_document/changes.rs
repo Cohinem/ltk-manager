@@ -22,8 +22,7 @@ use super::{
 /// What a document's rows are compared with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum ChangeBaseline {
     /// The file as the document read it, before any edit since.
     Opened,
@@ -34,8 +33,7 @@ pub enum ChangeBaseline {
 /// How an address differs from the baseline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum ChangeKind {
     /// The document holds it and the baseline does not.
     Added,
@@ -48,8 +46,7 @@ pub enum ChangeKind {
 /// One property or object that differs from the baseline.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct BinChange {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,

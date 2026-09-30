@@ -25,9 +25,7 @@ pub const FIND_ROWS: usize = 200;
 /// One row a search matched, with the path a reveal opens down to.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct BinFindHit {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
@@ -48,9 +46,7 @@ pub struct BinFindHit {
 /// What one search of an open document found.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct BinFindResult {
     /// The matching rows in tree order, at most `FIND_ROWS`.
     pub hits: Vec<BinFindHit>,

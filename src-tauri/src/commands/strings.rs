@@ -11,6 +11,7 @@ use tauri::{AppHandle, Manager, State};
 /// `rst-xxh3` table and the game stringtable for value previews, so it can take
 /// a moment. Subsequent calls are instant.
 #[tauri::command]
+#[specta::specta]
 pub fn search_string_keys(
     query: String,
     limit: Option<u32>,
@@ -28,6 +29,7 @@ pub fn search_string_keys(
 /// cost included, on a blocking thread because a bin opening asks for it. A key
 /// the game does not resolve is absent from the map.
 #[tauri::command]
+#[specta::specta]
 pub async fn lookup_string_values(
     keys: Vec<String>,
     app_handle: AppHandle,

@@ -8,8 +8,7 @@
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 // `Ssd` and `Hdd` are only constructed inside `windows_impl`; on other targets
 // this enum is still emitted for the shared ts-rs binding, so we suppress the

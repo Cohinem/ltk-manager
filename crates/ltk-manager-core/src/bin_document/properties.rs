@@ -22,9 +22,7 @@ use crate::meta_schema::{KindShape, SchemaAt, Shape};
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum NewProperty {
     /// A field the holder's class or one of its bases declares, at its published default.
     Declared {
@@ -44,9 +42,7 @@ pub enum NewProperty {
 /// One field Add property offers for a holder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct AddableField {
     /// `0x` and eight hex digits.
     pub hash: String,
@@ -62,9 +58,7 @@ pub struct AddableField {
 /// What Add property offers for one holder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct AddableFields {
     /// The holder's class, `0x` and eight hex digits.
     pub class_hash: String,

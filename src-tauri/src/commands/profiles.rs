@@ -6,6 +6,7 @@ use tauri::State;
 
 /// Get all profiles.
 #[tauri::command]
+#[specta::specta]
 pub fn list_mod_profiles(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
@@ -16,6 +17,7 @@ pub fn list_mod_profiles(
 
 /// Get the currently active profile.
 #[tauri::command]
+#[specta::specta]
 pub fn get_active_mod_profile(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
@@ -26,6 +28,7 @@ pub fn get_active_mod_profile(
 
 /// Create a new profile with the given name.
 #[tauri::command]
+#[specta::specta]
 pub fn create_mod_profile(
     name: String,
     library: State<ModLibraryState>,
@@ -37,6 +40,7 @@ pub fn create_mod_profile(
 
 /// Delete a profile by ID.
 #[tauri::command]
+#[specta::specta]
 pub fn delete_mod_profile(
     profile_id: String,
     library: State<ModLibraryState>,
@@ -49,6 +53,7 @@ pub fn delete_mod_profile(
 /// Switch to a different profile.
 /// Returns an error if the patcher is currently running.
 #[tauri::command]
+#[specta::specta]
 pub fn switch_mod_profile(
     profile_id: String,
     library: State<ModLibraryState>,
@@ -69,6 +74,7 @@ pub fn switch_mod_profile(
 /// Rename a profile.
 /// Returns an error if the patcher is currently running (rename touches the filesystem).
 #[tauri::command]
+#[specta::specta]
 pub fn rename_mod_profile(
     profile_id: String,
     new_name: String,

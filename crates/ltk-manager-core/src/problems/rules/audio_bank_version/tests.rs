@@ -142,7 +142,7 @@ fn a_legacy_bank_carrying_its_hierarchy_is_reported() {
     assert_eq!(problems.len(), 1);
     let problem = &problems[0];
     assert_eq!(problem.rule, ID);
-    assert_eq!(problem.severity, Severity::Warning);
+    assert_eq!(problem.severity, ProblemSeverity::Warning);
     assert_eq!(problem.site.layer, "base");
     assert_eq!(problem.site.path, BANK_IN_LAYER);
 

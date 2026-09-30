@@ -7,8 +7,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
-import type { PatcherPhase } from "@/lib/bindings";
-import type { Hint, Incident } from "@/lib/tauri";
+import type { Hint, Incident, PatcherPhase } from "@/lib/tauri";
 import { createMockIncident } from "@/modules/diagnostics/components/__tests__/fixtures";
 import { usePatcherStatus } from "@/modules/patcher";
 import { useInstallMismatchStore, usePendingRebuildStore } from "@/stores";

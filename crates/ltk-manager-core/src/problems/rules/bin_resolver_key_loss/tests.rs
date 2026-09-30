@@ -118,7 +118,7 @@ fn a_resolver_holding_far_fewer_keys_than_the_games_is_reported() {
     assert_eq!(problem.rule, ID);
     assert_eq!(
         problem.severity,
-        Severity::Info,
+        ProblemSeverity::Info,
         "a miss degrades to a placeholder effect, so nothing here is broken"
     );
     assert_eq!(problem.site.layer, "base");

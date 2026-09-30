@@ -25,8 +25,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 /// sorted. Champions hold display names (e.g. `"Aatrox"`); maps and tags hold
 /// well-known slugs (e.g. `"summoners-rift"`, `"champion-skin"`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct DerivedCategorization {
     pub champions: Vec<String>,

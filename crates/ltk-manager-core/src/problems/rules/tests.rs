@@ -2,7 +2,7 @@
 //! edit rather than a badge that quietly moves.
 
 use super::*;
-use crate::problems::Severity;
+use crate::problems::ProblemSeverity;
 
 /// The severity each rule answers with, and who answers.
 ///
@@ -11,7 +11,7 @@ use crate::problems::Severity;
 /// what a type mismatch costs is a question about the machine.
 #[test]
 fn each_rule_declares_who_answers_for_its_severity() {
-    let declared: Vec<(String, Option<Severity>)> = all()
+    let declared: Vec<(String, Option<ProblemSeverity>)> = all()
         .iter()
         .map(|rule| (rule.id().to_string(), rule.severity()))
         .collect();
@@ -20,10 +20,19 @@ fn each_rule_declares_who_answers_for_its_severity() {
         declared,
         vec![
             ("bin/property-type".to_owned(), None),
-            ("audio/bank-version".to_owned(), Some(Severity::Warning)),
-            ("audio/bank-id".to_owned(), Some(Severity::Info)),
-            ("tex/block-alignment".to_owned(), Some(Severity::Fatal)),
-            ("bin/resolver-key-loss".to_owned(), Some(Severity::Info)),
+            (
+                "audio/bank-version".to_owned(),
+                Some(ProblemSeverity::Warning)
+            ),
+            ("audio/bank-id".to_owned(), Some(ProblemSeverity::Info)),
+            (
+                "tex/block-alignment".to_owned(),
+                Some(ProblemSeverity::Fatal)
+            ),
+            (
+                "bin/resolver-key-loss".to_owned(),
+                Some(ProblemSeverity::Info)
+            ),
         ]
     );
 }

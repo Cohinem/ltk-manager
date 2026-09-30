@@ -100,9 +100,7 @@ pub enum HistoryStep {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum Reshape {
     /// Values or properties changed and no row moved.
     InPlace,
@@ -196,9 +194,7 @@ impl Reshape {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum LeafValue {
     /// A `Bool` or a `BitBool`.
     Bool {
@@ -249,9 +245,7 @@ pub enum LeafValue {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum EditRejection {
     /// The node holds no value an edit sets: a container, a struct or an absent optional.
     NotALeaf,
@@ -351,9 +345,7 @@ impl fmt::Display for EditRejection {
 /// Why a document takes no edit. "Where editing is allowed" in docs/ux/BIN_EDITOR.md.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ReadOnly {
     /// A file outside every project.
     Loose,

@@ -6,7 +6,6 @@
 use reqwest::header::{ACCEPT, LINK};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use ts_rs::TS;
 use url::Url;
 
 use crate::github::{self, GitHubError};
@@ -18,8 +17,7 @@ const FEED_URL: &str = "https://api.github.com/repos/LeagueToolkit/ltk-manager/r
 const PER_PAGE: u32 = 10;
 
 /// One published release, as the changelog reads it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ReleaseNote {
     /// The tag without its leading `v`.
@@ -34,8 +32,7 @@ pub struct ReleaseNote {
 }
 
 /// A page of the release feed, and where the next one starts.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ReleasePage {
     pub releases: Vec<ReleaseNote>,

@@ -3,11 +3,9 @@ use crate::state::Settings;
 use serde::Deserialize;
 use tauri::AppHandle;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
-use ts_rs::TS;
 
 /// The action a global hotkey triggers when pressed.
-#[derive(Debug, Clone, Copy, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum HotkeyAction {
     ReloadMods,

@@ -33,8 +33,7 @@ mod delta;
 /// What one repair over several mods became of each of them.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct LibraryRepairReport {
     /// Mods a repair wrote to, by id.
     pub repaired: Vec<String>,
@@ -54,8 +53,7 @@ pub struct LibraryRepairReport {
 /// One mod a repair could not finish, and what stopped it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct ModRepairFailure {
     pub mod_id: String,
     pub error: String,

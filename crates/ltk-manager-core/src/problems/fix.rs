@@ -654,8 +654,7 @@ fn file_error(layer: &str, path: &str, source: io::Error) -> FixError {
 /// What one fix run applied, skipped and wrote.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct FixReport {
     pub applied: u32,
     /// Problems the file no longer matched, which the rules left alone.
@@ -677,8 +676,7 @@ pub struct FixReport {
 /// What one fix run did to one file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct FileOutcome {
     pub layer: String,
     /// POSIX-style and relative to the layer root.
@@ -700,8 +698,7 @@ pub struct FileOutcome {
 /// the repair as a chunk write.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum FileChange {
     #[default]
     Written,

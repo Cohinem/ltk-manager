@@ -19,6 +19,7 @@ const NOT_INSTALLED: &str = "VS Code has registered no ritobin file association.
 
 /// Report whether the ritobin VS Code integration is installed.
 #[tauri::command]
+#[specta::specta]
 pub fn detect_ritobin_integration() -> IpcResult<bool> {
     IpcResult::ok(RitobinVerb::installed().is_some())
 }
@@ -28,6 +29,7 @@ pub fn detect_ritobin_integration() -> IpcResult<bool> {
 /// `name` is what a hash table made of a game chunk's hash, which the reference
 /// itself cannot carry. It names the copy the chunk is opened from.
 #[tauri::command]
+#[specta::specta]
 pub async fn open_asset_in_ritobin(
     asset: AssetRef,
     name: Option<String>,

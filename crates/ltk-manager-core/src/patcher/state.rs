@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 
 /// Current phase of the patcher lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum PatcherPhase {
     Idle,
@@ -39,9 +38,7 @@ impl StoredPatcherConfig {
 
 /// What a patching session was started for, and what it covers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum SessionOrigin {
     /// The library's enabled mods.
@@ -62,8 +59,7 @@ impl SessionOrigin {
 
 /// A patching session, from the moment it is asked for until the thread exits.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PatcherSession {
     /// What the session was started for.

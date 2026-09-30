@@ -21,6 +21,7 @@ use tauri::{AppHandle, Manager};
 
 /// Report what the folded game index holds, building it on first use.
 #[tauri::command]
+#[specta::specta]
 pub async fn get_game_index(app_handle: AppHandle) -> IpcResult<GameIndexStats> {
     with_index(app_handle, |index| Ok(index.stats())).await
 }
@@ -31,6 +32,7 @@ pub async fn get_game_index(app_handle: AppHandle) -> IpcResult<GameIndexStats> 
 /// returned. Path hashes resolve through the shared hashtable cache when it is
 /// populated. Otherwise every file reads as its hash.
 #[tauri::command]
+#[specta::specta]
 pub async fn read_game_dir(path: String, app_handle: AppHandle) -> IpcResult<GameDirListing> {
     with_index(app_handle, move |index| {
         index.read_dir(&path).ok_or_else(|| {
@@ -77,6 +79,7 @@ pub async fn locate_game_files(
 /// An empty query matches nothing. The palette only reaches this source once
 /// something is typed.
 #[tauri::command]
+#[specta::specta]
 pub async fn search_game_index(
     query: String,
     app_handle: AppHandle,
@@ -143,6 +146,7 @@ pub async fn search_game_paths(
 /// does not parse reports `VALIDATION_FAILED` with the parser's own message,
 /// which the search box shows under the input.
 #[tauri::command]
+#[specta::specta]
 pub async fn find_in_game_index(
     pattern: String,
     regex: bool,
@@ -207,6 +211,7 @@ pub(super) fn find_query(pattern: &str, regex: bool) -> AppResult<Option<FindQue
 /// gets that the install changed under it, and a mount taken before a patch
 /// would keep answering from the chunk table it read then.
 #[tauri::command]
+#[specta::specta]
 pub async fn refresh_game_index(app_handle: AppHandle) -> IpcResult<()> {
     app_handle.state::<GameIndexState>().clear();
     app_handle.state::<WadCache>().clear();

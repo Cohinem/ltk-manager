@@ -45,9 +45,7 @@ use thiserror::Error;
 /// Sent over IPC as the `context` payload of an `AppError` with code `WORKSHOP`.
 /// Frontend code can switch on `kind` to handle each variant.
 #[derive(Debug, Clone, Serialize, Deserialize, Error)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WorkshopError {
     /// One or more files already exist in the target layer directory.
@@ -186,9 +184,7 @@ impl ProjectDir {
 
 /// A workshop project displayed in the UI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopProject {
     /// Stable id the route names the project by, derived from its path
@@ -225,9 +221,7 @@ pub struct WorkshopProject {
 
 /// Where a project lives relative to the workshop folder.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub enum ProjectLocation {
     /// A direct child of the workshop folder.
@@ -238,9 +232,7 @@ pub enum ProjectLocation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopAuthor {
     pub name: String,
@@ -248,9 +240,7 @@ pub struct WorkshopAuthor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopLayer {
     pub name: String,
@@ -262,8 +252,7 @@ pub struct WorkshopLayer {
 
 /// Runtime info about a layer's content directory, fetched separately from config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopLayerInfo {
     pub wad_files: Vec<String>,
@@ -291,8 +280,7 @@ pub(crate) fn slug_to_display_name(slug: &str) -> String {
 
 /// Metadata peeked from a .fantome archive without extracting content.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct FantomePeekResult {
     pub name: String,
@@ -305,8 +293,7 @@ pub struct FantomePeekResult {
 
 /// Arguments for importing a .fantome archive.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ImportFantomeArgs {
     pub file_path: String,
@@ -316,19 +303,17 @@ pub struct ImportFantomeArgs {
 
 /// Arguments for importing a project from a GitHub repository.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ImportGitRepoArgs {
     pub url: String,
-    #[cfg_attr(feature = "ts", ts(optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub branch: Option<String>,
 }
 
 /// Arguments for creating a new project.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct CreateProjectArgs {
     pub name: String,
@@ -339,8 +324,7 @@ pub struct CreateProjectArgs {
 
 /// Arguments for saving project configuration changes.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SaveProjectConfigArgs {
     pub project_path: String,
@@ -355,19 +339,17 @@ pub struct SaveProjectConfigArgs {
 
 /// Arguments for packing a project.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PackProjectArgs {
     pub project_path: String,
-    #[cfg_attr(feature = "ts", ts(optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub output_dir: Option<String>,
     pub format: PackFormat,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum PackFormat {
     Modpkg,
@@ -376,8 +358,7 @@ pub enum PackFormat {
 
 /// Result of a successful pack operation.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PackResult {
     pub output_path: String,
@@ -389,8 +370,7 @@ pub struct PackResult {
 
 /// An entry the ignore rules kept out of a package.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct IgnoredEntry {
     /// Path under `content/`, forward-slashed, where a rule's own path starts.
@@ -401,8 +381,7 @@ pub struct IgnoredEntry {
 
 /// Result of adding files/folders to a layer.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct AddFilesReport {
     /// Basenames of items added to the layer directory.
@@ -411,8 +390,7 @@ pub struct AddFilesReport {
 
 /// Validation result for a project.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ValidationResult {
     pub valid: bool,

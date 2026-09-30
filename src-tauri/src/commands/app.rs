@@ -2,10 +2,8 @@ use crate::error::IpcResult;
 use crate::state::SettingsState;
 use serde::Serialize;
 use tauri::{AppHandle, Manager, State};
-use ts_rs::TS;
 
-#[derive(Debug, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AppInfo {
     pub name: String,
@@ -17,6 +15,7 @@ pub struct AppInfo {
 
 /// Get basic app information.
 #[tauri::command]
+#[specta::specta]
 pub fn get_app_info() -> IpcResult<AppInfo> {
     let log_file_path = crate::logging::default_log_dir()
         .map(|p: std::path::PathBuf| p.to_string_lossy().into_owned());
@@ -37,6 +36,7 @@ pub fn get_app_info() -> IpcResult<AppInfo> {
 /// When the user has opted to start in the tray, the window stays hidden — the tray
 /// icon (or an available update, handled in the UI) reveals it later.
 #[tauri::command]
+#[specta::specta]
 pub fn show_main_window(app: AppHandle, settings: State<SettingsState>) -> IpcResult<()> {
     let start_hidden = {
         let settings = settings.0.lock();

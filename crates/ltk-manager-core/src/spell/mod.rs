@@ -8,8 +8,7 @@ use crate::bin_document::{BinDocument, BinDocumentError, Fields, hex, leaf, obje
 
 /// A field the isolated preview cannot evaluate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SpellIssue {
     /// The named property path within the spell object.
@@ -20,8 +19,7 @@ pub struct SpellIssue {
 
 /// Why a missile field could not be used.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum SpellIssueKind {
     /// A written value has the wrong type or is not finite.
@@ -32,8 +30,7 @@ pub enum SpellIssueKind {
 
 /// The movement class and its written speed or duration.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum MissileMovement {
     /// Constant speed in engine units per second.
@@ -48,8 +45,7 @@ pub enum MissileMovement {
 
 /// A missile's written placement inputs, with omitted values kept absent.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct MissileSpec {
     /// The movement component.
@@ -68,8 +64,7 @@ pub struct MissileSpec {
 
 /// The spell's missile and flight-effect references before skin resolution.
 #[derive(Debug, Clone, Default, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SpellPreview {
     /// The written `spellCastTime`, in seconds.

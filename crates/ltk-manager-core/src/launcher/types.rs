@@ -3,9 +3,7 @@
 //! Each type here mirrors one from [`ritoclient`] - same fields, same wire
 //! spellings - and converts from it. Mirroring rather than re-exporting is what
 //! makes an upstream rename a compile error in this file instead of a frontend
-//! union that quietly disagrees with the backend: `ts_rs` exports by generating
-//! a `#[test]` that writes the file, and Cargo never compiles a dependency's
-//! tests, so a re-exported type produces no binding at all.
+//! union that quietly disagrees with the backend.
 //!
 //! Every enum upstream is `#[non_exhaustive]`, so every mirror carries a
 //! catch-all. It says the value is unknown rather than guessing at its nearest
@@ -15,10 +13,24 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+/// Which product and patchline to launch.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct LaunchTarget {
+    pub product_id: String,
+    pub patchline_id: String,
+}
+
+impl From<LaunchTarget> for ritoclient::LaunchTarget {
+    fn from(target: LaunchTarget) -> Self {
+        Self::new(target.product_id, target.patchline_id)
+    }
+}
+
 /// How the launch request was delivered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum LaunchRoute {
     /// Handed to an already-running Riot Client over its remoting API.
@@ -68,8 +80,7 @@ impl LaunchRoute {
 /// "Successful" means the Riot Client took the request, not that the game is
 /// up: the client may still be updating itself, or waiting for a login.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchOutcome {
     pub route: LaunchRoute,
@@ -100,8 +111,7 @@ impl From<ritoclient::LaunchOutcome> for LaunchOutcome {
 /// waking a tray-idle client. Without these the frontend cannot tell that wait
 /// apart from a hang.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum LaunchStage {
     /// Locating `RiotClientServices.exe` and checking what is already running.
@@ -148,8 +158,7 @@ impl From<ritoclient::LaunchStage> for LaunchStage {
 
 /// Progress of a League launch request.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchProgress {
     pub stage: LaunchStage,
@@ -187,9 +196,7 @@ impl From<ritoclient::LaunchProgress> for LaunchProgress {
 /// Client"), so each gets its own `ErrorCode` in the shell rather than sharing
 /// one with a discriminating field.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Error)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(
     tag = "kind",
     rename_all = "SCREAMING_SNAKE_CASE",
@@ -277,8 +284,7 @@ impl From<ritoclient::LauncherError> for LauncherError {
 /// The first thing a watched session reports, and the point at which the
 /// manager knows a launch produced something rather than merely being accepted.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SessionStarted {
     /// The Riot Client's own spelling, e.g. `Pending` or `Gameplay`. Passed
@@ -309,8 +315,7 @@ pub struct SessionStarted {
 /// What the match is doing, and nothing about whether League is up - that
 /// arrives as [`SessionGameRunning`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SessionChanged {
     /// The Riot Client's own spelling for the phase it moved to.
@@ -323,8 +328,7 @@ pub struct SessionChanged {
 /// only - the reading at the moment the session opened rides on
 /// [`SessionStarted::running`] instead.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SessionGameRunning {
     /// Whether `LeagueClient.exe` is up.
@@ -337,8 +341,7 @@ pub struct SessionGameRunning {
 /// record with it while the game also stopped. That is a real ending with
 /// nothing to say about why, and the frontend must not word it as a crash.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SessionEnded {
     /// The game's exit code, as the client recorded it.

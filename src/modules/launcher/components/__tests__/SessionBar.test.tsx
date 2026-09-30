@@ -4,7 +4,7 @@ import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import type { Incident, LaunchProgress, OverlayProgress, PatcherPhase } from "@/lib/bindings";
+import type { Incident, LaunchProgress, OverlayProgress, PatcherPhase } from "@/lib/tauri";
 import { usePatcherStatus } from "@/modules/patcher";
 import { useIncidentLineStore, usePatcherFailureStore, usePlaySessionStore } from "@/stores";
 import { mockInvoke, mockListen } from "@/test/mocks/tauri";

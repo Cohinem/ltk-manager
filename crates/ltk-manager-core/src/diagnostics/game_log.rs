@@ -58,9 +58,7 @@ const COMMAND_LINE_PREFIX: &str = "Command Line:";
 
 /// One code the log carried, with where and when.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct CodeSighting {
     pub code: String,
@@ -83,9 +81,7 @@ impl CodeSighting {
 
 /// A record League writes with no code, which the reader knows by its words.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum LogMessage {
     /// `Failed to compile shader.`, with the programs and the defines on the
@@ -111,9 +107,7 @@ impl LogMessage {
 
 /// One record League wrote with no code, with where and when.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct MessageSighting {
     pub message: LogMessage,
@@ -149,9 +143,7 @@ fn detail_value<'a>(detail: &'a [String], key: &str) -> Option<&'a str> {
 
 /// What one game's log says, without the log.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameLogFacts {
     /// The wall clock the log opened at, from its first line.

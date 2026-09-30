@@ -24,7 +24,7 @@ interface SaveCopyActionProps {
 export function SaveCopyAction({ asset, name }: SaveCopyActionProps) {
   const { success, error } = useToast();
 
-  const saveCopy = useMutation<void, AppError, string>({
+  const saveCopy = useMutation<null, AppError, string>({
     meta: { silentError: true },
     mutationFn: mutationFn((destination: string) => api.saveAssetCopy(asset, destination)),
     onSuccess: () => success("Saved a copy", name),

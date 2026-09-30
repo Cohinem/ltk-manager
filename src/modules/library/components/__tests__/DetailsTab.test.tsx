@@ -55,7 +55,7 @@ function report(over: Partial<ModWadReport> = {}): ModWadReport {
     wadCount: 3,
     overrideCount: 12,
     contentFingerprint: null,
-    gameIndexFingerprint: 1n,
+    gameIndexFingerprint: 1,
     computedAt: "2026-08-01T10:00:00Z",
     isStale: false,
     derived: { champions: [], maps: [], tags: [], primaryChampion: null },

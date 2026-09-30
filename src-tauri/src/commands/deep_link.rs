@@ -34,6 +34,7 @@ fn reject_if_untrusted(url: &str, settings: &State<SettingsState>) -> AppResult<
 /// still loading, so the event carrying it would reach nobody. The frontend asks
 /// once, as its listener comes up, and the answer is `None` from then on.
 #[tauri::command]
+#[specta::specta]
 pub fn take_pending_deep_link(app_handle: AppHandle) -> IpcResult<Option<DeepLinkRequest>> {
     let pending: AppResult<Option<DeepLinkRequest>> = Ok(deep_link::take_pending(&app_handle));
     pending.into()
@@ -44,6 +45,7 @@ pub fn take_pending_deep_link(app_handle: AppHandle) -> IpcResult<Option<DeepLin
 /// Downloads the file to a temp directory, validates it, then installs
 /// using the existing mod library pipeline.
 #[tauri::command]
+#[specta::specta]
 #[allow(clippy::too_many_arguments)]
 pub fn deep_link_install_mod(
     url: String,

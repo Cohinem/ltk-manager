@@ -59,8 +59,7 @@ pub use preserve::{KeptTable, Preserved, PreservedNames};
 /// search when they want to know more.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export, type = "string"))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct RuleId(pub &'static str);
 
 impl std::fmt::Display for RuleId {
@@ -72,11 +71,8 @@ impl std::fmt::Display for RuleId {
 /// How much a problem costs the mod.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-/* `diagnostics` exports a `Severity` of its own, and ts-rs keys a binding file
-by the exported name alone. */
-#[cfg_attr(feature = "ts", ts(export, rename = "ProblemSeverity"))]
-pub enum Severity {
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub enum ProblemSeverity {
     /// The game crashes on this.
     Fatal,
     /// The game rejects this. The mod does not work.
@@ -94,12 +90,11 @@ pub enum Severity {
 /// object and never names it, which is why the entry hash sits beside it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct NodeAddress {
     /// The object's path hash, which the file addresses it by.
     #[serde(with = "bin_hash_hex")]
-    #[cfg_attr(feature = "ts", ts(type = "string"))]
+    #[cfg_attr(feature = "ts", specta(type = String))]
     pub entry: BinHash,
     /// The property path, empty for the object itself.
     ///
@@ -112,7 +107,7 @@ pub struct NodeAddress {
     /// Absent when no segment could be named, which is when it would read the
     /// same as `path`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub label: Option<String>,
 }
 
@@ -147,8 +142,7 @@ mod bin_hash_hex {
 /// Where a problem is.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct Site {
     /// The layer, such as `base`.
     pub layer: String,
@@ -195,8 +189,7 @@ impl std::fmt::Display for Site {
 /// the same id in two runs and a panel's selection survives a re-run.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export, type = "string"))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct ProblemId(String);
 
 impl ProblemId {
@@ -226,8 +219,7 @@ impl std::fmt::Display for ProblemId {
 /// panel sets each of them in code type inside prose it writes itself.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct TypeMismatch {
     /// The type the game reads, such as `file`, in the words a bin row's tag draws.
     pub expected: String,
@@ -241,12 +233,11 @@ pub struct TypeMismatch {
 /// field here, because a problem no rule can repair still has one to draw.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct FixPreview {
     /// What the values alone do not say, such as `3 items`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub note: Option<String>,
     /// The value now, rendered. `None` where a container draws its count instead.
     pub before: Option<String>,
@@ -322,21 +313,20 @@ impl Detail {
 /// One finding, at one site, from one rule.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct Problem {
     /// Stable within a run, so the panel keys a row by it.
     pub id: ProblemId,
     pub rule: RuleId,
-    pub severity: Severity,
+    pub severity: ProblemSeverity,
     pub site: Site,
     /// The types this problem is about, where the rule is about types.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub mismatch: Option<TypeMismatch>,
     /// What this one problem needs said beyond [`RuleInfo::description`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub message: Option<String>,
     /// What a repair would change, drawn before it is applied.
     pub fix: Option<FixPreview>,
@@ -345,8 +335,7 @@ pub struct Problem {
 /// A rule that could not finish, and why.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct RuleFailure {
     pub rule: RuleId,
     /// The file the rule stopped on, where one file is to blame.
@@ -366,7 +355,7 @@ pub struct Report {
 
 impl Report {
     /// Report one finding.
-    pub fn problem(&mut self, rule: RuleId, severity: Severity, site: Site, detail: Detail) {
+    pub fn problem(&mut self, rule: RuleId, severity: ProblemSeverity, site: Site, detail: Detail) {
         self.problems.push(Problem {
             id: ProblemId::new(rule, &site),
             rule,
@@ -403,8 +392,7 @@ impl Report {
 /// each of them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct RuleInfo {
     pub id: RuleId,
     /// A few words naming the state the rule objects to.
@@ -413,13 +401,13 @@ pub struct RuleInfo {
     pub description: String,
     /// Why some of this rule's findings stay unrepaired, or empty where none do.
     #[serde(default, skip_serializing_if = "String::is_empty")]
-    #[cfg_attr(feature = "ts", ts(as = "Option<String>", optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub unfixable: String,
     /// The severity every finding of this rule carries - see
     /// [`Rule::severity`].
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional))]
-    pub severity: Option<Severity>,
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub severity: Option<ProblemSeverity>,
     /// Whether this project is one the rule speaks about yet.
     pub state: RuleState,
 }
@@ -436,8 +424,7 @@ pub struct RuleInfo {
 /// said nothing without saying why would read as a rule that found nothing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum RuleState {
     /// The project is one this rule has everything to say about.
     Active,
@@ -489,12 +476,11 @@ impl Dormancy {
 /// is read as the hex of its hash, which is what the file itself holds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct ObjectInfo {
     /// The object's path hash, matching [`NodeAddress::entry`].
     #[serde(with = "bin_hash_hex")]
-    #[cfg_attr(feature = "ts", ts(type = "string"))]
+    #[cfg_attr(feature = "ts", specta(type = String))]
     pub entry: BinHash,
     /// The path the hash is of, such as `Characters/Graves/Skins/Skin0`.
     pub name: String,
@@ -524,11 +510,10 @@ impl ObjectInfo {
 /// One pass of every rule over one project.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct Run {
     /// When the run read the files.
-    #[cfg_attr(feature = "ts", ts(type = "string"))]
+    #[cfg_attr(feature = "ts", specta(type = String))]
     pub at: DateTime<Utc>,
     /// Every check that ran, whether or not it found anything.
     pub rules: Vec<RuleInfo>,
@@ -639,8 +624,7 @@ impl Run {
 /// How many problems a run holds at each severity.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct Counts {
     pub fatals: u32,
     pub errors: u32,
@@ -654,10 +638,10 @@ impl Counts {
         let mut counts = Self::default();
         for problem in problems {
             match problem.severity {
-                Severity::Fatal => counts.fatals += 1,
-                Severity::Error => counts.errors += 1,
-                Severity::Warning => counts.warnings += 1,
-                Severity::Info => counts.infos += 1,
+                ProblemSeverity::Fatal => counts.fatals += 1,
+                ProblemSeverity::Error => counts.errors += 1,
+                ProblemSeverity::Warning => counts.warnings += 1,
+                ProblemSeverity::Info => counts.infos += 1,
             }
         }
         counts
@@ -701,7 +685,7 @@ pub trait Rule: Send + Sync {
     /// the old glyph without waiting for a game patch to move the basis. It is
     /// required rather than defaulted for the same reason: a rule that fell to
     /// the wrong side of it by inheriting a default would go stale silently.
-    fn severity(&self) -> Option<Severity>;
+    fn severity(&self) -> Option<ProblemSeverity>;
 
     /// What this rule is, for the catalogue a [`Run`] carries.
     ///

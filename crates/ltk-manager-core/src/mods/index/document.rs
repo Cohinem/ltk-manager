@@ -181,8 +181,7 @@ impl Default for LibraryIndex {
 /// The file a mod arrived as. Provenance only — [`ModStorage`] is what decides
 /// how it is read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum ModArchiveFormat {
     Modpkg,
@@ -241,8 +240,7 @@ impl ModArchiveFormat {
 /// future sanitized-fantome mode would be another value here rather than
 /// another guess from the layout.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum ModStorage {
     /// An unpacked mod project: `mod.config.json` plus a `content/` tree.
@@ -258,8 +256,7 @@ pub enum ModStorage {
 /// tells a mod that preserved cleanly from one that arrived already lossy,
 /// and that distinction should outlive a log rotation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HarvestSummary {
     /// Names the archive gained on the way in. Zero means every recoverable

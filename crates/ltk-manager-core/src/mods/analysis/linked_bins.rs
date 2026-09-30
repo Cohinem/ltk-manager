@@ -16,8 +16,7 @@ use serde::Serialize;
 /// declaring bin came from, so what the check tests is presence anywhere in the
 /// built overlay bar the archives the user blocked.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LinkedBinOffenderInfo {
     /// Library mod id (matches `InstalledMod.id` on the frontend).

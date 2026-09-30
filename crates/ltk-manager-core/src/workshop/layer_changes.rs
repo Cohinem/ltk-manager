@@ -7,8 +7,7 @@ use serde::Serialize;
 
 /// One file of one project layer, as [`AssetRef::Layer`](crate::preview::AssetRef::Layer) names it.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LayerFile {
     /// The layer's directory name under `content`.
@@ -48,8 +47,7 @@ impl LayerFile {
 
 /// Layer files of one workshop project that changed on disk.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LayerFilesChanged {
     /// The project directory, spelled as the watch on it was asked for.

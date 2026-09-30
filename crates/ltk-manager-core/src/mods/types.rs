@@ -11,8 +11,7 @@ use std::collections::HashMap;
 
 /// Slugified profile name used as the filesystem directory name.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(transparent)]
 pub struct ProfileSlug(pub String);
 
@@ -50,8 +49,7 @@ impl From<String> for ProfileSlug {
 
 /// A mod profile for organizing different mod configurations.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Profile {
     /// Unique identifier (UUID)
@@ -76,8 +74,7 @@ pub struct Profile {
 
 /// A mod layer shown in the UI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ModLayer {
     pub name: String,
@@ -93,15 +90,14 @@ pub struct ModLayer {
 /// reaches disk for neither format and costs one archive mount, so it is read
 /// where a reader asks to see it rather than beside every card.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ModLicense {
     /// An SPDX id, or the name a custom license gives itself.
     pub name: String,
     /// Where the full terms are, for a license that points anywhere.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub url: Option<String>,
 }
 
@@ -122,8 +118,7 @@ impl From<&ltk_mod_project::ModProjectLicense> for ModLicense {
 
 /// A mod entry shown in the UI Library.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct InstalledMod {
     pub id: String,
@@ -151,26 +146,25 @@ pub struct InstalledMod {
     pub folder_id: Option<String>,
     /// What the mod's config declares it is licensed under, if it declares one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub license: Option<ModLicense>,
     /// The mod's directory name under `mods/`.
     ///
     /// `None` while the mod is still in the legacy layout the migration has
     /// not moved it out of.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub slug: Option<String>,
     /// What preserving the mod's names at import found. `None` for a modpkg
     /// and for mods installed before the preserve existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional = nullable))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub harvest: Option<HarvestSummary>,
 }
 
 /// Fields to change on a mod's metadata. `None` leaves a field untouched.
 #[derive(Debug, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct EditModMetadataArgs {
     pub display_name: Option<String>,
@@ -185,8 +179,7 @@ pub struct EditModMetadataArgs {
 
 /// A named folder for grouping mods in the library.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryFolder {
     pub id: String,
@@ -199,8 +192,7 @@ pub const ROOT_FOLDER_ID: &str = "root";
 
 /// Result of a bulk mod install operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct BulkInstallResult {
     pub installed: Vec<InstalledMod>,
@@ -209,8 +201,7 @@ pub struct BulkInstallResult {
 
 /// Error info for a single file that failed during bulk install.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct BulkInstallError {
     pub file_path: String,

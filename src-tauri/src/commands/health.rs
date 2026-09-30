@@ -20,6 +20,7 @@ use tauri::{AppHandle, Manager, State};
 
 /// Check one mod and return the verdict its badge reads.
 #[tauri::command]
+#[specta::specta]
 pub async fn check_mod_health(
     mod_id: String,
     app_handle: AppHandle,
@@ -38,6 +39,7 @@ pub async fn check_mod_health(
 /// verdicts again whatever their basis says. Reports through the sweep's own
 /// progress events, which is what makes one run at a time the rule.
 #[tauri::command]
+#[specta::specta]
 pub async fn sweep_mod_health(
     mod_ids: Option<Vec<String>>,
     app_handle: AppHandle,
@@ -53,6 +55,7 @@ pub async fn sweep_mod_health(
 
 /// Repair what a machine can repair in one mod.
 #[tauri::command]
+#[specta::specta]
 pub async fn repair_mod(mod_id: String, app_handle: AppHandle) -> IpcResult<FixReport> {
     let (config, library) = match library_setup(&app_handle, PatcherGuard::Reject) {
         Ok(v) => v,
@@ -72,6 +75,7 @@ pub async fn repair_mod(mod_id: String, app_handle: AppHandle) -> IpcResult<FixR
 /// The one button behind the sweep's banner. One mod that cannot be repaired is
 /// recorded in the report rather than failing the call.
 #[tauri::command]
+#[specta::specta]
 pub async fn repair_mods(
     mod_ids: Vec<String>,
     app_handle: AppHandle,
@@ -97,6 +101,7 @@ pub async fn repair_mods(
 /// and keeps no way back, so the default pass only reads.
 #[cfg(debug_assertions)]
 #[tauri::command]
+#[specta::specta]
 pub async fn time_mod_health(
     repair: bool,
     app_handle: AppHandle,
@@ -121,6 +126,7 @@ pub async fn time_mod_health(
 /// A mod the run had not finished records no verdict, so the next sweep picks
 /// it up. Synchronous: it sets a flag the workers read.
 #[tauri::command]
+#[specta::specta]
 pub fn cancel_mod_health_run(library: State<ModLibraryState>) -> IpcResult<()> {
     library.0.cancel_mod_health_run();
     let result: AppResult<()> = Ok(());
@@ -132,6 +138,7 @@ pub fn cancel_mod_health_run(library: State<ModLibraryState>) -> IpcResult<()> {
 /// Off the UI thread because the first caller of a launch is the one that opens
 /// the tables, which reads a manifest and maps two files.
 #[tauri::command]
+#[specta::specta]
 pub async fn get_health_check_readiness(app_handle: AppHandle) -> IpcResult<HealthCheckReadiness> {
     let library = app_handle.state::<ModLibraryState>().0.clone();
     off_thread(move || Ok(library.health_check_readiness())).await
@@ -139,6 +146,7 @@ pub async fn get_health_check_readiness(app_handle: AppHandle) -> IpcResult<Heal
 
 /// What the mod health sweep has to say for itself this launch.
 #[tauri::command]
+#[specta::specta]
 pub fn get_health_sweep(library: State<ModLibraryState>) -> IpcResult<HealthSweepState> {
     let result: AppResult<HealthSweepState> = Ok(library.0.health_sweep_state());
     result.into()
@@ -146,6 +154,7 @@ pub fn get_health_sweep(library: State<ModLibraryState>) -> IpcResult<HealthSwee
 
 /// Every verdict the library remembers, by mod id.
 #[tauri::command]
+#[specta::specta]
 pub fn get_mod_health_verdicts(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,

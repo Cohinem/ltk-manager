@@ -11,12 +11,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Instant;
 use tauri::{Emitter, Manager};
-use ts_rs::TS;
 use url::Url;
 
 /// A `ltk://` deep link, as the route named in it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum DeepLinkRequest {
     Install(DeepLinkInstallRequest),
@@ -34,8 +32,7 @@ impl DeepLinkRequest {
 }
 
 /// Parsed representation of a `ltk://install` deep-link URL.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DeepLinkInstallRequest {
     pub url: String,
@@ -50,20 +47,28 @@ pub struct DeepLinkInstallRequest {
 }
 
 /// Parsed representation of a `ltk://settings` deep-link URL.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DeepLinkSettingsRequest {
     /// The public setting or group id the page opens on, as `?focus=` carries it.
     pub focus: String,
 }
 
+/// Where a protocol install has got to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub enum ProtocolInstallStage {
+    Downloading,
+    Validating,
+    Complete,
+    Error,
+}
+
 /// Progress payload emitted during protocol install download.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProtocolInstallProgress {
-    pub stage: String,
+    pub stage: ProtocolInstallStage,
     pub bytes_downloaded: u64,
     pub total_bytes: Option<u64>,
     pub error: Option<String>,
@@ -273,7 +278,7 @@ pub fn emit_install_complete(app_handle: &tauri::AppHandle) {
     let _ = app_handle.emit(
         "protocol-install-progress",
         ProtocolInstallProgress {
-            stage: "complete".to_string(),
+            stage: ProtocolInstallStage::Complete,
             bytes_downloaded: 0,
             total_bytes: None,
             error: None,

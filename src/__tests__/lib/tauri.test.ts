@@ -10,7 +10,7 @@ describe("api", () => {
     it("getSettings invokes get_settings", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: { theme: "dark" } });
       const result = await api.getSettings();
-      expect(mockInvoke).toHaveBeenCalledWith("get_settings", undefined);
+      expect(mockInvoke).toHaveBeenCalledWith("get_settings");
       expect(result).toEqual({ ok: true, value: { theme: "dark" } });
     });
 
@@ -32,7 +32,7 @@ describe("api", () => {
     it("getInstalledMods invokes get_installed_mods", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: [] });
       const result = await api.getInstalledMods();
-      expect(mockInvoke).toHaveBeenCalledWith("get_installed_mods", undefined);
+      expect(mockInvoke).toHaveBeenCalledWith("get_installed_mods");
       expect(result).toEqual({ ok: true, value: [] });
     });
 
@@ -73,7 +73,7 @@ describe("api", () => {
     it("getWorkshopProjects invokes get_workshop_projects", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: [] });
       await api.getWorkshopProjects();
-      expect(mockInvoke).toHaveBeenCalledWith("get_workshop_projects", undefined);
+      expect(mockInvoke).toHaveBeenCalledWith("get_workshop_projects");
     });
 
     it("deleteWorkshopProject invokes with projectPath", async () => {
@@ -107,7 +107,7 @@ describe("api", () => {
     it("getHashtableCacheStatus invokes get_hashtable_cache_status", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: { dir: "C:/hashes", tables: [] } });
       const result = await api.getHashtableCacheStatus();
-      expect(mockInvoke).toHaveBeenCalledWith("get_hashtable_cache_status", undefined);
+      expect(mockInvoke).toHaveBeenCalledWith("get_hashtable_cache_status");
       expect(result).toEqual({ ok: true, value: { dir: "C:/hashes", tables: [] } });
     });
 
@@ -122,7 +122,7 @@ describe("api", () => {
     it("getGameWads invokes get_game_wads", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: [] });
       const result = await api.getGameWads();
-      expect(mockInvoke).toHaveBeenCalledWith("get_game_wads", undefined);
+      expect(mockInvoke).toHaveBeenCalledWith("get_game_wads");
       expect(result).toEqual({ ok: true, value: [] });
     });
 
@@ -139,7 +139,7 @@ describe("api", () => {
     it("stopPatcher invokes stop_patcher", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: undefined });
       await api.stopPatcher();
-      expect(mockInvoke).toHaveBeenCalledWith("stop_patcher", undefined);
+      expect(mockInvoke).toHaveBeenCalledWith("stop_patcher");
     });
   });
 

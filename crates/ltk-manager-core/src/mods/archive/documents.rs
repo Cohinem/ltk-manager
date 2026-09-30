@@ -27,8 +27,7 @@ const README_FILE: &str = "README.md";
 /// silent lie about something the reader has installed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "state", rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum ModDocument {
     /// The document, as the mod's author wrote it.
     #[serde(rename_all = "camelCase")]

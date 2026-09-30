@@ -11,7 +11,7 @@ const TEXTURE: AssetInfo = {
   container: "TEX",
   format: "BC3",
   mipCount: 9,
-  sizeBytes: 87_424n,
+  sizeBytes: 87_424,
 };
 
 describe("fileLinkMark", () => {
@@ -46,7 +46,7 @@ describe("fileLinkMark", () => {
         kind: "image",
         width: 4,
         height: 4,
-        sizeBytes: 1n,
+        sizeBytes: 1,
         fileKind: "png",
       }),
     ).toEqual({ kind: "badge", fileKind: "png" });

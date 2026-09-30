@@ -39,9 +39,7 @@ pub(crate) mod win_util;
 /// declaration order without revisiting the UI sort logic in
 /// `DiagnosticsReport.tsx`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
 pub enum Severity {
     /// Check passed.
@@ -56,9 +54,7 @@ pub enum Severity {
 
 /// Coarse grouping for the UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
 pub enum Category {
     /// OS-level checks (Windows version, UAC, long paths).
@@ -77,9 +73,7 @@ pub enum Category {
 
 /// A single key/value detail row attached to a check.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct CheckDetail {
     pub key: String,
@@ -97,9 +91,7 @@ impl CheckDetail {
 
 /// Result of a single diagnostic check.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct Check {
     /// Stable identifier (e.g. `"windows.long_paths"`). Survives label changes.
@@ -115,22 +107,18 @@ pub struct Check {
     pub details: Vec<CheckDetail>,
     /// Optional plain-text guidance for the user.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional))]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub suggestion: Option<String>,
     /// Optional command (PowerShell / cmd / shell) to run as a fix. Shown
     /// alongside the suggestion with a copy button.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional))]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub fix_command: Option<String>,
 }
 
 /// Full diagnostic report returned by `run_diagnostics`.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct DiagnosticReport {
     /// ISO-8601 UTC timestamp.

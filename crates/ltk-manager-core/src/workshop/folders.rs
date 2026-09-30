@@ -28,9 +28,7 @@ const RAW_DIR: &str = "RAW";
 
 /// What a folder picked with Open folder holds.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum FolderInspection {
     /// Nothing at the path.
@@ -54,9 +52,7 @@ pub enum FolderInspection {
 
 /// A fantome-layout folder, as the conversion would read it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct FantomeFolder {
     pub display_name: String,
@@ -72,9 +68,7 @@ pub struct FantomeFolder {
 
 /// One entry of a fantome folder's `WAD/` directory.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct FolderWad {
     pub name: String,
@@ -84,9 +78,7 @@ pub struct FolderWad {
 
 /// Where a converted folder's project lives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub enum ConvertPlacement {
     /// The folder itself becomes the project.
@@ -97,9 +89,7 @@ pub enum ConvertPlacement {
 
 /// Arguments for turning a folder into a project.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ConvertFolderArgs {
     pub path: String,
@@ -110,9 +100,7 @@ pub struct ConvertFolderArgs {
 
 /// What adding a folder of mods did with each one.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct AddFoldersReport {
     pub added: Vec<WorkshopProject>,
@@ -121,9 +109,7 @@ pub struct AddFoldersReport {
 
 /// A folder the batch could not add, and why.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct FolderFailure {
     pub path: String,

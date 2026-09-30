@@ -29,7 +29,9 @@ use crate::workshop::WorkshopFileKind;
 use super::budget::BIN_EXPANSION;
 use super::game::GameContent;
 use super::walk::Declared;
-use super::{Detail, FileHandle, NodeAddress, ProjectFiles, Report, Rule, RuleId, Severity, Site};
+use super::{
+    Detail, FileHandle, NodeAddress, ProblemSeverity, ProjectFiles, Report, Rule, RuleId, Site,
+};
 
 use plan::{BinSub, Demands, Facts, FileSub, Lists, Objects, Plan, Reading, Shape, Subject};
 
@@ -223,7 +225,7 @@ pub struct Sink<'s> {
 /// What one sink holds, apart from the file it is for.
 #[derive(Debug, Default)]
 pub(super) struct Reports {
-    problems: Vec<(Severity, Option<NodeAddress>, Detail)>,
+    problems: Vec<(ProblemSeverity, Option<NodeAddress>, Detail)>,
     failures: Vec<String>,
 }
 
@@ -250,7 +252,12 @@ impl<'s> Sink<'s> {
     }
 
     /// One finding at a node of this file, or at the file when `node` is `None`.
-    pub fn problem(&mut self, severity: Severity, node: Option<NodeAddress>, detail: Detail) {
+    pub fn problem(
+        &mut self,
+        severity: ProblemSeverity,
+        node: Option<NodeAddress>,
+        detail: Detail,
+    ) {
         self.reports.problems.push((severity, node, detail));
     }
 
@@ -581,7 +588,7 @@ impl<'f> Finish<'f> {
     }
 
     /// Report one finding.
-    pub fn problem(&mut self, severity: Severity, site: Site, detail: Detail) {
+    pub fn problem(&mut self, severity: ProblemSeverity, site: Site, detail: Detail) {
         self.report.problem(self.rule, severity, site, detail);
     }
 

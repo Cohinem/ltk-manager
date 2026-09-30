@@ -4026,14 +4026,6 @@
       ]
     },
     {
-      "name": "termcolor",
-      "version": "1.4.1",
-      "url": "https://github.com/BurntSushi/termcolor",
-      "licenses": [
-        127
-      ]
-    },
-    {
       "name": "test_each_file",
       "version": "0.3.7",
       "url": "https://github.com/binary-banter/test-each-file",
@@ -4351,22 +4343,6 @@
       "url": "https://github.com/seanmonstar/try-lock",
       "licenses": [
         80
-      ]
-    },
-    {
-      "name": "ts-rs",
-      "version": "12.0.1",
-      "url": "https://github.com/Aleph-Alpha/ts-rs",
-      "licenses": [
-        118
-      ]
-    },
-    {
-      "name": "ts-rs-macros",
-      "version": "12.0.1",
-      "url": "https://github.com/Aleph-Alpha/ts-rs",
-      "licenses": [
-        118
       ]
     },
     {

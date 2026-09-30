@@ -21,8 +21,7 @@ use crate::problems::Budget;
 /// What one timed pass over the library cost.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct HealthTiming {
     /// Whether the pass repaired, or only checked.
     pub repaired: bool,
@@ -35,8 +34,7 @@ pub struct HealthTiming {
 /// What one mod of a timed pass cost.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct ModTiming {
     /// The slug, because a uuid is a name nobody can map back to a mod.
     pub slug: String,
