@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ContentTree, GameSearchResult, WorkshopProject } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -100,9 +101,11 @@ afterEach(cleanup);
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "get_project_content_tree") return Promise.resolve({ ok: true, value: TREE });
-    if (command === "search_game_paths") return Promise.resolve({ ok: true, value: SEARCH });
-    if (command === "read_game_dir") {
+    if (command === commandNames.app.getProjectContentTree)
+      return Promise.resolve({ ok: true, value: TREE });
+    if (command === commandNames.app.searchGamePaths)
+      return Promise.resolve({ ok: true, value: SEARCH });
+    if (command === commandNames.app.readGameDir) {
       return Promise.resolve({
         ok: true,
         value: {
@@ -131,7 +134,7 @@ describe("PathInput", () => {
     expect(await screen.findByRole("option", { name: /glow_ring\.dds/ })).toBeInTheDocument();
     expect(await screen.findByRole("option", { name: /glow_trail\.dds/ })).toBeInTheDocument();
     expect(screen.getByText("2 more, keep typing")).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith("search_game_paths", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.searchGamePaths, {
       query: "glow",
       preference: { extensions: ["dds", "tex"], archive: null },
     });
@@ -186,6 +189,8 @@ describe("PathInput", () => {
 
     expect(await screen.findByText("Same folder")).toBeInTheDocument();
     expect(await screen.findByRole("option", { name: /ahri_w\.dds/ })).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith("read_game_dir", { path: "assets/characters/ahri" });
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.readGameDir, {
+      path: "assets/characters/ahri",
+    });
   });
 });

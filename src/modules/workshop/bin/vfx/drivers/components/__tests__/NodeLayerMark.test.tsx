@@ -6,6 +6,7 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, expect, it } from "vitest";
 
 import type { DeclaredMark, LayerOverride } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -50,7 +51,8 @@ beforeEach(() => {
   overrides = [];
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command) => {
-    if (command === "bin_overrides") return Promise.resolve({ ok: true, value: overrides });
+    if (command === commandNames.app.binOverrides)
+      return Promise.resolve({ ok: true, value: overrides });
     return Promise.resolve({ ok: true, value: null });
   });
 });
@@ -122,6 +124,8 @@ it("leaves a node of a layer file no override reaches unmarked", async () => {
   overrides = [overrideBy("base")];
   render(<Overridden path={OTHER_EMITTER} />, { wrapper: Providers });
 
-  await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("bin_overrides", expect.anything()));
+  await waitFor(() =>
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binOverrides, expect.anything()),
+  );
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
 });

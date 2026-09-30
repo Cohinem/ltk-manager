@@ -18,6 +18,7 @@ mod news;
 pub mod patcher;
 mod protocol;
 mod releases;
+mod services;
 mod setup;
 mod state;
 mod telemetry;
@@ -65,7 +66,9 @@ fn main() {
                         & !tauri_plugin_window_state::StateFlags::VISIBLE,
                 )
                 .build(),
-        );
+        )
+        .plugin(services::app_update::plugin())
+        .plugin(services::library::plugin());
 
     builder
         /* The preview's pixels come this way rather than over IPC, so an

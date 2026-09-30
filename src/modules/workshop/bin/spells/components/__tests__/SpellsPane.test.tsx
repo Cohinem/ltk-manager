@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CharacterSpells } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -52,9 +53,10 @@ const PREVIEW = {
   issues: [],
 };
 function answer(command: string) {
-  if (command === "bin_open") return Promise.resolve({ ok: true, value: { document: 2 } });
-  if (command === "read_spell") return Promise.resolve({ ok: true, value: PREVIEW });
-  if (command === "bin_close") return Promise.resolve({ ok: true, value: null });
+  if (command === commandNames.app.binOpen)
+    return Promise.resolve({ ok: true, value: { document: 2 } });
+  if (command === commandNames.app.readSpell) return Promise.resolve({ ok: true, value: PREVIEW });
+  if (command === commandNames.app.binClose) return Promise.resolve({ ok: true, value: null });
   return Promise.resolve({ ok: true, value: READY });
 }
 
@@ -74,18 +76,20 @@ describe("SpellsPane", () => {
     expect(spell).not.toHaveAttribute("aria-expanded");
     await user.click(spell);
     expect(await screen.findByText("Preview 0x859d7934")).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith("bin_close", { document: 2 });
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binClose, { document: 2 });
     await user.click(screen.getByRole("button", { name: "Spells" }));
     await user.type(screen.getByRole("textbox", { name: "Filter spells" }), "missing");
     expect(screen.getByText("No named spells match.")).toBeInTheDocument();
-    expect(mockInvoke.mock.calls.filter(([cmd]) => cmd === "character_spells")).toHaveLength(1);
+    expect(
+      mockInvoke.mock.calls.filter(([cmd]) => cmd === commandNames.app.characterSpells),
+    ).toHaveLength(1);
   });
 
   it.each([null, { movement: { kind: "unsupported", class_hash: "0x775dfd10" } }])(
     "disables unsupported spells before navigation",
     async (missile) => {
       mockInvoke.mockImplementation((command) =>
-        command === "read_spell"
+        command === commandNames.app.readSpell
           ? Promise.resolve({ ok: true, value: { missile, issues: [] } })
           : answer(command),
       );
@@ -110,17 +114,17 @@ describe("SpellsPane", () => {
     mount();
     await screen.findByText("Conflicting definitions");
     expect(screen.getByRole("button", { name: /SejuaniEPassiveMissile/ })).toBeDisabled();
-    expect(mockInvoke.mock.calls.some(([cmd]) => cmd === "bin_open")).toBe(false);
+    expect(mockInvoke.mock.calls.some(([cmd]) => cmd === commandNames.app.binOpen)).toBe(false);
   });
 
   it("warms an absent index and refetches the catalog when the warm completes", async () => {
     let ready = false;
     mockInvoke.mockImplementation(async (command) => {
-      if (command === "warm_object_index") {
+      if (command === commandNames.app.warmObjectIndex) {
         ready = true;
         return { ok: true, value: null };
       }
-      if (command === "character_spells")
+      if (command === commandNames.app.characterSpells)
         return { ok: true, value: ready ? READY : { status: "absent" } };
       return answer(command);
     });
@@ -129,7 +133,7 @@ describe("SpellsPane", () => {
       await screen.findByRole("button", { name: /SejuaniEPassiveMissile/ }),
     ).toBeInTheDocument();
     expect(
-      mockInvoke.mock.calls.filter(([command]) => command === "warm_object_index"),
+      mockInvoke.mock.calls.filter(([command]) => command === commandNames.app.warmObjectIndex),
     ).toHaveLength(1);
   });
 
@@ -140,7 +144,7 @@ describe("SpellsPane", () => {
     });
     mount();
     await userEvent.setup().click(await screen.findByRole("button", { name: "Retry" }));
-    expect(mockInvoke).toHaveBeenCalledWith("warm_object_index");
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.warmObjectIndex);
     expect(screen.queryByText("No named spells match.")).not.toBeInTheDocument();
   });
 
@@ -167,7 +171,7 @@ describe("SpellsPane", () => {
 
 it("offers impact-only spells to the ability scene and respects the hit-effect flag", async () => {
   mockInvoke.mockImplementation((command) =>
-    command === "read_spell"
+    command === commandNames.app.readSpell
       ? Promise.resolve({
           ok: true,
           value: {
@@ -188,7 +192,7 @@ it("offers impact-only spells to the ability scene and respects the hit-effect f
     "0x859d7934": "unsupported",
   });
   mockInvoke.mockImplementation((command) =>
-    command === "read_spell"
+    command === commandNames.app.readSpell
       ? Promise.resolve({
           ok: true,
           value: { missile: null, hitEffectKey: "hit", haveHitEffect: false, issues: [] },

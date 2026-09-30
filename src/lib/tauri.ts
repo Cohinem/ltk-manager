@@ -45,6 +45,8 @@ import type {
   ViewVariant,
   WorkshopFileKind,
 } from "@/lib/bindings";
+import { commands as appUpdate } from "@/lib/ipc/appUpdate";
+import { commands as library } from "@/lib/ipc/library";
 import type { Result } from "@/utils/result";
 
 export type * from "@/lib/bindings";
@@ -122,58 +124,55 @@ export const api = {
   listMapDecorations: () => commands.listMapDecorations().then(toResult),
 
   // Mods
-  getInstalledMods: () => commands.getInstalledMods().then(toResult),
-  installMod: (filePath: string) => commands.installMod(filePath).then(toResult),
-  installMods: (filePaths: string[]) => commands.installMods(filePaths).then(toResult),
-  updateMod: (modId: string, filePath: string) =>
-    commands.updateMod(modId, filePath).then(toResult),
-  uninstallMod: (modId: string) => commands.uninstallMod(modId).then(toResult),
+  getInstalledMods: () => library.getInstalledMods().then(toResult),
+  installMod: (filePath: string) => library.installMod(filePath).then(toResult),
+  installMods: (filePaths: string[]) => library.installMods(filePaths).then(toResult),
+  updateMod: (modId: string, filePath: string) => library.updateMod(modId, filePath).then(toResult),
+  uninstallMod: (modId: string) => library.uninstallMod(modId).then(toResult),
   exportMods: (scope: ExportScope, shape: ExportShape, destination: string) =>
-    commands.exportMods(scope, shape, destination).then(toResult),
-  toggleMod: (modId: string, enabled: boolean) => commands.toggleMod(modId, enabled).then(toResult),
-  getModThumbnail: (modId: string) => commands.getModThumbnail(modId).then(toResult),
+    library.exportMods(scope, shape, destination).then(toResult),
+  toggleMod: (modId: string, enabled: boolean) => library.toggleMod(modId, enabled).then(toResult),
+  getModThumbnail: (modId: string) => library.getModThumbnail(modId).then(toResult),
   getModThumbnails: (modIds: readonly string[]) =>
-    commands.getModThumbnails([...modIds]).then(toResult),
-  getModReadme: (modId: string) => commands.getModReadme(modId).then(toResult),
-  getModLicenseText: (modId: string) => commands.getModLicenseText(modId).then(toResult),
-  getStorageDirectory: () => commands.getStorageDirectory().then(toResult),
-  reorderMods: (modIds: string[]) => commands.reorderMods(modIds).then(toResult),
+    library.getModThumbnails([...modIds]).then(toResult),
+  getModReadme: (modId: string) => library.getModReadme(modId).then(toResult),
+  getModLicenseText: (modId: string) => library.getModLicenseText(modId).then(toResult),
+  getStorageDirectory: () => library.getStorageDirectory().then(toResult),
+  reorderMods: (modIds: string[]) => library.reorderMods(modIds).then(toResult),
   setModLayers: (modId: string, layerStates: Record<string, boolean>) =>
-    commands.setModLayers(modId, layerStates).then(toResult),
+    library.setModLayers(modId, layerStates).then(toResult),
   enableModWithLayers: (modId: string, layerStates: Record<string, boolean>) =>
-    commands.enableModWithLayers(modId, layerStates).then(toResult),
+    library.enableModWithLayers(modId, layerStates).then(toResult),
   editModMetadata: (modId: string, metadata: EditModMetadataArgs) =>
-    commands.editModMetadata(modId, metadata).then(toResult),
+    library.editModMetadata(modId, metadata).then(toResult),
   setModStorage: (modId: string, storage: ModStorage) =>
-    commands.setModStorage(modId, storage).then(toResult),
-  getModWadReport: (modId: string) => commands.getModWadReport(modId).then(toResult),
-  getAllModWadReports: () => commands.getAllModWadReports().then(toResult),
-  analyzeModWads: (modId: string) => commands.analyzeModWads(modId).then(toResult),
-  checkModHealth: (modId: string) => commands.checkModHealth(modId).then(toResult),
+    library.setModStorage(modId, storage).then(toResult),
+  getAllModWadReports: () => library.getAllModWadReports().then(toResult),
+  analyzeModWads: (modId: string) => library.analyzeModWads(modId).then(toResult),
+  checkModHealth: (modId: string) => library.checkModHealth(modId).then(toResult),
   /** Re-check `modIds`, or every mod in the library when none are named. */
-  sweepModHealth: (modIds?: string[]) => commands.sweepModHealth(modIds ?? null).then(toResult),
-  repairMod: (modId: string) => commands.repairMod(modId).then(toResult),
-  repairMods: (modIds: string[]) => commands.repairMods(modIds).then(toResult),
-  getModHealthVerdicts: () => commands.getModHealthVerdicts().then(toResult),
-  getHealthSweep: () => commands.getHealthSweep().then(toResult),
-  getHealthCheckReadiness: () => commands.getHealthCheckReadiness().then(toResult),
-  cancelModHealthRun: () => commands.cancelModHealthRun().then(toResult),
+  sweepModHealth: (modIds?: string[]) => library.sweepModHealth(modIds ?? null).then(toResult),
+  repairMod: (modId: string) => library.repairMod(modId).then(toResult),
+  repairMods: (modIds: string[]) => library.repairMods(modIds).then(toResult),
+  getModHealthVerdicts: () => library.getModHealthVerdicts().then(toResult),
+  getHealthSweep: () => library.getHealthSweep().then(toResult),
+  getHealthCheckReadiness: () => library.getHealthCheckReadiness().then(toResult),
+  cancelModHealthRun: () => library.cancelModHealthRun().then(toResult),
   /**
    * Time a health pass over the real library, into the dev console.
    *
    * Registered only in a debug build. `repair` runs the real repair, which
    * rewrites the mods it can fix and keeps no way back.
    */
-  timeModHealth: (repair: boolean) => commands.timeModHealth(repair).then(toResult),
+  timeModHealth: (repair: boolean) => library.timeModHealth(repair).then(toResult),
 
   // Migration
-  scanCslolMods: (directory: string) => commands.scanCslolMods(directory).then(toResult),
+  scanCslolMods: (directory: string) => library.scanCslolMods(directory).then(toResult),
   importCslolMods: (directory: string, selectedFolders: string[]) =>
-    commands.importCslolMods(directory, selectedFolders).then(toResult),
-  getLayoutMigrationState: () => commands.getLayoutMigrationState().then(toResult),
+    library.importCslolMods(directory, selectedFolders).then(toResult),
+  getLayoutMigrationState: () => library.getLayoutMigrationState().then(toResult),
 
   // Inspector
-  inspectModpkg: (filePath: string) => commands.inspectModpkg(filePath).then(toResult),
 
   // Patcher
   startPatcher: (config: PatcherConfig) => commands.startPatcher(config).then(toResult),
@@ -200,31 +199,30 @@ export const api = {
   resumeHotkeys: () => commands.resumeHotkeys().then(toResult),
   setHotkey: (action: HotkeyAction, accelerator: string | null) =>
     commands.setHotkey(action, accelerator).then(toResult),
-  killLeague: () => commands.killLeague().then(toResult),
 
   // Profiles
-  listModProfiles: () => commands.listModProfiles().then(toResult),
-  getActiveModProfile: () => commands.getActiveModProfile().then(toResult),
-  createModProfile: (name: string) => commands.createModProfile(name).then(toResult),
-  deleteModProfile: (profileId: string) => commands.deleteModProfile(profileId).then(toResult),
-  switchModProfile: (profileId: string) => commands.switchModProfile(profileId).then(toResult),
+  listModProfiles: () => library.listModProfiles().then(toResult),
+  getActiveModProfile: () => library.getActiveModProfile().then(toResult),
+  createModProfile: (name: string) => library.createModProfile(name).then(toResult),
+  deleteModProfile: (profileId: string) => library.deleteModProfile(profileId).then(toResult),
+  switchModProfile: (profileId: string) => library.switchModProfile(profileId).then(toResult),
   renameModProfile: (profileId: string, newName: string) =>
-    commands.renameModProfile(profileId, newName).then(toResult),
+    library.renameModProfile(profileId, newName).then(toResult),
 
   // Folders
-  getFolders: () => commands.getFolders().then(toResult),
-  getFolderOrder: () => commands.getFolderOrder().then(toResult),
-  createFolder: (name: string) => commands.createFolder(name).then(toResult),
+  getFolders: () => library.getFolders().then(toResult),
+  getFolderOrder: () => library.getFolderOrder().then(toResult),
+  createFolder: (name: string) => library.createFolder(name).then(toResult),
   renameFolder: (folderId: string, newName: string) =>
-    commands.renameFolder(folderId, newName).then(toResult),
-  deleteFolder: (folderId: string) => commands.deleteFolder(folderId).then(toResult),
+    library.renameFolder(folderId, newName).then(toResult),
+  deleteFolder: (folderId: string) => library.deleteFolder(folderId).then(toResult),
   moveModToFolder: (modId: string, folderId: string) =>
-    commands.moveModToFolder(modId, folderId).then(toResult),
+    library.moveModToFolder(modId, folderId).then(toResult),
   toggleFolder: (folderId: string, enabled: boolean) =>
-    commands.toggleFolder(folderId, enabled).then(toResult),
+    library.toggleFolder(folderId, enabled).then(toResult),
   reorderFolderMods: (folderId: string, modIds: string[]) =>
-    commands.reorderFolderMods(folderId, modIds).then(toResult),
-  reorderFolders: (folderOrder: string[]) => commands.reorderFolders(folderOrder).then(toResult),
+    library.reorderFolderMods(folderId, modIds).then(toResult),
+  reorderFolders: (folderOrder: string[]) => library.reorderFolders(folderOrder).then(toResult),
 
   // Hashtables
   getHashtableCacheStatus: () => commands.getHashtableCacheStatus().then(toResult),
@@ -467,10 +465,10 @@ export const api = {
 
   // The app's own update.
   updater: {
-    check: () => commands.checkUpdate().then(toResult),
-    download: () => commands.downloadUpdate().then(toResult),
-    install: () => commands.installUpdate().then(toResult),
-    discard: () => commands.discardUpdate().then(toResult),
+    check: () => appUpdate.checkUpdate().then(toResult),
+    download: () => appUpdate.downloadUpdate().then(toResult),
+    install: () => appUpdate.installUpdate().then(toResult),
+    discard: () => appUpdate.discardUpdate().then(toResult),
   },
 
   // A project's ignore rules.

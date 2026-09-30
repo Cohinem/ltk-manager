@@ -2211,6 +2211,60 @@
       "description": "Permission identifier",
       "oneOf": [
         {
+          "description": "Default plugin permissions.\n#### This default permission set includes:\n\n- `allow-check-update`\n- `allow-download-update`\n- `allow-install-update`\n- `allow-discard-update`",
+          "type": "string",
+          "const": "app-update:default",
+          "markdownDescription": "Default plugin permissions.\n#### This default permission set includes:\n\n- `allow-check-update`\n- `allow-download-update`\n- `allow-install-update`\n- `allow-discard-update`"
+        },
+        {
+          "description": "Enables the check_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "app-update:allow-check-update",
+          "markdownDescription": "Enables the check_update command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the discard_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "app-update:allow-discard-update",
+          "markdownDescription": "Enables the discard_update command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the download_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "app-update:allow-download-update",
+          "markdownDescription": "Enables the download_update command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the install_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "app-update:allow-install-update",
+          "markdownDescription": "Enables the install_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the check_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "app-update:deny-check-update",
+          "markdownDescription": "Denies the check_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the discard_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "app-update:deny-discard-update",
+          "markdownDescription": "Denies the discard_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the download_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "app-update:deny-download-update",
+          "markdownDescription": "Denies the download_update command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the install_update command without any pre-configured scope.",
+          "type": "string",
+          "const": "app-update:deny-install-update",
+          "markdownDescription": "Denies the install_update command without any pre-configured scope."
+        },
+        {
           "description": "This permission set configures if your\napplication can enable or disable auto\nstarting the application on boot.\n\n#### Granted Permissions\n\nIt allows all to check, enable and\ndisable the automatic start on boot.\n\n\n#### This default permission set includes:\n\n- `allow-enable`\n- `allow-disable`\n- `allow-is-enabled`",
           "type": "string",
           "const": "autostart:default",
@@ -6283,6 +6337,564 @@
           "type": "string",
           "const": "global-shortcut:deny-unregister-all",
           "markdownDescription": "Denies the unregister_all command without any pre-configured scope."
+        },
+        {
+          "description": "Default plugin permissions.\n#### This default permission set includes:\n\n- `allow-get-installed-mods`\n- `allow-install-mod`\n- `allow-install-mods`\n- `allow-update-mod`\n- `allow-uninstall-mod`\n- `allow-toggle-mod`\n- `allow-reorder-mods`\n- `allow-set-mod-layers`\n- `allow-enable-mod-with-layers`\n- `allow-edit-mod-metadata`\n- `allow-set-mod-storage`\n- `allow-export-mods`\n- `allow-get-mod-thumbnail`\n- `allow-get-mod-thumbnails`\n- `allow-get-mod-readme`\n- `allow-get-mod-license-text`\n- `allow-get-storage-directory`\n- `allow-get-all-mod-wad-reports`\n- `allow-analyze-mod-wads`\n- `allow-get-folders`\n- `allow-get-folder-order`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-move-mod-to-folder`\n- `allow-toggle-folder`\n- `allow-reorder-folder-mods`\n- `allow-reorder-folders`\n- `allow-list-mod-profiles`\n- `allow-get-active-mod-profile`\n- `allow-create-mod-profile`\n- `allow-delete-mod-profile`\n- `allow-switch-mod-profile`\n- `allow-rename-mod-profile`\n- `allow-check-mod-health`\n- `allow-sweep-mod-health`\n- `allow-repair-mod`\n- `allow-repair-mods`\n- `allow-cancel-mod-health-run`\n- `allow-get-health-check-readiness`\n- `allow-get-health-sweep`\n- `allow-get-mod-health-verdicts`\n- `allow-get-layout-migration-state`\n- `allow-scan-cslol-mods`\n- `allow-import-cslol-mods`\n- `allow-time-mod-health`",
+          "type": "string",
+          "const": "library:default",
+          "markdownDescription": "Default plugin permissions.\n#### This default permission set includes:\n\n- `allow-get-installed-mods`\n- `allow-install-mod`\n- `allow-install-mods`\n- `allow-update-mod`\n- `allow-uninstall-mod`\n- `allow-toggle-mod`\n- `allow-reorder-mods`\n- `allow-set-mod-layers`\n- `allow-enable-mod-with-layers`\n- `allow-edit-mod-metadata`\n- `allow-set-mod-storage`\n- `allow-export-mods`\n- `allow-get-mod-thumbnail`\n- `allow-get-mod-thumbnails`\n- `allow-get-mod-readme`\n- `allow-get-mod-license-text`\n- `allow-get-storage-directory`\n- `allow-get-all-mod-wad-reports`\n- `allow-analyze-mod-wads`\n- `allow-get-folders`\n- `allow-get-folder-order`\n- `allow-create-folder`\n- `allow-rename-folder`\n- `allow-delete-folder`\n- `allow-move-mod-to-folder`\n- `allow-toggle-folder`\n- `allow-reorder-folder-mods`\n- `allow-reorder-folders`\n- `allow-list-mod-profiles`\n- `allow-get-active-mod-profile`\n- `allow-create-mod-profile`\n- `allow-delete-mod-profile`\n- `allow-switch-mod-profile`\n- `allow-rename-mod-profile`\n- `allow-check-mod-health`\n- `allow-sweep-mod-health`\n- `allow-repair-mod`\n- `allow-repair-mods`\n- `allow-cancel-mod-health-run`\n- `allow-get-health-check-readiness`\n- `allow-get-health-sweep`\n- `allow-get-mod-health-verdicts`\n- `allow-get-layout-migration-state`\n- `allow-scan-cslol-mods`\n- `allow-import-cslol-mods`\n- `allow-time-mod-health`"
+        },
+        {
+          "description": "Enables the analyze_mod_wads command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-analyze-mod-wads",
+          "markdownDescription": "Enables the analyze_mod_wads command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the cancel_mod_health_run command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-cancel-mod-health-run",
+          "markdownDescription": "Enables the cancel_mod_health_run command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the check_mod_health command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-check-mod-health",
+          "markdownDescription": "Enables the check_mod_health command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-create-folder",
+          "markdownDescription": "Enables the create_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-create-mod-profile",
+          "markdownDescription": "Enables the create_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-delete-folder",
+          "markdownDescription": "Enables the delete_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-delete-mod-profile",
+          "markdownDescription": "Enables the delete_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the edit_mod_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-edit-mod-metadata",
+          "markdownDescription": "Enables the edit_mod_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the enable_mod_with_layers command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-enable-mod-with-layers",
+          "markdownDescription": "Enables the enable_mod_with_layers command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the export_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-export-mods",
+          "markdownDescription": "Enables the export_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_active_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-active-mod-profile",
+          "markdownDescription": "Enables the get_active_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_all_mod_wad_reports command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-all-mod-wad-reports",
+          "markdownDescription": "Enables the get_all_mod_wad_reports command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_folder_order command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-folder-order",
+          "markdownDescription": "Enables the get_folder_order command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-folders",
+          "markdownDescription": "Enables the get_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_health_check_readiness command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-health-check-readiness",
+          "markdownDescription": "Enables the get_health_check_readiness command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_health_sweep command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-health-sweep",
+          "markdownDescription": "Enables the get_health_sweep command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_installed_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-installed-mods",
+          "markdownDescription": "Enables the get_installed_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_layout_migration_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-layout-migration-state",
+          "markdownDescription": "Enables the get_layout_migration_state command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_mod_health_verdicts command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-mod-health-verdicts",
+          "markdownDescription": "Enables the get_mod_health_verdicts command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_mod_license_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-mod-license-text",
+          "markdownDescription": "Enables the get_mod_license_text command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_mod_readme command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-mod-readme",
+          "markdownDescription": "Enables the get_mod_readme command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_mod_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-mod-thumbnail",
+          "markdownDescription": "Enables the get_mod_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_mod_thumbnails command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-mod-thumbnails",
+          "markdownDescription": "Enables the get_mod_thumbnails command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_storage_directory command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-get-storage-directory",
+          "markdownDescription": "Enables the get_storage_directory command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the import_cslol_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-import-cslol-mods",
+          "markdownDescription": "Enables the import_cslol_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the install_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-install-mod",
+          "markdownDescription": "Enables the install_mod command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the install_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-install-mods",
+          "markdownDescription": "Enables the install_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the list_mod_profiles command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-list-mod-profiles",
+          "markdownDescription": "Enables the list_mod_profiles command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the move_mod_to_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-move-mod-to-folder",
+          "markdownDescription": "Enables the move_mod_to_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the rename_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-rename-folder",
+          "markdownDescription": "Enables the rename_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the rename_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-rename-mod-profile",
+          "markdownDescription": "Enables the rename_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reorder_folder_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-reorder-folder-mods",
+          "markdownDescription": "Enables the reorder_folder_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reorder_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-reorder-folders",
+          "markdownDescription": "Enables the reorder_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the reorder_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-reorder-mods",
+          "markdownDescription": "Enables the reorder_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the repair_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-repair-mod",
+          "markdownDescription": "Enables the repair_mod command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the repair_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-repair-mods",
+          "markdownDescription": "Enables the repair_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the scan_cslol_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-scan-cslol-mods",
+          "markdownDescription": "Enables the scan_cslol_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_mod_layers command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-set-mod-layers",
+          "markdownDescription": "Enables the set_mod_layers command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the set_mod_storage command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-set-mod-storage",
+          "markdownDescription": "Enables the set_mod_storage command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the sweep_mod_health command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-sweep-mod-health",
+          "markdownDescription": "Enables the sweep_mod_health command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the switch_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-switch-mod-profile",
+          "markdownDescription": "Enables the switch_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the time_mod_health command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-time-mod-health",
+          "markdownDescription": "Enables the time_mod_health command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the toggle_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-toggle-folder",
+          "markdownDescription": "Enables the toggle_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the toggle_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-toggle-mod",
+          "markdownDescription": "Enables the toggle_mod command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the uninstall_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-uninstall-mod",
+          "markdownDescription": "Enables the uninstall_mod command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the update_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:allow-update-mod",
+          "markdownDescription": "Enables the update_mod command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the analyze_mod_wads command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-analyze-mod-wads",
+          "markdownDescription": "Denies the analyze_mod_wads command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the cancel_mod_health_run command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-cancel-mod-health-run",
+          "markdownDescription": "Denies the cancel_mod_health_run command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the check_mod_health command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-check-mod-health",
+          "markdownDescription": "Denies the check_mod_health command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-create-folder",
+          "markdownDescription": "Denies the create_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-create-mod-profile",
+          "markdownDescription": "Denies the create_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-delete-folder",
+          "markdownDescription": "Denies the delete_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-delete-mod-profile",
+          "markdownDescription": "Denies the delete_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the edit_mod_metadata command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-edit-mod-metadata",
+          "markdownDescription": "Denies the edit_mod_metadata command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the enable_mod_with_layers command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-enable-mod-with-layers",
+          "markdownDescription": "Denies the enable_mod_with_layers command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the export_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-export-mods",
+          "markdownDescription": "Denies the export_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_active_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-active-mod-profile",
+          "markdownDescription": "Denies the get_active_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_all_mod_wad_reports command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-all-mod-wad-reports",
+          "markdownDescription": "Denies the get_all_mod_wad_reports command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_folder_order command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-folder-order",
+          "markdownDescription": "Denies the get_folder_order command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-folders",
+          "markdownDescription": "Denies the get_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_health_check_readiness command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-health-check-readiness",
+          "markdownDescription": "Denies the get_health_check_readiness command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_health_sweep command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-health-sweep",
+          "markdownDescription": "Denies the get_health_sweep command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_installed_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-installed-mods",
+          "markdownDescription": "Denies the get_installed_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_layout_migration_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-layout-migration-state",
+          "markdownDescription": "Denies the get_layout_migration_state command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_mod_health_verdicts command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-mod-health-verdicts",
+          "markdownDescription": "Denies the get_mod_health_verdicts command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_mod_license_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-mod-license-text",
+          "markdownDescription": "Denies the get_mod_license_text command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_mod_readme command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-mod-readme",
+          "markdownDescription": "Denies the get_mod_readme command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_mod_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-mod-thumbnail",
+          "markdownDescription": "Denies the get_mod_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_mod_thumbnails command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-mod-thumbnails",
+          "markdownDescription": "Denies the get_mod_thumbnails command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_storage_directory command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-get-storage-directory",
+          "markdownDescription": "Denies the get_storage_directory command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the import_cslol_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-import-cslol-mods",
+          "markdownDescription": "Denies the import_cslol_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the install_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-install-mod",
+          "markdownDescription": "Denies the install_mod command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the install_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-install-mods",
+          "markdownDescription": "Denies the install_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the list_mod_profiles command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-list-mod-profiles",
+          "markdownDescription": "Denies the list_mod_profiles command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the move_mod_to_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-move-mod-to-folder",
+          "markdownDescription": "Denies the move_mod_to_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the rename_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-rename-folder",
+          "markdownDescription": "Denies the rename_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the rename_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-rename-mod-profile",
+          "markdownDescription": "Denies the rename_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reorder_folder_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-reorder-folder-mods",
+          "markdownDescription": "Denies the reorder_folder_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reorder_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-reorder-folders",
+          "markdownDescription": "Denies the reorder_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the reorder_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-reorder-mods",
+          "markdownDescription": "Denies the reorder_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the repair_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-repair-mod",
+          "markdownDescription": "Denies the repair_mod command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the repair_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-repair-mods",
+          "markdownDescription": "Denies the repair_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the scan_cslol_mods command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-scan-cslol-mods",
+          "markdownDescription": "Denies the scan_cslol_mods command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_mod_layers command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-set-mod-layers",
+          "markdownDescription": "Denies the set_mod_layers command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the set_mod_storage command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-set-mod-storage",
+          "markdownDescription": "Denies the set_mod_storage command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the sweep_mod_health command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-sweep-mod-health",
+          "markdownDescription": "Denies the sweep_mod_health command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the switch_mod_profile command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-switch-mod-profile",
+          "markdownDescription": "Denies the switch_mod_profile command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the time_mod_health command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-time-mod-health",
+          "markdownDescription": "Denies the time_mod_health command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-toggle-folder",
+          "markdownDescription": "Denies the toggle_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the toggle_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-toggle-mod",
+          "markdownDescription": "Denies the toggle_mod command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the uninstall_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-uninstall-mod",
+          "markdownDescription": "Denies the uninstall_mod command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the update_mod command without any pre-configured scope.",
+          "type": "string",
+          "const": "library:deny-update-mod",
+          "markdownDescription": "Denies the update_mod command without any pre-configured scope."
         },
         {
           "description": "This permission set configures which\nprocess features are by default exposed.\n\n#### Granted Permissions\n\nThis enables to quit via `allow-exit` and restart via `allow-restart`\nthe application.\n\n#### This default permission set includes:\n\n- `allow-exit`\n- `allow-restart`",

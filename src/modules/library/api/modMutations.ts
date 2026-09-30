@@ -139,7 +139,7 @@ export const modMutations = {
         /* The tree the overlay reads was rewritten, so the cached scan of it is
            about a directory that no longer exists, and the archive the mod's
            documents are read from may be gone with it. */
-        client.invalidateQueries({ queryKey: libraryKeys.wadReport(modId) });
+        client.invalidateQueries({ queryKey: libraryKeys.wadReports() });
         client.invalidateQueries({ queryKey: libraryKeys.mod(modId) });
       },
     }),

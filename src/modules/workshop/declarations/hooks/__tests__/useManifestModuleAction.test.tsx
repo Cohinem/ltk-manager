@@ -7,6 +7,7 @@ import { beforeEach, expect, it } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type { WorkshopProject } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -49,7 +50,7 @@ beforeEach(() => {
   });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command, args?: Record<string, unknown>) => {
-    if (command === "bin_declared") {
+    if (command === commandNames.app.binDeclared) {
       const value = args?.document === DECLARING ? { layer: "base" } : null;
       return Promise.resolve({ ok: true, value });
     }
@@ -63,19 +64,21 @@ it("applies the manifest again in each open declared document, once", async () =
 
   expect(await result.current("base", { kind: "remove", module: 0 })).toBe(true);
 
-  expect(mockInvoke).toHaveBeenCalledWith("declarations_module_action", {
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.declarationsModuleAction, {
     projectPath: PROJECT,
     layer: "base",
     action: { kind: "remove", module: 0 },
   });
-  const reloads = mockInvoke.mock.calls.filter(([command]) => command === "bin_reload");
-  expect(reloads).toEqual([["bin_reload", { document: DECLARING }]]);
+  const reloads = mockInvoke.mock.calls.filter(
+    ([command]) => command === commandNames.app.binReload,
+  );
+  expect(reloads).toEqual([[commandNames.app.binReload, { document: DECLARING }]]);
 });
 
 it("reloads nothing when the action fails", async () => {
   mockInvoke.mockImplementation((command) =>
     Promise.resolve(
-      command === "declarations_module_action"
+      command === commandNames.app.declarationsModuleAction
         ? { ok: false, error: { code: "UNKNOWN", detail: "no module 4" } }
         : { ok: true, value: null },
     ),
@@ -83,7 +86,9 @@ it("reloads nothing when the action fails", async () => {
   const { result } = renderHook(() => useManifestModuleAction(PROJECT), { wrapper: Providers });
 
   expect(await result.current("base", { kind: "remove", module: 4 })).toBe(false);
-  expect(mockInvoke.mock.calls.some(([command]) => command === "bin_reload")).toBe(false);
+  expect(mockInvoke.mock.calls.some(([command]) => command === commandNames.app.binReload)).toBe(
+    false,
+  );
 });
 
 it("keeps the chosen module on the module a move carried", async () => {

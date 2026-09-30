@@ -4,5 +4,10 @@
   "rules": {
     "import/no-cycle": "warn"
   },
-  "ignorePatterns": ["src/lib/bindings.ts", "src/routeTree.gen.ts", "src/paraglide/**"]
+  "ignorePatterns": [
+    "src/lib/bindings.ts",
+    "src/lib/ipc/**",
+    "src/routeTree.gen.ts",
+    "src/paraglide/**"
+  ]
 }

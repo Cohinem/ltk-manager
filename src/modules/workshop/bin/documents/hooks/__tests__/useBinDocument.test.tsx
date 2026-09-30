@@ -6,6 +6,7 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import type { AssetRef, ReadOnly, SandboxRef } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -61,7 +62,7 @@ beforeEach(() => {
   mockInvoke.mockReset();
   let document = 0;
   mockInvoke.mockImplementation((command, args?: Record<string, unknown>) => {
-    if (command === "bin_open") {
+    if (command === commandNames.app.binOpen) {
       const sandbox = args?.sandbox as SandboxRef;
       const inProject = sandbox.kind === "project";
       return Promise.resolve({
@@ -75,13 +76,13 @@ beforeEach(() => {
         },
       });
     }
-    if (command === "bin_set_declaring") {
+    if (command === commandNames.app.binSetDeclaring) {
       return Promise.resolve({
         ok: true,
         value: args?.declaring === "on" ? null : "declarationsOff",
       });
     }
-    if (command === "get_project_content_tree") {
+    if (command === commandNames.app.getProjectContentTree) {
       const entries = layerFiles.map((relativePath) => ({ relativePath }));
       return Promise.resolve({ ok: true, value: { layers: [{ name: "base", entries }] } });
     }
@@ -99,7 +100,7 @@ it("opens game data in the current mod project's sandbox and reopens when that p
   const { rerender } = render(view("C:/mods/first"), { wrapper: Queries });
 
   await waitFor(() =>
-    expect(mockInvoke).toHaveBeenCalledWith("bin_open", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binOpen, {
       sandbox: { kind: "project", project: "C:/mods/first" },
       asset: ASSET,
       entry: "0x12345678",
@@ -109,13 +110,13 @@ it("opens game data in the current mod project's sandbox and reopens when that p
   rerender(view("C:/mods/second"));
 
   await waitFor(() =>
-    expect(mockInvoke).toHaveBeenCalledWith("bin_open", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binOpen, {
       sandbox: { kind: "project", project: "C:/mods/second" },
       asset: ASSET,
       entry: "0x12345678",
     }),
   );
-  expect(mockInvoke).toHaveBeenCalledWith("bin_close", { document: 1 });
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binClose, { document: 1 });
 });
 
 /* Acceptance test 3 of docs/plans/sandbox.md: one chunk, two sandboxes, two documents. */
@@ -158,10 +159,10 @@ it("closes a lingering document ten seconds after its caller unmounts", async ()
   vi.useFakeTimers();
   try {
     unmount();
-    expect(mockInvoke).not.toHaveBeenCalledWith("bin_close", { document: 1 });
+    expect(mockInvoke).not.toHaveBeenCalledWith(commandNames.app.binClose, { document: 1 });
 
     vi.advanceTimersByTime(10_000);
-    expect(mockInvoke).toHaveBeenCalledWith("bin_close", { document: 1 });
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binClose, { document: 1 });
   } finally {
     vi.useRealTimers();
   }
@@ -172,14 +173,14 @@ it("closes a document at once when its caller unmounts", async () => {
   await waitFor(() => expect(opened?.status).toBe("open"));
 
   unmount();
-  expect(mockInvoke).toHaveBeenCalledWith("bin_close", { document: 1 });
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binClose, { document: 1 });
 });
 
 it("opens a game chunk outside a project in the game sandbox, read-only", async () => {
   render(<Open />, { wrapper: Queries });
 
   await waitFor(() =>
-    expect(mockInvoke).toHaveBeenCalledWith("bin_open", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binOpen, {
       sandbox: { kind: "game" },
       asset: ASSET,
       entry: "0x12345678",
@@ -202,7 +203,10 @@ it("opens a project's game bin read-only while it declares nothing, and takes ed
   act(() => useWorkshopEditorStore.getState().setUseDeclarations(PROJECT.path, true));
 
   await waitFor(() => expect(gate()).toBeNull());
-  expect(mockInvoke).toHaveBeenCalledWith("bin_set_declaring", { document: 1, declaring: "on" });
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binSetDeclaring, {
+    document: 1,
+    declaring: "on",
+  });
 });
 
 it("opens a project's game bin declaring when a layer already holds declarations", async () => {

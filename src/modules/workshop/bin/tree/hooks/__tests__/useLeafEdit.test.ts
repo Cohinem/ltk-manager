@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AssetRef, BinRow } from "@/lib/tauri";
 import { isEdit } from "@/test/binEdit";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 
 import { useLeafEdit } from "../useLeafEdit";
@@ -36,7 +37,7 @@ describe("useLeafEdit", () => {
     expect(landed).toBe(true);
     expect(reopen).toHaveBeenCalledOnce();
     expect(mockInvoke).toHaveBeenLastCalledWith(
-      "bin_edit",
+      commandNames.app.binEdit,
       expect.objectContaining({
         document: 9,
         edit: expect.objectContaining({ kind: "editProperty" }),

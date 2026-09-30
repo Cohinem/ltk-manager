@@ -9,7 +9,6 @@ use std::path::Path;
 use std::process::Command;
 use tauri::{AppHandle, Manager, State};
 
-use super::off_thread;
 use super::patcher::{start_patcher_inner, PatcherConfig};
 
 // ── Hotkey action implementations (called from shortcut callbacks) ──
@@ -148,18 +147,6 @@ fn set_hotkey_inner(
 
     persist_settings(app_handle, &s)?;
     Ok(())
-}
-
-/// Kill the League of Legends process, optionally stopping the patcher first.
-///
-/// Runs on a blocking thread rather than inline: stopping the patcher waits up
-/// to 5 s for the session thread to wind down, which would otherwise hold the
-/// IPC handler for the whole duration. Shares [`execute_kill_league`] with the
-/// hotkey path so the two cannot drift.
-#[tauri::command]
-#[specta::specta]
-pub async fn kill_league(app_handle: AppHandle) -> IpcResult<()> {
-    off_thread(move || execute_kill_league(&app_handle)).await
 }
 
 // ── Helpers ──

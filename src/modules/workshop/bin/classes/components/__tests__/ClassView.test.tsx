@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components";
 import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
 import { editCall, isEdit, landed, sentEdit } from "@/test/binEdit";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -186,13 +187,14 @@ beforeEach(() => {
   useRowBaselineStore.setState({ baselines: new Map() });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === "bin_read") {
+    if (command === commandNames.app.binRead) {
       const paths = (args?.paths ?? []) as string[];
       const answered = paths.map((path) => ELEMENTS[path] ?? FIELDS[path] ?? page([]));
       return Promise.resolve({ ok: true, value: answered });
     }
-    if (command === "locate_files_near") return Promise.resolve({ ok: true, value: {} });
-    if (command === "declared_objects") {
+    if (command === commandNames.app.locateFilesNear)
+      return Promise.resolve({ ok: true, value: {} });
+    if (command === commandNames.app.declaredObjects) {
       return Promise.resolve({
         ok: true,
         value: { index: { status: "ready" }, objects: {} },
@@ -245,7 +247,9 @@ describe("ClassView", () => {
     renderView();
 
     await waitFor(() => {
-      const reads = mockInvoke.mock.calls.filter(([command]) => command === "bin_read");
+      const reads = mockInvoke.mock.calls.filter(
+        ([command]) => command === commandNames.app.binRead,
+      );
       expect(reads).toHaveLength(2);
       const held = Object.keys(ELEMENTS).filter((path) => path !== nameHash("switches").slice(2));
       expect(reads[0]?.[1]).toMatchObject({ entry: ENTRY, paths: held.sort() });
@@ -316,7 +320,7 @@ describe("ClassView over a material whose shader answers", () => {
   beforeEach(() => {
     const read = mockInvoke.getMockImplementation();
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === "read_material_programs") {
+      if (command === commandNames.app.readMaterialPrograms) {
         return Promise.resolve({
           ok: true,
           value: [
@@ -339,7 +343,7 @@ describe("ClassView over a material whose shader answers", () => {
           ],
         });
       }
-      if (command === "bin_edit") return landed();
+      if (command === commandNames.app.binEdit) return landed();
       return read!(command, args);
     });
   });
@@ -471,7 +475,7 @@ describe("ClassView over a material whose shader answers", () => {
         power = 4;
         return landed();
       }
-      if (command === "bin_read") {
+      if (command === commandNames.app.binRead) {
         const paths = (args?.paths ?? []) as string[];
         const answered = paths.map((path) => {
           if (path !== PARAM_PATH) return ELEMENTS[path] ?? FIELDS[path] ?? page([]);

@@ -19,6 +19,7 @@ import type {
 } from "@/lib/tauri";
 import { useWorkshopLayoutStore } from "@/stores";
 import { editCall, isEdit, landed } from "@/test/binEdit";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -460,14 +461,16 @@ beforeEach(() => {
   useInspectorViewStore.setState({ definedOnly: false });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === "bin_read") {
+    if (command === commandNames.app.binRead) {
       const paths = (args?.paths ?? []) as string[];
       const pages = args?.entry === CHILD_ENTRY ? CHILD_PAGES : PAGES;
       return Promise.resolve({ ok: true, value: paths.map((path) => pages[path] ?? page([])) });
     }
-    if (command === "class_schema") return Promise.resolve({ ok: true, value: SCHEMA });
-    if (command === "locate_files_near") return Promise.resolve({ ok: true, value: {} });
-    if (command === "declared_objects") {
+    if (command === commandNames.app.classSchema)
+      return Promise.resolve({ ok: true, value: SCHEMA });
+    if (command === commandNames.app.locateFilesNear)
+      return Promise.resolve({ ok: true, value: {} });
+    if (command === commandNames.app.declaredObjects) {
       const hashes = (args?.objectHashes ?? []) as string[];
       const objects = Object.fromEntries(
         hashes.filter((hash) => hash in DECLARED).map((hash) => [hash, DECLARED[hash]]),
@@ -503,14 +506,14 @@ async function showCards(user: UserEvent) {
 /** Every path the projected read has asked for, in the order it asked. */
 function asked(): string[] {
   return mockInvoke.mock.calls
-    .filter(([command]) => command === "bin_read")
+    .filter(([command]) => command === commandNames.app.binRead)
     .flatMap(([, args]) => (args as { paths: string[] }).paths);
 }
 
 /** Every object hash the link checks have asked the index about, in the order asked. */
 function declaredAsked(): string[] {
   return mockInvoke.mock.calls
-    .filter(([command]) => command === "declared_objects")
+    .filter(([command]) => command === commandNames.app.declaredObjects)
     .flatMap(([, args]) => (args as { objectHashes: string[] }).objectHashes);
 }
 
@@ -606,7 +609,7 @@ describe("ClassView over a particle system", () => {
     };
     const read = mockInvoke.getMockImplementation()!;
     mockInvoke.mockImplementation((command, args) => {
-      if (command === "bin_declared") {
+      if (command === commandNames.app.binDeclared) {
         return Promise.resolve({ ok: true, value: declared });
       }
 
@@ -666,7 +669,7 @@ describe("ClassView over a particle system", () => {
       ],
     };
     mockInvoke.mockImplementation((command, args) => {
-      if (command === "bin_declared") {
+      if (command === commandNames.app.binDeclared) {
         return Promise.resolve({ ok: true, value: declared });
       }
 
@@ -697,7 +700,7 @@ describe("ClassView over a particle system", () => {
   it("patches an inspector leaf, refreshes its reads and queues the document save", async () => {
     const read = mockInvoke.getMockImplementation()!;
     mockInvoke.mockImplementation((command, args) => {
-      if (command === "bin_edit" || command === "bin_save") {
+      if (command === commandNames.app.binEdit || command === commandNames.app.binSave) {
         return Promise.resolve({ ok: true, value: null });
       }
 
@@ -721,9 +724,12 @@ describe("ClassView over a particle system", () => {
       ),
     );
     await waitFor(() => expect(asked().length).toBeGreaterThan(readsBefore));
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("bin_save", { document: 9 }), {
-      timeout: 2000,
-    });
+    await waitFor(
+      () => expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binSave, { document: 9 }),
+      {
+        timeout: 2000,
+      },
+    );
   });
 
   it("edits a value family's authored constant at its nested address", async () => {
@@ -753,7 +759,7 @@ describe("ClassView over a particle system", () => {
     let saved = false;
 
     mockInvoke.mockImplementation((command, args) => {
-      if (command === "class_schema") {
+      if (command === commandNames.app.classSchema) {
         return Promise.resolve({
           ok: true,
           value: {
@@ -786,11 +792,11 @@ describe("ClassView over a particle system", () => {
         return Promise.resolve({ ok: true, value: null });
       }
 
-      if (command === "bin_save") {
+      if (command === commandNames.app.binSave) {
         return Promise.resolve({ ok: true, value: null });
       }
 
-      if (command === "bin_read" && saved) {
+      if (command === commandNames.app.binRead && saved) {
         const paths = args?.paths as string[];
         return Promise.resolve({
           ok: true,
@@ -842,9 +848,12 @@ describe("ClassView over a particle system", () => {
     expect(rowOrder()).toEqual(orderBeforeEdit);
     expect(within(await fieldRow("period")).getByPlaceholderText("0")).toBe(period);
     expect(section("Emission")).toHaveAttribute("aria-expanded", "true");
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("bin_save", { document: 9 }), {
-      timeout: 2000,
-    });
+    await waitFor(
+      () => expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binSave, { document: 9 }),
+      {
+        timeout: 2000,
+      },
+    );
   });
 
   it("keeps a stable value mode control beside the editable constant", async () => {
@@ -881,7 +890,7 @@ describe("ClassView over a particle system", () => {
         return Promise.resolve({ ok: true, value: null });
       }
 
-      if (command === "bin_read" && constant) {
+      if (command === commandNames.app.binRead && constant) {
         const paths = (args?.paths ?? []) as string[];
         const constantRate = page([
           row(`${RATE}.${at("constantValue")}`, "constantValue", { type: "float", value: 3 }),
@@ -1218,7 +1227,7 @@ describe("ClassView over a particle system", () => {
     renderSystem();
 
     await screen.findAllByText("Glow");
-    const reads = mockInvoke.mock.calls.filter(([command]) => command === "bin_read");
+    const reads = mockInvoke.mock.calls.filter(([command]) => command === commandNames.app.binRead);
 
     expect(reads[0]?.[1]).toMatchObject({ entry: ENTRY, paths: [COMPLEX, SIMPLE].sort() });
     expect(reads[1]?.[1]).toMatchObject({ entry: ENTRY, paths: [GLOW, SPARKS, TRAIL].sort() });
@@ -1528,7 +1537,7 @@ describe("The shell frame", () => {
   it("collapses authored constructor values while leaving changed and unknown sections open", async () => {
     const read = mockInvoke.getMockImplementation()!;
     mockInvoke.mockImplementation((command, args) => {
-      if (command === "class_schema") {
+      if (command === commandNames.app.classSchema) {
         return Promise.resolve({
           ok: true,
           value: {
@@ -1600,7 +1609,7 @@ describe("The shell frame", () => {
   it("adds a field the emitter lacks from the action bar's add box", async () => {
     const base = mockInvoke.getMockImplementation();
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === "bin_choices") {
+      if (command === commandNames.app.binChoices) {
         const fields = [
           {
             hash: nameHash("scale0"),
@@ -1705,7 +1714,7 @@ describe("A child lane", () => {
     paneWidth = WIDE;
     const served = mockInvoke.getMockImplementation();
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) =>
-      command === "read_vfx_system"
+      command === commandNames.app.readVfxSystem
         ? Promise.resolve({ ok: true, value: RESOLVED })
         : served?.(command, args),
     );
@@ -1826,7 +1835,7 @@ describe("A child lane", () => {
 
     await waitFor(() => {
       const located = mockInvoke.mock.calls
-        .filter(([command]) => command === "locate_files_near")
+        .filter(([command]) => command === commandNames.app.locateFilesNear)
         .flatMap(([, args]) => (args as { paths: string[] }).paths);
       expect(located).toContain(CHILD_TEXTURE);
     });
@@ -1919,11 +1928,12 @@ describe("ClassView over sixty emitters", () => {
 
   function renderMany() {
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === "locate_files_near") return Promise.resolve({ ok: true, value: {} });
-      if (command === "declared_objects") {
+      if (command === commandNames.app.locateFilesNear)
+        return Promise.resolve({ ok: true, value: {} });
+      if (command === commandNames.app.declaredObjects) {
         return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects: {} } });
       }
-      if (command !== "bin_read") {
+      if (command !== commandNames.app.binRead) {
         return Promise.resolve({ ok: false, error: { code: "UNKNOWN", detail: command } });
       }
       const paths = (args?.paths ?? []) as string[];
@@ -1963,7 +1973,7 @@ describe("ClassView over sixty emitters", () => {
     await screen.findAllByText("Emitter0");
 
     const asked = mockInvoke.mock.calls
-      .filter(([command]) => command === "bin_read")
+      .filter(([command]) => command === commandNames.app.binRead)
       .map(([, args]) => (args as { paths: string[] }).paths)
       .filter((paths) => paths.every((path) => MANY.includes(path)));
 

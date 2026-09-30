@@ -17,7 +17,6 @@ use ltk_manager_core::utils::game::GameDir;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use super::mods::reject_if_patcher_running;
 use super::off_thread;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -298,7 +297,7 @@ pub(crate) fn stop_patcher_inner(state: &State<PatcherState>) -> AppResult<()> {
 pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
     let setup: AppResult<_> = (|| {
         let patcher = app_handle.state::<PatcherState>();
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = app_handle.state::<SettingsState>().config();
         let library = app_handle.state::<ModLibraryState>().0.clone();
         Ok((config, library))

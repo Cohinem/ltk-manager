@@ -6,6 +6,7 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { AssetInfo, AssetRef, WorkshopProject } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -64,7 +65,7 @@ function Providers({ children, links }: { children: ReactNode; links: LinkTarget
 
 function renderChip(path: string, sniffed?: AssetInfo) {
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "read_asset_info" && sniffed) {
+    if (command === commandNames.app.readAssetInfo && sniffed) {
       return Promise.resolve({ ok: true, value: sniffed });
     }
     return Promise.resolve({ ok: false, error: { code: "UNKNOWN" } });
@@ -89,7 +90,7 @@ describe("FileChip", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Texture preview" })).toBeInTheDocument();
     expect(screen.getByText("Aatrox")).toBeInTheDocument();
-    expect(mockInvoke).not.toHaveBeenCalledWith("read_asset_info", expect.anything());
+    expect(mockInvoke).not.toHaveBeenCalledWith(commandNames.app.readAssetInfo, expect.anything());
   });
 
   it("follows any other kind's chip with its badge and no swatch", () => {
@@ -111,7 +112,7 @@ describe("FileChip", () => {
     });
 
     expect(await screen.findByRole("button", { name: "Texture preview" })).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith("read_asset_info", expect.anything());
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.readAssetInfo, expect.anything());
   });
 
   it("badges a sniffed name by what the bytes say it is", async () => {

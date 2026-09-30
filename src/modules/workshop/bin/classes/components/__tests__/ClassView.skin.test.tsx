@@ -9,6 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { ToastProvider } from "@/components";
 import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
 import { useWorkshopLayoutStore } from "@/stores";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -284,7 +285,7 @@ beforeEach(() => {
   useWorkshopLayoutStore.setState({ openSections: {} });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === "bin_read") {
+    if (command === commandNames.app.binRead) {
       const entry = args?.entry as string;
       const paths = (args?.paths ?? []) as string[];
       return Promise.resolve({
@@ -292,7 +293,7 @@ beforeEach(() => {
         value: paths.map((path) => PAGES[`${entry}:${path}`] ?? page([])),
       });
     }
-    if (command === "locate_files_near") {
+    if (command === commandNames.app.locateFilesNear) {
       const paths = (args?.paths ?? []) as string[];
       const found = paths.filter((path) => path === SIMPLE_SKIN.toLowerCase());
       return Promise.resolve({
@@ -305,7 +306,7 @@ beforeEach(() => {
         ),
       });
     }
-    if (command === "declared_objects") {
+    if (command === commandNames.app.declaredObjects) {
       const hashes = (args?.objectHashes ?? []) as string[];
       const objects = Object.fromEntries(
         hashes.filter((hash) => hash in DECLARED).map((hash) => [hash, DECLARED[hash]]),
@@ -494,11 +495,13 @@ describe("ClassView over a skin", () => {
 
     await screen.findByRole("button", { name: SYSTEM_PATH });
     const entries = mockInvoke.mock.calls
-      .filter(([command]) => command === "bin_read")
+      .filter(([command]) => command === commandNames.app.binRead)
       .map(([, args]) => (args as { entry: string }).entry);
 
     expect(new Set(entries)).toEqual(new Set([ENTRY, RESOLVER]));
-    expect(mockInvoke.mock.calls.some(([command]) => command === "bin_open")).toBe(false);
+    expect(mockInvoke.mock.calls.some(([command]) => command === commandNames.app.binOpen)).toBe(
+      false,
+    );
   });
 });
 

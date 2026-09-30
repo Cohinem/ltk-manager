@@ -11,6 +11,7 @@ import type { Hint, Incident, PatcherPhase } from "@/lib/tauri";
 import { createMockIncident } from "@/modules/diagnostics/components/__tests__/fixtures";
 import { usePatcherStatus } from "@/modules/patcher";
 import { useInstallMismatchStore, usePendingRebuildStore } from "@/stores";
+import { commandNames } from "@/test/commandNames";
 import { createMockSettings } from "@/test/fixtures";
 import { mockInvoke, mockListen } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -57,13 +58,13 @@ function Listeners() {
 
 function mockPatcher(phase: PatcherPhase) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === "get_patcher_status") {
+    if (cmd === commandNames.app.getPatcherStatus) {
       return Promise.resolve({
         ok: true,
         value: { running: phase !== "idle", phase, session: null },
       });
     }
-    if (cmd === "get_settings") {
+    if (cmd === commandNames.app.getSettings) {
       return Promise.resolve({
         ok: true,
         value: createMockSettings({ leaguePath: "C:\\Riot Games\\League of Legends (PBE)" }),
@@ -112,7 +113,7 @@ describe("useIncidentListeners", () => {
     expect(screen.getByRole("button", { name: "Details" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Rebuild overlay" }));
 
-    await waitFor(() => expect(invokedCommands()).toContain("rebuild_overlay"));
+    await waitFor(() => expect(invokedCommands()).toContain(commandNames.app.rebuildOverlay));
     expect(usePendingRebuildStore.getState().queued).toBe(false);
   });
 
@@ -126,7 +127,7 @@ describe("useIncidentListeners", () => {
     await userEvent.click(screen.getByRole("button", { name: "Rebuild on next start" }));
 
     expect(usePendingRebuildStore.getState().queued).toBe(true);
-    expect(invokedCommands()).not.toContain("rebuild_overlay");
+    expect(invokedCommands()).not.toContain(commandNames.app.rebuildOverlay);
   });
 
   /// The log is the backstop for a client that did not answer, so the verdict

@@ -24,6 +24,7 @@ import type {
 import { DocumentToolbarSlotContext } from "@/modules/editor";
 import { useWorkshopEditorStore } from "@/modules/workshop/shell/state/workshopEditor";
 import { useWorkshopLayoutStore } from "@/stores/workshopLayout";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -252,9 +253,10 @@ type Envelope<T> = { ok: true; value: T } | { ok: false; error: AppError };
  */
 function mockBackend(analyzed: Envelope<Run>) {
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "analyze_project") return Promise.resolve(analyzed);
+    if (command === commandNames.app.analyzeProject) return Promise.resolve(analyzed);
     if (command === "fix_runs") return Promise.resolve({ ok: true, value: [] });
-    if (command === "fix_problems") return Promise.resolve({ ok: true, value: FIX_REPORT });
+    if (command === commandNames.app.fixProblems)
+      return Promise.resolve({ ok: true, value: FIX_REPORT });
     if (command === "undo_fix_run") return Promise.resolve({ ok: true, value: null });
     return Promise.resolve({ ok: true, value: null });
   });
@@ -780,7 +782,9 @@ describe("ProblemsDocument", () => {
       screen.getByRole("button", { name: `Fix every problem in ${SKIN0_OBJECT}` }),
     );
 
-    const fixes = mockInvoke.mock.calls.filter(([command]) => command === "fix_problems");
+    const fixes = mockInvoke.mock.calls.filter(
+      ([command]) => command === commandNames.app.fixProblems,
+    );
     expect(fixes).toHaveLength(1);
     expect(fixes[0][1]).toEqual({
       projectPath: PROJECT.path,
@@ -796,7 +800,9 @@ describe("ProblemsDocument", () => {
     await userEvent.type(filter(), "iconAvatar");
     await userEvent.click(screen.getByRole("button", { name: "Fix this problem" }));
 
-    const fixes = mockInvoke.mock.calls.filter(([command]) => command === "fix_problems");
+    const fixes = mockInvoke.mock.calls.filter(
+      ([command]) => command === commandNames.app.fixProblems,
+    );
     expect(fixes).toHaveLength(1);
     expect(fixes[0][1]).toEqual({
       projectPath: PROJECT.path,
@@ -908,7 +914,9 @@ describe("ProblemsDocument", () => {
       renderPanel();
 
       await skin0Group();
-      const runs = mockInvoke.mock.calls.filter(([command]) => command === "analyze_project");
+      const runs = mockInvoke.mock.calls.filter(
+        ([command]) => command === commandNames.app.analyzeProject,
+      );
       expect(runs).toHaveLength(1);
     });
 

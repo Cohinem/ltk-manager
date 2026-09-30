@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { InstalledMod } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { createMockInstalledMod } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 
@@ -44,7 +45,7 @@ describe("useSetModStorage", () => {
     result.current.mutate({ modId: "test-mod-id", storage: "archive" });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(mockInvoke).toHaveBeenCalledWith("set_mod_storage", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.library.setModStorage, {
       modId: "test-mod-id",
       storage: "archive",
     });
@@ -76,7 +77,7 @@ describe("useSetModStorage", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(invalidate).toHaveBeenCalledWith({ queryKey: libraryKeys.mods(), exact: true });
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: libraryKeys.wadReport("test-mod-id"),
+      queryKey: libraryKeys.wadReports(),
     });
   });
 

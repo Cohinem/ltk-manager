@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Incident, Suspect } from "@/lib/tauri";
 import { useIncidentLineStore } from "@/stores";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -77,7 +78,8 @@ function incident(id: string, overrides?: Partial<Incident>): Incident {
 /** The backend lists newest first, so the order given here is the order kept. */
 function mockIncidents(incidents: Incident[]) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === "list_incidents") return Promise.resolve({ ok: true, value: incidents });
+    if (cmd === commandNames.app.listIncidents)
+      return Promise.resolve({ ok: true, value: incidents });
     return Promise.resolve({ ok: true, value: null });
   });
 }

@@ -6,6 +6,7 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { AssetRef, BinRow, DeclaredObjects } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -123,8 +124,10 @@ const LOCATED: Record<string, AssetRef> = {
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "declared_objects") return Promise.resolve({ ok: true, value: DECLARED });
-    if (command === "locate_files_near") return Promise.resolve({ ok: true, value: LOCATED });
+    if (command === commandNames.app.declaredObjects)
+      return Promise.resolve({ ok: true, value: DECLARED });
+    if (command === commandNames.app.locateFilesNear)
+      return Promise.resolve({ ok: true, value: LOCATED });
     return Promise.resolve({ ok: false, error: { code: "UNKNOWN" } });
   });
 });
@@ -137,16 +140,19 @@ describe("useCheckLinkTargets", () => {
     await waitFor(() => expect(result.current.pending).toBe(false));
 
     const declaredCalls = mockInvoke.mock.calls.filter(
-      ([command]) => command === "declared_objects",
+      ([command]) => command === commandNames.app.declaredObjects,
     );
     expect(declaredCalls).toEqual([
-      ["declared_objects", { sandbox: IN_PROJECT, objectHashes: linkHashes(ROOTS), document: 7 }],
+      [
+        commandNames.app.declaredObjects,
+        { sandbox: IN_PROJECT, objectHashes: linkHashes(ROOTS), document: 7 },
+      ],
     ]);
     const locatedCalls = mockInvoke.mock.calls.filter(
-      ([command]) => command === "locate_files_near",
+      ([command]) => command === commandNames.app.locateFilesNear,
     );
     expect(locatedCalls).toEqual([
-      ["locate_files_near", { sandbox: IN_PROJECT, paths: linkPaths(ROOTS) }],
+      [commandNames.app.locateFilesNear, { sandbox: IN_PROJECT, paths: linkPaths(ROOTS) }],
     ]);
 
     expect(result.current.index).toEqual({ status: "ready" });
@@ -166,7 +172,7 @@ describe("useCheckLinkTargets", () => {
     });
 
     await waitFor(() => expect(result.current.pending).toBe(false));
-    expect(mockInvoke).toHaveBeenCalledWith("locate_files_near", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.locateFilesNear, {
       sandbox: { kind: "game" },
       paths: linkPaths(ROOTS),
     });
@@ -174,7 +180,7 @@ describe("useCheckLinkTargets", () => {
 
   it("answers a group's string-table keys with their in-game lines, outside pending", async () => {
     mockInvoke.mockImplementation((command: string) => {
-      if (command === "lookup_string_values") {
+      if (command === commandNames.app.lookupStringValues) {
         return Promise.resolve({ ok: true, value: { hud_Chat_Party: "Party" } });
       }
       return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects: {} } });
@@ -184,7 +190,7 @@ describe("useCheckLinkTargets", () => {
 
     await waitFor(() => expect(result.current.strings.get("hud_Chat_Party")).toBe("Party"));
     expect(result.current.strings.has("hud_Chat_Team")).toBe(false);
-    expect(mockInvoke).toHaveBeenCalledWith("lookup_string_values", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.lookupStringValues, {
       keys: ["hud_Chat_Party", "hud_Chat_Team"],
     });
   });

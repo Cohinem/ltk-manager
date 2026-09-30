@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { InstalledMod } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { createMockInstalledMod } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 
@@ -182,7 +183,7 @@ describe("useModCardController reveal", () => {
 
     await act(async () => view.current.onOpenLocation());
 
-    expect(mockInvoke).toHaveBeenCalledWith("reveal_in_explorer", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.revealInExplorer, {
       path: "/storage/mods/test-mod",
     });
   });

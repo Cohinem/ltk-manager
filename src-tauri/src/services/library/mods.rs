@@ -1,11 +1,11 @@
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult, Utf8PathExt};
 use crate::mods::{
-    inspect_modpkg_file, with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope,
-    ExportShape, ExportSummary, InstalledMod, ModDocument, ModLibraryState, ModStorage,
-    ModWadReport, ModpkgInfo, WadReportState,
+    with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope, ExportShape,
+    ExportSummary, InstalledMod, ModDocument, ModLibraryState, ModStorage, ModWadReport,
+    WadReportState,
 };
-use crate::patcher::{PatcherError, PatcherState};
+use crate::patcher::PatcherState;
 use crate::state::SettingsState;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -33,7 +33,7 @@ pub fn install_mod(
     patcher: State<PatcherState>,
 ) -> IpcResult<InstalledMod> {
     let result: AppResult<InstalledMod> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         let installed = library.0.install_mod_from_package(&config, &file_path)?;
         library
@@ -57,7 +57,7 @@ pub fn install_mods(
     patcher: State<PatcherState>,
 ) -> IpcResult<BulkInstallResult> {
     let result: AppResult<BulkInstallResult> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         let result = library.0.install_mods_from_packages(&config, &file_paths)?;
         let ids: Vec<String> = result.installed.iter().map(|m| m.id.clone()).collect();
@@ -78,7 +78,7 @@ pub async fn update_mod(
 ) -> IpcResult<InstalledMod> {
     let setup: AppResult<_> = (|| {
         let patcher = app_handle.state::<PatcherState>();
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = app_handle.state::<SettingsState>().config();
         let library = app_handle.state::<ModLibraryState>().0.clone();
         Ok((config, library))
@@ -106,7 +106,7 @@ pub fn uninstall_mod(
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         library.0.uninstall_mod_by_id(&config, &mod_id)
     })();
@@ -124,7 +124,7 @@ pub fn toggle_mod(
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         library.0.toggle_mod_enabled(&config, &mod_id, enabled)
     })();
@@ -141,7 +141,7 @@ pub fn reorder_mods(
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         library.0.reorder_mods(&config, mod_ids)
     })();
@@ -159,7 +159,7 @@ pub fn set_mod_layers(
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         library.0.set_mod_layers(&config, &mod_id, layer_states)
     })();
@@ -177,7 +177,7 @@ pub fn enable_mod_with_layers(
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         library
             .0
@@ -215,7 +215,7 @@ pub async fn set_mod_storage(
 ) -> IpcResult<InstalledMod> {
     let setup: AppResult<_> = (|| {
         let patcher = app_handle.state::<PatcherState>();
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = app_handle.state::<SettingsState>().config();
         let library = app_handle.state::<ModLibraryState>().0.clone();
         Ok((config, library))
@@ -257,13 +257,6 @@ pub async fn export_mods(
         library.export_mods(&config, scope, shape, &destination)
     })
     .await
-}
-
-/// Inspect a `.modpkg` file and return its metadata.
-#[tauri::command]
-#[specta::specta]
-pub fn inspect_modpkg(file_path: String) -> IpcResult<ModpkgInfo> {
-    inspect_modpkg_file(&file_path).into()
 }
 
 /// Get a mod's cached thumbnail path, extracting from the archive on first access.
@@ -335,20 +328,6 @@ pub fn get_storage_directory(
     result.into()
 }
 
-/// Get the cached WAD footprint report for a single mod, if one exists.
-///
-/// Returns `null` when the mod has never been analyzed nor included in a
-/// successful patch run. Reports include an `is_stale` flag computed at read
-/// time against the most recently observed game-index fingerprint.
-#[tauri::command]
-#[specta::specta]
-pub fn get_mod_wad_report(
-    mod_id: String,
-    reports: State<Arc<WadReportState>>,
-) -> IpcResult<Option<ModWadReport>> {
-    IpcResult::ok(reports.0.lock().get(&mod_id))
-}
-
 /// Get all cached WAD footprint reports in a single batch. Returns a map of
 /// mod id → report. Far cheaper than one IPC call per mod.
 #[tauri::command]
@@ -398,12 +377,4 @@ pub fn analyze_mod_wads(
         Ok(store.get(&report.mod_id).unwrap_or(report))
     })();
     result.into()
-}
-
-/// Reject the operation if the patcher is currently running.
-pub(super) fn reject_if_patcher_running(patcher: &State<PatcherState>) -> AppResult<()> {
-    if patcher.is_running() {
-        return Err(PatcherError::Busy.into());
-    }
-    Ok(())
 }
