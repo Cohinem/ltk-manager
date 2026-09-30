@@ -17,6 +17,8 @@ const fn named(name: &str) -> BinHash {
 
 pub(super) const PATH_HASH_TO_SELF: BinHash = named("PathHashToSelf");
 pub(super) const BASE_LOADABLE: BinHash = named("BaseLoadable");
+/// The field a `LogicDriverViewController` and a few others link their base through.
+pub(super) const LOADABLE: BinHash = named("Loadable");
 pub(super) const FILEPATH_HASH: BinHash = named("FilepathHash");
 pub(super) const PROPERTY_LOADABLE: BinHash = named("UiPropertyLoadable");
 pub(super) const OVERRIDE_LOADABLE: BinHash = named("UiPropertyOverrideLoadable");
@@ -204,6 +206,15 @@ pub(super) const DIRECTIONAL_TIPS: BinHash = named("DirectionalTipElements");
 pub(super) const REVERSE_DIRECTIONAL_TIPS: BinHash = named("ReverseDirectionalTipElements");
 pub(super) const SLIVER: BinHash = named("Sliver");
 pub(super) const GLOW_CENTER: BinHash = BinHash(0xcc4c_6d1d);
+
+/// The unnamed struct a controller names a template, the managed layout its copies fill and how
+/// many it makes with, as the player frame's buff rows do.
+pub(super) const LAYOUT_FILL: BinHash = BinHash(0x3427_0fce);
+pub(super) const FILL_TEMPLATE: BinHash = BinHash(0x6258_0dd4);
+/// The template struct's field naming the group it clones.
+pub(super) const FILL_TEMPLATE_GROUP: BinHash = BinHash(0x5fb9_1e8c);
+pub(super) const FILL_LAYOUT: BinHash = BinHash(0xcac1_7cff);
+pub(super) const FILL_COUNT: BinHash = BinHash(0xd829_fd95);
 
 pub(super) const COMBO_BOX: BinHash = named("UiComboBoxDefinition");
 pub(super) const COMBO_BUTTON: BinHash = named("buttonDefinition");

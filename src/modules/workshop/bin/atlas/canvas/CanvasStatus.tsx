@@ -6,8 +6,10 @@ import type { ReadOnly } from "@/lib/tauri";
 
 import { KeyHint } from "../components/KeyHint";
 import { ReadOnlyNote } from "../components/ReadOnlyNote";
-import type { ResizeBlock } from "../engine/edit/targets";
+import { type ResizeBlock, resizeBlock } from "../engine/edit/targets";
 import type { PixelRect } from "../engine/layout/solve";
+import type { ViewTree } from "../engine/model/tree";
+import type { AtlasEdit } from "../state/atlasEdit";
 import { usePointer } from "../state/atlasPreview";
 import { CANVAS_KEYS } from "./canvasKeys";
 import { CanvasShortcuts } from "./CanvasShortcuts";
@@ -169,4 +171,15 @@ function blockHint(block: ResizeBlock | null): string {
 
 function round(value: number): number {
   return Math.round(value * 10) / 10;
+}
+
+/** How the canvas takes edits, for the status strip. */
+export function editingOf(
+  edit: AtlasEdit | null,
+  tree: ViewTree,
+  selection: readonly string[],
+): CanvasEditing {
+  if (edit === null || edit.scene === null) return { kind: "none" };
+  if (!edit.editable) return { kind: "readOnly", reason: edit.readOnly };
+  return { kind: "edit", block: resizeBlock(tree, selection), selected: selection.length > 0 };
 }

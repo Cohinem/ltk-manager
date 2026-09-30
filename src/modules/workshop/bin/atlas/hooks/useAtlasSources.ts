@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { ClampToEdgeWrapping, NoColorSpace, type Texture } from "three";
 
 import type { AppError, AssetRef, BinDocumentId, UiShader } from "@/lib/tauri";
-import { type ReadyProgram, useAssetTextures } from "@/modules/viewport";
+import { type ReadyProgram, type TextureProgress, useAssetTextures } from "@/modules/viewport";
 import { usePreviewShaders } from "@/stores";
 
 import { FRAME_SHADERS, uiQueries } from "../api/uiQueries";
@@ -77,6 +77,13 @@ export function useUiPrograms(document: BinDocumentId | null): ReadonlyMap<UiSha
   }, [enabled, reads]);
 }
 
+/** Whether the UI programs have answered, or are switched off and never will. */
+export function useUiProgramsSettled(document: BinDocumentId | null): boolean {
+  const enabled = usePreviewShaders();
+  const { isPending } = useQuery({ ...uiQueries.programs(document), enabled });
+  return !enabled || !isPending;
+}
+
 /** A page's or a sheet's texels as the client samples them: no decoding, clamped. */
 const RAW_TEXTURES = { colorSpace: NoColorSpace, wrap: ClampToEdgeWrapping } as const;
 
@@ -87,8 +94,11 @@ export interface UiTextures {
   readonly sizes: ReadonlyMap<number, readonly [number, number]>;
 }
 
-/** The view's pages and sheets on the GPU, each as it lands. */
-export function useUiTextures(view: View | null): UiTextures {
+/** The view's pages and sheets on the GPU, each as it lands, with `report` told the progress. */
+export function useUiTextures(
+  view: View | null,
+  report?: (load: TextureProgress) => void,
+): UiTextures {
   const assets = useMemo(() => {
     const located = new Map<string, AssetRef>();
     view?.textures.forEach((texture, at) => {
@@ -96,7 +106,7 @@ export function useUiTextures(view: View | null): UiTextures {
     });
     return located;
   }, [view]);
-  const loaded = useAssetTextures(assets, RAW_TEXTURES);
+  const loaded = useAssetTextures(assets, { ...RAW_TEXTURES, report });
 
   return useMemo(() => {
     const textures = new Map<number, Texture>();

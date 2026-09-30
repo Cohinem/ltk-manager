@@ -15,6 +15,8 @@ import {
   PlayIcon,
   ProhibitIcon,
   ProhibitInsetIcon,
+  SparkleIcon,
+  StackIcon,
   TextAaIcon,
 } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
@@ -65,11 +67,13 @@ const LIVE_STEP = 0.01;
 /**
  * The preview's toolbar, the second row of the Atlas tab: interact mode, which plays the view's
  * widgets under the pointer in place of editing it, the screen menu, the safe zone, the
- * elements the view rests with off, sample content for what the controller fills, the state every
- * button draws, and the effects' progress and clock. Each icon's tooltip names its canvas key.
+ * elements the view rests with off, whether effects draw, sample content for what the controller
+ * fills, whether the scenes stack on one screen, the state every button draws, and the effects'
+ * progress and clock. Each icon's tooltip names its canvas key.
  */
 export function CanvasToolbar() {
-  const { interact, safeZone, showDisabled, samples, live, playing } = useFrameSettings();
+  const { interact, safeZone, showDisabled, effects, samples, stackScenes, live, playing } =
+    useFrameSettings();
   const actions = useAtlasPreviewActions();
   const Clock = playing ? PauseIcon : PlayIcon;
   const clockLabel = playing
@@ -108,11 +112,25 @@ export function CanvasToolbar() {
         onToggle={actions.toggleShowDisabled}
       />
       <ToggleTool
+        label={m.workshop_bin_atlas_effects_label()}
+        shortcut={PREVIEW_KEYS.effects}
+        on={effects}
+        icon={<SparkleIcon weight="bold" className="h-4 w-4" />}
+        onToggle={actions.toggleEffects}
+      />
+      <ToggleTool
         label={m.workshop_bin_atlas_samples_label()}
         shortcut={PREVIEW_KEYS.samples}
         on={samples}
         icon={<TextAaIcon weight="bold" className="h-4 w-4" />}
         onToggle={actions.toggleSamples}
+      />
+      <ToggleTool
+        label={m.workshop_bin_atlas_stack_scenes_label()}
+        shortcut={PREVIEW_KEYS.stackScenes}
+        on={stackScenes}
+        icon={<StackIcon weight="bold" className="h-4 w-4" />}
+        onToggle={actions.toggleStackScenes}
       />
       <Divider />
       <ButtonStateMenu />

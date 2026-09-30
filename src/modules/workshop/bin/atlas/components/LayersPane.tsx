@@ -24,9 +24,16 @@ import { iconThumb } from "../engine/model/sprites";
 import { variantPatched } from "../engine/model/variants";
 import { useAtlasView } from "../hooks/useAtlasSources";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
-import { useAtlasPreviewActions, useHovered, useViewPreview, viewKey } from "../state/atlasPreview";
+import {
+  useAtlasPreviewActions,
+  useFrameSettings,
+  useHovered,
+  useViewPreview,
+  viewKey,
+} from "../state/atlasPreview";
 import { ElementMenu } from "./ElementMenu";
 import { LayerRowView } from "./LayerRow";
+import { SceneMenu } from "./SceneMenu";
 
 const NONE: ReadonlySet<string> = new Set();
 
@@ -40,26 +47,35 @@ export interface LayersPaneProps {
  *
  * A search box over the tree narrows it to the elements whose name, path or class holds the text,
  * with every scene and group above one unfolded. An eye switches a scene against its resting
- * state in the preview (`hiddenScenesOf`), which the file never hears of, and a dot marks the
- * scenes the file enables itself.
+ * state in the preview (`hiddenScenesOf`) or hides an element, which the file never hears of, a
+ * dot marks the scenes the file enables itself, and an effect row dims while effects are off.
  *
  * The tree is one tab stop: Up and Down walk the rows, Right opens a fold or steps into it, Left
  * closes it or steps out to its parent, Enter or Space selects the row, F frames it, Ctrl+F returns
  * to the box, Ctrl+A selects every element the search finds, and Escape lets go. A click with
  * Ctrl, Shift or Cmd adds a row to the selection, a double click frames it, and a right click
- * selects it and opens its menu. A pick on the canvas unfolds the tree to its row. The rows are
+ * selects it and opens its menu, a scene's being `SceneMenu`. A pick on the canvas unfolds the tree to its row. The rows are
  * virtual, since the item shop holds two thousand elements.
  */
 export function LayersPane({ document, entry }: LayersPaneProps) {
   const { tree, error, pending } = useAtlasView(document, entry);
   const key = viewKey(document, entry);
-  const { selected, selection } = useViewPreview(key);
+  const { selected, selection, hiddenElements } = useViewPreview(key);
+  const { effects } = useFrameSettings();
   const chosen = useMemo(() => new Set(selection), [selection]);
   const hiddenScenes = useHiddenScenes(tree, key);
   const hovered = useHovered();
-  const { toggleScene, select, toggleSelected, setSelection, setHovered, requestFrame } =
-    useAtlasPreviewActions();
+  const {
+    toggleScene,
+    toggleElement,
+    select,
+    toggleSelected,
+    setSelection,
+    setHovered,
+    requestFrame,
+  } = useAtlasPreviewActions();
   const [menuElement, setMenuElement] = useState<string | null>(null);
+  const [menuScene, setMenuScene] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
   const matches = useMemo(() => (tree === null ? null : layerMatches(tree, query)), [tree, query]);
@@ -233,7 +249,10 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
           className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5 text-row outline-none scrollbar-md"
           onKeyDown={handleKeyDown}
           onPointerLeave={() => setHovered(null)}
-          onContextMenuCapture={() => setMenuElement(null)}
+          onContextMenuCapture={() => {
+            setMenuElement(null);
+            setMenuScene(null);
+          }}
         >
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((virtual) => {
@@ -251,7 +270,14 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
                     row={row}
                     query={query}
                     thumb={row.type === "element" ? iconThumb(tree, row.key) : null}
-                    hidden={row.type === "scene" && hiddenScenes.has(row.key)}
+                    hidden={
+                      row.type === "scene" ? hiddenScenes.has(row.key) : hiddenElements.has(row.key)
+                    }
+                    dimmed={
+                      row.type === "element" &&
+                      !effects &&
+                      (row.kind === "effect" || row.kind === "particle")
+                    }
                     patched={row.type === "element" && patched.has(row.key)}
                     selected={row.type === "element" && chosen.has(row.key)}
                     hovered={row.type === "element" && row.key === hovered}
@@ -259,12 +285,17 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
                     onFold={() => toggleOpen(row)}
                     onActivate={(additive) => act(row, additive)}
                     onHover={() => setHovered(row.type === "element" ? row.key : null)}
-                    onHide={() => toggleScene(key, row.key)}
+                    onHide={() =>
+                      row.type === "scene" ? toggleScene(key, row.key) : toggleElement(key, row.key)
+                    }
                     onFrame={() => {
                       if (row.type === "element") requestFrame(key, row.key);
                     }}
                     onMenu={() => {
-                      if (row.type !== "element") return;
+                      if (row.type !== "element") {
+                        setMenuScene(row.key);
+                        return;
+                      }
                       setMenuElement(row.key);
                       if (!chosen.has(row.key)) select(key, row.key);
                     }}
@@ -274,7 +305,10 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
             })}
           </div>
         </ContextMenu.Trigger>
-        <ElementMenu document={document} entry={entry} element={menuElement} />
+        {menuScene === null && (
+          <ElementMenu document={document} entry={entry} element={menuElement} />
+        )}
+        {menuScene !== null && <SceneMenu document={document} entry={entry} scene={menuScene} />}
       </ContextMenu.Root>
     </div>
   );

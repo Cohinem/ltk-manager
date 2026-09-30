@@ -36,8 +36,23 @@ pub struct UiView {
     pub fonts: Vec<UiFont>,
     /// Every style sheet a text names, which a text indexes.
     pub style_sheets: Vec<UiStyleSheet>,
+    /// The templates the controller clones into its layouts at run time.
+    pub repeats: Vec<UiRepeat>,
     /// Every reference the read could not follow.
     pub warnings: Vec<UiViewWarning>,
+}
+
+/// A template group the controller clones into a managed layout, as its fields name it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct UiRepeat {
+    /// The template, as `0x` and eight digits.
+    pub template: String,
+    /// The group whose managed layout the copies fill.
+    pub layout: String,
+    /// How many copies the controller makes at most.
+    pub count: u32,
 }
 
 /// One loadable a controller links.
@@ -565,8 +580,11 @@ pub enum UiEffect {
 )]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum UiViewWarning {
-    /// The controller links no `BaseLoadable`.
+    /// The controller links no `BaseLoadable` or `Loadable`.
     NoBase,
+    /// The base loadable is declared in another bin, which the object index finds once it is
+    /// built.
+    BaseElsewhere { entry: String },
     /// A loadable's chunk is on no layer and in no archive.
     MissingFile { path: String },
     /// A file is there and does not parse as a bin or a manifest.

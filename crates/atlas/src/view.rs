@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use ltk_hash::{BinHash, WadHash};
 use ltk_manager_core::bin_document::{
-    AssetLookup, BinDocument, Namer, RowNames, fields_of, hex, leaf, link, text,
+    AssetLookup, BinDocument, GameCopy, Namer, RowNames, fields_of, hex, leaf, link, text,
 };
 use ltk_manager_core::error::AppResult;
 use ltk_manager_core::preview::AssetRef;
@@ -17,8 +17,8 @@ use super::fields::*;
 use super::font::{FONTS_PATH, FontBins};
 use super::imaa::Manifest;
 use super::model::{
-    UiComboBox, UiElement, UiFile, UiFileRole, UiScene, UiVariant, UiVariantRecord, UiView,
-    UiViewWarning,
+    UiComboBox, UiElement, UiFile, UiFileRole, UiRepeat, UiScene, UiVariant, UiVariantRecord,
+    UiView, UiViewWarning,
 };
 use super::resolver::{self, ViewResolver, chunk, file_hash, flag, number, position};
 use super::sprite_key;
@@ -49,11 +49,13 @@ pub struct VariantChoice<'a> {
 ///
 /// `scene` is the base scene bin where it is open, so the view draws its edits before they are
 /// saved. Without it the base is read through `read`. `variant` names a variant to lay over the
-/// base, as the client lays a switched-on override.
+/// base, as the client lays a switched-on override. A base loadable another bin declares is read
+/// from the chunk `game` answers for it.
 ///
 /// # Errors
 ///
 /// Fails with [`UiViewError::NoObject`] when `document` has no object at `entry`.
+#[allow(clippy::too_many_arguments)]
 pub fn resolve_view(
     document: &BinDocument,
     entry: BinHash,
@@ -61,6 +63,7 @@ pub fn resolve_view(
     variant: Option<VariantChoice<'_>>,
     names: &dyn RowNames,
     assets: &dyn AssetLookup,
+    game: &dyn GameCopy,
     read: &mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>,
 ) -> Result<UiView, UiViewError> {
     let object = document
@@ -72,10 +75,23 @@ pub fn resolve_view(
     let (controller, base) = if object.class_hash == PROPERTY_LOADABLE {
         (controller_of(document, entry), Some(entry))
     } else {
-        (Some(object), link(object.properties.get(&BASE_LOADABLE)))
+        (Some(object), base_link(object))
+    };
+    let elsewhere = match base {
+        Some(base) if controller.is_some() && document.object_at(base).is_none() => {
+            declaring_bin(base, game, &mut warnings)
+        }
+        _ => None,
     };
     let files = match controller {
-        Some(controller) => loadables(document, controller, base, &mut namer, assets),
+        Some(controller) => loadables(
+            document,
+            elsewhere.as_ref(),
+            controller,
+            base,
+            &mut namer,
+            assets,
+        ),
         None => own_file(object, entry, &mut namer, assets)
             .into_iter()
             .collect(),
@@ -92,7 +108,12 @@ pub fn resolve_view(
             read_base.as_ref()
         }
         None => {
-            warnings.push(UiViewWarning::NoBase);
+            let unreached = warnings
+                .iter()
+                .any(|warning| matches!(warning, UiViewWarning::BaseElsewhere { .. }));
+            if !unreached {
+                warnings.push(UiViewWarning::NoBase);
+            }
             None
         }
     };
@@ -125,6 +146,9 @@ pub fn resolve_view(
         class: namer
             .class(object.class_hash)
             .unwrap_or_else(|| hex(object.class_hash)),
+        repeats: controller
+            .map(|controller| resolver::repeats(&controller.properties))
+            .unwrap_or_default(),
     };
     Ok(assemble(
         head,
@@ -175,6 +199,7 @@ pub fn resolve_scene_bin(
         class: namer
             .class(object.class_hash)
             .unwrap_or_else(|| hex(object.class_hash)),
+        repeats: Vec::new(),
     };
     Ok(assemble(
         head,
@@ -189,11 +214,12 @@ pub fn resolve_scene_bin(
     ))
 }
 
-/// What a view is named for: the object it was read for.
+/// What a view is named for: the object it was read for, and what its controller clones.
 struct ViewHead {
     entry: BinHash,
     name: Option<String>,
     class: String,
+    repeats: Vec<UiRepeat>,
 }
 
 /// The view the base's `objects` draw: its scenes and elements resolved against the manifest
@@ -267,6 +293,7 @@ fn assemble(
         textures: resolver.textures,
         fonts: resolver.fonts,
         style_sheets: resolver.style_sheets,
+        repeats: head.repeats,
         warnings,
     }
 }
@@ -309,9 +336,45 @@ fn folder_of(path: &str) -> Option<u64> {
     Some(sprite_key(folder))
 }
 
-/// Every loadable the controller links, `base` first and the rest in field order.
+/// The loadable a controller draws as its base: its `BaseLoadable`, else its `Loadable`.
+fn base_link(controller: &BinObject) -> Option<BinHash> {
+    link(controller.properties.get(&BASE_LOADABLE))
+        .or_else(|| link(controller.properties.get(&LOADABLE)))
+}
+
+/// The bin `game` answers as declaring `entry`, a base loadable the controller's own bin does
+/// not hold, with a warning where it answers none or the bin cannot be read.
+fn declaring_bin(
+    entry: BinHash,
+    game: &dyn GameCopy,
+    warnings: &mut Vec<UiViewWarning>,
+) -> Option<BinDocument> {
+    let unreadable = |reason: String| UiViewWarning::UnreadableFile {
+        path: hex(entry),
+        reason,
+    };
+    let bytes = match game.declaring_chunk(entry) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) => {
+            warnings.push(UiViewWarning::BaseElsewhere { entry: hex(entry) });
+            return None;
+        }
+        Err(e) => {
+            warnings.push(unreadable(e.to_string()));
+            return None;
+        }
+    };
+
+    BinDocument::parse(bytes)
+        .inspect_err(|e| warnings.push(unreadable(e.to_string())))
+        .ok()
+}
+
+/// Every loadable the controller links, `base` first and the rest in field order. A link
+/// `document` does not hold is looked up in `elsewhere`, the bin declaring the base.
 fn loadables(
     document: &BinDocument,
+    elsewhere: Option<&BinDocument>,
     controller: &BinObject,
     base: Option<BinHash>,
     namer: &mut Namer<'_>,
@@ -322,7 +385,9 @@ fn loadables(
         .iter()
         .filter_map(|(field, value)| {
             let target = link(Some(value))?;
-            let loadable = document.object_at(target)?;
+            let loadable = document
+                .object_at(target)
+                .or_else(|| elsewhere?.object_at(target))?;
             let role = match loadable.class_hash {
                 _ if Some(target) == base => UiFileRole::Base,
                 PROPERTY_LOADABLE => UiFileRole::Loadable,

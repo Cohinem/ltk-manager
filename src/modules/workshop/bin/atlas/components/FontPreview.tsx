@@ -46,6 +46,7 @@ const SAMPLE_LOOK: Extract<ViewLook, { kind: "text" }> = {
 };
 
 const NO_SHEETS: readonly ViewStyleSheet[] = [];
+const ORIGIN = [0, 0] as const;
 
 /**
  * A `GameFontDescription` drawn as a text draws it: the sample markup laid out and passed
@@ -80,7 +81,7 @@ export function FontPreview({ document, entry }: FontPreviewProps) {
     });
   });
 
-  const commands = useMemo(() => {
+  const frames = useMemo(() => {
     if (font === null || frame === null) return [];
 
     const inset = Math.round(INSET * dpr);
@@ -93,7 +94,7 @@ export function FontPreview({ document, entry }: FontPreviewProps) {
     const views = { fonts, styleSheets: NO_SHEETS };
     const draws = textDraws(entry, SAMPLE_LOOK, box, null, views, text.source, screen.height);
     text.flush();
-    return draws;
+    return [{ commands: draws, origin: ORIGIN }];
   }, [font, fonts, frame, dpr, entry, text, screen.height]);
 
   const inputs = useMemo<FrameInputs>(
@@ -127,7 +128,7 @@ export function FontPreview({ document, entry }: FontPreviewProps) {
       {frame !== null && (
         <FlatViewport animating={false}>
           <AtlasFrame
-            commands={commands}
+            frames={frames}
             inputs={inputs}
             screen={frame}
             view={view}

@@ -5,6 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { m } from "@/i18n";
 import { keepUnversioned, localJsonStorage } from "@/stores/storage";
 
+import { type FrameChoices, NO_FRAME_CHOICES } from "../engine/layout/frames";
 import type { Screen } from "../engine/layout/solve";
 import { BUTTON_STATES, type ButtonState } from "../engine/model/buttons";
 import { CLOSED_COMBO, type ComboState } from "../engine/model/combo";
@@ -48,6 +49,8 @@ export const SAFE_ZONE_INSET = 0.05;
 interface ViewPreview {
   /** The scenes the reader switched against their resting state, `hiddenScenesOf`'s `flipped`. */
   readonly flippedScenes: ReadonlySet<string>;
+  /** The elements the reader hid, each with everything a group of them holds. */
+  readonly hiddenElements: ReadonlySet<string>;
   /** Every selected element, the primary one last. */
   readonly selection: readonly string[];
   /** The primary selection, which the inspector shows and a resize drags. */
@@ -58,15 +61,19 @@ interface ViewPreview {
   readonly combos: Readonly<Record<string, ComboState>>;
   /** The fill the reader set on each meter by its key, 0 to 1. */
   readonly meters: Readonly<Record<string, number>>;
+  /** The frame the reader drew each scene on, `frameHeads`'s `choices`. */
+  readonly frames: FrameChoices;
 }
 
 const EMPTY_VIEW: ViewPreview = {
   flippedScenes: new Set(),
+  hiddenElements: new Set(),
   selection: [],
   selected: null,
   variant: null,
   combos: {},
   meters: {},
+  frames: NO_FRAME_CHOICES,
 };
 
 /** The combo box row under the pointer while the canvas is in interact mode. */
@@ -90,8 +97,12 @@ interface AtlasPreviewStore {
   safeZone: boolean;
   /** Every scene and effect a view rests with off draws too. */
   showDisabled: boolean;
+  /** The effect and particle elements draw. */
+  effects: boolean;
   /** What the controller fills at run time draws sample content, per section 6 of the editor plan. */
   samples: boolean;
+  /** Every scene draws on one screen as the client stacks them, rather than on a frame of its own. */
+  stackScenes: boolean;
   /** The state every button is forced into, null for each button's own. */
   buttonState: ButtonState | null;
   buttonPointer: ButtonPointer | null;
@@ -116,7 +127,9 @@ interface AtlasPreviewStore {
   setHud: (hud: number) => void;
   toggleSafeZone: () => void;
   toggleShowDisabled: () => void;
+  toggleEffects: () => void;
   toggleSamples: () => void;
+  toggleStackScenes: () => void;
   setButtonState: (state: ButtonState | null) => void;
   /** Force the next state of `BUTTON_CYCLE` on every button. */
   cycleButtonState: () => void;
@@ -132,6 +145,10 @@ interface AtlasPreviewStore {
   setHovered: (key: string | null) => void;
   setPointer: (pointer: readonly [number, number] | null) => void;
   toggleScene: (view: string, scene: string) => void;
+  /** Hide the element `element` of `view` in the preview, or show it again. */
+  toggleElement: (view: string, element: string) => void;
+  /** Draw the scenes of `view` on the frames `frames` names. */
+  setFrames: (view: string, frames: FrameChoices) => void;
   /** Select `element` alone, or nothing where it is null. */
   select: (view: string, element: string | null) => void;
   /** Add `element` to the selection as its primary, or take it out where it is in it. */
@@ -151,7 +168,9 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
       hud: HUD_MAX,
       safeZone: false,
       showDisabled: false,
+      effects: true,
       samples: true,
+      stackScenes: false,
       buttonState: null,
       buttonPointer: null,
       live: 0.5,
@@ -168,7 +187,9 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
       setHud: (hud) => set({ hud: Math.min(HUD_MAX, Math.max(HUD_MIN, hud)) }),
       toggleSafeZone: () => set((state) => ({ safeZone: !state.safeZone })),
       toggleShowDisabled: () => set((state) => ({ showDisabled: !state.showDisabled })),
+      toggleEffects: () => set((state) => ({ effects: !state.effects })),
       toggleSamples: () => set((state) => ({ samples: !state.samples })),
+      toggleStackScenes: () => set((state) => ({ stackScenes: !state.stackScenes })),
       setButtonState: (buttonState) => set({ buttonState }),
       cycleButtonState: () =>
         set((state) => {
@@ -209,6 +230,17 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
           if (!flippedScenes.delete(scene)) flippedScenes.add(scene);
           return { views: { ...state.views, [view]: { ...held, flippedScenes } } };
         }),
+      toggleElement: (view, element) =>
+        set((state) => {
+          const held = state.views[view] ?? EMPTY_VIEW;
+          const hiddenElements = new Set(held.hiddenElements);
+          if (!hiddenElements.delete(element)) hiddenElements.add(element);
+          return { views: { ...state.views, [view]: { ...held, hiddenElements } } };
+        }),
+      setFrames: (view, frames) =>
+        set((state) => ({
+          views: { ...state.views, [view]: { ...(state.views[view] ?? EMPTY_VIEW), frames } },
+        })),
       select: (view, element) =>
         set((state) => selecting(state, view, element === null ? [] : [element])),
       toggleSelected: (view, element) =>
@@ -248,7 +280,9 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
         hud: state.hud,
         safeZone: state.safeZone,
         showDisabled: state.showDisabled,
+        effects: state.effects,
         samples: state.samples,
+        stackScenes: state.stackScenes,
         playing: state.playing,
         fontSample: state.fontSample,
         foldedSections: state.foldedSections,
@@ -305,7 +339,9 @@ export function useFrameSettings() {
       hud: state.hud,
       safeZone: state.safeZone,
       showDisabled: state.showDisabled,
+      effects: state.effects,
       samples: state.samples,
+      stackScenes: state.stackScenes,
       buttonState: state.buttonState,
       live: state.live,
       playing: state.playing,
@@ -342,7 +378,9 @@ export function useAtlasPreviewActions() {
       setHud: state.setHud,
       toggleSafeZone: state.toggleSafeZone,
       toggleShowDisabled: state.toggleShowDisabled,
+      toggleEffects: state.toggleEffects,
       toggleSamples: state.toggleSamples,
+      toggleStackScenes: state.toggleStackScenes,
       setButtonState: state.setButtonState,
       cycleButtonState: state.cycleButtonState,
       setButtonPointer: state.setButtonPointer,
@@ -355,6 +393,8 @@ export function useAtlasPreviewActions() {
       setHovered: state.setHovered,
       setPointer: state.setPointer,
       toggleScene: state.toggleScene,
+      toggleElement: state.toggleElement,
+      setFrames: state.setFrames,
       select: state.select,
       toggleSelected: state.toggleSelected,
       setSelection: state.setSelection,

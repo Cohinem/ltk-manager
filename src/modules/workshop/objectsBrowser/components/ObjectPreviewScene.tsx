@@ -21,14 +21,19 @@ import {
   viewportQueries,
 } from "@/modules/viewport";
 
+import {
+  AtlasStill,
+  type AtlasStillKind,
+  type AtlasStillStatus,
+} from "../../bin/atlas/components/AtlasStill";
 import { useBinDocument } from "../../bin/documents/hooks/useBinDocument";
 import { materialQueries } from "../../bin/material/api/materialQueries";
 import { skinQueries } from "../../bin/skin/api/skinQueries";
 import { bindingOf, textureAssets } from "../../bin/skin/utils/skinScene";
 import { Passes } from "../../bin/vfx/rendering/components/Passes";
+import { useObjectPreviewKind } from "../hooks/useObjectPreviewKind";
 import { EMPTY_OUTCOME, FAILED_OUTCOME, type PreviewOutcome } from "../state/previewStills";
 import { fallbackTexture } from "../utils/materialFallback";
-import { objectPreviewKind } from "../utils/objectPreview";
 import type { ObjectRowNode } from "../utils/objectTree";
 import { PREVIEW_GROUND, PREVIEW_MIP_WIDTH } from "../utils/previewFrame";
 import { ParticleRead } from "./ParticlePreview";
@@ -54,7 +59,7 @@ interface SceneProps {
 export default function ObjectPreviewScene({ node, playing, onOutcome, onProgress }: SceneProps) {
   const declaration = node.declarations[0]!;
   const { state } = useBinDocument(declaration.asset, node.objectHash);
-  const kind = objectPreviewKind(node);
+  const kind = useObjectPreviewKind()(node);
 
   useEffect(() => {
     if (state.status === "open") onProgress();
@@ -81,6 +86,10 @@ export default function ObjectPreviewScene({ node, playing, onOutcome, onProgres
     return <UiIconPreview {...read} />;
   }
 
+  if (kind === "view" || kind === "element" || kind === "font") {
+    return <AtlasRead {...read} kind={kind} playing={playing} />;
+  }
+
   return <SkinRead {...read} playing={playing} />;
 }
 
@@ -88,6 +97,32 @@ interface ReadProps {
   document: BinDocumentId;
   entry: string;
   onOutcome: Report;
+}
+
+/** A UI view, element or font drawn by the Atlas renderer, copied once it has settled. */
+function AtlasRead({
+  document,
+  entry,
+  onOutcome,
+  kind,
+  playing,
+}: ReadProps & { kind: AtlasStillKind; playing: boolean }) {
+  const [status, setStatus] = useState<AtlasStillStatus>("pending");
+
+  return (
+    <>
+      <AtlasStill
+        document={document}
+        entry={entry}
+        kind={kind}
+        playing={playing}
+        onStatus={setStatus}
+      />
+      {status === "empty" && <PreviewSettled outcome={EMPTY_OUTCOME} onOutcome={onOutcome} />}
+      {status === "failed" && <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={onOutcome} />}
+      <PreviewCapture ready={status === "ready"} onOutcome={onOutcome} />
+    </>
+  );
 }
 
 function SkinRead({ document, entry, onOutcome, playing }: ReadProps & { playing: boolean }) {

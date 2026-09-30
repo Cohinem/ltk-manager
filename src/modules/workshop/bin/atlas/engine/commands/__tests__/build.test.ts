@@ -18,6 +18,8 @@ const SHOWN: PreviewState = {
   buttonStates: new Map(),
   meterFills: new Map(),
   showDisabled: false,
+  hiddenElements: new Set(),
+  effects: true,
   samples: false,
   only: null,
   overlay: NO_OVERLAY,
@@ -290,5 +292,30 @@ describe("visibleElements", () => {
     );
 
     expect(visibleElements(buildTree(built), SHOWN)).toEqual(["group", "icon", "region"]);
+  });
+});
+
+describe("hiding", () => {
+  const SPARK = { kind: "particle", system: "0x00000001", scale: 1 } as ViewLook;
+  const built = view(
+    [scene("root", 0)],
+    [
+      element("icon", "root", 0, icon()),
+      group("box", "root", ["inner"]),
+      element("inner", "root", 1, icon()),
+      element("spark", "root", 2, SPARK),
+    ],
+  );
+
+  it("leaves out an element the reader hid and everything a hidden group holds", () => {
+    const shown = visibleElements(buildTree(built), { ...SHOWN, hiddenElements: new Set(["box"]) });
+
+    expect(shown.sort()).toEqual(["icon", "spark"]);
+  });
+
+  it("leaves out every effect while effects are off", () => {
+    const shown = visibleElements(buildTree(built), { ...SHOWN, effects: false });
+
+    expect(shown.sort()).toEqual(["box", "icon", "inner"]);
   });
 });

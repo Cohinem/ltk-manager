@@ -55,6 +55,7 @@ uniform float u_canvasHeight;
 uniform vec3 u_backdrop;
 uniform vec3 u_checkerA;
 uniform vec3 u_checkerB;
+uniform bool u_ground;
 out vec4 fragment;
 
 vec4 frameAt(vec2 at) {
@@ -65,6 +66,7 @@ void main() {
   vec2 canvas = vec2(gl_FragCoord.x, u_canvasHeight - gl_FragCoord.y);
   vec2 at = (canvas - u_offset) / u_zoom;
   if (at.x < 0.0 || at.y < 0.0 || at.x >= u_frameSize.x || at.y >= u_frameSize.y) {
+    if (!u_ground) discard;
     fragment = vec4(u_backdrop, 1.0);
     return;
   }
@@ -89,7 +91,10 @@ void main() {
 }
 `;
 
-/** The one triangle that covers the canvas, with the frame drawn over the checker. */
+/**
+ * The one triangle that covers the canvas, with the frame drawn over the checker. A pass that
+ * lays no ground leaves the canvas outside its frame as the passes before it drew it.
+ */
 export class Composite {
   readonly scene = new Scene();
   private readonly material: RawShaderMaterial;
@@ -116,6 +121,7 @@ export class Composite {
         u_backdrop: { value: new Vector3() },
         u_checkerA: { value: new Vector3() },
         u_checkerB: { value: new Vector3() },
+        u_ground: { value: true },
       },
     });
     const mesh = new Mesh(geometry, this.material);
@@ -123,7 +129,10 @@ export class Composite {
     this.scene.add(mesh);
   }
 
-  /** The uniforms for one draw. `dpr` takes the CSS-pixel `view` to the canvas's own pixels. */
+  /**
+   * The uniforms for one draw. `dpr` takes the CSS-pixel `view` to the canvas's own pixels, and
+   * `ground` paints the backdrop around the frame.
+   */
   set(
     frame: Texture,
     screen: Screen,
@@ -131,6 +140,7 @@ export class Composite {
     canvasHeight: number,
     dpr: number,
     colors: CompositeColors,
+    ground = true,
   ): void {
     const uniforms = this.material.uniforms;
     uniforms.u_frame = { value: frame };
@@ -138,6 +148,7 @@ export class Composite {
     (uniforms.u_offset?.value as Vector2).set(view.x * dpr, view.y * dpr);
     uniforms.u_zoom = { value: view.zoom * dpr };
     uniforms.u_canvasHeight = { value: canvasHeight * dpr };
+    uniforms.u_ground = { value: ground };
     writeColor(uniforms.u_backdrop?.value as Vector3, colors.backdrop);
     writeColor(uniforms.u_checkerA?.value as Vector3, colors.checkerA);
     writeColor(uniforms.u_checkerB?.value as Vector3, colors.checkerB);

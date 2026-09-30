@@ -48,7 +48,10 @@ export interface LayerRowViewProps {
   readonly query: string;
   /** The sprite an icon element draws, which stands in for its kind glyph. */
   readonly thumb: IconThumb | null;
+  /** The reader hid the scene or the element, which its eye shows. */
   readonly hidden: boolean;
+  /** Undrawn for another reason, an effect while effects are off. */
+  readonly dimmed: boolean;
   /** Whether the variant drawn over the base changes the element. */
   readonly patched: boolean;
   readonly selected: boolean;
@@ -71,6 +74,7 @@ export function LayerRowView({
   query,
   thumb,
   hidden,
+  dimmed,
   patched,
   selected,
   hovered,
@@ -97,7 +101,7 @@ export function LayerRowView({
         selected && "bg-accent-500/15",
         hovered && !selected && "bg-surface-veil-soft",
         active && "ring-1 ring-accent-500/60 ring-inset",
-        hidden && "text-surface-500",
+        (hidden || dimmed) && "text-surface-500",
       )}
       style={{ paddingLeft: row.depth * INDENT }}
       onClick={(event) => onActivate(event.ctrlKey || event.shiftKey || event.metaKey)}
@@ -139,7 +143,7 @@ export function LayerRowView({
         {row.type === "scene" && row.layer}
         {row.type === "element" && <MatchedText text={row.className} query={query} />}
       </span>
-      {row.type === "scene" && <EyeButton hidden={hidden} onClick={onHide} />}
+      <EyeButton hidden={hidden} scene={row.type === "scene"} onClick={onHide} />
     </div>
   );
 }
@@ -168,10 +172,16 @@ function PatchedMark() {
   );
 }
 
-function EyeButton({ hidden, onClick }: { hidden: boolean; onClick: () => void }) {
-  const label = hidden
-    ? m.workshop_bin_atlas_layers_show_action()
-    : m.workshop_bin_atlas_layers_hide_action();
+function EyeButton({
+  hidden,
+  scene,
+  onClick,
+}: {
+  hidden: boolean;
+  scene: boolean;
+  onClick: () => void;
+}) {
+  const label = eyeLabel(hidden, scene);
   const Eye = hidden ? EyeSlashIcon : EyeIcon;
   return (
     <button
@@ -179,7 +189,7 @@ function EyeButton({ hidden, onClick }: { hidden: boolean; onClick: () => void }
       tabIndex={-1}
       aria-label={label}
       title={label}
-      /* DS-VEIL, DS-RADIUS. A hidden scene keeps its eye on screen, since that is what says it is hidden. */
+      /* DS-VEIL, DS-RADIUS. A hidden row keeps its eye on screen, since that is what says it is hidden. */
       className={twMerge(
         "flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200",
         !hidden && "opacity-0 group-hover/row:opacity-100",
@@ -192,4 +202,15 @@ function EyeButton({ hidden, onClick }: { hidden: boolean; onClick: () => void }
       <Eye weight="bold" className="h-3.5 w-3.5" />
     </button>
   );
+}
+
+function eyeLabel(hidden: boolean, scene: boolean): string {
+  if (scene) {
+    return hidden
+      ? m.workshop_bin_atlas_layers_show_action()
+      : m.workshop_bin_atlas_layers_hide_action();
+  }
+  return hidden
+    ? m.workshop_bin_atlas_element_show_action()
+    : m.workshop_bin_atlas_element_hide_action();
 }

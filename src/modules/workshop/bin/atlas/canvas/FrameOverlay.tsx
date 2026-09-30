@@ -1,15 +1,40 @@
 import type { SnapGuide } from "../engine/edit/snap";
-import type { PixelRect, Screen } from "../engine/layout/solve";
+import type { PixelRect } from "../engine/layout/solve";
 import type { ViewTransform } from "../rendering/utils/composite";
-import { SAFE_ZONE_INSET } from "../state/atlasPreview";
-import { HANDLES, handlePoint } from "./canvasGeometry";
+import { HANDLES, handlePoint, safeZoneOf } from "./canvasGeometry";
 
 /** A handle's side in pane pixels. */
 const HANDLE_SIZE = 8;
+/** How far above its frame a frame's name sits, in pane pixels. */
+const LABEL_RISE = 6;
+/** The band above a frame its name answers a pointer in, in pane pixels. */
+const LABEL_BAND = 20;
+
+/** A screen drawn on the board, with the scene heading it and its name, empty for none. */
+export interface OverlayFrame {
+  readonly rect: PixelRect;
+  readonly scene: string | null;
+  readonly label: string;
+}
+
+/** The named frame whose name is under the pane point `x, y`. */
+export function frameNameAt(
+  frames: readonly OverlayFrame[],
+  view: ViewTransform,
+  x: number,
+  y: number,
+): OverlayFrame | undefined {
+  return frames.find((frame) => {
+    const left = view.x + frame.rect.x * view.zoom;
+    const top = view.y + frame.rect.y * view.zoom;
+    const inside = x >= left && x <= left + frame.rect.w * view.zoom;
+    return frame.label !== "" && inside && y >= top - LABEL_BAND && y < top;
+  });
+}
 
 export interface FrameOverlayProps {
   readonly view: ViewTransform;
-  readonly screen: Screen;
+  readonly frames: readonly OverlayFrame[];
   readonly safeZone: boolean;
   readonly placeholders: readonly PixelRect[];
   readonly hovered: PixelRect | null;
@@ -24,13 +49,13 @@ export interface FrameOverlayProps {
 }
 
 /**
- * The frame's outline and the marks over it, in pane pixels, so they stay one pixel wide at every
- * zoom: the safe zone, the image placeholders, the hovered and selected rects, the primary selection's
- * handles, a marquee and the snap guides of a drag.
+ * The frames' outlines and names and the marks over them, in pane pixels, so they stay one pixel
+ * wide at every zoom: the safe zone, the image placeholders, the hovered and selected rects, the
+ * primary selection's handles, a marquee and the snap guides of a drag.
  */
 export function FrameOverlay({
   view,
-  screen,
+  frames,
   safeZone,
   placeholders,
   hovered,
@@ -48,20 +73,29 @@ export function FrameOverlay({
   });
   const toPane = (x: number, y: number) =>
     [view.x + x * view.zoom, view.y + y * view.zoom] as const;
-  const whole = { x: 0, y: 0, w: screen.width, h: screen.height };
-  const inset = {
-    x: screen.width * SAFE_ZONE_INSET,
-    y: screen.height * SAFE_ZONE_INSET,
-    w: screen.width * (1 - 2 * SAFE_ZONE_INSET),
-    h: screen.height * (1 - 2 * SAFE_ZONE_INSET),
-  };
 
   return (
     <svg className="pointer-events-none absolute inset-0 size-full" aria-hidden>
-      <rect {...place(whole)} className="fill-none stroke-surface-600" />
-      {safeZone && (
-        <rect {...place(inset)} className="fill-none stroke-surface-500" strokeDasharray="6 4" />
-      )}
+      {frames.map((frame, at) => {
+        const [x, y] = toPane(frame.rect.x, frame.rect.y);
+        return (
+          <g key={at}>
+            <rect {...place(frame.rect)} className="fill-none stroke-surface-600" />
+            {safeZone && (
+              <rect
+                {...place(safeZoneOf(frame.rect))}
+                className="fill-none stroke-surface-500"
+                strokeDasharray="6 4"
+              />
+            )}
+            {frame.label !== "" && (
+              <text x={x} y={y - LABEL_RISE} className="fill-surface-400 font-sans text-meta">
+                {frame.label}
+              </text>
+            )}
+          </g>
+        );
+      })}
       {placeholders.map((rect, at) => (
         <rect
           key={at}

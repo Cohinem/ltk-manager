@@ -1,14 +1,15 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { OrthographicCamera } from "three";
 
-import type { Command } from "../../engine/commands/types";
+import type { FrameCommands } from "../../engine/commands/board";
 import type { Screen } from "../../engine/layout/solve";
 import { Composite, type CompositeColors, type ViewTransform } from "../utils/composite";
 import { type FrameInputs, FrameRenderer, type ParticleDraws } from "../utils/frameRenderer";
 
 export interface AtlasFrameProps {
-  readonly commands: readonly Command[];
+  /** Each frame's command list and where it sits, in screen pixels from the view's origin. */
+  readonly frames: readonly FrameCommands[];
   readonly inputs: FrameInputs;
   readonly screen: Screen;
   readonly view: ViewTransform;
@@ -25,17 +26,19 @@ export interface AtlasFrameProps {
 
 const CAMERA = new OrthographicCamera();
 const NO_PARTICLES: ParticleDraws = new Map();
+/** A frame of no size, which a pass that lays the backdrop alone composites. */
+const NOTHING: Screen = { width: 0, height: 0 };
 
 /** After the claim on the shared renderer, and in place of the fibre's own render. */
 const FRAME_PRIORITY = 1;
 
 /**
- * The view's frame: the command list rendered into a target of the screen's size, then that
- * target drawn onto the canvas under the pan and zoom, per section 3.3 of
- * docs/plans/atlas-renderer.md.
+ * The view's frames: each command list rendered into a target of the screen's size, then that
+ * target drawn onto the canvas at its frame's place under the pan and zoom, per section 3.3 of
+ * docs/plans/atlas-renderer.md. A frame off the canvas is not rendered.
  */
 export function AtlasFrame({
-  commands,
+  frames,
   inputs,
   screen,
   view,
@@ -50,6 +53,7 @@ export function AtlasFrame({
   const [renderer] = useState(() => new FrameRenderer(screen));
   const [composite] = useState(() => new Composite());
   const started = useRef<number | null>(null);
+  const lists = useMemo(() => frames.map((frame) => frame.commands), [frames]);
 
   useEffect(
     () => () => {
@@ -60,10 +64,10 @@ export function AtlasFrame({
   );
 
   useLayoutEffect(() => {
-    renderer.setCommands(commands, inputs, screen);
+    renderer.setCommands(lists, inputs, screen);
     onAnimating(renderer.animating);
     invalidate();
-  }, [renderer, commands, inputs, screen, onAnimating, invalidate]);
+  }, [renderer, lists, inputs, screen, onAnimating, invalidate]);
 
   useLayoutEffect(() => {
     if (!playing) started.current = null;
@@ -73,14 +77,51 @@ export function AtlasFrame({
   useFrame(({ gl, clock, size, viewport }) => {
     if (playing && started.current === null) started.current = clock.elapsedTime;
     const time = playing ? clock.elapsedTime - (started.current ?? 0) : 0;
-
     renderer.update(time, live);
-    renderer.render(gl, particles);
 
-    composite.set(renderer.target.texture, screen, view, size.height, viewport.dpr, colors);
+    const autoClear = gl.autoClear;
+    composite.set(renderer.target.texture, NOTHING, view, size.height, viewport.dpr, colors);
     gl.setRenderTarget(null);
     gl.render(composite.scene, CAMERA);
+
+    gl.autoClear = false;
+    frames.forEach((frame, at) => {
+      const placed = {
+        x: view.x + frame.origin[0] * view.zoom,
+        y: view.y + frame.origin[1] * view.zoom,
+        zoom: view.zoom,
+      };
+      if (!onCanvas(placed, screen, size)) return;
+
+      renderer.render(gl, particles, at);
+      composite.set(
+        renderer.target.texture,
+        screen,
+        placed,
+        size.height,
+        viewport.dpr,
+        colors,
+        false,
+      );
+      gl.setRenderTarget(null);
+      gl.render(composite.scene, CAMERA);
+    });
+    gl.autoClear = autoClear;
   }, FRAME_PRIORITY);
 
   return null;
+}
+
+/** Whether a frame of `screen` placed at `view` covers any of a canvas of `size`. */
+function onCanvas(
+  view: ViewTransform,
+  screen: Screen,
+  size: { readonly width: number; readonly height: number },
+): boolean {
+  return (
+    view.x < size.width &&
+    view.y < size.height &&
+    view.x + screen.width * view.zoom > 0 &&
+    view.y + screen.height * view.zoom > 0
+  );
 }

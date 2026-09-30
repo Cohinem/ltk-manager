@@ -50,13 +50,22 @@ export const FRAME_SHADERS: readonly UiShader[] = [
 ];
 
 export const uiKeys = {
+  /** Every view read, which a change to what finds a view's files reads again. */
+  views: ["ui-view"] as const,
   view: (
     document: BinDocumentId,
     entry: string,
     scene: BinDocumentId | null,
     variant: ViewVariant | null,
   ) =>
-    ["ui-view", document, entry, scene, variant?.slot ?? null, variant?.document ?? null] as const,
+    [
+      ...uiKeys.views,
+      document,
+      entry,
+      scene,
+      variant?.slot ?? null,
+      variant?.document ?? null,
+    ] as const,
   sceneView: (document: BinDocumentId, entry: string) =>
     ["ui-scene-view", document, entry] as const,
   font: (document: BinDocumentId, entry: string) => ["ui-font", document, entry] as const,

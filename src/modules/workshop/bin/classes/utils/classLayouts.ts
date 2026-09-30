@@ -351,6 +351,9 @@ const BASE_LAYOUTS: ReadonlyMap<string, ClassLayout> = new Map([
   [nameHash("UiElementIData"), elementLayout],
 ]);
 
+/** Each base whose layout its derived classes take, with that layout. */
+export const INHERITED_LAYOUTS: readonly (readonly [string, ClassLayout])[] = [...BASE_LAYOUTS];
+
 /**
  * The layout `classHash` opens in, or undefined for a class that has none.
  *

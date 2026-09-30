@@ -1,5 +1,6 @@
 //! Atlas's reads: a view controller resolved into what it draws, a font, and the UI programs.
 
+use super::bin::InstalledGame;
 use super::document_assets::{parse_entry, read_resolved, with_resolution};
 use super::material::translations;
 use super::off_thread;
@@ -72,6 +73,7 @@ pub async fn read_ui_view(
                 choice,
                 names,
                 assets,
+                &InstalledGame(app_handle.clone()),
                 &mut read,
             )
             .map_err(|e| AppError::ValidationFailed(e.to_string()))

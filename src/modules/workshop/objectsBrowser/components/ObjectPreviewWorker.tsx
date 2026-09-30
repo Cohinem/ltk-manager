@@ -3,8 +3,9 @@ import { lazy, Suspense } from "react";
 import { ErrorBoundary } from "@/components";
 import { Viewport } from "@/modules/viewport";
 
+import { useObjectPreviewKind } from "../hooks/useObjectPreviewKind";
 import { FAILED_OUTCOME, type PreviewOutcome } from "../state/previewStills";
-import { objectPreviewKey } from "../utils/objectPreview";
+import { drawsAtlas, objectPreviewKey } from "../utils/objectPreview";
 import type { ObjectRowNode } from "../utils/objectTree";
 import { PreviewSettled } from "./PreviewSettled";
 
@@ -28,9 +29,14 @@ export default function ObjectPreviewWorker({
   onOutcome,
   onProgress,
 }: ObjectPreviewWorkerProps) {
+  const kindOf = useObjectPreviewKind();
+  /* The Atlas frame is the game's own pixels, which an anti-aliasing pass would blur. */
+  const atlas = node !== null && drawsAtlas(kindOf(node));
+
   return (
     <Viewport
       active={node !== null}
+      antiAliasing={atlas ? "off" : undefined}
       dpr={Math.min(window.devicePixelRatio, MAX_DPR)}
       gizmo={false}
       stage={false}

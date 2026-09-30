@@ -21,6 +21,7 @@ use ltk_manager_core::bin_document::{
     RowDeclaration, RowNames, VariantSource,
 };
 use ltk_manager_core::game_wads::WadCache;
+use ltk_manager_core::hashing::HexBinHash;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
 use ltk_manager_core::meta_schema::{self, ClassSchema, MetaSchema, PatchSchema, SchemaNames};
 use ltk_manager_core::object_index::{parse_hash, CacheNames, ObjectIndexSnapshot};
@@ -532,6 +533,27 @@ pub async fn class_schema(
     .await
 }
 
+/// Every class deriving from `class_hash` at the install's build, through any number of
+/// bases. `class_hash` is `0x` and eight hex digits.
+#[tauri::command]
+#[specta::specta]
+pub async fn derived_classes(
+    class_hash: String,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<HexBinHash>> {
+    off_thread(move || {
+        let class = parse_hash(&class_hash)
+            .ok_or_else(|| AppError::ValidationFailed(format!("Not a class hash: {class_hash}")))?;
+        let (schema, build) = installed_schema(&app_handle);
+        Ok(schema
+            .derived_classes(class, build)
+            .into_iter()
+            .map(HexBinHash::from)
+            .collect())
+    })
+    .await
+}
+
 /// What the document says beside its rows: the layer it declares into, the project's
 /// layers, and the rows a declaration of that layer touches. `None` for a document that
 /// declares nothing. ADR-0042.
@@ -625,7 +647,7 @@ pub async fn bin_row_declaration(
 
 /// The installed game as a declared document reads it: the shared tables for names, and
 /// the object index for an entry a reference names.
-struct InstalledGame(AppHandle);
+pub(super) struct InstalledGame(pub(super) AppHandle);
 
 impl GameCopy for InstalledGame {
     /// An index that is not ready answers no entry.
