@@ -9,6 +9,7 @@ import {
   type SandboxRef,
   type ProgramRead,
   type UiFont,
+  type UiLoadout,
   type UiShader,
   type UiView,
   type ViewVariant,
@@ -74,9 +75,30 @@ export const uiKeys = {
   fontFile: (asset: AssetRef) => ["ui-font-file", assetKey(asset)] as const,
   declared: (sandbox: SandboxRef, hash: string) =>
     ["ui-declared", sandboxKey(sandbox), hash] as const,
+  loadout: (document: BinDocumentId, sandbox: SandboxRef) =>
+    ["ui-loadout", document, sandboxKey(sandbox)] as const,
 };
 
 export const uiQueries = {
+  /**
+   * The sample loadout a preview fills a controller's elements with, read once the object index,
+   * which reaches the champion, item and rune bins, is built.
+   */
+  loadout: (document: BinDocumentId, sandbox: SandboxRef) =>
+    queryOptions<UiLoadout, AppError>({
+      queryKey: uiKeys.loadout(document, sandbox),
+      queryFn: async () => {
+        await api.objects.warm();
+        for (;;) {
+          const status = await api.objects.declared(sandbox, []);
+          if (!status.ok || status.value.index.status !== "building") break;
+          await new Promise((resolve) => setTimeout(resolve, BUILDING_POLL_MS));
+        }
+        return unwrapForQuery(await api.bin.readUiLoadout(document));
+      },
+      staleTime: Infinity,
+      retry: false,
+    }),
   /**
    * The files that declare the object `hash`, which is how an element reaches the particle
    * system it links. A cold object index is warmed first, and a building one is asked again.

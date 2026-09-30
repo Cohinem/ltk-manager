@@ -1,11 +1,17 @@
 import {
+  AddEquation,
   BufferAttribute,
   BufferGeometry,
   type Camera,
+  CustomBlending,
   Line,
   LinearFilter,
   Mesh,
   NoColorSpace,
+  type Material,
+  type Object3D,
+  OneFactor,
+  OneMinusSrcAlphaFactor,
   OrthographicCamera,
   RGBAFormat,
   Scene,
@@ -13,6 +19,7 @@ import {
   UnsignedByteType,
   type WebGLRenderer,
   WebGLRenderTarget,
+  ZeroFactor,
 } from "three";
 
 import type { AssetRef, UiShader } from "@/lib/tauri";
@@ -74,9 +81,10 @@ const NO_PARTICLES: ParticleDraws = new Map();
  * docs/plans/atlas-renderer.md: a run of draws that share a scissor rect is one render, and an
  * offscreen group renders into a pooled target that its pop composites through `Copy`.
  *
- * The target is the screen's size, RGBA8 without colour conversion and premultiplied, so the
- * bytes are the ones the client's gamma-space pipeline writes. A board's frames each hold a
- * list of their own and take turns in the one target.
+ * The target is the screen's size times `scale`, RGBA8 without colour conversion and
+ * premultiplied, so the bytes are the ones the client's gamma-space pipeline writes. The geometry
+ * is in screen units, so a larger scale rasterizes the same draws more densely for a zoomed-in
+ * canvas. A board's frames each hold a list of their own and take turns in the one target.
  */
 export class FrameRenderer {
   readonly target: WebGLRenderTarget;
@@ -86,10 +94,33 @@ export class FrameRenderer {
   private timed: Drawn[] = [];
   private readonly pool: WebGLRenderTarget[] = [];
   private screen: Screen;
+  private texels = 1;
 
   constructor(screen: Screen) {
     this.screen = screen;
-    this.target = frameTarget(screen);
+    this.target = frameTarget(screen, this.texels);
+  }
+
+  /** The target's texels per screen pixel. */
+  get scale(): number {
+    return this.texels;
+  }
+
+  /** Render at `scale` texels per screen pixel from the next `render` on. */
+  setScale(scale: number): void {
+    if (scale === this.texels) return;
+
+    this.texels = scale;
+    this.resize();
+  }
+
+  private resize(): void {
+    this.target.setSize(
+      Math.round(this.screen.width * this.texels),
+      Math.round(this.screen.height * this.texels),
+    );
+    for (const target of this.pool) target.dispose();
+    this.pool.length = 0;
   }
 
   /** Whether a command changes with the clock. */
@@ -105,9 +136,7 @@ export class FrameRenderer {
     this.disposeDrawn();
     if (screen.width !== this.screen.width || screen.height !== this.screen.height) {
       this.screen = screen;
-      this.target.setSize(screen.width, screen.height);
-      for (const target of this.pool) target.dispose();
-      this.pool.length = 0;
+      this.resize();
     }
 
     let order = 0;
@@ -199,20 +228,22 @@ export class FrameRenderer {
     for (const step of this.frames[frame] ?? []) {
       const top = stack[stack.length - 1] ?? this.target;
       if (step.kind === "run") {
-        renderScissored(gl, top, step.scene, step.scissor, this.screen);
+        renderScissored(gl, top, step.scene, step.scissor, this.screen, this.texels);
         continue;
       }
 
       if (step.kind === "particles") {
         const drawn = particles.get(step.element);
         if (drawn !== undefined) {
-          renderScissored(gl, top, drawn.scene, step.scissor, this.screen, drawn.camera);
+          const { scene, camera } = drawn;
+          coverageOf(scene);
+          renderScissored(gl, top, scene, step.scissor, this.screen, this.texels, camera);
         }
         continue;
       }
 
       if (step.kind === "push") {
-        const offscreen = this.pool.pop() ?? frameTarget(this.screen);
+        const offscreen = this.pool.pop() ?? frameTarget(this.screen, this.texels);
         clearInto(gl, offscreen);
         stack.push(offscreen);
         continue;
@@ -224,7 +255,7 @@ export class FrameRenderer {
 
       step.copy.material.texture(offscreen.texture);
       const scene = new Scene().add(step.copy.object);
-      renderScissored(gl, parent, scene, step.scissor, this.screen);
+      renderScissored(gl, parent, scene, step.scissor, this.screen, this.texels);
       this.pool.push(offscreen);
     }
 
@@ -343,11 +374,13 @@ export class FrameRenderer {
 }
 
 /**
- * A target of the screen's size. No mips, since three would regenerate them after every run, and
- * the composite filters a zoomed-out frame itself.
+ * A target of the screen's size at `scale` texels per pixel. No mips, since three would
+ * regenerate them after every run, and the composite filters a zoomed-out frame itself.
  */
-function frameTarget(screen: Screen): WebGLRenderTarget {
-  return new WebGLRenderTarget(screen.width, screen.height, {
+function frameTarget(screen: Screen, scale: number): WebGLRenderTarget {
+  const width = Math.round(screen.width * scale);
+  const height = Math.round(screen.height * scale);
+  return new WebGLRenderTarget(width, height, {
     format: RGBAFormat,
     type: UnsignedByteType,
     colorSpace: NoColorSpace,
@@ -364,22 +397,50 @@ function clearInto(gl: WebGLRenderer, target: WebGLRenderTarget): void {
   gl.clear(true, false, false);
 }
 
-/** `scene` into `target` clipped to `scissor`, which a target takes with a bottom-left origin. */
+/**
+ * `scene` into `target` clipped to `scissor`, a rect of screen pixels, which a target takes in its
+ * own texels with a bottom-left origin.
+ */
 function renderScissored(
   gl: WebGLRenderer,
   target: WebGLRenderTarget,
   scene: Scene,
   scissor: PixelRect | null,
   screen: Screen,
+  scale: number,
   camera: Camera = CAMERA,
 ): void {
   target.scissorTest = scissor !== null;
   if (scissor !== null) {
-    target.scissor.set(scissor.x, screen.height - scissor.y - scissor.h, scissor.w, scissor.h);
+    const bottom = screen.height - scissor.y - scissor.h;
+    target.scissor.set(scissor.x * scale, bottom * scale, scissor.w * scale, scissor.h * scale);
   }
   gl.setRenderTarget(target);
   gl.render(scene, camera);
   target.scissorTest = false;
+}
+
+/**
+ * A particle scene's blend states rewritten for the premultiplied target. The VFX materials blend
+ * for an opaque canvas, whose alpha nothing reads, so they add coverage wherever they add light. An
+ * alpha blend keeps the "over" coverage, and every other mode leaves coverage as it found it,
+ * which is how premultiplied data holds pure emission. Run before each draw, since a system's
+ * materials load after its scene is made.
+ */
+function coverageOf(scene: Scene): void {
+  scene.traverse((object: Object3D) => {
+    if (!("material" in object)) return;
+
+    const held = object.material as Material | Material[] | undefined;
+    for (const material of Array.isArray(held) ? held : held === undefined ? [] : [held]) {
+      if (material.blending !== CustomBlending) continue;
+
+      const over = material.blendDst === OneMinusSrcAlphaFactor;
+      material.blendEquationAlpha = AddEquation;
+      material.blendSrcAlpha = over ? OneFactor : ZeroFactor;
+      material.blendDstAlpha = over ? OneMinusSrcAlphaFactor : OneFactor;
+    }
+  });
 }
 
 function sameRect(a: PixelRect | null, b: PixelRect | null): boolean {

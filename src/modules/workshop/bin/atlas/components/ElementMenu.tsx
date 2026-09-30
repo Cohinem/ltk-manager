@@ -1,6 +1,7 @@
 import {
   ArrowSquareOutIcon,
   ArrowsInIcon,
+  CheckIcon,
   CopyIcon,
   CornersOutIcon,
   EyeIcon,
@@ -9,6 +10,7 @@ import {
   PathIcon,
   SelectionSlashIcon,
   SquaresFourIcon,
+  StackSimpleIcon,
 } from "@phosphor-icons/react";
 
 import { ContextMenu } from "@/components";
@@ -37,11 +39,14 @@ export interface ElementMenuProps {
   readonly element: string | null;
   /** The menu opened on the canvas, which adds the view's own actions. */
   readonly canvas?: boolean;
+  /** Every element under the pointer the canvas menu opened at, topmost first. */
+  readonly under?: readonly string[];
   readonly source?: ViewSource;
 }
 
 /**
- * The menu of an element in the canvas or the layers pane: frame it, select its group, hide it or
+ * The menu of an element in the canvas or the layers pane: frame it, select its group or any
+ * element stacked under the pointer with it, hide it or
  * its scene in the preview, arrange it and the selection (`ElementEditItems`), open its object, and
  * copy its name or path. The shortcuts shown are the canvas's own keys.
  */
@@ -50,6 +55,7 @@ export function ElementMenu({
   entry,
   element,
   canvas = false,
+  under = [],
   source = "controller",
 }: ElementMenuProps) {
   const { view, tree, settings, solved } = useAtlasLayout(document, entry, source);
@@ -95,6 +101,31 @@ export function ElementMenu({
                 <ContextMenu.Item icon={<SquaresFourIcon />} onClick={() => select(key, group)}>
                   {m.workshop_bin_atlas_select_group_action()}
                 </ContextMenu.Item>
+              )}
+              {under.length > 1 && (
+                <ContextMenu.SubmenuRoot>
+                  <ContextMenu.SubmenuTrigger icon={<StackSimpleIcon />}>
+                    {m.workshop_bin_atlas_select_layer_label()}
+                  </ContextMenu.SubmenuTrigger>
+                  <ContextMenu.Portal>
+                    <ContextMenu.SubmenuPositioner>
+                      <ContextMenu.Popup className="max-h-80 w-64 overflow-y-auto">
+                        {under.map((each) => {
+                          const node = tree.elements.get(each);
+                          return (
+                            <ContextMenu.Item
+                              key={each}
+                              icon={each === selected ? <CheckIcon /> : undefined}
+                              onClick={() => select(key, each)}
+                            >
+                              {node === undefined ? each : labelOf(node.label, node.path, each)}
+                            </ContextMenu.Item>
+                          );
+                        })}
+                      </ContextMenu.Popup>
+                    </ContextMenu.SubmenuPositioner>
+                  </ContextMenu.Portal>
+                </ContextMenu.SubmenuRoot>
               )}
               <ContextMenu.Item
                 icon={hiddenElements.has(target.key) ? <EyeIcon /> : <EyeSlashIcon />}

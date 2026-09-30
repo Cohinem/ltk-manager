@@ -5,9 +5,11 @@
 //! The evidence is docs/research/ui-data-layout.md and the shape is section 4 of
 //! docs/plans/atlas-renderer.md.
 
+mod bindings;
 mod fields;
 mod font;
 mod imaa;
+mod loadout;
 mod model;
 pub mod pack;
 mod program;
@@ -17,12 +19,13 @@ mod view;
 
 pub use font::{FONTS_PATH, resolve_font};
 pub use imaa::{Manifest, ManifestEntry, ManifestError, page_path, sprite_key};
+pub use loadout::{UiLoadout, read_loadout};
 pub use model::{
-    UiAnchor, UiAsset, UiButton, UiButtonState, UiComboBox, UiEffect, UiElement, UiFile,
+    UiAnchor, UiAsset, UiBinding, UiButton, UiButtonState, UiComboBox, UiEffect, UiElement, UiFile,
     UiFileRole, UiFont, UiFontFace, UiFontResolution, UiFontSizes, UiLayout, UiLayoutKind, UiLook,
-    UiMeter, UiMeterTip, UiPosition, UiRect, UiRepeat, UiScene, UiSlice, UiSliceKind, UiSprite,
-    UiStyleSheet, UiTextIcon, UiTextStyle, UiTexture, UiTipStyle, UiVariant, UiVariantRecord,
-    UiView, UiViewWarning,
+    UiMeter, UiMeterTip, UiPosition, UiRect, UiRepeat, UiRole, UiScene, UiSlice, UiSliceKind,
+    UiSprite, UiStyleSheet, UiTextIcon, UiTextStyle, UiTexture, UiTipStyle, UiVariant,
+    UiVariantRecord, UiView, UiViewWarning,
 };
 pub use program::{UiShader, read_ui_programs};
 pub use sheet::{

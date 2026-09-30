@@ -134,7 +134,7 @@ function IdentitySection({
       <FieldLine label={m.workshop_bin_atlas_layer_label()}>
         <DraftNumber
           value={element.layer}
-          scrub={m.workshop_bin_atlas_layer_label()}
+          label={m.workshop_bin_atlas_layer_label()}
           min={0}
           disabled={!editable}
           onCommit={(value) => apply([layerEdit(element.key, value)])}

@@ -1,7 +1,7 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
 import { type ReactNode, useEffect, useState } from "react";
 
-import { NumberField } from "@/components";
+import { NumberField, Switch } from "@/components";
 import { twMerge } from "@/utils";
 
 import { useAtlasPreviewActions, useSectionOpen } from "../state/atlasPreview";
@@ -65,8 +65,11 @@ export function FieldLine({ label, children }: { label: string; children: ReactN
 
 export interface DraftNumberProps {
   readonly value: number;
-  /** The short label that scrubs the value, such as `X`. */
-  readonly scrub: string;
+  /** What the field holds, for assistive technology. */
+  readonly label: string;
+  /** A short label inside the field that scrubs the value, such as `W`. A field on a labelled row
+   * leaves it out. */
+  readonly scrub?: string;
   readonly step?: number;
   readonly min?: number;
   readonly disabled: boolean;
@@ -78,7 +81,15 @@ export interface DraftNumberProps {
  * A number field that holds what is typed or scrubbed until it is committed, and follows `value`
  * while nothing is held.
  */
-export function DraftNumber({ value, scrub, step = 1, min, disabled, onCommit }: DraftNumberProps) {
+export function DraftNumber({
+  value,
+  label,
+  scrub,
+  step = 1,
+  min,
+  disabled,
+  onCommit,
+}: DraftNumberProps) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
 
@@ -89,9 +100,11 @@ export function DraftNumber({ value, scrub, step = 1, min, disabled, onCommit }:
       min={min}
       disabled={disabled}
       scrub={scrub}
-      aria-label={scrub}
-      rootClassName="min-w-0 flex-1"
-      className="font-mono tabular-nums"
+      aria-label={label}
+      /* DS-RADIUS, DS-HOVER */
+      rootClassName="flex h-7 min-w-0 flex-1 items-center rounded-md border border-surface-700 bg-surface-950/40 px-1 hover:border-accent-hover focus-within:border-accent-500"
+      scrubClassName="min-w-4 text-surface-500"
+      className="border-0 font-mono tabular-nums focus:bg-transparent enabled:hover:bg-transparent"
       onValueChange={(next) => {
         if (next !== null) setDraft(next);
       }}
@@ -103,5 +116,22 @@ export function DraftNumber({ value, scrub, step = 1, min, disabled, onCommit }:
         if (next !== value) onCommit(next);
       }}
     />
+  );
+}
+
+export interface ToggleLineProps {
+  readonly label: string;
+  readonly checked: boolean;
+  readonly disabled: boolean;
+  readonly onChange: (checked: boolean) => void;
+}
+
+/** A switch across a section's width, its label at the left. */
+export function ToggleLine({ label, checked, disabled, onChange }: ToggleLineProps) {
+  return (
+    <label className="col-span-2 flex min-h-6 cursor-pointer items-center justify-between gap-2 text-meta text-surface-300 select-none has-[[data-disabled]]:cursor-default">
+      <span className="min-w-0 truncate">{label}</span>
+      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+    </label>
   );
 }

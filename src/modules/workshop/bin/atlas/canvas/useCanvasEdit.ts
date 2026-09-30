@@ -16,7 +16,9 @@ import type { ViewTree } from "../engine/model/tree";
 import type { AtlasEdit } from "../state/atlasEdit";
 import { useAtlasPreviewActions } from "../state/atlasPreview";
 import {
-  contains,
+  clickedIn,
+  elementsAt,
+  repeatsClick,
   type Handle,
   HANDLES,
   handlePoint,
@@ -48,7 +50,10 @@ type Gesture =
       readonly kind: "press";
       readonly client: Point;
       readonly at: Point;
+      /** The element a drag moves: a selected one under the pointer, else the topmost. */
       readonly element: string | null;
+      /** Every element under the pointer, topmost first. */
+      readonly under: readonly string[];
       readonly additive: boolean;
     }
   | { readonly kind: "pan"; client: Point }
@@ -103,6 +108,8 @@ export interface CanvasEdit {
   readonly cursor: string;
   /** The topmost element under a point of the pane. */
   readonly pick: (x: number, y: number) => string | null;
+  /** Every element under a point of the pane, topmost first. */
+  readonly pickAll: (x: number, y: number) => readonly string[];
   readonly onPointerDown: (event: ReactPointerEvent<HTMLElement>) => void;
   readonly onPointerMove: (event: ReactPointerEvent<HTMLElement>) => void;
   readonly onPointerUp: (event: ReactPointerEvent<HTMLElement>) => void;
@@ -115,8 +122,10 @@ export interface CanvasEdit {
 /**
  * The canvas's edit gestures, per "Interaction" in docs/plans/atlas-ui-editor.md.
  *
- * A click picks the topmost element and a modified click adds it to the selection or takes it
- * out. A drag on an element moves the selection, a drag on a handle of the primary selection
+ * A click picks the topmost element, and a click again on the same spot picks the one under it,
+ * so a stack is reached by clicking through it. A modified click adds the topmost to the selection
+ * or takes it out. A drag on an element moves the selection, a selected element under others
+ * included, a drag on a handle of the primary selection
  * resizes it, and a drag over nothing draws a marquee. A middle drag, or any drag while Space is
  * held, pans, and so does an element drag where the scene bin takes no edits. A move and a
  * resize snap to the edges and centres of the siblings, the parent and the screen unless Alt is
@@ -163,19 +172,18 @@ export function useCanvasEdit({
     selection.length === 1 &&
     resizable(tree, primary);
 
-  const pick = useCallback(
-    (x: number, y: number): string | null => {
-      if (shown === null) return null;
+  const pickAll = useCallback(
+    (x: number, y: number): readonly string[] => {
+      if (shown === null) return [];
 
       const [sx, sy] = transform.toScreen(x, y);
-      for (let at = order.length - 1; at >= 0; at -= 1) {
-        const element = order[at];
-        const rect = element === undefined ? undefined : shown.get(element);
-        if (rect !== undefined && element !== undefined && contains(rect, sx, sy)) return element;
-      }
-      return null;
+      return elementsAt(order, shown, sx, sy);
     },
     [shown, order, transform],
+  );
+  const pick = useCallback((x: number, y: number) => pickAll(x, y)[0] ?? null, [pickAll]);
+  const lastClick = useRef<{ readonly client: Point; readonly element: string | null } | null>(
+    null,
   );
 
   const handleAt = (x: number, y: number): Handle | null => {
@@ -255,11 +263,13 @@ export function useCanvasEdit({
       return;
     }
 
+    const under = pickAll(x, y);
     gesture.current = {
       kind: "press",
       client,
       at,
-      element: pick(x, y),
+      element: under.find((key) => selection.includes(key)) ?? under[0] ?? null,
+      under,
       additive: event.shiftKey || event.ctrlKey || event.metaKey,
     };
   };
@@ -332,11 +342,21 @@ export function useCanvasEdit({
 
     const snapping = !event.altKey;
     switch (held.kind) {
-      case "press":
+      case "press": {
         if (event.button !== PRIMARY_BUTTON) return;
-        if (held.additive && held.element !== null) toggleSelected(view, held.element);
-        else if (!held.additive) select(view, held.element);
+
+        const topmost = held.under[0] ?? null;
+        if (held.additive) {
+          if (topmost !== null) toggleSelected(view, topmost);
+          return;
+        }
+
+        const repeat = repeatsClick(lastClick.current, held.client, primary, DRAG_SLOP);
+        const picked = clickedIn(held.under, primary, repeat);
+        lastClick.current = { client: held.client, element: picked };
+        select(view, picked);
         return;
+      }
       case "pan":
         return;
       case "move":
@@ -395,6 +415,7 @@ export function useCanvasEdit({
     handles,
     cursor,
     pick,
+    pickAll,
     onPointerDown,
     onPointerMove,
     onPointerUp,

@@ -6,6 +6,7 @@ import type { FrameCommands } from "../../engine/commands/board";
 import type { Screen } from "../../engine/layout/solve";
 import { Composite, type CompositeColors, type ViewTransform } from "../utils/composite";
 import { type FrameInputs, FrameRenderer, type ParticleDraws } from "../utils/frameRenderer";
+import { renderScale } from "../utils/renderScale";
 
 export interface AtlasFrameProps {
   /** Each frame's command list and where it sits, in screen pixels from the view's origin. */
@@ -35,7 +36,8 @@ const FRAME_PRIORITY = 1;
 /**
  * The view's frames: each command list rendered into a target of the screen's size, then that
  * target drawn onto the canvas at its frame's place under the pan and zoom, per section 3.3 of
- * docs/plans/atlas-renderer.md. A frame off the canvas is not rendered.
+ * docs/plans/atlas-renderer.md. The target follows the canvas's density, per `renderScale`, so a
+ * zoomed-in frame stays sharp. A frame off the canvas is not rendered.
  */
 export function AtlasFrame({
   frames,
@@ -80,6 +82,8 @@ export function AtlasFrame({
     renderer.update(time, live);
 
     const autoClear = gl.autoClear;
+    const maxTexture = gl.capabilities.maxTextureSize;
+    renderer.setScale(renderScale(view.zoom * viewport.dpr, screen, maxTexture));
     composite.set(renderer.target.texture, NOTHING, view, size.height, viewport.dpr, colors);
     gl.setRenderTarget(null);
     gl.render(composite.scene, CAMERA);
@@ -102,6 +106,7 @@ export function AtlasFrame({
         viewport.dpr,
         colors,
         false,
+        renderer.scale,
       );
       gl.setRenderTarget(null);
       gl.render(composite.scene, CAMERA);

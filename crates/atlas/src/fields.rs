@@ -3,7 +3,7 @@
 use ltk_hash::BinHash;
 
 /// FNV-1a over the lowercased ASCII name, the hash of a class or field name.
-const fn named(name: &str) -> BinHash {
+pub(super) const fn named(name: &str) -> BinHash {
     let bytes = name.as_bytes();
     let mut hash: u32 = 0x811c_9dc5;
     let mut at = 0;

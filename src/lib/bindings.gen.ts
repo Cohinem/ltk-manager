@@ -90,7 +90,7 @@ export const commands = {
 	 *  Every class deriving from `class_hash` at the install's build, through any number of
 	 *  bases. `class_hash` is `0x` and eight hex digits.
 	 */
-	derivedClasses: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: string[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("derived_classes", { classHash }),
+	derivedClasses: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: HexBinHash[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("derived_classes", { classHash }),
 	/**
 	 *  The wiki's documentation for one class and every property declared on it or its bases.
 	 * 
@@ -440,6 +440,17 @@ export const commands = {
 	 */
 	readUiPrograms: (document: number | null, shaders: UiShader[]) => __TAURI_INVOKE<({ ok: true; value: ProgramRead[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_programs", { document, shaders }),
 	/**
+	 *  The sample champion, summoner spells, runes and items a preview fills a controller's elements
+	 *  with, read through the sandbox `document` opens in.
+	 * 
+	 *  An object the index has not reached, or a texture no archive holds, is absent from the answer.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the document is closed.
+	 */
+	readUiLoadout: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: UiLoadout }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_loadout", { document }),
+	/**
 	 *  Write the sprite at `uv` on the page `texture` to `destination` as a PNG, at the page's own
 	 *  resolution, for an image editor to open and the import to take back.
 	 * 
@@ -448,7 +459,7 @@ export const commands = {
 	 *  Fails when the page cannot be read or decoded, when `uv` covers none of it, and when
 	 *  `destination` cannot be written.
 	 */
-	atlasExportSprite: (texture: AssetRef, uv: [number, number, number, number], destination: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_export_sprite", { texture, uv, destination }),
+	atlasExportSprite: (texture: AssetRef, uv: [(number | null), (number | null), (number | null), (number | null)], destination: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_export_sprite", { texture, uv, destination }),
 	/**
 	 *  Import the PNG at `source` into the sheet `sheet` of the project `document` opens in, or put
 	 *  it in place of the sprite `replace`, per section 5 of docs/plans/atlas-ui-editor.md.
@@ -4268,6 +4279,13 @@ export type UiAsset = {
 	asset: AssetRef | null,
 };
 
+/**  An element a controller's fields name, and what the controller fills it with. */
+export type UiBinding = {
+	/**  The element, as `0x` and eight digits. */
+	element: string,
+	role: UiRole,
+};
+
 /**
  *  What a `UiElementGroupButtonData` holds beyond its states, per "Buttons" in
  *  docs/research/ui-data-layout.md. Each element is `0x` and eight digits.
@@ -4466,6 +4484,24 @@ export type UiLayout = {
 /**  The class of a `LayoutStyle`. */
 export type UiLayoutKind = "horizontalList" | "verticalList" | "grid";
 
+/**  The textures and names a preview fills a controller's elements with. */
+export type UiLoadout = {
+	champion: string,
+	/**  The champion's name in the string table, where its record names one. */
+	nameKey: string | null,
+	portrait: UiTexture | null,
+	splash: UiTexture | null,
+	/**  Q, W, E and R. */
+	abilities: (UiTexture | null)[],
+	passive: UiTexture | null,
+	/**  D and F. */
+	summoners: (UiTexture | null)[],
+	keystone: UiTexture | null,
+	substyle: UiTexture | null,
+	/**  The six item slots, then the trinket. */
+	items: (UiTexture | null)[],
+};
+
 /**  What an element draws. */
 export type UiLook = 
 /**  `UiElementIconData`. */
@@ -4581,6 +4617,39 @@ export type UiRepeat = {
 	/**  How many copies the controller makes at most. */
 	count: number,
 };
+
+/**  What a controller fills an element with at run time. */
+export type UiRole = 
+/**  A champion ability's icon, 0 to 3 for Q to R. */
+{ kind: "ability"; slot: number } | { kind: "passive" } | 
+/**  A summoner spell's icon, 0 for D and 1 for F. */
+{ kind: "summoner"; slot: number } | 
+/**  An item's icon, 0 to 6 with the trinket last. */
+{ kind: "item"; slot: number } | 
+/**  The champion's square portrait. */
+{ kind: "portrait" } | 
+/**  The champion's loading screen art. */
+{ kind: "splash" } | { kind: "keystone" } | 
+/**  The secondary rune path. */
+{ kind: "substyle" } | 
+/**  A buff's icon. */
+{ kind: "buff" } | 
+/**
+ *  An element the controller shows only in a state a resting slot is not in: an out of mana
+ *  or crowd control overlay, a disabled border, a cooldown effect, a buff timer, a message.
+ */
+{ kind: "hidden" } | 
+/**  The key that casts or uses a slot. */
+{ kind: "hotkey"; key: string } | 
+/**
+ *  A text the controller leaves blank at rest: a cooldown, a charge or stack count, a respawn
+ *  timer.
+ */
+{ kind: "idle" } | { kind: "level" } | { kind: "health" } | 
+/**  The ability resource, such as mana. */
+{ kind: "resource" } | 
+/**  An ability's resource cost. */
+{ kind: "cost" } | { kind: "kda" } | { kind: "creepScore" } | { kind: "visionScore" } | { kind: "gold" } | { kind: "playerName" };
 
 /**  One `UISceneData`. */
 export type UiScene = {
@@ -4728,6 +4797,8 @@ export type UiView = {
 	styleSheets: UiStyleSheet[],
 	/**  The templates the controller clones into its layouts at run time. */
 	repeats: UiRepeat[],
+	/**  The elements the controller fills at run time, each with what it fills them with. */
+	bindings: UiBinding[],
 	/**  Every reference the read could not follow. */
 	warnings: UiViewWarning[],
 };

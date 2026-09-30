@@ -1,3 +1,5 @@
+import { labelOf } from "./layers";
+import { momentOf } from "./moments";
 import type { ViewTree } from "./tree";
 import type { ViewElement } from "./view";
 
@@ -7,13 +9,20 @@ import type { ViewElement } from "./view";
  *
  * A view whose file switches any scene on leaves the rest to its controller's events, so those
  * start off. A view whose file switches none on has its controller switch every scene, so all of
- * them start shown.
+ * them start shown. The controller's moment switches its own scenes over either.
  */
 export function restingHiddenScenes(tree: ViewTree): ReadonlySet<string> {
   const scenes = [...tree.scenes.values()];
-  if (!scenes.some((scene) => scene.enabled)) return new Set();
+  const anyEnabled = scenes.some((scene) => scene.enabled);
+  const moment = momentOf(tree.view.class);
 
-  return new Set(scenes.filter((scene) => !scene.enabled).map((scene) => scene.key));
+  const hidden = new Set<string>();
+  for (const scene of scenes) {
+    const name = labelOf(scene.label, scene.path, scene.key);
+    const off = moment.hide.includes(name) || (anyEnabled && !scene.enabled);
+    if (off && !moment.show.includes(name)) hidden.add(scene.key);
+  }
+  return hidden;
 }
 
 /**

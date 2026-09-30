@@ -41,9 +41,9 @@ void main() {
 `;
 
 /*
- * Past 100% a canvas pixel takes the screen pixel under it, so the frame shows its real pixels.
- * Below it, a grid of taps over the canvas pixel's footprint stands in for the mips the target
- * does not carry.
+ * `u_scale` is the target's texels per screen pixel. Where a canvas pixel is smaller than a texel,
+ * it takes the texel under it. Where it is larger, a grid of taps over the canvas pixel's footprint
+ * stands in for the mips the target does not carry.
  */
 const FRAGMENT = `
 precision highp float;
@@ -51,6 +51,7 @@ uniform sampler2D u_frame;
 uniform vec2 u_frameSize;
 uniform vec2 u_offset;
 uniform float u_zoom;
+uniform float u_scale;
 uniform float u_canvasHeight;
 uniform vec3 u_backdrop;
 uniform vec3 u_checkerA;
@@ -75,8 +76,8 @@ void main() {
   vec3 ground = mod(cell.x + cell.y, 2.0) < 1.0 ? u_checkerA : u_checkerB;
 
   vec4 texel;
-  if (u_zoom >= 1.0) {
-    texel = frameAt(floor(at) + 0.5);
+  if (u_zoom >= u_scale) {
+    texel = frameAt((floor(at * u_scale) + 0.5) / u_scale);
   } else {
     float footprint = 1.0 / u_zoom;
     texel = vec4(0.0);
@@ -117,6 +118,7 @@ export class Composite {
         u_frameSize: { value: new Vector2() },
         u_offset: { value: new Vector2() },
         u_zoom: { value: 1 },
+        u_scale: { value: 1 },
         u_canvasHeight: { value: 1 },
         u_backdrop: { value: new Vector3() },
         u_checkerA: { value: new Vector3() },
@@ -130,8 +132,9 @@ export class Composite {
   }
 
   /**
-   * The uniforms for one draw. `dpr` takes the CSS-pixel `view` to the canvas's own pixels, and
-   * `ground` paints the backdrop around the frame.
+   * The uniforms for one draw. `dpr` takes the CSS-pixel `view` to the canvas's own pixels,
+   * `ground` paints the backdrop around the frame, and `scale` is the frame texture's texels per
+   * screen pixel.
    */
   set(
     frame: Texture,
@@ -141,12 +144,14 @@ export class Composite {
     dpr: number,
     colors: CompositeColors,
     ground = true,
+    scale = 1,
   ): void {
     const uniforms = this.material.uniforms;
     uniforms.u_frame = { value: frame };
     (uniforms.u_frameSize?.value as Vector2).set(screen.width, screen.height);
     (uniforms.u_offset?.value as Vector2).set(view.x * dpr, view.y * dpr);
     uniforms.u_zoom = { value: view.zoom * dpr };
+    uniforms.u_scale = { value: scale };
     uniforms.u_canvasHeight = { value: canvasHeight * dpr };
     uniforms.u_ground = { value: ground };
     writeColor(uniforms.u_backdrop?.value as Vector3, colors.backdrop);
