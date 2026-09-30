@@ -1,5 +1,5 @@
-//! The skin bins the mods below a built-in mod ship, read once per mod content and layer
-//! selection.
+//! The skin bins and base skin models the mods below a built-in mod ship, read once per mod
+//! content and layer selection.
 
 use super::game_skins::GameSkins;
 use super::skin_bin::SkinBin;
@@ -8,19 +8,25 @@ use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
 use ltk_overlay::{ContentHash, EnabledMod};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, btree_map};
+use std::collections::{BTreeMap, BTreeSet, btree_map};
 use std::path::Path;
 
 /// The file in a built-in mod's cache directory holding what each mod held when last read.
 const CACHE_FILE: &str = "shipped-skins.json";
 
+/// The extensions of a skin's mesh and textures.
+const MODEL_EXTENSIONS: [&str; 3] = [".skn", ".tex", ".dds"];
+
 /// The skin bins the mods below a built-in mod ship, per ADR-0043, readable out of the mod.
 ///
 /// A mod ships a skin bin when a layer it has turned on holds the bin with bytes other than the
-/// game's. A bin two mods ship is the first one's, as in the overlay.
+/// game's. A bin two mods ship is the first one's, as in the overlay. A base model file ships
+/// the same way.
 pub(super) struct ModSkins<'m> {
     mods: &'m mut [EnabledMod],
     shipped: BTreeMap<SkinBin, Shipped>,
+    /// Each character for which a mod ships a base model file.
+    remodeled: BTreeSet<String>,
 }
 
 /// Where one mod holds a skin bin it ships.
@@ -53,7 +59,65 @@ struct Cache {
 #[derive(Debug, Serialize, Deserialize)]
 struct CachedMod {
     fingerprint: u64,
+    held: Held,
+}
+
+/// The skin bins and base model files one mod holds.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct Held {
     skin_bins: Vec<(SkinBin, ContentHash, ModFile)>,
+    base_models: Vec<(BaseModel, ContentHash)>,
+}
+
+impl Held {
+    fn keep(&mut self, named: Named, content: ContentHash, file: ModFile) {
+        match named {
+            Named::SkinBin(bin) => self.skin_bins.push((bin, content, file)),
+            Named::BaseModel(model) => self.base_models.push((model, content)),
+        }
+    }
+}
+
+/// A mesh or texture of a character's base skin, directly in
+/// `assets/characters/<character>/skins/base/`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub(super) struct BaseModel {
+    pub(super) character: String,
+    /// The chunk path, lowercased.
+    path: String,
+}
+
+impl BaseModel {
+    /// The base model file at the chunk path `path`, where it is one.
+    pub(super) fn parse(path: &str) -> Option<Self> {
+        let path = path.replace('\\', "/").to_ascii_lowercase();
+        let (character, file) = path
+            .strip_prefix("assets/characters/")?
+            .split_once("/skins/base/")?;
+        let model = MODEL_EXTENSIONS
+            .iter()
+            .any(|extension| file.ends_with(extension));
+        if character.is_empty() || character.contains('/') || file.contains('/') || !model {
+            return None;
+        }
+
+        let character = character.to_owned();
+        Some(Self { character, path })
+    }
+}
+
+/// A file of a mod the skins read, named by its path.
+enum Named {
+    SkinBin(SkinBin),
+    BaseModel(BaseModel),
+}
+
+impl Named {
+    fn parse(path: &str) -> Option<Self> {
+        SkinBin::parse(path)
+            .map(Self::SkinBin)
+            .or_else(|| BaseModel::parse(path).map(Self::BaseModel))
+    }
 }
 
 impl<'m> ModSkins<'m> {
@@ -77,6 +141,7 @@ impl<'m> ModSkins<'m> {
         let mut changed = false;
 
         let mut held = BTreeMap::new();
+        let mut held_models = BTreeMap::new();
         for (mod_index, enabled_mod) in mods.iter_mut().enumerate() {
             let fingerprint = enabled_mod.cache_fingerprint();
             let cached = fingerprint.and_then(|fingerprint| {
@@ -85,10 +150,10 @@ impl<'m> ModSkins<'m> {
                     .get(&enabled_mod.id)
                     .filter(|cached| cached.fingerprint == fingerprint)
             });
-            let skin_bins = match cached {
-                Some(cached) => cached.skin_bins.clone(),
-                None => match skin_bins_of(enabled_mod, game) {
-                    Ok(skin_bins) => skin_bins,
+            let holds = match cached {
+                Some(cached) => cached.held.clone(),
+                None => match held_by(enabled_mod, game) {
+                    Ok(holds) => holds,
                     Err(e) => {
                         tracing::warn!("Built-in mods: passing over mod {}: {e}", enabled_mod.id);
                         continue;
@@ -96,7 +161,7 @@ impl<'m> ModSkins<'m> {
                 },
             };
 
-            for (bin, content, file) in &skin_bins {
+            for (bin, content, file) in &holds.skin_bins {
                 if let btree_map::Entry::Vacant(entry) = held.entry(bin.clone()) {
                     entry.insert((
                         *content,
@@ -107,6 +172,10 @@ impl<'m> ModSkins<'m> {
                     ));
                 }
             }
+            for (model, content) in &holds.base_models {
+                held_models.entry(model.clone()).or_insert(*content);
+            }
+
             if cached.is_none() {
                 changed = true;
                 match fingerprint {
@@ -114,7 +183,7 @@ impl<'m> ModSkins<'m> {
                         enabled_mod.id.clone(),
                         CachedMod {
                             fingerprint,
-                            skin_bins,
+                            held: holds,
                         },
                     ),
                     None => cache.mods.remove(&enabled_mod.id),
@@ -134,16 +203,34 @@ impl<'m> ModSkins<'m> {
             })
             .map(|(bin, (_, shipped))| (bin, shipped))
             .collect();
-        Self { mods, shipped }
+        let remodeled = held_models
+            .into_iter()
+            .filter(|(model, content)| {
+                game.read_chunk(&model.path)
+                    .is_none_or(|bytes| ContentHash::of(&bytes) != *content)
+            })
+            .map(|(model, _)| model.character)
+            .collect();
+
+        Self {
+            mods,
+            shipped,
+            remodeled,
+        }
     }
 
     pub(super) fn ships(&self, bin: &SkinBin) -> bool {
         self.shipped.contains_key(bin)
     }
 
-    /// Every skin bin the mods ship, in order.
-    pub(super) fn iter(&self) -> impl Iterator<Item = &SkinBin> {
-        self.shipped.keys()
+    /// Each character whose base skin a mod changes, by its skin bin or a base model file.
+    pub(super) fn reskinned(&self) -> BTreeSet<&str> {
+        self.shipped
+            .keys()
+            .filter(|bin| bin.is_base())
+            .map(|bin| bin.character.as_str())
+            .chain(self.remodeled.iter().map(String::as_str))
+            .collect()
     }
 
     /// The bytes of `bin` out of the mod shipping it, where one does and it reads.
@@ -164,11 +251,9 @@ impl<'m> ModSkins<'m> {
     }
 }
 
-/// The skin bins `enabled_mod` holds, read out of each layer it has turned on and its raw files.
-fn skin_bins_of(
-    enabled_mod: &mut EnabledMod,
-    game: &GameSkins<'_>,
-) -> ltk_overlay::Result<Vec<(SkinBin, ContentHash, ModFile)>> {
+/// The skin bins and base model files `enabled_mod` holds, read out of each layer it has turned
+/// on and its raw files.
+fn held_by(enabled_mod: &mut EnabledMod, game: &GameSkins<'_>) -> ltk_overlay::Result<Held> {
     let project = enabled_mod.content.mod_project()?;
     let mut files = Files::default();
     for layer in &project.layers {
@@ -196,13 +281,13 @@ fn skin_bins_of(
             };
             files.push(&rel_path, &bytes, file)
         })?;
-    Ok(files.into_skin_bins(game))
+    Ok(files.into_held(game))
 }
 
 /// The files of one mod as they are read, named by path or kept by hash to name in one pass.
 #[derive(Default)]
 struct Files {
-    named: Vec<(SkinBin, ContentHash, ModFile)>,
+    held: Held,
     hashed: Vec<(ltk_wad::WadHash, ContentHash, ModFile)>,
 }
 
@@ -214,8 +299,8 @@ impl Files {
         file: ModFile,
     ) -> ltk_overlay::Result<()> {
         let content = ContentHash::of(bytes);
-        match SkinBin::parse(rel_path.as_str()) {
-            Some(bin) => self.named.push((bin, content, file)),
+        match Named::parse(rel_path.as_str()) {
+            Some(named) => self.held.keep(named, content, file),
             None => self.hashed.push((
                 ltk_overlay::utils::resolve_chunk_hash(rel_path, bytes)?,
                 content,
@@ -225,12 +310,15 @@ impl Files {
         Ok(())
     }
 
-    fn into_skin_bins(mut self, game: &GameSkins<'_>) -> Vec<(SkinBin, ContentHash, ModFile)> {
+    fn into_held(mut self, game: &GameSkins<'_>) -> Held {
         let hashes: Vec<_> = self.hashed.iter().map(|(hash, _, _)| *hash).collect();
-        let resolved = game.resolve_all(&hashes).into_iter().zip(self.hashed);
-        self.named
-            .extend(resolved.filter_map(|(bin, (_, content, file))| Some((bin?, content, file))));
-        self.named
+        let names = game.name_all(&hashes);
+        for (name, (_, content, file)) in names.into_iter().zip(self.hashed) {
+            if let Some(named) = name.as_deref().and_then(Named::parse) {
+                self.held.keep(named, content, file);
+            }
+        }
+        self.held
     }
 }
 
