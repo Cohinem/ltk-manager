@@ -6,8 +6,6 @@ use crate::state::SettingsState;
 use fs_err as fs;
 use tauri::{AppHandle, State};
 
-use super::mods::reject_if_patcher_running;
-
 /// Refuse a download from a domain the reader's allowlist does not cover.
 ///
 /// The deep-link handler already marks such a link, and the dialog it opens asks
@@ -58,7 +56,7 @@ pub fn deep_link_install_mod(
     patcher: State<PatcherState>,
 ) -> IpcResult<InstalledMod> {
     let result: AppResult<InstalledMod> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
 
         let parsed = url::Url::parse(&url)
             .map_err(|e| AppError::ValidationFailed(format!("Invalid URL: {e}")))?;

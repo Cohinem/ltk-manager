@@ -1,4 +1,5 @@
 import type { BinDocumentId, BinEdit, EditOutcome } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 
 /** The edit a mocked invoke carries when it is a `bin_edit` of `kind`, or null. */
 export function sentEdit<K extends BinEdit["kind"]>(
@@ -6,7 +7,7 @@ export function sentEdit<K extends BinEdit["kind"]>(
   args: Record<string, unknown> | undefined,
   kind: K,
 ): Extract<BinEdit, { kind: K }> | null {
-  if (command !== "bin_edit") return null;
+  if (command !== commandNames.app.binEdit) return null;
 
   const edit = args?.edit as BinEdit | undefined;
   return edit?.kind === kind ? (edit as Extract<BinEdit, { kind: K }>) : null;
@@ -26,7 +27,7 @@ export function editCall(
   document: BinDocumentId,
   edit: BinEdit,
 ): [string, Record<string, unknown>] {
-  return ["bin_edit", { document, edit }];
+  return [commandNames.app.binEdit, { document, edit }];
 }
 
 /** A landed edit's envelope, as the mocked backend answers it. */

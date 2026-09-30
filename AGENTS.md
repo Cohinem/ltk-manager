@@ -212,8 +212,9 @@ In a checkout indexed by CodeGraph (`.codegraph/` at the repo root), the index r
 has blind spots:
 
 - The Tauri command boundary has no edge. `api.fooBar` in `src/lib/tauri.ts` calls
-  `commands.fooBar` in `src/lib/bindings.ts`, which invokes the string `"foo_bar"`, the Rust
-  command of that name registered in `src-tauri/src/ipc.rs`. An explore query that names both
+  `commands.fooBar` in `src/lib/bindings.ts` or a service's `src/lib/ipc/<service>.ts`, which
+  invokes the string `"foo_bar"` or `"plugin:<service>|foo_bar"`, the Rust command of that name
+  in `src-tauri/src/ipc.rs` or `src-tauri/src/services/table.rs`. An explore query that names both
   sides (`fooBar foo_bar`) returns the whole flow.
 - A cross-language `calls` or `imports` edge is a name collision (Rust `.unwrap()` resolves to
   `src/utils/result.ts`), unless the target is a generated binding type. Qualified Rust names such as

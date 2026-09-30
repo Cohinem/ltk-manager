@@ -46,15 +46,19 @@ building a launcher return `LauncherError`.
 
 ## IPC
 
-The command table is `command_table![]` in `ipc.rs`, on `tauri-specta` (ADR-0029). A command
-carries `#[tauri::command]` and `#[specta::specta]`, returns `IpcResult<T>`, and joins the table,
-or its `debug:` list when only a debug build registers it. An event payload no command reaches is
-named once with `.typ::<T>()` in `ipc::builder`.
+A service is an inline Tauri plugin, on `tauri-specta` (ADR-0029, ADR-0059). `services/table.rs`
+names each service and its commands once, and both `build.rs` and `services/mod.rs` read it. A
+command carries `#[tauri::command]` and `#[specta::specta]`, returns `IpcResult<T>`, and joins its
+service's row, or the row's `debug:` list when only a debug build registers it. A command no
+service owns yet joins `command_table![]` in `ipc.rs`. An event payload no command reaches is named
+once with `.typ::<T>()` in `ipc::builder`.
 
 A type that crosses IPC derives `specta::Type` under its crate's `ts` feature.
-`pnpm generate:types` writes `src/lib/bindings.ts`, and `src/lib/tauri.ts` wraps each generated
-command in the `api` map and re-exports the types, with the serialize half of a phase-split type
-under its plain name.
+`pnpm generate:types` writes every type and the commands outside a service to
+`src/lib/bindings.ts`, and each service's commands to `src/lib/ipc/<service>.ts`. `src/lib/tauri.ts`
+wraps each generated command in the `api` map and re-exports the types, with the serialize half of
+a phase-split type under its plain name. A test matches an invoke on `commandNames` from
+`src/test/commandNames.ts`, never on a string.
 
 ## Filesystem
 

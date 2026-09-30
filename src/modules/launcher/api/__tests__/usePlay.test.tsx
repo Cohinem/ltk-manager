@@ -9,6 +9,7 @@ import { ToastProvider } from "@/components";
 import type { LaunchRoute, PatcherPhase } from "@/lib/tauri";
 import { useInstalledMods } from "@/modules/library";
 import { usePendingRebuildStore, usePlaySessionStore } from "@/stores";
+import { commandNames } from "@/test/commandNames";
 import { createMockInstalledMod, createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -50,24 +51,24 @@ function mockBackend(
 
   mockInvoke.mockImplementation((cmd: string) => {
     switch (cmd) {
-      case "get_settings":
+      case commandNames.app.getSettings:
         // Already seen, so the HDD check short-circuits instead of probing disks.
         return Promise.resolve({
           ok: true,
           value: createMockSettings({ hasSeenHddWarning: true }),
         });
-      case "get_installed_mods":
+      case commandNames.library.getInstalledMods:
         return Promise.resolve({ ok: true, value: [createMockInstalledMod({ enabled: true })] });
-      case "start_patcher":
+      case commandNames.app.startPatcher:
         return Promise.resolve({ ok: true, value: null });
-      case "get_patcher_status": {
+      case commandNames.app.getPatcherStatus: {
         const phase = remaining.length > 1 ? remaining.shift()! : remaining[0];
         return Promise.resolve({
           ok: true,
           value: { running: phase !== "idle", phase, session: null },
         });
       }
-      case "launch_league":
+      case commandNames.app.launchLeague:
         return Promise.resolve({ ok: true, value: { route, riotClientPid: 1234, sessionId } });
       default:
         return Promise.resolve({ ok: true, value: null });
@@ -99,7 +100,7 @@ describe("usePlay", () => {
       await result.current.play.play();
     });
 
-    const start = mockInvoke.mock.calls.find(([cmd]) => cmd === "start_patcher");
+    const start = mockInvoke.mock.calls.find(([cmd]) => cmd === commandNames.app.startPatcher);
     expect(start?.[1]).toEqual({ config: { forceRebuild: true } });
     expect(usePendingRebuildStore.getState().queued).toBe(false);
   });
@@ -113,9 +114,11 @@ describe("usePlay", () => {
     });
 
     const commands = invokedCommands();
-    expect(commands).toContain("start_patcher");
-    expect(commands).toContain("launch_league");
-    expect(commands.indexOf("start_patcher")).toBeLessThan(commands.indexOf("launch_league"));
+    expect(commands).toContain(commandNames.app.startPatcher);
+    expect(commands).toContain(commandNames.app.launchLeague);
+    expect(commands.indexOf(commandNames.app.startPatcher)).toBeLessThan(
+      commands.indexOf(commandNames.app.launchLeague),
+    );
   });
 
   /// A build that fails drops the patcher back to idle. Launching anyway would
@@ -128,8 +131,8 @@ describe("usePlay", () => {
       await result.current.play.play();
     });
 
-    expect(invokedCommands()).toContain("start_patcher");
-    expect(invokedCommands()).not.toContain("launch_league");
+    expect(invokedCommands()).toContain(commandNames.app.startPatcher);
+    expect(invokedCommands()).not.toContain(commandNames.app.launchLeague);
   });
 
   /// The two halves stay independently invokable - this is the "I launch League
@@ -142,8 +145,8 @@ describe("usePlay", () => {
       await result.current.play.launchOnly();
     });
 
-    expect(invokedCommands()).toContain("launch_league");
-    expect(invokedCommands()).not.toContain("start_patcher");
+    expect(invokedCommands()).toContain(commandNames.app.launchLeague);
+    expect(invokedCommands()).not.toContain(commandNames.app.startPatcher);
   });
 
   it("keeps the patcher when League is already running", async () => {
@@ -154,7 +157,7 @@ describe("usePlay", () => {
       await result.current.play.play();
     });
 
-    expect(invokedCommands()).toContain("start_patcher");
+    expect(invokedCommands()).toContain(commandNames.app.startPatcher);
     expect(screen.queryByText("Couldn't launch League")).toBeNull();
   });
 
@@ -225,7 +228,7 @@ describe("usePlay", () => {
       await Promise.all([result.current.play.play(), result.current.play.play()]);
     });
 
-    const launches = invokedCommands().filter((cmd) => cmd === "launch_league");
+    const launches = invokedCommands().filter((cmd) => cmd === commandNames.app.launchLeague);
     expect(launches).toHaveLength(1);
   });
 });

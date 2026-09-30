@@ -1,22 +1,19 @@
-//! The command table, and the bindings `tauri-specta` generates out of it (ADR-0029).
+//! The commands no service owns yet, and the bindings `tauri-specta` generates out of them and
+//! every service's types (ADR-0029, ADR-0059).
+
+use std::collections::BTreeMap;
 
 use tauri::ipc::Invoke;
 use tauri::Wry;
 use tauri_specta::{collect_commands, Builder, Commands};
 
-/// Every command the frontend can call, with the ones only a debug build answers after `debug:`.
-///
-/// `collect_commands!` takes no attributes, so a debug-only command cannot carry its own `cfg`.
+/// Every command the frontend reaches outside a service.
 macro_rules! command_table {
-    ($($name:ident),* $(,)? ; debug: $($debug:ident),* $(,)?) => {
-        #[cfg(not(debug_assertions))]
+    ($($name:ident),* $(,)?) => {
+        const COMMANDS: &[&str] = &[$(stringify!($name)),*];
+
         fn commands() -> Commands<Wry> {
             collect_commands![$(crate::commands::$name),*]
-        }
-
-        #[cfg(debug_assertions)]
-        fn commands() -> Commands<Wry> {
-            collect_commands![$(crate::commands::$name,)* $(crate::commands::$debug),*]
         }
     };
 }
@@ -37,48 +34,6 @@ command_table![
     list_available_wads,
     list_forcible_map_skins,
     list_map_decorations,
-    // Mods
-    get_installed_mods,
-    install_mod,
-    update_mod,
-    install_mods,
-    uninstall_mod,
-    toggle_mod,
-    set_mod_layers,
-    enable_mod_with_layers,
-    edit_mod_metadata,
-    set_mod_storage,
-    check_mod_health,
-    repair_mod,
-    repair_mods,
-    get_mod_health_verdicts,
-    cancel_mod_health_run,
-    get_health_sweep,
-    sweep_mod_health,
-    get_health_check_readiness,
-    export_mods,
-    get_mod_thumbnail,
-    get_mod_thumbnails,
-    get_mod_readme,
-    get_mod_license_text,
-    get_storage_directory,
-    reorder_mods,
-    get_all_mod_wad_reports,
-    analyze_mod_wads,
-    // Folders
-    get_folders,
-    get_folder_order,
-    create_folder,
-    rename_folder,
-    delete_folder,
-    move_mod_to_folder,
-    toggle_folder,
-    reorder_folder_mods,
-    reorder_folders,
-    // Migration
-    scan_cslol_mods,
-    import_cslol_mods,
-    get_layout_migration_state,
     // Patcher
     start_patcher,
     stop_patcher,
@@ -96,13 +51,6 @@ command_table![
     pause_hotkeys,
     resume_hotkeys,
     set_hotkey,
-    // Profiles
-    list_mod_profiles,
-    get_active_mod_profile,
-    create_mod_profile,
-    delete_mod_profile,
-    switch_mod_profile,
-    rename_mod_profile,
     // Shell
     reveal_in_explorer,
     minimize_to_tray,
@@ -291,14 +239,6 @@ command_table![
     // Launcher
     check_install_mismatch,
     switch_league_install,
-    // Updater
-    check_update,
-    download_update,
-    install_update,
-    discard_update,
-    ;
-    debug:
-    time_mod_health,
 ];
 
 /// The builder the bindings are generated from and the handler is built out of.
@@ -327,6 +267,8 @@ fn builder() -> Builder<Wry> {
     a digit, and `JSON.stringify` refuses a `bigint`. */
     Builder::<Wry>::new()
         .commands(commands())
+        .constant(COMMAND_NAMES, command_names(None, COMMANDS))
+        .types(&crate::services::types())
         // Event payloads, which no command signature reaches.
         .typ::<ExportProgress>()
         .typ::<ExtractProgress>()
@@ -359,11 +301,51 @@ fn builder() -> Builder<Wry> {
         .dangerously_cast_bigints_to_number()
 }
 
-/// The handler that answers every command.
+/// The constant each generated file names its commands' invoke names under.
+pub(crate) const COMMAND_NAMES: &str = "commandNames";
+
+/// The name each of `commands` is invoked under, keyed by its generated function: the command
+/// itself, or `plugin:<plugin>|<command>` for a service's.
+pub(crate) fn command_names(plugin: Option<&str>, commands: &[&str]) -> BTreeMap<String, String> {
+    commands
+        .iter()
+        .map(|command| {
+            let invoked = match plugin {
+                Some(plugin) => format!("plugin:{plugin}|{command}"),
+                None => (*command).to_owned(),
+            };
+            (lower_camel(command), invoked)
+        })
+        .collect()
+}
+
+/// `get_installed_mods` as `getInstalledMods`, the key `tauri-specta` gives its function, and
+/// `app-update` as `appUpdate`.
+fn lower_camel(text: &str) -> String {
+    let mut parts = text.split(['_', '-']);
+    let head = parts.next().unwrap_or_default().to_owned();
+    parts.fold(head, |mut name, part| {
+        let mut chars = part.chars();
+        if let Some(first) = chars.next() {
+            name.extend(first.to_uppercase());
+            name.push_str(chars.as_str());
+        }
+        name
+    })
+}
+
+/// The handler that answers every command outside a service.
 pub fn invoke_handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + 'static {
+    handler(builder())
+}
+
+/// The handler that answers the commands of `builder`.
+pub(crate) fn handler(
+    builder: Builder<Wry>,
+) -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + 'static {
     /* The handler's type captures the borrow, though its body only clones an `Arc`.
     Leaked rather than held, because the app outlives every scope in `main`. */
-    let builder: &'static Builder<Wry> = Box::leak(Box::new(builder()));
+    let builder: &'static Builder<Wry> = Box::leak(Box::new(builder));
     builder.invoke_handler()
 }
 

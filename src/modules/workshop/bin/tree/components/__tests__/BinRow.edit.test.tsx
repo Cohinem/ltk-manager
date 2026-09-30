@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "@/components";
 import type { ChoiceQuery } from "@/lib/tauri";
 import { editCall, isEdit } from "@/test/binEdit";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -53,7 +54,8 @@ describe("a leaf of an editable document", () => {
       ]),
     );
     await waitFor(
-      () => expect(mockInvoke).toHaveBeenCalledWith("bin_save", { document: DOCUMENT }),
+      () =>
+        expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binSave, { document: DOCUMENT }),
       {
         timeout: 2000,
       },
@@ -255,7 +257,10 @@ describe("the add line", () => {
 
   beforeEach(() => {
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === "bin_choices" && (args?.query as ChoiceQuery).kind === "addableFields") {
+      if (
+        command === commandNames.app.binChoices &&
+        (args?.query as ChoiceQuery).kind === "addableFields"
+      ) {
         return Promise.resolve({ ok: true, value: { kind: "fields", fields: ADDABLE } });
       }
       return Promise.resolve({ ok: true, value: null });

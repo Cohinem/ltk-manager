@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ContextMenu, ToastProvider } from "@/components";
 import type { BinRow, DeclaredMark, RowDeclaration } from "@/lib/tauri";
 import { editCall, isEdit, landed } from "@/test/binEdit";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -100,7 +101,8 @@ beforeEach(() => {
   writeText.mockClear();
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === "bin_row_declaration") return Promise.resolve({ ok: true, value: spelled });
+    if (command === commandNames.app.binRowDeclaration)
+      return Promise.resolve({ ok: true, value: spelled });
     if (isEdit(command, args, "declareReference")) return landed();
     return Promise.reject(new Error(`unexpected command ${command}`));
   });
@@ -211,7 +213,7 @@ describe("the declaration actions of a row", () => {
         "2 fields or entries no declaration can spell are left as the game has them",
       ),
     ).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith("bin_row_declaration", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binRowDeclaration, {
       document: DOCUMENT,
       entry: ROW.entry,
       path: "",

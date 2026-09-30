@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Announcement, Notice } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -37,7 +38,7 @@ const POST: Announcement = {
 /** What the backend answers with, per command, for one case. */
 function answer(feeds: { notices?: Notice[]; posts?: Announcement[] }) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === "get_app_info") {
+    if (cmd === commandNames.app.getAppInfo) {
       return Promise.resolve({
         ok: true,
         value: {
@@ -49,8 +50,9 @@ function answer(feeds: { notices?: Notice[]; posts?: Announcement[] }) {
         },
       });
     }
-    if (cmd === "list_notices") return Promise.resolve({ ok: true, value: feeds.notices ?? [] });
-    if (cmd === "list_announcements") {
+    if (cmd === commandNames.app.listNotices)
+      return Promise.resolve({ ok: true, value: feeds.notices ?? [] });
+    if (cmd === commandNames.app.listAnnouncements) {
       return Promise.resolve({ ok: true, value: feeds.posts ?? [] });
     }
     return Promise.resolve({ ok: true, value: null });

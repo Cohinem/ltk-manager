@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type { BinRow, ClassDocs, ClassRef, ClassSchema, WorkshopProject } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -163,12 +164,13 @@ function renderLine(visible: RowLine, onToggle: (key: string) => void = () => {}
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "class_schema") return Promise.resolve({ ok: true, value: SCHEMA });
-    if (command === "class_docs") return Promise.resolve({ ok: true, value: DOCS });
-    if (command === "class_object_count") {
+    if (command === commandNames.app.classSchema)
+      return Promise.resolve({ ok: true, value: SCHEMA });
+    if (command === commandNames.app.classDocs) return Promise.resolve({ ok: true, value: DOCS });
+    if (command === commandNames.app.classObjectCount) {
       return Promise.resolve({ ok: true, value: { status: "ready", count: 42 } });
     }
-    if (command === "sync_meta_docs") return Promise.resolve({ ok: true, value: 0 });
+    if (command === commandNames.app.syncMetaDocs) return Promise.resolve({ ok: true, value: 0 });
     return Promise.reject(new Error(`unexpected command ${command}`));
   });
   Object.defineProperty(navigator, "clipboard", {
@@ -466,7 +468,7 @@ describe("the class card", () => {
       "href",
       "https://meta-wiki.leaguetoolkit.dev/classes/skincharacterdataproperties/",
     );
-    expect(mockInvoke).toHaveBeenCalledWith("class_schema", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.classSchema, {
       classHash: SKIN_CLASS,
     });
   });
@@ -478,7 +480,7 @@ describe("the class card", () => {
     const card = await screen.findByRole("tooltip", { name: "SkinCharacterDataProperties" }, HOVER);
 
     expect(await within(card).findByText("is", { selector: "strong" })).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith("class_docs", { classHash: SKIN_CLASS });
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.classDocs, { classHash: SKIN_CLASS });
   });
 
   it("offers no wiki link for a class no table names, which the wiki cannot address", async () => {
@@ -617,7 +619,9 @@ describe("the field card", () => {
     const card = await screen.findByRole("tooltip", { name: "iconCircle" }, HOVER);
 
     expect(await within(card).findByText("option[file]")).toBeInTheDocument();
-    await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith("class_docs", expect.anything()));
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.classDocs, expect.anything()),
+    );
     expect(within(card).queryByRole("link")).toBeNull();
   });
 

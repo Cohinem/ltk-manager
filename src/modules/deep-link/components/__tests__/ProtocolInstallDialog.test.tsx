@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DeepLinkInstallRequest, Settings } from "@/lib/tauri";
 import { useDialogQueueStore } from "@/stores";
+import { commandNames } from "@/test/commandNames";
 import { createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
@@ -23,11 +24,11 @@ const world = {
 
 function answer(command: string): unknown {
   switch (command) {
-    case "get_settings":
+    case commandNames.app.getSettings:
       return world.settings;
-    case "save_settings":
+    case commandNames.app.saveSettings:
       return null;
-    case "deep_link_install_mod":
+    case commandNames.app.deepLinkInstallMod:
       return { id: "a", name: "Zama Iroha Master Yi" };
     default:
       return null;
@@ -86,11 +87,13 @@ describe("ProtocolInstallDialog", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Trust and install/ }));
 
-    await waitFor(() => expect(calls("deep_link_install_mod")).toHaveLength(1));
-    const [[, saved]] = calls("save_settings") as [[string, { settings: Settings }]];
+    await waitFor(() => expect(calls(commandNames.app.deepLinkInstallMod)).toHaveLength(1));
+    const [[, saved]] = calls(commandNames.app.saveSettings) as [[string, { settings: Settings }]];
     expect(saved.settings.trustedDomains).toEqual(["runeforge.dev", "ultrawidehud.lol"]);
-    expect(mockInvoke.mock.calls.findIndex(([name]) => name === "save_settings")).toBeLessThan(
-      mockInvoke.mock.calls.findIndex(([name]) => name === "deep_link_install_mod"),
+    expect(
+      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.app.saveSettings),
+    ).toBeLessThan(
+      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.app.deepLinkInstallMod),
     );
   });
 
@@ -100,8 +103,8 @@ describe("ProtocolInstallDialog", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Reject" }));
 
-    expect(calls("save_settings")).toHaveLength(0);
-    expect(calls("deep_link_install_mod")).toHaveLength(0);
+    expect(calls(commandNames.app.saveSettings)).toHaveLength(0);
+    expect(calls(commandNames.app.deepLinkInstallMod)).toHaveLength(0);
     expect(useDeepLinkStore.getState().request).toBeNull();
   });
 

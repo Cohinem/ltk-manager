@@ -5,7 +5,7 @@
 //! Reading the remembered verdicts is a file read the library view makes on
 //! every render, and stays synchronous.
 
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult};
 use crate::mods::{ModHealthVerdict, ModLibrary, ModLibraryState};
 use crate::patcher::PatcherState;
@@ -176,7 +176,7 @@ enum PatcherGuard {
 /// closure, gathered on the UI thread where managed state lives.
 fn library_setup(app_handle: &AppHandle, guard: PatcherGuard) -> AppResult<(Config, ModLibrary)> {
     if matches!(guard, PatcherGuard::Reject) {
-        super::mods::reject_if_patcher_running(&app_handle.state::<PatcherState>())?;
+        app_handle.state::<PatcherState>().reject_if_running()?;
     }
     let config = app_handle.state::<SettingsState>().config();
     let library = app_handle.state::<ModLibraryState>().0.clone();

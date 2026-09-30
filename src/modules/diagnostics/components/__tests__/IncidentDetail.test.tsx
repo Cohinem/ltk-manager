@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SuspectModAction } from "@/modules/library";
+import { commandNames } from "@/test/commandNames";
 import { createMockInstalledMod } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 
@@ -23,7 +24,7 @@ vi.mock("@tanstack/react-router", () => ({
 function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
   mockInvoke.mockImplementation((cmd: string) => {
     switch (cmd) {
-      case "get_installed_mods":
+      case commandNames.library.getInstalledMods:
         return Promise.resolve({
           ok: true,
           value: [
@@ -34,7 +35,7 @@ function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
             }),
           ],
         });
-      case "get_patcher_status":
+      case commandNames.app.getPatcherStatus:
         return Promise.resolve({
           ok: true,
           value: {
@@ -43,11 +44,11 @@ function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
             session: null,
           },
         });
-      case "get_workshop_project":
+      case commandNames.app.getWorkshopProject:
         return Promise.resolve({ ok: true, value: { id: "a1b2c3d4e5f6a7b8" } });
-      case "incident_report":
+      case commandNames.app.incidentReport:
         return Promise.resolve({ ok: true, value: "# LTK Manager - League diagnostics" });
-      case "incident_token":
+      case commandNames.app.incidentToken:
         return Promise.resolve({ ok: true, value: "DIAG1-abc" });
       default:
         return Promise.resolve({ ok: true, value: null });
@@ -80,7 +81,7 @@ describe("IncidentDetail", () => {
     await user.click(await screen.findByRole("button", { name: "Disable" }));
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("toggle_mod", {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.library.toggleMod, {
         modId: "mod-aatrox",
         enabled: false,
       });

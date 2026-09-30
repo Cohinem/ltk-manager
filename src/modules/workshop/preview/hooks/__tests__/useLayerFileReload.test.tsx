@@ -7,6 +7,7 @@ import { beforeEach, expect, it, type Mock } from "vitest";
 
 import { assetVersion, currentAssetVersions } from "@/lib/assetVersions";
 import type { AssetRef, LayerFilesChanged } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke, mockListen } from "@/test/mocks/tauri";
 
 import { previewKeys } from "../../api/queries";
@@ -48,10 +49,14 @@ it("acquires a watch on the project's layers while mounted", async () => {
   const { unmount } = renderReload();
   await act(() => Promise.resolve());
 
-  expect(mockInvoke).toHaveBeenCalledWith("watch_project_layers", { projectPath: PROJECT });
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.watchProjectLayers, {
+    projectPath: PROJECT,
+  });
 
   unmount();
-  expect(mockInvoke).toHaveBeenCalledWith("unwatch_project_layers", { projectPath: PROJECT });
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.unwatchProjectLayers, {
+    projectPath: PROJECT,
+  });
 });
 
 it("counts a version for a changed file and marks only its info stale", async () => {

@@ -56,140 +56,6 @@ export const commands = {
 	listForcibleMapSkins: () => __TAURI_INVOKE<({ ok: true; value: ForcibleMapSkin[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_forcible_map_skins"),
 	/**  Every map decoration a mutator switches in the configured install. */
 	listMapDecorations: () => __TAURI_INVOKE<({ ok: true; value: MapDecoration[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_map_decorations"),
-	/**  Get all installed mods from the mod library. */
-	getInstalledMods: () => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_installed_mods"),
-	/**  Install a mod from a `.modpkg` or `.fantome` file into `modStoragePath`. */
-	installMod: (filePath: string) => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("install_mod", { filePath }),
-	/**  Replace a library mod from a new archive. */
-	updateMod: (modId: string, filePath: string) => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("update_mod", { modId, filePath }),
-	/**  Install multiple mods from `.modpkg` or `.fantome` files in a single batch. */
-	installMods: (filePaths: string[]) => __TAURI_INVOKE<({ ok: true; value: BulkInstallResult_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("install_mods", { filePaths }),
-	/**  Uninstall a mod by id. */
-	uninstallMod: (modId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("uninstall_mod", { modId }),
-	/**  Toggle a mod's enabled state. */
-	toggleMod: (modId: string, enabled: boolean) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("toggle_mod", { modId, enabled }),
-	/**  Set the enabled/disabled state of individual layers for a mod. */
-	setModLayers: (modId: string, layerStates: { [key in string]: boolean }) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_mod_layers", { modId, layerStates }),
-	/**  Enable a mod and set its initial layer configuration atomically. */
-	enableModWithLayers: (modId: string, layerStates: { [key in string]: boolean }) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("enable_mod_with_layers", { modId, layerStates }),
-	/**  Edit a mod's metadata (name, tags, champions, maps). */
-	editModMetadata: (modId: string, metadata: EditModMetadataArgs) => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("edit_mod_metadata", { modId, metadata }),
-	/**
-	 *  Read a mod's content from its archive or from an unpacked tree from now on.
-	 * 
-	 *  Off-thread because unpacking writes the mod's whole content tree, which is
-	 *  the one direction that is not instant.
-	 */
-	setModStorage: (modId: string, storage: ModStorage) => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_mod_storage", { modId, storage }),
-	/**  Check one mod and return the verdict its badge reads. */
-	checkModHealth: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModHealthVerdict_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_mod_health", { modId }),
-	/**  Repair what a machine can repair in one mod. */
-	repairMod: (modId: string) => __TAURI_INVOKE<({ ok: true; value: FixReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("repair_mod", { modId }),
-	/**
-	 *  Repair what a machine can repair in each of `mod_ids`.
-	 * 
-	 *  The one button behind the sweep's banner. One mod that cannot be repaired is
-	 *  recorded in the report rather than failing the call.
-	 */
-	repairMods: (modIds: string[]) => __TAURI_INVOKE<({ ok: true; value: LibraryRepairReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("repair_mods", { modIds }),
-	/**  Every verdict the library remembers, by mod id. */
-	getModHealthVerdicts: () => __TAURI_INVOKE<({ ok: true; value: { [key in string]: ModHealthVerdict_Serialize } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_health_verdicts"),
-	/**
-	 *  Call off the check or repair now running, if one is.
-	 * 
-	 *  A mod the run had not finished records no verdict, so the next sweep picks
-	 *  it up. Synchronous: it sets a flag the workers read.
-	 */
-	cancelModHealthRun: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_mod_health_run"),
-	/**  What the mod health sweep has to say for itself this launch. */
-	getHealthSweep: () => __TAURI_INVOKE<({ ok: true; value: HealthSweepState_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_health_sweep"),
-	/**
-	 *  Re-check `mod_ids`, or every mod in the library where none are named.
-	 * 
-	 *  The library's counterpart of one card's Check Health, so it takes the
-	 *  verdicts again whatever their basis says. Reports through the sweep's own
-	 *  progress events, which is what makes one run at a time the rule.
-	 */
-	sweepModHealth: (modIds: string[] | null) => __TAURI_INVOKE<({ ok: true; value: HealthSweepReport_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("sweep_mod_health", { modIds }),
-	/**
-	 *  Whether a check can run now, for the controls that offer one.
-	 * 
-	 *  Off the UI thread because the first caller of a launch is the one that opens
-	 *  the tables, which reads a manifest and maps two files.
-	 */
-	getHealthCheckReadiness: () => __TAURI_INVOKE<({ ok: true; value: HealthCheckReadiness }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_health_check_readiness"),
-	/**
-	 *  Copy the mods `scope` selects out to `destination`.
-	 * 
-	 *  Off-thread because a library is gigabytes, and the zip shape reads every
-	 *  archive through. Not rejected while the patcher runs: an export only reads.
-	 */
-	exportMods: (scope: ExportScope, shape: ExportShape, destination: string) => __TAURI_INVOKE<({ ok: true; value: ExportSummary }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("export_mods", { scope, shape, destination }),
-	/**
-	 *  Get a mod's cached thumbnail path, extracting from the archive on first access.
-	 *  Returns `null` if the mod has no thumbnail.
-	 */
-	getModThumbnail: (modId: string) => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_thumbnail", { modId }),
-	/**
-	 *  Get the cached thumbnail path of each of `mod_ids` that has one.
-	 * 
-	 *  One index read for the whole list, and a mod with no thumbnail is absent
-	 *  from the map rather than an error. Off-thread, because a first read extracts
-	 *  from every archive that has not been asked for yet.
-	 */
-	getModThumbnails: (modIds: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: string } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_thumbnails", { modIds }),
-	/**
-	 *  Get an installed mod's readme, extracting it from the archive on first access.
-	 * 
-	 *  Off-thread, because a fantome's first ask mounts its archive.
-	 */
-	getModReadme: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModDocument }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_readme", { modId }),
-	/**
-	 *  Get an installed mod's license text, which is never written to disk.
-	 * 
-	 *  Off-thread, because every ask mounts the mod's archive.
-	 */
-	getModLicenseText: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModDocument }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_license_text", { modId }),
-	/**  Get the mod storage directory path. */
-	getStorageDirectory: () => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_storage_directory"),
-	/**  Reorder the enabled mods in the active profile. */
-	reorderMods: (modIds: string[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reorder_mods", { modIds }),
-	/**
-	 *  Get all cached WAD footprint reports in a single batch. Returns a map of
-	 *  mod id → report. Far cheaper than one IPC call per mod.
-	 */
-	getAllModWadReports: () => __TAURI_INVOKE<({ ok: true; value: { [key in string]: ModWadReport } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_all_mod_wad_reports"),
-	/**
-	 *  Force a fresh WAD footprint analysis for a single mod without running the
-	 *  full patcher. Safe to call while the patcher is running — it neither
-	 *  touches overlay state nor takes the patcher mutex.
-	 * 
-	 *  Runs synchronously on Tauri's blocking command thread pool (not a Tokio
-	 *  worker) so heavy I/O (game index build, modpkg mount) won't starve the
-	 *  async runtime.
-	 */
-	analyzeModWads: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModWadReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("analyze_mod_wads", { modId }),
-	getFolders: () => __TAURI_INVOKE<({ ok: true; value: LibraryFolder[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_folders"),
-	getFolderOrder: () => __TAURI_INVOKE<({ ok: true; value: string[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_folder_order"),
-	createFolder: (name: string) => __TAURI_INVOKE<({ ok: true; value: LibraryFolder }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("create_folder", { name }),
-	renameFolder: (folderId: string, newName: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rename_folder", { folderId, newName }),
-	deleteFolder: (folderId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_folder", { folderId }),
-	moveModToFolder: (modId: string, folderId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("move_mod_to_folder", { modId, folderId }),
-	toggleFolder: (folderId: string, enabled: boolean) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("toggle_folder", { folderId, enabled }),
-	reorderFolderMods: (folderId: string, modIds: string[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reorder_folder_mods", { folderId, modIds }),
-	reorderFolders: (folderOrder: string[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reorder_folders", { folderOrder }),
-	/**  Scan a cslol-manager directory for importable mods. */
-	scanCslolMods: (directory: string) => __TAURI_INVOKE<({ ok: true; value: CslolModInfo[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("scan_cslol_mods", { directory }),
-	/**  Import selected mods from a cslol-manager installation. */
-	importCslolMods: (directory: string, selectedFolders: string[]) => __TAURI_INVOKE<({ ok: true; value: BulkInstallResult_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("import_cslol_mods", { directory, selectedFolders }),
-	/**
-	 *  What the library layout migration has to say for itself this launch.
-	 * 
-	 *  The run starts with the app and is usually over before the webview finishes
-	 *  loading, so asking is what gets its report on screen — the event announcing
-	 *  it may have been emitted to nobody.
-	 */
-	getLayoutMigrationState: () => __TAURI_INVOKE<({ ok: true; value: LayoutMigrationState }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_layout_migration_state"),
 	/**
 	 *  Start the patcher with the given configuration.
 	 * 
@@ -274,24 +140,6 @@ export const commands = {
 	resumeHotkeys: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("resume_hotkeys"),
 	/**  Set (or clear) a global hotkey for the given action. */
 	setHotkey: (action: HotkeyAction, accelerator: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_hotkey", { action, accelerator }),
-	/**  Get all profiles. */
-	listModProfiles: () => __TAURI_INVOKE<({ ok: true; value: Profile[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_mod_profiles"),
-	/**  Get the currently active profile. */
-	getActiveModProfile: () => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_active_mod_profile"),
-	/**  Create a new profile with the given name. */
-	createModProfile: (name: string) => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("create_mod_profile", { name }),
-	/**  Delete a profile by ID. */
-	deleteModProfile: (profileId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_mod_profile", { profileId }),
-	/**
-	 *  Switch to a different profile.
-	 *  Returns an error if the patcher is currently running.
-	 */
-	switchModProfile: (profileId: string) => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("switch_mod_profile", { profileId }),
-	/**
-	 *  Rename a profile.
-	 *  Returns an error if the patcher is currently running (rename touches the filesystem).
-	 */
-	renameModProfile: (profileId: string, newName: string) => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rename_mod_profile", { profileId, newName }),
 	/**  Opens a file location in the system file explorer. */
 	revealInExplorer: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reveal_in_explorer", { path }),
 	/**
@@ -1187,24 +1035,10 @@ export const commands = {
 	 *  next start.
 	 */
 	switchLeagueInstall: (installRoot: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("switch_league_install", { installRoot }),
-	/**  A release newer than the running build, or `None` when this build is the latest. */
-	checkUpdate: () => __TAURI_INVOKE<({ ok: true; value: PendingUpdate | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_update"),
-	/**  Download the offered release's installer ahead of the install. */
-	downloadUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("download_update"),
-	/**  Install the downloaded release and relaunch into it. */
-	installUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("install_update"),
-	/**  Drop the downloaded installer, so quitting installs nothing. */
-	discardUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("discard_update"),
-	/**
-	 *  Time a health pass over the real library, into the dev console.
-	 * 
-	 *  Debug builds only, and the trigger for the measurement loop the repair was
-	 *  tuned in: a synthetic fixture cannot produce the numbers a 25MB mod of real
-	 *  bins does. `repair` runs the real repair, which rewrites the mods it can fix
-	 *  and keeps no way back, so the default pass only reads.
-	 */
-	timeModHealth: (repair: boolean) => __TAURI_INVOKE<({ ok: true; value: HealthTiming }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("time_mod_health", { repair }),
 };
+
+/* Constants */
+export const commandNames = {"addFilesToLayer":"add_files_to_layer","addProjectFolders":"add_project_folders","addRecommendedIgnoreRules":"add_recommended_ignore_rules","analyzeProject":"analyze_project","atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","bakeSkinTangents":"bake_skin_tangents","binChanges":"bin_changes","binChildren":"bin_children","binChoices":"bin_choices","binClose":"bin_close","binCopyValue":"bin_copy_value","binDeclareInto":"bin_declare_into","binDeclared":"bin_declared","binDependencies":"bin_dependencies","binEdit":"bin_edit","binFind":"bin_find","binOpen":"bin_open","binOpenVariant":"bin_open_variant","binOverrides":"bin_overrides","binRead":"bin_read","binRedo":"bin_redo","binReload":"bin_reload","binRevert":"bin_revert","binRoots":"bin_roots","binRowDeclaration":"bin_row_declaration","binSave":"bin_save","binSetDeclaring":"bin_set_declaring","binUndo":"bin_undo","cancelExtract":"cancel_extract","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","cancelReferenceWalk":"cancel_reference_walk","changeIntegration":"change_integration","characterSpells":"character_spells","checkHashtableUpdates":"check_hashtable_updates","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","classDocs":"class_docs","classObjectCount":"class_object_count","classSchema":"class_schema","convertFolderToProject":"convert_folder_to_project","createProjectLayer":"create_project_layer","createWorkshopProject":"create_workshop_project","declarationsModuleAction":"declarations_module_action","declarationsOutline":"declarations_outline","declaredObjects":"declared_objects","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","deleteLayerContent":"delete_layer_content","deleteProjectLayer":"delete_project_layer","deleteWorkshopProject":"delete_workshop_project","derivedClasses":"derived_classes","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectRitobinIntegration":"detect_ritobin_integration","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","dropObjectIndex":"drop_object_index","extractGameFiles":"extract_game_files","findInGameIndex":"find_in_game_index","findObjects":"find_objects","findReferences":"find_references","fixProblems":"fix_problems","forgetProjectFolder":"forget_project_folder","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getGameIndex":"get_game_index","getGameWads":"get_game_wads","getHashtableCacheStatus":"get_hashtable_cache_status","getLaunchAvailability":"get_launch_availability","getLayerContentPath":"get_layer_content_path","getLayerInfo":"get_layer_info","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getOpenedProjectFolders":"get_opened_project_folders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getProjectContentTree":"get_project_content_tree","getProjectEditorState":"get_project_editor_state","getProjectIgnoreRules":"get_project_ignore_rules","getProjectText":"get_project_text","getProjectThumbnail":"get_project_thumbnail","getSettings":"get_settings","getWorkshopProject":"get_workshop_project","getWorkshopProjects":"get_workshop_projects","importFromFantome":"import_from_fantome","importFromGitRepo":"import_from_git_repo","importFromModpkg":"import_from_modpkg","incidentReport":"incident_report","incidentToken":"incident_token","inspectProjectFolder":"inspect_project_folder","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","locateFilesNear":"locate_files_near","locateGameFiles":"locate_game_files","locateMapFiles":"locate_map_files","lookupStringValues":"lookup_string_values","minimizeToTray":"minimize_to_tray","objectDir":"object_dir","openAssetInRitobin":"open_asset_in_ritobin","openElevatedTerminal":"open_elevated_terminal","openProjectFolder":"open_project_folder","packWorkshopProject":"pack_workshop_project","pauseHotkeys":"pause_hotkeys","peekFantome":"peek_fantome","planGameExtract":"plan_game_extract","readAnimationGraph":"read_animation_graph","readAssetInfo":"read_asset_info","readClipHeader":"read_clip_header","readDefaultSkinnedProgram":"read_default_skinned_program","readEmbeddedMaterialProgram":"read_embedded_material_program","readGameDir":"read_game_dir","readGameWad":"read_game_wad","readMap":"read_map","readMapCharacters":"read_map_characters","readMapOutline":"read_map_outline","readMapParticles":"read_map_particles","readMapVariants":"read_map_variants","readMaterialPrograms":"read_material_programs","readParticleProgram":"read_particle_program","readSkin":"read_skin","readSpell":"read_spell","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","readVfxSystem":"read_vfx_system","rebuildOverlay":"rebuild_overlay","recommendedIgnoreRules":"recommended_ignore_rules","recordProjectOpened":"record_project_opened","refreshGameIndex":"refresh_game_index","relocateProjectFolder":"relocate_project_folder","removeProjectThumbnail":"remove_project_thumbnail","renameProjectLayer":"rename_project_layer","renameWorkshopProject":"rename_workshop_project","reorderProjectLayers":"reorder_project_layers","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveAssetCopy":"save_asset_copy","saveLayerStringOverrides":"save_layer_string_overrides","saveProjectConfig":"save_project_config","saveProjectEditorState":"save_project_editor_state","saveProjectIgnoreRules":"save_project_ignore_rules","saveProjectText":"save_project_text","saveSettings":"save_settings","searchGameIndex":"search_game_index","searchGamePaths":"search_game_paths","searchObjectIndex":"search_object_index","searchStringKeys":"search_string_keys","setHotkey":"set_hotkey","setProjectThumbnail":"set_project_thumbnail","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","syncHashtables":"sync_hashtables","syncMetaDocs":"sync_meta_docs","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","unwatchProjectLayers":"unwatch_project_layers","updateLayerDescription":"update_layer_description","validateLeaguePath":"validate_league_path","validateProject":"validate_project","vfxTemplates":"vfx_templates","warmObjectIndex":"warm_object_index","watchProjectLayers":"watch_project_layers"} as const;
 
 /* Types */
 /**  Accent color configuration. */

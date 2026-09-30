@@ -9,7 +9,7 @@ import globals from "globals";
 import tseslint from "typescript-eslint";
 
 /** Output no rule can ask an author to change. */
-const GENERATED = ["src/lib/bindings.ts", "src/routeTree.gen.ts"];
+const GENERATED = ["src/lib/bindings.ts", "src/lib/ipc/**", "src/routeTree.gen.ts"];
 
 /** Every directory under `src/modules`, so each can be told apart from the rest. */
 const MODULES = [

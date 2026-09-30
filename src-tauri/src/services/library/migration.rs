@@ -1,4 +1,4 @@
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::{AppResult, IpcResult};
 use crate::mods::{BulkInstallResult, CslolModInfo, ModLibraryState};
 use crate::patcher::PatcherState;
@@ -6,8 +6,6 @@ use crate::state::SettingsState;
 use ltk_manager_core::mods::LayoutMigrationState;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
-
-use super::mods::reject_if_patcher_running;
 
 /// What the library layout migration has to say for itself this launch.
 ///
@@ -40,7 +38,7 @@ pub async fn import_cslol_mods(
 ) -> IpcResult<BulkInstallResult> {
     let setup: AppResult<_> = (|| {
         let patcher = app_handle.state::<PatcherState>();
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = app_handle.state::<SettingsState>().0.lock().config.clone();
         let library = app_handle.state::<ModLibraryState>().0.clone();
         Ok((config, library))

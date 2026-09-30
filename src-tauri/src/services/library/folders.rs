@@ -4,8 +4,6 @@ use crate::patcher::PatcherState;
 use crate::state::SettingsState;
 use tauri::State;
 
-use super::mods::reject_if_patcher_running;
-
 #[tauri::command]
 #[specta::specta]
 pub fn get_folders(
@@ -88,7 +86,7 @@ pub fn toggle_folder(
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         library.0.toggle_folder(&config, &folder_id, enabled)
     })();
@@ -105,7 +103,7 @@ pub fn reorder_folder_mods(
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         library.0.reorder_folder_mods(&config, &folder_id, mod_ids)
     })();
@@ -121,7 +119,7 @@ pub fn reorder_folders(
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
     let result: AppResult<()> = (|| {
-        reject_if_patcher_running(&patcher)?;
+        patcher.reject_if_running()?;
         let config = settings.config();
         library.0.reorder_folders(&config, folder_order)
     })();

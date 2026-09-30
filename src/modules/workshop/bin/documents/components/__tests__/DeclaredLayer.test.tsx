@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type { BinRow, DeclaredModuleChoice, DeclaredState, WorkshopProject } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -141,8 +142,9 @@ beforeEach(() => {
   useWorkshopEditorStore.getState().selectLayer(PROJECT.path, "base");
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === "bin_declared") return Promise.resolve({ ok: true, value: declared });
-    if (command === "bin_declare_into") {
+    if (command === commandNames.app.binDeclared)
+      return Promise.resolve({ ok: true, value: declared });
+    if (command === commandNames.app.binDeclareInto) {
       declared = {
         ...DECLARED,
         layer: args?.layer as string,

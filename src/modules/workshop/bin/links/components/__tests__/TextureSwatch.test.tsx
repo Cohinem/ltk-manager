@@ -7,6 +7,7 @@ import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AssetInfo, AssetRef } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -66,7 +67,8 @@ async function findPixels(swatch: HTMLElement): Promise<HTMLImageElement> {
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "read_asset_info") return Promise.resolve({ ok: true, value: TEXTURE });
+    if (command === commandNames.app.readAssetInfo)
+      return Promise.resolve({ ok: true, value: TEXTURE });
     return Promise.resolve({ ok: false, error: { code: "UNKNOWN" } });
   });
 });

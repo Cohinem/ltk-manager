@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ContextMenu, ToastProvider } from "@/components";
 import type { BinRow, ChoiceQuery, ObjectChange, VfxTemplate } from "@/lib/tauri";
 import { editCall, landed, sentEdit } from "@/test/binEdit";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -148,8 +149,12 @@ beforeEach(() => {
     const object = sentEdit(command, args, "object");
     if (object?.edit.kind === "create") return landed({ kind: "object", entry: "0x0badf00d" });
     if (object !== null) return landed();
-    if (command === "vfx_templates") return Promise.resolve({ ok: true, value: [MISSILE] });
-    if (command === "bin_choices" && (args?.query as ChoiceQuery).kind === "objectClasses") {
+    if (command === commandNames.app.vfxTemplates)
+      return Promise.resolve({ ok: true, value: [MISSILE] });
+    if (
+      command === commandNames.app.binChoices &&
+      (args?.query as ChoiceQuery).kind === "objectClasses"
+    ) {
       return Promise.resolve({
         ok: true,
         value: {

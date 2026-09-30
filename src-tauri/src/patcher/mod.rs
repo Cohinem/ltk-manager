@@ -60,6 +60,18 @@ impl PatcherState {
         self.with(PatcherStateInner::is_running)
     }
 
+    /// Refuse an operation that must not run beside a live session.
+    ///
+    /// # Errors
+    ///
+    /// [`PatcherError::Busy`] while a session is running.
+    pub fn reject_if_running(&self) -> AppResult<()> {
+        if self.is_running() {
+            return Err(PatcherError::Busy.into());
+        }
+        Ok(())
+    }
+
     /// Ask a running session to stop, reporting whether there was one.
     ///
     /// Only signals — the session unwinds on its own thread, so callers that

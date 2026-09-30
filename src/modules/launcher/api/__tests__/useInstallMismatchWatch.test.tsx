@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, type Mock } from "vitest";
 import type { InstallMismatch, PatcherPhase } from "@/lib/tauri";
 import { usePatcherStatus } from "@/modules/patcher";
 import { useInstallMismatchStore } from "@/stores";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke, mockListen } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -39,13 +40,13 @@ function Watch() {
 
 function mockBackend(phase: PatcherPhase, mismatch: InstallMismatch | null) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === "get_patcher_status") {
+    if (cmd === commandNames.app.getPatcherStatus) {
       return Promise.resolve({
         ok: true,
         value: { running: phase !== "idle", phase, session: null },
       });
     }
-    if (cmd === "check_install_mismatch") {
+    if (cmd === commandNames.app.checkInstallMismatch) {
       return Promise.resolve({ ok: true, value: mismatch });
     }
     return Promise.resolve({ ok: true, value: null });
@@ -53,7 +54,8 @@ function mockBackend(phase: PatcherPhase, mismatch: InstallMismatch | null) {
 }
 
 function checks() {
-  return mockInvoke.mock.calls.filter(([cmd]) => cmd === "check_install_mismatch").length;
+  return mockInvoke.mock.calls.filter(([cmd]) => cmd === commandNames.app.checkInstallMismatch)
+    .length;
 }
 
 async function mount(phase: PatcherPhase, mismatch: InstallMismatch | null) {

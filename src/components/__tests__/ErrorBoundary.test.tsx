@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ErrorBoundary } from "@/components";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 
 function Boom(): never {
@@ -44,7 +45,7 @@ describe("ErrorBoundary", () => {
       </ErrorBoundary>,
     );
 
-    const call = mockInvoke.mock.calls.find(([name]) => name === "track_ui_error");
+    const call = mockInvoke.mock.calls.find(([name]) => name === commandNames.app.trackUiError);
     expect(call).toBeDefined();
 
     const { error } = call![1] as { error: Record<string, unknown> };

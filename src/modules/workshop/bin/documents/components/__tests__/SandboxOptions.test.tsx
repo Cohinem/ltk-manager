@@ -15,6 +15,7 @@ import type {
   GameFileEntry,
   WorkshopProject,
 } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -133,8 +134,9 @@ beforeEach(() => {
   useWorkshopEditorStore.getState().selectLayer(PROJECT.path, "base");
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === "bin_declared") return Promise.resolve({ ok: true, value: declared });
-    if (command === "bin_declare_into") {
+    if (command === commandNames.app.binDeclared)
+      return Promise.resolve({ ok: true, value: declared });
+    if (command === commandNames.app.binDeclareInto) {
       declared = {
         ...DECLARED,
         layer: args?.layer as string,
@@ -142,7 +144,8 @@ beforeEach(() => {
       };
       return Promise.resolve({ ok: true, value: declared });
     }
-    if (command === "locate_game_files") return Promise.resolve({ ok: true, value: installed });
+    if (command === commandNames.app.locateGameFiles)
+      return Promise.resolve({ ok: true, value: installed });
     return Promise.reject(new Error(`unexpected command ${command}`));
   });
 });
@@ -179,7 +182,7 @@ describe("the Sandbox options of a declared document", () => {
     await user.click(await screen.findByRole("menuitemradio", { name: "Chroma" }));
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binDeclareInto, {
         document: DOCUMENT,
         layer: "chroma",
         module: { kind: "auto" },
@@ -219,7 +222,7 @@ describe("the Sandbox options of a declared document", () => {
     await user.click(screen.getByRole("menuitemradio", { name: "Glow" }));
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binDeclareInto, {
         document: DOCUMENT,
         layer: "base",
         module: { kind: "index", index: 1 },
@@ -236,7 +239,7 @@ describe("the Sandbox options of a declared document", () => {
     await user.type(screen.getByRole("textbox", { name: "Module name" }), "Blue{Enter}");
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binDeclareInto, {
         document: DOCUMENT,
         layer: "base",
         module: { kind: "new", name: "Blue" },
@@ -300,7 +303,9 @@ describe("the sandbox choice", () => {
     await openOptions(user);
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("locate_game_files", { paths: [SKIN_PATH] }),
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.locateGameFiles, {
+        paths: [SKIN_PATH],
+      }),
     );
     expect(await screen.findByRole("menuitemradio", { name: "Game" })).toBeDisabled();
   });

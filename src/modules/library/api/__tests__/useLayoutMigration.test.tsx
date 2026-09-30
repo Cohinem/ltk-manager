@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import type { FailedConversion, LayoutMigrationState } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke, mockListen } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -29,7 +30,8 @@ function failure(overrides?: Partial<FailedConversion>): FailedConversion {
 /** Mount the hook over a backend answering `state` when asked. */
 function mount(state: LayoutMigrationState) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === "get_layout_migration_state") return Promise.resolve({ ok: true, value: state });
+    if (cmd === commandNames.library.getLayoutMigrationState)
+      return Promise.resolve({ ok: true, value: state });
     return Promise.resolve({ ok: true, value: null });
   });
 

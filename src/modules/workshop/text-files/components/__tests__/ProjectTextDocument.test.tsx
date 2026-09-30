@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
 import { documentFind, DocumentToolbarSlotContext } from "@/modules/editor";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
 
@@ -33,9 +34,9 @@ function file() {
 
 function answer(command: string): unknown {
   switch (command) {
-    case "get_project_text":
+    case commandNames.app.getProjectText:
       return { ok: true, value: file() };
-    case "save_project_text":
+    case commandNames.app.saveProjectText:
       if (world.changed) {
         return {
           ok: false,
@@ -114,8 +115,8 @@ describe("ProjectTextDocument", () => {
 
     await user.type(await screen.findByRole("textbox", { name: "Readme text" }), "\nWhat it does.");
 
-    await waitFor(() => expect(calls("save_project_text")).toHaveLength(1));
-    expect(calls("save_project_text")[0]?.[1]).toMatchObject({
+    await waitFor(() => expect(calls(commandNames.app.saveProjectText)).toHaveLength(1));
+    expect(calls(commandNames.app.saveProjectText)[0]?.[1]).toMatchObject({
       projectPath: PROJECT_PATH,
       file: "readme",
       text: "# My Mod\n\nWhat it does.",
@@ -130,8 +131,8 @@ describe("ProjectTextDocument", () => {
 
     await user.click(await screen.findByRole("button", { name: "Write one" }));
 
-    await waitFor(() => expect(calls("save_project_text")).toHaveLength(1));
-    expect(calls("save_project_text")[0]?.[1]).toMatchObject({ text: "# My Mod\n" });
+    await waitFor(() => expect(calls(commandNames.app.saveProjectText)).toHaveLength(1));
+    expect(calls(commandNames.app.saveProjectText)[0]?.[1]).toMatchObject({ text: "# My Mod\n" });
   });
 
   it("refuses to edit a file that is not text", async () => {
@@ -154,7 +155,7 @@ describe("ProjectTextDocument", () => {
     expect(screen.getByRole("button", { name: "Reload" })).toBeInTheDocument();
 
     /* One attempt, and no loop: the creator's answer is what asks again. */
-    await waitFor(() => expect(calls("save_project_text")).toHaveLength(1));
+    await waitFor(() => expect(calls(commandNames.app.saveProjectText)).toHaveLength(1));
   });
 
   it("writes over the file when the creator keeps their own", async () => {
@@ -168,8 +169,8 @@ describe("ProjectTextDocument", () => {
     world.changed = false;
     await user.click(keepMine);
 
-    await waitFor(() => expect(calls("save_project_text")).toHaveLength(2));
-    expect(calls("save_project_text")[1]?.[1]).toMatchObject({ expected: null });
+    await waitFor(() => expect(calls(commandNames.app.saveProjectText)).toHaveLength(2));
+    expect(calls(commandNames.app.saveProjectText)[1]?.[1]).toMatchObject({ expected: null });
   });
 
   it("appends the template sections the file lacks", async () => {

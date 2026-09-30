@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import type { EffectSystem, SpellPreview } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -47,10 +48,10 @@ const EFFECT: EffectSystem = { key: "0x00000001", system: "0x12345678", source: 
 
 function mount(preview: SpellPreview = PREVIEW, effects: EffectSystem[] = [EFFECT]) {
   mockInvoke.mockImplementation(async (command, args) => {
-    if (command === "bin_open")
+    if (command === commandNames.app.binOpen)
       return { ok: true, value: { document: args.asset.kind === "file" ? 9 : 2 } };
-    if (command === "read_spell") return { ok: true, value: preview };
-    if (command === "declared_objects")
+    if (command === commandNames.app.readSpell) return { ok: true, value: preview };
+    if (command === commandNames.app.declaredObjects)
       return {
         ok: true,
         value: {
@@ -63,8 +64,9 @@ function mount(preview: SpellPreview = PREVIEW, effects: EffectSystem[] = [EFFEC
           },
         },
       };
-    if (command === "read_skin") return { ok: true, value: { effectSystems: effects } };
-    if (command === "bin_close") return { ok: true, value: null };
+    if (command === commandNames.app.readSkin)
+      return { ok: true, value: { effectSystems: effects } };
+    if (command === commandNames.app.binClose) return { ok: true, value: null };
     throw new Error(`Unexpected command ${command}`);
   });
   render(
@@ -86,14 +88,20 @@ afterEach(cleanup);
 it("resolves the flight key through the selected skin rather than treating it as a system", async () => {
   mount();
   expect(await screen.findByText("Flight 1 0x12345678")).toBeInTheDocument();
-  expect(mockInvoke).toHaveBeenCalledWith("read_spell", { document: 2, entry: "0x859d7934" });
-  expect(mockInvoke).toHaveBeenCalledWith("read_skin", { document: 1, entry: "0x98765432" });
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.readSpell, {
+    document: 2,
+    entry: "0x859d7934",
+  });
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.readSkin, {
+    document: 1,
+    entry: "0x98765432",
+  });
 });
 
 it("opens a foreign effect in its own document", async () => {
   mount(PREVIEW, [{ ...EFFECT, source: { kind: "file", path: "particles.bin" } }]);
   expect(await screen.findByText("Flight 9 0x12345678")).toBeInTheDocument();
-  expect(mockInvoke).toHaveBeenCalledWith("bin_open", {
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binOpen, {
     sandbox: { kind: "game" },
     asset: { kind: "file", path: "particles.bin" },
     entry: "0x12345678",
