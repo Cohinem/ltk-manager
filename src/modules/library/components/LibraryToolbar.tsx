@@ -44,7 +44,6 @@ interface LibraryToolbarProps {
   onSearchChange: (query: string) => void;
   actions: ReturnType<typeof useLibraryActions>;
   isLoading: boolean;
-  isPatcherActive: boolean;
   filterOptions: FilterOptions;
   visibleMods: InstalledMod[];
   /* A slot rather than an import: the play control belongs to launcher, which
@@ -57,7 +56,6 @@ export function LibraryToolbar({
   onSearchChange,
   actions,
   isLoading,
-  isPatcherActive,
   filterOptions,
   visibleMods,
   playButton,
@@ -91,13 +89,9 @@ export function LibraryToolbar({
 
         <ProfileSelector />
 
-        <SelectionButton
-          actions={actions}
-          visibleMods={visibleMods}
-          disabled={isPatcherActive || isLoading}
-        />
+        <SelectionButton actions={actions} visibleMods={visibleMods} disabled={isLoading} />
 
-        <AnalyzeUncategorizedAction disabled={isPatcherActive || isLoading} />
+        <AnalyzeUncategorizedAction disabled={isLoading} />
 
         <ModHealthCheckAction disabled={isLoading} />
 
@@ -125,7 +119,6 @@ export function LibraryToolbar({
               size="sm"
               onClick={actions.handleImportMods}
               loading={isInstalling}
-              disabled={isPatcherActive}
               aria-label="Import mods"
               left={<DownloadSimpleIcon weight="bold" className="h-4 w-4" />}
               /* Narrow windows wrap the toolbar onto a second row, so the label

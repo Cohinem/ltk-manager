@@ -31,7 +31,7 @@ import {
   useModFileDrop,
   useVisibleMods,
 } from "@/modules/library";
-import { PatcherUnsupported, usePatcherStatus } from "@/modules/patcher";
+import { PatcherUnsupported } from "@/modules/patcher";
 
 interface LibraryProps {
   folderId?: string;
@@ -47,9 +47,6 @@ export function Library({ folderId }: LibraryProps = {}) {
   const actions = useLibraryActions();
   const isDragOver = useModFileDrop(actions.handleBulkInstallFiles);
   useLibraryHotkeys(actions.handleImportMods);
-
-  const { data: patcherStatus } = usePatcherStatus();
-  const isPatcherActive = patcherStatus?.running ?? false;
 
   const filterOptions = useFilterOptions(mods);
   const visibleMods = useVisibleMods(mods, searchQuery, folderId);
@@ -86,7 +83,6 @@ export function Library({ folderId }: LibraryProps = {}) {
         onSearchChange={setSearchQuery}
         actions={actions}
         isLoading={isLoading}
-        isPatcherActive={isPatcherActive}
         filterOptions={filterOptions}
         visibleMods={visibleMods}
         playButton={<PlayButton disabled={isInstalling} />}

@@ -38,6 +38,9 @@ pub trait PatcherEvents: Send + Sync {
     /// the next game.
     fn game_exited(&self);
 
+    /// A library edit waits for the running game to end before the overlay is rebuilt.
+    fn overlay_deferred(&self);
+
     /// A game went wrong, and its incident is classified and stored.
     fn incident_recorded(&self, incident: Incident);
 }

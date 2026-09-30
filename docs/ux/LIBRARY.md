@@ -4,6 +4,7 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-09-30 | A library edit reaches a running patcher between games     |
 | 2026-09-12 | The documents panel is a drawer over the grid, not a pane  |
 | 2026-09-12 | The licenses tab follows the open mod, like the other two  |
 | 2026-09-12 | A right click reads a card and no longer picks it          |
@@ -111,9 +112,8 @@ Uninstall spends it when the run comes back, which is what lets the failures sta
 not a way around it. Disable is always offered, and Uninstall is the reason the mod is pickable
 at all.
 
-**Every write is off while the patcher runs.** Enable, Disable and Uninstall all go dark, because
-the backend refuses a write to a mod under a running patcher. Check health only reads, so it
-stays.
+**Every command stays on while the patcher runs.** Enable, Disable and Uninstall reach the
+running session as [An edit while the patcher runs](#an-edit-while-the-patcher-runs) describes.
 
 **The bar is over the library, not in the toolbar.** It appears while the selection is non-empty
 and it names its own count, with a second count for the picks a filter or a search is currently
@@ -164,6 +164,26 @@ under a filter for the same reason it always was - the order on screen is not th
 Navigating away from the library clears the selection. A pick carried to another screen and back
 would let `Uninstall N` act on mods the reader cannot see, and a folder drilldown is the case that
 makes it concrete. The selection is session state and is never written to disk.
+
+## An edit while the patcher runs
+
+A library edit reaches a running patcher without a restart. Switching a mod, reordering, layers,
+a folder's switch, a move into a folder, an install, an update, an uninstall, a mod's storage and a
+profile switch all apply to the next game.
+
+The overlay is rebuilt between games, never under one. A game opens the overlay's files as it
+starts and holds them until it closes.
+
+- **No game open.** The patcher rebuilds the overlay a moment after the last edit, so a burst of
+  edits costs one rebuild. Play shows the build the way it does at a start.
+- **A game open.** The edit is saved and waits. `Applies after this game` sits beside Play until
+  the game closes, and the rebuild runs then.
+
+A game launched during the few seconds of a rebuild runs without mods, the same as a game that was
+already running when the patcher started.
+
+A repair and a profile rename still wait for the patcher to stop. A repair rewrites the archive the
+rebuild reads, and a rename moves the folder the overlay is in.
 
 ## The documents panel
 
@@ -311,6 +331,8 @@ not also drop the selection.
 | Is the panel's width written to disk?           | Yes, and neither the open state nor the mod it held        |
 | Does the licenses tab follow the opened mod?    | Yes. Every tab in the panel answers for the one mod        |
 | Is a license text cached to disk?               | No. It is read once per session and held in memory         |
+| Can the library be edited while patching?       | Yes. The overlay is rebuilt between games                  |
+| Does an edit reach a game already running?      | No. It applies to the next game                            |
 
 ## Open questions
 

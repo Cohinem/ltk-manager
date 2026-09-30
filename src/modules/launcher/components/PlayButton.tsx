@@ -1,4 +1,10 @@
-import { ArrowsClockwiseIcon, CaretDownIcon, XCircleIcon, XIcon } from "@phosphor-icons/react";
+import {
+  ArrowsClockwiseIcon,
+  CaretDownIcon,
+  HourglassIcon,
+  XCircleIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 
 import {
   Button,
@@ -108,6 +114,28 @@ function PendingRebuildPill() {
 }
 
 /**
+ * Library edits the running game holds back until it ends. Per "An edit while
+ * the patcher runs" in docs/ux/LIBRARY.md.
+ */
+function ChangesAfterGamePill() {
+  const { data: status } = usePatcherStatus();
+
+  if (!status?.changesAfterGame) return null;
+
+  return (
+    <Tooltip content={m.patcher_changes_after_game_hint()}>
+      <span
+        data-ui="PlayButton:changes-after-game"
+        className="inline-flex h-7 items-center justify-center gap-1 rounded-full bg-accent-500/10 px-2.5 text-xs font-medium text-accent-400 select-none"
+      >
+        <HourglassIcon weight="bold" className="h-3.5 w-3.5" />
+        {m.patcher_changes_after_game_label()}
+      </span>
+    </Tooltip>
+  );
+}
+
+/**
  * Ends the game through the Riot Client, which is the only thing that can.
  *
  * In the menu rather than on the button, and only while a session is live: the
@@ -193,6 +221,7 @@ export function PlayButton({ disabled = false, block = false }: PlayButtonProps)
       data-ui="PlayButton"
       className={twMerge("flex items-center gap-2", block && "w-full flex-col items-stretch")}
     >
+      <ChangesAfterGamePill />
       <PendingRebuildPill />
       <ModHealthLaunchGuard className={block ? "w-full" : undefined}>
         {(ask) => <LaunchControls ask={ask} disabled={disabled} block={block} />}

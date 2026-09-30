@@ -18,9 +18,10 @@ use crate::diagnostics::incident::SessionFailure;
 
 use super::events::PatcherEvents;
 use super::host::{HostConfig, HostError, HostLine, PatcherHost};
-use super::injector::{Injector, InjectorError, InjectorEvent};
+use super::injector::{Injector, InjectorError, InjectorEvent, SessionEnd};
 use super::pipeline::IncidentPipeline;
 use super::recorder::GameRecorder;
+use super::refresh::OverlayRefresh;
 
 /// Fatal error from one injection session.
 #[derive(Debug, thiserror::Error)]
@@ -67,6 +68,7 @@ impl SessionObserver {
             InjectorEvent::GameAttached { pid } => self.events.game_attached(*pid),
             InjectorEvent::Overlay { outcome, .. } => self.events.game_overlay(*outcome),
             InjectorEvent::GameExited => self.events.game_exited(),
+            InjectorEvent::OverlayDeferred => self.events.overlay_deferred(),
             _ => {}
         }
         let closed = self.recorder.lock().observe(&event, Utc::now());
@@ -102,8 +104,8 @@ pub fn normalize_overlay_prefix(prefix: &str) -> String {
     normalized
 }
 
-/// Run one injection session against the persistent host, blocking until the
-/// game exits or `stop_flag` is set.
+/// Run one injection session against the persistent host, blocking until
+/// `stop_flag` is set or `refresh` asks for a rebuild with no game open.
 ///
 /// Ensures a usable host (spawning or respawning as needed), configures it,
 /// starts the scan, and drives the injector's event loop. On exit the host's
@@ -115,15 +117,16 @@ pub fn run_injection_session(
     elevate: bool,
     config: &HostConfig,
     stop_flag: &AtomicBool,
+    refresh: &OverlayRefresh,
     observer: Arc<SessionObserver>,
-) -> Result<(), SessionError> {
+) -> Result<SessionEnd, SessionError> {
     let host_lines = ensure_host_started(host, injector_exe, elevate, config)?;
 
     // Blocks until the game closes or the patcher is stopped.
     let (result, host_lines) = Injector::new()
         .with_elevate(elevate)
         .on_event(move |event| observer.observe(event))
-        .run_session(host_lines, host, stop_flag);
+        .run_session(host_lines, host, stop_flag, refresh);
 
     // Hand the event stream back to the host so the next session reuses it -
     // unless the host died, in which case clear it so the next start respawns.

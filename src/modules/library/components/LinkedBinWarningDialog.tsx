@@ -3,7 +3,6 @@ import { useState } from "react";
 
 import { AlertBox, Button, Checkbox, Dialog, Spinner, Tooltip, useToast } from "@/components";
 import type { LinkedBinOffenderInfo } from "@/lib/tauri";
-import { usePatcherStatus } from "@/modules/patcher";
 import { useLinkedBinGuardStore, useQueuedDialog } from "@/stores";
 import { twMerge } from "@/utils";
 
@@ -31,7 +30,6 @@ export function LinkedBinWarningDialog() {
 function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
   const { data: offenderMap, isLoading } = useLinkedBinOffenders();
   const { data: mods = [] } = useInstalledMods();
-  const { data: patcherStatus } = usePatcherStatus();
   const toggleMod = useToggleMod();
   const toast = useToast();
 
@@ -51,7 +49,6 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
   const selectedCount = selected.size;
   const isMulti = offenders.length > 1;
   const allSelected = offenders.length > 0 && selectedCount === offenders.length;
-  const patcherRunning = patcherStatus?.running ?? false;
 
   const displayNameFor = (offender: LinkedBinOffenderInfo) =>
     mods.find((m) => m.id === offender.modId)?.displayName ?? offender.displayName;
@@ -85,9 +82,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
       }
       toast.warning(
         selectedCount === 1 ? "Mod disabled" : "Mods disabled",
-        patcherRunning
-          ? `${selectedCount} mod${selectedCount === 1 ? "" : "s"} disabled. Reload the patcher to apply.`
-          : `${selectedCount} mod${selectedCount === 1 ? "" : "s"} with missing dependencies won't be loaded.`,
+        `${selectedCount} mod${selectedCount === 1 ? "" : "s"} with missing dependencies won't be loaded.`,
       );
       onClose();
     } catch {
@@ -248,11 +243,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
         <AlertBox
           variant="warning"
           icon={<ShieldAlert className="h-5 w-5" />}
-          title={
-            patcherRunning
-              ? "Disabling takes effect after you reload the patcher."
-              : "Leaving these enabled may glitch or crash the game when they load."
-          }
+          title="Leaving these enabled may glitch or crash the game when they load."
         />
       </Dialog.Body>
 

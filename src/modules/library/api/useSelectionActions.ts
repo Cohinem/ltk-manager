@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 
 import type { HealthCheckReadiness, InstalledMod } from "@/lib/tauri";
-import { usePatcherRunning } from "@/modules/patcher";
 
 import { useBulkUninstallDialog, useLibrarySelectionStore } from "../state";
 import { useHealthCheckReadiness, useSweepModHealth } from "./modHealth";
@@ -37,7 +36,6 @@ export function useSelectionActions(): SelectionActions {
   const openBulkUninstallDialog = useBulkUninstallDialog((s) => s.open);
 
   const { data: allMods = [] } = useInstalledMods();
-  const patcherRunning = usePatcherRunning();
   const { setEnabled } = useSetModsEnabled();
   const sweepHealth = useSweepModHealth();
   const checkReadiness = useHealthCheckReadiness();
@@ -45,7 +43,6 @@ export function useSelectionActions(): SelectionActions {
   const mods = useMemo(() => allMods.filter((m) => selectedIds.has(m.id)), [allMods, selectedIds]);
   const count = mods.length;
   const enabledCount = mods.reduce((n, m) => n + (m.enabled ? 1 : 0), 0);
-  // A patcher run owns the library, and every write to a mod is refused while it does.
 
   return {
     mods,
@@ -61,9 +58,9 @@ export function useSelectionActions(): SelectionActions {
     },
     uninstall: () => count > 0 && openBulkUninstallDialog(mods),
     clear,
-    canEnable: enabledCount < count && !patcherRunning,
-    canDisable: enabledCount > 0 && !patcherRunning,
-    canUninstall: count > 0 && !patcherRunning,
+    canEnable: enabledCount < count,
+    canDisable: enabledCount > 0,
+    canUninstall: count > 0,
     checkReadiness,
     checkPending: sweepHealth.isPending,
   };

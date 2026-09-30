@@ -88,12 +88,12 @@ describe("IncidentDetail", () => {
     });
   });
 
-  /// A mod cannot come out of a running overlay, so the action waits.
-  it("holds Disable while the patcher runs", async () => {
+  /// A disabled mod reaches the running session between games, and a forced rebuild still waits.
+  it("keeps Disable and holds Rebuild overlay while the patcher runs", async () => {
     mockBackend({ patcherRunning: true });
     renderWithApp(<IncidentDetail incident={createMockIncident()} modAction={modAction} />);
 
-    expect(await screen.findByRole("button", { name: "Disable" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Disable" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Rebuild overlay" })).toBeDisabled();
   });
 

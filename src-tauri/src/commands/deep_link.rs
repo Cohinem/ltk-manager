@@ -56,8 +56,6 @@ pub fn deep_link_install_mod(
     patcher: State<PatcherState>,
 ) -> IpcResult<InstalledMod> {
     let result: AppResult<InstalledMod> = (|| {
-        patcher.reject_if_running()?;
-
         let parsed = url::Url::parse(&url)
             .map_err(|e| AppError::ValidationFailed(format!("Invalid URL: {e}")))?;
         if parsed.scheme() != "https" {
@@ -90,5 +88,6 @@ pub fn deep_link_install_mod(
 
         result
     })();
+    patcher.refresh_overlay();
     result.into()
 }

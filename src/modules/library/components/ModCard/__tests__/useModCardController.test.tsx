@@ -189,23 +189,6 @@ describe("useModCardController reveal", () => {
   });
 });
 
-/* The menu is the only way to act on a mod that cannot be switched on, so
-   being unusable cannot be what closes it. */
-describe("useModCardController menu", () => {
-  it("leaves a healthy mod's menu open", () => {
-    const result = mount(createMockInstalledMod({ id: "a" }));
-
-    expect(result.current.menuDisabled).toBe(false);
-  });
-
-  it("leaves the menu open while a selection exists", () => {
-    selectionState.selectedIds = new Set(["b"]);
-    const result = mount(createMockInstalledMod({ id: "a" }));
-
-    expect(result.current.menuDisabled).toBe(false);
-  });
-});
-
 describe("useModCardController gestures", () => {
   it("switches the mod on a bare press", () => {
     const view = mount(createMockInstalledMod({ id: "a", enabled: false }));

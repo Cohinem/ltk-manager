@@ -51,7 +51,6 @@ pub fn delete_mod_profile(
 }
 
 /// Switch to a different profile.
-/// Returns an error if the patcher is currently running.
 #[tauri::command]
 #[specta::specta]
 pub fn switch_mod_profile(
@@ -60,15 +59,10 @@ pub fn switch_mod_profile(
     settings: State<SettingsState>,
     patcher_state: State<PatcherState>,
 ) -> IpcResult<Profile> {
-    if patcher_state.is_running() {
-        return IpcResult::err(AppError::Other(
-            "Cannot switch profiles while patcher is running. Please stop the patcher first."
-                .to_string(),
-        ));
-    }
-
     let config = settings.config();
-    library.0.switch_profile(&config, profile_id).into()
+    let result = library.0.switch_profile(&config, profile_id);
+    patcher_state.refresh_overlay();
+    result.into()
 }
 
 /// Rename a profile.

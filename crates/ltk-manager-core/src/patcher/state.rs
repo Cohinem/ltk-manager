@@ -6,6 +6,8 @@ use std::thread::JoinHandle;
 
 use serde::{Deserialize, Serialize};
 
+use super::refresh::OverlayRefresh;
+
 /// Current phase of the patcher lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
@@ -73,6 +75,8 @@ pub struct PatcherSession {
 pub struct PatcherStateInner {
     /// Flag to signal the patcher thread to stop.
     pub stop_flag: Arc<AtomicBool>,
+    /// A library edit the running session's overlay has not caught up with.
+    pub overlay_refresh: Arc<OverlayRefresh>,
     /// Handle to the patcher thread.
     pub thread_handle: Option<JoinHandle<()>>,
     /// The session in flight. `None` while idle.
@@ -87,6 +91,7 @@ impl PatcherStateInner {
     pub fn new() -> Self {
         Self {
             stop_flag: Arc::new(AtomicBool::new(false)),
+            overlay_refresh: Arc::default(),
             thread_handle: None,
             session: None,
             phase: PatcherPhase::Idle,
@@ -108,6 +113,19 @@ impl PatcherStateInner {
             origin,
             overlay_prefix: None,
         });
+    }
+
+    /// Ask the running session to rebuild its overlay from the library. Idle, it
+    /// does nothing, since a start builds from the library anyway.
+    pub fn request_overlay_refresh(&self) {
+        if self.is_running() {
+            self.overlay_refresh.request();
+        }
+    }
+
+    /// Return to the build phase to rebuild a running session's overlay.
+    pub fn resume_building(&mut self) {
+        self.phase = PatcherPhase::Building;
     }
 
     /// Enter the patching phase against the overlay the build produced.
@@ -147,6 +165,17 @@ mod tests {
     fn is_running_false_when_no_thread() {
         let inner = PatcherStateInner::new();
         assert!(!inner.is_running());
+    }
+
+    #[test]
+    fn an_idle_patcher_ignores_a_refresh_request() {
+        let inner = PatcherStateInner::new();
+        inner.request_overlay_refresh();
+        assert!(
+            !inner
+                .overlay_refresh
+                .is_due(std::time::Instant::now() + std::time::Duration::from_secs(60))
+        );
     }
 
     #[test]

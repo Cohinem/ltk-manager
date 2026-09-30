@@ -2,7 +2,6 @@ import { useEffect, useMemo } from "react";
 
 import type { InstalledMod, LibraryFolder } from "@/lib/tauri";
 import { sortFolders, sortModsByFolder } from "@/modules/library/utils";
-import { usePatcherRunning } from "@/modules/patcher";
 
 import {
   useHasActiveFilters,
@@ -45,7 +44,6 @@ export function useLibraryContent({
   folderId,
 }: UseLibraryContentArgs) {
   const { viewMode } = useLibraryViewMode();
-  const isPatcherActive = usePatcherRunning();
   const filteredMods = useFilteredMods(mods, searchQuery);
   const hasActiveFilters = useHasActiveFilters();
   const sort = useLibrarySort();
@@ -62,7 +60,7 @@ export function useLibraryContent({
   const hasSelection = useLibrarySelectionStore((s) => s.selectedIds.size > 0);
   const isSearching = searchQuery.length > 0;
   // A drag and a pick compete for the same press, so one is off while the other is up.
-  const dndDisabled = isSearching || isPatcherActive || hasActiveFilters || hasSelection;
+  const dndDisabled = isSearching || hasActiveFilters || hasSelection;
   const isFlatMode = isSearching || hasActiveFilters;
 
   const folderMap = useMemo(() => {

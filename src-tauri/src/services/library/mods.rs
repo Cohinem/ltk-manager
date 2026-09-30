@@ -33,7 +33,6 @@ pub fn install_mod(
     patcher: State<PatcherState>,
 ) -> IpcResult<InstalledMod> {
     let result: AppResult<InstalledMod> = (|| {
-        patcher.reject_if_running()?;
         let config = settings.config();
         let installed = library.0.install_mod_from_package(&config, &file_path)?;
         library
@@ -44,6 +43,7 @@ pub fn install_mod(
             .spawn_health_check(&config, vec![installed.id.clone()]);
         Ok(installed)
     })();
+    patcher.refresh_overlay();
     result.into()
 }
 
@@ -57,7 +57,6 @@ pub fn install_mods(
     patcher: State<PatcherState>,
 ) -> IpcResult<BulkInstallResult> {
     let result: AppResult<BulkInstallResult> = (|| {
-        patcher.reject_if_running()?;
         let config = settings.config();
         let result = library.0.install_mods_from_packages(&config, &file_paths)?;
         let ids: Vec<String> = result.installed.iter().map(|m| m.id.clone()).collect();
@@ -65,6 +64,7 @@ pub fn install_mods(
         library.0.spawn_health_check(&config, ids);
         Ok(result)
     })();
+    patcher.refresh_overlay();
     result.into()
 }
 
@@ -76,19 +76,12 @@ pub async fn update_mod(
     file_path: String,
     app_handle: AppHandle,
 ) -> IpcResult<InstalledMod> {
-    let setup: AppResult<_> = (|| {
-        let patcher = app_handle.state::<PatcherState>();
-        patcher.reject_if_running()?;
-        let config = app_handle.state::<SettingsState>().config();
-        let library = app_handle.state::<ModLibraryState>().0.clone();
-        Ok((config, library))
-    })();
-    let (config, library) = match setup {
-        Ok(value) => value,
-        Err(error) => return IpcResult::from(Err::<InstalledMod, _>(error)),
-    };
+    let config = app_handle.state::<SettingsState>().config();
+    let library = app_handle.state::<ModLibraryState>().0.clone();
     off_thread(move || {
-        let updated = library.update_mod_from_package(&config, &mod_id, &file_path)?;
+        let updated = library.update_mod_from_package(&config, &mod_id, &file_path);
+        app_handle.state::<PatcherState>().refresh_overlay();
+        let updated = updated?;
         library.announce_change();
         library.spawn_categorization(&config, vec![mod_id.clone()]);
         library.spawn_health_check(&config, vec![mod_id]);
@@ -105,11 +98,9 @@ pub fn uninstall_mod(
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
-    let result: AppResult<()> = (|| {
-        patcher.reject_if_running()?;
-        let config = settings.config();
-        library.0.uninstall_mod_by_id(&config, &mod_id)
-    })();
+    let config = settings.config();
+    let result = library.0.uninstall_mod_by_id(&config, &mod_id);
+    patcher.refresh_overlay();
     result.into()
 }
 
@@ -123,11 +114,9 @@ pub fn toggle_mod(
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
-    let result: AppResult<()> = (|| {
-        patcher.reject_if_running()?;
-        let config = settings.config();
-        library.0.toggle_mod_enabled(&config, &mod_id, enabled)
-    })();
+    let config = settings.config();
+    let result = library.0.toggle_mod_enabled(&config, &mod_id, enabled);
+    patcher.refresh_overlay();
     result.into()
 }
 
@@ -140,11 +129,9 @@ pub fn reorder_mods(
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
-    let result: AppResult<()> = (|| {
-        patcher.reject_if_running()?;
-        let config = settings.config();
-        library.0.reorder_mods(&config, mod_ids)
-    })();
+    let config = settings.config();
+    let result = library.0.reorder_mods(&config, mod_ids);
+    patcher.refresh_overlay();
     result.into()
 }
 
@@ -158,11 +145,9 @@ pub fn set_mod_layers(
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
-    let result: AppResult<()> = (|| {
-        patcher.reject_if_running()?;
-        let config = settings.config();
-        library.0.set_mod_layers(&config, &mod_id, layer_states)
-    })();
+    let config = settings.config();
+    let result = library.0.set_mod_layers(&config, &mod_id, layer_states);
+    patcher.refresh_overlay();
     result.into()
 }
 
@@ -176,13 +161,11 @@ pub fn enable_mod_with_layers(
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
 ) -> IpcResult<()> {
-    let result: AppResult<()> = (|| {
-        patcher.reject_if_running()?;
-        let config = settings.config();
-        library
-            .0
-            .enable_mod_with_layers(&config, &mod_id, layer_states)
-    })();
+    let config = settings.config();
+    let result = library
+        .0
+        .enable_mod_with_layers(&config, &mod_id, layer_states);
+    patcher.refresh_overlay();
     result.into()
 }
 
@@ -213,21 +196,13 @@ pub async fn set_mod_storage(
     storage: ModStorage,
     app_handle: AppHandle,
 ) -> IpcResult<InstalledMod> {
-    let setup: AppResult<_> = (|| {
-        let patcher = app_handle.state::<PatcherState>();
-        patcher.reject_if_running()?;
-        let config = app_handle.state::<SettingsState>().config();
-        let library = app_handle.state::<ModLibraryState>().0.clone();
-        Ok((config, library))
-    })();
-
-    let (config, library) = match setup {
-        Ok(v) => v,
-        Err(e) => return IpcResult::from(Err::<InstalledMod, _>(e)),
-    };
+    let config = app_handle.state::<SettingsState>().config();
+    let library = app_handle.state::<ModLibraryState>().0.clone();
 
     off_thread(move || {
-        let updated = library.set_mod_storage(&config, &mod_id, storage)?;
+        let updated = library.set_mod_storage(&config, &mod_id, storage);
+        app_handle.state::<PatcherState>().refresh_overlay();
+        let updated = updated?;
         library.announce_change();
         Ok(updated)
     })

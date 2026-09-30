@@ -148,15 +148,12 @@ describe("SelectionActionBar", () => {
     expect(useLibrarySelectionStore.getState().selectedIds.size).toBe(2);
   });
 
-  /* The backend refuses every write to a mod under a running patcher, so a
-     press that would only collect errors is not offered. */
-  it("offers no write while the patcher runs", () => {
+  it("keeps every write while the patcher runs", () => {
     patcherRunning.running = true;
     show(["a", "b"]);
 
-    expect(press(/Enable 2/)).toBeDisabled();
-    expect(press(/Disable 2/)).toBeDisabled();
-    expect(press(/Uninstall 2/)).toBeDisabled();
-    expect(press(/Check health 2/)).toBeEnabled();
+    expect(press(/Enable 2/)).toBeEnabled();
+    expect(press(/Disable 2/)).toBeEnabled();
+    expect(press(/Uninstall 2/)).toBeEnabled();
   });
 });

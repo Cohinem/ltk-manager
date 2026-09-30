@@ -37,6 +37,6 @@ export function useLibraryHotkeys(importMods: () => void): void {
     void startPatcher();
   }
 
-  useHotkeys("ctrl+i", () => importMods(), { preventDefault: true, enabled: !running });
+  useHotkeys("ctrl+i", () => importMods(), { preventDefault: true });
   useHotkeys("ctrl+p", togglePatcher, { preventDefault: true });
 }

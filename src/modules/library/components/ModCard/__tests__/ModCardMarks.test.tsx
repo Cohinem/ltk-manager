@@ -38,7 +38,6 @@ function view(): ModCardView {
     canCheckHealth: true,
     storageChangePending: false,
     disabled: false,
-    menuDisabled: false,
     isInUserFolder: false,
     isMultiLayer: false,
     hasSelection: false,
