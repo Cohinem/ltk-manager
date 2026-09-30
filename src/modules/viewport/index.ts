@@ -87,6 +87,8 @@ export {
   previewSkeleton,
 } from "./hexshade/previewMeshes";
 export {
+  bindProgramTexture,
+  createInlinedProgramMaterial,
   createProgramMaterial,
   type ReadyProgram,
   SCREEN_COPY,
@@ -102,6 +104,7 @@ export {
 } from "./hexshade/programTextures";
 export { spliceVertexProgram, type VertexPrelude } from "./hexshade/vertexPrelude";
 export { Backdrop } from "./scene/components/Backdrop";
+export { FlatViewport, type FlatViewportProps } from "./scene/components/FlatViewport";
 export { type Placed, Placement, type PlacementMode } from "./scene/components/Placement";
 export { Stage } from "./scene/components/Stage";
 export { Viewport, type ViewportProps } from "./scene/components/Viewport";

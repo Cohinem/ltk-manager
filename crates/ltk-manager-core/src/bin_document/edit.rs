@@ -78,6 +78,8 @@ pub(super) enum Edit {
     },
     /// Set the header's dependency list to `paths`.
     Dependencies { paths: Vec<String> },
+    /// Apply `edits` in order, as one step.
+    Group { edits: Vec<Edit> },
 }
 
 /// Which way a step through an edit history goes.
@@ -166,7 +168,8 @@ impl Reshape {
             | Edit::Leaf { .. }
             | Edit::InsertProperty { .. }
             | Edit::SetPointer { .. }
-            | Edit::Dependencies { .. } => Self::InPlace,
+            | Edit::Dependencies { .. }
+            | Edit::Group { .. } => Self::InPlace,
         }
     }
 
@@ -502,7 +505,7 @@ impl BinDocument {
 
     /// Apply `edit` and mark its object touched, answering the edit that reverts it. Both
     /// stacks are left alone.
-    fn apply(&mut self, edit: Edit) -> Result<Edit, BinDocumentError> {
+    pub(super) fn apply(&mut self, edit: Edit) -> Result<Edit, BinDocumentError> {
         match edit {
             Edit::ReplaceProperty { entry, path, value } => self.swap_property(entry, &path, value),
             Edit::Leaf { entry, path, value } => {
@@ -539,6 +542,15 @@ impl BinDocument {
             Edit::SetKey { entry, path, key } => self.swap_key(entry, &path, key),
             Edit::SetPointer { entry, path, value } => self.swap_pointer(entry, &path, value),
             Edit::Dependencies { paths } => self.swap_dependencies(paths),
+            Edit::Group { edits } => {
+                let mut inverses = Vec::with_capacity(edits.len());
+                for edit in edits {
+                    inverses.push(self.apply(edit)?);
+                }
+
+                inverses.reverse();
+                Ok(Edit::Group { edits: inverses })
+            }
         }
     }
 

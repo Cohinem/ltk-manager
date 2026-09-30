@@ -271,10 +271,66 @@ export const mapContainerLayout: ClassLayout = {
 };
 
 /**
+ * A UI view controller, drawn in Atlas: its scenes laid out on a screen and its tree beside them.
+ *
+ * Keyed on the `ViewController` base, since each of the 154 subclasses is C++ behaviour over the
+ * same loadables, per decision 1 of docs/plans/atlas-ui-editor.md.
+ */
+export const atlasLayout: ClassLayout = {
+  title: m.workshop_bin_layout_atlas_label,
+  shell: "atlas",
+  sections: [
+    {
+      title: m.workshop_bin_section_identity_label,
+      fields: ["PathHashToSelf", "BaseLoadable"],
+    },
+  ],
+};
+
+/**
+ * One scene bin a view controller loads, drawn in Atlas as that controller's base. Its subclass
+ * `UiComponent` is a binding template rather than a scene bin, so this layout is exact.
+ */
+export const atlasLoadableLayout: ClassLayout = {
+  title: m.workshop_bin_layout_atlas_label,
+  shell: "atlas",
+  sections: [{ title: m.workshop_bin_section_identity_label, fields: ["FilepathHash"] }],
+};
+
+/** One UI element, drawn alone as its view draws it, beside where it sits and what it draws with. */
+export const elementLayout: ClassLayout = {
+  title: m.workshop_bin_layout_element_label,
+  shell: "element",
+  sections: [
+    {
+      title: m.workshop_bin_section_identity_label,
+      fields: ["name", "Scene", "Enabled", "Layer"],
+    },
+    { title: m.workshop_bin_section_position_label, fields: ["Position"], as: "tree" },
+  ],
+};
+
+/** A text font, drawn as a text draws it in Atlas, beside its type, sizes and colours. */
+export const fontLayout: ClassLayout = {
+  title: m.workshop_bin_layout_font_label,
+  shell: "font",
+  sections: [
+    {
+      title: m.workshop_bin_section_identity_label,
+      fields: ["name", "typeData", "resolutionData"],
+    },
+    {
+      title: m.workshop_bin_section_look_label,
+      fields: ["Color", "outlineColor", "shadowColor", "glowColor", "fillTextureName"],
+    },
+  ],
+};
+
+/**
  * Every layout, by the class hash it draws.
  *
- * Each subclass is listed by hand, because the meta schema carries no inheritance and
- * a layout keyed on a base class would draw nothing for the class that derives it.
+ * Each subclass is listed by hand, since a layout here draws exactly its class. A layout that
+ * draws every class under a base is in `BASE_LAYOUTS` instead.
  */
 const LAYOUTS: ReadonlyMap<string, ClassLayout> = new Map([
   [nameHash("StaticMaterialDef"), materialLayout],
@@ -285,11 +341,34 @@ const LAYOUTS: ReadonlyMap<string, ClassLayout> = new Map([
   [nameHash("Map"), mapLayout],
   [nameHash("MapSkin"), mapSkinLayout],
   [nameHash("MapContainer"), mapContainerLayout],
+  [nameHash("UiPropertyLoadable"), atlasLoadableLayout],
+  [nameHash("GameFontDescription"), fontLayout],
 ]);
 
-/** The layout `classHash` opens in, or undefined for a class that has none. */
-export function classLayout(classHash: string): ClassLayout | undefined {
-  return LAYOUTS.get(classHash);
+/** The layouts a class takes from a base it derives from, by the base's class hash. */
+const BASE_LAYOUTS: ReadonlyMap<string, ClassLayout> = new Map([
+  [nameHash("ViewController"), atlasLayout],
+  [nameHash("UiElementIData"), elementLayout],
+]);
+
+/**
+ * The layout `classHash` opens in, or undefined for a class that has none.
+ *
+ * `bases` are the classes it derives from, nearest first, as the meta schema lists them. A
+ * class without a layout of its own takes the nearest base's from `BASE_LAYOUTS`.
+ */
+export function classLayout(
+  classHash: string,
+  bases: readonly string[] = [],
+): ClassLayout | undefined {
+  const own = LAYOUTS.get(classHash);
+  if (own !== undefined) return own;
+
+  for (const base of bases) {
+    const inherited = BASE_LAYOUTS.get(base);
+    if (inherited !== undefined) return inherited;
+  }
+  return undefined;
 }
 
 /** The hashes a section's fields are addressed by, in the order it draws them. */

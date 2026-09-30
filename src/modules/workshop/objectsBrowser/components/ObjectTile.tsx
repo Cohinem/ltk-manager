@@ -5,6 +5,7 @@ import {
   CubeIcon,
   FolderIcon,
   type Icon,
+  ImageSquareIcon,
   PersonSimpleIcon,
   SparkleIcon,
   SphereIcon,
@@ -31,6 +32,7 @@ const KIND_GLYPH: Record<ObjectPreviewKind, Icon> = {
   vfx: SparkleIcon,
   skin: PersonSimpleIcon,
   material: SphereIcon,
+  ui: ImageSquareIcon,
 };
 
 interface ObjectTileProps {

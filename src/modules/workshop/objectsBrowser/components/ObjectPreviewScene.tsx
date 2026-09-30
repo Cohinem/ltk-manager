@@ -34,6 +34,7 @@ import { PREVIEW_GROUND, PREVIEW_MIP_WIDTH } from "../utils/previewFrame";
 import { ParticleRead } from "./ParticlePreview";
 import { PreviewCapture } from "./PreviewCapture";
 import { PreviewSettled } from "./PreviewSettled";
+import { UiIconPreview } from "./UiIconPreview";
 
 /** How fast a hovered character turns, in radians per second. Matches the material turntable. */
 const TURN_RATE = 0.5;
@@ -74,6 +75,10 @@ export default function ObjectPreviewScene({ node, playing, onOutcome, onProgres
 
   if (kind === "material") {
     return <MaterialRead {...read} />;
+  }
+
+  if (kind === "ui") {
+    return <UiIconPreview {...read} />;
   }
 
   return <SkinRead {...read} playing={playing} />;

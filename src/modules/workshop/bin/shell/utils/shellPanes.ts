@@ -15,7 +15,10 @@ export type ShellPaneId =
   | "spells"
   | "outliner"
   | "material"
-  | "graph";
+  | "graph"
+  | "layers"
+  | "variants"
+  | "sprites";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -28,10 +31,13 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "outliner",
   "material",
   "graph",
+  "layers",
+  "variants",
+  "sprites",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
-export type ShellKind = "vfx" | "skin" | "map" | "material";
+export type ShellKind = "vfx" | "skin" | "map" | "material" | "atlas" | "font" | "element";
 
 /** The panes each shell holds, in the order the Panes menu lists them. */
 export const SHELL_PANES = {
@@ -39,6 +45,9 @@ export const SHELL_PANES = {
   skin: ["preview", "clips", "spells", "material", "inspector"],
   map: ["preview", "outliner", "inspector"],
   material: ["preview", "inspector"],
+  atlas: ["preview", "layers", "variants", "sprites", "inspector"],
+  font: ["preview", "inspector"],
+  element: ["preview", "inspector"],
 } as const satisfies Record<ShellKind, readonly ShellPaneId[]>;
 
 /** The panes a `K` shell holds, which its content names one body for each of. */
@@ -61,6 +70,9 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   outliner: m.workshop_bin_pane_outliner_label,
   material: m.workshop_bin_pane_material_label,
   graph: m.workshop_bin_pane_graph_label,
+  layers: m.workshop_bin_pane_layers_label,
+  variants: m.workshop_bin_pane_variants_label,
+  sprites: m.workshop_bin_pane_sprites_label,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {
@@ -83,10 +95,30 @@ export type ShellArrangements = Readonly<Record<ShellKind, ShellArrangement>>;
  * any window width. The preview takes the largest single share in each, because what is
  * drawn is what the reader edits the numbers against. The particle system's is the
  * arrangement of "The shell" in docs/ux/BIN_EDITOR.md (ADR-0037), and the skin's is
- * "The clips pane" there, and the material's is "The material shell" there.
+ * "The clips pane" there, and the material's is "The material shell" there, which a font
+ * shares. Atlas's is "Panes" in docs/plans/atlas-ui-editor.md.
  */
 export function defaultShellLayout(kind: ShellKind): LayoutNode {
-  if (kind === "material") {
+  if (kind === "atlas") {
+    return {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      layout: { "leaf-5": 1, "leaf-2": 4, "leaf-3": 1 },
+      children: [
+        {
+          kind: "leaf",
+          id: "leaf-5",
+          tabs: ["layers", "variants", "sprites"],
+          activeTab: "layers",
+        },
+        { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+      ],
+    };
+  }
+
+  if (kind === "material" || kind === "font" || kind === "element") {
     return {
       kind: "split",
       id: "split-1",
@@ -191,6 +223,9 @@ export function defaultShellArrangements(): ShellArrangements {
     skin: arranged("skin"),
     map: arranged("map"),
     material: arranged("material"),
+    atlas: arranged("atlas"),
+    font: arranged("font"),
+    element: arranged("element"),
   };
 }
 
@@ -211,11 +246,13 @@ export function openShellPanes(tree: LayoutNode): ReadonlySet<ShellPaneId> {
  * value that is no tree at all falls back to a single empty leaf, which draws the Panes
  * menu and nothing else. A skin tree saved before the clips pane existed gains it over
  * the inspector, per "The clips pane" in docs/ux/BIN_EDITOR.md, and one saved before the
- * material pane existed gains it as a tab behind the inspector.
+ * material pane existed gains it as a tab behind the inspector. An Atlas tree saved before the
+ * sprites pane existed gains it as a tab behind the variants.
  */
 export function sanitizeShellLayout(kind: ShellKind, value: unknown): LayoutNode {
   const held = new Set<ShellPaneId>();
   let tree = readNode(value, shellPanesOf(kind), held) ?? singleLeaf();
+  if (kind === "atlas" && !held.has("sprites")) return withTabBeside(tree, "variants", "sprites");
   if (kind !== "skin") return tree;
 
   if (!held.has("clips")) tree = withClipsPane(tree);

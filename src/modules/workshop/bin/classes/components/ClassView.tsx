@@ -46,12 +46,12 @@ import {
   FramePreview,
   Hero,
   MapShell,
-  MaterialShell,
   RunHost,
   SkinShell,
   Stack,
   VfxShell,
 } from "./ClassFrames";
+import { AtlasShell, PreviewShell, ShellEditScope } from "./ObjectShells";
 
 /**
  * The width a strip and an inspector both need, under which a shell falls to the stack.
@@ -235,85 +235,106 @@ export function ClassView({
                             <SkinChoiceContext value={skinChoice}>
                               <RunHost drawable={drawable} document={document} entry={entry}>
                                 <MapSceneHost enabled={map} source={mapSource}>
-                                  <ContextMenu.Root>
-                                    <ContextMenu.Trigger
-                                      ref={measure}
-                                      data-ui="ClassView"
-                                      className="flex min-h-0 flex-1 flex-col select-none"
-                                      onContextMenu={handleContextMenu}
-                                    >
-                                      {frame === "stack" && (
-                                        <Stack
-                                          placed={placed}
-                                          pages={pages}
-                                          view={view}
-                                          hero={
-                                            layout.shell !== undefined && <Hero>{previewSlot}</Hero>
-                                          }
-                                        />
-                                      )}
-                                      {frame === "shell" && layout.shell === "vfx" && (
-                                        <VfxShell
-                                          placed={placed}
-                                          pages={pages}
-                                          view={view}
-                                          system={system}
-                                          drawable={drawable}
-                                          preview={previewSlot}
-                                          previewHost={previewHost}
-                                          onShowInProperties={onShowInProperties}
-                                        />
-                                      )}
-                                      {frame === "shell" && map && (
-                                        <MapShell
-                                          placed={placed}
-                                          pages={pages}
-                                          view={view}
-                                          entry={roots[0]?.entry ?? null}
-                                          preview={previewSlot}
-                                        />
-                                      )}
-                                      {frame === "shell" && skin && (
-                                        <SkinShell
-                                          placed={placed}
-                                          pages={pages}
-                                          view={view}
-                                          entry={roots[0]?.entry ?? null}
-                                          preview={previewSlot}
-                                        />
-                                      )}
-                                      {frame === "shell" && material && (
-                                        <MaterialShell
-                                          placed={placed}
-                                          pages={pages}
-                                          view={view}
-                                          entry={roots[0]?.entry ?? null}
-                                          preview={previewSlot}
-                                        />
-                                      )}
-                                      {layout.shell !== undefined && (
-                                        <HostedContent host={previewHost}>
-                                          <FramePreview
-                                            kind={layout.shell}
+                                  <ShellEditScope
+                                    shell={layout.shell}
+                                    document={document}
+                                    entry={entry}
+                                  >
+                                    <ContextMenu.Root>
+                                      <ContextMenu.Trigger
+                                        ref={measure}
+                                        data-ui="ClassView"
+                                        className="flex min-h-0 flex-1 flex-col select-none"
+                                        onContextMenu={handleContextMenu}
+                                      >
+                                        {frame === "stack" && (
+                                          <Stack
+                                            placed={placed}
+                                            pages={pages}
+                                            view={view}
+                                            hero={
+                                              layout.shell !== undefined && (
+                                                <Hero>{previewSlot}</Hero>
+                                              )
+                                            }
+                                          />
+                                        )}
+                                        {frame === "shell" && layout.shell === "vfx" && (
+                                          <VfxShell
+                                            placed={placed}
+                                            pages={pages}
+                                            view={view}
+                                            system={system}
+                                            drawable={drawable}
+                                            preview={previewSlot}
+                                            previewHost={previewHost}
+                                            onShowInProperties={onShowInProperties}
+                                          />
+                                        )}
+                                        {frame === "shell" && map && (
+                                          <MapShell
+                                            placed={placed}
+                                            pages={pages}
                                             view={view}
                                             entry={roots[0]?.entry ?? null}
-                                            drawable={drawable}
+                                            preview={previewSlot}
                                           />
-                                        </HostedContent>
-                                      )}
-                                    </ContextMenu.Trigger>
+                                        )}
+                                        {frame === "shell" && skin && (
+                                          <SkinShell
+                                            placed={placed}
+                                            pages={pages}
+                                            view={view}
+                                            entry={roots[0]?.entry ?? null}
+                                            preview={previewSlot}
+                                          />
+                                        )}
+                                        {frame === "shell" &&
+                                          (layout.shell === "material" ||
+                                            layout.shell === "font" ||
+                                            layout.shell === "element") && (
+                                            <PreviewShell
+                                              kind={layout.shell}
+                                              placed={placed}
+                                              pages={pages}
+                                              view={view}
+                                              entry={roots[0]?.entry ?? null}
+                                              preview={previewSlot}
+                                            />
+                                          )}
+                                        {frame === "shell" && layout.shell === "atlas" && (
+                                          <AtlasShell
+                                            placed={placed}
+                                            pages={pages}
+                                            view={view}
+                                            entry={roots[0]?.entry ?? null}
+                                            preview={previewSlot}
+                                          />
+                                        )}
+                                        {layout.shell !== undefined && (
+                                          <HostedContent host={previewHost}>
+                                            <FramePreview
+                                              kind={layout.shell}
+                                              view={view}
+                                              entry={roots[0]?.entry ?? null}
+                                              drawable={drawable}
+                                            />
+                                          </HostedContent>
+                                        )}
+                                      </ContextMenu.Trigger>
 
-                                    {/* Properties is this object's tree, which holds no child system's row. */}
-                                    <BinContextMenu
-                                      line={menuLine}
-                                      objectName={objectName}
-                                      onShowInProperties={
-                                        menuLine?.row.entry === entry
-                                          ? onShowInProperties
-                                          : undefined
-                                      }
-                                    />
-                                  </ContextMenu.Root>
+                                      {/* Properties is this object's tree, which holds no child system's row. */}
+                                      <BinContextMenu
+                                        line={menuLine}
+                                        objectName={objectName}
+                                        onShowInProperties={
+                                          menuLine?.row.entry === entry
+                                            ? onShowInProperties
+                                            : undefined
+                                        }
+                                      />
+                                    </ContextMenu.Root>
+                                  </ShellEditScope>
                                 </MapSceneHost>
                               </RunHost>
                             </SkinChoiceContext>

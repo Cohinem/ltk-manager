@@ -5,6 +5,7 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { leafHolding, type PortalHost, PortalSlot } from "@/modules/editor";
 
 import { useShellLayout, useShellMaximizedLeaf } from "../../../state";
+import { AtlasCanvas, FontPreview } from "../../atlas";
 import { ChanceReadout } from "../../curves/components/ChancePin";
 import { CurveSurface } from "../../curves/components/CurveSurface";
 import { LinkAssetContext } from "../../links/hooks/useLinkTargets";
@@ -43,7 +44,7 @@ export interface FrameProps {
   view: ViewContext;
 }
 
-interface ShellFrameProps extends FrameProps {
+export interface ShellFrameProps extends FrameProps {
   /** Where the preview pane shows the view's one preview. */
   preview: ReactNode;
 }
@@ -127,6 +128,11 @@ interface FramePreviewProps {
  */
 export function FramePreview({ kind, view, entry, drawable }: FramePreviewProps) {
   if (kind === "map") return <MapPreview document={view.document} />;
+  if (kind === "atlas") return <AtlasCanvas document={view.document} entry={entry ?? ""} />;
+  if (kind === "font") return <FontPreview document={view.document} entry={entry ?? ""} />;
+  if (kind === "element") {
+    return <AtlasCanvas document={view.document} entry={entry ?? ""} focus />;
+  }
   if (kind === "material") {
     return (
       <MaterialPreview
@@ -299,37 +305,8 @@ export function MapShell({ placed, pages, view, entry, preview }: MapShellProps)
   );
 }
 
-interface MaterialShellProps extends ShellFrameProps {
-  /** The `StaticMaterialDef` object the header names. */
-  entry: string | null;
-}
-
-/**
- * The panes of a material: the material drawn on its character or a preview shape, and the
- * sections of the object (ADR-0047).
- */
-export function MaterialShell({ placed, pages, view, entry, preview }: MaterialShellProps) {
-  const content = useMemo<ShellPaneContent<"material">>(
-    () => ({
-      preview: { body: preview },
-      inspector: { body: <SectionColumn placed={placed} pages={pages} view={view} /> },
-    }),
-    [placed, pages, view, preview],
-  );
-
-  return (
-    <div data-ui="ClassView:shell" className="flex min-h-0 flex-1 flex-col gap-2">
-      <ShellHeader
-        kind="material"
-        crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
-      />
-      <ShellPaneTree kind="material" content={content} />
-    </div>
-  );
-}
-
 /** The object's own path on the header row, beside the class that only types it. */
-function ObjectPath({ path }: { path: string }) {
+export function ObjectPath({ path }: { path: string }) {
   return (
     <span
       data-ui="ClassView:object-path"
@@ -347,7 +324,7 @@ function ObjectPath({ path }: { path: string }) {
  * "One row holds the object tab's header and the crumb", "The shell" in
  * docs/ux/BIN_EDITOR.md.
  */
-function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNode }) {
+export function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNode }) {
   const held = useShellHeaderHeld();
 
   if (held) {
@@ -482,7 +459,7 @@ function InspectorPane({ placed, pages, view }: FrameProps) {
 }
 
 /** Every placed section down a pane of its own, which scrolls apart from the panes beside it. */
-function SectionColumn({ placed, pages, view }: FrameProps) {
+export function SectionColumn({ placed, pages, view }: FrameProps) {
   return (
     /* DS-SCROLLBAR */
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2 scrollbar-md">

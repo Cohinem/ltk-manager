@@ -2,15 +2,19 @@ import { createContext, type ReactNode, use, useCallback, useState } from "react
 import { createPortal } from "react-dom";
 import { twMerge } from "tailwind-merge";
 
-/** Where a shell's crumb and its Panes menu draw, in the object tab's own header row. */
+/**
+ * Where a shell's crumb and its Panes menu draw, in the object tab's own header row, and where its
+ * toolbar draws, a second row under that one.
+ */
 export interface ShellHeaderSlots {
   readonly crumb: HTMLElement | null;
   readonly panes: HTMLElement | null;
+  readonly toolbar: HTMLElement | null;
 }
 
 export type ShellHeaderSlotName = keyof ShellHeaderSlots;
 
-const NO_SLOTS: ShellHeaderSlots = { crumb: null, panes: null };
+const NO_SLOTS: ShellHeaderSlots = { crumb: null, panes: null, toolbar: null };
 
 /**
  * The header row's slots, which a shell mounted under the tab fills.

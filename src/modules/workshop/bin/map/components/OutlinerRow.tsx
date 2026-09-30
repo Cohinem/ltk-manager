@@ -18,6 +18,7 @@ import { m } from "@/i18n";
 import type { MapItemKind } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { MatchedText } from "../../../shared/components/MatchedText";
 import { chunkLabel, isDrawn, type OutlineRow } from "../utils/mapOutline";
 
 const KIND_ICON: Record<MapItemKind, Icon> = {
@@ -92,12 +93,15 @@ export function OutlinerRow({
       )}
       {Glyph !== null && <Glyph className="h-3.5 w-3.5 shrink-0 text-surface-400" />}
       <span className="min-w-0 truncate">
-        <Marked text={row.type === "chunk" ? chunkLabel(row.chunk) : row.item.name} query={query} />
+        <MatchedText
+          text={row.type === "chunk" ? chunkLabel(row.chunk) : row.item.name}
+          query={query}
+        />
       </span>
       {row.type === "item" && row.item.controller !== null && <EventMark />}
       <span className="ml-auto shrink-0 truncate pl-2 text-meta text-surface-400">
         {row.type === "chunk" && <ChunkCount row={row} narrowed={narrowed} />}
-        {row.type === "item" && <Marked text={row.item.class} query={query} />}
+        {row.type === "item" && <MatchedText text={row.item.class} query={query} />}
       </span>
       {(row.type === "chunk" || isDrawn(row.item)) && (
         <EyeButton hidden={hidden} onClick={onHide} />
@@ -115,23 +119,6 @@ function ChunkCount({
 }) {
   if (!narrowed) return row.chunk.items.length;
   return `${row.shown}/${row.chunk.items.length}`;
-}
-
-/** `text` with the first place it holds `query` marked, ignoring case. */
-function Marked({ text, query }: { text: string; query: string }) {
-  const needle = query.trim().toLowerCase();
-  const at = needle === "" ? -1 : text.toLowerCase().indexOf(needle);
-  if (at < 0) return text;
-
-  return (
-    <>
-      {text.slice(0, at)}
-      <mark className="rounded-xs bg-accent-500/30 text-inherit">
-        {text.slice(at, at + needle.length)}
-      </mark>
-      {text.slice(at + needle.length)}
-    </>
-  );
 }
 
 /** The marker of a placeable an event shows, which the Event effects switch plays. */

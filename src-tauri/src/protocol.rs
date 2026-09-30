@@ -12,7 +12,9 @@ use std::panic::AssertUnwindSafe;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::preview::{AssetRef, Preview, PreviewError, PreviewImage, PreviewRequest};
+use ltk_manager_core::preview::{
+    AssetRef, Preview, PreviewError, PreviewFont, PreviewImage, PreviewRequest,
+};
 use tauri::http::{header, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager};
 
@@ -54,6 +56,9 @@ const MIPS_FORM: &str = "mips";
 /// The [`FORM_PARAMETER`] value asking a light grid for its ambient buffer.
 const LIGHT_GRID_FORM: &str = "lightgrid";
 
+/// The [`FORM_PARAMETER`] value asking an OpenType or TrueType file for its own bytes.
+const FONT_FORM: &str = "font";
+
 /// Answer one preview request, whatever [`serve`] does.
 ///
 /// A panic here would otherwise unwind past the responder and drop it unused, and a
@@ -92,6 +97,7 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     match asset.preview(wanted, &config, &app.state::<WadCache>()) {
         Ok(Preview::Image(image)) => image_response(image),
         Ok(Preview::Buffer(bytes)) => buffer_response(bytes),
+        Ok(Preview::Font(font)) => font_response(font),
         Err(e) => {
             tracing::debug!("No preview for {asset:?}: {e}");
             message_response(status_for(&e), &e.to_string())
@@ -125,6 +131,7 @@ fn requested(query: Option<&str>) -> Result<PreviewRequest, String> {
             min_width: requested_width(query)?,
         }),
         Some(LIGHT_GRID_FORM) => Ok(PreviewRequest::LightGrid),
+        Some(FONT_FORM) => Ok(PreviewRequest::Font),
         Some(form) => Err(format!("Not a form: {FORM_PARAMETER}={form}")),
     }
 }
@@ -154,9 +161,9 @@ fn parameter<'a>(query: Option<&'a str>, key: &str) -> Option<&'a str> {
 /// The status that tells a caller what went wrong.
 fn status_for(error: &AppError) -> StatusCode {
     match error {
-        AppError::Preview(PreviewError::Unsupported(_) | PreviewError::NotCube) => {
-            StatusCode::UNSUPPORTED_MEDIA_TYPE
-        }
+        AppError::Preview(
+            PreviewError::Unsupported(_) | PreviewError::NotCube | PreviewError::NotFont,
+        ) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
         AppError::InvalidPath(_) | AppError::LeagueNotFound => StatusCode::NOT_FOUND,
         AppError::Io(e) if e.kind() == io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -170,6 +177,10 @@ fn image_response(image: PreviewImage) -> Response<Vec<u8>> {
 /// A buffer, which the webview decodes rather than renders.
 fn buffer_response(bytes: Vec<u8>) -> Response<Vec<u8>> {
     build(StatusCode::OK, "application/octet-stream", bytes)
+}
+
+fn font_response(font: PreviewFont) -> Response<Vec<u8>> {
+    build(StatusCode::OK, font.mime, font.bytes)
 }
 
 fn message_response(status: StatusCode, message: &str) -> Response<Vec<u8>> {
@@ -307,6 +318,11 @@ mod tests {
             requested(Some("as=lightgrid")),
             Ok(PreviewRequest::LightGrid)
         );
+    }
+
+    #[test]
+    fn a_font_form_asks_for_the_font_file() {
+        assert_eq!(requested(Some("as=font")), Ok(PreviewRequest::Font));
     }
 
     #[test]

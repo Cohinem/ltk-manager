@@ -9,7 +9,7 @@ use ltk_hash::Hash as _;
 use ltk_meta::Bin;
 
 use super::*;
-use crate::bin_document::{HistoryStep, PropertyKind, Reshape, ValueEdit};
+use crate::bin_document::{HistoryStep, PropertyEdit, PropertyKind, Reshape, ValueEdit};
 use crate::meta_schema::MetaSchema;
 use crate::problems::GameBuild;
 
@@ -708,4 +708,62 @@ fn a_staged_leaf_fills_an_empty_option_and_sets_a_held_one() {
         value(&document, "chance"),
         &values::Optional::empty(Kind::F32).unwrap().into()
     );
+}
+
+fn set_chance(entry: String, field: &str, to: f32) -> PropertyEdit {
+    PropertyEdit {
+        entry,
+        holder: String::new(),
+        field: wire(h(field)),
+        edits: vec![ValueEdit::SetLeaf {
+            path: String::new(),
+            value: LeafValue::Float { value: to },
+        }],
+    }
+}
+
+fn empty_f32() -> PropertyValueEnum {
+    values::Optional::empty(Kind::F32).unwrap().into()
+}
+
+#[test]
+fn grouped_property_edits_undo_as_one_step() {
+    let schema = schema();
+    let mut document = document();
+    let held = value(&document, "held").clone();
+
+    document
+        .edit_properties(
+            vec![
+                set_chance(hex(entry()), "chance", 0.5),
+                set_chance(hex(entry()), "held", 3.0),
+            ],
+            schema.at(Some(BUILD)),
+        )
+        .unwrap();
+    assert_ne!(value(&document, "chance"), &empty_f32());
+    assert_ne!(value(&document, "held"), &held);
+
+    assert!(document.undo().unwrap());
+    assert_eq!(value(&document, "chance"), &empty_f32());
+    assert_eq!(value(&document, "held"), &held);
+    assert!(!document.undo().unwrap());
+}
+
+#[test]
+fn a_refused_grouped_edit_leaves_the_edits_before_it_unapplied() {
+    let schema = schema();
+    let mut document = document();
+
+    let outcome = document.edit_properties(
+        vec![
+            set_chance(hex(entry()), "chance", 0.5),
+            set_chance("not a hash".to_owned(), "chance", 1.0),
+        ],
+        schema.at(Some(BUILD)),
+    );
+
+    assert!(outcome.is_err());
+    assert_eq!(value(&document, "chance"), &empty_f32());
+    assert!(!document.undo().unwrap());
 }

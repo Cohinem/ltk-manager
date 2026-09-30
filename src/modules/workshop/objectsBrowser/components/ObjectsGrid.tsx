@@ -272,7 +272,9 @@ export function ObjectsGrid({
 
   const toggleLarge = () => {
     const target = aimed ?? items[Math.min(focused, items.length - 1)];
-    if (target?.type !== "object" || objectPreviewKind(target) === null || !thumbnails) return;
+    if (target?.type !== "object" || !playsOnHover(objectPreviewKind(target)) || !thumbnails) {
+      return;
+    }
 
     setExpanded((current) => (current?.id === target.id ? null : target));
   };
@@ -345,7 +347,9 @@ export function ObjectsGrid({
                       const key = node.type === "object" ? keyOf(node) : null;
                       const outcome = thumbnails && key !== null ? outcomes.get(key) : undefined;
                       const previewable =
-                        thumbnails && node.type === "object" && objectPreviewKind(node) !== null;
+                        thumbnails &&
+                        node.type === "object" &&
+                        playsOnHover(objectPreviewKind(node));
                       const onExpand = previewable ? expandTile : undefined;
 
                       return (

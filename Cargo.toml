@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "src-tauri",
+    "crates/atlas",
     "crates/hexshade",
     "crates/dxbc-spirv-sys",
     "crates/ltk-declarations",
@@ -26,6 +27,10 @@ opt-level = 1
 [profile.dev.package.ltk-manager-game]
 opt-level = 1
 
+# The UI view reads walk it too.
+[profile.dev.package.atlas]
+opt-level = 1
+
 [workspace.dependencies]
 # Pinned to a rev until it ships on crates.io. Declared here rather than in
 # `ltk-manager-core` so moving the pin is one edit in the place every other
@@ -37,9 +42,11 @@ ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7a
 ltk_hashdb = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "670196996ae219cbae5e64d40667363ff19a028f" }
 
+atlas = { path = "crates/atlas" }
 hexshade = { path = "crates/hexshade" }
 ltk-declarations = { path = "crates/ltk-declarations" }
 ltk-manager-core = { path = "crates/ltk-manager-core" }
+ltk-manager-game = { path = "crates/ltk-manager-game" }
 ltk-meta-docs = { path = "crates/ltk-meta-docs" }
 ltk-telemetry = { path = "crates/ltk-telemetry" }
 
@@ -47,12 +54,12 @@ ltk_file = { version = "0.2.11", features = ["serde"] }
 ltk_hash = { version = "0.4.0", features = ["serde"] }
 ltk_meta = { version = "0.8.6", features = ["serde"] }
 
-ltk_fantome = "0.14.5"
-ltk_game_data = "0.7.2"
-ltk_mod_project = { version = "0.15.2", features = ["modpkg", "fantome"] }
+ltk_fantome = "0.14.6"
+ltk_game_data = "0.8.0"
+ltk_mod_project = { version = "0.15.3", features = ["modpkg", "fantome"] }
 ltk_hashtable = "0.1.3"
-ltk_modpkg = "0.12.5"
-ltk_overlay = "0.14.2"
+ltk_modpkg = "0.12.6"
+ltk_overlay = "0.15.0"
 ltk_wad = "0.5.7"
 
 ltk_anim = "0.3.10"

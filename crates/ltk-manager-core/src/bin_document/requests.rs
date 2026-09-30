@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     AddableFields, BinDocumentId, BinDocuments, ClassChoice, DeclaredState, LeafValue, NewItem,
-    NewObject, NewProperty, ValueEdit, hex,
+    NewObject, NewProperty, PropertyEdit, ValueEdit, hex,
 };
 use crate::error::{AppError, AppResult};
 use crate::meta_schema::SchemaAt;
@@ -41,6 +41,13 @@ pub enum BinEdit {
         holder: String,
         field: String,
         edits: Vec<ValueEdit>,
+    },
+    /// Edit several properties, of one object or several, as one undoable change.
+    /// [`BinDocuments::edit_properties`].
+    EditProperties {
+        /* The specta binding carries the item type, and the ts-rs one this shadows cannot. */
+        #[cfg_attr(feature = "ts", ts(type = "Array<unknown>"))]
+        edits: Vec<PropertyEdit>,
     },
     /// Add a property to the end of the holder at `path`. [`BinDocuments::add_property`].
     AddProperty {
@@ -218,12 +225,10 @@ impl TypedTexts {
         let mut typed = Self::default();
         match edit {
             BinEdit::Patch { value, .. } => typed.leaf(value),
-            BinEdit::EditProperty { field, edits, .. } => {
-                typed.hashes.push(field.clone());
-                for each in edits {
-                    if let ValueEdit::SetLeaf { value, .. } = each {
-                        typed.leaf(value);
-                    }
+            BinEdit::EditProperty { field, edits, .. } => typed.property(field, edits),
+            BinEdit::EditProperties { edits } => {
+                for edit in edits {
+                    typed.property(&edit.field, &edit.edits);
                 }
             }
             BinEdit::AddProperty {
@@ -256,6 +261,15 @@ impl TypedTexts {
             | BinEdit::ModuleAction { .. } => {}
         }
         typed
+    }
+
+    fn property(&mut self, field: &str, edits: &[ValueEdit]) {
+        self.hashes.push(field.to_owned());
+        for each in edits {
+            if let ValueEdit::SetLeaf { value, .. } = each {
+                self.leaf(value);
+            }
+        }
     }
 
     fn leaf(&mut self, value: &LeafValue) {
@@ -304,6 +318,10 @@ impl BinDocuments {
                 edits,
             } => {
                 self.edit_property(id, parse_entry(&entry)?, &holder, &field, edits, schema)?;
+                EditOutcome::Done
+            }
+            BinEdit::EditProperties { edits } => {
+                self.edit_properties(id, edits, schema)?;
                 EditOutcome::Done
             }
             BinEdit::AddProperty {

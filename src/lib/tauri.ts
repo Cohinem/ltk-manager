@@ -99,6 +99,8 @@ import {
   type ParticleDefine,
   type ParticleShader,
   type ProgramOptions,
+  type UiShader,
+  type ViewVariant,
 } from "@/lib/bindings.gen";
 import type { Result } from "@/utils/result";
 
@@ -171,6 +173,7 @@ export type {
   ObjectName,
   ObjectSkip,
   PropertyDocs,
+  PropertyEdit,
   PropertyKind,
   ReadOnly,
   Reshape,
@@ -276,6 +279,42 @@ export type {
 } from "@/lib/bindings.gen";
 // The particle renderer's types, per ADR-0029.
 export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
+// Atlas's types, per ADR-0029.
+export type {
+  SheetImport,
+  SheetSpec,
+  SheetSprite,
+  UiAnchor,
+  UiAsset,
+  UiButtonState,
+  UiEffect,
+  UiElement,
+  UiFile,
+  UiFileRole,
+  UiFont,
+  UiFontFace,
+  UiFontResolution,
+  UiFontSizes,
+  UiLayout,
+  UiLayoutKind,
+  UiLook,
+  UiPosition,
+  UiRect,
+  UiScene,
+  UiShader,
+  UiSlice,
+  UiSliceKind,
+  UiSprite,
+  UiStyleSheet,
+  UiTextIcon,
+  UiTextStyle,
+  UiTexture,
+  UiVariant,
+  UiVariantRecord,
+  UiView,
+  UiViewWarning,
+  ViewVariant,
+} from "@/lib/bindings.gen";
 export type {
   TemplateCarrier,
   TemplateEmitter,
@@ -622,6 +661,8 @@ export const api = {
   bin: {
     open: (sandbox: SandboxRef, asset: AssetRef, entry: string | null) =>
       commands.binOpen(sandbox, asset, entry).then(toResult),
+    openVariant: (sandbox: SandboxRef, asset: AssetRef, base: AssetRef, path: string) =>
+      commands.binOpenVariant(sandbox, asset, base, path).then(toResult),
     children: (
       document: BinDocumentId,
       entry: string,
@@ -664,6 +705,26 @@ export const api = {
     readVfxSystem: (document: BinDocumentId, entry: string) =>
       commands.readVfxSystem(document, entry).then(toResult),
     vfxTemplates: () => commands.vfxTemplates().then(toResult),
+    readUiView: (
+      document: BinDocumentId,
+      entry: string,
+      scene: BinDocumentId | null,
+      variant: ViewVariant | null,
+    ) => commands.readUiView(document, entry, scene, variant).then(toResult),
+    readUiSceneView: (document: BinDocumentId, entry: string) =>
+      commands.readUiSceneView(document, entry).then(toResult),
+    readUiFont: (document: BinDocumentId, entry: string) =>
+      commands.readUiFont(document, entry).then(toResult),
+    readUiPrograms: (document: BinDocumentId | null, shaders: readonly UiShader[]) =>
+      commands.readUiPrograms(document, [...shaders]).then(toResult),
+    atlasImportSprite: (
+      document: BinDocumentId,
+      sheet: string,
+      source: string,
+      replace: string | null,
+    ) => commands.atlasImportSprite(document, sheet, source, replace).then(toResult),
+    atlasSheet: (document: BinDocumentId, sheet: string) =>
+      commands.atlasSheet(document, sheet).then(toResult),
     readSkin: (document: BinDocumentId, entry: string) =>
       commands.readSkin(document, entry).then(toResult),
     readMaterialPrograms: (

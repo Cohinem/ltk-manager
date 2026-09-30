@@ -3,7 +3,7 @@
 //! Every method here reads ranges from a fresh parse of the text and returns a
 //! new text. None edits the tree.
 
-use ltk_game_data::{EntryName, ModuleName, Sign};
+use ltk_game_data::{EntryName, ModuleName, Sign, Target};
 use ltk_meta::path::Segment;
 use rowan::ast::AstNode as _;
 use yaml_edit::{Document, Mapping, MappingEntry, Sequence, SyntaxKind, YamlNode};
@@ -34,6 +34,15 @@ impl DocumentText {
                 }
                 (Some(value), ModuleChoice::New(name)) => Ok((
                     new_manifest(name.as_ref(), &edit.entry, &site, value),
+                    Some(0),
+                )),
+                (Some(value), ModuleChoice::Target(target)) => Ok((
+                    DocumentText::with_module(&target_module_text(
+                        target,
+                        &edit.entry,
+                        &site,
+                        value,
+                    )),
                     Some(0),
                 )),
             };
@@ -95,6 +104,18 @@ impl DocumentText {
                 let index = locate::module_items(doc).len();
                 let module = module_text(name.as_ref(), entry, site, value);
                 return Ok((self.append_module(doc, &module)?, index));
+            }
+            ModuleChoice::Target(target) => {
+                let joined = locate::target_bodies(doc, site.chunk_hash)
+                    .pop()
+                    .and_then(|body| Some((locate::module_of(doc, body.syntax())?, body)));
+                let Some((index, body)) = joined else {
+                    let index = locate::module_items(doc).len();
+                    let module = target_module_text(target, entry, site, value);
+                    return Ok((self.append_module(doc, &module)?, index));
+                };
+                let spelled = syntax::spell_key(entry.as_str());
+                return Ok((self.insert_in_entries(&body, site, &spelled, value)?, index));
             }
         }
 
@@ -468,6 +489,13 @@ fn module_text(
     let mut module = name.map(syntax::name_line).unwrap_or_default();
     module.push_str(&syntax::layout_entry("entries", named.trim_end(), 0, None));
     module
+}
+
+/// A `target` module of `target` declaring one key, as a standalone document.
+fn target_module_text(target: &Target, entry: &EntryName, site: &Site<'_>, value: &str) -> String {
+    let body = syntax::layout_entry(&key_for(site.sign, &site.segments), value, 0, None);
+    let named = syntax::layout_entry(&syntax::spell_key(entry.as_str()), body.trim_end(), 0, None);
+    format!("target: {}\n{named}", syntax::spell_key(target.as_str()))
 }
 
 /// Where a flow collection's last element ends: before the whitespace ahead

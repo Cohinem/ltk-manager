@@ -238,6 +238,78 @@ export function createProgramMaterial(
   return material;
 }
 
+/**
+ * `program` as a material with every block of both stages an array uniform, for a caller that
+ * fills each block itself rather than through a pass and an environment.
+ *
+ * Every member of every block is writable by its engine name through `writeProgramMember`,
+ * and every texture binds by the bytecode's name through `bindProgramTexture`. Blending,
+ * depth and culling are left at three's defaults for the caller to set.
+ */
+export function createInlinedProgramMaterial(
+  program: ReadyProgram,
+  name: string,
+): RawShaderMaterial {
+  const stages = [program.vertex, program.pixel].map((stage) => ({
+    sidecar: stage.sidecar,
+    inlined: blocksAsUniforms(
+      stage.glsl,
+      new Set(stage.sidecar.blocks.map((block) => block.glslName)),
+    ),
+  }));
+  const [vertex, pixel] = stages;
+  const material = new RawShaderMaterial({
+    name,
+    glslVersion: GLSL3,
+    vertexShader: withoutVersion(vertex?.inlined.source ?? ""),
+    fragmentShader: withoutVersion(pixel?.inlined.source ?? ""),
+  });
+  material.defaultAttributeValues = { ...material.defaultAttributeValues, ...ABSENT_ATTRIBUTES };
+
+  const members = new Map<string, GlobalsMember[]>();
+  const samplers = new Map<string, string[]>();
+  const uniforms: Record<string, IUniform> = material.uniforms;
+  for (const { sidecar, inlined } of stages) {
+    for (const binding of sidecar.textures) {
+      const held = samplers.get(binding.name) ?? [];
+      held.push(...samplerNames(binding));
+      samplers.set(binding.name, held);
+      for (const sampler of samplerNames(binding)) {
+        uniforms[sampler] = { value: neutral(binding.dimension, BLACK) };
+      }
+    }
+
+    for (const block of sidecar.blocks) {
+      const declared = inlined.blocks.get(block.glslName);
+      if (declared === undefined) continue;
+
+      const data = new Float32Array(declared.extent * VEC4_FLOATS);
+      uniforms[block.glslName] = { value: elementView(data, declared.element) };
+      for (const member of block.members) {
+        const held = members.get(member.name) ?? [];
+        held.push({ block: block.glslName, offset: member.offset / FLOAT_BYTES });
+        members.set(member.name, held);
+      }
+    }
+  }
+  GLOBALS_OF.set(material, { members, samplers });
+  return material;
+}
+
+/** Every sampler `material` reads the bytecode's texture `name` through, bound to `texture`. */
+export function bindProgramTexture(
+  material: RawShaderMaterial,
+  name: string,
+  texture: Texture,
+): void {
+  const uniforms: Record<string, IUniform> = material.uniforms;
+  for (const sampler of GLOBALS_OF.get(material)?.samplers.get(name) ?? []) {
+    const held = uniforms[sampler];
+    if (held === undefined) uniforms[sampler] = { value: texture };
+    else held.value = texture;
+  }
+}
+
 /** Where a draw can write over what a program material packed into `$Globals`. */
 export interface ProgramGlobals {
   /** Where each member sits in each stage's block that declares it, by the engine's name. */

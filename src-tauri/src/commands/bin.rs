@@ -12,12 +12,13 @@ use super::object_index::ObjectIndexState;
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
-use ltk_hash::BinHash;
+use ltk_game_data::Target;
+use ltk_hash::{BinHash, WadHash};
 use ltk_manager_core::bin_document::{
     BinChange, BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult, BinRow,
     BinRows, ChangeBaseline, ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice,
     DeclaredState, Declaring, Dependency, EditOutcome, GameCopy, LayerOverride, ReadOnly, Reshape,
-    RowDeclaration, RowNames,
+    RowDeclaration, RowNames, VariantSource,
 };
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
@@ -83,32 +84,126 @@ pub async fn bin_open(
             }
         };
 
-        let (schema, build) = installed_schema(&app_handle);
-        let read_only = store.read_only(document)?;
-        with_document_names(&app_handle, document, |names| {
-            store.read(document, |open| {
-                let at = Some(schema.at(build));
-                let (rows, object) = match entry {
-                    Some(entry) => (
-                        open.children(entry, "", 0, WHOLE, names, at)?.rows,
-                        Some(open.object(entry, names, at)?),
-                    ),
-                    None => (open.roots(names, at), None),
+        handle_of(&app_handle, document, opened, entry)
+    })
+    .await
+}
+
+/// Hold the UI variant `asset` open in `sandbox` laid over its base scene bin `base`,
+/// answering the header and one row per object.
+///
+/// In a project, a variant no layer ships opens as a declared variant: the base and the variant
+/// with the project's declarations of each, and an edit landing in a `target` module of `path`,
+/// the variant chunk's path (league-mod ADR-0035). Any other variant opens as its file.
+#[tauri::command]
+#[specta::specta]
+pub async fn bin_open_variant(
+    sandbox: SandboxRef,
+    asset: AssetRef,
+    base: AssetRef,
+    path: String,
+    app_handle: AppHandle,
+) -> IpcResult<BinDocumentHandle> {
+    off_thread(move || {
+        let config = app_handle.state::<SettingsState>().config();
+        let store = app_handle.state::<BinDocuments>();
+        let wads = app_handle.state::<WadCache>();
+        let sandboxed = document_assets::sandbox(&app_handle, &sandbox);
+
+        let (document, opened) = match sandboxed.opening(asset)? {
+            Opening::File(file) => {
+                let document = store.open(&sandbox, file.clone(), || file.read(&config, &wads))?;
+                (document, file)
+            }
+            Opening::Declared { asset, chunk_hash } => {
+                let project = sandbox.project().ok_or_else(|| {
+                    AppError::ValidationFailed("The game sandbox declares nothing".to_owned())
+                })?;
+                let target = Target::try_from(path.as_str())
+                    .ok()
+                    .filter(|target| target.chunk_hash() == chunk_hash)
+                    .ok_or_else(|| {
+                        AppError::ValidationFailed(format!("{path} is not the variant's chunk"))
+                    })?;
+                let (base, base_hash) = match sandboxed.opening(base)? {
+                    Opening::Declared { asset, chunk_hash } => (asset, chunk_hash),
+                    Opening::File(file) => {
+                        let hash = chunk_hash_of(&file).ok_or_else(|| {
+                            AppError::ValidationFailed("The base is no chunk".to_owned())
+                        })?;
+                        (file, hash)
+                    }
                 };
-                Ok(BinDocumentHandle {
-                    document,
-                    sandbox: store.sandbox_of(document).unwrap_or(SandboxRef::Game),
-                    read_only,
-                    asset: opened.clone(),
-                    header: open.header(names),
-                    rows,
-                    object,
-                    declared: open.declared_state(),
-                })
+
+                let document =
+                    store.open_declared_variant(&sandbox, asset.clone(), chunk_hash, || {
+                        let (schema, build) = installed_schema(&app_handle);
+                        Ok(VariantSource {
+                            game: asset.read(&config, &wads)?,
+                            target,
+                            base: base.read(&config, &wads)?,
+                            base_hash,
+                            context: DeclareContext {
+                                project: ProjectDir::open(project)?,
+                                schema: PatchSchema::new(schema, build),
+                                game: Arc::new(InstalledGame(app_handle.clone())),
+                            },
+                        })
+                    })?;
+                (document, asset)
+            }
+        };
+
+        handle_of(&app_handle, document, opened, None)
+    })
+    .await
+}
+
+/// The path hash of the chunk `asset` stands for: a game chunk's own, or a layer file's
+/// packed path.
+fn chunk_hash_of(asset: &AssetRef) -> Option<u64> {
+    match asset {
+        AssetRef::GameChunk { path_hash, .. } => {
+            path_hash.parse::<WadHash>().ok().map(|hash| hash.0)
+        }
+        AssetRef::Layer { .. } => layer_chunk_hash(asset),
+        AssetRef::File { .. } => None,
+    }
+}
+
+/// The handle of the open `document` over `opened`: its header, and the rows of `entry`, or one
+/// row per object with no `entry`.
+fn handle_of(
+    app_handle: &AppHandle,
+    document: BinDocumentId,
+    opened: AssetRef,
+    entry: Option<BinHash>,
+) -> AppResult<BinDocumentHandle> {
+    let store = app_handle.state::<BinDocuments>();
+    let (schema, build) = installed_schema(app_handle);
+    let read_only = store.read_only(document)?;
+    with_document_names(app_handle, document, |names| {
+        store.read(document, |open| {
+            let at = Some(schema.at(build));
+            let (rows, object) = match entry {
+                Some(entry) => (
+                    open.children(entry, "", 0, WHOLE, names, at)?.rows,
+                    Some(open.object(entry, names, at)?),
+                ),
+                None => (open.roots(names, at), None),
+            };
+            Ok(BinDocumentHandle {
+                document,
+                sandbox: store.sandbox_of(document).unwrap_or(SandboxRef::Game),
+                read_only,
+                asset: opened.clone(),
+                header: open.header(names),
+                rows,
+                object,
+                declared: open.declared_state(),
             })
         })
     })
-    .await
 }
 
 /// The rows of an open layer file that the declarations of its project override. Empty for

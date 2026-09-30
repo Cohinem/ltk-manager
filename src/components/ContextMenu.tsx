@@ -1,4 +1,5 @@
 import { ContextMenu as BaseContextMenu } from "@base-ui/react/context-menu";
+import { CaretRightIcon } from "@phosphor-icons/react";
 import { forwardRef, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
@@ -155,6 +156,67 @@ export const ContextMenuSeparator = forwardRef<HTMLDivElement, ContextMenuSepara
 );
 ContextMenuSeparator.displayName = "ContextMenu.Separator";
 
+// SubmenuRoot
+export interface ContextMenuSubmenuRootProps extends BaseContextMenu.SubmenuRoot.Props {
+  children?: ReactNode;
+}
+
+export const ContextMenuSubmenuRoot = ({ children, ...props }: ContextMenuSubmenuRootProps) => {
+  return <BaseContextMenu.SubmenuRoot {...props}>{children}</BaseContextMenu.SubmenuRoot>;
+};
+ContextMenuSubmenuRoot.displayName = "ContextMenu.SubmenuRoot";
+
+// SubmenuTrigger, styled the same as Menu.SubmenuTrigger
+export interface ContextMenuSubmenuTriggerProps extends Omit<
+  BaseContextMenu.SubmenuTrigger.Props,
+  "className"
+> {
+  icon?: ReactNode;
+  className?: string;
+  children?: ReactNode;
+}
+
+export const ContextMenuSubmenuTrigger = forwardRef<HTMLDivElement, ContextMenuSubmenuTriggerProps>(
+  ({ icon, openOnHover = true, className, children, ...props }, ref) => {
+    return (
+      <BaseContextMenu.SubmenuTrigger
+        ref={ref}
+        openOnHover={openOnHover}
+        className={twMerge(
+          "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm outline-none select-none",
+          "data-[disabled]:cursor-not-allowed data-[disabled]:text-surface-400",
+          itemVariantClasses.default,
+          "data-[popup-open]:bg-surface-veil data-[popup-open]:text-surface-50",
+          className,
+        )}
+        {...props}
+      >
+        {icon && <span className="h-4 w-4 shrink-0 opacity-70">{icon}</span>}
+        <span className="min-w-0 flex-1 truncate">{children}</span>
+        <CaretRightIcon className="h-3.5 w-3.5 shrink-0 opacity-70" weight="bold" />
+      </BaseContextMenu.SubmenuTrigger>
+    );
+  },
+);
+ContextMenuSubmenuTrigger.displayName = "ContextMenu.SubmenuTrigger";
+
+// SubmenuPositioner
+/** `ContextMenuPositioner` aimed sideways, which is what a submenu changes about its popup. */
+export const ContextMenuSubmenuPositioner = forwardRef<HTMLDivElement, ContextMenuPositionerProps>(
+  ({ side = "inline-end", align = "start", sideOffset = 4, ...props }, ref) => {
+    return (
+      <ContextMenuPositioner
+        ref={ref}
+        side={side}
+        align={align}
+        sideOffset={sideOffset}
+        {...props}
+      />
+    );
+  },
+);
+ContextMenuSubmenuPositioner.displayName = "ContextMenu.SubmenuPositioner";
+
 // Compound export
 export const ContextMenu = {
   Root: ContextMenuRoot,
@@ -164,4 +226,7 @@ export const ContextMenu = {
   Popup: ContextMenuPopup,
   Item: ContextMenuItem,
   Separator: ContextMenuSeparator,
+  SubmenuRoot: ContextMenuSubmenuRoot,
+  SubmenuTrigger: ContextMenuSubmenuTrigger,
+  SubmenuPositioner: ContextMenuSubmenuPositioner,
 };

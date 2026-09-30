@@ -1,6 +1,6 @@
 import { CaretDownIcon, CheckIcon, LockSimpleIcon } from "@phosphor-icons/react";
 import { queryOptions, skipToken, useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
+import { type ReactNode, useMemo } from "react";
 
 import { HoverCard, LeagueIcon, Popover } from "@/components";
 import { m, readOnlyDescription } from "@/i18n";
@@ -34,6 +34,7 @@ import {
 } from "../../../state";
 import { entryChunkPath } from "../../links/hooks/useLinkTargets";
 import { useDeclareInto, useDeclaredState } from "../hooks/useDeclared";
+import type { ProjectSwitch } from "../state/projectSwitch";
 import { choiceLabel } from "../utils/declaredModule";
 import { DeclaredModuleList, ModuleOption, OPTION_CLASSES } from "./DeclaredModuleList";
 
@@ -266,6 +267,36 @@ function DeclaredChoices({
       <DeclaredModuleList document={handle.document} declared={declared} locked={locked} />
     </>
   );
+}
+
+/**
+ * Moving the tab `documentId` from the game sandbox into the open project, the switch the
+ * sandbox options make. Null where no project is open or the tab is not in the game sandbox.
+ */
+export function useProjectSwitch(
+  documentId: string,
+  handle: BinDocumentHandle,
+): ProjectSwitch | null {
+  const route = useRouteSandbox();
+  const project = useOptionalProjectContext();
+  const tab = useEditorDocument(documentId);
+  const replace = useReplaceDocument();
+  const asset = tab !== null && isAssetTab(tab) ? tab : null;
+  const copy = useGameCopy(asset?.asset.kind === "gameChunk" ? asset.asset : handle.asset);
+  const name = project?.displayName ?? null;
+  const inGame = handle.sandbox.kind === "game";
+
+  return useMemo(() => {
+    if (name === null || asset === null || !inGame || route.kind === "game") return null;
+
+    return {
+      project: name,
+      open: () => {
+        const next = switched(asset, route, route, copy);
+        if (next !== null) replace(documentId, next);
+      },
+    };
+  }, [name, asset, inGame, route, copy, replace, documentId]);
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {

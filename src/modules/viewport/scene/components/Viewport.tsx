@@ -1,4 +1,4 @@
-import { Canvas, type RootState, useFrame } from "@react-three/fiber";
+import { Canvas, type RootState } from "@react-three/fiber";
 import {
   type ComponentProps,
   type ReactNode,
@@ -10,7 +10,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Vector2, type WebGLRendererParameters } from "three";
+import type { WebGLRendererParameters } from "three";
 
 import { useContentVisible, useResizeObserver } from "@/hooks";
 
@@ -31,12 +31,10 @@ import { type AntiAliasing, DEFAULT_ANTI_ALIASING } from "../utils/antiAliasing"
 import { drawsPostEffects, NO_POST_EFFECTS, type PostEffects } from "../utils/postEffects";
 import {
   createOpaqueRenderer,
-  holdsSharedRenderer,
   releaseSharedRenderer,
   type RendererLease,
   type RendererUse,
   sharedRenderer,
-  takeSharedRenderer,
 } from "../utils/sharedRenderer";
 import { DEFAULT_SUN, type SunOverride, withSunOverride } from "../utils/sunLight";
 import { edgesOf, type ViewMode } from "../utils/viewMode";
@@ -44,6 +42,7 @@ import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { AntiAliasingPass } from "./AntiAliasingPass";
 import { Backdrop } from "./Backdrop";
 import { PostEffectsPass } from "./PostEffectsPass";
+import { SharedRendererClaim } from "./SharedRendererClaim";
 import { Sky } from "./Sky";
 import { Stage } from "./Stage";
 import { Sun } from "./Sun";
@@ -306,47 +305,6 @@ export function Viewport({
     </div>
   );
 }
-
-interface SharedRendererClaimProps {
-  readonly lease: RendererLease;
-  readonly box: RefObject<HTMLDivElement | null>;
-  /** Another viewport on screen draws with the shared renderer, so this one needs its own. */
-  readonly onTaken: () => void;
-}
-
-/**
- * Take the shared renderer before a frame draws, where another viewport had it.
- *
- * Run in the frame rather than in an effect, because a tab switch hides one viewport and
- * shows another in one commit, and only by the frame has the hidden one stopped running.
- * A viewport on screen that still holds it keeps it, and this one falls back.
- */
-function SharedRendererClaim({ lease, box, onTaken }: SharedRendererClaimProps) {
-  useFrame(({ gl, size, viewport, setFrameloop }) => {
-    if (!holdsSharedRenderer(lease) && takeSharedRenderer(lease) === null) {
-      setFrameloop("never");
-      onTaken();
-      return;
-    }
-
-    const canvas = gl.domElement;
-    if (box.current !== null && canvas.parentNode !== box.current) box.current.append(canvas);
-
-    /* The fibre sizes the renderer only when its own box changes, and another viewport
-       may have drawn with it at another size since. */
-    if (gl.getPixelRatio() !== viewport.dpr) gl.setPixelRatio(viewport.dpr);
-    gl.getSize(DRAWN_SIZE);
-    if (DRAWN_SIZE.x !== size.width || DRAWN_SIZE.y !== size.height) {
-      gl.setSize(size.width, size.height);
-    }
-  }, CLAIM_PRIORITY);
-  return null;
-}
-
-/** Ahead of every other frame callback, so the claim lands before anything draws. */
-const CLAIM_PRIORITY = -1000;
-
-const DRAWN_SIZE = new Vector2();
 
 function setRunning(root: RootState, running: boolean): void {
   const state = root.get();
