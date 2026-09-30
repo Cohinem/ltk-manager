@@ -253,9 +253,9 @@ type Envelope<T> = { ok: true; value: T } | { ok: false; error: AppError };
  */
 function mockBackend(analyzed: Envelope<Run>) {
   mockInvoke.mockImplementation((command: string) => {
-    if (command === commandNames.app.analyzeProject) return Promise.resolve(analyzed);
+    if (command === commandNames.workshop.analyzeProject) return Promise.resolve(analyzed);
     if (command === "fix_runs") return Promise.resolve({ ok: true, value: [] });
-    if (command === commandNames.app.fixProblems)
+    if (command === commandNames.workshop.fixProblems)
       return Promise.resolve({ ok: true, value: FIX_REPORT });
     if (command === "undo_fix_run") return Promise.resolve({ ok: true, value: null });
     return Promise.resolve({ ok: true, value: null });
@@ -783,7 +783,7 @@ describe("ProblemsDocument", () => {
     );
 
     const fixes = mockInvoke.mock.calls.filter(
-      ([command]) => command === commandNames.app.fixProblems,
+      ([command]) => command === commandNames.workshop.fixProblems,
     );
     expect(fixes).toHaveLength(1);
     expect(fixes[0][1]).toEqual({
@@ -801,7 +801,7 @@ describe("ProblemsDocument", () => {
     await userEvent.click(screen.getByRole("button", { name: "Fix this problem" }));
 
     const fixes = mockInvoke.mock.calls.filter(
-      ([command]) => command === commandNames.app.fixProblems,
+      ([command]) => command === commandNames.workshop.fixProblems,
     );
     expect(fixes).toHaveLength(1);
     expect(fixes[0][1]).toEqual({
@@ -915,7 +915,7 @@ describe("ProblemsDocument", () => {
 
       await skin0Group();
       const runs = mockInvoke.mock.calls.filter(
-        ([command]) => command === commandNames.app.analyzeProject,
+        ([command]) => command === commandNames.workshop.analyzeProject,
       );
       expect(runs).toHaveLength(1);
     });

@@ -101,7 +101,7 @@ afterEach(cleanup);
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === commandNames.app.getProjectContentTree)
+    if (command === commandNames.workshop.getProjectContentTree)
       return Promise.resolve({ ok: true, value: TREE });
     if (command === commandNames.app.searchGamePaths)
       return Promise.resolve({ ok: true, value: SEARCH });

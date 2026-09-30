@@ -44,7 +44,7 @@ function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
             session: null,
           },
         });
-      case commandNames.app.getWorkshopProject:
+      case commandNames.workshop.getWorkshopProject:
         return Promise.resolve({ ok: true, value: { id: "a1b2c3d4e5f6a7b8" } });
       case commandNames.app.incidentReport:
         return Promise.resolve({ ok: true, value: "# LTK Manager - League diagnostics" });

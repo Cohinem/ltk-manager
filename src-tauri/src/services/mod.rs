@@ -6,6 +6,7 @@
 
 pub mod app_update;
 pub mod library;
+pub mod workshop;
 
 use specta::Types;
 use tauri::plugin::Builder as PluginBuilder;

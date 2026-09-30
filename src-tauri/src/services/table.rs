@@ -62,4 +62,47 @@ services! {
         ;
         debug: time_mod_health,
     }
+    workshop("workshop") {
+        // Projects
+        get_workshop_projects,
+        get_workshop_project,
+        create_project,
+        edit_project,
+        rename_workshop_project,
+        delete_workshop_project,
+        pack_workshop_project,
+        peek_fantome,
+        validate_project,
+        get_project_thumbnail,
+        get_project_content_tree,
+        // Layers
+        get_layer_content_path,
+        get_layer_info,
+        add_files_to_layer,
+        delete_layer_content,
+        watch_project_layers,
+        unwatch_project_layers,
+        // Opened folders
+        inspect_project_folder,
+        open_project_folder,
+        record_project_opened,
+        get_opened_project_folders,
+        forget_project_folder,
+        relocate_project_folder,
+        convert_folder_to_project,
+        add_project_folders,
+        // Text files
+        get_project_ignore_rules,
+        recommended_ignore_rules,
+        save_project_ignore_rules,
+        add_recommended_ignore_rules,
+        get_project_text,
+        save_project_text,
+        get_project_editor_state,
+        save_project_editor_state,
+        declarations_outline,
+        // Problems
+        analyze_project,
+        fix_problems,
+    }
 }

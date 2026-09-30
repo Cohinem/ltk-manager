@@ -7087,6 +7087,444 @@
           "type": "string",
           "const": "window-state:deny-save-window-state",
           "markdownDescription": "Denies the save_window_state command without any pre-configured scope."
+        },
+        {
+          "description": "Default plugin permissions.\n#### This default permission set includes:\n\n- `allow-get-workshop-projects`\n- `allow-get-workshop-project`\n- `allow-create-project`\n- `allow-edit-project`\n- `allow-rename-workshop-project`\n- `allow-delete-workshop-project`\n- `allow-pack-workshop-project`\n- `allow-peek-fantome`\n- `allow-validate-project`\n- `allow-get-project-thumbnail`\n- `allow-get-project-content-tree`\n- `allow-get-layer-content-path`\n- `allow-get-layer-info`\n- `allow-add-files-to-layer`\n- `allow-delete-layer-content`\n- `allow-watch-project-layers`\n- `allow-unwatch-project-layers`\n- `allow-inspect-project-folder`\n- `allow-open-project-folder`\n- `allow-record-project-opened`\n- `allow-get-opened-project-folders`\n- `allow-forget-project-folder`\n- `allow-relocate-project-folder`\n- `allow-convert-folder-to-project`\n- `allow-add-project-folders`\n- `allow-get-project-ignore-rules`\n- `allow-recommended-ignore-rules`\n- `allow-save-project-ignore-rules`\n- `allow-add-recommended-ignore-rules`\n- `allow-get-project-text`\n- `allow-save-project-text`\n- `allow-get-project-editor-state`\n- `allow-save-project-editor-state`\n- `allow-declarations-outline`\n- `allow-analyze-project`\n- `allow-fix-problems`",
+          "type": "string",
+          "const": "workshop:default",
+          "markdownDescription": "Default plugin permissions.\n#### This default permission set includes:\n\n- `allow-get-workshop-projects`\n- `allow-get-workshop-project`\n- `allow-create-project`\n- `allow-edit-project`\n- `allow-rename-workshop-project`\n- `allow-delete-workshop-project`\n- `allow-pack-workshop-project`\n- `allow-peek-fantome`\n- `allow-validate-project`\n- `allow-get-project-thumbnail`\n- `allow-get-project-content-tree`\n- `allow-get-layer-content-path`\n- `allow-get-layer-info`\n- `allow-add-files-to-layer`\n- `allow-delete-layer-content`\n- `allow-watch-project-layers`\n- `allow-unwatch-project-layers`\n- `allow-inspect-project-folder`\n- `allow-open-project-folder`\n- `allow-record-project-opened`\n- `allow-get-opened-project-folders`\n- `allow-forget-project-folder`\n- `allow-relocate-project-folder`\n- `allow-convert-folder-to-project`\n- `allow-add-project-folders`\n- `allow-get-project-ignore-rules`\n- `allow-recommended-ignore-rules`\n- `allow-save-project-ignore-rules`\n- `allow-add-recommended-ignore-rules`\n- `allow-get-project-text`\n- `allow-save-project-text`\n- `allow-get-project-editor-state`\n- `allow-save-project-editor-state`\n- `allow-declarations-outline`\n- `allow-analyze-project`\n- `allow-fix-problems`"
+        },
+        {
+          "description": "Enables the add_files_to_layer command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-add-files-to-layer",
+          "markdownDescription": "Enables the add_files_to_layer command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the add_project_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-add-project-folders",
+          "markdownDescription": "Enables the add_project_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the add_recommended_ignore_rules command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-add-recommended-ignore-rules",
+          "markdownDescription": "Enables the add_recommended_ignore_rules command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the analyze_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-analyze-project",
+          "markdownDescription": "Enables the analyze_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the convert_folder_to_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-convert-folder-to-project",
+          "markdownDescription": "Enables the convert_folder_to_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the create_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-create-project",
+          "markdownDescription": "Enables the create_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the declarations_outline command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-declarations-outline",
+          "markdownDescription": "Enables the declarations_outline command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_layer_content command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-delete-layer-content",
+          "markdownDescription": "Enables the delete_layer_content command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the delete_workshop_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-delete-workshop-project",
+          "markdownDescription": "Enables the delete_workshop_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the edit_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-edit-project",
+          "markdownDescription": "Enables the edit_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the fix_problems command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-fix-problems",
+          "markdownDescription": "Enables the fix_problems command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the forget_project_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-forget-project-folder",
+          "markdownDescription": "Enables the forget_project_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_layer_content_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-layer-content-path",
+          "markdownDescription": "Enables the get_layer_content_path command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_layer_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-layer-info",
+          "markdownDescription": "Enables the get_layer_info command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_opened_project_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-opened-project-folders",
+          "markdownDescription": "Enables the get_opened_project_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_project_content_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-project-content-tree",
+          "markdownDescription": "Enables the get_project_content_tree command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_project_editor_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-project-editor-state",
+          "markdownDescription": "Enables the get_project_editor_state command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_project_ignore_rules command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-project-ignore-rules",
+          "markdownDescription": "Enables the get_project_ignore_rules command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_project_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-project-text",
+          "markdownDescription": "Enables the get_project_text command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_project_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-project-thumbnail",
+          "markdownDescription": "Enables the get_project_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_workshop_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-workshop-project",
+          "markdownDescription": "Enables the get_workshop_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the get_workshop_projects command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-get-workshop-projects",
+          "markdownDescription": "Enables the get_workshop_projects command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the inspect_project_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-inspect-project-folder",
+          "markdownDescription": "Enables the inspect_project_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the open_project_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-open-project-folder",
+          "markdownDescription": "Enables the open_project_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the pack_workshop_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-pack-workshop-project",
+          "markdownDescription": "Enables the pack_workshop_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the peek_fantome command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-peek-fantome",
+          "markdownDescription": "Enables the peek_fantome command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the recommended_ignore_rules command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-recommended-ignore-rules",
+          "markdownDescription": "Enables the recommended_ignore_rules command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the record_project_opened command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-record-project-opened",
+          "markdownDescription": "Enables the record_project_opened command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the relocate_project_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-relocate-project-folder",
+          "markdownDescription": "Enables the relocate_project_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the rename_workshop_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-rename-workshop-project",
+          "markdownDescription": "Enables the rename_workshop_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_project_editor_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-save-project-editor-state",
+          "markdownDescription": "Enables the save_project_editor_state command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_project_ignore_rules command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-save-project-ignore-rules",
+          "markdownDescription": "Enables the save_project_ignore_rules command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the save_project_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-save-project-text",
+          "markdownDescription": "Enables the save_project_text command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the unwatch_project_layers command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-unwatch-project-layers",
+          "markdownDescription": "Enables the unwatch_project_layers command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the validate_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-validate-project",
+          "markdownDescription": "Enables the validate_project command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the watch_project_layers command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:allow-watch-project-layers",
+          "markdownDescription": "Enables the watch_project_layers command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the add_files_to_layer command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-add-files-to-layer",
+          "markdownDescription": "Denies the add_files_to_layer command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the add_project_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-add-project-folders",
+          "markdownDescription": "Denies the add_project_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the add_recommended_ignore_rules command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-add-recommended-ignore-rules",
+          "markdownDescription": "Denies the add_recommended_ignore_rules command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the analyze_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-analyze-project",
+          "markdownDescription": "Denies the analyze_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the convert_folder_to_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-convert-folder-to-project",
+          "markdownDescription": "Denies the convert_folder_to_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the create_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-create-project",
+          "markdownDescription": "Denies the create_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the declarations_outline command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-declarations-outline",
+          "markdownDescription": "Denies the declarations_outline command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_layer_content command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-delete-layer-content",
+          "markdownDescription": "Denies the delete_layer_content command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the delete_workshop_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-delete-workshop-project",
+          "markdownDescription": "Denies the delete_workshop_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the edit_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-edit-project",
+          "markdownDescription": "Denies the edit_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the fix_problems command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-fix-problems",
+          "markdownDescription": "Denies the fix_problems command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the forget_project_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-forget-project-folder",
+          "markdownDescription": "Denies the forget_project_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_layer_content_path command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-layer-content-path",
+          "markdownDescription": "Denies the get_layer_content_path command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_layer_info command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-layer-info",
+          "markdownDescription": "Denies the get_layer_info command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_opened_project_folders command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-opened-project-folders",
+          "markdownDescription": "Denies the get_opened_project_folders command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_project_content_tree command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-project-content-tree",
+          "markdownDescription": "Denies the get_project_content_tree command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_project_editor_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-project-editor-state",
+          "markdownDescription": "Denies the get_project_editor_state command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_project_ignore_rules command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-project-ignore-rules",
+          "markdownDescription": "Denies the get_project_ignore_rules command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_project_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-project-text",
+          "markdownDescription": "Denies the get_project_text command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_project_thumbnail command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-project-thumbnail",
+          "markdownDescription": "Denies the get_project_thumbnail command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_workshop_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-workshop-project",
+          "markdownDescription": "Denies the get_workshop_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_workshop_projects command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-get-workshop-projects",
+          "markdownDescription": "Denies the get_workshop_projects command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the inspect_project_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-inspect-project-folder",
+          "markdownDescription": "Denies the inspect_project_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the open_project_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-open-project-folder",
+          "markdownDescription": "Denies the open_project_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the pack_workshop_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-pack-workshop-project",
+          "markdownDescription": "Denies the pack_workshop_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the peek_fantome command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-peek-fantome",
+          "markdownDescription": "Denies the peek_fantome command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the recommended_ignore_rules command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-recommended-ignore-rules",
+          "markdownDescription": "Denies the recommended_ignore_rules command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the record_project_opened command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-record-project-opened",
+          "markdownDescription": "Denies the record_project_opened command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the relocate_project_folder command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-relocate-project-folder",
+          "markdownDescription": "Denies the relocate_project_folder command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the rename_workshop_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-rename-workshop-project",
+          "markdownDescription": "Denies the rename_workshop_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_project_editor_state command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-save-project-editor-state",
+          "markdownDescription": "Denies the save_project_editor_state command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_project_ignore_rules command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-save-project-ignore-rules",
+          "markdownDescription": "Denies the save_project_ignore_rules command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the save_project_text command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-save-project-text",
+          "markdownDescription": "Denies the save_project_text command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the unwatch_project_layers command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-unwatch-project-layers",
+          "markdownDescription": "Denies the unwatch_project_layers command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the validate_project command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-validate-project",
+          "markdownDescription": "Denies the validate_project command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the watch_project_layers command without any pre-configured scope.",
+          "type": "string",
+          "const": "workshop:deny-watch-project-layers",
+          "markdownDescription": "Denies the watch_project_layers command without any pre-configured scope."
         }
       ]
     },

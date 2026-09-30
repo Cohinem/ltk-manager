@@ -1,15 +1,14 @@
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use crate::workshop::{
-    AddFilesReport, AddFoldersReport, ContentTree, ConvertFolderArgs, CreateProjectArgs,
-    DeclarationsLayer, FantomePeekResult, FolderInspection, IgnoreRules, ImportFantomeArgs,
-    ImportGitRepoArgs, LayerWatches, OpenedProjectFolder, PackProjectArgs, PackResult, ProjectText,
-    ProjectTextFile, Revision, SaveProjectConfigArgs, ValidationResult, WorkshopLayerInfo,
-    WorkshopProject, WorkshopState, RECOMMENDED_IGNORE_RULES,
+    AddFilesReport, AddFoldersReport, ContentTree, ConvertFolderArgs, DeclarationsLayer,
+    FantomePeekResult, FolderInspection, IgnoreRules, LayerWatches, OpenedProjectFolder,
+    PackProjectArgs, PackResult, ProjectEdit, ProjectSource, ProjectText, ProjectTextFile,
+    Revision, ValidationResult, WorkshopLayerInfo, WorkshopProject, WorkshopState,
+    RECOMMENDED_IGNORE_RULES,
 };
 use chrono::Local;
 use fs_err as fs;
-use indexmap::IndexMap;
 use ltk_manager_core::bin_document::BinDocuments;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
 use ltk_manager_core::object_index::CacheNames;
@@ -18,7 +17,9 @@ use ltk_manager_core::workshop::layer_name_for;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
+
+use crate::commands::off_thread;
 
 /// An edited project with its location and last-opened time, which a load leaves at their
 /// defaults.
@@ -32,6 +33,61 @@ fn described(
         .into()
 }
 
+/// Apply `edit` to the project at `project_path`, answering the project.
+///
+/// An edit that reshapes the layers drops the project's sandboxes, and a layer rename moves the
+/// open documents to the new name. ADR-0056.
+#[tauri::command]
+#[specta::specta]
+pub fn edit_project(
+    project_path: String,
+    edit: ProjectEdit,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+    documents: State<BinDocuments>,
+    sandboxes: State<SandboxState>,
+) -> IpcResult<WorkshopProject> {
+    let reshapes = edit.reshapes_layers();
+    let renamed = if let ProjectEdit::RenameLayer {
+        layer,
+        display_name,
+    } = &edit
+    {
+        layer_name_for(display_name).map(|to| (layer.clone(), to))
+    } else {
+        None
+    };
+
+    let edited = workshop
+        .0
+        .edit_project(&settings.config(), &project_path, edit);
+    if reshapes {
+        sandboxes.invalidate(&project_path);
+    }
+    if let (Ok(_), Some((from, to))) = (&edited, renamed) {
+        documents.rename_layer(&project_path, &from, &to);
+    }
+    edited.into()
+}
+
+/// Make a project out of `source` in the workshop folder, answering the project.
+#[tauri::command]
+#[specta::specta]
+pub async fn create_project(
+    source: ProjectSource,
+    app_handle: AppHandle,
+) -> IpcResult<WorkshopProject> {
+    off_thread(move || {
+        let config = app_handle.state::<SettingsState>().config();
+        let resolver = app_handle.state::<Arc<WadPathResolverState>>().get();
+        app_handle
+            .state::<WorkshopState>()
+            .0
+            .create_from(&config, source, &resolver)
+    })
+    .await
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn get_workshop_projects(
@@ -40,17 +96,6 @@ pub fn get_workshop_projects(
 ) -> IpcResult<Vec<WorkshopProject>> {
     let config = settings.config();
     workshop.0.get_projects(&config).into()
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn create_workshop_project(
-    args: CreateProjectArgs,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<WorkshopProject> {
-    let config = settings.config();
-    workshop.0.create_project(&config, args).into()
 }
 
 #[tauri::command]
@@ -174,16 +219,6 @@ pub fn get_project_content_tree(
     workshop: State<WorkshopState>,
 ) -> IpcResult<ContentTree> {
     workshop.0.get_project_content_tree(&project_path).into()
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn save_project_config(
-    args: SaveProjectConfigArgs,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<WorkshopProject> {
-    described(workshop.0.save_config(args), &workshop, &settings)
 }
 
 /// Read the `.modignore` at project-relative `at`, or the root file for none.
@@ -327,49 +362,11 @@ pub fn pack_workshop_project(
 
 #[tauri::command]
 #[specta::specta]
-pub fn import_from_modpkg(
-    file_path: String,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<WorkshopProject> {
-    let config = settings.config();
-    workshop.0.import_from_modpkg(&config, &file_path).into()
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn peek_fantome(
     file_path: String,
     workshop: State<WorkshopState>,
 ) -> IpcResult<FantomePeekResult> {
     workshop.0.peek_fantome(&file_path).into()
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn import_from_fantome(
-    args: ImportFantomeArgs,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-    resolvers: State<std::sync::Arc<WadPathResolverState>>,
-) -> IpcResult<WorkshopProject> {
-    let config = settings.config();
-    let resolver = resolvers.get();
-    workshop
-        .0
-        .import_from_fantome(&config, args, &resolver)
-        .into()
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn import_from_git_repo(
-    args: ImportGitRepoArgs,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<WorkshopProject> {
-    let config = settings.config();
-    workshop.0.import_from_git_repo(&config, args).into()
 }
 
 #[tauri::command]
@@ -383,127 +380,11 @@ pub fn validate_project(
 
 #[tauri::command]
 #[specta::specta]
-pub fn set_project_thumbnail(
-    project_path: String,
-    image_path: String,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<WorkshopProject> {
-    described(
-        workshop.0.set_thumbnail(&project_path, &image_path),
-        &workshop,
-        &settings,
-    )
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn remove_project_thumbnail(
-    project_path: String,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<WorkshopProject> {
-    described(
-        workshop.0.remove_thumbnail(&project_path),
-        &workshop,
-        &settings,
-    )
-}
-
-#[tauri::command]
-#[specta::specta]
 pub fn get_project_thumbnail(
     thumbnail_path: String,
     workshop: State<WorkshopState>,
 ) -> IpcResult<String> {
     workshop.0.get_thumbnail(&thumbnail_path).into()
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn save_layer_string_overrides(
-    project_path: String,
-    layer_name: String,
-    string_overrides: IndexMap<String, IndexMap<String, String>>,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<WorkshopProject> {
-    let saved =
-        workshop
-            .0
-            .save_layer_string_overrides(&project_path, &layer_name, string_overrides);
-    described(saved, &workshop, &settings)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn create_project_layer(
-    project_path: String,
-    name: String,
-    display_name: Option<String>,
-    description: Option<String>,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-    sandboxes: State<SandboxState>,
-) -> IpcResult<WorkshopProject> {
-    let created = workshop
-        .0
-        .create_layer(&project_path, &name, display_name, description);
-    sandboxes.invalidate(&project_path);
-    described(created, &workshop, &settings)
-}
-
-/// Rename a layer, and move the open documents and sandboxes of the project to the new
-/// name. ADR-0056.
-#[tauri::command]
-#[specta::specta]
-pub fn rename_project_layer(
-    project_path: String,
-    layer_name: String,
-    new_display_name: String,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-    documents: State<BinDocuments>,
-    sandboxes: State<SandboxState>,
-) -> IpcResult<WorkshopProject> {
-    let renamed = workshop
-        .0
-        .rename_layer(&project_path, &layer_name, &new_display_name);
-    sandboxes.invalidate(&project_path);
-
-    if let (Ok(_), Some(to)) = (&renamed, layer_name_for(&new_display_name)) {
-        documents.rename_layer(&project_path, &layer_name, &to);
-    }
-    described(renamed, &workshop, &settings)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn delete_project_layer(
-    project_path: String,
-    layer_name: String,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-    sandboxes: State<SandboxState>,
-) -> IpcResult<WorkshopProject> {
-    let deleted = workshop.0.delete_layer(&project_path, &layer_name);
-    sandboxes.invalidate(&project_path);
-    described(deleted, &workshop, &settings)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn update_layer_description(
-    project_path: String,
-    layer_name: String,
-    description: Option<String>,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-) -> IpcResult<WorkshopProject> {
-    let updated = workshop
-        .0
-        .update_layer_description(&project_path, &layer_name, description);
-    described(updated, &workshop, &settings)
 }
 
 #[tauri::command]
@@ -527,20 +408,6 @@ pub fn get_layer_info(
     workshop: State<WorkshopState>,
 ) -> IpcResult<HashMap<String, WorkshopLayerInfo>> {
     workshop.0.get_layer_info(&project_path, layer_names).into()
-}
-
-#[tauri::command]
-#[specta::specta]
-pub fn reorder_project_layers(
-    project_path: String,
-    layer_names: Vec<String>,
-    workshop: State<WorkshopState>,
-    settings: State<SettingsState>,
-    sandboxes: State<SandboxState>,
-) -> IpcResult<WorkshopProject> {
-    let reordered = workshop.0.reorder_layers(&project_path, layer_names);
-    sandboxes.invalidate(&project_path);
-    described(reordered, &workshop, &settings)
 }
 
 #[tauri::command]
