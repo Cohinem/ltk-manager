@@ -67,7 +67,7 @@ export function useRefreshGameIndex() {
   const warmObjects = useWarmObjectIndex();
   const warmMutate = warmObjects.mutate;
 
-  return useMutation<void, AppError, void>({
+  return useMutation<null, AppError, void>({
     mutationFn: mutationFn(api.refreshGameIndex),
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: gameKeys.index });

@@ -27,9 +27,7 @@ const MAP_PATH: BinHash = BinHash(0xcc5e_808a);
 /// One map an object draws, and the skin that names it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapVariant {
     /// The `MapSkin`'s own name, and none for a map a container states itself.
     pub skin: Option<String>,

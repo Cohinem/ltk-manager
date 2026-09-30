@@ -27,7 +27,7 @@ fn default_keep_incidents() -> u32 {
 /// against every WAD filename in the game install; the pattern is always
 /// applied case-insensitively.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum WadBlocklistEntry {
     Exact { value: String },
@@ -64,15 +64,12 @@ where
 /// Every field is optional or defaulted so a partial (or empty) JSON document
 /// deserializes into a usable configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
-    #[cfg_attr(feature = "ts", ts(as = "Option<String>"))]
     pub league_path: Option<PathBuf>,
-    #[cfg_attr(feature = "ts", ts(as = "Option<String>"))]
     pub mod_storage_path: Option<PathBuf>,
     /// Directory where mod projects are stored (for Creator Workshop).
-    #[cfg_attr(feature = "ts", ts(as = "Option<String>"))]
     pub workshop_path: Option<PathBuf>,
     /// Whether to patch TFT game files (Map22.wad.client). Default: false.
     #[serde(default)]
@@ -88,6 +85,7 @@ pub struct Config {
         default = "default_wad_blocklist",
         deserialize_with = "deserialize_wad_blocklist"
     )]
+    #[cfg_attr(feature = "ts", specta(type = Vec<WadBlocklistEntry>))]
     pub wad_blocklist: Vec<WadBlocklistEntry>,
     /// Run the injection host elevated (UAC). An elevated game can only be
     /// injected by an equally elevated host, so this is required when League
@@ -175,7 +173,7 @@ pub struct Config {
 
 /// The built-in mods a user turned on, every one off by default.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase", default)]
 pub struct BuiltinModSettings {
     /// Every ward shows its own base skin.
@@ -193,7 +191,7 @@ pub struct BuiltinModSettings {
 
 /// What a map decoration a mutator switches does, whatever mutators the game applies.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum MapDecorationMode {
     /// Never drawn.
@@ -204,7 +202,7 @@ pub enum MapDecorationMode {
 
 /// Which map skin every game shows, whatever skin the server names.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum MapSkinMode {
     /// The skin the server names.
@@ -218,7 +216,7 @@ pub enum MapSkinMode {
 
 /// Which champions show their base skin on every skin, a mod's where one replaces it.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum BaseSkinsScope {
     /// Every champion keeps its skins.

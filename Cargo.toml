@@ -103,7 +103,6 @@ tempfile = "3"
 thiserror = "2"
 xxhash-rust = { version = "0.8", features = ["xxh64"] }
 tracing = "0.1"
-ts-rs = "12"
 uuid = { version = "1", features = ["v4"] }
 walkdir = "2.5"
 webp = "0.3"

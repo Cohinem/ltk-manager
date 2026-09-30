@@ -261,9 +261,6 @@ export interface LayerWad {
 
 /**
  * Summarise a layer by its top level - one row per WAD, plus any loose file.
- *
- * Sizes come back as numbers rather than the entries' `bigint`, which is what
- * `formatBytes` and a sort comparator both want.
  */
 export function buildLayerWads(entries: readonly ContentEntry[]): LayerWad[] {
   const roots = new Map<
@@ -277,7 +274,7 @@ export function buildLayerWads(entries: readonly ContentEntry[]): LayerWad[] {
     if (!name) continue;
 
     const existing = roots.get(name);
-    const size = Number(entry.sizeBytes);
+    const size = entry.sizeBytes;
     if (existing) {
       existing.count += 1;
       existing.size += size;

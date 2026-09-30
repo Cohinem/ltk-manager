@@ -17,9 +17,7 @@ use crate::sandbox::layer_chunk_hash;
 /// The object's whole path is the row's title, so `ranges` are byte offsets
 /// into `path`. An object or a class no table names reads as its hex.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectSearchHit {
     /// The object's path hash, as `0x` and eight hex digits.
@@ -42,9 +40,7 @@ pub struct ObjectSearchHit {
 
 /// One class an ambiguous `class:` term matched, offered as a completion.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectClassHit {
     /// The class hash, as `0x` and eight hex digits.
@@ -57,9 +53,7 @@ pub struct ObjectClassHit {
 
 /// What one search of the object index found.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectSearchResult {
     /// The best rows, best first, capped at `SEARCH_LIMIT`.
@@ -89,9 +83,7 @@ impl ObjectSearchResult {
 
 /// One declaration of an object: the file that declares it and the class it carries.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectDeclaration {
     /// The declaring file, as an open reads it.
@@ -106,9 +98,7 @@ pub struct ObjectDeclaration {
 
 /// Every declaration of one object, with the path they share.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct DeclaredObject {
     /// The object's path, or its hash when no table names it.
@@ -149,9 +139,7 @@ impl DeclaredObject {
 ///
 /// A node an object bears is an [`ObjectNodeEntry`] and not one of these.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectPrefixEntry {
     /// What `ObjectIndex::object_dir` takes to open this row: the folded node's path.
@@ -164,9 +152,7 @@ pub struct ObjectPrefixEntry {
 
 /// One object at a listed prefix, with what sits below it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectNodeEntry {
     /// The object's path hash, as `0x` and eight hex digits.
@@ -185,9 +171,7 @@ pub struct ObjectNodeEntry {
 ///
 /// "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectDirListing {
     /// The prefixes no object bears, in natural name order, the unnamed group last at the root.
@@ -198,9 +182,7 @@ pub struct ObjectDirListing {
 
 /// One object the full search matched, with the runs its path marks.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFindHit {
     /// The object's path hash, as `0x` and eight hex digits.
@@ -215,9 +197,7 @@ pub struct ObjectFindHit {
 
 /// What one full search of the object index found.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectFindResult {
     /// Every matching object in path order, capped at `FIND_LIMIT`, the unnamed last.
@@ -244,9 +224,7 @@ impl ObjectFindResult {
 
 /// One object a reference query found, in the file that declares it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceHit {
     /// The object's path hash, as `0x` and eight hex digits.
@@ -263,9 +241,7 @@ pub struct ReferenceHit {
 
 /// The row inside an object that holds a reference, in the two forms a row carries.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceProperty {
     /// The property path on the wire, every field a hash (ADR-0027).
@@ -276,9 +252,7 @@ pub struct ReferenceProperty {
 
 /// The objects one file declares, as a reference query groups them.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceGroup {
     /// The declaring file, as an open reads it.
@@ -291,9 +265,7 @@ pub struct ReferenceGroup {
 
 /// What one reference query found.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceResult {
     /// The declaring files in archive order, holding at most `FIND_LIMIT` objects in all.
@@ -308,9 +280,7 @@ pub struct ReferenceResult {
 
 /// How far one walk has read.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ReferenceWalkProgress {
     /// Bins read, or passed over because they would not read.

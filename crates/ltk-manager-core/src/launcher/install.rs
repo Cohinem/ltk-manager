@@ -26,9 +26,7 @@ pub struct InstalledPatchline {
 /// The install the manager is set up for, against the one the client's League
 /// session runs from.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct InstallMismatch {
     /// The install root the manager is set up for.

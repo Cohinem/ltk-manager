@@ -23,6 +23,7 @@ use tauri::{AppHandle, Manager};
 /// the first run of a session also pays for the hashtable cache, so the walk
 /// happens off the UI thread. See `docs/ux/PROJECT_PROBLEMS.md`.
 #[tauri::command]
+#[specta::specta]
 pub async fn analyze_project(
     project_path: String,
     app_handle: AppHandle,
@@ -62,6 +63,7 @@ fn analyze_project_inner(
 /// Reports a project the backend holds no run for, because the ids name
 /// problems only a run can have produced.
 #[tauri::command]
+#[specta::specta]
 pub async fn fix_problems(
     project_path: String,
     problems: Vec<ProblemId>,

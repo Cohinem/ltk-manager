@@ -26,9 +26,7 @@ use crate::vfx::vfx_system_template;
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum NewObject {
     /// A copy of an object the document holds: `clone`.
     Clone {
@@ -57,9 +55,7 @@ pub enum NewObject {
 /// What a declaration of the chosen layer does to one object of the chunk.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredObjectMark {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
@@ -69,9 +65,7 @@ pub struct DeclaredObjectMark {
 /// Whether a declaration creates an object or removes one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ObjectChange {
     /// A `clone` or a `class` the applied copy holds.
     Created,

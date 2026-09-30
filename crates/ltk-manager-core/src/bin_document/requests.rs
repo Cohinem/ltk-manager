@@ -25,9 +25,7 @@ use crate::workshop::ModuleAction;
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum BinEdit {
     /// Set one leaf, answering [`EditOutcome::Previous`]. [`BinDocuments::patch`].
     Patch {
@@ -44,11 +42,7 @@ pub enum BinEdit {
     },
     /// Edit several properties, of one object or several, as one undoable change.
     /// [`BinDocuments::edit_properties`].
-    EditProperties {
-        /* The specta binding carries the item type, and the ts-rs one this shadows cannot. */
-        #[cfg_attr(feature = "ts", ts(type = "Array<unknown>"))]
-        edits: Vec<PropertyEdit>,
-    },
+    EditProperties { edits: Vec<PropertyEdit> },
     /// Add a property to the end of the holder at `path`. [`BinDocuments::add_property`].
     AddProperty {
         entry: String,
@@ -111,9 +105,7 @@ pub enum BinEdit {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ObjectEdit {
     /// Declare a new object named `name`, answering [`EditOutcome::Object`].
     /// [`BinDocuments::create_object`].
@@ -131,9 +123,7 @@ pub enum ObjectEdit {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum DependencyEdit {
     /// Put the dependency `text` names at `index`, the end where it is absent, answering
     /// [`EditOutcome::Index`]. [`BinDocuments::insert_dependency`].
@@ -156,9 +146,7 @@ pub enum DependencyEdit {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum EditOutcome {
     /// Nothing beyond the change.
     Done,
@@ -181,9 +169,7 @@ pub enum EditOutcome {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ChoiceQuery {
     /// The fields the holder at `path` can take, answering [`Choices::Fields`].
     AddableFields { entry: String, path: String },
@@ -201,9 +187,7 @@ pub enum ChoiceQuery {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum Choices {
     /// The fields a holder's class and bases declare that it does not write.
     Fields { fields: AddableFields },

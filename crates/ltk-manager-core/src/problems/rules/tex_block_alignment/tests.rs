@@ -105,7 +105,7 @@ fn a_block_compressed_texture_with_a_ragged_dimension_is_fatal() {
     assert_eq!(problems.len(), 1);
     let problem = &problems[0];
     assert_eq!(problem.rule, ID);
-    assert_eq!(problem.severity, Severity::Fatal);
+    assert_eq!(problem.severity, ProblemSeverity::Fatal);
     assert_eq!(problem.site.layer, "base");
     assert_eq!(problem.site.path, TEX_IN_LAYER);
     assert_eq!(problem.site.node, None, "the rule reads the whole file");

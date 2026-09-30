@@ -22,24 +22,22 @@ use super::off_thread;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
-use ts_rs::TS;
 
 /// Configuration for starting the patcher.
-#[derive(Debug, Clone, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PatcherConfig {
     /// Optional hook flags bitmask forwarded to the injection host
-    #[ts(optional, type = "number")]
+    #[specta(optional)]
     pub flags: Option<u64>,
     /// Absolute paths to workshop project directories to include in the overlay.
     ///
     /// These are loaded directly from disk via `FsModContent` and prepended to
     /// the enabled mod list (highest priority).
-    #[ts(optional)]
+    #[specta(optional)]
     pub workshop_projects: Option<Vec<String>>,
     /// Build the overlay from scratch rather than reuse the last build.
-    #[ts(optional)]
+    #[specta(optional)]
     pub force_rebuild: Option<bool>,
 }
 
@@ -55,8 +53,7 @@ impl PatcherConfig {
 }
 
 /// Current status of the patcher.
-#[derive(Debug, Clone, Serialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PatcherStatus {
     /// Whether the patcher is currently running.
@@ -134,6 +131,7 @@ fn resolve_resource(app_handle: &AppHandle, file_name: &str) -> AppResult<PathBu
 /// Returns immediately after spawning a background thread that builds the overlay
 /// and then runs the patcher loop. Progress is reported via events.
 #[tauri::command]
+#[specta::specta]
 pub fn start_patcher(
     config: PatcherConfig,
     app_handle: AppHandle,
@@ -273,6 +271,7 @@ pub(crate) fn start_patcher_inner(
 
 /// Stop the running patcher.
 #[tauri::command]
+#[specta::specta]
 pub fn stop_patcher(state: State<PatcherState>) -> IpcResult<()> {
     stop_patcher_inner(&state).into()
 }
@@ -295,6 +294,7 @@ pub(crate) fn stop_patcher_inner(state: &State<PatcherState>) -> AppResult<()> {
 /// session points at. Runs on a blocking thread and reports progress via the
 /// same `overlay-progress` events as a normal patch.
 #[tauri::command]
+#[specta::specta]
 pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
     let setup: AppResult<_> = (|| {
         let patcher = app_handle.state::<PatcherState>();
@@ -314,6 +314,7 @@ pub async fn rebuild_overlay(app_handle: AppHandle) -> IpcResult<()> {
 
 /// Get the current status of the patcher.
 #[tauri::command]
+#[specta::specta]
 pub fn get_patcher_status(state: State<PatcherState>) -> IpcResult<PatcherStatus> {
     IpcResult::ok(get_patcher_status_inner(&state))
 }
@@ -353,6 +354,7 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> PatcherStatus {
 /// non-fatal at injection, so this is advisory: the frontend surfaces it as per-mod
 /// badges and a reachable warning dialog.
 #[tauri::command]
+#[specta::specta]
 pub fn get_linked_bin_offenders(
     linked_bins: State<Arc<LinkedBinState>>,
     library: State<ModLibraryState>,
@@ -393,6 +395,7 @@ pub fn get_linked_bin_offenders(
 /// overlay carries the recomputed value, so this is advisory, surfaced per-mod
 /// in mod details.
 #[tauri::command]
+#[specta::specta]
 pub fn get_checksum_mismatches(
     checksum_mismatches: State<Arc<ChecksumMismatchState>>,
 ) -> IpcResult<HashMap<String, Vec<ChecksumMismatchInfo>>> {

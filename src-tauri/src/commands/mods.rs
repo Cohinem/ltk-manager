@@ -14,6 +14,7 @@ use tauri::{AppHandle, Manager, State};
 
 /// Get all installed mods from the mod library.
 #[tauri::command]
+#[specta::specta]
 pub fn get_installed_mods(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
@@ -24,6 +25,7 @@ pub fn get_installed_mods(
 
 /// Install a mod from a `.modpkg` or `.fantome` file into `modStoragePath`.
 #[tauri::command]
+#[specta::specta]
 pub fn install_mod(
     file_path: String,
     library: State<ModLibraryState>,
@@ -47,6 +49,7 @@ pub fn install_mod(
 
 /// Install multiple mods from `.modpkg` or `.fantome` files in a single batch.
 #[tauri::command]
+#[specta::specta]
 pub fn install_mods(
     file_paths: Vec<String>,
     library: State<ModLibraryState>,
@@ -67,6 +70,7 @@ pub fn install_mods(
 
 /// Replace a library mod from a new archive.
 #[tauri::command]
+#[specta::specta]
 pub async fn update_mod(
     mod_id: String,
     file_path: String,
@@ -94,6 +98,7 @@ pub async fn update_mod(
 }
 /// Uninstall a mod by id.
 #[tauri::command]
+#[specta::specta]
 pub fn uninstall_mod(
     mod_id: String,
     library: State<ModLibraryState>,
@@ -110,6 +115,7 @@ pub fn uninstall_mod(
 
 /// Toggle a mod's enabled state.
 #[tauri::command]
+#[specta::specta]
 pub fn toggle_mod(
     mod_id: String,
     enabled: bool,
@@ -127,6 +133,7 @@ pub fn toggle_mod(
 
 /// Reorder the enabled mods in the active profile.
 #[tauri::command]
+#[specta::specta]
 pub fn reorder_mods(
     mod_ids: Vec<String>,
     library: State<ModLibraryState>,
@@ -143,6 +150,7 @@ pub fn reorder_mods(
 
 /// Set the enabled/disabled state of individual layers for a mod.
 #[tauri::command]
+#[specta::specta]
 pub fn set_mod_layers(
     mod_id: String,
     layer_states: HashMap<String, bool>,
@@ -160,6 +168,7 @@ pub fn set_mod_layers(
 
 /// Enable a mod and set its initial layer configuration atomically.
 #[tauri::command]
+#[specta::specta]
 pub fn enable_mod_with_layers(
     mod_id: String,
     layer_states: HashMap<String, bool>,
@@ -179,6 +188,7 @@ pub fn enable_mod_with_layers(
 
 /// Edit a mod's metadata (name, tags, champions, maps).
 #[tauri::command]
+#[specta::specta]
 pub fn edit_mod_metadata(
     mod_id: String,
     metadata: EditModMetadataArgs,
@@ -197,6 +207,7 @@ pub fn edit_mod_metadata(
 /// Off-thread because unpacking writes the mod's whole content tree, which is
 /// the one direction that is not instant.
 #[tauri::command]
+#[specta::specta]
 pub async fn set_mod_storage(
     mod_id: String,
     storage: ModStorage,
@@ -228,6 +239,7 @@ pub async fn set_mod_storage(
 /// Off-thread because a library is gigabytes, and the zip shape reads every
 /// archive through. Not rejected while the patcher runs: an export only reads.
 #[tauri::command]
+#[specta::specta]
 pub async fn export_mods(
     scope: ExportScope,
     shape: ExportShape,
@@ -249,6 +261,7 @@ pub async fn export_mods(
 
 /// Inspect a `.modpkg` file and return its metadata.
 #[tauri::command]
+#[specta::specta]
 pub fn inspect_modpkg(file_path: String) -> IpcResult<ModpkgInfo> {
     inspect_modpkg_file(&file_path).into()
 }
@@ -256,6 +269,7 @@ pub fn inspect_modpkg(file_path: String) -> IpcResult<ModpkgInfo> {
 /// Get a mod's cached thumbnail path, extracting from the archive on first access.
 /// Returns `null` if the mod has no thumbnail.
 #[tauri::command]
+#[specta::specta]
 pub fn get_mod_thumbnail(
     mod_id: String,
     library: State<ModLibraryState>,
@@ -271,6 +285,7 @@ pub fn get_mod_thumbnail(
 /// from the map rather than an error. Off-thread, because a first read extracts
 /// from every archive that has not been asked for yet.
 #[tauri::command]
+#[specta::specta]
 pub async fn get_mod_thumbnails(
     mod_ids: Vec<String>,
     app_handle: AppHandle,
@@ -285,6 +300,7 @@ pub async fn get_mod_thumbnails(
 ///
 /// Off-thread, because a fantome's first ask mounts its archive.
 #[tauri::command]
+#[specta::specta]
 pub async fn get_mod_readme(mod_id: String, app_handle: AppHandle) -> IpcResult<ModDocument> {
     let config = app_handle.state::<SettingsState>().config();
     let library = app_handle.state::<ModLibraryState>().0.clone();
@@ -296,6 +312,7 @@ pub async fn get_mod_readme(mod_id: String, app_handle: AppHandle) -> IpcResult<
 ///
 /// Off-thread, because every ask mounts the mod's archive.
 #[tauri::command]
+#[specta::specta]
 pub async fn get_mod_license_text(mod_id: String, app_handle: AppHandle) -> IpcResult<ModDocument> {
     let config = app_handle.state::<SettingsState>().config();
     let library = app_handle.state::<ModLibraryState>().0.clone();
@@ -305,6 +322,7 @@ pub async fn get_mod_license_text(mod_id: String, app_handle: AppHandle) -> IpcR
 
 /// Get the mod storage directory path.
 #[tauri::command]
+#[specta::specta]
 pub fn get_storage_directory(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
@@ -323,6 +341,7 @@ pub fn get_storage_directory(
 /// successful patch run. Reports include an `is_stale` flag computed at read
 /// time against the most recently observed game-index fingerprint.
 #[tauri::command]
+#[specta::specta]
 pub fn get_mod_wad_report(
     mod_id: String,
     reports: State<Arc<WadReportState>>,
@@ -333,6 +352,7 @@ pub fn get_mod_wad_report(
 /// Get all cached WAD footprint reports in a single batch. Returns a map of
 /// mod id → report. Far cheaper than one IPC call per mod.
 #[tauri::command]
+#[specta::specta]
 pub fn get_all_mod_wad_reports(
     reports: State<Arc<WadReportState>>,
 ) -> IpcResult<HashMap<String, ModWadReport>> {
@@ -347,6 +367,7 @@ pub fn get_all_mod_wad_reports(
 /// worker) so heavy I/O (game index build, modpkg mount) won't starve the
 /// async runtime.
 #[tauri::command]
+#[specta::specta]
 pub fn analyze_mod_wads(
     mod_id: String,
     library: State<ModLibraryState>,

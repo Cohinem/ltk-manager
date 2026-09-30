@@ -10,8 +10,7 @@ use super::{ObjectDeclaration, ObjectIndex};
 
 /// One named spell and every file declaring its object.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct CharacterSpell {
     /// The object's path hash, as `0x` and eight hex digits.
@@ -28,8 +27,7 @@ pub struct CharacterSpell {
 
 /// The install's named spells for one character, without a search result cap.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SpellCatalog {
     /// Spells in natural path order.

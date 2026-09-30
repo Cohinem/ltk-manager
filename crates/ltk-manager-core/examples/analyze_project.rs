@@ -7,7 +7,7 @@
 use std::path::PathBuf;
 
 use ltk_manager_core::config::Config;
-use ltk_manager_core::problems::{Severity, analyze};
+use ltk_manager_core::problems::{ProblemSeverity, analyze};
 
 fn main() {
     let mut args = std::env::args().skip(1);
@@ -55,10 +55,10 @@ fn main() {
 
     for problem in run.problems.iter().take(6) {
         let glyph = match problem.severity {
-            Severity::Fatal => "X",
-            Severity::Error => "x",
-            Severity::Warning => "!",
-            Severity::Info => "i",
+            ProblemSeverity::Fatal => "X",
+            ProblemSeverity::Error => "x",
+            ProblemSeverity::Warning => "!",
+            ProblemSeverity::Info => "i",
         };
         let label = problem
             .site

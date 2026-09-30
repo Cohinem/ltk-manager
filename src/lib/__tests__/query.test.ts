@@ -1,7 +1,7 @@
 import { MutationObserver } from "@tanstack/react-query";
 import { vi } from "vitest";
 
-import type { AppError } from "@/lib/bindings";
+import type { AppError } from "@/lib/tauri";
 
 const reportUnhandledFailure = vi.fn();
 

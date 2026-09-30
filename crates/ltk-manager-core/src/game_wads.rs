@@ -21,8 +21,7 @@ use crate::utils::path::resolve_within;
 
 /// One WAD archive in a game install.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameWadSummary {
     /// Path relative to `DATA/FINAL` with forward slashes, e.g.
@@ -34,8 +33,7 @@ pub struct GameWadSummary {
 
 /// One chunk of a WAD archive.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameWadEntry {
     /// Chunk path hash as 16 lowercase hex digits.

@@ -152,8 +152,7 @@ impl fmt::Display for SyncHolder {
 
 /// One present table in a [`HashtableCacheStatus`].
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HashtableStatus {
     /// Stable table id, e.g. `game`.
@@ -177,8 +176,7 @@ pub struct HashtableStatus {
 
 /// What the shared hashtable cache currently holds.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HashtableCacheStatus {
     /// Absolute cache directory.
@@ -207,8 +205,7 @@ impl HashtableCacheStatus {
 
 /// One table the published release has a version of that this cache does not.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HashtableUpdate {
     /// Stable table id, e.g. `game`.
@@ -221,8 +218,7 @@ pub struct HashtableUpdate {
 
 /// What a sync would install, asked without installing anything.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HashtableUpdateCheck {
     /// True when a sync would install nothing.
@@ -245,7 +241,7 @@ pub struct HashtableUpdateCheck {
     /// against them, but counted in [`up_to_date`](Self::up_to_date) because
     /// one sync covers both.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", ts(optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub schema_behind: Option<MetaSchemaVersion>,
 }
 
@@ -288,8 +284,7 @@ impl From<CheckReport> for HashtableUpdateCheck {
 
 /// What a completed sync run changed.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HashtableSyncReport {
     /// True when nothing needed installing.

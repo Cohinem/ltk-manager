@@ -41,8 +41,7 @@ pub struct PropertyEdit {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum ValueEdit {
     /// Add a missing schema field at its published default.
     EnsureProperty { path: String, field: String },

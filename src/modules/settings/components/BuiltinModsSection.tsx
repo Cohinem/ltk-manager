@@ -51,7 +51,7 @@ export function BuiltinModsSection({ settings, onSave }: BuiltinModsSectionProps
             <SegmentedControl
               aria-label={m.settings_builtins_base_skins_title()}
               options={baseSkinsOptions()}
-              value={settings.builtinMods.baseSkins}
+              value={settings.builtinMods.baseSkins ?? "off"}
               onChange={(baseSkins) =>
                 onSave({ ...settings, builtinMods: { ...settings.builtinMods, baseSkins } })
               }
@@ -61,13 +61,13 @@ export function BuiltinModsSection({ settings, onSave }: BuiltinModsSectionProps
 
         <SettingRow
           setting="builtinMods.mapSkin"
-          description={mapSkinDescription(settings.builtinMods.mapSkin)}
+          description={mapSkinDescription(settings.builtinMods.mapSkin ?? "game")}
           hint={m.settings_builtins_map_skin_hint()}
           control={
             <SegmentedControl
               aria-label={m.settings_builtins_map_skin_title()}
               options={mapSkinOptions()}
-              value={settings.builtinMods.mapSkin}
+              value={settings.builtinMods.mapSkin ?? "game"}
               onChange={(mapSkin) =>
                 onSave({ ...settings, builtinMods: { ...settings.builtinMods, mapSkin } })
               }
@@ -93,7 +93,7 @@ export function BuiltinModsSection({ settings, onSave }: BuiltinModsSectionProps
 function ForcedMapSkinRow({ settings, onSave }: BuiltinModsSectionProps) {
   const { data: skins = [], isPending } = useForcibleMapSkins(settings.leaguePath);
   const hasPath = !!settings.leaguePath;
-  const value = settings.builtinMods.forcedMapSkin;
+  const value = settings.builtinMods.forcedMapSkin ?? "";
 
   return (
     <SettingRow

@@ -16,9 +16,7 @@ pub const README_FILE_NAME: &str = "README.md";
 /// Naming the files rather than taking a path is what keeps a command that
 /// writes into a project from being addressable at an arbitrary one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub enum ProjectTextFile {
     /// The long description a package carries, in Markdown.
@@ -29,9 +27,7 @@ pub enum ProjectTextFile {
 
 /// One of a project's root text files, as the editor reads it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectText {
     /// Absolute path of the file, whether or not one exists.
@@ -50,9 +46,7 @@ pub struct ProjectText {
 /// answers it, and prose a person typed does not change back into the same
 /// length within the same millisecond.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct Revision {
     /// Milliseconds since the Unix epoch, or 0 where the platform has no time.

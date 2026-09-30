@@ -20,9 +20,7 @@ const TABLE: &str = include_str!("log_codes.tsv");
 /// verdict cost the game is a fact the manager observed, so the mark never
 /// grades it - see [`Consequence`](super::incident::Consequence).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
 pub enum EvidenceMark {
     /// The reading is a fact, and the sentence states it as one.

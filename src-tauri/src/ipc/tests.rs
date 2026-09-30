@@ -4,11 +4,7 @@ use fs_err as fs;
 use specta_typescript::Typescript;
 
 /// Where `pnpm generate:types` writes the generated bindings, relative to this crate.
-///
-/// A file rather than `src/lib/bindings/`, which is `ts-rs`'s output directory: the
-/// two live side by side until the last command moves, and a `bindings.ts` beside
-/// `bindings/` is the same module specifier twice.
-const OUTPUT: &str = "../src/lib/bindings.gen.ts";
+const OUTPUT: &str = "../src/lib/bindings.ts";
 
 /// Write the bindings to `path`.
 fn export(path: impl AsRef<std::path::Path>) {
@@ -28,26 +24,6 @@ fn render() -> String {
 #[test]
 fn export_bindings() {
     export(OUTPUT);
-}
-
-#[test]
-fn every_migrated_command_is_bound_and_dispatched() {
-    let bindings = render();
-    let mut bound: Vec<&str> = bindings
-        .match_indices("__TAURI_INVOKE")
-        .filter_map(|(at, token)| {
-            let call = &bindings[at + token.len()..];
-            // The import at the top of the file names the function without calling it.
-            call.starts_with(['<', '(']).then_some(())?;
-            let name = call.find("(\"")? + 2;
-            Some(&call[name..name + call[name..].find('"')?])
-        })
-        .collect();
-
-    bound.sort_unstable();
-    let mut expected = MIGRATED.to_vec();
-    expected.sort_unstable();
-    assert_eq!(bound, expected, "the bindings and the dispatch disagree");
 }
 
 #[test]

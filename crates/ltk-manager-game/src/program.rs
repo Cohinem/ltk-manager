@@ -47,9 +47,7 @@ pub const LIT_UBER_EMISSIVE: &str = "EMISSIVE_MAP";
 /// The `particle_shaders` example finds each file in an installed shader cache.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ParticleShader {
     /// `quad_vs` and `quad_ps`, for every emitter without a mesh.
     Quad,
@@ -167,9 +165,7 @@ const ATTACHED_MESH_VS: &str = "ASSETS/Shaders/HLSL/SkinnedMesh/PARTICLE_VS.vs";
 /// in a preview, so none of the three is here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ParticleDefine {
     /// `alphaRef` is not zero.
     AlphaTest,
@@ -229,9 +225,7 @@ impl ParticleDefine {
 /// What the studio adds to a pass's define list.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ProgramOptions {
     /// `LOW_QUALITY_MODE`, the game's own low setting.
     pub low_quality: bool,
@@ -240,9 +234,7 @@ pub struct ProgramOptions {
 /// One material with a program per pass, as the viewport binds it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MaterialProgram {
     /// The material's path hash, `0x` and eight hex digits.
     pub hash: String,
@@ -261,9 +253,7 @@ pub struct MaterialProgram {
 /// One pass with its shader, or with why it has none.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct PassProgram {
     pub pass: ResolvedPass,
     pub program: ProgramRead,
@@ -276,9 +266,7 @@ pub struct PassProgram {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ProgramRead {
     Ready {
         /// The define list the permutation was picked by, `NAME=VALUE` sorted by name,

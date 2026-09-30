@@ -33,7 +33,8 @@ use ltk_texture::Tex;
 use ltk_texture::tex::{EncodeFormat, EncodeOptions, Format, MipmapFilter, ResourceType};
 
 use crate::problems::{
-    Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, Rule, RuleId, Severity, Site,
+    Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity, Rule, RuleId,
+    Site,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -76,8 +77,8 @@ impl Rule for TexBlockAlignment {
         "Couldn't resample because the manager cannot write this texture back"
     }
 
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Fatal)
+    fn severity(&self) -> Option<ProblemSeverity> {
+        Some(ProblemSeverity::Fatal)
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -89,7 +90,7 @@ impl Rule for TexBlockAlignment {
             for (handle, ragged) in finish.take(headers) {
                 if let Some(ragged) = ragged {
                     finish.problem(
-                        Severity::Fatal,
+                        ProblemSeverity::Fatal,
                         Site::file(handle.layer(), handle.path()),
                         ragged.detail(),
                     );

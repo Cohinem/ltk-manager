@@ -16,7 +16,7 @@ import { unwrapForQuery } from "@/utils/query";
 export function useStopLeague() {
   const toast = useToast();
 
-  return useMutation<void, AppError, void>({
+  return useMutation<null, AppError, void>({
     meta: { silentError: true },
     mutationFn: async () => {
       const result = await api.stopLeague();

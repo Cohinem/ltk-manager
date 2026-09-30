@@ -51,9 +51,7 @@ struct FogFields {
 /// returns and which switches every effect off.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapPostEffects {
     /// `DepthFog` and its fields, which fog by distance from the camera.
     pub depth_fog: MapFog,
@@ -66,9 +64,7 @@ pub struct MapPostEffects {
 /// One fog of [`MapPostEffects`], ramping from nothing at `start` to its most at `end`.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapFog {
     /// The fog is drawn.
     pub enabled: bool,
@@ -85,9 +81,7 @@ pub struct MapFog {
 /// The depth of field of [`MapPostEffects`].
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapDepthOfField {
     /// The blur is drawn.
     pub enabled: bool,

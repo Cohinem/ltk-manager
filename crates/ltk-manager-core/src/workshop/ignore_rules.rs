@@ -18,9 +18,7 @@ pub const RECOMMENDED_IGNORE_RULES: &str = include_str!("default.modignore");
 
 /// One `.modignore` of a project, as the editor reads it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct IgnoreRules {
     /// Absolute path of the file, whether or not one exists.

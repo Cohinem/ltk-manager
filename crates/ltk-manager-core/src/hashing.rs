@@ -8,8 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
 
 /// A [`BinHash`] written as `0x` and eight hex digits, which is how a user reads one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
-#[cfg_attr(feature = "ts", ts(export, type = "string"))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[cfg_attr(feature = "ts", specta(transparent))]
 pub struct HexBinHash(#[cfg_attr(feature = "ts", specta(type = String))] BinHash);
 

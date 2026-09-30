@@ -77,8 +77,7 @@ fn enabled(settings: &BuiltinModSettings) -> Vec<Box<dyn BuiltinMod>> {
 
 /// A map skin every game can be made to show.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ForcibleMapSkin {
     /// The skin's `name`, which the setting stores.
@@ -89,8 +88,7 @@ pub struct ForcibleMapSkin {
 
 /// A map decoration a mutator switches, which the map decorations mod can force off or on.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct MapDecoration {
     /// The mutator whose key switches the decoration, which the setting stores.

@@ -1,4 +1,4 @@
-use crate::deep_link::ProtocolInstallProgress;
+use crate::deep_link::{ProtocolInstallProgress, ProtocolInstallStage};
 use crate::error::{AppError, AppResult};
 use fs_err as fs;
 use std::io::{Read, Write};
@@ -14,16 +14,22 @@ const PROGRESS_INTERVAL_MS: u128 = 100;
 /// Streams the response in chunks, emitting `protocol-install-progress` events.
 /// Returns the path to the downloaded temp file.
 pub fn download_mod_file(url: &str, app_handle: &tauri::AppHandle) -> AppResult<PathBuf> {
-    emit_progress(app_handle, "downloading", 0, None, None);
+    emit_progress(app_handle, ProtocolInstallStage::Downloading, 0, None, None);
 
     let response = reqwest::blocking::get(url).map_err(|e| {
-        emit_progress(app_handle, "error", 0, None, Some(&e.to_string()));
+        emit_progress(
+            app_handle,
+            ProtocolInstallStage::Error,
+            0,
+            None,
+            Some(&e.to_string()),
+        );
         AppError::Other(format!("Failed to download: {e}"))
     })?;
 
     if !response.status().is_success() {
         let msg = format!("Download failed with status {}", response.status());
-        emit_progress(app_handle, "error", 0, None, Some(&msg));
+        emit_progress(app_handle, ProtocolInstallStage::Error, 0, None, Some(&msg));
         return Err(AppError::Other(msg));
     }
 
@@ -35,18 +41,36 @@ pub fn download_mod_file(url: &str, app_handle: &tauri::AppHandle) -> AppResult<
     if bytes_written == 0 {
         let _ = fs::remove_file(&temp_path);
         let msg = "Downloaded file is empty";
-        emit_progress(app_handle, "error", 0, total_bytes, Some(msg));
+        emit_progress(
+            app_handle,
+            ProtocolInstallStage::Error,
+            0,
+            total_bytes,
+            Some(msg),
+        );
         return Err(AppError::ValidationFailed(msg.into()));
     }
 
-    emit_progress(app_handle, "validating", bytes_written, total_bytes, None);
+    emit_progress(
+        app_handle,
+        ProtocolInstallStage::Validating,
+        bytes_written,
+        total_bytes,
+        None,
+    );
 
     let ext = ext_from_metadata
         .or_else(|| sniff_extension_from_file(&temp_path))
         .ok_or_else(|| {
             let _ = fs::remove_file(&temp_path);
             let msg = "Could not determine file format, expected .modpkg or .fantome";
-            emit_progress(app_handle, "error", 0, total_bytes, Some(msg));
+            emit_progress(
+                app_handle,
+                ProtocolInstallStage::Error,
+                0,
+                total_bytes,
+                Some(msg),
+            );
             AppError::ValidationFailed(msg.into())
         })?;
 
@@ -69,7 +93,13 @@ fn stream_to_temp_file(
     let temp_path = std::env::temp_dir().join(temp_name);
 
     let mut file = fs::File::create(&temp_path).map_err(|e| {
-        emit_progress(app_handle, "error", 0, None, Some(&e.to_string()));
+        emit_progress(
+            app_handle,
+            ProtocolInstallStage::Error,
+            0,
+            None,
+            Some(&e.to_string()),
+        );
         AppError::Io(e)
     })?;
 
@@ -82,7 +112,7 @@ fn stream_to_temp_file(
             let _ = fs::remove_file(&temp_path);
             emit_progress(
                 app_handle,
-                "error",
+                ProtocolInstallStage::Error,
                 downloaded,
                 total_bytes,
                 Some(&e.to_string()),
@@ -98,7 +128,7 @@ fn stream_to_temp_file(
             let _ = fs::remove_file(&temp_path);
             emit_progress(
                 app_handle,
-                "error",
+                ProtocolInstallStage::Error,
                 downloaded,
                 total_bytes,
                 Some(&e.to_string()),
@@ -109,12 +139,24 @@ fn stream_to_temp_file(
         downloaded += n as u64;
 
         if last_emit.elapsed().as_millis() >= PROGRESS_INTERVAL_MS {
-            emit_progress(app_handle, "downloading", downloaded, total_bytes, None);
+            emit_progress(
+                app_handle,
+                ProtocolInstallStage::Downloading,
+                downloaded,
+                total_bytes,
+                None,
+            );
             last_emit = Instant::now();
         }
     }
 
-    emit_progress(app_handle, "downloading", downloaded, total_bytes, None);
+    emit_progress(
+        app_handle,
+        ProtocolInstallStage::Downloading,
+        downloaded,
+        total_bytes,
+        None,
+    );
 
     Ok((temp_path, downloaded))
 }
@@ -182,7 +224,7 @@ pub(crate) fn sniff_extension_from_file(path: &std::path::Path) -> Option<String
 
 fn emit_progress(
     app_handle: &tauri::AppHandle,
-    stage: &str,
+    stage: ProtocolInstallStage,
     bytes_downloaded: u64,
     total_bytes: Option<u64>,
     error: Option<&str>,
@@ -190,7 +232,7 @@ fn emit_progress(
     let _ = app_handle.emit(
         "protocol-install-progress",
         ProtocolInstallProgress {
-            stage: stage.to_string(),
+            stage,
             bytes_downloaded,
             total_bytes,
             error: error.map(String::from),

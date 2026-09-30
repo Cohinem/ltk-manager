@@ -110,7 +110,7 @@ fn a_bank_carrying_no_id_is_worth_knowing_and_nothing_more() {
     assert_eq!(problem.rule, ID);
     assert_eq!(
         problem.severity,
-        Severity::Info,
+        ProblemSeverity::Info,
         "nothing is known to read the field, so the mod is not broken by this"
     );
     assert_eq!(problem.site.layer, "base");

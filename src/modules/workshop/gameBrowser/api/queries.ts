@@ -17,8 +17,7 @@ import { extractQueries } from "../extraction/api/queries";
 import type { SourceDirListing, SourceEntry } from "../utils/sourceIndex";
 import { GAME_STALE_MS, gameKeys } from "./keys";
 
-/* The tree speaks plain numbers, so the wire format's bigint stays behind these
-   adapters. Directory rows arrive sorted and folded, which is the index's work. */
+/* Directory rows arrive sorted and folded, which is the index's work. */
 
 function toSourceListing(listing: GameDirListing): SourceDirListing {
   return {
@@ -26,7 +25,7 @@ function toSourceListing(listing: GameDirListing): SourceDirListing {
     files: listing.files.map((file) => ({
       pathHash: file.pathHash,
       path: file.path,
-      sizeBytes: Number(file.sizeBytes),
+      sizeBytes: file.sizeBytes,
       wad: file.wad,
     })),
   };
@@ -38,7 +37,7 @@ function toSourceEntries(entries: GameWadEntry[], wad: string): SourceEntry[] {
   return entries.map((entry) => ({
     pathHash: entry.pathHash,
     path: entry.path,
-    sizeBytes: Number(entry.sizeBytes),
+    sizeBytes: entry.sizeBytes,
     wad,
   }));
 }

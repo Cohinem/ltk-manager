@@ -31,9 +31,7 @@ const AUDIO: BinHash = BinHash(0xa783_cfd5);
 /// What a placeable is to a scene, which is what an outliner marks its row with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum MapItemKind {
     /// A `MapParticle`, which plays a system.
     Particle,
@@ -52,9 +50,7 @@ pub enum MapItemKind {
 /// One placeable of a chunk.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapChunkItem {
     /// The key it sits under in its chunk, as `0x` and eight digits.
     pub key: String,
@@ -74,9 +70,7 @@ pub struct MapChunkItem {
 /// One chunk of a map and everything it holds, in file order.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapChunk {
     /// The `MapPlaceableContainer` object, as `0x` and eight digits.
     pub entry: String,

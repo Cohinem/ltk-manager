@@ -31,8 +31,7 @@ use std::path::Path;
 
 /// One mod the migration could not convert.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct FailedConversion {
     /// The mod's index id, which is also the directory the uuid layout gave it.
@@ -45,8 +44,7 @@ pub struct FailedConversion {
 
 /// What one migration run did.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LayoutMigrationReport {
     /// How many mods reached the slug layout.
@@ -61,8 +59,7 @@ pub struct LayoutMigrationReport {
 /// [`LayoutMigrationFinished`](crate::events::BackendEvent) event to catch. It
 /// asks instead, and [`Pending`](Self::Pending) is what tells it to ask again.
 #[derive(Debug, Clone, Default, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum LayoutMigrationState {
     /// The startup pass has not reported yet, so the answer is still coming.

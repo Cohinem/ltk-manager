@@ -97,6 +97,7 @@ impl Drop for LaunchGuard<'_> {
 
 /// Ask the Riot Client to launch League.
 #[tauri::command]
+#[specta::specta]
 pub fn launch_league(
     target: Option<LaunchTarget>,
     launcher: State<LauncherState>,
@@ -131,6 +132,7 @@ fn launch_league_inner(
 /// Stopping abandons the wait and not the launch: a request the Riot Client
 /// already accepted still starts a game, exactly as a timeout would leave it.
 #[tauri::command]
+#[specta::specta]
 pub fn cancel_launch(launch: State<LaunchState>) -> IpcResult<bool> {
     IpcResult::ok(launch.cancel())
 }
@@ -140,6 +142,7 @@ pub fn cancel_launch(launch: State<LaunchState>) -> IpcResult<bool> {
 /// Only useful while a session is live - the client refuses to close a product
 /// it never started.
 #[tauri::command]
+#[specta::specta]
 pub fn stop_league(launcher: State<LauncherState>) -> IpcResult<()> {
     let result: AppResult<()> = launcher.launcher().close().map_err(Into::into);
     if let Err(ref e) = result {
@@ -151,6 +154,7 @@ pub fn stop_league(launcher: State<LauncherState>) -> IpcResult<()> {
 /// Whether a launch is possible right now. Drives the button's state, so it
 /// reports rather than fails.
 #[tauri::command]
+#[specta::specta]
 pub fn get_launch_availability(launcher: State<LauncherState>) -> IpcResult<LaunchAvailability> {
     IpcResult::ok(launcher.launcher().availability())
 }
@@ -161,6 +165,7 @@ pub fn get_launch_availability(launcher: State<LauncherState>) -> IpcResult<Laun
 /// that began before the webview did announced itself to nobody, which is
 /// exactly the case after the manager is restarted mid-game.
 #[tauri::command]
+#[specta::specta]
 pub fn get_league_session(launcher: State<LauncherState>) -> IpcResult<Option<SessionStarted>> {
     IpcResult::ok(launcher.launcher().follow_current_session())
 }

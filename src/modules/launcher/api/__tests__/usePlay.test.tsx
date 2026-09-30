@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ToastProvider } from "@/components";
-import type { LaunchRoute, PatcherPhase } from "@/lib/bindings";
+import type { LaunchRoute, PatcherPhase } from "@/lib/tauri";
 import { useInstalledMods } from "@/modules/library";
 import { usePendingRebuildStore, usePlaySessionStore } from "@/stores";
 import { createMockInstalledMod, createMockSettings } from "@/test/fixtures";

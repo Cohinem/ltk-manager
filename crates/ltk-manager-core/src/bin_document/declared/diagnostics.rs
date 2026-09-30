@@ -14,9 +14,7 @@ use super::wire_path;
 /// One diagnostic of the last apply, on the row it names.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredDiagnostic {
     /// The object's path hash, `0x` and eight hex digits. Empty where the diagnostic names no
     /// object of the chunk.
@@ -40,9 +38,7 @@ pub struct DeclaredDiagnostic {
 /// The category of a [`DeclaredDiagnostic`], as `ltk_game_data` names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum DeclaredDiagnosticKind {
     OverrideUnreadable,
     OverrideInvalid,
@@ -76,9 +72,7 @@ impl From<ApplyDiagnosticKind> for DeclaredDiagnosticKind {
 /// Why a property edit does not apply, as `ltk_game_data` names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum SkipReason {
     MissingObject,
     MissingProperty,
@@ -139,9 +133,7 @@ impl From<PropertySkipReason> for SkipReason {
 /// Why an object edit does not apply, as `ltk_game_data` names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ObjectSkip {
     ObjectExists,
     SourceMissing,

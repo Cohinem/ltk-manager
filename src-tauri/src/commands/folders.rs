@@ -7,6 +7,7 @@ use tauri::State;
 use super::mods::reject_if_patcher_running;
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_folders(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
@@ -16,6 +17,7 @@ pub fn get_folders(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn get_folder_order(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
@@ -25,6 +27,7 @@ pub fn get_folder_order(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn create_folder(
     name: String,
     library: State<ModLibraryState>,
@@ -35,6 +38,7 @@ pub fn create_folder(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn rename_folder(
     folder_id: String,
     new_name: String,
@@ -49,6 +53,7 @@ pub fn rename_folder(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn delete_folder(
     folder_id: String,
     library: State<ModLibraryState>,
@@ -59,6 +64,7 @@ pub fn delete_folder(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn move_mod_to_folder(
     mod_id: String,
     folder_id: String,
@@ -73,6 +79,7 @@ pub fn move_mod_to_folder(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn toggle_folder(
     folder_id: String,
     enabled: bool,
@@ -89,6 +96,7 @@ pub fn toggle_folder(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn reorder_folder_mods(
     folder_id: String,
     mod_ids: Vec<String>,
@@ -105,6 +113,7 @@ pub fn reorder_folder_mods(
 }
 
 #[tauri::command]
+#[specta::specta]
 pub fn reorder_folders(
     folder_order: Vec<String>,
     library: State<ModLibraryState>,

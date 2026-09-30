@@ -11,12 +11,14 @@ use tauri_plugin_autostart::ManagerExt;
 
 /// Get current settings.
 #[tauri::command]
+#[specta::specta]
 pub fn get_settings(state: State<SettingsState>) -> IpcResult<Settings> {
     IpcResult::ok(state.0.lock().clone())
 }
 
 /// Save settings.
 #[tauri::command]
+#[specta::specta]
 pub fn save_settings(
     settings: Settings,
     app_handle: AppHandle,
@@ -80,12 +82,14 @@ pub(crate) fn save_settings_inner(
 /// default and what resetting it would put back. The `get_` prefix is against
 /// C-GETTER and stays, because `get_settings` is its neighbour.
 #[tauri::command]
+#[specta::specta]
 pub fn get_default_settings() -> IpcResult<Settings> {
     IpcResult::ok(Settings::default())
 }
 
 /// Auto-detect League of Legends installation path.
 #[tauri::command]
+#[specta::specta]
 pub fn auto_detect_league_path(state: State<SettingsState>) -> IpcResult<Option<PathBuf>> {
     let launch_mode = state.0.lock().launch_mode;
 
@@ -128,6 +132,7 @@ fn auto_detect_league_path_inner(launch_mode: LaunchMode) -> Option<PathBuf> {
 
 /// Validate a League installation path.
 #[tauri::command]
+#[specta::specta]
 pub fn validate_league_path(path: PathBuf) -> IpcResult<bool> {
     let valid = if cfg!(target_os = "macos") {
         // Path points to the .app bundle (e.g. /Applications/League of Legends.app)
@@ -145,6 +150,7 @@ pub fn validate_league_path(path: PathBuf) -> IpcResult<bool> {
 /// Used by the WAD blocklist editor for autocomplete and regex match previews.
 /// Returns lowercased filenames sorted alphabetically.
 #[tauri::command]
+#[specta::specta]
 pub fn list_available_wads(state: State<SettingsState>) -> IpcResult<Vec<String>> {
     list_available_wads_inner(&state).into()
 }
@@ -156,6 +162,7 @@ fn list_available_wads_inner(state: &State<SettingsState>) -> AppResult<Vec<Stri
 
 /// Every map skin the configured install can show in place of the one a server names.
 #[tauri::command]
+#[specta::specta]
 pub fn list_forcible_map_skins(state: State<SettingsState>) -> IpcResult<Vec<ForcibleMapSkin>> {
     list_forcible_map_skins_inner(&state).into()
 }
@@ -167,6 +174,7 @@ fn list_forcible_map_skins_inner(state: &State<SettingsState>) -> AppResult<Vec<
 
 /// Every map decoration a mutator switches in the configured install.
 #[tauri::command]
+#[specta::specta]
 pub fn list_map_decorations(state: State<SettingsState>) -> IpcResult<Vec<MapDecoration>> {
     list_map_decorations_inner(&state).into()
 }
@@ -184,12 +192,14 @@ fn list_map_decorations_inner(state: &State<SettingsState>) -> AppResult<Vec<Map
 /// injected by an elevated host. The settings UI surfaces this so users
 /// understand why a UAC prompt may appear despite the setting being off.
 #[tauri::command]
+#[specta::specta]
 pub fn detect_league_run_as_admin() -> IpcResult<bool> {
     IpcResult::ok(ltk_manager_core::diagnostics::league_configured_as_admin())
 }
 
 /// Check if initial setup is required (league path not configured).
 #[tauri::command]
+#[specta::specta]
 pub fn check_setup_required(state: State<SettingsState>) -> IpcResult<bool> {
     IpcResult::ok(state.0.lock().config.league_path.is_none())
 }

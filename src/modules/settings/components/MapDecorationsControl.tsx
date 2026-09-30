@@ -25,7 +25,7 @@ interface MapDecorationsControlProps {
  */
 export function MapDecorationsControl({ settings, onSave }: MapDecorationsControlProps) {
   const { data: decorations, isPending } = useMapDecorations(settings.leaguePath);
-  const modes = settings.builtinMods.mapDecorations;
+  const modes = settings.builtinMods.mapDecorations ?? {};
 
   if (!settings.leaguePath) {
     return <Notice text={m.settings_builtins_map_decorations_no_path()} />;

@@ -18,8 +18,8 @@
 
 use crate::problems::bank_units::BankUnits;
 use crate::problems::{
-    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Pass, Problem, Rule, RuleId,
-    Severity, Site,
+    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity,
+    Rule, RuleId, Site,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -72,8 +72,8 @@ impl Rule for AudioBankId {
         "Couldn't derive an id because the bank's intended name is unknown"
     }
 
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Info)
+    fn severity(&self) -> Option<ProblemSeverity> {
+        Some(ProblemSeverity::Info)
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -90,7 +90,7 @@ impl Rule for AudioBankId {
                 }
                 let detail = detail(&handle, units);
                 finish.problem(
-                    Severity::Info,
+                    ProblemSeverity::Info,
                     Site::file(handle.layer(), handle.path()),
                     detail,
                 );

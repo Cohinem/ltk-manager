@@ -78,7 +78,7 @@ use crate::problems::names::BinNames;
 use crate::problems::walk::{Address, Declared, FieldNames};
 use crate::problems::{
     Applied, BinVisitor, Detail, Dormancy, FixError, FixPreview, FixRun, GameBuild, NodeAddress,
-    Pass, Preserved, PreservedNames, Problem, ProjectFiles, Rule, RuleId, Severity, Sink,
+    Pass, Preserved, PreservedNames, Problem, ProblemSeverity, ProjectFiles, Rule, RuleId, Sink,
     TypeMismatch, Walk,
 };
 
@@ -120,7 +120,7 @@ impl Rule for BinPropertyType {
     /// What a mismatch costs is a question about the install, so two machines
     /// reading one mod are entitled to two answers and neither is this build's
     /// to give.
-    fn severity(&self) -> Option<Severity> {
+    fn severity(&self) -> Option<ProblemSeverity> {
         None
     }
 
@@ -128,7 +128,7 @@ impl Rule for BinPropertyType {
     ///
     /// A table is a claim about one build. Until the game is on that build the
     /// change has not happened, so the findings are about work that is coming
-    /// rather than a mod that is broken - which is what [`Severity::Warning`]
+    /// rather than a mod that is broken - which is what [`ProblemSeverity::Warning`]
     /// already says of each of them, and what the panel mutes them for.
     ///
     /// The sentence names the patches rather than the builds both sides compare
@@ -1296,15 +1296,15 @@ fn subscript(key: &PropertyValueEnum) -> String {
 /// How much this costs the mod, which is a question about the installed game.
 ///
 /// A property the running game reads under the other type crashes it, so on an
-/// install that has taken the change this is [`Severity::Fatal`]. A fix applied
+/// install that has taken the change this is [`ProblemSeverity::Fatal`]. A fix applied
 /// early breaks the mod the same way round, so an install that has not taken it
 /// is a warning about what is coming rather than a crash today.
-fn severity(installed: Option<GameBuild>, table: GameBuild) -> Severity {
+fn severity(installed: Option<GameBuild>, table: GameBuild) -> ProblemSeverity {
     match installed {
-        Some(installed) if installed >= table => Severity::Fatal,
+        Some(installed) if installed >= table => ProblemSeverity::Fatal,
         /* An install older than the table has not taken the change yet, and an
         install we could not read is not a claim either way. */
-        _ => Severity::Warning,
+        _ => ProblemSeverity::Warning,
     }
 }
 

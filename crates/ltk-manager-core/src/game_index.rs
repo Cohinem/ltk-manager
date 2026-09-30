@@ -23,8 +23,7 @@ pub const UNKNOWN_DIR: &str = "?";
 
 /// What one directory of the folded index holds.
 #[derive(Debug, Clone, Default, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameDirListing {
     /// Subdirectories, sorted by name.
@@ -35,8 +34,7 @@ pub struct GameDirListing {
 
 /// One subdirectory, folded through any chain of single-child directories.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameDirEntry {
     /// What [`GameIndex::read_dir`] takes to open this row, forward slashes.
@@ -49,9 +47,7 @@ pub struct GameDirEntry {
 
 /// One file of the folded index, in the shape a single archive reads back.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameFileEntry {
     /// Chunk path hash as 16 lowercase hex digits.
@@ -69,8 +65,7 @@ pub struct GameFileEntry {
 
 /// What a built index holds.
 #[derive(Debug, Clone, Copy, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameIndexStats {
     /// Archives merged, including any that failed to read.
@@ -86,9 +81,7 @@ pub struct GameIndexStats {
 /// Marked runs are byte offsets into `name` and `path`, which the palette
 /// slices to lift the matched characters out of the rest.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameSearchHit {
     /// Chunk path hash as 16 lowercase hex digits.
@@ -108,9 +101,7 @@ pub struct GameSearchHit {
 
 /// What one search of the folded index found.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameSearchResult {
     /// The best rows, best first, capped at [`SEARCH_LIMIT`].
@@ -138,9 +129,7 @@ pub const SEARCH_LIMIT: usize = 100;
 /// Files with an expected extension rank first, then files from the field's archive,
 /// then the bands decide. A preference changes the order of the matches and adds no match.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct SearchPreference {
     /// The extensions the field expects, without the dot. Empty means no preferred kind.
@@ -155,8 +144,7 @@ pub struct SearchPreference {
 /// split at the basename: `name_ranges` are byte offsets into `name`, and
 /// `path_ranges` are byte offsets into the directory prefix of `path`.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameFindHit {
     /// Chunk path hash as 16 lowercase hex digits.
@@ -175,8 +163,7 @@ pub struct GameFindHit {
 
 /// What one full search of the folded index found.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameFindResult {
     /// Every matching row in tree order, capped at [`FIND_LIMIT`].

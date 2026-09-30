@@ -78,9 +78,7 @@ struct RegistryDocument {
 
 /// An opened folder as the frontend lists it, whether or not it is still on disk.
 #[derive(Debug, Clone, PartialEq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct OpenedProjectFolder {
     /// The id the project's route names it by.

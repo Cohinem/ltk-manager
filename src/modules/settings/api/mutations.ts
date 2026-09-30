@@ -9,7 +9,7 @@ import { settingsKeys } from "./keys";
 /** Writes against the app settings. */
 export const settingsMutations = {
   save: (client: QueryClient) =>
-    mutationOptions<void, AppError, Settings>({
+    mutationOptions<null, AppError, Settings>({
       mutationFn: mutationFn(api.saveSettings),
       onSuccess: (_answer, settings) => {
         client.setQueryData(settingsKeys.settings(), settings);

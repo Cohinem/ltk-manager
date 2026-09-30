@@ -18,9 +18,7 @@ pub use cache::{
 /// The wiki's documentation for one class or one property. Each part is markdown.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct Doc {
     /// The main text. Absent when the entry has only notes or examples.
     pub description: Option<String>,
@@ -45,9 +43,7 @@ impl Doc {
 /// The wiki's documentation for one class and the properties declared on it and its bases.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ClassDocs {
     /// The documentation of the class itself. Absent when the wiki documents only properties.
     pub class: Option<Doc>,
@@ -58,9 +54,7 @@ pub struct ClassDocs {
 /// The wiki's documentation for one property, and the class whose page documents it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct PropertyDocs {
     /// The declaring class as the wiki names it, or its hash where no name is known.
     pub owner: String,

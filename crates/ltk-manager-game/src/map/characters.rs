@@ -41,9 +41,7 @@ const LEVEL_PROP_PREFIX: &str = "LevelProp_";
 /// One character a map stands in its scene.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapCharacter {
     /// The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits.
     pub chunk: String,

@@ -4,6 +4,567 @@ import { invoke as __TAURI_INVOKE } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
+	/**  Get basic app information. */
+	getAppInfo: () => __TAURI_INVOKE<({ ok: true; value: AppInfo }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_app_info"),
+	/**  Get platform-specific feature flags. */
+	getPlatformSupport: () => __TAURI_INVOKE<({ ok: true; value: PlatformSupport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_platform_support"),
+	/**
+	 *  Reveal the main window once the frontend has finished its initial render.
+	 * 
+	 *  The window is created hidden (`visible: false` in `tauri.conf.json`) to avoid a
+	 *  white flash while the WebView loads. The frontend calls this after it mounts.
+	 *  When the user has opted to start in the tray, the window stays hidden — the tray
+	 *  icon (or an available update, handled in the UI) reveals it later.
+	 */
+	showMainWindow: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("show_main_window"),
+	/**  Get current settings. */
+	getSettings: () => __TAURI_INVOKE<({ ok: true; value: Settings_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_settings"),
+	/**  Save settings. */
+	saveSettings: (settings: Settings_Deserialize) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_settings", { settings }),
+	/**
+	 *  The settings a fresh install starts with.
+	 * 
+	 *  Read once by the settings UI, so a row can say whether it is still at its
+	 *  default and what resetting it would put back. The `get_` prefix is against
+	 *  C-GETTER and stays, because `get_settings` is its neighbour.
+	 */
+	getDefaultSettings: () => __TAURI_INVOKE<({ ok: true; value: Settings_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_default_settings"),
+	/**  Auto-detect League of Legends installation path. */
+	autoDetectLeaguePath: () => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("auto_detect_league_path"),
+	/**  Validate a League installation path. */
+	validateLeaguePath: (path: string) => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("validate_league_path", { path }),
+	/**  Check if initial setup is required (league path not configured). */
+	checkSetupRequired: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_setup_required"),
+	/**
+	 *  Whether League is configured to launch as administrator (an AppCompatFlags
+	 *  `RUNASADMIN` layer on its executable).
+	 * 
+	 *  When true, the patcher auto-elevates the injection host even if the
+	 *  "run injector elevated" setting is off, since an elevated game can only be
+	 *  injected by an elevated host. The settings UI surfaces this so users
+	 *  understand why a UAC prompt may appear despite the setting being off.
+	 */
+	detectLeagueRunAsAdmin: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("detect_league_run_as_admin"),
+	/**
+	 *  List every WAD filename under the configured League install's `DATA` directory.
+	 * 
+	 *  Used by the WAD blocklist editor for autocomplete and regex match previews.
+	 *  Returns lowercased filenames sorted alphabetically.
+	 */
+	listAvailableWads: () => __TAURI_INVOKE<({ ok: true; value: string[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_available_wads"),
+	/**  Every map skin the configured install can show in place of the one a server names. */
+	listForcibleMapSkins: () => __TAURI_INVOKE<({ ok: true; value: ForcibleMapSkin[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_forcible_map_skins"),
+	/**  Every map decoration a mutator switches in the configured install. */
+	listMapDecorations: () => __TAURI_INVOKE<({ ok: true; value: MapDecoration[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_map_decorations"),
+	/**  Get all installed mods from the mod library. */
+	getInstalledMods: () => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_installed_mods"),
+	/**  Install a mod from a `.modpkg` or `.fantome` file into `modStoragePath`. */
+	installMod: (filePath: string) => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("install_mod", { filePath }),
+	/**  Replace a library mod from a new archive. */
+	updateMod: (modId: string, filePath: string) => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("update_mod", { modId, filePath }),
+	/**  Install multiple mods from `.modpkg` or `.fantome` files in a single batch. */
+	installMods: (filePaths: string[]) => __TAURI_INVOKE<({ ok: true; value: BulkInstallResult_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("install_mods", { filePaths }),
+	/**  Uninstall a mod by id. */
+	uninstallMod: (modId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("uninstall_mod", { modId }),
+	/**  Toggle a mod's enabled state. */
+	toggleMod: (modId: string, enabled: boolean) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("toggle_mod", { modId, enabled }),
+	/**  Set the enabled/disabled state of individual layers for a mod. */
+	setModLayers: (modId: string, layerStates: { [key in string]: boolean }) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_mod_layers", { modId, layerStates }),
+	/**  Enable a mod and set its initial layer configuration atomically. */
+	enableModWithLayers: (modId: string, layerStates: { [key in string]: boolean }) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("enable_mod_with_layers", { modId, layerStates }),
+	/**  Edit a mod's metadata (name, tags, champions, maps). */
+	editModMetadata: (modId: string, metadata: EditModMetadataArgs) => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("edit_mod_metadata", { modId, metadata }),
+	/**
+	 *  Read a mod's content from its archive or from an unpacked tree from now on.
+	 * 
+	 *  Off-thread because unpacking writes the mod's whole content tree, which is
+	 *  the one direction that is not instant.
+	 */
+	setModStorage: (modId: string, storage: ModStorage) => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_mod_storage", { modId, storage }),
+	/**  Check one mod and return the verdict its badge reads. */
+	checkModHealth: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModHealthVerdict_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_mod_health", { modId }),
+	/**  Repair what a machine can repair in one mod. */
+	repairMod: (modId: string) => __TAURI_INVOKE<({ ok: true; value: FixReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("repair_mod", { modId }),
+	/**
+	 *  Repair what a machine can repair in each of `mod_ids`.
+	 * 
+	 *  The one button behind the sweep's banner. One mod that cannot be repaired is
+	 *  recorded in the report rather than failing the call.
+	 */
+	repairMods: (modIds: string[]) => __TAURI_INVOKE<({ ok: true; value: LibraryRepairReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("repair_mods", { modIds }),
+	/**  Every verdict the library remembers, by mod id. */
+	getModHealthVerdicts: () => __TAURI_INVOKE<({ ok: true; value: { [key in string]: ModHealthVerdict_Serialize } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_health_verdicts"),
+	/**
+	 *  Call off the check or repair now running, if one is.
+	 * 
+	 *  A mod the run had not finished records no verdict, so the next sweep picks
+	 *  it up. Synchronous: it sets a flag the workers read.
+	 */
+	cancelModHealthRun: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_mod_health_run"),
+	/**  What the mod health sweep has to say for itself this launch. */
+	getHealthSweep: () => __TAURI_INVOKE<({ ok: true; value: HealthSweepState_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_health_sweep"),
+	/**
+	 *  Re-check `mod_ids`, or every mod in the library where none are named.
+	 * 
+	 *  The library's counterpart of one card's Check Health, so it takes the
+	 *  verdicts again whatever their basis says. Reports through the sweep's own
+	 *  progress events, which is what makes one run at a time the rule.
+	 */
+	sweepModHealth: (modIds: string[] | null) => __TAURI_INVOKE<({ ok: true; value: HealthSweepReport_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("sweep_mod_health", { modIds }),
+	/**
+	 *  Whether a check can run now, for the controls that offer one.
+	 * 
+	 *  Off the UI thread because the first caller of a launch is the one that opens
+	 *  the tables, which reads a manifest and maps two files.
+	 */
+	getHealthCheckReadiness: () => __TAURI_INVOKE<({ ok: true; value: HealthCheckReadiness }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_health_check_readiness"),
+	/**
+	 *  Copy the mods `scope` selects out to `destination`.
+	 * 
+	 *  Off-thread because a library is gigabytes, and the zip shape reads every
+	 *  archive through. Not rejected while the patcher runs: an export only reads.
+	 */
+	exportMods: (scope: ExportScope, shape: ExportShape, destination: string) => __TAURI_INVOKE<({ ok: true; value: ExportSummary }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("export_mods", { scope, shape, destination }),
+	/**  Inspect a `.modpkg` file and return its metadata. */
+	inspectModpkg: (filePath: string) => __TAURI_INVOKE<({ ok: true; value: ModpkgInfo }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("inspect_modpkg", { filePath }),
+	/**
+	 *  Get a mod's cached thumbnail path, extracting from the archive on first access.
+	 *  Returns `null` if the mod has no thumbnail.
+	 */
+	getModThumbnail: (modId: string) => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_thumbnail", { modId }),
+	/**
+	 *  Get the cached thumbnail path of each of `mod_ids` that has one.
+	 * 
+	 *  One index read for the whole list, and a mod with no thumbnail is absent
+	 *  from the map rather than an error. Off-thread, because a first read extracts
+	 *  from every archive that has not been asked for yet.
+	 */
+	getModThumbnails: (modIds: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: string } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_thumbnails", { modIds }),
+	/**
+	 *  Get an installed mod's readme, extracting it from the archive on first access.
+	 * 
+	 *  Off-thread, because a fantome's first ask mounts its archive.
+	 */
+	getModReadme: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModDocument }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_readme", { modId }),
+	/**
+	 *  Get an installed mod's license text, which is never written to disk.
+	 * 
+	 *  Off-thread, because every ask mounts the mod's archive.
+	 */
+	getModLicenseText: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModDocument }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_license_text", { modId }),
+	/**  Get the mod storage directory path. */
+	getStorageDirectory: () => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_storage_directory"),
+	/**  Reorder the enabled mods in the active profile. */
+	reorderMods: (modIds: string[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reorder_mods", { modIds }),
+	/**
+	 *  Get the cached WAD footprint report for a single mod, if one exists.
+	 * 
+	 *  Returns `null` when the mod has never been analyzed nor included in a
+	 *  successful patch run. Reports include an `is_stale` flag computed at read
+	 *  time against the most recently observed game-index fingerprint.
+	 */
+	getModWadReport: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModWadReport | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_mod_wad_report", { modId }),
+	/**
+	 *  Get all cached WAD footprint reports in a single batch. Returns a map of
+	 *  mod id → report. Far cheaper than one IPC call per mod.
+	 */
+	getAllModWadReports: () => __TAURI_INVOKE<({ ok: true; value: { [key in string]: ModWadReport } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_all_mod_wad_reports"),
+	/**
+	 *  Force a fresh WAD footprint analysis for a single mod without running the
+	 *  full patcher. Safe to call while the patcher is running — it neither
+	 *  touches overlay state nor takes the patcher mutex.
+	 * 
+	 *  Runs synchronously on Tauri's blocking command thread pool (not a Tokio
+	 *  worker) so heavy I/O (game index build, modpkg mount) won't starve the
+	 *  async runtime.
+	 */
+	analyzeModWads: (modId: string) => __TAURI_INVOKE<({ ok: true; value: ModWadReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("analyze_mod_wads", { modId }),
+	getFolders: () => __TAURI_INVOKE<({ ok: true; value: LibraryFolder[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_folders"),
+	getFolderOrder: () => __TAURI_INVOKE<({ ok: true; value: string[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_folder_order"),
+	createFolder: (name: string) => __TAURI_INVOKE<({ ok: true; value: LibraryFolder }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("create_folder", { name }),
+	renameFolder: (folderId: string, newName: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rename_folder", { folderId, newName }),
+	deleteFolder: (folderId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_folder", { folderId }),
+	moveModToFolder: (modId: string, folderId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("move_mod_to_folder", { modId, folderId }),
+	toggleFolder: (folderId: string, enabled: boolean) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("toggle_folder", { folderId, enabled }),
+	reorderFolderMods: (folderId: string, modIds: string[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reorder_folder_mods", { folderId, modIds }),
+	reorderFolders: (folderOrder: string[]) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reorder_folders", { folderOrder }),
+	/**  Scan a cslol-manager directory for importable mods. */
+	scanCslolMods: (directory: string) => __TAURI_INVOKE<({ ok: true; value: CslolModInfo[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("scan_cslol_mods", { directory }),
+	/**  Import selected mods from a cslol-manager installation. */
+	importCslolMods: (directory: string, selectedFolders: string[]) => __TAURI_INVOKE<({ ok: true; value: BulkInstallResult_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("import_cslol_mods", { directory, selectedFolders }),
+	/**
+	 *  What the library layout migration has to say for itself this launch.
+	 * 
+	 *  The run starts with the app and is usually over before the webview finishes
+	 *  loading, so asking is what gets its report on screen — the event announcing
+	 *  it may have been emitted to nobody.
+	 */
+	getLayoutMigrationState: () => __TAURI_INVOKE<({ ok: true; value: LayoutMigrationState }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_layout_migration_state"),
+	/**
+	 *  Start the patcher with the given configuration.
+	 * 
+	 *  Returns immediately after spawning a background thread that builds the overlay
+	 *  and then runs the patcher loop. Progress is reported via events.
+	 */
+	startPatcher: (config: PatcherConfig) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("start_patcher", { config }),
+	/**  Stop the running patcher. */
+	stopPatcher: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("stop_patcher"),
+	/**
+	 *  Force a full rebuild of the active profile's overlay.
+	 * 
+	 *  Troubleshooting escape hatch: the incremental overlay builder can reuse a
+	 *  previously-built (and possibly stale or incorrectly-built) WAD, so this
+	 *  discards the cached overlay state and regenerates it from scratch. Refuses
+	 *  while the patcher is running, since it rewrites the very files the running
+	 *  session points at. Runs on a blocking thread and reports progress via the
+	 *  same `overlay-progress` events as a normal patch.
+	 */
+	rebuildOverlay: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rebuild_overlay"),
+	/**  Get the current status of the patcher. */
+	getPatcherStatus: () => __TAURI_INVOKE<({ ok: true; value: PatcherStatus }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_patcher_status"),
+	/**
+	 *  Linked-bin offenders found in the most recent overlay build, keyed by mod id.
+	 * 
+	 *  These are recorded as a byproduct of `start_patcher`'s single overlay build (and
+	 *  any hot-reload), so this is a cheap read with no IO - it never builds the overlay
+	 *  itself. Display names are resolved from the library index; mods absent from the
+	 *  latest build (e.g. since-disabled) simply don't appear. Missing linked bins are
+	 *  non-fatal at injection, so this is advisory: the frontend surfaces it as per-mod
+	 *  badges and a reachable warning dialog.
+	 */
+	getLinkedBinOffenders: () => __TAURI_INVOKE<({ ok: true; value: { [key in string]: LinkedBinOffenderInfo } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_linked_bin_offenders"),
+	/**
+	 *  Checksum mismatches found in the most recent overlay build, keyed by mod id.
+	 * 
+	 *  Recorded as a byproduct of the same build that records linked-bin offenders,
+	 *  so this is a cheap read with no IO. A mismatch marks a badly-packed mod: its
+	 *  container claimed a checksum its own bytes do not have. Never fatal - the
+	 *  overlay carries the recomputed value, so this is advisory, surfaced per-mod
+	 *  in mod details.
+	 */
+	getChecksumMismatches: () => __TAURI_INVOKE<({ ok: true; value: { [key in string]: ChecksumMismatchInfo[] } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_checksum_mismatches"),
+	/**  Ask the Riot Client to launch League. */
+	launchLeague: (target: {
+	productId: string,
+	patchlineId: string,
+} | null) => __TAURI_INVOKE<({ ok: true; value: LaunchOutcome | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("launch_league", { target }),
+	/**
+	 *  Call off the launch that is in flight, if there is one.
+	 * 
+	 *  Answers `false` when nothing was running, which is what a Cancel pressed
+	 *  just as the request landed looks like.
+	 * 
+	 *  Stopping abandons the wait and not the launch: a request the Riot Client
+	 *  already accepted still starts a game, exactly as a timeout would leave it.
+	 */
+	cancelLaunch: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_launch"),
+	/**
+	 *  Ask the Riot Client to close the game it launched.
+	 * 
+	 *  Only useful while a session is live - the client refuses to close a product
+	 *  it never started.
+	 */
+	stopLeague: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("stop_league"),
+	/**
+	 *  Whether a launch is possible right now. Drives the button's state, so it
+	 *  reports rather than fails.
+	 */
+	getLaunchAvailability: () => __TAURI_INVOKE<({ ok: true; value: LaunchAvailability }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_launch_availability"),
+	/**
+	 *  The League session the Riot Client has open, and start following it.
+	 * 
+	 *  What a frontend asks on mount. Events alone are not enough there: a session
+	 *  that began before the webview did announced itself to nobody, which is
+	 *  exactly the case after the manager is restarted mid-game.
+	 */
+	getLeagueSession: () => __TAURI_INVOKE<({ ok: true; value: SessionStarted | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_league_session"),
+	/**  Temporarily unregister all hotkeys (e.g. while capturing a new binding). */
+	pauseHotkeys: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("pause_hotkeys"),
+	/**  Re-register all hotkeys after capture mode ends. */
+	resumeHotkeys: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("resume_hotkeys"),
+	/**  Set (or clear) a global hotkey for the given action. */
+	setHotkey: (action: HotkeyAction, accelerator: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_hotkey", { action, accelerator }),
+	/**
+	 *  Kill the League of Legends process, optionally stopping the patcher first.
+	 * 
+	 *  Runs on a blocking thread rather than inline: stopping the patcher waits up
+	 *  to 5 s for the session thread to wind down, which would otherwise hold the
+	 *  IPC handler for the whole duration. Shares [`execute_kill_league`] with the
+	 *  hotkey path so the two cannot drift.
+	 */
+	killLeague: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("kill_league"),
+	/**  Get all profiles. */
+	listModProfiles: () => __TAURI_INVOKE<({ ok: true; value: Profile[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_mod_profiles"),
+	/**  Get the currently active profile. */
+	getActiveModProfile: () => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_active_mod_profile"),
+	/**  Create a new profile with the given name. */
+	createModProfile: (name: string) => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("create_mod_profile", { name }),
+	/**  Delete a profile by ID. */
+	deleteModProfile: (profileId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_mod_profile", { profileId }),
+	/**
+	 *  Switch to a different profile.
+	 *  Returns an error if the patcher is currently running.
+	 */
+	switchModProfile: (profileId: string) => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("switch_mod_profile", { profileId }),
+	/**
+	 *  Rename a profile.
+	 *  Returns an error if the patcher is currently running (rename touches the filesystem).
+	 */
+	renameModProfile: (profileId: string, newName: string) => __TAURI_INVOKE<({ ok: true; value: Profile }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rename_mod_profile", { profileId, newName }),
+	/**  Opens a file location in the system file explorer. */
+	revealInExplorer: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reveal_in_explorer", { path }),
+	/**
+	 *  Minimizes the window to the system tray if the setting is enabled,
+	 *  otherwise performs a regular minimize.
+	 */
+	minimizeToTray: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("minimize_to_tray"),
+	/**
+	 *  Detect whether the given path is on an SSD, HDD, or unknown medium.
+	 * 
+	 *  Returns `Unknown` on non-Windows platforms and for any path we can't
+	 *  resolve to a local volume (e.g. UNC paths, missing drives, permission
+	 *  errors). Callers should treat `Unknown` as "don't warn" rather than
+	 *  blocking the UI.
+	 */
+	detectStorageMedium: (path: string) => __TAURI_INVOKE<({ ok: true; value: StorageMedium }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("detect_storage_medium", { path }),
+	getWorkshopProjects: () => __TAURI_INVOKE<({ ok: true; value: WorkshopProject[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_workshop_projects"),
+	createWorkshopProject: (args: CreateProjectArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("create_workshop_project", { args }),
+	getWorkshopProject: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_workshop_project", { projectPath }),
+	getProjectContentTree: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: ContentTree }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_content_tree", { projectPath }),
+	saveProjectConfig: (args: SaveProjectConfigArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_config", { args }),
+	renameWorkshopProject: (projectPath: string, newName: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rename_workshop_project", { projectPath, newName }),
+	deleteWorkshopProject: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_workshop_project", { projectPath }),
+	packWorkshopProject: (args: PackProjectArgs) => __TAURI_INVOKE<({ ok: true; value: PackResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("pack_workshop_project", { args }),
+	importFromModpkg: (filePath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("import_from_modpkg", { filePath }),
+	peekFantome: (filePath: string) => __TAURI_INVOKE<({ ok: true; value: FantomePeekResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("peek_fantome", { filePath }),
+	importFromFantome: (args: ImportFantomeArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("import_from_fantome", { args }),
+	importFromGitRepo: (args: ImportGitRepoArgs) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("import_from_git_repo", { args }),
+	validateProject: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: ValidationResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("validate_project", { projectPath }),
+	setProjectThumbnail: (projectPath: string, imagePath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("set_project_thumbnail", { projectPath, imagePath }),
+	removeProjectThumbnail: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("remove_project_thumbnail", { projectPath }),
+	getProjectThumbnail: (thumbnailPath: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_thumbnail", { thumbnailPath }),
+	saveLayerStringOverrides: (projectPath: string, layerName: string, stringOverrides: { [key in string]: { [key in string]: string } }) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_layer_string_overrides", { projectPath, layerName, stringOverrides }),
+	/**
+	 *  Search known stringtable field names for the workshop strings editor.
+	 * 
+	 *  The first call builds the suggestion index, reading the shared cache's
+	 *  `rst-xxh3` table and the game stringtable for value previews, so it can take
+	 *  a moment. Subsequent calls are instant.
+	 */
+	searchStringKeys: (query: string, limit: number | null) => __TAURI_INVOKE<({ ok: true; value: StringKeySearchResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_string_keys", { query, limit }),
+	/**
+	 *  Current in-game text for string-table keys, for the override editor and the bin editor.
+	 * 
+	 *  Shares the suggestion index with [`search_string_keys`], first-call build
+	 *  cost included, on a blocking thread because a bin opening asks for it. A key
+	 *  the game does not resolve is absent from the map.
+	 */
+	lookupStringValues: (keys: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: string } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("lookup_string_values", { keys }),
+	getLayerContentPath: (projectPath: string, layerName: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_layer_content_path", { projectPath, layerName }),
+	getLayerInfo: (projectPath: string, layerNames: string[]) => __TAURI_INVOKE<({ ok: true; value: { [key in string]: WorkshopLayerInfo } }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_layer_info", { projectPath, layerNames }),
+	createProjectLayer: (projectPath: string, name: string, displayName: string | null, description: string | null) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("create_project_layer", { projectPath, name, displayName, description }),
+	/**
+	 *  Rename a layer, and move the open documents and sandboxes of the project to the new
+	 *  name. ADR-0056.
+	 */
+	renameProjectLayer: (projectPath: string, layerName: string, newDisplayName: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("rename_project_layer", { projectPath, layerName, newDisplayName }),
+	deleteProjectLayer: (projectPath: string, layerName: string) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_project_layer", { projectPath, layerName }),
+	reorderProjectLayers: (projectPath: string, layerNames: string[]) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("reorder_project_layers", { projectPath, layerNames }),
+	updateLayerDescription: (projectPath: string, layerName: string, description: string | null) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("update_layer_description", { projectPath, layerName, description }),
+	addFilesToLayer: (projectPath: string, layerName: string, sources: string[]) => __TAURI_INVOKE<({ ok: true; value: AddFilesReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("add_files_to_layer", { projectPath, layerName, sources }),
+	/**
+	 *  Delete one file or directory from a layer's content directory.
+	 * 
+	 *  `relative_path` is layer-relative, the way the content tree names its rows.
+	 */
+	deleteLayerContent: (projectPath: string, layerName: string, relativePath: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("delete_layer_content", { projectPath, layerName, relativePath }),
+	/**
+	 *  Read the frontend-owned editor state at `<project>/.ltk/editor.json`.
+	 * 
+	 *  The content is opaque here - the frontend versions and interprets it. A
+	 *  missing file reads as `None`, and only a genuine IO failure is an error.
+	 */
+	getProjectEditorState: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: string | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_project_editor_state", { projectPath }),
+	/**
+	 *  Write the frontend-owned editor state to `<project>/.ltk/editor.json`.
+	 * 
+	 *  Creates `.ltk/` on first write, and lands through a temp file in the same
+	 *  directory so a crash mid-write never leaves a truncated file behind.
+	 */
+	saveProjectEditorState: (projectPath: string, content: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_project_editor_state", { projectPath, content }),
+	/**
+	 *  Run every rule over one project.
+	 * 
+	 *  The run answers inside its budget, 2ms on a skin mod and a few hundred on a
+	 *  60MB map overhaul, so it needs no progress events and no cancel. A few
+	 *  hundred milliseconds is still a frame budget the window does not have, and
+	 *  the first run of a session also pays for the hashtable cache, so the walk
+	 *  happens off the UI thread. See `docs/ux/PROJECT_PROBLEMS.md`.
+	 */
+	analyzeProject: (projectPath: string) => __TAURI_INVOKE<({ ok: true; value: Run_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("analyze_project", { projectPath }),
+	/**
+	 *  Apply the fixes of the named problems, and write a restore point first.
+	 * 
+	 *  Fix on a row, Fix on a group and Fix on the panel are this one call with a
+	 *  different list.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Reports a project the backend holds no run for, because the ids name
+	 *  problems only a run can have produced.
+	 */
+	fixProblems: (projectPath: string, problems: ProblemId[]) => __TAURI_INVOKE<({ ok: true; value: FixReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("fix_problems", { projectPath, problems }),
+	/**
+	 *  Report what the shared hashtable cache currently holds.
+	 * 
+	 *  A cache that was never synced is a normal report, not an error.
+	 */
+	getHashtableCacheStatus: () => __TAURI_INVOKE<({ ok: true; value: HashtableCacheStatus }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_hashtable_cache_status"),
+	/**
+	 *  Report what the latest published release has that the cache does not.
+	 * 
+	 *  Reads the remote manifest and nothing else: no download, no install, and no
+	 *  update lock, so this is safe to run unasked and safe while another process
+	 *  is midway through a sync. The meta schema database is asked the same
+	 *  question, and answers for itself.
+	 */
+	checkHashtableUpdates: () => __TAURI_INVOKE<({ ok: true; value: HashtableUpdateCheck_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("check_hashtable_updates"),
+	/**
+	 *  Download the latest published hashtables into the shared cache.
+	 * 
+	 *  Emits `hashtable-sync-progress` once per asset download. `force`
+	 *  re-downloads every table even when the local copy already matches.
+	 * 
+	 *  A run that installed something drops everything read out of the old tables,
+	 *  so the next caller sees the names the new ones give.
+	 */
+	syncHashtables: (force: boolean) => __TAURI_INVOKE<({ ok: true; value: HashtableSyncReport }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("sync_hashtables", { force }),
+	/**  List the game's WAD archives under `DATA/FINAL`, sorted by name. */
+	getGameWads: () => __TAURI_INVOKE<({ ok: true; value: GameWadSummary[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_game_wads"),
+	/**
+	 *  Read the chunk list of one game WAD archive.
+	 * 
+	 *  Path hashes resolve through the shared hashtable cache when it is
+	 *  populated. Otherwise every path comes back null.
+	 */
+	readGameWad: (wadName: string) => __TAURI_INVOKE<({ ok: true; value: GameWadEntry[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_game_wad", { wadName }),
+	/**  Report what the folded game index holds, building it on first use. */
+	getGameIndex: () => __TAURI_INVOKE<({ ok: true; value: GameIndexStats }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("get_game_index"),
+	/**
+	 *  List one directory of the folded game index.
+	 * 
+	 *  `path` is `""` for the root, and otherwise a path a previous listing
+	 *  returned. Path hashes resolve through the shared hashtable cache when it is
+	 *  populated. Otherwise every file reads as its hash.
+	 */
+	readGameDir: (path: string) => __TAURI_INVOKE<({ ok: true; value: GameDirListing }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_game_dir", { path }),
+	/**
+	 *  Drop the built index, so the next read walks the install again.
+	 * 
+	 *  Unmounts the cached archives with it, and drops the object index, which
+	 *  was fed by this one. Asking for a fresh index is the one signal the app
+	 *  gets that the install changed under it, and a mount taken before a patch
+	 *  would keep answering from the chunk table it read then.
+	 */
+	refreshGameIndex: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("refresh_game_index"),
+	/**
+	 *  Rank every file of the install against `query`, best first.
+	 * 
+	 *  The scan reads the index rather than a list of paths, because building
+	 *  819,136 of those per keystroke costs more than the matching does. A call
+	 *  that a later one overtakes gives up part way and says so, so a query typed
+	 *  one character at a time runs one whole scan rather than one per character.
+	 * 
+	 *  An empty query matches nothing. The palette only reaches this source once
+	 *  something is typed.
+	 */
+	searchGameIndex: (query: string) => __TAURI_INVOKE<({ ok: true; value: GameSearchResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("search_game_index", { query }),
+	/**
+	 *  Every file of the install matching `pattern`, in tree order.
+	 * 
+	 *  The full-results twin of [`search_game_index`]: nothing is ranked, every
+	 *  hit comes back up to the index's own cap, and `regex` reads the pattern as
+	 *  a regular expression rather than as its characters. Either way the match is
+	 *  case-insensitive, which is the only case a resolved WAD path has.
+	 * 
+	 *  An empty pattern matches nothing rather than everything. A pattern that
+	 *  does not parse reports `VALIDATION_FAILED` with the parser's own message,
+	 *  which the search box shows under the input.
+	 */
+	findInGameIndex: (pattern: string, regex: boolean) => __TAURI_INVOKE<({ ok: true; value: GameFindResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("find_in_game_index", { pattern, regex }),
+	/**
+	 *  What extracting `targets` would write, before anything is written.
+	 * 
+	 *  The dialog's summary line reads this, so a user sees the count, the size and
+	 *  the archives before choosing a destination. `kinds` are the browser's filter
+	 *  chips, and `null` means every kind.
+	 */
+	planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) => __TAURI_INVOKE<({ ok: true; value: ExtractPlan }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plan_game_extract", { targets, kinds }),
+	/**
+	 *  Write every chunk the targets name into `options.destination`.
+	 * 
+	 *  Progress arrives as `extract-progress`, throttled rather than one event per
+	 *  chunk. Answers `None` when an extract is already running, which is what a
+	 *  double-clicked Extract button looks like.
+	 */
+	extractGameFiles: (targets: ExtractTarget[], options: ExtractOptions) => __TAURI_INVOKE<({ ok: true; value: ExtractSummary | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("extract_game_files", { targets, options }),
+	/**
+	 *  Call off the extract that is in flight, if there is one.
+	 * 
+	 *  Answers `false` when nothing was running, which is what a Cancel pressed
+	 *  just as the run finished looks like. The files written so far stay, because
+	 *  each one was written whole.
+	 */
+	cancelExtract: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_extract"),
+	/**
+	 *  Report what a previewable asset holds, without decoding it.
+	 * 
+	 *  A file kind with no viewer comes back as [`AssetInfo::Unsupported`] rather
+	 *  than an error, because a modder clicking through a tree meets one constantly
+	 *  and the viewer draws it as a state.
+	 */
+	readAssetInfo: (asset: AssetRef) => __TAURI_INVOKE<({ ok: true; value: AssetInfo }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_asset_info", { asset }),
+	/**
+	 *  Write one previewed asset to a path the user picked.
+	 * 
+	 *  The extract of a single file, and not through the extractor: the user named
+	 *  the file in a save dialog, so none of the naming rules apply and there is no
+	 *  archive to walk. One chunk, read and written.
+	 * 
+	 *  The archive stays mounted afterwards, because the modder saving a copy of a
+	 *  texture is looking through that archive.
+	 */
+	saveAssetCopy: (asset: AssetRef, destination: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("save_asset_copy", { asset, destination }),
+	/**  Report whether the ritobin VS Code integration is installed. */
+	detectRitobinIntegration: () => __TAURI_INVOKE<({ ok: true; value: boolean }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("detect_ritobin_integration"),
+	/**
+	 *  Open one asset as ritobin text in VS Code.
+	 * 
+	 *  `name` is what a hash table made of a game chunk's hash, which the reference
+	 *  itself cannot carry. It names the copy the chunk is opened from.
+	 */
+	openAssetInRitobin: (asset: AssetRef, name: string | null) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("open_asset_in_ritobin", { asset, name }),
+	/**
+	 *  Install a mod from a deep-link protocol URL.
+	 * 
+	 *  Downloads the file to a temp directory, validates it, then installs
+	 *  using the existing mod library pipeline.
+	 */
+	deepLinkInstallMod: (url: string, name: string | null, author: string | null, source: string | null) => __TAURI_INVOKE<({ ok: true; value: InstalledMod_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("deep_link_install_mod", { url, name, author, source }),
+	/**
+	 *  Take the deep link that arrived before the frontend could listen for it.
+	 * 
+	 *  A URL handed to a cold start reaches the backend while the window's script is
+	 *  still loading, so the event carrying it would reach nobody. The frontend asks
+	 *  once, as its listener comes up, and the answer is `None` from then on.
+	 */
+	takePendingDeepLink: () => __TAURI_INVOKE<({ ok: true; value: DeepLinkRequest | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("take_pending_deep_link"),
+	/**  Read page `page` of the release feed, one-based as GitHub numbers it. */
+	listReleases: (page: number) => __TAURI_INVOKE<({ ok: true; value: ReleasePage }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_releases", { page }),
+	/**  Read the newest posts in the Announcements category. */
+	listAnnouncements: () => __TAURI_INVOKE<({ ok: true; value: Announcement[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_announcements"),
+	/**  Read the notices that concern this build right now. */
+	listNotices: () => __TAURI_INVOKE<({ ok: true; value: Notice[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_notices"),
 	/**  Local executable and Explorer state for each tool. */
 	integrationStatus: () => __TAURI_INVOKE<({ ok: true; value: IntegrationStatus[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("integration_status"),
 	/**  Latest stable release available for a tool. */
@@ -653,9 +1214,36 @@ export const commands = {
 	installUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("install_update"),
 	/**  Drop the downloaded installer, so quitting installs nothing. */
 	discardUpdate: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("discard_update"),
+	/**
+	 *  Time a health pass over the real library, into the dev console.
+	 * 
+	 *  Debug builds only, and the trigger for the measurement loop the repair was
+	 *  tuned in: a synthetic fixture cannot produce the numbers a 25MB mod of real
+	 *  bins does. `repair` runs the real repair, which rewrites the mods it can fix
+	 *  and keeps no way back, so the default pass only reads.
+	 */
+	timeModHealth: (repair: boolean) => __TAURI_INVOKE<({ ok: true; value: HealthTiming }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("time_mod_health", { repair }),
 };
 
 /* Types */
+/**  Accent color configuration. */
+export type AccentColor = {
+	/**
+	 *  Preset name: "ltk" (the brand accent), or one of the generated hues
+	 *  "blue", "purple", "green", "orange", "pink", "red", "teal". `None` is
+	 *  read as "ltk" by the frontend.
+	 */
+	preset: string | null,
+	/**  Custom hue value (0-360) for custom colors */
+	customHue: number | null,
+};
+
+/**  Result of adding files/folders to a layer. */
+export type AddFilesReport = {
+	/**  Basenames of items added to the layer directory. */
+	added: string[],
+};
+
 /**  What adding a folder of mods did with each one. */
 export type AddFoldersReport = {
 	added: WorkshopProject[],
@@ -704,6 +1292,17 @@ export type AnimationGraph = {
 	masks: Mask[],
 	/**  `mSyncGroupDataMap`. */
 	syncGroups: SyncGroup[],
+};
+
+/**  One post in the Announcements category. */
+export type Announcement = {
+	/**  The feed's own id for the post. */
+	id: string,
+	title: string,
+	/**  The post's page on GitHub. */
+	url: string,
+	/**  RFC 3339, as GitHub publishes it, or `None` for an entry without one. */
+	publishedAt: string | null,
 };
 
 /**
@@ -807,6 +1406,25 @@ export type AppErrorResponse =
  */
 { code: "GITHUB"; feed: GitHubFeed; kind: GitHubErrorKind; detail: string };
 
+export type AppInfo = {
+	name: string,
+	version: string,
+	logFilePath: string | null,
+	os: string,
+	arch: string,
+};
+
+/**  What an asset holds, for a viewer that reports it beside the preview. */
+export type AssetInfo = 
+/**  A texture, in whichever container holds it. */
+{
+	kind: "texture",
+} & TextureInfo | 
+/**  An image the webview decodes itself, such as a PNG. */
+{ kind: "image"; width: number; height: number; sizeBytes: number; fileKind: WorkshopFileKind } | 
+/**  Nothing here has a viewer. */
+({ kind: "unsupported"; fileKind: WorkshopFileKind }) & { height?: never; sizeBytes?: never; width?: never };
+
 /**
  *  Where a previewed asset's bytes come from.
  * 
@@ -848,6 +1466,13 @@ export type Attribute = {
 	mask: number,
 };
 
+/**  A saved author profile that can be reused across workshop projects. */
+export type AuthorProfile = {
+	id: string,
+	name: string,
+	role: string | null,
+};
+
 /**  The rule of section 10.2 that picked a base texture, in the order they are tried. */
 export type BaseRule = 
 /**  A static switch of the one shader that has such a switch names it. */
@@ -864,6 +1489,15 @@ export type BaseRule =
 "colorMapPath" | 
 /**  Its path is a colour map's, whatever its name. */
 "colorMapPathAnyName";
+
+/**  Which champions show their base skin on every skin, a mod's where one replaces it. */
+export type BaseSkinsScope = 
+/**  Every champion keeps its skins. */
+"off" | 
+/**  Each champion an enabled mod gives a new base skin. */
+"moddedChampions" | 
+/**  Every champion. */
+"allChampions";
 
 /**  The texture a preview draws a material's main layer with. */
 export type BaseTexture = {
@@ -1155,6 +1789,45 @@ export type BlockMember = {
 	rowMajor: boolean,
 };
 
+/**  The built-in mods a user turned on, every one off by default. */
+export type BuiltinModSettings = {
+	/**  Every ward shows its own base skin. */
+	defaultWardSkins?: boolean,
+	/**  Which champions show their base skin on every skin. */
+	baseSkins?: BaseSkinsScope,
+	/**  Which map skin every game shows. */
+	mapSkin?: MapSkinMode,
+	/**  The `name` of the map skin [`MapSkinMode::Forced`] shows, kept while another mode is on. */
+	forcedMapSkin?: string,
+	/**
+	 *  What each map decoration does, by the mutator that switches it. One absent follows the
+	 *  game.
+	 */
+	mapDecorations?: { [key in string]: MapDecorationMode },
+};
+
+/**  Error info for a single file that failed during bulk install. */
+export type BulkInstallError = {
+	filePath: string,
+	fileName: string,
+	message: string,
+};
+
+/**  Result of a bulk mod install operation. */
+export type BulkInstallResult = BulkInstallResult_Serialize | BulkInstallResult_Deserialize;
+
+/**  Result of a bulk mod install operation. */
+export type BulkInstallResult_Deserialize = {
+	installed: InstalledMod_Deserialize[],
+	failed: BulkInstallError[],
+};
+
+/**  Result of a bulk mod install operation. */
+export type BulkInstallResult_Serialize = {
+	installed: InstalledMod_Serialize[],
+	failed: BulkInstallError[],
+};
+
 /**  Coarse grouping for the UI. */
 export type Category = 
 /**  OS-level checks (Windows version, UAC, long paths). */
@@ -1264,6 +1937,28 @@ export type Check_Serialize = {
 	fixCommand?: string | null,
 };
 
+/**
+ *  One chunk whose container claimed a checksum its own bytes do not have.
+ * 
+ *  The hashes are hex strings rather than numbers because they are 64-bit
+ *  values, which JavaScript numbers cannot carry exactly.
+ */
+export type ChecksumMismatchInfo = {
+	/**  Library mod id (matches `InstalledMod.id` on the frontend). */
+	modId: string,
+	/**  The mod's WAD target the chunk was read from, e.g. `Aatrox.wad.client`. */
+	wadName: string,
+	/**  Path hash of the chunk that disagreed, as 16 hex digits. */
+	pathHash: string,
+	/**  What the container's own TOC claimed, as 16 hex digits. */
+	claimed: string,
+	/**
+	 *  What the bytes actually hash to - the value the overlay carries - as
+	 *  16 hex digits.
+	 */
+	computed: string,
+};
+
 /**  A read of what an add line of an open document offers. */
 export type ChoiceQuery = 
 /**  The fields the holder at `path` can take, answering [`Choices::Fields`]. */
@@ -1367,6 +2062,239 @@ export type ClipHeader = {
 };
 
 /**
+ *  Patching-relevant configuration: everything the mod library, overlay
+ *  builder, and patcher need, and nothing UI-specific.
+ * 
+ *  Every field is optional or defaulted so a partial (or empty) JSON document
+ *  deserializes into a usable configuration.
+ */
+export type Config = Config_Serialize | Config_Deserialize;
+
+/**
+ *  Patching-relevant configuration: everything the mod library, overlay
+ *  builder, and patcher need, and nothing UI-specific.
+ * 
+ *  Every field is optional or defaulted so a partial (or empty) JSON document
+ *  deserializes into a usable configuration.
+ */
+export type Config_Deserialize = {
+	leaguePath: string | null,
+	modStoragePath: string | null,
+	/**  Directory where mod projects are stored (for Creator Workshop). */
+	workshopPath: string | null,
+	/**  Whether to patch TFT game files (Map22.wad.client). Default: false. */
+	patchTft?: boolean,
+	/**  Whether to block mods from patching Scripts.wad.client. Default: true. */
+	blockScriptsWad?: boolean,
+	/**  Whether to run the linked-bin dependency check before starting the patcher. Default: true. */
+	linkedBinCheckEnabled?: boolean,
+	/**  Additional WAD files to exclude from overlay building. */
+	wadBlocklist?: WadBlocklistEntry[],
+	/**
+	 *  Run the injection host elevated (UAC). An elevated game can only be
+	 *  injected by an equally elevated host, so this is required when League
+	 *  runs as administrator. Off by default: when off, non-elevated users
+	 *  avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
+	 *  when League is detected configured to run as admin, regardless of this
+	 *  flag (see `commands::patcher::start_patcher_inner`).
+	 */
+	elevateInjector?: boolean,
+	/**
+	 *  Whether to automatically categorize mods from their content (champions,
+	 *  maps and content tags derived from the WAD/chunk footprint, surfaced as
+	 *  "auto" suggestions and library filters). When off, only the categories
+	 *  the user sets themselves are used. Default: true.
+	 */
+	autoCategorizationEnabled?: boolean,
+	/**  Enabling a mod moves it to the front of its folder. Off by default. */
+	promoteEnabledMods?: boolean,
+	/**
+	 *  Whether to enforce the anti-skinhack scan while patching. When on
+	 *  (default), a champion WAD that fails the scan aborts patching. When off,
+	 *  the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
+	 *  downgraded to warnings and flagged mods load anyway. Default: true.
+	 */
+	enforceSkinhackScan?: boolean,
+	/**
+	 *  Whether mods' string overrides are applied to every installed locale
+	 *  instead of only the locale the League client is configured to use.
+	 *  Default: false (current locale only).
+	 */
+	applyStringOverridesToAllLocales?: boolean,
+	/**
+	 *  Raise the injection host's log level from `Info` to `Debug`. The host and
+	 *  the injected DLL decide their own verbosity from this, so it is the only
+	 *  way to get their diagnostics out of a release build - `RUST_LOG` only
+	 *  affects the manager's own tracing. Read at patcher start, so a change
+	 *  takes effect on the next start. Default: false.
+	 */
+	verbosePatcherLogging?: boolean,
+	/**
+	 *  Whether to set the `FULL_WAD_SCAN` hook flag, which scans every archive
+	 *  up front instead of the DLL's default of verifying each one as the game
+	 *  loads it. The overlay makes lazy scanning crash-prone, so the DLL only
+	 *  scans lazily when the game has crash reporting disabled, which is what
+	 *  [`Self::disable_crash_reporting`] is for - with crash reporting on, the
+	 *  up-front scan happens either way and this flag changes nothing.
+	 *  Default: false.
+	 */
+	fullWadScan?: boolean,
+	/**
+	 *  Whether to turn the League client's crash reporting off when the
+	 *  patcher starts, by clearing `install.crash_reporting.enabled` in its
+	 *  `LeagueClientSettings.yaml`.
+	 * 
+	 *  The DLL verifies archives as the game loads them only while crash
+	 *  reporting is off, so leaving it on costs every session the up-front
+	 *  scan of every archive. The client rewrites its settings when it exits,
+	 *  which is why the patcher applies this at every start rather than once.
+	 *  Default: true.
+	 */
+	disableCrashReporting?: boolean,
+	/**
+	 *  Whether to hide the Riot Client's window once the game is up. Nobody
+	 *  launching through the manager wants the launcher left sitting on their
+	 *  desktop behind the game, so this is on by default.
+	 * 
+	 *  Hides to the tray; the client keeps running because the game needs it for
+	 *  the whole session, and it stays hidden after the game exits. That last
+	 *  part takes active work: the client un-hides *itself* on exit, through the
+	 *  `showUxIfHidden` flag on Foundation's UX command bus, so
+	 *  `hide_for_play_session` re-asserts the hide. Reversible from the tray
+	 *  icon at any point. Default: true.
+	 */
+	hideRiotClientOnLaunch?: boolean,
+	/**
+	 *  Whether to read League's own game log after a game ends, for the
+	 *  verdict on a game that went wrong. Turns the reader off. An incident
+	 *  still records the ending, the game's boundaries and what the DLL said,
+	 *  and with this off the manager opens nothing under the League install.
+	 *  Default: true.
+	 */
+	readGameLog?: boolean,
+	/**
+	 *  How many incidents the app data directory keeps, under 1MB together.
+	 *  The oldest goes first, and a dismissed one before an undismissed one
+	 *  of the same age. Default: 50.
+	 */
+	keepIncidents?: number,
+	/**  Which built-in mods the overlay injects above every other mod. */
+	builtinMods?: BuiltinModSettings,
+};
+
+/**
+ *  Patching-relevant configuration: everything the mod library, overlay
+ *  builder, and patcher need, and nothing UI-specific.
+ * 
+ *  Every field is optional or defaulted so a partial (or empty) JSON document
+ *  deserializes into a usable configuration.
+ */
+export type Config_Serialize = {
+	leaguePath: string | null,
+	modStoragePath: string | null,
+	/**  Directory where mod projects are stored (for Creator Workshop). */
+	workshopPath: string | null,
+	/**  Whether to patch TFT game files (Map22.wad.client). Default: false. */
+	patchTft: boolean,
+	/**  Whether to block mods from patching Scripts.wad.client. Default: true. */
+	blockScriptsWad: boolean,
+	/**  Whether to run the linked-bin dependency check before starting the patcher. Default: true. */
+	linkedBinCheckEnabled: boolean,
+	/**  Additional WAD files to exclude from overlay building. */
+	wadBlocklist: WadBlocklistEntry[],
+	/**
+	 *  Run the injection host elevated (UAC). An elevated game can only be
+	 *  injected by an equally elevated host, so this is required when League
+	 *  runs as administrator. Off by default: when off, non-elevated users
+	 *  avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
+	 *  when League is detected configured to run as admin, regardless of this
+	 *  flag (see `commands::patcher::start_patcher_inner`).
+	 */
+	elevateInjector: boolean,
+	/**
+	 *  Whether to automatically categorize mods from their content (champions,
+	 *  maps and content tags derived from the WAD/chunk footprint, surfaced as
+	 *  "auto" suggestions and library filters). When off, only the categories
+	 *  the user sets themselves are used. Default: true.
+	 */
+	autoCategorizationEnabled: boolean,
+	/**  Enabling a mod moves it to the front of its folder. Off by default. */
+	promoteEnabledMods: boolean,
+	/**
+	 *  Whether to enforce the anti-skinhack scan while patching. When on
+	 *  (default), a champion WAD that fails the scan aborts patching. When off,
+	 *  the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
+	 *  downgraded to warnings and flagged mods load anyway. Default: true.
+	 */
+	enforceSkinhackScan: boolean,
+	/**
+	 *  Whether mods' string overrides are applied to every installed locale
+	 *  instead of only the locale the League client is configured to use.
+	 *  Default: false (current locale only).
+	 */
+	applyStringOverridesToAllLocales: boolean,
+	/**
+	 *  Raise the injection host's log level from `Info` to `Debug`. The host and
+	 *  the injected DLL decide their own verbosity from this, so it is the only
+	 *  way to get their diagnostics out of a release build - `RUST_LOG` only
+	 *  affects the manager's own tracing. Read at patcher start, so a change
+	 *  takes effect on the next start. Default: false.
+	 */
+	verbosePatcherLogging: boolean,
+	/**
+	 *  Whether to set the `FULL_WAD_SCAN` hook flag, which scans every archive
+	 *  up front instead of the DLL's default of verifying each one as the game
+	 *  loads it. The overlay makes lazy scanning crash-prone, so the DLL only
+	 *  scans lazily when the game has crash reporting disabled, which is what
+	 *  [`Self::disable_crash_reporting`] is for - with crash reporting on, the
+	 *  up-front scan happens either way and this flag changes nothing.
+	 *  Default: false.
+	 */
+	fullWadScan: boolean,
+	/**
+	 *  Whether to turn the League client's crash reporting off when the
+	 *  patcher starts, by clearing `install.crash_reporting.enabled` in its
+	 *  `LeagueClientSettings.yaml`.
+	 * 
+	 *  The DLL verifies archives as the game loads them only while crash
+	 *  reporting is off, so leaving it on costs every session the up-front
+	 *  scan of every archive. The client rewrites its settings when it exits,
+	 *  which is why the patcher applies this at every start rather than once.
+	 *  Default: true.
+	 */
+	disableCrashReporting: boolean,
+	/**
+	 *  Whether to hide the Riot Client's window once the game is up. Nobody
+	 *  launching through the manager wants the launcher left sitting on their
+	 *  desktop behind the game, so this is on by default.
+	 * 
+	 *  Hides to the tray; the client keeps running because the game needs it for
+	 *  the whole session, and it stays hidden after the game exits. That last
+	 *  part takes active work: the client un-hides *itself* on exit, through the
+	 *  `showUxIfHidden` flag on Foundation's UX command bus, so
+	 *  `hide_for_play_session` re-asserts the hide. Reversible from the tray
+	 *  icon at any point. Default: true.
+	 */
+	hideRiotClientOnLaunch: boolean,
+	/**
+	 *  Whether to read League's own game log after a game ends, for the
+	 *  verdict on a game that went wrong. Turns the reader off. An incident
+	 *  still records the ending, the game's boundaries and what the DLL said,
+	 *  and with this off the manager opens nothing under the League install.
+	 *  Default: true.
+	 */
+	readGameLog: boolean,
+	/**
+	 *  How many incidents the app data directory keeps, under 1MB together.
+	 *  The oldest goes first, and a dismissed one before an undismissed one
+	 *  of the same age. Default: 50.
+	 */
+	keepIncidents: number,
+	/**  Which built-in mods the overlay injects above every other mod. */
+	builtinMods: BuiltinModSettings,
+};
+
+/**
  *  What a verdict cost the player, which is a fact whatever the manager makes
  *  of the line that reported it.
  * 
@@ -1386,6 +2314,35 @@ export type Consequence =
 /**  The game did not survive. */
 "game-stopped";
 
+/**  A single file entry in a layer's content directory. */
+export type ContentEntry = {
+	/**  Path relative to the layer root, always POSIX-style (`/`). */
+	relativePath: string,
+	sizeBytes: number,
+	kind: WorkshopFileKind,
+	/**  The objects a `.bin` declares, and empty for any other file. */
+	objects: ContentObject[],
+	/**  What leaves the file out of a package, null for one that ships. */
+	ignoredBy: IgnoreMatch | null,
+};
+
+/**  One object a layer's `.bin` declares. */
+export type ContentObject = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash when no table names it. */
+	path: string,
+	/**  The class the object declares, or its hash when no table names it. */
+	class: string,
+	/**  The class hash, as `0x` and eight hex digits. */
+	classHash: string,
+};
+
+/**  A project's content directory as a flat per-layer listing. */
+export type ContentTree = {
+	layers: LayerContent[],
+};
+
 /**  Arguments for turning a folder into a project. */
 export type ConvertFolderArgs = {
 	path: string,
@@ -1400,6 +2357,31 @@ export type ConvertPlacement =
 "inPlace" | 
 /**  A copy in the workshop folder becomes the project, and the folder is left alone. */
 "copy";
+
+/**  How many problems a run holds at each severity. */
+export type Counts = {
+	fatals: number,
+	errors: number,
+	warnings: number,
+	infos: number,
+};
+
+/**  Arguments for creating a new project. */
+export type CreateProjectArgs = {
+	name: string,
+	displayName: string,
+	description: string,
+	authors: string[],
+};
+
+/**  Metadata for a discovered cslol-manager mod, shown in the UI selection step. */
+export type CslolModInfo = {
+	folderName: string,
+	name: string,
+	author: string,
+	version: string,
+	description: string,
+};
 
 /**  One layer's declarations manifest, read for an outline. */
 export type DeclarationsLayer = {
@@ -1715,6 +2697,34 @@ export type DecodedIncident = {
 	overlayDetail: string | null,
 };
 
+/**  Parsed representation of a `ltk://install` deep-link URL. */
+export type DeepLinkInstallRequest = {
+	url: string,
+	name: string | null,
+	author: string | null,
+	source: string | null,
+	/**
+	 *  The host outside the allowlist, or `None` where the allowlist covers it.
+	 * 
+	 *  Stamped by [`handle_single`] rather than by parsing, since the trust is a
+	 *  property of the reader's settings and not of the URL.
+	 */
+	untrustedDomain: string | null,
+};
+
+/**  A `ltk://` deep link, as the route named in it. */
+export type DeepLinkRequest = {
+	kind: "install",
+} & DeepLinkInstallRequest | {
+	kind: "settings",
+} & DeepLinkSettingsRequest;
+
+/**  Parsed representation of a `ltk://settings` deep-link URL. */
+export type DeepLinkSettingsRequest = {
+	/**  The public setting or group id the page opens on, as `?focus=` carries it. */
+	focus: string,
+};
+
 /**  One `NAME=VALUE` of the define list. */
 export type Define = {
 	name: string,
@@ -1769,6 +2779,27 @@ export type DependencyEdit =
 /**  Take back the chosen layer's removal of `path`. [`BinDocuments::restore_dependency`]. */
 { kind: "restore"; path: string };
 
+/**
+ *  Categories derived from a mod's contents. Each list is de-duplicated and
+ *  sorted. Champions hold display names (e.g. `"Aatrox"`); maps and tags hold
+ *  well-known slugs (e.g. `"summoners-rift"`, `"champion-skin"`).
+ */
+export type DerivedCategorization = {
+	champions: string[],
+	maps: string[],
+	tags: string[],
+	/**
+	 *  The champion the mod contributes most content to, of [`Self::champions`].
+	 * 
+	 *  Weighted by chunk paths on the precise path and by per-WAD override
+	 *  counts on the coarse one, so a mod that edits one champion and spills a
+	 *  little into two others names the one it is actually a skin for. `None`
+	 *  for a report analysed before this was recorded, and for a mod with no
+	 *  champions at all.
+	 */
+	primaryChampion?: string | null,
+};
+
 /**  Full diagnostic report returned by `run_diagnostics`. */
 export type DiagnosticReport = DiagnosticReport_Serialize | DiagnosticReport_Deserialize;
 
@@ -1800,6 +2831,16 @@ export type Doc = {
 	notes: string[],
 	/**  Worked examples, one block each. */
 	examples: string[],
+};
+
+/**  Fields to change on a mod's metadata. `None` leaves a field untouched. */
+export type EditModMetadataArgs = {
+	displayName: string | null,
+	tags: string[] | null,
+	champions: string[] | null,
+	maps: string[] | null,
+	setThumbnailPath?: string | null,
+	removeThumbnail?: boolean | null,
 };
 
 /**  What a landed [`BinEdit`] answers beside the change itself. */
@@ -2002,6 +3043,188 @@ export type EvidenceMark =
 /**  Where a line of evidence came from. */
 export type EvidenceSource = "patcher" | "host" | "dll" | "game" | "client";
 
+/**  What an extract does about a file already sitting where one would land. */
+export type ExistingFiles = 
+/**  Leave it, and count it. The dialog's default, and not the crate's. */
+"skip" | 
+/**  Write over it. */
+"replace";
+
+/**  Progress of a mod export, emitted per mod. */
+export type ExportProgress = {
+	current: number,
+	total: number,
+	currentMod: string,
+};
+
+/**
+ *  Which of the library's mods an export writes.
+ * 
+ *  Every profile holds every mod, so the only scope narrower than the library
+ *  is what the active profile has switched on.
+ */
+export type ExportScope = 
+/**  What the active profile has on. */
+"enabled" | 
+/**  Every mod in the library. */
+"all";
+
+/**  What an export writes: loose archives, or one zip holding them. */
+export type ExportShape = 
+/**  One archive per mod, into a directory. */
+"folder" | 
+/**  Every archive inside one `.zip` file. */
+"zip";
+
+/**  What an export wrote, and what it had to leave behind. */
+export type ExportSummary = {
+	/**  How many mods reached the destination. */
+	exported: number,
+	/**  Mods with no archive to copy, named as the library names them. */
+	skipped: string[],
+	/**  What the export wrote, for a surface that offers to reveal it. */
+	destination: string,
+};
+
+/**  One kind of file an extract wrote, and how many. */
+export type ExtractKindCount = {
+	kind: WorkshopFileKind,
+	count: number,
+};
+
+/**  Where each file of an extract lands under the destination. */
+export type ExtractLayout = 
+/**  Each file at its game path, which is what a repack reads back. */
+"paths" | 
+/**  Every file in the destination by its name alone. */
+"flat";
+
+/**  Everything one extract needs beyond the targets themselves. */
+export type ExtractOptions = {
+	/**  The folder to write into. Made if it is not there. */
+	destination: string,
+	layout?: ExtractLayout,
+	/**
+	 *  Put each archive's files under a folder of the archive's own name,
+	 *  which is the layout a layer holds.
+	 */
+	perArchiveFolder?: boolean,
+	existing?: ExistingFiles,
+	/**
+	 *  Read the archive's own bins for names no hash table holds.
+	 * 
+	 *  Off, because a synced cache already names a game archive, and the scan
+	 *  reads every bin in one to find the handful it does not. Worth its cost
+	 *  where the cache is missing and the bins are the only names there are.
+	 */
+	recoverNames?: boolean,
+	/**  The browser's filter chips. `None` writes every kind. */
+	kinds?: WorkshopFileKind[] | null,
+};
+
+/**
+ *  What an extract will write, before it writes anything.
+ * 
+ *  The dialog's summary line reads this, so a user sees the count, the size
+ *  and the archives before choosing a destination.
+ */
+export type ExtractPlan = {
+	files: number,
+	/**  Uncompressed bytes, which is what lands on disk. */
+	bytes: number,
+	/**  The `DATA/FINAL`-relative archives the run reads, in the order it does. */
+	archives: string[],
+};
+
+/**
+ *  Progress of an extract of game chunks to disk.
+ * 
+ *  One extract runs over any number of archives, so `current` and `total`
+ *  count the whole run rather than the archive being read. The extractor
+ *  reports every chunk it finishes, which is tens of thousands for a large
+ *  archive, so the emitter throttles rather than sending one of these each
+ *  time.
+ */
+export type ExtractProgress = {
+	current: number,
+	total: number,
+	/**  The chunk just written, or its hex hash when nothing names it. */
+	currentPath: string | null,
+	/**  Bytes written so far across the whole run. */
+	bytes: number,
+	/**  The `DATA/FINAL`-relative archive being read. */
+	archive: string,
+};
+
+/**  What an extract did, summed over every archive it read. */
+export type ExtractSummary = {
+	extracted: number,
+	skippedExisting: number,
+	skippedByFilter: number,
+	/**
+	 *  Chunks the index named that the archive turned out not to hold, which
+	 *  means the two disagree rather than that anything failed.
+	 */
+	missing: number,
+	bytesWritten: number,
+	/**  Written files by the kind their bytes identify as, most first. */
+	byKind: ExtractKindCount[],
+	/**  The cancel flag was set, so this is a part of what was asked for. */
+	cancelled: boolean,
+	/**  Names the archives' own bins gave chunks no hash table knew. */
+	recovered: number,
+	/**
+	 *  Chunks written under a name their resolved path did not give, because a
+	 *  directory held that name or another chunk claimed it first.
+	 */
+	renamed: number,
+	/**
+	 *  Chunks whose resolved path the extraction refused to write, so nothing
+	 *  landed for them. A hash table naming a path that escapes the output
+	 *  directory is the usual cause.
+	 */
+	rejected: number,
+	/**
+	 *  Chunks another chunk's path claimed first that went unwritten. Zero
+	 *  under a lossless naming policy, which renames them instead.
+	 */
+	duplicates: number,
+	/**  The folder written into, for the report's **Open folder**. */
+	destination: string,
+};
+
+/**  One row of the browser, as a thing to extract. */
+export type ExtractTarget = 
+/**
+ *  One chunk, as a file row of the browser holds it.
+ * 
+ *  `path_hash` is what gets extracted. `path` and `size_bytes` are the
+ *  row's own copy, and only shape the summary and the kind filter, so a
+ *  stale row costs an off-by-one in a count rather than the wrong bytes.
+ */
+{ kind: "file"; wad: string; pathHash: string; path: string | null; sizeBytes: number } | 
+/**  Every file at or below one directory of the folded index. */
+{ kind: "dir"; path: string } | 
+/**
+ *  Every chunk of one archive.
+ * 
+ *  Read out of the archive rather than out of the index, because the fold
+ *  keeps one copy of a chunk that several archives carry and drops the
+ *  rest. An archive row means the archive, not the part of it the index
+ *  happens to attribute to it.
+ */
+{ kind: "archive"; wad: string };
+
+/**  One mod the migration could not convert. */
+export type FailedConversion = {
+	/**  The mod's index id, which is also the directory the uuid layout gave it. */
+	id: string,
+	/**  What to call the mod in the failure list, falling back to its id. */
+	displayName: string,
+	/**  Why it could not be moved, in the words the user reads. */
+	error: string,
+};
+
 /**  A fantome-layout folder, as the conversion would read it. */
 export type FantomeFolder = {
 	displayName: string,
@@ -2013,6 +3236,38 @@ export type FantomeFolder = {
 	wads: FolderWad[],
 	/**  Whether a `RAW/` directory holds loose files. */
 	hasRaw: boolean,
+};
+
+/**  Progress of a fantome import. */
+export type FantomeImportProgress = {
+	stage: FantomeImportStage,
+	/**
+	 *  The unit being unpacked, as the archive names it: a WAD, or `RAW` for
+	 *  the pass that unpacks everything the archive keeps outside one.
+	 */
+	currentItem: string | null,
+	current: number,
+	total: number,
+};
+
+/**
+ *  Stage of a fantome import.
+ * 
+ *  Coarser than the stages `ltk_mod_project`'s importer reports: everything
+ *  past the content is `Finalizing`, because none of it carries a count a bar
+ *  could be drawn from. `Error` has no counterpart there at all, since a failed
+ *  import returns rather than reporting, so the caller emits it.
+ */
+export type FantomeImportStage = "extracting" | "finalizing" | "complete" | "error";
+
+/**  Metadata peeked from a .fantome archive without extracting content. */
+export type FantomePeekResult = {
+	name: string,
+	author: string,
+	version: string,
+	description: string,
+	wadFiles: string[],
+	suggestedName: string,
 };
 
 /**  One field's type over one span of builds. */
@@ -2048,6 +3303,90 @@ export type FieldSchema = {
 	revisions: FieldRevision[],
 };
 
+/**
+ *  What one fix run did to a file, as against how much of it.
+ * 
+ *  The counts beside this say how much a rule changed. This says whether the
+ *  file survived, which is what an archive edit has to know before it can state
+ *  the repair as a chunk write.
+ */
+export type FileChange = "written" | "removed";
+
+/**  What one fix run did to one file. */
+export type FileOutcome = {
+	layer: string,
+	/**  POSIX-style and relative to the layer root. */
+	path: string,
+	applied: number,
+	skipped: number,
+	/**
+	 *  Whether the file is still there.
+	 * 
+	 *  Defaulted for a report recorded before a repair could delete anything,
+	 *  which is every report written before this field existed.
+	 */
+	change?: FileChange,
+};
+
+/**
+ *  What a repair would change, in the words a row draws.
+ * 
+ *  The type it moves the property to is [`Problem::mismatch`] rather than a
+ *  field here, because a problem no rule can repair still has one to draw.
+ */
+export type FixPreview = FixPreview_Serialize | FixPreview_Deserialize;
+
+/**
+ *  What a repair would change, in the words a row draws.
+ * 
+ *  The type it moves the property to is [`Problem::mismatch`] rather than a
+ *  field here, because a problem no rule can repair still has one to draw.
+ */
+export type FixPreview_Deserialize = {
+	/**  What the values alone do not say, such as `3 items`. */
+	note?: string | null,
+	/**  The value now, rendered. `None` where a container draws its count instead. */
+	before: string | null,
+	/**  The value after, rendered. `None` for the same reason as `before`. */
+	after: string | null,
+};
+
+/**
+ *  What a repair would change, in the words a row draws.
+ * 
+ *  The type it moves the property to is [`Problem::mismatch`] rather than a
+ *  field here, because a problem no rule can repair still has one to draw.
+ */
+export type FixPreview_Serialize = {
+	/**  What the values alone do not say, such as `3 items`. */
+	note?: string | null,
+	/**  The value now, rendered. `None` where a container draws its count instead. */
+	before: string | null,
+	/**  The value after, rendered. `None` for the same reason as `before`. */
+	after: string | null,
+};
+
+/**  What one fix run applied, skipped and wrote. */
+export type FixReport = {
+	applied: number,
+	/**  Problems the file no longer matched, which the rules left alone. */
+	skipped: number,
+	/**  Paths this run wrote into the mod's own tables before hashing them. */
+	namesKept: number,
+	/**  The migration tables the run applied. */
+	tables: string[],
+	/**
+	 *  The named problems a re-check still saw once the run had written.
+	 * 
+	 *  Read off the repaired tree in memory rather than by analyzing the
+	 *  project a second time. Empty is the ordinary outcome.
+	 */
+	remaining: ProblemId[],
+	files: FileOutcome[],
+	/**  A file a rule could not finish, and why. */
+	failed: string[],
+};
+
 /**  A folder the batch could not add, and why. */
 export type FolderFailure = {
 	path: string,
@@ -2074,6 +3413,41 @@ export type FolderWad = {
 	packed: boolean,
 };
 
+/**  A map skin every game can be made to show. */
+export type ForcibleMapSkin = {
+	/**  The skin's `name`, which the setting stores. */
+	name: string,
+	/**  Each map archive holding a whole skin by that name, such as `Map11.wad.client`. */
+	maps: string[],
+};
+
+/**
+ *  Payload for the `patcher-game-attached` event: the DLL is in the game,
+ *  which says nothing yet about whether the overlay went live.
+ */
+export type GameAttachedPayload = {
+	/**  The game's process id, when a `dll` line named it. */
+	pid: number | null,
+};
+
+/**  One subdirectory, folded through any chain of single-child directories. */
+export type GameDirEntry = {
+	/**  What [`GameIndex::read_dir`] takes to open this row, forward slashes. */
+	path: string,
+	/**  What the row reads: the folded chain of segments joined by `/`. */
+	name: string,
+	/**  Files at or below the directory. */
+	fileCount: number,
+};
+
+/**  What one directory of the folded index holds. */
+export type GameDirListing = {
+	/**  Subdirectories, sorted by name. */
+	dirs: GameDirEntry[],
+	/**  Files directly under this directory, sorted by name. */
+	files: GameFileEntry[],
+};
+
 /**  One file of the folded index, in the shape a single archive reads back. */
 export type GameFileEntry = {
 	/**  Chunk path hash as 16 lowercase hex digits. */
@@ -2091,6 +3465,55 @@ export type GameFileEntry = {
 	wad: string,
 };
 
+/**
+ *  One file the full search matched, shaped as an entry a file tree can hold.
+ * 
+ *  The pattern is matched over the full path, and the marked runs arrive
+ *  split at the basename: `name_ranges` are byte offsets into `name`, and
+ *  `path_ranges` are byte offsets into the directory prefix of `path`.
+ */
+export type GameFindHit = {
+	/**  Chunk path hash as 16 lowercase hex digits. */
+	pathHash: string,
+	/**  Resolved path with forward slashes, or `None` when no hash table names the chunk. */
+	path: string | null,
+	/**  The path's basename, or the hash when no hash table names the chunk. */
+	name: string,
+	/**  The `DATA/FINAL`-relative archive the chunk was read from. */
+	wad: string,
+	/**  Uncompressed chunk size. */
+	sizeBytes: number,
+	nameRanges: ([number, number])[],
+	pathRanges: ([number, number])[],
+};
+
+/**  What one full search of the folded index found. */
+export type GameFindResult = {
+	/**  Every matching row in tree order, capped at [`FIND_LIMIT`]. */
+	hits: GameFindHit[],
+	/**  How many files matched in all, counted on past the cap. */
+	total: number,
+	/**
+	 *  A newer search started before this one finished, so it gave up early.
+	 * 
+	 *  Its rows are whatever it had found, which is not the whole answer. The
+	 *  caller is expected to be showing the newer pattern by now.
+	 */
+	superseded: boolean,
+	/**  No hash table named a single chunk, so only a hash can match. */
+	unnamed: boolean,
+};
+
+/**  What a built index holds. */
+export type GameIndexStats = {
+	/**  Archives merged, including any that failed to read. */
+	archives: number,
+	/**  Files after deduplication. */
+	files: number,
+	/**  Directories, not counting the root. */
+	dirs: number,
+};
+
 /**  The facts the game log gives about the game itself. */
 export type GameInfo = {
 	version: string,
@@ -2098,6 +3521,14 @@ export type GameInfo = {
 	logPath: string,
 	/**  The install root the game ran from, as its command line named it. */
 	gameBaseDir: string | null,
+};
+
+/**
+ *  Payload for the `patcher-game-overlay` event: what the DLL said about the
+ *  overlay after it attached.
+ */
+export type GameOverlayPayload = {
+	outcome: OverlayOutcome,
 };
 
 /**  How far the game got, as its log says. */
@@ -2156,6 +3587,27 @@ export type GameSearchResult = {
 	unnamed: boolean,
 };
 
+/**  One chunk of a WAD archive. */
+export type GameWadEntry = {
+	/**  Chunk path hash as 16 lowercase hex digits. */
+	pathHash: string,
+	/**  Resolved chunk path, or `None` when no hashtable knows the hash. */
+	path: string | null,
+	/**  Uncompressed chunk size. */
+	sizeBytes: number,
+};
+
+/**  One WAD archive in a game install. */
+export type GameWadSummary = {
+	/**
+	 *  Path relative to `DATA/FINAL` with forward slashes, e.g.
+	 *  `Champions/Aatrox.wad.client`.
+	 */
+	name: string,
+	/**  Archive file size on disk, or 0 when it cannot be read. */
+	sizeBytes: number,
+};
+
 /**  Which way a read of GitHub failed, as the remedy it has. */
 export type GitHubErrorKind = 
 /**  GitHub was never reached. Waiting for a connection is the remedy. */
@@ -2167,6 +3619,15 @@ export type GitHubErrorKind =
 
 /**  Which of the things GitHub publishes a read was after. */
 export type GitHubFeed = "RELEASES" | "ANNOUNCEMENTS" | "NOTICES";
+
+/**  Progress of a git repository import. */
+export type GitImportProgress = {
+	stage: GitImportStage,
+	message: string | null,
+};
+
+/**  Stage of a git repository import. */
+export type GitImportStage = "downloading" | "extracting" | "complete" | "error";
 
 /**  One entry of `mClipDataMap`, of any kind of `ClipBaseData`. */
 export type GraphClip = {
@@ -2202,6 +3663,26 @@ export type GraphClip = {
 };
 
 /**
+ *  What preserving a mod's names at import found.
+ * 
+ *  Recorded on the entry rather than only logged: `unharvestable` is what
+ *  tells a mod that preserved cleanly from one that arrived already lossy,
+ *  and that distinction should outlive a log rotation.
+ */
+export type HarvestSummary = {
+	/**
+	 *  Names the archive gained on the way in. Zero means every recoverable
+	 *  name was already declared or covered by the community tables.
+	 */
+	namesAdded: number,
+	/**
+	 *  Chunks with no recoverable name: hex-named, and named by nothing the
+	 *  harvest could read.
+	 */
+	unharvestable: number,
+};
+
+/**
  *  A hash a bin names something outside the graph by, such as a submesh or a joint.
  * 
  *  The tables name a few of them. A viewport matches the hash against the names the `.skn`
@@ -2212,6 +3693,361 @@ export type HashRef = {
 	name: string,
 	/**  The hash, `0x` and eight hex digits. */
 	hash: string,
+};
+
+/**  What the shared hashtable cache currently holds. */
+export type HashtableCacheStatus = {
+	/**  Absolute cache directory. */
+	dir: string,
+	/**  Manifest generation time (RFC 3339), or `None` when the cache is empty. */
+	generatedAt: string | null,
+	/**  Present tables, in [`Table::ALL`] order. */
+	tables: HashtableStatus[],
+	/**  Ids from [`Table::ALL`] absent from the manifest. */
+	missing: string[],
+	/**
+	 *  The meta schema database a check would read.
+	 * 
+	 *  The cached copy where a sync has installed one, and the snapshot this
+	 *  build ships otherwise, so it is never absent.
+	 */
+	schema: MetaSchemaVersion,
+};
+
+/**  One present table in a [`HashtableCacheStatus`]. */
+export type HashtableStatus = {
+	/**  Stable table id, e.g. `game`. */
+	id: string,
+	/**  Active `.lhdb` filename from the manifest. */
+	file: string,
+	/**
+	 *  The release this table was published in, e.g. `2026-07-10`.
+	 * 
+	 *  Per table rather than per cache: a sync only installs what changed, so
+	 *  two tables in one cache can be of different vintages.
+	 */
+	version: string,
+	/**  Entry count recorded in the manifest. */
+	entries: number,
+	/**  On-disk size of the active file, or 0 when it cannot be read. */
+	sizeBytes: number,
+	/**  Repository this table's inputs came from, e.g. `CommunityDragon/Data`. */
+	sourceRepo: string | null,
+	/**  Commit of that repository the inputs were taken at. */
+	sourceCommit: string | null,
+};
+
+/**
+ *  Progress of a hashtable sync, as its tables stream in.
+ * 
+ *  Every figure describes the whole run rather than the table in flight, so a
+ *  reader draws one bar for the sync instead of one that restarts per file.
+ *  The tables are tens of megabytes each, so the emitter throttles rather than
+ *  sending one of these per chunk.
+ */
+export type HashtableSyncProgress = {
+	/**  Id of the table being fetched, e.g. `game`. */
+	table: string,
+	/**  Which table of the run this is, counting from 1. */
+	current: number,
+	/**  How many tables the run fetches. */
+	total: number,
+	/**  Bytes of the whole run written so far. */
+	downloaded: number,
+	/**
+	 *  Bytes the whole run will write, absent against a release that recorded
+	 *  no sizes.
+	 */
+	totalBytes: number | null,
+};
+
+/**  What a completed sync run changed. */
+export type HashtableSyncReport = {
+	/**  True when nothing needed installing. */
+	upToDate: boolean,
+	/**  Ids of the tables installed by this run. */
+	installed: string[],
+	/**  Remote table ids this build does not know. Skipped, never fatal. */
+	unknownTables: string[],
+	/**
+	 *  Ids published in a `.hashdb` format this build cannot open. Skipped, so
+	 *  the cache keeps serving what it already holds and only a newer app can
+	 *  install these.
+	 */
+	unsupportedTables: string[],
+	/**  Whether this run also installed a newer meta schema database. */
+	schemaInstalled?: boolean,
+};
+
+/**  One table the published release has a version of that this cache does not. */
+export type HashtableUpdate = {
+	/**  Stable table id, e.g. `game`. */
+	id: string,
+	/**  The version the cache holds, absent when it holds none. */
+	have: string | null,
+	/**  The version the release publishes. */
+	want: string,
+};
+
+/**  What a sync would install, asked without installing anything. */
+export type HashtableUpdateCheck = HashtableUpdateCheck_Serialize | HashtableUpdateCheck_Deserialize;
+
+/**  What a sync would install, asked without installing anything. */
+export type HashtableUpdateCheck_Deserialize = {
+	/**  True when a sync would install nothing. */
+	upToDate: boolean,
+	/**  The tables a sync would download, in manifest order. */
+	behind: HashtableUpdate[],
+	/**
+	 *  How many bytes those add up to, absent against a release that recorded
+	 *  no sizes.
+	 */
+	downloadBytes: number | null,
+	/**  Remote table ids this build does not know. A sync skips them. */
+	unknownTables: string[],
+	/**
+	 *  Ids published in a `.hashdb` format this build cannot open. Named apart
+	 *  from [`behind`](Self::behind) because syncing cannot install them, so
+	 *  counting them as pending updates would promise a fix that is not there.
+	 */
+	unsupportedTables: string[],
+	/**
+	 *  The meta schema database that is published, when it is not the cached
+	 *  one.
+	 * 
+	 *  Apart from [`behind`](Self::behind), which is tables and is drawn
+	 *  against them, but counted in [`up_to_date`](Self::up_to_date) because
+	 *  one sync covers both.
+	 */
+	schemaBehind?: MetaSchemaVersion | null,
+};
+
+/**  What a sync would install, asked without installing anything. */
+export type HashtableUpdateCheck_Serialize = {
+	/**  True when a sync would install nothing. */
+	upToDate: boolean,
+	/**  The tables a sync would download, in manifest order. */
+	behind: HashtableUpdate[],
+	/**
+	 *  How many bytes those add up to, absent against a release that recorded
+	 *  no sizes.
+	 */
+	downloadBytes: number | null,
+	/**  Remote table ids this build does not know. A sync skips them. */
+	unknownTables: string[],
+	/**
+	 *  Ids published in a `.hashdb` format this build cannot open. Named apart
+	 *  from [`behind`](Self::behind) because syncing cannot install them, so
+	 *  counting them as pending updates would promise a fix that is not there.
+	 */
+	unsupportedTables: string[],
+	/**
+	 *  The meta schema database that is published, when it is not the cached
+	 *  one.
+	 * 
+	 *  Apart from [`behind`](Self::behind), which is tables and is drawn
+	 *  against them, but counted in [`up_to_date`](Self::up_to_date) because
+	 *  one sync covers both.
+	 */
+	schemaBehind?: MetaSchemaVersion | null,
+};
+
+/**
+ *  What a check ran against, and therefore what makes an old one stale.
+ * 
+ *  Per "The basis" in docs/ux/MOD_HEALTH.md.
+ */
+export type HealthCheckBasis = HealthCheckBasis_Serialize | HealthCheckBasis_Deserialize;
+
+/**
+ *  What a check ran against, and therefore what makes an old one stale.
+ * 
+ *  Per "The basis" in docs/ux/MOD_HEALTH.md.
+ */
+export type HealthCheckBasis_Deserialize = {
+	/**  The installed game build, absent where none could be read. */
+	build: string | null,
+	/**  The manager version, which is what a migration table ships in. */
+	manager: string,
+	/**
+	 *  What the shared hashtable cache held, absent where it held nothing.
+	 * 
+	 *  The cache's own generation stamp, which moves only when a sync installs
+	 *  a table. A check taken against different tables was a claim about
+	 *  different names, so a sync makes every verdict due again without waiting
+	 *  for a game patch.
+	 */
+	tables?: string | null,
+	/**
+	 *  What the meta schema database held, absent where none was open.
+	 * 
+	 *  It decides `bin/property-type` outright, so a check taken against
+	 *  another database was a claim about other types. The database's own bytes
+	 *  rather than the stamp it carries, because the publisher restamps the
+	 *  hash tables behind it on a schedule of its own - a database that has
+	 *  gained two patches can still carry the stamp it was first published
+	 *  under.
+	 */
+	schema?: string | null,
+};
+
+/**
+ *  What a check ran against, and therefore what makes an old one stale.
+ * 
+ *  Per "The basis" in docs/ux/MOD_HEALTH.md.
+ */
+export type HealthCheckBasis_Serialize = {
+	/**  The installed game build, absent where none could be read. */
+	build: string | null,
+	/**  The manager version, which is what a migration table ships in. */
+	manager: string,
+	/**
+	 *  What the shared hashtable cache held, absent where it held nothing.
+	 * 
+	 *  The cache's own generation stamp, which moves only when a sync installs
+	 *  a table. A check taken against different tables was a claim about
+	 *  different names, so a sync makes every verdict due again without waiting
+	 *  for a game patch.
+	 */
+	tables?: string | null,
+	/**
+	 *  What the meta schema database held, absent where none was open.
+	 * 
+	 *  It decides `bin/property-type` outright, so a check taken against
+	 *  another database was a claim about other types. The database's own bytes
+	 *  rather than the stamp it carries, because the publisher restamps the
+	 *  hash tables behind it on a schedule of its own - a database that has
+	 *  gained two patches can still carry the stamp it was first published
+	 *  under.
+	 */
+	schema?: string | null,
+};
+
+/**
+ *  Whether a check can run, and what it is waiting on when it cannot.
+ * 
+ *  The precondition in [`hashtables_ready`](ModLibrary::hashtables_ready) as a
+ *  control can be drawn from: a command a user may press now, one the app is
+ *  already working towards, and one only they can clear. Per "The hashtables
+ *  come first" in docs/ux/MOD_HEALTH.md.
+ */
+export type HealthCheckReadiness = 
+/**  The tables are open, so a check runs. */
+"ready" | 
+/**  No tables yet, and a sync is on its way to fixing that. */
+"syncing" | 
+/**  No tables, and nothing fetching them but a sync the user starts. */
+"unsynced";
+
+/**
+ *  Progress of a mod health sweep, emitted per mod.
+ * 
+ *  The mod is named by id rather than by title: the library view already holds
+ *  every mod's name, and looking one up here would mean a `mod.config.json`
+ *  read per mod on top of the check itself.
+ */
+export type HealthSweepProgress = {
+	/**  Mods the sweep has finished, however they turned out. */
+	completed: number,
+	total: number,
+	/**
+	 *  The mods being read right now, by id. Several, because the sweep reads
+	 *  more than one at a time.
+	 */
+	inFlight: string[],
+};
+
+/**  What one library sweep concluded. */
+export type HealthSweepReport = HealthSweepReport_Serialize | HealthSweepReport_Deserialize;
+
+/**  What one library sweep concluded. */
+export type HealthSweepReport_Deserialize = {
+	/**  What the sweep checked against. */
+	basis: HealthCheckBasis_Deserialize,
+	/**  Mods this run recorded a fresh verdict for. */
+	checked: number,
+	/**  Checkable mods this run did not take. */
+	skipped: number,
+	/**  Every mod in the library a repair would fix, by id. */
+	repairable: string[],
+	/**  Every mod in the library with findings and no fix for any, by id. */
+	unrepairable: string[],
+};
+
+/**  What one library sweep concluded. */
+export type HealthSweepReport_Serialize = {
+	/**  What the sweep checked against. */
+	basis: HealthCheckBasis_Serialize,
+	/**  Mods this run recorded a fresh verdict for. */
+	checked: number,
+	/**  Checkable mods this run did not take. */
+	skipped: number,
+	/**  Every mod in the library a repair would fix, by id. */
+	repairable: string[],
+	/**  Every mod in the library with findings and no fix for any, by id. */
+	unrepairable: string[],
+};
+
+/**
+ *  What the library sweep has to say for itself this launch.
+ * 
+ *  The run starts with the app and can be over before a webview exists to hear
+ *  it announced, so the outcome is kept for whoever asks next rather than only
+ *  emitted — the same reason
+ *  [`LayoutMigrationState`](crate::mods::LayoutMigrationState) is kept.
+ */
+export type HealthSweepState = HealthSweepState_Serialize | HealthSweepState_Deserialize;
+
+/**
+ *  What the library sweep has to say for itself this launch.
+ * 
+ *  The run starts with the app and can be over before a webview exists to hear
+ *  it announced, so the outcome is kept for whoever asks next rather than only
+ *  emitted — the same reason
+ *  [`LayoutMigrationState`](crate::mods::LayoutMigrationState) is kept.
+ */
+export type HealthSweepState_Deserialize = 
+/**  The startup pass has not reported yet, so the answer is still coming. */
+({ status: "pending" }) & { completed?: never; report?: never; total?: never } | 
+/**
+ *  It ran and had nothing to re-check, which is every launch on the same
+ *  game build under the same manager.
+ */
+({ status: "idle" }) & { completed?: never; report?: never; total?: never } | 
+/**  It is working through the mods it owes a check. */
+({ status: "running"; completed: number; total: number }) & { report?: never } | 
+/**  It finished, and this is what the library looks like. */
+({ status: "finished"; report: HealthSweepReport_Deserialize }) & { completed?: never; total?: never };
+
+/**
+ *  What the library sweep has to say for itself this launch.
+ * 
+ *  The run starts with the app and can be over before a webview exists to hear
+ *  it announced, so the outcome is kept for whoever asks next rather than only
+ *  emitted — the same reason
+ *  [`LayoutMigrationState`](crate::mods::LayoutMigrationState) is kept.
+ */
+export type HealthSweepState_Serialize = 
+/**  The startup pass has not reported yet, so the answer is still coming. */
+({ status: "pending" }) & { completed?: never; report?: never; total?: never } | 
+/**
+ *  It ran and had nothing to re-check, which is every launch on the same
+ *  game build under the same manager.
+ */
+({ status: "idle" }) & { completed?: never; report?: never; total?: never } | 
+/**  It is working through the mods it owes a check. */
+({ status: "running"; completed: number; total: number }) & { report?: never } | 
+/**  It finished, and this is what the library looks like. */
+({ status: "finished"; report: HealthSweepReport_Serialize }) & { completed?: never; total?: never };
+
+/**  What one timed pass over the library cost. */
+export type HealthTiming = {
+	/**  Whether the pass repaired, or only checked. */
+	repaired: boolean,
+	/**  Wall-clock milliseconds for the whole pass, concurrency included. */
+	totalMs: number,
+	/**  One row per mod, slowest first. */
+	mods: ModTiming[],
 };
 
 /**  A [`BinHash`] written as `0x` and eight hex digits, which is how a user reads one. */
@@ -2237,6 +4073,9 @@ export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "che
  */
 "shader-definition";
 
+/**  The action a global hotkey triggers when pressed. */
+export type HotkeyAction = "reloadMods" | "killLeague";
+
 /**  One effect a skin wears for as long as the character stands. */
 export type IdleEffect = {
 	/**  `effectKey`, `0x` and eight hex digits. */
@@ -2251,6 +4090,16 @@ export type IdleEffect = {
 	position: [(number | null), (number | null), (number | null)],
 };
 
+/**  The `.modignore` line that keeps an entry out of a package. */
+export type IgnoreMatch = {
+	/**  The pattern as written, its trailing `/` included. */
+	pattern: string,
+	/**  The `.modignore` holding the pattern, relative to the project. */
+	source: string,
+	/**  One-based line of the pattern, null where it cannot be recovered. */
+	line: number | null,
+};
+
 /**  One `.modignore` of a project, as the editor reads it. */
 export type IgnoreRules = {
 	/**  Absolute path of the file, whether or not one exists. */
@@ -2263,6 +4112,34 @@ export type IgnoreRules = {
 	 *  Empty for anything but the root file, whose anchor the default assumes.
 	 */
 	missingRecommended: string[],
+};
+
+/**  A directory the rules leave out, along with everything under it. */
+export type IgnoredDirectory = {
+	/**  Path relative to the layer root, always POSIX-style (`/`). */
+	relativePath: string,
+	ignoredBy: IgnoreMatch,
+};
+
+/**  An entry the ignore rules kept out of a package. */
+export type IgnoredEntry = {
+	/**  Path under `content/`, forward-slashed, where a rule's own path starts. */
+	path: string,
+	/**  A directory the walk cut, which stands for everything under it. */
+	pruned: boolean,
+};
+
+/**  Arguments for importing a .fantome archive. */
+export type ImportFantomeArgs = {
+	filePath: string,
+	name: string,
+	displayName: string,
+};
+
+/**  Arguments for importing a project from a GitHub repository. */
+export type ImportGitRepoArgs = {
+	url: string,
+	branch?: string | null,
 };
 
 /**  The record the manager keeps for one game that went wrong. */
@@ -2382,6 +4259,102 @@ export type InstallMismatch = {
 	sessionPatchline: string,
 	/**  That patchline's install root. */
 	sessionPath: string,
+};
+
+/**  Progress of a bulk mod install, emitted per file. */
+export type InstallProgress = {
+	current: number,
+	total: number,
+	currentFile: string,
+};
+
+/**  A mod entry shown in the UI Library. */
+export type InstalledMod = InstalledMod_Serialize | InstalledMod_Deserialize;
+
+/**  A mod entry shown in the UI Library. */
+export type InstalledMod_Deserialize = {
+	id: string,
+	name: string,
+	displayName: string,
+	version: string,
+	description: string | null,
+	authors: string[],
+	enabled: boolean,
+	installedAt: string,
+	layers: ModLayer[],
+	tags: string[],
+	champions: string[],
+	maps: string[],
+	/**  Directory where the mod is installed */
+	modDir: string,
+	/**  The file this mod arrived as. */
+	format: ModArchiveFormat,
+	/**  Where this mod's content is read from. */
+	storage: ModStorage,
+	/**
+	 *  Whether the archive is still beside the mod, which is what makes
+	 *  [`storage`](Self::storage) switchable either way.
+	 */
+	hasArchive: boolean,
+	/**  ID of the containing folder, or None if ungrouped. */
+	folderId: string | null,
+	/**  What the mod's config declares it is licensed under, if it declares one. */
+	license?: ModLicense_Deserialize | null,
+	/**
+	 *  The mod's directory name under `mods/`.
+	 * 
+	 *  `None` while the mod is still in the legacy layout the migration has
+	 *  not moved it out of.
+	 */
+	slug?: string | null,
+	/**
+	 *  What preserving the mod's names at import found. `None` for a modpkg
+	 *  and for mods installed before the preserve existed.
+	 */
+	harvest?: HarvestSummary | null,
+};
+
+/**  A mod entry shown in the UI Library. */
+export type InstalledMod_Serialize = {
+	id: string,
+	name: string,
+	displayName: string,
+	version: string,
+	description: string | null,
+	authors: string[],
+	enabled: boolean,
+	installedAt: string,
+	layers: ModLayer[],
+	tags: string[],
+	champions: string[],
+	maps: string[],
+	/**  Directory where the mod is installed */
+	modDir: string,
+	/**  The file this mod arrived as. */
+	format: ModArchiveFormat,
+	/**  Where this mod's content is read from. */
+	storage: ModStorage,
+	/**
+	 *  Whether the archive is still beside the mod, which is what makes
+	 *  [`storage`](Self::storage) switchable either way.
+	 */
+	hasArchive: boolean,
+	/**  ID of the containing folder, or None if ungrouped. */
+	folderId: string | null,
+	/**  What the mod's config declares it is licensed under, if it declares one. */
+	license?: ModLicense_Serialize | null,
+	/**
+	 *  The mod's directory name under `mods/`.
+	 * 
+	 *  `None` while the mod is still in the legacy layout the migration has
+	 *  not moved it out of.
+	 */
+	slug?: string | null,
+	/**
+	 *  What preserving the mod's names at import found. `None` for a modpkg
+	 *  and for mods installed before the preserve existed.
+	 */
+	harvest?: HarvestSummary | null,
 };
 
 /**  The requested installation change. */
@@ -2513,8 +4486,147 @@ export type KindShape = {
 	value: PropertyKind | null,
 };
 
+/**
+ *  Whether a launch is possible right now, and why not if it isn't.
+ * 
+ *  The manager's own view of [`ritoclient::Availability`]: same answers, but
+ *  named for the one game this application is about, which is what the UI
+ *  renders against.
+ */
+export type LaunchAvailability = {
+	/**  Whether the platform supports launching and a Riot Client was resolved. */
+	canLaunch: boolean,
+	/**  The resolved `RiotClientServices.exe`, when one was found. */
+	riotClientPath: string | null,
+	/**
+	 *  Whether a Riot Client is alive, i.e. whether a launch would take the
+	 *  handoff route rather than cold-starting.
+	 */
+	riotClientRunning: boolean,
+	/**  Whether `LeagueClient.exe` is already up. */
+	leagueRunning: boolean,
+};
+
 /**  What kind of game it was, as the DLL read the command line. */
 export type LaunchKind = "match" | "replay" | "spectator" | "pbe";
+
+/**
+ *  What the library's primary button is.
+ * 
+ *  `Classic` is the behaviour from before the manager could launch anything:
+ *  the button only starts the patcher, and the game is started wherever the
+ *  user started it before. `Modern` makes it the whole path in one click -
+ *  build the overlay, start the patcher, then ask the Riot Client to start
+ *  League. Both actions stay reachable from the button's menu either way.
+ * 
+ *  Classic is the default while the launcher is experimental: it is the
+ *  behaviour every existing install already has, and it depends on nothing
+ *  outside this app.
+ */
+export type LaunchMode = "classic" | "modern";
+
+/**
+ *  The result of a successful launch request.
+ * 
+ *  "Successful" means the Riot Client took the request, not that the game is
+ *  up: the client may still be updating itself, or waiting for a login.
+ */
+export type LaunchOutcome = {
+	route: LaunchRoute,
+	/**
+	 *  Pid of the Riot Client - the one spawned on a cold start, the one from
+	 *  the lockfile otherwise.
+	 */
+	riotClientPid: number | null,
+	/**
+	 *  The session id the client minted, when it told us one.
+	 * 
+	 *  Present on every route that had one to give, [`LaunchRoute::AlreadyRunning`]
+	 *  included. It is what answers "did the game actually start?", and the
+	 *  manager follows it rather than scanning for a process name.
+	 */
+	sessionId: string | null,
+};
+
+/**  Progress of a League launch request. */
+export type LaunchProgress = {
+	stage: LaunchStage,
+	/**
+	 *  Seconds spent waiting for the client so far. Only meaningful during
+	 *  [`LaunchStage::WaitingForClient`], zero everywhere else.
+	 */
+	waitedSecs: number,
+	/**  How long that wait may run before it gives up. Zero outside the wait. */
+	timeoutSecs: number,
+};
+
+/**  How the launch request was delivered. */
+export type LaunchRoute = 
+/**  Handed to an already-running Riot Client over its remoting API. */
+"EXISTING_CLIENT" | 
+/**  Cold-started the Riot Client, then launched through it once it was up. */
+"COLD_START" | 
+/**
+ *  The game was already up and the client already had a session for it, so
+ *  no request was sent.
+ */
+"ALREADY_RUNNING" | 
+/**
+ *  The game was already up and the client did **not** know about it, so it
+ *  was handed the pid and opened a session.
+ * 
+ *  Nothing was launched. What it buys is a session id for a game the
+ *  manager did not start, which is what makes a client restarted under a
+ *  live game followable rather than a dead end.
+ */
+"ADOPTED" | 
+/**
+ *  A route this build of the manager does not know, from a newer
+ *  [`ritoclient`].
+ */
+"UNKNOWN";
+
+/**
+ *  Stage of a League launch request.
+ * 
+ *  A launch is one blocking call that can spend a minute inside a single step,
+ *  waking a tray-idle client. Without these the frontend cannot tell that wait
+ *  apart from a hang.
+ */
+export type LaunchStage = 
+/**  Locating `RiotClientServices.exe` and checking what is already running. */
+"resolving" | 
+/**  Asking a running client to launch the product. */
+"handingOff" | 
+/**  Starting a Riot Client because none was running. */
+"coldStart" | 
+/**  Nudging a client that is idling in the tray. */
+"wakingClient" | 
+/**  Waiting for that client to finish booting. */
+"waitingForClient" | 
+/**  The client accepted the request. Terminal. */
+"launched" | 
+/**  The game was already up, so nothing was launched. Terminal. */
+"alreadyRunning" | 
+/**
+ *  The user called the launch off. Terminal, and **not** a failure - a
+ *  listener must not put an error dialog behind its own Cancel button.
+ */
+"stopped" | 
+/**  The request failed. Terminal, and the error is reported separately. */
+"error" | 
+/**
+ *  A stage this build of the manager does not know, from a newer
+ *  [`ritoclient`]. Not terminal, because there is no way to tell whether it
+ *  should be.
+ */
+"unknown";
+
+/**  Which product and patchline to launch. */
+export type LaunchTarget = {
+	productId: string,
+	patchlineId: string,
+};
 
 /**
  *  Why a launch request could not be delivered.
@@ -2565,6 +4677,39 @@ export type LauncherError =
  */
 { kind: "OTHER"; message: string };
 
+/**  The files inside a single layer directory. */
+export type LayerContent = {
+	name: string,
+	fileCount: number,
+	totalSizeBytes: number,
+	entries: ContentEntry[],
+	/**  The directories a rule leaves out, which no entry of its own names. */
+	ignoredDirectories: IgnoredDirectory[],
+};
+
+/**  One file of one project layer, as [`AssetRef::Layer`](crate::preview::AssetRef::Layer) names it. */
+export type LayerFile = {
+	/**  The layer's directory name under `content`. */
+	layer: string,
+	/**  Path relative to the layer root, with forward slashes. */
+	path: string,
+};
+
+/**  Layer files of one workshop project that changed on disk. */
+export type LayerFilesChanged = {
+	/**  The project directory, spelled as the watch on it was asked for. */
+	project: string,
+	/**  Each file once, in order. */
+	files: LayerFile[],
+};
+
+export type LayerInfo = {
+	name: string,
+	priority: number,
+	description: string | null,
+	fileCount: number,
+};
+
 /**  One row of a layer file that a declaration of the project overrides. ADR-0056. */
 export type LayerOverride = {
 	/**  The layer whose `game_data.yaml` holds the declaration. */
@@ -2574,6 +4719,41 @@ export type LayerOverride = {
 	/**  The value the declaration writes, as YAML. Absent when it cannot be written as YAML. */
 	value: string | null,
 };
+
+/**
+ *  Progress of the library layout migration, emitted per mod.
+ * 
+ *  Separate from [`MigrationProgress`], which is the cslol import: the two run
+ *  at different moments, mean different things, and share nothing but the word.
+ */
+export type LayoutMigrationProgress = {
+	current: number,
+	total: number,
+	currentMod: string,
+};
+
+/**  What one migration run did. */
+export type LayoutMigrationReport = {
+	/**  How many mods reached the slug layout. */
+	migrated: number,
+	/**  The mods that did not, each naming where its files went instead. */
+	failed: FailedConversion[],
+};
+
+/**
+ *  What the layout migration has to say for itself this launch.
+ * 
+ *  The run starts with the app, so a window that opens afterwards has no
+ *  [`LayoutMigrationFinished`](crate::events::BackendEvent) event to catch. It
+ *  asks instead, and [`Pending`](Self::Pending) is what tells it to ask again.
+ */
+export type LayoutMigrationState = 
+/**  The startup pass has not reported yet, so the answer is still coming. */
+{ status: "pending" } | 
+/**  It ran and had nothing to move, which is every launch after the first. */
+{ status: "idle" } | 
+/**  It moved mods, and this is what became of them. */
+{ status: "finished"; report: LayoutMigrationReport };
 
 /**
  *  The value a leaf edit sets, in the shape its widget holds.
@@ -2597,6 +4777,32 @@ export type LeafValue =
 /**  An object path, or `0x` and eight hex digits. */
 { type: "objectLink"; text: string };
 
+/**  A named folder for grouping mods in the library. */
+export type LibraryFolder = {
+	id: string,
+	name: string,
+	modIds: string[],
+};
+
+/**  What one repair over several mods became of each of them. */
+export type LibraryRepairReport = {
+	/**  Mods a repair wrote to, by id. */
+	repaired: string[],
+	/**  Mods the rules found nothing left to apply to, by id. */
+	unchanged: string[],
+	/**  Mods that could not be repaired, and why. */
+	failed: ModRepairFailure[],
+	/**
+	 *  Mods the run was called off before it finished, by id.
+	 * 
+	 *  Neither repaired nor failed: nothing was concluded about them, and the
+	 *  next sweep picks them up.
+	 */
+	cancelled: string[],
+	/**  Findings repaired across every mod. */
+	applied: number,
+};
+
 /**  A range of a text by one-based lines and one-based character columns, the end exclusive. */
 export type LineSpan = {
 	line: number,
@@ -2611,6 +4817,40 @@ export type LinkChange =
 "added" | 
 /**  A `-links` item of a dependency of the game's list the applied one lacks. */
 "removed";
+
+/**
+ *  One library mod whose property-bins reference linked dependencies no archive
+ *  the game mounts can answer.
+ * 
+ *  The lookup is across every mounted archive rather than inside the one the
+ *  declaring bin came from, so what the check tests is presence anywhere in the
+ *  built overlay bar the archives the user blocked.
+ */
+export type LinkedBinOffenderInfo = {
+	/**  Library mod id (matches `InstalledMod.id` on the frontend). */
+	modId: string,
+	/**  Mod display name — a fallback for the UI when it can't resolve the id. */
+	displayName: string,
+	/**
+	 *  WAD targets (e.g. `Ahri.wad.client`) in this mod that contain the unresolved
+	 *  bins. May be empty when the offending bin came from a RAW override.
+	 */
+	wads: string[],
+	/**  The missing linked bin paths, deduped. */
+	missingLinks: string[],
+};
+
+/**
+ *  Payload for the `linked-bins-warning` event, emitted after a patcher start whose
+ *  single overlay build found enabled mods with unresolved linked dependencies (only
+ *  when `linked_bin_check_enabled`). Injection is non-fatal, so this never blocks the
+ *  start - it drives a non-blocking toast. The per-mod badges and the reachable
+ *  `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
+ */
+export type LinkedBinWarningPayload = {
+	/**  Number of enabled mods flagged in the latest build. */
+	count: number,
+};
 
 /**  One character a map stands in its scene. */
 export type MapCharacter = {
@@ -2662,6 +4902,21 @@ export type MapChunkItem = {
 	/**  The controller that shows and hides it, which no layer mask expresses. */
 	controller: string | null,
 };
+
+/**  A map decoration a mutator switches, which the map decorations mod can force off or on. */
+export type MapDecoration = {
+	/**  The mutator whose key switches the decoration, which the setting stores. */
+	mutator: string,
+	/**  Each map archive with a container holding it, such as `Map11.wad.client`. */
+	maps: string[],
+};
+
+/**  What a map decoration a mutator switches does, whatever mutators the game applies. */
+export type MapDecorationMode = 
+/**  Never drawn. */
+"hide" | 
+/**  Drawn in every game. */
+"show";
 
 /**  The depth of field of [`MapPostEffects`]. */
 export type MapDepthOfField = {
@@ -2778,6 +5033,15 @@ export type MapPostEffects = {
 	/**  `Dof` and its fields. */
 	depthOfField: MapDepthOfField,
 };
+
+/**  Which map skin every game shows, whatever skin the server names. */
+export type MapSkinMode = 
+/**  The skin the server names. */
+"game" | 
+/**  The map's `Default` skin. */
+"classic" | 
+/**  The skin named by `forcedMapSkin`. */
+"forced";
 
 /**
  *  A map's screen-space ambient occlusion, as its `MapSSAOSettings` states it.
@@ -2985,6 +5249,32 @@ export type MenuStatus =
 /**  Registrations changed or an operation was interrupted. */
 "changed";
 
+/**
+ *  What one meta schema database is, as the cache card names it.
+ * 
+ *  The patch rather than the generation: the publisher restamps the hash tables
+ *  on their own schedule, so a database gains patches between two stamps.
+ */
+export type MetaSchemaVersion = {
+	/**  The patch naming the newest build it describes, absent where it names none. */
+	patch: string | null,
+	/**  That build, which is as far as the database reaches. */
+	build: number,
+	/**  When the upstream hash tables behind it were read. */
+	generation: string,
+};
+
+/**  Which half of a cslol migration is running. */
+export type MigrationPhase = "packaging" | "installing";
+
+/**  Progress of a cslol migration, across both phases. */
+export type MigrationProgress = {
+	phase: MigrationPhase,
+	current: number,
+	total: number,
+	currentFile: string,
+};
+
 /**  The movement class and its written speed or duration. */
 export type MissileMovement = 
 /**  Constant speed in engine units per second. */
@@ -3010,6 +5300,248 @@ export type MissileSpec = {
 	targetHeight: number | null,
 	/**  The initial target-height offset. */
 	initialTargetHeight: number | null,
+};
+
+/**
+ *  The file a mod arrived as. Provenance only — [`ModStorage`] is what decides
+ *  how it is read.
+ */
+export type ModArchiveFormat = "modpkg" | "fantome" | 
+/**
+ *  A mod project found under `mods/` that nothing here installed, so no
+ *  archive it came from is known.
+ * 
+ *  Every match on this enum groups it with [`Fantome`](Self::Fantome),
+ *  which is the only other format with an unpacked form to read.
+ */
+"unknown";
+
+/**
+ *  One of a mod's text documents, or why there is none to show.
+ * 
+ *  An absent document and a document that could not be read are two facts. The
+ *  second says the mod's archive is not answering, which is a mod that may not
+ *  work at all, and reporting it as a mod whose author wrote nothing is a
+ *  silent lie about something the reader has installed.
+ */
+export type ModDocument = 
+/**  The document, as the mod's author wrote it. */
+{ state: "present"; text: string } | 
+/**  The mod carries no such document. */
+{ state: "absent" } | 
+/**  The archive that would hold it did not answer. */
+{ state: "unreadable"; reason: string };
+
+/**  The one word a mod's badge says. */
+export type ModHealth = 
+/**
+ *  Nothing a live rule calls wrong.
+ * 
+ *  Findings at [`ProblemSeverity::Info`](problems::ProblemSeverity::Info) land here too.
+ *  They are worth knowing and say nothing is wrong, so a mod holding only
+ *  those is not one the library has to report.
+ */
+"healthy" | 
+/**  At least one finding a repair can fix. */
+"repairable" | 
+/**  Findings, and no fix for any of them. */
+"unrepairable";
+
+/**  What one check concluded, summarized for a mod user. */
+export type ModHealthVerdict = ModHealthVerdict_Serialize | ModHealthVerdict_Deserialize;
+
+/**  What one check concluded, summarized for a mod user. */
+export type ModHealthVerdict_Deserialize = {
+	modId: string,
+	health: ModHealth,
+	/**  How many findings a repair would fix. */
+	fixable: number,
+	/**  Every live finding by severity, fixable or not. */
+	counts: Counts,
+	/**
+	 *  The counts by rule, for a row a reader folds open.
+	 * 
+	 *  Defaulted for a verdict recorded before the field existed, which reads
+	 *  as a row with nothing to unfold until its next check.
+	 */
+	rules?: RuleBrief_Deserialize[],
+	/**  ISO-8601 timestamp the check ran. */
+	checkedAt: string,
+	/**  What the check was a claim about, for the sweep to compare against. */
+	basis?: HealthCheckBasis_Deserialize,
+};
+
+/**  What one check concluded, summarized for a mod user. */
+export type ModHealthVerdict_Serialize = {
+	modId: string,
+	health: ModHealth,
+	/**  How many findings a repair would fix. */
+	fixable: number,
+	/**  Every live finding by severity, fixable or not. */
+	counts: Counts,
+	/**
+	 *  The counts by rule, for a row a reader folds open.
+	 * 
+	 *  Defaulted for a verdict recorded before the field existed, which reads
+	 *  as a row with nothing to unfold until its next check.
+	 */
+	rules?: RuleBrief_Serialize[],
+	/**  ISO-8601 timestamp the check ran. */
+	checkedAt: string,
+	/**  What the check was a claim about, for the sweep to compare against. */
+	basis: HealthCheckBasis_Serialize,
+};
+
+/**  A mod layer shown in the UI. */
+export type ModLayer = {
+	name: string,
+	displayName?: string,
+	priority: number,
+	enabled: boolean,
+};
+
+/**
+ *  What a mod says it is licensed under.
+ * 
+ *  The name alone, which every mod's config already carries. A license's text
+ *  reaches disk for neither format and costs one archive mount, so it is read
+ *  where a reader asks to see it rather than beside every card.
+ */
+export type ModLicense = ModLicense_Serialize | ModLicense_Deserialize;
+
+/**
+ *  What a mod says it is licensed under.
+ * 
+ *  The name alone, which every mod's config already carries. A license's text
+ *  reaches disk for neither format and costs one archive mount, so it is read
+ *  where a reader asks to see it rather than beside every card.
+ */
+export type ModLicense_Deserialize = {
+	/**  An SPDX id, or the name a custom license gives itself. */
+	name: string,
+	/**  Where the full terms are, for a license that points anywhere. */
+	url?: string | null,
+};
+
+/**
+ *  What a mod says it is licensed under.
+ * 
+ *  The name alone, which every mod's config already carries. A license's text
+ *  reaches disk for neither format and costs one archive mount, so it is read
+ *  where a reader asks to see it rather than beside every card.
+ */
+export type ModLicense_Serialize = {
+	/**  An SPDX id, or the name a custom license gives itself. */
+	name: string,
+	/**  Where the full terms are, for a license that points anywhere. */
+	url?: string | null,
+};
+
+/**  One mod a repair could not finish, and what stopped it. */
+export type ModRepairFailure = {
+	modId: string,
+	error: string,
+};
+
+/**
+ *  Progress of a repair over several mods, emitted per mod.
+ * 
+ *  Its own payload rather than [`HealthSweepProgress`] reused: the two run at
+ *  different moments and a surface drawing one must not be driven by the other.
+ */
+export type ModRepairProgress = {
+	/**  Mods the run has finished, however they turned out. */
+	completed: number,
+	total: number,
+	/**
+	 *  The mods being repaired right now, by id. Several, because a repair
+	 *  works on more than one at a time.
+	 */
+	inFlight: string[],
+};
+
+/**
+ *  Where a mod's content is, which is what picks its content provider.
+ * 
+ *  Recorded rather than derived: a fantome installs as
+ *  [`Archive`](Self::Archive) but the user can unpack it after the fact, and a
+ *  future sanitized-fantome mode would be another value here rather than
+ *  another guess from the layout.
+ */
+export type ModStorage = 
+/**  An unpacked mod project: `mod.config.json` plus a `content/` tree. */
+"project" | 
+/**  Inside the mod's archive, which the provider reads without unpacking. */
+"archive";
+
+/**
+ *  Progress of one mod moving between the two storage modes.
+ * 
+ *  Its own event though an unpack is a fantome import, because the workshop's
+ *  import dialog listens on `fantome-import-progress` and a library conversion
+ *  must not drive it. The stage is shared, since the two report the same four
+ *  states.
+ */
+export type ModStorageProgress = {
+	modId: string,
+	/**  The storage the mod is moving to, which is what names the work. */
+	storage: ModStorage,
+	stage: FantomeImportStage,
+	/**  As [`FantomeImportProgress::current_item`]. */
+	currentItem: string | null,
+	current: number,
+	total: number,
+};
+
+/**  What one mod of a timed pass cost. */
+export type ModTiming = {
+	/**  The slug, because a uuid is a name nobody can map back to a mod. */
+	slug: string,
+	millis: number,
+	/**  What the pass concluded, or why it could not. */
+	outcome: string,
+};
+
+/**
+ *  Per-mod WAD footprint summary sent across the IPC boundary.
+ * 
+ *  Mirrors `ltk_overlay::ModWadReport` but adds the `is_stale` flag derived
+ *  at read time.
+ */
+export type ModWadReport = {
+	modId: string,
+	affectedWads: string[],
+	wadCount: number,
+	overrideCount: number,
+	contentFingerprint: number | null,
+	gameIndexFingerprint: number,
+	/**  ISO-8601 timestamp the report was computed. */
+	computedAt: string,
+	/**
+	 *  `true` when the cached report's fingerprints no longer match the
+	 *  current values; computed on read, never persisted.
+	 */
+	isStale?: boolean,
+	/**
+	 *  Champions / maps / tags derived from the mod's contents. Computed at
+	 *  analysis time — precisely from a modpkg's chunk paths when available,
+	 *  otherwise coarsely from `affected_wads` — and persisted so reads don't
+	 *  re-open the archive. Improving the classifier takes effect on the next
+	 *  analysis (e.g. reinstall or "Analyze uncategorized").
+	 */
+	derived?: DerivedCategorization,
+};
+
+/**  Information returned by `inspect_modpkg`. */
+export type ModpkgInfo = {
+	name: string,
+	displayName: string,
+	version: string,
+	description: string | null,
+	authors: string[],
+	layers: LayerInfo[],
+	fileCount: number,
+	totalSize: number,
 };
 
 /**
@@ -3107,6 +5639,84 @@ field: string } |
 field: string; shape: KindShape; 
 /**  The class an embed holds, as a name or `0x` and eight hex digits. */
 class: string | null };
+
+/**
+ *  One node of one bin: which object, and where inside it.
+ * 
+ *  This is the game's own property path, which is what a `PTCH` record carries
+ *  and what Riot's tools address a property with. A path begins inside an
+ *  object and never names it, which is why the entry hash sits beside it.
+ */
+export type NodeAddress = NodeAddress_Serialize | NodeAddress_Deserialize;
+
+/**
+ *  One node of one bin: which object, and where inside it.
+ * 
+ *  This is the game's own property path, which is what a `PTCH` record carries
+ *  and what Riot's tools address a property with. A path begins inside an
+ *  object and never names it, which is why the entry hash sits beside it.
+ */
+export type NodeAddress_Deserialize = {
+	/**  The object's path hash, which the file addresses it by. */
+	entry: string,
+	/**
+	 *  The property path, empty for the object itself.
+	 * 
+	 *  Every segment is a hash, which is what the file itself holds. A repair
+	 *  matches on this, so what the hash tables can or cannot name never
+	 *  changes what a fix reaches.
+	 */
+	path: string,
+	/**
+	 *  The same path for reading, where a table named anything in it.
+	 * 
+	 *  Absent when no segment could be named, which is when it would read the
+	 *  same as `path`.
+	 */
+	label?: string | null,
+};
+
+/**
+ *  One node of one bin: which object, and where inside it.
+ * 
+ *  This is the game's own property path, which is what a `PTCH` record carries
+ *  and what Riot's tools address a property with. A path begins inside an
+ *  object and never names it, which is why the entry hash sits beside it.
+ */
+export type NodeAddress_Serialize = {
+	/**  The object's path hash, which the file addresses it by. */
+	entry: string,
+	/**
+	 *  The property path, empty for the object itself.
+	 * 
+	 *  Every segment is a hash, which is what the file itself holds. A repair
+	 *  matches on this, so what the hash tables can or cannot name never
+	 *  changes what a fix reaches.
+	 */
+	path: string,
+	/**
+	 *  The same path for reading, where a table named anything in it.
+	 * 
+	 *  Absent when no segment could be named, which is when it would read the
+	 *  same as `path`.
+	 */
+	label?: string | null,
+};
+
+/**  One notice that concerns the running build, and has not expired. */
+export type Notice = {
+	/**  Stable across edits, which is what a dismissal is kept by. */
+	id: string,
+	severity: NoticeSeverity,
+	title: string,
+	/**  Where "What to do" opens, when the notice has somewhere to send a reader. */
+	url: string | null,
+	/**  RFC 3339. */
+	publishedAt: string,
+};
+
+/**  How loudly a notice is drawn. */
+export type NoticeSeverity = "info" | "warning" | "danger";
 
 /**  Whether a declaration creates an object or removes one. */
 export type ObjectChange = 
@@ -3222,6 +5832,52 @@ export type ObjectIndexStatus =
 /**  The index answered. */
 { status: "ready" };
 
+/**
+ *  The path of one bin object, for the hashes a run's problems sit under.
+ * 
+ *  A catalogue rather than a field on [`NodeAddress`], for the reason
+ *  [`RuleInfo`] is one: a file's problems repeat a handful of objects between
+ *  them, and an object's path is the same string every time it is named.
+ * 
+ *  Only the objects a table could name are listed. An object with no entry here
+ *  is read as the hex of its hash, which is what the file itself holds.
+ */
+export type ObjectInfo = ObjectInfo_Serialize | ObjectInfo_Deserialize;
+
+/**
+ *  The path of one bin object, for the hashes a run's problems sit under.
+ * 
+ *  A catalogue rather than a field on [`NodeAddress`], for the reason
+ *  [`RuleInfo`] is one: a file's problems repeat a handful of objects between
+ *  them, and an object's path is the same string every time it is named.
+ * 
+ *  Only the objects a table could name are listed. An object with no entry here
+ *  is read as the hex of its hash, which is what the file itself holds.
+ */
+export type ObjectInfo_Deserialize = {
+	/**  The object's path hash, matching [`NodeAddress::entry`]. */
+	entry: string,
+	/**  The path the hash is of, such as `Characters/Graves/Skins/Skin0`. */
+	name: string,
+};
+
+/**
+ *  The path of one bin object, for the hashes a run's problems sit under.
+ * 
+ *  A catalogue rather than a field on [`NodeAddress`], for the reason
+ *  [`RuleInfo`] is one: a file's problems repeat a handful of objects between
+ *  them, and an object's path is the same string every time it is named.
+ * 
+ *  Only the objects a table could name are listed. An object with no entry here
+ *  is read as the hex of its hash, which is what the file itself holds.
+ */
+export type ObjectInfo_Serialize = {
+	/**  The object's path hash, matching [`NodeAddress::entry`]. */
+	entry: string,
+	/**  The path the hash is of, such as `Characters/Graves/Skins/Skin0`. */
+	name: string,
+};
+
 /**  One object by hash, and by path where a table names it. */
 export type ObjectName = {
 	/**  The object's path hash, `0x` and eight hex digits. */
@@ -3326,6 +5982,9 @@ export type ObjectSearchResult = {
 /**  Why an object edit does not apply, as `ltk_game_data` names it. */
 export type ObjectSkip = "objectExists" | "sourceMissing" | "unknownClass" | "removalUnmatched" | "unknown";
 
+/**  The page the window opens on. */
+export type OpenOn = "home" | "mods" | "workshop";
+
 /**  An opened folder as the frontend lists it, whether or not it is still on disk. */
 export type OpenedProjectFolder = {
 	/**  The id the project's route names it by. */
@@ -3380,6 +6039,35 @@ export type OverlayOutcome =
 "hook-failed" | 
 /**  The DLL never attached, or said nothing. */
 "none";
+
+/**  Progress of an overlay build. */
+export type OverlayProgress = {
+	stage: OverlayStage,
+	currentFile: string | null,
+	current: number,
+	total: number,
+};
+
+/**  Stage of an overlay build. */
+export type OverlayStage = "indexing" | "collecting" | "patching" | "strings" | "complete";
+
+export type PackFormat = "modpkg" | "fantome";
+
+/**  Arguments for packing a project. */
+export type PackProjectArgs = {
+	projectPath: string,
+	outputDir?: string | null,
+	format: PackFormat,
+};
+
+/**  Result of a successful pack operation. */
+export type PackResult = {
+	outputPath: string,
+	fileName: string,
+	format: string,
+	/**  What the ignore rules left out, in the packer's traversal order. */
+	ignored: IgnoredEntry[],
+};
 
 /**  A game page the project rebuilds: where it goes and the sprites pasted over it. */
 export type PagePatch = {
@@ -3530,6 +6218,21 @@ export type PatcherBinaries_Serialize = {
 	matchesBundle?: boolean | null,
 };
 
+/**  Configuration for starting the patcher. */
+export type PatcherConfig = {
+	/**  Optional hook flags bitmask forwarded to the injection host */
+	flags?: number | null,
+	/**
+	 *  Absolute paths to workshop project directories to include in the overlay.
+	 * 
+	 *  These are loaded directly from disk via `FsModContent` and prepended to
+	 *  the enabled mod list (highest priority).
+	 */
+	workshopProjects?: string[] | null,
+	/**  Build the overlay from scratch rather than reuse the last build. */
+	forceRebuild?: boolean | null,
+};
+
 /**
  *  Domain errors specific to the patcher.
  * 
@@ -3557,6 +6260,31 @@ export type PatcherError =
  */
 { kind: "INJECTION_FAILED"; stage: InjectionStage; message: string };
 
+/**  Current phase of the patcher lifecycle. */
+export type PatcherPhase = "idle" | "building" | "patching";
+
+/**  A patching session, from the moment it is asked for until the thread exits. */
+export type PatcherSession = {
+	/**  What the session was started for. */
+	origin: SessionOrigin,
+	/**
+	 *  The overlay root the session patches against, with a trailing separator.
+	 * 
+	 *  `None` until the build phase produces one.
+	 */
+	overlayPrefix: string | null,
+};
+
+/**  Current status of the patcher. */
+export type PatcherStatus = {
+	/**  Whether the patcher is currently running. */
+	running: boolean,
+	/**  Current phase of the patcher lifecycle. */
+	phase: PatcherPhase,
+	/**  The session in flight. `null` while idle. */
+	session: PatcherSession | null,
+};
+
 /**  A release newer than the running build. */
 export type PendingUpdate = {
 	/**  The release on offer. */
@@ -3566,6 +6294,87 @@ export type PendingUpdate = {
 	/**  The release notes, in markdown. */
 	body: string | null,
 };
+
+export type PlatformSupport = {
+	os: string,
+	patcherAvailable: boolean,
+	hotkeysAvailable: boolean,
+};
+
+/**  One finding, at one site, from one rule. */
+export type Problem = Problem_Serialize | Problem_Deserialize;
+
+/**
+ *  One finding, at one site, from one rule.
+ * 
+ *  The id is derived from the rule and the site, so the same problem carries
+ *  the same id in two runs and a panel's selection survives a re-run.
+ */
+export type ProblemId = string;
+
+/**  How much a problem costs the mod. */
+export type ProblemSeverity = 
+/**  The game crashes on this. */
+"fatal" | 
+/**  The game rejects this. The mod does not work. */
+"error" | 
+/**  The game accepts this, and something is still wrong. */
+"warning" | 
+/**  Worth knowing, and nothing is wrong. */
+"info";
+
+/**  One finding, at one site, from one rule. */
+export type Problem_Deserialize = {
+	/**  Stable within a run, so the panel keys a row by it. */
+	id: ProblemId,
+	rule: RuleId,
+	severity: ProblemSeverity,
+	site: Site_Deserialize,
+	/**  The types this problem is about, where the rule is about types. */
+	mismatch?: TypeMismatch | null,
+	/**  What this one problem needs said beyond [`RuleInfo::description`]. */
+	message?: string | null,
+	/**  What a repair would change, drawn before it is applied. */
+	fix: FixPreview_Deserialize | null,
+};
+
+/**  One finding, at one site, from one rule. */
+export type Problem_Serialize = {
+	/**  Stable within a run, so the panel keys a row by it. */
+	id: ProblemId,
+	rule: RuleId,
+	severity: ProblemSeverity,
+	site: Site_Serialize,
+	/**  The types this problem is about, where the rule is about types. */
+	mismatch?: TypeMismatch | null,
+	/**  What this one problem needs said beyond [`RuleInfo::description`]. */
+	message?: string | null,
+	/**  What a repair would change, drawn before it is applied. */
+	fix: FixPreview_Serialize | null,
+};
+
+/**  A mod profile for organizing different mod configurations. */
+export type Profile = {
+	/**  Unique identifier (UUID) */
+	id: string,
+	/**  User-friendly name */
+	name: string,
+	/**  Slugified name used as the filesystem directory name */
+	slug?: ProfileSlug,
+	/**  List of mod IDs enabled in this profile (maintains overlay priority order) */
+	enabledMods: string[],
+	/**  Display order of all mods (enabled and disabled) in the UI */
+	modOrder: string[],
+	/**  Per-mod layer enabled/disabled states: mod_id → (layer_name → enabled). */
+	layerStates?: { [key in string]: { [key in string]: boolean } },
+	/**  Creation timestamp */
+	createdAt: string,
+	/**  Last time this profile was used/switched to */
+	lastUsed: string,
+};
+
+/**  Slugified profile name used as the filesystem directory name. */
+export type ProfileSlug = string;
 
 /**  What the studio adds to a pass's define list. */
 export type ProgramOptions = {
@@ -3644,6 +6453,17 @@ export type PropertyEdit = {
  */
 export type PropertyKind = "none" | "bool" | "i8" | "u8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" | "f32" | "vec2" | "vec3" | "vec4" | "mtx44" | "rgba" | "string" | "hash" | "file" | "list" | "list2" | "pointer" | "embed" | "link" | "option" | "map" | "flag";
 
+/**  Progress payload emitted during protocol install download. */
+export type ProtocolInstallProgress = {
+	stage: ProtocolInstallStage,
+	bytesDownloaded: number,
+	totalBytes: number | null,
+	error: string | null,
+};
+
+/**  Where a protocol install has got to. */
+export type ProtocolInstallStage = "downloading" | "validating" | "complete" | "error";
+
 /**  Why a document takes no edit. "Where editing is allowed" in docs/ux/BIN_EDITOR.md. */
 export type ReadOnly = 
 /**  A file outside every project. */
@@ -3720,6 +6540,36 @@ export type ReferenceResult = {
 	superseded: boolean,
 	/**  The walk was cancelled before it read every bin. The groups are what it found. */
 	cancelled: boolean,
+};
+
+/**  How far one walk has read. */
+export type ReferenceWalkProgress = {
+	/**  Bins read, or passed over because they would not read. */
+	walked: number,
+	/**  Bins the walk reads in all: the project's layers and the install's. */
+	total: number,
+	/**  References found so far, past any cap. */
+	hits: number,
+};
+
+/**  One published release, as the changelog reads it. */
+export type ReleaseNote = {
+	/**  The tag without its leading `v`. */
+	version: string,
+	tag: string,
+	body: string,
+	/**  RFC 3339, as GitHub publishes it. */
+	publishedAt: string | null,
+	prerelease: boolean,
+	/**  The release's page on GitHub. */
+	url: string,
+};
+
+/**  A page of the release feed, and where the next one starts. */
+export type ReleasePage = {
+	releases: ReleaseNote[],
+	/**  `None` once the feed has no page after this one. */
+	nextPage: number | null,
 };
 
 /**  How a pass's fragments reach the target, from the first pass's own fields. */
@@ -3831,6 +6681,232 @@ export type RowNode =
 /**  One patch record of a `PTCH`. */
 "record";
 
+/**
+ *  One rule's live findings, folded to what a mod user reads.
+ * 
+ *  A rule title and its counts, never a site or a property path - that is the
+ *  modder's half, and it lives in the Problems panel.
+ */
+export type RuleBrief = RuleBrief_Serialize | RuleBrief_Deserialize;
+
+/**
+ *  One rule's live findings, folded to what a mod user reads.
+ * 
+ *  A rule title and its counts, never a site or a property path - that is the
+ *  modder's half, and it lives in the Problems panel.
+ */
+export type RuleBrief_Deserialize = {
+	/**  The rule's stable id, which the row quotes as a chip. */
+	rule: string,
+	/**  A few words naming the state the rule objects to. */
+	title: string,
+	/**
+	 *  One sentence saying what that state is, which is the cause a reader
+	 *  gets - sites and property paths stay in the Problems panel.
+	 */
+	description: string,
+	/**
+	 *  The worst this rule found here.
+	 * 
+	 *  Folded per problem rather than taken from the rule, since one rule can
+	 *  report the same state at two severities - see
+	 *  [`Rule::severity`](problems::Rule::severity).
+	 */
+	severity: ProblemSeverity,
+	/**  Live findings from this rule. */
+	count: number,
+	/**  How many of them a repair would fix. */
+	fixable: number,
+	/**
+	 *  The type pairs the findings disagree on, distinct and in first-seen
+	 *  order. Where a rule reports types, `Expected File, found Hash` is the
+	 *  actual problem, and the row draws it in place of the description.
+	 */
+	mismatches?: TypeMismatch[],
+	/**  Why the rest stay unrepaired, present only when some do. */
+	unfixable?: string | null,
+};
+
+/**
+ *  One rule's live findings, folded to what a mod user reads.
+ * 
+ *  A rule title and its counts, never a site or a property path - that is the
+ *  modder's half, and it lives in the Problems panel.
+ */
+export type RuleBrief_Serialize = {
+	/**  The rule's stable id, which the row quotes as a chip. */
+	rule: string,
+	/**  A few words naming the state the rule objects to. */
+	title: string,
+	/**
+	 *  One sentence saying what that state is, which is the cause a reader
+	 *  gets - sites and property paths stay in the Problems panel.
+	 */
+	description: string,
+	/**
+	 *  The worst this rule found here.
+	 * 
+	 *  Folded per problem rather than taken from the rule, since one rule can
+	 *  report the same state at two severities - see
+	 *  [`Rule::severity`](problems::Rule::severity).
+	 */
+	severity: ProblemSeverity,
+	/**  Live findings from this rule. */
+	count: number,
+	/**  How many of them a repair would fix. */
+	fixable: number,
+	/**
+	 *  The type pairs the findings disagree on, distinct and in first-seen
+	 *  order. Where a rule reports types, `Expected File, found Hash` is the
+	 *  actual problem, and the row draws it in place of the description.
+	 */
+	mismatches?: TypeMismatch[],
+	/**  Why the rest stay unrepaired, present only when some do. */
+	unfixable?: string | null,
+};
+
+/**  A rule that could not finish, and why. */
+export type RuleFailure = RuleFailure_Serialize | RuleFailure_Deserialize;
+
+/**  A rule that could not finish, and why. */
+export type RuleFailure_Deserialize = {
+	rule: RuleId,
+	/**  The file the rule stopped on, where one file is to blame. */
+	site: Site_Deserialize | null,
+	message: string,
+};
+
+/**  A rule that could not finish, and why. */
+export type RuleFailure_Serialize = {
+	rule: RuleId,
+	/**  The file the rule stopped on, where one file is to blame. */
+	site: Site_Serialize | null,
+	message: string,
+};
+
+/**
+ *  The stable id a user reads, such as `bin/property-type`.
+ * 
+ *  The first part names what the rule reads and the second names the state it
+ *  objects to. It is on every row, because an id is what a user pastes into a
+ *  search when they want to know more.
+ */
+export type RuleId = string;
+
+/**
+ *  What one check is, apart from anything it found.
+ * 
+ *  Sent once per run rather than copied onto every row: a project can hold
+ *  thousands of problems and the words describing the check are the same on
+ *  each of them.
+ */
+export type RuleInfo = RuleInfo_Serialize | RuleInfo_Deserialize;
+
+/**
+ *  What one check is, apart from anything it found.
+ * 
+ *  Sent once per run rather than copied onto every row: a project can hold
+ *  thousands of problems and the words describing the check are the same on
+ *  each of them.
+ */
+export type RuleInfo_Deserialize = {
+	id: RuleId,
+	/**  A few words naming the state the rule objects to. */
+	title: string,
+	/**  One sentence saying what that state is. */
+	description: string,
+	/**  Why some of this rule's findings stay unrepaired, or empty where none do. */
+	unfixable?: string,
+	/**
+	 *  The severity every finding of this rule carries - see
+	 *  [`Rule::severity`].
+	 */
+	severity?: ProblemSeverity | null,
+	/**  Whether this project is one the rule speaks about yet. */
+	state: RuleState,
+};
+
+/**
+ *  What one check is, apart from anything it found.
+ * 
+ *  Sent once per run rather than copied onto every row: a project can hold
+ *  thousands of problems and the words describing the check are the same on
+ *  each of them.
+ */
+export type RuleInfo_Serialize = {
+	id: RuleId,
+	/**  A few words naming the state the rule objects to. */
+	title: string,
+	/**  One sentence saying what that state is. */
+	description: string,
+	/**  Why some of this rule's findings stay unrepaired, or empty where none do. */
+	unfixable?: string,
+	/**
+	 *  The severity every finding of this rule carries - see
+	 *  [`Rule::severity`].
+	 */
+	severity?: ProblemSeverity | null,
+	/**  Whether this project is one the rule speaks about yet. */
+	state: RuleState,
+};
+
+/**
+ *  Whether a rule speaks about a project, and what it waits for if not.
+ * 
+ *  A check about a change the installed game has not taken still runs, because
+ *  a modder wants to see what is coming. What it does not do is claim the mod
+ *  is broken today: the panel draws those findings muted and leaves them out
+ *  of the count in the project bar, and this is what tells it which they are.
+ * 
+ *  A rule that compares the mod against the installed game and finds no install
+ *  to compare with reports the same way, and reports nothing at all. A rule that
+ *  said nothing without saying why would read as a rule that found nothing.
+ */
+export type RuleState = 
+/**  The project is one this rule has everything to say about. */
+{ kind: "active" } | 
+/**
+ *  Some or all of what the rule checks waits for the machine.
+ * 
+ *  A newer game build, or an install to read at all. Either way the rule
+ *  has run and has nothing to say, which reads exactly like a clean project
+ *  unless the panel is told which it is.
+ */
+{ kind: "dormant"; 
+/**  A few words a control can hold, such as `Patch 16.17`. */
+waiting: string; 
+/**  One sentence a reader who has not met this check can act on. */
+reason: string };
+
+/**  One pass of every rule over one project. */
+export type Run = Run_Serialize | Run_Deserialize;
+
+/**  One pass of every rule over one project. */
+export type Run_Deserialize = {
+	/**  When the run read the files. */
+	at: string,
+	/**  Every check that ran, whether or not it found anything. */
+	rules: RuleInfo_Deserialize[],
+	/**  The name of every object a problem sits in, where a table holds one. */
+	objects: ObjectInfo_Deserialize[],
+	problems: Problem_Deserialize[],
+	/**  A rule that could not finish, and why. A run never fails as a whole. */
+	failed: RuleFailure_Deserialize[],
+};
+
+/**  One pass of every rule over one project. */
+export type Run_Serialize = {
+	/**  When the run read the files. */
+	at: string,
+	/**  Every check that ran, whether or not it found anything. */
+	rules: RuleInfo_Serialize[],
+	/**  The name of every object a problem sits in, where a table holds one. */
+	objects: ObjectInfo_Serialize[],
+	problems: Problem_Serialize[],
+	/**  A rule that could not finish, and why. A run never fails as a whole. */
+	failed: RuleFailure_Serialize[],
+};
+
 /**  A static switch the shader reads as a `$Globals` float rather than a define. */
 export type RuntimeSwitch = {
 	/**  The switch's name, without the `switch_` the member carries. */
@@ -3875,6 +6951,18 @@ project: string } |
 project: string; 
 /**  The layer's name. */
 layer: string };
+
+/**  Arguments for saving project configuration changes. */
+export type SaveProjectConfigArgs = {
+	projectPath: string,
+	displayName: string,
+	version: string,
+	description: string,
+	authors: WorkshopAuthor[],
+	tags: string[],
+	champions: string[],
+	maps: string[],
+};
 
 /**  Which scan the DLL ran, as it decided from the flags and the command line. */
 export type ScanMode = "eager" | "lazy";
@@ -3956,6 +7044,31 @@ export type SearchPreference = {
 	archive: string | null,
 };
 
+/**
+ *  A watched session's phase moved.
+ * 
+ *  What the match is doing, and nothing about whether League is up - that
+ *  arrives as [`SessionGameRunning`].
+ */
+export type SessionChanged = {
+	/**  The Riot Client's own spelling for the phase it moved to. */
+	phase: string,
+};
+
+/**
+ *  A watched session ended.
+ * 
+ *  Both fields are absent when the Riot Client exited and took the session
+ *  record with it while the game also stopped. That is a real ending with
+ *  nothing to say about why, and the frontend must not word it as a crash.
+ */
+export type SessionEnded = {
+	/**  The game's exit code, as the client recorded it. */
+	exitCode: number | null,
+	/**  The client's own termination reason, e.g. `Exit` or `Timeout`. */
+	exitReason: string | null,
+};
+
 /**  A session that failed before any game ran. */
 export type SessionFailure = 
 /**
@@ -3979,6 +7092,18 @@ export type SessionFailure =
 	message: string,
 } }) & { build?: never };
 
+/**
+ *  The game appeared, or went away, during a live session.
+ * 
+ *  The event the status bar and the patcher care about. It arrives on a change
+ *  only - the reading at the moment the session opened rides on
+ *  [`SessionStarted::running`] instead.
+ */
+export type SessionGameRunning = {
+	/**  Whether `LeagueClient.exe` is up. */
+	running: boolean,
+};
+
 /**  What a patching session was started for, and what it covers. */
 export type SessionOrigin = 
 /**  The library's enabled mods. */
@@ -3987,6 +7112,237 @@ export type SessionOrigin =
 { kind: "workshop"; 
 /**  Absolute paths to the project directories under test. */
 projects: string[] };
+
+/**
+ *  The Riot Client opened a session, at the phase it opened in.
+ * 
+ *  The first thing a watched session reports, and the point at which the
+ *  manager knows a launch produced something rather than merely being accepted.
+ */
+export type SessionStarted = {
+	/**
+	 *  The Riot Client's own spelling, e.g. `Pending` or `Gameplay`. Passed
+	 *  through rather than mapped: a phase this build does not know is still
+	 *  worth showing, and a label invented for it would not be.
+	 * 
+	 *  Read it as what the *match* is doing. It is not the test for whether
+	 *  League is up - see [`SessionStarted::running`].
+	 */
+	phase: string,
+	/**
+	 *  Whether `LeagueClient.exe` is up.
+	 * 
+	 *  The fact the manager acts on, because it is when mods reach a game. The
+	 *  phase does not answer it: a player sitting in the client reports phase
+	 *  `None` with the process very much alive.
+	 * 
+	 *  False for the ordinary launch, where the client mints the session a few
+	 *  seconds before the process appears, and true for a session adopted or
+	 *  recovered under a game that was already running.
+	 */
+	running: boolean,
+	/**
+	 *  The content release the session is running, e.g. `24C2E5A086AFFB82` -
+	 *  the client's own `version` field, which is a release id rather than the
+	 *  patch number a player would recognise.
+	 */
+	version: string,
+};
+
+/**
+ *  Application settings: UI/shell preferences plus the flattened core
+ *  [`Config`]. The flatten keeps `settings.json` a single document, so the
+ *  split is invisible to both the file on disk and the frontend.
+ */
+export type Settings = Settings_Serialize | Settings_Deserialize;
+
+/**
+ *  Application settings: UI/shell preferences plus the flattened core
+ *  [`Config`]. The flatten keeps `settings.json` a single document, so the
+ *  split is invisible to both the file on disk and the frontend.
+ */
+export type Settings_Deserialize = {
+	firstRunComplete: boolean,
+	/**  Application theme (system, dark, or light). */
+	theme: Theme,
+	/**  Accent color configuration. */
+	accentColor: AccentColor,
+	/**  Optional backdrop image path for glassmorphism effect. */
+	backdropImage: string | null,
+	/**  Backdrop blur amount in pixels (default: 40). */
+	backdropBlur: number | null,
+	/**  Library view mode ("grid" or "list"). Defaults to "grid". */
+	libraryViewMode: string | null,
+	/**  Whether to minimize to system tray instead of taskbar. Default: true. */
+	minimizeToTray?: boolean,
+	/**  Whether to start the application minimized to the system tray. Default: false. */
+	startInTray?: boolean,
+	/**  Whether to register the app to launch automatically on login. Default: false. */
+	autoRun?: boolean,
+	/**  When starting in tray, show the window if an update is available. Default: false. */
+	startInTrayUnlessUpdate?: boolean,
+	/**  Whether a release downloads as soon as a check finds it, to install at quit. Default: true. */
+	autoDownloadUpdates?: boolean,
+	/**  Always start the patcher automatically on launch. Default: false. */
+	alwaysStartPatcher?: boolean,
+	/**
+	 *  The page the window opens on. Default: [`OpenOn::Home`], so a file
+	 *  written before the page existed opens on it too.
+	 */
+	openOn?: OpenOn,
+	/**
+	 *  What the library's primary button does. Default: [`LaunchMode::Classic`],
+	 *  so an install that predates the launcher keeps the button it had.
+	 */
+	launchMode?: LaunchMode,
+	/**
+	 *  Whether the end of a League session also stops the patcher. Default:
+	 *  false.
+	 * 
+	 *  Off because the patcher running until it is told to stop is right for
+	 *  someone who plays several games in a row, and only wrong for someone who
+	 *  plays one. Which of those a person is, is not ours to guess.
+	 */
+	stopPatcherOnSessionEnd?: boolean,
+	/**  Whether the user has dismissed the migration banner. */
+	migrationDismissed?: boolean,
+	/**  Global hotkey accelerator for reloading mods (e.g. "Ctrl+Shift+R"). */
+	reloadModsHotkey?: string | null,
+	/**  Global hotkey accelerator for killing League (e.g. "Ctrl+Shift+K"). */
+	killLeagueHotkey?: string | null,
+	/**  Whether the kill-league hotkey should also stop the patcher. Default: true. */
+	killLeagueStopsPatcher?: boolean,
+	/**  Trusted domains for protocol installs. Downloads are only allowed from these domains. */
+	trustedDomains?: string[],
+	/**  Whether the library file watcher is enabled. Default: false. */
+	watcherEnabled?: boolean,
+	/**
+	 *  Whether a mod card shows its category pills.
+	 * 
+	 *  The tags, champions and maps a mod declares, plus whatever
+	 *  categorization derived. Display only, and on by default, since the pills
+	 *  are how a crowded grid stays readable. Filtering is unaffected either way.
+	 */
+	showModTags?: boolean,
+	authorProfiles?: AuthorProfile[],
+	defaultAuthorProfileId?: string | null,
+	/**
+	 *  Whether the user has dismissed the HDD-performance warning. Once true,
+	 *  we suppress the warning on subsequent patcher starts. Reset by toggling
+	 *  the "show performance warnings" setting if/when we add one.
+	 */
+	hasSeenHddWarning?: boolean,
+	/**  Whether anonymous diagnostics leave the machine. Default: true. */
+	telemetryEnabled?: boolean,
+	/**
+	 *  The salt the rotating diagnostics identity is derived from.
+	 * 
+	 *  Generated on first run and never sent. Replacing it breaks the link to
+	 *  everything reported before, which is what the reset button asks for.
+	 */
+	telemetrySecret?: string | null,
+	/**
+	 *  Whether the diagnostics notice has been shown.
+	 * 
+	 *  Separate from `first_run_complete`, because the notice is owed to an
+	 *  upgrading user who completed first run releases ago.
+	 */
+	hasSeenDiagnosticsNotice?: boolean,
+} & Config_Deserialize;
+
+/**
+ *  Application settings: UI/shell preferences plus the flattened core
+ *  [`Config`]. The flatten keeps `settings.json` a single document, so the
+ *  split is invisible to both the file on disk and the frontend.
+ */
+export type Settings_Serialize = {
+	firstRunComplete: boolean,
+	/**  Application theme (system, dark, or light). */
+	theme: Theme,
+	/**  Accent color configuration. */
+	accentColor: AccentColor,
+	/**  Optional backdrop image path for glassmorphism effect. */
+	backdropImage: string | null,
+	/**  Backdrop blur amount in pixels (default: 40). */
+	backdropBlur: number | null,
+	/**  Library view mode ("grid" or "list"). Defaults to "grid". */
+	libraryViewMode: string | null,
+	/**  Whether to minimize to system tray instead of taskbar. Default: true. */
+	minimizeToTray: boolean,
+	/**  Whether to start the application minimized to the system tray. Default: false. */
+	startInTray: boolean,
+	/**  Whether to register the app to launch automatically on login. Default: false. */
+	autoRun: boolean,
+	/**  When starting in tray, show the window if an update is available. Default: false. */
+	startInTrayUnlessUpdate: boolean,
+	/**  Whether a release downloads as soon as a check finds it, to install at quit. Default: true. */
+	autoDownloadUpdates: boolean,
+	/**  Always start the patcher automatically on launch. Default: false. */
+	alwaysStartPatcher: boolean,
+	/**
+	 *  The page the window opens on. Default: [`OpenOn::Home`], so a file
+	 *  written before the page existed opens on it too.
+	 */
+	openOn: OpenOn,
+	/**
+	 *  What the library's primary button does. Default: [`LaunchMode::Classic`],
+	 *  so an install that predates the launcher keeps the button it had.
+	 */
+	launchMode: LaunchMode,
+	/**
+	 *  Whether the end of a League session also stops the patcher. Default:
+	 *  false.
+	 * 
+	 *  Off because the patcher running until it is told to stop is right for
+	 *  someone who plays several games in a row, and only wrong for someone who
+	 *  plays one. Which of those a person is, is not ours to guess.
+	 */
+	stopPatcherOnSessionEnd: boolean,
+	/**  Whether the user has dismissed the migration banner. */
+	migrationDismissed: boolean,
+	/**  Global hotkey accelerator for reloading mods (e.g. "Ctrl+Shift+R"). */
+	reloadModsHotkey: string | null,
+	/**  Global hotkey accelerator for killing League (e.g. "Ctrl+Shift+K"). */
+	killLeagueHotkey: string | null,
+	/**  Whether the kill-league hotkey should also stop the patcher. Default: true. */
+	killLeagueStopsPatcher: boolean,
+	/**  Trusted domains for protocol installs. Downloads are only allowed from these domains. */
+	trustedDomains: string[],
+	/**  Whether the library file watcher is enabled. Default: false. */
+	watcherEnabled: boolean,
+	/**
+	 *  Whether a mod card shows its category pills.
+	 * 
+	 *  The tags, champions and maps a mod declares, plus whatever
+	 *  categorization derived. Display only, and on by default, since the pills
+	 *  are how a crowded grid stays readable. Filtering is unaffected either way.
+	 */
+	showModTags: boolean,
+	authorProfiles: AuthorProfile[],
+	defaultAuthorProfileId: string | null,
+	/**
+	 *  Whether the user has dismissed the HDD-performance warning. Once true,
+	 *  we suppress the warning on subsequent patcher starts. Reset by toggling
+	 *  the "show performance warnings" setting if/when we add one.
+	 */
+	hasSeenHddWarning: boolean,
+	/**  Whether anonymous diagnostics leave the machine. Default: true. */
+	telemetryEnabled: boolean,
+	/**
+	 *  The salt the rotating diagnostics identity is derived from.
+	 * 
+	 *  Generated on first run and never sent. Replacing it breaks the link to
+	 *  everything reported before, which is what the reset button asks for.
+	 */
+	telemetrySecret: string | null,
+	/**
+	 *  Whether the diagnostics notice has been shown.
+	 * 
+	 *  Separate from `first_run_complete`, because the notice is owed to an
+	 *  upgrading user who completed first run releases ago.
+	 */
+	hasSeenDiagnosticsNotice: boolean,
+} & Config_Serialize;
 
 /**
  *  Severity of a diagnostic check result.
@@ -4069,6 +7425,29 @@ export type Sidecar = {
 	textures: TextureBinding[],
 	/**  Empty for a pixel shader. */
 	attributes: Attribute[],
+};
+
+/**  Where a problem is. */
+export type Site = Site_Serialize | Site_Deserialize;
+
+/**  Where a problem is. */
+export type Site_Deserialize = {
+	/**  The layer, such as `base`. */
+	layer: string,
+	/**  The file, POSIX-style and relative to the layer root. */
+	path: string,
+	/**  Where inside the file. `None` for a rule that reads a file as a whole. */
+	node: NodeAddress_Deserialize | null,
+};
+
+/**  Where a problem is. */
+export type Site_Serialize = {
+	/**  The layer, such as `base`. */
+	layer: string,
+	/**  The file, POSIX-style and relative to the layer root. */
+	path: string,
+	/**  Where inside the file. `None` for a rule that reads a file as a whole. */
+	node: NodeAddress_Serialize | null,
 };
 
 /**
@@ -4192,6 +7571,8 @@ export type StageProgram = {
 	cached: boolean,
 };
 
+export type StorageMedium = "ssd" | "hdd" | "unknown";
+
 /**
  *  A verdict as a file holds it, which is every field the kind does not decide.
  * 
@@ -4229,6 +7610,26 @@ export type StoredVerdict_Serialize = {
 	cause: string,
 	subject: string | null,
 	hints: Hint[],
+};
+
+/**  Result of a suggestion query. */
+export type StringKeySearchResult = {
+	suggestions: StringKeySuggestion[],
+	/**  Total number of known field names in the index. */
+	totalKeys: number,
+	/**  Locale whose stringtable supplied the `value` previews, when available. */
+	locale: string | null,
+};
+
+/**  One autocomplete suggestion for a stringtable field. */
+export type StringKeySuggestion = {
+	/**  Field name, e.g. `game_character_displayname_ahri`. */
+	key: string,
+	/**
+	 *  What the game's stringtable currently says for this field in the
+	 *  indexed locale, when the key exists there.
+	 */
+	value: string | null,
 };
 
 /**  One submesh a material override gives its own texture or material. */
@@ -4307,12 +7708,35 @@ export type TextureBinding = {
 	samplers: SamplerBinding[],
 };
 
+/**  The file format a texture arrives in. */
+export type TextureContainer = 
+/**  League's own extended texture format. */
+"TEX" | 
+/**  <https://en.wikipedia.org/wiki/DirectDraw_Surface> */
+"DDS";
+
 /**  What a texture uniform is declared as. */
 export type TextureDimension = "texture2d" | "texture2dArray" | "texture3d" | "cube" | 
 /**  Six layers per cube in a 2D array, after the fix-up. */
 "cubeArray" | 
 /**  An `R32UI` data texture, after the fix-up. */
 "buffer" | "other";
+
+/**  What a texture file declares about itself. */
+export type TextureInfo = {
+	width: number,
+	height: number,
+	container: TextureContainer,
+	/**
+	 *  The block format, where the container names one.
+	 * 
+	 *  `None` for a DDS, because `ltk_texture` keeps the header private.
+	 */
+	format: string | null,
+	mipCount: number,
+	/**  The size of the file itself, not of a decoded mipmap. */
+	sizeBytes: number,
+};
 
 /**  Which step of section 11.5 supplied a texture's path. */
 export type TextureSource = 
@@ -4322,6 +7746,9 @@ export type TextureSource =
 "shaderDefault" | 
 /**  Neither, so the engine's fallback texture. */
 "fallback";
+
+/**  Theme selection for the application. */
+export type Theme = "system" | "dark" | "light";
 
 /**  A supported external tool. */
 export type Tool = 
@@ -4341,6 +7768,19 @@ export type Track = {
 	blendMode: number,
 	/**  `mBlendWeight`. */
 	blendWeight: number | null,
+};
+
+/**
+ *  A property whose declared type is not the one the game reads.
+ * 
+ *  The two types stay apart rather than arriving as one sentence, because a
+ *  panel sets each of them in code type inside prose it writes itself.
+ */
+export type TypeMismatch = {
+	/**  The type the game reads, such as `file`, in the words a bin row's tag draws. */
+	expected: string,
+	/**  The type the file declares, such as `string`. */
+	found: string,
 };
 
 /**  `Anchors`, as fractions of the screen or of the parent rect. */
@@ -4954,6 +8394,13 @@ export type UniformBlock = {
 	members: BlockMember[],
 };
 
+/**  Validation result for a project. */
+export type ValidationResult = {
+	valid: boolean,
+	errors: string[],
+	warnings: string[],
+};
+
 /**  One staged edit, addressed relative to its enclosing property. */
 export type ValueEdit = 
 /**  Add a missing schema field at its published default. */
@@ -5151,6 +8598,44 @@ export type ViewVariant = {
 	document: BinDocumentId | null,
 };
 
+/**
+ *  A single entry in the WAD blocklist.
+ * 
+ *  `Exact` matches a literal filename (case-insensitively). `Regex` matches
+ *  against every WAD filename in the game install; the pattern is always
+ *  applied case-insensitively.
+ */
+export type WadBlocklistEntry = { kind: "exact"; value: string } | { kind: "regex"; value: string };
+
+/**
+ *  Payload for the `patcher-wad-scan-failed` event, emitted when the injected
+ *  DLL's integrity scan rejects one or more modded archives. When this fires
+ *  the patcher auto-stops and applies no mods for the session.
+ */
+export type WadScanFailedPayload = {
+	/**
+	 *  The archives that failed the scan, de-duplicated. May be empty if no
+	 *  names could be parsed from the scan log.
+	 */
+	failures: WadScanFailureInfo[],
+};
+
+/**  One archive that failed the integrity scan, sent in [`WadScanFailedPayload`]. */
+export type WadScanFailureInfo = {
+	/**  The offending archive (e.g. `TahmKench.wad.client`), if its name parsed. */
+	wad: string | null,
+	/**
+	 *  The code the scan reported, an NTSTATUS-style one the game raised
+	 *  (`c0000229`), or a word the DLL's own checks named (`mod_wad`).
+	 */
+	status: string,
+	/**
+	 *  What [`ScanStatus::parse`] makes of `status`, so the dialog reads a
+	 *  rejection the way the Games tab does instead of keeping a second table.
+	 */
+	reading: ScanStatus,
+};
+
 /**  The winding a pass culls, `windingToCull` on the wire. */
 export type Winding = 
 /**  Clockwise, `0`, which 436 shipped passes cull for an inverted hull. */
@@ -5195,12 +8680,26 @@ export type WorkshopError =
 /**  An edit the text of a declarations manifest cannot take. */
 { kind: "DECLARATIONS_UNEDITABLE"; path: string; reason: string };
 
+/**
+ *  Mirror of [`ltk_file::LeagueFileKind`] with `ts-rs` bindings. Kept in sync
+ *  manually — the upstream enum is small and stable, and mirroring lets us
+ *  export a TypeScript union without fighting external crate attributes.
+ */
+export type WorkshopFileKind = "animation" | 
+/**  A layer's game data declarations manifest, which [`LeagueFileKind`] has no kind for. */
+"game_data" | "jpeg" | "light_grid" | "lua_obj" | "map_geometry" | "png" | "tga" | "preload" | "property_bin" | "property_bin_override" | "riot_string_table" | "simple_skin" | "skeleton" | "static_mesh_ascii" | "static_mesh_binary" | "svg" | "texture" | "texture_dds" | "unknown" | "world_geometry" | "wwise_bank" | "wwise_package";
+
 export type WorkshopLayer = {
 	name: string,
 	displayName: string,
 	priority: number,
 	description: string | null,
 	stringOverrides: { [key in string]: { [key in string]: string } },
+};
+
+/**  Runtime info about a layer's content directory, fetched separately from config. */
+export type WorkshopLayerInfo = {
+	wadFiles: string[],
 };
 
 /**  A workshop project displayed in the UI. */

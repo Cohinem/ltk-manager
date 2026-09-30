@@ -44,7 +44,7 @@ use crate::problems::game::GameContent;
 use crate::problems::walk::Declared;
 use crate::problems::{
     Applied, Detail, Dormancy, FileHandle, FixError, FixRun, NodeAddress, ObjectRead, Pass,
-    Problem, ProjectFiles, Rule, RuleId, Severity, Site, Weight,
+    Problem, ProblemSeverity, ProjectFiles, Rule, RuleId, Site, Weight,
 };
 
 /// The id every row of this rule carries.
@@ -92,8 +92,8 @@ impl Rule for BinResolverKeyLoss {
         "Couldn't restore the resources because writing the game's copy in would tie the mod to one patch"
     }
 
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Info)
+    fn severity(&self) -> Option<ProblemSeverity> {
+        Some(ProblemSeverity::Info)
     }
 
     /// Nothing to compare against is not the same as nothing to report.
@@ -128,7 +128,7 @@ impl Rule for BinResolverKeyLoss {
                             label: None,
                         },
                     );
-                    finish.problem(Severity::Info, site, loss.detail());
+                    finish.problem(ProblemSeverity::Info, site, loss.detail());
                 }
             }
         });

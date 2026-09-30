@@ -25,9 +25,7 @@ use crate::workshop::LayerChunks;
 
 /// Which sandbox a document opens in, as it crosses IPC.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(
     tag = "kind",
     rename_all = "camelCase",

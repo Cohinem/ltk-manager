@@ -32,10 +32,6 @@ target/
 **/*.rs.bk
 *.pdb
 
-# ts-rs default output (real bindings go to src/lib/bindings/)
-src-tauri/bindings/
-src-tauri/src/lib/bindings/
-
 # Paraglide output, compiled from messages/ (see ADR-0018)
 src/paraglide/
 

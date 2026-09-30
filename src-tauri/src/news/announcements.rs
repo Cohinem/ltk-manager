@@ -9,7 +9,6 @@ use quick_xml::escape::unescape;
 use quick_xml::events::{BytesStart, Event};
 use quick_xml::{Reader, XmlVersion};
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use crate::github::{self, GitHubError};
 
@@ -21,8 +20,7 @@ const FEED_URL: &str =
 const CAP: usize = 10;
 
 /// One post in the Announcements category.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Announcement {
     /// The feed's own id for the post.

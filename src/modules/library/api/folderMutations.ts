@@ -35,7 +35,7 @@ export const folderMutations = {
     }),
 
   rename: (client: QueryClient) =>
-    mutationOptions<void, AppError, RenameFolderVariables, FolderRollback>({
+    mutationOptions<null, AppError, RenameFolderVariables, FolderRollback>({
       mutationFn: async ({ folderId, newName }) =>
         unwrapForQuery(await api.renameFolder(folderId, newName)),
       onMutate: async ({ folderId, newName }) => {
@@ -57,7 +57,7 @@ export const folderMutations = {
     }),
 
   remove: (client: QueryClient) =>
-    mutationOptions<void, AppError, string>({
+    mutationOptions<null, AppError, string>({
       mutationFn: async (folderId) => unwrapForQuery(await api.deleteFolder(folderId)),
       onSettled: () => {
         client.invalidateQueries({ queryKey: libraryKeys.folders() });
@@ -67,7 +67,7 @@ export const folderMutations = {
     }),
 
   toggle: (client: QueryClient) =>
-    mutationOptions<void, AppError, ToggleFolderVariables>({
+    mutationOptions<null, AppError, ToggleFolderVariables>({
       mutationFn: async ({ folderId, enabled }) =>
         unwrapForQuery(await api.toggleFolder(folderId, enabled)),
       onSettled: () => refreshMods(client),

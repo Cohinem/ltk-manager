@@ -22,9 +22,7 @@ use crate::preview::AssetRef;
 /// One particle system, as the renderer reads it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct VfxSystem {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
@@ -47,9 +45,7 @@ pub struct VfxSystem {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum VfxValue {
     /// A `Bool` or a `BitBool`.
     Bool { value: bool },
@@ -97,9 +93,7 @@ pub enum VfxValue {
 /// The object a resolved struct holds the properties of, where a walk reached one.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct VfxObject {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
@@ -110,9 +104,7 @@ pub struct VfxObject {
 /// One property of a resolved struct.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct VfxField {
     /// `0x` and eight hex digits.
     pub hash: String,
@@ -125,9 +117,7 @@ pub struct VfxField {
 /// One entry of a resolved map.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct VfxMapEntry {
     /// A named hash key by its name, an unnamed one as hex, and every other kind as the
     /// wire form writes it.

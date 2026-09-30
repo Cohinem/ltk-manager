@@ -76,9 +76,7 @@ impl DeclareContext {
 /// Off draws the same applied tree and marks, read-only.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum Declaring {
     /// An edit lands as a declaration in the chosen layer.
     On,
@@ -176,9 +174,7 @@ struct TextEdit {
 /// What a declared document says beside its rows.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredState {
     /// The layer an edit writes to.
     pub layer: String,
@@ -205,9 +201,7 @@ pub struct DeclaredState {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum DeclaredModuleChoice {
     /// The last `entries` module naming the entry, else the last module, else a new one.
     #[default]
@@ -241,9 +235,7 @@ impl DeclaredModuleChoice {
 /// One module of the chosen layer's manifest.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredModuleSummary {
     /// The module's index in `modules`.
     pub index: usize,
@@ -255,9 +247,7 @@ pub struct DeclaredModuleSummary {
 /// One row a declaration of the chosen layer touches.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredMark {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
@@ -281,9 +271,7 @@ pub struct DeclaredMark {
 /// One row of a layer file that a declaration of the project overrides. ADR-0056.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct LayerOverride {
     /// The layer whose `game_data.yaml` holds the declaration.
     pub layer: String,
@@ -296,9 +284,7 @@ pub struct LayerOverride {
 /// The sign of a declared key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum DeclaredSign {
     Set,
     Add,

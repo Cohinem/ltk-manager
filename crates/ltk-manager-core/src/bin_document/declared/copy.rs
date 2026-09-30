@@ -23,9 +23,7 @@ use crate::error::AppError;
 /// an object, which names no path.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct RowDeclaration {
     /// An `entries` module setting the row to its value, as it stands under `modules`.
     pub declaration: Option<String>,

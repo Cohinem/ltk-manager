@@ -31,14 +31,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Manager};
-use ts_rs::TS;
 
 /// The managed object index, keeping a failed build as the error the frontend reads.
 pub type ObjectIndexState = object_index::ObjectIndexState<AppErrorResponse>;
 
 /// What a search answers, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectSearch {
     /// Nothing has warmed the index, or the switch that gates it is off.
@@ -148,8 +146,7 @@ pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcRes
 }
 
 /// What one prefix of the object tree holds, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectDir {
     /// Nothing has warmed the index, or the switch that gates it is off.
@@ -163,8 +160,7 @@ pub enum ObjectDir {
 }
 
 /// The character spell catalog and the index state supplying it.
-#[derive(Debug, Clone, Serialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum CharacterSpells {
     /// Nothing has warmed the index.
@@ -220,8 +216,7 @@ pub async fn object_dir(prefix: String, app_handle: AppHandle) -> IpcResult<Obje
 }
 
 /// How many objects of the install declare a class, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ClassObjectCount {
     /// Nothing has warmed the index, or the switch that gates it is off.
@@ -256,8 +251,7 @@ pub async fn class_object_count(
 }
 
 /// What a full search of the objects found, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectFind {
     /// Nothing has warmed the index, or the switch that gates it is off.
@@ -324,8 +318,7 @@ pub async fn find_objects(
 }
 
 /// What a reference query asks for.
-#[derive(Debug, Clone, Deserialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ReferenceQuery {
     /// Every object of one class, from the index.
@@ -399,8 +392,7 @@ impl ReferenceQuery {
 }
 
 /// What a reference query found, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectReferences {
     /// Nothing has warmed the index, or the switch that gates it is off.
@@ -560,8 +552,7 @@ pub fn cancel_reference_walk(app_handle: AppHandle) -> IpcResult<bool> {
 }
 
 /// The slot the index is in, as an answer reports it.
-#[derive(Debug, Clone, Serialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum ObjectIndexStatus {
     /// Nothing has warmed the index, or the switch that gates it is off.
@@ -575,8 +566,7 @@ pub enum ObjectIndexStatus {
 }
 
 /// What declares each of a set of object hashes, beside the slot the index is in.
-#[derive(Debug, Clone, Serialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct DeclaredObjects {
     /// Off `Ready`, only the open document's own objects are in `objects`.

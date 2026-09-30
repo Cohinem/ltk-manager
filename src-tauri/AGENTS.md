@@ -46,15 +46,15 @@ building a launcher return `LauncherError`.
 
 ## IPC
 
-The command table has two halves. `main.rs` holds `generate_handler!`, and `ipc.rs` holds the
-commands on `tauri-specta` (ADR-0029). A command moves by gaining `#[specta::specta]`, leaving
-the `generate_handler!` list and joining `migrated![]`. Both halves answer the same names over
-the same `IpcResult` envelope.
+The command table is `command_table![]` in `ipc.rs`, on `tauri-specta` (ADR-0029). A command
+carries `#[tauri::command]` and `#[specta::specta]`, returns `IpcResult<T>`, and joins the table,
+or its `debug:` list when only a debug build registers it. An event payload no command reaches is
+named once with `.typ::<T>()` in `ipc::builder`.
 
-A type that crosses IPC derives `ts_rs::TS` and `specta::Type` under core's `ts` feature.
-`pnpm generate:types` writes `src/lib/bindings/` from the first and `src/lib/bindings.gen.ts`
-from the second, and `src/lib/tauri.ts` re-exports a migrated module's types out of the
-generated file.
+A type that crosses IPC derives `specta::Type` under its crate's `ts` feature.
+`pnpm generate:types` writes `src/lib/bindings.ts`, and `src/lib/tauri.ts` wraps each generated
+command in the `api` map and re-exports the types, with the serialize half of a phase-split type
+under its plain name.
 
 ## Filesystem
 

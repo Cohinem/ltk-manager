@@ -22,9 +22,7 @@ use crate::error::{AppError, AppResult};
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ModuleAction {
     /// Add a module holding `name`, or none, and no entry at the end of `modules`.
     Create { name: Option<String> },

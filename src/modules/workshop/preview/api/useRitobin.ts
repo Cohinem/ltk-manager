@@ -29,7 +29,7 @@ interface OpenInRitobinArgs {
 export function useOpenInRitobin() {
   const toast = useToast();
 
-  return useMutation<void, AppError, OpenInRitobinArgs>({
+  return useMutation<null, AppError, OpenInRitobinArgs>({
     meta: { silentError: true },
     mutationFn: async ({ asset, name }) =>
       unwrapForQuery(await api.openAssetInRitobin(asset, name)),

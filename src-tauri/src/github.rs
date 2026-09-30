@@ -10,7 +10,6 @@ use reqwest::blocking::{Client, RequestBuilder, Response};
 use reqwest::header::HeaderMap;
 use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 /// Sent with every request, since GitHub refuses one that names no client.
 const USER_AGENT: &str = concat!("ltk-manager/", env!("CARGO_PKG_VERSION"));
@@ -21,8 +20,7 @@ const FETCH_TIMEOUT: Duration = Duration::from_secs(10);
 const REMAINING: &str = "x-ratelimit-remaining";
 
 /// Which way a read of GitHub failed, as the remedy it has.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GitHubErrorKind {
     /// GitHub was never reached. Waiting for a connection is the remedy.

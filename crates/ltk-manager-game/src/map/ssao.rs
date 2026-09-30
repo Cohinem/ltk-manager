@@ -34,9 +34,7 @@ const EDGE_AWARE_BLUR: BinHash = BinHash(0x6509_d993);
 /// returns.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapSsao {
     /// `SampleQuality`, 0 for four samples a pixel and 1 for eight.
     pub sample_quality: u32,

@@ -9,6 +9,7 @@ use tauri::{AppHandle, Manager};
 
 /// List the game's WAD archives under `DATA/FINAL`, sorted by name.
 #[tauri::command]
+#[specta::specta]
 pub async fn get_game_wads(app_handle: AppHandle) -> IpcResult<Vec<GameWadSummary>> {
     let config = app_handle.state::<SettingsState>().config();
     off_thread(move || GameArchives::resolve(&config)?.list()).await
@@ -19,6 +20,7 @@ pub async fn get_game_wads(app_handle: AppHandle) -> IpcResult<Vec<GameWadSummar
 /// Path hashes resolve through the shared hashtable cache when it is
 /// populated. Otherwise every path comes back null.
 #[tauri::command]
+#[specta::specta]
 pub async fn read_game_wad(
     wad_name: String,
     app_handle: AppHandle,

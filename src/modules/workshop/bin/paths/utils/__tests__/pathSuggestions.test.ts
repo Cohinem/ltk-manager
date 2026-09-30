@@ -18,7 +18,7 @@ const TEXTURES = ["dds", "tex"];
 function entry(relativePath: string, ignored = false): ContentEntry {
   return {
     relativePath,
-    sizeBytes: 64n,
+    sizeBytes: 64,
     kind: "unknown",
     objects: [],
     ignoredBy: ignored ? { pattern: "*.psd", source: ".modignore", line: 1 } : null,
@@ -30,7 +30,7 @@ function tree(layers: Record<string, ContentEntry[]>): ContentTree {
     layers: Object.entries(layers).map(([name, entries]) => ({
       name,
       fileCount: entries.length,
-      totalSizeBytes: 0n,
+      totalSizeBytes: 0,
       entries,
       ignoredDirectories: [],
     })),

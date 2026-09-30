@@ -87,8 +87,7 @@ pub struct PreviewImage {
 
 /// What an asset holds, for a viewer that reports it beside the preview.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AssetInfo {
     /// A texture, in whichever container holds it.

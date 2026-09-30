@@ -37,12 +37,12 @@ const TREE: ContentTree = {
     {
       name: "base",
       fileCount: 1,
-      totalSizeBytes: 0n,
+      totalSizeBytes: 0,
       ignoredDirectories: [],
       entries: [
         {
           relativePath: "Ahri.wad.client/ASSETS/Mod/glow_ring.dds",
-          sizeBytes: 64n,
+          sizeBytes: 64,
           kind: "texture_dds",
           objects: [],
           ignoredBy: null,
@@ -111,7 +111,7 @@ beforeEach(() => {
             {
               pathHash: "00bb00bb00bb00bb",
               path: "assets/characters/ahri/ahri_w.dds",
-              sizeBytes: 64n,
+              sizeBytes: 64,
               wad: "Champions/Ahri.wad.client",
             },
           ],

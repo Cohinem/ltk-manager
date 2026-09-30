@@ -16,8 +16,7 @@ use std::sync::Arc;
 
 /// One autocomplete suggestion for a stringtable field.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct StringKeySuggestion {
     /// Field name, e.g. `game_character_displayname_ahri`.
@@ -29,8 +28,7 @@ pub struct StringKeySuggestion {
 
 /// Result of a suggestion query.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct StringKeySearchResult {
     pub suggestions: Vec<StringKeySuggestion>,

@@ -15,6 +15,7 @@ use super::mods::reject_if_patcher_running;
 /// loading, so asking is what gets its report on screen — the event announcing
 /// it may have been emitted to nobody.
 #[tauri::command]
+#[specta::specta]
 pub fn get_layout_migration_state(
     library: State<ModLibraryState>,
 ) -> IpcResult<LayoutMigrationState> {
@@ -24,12 +25,14 @@ pub fn get_layout_migration_state(
 
 /// Scan a cslol-manager directory for importable mods.
 #[tauri::command]
+#[specta::specta]
 pub async fn scan_cslol_mods(directory: String) -> IpcResult<Vec<CslolModInfo>> {
     off_thread(move || crate::mods::scan_cslol_directory(&PathBuf::from(directory))).await
 }
 
 /// Import selected mods from a cslol-manager installation.
 #[tauri::command]
+#[specta::specta]
 pub async fn import_cslol_mods(
     app_handle: AppHandle,
     directory: String,

@@ -54,8 +54,8 @@
 use crate::problems::bank_units::BankUnits;
 use crate::problems::game::GameContent;
 use crate::problems::{
-    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Head, Pass, Problem, Rule, RuleId,
-    Severity, Site, Weight,
+    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Head, Pass, Problem,
+    ProblemSeverity, Rule, RuleId, Site, Weight,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -140,8 +140,8 @@ impl Rule for AudioBankVersion {
         "Couldn't remove because the bank unit naming this file would have to be edited too"
     }
 
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Warning)
+    fn severity(&self) -> Option<ProblemSeverity> {
+        Some(ProblemSeverity::Warning)
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -162,7 +162,7 @@ impl Rule for AudioBankVersion {
                 };
                 let removal = removable(&handle, game, asked);
                 finish.problem(
-                    Severity::Warning,
+                    ProblemSeverity::Warning,
                     Site::file(handle.layer(), handle.path()),
                     bank.detail(removal),
                 );

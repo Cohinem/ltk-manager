@@ -5,6 +5,7 @@ use crate::state::SettingsState;
 
 /// Opens a file location in the system file explorer.
 #[tauri::command]
+#[specta::specta]
 pub async fn reveal_in_explorer(path: String) -> IpcResult<()> {
     reveal_in_explorer_inner(&path).into()
 }
@@ -50,6 +51,7 @@ pub(crate) fn reveal_in_explorer_inner(path: &str) -> AppResult<()> {
 /// Minimizes the window to the system tray if the setting is enabled,
 /// otherwise performs a regular minimize.
 #[tauri::command]
+#[specta::specta]
 pub fn minimize_to_tray(
     window: tauri::WebviewWindow,
     state: tauri::State<SettingsState>,

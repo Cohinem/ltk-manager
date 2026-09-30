@@ -14,7 +14,7 @@ import { patcherKeys } from "./keys";
  */
 export async function startPatcherSpendingQueue(
   config: PatcherConfig,
-): Promise<Result<void, AppError>> {
+): Promise<Result<null, AppError>> {
   const queue = usePendingRebuildStore.getState();
   const result = await api.startPatcher(queue.queued ? { ...config, forceRebuild: true } : config);
   if (isOk(result)) queue.clear();
@@ -24,7 +24,7 @@ export async function startPatcherSpendingQueue(
 /** Writes that drive a patcher run. */
 export const patcherMutations = {
   start: (client: QueryClient) =>
-    mutationOptions<void, AppError, PatcherConfig>({
+    mutationOptions<null, AppError, PatcherConfig>({
       /* useGuardedStartPatcher reports the failure. */
       meta: { silentError: true },
       mutationFn: async (config) => unwrapForQuery(await startPatcherSpendingQueue(config)),
@@ -39,7 +39,7 @@ export const patcherMutations = {
      `isPending` alone would show a stopping state for a few milliseconds of a
      multi-second wait. */
   stop: (client: QueryClient) =>
-    mutationOptions<void, AppError, void>({
+    mutationOptions<null, AppError, void>({
       mutationFn: async () => unwrapForQuery(await api.stopPatcher()),
       onMutate: () => {
         usePatcherSessionStore.getState().setStopping(true);
@@ -59,7 +59,7 @@ export const patcherMutations = {
      scratch. The backend refuses this while the patcher is running and reports
      progress through the usual `overlay-progress` events. */
   rebuildOverlay: () =>
-    mutationOptions<void, AppError, void>({
+    mutationOptions<null, AppError, void>({
       /* Every caller reports: PatchingSection, IncidentDetail, useRebuildOverlayAction. */
       meta: { silentError: true },
       mutationFn: async () => unwrapForQuery(await api.rebuildOverlay()),

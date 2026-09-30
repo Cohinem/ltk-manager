@@ -24,9 +24,7 @@ use crate::meta_schema::{DeclaredField, SchemaAt};
 /// An item Add item writes into a list, a map or an option.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct NewItem {
     /// Where the item lands in a list or a map, or `None` for the end.
     pub index: Option<usize>,
@@ -41,9 +39,7 @@ pub struct NewItem {
 /// One class a class line offers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ClassChoice {
     /// `0x` and eight hex digits.
     pub hash: String,

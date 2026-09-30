@@ -42,9 +42,7 @@ const FOG_EMISSIVE_REMAP: BinHash = BinHash(0x27bd_d641);
 /// leaves out reads as the class default, which [`MapSun::default`] returns.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapSun {
     /// `sunDirection`, which points at the sun in the engine's space.
     pub direction: [f32; 3],

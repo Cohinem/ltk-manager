@@ -5,6 +5,7 @@
 //! use crate::error::{AppResult, IpcResult};
 //!
 //! #[tauri::command]
+//! #[specta::specta]
 //! pub fn my_command(args: String) -> IpcResult<ReturnType> {
 //!     my_command_inner(&args).into()
 //! }
@@ -19,6 +20,7 @@
 //!
 //! ```rust
 //! #[tauri::command]
+//! #[specta::specta]
 //! pub async fn my_command(args: String) -> IpcResult<ReturnType> {
 //!     off_thread(move || my_command_inner(&args)).await
 //! }

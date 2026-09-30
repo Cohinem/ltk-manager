@@ -9,7 +9,6 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_updater::{Update, UpdaterExt};
-use ts_rs::TS;
 
 use crate::error::{AppError, AppResult};
 
@@ -20,8 +19,7 @@ pub const DOWNLOAD_PROGRESS_EVENT: &str = "update-download-progress";
 pub const REQUESTED_EVENT: &str = "update-requested";
 
 /// A release newer than the running build.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct PendingUpdate {
     /// The release on offer.

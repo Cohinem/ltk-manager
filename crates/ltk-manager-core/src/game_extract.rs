@@ -45,8 +45,7 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 
 /// One row of the browser, as a thing to extract.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(
     rename_all = "camelCase",
     rename_all_fields = "camelCase",
@@ -62,10 +61,6 @@ pub enum ExtractTarget {
         wad: String,
         path_hash: String,
         path: Option<String>,
-        /* The tree holds this as a JS number, and a chunk size never reaches
-        the range where that loses a digit. Binding it as `bigint` would only
-        make every call site build one that `JSON.stringify` then refuses. */
-        #[cfg_attr(feature = "ts", ts(type = "number"))]
         size_bytes: u64,
     },
     /// Every file at or below one directory of the folded index.
@@ -81,8 +76,7 @@ pub enum ExtractTarget {
 
 /// Where each file of an extract lands under the destination.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum ExtractLayout {
     /// Each file at its game path, which is what a repack reads back.
@@ -103,8 +97,7 @@ impl From<ExtractLayout> for WadExtractLayout {
 
 /// What an extract does about a file already sitting where one would land.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum ExistingFiles {
     /// Leave it, and count it. The dialog's default, and not the crate's.
@@ -125,8 +118,7 @@ impl From<ExistingFiles> for ExistingFilePolicy {
 
 /// Everything one extract needs beyond the targets themselves.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractOptions {
     /// The folder to write into. Made if it is not there.
@@ -156,8 +148,7 @@ pub struct ExtractOptions {
 /// The dialog's summary line reads this, so a user sees the count, the size
 /// and the archives before choosing a destination.
 #[derive(Debug, Clone, Default, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractPlan {
     pub files: u32,
@@ -169,8 +160,7 @@ pub struct ExtractPlan {
 
 /// One kind of file an extract wrote, and how many.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractKindCount {
     pub kind: WorkshopFileKind,
@@ -179,8 +169,7 @@ pub struct ExtractKindCount {
 
 /// What an extract did, summed over every archive it read.
 #[derive(Debug, Clone, Default, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractSummary {
     pub extracted: u32,

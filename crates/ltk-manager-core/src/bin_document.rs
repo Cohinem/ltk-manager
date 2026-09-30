@@ -77,9 +77,7 @@ pub const CAPACITY: NonZeroUsize = NonZeroUsize::new(32).unwrap();
 /// [`BinDocumentError::NotOpen`] and reaches no other document.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct BinDocumentId(u32);
 
 impl fmt::Display for BinDocumentId {
@@ -1440,9 +1438,7 @@ pub const READ_ROW_CAP: usize = 4 * READ_PAGE;
 /// Which kind of bin file a document holds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum BinFileKind {
     /// A `PROP`: the objects themselves.
     Prop,
@@ -1453,9 +1449,7 @@ pub enum BinFileKind {
 /// What the header row says about an open bin.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct BinHeader {
     pub kind: BinFileKind,
     /// The file version of a `PROP`. A `PTCH` carries none.
@@ -1472,9 +1466,7 @@ pub struct BinHeader {
 /// One dependency a `PROP` names, as its path and its brex spelling.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct Dependency {
     /// The archive path as the file writes it.
     pub path: String,
@@ -1496,9 +1488,7 @@ impl Dependency {
 /// One object by hash, and by path where a table names it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ObjectName {
     /// The object's path hash, `0x` and eight hex digits.
     pub hash: String,
@@ -1509,9 +1499,7 @@ pub struct ObjectName {
 /// The facts an object tab's header draws. "The object tab" in docs/ux/BIN_EDITOR.md.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct BinObjectHeader {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
@@ -1551,9 +1539,7 @@ impl BinObjectHeader {
 /// properties and its header facts (ADR-0028).
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct BinDocumentHandle {
     pub document: BinDocumentId,
     /// The sandbox the document is held in. ADR-0056.
@@ -1576,9 +1562,7 @@ pub struct BinDocumentHandle {
 /// A window of rows under one node, and how many there are in all.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct BinRows {
     pub rows: Vec<BinRow>,
     pub total: usize,
@@ -1587,9 +1571,7 @@ pub struct BinRows {
 /// Where a row sits in the tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum RowNode {
     /// An object of the file.
     Object,
@@ -1608,9 +1590,7 @@ pub enum RowNode {
 /// One row of the viewer, flat.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct BinRow {
     /// The object's path hash, `0x` and eight hex digits.
     pub entry: String,
@@ -1636,9 +1616,7 @@ pub struct BinRow {
 /// What the schema declares for a field, beside whether the file's kind is that.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredKind {
     pub shape: KindShape,
     /// The file's kind is not the declared one, as the Problems rule for a property
@@ -1652,9 +1630,7 @@ pub struct DeclaredKind {
 /// draws and the word a Problems finding writes. An upstream rename or addition is a
 /// compile error here.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum PropertyKind {
     #[serde(rename = "none")]
     None,
@@ -1828,9 +1804,7 @@ impl From<Kind> for PropertyKind {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum BinValue {
     None,
     /// A `Bool` or a `BitBool`.

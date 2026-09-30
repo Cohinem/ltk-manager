@@ -193,7 +193,7 @@ fn the_store_keeps_what_the_run_saw_and_a_load_rebuilds_the_rest() {
         rule: "bin/property-type".to_owned(),
         title: "A title an older build wrote".to_owned(),
         description: "A sentence an older build wrote".to_owned(),
-        severity: problems::Severity::Fatal,
+        severity: problems::ProblemSeverity::Fatal,
         count: 3,
         fixable: 1,
         mismatches: vec![problems::TypeMismatch {
@@ -239,7 +239,7 @@ fn the_store_keeps_what_the_run_saw_and_a_load_rebuilds_the_rest() {
     assert_eq!((brief.count, brief.fixable), (3, 1));
     assert_eq!(
         brief.severity,
-        problems::Severity::Fatal,
+        problems::ProblemSeverity::Fatal,
         "this rule's findings each answer for themselves, so the run's is the only answer"
     );
 }
@@ -258,7 +258,7 @@ fn a_declared_severity_is_the_builds_word_and_not_the_stores() {
         .unwrap();
     assert_eq!(
         rule.severity(),
-        Some(problems::Severity::Info),
+        Some(problems::ProblemSeverity::Info),
         "the rule this test is about has to be one that declares"
     );
 
@@ -274,7 +274,7 @@ fn a_declared_severity_is_the_builds_word_and_not_the_stores() {
                     rule: "bin/resolver-key-loss".to_owned(),
                     title: String::new(),
                     description: String::new(),
-                    severity: problems::Severity::Warning,
+                    severity: problems::ProblemSeverity::Warning,
                     count: 75,
                     fixable: 0,
                     mismatches: Vec::new(),
@@ -291,7 +291,7 @@ fn a_declared_severity_is_the_builds_word_and_not_the_stores() {
     let loaded = VerdictFile::load(storage.path());
     let brief = &loaded.verdicts["id-1"].rules[0];
 
-    assert_eq!(brief.severity, problems::Severity::Info);
+    assert_eq!(brief.severity, problems::ProblemSeverity::Info);
     assert_eq!(brief.count, 75, "the counts are still the run's to answer");
 }
 
@@ -312,7 +312,7 @@ fn a_rule_the_build_dropped_keeps_the_severity_it_was_stored_with() {
                     rule: "bin/a-rule-this-build-retired".to_owned(),
                     title: String::new(),
                     description: String::new(),
-                    severity: problems::Severity::Error,
+                    severity: problems::ProblemSeverity::Error,
                     count: 2,
                     fixable: 0,
                     mismatches: Vec::new(),
@@ -329,7 +329,7 @@ fn a_rule_the_build_dropped_keeps_the_severity_it_was_stored_with() {
     let loaded = VerdictFile::load(storage.path());
     let brief = &loaded.verdicts["id-1"].rules[0];
 
-    assert_eq!(brief.severity, problems::Severity::Error);
+    assert_eq!(brief.severity, problems::ProblemSeverity::Error);
     assert_eq!(brief.title, "bin/a-rule-this-build-retired");
 }
 
@@ -442,7 +442,7 @@ fn forgetting_a_verdict_that_is_not_held_writes_nothing() {
 }
 
 /// A run holding one finding at `severity`, for the verdict tests below.
-fn run_of(severity: problems::Severity) -> Run {
+fn run_of(severity: problems::ProblemSeverity) -> Run {
     let mut report = problems::Report::default();
     report.problem(
         problems::RuleId("audio/bank-id"),
@@ -468,7 +468,7 @@ fn run_of(severity: problems::Severity) -> Run {
 fn a_mod_whose_findings_are_all_informative_reads_healthy() {
     let verdict = ModHealthVerdict::from_run(
         "id-1",
-        &run_of(problems::Severity::Info),
+        &run_of(problems::ProblemSeverity::Info),
         HealthCheckBasis::default(),
     );
 
@@ -484,7 +484,7 @@ fn a_mod_whose_findings_are_all_informative_reads_healthy() {
 fn one_rung_above_informative_is_a_mod_the_library_reports() {
     let verdict = ModHealthVerdict::from_run(
         "id-1",
-        &run_of(problems::Severity::Warning),
+        &run_of(problems::ProblemSeverity::Warning),
         HealthCheckBasis::default(),
     );
 

@@ -384,10 +384,10 @@ fn a_container_of_one_path_draws_the_path_alone() {
 #[test]
 fn severity_is_fatal_once_the_install_has_taken_the_change() {
     let table = GameBuild::new(16, 17, 8_087_655);
-    assert_eq!(severity(Some(table), table), Severity::Fatal);
+    assert_eq!(severity(Some(table), table), ProblemSeverity::Fatal);
     assert_eq!(
         severity(Some(GameBuild::new(16, 18, 1)), table),
-        Severity::Fatal
+        ProblemSeverity::Fatal
     );
 }
 
@@ -398,9 +398,9 @@ fn severity_is_warning_on_an_older_or_unknown_install() {
     let table = GameBuild::new(16, 17, 8_087_655);
     assert_eq!(
         severity(Some(GameBuild::new(16, 16, 8_049_184)), table),
-        Severity::Warning
+        ProblemSeverity::Warning
     );
-    assert_eq!(severity(None, table), Severity::Warning);
+    assert_eq!(severity(None, table), ProblemSeverity::Warning);
 }
 
 // ---- dormancy ---------------------------------------------------------
@@ -445,7 +445,7 @@ fn a_waiting_rule_still_finds_everything_at_warning() {
 
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
-    assert_eq!(problems[0].severity, Severity::Warning);
+    assert_eq!(problems[0].severity, ProblemSeverity::Warning);
     assert!(problems[0].fix.is_some());
 }
 
@@ -469,7 +469,7 @@ fn an_install_that_has_taken_the_change_leaves_the_rule_active() {
     assert_eq!(BinPropertyType::new().dormant(&files), None);
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
-    assert_eq!(problems[0].severity, Severity::Fatal);
+    assert_eq!(problems[0].severity, ProblemSeverity::Fatal);
     assert_eq!(problems[0].message, None, "a landed change needs no note");
 }
 
@@ -482,7 +482,7 @@ fn an_install_that_could_not_be_read_leaves_the_rule_active() {
     assert_eq!(BinPropertyType::new().dormant(&files), None);
     let problems = check_with(&files);
     assert_eq!(problems.len(), 1);
-    assert_eq!(problems[0].severity, Severity::Warning);
+    assert_eq!(problems[0].severity, ProblemSeverity::Warning);
 }
 
 // ---- the conversions --------------------------------------------------
@@ -1208,7 +1208,7 @@ fn a_string_where_the_schema_says_file_is_reported() {
     let problems = check_with(&files);
 
     assert_eq!(problems.len(), 1);
-    assert_eq!(problems[0].severity, Severity::Fatal);
+    assert_eq!(problems[0].severity, ProblemSeverity::Fatal);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
     assert_eq!(mismatch.expected, "file");
     assert_eq!(mismatch.found, "string");
@@ -1227,7 +1227,7 @@ fn the_same_string_is_correct_on_the_build_that_wanted_a_string() {
     assert!(
         problems
             .iter()
-            .all(|problem| problem.severity == Severity::Warning),
+            .all(|problem| problem.severity == ProblemSeverity::Warning),
         "on this build the game reads a String, so anything said is about the change coming"
     );
 }
@@ -1332,7 +1332,7 @@ fn a_field_a_base_declares_is_reported_on_a_derived_object() {
     let problems = check_with(&files);
 
     assert_eq!(problems.len(), 1);
-    assert_eq!(problems[0].severity, Severity::Fatal);
+    assert_eq!(problems[0].severity, ProblemSeverity::Fatal);
     let mismatch = problems[0].mismatch.as_ref().expect("a type pair");
     assert_eq!(mismatch.expected, "file");
     assert_eq!(mismatch.found, "string");

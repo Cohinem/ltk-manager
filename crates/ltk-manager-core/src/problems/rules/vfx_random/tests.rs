@@ -146,7 +146,7 @@ fn a_random_table_on_a_per_frame_colour_is_reported() {
     assert_eq!(problems.len(), 1);
     let problem = &problems[0];
     assert_eq!(problem.rule, PER_FRAME_ID);
-    assert_eq!(problem.severity, Severity::Warning);
+    assert_eq!(problem.severity, ProblemSeverity::Warning);
     let node = problem.site.node.as_ref().expect("the table list");
     assert_eq!(node.entry, SYSTEM);
     assert!(node.path.ends_with("a7084719"), "{}", node.path);
@@ -183,7 +183,7 @@ fn a_null_slot_after_a_held_first_slot_is_reported_as_a_crash() {
 
     assert_eq!(problems.len(), 1);
     assert_eq!(problems[0].rule, BROKEN_ID);
-    assert_eq!(problems[0].severity, Severity::Error);
+    assert_eq!(problems[0].severity, ProblemSeverity::Error);
     let message = problems[0]
         .message
         .clone()

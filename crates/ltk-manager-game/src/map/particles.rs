@@ -22,9 +22,7 @@ const START_DISABLED: BinHash = BinHash(0x3edc_338f);
 /// One particle system a map stands in its scene.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapParticle {
     /// The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits.
     pub chunk: String,

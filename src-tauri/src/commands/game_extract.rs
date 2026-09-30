@@ -74,6 +74,7 @@ impl Drop for ExtractGuard<'_> {
 /// the archives before choosing a destination. `kinds` are the browser's filter
 /// chips, and `null` means every kind.
 #[tauri::command]
+#[specta::specta]
 pub async fn plan_game_extract(
     targets: Vec<ExtractTarget>,
     kinds: Option<Vec<WorkshopFileKind>>,
@@ -92,6 +93,7 @@ pub async fn plan_game_extract(
 /// chunk. Answers `None` when an extract is already running, which is what a
 /// double-clicked Extract button looks like.
 #[tauri::command]
+#[specta::specta]
 pub async fn extract_game_files(
     targets: Vec<ExtractTarget>,
     options: ExtractOptions,
@@ -149,6 +151,7 @@ pub async fn extract_game_files(
 /// just as the run finished looks like. The files written so far stay, because
 /// each one was written whole.
 #[tauri::command]
+#[specta::specta]
 pub fn cancel_extract(extract: State<ExtractState>) -> IpcResult<bool> {
     IpcResult::ok(extract.cancel())
 }

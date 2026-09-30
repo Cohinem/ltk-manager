@@ -8,7 +8,6 @@
 use chrono::{DateTime, Utc};
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
-use ts_rs::TS;
 
 use crate::github::{self, GitHubError};
 
@@ -20,8 +19,7 @@ const DOCUMENT_URL: &str =
 const SCHEMA: u32 = 1;
 
 /// How loudly a notice is drawn.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum NoticeSeverity {
     Info,
@@ -30,8 +28,7 @@ pub enum NoticeSeverity {
 }
 
 /// One notice that concerns the running build, and has not expired.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Notice {
     /// Stable across edits, which is what a dismissal is kept by.

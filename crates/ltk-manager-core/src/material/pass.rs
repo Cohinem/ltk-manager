@@ -43,9 +43,7 @@ const WRITE_ALL: u32 = 31;
 /// with everything the pass shader is bound with.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ResolvedMaterial {
     /// The material's path hash, `0x` and eight hex digits.
     pub hash: String,
@@ -65,9 +63,7 @@ pub struct ResolvedMaterial {
 /// `StaticMaterialDef.type`, the family a material's shader belongs to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum MaterialKind {
     StaticMesh,
     /// The class default, which is why no skinned material writes the field.
@@ -97,9 +93,7 @@ impl MaterialKind {
 /// One `StaticMaterialPassDef` with its shader's inputs filled in.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ResolvedPass {
     /// The pass shader's `objectPath`, which its TOCs are named after, and none where the
     /// link resolves to nothing.
@@ -124,9 +118,7 @@ pub struct ResolvedPass {
 /// an editor lists every declared row and the material's value where it writes one.
 #[derive(Debug, Clone, PartialEq, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ShaderSchema {
     /// Every logical parameter, in declaration order.
     pub params: Vec<SchemaParam>,
@@ -139,9 +131,7 @@ pub struct ShaderSchema {
 /// One name a `paramValues` entry may carry, with the value the shader holds for it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct SchemaParam {
     /// The logical name, or the physical one where the parameter declares no logical names.
     pub name: String,
@@ -158,9 +148,7 @@ pub struct SchemaParam {
 /// One `ShaderTexture` a `samplerValues` entry may name.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct SchemaTexture {
     pub name: String,
     /// `defaultTexturePath`, drawn where the material names no texture.
@@ -172,9 +160,7 @@ pub struct SchemaTexture {
 /// One `ShaderStaticSwitch` a `switches` entry may name.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct SchemaSwitch {
     pub name: String,
     pub on_by_default: bool,
@@ -185,9 +171,7 @@ pub struct SchemaSwitch {
 /// One `NAME=VALUE` of the define list.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct Define {
     pub name: String,
     pub value: String,
@@ -199,9 +183,7 @@ pub struct Define {
 /// winning.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum DefineSource {
     /// `StaticMaterialDef.shaderMacros`.
     Material,
@@ -218,9 +200,7 @@ pub enum DefineSource {
 /// A static switch the shader reads as a `$Globals` float rather than a define.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct RuntimeSwitch {
     /// The switch's name, without the `switch_` the member carries.
     pub name: String,
@@ -230,9 +210,7 @@ pub struct RuntimeSwitch {
 /// One `ShaderTexture` with the path and the sampler the pass binds it with.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct PassTexture {
     /// The shader texture's name, which the material's sampler entry is keyed by.
     pub name: String,
@@ -246,9 +224,7 @@ pub struct PassTexture {
 /// Which step of section 11.5 supplied a texture's path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum TextureSource {
     /// The material's own `samplerValues` entry.
     Material,
@@ -261,9 +237,7 @@ pub enum TextureSource {
 /// How a texture is sampled: a shared sampler by name, or the entry's own modes.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct SamplerState {
     /// `ShaderTexture.samplerName`, the `X3DSharedSamplerDef` the shader reads through
     /// as `<name>_SharedSampler`, which wins over the modes below.
@@ -291,9 +265,7 @@ impl Default for SamplerState {
 /// One `ShaderPhysicalParameter` after the material's and the pass's values wrote into it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct PassParam {
     /// The physical name, which the `$Globals` member carries.
     pub name: String,
@@ -305,9 +277,7 @@ pub struct PassParam {
 /// Which step of section 11.6 last wrote a parameter.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum ParamSource {
     /// `ShaderPhysicalParameter.data`.
     ShaderDefault,
@@ -320,9 +290,7 @@ pub enum ParamSource {
 /// The pass's render state, field by field, with the class defaults filled in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct PassState {
     pub blend_enable: bool,
     pub src_color: BlendFactor,
@@ -360,9 +328,7 @@ impl Default for PassState {
 /// The winding a pass culls, `windingToCull` on the wire.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum Winding {
     /// Clockwise, `0`, which 436 shipped passes cull for an inverted hull.
     Cw,

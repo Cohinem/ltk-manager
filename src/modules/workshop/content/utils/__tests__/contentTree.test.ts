@@ -17,7 +17,7 @@ import {
 function entry(relativePath: string, sizeBytes = 0): ContentEntry {
   return {
     relativePath,
-    sizeBytes: BigInt(sizeBytes),
+    sizeBytes,
     kind: "unknown",
     objects: [],
     ignoredBy: null,
