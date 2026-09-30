@@ -897,6 +897,14 @@
       ]
     },
     {
+      "name": "atlas",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        63
+      ]
+    },
+    {
       "name": "atomic-waker",
       "version": "1.1.2",
       "url": "https://github.com/smol-rs/atomic-waker",

@@ -294,11 +294,11 @@ the order of the client's input sort. There is no GPU picking pass.
 
 ## 4 The backend
 
-### 4.1 `ltk-manager-game::ui`
+### 4.1 The `atlas` crate
 
 ```text
-crates/ltk-manager-game/src/ui/
-|-- mod.rs        the re-exports
+crates/atlas/src/
+|-- lib.rs        the re-exports
 |-- imaa.rs       Manifest: read, write (sorted by key), find
 |-- view.rs       resolve_view -> UiView
 |-- model.rs      UiView and the types under it, ts-rs and specta under `ts`

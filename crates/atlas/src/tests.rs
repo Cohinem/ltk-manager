@@ -12,7 +12,7 @@ use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyValueEnum};
 
 use super::*;
-use crate::program::ProgramRead;
+use ltk_manager_game::program::ProgramRead;
 
 const CONTROLLER: &str = "ClientStates/Gameplay/UX/Test";
 const FOLDER: &str = "clientstates/gameplay/ux/test";

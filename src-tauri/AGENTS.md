@@ -5,12 +5,13 @@ governs `crates/ltk-manager-core/`, whose `AGENTS.md` points here.
 
 ## Workspace Crates
 
-| Crate                     | Knows about                       | Depends on             | License            |
-| ------------------------- | --------------------------------- | ---------------------- | ------------------ |
-| `crates/ltk-manager-core` | Manager domain logic, UI-agnostic | `ritoclient`           | `GPL-3.0-or-later` |
-| `crates/ltk-manager-game` | What League's own classes mean    | core, hexshade         | `GPL-3.0-or-later` |
-| `crates/hexshade`         | The game's shaders as GLSL        | `dxbc-spirv-sys`       | `GPL-3.0-or-later` |
-| `src-tauri`               | Tauri commands, IPC, events       | core, game, hexshade   | `GPL-3.0-or-later` |
+| Crate                     | Knows about                       | Depends on                  | License            |
+| ------------------------- | --------------------------------- | --------------------------- | ------------------ |
+| `crates/ltk-manager-core` | Manager domain logic, UI-agnostic | `ritoclient`                | `GPL-3.0-or-later` |
+| `crates/ltk-manager-game` | What League's own classes mean    | core, hexshade              | `GPL-3.0-or-later` |
+| `crates/hexshade`         | The game's shaders as GLSL        | `dxbc-spirv-sys`            | `GPL-3.0-or-later` |
+| `crates/atlas`            | The game's UI views, for Atlas    | core, game, hexshade        | `GPL-3.0-or-later` |
+| `src-tauri`               | Tauri commands, IPC, events       | core, game, hexshade, atlas | `GPL-3.0-or-later` |
 
 `ritoclient` is an external dependency rather than a workspace member, pinned to a git rev in the
 root `Cargo.toml` until it ships on crates.io. It is **Apache-2.0**, where this workspace is
@@ -27,6 +28,11 @@ VFX and spell reads as they follow. Core never calls it, so nothing core holds k
 `MapContainer` is. It reads a bin through what `bin_document` exports for that (`Fields`,
 `struct_of`, `items`, `leaf`, `link`, `text`, `Namer`) and never through `ltk_meta` matches of
 its own. A type of it that crosses IPC derives under its own `ts` feature, which takes core's.
+
+`atlas` sits above the game crate and holds the UI editor's backend: a view controller resolved
+into its scenes and elements, the sprite manifest, the UI programs and the sheet a mod packs. It
+reads a bin the same way the game crate does, and reaches the shader cache through the game
+crate's `AssetChunks`.
 
 Dependencies point one way only. `ritoclient` takes plain arguments (`Option<&Path>`) and reports
 through its own `LaunchObserver` and `SessionObserver` traits - it must never learn about `Config`,

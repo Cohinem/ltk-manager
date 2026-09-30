@@ -334,6 +334,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "atlas"
+version = "0.1.0"
+dependencies = [
+ "fs-err",
+ "glam",
+ "hexshade",
+ "image",
+ "ltk-manager-core",
+ "ltk-manager-game",
+ "ltk_hash",
+ "ltk_meta",
+ "ltk_primitives",
+ "ltk_texture",
+ "ltk_wad",
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3104,6 +3128,7 @@ version = "1.23.0"
 dependencies = [
  "anyhow",
  "assert_matches",
+ "atlas",
  "base64 0.22.1",
  "byteorder",
  "chrono",
@@ -3237,19 +3262,15 @@ dependencies = [
  "fs-err",
  "glam",
  "hexshade",
- "image",
  "ltk-manager-core",
  "ltk_hash",
  "ltk_meta",
  "ltk_modpkg",
- "ltk_primitives",
- "ltk_texture",
  "ltk_wad",
  "serde",
  "serde_json",
  "specta",
  "tempfile",
- "thiserror 2.0.18",
  "tracing",
  "ts-rs",
  "xxhash-rust",

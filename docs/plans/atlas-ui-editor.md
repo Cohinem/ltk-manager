@@ -66,9 +66,9 @@ The VFX editor is a class view whose layout names a shell (`vfxLayout` in
   for a system: follows the loadables through the sandbox, reads the scene bins, the variant files
   and the manifest, and answers one `UiView` model. The engine draws from that model and never
   walks bins itself.
-- **Class semantics in `ltk-manager-game`.** That crate holds what League's classes mean, above
-  core. The view resolver, the IMAA reader and writer, and the packer belong in a `ui` module
-  there. The IMAA format could move to `league-toolkit` once it is stable, beside `ltk_texture`.
+- **Its own crate.** `crates/atlas` holds the view resolver, the IMAA reader and writer, the UI
+  programs and the packer, above core and the game crate, as hexshade holds the shaders. The IMAA
+  format could move to `league-toolkit` once it is stable, beside `ltk_texture`.
 - **Edits through `bin_edit`.** Every change is a `BinEdit` on the scene document it touches. A
   change to several elements is one `EditProperties`, a property edit per element, which records
   one undo step, or in a declared document folds its declarations into one. The 64-edit ceiling

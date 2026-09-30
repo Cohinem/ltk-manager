@@ -1,5 +1,6 @@
-//! Atlas, the UI editor's reads: a view controller resolved into the scenes and elements it
-//! draws, and the sprite manifest behind its auto-atlas pages.
+//! Atlas, the workshop's UI editor: a view controller resolved into the scenes and elements it
+//! draws, the sprite manifest behind its auto-atlas pages, the programs that draw them, and the
+//! sheet a mod packs its own sprites into.
 //!
 //! The evidence is docs/research/ui-data-layout.md and the shape is section 4 of
 //! docs/plans/atlas-renderer.md.

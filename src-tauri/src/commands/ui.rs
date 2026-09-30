@@ -5,16 +5,16 @@ use super::material::translations;
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
+use atlas::{
+    import_sprite, read_sheet, resolve_font, resolve_scene_bin, resolve_view, SheetImport,
+    SheetSpec, SheetTarget, UiFont, UiShader, UiView, VariantChoice, FONTS_PATH,
+};
 use ltk_hash::WadHash;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments, Namer, RowNames};
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::sandbox::{SandboxRef, SandboxState};
 use ltk_manager_game::program::ProgramRead;
-use ltk_manager_game::ui::{
-    import_sprite, read_sheet, resolve_font, resolve_scene_bin, resolve_view, SheetImport,
-    SheetSpec, SheetTarget, UiFont, UiShader, UiView, VariantChoice, FONTS_PATH,
-};
 use serde::Deserialize;
 use std::path::Path;
 use tauri::{AppHandle, Manager};
@@ -285,7 +285,7 @@ pub async fn read_ui_programs(
             let config = app_handle.state::<SettingsState>().config();
             let wads = app_handle.state::<WadCache>();
             let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
-            Ok(ltk_manager_game::ui::read_ui_programs(
+            Ok(atlas::read_ui_programs(
                 assets,
                 &shaders,
                 &translations,

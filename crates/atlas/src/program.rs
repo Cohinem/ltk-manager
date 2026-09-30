@@ -6,7 +6,7 @@ use ltk_manager_core::error::AppResult;
 use ltk_manager_core::preview::AssetRef;
 use serde::{Deserialize, Serialize};
 
-use crate::program::{AssetChunks, ProgramRead};
+use ltk_manager_game::program::{AssetChunks, ProgramRead};
 
 const UI: &str = "ASSETS/Shaders/HLSL/UI/";
 const FONT: &str = "ASSETS/Shaders/HLSL/Font/";

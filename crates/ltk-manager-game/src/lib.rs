@@ -5,4 +5,3 @@
 
 pub mod map;
 pub mod program;
-pub mod ui;
