@@ -1520,6 +1520,62 @@ fn every_shipped_controller_resolves_into_a_view() {
     assert!(failures.is_empty());
 }
 
+/// How many of the largest shipped views the frame bench reads.
+const BENCH_VIEWS: usize = 6;
+
+#[test]
+#[ignore = "reads a game install, and needs LTK_LIVE_GAME and LTK_VIEW_DUMP"]
+fn the_largest_shipped_views_dump_for_the_frame_bench() {
+    let install = Install::open();
+    let Ok(dump) = std::env::var("LTK_VIEW_DUMP") else {
+        panic!("set LTK_VIEW_DUMP to the folder the frame bench reads");
+    };
+    let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> {
+        let AssetRef::File { path } = asset else {
+            unreachable!()
+        };
+        Ok(install
+            .bytes(u64::from_str_radix(path, 16).unwrap())
+            .unwrap())
+    };
+
+    let loadables = install.loadables();
+    let mut views = Vec::new();
+    for hash in install.hashes() {
+        let bytes = install.bytes(hash).unwrap();
+        let Ok(document) = BinDocument::parse(bytes) else {
+            continue;
+        };
+        for entry in document.entries() {
+            let is_controller = document
+                .object_at(entry)
+                .is_some_and(|object| object.properties.contains_key(&h("PathHashToSelf")));
+            if !is_controller {
+                continue;
+            }
+            let view = resolve_view(
+                &document,
+                entry,
+                None,
+                None,
+                &(),
+                &install,
+                &loadables,
+                &mut read,
+            )
+            .unwrap();
+            views.push(view);
+        }
+    }
+
+    views.sort_by_key(|view| std::cmp::Reverse(view.elements.len()));
+    fs_err::create_dir_all(&dump).unwrap();
+    for (at, view) in views.iter().take(BENCH_VIEWS).enumerate() {
+        let file = std::path::Path::new(&dump).join(format!("{at}-{}.json", view.entry));
+        fs_err::write(file, serde_json::to_vec(view).unwrap()).unwrap();
+    }
+}
+
 #[test]
 #[ignore = "reads a game install, and needs LTK_LIVE_GAME"]
 fn the_sample_loadout_reads_out_of_the_install() {

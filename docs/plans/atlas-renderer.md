@@ -1,6 +1,6 @@
 # Atlas renderer
 
-> Status: tiers 1 to 6 built (2026-09-29), except icon materials, the VFX shell's HUD-layer
+> Status: tiers 1 to 7 built (2026-09-30), except icon materials, the VFX shell's HUD-layer
 > draw and the captures. It is the
 > rendering half of `docs/plans/atlas-ui-editor.md`. The evidence is
 > `docs/research/ui-data-layout.md`, the tree at `e18e3beb`, the UI and font shaders translated
@@ -244,8 +244,12 @@ same target with `autoClear` off, one per run of draws that share a scissor, one
 system with its own orthographic camera, and one per offscreen group into a target of its own that
 the pop composites through `Copy`.
 
-A run is one `Mesh` per icon batch, text or effect, drawn in list order by `renderOrder`. Batching
-icons the way the client merges them (section 2.4) is tier 7, built when a view measures slow.
+A run is one `Mesh` per icon batch, text or effect, drawn in list order by `renderOrder`. Icons
+batch the way the client merges them (section 2.4): consecutive triangle draws that share the
+program, the texture, the blend and the scissor, and that no effect drives, become one draw with
+their geometry in list order, so the frame is unchanged. Such a draw writes no constant but its
+texture, so every draw of one program, blend and texture shares one material, which the renderer
+keeps across command lists and a drag recompiles nothing.
 
 ### 3.5 A flat viewport on the shared renderer
 
@@ -562,6 +566,14 @@ headless Edge and by eye. Atlas keeps that split: logic in unit tests, pixels ag
 | 5    | text: `?as=font`, glyph pages, the three passes, layout, wrapping, markup, strings                                                  | a text-heavy view against a capture                                              |
 | 6    | `hudCamera`, element particles in the command list, and the VFX shell's HUD-layer draw                                              | a skin overlay's particles and a summoner emote on screen                        |
 | 7    | icon batching, a draw budget and a frame budget, measured on the largest views                                                      | the item shop at 60 frames a second while editing                                |
+
+Tier 7 measured the six largest views of the installed `UI.wad.client`, every scene and every
+disabled element drawn, at 2560 x 1440: the item shop's 681 elements lay out, build and batch in
+0.7 ms into 46 draws from 132, and the worst of the six takes 2.0 ms and 269 draws. The budgets are
+8 ms for that work, half a frame at 60 a second, and 512 draws a view.
+`the_largest_shipped_views_dump_for_the_frame_bench` in `crates/atlas/src/tests.rs` dumps the
+views, and `frame.sweep.test.ts` holds each to both budgets with `LTK_VIEW_DUMP` naming the dump.
+The draw itself is not measured headless.
 
 Tiers 1 and 2 stand alone and can land before any editor code. Tier 3 is the first one a user
 sees, and after it every tier adds what one class of element looks like.
