@@ -4,7 +4,7 @@ use std::io::Cursor;
 
 use glam::{Vec2, Vec4};
 use ltk_hash::{BinHash, Hash as _, WadHash};
-use ltk_manager_core::bin_document::{AssetLookup, BinDocument};
+use ltk_manager_core::bin_document::{AssetLookup, BinDocument, GameCopy, RowNames};
 use ltk_manager_core::error::{AppError, AppResult};
 use ltk_manager_core::preview::AssetRef;
 use ltk_meta::path::PropertyPath;
@@ -307,6 +307,7 @@ fn resolved(chunks: &Chunks) -> UiView {
         None,
         &(),
         chunks,
+        &NoGame,
         &mut |asset| chunks.read(asset),
     )
     .unwrap()
@@ -554,6 +555,7 @@ fn a_loadable_draws_as_the_base_of_the_controller_that_links_it() {
         None,
         &(),
         &chunks,
+        &NoGame,
         &mut |asset| chunks.read(asset),
     )
     .unwrap();
@@ -582,6 +584,7 @@ fn a_loadable_no_controller_links_finds_the_manifest_of_its_folder() {
         None,
         &NamedBase,
         &chunks,
+        &NoGame,
         &mut |asset| chunks.read(asset),
     )
     .unwrap();
@@ -625,9 +628,16 @@ fn an_alternate_loadable_draws_in_place_of_the_controllers_base() {
         .build();
     let document = BinDocument::parse(document_of(vec![controller, other, alternate])).unwrap();
 
-    let view = resolve_view(&document, h(BASE), None, None, &(), &chunks, &mut |asset| {
-        chunks.read(asset)
-    })
+    let view = resolve_view(
+        &document,
+        h(BASE),
+        None,
+        None,
+        &(),
+        &chunks,
+        &NoGame,
+        &mut |asset| chunks.read(asset),
+    )
     .unwrap();
 
     let roles: Vec<_> = view.files.iter().map(|file| file.role).collect();
@@ -667,6 +677,144 @@ fn a_view_reads_its_base_scene_bin_and_lists_every_loadable_base_first() {
     assert_eq!(rect.max_size, [1_000_000.0; 2]);
 }
 
+/// A game copy that declares each object it holds in a bin of its own.
+struct Declares(HashMap<BinHash, Vec<u8>>);
+
+impl GameCopy for Declares {
+    fn declaring_chunk(&self, entry: BinHash) -> AppResult<Option<Vec<u8>>> {
+        Ok(self.0.get(&entry).cloned())
+    }
+
+    fn with_names(&self, read: &mut dyn FnMut(&dyn RowNames)) {
+        read(&());
+    }
+}
+
+/// The base loadable of the fixture, which a controller links.
+fn base_loadable() -> BinObject {
+    BinObject::builder(h(BASE), h("UiPropertyLoadable"))
+        .property(
+            h("FilepathHash"),
+            values::WadChunkLink::new(WadHash::hash_str(BASE)),
+        )
+        .build()
+}
+
+/// A controller linking the base through `field`, in a bin that holds the base where `holds`.
+fn linking_controller(field: &str, holds: bool) -> BinDocument {
+    let controller = BinObject::builder(h(CONTROLLER), h("LogicDriverViewController"))
+        .property(
+            h("PathHashToSelf"),
+            values::WadChunkLink::new(WadHash::hash_str(FOLDER)),
+        )
+        .property(h(field), values::ObjectLink::new(h(BASE)))
+        .build();
+    let objects = if holds {
+        vec![controller, base_loadable()]
+    } else {
+        vec![controller]
+    };
+    BinDocument::parse(document_of(objects)).unwrap()
+}
+
+fn resolved_with(document: &BinDocument, game: &dyn GameCopy, chunks: &Chunks) -> UiView {
+    resolve_view(
+        document,
+        h(CONTROLLER),
+        None,
+        None,
+        &(),
+        chunks,
+        game,
+        &mut |asset| chunks.read(asset),
+    )
+    .unwrap()
+}
+
+#[test]
+fn a_controller_that_links_its_base_as_loadable_draws_it() {
+    let chunks = fixture();
+    let view = resolved_with(&linking_controller("Loadable", true), &NoGame, &chunks);
+
+    let roles: Vec<_> = view.files.iter().map(|file| file.role).collect();
+    assert_eq!(roles, [UiFileRole::Base]);
+    assert_eq!(view.elements.len(), 4);
+    assert!(!view.warnings.contains(&UiViewWarning::NoBase));
+}
+
+#[test]
+fn a_base_loadable_another_bin_declares_is_read_from_that_bin() {
+    let chunks = fixture();
+    let document = linking_controller("BaseLoadable", false);
+    let game = Declares(HashMap::from([(
+        h(BASE),
+        document_of(vec![base_loadable()]),
+    )]));
+
+    let view = resolved_with(&document, &game, &chunks);
+    assert_eq!(view.files[0].role, UiFileRole::Base);
+    assert_eq!(view.elements.len(), 4);
+
+    let unreached = resolved_with(&document, &NoGame, &chunks);
+    assert!(unreached.elements.is_empty());
+    assert_eq!(
+        unreached.warnings,
+        [UiViewWarning::BaseElsewhere {
+            entry: format!("0x{:08x}", h(BASE).0)
+        }]
+    );
+}
+
+/// An embedded struct of the class `class` by its hash, over fields by their hashes.
+fn embedded_by_hash(class: u32, properties: Vec<(u32, PropertyValueEnum)>) -> PropertyValueEnum {
+    values::Embedded(values::Struct {
+        class_hash: BinHash(class),
+        properties: properties
+            .into_iter()
+            .map(|(field, value)| (BinHash(field), value))
+            .collect(),
+    })
+    .into()
+}
+
+#[test]
+fn a_controller_names_the_templates_it_clones_into_its_layouts() {
+    let fill = embedded_by_hash(
+        0x3427_0fce,
+        vec![
+            (
+                0x6258_0dd4,
+                embedded_by_hash(
+                    0xcff0_d042,
+                    vec![(0x5fb9_1e8c, values::Hash::new(h("Template")).into())],
+                ),
+            ),
+            (0xcac1_7cff, values::Hash::new(h("Layout")).into()),
+            (0xd829_fd95, values::U32::new(12).into()),
+        ],
+    );
+    let controller = BinObject::builder(h(CONTROLLER), h("TestViewController"))
+        .property(
+            h("PathHashToSelf"),
+            values::WadChunkLink::new(WadHash::hash_str(FOLDER)),
+        )
+        .property(h("BaseLoadable"), values::ObjectLink::new(h(BASE)))
+        .property(BinHash(0xe0b2_9ef4), fill)
+        .build();
+    let document = BinDocument::parse(document_of(vec![controller, base_loadable()])).unwrap();
+
+    let view = resolved_with(&document, &NoGame, &fixture());
+
+    assert_eq!(
+        view.repeats,
+        [UiRepeat {
+            template: format!("0x{:08x}", h("Template").0),
+            layout: format!("0x{:08x}", h("Layout").0),
+            count: 12,
+        }]
+    );
+}
+
 #[test]
 fn an_open_scene_bin_draws_in_place_of_the_file() {
     let mut chunks = fixture();
@@ -680,6 +828,7 @@ fn an_open_scene_bin_draws_in_place_of_the_file() {
         None,
         &(),
         &chunks,
+        &NoGame,
         &mut |asset| chunks.read(asset),
     )
     .unwrap();
@@ -727,6 +876,7 @@ fn with_variant(chunks: &Chunks, open: Option<&BinDocument>) -> UiView {
         Some(VariantChoice { slot: &slot, open }),
         &(),
         chunks,
+        &NoGame,
         &mut |asset| chunks.read(asset),
     )
     .unwrap()
@@ -801,6 +951,7 @@ fn a_variant_no_slot_names_draws_the_base_and_warns() {
         }),
         &(),
         &chunks,
+        &NoGame,
         &mut |asset| chunks.read(asset),
     )
     .unwrap();
@@ -964,6 +1115,19 @@ fn a_sprite_no_manifest_holds_and_a_missing_loadable_are_warnings_on_the_view() 
     ));
 }
 
+/// A game copy that declares nothing, as an install whose object index is not built.
+struct NoGame;
+
+impl GameCopy for NoGame {
+    fn declaring_chunk(&self, _entry: BinHash) -> AppResult<Option<Vec<u8>>> {
+        Ok(None)
+    }
+
+    fn with_names(&self, read: &mut dyn FnMut(&dyn RowNames)) {
+        read(&());
+    }
+}
+
 /// Every chunk of the UI and Bootstrap archives of an install, by path hash.
 struct Install {
     wads: RefCell<Vec<ltk_wad::Wad<fs_err::File>>>,
@@ -992,6 +1156,27 @@ impl Install {
             .iter()
             .flat_map(|wad| wad.chunks().iter().map(|chunk| chunk.path_hash().0))
             .collect()
+    }
+
+    /// Every `UiPropertyLoadable` of the install with the bin that declares it, as the object
+    /// index answers a declaration.
+    fn loadables(&self) -> Declares {
+        let mut declared = HashMap::new();
+        for hash in self.hashes() {
+            let bytes = self.bytes(hash).unwrap();
+            let Ok(document) = BinDocument::parse(bytes.clone()) else {
+                continue;
+            };
+            for entry in document.entries() {
+                if document
+                    .object_at(entry)
+                    .is_some_and(|object| object.class_hash == h("UiPropertyLoadable"))
+                {
+                    declared.entry(entry).or_insert_with(|| bytes.clone());
+                }
+            }
+        }
+        Declares(declared)
     }
 
     fn bytes(&self, hash: u64) -> Option<Vec<u8>> {
@@ -1061,6 +1246,13 @@ fn every_shipped_controller_resolves_into_a_view() {
     let (mut buttons, mut hit_regions) = (0, 0);
     let (mut meters, mut tips) = (0, 0);
     let mut failures = Vec::new();
+    let loadables = install.loadables();
+    let must_draw = [
+        h("LogicDriverViewController"),
+        h("LoadingScreenPlayerCardsViewController"),
+    ];
+    let mut drawn = 0;
+    let mut repeats = 0;
     for hash in install.hashes() {
         let bytes = install.bytes(hash).unwrap();
         if !bytes.starts_with(b"PROP") {
@@ -1080,8 +1272,29 @@ fn every_shipped_controller_resolves_into_a_view() {
             .collect();
 
         for entry in controllers {
-            let view =
-                resolve_view(&document, entry, None, None, &(), &install, &mut read).unwrap();
+            let view = resolve_view(
+                &document,
+                entry,
+                None,
+                None,
+                &(),
+                &install,
+                &loadables,
+                &mut read,
+            )
+            .unwrap();
+            let class = document.object_at(entry).map(|object| object.class_hash);
+            /* One skin overlay ships a scene bin holding a lone empty scene. */
+            if class.is_some_and(|class| must_draw.contains(&class)) {
+                if view.scenes.is_empty() {
+                    failures.push(format!(
+                        "{} reads no scene: {:?} {:?}",
+                        view.entry, view.files, view.warnings
+                    ));
+                } else {
+                    drawn += 1;
+                }
+            }
             for warning in &view.warnings {
                 match warning {
                     UiViewWarning::MissingSprite { .. } => missing += 1,
@@ -1130,6 +1343,12 @@ fn every_shipped_controller_resolves_into_a_view() {
                     if !children.contains(key) {
                         failures.push(format!("{} meter {} names {key}", view.entry, element.key));
                     }
+                }
+            }
+            for repeat in &view.repeats {
+                repeats += 1;
+                if !known(&repeat.template) || !known(&repeat.layout) {
+                    failures.push(format!("{} repeat {repeat:?} names no element", view.entry));
                 }
             }
             for combo in &view.combo_boxes {
@@ -1189,6 +1408,7 @@ fn every_shipped_controller_resolves_into_a_view() {
                     Some(choice),
                     &(),
                     &install,
+                    &loadables,
                     &mut read,
                 )
                 .unwrap();
@@ -1213,12 +1433,14 @@ fn every_shipped_controller_resolves_into_a_view() {
          {missing} sprites no own manifest holds, {texts} texts with a font, \
          {variants} variants laid with {applied} records applied and {skipped} skipped, \
          {combos} combo boxes, {buttons} buttons ({hit_regions} with a hit region), \
-         {meters} meters ({tips} with a tip)"
+         {meters} meters ({tips} with a tip), {drawn} overlays and player cards drawn, {repeats} layout repeats"
     );
     for failure in &failures {
         println!("{failure}");
     }
     assert!(views >= 290);
+    assert!(drawn >= 28);
+    assert!(repeats > 0);
     assert!(failures.is_empty());
 }
 

@@ -10,15 +10,15 @@ import {
   type Uv,
 } from "../geometry/quads";
 import type { LayoutSettings, PixelRect } from "../layout/solve";
-import { hiddenByState } from "../model/buttons";
 import type { ClonedElement, PreviewOverlay } from "../model/combo";
-import { disabledMeters, type MeterCut, meterDraws } from "../model/meters";
+import { type MeterCut, meterDraws } from "../model/meters";
 import { sceneAncestry, sceneOf, type ViewTree } from "../model/tree";
 import type { ViewElement, ViewLook, ViewSprite } from "../model/view";
 import { restsHidden } from "../model/visibility";
 import { textDraws } from "../text/draws";
 import { sampleText } from "../text/samples";
 import type { TextSource } from "../text/source";
+import { hiddenOf, isHidden } from "./hidden";
 import { sceneScissors } from "./scissors";
 import type { Command, DrawCommand, ParticleCommand, TextCommand } from "./types";
 
@@ -32,6 +32,10 @@ export interface PreviewState {
   readonly meterFills: ReadonlyMap<string, number>;
   /** An effect or meter the file leaves off draws too, per `restsHidden` and `disabledMeters`. */
   readonly showDisabled: boolean;
+  /** The elements the reader hid, each with everything a group of them holds. */
+  readonly hiddenElements: ReadonlySet<string>;
+  /** Every effect and particle element draws, per `isEffect`. */
+  readonly effects: boolean;
   /** A text the controller fills at run time draws `sampleText`. */
   readonly samples: boolean;
   /** The elements drawn, every one where it is null. */
@@ -226,30 +230,6 @@ function shownScenesOf(tree: ViewTree, hiddenScenes: ReadonlySet<string>): Set<s
     if (sceneAncestry(tree, key).every((scene) => !hiddenScenes.has(scene))) shown.add(key);
   }
   return shown;
-}
-
-/**
- * What the preview leaves undrawn beside the scenes: every button's other states, and each meter
- * the file leaves off unless disabled things show.
- */
-function hiddenOf(tree: ViewTree, preview: PreviewState): Set<string> {
-  const hidden = hiddenByState(tree, preview.buttonStates);
-  if (!preview.showDisabled) {
-    for (const key of disabledMeters(tree)) hidden.add(key);
-  }
-  return hidden;
-}
-
-/** Whether `key` or a group above it is hidden. */
-function isHidden(tree: ViewTree, hidden: ReadonlySet<string>, key: string): boolean {
-  let at: string | undefined = key;
-  const seen = new Set<string>();
-  while (at !== undefined && !seen.has(at)) {
-    if (hidden.has(at)) return true;
-    seen.add(at);
-    at = tree.groupOf.get(at);
-  }
-  return false;
 }
 
 function fullScreen(settings: LayoutSettings): PixelRect {

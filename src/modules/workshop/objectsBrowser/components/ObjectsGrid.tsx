@@ -8,6 +8,7 @@ import { m } from "@/i18n";
 import { useMeasuredWidth } from "../../explorer/components/ExplorerSurface";
 import { nameTypeFor } from "../../explorer/utils/tileName";
 import { type ObjectsReveal, useSelectedObjectPath, useSelectObjectNode } from "../../state";
+import { useObjectPreviewKind } from "../hooks/useObjectPreviewKind";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
 import { usePreviewScope } from "../hooks/usePreviewScope";
 import { useRestPreview } from "../hooks/useRestPreview";
@@ -19,7 +20,7 @@ import {
   usePinnedPreviews,
   usePreviewOutcomes,
 } from "../state/previewStills";
-import { objectPreviewKey, objectPreviewKind, playsOnHover } from "../utils/objectPreview";
+import { objectPreviewKey, playsOnHover } from "../utils/objectPreview";
 import type { ObjectRowNode, ObjectTreeNode } from "../utils/objectTree";
 import { type PreviewRequest, usePreviewPool } from "./ObjectPreviewPool";
 import type { ObjectPreviewJob } from "./ObjectPreviewSlot";
@@ -174,10 +175,11 @@ export function ObjectsGrid({
     return () => cancelAnimationFrame(frame);
   }, [reveal, rows, items, columns, visible, width, virtualizer, onRevealed]);
 
+  const kindOf = useObjectPreviewKind();
   const keyOf = (node: ObjectRowNode) => stillKey(objectPreviewKey(node), scope);
   const inView = rows.flatMap((row) => items.slice(row.index * columns, (row.index + 1) * columns));
   const candidates = inView.filter(
-    (node): node is ObjectRowNode => node.type === "object" && objectPreviewKind(node) !== null,
+    (node): node is ObjectRowNode => node.type === "object" && kindOf(node) !== null,
   );
   const shownKeys = thumbnails ? candidates.map(keyOf).join("\n") : "";
   const pinned = useMemo(() => new Set(shownKeys.split("\n").filter(Boolean)), [shownKeys]);
@@ -195,7 +197,7 @@ export function ObjectsGrid({
     drawable(hovered, "tile") &&
     hovered.id === aimed?.id &&
     !reducedMotion &&
-    playsOnHover(objectPreviewKind(hovered));
+    playsOnHover(kindOf(hovered));
   let live: { node: ObjectRowNode; mode: "tile" | "large" } | null = null;
   if (drawable(expanded, "large")) {
     live = { node: expanded, mode: "large" };
@@ -266,13 +268,13 @@ export function ObjectsGrid({
   const aimAt = (target: EventTarget | null) => {
     const tile = target instanceof Element ? target.closest(TILE_SELECTOR) : null;
     const node = tile === null ? undefined : items[Number(tile.getAttribute("data-tile-index"))];
-    const next = node?.type === "object" && objectPreviewKind(node) !== null ? node : null;
+    const next = node?.type === "object" && kindOf(node) !== null ? node : null;
     setAimed((current) => (current?.id === next?.id ? current : next));
   };
 
   const toggleLarge = () => {
     const target = aimed ?? items[Math.min(focused, items.length - 1)];
-    if (target?.type !== "object" || !playsOnHover(objectPreviewKind(target)) || !thumbnails) {
+    if (target?.type !== "object" || !playsOnHover(kindOf(target)) || !thumbnails) {
       return;
     }
 
@@ -347,9 +349,7 @@ export function ObjectsGrid({
                       const key = node.type === "object" ? keyOf(node) : null;
                       const outcome = thumbnails && key !== null ? outcomes.get(key) : undefined;
                       const previewable =
-                        thumbnails &&
-                        node.type === "object" &&
-                        playsOnHover(objectPreviewKind(node));
+                        thumbnails && node.type === "object" && playsOnHover(kindOf(node));
                       const onExpand = previewable ? expandTile : undefined;
 
                       return (

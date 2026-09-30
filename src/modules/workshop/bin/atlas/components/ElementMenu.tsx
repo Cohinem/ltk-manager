@@ -38,8 +38,8 @@ export interface ElementMenuProps {
 }
 
 /**
- * The menu of an element in the canvas or the layers pane: frame it, select its group, switch its
- * scene in the preview, arrange it and the selection (`ElementEditItems`), open its object, and
+ * The menu of an element in the canvas or the layers pane: frame it, select its group, hide it or
+ * its scene in the preview, arrange it and the selection (`ElementEditItems`), open its object, and
  * copy its name or path. The shortcuts shown are the canvas's own keys.
  */
 export function ElementMenu({
@@ -51,9 +51,9 @@ export function ElementMenu({
 }: ElementMenuProps) {
   const { view, tree, settings, solved } = useAtlasLayout(document, entry, source);
   const key = viewKey(document, entry);
-  const { selected, selection } = useViewPreview(key);
+  const { selected, selection, hiddenElements } = useViewPreview(key);
   const hiddenScenes = useHiddenScenes(tree, key);
-  const { select, toggleScene, requestFrame } = useAtlasPreviewActions();
+  const { select, toggleScene, toggleElement, requestFrame } = useAtlasPreviewActions();
   const open = useOpenDocumentAs();
   const copy = useCopyToClipboard();
 
@@ -91,6 +91,14 @@ export function ElementMenu({
                   {m.workshop_bin_atlas_select_group_action()}
                 </ContextMenu.Item>
               )}
+              <ContextMenu.Item
+                icon={hiddenElements.has(target.key) ? <EyeIcon /> : <EyeSlashIcon />}
+                onClick={() => toggleElement(key, target.key)}
+              >
+                {hiddenElements.has(target.key)
+                  ? m.workshop_bin_atlas_element_show_action()
+                  : m.workshop_bin_atlas_element_hide_action()}
+              </ContextMenu.Item>
               {scene !== null && sceneLabel !== null && (
                 <ContextMenu.Item
                   icon={hiddenScenes.has(scene) ? <EyeIcon /> : <EyeSlashIcon />}

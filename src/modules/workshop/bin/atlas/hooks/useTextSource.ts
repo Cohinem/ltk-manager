@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClampToEdgeWrapping, NoColorSpace, type Texture } from "three";
 
 import type { AssetRef } from "@/lib/tauri";
-import { useAssetTextures } from "@/modules/viewport";
+import { type TextureProgress, useAssetTextures } from "@/modules/viewport";
 
 import { uiQueries } from "../api/uiQueries";
 import type { View, ViewFont, ViewStyleSheet, ViewTextIcon } from "../engine/model/view";
@@ -38,6 +38,8 @@ export interface TextSources {
   readonly flush: () => void;
   readonly glyphPage: (page: number) => GlyphPage | undefined;
   readonly textTextures: ReadonlyMap<string, Texture>;
+  /** Every font file and texture has landed or failed. */
+  readonly settled: boolean;
 }
 
 /** A fill's or an icon's texels as the client samples them. */
@@ -68,17 +70,17 @@ export function useTextSource(
     return [...held.values()];
   }, [fonts]);
   const combine = useCallback(
-    (results: readonly { data?: LoadedFont }[]) => {
+    (results: readonly { data?: LoadedFont; isPending: boolean }[]) => {
       const held = new Map<string, LoadedFont>();
       files.forEach((asset, at) => {
         const data = results[at]?.data;
         if (data !== undefined) held.set(assetKey(asset), data);
       });
-      return held;
+      return { held, pending: results.some((result) => result.isPending) };
     },
     [files],
   );
-  const loaded = useQueries({
+  const { held: loaded, pending: filesPending } = useQueries({
     queries: files.map((asset) => uiQueries.fontFile(asset)),
     combine,
   });
@@ -94,7 +96,12 @@ export function useTextSource(
     }
     return held;
   }, [fonts, sheets]);
-  const textTextures = useAssetTextures(textureAssets, RAW_TEXTURES);
+  const [textureLoad, reportTextures] = useState<TextureProgress | null>(null);
+  const textTextures = useAssetTextures(textureAssets, {
+    ...RAW_TEXTURES,
+    report: reportTextures,
+  });
+  const settled = !filesPending && (textureAssets.size === 0 || textureLoad?.pending === 0);
 
   const source = useMemo<TextSource>(() => {
     const iconSize = (icon: ViewTextIcon) => {
@@ -128,7 +135,7 @@ export function useTextSource(
   const flush = useCallback(() => cache.flush(), [cache]);
   const glyphPage = useCallback((page: number) => cache.page(page), [cache]);
   return useMemo(
-    () => ({ source, flush, glyphPage, textTextures }),
-    [source, flush, glyphPage, textTextures],
+    () => ({ source, flush, glyphPage, textTextures, settled }),
+    [source, flush, glyphPage, textTextures, settled],
   );
 }

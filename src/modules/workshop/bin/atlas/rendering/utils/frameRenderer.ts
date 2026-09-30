@@ -75,11 +75,12 @@ const NO_PARTICLES: ParticleDraws = new Map();
  * offscreen group renders into a pooled target that its pop composites through `Copy`.
  *
  * The target is the screen's size, RGBA8 without colour conversion and premultiplied, so the
- * bytes are the ones the client's gamma-space pipeline writes.
+ * bytes are the ones the client's gamma-space pipeline writes. A board's frames each hold a
+ * list of their own and take turns in the one target.
  */
 export class FrameRenderer {
   readonly target: WebGLRenderTarget;
-  private steps: Step[] = [];
+  private frames: Step[][] = [];
   private drawn: Drawn[] = [];
   private texts: Mesh[] = [];
   private timed: Drawn[] = [];
@@ -93,11 +94,14 @@ export class FrameRenderer {
 
   /** Whether a command changes with the clock. */
   get animating(): boolean {
-    return this.timed.length > 0 || this.steps.some((step) => step.kind === "particles");
+    return (
+      this.timed.length > 0 ||
+      this.frames.some((steps) => steps.some((step) => step.kind === "particles"))
+    );
   }
 
-  /** The commands to draw, replacing the last list. */
-  setCommands(commands: readonly Command[], inputs: FrameInputs, screen: Screen): void {
+  /** The command list of each frame, replacing the last ones. */
+  setCommands(frames: readonly (readonly Command[])[], inputs: FrameInputs, screen: Screen): void {
     this.disposeDrawn();
     if (screen.width !== this.screen.width || screen.height !== this.screen.height) {
       this.screen = screen;
@@ -106,35 +110,51 @@ export class FrameRenderer {
       this.pool.length = 0;
     }
 
+    let order = 0;
+    for (const commands of frames) {
+      const steps: Step[] = [];
+      order = this.addSteps(steps, commands, inputs, order);
+      this.frames.push(steps);
+    }
+    this.update(0, 0);
+  }
+
+  /** `commands` as steps, drawn from `order` on, answering the order after the last. */
+  private addSteps(
+    steps: Step[],
+    commands: readonly Command[],
+    inputs: FrameInputs,
+    first: number,
+  ): number {
     let run: Scene | null = null;
     let runScissor: PixelRect | null = null;
-    let order = 0;
+    let order = first;
     const openRun = (scissor: PixelRect | null): Scene => {
       if (run !== null && sameRect(runScissor, scissor)) return run;
 
       run = new Scene();
       runScissor = scissor;
-      this.steps.push({ kind: "run", scene: run, scissor });
+      steps.push({ kind: "run", scene: run, scissor });
       return run;
     };
 
     for (const command of commands) {
       if (command.kind === "push") {
         run = null;
-        this.steps.push({ kind: "push" });
+        steps.push({ kind: "push" });
         continue;
       }
 
       if (command.kind === "particles") {
         run = null;
-        this.steps.push({ kind: "particles", element: command.element, scissor: command.scissor });
+        steps.push({ kind: "particles", element: command.element, scissor: command.scissor });
         continue;
       }
 
       if (command.kind === "pop") {
         run = null;
         const copy = this.drawCopy(command.rect, command.alpha, inputs);
-        this.steps.push({ kind: "pop", copy, scissor: command.scissor });
+        steps.push({ kind: "pop", copy, scissor: command.scissor });
         continue;
       }
 
@@ -146,7 +166,7 @@ export class FrameRenderer {
       order += 1;
       openRun(command.scissor).add(object);
     }
-    this.update(0, 0);
+    return order;
   }
 
   /** Every timed and live constant written for `time` seconds and the live input `live`. */
@@ -161,17 +181,22 @@ export class FrameRenderer {
     }
   }
 
+  /** How many frames the last `setCommands` gave. */
+  get frameCount(): number {
+    return this.frames.length;
+  }
+
   /**
-   * The command list into the target, cleared to transparent black. A particle step draws the
-   * element's system from `particles`, and nothing until it has loaded.
+   * The command list of frame `frame` into the target, cleared to transparent black. A particle
+   * step draws the element's system from `particles`, and nothing until it has loaded.
    */
-  render(gl: WebGLRenderer, particles: ParticleDraws = NO_PARTICLES): void {
+  render(gl: WebGLRenderer, particles: ParticleDraws = NO_PARTICLES, frame = 0): void {
     const autoClear = gl.autoClear;
     gl.autoClear = false;
     const stack: WebGLRenderTarget[] = [this.target];
     clearInto(gl, this.target);
 
-    for (const step of this.steps) {
+    for (const step of this.frames[frame] ?? []) {
       const top = stack[stack.length - 1] ?? this.target;
       if (step.kind === "run") {
         renderScissored(gl, top, step.scene, step.scissor, this.screen);
@@ -313,7 +338,7 @@ export class FrameRenderer {
     this.drawn = [];
     this.texts = [];
     this.timed = [];
-    this.steps = [];
+    this.frames = [];
   }
 }
 

@@ -15,22 +15,28 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { blackTexel, FlatViewport, useSceneColors, whiteTexel } from "@/modules/viewport";
 
 import { Notice } from "../../vfx/preview/components/Notice";
+import { BaseElsewhereNotice } from "../components/BaseElsewhereNotice";
 import { ElementMenu } from "../components/ElementMenu";
-import { buildCommands, type PreviewState, visibleElements } from "../engine/commands/build";
-import { layerEdits, resizeBlock } from "../engine/edit/targets";
+import { SceneMenu } from "../components/SceneMenu";
+import { boardCommands } from "../engine/commands/board";
+import { type PreviewState, visibleElements } from "../engine/commands/build";
+import { layerEdits } from "../engine/edit/targets";
+import { onBoard, toFrame } from "../engine/layout/board";
 import type { PixelRect, Screen } from "../engine/layout/solve";
 import { labelOf } from "../engine/model/layers";
-import { subtreeOf, type ViewTree } from "../engine/model/tree";
+import { repeatClones, viewRepeats, withClones } from "../engine/model/repeats";
+import { subtreeOf } from "../engine/model/tree";
 import type { ViewFont, ViewStyleSheet } from "../engine/model/view";
 import { useAtlasLayout } from "../hooks/useAtlasLayout";
 import { useUiPrograms, useUiTextures } from "../hooks/useAtlasSources";
+import { useBoard } from "../hooks/useBoard";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
 import { useTextSource, useViewStrings } from "../hooks/useTextSource";
 import { AtlasFrame } from "../rendering/components/AtlasFrame";
 import { AtlasParticles } from "../rendering/components/AtlasParticles";
 import type { CompositeColors } from "../rendering/utils/composite";
 import type { FrameInputs, ParticleDraw } from "../rendering/utils/frameRenderer";
-import { type AtlasEdit, useAtlasEdit } from "../state/atlasEdit";
+import { useAtlasEdit } from "../state/atlasEdit";
 import {
   useAtlasPreviewActions,
   useFrameRequest,
@@ -40,8 +46,9 @@ import {
   viewKey,
 } from "../state/atlasPreview";
 import { canvasKey } from "./canvasKeys";
-import { type CanvasEditing, CanvasStatus } from "./CanvasStatus";
-import { FrameOverlay } from "./FrameOverlay";
+import { frameLocal, overlayFramesOf, placeholderRects } from "./canvasMarks";
+import { CanvasStatus, editingOf } from "./CanvasStatus";
+import { FrameOverlay, frameNameAt } from "./FrameOverlay";
 import { previewKey } from "./previewKeys";
 import { useButtonPlay } from "./useButtonPlay";
 import { useCanvasEdit } from "./useCanvasEdit";
@@ -70,9 +77,11 @@ const NO_SCENES: ReadonlySet<string> = new Set();
 
 /**
  * The canvas pane: the view laid out for the chosen screen and drawn with the game's own UI
- * programs, per "The engine" in docs/plans/atlas-ui-editor.md.
+ * programs, per "The engine" in docs/plans/atlas-ui-editor.md. Each scene holding elements draws
+ * on a frame of its own, side by side on a `Board`, until the scenes are stacked on one screen.
  *
- * The wheel zooms about the pointer and a double click fits the frame again. Picking, moving,
+ * The wheel zooms about the pointer and a double click fits the frame again. A right click on a
+ * frame's name opens `SceneMenu` for the scene heading it. Picking, moving,
  * resizing, the marquee and panning are `useCanvasEdit`'s. A right click picks the element under
  * the pointer and opens its menu. The keys are F to frame the selection, 0 to fit, 1 for 100%,
  * plus and minus to zoom, the arrows to nudge by a source pixel or ten with Shift, the brackets
@@ -92,12 +101,17 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   const text = useTextSource(view?.fonts ?? NO_FONTS, view?.styleSheets ?? NO_SHEETS, strings);
   const frame = useFrameSettings();
   const key = viewKey(document, entry);
-  const { selected, selection } = useViewPreview(key);
+  const { selected, selection, hiddenElements } = useViewPreview(key);
   const restingScenes = useHiddenScenes(tree, key);
   const hiddenScenes = focus ? NO_SCENES : restingScenes;
   const only = useMemo(
     () => (focus && tree !== null ? subtreeOf(tree, entry) : null),
     [focus, tree, entry],
+  );
+  const board = useBoard(tree, screen, key, focus);
+  const placed = useMemo(
+    () => (solved === null || board === null ? solved : onBoard(board, solved)),
+    [solved, board],
   );
   const hovered = useHovered();
   const previewActions = useAtlasPreviewActions();
@@ -106,16 +120,22 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   const edit = useAtlasEdit();
   const [animating, setAnimating] = useState(false);
   const [menuElement, setMenuElement] = useState<string | null>(null);
+  const [menuScene, setMenuScene] = useState<string | null>(null);
   const [particleDraws] = useState(() => new Map<string, ParticleDraw>());
 
   const [pane, setPane] = useState<Screen | null>(null);
   const measure = useResizeObserver<HTMLDivElement>((element) => {
     setPane({ width: element.clientWidth, height: element.clientHeight });
   });
-  const transform = useViewTransform(screen, pane, focus ? (solved?.get(entry) ?? null) : null);
-  const play = useComboPlay({ view: key, tree, solved, strings, toScreen: transform.toScreen });
-  const buttons = useButtonPlay({ view: key, tree, solved, toScreen: transform.toScreen });
-  const meters = useMeterPlay({ view: key, tree, solved, toScreen: transform.toScreen });
+  const transform = useViewTransform(
+    board?.size ?? screen,
+    pane,
+    focus ? (placed?.get(entry) ?? null) : null,
+  );
+  const toScreen = transform.toScreen;
+  const play = useComboPlay({ view: key, tree, solved: placed, strings, toScreen });
+  const buttons = useButtonPlay({ view: key, tree, solved: placed, toScreen });
+  const meters = useMeterPlay({ view: key, tree, solved: placed, toScreen });
   const interact = frame.interact;
 
   const preview = useMemo<PreviewState>(
@@ -124,6 +144,8 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
       buttonStates: buttons.states,
       meterFills: meters.fills,
       showDisabled: frame.showDisabled,
+      hiddenElements,
+      effects: frame.effects,
       samples: frame.samples,
       only,
       overlay: play.overlay,
@@ -133,6 +155,8 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
       buttons.states,
       meters.fills,
       frame.showDisabled,
+      hiddenElements,
+      frame.effects,
       frame.samples,
       only,
       play.overlay,
@@ -144,7 +168,8 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   );
   const canvas = useCanvasEdit({
     tree,
-    solved,
+    solved: placed,
+    board,
     settings,
     order,
     view: key,
@@ -156,20 +181,25 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   });
   const shown = canvas.shown;
 
-  const commands = useMemo(() => {
-    if (tree === null || shown === null) return [];
+  const frames = useMemo(() => {
+    if (tree === null || shown === null || board === null) return [];
 
-    const built = buildCommands({
+    /* The copies a controller clones at run time, which a lone element's preview leaves out. */
+    const repeats = focus ? [] : viewRepeats(tree, shown);
+    const clones = repeatClones(tree, shown, repeats, new Set(order));
+    const built = boardCommands(board, {
       tree,
       solved: shown,
       settings,
-      preview,
+      preview: { ...preview, overlay: withClones(preview.overlay, clones) },
       textureSizes: sizes,
       text: text.source,
     });
     text.flush();
     return built;
-  }, [tree, shown, settings, preview, sizes, text]);
+  }, [tree, shown, board, settings, preview, sizes, text, focus, order]);
+  const commands = useMemo(() => frames.flatMap((each) => each.commands), [frames]);
+  const overlayFrames = useMemo(() => overlayFramesOf(board, screen), [board, screen]);
   const placeholders = useMemo(
     () =>
       frame.samples && tree !== null && shown !== null ? placeholderRects(tree, shown, order) : [],
@@ -244,6 +274,10 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
 
   if (error !== null) return <Notice text={m.workshop_bin_atlas_view_error()} />;
   if (pending || tree === null) return <Notice text={m.workshop_bin_atlas_view_pending()} />;
+  const elsewhere = view?.warnings.find((warning) => warning.kind === "baseElsewhere");
+  if (tree.scenes.size === 0 && elsewhere?.kind === "baseElsewhere") {
+    return <BaseElsewhereNotice loadable={elsewhere.entry} />;
+  }
 
   const selectedElement = selected === null ? undefined : tree.elements.get(selected);
   const editing = editingOf(edit, tree, selection);
@@ -270,6 +304,10 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
           }}
           onContextMenuCapture={(event) => {
             const [x, y] = pointAt(event);
+            const named = frameNameAt(overlayFrames, transform.view, x, y);
+            setMenuScene(named?.scene ?? null);
+            if (named !== undefined) return;
+
             const under = canvas.pick(x, y);
             setMenuElement(under);
             if (under !== null && !selection.includes(under)) select(key, under);
@@ -287,7 +325,8 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
           }}
           onPointerMove={(event) => {
             const [x, y] = pointAt(event);
-            setPointer(transform.toScreen(x, y));
+            const point = transform.toScreen(x, y);
+            setPointer(board === null ? point : toFrame(board, screen, point));
             canvas.onPointerMove(event);
             if (interact) {
               play.move(x, y);
@@ -320,7 +359,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
         >
           <FlatViewport animating={animating && frame.playing}>
             <AtlasFrame
-              commands={commands}
+              frames={frames}
               inputs={inputs}
               screen={screen}
               view={transform.view}
@@ -339,7 +378,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
           </FlatViewport>
           <FrameOverlay
             view={transform.view}
-            screen={screen}
+            frames={overlayFrames}
             safeZone={frame.safeZone}
             placeholders={placeholders}
             hovered={hovered === null || interact ? null : (shown?.get(hovered) ?? null)}
@@ -350,13 +389,16 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
             guides={canvas.guides}
           />
         </ContextMenu.Trigger>
-        <ElementMenu
-          document={document}
-          entry={entry}
-          source={source}
-          element={menuElement}
-          canvas
-        />
+        {menuScene === null && (
+          <ElementMenu
+            document={document}
+            entry={entry}
+            source={source}
+            element={menuElement}
+            canvas
+          />
+        )}
+        {menuScene !== null && <SceneMenu document={document} entry={entry} scene={menuScene} />}
       </ContextMenu.Root>
       <CanvasStatus
         transform={transform}
@@ -365,7 +407,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
             ? null
             : {
                 label: labelOf(selectedElement.label, selectedElement.path, selectedElement.key),
-                rect: shown?.get(selectedElement.key) ?? null,
+                rect: frameLocal(board, shown, selectedElement.key),
                 count: selection.length,
               }
         }
@@ -402,35 +444,4 @@ function useFraming(
     const rect = solved?.get(request.element);
     if (rect !== undefined) transform.frame(rect);
   }, [request, key, solved, transform]);
-}
-
-/** How the canvas takes edits, for the status strip. */
-function editingOf(
-  edit: AtlasEdit | null,
-  tree: ViewTree,
-  selection: readonly string[],
-): CanvasEditing {
-  if (edit === null || edit.scene === null) return { kind: "none" };
-  if (!edit.editable) return { kind: "readOnly", reason: edit.readOnly };
-  return { kind: "edit", block: resizeBlock(tree, selection), selected: selection.length > 0 };
-}
-
-/**
- * The rects of the shown icons and effects whose image the controller sets at run time, which
- * draw as a placeholder, per section 6 of the editor plan.
- */
-function placeholderRects(
-  tree: ViewTree,
-  solved: ReadonlyMap<string, PixelRect>,
-  order: readonly string[],
-): PixelRect[] {
-  const rects: PixelRect[] = [];
-  for (const key of order) {
-    const look = tree.elements.get(key)?.look;
-    if ((look?.kind !== "icon" && look?.kind !== "effect") || look.sprite !== null) continue;
-
-    const rect = solved.get(key);
-    if (rect !== undefined && rect.w > 0 && rect.h > 0) rects.push(rect);
-  }
-  return rects;
 }

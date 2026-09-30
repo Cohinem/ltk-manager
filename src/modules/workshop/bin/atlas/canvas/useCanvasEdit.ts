@@ -10,6 +10,7 @@ import {
 import { moveEdits, nudgeEdits, resizeEdits } from "../engine/edit/arrange";
 import { snapRect, type SnapGuide } from "../engine/edit/snap";
 import { type MoveSet, moveSet, resizable } from "../engine/edit/targets";
+import { type Board, frameRect } from "../engine/layout/board";
 import type { LayoutSettings, PixelRect } from "../engine/layout/solve";
 import type { ViewTree } from "../engine/model/tree";
 import type { AtlasEdit } from "../state/atlasEdit";
@@ -77,7 +78,10 @@ type Drag =
 
 export interface CanvasEditInputs {
   readonly tree: ViewTree | null;
+  /** Each element's rect on the board. */
   readonly solved: ReadonlyMap<string, PixelRect> | null;
+  /** The frames the scenes are drawn in, which a drag snaps to the screen of. */
+  readonly board: Board | null;
   readonly settings: LayoutSettings;
   /** The drawn elements, bottom first, which a pick walks from the top. */
   readonly order: readonly string[];
@@ -121,6 +125,7 @@ export interface CanvasEdit {
 export function useCanvasEdit({
   tree,
   solved,
+  board,
   settings,
   order,
   view,
@@ -187,10 +192,19 @@ export function useCanvasEdit({
     return null;
   };
 
-  const snapTargets = (keys: readonly string[], moving: ReadonlySet<string>): PixelRect[] =>
-    tree === null || shown === null
-      ? []
-      : snapTargetsOf(tree, shown, keys, moving, settings.screen, safeZone);
+  const snapTargets = (keys: readonly string[], moving: ReadonlySet<string>): PixelRect[] => {
+    if (tree === null || shown === null) return [];
+
+    const { width, height } = settings.screen;
+    const at = board?.frameOf.get(keys[0] ?? "") ?? -1;
+    const frame = (board === null ? null : frameRect(board, at, settings.screen)) ?? {
+      x: 0,
+      y: 0,
+      w: width,
+      h: height,
+    };
+    return snapTargetsOf(tree, shown, keys, moving, frame, safeZone);
+  };
 
   const startDrag = (held: Extract<Gesture, { kind: "press" }>): Gesture | null => {
     if (held.element === null) return { kind: "marquee", at: held.at, additive: held.additive };

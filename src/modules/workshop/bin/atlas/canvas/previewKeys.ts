@@ -3,7 +3,9 @@ export const PREVIEW_KEYS = {
   interact: "I",
   safeZone: "Z",
   showDisabled: "H",
+  effects: "E",
   samples: "S",
+  stackScenes: "L",
   buttonState: "B",
   play: "P",
 } as const;
@@ -13,7 +15,9 @@ export interface PreviewKeyActions {
   readonly toggleInteract: () => void;
   readonly toggleSafeZone: () => void;
   readonly toggleShowDisabled: () => void;
+  readonly toggleEffects: () => void;
   readonly toggleSamples: () => void;
+  readonly toggleStackScenes: () => void;
   readonly cycleButtonState: () => void;
   readonly togglePlaying: () => void;
 }
@@ -30,8 +34,14 @@ export function previewKey(key: string, actions: PreviewKeyActions): boolean {
     case PREVIEW_KEYS.showDisabled:
       actions.toggleShowDisabled();
       return true;
+    case PREVIEW_KEYS.effects:
+      actions.toggleEffects();
+      return true;
     case PREVIEW_KEYS.samples:
       actions.toggleSamples();
+      return true;
+    case PREVIEW_KEYS.stackScenes:
+      actions.toggleStackScenes();
       return true;
     case PREVIEW_KEYS.buttonState:
       actions.cycleButtonState();

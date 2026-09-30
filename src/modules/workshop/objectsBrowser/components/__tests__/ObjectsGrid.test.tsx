@@ -51,6 +51,10 @@ vi.mock("../../../bin/documents/hooks/useBinDocument", () => ({
 }));
 vi.mock("../../hooks/useOpenObjectNode", () => ({ useOpenObjectNode: () => state.open }));
 vi.mock("../../hooks/useRestPreview", () => ({ useRestPreview: () => state.rest }));
+vi.mock("../../../bin/classes/hooks/useInheritedLayouts", () => {
+  const none = new Map();
+  return { useInheritedLayouts: () => none };
+});
 vi.mock("../ObjectsContextMenu", () => ({
   ObjectsContextMenu: (props: ComponentProps<typeof ObjectsContextMenu>) => {
     state.menu = props;

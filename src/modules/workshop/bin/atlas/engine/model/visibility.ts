@@ -32,6 +32,11 @@ export function hiddenScenesOf(
   return hidden;
 }
 
+/** Whether an element is an effect or a particle system, which the effects switch hides. */
+export function isEffect(element: ViewElement): boolean {
+  return element.look.kind === "effect" || element.look.kind === "particle";
+}
+
 /**
  * Whether an element rests undrawn: an effect the file leaves off, which its controller plays on
  * an event such as a cast or a level up. A flipbook draws whatever its `Enabled` says, since it

@@ -164,6 +164,16 @@ applies a `uimobile` or `uitablet` patch (research section 11), so the variants 
 slots as not on PC, and the canvas previews them without taking edits. The drawn variant is the
 one edits write into, and the layers pane marks the elements it changes.
 
+The canvas draws each root scene on a frame of its own, with the scenes under it composited as the
+client draws them, named above it and laid side by side in the scene tree's order. Of 767 shipped
+views, 237 nest their scenes and 217 hold several roots, such as a skin overlay's borders and
+faces, which is why the root is the default frame. The scene menu, on a scene row or on a frame's
+name, draws a scene with the scenes under it on a frame of its own or on another frame, splits a
+frame into its scenes, and resets every choice, none of which reaches the file. The Stack scenes
+toggle (L) draws every scene on one screen instead. A frame
+is a screen of the chosen size, so an element's rect, the safe zone and the snap targets all read
+as they do on the client's screen.
+
 The layers and sprites panes each carry a search box and take the keyboard the way the map
 outliner does, since a view such as the item shop holds two thousand elements. The inspector's
 sections fold on their titles and stay folded across selections, and the canvas status strip lists
@@ -237,9 +247,13 @@ fills the gaps the same way for every view, and never writes any of it:
 - **Sample content.** Text the controller sets shows a sample of the kind its element's name
   suggests (a timer reads `1:24`, a cost `1,250`), else that name in words. A texture the
   controller sets (a champion icon, an item) shows a checker placeholder.
-- **Repetition.** Where a controller clones a template row (the scoreboard's `SB_T1P0`), a per-class
-  table says how many copies to draw and how they offset. The table starts with the controllers
-  modders touch most and grows with need.
+- **Repetition.** Where a controller clones a template at run time, the preview draws the copies
+  the file does not hold. A controller field naming a template, a managed layout and a count (the
+  player frame's buff rows) places that many copies with the layout. Each scoreboard team row
+  (`SB_T1P0`) repeats five times down the height of its `SlotHeightRef` region, and the loading
+  screen's player card five times across each card region. A copy reads its template's text and
+  nothing picks it. Views whose data holds no count or place (team frames, augment slots, the
+  item shop grid) draw the template alone.
 - **Motion.** Transitions, flipbooks and cooldown effects play on a scrub bar. UI particles play
   through the VFX run.
 

@@ -83,6 +83,7 @@ export function view(scenes: ViewScene[], elements: ViewElement[]): View {
     textures: [{ path: "page", asset: null, page: true }],
     fonts: [],
     styleSheets: [],
+    repeats: [],
     warnings: [],
   };
 }

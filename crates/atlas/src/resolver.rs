@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use ltk_hash::{BinHash, WadHash};
 use ltk_manager_core::bin_document::{
-    AssetLookup, Fields, Namer, hex, items, leaf, link, struct_of, text,
+    AssetLookup, Fields, Namer, fields_of, hex, items, leaf, link, struct_of, text,
 };
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
@@ -14,8 +14,8 @@ use super::font::FontBins;
 use super::imaa::Manifest;
 use super::model::{
     UiAnchor, UiButton, UiButtonState, UiEffect, UiFont, UiLayout, UiLayoutKind, UiLook, UiMeter,
-    UiMeterTip, UiPosition, UiRect, UiSlice, UiSliceKind, UiSprite, UiStyleSheet, UiTexture,
-    UiTipStyle, UiViewWarning,
+    UiMeterTip, UiPosition, UiRect, UiRepeat, UiSlice, UiSliceKind, UiSprite, UiStyleSheet,
+    UiTexture, UiTipStyle, UiViewWarning,
 };
 use super::sprite_key;
 
@@ -577,6 +577,34 @@ fn unwrapped(value: Option<&PropertyValueEnum>) -> Option<&PropertyValueEnum> {
         PropertyValueEnum::Optional(optional) => optional.value(),
         value => Some(value),
     }
+}
+
+/// The layout fills a controller's fields hold.
+pub(super) fn repeats(controller: &Fields) -> Vec<UiRepeat> {
+    controller
+        .values()
+        .filter_map(|value| {
+            let (class, fill) = struct_of(Some(value))?;
+            if class != LAYOUT_FILL {
+                return None;
+            }
+
+            let count = match leaf(fill.get(&FILL_COUNT))? {
+                Leaf::U32(count) => count,
+                Leaf::I32(count) => u32::try_from(count).ok()?,
+                Leaf::U16(count) => u32::from(count),
+                Leaf::U8(count) => u32::from(count),
+                _ => return None,
+            };
+            Some(UiRepeat {
+                template: hex(object(
+                    fields_of(fill.get(&FILL_TEMPLATE))?.get(&FILL_TEMPLATE_GROUP),
+                )?),
+                layout: hex(object(fill.get(&FILL_LAYOUT))?),
+                count,
+            })
+        })
+        .collect()
 }
 
 /// The object `value` names, by a link or by a bare hash, and none for zero. A combo box and a

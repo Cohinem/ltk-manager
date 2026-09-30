@@ -87,6 +87,11 @@ export const commands = {
 	 */
 	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
 	/**
+	 *  Every class deriving from `class_hash` at the install's build, through any number of
+	 *  bases. `class_hash` is `0x` and eight hex digits.
+	 */
+	derivedClasses: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: string[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("derived_classes", { classHash }),
+	/**
 	 *  The wiki's documentation for one class and every property declared on it or its bases.
 	 * 
 	 *  Reads the cache only, never the network. `None` where nothing is documented.
@@ -4557,6 +4562,16 @@ export type UiRect = {
 	maxSize: [(number | null), (number | null)],
 };
 
+/**  A template group the controller clones into a managed layout, as its fields name it. */
+export type UiRepeat = {
+	/**  The template, as `0x` and eight digits. */
+	template: string,
+	/**  The group whose managed layout the copies fill. */
+	layout: string,
+	/**  How many copies the controller makes at most. */
+	count: number,
+};
+
 /**  One `UISceneData`. */
 export type UiScene = {
 	/**  The scene object, as `0x` and eight digits. */
@@ -4701,14 +4716,21 @@ export type UiView = {
 	fonts: UiFont[],
 	/**  Every style sheet a text names, which a text indexes. */
 	styleSheets: UiStyleSheet[],
+	/**  The templates the controller clones into its layouts at run time. */
+	repeats: UiRepeat[],
 	/**  Every reference the read could not follow. */
 	warnings: UiViewWarning[],
 };
 
 /**  A reference a view read could not follow. The view draws without it. */
 export type UiViewWarning = 
-/**  The controller links no `BaseLoadable`. */
+/**  The controller links no `BaseLoadable` or `Loadable`. */
 { kind: "noBase" } | 
+/**
+ *  The base loadable is declared in another bin, which the object index finds once it is
+ *  built.
+ */
+{ kind: "baseElsewhere"; entry: string } | 
 /**  A loadable's chunk is on no layer and in no archive. */
 { kind: "missingFile"; path: string } | 
 /**  A file is there and does not parse as a bin or a manifest. */

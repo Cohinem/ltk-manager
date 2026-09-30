@@ -47,6 +47,7 @@ migrated![
     bin_choices,
     bin_copy_value,
     class_schema,
+    derived_classes,
     class_docs,
     sync_meta_docs,
     // Bin editor: edits

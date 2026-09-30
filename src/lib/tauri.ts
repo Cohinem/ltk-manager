@@ -700,6 +700,7 @@ export const api = {
     dependencies: (document: BinDocumentId) => commands.binDependencies(document).then(toResult),
     close: (document: BinDocumentId) => commands.binClose(document).then(toResult),
     classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
+    derivedClasses: (classHash: string) => commands.derivedClasses(classHash).then(toResult),
     classDocs: (classHash: string) => commands.classDocs(classHash).then(toResult),
     syncMetaDocs: () => commands.syncMetaDocs().then(toResult),
     readVfxSystem: (document: BinDocumentId, entry: string) =>

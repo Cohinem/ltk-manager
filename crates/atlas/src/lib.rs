@@ -20,9 +20,9 @@ pub use imaa::{Manifest, ManifestEntry, ManifestError, page_path, sprite_key};
 pub use model::{
     UiAnchor, UiAsset, UiButton, UiButtonState, UiComboBox, UiEffect, UiElement, UiFile,
     UiFileRole, UiFont, UiFontFace, UiFontResolution, UiFontSizes, UiLayout, UiLayoutKind, UiLook,
-    UiMeter, UiMeterTip, UiPosition, UiRect, UiScene, UiSlice, UiSliceKind, UiSprite, UiStyleSheet,
-    UiTextIcon, UiTextStyle, UiTexture, UiTipStyle, UiVariant, UiVariantRecord, UiView,
-    UiViewWarning,
+    UiMeter, UiMeterTip, UiPosition, UiRect, UiRepeat, UiScene, UiSlice, UiSliceKind, UiSprite,
+    UiStyleSheet, UiTextIcon, UiTextStyle, UiTexture, UiTipStyle, UiVariant, UiVariantRecord,
+    UiView, UiViewWarning,
 };
 pub use program::{UiShader, read_ui_programs};
 pub use sheet::{SheetImport, SheetSpec, SheetSprite, SheetTarget, import_sprite, read_sheet};

@@ -3,12 +3,15 @@ import {
   ArrowsOutSimpleIcon,
   CaretRightIcon,
   CubeIcon,
+  AppWindowIcon,
   FolderIcon,
   type Icon,
   ImageSquareIcon,
+  TextAaIcon,
   PersonSimpleIcon,
   SparkleIcon,
   SphereIcon,
+  SquaresFourIcon,
   SpinnerGapIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
@@ -20,9 +23,10 @@ import { twMerge } from "@/utils";
 
 import { fitName, type NameType } from "../../explorer/utils/tileName";
 import { clickIntent } from "../../state";
+import { useObjectPreviewKind } from "../hooks/useObjectPreviewKind";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
 import type { PreviewOutcome } from "../state/previewStills";
-import { type ObjectPreviewKind, objectPreviewKind } from "../utils/objectPreview";
+import type { ObjectPreviewKind } from "../utils/objectPreview";
 import type { ObjectPrefixNode, ObjectRowNode } from "../utils/objectTree";
 
 /** Lines an object's name wraps to before it is cut, leaving room for its class line. */
@@ -33,6 +37,9 @@ const KIND_GLYPH: Record<ObjectPreviewKind, Icon> = {
   skin: PersonSimpleIcon,
   material: SphereIcon,
   ui: ImageSquareIcon,
+  view: AppWindowIcon,
+  element: SquaresFourIcon,
+  font: TextAaIcon,
 };
 
 interface ObjectTileProps {
@@ -248,12 +255,13 @@ function ExpandButton({ index, expanded, onExpand }: ExpandButtonProps) {
 }
 
 function TileGlyph({ node }: { node: ObjectPrefixNode | ObjectRowNode }) {
+  const kindOf = useObjectPreviewKind();
   if (node.type === "prefix") {
     /* DS-KIND-HUE */
     return <FolderIcon weight="fill" className="h-2/5 w-2/5 text-folder-text" />;
   }
 
-  const kind = objectPreviewKind(node);
+  const kind = kindOf(node);
   const Glyph = kind === null ? CubeIcon : KIND_GLYPH[kind];
   return <Glyph weight="duotone" className="h-2/5 w-2/5 text-bin-class-text/70" />;
 }

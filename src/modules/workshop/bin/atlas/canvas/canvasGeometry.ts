@@ -1,6 +1,6 @@
 import type { SnapLine, SnapLines } from "../engine/edit/snap";
 import { siblingsOf } from "../engine/edit/targets";
-import type { PixelRect, Screen } from "../engine/layout/solve";
+import type { PixelRect } from "../engine/layout/solve";
 import type { ViewTree } from "../engine/model/tree";
 import { SAFE_ZONE_INSET } from "../state/atlasPreview";
 
@@ -80,6 +80,16 @@ export function shift(rect: PixelRect, [dx, dy]: Point): PixelRect {
   return { x: rect.x + dx, y: rect.y + dy, w: rect.w, h: rect.h };
 }
 
+/** The safe zone of a screen drawn at `frame`. */
+export function safeZoneOf(frame: PixelRect): PixelRect {
+  return {
+    x: frame.x + frame.w * SAFE_ZONE_INSET,
+    y: frame.y + frame.h * SAFE_ZONE_INSET,
+    w: frame.w * (1 - 2 * SAFE_ZONE_INSET),
+    h: frame.h * (1 - 2 * SAFE_ZONE_INSET),
+  };
+}
+
 export function contains(rect: PixelRect, x: number, y: number): boolean {
   return x >= rect.x && y >= rect.y && x < rect.x + rect.w && y < rect.y + rect.h;
 }
@@ -94,27 +104,19 @@ export function within(inner: PixelRect, outer: PixelRect): boolean {
 }
 
 /**
- * What a drag of `keys` snaps to: the screen, the safe zone where it is shown, and the drawn
- * siblings and parent group of each key that are not moving with it.
+ * What a drag of `keys` snaps to: the screen they are drawn on as `frame`, the safe zone where it
+ * is shown, and the drawn siblings and parent group of each key that are not moving with it.
  */
 export function snapTargetsOf(
   tree: ViewTree,
   shown: ReadonlyMap<string, PixelRect>,
   keys: readonly string[],
   moving: ReadonlySet<string>,
-  screen: Screen,
+  frame: PixelRect,
   safeZone: boolean,
 ): PixelRect[] {
-  const { width, height } = screen;
-  const targets: PixelRect[] = [{ x: 0, y: 0, w: width, h: height }];
-  if (safeZone) {
-    targets.push({
-      x: width * SAFE_ZONE_INSET,
-      y: height * SAFE_ZONE_INSET,
-      w: width * (1 - 2 * SAFE_ZONE_INSET),
-      h: height * (1 - 2 * SAFE_ZONE_INSET),
-    });
-  }
+  const targets: PixelRect[] = [frame];
+  if (safeZone) targets.push(safeZoneOf(frame));
 
   const near = new Set<string>();
   for (const key of keys) {

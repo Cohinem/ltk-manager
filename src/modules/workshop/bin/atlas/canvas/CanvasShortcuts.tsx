@@ -29,7 +29,9 @@ const PREVIEW: readonly Shortcut[] = [
   [m.workshop_bin_atlas_interact_label, PREVIEW_KEYS.interact],
   [m.workshop_bin_atlas_safe_zone_label, PREVIEW_KEYS.safeZone],
   [m.workshop_bin_atlas_show_disabled_label, PREVIEW_KEYS.showDisabled],
+  [m.workshop_bin_atlas_effects_label, PREVIEW_KEYS.effects],
   [m.workshop_bin_atlas_samples_label, PREVIEW_KEYS.samples],
+  [m.workshop_bin_atlas_stack_scenes_label, PREVIEW_KEYS.stackScenes],
   [m.workshop_bin_atlas_shortcuts_button_state_label, PREVIEW_KEYS.buttonState],
   [m.workshop_bin_atlas_shortcuts_play_label, PREVIEW_KEYS.play],
 ];
