@@ -103,9 +103,9 @@ beforeEach(() => {
   mockInvoke.mockImplementation((command: string) => {
     if (command === commandNames.workshop.getProjectContentTree)
       return Promise.resolve({ ok: true, value: TREE });
-    if (command === commandNames.app.searchGamePaths)
+    if (command === commandNames.game.searchGameIndex)
       return Promise.resolve({ ok: true, value: SEARCH });
-    if (command === commandNames.app.readGameDir) {
+    if (command === commandNames.game.readGameDir) {
       return Promise.resolve({
         ok: true,
         value: {
@@ -134,9 +134,9 @@ describe("PathInput", () => {
     expect(await screen.findByRole("option", { name: /glow_ring\.dds/ })).toBeInTheDocument();
     expect(await screen.findByRole("option", { name: /glow_trail\.dds/ })).toBeInTheDocument();
     expect(screen.getByText("2 more, keep typing")).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.searchGamePaths, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.game.searchGameIndex, {
       query: "glow",
-      preference: { extensions: ["dds", "tex"], archive: null },
+      search: { kind: "pathField", preference: { extensions: ["dds", "tex"], archive: null } },
     });
   });
 
@@ -189,7 +189,7 @@ describe("PathInput", () => {
 
     expect(await screen.findByText("Same folder")).toBeInTheDocument();
     expect(await screen.findByRole("option", { name: /ahri_w\.dds/ })).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.readGameDir, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.game.readGameDir, {
       path: "assets/characters/ahri",
     });
   });

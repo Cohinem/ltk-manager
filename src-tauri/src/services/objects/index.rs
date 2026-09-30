@@ -1,10 +1,10 @@
 //! The bin object index: warm it, drop it, and search it.
 
-use super::document_assets;
-use super::game_index::{built_game_index, find_query};
-use super::off_thread;
+use crate::commands::document_assets;
+use crate::commands::off_thread;
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult};
 use crate::events::TauriEventSink;
+use crate::services::game::index::{built_game_index, find_query};
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
@@ -274,7 +274,7 @@ pub enum ObjectFind {
 /// An empty pattern with no class matches nothing. A pattern that does not parse
 /// reports `VALIDATION_FAILED` with the parser's own message.
 ///
-/// [`find_in_game_index`]: super::game_index::find_in_game_index
+/// [`find_in_game_index`]: crate::services::game::index::find_in_game_index
 #[tauri::command]
 #[specta::specta]
 pub async fn find_objects(
@@ -499,7 +499,7 @@ fn walk(
     let bin = app.state::<BinHashTablesState>().get();
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let names = CacheNames::new(&bin, &wad);
-    let (schema, build) = super::installed::installed_schema(app);
+    let (schema, build) = crate::commands::installed::installed_schema(app);
 
     let events = TauriEventSink::new(app.clone());
     let last_report = Mutex::new(None::<Instant>);
@@ -653,7 +653,7 @@ fn fold_own_declarations(
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let names = CacheNames::new(&bin, &wad);
     let file = own_file_name(&asset, &wad);
-    let (schema, build) = super::installed::installed_schema(app);
+    let (schema, build) = crate::commands::installed::installed_schema(app);
 
     let (dependencies, own) = store.read(document, |open| {
         let own: Vec<(&str, BinObjectHeader)> = object_hashes

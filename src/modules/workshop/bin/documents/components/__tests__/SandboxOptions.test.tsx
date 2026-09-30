@@ -144,7 +144,7 @@ beforeEach(() => {
       };
       return Promise.resolve({ ok: true, value: declared });
     }
-    if (command === commandNames.app.locateGameFiles)
+    if (command === commandNames.game.locateGameFiles)
       return Promise.resolve({ ok: true, value: installed });
     return Promise.reject(new Error(`unexpected command ${command}`));
   });
@@ -303,7 +303,7 @@ describe("the sandbox choice", () => {
     await openOptions(user);
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.locateGameFiles, {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.game.locateGameFiles, {
         paths: [SKIN_PATH],
       }),
     );

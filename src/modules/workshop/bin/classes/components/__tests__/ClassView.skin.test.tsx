@@ -306,7 +306,7 @@ beforeEach(() => {
         ),
       });
     }
-    if (command === commandNames.app.declaredObjects) {
+    if (command === commandNames.objects.declaredObjects) {
       const hashes = (args?.objectHashes ?? []) as string[];
       const objects = Object.fromEntries(
         hashes.filter((hash) => hash in DECLARED).map((hash) => [hash, DECLARED[hash]]),

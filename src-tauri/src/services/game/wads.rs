@@ -1,6 +1,6 @@
 //! Read-only browsing of the game's WAD archives.
 
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
 use ltk_manager_core::game_wads::{GameArchives, GameWadEntry, GameWadSummary};

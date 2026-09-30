@@ -56,26 +56,6 @@ command_table![
     minimize_to_tray,
     // Storage
     detect_storage_medium,
-    // Strings
-    search_string_keys,
-    lookup_string_values,
-    // Hashtables
-    get_hashtable_cache_status,
-    check_hashtable_updates,
-    sync_hashtables,
-    // Game WADs
-    get_game_wads,
-    read_game_wad,
-    // Game index
-    get_game_index,
-    read_game_dir,
-    refresh_game_index,
-    search_game_index,
-    find_in_game_index,
-    // Extract to disk
-    plan_game_extract,
-    extract_game_files,
-    cancel_extract,
     // Asset preview
     read_asset_info,
     save_asset_copy,
@@ -95,19 +75,7 @@ command_table![
     change_integration,
     cancel_integration_download,
     // Object index
-    locate_game_files,
-    search_game_paths,
-    warm_object_index,
-    drop_object_index,
-    search_object_index,
-    declared_objects,
-    object_dir,
-    character_spells,
     read_spell,
-    find_objects,
-    class_object_count,
-    find_references,
-    cancel_reference_walk,
     // Particle renderer
     read_vfx_system,
     vfx_templates,

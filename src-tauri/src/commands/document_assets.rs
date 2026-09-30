@@ -3,8 +3,8 @@
 
 use std::sync::Arc;
 
-use super::game_index::built_game_index;
 use crate::error::{AppError, AppResult};
+use crate::services::game::index::built_game_index;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{

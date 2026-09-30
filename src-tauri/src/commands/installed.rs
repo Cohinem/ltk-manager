@@ -2,8 +2,8 @@
 
 use std::sync::Arc;
 
-use super::object_index::ObjectIndexState;
 use crate::error::AppResult;
+use crate::services::objects::index::ObjectIndexState;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{GameCopy, RowNames};

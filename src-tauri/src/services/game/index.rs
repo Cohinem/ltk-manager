@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::object_index::ObjectIndexState;
-use super::off_thread;
+use crate::commands::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
+use crate::services::objects::index::ObjectIndexState;
 use crate::state::SettingsState;
 use ltk_hash::{Hash as _, WadHash};
 use ltk_manager_core::config::Config;
@@ -17,6 +17,7 @@ use ltk_manager_core::game_wads::{GameArchives, WadCache};
 use ltk_manager_core::hashtables::WadPathResolverState;
 use ltk_manager_core::matcher::{FindQuery, PatternSyntax};
 use ltk_manager_core::preview::AssetRef;
+use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 
 /// Report what the folded game index holds, building it on first use.
@@ -69,6 +70,21 @@ pub async fn locate_game_files(
     .await
 }
 
+/// Who a search of the game index ranks for. Each keeps its own ticket counter, so a path
+/// field search and a palette search do not overtake each other.
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum SearchFor {
+    /// The palette, ranked by the query alone.
+    Palette,
+    /// A path field, the files `preference` names first.
+    PathField { preference: SearchPreference },
+}
+
 /// Rank every file of the install against `query`, best first.
 ///
 /// The scan reads the index rather than a list of paths, because building
@@ -82,43 +98,24 @@ pub async fn locate_game_files(
 #[specta::specta]
 pub async fn search_game_index(
     query: String,
+    search: SearchFor,
     app_handle: AppHandle,
 ) -> IpcResult<GameSearchResult> {
-    let ticket = app_handle.state::<SearchGeneration>().claim();
-    let overtaken = {
-        let app_handle = app_handle.clone();
-        move || app_handle.state::<SearchGeneration>().overtook(ticket)
+    let overtaken: Box<dyn Fn() -> bool + Send> = match &search {
+        SearchFor::Palette => {
+            let ticket = app_handle.state::<SearchGeneration>().claim();
+            let app_handle = app_handle.clone();
+            Box::new(move || app_handle.state::<SearchGeneration>().overtook(ticket))
+        }
+        SearchFor::PathField { .. } => {
+            let ticket = app_handle.state::<PathSearchGeneration>().claim();
+            let app_handle = app_handle.clone();
+            Box::new(move || app_handle.state::<PathSearchGeneration>().overtook(ticket))
+        }
     };
-
-    with_index(app_handle, move |index| {
-        let result = index.search(&query, overtaken);
-        tracing::debug!(
-            query = %query,
-            hits = result.hits.len(),
-            total = result.total,
-            superseded = result.superseded,
-            "Searched the game index"
-        );
-        Ok(result)
-    })
-    .await
-}
-
-/// Rank every file of the install for a path field, the files `preference` names first.
-///
-/// Uses a separate ticket counter, so a path field search and a palette search do not cancel
-/// each other.
-#[tauri::command]
-#[specta::specta]
-pub async fn search_game_paths(
-    query: String,
-    preference: SearchPreference,
-    app_handle: AppHandle,
-) -> IpcResult<GameSearchResult> {
-    let ticket = app_handle.state::<PathSearchGeneration>().claim();
-    let overtaken = {
-        let app_handle = app_handle.clone();
-        move || app_handle.state::<PathSearchGeneration>().overtook(ticket)
+    let preference = match search {
+        SearchFor::Palette => SearchPreference::default(),
+        SearchFor::PathField { preference } => preference,
     };
 
     with_index(app_handle, move |index| {
@@ -128,7 +125,7 @@ pub async fn search_game_paths(
             hits = result.hits.len(),
             total = result.total,
             superseded = result.superseded,
-            "Searched the game index for a path field"
+            "Searched the game index"
         );
         Ok(result)
     })
@@ -195,7 +192,7 @@ pub async fn find_in_game_index(
 ///
 /// Fails with `VALIDATION_FAILED` and the parser's own message where a regex does not
 /// parse.
-pub(super) fn find_query(pattern: &str, regex: bool) -> AppResult<Option<FindQuery>> {
+pub(crate) fn find_query(pattern: &str, regex: bool) -> AppResult<Option<FindQuery>> {
     let syntax = if regex {
         PatternSyntax::Regex
     } else {
@@ -274,7 +271,7 @@ pub(crate) fn game_file(
     Ok(Some((asset, bytes)))
 }
 
-pub(super) fn built_game_index(
+pub(crate) fn built_game_index(
     app_handle: &AppHandle,
     config: &Config,
 ) -> AppResult<(Arc<GameIndex>, GameArchives)> {

@@ -47,7 +47,9 @@ import type {
 } from "@/lib/bindings";
 import { commands as appUpdate } from "@/lib/ipc/appUpdate";
 import { commands as bin } from "@/lib/ipc/bin";
+import { commands as game } from "@/lib/ipc/game";
 import { commands as library } from "@/lib/ipc/library";
+import { commands as objects } from "@/lib/ipc/objects";
 import { commands as workshop } from "@/lib/ipc/workshop";
 import type { Result } from "@/utils/result";
 
@@ -230,31 +232,32 @@ export const api = {
   reorderFolders: (folderOrder: string[]) => library.reorderFolders(folderOrder).then(toResult),
 
   // Hashtables
-  getHashtableCacheStatus: () => commands.getHashtableCacheStatus().then(toResult),
-  checkHashtableUpdates: () => commands.checkHashtableUpdates().then(toResult),
-  syncHashtables: (force: boolean) => commands.syncHashtables(force).then(toResult),
+  getHashtableCacheStatus: () => game.getHashtableCacheStatus().then(toResult),
+  checkHashtableUpdates: () => game.checkHashtableUpdates().then(toResult),
+  syncHashtables: (force: boolean) => game.syncHashtables(force).then(toResult),
 
   // Game WADs
-  getGameWads: () => commands.getGameWads().then(toResult),
-  readGameWad: (wadName: string) => commands.readGameWad(wadName).then(toResult),
+  getGameWads: () => game.getGameWads().then(toResult),
+  readGameWad: (wadName: string) => game.readGameWad(wadName).then(toResult),
 
   // Game index
-  getGameIndex: () => commands.getGameIndex().then(toResult),
-  readGameDir: (path: string) => commands.readGameDir(path).then(toResult),
-  refreshGameIndex: () => commands.refreshGameIndex().then(toResult),
-  searchGameIndex: (query: string) => commands.searchGameIndex(query).then(toResult),
+  getGameIndex: () => game.getGameIndex().then(toResult),
+  readGameDir: (path: string) => game.readGameDir(path).then(toResult),
+  refreshGameIndex: () => game.refreshGameIndex().then(toResult),
+  searchGameIndex: (query: string) =>
+    game.searchGameIndex(query, { kind: "palette" }).then(toResult),
   findInGameIndex: (pattern: string, regex: boolean) =>
-    commands.findInGameIndex(pattern, regex).then(toResult),
+    game.findInGameIndex(pattern, regex).then(toResult),
 
   // Extract to disk
   planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>
-    commands.planGameExtract(targets, kinds).then(toResult),
+    game.planGameExtract(targets, kinds).then(toResult),
   // Resolves to null when an extract was already in flight - a redundant click.
   extractGameFiles: (targets: ExtractTarget[], options: ExtractOptions) =>
-    commands.extractGameFiles(targets, options).then(toResult),
+    game.extractGameFiles(targets, options).then(toResult),
   // Resolves to false when nothing was in flight, which is what a Cancel
   // pressed just as the run finished looks like.
-  cancelExtract: () => commands.cancelExtract().then(toResult),
+  cancelExtract: () => game.cancelExtract().then(toResult),
 
   // Asset preview
   readAssetInfo: (asset: AssetRef) => commands.readAssetInfo(asset).then(toResult),
@@ -420,26 +423,25 @@ export const api = {
 
   // The object index and the install lookups a bin page makes.
   objects: {
-    search: (query: string) => commands.searchObjectIndex(query).then(toResult),
-    warm: () => commands.warmObjectIndex().then(toResult),
-    drop: () => commands.dropObjectIndex().then(toResult),
+    search: (query: string) => objects.searchObjectIndex(query).then(toResult),
+    warm: () => objects.warmObjectIndex().then(toResult),
+    drop: () => objects.dropObjectIndex().then(toResult),
     declared: (
       sandbox: SandboxRef,
       objectHashes: readonly string[],
       document: BinDocumentId | null = null,
-    ) => commands.declaredObjects(sandbox, [...objectHashes], document).then(toResult),
-    dir: (prefix: string) => commands.objectDir(prefix).then(toResult),
-    spells: (character: string) => commands.characterSpells(character).then(toResult),
-    classCount: (classHash: HexBinHash) => commands.classObjectCount(classHash).then(toResult),
+    ) => objects.declaredObjects(sandbox, [...objectHashes], document).then(toResult),
+    dir: (prefix: string) => objects.objectDir(prefix).then(toResult),
+    spells: (character: string) => objects.characterSpells(character).then(toResult),
+    classCount: (classHash: HexBinHash) => objects.classObjectCount(classHash).then(toResult),
     find: (pattern: string, regex: boolean, cls: string | null) =>
-      commands.findObjects(pattern, regex, cls).then(toResult),
+      objects.findObjects(pattern, regex, cls).then(toResult),
     references: (query: ReferenceQuery, project: string | null) =>
-      commands.findReferences(query, project).then(toResult),
-    cancelWalk: () => commands.cancelReferenceWalk().then(toResult),
-    locateGameFiles: (paths: readonly string[]) =>
-      commands.locateGameFiles([...paths]).then(toResult),
+      objects.findReferences(query, project).then(toResult),
+    cancelWalk: () => objects.cancelReferenceWalk().then(toResult),
+    locateGameFiles: (paths: readonly string[]) => game.locateGameFiles([...paths]).then(toResult),
     searchGamePaths: (query: string, preference: SearchPreference) =>
-      commands.searchGamePaths(query, preference).then(toResult),
+      game.searchGameIndex(query, { kind: "pathField", preference }).then(toResult),
   },
 
   // Diagnostics. The generated `commands` object is flat, so the module boundary lives here.
@@ -566,8 +568,8 @@ export const api = {
       })
       .then(toResult),
   searchStringKeys: (query: string, limit?: number) =>
-    commands.searchStringKeys(query, limit ?? null).then(toResult),
-  lookupStringValues: (keys: string[]) => commands.lookupStringValues(keys).then(toResult),
+    game.searchStringKeys(query, limit ?? null).then(toResult),
+  lookupStringValues: (keys: string[]) => game.lookupStringValues(keys).then(toResult),
   getLayerContentPath: (projectPath: string, layerName: string) =>
     workshop.getLayerContentPath(projectPath, layerName).then(toResult),
   getLayerInfo: (projectPath: string, layerNames: string[]) =>

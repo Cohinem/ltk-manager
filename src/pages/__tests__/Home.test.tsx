@@ -232,7 +232,7 @@ describe("Home", () => {
       expect(await screen.findByText("No hashtables")).toBeVisible();
       await userEvent.click(marker());
 
-      await waitFor(() => expect(calls(commandNames.app.syncHashtables)).toHaveLength(1));
+      await waitFor(() => expect(calls(commandNames.game.syncHashtables)).toHaveLength(1));
     });
 
     it("says the hashtables are syncing, and takes no press until they have", async () => {

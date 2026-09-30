@@ -81,7 +81,7 @@ describe("SpellsPane", () => {
     await user.type(screen.getByRole("textbox", { name: "Filter spells" }), "missing");
     expect(screen.getByText("No named spells match.")).toBeInTheDocument();
     expect(
-      mockInvoke.mock.calls.filter(([cmd]) => cmd === commandNames.app.characterSpells),
+      mockInvoke.mock.calls.filter(([cmd]) => cmd === commandNames.objects.characterSpells),
     ).toHaveLength(1);
   });
 
@@ -120,11 +120,11 @@ describe("SpellsPane", () => {
   it("warms an absent index and refetches the catalog when the warm completes", async () => {
     let ready = false;
     mockInvoke.mockImplementation(async (command) => {
-      if (command === commandNames.app.warmObjectIndex) {
+      if (command === commandNames.objects.warmObjectIndex) {
         ready = true;
         return { ok: true, value: null };
       }
-      if (command === commandNames.app.characterSpells)
+      if (command === commandNames.objects.characterSpells)
         return { ok: true, value: ready ? READY : { status: "absent" } };
       return answer(command);
     });
@@ -133,7 +133,7 @@ describe("SpellsPane", () => {
       await screen.findByRole("button", { name: /SejuaniEPassiveMissile/ }),
     ).toBeInTheDocument();
     expect(
-      mockInvoke.mock.calls.filter(([command]) => command === commandNames.app.warmObjectIndex),
+      mockInvoke.mock.calls.filter(([command]) => command === commandNames.objects.warmObjectIndex),
     ).toHaveLength(1);
   });
 
@@ -144,7 +144,7 @@ describe("SpellsPane", () => {
     });
     mount();
     await userEvent.setup().click(await screen.findByRole("button", { name: "Retry" }));
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.warmObjectIndex);
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.objects.warmObjectIndex);
     expect(screen.queryByText("No named spells match.")).not.toBeInTheDocument();
   });
 

@@ -11,8 +11,8 @@ use fs_err as fs;
 use tauri::AppHandle;
 
 use super::watcher::SourceRebuild;
-use crate::commands::game_file;
 use crate::error::AppResult;
+use crate::services::game::game_file;
 
 const CONTENT_DIR: &str = "content";
 const SOURCE_EXTENSION: &str = "png";

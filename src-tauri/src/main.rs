@@ -69,7 +69,9 @@ fn main() {
         )
         .plugin(services::app_update::plugin())
         .plugin(services::bin::plugin())
+        .plugin(services::game::plugin())
         .plugin(services::library::plugin())
+        .plugin(services::objects::plugin())
         .plugin(services::workshop::plugin());
 
     builder
