@@ -1,4 +1,4 @@
-import { ImageSquareIcon } from "@phosphor-icons/react";
+import { ExportIcon, ImageSquareIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, useCallback, useId, useMemo, useRef, useState } from "react";
 
@@ -21,6 +21,7 @@ import {
   spriteTextures,
 } from "../engine/model/sprites";
 import { useAtlasView } from "../hooks/useAtlasSources";
+import { useSpriteExport } from "../hooks/useSpriteExport";
 import { type SpriteImport, useSpriteImport } from "../hooks/useSpriteImport";
 import { useAtlasPreviewActions, useViewPreview, viewKey } from "../state/atlasPreview";
 import { KeyHint } from "./KeyHint";
@@ -34,6 +35,7 @@ const SPRITE_ROW = THUMB_SIZE + 8;
 const HEADING_ROW = 24;
 
 const REPLACE_KEY = "R";
+const EXPORT_KEY = "E";
 
 export interface SpritesPaneProps {
   readonly document: BinDocumentId;
@@ -58,6 +60,7 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
   const { selected } = useViewPreview(key);
   const { setSelection, requestFrame } = useAtlasPreviewActions();
   const sprites = useSpriteImport(tree?.view ?? null);
+  const exports = useSpriteExport();
   const textures = useMemo(() => (tree === null ? [] : spriteTextures(tree.view)), [tree]);
   const [query, setQuery] = useState("");
   const rows = useMemo(
@@ -104,6 +107,12 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
     virtualizer.scrollToIndex(at, { align: "auto" });
   };
 
+  function exportRow(row: Extract<SpriteRow, { type: "sprite" }>) {
+    const asset = row.texture.asset;
+    if (asset === null) return;
+    void exports.run({ asset, uv: row.sprite.uv, label: row.label });
+  }
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
       event.preventDefault();
@@ -131,6 +140,11 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
     if (event.key === "f" || event.key === "F") {
       event.preventDefault();
       frame(row.sprite);
+      return;
+    }
+    if (event.key.toUpperCase() === EXPORT_KEY && !exports.exporting) {
+      event.preventDefault();
+      exportRow(row);
       return;
     }
     if (event.key.toUpperCase() === REPLACE_KEY && sprites.available && !sprites.importing) {
@@ -193,6 +207,8 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
                     chosen={selected !== null && row.sprite.elements.includes(selected)}
                     active={virtual.index === active && activeId !== null}
                     sprites={sprites}
+                    exporting={exports.exporting}
+                    onExport={() => exportRow(row)}
                     onSelect={() => {
                       setActiveId(row.id);
                       choose(row.sprite);
@@ -262,7 +278,9 @@ interface SpriteRowViewProps {
   /** The row the keyboard stands on. */
   readonly active: boolean;
   readonly sprites: SpriteImport;
+  readonly exporting: boolean;
   readonly onSelect: () => void;
+  readonly onExport: () => void;
   readonly onFrame: () => void;
 }
 
@@ -273,11 +291,14 @@ function SpriteRowView({
   chosen,
   active,
   sprites,
+  exporting,
   onSelect,
+  onExport,
   onFrame,
 }: SpriteRowViewProps) {
   const { texture, sprite } = row;
   const replaceKey = ownKey(texture, sprite, sprites.sheet);
+  const idle = !chosen && !active;
 
   return (
     <div
@@ -309,6 +330,28 @@ function SpriteRowView({
           {m.workshop_bin_atlas_sprites_elements_value({ count: sprite.elements.length })}
         </span>
       </span>
+      {texture.asset !== null && (
+        <Tooltip
+          content={
+            <KeyHint label={m.workshop_bin_atlas_sprites_export_action()} shortcut={EXPORT_KEY} />
+          }
+        >
+          <IconButton
+            variant="ghost"
+            size="xs"
+            compact
+            tabIndex={-1}
+            aria-label={m.workshop_bin_atlas_sprites_export_action()}
+            disabled={exporting}
+            className={twMerge(idle && "opacity-0 group-hover/row:opacity-100")}
+            icon={<ExportIcon weight="bold" className="h-3.5 w-3.5" />}
+            onClick={(event) => {
+              event.stopPropagation();
+              onExport();
+            }}
+          />
+        </Tooltip>
+      )}
       {sprites.available && (
         <Tooltip
           content={
@@ -322,7 +365,7 @@ function SpriteRowView({
             tabIndex={-1}
             aria-label={m.workshop_bin_atlas_sprites_replace_action()}
             disabled={sprites.importing}
-            className={twMerge(!chosen && !active && "opacity-0 group-hover/row:opacity-100")}
+            className={twMerge(idle && "opacity-0 group-hover/row:opacity-100")}
             icon={<ImageSquareIcon weight="bold" className="h-3.5 w-3.5" />}
             onClick={(event) => {
               event.stopPropagation();

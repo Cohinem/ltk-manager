@@ -143,10 +143,40 @@ export function spriteRows(
   return rows;
 }
 
-function spriteLabel(tree: ViewTree, sprite: SpriteUse): string {
+/** What a sprite is called: its manifest name, or the label of the first element drawing it. */
+export function spriteLabel(
+  tree: ViewTree,
+  sprite: Pick<SpriteUse, "id" | "name" | "elements">,
+): string {
   const named = sprite.name?.split("/").at(-1);
   if (named !== undefined) return named;
 
   const first = tree.elements.get(sprite.elements[0] ?? "");
   return first === undefined ? sprite.id : labelOf(first.label, first.path, first.key);
+}
+
+/** The file a sprite labelled `label` exports to: the label with no image extension, as a PNG. */
+export function spriteFileName(label: string): string {
+  const stem = label.replace(/\.(png|tex|dds|tga)$/i, "").replace(/[<>:"/\\|?*]/g, "_");
+  return `${stem === "" ? "sprite" : stem}.png`;
+}
+
+/** A sprite an export writes out: the page it sits on, its rect there, and what it is called. */
+export interface ExportedSprite {
+  readonly asset: AssetRef;
+  readonly uv: Uv;
+  readonly label: string;
+}
+
+/** The sprite the icon or effect element `key` draws, as an export writes it out. */
+export function exportedSprite(tree: ViewTree, key: string): ExportedSprite | null {
+  const look = tree.elements.get(key)?.look;
+  if ((look?.kind !== "icon" && look?.kind !== "effect") || look.sprite === null) return null;
+
+  const { sprite } = look;
+  const asset = tree.view.textures[sprite.texture]?.asset ?? null;
+  if (asset === null) return null;
+
+  const label = spriteLabel(tree, { id: spriteId(sprite), name: sprite.name, elements: [key] });
+  return { asset, uv: sprite.uv, label };
 }

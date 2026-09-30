@@ -1,13 +1,14 @@
-import { ImageSquareIcon } from "@phosphor-icons/react";
+import { ExportIcon, ImageSquareIcon } from "@phosphor-icons/react";
 
 import { Button } from "@/components";
 import { m } from "@/i18n";
 import type { SheetSpec } from "@/lib/tauri";
 
 import { sheetSpriteAt } from "../engine/edit/spriteEdits";
-import { spriteId } from "../engine/model/sprites";
+import { exportedSprite, spriteId } from "../engine/model/sprites";
 import type { ViewTree } from "../engine/model/tree";
 import type { ViewElement, ViewSprite } from "../engine/model/view";
+import { useSpriteExport } from "../hooks/useSpriteExport";
 import { useSpriteImport } from "../hooks/useSpriteImport";
 import { SectionBlock } from "./sectionParts";
 import { SpriteThumb } from "./SpriteThumb";
@@ -26,15 +27,18 @@ export interface SpriteSectionProps {
  * The sprite an icon or effect element draws, and the way to draw another: the picked PNG joins
  * the sheet the project owns for the view and the element points at it, per section 5 of
  * docs/plans/atlas-ui-editor.md. A sprite of that sheet no other element draws is replaced where
- * it stands.
+ * it stands. Export PNG writes the sprite out for an image editor, read-only view or not.
  */
 export function SpriteSection({ element, tree }: SpriteSectionProps) {
   const sprites = useSpriteImport(tree.view);
+  const exports = useSpriteExport();
   const { look } = element;
   const sprite = look.kind === "icon" || look.kind === "effect" ? look.sprite : null;
   if (sprite === null) return null;
 
   const texture = tree.view.textures[sprite.texture];
+  const asset = texture?.asset ?? null;
+  const exported = exportedSprite(tree, element.key);
   const flip = look.kind === "icon" || look.kind === "effect" ? look.flip : undefined;
   const replace = texture === undefined ? null : soleKey(tree, sprite, texture, sprites.sheet);
   const full = sprite.name ?? texture?.path;
@@ -42,9 +46,9 @@ export function SpriteSection({ element, tree }: SpriteSectionProps) {
   return (
     <SectionBlock id="sprite" title={m.workshop_bin_atlas_sprite_section_title()}>
       <div className="col-span-2 flex items-center gap-3">
-        {texture?.asset != null && (
+        {asset !== null && (
           <SpriteThumb
-            asset={texture.asset}
+            asset={asset}
             uv={sprite.uv}
             flip={flip}
             size={PREVIEW_SIZE}
@@ -55,18 +59,30 @@ export function SpriteSection({ element, tree }: SpriteSectionProps) {
           <span className="truncate font-mono text-meta text-surface-300 select-text" title={full}>
             {full?.slice(full.lastIndexOf("/") + 1)}
           </span>
-          {sprites.available && (
-            <Button
-              variant="outline"
-              size="xs"
-              className="self-start"
-              disabled={sprites.importing}
-              left={<ImageSquareIcon weight="bold" className="h-3.5 w-3.5" />}
-              onClick={() => void sprites.run([element.key], replace)}
-            >
-              {m.workshop_bin_atlas_sprites_replace_action()}
-            </Button>
-          )}
+          <div className="flex flex-wrap gap-1.5">
+            {sprites.available && (
+              <Button
+                variant="outline"
+                size="xs"
+                disabled={sprites.importing}
+                left={<ImageSquareIcon weight="bold" className="h-3.5 w-3.5" />}
+                onClick={() => void sprites.run([element.key], replace)}
+              >
+                {m.workshop_bin_atlas_sprites_replace_action()}
+              </Button>
+            )}
+            {exported !== null && (
+              <Button
+                variant="outline"
+                size="xs"
+                disabled={exports.exporting}
+                left={<ExportIcon weight="bold" className="h-3.5 w-3.5" />}
+                onClick={() => void exports.run(exported)}
+              >
+                {m.workshop_bin_atlas_sprites_export_action()}
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </SectionBlock>

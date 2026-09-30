@@ -718,6 +718,11 @@ export const api = {
       commands.readUiFont(document, entry).then(toResult),
     readUiPrograms: (document: BinDocumentId | null, shaders: readonly UiShader[]) =>
       commands.readUiPrograms(document, [...shaders]).then(toResult),
+    atlasExportSprite: (
+      texture: AssetRef,
+      uv: readonly [number, number, number, number],
+      destination: string,
+    ) => commands.atlasExportSprite(texture, [...uv], destination).then(toResult),
     atlasImportSprite: (
       document: BinDocumentId,
       sheet: string,

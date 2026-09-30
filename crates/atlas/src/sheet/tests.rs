@@ -108,3 +108,27 @@ fn an_image_that_cannot_be_read_changes_nothing() {
     assert!(import_sprite(&target(project.path()), &broken, None).is_err());
     assert_eq!(read_sheet(project.path(), "Scoreboard").unwrap(), None);
 }
+
+#[test]
+fn a_sprite_exports_at_the_page_resolution_whichever_way_its_uv_runs() {
+    let mut page = RgbaImage::from_pixel(16, 8, image::Rgba([0, 0, 0, 255]));
+    for x in 4..12 {
+        for y in 0..4 {
+            page.put_pixel(x, y, image::Rgba([255, 0, 0, 255]));
+        }
+    }
+    let tex = Tex::encode_rgba_image(&page, EncodeOptions::new(EncodeFormat::Bgra8)).unwrap();
+    let mut bytes = Vec::new();
+    tex.write(&mut bytes).unwrap();
+
+    for uv in [[0.25, 0.0, 0.75, 0.5], [0.75, 0.5, 0.25, 0.0]] {
+        let png = image::load_from_memory(&sprite_png(&bytes, uv).unwrap())
+            .unwrap()
+            .into_rgba8();
+        assert_eq!(png.dimensions(), (8, 4));
+        assert!(png.pixels().all(|pixel| pixel.0 == [255, 0, 0, 255]));
+    }
+
+    assert!(sprite_png(&bytes, [0.5, 0.5, 0.5, 0.9]).is_err());
+    assert!(sprite_png(b"not a texture", [0.0, 0.0, 1.0, 1.0]).is_err());
+}

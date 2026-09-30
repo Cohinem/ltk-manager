@@ -5,6 +5,7 @@ import {
   CornersOutIcon,
   EyeIcon,
   EyeSlashIcon,
+  ExportIcon,
   PathIcon,
   SelectionSlashIcon,
   SquaresFourIcon,
@@ -19,10 +20,12 @@ import { objectDocument } from "../../../documents/utils/contentDocument";
 import type { OpenIntent } from "../../../palette/utils/types";
 import { useOpenDocumentAs } from "../../../state";
 import { labelOf } from "../engine/model/layers";
+import { exportedSprite } from "../engine/model/sprites";
 import { sceneOf } from "../engine/model/tree";
 import { useAtlasLayout } from "../hooks/useAtlasLayout";
 import type { ViewSource } from "../hooks/useAtlasSources";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
+import { useSpriteExport } from "../hooks/useSpriteExport";
 import { useAtlasPreviewActions, useViewPreview, viewKey } from "../state/atlasPreview";
 import { ElementEditItems } from "./ElementEditItems";
 
@@ -56,6 +59,7 @@ export function ElementMenu({
   const { select, toggleScene, toggleElement, requestFrame } = useAtlasPreviewActions();
   const open = useOpenDocumentAs();
   const copy = useCopyToClipboard();
+  const exports = useSpriteExport();
 
   const target = element === null ? undefined : tree?.elements.get(element);
   if (tree === null || view === null || (target === undefined && !canvas)) return null;
@@ -67,6 +71,7 @@ export function ElementMenu({
   const base = view.files.find((file) => file.role === "base");
   const asset = base?.asset ?? null;
   const path = target === undefined ? null : (target.path ?? target.label);
+  const sprite = target === undefined ? null : exportedSprite(tree, target.key);
   const openElement =
     target === undefined || base === undefined || asset === null || path === null
       ? null
@@ -147,6 +152,11 @@ export function ElementMenu({
                   onClick={() => void copy(path, m.workshop_bin_path_label())}
                 >
                   {m.workshop_bin_copy_path_action()}
+                </ContextMenu.Item>
+              )}
+              {sprite !== null && (
+                <ContextMenu.Item icon={<ExportIcon />} onClick={() => void exports.run(sprite)}>
+                  {m.workshop_bin_atlas_sprites_export_action()}
                 </ContextMenu.Item>
               )}
             </>

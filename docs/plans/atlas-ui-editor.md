@@ -209,7 +209,10 @@ already hold into a different manifest.
 
 **Replacing pixels.** A HUD reskin changes the pixels of an existing sprite. The new image joins the
 mod's sheet and every element drawing the sprite points at it, whether the sprite sat on a page or
-on a game sheet, so no file of the game is copied or written (decision 9.4).
+on a game sheet, so no file of the game is copied or written (decision 9.4). The starting image is
+Export PNG, in the inspector, the sprites pane (E) and an element's menu. It writes the sprite's rect
+of its page unflipped at the page's full resolution, so an edited copy of the same size replaces a
+sprite on the mod's sheet in place.
 
 **The packer.** It reproduces the game's measured page rules: power-of-two pages up to 2048, 2 px
 of padding per sprite with the edge pixels extruded into it, no mipmaps, BC7 for pages with

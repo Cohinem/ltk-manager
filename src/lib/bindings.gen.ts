@@ -440,6 +440,16 @@ export const commands = {
 	 */
 	readUiPrograms: (document: number | null, shaders: UiShader[]) => __TAURI_INVOKE<({ ok: true; value: ProgramRead[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_programs", { document, shaders }),
 	/**
+	 *  Write the sprite at `uv` on the page `texture` to `destination` as a PNG, at the page's own
+	 *  resolution, for an image editor to open and the import to take back.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the page cannot be read or decoded, when `uv` covers none of it, and when
+	 *  `destination` cannot be written.
+	 */
+	atlasExportSprite: (texture: AssetRef, uv: [number, number, number, number], destination: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("atlas_export_sprite", { texture, uv, destination }),
+	/**
 	 *  Import the PNG at `source` into the sheet `sheet` of the project `document` opens in, or put
 	 *  it in place of the sprite `replace`, per section 5 of docs/plans/atlas-ui-editor.md.
 	 * 
