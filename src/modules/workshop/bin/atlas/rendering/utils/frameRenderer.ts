@@ -25,6 +25,7 @@ import {
 import type { AssetRef, UiShader } from "@/lib/tauri";
 import type { ReadyProgram } from "@/modules/viewport";
 
+import { batchDraws } from "../../engine/commands/batch";
 import type { Command, DrawCommand, TextCommand, TextGeometry } from "../../engine/commands/types";
 import { effectConstants, isTimed } from "../../engine/effects/effects";
 import type { Geometry } from "../../engine/geometry/quads";
@@ -54,6 +55,8 @@ interface Drawn {
   readonly command: DrawCommand;
   readonly object: Mesh | Line;
   readonly material: UiMaterial;
+  /** Whether the material is the renderer's shared one, which outlives the command list. */
+  readonly shared: boolean;
 }
 
 /** An element's particle system as three holds it: its scene, and the HUD camera it draws under. */
@@ -79,7 +82,9 @@ const NO_PARTICLES: ParticleDraws = new Map();
 /**
  * The command list as a sequence of renders into one target, per section 3.4 of
  * docs/plans/atlas-renderer.md: a run of draws that share a scissor rect is one render, and an
- * offscreen group renders into a pooled target that its pop composites through `Copy`.
+ * offscreen group renders into a pooled target that its pop composites through `Copy`. Icons merge
+ * into batches as the client merges them, and a draw no effect drives takes a material shared by
+ * program, blend and texture that outlives the list, so a new list compiles no material again.
  *
  * The target is the screen's size times `scale`, RGBA8 without colour conversion and
  * premultiplied, so the bytes are the ones the client's gamma-space pipeline writes. The geometry
@@ -92,6 +97,8 @@ export class FrameRenderer {
   private drawn: Drawn[] = [];
   private texts: Mesh[] = [];
   private timed: Drawn[] = [];
+  private readonly shared = new Map<string, UiMaterial>();
+  private sharedPrograms: FrameInputs["programs"] | null = null;
   private readonly pool: WebGLRenderTarget[] = [];
   private screen: Screen;
   private texels = 1;
@@ -134,6 +141,10 @@ export class FrameRenderer {
   /** The command list of each frame, replacing the last ones. */
   setCommands(frames: readonly (readonly Command[])[], inputs: FrameInputs, screen: Screen): void {
     this.disposeDrawn();
+    if (inputs.programs !== this.sharedPrograms) {
+      this.disposeShared();
+      this.sharedPrograms = inputs.programs;
+    }
     if (screen.width !== this.screen.width || screen.height !== this.screen.height) {
       this.screen = screen;
       this.resize();
@@ -142,7 +153,7 @@ export class FrameRenderer {
     let order = 0;
     for (const commands of frames) {
       const steps: Step[] = [];
-      order = this.addSteps(steps, commands, inputs, order);
+      order = this.addSteps(steps, batchDraws(commands), inputs, order);
       this.frames.push(steps);
     }
     this.update(0, 0);
@@ -265,16 +276,16 @@ export class FrameRenderer {
 
   dispose(): void {
     this.disposeDrawn();
+    this.disposeShared();
     this.target.dispose();
     for (const target of this.pool) target.dispose();
   }
 
   private draw(command: DrawCommand, inputs: FrameInputs): Drawn {
-    const material = uiMaterial(
-      command.shader,
-      inputs.programs.get(command.shader) ?? null,
-      command.blend,
-    );
+    const shared = command.effect === null;
+    const material = shared
+      ? this.sharedMaterial(command, inputs)
+      : uiMaterial(command.shader, inputs.programs.get(command.shader) ?? null, command.blend);
     const texture =
       command.texture === null
         ? inputs.missing
@@ -288,10 +299,25 @@ export class FrameRenderer {
         : new Mesh(geometry, material.material);
     object.frustumCulled = false;
 
-    const drawn = { command, object, material };
+    const drawn = { command, object, material, shared };
     this.drawn.push(drawn);
     if (command.effect !== null && isTimed(command.effect.effect)) this.timed.push(drawn);
     return drawn;
+  }
+
+  /** The material every draw of `command`'s program, blend and texture that no effect drives shares. */
+  private sharedMaterial(command: DrawCommand, inputs: FrameInputs): UiMaterial {
+    const key = `${command.shader}:${command.blend}:${command.texture ?? "none"}`;
+    const held = this.shared.get(key);
+    if (held !== undefined) return held;
+
+    const made = uiMaterial(
+      command.shader,
+      inputs.programs.get(command.shader) ?? null,
+      command.blend,
+    );
+    this.shared.set(key, made);
+    return made;
   }
 
   private drawText(command: TextCommand, inputs: FrameInputs): Mesh {
@@ -352,6 +378,7 @@ export class FrameRenderer {
       },
       object,
       material,
+      shared: false,
     };
     this.drawn.push(drawn);
     return drawn;
@@ -360,7 +387,7 @@ export class FrameRenderer {
   private disposeDrawn(): void {
     for (const drawn of this.drawn) {
       drawn.object.geometry.dispose();
-      drawn.material.material.dispose();
+      if (!drawn.shared) drawn.material.material.dispose();
     }
     for (const text of this.texts) {
       text.geometry.dispose();
@@ -370,6 +397,11 @@ export class FrameRenderer {
     this.texts = [];
     this.timed = [];
     this.frames = [];
+  }
+
+  private disposeShared(): void {
+    for (const material of this.shared.values()) material.material.dispose();
+    this.shared.clear();
   }
 }
 
