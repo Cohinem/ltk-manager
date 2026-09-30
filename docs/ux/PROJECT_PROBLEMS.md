@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-09-30 | Name each unchecked file once, with its reason               |
 | 2026-09-17 | Open a bin finding at the node it names                      |
 | 2026-09-05 | Point the lazy-read link at the reader that landed           |
 | 2026-09-01 | The meta schema judges, and a table speaks for later builds  |
@@ -13,7 +14,6 @@
 | 2026-08-24 | Draw the forward-looking lints by default, dimmed            |
 | 2026-08-24 | Give the forward-looking switch a row, and drop the notice   |
 | 2026-08-23 | Put the forward-looking lints behind one editor setting      |
-| 2026-08-23 | Mute what waits for a build, rather than withholding it      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -331,6 +331,16 @@ pub struct Run {
 
 A rule that throws does not take the run with it. A project with one unreadable `.bin` still
 gets every problem in the other forty, and the panel names the file it could not read.
+
+Files that a rule could not read are listed in a warning above the list, one row per file. A
+file that two rules could not read is counted once. Each row shows the layer, the path and the
+first error message, and clicking a row opens the file. The warning is expanded when it lists
+three files or fewer, and collapsed when it lists more. When no problems were found but some
+files were not checked, the empty state says "No problems found" instead of "All good".
+
+`tex/block-alignment` skips a `.tex` file that contains DDS data, which is what renaming a
+`.dds` file produces. The game detects the container from the magic bytes, so the file is valid
+and is not listed as unchecked.
 
 ### What makes a file a bin
 

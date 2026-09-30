@@ -10,10 +10,10 @@ import {
   useState,
 } from "react";
 
-import { AlertBox, Code, EmptyState, Spinner } from "@/components";
+import { AlertBox, EmptyState, Spinner } from "@/components";
 import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 
 import { useProjectProblems } from "../../api";
 import { useProjectContext } from "../../projects/state/ProjectContext";
@@ -35,6 +35,7 @@ import {
   ProblemObjectRow,
   ProblemRow,
 } from "./ProblemRows";
+import { UncheckedFiles } from "./UncheckedFiles";
 
 /**
  * How many problems a project can hold before its groups start out shut.
@@ -152,7 +153,7 @@ export function ProblemsList({ query, collapseAllSignal = 0 }: ProblemsListProps
   if (error) {
     return (
       <div data-ui="ProblemsList" className="p-2">
-        <AlertBox variant="error" title="Couldn't check this project">
+        <AlertBox variant="error" title={m.workshop_problems_failed_title()}>
           {errorSummary(error)}
         </AlertBox>
       </div>
@@ -160,23 +161,15 @@ export function ProblemsList({ query, collapseAllSignal = 0 }: ProblemsListProps
   }
 
   return (
-    <div data-ui="ProblemsList" className="flex h-full flex-col select-none">
-      {run && run.failed.length > 0 && (
-        <div className="shrink-0 pb-2">
-          <AlertBox variant="warning" title={unreadableTitle(run.failed.length)}>
-            {/* DS-CODE-CHIP */}
-            <span className="flex flex-wrap gap-1">
-              {run.failed.map((failure) => (
-                <Code key={`${failure.rule}:${failure.site?.path ?? ""}`}>
-                  {failure.site?.path ?? failure.rule}
-                </Code>
-              ))}
-            </span>
-          </AlertBox>
-        </div>
-      )}
+    <div data-ui="ProblemsList" className="flex h-full flex-col gap-2 select-none">
+      <UncheckedFiles />
 
-      <ProblemsBody empty={problems.length === 0} filteredOut={matches.length === 0} query={query}>
+      <ProblemsBody
+        empty={problems.length === 0}
+        partial={(run?.failed.length ?? 0) > 0}
+        filteredOut={matches.length === 0}
+        query={query}
+      >
         <div
           ref={scrollRef}
           className="min-h-0 flex-1 overflow-auto rounded-lg border border-surface-700/60 scrollbar-md"
@@ -224,20 +217,33 @@ export function ProblemsList({ query, collapseAllSignal = 0 }: ProblemsListProps
 
 interface ProblemsBodyProps {
   empty: boolean;
+  /** Whether some files went unchecked, so an empty list is not a clean project. */
+  partial: boolean;
   filteredOut: boolean;
   query: string;
   children: ReactNode;
 }
 
 /** The list, or the reason there is none to draw. */
-function ProblemsBody({ empty, filteredOut, query, children }: ProblemsBodyProps) {
+function ProblemsBody({ empty, partial, filteredOut, query, children }: ProblemsBodyProps) {
+  if (empty && partial) {
+    return (
+      <EmptyState
+        className="flex-1"
+        icon={<CheckCircleIcon weight="duotone" className="h-10 w-10 text-surface-400" />}
+        title={m.workshop_problems_partial_title()}
+        description={m.workshop_problems_partial_description()}
+      />
+    );
+  }
+
   if (empty) {
     return (
       <EmptyState
         className="flex-1"
         icon={<CheckCircleIcon weight="duotone" className="h-10 w-10 text-success-text" />}
-        title="All good"
-        description="The linter found no problems in this project"
+        title={m.workshop_problems_clean_title()}
+        description={m.workshop_problems_clean_description()}
       />
     );
   }
@@ -246,8 +252,8 @@ function ProblemsBody({ empty, filteredOut, query, children }: ProblemsBodyProps
     return (
       <EmptyState
         className="flex-1"
-        title="No matches"
-        description={`Nothing matches "${query}"`}
+        title={m.workshop_problems_no_matches_title()}
+        description={m.workshop_problems_no_matches_description({ query })}
       />
     );
   }
@@ -259,9 +265,4 @@ function rowHeight(kind: RowModel["kind"] | undefined) {
   if (kind === "group") return GROUP_ROW_HEIGHT;
   if (kind === "object") return OBJECT_ROW_HEIGHT;
   return PROBLEM_ROW_HEIGHT;
-}
-
-function unreadableTitle(count: number) {
-  if (count === 1) return "1 file could not be read";
-  return `${count} files could not be read`;
 }
