@@ -20,7 +20,7 @@ pub(super) struct BaseSkins {
 /// The champions base skins takes in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Champions {
-    /// Each character whose base skin a mod ships.
+    /// Each character whose base skin a mod changes, by its skin bin or its mesh or textures.
     Modded,
     /// Each character with a skin bin in a champion archive.
     All,
@@ -47,9 +47,9 @@ impl BaseSkins {
     ) -> BTreeMap<String, Vec<(String, SkinBin)>> {
         let held = match self.champions {
             Champions::Modded => mods
-                .iter()
-                .filter(|bin| bin.is_base())
-                .flat_map(|base| game.past_base_of(&base.character))
+                .reskinned()
+                .into_iter()
+                .flat_map(|character| game.past_base_of(character))
                 .collect(),
             Champions::All => game.past_base(),
         };

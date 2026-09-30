@@ -121,7 +121,12 @@ impl<'t> GameSkins<'t> {
 
     /// The bytes of `bin` in the first archive holding it, where it reads.
     pub(super) fn read(&mut self, bin: &SkinBin) -> Option<Vec<u8>> {
-        let hash = bin.hash();
+        self.read_chunk(&bin.path())
+    }
+
+    /// The bytes of the chunk at `path` in the first archive holding it, where it reads.
+    pub(super) fn read_chunk(&mut self, path: &str) -> Option<Vec<u8>> {
+        let hash = WadHash::from(path);
         let archive = self
             .archives
             .iter_mut()
@@ -131,18 +136,27 @@ impl<'t> GameSkins<'t> {
             .wad
             .load_chunk_decompressed(&chunk)
             .map(Vec::from)
-            .inspect_err(|e| tracing::warn!("Built-in mods: cannot read {}: {e}", bin.path()))
+            .inspect_err(|e| tracing::warn!("Built-in mods: cannot read {path}: {e}"))
             .ok()
     }
 
     /// The skin bin at each of `hashes`, where one is, in one pass over the tables.
     pub(super) fn resolve_all(&self, hashes: &[WadHash]) -> Vec<Option<SkinBin>> {
+        self.name_all(hashes)
+            .into_iter()
+            .map(|name| SkinBin::parse(&name?))
+            .collect()
+    }
+
+    /// The chunk path at each of `hashes`, where the roster or the tables name one, in one pass
+    /// over the tables.
+    pub(super) fn name_all(&self, hashes: &[WadHash]) -> Vec<Option<String>> {
         let roster = self.roster_bins();
         self.tables
             .resolve_all(hashes)
             .into_iter()
             .zip(hashes)
-            .map(|(name, hash)| roster.get(hash).cloned().or_else(|| SkinBin::parse(&name?)))
+            .map(|(name, hash)| roster.get(hash).map(SkinBin::path).or(name))
             .collect()
     }
 
