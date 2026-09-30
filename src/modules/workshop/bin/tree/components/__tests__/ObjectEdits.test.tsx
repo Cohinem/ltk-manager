@@ -152,7 +152,7 @@ beforeEach(() => {
     if (command === commandNames.app.vfxTemplates)
       return Promise.resolve({ ok: true, value: [MISSILE] });
     if (
-      command === commandNames.app.binChoices &&
+      command === commandNames.bin.binChoices &&
       (args?.query as ChoiceQuery).kind === "objectClasses"
     ) {
       return Promise.resolve({

@@ -101,7 +101,7 @@ beforeEach(() => {
   writeText.mockClear();
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === commandNames.app.binRowDeclaration)
+    if (command === commandNames.bin.binRowDeclaration)
       return Promise.resolve({ ok: true, value: spelled });
     if (isEdit(command, args, "declareReference")) return landed();
     return Promise.reject(new Error(`unexpected command ${command}`));
@@ -213,7 +213,7 @@ describe("the declaration actions of a row", () => {
         "2 fields or entries no declaration can spell are left as the game has them",
       ),
     ).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binRowDeclaration, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binRowDeclaration, {
       document: DOCUMENT,
       entry: ROW.entry,
       path: "",

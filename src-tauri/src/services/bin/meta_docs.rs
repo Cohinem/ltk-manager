@@ -1,7 +1,7 @@
 //! Commands that serve the LoL Meta Wiki's documentation to the class and field cards.
 
-use super::bin::installed_schema;
-use super::off_thread;
+use crate::commands::installed::installed_schema;
+use crate::commands::off_thread;
 use crate::error::{AppError, IpcResult};
 use ltk_manager_core::meta_docs::{self, ClassDocs};
 use ltk_manager_core::object_index::parse_hash;

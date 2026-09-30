@@ -50,7 +50,7 @@ beforeEach(() => {
   });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command, args?: Record<string, unknown>) => {
-    if (command === commandNames.app.binDeclared) {
+    if (command === commandNames.bin.binDeclared) {
       const value = args?.document === DECLARING ? { layer: "base" } : null;
       return Promise.resolve({ ok: true, value });
     }
@@ -64,21 +64,21 @@ it("applies the manifest again in each open declared document, once", async () =
 
   expect(await result.current("base", { kind: "remove", module: 0 })).toBe(true);
 
-  expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.declarationsModuleAction, {
+  expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.declarationsModuleAction, {
     projectPath: PROJECT,
     layer: "base",
     action: { kind: "remove", module: 0 },
   });
   const reloads = mockInvoke.mock.calls.filter(
-    ([command]) => command === commandNames.app.binReload,
+    ([command]) => command === commandNames.bin.binReload,
   );
-  expect(reloads).toEqual([[commandNames.app.binReload, { document: DECLARING }]]);
+  expect(reloads).toEqual([[commandNames.bin.binReload, { document: DECLARING }]]);
 });
 
 it("reloads nothing when the action fails", async () => {
   mockInvoke.mockImplementation((command) =>
     Promise.resolve(
-      command === commandNames.app.declarationsModuleAction
+      command === commandNames.bin.declarationsModuleAction
         ? { ok: false, error: { code: "UNKNOWN", detail: "no module 4" } }
         : { ok: true, value: null },
     ),
@@ -86,7 +86,7 @@ it("reloads nothing when the action fails", async () => {
   const { result } = renderHook(() => useManifestModuleAction(PROJECT), { wrapper: Providers });
 
   expect(await result.current("base", { kind: "remove", module: 4 })).toBe(false);
-  expect(mockInvoke.mock.calls.some(([command]) => command === commandNames.app.binReload)).toBe(
+  expect(mockInvoke.mock.calls.some(([command]) => command === commandNames.bin.binReload)).toBe(
     false,
   );
 });

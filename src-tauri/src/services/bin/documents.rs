@@ -7,9 +7,9 @@
 
 use std::sync::Arc;
 
-use super::document_assets;
-use super::object_index::ObjectIndexState;
-use super::off_thread;
+use crate::commands::document_assets;
+use crate::commands::installed::{installed_schema, InstalledGame};
+use crate::commands::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use ltk_game_data::Target;
@@ -17,16 +17,15 @@ use ltk_hash::{BinHash, WadHash};
 use ltk_manager_core::bin_document::{
     BinChange, BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult, BinRow,
     BinRows, ChangeBaseline, ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice,
-    DeclaredState, Declaring, Dependency, EditOutcome, GameCopy, LayerOverride, ReadOnly, Reshape,
-    RowDeclaration, RowNames, VariantSource,
+    DeclaredState, Declaring, Dependency, EditOutcome, HistoryStep, LayerOverride, ReadOnly,
+    Reshape, RowDeclaration, RowNames, VariantSource,
 };
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashing::HexBinHash;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
-use ltk_manager_core::meta_schema::{self, ClassSchema, MetaSchema, PatchSchema, SchemaNames};
-use ltk_manager_core::object_index::{parse_hash, CacheNames, ObjectIndexSnapshot};
+use ltk_manager_core::meta_schema::{ClassSchema, PatchSchema, SchemaNames};
+use ltk_manager_core::object_index::{parse_hash, CacheNames};
 use ltk_manager_core::preview::AssetRef;
-use ltk_manager_core::problems::GameBuild;
 use ltk_manager_core::sandbox::{layer_chunk_hash, Opening, SandboxRef};
 use ltk_manager_core::workshop::{ModuleAction, ProjectDir};
 use tauri::{AppHandle, Manager};
@@ -433,28 +432,18 @@ pub async fn bin_save(document: BinDocumentId, app_handle: AppHandle) -> IpcResu
     off_thread(move || app_handle.state::<BinDocuments>().save(document)).await
 }
 
-/// Revert the latest edit of an open document's tree, answering how its rows moved, or null
-/// where the undo stack is empty.
+/// Move an open document's tree one `step` through its history, answering how its rows
+/// moved, or null where that stack is empty.
 ///
-/// The file tab and the object tabs over one asset share the tree and its stack.
+/// The file tab and the object tabs over one asset share the tree and its stacks.
 #[tauri::command]
 #[specta::specta]
-pub async fn bin_undo(
+pub async fn bin_history(
     document: BinDocumentId,
+    step: HistoryStep,
     app_handle: AppHandle,
 ) -> IpcResult<Option<Reshape>> {
-    off_thread(move || Ok(app_handle.state::<BinDocuments>().undo(document)?)).await
-}
-
-/// Apply the latest undone edit of an open document's tree again, answering how its rows
-/// moved, or null where the redo stack is empty.
-#[tauri::command]
-#[specta::specta]
-pub async fn bin_redo(
-    document: BinDocumentId,
-    app_handle: AppHandle,
-) -> IpcResult<Option<Reshape>> {
-    off_thread(move || Ok(app_handle.state::<BinDocuments>().redo(document)?)).await
+    off_thread(move || Ok(app_handle.state::<BinDocuments>().step(document, step)?)).await
 }
 
 /// Every property and object of an open document that differs from `baseline`: the file as
@@ -643,45 +632,6 @@ pub async fn bin_row_declaration(
         })
     })
     .await
-}
-
-/// The installed game as a declared document reads it: the shared tables for names, and
-/// the object index for an entry a reference names.
-pub(super) struct InstalledGame(pub(super) AppHandle);
-
-impl GameCopy for InstalledGame {
-    /// An index that is not ready answers no entry.
-    fn declaring_chunk(&self, entry: BinHash) -> AppResult<Option<Vec<u8>>> {
-        let ObjectIndexSnapshot::Ready(index) = self.0.state::<ObjectIndexState>().snapshot()
-        else {
-            return Ok(None);
-        };
-        let Some(first) = index
-            .declared(entry)
-            .and_then(|declared| declared.declarations.into_iter().next())
-        else {
-            return Ok(None);
-        };
-        let config = self.0.state::<SettingsState>().config();
-        first
-            .asset
-            .read(&config, &self.0.state::<WadCache>())
-            .map(Some)
-    }
-
-    fn with_names(&self, read: &mut dyn FnMut(&dyn RowNames)) {
-        let bin = self.0.state::<BinHashTablesState>().get();
-        let wad = self.0.state::<Arc<WadPathResolverState>>().get();
-        read(&CacheNames::new(&bin, &wad));
-    }
-}
-
-/// The shared meta schema and the installed game's content build, which keys every
-/// answer read out of it.
-pub(super) fn installed_schema(app_handle: &AppHandle) -> (Arc<MetaSchema>, Option<GameBuild>) {
-    let config = app_handle.state::<SettingsState>().config();
-    let build = GameBuild::installed(&config);
-    (meta_schema::shared(build), build)
 }
 
 /// Drop one id. Its asset leaves the store with its last id.

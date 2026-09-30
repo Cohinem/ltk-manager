@@ -332,159 +332,6 @@ export const commands = {
 	/**  Cancel a matching download before registration begins. */
 	cancelIntegrationDownload: (operationId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_integration_download", { operationId }),
 	/**
-	 *  Hold `asset` open as a bin in `sandbox`, answering the header and the rows at depth zero.
-	 * 
-	 *  A game chunk a layer of the sandbox ships opens as that layer's file, and one no layer
-	 *  ships opens as a declared document of the project (ADR-0042, ADR-0056). With no `entry`,
-	 *  the rows are one per object. With one, `0x` and eight hex digits, the rows are that
-	 *  object's properties and the answer carries its header facts.
-	 */
-	binOpen: (sandbox: SandboxRef, asset: AssetRef, entry: string | null) => __TAURI_INVOKE<({ ok: true; value: BinDocumentHandle }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_open", { sandbox, asset, entry }),
-	/**
-	 *  Hold the UI variant `asset` open in `sandbox` laid over its base scene bin `base`,
-	 *  answering the header and one row per object.
-	 * 
-	 *  In a project, a variant no layer ships opens as a declared variant: the base and the variant
-	 *  with the project's declarations of each, and an edit landing in a `target` module of `path`,
-	 *  the variant chunk's path (league-mod ADR-0035). Any other variant opens as its file.
-	 */
-	binOpenVariant: (sandbox: SandboxRef, asset: AssetRef, base: AssetRef, path: string) => __TAURI_INVOKE<({ ok: true; value: BinDocumentHandle }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_open_variant", { sandbox, asset, base, path }),
-	/**
-	 *  Write an open document's edits to its layer file, as a delta over the bytes it opened.
-	 * 
-	 *  A document no patch touched writes nothing. ADR-0040.
-	 */
-	binSave: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_save", { document }),
-	/**
-	 *  Read an open document's file again, dropping the edits its tree held.
-	 * 
-	 *  Every id over the asset reads the file as it is on disk.
-	 */
-	binReload: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_reload", { document }),
-	/**  Drop one id. Its asset leaves the store with its last id. */
-	binClose: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_close", { document }),
-	/**  The rows at depth zero of an open file, one per object, read again after an edit. */
-	binRoots: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: BinRow[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_roots", { document }),
-	/**
-	 *  The rows under one node of an open document, `offset` in and at most `limit` of them.
-	 * 
-	 *  `entry` is the object's hash as `0x` and eight hex digits. `path` is the wire form
-	 *  of the property path, empty for the object itself. Every row carries what the meta
-	 *  schema declares for its field at the install's build.
-	 */
-	binChildren: (document: BinDocumentId, entry: string, path: string, offset: number, limit: number) => __TAURI_INVOKE<({ ok: true; value: BinRows }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_children", { document, entry, path, offset, limit }),
-	/**
-	 *  The rows under each of several nodes of an open document, in the order asked.
-	 * 
-	 *  The projected read of "The projected read" in docs/ux/BIN_EDITOR.md, which a class
-	 *  layout and a value row use in place of one [`bin_children`] call per node. Each path
-	 *  answers one page, a path reaching nothing answers an empty one, and a call past the
-	 *  row cap is refused so the caller batches.
-	 */
-	binRead: (document: BinDocumentId, entry: string, paths: string[]) => __TAURI_INVOKE<({ ok: true; value: BinRows[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_read", { document, entry, paths }),
-	/**
-	 *  Every row of an open document whose name or value holds `query`, in tree order.
-	 * 
-	 *  `entry`, `0x` and eight hex digits, narrows the search to one object, which is what
-	 *  an object tab draws. The project bar's `@` scope asks this of the active tab.
-	 */
-	binFind: (document: BinDocumentId, entry: string | null, query: string) => __TAURI_INVOKE<({ ok: true; value: BinFindResult }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_find", { document, entry, query }),
-	/**  The header's dependencies of an open document, as its rows draw them. */
-	binDependencies: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: Dependency[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_dependencies", { document }),
-	/**
-	 *  What an add line of an open document offers, out of the meta schema at the install's
-	 *  build. ADR-0051.
-	 */
-	binChoices: (document: BinDocumentId, query: ChoiceQuery) => __TAURI_INVOKE<({ ok: true; value: Choices }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_choices", { document, query }),
-	/**  The value at `path` under the object `entry` of an open document, as clipboard text. */
-	binCopyValue: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: string }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_copy_value", { document, entry, path }),
-	/**
-	 *  One class's fields and their declared kinds at the install's build.
-	 * 
-	 *  Read out of the meta schema. `None` for a class the schema does not describe.
-	 *  `class_hash` is `0x` and eight hex digits.
-	 */
-	classSchema: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassSchema | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_schema", { classHash }),
-	/**
-	 *  Every class deriving from `class_hash` at the install's build, through any number of
-	 *  bases. `class_hash` is `0x` and eight hex digits.
-	 */
-	derivedClasses: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: HexBinHash[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("derived_classes", { classHash }),
-	/**
-	 *  The wiki's documentation for one class and every property declared on it or its bases.
-	 * 
-	 *  Reads the cache only, never the network. `None` where nothing is documented.
-	 *  `class_hash` is `0x` and eight hex digits.
-	 */
-	classDocs: (classHash: string) => __TAURI_INVOKE<({ ok: true; value: ClassDocs | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("class_docs", { classHash }),
-	/**
-	 *  Refresh the cached documentation once per session, and return the session's revision.
-	 * 
-	 *  The revision increases when a newer copy is installed. When the publisher cannot be reached,
-	 *  the cached copy and the revision stay unchanged.
-	 */
-	syncMetaDocs: () => __TAURI_INVOKE<({ ok: true; value: number }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("sync_meta_docs"),
-	/**
-	 *  Apply one edit to an open document, answering what the edit reports beside the change.
-	 * 
-	 *  Every id over the asset reads the edit, and nothing reaches the disk before [`bin_save`].
-	 *  ADR-0051.
-	 */
-	binEdit: (document: BinDocumentId, edit: BinEdit) => __TAURI_INVOKE<({ ok: true; value: EditOutcome }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_edit", { document, edit }),
-	/**
-	 *  Revert the latest edit of an open document's tree, answering how its rows moved, or null
-	 *  where the undo stack is empty.
-	 * 
-	 *  The file tab and the object tabs over one asset share the tree and its stack.
-	 */
-	binUndo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: Reshape | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_undo", { document }),
-	/**
-	 *  Apply the latest undone edit of an open document's tree again, answering how its rows
-	 *  moved, or null where the redo stack is empty.
-	 */
-	binRedo: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: Reshape | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_redo", { document }),
-	/**
-	 *  Every property and object of an open document that differs from `baseline`: the file as
-	 *  it was opened, or the installed game's copy of each object.
-	 */
-	binChanges: (document: BinDocumentId, baseline: ChangeBaseline) => __TAURI_INVOKE<({ ok: true; value: BinChange[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_changes", { document, baseline }),
-	/**
-	 *  Put the property at `path` under `entry` back to what `baseline` holds, as one undoable
-	 *  edit. `entry` is `0x` and eight hex digits.
-	 */
-	binRevert: (document: BinDocumentId, entry: string, path: string, baseline: ChangeBaseline) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_revert", { document, entry, path, baseline }),
-	/**
-	 *  What the document says beside its rows: the layer it declares into, the project's
-	 *  layers, and the rows a declaration of that layer touches. `None` for a document that
-	 *  declares nothing. ADR-0042.
-	 */
-	binDeclared: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: DeclaredState | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declared", { document }),
-	/**
-	 *  The rows of an open layer file that the declarations of its project override. Empty for
-	 *  every other document. ADR-0056.
-	 */
-	binOverrides: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: LayerOverride[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_overrides", { document }),
-	/**
-	 *  Take edits on a declared document as declarations, or refuse them, answering the gate
-	 *  it then stands behind. The project's "Use game data declarations". ADR-0042.
-	 */
-	binSetDeclaring: (document: BinDocumentId, declaring: Declaring) => __TAURI_INVOKE<({ ok: true; value: ReadOnly | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_set_declaring", { document, declaring }),
-	/**
-	 *  Write the edits that follow on a declared document to `module` of `layer`. ADR-0042,
-	 *  ADR-0048.
-	 */
-	binDeclareInto: (document: BinDocumentId, layer: string, module: DeclaredModuleChoice) => __TAURI_INVOKE<({ ok: true; value: DeclaredState }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_declare_into", { document, layer, module }),
-	/**
-	 *  The row at `path` under `entry` as the declaration and the game-copy reference an author
-	 *  would write for it, from any open bin. ADR-0042.
-	 */
-	binRowDeclaration: (document: BinDocumentId, entry: string, path: string) => __TAURI_INVOKE<({ ok: true; value: RowDeclaration }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("bin_row_declaration", { document, entry, path }),
-	/**
-	 *  Apply a module action to the manifest of `layer` of the project at `project_path`, with no
-	 *  document to undo it. ADR-0048.
-	 */
-	declarationsModuleAction: (projectPath: string, layer: string, action: ModuleAction) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("declarations_module_action", { projectPath, layer, action }),
-	/**
 	 *  The install's copy of each of `paths`, by path. A path the install does not ship is
 	 *  absent.
 	 * 
@@ -937,7 +784,7 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","bakeSkinTangents":"bake_skin_tangents","binChanges":"bin_changes","binChildren":"bin_children","binChoices":"bin_choices","binClose":"bin_close","binCopyValue":"bin_copy_value","binDeclareInto":"bin_declare_into","binDeclared":"bin_declared","binDependencies":"bin_dependencies","binEdit":"bin_edit","binFind":"bin_find","binOpen":"bin_open","binOpenVariant":"bin_open_variant","binOverrides":"bin_overrides","binRead":"bin_read","binRedo":"bin_redo","binReload":"bin_reload","binRevert":"bin_revert","binRoots":"bin_roots","binRowDeclaration":"bin_row_declaration","binSave":"bin_save","binSetDeclaring":"bin_set_declaring","binUndo":"bin_undo","cancelExtract":"cancel_extract","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","cancelReferenceWalk":"cancel_reference_walk","changeIntegration":"change_integration","characterSpells":"character_spells","checkHashtableUpdates":"check_hashtable_updates","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","classDocs":"class_docs","classObjectCount":"class_object_count","classSchema":"class_schema","declarationsModuleAction":"declarations_module_action","declaredObjects":"declared_objects","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","derivedClasses":"derived_classes","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectRitobinIntegration":"detect_ritobin_integration","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","dropObjectIndex":"drop_object_index","extractGameFiles":"extract_game_files","findInGameIndex":"find_in_game_index","findObjects":"find_objects","findReferences":"find_references","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getGameIndex":"get_game_index","getGameWads":"get_game_wads","getHashtableCacheStatus":"get_hashtable_cache_status","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","locateFilesNear":"locate_files_near","locateGameFiles":"locate_game_files","locateMapFiles":"locate_map_files","lookupStringValues":"lookup_string_values","minimizeToTray":"minimize_to_tray","objectDir":"object_dir","openAssetInRitobin":"open_asset_in_ritobin","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","planGameExtract":"plan_game_extract","readAnimationGraph":"read_animation_graph","readAssetInfo":"read_asset_info","readClipHeader":"read_clip_header","readDefaultSkinnedProgram":"read_default_skinned_program","readEmbeddedMaterialProgram":"read_embedded_material_program","readGameDir":"read_game_dir","readGameWad":"read_game_wad","readMap":"read_map","readMapCharacters":"read_map_characters","readMapOutline":"read_map_outline","readMapParticles":"read_map_particles","readMapVariants":"read_map_variants","readMaterialPrograms":"read_material_programs","readParticleProgram":"read_particle_program","readSkin":"read_skin","readSpell":"read_spell","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","readVfxSystem":"read_vfx_system","rebuildOverlay":"rebuild_overlay","refreshGameIndex":"refresh_game_index","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveAssetCopy":"save_asset_copy","saveSettings":"save_settings","searchGameIndex":"search_game_index","searchGamePaths":"search_game_paths","searchObjectIndex":"search_object_index","searchStringKeys":"search_string_keys","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","syncHashtables":"sync_hashtables","syncMetaDocs":"sync_meta_docs","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path","vfxTemplates":"vfx_templates","warmObjectIndex":"warm_object_index"} as const;
+export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","bakeSkinTangents":"bake_skin_tangents","cancelExtract":"cancel_extract","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","cancelReferenceWalk":"cancel_reference_walk","changeIntegration":"change_integration","characterSpells":"character_spells","checkHashtableUpdates":"check_hashtable_updates","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","classObjectCount":"class_object_count","declaredObjects":"declared_objects","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectRitobinIntegration":"detect_ritobin_integration","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","dropObjectIndex":"drop_object_index","extractGameFiles":"extract_game_files","findInGameIndex":"find_in_game_index","findObjects":"find_objects","findReferences":"find_references","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getGameIndex":"get_game_index","getGameWads":"get_game_wads","getHashtableCacheStatus":"get_hashtable_cache_status","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","locateFilesNear":"locate_files_near","locateGameFiles":"locate_game_files","locateMapFiles":"locate_map_files","lookupStringValues":"lookup_string_values","minimizeToTray":"minimize_to_tray","objectDir":"object_dir","openAssetInRitobin":"open_asset_in_ritobin","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","planGameExtract":"plan_game_extract","readAnimationGraph":"read_animation_graph","readAssetInfo":"read_asset_info","readClipHeader":"read_clip_header","readDefaultSkinnedProgram":"read_default_skinned_program","readEmbeddedMaterialProgram":"read_embedded_material_program","readGameDir":"read_game_dir","readGameWad":"read_game_wad","readMap":"read_map","readMapCharacters":"read_map_characters","readMapOutline":"read_map_outline","readMapParticles":"read_map_particles","readMapVariants":"read_map_variants","readMaterialPrograms":"read_material_programs","readParticleProgram":"read_particle_program","readSkin":"read_skin","readSpell":"read_spell","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","readVfxSystem":"read_vfx_system","rebuildOverlay":"rebuild_overlay","refreshGameIndex":"refresh_game_index","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveAssetCopy":"save_asset_copy","saveSettings":"save_settings","searchGameIndex":"search_game_index","searchGamePaths":"search_game_paths","searchObjectIndex":"search_object_index","searchStringKeys":"search_string_keys","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","syncHashtables":"sync_hashtables","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path","vfxTemplates":"vfx_templates","warmObjectIndex":"warm_object_index"} as const;
 
 /* Types */
 /**  Accent color configuration. */
@@ -3786,6 +3633,13 @@ export type Hint = "system-checks" | "update-manager" | "rebuild-overlay" | "che
  *  outside the game's shaders bin reads as.
  */
 "shader-definition";
+
+/**  Which way a step through an edit history goes. */
+export type HistoryStep = 
+/**  Revert the latest edit. */
+"undo" | 
+/**  Apply the latest reverted edit again. */
+"redo";
 
 /**  The action a global hotkey triggers when pressed. */
 export type HotkeyAction = "reloadMods" | "killLeague";

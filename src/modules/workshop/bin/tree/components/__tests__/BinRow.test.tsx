@@ -164,13 +164,13 @@ function renderLine(visible: RowLine, onToggle: (key: string) => void = () => {}
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === commandNames.app.classSchema)
+    if (command === commandNames.bin.classSchema)
       return Promise.resolve({ ok: true, value: SCHEMA });
-    if (command === commandNames.app.classDocs) return Promise.resolve({ ok: true, value: DOCS });
+    if (command === commandNames.bin.classDocs) return Promise.resolve({ ok: true, value: DOCS });
     if (command === commandNames.app.classObjectCount) {
       return Promise.resolve({ ok: true, value: { status: "ready", count: 42 } });
     }
-    if (command === commandNames.app.syncMetaDocs) return Promise.resolve({ ok: true, value: 0 });
+    if (command === commandNames.bin.syncMetaDocs) return Promise.resolve({ ok: true, value: 0 });
     return Promise.reject(new Error(`unexpected command ${command}`));
   });
   Object.defineProperty(navigator, "clipboard", {
@@ -468,7 +468,7 @@ describe("the class card", () => {
       "href",
       "https://meta-wiki.leaguetoolkit.dev/classes/skincharacterdataproperties/",
     );
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.classSchema, {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.classSchema, {
       classHash: SKIN_CLASS,
     });
   });
@@ -480,7 +480,7 @@ describe("the class card", () => {
     const card = await screen.findByRole("tooltip", { name: "SkinCharacterDataProperties" }, HOVER);
 
     expect(await within(card).findByText("is", { selector: "strong" })).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.classDocs, { classHash: SKIN_CLASS });
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.classDocs, { classHash: SKIN_CLASS });
   });
 
   it("offers no wiki link for a class no table names, which the wiki cannot address", async () => {
@@ -620,7 +620,7 @@ describe("the field card", () => {
 
     expect(await within(card).findByText("option[file]")).toBeInTheDocument();
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.classDocs, expect.anything()),
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.classDocs, expect.anything()),
     );
     expect(within(card).queryByRole("link")).toBeNull();
   });

@@ -46,6 +46,7 @@ import type {
   WorkshopFileKind,
 } from "@/lib/bindings";
 import { commands as appUpdate } from "@/lib/ipc/appUpdate";
+import { commands as bin } from "@/lib/ipc/bin";
 import { commands as library } from "@/lib/ipc/library";
 import { commands as workshop } from "@/lib/ipc/workshop";
 import type { Result } from "@/utils/result";
@@ -285,49 +286,48 @@ export const api = {
   // The bin editor and the class reads over its documents.
   bin: {
     open: (sandbox: SandboxRef, asset: AssetRef, entry: string | null) =>
-      commands.binOpen(sandbox, asset, entry).then(toResult),
+      bin.binOpen(sandbox, asset, entry).then(toResult),
     openVariant: (sandbox: SandboxRef, asset: AssetRef, base: AssetRef, path: string) =>
-      commands.binOpenVariant(sandbox, asset, base, path).then(toResult),
+      bin.binOpenVariant(sandbox, asset, base, path).then(toResult),
     children: (
       document: BinDocumentId,
       entry: string,
       path: string,
       offset: number,
       limit: number,
-    ) => commands.binChildren(document, entry, path, offset, limit).then(toResult),
+    ) => bin.binChildren(document, entry, path, offset, limit).then(toResult),
     read: (document: BinDocumentId, entry: string, paths: readonly string[]) =>
-      commands.binRead(document, entry, [...paths]).then(toResult),
+      bin.binRead(document, entry, [...paths]).then(toResult),
     find: (document: BinDocumentId, entry: string | null, query: string) =>
-      commands.binFind(document, entry, query).then(toResult),
-    edit: (document: BinDocumentId, edit: BinEdit) =>
-      commands.binEdit(document, edit).then(toResult),
+      bin.binFind(document, entry, query).then(toResult),
+    edit: (document: BinDocumentId, edit: BinEdit) => bin.binEdit(document, edit).then(toResult),
     choices: (document: BinDocumentId, query: ChoiceQuery) =>
-      commands.binChoices(document, query).then(toResult),
+      bin.binChoices(document, query).then(toResult),
     copyValue: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binCopyValue(document, entry, path).then(toResult),
-    save: (document: BinDocumentId) => commands.binSave(document).then(toResult),
-    reload: (document: BinDocumentId) => commands.binReload(document).then(toResult),
-    undo: (document: BinDocumentId) => commands.binUndo(document).then(toResult),
-    redo: (document: BinDocumentId) => commands.binRedo(document).then(toResult),
+      bin.binCopyValue(document, entry, path).then(toResult),
+    save: (document: BinDocumentId) => bin.binSave(document).then(toResult),
+    reload: (document: BinDocumentId) => bin.binReload(document).then(toResult),
+    undo: (document: BinDocumentId) => bin.binHistory(document, "undo").then(toResult),
+    redo: (document: BinDocumentId) => bin.binHistory(document, "redo").then(toResult),
     changes: (document: BinDocumentId, baseline: ChangeBaseline) =>
-      commands.binChanges(document, baseline).then(toResult),
+      bin.binChanges(document, baseline).then(toResult),
     revert: (document: BinDocumentId, entry: string, path: string, baseline: ChangeBaseline) =>
-      commands.binRevert(document, entry, path, baseline).then(toResult),
-    declared: (document: BinDocumentId) => commands.binDeclared(document).then(toResult),
-    overrides: (document: BinDocumentId) => commands.binOverrides(document).then(toResult),
+      bin.binRevert(document, entry, path, baseline).then(toResult),
+    declared: (document: BinDocumentId) => bin.binDeclared(document).then(toResult),
+    overrides: (document: BinDocumentId) => bin.binOverrides(document).then(toResult),
     declareInto: (document: BinDocumentId, layer: string, module: DeclaredModuleChoice) =>
-      commands.binDeclareInto(document, layer, module).then(toResult),
+      bin.binDeclareInto(document, layer, module).then(toResult),
     setDeclaring: (document: BinDocumentId, declaring: Declaring) =>
-      commands.binSetDeclaring(document, declaring).then(toResult),
+      bin.binSetDeclaring(document, declaring).then(toResult),
     rowDeclaration: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binRowDeclaration(document, entry, path).then(toResult),
-    roots: (document: BinDocumentId) => commands.binRoots(document).then(toResult),
-    dependencies: (document: BinDocumentId) => commands.binDependencies(document).then(toResult),
-    close: (document: BinDocumentId) => commands.binClose(document).then(toResult),
-    classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
-    derivedClasses: (classHash: string) => commands.derivedClasses(classHash).then(toResult),
-    classDocs: (classHash: string) => commands.classDocs(classHash).then(toResult),
-    syncMetaDocs: () => commands.syncMetaDocs().then(toResult),
+      bin.binRowDeclaration(document, entry, path).then(toResult),
+    roots: (document: BinDocumentId) => bin.binRoots(document).then(toResult),
+    dependencies: (document: BinDocumentId) => bin.binDependencies(document).then(toResult),
+    close: (document: BinDocumentId) => bin.binClose(document).then(toResult),
+    classSchema: (classHash: string) => bin.classSchema(classHash).then(toResult),
+    derivedClasses: (classHash: string) => bin.derivedClasses(classHash).then(toResult),
+    classDocs: (classHash: string) => bin.classDocs(classHash).then(toResult),
+    syncMetaDocs: () => bin.syncMetaDocs().then(toResult),
     readVfxSystem: (document: BinDocumentId, entry: string) =>
       commands.readVfxSystem(document, entry).then(toResult),
     vfxTemplates: () => commands.vfxTemplates().then(toResult),
@@ -518,7 +518,7 @@ export const api = {
     outline: (projectPath: string) => workshop.declarationsOutline(projectPath).then(toResult),
     /** A module action with no document to undo it, for a view of the manifest itself. */
     moduleAction: (projectPath: string, layer: string, action: ModuleAction) =>
-      commands.declarationsModuleAction(projectPath, layer, action).then(toResult),
+      bin.declarationsModuleAction(projectPath, layer, action).then(toResult),
   },
 
   // Workshop

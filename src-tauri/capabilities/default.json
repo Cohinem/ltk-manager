@@ -5,6 +5,7 @@
   "permissions": [
     "core:default",
     "app-update:default",
+    "bin:default",
     "library:default",
     "workshop:default",
     "core:window:allow-minimize",

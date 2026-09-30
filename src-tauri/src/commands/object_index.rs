@@ -499,7 +499,7 @@ fn walk(
     let bin = app.state::<BinHashTablesState>().get();
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let names = CacheNames::new(&bin, &wad);
-    let (schema, build) = super::bin::installed_schema(app);
+    let (schema, build) = super::installed::installed_schema(app);
 
     let events = TauriEventSink::new(app.clone());
     let last_report = Mutex::new(None::<Instant>);
@@ -653,7 +653,7 @@ fn fold_own_declarations(
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let names = CacheNames::new(&bin, &wad);
     let file = own_file_name(&asset, &wad);
-    let (schema, build) = super::bin::installed_schema(app);
+    let (schema, build) = super::installed::installed_schema(app);
 
     let (dependencies, own) = store.read(document, |open| {
         let own: Vec<(&str, BinObjectHeader)> = object_hashes

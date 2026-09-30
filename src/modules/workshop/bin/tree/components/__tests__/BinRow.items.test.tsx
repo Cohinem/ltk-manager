@@ -46,8 +46,8 @@ function weight(index: number): BinRow {
 
 /** An invoke's edit or choice query kind, or its command where it carries neither. */
 function kindOf(command: string, args?: Record<string, unknown>): string {
-  if (command === commandNames.app.binEdit) return (args?.edit as { kind: string }).kind;
-  if (command === commandNames.app.binChoices) return (args?.query as { kind: string }).kind;
+  if (command === commandNames.bin.binEdit) return (args?.edit as { kind: string }).kind;
+  if (command === commandNames.bin.binChoices) return (args?.query as { kind: string }).kind;
   return command;
 }
 
@@ -55,7 +55,7 @@ function kindOf(command: string, args?: Record<string, unknown>): string {
 function answering(answers: Record<string, unknown>) {
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
     const kind = kindOf(command, args);
-    const fallback = command === commandNames.app.binEdit ? { kind: "done" } : null;
+    const fallback = command === commandNames.bin.binEdit ? { kind: "done" } : null;
     return Promise.resolve({ ok: true, value: kind in answers ? answers[kind] : fallback });
   });
 }
@@ -64,7 +64,7 @@ function answering(answers: Record<string, unknown>) {
 function calls(kind: string) {
   return mockInvoke.mock.calls
     .filter(
-      ([command, args]) => command === commandNames.app.binEdit && kindOf(command, args) === kind,
+      ([command, args]) => command === commandNames.bin.binEdit && kindOf(command, args) === kind,
     )
     .map(([, args]) => args);
 }

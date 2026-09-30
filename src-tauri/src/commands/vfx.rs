@@ -3,8 +3,8 @@
 //! The tree is the open document's (ADR-0026), and this answers a subtree of it with
 //! every reference resolved rather than a window of rows.
 
-use super::bin::installed_schema;
 use super::document_assets::{parse_entry, read_resolved};
+use super::installed::installed_schema;
 use super::material::shader_defs;
 use super::off_thread;
 use crate::error::IpcResult;

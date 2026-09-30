@@ -142,9 +142,9 @@ beforeEach(() => {
   useWorkshopEditorStore.getState().selectLayer(PROJECT.path, "base");
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === commandNames.app.binDeclared)
+    if (command === commandNames.bin.binDeclared)
       return Promise.resolve({ ok: true, value: declared });
-    if (command === commandNames.app.binDeclareInto) {
+    if (command === commandNames.bin.binDeclareInto) {
       declared = {
         ...DECLARED,
         layer: args?.layer as string,

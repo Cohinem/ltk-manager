@@ -53,10 +53,10 @@ const PREVIEW = {
   issues: [],
 };
 function answer(command: string) {
-  if (command === commandNames.app.binOpen)
+  if (command === commandNames.bin.binOpen)
     return Promise.resolve({ ok: true, value: { document: 2 } });
   if (command === commandNames.app.readSpell) return Promise.resolve({ ok: true, value: PREVIEW });
-  if (command === commandNames.app.binClose) return Promise.resolve({ ok: true, value: null });
+  if (command === commandNames.bin.binClose) return Promise.resolve({ ok: true, value: null });
   return Promise.resolve({ ok: true, value: READY });
 }
 
@@ -76,7 +76,7 @@ describe("SpellsPane", () => {
     expect(spell).not.toHaveAttribute("aria-expanded");
     await user.click(spell);
     expect(await screen.findByText("Preview 0x859d7934")).toBeInTheDocument();
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binClose, { document: 2 });
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binClose, { document: 2 });
     await user.click(screen.getByRole("button", { name: "Spells" }));
     await user.type(screen.getByRole("textbox", { name: "Filter spells" }), "missing");
     expect(screen.getByText("No named spells match.")).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe("SpellsPane", () => {
     mount();
     await screen.findByText("Conflicting definitions");
     expect(screen.getByRole("button", { name: /SejuaniEPassiveMissile/ })).toBeDisabled();
-    expect(mockInvoke.mock.calls.some(([cmd]) => cmd === commandNames.app.binOpen)).toBe(false);
+    expect(mockInvoke.mock.calls.some(([cmd]) => cmd === commandNames.bin.binOpen)).toBe(false);
   });
 
   it("warms an absent index and refetches the catalog when the warm completes", async () => {

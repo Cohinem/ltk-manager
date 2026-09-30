@@ -285,7 +285,7 @@ beforeEach(() => {
   useWorkshopLayoutStore.setState({ openSections: {} });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === commandNames.app.binRead) {
+    if (command === commandNames.bin.binRead) {
       const entry = args?.entry as string;
       const paths = (args?.paths ?? []) as string[];
       return Promise.resolve({
@@ -495,11 +495,11 @@ describe("ClassView over a skin", () => {
 
     await screen.findByRole("button", { name: SYSTEM_PATH });
     const entries = mockInvoke.mock.calls
-      .filter(([command]) => command === commandNames.app.binRead)
+      .filter(([command]) => command === commandNames.bin.binRead)
       .map(([, args]) => (args as { entry: string }).entry);
 
     expect(new Set(entries)).toEqual(new Set([ENTRY, RESOLVER]));
-    expect(mockInvoke.mock.calls.some(([command]) => command === commandNames.app.binOpen)).toBe(
+    expect(mockInvoke.mock.calls.some(([command]) => command === commandNames.bin.binOpen)).toBe(
       false,
     );
   });

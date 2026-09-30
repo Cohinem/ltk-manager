@@ -51,7 +51,7 @@ beforeEach(() => {
   overrides = [];
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command) => {
-    if (command === commandNames.app.binOverrides)
+    if (command === commandNames.bin.binOverrides)
       return Promise.resolve({ ok: true, value: overrides });
     return Promise.resolve({ ok: true, value: null });
   });
@@ -125,7 +125,7 @@ it("leaves a node of a layer file no override reaches unmarked", async () => {
   render(<Overridden path={OTHER_EMITTER} />, { wrapper: Providers });
 
   await waitFor(() =>
-    expect(mockInvoke).toHaveBeenCalledWith(commandNames.app.binOverrides, expect.anything()),
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binOverrides, expect.anything()),
   );
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
 });
