@@ -528,6 +528,11 @@ function section(group: string, open = true): HTMLElement {
   return screen.getByRole("button", { name: group, expanded: open });
 }
 
+/** A group's fold button, awaited, since a default-only group waits on the class schema. */
+function findSection(group: string, open = true): Promise<HTMLElement> {
+  return screen.findByRole("button", { name: group, expanded: open });
+}
+
 /** A card's group chip, which neither folds a section nor sits in the jump bar. */
 function cardChip(group: string): HTMLElement {
   const held = screen
@@ -1527,7 +1532,7 @@ describe("The shell frame", () => {
   it("keeps unauthored fields in collapsed sections without requiring a Defaults switch", async () => {
     renderSystem();
     await screen.findByText("Emitter Lifetime");
-    expect(section("Scale", false)).toBeInTheDocument();
+    expect(await findSection("Scale", false)).toBeInTheDocument();
     expect(screen.queryByText("Scale over Lifetime")).not.toBeInTheDocument();
     await userEvent.click(section("Scale", false));
     expect(await screen.findByText("Scale over Lifetime")).toBeInTheDocument();
@@ -1578,7 +1583,7 @@ describe("The shell frame", () => {
     renderSystem();
     await screen.findByText("Emitter Lifetime");
     const search = screen.getByRole("textbox", { name: "Search emitter properties" });
-    expect(section("Scale", false)).toBeInTheDocument();
+    expect(await findSection("Scale", false)).toBeInTheDocument();
 
     fireEvent.change(search, { target: { value: "scale0" } });
     expect(await screen.findByText("Scale over Lifetime")).toBeInTheDocument();
@@ -1597,7 +1602,7 @@ describe("The shell frame", () => {
     const user = userEvent.setup();
     await screen.findByText("Emitter Lifetime");
     const toggle = screen.getByRole("button", { name: "Show only defined properties" });
-    expect(section("Scale", false)).toBeInTheDocument();
+    expect(await findSection("Scale", false)).toBeInTheDocument();
 
     await user.click(toggle);
 
