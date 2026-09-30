@@ -1,6 +1,6 @@
 import { createContext, use } from "react";
 
-import type { AssetRef, BinDocumentId, PropertyEdit, ReadOnly } from "@/lib/tauri";
+import type { AssetRef, BinDocumentId, NewObject, PropertyEdit, ReadOnly } from "@/lib/tauri";
 
 /** Where a view's edits land, per "Edits through `bin_edit`" in docs/plans/atlas-ui-editor.md. */
 export interface AtlasEdit {
@@ -15,6 +15,8 @@ export interface AtlasEdit {
   readonly readOnly: ReadOnly | null;
   /** Send `edits` as one undo step, answering whether they landed. A refusal is a toast. */
   readonly apply: (edits: readonly PropertyEdit[]) => Promise<boolean>;
+  /** Declare the object `name` from `origin`, answering its entry, or null where it was refused. */
+  readonly create: (name: string, origin: NewObject) => Promise<string | null>;
 }
 
 /** The edits of the enclosing Atlas shell, null outside one. */

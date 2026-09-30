@@ -18,6 +18,7 @@ import { MeterSection } from "./MeterSection";
 import { PositionSection } from "./PositionSection";
 import { DraftNumber, FieldLine, SectionBlock } from "./sectionParts";
 import { SpriteSection } from "./SpriteSection";
+import { TextSection } from "./TextSection";
 
 export interface ElementSectionsProps {
   readonly element: ViewElement;
@@ -55,8 +56,9 @@ export function ElementSections({ element, tree, settings, solved, view }: Eleme
         editable={editable}
         apply={apply}
       />
-      <LookSection element={element} tree={tree} />
+      <LookSection element={element} />
       <SpriteSection element={element} tree={tree} />
+      <TextSection element={element} tree={tree} editable={editable} />
       {button !== null && (
         <ButtonSection
           element={element}
@@ -163,8 +165,8 @@ interface LookLine {
 }
 
 /** What the element draws, in the words its class uses, read from the resolved view. */
-function LookSection({ element, tree }: { element: ViewElement; tree: ViewTree }) {
-  const lines = lookLines(element, tree);
+function LookSection({ element }: { element: ViewElement }) {
+  const lines = lookLines(element);
   if (lines.length === 0) return null;
 
   return (
@@ -191,7 +193,7 @@ function LookSection({ element, tree }: { element: ViewElement; tree: ViewTree }
  * The lines the Look section draws for `element`'s class. A sprite the file names is the Sprite
  * section's, so only one the controller sets at run time has a line here.
  */
-function lookLines(element: ViewElement, tree: ViewTree): LookLine[] {
+function lookLines(element: ViewElement): LookLine[] {
   const look = element.look;
   const runtime = m.workshop_bin_atlas_runtime_value();
   const runtimeSprite = { label: m.workshop_bin_atlas_sprite_label(), value: runtime };
@@ -203,20 +205,6 @@ function lookLines(element: ViewElement, tree: ViewTree): LookLine[] {
       ];
     case "effect":
       return look.sprite === null ? [runtimeSprite] : [];
-    case "text": {
-      const font = look.font === null ? undefined : tree.view.fonts[look.font];
-      return [
-        {
-          label: m.workshop_bin_atlas_text_key_label(),
-          value: look.traKey === "" ? runtime : look.traKey,
-        },
-        {
-          label: m.workshop_bin_atlas_font_label(),
-          value: font === undefined ? runtime : lastSegment(font.path),
-          full: font?.path,
-        },
-      ];
-    }
     case "particle":
       return [{ label: m.workshop_bin_atlas_system_label(), value: look.system ?? runtime }];
     case "group": {
@@ -228,6 +216,7 @@ function lookLines(element: ViewElement, tree: ViewTree): LookLine[] {
       }
       return lines;
     }
+    case "text":
     case "region":
     case "scissor":
     case "spine":
@@ -245,10 +234,6 @@ function layoutName(layout: ViewLayout): string {
     case "grid":
       return m.workshop_bin_atlas_layout_grid_value();
   }
-}
-
-function lastSegment(path: string): string {
-  return path.slice(path.lastIndexOf("/") + 1);
 }
 
 function hexOf(color: readonly number[]): string {

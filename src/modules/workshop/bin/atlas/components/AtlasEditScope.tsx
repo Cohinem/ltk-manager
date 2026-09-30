@@ -7,6 +7,7 @@ import {
   api,
   type AssetRef,
   type BinDocumentId,
+  type NewObject,
   type PropertyEdit,
   type ReadOnly,
   type UiFile,
@@ -70,6 +71,10 @@ function TabScope({ document, children }: { document: BinDocumentId; children: R
         send === undefined || landed === undefined
           ? Promise.resolve(false)
           : applyEdits(send, landed, edits, toast.error),
+      create: (name, origin) =>
+        send === undefined || landed === undefined
+          ? Promise.resolve(null)
+          : createObject(send, landed, name, origin, toast.error),
     }),
     [document, send, landed, toast],
   );
@@ -146,6 +151,10 @@ function ControllerScope({
         active?.editable === true
           ? applyEdits(send, landed, edits, toast.error)
           : Promise.resolve(false),
+      create: (name, origin) =>
+        active?.editable === true
+          ? createObject(send, landed, name, origin, toast.error)
+          : Promise.resolve(null),
     }),
     [scene, declared, drawn, active, base, send, landed, toast],
   );
@@ -246,4 +255,23 @@ async function applyEdits(
 
   landed(id);
   return true;
+}
+
+async function createObject(
+  send: DocumentCall,
+  landed: (id: BinDocumentId) => void,
+  name: string,
+  origin: NewObject,
+  refuse: (title: string, description: string) => void,
+): Promise<string | null> {
+  const { result, id } = await send((id) =>
+    api.bin.edit(id, { kind: "object", edit: { kind: "create", name, origin } }),
+  );
+  if (!result.ok) {
+    refuse(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+    return null;
+  }
+
+  landed(id);
+  return result.value.kind === "object" ? result.value.entry : null;
 }

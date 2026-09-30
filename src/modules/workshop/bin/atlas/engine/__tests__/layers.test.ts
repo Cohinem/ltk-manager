@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { layerMatches, layerRows } from "../model/layers";
-import { buildTree } from "../model/tree";
+import { buildTree, sceneMembers } from "../model/tree";
 import { element, icon, scene, view } from "./fixtures";
 
 function nested() {
@@ -44,5 +44,14 @@ describe("layerRows", () => {
 
     expect(rows.map((row) => row.key)).toEqual(["outer", "inner", "gem"]);
     expect(rows.every((row) => row.type === "element" || row.folds)).toBe(true);
+  });
+});
+
+describe("sceneMembers", () => {
+  it("selects the elements of a scene and of every scene under it", () => {
+    const tree = nested();
+
+    expect(sceneMembers(tree, "outer").sort()).toEqual(["frame", "gem"]);
+    expect(sceneMembers(tree, "other")).toEqual(["title"]);
   });
 });

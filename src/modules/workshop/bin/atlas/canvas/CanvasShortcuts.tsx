@@ -26,6 +26,7 @@ const CANVAS: readonly Shortcut[] = [
 ];
 
 const PREVIEW: readonly Shortcut[] = [
+  [m.workshop_bin_atlas_transform_label, PREVIEW_KEYS.transform],
   [m.workshop_bin_atlas_interact_label, PREVIEW_KEYS.interact],
   [m.workshop_bin_atlas_safe_zone_label, PREVIEW_KEYS.safeZone],
   [m.workshop_bin_atlas_show_disabled_label, PREVIEW_KEYS.showDisabled],

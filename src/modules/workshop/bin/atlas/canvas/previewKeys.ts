@@ -1,5 +1,6 @@
 /** The keys the canvas runs the preview toolbar's actions on, which its tooltips name. */
 export const PREVIEW_KEYS = {
+  transform: "V",
   interact: "I",
   safeZone: "Z",
   showDisabled: "H",
@@ -12,6 +13,7 @@ export const PREVIEW_KEYS = {
 
 /** What the preview keys act on. */
 export interface PreviewKeyActions {
+  readonly chooseTransform: () => void;
   readonly toggleInteract: () => void;
   readonly toggleSafeZone: () => void;
   readonly toggleShowDisabled: () => void;
@@ -25,6 +27,9 @@ export interface PreviewKeyActions {
 /** Run the preview's action for `key`, and answer whether it had one. */
 export function previewKey(key: string, actions: PreviewKeyActions): boolean {
   switch (key.toUpperCase()) {
+    case PREVIEW_KEYS.transform:
+      actions.chooseTransform();
+      return true;
     case PREVIEW_KEYS.interact:
       actions.toggleInteract();
       return true;

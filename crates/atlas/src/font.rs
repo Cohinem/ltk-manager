@@ -8,8 +8,8 @@ use ltk_meta::{BinObject, PropertyValueEnum};
 
 use super::fields::*;
 use super::model::{
-    UiAsset, UiFont, UiFontFace, UiFontResolution, UiFontSizes, UiStyleSheet, UiTextIcon,
-    UiTextStyle,
+    UiAsset, UiFont, UiFontCatalog, UiFontChoice, UiFontFace, UiFontResolution, UiFontSizes,
+    UiStyleSheet, UiTextIcon, UiTextStyle,
 };
 use super::resolver::{chunk, color, file_hash, flag, number};
 use super::view::UiViewError;
@@ -200,4 +200,64 @@ fn map_entries(value: Option<&PropertyValueEnum>) -> &[(PropertyValueEnum, Prope
         Some(PropertyValueEnum::Map(map)) => map.entries(),
         _ => &[],
     }
+}
+
+/// The fonts and faces of `document` and then of `fonts`, the game's `ux/fonts` where the
+/// caller could read it. An object both hold is listed once, as the document's.
+#[must_use]
+pub fn font_catalog(
+    document: &BinDocument,
+    fonts: Option<&BinDocument>,
+    names: &dyn RowNames,
+) -> UiFontCatalog {
+    let bins = FontBins::new([Some(document), fonts].into_iter().flatten().collect());
+    let mut namer = Namer::new(names);
+    let mut catalog = UiFontCatalog::default();
+    let mut seen = std::collections::HashSet::new();
+
+    for (at, bin) in bins.documents.iter().enumerate() {
+        for entry in bin.entries() {
+            let Some(object) = bin.object_at(entry) else {
+                continue;
+            };
+            let list = match object.class_hash {
+                class if class == GAME_FONT_DESCRIPTION => &mut catalog.fonts,
+                class if class == FONT_TYPE_CLASS => &mut catalog.types,
+                _ => continue,
+            };
+            if !seen.insert(entry) {
+                continue;
+            }
+
+            let fields = &object.properties;
+            let type_data = if object.class_hash == FONT_TYPE_CLASS {
+                Some(fields)
+            } else {
+                bins.fields(fields.get(&FONT_TYPE))
+            };
+            list.push(UiFontChoice {
+                entry: hex(entry),
+                path: namer.entry(entry).unwrap_or_else(|| hex(entry)),
+                name: text(fields.get(&NAME)).unwrap_or_default().to_owned(),
+                face: type_data.and_then(first_face),
+                locales: type_data.map_or(0, |fields| {
+                    u32::try_from(items(fields.get(&LOCALE_TYPES)).len()).unwrap_or(u32::MAX)
+                }),
+                type_data: (object.class_hash == GAME_FONT_DESCRIPTION)
+                    .then(|| link(fields.get(&FONT_TYPE)))
+                    .flatten()
+                    .map(hex),
+                project: at == 0,
+            });
+        }
+    }
+    catalog
+}
+
+/// The regular file of the first locale `type_data` lists.
+fn first_face(type_data: &Fields) -> Option<String> {
+    items(type_data.get(&LOCALE_TYPES)).iter().find_map(|item| {
+        let path = text(fields_of(Some(item))?.get(&FONT_FILE))?;
+        (!path.is_empty()).then(|| path.to_owned())
+    })
 }

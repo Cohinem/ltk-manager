@@ -8,10 +8,10 @@ use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 use atlas::{
-    import_sprite, import_surface, patch_sprite, patchable, png_pixels, read_loadout, read_sheet,
-    resolve_font, resolve_scene_bin, resolve_view, sprite_pixels, sprite_png, PagePatch,
-    PatchTarget, SheetImport, SheetSpec, SheetTarget, UiFont, UiLoadout, UiShader, UiView,
-    VariantChoice, FONTS_PATH,
+    font_catalog, import_font_file, import_sprite, import_surface, patch_sprite, patchable,
+    png_pixels, read_loadout, read_sheet, resolve_font, resolve_scene_bin, resolve_view,
+    sprite_pixels, sprite_png, PagePatch, PatchTarget, SheetImport, SheetSpec, SheetTarget, UiFont,
+    UiFontCatalog, UiLoadout, UiShader, UiView, VariantChoice, FONTS_PATH,
 };
 use ltk_hash::WadHash;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments, Namer, RowNames};
@@ -203,6 +203,38 @@ pub async fn atlas_import_sprite(
         let imported = import_sprite(&target, Path::new(&source), replace.as_deref())?;
         app_handle.state::<SandboxState>().invalidate(&project);
         Ok(imported)
+    })
+    .await
+}
+
+/// Copy the `.ttf` or `.otf` at `source` into the layer and archive the document `document`
+/// writes to, answering the path a `FontType` names it by.
+///
+/// # Errors
+///
+/// Fails when the document opens in no project or writes to no layer, for a file of another
+/// type, and when the copy cannot be written.
+#[tauri::command]
+#[specta::specta]
+pub async fn atlas_import_font_file(
+    document: BinDocumentId,
+    source: String,
+    app_handle: AppHandle,
+) -> IpcResult<String> {
+    off_thread(move || {
+        let documents = app_handle.state::<BinDocuments>();
+        let project = project_of(&documents, document)?;
+        let asset = documents
+            .asset_of(document)
+            .ok_or_else(|| not_open(document))?;
+        let layer = layer_of(&documents, document, &asset)?;
+        let archive = archive_of(&asset).ok_or_else(|| {
+            AppError::ValidationFailed("The document is in no archive".to_owned())
+        })?;
+
+        let named = import_font_file(Path::new(&project), &layer, &archive, Path::new(&source))?;
+        app_handle.state::<SandboxState>().invalidate(&project);
+        Ok(named)
     })
     .await
 }
@@ -439,6 +471,32 @@ pub async fn read_ui_font(
                 .and_then(|bytes| BinDocument::parse(bytes).ok());
             resolve_font(open, entry, fonts.as_ref(), names, assets)
                 .map_err(|e| AppError::ValidationFailed(e.to_string()))
+        })
+    })
+    .await
+}
+
+/// The fonts and faces a text in the open document `document` can draw with: the document's
+/// own, then those of the `ux/fonts` its sandbox resolves.
+///
+/// # Errors
+///
+/// Fails when the names or the project chunks the resolution reads are unavailable.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_ui_font_catalog(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<UiFontCatalog> {
+    off_thread(move || {
+        read_resolved(&app_handle, document, |open, names, assets| {
+            let config = app_handle.state::<SettingsState>().config();
+            let wads = app_handle.state::<WadCache>();
+            let fonts = assets
+                .locate(FONTS_PATH)
+                .and_then(|asset| asset.read(&config, &wads).ok())
+                .and_then(|bytes| BinDocument::parse(bytes).ok());
+            Ok(font_catalog(open, fonts.as_ref(), names))
         })
     })
     .await

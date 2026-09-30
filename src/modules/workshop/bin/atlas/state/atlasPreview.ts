@@ -137,6 +137,8 @@ interface AtlasPreviewStore {
   setLive: (live: number) => void;
   togglePlaying: () => void;
   toggleInteract: () => void;
+  /** Leave interact mode for the transform tool, which selects, moves and resizes. */
+  chooseTransform: () => void;
   /** Change the combo box `combo` of `view`, and close every other one a change opens past. */
   setCombo: (view: string, combo: string, change: Partial<ComboState>) => void;
   setComboHover: (hover: ComboHover | null) => void;
@@ -200,6 +202,7 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
       setLive: (live) => set({ live }),
       togglePlaying: () => set((state) => ({ playing: !state.playing })),
       toggleInteract: () => set((state) => ({ interact: !state.interact, comboHover: null })),
+      chooseTransform: () => set({ interact: false, comboHover: null }),
       setCombo: (view, combo, change) =>
         set((state) => {
           const held = state.views[view] ?? EMPTY_VIEW;
@@ -387,6 +390,7 @@ export function useAtlasPreviewActions() {
       setLive: state.setLive,
       togglePlaying: state.togglePlaying,
       toggleInteract: state.toggleInteract,
+      chooseTransform: state.chooseTransform,
       setCombo: state.setCombo,
       setComboHover: state.setComboHover,
       setMeter: state.setMeter,

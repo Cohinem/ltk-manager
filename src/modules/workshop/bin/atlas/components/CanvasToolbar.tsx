@@ -1,4 +1,5 @@
 import {
+  ArrowsOutCardinalIcon,
   CheckCircleIcon,
   CheckSquareIcon,
   CheckSquareOffsetIcon,
@@ -65,8 +66,9 @@ const BUTTON_STATES: readonly (readonly [ButtonState | typeof OWN, Icon, () => s
 const LIVE_STEP = 0.01;
 
 /**
- * The preview's toolbar, the second row of the Atlas tab: interact mode, which plays the view's
- * widgets under the pointer in place of editing it, the screen menu, the safe zone, the
+ * The preview's toolbar, the second row of the Atlas tab: the transform tool, which selects,
+ * moves and resizes, and interact mode, which plays the view's widgets under the pointer in place
+ * of editing it, the screen menu, the safe zone, the
  * elements the view rests with off, whether effects draw, sample content for what the controller
  * fills, whether the scenes stack on one screen, the state every button draws, and the effects'
  * progress and clock. Each icon's tooltip names its canvas key.
@@ -87,6 +89,13 @@ export function CanvasToolbar() {
       aria-label={m.workshop_bin_atlas_toolbar_label()}
       className="flex min-w-0 flex-1 items-center gap-1 select-none"
     >
+      <ToggleTool
+        label={m.workshop_bin_atlas_transform_label()}
+        shortcut={PREVIEW_KEYS.transform}
+        on={!interact}
+        icon={<ArrowsOutCardinalIcon weight="bold" className="h-4 w-4" />}
+        onToggle={actions.chooseTransform}
+      />
       <ToggleTool
         label={m.workshop_bin_atlas_interact_label()}
         shortcut={PREVIEW_KEYS.interact}
