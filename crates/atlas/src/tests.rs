@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Cursor;
 
 use glam::{Vec2, Vec4};
@@ -1518,6 +1518,106 @@ fn every_shipped_controller_resolves_into_a_view() {
     assert!(repeats > 0);
     assert!(bound > 1000);
     assert!(failures.is_empty());
+}
+
+#[test]
+#[ignore = "reads a game install, and needs LTK_LIVE_GAME"]
+fn every_shipped_icon_material_translates() {
+    use ltk_manager_game::program::{ProgramOptions, Resolution, read_programs};
+
+    let install = Install::mount(&[
+        "UI.wad.client",
+        "Bootstrap.windows.wad.client",
+        "Global.wad.client",
+        "ShaderCache.dx11.wad.client",
+    ]);
+    let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> {
+        let AssetRef::File { path } = asset else {
+            unreachable!()
+        };
+        Ok(install
+            .bytes(u64::from_str_radix(path, 16).unwrap())
+            .unwrap())
+    };
+
+    let loadables = install.loadables();
+    let mut materials = HashSet::new();
+    let mut holders = HashMap::new();
+    for hash in install.hashes() {
+        let Ok(document) = BinDocument::parse(install.bytes(hash).unwrap()) else {
+            continue;
+        };
+        for entry in document.entries() {
+            let Some(object) = document.object_at(entry) else {
+                continue;
+            };
+            if object.class_hash == h("StaticMaterialDef") {
+                holders.insert(entry, hash);
+            }
+            if !object.properties.contains_key(&h("PathHashToSelf")) {
+                continue;
+            }
+            let view = resolve_view(
+                &document,
+                entry,
+                None,
+                None,
+                &(),
+                &install,
+                &loadables,
+                &mut read,
+            )
+            .unwrap();
+            for element in &view.elements {
+                if let UiLook::Icon {
+                    material: Some(material),
+                    ..
+                } = &element.look
+                {
+                    materials.insert(material.clone());
+                }
+            }
+        }
+    }
+
+    let shaders = install.locate("data/shaders/shaders.bin").unwrap();
+    let shaders = BinDocument::parse(read(&shaders).unwrap()).unwrap();
+    let translations = hexshade::TranslationCache::default();
+    let mut failures = Vec::new();
+    let mut translated = 0;
+    for material in &materials {
+        let hash = BinHash(u32::from_str_radix(material.trim_start_matches("0x"), 16).unwrap());
+        /* Two ship in archives this test does not mount. */
+        let Some(chunk) = holders.get(&hash) else {
+            continue;
+        };
+        let document = BinDocument::parse(install.bytes(*chunk).unwrap()).unwrap();
+        let resolution = Resolution {
+            document: &document,
+            names: &(),
+            assets: &install,
+            shaders: Some(&shaders),
+        };
+        let programs = read_programs(
+            resolution,
+            &[hash],
+            ProgramOptions::default(),
+            &translations,
+            &mut read,
+        );
+        let Some(Some(program)) = programs.into_iter().next() else {
+            failures.push(format!("{material} resolves no pass"));
+            continue;
+        };
+        for pass in &program.passes {
+            match &pass.program {
+                ProgramRead::Ready { .. } => translated += 1,
+                ProgramRead::Failed { reason } => failures.push(format!("{material}: {reason}")),
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{failures:#?}");
+    assert!(translated > 0);
 }
 
 /// How many of the largest shipped views the frame bench reads.

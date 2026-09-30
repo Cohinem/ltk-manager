@@ -46,6 +46,7 @@ const SAMPLE_LOOK: Extract<ViewLook, { kind: "text" }> = {
 };
 
 const NO_SHEETS: readonly ViewStyleSheet[] = [];
+const NO_MATERIALS: FrameInputs["materials"] = new Map();
 const ORIGIN = [0, 0] as const;
 
 /**
@@ -105,6 +106,7 @@ export function FontPreview({ document, entry }: FontPreviewProps) {
       glyphPage: text.glyphPage,
       textTextures: text.textTextures,
       white: whiteTexel(),
+      materials: NO_MATERIALS,
     }),
     [programs, text],
   );

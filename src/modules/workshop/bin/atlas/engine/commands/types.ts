@@ -19,6 +19,11 @@ export interface DrawCommand {
   readonly blend: UiBlend;
   /** The effect whose constants the clock and the live input write, where one drives it. */
   readonly effect: DrawnEffect | null;
+  /**
+   * The `StaticMaterialDef` of an icon or a custom material effect, by its path or as a hash, which
+   * draws in place of `shader` once it translates.
+   */
+  readonly material: string | null;
   readonly scissor: PixelRect | null;
   readonly element: string;
 }

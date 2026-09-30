@@ -59,6 +59,7 @@ const FONT_INSET = 24;
 const NO_FONTS: readonly ViewFont[] = [];
 const NO_SHEETS: readonly ViewStyleSheet[] = [];
 const NONE: ReadonlySet<string> = new Set();
+const NO_MATERIALS: FrameInputs["materials"] = new Map();
 const NO_STATES: ReadonlyMap<string, string> = new Map();
 const NO_COMMANDS: Command[] = [];
 const ORIGIN = [0, 0] as const;
@@ -272,6 +273,8 @@ function StillFrame({
       glyphPage: text.glyphPage,
       textTextures: text.textTextures,
       white: whiteTexel(),
+      /* A still draws an icon material with its UI program, which reads no material. */
+      materials: NO_MATERIALS,
     }),
     [programs, textures, text],
   );

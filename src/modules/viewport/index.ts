@@ -87,12 +87,15 @@ export {
   previewSkeleton,
 } from "./hexshade/previewMeshes";
 export {
+  applyPassState,
   bindProgramTexture,
+  bindProgramTextures,
   createInlinedProgramMaterial,
   createProgramMaterial,
   type ReadyProgram,
   SCREEN_COPY,
   type SubmeshProgram,
+  writeProgramGlobals,
   writeProgramMember,
 } from "./hexshade/programMaterial";
 export { type HeldValue, scatter } from "./hexshade/programMaterials";

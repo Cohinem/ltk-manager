@@ -5,7 +5,7 @@ import type { Command, DrawCommand } from "./types";
 /**
  * `commands` with each run of draws the client would merge into one icon batch drawn as one, per
  * section 2.4 of docs/plans/atlas-renderer.md: consecutive triangle draws that share the program,
- * the texture, the blend and the scissor, and that no effect drives. A batch keeps its draws'
+ * the texture, the blend, the material and the scissor, and that no effect drives. A batch keeps its draws'
  * order, so the frame is the same, and it keeps the first draw's element.
  */
 export function batchDraws(commands: readonly Command[]): Command[] {
@@ -49,6 +49,7 @@ function joins(batch: DrawCommand, next: DrawCommand): boolean {
     batch.shader === next.shader &&
     batch.texture === next.texture &&
     batch.blend === next.blend &&
+    batch.material === next.material &&
     sameRect(batch.scissor, next.scissor)
   );
 }

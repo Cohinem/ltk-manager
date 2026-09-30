@@ -438,6 +438,19 @@ export const commands = {
 	 */
 	readUiFontCatalog: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: UiFontCatalog }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_font_catalog", { document }),
 	/**
+	 *  The programs of the icon materials `entries`, one for one and in that order, and none where
+	 *  nothing declares one.
+	 * 
+	 *  A material is read out of the first of the open `documents` that declares it, which is how a
+	 *  project's own material draws before its save, and otherwise out of the game chunk the object
+	 *  index names for it. Names and assets resolve as the first document's do.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the names or the project chunks the resolution reads are unavailable.
+	 */
+	readUiMaterialPrograms: (documents: BinDocumentId[], entries: string[]) => __TAURI_INVOKE<({ ok: true; value: (MaterialProgram | null)[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_material_programs", { documents, entries }),
+	/**
 	 *  The programs of `shaders`, one for one and in that order, translated.
 	 * 
 	 *  The shaders are the ones `document` resolves against, and the install's alone where it

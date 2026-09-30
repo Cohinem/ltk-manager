@@ -32,6 +32,7 @@ import { useBoard } from "../hooks/useBoard";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
 import { useLoadoutView } from "../hooks/useLoadoutView";
 import { useTextSource, useViewStrings } from "../hooks/useTextSource";
+import { useViewMaterials } from "../hooks/useViewMaterials";
 import { AtlasFrame } from "../rendering/components/AtlasFrame";
 import { AtlasParticles } from "../rendering/components/AtlasParticles";
 import type { CompositeColors } from "../rendering/utils/composite";
@@ -100,6 +101,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   const frame = useFrameSettings();
   const drawn = useLoadoutView(document, view, tree, frame.samples && !focus);
   const { textures, sizes } = useUiTextures(drawn.view);
+  const materials = useViewMaterials(drawn.view, document);
   const strings = useViewStrings(view);
   const text = useTextSource(view?.fonts ?? NO_FONTS, view?.styleSheets ?? NO_SHEETS, strings);
   const key = viewKey(document, entry);
@@ -227,8 +229,9 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
       glyphPage: text.glyphPage,
       textTextures: text.textTextures,
       white: whiteTexel(),
+      materials,
     }),
-    [programs, textures, text],
+    [programs, textures, text, materials],
   );
   const compositeColors = useMemo<CompositeColors>(
     () => ({ backdrop: colors.backdrop, checkerA: colors.ground, checkerB: colors.grid }),
