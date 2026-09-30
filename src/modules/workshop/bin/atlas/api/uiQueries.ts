@@ -6,6 +6,7 @@ import {
   type AssetRef,
   type BinDocumentId,
   type DeclaredObjects,
+  type MaterialProgram,
   type SandboxRef,
   type ProgramRead,
   type UiFont,
@@ -80,7 +81,22 @@ export const uiKeys = {
     ["ui-declared", sandboxKey(sandbox), hash] as const,
   loadout: (document: BinDocumentId, sandbox: SandboxRef) =>
     ["ui-loadout", document, sandboxKey(sandbox)] as const,
+  materials: (
+    documents: readonly BinDocumentId[],
+    entries: readonly string[],
+    sandbox: SandboxRef,
+  ) => ["ui-materials", sandboxKey(sandbox), ...documents, "|", ...entries] as const,
 };
+
+/** Warm the object index and wait while it builds, since a read through it answers nothing then. */
+async function untilIndexed(sandbox: SandboxRef): Promise<void> {
+  await api.objects.warm();
+  for (;;) {
+    const status = await api.objects.declared(sandbox, []);
+    if (!status.ok || status.value.index.status !== "building") return;
+    await new Promise((resolve) => setTimeout(resolve, BUILDING_POLL_MS));
+  }
+}
 
 export const uiQueries = {
   /**
@@ -91,12 +107,7 @@ export const uiQueries = {
     queryOptions<UiLoadout, AppError>({
       queryKey: uiKeys.loadout(document, sandbox),
       queryFn: async () => {
-        await api.objects.warm();
-        for (;;) {
-          const status = await api.objects.declared(sandbox, []);
-          if (!status.ok || status.value.index.status !== "building") break;
-          await new Promise((resolve) => setTimeout(resolve, BUILDING_POLL_MS));
-        }
+        await untilIndexed(sandbox);
         return unwrapForQuery(await api.bin.readUiLoadout(document));
       },
       staleTime: Infinity,
@@ -150,6 +161,28 @@ export const uiQueries = {
     queryOptions<UiFont, AppError>({
       queryKey: uiKeys.font(document, entry),
       queryFn: async () => unwrapForQuery(await api.bin.readUiFont(document, entry)),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /**
+   * The programs of the icon materials `entries`, one for one, each read out of the first of the
+   * open `documents` declaring it or out of the game chunk the object index names, which is built
+   * first.
+   */
+  materials: (
+    documents: readonly BinDocumentId[],
+    entries: readonly string[],
+    sandbox: SandboxRef,
+  ) =>
+    queryOptions<(MaterialProgram | null)[], AppError>({
+      queryKey: uiKeys.materials(documents, entries, sandbox),
+      queryFn:
+        entries.length === 0 || documents.length === 0
+          ? skipToken
+          : async () => {
+              await untilIndexed(sandbox);
+              return unwrapForQuery(await api.bin.readUiMaterialPrograms(documents, entries));
+            },
       staleTime: Infinity,
       retry: false,
     }),

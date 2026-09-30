@@ -727,6 +727,8 @@ export const api = {
       commands.readUiFont(document, entry).then(toResult),
     readUiFontCatalog: (document: BinDocumentId) =>
       commands.readUiFontCatalog(document).then(toResult),
+    readUiMaterialPrograms: (documents: readonly BinDocumentId[], entries: readonly string[]) =>
+      commands.readUiMaterialPrograms([...documents], [...entries]).then(toResult),
     readUiPrograms: (document: BinDocumentId | null, shaders: readonly UiShader[]) =>
       commands.readUiPrograms(document, [...shaders]).then(toResult),
     readUiLoadout: (document: BinDocumentId) => commands.readUiLoadout(document).then(toResult),

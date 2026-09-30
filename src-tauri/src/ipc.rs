@@ -101,6 +101,7 @@ migrated![
     read_ui_scene_view,
     read_ui_font,
     read_ui_font_catalog,
+    read_ui_material_programs,
     read_ui_programs,
     read_ui_loadout,
     atlas_export_sprite,

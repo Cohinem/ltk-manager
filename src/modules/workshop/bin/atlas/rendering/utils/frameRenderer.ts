@@ -1,7 +1,5 @@
 import {
   AddEquation,
-  BufferAttribute,
-  BufferGeometry,
   type Camera,
   CustomBlending,
   Line,
@@ -26,14 +24,22 @@ import type { AssetRef, UiShader } from "@/lib/tauri";
 import type { ReadyProgram } from "@/modules/viewport";
 
 import { batchDraws } from "../../engine/commands/batch";
-import type { Command, DrawCommand, TextCommand, TextGeometry } from "../../engine/commands/types";
+import type { Command, DrawCommand, TextCommand } from "../../engine/commands/types";
 import { effectConstants, isTimed } from "../../engine/effects/effects";
 import type { Geometry } from "../../engine/geometry/quads";
 import type { PixelRect, Screen } from "../../engine/layout/solve";
 import { assetKey } from "../text/fontFiles";
 import type { GlyphPage } from "../text/glyphCache";
+import { bufferOf, textBufferOf } from "./buffers";
 import { fontMaterial } from "./fontMaterials";
-import { UI_COLOR, type UiMaterial, uiMaterial } from "./uiMaterials";
+import {
+  type ViewMaterial,
+  viewMaterial,
+  UI_COLOR,
+  UI_TIME,
+  type UiMaterial,
+  uiMaterial,
+} from "./uiMaterials";
 
 /** What the frame reads besides its commands. */
 export interface FrameInputs {
@@ -48,6 +54,8 @@ export interface FrameInputs {
   readonly textTextures: ReadonlyMap<string, Texture>;
   /** A fill where a font names none. */
   readonly white: Texture;
+  /** Each material an icon or a custom material effect names that translated, by its path or hash. */
+  readonly materials: ReadonlyMap<string, ViewMaterial>;
 }
 
 /** One draw as three holds it. */
@@ -212,6 +220,8 @@ export class FrameRenderer {
   /** Every timed and live constant written for `time` seconds and the live input `live`. */
   update(time: number, live: number): void {
     for (const drawn of this.drawn) {
+      if (drawn.command.material !== null) drawn.material.member(UI_TIME, [time]);
+
       const { effect } = drawn.command;
       if (effect === null) continue;
 
@@ -282,10 +292,18 @@ export class FrameRenderer {
   }
 
   private draw(command: DrawCommand, inputs: FrameInputs): Drawn {
-    const shared = command.effect === null;
-    const material = shared
-      ? this.sharedMaterial(command, inputs)
-      : uiMaterial(command.shader, inputs.programs.get(command.shader) ?? null, command.blend);
+    const own = command.material === null ? undefined : inputs.materials.get(command.material);
+    const shared = own === undefined && command.effect === null;
+    let material: UiMaterial;
+    if (own !== undefined) material = viewMaterial(own);
+    else if (shared) material = this.sharedMaterial(command, inputs);
+    else {
+      material = uiMaterial(
+        command.shader,
+        inputs.programs.get(command.shader) ?? null,
+        command.blend,
+      );
+    }
     const texture =
       command.texture === null
         ? inputs.missing
@@ -301,7 +319,8 @@ export class FrameRenderer {
 
     const drawn = { command, object, material, shared };
     this.drawn.push(drawn);
-    if (command.effect !== null && isTimed(command.effect.effect)) this.timed.push(drawn);
+    const timed = command.effect !== null && isTimed(command.effect.effect);
+    if (timed || own?.animated === true) this.timed.push(drawn);
     return drawn;
   }
 
@@ -373,6 +392,7 @@ export class FrameRenderer {
         primitive: "triangles",
         blend: "premultiplied",
         effect: null,
+        material: null,
         scissor: null,
         element: "",
       },
@@ -478,26 +498,4 @@ function coverageOf(scene: Scene): void {
 function sameRect(a: PixelRect | null, b: PixelRect | null): boolean {
   if (a === null || b === null) return a === b;
   return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
-}
-
-function bufferOf(geometry: Geometry): BufferGeometry {
-  const buffer = new BufferGeometry();
-  buffer.setAttribute("a_POSITION", new BufferAttribute(new Float32Array(geometry.positions), 2));
-  buffer.setAttribute("a_COLOR", new BufferAttribute(new Uint8Array(geometry.colors), 4, true));
-  buffer.setAttribute("a_TEXCOORD", new BufferAttribute(new Float32Array(geometry.texcoords), 4));
-  buffer.setIndex(geometry.indices);
-  return buffer;
-}
-
-function textBufferOf(geometry: TextGeometry): BufferGeometry {
-  const buffer = new BufferGeometry();
-  buffer.setAttribute("a_POSITION", new BufferAttribute(new Float32Array(geometry.positions), 2));
-  buffer.setAttribute("a_COLOR", new BufferAttribute(new Uint8Array(geometry.colors), 4, true));
-  buffer.setAttribute("a_TEXCOORD", new BufferAttribute(new Float32Array(geometry.texcoords), 2));
-  buffer.setAttribute(
-    "a_TEXCOORD1",
-    new BufferAttribute(new Float32Array(geometry.fillTexcoords), 2),
-  );
-  buffer.setIndex(geometry.indices);
-  return buffer;
 }

@@ -23,6 +23,10 @@ describe("effectPasses", () => {
   });
 
   it("picks the radial fill pixel stage by the fill flag", () => {
+    expect(effectPasses({ effect: "customMaterial", material: null })).toEqual([]);
+    expect(effectPasses({ effect: "customMaterial", material: "m" }, false)).toEqual([
+      { shader: "blend", primitive: "triangles", spriteUv: false },
+    ]);
     expect(effectPasses({ effect: "cooldownRadial", fill: true })[0]?.shader).toBe(
       "cooldownRadialFill",
     );

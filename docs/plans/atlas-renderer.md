@@ -1,7 +1,7 @@
 # Atlas renderer
 
-> Status: tiers 1 to 7 built (2026-09-30), except icon materials, the VFX shell's HUD-layer
-> draw and the captures. It is the
+> Status: tiers 1 to 7 built (2026-09-30), except the VFX shell's HUD-layer draw and the
+> captures. It is the
 > rendering half of `docs/plans/atlas-ui-editor.md`. The evidence is
 > `docs/research/ui-data-layout.md`, the tree at `e18e3beb`, the UI and font shaders translated
 > through Hexshade on the same day, and the 16.17 client read in IDA. An address below is a
@@ -529,9 +529,21 @@ row by row, and every quad of a slice carries the whole element rect as its refe
 element's aspect, centred, as CSS `cover` does. `PerPixelUvsX` and `Y` crop the sprite by a
 run-time fraction rather than squash it, which the preview drives as a live input.
 
-A material on an icon (`UiElementIconData.Material`, 421 icons) replaces `Blend` but keeps the UI
-vertex format and the two UI blocks. It reads through `read_material_programs` and binds through the
-same core as section 5.
+A material on an icon (`UiElementIconData.Material`, 419 icons over 62 materials in the installed
+`UI.wad.client`) replaces `Blend` but keeps the UI vertex format and the two UI blocks. Every one
+of the seven shaders they use, `UI_BaseShader` for 47 of them, reads `a_POSITION`, `a_COLOR` and
+`a_TEXCOORD`, `UI_ELEMENT_MATRIX` and `UI_COLOR`, the sprite as `UI_PRIMARY_TEXTURE_SharedTexture`,
+its own `$Globals` and `__TX` textures, and `TIME` for a scroll or a pulse, and every pass blends
+`One, OneMinusSrcAlpha` as the frame does. `read_ui_material_programs` reads each material out of
+the open scene bin where the project declares it, and otherwise out of the chunk the object index
+names, through the same `read_programs` as a skin. The canvas binds the first pass through
+`createInlinedProgramMaterial`, packs `$Globals` and binds the textures as a material shell does,
+writes the UI blocks and the sprite as a UI draw does, and writes `TIME` from the frame's clock.
+`every_shipped_icon_material_translates` checks each shipped pass translates. A still, as the
+objects browser draws one, keeps `Blend`. A `UiElementEffectCustomMaterialData` draws the same way,
+one quad over its rect through its `mMaterial`, sampling its sprite where it names one, since
+`0x1413BE970` was not traced. None ships: no archive of the installed game holds one, so only a
+mod's reaches it.
 
 ## 7 Verification
 

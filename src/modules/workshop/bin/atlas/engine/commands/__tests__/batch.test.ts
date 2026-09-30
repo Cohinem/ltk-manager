@@ -18,6 +18,7 @@ function quad(element: string, texture: number | null, x: number): DrawCommand {
     primitive: "triangles",
     blend: "premultiplied",
     effect: null,
+    material: null,
     scissor: null,
     element,
   };

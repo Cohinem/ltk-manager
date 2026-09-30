@@ -35,10 +35,12 @@ const hand = (shader: UiShader): EffectPass => ({
 });
 
 /**
- * The passes of `effect`. Line, rotating icons and instancing place their geometry by run-time
- * transforms that were not traced, so each draws its sprite as a plain quad.
+ * The passes of `effect`, whose element names a sprite where `sprite` holds. Line, rotating icons
+ * and instancing place their geometry by run-time transforms that were not traced, so each draws
+ * its sprite as a plain quad. A custom material draws one quad through its material, over the
+ * sprite where there is one and over the element otherwise, and nothing where it names none.
  */
-export function effectPasses(effect: ViewEffect): readonly EffectPass[] {
+export function effectPasses(effect: ViewEffect, sprite = true): readonly EffectPass[] {
   switch (effect.effect) {
     case "cooldown":
       return [quad("cooldown", false), hand("cooldownLine")];
@@ -69,7 +71,7 @@ export function effectPasses(effect: ViewEffect): readonly EffectPass[] {
     case "instanced":
       return [quad("blend")];
     case "customMaterial":
-      return [];
+      return effect.material === null ? [] : [quad("blend", sprite)];
   }
 }
 

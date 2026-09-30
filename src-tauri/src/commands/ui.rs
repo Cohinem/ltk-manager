@@ -3,7 +3,7 @@
 use super::bin::InstalledGame;
 use super::document_assets::{parse_entry, read_resolved, with_resolution};
 use super::game_index::game_file;
-use super::material::translations;
+use super::material::{shader_defs, translations};
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
@@ -13,12 +13,16 @@ use atlas::{
     sprite_pixels, sprite_png, PagePatch, PatchTarget, SheetImport, SheetSpec, SheetTarget, UiFont,
     UiFontCatalog, UiLoadout, UiShader, UiView, VariantChoice, FONTS_PATH,
 };
-use ltk_hash::WadHash;
+use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_manager_core::bin_document::GameCopy as _;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments, Namer, RowNames};
 use ltk_manager_core::game_wads::WadCache;
+use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::sandbox::{SandboxRef, SandboxState};
-use ltk_manager_game::program::ProgramRead;
+use ltk_manager_game::program::{
+    read_programs, MaterialProgram, ProgramOptions, ProgramRead, Resolution,
+};
 use serde::Deserialize;
 use std::path::Path;
 use tauri::{AppHandle, Manager};
@@ -497,6 +501,84 @@ pub async fn read_ui_font_catalog(
                 .and_then(|asset| asset.read(&config, &wads).ok())
                 .and_then(|bytes| BinDocument::parse(bytes).ok());
             Ok(font_catalog(open, fonts.as_ref(), names))
+        })
+    })
+    .await
+}
+
+/// The programs of the icon materials `entries`, one for one and in that order, and none where
+/// nothing declares one.
+///
+/// A material is read out of the first of the open `documents` that declares it, which is how a
+/// project's own material draws before its save, and otherwise out of the game chunk the object
+/// index names for it. Names and assets resolve as the first document's do.
+///
+/// # Errors
+///
+/// Fails when the names or the project chunks the resolution reads are unavailable.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_ui_material_programs(
+    documents: Vec<BinDocumentId>,
+    entries: Vec<String>,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<Option<MaterialProgram>>> {
+    off_thread(move || {
+        let hashes: Vec<BinHash> = entries
+            .iter()
+            .map(|entry| parse_hash(entry).unwrap_or_else(|| BinHash::hash_str(entry)))
+            .collect();
+        let translations = translations(&app_handle);
+        with_resolution(&app_handle, documents.first().copied(), |names, assets| {
+            let config = app_handle.state::<SettingsState>().config();
+            let wads = app_handle.state::<WadCache>();
+            let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+            let shaders = shader_defs(&app_handle, assets);
+            let store = app_handle.state::<BinDocuments>();
+            let game = InstalledGame(app_handle.clone());
+
+            let mut program_of = |document: &BinDocument, hash: BinHash| {
+                let resolution = Resolution {
+                    document,
+                    names,
+                    assets,
+                    shaders: shaders.as_deref(),
+                };
+                read_programs(
+                    resolution,
+                    &[hash],
+                    ProgramOptions::default(),
+                    &translations,
+                    &mut read,
+                )
+                .pop()
+                .flatten()
+            };
+
+            let mut parsed: Vec<BinDocument> = Vec::new();
+            let mut programs = Vec::with_capacity(hashes.len());
+            for &hash in &hashes {
+                let open = documents
+                    .iter()
+                    .filter_map(|document| store.document(*document).ok())
+                    .find(|document| document.object_at(hash).is_some());
+                if let Some(open) = open {
+                    programs.push(program_of(&open, hash));
+                    continue;
+                }
+
+                if !parsed.iter().any(|each| each.object_at(hash).is_some()) {
+                    if let Some(bytes) = game.declaring_chunk(hash)? {
+                        parsed.push(BinDocument::parse(bytes)?);
+                    }
+                }
+                let program = parsed
+                    .iter()
+                    .find(|each| each.object_at(hash).is_some())
+                    .and_then(|document| program_of(document, hash));
+                programs.push(program);
+            }
+            Ok(programs)
         })
     })
     .await

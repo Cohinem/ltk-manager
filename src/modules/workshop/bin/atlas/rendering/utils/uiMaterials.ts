@@ -12,9 +12,13 @@ import {
 
 import type { UiShader } from "@/lib/tauri";
 import {
+  applyPassState,
   bindProgramTexture,
+  bindProgramTextures,
   createInlinedProgramMaterial,
   type ReadyProgram,
+  type SubmeshProgram,
+  writeProgramGlobals,
   writeProgramMember,
 } from "@/modules/viewport";
 
@@ -25,6 +29,9 @@ const PRIMARY_TEXTURE = "UI_PRIMARY_TEXTURE_SharedTexture";
 
 /** The scene's tint in `rgb` and its opacity in `w`, `UIPerPassPS`. */
 export const UI_COLOR = "UI_COLOR";
+
+/** The seconds a material's scroll and pulse read, `PerFramePixelCB` and `PerFrameVertexCB`. */
+export const UI_TIME = "TIME";
 
 /** The scene's transform times the base matrix, `UIPerPassVS`. */
 const UI_ELEMENT_MATRIX = "UI_ELEMENT_MATRIX";
@@ -57,6 +64,42 @@ export function uiMaterial(
 ): UiMaterial {
   const made = program === null ? fallbackMaterial() : translatedMaterial(shader, program);
   applyBlend(made.material, blend);
+  made.member(UI_ELEMENT_MATRIX, BASE_MATRIX);
+  made.member(UI_COLOR, [1, 1, 1, 1]);
+  return made;
+}
+
+/**
+ * The `StaticMaterialDef` an icon or a custom material effect draws with: its first pass that
+ * translated, and whether it moves.
+ */
+export interface ViewMaterial {
+  readonly pass: SubmeshProgram;
+  readonly animated: boolean;
+}
+
+/**
+ * A material drawing an icon or a custom material effect through its `StaticMaterialDef`, per
+ * section 6 of
+ * docs/plans/atlas-renderer.md: the pass's program with its constants, textures and blend, and the
+ * UI blocks and the sprite written as `uiMaterial` writes them. Every shipped UI material blends
+ * premultiplied, as the frame does.
+ */
+export function viewMaterial(icon: ViewMaterial): UiMaterial {
+  const { pass } = icon;
+  const material = createInlinedProgramMaterial(pass.program, `ui:material:${pass.material}`);
+  writeProgramGlobals(material, pass, pass.pass);
+  bindProgramTextures(material, pass);
+  applyPassState(material, pass.pass.state);
+  /* Transparent like every UI draw, so the draw order is the list's. */
+  material.transparent = true;
+
+  const made: UiMaterial = {
+    material,
+    translated: true,
+    member: (name, value) => writeProgramMember(material, name, value),
+    texture: (texture) => bindProgramTexture(material, PRIMARY_TEXTURE, texture),
+  };
   made.member(UI_ELEMENT_MATRIX, BASE_MATRIX);
   made.member(UI_COLOR, [1, 1, 1, 1]);
   return made;

@@ -358,6 +358,7 @@ function iconDraws(
       primitive: "triangles",
       blend: look.useAlpha ? "premultiplied" : "opaque",
       effect: null,
+      material: look.material,
       scissor,
       element: element.key,
     },
@@ -380,7 +381,8 @@ function effectDraws(
     (rect.y + rect.h / 2) / screen.height,
   ] as const;
 
-  return effectPasses(effect).flatMap((pass, index): DrawCommand[] => {
+  const material = effect.effect === "customMaterial" ? effect.material : null;
+  return effectPasses(effect, sprite !== null).flatMap((pass, index): DrawCommand[] => {
     if (pass.spriteUv && sprite === null) return [];
 
     const geometry = emptyGeometry();
@@ -399,6 +401,7 @@ function effectDraws(
         geometry,
         primitive: pass.primitive,
         blend: pass.shader === "ammoLine" ? "replace" : "premultiplied",
+        material,
         effect: {
           effect,
           pass: index,
