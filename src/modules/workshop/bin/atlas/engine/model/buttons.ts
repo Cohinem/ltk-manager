@@ -45,11 +45,14 @@ export function buttonStateOf(button: ViewButton, { hovered, pressed }: ButtonIn
 /** The state a button draws while nothing chooses another. */
 export const DEFAULT_BUTTON_STATE = "DefaultStateElements";
 
+/** The state a slider draws while nothing chooses another. */
+const DEFAULT_SLIDER_STATE = "DefaultState";
+
 /**
- * The elements a button's other states list, which its own state leaves undrawn, per "Buttons" in
- * docs/research/ui-data-layout.md. An element its state also lists stays drawn, a state's label and
- * frame belong to its list, and a state the file does not write lists nothing. The click particle
- * rests undrawn.
+ * The elements a button's or a slider's other states list, which its own state leaves undrawn,
+ * per "Buttons" in docs/research/ui-data-layout.md. An element its state also lists stays drawn,
+ * a state's label and frame belong to its list, and a state the file does not write lists
+ * nothing. The click particle rests undrawn.
  */
 export function hiddenByState(tree: ViewTree, states: ReadonlyMap<string, string>): Set<string> {
   const hidden = new Set<string>();
@@ -58,7 +61,8 @@ export function hiddenByState(tree: ViewTree, states: ReadonlyMap<string, string
     if (element.look.button?.clickParticle) hidden.add(element.look.button.clickParticle);
     if (element.look.states.length === 0) continue;
 
-    const state = states.get(element.key) ?? DEFAULT_BUTTON_STATE;
+    const slider = element.look.states.some((each) => each.state === DEFAULT_SLIDER_STATE);
+    const state = states.get(element.key) ?? (slider ? DEFAULT_SLIDER_STATE : DEFAULT_BUTTON_STATE);
     const chosen = element.look.states.find((each) => each.state === state);
     const shown = new Set(chosen === undefined ? [] : stateList(chosen));
     for (const each of element.look.states) {

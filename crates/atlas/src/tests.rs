@@ -1005,6 +1005,59 @@ fn a_variant_no_slot_names_draws_the_base_and_warns() {
 }
 
 #[test]
+fn a_slider_lists_its_backdrop_and_thumb_as_states() {
+    let slider_state = |thumb: &str| {
+        embedded(
+            "UiElementGroupSliderState",
+            vec![
+                ("BarBackdrop", values::ObjectLink::new(h("UX/Bar")).into()),
+                ("SliderIcon", values::ObjectLink::new(h(thumb)).into()),
+            ],
+        )
+    };
+    let slider = BinObject::builder(h("UX/Slider"), h("UiElementGroupSliderData"))
+        .property(h("DefaultState"), slider_state("UX/Thumb"))
+        .property(h("SliderHoveredState"), slider_state("UX/ThumbHover"))
+        .build();
+    let document = BinDocument::parse(document_of(vec![slider])).unwrap();
+
+    let view = resolve_scene_bin(
+        &document,
+        h("UX/Slider"),
+        "ux/slider/uibase",
+        None,
+        &(),
+        &Chunks(HashMap::new()),
+        &mut |_| unreachable!(),
+    )
+    .unwrap();
+
+    let [slider] = view.elements.as_slice() else {
+        panic!("{:?}", view.elements);
+    };
+    let UiLook::Group { states, button, .. } = &slider.look else {
+        panic!("{:?}", slider.look);
+    };
+    let hex = |name: &str| format!("0x{:08x}", h(name).0);
+    let mut lists: Vec<_> = states
+        .iter()
+        .map(|state| (state.state.clone(), state.elements.clone()))
+        .collect();
+    lists.sort();
+    let mut expected = vec![
+        (hex("DefaultState"), vec![hex("UX/Bar"), hex("UX/Thumb")]),
+        (
+            hex("SliderHoveredState"),
+            vec![hex("UX/Bar"), hex("UX/ThumbHover")],
+        ),
+    ];
+    expected.sort();
+
+    assert!(button.is_none());
+    assert_eq!(lists, expected);
+}
+
+#[test]
 fn a_combo_box_names_its_elements_by_hash_and_is_no_element() {
     let combo = BinObject::builder(h("UX/Combo"), h("UiComboBoxDefinition"))
         .property(

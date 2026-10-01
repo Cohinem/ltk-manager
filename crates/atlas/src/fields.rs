@@ -184,6 +184,9 @@ pub(super) const BUTTON_STATE: BinHash = named("UiElementGroupButtonState");
 pub(super) const DISPLAY_ELEMENT_LIST: BinHash = named("DisplayElementList");
 pub(super) const STATE_TEXT: BinHash = named("TextElement");
 pub(super) const STATE_TEXT_FRAME: BinHash = named("TextFrameElement");
+pub(super) const SLIDER_STATE: BinHash = named("UiElementGroupSliderState");
+pub(super) const SLIDER_BACKDROP: BinHash = named("BarBackdrop");
+pub(super) const SLIDER_ICON: BinHash = named("SliderIcon");
 
 pub(super) const GROUP_BUTTON: BinHash = named("UiElementGroupButtonData");
 pub(super) const HIT_REGION: BinHash = named("HitRegionElement");

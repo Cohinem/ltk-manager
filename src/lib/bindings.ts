@@ -7091,7 +7091,10 @@ export type UiButton = {
 	selectedTooltip: string | null,
 };
 
-/**  One state of a `UiElementGroupButtonData`, such as `DefaultStateElements`. */
+/**
+ *  One state of a `UiElementGroupButtonData` or `UiElementGroupSliderData`, such as
+ *  `DefaultStateElements`.
+ */
 export type UiButtonState = {
 	/**  The field name, such as `HoverStateElements`. */
 	state: string,
@@ -7342,7 +7345,7 @@ color: [number, number, number, number] | null } |
 { kind: "group"; 
 /**  The `Elements` list, as `0x` and eight digits each. */
 children: string[]; 
-/**  The button states, each drawing only its own elements. */
+/**  The button or slider states, each drawing only its own elements. */
 states: UiButtonState[]; 
 /**  The group's `Alpha`, and 1 for a class that carries none. */
 alpha: number | null; 

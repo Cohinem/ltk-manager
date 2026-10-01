@@ -432,7 +432,7 @@ pub enum UiLook {
     Group {
         /// The `Elements` list, as `0x` and eight digits each.
         children: Vec<String>,
-        /// The button states, each drawing only its own elements.
+        /// The button or slider states, each drawing only its own elements.
         states: Vec<UiButtonState>,
         /// The group's `Alpha`, and 1 for a class that carries none.
         alpha: f32,
@@ -450,7 +450,8 @@ pub enum UiLook {
     Unknown,
 }
 
-/// One state of a `UiElementGroupButtonData`, such as `DefaultStateElements`.
+/// One state of a `UiElementGroupButtonData` or `UiElementGroupSliderData`, such as
+/// `DefaultStateElements`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
