@@ -11,10 +11,13 @@ const createLayerSchema = z.object({
   name: z
     .string()
     .min(1, "Layer slug is required")
-    .regex(/^[a-z0-9-]+$/, "Slug must be lowercase letters, numbers, and hyphens only")
+    .regex(
+      /^[a-z0-9_-]+$/,
+      "Slug must be lowercase letters, numbers, hyphens, and underscores only",
+    )
     .refine(
-      (val) => !val.startsWith("-") && !val.endsWith("-"),
-      "Slug cannot start or end with a hyphen",
+      (val) => !/^[-_]|[-_]$/.test(val),
+      "Slug cannot start or end with a hyphen or an underscore",
     ),
   description: z.string(),
 });
@@ -126,7 +129,7 @@ export function CreateLayerDialog({
                       <code className="rounded bg-surface-800 px-1 py-0.5 font-mono text-[0.6875rem] text-surface-300">
                         content/{field.state.value || "layer-slug"}
                       </code>
-                      . Lowercase letters, numbers, and hyphens only.
+                      . Lowercase letters, numbers, hyphens, and underscores only.
                     </span>
                   </span>
                 </Field.Description>

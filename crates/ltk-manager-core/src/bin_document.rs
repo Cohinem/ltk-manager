@@ -950,8 +950,8 @@ impl BinDocuments {
     /// Update the open documents after `project`'s layer `from` is renamed to `to`.
     ///
     /// The trees of the layer's files are stored under the new name, and a declared document
-    /// that wrote to `from` writes to `to`. `from` is a `&str` rather than a [`Slug`],
-    /// because older projects have layer names with underscores, which are not valid slugs.
+    /// that wrote to `from` writes to `to`. `from` is a `&str` rather than a [`Slug`]: a
+    /// project's existing layer name is not always a valid slug.
     pub fn rename_layer(&self, project: &str, from: &str, to: &Slug) {
         let to = to.as_str();
         let mut store = self.inner.lock();
