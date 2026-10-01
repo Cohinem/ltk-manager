@@ -115,7 +115,7 @@ function HistoryFoot({
     return (
       <div className="flex flex-col items-center gap-1.5">
         <p className="text-xs text-surface-400">{m.updater_history_error_title()}</p>
-        <p className="max-w-xs text-center text-xs text-surface-500 select-text">
+        <p className="max-w-xs text-center text-xs text-surface-400 select-text">
           {copy.description ?? copy.title}
         </p>
         <Button variant="ghost" size="xs" compact onClick={onRetry}>
@@ -128,7 +128,7 @@ function HistoryFoot({
   if (isPending || isFetchingNextPage) return <Spinner size="sm" />;
 
   if (!hasNextPage) {
-    return <p className="text-xs text-surface-500">{m.updater_history_end_label()}</p>;
+    return <p className="text-xs text-surface-400">{m.updater_history_end_label()}</p>;
   }
 
   return null;

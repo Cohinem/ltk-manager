@@ -13,23 +13,22 @@ interface TileProps {
   "data-ui": string;
 }
 
-/** One titled panel of the right column, framed as the library frames its own. */
+/** One titled card of the page, framed as the library and workshop frame theirs. */
 export function Tile({ title, action, foot, children, className, "data-ui": dataUi }: TileProps) {
   return (
     <section
       data-ui={dataUi}
-      /* DS-GROUND. */
       className={twMerge(
-        "flex shrink-0 flex-col rounded-xl border border-surface-700/50 bg-surface-900/95",
+        "flex min-w-0 flex-col rounded-xl border border-surface-600 bg-surface-900 shadow-concave",
         className,
       )}
     >
-      <header className="flex items-center justify-between gap-2 px-4 pt-3 pb-2 select-none">
+      <header className="flex min-h-11 items-center justify-between gap-2 px-4 pt-3 pb-2 select-none">
         <h2 className="text-sm font-semibold text-surface-100">{title}</h2>
         {action}
       </header>
-      {children}
-      {foot && <div className="border-t border-surface-700/50 px-2 py-2">{foot}</div>}
+      <div className="flex flex-col gap-3 px-4 pb-4">{children}</div>
+      {foot && <div className="border-t border-surface-700 px-2 py-2">{foot}</div>}
     </section>
   );
 }

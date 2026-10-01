@@ -43,9 +43,11 @@ export function ReleaseSection({
   const date = releaseDate(publishedAt);
 
   return (
-    <section data-ui="ReleaseSection" className="py-4">
-      <header className="mb-2 flex items-center gap-2">
-        <h3 className="text-sm font-semibold text-surface-100 select-text">v{version}</h3>
+    <section data-ui="ReleaseSection" className="py-5">
+      <header className="mb-3 flex items-center gap-2">
+        <h3 className="text-base font-semibold text-surface-50 tabular-nums select-text">
+          v{version}
+        </h3>
         {installed && (
           <span className={twMerge(CHIP, SURFACE_CHIP)}>{m.updater_release_installed_label()}</span>
         )}
@@ -59,7 +61,10 @@ export function ReleaseSection({
         )}
         <span className="ml-auto flex items-center gap-2">
           {date && (
-            <time dateTime={publishedAt ?? undefined} className="text-xs text-surface-500">
+            <time
+              dateTime={publishedAt ?? undefined}
+              className="text-xs text-surface-400 tabular-nums"
+            >
               {date}
             </time>
           )}

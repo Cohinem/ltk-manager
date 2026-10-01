@@ -15,6 +15,7 @@ This document provides a high-level overview of the LTK Manager application, its
   - [Mod Inspector](#3-mod-inspector)
   - [Creator Workshop](#4-creator-workshop)
   - [First-Run Experience](#5-first-run-experience)
+  - [Home](#6-home)
 - [User Flows](#user-flows)
 - [Data Model](#data-model)
 - [Security Model](#security-model)
@@ -336,6 +337,24 @@ Guided onboarding for new users.
 3. Workshop directory selection (for creators)
 4. Brief feature tour
 5. Ready to use confirmation
+
+---
+
+### 6. Home
+
+The page the app opens on. The full spec is in [docs/ux/HOME.md](docs/ux/HOME.md).
+
+**Frame**: the library page's own. A toolbar with Import and Play at its trailing edge, notices and
+the status line above it, then the library's inset region, scrolling.
+
+**Cards**, in the mod and project cards' frame:
+
+- What's new, in the wide column: a digest of the newest release, where every release's notes expand in place
+- Your library: the active profile, enabled of total, the health marker, and Open Mods
+- Last game
+- News and Learn, with Runeforge and the Runeforge Wiki among the Learn links
+
+**Artwork**: Home shows none for now. The Runeforge assets in `src/assets/runeforge-*.webp` are no longer imported by Home.
 
 ---
 

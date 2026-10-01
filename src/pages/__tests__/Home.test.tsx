@@ -388,7 +388,13 @@ describe("Home", () => {
         within(tile)
           .getAllByRole("link")
           .map((link) => link.textContent),
-      ).toEqual(["Getting started", "Managing mods", "Troubleshooting"]);
+      ).toEqual([
+        "Getting started",
+        "Managing mods",
+        "Troubleshooting",
+        "Runeforge",
+        "Runeforge Wiki",
+      ]);
 
       /* The community pair is the foot, and a press rather than a fourth link. */
       expect(

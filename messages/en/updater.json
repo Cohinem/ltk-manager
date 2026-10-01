@@ -1,5 +1,6 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
+  "updater_changelog_empty": "No release notes available.",
   "updater_changelog_title": "What's New",
   "updater_check_action": "Check for Updates",
   "updater_check_current_label": "LTK Manager is up to date",
