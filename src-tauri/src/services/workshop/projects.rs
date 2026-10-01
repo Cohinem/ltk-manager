@@ -353,11 +353,11 @@ pub fn delete_workshop_project(
 
 #[tauri::command]
 #[specta::specta]
-pub fn pack_workshop_project(
+pub async fn pack_workshop_project(
     args: PackProjectArgs,
-    workshop: State<WorkshopState>,
+    app_handle: AppHandle,
 ) -> IpcResult<PackResult> {
-    workshop.0.pack_project(args).into()
+    off_thread(move || app_handle.state::<WorkshopState>().0.pack_project(args)).await
 }
 
 #[tauri::command]

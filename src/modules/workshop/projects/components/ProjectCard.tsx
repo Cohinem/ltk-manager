@@ -206,9 +206,10 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
             variant="outline"
             size="sm"
             left={<Package className="h-4 w-4" />}
-            onClick={actions.handleOpenPackDialog}
+            loading={actions.isPacking}
+            onClick={actions.handlePack}
           >
-            {m.workshop_pack_action()}
+            {actions.isPacking ? m.workshop_pack_packing_label() : m.workshop_pack_action()}
           </Button>
           {kebab}
         </div>

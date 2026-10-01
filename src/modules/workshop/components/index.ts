@@ -1,8 +1,7 @@
 export { ImportFantomeDialog } from "../imports/components/ImportFantomeDialog";
 export { ImportGitRepoDialog } from "../imports/components/ImportGitRepoDialog";
 export { LayerFileDropOverlay } from "../layers/components/LayerFileDropOverlay";
-export { BulkPackDialog } from "../packing/components/BulkPackDialog";
-export { PackDialog } from "../packing/components/PackDialog";
+export { PackTargetMenu } from "../packing/components/PackTargetMenu";
 export { BulkDeleteDialog } from "../projects/components/BulkDeleteDialog";
 export { DeleteConfirmDialog } from "../projects/components/DeleteConfirmDialog";
 export {

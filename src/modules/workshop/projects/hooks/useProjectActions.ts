@@ -2,7 +2,8 @@ import { useCallback, useMemo } from "react";
 
 import { api, type WorkshopProject } from "@/lib/tauri";
 
-import { useDeleteProjectDialog, usePackDialog, useRenameProjectDialog } from "../../state";
+import { usePackProjects } from "../../packing/api/usePackProjects";
+import { useDeleteProjectDialog, useIsPacking, useRenameProjectDialog } from "../../state";
 import { useTestProjects } from "../../testing/api/useTestProject";
 
 /**
@@ -14,7 +15,8 @@ import { useTestProjects } from "../../testing/api/useTestProject";
  */
 export function useProjectActions(project: WorkshopProject | undefined) {
   const testProjects = useTestProjects();
-  const openPackDialog = usePackDialog((s) => s.open);
+  const packProjects = usePackProjects();
+  const isPacking = useIsPacking(project?.path ?? "");
   const openDeleteDialog = useDeleteProjectDialog((s) => s.open);
   const openRenameDialog = useRenameProjectDialog((s) => s.open);
 
@@ -27,9 +29,9 @@ export function useProjectActions(project: WorkshopProject | undefined) {
     );
   }, [project, testMutate]);
 
-  const handleOpenPackDialog = useCallback(() => {
-    if (project) openPackDialog(project);
-  }, [openPackDialog, project]);
+  const handlePack = useCallback(() => {
+    if (project) void packProjects([project]);
+  }, [packProjects, project]);
 
   const handleOpenDeleteDialog = useCallback(() => {
     if (project) openDeleteDialog(project);
@@ -52,16 +54,18 @@ export function useProjectActions(project: WorkshopProject | undefined) {
   return useMemo(
     () => ({
       isTesting,
+      isPacking,
       handleTestProject,
-      handleOpenPackDialog,
+      handlePack,
       handleOpenDeleteDialog,
       handleOpenRenameDialog,
       handleOpenLocation,
     }),
     [
       isTesting,
+      isPacking,
       handleTestProject,
-      handleOpenPackDialog,
+      handlePack,
       handleOpenDeleteDialog,
       handleOpenRenameDialog,
       handleOpenLocation,

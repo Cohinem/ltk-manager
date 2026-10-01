@@ -8,6 +8,8 @@ export * from "../gameBrowser/extraction/state/extractDialog";
 export * from "../gameBrowser/extraction/state/extractRun";
 export * from "../gameBrowser/state/gameBrowser";
 export * from "../objectsBrowser/state/objectsBrowser";
+export * from "../packing/state/packRuns";
+export * from "../packing/state/packTarget";
 export * from "../projects/state/authorName";
 export * from "../projects/state/workshopFilter";
 export * from "../projects/state/workshopSelection";

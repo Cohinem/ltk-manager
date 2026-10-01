@@ -293,7 +293,7 @@ control that answers for the whole view.
 | Bar      | Names the project, and searches it. The crumb in it returns to Workshop |
 | Layout   | Sets which side each side panel takes, and whether one shows            |
 | Test     | Builds the overlay and starts the patcher                               |
-| Pack     | Writes a distributable archive                                          |
+| Pack     | Writes the distributable archives, to the formats on its caret          |
 | Overflow | Opens the project folder, or deletes the project                        |
 
 The back arrow and the project name title are both gone. The bar took the name, the version
@@ -302,6 +302,33 @@ tag and the route back to the project list. Read [the project bar](#the-project-
 The row itself belongs to the shell, which draws the same five slots over the project grid and
 refills them rather than swapping the chrome. What the slots hold there, and how the row
 balances around the bar, is [Layout](WORKSHOP.md#layout).
+
+## Packing
+
+Pack writes as it is pressed. There is no dialog: the button turns to Packing while the
+project is written, and the outcome arrives as a toast. A creator packs many times while
+working on a release, and a dialog with one useful button made every one of those a second
+press.
+
+The caret beside Pack holds the formats a press writes: **Both formats**, the default,
+`.modpkg` or `.fantome`. The choice is the creator's rather than the project's, so it is
+remembered across projects. The caret matches the one beside Test, and Pack's tooltip names the
+formats a press writes.
+
+A `.fantome` carries every layer. The base layer's WADs go under `WAD/`, every other layer's
+under `WAD_<layer>/`, and the layer table in `META/info.json` (league-mod ADR-0036).
+
+The pre-flight check runs on the press. Errors stop the pack and become an error toast that
+lists them. Warnings do not stop it, and the toast of a pack with warnings lists them under the
+file names.
+
+A packed toast names the files written and offers **Show in Explorer**. A pack the rules left
+something out of offers the count as a second action, which opens the ignore rules. The content
+tree marks what the rules exclude, so the toast does not list it again.
+
+The same Pack runs from a card, the card menu, the palette and a grid selection, and every one
+of them shows the same busy state, because a pack outlives the menu that started it. A selection
+packs to the same formats and reports on one summary toast.
 
 ## The project bar
 
@@ -1549,20 +1576,12 @@ creator reads what the button writes before pressing it.
 
 ### What Pack reports
 
-The pack result carries the count of what the rules left out and the list, relative to `content/`
-where a rule's own path starts, with a pruned folder as one row and a link to the document. A
-creator finding an empty layer in a package is the failure this closes.
-
-The list is a disclosure, closed on arrival. The count beside its title is what answers whether
-anything was left out, and the list is what answers what. A pack that leaves nothing out draws no
-disclosure at all.
-
-The link opens the document in the project's own editor, which the dialog reaches from the grid as
-well. A document asked for there waits for the editor to read `.ltk/editor.json`, because an open
-written before that arrives is an open the reader's tabs are traded for.
+A pack the rules left something out of says how much on its toast, and the action opens this
+document. The content tree marks the excluded entries, so that is where a creator reads what was
+left out. A creator finding an empty layer in a package is the failure this closes.
 
 A layer the rules empty is a warning in the pre-flight list, in the shape the other pre-flight
-warnings take, and Pack stays enabled because a creator may mean it. A pattern that does not parse
+warnings take, and the pack goes ahead because a creator may mean it. A pattern that does not parse
 keeps its line number and its file, in the pre-flight errors and in the pack's own failure alike.
 
 The problems pass gains one rule, for a project with no ignore file at all, whose fix writes the
@@ -1662,7 +1681,7 @@ make.
 ### What Pack reports
 
 A project with no readme is a pre-flight warning, in the shape the missing thumbnail warning
-takes, and Pack stays enabled because a creator may mean it. A readme that exists is not
+takes, and the pack goes ahead because a creator may mean it. A readme that exists is not
 judged: nothing here can tell a deliberate one-line readme from an abandoned one.
 
 There is no problems rule. The problems pass is about a project that will misbehave in the

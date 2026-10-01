@@ -1,4 +1,3 @@
-import { packMutations } from "../packing/api/mutations";
 import { projectDetailsMutations } from "../projects/api/mutations";
 import { stringOverrideMutations } from "../string-overrides/api/mutations";
 
@@ -10,7 +9,6 @@ export const projectMutations = {
   setThumbnail: projectDetailsMutations.setThumbnail,
   removeThumbnail: projectDetailsMutations.removeThumbnail,
   saveStringOverrides: stringOverrideMutations.saveStringOverrides,
-  pack: packMutations.pack,
 } as const;
 
 export * from "../ignore-rules/api/mutations";

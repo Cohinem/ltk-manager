@@ -53,7 +53,8 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
       <ProjectTestItem testState={testState} onTest={actions.handleTestProject} />
       <Menu.Item
         icon={<PackageIcon weight="bold" className="h-4 w-4" />}
-        onClick={actions.handleOpenPackDialog}
+        disabled={actions.isPacking}
+        onClick={actions.handlePack}
       >
         {m.workshop_pack_action()}
       </Menu.Item>

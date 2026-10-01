@@ -2351,38 +2351,22 @@
   "workshop_objects_up_action": "Up",
   "workshop_objects_view_label": "Object view",
   "workshop_pack_action": "Pack",
-  "workshop_pack_created_title": "Package Created",
-  "workshop_pack_error_count": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} error",
-        "countPlural=other": "{count} errors"
-      }
-    }
-  ],
-  "workshop_pack_fantome_description": "Legacy format",
-  "workshop_pack_fantome_layers_hint": "This project has {count} layers. cslol-manager and other Fantome tools load only the base layer.",
-  "workshop_pack_format_label": "Output Format",
-  "workshop_pack_left_out_list_label": "What the ignore rules left out",
-  "workshop_pack_left_out_title": "Left out by ignore rules",
-  "workshop_pack_modpkg_description": "Current format",
-  "workshop_pack_packing_label": "Packing...",
+  "workshop_pack_both_hint": "Pack .modpkg and .fantome",
+  "workshop_pack_both_label": "Both formats",
+  "workshop_pack_done_title": "Packed {name}",
+  "workshop_pack_failed_title": "Couldn't pack {name}",
+  "workshop_pack_fantome_label": ".fantome",
+  "workshop_pack_left_out_action": "{count} left out",
+  "workshop_pack_many_title": "Packed {packed} of {total} projects",
+  "workshop_pack_missed_line": "{name}: {reason}",
+  "workshop_pack_modpkg_label": ".modpkg",
+  "workshop_pack_more_label": "and {count} more",
+  "workshop_pack_one_hint": "Pack {format} only",
+  "workshop_pack_packing_label": "Packing",
+  "workshop_pack_refused_title": "{name} can't be packed yet",
   "workshop_pack_reveal_action": "Show in Explorer",
-  "workshop_pack_title": "Pack {name}",
-  "workshop_pack_valid_label": "Project is valid",
-  "workshop_pack_validating_label": "Validating project...",
-  "workshop_pack_warning_count": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} warning",
-        "countPlural=other": "{count} warnings"
-      }
-    }
-  ],
+  "workshop_pack_target_label": "Choose formats to pack",
+  "workshop_pack_target_title": "Pack as",
   "workshop_preview_checkerboard_hide_label": "Hide the alpha checkerboard",
   "workshop_preview_checkerboard_show_label": "Show the alpha checkerboard",
   "workshop_preview_copy_into_action": "Copy into {layer}",
