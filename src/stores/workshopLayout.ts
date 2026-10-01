@@ -120,6 +120,13 @@ type ExplorerTileSize = (typeof EXPLORER_TILE_SIZES)[number];
 const EXPLORER_ROW_HEIGHTS = [20, 24, 28, 36, 48, 64] as const;
 type ExplorerRowHeight = (typeof EXPLORER_ROW_HEIGHTS)[number];
 
+/** The heights a tree row draws at while it draws thumbnails. */
+const EXPLORER_TREE_ROW_HEIGHTS = [20, 26, 32, 48, 64] as const;
+type ExplorerTreeRowHeight = (typeof EXPLORER_TREE_ROW_HEIGHTS)[number];
+
+/** A tree thumbnail's box: a square, or the image's own aspect ratio. */
+type ExplorerArtShape = "square" | "original";
+
 /**
  * The fixed columns of the details list, in px, which its dividers drag.
  *
@@ -200,11 +207,18 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   explorerTileSize: ExplorerTileSize;
   explorerRowHeight: ExplorerRowHeight;
   explorerThumbnails: boolean;
+  /** The tree's own switch, apart from the grid's, because thumbnails make every tree row taller. */
+  explorerTreeThumbnails: boolean;
+  explorerTreeRowHeight: ExplorerTreeRowHeight;
+  explorerTreeArtShape: ExplorerArtShape;
   explorerColumns: ExplorerColumns;
   setExplorerView: (explorerView: ExplorerView) => void;
   setExplorerTileSize: (explorerTileSize: ExplorerTileSize) => void;
   setExplorerRowHeight: (explorerRowHeight: ExplorerRowHeight) => void;
   setExplorerThumbnails: (explorerThumbnails: boolean) => void;
+  setExplorerTreeThumbnails: (explorerTreeThumbnails: boolean) => void;
+  setExplorerTreeRowHeight: (explorerTreeRowHeight: ExplorerTreeRowHeight) => void;
+  setExplorerTreeArtShape: (explorerTreeArtShape: ExplorerArtShape) => void;
   setExplorerColumn: (column: keyof ExplorerColumns, width: number) => void;
   setLayerPanelSide: (layerPanelSide: LayerPanelSide) => void;
   setLayerPanelOpen: (layerPanelOpen: boolean) => void;
@@ -297,6 +311,9 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       explorerTileSize: 128,
       explorerRowHeight: 24,
       explorerThumbnails: true,
+      explorerTreeThumbnails: false,
+      explorerTreeRowHeight: 48,
+      explorerTreeArtShape: "square",
       explorerColumns: { size: 88, kind: 112 },
       ...PROJECT_EDITOR_DEFAULTS,
       ...PREVIEW_DISPLAY_DEFAULTS,
@@ -304,17 +321,26 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setExplorerTileSize: (explorerTileSize) => set({ explorerTileSize }),
       setExplorerRowHeight: (explorerRowHeight) => set({ explorerRowHeight }),
       setExplorerThumbnails: (explorerThumbnails) => set({ explorerThumbnails }),
+      setExplorerTreeThumbnails: (explorerTreeThumbnails) => set({ explorerTreeThumbnails }),
+      setExplorerTreeRowHeight: (explorerTreeRowHeight) => set({ explorerTreeRowHeight }),
+      setExplorerTreeArtShape: (explorerTreeArtShape) => set({ explorerTreeArtShape }),
       /* One column rather than the record, so a drag's writer is stable across
          the re-renders the drag itself causes. */
       setExplorerColumn: (column, width) =>
-        set((state) => ({ explorerColumns: { ...state.explorerColumns, [column]: width } })),
+        set((state) => ({
+          explorerColumns: { ...state.explorerColumns, [column]: width },
+        })),
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
       setLayerPanelOpen: (layerPanelOpen) => set({ layerPanelOpen }),
       showSidebarView: (sidebarView) => set({ layerPanelOpen: true, sidebarView }),
       toggleSection: (id, open) =>
-        set((state) => ({ openSections: { ...state.openSections, [id]: open } })),
+        set((state) => ({
+          openSections: { ...state.openSections, [id]: open },
+        })),
       setSectionHeight: (id, height) =>
-        set((state) => ({ sectionHeights: { ...state.sectionHeights, [id]: height } })),
+        set((state) => ({
+          sectionHeights: { ...state.sectionHeights, [id]: height },
+        })),
       setBrowserSplit: (browserSplit) => set({ browserSplit }),
       setShowLayerStats: (showLayerStats) => set({ showLayerStats }),
       setWadSort: (wadSort) => set({ wadSort }),
@@ -373,16 +399,19 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
 export {
   EXPLORER_ROW_HEIGHTS,
   EXPLORER_TILE_SIZES,
+  EXPLORER_TREE_ROW_HEIGHTS,
   PREVIEW_DISPLAY_DEFAULTS,
   PROJECT_EDITOR_DEFAULTS,
 };
 export type {
+  ExplorerArtShape,
   ExplorerColumns,
   ExplorerRowHeight,
   ExplorerSort,
   ExplorerSortDirection,
   ExplorerSortField,
   ExplorerTileSize,
+  ExplorerTreeRowHeight,
   ExplorerView,
   LayerPanelSide,
   PreviewDisplay,
@@ -399,6 +428,17 @@ export const useSetExplorerTileSize = () => useWorkshopLayoutStore((s) => s.setE
 export const useExplorerThumbnails = () => useWorkshopLayoutStore((s) => s.explorerThumbnails);
 export const useSetExplorerThumbnails = () =>
   useWorkshopLayoutStore((s) => s.setExplorerThumbnails);
+export const useExplorerTreeThumbnails = () =>
+  useWorkshopLayoutStore((s) => s.explorerTreeThumbnails);
+export const useSetExplorerTreeThumbnails = () =>
+  useWorkshopLayoutStore((s) => s.setExplorerTreeThumbnails);
+export const useExplorerTreeRowHeight = () =>
+  useWorkshopLayoutStore((s) => s.explorerTreeRowHeight);
+export const useSetExplorerTreeRowHeight = () =>
+  useWorkshopLayoutStore((s) => s.setExplorerTreeRowHeight);
+export const useExplorerTreeArtShape = () => useWorkshopLayoutStore((s) => s.explorerTreeArtShape);
+export const useSetExplorerTreeArtShape = () =>
+  useWorkshopLayoutStore((s) => s.setExplorerTreeArtShape);
 export const useExplorerColumns = () => useWorkshopLayoutStore((s) => s.explorerColumns);
 export const useSetExplorerColumn = () => useWorkshopLayoutStore((s) => s.setExplorerColumn);
 export const useLayerPanelSide = () => useWorkshopLayoutStore((s) => s.layerPanelSide);

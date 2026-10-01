@@ -1,27 +1,37 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ContextMenu } from "@/components";
 import { useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
+import {
+  useExplorerTreeArtShape,
+  useExplorerTreeRowHeight,
+  useExplorerTreeThumbnails,
+} from "@/stores";
 
-import { type ExplorerSelectionApi, selectionSubject } from "../../explorer";
+import { type ExplorerItem, type ExplorerSelectionApi, selectionSubject } from "../../explorer";
+import { artBoxFor } from "../../explorer/utils/detailsRow";
+import { artSlotWidth, treeArtRequestWidth } from "../../explorer/utils/treeArt";
 import { useStickyTreeRows } from "../../hooks";
 import { stirImages } from "../../preview/hooks/useImageSlot";
 import { TreeStickyBand } from "../../shared/components/TreeStickyBand";
+import { createGuideStore, GuideStoreContext } from "../../shared/state/treeGuides";
 import { type GameReveal, keepScrollTop, keptScrollTop } from "../../state";
 import { type ExtractHow, useExtractActions } from "../extraction/hooks/useExtractActions";
 import { type DirTargets, filesUnder, fileTarget } from "../extraction/utils/extractTargets";
 import { useSourceTreeNav } from "../hooks/useSourceTreeNav";
+import { chunkAsset, useWadSource } from "../state/wadSource";
 import type {
   SourceDirNode,
   SourceFileNode,
   SourceRow,
   SourceTreeNode,
 } from "../utils/sourceIndex";
+import { sourceGuides } from "../utils/sourceIndex";
 import { SourceTreeContextMenu } from "./SourceTreeContextMenu";
-import { SourceTreeRow } from "./SourceTreeRow";
+import { type SourceTreeArt, SourceTreeRow } from "./SourceTreeRow";
 
 /* The layer file tree's fixed row height, so the two trees scan alike. */
 const ROW_HEIGHT = 24;
@@ -102,7 +112,8 @@ export function SourceTree({
   );
 
   const zoomed = useZoomedPx();
-  const rowHeight = zoomed(ROW_HEIGHT);
+  const art = useTreeArt();
+  const rowHeight = zoomed(art.height);
 
   const { sticky, height: stickyHeight } = useStickyTreeRows({
     rows,
@@ -124,11 +135,11 @@ export function SourceTree({
     scrollPaddingStart: stickyHeight,
   });
 
-  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
-     one of the inputs the measurement memo watches. */
+  /* Sizes cached at the old zoom or row height outlive a change to either:
+     `estimateSize` is not one of the inputs the measurement memo watches. */
   useEffect(() => {
     virtualizer.measure();
-  }, [virtualizer, zoomed]);
+  }, [virtualizer, rowHeight]);
 
   /* Every tree of the browser offers the same ways out, so the routes are read
      here rather than handed down by the three documents that mount one. */
@@ -178,6 +189,21 @@ export function SourceTree({
     onRevealed?.(reveal.token);
   }, [reveal, rows, onRevealed, moveFocus, selection]);
 
+  /* Outside React state, so a pointer crossing the rows redraws the guides and nothing else. */
+  const [guides] = useState(createGuideStore);
+  const guidesOf = useMemo(() => sourceGuides(rows), [rows]);
+  const blockOf = useCallback((index: number) => guidesOf(index).at(-1) ?? null, [guidesOf]);
+
+  useEffect(() => {
+    guides.set({ active: blockOf(focusedIndex) });
+  }, [guides, blockOf, focusedIndex]);
+
+  function handleMouseOver(event: ReactMouseEvent<HTMLElement>) {
+    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-treeitem-index]");
+    const index = Number(row?.dataset.treeitemIndex);
+    guides.set({ hover: Number.isInteger(index) ? blockOf(index) : null });
+  }
+
   const handleFocusRow = useCallback((index: number) => setFocusedIndex(index), [setFocusedIndex]);
 
   const handleRowSelect = useCallback(
@@ -226,97 +252,132 @@ export function SourceTree({
   }
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger
-        data-ui="SourceTree"
-        ref={scrollRef}
-        className="flex-1 overflow-auto text-row outline-none scrollbar-md scrollbar-track"
-        role="tree"
-        aria-label={ariaLabel}
-        aria-multiselectable={selection !== undefined}
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-        onContextMenu={handleContextMenu}
-        onScroll={stirImages}
-        {...NO_OVERSCROLL}
-      >
-        {/* The padding rides inside the scrollport rather than on it: a sticky
+    <GuideStoreContext value={guides}>
+      <ContextMenu.Root>
+        <ContextMenu.Trigger
+          data-ui="SourceTree"
+          ref={scrollRef}
+          className="flex-1 overflow-auto text-row outline-none scrollbar-md scrollbar-track"
+          role="tree"
+          aria-label={ariaLabel}
+          aria-multiselectable={selection !== undefined}
+          tabIndex={-1}
+          onKeyDown={handleKeyDown}
+          onContextMenu={handleContextMenu}
+          onMouseOver={handleMouseOver}
+          onMouseLeave={() => guides.set({ hover: null })}
+          onScroll={stirImages}
+          {...NO_OVERSCROLL}
+        >
+          {/* The padding rides inside the scrollport rather than on it: a sticky
             box is confined to its containing block, so the scroll container's
             own padding would hold the band that far below the top edge and let
             rows scroll through the gap above it. */}
-        <div className="py-1">
-          <TreeStickyBand height={stickyHeight}>
-            {sticky.map((pin, slot) => (
-              <div
-                key={pin.row.node.id}
-                role="presentation"
-                className="absolute inset-x-0 bg-surface-950"
-                /* Outermost on top, so the innermost row slides away behind it. */
-                style={{ top: `${pin.top}px`, zIndex: sticky.length - slot }}
-              >
-                <SourceTreeRow
-                  node={pin.row.node}
-                  depth={pin.row.depth}
-                  isExpanded
-                  isSelected={drawsSelected(pin.row.node, pin.index, focusedIndex, selection)}
-                  covered={drawsCovered(pin.row.node, selection)}
-                  onToggle={() => revealRow(pin.index)}
-                  onSelect={handleRowSelect}
-                  onFocusRow={handleFocusRow}
-                  onOpen={onOpen}
-                  onPreview={onPreview}
-                  height={rowHeight}
-                  rowIndex={pin.index}
-                  tabIndex={-1}
-                />
-              </div>
-            ))}
-          </TreeStickyBand>
-
-          <div
-            role="presentation"
-            data-tree-rows=""
-            className="relative w-full"
-            style={{ height: `${virtualizer.getTotalSize()}px` }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const row = rows[virtualRow.index]!;
-              const node = row.node;
-              const expanded = node.type === "dir" && isExpanded(node);
-              const focused = virtualRow.index === focusedIndex;
-              return (
+          <div className="py-1">
+            <TreeStickyBand height={stickyHeight}>
+              {sticky.map((pin, slot) => (
                 <div
-                  key={virtualRow.key}
+                  key={pin.row.node.id}
                   role="presentation"
-                  className="absolute inset-x-0"
-                  style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  className="absolute inset-x-0 bg-surface-950"
+                  /* Outermost on top, so the innermost row slides away behind it. */
+                  style={{ top: `${pin.top}px`, zIndex: sticky.length - slot }}
                 >
                   <SourceTreeRow
-                    node={node}
-                    depth={row.depth}
-                    isExpanded={expanded}
-                    isSelected={drawsSelected(node, virtualRow.index, focusedIndex, selection)}
-                    covered={drawsCovered(node, selection)}
-                    onToggle={onToggle}
-                    onToggleSubtree={onToggleSubtree}
+                    node={pin.row.node}
+                    depth={pin.row.depth}
+                    isExpanded
+                    isSelected={drawsSelected(pin.row.node, pin.index, focusedIndex, selection)}
+                    guides={guidesOf(pin.index)}
+                    onToggle={() => revealRow(pin.index)}
                     onSelect={handleRowSelect}
                     onFocusRow={handleFocusRow}
                     onOpen={onOpen}
                     onPreview={onPreview}
                     height={rowHeight}
-                    rowIndex={virtualRow.index}
-                    tabIndex={focused ? 0 : -1}
+                    rowIndex={pin.index}
+                    tabIndex={-1}
+                    art={art.row}
                   />
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </ContextMenu.Trigger>
+              ))}
+            </TreeStickyBand>
 
-      <SourceTreeContextMenu node={menuNode} onOpen={onOpen} onRun={runNode} />
-    </ContextMenu.Root>
+            <div
+              role="presentation"
+              data-tree-rows=""
+              className="relative w-full"
+              style={{ height: `${virtualizer.getTotalSize()}px` }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const row = rows[virtualRow.index]!;
+                const node = row.node;
+                const expanded = node.type === "dir" && isExpanded(node);
+                const focused = virtualRow.index === focusedIndex;
+                return (
+                  <div
+                    key={virtualRow.key}
+                    role="presentation"
+                    className="absolute inset-x-0"
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    <SourceTreeRow
+                      node={node}
+                      depth={row.depth}
+                      isExpanded={expanded}
+                      isSelected={drawsSelected(node, virtualRow.index, focusedIndex, selection)}
+                      guides={guidesOf(virtualRow.index)}
+                      onToggle={onToggle}
+                      onToggleSubtree={onToggleSubtree}
+                      onSelect={handleRowSelect}
+                      onFocusRow={handleFocusRow}
+                      onOpen={onOpen}
+                      onPreview={onPreview}
+                      height={rowHeight}
+                      rowIndex={virtualRow.index}
+                      tabIndex={focused ? 0 : -1}
+                      art={art.row}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </ContextMenu.Trigger>
+
+        <SourceTreeContextMenu node={menuNode} onOpen={onOpen} onRun={runNode} />
+      </ContextMenu.Root>
+    </GuideStoreContext>
   );
+}
+
+/**
+ * The row height and each row's art under the tree's thumbnail setting.
+ *
+ * Every row takes the thumbnail's height, the directories too, because the pinned band and
+ * the virtualizer both place rows at one fixed height.
+ */
+function useTreeArt(): { height: number; row: SourceTreeArt | null } {
+  const thumbnails = useExplorerTreeThumbnails();
+  const height = useExplorerTreeRowHeight();
+  const shape = useExplorerTreeArtShape();
+  const source = useWadSource();
+  const zoomed = useZoomedPx();
+
+  return useMemo(() => {
+    if (!thumbnails) return { height: ROW_HEIGHT, row: null };
+
+    const box = zoomed(artBoxFor(height));
+    const row: SourceTreeArt = {
+      box,
+      slotWidth: artSlotWidth(box, shape),
+      requestWidth: treeArtRequestWidth(height, shape),
+      shape,
+      assetOf: (item: ExplorerItem) =>
+        item.kind === "file" ? chunkAsset(source, item.entry.wad, item.entry.pathHash) : null,
+    };
+    return { height, row };
+  }, [thumbnails, height, shape, source, zoomed]);
 }
 
 /** What the selection holds an item by: a directory's path, a file's hash. */
@@ -339,11 +400,4 @@ function drawsSelected(
   if (!selection) return index === focusedIndex;
   const id = idOf(node);
   return id !== null && selection.isSelected(id);
-}
-
-function drawsCovered(node: SourceTreeNode, selection?: ExplorerSelectionApi): boolean {
-  if (!selection) return false;
-  if (node.type === "dir") return selection.isCoveredPath(node.path);
-  if (node.type === "file") return selection.isCoveredPath(node.entry.path);
-  return false;
 }

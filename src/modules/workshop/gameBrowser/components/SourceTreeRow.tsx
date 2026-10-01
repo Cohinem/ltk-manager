@@ -1,15 +1,19 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
-import { memo, type MouseEvent as ReactMouseEvent } from "react";
+import { memo, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 
 import { MarkedText, Tooltip } from "@/components";
 import { m } from "@/i18n";
+import type { AssetRef } from "@/lib/tauri";
+import type { ExplorerArtShape } from "@/stores";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
+import type { ExplorerItem } from "../../explorer";
+import { ExplorerArt } from "../../explorer/components/ExplorerArt";
 import {
   CaretSlot,
   FolderGlyph,
-  IndentRails,
+  GuideRails,
   TREE_ROW_BASE_CLASSES as ROW_BASE_CLASSES,
   TREE_ROW_STATE_CLASSES as ROW_STATE_CLASSES,
   TreeLoadingRow,
@@ -19,13 +23,24 @@ import { isSubtreeClick } from "../../shared/utils/treeGestures";
 import { fileKindFromPath } from "../utils/fileKind";
 import type { SourceDirNode, SourceFileNode, SourceTreeNode } from "../utils/sourceIndex";
 
+/** How a tree drawing thumbnails sizes and sources each row's art, in zoomed px. */
+export interface SourceTreeArt {
+  box: number;
+  /** The column the art reserves, so every name starts on one edge whatever its plate's width. */
+  slotWidth: number;
+  /** The width a thumbnail is asked for, which is one of the six tile sizes. */
+  requestWidth: number;
+  shape: ExplorerArtShape;
+  assetOf: (item: ExplorerItem) => AssetRef | null;
+}
+
 interface SourceTreeRowProps {
   node: SourceTreeNode;
   depth: number;
   isExpanded: boolean;
   isSelected: boolean;
-  /** A selected directory holds this row, so it draws the fill at half strength. */
-  covered?: boolean;
+  /** The row's ancestors, outermost first, which name the blocks its guides draw. */
+  guides: readonly string[];
   onToggle: (node: SourceDirNode) => void;
   /** An Alt+click on a directory's caret, which toggles its whole subtree. */
   onToggleSubtree?: (node: SourceDirNode) => void;
@@ -40,11 +55,9 @@ interface SourceTreeRowProps {
   height: number;
   rowIndex: number;
   tabIndex: number;
+  /** The row's art while the tree draws thumbnails, and null for the kind glyph. */
+  art?: SourceTreeArt | null;
 }
-
-/* Half the selected fill, so the reach of a selected directory is visible
-   without a count. `aria-selected` wins over it by its own specificity. */
-const COVERED_CLASS = "bg-accent-500/8";
 
 function SourceTreeRowInner(props: SourceTreeRowProps) {
   const node = props.node;
@@ -64,7 +77,7 @@ function DirRow({
   depth,
   isExpanded,
   isSelected,
-  covered,
+  guides,
   onToggle,
   onToggleSubtree,
   onSelect,
@@ -72,6 +85,7 @@ function DirRow({
   height,
   rowIndex,
   tabIndex,
+  art,
 }: DirRowProps) {
   return (
     <div
@@ -86,14 +100,9 @@ function DirRow({
       onDoubleClick={() => onToggle(node)}
       onFocus={() => onFocusRow(rowIndex)}
       style={{ height: `${height}px` }}
-      className={twMerge(
-        "w-full cursor-pointer text-left",
-        ROW_BASE_CLASSES,
-        covered && COVERED_CLASS,
-        ROW_STATE_CLASSES,
-      )}
+      className={twMerge("w-full cursor-pointer text-left", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
     >
-      <IndentRails depth={depth} />
+      <GuideRails blocks={guides} />
       {/* Its own target, so opening a directory is not also selecting every
           file below it, which is what selecting a directory means. */}
       <button
@@ -120,8 +129,32 @@ function DirRow({
           )}
         />
       </button>
-      <FolderGlyph unknown={node.unknown} isExpanded={isExpanded} />
-      <span className="truncate">{node.name}</span>
+      <ArtAndName
+        art={art}
+        glyph={
+          art ? (
+            <ArtSlot art={art}>
+              <ExplorerArt
+                item={{
+                  kind: "dir",
+                  id: node.path,
+                  name: node.name,
+                  fileCount: node.fileCount,
+                }}
+                box={art.box}
+                requestWidth={art.requestWidth}
+                thumbnails
+                assetOf={art.assetOf}
+                variant="row"
+              />
+            </ArtSlot>
+          ) : (
+            <FolderGlyph unknown={node.unknown} isExpanded={isExpanded} />
+          )
+        }
+      >
+        {node.name}
+      </ArtAndName>
       <span className="ml-auto shrink-0 text-fine text-surface-500 tabular-nums">
         {node.fileCount}
       </span>
@@ -137,7 +170,7 @@ function FileRow({
   node,
   depth,
   isSelected,
-  covered,
+  guides,
   onSelect,
   onFocusRow,
   onOpen,
@@ -145,6 +178,7 @@ function FileRow({
   height,
   rowIndex,
   tabIndex,
+  art,
 }: FileRowProps) {
   const path = node.entry.path;
   const descriptor = describeFileKind(path === null ? "unknown" : fileKindFromPath(path));
@@ -165,27 +199,45 @@ function FileRow({
       onDoubleClick={() => onOpen?.(node)}
       onFocus={() => onFocusRow(rowIndex)}
       style={{ height: `${height}px` }}
-      className={twMerge(
-        "cursor-pointer",
-        ROW_BASE_CLASSES,
-        covered && COVERED_CLASS,
-        ROW_STATE_CLASSES,
-      )}
+      className={twMerge("cursor-pointer", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
     >
-      <IndentRails depth={depth} />
+      <GuideRails blocks={guides} />
       <CaretSlot />
-      <Tooltip content={descriptor.label}>
-        <span
-          className="shrink-0"
-          style={{ color: `var(${descriptor.tintToken})` }}
-          aria-label={descriptor.label}
-        >
-          <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
-        </span>
-      </Tooltip>
-      <span className="truncate">
+      <ArtAndName
+        art={art}
+        glyph={
+          <Tooltip content={descriptor.label}>
+            {art ? (
+              <ArtSlot art={art} label={descriptor.label}>
+                <ExplorerArt
+                  item={{
+                    kind: "file",
+                    id: node.id,
+                    name: node.name,
+                    entry: node.entry,
+                  }}
+                  box={art.box}
+                  requestWidth={art.requestWidth}
+                  thumbnails
+                  assetOf={art.assetOf}
+                  variant="row"
+                  shape={art.shape}
+                />
+              </ArtSlot>
+            ) : (
+              <span
+                className="shrink-0"
+                style={{ color: `var(${descriptor.tintToken})` }}
+                aria-label={descriptor.label}
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+              </span>
+            )}
+          </Tooltip>
+        }
+      >
         <MarkedText text={node.name} ranges={node.entry.nameRanges} />
-      </span>
+      </ArtAndName>
       <span className="ml-auto shrink-0 text-fine text-surface-400 tabular-nums">
         {formatBytes(node.entry.sizeBytes)}
       </span>
@@ -193,7 +245,52 @@ function FileRow({
   );
 }
 
-function LoadingRow({ depth, height, rowIndex, tabIndex }: SourceTreeRowProps) {
+interface ArtSlotProps {
+  art: SourceTreeArt;
+  label?: string;
+  children: ReactNode;
+}
+
+/** The art's reserved column, with a plate narrower than it held to its leading edge. */
+function ArtSlot({ art, label, children }: ArtSlotProps) {
+  return (
+    <span
+      aria-label={label}
+      className="flex shrink-0 items-center"
+      style={{ width: `${art.slotWidth}px` }}
+    >
+      {children}
+    </span>
+  );
+}
+
+interface ArtAndNameProps {
+  art?: SourceTreeArt | null;
+  glyph: ReactNode;
+  children: ReactNode;
+}
+
+/** A row's glyph and name, set further apart once the glyph is a thumbnail. DS-GAP. */
+function ArtAndName({ art, glyph, children }: ArtAndNameProps) {
+  const name = <span className="truncate">{children}</span>;
+  if (!art) {
+    return (
+      <>
+        {glyph}
+        {name}
+      </>
+    );
+  }
+
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      {glyph}
+      {name}
+    </span>
+  );
+}
+
+function LoadingRow({ depth, guides, height, rowIndex, tabIndex }: SourceTreeRowProps) {
   return (
     <TreeLoadingRow
       depth={depth}
@@ -202,6 +299,7 @@ function LoadingRow({ depth, height, rowIndex, tabIndex }: SourceTreeRowProps) {
       tabIndex={tabIndex}
       label="Loading…"
       dataUi="SourceTreeRow:loading"
+      guides={guides}
     />
   );
 }

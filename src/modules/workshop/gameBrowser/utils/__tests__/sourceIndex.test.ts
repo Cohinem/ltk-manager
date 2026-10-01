@@ -13,6 +13,7 @@ import {
   type SourceEntry,
   type SourceFileNode,
   sourceDirIds,
+  sourceGuides,
   type SourceTreeNode,
   toggledSourceDirTree,
   UNKNOWN_DIR,
@@ -279,6 +280,42 @@ describe("flattenSourceTree", () => {
       ["a.bin", 1],
       ["b.bin", 1],
     ]);
+  });
+});
+
+describe("sourceGuides", () => {
+  const tree = buildSourceTree([
+    known("data/a.bin"),
+    known("data/x/b.bin"),
+    known("data/x/c.bin"),
+    known("data/y/d.bin"),
+    known("data/y/e.bin"),
+  ]);
+  const rows = flattenSourceTree(tree, () => true);
+  const at = (name: string) => rows.findIndex((row) => nameOf(row.node) === name);
+  const idAt = (name: string) => rows[at(name)]!.node.id;
+
+  it("names each row's ancestors outermost first", () => {
+    const guidesOf = sourceGuides(rows);
+
+    expect(guidesOf(at("data"))).toEqual([]);
+    expect(guidesOf(at("a.bin"))).toEqual([idAt("data")]);
+    expect(guidesOf(at("e.bin"))).toEqual([idAt("data"), idAt("y")]);
+  });
+
+  it("finds a row's parent past a sibling directory's open subtree", () => {
+    expect(sourceGuides(rows)(at("y"))).toEqual([idAt("data")]);
+  });
+
+  it("hands back one chain per row however often it is asked", () => {
+    const guidesOf = sourceGuides(rows);
+    expect(guidesOf(at("c.bin"))).toBe(guidesOf(at("c.bin")));
+  });
+
+  it("names no ancestors for an index past either end", () => {
+    const guidesOf = sourceGuides(rows);
+    expect(guidesOf(-1)).toEqual([]);
+    expect(guidesOf(rows.length)).toEqual([]);
   });
 });
 
