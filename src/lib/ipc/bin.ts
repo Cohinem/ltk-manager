@@ -129,8 +129,8 @@ export const commands = {
 	 */
 	binDeclared: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: DeclaredState | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:bin|bin_declared", { document }),
 	/**
-	 *  The rows of an open layer file that the declarations of its project override. Empty for
-	 *  every other document. ADR-0056.
+	 *  The rows of an open layer file that the declarations of its project override, or every
+	 *  layer's declarations on a declared document. Empty for every other document. ADR-0056.
 	 */
 	binOverrides: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: LayerOverride[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:bin|bin_overrides", { document }),
 	/**

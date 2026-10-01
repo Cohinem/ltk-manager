@@ -3,7 +3,7 @@
    face are here, because every other face carries a `load` in `lib/fonts`. */
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/bricolage-grotesque";
-@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/jetbrains-mono";
 @import "tailwindcss";
 @import "./animations.css";
 @import "./global.css";

@@ -268,14 +268,16 @@ pub struct DeclaredMark {
     pub game: Option<String>,
 }
 
-/// One row of a layer file that a declaration of the project overrides. ADR-0056.
+/// One row a layer's declaration sets: a row of a layer file, which the declaration overrides
+/// at build (ADR-0056), or a row of a declared document.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct LayerOverride {
     /// The layer whose `game_data.yaml` holds the declaration.
     pub layer: String,
-    /// The declaration's mark. Its `game` field holds the file's value, not the game's.
+    /// The declaration's mark. Its `game` field holds the layer file's value for a layer
+    /// file, and the game's for a declared document.
     pub mark: DeclaredMark,
     /// The value the declaration writes, as YAML. Absent when it cannot be written as YAML.
     pub value: Option<String>,
@@ -645,6 +647,17 @@ impl BinDocument {
         overrides
     }
 
+    /// Every layer's declarations on the rows of this declared document, in build order, with
+    /// the value each writes. A mark's `game` holds the game's value. Empty for a document
+    /// that declares nothing.
+    #[must_use]
+    pub fn declared_overrides(&self) -> Vec<LayerOverride> {
+        let (Some(declared), BinFile::Prop(applied)) = (&self.declared, &self.file) else {
+            return Vec::new();
+        };
+        declared.layer_overrides(applied)
+    }
+
     /// Update a declared document after the project's layer `from` is renamed to `to`.
     pub(super) fn rename_layer(&mut self, from: &str, to: &str) {
         let Some(declared) = self.declared.as_mut() else {
@@ -890,6 +903,59 @@ impl Declared {
         });
         self.marks = marks;
         self.objects = objects;
+    }
+
+    /// Every layer's declarations on the rows of `applied`, in build order, with the value
+    /// each writes. A layer that does not read adds none.
+    fn layer_overrides(&self, applied: &Bin) -> Vec<LayerOverride> {
+        let Ok(root) = self.context.project.path().try_as_utf8("project directory") else {
+            return Vec::new();
+        };
+        let Ok(ignore) = self.context.project.ignore_filter() else {
+            return Vec::new();
+        };
+        let entries: Vec<BinHash> = applied.objects.keys().copied().collect();
+
+        let mut overrides = Vec::new();
+        self.context.with_names(&mut |names| {
+            for layer in &self.layers {
+                let Ok(Some(declarations)) = load_layer(root, layer, &ignore).declarations else {
+                    continue;
+                };
+                for module in &declarations.modules {
+                    for edit in edits_on(module, self.chunk_hash, &entries) {
+                        let sets = edit
+                            .objects
+                            .iter()
+                            .map(|(name, object)| (name, object.properties()));
+                        let named = edit
+                            .entries
+                            .iter()
+                            .map(|(name, properties)| (name, properties.as_slice()));
+                        for (name, properties) in sets.chain(named) {
+                            let entry = name.object_hash();
+                            let Some(object) = applied.objects.get(&entry) else {
+                                continue;
+                            };
+                            let game = self.game_tree.objects.get(&entry);
+
+                            for property in properties {
+                                overrides.extend(
+                                    valued_marks_of(entry, object, game, property, module, &names)
+                                        .into_iter()
+                                        .map(|(mark, value)| LayerOverride {
+                                            layer: layer.clone(),
+                                            mark,
+                                            value,
+                                        }),
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        overrides
     }
 
     /// The objects of the game's copy the chosen layer removes.

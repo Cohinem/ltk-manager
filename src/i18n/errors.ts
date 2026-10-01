@@ -95,6 +95,10 @@ export function describeError(error: AppError): ErrorCopy {
       title: m["error.BIN_EDIT_REJECTED.title"](),
       description: editRejection(rejection),
     }))
+    .with({ code: "BIN_EDIT_OVERRIDDEN" }, ({ layer }) => ({
+      title: m["error.BIN_EDIT_OVERRIDDEN.title"](),
+      description: m["error.BIN_EDIT_OVERRIDDEN.description"]({ layer }),
+    }))
     .with({ code: "BIN_CHANGED_ON_DISK" }, () => ({
       title: m["error.BIN_CHANGED_ON_DISK.title"](),
       description: m["error.BIN_CHANGED_ON_DISK.description"](),

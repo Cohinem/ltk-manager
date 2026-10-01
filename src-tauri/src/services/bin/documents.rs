@@ -206,8 +206,8 @@ fn handle_of(
     })
 }
 
-/// The rows of an open layer file that the declarations of its project override. Empty for
-/// every other document. ADR-0056.
+/// The rows of an open layer file that the declarations of its project override, or every
+/// layer's declarations on a declared document. Empty for every other document. ADR-0056.
 #[tauri::command]
 #[specta::specta]
 pub async fn bin_overrides(
@@ -222,7 +222,7 @@ pub async fn bin_overrides(
         let (AssetRef::Layer { project, .. }, Some(chunk_hash)) =
             (&asset, layer_chunk_hash(&asset))
         else {
-            return Ok(Vec::new());
+            return store.read(document, |open| Ok(open.declared_overrides()));
         };
 
         let project = ProjectDir::open(project)?;

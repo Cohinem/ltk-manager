@@ -51,6 +51,8 @@ export interface PersistedProjectEditor {
   selectedLayer: string | null;
   /** The project's "Use game data declarations" choice, absent until the reader makes one. */
   useDeclarations?: boolean;
+  /** The layers whose declarations a declared document leaves unmarked. Absent for none. */
+  hiddenMarkLayers?: readonly string[];
   /** Null for the default placement. Absent in a file written before modules were chosen. */
   selectedModule?: SelectedModule | null;
   /** Each group's ephemeral tab, as leaf id to document id. Empty where none holds one. */
@@ -104,6 +106,7 @@ export function serializeEditorFile(state: PersistedProjectEditor): string {
       activeLeafId: state.activeLeafId,
       selectedLayer: state.selectedLayer,
       useDeclarations: state.useDeclarations,
+      hiddenMarkLayers: state.hiddenMarkLayers,
       selectedModule: state.selectedModule ?? null,
       previewIds: state.previewIds,
       pinned: state.pinned,
@@ -199,6 +202,13 @@ export function sanitizeEditorState(value: unknown): PersistedProjectEditor | nu
     selectedLayer: typeof entry.selectedLayer === "string" ? entry.selectedLayer : null,
     ...(typeof entry.useDeclarations === "boolean"
       ? { useDeclarations: entry.useDeclarations }
+      : {}),
+    ...(Array.isArray(entry.hiddenMarkLayers)
+      ? {
+          hiddenMarkLayers: entry.hiddenMarkLayers.filter(
+            (layer): layer is string => typeof layer === "string",
+          ),
+        }
       : {}),
     selectedModule: readSelectedModule(entry.selectedModule),
     previewIds: readPreviewIds(entry, layout),

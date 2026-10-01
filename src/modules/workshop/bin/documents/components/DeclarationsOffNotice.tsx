@@ -19,7 +19,7 @@ interface DeclarationsOffNoticeProps {
 /**
  * The strip over a game bin whose project has declarations off, offering the two ways to
  * edit it: copy the chunk into the selected layer, or turn declarations on.
- * "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+ * "Game data declarations" in docs/ux/BIN_EDITOR.md.
  */
 export function DeclarationsOffNotice({ asset, file, subject }: DeclarationsOffNoticeProps) {
   const { run, layerLabel, busy } = useExtractActions();

@@ -30,7 +30,7 @@ import { moduleLabel } from "../utils/declaredModule";
 /**
  * A row's declaration and reference actions: Copy as declaration and Copy reference on any
  * bin, and Paste reference, Move to module and Merge reference on a declared document that
- * takes edits. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+ * takes edits. "Game data declarations" in docs/ux/BIN_EDITOR.md.
  */
 export function DeclarationMenuItems({ row }: { row: BinRow }) {
   const document = use(RowDocumentContext);

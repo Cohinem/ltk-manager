@@ -578,6 +578,26 @@ export function useSetUseDeclarations() {
   );
 }
 
+const NO_HIDDEN_LAYERS: readonly string[] = [];
+
+/** The layers whose declarations a declared document leaves unmarked, none outside a project. */
+export function useHiddenMarkLayers(projectPath: string | undefined): readonly string[] {
+  return useWorkshopEditorStore((s) =>
+    projectPath === undefined
+      ? NO_HIDDEN_LAYERS
+      : (s.byProject[projectPath]?.hiddenMarkLayers ?? NO_HIDDEN_LAYERS),
+  );
+}
+
+export function useSetMarkLayerShown() {
+  const projectPath = useProjectPath();
+  const setMarkLayerShown = useWorkshopEditorStore((s) => s.setMarkLayerShown);
+  return useCallback(
+    (layerName: string, shown: boolean) => setMarkLayerShown(projectPath, layerName, shown),
+    [setMarkLayerShown, projectPath],
+  );
+}
+
 /** The module a declared document's new keys join, null for the default placement. ADR-0048. */
 export function useSelectedModule(): SelectedModule | null {
   const projectPath = useProjectPath();

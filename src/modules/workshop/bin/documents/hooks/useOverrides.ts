@@ -4,8 +4,11 @@ import { createContext, use, useMemo } from "react";
 import { api, type AppError, type BinDocumentId, type LayerOverride } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
+import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
+import { useHiddenMarkLayers } from "../../../state";
 import { rowKey } from "../../tree/utils/binRows";
 import { enclosingKeys } from "./useChanges";
+import { useDeclaredState } from "./useDeclared";
 import { sendOn } from "./useDocumentCall";
 
 /** The query root of a layer file's overrides. An edit and a manifest change make it stale. */
@@ -33,17 +36,27 @@ export const OverriddenRowsContext = createContext<OverriddenRows | null>(null);
 /**
  * The rows of the layer file under `document` that the project's `game_data.yaml` files
  * override. ADR-0056.
+ *
+ * For a declared document, the rows a shown layer other than the target declares, each with
+ * every shown layer's declaration and the target's. The target's own marks draw apart.
  */
 export function useOverriddenRows(document: BinDocumentId): OverriddenRows | null {
   const overrides = useQuery(overridesQuery(document)).data;
+  const target = useDeclaredState(document)?.layer ?? null;
+  const hidden = useHiddenMarkLayers(useOptionalProjectContext()?.path);
+
   return useMemo(() => {
-    if (overrides === undefined || overrides.length === 0) return null;
+    if (overrides === undefined) return null;
+
+    const marked = target === null ? overrides : otherLayersRows(overrides, target, hidden);
+    if (marked.length === 0) return null;
 
     const rows = new Map<string, LayerOverride[]>();
     const layers = new Map<string, string[]>();
-    for (const override of overrides) {
+    for (const override of marked) {
       const key = rowKey(override.mark);
       rows.set(key, [...(rows.get(key) ?? []), override]);
+      if (override.layer === target) continue;
 
       for (const at of [key, ...enclosingKeys(override.mark)]) {
         const listed = layers.get(at) ?? [];
@@ -51,6 +64,41 @@ export function useOverriddenRows(document: BinDocumentId): OverriddenRows | nul
       }
     }
     return { rows, layers };
+  }, [overrides, target, hidden]);
+}
+
+/** A declared document's declarations on the rows a shown layer other than `target` touches. */
+function otherLayersRows(
+  overrides: readonly LayerOverride[],
+  target: string,
+  hidden: readonly string[],
+): LayerOverride[] {
+  const shown = overrides.filter(
+    (override) => override.layer === target || !hidden.includes(override.layer),
+  );
+  const others = new Set(
+    shown.filter((override) => override.layer !== target).map((override) => rowKey(override.mark)),
+  );
+
+  return shown.filter((override) => others.has(rowKey(override.mark)));
+}
+
+const NO_COUNTS: ReadonlyMap<string, number> = new Map();
+
+/** How many rows each layer's declarations touch in the declared document `document`. */
+export function useLayerRowCounts(document: BinDocumentId): ReadonlyMap<string, number> {
+  const overrides = useQuery(overridesQuery(document)).data;
+
+  return useMemo(() => {
+    if (overrides === undefined) return NO_COUNTS;
+
+    const rows = new Map<string, Set<string>>();
+    for (const override of overrides) {
+      const held = rows.get(override.layer) ?? new Set<string>();
+      held.add(rowKey(override.mark));
+      rows.set(override.layer, held);
+    }
+    return new Map([...rows].map(([layer, keys]) => [layer, keys.size]));
   }, [overrides]);
 }
 

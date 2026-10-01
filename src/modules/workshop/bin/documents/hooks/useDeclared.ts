@@ -91,7 +91,7 @@ export function useCopyDeclaration(): (declaration: RowDeclaration) => void {
 
 /**
  * What a declared document says beside its rows, or null for a document that declares
- * nothing. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+ * nothing. "Game data declarations" in docs/ux/BIN_EDITOR.md.
  */
 export function useDeclaredState(document: BinDocumentId): DeclaredState | null {
   return useQuery(declaredQuery(document)).data ?? null;

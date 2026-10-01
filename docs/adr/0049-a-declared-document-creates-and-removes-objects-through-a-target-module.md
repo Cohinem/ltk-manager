@@ -40,7 +40,7 @@ stays under `entries` as ADR-0042 decided.
 **An object row offers Duplicate as new object and Remove object, and the toolbar `+ Object`.**
 A new object is named on a line after the file's objects, never in a dialog, and its name
 starts as `Mods/<mod>/<source or class>`. A removed object keeps its row, struck through, and
-its menu offers Restore object, which drops the `remove: true`. "Declaring from a game bin" in
+its menu offers Restore object, which drops the `remove: true`. "Game data declarations" in
 `docs/ux/BIN_EDITOR.md` states the rows and the keys.
 
 **A removal drops the layer's own creation, else writes `remove: true`.** Each plan is checked

@@ -114,6 +114,7 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
             activeLeafId: state.activeLeafId,
             selectedLayer: state.selectedLayer,
             useDeclarations: state.useDeclarations,
+            hiddenMarkLayers: state.hiddenMarkLayers,
             selectedModule: state.selectedModule ?? null,
             previewIds: state.previewIds,
             pinned: state.pinned,

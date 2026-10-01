@@ -72,6 +72,14 @@ describe("editorFile", () => {
       expect(parsed).toEqual({ kind: "ok", state });
     });
 
+    it("carries the layers left unmarked across a reload", () => {
+      const state = { ...twoDocumentState(), hiddenMarkLayers: ["chroma"] };
+
+      const parsed = parseEditorFile(serializeEditorFile(state));
+
+      expect(parsed).toEqual({ kind: "ok", state });
+    });
+
     it("leaves the declarations choice unmade in a file that never wrote one", () => {
       const parsed = parseEditorFile(serializeEditorFile(twoDocumentState()));
 

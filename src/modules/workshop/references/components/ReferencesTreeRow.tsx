@@ -147,7 +147,7 @@ function ObjectRow({
       <IndentRails depth={depth} />
       <CaretSlot />
       <ObjectGlyph objectClass={node.class} className="h-3.5 w-3.5 shrink-0 text-surface-400" />
-      <span className={twMerge("truncate", node.unnamed && "text-surface-300")}>{node.name}</span>
+      <span className={twMerge("truncate", node.unnamed && "text-surface-400")}>{node.name}</span>
       {node.property !== null && (
         <span className="min-w-0 shrink truncate text-surface-300">{node.property.label}</span>
       )}

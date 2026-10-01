@@ -2667,14 +2667,25 @@ A path resolves to the copy the build uses, so a game chunk a layer ships opens 
 file and its edits save to it. A layer file is always read in its own project, so every tab of
 it shares one tree and one save.
 
-**The Sandbox options** lead the header row of a bin tab: `Sandbox (<name>)`, which names the
-project or the game, and a glyph for where edits go. The hover card says what a sandbox is and
-where this tab's edits go. The options contain:
+**The Sandbox options** lead the header row of a bin tab. The button names the sandbox,
+`Sandbox (<name>)`, then where the next edit lands: the target layer's glyph and title, and the
+chosen module when one is chosen. A read-only tab shows a lock and no target. The hover card says
+what a sandbox is and where this tab's edits go. The options contain:
 
-- The project and the game, which switch the tab in place. The game opens the install's copy of
-  the same path, read-only, and is disabled for a file the install holds no copy of.
-- For a declared document, **Use game data declarations**, the layer edits declare into, and
-  the module new keys join, per [Declaring from a game bin](#declaring-from-a-game-bin).
+- **Read from**: the project and the game, which switch the tab in place. The game opens the
+  install's copy of the same path, read-only, and is disabled for a file the install holds no
+  copy of, with that reason under it.
+- For a declared document, three rows that each name their current value and open their list
+  in a submenu, so the options stay short however many layers and modules a project holds:
+  - **Active layer**: the project's layers. Left out for a project of one layer.
+  - **Module**: Automatic, every module of the active layer, and **New module**, which adds
+    an empty module at the end and chooses it. A `target` module is listed disabled, with the
+    reason under it. The outline names and renames modules.
+  - **Mark changes from**: every layer, with how many rows its declarations change in this
+    file. A layer switched off leaves its rows unmarked, and the active layer always marks its
+    own. Left out for a project of one layer.
+
+  See [Game data declarations](#game-data-declarations).
 
 A link followed out of a tab opens in that tab's sandbox, so a link out of a declared document
 opens declared, and one out of a game tab opens in the game.
@@ -2691,7 +2702,7 @@ layer**, which writes the chunk into the active project's layer and reopens it e
 is the route a modder wants anyway, because a change to a game file is a change that has to
 live in a mod.
 
-### Declaring from a game bin
+### Game data declarations
 
 A declared document draws the game's copy of the chunk with the project's declarations
 applied: every layer in build order, through the function and the schema the overlay build
@@ -2706,15 +2717,18 @@ uses. What the reader sees is what the build makes.
 | Undo and redo       | Restore the manifest text from before and after the edit                 |
 
 The options open on the layer last used for the project, else `base`, and switch among the
-project's layers in build order. A declaration another layer holds draws applied and carries
-no mark.
+project's layers in build order. A declaration another layer holds draws applied, and its row
+carries that layer's glyph. The hover lists each layer that declares the row, in build order,
+with the value it writes, and the game's value. The build keeps the last layer's. Mark changes
+from turns a layer's marks off, per project, in `.ltk/editor.json`.
 
 **Use game data declarations** is a per-project setting in `.ltk/editor.json`, flipped from
-the Sandbox options or the command bar. A project that has not chosen reads it as on when a
-layer already holds a `game_data.yaml`, `.yml`, `.toml` or `.json`, and as off otherwise. Off,
-the document still draws the declarations applied with their marks, so the view matches the
-build, and takes no edit. The options show a lock in place of the layer glyph, the layer and
-module choices are disabled, `+ Object` is gone, and the row menu drops the object edits,
+the command bar. It is not in the Sandbox options, which are per tab. A project that has not
+chosen reads it as on when a layer already holds a `game_data.yaml`, `.yml`, `.toml` or
+`.json`, and as off otherwise. Off, the document still draws the declarations applied with their
+marks, so the view matches the build, and takes no edit. The Sandbox button shows a lock in
+place of the target, the layer and module choices are disabled under a line saying declarations
+are off, `+ Object` is gone, and the row menu drops the object edits,
 **Paste reference**, **Merge reference** and **Move to module**. A strip under the toolbar
 offers **Copy into layer** and **Declare edits**, which turns the setting on.
 
@@ -2746,7 +2760,8 @@ whole value is set in their place and the signed keys of that path are dropped: 
 value in a list holding the value twice is one such case. An edit under a whole value the
 layer already sets joins that set. A row whose declaration sets a whole list or map says so
 on its mark, because a later change of the game's no longer reaches it. An edit that neither
-form reproduces is refused, and the manifest is left as it was.
+form reproduces is refused, and the manifest is left as it was. Where a later layer declares
+the value, the refusal names that layer, because the build keeps its value over the edit's.
 
 A map is compared by its entries in any order, because an addition lands at the end of one.
 

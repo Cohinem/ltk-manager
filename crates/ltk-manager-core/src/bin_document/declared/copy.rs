@@ -1,5 +1,5 @@
 //! A row as the declaration and the reference an author would write for it, and a reference
-//! declared in its place. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+//! declared in its place. "Game data declarations" in docs/ux/BIN_EDITOR.md.
 
 use indexmap::IndexMap;
 use ltk_declarations::{Edit as ManifestEdit, ModuleChoice, Operation, ValueText};
@@ -39,7 +39,7 @@ impl BinDocument {
     /// the object itself.
     ///
     /// A struct and an object copy as a block of their fields, which an apply sets one by one
-    /// on the game's own struct. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+    /// on the game's own struct. "Game data declarations" in docs/ux/BIN_EDITOR.md.
     ///
     /// # Errors
     ///
