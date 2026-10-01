@@ -21,7 +21,7 @@ export function LastGameTile() {
 
   return (
     <Tile title={m.home_last_game_title()} data-ui="LastGameTile">
-      <div className="flex flex-col gap-2 px-4 pb-4">
+      <div className="flex flex-col gap-2">
         <p className="flex items-center gap-1.5 text-sm font-medium text-surface-100 select-text">
           <VerdictGlyph kind={latest.verdict.kind} className="h-4 w-4 shrink-0" />
           {verdictTitle(latest)}

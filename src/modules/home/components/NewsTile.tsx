@@ -1,11 +1,14 @@
 import {
   BookOpenIcon,
+  CompassIcon,
   DiscordLogoIcon,
   GithubLogoIcon,
+  GraduationCapIcon,
   type Icon,
   LifebuoyIcon,
   StackIcon,
 } from "@phosphor-icons/react";
+import { open } from "@tauri-apps/plugin-shell";
 
 import { Button, ExternalLink } from "@/components";
 import { m } from "@/i18n";
@@ -20,6 +23,12 @@ const POSTS_SHOWN = 5;
 const WIKI = "https://wiki.leaguetoolkit.dev";
 const DISCORD = "https://discord.gg/yhzDVRyQex";
 const REPOSITORY = "https://github.com/LeagueToolkit/ltk-manager";
+const RUNEFORGE = "https://runeforge.dev/";
+const RUNEFORGE_WIKI = "https://wiki.runeforge.dev/core-guides/get-started/";
+
+/* A row has no surface of its own: DS-VEIL. */
+const ROW =
+  "group rounded-md px-2 py-1.5 hover:bg-surface-veil hover:text-accent-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent-400";
 
 /** A standing link: what it is called, what it is drawn with, and where it opens. */
 interface StandingLink {
@@ -45,6 +54,16 @@ const LEARN_LINKS: StandingLink[] = [
     icon: LifebuoyIcon,
     href: `${WIKI}/start-here/faq/`,
   },
+  {
+    label: () => m.home_runeforge_title(),
+    icon: CompassIcon,
+    href: RUNEFORGE,
+  },
+  {
+    label: () => m.home_runeforge_wiki_title(),
+    icon: GraduationCapIcon,
+    href: RUNEFORGE_WIKI,
+  },
 ];
 
 /** The project's posts, then the links that stand whether or not it has posted. */
@@ -65,7 +84,7 @@ export function NewsTile() {
       }
       foot={<Community />}
     >
-      <div className="flex flex-col gap-3 px-2 pb-2">
+      <div className="-mx-2 flex flex-col gap-3">
         {shown.length > 0 && (
           <ul data-ui="NewsTile:posts" className="flex flex-col">
             {shown.map((post) => (
@@ -73,12 +92,12 @@ export function NewsTile() {
                 <ExternalLink
                   href={post.url}
                   hideIcon
-                  className="flex flex-col items-start gap-0.5 rounded-md px-2 py-1.5 text-surface-200 hover:bg-surface-800/60 hover:text-accent-300"
+                  className={twMerge(ROW, "flex flex-col items-start gap-0.5 text-surface-200")}
                 >
                   <span className="line-clamp-2 text-sm leading-snug">{post.title}</span>
                   <time
                     dateTime={post.publishedAt ?? undefined}
-                    className="text-xs text-surface-500 tabular-nums select-none"
+                    className="text-xs text-surface-400 tabular-nums select-none"
                   >
                     {postDate(post.publishedAt)}
                   </time>
@@ -88,21 +107,17 @@ export function NewsTile() {
           </ul>
         )}
 
-        <nav
-          data-ui="NewsTile:learn"
-          className={twMerge(
-            "flex flex-col select-none",
-            shown.length > 0 && "border-t border-surface-700/50 pt-2",
-          )}
-        >
+        {shown.length > 0 && <div className="mx-2 border-t border-surface-700/60" />}
+
+        <nav data-ui="NewsTile:learn" className="flex flex-col select-none">
           {LEARN_LINKS.map(({ label, icon: Glyph, href }) => (
             <ExternalLink
               key={href}
               href={href}
               hideIcon
-              className="gap-2 rounded-md px-2 py-1.5 text-sm text-surface-200 hover:bg-surface-800/60 hover:text-accent-300"
+              className={twMerge(ROW, "gap-2 text-sm text-surface-200")}
             >
-              <Glyph className="h-4 w-4 shrink-0 text-surface-400" />
+              <Glyph className="h-4 w-4 shrink-0 text-surface-400 group-hover:text-accent-300" />
               {label()}
             </ExternalLink>
           ))}

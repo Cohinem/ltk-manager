@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-10-01 | Frame Home as the library is, and digest the release notes              |
 | 2026-09-15 | Pair Runeforge mods and guides above Recent changes                     |
 | 2026-09-06 | Open on gains Workshop, as a third choice and never a memory (#424)     |
 | 2026-09-04 | Move mod health off the status line, into the library tile's marker     |
@@ -13,7 +14,6 @@
 | 2026-09-03 | Cap the page's width, and draw Play as the rail's own block             |
 | 2026-09-03 | Move Play to the head of the right rail, over the tiles it scrolls      |
 | 2026-09-03 | Say nothing when nothing holds. Drop the facts row the tile repeats     |
-| 2026-09-03 | Add Export to the library tile: the chooser, the scrim rule, the toast  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -61,7 +61,7 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | -------------------------- | --------- | ---------------------------------------------------------------------------- |
 | The page, at `/`           | Available | Mods moved to `/mods`, and the folder route under it                         |
 | The status line            | Available | The game build's row waits on a query, so it never holds yet                 |
-| Recent changes             | Available | The feed the changelog dialog reads, with the installed version marked       |
+| What's new                 | Available | A digest of the newest release, over the feed the changelog dialog reads     |
 | Notes shipped in the build | Available | `docs/releases/<version>.md`, so the installed notes need no network         |
 | News                       | Available | The Announcements category's Atom feed, read as the release feed is          |
 | Notices                    | Available | `news/notices.json` on the default branch, per `news/README.md`              |
@@ -77,96 +77,76 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 
 ## Layout
 
-The default window is about 900 by 850. The page does not scroll. A notice takes a row of its own
-while there is one, and two columns fill the rest. The left column starts with the paired Runeforge
-banners, followed by Recent changes, which fills the remaining height and scrolls inside itself.
+The default window is about 900 by 850. Home is framed as the library and the Workshop are, so the
+three pages read as one app: a toolbar, then an inset region that scrolls.
 
-The right column is the rail. Play heads it, full width and a size up, the status line sits under
-the button while one holds, and under them a stack of tiles scrolls as a column when the stack is
-taller than the window. The button and the line sit outside that scroller, so the primary action
-and what qualifies it are in the same place whatever the tiles are doing.
+**The toolbar carries the primary action.** Import and Play sit at its trailing edge, in the place
+and the size the library's toolbar gives them, so Play is found at the same spot on Home and on
+Mods. A notice, the patcher's unsupported banner and the status line stack above the toolbar while
+one holds, where the library draws its own banner.
 
-The page holds a maximum width and centres above it. Recent changes is a reading surface, and
-without the cap every pixel a wider window gained went to that one card, until its lines ran
-past what anyone reads comfortably and the rail sat in dead space. A wider window buys margins
-instead, and the page keeps the proportions it was drawn at from the default size up.
+**The inset region holds cards.** It is the library's frame: `rounded-xl`, a `surface-700` border, a
+`surface-900` fill and the pressed shadow, scrolling with the library's padding. Inside it, cards in
+the mod and project cards' frame - `rounded-xl`, a `surface-600` border, `shadow-concave`, a
+`text-sm` title - are laid out in two columns from 1024 pixels. What's new takes the wide column.
+Your library, Last game and News stack in the narrow one, and lead on a narrow window. The grid holds
+a maximum width and centres above it, as the mod grid centres its tracks.
+
+Home shows no artwork yet. The bundled Runeforge art is not ours to feature, and game art waits on
+#331, which decides where that data comes from.
 
 ```
 +------------------------------------------------------------------------------+
-| (mark) LTK Manager  v1.15.4   Home*  Mods  Workshop        (bell)(gear) - o x |
+| (mark) LTK Manager  v1.24.1   Home*  Mods  Workshop        (bell)(gear) - o x |
 +------------------------------------------------------------------------------+
-|                                                                              |
-|  +-- notice ---------------------------------------------------------------+ |
-|  | (!) Patch 26.9: the patcher takes longer to hook.  What to do       [x] | |
-|  +-------------------------------------------------------------------------+ |
-|                                                                              |
-|  +-- Recent changes -------------------------+  [ (L) Play               v ] |
-|  | v1.15.4  [Installed]        Sep 3, 2026   |  +--------------------------+ |
-|  |   Mod fixer                               |  | (!) League's folder is   | |
-|  |   - Added additional fixes for ...        |  |     not set     Set it > | |
-|  |   Release notes                           |  +--------------------------+ |
-|  |   - The Update dialog is now scrollable   |  +-- Your library ----- (:) + |
-|  |                                           |  | Default                  | |
-|  | v1.15.3                     Sep 2, 2026   |  | 4 of 7 enabled           | |
-|  |   ...                                     |  | (!) Health status 2 rep >| |
-|  |                                           |  | [Open Mods]  [Add mod]   | |
-|  |                                           |  +--------------------------+ |
-|  | v1.15.2                     Sep 1, 2026   |  +-- Last game -------------+ |
-|  |   ...                                     |  | Crashed while loading    | |
-|  |                                           |  | 2 hours ago   [the game] | |
-|  |                                           |  | [Review]                 | |
-|  |                                           |  +--------------------------+ |
-|  |                                           |  +-- News ------------------+ |
-|  |                                           |  | Patch 26.9 FAQ           | |
-|  |                                           |  | Sep 1                    | |
-|  |                                           |  |                          | |
-|  |                                           |  | The new manager          | |
-|  |                                           |  | May 15                   | |
-|  |                                           |  |--------------------------| |
-|  |                                           |  | (book)  Getting started  | |
-|  |           No older releases               |  | (stack) Managing mods    | |
-|  |                                           |  | (ring)  Troubleshooting  | |
-|  |                                           |  |--------------------------| |
-|  +-------------------------------------------+  | [Discord]     [GitHub]   | |
-|                                                 +--------------------------+ |
+|  (!) Patch 26.9: the patcher takes longer to hook.   [What to do]       [x]  |
+|                                              [Import]  [ (L) START     v ]   |
+| +--------------------------------------------------------------------------+ |
+| |  +-- What's new ---------------------------+  +-- Your library ----(:)-+ | |
+| |  | v1.24.1 [Installed]          Sep 30     |  | Default                | | |
+| |  | Library  2 changes                      |  | 4 of 10 enabled        | | |
+| |  | Change the library while the patcher... |  | (!) Health status   >  | | |
+| |  | Atlas UI Editor  8 changes              |  | [Open Mods]            | | |
+| |  | A new Workshop editor for the game's UI |  +------------------------+ | |
+| |  | Problems  5 changes                     |  +-- Last game -----------+ | |
+| |  | Files that could not be checked are...  |  | (!) Missing Game Data  | | |
+| |  | [All release notes v]                   |  | [Review]               | | |
+| |  +-----------------------------------------+  +-- News ----------------+ | |
+| |                                               | Patch 16.17 FAQ        | | |
+| |                                               | (book) Getting started | | |
+| |                                               | [Discord]   [GitHub]   | | |
+| |                                               +------------------------+ | |
+| +--------------------------------------------------------------------------+ |
 +------------------------------------------------------------------------------+
 | (status bar: the session, and the health item)                               |
 +------------------------------------------------------------------------------+
 ```
 
-Play heads the rail rather than the page, over the library it launches. It is the library's
-`PlayButton`, the same component with the same menu and the same launch guard, so Play from Home
-is Play from the library. Home asks it for its block shape, which is the toolbar's control drawn
-full width and one size up, since here it is the page's one primary action rather than one press
-in a row of them.
-
-The block shape is an accent edge over a wash rather than the toolbar's solid fill. Filled is what
-a press in a row of peers wears to be found among them, and at the head of the rail, alone and the
-width of the column, the same fill reads as a banner instead of a button. The edge is what carries
-it there.
+Play is the library's `PlayButton`, the same component with the same menu and the same launch guard,
+drawn at the toolbar's size as the library draws it, so Play from Home is Play from the library.
 
 **The control goes green while the patcher is up, and eases into it.** Idle it is the accent's edge
 over the accent's wash, and running it is the same shape in the success hue, which is the hue the
 live dot on it already wears. The colour crosses over half a second rather than cutting, because a
 patcher that came up is a state to notice and an instant swap reads as a redraw. This is the
-control's own chrome wherever it is drawn, so the library's toolbar turns with the rail. A reader who opens the app to play
-presses it here and never visits the library, which is what lets Home be the landing page without
-costing that reader a click.
+control's own chrome wherever it is drawn. A reader who opens the app to play presses it here and
+never visits the library, which is what lets Home be the landing page without costing that reader a
+click.
 
 Nothing on the page repeats the status bar. The bar carries the session and the health item, and
-it is under every page, Home included. The status line above says what state the library is in
-before a session starts, and the bar says what the session is doing once one has.
+it is under every page, Home included. The status line says what state the library is in before a
+session starts, and the bar says what the session is doing once one has.
 
 ## The status line
 
 One sentence, and at most one errand folded into it. It is derived, never stored, and the first row
 that holds wins. The words are the app's own for each state, so nothing here is a new claim.
 
-**It sits under Play, not over the page.** The line is in the rail, under the button it qualifies,
-in the frame and at the size a notice is drawn at. Over both columns at heading size it was the
+**It sits with the notices, over the toolbar that holds Play.** It is drawn in the frame and at
+the size a notice is drawn at. Over both columns at heading size it was the
 loudest thing on the page - above the project's own notice, above Play - so an inferred verdict
-outranked both, and the reader met an alarm before they met anything they came for. Under the
-button it still answers "can I play" before the press.
+outranked both, and the reader met an alarm before they met anything they came for. Beside the
+notices it still answers "can I play" before the press.
 
 **The hue is the frame's and the glyph's, and never the sentence's.** A sentence set in the
 severity's colour is the same mistake the rung table fixed one level down: it asserts with type
@@ -189,11 +169,11 @@ next section is what it says. What is left on the line is what no tile owns: the
 was installed on, and a folder the whole app waits for.
 
 The all-clear is drawn as no row at all. A line saying the library is fine is a line the reader
-learns to read past, and the rail already carries the profile, the counts and the marker, so the
+learns to read past, and the library tile already carries the profile, the counts and the marker, so the
 row costs the page nothing while nothing holds.
 
 An update on offer is not a state of the library, so it never takes the line. It is the New chip
-in Recent changes, and the title bar's Update cell, which it already is.
+in What's new, and the title bar's Update cell, which it already is.
 
 ## The health marker
 
@@ -253,25 +233,33 @@ announcement on the findings, per "The library sweep" in MOD_HEALTH.md, and the 
 spend a second one. It is the same words, standing still, with the way into the drawer the status
 bar item already offers.
 
-## Recent changes
+## What's new
 
-The card reads the release feed `ReleaseHistory` reads, without the version it excludes, since
-here the pending release is one more row rather than the reason the surface opened. Each release
-is a `ReleaseSection`, so a note reads on Home as it reads in the dialog.
+The section is a digest of one release: the pending one when an update is on offer, otherwise the
+installed one. Under its version it lists the areas the release changed - each `##` heading of its
+notes - with how many changes each lists and one line saying what changed. That line is the area's
+own lead sentence where it has one, and its first change where it does not. The notes stop
+dominating the page, and a reader still sees what this build changed without opening anything.
 
-Three chips. New and Pre-release are the dialog's. Installed is new, on the version `AppInfo`
-reports, and it is what the card exists for. A pending release keeps its New chip and gains an
-Update button in its header row, which opens the changelog dialog as the title bar cell does, so
-the install itself stays on the one surface that already knows how to run it.
+**All release notes expands the full feed in place.** It is `ReleaseHistory`, the feed the
+changelog dialog reads, without the version it excludes, since here the pending release is one more
+row rather than the reason the surface opened. Each release is a `ReleaseSection`, so a note reads
+on Home as it reads in the dialog. The feed opens inline rather than in a dialog, because reading
+needs neither an interruption nor protected focus, and the page already scrolls.
+
+Two chips on the digest. New is the dialog's, on a pending release, which also gains an Update
+button in its header row that opens the changelog dialog as the title bar cell does, so the install
+itself stays on the one surface that already knows how to run it. Installed marks the version
+`AppInfo` reports, and it is what the section exists for. The full feed adds Pre-release.
 
 A release older than the reader's last visit draws nothing special. Unread is a property of the
 page, said by the dot on the tab, and not of a row.
 
 **The installed notes ship in the build.** `docs/releases/<version>.md` is the body of the
-release, and the build knows its own version, so the notes for the installed version can be read
-from the binary and never from the network. The card draws that section at once and the feed fills
-in below it. Offline, the card is one release and a quiet foot, which is more than the dialog can
-do today. A build with no file of its own draws the feed alone, which is what a pre-release gets.
+release, and the build knows its own version, so the digest for the installed version is read from
+the binary and never from the network. The feed's own row for the same version replaces it once it
+arrives, which is what brings the date. A build with no file of its own digests the feed's row,
+which is what a pre-release gets.
 
 The feed is unauthenticated GitHub, sixty an hour for the address, and the query is cached for
 half an hour. A launch costs one request. That is what the dialog costs today, moved earlier.
@@ -321,11 +309,11 @@ later schema.
 
 ## The tiles
 
-**Your library.** The active profile's name, enabled of total, and the health marker under them.
-Two buttons: Open Mods, and Add mod, which is the library's import. While the migration banner's condition
-holds the tile offers Import from cslol-manager in the banner's place, and the banner leaves the
-library. The header carries an overflow for what a reader wants only sometimes: Export mods, and
-Open mod storage.
+**Your library.** The active profile's name, enabled of total, the health marker under them, and
+Open Mods. Import is the toolbar's, as it is on the library page. While the migration banner's
+condition holds the tile offers Import from cslol-manager in the banner's place, and the banner
+leaves the library. The header carries an overflow for what a reader wants only sometimes: Export
+mods, and Open mod storage.
 
 **Last game.** The latest incident's verdict in one line, when it happened, the consequence chip,
 and Review into the Games tab. It is hidden while there is no incident or the latest is dismissed.
@@ -334,7 +322,8 @@ words, and the title bar's dot keeps pointing at the same incident.
 
 **News, then Learn.** One card in three bands. A post is its title on one line with its date
 under it, so a real title wraps instead of truncating against a date gutter. A rule, then the wiki
-links - Getting started, Managing mods, Troubleshooting - each behind its own mark and none behind
+links - Getting started, Managing mods, Troubleshooting, Runeforge, Runeforge Wiki - each behind its
+own mark and none behind
 the trailing arrow every row used to repeat. A rule, then Discord and the repository as two buttons
 in the card's foot. A card with no post is a card of links, so it is never empty. That is why the
 two are one card and not two.
@@ -343,7 +332,7 @@ The bands are what stop five accent-coloured rows reading as one list, where a w
 Discord invite looked alike. A button is the last two saying they leave the documentation
 behind.
 
-**Getting started.** A checklist on a fresh install, in the place of the tiles above until it is
+**Getting started.** A checklist on a fresh install, in the place of the sections above until it is
 done or dismissed: set League's folder, add a mod or import from cslol-manager, press Play once,
 join the Discord. Each row reads its own done state from the app, so the card empties itself. The
 first-run redirect to Settings stays, since the folder is what everything else waits on, and the
@@ -351,13 +340,9 @@ card is what the reader comes back to.
 
 ## Runeforge
 
-Two banners share one frame above Recent changes. Runeforge connects players with community mods
-and gives creators a place to publish their work. Runeforge Wiki connects creators with guides
-and a place to share what they learn. Each banner is one link that opens in the system browser.
-
-Ignis artwork marks Browse mods, which opens runeforge.dev. The Anima backdrop marks Get started,
-which opens the Wiki's introduction to mod creation. Both stay in the left column so they do not
-shorten the launcher and library rail.
+Runeforge connects players with community mods and gives creators a place to publish their work.
+Runeforge Wiki connects creators with guides and a place to share what they learn. Both are Learn
+links in the News card, after the project's own wiki pages, and each opens in the system browser.
 
 ## Export
 
@@ -419,7 +404,10 @@ own sentences are here too, since no other surface says them as one line.
 | `home_nav_label`                          | Home                                        |
 | `home_status_platform_label`              | The patcher does not run on this system yet |
 | `home_status_league_unset_label`          | League's folder is not set                  |
-| `home_changes_title`                      | Recent changes                              |
+| `home_changes_title`                      | What's new                                  |
+| `home_changes_count_label`                | {count} change, {count} changes             |
+| `home_changes_all_action`                 | All release notes                           |
+| `home_changes_fewer_action`               | Hide release notes                          |
 | `home_release_update_action`              | Update                                      |
 | `home_notice_link_action`                 | What to do                                  |
 | `home_library_title`                      | Your library                                |
@@ -476,8 +464,9 @@ The `Open on` row is titled in the setting index, as every row of the Startup ca
   `useHealthVerdicts`, the stored verdicts and the two mutations a press runs. The installed game
   build needs a query the frontend does not have yet, over the reader core already uses for the
   basis, so the marker takes it as an input and is handed `null`
-- Recent changes is `useReleaseHistory` with no exclusion, plus a module that imports
-  `docs/releases/<version>.md?raw` at build, keyed by the package version
+- What's new is `releaseDigest` over the head release's markdown, `useReleaseHistory` for the
+  feed, plus a module that imports `docs/releases/<version>.md?raw` at build, keyed by the package
+  version
 - News and notices are two commands beside `list_releases`: one parsing the Atom feed, one
   reading the JSON. Both blocking, both timed out, both with the release feed's error kinds
 - Export is `export_mods` over `ModLibrary::export_mods`, which resolves the scope under the index
