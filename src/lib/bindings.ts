@@ -5457,6 +5457,13 @@ export type PatcherConfig = {
 	 *  the enabled mod list (highest priority).
 	 */
 	workshopProjects?: string[] | null,
+	/**
+	 *  The layers each workshop project is tested with, by project path.
+	 * 
+	 *  A project missing from the map is tested with every layer, and `base` is
+	 *  always on.
+	 */
+	workshopLayers?: { [key in string]: string[] } | null,
 	/**  Build the overlay from scratch rather than reuse the last build. */
 	forceRebuild?: boolean | null,
 };

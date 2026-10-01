@@ -19,7 +19,7 @@ use crate::diagnostics::store::IncidentStore;
 use crate::error::{AppError, AppResult, message_with_sources};
 use crate::launcher::is_game_running;
 use crate::mods::ModLibrary;
-use crate::overlay::OverlayBuild;
+use crate::overlay::{OverlayBuild, WorkshopTestProject};
 
 use super::error::PatcherError;
 use super::events::PatcherEvents;
@@ -43,7 +43,7 @@ pub struct SessionParams {
     pub injector_exe: PathBuf,
     pub config: Config,
     pub library: ModLibrary,
-    pub workshop_paths: Vec<PathBuf>,
+    pub workshop_projects: Vec<WorkshopTestProject>,
     pub host_flags: u32,
     pub should_elevate: bool,
     pub patcher_binaries: PatcherBinaries,
@@ -66,7 +66,7 @@ pub struct PatcherThread {
     injector_exe: PathBuf,
     config: Config,
     library: ModLibrary,
-    workshop_paths: Vec<PathBuf>,
+    workshop_projects: Vec<WorkshopTestProject>,
     host_flags: u32,
     should_elevate: bool,
     force_rebuild: bool,
@@ -105,7 +105,7 @@ impl PatcherThread {
             injector_exe,
             config,
             library,
-            workshop_paths,
+            workshop_projects,
             host_flags,
             should_elevate,
             patcher_binaries,
@@ -117,7 +117,7 @@ impl PatcherThread {
             config.clone(),
             host_flags,
             library.clone(),
-            workshop_paths.clone(),
+            workshop_projects.clone(),
             incident_store,
             Arc::clone(&events),
             telemetry,
@@ -137,7 +137,7 @@ impl PatcherThread {
             injector_exe,
             config,
             library,
-            workshop_paths,
+            workshop_projects,
             host_flags,
             should_elevate,
             force_rebuild,
@@ -179,7 +179,7 @@ impl PatcherThread {
         let stop_flag = Arc::clone(&self.stop_flag);
         let build = match self.library.ensure_overlay(
             &self.config,
-            &self.workshop_paths,
+            &self.workshop_projects,
             force_rebuild,
             move || stop_flag.load(Ordering::SeqCst),
         ) {

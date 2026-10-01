@@ -67,9 +67,7 @@ describe("useProjectSelectionActions", () => {
 
     actions().test();
 
-    expect(testMutate.mock.calls[0][0]).toEqual({
-      projects: [{ path: PROJECTS[1].path, displayName: PROJECTS[1].displayName }],
-    });
+    expect(testMutate.mock.calls[0][0]).toEqual({ projects: [PROJECTS[1]] });
   });
 
   /* The picks are spent by the press, because a menu that closes as it is

@@ -30,6 +30,7 @@ use crate::hashtables::{HashtableCache, LayeredHashDb, PathRef};
 use crate::launcher::install::installed_patchlines;
 use crate::launcher::same_install;
 use crate::mods::ModLibrary;
+use crate::overlay::WorkshopTestProject;
 use crate::workshop::ProjectDir;
 
 use super::events::PatcherEvents;
@@ -48,7 +49,7 @@ pub struct IncidentPipeline {
     config: Config,
     host_flags: u32,
     library: ModLibrary,
-    workshop_paths: Vec<PathBuf>,
+    workshop_projects: Vec<WorkshopTestProject>,
     store: Arc<IncidentStore>,
     events: Arc<dyn PatcherEvents>,
     telemetry: Telemetry,
@@ -62,7 +63,7 @@ impl IncidentPipeline {
         config: Config,
         host_flags: u32,
         library: ModLibrary,
-        workshop_paths: Vec<PathBuf>,
+        workshop_projects: Vec<WorkshopTestProject>,
         store: Arc<IncidentStore>,
         events: Arc<dyn PatcherEvents>,
         telemetry: Telemetry,
@@ -79,7 +80,7 @@ impl IncidentPipeline {
             config,
             host_flags,
             library,
-            workshop_paths,
+            workshop_projects,
             store,
             events,
             telemetry,
@@ -360,7 +361,7 @@ impl IncidentPipeline {
         };
         let reports = self.library.wad_reports().0.lock();
         let offset = crate::overlay::builtin_mods::count_enabled(&self.config.builtin_mods)
-            + self.workshop_paths.len();
+            + self.workshop_projects.len();
         mods.into_iter()
             .filter(|m| m.enabled)
             .enumerate()
@@ -377,17 +378,18 @@ impl IncidentPipeline {
     }
 
     fn project_footprints(&self) -> Vec<ProjectFootprint> {
-        self.workshop_paths
+        self.workshop_projects
             .iter()
-            .map(|path| project_footprint(path))
+            .map(project_footprint)
             .collect()
     }
 }
 
 /// What one workshop project writes: its display name from its config, and the
-/// archives its layers hold. A project that does not load did not build into
-/// the overlay either, so it keeps its directory name and no archives.
-fn project_footprint(path: &Path) -> ProjectFootprint {
+/// archives its tested layers hold. A project that does not load did not build
+/// into the overlay either, so it keeps its directory name and no archives.
+fn project_footprint(test: &WorkshopTestProject) -> ProjectFootprint {
+    let path = test.path.as_path();
     let dir_name = path
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
@@ -407,7 +409,12 @@ fn project_footprint(path: &Path) -> ProjectFootprint {
         }
     };
 
-    let layer_names: Vec<String> = project.layers.iter().map(|l| l.name.clone()).collect();
+    let layer_names: Vec<String> = project
+        .layers
+        .iter()
+        .filter(|l| test.is_layer_active(&l.name))
+        .map(|l| l.name.clone())
+        .collect();
     let mut affected_wads: Vec<String> = dir
         .layer_info(&layer_names)
         .map(|info| info.into_values().flat_map(|l| l.wad_files).collect())

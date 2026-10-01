@@ -35,6 +35,12 @@ pub struct PatcherConfig {
     /// the enabled mod list (highest priority).
     #[specta(optional)]
     pub workshop_projects: Option<Vec<String>>,
+    /// The layers each workshop project is tested with, by project path.
+    ///
+    /// A project missing from the map is tested with every layer, and `base` is
+    /// always on.
+    #[specta(optional)]
+    pub workshop_layers: Option<HashMap<String, Vec<String>>>,
     /// Build the overlay from scratch rather than reuse the last build.
     #[specta(optional)]
     pub force_rebuild: Option<bool>,
@@ -46,6 +52,7 @@ impl PatcherConfig {
         Self {
             flags: stored.flags,
             workshop_projects: stored.workshop_projects,
+            workshop_layers: stored.workshop_layers,
             force_rebuild: Some(force_rebuild),
         }
     }
@@ -179,17 +186,12 @@ pub(crate) fn start_patcher_inner(
     let stored_config = StoredPatcherConfig {
         flags: config.flags,
         workshop_projects: config.workshop_projects.clone(),
+        workshop_layers: config.workshop_layers.clone(),
     };
     // Decides which tray icon set this session drives.
     let is_workshop = stored_config.origin().is_workshop();
 
-    let workshop_paths: Vec<PathBuf> = config
-        .workshop_projects
-        .clone()
-        .unwrap_or_default()
-        .iter()
-        .map(PathBuf::from)
-        .collect();
+    let workshop_projects = stored_config.workshop_tests();
 
     let config_snapshot = settings.config();
     tracing::debug!(
@@ -260,7 +262,7 @@ pub(crate) fn start_patcher_inner(
             injector_exe,
             config: config_snapshot,
             library: library.0.clone(),
-            workshop_paths,
+            workshop_projects,
             host_flags,
             should_elevate,
             patcher_binaries,
