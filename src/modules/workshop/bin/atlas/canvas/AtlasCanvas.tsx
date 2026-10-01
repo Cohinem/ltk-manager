@@ -23,7 +23,6 @@ import { onBoard, toFrame } from "../engine/layout/board";
 import type { PixelRect, Screen } from "../engine/layout/solve";
 import { labelOf } from "../engine/model/layers";
 import { withRoles } from "../engine/model/loadout";
-import { repeatClones, viewRepeats, withClones } from "../engine/model/repeats";
 import { subtreeOf } from "../engine/model/tree";
 import type { ViewFont, ViewStyleSheet } from "../engine/model/view";
 import { useAtlasLayout } from "../hooks/useAtlasLayout";
@@ -188,23 +187,20 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   const frames = useMemo(() => {
     if (tree === null || drawn.tree === null || shown === null || board === null) return [];
 
-    /* The copies a controller clones at run time, which a lone element's preview leaves out. */
-    const repeats = focus ? [] : viewRepeats(tree, shown);
-    const clones = repeatClones(tree, shown, repeats, new Set(order));
     const built = boardCommands(board, {
       tree: drawn.tree,
       solved: shown,
       settings,
       preview: {
         ...preview,
-        overlay: withClones(withRoles(preview.overlay, drawn.texts, drawn.hidden), clones),
+        overlay: withRoles(preview.overlay, drawn.texts, drawn.hidden),
       },
       textureSizes: sizes,
       text: text.source,
     });
     text.flush();
     return built;
-  }, [tree, drawn, shown, board, settings, preview, sizes, text, focus, order]);
+  }, [tree, drawn, shown, board, settings, preview, sizes, text]);
   const commands = useMemo(() => frames.flatMap((each) => each.commands), [frames]);
   const overlayFrames = useMemo(
     () => [...overlayFramesOf(board, screen), ...nestedFramesOf(board, tree, shown, order)],

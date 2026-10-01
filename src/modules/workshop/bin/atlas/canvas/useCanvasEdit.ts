@@ -13,6 +13,7 @@ import { type MoveSet, moveSet, resizable } from "../engine/edit/targets";
 import { type Board, frameRect } from "../engine/layout/board";
 import type { LayoutSettings, PixelRect } from "../engine/layout/solve";
 import { buttonsFirst } from "../engine/model/buttons";
+import { followers } from "../engine/model/repeats";
 import type { ViewTree } from "../engine/model/tree";
 import type { AtlasEdit } from "../state/atlasEdit";
 import { useAtlasPreviewActions } from "../state/atlasPreview";
@@ -164,8 +165,8 @@ export function useCanvasEdit({
   const shown = useMemo(() => {
     if (solved === null) return null;
 
-    const settled = settling?.tree === tree ? withDrag(solved, settling.drag) : solved;
-    return drag === null ? settled : withDrag(settled, drag);
+    const settled = settling?.tree === tree ? withDrag(solved, settling.drag, tree) : solved;
+    return drag === null ? settled : withDrag(settled, drag, tree);
   }, [solved, drag, settling, tree]);
 
   const editable = edit?.editable === true;
@@ -429,9 +430,11 @@ export function useCanvasEdit({
   };
 }
 
+/** `solved` with `drag` applied, a move carrying the copies of what it moves per `followers`. */
 function withDrag(
   solved: ReadonlyMap<string, PixelRect>,
   drag: Drag,
+  tree: ViewTree | null,
 ): ReadonlyMap<string, PixelRect> {
   if (drag.kind === "marquee") return solved;
 
@@ -440,7 +443,9 @@ function withDrag(
     shown.set(drag.key, drag.rect);
     return shown;
   }
-  for (const key of drag.moving) {
+
+  const copies = tree === null ? [] : followers(tree, drag.moving);
+  for (const key of [...drag.moving, ...copies]) {
     const rect = solved.get(key);
     if (rect !== undefined) shown.set(key, shift(rect, drag.delta));
   }

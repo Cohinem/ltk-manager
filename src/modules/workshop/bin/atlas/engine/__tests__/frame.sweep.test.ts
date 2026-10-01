@@ -13,13 +13,12 @@ import type { UiView } from "@/lib/tauri";
 
 import { batchDraws } from "../commands/batch";
 import { boardCommands } from "../commands/board";
-import { type PreviewState, visibleElements } from "../commands/build";
+import type { PreviewState } from "../commands/build";
 import { boardOf, onBoard } from "../layout/board";
 import { NO_FRAME_CHOICES } from "../layout/frames";
 import { FULL_SAFE_ZONE, type LayoutSettings, solve } from "../layout/solve";
 import { NO_OVERLAY } from "../model/combo";
-import { repeatClones, viewRepeats, withClones } from "../model/repeats";
-import { buildTree } from "../model/tree";
+import { viewTree } from "../model/repeats";
 import { finiteView } from "../model/view";
 import { restingHiddenScenes } from "../model/visibility";
 
@@ -56,7 +55,7 @@ describe.skipIf(DUMP === undefined)("the frame budget of the largest shipped vie
 
     for (const file of files.sort()) {
       const raw = JSON.parse(fs.readFileSync(path.join(root, file), "utf8")) as UiView;
-      const tree = buildTree(finiteView(raw));
+      const tree = viewTree(finiteView(raw));
       /* The worst case: every scene and every element the file leaves off drawn too. */
       const hiddenScenes = new Set<string>();
       const preview: PreviewState = {
@@ -75,14 +74,11 @@ describe.skipIf(DUMP === undefined)("the frame budget of the largest shipped vie
       const solved = solve(tree, SETTINGS);
       const board = boardOf(tree, SCREEN, hiddenScenes, false, NO_FRAME_CHOICES);
       const placed = onBoard(board, solved);
-      /* The rows and cards a controller clones at run time, as the canvas draws them. */
-      const order = new Set(visibleElements(tree, preview));
-      const clones = repeatClones(tree, placed, viewRepeats(tree, placed), order);
       const input = {
         tree,
         solved: placed,
         settings: SETTINGS,
-        preview: { ...preview, overlay: withClones(preview.overlay, clones) },
+        preview,
         textureSizes: new Map<number, readonly [number, number]>(),
         text: null,
       };

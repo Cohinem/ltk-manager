@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { element, icon, rect, scene, view } from "../../__tests__/fixtures";
 import { FULL_SAFE_ZONE, type LayoutSettings, solve } from "../../layout/solve";
 import { NO_OVERLAY } from "../../model/combo";
+import { withCopies } from "../../model/repeats";
 import { buildTree, subtreeOf } from "../../model/tree";
 import type { View, ViewElement, ViewLook } from "../../model/view";
 import { buildCommands, type PreviewState, visibleElements } from "../build";
@@ -94,6 +95,28 @@ describe("buildCommands", () => {
     };
 
     expect(drawnElements(built, { ...SHOWN, overlay })).toEqual(["a", "a", "b"]);
+  });
+
+  it("draws a copy the controller makes above its original, and none of a hidden original", () => {
+    const built = view(
+      [scene("card", 0)],
+      [element("slot", "card", 0, icon()), element("pip", "card", 1, icon())],
+    );
+    const tree = withCopies(buildTree(built), [
+      { template: "card", places: [{ kind: "step", measure: "slot", axis: 1, steps: 1 }] },
+    ]);
+    const drawn = (preview: PreviewState) =>
+      buildCommands({
+        tree,
+        solved: solve(tree, SETTINGS),
+        settings: SETTINGS,
+        preview,
+        textureSizes: new Map(),
+        text: null,
+      }).flatMap((command) => (command.kind === "draw" ? [command.element] : []));
+
+    expect(drawn(SHOWN)).toEqual(["slot", "slot", "pip", "pip"]);
+    expect(drawn({ ...SHOWN, hiddenElements: new Set(["pip"]) })).toEqual(["slot", "slot"]);
   });
 
   it("draws only a focused group and what it holds", () => {

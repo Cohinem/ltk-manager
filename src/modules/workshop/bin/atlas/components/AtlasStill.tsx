@@ -7,12 +7,11 @@ import { blackTexel, type TextureProgress, useSceneColors, whiteTexel } from "@/
 
 import { uiQueries } from "../api/uiQueries";
 import { rectsOf, unionOf } from "../canvas/canvasGeometry";
-import { buildCommands, type PreviewState, visibleElements } from "../engine/commands/build";
+import { buildCommands, type PreviewState } from "../engine/commands/build";
 import type { Command } from "../engine/commands/types";
 import type { PixelRect, Screen } from "../engine/layout/solve";
 import { NO_OVERLAY } from "../engine/model/combo";
 import { meterFills } from "../engine/model/meters";
-import { repeatClones, viewRepeats, withClones } from "../engine/model/repeats";
 import { subtreeOf } from "../engine/model/tree";
 import {
   finiteFont,
@@ -110,14 +109,11 @@ function ViewStill({ document, entry, kind, playing, onStatus }: AtlasStillProps
       overlay: NO_OVERLAY,
       tooltip: null,
     };
-    const order = visibleElements(tree, preview);
-    const repeats = focus ? [] : viewRepeats(tree, solved);
-    const clones = repeatClones(tree, solved, repeats, new Set(order));
     const built = buildCommands({
       tree,
       solved,
       settings,
-      preview: { ...preview, overlay: withClones(NO_OVERLAY, clones) },
+      preview,
       textureSizes: sizes,
       text: text.source,
     });

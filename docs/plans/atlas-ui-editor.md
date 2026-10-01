@@ -291,12 +291,14 @@ fills the gaps the same way for every view, and never writes any of it:
   element's name suggests (a timer reads `1:24`, a cost `1,250`), else that name in words. Any
   other texture the controller sets shows a checker placeholder.
 - **Repetition.** Where a controller clones a template at run time, the preview draws the copies
-  the file does not hold. A controller field naming a template, a managed layout and a count (the
-  player frame's buff rows) places that many copies with the layout. Each scoreboard team row
-  (`SB_T1P0`) repeats five times down the height of its `SlotHeightRef` region, and the loading
-  screen's player card five times across each card region. A copy reads its template's text and
-  nothing picks it. Views whose data holds no count or place (team frames, augment slots, the
-  item shop grid) draw the template alone.
+  the file does not hold. The copies join the view's tree with keys of their own, and the layout
+  solver places them as it places file elements, so a group's rect, a managed layout and the board
+  all take them in. A controller field naming a template, a managed layout and a count (the
+  player frame's buff rows) adds that many copies to the layout as more of its children. Each
+  scoreboard team row (`SB_T1P0`) repeats five times down the height of its `SlotHeightRef`
+  region, and the loading screen's player card five times across each card region. A copy draws
+  and reads its text as its original does, and nothing picks it. Views whose data holds no count
+  or place (team frames, augment slots, the item shop grid) draw the template alone.
 - **Motion.** Transitions, flipbooks and cooldown effects play on a scrub bar. UI particles play
   through the VFX run.
 

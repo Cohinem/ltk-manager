@@ -7,7 +7,8 @@ import { type ReadyProgram, type TextureProgress, useAssetTextures } from "@/mod
 import { usePreviewShaders } from "@/stores";
 
 import { FRAME_SHADERS, uiQueries } from "../api/uiQueries";
-import { buildTree, type ViewTree } from "../engine/model/tree";
+import { viewTree } from "../engine/model/repeats";
+import type { ViewTree } from "../engine/model/tree";
 import { finiteView, type View } from "../engine/model/view";
 import { useAtlasScene, useAtlasVariant } from "../state/atlasEdit";
 import { useViewVariant, viewKey } from "../state/atlasPreview";
@@ -51,7 +52,7 @@ export function useAtlasView(
     () => (query.data === undefined ? null : finiteView(query.data)),
     [query.data],
   );
-  const tree = useMemo(() => (view === null ? null : buildTree(view)), [view]);
+  const tree = useMemo(() => (view === null ? null : viewTree(view)), [view]);
   return { view, tree, error: query.error, pending: query.isPending };
 }
 
