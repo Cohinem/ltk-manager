@@ -1,10 +1,8 @@
-//! Fixture builders shared by the unit tests, `mods` and `workshop` alike.
+//! Fixture builders shared by the unit tests in `mods` and `workshop`.
 //!
-//! Index-shaped fixtures are verbose enough that duplicating them per test
-//! module invites them to drift apart, which would quietly weaken whichever
-//! copy stopped matching the real defaults. The archive builders are shared for
-//! the same reason across the two surfaces: both import a fantome through the
-//! same importer, so both want the same archive to import.
+//! Index fixtures are verbose, and a copy per test module drifts away from the
+//! real defaults. The archive builders are shared because both modules import
+//! a fantome through the same importer.
 
 use crate::config::Config;
 use crate::events::{BackendEvent, EventSink, NullEventSink};
@@ -24,15 +22,14 @@ use std::sync::Arc;
 
 /// A library rooted at `storage_dir`, plus the config that points it there.
 ///
-/// Its hashtables are synced, because that is the machine every test is about
-/// unless it says otherwise - a health check refuses to run without them.
-/// [`make_library_without_hashtables`] is the other machine.
+/// Its hashtables are synced, because a health check refuses to run without
+/// them. [`make_library_without_hashtables`] builds a library without them.
 pub(crate) fn make_test_library(storage_dir: &Path) -> (ModLibrary, Config) {
     make_library_with_events(storage_dir, Arc::new(NullEventSink))
 }
 
 /// [`make_test_library`] with a sink of the caller's choosing, for a test that
-/// asserts on what an operation announced rather than what it wrote.
+/// asserts on the events an operation emits.
 pub(crate) fn make_library_with_events(
     storage_dir: &Path,
     events: Arc<dyn EventSink>,
@@ -41,7 +38,7 @@ pub(crate) fn make_library_with_events(
 }
 
 /// [`make_test_library`] reporting an app version of the caller's choosing, for
-/// a test about what a manager release moves.
+/// a test about what changes between manager releases.
 pub(crate) fn make_library_with_version(
     storage_dir: &Path,
     app_version: &str,
@@ -56,8 +53,8 @@ pub(crate) fn make_library_with_version(
 
 /// [`make_test_library`] on a machine whose shared cache has never been synced.
 ///
-/// The fresh install with no network, which is the one a health check stands
-/// down on rather than recording what it could not see.
+/// A fresh install with no network. A health check does not run on it, instead
+/// of recording results it could not compute.
 pub(crate) fn make_library_without_hashtables(storage_dir: &Path) -> (ModLibrary, Config) {
     make_library_with(
         storage_dir,
@@ -110,7 +107,7 @@ impl RecordingEventSink {
         self.0.lock().clone()
     }
 
-    /// The wire names of what was emitted, which is what a frontend listens on.
+    /// The wire names of the emitted events, which a frontend listens on.
     pub(crate) fn names(&self) -> Vec<&'static str> {
         self.0.lock().iter().map(BackendEvent::name).collect()
     }
@@ -123,7 +120,7 @@ impl EventSink for RecordingEventSink {
 }
 
 /// An entry in the pre-slug uuid layout, as a library.json written before the
-/// layout migration holds it — content still inside `archives/`, whatever the
+/// layout migration holds it. Its content is inside `archives/` for every
 /// format.
 pub(crate) fn make_test_entry(id: &str, format: ModArchiveFormat) -> LibraryModEntry {
     LibraryModEntry {
@@ -215,8 +212,8 @@ pub(crate) fn place_mod_files(storage_dir: &Path, id: &str, format: ModArchiveFo
 /// Place a mod at `mods/<slug>` the way an install leaves it, with the
 /// archive beside it when `with_archive` asks for one.
 ///
-/// The config is all the directory holds — the archive is where the content
-/// is. A mod the user unpacked afterwards is [`place_unpacked_mod`].
+/// The directory holds only the config, and the content is in the archive.
+/// [`place_unpacked_mod`] places a mod the user unpacked afterwards.
 pub(crate) fn place_installed_mod(
     storage_dir: &Path,
     slug: &str,
@@ -257,8 +254,8 @@ pub(crate) fn place_unpacked_mod(storage_dir: &Path, slug: &str, with_archive: b
     fs::write(wad_dir.join("skin0.bin"), b"content bytes").unwrap();
 }
 
-/// A project config whose `name` is `name` and whose display name is its
-/// title-cased echo, so a slug derived from it is predictable.
+/// A project config whose `name` and display name are both `name`, so a slug
+/// derived from it is predictable.
 pub(crate) fn mod_project_named(name: &str) -> ltk_mod_project::ModProject {
     ltk_mod_project::ModProject {
         name: name.to_string(),
@@ -279,14 +276,14 @@ pub(crate) fn mod_project_named(name: &str) -> ltk_mod_project::ModProject {
 
 /// Pack a real `.modpkg` at `path`, named `name`, holding one content file.
 ///
-/// A modpkg's archive is the mod, so anything that reads one has to mount it —
-/// a stub of made-up bytes proves nothing about the path under test.
+/// A modpkg's archive is the mod, so code that reads one has to mount it. A
+/// stub of fake bytes does not exercise that code.
 pub(crate) fn make_modpkg(path: &Path, name: &str) {
     make_modpkg_with_documents(path, name, None, None);
 }
 
-/// [`make_modpkg`] carrying a readme and a license, picked up out of the
-/// project root the same way a creator's own pack picks them up.
+/// [`make_modpkg`] with a readme and a license in the project root, where a
+/// creator's own pack also reads them from.
 pub(crate) fn make_modpkg_with_documents(
     path: &Path,
     name: &str,
@@ -321,8 +318,8 @@ pub(crate) fn make_modpkg_with_documents(
         .unwrap();
 }
 
-/// [`make_named_fantome_zip`] carrying a readme and a license under `META/`,
-/// where a fantome's own documents live and where nothing extracts them.
+/// [`make_named_fantome_zip`] with a readme and a license under `META/`, where
+/// a fantome stores its documents and where nothing extracts them.
 pub(crate) fn make_fantome_zip_with_documents(
     path: &Path,
     name: &str,
@@ -378,9 +375,9 @@ pub(crate) fn make_named_fantome_zip(path: &Path, name: &str) {
 /// A fantome archive holding all three content shapes at once: a
 /// directory-style WAD, a packed WAD, and `RAW/`.
 ///
-/// Every shape has to be in one archive because the golden tests compare the
-/// whole `(hash, bytes)` set an archive yields against the set its import
-/// yields — a fixture missing a shape would agree trivially about it.
+/// All three shapes are in one archive because the golden tests compare the
+/// `(hash, bytes)` set of the archive with the set of its import. A shape the
+/// fixture leaves out would pass without being tested.
 pub(crate) fn make_full_fantome_zip(path: &Path) {
     make_full_fantome_zip_named(path, "Full Mod");
 }
@@ -425,11 +422,11 @@ pub(crate) fn make_full_fantome_zip_named(path: &Path, name: &str) {
 /// [`make_full_fantome_zip`] with every CRC32 overwritten by a value that
 /// matches nothing.
 ///
-/// Fantome tools in the wild write checksums that do not describe their own
-/// bytes, and a reader that trusts them rejects the whole archive. The scan is
-/// blind, so it asserts one local and one central header per entry: a signature
-/// that matched inside compressed data would clobber content and turn a test
-/// using this into a different one.
+/// Some fantome tools write checksums that do not match the entry bytes, and a
+/// reader that trusts them rejects the whole archive. The scan matches header
+/// signatures anywhere in the file, so it asserts one local and one central
+/// header per entry. A match inside compressed data would overwrite content and
+/// change what a test using this fixture tests.
 pub(crate) fn make_bad_crc_fantome_zip(path: &Path) {
     const LOCAL_HEADER: u32 = 0x0403_4b50;
     const CENTRAL_HEADER: u32 = 0x0201_4b50;
@@ -460,9 +457,9 @@ pub(crate) fn make_bad_crc_fantome_zip(path: &Path) {
     fs::write(path, bytes).unwrap();
 }
 
-/// A fantome archive whose `META/info.json` declares a second layer carrying a
-/// string override, the metadata nothing downstream could recover if an import
-/// dropped it.
+/// A fantome archive whose `META/info.json` declares a second layer with a
+/// string override. Only the metadata holds the override, so an import that
+/// drops it loses it.
 pub(crate) fn make_layered_fantome_zip(path: &Path) {
     let mut info = fantome_info("Layered Mod");
     info.layers.insert(
@@ -491,6 +488,46 @@ pub(crate) fn make_layered_fantome_zip(path: &Path) {
     zip.finish().unwrap();
 }
 
+/// A fantome archive holding [`STALE_BIN_IN_WAD`] in three layers: `base_bin`
+/// loose under `WAD/`, `layer_bin` loose under `WAD_chroma/`, which the
+/// metadata declares as `Chroma`, and `layer_bin` in a packed WAD under
+/// `WAD_zeta/`, which the metadata does not declare.
+pub(crate) fn make_layer_wads_fantome_zip(
+    path: &Path,
+    base_bin: &ltk_meta::Bin,
+    layer_bin: &ltk_meta::Bin,
+) {
+    let mut info = fantome_info("Layer WADs");
+    info.layers.insert(
+        "Chroma".to_string(),
+        ltk_fantome::FantomeLayerInfo {
+            name: "Chroma".to_string(),
+            priority: 5,
+            ..Default::default()
+        },
+    );
+    let loose_path = format!("Aatrox.wad.client/{STALE_BIN_IN_WAD}");
+    let packed = build_packed_wad(&[(STALE_BIN_IN_WAD, &bin_bytes(layer_bin))]);
+
+    let file = fs::File::create(path).unwrap();
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default();
+    let entries = [
+        (
+            "META/info.json".to_string(),
+            serde_json::to_vec_pretty(&info).unwrap(),
+        ),
+        (format!("WAD/{loose_path}"), bin_bytes(base_bin)),
+        (format!("WAD_chroma/{loose_path}"), bin_bytes(layer_bin)),
+        ("WAD_zeta/Aatrox.wad.client".to_string(), packed),
+    ];
+    for (name, bytes) in entries {
+        zip.start_file(name, options).unwrap();
+        zip.write_all(&bytes).unwrap();
+    }
+    zip.finish().unwrap();
+}
+
 fn fantome_info(name: &str) -> ltk_fantome::FantomeInfo {
     ltk_fantome::FantomeInfo {
         name: name.to_string(),
@@ -506,16 +543,15 @@ fn fantome_info(name: &str) -> ltk_fantome::FantomeInfo {
     }
 }
 
-/// A packed WAD holding `chunks`, as bytes ready to drop into a zip entry.
-/// A chunk path far longer than the hex name a preflight has to assume for a
-/// packed WAD, so an import that resolves it writes past what was predicted.
+/// A chunk path much longer than the hex name a preflight assumes for a packed
+/// WAD, so an import that resolves it writes a longer path than predicted.
 pub(crate) const LONG_CHUNK_PATH: &str =
     "data/characters/ashe/skins/skin01/particles/ashe_base_r_cas_ring_glow.troybin";
 
 /// An archive whose only content is a packed WAD holding [`LONG_CHUNK_PATH`].
 ///
-/// Nothing else, so that chunk is the longest thing the import writes and the
-/// gap between the estimate and the tree is the whole of what a test measures.
+/// The chunk is the longest path the import writes, so any difference between
+/// the estimate and the written tree comes from that chunk alone.
 pub(crate) fn make_long_chunk_fantome_zip(path: &Path) {
     let packed = build_packed_wad(&[(LONG_CHUNK_PATH, &[0x33u8; 16][..])]);
 
@@ -540,14 +576,14 @@ pub(crate) fn make_long_chunk_fantome_zip(path: &Path) {
 /// Where the incompressible chunk sits inside its WAD.
 pub(crate) const LARGE_BLOCK_CHUNK_PATH: &str = "data/characters/ashe/blob.bin";
 
-/// An archive whose one packed WAD holds a chunk no first prefix read can
-/// decode a byte of.
+/// An archive whose one packed WAD holds a chunk the first prefix read cannot
+/// decode any bytes of.
 ///
-/// A bounded read takes 16 KB of a chunk raw first. A compressed block cannot
+/// A bounded read first takes 16 KB of a chunk raw. A compressed block cannot
 /// be decoded until all of it has been read, and this chunk compresses to one
-/// several times that size, so the first read comes back with nothing and the
-/// larger second read is what answers. The bytes returned are what the chunk
-/// holds.
+/// block several times that size, so the first read decodes nothing and the
+/// larger second read returns the bytes. The return value is the chunk's
+/// uncompressed content.
 pub(crate) fn make_large_block_chunk_fantome_zip(path: &Path) -> Vec<u8> {
     let bytes = half_entropy_bytes(256 * 1024);
 
@@ -583,11 +619,11 @@ pub(crate) fn make_large_block_chunk_fantome_zip(path: &Path) -> Vec<u8> {
     bytes
 }
 
-/// Bytes a compressor halves and no more, from a seed rather than from the
-/// machine so that two runs of a test read the same chunk.
+/// Bytes that compress to about half their size, generated from a fixed seed
+/// so every run of a test reads the same chunk.
 ///
-/// Four bits of entropy each: enough that zstd writes a compressed block rather
-/// than storing them raw, and little enough that the block stays large.
+/// Each byte holds four bits of entropy. With that, zstd writes a compressed
+/// block instead of storing the bytes raw, and the block stays large.
 fn half_entropy_bytes(len: usize) -> Vec<u8> {
     let mut state = 0x2545_f491_4f6c_dd1d_u64;
     (0..len)
@@ -603,8 +639,8 @@ fn half_entropy_bytes(len: usize) -> Vec<u8> {
 /// An archive holding a loose WAD file beside a dot-file the directory walk
 /// would skip.
 ///
-/// The walk filters any entry whose name starts with a dot, so a tree and an
-/// archive only agree about their content if the archive filters them too.
+/// The walk skips any entry whose name starts with a dot, so the archive scan
+/// has to skip them too for a tree and an archive to list the same files.
 pub(crate) fn make_dot_file_fantome_zip(path: &Path) {
     let file = fs::File::create(path).unwrap();
     let mut zip = zip::ZipWriter::new(file);
@@ -631,9 +667,9 @@ pub(crate) fn make_dot_file_fantome_zip(path: &Path) {
 /// An archive whose manifest declares a hashtable file the archive does not
 /// hold.
 ///
-/// The names such an archive resolves are not the names it claims to, so an
-/// import refuses it. A check that accepts it names chunks differently from
-/// the repair that follows.
+/// Its chunks cannot be named the way the manifest declares, so an import
+/// refuses it. A check that accepts it names chunks differently from the
+/// repair that follows.
 pub(crate) fn make_missing_hashtable_fantome_zip(path: &Path) {
     let mut info = fantome_info("Missing Table Mod");
     info.hashtables = vec![ltk_fantome::FantomeHashtable {
@@ -691,13 +727,12 @@ pub(crate) fn make_bin_named_chunk_fantome_zip(path: &Path, recovered_path: &str
 }
 
 /* Fixtures for the mod-health tests: a bin the shipped migration table
-objects to, archives and trees holding it, and the game install that makes
-the rule live. Shared by the repair and check suites, which exercise the
-same defect through different seams. */
+flags, archives and trees holding it, and a game install that makes the rule
+active. The repair and check suites both use them to test the same defect. */
 
 /// `SkinCharacterDataProperties`, the class the shipped migration table keys on.
 pub(crate) const SKIN_CLASS: ltk_hash::BinHash = ltk_hash::BinHash(0x9b67_e9f6);
-/// The object the stale-bin fixtures hang their property on.
+/// The object that holds the stale-bin fixtures' property.
 pub(crate) const STALE_ENTRY: ltk_hash::BinHash = ltk_hash::BinHash(0x1234_5678);
 /// `iconAvatar`, a field the table moves from `String` to `File`.
 pub(crate) const ICON_AVATAR: ltk_hash::BinHash = ltk_hash::BinHash(0x089a_ff69);
@@ -719,7 +754,7 @@ pub(crate) fn stale_bin() -> ltk_meta::Bin {
     ))
 }
 
-/// A bin already carrying the migrated shape, which the rules stay quiet about.
+/// A bin already carrying the migrated shape, which the rules do not report.
 pub(crate) fn healthy_bin() -> ltk_meta::Bin {
     use ltk_hash::Hash as _;
     bin_holding(ltk_meta::property::values::WadChunkLink::new(
@@ -781,8 +816,8 @@ pub(crate) fn make_loose_bin_fantome_zip_at(
 
 /// A fantome archive holding `bin` as a `RAW/` entry.
 ///
-/// An unpack writes those under the base layer rather than beside it, so a
-/// rule sees them - which is what this holds the archive reader to.
+/// An unpack writes `RAW/` entries under the base layer, so a rule sees them,
+/// and the archive reader has to list them there too.
 pub(crate) fn make_raw_bin_fantome_zip(path: &Path, name: &str, bin: &ltk_meta::Bin) {
     let file = fs::File::create(path).unwrap();
     let mut zip = zip::ZipWriter::new(file);
@@ -803,9 +838,8 @@ pub(crate) fn make_raw_bin_fantome_zip(path: &Path, name: &str, bin: &ltk_meta::
 /// A fantome archive whose one WAD is packed into a single entry holding
 /// `bin`.
 ///
-/// `compression` is the archive's half of the read-in-place seam: a stored
-/// entry is reached chunk by chunk where it lies, and a deflated one has to be
-/// inflated whole first.
+/// `compression` picks how the archive reader reaches the WAD: a stored entry
+/// is read chunk by chunk in place, and a deflated one is inflated whole first.
 pub(crate) fn make_packed_bin_fantome_zip(
     path: &Path,
     name: &str,
@@ -837,8 +871,8 @@ pub(crate) fn make_packed_bin_fantome_zip(
 
 /// A fantome archive whose one packed WAD holds `bytes` under `chunk_path`.
 ///
-/// The shape of [`make_packed_bin_fantome_zip`] with no opinion about what the
-/// chunk is, for a rule about a file that is not a bin.
+/// The shape of [`make_packed_bin_fantome_zip`] with any chunk content, for a
+/// rule about a file that is not a bin.
 pub(crate) fn make_packed_chunk_fantome_zip(
     path: &Path,
     name: &str,
@@ -906,8 +940,8 @@ pub(crate) fn place_packed_chunks_archived_fantome(
 /// Put an archive holding `chunks` into the installed game the config points
 /// at, for a rule that asks what the install holds.
 ///
-/// `root` is the same directory [`point_at_build`] was given, so the two agree
-/// about where the install is.
+/// `root` is the same directory [`point_at_build`] was given, so both use the
+/// same install.
 pub(crate) fn place_game_wad(root: &Path, wad_name: &str, chunks: &[(&str, &[u8])]) {
     let final_dir = root.join("league").join("Game").join("DATA").join("FINAL");
     fs::create_dir_all(&final_dir).unwrap();
@@ -919,17 +953,16 @@ pub(crate) const SILENT_BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/ashe_sf
 
 /// A Wwise bank at `version` holding `chunks`, each an id and a body length.
 ///
-/// The bodies are zeroes, because what decides whether the game's reader takes
-/// a bank is its version and which chunks it carries rather than what is in
-/// them.
+/// The bodies are zeroes, because the game's reader accepts or rejects a bank
+/// by its version and chunk ids, not by chunk contents.
 pub(crate) fn audio_bank(version: u32, chunks: &[(&[u8; 4], usize)]) -> Vec<u8> {
     audio_bank_with_id(version, BUILT_BANK_ID, chunks)
 }
 
 /// The id a bank the Wwise toolchain built carries.
 ///
-/// Any value but zero. What a fixture needs is a bank `audio/bank-id` has
-/// nothing to say about, so the number itself means nothing.
+/// Any nonzero value works. A fixture needs a bank that `audio/bank-id` does
+/// not report, and the specific number has no meaning.
 pub(crate) const BUILT_BANK_ID: u32 = 0x3921_0873;
 
 /// [`audio_bank`] carrying an id of the caller's choosing, for a rule about the
@@ -954,9 +987,9 @@ pub(crate) fn audio_bank_with_id(version: u32, id: u32, chunks: &[(&[u8; 4], usi
     out
 }
 
-/// The bank the game drops without a word: an older format version carrying
-/// the objects that hold its events, which the reader takes only at the
-/// current one.
+/// A bank the game drops without an error: an older format version with a
+/// `HIRC` chunk, which holds its events and which the reader accepts only at
+/// the current version.
 pub(crate) fn silent_audio_bank() -> Vec<u8> {
     audio_bank(134, &[(b"HIRC", 64)])
 }
@@ -977,8 +1010,8 @@ pub(crate) fn place_bin_archived_fantome(storage_dir: &Path, slug: &str, bin: &l
 
 /// An archive-storage fantome whose WAD is packed rather than loose.
 ///
-/// The shape a mod ships in before anything repacks it, and the one whose
-/// chunks are addressed by hash rather than by path.
+/// Mods ship in this shape before a repack, and its chunks are addressed by
+/// hash instead of by path.
 pub(crate) fn place_packed_bin_archived_fantome(
     storage_dir: &Path,
     slug: &str,
@@ -1044,9 +1077,8 @@ pub(crate) fn place_packed_chunks_fantome_with_raw(
 
 /// [`place_packed_bin_archived_fantome`] carrying a `RAW/` entry beside its WAD.
 ///
-/// Fantome packs the base layer's WAD directories and nothing else, so the
-/// entry is content a repack drops and an edit raw-copies - which is how a test
-/// tells the two apart.
+/// A fantome repack writes WAD directories only, so a repack drops the entry
+/// and an edit copies it raw. A test tells the two apart by it.
 pub(crate) fn place_packed_fantome_with_raw(
     storage_dir: &Path,
     slug: &str,
@@ -1083,9 +1115,9 @@ pub(crate) fn place_bin_project_mod(storage_dir: &Path, slug: &str, bin: &ltk_me
 /// [`place_bin_project_mod`] with the bin under the bare hex an unpack writes a
 /// nameless chunk as.
 ///
-/// The tree a fantome import leaves on a machine whose hashtables named none of
-/// its chunks. The file has no extension, so what it is has to come from its
-/// first bytes, and the hex is the chunk hash a repair addresses it by.
+/// The tree a fantome import writes when the hashtables name none of the
+/// chunks. The file has no extension, so its kind comes from its first bytes,
+/// and a repair addresses it by the chunk hash its name spells.
 pub(crate) fn place_hex_named_bin_project_mod(
     storage_dir: &Path,
     slug: &str,
@@ -1110,13 +1142,13 @@ pub(crate) fn place_hex_named_bin_project_mod(
 }
 
 /// Point the config at a game install on the build the shipped table names,
-/// so the rule is live rather than dormant.
+/// so the rule is active rather than dormant.
 pub(crate) fn point_at_installed_build(config: &mut Config, root: &Path) {
     point_at_build(config, root, "16.17.8087655");
 }
 
 /// [`point_at_installed_build`] on a build of the caller's choosing, for a test
-/// about what moves when the game patches.
+/// about what changes when the game updates.
 pub(crate) fn point_at_build(config: &mut Config, root: &Path, version: &str) {
     let league = root.join("league");
     fs::create_dir_all(league.join("Game")).unwrap();
@@ -1153,9 +1185,8 @@ pub(crate) fn property_in_unpacked_tree(
 
 /// A resolver standing in for a machine whose hashtables are synced.
 ///
-/// The one name is deliberately not a path any fixture could hold, so it names
-/// nothing a test places - what it changes is that the library has tables at
-/// all, which is what a health check refuses to run without.
+/// Its one name is a path no fixture holds, so it names nothing a test places.
+/// It only gives the library tables, which a health check requires.
 fn synced_resolver() -> crate::hashtables::WadPathResolver {
     resolver_naming(&["data/no-fixture-holds-this.bin"])
 }
@@ -1170,6 +1201,7 @@ pub(crate) fn resolver_naming(paths: &[&str]) -> crate::hashtables::WadPathResol
     crate::hashtables::WadPathResolver::new(db)
 }
 
+/// A packed WAD holding `chunks`, as bytes ready to drop into a zip entry.
 fn build_packed_wad(chunks: &[(&str, &[u8])]) -> Vec<u8> {
     let mut builder = ltk_wad::WadBuilder::default();
     for (path, _) in chunks {

@@ -2,7 +2,7 @@ import { Check, FolderOpen, Package, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
 import { Button, Dialog, IconButton, Progress, RadioGroup, Tooltip } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import { api, type PackFormat, type PackResult } from "@/lib/tauri";
 import { useDialog } from "@/stores";
 
@@ -100,12 +100,12 @@ export function BulkPackDialog() {
                 <RadioGroup.Card
                   value="modpkg"
                   title=".modpkg"
-                  description="Full support for layers and metadata"
+                  description={m.workshop_pack_modpkg_description()}
                 />
                 <RadioGroup.Card
                   value="fantome"
                   title=".fantome"
-                  description="Legacy format (base layer only)"
+                  description={m.workshop_pack_fantome_description()}
                 />
               </RadioGroup.Options>
             </RadioGroup.Root>

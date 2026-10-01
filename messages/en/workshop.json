@@ -2338,12 +2338,12 @@
       }
     }
   ],
-  "workshop_pack_fantome_description": "Legacy format (base layer only)",
-  "workshop_pack_fantome_layers_hint": "This project has {count} layers, but Fantome format only supports the base layer. Other layers will not be included.",
+  "workshop_pack_fantome_description": "Legacy format",
+  "workshop_pack_fantome_layers_hint": "This project has {count} layers. cslol-manager and other Fantome tools load only the base layer.",
   "workshop_pack_format_label": "Output Format",
   "workshop_pack_left_out_list_label": "What the ignore rules left out",
   "workshop_pack_left_out_title": "Left out by ignore rules",
-  "workshop_pack_modpkg_description": "Full support for layers and metadata",
+  "workshop_pack_modpkg_description": "Current format",
   "workshop_pack_packing_label": "Packing...",
   "workshop_pack_reveal_action": "Show in Explorer",
   "workshop_pack_title": "Pack {name}",

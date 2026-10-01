@@ -1,10 +1,10 @@
 //! Reading a mod's metadata out of its archive and back off disk.
 //!
-//! Every installed mod, whatever it arrived as, has a `mod.config.json` in its
-//! directory. A fantome gets one from its importer and a modpkg gets one
-//! written here, both normalized into the same [`ModProject`] shape, which is
-//! why nothing downstream needs to know which format a mod came in as — and
-//! why the library view never mounts an archive just to render a list.
+//! Every installed mod has a `mod.config.json` in its directory, whatever format
+//! it arrived in. A fantome gets one from its importer and a modpkg gets one
+//! written here, both in the same [`ModProject`] shape. Code downstream does
+//! not depend on the archive format, and the library view lists mods without
+//! mounting an archive.
 
 use crate::error::{AppError, AppResult};
 use crate::mods::index::LibraryModEntry;
@@ -77,16 +77,18 @@ pub(crate) fn read_installed_mod(
     })
 }
 
-/// The layer table a fantome archive declares, or `None` when it declares none.
+/// The layer table of a fantome archive: the layers `META/info.json` declares,
+/// plus one for each undeclared `WAD_<layer>/` directory. `None` when the
+/// archive has no layers.
 ///
 /// Only the layout migration reads this. Every other path gets the table from
-/// the importer, which keeps what `META/info.json` carries — but a config an
-/// older version of the app wrote does not, and repairing one means reading the
-/// archive again. `None` is what says to leave such a config alone.
+/// the importer. A config written by an older version of the app may lack the
+/// table, and repairing it means reading the archive again. `None` means the
+/// config is left unchanged.
 ///
-/// Derived through the same conversion the importer uses, so the migration
-/// cannot decide a config needs rewriting over an ordering only this disagreed
-/// about. Both sides order through [`ModProjectLayer::normalize_table`].
+/// Derived through the same conversion the importer uses, so the migration and
+/// the importer agree on layer order. Both order through
+/// [`ModProjectLayer::normalize_table`].
 ///
 /// # Errors
 ///
@@ -95,9 +97,10 @@ pub(crate) fn read_installed_mod(
 pub(crate) fn fantome_layers(archive: &Path) -> AppResult<Option<Vec<ModProjectLayer>>> {
     let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)
         .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
-    let info = reader
+    let mut info = reader
         .read_info()
         .map_err(|e| AppError::Other(format!("Failed to read META/info.json: {e}")))?;
+    info.declare_layers(reader.layer_names().iter().map(String::as_str));
 
     if info.layers.is_empty() {
         return Ok(None);
@@ -119,9 +122,10 @@ pub(crate) fn load_mod_project(mod_dir: &Path) -> AppResult<ModProject> {
 
 /// Write a fantome's own metadata out as a mod project config.
 ///
-/// Reads `META/info.json` and the thumbnail, never the content, so this costs
-/// one seek where importing the archive costs an unpack. It is what gives a
-/// mod kept in its archive the config every card and every slug is read from.
+/// Reads `META/info.json`, the entry table and the thumbnail but no WAD
+/// content, so it costs a few small reads where an import costs an unpack. A
+/// `WAD_<layer>/` directory the metadata does not declare gets a layer. A mod
+/// kept in its archive reads its card and slug from this config.
 ///
 /// # Errors
 ///
@@ -130,9 +134,10 @@ pub(crate) fn load_mod_project(mod_dir: &Path) -> AppResult<ModProject> {
 pub(crate) fn extract_fantome_metadata(archive: &Path, metadata_dir: &Path) -> AppResult<()> {
     let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)
         .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
-    let info = reader
+    let mut info = reader
         .read_info()
         .map_err(|e| AppError::Other(format!("Failed to read META/info.json: {e}")))?;
+    info.declare_layers(reader.layer_names().iter().map(String::as_str));
 
     let project = ModProject::from(info);
 
@@ -150,8 +155,7 @@ pub(crate) fn extract_fantome_metadata(archive: &Path, metadata_dir: &Path) -> A
 
 /// Write a modpkg's own metadata out as a mod project config.
 ///
-/// It is what gives a mod kept in its archive the config every card and every
-/// slug is read from.
+/// A mod kept in its archive reads its card and slug from this config.
 ///
 /// # Errors
 ///
@@ -400,5 +404,20 @@ mod tests {
 
         let result = extract_fantome_thumbnail(&archive_path, &metadata_dir).unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn extracted_metadata_gives_an_undeclared_layer_directory_a_layer() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("layers.fantome");
+        let bin = crate::mods::test_support::stale_bin();
+        crate::mods::test_support::make_layer_wads_fantome_zip(&archive, &bin, &bin);
+
+        extract_fantome_metadata(&archive, &tmp.path().join("meta")).unwrap();
+
+        let project = load_mod_project(&tmp.path().join("meta")).unwrap();
+        let mut names: Vec<&str> = project.layers.iter().map(|l| l.name.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(names, ["Chroma", "base", "zeta"]);
     }
 }

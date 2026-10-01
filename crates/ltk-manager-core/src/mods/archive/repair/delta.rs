@@ -1,21 +1,24 @@
-//! What a repair changed, as the edit the archive it came out of takes.
+//! A repair's changes, as an edit to the archive the repaired files came from.
 //!
-//! A fix run rewrites a handful of files in an archive that runs to hundreds of
-//! megabytes. Stated as an [`ArchiveDelta`], those files are the
-//! [`apply_delta`] writes and removals and everything else is raw-copied, where
-//! packing the staged project again re-encodes every chunk the mod holds.
+//! A fix run rewrites a few files in an archive of hundreds of megabytes. As an
+//! [`ArchiveDelta`], [`apply_delta`] writes and removes only those files and
+//! raw-copies the rest. Packing the staged project again would re-encode every
+//! chunk the mod holds.
 
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
 use crate::problems::{FileChange, FileOutcome, FixReport, HeldWrites, KeptTable};
 use camino::Utf8Path;
 use fs_err as fs;
-use ltk_fantome::{ArchiveDelta, DeltaReport, FantomeHashtable, FantomeReader, apply_delta};
+use ltk_fantome::{
+    ArchiveDelta, DeltaReport, FantomeHashtable, FantomeReader, apply_delta, is_layer_name,
+    wad_entry_name,
+};
 use ltk_hashtable::Category;
 use ltk_mod_project::{HASHES_DIR_NAME, ModProject, ModProjectLayer};
 use ltk_wad::{WadHash, chunk_hash_of};
 use std::path::{Path, PathBuf};
 
-/// The suffix a base-layer directory takes to be one of the mod's WADs.
+/// The suffix that makes a layer directory one of the mod's WADs.
 const WAD_DIR_SUFFIX: &str = ".wad.client";
 
 /// Where an unpack writes the archive's `RAW/` entries, under the base layer.
@@ -24,10 +27,11 @@ const RAW_DIR: &str = "raw";
 /// Where an archive keeps the hashtable files its metadata declares.
 const ARCHIVE_HASHES_DIR: &str = "META/hashes";
 
-/// The entry an archive's own metadata travels in.
+/// The entry that holds an archive's metadata.
 const ARCHIVE_INFO: &str = "META/info.json";
 
-/// What a repair changed, ready to write into the archive it came out of.
+/// A repair's changes, ready to write into the archive the repaired files came
+/// from.
 #[derive(Debug)]
 pub(super) struct RepairEdit(ArchiveDelta<'static>);
 
@@ -35,15 +39,16 @@ impl RepairEdit {
     /// Read what `report` applied out of the repaired tree at `staging`.
     ///
     /// [`FixRun::write`](crate::problems::FixRun::write) keeps none of the bytes
-    /// it writes, so every fixed file is read back here - a few KB apiece,
-    /// against a repack of everything the mod holds. `archive` is read for the
-    /// metadata a kept name has to be declared in, and is not written to.
+    /// it writes, so every fixed file is read back here. That is a few KB per
+    /// file, where a repack reads everything the mod holds. `archive` is read
+    /// for the metadata a kept name has to be declared in, and is not written
+    /// to.
     ///
     /// # Errors
     ///
-    /// Reports a repaired file or the archive's metadata that could not be
-    /// read, and a fix the Fantome format has no place for. Either leaves the
-    /// repack as the way to write the repair.
+    /// Reports a repaired file or archive metadata that could not be read, and
+    /// a fix the Fantome format has no place for. In either case the repack
+    /// writes the repair instead.
     pub(super) fn read(staging: &Path, archive: &Utf8Path, report: &FixReport) -> AppResult<Self> {
         let mut delta = assemble(report, |file| {
             Ok(fs::read(content_path(staging, &file.layer, &file.path))?)
@@ -59,16 +64,16 @@ impl RepairEdit {
     /// Read what `report` applied out of `held`, a run that wrote nothing to
     /// disk.
     ///
-    /// The bytes are the run's own, so nothing is read back, and the kept
-    /// names arrive as the one merged table rather than as a project's
-    /// `hashes/`. `archive` is read for the metadata that table has to be
-    /// declared in, and is not written to.
+    /// The bytes come from the run, so nothing is read back, and the kept names
+    /// come as the one merged table instead of a project's `hashes/`. `archive`
+    /// is read for the metadata that table has to be declared in, and is not
+    /// written to.
     ///
     /// # Errors
     ///
     /// Reports a fix the Fantome format has no place for, and a file the run
-    /// reports written but holds no bytes for. Either leaves the unpack and
-    /// the repack as the way to write the repair.
+    /// reports written but holds no bytes for. In either case the unpack and
+    /// the repack write the repair instead.
     pub(super) fn held(
         held: &HeldWrites,
         archive: &Utf8Path,
@@ -96,16 +101,16 @@ impl RepairEdit {
     ///
     /// # Errors
     ///
-    /// Reports an archive `ltk_fantome` will not edit - most often one shipping
-    /// its WADs as loose files, which have no packed bytes to rebase. Nothing
-    /// is written to `archive` on a refusal.
+    /// Reports an archive `ltk_fantome` will not edit, most often one that
+    /// stores its WADs as loose files, which have no packed bytes to rebase.
+    /// Nothing is written to `archive` when it refuses.
     pub(super) fn apply(&self, archive: &Utf8Path) -> AppResult<DeltaReport> {
         apply_delta(archive, archive, &self.0, None)
             .map_err(|e| AppError::Other(format!("Failed to edit {archive}: {e}")))
     }
 }
 
-/// The delta `report` states, with `bytes_of` answering for each written file.
+/// The delta for `report`, with `bytes_of` supplying each written file's bytes.
 ///
 /// # Errors
 ///
@@ -118,8 +123,8 @@ fn assemble(
     let mut delta = ArchiveDelta::new();
 
     for file in &report.files {
-        // A file a rule read and left alone was never written, so its bytes
-        // are the archive's own and re-encoding them would change the mod.
+        // A file a rule read but did not change was never written. Its bytes
+        // are the archive's, and re-encoding them would change the mod.
         if file.applied == 0 {
             continue;
         }
@@ -133,13 +138,13 @@ fn assemble(
 
         match file.change {
             FileChange::Removed => match target {
-                DeltaTarget::Chunk { wad, hash } => delta.remove_chunk(&wad, hash),
+                DeltaTarget::Chunk { wad, hash } => delta.remove_chunk(&file.layer, &wad, hash),
                 DeltaTarget::Entry { path } => delta.remove_entry(&path),
             },
             FileChange::Written => {
                 let bytes = bytes_of(file)?;
                 match target {
-                    DeltaTarget::Chunk { wad, hash } => delta.chunk(&wad, hash, bytes),
+                    DeltaTarget::Chunk { wad, hash } => delta.chunk(&file.layer, &wad, hash, bytes),
                     DeltaTarget::Entry { path } => delta.entry(&path, bytes),
                 }
             }
@@ -149,32 +154,31 @@ fn assemble(
     Ok(delta)
 }
 
-/// What one repaired file of a staged project is, to the archive it came out
-/// of.
+/// What one repaired file of a staged project addresses in the archive it came
+/// from.
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum DeltaTarget {
-    /// A chunk of a packed WAD, keyed the way that WAD keys it.
+    /// A chunk of a packed WAD in the file's layer, keyed by its path hash.
     Chunk { wad: String, hash: WadHash },
-    /// A whole archive entry, at the path the archive names it by.
+    /// A whole archive entry, by its entry name.
     Entry { path: String },
 }
 
 impl DeltaTarget {
     /// What the repaired `path` of `layer` addresses.
     ///
-    /// The unpack's own placement read backwards: `WAD/` lands in the base
-    /// layer and `RAW/` under its `raw` directory, so a `.wad.client` directory
-    /// is a WAD addressing its chunks by hash and everything else is an entry
-    /// at its own path.
+    /// This reverses the unpack's placement: a layer's WAD directory unpacks
+    /// into that layer, and `RAW/` into the base layer's `raw` directory. A
+    /// `.wad.client` directory is a WAD whose chunks are addressed by hash, and
+    /// every other path is an entry.
     ///
-    /// The hash comes from [`chunk_hash_of`] rather than from the path's own
-    /// spelling, because a lossless unpack writes a nameless chunk as bare hex
-    /// and adds `.ltk` to a path two chunks claimed.
+    /// The hash comes from [`chunk_hash_of`] instead of hashing the path as
+    /// written, because a lossless unpack writes an unnamed chunk as bare hex
+    /// and adds `.ltk` to a path two chunks share.
     ///
-    /// `None` for a layer Fantome has no place for: it stores the base layer
-    /// alone, and there is nowhere else for the file to go.
+    /// `None` for a layer name no WAD directory can hold.
     fn of(layer: &str, path: &str) -> Option<Self> {
-        if layer != ModProjectLayer::BASE_NAME {
+        if !is_layer_name(layer) {
             return None;
         }
 
@@ -185,11 +189,11 @@ impl DeltaTarget {
                     hash: chunk_hash_of(Utf8Path::new(rest)),
                 }
             }
-            Some((RAW_DIR, rest)) => Self::Entry {
+            Some((RAW_DIR, rest)) if layer == ModProjectLayer::BASE_NAME => Self::Entry {
                 path: format!("RAW/{rest}"),
             },
             _ => Self::Entry {
-                path: format!("WAD/{path}"),
+                path: wad_entry_name(layer, path),
             },
         })
     }
@@ -198,10 +202,10 @@ impl DeltaTarget {
 /// Carry the mod's own hashtables into the edit, and declare them.
 ///
 /// A repair writes every path it hashes into the mod's own table instead of
-/// keeping a restore point - ADR-0006 - so an edit naming only the fixed files
-/// would leave the mod holding hashes nothing reads back. Every declared table
-/// travels rather than only the one this run merged into, since which of them
-/// that was is the fix run's to know and a mod's tables are its own file names.
+/// keeping a restore point (ADR-0006). An edit with only the fixed files would
+/// leave the mod with hashes no table names. Every declared table is carried,
+/// not only the one this run merged into, because only the fix run knows which
+/// one that was.
 fn declare_kept_names(
     delta: &mut ArchiveDelta<'static>,
     staging: &Path,
@@ -248,12 +252,11 @@ fn declare_kept_names(
     Ok(())
 }
 
-/// Carry the merged table into the edit, and declare it where the archive
-/// does not.
+/// Carry the merged table into the edit, and declare it if the archive does
+/// not.
 ///
-/// One table rather than every declared one: a held run merges into the table
-/// it names, and the rest are the archive's own bytes, which the edit
-/// raw-copies.
+/// Only one table is carried. A held run merges into the table it names, and
+/// the edit raw-copies the archive's other tables.
 fn declare_held_table(
     delta: &mut ArchiveDelta<'static>,
     table: &KeptTable,
@@ -290,10 +293,9 @@ fn declare_held_table(
 }
 
 /// A conventional table path under the archive's `META/hashes/` that no
-/// manifest entry has claimed.
+/// manifest entry uses.
 ///
-/// The same sequence a project's `hashes/` is named by, under the archive's
-/// own directory.
+/// It follows the naming sequence of a project's `hashes/`.
 fn free_archive_table_path(manifests: &[FantomeHashtable]) -> String {
     let taken: Vec<String> = manifests
         .iter()
@@ -310,8 +312,8 @@ fn free_archive_table_path(manifests: &[FantomeHashtable]) -> String {
 /// Where the archive keeps the table a project declares at `declared`.
 ///
 /// `None` for anything but a plain name directly under `hashes/`. A pack routes
-/// those too, by rules `ltk_mod_project` owns and this would be a second copy
-/// of, so an edit hands them back to the repack rather than guessing.
+/// other paths by rules in `ltk_mod_project`, and the edit leaves those to the
+/// repack instead of copying the rules.
 fn archive_table_path(declared: &str) -> Option<String> {
     let name = declared
         .strip_prefix(HASHES_DIR_NAME)

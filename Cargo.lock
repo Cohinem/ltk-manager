@@ -3322,9 +3322,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_fantome"
-version = "0.14.6"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "405008c846551e4267e6d036af635317bc0cd57b179119d71ec96e34e2d03516"
+checksum = "8b63e3f657329beaaa5eb6fc7d31da5099a3eb11e00ce191509214ad3d0e14e8"
 dependencies = [
  "camino",
  "indexmap 2.14.0",
@@ -3416,9 +3416,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_hashtable"
-version = "0.1.3"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ec9fb22c2ff8758c5d3ac279664a9bd9a8a8c1ca48607c0c0c5ae0941f35f99"
+checksum = "22b72449bb394f85ebdfa80d8452251007e4226ca42e8ec9c94e7d9d66889340"
 dependencies = [
  "camino",
  "ltk_hash",
@@ -3522,9 +3522,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_mod_project"
-version = "0.15.3"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91c3ea5ca880509c43ce35e85a27105f318e137324b39523d728b75d8b46e648"
+checksum = "80109055b2be3f5b9baed707cd454fd408c17e5901c50c3fdeaa57c696482e2b"
 dependencies = [
  "camino",
  "ignore",
@@ -3549,9 +3549,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_modpkg"
-version = "0.12.6"
+version = "0.12.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "089f6f47ffe9249cd29c4683a728ed4bc35f2cfc093e763e26c42fe184741fbb"
+checksum = "06ee222feb92690787e322f9adb652aa457ccbba6d9902cd8fab50672f516eb4"
 dependencies = [
  "binrw",
  "byteorder",
@@ -3570,9 +3570,9 @@ dependencies = [
 
 [[package]]
 name = "ltk_overlay"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90f82a4aa9b03072e5d2f545d9d0286660cc5d7212cef9f09635c41546a50e3a"
+checksum = "603d6d17483d938c1b64b57aa986907a548d88f5c05eec3439cc28105f542545"
 dependencies = [
  "byteorder",
  "camino",
