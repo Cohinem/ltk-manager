@@ -187,7 +187,7 @@ function ObjectRow({
       )}
       {!opens && <CaretSlot />}
       <ObjectGlyph objectClass={first?.class} className="h-3.5 w-3.5 shrink-0 text-surface-400" />
-      <span className={twMerge("min-w-0 truncate", node.unnamed && "text-surface-300")}>
+      <span className={twMerge("min-w-0 truncate", node.unnamed && "text-surface-400")}>
         <MarkedText text={node.name} ranges={rangesInName(node.path, node.ranges)} />
       </span>
       {first && (

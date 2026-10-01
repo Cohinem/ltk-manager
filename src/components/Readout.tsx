@@ -1,3 +1,4 @@
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
 import {
   type KeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -154,6 +155,7 @@ export function Readout({
         "h-[var(--readout-height,auto)] min-w-0 bg-surface-veil-soft px-[var(--readout-padding-x,0.375rem)] py-0.5",
         "font-mono text-surface-200 tabular-nums select-text focus:outline-none",
         editable ? "cursor-text" : "cursor-default",
+        step !== undefined && "text-right",
         /* DS-VEIL, DS-HOVER, DS-RADIUS. The wrapper draws them for a labelled one. */
         !wrapped &&
           "rounded-sm border border-surface-veil transition-colors hover:border-accent-hover",
@@ -182,7 +184,7 @@ export function Readout({
     <span
       /* DS-VEIL, DS-HOVER, DS-RADIUS */
       className={twMerge(
-        "inline-flex min-w-0 items-stretch overflow-hidden rounded-sm border border-surface-veil transition-colors hover:border-accent-hover",
+        "group/readout inline-flex min-w-0 items-stretch overflow-hidden rounded-sm border border-surface-veil transition-colors hover:border-accent-hover",
         editable && "focus-within:border-accent-500",
         invalid && "border-danger",
         placeholder && "border-dashed focus-within:border-solid",
@@ -193,7 +195,8 @@ export function Readout({
       )}
       {field}
       {editable && step !== undefined && (
-        <span className="flex shrink-0 flex-col border-l border-surface-veil">
+        /* Keeps its room while hidden, so a column of fields does not shift under the pointer. */
+        <span className="flex shrink-0 flex-col border-l border-surface-veil opacity-0 group-focus-within/readout:opacity-100 group-hover/readout:opacity-100 group-hover/row:opacity-100">
           {[1, -1].map((direction) => (
             <button
               key={direction}
@@ -203,7 +206,8 @@ export function Readout({
                   ? m.common_number_increase_action()
                   : m.common_number_decrease_action()
               }
-              className="flex h-[calc(var(--readout-height,1.5rem)/2)] w-[var(--readout-step-width,1rem)] items-center justify-center text-fine text-surface-400 hover:bg-surface-veil hover:text-surface-100"
+              /* DS-VEIL */
+              className="flex h-[calc(var(--readout-height,1.5rem)/2)] w-[var(--readout-step-width,1rem)] items-center justify-center text-surface-400 hover:bg-surface-veil hover:text-surface-100"
               onMouseDown={(event) => {
                 event.preventDefault();
                 input.current?.focus();
@@ -214,8 +218,8 @@ export function Readout({
                 nudge(direction, event.ctrlKey || event.metaKey, event.shiftKey);
               }}
             >
-              {direction === 1 && "+"}
-              {direction === -1 && "−"}
+              {direction === 1 && <CaretUpIcon weight="bold" className="h-2.5 w-2.5" />}
+              {direction === -1 && <CaretDownIcon weight="bold" className="h-2.5 w-2.5" />}
             </button>
           ))}
         </span>

@@ -274,7 +274,7 @@ export function ClassText({ suggestion }: { suggestion: ClassSuggestion }) {
 
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
-      <span className={twMerge("truncate text-surface-100", unnamed && "text-surface-300")}>
+      <span className={twMerge("truncate text-surface-100", unnamed && "text-surface-400")}>
         {classLabel(suggestion)}
       </span>
       {note !== null && <span className="ml-auto shrink-0 text-meta text-surface-400">{note}</span>}

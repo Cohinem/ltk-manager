@@ -135,6 +135,9 @@ const CHANNEL_WIDTH = "w-14";
 /** What stands between a random range's bounds, "The inspector" in docs/ux/BIN_EDITOR.md. */
 const RANGE_SEPARATOR = "..";
 
+/** A row's value as wide as it draws, so the hover actions follow it. An open text field fills the row. */
+const HUG_VALUE = "flex-initial has-[[data-text-field]]:flex-1";
+
 interface RowLineProps {
   line: RowLine;
   /** The reveal landed on this row. */
@@ -232,7 +235,7 @@ export function BinRowLine({
       {row.value.type === "records" ? (
         <span className="shrink-0 text-meta text-surface-400">{row.value.len}</span>
       ) : (
-        <RowValue row={row} />
+        <RowValue row={row} className={HUG_VALUE} />
       )}
       {error && (
         <Tooltip content={errorSummary(error)}>
@@ -417,7 +420,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
     element ? "shrink-0" : "truncate",
     object ? "font-medium text-surface-100" : "text-surface-200",
     element && "text-surface-400",
-    row.unnamed && "text-surface-300",
+    row.unnamed && "text-surface-400",
     objectChange?.change === "removed" && "text-surface-400 line-through",
   );
 
@@ -515,8 +518,8 @@ function KindTag({ row }: { row: BinRow }) {
 
 /* A plain span rather than a component: the tooltip's render prop spreads its handlers
    onto the element it is given. */
-/* DS-KIND-HUE, DS-TEXT */
-const TAG_CLASSES = "text-bin-kind-text";
+/* DS-KIND-HUE, DS-TEXT. Dimmed only as far as AA contrast allows in both themes. */
+const TAG_CLASSES = "text-bin-kind-text/85";
 
 /**
  * The cell a row's value draws, which is what a class view places where its layout
@@ -526,11 +529,14 @@ export function RowValue({
   row,
   field = ownField(row),
   color = false,
+  className,
 }: {
   row: BinRow;
   field?: string | null;
   /** The row is a colour whatever its name, such as a colour value's constant. */
   color?: boolean;
+  /** Overrides the cell's own classes, such as the width it takes in its line. */
+  className?: string;
 }) {
   const objectName = use(ObjectNameContext);
   const key = rowKey(row);
@@ -554,7 +560,10 @@ export function RowValue({
   if (widget !== null) {
     return (
       /* `group/row` again, so a layout cell outside a row shows its hover actions too. */
-      <span data-row-value className="group/row flex min-w-0 flex-1 items-center gap-2">
+      <span
+        data-row-value
+        className={twMerge("group/row flex min-w-0 flex-1 items-center gap-2", className)}
+      >
         <FieldDiscardContext value={() => edit?.dismiss?.(key)}>{widget}</FieldDiscardContext>
         {refusal !== undefined && <RefusalMark refusal={refusal} />}
       </span>
@@ -563,14 +572,14 @@ export function RowValue({
 
   if (row.value.type === "vector" && (color || isColorVector(row.name, row.value.values))) {
     return (
-      <span className="flex min-w-0 flex-1 items-center gap-2">
+      <span className={twMerge("flex min-w-0 flex-1 items-center gap-2", className)}>
         <ColorField values={row.value.values} label={m.workshop_bin_color_edit_action()} />
       </span>
     );
   }
 
   return (
-    <span className="flex min-w-0 flex-1 items-center gap-2">
+    <span className={twMerge("flex min-w-0 flex-1 items-center gap-2", className)}>
       <Value
         value={row.value}
         node={row.node}
@@ -832,34 +841,38 @@ function TextEdit({
   if ((editing || implicit) && path !== null) {
     return (
       <FieldDiscardContext value={dropped}>
-        <PathInput
-          value={text}
-          field={path}
-          placeholder={text || m.workshop_bin_empty_label()}
-          aria-label={label}
-          invalid={invalid}
-          autoFocus={editing}
-          onEnter={onEnter}
-          onCommit={commit}
-          onLeave={leave}
-        />
+        <span data-text-field className="flex min-w-0 flex-1">
+          <PathInput
+            value={text}
+            field={path}
+            placeholder={text || m.workshop_bin_empty_label()}
+            aria-label={label}
+            invalid={invalid}
+            autoFocus={editing}
+            onEnter={onEnter}
+            onCommit={commit}
+            onLeave={leave}
+          />
+        </span>
       </FieldDiscardContext>
     );
   }
   if (editing || implicit) {
     return (
       <FieldDiscardContext value={dropped}>
-        <Readout
-          value={text}
-          placeholder={text || m.workshop_bin_empty_label()}
-          aria-label={label}
-          className="min-w-0 flex-1"
-          invalid={invalid}
-          autoFocus={editing}
-          onEnter={onEnter}
-          onCommit={commit}
-          onLeave={leave}
-        />
+        <span data-text-field className="flex min-w-0 flex-1">
+          <Readout
+            value={text}
+            placeholder={text || m.workshop_bin_empty_label()}
+            aria-label={label}
+            className="min-w-0 flex-1"
+            invalid={invalid}
+            autoFocus={editing}
+            onEnter={onEnter}
+            onCommit={commit}
+            onLeave={leave}
+          />
+        </span>
       </FieldDiscardContext>
     );
   }
@@ -1070,9 +1083,9 @@ function RangeValue({ range, field }: { range: ValueRange; field: string | null 
   if (range.least === range.most) return <NumberValue text={String(range.least)} field={field} />;
   return (
     <span className="flex min-w-0 items-center gap-1">
-      <Readout value={String(range.least)} className={COMPONENT_WIDTH} />
+      <Readout value={String(range.least)} className={twMerge(COMPONENT_WIDTH, "text-right")} />
       <span className="shrink-0 text-surface-400 select-none">{RANGE_SEPARATOR}</span>
-      <Readout value={String(range.most)} className={COMPONENT_WIDTH} />
+      <Readout value={String(range.most)} className={twMerge(COMPONENT_WIDTH, "text-right")} />
       {unit !== null && <Unit unit={unit} />}
     </span>
   );
@@ -1163,8 +1176,20 @@ function StructValue({ value, node, rowKey: key }: StructValueProps) {
     <>
       <ClassCard classHash={value.classHash} name={value.class} />
       <ValueMarkCell mark={mark} />
-      {node === "object" && <span className="ml-auto text-meta text-surface-400">{value.len}</span>}
+      {node === "object" && <PropertyCount count={value.len} />}
     </>
+  );
+}
+
+/** How many properties an object holds, beside its class. */
+function PropertyCount({ count }: { count: number }) {
+  return (
+    <Tooltip content={m.workshop_bin_object_property_count_label({ count })}>
+      <span className="flex shrink-0 items-center gap-1.5 text-meta text-surface-400">
+        <span aria-hidden>·</span>
+        {count}
+      </span>
+    </Tooltip>
   );
 }
 

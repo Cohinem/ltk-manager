@@ -1031,6 +1031,16 @@
   "workshop_bin_object_actions_label": "Object actions",
   "workshop_bin_object_created_label": "Created in {layer}",
   "workshop_bin_object_edit_failed_title": "The object was not changed",
+  "workshop_bin_object_property_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} property",
+        "countPlural=other": "{count} properties"
+      }
+    }
+  ],
   "workshop_bin_object_removed_label": "Removed in {layer}",
   "workshop_bin_object_removed_tag": "removed",
   "workshop_bin_objects_label": [
