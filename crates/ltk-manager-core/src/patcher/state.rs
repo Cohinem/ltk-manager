@@ -1,5 +1,7 @@
 //! Lifecycle state shared between a patching session and its callers.
 
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::thread::JoinHandle;
@@ -7,6 +9,7 @@ use std::thread::JoinHandle;
 use serde::{Deserialize, Serialize};
 
 use super::refresh::OverlayRefresh;
+use crate::overlay::WorkshopTestProject;
 
 /// Current phase of the patcher lifecycle.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -24,9 +27,28 @@ pub enum PatcherPhase {
 pub struct StoredPatcherConfig {
     pub flags: Option<u64>,
     pub workshop_projects: Option<Vec<String>>,
+    /// The layers each workshop project is tested with, by project path. A
+    /// project missing from the map is tested with every layer.
+    pub workshop_layers: Option<HashMap<String, Vec<String>>>,
 }
 
 impl StoredPatcherConfig {
+    /// The workshop projects a session started from this config tests.
+    pub fn workshop_tests(&self) -> Vec<WorkshopTestProject> {
+        let layers = self.workshop_layers.as_ref();
+
+        self.workshop_projects
+            .iter()
+            .flatten()
+            .map(|path| WorkshopTestProject {
+                path: PathBuf::from(path),
+                enabled_layers: layers
+                    .and_then(|layers| layers.get(path))
+                    .map(|names| names.iter().cloned().collect()),
+            })
+            .collect()
+    }
+
     /// What a session started from this config covers.
     pub fn origin(&self) -> SessionOrigin {
         match self.workshop_projects.as_deref() {
@@ -176,6 +198,23 @@ mod tests {
                 .overlay_refresh
                 .is_due(std::time::Instant::now() + std::time::Duration::from_secs(60))
         );
+    }
+
+    #[test]
+    fn workshop_tests_take_each_projects_layers() {
+        let config = StoredPatcherConfig {
+            flags: None,
+            workshop_projects: Some(vec!["a".to_owned(), "b".to_owned()]),
+            workshop_layers: Some(HashMap::from([("a".to_owned(), vec!["extras".to_owned()])])),
+        };
+
+        let tests = config.workshop_tests();
+
+        assert_eq!(
+            tests[0].enabled_layers,
+            Some(["extras".to_owned()].into_iter().collect())
+        );
+        assert_eq!(tests[1].enabled_layers, None);
     }
 
     #[test]

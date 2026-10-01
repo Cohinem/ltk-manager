@@ -51,7 +51,7 @@ export function useProjectSelectionActions(): ProjectSelectionActions {
     test: () => {
       if (count === 0) return;
       testProjects.mutate(
-        { projects: projects.map((p) => ({ path: p.path, displayName: p.displayName })) },
+        { projects },
         { onError: (err) => console.error("Failed to test projects:", err) },
       );
       clear();

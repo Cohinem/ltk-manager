@@ -9,12 +9,14 @@ import { useNavigate } from "@tanstack/react-router";
 import { match } from "ts-pattern";
 
 import { Button, ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import type { Incident, WorkshopProject } from "@/lib/tauri";
 import { useLatestIncident } from "@/modules/diagnostics";
 import { useIncidentLineStore } from "@/stores";
 
 import { neutralTint, packTint, testTint } from "../../shared/utils/actionTints";
 import { useWorkshopTestState } from "../../testing/api/useWorkshopTestState";
+import { TestLayersMenu } from "../../testing/components/TestLayersMenu";
 import { BuildingTestButton, StopTestButton } from "../../testing/components/testSessionButtons";
 import { useProjectActions } from "../hooks/useProjectActions";
 
@@ -38,7 +40,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
           onClick={actions.handleTestProject}
           className={testTint}
         >
-          Test
+          {m.workshop_header_test_action()}
         </Button>
       );
       if (!failedTest) return button;
@@ -47,7 +49,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
     .with({ kind: "building-this" }, () => <BuildingTestButton />)
     .with({ kind: "running-this" }, () => <StopTestButton />)
     .with({ kind: "building-other" }, { kind: "running-other" }, ({ otherLabel }) => (
-      <Tooltip content={`Testing "${otherLabel}" - stop it first`}>
+      <Tooltip content={m.workshop_header_test_blocked_hint({ name: otherLabel })}>
         <Button
           variant="ghost"
           size="sm"
@@ -55,12 +57,12 @@ export function ProjectActions({ project }: ProjectActionsProps) {
           left={<PlayIcon weight="bold" className="h-4 w-4" />}
           className={testTint}
         >
-          Test
+          {m.workshop_header_test_action()}
         </Button>
       </Tooltip>
     ))
     .with({ kind: "building-library" }, { kind: "running-library" }, () => (
-      <Tooltip content="Patcher is running - stop it first">
+      <Tooltip content={m.workshop_header_test_patcher_hint()}>
         <Button
           variant="ghost"
           size="sm"
@@ -68,7 +70,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
           left={<PlayIcon weight="bold" className="h-4 w-4" />}
           className={testTint}
         >
-          Test
+          {m.workshop_header_test_action()}
         </Button>
       </Tooltip>
     ))
@@ -77,6 +79,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
   return (
     <ButtonGroup className="shrink-0">
       {testButton}
+      <TestLayersMenu project={project} className={testTint} />
 
       <Button
         variant="ghost"
@@ -85,7 +88,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
         onClick={actions.handleOpenPackDialog}
         className={packTint}
       >
-        Pack
+        {m.workshop_header_pack_action()}
       </Button>
 
       <Menu.Root>
@@ -95,7 +98,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
               icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
               variant="ghost"
               size="sm"
-              aria-label="Project actions"
+              aria-label={m.workshop_header_actions_label()}
               className={neutralTint}
             />
           }
@@ -107,7 +110,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
                 icon={<FolderOpenIcon className="h-4 w-4" />}
                 onClick={actions.handleOpenLocation}
               >
-                Open Location
+                {m.workshop_header_open_location_action()}
               </Menu.Item>
               <Menu.Separator />
               <Menu.Item
@@ -115,7 +118,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
                 variant="danger"
                 onClick={actions.handleOpenDeleteDialog}
               >
-                Delete
+                {m.workshop_header_delete_action()}
               </Menu.Item>
             </Menu.Popup>
           </Menu.Positioner>
@@ -146,7 +149,7 @@ function FailedTestTip({ incident }: { incident: Incident }) {
   return (
     <div className="flex max-w-[260px] flex-col gap-1.5">
       <span className="text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
-        Last test
+        {m.workshop_header_last_test_label()}
       </span>
       <p className="font-semibold text-surface-100">{incident.verdict.title}</p>
       {incident.verdict.subject && (
@@ -161,7 +164,7 @@ function FailedTestTip({ incident }: { incident: Incident }) {
           navigate({ to: "/diagnostics", search: { tab: "games", incident: incident.id } })
         }
       >
-        Details
+        {m.workshop_header_last_test_details_action()}
       </Button>
     </div>
   );

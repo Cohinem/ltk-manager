@@ -17,4 +17,5 @@ export * from "../shell/hooks/useProjectEditor";
 export * from "../shell/hooks/usePruneTimelineMarkers";
 export * from "../shell/hooks/useShellHistory";
 export * from "../shell/state/workshopEditor";
+export * from "../testing/state/testLayers";
 export * from "./workshopDialogs";
