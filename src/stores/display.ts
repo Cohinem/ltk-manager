@@ -41,7 +41,7 @@ const APPEARANCE_DEFAULTS = {
   reduceMotion: "system",
   cornerStyle: "default",
   sansFont: "geist",
-  monoFont: "geist",
+  monoFont: "jetbrains",
   surfaceTint: 30,
   scrollMode: "smooth",
   scrollbarSize: "default",

@@ -337,7 +337,7 @@
      the "* Variable" family names. */
   --face-sans: "Geist Variable", system-ui, sans-serif;
   --face-display: "Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif;
-  --face-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --face-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
   /* The weight scale, in plain CSS weights. It belongs to no face: one that
      reads wrong at a plain number brings its own - see DS-WEIGHT-TIER. */
@@ -484,6 +484,8 @@ html {
     --weight-semibold: 600;
     --weight-bold: 700;
     font-weight: var(--weight-normal);
+    /* Mono text is data, and a coding face's ligatures redraw a hash's `0x` as `0×`. */
+    font-variant-ligatures: none;
   }
 
   /* Levelling the x-height is for the faces a user swaps between. The display
