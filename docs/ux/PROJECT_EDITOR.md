@@ -1950,6 +1950,30 @@ goes first.
 The last rule is the one worth a measurement. Raising the mount capacity is the other answer to
 it, and it costs a chunk table for each archive it adds.
 
+#### Thumbnails in the tree
+
+The tree has its own Thumbnails switch in the options, off by default. The grid's switch is on by
+default and does not reach the tree, because a tree with thumbnails holds a fraction of the rows
+it holds without them.
+
+On, every row of the tree takes one height, set on a slider over 20, 26, 32, 48 and 64 pixels, 48
+by default. The directories take it too: the virtualizer and the pinned band place rows at one
+fixed height. A file the backend has a viewer for draws its asset where the kind glyph was, any
+other file draws its glyph in the same box, and a directory draws the folder the grid draws.
+
+| Shape    | The plate                                                    | The slot           |
+| -------- | ------------------------------------------------------------ | ------------------ |
+| Square   | the art's box, the image fitted inside it                    | the box            |
+| Original | the image's own ratio once it lands, from half to twice wide | twice the box wide |
+
+Square is the default. The slot is a fixed column in both shapes, so every name in the tree starts
+on one edge whatever its plate's width, and an original plate sits at the slot's leading edge.
+Before the image lands its ratio is unknown, so the plate draws square until then.
+
+The art is inset 4px, as in the details list, and is asked for at the smallest tile size the slot
+fits in: `w=64` for a square at every height, and up to `w=128` for an original ratio at 64px.
+That keeps `w` to the six widths of the grid.
+
 #### The details list
 
 ```
@@ -2213,8 +2237,15 @@ the same two marks: a fill for the set, and a ring for the focus.
 | Focused  | the keys act here                   | the ring                  |
 
 A row's fill is its band and a tile's fill is its background, and the two read as one system.
-Covered is what makes the reach of a selected directory visible without a count: the rows under
-it in the tree, and the tiles inside it once the grid descends. The focus and the selection are
+Covered is what makes the reach of a selected directory visible without a count, in the tiles and
+rows inside it once the grid or the list descends. The game and LCU trees do not draw it: an open
+directory's covered rows would fill the whole subtree below a single click, so the tree marks
+depth with its guides instead.
+
+**The tree's guides mark the depth the focus is in,** as the bin tree's do. Each ancestor level
+draws a guide under that ancestor's caret, so a directory's guides join into one edge down every
+row it holds. The guide of the directory holding the focused row takes the accent, and the guide
+of the directory holding the row under the pointer lifts a rung. The focus and the selection are
 two marks, and an item can hold one without the other, which is what an arrow key without
 `Shift` moves. Every view sets `aria-multiselectable`, and `aria-selected` reports the selection
 and not the focus.
@@ -2348,6 +2379,7 @@ the rows take it as a move to the parent.
 | The view mode           | the app, per host              | a work habit, and a panel and a surface differ        |
 | The tile size           | the app                        | a work habit                                          |
 | Thumbnails on or off    | the app                        | a work habit, and a modder on a laptop turns them off |
+| The tree's thumbnails   | the app                        | the same, with its own row height and shape           |
 | The sort                | the tab, within its project    | each tab answers its own question                     |
 | The location            | the document                   | it is where the user left the project                 |
 | The expansion           | the document                   | the same, and the trees hold it already               |

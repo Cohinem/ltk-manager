@@ -18,6 +18,7 @@ import { twMerge } from "@/utils";
 import type { OpenIntent } from "../../../palette/utils/types";
 import { stirImages } from "../../../preview/hooks/useImageSlot";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
+import { createGuideStore, GuideStoreContext } from "../../../shared/state/treeGuides";
 import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
 import { binSaveKey } from "../../../state";
 import { rowTag } from "../../values/utils/kindTag";
@@ -29,7 +30,6 @@ import { useNextPages, useTreeRows } from "../hooks/useTreeRows";
 import { type DependencyEditing, DependencyEditingContext } from "../state/dependencyEditing";
 import { NewObjectContext } from "../state/newObject";
 import { useReshapes } from "../state/reshapes";
-import { createGuideStore, GuideStoreContext } from "../state/treeGuides";
 import {
   addLineKey,
   childCount,

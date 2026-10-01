@@ -294,6 +294,41 @@ export interface SourceRow {
   readonly depth: number;
 }
 
+const NO_GUIDES: readonly string[] = [];
+
+/**
+ * Each row's ancestor ids in a flattened tree, outermost first, which name the blocks its
+ * guides draw.
+ *
+ * One pass finds each row's parent and a chain is built when a row first asks for it, so a
+ * screen of rows walks its own depth rather than the directory above it.
+ */
+export function sourceGuides(rows: readonly SourceRow[]): (index: number) => readonly string[] {
+  const parents = new Int32Array(rows.length);
+  const latest: number[] = [];
+
+  rows.forEach((row, index) => {
+    parents[index] = row.depth === 0 ? -1 : (latest[row.depth - 1] ?? -1);
+    latest[row.depth] = index;
+    latest.length = row.depth + 1;
+  });
+
+  const chains = new Map<number, readonly string[]>();
+  const chainOf = (index: number): readonly string[] => {
+    if (index < 0 || index >= rows.length) return NO_GUIDES;
+
+    const known = chains.get(index);
+    if (known) return known;
+
+    const parent = parents[index]!;
+    const chain = parent < 0 ? NO_GUIDES : [...chainOf(parent), rows[parent]!.node.id];
+    chains.set(index, chain);
+    return chain;
+  };
+
+  return chainOf;
+}
+
 /**
  * Walk a tree into the linear list of rows to render, for the virtualizer.
  *

@@ -3,7 +3,7 @@ import type { CSSProperties, ReactNode } from "react";
 import { useState } from "react";
 
 import type { AssetRef, WorkshopFileKind } from "@/lib/tauri";
-import { usePreviewCheckered } from "@/stores";
+import { type ExplorerArtShape, usePreviewCheckered } from "@/stores";
 import { twMerge } from "@/utils";
 
 import { fileKindFromPath } from "../../gameBrowser/utils/fileKind";
@@ -12,6 +12,7 @@ import { useImageSlot } from "../../preview/hooks/useImageSlot";
 import { assetArchive, usePreviewUrl } from "../../preview/utils/assetRef";
 import { describeFileKind } from "../../shared/utils/fileKindIcon";
 import type { ExplorerItem } from "../utils/items";
+import { originalArtWidth } from "../utils/treeArt";
 
 /** The kinds the backend has a viewer for, which are the only ones worth a thumbnail. */
 const DRAWN_KINDS: ReadonlySet<WorkshopFileKind> = new Set([
@@ -46,6 +47,8 @@ export interface ExplorerArtProps {
   /** Where the bytes come from, so a game chunk's `<img>` names its archive. */
   assetOf: (item: ExplorerItem) => AssetRef | null;
   variant: ArtVariant;
+  /** A row's thumbnail plate: square, or as wide as the image's own ratio. Square by default. */
+  shape?: ExplorerArtShape;
 }
 
 /** What an explorer draws for an item: its asset, its kind, or a folder. */
@@ -56,6 +59,7 @@ export function ExplorerArt({
   thumbnails,
   assetOf,
   variant,
+  shape = "square",
 }: ExplorerArtProps) {
   if (item.kind === "dir") {
     return (
@@ -80,7 +84,14 @@ export function ExplorerArt({
   }
 
   return (
-    <Thumbnail asset={asset} kind={kind} box={box} requestWidth={requestWidth} variant={variant} />
+    <Thumbnail
+      asset={asset}
+      kind={kind}
+      box={box}
+      requestWidth={requestWidth}
+      variant={variant}
+      shape={shape}
+    />
   );
 }
 
@@ -91,11 +102,13 @@ interface PlateProps {
   label?: string;
   className?: string;
   style?: CSSProperties;
+  /** A row's width where it is not the square of `box`. */
+  width?: number;
 }
 
 /* A tile's art spans the tile and a row's art is a square beside the name, so
    the width is the one geometry the two variants do not share. */
-function Plate({ box, variant, children, label, className, style }: PlateProps) {
+function Plate({ box, variant, children, label, className, style, width = box }: PlateProps) {
   return (
     <span
       aria-label={label}
@@ -106,7 +119,7 @@ function Plate({ box, variant, children, label, className, style }: PlateProps) 
       )}
       style={{
         height: `${box}px`,
-        ...(variant === "row" && { width: `${box}px` }),
+        ...(variant === "row" && { width: `${width}px` }),
         ...style,
       }}
     >
@@ -143,6 +156,13 @@ interface ThumbnailProps {
   box: number;
   requestWidth: number;
   variant: ArtVariant;
+  shape: ExplorerArtShape;
+}
+
+/** An image's width over its height, held with the URL it was read off. */
+interface Measured {
+  url: string;
+  aspect: number;
 }
 
 /**
@@ -152,9 +172,10 @@ interface ThumbnailProps {
  * nothing crosses the JavaScript heap, and `w` picks the smallest mipmap still
  * at least that wide. A texture the protocol cannot draw falls back to its kind.
  */
-function Thumbnail({ asset, kind, box, requestWidth, variant }: ThumbnailProps) {
+function Thumbnail({ asset, kind, box, requestWidth, variant, shape }: ThumbnailProps) {
   const url = usePreviewUrl(asset, requestWidth);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const [measured, setMeasured] = useState<Measured | null>(null);
   const checkered = usePreviewCheckered();
   const slot = useImageSlot(url, {
     lane: "tile",
@@ -164,11 +185,15 @@ function Thumbnail({ asset, kind, box, requestWidth, variant }: ThumbnailProps) 
   if (failedUrl === url) return <KindArt kind={kind} box={box} variant={variant} />;
 
   const descriptor = describeFileKind(kind);
+  /* Square until the image lands, since its ratio is not known before. */
+  const width =
+    shape === "original" && measured?.url === url ? originalArtWidth(box, measured.aspect) : box;
 
   return (
     <Plate
       box={box}
       variant={variant}
+      width={width}
       className={twMerge(
         "relative overflow-hidden",
         checkered && variant === "tile" && CHECKERBOARD,
@@ -180,7 +205,17 @@ function Thumbnail({ asset, kind, box, requestWidth, variant }: ThumbnailProps) 
           src={slot.src}
           alt=""
           draggable={false}
-          onLoad={slot.onSettled}
+          onLoad={(event) => {
+            slot.onSettled();
+
+            const image = event.currentTarget;
+            if (shape === "original" && image.naturalHeight > 0) {
+              setMeasured({
+                url,
+                aspect: image.naturalWidth / image.naturalHeight,
+              });
+            }
+          }}
           onError={() => {
             slot.onSettled();
             setFailedUrl(url);

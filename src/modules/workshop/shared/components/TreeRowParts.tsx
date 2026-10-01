@@ -3,6 +3,8 @@ import { FolderDashedIcon, FolderIcon, FolderOpenIcon } from "@phosphor-icons/re
 import { Spinner } from "@/components";
 import { twMerge } from "@/utils";
 
+import { useGuideLevels } from "../state/treeGuides";
+
 /* The layer file tree's row styling, shared by every read-only tree of the editor.
    Selected-hover has to beat plain hover, so it appears later in the string. */
 export const TREE_ROW_BASE_CLASSES =
@@ -36,6 +38,29 @@ export function IndentRails({ depth }: { depth: number }) {
   );
 }
 
+/**
+ * One guide per ancestor level, each under the caret of the ancestor it belongs to.
+ *
+ * `blocks` names the ancestor of each level, outermost first. The block the reader stands in
+ * takes the accent, and the block under the pointer lifts a rung, as the bin tree's guides do.
+ */
+export function GuideRails({ blocks }: { blocks: readonly string[] }) {
+  const { active, hover } = useGuideLevels(blocks);
+
+  return blocks.map((block, level) => (
+    <span
+      key={block}
+      aria-hidden="true"
+      className={twMerge(
+        RAIL_CLASSES,
+        "translate-x-[6px] border-l border-surface-700/60",
+        level === hover && "border-surface-600",
+        level === active && "border-accent-500",
+      )}
+    />
+  ));
+}
+
 /** The caret's slot, reserved. Names stay column-aligned across the row kinds. */
 export function CaretSlot() {
   return <span aria-hidden="true" className="h-3 w-3 shrink-0" />;
@@ -67,6 +92,8 @@ interface TreeLoadingRowProps {
   label: string;
   /** The `data-ui` the tree names its rows by. */
   dataUi: string;
+  /** The row's ancestors, for a tree that draws `GuideRails`. Absent draws `IndentRails`. */
+  guides?: readonly string[];
 }
 
 /** Stands in for an expanded row whose children are on their way. */
@@ -77,6 +104,7 @@ export function TreeLoadingRow({
   tabIndex,
   label,
   dataUi,
+  guides,
 }: TreeLoadingRowProps) {
   return (
     <div
@@ -89,7 +117,7 @@ export function TreeLoadingRow({
       style={{ height: `${height}px` }}
       className={TREE_ROW_BASE_CLASSES}
     >
-      <IndentRails depth={depth} />
+      {guides ? <GuideRails blocks={guides} /> : <IndentRails depth={depth} />}
       <CaretSlot />
       <Spinner size="sm" className="h-3.5 w-3.5 shrink-0" />
       <span className="text-surface-400">{label}</span>

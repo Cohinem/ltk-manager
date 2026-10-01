@@ -1883,6 +1883,9 @@
   "workshop_details_semver_title": "Semantic Versioning",
   "workshop_details_version_description": "MAJOR.MINOR.PATCH (e.g. 1.0.0)",
   "workshop_details_version_label": "Version",
+  "workshop_explorer_art_shape_label": "Shape",
+  "workshop_explorer_art_shape_original_label": "Original",
+  "workshop_explorer_art_shape_square_label": "Square",
   "workshop_explorer_chip_clear_action": "Clear the {name} filter",
   "workshop_explorer_clear_box_action": "Clear the box",
   "workshop_explorer_clear_filters_action": "Clear",
@@ -1954,6 +1957,8 @@
     }
   ],
   "workshop_explorer_tile_size_label": "Tile size",
+  "workshop_explorer_tree_thumbnails_action": "Draw a thumbnail on each tree row",
+  "workshop_explorer_tree_thumbnails_description": "Each file row draws its asset at the row height below. Off, every row reads its kind glyph.",
   "workshop_explorer_unnamed_chip_label": "Unnamed",
   "workshop_explorer_unnamed_label": "Unnamed only",
   "workshop_explorer_up_action": "Go to the parent folder",

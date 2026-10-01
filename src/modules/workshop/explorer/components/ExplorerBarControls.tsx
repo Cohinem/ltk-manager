@@ -32,6 +32,8 @@ import { m } from "@/i18n";
 import {
   EXPLORER_ROW_HEIGHTS,
   EXPLORER_TILE_SIZES,
+  EXPLORER_TREE_ROW_HEIGHTS,
+  type ExplorerArtShape,
   type ExplorerSort,
   type ExplorerSortField,
   type ExplorerTileSize,
@@ -39,9 +41,15 @@ import {
   useExplorerRowHeight,
   useExplorerThumbnails,
   useExplorerTileSize,
+  useExplorerTreeArtShape,
+  useExplorerTreeRowHeight,
+  useExplorerTreeThumbnails,
   useSetExplorerRowHeight,
   useSetExplorerThumbnails,
   useSetExplorerTileSize,
+  useSetExplorerTreeArtShape,
+  useSetExplorerTreeRowHeight,
+  useSetExplorerTreeThumbnails,
   useSetExplorerView,
 } from "@/stores";
 import { formatBytes } from "@/utils";
@@ -54,10 +62,12 @@ import {
   type KindGroupId,
 } from "../utils/filter";
 import type { SelectionSummary } from "../utils/selection";
+import { nearestTreeRowHeight } from "../utils/treeArt";
 import { useExplorerSort, useSetExplorerSort } from "./ExplorerSortScope";
 
 const TILE_MARKS = EXPLORER_TILE_SIZES.map((value) => ({ value }));
 const ROW_MARKS = EXPLORER_ROW_HEIGHTS.map((value) => ({ value }));
+const TREE_ROW_MARKS = EXPLORER_TREE_ROW_HEIGHTS.map((value) => ({ value }));
 
 /**
  * The declared width nearest what the slider landed on.
@@ -74,7 +84,10 @@ function nearestTileSize(value: number): ExplorerTileSize {
 
 /* Every label below is read at render rather than at load, because a message is
    a function of the locale and these lists outlive a change to it. */
-const SORT_FIELDS: ReadonlyArray<{ field: ExplorerSortField; label: () => string }> = [
+const SORT_FIELDS: ReadonlyArray<{
+  field: ExplorerSortField;
+  label: () => string;
+}> = [
   { field: "name", label: () => m.workshop_explorer_sort_name_label() },
   { field: "size", label: () => m.workshop_explorer_sort_size_label() },
   { field: "kind", label: () => m.workshop_explorer_sort_kind_label() },
@@ -259,7 +272,11 @@ export function ExplorerOptions({ view, filter, onFilterChange }: ExplorerOption
                       size="xs"
                       compact
                       onClick={() =>
-                        onFilterChange({ ...filter, kinds: new Set(), unnamedOnly: false })
+                        onFilterChange({
+                          ...filter,
+                          kinds: new Set(),
+                          unnamedOnly: false,
+                        })
                       }
                       className="text-fine text-accent-300"
                     >
@@ -318,6 +335,8 @@ export function ExplorerOptions({ view, filter, onFilterChange }: ExplorerOption
               </FilterSection>
             )}
 
+            {view === "tree" && <TreeThumbnailOptions />}
+
             {view !== "tree" && (
               <FilterSection
                 title={m.workshop_explorer_thumbnails_label()}
@@ -338,6 +357,71 @@ export function ExplorerOptions({ view, filter, onFilterChange }: ExplorerOption
         </Popover.Positioner>
       </Popover.Portal>
     </Popover.Root>
+  );
+}
+
+/** The tree's thumbnail switch, and the row height and the shape it draws them at. */
+function TreeThumbnailOptions() {
+  const thumbnails = useExplorerTreeThumbnails();
+  const setThumbnails = useSetExplorerTreeThumbnails();
+  const rowHeight = useExplorerTreeRowHeight();
+  const setRowHeight = useSetExplorerTreeRowHeight();
+  const shape = useExplorerTreeArtShape();
+  const setShape = useSetExplorerTreeArtShape();
+
+  return (
+    <>
+      <FilterSection
+        title={m.workshop_explorer_thumbnails_label()}
+        action={
+          <Switch
+            checked={thumbnails}
+            onCheckedChange={setThumbnails}
+            aria-label={m.workshop_explorer_tree_thumbnails_action()}
+          />
+        }
+      >
+        <p className="text-fine text-surface-400">
+          {m.workshop_explorer_tree_thumbnails_description()}
+        </p>
+      </FilterSection>
+
+      {thumbnails && (
+        <FilterSection title={m.workshop_explorer_row_height_label()}>
+          <Slider
+            variant="ruler"
+            value={rowHeight}
+            onValueChange={(value) => setRowHeight(nearestTreeRowHeight(value))}
+            min={EXPLORER_TREE_ROW_HEIGHTS[0]}
+            max={EXPLORER_TREE_ROW_HEIGHTS[EXPLORER_TREE_ROW_HEIGHTS.length - 1]}
+            step={2}
+            marks={TREE_ROW_MARKS}
+            aria-label={m.workshop_explorer_row_height_label()}
+          />
+        </FilterSection>
+      )}
+
+      {thumbnails && (
+        <FilterSection title={m.workshop_explorer_art_shape_label()}>
+          <SegmentedControl<ExplorerArtShape>
+            size="xs"
+            value={shape}
+            onChange={setShape}
+            aria-label={m.workshop_explorer_art_shape_label()}
+            options={[
+              {
+                value: "square",
+                label: m.workshop_explorer_art_shape_square_label(),
+              },
+              {
+                value: "original",
+                label: m.workshop_explorer_art_shape_original_label(),
+              },
+            ]}
+          />
+        </FilterSection>
+      )}
+    </>
   );
 }
 

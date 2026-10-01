@@ -35,6 +35,7 @@ import { twMerge } from "@/utils";
 
 import type { OpenIntent } from "../../../palette/utils/types";
 import { ObjectGlyph } from "../../../shared/components/ObjectGlyph";
+import { useGuideLevels } from "../../../shared/state/treeGuides";
 import { clickIntent } from "../../../state";
 import { ClassCard } from "../../classes/components/ClassCard";
 import { DeclaredLine, FieldCard } from "../../classes/components/FieldCard";
@@ -74,7 +75,6 @@ import {
 } from "../../values/utils/valueRows";
 import { BinEditContext, useRowEdit } from "../hooks/useBinEdit";
 import { keyMark, type LeafEdit, LeafEditContext } from "../hooks/useLeafEdit";
-import { useGuideLevels } from "../state/treeGuides";
 import { typedKey } from "../utils/addItem";
 import {
   canExpand,
