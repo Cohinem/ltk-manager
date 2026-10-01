@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -13,6 +13,7 @@ import type {
   DeclaredModuleChoice,
   DeclaredState,
   GameFileEntry,
+  LayerOverride,
   WorkshopProject,
 } from "@/lib/tauri";
 import { commandNames } from "@/test/commandNames";
@@ -92,6 +93,23 @@ function openBin(overrides: Partial<BinDocumentHandle> = {}): BinDocumentHandle 
   };
 }
 
+/** Two rows the chroma layer declares, one of them twice. */
+const CHROMA_DECLARES: LayerOverride[] = ["0000000a", "0000000a", "0000000b"].map((path) => ({
+  layer: "chroma",
+  mark: {
+    entry: ENTRY,
+    path,
+    property: "a",
+    module: 0,
+    moduleName: null,
+    sign: "set",
+    whole: false,
+    reference: null,
+    game: null,
+  },
+  value: null,
+}));
+
 let declared: DeclaredState | null;
 let installed: Record<string, GameFileEntry>;
 
@@ -146,28 +164,50 @@ beforeEach(() => {
     }
     if (command === commandNames.game.locateGameFiles)
       return Promise.resolve({ ok: true, value: installed });
+    if (command === commandNames.bin.binOverrides)
+      return Promise.resolve({ ok: true, value: CHROMA_DECLARES });
+    if (command === commandNames.bin.binEdit && declared !== null) {
+      declared = {
+        ...declared,
+        modules: [
+          ...declared.modules,
+          { index: declared.modules.length, name: null, takesKeys: true },
+        ],
+      };
+      return Promise.resolve({ ok: true, value: { kind: "declared", state: declared } });
+    }
     return Promise.reject(new Error(`unexpected command ${command}`));
   });
 });
 
+const TRIGGER = /^Sandbox \(/;
+
 async function openOptions(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("button", { name: "Sandbox" }));
+  await user.click(await screen.findByRole("button", { name: TRIGGER }));
+}
+
+/** Point at the submenu row named `name` and wait out Base UI's open delay. */
+async function openSubmenu(user: ReturnType<typeof userEvent.setup>, name: string | RegExp) {
+  await user.hover(await screen.findByRole("menuitem", { name }));
+  await waitFor(() => expect(screen.getAllByRole("menu").length).toBeGreaterThan(1));
+}
+
+function expectDisabled(item: HTMLElement) {
+  expect(item).toHaveAttribute("aria-disabled", "true");
 }
 
 describe("the Sandbox options of a declared document", () => {
-  it("name the project's sandbox and check the layer edits declare into", async () => {
+  it("name the project's sandbox and the layer the next edit lands in", async () => {
     const user = userEvent.setup();
     drawTab(CHUNK_TAB, openBin());
 
-    expect(await screen.findByRole("button", { name: "Sandbox" })).toHaveTextContent(
-      "Sandbox (Jade Teemo)",
-    );
+    expect(
+      await screen.findByRole("button", { name: "Sandbox (Jade Teemo), edits go to Base" }),
+    ).toHaveTextContent("Sandbox (Jade Teemo)Base");
     await openOptions(user);
 
-    expect(await screen.findByRole("menuitemradio", { name: "Base" })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
+    expect(await screen.findByRole("menuitem", { name: "Active layer: Base" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Module: Automatic" })).toBeInTheDocument();
     expect(screen.getByRole("menuitemradio", { name: "Jade Teemo" })).toHaveAttribute(
       "aria-checked",
       "true",
@@ -179,7 +219,13 @@ describe("the Sandbox options of a declared document", () => {
     drawTab(CHUNK_TAB, openBin());
 
     await openOptions(user);
-    await user.click(await screen.findByRole("menuitemradio", { name: "Chroma" }));
+    await openSubmenu(user, "Active layer: Base");
+    expect(screen.getByRole("menuitemradio", { name: "Base" })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    /* `fireEvent`, because userEvent's pointer path leaves the trigger and shuts the submenu. */
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Chroma" }));
 
     await waitFor(() =>
       expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binDeclareInto, {
@@ -188,38 +234,44 @@ describe("the Sandbox options of a declared document", () => {
         module: { kind: "auto" },
       }),
     );
-    expect(await screen.findByRole("menuitemradio", { name: "Chroma" })).toHaveAttribute(
-      "aria-checked",
-      "true",
-    );
   });
 
-  it("lock the module while the project's declarations are off, and turn them back on", async () => {
+  it("disable the layer and the module while the project's declarations are off", async () => {
     const user = userEvent.setup();
     drawTab(CHUNK_TAB, openBin({ readOnly: "declarationsOff" }));
 
+    expect(await screen.findByRole("button", { name: TRIGGER })).toHaveAccessibleName(
+      "Sandbox (Jade Teemo)",
+    );
     await openOptions(user);
-    expect(await screen.findByRole("menuitemradio", { name: "Glow" })).toBeDisabled();
 
-    const toggle = screen.getByRole("menuitemcheckbox", { name: "Use game data declarations" });
-    expect(toggle).toHaveAttribute("aria-checked", "false");
-    await user.click(toggle);
-
-    expect(useWorkshopEditorStore.getState().byProject[PROJECT.path]?.useDeclarations).toBe(true);
+    expect(await screen.findByText("Game data declarations are off")).toBeInTheDocument();
+    expectDisabled(screen.getByRole("menuitem", { name: "Active layer: Base" }));
+    expectDisabled(screen.getByRole("menuitem", { name: "Module: Automatic" }));
+    expect(
+      screen.queryByRole("menuitemcheckbox", { name: "Use game data declarations" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("join the module picked, automatic until one is", async () => {
+  it("join the module picked, automatic until one is, and name it on the button", async () => {
     const user = userEvent.setup();
     drawTab(CHUNK_TAB, openBin());
 
     await openOptions(user);
-    expect(await screen.findByRole("menuitemradio", { name: "Automatic" })).toHaveAttribute(
+    await openSubmenu(user, "Module: Automatic");
+    expect(screen.getByRole("menuitemradio", { name: "Automatic" })).toHaveAttribute(
       "aria-checked",
       "true",
     );
-    expect(screen.getByRole("menuitemradio", { name: "Module 1" })).toBeEnabled();
-    expect(screen.getByRole("menuitemradio", { name: "Module 3" })).toBeDisabled();
-    await user.click(screen.getByRole("menuitemradio", { name: "Glow" }));
+    expect(screen.getByRole("menuitemradio", { name: "Module 1" })).not.toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    expect(screen.getByRole("menuitemradio", { name: "Module 3" })).toHaveAccessibleDescription(
+      "A target module takes no new keys",
+    );
+    expectDisabled(screen.getByRole("menuitemradio", { name: "Module 3" }));
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Glow" }));
 
     await waitFor(() =>
       expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binDeclareInto, {
@@ -228,23 +280,68 @@ describe("the Sandbox options of a declared document", () => {
         module: { kind: "index", index: 1 },
       }),
     );
+    expect(
+      await screen.findByRole("button", { name: "Sandbox (Jade Teemo), edits go to Base, Glow" }),
+    ).toBeInTheDocument();
   });
 
-  it("start a new module from a name typed in place", async () => {
+  it("make a new module at once and join it", async () => {
     const user = userEvent.setup();
     drawTab(CHUNK_TAB, openBin());
 
     await openOptions(user);
-    await user.click(await screen.findByRole("button", { name: "New module" }));
-    await user.type(screen.getByRole("textbox", { name: "Module name" }), "Blue{Enter}");
+    await openSubmenu(user, "Module: Automatic");
+    fireEvent.click(screen.getByRole("menuitem", { name: "New module" }));
 
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binEdit, {
+        document: DOCUMENT,
+        edit: { kind: "moduleAction", layer: "base", action: { kind: "create", name: null } },
+      }),
+    );
     await waitFor(() =>
       expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.binDeclareInto, {
         document: DOCUMENT,
         layer: "base",
-        module: { kind: "new", name: "Blue" },
+        module: { kind: "index", index: 3 },
       }),
     );
+  });
+
+  it("mark the changes of each layer, counting the rows each touches", async () => {
+    const user = userEvent.setup();
+    drawTab(CHUNK_TAB, openBin());
+
+    await openOptions(user);
+    await openSubmenu(user, "Mark changes from: 2 of 2");
+
+    const base = screen.getByRole("menuitemcheckbox", { name: "Base" });
+    expect(base).toHaveAccessibleDescription("Marked while edits go to it");
+    expectDisabled(base);
+    const chroma = screen.getByRole("menuitemcheckbox", { name: "Chroma" });
+    await waitFor(() => expect(chroma).toHaveAccessibleDescription("2 rows changed in this file"));
+    expect(chroma).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(chroma);
+
+    expect(useWorkshopEditorStore.getState().byProject[PROJECT.path]?.hiddenMarkLayers).toEqual([
+      "chroma",
+    ]);
+    expect(
+      await screen.findByRole("menuitem", { name: "Mark changes from: 1 of 2" }),
+    ).toBeInTheDocument();
+  });
+
+  it("leave out the layer and the marks in a project of one layer", async () => {
+    const user = userEvent.setup();
+    declared = { ...DECLARED, layers: ["base"] };
+    drawTab(CHUNK_TAB, openBin({ declared }));
+
+    await openOptions(user);
+
+    expect(await screen.findByRole("menuitem", { name: "Module: Automatic" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /^Active layer/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /^Mark changes from/ })).not.toBeInTheDocument();
   });
 });
 
@@ -283,7 +380,7 @@ describe("the sandbox choice", () => {
 
     await openOptions(user);
     const game = await screen.findByRole("menuitemradio", { name: "Game" });
-    await waitFor(() => expect(game).toBeEnabled());
+    await waitFor(() => expect(game).not.toHaveAttribute("aria-disabled", "true"));
     await user.click(game);
 
     expect(openTabs()).toEqual([
@@ -307,7 +404,7 @@ describe("the sandbox choice", () => {
         paths: [SKIN_PATH],
       }),
     );
-    expect(await screen.findByRole("menuitemradio", { name: "Game" })).toBeDisabled();
+    expectDisabled(await screen.findByRole("menuitemradio", { name: "Game" }));
   });
 
   it("switches a game tab back to the project's sandbox", async () => {
@@ -318,7 +415,7 @@ describe("the sandbox choice", () => {
     declared = null;
     drawTab(tab, openBin({ sandbox: { kind: "game" }, readOnly: "gameSandbox", declared: null }));
 
-    expect(await screen.findByRole("button", { name: "Sandbox" })).toHaveTextContent(
+    expect(await screen.findByRole("button", { name: TRIGGER })).toHaveAccessibleName(
       "Sandbox (Game)",
     );
     await openOptions(user);

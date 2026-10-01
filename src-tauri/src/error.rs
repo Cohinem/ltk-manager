@@ -108,6 +108,8 @@ pub enum AppErrorResponse {
         address: String,
         rejection: EditRejection,
     },
+    /// A later layer declares the value a declared edit changes, so the build keeps its value.
+    BinEditOverridden { address: String, layer: String },
     /// The bin's file holds other bytes than the document opened.
     BinChangedOnDisk,
     /// The edited bin does not encode.
@@ -356,6 +358,9 @@ impl From<AppError> for AppErrorResponse {
 
             AppError::BinDocument(BinDocumentError::EditRejected { address, rejection }) => {
                 Self::BinEditRejected { address, rejection }
+            }
+            AppError::BinDocument(BinDocumentError::Overridden { address, layer }) => {
+                Self::BinEditOverridden { address, layer }
             }
             AppError::BinDocument(BinDocumentError::Declaring(inner)) => Self::from(*inner),
             AppError::BinDocument(BinDocumentError::ChangedOnDisk) => Self::BinChangedOnDisk,

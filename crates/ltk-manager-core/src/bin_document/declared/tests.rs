@@ -324,6 +324,62 @@ fn a_declaration_of_another_layer_applies_with_no_mark() {
 }
 
 #[test]
+fn every_layers_declarations_are_listed_in_build_order_with_their_values() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    fs::write(
+        dir.path().join("content/base/game_data.yaml"),
+        format!("version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.37\n"),
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("content/chroma/game_data.yaml"),
+        format!("version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.5\n"),
+    )
+    .unwrap();
+
+    let declarations = declared(project).declared_overrides();
+
+    let listed: Vec<(&str, &str, Option<&str>)> = declarations
+        .iter()
+        .map(|declaration| {
+            (
+                declaration.layer.as_str(),
+                declaration.mark.path.as_str(),
+                declaration.value.as_deref(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("base", glow_path().as_str(), Some("0.37")),
+            ("chroma", glow_path().as_str(), Some("0.5")),
+        ]
+    );
+    assert_eq!(declarations[0].mark.game.as_deref(), Some("0.0"));
+}
+
+#[test]
+fn an_edit_a_later_layer_overrides_is_refused_naming_that_layer() {
+    let dir = tempfile::tempdir().unwrap();
+    let project = project(dir.path());
+    fs::write(
+        dir.path().join("content/chroma/game_data.yaml"),
+        format!("version: 1\nmodules:\n  - entries:\n      {SKIN}:\n        skinMeshProperties.selfIllumination: 0.5\n"),
+    )
+    .unwrap();
+    let mut document = declared(project);
+
+    assert_matches!(
+        document.set_leaf(h(SKIN), &glow_path(), LeafValue::Float { value: 0.37 }),
+        Err(BinDocumentError::Overridden { layer, .. }) if layer == "chroma"
+    );
+    assert!(!dir.path().join("content/base/game_data.yaml").exists());
+    assert!((glow(&document) - 0.5).abs() < f32::EPSILON);
+}
+
+#[test]
 fn an_edit_lands_in_the_chosen_layer() {
     let dir = tempfile::tempdir().unwrap();
     let mut document = declared(project(dir.path()));

@@ -124,6 +124,11 @@ pub enum BinDocumentError {
         rejection: EditRejection,
     },
 
+    /// A later layer of the project declares the value a declared edit changes, so the build
+    /// keeps that layer's value. ADR-0042.
+    #[error("the edit at {address} is overridden by the layer {layer}")]
+    Overridden { address: String, layer: String },
+
     /// The file on disk holds other bytes than the document opened.
     #[error("the bin changed on disk since it opened")]
     ChangedOnDisk,

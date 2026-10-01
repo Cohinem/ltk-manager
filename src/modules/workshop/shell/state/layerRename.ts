@@ -33,9 +33,11 @@ export function renamedLayer(editor: ProjectEditor, from: string, to: string): R
   const moved = movedDocuments(editor, (document) => renamedDocument(document, from, to));
 
   const markers = renamedLayerMarkers(editor.markers ?? {}, from, to);
+  const hidden = editor.hiddenMarkLayers ?? [];
   const touchesState =
     editor.selectedLayer === from ||
     editor.selectedModule?.layer === from ||
+    hidden.includes(from) ||
     from in editor.collapsed ||
     markers !== null;
   if (moved.ids.size === 0 && !touchesState) return null;
@@ -55,6 +57,9 @@ export function renamedLayer(editor: ProjectEditor, from: string, to: string): R
         editor.selectedModule?.layer === from
           ? { ...editor.selectedModule, layer: to }
           : editor.selectedModule,
+      ...(editor.hiddenMarkLayers === undefined
+        ? {}
+        : { hiddenMarkLayers: hidden.map((layer) => (layer === from ? to : layer)) }),
       collapsed,
       markers: markers ?? editor.markers,
     },

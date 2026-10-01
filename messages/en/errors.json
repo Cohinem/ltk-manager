@@ -2,6 +2,8 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "error.BIN_CHANGED_ON_DISK.description": "Another program wrote the file after it opened. Reload to see the file, which drops the edits held here.",
   "error.BIN_CHANGED_ON_DISK.title": "This bin changed on disk",
+  "error.BIN_EDIT_OVERRIDDEN.description": "The layer {layer} sets this value later in the build, so the build keeps its value. Make {layer} the active layer to change it.",
+  "error.BIN_EDIT_OVERRIDDEN.title": "Another layer sets this value",
   "error.BIN_EDIT_REJECTED.dependencyExists.description": "The bin already depends on this file.",
   "error.BIN_EDIT_REJECTED.emptyPath.description": "Type the path of the file the bin depends on.",
   "error.BIN_EDIT_REJECTED.foreignClass.description": "The list takes no item of the copied class.",

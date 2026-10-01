@@ -595,10 +595,8 @@
   "workshop_bin_declared_skip_unknown_class": "The schema does not know the pinned class.",
   "workshop_bin_declared_skip_untypable": "Neither the schema nor the game's copy types this property.",
   "workshop_bin_declared_whole_hint": "Replaces the whole value, so a later change of the game's does not reach it",
-  "workshop_bin_declares_into_hint": "Edits of this game bin are written to this layer's game_data.yaml",
-  "workshop_bin_declares_into_label": "Layer the edits declare into",
-  "workshop_bin_declares_module_hint": "New keys join this module of the layer's game_data.yaml",
-  "workshop_bin_declares_module_label": "Module the edits declare into",
+  "workshop_bin_declares_into_label": "Active layer",
+  "workshop_bin_declares_module_label": "Module in {layer}",
   "workshop_bin_dependencies_label": [
     {
       "declarations": ["input count", "local countPlural = count: plural"],
@@ -898,7 +896,19 @@
       }
     }
   ],
+  "workshop_bin_layer_changes_empty": "No rows changed in this file",
+  "workshop_bin_layer_changes_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} row changed in this file",
+        "countPlural=other": "{count} rows changed in this file"
+      }
+    }
+  ],
   "workshop_bin_layer_label": "Layer",
+  "workshop_bin_layer_target_hint": "Marked while edits go to it",
   "workshop_bin_layout_animation_graph_label": "Graph",
   "workshop_bin_layout_atlas_label": "View",
   "workshop_bin_layout_element_label": "UI element",
@@ -1009,7 +1019,6 @@
   "workshop_bin_module_new_hint": "The next edit creates it",
   "workshop_bin_module_new_label": "New module",
   "workshop_bin_module_numbered_label": "Module {number}",
-  "workshop_bin_module_rename_action": "Rename {module}",
   "workshop_bin_module_target_hint": "A target module takes no new keys",
   "workshop_bin_more_label": "{loaded} of {total}",
   "workshop_bin_move_down_action": "Move down",
@@ -1369,12 +1378,19 @@
   "workshop_bin_reset_default_write_hint": "Writes the class default, because a declaration cannot remove a property",
   "workshop_bin_restore_object_action": "Restore object",
   "workshop_bin_row_fields_action": "Show fields",
+  "workshop_bin_sandbox_choice_label": "{label}: {value}",
   "workshop_bin_sandbox_current_label": "Sandbox ({name})",
   "workshop_bin_sandbox_declares_hint": "Edits are declared in the game_data.yaml of {layer}, in {module}.",
   "workshop_bin_sandbox_description": "Where this tab reads its data and saves its edits. A project stacks its layers over the game, as a build does. The game is the installed game alone, and opens read-only.",
   "workshop_bin_sandbox_game_label": "Game",
   "workshop_bin_sandbox_game_missing_hint": "The installed game has no copy of this file",
   "workshop_bin_sandbox_label": "Sandbox",
+  "workshop_bin_sandbox_marks_count_label": "{shown} of {total}",
+  "workshop_bin_sandbox_marks_label": "Mark changes from",
+  "workshop_bin_sandbox_module_label": "Module",
+  "workshop_bin_sandbox_read_label": "Read from",
+  "workshop_bin_sandbox_target_label": "{layer}, {module}",
+  "workshop_bin_sandbox_trigger_label": "Sandbox ({name}), edits go to {target}",
   "workshop_bin_sandbox_writes_hint": "Edits are saved to this file in {layer}.",
   "workshop_bin_section_animation_label": "Animation",
   "workshop_bin_section_audio_label": "Audio",

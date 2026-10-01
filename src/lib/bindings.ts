@@ -571,6 +571,8 @@ export type AppErrorResponse =
 { code: "BIN_READ_ONLY"; gate: ReadOnly } | 
 /**  An edit's value does not fit the leaf it addresses. */
 { code: "BIN_EDIT_REJECTED"; address: string; rejection: EditRejection } | 
+/**  A later layer declares the value a declared edit changes, so the build keeps its value. */
+{ code: "BIN_EDIT_OVERRIDDEN"; address: string; layer: string } | 
 /**  The bin's file holds other bytes than the document opened. */
 { code: "BIN_CHANGED_ON_DISK" } | 
 /**  The edited bin does not encode. */
@@ -3909,11 +3911,17 @@ export type LayerFilesChanged = {
 	files: LayerFile[],
 };
 
-/**  One row of a layer file that a declaration of the project overrides. ADR-0056. */
+/**
+ *  One row a layer's declaration sets: a row of a layer file, which the declaration overrides
+ *  at build (ADR-0056), or a row of a declared document.
+ */
 export type LayerOverride = {
 	/**  The layer whose `game_data.yaml` holds the declaration. */
 	layer: string,
-	/**  The declaration's mark. Its `game` field holds the file's value, not the game's. */
+	/**
+	 *  The declaration's mark. Its `game` field holds the layer file's value for a layer
+	 *  file, and the game's for a declared document.
+	 */
 	mark: DeclaredMark,
 	/**  The value the declaration writes, as YAML. Absent when it cannot be written as YAML. */
 	value: string | null,

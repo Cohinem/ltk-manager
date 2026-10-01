@@ -8,6 +8,8 @@ import { setProject } from "./projectUpdate";
 export interface LayerActions {
   selectLayer: (projectPath: string, layerName: string) => void;
   setUseDeclarations: (projectPath: string, on: boolean) => void;
+  /** Mark the rows a layer's declarations touch in a declared document, or leave them unmarked. */
+  setMarkLayerShown: (projectPath: string, layerName: string, shown: boolean) => void;
   selectModule: (projectPath: string, selected: SelectedModule | null) => void;
   toggleCollapsed: (projectPath: string, layerName: string, path: string) => void;
   openDirs: (projectPath: string, layerName: string, paths: readonly string[]) => void;
@@ -52,6 +54,15 @@ export function createLayerActions(set: EditorSet): LayerActions {
       setProject(set, projectPath, (editor) =>
         editor.useDeclarations === on ? null : { ...editor, useDeclarations: on },
       ),
+
+    setMarkLayerShown: (projectPath, layerName, shown) =>
+      setProject(set, projectPath, (editor) => {
+        const hidden = editor.hiddenMarkLayers ?? [];
+        if (hidden.includes(layerName) !== shown) return null;
+
+        const next = shown ? hidden.filter((layer) => layer !== layerName) : [...hidden, layerName];
+        return { ...editor, hiddenMarkLayers: next };
+      }),
 
     selectModule: (projectPath, selected) =>
       setProject(set, projectPath, (editor) =>

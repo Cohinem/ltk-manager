@@ -50,6 +50,8 @@ export interface ProjectEditor {
   selectedLayer: string | null;
   /** The project's "Use game data declarations" choice, absent until the reader makes one. */
   useDeclarations?: boolean;
+  /** The layers whose declarations a declared document leaves unmarked. Absent for none. */
+  hiddenMarkLayers?: readonly string[];
   /** The module of `selectedLayer` a declared document writes to, null for the default placement. */
   selectedModule: SelectedModule | null;
   /**

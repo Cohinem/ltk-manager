@@ -1,4 +1,4 @@
-//! A row edit as the declarations that express it. "Declaring from a game bin" in
+//! A row edit as the declarations that express it. "Game data declarations" in
 //! docs/ux/BIN_EDITOR.md.
 //!
 //! An edit is applied to the tree first, and the edit that reverts it says what happened.
@@ -9,8 +9,8 @@
 use ltk_declarations::{Edit as ManifestEdit, ModuleChoice, Operation, ValueText};
 use ltk_game_data::{PropertySkipReason, Sign, Value};
 use ltk_hash::BinHash;
-use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::{Kind, values};
+use ltk_meta::{BinFile, PropertyValueEnum};
 
 use super::super::edit::Edit;
 use super::super::items::split_item;
@@ -114,7 +114,39 @@ impl BinDocument {
                 rejection: EditRejection::Untypable,
             });
         }
+        if let Some(layer) = self.overriding_layer(entry, &plans.scope) {
+            return Err(BinDocumentError::Overridden {
+                address: format!("{}:{}", hex(entry), plans.scope),
+                layer,
+            });
+        }
         Err(undeclarable(entry, &plans.scope))
+    }
+
+    /// The last layer after the chosen one that declares the value at `scope` of `entry`, or
+    /// a value it holds or is held in, whose declaration the build keeps over an edit's.
+    fn overriding_layer(&self, entry: BinHash, scope: &str) -> Option<String> {
+        let declared = self.declared.as_ref()?;
+        let BinFile::Prop(applied) = &self.file else {
+            return None;
+        };
+        let chosen = declared
+            .layers
+            .iter()
+            .position(|layer| *layer == declared.layer)?;
+        let later = &declared.layers[chosen + 1..];
+        let entry = hex(entry);
+
+        declared
+            .layer_overrides(applied)
+            .into_iter()
+            .rev()
+            .find(|declaration| {
+                later.contains(&declaration.layer)
+                    && declaration.mark.entry == entry
+                    && overlaps(&declaration.mark.path, scope)
+            })
+            .map(|declaration| declaration.layer)
     }
 
     /// The count of keys on `entry` the last apply skipped for want of a type.
@@ -390,6 +422,17 @@ fn change_of(inverse: &Edit) -> Result<(BinHash, Change<'_>), BinDocumentError> 
 
 fn text_of(value: &Value) -> Option<ValueText> {
     ValueText::try_from(value).ok()
+}
+
+/// Whether the wire paths `a` and `b` name one value, or one holds the other. An empty path
+/// reaches no row.
+fn overlaps(a: &str, b: &str) -> bool {
+    let holds = |outer: &str, inner: &str| {
+        inner
+            .strip_prefix(outer)
+            .is_some_and(|rest| rest.is_empty() || rest.starts_with(['.', '[', '{']))
+    };
+    !a.is_empty() && !b.is_empty() && (holds(a, b) || holds(b, a))
 }
 
 fn undeclarable(entry: BinHash, path: &str) -> BinDocumentError {

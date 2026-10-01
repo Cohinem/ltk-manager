@@ -49,7 +49,7 @@ interface PickedClass {
  * picks Blank or a system template (ADR-0058). The name starts as
  * `Mods/<mod>/<source, template or class>`, the prefix the game-data reference suggests, with
  * the caret at its end. Enter declares it, Escape steps back, and a refusal stays on the line
- * under the name. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+ * under the name. "Game data declarations" in docs/ux/BIN_EDITOR.md.
  */
 export function NewObjectLine({ line, draft }: NewObjectLineProps) {
   const drafts = use(NewObjectContext);
