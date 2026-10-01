@@ -2,8 +2,6 @@ import { AddFoldersDialog } from "../../folders/components/AddFoldersDialog";
 import { ConvertFolderDialog } from "../../folders/components/ConvertFolderDialog";
 import { ImportFantomeDialog } from "../../imports/components/ImportFantomeDialog";
 import { ImportGitRepoDialog } from "../../imports/components/ImportGitRepoDialog";
-import { BulkPackDialog } from "../../packing/components/BulkPackDialog";
-import { PackDialog } from "../../packing/components/PackDialog";
 import { BulkDeleteDialog } from "../../projects/components/BulkDeleteDialog";
 import { DeleteConfirmDialog } from "../../projects/components/DeleteConfirmDialog";
 import { NewProjectDialog } from "../../projects/components/NewProjectDialog";
@@ -25,8 +23,6 @@ export function WorkshopDialogs() {
       <AddFoldersDialog />
       <ImportFantomeDialog />
       <ImportGitRepoDialog />
-      <PackDialog />
-      <BulkPackDialog />
       <DeleteConfirmDialog />
       <RenameProjectDialog />
       <BulkDeleteDialog />

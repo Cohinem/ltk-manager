@@ -115,9 +115,9 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         group: "Project",
         keywords: ["export", "build", "modpkg", "fantome"],
         icon: <PackageIcon weight="bold" className={GLYPH} />,
-        enabled: layerCount > 0,
-        disabledReason: "No layers",
-        run: actions.handleOpenPackDialog,
+        enabled: layerCount > 0 && !actions.isPacking,
+        disabledReason: actions.isPacking ? "Already packing" : "No layers",
+        run: actions.handlePack,
       },
       {
         id: "project.reveal",

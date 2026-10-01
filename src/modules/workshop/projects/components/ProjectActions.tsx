@@ -14,7 +14,9 @@ import type { Incident, WorkshopProject } from "@/lib/tauri";
 import { useLatestIncident } from "@/modules/diagnostics";
 import { useIncidentLineStore } from "@/stores";
 
+import { packTargetHint, PackTargetMenu } from "../../packing/components/PackTargetMenu";
 import { neutralTint, packTint, testTint } from "../../shared/utils/actionTints";
+import { usePackTarget } from "../../state";
 import { useWorkshopTestState } from "../../testing/api/useWorkshopTestState";
 import { TestLayersMenu } from "../../testing/components/TestLayersMenu";
 import { BuildingTestButton, StopTestButton } from "../../testing/components/testSessionButtons";
@@ -24,11 +26,12 @@ interface ProjectActionsProps {
   project: WorkshopProject;
 }
 
-/** Test, pack and the overflow menu, joined into one control in the project header. */
+/** Test and pack, each with its caret, and the overflow menu, joined into one control in the project header. */
 export function ProjectActions({ project }: ProjectActionsProps) {
   const testState = useWorkshopTestState(project);
   const actions = useProjectActions(project);
   const failedTest = useFailedTest(project.path);
+  const packTarget = usePackTarget();
 
   const testButton = match(testState)
     .with({ kind: "idle" }, () => {
@@ -81,15 +84,19 @@ export function ProjectActions({ project }: ProjectActionsProps) {
       {testButton}
       <TestLayersMenu project={project} className={testTint} />
 
-      <Button
-        variant="ghost"
-        size="sm"
-        left={<PackageIcon weight="bold" className="h-4 w-4" />}
-        onClick={actions.handleOpenPackDialog}
-        className={packTint}
-      >
-        {m.workshop_header_pack_action()}
-      </Button>
+      <Tooltip content={packTargetHint(packTarget)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          left={<PackageIcon weight="bold" className="h-4 w-4" />}
+          loading={actions.isPacking}
+          onClick={actions.handlePack}
+          className={packTint}
+        >
+          {actions.isPacking ? m.workshop_pack_packing_label() : m.workshop_header_pack_action()}
+        </Button>
+      </Tooltip>
+      <PackTargetMenu className={packTint} />
 
       <Menu.Root>
         <Menu.Trigger

@@ -371,7 +371,7 @@ the grid for - disabled until something is, and in the same green a project's ow
 it, so one action reads the same from either surface. Pack and Delete are what a selection is
 for, so they arrive with one rather than standing disabled beside it.
 
-**The picks are spent as Test is pressed.** The run answers over the grid and there is nothing
+**The picks are spent as Test or Pack is pressed.** The run answers over the grid and there is nothing
 left to press again, and a menu that closes on the press would otherwise carry a completion
 callback down with it - the caret and a selected card's right click draw the same four commands
 from the same place, so neither can end up spending the picks when the other does not.
