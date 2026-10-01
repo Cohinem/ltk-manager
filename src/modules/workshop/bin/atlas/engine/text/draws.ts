@@ -29,23 +29,13 @@ export function textDraws(
   screenHeight: number,
   standIn: string | null = null,
 ): TextCommand[] {
-  const font = look.font === null ? undefined : view.fonts[look.font];
   const string = (look.traKey === "" ? null : source.string(look.traKey)) ?? standIn;
-  if (font === undefined || look.font === null || string === null || string === "") return [];
+  if (string === null) return [];
 
-  const size = fontSizeOf(font, screenHeight);
-  const face = source.face(look.font, size);
-  if (face === null) return [];
+  const laid = laidOut(look, rect.w, rect.h, view, source, screenHeight, string);
+  if (laid === null) return [];
 
-  const sheet = look.styleSheet === null ? null : (view.styleSheets[look.styleSheet] ?? null);
-  const layout = layoutText(parseMarkup(string, sheet), face, rect.w, rect.h, {
-    align: look.align,
-    wrap: look.wrap,
-    minScale: look.minScale,
-    outline: size.outline,
-    iconScale: look.iconScale,
-  });
-
+  const { font, size, layout } = laid;
   const base = { fill: font.fill, scissor, element };
   const draws: TextCommand[] = [];
   const pass = (
@@ -86,6 +76,56 @@ export function textDraws(
   if (size.outline > 0) pass("fontOutline", font.outlineColor, [0, 0], false);
   pass("font", look.color ?? font.color, [0, 0], true);
   return draws;
+}
+
+/** A text's drawn extent in its box, in pixels from the box's top left. */
+export type TextExtent = TextLayout["bounds"];
+
+/** A box too tall for any text to fill, which leaves a measured text at its natural size. */
+const UNBOUNDED = 1e6;
+
+/**
+ * The extent `string` draws at in `look`, wrapped to `width` and aligned to the top, as
+ * `textDraws` lays it out. Null where it reads nothing or its font has not loaded.
+ */
+export function textExtent(
+  look: TextLook,
+  width: number,
+  view: Pick<View, "fonts" | "styleSheets">,
+  source: TextSource,
+  screenHeight: number,
+  string: string,
+): TextExtent | null {
+  const top: TextLook = { ...look, align: [look.align[0], 0] };
+  return laidOut(top, width, UNBOUNDED, view, source, screenHeight, string)?.layout.bounds ?? null;
+}
+
+/** `string` laid out in `look` in a box of `width` by `height`, with the font and size it draws in. */
+function laidOut(
+  look: TextLook,
+  width: number,
+  height: number,
+  view: Pick<View, "fonts" | "styleSheets">,
+  source: TextSource,
+  screenHeight: number,
+  string: string,
+) {
+  const font = look.font === null ? undefined : view.fonts[look.font];
+  if (font === undefined || look.font === null || string === "") return null;
+
+  const size = fontSizeOf(font, screenHeight);
+  const face = source.face(look.font, size);
+  if (face === null) return null;
+
+  const sheet = look.styleSheet === null ? null : (view.styleSheets[look.styleSheet] ?? null);
+  const layout = layoutText(parseMarkup(string, sheet), face, width, height, {
+    align: look.align,
+    wrap: look.wrap,
+    minScale: look.minScale,
+    outline: size.outline,
+    iconScale: look.iconScale,
+  });
+  return { font, size, layout };
 }
 
 /**

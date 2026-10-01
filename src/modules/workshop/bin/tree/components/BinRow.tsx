@@ -92,7 +92,6 @@ import {
 } from "../utils/binRows";
 import {
   boolLeaf,
-  colorLeaf,
   floatLeaf,
   hashedLeaf,
   integerLeaf,
@@ -121,16 +120,12 @@ import {
 export const ROW_HEIGHT = 27;
 
 const AXES = ["x", "y", "z", "w"] as const;
-const CHANNELS = ["r", "g", "b", "a"] as const;
 
 /** The room a number on its own takes, so a column of rows lines its digits up. */
 const SCALAR_WIDTH = "w-[var(--bin-scalar-width,8rem)]";
 
 /** One component of a vector or a matrix, which holds a float. */
 const COMPONENT_WIDTH = "w-[var(--bin-component-width,6rem)]";
-
-/** One channel of a colour, which holds a byte. */
-const CHANNEL_WIDTH = "w-14";
 
 /** What stands between a random range's bounds, "The inspector" in docs/ux/BIN_EDITOR.md. */
 const RANGE_SEPARATOR = "..";
@@ -708,10 +703,6 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
       return (
         <ColorValue
           value={value}
-          invalid={invalid}
-          autoFocus={autoFocus}
-          onEnter={onEnter}
-          onCommit={(at, text) => edit.commit(row, colorLeaf(value, at, text))}
           onPick={(next) => void edit.commit(row, colorChannelsLeaf(next))}
         />
       );
@@ -1264,7 +1255,7 @@ function Components({
         <Readout
           key={labels[at] ?? at}
           value={String(component)}
-          step={labels === CHANNELS ? "integer" : 1}
+          step={1}
           label={labels[at]}
           channel={at}
           className={width}
@@ -1337,35 +1328,19 @@ function MatrixValue({ values, invalid, onCommit }: MatrixValueProps) {
 
 interface ColorValueProps {
   value: Extract<BinValue, { type: "color" }>;
-  invalid?: boolean;
-  autoFocus?: boolean;
-  onEnter?: () => void;
-  /** Take an edit to the channel at `at`, in `rgba` order. Absent, the boxes are read-only. */
-  onCommit?: (at: number, text: string) => void;
   /** Take every channel from the picker, each 1 at full. Absent, the swatch only reads. */
   onPick?: (channels: number[]) => void;
 }
 
-function ColorValue({ value, invalid, autoFocus, onEnter, onCommit, onPick }: ColorValueProps) {
+function ColorValue({ value, onPick }: ColorValueProps) {
   const { r, g, b, a } = value;
   return (
-    <span className="flex min-w-0 items-center gap-3">
-      <ColorField
-        className="max-w-32 flex-none"
-        values={[r / 255, g / 255, b / 255, a / 255]}
-        label={m.workshop_bin_color_edit_action()}
-        onCommit={onPick}
-      />
-      <Components
-        labels={CHANNELS}
-        values={[r, g, b, a]}
-        width={CHANNEL_WIDTH}
-        invalid={invalid}
-        autoFocus={autoFocus}
-        onEnter={onEnter}
-        onCommit={onCommit}
-      />
-    </span>
+    <ColorField
+      className="max-w-32 flex-none"
+      values={[r / 255, g / 255, b / 255, a / 255]}
+      label={m.workshop_bin_color_edit_action()}
+      onCommit={onPick}
+    />
   );
 }
 

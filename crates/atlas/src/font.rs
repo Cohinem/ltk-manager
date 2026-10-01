@@ -88,13 +88,13 @@ impl<'d> FontBins<'d> {
         })
     }
 
-    /// The `CSSSheet` at `hash`.
+    /// The `CSSSheet` at `hash`, and where its icons sit when no file holds them.
     pub(super) fn style_sheet(
         &self,
         hash: BinHash,
         namer: &mut Namer<'_>,
         assets: &dyn AssetLookup,
-    ) -> Option<UiStyleSheet> {
+    ) -> Option<(UiStyleSheet, SheetAtlas)> {
         let fields = &self.object(hash)?.properties;
 
         let styles = map_entries(fields.get(&STYLES))
@@ -110,24 +110,36 @@ impl<'d> FontBins<'d> {
                 })
             })
             .collect();
-        let icons = map_entries(fields.get(&ICONS))
+        let (icons, keys) = map_entries(fields.get(&ICONS))
             .iter()
             .filter_map(|(key, value)| {
                 let icon = fields_of(Some(value))?;
-                Some(UiTextIcon {
+                let texture = icon.get(&ICON_TEXTURE);
+                let read = UiTextIcon {
                     name: text(Some(key))?.to_owned(),
-                    texture: file(icon.get(&ICON_TEXTURE), namer, assets),
+                    texture: file(texture, namer, assets),
+                    uv: None,
                     y_adjustment: number(icon, ICON_Y_ADJUSTMENT).unwrap_or(0.0),
-                })
+                };
+                Some((read, file_hash(texture)))
             })
-            .collect();
+            .unzip();
+        let manifest = file_hash(fields.get(&PATH_HASH_TO_SELF));
 
-        Some(UiStyleSheet {
+        let sheet = UiStyleSheet {
             path: namer.entry(hash).unwrap_or_else(|| hex(hash)),
             styles,
             icons,
-        })
+        };
+        Some((sheet, SheetAtlas { manifest, keys }))
     }
+}
+
+/// The sprite manifest a `CSSSheet` packs its icons into, its `PathHashToSelf`, and the sprite
+/// key of each icon in the order the sheet lists them.
+pub(super) struct SheetAtlas {
+    pub(super) manifest: Option<u64>,
+    pub(super) keys: Vec<Option<u64>>,
 }
 
 fn faces(type_data: &Fields, assets: &dyn AssetLookup) -> Vec<UiFontFace> {

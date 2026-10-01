@@ -571,3 +571,186 @@ What the client does with one (16.17.8057408):
     bars with a left cap, the bar and a right tip, so the preview spans the fill across all three
     and takes the two caps' share as the threshold. The client's own threshold (`0x1413AFAE0`)
     adds a pixel width to a ratio, so this reading is the intent and not the arithmetic.
+
+## 17 Tooltips
+
+The game's hover tooltip is a scene the client builds by hand from one string, and its data holds
+only the parts. Shipped data below was read on 2026-10-01 from content
+`16.19.8230722+branch.releases-16-19.content.release` with `bin-grep`, league-toolkit's
+`bin_to_rito` example and the `en_US` string table.
+
+### The data
+
+Three views carry a `TooltipViewController` (`0xb3a16a85`): `LoLCommon/UX/Tooltips`,
+`TFTCommon/UX/Tooltips` and `TFTCommon/UX/Tooltips_Mobile`. Its fields, at their offsets in the
+1,408-byte controller (registration `0x14019D5F0`):
+
+| field                                  | offset | value                                                            |
+| -------------------------------------- | -----: | ---------------------------------------------------------------- |
+| `DefaultAdjustments`                   |    360 | `PerLocaleTooltipAdjustments`                                    |
+| `PerLocaleAdjustments`                 |    392 | map from a locale (`ko_kr`, `ja_jp`, …) to the same struct       |
+| `TooltipPopupDelayTime`                |    492 | 0.3 in all three                                                 |
+| `TooltipPopupTimeout`                  |    496 | 0.3 in all three                                                 |
+| `0xf0ae6ff1` (`TooltipViewData` embed) |    624 | the parts, below                                                 |
+| `0x7c7147eb` (u32, default 1)          |  1,376 | how many tooltips show at once, 2 in both TFT views, 1 in LoL    |
+| `0xf5f250a8`                           |  1,384 | map from a hash to adjustment overrides, keyed by run-time state |
+
+`TooltipViewData` (registration `0x140DD60F0`) names every part by a bare `hash`, in this order:
+`Scene`, then the ten `IconElement`, `IconOverlayElement`, `TitleLeftElement`,
+`TitleRightElement`, `SubtitleLeftElement`, `SubtitleRightElement`, `MainTextElement`,
+`PostScriptTitleElement`, `PostScriptLeftElement` and `PostScriptRightElement`, then the images
+`Backdrop`, `HrTop`, `HrBottom`, `HrTopSubScene`, `HrBottomSubScene` and `Caret`, then the regions
+`CaretOffset` and `ClickAbsorbingRegionElement`. Older builds held the same fields on the controller
+itself, up to 6897804.
+
+`PerLocaleTooltipAdjustments` (`0x9e5aed77`, registration `0x14019B6C0`) is 28 bytes of pixel
+nudges: an unnamed bool `0x8b64dacd` (default true) at 0, then the i32 `TitleYAdjustment`,
+`TopHrYPreAdjustment`, `TopHrYPostAdjustment`, `BottomHrYPreAdjustment`,
+`BottomHrYPostAdjustment` and `BottomYPaddingAdjustment` at 4 to 24. The LoL controller overrides
+them for 18 locales and both TFT controllers for 9. Chinese, Korean, Thai and Vietnamese add 7 to
+9 px before each line.
+
+The scene's rects are not where the parts end up. In `TFTCommon/UX/Tooltips/UIBase` at 1600 x 1200:
+
+| part, under `TooltipHTML_`          | position | size      |
+| ----------------------------------- | -------- | --------- |
+| `TitleLeft`, `TitleRight`           | 12, 16   | 770 x 34  |
+| `SubtitleLeft`, `SubtitleRight`     | 12, 10   | 770 x 40  |
+| `MainText`                          | 12, 19   | 770 x 563 |
+| `PostScriptTitle`                   | 12, 12   | 770 x 588 |
+| `PostScriptLeft`, `PostScriptRight` | 12, 12   | 770 x 38  |
+| `Icon`, `IconOverlay`               | 12, 12   | 85 x 85   |
+| `Caret`                             | 12, 12   | 34 x 17   |
+| `TooltipHTMLHr0` to `Hr3`           | 10, 0    | 4 x 3     |
+| `TooltipHTMLBackground`             | 0, 0     | 4 x 4     |
+
+X is the inner padding, Y the gap below the row above, and 770 the wrap width. `HrTop` is `Hr0`,
+`HrBottom` `Hr1`, `HrTopSubScene` `Hr2` and `HrBottomSubScene` `Hr3`. Every text links
+`CSSSheet 0x9c87124a`, whose 427 styles include one per section name (`titleLeft`, `mainText`,
+`postScriptRight`, `infoArea`, …), the keyword styles (`magicDamage`, `scaleAP`, `passive`,
+`rules`, `flavorText`, …) and the inline icons (`cooldown`, `goldCoins`, `leftArrow`,
+`rightArrow`, …).
+
+### The string
+
+A tooltip's content is one string of sections:
+
+```
+<titleLeft>[@Hotkey@]&nbsp;Orb of Deception</titleLeft><titleRight>@Cooldown@s %i:cooldown%</titleRight>
+<subtitleLeft>@SpellTags@</subtitleLeft><subtitleRight>@Cost@ @AbilityResourceName@</subtitleRight>
+<mainText>Ahri throws then pulls back her orb, dealing <magicDamage>@TotalDamage@ magic damage</magicDamage> …</mainText>
+```
+
+That one is `generatedtip_spell_ahriq_tooltip`, line breaks added. The game builds most of these
+from a `TooltipFormat` (`0xb27d5b93`, 72 shipped, 35 in `UI.wad.client`), whose `mOutputStrings`
+map an output name to a template key. `Spell`'s `Tooltip` is `Template_Spell_Tooltip`, the same
+five sections over `@keyHotkey@`, `@keyName@`, `@keyCooldown@`, `@SpellTags@`, `@keyCost@` and
+`@keyTooltip@`. A template's `@key…@` names one of `mInputLocKeysWithDefaults`, a string key, and
+`{{ Key }}` includes another string (`Item_Gold_Value` is `%i:goldCoins% <gold>@Value@</gold>`).
+The object tooltips (`game_ObjectTooltips_[Turret]_EnemyTooltip` and the rest the client names)
+are finished strings with no variables.
+
+A value token is `@[spell.Script:]Name[.precision][*factor]@`. `spell.Script:` reads the value
+from the character's `SpellObject` whose `mScriptName` is `Script`, `.N` shows `N` decimals
+(`-1` keeps the value's own) and `*factor` scales it. `Name` is, in order, a spell stat
+(`Cooldown`, `Cost`, `AmmoRechargeTime`, `MaxAmmo`, each with its class default where the spell
+leaves it out, `cooldownTime` 10), an `mSpellCalculations` entry, a `DataValues` name or
+`EffectNAmount`. `@f1@` and its kin are set by the spell's script as it runs, so no data holds
+them. Across all 174 champions of 16.17, 863 of 865 ability tooltips fill from data alone.
+
+A calculation is a `GameCalculation` (formula parts, `mMultiplier`, `mDisplayAsPercent`,
+`mPrecision`), a `GameCalculationModified` (another times a multiplier) or a
+`GameCalculationConditional` (`mDefaultGameCalculation` where its requirements are unmet). Four
+part classes the tables do not name read data values: `0x4ce08984` and `0xb22609db` grow
+`0x91d404a5` by level, `0xee18a47b` interpolates `StartDataValue` to `EndDataValue`, and
+`0x9e9e2e5c` reads `DataValue` off the spell `SourceObject`. A part naming a data value the spell
+lacks reads 0, which is how a mode-only value such as Nidalee's `ModesBonusMaxTraps` reads outside
+its mode.
+
+How a calculation writes is its `mSimpleTooltipCalculationDisplay`, else the
+`GlobalStatsUIData` (`0x42e2a2c6`) `mTooltipCalculationExpansion`, 6. The client's switch over it
+(`sub_140593640` in 16.17) writes 5 as the number alone and 6 as the total with each part that
+scales with a stat after it. The preview writes each such part through `mNumberStyleBonus`,
+`@OpeningTag@(+@Value@@Icon@)@ClosingTag@`, as `<scaleAD>(+0.4&nbsp;%i:scaleAD%)</scaleAD>`: the
+coefficient, and the stat's `StatUIData` icon and scaling tag. That matches the shipped client's
+look but not a disassembly of mode 6's part text, which reads each part's `mScalingTagKey`.
+
+A `CSSSheet` packs its icons into atlas pages: `UX/Fonts/CSS/StyleSheet`'s `scaleAD` names
+`assets/ux/fonts/texticons/lol/statsicon/scalead.png`, which no archive ships, and the sheet's
+`PathHashToSelf` (`ux/fonts/css/stylesheet`) is an IMAA manifest placing it on
+`uiautoatlas/ux/fonts/css/stylesheet/atlas_0.tex`.
+
+### What the client does with it
+
+Read in the same 16.17.8057408 build as section 11.
+
+- **Setup.** The controller's slot 5 (`0x140DFB3C0`) builds one tooltip object (`0x4C8` bytes,
+  constructor `0x140DD9DD0`) per `0x7c7147eb`, and `0x140DFAD40` clones the scene and every part
+  into it, the scene under a suffix from the second on. Each text and the icon keep their authored
+  position (`0x140DF2770`).
+- **Show.** The global tooltip service (the interface at controller `+336`, plain string entry
+  `0x140E0BB40`) fills a content record (`0x140DD9C90`) and calls `0x140E0B7E0`, which splits,
+  fills, lays out and places the first tooltip, and hides the others.
+- **Split** (`0x140DE42D0`). The string is cut at each top-level `<tag>…</tag>` into `titleLeft`,
+  `titleRight`, `subtitleLeft`, `subtitleRight`, `mainText`, `postScriptTitle`, `postScriptLeft`
+  and `postScriptRight`, with `infoArea` an alias of the last. A section keeps its own tags.
+  Text outside them, or inside a tag of another name, joins `mainText`.
+- **Clean** (`0x140DE31F0`, per section). The section tags come off, tabs become spaces, `<hr>`
+  with any `<br>` beside it becomes `<br><br>`, and `->` and `<-` become `%i:rightArrow%` and
+  `%i:leftArrow%`. Two more passes (`0x140E03050`, `0x140E02670`) were not read. A non-empty
+  section is wrapped again in its own tag, so the sheet styles it by the section's name, and an
+  empty one is cleared.
+- **Fill** (`0x140E019E0`). Each text takes its section and shows only when it is non-empty. The
+  icon and the overlay take the record's two textures and show only when set. `HrTop` shows when
+  the icon, a title or a subtitle shows and so does the main text, `HrBottom` when a postscript
+  part shows and so does the main text. The two sub-scene lines follow the record's two optional
+  sub-scenes.
+- **Stack** (`0x140E10180`). Top to bottom, from `y = 0`:
+  1. a header sub-scene and its line `HrTopSubScene`, when the record has one, then
+     `TopHrYPostAdjustment`
+  2. the icon at its authored offset
+  3. the title row at `y + TitleYAdjustment`
+  4. the subtitle row, and `y` becomes the lower of its bottom and the icon's
+  5. `HrTop`, with `TopHrYPreAdjustment` before it unless the icon shows and the unnamed bool is
+     set, and `TopHrYPostAdjustment` after
+  6. `MainText`
+  7. `HrBottom`, between `BottomHrYPreAdjustment` and `BottomHrYPostAdjustment`
+  8. `PostScriptTitle`, then the postscript row
+  9. a footer sub-scene with its line, when the record has one
+
+  A row (`0x140E10860`) puts its left text at its authored offset, moved right by the icon's width
+  where the icon shows, and its right text at its authored offset, moved right by any overlap with
+  the left. A right-aligned left text swaps the two. Each part's top is the running `y` plus its
+  authored Y, and the next row starts at this row's bottom _(inferred: the decompiler lost the
+  returned value)_. Every adjustment is divided by an integer the render settings return
+  _(inferred to be the UI scale)_.
+
+- **Fit and place** (`0x140E10BA0`, `0x140E01F10`). The bounds (`0x140DE0CF0`) are the union of the
+  icon, the eight texts as laid out and the sub-scenes, with `BottomYPaddingAdjustment` added to
+  the bottom and the icon's bottom as a floor. A text adds its position plus the measured size its
+  slot keeps at `+24` and `+28`, not its authored box, so the tooltip is as wide as its widest text
+  and no wider than 770. The backdrop and the click region take that size, through a callback at
+  controller `+568` that was not read, so whatever inset it adds on the right and bottom is
+  unknown.
+  The tooltip is the backdrop plus the caret less `CaretOffset` tall, goes beside, above, below or
+  centred on its anchor by a placement mode, flips side when it would leave the screen, and is kept
+  8 px inside it (controller `+1400`). A second tooltip stacks 2 px below the first (`+1380`). How
+  the lines take the backdrop's width and how the caret flips (`0x140E07180`) were not read.
+
+### What a preview needs
+
+Atlas draws the parts where the file puts them, so every text sits near the scene's top-left over
+a 4 x 4 backdrop and reads as its name. A preview that looks like the game needs a sample string
+in the format above, the split, clean, fill and stack steps, a measured height per text, and the
+backdrop fitted to the result. `generatedtip_spell_ahriq_tooltip` with its values filled matches
+the Ahri sample loadout, and the object tooltips need no values at all.
+
+Atlas does this in `engine/model/tooltip.ts` while sample content draws, with the sample chosen in
+a row over the canvas. The samples are the passive and abilities of any character under
+`Characters/`, each composed the way the client composes it (`crates/atlas/src/spell_tooltip.rs`):
+the `Tooltip` output of its `TooltipFormat` with each `@key…@` in place of the text of the spell's
+`mLocKeys` entry or the format's default, each `{{ }}` expanded, and each value read from the
+spell at rank 1, a calculation with every stat at 0. A character with no ability tooltips leaves
+the tooltip as the file places it. It mirrors the texts' left inset on the right and bottom of
+the backdrop, which is a guess until the callback above is read, and leaves the caret off, since a
+preview has no anchor for it to point at.

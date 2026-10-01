@@ -151,6 +151,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
       samples: frame.samples,
       only,
       overlay: play.overlay,
+      tooltip: drawn.tooltip,
     }),
     [
       hiddenScenes,
@@ -162,6 +163,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
       frame.samples,
       only,
       play.overlay,
+      drawn.tooltip,
     ],
   );
   const order = useMemo(

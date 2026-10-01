@@ -18,25 +18,36 @@ const WHOLE: readonly [number, number, number, number] = [0, 0, 1, 1];
 export function withLoadout(view: View, loadout: UiLoadout | null): View {
   if (loadout === null || view.bindings.length === 0) return view;
 
-  const textures = [...view.textures];
-  const indexOf = new Map<string, number>();
-  const filled = new Map<string, number>();
+  const filled = new Map<string, UiTexture>();
   for (const binding of view.bindings) {
     const texture = textureOf(binding.role, loadout);
-    if (texture === null) continue;
+    if (texture !== null) filled.set(binding.element, texture);
+  }
+  return withTextures(view, filled);
+}
 
+/**
+ * `view` with each icon or effect `filled` names drawing its texture, whole, where the file leaves
+ * it without a sprite, and the view's textures gaining those at their end.
+ */
+export function withTextures(view: View, filled: ReadonlyMap<string, UiTexture>): View {
+  if (filled.size === 0) return view;
+
+  const textures = [...view.textures];
+  const indexOf = new Map<string, number>();
+  const filledAt = new Map<string, number>();
+  for (const [element, texture] of filled) {
     let at = indexOf.get(texture.path);
     if (at === undefined) {
       at = textures.length;
       textures.push(texture);
       indexOf.set(texture.path, at);
     }
-    filled.set(binding.element, at);
+    filledAt.set(element, at);
   }
-  if (filled.size === 0) return view;
 
   const elements = view.elements.map((element) => {
-    const texture = filled.get(element.key);
+    const texture = filledAt.get(element.key);
     if (texture === undefined) return element;
 
     const look = fill(element.look, texture);

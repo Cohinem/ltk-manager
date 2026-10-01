@@ -9,9 +9,10 @@ import {
   type Rgba,
   type Uv,
 } from "../geometry/quads";
-import type { LayoutSettings, PixelRect } from "../layout/solve";
+import { edgeScale, type LayoutSettings, type PixelRect } from "../layout/solve";
 import type { ClonedElement, PreviewOverlay } from "../model/combo";
 import { type MeterCut, meterDraws } from "../model/meters";
+import { type TooltipSample, withTooltip } from "../model/tooltip";
 import { sceneAncestry, sceneOf, type ViewTree } from "../model/tree";
 import type { ViewElement, ViewLook, ViewSprite } from "../model/view";
 import { restsHidden } from "../model/visibility";
@@ -42,6 +43,8 @@ export interface PreviewState {
   readonly only: ReadonlySet<string> | null;
   /** What the preview draws over the file: its combo boxes' lists and labels. */
   readonly overlay: PreviewOverlay;
+  /** The string the view's tooltip is laid out with while samples draw, none to leave it as the file places it. */
+  readonly tooltip: TooltipSample | null;
 }
 
 export interface BuildInput {
@@ -78,7 +81,7 @@ const CLONE_ORDER = 0.5;
  * drawn offscreen between a push and a pop.
  */
 export function buildCommands(raw: BuildInput): Command[] {
-  const input = withOverlay(raw);
+  const input = withOverlay(withLaidTooltip(raw));
   const { tree } = input;
   const { overlay } = input.preview;
   const shownScenes = shownScenesOf(tree, input.preview.hiddenScenes);
@@ -205,6 +208,15 @@ export function visibleElements(tree: ViewTree, preview: PreviewState): string[]
 /** An element's place in the draw order: its scene's layer, its own layer, its file order. */
 function sortOf(tree: ViewTree, scene: string, element: ViewElement): [number, number, number] {
   return [tree.scenes.get(scene)?.layer ?? 0, element.layer, tree.fileOrder.get(element.key) ?? 0];
+}
+
+/** `input` with its view's tooltip laid out in its overlay while samples draw, per `withTooltip`. */
+function withLaidTooltip(input: BuildInput): BuildInput {
+  const { preview } = input;
+  if (!preview.samples || preview.tooltip === null) return input;
+
+  const overlay = withTooltip(preview.overlay, preview.tooltip, input);
+  return overlay === preview.overlay ? input : { ...input, preview: { ...preview, overlay } };
 }
 
 /** `input` with the overlay's moved rects in place of the solver's. */
@@ -460,18 +472,4 @@ function addHand(geometry: Geometry, rect: PixelRect, color: Rgba, settings: Lay
     geometry.texcoords.push(u, v, 0, 0);
   }
   geometry.indices.push(0, 1, 2);
-}
-
-/**
- * Screen pixels per source pixel for a slice's edge sizes: the screen over the element's source
- * height, times the HUD scale the element takes.
- */
-function edgeScale(element: ViewElement, settings: LayoutSettings): number {
-  const position = element.position;
-  if (position === null || position.kind === "fullScreen") return settings.hud;
-
-  const { rect } = position;
-  const hud = rect.ignoreGlobalScale ? 1 : settings.hud;
-  const sourceH = rect.source[1];
-  return sourceH > 0 ? (settings.screen.height / sourceH) * hud : hud;
 }

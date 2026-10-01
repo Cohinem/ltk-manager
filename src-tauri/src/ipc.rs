@@ -76,6 +76,8 @@ command_table![
     read_ui_material_programs,
     read_ui_programs,
     read_ui_loadout,
+    read_ui_tooltips,
+    read_ui_characters,
     atlas_export_sprite,
     atlas_import_font_file,
     atlas_import_sprite,

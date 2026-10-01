@@ -41,7 +41,7 @@ pub use declared::{
     BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredLinkMark,
     DeclaredMark, DeclaredModuleChoice, DeclaredModuleSummary, DeclaredObjectMark, DeclaredSign,
     DeclaredState, Declaring, GameCopy, LaidVariant, LayerOverride, LinkChange, NewObject,
-    ObjectChange, ObjectSkip, RowDeclaration, SkipReason, VariantSource,
+    ObjectChange, ObjectSkip, ProjectDeclarations, RowDeclaration, SkipReason, VariantSource,
 };
 pub use edit::{EditRejection, HistoryStep, LeafValue, ReadOnly, Reshape, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};

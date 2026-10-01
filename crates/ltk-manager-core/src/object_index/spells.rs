@@ -37,6 +37,39 @@ pub struct SpellCatalog {
 }
 
 impl ObjectIndex {
+    /// Every character a named `Characters/{character}/CharacterRecords/Root` object stands for, as
+    /// the first path naming it spells it, in natural order.
+    ///
+    /// Segments match without regard to ASCII case, as the tables name one character's paths in
+    /// more than one casing.
+    #[must_use]
+    pub fn characters(&self) -> Vec<String> {
+        let mut seen = std::collections::HashSet::new();
+        let mut characters = Vec::new();
+        for object in &self.names.named {
+            let mut segments = object.name.split('/');
+            let (Some(root), Some(owner), Some(records), Some(record), None) = (
+                segments.next(),
+                segments.next(),
+                segments.next(),
+                segments.next(),
+                segments.next(),
+            ) else {
+                continue;
+            };
+            if root.eq_ignore_ascii_case("Characters")
+                && records.eq_ignore_ascii_case("CharacterRecords")
+                && record.eq_ignore_ascii_case("Root")
+                && !owner.is_empty()
+                && seen.insert(owner.to_ascii_lowercase())
+            {
+                characters.push(owner.to_owned());
+            }
+        }
+        characters.sort_by(|a, b| compare_names(a, b));
+        characters
+    }
+
     /// Every named spell below a character's spell path, with all its declarations.
     ///
     /// Path segments match without regard to ASCII case. Unnamed spell objects are

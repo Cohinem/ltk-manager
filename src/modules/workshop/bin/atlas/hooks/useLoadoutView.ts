@@ -5,27 +5,32 @@ import type { BinDocumentId } from "@/lib/tauri";
 
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { uiQueries } from "../api/uiQueries";
-import { roleHidden, roleTexts, withLoadout } from "../engine/model/loadout";
+import { roleHidden, roleTexts, withLoadout, withTextures } from "../engine/model/loadout";
+import { chooseTooltip, type TooltipSample, tooltipSamples } from "../engine/model/tooltip";
 import { buildTree, type ViewTree } from "../engine/model/tree";
 import type { View } from "../engine/model/view";
+import { useAtlasPreviewStore } from "../state/atlasPreview";
 
 const NO_TEXTS: ReadonlyMap<string, string> = new Map();
 const NO_HIDDEN: ReadonlySet<string> = new Set();
 
 /**
- * A view as a preview draws it, the text its bound elements read in place of their own, and the
- * bound elements it draws off.
+ * A view as a preview draws it, the text its bound elements read in place of their own, the bound
+ * elements it draws off, and the sample its tooltip is filled with.
  */
 export interface LoadoutView {
   readonly view: View | null;
   readonly tree: ViewTree | null;
   readonly texts: ReadonlyMap<string, string>;
   readonly hidden: ReadonlySet<string>;
+  /** None where the chosen character has no ability tooltips, or none are read. */
+  readonly tooltip: TooltipSample | null;
 }
 
 /**
  * `view` filled with the sample loadout while `samples` draw, per `withLoadout`, and `tree` as it
- * stands otherwise. The loadout is read only for a view whose controller binds any element.
+ * stands otherwise. The loadout is read only for a view whose controller binds any element. A
+ * view's tooltip is filled with the chosen ability of the chosen character, its icon included.
  */
 export function useLoadoutView(
   document: BinDocumentId,
@@ -36,16 +41,49 @@ export function useLoadoutView(
   const sandbox = useSandbox();
   const wanted = samples && view !== null && view.bindings.length > 0;
   const loadout = useQuery({ ...uiQueries.loadout(document, sandbox), enabled: wanted }).data;
+  const tooltip = useTooltipSample(document, samples && view?.tooltip != null);
 
   return useMemo(() => {
-    if (!wanted || view === null) return { view, tree, texts: NO_TEXTS, hidden: NO_HIDDEN };
+    const icon = view?.tooltip?.icon ?? null;
+    const texture = tooltip?.icon ?? null;
+    const filled = icon === null || texture === null ? null : new Map([[icon, texture]]);
+    if (view === null || (!wanted && filled === null)) {
+      return { view, tree, texts: NO_TEXTS, hidden: NO_HIDDEN, tooltip };
+    }
 
-    const drawn = withLoadout(view, loadout ?? null);
+    const loaded = wanted ? withLoadout(view, loadout ?? null) : view;
+    const drawn = filled === null ? loaded : withTextures(loaded, filled);
     return {
       view: drawn,
       tree: drawn === view ? tree : buildTree(drawn),
-      texts: roleTexts(view),
-      hidden: roleHidden(view),
+      texts: wanted ? roleTexts(view) : NO_TEXTS,
+      hidden: wanted ? roleHidden(view) : NO_HIDDEN,
+      tooltip,
     };
-  }, [wanted, view, tree, loadout]);
+  }, [wanted, view, tree, loadout, tooltip]);
+}
+
+/** The sample a tooltip is filled with: the chosen ability of the chosen character while `wanted`. */
+export function useTooltipSample(document: BinDocumentId, wanted: boolean): TooltipSample | null {
+  const { samples } = useTooltipSamples(document, wanted);
+  const chosen = useAtlasPreviewStore((state) => state.tooltipSample);
+  return useMemo(() => chooseTooltip(samples, chosen), [samples, chosen]);
+}
+
+/** The samples of the chosen character, and whether its abilities are still being read. */
+export interface TooltipSamples {
+  readonly samples: readonly TooltipSample[];
+  readonly pending: boolean;
+}
+
+/** Every sample of the chosen character, per `tooltipSamples`, read while `wanted`. */
+export function useTooltipSamples(document: BinDocumentId, wanted = true): TooltipSamples {
+  const sandbox = useSandbox();
+  const character = useAtlasPreviewStore((state) => state.tooltipCharacter);
+  const read = useQuery({
+    ...uiQueries.tooltips(document, sandbox, character),
+    enabled: wanted,
+  });
+  const samples = useMemo(() => tooltipSamples(read.data ?? null), [read.data]);
+  return { samples, pending: wanted && read.isPending };
 }

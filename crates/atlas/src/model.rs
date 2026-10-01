@@ -30,6 +30,8 @@ pub struct UiView {
     pub elements: Vec<UiElement>,
     /// The combo boxes of the base file, in file order.
     pub combo_boxes: Vec<UiComboBox>,
+    /// The tooltip the controller lays out, where it is a `TooltipViewController`.
+    pub tooltip: Option<UiTooltip>,
     /// Every texture a sprite names, which a sprite indexes.
     pub textures: Vec<UiTexture>,
     /// Every font a text names, which a text indexes.
@@ -240,6 +242,49 @@ pub struct UiComboBox {
     pub label_key: Option<String>,
     /// The sound event a selection plays.
     pub selection_sound: Option<String>,
+}
+
+/// One `TooltipViewData`: the parts a tooltip is laid out from, each as `0x` and eight digits,
+/// per "Tooltips" in docs/research/ui-data-layout.md.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct UiTooltip {
+    pub icon: Option<String>,
+    pub icon_overlay: Option<String>,
+    pub title_left: Option<String>,
+    pub title_right: Option<String>,
+    pub subtitle_left: Option<String>,
+    pub subtitle_right: Option<String>,
+    pub main_text: Option<String>,
+    pub post_script_title: Option<String>,
+    pub post_script_left: Option<String>,
+    pub post_script_right: Option<String>,
+    pub backdrop: Option<String>,
+    pub hr_top: Option<String>,
+    pub hr_bottom: Option<String>,
+    /// The line under an optional header sub-scene.
+    pub hr_top_sub_scene: Option<String>,
+    /// The line over an optional footer sub-scene.
+    pub hr_bottom_sub_scene: Option<String>,
+    pub caret: Option<String>,
+    /// The controller's `DefaultAdjustments`.
+    pub adjustments: UiTooltipAdjustments,
+}
+
+/// One `PerLocaleTooltipAdjustments`: pixel nudges to the tooltip's stack.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct UiTooltipAdjustments {
+    /// The unnamed `0x8b64dacd`: no `top_hr_y_pre` above the top line while the icon shows.
+    pub icon_skips_top_hr_pre: bool,
+    pub title_y: i32,
+    pub top_hr_y_pre: i32,
+    pub top_hr_y_post: i32,
+    pub bottom_hr_y_pre: i32,
+    pub bottom_hr_y_post: i32,
+    pub bottom_y_padding: i32,
 }
 
 /// One `UiElementIData`.
@@ -797,6 +842,8 @@ pub struct UiTextStyle {
 pub struct UiTextIcon {
     pub name: String,
     pub texture: Option<UiAsset>,
+    /// The rect of `texture` the icon is, as `u0, v0, u1, v1`, and all of it where none.
+    pub uv: Option<[f32; 4]>,
     /// `YAdjustment`, in pixels.
     pub y_adjustment: f32,
 }

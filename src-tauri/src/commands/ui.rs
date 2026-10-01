@@ -1,25 +1,29 @@
 //! Atlas's reads: a view controller resolved into what it draws, a font, and the UI programs.
 
 use super::document_assets::{parse_entry, read_resolved, with_resolution};
-use super::installed::InstalledGame;
+use super::installed::ProjectGame;
 use super::off_thread;
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::services::game::index::game_file;
+use crate::services::objects::ObjectIndexState;
 use crate::services::preview::material::{shader_defs, translations};
 use crate::state::SettingsState;
 use atlas::{
     font_catalog, import_font_file, import_sprite, import_surface, patch_sprite, patchable,
-    png_pixels, read_loadout, read_sheet, resolve_font, resolve_scene_bin, resolve_view,
-    sprite_pixels, sprite_png, PagePatch, PatchTarget, SheetImport, SheetSpec, SheetTarget, UiFont,
-    UiFontCatalog, UiLoadout, UiShader, UiView, VariantChoice, FONTS_PATH,
+    png_pixels, read_character_tooltips, read_characters, read_loadout, read_sheet, resolve_font,
+    resolve_scene_bin, resolve_view, sprite_pixels, sprite_png, PagePatch, PatchTarget,
+    SheetImport, SheetSpec, SheetTarget, UiCharacter, UiFont, UiFontCatalog, UiLoadout, UiShader,
+    UiSpellTooltip, UiView, VariantChoice, FONTS_PATH,
 };
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_manager_core::bin_document::GameCopy as _;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments, Namer, RowNames};
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::object_index::parse_hash;
+use ltk_manager_core::object_index::ObjectIndexSnapshot;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::sandbox::{SandboxRef, SandboxState};
+use ltk_manager_core::strings::StringKeyIndexState;
 use ltk_manager_game::program::{
     read_programs, MaterialProgram, ProgramOptions, ProgramRead, Resolution,
 };
@@ -69,10 +73,9 @@ pub async fn read_ui_view(
             open: variant_open.as_deref(),
         });
 
+        let game = project_game(&app_handle, document);
         read_resolved(&app_handle, document, |open, names, assets| {
-            let config = app_handle.state::<SettingsState>().config();
-            let wads = app_handle.state::<WadCache>();
-            let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+            let mut read = |asset: &AssetRef| game.read(asset);
             resolve_view(
                 open,
                 entry,
@@ -80,7 +83,7 @@ pub async fn read_ui_view(
                 choice,
                 names,
                 assets,
-                &InstalledGame(app_handle.clone()),
+                &game,
                 &mut read,
             )
             .map_err(|e| AppError::ValidationFailed(e.to_string()))
@@ -110,10 +113,9 @@ pub async fn read_ui_scene_view(
             .ok_or_else(|| {
                 AppError::ValidationFailed(format!("Document {document} is not open"))
             })?;
+        let game = project_game(&app_handle, document);
         read_resolved(&app_handle, document, |open, names, assets| {
-            let config = app_handle.state::<SettingsState>().config();
-            let wads = app_handle.state::<WadCache>();
-            let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+            let mut read = |asset: &AssetRef| game.read(asset);
             let path = chunk_path(&asset, names);
             resolve_scene_bin(
                 open,
@@ -145,15 +147,85 @@ pub async fn read_ui_loadout(
     app_handle: AppHandle,
 ) -> IpcResult<UiLoadout> {
     off_thread(move || {
+        let game = project_game(&app_handle, document);
         read_resolved(&app_handle, document, |_, names, assets| {
-            Ok(read_loadout(
-                &InstalledGame(app_handle.clone()),
-                assets,
-                names,
+            Ok(read_loadout(&game, assets, names))
+        })
+    })
+    .await
+}
+
+/// Every character the object index holds a record for, with its name and icon, read through
+/// the sandbox `document` opens in and the game's stringtable.
+///
+/// An index that is not ready reads as no characters.
+///
+/// # Errors
+///
+/// Fails when the document is closed.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_ui_characters(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<UiCharacter>> {
+    off_thread(move || {
+        let ObjectIndexSnapshot::Ready(index) = app_handle.state::<ObjectIndexState>().snapshot()
+        else {
+            return Ok(Vec::new());
+        };
+        let characters = index.characters();
+        let config = app_handle.state::<SettingsState>().config();
+        let strings = app_handle
+            .state::<StringKeyIndexState>()
+            .get_or_build(&config);
+        let strings = |key: &str| strings.text(key).map(str::to_owned);
+        let game = project_game(&app_handle, document);
+        read_resolved(&app_handle, document, |_, names, assets| {
+            Ok(read_characters(&game, assets, names, &strings, &characters))
+        })
+    })
+    .await
+}
+
+/// The tooltips of the passive and abilities of the character `character`, such as `Ahri`, read
+/// through the sandbox `document` opens in and the game's stringtable.
+///
+/// A character the index has not reached reads as no tooltips.
+///
+/// # Errors
+///
+/// Fails when the document is closed.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_ui_tooltips(
+    document: BinDocumentId,
+    character: String,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<UiSpellTooltip>> {
+    off_thread(move || {
+        let config = app_handle.state::<SettingsState>().config();
+        let index = app_handle
+            .state::<StringKeyIndexState>()
+            .get_or_build(&config);
+        let strings = |key: &str| index.text(key).map(str::to_owned);
+        let game = project_game(&app_handle, document);
+        read_resolved(&app_handle, document, |_, names, assets| {
+            Ok(read_character_tooltips(
+                &game, assets, names, &strings, &character,
             ))
         })
     })
     .await
+}
+
+/// The game as the project `document` opens in builds it.
+fn project_game(app_handle: &AppHandle, document: BinDocumentId) -> ProjectGame {
+    let sandbox = app_handle
+        .state::<BinDocuments>()
+        .sandbox_of(document)
+        .unwrap_or(SandboxRef::Game);
+    ProjectGame::new(app_handle, &sandbox)
 }
 
 /// The chunk path an asset stands for, which names the folder its manifest sits under: a game
@@ -466,12 +538,11 @@ pub async fn read_ui_font(
 ) -> IpcResult<UiFont> {
     off_thread(move || {
         let entry = parse_entry(&entry)?;
+        let game = project_game(&app_handle, document);
         read_resolved(&app_handle, document, |open, names, assets| {
-            let config = app_handle.state::<SettingsState>().config();
-            let wads = app_handle.state::<WadCache>();
             let fonts = assets
                 .locate(FONTS_PATH)
-                .and_then(|asset| asset.read(&config, &wads).ok())
+                .and_then(|asset| game.read(&asset).ok())
                 .and_then(|bytes| BinDocument::parse(bytes).ok());
             resolve_font(open, entry, fonts.as_ref(), names, assets)
                 .map_err(|e| AppError::ValidationFailed(e.to_string()))
@@ -493,12 +564,11 @@ pub async fn read_ui_font_catalog(
     app_handle: AppHandle,
 ) -> IpcResult<UiFontCatalog> {
     off_thread(move || {
+        let game = project_game(&app_handle, document);
         read_resolved(&app_handle, document, |open, names, assets| {
-            let config = app_handle.state::<SettingsState>().config();
-            let wads = app_handle.state::<WadCache>();
             let fonts = assets
                 .locate(FONTS_PATH)
-                .and_then(|asset| asset.read(&config, &wads).ok())
+                .and_then(|asset| game.read(&asset).ok())
                 .and_then(|bytes| BinDocument::parse(bytes).ok());
             Ok(font_catalog(open, fonts.as_ref(), names))
         })
@@ -529,13 +599,15 @@ pub async fn read_ui_material_programs(
             .map(|entry| parse_hash(entry).unwrap_or_else(|| BinHash::hash_str(entry)))
             .collect();
         let translations = translations(&app_handle);
+        let sandbox = documents
+            .first()
+            .and_then(|document| app_handle.state::<BinDocuments>().sandbox_of(*document))
+            .unwrap_or(SandboxRef::Game);
+        let game = ProjectGame::new(&app_handle, &sandbox);
         with_resolution(&app_handle, documents.first().copied(), |names, assets| {
-            let config = app_handle.state::<SettingsState>().config();
-            let wads = app_handle.state::<WadCache>();
-            let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> { asset.read(&config, &wads) };
+            let mut read = |asset: &AssetRef| game.read(asset);
             let shaders = shader_defs(&app_handle, assets);
             let store = app_handle.state::<BinDocuments>();
-            let game = InstalledGame(app_handle.clone());
 
             let mut program_of = |document: &BinDocument, hash: BinHash| {
                 let resolution = Resolution {

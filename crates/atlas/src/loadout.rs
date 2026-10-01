@@ -8,11 +8,13 @@ use ltk_manager_core::bin_document::{
 };
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
+use rayon::prelude::*;
 use serde::Serialize;
 
 use super::fields::named;
 use super::model::UiTexture;
-use super::resolver::object;
+use super::resolver::{number, object};
+use super::spell_tooltip::{SpellContext, SpellObjects, StatsUi, spell_tooltip};
 
 const CHAMPION: &str = "Ahri";
 const SUMMONERS: [&str; 2] = ["SummonerFlash", "SummonerDot"];
@@ -24,14 +26,41 @@ const SUBSTYLE: &str = "Perks/Styles/Sorcery";
 /// The folder a summoner spell's bare icon name sits in.
 const SPELL_ICONS: &str = "assets/spells/icons2d/";
 const ABILITY_COUNT: usize = 4;
+const ABILITY_KEYS: [&str; ABILITY_COUNT] = ["Q", "W", "E", "R"];
+/// Each `arType`'s name in its `game_ability_resource_` string key, in the enum's order.
+const RESOURCES: [&str; 14] = [
+    "mp",
+    "energy",
+    "none",
+    "shield",
+    "battlefury",
+    "dragonfury",
+    "rage",
+    "heat",
+    "gnarfury",
+    "ferocity",
+    "bloodwell",
+    "wind",
+    "ammo",
+    "other",
+];
 
 const SPELLS: BinHash = named("spells");
 const ABILITIES: BinHash = named("mAbilities");
 const ROOT_SPELL: BinHash = named("mRootSpell");
 const SPELL: BinHash = named("mSpell");
+const SPELL_OBJECT: BinHash = named("SpellObject");
+/// The `GlobalStatsUIData` the client writes a calculation's scaling by, which the tables do
+/// not name.
+const GLOBAL_STATS_UI: BinHash = BinHash(0x42e2_a2c6);
+const SCRIPT_NAME: BinHash = named("mScriptName");
 const ICON_NAME: BinHash = named("mImgIconName");
 const PASSIVE_ICON: BinHash = named("passive1IconName");
+const PASSIVE_SPELL: BinHash = named("mCharacterPassiveSpell");
+const PRIMARY_RESOURCE: BinHash = named("primaryAbilityResource");
+const RESOURCE_TYPE: BinHash = named("arType");
 const NAME: BinHash = named("name");
+const CHARACTER_NAME: BinHash = named("mCharacterName");
 const ICON_SQUARE: BinHash = named("iconSquare");
 const LOADSCREEN: BinHash = named("loadscreen");
 const IMAGE: BinHash = named("image");
@@ -118,6 +147,155 @@ pub fn read_loadout(
     }
 }
 
+/// One ability's tooltip, per "The string" in docs/research/ui-data-layout.md.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct UiSpellTooltip {
+    pub name: String,
+    /// The key that casts the spell, none for the passive.
+    pub hotkey: Option<String>,
+    /// The tooltip string, its values at rank 1 with no bonus stats.
+    pub text: String,
+    /// The spell's icon, which the tooltip's icon shows.
+    pub icon: Option<UiTexture>,
+}
+
+/// The tooltips of the character `character`'s passive and abilities, in that order, each read
+/// as `read_loadout` reads its objects and textures, with its text read through `strings`. An
+/// ability whose spell names no tooltip is absent.
+pub fn read_character_tooltips(
+    game: &dyn GameCopy,
+    assets: &dyn AssetLookup,
+    names: &dyn RowNames,
+    strings: &dyn Fn(&str) -> Option<String>,
+    character: &str,
+) -> Vec<UiSpellTooltip> {
+    let mut objects = Objects {
+        game,
+        bins: Vec::new(),
+    };
+    let mut textures = Textures {
+        assets,
+        namer: Namer::new(names),
+    };
+
+    let record = objects.fields(&format!("Characters/{character}/CharacterRecords/Root"));
+    let resource = resource_name(record.as_ref(), strings);
+    let passive = object(own(record.as_ref(), PASSIVE_SPELL)).and_then(|spell| objects.at(spell));
+    let passive_icon = textures.at(own(record.as_ref(), PASSIVE_ICON));
+    let abilities = ability_spells(&mut objects, record.as_ref());
+    let hotkeys: Vec<(String, &str)> = abilities
+        .iter()
+        .zip(ABILITY_KEYS)
+        .filter_map(|(spell, key)| Some((text(spell.as_ref()?.get(&SCRIPT_NAME))?.to_owned(), key)))
+        .collect();
+    let stats = objects
+        .at(GLOBAL_STATS_UI)
+        .map(|fields| StatsUi::read(&fields, strings))
+        .unwrap_or_default();
+
+    let slots =
+        std::iter::once((None, passive)).chain(ABILITY_KEYS.into_iter().map(Some).zip(abilities));
+    let mut tooltips = Vec::new();
+    for (hotkey, spell) in slots {
+        let Some(spell) = spell else {
+            continue;
+        };
+        let context = SpellContext {
+            hotkey,
+            hotkeys: &hotkeys,
+            resource: resource.as_deref(),
+            strings,
+            stats: &stats,
+        };
+        let Some(tooltip) = spell_tooltip(&spell, &mut objects, &context) else {
+            continue;
+        };
+
+        let icon = match hotkey {
+            Some(_) => textures.at(spell_icon(&spell)),
+            None => passive_icon
+                .clone()
+                .or_else(|| textures.at(spell_icon(&spell))),
+        };
+        tooltips.push(UiSpellTooltip {
+            name: tooltip.name,
+            hotkey: hotkey.map(str::to_owned),
+            text: tooltip.text,
+            icon,
+        });
+    }
+    tooltips
+}
+
+/// The name of the resource the character's abilities cost, as its strings name it.
+fn resource_name(
+    record: Option<&Fields>,
+    strings: &dyn Fn(&str) -> Option<String>,
+) -> Option<String> {
+    let resource = fields_of(own(record, PRIMARY_RESOURCE));
+    let kind = resource
+        .and_then(|fields| number(fields, RESOURCE_TYPE))
+        .unwrap_or(0.0);
+    let name = RESOURCES.get(kind as usize)?;
+    strings(&format!("game_ability_resource_{name}"))
+}
+
+/// One character a preview can fill a tooltip from.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct UiCharacter {
+    /// The folder its paths name it by, such as `Ahri` or `TFT15_Ahri`.
+    pub id: String,
+    /// Its name in the string table, where the table holds one.
+    pub name: Option<String>,
+    /// The square icon of its base skin.
+    pub icon: Option<UiTexture>,
+}
+
+/// Each of `characters` with its name and the icon of its base skin, every character's record
+/// and skin read in parallel through `game`.
+pub fn read_characters(
+    game: &dyn GameCopy,
+    assets: &dyn AssetLookup,
+    names: &dyn RowNames,
+    strings: &dyn Fn(&str) -> Option<String>,
+    characters: &[String],
+) -> Vec<UiCharacter> {
+    let read: Vec<(Option<String>, Option<PropertyValueEnum>)> = characters
+        .par_iter()
+        .map(|id| {
+            let mut objects = Objects {
+                game,
+                bins: Vec::new(),
+            };
+            let record = objects.fields(&format!("Characters/{id}/CharacterRecords/Root"));
+            let skin = objects.fields(&format!("Characters/{id}/Skins/Skin0"));
+            let name = text(own(record.as_ref(), CHARACTER_NAME)).map(str::to_owned);
+            (name, own(skin.as_ref(), ICON_SQUARE).cloned())
+        })
+        .collect();
+
+    let mut textures = Textures {
+        assets,
+        namer: Namer::new(names),
+    };
+    characters
+        .iter()
+        .zip(read)
+        .map(|(id, (name, icon))| UiCharacter {
+            id: id.clone(),
+            name: strings(&format!(
+                "game_character_displayname_{}",
+                name.as_deref().unwrap_or(id)
+            )),
+            icon: textures.at(icon.as_ref()),
+        })
+        .collect()
+}
+
 /// Objects read by path through the bins that declare them, each bin parsed once.
 struct Objects<'a> {
     game: &'a dyn GameCopy,
@@ -142,6 +320,25 @@ impl Objects<'_> {
     }
 }
 
+impl SpellObjects for Objects<'_> {
+    fn object(&mut self, entry: BinHash) -> Option<Fields> {
+        self.at(entry)
+    }
+
+    /// Found among the bins read so far, which hold the character's own spells.
+    fn spell(&mut self, script: &str) -> Option<Fields> {
+        self.bins.iter().find_map(|bin| {
+            bin.entries().find_map(|entry| {
+                let object = bin.object_at(entry)?;
+                let named = object.class_hash == SPELL_OBJECT
+                    && text(object.properties.get(&SCRIPT_NAME))
+                        .is_some_and(|name| name.eq_ignore_ascii_case(script));
+                named.then(|| object.properties.clone())
+            })
+        })
+    }
+}
+
 /// Textures located on this machine, each named as the tables name its chunk.
 struct Textures<'a> {
     assets: &'a dyn AssetLookup,
@@ -154,11 +351,13 @@ impl Textures<'_> {
         match first_leaf(value)? {
             Leaf::String(path) if !path.is_empty() => self.path(path),
             Leaf::File(hash) if hash.0 != 0 => {
-                let asset = self.assets.locate_chunk(hash)?;
-                let path = self
-                    .namer
-                    .chunk(hash)
-                    .unwrap_or_else(|| format!("{:016x}", hash.0));
+                let named = self.namer.chunk(hash);
+                let asset = match self.assets.locate_chunk(hash) {
+                    Some(asset) => asset,
+                    /* The install's index reaches a chunk the tables name by its path alone. */
+                    None => self.assets.locate(named.as_deref()?)?,
+                };
+                let path = named.unwrap_or_else(|| format!("{:016x}", hash.0));
                 Some(texture(path, asset))
             }
             _ => None,
@@ -237,3 +436,6 @@ fn first_leaf(value: Option<&PropertyValueEnum>) -> Option<Leaf<'_>> {
     };
     leaf(Some(value)).or_else(|| leaf(items(Some(value)).first()))
 }
+
+#[cfg(test)]
+mod tests;

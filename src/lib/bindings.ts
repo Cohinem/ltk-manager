@@ -264,6 +264,28 @@ export const commands = {
 	 */
 	readUiLoadout: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: UiLoadout }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_loadout", { document }),
 	/**
+	 *  The tooltips of the passive and abilities of the character `character`, such as `Ahri`, read
+	 *  through the sandbox `document` opens in and the game's stringtable.
+	 * 
+	 *  A character the index has not reached reads as no tooltips.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the document is closed.
+	 */
+	readUiTooltips: (document: BinDocumentId, character: string) => __TAURI_INVOKE<({ ok: true; value: UiSpellTooltip[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_tooltips", { document, character }),
+	/**
+	 *  Every character the object index holds a record for, with its name and icon, read through
+	 *  the sandbox `document` opens in and the game's stringtable.
+	 * 
+	 *  An index that is not ready reads as no characters.
+	 * 
+	 *  # Errors
+	 * 
+	 *  Fails when the document is closed.
+	 */
+	readUiCharacters: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: UiCharacter[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_characters", { document }),
+	/**
 	 *  Write the sprite at `uv` on the page `texture` to `destination` as a PNG, at the page's own
 	 *  resolution, for an image editor to open and the import to take back.
 	 * 
@@ -409,7 +431,7 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","changeIntegration":"change_integration","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","minimizeToTray":"minimize_to_tray","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiView":"read_ui_view","rebuildOverlay":"rebuild_overlay","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveSettings":"save_settings","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path"} as const;
+export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","changeIntegration":"change_integration","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","minimizeToTray":"minimize_to_tray","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","readUiCharacters":"read_ui_characters","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiTooltips":"read_ui_tooltips","readUiView":"read_ui_view","rebuildOverlay":"rebuild_overlay","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveSettings":"save_settings","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path"} as const;
 
 /* Types */
 /**  Accent color configuration. */
@@ -7106,6 +7128,16 @@ export type UiButtonState = {
 	textFrame: string | null,
 };
 
+/**  One character a preview can fill a tooltip from. */
+export type UiCharacter = {
+	/**  The folder its paths name it by, such as `Ahri` or `TFT15_Ahri`. */
+	id: string,
+	/**  Its name in the string table, where the table holds one. */
+	name: string | null,
+	/**  The square icon of its base skin. */
+	icon: UiTexture | null,
+};
+
 /**
  *  One `UiComboBoxDefinition`: the elements a combo box builds its list from, each as `0x` and
  *  eight digits, per "Combo boxes" in docs/research/ui-data-layout.md.
@@ -7502,6 +7534,17 @@ export type UiSlice = {
 
 export type UiSliceKind = "horizontal" | "vertical" | "nine";
 
+/**  One ability's tooltip, per "The string" in docs/research/ui-data-layout.md. */
+export type UiSpellTooltip = {
+	name: string,
+	/**  The key that casts the spell, none for the passive. */
+	hotkey: string | null,
+	/**  The tooltip string, its values at rank 1 with no bonus stats. */
+	text: string,
+	/**  The spell's icon, which the tooltip's icon shows. */
+	icon: UiTexture | null,
+};
+
 /**  A region of a texture: an IMAA entry or an `AtlasData` rect. */
 export type UiSprite = {
 	/**  The index into [`UiView::textures`]. */
@@ -7524,6 +7567,8 @@ export type UiStyleSheet = {
 export type UiTextIcon = {
 	name: string,
 	texture: UiAsset | null,
+	/**  The rect of `texture` the icon is, as `u0, v0, u1, v1`, and all of it where none. */
+	uv: [(number | null), (number | null), (number | null), (number | null)] | null,
 	/**  `YAdjustment`, in pixels. */
 	yAdjustment: number | null,
 };
@@ -7550,6 +7595,45 @@ export type UiTexture = {
 
 /**  The class of a meter's `TipStyle`. */
 export type UiTipStyle = "barExtension" | "doubleSided" | "glowCenteredOverlay";
+
+/**
+ *  One `TooltipViewData`: the parts a tooltip is laid out from, each as `0x` and eight digits,
+ *  per "Tooltips" in docs/research/ui-data-layout.md.
+ */
+export type UiTooltip = {
+	icon: string | null,
+	iconOverlay: string | null,
+	titleLeft: string | null,
+	titleRight: string | null,
+	subtitleLeft: string | null,
+	subtitleRight: string | null,
+	mainText: string | null,
+	postScriptTitle: string | null,
+	postScriptLeft: string | null,
+	postScriptRight: string | null,
+	backdrop: string | null,
+	hrTop: string | null,
+	hrBottom: string | null,
+	/**  The line under an optional header sub-scene. */
+	hrTopSubScene: string | null,
+	/**  The line over an optional footer sub-scene. */
+	hrBottomSubScene: string | null,
+	caret: string | null,
+	/**  The controller's `DefaultAdjustments`. */
+	adjustments: UiTooltipAdjustments,
+};
+
+/**  One `PerLocaleTooltipAdjustments`: pixel nudges to the tooltip's stack. */
+export type UiTooltipAdjustments = {
+	/**  The unnamed `0x8b64dacd`: no `top_hr_y_pre` above the top line while the icon shows. */
+	iconSkipsTopHrPre: boolean,
+	titleY: number,
+	topHrYPre: number,
+	topHrYPost: number,
+	bottomHrYPre: number,
+	bottomHrYPost: number,
+	bottomYPadding: number,
+};
 
 /**  A variant laid over the base scene bin, and what laying it did. */
 export type UiVariant = {
@@ -7601,6 +7685,8 @@ export type UiView = {
 	elements: UiElement[],
 	/**  The combo boxes of the base file, in file order. */
 	comboBoxes: UiComboBox[],
+	/**  The tooltip the controller lays out, where it is a `TooltipViewController`. */
+	tooltip: UiTooltip | null,
 	/**  Every texture a sprite names, which a sprite indexes. */
 	textures: UiTexture[],
 	/**  Every font a text names, which a text indexes. */

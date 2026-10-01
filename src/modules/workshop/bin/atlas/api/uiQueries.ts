@@ -12,7 +12,9 @@ import {
   type UiFont,
   type UiFontCatalog,
   type UiLoadout,
+  type UiCharacter,
   type UiShader,
+  type UiSpellTooltip,
   type UiView,
   type ViewVariant,
 } from "@/lib/tauri";
@@ -81,6 +83,10 @@ export const uiKeys = {
     ["ui-declared", sandboxKey(sandbox), hash] as const,
   loadout: (document: BinDocumentId, sandbox: SandboxRef) =>
     ["ui-loadout", document, sandboxKey(sandbox)] as const,
+  tooltips: (document: BinDocumentId, sandbox: SandboxRef, character: string) =>
+    ["ui-tooltips", document, sandboxKey(sandbox), character.toLowerCase()] as const,
+  characters: (document: BinDocumentId, sandbox: SandboxRef) =>
+    ["ui-characters", document, sandboxKey(sandbox)] as const,
   materials: (
     documents: readonly BinDocumentId[],
     entries: readonly string[],
@@ -109,6 +115,28 @@ export const uiQueries = {
       queryFn: async () => {
         await untilIndexed(sandbox);
         return unwrapForQuery(await api.bin.readUiLoadout(document));
+      },
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** Every character with its name and icon, read once the object index is built. */
+  characters: (document: BinDocumentId, sandbox: SandboxRef) =>
+    queryOptions<UiCharacter[], AppError>({
+      queryKey: uiKeys.characters(document, sandbox),
+      queryFn: async () => {
+        await untilIndexed(sandbox);
+        return unwrapForQuery(await api.bin.readUiCharacters(document));
+      },
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** The tooltips of a character's passive and abilities, read once the object index is built. */
+  tooltips: (document: BinDocumentId, sandbox: SandboxRef, character: string) =>
+    queryOptions<UiSpellTooltip[], AppError>({
+      queryKey: uiKeys.tooltips(document, sandbox, character),
+      queryFn: async () => {
+        await untilIndexed(sandbox);
+        return unwrapForQuery(await api.bin.readUiTooltips(document, character));
       },
       staleTime: Infinity,
       retry: false,

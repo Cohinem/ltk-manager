@@ -85,3 +85,29 @@ fn character_spells_are_not_limited_by_the_find_result_cap() {
     let (_tmp, index) = named_index(&objects);
     assert_eq!(index.character_spells("Sejuani").spells.len(), paths.len());
 }
+
+#[test]
+fn characters_are_the_named_records_in_any_case() {
+    let (_tmp, index) = named_index(&[
+        ("Characters/Ahri/CharacterRecords/Root", "CharacterRecord"),
+        (
+            "characters/TFT15_Ahri/characterrecords/root",
+            "CharacterRecord",
+        ),
+        ("Characters/Annie2/CharacterRecords/Root", "CharacterRecord"),
+        (
+            "Characters/Annie10/CharacterRecords/Root",
+            "CharacterRecord",
+        ),
+        ("Characters/Sejuani/Spells/SejuaniE", "SpellObject"),
+        (
+            "Characters/Sejuani/CharacterRecords/Root/Deeper",
+            "CharacterRecord",
+        ),
+    ]);
+
+    assert_eq!(
+        index.characters(),
+        ["Ahri", "Annie2", "Annie10", "TFT15_Ahri"]
+    );
+}
