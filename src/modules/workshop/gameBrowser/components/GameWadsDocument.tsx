@@ -11,7 +11,11 @@ import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
-import { type ContentDocumentOf, gameWadDocument } from "../../documents/utils/contentDocument";
+import {
+  type ContentDocumentOf,
+  documentSource,
+  gameWadDocument,
+} from "../../documents/utils/contentDocument";
 import {
   keepScrollTop,
   keptScrollTop,
@@ -24,6 +28,8 @@ import { useGameWads } from "../api/useGameWads";
 import { ExtractMenuItems } from "../extraction/components/ExtractMenuItems";
 import { useExtractActions } from "../extraction/hooks/useExtractActions";
 import { archiveTarget } from "../extraction/utils/extractTargets";
+import { useWadSource, WadSourceProvider } from "../state/wadSource";
+import { sourceCopy } from "../utils/sourceCopy";
 import { wadBasename, wadDirname } from "../utils/sourceIndex";
 import { GameLoadingState, GameWadsErrorState } from "./GameBrowserStates";
 
@@ -31,17 +37,21 @@ import { GameLoadingState, GameWadsErrorState } from "./GameBrowserStates";
    opens into. */
 const ROW_HEIGHT = 24;
 
-/* One list, so one key. What the filter left rides the same scroll, the way it
-   does while the box is typed into. */
-const SCROLL_KEY = "game-wads";
-
 /**
- * Every archive the install holds, as the list the folded tree cannot be.
+ * Every archive one source of the install holds, as the list the folded tree cannot be.
  *
  * The root browser merges the archives away on purpose, so a modder after one
  * archive by name needs this instead.
  */
-export function GameWadsDocument({
+export function GameWadsDocument(props: EditorDocumentProps<ContentDocumentOf<"game-wads">>) {
+  return (
+    <WadSourceProvider source={documentSource(props.document)}>
+      <ArchivesDocument {...props} />
+    </WadSourceProvider>
+  );
+}
+
+function ArchivesDocument({
   document,
   active,
 }: EditorDocumentProps<ContentDocumentOf<"game-wads">>) {
@@ -128,6 +138,10 @@ interface ArchiveListProps {
 }
 
 function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
+  const source = useWadSource();
+  /* One list per source, so one key. What the filter left rides the same scroll, the
+     way it does while the box is typed into. */
+  const scrollKey = `${source}-wads`;
   const query = useGameWads();
   const scrollRef = useRef<HTMLDivElement>(null);
   const openDocument = useOpenDocument();
@@ -144,13 +158,13 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
     setMenuWad(wads.find((wad) => wad.name === name) ?? null);
   }
 
-  const [initialOffset] = useState(() => keptScrollTop(SCROLL_KEY));
+  const [initialOffset] = useState(() => keptScrollTop(scrollKey));
 
   /* The live element rather than one captured at mount, which is null on the
      renders that answer with a state instead of the list. */
   useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    return () => keepScrollTop(SCROLL_KEY, scrollRef.current?.scrollTop ?? 0);
+    return () => keepScrollTop(scrollKey, scrollRef.current?.scrollTop ?? 0);
   }, []);
 
   const zoomed = useZoomedPx();
@@ -190,7 +204,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
 
   if (wads.length === 0) {
     return (
-      <EmptyState size="sm" title="No archives" description="The installed game holds no WADs." />
+      <EmptyState size="sm" title="No archives" description={sourceCopy(source).emptyDescription} />
     );
   }
 
@@ -209,7 +223,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
         >
           {virtualizer.getVirtualItems().map((row) => {
             const wad = wads[row.index]!;
-            const document = gameWadDocument(wad.name);
+            const document = gameWadDocument(wad.name, source);
             const directory = wadDirname(wad.name);
 
             return (

@@ -93,6 +93,10 @@ pub enum BinDocumentError {
     #[error("not a readable bin: {0}")]
     Unreadable(#[from] ltk_meta::Error),
 
+    /// The asset is a League client chunk, which the game's bin documents never reach.
+    #[error("a League client chunk is not a game bin")]
+    LcuChunk,
+
     /// No open document has this id. A close and an eviction both remove one.
     #[error("bin document {0} is not open")]
     NotOpen(BinDocumentId),
@@ -170,11 +174,17 @@ struct TreeKey {
 }
 
 impl TreeKey {
-    fn new(sandbox: &SandboxRef, asset: AssetRef) -> Self {
-        Self {
+    /// The key for `asset` held in `sandbox`, refusing a League client chunk, which no
+    /// tree of the game holds.
+    fn new(sandbox: &SandboxRef, asset: AssetRef) -> Result<Self, BinDocumentError> {
+        if matches!(asset, AssetRef::LcuChunk { .. }) {
+            return Err(BinDocumentError::LcuChunk);
+        }
+
+        Ok(Self {
             sandbox: sandbox.holding(&asset),
             asset,
-        }
+        })
     }
 
     /// Why the tree is read-only, or `None` where it takes edits: the file's own gate, else
@@ -320,7 +330,7 @@ impl BinDocuments {
         asset: AssetRef,
         bytes: impl FnOnce() -> AppResult<Vec<u8>>,
     ) -> AppResult<BinDocumentId> {
-        self.hold(TreeKey::new(sandbox, asset), || {
+        self.hold(TreeKey::new(sandbox, asset)?, || {
             Ok(BinDocument::parse(bytes()?)?)
         })
     }
@@ -341,7 +351,7 @@ impl BinDocuments {
         chunk_hash: u64,
         open: impl FnOnce() -> AppResult<(Vec<u8>, DeclareContext)>,
     ) -> AppResult<BinDocumentId> {
-        self.hold(TreeKey::new(sandbox, asset), || {
+        self.hold(TreeKey::new(sandbox, asset)?, || {
             let (bytes, context) = open()?;
             Ok(BinDocument::declare(bytes, chunk_hash, context)?)
         })
@@ -363,7 +373,7 @@ impl BinDocuments {
         chunk_hash: u64,
         open: impl FnOnce() -> AppResult<VariantSource>,
     ) -> AppResult<BinDocumentId> {
-        self.hold(TreeKey::new(sandbox, asset), || {
+        self.hold(TreeKey::new(sandbox, asset)?, || {
             Ok(BinDocument::declare_variant(open()?, chunk_hash)?)
         })
     }

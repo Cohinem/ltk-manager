@@ -361,6 +361,7 @@ function StatusStrip({ info, natural, fit, zoom, controls, onZoom }: StatusStrip
     facts.push(info.format ? `${info.container} · ${info.format}` : info.container);
     if (info.mipCount > 1) facts.push(`${info.mipCount} mips`);
   }
+  if (info?.kind === "web") facts.push(info.format.toUpperCase());
   if (info && info.kind !== "unsupported") facts.push(formatBytes(Number(info.sizeBytes)));
 
   return (

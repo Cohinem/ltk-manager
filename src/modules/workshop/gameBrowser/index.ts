@@ -34,5 +34,6 @@ export { useGameSearchRevealTarget, useRevealGameSearch } from "./hooks/useGameS
 export { useRevealInGameFiles } from "./hooks/useRevealInGameFiles";
 export { type OpenSourceFile, useSourcePreview } from "./hooks/useSourcePreview";
 export { useSourceTreeNav } from "./hooks/useSourceTreeNav";
+export { useWadSource, WadSourceProvider } from "./state/wadSource";
 export { fileKindFromPath } from "./utils/fileKind";
 export * from "./utils/sourceIndex";

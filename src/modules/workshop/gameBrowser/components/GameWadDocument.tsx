@@ -3,12 +3,12 @@ import { useCallback, useMemo, useState } from "react";
 
 import { type BreadcrumbItem, Button, EmptyState } from "@/components";
 import { m } from "@/i18n";
-import type { AppError, AssetRef, GameWadSummary } from "@/lib/tauri";
+import type { AppError, AssetRef, GameWadSummary, WadSource } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
 import { useExplorerThumbnails, useExplorerTileSize, useExplorerView } from "@/stores";
 import { formatBytes } from "@/utils";
 
-import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
+import { type ContentDocumentOf, documentSource } from "../../documents/utils/contentDocument";
 import {
   ExplorerSortScope,
   useExplorerSort,
@@ -51,6 +51,7 @@ import { useGameWads } from "../api/useGameWads";
 import { type ExtractHow, useExtractActions } from "../extraction/hooks/useExtractActions";
 import { archiveTarget, entryTarget } from "../extraction/utils/extractTargets";
 import { useSourcePreview, useSourceRowPreview } from "../hooks/useSourcePreview";
+import { chunkAsset, useWadSource, WadSourceProvider } from "../state/wadSource";
 import {
   buildSourceTree,
   flattenSourceTree,
@@ -70,17 +71,23 @@ import { SourceTree } from "./SourceTree";
 import { SourceTreeContextMenu } from "./SourceTreeContextMenu";
 
 /** One archive's explorer, kept apart from the whole install's and from another archive's. */
-function explorerIdOf(wadName: string): string {
-  return `game-wad:${wadName}`;
+function archiveExplorerId(source: WadSource, wadName: string): string {
+  return `${source}-wad:${wadName}`;
 }
 
-/** One game archive's files, without the archive level the tab already names. */
-export function GameWadDocument({
-  document,
-  active,
-}: EditorDocumentProps<ContentDocumentOf<"game-wad">>) {
+/** One archive's files, without the archive level the tab already names. */
+export function GameWadDocument(props: EditorDocumentProps<ContentDocumentOf<"game-wad">>) {
+  return (
+    <WadSourceProvider source={documentSource(props.document)}>
+      <ArchiveDocument {...props} />
+    </WadSourceProvider>
+  );
+}
+
+function ArchiveDocument({ document, active }: EditorDocumentProps<ContentDocumentOf<"game-wad">>) {
+  const source = useWadSource();
   const wadName = document.wadName;
-  const explorerId = explorerIdOf(wadName);
+  const explorerId = archiveExplorerId(source, wadName);
 
   const wads = useGameWads();
   const summary = findArchive(wads.data, wadName);
@@ -413,7 +420,7 @@ function ArchiveTree({ explorerId, wadName, summary, entries, listings }: Archiv
       onPreview={previewFile}
       selection={selection}
       selectionTargets={targets}
-      scrollKey={`game-wad:${wadName}`}
+      scrollKey={explorerId}
     />
   );
 }
@@ -426,6 +433,7 @@ function ArchiveItems({
   listings,
   nav,
 }: ArchiveBodyProps & { view: "grid" | "details" }) {
+  const source = useWadSource();
   const openFile = useSourcePreview();
   const previewFile = useSourceRowPreview();
   const filter = useExplorerFilter(explorerId);
@@ -500,7 +508,7 @@ function ArchiveItems({
     onOpen: handleOpen,
     onPreview: handlePreview,
     onUp: nav.goUp,
-    assetOf: chunkAsset,
+    assetOf: (item: ExplorerItem) => itemAsset(source, item),
     renderMenu,
     onRun: runSelection,
   };
@@ -510,9 +518,9 @@ function ArchiveItems({
 }
 
 /** A chunk names the archive it came from, which is the route back to its bytes. */
-function chunkAsset(item: ExplorerItem): AssetRef | null {
+function itemAsset(source: WadSource, item: ExplorerItem): AssetRef | null {
   if (item.kind === "dir") return null;
-  return { kind: "gameChunk", wad: item.entry.wad, pathHash: item.entry.pathHash };
+  return chunkAsset(source, item.entry.wad, item.entry.pathHash);
 }
 
 function fileNodeOf(item: ExplorerFileItem): SourceFileNode {

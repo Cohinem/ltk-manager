@@ -62,6 +62,50 @@ fn list_reports_relative_names_sorted() {
 }
 
 #[test]
+fn a_client_list_reports_plugin_archives() {
+    let tmp = tempfile::tempdir().unwrap();
+    let plugins = tmp.path().join("Plugins");
+    fs::create_dir_all(plugins.join("rcp-fe-lol-loot")).unwrap();
+    fs::create_dir_all(plugins.join("rcp-be-lol-game-data")).unwrap();
+
+    fs::write(plugins.join("rcp-fe-lol-loot").join("assets.wad"), [0u8; 3]).unwrap();
+    fs::write(
+        plugins
+            .join("rcp-be-lol-game-data")
+            .join("default-assets.WAD"),
+        [0u8; 4],
+    )
+    .unwrap();
+    fs::write(plugins.join("rcp-fe-lol-loot").join("index.js"), b"decoy").unwrap();
+
+    let archives = GameArchives::lcu_at(&plugins);
+    let names: Vec<String> = archives
+        .list()
+        .unwrap()
+        .into_iter()
+        .map(|w| w.name)
+        .collect();
+
+    assert_eq!(archives.source(), WadSource::Lcu);
+    assert_eq!(
+        names,
+        [
+            "rcp-be-lol-game-data/default-assets.WAD",
+            "rcp-fe-lol-loot/assets.wad",
+        ]
+    );
+}
+
+#[test]
+fn the_plugins_dir_sits_beside_the_game_dir() {
+    let game = GameDir::from_path(Path::new("League of Legends").join("Game"));
+    assert_eq!(
+        game.lcu_plugins_dir(),
+        Path::new("League of Legends").join("Plugins")
+    );
+}
+
+#[test]
 fn list_fails_without_a_final_dir() {
     let tmp = tempfile::tempdir().unwrap();
     let err = GameArchives::at(tmp.path()).list().unwrap_err();

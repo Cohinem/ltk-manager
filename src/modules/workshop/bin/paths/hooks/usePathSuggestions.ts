@@ -67,7 +67,7 @@ export function usePathSuggestions({
 
   const folder = folderOf(chunkPath(value));
   const listing = useQuery({
-    ...gameQueries.dir(folder ?? ""),
+    ...gameQueries.dir("game", folder ?? ""),
     enabled: open && query === null && folder !== null,
   });
 

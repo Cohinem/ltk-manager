@@ -79,6 +79,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Explorer filters       | In progress | Text in every view, kind and unnamed in the two item views               |
 | Multi-select and copy  | In progress | One model under both game views. The layer file tree remains             |
 | Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                              |
+| Web file preview       | Available   | Web images, video, audio, source text and fonts                          |
 | Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                      |
 | Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)                 |
 | Object tab             | Available   | One declaration as a document. ADR-0028                                  |
@@ -90,6 +91,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Game browser           | In progress | A folded read-only tree and a grid over it, on one bar                   |
 | Game index             | In progress | Folded, in memory and searchable. The mmap cache remains                 |
 | Scoped game browser    | Available   | One tab for each archive, from either list of archives                   |
+| LCU browser            | Available   | The client's `Plugins` archives, browsed, previewed and extracted        |
 | Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings                |
 | Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain                 |
 | Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick                   |
@@ -2628,6 +2630,28 @@ index is the one signal the app gets that the install changed underneath it.
 The image preview decodes DDS and TEX through the `ltk_texture` crate. The `ltk-tex-utils`
 repository holds an integration to work from.
 
+### Files the webview reads
+
+The League client ships web content, and the game ships a few web files of its own. The
+preview draws them with what the webview already holds rather than a viewer per format.
+
+| Files                                                | Viewer                                                        |
+| ---------------------------------------------------- | ------------------------------------------------------------- |
+| SVG, GIF, WebP, BMP, ICO                             | The image preview, which zooms and pans them as any image     |
+| webm, mp4, ogg, wav, mp3                             | The webview's `<video>` or `<audio>`, which starts on a click |
+| JSON, JS, CSS, HTML, XML, YAML, Markdown, plain text | A read-only CodeMirror view, highlighted and searchable       |
+| OTF, TTF                                             | A sample at a ladder of sizes, which the reader can retype    |
+
+- The extension picks the viewer. A chunk no hash table names reaches the image preview, which
+  reads a web image off its bytes
+- A file arrives over the `ltk-asset` scheme as its own bytes, under the media type its
+  signature names. Every response carries `nosniff` and a policy that runs nothing, so an
+  HTML page or an SVG is never run as a page
+- An HTML page, a script and a stylesheet show as source. JSON opens indented, because the
+  client ships it on one line, and **Format** turns that off
+- The text view decodes the first 4 MB. Save a copy reaches the rest
+- `Ctrl+F` over a text preview opens the view's own search
+
 ### A layer file saved from outside
 
 A modder edits a texture of the open project in another program and saves it. Every preview of
@@ -2944,6 +2968,24 @@ The open browsers share the rest of the surface.
 A side panel hosts one browser. A user who wants two archives side by side drags one tab
 onto a boundary, and the layout then holds two editor surfaces with one browser in each.
 Read [A tab drag creates a panel](#a-tab-drag-creates-a-panel).
+
+### The League client
+
+The League client ships its own archives, the `*.wad` files under `Plugins`, and a modder who
+themes the client looks for files in them the way a game modder does in the game's. The
+**LCU index** and **LCU WADs** tabs read those archives with the same browser, list and scoped
+tab as the game. The palette opens both, and the LCU index's archive control opens the list.
+
+- A separate index, built at its first read and rebuilt from its own control. 46 archives
+  and 61,436 files build in a third of a second
+- Names come from the `lcu` hash table, which the shared cache already holds
+- A row previews and extracts to a folder as a game row does. One folder per archive keeps
+  the archive's whole path, because nearly every client archive is named `assets.wad`
+
+The game reads no client file, and a client file is no part of a game mod. An LCU row
+therefore offers no copy into a layer, no Find references and no Open in VS Code. The
+palette's search, a path field's suggestions and the object index read the game index
+alone, and a bin document refuses a client chunk.
 
 ### The tree
 

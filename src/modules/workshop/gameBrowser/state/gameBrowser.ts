@@ -1,4 +1,8 @@
-import { create } from "zustand";
+import { create, useStore } from "zustand";
+
+import type { WadSource } from "@/lib/tauri";
+
+import { useWadSource } from "./wadSource";
 
 /** A row the game index tree is asked to open down to, focus and scroll to. */
 export interface GameReveal {
@@ -41,9 +45,6 @@ interface GameBrowserStore {
   /** What the WAD list's box holds. */
   wadFilter: string;
   setWadFilter: (wadFilter: string) => void;
-  /** Where a list was left scrolled, in px, by the key the list names itself. */
-  scrollTops: Record<string, number>;
-  setScrollTop: (key: string, top: number) => void;
 }
 
 /** The shut set of an archive nobody has shut a directory in. */
@@ -60,82 +61,98 @@ function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
 }
 
 /**
- * What the game browser is showing, held outside the documents that draw it.
+ * What a game browser is showing, held outside the documents that draw it.
  *
  * The first preview a tree opens splits a group off beside it, and a leaf that
  * gains a split around it remounts everything under it. A document holding its
  * own tree state would therefore lose it on the very double click that opened
  * the file - the tree would shut, the box would empty, the scroll would jump.
- * One store across the projects, since every game tab browses one install.
+ * One store per source across the projects, since every tab of a source browses
+ * one install.
  */
-export const useGameBrowserStore = create<GameBrowserStore>()((set) => ({
-  expandedDirs: new Set(),
-  toggleDir: (path) => set((state) => ({ expandedDirs: toggled(state.expandedDirs, path) })),
-  expandDirs: (paths) =>
-    set((state) => {
-      if (paths.every((path) => state.expandedDirs.has(path))) return state;
-      return { expandedDirs: new Set([...state.expandedDirs, ...paths]) };
-    }),
-  collapseAllDirs: () => set({ expandedDirs: new Set() }),
-  collapseDirTree: (path) =>
-    set((state) => {
-      const under = `${path}/`;
-      const kept = [...state.expandedDirs].filter(
-        (open) => open !== path && !open.startsWith(under),
-      );
-      if (kept.length === state.expandedDirs.size) return state;
+const createGameBrowserStore = () =>
+  create<GameBrowserStore>()((set) => ({
+    expandedDirs: new Set(),
+    toggleDir: (path) => set((state) => ({ expandedDirs: toggled(state.expandedDirs, path) })),
+    expandDirs: (paths) =>
+      set((state) => {
+        if (paths.every((path) => state.expandedDirs.has(path))) return state;
+        return { expandedDirs: new Set([...state.expandedDirs, ...paths]) };
+      }),
+    collapseAllDirs: () => set({ expandedDirs: new Set() }),
+    collapseDirTree: (path) =>
+      set((state) => {
+        const under = `${path}/`;
+        const kept = [...state.expandedDirs].filter(
+          (open) => open !== path && !open.startsWith(under),
+        );
+        if (kept.length === state.expandedDirs.size) return state;
 
-      return { expandedDirs: new Set(kept) };
-    }),
-  reveal: null,
-  requestReveal: (id) =>
-    set((state) => ({ reveal: { id, token: (state.reveal?.token ?? 0) + 1 } })),
-  settleReveal: (token) =>
-    set((state) => (state.reveal?.token === token ? { reveal: null } : state)),
-  searchPattern: "",
-  searchRegex: false,
-  setSearchPattern: (searchPattern) => set({ searchPattern }),
-  setSearchRegex: (searchRegex) => set({ searchRegex }),
-  shutFindDirs: new Set(),
-  toggleFindDir: (path) => set((state) => ({ shutFindDirs: toggled(state.shutFindDirs, path) })),
-  setCollapsedFindDirs: (paths) => set({ shutFindDirs: new Set(paths) }),
-  shutWadDirs: {},
-  toggleWadDir: (wadName, path) =>
-    set((state) => ({
-      shutWadDirs: {
-        ...state.shutWadDirs,
-        [wadName]: toggled(state.shutWadDirs[wadName] ?? NO_SHUT_DIRS, path),
-      },
-    })),
-  setCollapsedWadDirs: (wadName, paths) =>
-    set((state) => ({ shutWadDirs: { ...state.shutWadDirs, [wadName]: new Set(paths) } })),
-  wadFilter: "",
-  setWadFilter: (wadFilter) => set({ wadFilter }),
-  scrollTops: {},
-  setScrollTop: (key, top) => set((state) => ({ scrollTops: { ...state.scrollTops, [key]: top } })),
-}));
+        return { expandedDirs: new Set(kept) };
+      }),
+    reveal: null,
+    requestReveal: (id) =>
+      set((state) => ({ reveal: { id, token: (state.reveal?.token ?? 0) + 1 } })),
+    settleReveal: (token) =>
+      set((state) => (state.reveal?.token === token ? { reveal: null } : state)),
+    searchPattern: "",
+    searchRegex: false,
+    setSearchPattern: (searchPattern) => set({ searchPattern }),
+    setSearchRegex: (searchRegex) => set({ searchRegex }),
+    shutFindDirs: new Set(),
+    toggleFindDir: (path) => set((state) => ({ shutFindDirs: toggled(state.shutFindDirs, path) })),
+    setCollapsedFindDirs: (paths) => set({ shutFindDirs: new Set(paths) }),
+    shutWadDirs: {},
+    toggleWadDir: (wadName, path) =>
+      set((state) => ({
+        shutWadDirs: {
+          ...state.shutWadDirs,
+          [wadName]: toggled(state.shutWadDirs[wadName] ?? NO_SHUT_DIRS, path),
+        },
+      })),
+    setCollapsedWadDirs: (wadName, paths) =>
+      set((state) => ({ shutWadDirs: { ...state.shutWadDirs, [wadName]: new Set(paths) } })),
+    wadFilter: "",
+    setWadFilter: (wadFilter) => set({ wadFilter }),
+  }));
 
-export const useExpandedGameDirs = () => useGameBrowserStore((s) => s.expandedDirs);
-export const useToggleGameDir = () => useGameBrowserStore((s) => s.toggleDir);
-export const useExpandGameDirs = () => useGameBrowserStore((s) => s.expandDirs);
-export const useCollapseAllGameDirs = () => useGameBrowserStore((s) => s.collapseAllDirs);
-export const useCollapseGameDirTree = () => useGameBrowserStore((s) => s.collapseDirTree);
-export const useGameReveal = () => useGameBrowserStore((s) => s.reveal);
-export const useRequestGameReveal = () => useGameBrowserStore((s) => s.requestReveal);
-export const useSettleGameReveal = () => useGameBrowserStore((s) => s.settleReveal);
-export const useGameSearchPattern = () => useGameBrowserStore((s) => s.searchPattern);
-export const useSetGameSearchPattern = () => useGameBrowserStore((s) => s.setSearchPattern);
-export const useGameSearchRegex = () => useGameBrowserStore((s) => s.searchRegex);
-export const useSetGameSearchRegex = () => useGameBrowserStore((s) => s.setSearchRegex);
-export const useShutFindDirs = () => useGameBrowserStore((s) => s.shutFindDirs);
-export const useToggleFindDir = () => useGameBrowserStore((s) => s.toggleFindDir);
-export const useSetCollapsedFindDirs = () => useGameBrowserStore((s) => s.setCollapsedFindDirs);
+const stores: Record<WadSource, ReturnType<typeof createGameBrowserStore>> = {
+  game: createGameBrowserStore(),
+  lcu: createGameBrowserStore(),
+};
+
+/** The game's own browser store, for a caller outside React. */
+export const useGameBrowserStore = stores.game;
+
+/** One field of the store of the browser the caller sits in. */
+function useBrowserStore<T>(selector: (state: GameBrowserStore) => T): T {
+  return useStore(stores[useWadSource()], selector);
+}
+
+export const useExpandedGameDirs = () => useBrowserStore((s) => s.expandedDirs);
+export const useToggleGameDir = () => useBrowserStore((s) => s.toggleDir);
+export const useExpandGameDirs = () => useBrowserStore((s) => s.expandDirs);
+export const useCollapseAllGameDirs = () => useBrowserStore((s) => s.collapseAllDirs);
+export const useCollapseGameDirTree = () => useBrowserStore((s) => s.collapseDirTree);
+export const useGameReveal = () => useBrowserStore((s) => s.reveal);
+export const useRequestGameReveal = () => useBrowserStore((s) => s.requestReveal);
+export const useSettleGameReveal = () => useBrowserStore((s) => s.settleReveal);
+export const useGameSearchPattern = () => useBrowserStore((s) => s.searchPattern);
+export const useSetGameSearchPattern = () => useBrowserStore((s) => s.setSearchPattern);
+export const useGameSearchRegex = () => useBrowserStore((s) => s.searchRegex);
+export const useSetGameSearchRegex = () => useBrowserStore((s) => s.setSearchRegex);
+export const useShutFindDirs = () => useBrowserStore((s) => s.shutFindDirs);
+export const useToggleFindDir = () => useBrowserStore((s) => s.toggleFindDir);
+export const useSetCollapsedFindDirs = () => useBrowserStore((s) => s.setCollapsedFindDirs);
 export const useShutWadDirs = (wadName: string) =>
-  useGameBrowserStore((s) => s.shutWadDirs[wadName] ?? NO_SHUT_DIRS);
-export const useToggleWadDir = () => useGameBrowserStore((s) => s.toggleWadDir);
-export const useSetCollapsedWadDirs = () => useGameBrowserStore((s) => s.setCollapsedWadDirs);
-export const useWadFilter = () => useGameBrowserStore((s) => s.wadFilter);
-export const useSetWadFilter = () => useGameBrowserStore((s) => s.setWadFilter);
+  useBrowserStore((s) => s.shutWadDirs[wadName] ?? NO_SHUT_DIRS);
+export const useToggleWadDir = () => useBrowserStore((s) => s.toggleWadDir);
+export const useSetCollapsedWadDirs = () => useBrowserStore((s) => s.setCollapsedWadDirs);
+export const useWadFilter = () => useBrowserStore((s) => s.wadFilter);
+export const useSetWadFilter = () => useBrowserStore((s) => s.setWadFilter);
+
+/** Where each list was left scrolled, in px, by the key the list names itself. */
+const scrollTops = create<Record<string, number>>()(() => ({}));
 
 /**
  * Read at mount and written back at unmount, so a scroll costs nothing while it
@@ -143,9 +160,9 @@ export const useSetWadFilter = () => useGameBrowserStore((s) => s.setWadFilter);
  * would spend the scroll twice.
  */
 export function keptScrollTop(key: string): number {
-  return useGameBrowserStore.getState().scrollTops[key] ?? 0;
+  return scrollTops.getState()[key] ?? 0;
 }
 
 export function keepScrollTop(key: string, top: number): void {
-  useGameBrowserStore.getState().setScrollTop(key, top);
+  scrollTops.setState({ [key]: top });
 }

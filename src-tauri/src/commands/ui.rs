@@ -240,6 +240,7 @@ fn chunk_path(asset: &AssetRef, names: &dyn RowNames) -> String {
             .and_then(|hash| Namer::new(names).chunk(WadHash(hash)))
             .unwrap_or_else(|| path_hash.clone()),
         AssetRef::Layer { path, .. } | AssetRef::File { path } => path.replace('\\', "/"),
+        AssetRef::LcuChunk { .. } => unreachable!("the bin store holds no client chunk"),
     }
 }
 
@@ -523,6 +524,7 @@ fn archive_of(asset: &AssetRef) -> Option<String> {
             .filter(|archive| archive.contains(".wad"))
             .map(str::to_owned),
         AssetRef::File { .. } => None,
+        AssetRef::LcuChunk { .. } => unreachable!("the bin store holds no client chunk"),
     }
 }
 

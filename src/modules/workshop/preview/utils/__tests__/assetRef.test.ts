@@ -96,3 +96,29 @@ describe("assetContext", () => {
     expect(assetContext({ kind: "file", path: "C:/downloads/loose.dds" })).toBeUndefined();
   });
 });
+
+describe("a League client chunk", () => {
+  const LCU: AssetRef = {
+    kind: "lcuChunk",
+    wad: "rcp-fe-lol-loot/assets.wad",
+    pathHash: "0123456789abcdef",
+  };
+
+  it("keys apart from a game chunk with the same archive name and hash", () => {
+    const game: AssetRef = { ...LCU, kind: "gameChunk" };
+    expect(assetKey(LCU)).not.toBe(assetKey(game));
+  });
+
+  it("reads as a chunk of its archive", () => {
+    expect(assetArchive(LCU)).toBe("rcp-fe-lol-loot/assets.wad");
+    expect(assetName(LCU)).toBe("0123456789abcdef");
+    expect(assetPath(LCU, "plugins/rcp-fe-lol-loot/global/default/a.png")).toBe(
+      "rcp-fe-lol-loot/assets.wad/plugins/rcp-fe-lol-loot/global/default/a.png",
+    );
+  });
+
+  /* Nearly every client archive is `assets.wad`, so the plugin is what tells two apart. */
+  it("takes its plugin folder for the context", () => {
+    expect(assetContext(LCU)).toBe("rcp-fe-lol-loot");
+  });
+});

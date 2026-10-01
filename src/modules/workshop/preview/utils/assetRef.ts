@@ -2,15 +2,23 @@ import type { AssetRef } from "@/lib/tauri";
 
 export { previewUrl, usePreviewUrl } from "@/lib/previewUrl";
 
+/** One chunk of an archive, of the game or of the League client. */
+type ChunkRef = Extract<AssetRef, { kind: "gameChunk" | "lcuChunk" }>;
+
+function isChunk(asset: AssetRef): asset is ChunkRef {
+  return asset.kind === "gameChunk" || asset.kind === "lcuChunk";
+}
+
 /** The archive a chunk's bytes come from, and null for a file that mounts none. */
 export function assetArchive(asset: AssetRef): string | null {
-  return asset.kind === "gameChunk" ? asset.wad : null;
+  return isChunk(asset) ? asset.wad : null;
 }
 
 /** What identifies an asset within one project, for a document id or a query key. */
 export function assetKey(asset: AssetRef): string {
   if (asset.kind === "layer") return `layer:${asset.layer}:${asset.path}`;
   if (asset.kind === "gameChunk") return `game:${asset.wad}:${asset.pathHash}`;
+  if (asset.kind === "lcuChunk") return `lcu:${asset.wad}:${asset.pathHash}`;
   return `file:${asset.path}`;
 }
 
@@ -23,7 +31,7 @@ export function assetKey(asset: AssetRef): string {
  */
 export function assetName(asset: AssetRef, resolvedPath?: string): string {
   if (resolvedPath !== undefined) return basename(resolvedPath);
-  if (asset.kind === "gameChunk") return asset.pathHash;
+  if (isChunk(asset)) return asset.pathHash;
   return basename(asset.path);
 }
 
@@ -38,7 +46,7 @@ export function assetPath(asset: AssetRef, resolvedPath?: string): string {
   if (asset.kind === "layer") {
     return `${asset.project}/content/${asset.layer}/${asset.path}`;
   }
-  if (asset.kind === "gameChunk") return `${asset.wad}/${resolvedPath ?? asset.pathHash}`;
+  if (isChunk(asset)) return `${asset.wad}/${resolvedPath ?? asset.pathHash}`;
   return asset.path;
 }
 
@@ -48,6 +56,8 @@ export function assetContext(asset: AssetRef): string | undefined {
   /* Without `.wad.client`, which every archive carries and no reader needs in
      order to tell two of them apart. */
   if (asset.kind === "gameChunk") return basename(asset.wad).replace(/\.wad\.client$/i, "");
+  /* The plugin folder, because nearly every client archive is named `assets.wad`. */
+  if (asset.kind === "lcuChunk") return asset.wad.split("/")[0];
   return undefined;
 }
 

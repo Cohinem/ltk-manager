@@ -21,6 +21,7 @@ import {
 } from "../../references/api/useFindReferences";
 import { ExtractMenuItems } from "../extraction/components/ExtractMenuItems";
 import type { ExtractHow } from "../extraction/hooks/useExtractActions";
+import { useWadSource } from "../state/wadSource";
 import { fileKindFromPath } from "../utils/fileKind";
 import type { SourceFileNode, SourceTreeNode } from "../utils/sourceIndex";
 
@@ -39,8 +40,11 @@ interface SourceTreeContextMenuProps {
  * A file row gets the whole menu. A directory in this tree is a segment of a
  * resolved chunk path rather than anything on disk, and folded chains mean its
  * own row does not even know the whole of it, so it gets the ways out alone.
+ * A League client row gets no bin or reference item, because nothing of the
+ * game reads the client's files.
  */
 export function SourceTreeContextMenu({ node, onOpen, onRun }: SourceTreeContextMenuProps) {
+  const inGame = useWadSource() === "game";
   const copy = useCopyToClipboard();
   const ritobin = useRitobinIntegration();
   const openInRitobin = useOpenInRitobin();
@@ -67,7 +71,7 @@ export function SourceTreeContextMenu({ node, onOpen, onRun }: SourceTreeContext
   const path = node.entry.path;
   /* A chunk no hash table names has its hash for a name, and no extension to
      read a kind off. The preview pane offers it anyway, off the bytes. */
-  const bin = isPropertyBin(fileKindFromPath(node.name)) && ritobin.data === true;
+  const bin = inGame && isPropertyBin(fileKindFromPath(node.name)) && ritobin.data === true;
 
   return (
     <ContextMenu.Portal>
@@ -98,15 +102,19 @@ export function SourceTreeContextMenu({ node, onOpen, onRun }: SourceTreeContext
           {(onOpen || bin) && <ContextMenu.Separator />}
           {onRun && <ExtractMenuItems onRun={(how) => onRun(node, how)} />}
           {onRun && <ContextMenu.Separator />}
-          <ContextMenu.Item
-            icon={<MagnifyingGlassIcon className="h-4 w-4" />}
-            onClick={() =>
-              find(path !== null ? fileReferences(path) : chunkReferences(node.entry.pathHash))
-            }
-          >
-            {m.workshop_references_find_file_action()}
-          </ContextMenu.Item>
-          <ContextMenu.Separator />
+          {inGame && (
+            <>
+              <ContextMenu.Item
+                icon={<MagnifyingGlassIcon className="h-4 w-4" />}
+                onClick={() =>
+                  find(path !== null ? fileReferences(path) : chunkReferences(node.entry.pathHash))
+                }
+              >
+                {m.workshop_references_find_file_action()}
+              </ContextMenu.Item>
+              <ContextMenu.Separator />
+            </>
+          )}
           <ContextMenu.Item
             icon={<CopyIcon className="h-4 w-4" />}
             onClick={() => void copy(node.name, "name")}

@@ -52,6 +52,13 @@ impl GameDir {
         self.0
     }
 
+    /// The League client's `Plugins` directory, a sibling of this one in the install root.
+    ///
+    /// Not checked for existence. A game directory with no parent answers `Plugins` under itself.
+    pub fn lcu_plugins_dir(&self) -> PathBuf {
+        self.0.parent().unwrap_or(&self.0).join("Plugins")
+    }
+
     /// Enumerate every `.wad` / `.wad.client` filename under `DATA`.
     ///
     /// Returns lowercased, deduplicated filenames (not paths) sorted alphabetically.

@@ -52,4 +52,15 @@ describe("fileLinkMark", () => {
     ).toEqual({ kind: "badge", fileKind: "png" });
     expect(fileLinkMark("unknown", null)).toEqual({ kind: "badge", fileKind: "unknown" });
   });
+
+  it("badges a sniffed SVG as one, and another web image as unknown", () => {
+    expect(fileLinkMark("unknown", { kind: "web", format: "svg", sizeBytes: 1 })).toEqual({
+      kind: "badge",
+      fileKind: "svg",
+    });
+    expect(fileLinkMark("unknown", { kind: "web", format: "gif", sizeBytes: 1 })).toEqual({
+      kind: "badge",
+      fileKind: "unknown",
+    });
+  });
 });

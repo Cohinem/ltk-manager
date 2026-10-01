@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { useWadSource } from "../state/wadSource";
 import { gameQueries } from "./queries";
 
 /** One archive's entries as source entries. Pass null while the archive is unresolved. */
 export function useGameWadEntries(wadName: string | null) {
-  return useQuery(gameQueries.wadEntries(wadName));
+  return useQuery(gameQueries.wadEntries(useWadSource(), wadName));
 }

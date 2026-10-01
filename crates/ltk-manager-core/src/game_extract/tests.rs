@@ -593,10 +593,21 @@ fn a_run_reports_its_last_chunk() {
 #[test]
 fn the_archive_folder_is_the_file_name_alone() {
     assert_eq!(
-        archive_folder("Champions/Aatrox.wad.client"),
+        archive_folder("Champions/Aatrox.wad.client", WadSource::Game),
         "Aatrox.wad.client"
     );
-    assert_eq!(archive_folder("Global.wad.client"), "Global.wad.client");
+    assert_eq!(
+        archive_folder("Global.wad.client", WadSource::Game),
+        "Global.wad.client"
+    );
+}
+
+#[test]
+fn a_client_archive_folder_keeps_its_plugin() {
+    assert_eq!(
+        archive_folder("rcp-fe-lol-loot/assets.wad", WadSource::Lcu),
+        "rcp-fe-lol-loot/assets.wad"
+    );
 }
 
 #[test]

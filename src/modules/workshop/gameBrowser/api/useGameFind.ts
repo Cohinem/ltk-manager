@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { useDebouncedValue } from "@/hooks";
 
+import { useWadSource } from "../state/wadSource";
 import { gameQueries } from "./queries";
 
 /**
@@ -13,13 +14,14 @@ import { gameQueries } from "./queries";
 export const FIND_DEBOUNCE_MS = 200;
 
 /**
- * Every file of the installed game matching `pattern`, in tree order.
+ * Every file of the enclosing browser's source matching `pattern`, in tree order.
  *
  * `regex` reads the pattern as a regular expression, and either way the match
  * is case-insensitive.
  */
 export function useGameFind(pattern: string, regex: boolean) {
+  const source = useWadSource();
   const debounced = useDebouncedValue(pattern, FIND_DEBOUNCE_MS);
 
-  return useQuery(gameQueries.find(debounced, regex, debounced.length > 0));
+  return useQuery(gameQueries.find(source, debounced, regex, debounced.length > 0));
 }

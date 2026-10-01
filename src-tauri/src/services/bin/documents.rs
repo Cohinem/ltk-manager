@@ -168,6 +168,7 @@ fn chunk_hash_of(asset: &AssetRef) -> Option<u64> {
         }
         AssetRef::Layer { .. } => layer_chunk_hash(asset),
         AssetRef::File { .. } => None,
+        AssetRef::LcuChunk { .. } => unreachable!("the bin store holds no client chunk"),
     }
 }
 

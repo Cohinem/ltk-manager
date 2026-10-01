@@ -30,7 +30,7 @@ use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, EventSink, ExtractProgress};
 use crate::game_index::GameIndex;
-use crate::game_wads::GameArchives;
+use crate::game_wads::{GameArchives, WadSource};
 use crate::hashtables::WadPathResolver;
 use crate::utils::game::GameDir;
 use crate::workshop::WorkshopFileKind;
@@ -154,7 +154,7 @@ pub struct ExtractPlan {
     pub files: u32,
     /// Uncompressed bytes, which is what lands on disk.
     pub bytes: u64,
-    /// The `DATA/FINAL`-relative archives the run reads, in the order it does.
+    /// The root-relative archives the run reads, in the order it does.
     pub archives: Vec<String>,
 }
 
@@ -202,7 +202,7 @@ pub struct ExtractSummary {
 /// One archive's share of an extract.
 #[derive(Debug)]
 struct ArchiveWork {
-    /// `DATA/FINAL`-relative name, as [`GameArchives::list`] gives it.
+    /// Root-relative name, as [`GameArchives::list`] gives it.
     wad: String,
     /// Chunks a hash table names, already past the kind filter.
     named: Vec<WadHash>,
@@ -384,7 +384,7 @@ impl ExtractJob {
 
         for work in &self.archives {
             let out_dir = if options.per_archive_folder {
-                destination.join(archive_folder(&work.wad))
+                destination.join(archive_folder(&work.wad, archives.source()))
             } else {
                 destination.clone()
             };
@@ -602,11 +602,15 @@ fn parse_hash(hex: &str) -> AppResult<WadHash> {
 
 /// The folder one archive's files sit under with **One folder per archive**.
 ///
-/// The archive's own file name and not its `DATA/FINAL`-relative path, because
+/// A game archive's own file name and not its `DATA/FINAL`-relative path, because
 /// that is the shape a layer holds and the point of the switch is that the
-/// folder drops straight onto one.
-fn archive_folder(wad: &str) -> &str {
-    wad.rsplit_once('/').map_or(wad, |(_, name)| name)
+/// folder drops straight onto one. Every client archive is named `assets.wad` or close
+/// to it, so a client archive keeps its whole `Plugins`-relative path.
+fn archive_folder(wad: &str, source: WadSource) -> &str {
+    match source {
+        WadSource::Game => wad.rsplit_once('/').map_or(wad, |(_, name)| name),
+        WadSource::Lcu => wad,
+    }
 }
 
 /// The by-kind counts as the report shows them, most written first.
@@ -635,7 +639,9 @@ fn reject_the_install(config: &Config, destination: &Path) -> AppResult<()> {
         return Ok(());
     };
 
-    if is_within(game_dir.path(), destination) {
+    if is_within(game_dir.path(), destination)
+        || is_within(&game_dir.lcu_plugins_dir(), destination)
+    {
         return Err(AppError::ValidationFailed(format!(
             "Cannot extract into the League install: {}",
             destination.display()

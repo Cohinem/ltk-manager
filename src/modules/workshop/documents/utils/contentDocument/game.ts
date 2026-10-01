@@ -1,36 +1,67 @@
+import type { WadSource } from "@/lib/tauri";
 import type { EditorDocumentBase } from "@/modules/editor";
 
-interface GameDoc extends EditorDocumentBase {
+/**
+ * A browser document over one source's archives. Absent is the game, which is every document
+ * written before the League client had a browser.
+ */
+interface SourceDoc extends EditorDocumentBase {
+  source?: WadSource;
+}
+
+interface GameDoc extends SourceDoc {
   kind: "game";
 }
 
 /** The game has one root browser over one install, so its document needs nothing to key on. */
 export const GAME_DOCUMENT_ID = "game";
 
-export function gameDocument(): GameDoc {
-  return { id: GAME_DOCUMENT_ID, kind: "game" };
+/* The game's ids are the bare ones a saved layout already holds. */
+function sourceId(source: WadSource, id: string): string {
+  if (source === "game") return id;
+  return id.replace(/^game/, source);
 }
 
-interface GameWadsDoc extends EditorDocumentBase {
+export function gameDocument(source: WadSource = "game"): GameDoc {
+  return { id: sourceId(source, GAME_DOCUMENT_ID), kind: "game", ...sourcedBy(source) };
+}
+
+interface GameWadsDoc extends SourceDoc {
   kind: "game-wads";
 }
 
-/** The install has one set of archives, so its list needs nothing to key on. */
+/** The install has one set of archives per source, so its list needs nothing else to key on. */
 export const GAME_WADS_DOCUMENT_ID = "game-wads";
 
-export function gameWadsDocument(): GameWadsDoc {
-  return { id: GAME_WADS_DOCUMENT_ID, kind: "game-wads" };
+export function gameWadsDocument(source: WadSource = "game"): GameWadsDoc {
+  return { id: sourceId(source, GAME_WADS_DOCUMENT_ID), kind: "game-wads", ...sourcedBy(source) };
 }
 
-interface GameWadDoc extends EditorDocumentBase {
+interface GameWadDoc extends SourceDoc {
   kind: "game-wad";
   wadName: string;
 }
 
 /* Keyed by archive name, so a second request for the same archive activates
    the tab that is already open. */
-export function gameWadDocument(wadName: string): GameWadDoc {
-  return { id: `game-wad:${wadName}`, kind: "game-wad", wadName };
+export function gameWadDocument(wadName: string, source: WadSource = "game"): GameWadDoc {
+  return {
+    id: sourceId(source, `game-wad:${wadName}`),
+    kind: "game-wad",
+    wadName,
+    ...sourcedBy(source),
+  };
+}
+
+/** The `source` field a document of `source` carries, none for the game. */
+function sourcedBy(source: WadSource): Pick<SourceDoc, "source"> {
+  if (source === "game") return {};
+  return { source };
+}
+
+/** The archives a browser document reads. */
+export function documentSource(document: SourceDoc): WadSource {
+  return document.source ?? "game";
 }
 
 interface ObjectsDoc extends EditorDocumentBase {

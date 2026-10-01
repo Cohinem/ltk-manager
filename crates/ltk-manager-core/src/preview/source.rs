@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
-use crate::game_wads::{GameArchives, WadCache};
+use crate::game_wads::{GameArchives, WadCache, WadSource};
 use crate::utils::path::resolve_within;
 
 /// Where a previewed asset's bytes come from.
@@ -35,6 +35,14 @@ pub enum AssetRef {
         /// The chunk's path hash as 16 lowercase hex digits.
         path_hash: String,
     },
+    /// One chunk of one archive of the installed League client.
+    #[serde(rename_all = "camelCase")]
+    LcuChunk {
+        /// A `Plugins`-relative archive name.
+        wad: String,
+        /// The chunk's path hash as 16 lowercase hex digits.
+        path_hash: String,
+    },
     /// Any file on disk, for a preview that belongs to no project.
     ///
     /// Confined to no root, because a file dropped on the window or picked
@@ -47,8 +55,8 @@ pub enum AssetRef {
 impl AssetRef {
     /// Read the asset's bytes from wherever it lives.
     ///
-    /// `wads` is only touched by [`GameChunk`](Self::GameChunk), whose archive
-    /// it keeps mounted for the chunks read after this one.
+    /// `wads` is only touched by a chunk reference, whose archive it keeps
+    /// mounted for the chunks read after this one.
     ///
     /// # Errors
     ///
@@ -63,11 +71,11 @@ impl AssetRef {
                     .expect("a layer asset names a layer file")?;
                 Ok(fs::read(path)?)
             }
-            Self::GameChunk { wad, path_hash, .. } => {
-                let path_hash = path_hash.parse().map_err(|_| {
-                    AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}"))
-                })?;
-                wads.read_chunk(&GameArchives::resolve(config)?, wad, path_hash)
+            Self::GameChunk { wad, path_hash } => {
+                read_chunk(config, wads, WadSource::Game, wad, path_hash)
+            }
+            Self::LcuChunk { wad, path_hash } => {
+                read_chunk(config, wads, WadSource::Lcu, wad, path_hash)
             }
             Self::File { path } => Ok(fs::read(path)?),
         }
@@ -104,7 +112,7 @@ impl AssetRef {
             Self::Layer { path, .. } | Self::File { path } => {
                 path.rsplit(['/', '\\']).next().unwrap_or(path)
             }
-            Self::GameChunk { path_hash, .. } => path_hash,
+            Self::GameChunk { path_hash, .. } | Self::LcuChunk { path_hash, .. } => path_hash,
         }
     }
 
@@ -140,7 +148,7 @@ impl AssetRef {
                 resolve_within(&root, &format!("{layer}/{path}"))
             }
             Self::File { path } => Ok(PathBuf::from(path)),
-            Self::GameChunk { wad, path_hash, .. } => {
+            Self::GameChunk { wad, path_hash } | Self::LcuChunk { wad, path_hash } => {
                 let bytes = self.read(config, wads)?;
                 let path = chunk_copy_path(wad, path_hash, name);
 
@@ -151,6 +159,24 @@ impl AssetRef {
             }
         }
     }
+}
+
+/// One chunk of one of `source`'s archives, decompressed.
+fn read_chunk(
+    config: &Config,
+    wads: &WadCache,
+    source: WadSource,
+    wad: &str,
+    path_hash: &str,
+) -> AppResult<Vec<u8>> {
+    let path_hash = path_hash
+        .parse()
+        .map_err(|_| AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}")))?;
+    wads.read_chunk(
+        &GameArchives::resolve_source(config, source)?,
+        wad,
+        path_hash,
+    )
 }
 
 /// Characters Windows will not take in a file name.

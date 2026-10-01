@@ -186,6 +186,9 @@ export default tseslint.config(
               "^[a-z0-9_./:-]+$",
               // Punctuation bracketing a value the code interpolates, never a sentence.
               "^[\\s(){}\\[\\]<>,.:;/|·–—-]+$",
+              // A CSS value that reads a custom property, or a bare length.
+              ".*var\\(--.*",
+              "^[\\d.]+(px|%|em|rem)?( [\\d.]+(px|%|em|rem)?)*$",
             ],
           },
         },

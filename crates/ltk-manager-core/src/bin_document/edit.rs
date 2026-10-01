@@ -375,6 +375,10 @@ impl BinDocument {
     ///
     /// [`BinDocuments::read_only`](super::BinDocuments::read_only) adds the game sandbox's
     /// gate. ADR-0056.
+    ///
+    /// # Panics
+    ///
+    /// Panics on a League client chunk, which the bin store refuses before asking.
     #[must_use]
     pub fn read_only(&self, asset: &AssetRef) -> Option<ReadOnly> {
         match (asset, &self.file) {
@@ -383,6 +387,7 @@ impl BinDocument {
                 Some(Declaring::On) | None => None,
             },
             (AssetRef::File { .. }, _) => Some(ReadOnly::Loose),
+            (AssetRef::LcuChunk { .. }, _) => unreachable!("the bin store holds no client chunk"),
             (AssetRef::Layer { .. }, BinFile::Override(_)) => Some(ReadOnly::Patch),
             (AssetRef::Layer { .. }, BinFile::Prop(_)) => None,
         }

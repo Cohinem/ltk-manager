@@ -16,7 +16,7 @@ use ltk_wad::is_hex_chunk_path;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
-use crate::bin_document::{AssetLookup, ProjectNames, RowNames, hex};
+use crate::bin_document::{AssetLookup, BinDocumentError, ProjectNames, RowNames, hex};
 use crate::error::{AppError, AppResult};
 use crate::game_index::GameIndex;
 use crate::object_index::{DeclaredObject, ObjectDeclaration, for_each_declaration};
@@ -68,6 +68,10 @@ impl SandboxRef {
     ///
     /// A layer file is always held in its own project's sandbox, so every sandbox that opens
     /// it shares one tree and one save. A loose file is held in the game sandbox.
+    ///
+    /// # Panics
+    ///
+    /// Panics on a League client chunk, which the bin store refuses before asking.
     #[must_use]
     pub fn holding(&self, asset: &AssetRef) -> Self {
         match asset {
@@ -75,6 +79,7 @@ impl SandboxRef {
                 project: project.clone(),
             },
             AssetRef::File { .. } => Self::Game,
+            AssetRef::LcuChunk { .. } => unreachable!("a sandbox holds no client chunk"),
             AssetRef::GameChunk { .. } => self.clone(),
         }
     }
@@ -284,8 +289,14 @@ impl Sandbox {
     ///
     /// # Errors
     ///
-    /// [`AppError::InvalidPath`] for a chunk whose path hash is not hex.
+    /// [`AppError::InvalidPath`] for a chunk whose path hash is not hex, and
+    /// [`BinDocumentError::LcuChunk`] for a League client chunk, which no document of the
+    /// game opens.
     pub fn opening(&self, asset: AssetRef) -> AppResult<Opening> {
+        if matches!(asset, AssetRef::LcuChunk { .. }) {
+            return Err(BinDocumentError::LcuChunk.into());
+        }
+
         let AssetRef::GameChunk { path_hash, .. } = &asset else {
             return Ok(Opening::File(asset));
         };

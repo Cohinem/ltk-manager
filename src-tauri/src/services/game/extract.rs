@@ -14,8 +14,8 @@ use crate::state::SettingsState;
 use ltk_manager_core::game_extract::{
     ExtractJob, ExtractOptions, ExtractPlan, ExtractSummary, ExtractTarget,
 };
-use ltk_manager_core::game_index::{GameIndex, GameIndexState};
-use ltk_manager_core::game_wads::GameArchives;
+use ltk_manager_core::game_index::GameIndex;
+use ltk_manager_core::game_wads::{GameArchives, WadSource};
 use ltk_manager_core::hashtables::{WadPathResolver, WadPathResolverState};
 use ltk_manager_core::workshop::WorkshopFileKind;
 
@@ -78,9 +78,10 @@ impl Drop for ExtractGuard<'_> {
 pub async fn plan_game_extract(
     targets: Vec<ExtractTarget>,
     kinds: Option<Vec<WorkshopFileKind>>,
+    source: WadSource,
     app_handle: AppHandle,
 ) -> IpcResult<ExtractPlan> {
-    with_index(app_handle, move |index, archives, resolver| {
+    with_index(app_handle, source, move |index, archives, resolver| {
         let job = ExtractJob::plan(&targets, kinds.as_deref(), index, archives, resolver)?;
         Ok(job.summary())
     })
@@ -97,46 +98,51 @@ pub async fn plan_game_extract(
 pub async fn extract_game_files(
     targets: Vec<ExtractTarget>,
     options: ExtractOptions,
+    source: WadSource,
     app_handle: AppHandle,
 ) -> IpcResult<Option<ExtractSummary>> {
     let events = TauriEventSink::new(app_handle.clone());
 
-    let result = with_index(app_handle.clone(), move |index, archives, resolver| {
-        let extract = app_handle.state::<ExtractState>();
-        let Some((_guard, cancel)) = extract.acquire() else {
-            tracing::debug!("Extract already in flight, ignoring the request");
-            return Ok(None);
-        };
+    let result = with_index(
+        app_handle.clone(),
+        source,
+        move |index, archives, resolver| {
+            let extract = app_handle.state::<ExtractState>();
+            let Some((_guard, cancel)) = extract.acquire() else {
+                tracing::debug!("Extract already in flight, ignoring the request");
+                return Ok(None);
+            };
 
-        let config = app_handle.state::<SettingsState>().config();
-        let job = ExtractJob::plan(
-            &targets,
-            options.kinds.as_deref(),
-            index,
-            archives,
-            resolver,
-        )?;
+            let config = app_handle.state::<SettingsState>().config();
+            let job = ExtractJob::plan(
+                &targets,
+                options.kinds.as_deref(),
+                index,
+                archives,
+                resolver,
+            )?;
 
-        if job.is_empty() {
-            return Ok(Some(ExtractSummary {
-                destination: options.destination.clone(),
-                ..ExtractSummary::default()
-            }));
-        }
+            if job.is_empty() {
+                return Ok(Some(ExtractSummary {
+                    destination: options.destination.clone(),
+                    ..ExtractSummary::default()
+                }));
+            }
 
-        let started = Instant::now();
-        let summary = job.run(&options, &config, archives, resolver, &events, &cancel)?;
-        tracing::info!(
-            extracted = summary.extracted,
-            skipped = summary.skipped_existing,
-            bytes = summary.bytes_written,
-            elapsed_ms = started.elapsed().as_millis(),
-            cancelled = summary.cancelled,
-            destination = %summary.destination,
-            "Extracted game files"
-        );
-        Ok(Some(summary))
-    })
+            let started = Instant::now();
+            let summary = job.run(&options, &config, archives, resolver, &events, &cancel)?;
+            tracing::info!(
+                extracted = summary.extracted,
+                skipped = summary.skipped_existing,
+                bytes = summary.bytes_written,
+                elapsed_ms = started.elapsed().as_millis(),
+                cancelled = summary.cancelled,
+                destination = %summary.destination,
+                "Extracted game files"
+            );
+            Ok(Some(summary))
+        },
+    )
     .await;
 
     if let IpcResult::Err { ref error } = result {
@@ -156,13 +162,13 @@ pub fn cancel_extract(extract: State<ExtractState>) -> IpcResult<bool> {
     IpcResult::ok(extract.cancel())
 }
 
-/// Run `work` against the game index, the install's archives and the tables
-/// that name their chunks.
+/// Run `work` against the index of `source`, its archives and the tables that
+/// name their chunks.
 ///
 /// The same shape as `game_index.rs::with_index`, and separate from it because
 /// an extract needs the archives and the resolver beside the index, and runs
 /// for seconds rather than for one directory read.
-async fn with_index<T, F>(app_handle: AppHandle, work: F) -> IpcResult<T>
+async fn with_index<T, F>(app_handle: AppHandle, source: WadSource, work: F) -> IpcResult<T>
 where
     T: Send + 'static,
     F: FnOnce(&GameIndex, &GameArchives, &WadPathResolver) -> AppResult<T> + Send + 'static,
@@ -170,13 +176,10 @@ where
     let config = app_handle.state::<SettingsState>().config();
 
     off_thread(move || {
-        let archives = GameArchives::resolve(&config)?;
+        let (index, archives) = super::index::built_index(&app_handle, &config, source)?;
         let resolver = app_handle
             .state::<std::sync::Arc<WadPathResolverState>>()
             .get();
-        let index = app_handle
-            .state::<GameIndexState>()
-            .get_or_build(&archives, resolver.tables())?;
         work(&index, &archives, &resolver)
     })
     .await

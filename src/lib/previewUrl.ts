@@ -74,6 +74,22 @@ export function previewFontUrl(asset: AssetRef): string {
 }
 
 /**
+ * The URL a file's own bytes arrive on, for a `<video>`, an `<audio>` or a text read.
+ *
+ * Under a video or an audio type where the bytes carry one's signature, and as bytes
+ * otherwise.
+ */
+export function previewFileUrl(asset: AssetRef): string {
+  return `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=file`;
+}
+
+/** `previewFileUrl` for a component, a new URL each time the file changes on disk. */
+export function usePreviewFileUrl(asset: AssetRef): string {
+  const version = useAssetVersion(asset);
+  return versionedUrl(previewFileUrl(asset), version);
+}
+
+/**
  * Pack a reference into one URL path segment.
  *
  * Unpadded base64url is `A-Za-z0-9-_` alone, which is exactly the set

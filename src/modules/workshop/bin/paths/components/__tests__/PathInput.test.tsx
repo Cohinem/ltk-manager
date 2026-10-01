@@ -191,6 +191,7 @@ describe("PathInput", () => {
     expect(await screen.findByRole("option", { name: /ahri_w\.dds/ })).toBeInTheDocument();
     expect(mockInvoke).toHaveBeenCalledWith(commandNames.game.readGameDir, {
       path: "assets/characters/ahri",
+      source: "game",
     });
   });
 });
