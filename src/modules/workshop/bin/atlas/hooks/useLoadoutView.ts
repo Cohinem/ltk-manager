@@ -6,8 +6,9 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { uiQueries } from "../api/uiQueries";
 import { roleHidden, roleTexts, withLoadout, withTextures } from "../engine/model/loadout";
+import { viewTree } from "../engine/model/repeats";
 import { chooseTooltip, type TooltipSample, tooltipSamples } from "../engine/model/tooltip";
-import { buildTree, type ViewTree } from "../engine/model/tree";
+import type { ViewTree } from "../engine/model/tree";
 import type { View } from "../engine/model/view";
 import { useAtlasPreviewStore } from "../state/atlasPreview";
 
@@ -55,7 +56,7 @@ export function useLoadoutView(
     const drawn = filled === null ? loaded : withTextures(loaded, filled);
     return {
       view: drawn,
-      tree: drawn === view ? tree : buildTree(drawn),
+      tree: drawn === view ? tree : viewTree(drawn),
       texts: wanted ? roleTexts(view) : NO_TEXTS,
       hidden: wanted ? roleHidden(view) : NO_HIDDEN,
       tooltip,

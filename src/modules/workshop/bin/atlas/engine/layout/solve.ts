@@ -1,4 +1,12 @@
-import type { ViewTree } from "../model/tree";
+import {
+  childrenOf,
+  counterpartOf,
+  type CopyPlace,
+  elementOf,
+  parentOf,
+  placedKeys,
+  type ViewTree,
+} from "../model/tree";
 import type { ViewAnchor, ViewElement, ViewPosition, ViewRect } from "../model/view";
 import { restsHidden } from "../model/visibility";
 import { arrange, type Edges, type LayoutItem } from "./managed";
@@ -51,12 +59,14 @@ interface Natural {
  * Each positioned element is placed on its own, a hierarchy-anchored one inside the nearest
  * positioned group above it. Every managed layout then moves its children, innermost first, and
  * an element moves by its own offset and every offset above it (`0x1413B0DD0`). A group without
- * a position takes the union of its children's rects, as the client measures it.
+ * a position takes the union of its children's rects, as the client measures it. A copy the
+ * controller makes stands where its original does until a layout or its place moves it.
  */
 export function solve(tree: ViewTree, settings: LayoutSettings): Map<string, PixelRect> {
   const screen: Edges = { x0: 0, y0: 0, x1: settings.screen.width, y1: settings.screen.height };
   const natural = naturalRects(tree, settings, screen);
   const offsets = layoutOffsets(tree, natural);
+  placeCopies(tree, natural, offsets);
   const shiftOf = (key: string) => shift(tree, offsets, key);
 
   const solved = new Map<string, PixelRect>();
@@ -81,7 +91,7 @@ export function solve(tree: ViewTree, settings: LayoutSettings): Map<string, Pix
     return rect;
   };
 
-  for (const key of tree.elements.keys()) {
+  for (const key of placedKeys(tree)) {
     if (rectOf(key) === null) solved.set(key, toPixels(frameOf(tree, natural, key, screen)));
   }
   return solved;
@@ -106,7 +116,7 @@ function naturalRects(
     const held = natural.get(key);
     if (held !== undefined) return held;
 
-    const position = tree.elements.get(key)?.position ?? null;
+    const position = elementOf(tree, key)?.position ?? null;
     if (position === null || solving.has(key)) return null;
 
     solving.add(key);
@@ -118,7 +128,7 @@ function naturalRects(
     return placed;
   };
 
-  for (const key of tree.elements.keys()) place(key);
+  for (const key of placedKeys(tree)) place(key);
   return natural;
 }
 
@@ -129,12 +139,12 @@ function positionedAncestor(
   place: (key: string) => Natural | null,
 ): Edges | null {
   const seen = new Set<string>([key]);
-  let at = tree.groupOf.get(key);
+  let at = parentOf(tree, key);
   while (at !== undefined && !seen.has(at)) {
     seen.add(at);
     const placed = place(at);
     if (placed !== null) return placed.edges;
-    at = tree.groupOf.get(at);
+    at = parentOf(tree, at);
   }
   return null;
 }
@@ -243,17 +253,19 @@ function layoutOffsets(
   natural: ReadonlyMap<string, Natural>,
 ): Map<string, readonly [number, number]> {
   const offsets = new Map<string, readonly [number, number]>();
-  const layouts = [...tree.elements.values()]
-    .filter((element) => element.look.kind === "group" && element.look.layout !== null)
-    .map((element) => element.key)
+  const layouts = placedKeys(tree)
+    .filter((key) => {
+      const look = elementOf(tree, key)?.look;
+      return look?.kind === "group" && look.layout !== null;
+    })
     .sort((a, b) => depthOf(tree, b) - depthOf(tree, a));
 
   for (const key of layouts) {
-    const look = tree.elements.get(key)?.look;
+    const look = elementOf(tree, key)?.look;
     if (look?.kind !== "group" || look.layout === null) continue;
 
     const layout = look.layout;
-    const region = layout.region;
+    const region = layout.region === null ? null : counterpartOf(tree, key, layout.region);
     const regionRect = region === null ? null : measure(tree, natural, offsets, region, false);
     if (regionRect === null) continue;
 
@@ -271,6 +283,44 @@ function layoutOffsets(
   return offsets;
 }
 
+/** The offset of each copy heading a clone that its place, and no layout, moves. */
+function placeCopies(
+  tree: ViewTree,
+  natural: ReadonlyMap<string, Natural>,
+  offsets: Map<string, readonly [number, number]>,
+): void {
+  for (const [key, copy] of tree.copies) {
+    if (copy.place === null || copy.place.kind === "layout") continue;
+
+    const offset = placeOffset(tree, natural, offsets, copy.place);
+    if (offset !== null) offsets.set(key, offset);
+  }
+}
+
+function placeOffset(
+  tree: ViewTree,
+  natural: ReadonlyMap<string, Natural>,
+  offsets: ReadonlyMap<string, readonly [number, number]>,
+  place: Exclude<CopyPlace, { kind: "layout" }>,
+): readonly [number, number] | null {
+  const rectOf = (key: string) => measure(tree, natural, offsets, key, false);
+
+  if (place.kind === "step") {
+    const rect = rectOf(place.measure);
+    if (rect === null) return null;
+
+    const along = place.axis === 0 ? rect.x1 - rect.x0 : rect.y1 - rect.y0;
+    return place.axis === 0 ? [along * place.steps, 0] : [0, along * place.steps];
+  }
+
+  const home = rectOf(place.home);
+  const region = rectOf(place.region);
+  if (home === null || region === null) return null;
+
+  const pitch = (region.x1 - region.x0) / place.columns;
+  return [region.x0 - home.x0 + place.column * pitch, region.y0 - home.y0];
+}
+
 /**
  * An element's rect as a layout measures it: its own, moved by the offsets so far, or a group's
  * union of its children's. Where the layout ignores disabled elements, one the preview leaves
@@ -285,7 +335,7 @@ function measure(
   ignoreDisabled: boolean,
   seen: Set<string> = new Set(),
 ): Edges | null {
-  const element = tree.elements.get(key);
+  const element = elementOf(tree, key);
   if (element === undefined || seen.has(key)) return null;
   if (ignoreDisabled && restsHidden(element)) return null;
 
@@ -322,7 +372,7 @@ function shift(
       dx += offset[0];
       dy += offset[1];
     }
-    at = tree.groupOf.get(at);
+    at = parentOf(tree, at);
   }
   return [dx, dy];
 }
@@ -337,22 +387,14 @@ function frameOf(
   return positionedAncestor(tree, key, (at) => natural.get(at) ?? null) ?? screen;
 }
 
-/** The children a group lists that name it as their group. */
-function childrenOf(tree: ViewTree, key: string): string[] {
-  const look = tree.elements.get(key)?.look;
-  if (look?.kind !== "group") return [];
-
-  return look.children.filter((child) => tree.groupOf.get(child) === key);
-}
-
 function depthOf(tree: ViewTree, key: string): number {
   let depth = 0;
   const seen = new Set<string>();
-  let at = tree.groupOf.get(key);
+  let at = parentOf(tree, key);
   while (at !== undefined && !seen.has(at)) {
     seen.add(at);
     depth += 1;
-    at = tree.groupOf.get(at);
+    at = parentOf(tree, at);
   }
   return depth;
 }

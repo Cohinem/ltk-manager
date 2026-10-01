@@ -13,7 +13,15 @@ import { edgeScale, type LayoutSettings, type PixelRect } from "../layout/solve"
 import type { ClonedElement, PreviewOverlay } from "../model/combo";
 import { type MeterCut, meterDraws } from "../model/meters";
 import { type TooltipSample, withTooltip } from "../model/tooltip";
-import { sceneAncestry, sceneOf, type ViewTree } from "../model/tree";
+import {
+  elementOf,
+  originalOf,
+  parentOf,
+  placedKeys,
+  sceneAncestry,
+  sceneOf,
+  type ViewTree,
+} from "../model/tree";
 import type { ViewElement, ViewLook, ViewSprite } from "../model/view";
 import { restsHidden } from "../model/visibility";
 import { textDraws } from "../text/draws";
@@ -68,17 +76,18 @@ interface Item {
   readonly key: string;
   readonly sort: readonly [number, number, number];
   readonly group: boolean;
-  /** The row this item draws its element as, where it is a clone. */
+  /** The row this item draws its element as, where it is an overlay's clone. */
   readonly clone?: ClonedElement;
 }
 
-/** How far after its template a clone sorts, which keeps every clone above it. */
+/** How far after its original a copy or a clone sorts, which keeps it above the original. */
 const CLONE_ORDER = 0.5;
 
 /**
  * The frame's command list, per section 2.4 of docs/plans/atlas-renderer.md: every element of
  * a shown scene sorted by scene layer, element layer and file order, a group below full alpha
- * drawn offscreen between a push and a pop.
+ * drawn offscreen between a push and a pop. A copy the controller makes draws as its original
+ * does, at its own rect.
  */
 export function buildCommands(raw: BuildInput): Command[] {
   const input = withOverlay(withLaidTooltip(raw));
@@ -91,10 +100,10 @@ export function buildCommands(raw: BuildInput): Command[] {
   const scissors = sceneScissors(tree, input.solved);
 
   const offscreenOwner = (key: string): string | null => {
-    let at = tree.groupOf.get(key);
+    let at = parentOf(tree, key);
     while (at !== undefined) {
-      if (isOffscreen(tree.elements.get(at))) return at;
-      at = tree.groupOf.get(at);
+      if (isOffscreen(elementOf(tree, at))) return at;
+      at = parentOf(tree, at);
     }
     return null;
   };
@@ -105,21 +114,24 @@ export function buildCommands(raw: BuildInput): Command[] {
     if (list === undefined) lists.set(owner, [item]);
     else list.push(item);
   };
-  for (const element of tree.view.elements) {
-    const scene = sceneOf(tree, element.key);
-    if (scene === null || !shownScenes.has(scene) || isHidden(tree, hidden, element.key)) continue;
-    if (overlay.hidden.has(element.key)) continue;
-    if (!input.preview.showDisabled && restsHidden(element) && !overlay.shown.has(element.key)) {
+  for (const key of placedKeys(tree)) {
+    const original = originalOf(tree, key);
+    const element = tree.elements.get(original);
+    const scene = sceneOf(tree, key);
+    if (element === undefined || scene === null || !shownScenes.has(scene)) continue;
+    if (isHidden(tree, hidden, original) || overlay.hidden.has(original)) continue;
+    if (!input.preview.showDisabled && restsHidden(element) && !overlay.shown.has(original)) {
       continue;
     }
-    if (input.preview.only !== null && !input.preview.only.has(element.key)) continue;
+    if (input.preview.only !== null && !input.preview.only.has(key)) continue;
 
     const offscreen = isOffscreen(element);
     if (element.look.kind === "group" && !offscreen) continue;
 
-    add(offscreenOwner(element.key), {
-      key: element.key,
-      sort: sortOf(tree, scene, element),
+    const [sceneLayer, layer, order] = sortOf(tree, scene, element);
+    add(offscreenOwner(key), {
+      key,
+      sort: [sceneLayer, layer, key === original ? order : order + CLONE_ORDER],
       group: offscreen,
     });
   }
@@ -144,7 +156,7 @@ export function buildCommands(raw: BuildInput): Command[] {
   const emit = (owner: string | null) => {
     const items = [...(lists.get(owner) ?? [])].sort(compareItems);
     for (const item of items) {
-      const element = tree.elements.get(item.clone?.element ?? item.key);
+      const element = elementOf(tree, item.clone?.element ?? item.key);
       if (element === undefined) continue;
 
       const scissor = scissors.get(sceneOf(tree, element.key) ?? "") ?? null;
@@ -154,8 +166,8 @@ export function buildCommands(raw: BuildInput): Command[] {
         continue;
       }
       if (!item.group) {
-        const cut = meters.cuts.get(element.key);
-        const rect = cut?.rect ?? input.solved.get(element.key);
+        const cut = meters.cuts.get(item.key);
+        const rect = cut?.rect ?? input.solved.get(item.key);
         const text = overlay.texts.get(element.key) ?? null;
         if (rect !== undefined) {
           commands.push(...drawsOf(element, rect, scissor, input, text, cut?.crop));

@@ -1,5 +1,5 @@
 import { labelOf } from "../model/layers";
-import { sceneAncestry, sceneOf, type ViewTree } from "../model/tree";
+import { placedKeys, sceneAncestry, sceneOf, type ViewTree } from "../model/tree";
 import { type FrameChoices, frameHeads } from "./frames";
 import type { PixelRect, Screen } from "./solve";
 
@@ -46,12 +46,12 @@ export function boardOf(
   choices: FrameChoices,
 ): Board {
   const held = new Map<string, Set<string>>();
-  for (const element of tree.view.elements) {
-    const scene = sceneOf(tree, element.key);
+  for (const key of placedKeys(tree)) {
+    const scene = sceneOf(tree, key);
     if (scene === null) continue;
 
     const elements = held.get(scene) ?? new Set<string>();
-    elements.add(element.key);
+    elements.add(key);
     held.set(scene, elements);
   }
 
@@ -102,7 +102,7 @@ export function boardOf(
 
 /** Every element on one screen, as the client draws the view. */
 function stackedBoard(tree: ViewTree, screen: Screen): Board {
-  const elements = new Set(tree.elements.keys());
+  const elements = new Set(placedKeys(tree));
   return {
     frames: [{ scene: null, scenes: [...tree.scenes.keys()], label: "", origin: [0, 0], elements }],
     size: screen,
