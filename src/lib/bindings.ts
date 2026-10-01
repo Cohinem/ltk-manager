@@ -264,8 +264,9 @@ export const commands = {
 	 */
 	readUiLoadout: (document: BinDocumentId) => __TAURI_INVOKE<({ ok: true; value: UiLoadout }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_loadout", { document }),
 	/**
-	 *  The tooltips of the passive and abilities of the character `character`, such as `Ahri`, read
-	 *  through the sandbox `document` opens in and the game's stringtable.
+	 *  The tooltips of the passive and abilities of the character `character`, such as `Ahri`, at
+	 *  `level` and each spell at `rank`, read through the sandbox `document` opens in and the game's
+	 *  stringtable. Level 0 reads as no character at all, per `read_character_tooltips`.
 	 * 
 	 *  A character the index has not reached reads as no tooltips.
 	 * 
@@ -273,7 +274,7 @@ export const commands = {
 	 * 
 	 *  Fails when the document is closed.
 	 */
-	readUiTooltips: (document: BinDocumentId, character: string) => __TAURI_INVOKE<({ ok: true; value: UiSpellTooltip[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_tooltips", { document, character }),
+	readUiTooltips: (document: BinDocumentId, character: string, level: number, rank: number) => __TAURI_INVOKE<({ ok: true; value: UiSpellTooltip[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("read_ui_tooltips", { document, character, level, rank }),
 	/**
 	 *  Every character the object index holds a record for, with its name and icon, read through
 	 *  the sandbox `document` opens in and the game's stringtable.
@@ -7539,8 +7540,12 @@ export type UiSpellTooltip = {
 	name: string,
 	/**  The key that casts the spell, none for the passive. */
 	hotkey: string | null,
-	/**  The tooltip string, its values at rank 1 with no bonus stats. */
+	/**  The tooltip string, its values at the rank and level read for, with no bonus stats. */
 	text: string,
+	/**  The tooltip string while Shift is held, none for a spell with no extended tooltip. */
+	extended: string | null,
+	/**  How many ranks the spell has, the top rank its values can read at. */
+	ranks: number,
 	/**  The spell's icon, which the tooltip's icon shows. */
 	icon: UiTexture | null,
 };

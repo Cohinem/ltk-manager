@@ -9,6 +9,7 @@ import {
   tooltipOverlay,
   type TooltipSample,
   type ViewTooltip,
+  withShift,
 } from "../model/tooltip";
 
 const TOOLTIP: ViewTooltip = {
@@ -80,7 +81,15 @@ const INPUTS: TooltipInputs = {
 };
 
 function sample(text: string, icon = false): TooltipSample {
-  return { id: "Q", name: "Test", hotkey: "Q", text, icon: icon ? ICON : null };
+  return {
+    id: "Q",
+    name: "Test",
+    hotkey: "Q",
+    text,
+    extended: null,
+    ranks: 1,
+    icon: icon ? ICON : null,
+  };
 }
 
 /** A moved rect relative to the backdrop's top left. */
@@ -90,8 +99,8 @@ function local(rect: PixelRect | undefined): PixelRect | undefined {
 
 describe("tooltipSamples", () => {
   const tooltips = [
-    { name: "Essence Theft", hotkey: null, text: "P", icon: ICON },
-    { name: "Orb", hotkey: "Q", text: "Q", icon: null },
+    { name: "Essence Theft", hotkey: null, text: "P", extended: null, ranks: 1, icon: ICON },
+    { name: "Orb", hotkey: "Q", text: "Q", extended: "Q with Shift", ranks: 5, icon: null },
   ];
 
   it("lists each ability by the key that casts it", () => {
@@ -104,6 +113,15 @@ describe("tooltipSamples", () => {
     expect(chooseTooltip(samples, "Q")?.name).toBe("Orb");
     expect(chooseTooltip(samples, "R")?.id).toBe("passive");
     expect(chooseTooltip(tooltipSamples(null), "Q")).toBeNull();
+  });
+
+  it("shows the text Shift shows while extended, and its own where it has none", () => {
+    const [passive, orb] = tooltipSamples(tooltips);
+
+    expect(withShift(orb ?? null, true)?.text).toBe("Q with Shift");
+    expect(withShift(orb ?? null, false)?.text).toBe("Q");
+    expect(withShift(passive ?? null, true)?.text).toBe("P");
+    expect(withShift(null, true)).toBeNull();
   });
 });
 

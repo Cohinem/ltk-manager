@@ -667,13 +667,105 @@ part classes the tables do not name read data values: `0x4ce08984` and `0xb22609
 lacks reads 0, which is how a mode-only value such as Nidalee's `ModesBonusMaxTraps` reads outside
 its mode.
 
-How a calculation writes is its `mSimpleTooltipCalculationDisplay`, else the
-`GlobalStatsUIData` (`0x42e2a2c6`) `mTooltipCalculationExpansion`, 6. The client's switch over it
-(`sub_140593640` in 16.17) writes 5 as the number alone and 6 as the total with each part that
-scales with a stat after it. The preview writes each such part through `mNumberStyleBonus`,
-`@OpeningTag@(+@Value@@Icon@)@ClosingTag@`, as `<scaleAD>(+0.4&nbsp;%i:scaleAD%)</scaleAD>`: the
-coefficient, and the stat's `StatUIData` icon and scaling tag. That matches the shipped client's
-look but not a disassembly of mode 6's part text, which reads each part's `mScalingTagKey`.
+### How a calculation writes
+
+A calculation writes in a display mode: its own `mSimpleTooltipCalculationDisplay` (byte `+0x1C`
+on `IGameCalculation`, registration `0x140114830`), or with Shift held its own
+`mExpandedTooltipCalculationDisplay` (`+0x1D`), else the default of the `GlobalStatsUIData`
+object (class `0xf3a72633`, entry `0x42e2a2c6`, registration `0x1403745A0`):
+`mTooltipCalculationExpansion`, 6 in shipped data, and `mExpandedTooltipCalculationExpansion`, 4.
+The value 8 defers to the default. Of 2,489 shipped calculations, 351 set a simple mode and 178 an
+expanded one. The modes, in the switch `sub_140593640` of 16.17:
+
+| mode    | writes                                                                                                      |
+| ------- | ----------------------------------------------------------------------------------------------------------- |
+| 2       | the formula alone: every part in its style, `&nbsp;` between them                                           |
+| 4       | `NumberStyleTotalAndFormula`, `@Number@ = (<scaleBonus>@Formula@</scaleBonus>)` (`0x1405A43D0`)             |
+| 5       | the total alone                                                                                             |
+| 6       | `NumberStyleTotalAndScalingIcons`, `@Number@&nbsp;(@Icons@)`, the number alone with no icon (`0x1405A45E0`) |
+| 0, 1, 3 | each part through another virtual, on a handful of calculations                                             |
+| 7       | a `<danger>` error                                                                                          |
+
+The total includes the character's stats at the time (`0x14059604D`). With no character the client
+reads a stand-in at level 1 with every stat at 0 (vtable `0x141A97948`).
+
+A formula (`sub_1405A7F30`) walks `mFormulaParts`, writes every part even at 0, and does not
+expand sub-parts. The first part takes `FormulaPartStyle`, every later one `FormulaPartStyleBonus`,
+whose text adds the `+`, each in its `…Percent` form for a percentage (`sub_140387E80`):
+
+- A stat part (`StatByCoefficient`, `StatByNamedDataValue`, `StatBySubPart`) writes its
+  coefficient times 100 as a percentage, with `@IconModifier@` from `mStatFormula`: 1 is
+  `BaseOutputIconModifier` (`&nbsp;base&nbsp;`), 2 `BonusOutputIconModifier`
+  (`&nbsp;bonus&nbsp;`), anything else nothing. Its icon and tag are the stat's `StatUIData`
+  `mIconKey` and `mScalingTagKey` (`0x140590E10`).
+- `AbilityResourceByCoefficient` writes the same with `mManaIconKey` and `mManaScalingTagKey`, and
+  no icon where `mAbilityResource` is not 0 (`0x1405908E0`).
+- A buff counter part writes its own coefficient as a percentage, with its own icon and tag.
+- A part that grows by level writes `FormulaPartRangeStyle`, its value at level 1 and at the top
+  level as `@RangeStart@` and `@RangeEnd@`, with `CharLevelIconKey` and `mCharLevelScalingTagKey`
+  (`0x140590C10`).
+- Any other part writes its value, with no icon (`0x140590B20`).
+
+`mMultiplier` scales every part. Mode 6's icons are each part's icon joined with nothing between,
+duplicates kept, so a calculation of base damage and an AP ratio reads `80&nbsp;(%i:scaleAP%)`.
+
+### Shift
+
+The HUD reads Shift every frame (`0x140BDBC90`; Ctrl under the WASD controls), and the setting
+`AlwaysShowExtendedTooltip` (index 0, `0x140C5F6C6`) stands in for it (`sub_140BB9760`). The spell
+button (`0x140CB80A0`) picks an output in `sub_1408AB890`: with Shift held `TooltipExtended`, and
+otherwise `TooltipWithExtendedBehaviorHint`, which is `Tooltip` and
+`<br><infoArea>Press @ExtendedKeybind@ to show more info</infoArea>`. A spell whose
+`TooltipInstance` turns `EnableExtendedTooltip` off shows `Tooltip` either way. The flag defaults
+to on for `TooltipInstanceSpell` (`0x140DC88F0`), and a missing output reads as empty.
+`@ExtendedKeybind@` is the text of `Tooltip_Extended_Keybind_P&C`, or `_WASD`.
+
+`Template_Spell_TooltipExtended` is the header, `@keyTooltipExtended@` as the main text, which
+defaults to `@keyTooltip@`, and `@keyTooltipExtendedBelowLine@`, `@listLevelUpType@` and
+`@listLevelUpGrid@` as the postscript. A list is the spell's `mLists` entry of that name, a
+`TooltipInstanceList` of `levelCount` and `Elements`, 1,085 of them named `LevelUp`. Each element is
+one line: its `nameOverride`'s text, else the format's `mListTypeChoices` entry for its `type`, and
+its value at each rank between `mListGridPrefix`, `mListGridSeparator` and `mListGridPostfix`
+(`[ `, `/`, ` ]`), in the `mListStyles` entry its `Style` names and times its `multiplier`.
+`type` is a spell stat, a data value or `Effect%dAmount` with `typeIndex` in place of `%d`. The
+shipped `generatedtip_spell_ahriq_tooltipextended` holds exactly that:
+`[ @Cost1Prefix@@Cost1@@Cost1Postfix@ / … ]`.
+
+A value by rank (`0x140DE8DB0`) is `NameN` at rank N, `NameNL` at the next rank, and
+`NameNPrefix` and `NameNPostfix` open and close `<activeRank>` at the current rank and
+`<inactiveRank>` at every other. They cover `Cooldown`, `Cost`, `BaseCost`, `AmmoRechargeTime`,
+`CastRange`, each data value and `Effect1Amount` to `Effect10Amount`.
+
+### Levels
+
+The level a part grows by is the character's (`0x1405955C0`), the top level 18 where no rules
+object sets another (`sub_1403873B0`). With no character it is 1. Level 0 does not occur in game.
+
+- `ByCharLevelInterpolationCalculationPart` (`0x140595A70`): `mStartValue` at level 1 to
+  `mEndValue` at the top, linear in `L - 1`, or in the stat growth curve where
+  `mScaleByStatProgressionMultiplier` is set, unclamped unless `mScalePastDefaultMaxLevel` is
+  cleared. The unnamed `0xee18a47b` (`0x140595EA0`) does the same between `StartDataValue` and
+  `EndDataValue`.
+- `ByCharLevelBreakpointsCalculationPart` (`0x1405959D0`): `mLevel1Value`, growing by
+  `mInitialBonusPerLevel` per level, and at each of `mBreakpoints` reached adding
+  `mAdditionalBonusAtThisLevel` and growing by `mBonusPerLevelAtAndAfter` from there. The unnamed
+  `0x4ce08984` (`0x140595B30`) does the same with data values: `0x91d404a5`, `0xbbd778a2`, and a
+  list `0x9823b29a` of `level`, `0xae9b464d` and `0xb0d8b2ac`.
+- The unnamed `0xb22609db` (`0x140595DA0`): the data value `0x91d404a5` plus `L - 1` times
+  `0xb2cd0eb0`.
+- `ByCharLevelFormulaCalculationPart` (`0x140595A50`): `values` at index `L`, so `[0]` is level 0,
+  and the last past its end.
+
+A spell's values read at its rank, 1 for a spell not learned (`sub_1408A4010`), and every list of
+values by rank holds rank `N` at index `N`, but a cost, which holds rank 1 first. No field of the
+spell names its top rank. Its `LevelUp` list's `levelCount` does, 5 for most abilities and 3 for
+most ultimates, and the client takes the next rank as the lower of one more and the slot's top
+(`0x140DD8720`). A stat reads a
+`CharacterRecord`'s base, a `ModifiableFloat` such as `baseDamageModifiable`, plus its growth per
+level times the growth curve `(L - 1) * (0.7025 + 0.0175 * (L - 1))`. That curve was not found in
+the binary. It is the curve the game is known to grow stats by, and it reaches 17 at level 18, which
+the interpolation's divisor of `top - 1` needs. With no items a stat is all base, so a part reading
+the bonus (`mStatFormula` 2) reads 0.
 
 A `CSSSheet` packs its icons into atlas pages: `UX/Fonts/CSS/StyleSheet`'s `scaleAD` names
 `assets/ux/fonts/texticons/lol/statsicon/scalead.png`, which no archive ships, and the sheet's
@@ -748,9 +840,11 @@ the Ahri sample loadout, and the object tooltips need no values at all.
 Atlas does this in `engine/model/tooltip.ts` while sample content draws, with the sample chosen in
 a row over the canvas. The samples are the passive and abilities of any character under
 `Characters/`, each composed the way the client composes it (`crates/atlas/src/spell_tooltip.rs`):
-the `Tooltip` output of its `TooltipFormat` with each `@key…@` in place of the text of the spell's
-`mLocKeys` entry or the format's default, each `{{ }}` expanded, and each value read from the
-spell at rank 1, a calculation with every stat at 0. A character with no ability tooltips leaves
-the tooltip as the file places it. It mirrors the texts' left inset on the right and bottom of
+the outputs "Shift" above names, with each `@key…@` in place of the text of the spell's `mLocKeys`
+entry or the format's default, each `{{ }}` expanded, each list laid out, and each value read
+from the spell at the rank the row picks, its top rank where it has fewer, for the character at
+the level the row picks. Level 0 is the client's stand-in for no character. The row's Shift toggle shows the extended output until it is turned
+off, and holding Shift over the canvas in interact mode shows it while held. A character with no
+ability tooltips leaves the tooltip as the file places it. It mirrors the texts' left inset on the right and bottom of
 the backdrop, which is a guess until the callback above is read, and leaves the caret off, since a
 preview has no anchor for it to point at.

@@ -54,6 +54,7 @@ import { previewKey } from "./previewKeys";
 import { useButtonPlay } from "./useButtonPlay";
 import { useCanvasEdit } from "./useCanvasEdit";
 import { useComboPlay } from "./useComboPlay";
+import { useHeldKeys } from "./useHeldKeys";
 import { useMeterPlay } from "./useMeterPlay";
 import { useViewTransform, type ViewTransformControl } from "./useViewTransform";
 
@@ -183,6 +184,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
     safeZone: frame.safeZone,
   });
   const shown = canvas.shown;
+  const held = useHeldKeys(canvas.holdSpace, interact);
 
   const frames = useMemo(() => {
     if (tree === null || drawn.tree === null || shown === null || board === null) return [];
@@ -257,12 +259,8 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
   };
 
   const onKeyDown = (event: ReactKeyboardEvent) => {
+    if (held.press(event)) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === " ") {
-      canvas.holdSpace(true);
-      event.preventDefault();
-      return;
-    }
     if (previewKey(event.key, previewActions)) {
       event.preventDefault();
       event.stopPropagation();
@@ -358,10 +356,8 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
           }}
           onDoubleClick={transform.fit}
           onKeyDown={onKeyDown}
-          onKeyUp={(event) => {
-            if (event.key === " ") canvas.holdSpace(false);
-          }}
-          onBlur={() => canvas.holdSpace(false)}
+          onKeyUp={held.lift}
+          onBlur={held.release}
         >
           <FlatViewport animating={animating && frame.playing}>
             <AtlasFrame

@@ -83,8 +83,14 @@ export const uiKeys = {
     ["ui-declared", sandboxKey(sandbox), hash] as const,
   loadout: (document: BinDocumentId, sandbox: SandboxRef) =>
     ["ui-loadout", document, sandboxKey(sandbox)] as const,
-  tooltips: (document: BinDocumentId, sandbox: SandboxRef, character: string) =>
-    ["ui-tooltips", document, sandboxKey(sandbox), character.toLowerCase()] as const,
+  tooltips: (
+    document: BinDocumentId,
+    sandbox: SandboxRef,
+    character: string,
+    level: number,
+    rank: number,
+  ) =>
+    ["ui-tooltips", document, sandboxKey(sandbox), character.toLowerCase(), level, rank] as const,
   characters: (document: BinDocumentId, sandbox: SandboxRef) =>
     ["ui-characters", document, sandboxKey(sandbox)] as const,
   materials: (
@@ -130,13 +136,22 @@ export const uiQueries = {
       staleTime: Infinity,
       retry: false,
     }),
-  /** The tooltips of a character's passive and abilities, read once the object index is built. */
-  tooltips: (document: BinDocumentId, sandbox: SandboxRef, character: string) =>
+  /**
+   * The tooltips of a character's passive and abilities at `level`, each spell at `rank`, read
+   * once the object index is built.
+   */
+  tooltips: (
+    document: BinDocumentId,
+    sandbox: SandboxRef,
+    character: string,
+    level: number,
+    rank: number,
+  ) =>
     queryOptions<UiSpellTooltip[], AppError>({
-      queryKey: uiKeys.tooltips(document, sandbox, character),
+      queryKey: uiKeys.tooltips(document, sandbox, character, level, rank),
       queryFn: async () => {
         await untilIndexed(sandbox);
-        return unwrapForQuery(await api.bin.readUiTooltips(document, character));
+        return unwrapForQuery(await api.bin.readUiTooltips(document, character, level, rank));
       },
       staleTime: Infinity,
       retry: false,

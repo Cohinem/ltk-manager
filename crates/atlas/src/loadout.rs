@@ -14,7 +14,10 @@ use serde::Serialize;
 use super::fields::named;
 use super::model::UiTexture;
 use super::resolver::{number, object};
-use super::spell_tooltip::{SpellContext, SpellObjects, StatsUi, spell_tooltip};
+use super::spell_tooltip::{Character, SpellContext, SpellObjects, StatsUi, spell_tooltip};
+
+/// The highest level a tooltip's values can be read at.
+pub const MAX_CHARACTER_LEVEL: u8 = super::spell_tooltip::MAX_LEVEL;
 
 const CHAMPION: &str = "Ahri";
 const SUMMONERS: [&str; 2] = ["SummonerFlash", "SummonerDot"];
@@ -155,8 +158,12 @@ pub struct UiSpellTooltip {
     pub name: String,
     /// The key that casts the spell, none for the passive.
     pub hotkey: Option<String>,
-    /// The tooltip string, its values at rank 1 with no bonus stats.
+    /// The tooltip string, its values at the rank and level read for, with no bonus stats.
     pub text: String,
+    /// The tooltip string while Shift is held, none for a spell with no extended tooltip.
+    pub extended: Option<String>,
+    /// How many ranks the spell has, the top rank its values can read at.
+    pub ranks: u8,
     /// The spell's icon, which the tooltip's icon shows.
     pub icon: Option<UiTexture>,
 }
@@ -164,12 +171,18 @@ pub struct UiSpellTooltip {
 /// The tooltips of the character `character`'s passive and abilities, in that order, each read
 /// as `read_loadout` reads its objects and textures, with its text read through `strings`. An
 /// ability whose spell names no tooltip is absent.
+///
+/// The values read for the character at `level`, from 1 to `MAX_CHARACTER_LEVEL`, and for no
+/// character at level 0, as the client reads them with none: level 1 with every stat at 0. Each
+/// spell's values read at `rank`, from 1, or at its top rank where it has fewer.
 pub fn read_character_tooltips(
     game: &dyn GameCopy,
     assets: &dyn AssetLookup,
     names: &dyn RowNames,
     strings: &dyn Fn(&str) -> Option<String>,
     character: &str,
+    level: u8,
+    rank: u8,
 ) -> Vec<UiSpellTooltip> {
     let mut objects = Objects {
         game,
@@ -194,6 +207,7 @@ pub fn read_character_tooltips(
         .at(GLOBAL_STATS_UI)
         .map(|fields| StatsUi::read(&fields, strings))
         .unwrap_or_default();
+    let at_level = Character::at(record.as_ref(), level);
 
     let slots =
         std::iter::once((None, passive)).chain(ABILITY_KEYS.into_iter().map(Some).zip(abilities));
@@ -208,6 +222,8 @@ pub fn read_character_tooltips(
             resource: resource.as_deref(),
             strings,
             stats: &stats,
+            character: &at_level,
+            rank,
         };
         let Some(tooltip) = spell_tooltip(&spell, &mut objects, &context) else {
             continue;
@@ -223,6 +239,8 @@ pub fn read_character_tooltips(
             name: tooltip.name,
             hotkey: hotkey.map(str::to_owned),
             text: tooltip.text,
+            extended: tooltip.extended,
+            ranks: tooltip.ranks,
             icon,
         });
     }

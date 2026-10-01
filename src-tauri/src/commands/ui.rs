@@ -188,8 +188,9 @@ pub async fn read_ui_characters(
     .await
 }
 
-/// The tooltips of the passive and abilities of the character `character`, such as `Ahri`, read
-/// through the sandbox `document` opens in and the game's stringtable.
+/// The tooltips of the passive and abilities of the character `character`, such as `Ahri`, at
+/// `level` and each spell at `rank`, read through the sandbox `document` opens in and the game's
+/// stringtable. Level 0 reads as no character at all, per `read_character_tooltips`.
 ///
 /// A character the index has not reached reads as no tooltips.
 ///
@@ -201,6 +202,8 @@ pub async fn read_ui_characters(
 pub async fn read_ui_tooltips(
     document: BinDocumentId,
     character: String,
+    level: u8,
+    rank: u8,
     app_handle: AppHandle,
 ) -> IpcResult<Vec<UiSpellTooltip>> {
     off_thread(move || {
@@ -212,7 +215,7 @@ pub async fn read_ui_tooltips(
         let game = project_game(&app_handle, document);
         read_resolved(&app_handle, document, |_, names, assets| {
             Ok(read_character_tooltips(
-                &game, assets, names, &strings, &character,
+                &game, assets, names, &strings, &character, level, rank,
             ))
         })
     })
