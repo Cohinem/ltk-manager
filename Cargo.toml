@@ -59,8 +59,8 @@ ltk_game_data = "0.8.0"
 ltk_mod_project = { version = "0.16.1", features = ["modpkg", "fantome"] }
 ltk_hashtable = "0.2.0"
 ltk_modpkg = "0.12.8"
-ltk_overlay = "0.16.1"
-ltk_wad = "0.5.7"
+ltk_overlay = "0.16.2"
+ltk_wad = "0.5.8"
 
 ltk_anim = "0.3.10"
 ltk_mapgeo = "0.3.2"
