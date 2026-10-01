@@ -352,6 +352,10 @@ export const api = {
     readUiPrograms: (document: BinDocumentId | null, shaders: readonly UiShader[]) =>
       commands.readUiPrograms(document, [...shaders]).then(toResult),
     readUiLoadout: (document: BinDocumentId) => commands.readUiLoadout(document).then(toResult),
+    readUiTooltips: (document: BinDocumentId, character: string) =>
+      commands.readUiTooltips(document, character).then(toResult),
+    readUiCharacters: (document: BinDocumentId) =>
+      commands.readUiCharacters(document).then(toResult),
     atlasExportSprite: (
       texture: AssetRef,
       uv: readonly [number, number, number, number],

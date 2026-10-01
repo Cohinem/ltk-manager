@@ -9,6 +9,7 @@ import { type FrameChoices, NO_FRAME_CHOICES } from "../engine/layout/frames";
 import type { Screen } from "../engine/layout/solve";
 import { BUTTON_STATES, type ButtonState } from "../engine/model/buttons";
 import { CLOSED_COMBO, type ComboState } from "../engine/model/combo";
+import { DEFAULT_TOOLTIP_CHARACTER, DEFAULT_TOOLTIP_SAMPLE } from "../engine/model/tooltip";
 
 /** A screen the canvas lays a view out for, per "Panes" in docs/plans/atlas-ui-editor.md. */
 export interface ScreenPreset extends Screen {
@@ -120,6 +121,10 @@ interface AtlasPreviewStore {
   views: Readonly<Record<string, ViewPreview>>;
   /** The markup a font preview draws, and null for the default sample. */
   fontSample: string | null;
+  /** The id of the sample a tooltip is filled with while samples draw, per `tooltipSamples`. */
+  tooltipSample: string;
+  /** The character, such as `Ahri`, whose abilities a tooltip's samples are. */
+  tooltipCharacter: string;
   framing: FrameRequest | null;
   /** The inspector sections the reader folded shut, by id. */
   foldedSections: readonly string[];
@@ -159,6 +164,8 @@ interface AtlasPreviewStore {
   /** Draw the override in `slot` over the base of `view`, or the base alone where it is null. */
   setVariant: (view: string, slot: string | null) => void;
   setFontSample: (sample: string | null) => void;
+  setTooltipSample: (sample: string) => void;
+  setTooltipCharacter: (character: string) => void;
   requestFrame: (view: string, element: string | null) => void;
   toggleSection: (id: string) => void;
 }
@@ -183,6 +190,8 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
       pointer: null,
       views: {},
       fontSample: null,
+      tooltipSample: DEFAULT_TOOLTIP_SAMPLE,
+      tooltipCharacter: DEFAULT_TOOLTIP_CHARACTER,
       framing: null,
       foldedSections: [],
       setPreset: (preset) => set({ preset }),
@@ -262,6 +271,8 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
           views: { ...state.views, [view]: { ...(state.views[view] ?? EMPTY_VIEW), variant } },
         })),
       setFontSample: (fontSample) => set({ fontSample }),
+      setTooltipSample: (tooltipSample) => set({ tooltipSample }),
+      setTooltipCharacter: (tooltipCharacter) => set({ tooltipCharacter }),
       requestFrame: (view, element) =>
         set((state) => ({
           framing: { view, element, token: (state.framing?.token ?? 0) + 1 },
@@ -288,6 +299,8 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
         stackScenes: state.stackScenes,
         playing: state.playing,
         fontSample: state.fontSample,
+        tooltipSample: state.tooltipSample,
+        tooltipCharacter: state.tooltipCharacter,
         foldedSections: state.foldedSections,
       }),
     },
@@ -344,6 +357,7 @@ export function useFrameSettings() {
       showDisabled: state.showDisabled,
       effects: state.effects,
       samples: state.samples,
+      tooltipSample: state.tooltipSample,
       stackScenes: state.stackScenes,
       buttonState: state.buttonState,
       live: state.live,
@@ -404,6 +418,8 @@ export function useAtlasPreviewActions() {
       setSelection: state.setSelection,
       setVariant: state.setVariant,
       setFontSample: state.setFontSample,
+      setTooltipSample: state.setTooltipSample,
+      setTooltipCharacter: state.setTooltipCharacter,
       requestFrame: state.requestFrame,
       toggleSection: state.toggleSection,
     })),

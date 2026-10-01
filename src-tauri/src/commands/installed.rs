@@ -6,42 +6,130 @@ use crate::error::AppResult;
 use crate::services::objects::index::ObjectIndexState;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{GameCopy, RowNames};
+use ltk_manager_core::bin_document::{GameCopy, ProjectDeclarations, RowNames};
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
-use ltk_manager_core::meta_schema::{self, MetaSchema};
+use ltk_manager_core::meta_schema::{self, MetaSchema, PatchSchema};
 use ltk_manager_core::object_index::{CacheNames, ObjectIndexSnapshot};
+use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::GameBuild;
+use ltk_manager_core::sandbox::SandboxRef;
+use ltk_manager_core::workshop::ProjectDir;
 use tauri::{AppHandle, Manager};
 
 /// The installed game as a declared document reads it: the shared tables for names, and
 /// the object index for an entry a reference names.
 pub(crate) struct InstalledGame(pub(crate) AppHandle);
 
-impl GameCopy for InstalledGame {
-    /// An index that is not ready answers no entry.
-    fn declaring_chunk(&self, entry: BinHash) -> AppResult<Option<Vec<u8>>> {
+impl InstalledGame {
+    /// The first chunk the object index finds declaring `entry`. An index that is not ready
+    /// answers none.
+    fn declaring_asset(&self, entry: BinHash) -> Option<AssetRef> {
         let ObjectIndexSnapshot::Ready(index) = self.0.state::<ObjectIndexState>().snapshot()
         else {
-            return Ok(None);
+            return None;
         };
-        let Some(first) = index
+        index
             .declared(entry)
             .and_then(|declared| declared.declarations.into_iter().next())
-        else {
-            return Ok(None);
-        };
+            .map(|first| first.asset)
+    }
+
+    fn read(&self, asset: &AssetRef) -> AppResult<Vec<u8>> {
         let config = self.0.state::<SettingsState>().config();
-        first
-            .asset
-            .read(&config, &self.0.state::<WadCache>())
-            .map(Some)
+        asset.read(&config, &self.0.state::<WadCache>())
+    }
+}
+
+impl GameCopy for InstalledGame {
+    fn declaring_chunk(&self, entry: BinHash) -> AppResult<Option<Vec<u8>>> {
+        self.declaring_asset(entry)
+            .map(|asset| self.read(&asset))
+            .transpose()
     }
 
     fn with_names(&self, read: &mut dyn FnMut(&dyn RowNames)) {
         let bin = self.0.state::<BinHashTablesState>().get();
         let wad = self.0.state::<Arc<WadPathResolverState>>().get();
         read(&CacheNames::new(&bin, &wad));
+    }
+}
+
+/// The installed game as a project's build writes it: each game chunk a preview reads with the
+/// project's game data declarations applied, as ADR-0042 applies them. The game sandbox, and a
+/// project whose declarations cannot be read, read the installed game alone.
+pub(crate) struct ProjectGame {
+    installed: InstalledGame,
+    declarations: Option<ProjectDeclarations>,
+}
+
+impl ProjectGame {
+    /// The game as the project of `sandbox` builds it.
+    pub(crate) fn new(app_handle: &AppHandle, sandbox: &SandboxRef) -> Self {
+        let declarations = sandbox.project().and_then(|project| {
+            let (schema, build) = installed_schema(app_handle);
+            ProjectDir::open(project)
+                .and_then(|project| {
+                    ProjectDeclarations::load(
+                        &project,
+                        PatchSchema::new(schema, build),
+                        Arc::new(InstalledGame(app_handle.clone())),
+                    )
+                })
+                .inspect_err(|error| {
+                    tracing::warn!(%project, %error, "A preview reads no game data declarations");
+                })
+                .ok()
+        });
+
+        Self {
+            installed: InstalledGame(app_handle.clone()),
+            declarations,
+        }
+    }
+
+    /// The file `asset`, a bin chunk of the game with the declarations that reach it applied.
+    pub(crate) fn read(&self, asset: &AssetRef) -> AppResult<Vec<u8>> {
+        let bytes = self.installed.read(asset)?;
+        Ok(self.declared(asset, bytes))
+    }
+
+    /// A declaration that does not apply leaves the game's copy, as the declared document
+    /// raises it where it is edited.
+    fn declared(&self, asset: &AssetRef, bytes: Vec<u8>) -> Vec<u8> {
+        let (Some(declarations), AssetRef::GameChunk { path_hash, .. }) =
+            (&self.declarations, asset)
+        else {
+            return bytes;
+        };
+        if !(bytes.starts_with(b"PROP") || bytes.starts_with(b"PTCH")) {
+            return bytes;
+        }
+        let Ok(chunk_hash) = u64::from_str_radix(path_hash, 16) else {
+            return bytes;
+        };
+
+        match declarations.apply(&bytes, chunk_hash) {
+            Ok(Some(applied)) => applied,
+            Ok(None) => bytes,
+            Err(error) => {
+                tracing::warn!(%path_hash, %error, "A preview draws a chunk undeclared");
+                bytes
+            }
+        }
+    }
+}
+
+impl GameCopy for ProjectGame {
+    fn declaring_chunk(&self, entry: BinHash) -> AppResult<Option<Vec<u8>>> {
+        self.installed
+            .declaring_asset(entry)
+            .map(|asset| self.read(&asset))
+            .transpose()
+    }
+
+    fn with_names(&self, read: &mut dyn FnMut(&dyn RowNames)) {
+        self.installed.with_names(read);
     }
 }
 

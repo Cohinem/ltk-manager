@@ -64,6 +64,7 @@ describe.skipIf(DUMP === undefined)("the frame budget of the largest shipped vie
         buttonStates: new Map(),
         meterFills: new Map(),
         showDisabled: true,
+        tooltip: null,
         hiddenElements: new Set(),
         effects: true,
         samples: false,

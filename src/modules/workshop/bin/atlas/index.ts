@@ -6,4 +6,5 @@ export { FontControls } from "./components/FontControls";
 export { FontPreview, type FontPreviewProps } from "./components/FontPreview";
 export { LayersPane, type LayersPaneProps } from "./components/LayersPane";
 export { SpritesPane, type SpritesPaneProps } from "./components/SpritesPane";
+export { TooltipBar, type TooltipBarProps } from "./components/TooltipBar";
 export { VariantsPane, type VariantsPaneProps } from "./components/VariantsPane";

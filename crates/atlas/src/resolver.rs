@@ -10,7 +10,7 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 
 use super::fields::*;
-use super::font::FontBins;
+use super::font::{FontBins, SheetAtlas};
 use super::imaa::Manifest;
 use super::model::{
     UiAnchor, UiButton, UiButtonState, UiEffect, UiFont, UiLayout, UiLayoutKind, UiLook, UiMeter,
@@ -30,6 +30,8 @@ pub(super) struct ViewResolver<'a> {
     pub(super) textures: Vec<UiTexture>,
     pub(super) fonts: Vec<UiFont>,
     pub(super) style_sheets: Vec<UiStyleSheet>,
+    /// Where the icons of each of `style_sheets` sit, one for one.
+    pub(super) sheet_atlases: Vec<SheetAtlas>,
     pub(super) warnings: Vec<UiViewWarning>,
     font_bins: FontBins<'a>,
     /// The index into `textures` of each texture's path hash.
@@ -53,6 +55,7 @@ impl<'a> ViewResolver<'a> {
             textures: Vec::new(),
             fonts: Vec::new(),
             style_sheets: Vec::new(),
+            sheet_atlases: Vec::new(),
             warnings: Vec::new(),
             font_bins,
             texture_index: HashMap::new(),
@@ -414,8 +417,9 @@ impl<'a> ViewResolver<'a> {
         let sheet = self
             .font_bins
             .style_sheet(target, &mut self.namer, self.assets);
-        let at = sheet.map(|sheet| {
+        let at = sheet.map(|(sheet, atlas)| {
             self.style_sheets.push(sheet);
+            self.sheet_atlases.push(atlas);
             self.style_sheets.len() - 1
         });
         self.style_sheet_index.insert(target.0, at);

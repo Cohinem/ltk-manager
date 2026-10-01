@@ -10,7 +10,7 @@ const SHEET: ViewStyleSheet = {
   styles: [
     { name: "spellActive", color: [10, 20, 30, 255], bold: true, italics: null, underline: null },
   ],
-  icons: [{ name: "scaleMana", texture: null, yAdjustment: 1 }],
+  icons: [{ name: "scaleMana", texture: null, uv: null, yAdjustment: 1 }],
 };
 
 /** A monospace face: every glyph ten pixels on, eight wide and ten tall, a space empty. */

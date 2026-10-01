@@ -108,6 +108,7 @@ function ViewStill({ document, entry, kind, playing, onStatus }: AtlasStillProps
       samples: true,
       only,
       overlay: NO_OVERLAY,
+      tooltip: null,
     };
     const order = visibleElements(tree, preview);
     const repeats = focus ? [] : viewRepeats(tree, solved);

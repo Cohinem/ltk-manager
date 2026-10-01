@@ -7,6 +7,9 @@ import { twMerge } from "@/utils";
 // Re-export the filter hook for consumers
 export const useComboboxFilter = BaseCombobox.useFilter;
 
+/** The items the filter keeps, which a `virtualized` root's list renders a window of. */
+export const useComboboxFilteredItems = BaseCombobox.useFilteredItems;
+
 // Root
 export interface ComboboxRootProps<
   Value = string,

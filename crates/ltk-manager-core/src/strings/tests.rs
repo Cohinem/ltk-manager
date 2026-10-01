@@ -16,6 +16,7 @@ fn index_from(entries: &[(&str, Option<&str>)]) -> StringKeyIndex {
     StringKeyIndex {
         entries,
         locale: Some("en_us".to_string()),
+        table: None,
     }
 }
 

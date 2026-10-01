@@ -118,7 +118,10 @@ function ElementFields({
   };
 
   return (
-    <section data-ui="ElementInspector" className="flex min-h-0 flex-col gap-2">
+    <section
+      data-ui="ElementInspector"
+      className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2 scrollbar-md"
+    >
       <header className="flex flex-col gap-0.5 px-1">
         <div className="flex min-w-0 items-center gap-2">
           <span

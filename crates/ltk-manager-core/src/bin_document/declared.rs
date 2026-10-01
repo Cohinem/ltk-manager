@@ -13,7 +13,7 @@ use std::sync::Arc;
 use ltk_declarations::{Edit as ManifestEdit, Manifest, ModuleChoice};
 use ltk_game_data::{
     Edit, EntryName, Module, ModuleName, Names, ObjectEdit, PropertyEdit, Selector, Sign, Target,
-    Value, apply,
+    Value,
 };
 use ltk_hash::{BinHash, WadHash};
 use ltk_meta::path::{FieldNames, MapKey, PropertyPath, Subscript, ValuePath};
@@ -29,6 +29,7 @@ use self::diagnostics::Raised;
 pub use self::diagnostics::{DeclaredDiagnostic, DeclaredDiagnosticKind, ObjectSkip, SkipReason};
 pub use self::links::{DeclaredLinkMark, LinkChange};
 pub use self::objects::{DeclaredObjectMark, NewObject, ObjectChange};
+pub use self::project::ProjectDeclarations;
 use super::edit::UNDO_DEPTH;
 use super::{BinDocument, BinDocumentError, EditRejection, EntryKey, RowNames, Trace, hex};
 use crate::error::{AppError, AppResult, Utf8PathRefExt as _};
@@ -719,7 +720,12 @@ impl Declared {
     /// The game's copy with every layer's declarations applied, in build order. A variant is
     /// its declared `PTCH` laid over its declared base.
     fn apply(&mut self) -> AppResult<Vec<u8>> {
-        self.layers = self.project_layers()?;
+        let declarations = ProjectDeclarations::load(
+            &self.context.project,
+            self.context.schema.clone(),
+            self.context.game.clone(),
+        )?;
+        self.layers = declarations.layers().map(str::to_owned).collect();
         if !self.layers.contains(&self.layer) {
             BASE_LAYER.clone_into(&mut self.layer);
         }
@@ -727,18 +733,19 @@ impl Declared {
         let mut raised = Vec::new();
         let Some(variant) = &self.variant else {
             let entries: Vec<BinHash> = self.game_tree.objects.keys().copied().collect();
-            let bytes = self.apply_chunk(&self.game, self.chunk_hash, &entries, &mut raised)?;
+            let bytes =
+                declarations.apply_chunk(&self.game, self.chunk_hash, &entries, &mut raised)?;
             self.raised = raised;
             return Ok(bytes);
         };
 
-        let base = self.apply_chunk(
+        let base = declarations.apply_chunk(
             &variant.game,
             variant.chunk_hash,
             &variant.base_entries,
             &mut raised,
         )?;
-        let patch = self.apply_chunk(
+        let patch = declarations.apply_chunk(
             &self.game,
             self.chunk_hash,
             &variant.variant_entries,
@@ -748,60 +755,6 @@ impl Declared {
         self.raised = raised;
         if let Some(variant) = &mut self.variant {
             variant.laid = laid;
-        }
-        Ok(bytes)
-    }
-
-    /// `game`, the chunk `chunk_hash` whose objects are `entries`, with every layer's
-    /// declarations applied in build order. What each apply raises joins `raised`.
-    fn apply_chunk(
-        &self,
-        game: &[u8],
-        chunk_hash: u64,
-        entries: &[BinHash],
-        raised: &mut Vec<Raised>,
-    ) -> AppResult<Vec<u8>> {
-        let project = &self.context.project;
-        let root = project.path().try_as_utf8("project directory")?;
-        let ignore = project.ignore_filter()?;
-        let mut bytes = game.to_vec();
-        for layer in &self.layers {
-            let loaded = load_layer(root, layer, &ignore);
-            let Ok(Some(declarations)) = &loaded.declarations else {
-                continue;
-            };
-            let edits: Vec<Edit> = declarations
-                .modules
-                .iter()
-                .flat_map(|module| edits_on(module, chunk_hash, entries))
-                .collect();
-            if edits.is_empty() {
-                continue;
-            }
-            let game = &self.context.game;
-            let applied = apply(
-                &bytes,
-                &edits,
-                |path| {
-                    let file = loaded
-                        .override_files()
-                        .iter()
-                        .find(|file| file.path == *path)
-                        .ok_or_else(|| {
-                            ltk_game_data::Error::in_document(
-                                ltk_game_data::ErrorKind::InputMissing,
-                                path.as_str(),
-                            )
-                        })?;
-                    fs_err::read(&file.source)
-                        .map_err(|error| ltk_game_data::Error::io(path.as_str(), &error))
-                },
-                |entry| read_entry(game.as_ref(), entry),
-                &self.context.schema,
-            )
-            .map_err(|error| AppError::Other(format!("The declarations do not apply: {error}")))?;
-            raised.extend(Raised::of(layer, &edits, applied.diagnostics));
-            bytes = applied.bytes;
         }
         Ok(bytes)
     }
@@ -1335,6 +1288,7 @@ mod diagnostics;
 mod edits;
 mod links;
 mod objects;
+mod project;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]

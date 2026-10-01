@@ -1364,6 +1364,7 @@ fn every_shipped_controller_resolves_into_a_view() {
     let mut combos = 0;
     let (mut buttons, mut hit_regions) = (0, 0);
     let (mut meters, mut tips) = (0, 0);
+    let mut atlas_icons = 0;
     let mut failures = Vec::new();
     let loadables = install.loadables();
     let must_draw = [
@@ -1423,6 +1424,12 @@ fn every_shipped_controller_resolves_into_a_view() {
                 }
             }
             views += 1;
+            atlas_icons += view
+                .style_sheets
+                .iter()
+                .flat_map(|sheet| &sheet.icons)
+                .filter(|icon| icon.uv.is_some())
+                .count();
             let known = |key: &String| view.elements.iter().any(|element| &element.key == key);
             for element in &view.elements {
                 let UiLook::Group {
@@ -1561,8 +1568,9 @@ fn every_shipped_controller_resolves_into_a_view() {
          {variants} variants laid with {applied} records applied and {skipped} skipped, \
          {combos} combo boxes, {buttons} buttons ({hit_regions} with a hit region), \
          {meters} meters ({tips} with a tip), {drawn} overlays and player cards drawn, {repeats} layout repeats, \
-         {bound} bound elements and {unbound} bindings naming none of the base"
+         {bound} bound elements and {unbound} bindings naming none of the base, \n         {atlas_icons} text icons on a sheet's atlas"
     );
+    assert!(atlas_icons > 0, "no text icon reads off its sheet's atlas");
     for failure in &failures {
         println!("{failure}");
     }
@@ -1734,14 +1742,33 @@ fn the_largest_shipped_views_dump_for_the_frame_bench() {
 fn the_sample_loadout_reads_out_of_the_install() {
     let install = Install::mount(&[
         "Global.wad.client",
+        "UI.wad.client",
         "Champions/Ahri.wad.client",
         "Maps/Shipping/Map11.wad.client",
         "Maps/Shipping/Map12.wad.client",
+        "Localized/Global.en_US.wad.client",
     ]);
+    let table = install
+        .bytes(WadHash::hash_str("data/menu/en_us/lol.stringtable").0)
+        .and_then(|bytes| ltk_rst::Stringtable::from_reader(&mut std::io::Cursor::new(bytes)).ok())
+        .unwrap();
+    let strings = |key: &str| table.get_key(key).map(str::to_owned);
 
-    let loadout = read_loadout(&install.shelf(), &install, &());
+    let shelf = install.shelf();
+    let loadout = read_loadout(&shelf, &install, &());
+    let tooltips = read_character_tooltips(&shelf, &install, &(), &strings, "Ahri");
 
     println!("{loadout:#?}");
+    for tooltip in &tooltips {
+        println!("{:?} {}: {}", tooltip.hotkey, tooltip.name, tooltip.text);
+    }
+    assert_eq!(tooltips.len(), 5, "{tooltips:?}");
+
+    let characters = read_characters(&shelf, &install, &(), &strings, &["Ahri".to_owned()]);
+    println!("{characters:?}");
+    assert_eq!(characters[0].name.as_deref(), Some("Ahri"));
+    assert!(characters[0].icon.is_some());
+    assert!(tooltips.iter().all(|tooltip| tooltip.icon.is_some()));
     assert!(loadout.name_key.is_some());
     assert!(loadout.abilities.iter().all(Option::is_some));
     assert!(loadout.passive.is_some());
@@ -1874,4 +1901,86 @@ fn a_hierarchy_anchor_reads_its_pivot_and_its_margins_per_axis() {
             margins: [[-10.0, -12.0], [0.0, -320.0]],
         }
     );
+}
+
+#[test]
+#[ignore = "reads a game install, and needs LTK_LIVE_GAME"]
+fn every_characters_tooltips_fill_their_values() {
+    /* No data holds these: a weapon spell no slot casts, and a cost the spell never names. */
+    const UNFILLABLE: [&str; 2] = ["spell.ApheliosCalibrumQ:Hotkey", "BaseCost"];
+
+    let game = std::env::var("LTK_LIVE_GAME").unwrap();
+    let champions: Vec<String> = fs_err::read_dir(std::path::Path::new(&game).join("Champions"))
+        .unwrap()
+        .filter_map(|entry| {
+            let name = entry.unwrap().file_name().into_string().unwrap();
+            let stem = name.strip_suffix(".wad.client")?;
+            (!stem.contains('.')).then(|| stem.to_owned())
+        })
+        .collect();
+    let mut archives = vec![
+        "Global.wad.client".to_owned(),
+        "UI.wad.client".to_owned(),
+        "Localized/Global.en_US.wad.client".to_owned(),
+    ];
+    archives.extend(
+        champions
+            .iter()
+            .map(|name| format!("Champions/{name}.wad.client")),
+    );
+    let install = Install::mount(&archives.iter().map(String::as_str).collect::<Vec<_>>());
+
+    /* Every bin of the shared archives, and each champion's own bin, which holds its spells. */
+    let mut declared = HashMap::new();
+    let shared: Vec<u64> = install.wads.borrow()[..2]
+        .iter()
+        .flat_map(|wad| wad.chunks().iter().map(|chunk| chunk.path_hash().0))
+        .collect();
+    let own = champions.iter().map(|name| {
+        let lower = name.to_lowercase();
+        WadHash::hash_str(format!("data/characters/{lower}/{lower}.bin")).0
+    });
+    for hash in shared.into_iter().chain(own) {
+        let Some(bytes) = install.bytes(hash) else {
+            continue;
+        };
+        let Ok(document) = BinDocument::parse(bytes.clone()) else {
+            continue;
+        };
+        let shared = std::sync::Arc::new(bytes);
+        for entry in document.entries() {
+            declared.entry(entry).or_insert_with(|| shared.clone());
+        }
+    }
+    let shelf = Shelf(declared);
+
+    let table = install
+        .bytes(WadHash::hash_str("data/menu/en_us/lol.stringtable").0)
+        .and_then(|bytes| ltk_rst::Stringtable::from_reader(&mut Cursor::new(bytes)).ok())
+        .unwrap();
+    let strings = |key: &str| table.get_key(key).map(str::to_owned);
+
+    let mut tooltips = 0;
+    let mut unfilled = Vec::new();
+    for name in &champions {
+        for tooltip in read_character_tooltips(&shelf, &install, &(), &strings, name) {
+            tooltips += 1;
+            let mut rest = tooltip.text.as_str();
+            while let Some(open) = rest.find('@') {
+                let after = &rest[open + 1..];
+                let Some(close) = after.find('@') else {
+                    break;
+                };
+                let token = &after[..close];
+                if !UNFILLABLE.contains(&token) {
+                    unfilled.push(format!("{name} {:?}: @{token}@", tooltip.hotkey));
+                }
+                rest = &after[close + 1..];
+            }
+        }
+    }
+
+    println!("{tooltips} tooltips of {} characters", champions.len());
+    assert!(tooltips > 800);
+    assert!(unfilled.is_empty(), "{unfilled:#?}");
 }

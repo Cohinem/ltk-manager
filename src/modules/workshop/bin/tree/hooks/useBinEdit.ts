@@ -80,6 +80,10 @@ const DOCUMENT_READS = [
   ["ui-view"],
   ["ui-font"],
   ["ui-scene-view"],
+  /* A preview reads game objects with the project's declarations applied. */
+  ["ui-loadout"],
+  ["ui-tooltips"],
+  ["ui-materials"],
   ["skin"],
   ["skin-graph"],
   ["skin-programs"],

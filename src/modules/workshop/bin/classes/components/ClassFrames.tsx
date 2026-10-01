@@ -5,7 +5,7 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { leafHolding, type PortalHost, PortalSlot } from "@/modules/editor";
 
 import { useShellLayout, useShellMaximizedLeaf } from "../../../state";
-import { AtlasCanvas, FontPreview } from "../../atlas";
+import { AtlasCanvas, FontPreview, TooltipBar } from "../../atlas";
 import { ChanceReadout } from "../../curves/components/ChancePin";
 import { CurveSurface } from "../../curves/components/CurveSurface";
 import { LinkAssetContext } from "../../links/hooks/useLinkTargets";
@@ -128,7 +128,14 @@ interface FramePreviewProps {
  */
 export function FramePreview({ kind, view, entry, drawable }: FramePreviewProps) {
   if (kind === "map") return <MapPreview document={view.document} />;
-  if (kind === "atlas") return <AtlasCanvas document={view.document} entry={entry ?? ""} />;
+  if (kind === "atlas") {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <TooltipBar document={view.document} entry={entry ?? ""} />
+        <AtlasCanvas document={view.document} entry={entry ?? ""} />
+      </div>
+    );
+  }
   if (kind === "font") return <FontPreview document={view.document} entry={entry ?? ""} />;
   if (kind === "element") {
     return <AtlasCanvas document={view.document} entry={entry ?? ""} focus />;

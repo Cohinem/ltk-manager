@@ -80,6 +80,7 @@ export function view(scenes: ViewScene[], elements: ViewElement[]): View {
     scenes,
     elements,
     comboBoxes: [],
+    tooltip: null,
     textures: [{ path: "page", asset: null, page: true }],
     fonts: [],
     styleSheets: [],

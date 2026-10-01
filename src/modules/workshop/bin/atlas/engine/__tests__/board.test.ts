@@ -20,6 +20,7 @@ const SHOWN: PreviewState = {
   buttonStates: new Map(),
   meterFills: new Map(),
   showDisabled: false,
+  tooltip: null,
   hiddenElements: new Set(),
   effects: true,
   samples: false,

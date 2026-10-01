@@ -27,6 +27,9 @@ const NO_CONTEXT = "No 2D context for glyph rasterization";
 /** A page's first texel is white, for the underline and strike quads. */
 const RESERVED = 2;
 
+/** The rect of an icon's texture the icon is where the icon names none. */
+const FULL_UV = [0, 0, 1, 1] as const;
+
 /** One page pair: glyph coverage, and the same cells dilated by the outline. */
 export interface GlyphPage {
   readonly fill: Texture;
@@ -231,12 +234,17 @@ class RasterFace implements TextFace<PagedGlyph> {
     return glyph;
   }
 
-  /** An icon's texture at its own size, standing on the baseline and lowered by its adjustment. */
+  /**
+   * An icon's rect of its texture at its own size, standing on the baseline and lowered by its
+   * adjustment. A sheet packs its icons into atlas pages, so the rect is a part of the page.
+   */
   icon(icon: ViewTextIcon): PagedGlyph | null {
     const size = this.iconSize(icon);
     if (size === null) return null;
 
-    const [width, height] = size;
+    const uv = icon.uv ?? FULL_UV;
+    const width = Math.round(size[0] * (uv[2] - uv[0]));
+    const height = Math.round(size[1] * (uv[3] - uv[1]));
     return {
       advance: width,
       left: 0,
@@ -244,7 +252,7 @@ class RasterFace implements TextFace<PagedGlyph> {
       width,
       height,
       page: -1,
-      uv: [0, 0, 1, 1],
+      uv,
       fauxBold: false,
     };
   }

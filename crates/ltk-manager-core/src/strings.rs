@@ -51,6 +51,8 @@ struct IndexEntry {
 pub struct StringKeyIndex {
     entries: Vec<IndexEntry>,
     locale: Option<String>,
+    /// The game's stringtable, which answers a key the name list does not hold.
+    table: Option<ltk_rst::Stringtable>,
 }
 
 impl StringKeyIndex {
@@ -73,8 +75,7 @@ impl StringKeyIndex {
     /// Join field names with what the game's stringtable currently says for
     /// each, keyed by the hash the table stores them under.
     fn from_keys(keys: Vec<(u64, String)>, config: &Config) -> Self {
-        let table = load_game_stringtable(config);
-        let locale = table.as_ref().map(|(locale, _)| locale.clone());
+        let (locale, table) = load_game_stringtable(config).unzip();
 
         let mut entries: Vec<IndexEntry> = keys
             .into_iter()
@@ -82,7 +83,7 @@ impl StringKeyIndex {
             .map(|(hash, key)| {
                 let value = table
                     .as_ref()
-                    .and_then(|(_, table)| table.get(hash).map(str::to_string));
+                    .and_then(|table| table.get(hash).map(str::to_string));
                 IndexEntry {
                     value_lower: value.as_deref().map(str::to_lowercase),
                     value,
@@ -100,7 +101,17 @@ impl StringKeyIndex {
             locale
         );
 
-        Self { entries, locale }
+        Self {
+            entries,
+            locale,
+            table,
+        }
+    }
+
+    /// The game's text for `key`, found by its hash whether or not the name list holds it.
+    #[must_use]
+    pub fn text(&self, key: &str) -> Option<&str> {
+        self.table.as_ref()?.get_key(key)
     }
 
     /// Rank matches for `query`: key prefix first, then key substring, then

@@ -1,5 +1,5 @@
 import type { ViewTree } from "../model/tree";
-import type { ViewAnchor, ViewPosition, ViewRect } from "../model/view";
+import type { ViewAnchor, ViewElement, ViewPosition, ViewRect } from "../model/view";
 import { restsHidden } from "../model/visibility";
 import { arrange, type Edges, type LayoutItem } from "./managed";
 
@@ -441,4 +441,18 @@ function unionOf(rects: readonly (PixelRect | null)[]): PixelRect | null {
 
 function lerp(from: number, to: number, at: number): number {
   return from + (to - from) * at;
+}
+
+/**
+ * Screen pixels per source pixel of `element`, as a slice's edge sizes take it: the screen over
+ * the element's source height, times the HUD scale the element takes.
+ */
+export function edgeScale(element: ViewElement, settings: LayoutSettings): number {
+  const position = element.position;
+  if (position === null || position.kind === "fullScreen") return settings.hud;
+
+  const { rect } = position;
+  const hud = rect.ignoreGlobalScale ? 1 : settings.hud;
+  const sourceH = rect.source[1];
+  return sourceH > 0 ? (settings.screen.height / sourceH) * hud : hud;
 }

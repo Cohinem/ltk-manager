@@ -13,16 +13,16 @@ use ltk_meta::path::PropertyPath;
 use ltk_meta::walk::Leaf;
 use ltk_meta::{ApplyReport, Bin, BinObject, PropertyPatch};
 
-use super::bindings;
 use super::fields::*;
-use super::font::{FONTS_PATH, FontBins};
+use super::font::{FONTS_PATH, FontBins, SheetAtlas};
 use super::imaa::Manifest;
 use super::model::{
-    UiBinding, UiComboBox, UiElement, UiFile, UiFileRole, UiRepeat, UiScene, UiVariant,
-    UiVariantRecord, UiView, UiViewWarning,
+    UiAsset, UiBinding, UiComboBox, UiElement, UiFile, UiFileRole, UiRepeat, UiScene, UiStyleSheet,
+    UiTextIcon, UiTooltip, UiVariant, UiVariantRecord, UiView, UiViewWarning,
 };
 use super::resolver::{self, ViewResolver, chunk, file_hash, flag, number, position};
 use super::sprite_key;
+use super::{bindings, tooltip};
 
 /// Why an object cannot be read as a view.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -153,6 +153,7 @@ pub fn resolve_view(
         bindings: controller
             .map(|controller| bindings::bindings(&controller.properties, controller.class_hash))
             .unwrap_or_default(),
+        tooltip: controller.and_then(|controller| tooltip::tooltip(&controller.properties)),
     };
     Ok(assemble(
         head,
@@ -205,6 +206,7 @@ pub fn resolve_scene_bin(
             .unwrap_or_else(|| hex(object.class_hash)),
         repeats: Vec::new(),
         bindings: Vec::new(),
+        tooltip: None,
     };
     Ok(assemble(
         head,
@@ -226,6 +228,7 @@ struct ViewHead {
     class: String,
     repeats: Vec<UiRepeat>,
     bindings: Vec<UiBinding>,
+    tooltip: Option<UiTooltip>,
 }
 
 /// The view the base's `objects` draw: its scenes and elements resolved against the manifest
@@ -285,6 +288,18 @@ fn assemble(
         }
     }
 
+    let mut style_sheets = std::mem::take(&mut resolver.style_sheets);
+    for (sheet, atlas) in style_sheets.iter_mut().zip(&resolver.sheet_atlases) {
+        place_icons(
+            sheet,
+            atlas,
+            &mut resolver.namer,
+            assets,
+            read,
+            &mut warnings,
+        );
+    }
+
     warnings.append(&mut resolver.warnings);
     UiView {
         entry: hex(head.entry),
@@ -296,9 +311,10 @@ fn assemble(
         scenes,
         elements,
         combo_boxes,
+        tooltip: head.tooltip,
         textures: resolver.textures,
         fonts: resolver.fonts,
-        style_sheets: resolver.style_sheets,
+        style_sheets,
         repeats: head.repeats,
         bindings: head.bindings,
         warnings,
@@ -438,6 +454,61 @@ fn read_file(
             });
         })
         .ok()
+}
+
+/// `sheet`'s icons that no file holds, placed on the pages of the sprite manifest the sheet
+/// packs them into, as the client draws them.
+fn place_icons(
+    sheet: &mut UiStyleSheet,
+    atlas: &SheetAtlas,
+    namer: &mut Namer<'_>,
+    assets: &dyn AssetLookup,
+    read: &mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>,
+    warnings: &mut Vec<UiViewWarning>,
+) {
+    let unplaced = |icon: &UiTextIcon| {
+        icon.texture
+            .as_ref()
+            .is_none_or(|file| file.asset.is_none())
+    };
+    if !sheet.icons.iter().any(unplaced) {
+        return;
+    }
+    let Some(hash) = atlas.manifest else {
+        return;
+    };
+
+    let (path, asset) = chunk(namer, assets, WadHash(hash));
+    let Some(bytes) = read_file(&path, asset.as_ref(), read, warnings) else {
+        return;
+    };
+    let Ok(manifest) = Manifest::read(&bytes) else {
+        warnings.push(UiViewWarning::UnreadableFile {
+            path,
+            reason: "not a sprite manifest".to_owned(),
+        });
+        return;
+    };
+
+    for (icon, key) in sheet.icons.iter_mut().zip(&atlas.keys) {
+        if !unplaced(icon) {
+            continue;
+        }
+        let Some(entry) = key.and_then(|key| manifest.find(key)) else {
+            continue;
+        };
+        let Some(&page) = manifest.pages.get(entry.page as usize) else {
+            continue;
+        };
+
+        let (path, asset) = chunk(namer, assets, WadHash(page));
+        icon.texture = Some(UiAsset { path, asset });
+        icon.uv = Some(
+            entry
+                .uv
+                .map(|value| if value.is_finite() { value } else { 0.0 }),
+        );
+    }
 }
 
 /// The bin at `path`, and a warning where it cannot be read or parsed.
