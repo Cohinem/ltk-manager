@@ -9,10 +9,11 @@ use crate::events::{
     BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
 };
 use crate::hashtables::WadPathResolver;
+use crate::mods::fantome_layer::unpacked_layer_name;
 use crate::mods::long_paths::{self, ImportRoot};
 use crate::utils::natural_order::compare_names;
 use fs_err as fs;
-use ltk_fantome::FantomeReader;
+use ltk_fantome::{BASE_LAYER, FantomeReader};
 use ltk_mod_project::fantome::FantomeImporter;
 use ltk_mod_project::modpkg::{ModpkgImportError, ModpkgImporter, read_project};
 use ltk_mod_project::{
@@ -25,8 +26,8 @@ use std::path::Path;
 impl Workshop {
     /// Every project the workshop knows: the workshop folder's children and the opened folders.
     ///
-    /// An opened folder whose config is gone is left out here, and
-    /// [`Workshop::opened_folders`] is what still lists it.
+    /// An opened folder whose config is gone is left out, and
+    /// [`Workshop::opened_folders`] still lists it.
     pub fn get_projects(&self, config: &Config) -> AppResult<Vec<WorkshopProject>> {
         let mut projects = Vec::new();
         let mut seen = HashSet::new();
@@ -221,8 +222,22 @@ impl Workshop {
             .read_info()
             .map_err(|e| AppError::Fantome(format!("Failed to read META/info.json: {e}")))?;
 
-        let mut wad_files = reader.wad_names();
-        wad_files.sort_by(|a, b| compare_names(a, b));
+        let mut wads = reader.wad_names();
+        wads.sort_by(|a, b| {
+            (b.layer == BASE_LAYER)
+                .cmp(&(a.layer == BASE_LAYER))
+                .then_with(|| compare_names(&a.layer, &b.layer))
+                .then_with(|| compare_names(&a.name, &b.name))
+        });
+
+        /* A non-base layer's WAD is listed under the content path the import writes it to. */
+        let wad_files = wads
+            .into_iter()
+            .map(|wad| match wad.layer == BASE_LAYER {
+                true => wad.name,
+                false => format!("{}/{}", unpacked_layer_name(&info, &wad.layer), wad.name),
+            })
+            .collect();
 
         Ok(FantomePeekResult {
             suggested_name: slug::slugify(&info.name),
@@ -254,9 +269,9 @@ impl Workshop {
             return Err(AppError::ProjectAlreadyExists(args.name));
         }
 
-        // Ahead of the import rather than inside it, so an archive that cannot
-        // land at all fails through the call's own error instead of through a
-        // progress bar that opened and then reported an error with no reason.
+        // Checked before the import starts, so an archive that cannot be unpacked
+        // here fails with this call's error. Inside the import, the same failure
+        // would show only as a progress error with no reason.
         long_paths::preflight_fantome_import(
             Path::new(&args.file_path),
             &project_dir,
@@ -278,10 +293,10 @@ impl Workshop {
         result
     }
 
-    /// Unpack the archive into `project_dir` and load what landed there.
+    /// Unpack the archive into `project_dir` and load the result.
     ///
-    /// Split out so the caller owns the one cleanup path: every failure past
-    /// this point leaves a part-written directory to remove.
+    /// Separate so the caller holds the single cleanup path, since every failure
+    /// here leaves a part-written directory to remove.
     fn run_fantome_import(
         &self,
         project_dir: &Path,
@@ -321,9 +336,9 @@ impl Workshop {
     ) -> AppResult<WorkshopProject> {
         let workshop_path = self.workshop_dir(config)?;
 
-        // The package names the project and the name names the directory, so
-        // the metadata is read before the import has anywhere to write. Mounting
-        // decompresses that chunk alone, which is why reading it twice is cheap.
+        // The project name in the package is the directory name, so the metadata
+        // is read before the import. Mounting decompresses only the metadata
+        // chunk, so reading the package twice is cheap.
         let mut modpkg = Modpkg::mount_from_reader(fs::File::open(file_path)?)?;
         let name = read_project(&mut modpkg)?.name;
 
@@ -332,16 +347,16 @@ impl Workshop {
             return Err(AppError::ProjectAlreadyExists(name));
         }
 
-        // The destination is the package's own name rather than a slug this
-        // side chose, so how long it is only becomes knowable here.
+        // The destination uses the package's own name, so its path length is
+        // known only after the metadata is read.
         long_paths::preflight_modpkg_import(&modpkg, &project_dir, ImportRoot::Workshop)?;
         drop(modpkg);
 
         if let Err(e) = ProjectImporter::new(project_dir.try_as_utf8("project directory")?)
             .import(ModpkgImporter::new(fs::File::open(file_path)?))
         {
-            // The driver created the directory before the package failed to
-            // decode, and removing what it half-wrote is the caller's.
+            // The driver creates the directory before decoding the package, so
+            // the caller removes the partial output.
             let _ = fs::remove_dir_all(&project_dir);
             return Err(modpkg_import_error(e));
         }
@@ -390,7 +405,7 @@ impl Workshop {
             let mut archive = tar::Archive::new(decoder);
             archive.unpack(&temp_dir)?;
 
-            // GitHub tarballs extract to "{repo}-{branch}/" — find the single top-level directory
+            // GitHub tarballs extract to "{repo}-{branch}/", a single top-level directory
             let mut entries = fs::read_dir(&temp_dir)?;
             let extracted_dir = entries
                 .next()
@@ -467,10 +482,10 @@ fn load_listed(path: &Path) -> Option<WorkshopProject> {
     }
 }
 
-/// Give a project this side just made its starter files, and read it back.
+/// Write the starter files into a newly created project and load it.
 ///
-/// A git import does not come here. The repository carries whatever its author
-/// chose, including no ignore rules at all.
+/// A git import skips this and keeps the repository's own files, which may
+/// include no ignore rules.
 fn start_project(project_dir: impl AsRef<Path>) -> AppResult<WorkshopProject> {
     let dir = ProjectDir::open(project_dir.as_ref())?;
     dir.write_default_ignore_rules()?;
@@ -508,10 +523,10 @@ fn parse_github_url(url: &str) -> AppResult<(String, String)> {
     Ok((parts[0].to_string(), parts[1].to_string()))
 }
 
-/// Keep a failed modpkg import reading as a modpkg failure.
+/// The [`AppError`] for a failed modpkg import, with a modpkg error kept as [`AppError::Modpkg`].
 ///
-/// The driver wraps the format's own error, and flattening the whole thing to
-/// [`AppError::Other`] would cost the frontend the error kind it routes on.
+/// The driver wraps the format's error. Mapping all of it to [`AppError::Other`]
+/// would lose the error kind the frontend routes on.
 fn modpkg_import_error(error: ImportError<ModpkgImportError>) -> AppError {
     match error {
         ImportError::Format(ModpkgImportError::Modpkg(e)) => AppError::Modpkg(e),

@@ -1,30 +1,31 @@
 //! The mod library: what is installed, how it is organized, and how it reaches
 //! the overlay.
 //!
-//! [`ModLibrary`] is the entry point. It owns no mod data itself — everything
-//! lives in `library.json` on disk — so its job is to hold the shared handles
-//! (event sink, WAD report cache, linked-bin state) and to serialize access to
-//! that file. The work is split by concern:
+//! [`ModLibrary`] is the entry point. It holds no mod data, which lives in
+//! `library.json` on disk. It holds the shared handles (event sink, WAD report
+//! cache, linked-bin state) and serializes access to that file. The modules:
 //!
 //! | Module             | Concern                                           |
 //! | ------------------ | ------------------------------------------------- |
 //! | `index`            | `library.json`: shape, versioning, reconciliation  |
 //! | `archive`          | Mod archives in, out, and read                     |
+//! | `fantome_layer`    | The content directory a fantome layer unpacks into |
 //! | `analysis`         | What a mod touches and what that makes it          |
 //! | `health`           | The Problems rules over an installed mod           |
 //! | `organize`         | Folders and profiles                               |
 //! | `types`            | The shapes the frontend sees                       |
 //! | `library`          | Library reads and per-profile mod state            |
 //! | `overlay_content`  | Turning library entries into overlay inputs        |
-//! | `slug`             | What a mod's directory is called                   |
-//! | `long_paths`       | The 260-character limit, as unpacking meets it     |
+//! | `slug`             | A mod's directory name                             |
+//! | `long_paths`       | The 260-character path limit during unpacking      |
 //!
 //! Every installed mod is a directory under `<storage>/mods/`, named by its
-//! slug. What is inside it, and why a modpkg's is shaped differently from a
-//! fantome's, is `docs/adr/0001-fantome-unpacks-modpkg-stays-packed.md`.
+//! slug. `docs/adr/0001-fantome-unpacks-modpkg-stays-packed.md` describes its
+//! contents and why a modpkg's differ from a fantome's.
 
 mod analysis;
 mod archive;
+pub(crate) mod fantome_layer;
 mod health;
 mod index;
 mod library;
