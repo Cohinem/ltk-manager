@@ -110,6 +110,13 @@
   --color-bin-class-text: var(--ltk-bin-class-text);
   --color-bin-kind: var(--ltk-bin-kind);
   --color-bin-kind-text: var(--ltk-bin-kind-text);
+  --color-syntax-keyword-text: var(--ltk-syntax-keyword-text);
+  --color-syntax-control-text: var(--ltk-syntax-control-text);
+  --color-syntax-string-text: var(--ltk-syntax-string-text);
+  --color-syntax-number-text: var(--ltk-syntax-number-text);
+  --color-syntax-property-text: var(--ltk-syntax-property-text);
+  --color-syntax-function-text: var(--ltk-syntax-function-text);
+  --color-syntax-type-text: var(--ltk-syntax-type-text);
   --color-graph-geometry: var(--ltk-graph-geometry);
   --color-graph-geometry-text: var(--ltk-graph-geometry-text);
 

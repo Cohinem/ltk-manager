@@ -64,6 +64,26 @@ describe("editorFile", () => {
       expect(parsed).toEqual({ kind: "ok", state });
     });
 
+    it("carries the League client's browser tabs across the file", () => {
+      const index = gameDocument("lcu");
+      const wads = gameWadsDocument("lcu");
+      const wad = gameWadDocument("rcp-fe-lol-loot/assets.wad", "lcu");
+      const preview = previewDocument(
+        { kind: "lcuChunk", wad: wad.wadName, pathHash: "0123456789abcdef" },
+        "plugins/rcp-fe-lol-loot/global/default/a.png",
+      );
+      const ids = [index.id, wads.id, wad.id, preview.id];
+      const layout = singleLeaf(ids, index.id);
+      const state: PersistedProjectEditor = {
+        ...twoDocumentState(),
+        documents: { [index.id]: index, [wads.id]: wads, [wad.id]: wad, [preview.id]: preview },
+        layout,
+        activeLeafId: layout.id,
+      };
+
+      expect(parseEditorFile(serializeEditorFile(state))).toEqual({ kind: "ok", state });
+    });
+
     it("carries the project's declarations choice across a reload", () => {
       const state = { ...twoDocumentState(), useDeclarations: false };
 

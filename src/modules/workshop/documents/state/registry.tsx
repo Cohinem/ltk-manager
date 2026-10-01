@@ -1,4 +1,5 @@
 import {
+  AppWindowIcon,
   BracketsCurlyIcon,
   EyeSlashIcon,
   FileArchiveIcon,
@@ -31,6 +32,7 @@ import {
   useExtractActions,
   useRevealInGameFiles,
   wadBasename,
+  WadSourceProvider,
 } from "../../gameBrowser";
 import { IgnoreRulesDocument } from "../../ignore-rules";
 import { LayerGlyph } from "../../layers/components/LayerGlyph";
@@ -50,6 +52,7 @@ import {
   type ContentDocumentOf,
   declaringFileContext,
   documentLayerName,
+  documentSource,
   layerTitle,
   objectTitle,
 } from "../utils/contentDocument";
@@ -127,23 +130,39 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       component: ProblemsDocument,
     },
     game: {
-      icon: () => <LeagueIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
-      label: () => ({ title: "Game index" }),
+      icon: (document) => {
+        if (documentSource(document) === "lcu") {
+          return <AppWindowIcon className="h-4 w-4 shrink-0 text-doc-game-text" />;
+        }
+        return <LeagueIcon className="h-4 w-4 shrink-0 text-doc-game-text" />;
+      },
+      label: (document) => {
+        if (documentSource(document) === "lcu") return { title: m.workshop_lcu_index_title() };
+        return { title: "Game index" };
+      },
       component: GameDocument,
     },
     "game-wads": {
       icon: () => <FilesIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
-      label: () => ({ title: "Game WADs" }),
+      label: (document) => {
+        if (documentSource(document) === "lcu") return { title: m.workshop_lcu_wads_label() };
+        return { title: "Game WADs" };
+      },
       component: GameWadsDocument,
     },
     "game-wad": {
       icon: () => <FileArchiveIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
       label: (document) => ({
         title: wadBasename(document.wadName),
+        context: documentSource(document) === "lcu" ? m.workshop_lcu_source_label() : undefined,
         path: document.wadName,
       }),
       component: GameWadDocument,
-      tabMenu: (document) => <GameWadTabMenu wadName={document.wadName} />,
+      tabMenu: (document) => (
+        <WadSourceProvider source={documentSource(document)}>
+          <GameWadTabMenu wadName={document.wadName} />
+        </WadSourceProvider>
+      ),
     },
     objects: {
       icon: () => <TreeStructureIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
@@ -173,9 +192,10 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       },
       component: SandboxedPreviewDocument,
       tabMenu: (document) => {
-        /* A file picked off disk belongs to no browser of this editor, and the
-           strip's own items are the whole menu it gets. */
-        if (document.asset.kind === "file") return null;
+        /* A file picked off disk belongs to no browser of this editor, and a League
+           client chunk to no browser the reveal and the extract items reach, so the
+           strip's own items are the whole menu either gets. */
+        if (document.asset.kind === "file" || document.asset.kind === "lcuChunk") return null;
         return <PreviewTabMenu document={document} />;
       },
     },

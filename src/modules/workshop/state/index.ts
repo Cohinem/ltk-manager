@@ -7,6 +7,7 @@ export * from "../explorer/state/explorer";
 export * from "../gameBrowser/extraction/state/extractDialog";
 export * from "../gameBrowser/extraction/state/extractRun";
 export * from "../gameBrowser/state/gameBrowser";
+export * from "../gameBrowser/state/wadSource";
 export * from "../objectsBrowser/state/objectsBrowser";
 export * from "../packing/state/packRuns";
 export * from "../packing/state/packTarget";

@@ -632,9 +632,14 @@ export type AssetInfo =
 	kind: "texture",
 } & TextureInfo | 
 /**  An image the webview decodes itself, such as a PNG. */
-{ kind: "image"; width: number; height: number; sizeBytes: number; fileKind: WorkshopFileKind } | 
+({ kind: "image"; width: number; height: number; sizeBytes: number; fileKind: WorkshopFileKind }) & { format?: never } | 
+/**
+ *  An image the webview decodes from the file's own bytes, which draws at whatever size
+ *  the `<img>` reports.
+ */
+({ kind: "web"; format: WebImage; sizeBytes: number }) & { fileKind?: never; height?: never; width?: never } | 
 /**  Nothing here has a viewer. */
-({ kind: "unsupported"; fileKind: WorkshopFileKind }) & { height?: never; sizeBytes?: never; width?: never };
+({ kind: "unsupported"; fileKind: WorkshopFileKind }) & { format?: never; height?: never; sizeBytes?: never; width?: never };
 
 /**
  *  Where a previewed asset's bytes come from.
@@ -654,6 +659,12 @@ path: string } |
 /**  One chunk of one archive of the installed game. */
 { kind: "gameChunk"; 
 /**  A `DATA/FINAL`-relative archive name. */
+wad: string; 
+/**  The chunk's path hash as 16 lowercase hex digits. */
+pathHash: string } | 
+/**  One chunk of one archive of the installed League client. */
+{ kind: "lcuChunk"; 
+/**  A `Plugins`-relative archive name. */
 wad: string; 
 /**  The chunk's path hash as 16 lowercase hex digits. */
 pathHash: string } | 
@@ -2356,7 +2367,7 @@ export type ExtractPlan = {
 	files: number,
 	/**  Uncompressed bytes, which is what lands on disk. */
 	bytes: number,
-	/**  The `DATA/FINAL`-relative archives the run reads, in the order it does. */
+	/**  The root-relative archives the run reads, in the order it does. */
 	archives: string[],
 };
 
@@ -2681,7 +2692,7 @@ export type GameFileEntry = {
 	/**  Uncompressed chunk size. */
 	sizeBytes: number,
 	/**
-	 *  The `DATA/FINAL`-relative archive the chunk was read from.
+	 *  The archive the chunk was read from, relative to its source's root.
 	 * 
 	 *  The fold drops every copy of a chunk after the first, so this names the
 	 *  archive that copy came from and not every archive that carries it.
@@ -2703,7 +2714,7 @@ export type GameFindHit = {
 	path: string | null,
 	/**  The path's basename, or the hash when no hash table names the chunk. */
 	name: string,
-	/**  The `DATA/FINAL`-relative archive the chunk was read from. */
+	/**  The archive the chunk was read from, relative to its source's root. */
 	wad: string,
 	/**  Uncompressed chunk size. */
 	sizeBytes: number,
@@ -2779,7 +2790,7 @@ export type GameSearchHit = {
 	name: string,
 	/**  The directory holding it, empty at the root and for an unnamed chunk. */
 	path: string,
-	/**  The `DATA/FINAL`-relative archive the chunk was read from. */
+	/**  The archive the chunk was read from, relative to its source's root. */
 	wad: string,
 	/**  0 is a name the query opens, 1 a name holding it, 2 a match reaching the directory. */
 	band: number,
@@ -2824,8 +2835,8 @@ export type GameWadEntry = {
 /**  One WAD archive in a game install. */
 export type GameWadSummary = {
 	/**
-	 *  Path relative to `DATA/FINAL` with forward slashes, e.g.
-	 *  `Champions/Aatrox.wad.client`.
+	 *  Path relative to the source's archive root with forward slashes, e.g.
+	 *  `Champions/Aatrox.wad.client` or `rcp-fe-lol-loot/assets.wad`.
 	 */
 	name: string,
 	/**  Archive file size on disk, or 0 when it cannot be read. */
@@ -7987,6 +7998,16 @@ export type WadScanFailureInfo = {
 	 */
 	reading: ScanStatus,
 };
+
+/**  Which set of an install's archives a reader browses. */
+export type WadSource = 
+/**  The game's `*.wad.client` archives under `Game/DATA/FINAL`. */
+"game" | 
+/**  The League client's `*.wad` archives under `Plugins`. */
+"lcu";
+
+/**  An image the webview draws from the file's own bytes. */
+export type WebImage = "svg" | "gif" | "webp" | "bmp" | "ico";
 
 /**  The winding a pass culls, `windingToCull` on the wire. */
 export type Winding = 

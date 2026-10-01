@@ -638,6 +638,24 @@ fn a_file_kind_gates_edits_and_a_game_chunk_leaves_it_to_the_sandbox() {
 }
 
 #[test]
+fn the_store_refuses_a_client_chunk_without_reading_it() {
+    let store = BinDocuments::new(NonZeroUsize::new(2).unwrap());
+    let chunk = AssetRef::LcuChunk {
+        wad: "rcp-fe-lol-loot/assets.wad".to_owned(),
+        path_hash: "0000000000000001".to_owned(),
+    };
+
+    let opened = store.open(&SandboxRef::Game, chunk, || {
+        panic!("a refused asset is never read")
+    });
+
+    assert!(matches!(
+        opened,
+        Err(AppError::BinDocument(BinDocumentError::LcuChunk))
+    ));
+}
+
+#[test]
 fn the_store_refuses_a_patch_behind_a_gate_and_shares_one_across_ids() {
     let store = BinDocuments::new(NonZeroUsize::new(2).unwrap());
     let loose = AssetRef::File {

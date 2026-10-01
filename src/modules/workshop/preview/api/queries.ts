@@ -7,7 +7,34 @@ import { assetKey } from "../utils/assetRef";
 
 export const previewKeys = {
   info: (asset: AssetRef) => ["asset-info", assetKey(asset)] as const,
+  text: (url: string) => ["asset-text", url] as const,
 };
+
+/**
+ * The most of a file the text viewer decodes.
+ *
+ * The client's largest JSON files are a few megabytes, and Save a copy reaches whatever
+ * lies past this.
+ */
+export const MAX_TEXT_BYTES = 4 * 1024 * 1024;
+
+/** A file's text, as much of it as the viewer decodes. */
+export interface SourceText {
+  text: string;
+  sizeBytes: number;
+  truncated: boolean;
+}
+
+async function readText(url: string): Promise<SourceText> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(await response.text());
+
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const truncated = bytes.length > MAX_TEXT_BYTES;
+  const text = new TextDecoder().decode(truncated ? bytes.subarray(0, MAX_TEXT_BYTES) : bytes);
+
+  return { text, sizeBytes: bytes.length, truncated };
+}
 
 export const ritobinKeys = {
   integration: () => ["ritobin", "integration"] as const,
@@ -26,6 +53,16 @@ export const previewQueries = {
       queryKey: previewKeys.info(asset),
       queryFn: queryFnWithArgs(api.readAssetInfo, asset),
       staleTime: 5 * 60_000,
+      retry: false,
+    }),
+
+  /* Keyed on the file URL, which names the file's version, so a layer file edited on disk
+     reads again and a chunk is read once. */
+  text: (url: string) =>
+    queryOptions<SourceText, Error>({
+      queryKey: previewKeys.text(url),
+      queryFn: () => readText(url),
+      staleTime: Infinity,
       retry: false,
     }),
 } as const;

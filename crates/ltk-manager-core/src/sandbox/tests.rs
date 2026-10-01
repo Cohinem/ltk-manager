@@ -142,6 +142,23 @@ fn a_chunk_hash_that_is_not_hex_does_not_open() {
 }
 
 #[test]
+fn a_client_chunk_opens_in_no_sandbox() {
+    let dir = project(&[], &[("base", 0)]);
+    let asset = AssetRef::LcuChunk {
+        wad: "rcp-fe-lol-loot/assets.wad".to_owned(),
+        path_hash: "0000000000000001".to_owned(),
+    };
+
+    for sandbox in [Sandbox::game(), Sandbox::open(in_project(&dir))] {
+        let error = sandbox.opening(asset.clone()).unwrap_err();
+        assert!(matches!(
+            error,
+            AppError::BinDocument(BinDocumentError::LcuChunk)
+        ));
+    }
+}
+
+#[test]
 fn a_layer_file_belongs_to_its_project_whichever_sandbox_opens_it() {
     let dir = project(&[], &[("base", 0)]);
     let file = layer_file(&dir, "base", "W.wad.client/assets/x.bin");

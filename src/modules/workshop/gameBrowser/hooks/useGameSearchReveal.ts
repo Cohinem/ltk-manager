@@ -3,6 +3,8 @@ import { create } from "zustand";
 
 import { useShowSidebarView } from "@/stores";
 
+import { useWadSource } from "../state/wadSource";
+
 interface GameSearchRevealStore {
   /**
    * Bumped by every route into the game search.
@@ -41,16 +43,18 @@ export function useRevealGameSearch(): () => void {
  *
  * The box lives in the active document's toolbar portal, so it remounts on
  * every switch back to the tab. The answered mark is what tells the mount a
- * reveal caused apart from the mounts a tab switch causes.
+ * reveal caused apart from the mounts a tab switch causes. A box over the
+ * League client answers none, because the reveal is a search of the game.
  */
 export function useGameSearchRevealTarget(ref: RefObject<HTMLInputElement | null>): void {
+  const inGame = useWadSource() === "game";
   const reveal = useRevealStore((state) => state.reveal);
   const answered = useRevealStore((state) => state.answered);
   const answer = useRevealStore((state) => state.answer);
 
   useEffect(() => {
-    if (reveal === answered) return;
+    if (!inGame || reveal === answered) return;
     answer(reveal);
     ref.current?.select();
-  }, [reveal, answered, answer, ref]);
+  }, [inGame, reveal, answered, answer, ref]);
 }

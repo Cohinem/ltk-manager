@@ -25,6 +25,6 @@ export const workshopKeys = {
     [...workshopKeys.project(path), "text", file] as const,
   stringKeySearch: (query: string) => [...workshopKeys.all, "stringKeySearch", query] as const,
   stringValues: (keys: readonly string[]) => [...workshopKeys.all, "stringValues", keys] as const,
-  gameExtractPlan: (targets: readonly unknown[] | null) =>
-    [...workshopKeys.all, "gameExtractPlan", targets] as const,
+  gameExtractPlan: (source: string, targets: readonly unknown[] | null) =>
+    [...workshopKeys.all, "gameExtractPlan", source, targets] as const,
 };

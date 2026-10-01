@@ -10,6 +10,7 @@ import {
   useOpenExtractDialog,
   useSelectedLayerName,
   useStartExtract,
+  useWadSource,
 } from "../../../state";
 
 /** Which of the three ways out of the browser a gesture asked for. */
@@ -24,7 +25,10 @@ export interface ExtractActions {
    * to go straight to and only the dialog is offered.
    */
   lastFolder: string | null;
-  /** What a copy lands in, or `null` when the project holds no layer. */
+  /**
+   * What a copy lands in, or `null` when the project holds no layer or the rows are the
+   * League client's, which no layer of a game mod carries.
+   */
   layerLabel: string | null;
   /**
    * An extract is in flight, so a second cannot start.
@@ -47,6 +51,7 @@ export interface ExtractActions {
  * Only usable inside a project, which every game browser tab is.
  */
 export function useExtractActions(): ExtractActions {
+  const source = useWadSource();
   const openDialog = useOpenExtractDialog();
   const start = useStartExtract();
   const busy = useExtractRunning();
@@ -60,12 +65,12 @@ export function useExtractActions(): ExtractActions {
 
   const project = useProjectContext();
   const layerName = useSelectedLayerName();
-  const layerLabel = layerName ? layerTitle(project, layerName) : null;
+  const layerLabel = layerName && source === "game" ? layerTitle(project, layerName) : null;
 
   const run = useCallback(
     (how: ExtractHow, targets: readonly ExtractTarget[], subject: string) => {
       if (how === "dialog") {
-        openDialog(targets, subject);
+        openDialog(targets, subject, source);
         return;
       }
 
@@ -73,6 +78,7 @@ export function useExtractActions(): ExtractActions {
         if (!layerName || !layerLabel) return;
         start({
           targets,
+          source,
           subject,
           /* The path the game reads, and never over an edit already made: a
              file already in the layer is the modder's, not the game's. */
@@ -93,18 +99,20 @@ export function useExtractActions(): ExtractActions {
 
       /* No folder has been picked yet, so the quick route is the dialog. */
       if (!destination) {
-        openDialog(targets, subject);
+        openDialog(targets, subject, source);
         return;
       }
 
       start({
         targets,
+        source,
         subject,
         options: { destination, layout, perArchiveFolder, existing, recoverNames, kinds: null },
         reveal: openWhenDone,
       });
     },
     [
+      source,
       openDialog,
       start,
       layerName,

@@ -5,7 +5,6 @@ describe("gameBrowser store", () => {
     useGameBrowserStore.setState({
       expandedDirs: new Set(),
       shutWadDirs: {},
-      scrollTops: {},
       reveal: null,
     });
   });

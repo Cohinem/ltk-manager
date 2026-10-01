@@ -1,4 +1,5 @@
 import {
+  AppWindowIcon,
   CubeIcon,
   EyeSlashIcon,
   FileArchiveIcon,
@@ -169,6 +170,22 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         keywords: ["archives", "browse"],
         icon: <FileArchiveIcon className={GLYPH} />,
         run: () => openDocument(gameWadsDocument()),
+      },
+      {
+        id: "go.lcu",
+        title: m.workshop_command_lcu_open_action(),
+        group: "Go to",
+        keywords: ["browse", "league client", "client", "assets"],
+        icon: <AppWindowIcon className={GLYPH} />,
+        run: () => openDocument(gameDocument("lcu")),
+      },
+      {
+        id: "go.lcuWads",
+        title: m.workshop_command_lcu_wads_open_action(),
+        group: "Go to",
+        keywords: ["archives", "browse", "league client", "client"],
+        icon: <FileArchiveIcon className={GLYPH} />,
+        run: () => openDocument(gameWadsDocument("lcu")),
       },
       {
         id: "go.objects",

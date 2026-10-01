@@ -2,7 +2,7 @@
    the editor's components, whose imports circle back into workshop state. */
 import { z } from "zod";
 
-import type { AssetRef, SandboxRef } from "@/lib/tauri";
+import type { AssetRef, SandboxRef, WadSource } from "@/lib/tauri";
 // eslint-disable-next-line no-restricted-imports -- the cycle the comment above names
 import {
   findLeaf,
@@ -326,8 +326,11 @@ const assetRefSchema = z.discriminatedUnion("kind", [
     path: z.string(),
   }),
   z.object({ kind: z.literal("gameChunk"), wad: z.string(), pathHash: z.string() }),
+  z.object({ kind: z.literal("lcuChunk"), wad: z.string(), pathHash: z.string() }),
   z.object({ kind: z.literal("file"), path: z.string() }),
 ]) satisfies z.ZodType<AssetRef>;
+
+const wadSourceSchema = z.enum(["game", "lcu"]) satisfies z.ZodType<WadSource>;
 
 /* The sandbox of a tab switched away from its project's sandbox, per ADR-0056. */
 const sandboxRefSchema = z.discriminatedUnion("kind", [
@@ -370,9 +373,14 @@ const contentDocumentSchema = z.discriminatedUnion("kind", [
     layerName: z.string(),
     locale: z.string(),
   }),
-  z.object({ id: z.string(), kind: z.literal("game") }),
-  z.object({ id: z.string(), kind: z.literal("game-wads") }),
-  z.object({ id: z.string(), kind: z.literal("game-wad"), wadName: z.string() }),
+  z.object({ id: z.string(), kind: z.literal("game"), source: wadSourceSchema.optional() }),
+  z.object({ id: z.string(), kind: z.literal("game-wads"), source: wadSourceSchema.optional() }),
+  z.object({
+    id: z.string(),
+    kind: z.literal("game-wad"),
+    wadName: z.string(),
+    source: wadSourceSchema.optional(),
+  }),
   z.object({ id: z.string(), kind: z.literal("objects") }),
   z.object({ id: z.string(), kind: z.literal("references") }),
   z.object({

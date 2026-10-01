@@ -3,12 +3,16 @@ import { useCallback, useMemo, useState } from "react";
 
 import { type BreadcrumbItem, EmptyState, IconButton, Spinner, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, GameFindResult } from "@/lib/tauri";
+import type { AssetRef, GameFindResult, WadSource } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
 import { useExplorerThumbnails, useExplorerTileSize, useExplorerView } from "@/stores";
 import { twMerge } from "@/utils";
 
-import { type ContentDocumentOf, gameWadsDocument } from "../../documents/utils/contentDocument";
+import {
+  type ContentDocumentOf,
+  documentSource,
+  gameWadsDocument,
+} from "../../documents/utils/contentDocument";
 import {
   ExplorerSortScope,
   useExplorerSort,
@@ -57,6 +61,8 @@ import { type ExtractHow, useExtractActions } from "../extraction/hooks/useExtra
 import { indexDirTarget } from "../extraction/utils/extractTargets";
 import { useGameSearchRevealTarget } from "../hooks/useGameSearchReveal";
 import { useSourcePreview, useSourceRowPreview } from "../hooks/useSourcePreview";
+import { chunkAsset, explorerIdOf, useWadSource, WadSourceProvider } from "../state/wadSource";
+import { sourceCopy } from "../utils/sourceCopy";
 import {
   buildIndexTree,
   flattenSourceTree,
@@ -71,19 +77,32 @@ import { CollapseFindAction, GameFindResults } from "./GameFindResults";
 import { SourceTree } from "./SourceTree";
 import { SourceTreeContextMenu } from "./SourceTreeContextMenu";
 
-/** What the whole install's explorer keeps its location and selection under. */
-export const EXPLORER_ID = "game";
+/** What the whole game's explorer keeps its location and selection under. */
+export const EXPLORER_ID = explorerIdOf("game");
+
+/** The explorer id of the browser the caller sits in. */
+function useExplorerId(): string {
+  return explorerIdOf(useWadSource());
+}
 
 /**
- * The root game browser: every archive of the installed game, folded into one
- * explorer.
+ * The root browser of one source: every archive of the installed game, or of
+ * the installed League client, folded into one explorer.
  *
  * A tree reads the shape of the install and a grid reads the art in it, and
  * both draw the same location and the same selection. The bar's box reads the
- * open directory or the whole install, which its scope control says.
+ * open directory or the whole index, which its scope control says.
  */
-export function GameDocument({ document, active }: EditorDocumentProps<ContentDocumentOf<"game">>) {
-  const nav = useExplorerNav(EXPLORER_ID, document.id);
+export function GameDocument(props: EditorDocumentProps<ContentDocumentOf<"game">>) {
+  return (
+    <WadSourceProvider source={documentSource(props.document)}>
+      <SourceDocument {...props} />
+    </WadSourceProvider>
+  );
+}
+
+function SourceDocument({ document, active }: EditorDocumentProps<ContentDocumentOf<"game">>) {
+  const nav = useExplorerNav(useExplorerId(), document.id);
   const [typing, setTyping] = useState(false);
   const boxRef = useFindBox(document.id);
 
@@ -117,10 +136,12 @@ interface GameExplorerBarProps {
 }
 
 function GameExplorerBar({ nav, typing, onTypingChange, boxRef }: GameExplorerBarProps) {
+  const explorerId = useExplorerId();
+  const copy = sourceCopy(useWadSource());
   const view = useExplorerView();
-  const filter = useExplorerFilter(EXPLORER_ID);
+  const filter = useExplorerFilter(explorerId);
   const setFilter = useSetExplorerFilter();
-  const selection = useExplorerSelectionApi(EXPLORER_ID, NO_ORDER);
+  const selection = useExplorerSelectionApi(explorerId, NO_ORDER);
 
   const renderSiblings = useCallback(
     (crumb: BreadcrumbItem) => (
@@ -131,7 +152,7 @@ function GameExplorerBar({ nav, typing, onTypingChange, boxRef }: GameExplorerBa
 
   return (
     <ExplorerBar
-      crumbs={crumbsOf(m.workshop_game_source_label(), nav.location)}
+      crumbs={crumbsOf(copy.root, nav.location)}
       onNavigate={nav.goTo}
       onUp={nav.goUp}
       atRoot={nav.atRoot}
@@ -142,7 +163,7 @@ function GameExplorerBar({ nav, typing, onTypingChange, boxRef }: GameExplorerBa
       location={nav.location}
       view={view}
       filter={filter}
-      onFilterChange={(next) => setFilter(EXPLORER_ID, next)}
+      onFilterChange={(next) => setFilter(explorerId, next)}
       box={<SearchField boxRef={boxRef} />}
       selection={selection.summary}
       onClearSelection={selection.clear}
@@ -170,7 +191,7 @@ interface GameBodyProps {
 
 function GameBody({ location, onNavigate, onUp }: GameBodyProps) {
   const view = useExplorerView();
-  const scope = useExplorerScope(EXPLORER_ID);
+  const scope = useExplorerScope(useExplorerId());
   const pattern = useGameSearchPattern();
 
   if (scope === "whole" && pattern.length > 0) return <GameFindResults />;
@@ -182,7 +203,7 @@ function GameBody({ location, onNavigate, onUp }: GameBodyProps) {
 /** Collapse all for whichever tree the body draws: the search results, or the index tree. */
 function CollapseIndexAction() {
   const view = useExplorerView();
-  const scope = useExplorerScope(EXPLORER_ID);
+  const scope = useExplorerScope(useExplorerId());
   const pattern = useGameSearchPattern();
   const collapseAllGameDirs = useCollapseAllGameDirs();
 
@@ -214,25 +235,28 @@ function GameStats() {
 /* The tree folds the archives away, so the one route left to a single archive
    is the list this opens. */
 function ArchivesAction() {
+  const source = useWadSource();
+  const copy = sourceCopy(source);
   const openDocument = useOpenDocument();
 
   return (
-    <Tooltip content={m.workshop_game_wads_label()}>
+    <Tooltip content={copy.wadsLabel}>
       <IconButton
         icon={<FilesIcon className="h-4 w-4" />}
         variant="ghost"
         size="xs"
         compact
-        onClick={() => openDocument(gameWadsDocument())}
-        aria-label={m.workshop_game_wads_action()}
+        onClick={() => openDocument(gameWadsDocument(source))}
+        aria-label={copy.wadsAction}
       />
     </Tooltip>
   );
 }
 
-/* The index is a snapshot of the install taken once a session, so a game patch
+/* The index is a snapshot of the install taken once a session, so a patch
    needs a way to say so. */
 function RebuildAction() {
+  const copy = sourceCopy(useWadSource());
   const rebuild = useRefreshGameIndex();
 
   return (
@@ -248,7 +272,7 @@ function RebuildAction() {
         compact
         onClick={() => rebuild.mutate()}
         disabled={rebuild.isPending}
-        aria-label={m.workshop_game_rebuild_action()}
+        aria-label={copy.rebuildAction}
       />
     </Tooltip>
   );
@@ -277,9 +301,11 @@ interface SearchFieldProps {
  * folder narrows the rows already on screen, which costs no read at all.
  */
 function SearchField({ boxRef }: SearchFieldProps) {
-  const scope = useExplorerScope(EXPLORER_ID);
+  const explorerId = useExplorerId();
+  const copy = sourceCopy(useWadSource());
+  const scope = useExplorerScope(explorerId);
   const setScope = useSetExplorerScope();
-  const filter = useExplorerFilter(EXPLORER_ID);
+  const filter = useExplorerFilter(explorerId);
   const setFilter = useSetExplorerFilter();
   const pattern = useGameSearchPattern();
   const regex = useGameSearchRegex();
@@ -294,7 +320,7 @@ function SearchField({ boxRef }: SearchFieldProps) {
   const value = scope === "whole" ? pattern : filter.text;
   const onChange = (next: string) => {
     if (scope === "whole") onPatternChange(next);
-    else setFilter(EXPLORER_ID, { ...filter, text: next });
+    else setFilter(explorerId, { ...filter, text: next });
   };
 
   return (
@@ -302,8 +328,8 @@ function SearchField({ boxRef }: SearchFieldProps) {
       value={value}
       onChange={onChange}
       scope={scope}
-      onScopeChange={(next) => setScope(EXPLORER_ID, next)}
-      wholeLabel={m.workshop_explorer_scope_game_label()}
+      onScopeChange={(next) => setScope(explorerId, next)}
+      wholeLabel={copy.whole}
       /* The index is what a regex is worth writing against. A filter over the
          rows on screen matches a substring and nothing more. */
       regex={scope === "whole" ? { on: regex, onChange: onRegexChange } : undefined}
@@ -335,7 +361,10 @@ export function MatchCount({ result }: { result: GameFindResult }) {
 }
 /** The install's directories, read one level at a time as they open. */
 export function GameIndexTree() {
-  const filter = useExplorerFilter(EXPLORER_ID);
+  const source = useWadSource();
+  const copy = sourceCopy(source);
+  const explorerId = explorerIdOf(source);
+  const filter = useExplorerFilter(explorerId);
   /* Opt-in, where the scoped browser opts out: a whole-game tree is too large
      to hold at once, so a directory is read when it is first opened. */
   const expanded = useExpandedGameDirs();
@@ -369,7 +398,7 @@ export function GameIndexTree() {
     () => rows.map((row) => selectedOfNode(row.node)).filter(isPresent),
     [rows],
   );
-  const selection = useExplorerSelectionApi(EXPLORER_ID, order);
+  const selection = useExplorerSelectionApi(explorerId, order);
 
   const handleToggle = useCallback((node: SourceDirNode) => toggleDir(node.id), [toggleDir]);
   /* Each expanded directory here is a fetch, so an Alt+click expands one level
@@ -396,7 +425,7 @@ export function GameIndexTree() {
       <EmptyState
         size="sm"
         title={m.workshop_game_empty_title()}
-        description={m.workshop_game_empty_description()}
+        description={copy.emptyDescription}
       />
     );
   }
@@ -406,7 +435,7 @@ export function GameIndexTree() {
       {holdsOnlyUnknown(root.data) && <UnknownHashHint />}
       <SourceTree
         rows={rows}
-        ariaLabel={m.workshop_game_files_tree_label()}
+        ariaLabel={copy.filesTree}
         isExpanded={isExpanded}
         onToggle={handleToggle}
         onToggleSubtree={handleToggleSubtree}
@@ -418,7 +447,7 @@ export function GameIndexTree() {
         dirTargets={(node) => [indexDirTarget(node.path)]}
         selection={selection}
         selectionTargets={targets}
-        scrollKey="game-index"
+        scrollKey={`${source}-index`}
         reveal={reveal}
         onRevealed={settleReveal}
       />
@@ -437,10 +466,12 @@ interface GameIndexItemsProps {
 /* The grid and the details list differ in how a row draws and in nothing that
    reaches the source, so one component reads the directory for both. */
 function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps) {
+  const source = useWadSource();
+  const explorerId = explorerIdOf(source);
   const here = useGameDir(location);
   const openFile = useSourcePreview();
   const previewFile = useSourceRowPreview();
-  const filter = useExplorerFilter(EXPLORER_ID);
+  const filter = useExplorerFilter(explorerId);
   const sort = useExplorerSort();
   const tileSize = useExplorerTileSize();
   const thumbnails = useExplorerThumbnails();
@@ -451,7 +482,7 @@ function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps
   }, [here.data, filter, sort]);
 
   const order = useMemo(() => items.map(selectedOfItem), [items]);
-  const selection = useExplorerSelectionApi(EXPLORER_ID, order);
+  const selection = useExplorerSelectionApi(explorerId, order);
 
   const handleOpen = useCallback(
     (item: ExplorerFileItem) => openFile(fileNodeOf(item)),
@@ -496,12 +527,12 @@ function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps
     items,
     thumbnails,
     selection,
-    ariaLabel: m.workshop_game_files_tree_label(),
+    ariaLabel: sourceCopy(source).filesTree,
     onDescend,
     onOpen: handleOpen,
     onPreview: handlePreview,
     onUp,
-    assetOf: gameAsset,
+    assetOf: (item: ExplorerItem) => itemAsset(source, item),
     renderMenu,
     onRun: runSelection,
   };
@@ -510,10 +541,10 @@ function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps
   return <ExplorerGrid {...shared} size={tileSize} showFacts={tileSize >= 128} />;
 }
 
-/** A game chunk names the archive it came from, which is the route back to its bytes. */
-function gameAsset(item: ExplorerItem): AssetRef | null {
+/** A chunk names the archive it came from, which is the route back to its bytes. */
+function itemAsset(source: WadSource, item: ExplorerItem): AssetRef | null {
   if (item.kind === "dir") return null;
-  return { kind: "gameChunk", wad: item.entry.wad, pathHash: item.entry.pathHash };
+  return chunkAsset(source, item.entry.wad, item.entry.pathHash);
 }
 
 function fileNodeOf(item: ExplorerFileItem): SourceFileNode {

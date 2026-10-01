@@ -78,7 +78,7 @@ export function ExtractRunner() {
     barId.current = toastManager.add(taskToast(req, null, cancelExtract));
 
     extract.mutate(
-      { targets: req.targets, options: req.options },
+      { source: req.source, targets: req.targets, options: req.options },
       {
         onSuccess: (summary) => {
           dismissBar();

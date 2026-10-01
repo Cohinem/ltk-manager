@@ -118,6 +118,9 @@ impl ObjectDeclaration {
             AssetRef::GameChunk { path_hash, .. } => path_hash.parse::<WadHash>().ok(),
             AssetRef::Layer { .. } => layer_chunk_hash(&self.asset).map(WadHash),
             AssetRef::File { .. } => None,
+            AssetRef::LcuChunk { .. } => {
+                unreachable!("the game declares no object in a client chunk")
+            }
         };
         match chunk {
             Some(hash) if dependencies.contains(&hash) => 1,

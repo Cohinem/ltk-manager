@@ -15,6 +15,7 @@ mod skeleton;
 mod source;
 mod texture;
 mod tga;
+mod web;
 
 use std::io::Cursor;
 use std::num::NonZeroU32;
@@ -32,6 +33,7 @@ pub use animation::{ClipHeader, header as clip_header};
 pub use ltk_file::LeagueFileKind;
 pub use source::AssetRef;
 pub use texture::{TextureContainer, TextureInfo};
+pub use web::WebImage;
 
 /// What a preview request asks an asset for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +59,9 @@ pub enum PreviewRequest {
     LightGrid,
     /// An OpenType or TrueType font's own bytes.
     Font,
+    /// The file's own bytes, under the media type a `<video>` or an `<audio>` plays them
+    /// as where their signature names one.
+    File,
 }
 
 /// A decoded preview of one asset, ready for a webview to draw.
@@ -67,6 +72,16 @@ pub enum Preview {
     Buffer(Vec<u8>),
     /// A font the webview loads through `FontFace`.
     Font(PreviewFont),
+    /// A file's own bytes, which the webview plays or reads as text.
+    File(PreviewFile),
+}
+
+/// A file's own bytes, under the MIME type their signature names.
+#[derive(Debug)]
+pub struct PreviewFile {
+    pub bytes: Vec<u8>,
+    /// A video or an audio type, or `application/octet-stream` for anything else.
+    pub mime: &'static str,
 }
 
 /// A font file, under the MIME type its `sfnt` version names.
@@ -100,6 +115,10 @@ pub enum AssetInfo {
         size_bytes: u64,
         file_kind: WorkshopFileKind,
     },
+    /// An image the webview decodes from the file's own bytes, which draws at whatever size
+    /// the `<img>` reports.
+    #[serde(rename_all = "camelCase")]
+    Web { format: WebImage, size_bytes: u64 },
     /// Nothing here has a viewer.
     #[serde(rename_all = "camelCase")]
     Unsupported { file_kind: WorkshopFileKind },
@@ -227,6 +246,10 @@ impl AssetRef {
             }
             PreviewRequest::LightGrid => return Ok(Preview::Buffer(light_grid::render(&bytes)?)),
             PreviewRequest::Font => return Ok(Preview::Font(font::render(bytes)?)),
+            PreviewRequest::File => {
+                let mime = web::media_mime(&bytes).unwrap_or("application/octet-stream");
+                return Ok(Preview::File(PreviewFile { bytes, mime }));
+            }
         };
 
         let image = match self.file_kind(&bytes) {
@@ -242,7 +265,13 @@ impl AssetRef {
                 bytes,
                 mime: "image/jpeg",
             },
-            kind => return Err(PreviewError::Unsupported(kind).into()),
+            kind => match web_image(kind, &bytes) {
+                Some(format) => PreviewImage {
+                    bytes,
+                    mime: format.mime(),
+                },
+                None => return Err(PreviewError::Unsupported(kind).into()),
+            },
         };
         Ok(Preview::Image(image))
     }
@@ -282,8 +311,14 @@ impl AssetRef {
                     file_kind: kind.into(),
                 }
             }
-            kind => AssetInfo::Unsupported {
-                file_kind: kind.into(),
+            kind => match web_image(kind, &bytes) {
+                Some(format) => AssetInfo::Web {
+                    format,
+                    size_bytes: bytes.len() as u64,
+                },
+                None => AssetInfo::Unsupported {
+                    file_kind: kind.into(),
+                },
             },
         })
     }
@@ -318,6 +353,18 @@ impl AssetRef {
             },
             kind => kind,
         }
+    }
+}
+
+/// The web image a file of `kind` is, where it is one.
+///
+/// An SVG named as one is taken at its name, and a file of no kind `ltk_file` knows is read
+/// off its bytes. Every other kind is a League format.
+fn web_image(kind: LeagueFileKind, bytes: &[u8]) -> Option<WebImage> {
+    match kind {
+        LeagueFileKind::Svg => Some(WebImage::Svg),
+        LeagueFileKind::Unknown => WebImage::sniff(bytes),
+        _ => None,
     }
 }
 
@@ -561,5 +608,75 @@ mod tests {
             format!("{err}").contains("No preview for a skn file"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn an_svg_passes_through_under_its_own_type() {
+        let tmp = tempfile::tempdir().unwrap();
+        let svg = br#"<svg xmlns="http://www.w3.org/2000/svg"/>"#;
+        let asset = loose(&tmp, "icon.svg", svg);
+
+        let Preview::Image(image) = asset
+            .preview(FULL_IMAGE, &Config::default(), &WadCache::default())
+            .unwrap()
+        else {
+            panic!("an SVG previews as an image");
+        };
+        let info = asset
+            .info(&Config::default(), &WadCache::default())
+            .unwrap();
+
+        assert_eq!(image.mime, "image/svg+xml");
+        assert_eq!(image.bytes, svg);
+        assert!(matches!(
+            info,
+            AssetInfo::Web {
+                format: WebImage::Svg,
+                size_bytes
+            } if size_bytes == svg.len() as u64
+        ));
+    }
+
+    /* A chunk's name is its hash, so the bytes are what say it is a GIF. */
+    #[test]
+    fn a_nameless_gif_is_read_off_its_bytes() {
+        let tmp = tempfile::tempdir().unwrap();
+        let asset = loose(&tmp, "0123456789abcdef", b"GIF89a\x01\x00\x01\x00");
+
+        let info = asset
+            .info(&Config::default(), &WadCache::default())
+            .unwrap();
+
+        assert!(matches!(
+            info,
+            AssetInfo::Web {
+                format: WebImage::Gif,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn a_file_form_answers_the_bytes_under_their_media_type() {
+        let tmp = tempfile::tempdir().unwrap();
+        let webm = loose(&tmp, "intro.webm", &[0x1a, 0x45, 0xdf, 0xa3, 0x9f]);
+        let json = loose(&tmp, "data.json", b"{\"a\": 1}");
+
+        let file_of = |asset: &AssetRef| match asset
+            .preview(
+                PreviewRequest::File,
+                &Config::default(),
+                &WadCache::default(),
+            )
+            .unwrap()
+        {
+            Preview::File(file) => file,
+            other => panic!("a file form answers a file, got {other:?}"),
+        };
+
+        assert_eq!(file_of(&webm).mime, "video/webm");
+        let text = file_of(&json);
+        assert_eq!(text.mime, "application/octet-stream");
+        assert_eq!(text.bytes, b"{\"a\": 1}");
     }
 }

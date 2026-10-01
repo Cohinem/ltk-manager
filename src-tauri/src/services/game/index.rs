@@ -1,4 +1,4 @@
-//! Read-only browsing of the game's archives folded into one tree.
+//! Read-only browsing of an install's archives, each source folded into one tree.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -13,32 +13,36 @@ use ltk_manager_core::game_index::{
     FindGeneration, GameDirListing, GameFileEntry, GameFindResult, GameIndex, GameIndexState,
     GameIndexStats, GameSearchResult, PathSearchGeneration, SearchGeneration, SearchPreference,
 };
-use ltk_manager_core::game_wads::{GameArchives, WadCache};
+use ltk_manager_core::game_wads::{GameArchives, WadCache, WadSource};
 use ltk_manager_core::hashtables::WadPathResolverState;
 use ltk_manager_core::matcher::{FindQuery, PatternSyntax};
 use ltk_manager_core::preview::AssetRef;
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 
-/// Report what the folded game index holds, building it on first use.
+/// Report what the folded index of `source` holds, building it on first use.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_game_index(app_handle: AppHandle) -> IpcResult<GameIndexStats> {
-    with_index(app_handle, |index| Ok(index.stats())).await
+pub async fn get_game_index(source: WadSource, app_handle: AppHandle) -> IpcResult<GameIndexStats> {
+    with_index(app_handle, source, |index| Ok(index.stats())).await
 }
 
-/// List one directory of the folded game index.
+/// List one directory of the folded index of `source`.
 ///
 /// `path` is `""` for the root, and otherwise a path a previous listing
 /// returned. Path hashes resolve through the shared hashtable cache when it is
 /// populated. Otherwise every file reads as its hash.
 #[tauri::command]
 #[specta::specta]
-pub async fn read_game_dir(path: String, app_handle: AppHandle) -> IpcResult<GameDirListing> {
-    with_index(app_handle, move |index| {
-        index.read_dir(&path).ok_or_else(|| {
-            AppError::InvalidPath(format!("No such directory in the game index: {path}"))
-        })
+pub async fn read_game_dir(
+    path: String,
+    source: WadSource,
+    app_handle: AppHandle,
+) -> IpcResult<GameDirListing> {
+    with_index(app_handle, source, move |index| {
+        index
+            .read_dir(&path)
+            .ok_or_else(|| AppError::InvalidPath(format!("No such directory in the index: {path}")))
     })
     .await
 }
@@ -56,7 +60,7 @@ pub async fn locate_game_files(
     paths: Vec<String>,
     app_handle: AppHandle,
 ) -> IpcResult<HashMap<String, GameFileEntry>> {
-    with_index(app_handle, move |index| {
+    with_index(app_handle, WadSource::Game, move |index| {
         Ok(paths
             .into_iter()
             .filter_map(|path| {
@@ -118,7 +122,7 @@ pub async fn search_game_index(
         SearchFor::PathField { preference } => preference,
     };
 
-    with_index(app_handle, move |index| {
+    with_index(app_handle, WadSource::Game, move |index| {
         let result = index.search_preferring(&query, &preference, overtaken);
         tracing::debug!(
             query = %query,
@@ -132,7 +136,7 @@ pub async fn search_game_index(
     .await
 }
 
-/// Every file of the install matching `pattern`, in tree order.
+/// Every file of `source` matching `pattern`, in tree order.
 ///
 /// The full-results twin of [`search_game_index`]: nothing is ranked, every
 /// hit comes back up to the index's own cap, and `regex` reads the pattern as
@@ -147,6 +151,7 @@ pub async fn search_game_index(
 pub async fn find_in_game_index(
     pattern: String,
     regex: bool,
+    source: WadSource,
     app_handle: AppHandle,
 ) -> IpcResult<GameFindResult> {
     let query = match find_query(&pattern, regex) {
@@ -160,7 +165,7 @@ pub async fn find_in_game_index(
         move || app_handle.state::<FindGeneration>().overtook(ticket)
     };
 
-    with_index(app_handle, move |index| {
+    with_index(app_handle, source, move |index| {
         let Some(query) = query else {
             return Ok(GameFindResult {
                 hits: Vec::new(),
@@ -201,26 +206,28 @@ pub(crate) fn find_query(pattern: &str, regex: bool) -> AppResult<Option<FindQue
     FindQuery::parse(pattern, syntax).map_err(|e| AppError::ValidationFailed(e.to_string()))
 }
 
-/// Drop the built index, so the next read walks the install again.
+/// Drop the built index of `source`, so the next read walks the install again.
 ///
-/// Unmounts the cached archives with it, and drops the object index, which
-/// was fed by this one. Asking for a fresh index is the one signal the app
-/// gets that the install changed under it, and a mount taken before a patch
-/// would keep answering from the chunk table it read then.
+/// Unmounts the cached archives with it, and for the game drops the object
+/// index, which was fed by this one. Asking for a fresh index is the one signal
+/// the app gets that the install changed under it, and a mount taken before a
+/// patch would keep answering from the chunk table it read then.
 #[tauri::command]
 #[specta::specta]
-pub async fn refresh_game_index(app_handle: AppHandle) -> IpcResult<()> {
-    app_handle.state::<GameIndexState>().clear();
+pub async fn refresh_game_index(source: WadSource, app_handle: AppHandle) -> IpcResult<()> {
+    app_handle.state::<GameIndexState>().clear(source);
     app_handle.state::<WadCache>().clear();
-    app_handle.state::<ObjectIndexState>().clear();
+    if source == WadSource::Game {
+        app_handle.state::<ObjectIndexState>().clear();
+    }
     IpcResult::ok(())
 }
 
-/// Run `read` against the index, building it when this is the first call.
+/// Run `read` against the index of `source`, building it when this is the first call.
 ///
-/// The build walks every archive of the install, so it runs on a blocking
+/// The build walks every archive of the source, so it runs on a blocking
 /// thread and the state it lands in keeps it for every reader after this one.
-async fn with_index<T, F>(app_handle: AppHandle, read: F) -> IpcResult<T>
+async fn with_index<T, F>(app_handle: AppHandle, source: WadSource, read: F) -> IpcResult<T>
 where
     T: Send + 'static,
     F: FnOnce(&GameIndex) -> AppResult<T> + Send + 'static,
@@ -228,22 +235,12 @@ where
     let config = app_handle.state::<SettingsState>().config();
 
     off_thread(move || {
-        let (index, _) = built_game_index(&app_handle, &config)?;
+        let (index, _) = built_index(&app_handle, &config, source)?;
         read(&index)
     })
     .await
 }
 
-/// The game index over the install `config` names, and the archives it was read from.
-///
-/// Builds the index when this is the first call, on the thread it is called
-/// from, so a caller reaches for it from a blocking thread. The object index
-/// build takes the archives too, which is why they come back beside it.
-///
-/// # Errors
-///
-/// Fails when the install cannot be resolved, the hash tables cannot be
-/// opened, or the build fails.
 /// The installed game's own copy of the file at `path`, whatever a project lays over it: where it
 /// sits and its bytes, none where the game holds no such file.
 ///
@@ -271,11 +268,36 @@ pub(crate) fn game_file(
     Ok(Some((asset, bytes)))
 }
 
+/// The game index over the install `config` names, and the archives it was read from.
+///
+/// Builds the index when this is the first call, on the thread it is called
+/// from, so a caller reaches for it from a blocking thread. The object index
+/// build takes the archives too, which is why they come back beside it.
+///
+/// # Errors
+///
+/// Fails when the install cannot be resolved, the hash tables cannot be
+/// opened, or the build fails.
 pub(crate) fn built_game_index(
     app_handle: &AppHandle,
     config: &Config,
 ) -> AppResult<(Arc<GameIndex>, GameArchives)> {
-    let archives = GameArchives::resolve(config)?;
+    built_index(app_handle, config, WadSource::Game)
+}
+
+/// The index over `source`'s archives, and the archives it was read from.
+///
+/// As [`built_game_index`], for either source.
+///
+/// # Errors
+///
+/// As [`built_game_index`].
+pub(crate) fn built_index(
+    app_handle: &AppHandle,
+    config: &Config,
+    source: WadSource,
+) -> AppResult<(Arc<GameIndex>, GameArchives)> {
+    let archives = GameArchives::resolve_source(config, source)?;
     let resolver = app_handle.state::<Arc<WadPathResolverState>>().get();
     let index = app_handle
         .state::<GameIndexState>()

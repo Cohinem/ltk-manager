@@ -130,7 +130,7 @@ pub fn reopen_after_sync(app: &AppHandle) {
         .invalidate();
     app.state::<BinHashTablesState>().invalidate();
     app.state::<StringKeyIndexState>().clear();
-    app.state::<GameIndexState>().clear();
+    app.state::<GameIndexState>().clear_all();
     BinNames::invalidate_game_index();
     crate::services::objects::index::rename_after_sync(app);
 }

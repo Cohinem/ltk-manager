@@ -139,10 +139,13 @@ export const backdropQueries = {
     queryOptions<readonly BackdropChoice[]>({
       queryKey: [...BACKDROP_ROOT, "maps"],
       queryFn: async () => {
-        const root = await api.readGameDir(MAP_GEOMETRY_DIR);
+        const root = await api.readGameDir("game", MAP_GEOMETRY_DIR);
         if (!root.ok) throw root.error;
         const listings = await Promise.all(
-          root.value.dirs.map(async (dir) => ({ dir, read: await api.readGameDir(dir.path) })),
+          root.value.dirs.map(async (dir) => ({
+            dir,
+            read: await api.readGameDir("game", dir.path),
+          })),
         );
         const found: BackdropChoice[] = [];
         for (const { dir, read } of listings) {

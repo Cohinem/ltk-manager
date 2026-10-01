@@ -1,10 +1,12 @@
 import { create } from "zustand";
 
-import type { ExtractOptions, ExtractTarget } from "@/lib/tauri";
+import type { ExtractOptions, ExtractTarget, WadSource } from "@/lib/tauri";
 
 /** One extract, as everything needed to run it and to report it afterwards. */
 export interface ExtractRequest {
   targets: readonly ExtractTarget[];
+  /** The archives the targets are read out of. */
+  source: WadSource;
   /** What the toast calls what is being written, e.g. `Aatrox.wad.client`. */
   subject: string;
   options: ExtractOptions;

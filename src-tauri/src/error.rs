@@ -345,6 +345,9 @@ impl From<AppError> for AppErrorResponse {
             AppError::BinDocument(BinDocumentError::Unreadable(e)) => Self::BinUnreadable {
                 detail: e.to_string(),
             },
+            AppError::BinDocument(e @ BinDocumentError::LcuChunk) => Self::BinUnreadable {
+                detail: e.to_string(),
+            },
             AppError::BinDocument(BinDocumentError::NotOpen(_)) => Self::BinNotOpen,
             AppError::BinDocument(BinDocumentError::NodeNotFound { address }) => {
                 Self::BinNodeNotFound { address }

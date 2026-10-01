@@ -1,21 +1,24 @@
-//! Read-only browsing of the game's WAD archives.
+//! Read-only browsing of an install's WAD archives.
 
 use crate::commands::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
-use ltk_manager_core::game_wads::{GameArchives, GameWadEntry, GameWadSummary};
+use ltk_manager_core::game_wads::{GameArchives, GameWadEntry, GameWadSummary, WadSource};
 use ltk_manager_core::hashtables::WadPathResolverState;
 use tauri::{AppHandle, Manager};
 
-/// List the game's WAD archives under `DATA/FINAL`, sorted by name.
+/// List the WAD archives of `source`, sorted by name.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_game_wads(app_handle: AppHandle) -> IpcResult<Vec<GameWadSummary>> {
+pub async fn get_game_wads(
+    source: WadSource,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<GameWadSummary>> {
     let config = app_handle.state::<SettingsState>().config();
-    off_thread(move || GameArchives::resolve(&config)?.list()).await
+    off_thread(move || GameArchives::resolve_source(&config, source)?.list()).await
 }
 
-/// Read the chunk list of one game WAD archive.
+/// Read the chunk list of one WAD archive of `source`.
 ///
 /// Path hashes resolve through the shared hashtable cache when it is
 /// populated. Otherwise every path comes back null.
@@ -23,11 +26,12 @@ pub async fn get_game_wads(app_handle: AppHandle) -> IpcResult<Vec<GameWadSummar
 #[specta::specta]
 pub async fn read_game_wad(
     wad_name: String,
+    source: WadSource,
     app_handle: AppHandle,
 ) -> IpcResult<Vec<GameWadEntry>> {
     let config = app_handle.state::<SettingsState>().config();
     off_thread(move || {
-        let archives = GameArchives::resolve(&config)?;
+        let archives = GameArchives::resolve_source(&config, source)?;
         let resolver = app_handle
             .state::<std::sync::Arc<WadPathResolverState>>()
             .get();

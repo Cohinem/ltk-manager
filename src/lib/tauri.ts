@@ -43,6 +43,7 @@ import type {
   UiError,
   UiShader,
   ViewVariant,
+  WadSource,
   WorkshopFileKind,
 } from "@/lib/bindings";
 import { commands as appUpdate } from "@/lib/ipc/appUpdate";
@@ -237,25 +238,29 @@ export const api = {
   checkHashtableUpdates: () => game.checkHashtableUpdates().then(toResult),
   syncHashtables: (force: boolean) => game.syncHashtables(force).then(toResult),
 
-  // Game WADs
-  getGameWads: () => game.getGameWads().then(toResult),
-  readGameWad: (wadName: string) => game.readGameWad(wadName).then(toResult),
+  // Game and LCU WADs
+  getGameWads: (source: WadSource) => game.getGameWads(source).then(toResult),
+  readGameWad: (source: WadSource, wadName: string) =>
+    game.readGameWad(wadName, source).then(toResult),
 
-  // Game index
-  getGameIndex: () => game.getGameIndex().then(toResult),
-  readGameDir: (path: string) => game.readGameDir(path).then(toResult),
-  refreshGameIndex: () => game.refreshGameIndex().then(toResult),
+  // Game and LCU index
+  getGameIndex: (source: WadSource) => game.getGameIndex(source).then(toResult),
+  readGameDir: (source: WadSource, path: string) => game.readGameDir(path, source).then(toResult),
+  refreshGameIndex: (source: WadSource) => game.refreshGameIndex(source).then(toResult),
   searchGameIndex: (query: string) =>
     game.searchGameIndex(query, { kind: "palette" }).then(toResult),
-  findInGameIndex: (pattern: string, regex: boolean) =>
-    game.findInGameIndex(pattern, regex).then(toResult),
+  findInGameIndex: (source: WadSource, pattern: string, regex: boolean) =>
+    game.findInGameIndex(pattern, regex, source).then(toResult),
 
   // Extract to disk
-  planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>
-    game.planGameExtract(targets, kinds).then(toResult),
+  planGameExtract: (
+    source: WadSource,
+    targets: ExtractTarget[],
+    kinds: WorkshopFileKind[] | null,
+  ) => game.planGameExtract(targets, kinds, source).then(toResult),
   // Resolves to null when an extract was already in flight - a redundant click.
-  extractGameFiles: (targets: ExtractTarget[], options: ExtractOptions) =>
-    game.extractGameFiles(targets, options).then(toResult),
+  extractGameFiles: (source: WadSource, targets: ExtractTarget[], options: ExtractOptions) =>
+    game.extractGameFiles(targets, options, source).then(toResult),
   // Resolves to false when nothing was in flight, which is what a Cancel
   // pressed just as the run finished looks like.
   cancelExtract: () => game.cancelExtract().then(toResult),

@@ -11,7 +11,7 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::error::AppResult;
-use crate::game_wads::GameArchives;
+use crate::game_wads::{GameArchives, WadSource};
 use crate::matcher::{FindQuery, Query, Range, letter_mask, mask_covers};
 use crate::utils::natural_order::compare_names;
 
@@ -56,7 +56,7 @@ pub struct GameFileEntry {
     pub path: Option<String>,
     /// Uncompressed chunk size.
     pub size_bytes: u64,
-    /// The `DATA/FINAL`-relative archive the chunk was read from.
+    /// The archive the chunk was read from, relative to its source's root.
     ///
     /// The fold drops every copy of a chunk after the first, so this names the
     /// archive that copy came from and not every archive that carries it.
@@ -90,7 +90,7 @@ pub struct GameSearchHit {
     pub name: String,
     /// The directory holding it, empty at the root and for an unnamed chunk.
     pub path: String,
-    /// The `DATA/FINAL`-relative archive the chunk was read from.
+    /// The archive the chunk was read from, relative to its source's root.
     pub wad: String,
     /// 0 is a name the query opens, 1 a name holding it, 2 a match reaching the directory.
     pub band: u8,
@@ -153,7 +153,7 @@ pub struct GameFindHit {
     pub path: Option<String>,
     /// The path's basename, or the hash when no hash table names the chunk.
     pub name: String,
-    /// The `DATA/FINAL`-relative archive the chunk was read from.
+    /// The archive the chunk was read from, relative to its source's root.
     pub wad: String,
     /// Uncompressed chunk size.
     pub size_bytes: u64,
@@ -294,7 +294,7 @@ struct File {
 }
 
 impl GameIndex {
-    /// Merge every archive under `DATA/FINAL` into one tree.
+    /// Merge every archive of one source into one tree.
     ///
     /// An archive that cannot be read is logged and skipped, because one
     /// corrupt file in an install is not a reason to show no tree at all.
@@ -1146,12 +1146,15 @@ fn split_ranges(ranges: &[Range], boundary: u32) -> (Vec<Range>, Vec<Range>) {
     (path, name)
 }
 
-/// Lazily-built, app-managed [`GameIndex`].
+/// Lazily-built, app-managed [`GameIndex`], one for each [`WadSource`].
 #[derive(Debug, Default)]
-pub struct GameIndexState(Mutex<Option<Arc<GameIndex>>>);
+pub struct GameIndexState {
+    game: Mutex<Option<Arc<GameIndex>>>,
+    lcu: Mutex<Option<Arc<GameIndex>>>,
+}
 
 impl GameIndexState {
-    /// Return the index, building it on first use.
+    /// Return the index over `archives`, building it on first use.
     ///
     /// `resolver` is read only when a build happens. The lock is held across
     /// the build, so concurrent callers wait rather than each walking the whole
@@ -1165,7 +1168,7 @@ impl GameIndexState {
         archives: &GameArchives,
         resolver: &LayeredHashDb,
     ) -> AppResult<Arc<GameIndex>> {
-        let mut slot = self.0.lock();
+        let mut slot = self.slot(archives.source()).lock();
         if let Some(index) = slot.as_ref() {
             return Ok(Arc::clone(index));
         }
@@ -1175,9 +1178,22 @@ impl GameIndexState {
         Ok(index)
     }
 
-    /// Drop the built index, so the next read walks the install again.
-    pub fn clear(&self) {
-        *self.0.lock() = None;
+    /// Drop the built index of one source, so its next read walks the install again.
+    pub fn clear(&self, source: WadSource) {
+        *self.slot(source).lock() = None;
+    }
+
+    /// Drop every built index, for a change such as new hash tables that both read.
+    pub fn clear_all(&self) {
+        self.clear(WadSource::Game);
+        self.clear(WadSource::Lcu);
+    }
+
+    fn slot(&self, source: WadSource) -> &Mutex<Option<Arc<GameIndex>>> {
+        match source {
+            WadSource::Game => &self.game,
+            WadSource::Lcu => &self.lcu,
+        }
     }
 }
 

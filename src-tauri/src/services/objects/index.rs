@@ -708,6 +708,7 @@ fn own_file_name(asset: &AssetRef, wad: &WadPathResolver) -> String {
             }
             name
         }
+        AssetRef::LcuChunk { .. } => unreachable!("the bin store holds no client chunk"),
     }
 }
 

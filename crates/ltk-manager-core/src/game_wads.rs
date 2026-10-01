@@ -1,4 +1,5 @@
-//! Read-only browsing of the game's WAD archives under `DATA/FINAL`.
+//! Read-only browsing of an install's WAD archives: the game's under `DATA/FINAL` and the
+//! League client's under `Plugins`.
 
 use fs_err as fs;
 use std::fmt;
@@ -11,7 +12,7 @@ use lru::LruCache;
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{ChunkDecoder, Wad, WadChunk, WadError, WadHash};
 use parking_lot::Mutex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
@@ -19,13 +20,35 @@ use crate::utils::game::GameDir;
 use crate::utils::natural_order::compare_names;
 use crate::utils::path::resolve_within;
 
+/// Which set of an install's archives a reader browses.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum WadSource {
+    /// The game's `*.wad.client` archives under `Game/DATA/FINAL`.
+    #[default]
+    Game,
+    /// The League client's `*.wad` archives under `Plugins`.
+    Lcu,
+}
+
+impl WadSource {
+    /// The lowercase file name ending an archive of this source carries.
+    fn extension(self) -> &'static str {
+        match self {
+            Self::Game => ".wad.client",
+            Self::Lcu => ".wad",
+        }
+    }
+}
+
 /// One WAD archive in a game install.
 #[derive(Debug, Clone, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameWadSummary {
-    /// Path relative to `DATA/FINAL` with forward slashes, e.g.
-    /// `Champions/Aatrox.wad.client`.
+    /// Path relative to the source's archive root with forward slashes, e.g.
+    /// `Champions/Aatrox.wad.client` or `rcp-fe-lol-loot/assets.wad`.
     pub name: String,
     /// Archive file size on disk, or 0 when it cannot be read.
     pub size_bytes: u64,
@@ -44,14 +67,18 @@ pub struct GameWadEntry {
     pub size_bytes: u64,
 }
 
-/// Read-only view of the WAD archives under a game's `DATA/FINAL` directory.
+/// Read-only view of one source's WAD archives in an install.
+///
+/// An archive name is relative to the source's root: `DATA/FINAL` for the game and `Plugins`
+/// for the League client.
 #[derive(Debug, Clone)]
 pub struct GameArchives {
-    final_dir: PathBuf,
+    root: PathBuf,
+    source: WadSource,
 }
 
 impl GameArchives {
-    /// Resolve from the configured League path.
+    /// Resolve the game's archives from the configured League path.
     ///
     /// # Errors
     ///
@@ -59,39 +86,68 @@ impl GameArchives {
     /// configured, and with [`AppError::ValidationFailed`] when the configured
     /// path does not look like an install.
     pub fn resolve(config: &Config) -> AppResult<Self> {
+        Self::resolve_source(config, WadSource::Game)
+    }
+
+    /// Resolve one source's archives from the configured League path.
+    ///
+    /// # Errors
+    ///
+    /// The same conditions as [`resolve`](Self::resolve).
+    pub fn resolve_source(config: &Config, source: WadSource) -> AppResult<Self> {
         if config.league_path.is_none() {
             return Err(AppError::LeagueNotFound);
         }
-        Ok(Self::at(GameDir::resolve(config)?.path()))
+
+        let game_dir = GameDir::resolve(config)?;
+        Ok(match source {
+            WadSource::Game => Self::at(game_dir.path()),
+            WadSource::Lcu => Self::lcu_at(&game_dir.lcu_plugins_dir()),
+        })
     }
 
     /// View an already-resolved game directory (the one containing `DATA`).
     pub fn at(game_dir: &Path) -> Self {
         Self {
-            final_dir: game_dir.join("DATA").join("FINAL"),
+            root: game_dir.join("DATA").join("FINAL"),
+            source: WadSource::Game,
         }
     }
 
-    /// Enumerate every `*.wad.client` archive under `DATA/FINAL`, sorted by
-    /// name.
+    /// View the League client's archives under an already-resolved `Plugins` directory.
+    pub fn lcu_at(plugins_dir: &Path) -> Self {
+        Self {
+            root: plugins_dir.to_path_buf(),
+            source: WadSource::Lcu,
+        }
+    }
+
+    /// The set of archives this view reads.
+    #[must_use]
+    pub fn source(&self) -> WadSource {
+        self.source
+    }
+
+    /// Enumerate every archive of the source under its root, sorted by name.
     ///
     /// The extension match is case-insensitive. Unreadable subdirectories are
     /// logged and skipped.
     ///
     /// # Errors
     ///
-    /// Fails with [`AppError::ValidationFailed`] when `DATA/FINAL` itself does
-    /// not exist.
+    /// Fails with [`AppError::ValidationFailed`] when the root itself does not
+    /// exist.
     pub fn list(&self) -> AppResult<Vec<GameWadSummary>> {
-        if !self.final_dir.is_dir() {
+        if !self.root.is_dir() {
             return Err(AppError::ValidationFailed(format!(
-                "Game DATA/FINAL directory does not exist: {}",
-                self.final_dir.display()
+                "Archive directory does not exist: {}",
+                self.root.display()
             )));
         }
 
+        let extension = self.source.extension();
         let mut out = Vec::new();
-        for entry in walkdir::WalkDir::new(&self.final_dir).follow_links(false) {
+        for entry in walkdir::WalkDir::new(&self.root).follow_links(false) {
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(e) => {
@@ -102,7 +158,7 @@ impl GameArchives {
             if !entry.file_type().is_file() {
                 continue;
             }
-            let Ok(relative) = entry.path().strip_prefix(&self.final_dir) else {
+            let Ok(relative) = entry.path().strip_prefix(&self.root) else {
                 continue;
             };
             let name = relative
@@ -113,7 +169,7 @@ impl GameArchives {
                 })
                 .collect::<Vec<_>>()
                 .join("/");
-            if !name.to_ascii_lowercase().ends_with(".wad.client") {
+            if !name.to_ascii_lowercase().ends_with(extension) {
                 continue;
             }
             let size_bytes = entry.metadata().map(|m| m.len()).unwrap_or(0);
@@ -127,15 +183,14 @@ impl GameArchives {
     /// Read the chunk list of one archive, resolving path hashes via
     /// `resolver`.
     ///
-    /// `wad_name` is a `DATA/FINAL`-relative name as returned by
-    /// [`list`](Self::list). An empty resolver is fine: every path is then
-    /// `None`. Entries come back in the archive's chunk order.
+    /// `wad_name` is a root-relative name as returned by [`list`](Self::list).
+    /// An empty resolver is fine: every path is then `None`. Entries come back
+    /// in the archive's chunk order.
     ///
     /// # Errors
     ///
-    /// Fails with [`AppError::InvalidPath`] when `wad_name` escapes
-    /// `DATA/FINAL`, and with I/O or WAD errors when the archive cannot be
-    /// read.
+    /// Fails with [`AppError::InvalidPath`] when `wad_name` escapes the root,
+    /// and with I/O or WAD errors when the archive cannot be read.
     pub fn read(&self, wad_name: &str, resolver: &LayeredHashDb) -> AppResult<Vec<GameWadEntry>> {
         let mut out = Vec::new();
         self.for_each_chunk(wad_name, resolver, |path_hash, path, size_bytes| {
@@ -175,15 +230,15 @@ impl GameArchives {
         Ok(())
     }
 
-    /// Join `wad_name` under `DATA/FINAL`, rejecting anything that escapes it.
+    /// Join `wad_name` under the root, rejecting anything that escapes it.
     ///
     /// # Errors
     ///
     /// Fails with [`AppError::InvalidPath`] when the name is absolute, or
-    /// climbs out of `DATA/FINAL`, and with an I/O error when neither it nor
-    /// the directory it sits in can be resolved.
+    /// climbs out of the root, and with an I/O error when neither it nor the
+    /// directory it sits in can be resolved.
     pub fn archive_path(&self, wad_name: &str) -> AppResult<PathBuf> {
-        resolve_within(&self.final_dir, wad_name)
+        resolve_within(&self.root, wad_name)
     }
 }
 
@@ -245,14 +300,14 @@ impl WadCache {
 
     /// Read one chunk of one archive, decompressed, mounting it if it is not.
     ///
-    /// `wad_name` is a `DATA/FINAL`-relative name as returned by
-    /// [`GameArchives::list`], and `path_hash` names one of its chunks.
+    /// `wad_name` is a root-relative name as returned by [`GameArchives::list`],
+    /// and `path_hash` names one of its chunks.
     ///
     /// # Errors
     ///
-    /// Fails with [`AppError::InvalidPath`] when `wad_name` escapes
-    /// `DATA/FINAL` or when the archive holds no such chunk, and with I/O or
-    /// WAD errors when the archive cannot be read.
+    /// Fails with [`AppError::InvalidPath`] when `wad_name` escapes the root or
+    /// when the archive holds no such chunk, and with I/O or WAD errors when
+    /// the archive cannot be read.
     pub fn read_chunk(
         &self,
         archives: &GameArchives,

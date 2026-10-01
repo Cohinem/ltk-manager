@@ -75,6 +75,22 @@
   --ltk-bin-class-text: var(--ltk-bin-class);
   --ltk-bin-kind-text: var(--ltk-bin-kind);
 
+  /* The token hues of highlighted source text. */
+  --ltk-syntax-keyword: #569cd6;
+  --ltk-syntax-control: #c586c0;
+  --ltk-syntax-string: #ce9178;
+  --ltk-syntax-number: #b5cea8;
+  --ltk-syntax-property: #9cdcfe;
+  --ltk-syntax-function: #dcdcaa;
+  --ltk-syntax-type: #4ec9b0;
+  --ltk-syntax-keyword-text: var(--ltk-syntax-keyword);
+  --ltk-syntax-control-text: var(--ltk-syntax-control);
+  --ltk-syntax-string-text: var(--ltk-syntax-string);
+  --ltk-syntax-number-text: var(--ltk-syntax-number);
+  --ltk-syntax-property-text: var(--ltk-syntax-property);
+  --ltk-syntax-function-text: var(--ltk-syntax-function);
+  --ltk-syntax-type-text: var(--ltk-syntax-type);
+
   /* The Geometry node of the particle graph. */
   --ltk-graph-geometry: #f472b6;
   --ltk-graph-geometry-text: var(--ltk-graph-geometry);
@@ -125,6 +141,13 @@
   --ltk-folder-text: color-mix(in srgb, var(--ltk-folder) 60%, black);
   --ltk-bin-class-text: color-mix(in srgb, var(--ltk-bin-class) 55%, black);
   --ltk-bin-kind-text: color-mix(in srgb, var(--ltk-bin-kind) 55%, black);
+  --ltk-syntax-keyword-text: color-mix(in srgb, var(--ltk-syntax-keyword) 55%, black);
+  --ltk-syntax-control-text: color-mix(in srgb, var(--ltk-syntax-control) 55%, black);
+  --ltk-syntax-string-text: color-mix(in srgb, var(--ltk-syntax-string) 50%, black);
+  --ltk-syntax-number-text: color-mix(in srgb, var(--ltk-syntax-number) 40%, black);
+  --ltk-syntax-property-text: color-mix(in srgb, var(--ltk-syntax-property) 45%, black);
+  --ltk-syntax-function-text: color-mix(in srgb, var(--ltk-syntax-function) 40%, black);
+  --ltk-syntax-type-text: color-mix(in srgb, var(--ltk-syntax-type) 50%, black);
   --ltk-graph-geometry-text: color-mix(in srgb, var(--ltk-graph-geometry) 55%, black);
   --ltk-void-text: color-mix(in srgb, var(--ltk-void) 50%, black);
   --ltk-channel-1-text: color-mix(in srgb, var(--ltk-channel-1) 55%, black);

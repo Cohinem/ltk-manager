@@ -131,18 +131,19 @@ describe("api", () => {
   });
 
   describe("game wads", () => {
-    it("getGameWads invokes get_game_wads", async () => {
+    it("getGameWads invokes get_game_wads with the source", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: [] });
-      const result = await api.getGameWads();
-      expect(mockInvoke).toHaveBeenCalledWith(commandNames.game.getGameWads);
+      const result = await api.getGameWads("lcu");
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.game.getGameWads, { source: "lcu" });
       expect(result).toEqual({ ok: true, value: [] });
     });
 
-    it("readGameWad invokes with wadName", async () => {
+    it("readGameWad invokes with wadName and the source", async () => {
       mockInvoke.mockResolvedValue({ ok: true, value: [] });
-      await api.readGameWad("Champions/Aatrox.wad.client");
+      await api.readGameWad("game", "Champions/Aatrox.wad.client");
       expect(mockInvoke).toHaveBeenCalledWith(commandNames.game.readGameWad, {
         wadName: "Champions/Aatrox.wad.client",
+        source: "game",
       });
     });
   });
