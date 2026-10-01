@@ -58,6 +58,22 @@ fn create_layer_adds_to_config() {
 }
 
 #[test]
+fn create_layer_accepts_underscores() {
+    let dir = tempfile::tempdir().unwrap();
+    make_project_with_layers(
+        dir.path(),
+        ltk_mod_project::ModProjectLayer::default_table(),
+    );
+
+    let project = ProjectDir::open(dir.path())
+        .unwrap()
+        .create_layer("item_shop", None, None)
+        .unwrap();
+
+    assert_eq!(project.layers[1].name, "item_shop");
+}
+
+#[test]
 fn create_layer_invalid_name_rejected() {
     let dir = tempfile::tempdir().unwrap();
     make_project_with_layers(

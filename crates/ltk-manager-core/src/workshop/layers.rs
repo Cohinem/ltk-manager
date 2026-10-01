@@ -1,6 +1,5 @@
 use super::{
     AddFilesReport, ProjectDir, Workshop, WorkshopError, WorkshopLayerInfo, WorkshopProject,
-    is_valid_project_name,
 };
 use crate::error::{AppError, AppResult};
 use crate::hashtables::WadPathResolver;
@@ -33,9 +32,10 @@ impl ProjectDir {
     ) -> AppResult<WorkshopProject> {
         let name = name.trim().to_string();
 
-        if !is_valid_project_name(&name) {
+        if Slug::new(&name).is_err() {
             return Err(AppError::ValidationFailed(
-                "Layer name must be lowercase alphanumeric with hyphens only".to_string(),
+                "Layer name must be lowercase letters, numbers, hyphens and underscores,                  and cannot start or end with a hyphen or an underscore"
+                    .to_string(),
             ));
         }
 
