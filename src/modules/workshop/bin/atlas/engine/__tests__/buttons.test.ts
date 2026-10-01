@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buttonsFirst, buttonStateOf, type ViewButton } from "../model/buttons";
+import { buttonsFirst, buttonStateOf, hiddenByState, type ViewButton } from "../model/buttons";
 import { buildTree } from "../model/tree";
 import { element, icon, scene, view } from "./fixtures";
 
@@ -87,5 +87,47 @@ describe("buttonsFirst", () => {
       "button",
       "normal",
     ]);
+  });
+});
+
+describe("hiddenByState", () => {
+  const state = (name: string, elements: string[]) => ({
+    state: name,
+    elements,
+    text: null,
+    textFrame: null,
+  });
+  const slider = element("slider", "s", 0, {
+    kind: "group",
+    children: ["backdrop", "thumb", "thumbHover"],
+    states: [
+      state("DefaultState", ["backdrop", "thumb"]),
+      state("SliderHoveredState", ["backdrop", "thumbHover"]),
+    ],
+    alpha: 1,
+    layout: null,
+    button: null,
+    meter: null,
+  });
+  const tree = buildTree(
+    view(
+      [scene("s", 0)],
+      [
+        slider,
+        element("backdrop", "s", 1, icon()),
+        element("thumb", "s", 2, icon()),
+        element("thumbHover", "s", 3, icon()),
+      ],
+    ),
+  );
+
+  it("rests a slider on its default state", () => {
+    expect(hiddenByState(tree, new Map())).toEqual(new Set(["thumbHover"]));
+  });
+
+  it("draws the state a slider is put in", () => {
+    expect(hiddenByState(tree, new Map([["slider", "SliderHoveredState"]]))).toEqual(
+      new Set(["thumb"]),
+    );
   });
 });

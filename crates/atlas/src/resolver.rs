@@ -222,17 +222,34 @@ impl<'a> ViewResolver<'a> {
         Some(effect)
     }
 
-    /// Every `UiElementGroupButtonState` the group holds, by field name.
+    /// Every `UiElementGroupButtonState` and `UiElementGroupSliderState` the group holds, by
+    /// field name. A slider state lists its backdrop and its thumb.
     fn button_states(&mut self, fields: &Fields) -> Vec<UiButtonState> {
         fields
             .iter()
             .filter_map(|(field, value)| {
                 let (class, state) = struct_of(Some(value))?;
-                (class == BUTTON_STATE).then(|| UiButtonState {
+                let (elements, text, text_frame) = if class == BUTTON_STATE {
+                    (
+                        links(state, DISPLAY_ELEMENT_LIST),
+                        object(state.get(&STATE_TEXT)).map(hex),
+                        object(state.get(&STATE_TEXT_FRAME)).map(hex),
+                    )
+                } else if class == SLIDER_STATE {
+                    let elements = [SLIDER_BACKDROP, SLIDER_ICON]
+                        .iter()
+                        .filter_map(|part| object(state.get(part)).map(hex))
+                        .collect();
+                    (elements, None, None)
+                } else {
+                    return None;
+                };
+
+                Some(UiButtonState {
                     state: self.namer.field(*field).unwrap_or_else(|| hex(*field)),
-                    elements: links(state, DISPLAY_ELEMENT_LIST),
-                    text: object(state.get(&STATE_TEXT)).map(hex),
-                    text_frame: object(state.get(&STATE_TEXT_FRAME)).map(hex),
+                    elements,
+                    text,
+                    text_frame,
                 })
             })
             .collect()
