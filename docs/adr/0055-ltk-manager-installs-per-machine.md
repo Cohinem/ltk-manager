@@ -40,7 +40,9 @@ permissions, and the manager's own install mode stops carrying the guarantee.
 **A per-user install is migrated by the hook, not by the template.** `SHCTX` is `HKLM` under
 `perMachine`, so the reinstall page never sees a `currentUser` registration. The hook reads
 `HKCU` itself and runs the old uninstaller before copying anything, because the orphan it would
-otherwise leave is a writable copy of the binaries this decision protects.
+otherwise leave is a writable copy of the binaries this decision protects. The old uninstaller
+removes the reader's shortcuts, so the hook clears update mode after a migration and the installer
+creates per-machine ones in their place. Taskbar pins do not survive the move.
 
 **The migration follows the elevated token's hive.** A reader who elevates with another account's
 credentials gives the installer that account's `HKCU`, where the per-user install is not

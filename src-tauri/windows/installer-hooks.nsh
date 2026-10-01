@@ -57,6 +57,10 @@ FunctionEnd
 
     Delete "$2\uninstall.exe"
     RMDir "$2"
+
+    ; The old uninstaller removed the shortcuts, and the template skips
+    ; creating them under /UPDATE, which the updater always passes.
+    StrCpy $UpdateMode 0
   ${EndIf}
 !macroend
 
