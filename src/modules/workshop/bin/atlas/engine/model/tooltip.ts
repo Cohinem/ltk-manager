@@ -99,12 +99,25 @@ export interface TooltipSample {
   /** The key that casts the ability, none for the passive. */
   readonly hotkey: string | null;
   readonly text: string;
+  /** The text while Shift is held, none for an ability with no extended tooltip. */
+  readonly extended: string | null;
+  /** How many ranks the ability has, the top rank its values read at. */
+  readonly ranks: number;
   /** The texture the tooltip's icon shows, none to draw the icon off. */
   readonly icon: UiTexture | null;
 }
 
 /** The character whose abilities a preview fills a tooltip with first. */
 export const DEFAULT_TOOLTIP_CHARACTER = "Ahri";
+
+/** The level that reads as no character at all, as the client reads one: level 1, no stats. */
+export const NO_CHARACTER_LEVEL = 0;
+
+/** The top level a sample's values read at, the client's own. */
+export const MAX_CHARACTER_LEVEL = 18;
+
+/** The rank a sample's values read at first, an ability's first. */
+export const FIRST_RANK = 1;
 
 /** The sample a preview fills a tooltip with first: the first ability's. */
 export const DEFAULT_TOOLTIP_SAMPLE = "Q";
@@ -119,6 +132,8 @@ export function tooltipSamples(tooltips: readonly UiSpellTooltip[] | null): Tool
     name: tooltip.name,
     hotkey: tooltip.hotkey,
     text: tooltip.text,
+    extended: tooltip.extended,
+    ranks: tooltip.ranks,
     icon: tooltip.icon,
   }));
 }
@@ -126,6 +141,13 @@ export function tooltipSamples(tooltips: readonly UiSpellTooltip[] | null): Tool
 /** The sample of `samples` that `id` names, the first where it names none, and none of none. */
 export function chooseTooltip(samples: readonly TooltipSample[], id: string): TooltipSample | null {
   return samples.find((each) => each.id === id) ?? samples[0] ?? null;
+}
+
+/** `sample` showing the text Shift shows while `extended`, where it has one. */
+export function withShift(sample: TooltipSample | null, extended: boolean): TooltipSample | null {
+  if (sample === null || !extended || sample.extended === null) return sample;
+
+  return { ...sample, text: sample.extended };
 }
 
 /** How a tooltip's parts are found and measured. */

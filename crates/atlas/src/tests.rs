@@ -1756,7 +1756,7 @@ fn the_sample_loadout_reads_out_of_the_install() {
 
     let shelf = install.shelf();
     let loadout = read_loadout(&shelf, &install, &());
-    let tooltips = read_character_tooltips(&shelf, &install, &(), &strings, "Ahri");
+    let tooltips = read_character_tooltips(&shelf, &install, &(), &strings, "Ahri", 0, 1);
 
     println!("{loadout:#?}");
     for tooltip in &tooltips {
@@ -1907,7 +1907,11 @@ fn a_hierarchy_anchor_reads_its_pivot_and_its_margins_per_axis() {
 #[ignore = "reads a game install, and needs LTK_LIVE_GAME"]
 fn every_characters_tooltips_fill_their_values() {
     /* No data holds these: a weapon spell no slot casts, and a cost the spell never names. */
-    const UNFILLABLE: [&str; 2] = ["spell.ApheliosCalibrumQ:Hotkey", "BaseCost"];
+    const UNFILLABLE: [&str; 3] = [
+        "spell.ApheliosCalibrumQ:Hotkey",
+        "spell.ApheliosE:Hotkey",
+        "BaseCost",
+    ];
 
     let game = std::env::var("LTK_LIVE_GAME").unwrap();
     let champions: Vec<String> = fs_err::read_dir(std::path::Path::new(&game).join("Champions"))
@@ -1961,26 +1965,40 @@ fn every_characters_tooltips_fill_their_values() {
     let strings = |key: &str| table.get_key(key).map(str::to_owned);
 
     let mut tooltips = 0;
+    let mut extended = 0;
     let mut unfilled = Vec::new();
     for name in &champions {
-        for tooltip in read_character_tooltips(&shelf, &install, &(), &strings, name) {
-            tooltips += 1;
-            let mut rest = tooltip.text.as_str();
-            while let Some(open) = rest.find('@') {
-                let after = &rest[open + 1..];
-                let Some(close) = after.find('@') else {
-                    break;
-                };
-                let token = &after[..close];
-                if !UNFILLABLE.contains(&token) {
-                    unfilled.push(format!("{name} {:?}: @{token}@", tooltip.hotkey));
+        /* The lowest and the highest of both, a rank past a spell's top reading at its top. */
+        for (level, rank) in [(0, 1), (crate::MAX_CHARACTER_LEVEL, u8::MAX)] {
+            let read = read_character_tooltips(&shelf, &install, &(), &strings, name, level, rank);
+            for tooltip in read {
+                tooltips += 1;
+                extended += usize::from(tooltip.extended.is_some());
+                let texts = std::iter::once(&tooltip.text).chain(tooltip.extended.as_ref());
+                for text in texts {
+                    let mut rest = text.as_str();
+                    while let Some(open) = rest.find('@') {
+                        let after = &rest[open + 1..];
+                        let Some(close) = after.find('@') else {
+                            break;
+                        };
+                        let token = &after[..close];
+                        if !UNFILLABLE.contains(&token) {
+                            unfilled
+                                .push(format!("{name} {:?} at {level}: @{token}@", tooltip.hotkey));
+                        }
+                        rest = &after[close + 1..];
+                    }
                 }
-                rest = &after[close + 1..];
             }
         }
     }
 
-    println!("{tooltips} tooltips of {} characters", champions.len());
+    println!(
+        "{tooltips} tooltips of {} characters at two levels and ranks, {extended} with an extended \
+         one",
+        champions.len()
+    );
     assert!(tooltips > 800);
     assert!(unfilled.is_empty(), "{unfilled:#?}");
 }

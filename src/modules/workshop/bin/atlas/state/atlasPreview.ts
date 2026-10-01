@@ -9,7 +9,13 @@ import { type FrameChoices, NO_FRAME_CHOICES } from "../engine/layout/frames";
 import type { Screen } from "../engine/layout/solve";
 import { BUTTON_STATES, type ButtonState } from "../engine/model/buttons";
 import { CLOSED_COMBO, type ComboState } from "../engine/model/combo";
-import { DEFAULT_TOOLTIP_CHARACTER, DEFAULT_TOOLTIP_SAMPLE } from "../engine/model/tooltip";
+import {
+  DEFAULT_TOOLTIP_CHARACTER,
+  DEFAULT_TOOLTIP_SAMPLE,
+  FIRST_RANK,
+  MAX_CHARACTER_LEVEL,
+  NO_CHARACTER_LEVEL,
+} from "../engine/model/tooltip";
 
 /** A screen the canvas lays a view out for, per "Panes" in docs/plans/atlas-ui-editor.md. */
 export interface ScreenPreset extends Screen {
@@ -125,6 +131,14 @@ interface AtlasPreviewStore {
   tooltipSample: string;
   /** The character, such as `Ahri`, whose abilities a tooltip's samples are. */
   tooltipCharacter: string;
+  /** The level the samples read their values at, 0 for no character at all. */
+  tooltipLevel: number;
+  /** The rank each sample's ability reads its values at, from 1, its top rank where it has fewer. */
+  tooltipRank: number;
+  /** The samples show the tooltip Shift shows. */
+  tooltipExtended: boolean;
+  /** Shift is held over the canvas, which shows the tooltip Shift shows while it lasts. */
+  shiftHeld: boolean;
   framing: FrameRequest | null;
   /** The inspector sections the reader folded shut, by id. */
   foldedSections: readonly string[];
@@ -166,6 +180,10 @@ interface AtlasPreviewStore {
   setFontSample: (sample: string | null) => void;
   setTooltipSample: (sample: string) => void;
   setTooltipCharacter: (character: string) => void;
+  setTooltipLevel: (level: number) => void;
+  setTooltipRank: (rank: number) => void;
+  toggleTooltipExtended: () => void;
+  setShiftHeld: (held: boolean) => void;
   requestFrame: (view: string, element: string | null) => void;
   toggleSection: (id: string) => void;
 }
@@ -192,6 +210,10 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
       fontSample: null,
       tooltipSample: DEFAULT_TOOLTIP_SAMPLE,
       tooltipCharacter: DEFAULT_TOOLTIP_CHARACTER,
+      tooltipLevel: NO_CHARACTER_LEVEL,
+      tooltipRank: FIRST_RANK,
+      tooltipExtended: false,
+      shiftHeld: false,
       framing: null,
       foldedSections: [],
       setPreset: (preset) => set({ preset }),
@@ -273,6 +295,13 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
       setFontSample: (fontSample) => set({ fontSample }),
       setTooltipSample: (tooltipSample) => set({ tooltipSample }),
       setTooltipCharacter: (tooltipCharacter) => set({ tooltipCharacter }),
+      setTooltipLevel: (level) =>
+        set({
+          tooltipLevel: Math.min(MAX_CHARACTER_LEVEL, Math.max(NO_CHARACTER_LEVEL, level)),
+        }),
+      setTooltipRank: (rank) => set({ tooltipRank: Math.max(FIRST_RANK, Math.round(rank)) }),
+      toggleTooltipExtended: () => set((state) => ({ tooltipExtended: !state.tooltipExtended })),
+      setShiftHeld: (shiftHeld) => set({ shiftHeld }),
       requestFrame: (view, element) =>
         set((state) => ({
           framing: { view, element, token: (state.framing?.token ?? 0) + 1 },
@@ -301,6 +330,9 @@ export const useAtlasPreviewStore = create<AtlasPreviewStore>()(
         fontSample: state.fontSample,
         tooltipSample: state.tooltipSample,
         tooltipCharacter: state.tooltipCharacter,
+        tooltipLevel: state.tooltipLevel,
+        tooltipRank: state.tooltipRank,
+        tooltipExtended: state.tooltipExtended,
         foldedSections: state.foldedSections,
       }),
     },
@@ -420,6 +452,10 @@ export function useAtlasPreviewActions() {
       setFontSample: state.setFontSample,
       setTooltipSample: state.setTooltipSample,
       setTooltipCharacter: state.setTooltipCharacter,
+      setTooltipLevel: state.setTooltipLevel,
+      setTooltipRank: state.setTooltipRank,
+      toggleTooltipExtended: state.toggleTooltipExtended,
+      setShiftHeld: state.setShiftHeld,
       requestFrame: state.requestFrame,
       toggleSection: state.toggleSection,
     })),

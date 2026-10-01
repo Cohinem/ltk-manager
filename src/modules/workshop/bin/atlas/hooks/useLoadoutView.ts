@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import type { BinDocumentId } from "@/lib/tauri";
@@ -7,7 +7,12 @@ import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { uiQueries } from "../api/uiQueries";
 import { roleHidden, roleTexts, withLoadout, withTextures } from "../engine/model/loadout";
 import { viewTree } from "../engine/model/repeats";
-import { chooseTooltip, type TooltipSample, tooltipSamples } from "../engine/model/tooltip";
+import {
+  chooseTooltip,
+  type TooltipSample,
+  tooltipSamples,
+  withShift,
+} from "../engine/model/tooltip";
 import type { ViewTree } from "../engine/model/tree";
 import type { View } from "../engine/model/view";
 import { useAtlasPreviewStore } from "../state/atlasPreview";
@@ -68,7 +73,11 @@ export function useLoadoutView(
 export function useTooltipSample(document: BinDocumentId, wanted: boolean): TooltipSample | null {
   const { samples } = useTooltipSamples(document, wanted);
   const chosen = useAtlasPreviewStore((state) => state.tooltipSample);
-  return useMemo(() => chooseTooltip(samples, chosen), [samples, chosen]);
+  const extended = useAtlasPreviewStore((state) => state.tooltipExtended || state.shiftHeld);
+  return useMemo(
+    () => withShift(chooseTooltip(samples, chosen), extended),
+    [samples, chosen, extended],
+  );
 }
 
 /** The samples of the chosen character, and whether its abilities are still being read. */
@@ -77,14 +86,20 @@ export interface TooltipSamples {
   readonly pending: boolean;
 }
 
-/** Every sample of the chosen character, per `tooltipSamples`, read while `wanted`. */
+/**
+ * Every sample of the chosen character at the chosen level and rank, per `tooltipSamples`, read
+ * while `wanted`. A change keeps the samples it had until the new ones are read.
+ */
 export function useTooltipSamples(document: BinDocumentId, wanted = true): TooltipSamples {
   const sandbox = useSandbox();
   const character = useAtlasPreviewStore((state) => state.tooltipCharacter);
+  const level = useAtlasPreviewStore((state) => state.tooltipLevel);
+  const rank = useAtlasPreviewStore((state) => state.tooltipRank);
   const read = useQuery({
-    ...uiQueries.tooltips(document, sandbox, character),
+    ...uiQueries.tooltips(document, sandbox, character, level, rank),
     enabled: wanted,
+    placeholderData: keepPreviousData,
   });
   const samples = useMemo(() => tooltipSamples(read.data ?? null), [read.data]);
-  return { samples, pending: wanted && read.isPending };
+  return { samples, pending: wanted && (read.isPending || read.isPlaceholderData) };
 }

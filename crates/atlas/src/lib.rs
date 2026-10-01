@@ -26,7 +26,8 @@ pub use face::{FONT_FILES_DIR, import_font_file};
 pub use font::{FONTS_PATH, font_catalog, resolve_font};
 pub use imaa::{Manifest, ManifestEntry, ManifestError, page_path, sprite_key};
 pub use loadout::{
-    UiCharacter, UiLoadout, UiSpellTooltip, read_character_tooltips, read_characters, read_loadout,
+    MAX_CHARACTER_LEVEL, UiCharacter, UiLoadout, UiSpellTooltip, read_character_tooltips,
+    read_characters, read_loadout,
 };
 pub use model::{
     UiAnchor, UiAsset, UiBinding, UiButton, UiButtonState, UiComboBox, UiEffect, UiElement, UiFile,

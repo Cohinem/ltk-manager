@@ -6,6 +6,9 @@ import { type RefObject, useLayoutEffect, useMemo, useRef, useState } from "reac
 import {
   Combobox,
   SegmentedControl,
+  StepperField,
+  TogglePill,
+  Tooltip,
   useComboboxFilter,
   useComboboxFilteredItems,
 } from "@/components";
@@ -16,7 +19,13 @@ import { twMerge } from "@/utils";
 
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { uiQueries } from "../api/uiQueries";
-import { chooseTooltip, type TooltipSample } from "../engine/model/tooltip";
+import {
+  chooseTooltip,
+  FIRST_RANK,
+  MAX_CHARACTER_LEVEL,
+  NO_CHARACTER_LEVEL,
+  type TooltipSample,
+} from "../engine/model/tooltip";
 import { useAtlasLayout } from "../hooks/useAtlasLayout";
 import { useTooltipSamples } from "../hooks/useLoadoutView";
 import {
@@ -81,6 +90,9 @@ function TooltipRow({ document }: { document: BinDocumentId }) {
           }))}
         />
       )}
+      <LevelField />
+      <RankField ranks={chosen?.ranks ?? FIRST_RANK} />
+      <ShiftToggle />
       {pending && <SpinnerGapIcon className="h-3.5 w-3.5 shrink-0 animate-spin text-surface-400" />}
       {!pending && chosen === null && (
         <span className="min-w-0 truncate text-meta text-surface-400">
@@ -96,6 +108,84 @@ function TooltipRow({ document }: { document: BinDocumentId }) {
         </span>
       )}
     </div>
+  );
+}
+
+/** The level the samples read their values at, from 0 for no champion to the top level. */
+function LevelField() {
+  const level = useAtlasPreviewStore((state) => state.tooltipLevel);
+  const { setTooltipLevel } = useAtlasPreviewActions();
+
+  return (
+    <Tooltip content={m.workshop_bin_atlas_tooltip_level_hint()}>
+      <span data-ui="TooltipBar:level" className="flex shrink-0 items-center gap-1.5">
+        <span className="text-meta text-surface-400">
+          {m.workshop_bin_atlas_tooltip_level_label()}
+        </span>
+        <StepperField
+          className="w-16 text-meta"
+          aria-label={m.workshop_bin_atlas_tooltip_level_label()}
+          increaseLabel={m.common_number_increase_action()}
+          decreaseLabel={m.common_number_decrease_action()}
+          value={level}
+          min={NO_CHARACTER_LEVEL}
+          max={MAX_CHARACTER_LEVEL}
+          step={1}
+          largeStep={MAX_CHARACTER_LEVEL}
+          decimals={0}
+          onValueChange={setTooltipLevel}
+        />
+      </span>
+    </Tooltip>
+  );
+}
+
+/**
+ * The rank the chosen ability reads its values at, up to its `ranks`. The rank is shared by
+ * every ability, so one with fewer ranks reads at its top.
+ */
+function RankField({ ranks }: { ranks: number }) {
+  const rank = useAtlasPreviewStore((state) => state.tooltipRank);
+  const { setTooltipRank } = useAtlasPreviewActions();
+
+  return (
+    <Tooltip content={m.workshop_bin_atlas_tooltip_rank_hint()}>
+      <span data-ui="TooltipBar:rank" className="flex shrink-0 items-center gap-1.5">
+        <span className="text-meta text-surface-400">
+          {m.workshop_bin_atlas_tooltip_rank_label()}
+        </span>
+        <StepperField
+          className="w-14 text-meta"
+          aria-label={m.workshop_bin_atlas_tooltip_rank_label()}
+          increaseLabel={m.common_number_increase_action()}
+          decreaseLabel={m.common_number_decrease_action()}
+          value={Math.min(rank, ranks)}
+          min={FIRST_RANK}
+          max={ranks}
+          step={1}
+          decimals={0}
+          disabled={ranks <= FIRST_RANK}
+          onValueChange={setTooltipRank}
+        />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** Whether the samples show the tooltip Shift shows. */
+function ShiftToggle() {
+  const extended = useAtlasPreviewStore((state) => state.tooltipExtended);
+  const { toggleTooltipExtended } = useAtlasPreviewActions();
+
+  return (
+    <Tooltip content={m.workshop_bin_atlas_tooltip_extended_hint()}>
+      <TogglePill
+        label={m.workshop_bin_atlas_tooltip_extended_label()}
+        active={extended}
+        onClick={toggleTooltipExtended}
+        className="shrink-0"
+      />
+    </Tooltip>
   );
 }
 
