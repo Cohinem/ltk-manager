@@ -5,7 +5,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { CharacterSpells } from "@/lib/tauri";
+import type { IndexAnswer, SpellCatalog } from "@/lib/tauri";
 import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -19,8 +19,7 @@ vi.mock("../MissilePane", () => ({
 }));
 
 const PATH = "Characters/Sejuani/Spells/SejuaniEAbility/SejuaniEPassiveMissile";
-const READY: CharacterSpells = {
-  status: "ready",
+const CATALOG: SpellCatalog = {
   unnamed: 0,
   spells: [
     {
@@ -37,6 +36,7 @@ const READY: CharacterSpells = {
     },
   ],
 };
+const READY: IndexAnswer<SpellCatalog> = { status: "ready", value: CATALOG };
 
 function mount(path = "Characters/Sejuani/Skins/Skin0") {
   const client = createTestQueryClient();
@@ -104,12 +104,15 @@ describe("SpellsPane", () => {
   );
 
   it("does not choose between conflicting declarations", async () => {
-    const spell = READY.spells[0];
+    const spell = CATALOG.spells[0];
     mockInvoke.mockResolvedValue({
       ok: true,
       value: {
-        ...READY,
-        spells: [{ ...spell, declarations: [...spell.declarations, ...spell.declarations] }],
+        status: "ready",
+        value: {
+          ...CATALOG,
+          spells: [{ ...spell, declarations: [...spell.declarations, ...spell.declarations] }],
+        },
       },
     });
     mount();
@@ -152,7 +155,10 @@ describe("SpellsPane", () => {
   it("refreshes only this character and omits install-wide unknown names", async () => {
     const client = mount();
     await screen.findByRole("button", { name: /SejuaniEPassiveMissile/ });
-    mockInvoke.mockResolvedValue({ ok: true, value: { status: "ready", spells: [], unnamed: 3 } });
+    mockInvoke.mockResolvedValue({
+      ok: true,
+      value: { status: "ready", value: { spells: [], unnamed: 3 } },
+    });
     await client.invalidateQueries({ queryKey: gameKeys.objectSearches });
     await waitFor(() => expect(screen.getByText("No named spells match.")).toBeInTheDocument());
     expect(screen.queryByText(/spell objects in the install/)).not.toBeInTheDocument();
@@ -186,10 +192,10 @@ it("offers impact-only spells to the ability scene and respects the hit-effect f
       : answer(command),
   );
   const client = createTestQueryClient();
-  expect(await client.fetchQuery(spellQueries.availability(READY.spells, true))).toEqual({
+  expect(await client.fetchQuery(spellQueries.availability(CATALOG.spells, true))).toEqual({
     "0x859d7934": "supported",
   });
-  expect(await client.fetchQuery(spellQueries.availability(READY.spells))).toEqual({
+  expect(await client.fetchQuery(spellQueries.availability(CATALOG.spells))).toEqual({
     "0x859d7934": "unsupported",
   });
   mockInvoke.mockImplementation((command) =>
@@ -201,7 +207,7 @@ it("offers impact-only spells to the ability scene and respects the hit-effect f
       : answer(command),
   );
   client.clear();
-  expect(await client.fetchQuery(spellQueries.availability(READY.spells, true))).toEqual({
+  expect(await client.fetchQuery(spellQueries.availability(CATALOG.spells, true))).toEqual({
     "0x859d7934": "unsupported",
   });
 });

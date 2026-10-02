@@ -15,6 +15,8 @@ export * from "../projects/state/authorName";
 export * from "../projects/state/workshopFilter";
 export * from "../projects/state/workshopSelection";
 export * from "../references/state/references";
+export type { RowReveal } from "../shared/state/indexBrowser";
+export * from "../shared/state/scrollTops";
 export * from "../shell/hooks/useEditorPersistence";
 export * from "../shell/hooks/useProjectEditor";
 export * from "../shell/hooks/usePruneTimelineMarkers";

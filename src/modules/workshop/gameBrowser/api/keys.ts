@@ -4,9 +4,6 @@ import type { SearchPreference, WadSource } from "@/lib/tauri";
    a long stretch of a session. */
 export const GAME_STALE_MS = 15 * 60_000;
 
-/** How often an answer the object index build has not given asks again. */
-export const BUILDING_POLL_MS = 1000;
-
 /* Each source under keys of its own, so a rebuild of one never refetches the other. The
    game's are the bare `game-*` keys other modules already file under. */
 export const gameKeys = {

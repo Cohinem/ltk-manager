@@ -7,6 +7,7 @@
 
 pub mod bin_document;
 mod bin_source;
+pub mod capped;
 pub mod config;
 pub mod deep_link;
 pub mod diagnostics;

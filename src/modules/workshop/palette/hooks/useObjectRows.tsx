@@ -44,22 +44,21 @@ export function useObjectRows(term: string, query: string, enabled: boolean): Pa
       return group(label, [noticeRow("objects:failed", errorSummary(data.error))]);
     }
 
-    if (data.superseded) return null;
-
-    if (data.classes.length > 0) {
+    const result = data.value;
+    if (result.classes.length > 0) {
       return {
         source: "objects",
         label: m.workshop_objects_classes_label(),
-        rows: data.classes.map((hit) => toClassRow(hit, query)),
-        total: data.classes.length,
+        rows: result.classes.map((hit) => toClassRow(hit, query)),
+        total: result.classes.length,
         pending: isFetching,
       };
     }
 
     /* A hash finds its object with no table at all, so the notice waits for a
        query that came back empty. */
-    if (data.hits.length === 0) {
-      if (data.unnamed) {
+    if (result.hits.length === 0) {
+      if (result.unnamed) {
         return group(label, [noticeRow("objects:unnamed", m.workshop_objects_unnamed_label())]);
       }
       return null;
@@ -68,8 +67,8 @@ export function useObjectRows(term: string, query: string, enabled: boolean): Pa
     return {
       source: "objects",
       label,
-      rows: data.hits.map(toRow),
-      total: data.total,
+      rows: result.hits.map(toRow),
+      total: result.total,
       pending: isFetching,
     };
   }, [data, enabled, error, isFetching, query, setting, term]);

@@ -1,8 +1,7 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useRemeasure, useZoomedPx } from "@/hooks";
+import { useZoomedPx } from "@/hooks";
 import type { LayerContent } from "@/lib/tauri";
 
 import {
@@ -10,7 +9,7 @@ import {
   ignoreRulesDocument,
   previewDocument,
 } from "../../documents/utils/contentDocument";
-import { type NodeActivation, useReadOnlyTreeNav, useStickyTreeRows } from "../../hooks";
+import { type NodeActivation, useBrowseTree, useReadOnlyTreeNav } from "../../hooks";
 import { MODIGNORE_FILE_NAME } from "../../ignore-rules";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import { VirtualTree } from "../../shared/components/VirtualTree";
@@ -46,6 +45,10 @@ const ROW_HEIGHT = 24;
 
 /* The `py-1` above the first row, which the pinned band reads the scroll past. */
 const CONTENT_TOP = 4;
+
+function rowKey(row: FlatTreeRow): string {
+  return nodeKey(row.node);
+}
 
 interface ContentTreeProps {
   layer: LayerContent;
@@ -111,8 +114,6 @@ export function ContentTree({ layer }: ContentTreeProps) {
     [openDocument, documentFor],
   );
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-
   const isOpenBranch = useCallback(
     (row: FlatTreeRow) => row.node.type === "dir" && !collapsed.has(row.node.path),
     [collapsed],
@@ -121,25 +122,13 @@ export function ContentTree({ layer }: ContentTreeProps) {
   const zoomed = useZoomedPx();
   const rowHeight = zoomed(ROW_HEIGHT);
 
-  const { sticky, height: stickyHeight } = useStickyTreeRows({
+  const { scrollRef, virtualizer, sticky } = useBrowseTree({
     rows,
-    scrollElementRef: scrollRef,
     rowHeight,
     offsetTop: CONTENT_TOP,
+    keyOf: rowKey,
     isOpenBranch,
   });
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 12,
-    getItemKey: (index) => nodeKey(rows[index]!.node),
-    /* Everything the tree scrolls to itself clears the pinned band rather than
-       landing under it. */
-    scrollPaddingStart: stickyHeight,
-  });
-  useRemeasure(virtualizer, rowHeight);
 
   /* The tree owns the confirmation rather than the menu, so the keyboard route
      and the menu item reach the same one. The node rather than what the
@@ -271,7 +260,7 @@ export function ContentTree({ layer }: ContentTreeProps) {
         rows={rows}
         items={virtualizer.getVirtualItems()}
         totalSize={virtualizer.getTotalSize()}
-        sticky={{ rows: sticky, height: stickyHeight }}
+        sticky={sticky}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
         menu={

@@ -1,11 +1,18 @@
 import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
 
-import { api, type AppError, type ObjectReferences, type ReferenceQuery } from "@/lib/tauri";
+import {
+  api,
+  type AppError,
+  type IndexAnswer,
+  type ReferenceQuery,
+  type ReferenceResult,
+} from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
 
 /* The leaves rather than the browsers' barrels, which reach this module back through
    the documents registry mid-evaluation, their keys unbound. */
-import { BUILDING_POLL_MS, gameKeys } from "../../gameBrowser/api/keys";
+import { gameKeys } from "../../gameBrowser/api/keys";
+import { pollUntilReady } from "../../shared/api/indexQueries";
 import type { ReferenceRequest } from "../../state";
 
 export const referenceKeys = {
@@ -35,16 +42,13 @@ export const referenceQueries = {
      stands until Run again rather than being asked again on every mount and focus. */
   forRequest: (request: ReferenceRequest | null) => {
     const walk = request !== null && isWalk(request.query);
-    return queryOptions<ObjectReferences, AppError>({
+    return queryOptions<IndexAnswer<ReferenceResult>, AppError>({
       queryKey: referenceKeys.request(request),
       queryFn: request
         ? queryFnWithArgs(api.objects.references, request.query, request.project)
         : skipToken,
       placeholderData: keepPreviousData,
-      refetchInterval: (result) => {
-        const status = result.state.data?.status;
-        return status === "building" || status === "absent" ? BUILDING_POLL_MS : false;
-      },
+      refetchInterval: (result) => pollUntilReady(result.state.data?.status),
       refetchOnWindowFocus: !walk,
       staleTime: walk ? Infinity : 0,
       gcTime: walk ? WALK_GC_MS : 0,

@@ -1,8 +1,7 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useRemeasure, useZoomedPx } from "@/hooks";
+import { useZoomedPx } from "@/hooks";
 import {
   useExplorerTreeArtShape,
   useExplorerTreeRowHeight,
@@ -17,12 +16,12 @@ import {
 } from "../../explorer";
 import { artBoxFor } from "../../explorer/utils/detailsRow";
 import { artSlotWidth, treeArtRequestWidth } from "../../explorer/utils/treeArt";
-import { type NodeActivation, useReadOnlyTreeNav, useStickyTreeRows } from "../../hooks";
+import { type NodeActivation, useBrowseTree, useReadOnlyTreeNav, useTreeReveal } from "../../hooks";
 import { stirImages } from "../../preview/hooks/useImageSlot";
 import { VirtualTree } from "../../shared/components/VirtualTree";
 import { createGuideStore, GuideStoreContext } from "../../shared/state/treeGuides";
 import { treeItemIndexOf } from "../../shared/utils/tree";
-import { type GameReveal, keepScrollTop, keptScrollTop } from "../../state";
+import type { RowReveal } from "../../state";
 import { type ExtractHow, useExtractActions } from "../extraction/hooks/useExtractActions";
 import { type DirTargets, filesUnder, fileTarget } from "../extraction/utils/extractTargets";
 import { chunkAsset, useWadSource } from "../state/wadSource";
@@ -76,7 +75,7 @@ interface SourceTreeProps {
   /** What a run against the selection takes, where one is being held. */
   selectionTargets?: () => ReturnType<DirTargets>;
   /** The row this tree is asked to focus, or null while none is owed. */
-  reveal?: GameReveal | null;
+  reveal?: RowReveal | null;
   /** The reveal with `token` landed, or has no row to land on. */
   onRevealed?: (token: number) => void;
 }
@@ -98,17 +97,6 @@ export function SourceTree({
   reveal = null,
   onRevealed,
 }: SourceTreeProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [initialOffset] = useState(() => (scrollKey ? keptScrollTop(scrollKey) : 0));
-
-  /* The live element rather than one captured at mount, because where it ended
-     up is the whole point of reading it here. */
-  useEffect(() => {
-    if (!scrollKey) return;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    return () => keepScrollTop(scrollKey, scrollRef.current?.scrollTop ?? 0);
-  }, [scrollKey]);
-
   const isOpenBranch = useCallback(
     (row: SourceRow) => row.node.type === "dir" && isExpanded(row.node),
     [isExpanded],
@@ -118,26 +106,14 @@ export function SourceTree({
   const art = useTreeArt();
   const rowHeight = zoomed(art.height);
 
-  const { sticky, height: stickyHeight } = useStickyTreeRows({
+  const { scrollRef, virtualizer, sticky } = useBrowseTree({
     rows,
-    scrollElementRef: scrollRef,
     rowHeight,
     offsetTop: CONTENT_TOP,
+    keyOf: rowKey,
     isOpenBranch,
+    scrollKey,
   });
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 12,
-    getItemKey: (index) => rows[index]!.node.id,
-    initialOffset,
-    /* Everything the tree scrolls to itself clears the pinned band rather than
-       landing under it. */
-    scrollPaddingStart: stickyHeight,
-  });
-  useRemeasure(virtualizer, rowHeight);
 
   /* Every tree of the browser offers the same ways out, so the routes are read
      here rather than handed down by the three documents that mount one. */
@@ -211,23 +187,19 @@ export function SourceTree({
     scrollElementRef: scrollRef,
   });
 
-  /* The row lands with the listing that holds it, at its first appearance in
-     `rows`. An id no row carries settles with the last loading row. */
-  const revealed = useRef<number | null>(null);
-  useEffect(() => {
-    if (reveal === null || revealed.current === reveal.token) return;
-    const index = rows.findIndex((row) => row.node.id === reveal.id);
-    if (index < 0 && rows.some((row) => row.node.type === "loading")) return;
-    revealed.current = reveal.token;
+  const landReveal = useCallback(
+    (index: number) => {
+      moveFocus(index);
 
-    const id = index < 0 ? null : idOf(rows[index]!.node);
-    if (index >= 0) moveFocus(index);
-    /* A tree drawing a selection marks the selected rows and never the focused
-       one, so a reveal that only moved the focus would land on nothing a
-       reader can see. */
-    if (selection && id !== null) selection.select(id, { toggle: false, extend: false });
-    onRevealed?.(reveal.token);
-  }, [reveal, rows, onRevealed, moveFocus, selection]);
+      /* A tree drawing a selection marks the selected rows and never the focused
+         one, so a reveal that only moved the focus would land on nothing a
+         reader can see. */
+      const id = idOf(rows[index]!.node);
+      if (selection && id !== null) selection.select(id, { toggle: false, extend: false });
+    },
+    [moveFocus, rows, selection],
+  );
+  useTreeReveal(rows, reveal, landReveal, onRevealed);
 
   /* Outside React state, so a pointer crossing the rows redraws the guides and nothing else. */
   const [guides] = useState(createGuideStore);
@@ -299,7 +271,7 @@ export function SourceTree({
         rows={rows}
         items={virtualizer.getVirtualItems()}
         totalSize={virtualizer.getTotalSize()}
-        sticky={{ rows: sticky, height: stickyHeight }}
+        sticky={sticky}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}
         onMouseOver={handleMouseOver}
@@ -382,6 +354,10 @@ function useTreeArt(): { height: number; row: SourceTreeArt | null } {
     };
     return { height, row };
   }, [thumbnails, height, shape, source, zoomed]);
+}
+
+function rowKey(row: SourceRow): string {
+  return row.node.id;
 }
 
 /** What the selection holds an item by: a directory's path, a file's hash. */

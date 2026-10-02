@@ -37,18 +37,33 @@ use tauri::{AppHandle, Manager};
 /// The managed object index, keeping a failed build as the error the frontend reads.
 pub type ObjectIndexState = object_index::ObjectIndexState<AppErrorResponse>;
 
-/// What a search answers, given the slot the index is in.
+/// An answer of the object index, given the slot the index is in.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(tag = "status", rename_all = "camelCase")]
-pub enum ObjectSearch {
+pub enum IndexAnswer<T> {
     /// Nothing has warmed the index, or the switch that gates it is off.
     Absent,
-    /// A build is running, so the rows are on their way.
+    /// A build is running. The answer follows it.
     Building,
     /// The last build failed, and the next warm retries it.
     Failed { error: AppErrorResponse },
     /// The index answered.
-    Ready(ObjectSearchResult),
+    Ready { value: T },
+}
+
+/// `read` of the ready index, or the slot the index is in when it is not ready.
+fn answer<T>(
+    app: &AppHandle,
+    read: impl FnOnce(Arc<ObjectIndex>) -> AppResult<T>,
+) -> AppResult<IndexAnswer<T>> {
+    let index = match app.state::<ObjectIndexState>().snapshot() {
+        ObjectIndexSnapshot::Absent => return Ok(IndexAnswer::Absent),
+        ObjectIndexSnapshot::Building => return Ok(IndexAnswer::Building),
+        ObjectIndexSnapshot::Failed(error) => return Ok(IndexAnswer::Failed { error }),
+        ObjectIndexSnapshot::Ready(index) => index,
+    };
+
+    read(index).map(|value| IndexAnswer::Ready { value })
 }
 
 /// Build the object index, unless one is built or building.
@@ -115,56 +130,26 @@ pub async fn drop_object_index(app_handle: AppHandle) -> IpcResult<()> {
 /// only the object scan it overtakes.
 #[tauri::command]
 #[specta::specta]
-pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcResult<ObjectSearch> {
+pub async fn search_object_index(
+    query: String,
+    app_handle: AppHandle,
+) -> IpcResult<IndexAnswer<ObjectSearchResult>> {
     let overtaken = overtaken::<line::ObjectSearch>(&app_handle);
 
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
-            ObjectIndexSnapshot::Absent => return Ok(ObjectSearch::Absent),
-            ObjectIndexSnapshot::Building => return Ok(ObjectSearch::Building),
-            ObjectIndexSnapshot::Failed(error) => return Ok(ObjectSearch::Failed { error }),
-            ObjectIndexSnapshot::Ready(index) => index,
-        };
-
-        let result = index.search(&query, overtaken);
-        tracing::debug!(
-            query = %query,
-            hits = result.hits.len(),
-            total = result.total,
-            superseded = result.superseded,
-            "Searched the bin object index"
-        );
-        Ok(ObjectSearch::Ready(result))
+        answer(&app_handle, |index| {
+            let result = index.search(&query, overtaken);
+            tracing::debug!(
+                query = %query,
+                hits = result.hits.len(),
+                total = result.total,
+                superseded = result.superseded,
+                "Searched the bin object index"
+            );
+            Ok(result)
+        })
     })
     .await
-}
-
-/// What one prefix of the object tree holds, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(tag = "status", rename_all = "camelCase")]
-pub enum ObjectDir {
-    /// Nothing has warmed the index, or the switch that gates it is off.
-    Absent,
-    /// A build is running. The listing follows it.
-    Building,
-    /// The last build failed, and the next warm retries it.
-    Failed { error: AppErrorResponse },
-    /// The index answered.
-    Ready(ObjectDirListing),
-}
-
-/// The character spell catalog and the index state supplying it.
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(tag = "status", rename_all = "camelCase")]
-pub enum CharacterSpells {
-    /// Nothing has warmed the index.
-    Absent,
-    /// The catalog is waiting for an index build.
-    Building,
-    /// The last index build failed.
-    Failed { error: AppErrorResponse },
-    /// Every named spell for the requested character.
-    Ready(SpellCatalog),
 }
 
 /// The install's spells below `Characters/{character}/Spells`.
@@ -173,17 +158,11 @@ pub enum CharacterSpells {
 pub async fn character_spells(
     character: String,
     app_handle: AppHandle,
-) -> IpcResult<CharacterSpells> {
+) -> IpcResult<IndexAnswer<SpellCatalog>> {
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
-            ObjectIndexSnapshot::Absent => return Ok(CharacterSpells::Absent),
-            ObjectIndexSnapshot::Building => return Ok(CharacterSpells::Building),
-            ObjectIndexSnapshot::Failed(error) => return Ok(CharacterSpells::Failed { error }),
-            ObjectIndexSnapshot::Ready(index) => index,
-        };
-        Ok(CharacterSpells::Ready(spell::character_spells(
-            &index, &character,
-        )))
+        answer(&app_handle, |index| {
+            Ok(spell::character_spells(&index, &character))
+        })
     })
     .await
 }
@@ -195,34 +174,18 @@ pub async fn character_spells(
 /// "Objects browser" in `docs/ux/PROJECT_EDITOR.md`.
 #[tauri::command]
 #[specta::specta]
-pub async fn object_dir(prefix: String, app_handle: AppHandle) -> IpcResult<ObjectDir> {
+pub async fn object_dir(
+    prefix: String,
+    app_handle: AppHandle,
+) -> IpcResult<IndexAnswer<ObjectDirListing>> {
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
-            ObjectIndexSnapshot::Absent => return Ok(ObjectDir::Absent),
-            ObjectIndexSnapshot::Building => return Ok(ObjectDir::Building),
-            ObjectIndexSnapshot::Failed(error) => return Ok(ObjectDir::Failed { error }),
-            ObjectIndexSnapshot::Ready(index) => index,
-        };
-        let listing = index.object_dir(&prefix).ok_or_else(|| {
-            AppError::InvalidPath(format!("No such prefix in the object index: {prefix}"))
-        })?;
-        Ok(ObjectDir::Ready(listing))
+        answer(&app_handle, |index| {
+            index.object_dir(&prefix).ok_or_else(|| {
+                AppError::InvalidPath(format!("No such prefix in the object index: {prefix}"))
+            })
+        })
     })
     .await
-}
-
-/// How many objects of the install declare a class, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(tag = "status", rename_all = "camelCase")]
-pub enum ClassObjectCount {
-    /// Nothing has warmed the index, or the switch that gates it is off.
-    Absent,
-    /// A build is running. The count follows it.
-    Building,
-    /// The last build failed, and the next warm retries it.
-    Failed { error: AppErrorResponse },
-    /// The index answered.
-    Ready { count: u32 },
 }
 
 /// How many objects of the install declare the class `class_hash`, for the class card.
@@ -231,33 +194,14 @@ pub enum ClassObjectCount {
 pub async fn class_object_count(
     class_hash: HexBinHash,
     app_handle: AppHandle,
-) -> IpcResult<ClassObjectCount> {
+) -> IpcResult<IndexAnswer<u32>> {
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
-            ObjectIndexSnapshot::Absent => return Ok(ClassObjectCount::Absent),
-            ObjectIndexSnapshot::Building => return Ok(ClassObjectCount::Building),
-            ObjectIndexSnapshot::Failed(error) => return Ok(ClassObjectCount::Failed { error }),
-            ObjectIndexSnapshot::Ready(index) => index,
-        };
-
-        let count = u32::try_from(index.class_object_count(class_hash.get())).unwrap_or(u32::MAX);
-        Ok(ClassObjectCount::Ready { count })
+        answer(&app_handle, |index| {
+            let count = index.class_object_count(class_hash.get());
+            Ok(u32::try_from(count).unwrap_or(u32::MAX))
+        })
     })
     .await
-}
-
-/// What a full search of the objects found, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(tag = "status", rename_all = "camelCase")]
-pub enum ObjectFind {
-    /// Nothing has warmed the index, or the switch that gates it is off.
-    Absent,
-    /// A build is running. The hits follow it.
-    Building,
-    /// The last build failed, and the next warm retries it.
-    Failed { error: AppErrorResponse },
-    /// The index answered.
-    Ready(ObjectFindResult),
 }
 
 /// Every object of the install matching `pattern`, in path order.
@@ -278,33 +222,28 @@ pub async fn find_objects(
     regex: bool,
     class_term: Option<String>,
     app_handle: AppHandle,
-) -> IpcResult<ObjectFind> {
+) -> IpcResult<IndexAnswer<ObjectFindResult>> {
     let query = match find_query(&pattern, regex) {
         Ok(query) => query,
-        Err(e) => return IpcResult::from(Err::<ObjectFind, _>(e)),
+        Err(e) => return IpcResult::from(Err::<IndexAnswer<ObjectFindResult>, _>(e)),
     };
 
     let overtaken = overtaken::<line::ObjectFind>(&app_handle);
 
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
-            ObjectIndexSnapshot::Absent => return Ok(ObjectFind::Absent),
-            ObjectIndexSnapshot::Building => return Ok(ObjectFind::Building),
-            ObjectIndexSnapshot::Failed(error) => return Ok(ObjectFind::Failed { error }),
-            ObjectIndexSnapshot::Ready(index) => index,
-        };
-
-        let result = index.find(query.as_ref(), class_term.as_deref(), overtaken);
-        tracing::debug!(
-            pattern = %pattern,
-            regex,
-            class = class_term.as_deref().unwrap_or(""),
-            hits = result.hits.len(),
-            total = result.total,
-            superseded = result.superseded,
-            "Ran a full search of the bin object index"
-        );
-        Ok(ObjectFind::Ready(result))
+        answer(&app_handle, |index| {
+            let result = index.find(query.as_ref(), class_term.as_deref(), overtaken);
+            tracing::debug!(
+                pattern = %pattern,
+                regex,
+                class = class_term.as_deref().unwrap_or(""),
+                hits = result.hits.len(),
+                total = result.total,
+                superseded = result.superseded,
+                "Ran a full search of the bin object index"
+            );
+            Ok(result)
+        })
     })
     .await
 }
@@ -383,20 +322,6 @@ impl ReferenceQuery {
     }
 }
 
-/// What a reference query found, given the slot the index is in.
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(tag = "status", rename_all = "camelCase")]
-pub enum ObjectReferences {
-    /// Nothing has warmed the index, or the switch that gates it is off.
-    Absent,
-    /// A build is running. The groups follow it.
-    Building,
-    /// The last build failed, and the next warm retries it.
-    Failed { error: AppErrorResponse },
-    /// The index or the walk answered.
-    Ready(ReferenceResult),
-}
-
 /// The walk in flight, whose budget a cancel calls off.
 ///
 /// One at a time, because the References document asks one question. A newer query
@@ -421,37 +346,32 @@ pub async fn find_references(
     query: ReferenceQuery,
     project: Option<String>,
     app_handle: AppHandle,
-) -> IpcResult<ObjectReferences> {
+) -> IpcResult<IndexAnswer<ReferenceResult>> {
     let lookup = match query.resolve() {
         Ok(lookup) => lookup,
-        Err(e) => return IpcResult::from(Err::<ObjectReferences, _>(e)),
+        Err(e) => return IpcResult::from(Err::<IndexAnswer<ReferenceResult>, _>(e)),
     };
 
     let overtaken = overtaken::<line::References>(&app_handle);
 
     off_thread(move || {
-        let index = match app_handle.state::<ObjectIndexState>().snapshot() {
-            ObjectIndexSnapshot::Absent => return Ok(ObjectReferences::Absent),
-            ObjectIndexSnapshot::Building => return Ok(ObjectReferences::Building),
-            ObjectIndexSnapshot::Failed(error) => return Ok(ObjectReferences::Failed { error }),
-            ObjectIndexSnapshot::Ready(index) => index,
-        };
-
-        let result = match lookup {
-            ReferenceLookup::Class(class) => index.class_references(class, overtaken),
-            ReferenceLookup::Walk(target) => {
-                walk(&app_handle, &index, target, project.as_deref(), overtaken)?
-            }
-        };
-        tracing::debug!(
-            query = ?query,
-            groups = result.groups.len(),
-            total = result.total,
-            superseded = result.superseded,
-            cancelled = result.cancelled,
-            "Answered a reference query"
-        );
-        Ok(ObjectReferences::Ready(result))
+        answer(&app_handle, |index| {
+            let result = match lookup {
+                ReferenceLookup::Class(class) => index.class_references(class, overtaken),
+                ReferenceLookup::Walk(target) => {
+                    walk(&app_handle, &index, target, project.as_deref(), overtaken)?
+                }
+            };
+            tracing::debug!(
+                query = ?query,
+                groups = result.groups.len(),
+                total = result.total,
+                superseded = result.superseded,
+                cancelled = result.cancelled,
+                "Answered a reference query"
+            );
+            Ok(result)
+        })
     })
     .await
 }

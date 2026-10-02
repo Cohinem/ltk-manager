@@ -7,7 +7,7 @@ import { m } from "@/i18n";
 
 import { useMeasuredWidth } from "../../explorer/components/ExplorerSurface";
 import { nameTypeFor } from "../../explorer/utils/tileName";
-import { type ObjectsReveal, useSelectedObjectPath, useSelectObjectNode } from "../../state";
+import { type RowReveal, useSelectedObjectPath, useSelectObjectNode } from "../../state";
 import { useObjectPreviewKind } from "../hooks/useObjectPreviewKind";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
 import { usePreviewScope } from "../hooks/usePreviewScope";
@@ -73,7 +73,7 @@ interface ObjectsGridProps {
   size?: number;
   onDescend: (path: string) => void;
   onUp: () => void;
-  reveal?: ObjectsReveal | null;
+  reveal?: RowReveal | null;
   onRevealed?: (token: number) => void;
 }
 
@@ -148,13 +148,13 @@ export function ObjectsGrid({
   }, [aimed]);
 
   const rows = virtualizer.getVirtualItems();
-  const revealed = useRef<ObjectsReveal | null>(null);
+  const revealed = useRef<RowReveal | null>(null);
   useEffect(() => {
     if (reveal === null || revealed.current === reveal || !visible || width === 0) {
       return;
     }
 
-    const index = items.findIndex((node) => node.id === reveal.path);
+    const index = items.findIndex((node) => node.id === reveal.id);
     if (index < 0) {
       revealed.current = reveal;
       onRevealed?.(reveal.token);

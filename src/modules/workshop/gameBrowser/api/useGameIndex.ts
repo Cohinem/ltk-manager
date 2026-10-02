@@ -1,4 +1,4 @@
-import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 
 import { api, type AppError } from "@/lib/tauri";
@@ -7,6 +7,7 @@ import { useSearchObjects } from "@/stores";
 import { mutationFn } from "@/utils/query";
 
 import { useWarmObjectIndex } from "../../objectsBrowser/api/useObjectIndex";
+import { useListings } from "../../shared/api/indexQueries";
 import { useWadSource } from "../state/wadSource";
 import type { SourceDirListing } from "../utils/sourceIndex";
 import { gameKeys } from "./keys";
@@ -34,22 +35,13 @@ export function useGameDirs(
   paths: readonly string[],
 ): ReadonlyMap<string, SourceDirListing | null> {
   const source = useWadSource();
-  const combine = useCallback(
-    (results: ReadonlyArray<{ data?: SourceDirListing; isError: boolean }>) => {
-      const byPath = new Map<string, SourceDirListing | null>();
-      paths.forEach((path, index) => {
-        const result = results[index];
-        /* A directory the index no longer holds - a game patch under an
-           expansion restored from disk - reads as empty rather than as a row
-           that spins forever. */
-        byPath.set(path, result?.data ?? (result?.isError ? EMPTY_LISTING : null));
-      });
-      return byPath;
-    },
-    [paths],
-  );
+  const options = useCallback((path: string) => gameQueries.dir(source, path), [source]);
 
-  return useQueries({ queries: paths.map((path) => gameQueries.dir(source, path)), combine });
+  return useListings(paths, options, asListing, EMPTY_LISTING);
+}
+
+function asListing(listing: SourceDirListing): SourceDirListing {
+  return listing;
 }
 
 /** What the enclosing browser's folded index holds, once it is built. */

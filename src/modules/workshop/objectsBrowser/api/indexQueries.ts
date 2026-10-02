@@ -1,16 +1,23 @@
-import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
+import { queryOptions, skipToken } from "@tanstack/react-query";
 
 import {
   api,
   type AppError,
   type DeclaredObjects,
-  type ObjectSearch,
+  type IndexAnswer,
+  type ObjectSearchResult,
   type SandboxRef,
 } from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
 
-import { BUILDING_POLL_MS, gameKeys } from "../../gameBrowser/api/keys";
+import { gameKeys } from "../../gameBrowser/api/keys";
 import { GAME_SANDBOX } from "../../sandbox/utils/sandboxRef";
+import {
+  liveSearchOptions,
+  pollUntilReady,
+  pollWhileBuilding,
+  supersededAnswer,
+} from "../../shared/api/indexQueries";
 
 /** What the object index answers, and how it reports a build still running. */
 export const objectIndexQueries = {
@@ -25,24 +32,16 @@ export const objectIndexQueries = {
           ? queryFnWithArgs(api.objects.declared, sandbox, [...objectHashes])
           : skipToken,
       staleTime: Infinity,
-      refetchInterval: (query) =>
-        query.state.data?.index.status === "building" ? BUILDING_POLL_MS : false,
+      refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
     }),
 
   /* The answer carries the slot the index is in, so a query typed while the build
      runs reads as building rather than as nothing, and asks again until the build
-     lands. Nothing is cached across a query, for the reason `gameQueries.search`
-     gives. */
+     lands. */
   search: (query: string, active: boolean) =>
-    queryOptions<ObjectSearch, AppError>({
+    queryOptions<IndexAnswer<ObjectSearchResult>, AppError>({
       queryKey: gameKeys.objectSearch(query),
       queryFn: active ? queryFnWithArgs(api.objects.search, query) : skipToken,
-      placeholderData: keepPreviousData,
-      refetchInterval: (result) => {
-        const status = result.state.data?.status;
-        return status === "building" || status === "absent" ? BUILDING_POLL_MS : false;
-      },
-      staleTime: 0,
-      gcTime: 0,
+      ...liveSearchOptions(supersededAnswer, (answer) => pollUntilReady(answer.status)),
     }),
 } as const;

@@ -289,7 +289,7 @@ it("scrolls and focuses a revealed tile without opening it, including a repeated
   state.width = 300;
   const settled = vi.fn();
   const { rerender } = render(
-    grid({ thumbnails: false, reveal: { path: nodes[1]!.id, token: 1 }, onRevealed: settled }),
+    grid({ thumbnails: false, reveal: { id: nodes[1]!.id, token: 1 }, onRevealed: settled }),
   );
   await wait(40);
   const tile = tileOf("Second effect");
@@ -298,7 +298,7 @@ it("scrolls and focuses a revealed tile without opening it, including a repeated
   expect(state.open).not.toHaveBeenCalled();
 
   rerender(
-    grid({ thumbnails: false, reveal: { path: nodes[1]!.id, token: 2 }, onRevealed: settled }),
+    grid({ thumbnails: false, reveal: { id: nodes[1]!.id, token: 2 }, onRevealed: settled }),
   );
   await wait(40);
   expect(settled).toHaveBeenLastCalledWith(2);

@@ -168,7 +168,7 @@ beforeEach(() => {
       return Promise.resolve({ ok: true, value: SCHEMA });
     if (command === commandNames.bin.classDocs) return Promise.resolve({ ok: true, value: DOCS });
     if (command === commandNames.objects.classObjectCount) {
-      return Promise.resolve({ ok: true, value: { status: "ready", count: 42 } });
+      return Promise.resolve({ ok: true, value: { status: "ready", value: 42 } });
     }
     if (command === commandNames.bin.syncMetaDocs) return Promise.resolve({ ok: true, value: 0 });
     return Promise.reject(new Error(`unexpected command ${command}`));

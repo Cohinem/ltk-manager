@@ -129,7 +129,8 @@ export function useSystemSteps({
         (listing) => {
           if (listing.status !== "ready") return;
 
-          const next = siblingSystem(objectListingNodes(listing, layers), objectHash, direction);
+          const nodes = objectListingNodes(listing.value, layers);
+          const next = siblingSystem(nodes, objectHash, direction);
           const opened = next === null ? null : objectNodeDocument(next);
           if (next === null || opened === null) return;
 

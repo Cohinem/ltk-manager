@@ -625,6 +625,27 @@ export type BulkInstallResult_Serialize = {
 	failed: BulkInstallError[],
 };
 
+/**  The rows one search of an index kept, cut at its limit, and how many matched in all. */
+export type Capped<T> = {
+	/**  The rows in the order the search gives them, at most its limit. */
+	hits: T[],
+	/**  How many rows matched in all, counted on past the cap. */
+	total: number,
+	/**
+	 *  A newer search overtook this one, so the hits are a part of the answer.
+	 * 
+	 *  The caller is expected to be showing the newer search by now.
+	 */
+	superseded: boolean,
+	/**
+	 *  No table named a single entry of the index, so only a hash can match.
+	 * 
+	 *  An index whose names never resolved answers every path query with nothing,
+	 *  which reads exactly like an index that holds no match. The caller says which.
+	 */
+	unnamed: boolean,
+};
+
 /**  Coarse grouping for the UI. */
 export type Category = 
 /**  OS-level checks (Windows version, UAC, long paths). */
@@ -681,19 +702,6 @@ export type CharacterSpell = {
 	/**  Every declaration, including conflicting classes, in archive order. */
 	declarations: ObjectDeclaration[],
 };
-
-/**  The character spell catalog and the index state supplying it. */
-export type CharacterSpells = 
-/**  Nothing has warmed the index. */
-({ status: "absent" }) & { error?: never } | 
-/**  The catalog is waiting for an index build. */
-({ status: "building" }) & { error?: never } | 
-/**  The last index build failed. */
-{ status: "failed"; error: AppErrorResponse } | 
-/**  Every named spell for the requested character. */
-{
-	status: "ready",
-} & SpellCatalog;
 
 /**  Result of a single diagnostic check. */
 export type Check = Check_Serialize | Check_Deserialize;
@@ -805,17 +813,6 @@ export type ClassDocs = {
 	/**  Keyed by the property's hash, `0x` and eight hex digits. */
 	properties: { [key in string]: PropertyDocs },
 };
-
-/**  How many objects of the install declare a class, given the slot the index is in. */
-export type ClassObjectCount = 
-/**  Nothing has warmed the index, or the switch that gates it is off. */
-{ status: "absent" } | 
-/**  A build is running. The count follows it. */
-{ status: "building" } | 
-/**  The last build failed, and the next warm retries it. */
-{ status: "failed"; error: AppErrorResponse } | 
-/**  The index answered. */
-{ status: "ready"; count: number };
 
 /**  A class as a card names it. */
 export type ClassRef = {
@@ -2329,23 +2326,6 @@ export type GameFindHit = {
 	pathRanges: ([number, number])[],
 };
 
-/**  What one full search of the folded index found. */
-export type GameFindResult = {
-	/**  Every matching row in tree order, capped at [`FIND_LIMIT`]. */
-	hits: GameFindHit[],
-	/**  How many files matched in all, counted on past the cap. */
-	total: number,
-	/**
-	 *  A newer search started before this one finished, so it gave up early.
-	 * 
-	 *  Its rows are whatever it had found, which is not the whole answer. The
-	 *  caller is expected to be showing the newer pattern by now.
-	 */
-	superseded: boolean,
-	/**  No hash table named a single chunk, so only a hash can match. */
-	unnamed: boolean,
-};
-
 /**  What a built index holds. */
 export type GameIndexStats = {
 	/**  Archives merged, including any that failed to read. */
@@ -2404,29 +2384,6 @@ export type GameSearchHit = {
 	score: number | null,
 	nameRanges: ([number, number])[],
 	pathRanges: ([number, number])[],
-};
-
-/**  What one search of the folded index found. */
-export type GameSearchResult = {
-	/**  The best rows, best first, capped at [`SEARCH_LIMIT`]. */
-	hits: GameSearchHit[],
-	/**  How many files matched in all, which the cap trimmed. */
-	total: number,
-	/**
-	 *  A newer search started before this one finished, so it gave up early.
-	 * 
-	 *  Its rows are whatever it had found, which is not the whole answer. The
-	 *  caller is expected to be showing the newer query by now.
-	 */
-	superseded: boolean,
-	/**
-	 *  No hash table named a single chunk, so only a hash can match.
-	 * 
-	 *  An install whose names never resolved answers every path query with
-	 *  nothing, which reads exactly like an install that holds no match. The
-	 *  caller says which of the two it is.
-	 */
-	unnamed: boolean,
 };
 
 /**  One chunk of a WAD archive. */
@@ -3083,6 +3040,17 @@ export type Incident_Serialize = {
 	/**  The user has seen it and closed the line. */
 	dismissed: boolean,
 };
+
+/**  An answer of the object index, given the slot the index is in. */
+export type IndexAnswer<T> = 
+/**  Nothing has warmed the index, or the switch that gates it is off. */
+{ status: "absent" } | 
+/**  A build is running. The answer follows it. */
+{ status: "building" } | 
+/**  The last build failed, and the next warm retries it. */
+{ status: "failed"; error: AppErrorResponse } | 
+/**  The index answered. */
+{ status: "ready"; value: T };
 
 /**  Which stage of a start failed, for [`PatcherError::InjectionFailed`]. */
 export type InjectionStage = 
@@ -4621,19 +4589,6 @@ export type ObjectDeclaration = {
 	class: string,
 };
 
-/**  What one prefix of the object tree holds, given the slot the index is in. */
-export type ObjectDir = 
-/**  Nothing has warmed the index, or the switch that gates it is off. */
-({ status: "absent" }) & { error?: never } | 
-/**  A build is running. The listing follows it. */
-({ status: "building" }) & { error?: never } | 
-/**  The last build failed, and the next warm retries it. */
-{ status: "failed"; error: AppErrorResponse } | 
-/**  The index answered. */
-{
-	status: "ready",
-} & ObjectDirListing;
-
 /**
  *  What one prefix of the object tree holds.
  * 
@@ -4658,19 +4613,6 @@ export type ObjectEdit =
 /**  Take back the removal of `entry`. [`BinDocument::restore_object`]. */
 { kind: "restore"; entry: string };
 
-/**  What a full search of the objects found, given the slot the index is in. */
-export type ObjectFind = 
-/**  Nothing has warmed the index, or the switch that gates it is off. */
-({ status: "absent" }) & { error?: never } | 
-/**  A build is running. The hits follow it. */
-({ status: "building" }) & { error?: never } | 
-/**  The last build failed, and the next warm retries it. */
-{ status: "failed"; error: AppErrorResponse } | 
-/**  The index answered. */
-{
-	status: "ready",
-} & ObjectFindResult;
-
 /**  One object the full search matched, with the runs its path marks. */
 export type ObjectFindHit = {
 	/**  The object's path hash, as `0x` and eight hex digits. */
@@ -4681,18 +4623,6 @@ export type ObjectFindHit = {
 	ranges: ([number, number])[],
 	/**  Every declaration of the object, in archive order. */
 	declarations: ObjectDeclaration[],
-};
-
-/**  What one full search of the object index found. */
-export type ObjectFindResult = {
-	/**  Every matching object in path order, capped at `FIND_LIMIT`, the unnamed last. */
-	hits: ObjectFindHit[],
-	/**  How many objects matched in all, counted on past the cap. */
-	total: number,
-	/**  A newer search overtook this one. The hits are a part of the answer. */
-	superseded: boolean,
-	/**  No table named a single object. Only a hash can match. */
-	unnamed: boolean,
 };
 
 /**  The slot the index is in, as an answer reports it. */
@@ -4787,32 +4717,6 @@ export type ObjectPrefixEntry = {
 	/**  Objects below the prefix. */
 	count: number,
 };
-
-/**  What a reference query found, given the slot the index is in. */
-export type ObjectReferences = 
-/**  Nothing has warmed the index, or the switch that gates it is off. */
-({ status: "absent" }) & { error?: never } | 
-/**  A build is running. The groups follow it. */
-({ status: "building" }) & { error?: never } | 
-/**  The last build failed, and the next warm retries it. */
-{ status: "failed"; error: AppErrorResponse } | 
-/**  The index or the walk answered. */
-{
-	status: "ready",
-} & ReferenceResult;
-
-/**  What a search answers, given the slot the index is in. */
-export type ObjectSearch = 
-/**  Nothing has warmed the index, or the switch that gates it is off. */
-({ status: "absent" }) & { error?: never } | 
-/**  A build is running, so the rows are on their way. */
-({ status: "building" }) & { error?: never } | 
-/**  The last build failed, and the next warm retries it. */
-{ status: "failed"; error: AppErrorResponse } | 
-/**  The index answered. */
-{
-	status: "ready",
-} & ObjectSearchResult;
 
 /**
  *  One row a search matched, with the runs its path marks.

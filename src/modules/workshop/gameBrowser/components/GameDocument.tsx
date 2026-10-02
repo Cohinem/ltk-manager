@@ -10,7 +10,7 @@ import {
   Spinner,
 } from "@/components";
 import { m } from "@/i18n";
-import type { GameFindResult } from "@/lib/tauri";
+import type { Capped, GameFindHit } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { useExplorerThumbnails, useExplorerTileSize, useExplorerView } from "@/stores";
 import { twMerge } from "@/utils";
@@ -333,7 +333,7 @@ function SearchField({ boxRef }: SearchFieldProps) {
 }
 
 /** What the find turned up, and how much of it the answer carries. */
-export function MatchCount({ result }: { result: GameFindResult }) {
+export function MatchCount({ result }: { result: Capped<GameFindHit> }) {
   const formatted = result.total.toLocaleString();
 
   if (result.hits.length < result.total) {

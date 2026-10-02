@@ -1,17 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-
-import { useDebouncedValue } from "@/hooks";
-
+import { FIND_DEBOUNCE_MS, supersededScan, useLiveSearch } from "../../shared/api/indexQueries";
 import { useWadSource } from "../state/wadSource";
 import { gameQueries } from "./queries";
-
-/**
- * How long the box waits before it asks the backend.
- *
- * Longer than the palette's 120ms, because a full search hands back every hit
- * rather than a ranked page, so a keystroke costs more to answer.
- */
-export const FIND_DEBOUNCE_MS = 200;
 
 /**
  * Every file of the enclosing browser's source matching `pattern`, in tree order.
@@ -21,7 +10,11 @@ export const FIND_DEBOUNCE_MS = 200;
  */
 export function useGameFind(pattern: string, regex: boolean) {
   const source = useWadSource();
-  const debounced = useDebouncedValue(pattern, FIND_DEBOUNCE_MS);
 
-  return useQuery(gameQueries.find(source, debounced, regex, debounced.length > 0));
+  return useLiveSearch(
+    pattern,
+    FIND_DEBOUNCE_MS,
+    (debounced) => gameQueries.find(source, debounced, regex, debounced.length > 0),
+    supersededScan,
+  );
 }

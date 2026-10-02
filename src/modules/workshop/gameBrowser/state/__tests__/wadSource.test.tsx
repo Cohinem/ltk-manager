@@ -13,7 +13,7 @@ function inClient({ children }: { children: ReactNode }) {
 
 describe("a browser's source", () => {
   it("keeps the League client's tree apart from the game's", () => {
-    useGameBrowserStore.setState({ expandedDirs: new Set() });
+    useGameBrowserStore.setState({ expanded: new Set() });
     const client = renderHook(() => ({ open: useExpandedGameDirs(), toggle: useToggleGameDir() }), {
       wrapper: inClient,
     });
@@ -21,11 +21,11 @@ describe("a browser's source", () => {
     act(() => client.result.current.toggle("plugins"));
 
     expect(client.result.current.open).toEqual(new Set(["plugins"]));
-    expect(useGameBrowserStore.getState().expandedDirs).toEqual(new Set());
+    expect(useGameBrowserStore.getState().expanded).toEqual(new Set());
   });
 
   it("reads the game outside every browser", () => {
-    useGameBrowserStore.setState({ expandedDirs: new Set(["assets"]) });
+    useGameBrowserStore.setState({ expanded: new Set(["assets"]) });
     const { result } = renderHook(() => useExpandedGameDirs());
 
     expect(result.current).toEqual(new Set(["assets"]));

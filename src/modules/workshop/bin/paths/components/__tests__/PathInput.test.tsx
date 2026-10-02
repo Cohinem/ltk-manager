@@ -5,7 +5,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ContentTree, GameSearchResult, WorkshopProject } from "@/lib/tauri";
+import type { Capped, ContentTree, GameSearchHit, WorkshopProject } from "@/lib/tauri";
 import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -53,7 +53,7 @@ const TREE: ContentTree = {
   ],
 };
 
-const SEARCH: GameSearchResult = {
+const SEARCH: Capped<GameSearchHit> = {
   hits: [
     {
       pathHash: "00aa00aa00aa00aa",

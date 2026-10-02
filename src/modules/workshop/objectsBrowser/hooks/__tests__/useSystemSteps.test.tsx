@@ -84,8 +84,7 @@ function Providers({ children }: { children: ReactNode }) {
     const created = createTestQueryClient();
     created.setQueryData(objectKeys.dir("Effects"), {
       status: "ready",
-      prefixes: [],
-      objects: FOLDER,
+      value: { prefixes: [], objects: FOLDER },
     });
     return created;
   });

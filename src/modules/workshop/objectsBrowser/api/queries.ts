@@ -1,11 +1,18 @@
-import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
+import { queryOptions, skipToken } from "@tanstack/react-query";
 
-import { api, type AppError, type ObjectDir, type ObjectFind } from "@/lib/tauri";
+import {
+  api,
+  type AppError,
+  type Capped,
+  type IndexAnswer,
+  type ObjectDirListing,
+  type ObjectFindHit,
+} from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
 
 /* The leaves rather than the browser's barrel. The barrel reaches this module back
    through the documents registry mid-evaluation, its keys unbound. */
-import { BUILDING_POLL_MS } from "../../gameBrowser/api/keys";
+import { liveSearchOptions, pollUntilReady, supersededAnswer } from "../../shared/api/indexQueries";
 import { objectKeys } from "./keys";
 
 /** The object tree of the install, in the slot the index is in. */
@@ -13,28 +20,19 @@ export const objectTreeQueries = {
   /* The install's for the session. A warm or a drop settling asks again, and an
      answer the build has not given asks again each second. */
   dir: (prefix: string) =>
-    queryOptions<ObjectDir, AppError>({
+    queryOptions<IndexAnswer<ObjectDirListing>, AppError>({
       queryKey: objectKeys.dir(prefix),
       queryFn: queryFnWithArgs(api.objects.dir, prefix),
       staleTime: Infinity,
-      refetchInterval: (query) => {
-        const status = query.state.data?.status;
-        return status === "building" || status === "absent" ? BUILDING_POLL_MS : false;
-      },
+      refetchInterval: (query) => pollUntilReady(query.state.data?.status),
     }),
 
-  /* The previous answer stays on screen while the next one arrives. A pattern that
-     does not parse resolves as an error and leaves the last good answer in `data`. */
+  /* A pattern that does not parse resolves as an error and leaves the last good
+     answer in `data`. */
   find: (pattern: string, regex: boolean, cls: string | null, active: boolean) =>
-    queryOptions<ObjectFind, AppError>({
+    queryOptions<IndexAnswer<Capped<ObjectFindHit>>, AppError>({
       queryKey: objectKeys.find(pattern, regex, cls),
       queryFn: active ? queryFnWithArgs(api.objects.find, pattern, regex, cls) : skipToken,
-      placeholderData: keepPreviousData,
-      refetchInterval: (query) => {
-        const status = query.state.data?.status;
-        return status === "building" || status === "absent" ? BUILDING_POLL_MS : false;
-      },
-      staleTime: 0,
-      gcTime: 0,
+      ...liveSearchOptions(supersededAnswer, (answer) => pollUntilReady(answer.status)),
     }),
 } as const;

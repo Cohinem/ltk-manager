@@ -1,14 +1,13 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
-import { useRemeasure, useZoomedPx } from "@/hooks";
+import { useZoomedPx } from "@/hooks";
 
-import { useReadOnlyTreeNav, useStickyTreeRows } from "../../hooks";
+import { useBrowseTree, useReadOnlyTreeNav, useTreeReveal } from "../../hooks";
 import type { OpenIntent } from "../../palette/utils/types";
 import { VirtualTree } from "../../shared/components/VirtualTree";
 import { treeItemIndexOf } from "../../shared/utils/tree";
-import { keepScrollTop, keptScrollTop, type ObjectsReveal, useSelectObjectNode } from "../../state";
+import { type RowReveal, useSelectObjectNode } from "../../state";
 import { useRestPreview } from "../hooks/useRestPreview";
 import {
   activation,
@@ -26,6 +25,10 @@ const ROW_HEIGHT = 24;
 /* The `py-1` above the first row, which the pinned band reads the scroll past. */
 const CONTENT_TOP = 4;
 
+function rowKey(row: ObjectTreeRow): string {
+  return row.node.id;
+}
+
 interface ObjectsTreeProps {
   nodes: readonly ObjectTreeNode[];
   ariaLabel: string;
@@ -39,7 +42,7 @@ interface ObjectsTreeProps {
   /** Names this tree's scroll to the browser store. Absent starts at the top. */
   scrollKey?: string;
   /** The row to expand to, focus and scroll to. A listing in flight defers it. */
-  reveal?: ObjectsReveal | null;
+  reveal?: RowReveal | null;
   /** The reveal with `token` landed, or has no row to land on. */
   onRevealed?: (token: number) => void;
 }
@@ -63,17 +66,6 @@ export function ObjectsTree({
   const rows = useMemo(() => flattenObjectTree(nodes, isExpanded), [nodes, isExpanded]);
   const selectNode = useSelectObjectNode();
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [initialOffset] = useState(() => (scrollKey ? keptScrollTop(scrollKey) : 0));
-
-  /* The live element rather than one captured at mount. Where it ended up is what is
-     read. */
-  useEffect(() => {
-    if (!scrollKey) return;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    return () => keepScrollTop(scrollKey, scrollRef.current?.scrollTop ?? 0);
-  }, [scrollKey]);
-
   const isOpenBranch = useCallback(
     (row: ObjectTreeRow) =>
       (row.node.type === "prefix" || row.node.type === "object") && isExpanded(row.node),
@@ -83,24 +75,14 @@ export function ObjectsTree({
   const zoomed = useZoomedPx();
   const rowHeight = zoomed(ROW_HEIGHT);
 
-  const { sticky, height: stickyHeight } = useStickyTreeRows({
+  const { scrollRef, virtualizer, sticky } = useBrowseTree({
     rows,
-    scrollElementRef: scrollRef,
     rowHeight,
     offsetTop: CONTENT_TOP,
+    keyOf: rowKey,
     isOpenBranch,
+    scrollKey,
   });
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 12,
-    getItemKey: (index) => rows[index]!.node.id,
-    initialOffset,
-    scrollPaddingStart: stickyHeight,
-  });
-  useRemeasure(virtualizer, rowHeight);
 
   const restPreview = useRestPreview(scrollRef);
   const { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown } = useReadOnlyTreeNav({
@@ -121,17 +103,7 @@ export function ObjectsTree({
     if (row) selectNode(row.node);
   };
 
-  /* The row lands with its listing, at its first appearance in `rows`. A path no row
-     carries settles with the last loading row. */
-  const revealed = useRef<number | null>(null);
-  useEffect(() => {
-    if (reveal === null || revealed.current === reveal.token) return;
-    const index = rows.findIndex((row) => row.node.id === reveal.path);
-    if (index < 0 && rows.some((row) => row.node.type === "loading")) return;
-    revealed.current = reveal.token;
-    if (index >= 0) moveFocus(index);
-    onRevealed?.(reveal.token);
-  }, [reveal, rows, onRevealed, moveFocus]);
+  useTreeReveal(rows, reveal, moveFocus, onRevealed);
 
   /* A pinned row answers a click by going to the row it stands for. Collapsing
      from up there would shut a prefix the user cannot see the extent of. */
@@ -159,7 +131,7 @@ export function ObjectsTree({
       rows={rows}
       items={virtualizer.getVirtualItems()}
       totalSize={virtualizer.getTotalSize()}
-      sticky={{ rows: sticky, height: stickyHeight }}
+      sticky={sticky}
       onKeyDown={handleKeyDown}
       onFocusCapture={(event) => {
         const index = treeItemIndexOf(event.target);

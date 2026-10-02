@@ -1,10 +1,9 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
-import { useRemeasure, useZoomedPx } from "@/hooks";
+import { useZoomedPx } from "@/hooks";
 
-import { useReadOnlyTreeNav, useStickyTreeRows } from "../../hooks";
+import { useBrowseTree, useReadOnlyTreeNav } from "../../hooks";
 import type { OpenIntent } from "../../palette/utils/types";
 import { VirtualTree } from "../../shared/components/VirtualTree";
 import { treeItemIndexOf } from "../../shared/utils/tree";
@@ -23,6 +22,10 @@ const ROW_HEIGHT = 24;
 
 /* The `py-1` above the first row, which the pinned band reads the scroll past. */
 const CONTENT_TOP = 4;
+
+function rowKey(row: ReferenceRow): string {
+  return row.node.id;
+}
 
 interface ReferencesTreeProps {
   files: readonly ReferenceFileNode[];
@@ -51,7 +54,6 @@ export function ReferencesTree({
 }: ReferencesTreeProps) {
   const rows = useMemo(() => flattenReferences(files, isShut), [files, isShut]);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
   const zoomed = useZoomedPx();
   const rowHeight = zoomed(ROW_HEIGHT);
 
@@ -60,23 +62,13 @@ export function ReferencesTree({
     [isShut],
   );
 
-  const { sticky, height: stickyHeight } = useStickyTreeRows({
+  const { scrollRef, virtualizer, sticky } = useBrowseTree({
     rows,
-    scrollElementRef: scrollRef,
     rowHeight,
     offsetTop: CONTENT_TOP,
+    keyOf: rowKey,
     isOpenBranch,
   });
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 12,
-    getItemKey: (index) => rows[index]!.node.id,
-    scrollPaddingStart: stickyHeight,
-  });
-  useRemeasure(virtualizer, rowHeight);
 
   const { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown } = useReadOnlyTreeNav({
     rows,
@@ -110,7 +102,7 @@ export function ReferencesTree({
       rows={rows}
       items={virtualizer.getVirtualItems()}
       totalSize={virtualizer.getTotalSize()}
-      sticky={{ rows: sticky, height: stickyHeight }}
+      sticky={sticky}
       onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}
       menu={<ReferencesContextMenu node={menuNode} onOpen={onOpen} />}
