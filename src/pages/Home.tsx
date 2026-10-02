@@ -1,7 +1,16 @@
 import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
-import { Button, Kbd, Toolbar, ToolbarRow, Tooltip } from "@/components";
+import {
+  Button,
+  Inline,
+  Kbd,
+  PageInset,
+  ReadingColumn,
+  Toolbar,
+  ToolbarRow,
+  Tooltip,
+} from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
 import {
@@ -57,7 +66,7 @@ export function Home() {
 
       <Toolbar>
         <ToolbarRow className="justify-end">
-          <div className="flex items-center gap-5">
+          <Inline gap={5}>
             <Tooltip
               content={
                 <>
@@ -78,14 +87,14 @@ export function Home() {
             </Tooltip>
 
             <PlayButton disabled={installing} />
-          </div>
+          </Inline>
         </ToolbarRow>
       </Toolbar>
 
-      <div className="relative mx-2 flex min-h-0 flex-1 flex-col">
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface-700 bg-surface-900 shadow-pressed">
-          <div data-ui="Home:content" className="flex-1 overflow-auto p-6">
-            <div className="mx-auto grid w-full max-w-7xl gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <PageInset>
+        <div data-ui="Home:content" className="flex-1 overflow-auto">
+          <ReadingColumn width="wide">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <WhatsNew />
 
               <div className="order-first flex min-w-0 flex-col gap-4 lg:order-none">
@@ -94,9 +103,9 @@ export function Home() {
                 <NewsTile />
               </div>
             </div>
-          </div>
+          </ReadingColumn>
         </div>
-      </div>
+      </PageInset>
 
       <ImportProgressDialog
         open={actions.importDialogOpen}

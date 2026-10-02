@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 
+import { PageInset } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
@@ -90,17 +91,15 @@ export function Library({ folderId }: LibraryProps = {}) {
         playButton={<PlayButton disabled={isInstalling} />}
       />
       <LibraryBody mods={mods}>
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface-700 bg-surface-900 shadow-pressed">
-          <LibraryContent
-            mods={mods}
-            searchQuery={searchQuery}
-            isLoading={isLoading}
-            error={error}
-            folderId={folderId}
-          />
-          {hasSelection && <SelectionActionBar visibleMods={visibleMods} />}
-          <ModHealthSweep />
-        </div>
+        <LibraryContent
+          mods={mods}
+          searchQuery={searchQuery}
+          isLoading={isLoading}
+          error={error}
+          folderId={folderId}
+        />
+        {hasSelection && <SelectionActionBar visibleMods={visibleMods} />}
+        <ModHealthSweep />
       </LibraryBody>
       <LibraryDialogs />
       <ImportProgressDialog
@@ -127,12 +126,7 @@ const KEY_STEP = 16;
 function LibraryBody({ mods, children }: { mods: InstalledMod[]; children: ReactNode }) {
   const open = useLibrarySidebarStore((s) => s.open);
 
-  return (
-    <div className="relative mx-2 flex min-h-0 flex-1 flex-col">
-      {children}
-      {open && <DocumentsDrawer mods={mods} />}
-    </div>
-  );
+  return <PageInset overlay={open && <DocumentsDrawer mods={mods} />}>{children}</PageInset>;
 }
 
 /** The drawer, and the edge a reader drags to decide how much it covers. */

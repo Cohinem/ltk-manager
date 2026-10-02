@@ -225,6 +225,24 @@ drove the choice, cite its `DS-*` code and stop. The rare comment that earns its
 an outside constraint the classes cannot show, such as a layout gap the value must fit
 inside.
 
+**Lay out with the primitives, not with utilities.** `Stack`, `Inline`, `Grid` and `Fill` from
+`@/components` take a `gap` on the spacing scale and alignment as a keyword, and they take no
+`className`. A box that also needs a fill, a border or padding is a named component. A scrolling
+page sits in a `ReadingColumn`, and a page framed like the library draws its content in a
+`PageInset`. Convert a file's layout when it is touched for something else. See ADR-0061.
+
+```tsx
+<Stack gap={2}>
+  <Inline gap={1.5} justify="between">
+    {title}
+    {actions}
+  </Inline>
+  <Grid columns="max-content minmax(0, 1fr)" gap={2}>
+    {rows}
+  </Grid>
+</Stack>
+```
+
 **Merge classes with `twMerge` from `@/utils`, never from `tailwind-merge`.** The stock merger
 reads `text-*` against Tailwind's own sizes alone, so it files this app's tiers - `text-row`,
 `text-meta`, `text-fine`, `text-code`, `text-mono-row` - under text colour and drops the tier

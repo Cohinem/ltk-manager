@@ -1,7 +1,15 @@
 import { ArrowsClockwiseIcon, ShieldWarningIcon, StackIcon } from "@phosphor-icons/react";
 import { type KeyboardEvent, useEffect, useState } from "react";
 
-import { AlertBox, Button, FieldControl, SectionCard, TftIcon, useToast } from "@/components";
+import {
+  AlertBox,
+  Button,
+  FieldControl,
+  SectionCard,
+  Stack,
+  TftIcon,
+  useToast,
+} from "@/components";
 import { errorSummary } from "@/i18n";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
@@ -32,7 +40,7 @@ export function PatchingSection() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <Stack gap={6}>
       <SectionCard title="Patching" icon={<ShieldWarningIcon className="size-5" />}>
         <SettingGroup id="patching.injector" title="Injector">
           <SettingRow
@@ -176,7 +184,7 @@ export function PatchingSection() {
           />
         </SettingRows>
       </SectionCard>
-    </div>
+    </Stack>
   );
 }
 

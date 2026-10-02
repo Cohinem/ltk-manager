@@ -63,7 +63,7 @@ export function CreateLayerDialog({
           form.handleSubmit();
         }}
       >
-        <Dialog.Body className="space-y-4">
+        <Dialog.Body>
           <form.AppField
             name="displayName"
             listeners={{

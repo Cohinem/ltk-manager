@@ -12,7 +12,7 @@ import {
 import { getRouteApi } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
-import { LootIcon, PatcherIcon, Tabs } from "@/components";
+import { LootIcon, PatcherIcon, ReadingColumn, Tabs } from "@/components";
 import { m } from "@/i18n";
 import { MigrationPanel } from "@/modules/migration";
 import {
@@ -33,14 +33,11 @@ import {
   useSettings,
   WorkshopSection,
 } from "@/modules/settings";
-import { twMerge } from "@/utils";
 
 const routeApi = getRouteApi("/settings");
 
 const tabClass =
   "flex items-center gap-2.5 text-left text-base data-active:bg-accent-500/15 data-active:text-accent-300";
-
-const PANEL = "mx-auto max-w-5xl px-6 pt-4 pb-6";
 
 const TABS: { value: SettingsTab; icon: ReactNode }[] = [
   { value: "general", icon: <GearIcon className="size-5 shrink-0" /> },
@@ -96,55 +93,75 @@ export function Settings() {
 
         <div className="min-h-0 flex-1 overflow-auto">
           <SettingFocusProvider>
-            <Tabs.Panel value="general" className={twMerge(PANEL, "flex flex-col gap-8")}>
-              {firstRun && !settings.leaguePath && (
-                <div className="flex items-start gap-3 rounded-xl border border-accent-500/30 bg-accent-500/10 p-5">
-                  <InfoIcon className="mt-0.5 size-5 shrink-0 text-accent-400" />
-                  <div>
-                    <h3 className="font-medium text-accent-300">{m.settings_welcome_title()}</h3>
-                    <p className="mt-1 text-sm text-surface-400">
-                      {m.settings_welcome_description()}
-                    </p>
+            <Tabs.Panel value="general">
+              <ReadingColumn gap={8}>
+                {firstRun && !settings.leaguePath && (
+                  <div className="flex items-start gap-3 rounded-xl border border-accent-500/30 bg-accent-500/10 p-5">
+                    <InfoIcon className="mt-0.5 size-5 shrink-0 text-accent-400" />
+                    <div>
+                      <h3 className="font-medium text-accent-300">{m.settings_welcome_title()}</h3>
+                      <p className="mt-1 text-sm text-surface-400">
+                        {m.settings_welcome_description()}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              )}
-              <GeneralSection migration={<MigrationPanel />} />
+                )}
+                <GeneralSection migration={<MigrationPanel />} />
+              </ReadingColumn>
             </Tabs.Panel>
 
-            <Tabs.Panel value="library" className={PANEL}>
-              <LibrarySection />
+            <Tabs.Panel value="library">
+              <ReadingColumn>
+                <LibrarySection />
+              </ReadingColumn>
             </Tabs.Panel>
 
-            <Tabs.Panel value="workshop" className={PANEL}>
-              <WorkshopSection />
+            <Tabs.Panel value="workshop">
+              <ReadingColumn>
+                <WorkshopSection />
+              </ReadingColumn>
             </Tabs.Panel>
 
-            <Tabs.Panel value="builtins" className={PANEL}>
-              <BuiltinModsSection />
+            <Tabs.Panel value="builtins">
+              <ReadingColumn>
+                <BuiltinModsSection />
+              </ReadingColumn>
             </Tabs.Panel>
 
-            <Tabs.Panel value="integrations" className={PANEL}>
-              <IntegrationsSection />
+            <Tabs.Panel value="integrations">
+              <ReadingColumn>
+                <IntegrationsSection />
+              </ReadingColumn>
             </Tabs.Panel>
 
-            <Tabs.Panel value="patching" className={PANEL}>
-              <PatchingSection />
+            <Tabs.Panel value="patching">
+              <ReadingColumn>
+                <PatchingSection />
+              </ReadingColumn>
             </Tabs.Panel>
 
-            <Tabs.Panel value="cache" className={PANEL}>
-              <CacheSection />
+            <Tabs.Panel value="cache">
+              <ReadingColumn>
+                <CacheSection />
+              </ReadingColumn>
             </Tabs.Panel>
 
-            <Tabs.Panel value="hotkeys" className={PANEL}>
-              <HotkeySection />
+            <Tabs.Panel value="hotkeys">
+              <ReadingColumn>
+                <HotkeySection />
+              </ReadingColumn>
             </Tabs.Panel>
 
-            <Tabs.Panel value="appearance" className={PANEL}>
-              <AppearanceSection />
+            <Tabs.Panel value="appearance">
+              <ReadingColumn>
+                <AppearanceSection />
+              </ReadingColumn>
             </Tabs.Panel>
 
-            <Tabs.Panel value="about" className={PANEL}>
-              <AboutSection appInfo={appInfo} />
+            <Tabs.Panel value="about">
+              <ReadingColumn>
+                <AboutSection appInfo={appInfo} />
+              </ReadingColumn>
             </Tabs.Panel>
           </SettingFocusProvider>
         </div>

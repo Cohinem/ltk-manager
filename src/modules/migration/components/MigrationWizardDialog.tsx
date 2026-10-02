@@ -23,7 +23,7 @@ export function MigrationWizardDialog({ open: isOpen, onClose }: MigrationWizard
       size="lg"
       closable={wizard.step !== "importing"}
     >
-      <Dialog.Body className="space-y-4">
+      <Dialog.Body>
         {wizard.step === "browse" && (
           <BrowseStep
             onBrowse={wizard.handleBrowse}

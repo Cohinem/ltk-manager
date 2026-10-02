@@ -257,7 +257,7 @@ export interface DialogBodyProps {
 export const DialogBody = forwardRef<HTMLDivElement, DialogBodyProps>(
   ({ className, children }, ref) => {
     return (
-      <div ref={ref} className={twMerge("px-6 py-4", className)}>
+      <div ref={ref} className={twMerge("flex flex-col gap-4 px-6 py-4", className)}>
         {children}
       </div>
     );

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { Stack } from "@/components";
+
 import { LeagueSection } from "./LeagueSection";
 import { PrivacySection } from "./PrivacySection";
 import { StartupAndTraySection } from "./StartupAndTraySection";
@@ -12,11 +14,11 @@ interface GeneralSectionProps {
 
 export function GeneralSection({ migration }: GeneralSectionProps) {
   return (
-    <div className="flex flex-col gap-6">
+    <Stack gap={6}>
       <LeagueSection />
       <StartupAndTraySection />
       <PrivacySection />
       {migration}
-    </div>
+    </Stack>
   );
 }
