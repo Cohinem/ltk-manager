@@ -168,8 +168,8 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
             onTagsChange={editor.setTags}
             selectedMaps={editor.maps}
             onMapsChange={editor.setMaps}
-            championsText={editor.championsText}
-            onChampionsChange={editor.setChampionsText}
+            champions={editor.champions}
+            onChampionsChange={editor.setChampions}
           />
 
           <AuthorsSection

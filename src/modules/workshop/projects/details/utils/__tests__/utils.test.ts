@@ -1,36 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  appendAuthor,
-  filterEmptyAuthors,
-  parseChampionsText,
-  removeAuthorAt,
-  updateAuthorAt,
-} from "../utils";
-
-describe("parseChampionsText", () => {
-  it("splits comma-separated names and trims whitespace", () => {
-    expect(parseChampionsText("Aatrox, Ahri, Zed")).toEqual(["Aatrox", "Ahri", "Zed"]);
-  });
-
-  it("filters out empty entries from trailing commas", () => {
-    expect(parseChampionsText("Aatrox,,, Ahri,")).toEqual(["Aatrox", "Ahri"]);
-  });
-
-  it("returns empty array for blank input", () => {
-    expect(parseChampionsText("")).toEqual([]);
-    expect(parseChampionsText("   ")).toEqual([]);
-    expect(parseChampionsText(",,,")).toEqual([]);
-  });
-
-  it("handles single champion without commas", () => {
-    expect(parseChampionsText("Jinx")).toEqual(["Jinx"]);
-  });
-
-  it("trims leading/trailing whitespace on each name", () => {
-    expect(parseChampionsText("  Lux ,  Ezreal  ")).toEqual(["Lux", "Ezreal"]);
-  });
-});
+import { appendAuthor, filterEmptyAuthors, removeAuthorAt, updateAuthorAt } from "../utils";
 
 describe("filterEmptyAuthors", () => {
   it("removes authors with empty names", () => {
