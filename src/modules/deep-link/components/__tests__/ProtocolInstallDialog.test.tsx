@@ -20,6 +20,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 const world = {
   settings: createMockSettings({ trustedDomains: ["runeforge.dev"] }),
+  installKind: "installed" as "installed" | "updated" | "alreadyInstalled",
 };
 
 function answer(command: string): unknown {
@@ -29,7 +30,7 @@ function answer(command: string): unknown {
     case commandNames.settings.saveSettings:
       return null;
     case commandNames.links.deepLinkInstallMod:
-      return { id: "a", name: "Zama Iroha Master Yi" };
+      return { kind: world.installKind, mod: { id: "a", name: "Zama Iroha Master Yi" } };
     default:
       return null;
   }
@@ -57,6 +58,7 @@ describe("ProtocolInstallDialog", () => {
       Promise.resolve({ ok: true, value: answer(command) }),
     );
     world.settings = createMockSettings({ trustedDomains: ["runeforge.dev"] });
+    world.installKind = "installed";
     useDeepLinkStore.getState().reset();
     useDialogQueueStore.setState({ current: null, claims: [] });
   });
@@ -121,5 +123,27 @@ describe("ProtocolInstallDialog", () => {
 
     expect(await screen.findByRole("button", { name: "Install" })).toBeVisible();
     expect(screen.queryByText(/is not a trusted provider/)).toBeNull();
+  });
+
+  it("says the mod is already in the library when the link names an installed archive", async () => {
+    world.installKind = "alreadyInstalled";
+    useDeepLinkStore.getState().setRequest(request());
+    renderWithProviders(<ProtocolInstallDialog />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Install" }));
+
+    expect(await screen.findByText(/is already in your library/)).toBeVisible();
+    expect(useDeepLinkStore.getState().status).toBe("existing");
+  });
+
+  it("says the mod was updated when the link names a newer version of an installed mod", async () => {
+    world.installKind = "updated";
+    useDeepLinkStore.getState().setRequest(request());
+    renderWithProviders(<ProtocolInstallDialog />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Install" }));
+
+    expect(await screen.findByText(/has been updated to the newer version/)).toBeVisible();
+    expect(useDeepLinkStore.getState().status).toBe("updated");
   });
 });

@@ -1,8 +1,8 @@
 use crate::error::{AppResult, IpcResult, Utf8PathExt};
 use crate::mods::{
     with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope, ExportShape,
-    ExportSummary, InstalledMod, ModDocument, ModLibraryState, ModStorage, ModWadReport,
-    WadReportState,
+    ExportSummary, InstallOutcome, InstalledMod, ModDocument, ModLibraryState, ModStorage,
+    ModWadReport, WadReportState,
 };
 use crate::patcher::PatcherState;
 use crate::services::shared::off_thread;
@@ -28,17 +28,20 @@ pub fn install_mod(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
-) -> IpcResult<InstalledMod> {
-    let result: AppResult<InstalledMod> = (|| {
+) -> IpcResult<InstallOutcome> {
+    let result: AppResult<InstallOutcome> = (|| {
         let config = settings.config();
-        let installed = library.0.install_mod_from_package(&config, &file_path)?;
-        library
-            .0
-            .spawn_categorization(&config, vec![installed.id.clone()]);
-        library
-            .0
-            .spawn_health_check(&config, vec![installed.id.clone()]);
-        Ok(installed)
+        let outcome = library.0.install_mod_from_package(&config, &file_path)?;
+        if let InstallOutcome::Installed(installed) | InstallOutcome::Updated(installed) = &outcome
+        {
+            library
+                .0
+                .spawn_categorization(&config, vec![installed.id.clone()]);
+            library
+                .0
+                .spawn_health_check(&config, vec![installed.id.clone()]);
+        }
+        Ok(outcome)
     })();
     patcher.refresh_overlay();
     result.into()
@@ -56,7 +59,12 @@ pub fn install_mods(
     let result: AppResult<BulkInstallResult> = (|| {
         let config = settings.config();
         let result = library.0.install_mods_from_packages(&config, &file_paths)?;
-        let ids: Vec<String> = result.installed.iter().map(|m| m.id.clone()).collect();
+        let ids: Vec<String> = result
+            .installed
+            .iter()
+            .chain(&result.updated)
+            .map(|m| m.id.clone())
+            .collect();
         library.0.spawn_categorization(&config, ids.clone());
         library.0.spawn_health_check(&config, ids);
         Ok(result)

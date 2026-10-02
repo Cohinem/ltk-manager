@@ -56,7 +56,8 @@ pub use index::document::{ModArchiveFormat, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
 pub use layout::StorageLayout;
 pub use types::{
-    BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, ModLicense, Profile,
+    BulkInstallResult, EditModMetadataArgs, InstallOutcome, InstalledMod, LibraryFolder,
+    ModLicense, Profile,
 };
 
 use crate::config::Config;

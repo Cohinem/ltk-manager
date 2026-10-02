@@ -6,7 +6,7 @@ use ltk_manager_core::deep_link::{self, DeepLinkRequest};
 use crate::deep_link::files::{self, FilesOpened};
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::events::TauriEventSink;
-use crate::mods::{InstalledMod, ModLibraryState};
+use crate::mods::{InstallOutcome, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::state::SettingsState;
 use fs_err as fs;
@@ -68,8 +68,8 @@ pub fn deep_link_install_mod(
     library: State<ModLibraryState>,
     settings: State<SettingsState>,
     patcher: State<PatcherState>,
-) -> IpcResult<InstalledMod> {
-    let result: AppResult<InstalledMod> = (|| {
+) -> IpcResult<InstallOutcome> {
+    let result: AppResult<InstallOutcome> = (|| {
         let parsed = url::Url::parse(&url)
             .map_err(|e| AppError::ValidationFailed(format!("Invalid URL: {e}")))?;
         if parsed.scheme() != "https" {

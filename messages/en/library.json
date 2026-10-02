@@ -190,6 +190,63 @@
   "library_health_status_hide_hint": "Hide the mods this found something in.",
   "library_health_status_repairable_hint": "Some of your mods require attention. Open the list and repair them.",
   "library_health_type_mismatch_description": "Expected *{expected}*, found *{found}*",
+  "library_import_already_installed_description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod is already in your library",
+        "countPlural=other": "{count} mods are already in your library"
+      }
+    }
+  ],
+  "library_import_already_installed_title": "Already installed",
+  "library_import_archives_filter_label": "Mod Archives",
+  "library_import_failed_description": "All {count} files failed to import",
+  "library_import_failed_title": "Import failed",
+  "library_import_installed_title": "Mods installed",
+  "library_import_partial_title": "Import completed with errors",
+  "library_import_results_existing_label": "{count} already in your library",
+  "library_import_results_failed_label": "{count} failed",
+  "library_import_results_imported_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod imported",
+        "countPlural=other": "{count} mods imported"
+      }
+    }
+  ],
+  "library_import_results_installed_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod installed",
+        "countPlural=other": "{count} mods installed"
+      }
+    }
+  ],
+  "library_import_results_updated_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod updated",
+        "countPlural=other": "{count} mods updated"
+      }
+    }
+  ],
+  "library_import_summary_existing_label": "{count} already in your library",
+  "library_import_summary_failed_label": "{count} failed",
+  "library_import_summary_installed_label": "{count} installed",
+  "library_import_summary_updated_label": "{count} updated",
+  "library_import_updated_title": "Mods updated",
+  "library_install_already_installed_description": "\"{name}\" is already in your library",
+  "library_install_skinhack_description": "Skinhack detected in \"{name}\"",
+  "library_install_skinhack_title": "Skinhack Detected",
+  "library_install_updated_description": "\"{name}\" updated to {version}",
   "library_launch_already_running_label": "already running",
   "library_launch_league_action": "Launch League",
   "library_launch_league_only_action": "Launch League only",
@@ -259,5 +316,6 @@
   "library_sort_champion_label": "Champion",
   "library_sort_enabled_label": "Enabled",
   "library_sort_name_label": "Name",
-  "library_sort_priority_label": "Priority"
+  "library_sort_priority_label": "Priority",
+  "library_storage_open_failed_title": "Failed to open directory"
 }

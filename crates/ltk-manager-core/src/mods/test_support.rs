@@ -131,6 +131,7 @@ pub(crate) fn make_test_entry(id: &str, format: ModArchiveFormat) -> LibraryModE
         storage: ModStorage::Archive,
         slug: None,
         harvest: None,
+        source_sha256: None,
     }
 }
 
@@ -360,16 +361,29 @@ pub(crate) fn make_fantome_zip(path: &Path) {
 /// [`make_fantome_zip`] with the name the archive reports, which is what a
 /// slug is derived from.
 pub(crate) fn make_named_fantome_zip(path: &Path, name: &str) {
+    write_fantome_info_zip(path, &fantome_info(name));
+}
+
+/// [`make_named_fantome_zip`] with the author and version the archive reports,
+/// which is what tells one mod's versions apart.
+pub(crate) fn make_versioned_fantome_zip(path: &Path, name: &str, author: &str, version: &str) {
+    write_fantome_info_zip(
+        path,
+        &ltk_fantome::FantomeInfo {
+            author: author.to_string(),
+            version: version.to_string(),
+            ..fantome_info(name)
+        },
+    );
+}
+
+fn write_fantome_info_zip(path: &Path, info: &ltk_fantome::FantomeInfo) {
     let file = fs::File::create(path).unwrap();
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default();
     zip.start_file("META/info.json", options).unwrap();
-    zip.write_all(
-        serde_json::to_string_pretty(&fantome_info(name))
-            .unwrap()
-            .as_bytes(),
-    )
-    .unwrap();
+    zip.write_all(serde_json::to_string_pretty(info).unwrap().as_bytes())
+        .unwrap();
     zip.finish().unwrap();
 }
 

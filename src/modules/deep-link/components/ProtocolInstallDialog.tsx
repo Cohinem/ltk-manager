@@ -2,6 +2,7 @@ import {
   CheckCircleIcon,
   DownloadSimpleIcon,
   GlobeIcon,
+  InfoIcon,
   PackageIcon,
   ShieldWarningIcon,
   UserIcon,
@@ -16,7 +17,7 @@ import { useQueuedDialog } from "@/stores";
 
 import { useProtocolInstall } from "../api/useProtocolInstall";
 import { useProtocolInstallProgress } from "../api/useProtocolInstallProgress";
-import { useDeepLinkStore } from "../state";
+import { type InstallStatus, useDeepLinkStore } from "../state";
 
 export function ProtocolInstallDialog() {
   const request = useDeepLinkStore((s) => s.request);
@@ -32,7 +33,10 @@ export function ProtocolInstallDialog() {
   const open = useQueuedDialog("protocol-install", request !== null);
   const isInstalling = status === "installing" || install.isPending;
   const isComplete = status === "complete";
+  const isUpdated = status === "updated";
+  const isExisting = status === "existing";
   const isError = status === "error";
+  const isDone = isComplete || isUpdated || isExisting || isError;
 
   /* Read against the settings as they are rather than against the marker the
      link arrived with, so trusting the domain here - or in Settings, in another
@@ -47,11 +51,15 @@ export function ProtocolInstallDialog() {
     install.mutate(
       { url: request.url, name: request.name, author: request.author, source: request.source },
       {
-        onSuccess: (mod) => {
-          toast.success(
-            m.deep_link_install_succeeded_title(),
-            mod.name ?? m.deep_link_install_unknown_mod_label(),
-          );
+        onSuccess: ({ kind, mod }) => {
+          const name = mod.name ?? m.deep_link_install_unknown_mod_label();
+          if (kind === "alreadyInstalled") {
+            toast.info(m.deep_link_install_existing_title(), name);
+          } else if (kind === "updated") {
+            toast.success(m.deep_link_install_updated_title(), name);
+          } else {
+            toast.success(m.deep_link_install_succeeded_title(), name);
+          }
         },
         onError: (err) => {
           toast.error(m.deep_link_install_failed_title(), errorSummary(err));
@@ -89,12 +97,12 @@ export function ProtocolInstallDialog() {
     <Dialog.Shell
       open={open}
       onClose={handleClose}
-      title={title(isComplete, isError)}
+      title={title(status)}
       size="lg"
       closable={!busy}
     >
       <Dialog.Body className="flex flex-col gap-3">
-        {!isComplete && !isError && (
+        {!isDone && (
           <>
             {untrustedDomain && <UntrustedBand domain={untrustedDomain} />}
 
@@ -133,13 +141,32 @@ export function ProtocolInstallDialog() {
           </>
         )}
 
-        {isComplete && (
+        {(isComplete || isUpdated) && (
           <div className="flex items-center gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/15">
               <CheckCircleIcon className="size-5 text-success-text" />
             </div>
             <p className="text-sm text-surface-300">
-              <Marked text={m.deep_link_install_succeeded_description({ name: displayName })}>
+              <Marked
+                text={
+                  isUpdated
+                    ? m.deep_link_install_updated_description({ name: displayName })
+                    : m.deep_link_install_succeeded_description({ name: displayName })
+                }
+              >
+                {(clause) => <span className="font-medium text-surface-100">{clause}</span>}
+              </Marked>
+            </p>
+          </div>
+        )}
+
+        {isExisting && (
+          <div className="flex items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-info/15">
+              <InfoIcon className="size-5 text-info-text" />
+            </div>
+            <p className="text-sm text-surface-300">
+              <Marked text={m.deep_link_install_existing_description({ name: displayName })}>
                 {(clause) => <span className="font-medium text-surface-100">{clause}</span>}
               </Marked>
             </p>
@@ -162,7 +189,7 @@ export function ProtocolInstallDialog() {
       </Dialog.Body>
 
       <Dialog.Footer>
-        {!isComplete && !isError && untrustedDomain && (
+        {!isDone && untrustedDomain && (
           <>
             <Button variant="ghost" onClick={handleClose} disabled={busy}>
               {m.deep_link_untrusted_reject_action()}
@@ -173,7 +200,7 @@ export function ProtocolInstallDialog() {
             </Button>
           </>
         )}
-        {!isComplete && !isError && !untrustedDomain && (
+        {!isDone && !untrustedDomain && (
           <>
             <Button variant="ghost" onClick={handleClose} disabled={busy}>
               {m.common_cancel_action()}
@@ -184,7 +211,7 @@ export function ProtocolInstallDialog() {
             </Button>
           </>
         )}
-        {(isComplete || isError) && (
+        {isDone && (
           <Button variant="filled" onClick={handleClose}>
             {m.deep_link_install_done_action()}
           </Button>
@@ -195,9 +222,11 @@ export function ProtocolInstallDialog() {
 }
 
 /** The dialog's own name for where the install has got to. */
-function title(isComplete: boolean, isError: boolean): string {
-  if (isComplete) return m.deep_link_install_complete_title();
-  if (isError) return m.deep_link_install_failed_title();
+function title(status: InstallStatus): string {
+  if (status === "complete") return m.deep_link_install_complete_title();
+  if (status === "updated") return m.deep_link_install_updated_title();
+  if (status === "existing") return m.deep_link_install_existing_title();
+  if (status === "error") return m.deep_link_install_failed_title();
   return m.deep_link_install_title();
 }
 

@@ -2,7 +2,14 @@ import { create } from "zustand";
 
 import type { DeepLinkInstallRequest, ProtocolInstallProgress } from "@/lib/tauri";
 
-type InstallStatus = "idle" | "downloading" | "installing" | "complete" | "error";
+export type InstallStatus =
+  | "idle"
+  | "downloading"
+  | "installing"
+  | "complete"
+  | "updated"
+  | "existing"
+  | "error";
 
 interface DeepLinkStore {
   request: DeepLinkInstallRequest | null;

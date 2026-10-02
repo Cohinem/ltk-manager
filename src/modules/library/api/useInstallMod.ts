@@ -1,7 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/components";
-import { api, type AppError, type InstalledMod } from "@/lib/tauri";
+import { m } from "@/i18n";
+import { api, type AppError, type InstalledMod, type InstallOutcome } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -14,20 +15,39 @@ export function useInstallMod() {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  return useMutation<InstalledMod, AppError, string>({
+  return useMutation<InstallOutcome, AppError, string>({
     mutationFn: async (filePath) => {
       const result = await api.installMod(filePath);
       return unwrapForQuery(result);
     },
-    onSuccess: (newMod) => {
-      queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) =>
-        old ? [newMod, ...old] : [newMod],
-      );
+    onSuccess: (outcome) => {
+      const mod = outcome.mod;
+      if (outcome.kind === "alreadyInstalled") {
+        toast.info(
+          m.library_import_already_installed_title(),
+          m.library_install_already_installed_description({ name: mod.displayName }),
+        );
+        return;
+      }
 
-      const flag = checkModForSkinhack(newMod);
+      if (outcome.kind === "updated") {
+        toast.success(
+          m.library_mod_update_success_title(),
+          m.library_install_updated_description({ name: mod.displayName, version: mod.version }),
+        );
+      } else {
+        queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) =>
+          old ? [mod, ...old] : [mod],
+        );
+      }
+
+      const flag = checkModForSkinhack(mod);
       if (flag) {
-        api.toggleMod(newMod.id, false);
-        toast.warning("Skinhack Detected", `Skinhack detected in "${newMod.displayName}"`);
+        api.toggleMod(mod.id, false);
+        toast.warning(
+          m.library_install_skinhack_title(),
+          m.library_install_skinhack_description({ name: mod.displayName }),
+        );
       }
     },
     onSettled: () => {
