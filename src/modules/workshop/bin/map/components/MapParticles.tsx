@@ -16,6 +16,7 @@ import { type DrawnEmitter, drawnEmitters } from "../../vfx/rendering/utils/defi
 import type { ShimmerMesh } from "../../vfx/rendering/utils/shimmerMeshes";
 import type { MapParticleGroup } from "../hooks/useMapParticles";
 import { particleOrigin, particleRig, particleSeed } from "../utils/mapParticles";
+import { placeableKey } from "../utils/placeables";
 
 /**
  * The longest one frame advances a map's particles by, in seconds.
@@ -78,7 +79,7 @@ function SystemPlacements({ group }: { readonly group: MapParticleGroup }) {
   /* A system of sounds alone draws nothing, and Summoner's Rift stands 131 of them. */
   if (drawn.length === 0 && shimmer.length === 0) return null;
   return group.particles.map((particle) => (
-    <Fragment key={particle.name}>
+    <Fragment key={placeableKey(particle)}>
       {drawn.length > 0 && (
         <PlacedSystem
           particle={particle}
