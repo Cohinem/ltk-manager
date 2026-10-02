@@ -1,7 +1,7 @@
 //! Print every `StaticMaterialDef` of a bin inside a WAD as the engine builds its passes.
 //!
 //! ```text
-//! cargo run -p ltk-manager-core --example dump_passes -- <wad> <chunk path> [<shaders wad>]
+//! cargo run -p ltk-manager-game --example dump_passes -- <wad> <chunk path> [<shaders wad>]
 //! ```
 //!
 //! One JSON line per material, the [`ResolvedMaterial`] the shader pipeline binds, with no
@@ -12,8 +12,8 @@
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::BinDocument;
-use ltk_manager_core::material::SHADER_DEFS_PATH;
-use ltk_manager_core::material::pass::{ResolvedMaterial, resolve_passes};
+use ltk_manager_game::material::SHADER_DEFS_PATH;
+use ltk_manager_game::material::pass::{ResolvedMaterial, resolve_passes};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();

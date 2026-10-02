@@ -17,14 +17,15 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
-pub use crate::bin_document::NamedAsset;
-use crate::bin_document::{
+pub use ltk_manager_core::bin_document::NamedAsset;
+use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Fields, Locator, RowNames, fields_of,
     hex, items, leaf, link, object_at, resolver_entries, struct_of, text,
 };
+use ltk_manager_core::preview::AssetRef;
+
 use crate::linked::{Walk, find_linked_materials, walk_linked};
 use crate::material::{MaterialPreview, linked_material};
-use crate::preview::AssetRef;
 
 /// `SkinCharacterDataProperties.skinMeshProperties`.
 const MESH_PROPERTIES: BinHash = BinHash(0x45ff_5904);

@@ -11,11 +11,11 @@ use hexshade::TranslationCache;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument, BinDocumentId, RowNames};
 use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::material::defs::ShaderDefsCache;
-use ltk_manager_core::material::SHADER_DEFS_PATH;
 use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_game::map::MapPath;
+use ltk_manager_game::material::defs::ShaderDefsCache;
+use ltk_manager_game::material::SHADER_DEFS_PATH;
 use ltk_manager_game::program::{
     read_embedded_program, read_programs, MaterialProgram, ParticleDefine, ParticleShader,
     PassProgram, ProgramOptions, Resolution,

@@ -30,7 +30,7 @@ starts from that code and adds no translation work.
   uniform, keeps the member offsets in the `programGlobals` WeakMap, and binds textures and pass
   state. `EngineEnvironment` writes the engine blocks once per frame.
 - **Gaps.** No primitive mesh exists in the viewport. The logical-to-physical parameter scatter
-  lives in Rust alone (`pass_params` in `crates/ltk-manager-core/src/material/pass.rs`), so the
+  lives in Rust alone (`pass_params` in `crates/ltk-manager-game/src/material/pass.rs`), so the
   frontend cannot place an edited value in `$Globals` by itself. The `skin-programs` query is not
   in `DOCUMENT_READS` and has `staleTime: Infinity`, so a material edit does not reach the skin
   preview today. `read_material_programs` parses `shaders.bin` on every call.

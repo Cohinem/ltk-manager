@@ -11,13 +11,14 @@ use hexshade::{
 use ltk_hash::{BinHash, WadHash};
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument, RowNames};
 use ltk_manager_core::error::AppResult;
-use ltk_manager_core::material::MaterialWarning;
-use ltk_manager_core::material::pass::{
+use ltk_manager_core::preview::AssetRef;
+use serde::{Deserialize, Serialize};
+
+use crate::material::MaterialWarning;
+use crate::material::pass::{
     Define, DefineSource, MaterialKind, PassState, PassTexture, ResolvedMaterial, ResolvedPass,
     SamplerState, TextureSource, resolve_embedded_passes, resolve_passes,
 };
-use ltk_manager_core::preview::AssetRef;
-use serde::{Deserialize, Serialize};
 
 /// The defines a studio adds to every pass, off the engine's global list. The pass wins
 /// on a conflict.

@@ -23,13 +23,13 @@ and the runtime itself gets its own plan.
 
 | Piece              | Where                                              | Shape                                                                                                                                                          |
 | ------------------ | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The system read    | `crates/ltk-manager-core/src/vfx/resolve.rs`       | `resolve_system` returns every struct as `VfxValue::Struct { class_hash, fields }`. Driver nodes arrive as ordinary structs, so the graph needs no Rust change |
+| The system read    | `crates/ltk-manager-game/src/vfx/resolve.rs`       | `resolve_system` returns every struct as `VfxValue::Struct { class_hash, fields }`. Driver nodes arrive as ordinary structs, so the graph needs no Rust change |
 | The emitter lists  | `engine/parsing/readVfxSystem.ts`, `EMITTER_LISTS` | `complexEmitterDefinitionData` and `simpleEmitterDefinitionData`. `shimmerEmitterDefinitionData` (`0xeb0aabeb`) is not read                                    |
 | Legacy values      | `engine/parsing/readValue.ts`, `curve()`           | `ValueCurve { constant, keys, tables }`                                                                                                                        |
 | Legacy sampling    | `engine/utils/sampleCurve.ts`                      | `sampleCurve`, `drawCurve`, `drawCurveInto`. Writes into a caller's `Float32Array` without allocating                                                          |
 | The particle store | `engine/simulation/pool.ts`                        | Fixed typed-array columns, 32,768 rows for a root pool                                                                                                         |
 | The step           | `engine/simulation/integrate.ts`, `stepEmitters`   | `emit` then `integrate` per emitter, on a seeded `Rng`, stepped by `fixedRateStepper` at 30 Hz                                                                 |
-| Material previews  | `crates/ltk-manager-core/src/material/mod.rs`      | `MaterialPreview` per linked material. Shipped shimmer render components embed their `StaticMaterialDef` inline, and no preview is built for an embed          |
+| Material previews  | `crates/ltk-manager-game/src/material.rs`          | `MaterialPreview` per linked material. Shipped shimmer render components embed their `StaticMaterialDef` inline, and no preview is built for an embed          |
 | Logic drivers      | none                                               | Nothing in the repository evaluates an `ILogicDriver` tree. #677 covers `dynamicMaterial` drivers                                                              |
 | Structural edits   | `bin_document/property_edit.rs`, `ValueEdit`       | `EnsurePointer`, `ReplacePointer` (a class swap that keeps each field both classes declare), `InsertItem`, `RemoveItem`, `SetLeaf`. A batch is one undo step   |
 | The curve dock     | ADR-0032                                           | A dock under the object tab. A mark on an inspector row targets it, and the target follows its field from emitter to emitter                                   |
@@ -447,7 +447,7 @@ Not part of this plan, listed so the seam is designed for it:
   modifiers, `VfxMaterialRenderComponent` with its colour container, and `VfxGeometryComponent`
   with the shimmer mesh (`.gmesh`) and quad
 - A material preview for an inline `StaticMaterialDef`, which is a Rust change in
-  `crates/ltk-manager-core/src/material/`
+  `crates/ltk-manager-game/src/material/`
 - A way to preview a disabled shimmer emitter, since every shipped one is disabled and `emit`
   returns early for a disabled emitter
 - The runtime writes into the existing `Pool` and reuses the existing mesh and quad draw paths.
@@ -535,14 +535,14 @@ time input. This decides the variability the consumer asks for, and whether the 
 
 ### 5.5 A census each patch
 
-`crates/ltk-manager-core/examples/survey_drivers.rs` walks every WAD given and counts every
+`crates/ltk-manager-game/examples/survey_drivers.rs` walks every WAD given and counts every
 class under a `shimmerEmitterDefinitionData` list, beside `survey_vfx.rs`, which counts the fields
 shipped emitters write. `--fixtures` writes the driver graphs the tests read. Rerun it each patch
 and record which node classes ship. It is the input to D5 and the check that the fixtures still
 match live data.
 
 ```text
-cargo run -p ltk-manager-core --release --example survey_drivers -- \
+cargo run -p ltk-manager-game --release --example survey_drivers -- \
   --fixtures src/modules/workshop/bin/vfx/engine/drivers/__tests__/hallOfLegends.fixture.json \
   "<install>/Game/DATA/FINAL/Maps/Shipping/Map11.wad.client"
 ```

@@ -4,7 +4,7 @@ use ltk_hash::{BinHash, Hash as _};
 use ltk_meta::{PropertyValueEnum, walk::Leaf};
 use serde::Serialize;
 
-use crate::bin_document::{BinDocument, BinDocumentError, Fields, hex, leaf, object_at};
+use ltk_manager_core::bin_document::{BinDocument, BinDocumentError, Fields, hex, leaf, object_at};
 
 /// A field the isolated preview cannot evaluate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

@@ -52,7 +52,7 @@ Meta as of 16.18. Types are the `meta-cli` skill's answers and drift by patch.
 
 ## What the code is
 
-`resolve_clips` in `crates/ltk-manager-core/src/skin/mod.rs` reads `mClipDataMap`, keeps the
+`resolve_clips` in `crates/ltk-manager-game/src/skin.rs` reads `mClipDataMap`, keeps the
 atomic clips, and answers `AnimationClip { name, hash, animation }`. `graph_clips` and
 `search_linked` find the graph in the open document or breadth first through the files it links,
 capped at 32. `read_animation_clips` in `src-tauri/src/commands/skin.rs` is the command over them.

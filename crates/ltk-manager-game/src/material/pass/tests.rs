@@ -3,6 +3,7 @@ use ltk_meta::BinObject;
 use ltk_meta::property::values;
 
 use super::*;
+
 use crate::material::tests::{
     BLACK, DIFFUSE, MASK, MATERIAL, Material, Placed, SHADER_PATH, Tables, body, document_of,
     embedded, file, h, list, param, pass, placed, sampler, shader_param, shader_switch,

@@ -32,7 +32,7 @@ relative to `src/modules/workshop/bin/vfx/`.
   `EmitterModel.customMaterial`, a `MaterialPreview`. `customMaterial.ts` draws it with
   `CUSTOM_FRAGMENT`: the base texel times the vertex colour times the tint, with an alpha test.
 
-**The VFX resolver** is `crates/ltk-manager-core/src/vfx/resolve.rs`, called by `read_vfx_system`
+**The VFX resolver** is `crates/ltk-manager-game/src/vfx/resolve.rs`, called by `read_vfx_system`
 in `src-tauri/src/commands/vfx.rs`. A `CustomMaterial` link resolves through `linked_material`
 with the VFX bin itself as the shader defs (line 187), so its `CustomShaderDef` is not found.
 

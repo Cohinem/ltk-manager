@@ -100,7 +100,7 @@ const HELD: HeldValue = { material: MATERIAL, physical: "Tint", fields: 0b0111, 
 
 describe("scatter", () => {
   /* The same cases `a_logical_value_scatters_through_its_mask_and_an_absent_value_writes_zeros`
-     runs against `scatter` in crates/ltk-manager-core/src/material/pass.rs. */
+     runs against `scatter` in crates/ltk-manager-game/src/material/pass.rs. */
   it("writes the input's components into the ones the mask selects, as the Rust scatter does", () => {
     const speed = scatter([9, 9, 9, 9], 0b0011, [1, 2, 3, 4]);
 

@@ -20,11 +20,11 @@ use ltk_meta::walk::Leaf;
 use regex::Regex;
 use serde::Serialize;
 
-use crate::bin_document::{
+use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, fields_of,
     hex, items, leaf, link, object_at, struct_of, text,
 };
-use crate::preview::AssetRef;
+use ltk_manager_core::preview::AssetRef;
 
 /// Where every `CustomShaderDef` lives, in `Shaders/Shaders.wad.client` and `Global.wad.client`.
 pub const SHADER_DEFS_PATH: &str = "data/shaders/shaders.bin";

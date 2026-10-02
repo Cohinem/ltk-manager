@@ -10,14 +10,15 @@ use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
 
 use super::{VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
-use crate::bin_document::{
+use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Locator, Namer, RowNames, chunk_asset,
     hex, link, object_at, owned, resolver_entries,
 };
+use ltk_manager_core::preview::AssetRef;
+use ltk_manager_core::problems::walk;
+
 use crate::linked::find_linked_materials;
 use crate::material::{MaterialPreview, linked_material};
-use crate::preview::AssetRef;
-use crate::problems::walk;
 
 /// How many values one system answers, past which the read is refused.
 ///

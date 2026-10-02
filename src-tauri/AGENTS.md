@@ -23,11 +23,13 @@ is added or relicensed.
 is its FFI crate, named for the library it binds.
 
 `ltk-manager-game` sits above core. Core owns the open document, the names and where an asset
-lives, and the game crate owns the classes read out of them: a map today, and the material, skin,
-VFX and spell reads as they follow. Core never calls it, so nothing core holds knows what a
-`MapContainer` is. It reads a bin through what `bin_document` exports for that (`Fields`,
-`struct_of`, `items`, `leaf`, `link`, `text`, `Namer`) and never through `ltk_meta` matches of
-its own. A type of it that crosses IPC derives under its own `ts` feature, which takes core's.
+lives, and the game crate owns the classes read out of them: the map, material, skin, VFX and
+spell reads. Core never calls it, so nothing core holds knows what a `MapContainer` is. The VFX
+template catalog stays in core, because a new object of a declared document starts from it. The
+game crate reads a bin through what `bin_document` exports for that (`Fields`, `struct_of`,
+`items`, `leaf`, `link`, `text`, `Namer`, `Locator`, `object_at`) and never through `ltk_meta`
+matches of its own. A type of it that crosses IPC derives under its own `ts` feature, which takes
+core's.
 
 `atlas` sits above the game crate and holds the UI editor's backend: a view controller resolved
 into its scenes and elements, the sprite manifest, the UI programs and the sheet a mod packs. It

@@ -2,10 +2,11 @@
 
 use std::collections::{HashSet, VecDeque};
 
-use crate::bin_document::{AssetLookup, BinDocument, Locator, RowNames};
+use ltk_manager_core::bin_document::{AssetLookup, BinDocument, Locator, RowNames};
+use ltk_manager_core::object_index::parse_hash;
+use ltk_manager_core::preview::AssetRef;
+
 use crate::material::{MaterialPreview, linked_material};
-use crate::object_index::parse_hash;
-use crate::preview::AssetRef;
 
 /// The most linked files one walk opens, however deep the links run.
 pub(crate) const LINKED_CAP: usize = 32;

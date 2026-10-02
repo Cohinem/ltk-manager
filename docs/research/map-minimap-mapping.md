@@ -11,7 +11,7 @@ Provenance. Every path, hash, byte count and coordinate below was read out of a 
 Method. WAD chunks were listed and extracted with the `wadtools` build the app already installs
 (`%LOCALAPPDATA%/LeagueToolkit/Manager/integrations/wadtools`), names resolved against the shared
 mimir cache. Bins were parsed with `ltk_meta` through the repo's own
-`crates/ltk-manager-core/examples/dump_vfx.rs`, and the fields it prints by hash alone were read
+`crates/ltk-manager-game/examples/dump_vfx.rs`, and the fields it prints by hash alone were read
 straight out of the file bytes by property hash plus type tag. Class shapes come from the
 `rito-meta` CLI, dataset generation 2026-08-24. Textures were decoded with `ltk-tex-utils`, which
 is `ltk_texture`, the crate `preview/texture.rs` reads through. The axis result in section 2 was

@@ -32,10 +32,10 @@ pub struct NamedAsset {
 }
 
 /// `ResourceResolver.resourceMap`, a `Map<Hash, Link>` from an effect key to its system.
-pub(crate) const RESOURCE_MAP: BinHash = BinHash(0xd2f5_8721);
+pub const RESOURCE_MAP: BinHash = BinHash(0xd2f5_8721);
 
 /// `effectKey`, which a child identifier and a skin's idle effect both name a system by.
-pub(crate) const EFFECT_KEY: BinHash = BinHash(0x9b03_00f3);
+pub const EFFECT_KEY: BinHash = BinHash(0x9b03_00f3);
 
 /// A hash as a row prints one, which is `0x` and eight digits.
 #[must_use]
@@ -81,10 +81,7 @@ impl AssetLookup for () {
 }
 
 /// The object `entry` names, or the error a read reports for none.
-pub(crate) fn object_at(
-    document: &BinDocument,
-    entry: BinHash,
-) -> Result<&BinObject, BinDocumentError> {
+pub fn object_at(document: &BinDocument, entry: BinHash) -> Result<&BinObject, BinDocumentError> {
     document
         .object_at(entry)
         .ok_or_else(|| BinDocumentError::NodeNotFound {
@@ -96,7 +93,7 @@ pub(crate) fn object_at(
 ///
 /// The order is the map's own. A key mapped to a null link is kept, because a null link is a hit that suppresses the
 /// effect rather than falling through, and the null target is no object of any document.
-pub(crate) fn resolver_entries(resolver: &BinObject) -> impl Iterator<Item = (BinHash, BinHash)> {
+pub fn resolver_entries(resolver: &BinObject) -> impl Iterator<Item = (BinHash, BinHash)> {
     let entries = match resolver.properties.get(&RESOURCE_MAP) {
         Some(PropertyValueEnum::Map(map)) => map.entries(),
         _ => &[],
@@ -113,7 +110,7 @@ pub(crate) fn resolver_entries(resolver: &BinObject) -> impl Iterator<Item = (Bi
 ///
 /// The digits are the whole of what the file says about a chunk no table names, and
 /// the hash still reaches the chunk itself.
-pub(crate) fn chunk_asset(
+pub fn chunk_asset(
     hash: WadHash,
     name: Option<String>,
     assets: &dyn AssetLookup,
@@ -135,14 +132,14 @@ pub(crate) fn first_name(ask: impl FnOnce(&mut dyn FnMut(usize, &str))) -> Optio
 }
 
 /// What a field read names hashes by and places paths through.
-pub(crate) struct Locator<'a> {
-    pub(crate) names: &'a dyn RowNames,
-    pub(crate) assets: &'a dyn AssetLookup,
+pub struct Locator<'a> {
+    pub names: &'a dyn RowNames,
+    pub assets: &'a dyn AssetLookup,
 }
 
 impl Locator<'_> {
     /// The file `value` names as a path or as a chunk, and none for an empty one.
-    pub(crate) fn asset(&self, value: Option<&PropertyValueEnum>) -> Option<NamedAsset> {
+    pub fn asset(&self, value: Option<&PropertyValueEnum>) -> Option<NamedAsset> {
         match leaf(value)? {
             Leaf::String(path) if !path.is_empty() => Some(self.placed(path.to_owned())),
             Leaf::File(hash) if hash.0 != 0 => Some(self.chunk(hash)),
@@ -151,13 +148,14 @@ impl Locator<'_> {
     }
 
     /// The chunk `hash` names, placed where a table names it.
-    pub(crate) fn chunk(&self, hash: WadHash) -> NamedAsset {
+    pub fn chunk(&self, hash: WadHash) -> NamedAsset {
         let name = first_name(|visit| self.names.for_each_chunk(&[hash], visit));
         let (path, asset) = chunk_asset(hash, name, self.assets);
         NamedAsset { path, asset }
     }
 
-    pub(crate) fn placed(&self, path: String) -> NamedAsset {
+    /// `path`, placed where something on this machine holds it.
+    pub fn placed(&self, path: String) -> NamedAsset {
         NamedAsset {
             asset: self.assets.locate(&path),
             path,
@@ -165,17 +163,17 @@ impl Locator<'_> {
     }
 
     /// The string behind a `Hash` value, where a table names it.
-    pub(crate) fn value_name(&self, hash: BinHash) -> Option<String> {
+    pub fn value_name(&self, hash: BinHash) -> Option<String> {
         first_name(|visit| self.names.for_each_value(&[hash], visit))
     }
 
     /// The path of the object a link names, where a table names it.
-    pub(crate) fn entry_name(&self, hash: BinHash) -> Option<String> {
+    pub fn entry_name(&self, hash: BinHash) -> Option<String> {
         first_name(|visit| self.names.for_each_entry(&[hash], visit))
     }
 
     /// The name of the class `hash` is, where a table names it.
-    pub(crate) fn class_name(&self, hash: BinHash) -> Option<String> {
+    pub fn class_name(&self, hash: BinHash) -> Option<String> {
         first_name(|visit| self.names.for_each_class(&[hash], visit))
     }
 }

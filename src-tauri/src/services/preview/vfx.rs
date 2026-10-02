@@ -13,9 +13,8 @@ use ltk_manager_core::bin_document::{BinDocument, BinDocumentId};
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::meta_schema::SchemaNames;
 use ltk_manager_core::preview::AssetRef;
-use ltk_manager_core::vfx::{
-    resolve_system, search_linked_materials, vfx_templates as catalog, VfxSystem, VfxTemplate,
-};
+use ltk_manager_core::vfx::{vfx_templates as catalog, VfxTemplate};
+use ltk_manager_game::vfx::{resolve_system, search_linked_materials, VfxSystem};
 use tauri::{AppHandle, Manager};
 
 /// One particle system of an open document, with every reference resolved.

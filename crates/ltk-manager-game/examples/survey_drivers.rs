@@ -5,7 +5,7 @@
 //! `shimmerEmitterDefinitionData` list, which a reader diffs against the last patch's run.
 //!
 //! ```text
-//! cargo run -p ltk-manager-core --release --example survey_drivers -- [--fixtures <out.json>] <wad | directory>...
+//! cargo run -p ltk-manager-game --release --example survey_drivers -- [--fixtures <out.json>] <wad | directory>...
 //! ```
 //!
 //! `--fixtures` also writes every driver graph of those emitters as the resolved `VfxValue`
@@ -21,7 +21,7 @@ use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::{BinDocument, RowNames};
 use ltk_manager_core::hashtables::{BinHashTables, HashtableCache};
-use ltk_manager_core::vfx::{VfxValue, resolve_system};
+use ltk_manager_game::vfx::{VfxValue, resolve_system};
 use ltk_meta::property::values;
 use ltk_meta::{BinObject, PropertyValueEnum};
 use ltk_wad::WadHash;

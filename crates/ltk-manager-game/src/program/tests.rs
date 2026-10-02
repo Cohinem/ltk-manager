@@ -1,9 +1,10 @@
 use std::io::Cursor;
 
 use ltk_hash::Hash as _;
-use ltk_manager_core::material::pass::PassState;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject};
+
+use crate::material::pass::PassState;
 
 use super::*;
 
