@@ -113,7 +113,6 @@ fn main() {
                 watches.release_all();
             }
         })
-
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(setup::handle_run_event);

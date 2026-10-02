@@ -15,7 +15,7 @@ interface ImportMetaEnv {
 }
 
 /** Node's process global, read only for the VITEST env check in `src/lib/browserMock.ts`.
-    The browser runtime never provides it, which is what the `typeof` guard checks. */
+    `env` is required: Node-context test files read `process.env.X` directly. */
 declare const process: {
-  env?: Record<string, string | undefined>;
+  env: Record<string, string | undefined>;
 };

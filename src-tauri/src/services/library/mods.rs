@@ -58,9 +58,10 @@ pub fn install_mods(
 ) -> IpcResult<BulkInstallResult> {
     let result: AppResult<BulkInstallResult> = (|| {
         let config = settings.config();
-        let result = library
-            .0
-            .install_mods_from_packages(&config, &file_paths, ModSource::Import)?;
+        let result =
+            library
+                .0
+                .install_mods_from_packages(&config, &file_paths, ModSource::Import)?;
         let ids: Vec<String> = result
             .installed
             .iter()
