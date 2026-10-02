@@ -15,9 +15,13 @@ import { useExtractActions } from "../../gameBrowser/extraction/hooks/useExtract
 import { chunkTarget } from "../../gameBrowser/extraction/utils/extractTargets";
 import { fileKindFromPath } from "../../gameBrowser/utils/fileKind";
 import { useAssetInfo } from "../api/useAssetInfo";
+import { webViewerOf } from "../utils/viewer";
 import { isPropertyBin } from "./BinPreview";
+import { FontPreview } from "./FontPreview";
 import { ImagePreview } from "./ImagePreview";
+import { MediaPreview } from "./MediaPreview";
 import { SaveCopyAction } from "./SaveCopyAction";
+import { TextPreview } from "./TextPreview";
 
 /**
  * One asset, drawn by the viewer its file kind has.
@@ -53,7 +57,6 @@ export function PreviewDocument({
     return (
       <MapFileDocument
         key={document.id}
-        asset={document.asset}
         map={map}
         active={active}
         actions={<PreviewActions document={document} />}
@@ -69,9 +72,27 @@ export function PreviewDocument({
       <DocumentToolbar active={active}>
         <PreviewActions document={document} />
       </DocumentToolbar>
-      <ImagePreview asset={document.asset} name={document.title} />
+      <AssetViewer documentId={document.id} asset={document.asset} name={document.title} />
     </>
   );
+}
+
+interface AssetViewerProps {
+  documentId: string;
+  asset: ContentDocumentOf<"preview">["asset"];
+  name: string;
+}
+
+/** The viewer a file's extension asks for, and the image viewer for every other file. */
+function AssetViewer({ documentId, asset, name }: AssetViewerProps) {
+  const viewer = webViewerOf(name);
+
+  if (viewer === "video" || viewer === "audio") {
+    return <MediaPreview asset={asset} name={name} media={viewer} />;
+  }
+  if (viewer === "text") return <TextPreview documentId={documentId} asset={asset} name={name} />;
+  if (viewer === "font") return <FontPreview asset={asset} name={name} />;
+  return <ImagePreview asset={asset} name={name} />;
 }
 
 /**
@@ -80,7 +101,7 @@ export function PreviewDocument({
  */
 function declaringFile(document: ContentDocumentOf<"preview">): string {
   const { asset } = document;
-  if (asset.kind !== "gameChunk") return asset.path;
+  if (asset.kind !== "gameChunk" && asset.kind !== "lcuChunk") return asset.path;
   const prefix = `${asset.wad}/`;
   const path = document.path ?? "";
   return path.startsWith(prefix) ? path.slice(prefix.length) : asset.pathHash;
@@ -108,7 +129,7 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
         <Button
           variant="ghost"
           size="xs"
-          left={<StackPlusIcon className="h-4 w-4" />}
+          left={<StackPlusIcon className="size-4" />}
           disabled={busy}
           onClick={() => run("copy", [target], name)}
         >
@@ -120,7 +141,7 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
           <Button
             variant="ghost"
             size="xs"
-            left={<DownloadSimpleIcon className="h-4 w-4" />}
+            left={<DownloadSimpleIcon className="size-4" />}
             disabled={busy}
             onClick={() => run("quick", [target], name)}
           >

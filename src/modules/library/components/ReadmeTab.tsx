@@ -5,11 +5,10 @@ import { m } from "@/i18n";
 import type { InstalledMod, ModDocument } from "@/lib/tauri";
 import { modQueries } from "@/modules/library/api";
 
+import { DocumentBody } from "./DocumentBody";
+
 interface ReadmeTabProps {
-  /** The mod the panel was opened about, or none yet. */
-  mod: InstalledMod | null;
-  /** Whether the mod the panel held has been uninstalled under it. */
-  missing: boolean;
+  mod: InstalledMod;
 }
 
 /**
@@ -19,31 +18,7 @@ interface ReadmeTabProps {
  * inline script and no image resolving, which matter more over a file a stranger
  * wrote than over a creator's own.
  */
-export function ReadmeTab({ mod, missing }: ReadmeTabProps) {
-  if (missing) {
-    return (
-      <Body>
-        <EmptyState
-          size="sm"
-          title={m.library_documents_removed_title()}
-          description={m.library_documents_removed_description()}
-        />
-      </Body>
-    );
-  }
-
-  if (!mod) {
-    return (
-      <Body>
-        <EmptyState
-          size="sm"
-          title={m.library_readme_none_open_title()}
-          description={m.library_readme_none_open_description()}
-        />
-      </Body>
-    );
-  }
-
+export function ReadmeTab({ mod }: ReadmeTabProps) {
   return <Readme modId={mod.id} />;
 }
 
@@ -52,21 +27,21 @@ function Readme({ modId }: { modId: string }) {
 
   if (isPending) {
     return (
-      <Body>
+      <DocumentBody>
         <Spinner />
-      </Body>
+      </DocumentBody>
     );
   }
 
   if (error) {
     return (
-      <Body>
+      <DocumentBody>
         <EmptyState
           size="sm"
           title={m.library_readme_unreadable_title()}
           description={m.library_readme_unreadable_description()}
         />
-      </Body>
+      </DocumentBody>
     );
   }
 
@@ -82,19 +57,19 @@ function Readme({ modId }: { modId: string }) {
 function Document({ document }: { document: ModDocument }) {
   if (document.state === "absent") {
     return (
-      <Body>
+      <DocumentBody>
         <EmptyState
           size="sm"
           title={m.library_readme_absent_title()}
           description={m.library_readme_absent_description()}
         />
-      </Body>
+      </DocumentBody>
     );
   }
 
   if (document.state === "unreadable") {
     return (
-      <Body>
+      <DocumentBody>
         <EmptyState
           size="sm"
           title={m.library_readme_unreadable_title()}
@@ -103,7 +78,7 @@ function Document({ document }: { document: ModDocument }) {
         <p className="mt-2 max-w-full truncate text-center text-meta text-surface-500 select-text">
           {document.reason}
         </p>
-      </Body>
+      </DocumentBody>
     );
   }
 
@@ -113,11 +88,5 @@ function Document({ document }: { document: ModDocument }) {
           point at and degrades to its alt text. */}
       <MarkdownView text={document.text} root={null} />
     </div>
-  );
-}
-
-function Body({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-6">{children}</div>
   );
 }

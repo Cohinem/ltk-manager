@@ -7,7 +7,8 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react";
 
-import { Button, EmptyState, IconButton, Menu, Tooltip } from "@/components";
+import { Button, EmptyState, IconButton, Menu } from "@/components";
+import { m } from "@/i18n";
 import { api, type LayerContent } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 
@@ -15,6 +16,10 @@ import { useProjectContentTree } from "../../api";
 import { type ContentDocumentOf, layerTitle } from "../../documents/utils/contentDocument";
 import { useLayerWadImport } from "../../hooks";
 import { useProjectContext } from "../../projects/state/ProjectContext";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
+import { useCollapseLayerDirs } from "../../state";
+import { allDirPaths, buildContentTree } from "../utils/contentTree";
 import { ContentTree } from "./ContentTree";
 
 /** A layer's content directory, as the tree of what is on disk. */
@@ -35,12 +40,23 @@ export function FilesDocument({
     layerDisplayName: displayName,
   });
 
+  const collapseLayerDirs = useCollapseLayerDirs();
+
   async function handleOpenFolder() {
     await api.revealInExplorer(`${project.path}/content/${layerName}`);
   }
 
+  function handleCollapseAll() {
+    if (!layer) return;
+
+    collapseLayerDirs(
+      layerName,
+      allDirPaths(buildContentTree(layer.entries, layer.ignoredDirectories)),
+    );
+  }
+
   return (
-    <div data-ui="FilesDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="FilesDocument">
       <DocumentToolbar active={active}>
         <Menu.Root>
           <Menu.Trigger
@@ -50,62 +66,49 @@ export function FilesDocument({
                 size="xs"
                 compact
                 loading={wadImport.isPending}
-                left={<PlusIcon weight="bold" className="h-4 w-4" />}
-                right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
+                left={<PlusIcon weight="bold" className="size-4" />}
+                right={<CaretDownIcon weight="bold" className="size-3" />}
               >
-                Add WAD
+                {m.workshop_files_add_wad_action()}
               </Button>
             }
           />
-          <Menu.Portal>
-            <Menu.Positioner align="end" sideOffset={4}>
-              <Menu.Popup>
-                <Menu.Item
-                  icon={<FileArchiveIcon className="h-4 w-4" />}
-                  onClick={wadImport.pickFiles}
-                >
-                  Add WAD file…
-                </Menu.Item>
-                <Menu.Item icon={<FolderIcon className="h-4 w-4" />} onClick={wadImport.pickFolder}>
-                  Add WAD folder…
-                </Menu.Item>
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
+          <Menu.Content align="end" sideOffset={4}>
+            <Menu.Item icon={<FileArchiveIcon className="size-4" />} onClick={wadImport.pickFiles}>
+              {m.workshop_files_add_wad_file_action()}
+            </Menu.Item>
+            <Menu.Item icon={<FolderIcon className="size-4" />} onClick={wadImport.pickFolder}>
+              {m.workshop_files_add_wad_folder_action()}
+            </Menu.Item>
+          </Menu.Content>
         </Menu.Root>
 
-        <Tooltip content="Refresh">
-          <IconButton
-            icon={<RefreshIcon spinning={isFetching} />}
-            variant="ghost"
-            size="xs"
-            compact
-            onClick={() => refetch()}
-            disabled={isFetching}
-            aria-label="Refresh content listing"
-          />
-        </Tooltip>
+        {layer && layer.entries.length > 0 && <CollapseAllButton onCollapse={handleCollapseAll} />}
 
-        <Tooltip content="Open folder">
-          <IconButton
-            icon={<FolderOpenIcon className="h-4 w-4" />}
-            variant="ghost"
-            size="xs"
-            compact
-            onClick={handleOpenFolder}
-            aria-label={`Open folder for layer ${layerName}`}
-          />
-        </Tooltip>
+        <IconButton
+          icon={<RefreshIcon spinning={isFetching} />}
+          onClick={() => refetch()}
+          disabled={isFetching}
+          aria-label={m.workshop_files_refresh_action()}
+          tooltip={m.workshop_files_refresh_label()}
+        />
+
+        <IconButton
+          icon={<FolderOpenIcon />}
+          onClick={handleOpenFolder}
+          aria-label={m.workshop_files_open_folder_action({ layer: layerName })}
+          tooltip={m.workshop_files_open_folder_label()}
+        />
       </DocumentToolbar>
 
       <FilesBody layer={layer} />
-    </div>
+    </DocumentFrame>
   );
 }
 
 function RefreshIcon({ spinning }: { spinning: boolean }) {
-  if (spinning) return <ArrowsClockwiseIcon className="h-4 w-4 animate-spin" />;
-  return <ArrowsClockwiseIcon className="h-4 w-4" />;
+  if (spinning) return <ArrowsClockwiseIcon className="size-4 animate-spin" />;
+  return <ArrowsClockwiseIcon className="size-4" />;
 }
 
 interface FilesBodyProps {
@@ -117,8 +120,8 @@ function FilesBody({ layer }: FilesBodyProps) {
     return (
       <EmptyState
         size="sm"
-        title="Layer is gone"
-        description="Its folder is no longer in the project"
+        title={m.workshop_files_gone_title()}
+        description={m.workshop_files_gone_description()}
       />
     );
   }
@@ -127,8 +130,8 @@ function FilesBody({ layer }: FilesBodyProps) {
     return (
       <EmptyState
         size="sm"
-        title="No files yet"
-        description="Extract game files from an existing mod or the game client, then drop them into this folder."
+        title={m.workshop_files_empty_title()}
+        description={m.workshop_files_empty_description()}
       />
     );
   }

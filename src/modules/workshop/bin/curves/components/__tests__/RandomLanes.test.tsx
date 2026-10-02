@@ -43,15 +43,15 @@ function pinnedAt(pinned: number | null, setPinned = vi.fn()) {
 }
 
 describe("RandomLanes", () => {
-  it("reads a uniform angle as its range on a lane, and the filler channels as fixed", () => {
+  it("reads a uniform angle as its range bar on a lane, and the filler channels as fixed", () => {
     render(lanes(SPUN));
 
-    expect(screen.getByText("0 .. 360")).toBeInTheDocument();
+    expect(screen.getByText("360")).toBeInTheDocument();
     expect(screen.getAllByText("deg")).toHaveLength(3);
     expect(screen.getByText("uniform")).toBeInTheDocument();
     expect(screen.getAllByText("fixed")).toHaveLength(2);
-    expect(screen.getByRole("slider", { name: "Pin the chance on X" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "How often each value is drawn" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "What X draws" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "How often each value is drawn" })).toBeNull();
   });
 
   it("hides the lane of a muted channel", () => {
@@ -83,24 +83,14 @@ describe("RandomLanes", () => {
     expect(screen.getAllByText("no table")).toHaveLength(2);
   });
 
-  it("reads the value at the pin, and moves the pin by key", async () => {
+  it("reads the value at the pin, and never sets the pin itself", async () => {
     const setPinned = vi.fn();
     render(<VfxRunContext value={pinnedAt(0.25, setPinned)}>{lanes(SPUN)}</VfxRunContext>);
 
     expect(screen.getByText("90")).toBeInTheDocument();
 
-    screen.getByRole("slider", { name: "Pin the chance on X" }).focus();
-    await userEvent.setup().keyboard("{ArrowRight}");
+    await userEvent.setup().click(screen.getByRole("group", { name: "What X draws" }));
 
-    expect(setPinned).toHaveBeenCalledWith(0.26);
-  });
-
-  it("pins nothing outside a run", () => {
-    render(lanes(SPUN));
-
-    expect(screen.getByRole("slider", { name: "Pin the chance on X" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    expect(setPinned).not.toHaveBeenCalled();
   });
 });

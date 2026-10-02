@@ -1,8 +1,8 @@
 import { ArrowsLeftRightIcon, WarningIcon } from "@phosphor-icons/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { Button, Code, Dialog, useToast } from "@/components";
-import { errorSummary, m, Marked } from "@/i18n";
+import { Button, Code, Dialog, Properties, Property, useToast } from "@/components";
+import { m, Marked } from "@/i18n";
 import { api, type AppError } from "@/lib/tauri";
 import { settingsKeys } from "@/modules/settings";
 import {
@@ -45,7 +45,7 @@ function InstallMismatchContent({ mismatch }: { mismatch: DetectedInstallMismatc
   const queryClient = useQueryClient();
 
   const switchInstall = useMutation<null, AppError, string>({
-    meta: { silentError: true },
+    meta: { errorTitle: m.launcher_install_switch_failed_title() },
     mutationFn: mutationFn(api.launcher.switchLeagueInstall),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: settingsKeys.settings() });
@@ -53,9 +53,6 @@ function InstallMismatchContent({ mismatch }: { mismatch: DetectedInstallMismatc
       usePendingRebuildStore.getState().clear();
       toast.success(m.launcher_install_switched_title(), mismatch.sessionPath);
       clear();
-    },
-    onError: (error) => {
-      toast.error(m.launcher_install_switch_failed_title(), errorSummary(error));
     },
   });
 
@@ -69,8 +66,8 @@ function InstallMismatchContent({ mismatch }: { mismatch: DetectedInstallMismatc
       title={
         <>
           {/* DS-TEXT. */}
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning-text">
-            <WarningIcon className="h-4 w-4" weight="fill" />
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning-text">
+            <WarningIcon className="size-4" weight="fill" />
           </span>
           {m.launcher_install_mismatch_title()}
         </>
@@ -84,23 +81,17 @@ function InstallMismatchContent({ mismatch }: { mismatch: DetectedInstallMismatc
             {(clause) => <strong className="font-medium text-surface-100">{clause}</strong>}
           </Marked>
         </p>
-        <dl
+        <Properties
           data-ui="InstallMismatchDialog:installs"
-          className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1.5 text-sm"
+          className="items-baseline gap-y-1.5 text-sm"
         >
-          <dt className="text-surface-400 select-none">
-            {m.launcher_install_mismatch_running_label()}
-          </dt>
-          <dd className="min-w-0">
+          <Property label={m.launcher_install_mismatch_running_label()}>
             <Code className="break-all">{mismatch.sessionPath}</Code>
-          </dd>
-          <dt className="text-surface-400 select-none">
-            {m.launcher_install_mismatch_configured_label()}
-          </dt>
-          <dd className="min-w-0">
+          </Property>
+          <Property label={m.launcher_install_mismatch_configured_label()}>
             <Code className="break-all">{mismatch.configuredPath}</Code>
-          </dd>
-        </dl>
+          </Property>
+        </Properties>
         <p className="text-sm text-surface-400">{m.launcher_install_mismatch_hint()}</p>
       </Dialog.Body>
 
@@ -110,7 +101,7 @@ function InstallMismatchContent({ mismatch }: { mismatch: DetectedInstallMismatc
         </Button>
         <Button
           variant="filled"
-          left={<ArrowsLeftRightIcon weight="bold" className="h-4 w-4" />}
+          left={<ArrowsLeftRightIcon weight="bold" className="size-4" />}
           loading={switchInstall.isPending}
           onClick={() => switchInstall.mutate(mismatch.sessionPath)}
         >

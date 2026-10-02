@@ -8,9 +8,7 @@ use super::session::SessionError;
 
 /// Which stage of a start failed, for [`PatcherError::InjectionFailed`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum InjectionStage {
     /// The host process never came up - it could not be spawned, configured, or
@@ -28,9 +26,7 @@ pub enum InjectionStage {
 /// Sent over IPC as the `context` payload of an `AppError` with code `PATCHER`.
 /// Frontend code can switch on `kind` to handle each variant.
 #[derive(Debug, Clone, Serialize, Deserialize, Error)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum PatcherError {
     /// Something that mutates the mod library was rejected because a session is

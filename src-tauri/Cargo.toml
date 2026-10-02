@@ -1,6 +1,6 @@
 [package]
 name = "ltk-manager"
-version = "1.21.0"
+version = "1.26.0"
 description = "LeagueToolkit Mod Manager - Desktop app for managing League of Legends mods"
 edition = "2021"
 license = "GPL-3.0-or-later"
@@ -27,7 +27,9 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
 tauri-plugin-window-state = "2"
+tauri-plugin-clipboard-manager = "2"
 
+atlas = { path = "../crates/atlas", features = ["ts"] }
 hexshade = { workspace = true }
 ltk-manager-core = { path = "../crates/ltk-manager-core", features = ["ts"] }
 ltk-manager-game = { path = "../crates/ltk-manager-game", features = ["ts"] }
@@ -36,6 +38,7 @@ ltk-telemetry = { workspace = true }
 ltk_mod_core = { version = "0.1.1" }
 ltk_overlay = { workspace = true }
 ltk_file = { workspace = true }
+ltk_game_data = { workspace = true }
 ltk_hash = { workspace = true }
 
 serde_yaml_ng = { workspace = true }
@@ -51,12 +54,6 @@ serde_json = { workspace = true }
 regex = "1"
 base64 = { workspace = true }
 
-ts-rs = { workspace = true, features = [
-    "chrono-impl",
-    "serde-json-impl",
-    "indexmap-impl",
-] }
-
 specta = { workspace = true }
 specta-typescript = { workspace = true }
 tauri-specta = { workspace = true }
@@ -71,13 +68,12 @@ zstd = { version = "0.13", default-features = false }
 
 zip = { workspace = true }
 image = { workspace = true }
-notify = { version = "7", default-features = false }
-notify-debouncer-mini = "0.5"
+notify = { workspace = true }
+notify-debouncer-mini = { workspace = true }
 fs-err = { workspace = true }
 walkdir = { workspace = true }
 
 reqwest = { workspace = true }
-quick-xml = { workspace = true }
 url = "2"
 flate2 = { workspace = true }
 tar = { workspace = true }

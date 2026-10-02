@@ -1,7 +1,7 @@
-import { CaretDownIcon, MagnifyingGlassIcon, TranslateIcon, XIcon } from "@phosphor-icons/react";
+import { CaretDownIcon, TranslateIcon } from "@phosphor-icons/react";
 import { useRef } from "react";
 
-import { Field, IconButton, Menu, Tooltip } from "@/components";
+import { Count, Menu, SearchField, Tooltip } from "@/components";
 import { twMerge } from "@/utils";
 
 import { stringsDocument } from "../../documents/utils/contentDocument";
@@ -34,46 +34,15 @@ export function StringOverridesToolbar({
     <>
       <LocaleMenu layerName={layerName} locale={locale} />
 
-      <Field.Root className="relative min-w-0 flex-1">
-        <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
-        <Field.Control
-          ref={inputRef}
-          type="text"
-          value={filter}
-          onChange={(event) => onFilterChange(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Escape" && filter.length > 0) {
-              event.preventDefault();
-              onFilterChange("");
-            }
-          }}
-          placeholder="Filter the overrides"
-          aria-label="Filter the overrides"
-          autoComplete="off"
-          spellCheck={false}
-          className="h-6 pr-7 pl-7 text-xs select-text"
-        />
-        {filter && (
-          <IconButton
-            icon={<XIcon weight="bold" className="h-3 w-3" />}
-            variant="transparent"
-            size="xs"
-            compact
-            onClick={() => {
-              onFilterChange("");
-              inputRef.current?.focus();
-            }}
-            aria-label="Clear the filter"
-            className="absolute top-1/2 right-1 h-4 w-4 -translate-y-1/2"
-          />
-        )}
-      </Field.Root>
+      <SearchField
+        value={filter}
+        onChange={onFilterChange}
+        label="Filter the overrides"
+        clearLabel="Clear the filter"
+        inputRef={inputRef}
+      />
 
-      {total > 0 && (
-        <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums select-none">
-          {countText(shown, total)}
-        </span>
-      )}
+      {total > 0 && <Count>{countText(shown, total)}</Count>}
     </>
   );
 }
@@ -110,34 +79,30 @@ function LocaleMenu({ layerName, locale }: LocaleMenuProps) {
                 /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100",
               )}
             >
-              <TranslateIcon className="h-3.5 w-3.5 text-doc-strings-text" />
+              <TranslateIcon className="size-3.5 text-doc-strings-text" />
               {current?.label ?? locale}
-              <CaretDownIcon className="h-3 w-3 text-surface-400" />
+              <CaretDownIcon className="size-3 text-surface-400" />
             </button>
           }
         />
       </Tooltip>
-      <Menu.Portal>
-        <Menu.Positioner align="start" sideOffset={4}>
-          <Menu.Popup className="max-h-80 overflow-y-auto">
-            {LOCALES.map((candidate) => {
-              const count = Object.keys(overrides[candidate.value] ?? {}).length;
+      <Menu.Content align="start" sideOffset={4} className="max-h-80 overflow-y-auto">
+        {LOCALES.map((candidate) => {
+          const count = Object.keys(overrides[candidate.value] ?? {}).length;
 
-              return (
-                <Menu.Item
-                  key={candidate.value}
-                  shortcut={count > 0 ? String(count) : undefined}
-                  onClick={() => openDocument(stringsDocument(layerName, candidate.value))}
-                >
-                  <span className={candidate.value === locale ? "text-accent-300" : undefined}>
-                    {candidate.label}
-                  </span>
-                </Menu.Item>
-              );
-            })}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+          return (
+            <Menu.Item
+              key={candidate.value}
+              shortcut={count > 0 ? String(count) : undefined}
+              onClick={() => openDocument(stringsDocument(layerName, candidate.value))}
+            >
+              <span className={candidate.value === locale ? "text-accent-300" : undefined}>
+                {candidate.label}
+              </span>
+            </Menu.Item>
+          );
+        })}
+      </Menu.Content>
     </Menu.Root>
   );
 }

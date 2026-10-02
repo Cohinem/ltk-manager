@@ -25,9 +25,7 @@ use crate::workshop::WorkshopError;
 /// the error value is gone. The Tauri shell maps it to its own `ErrorCode`, and
 /// a CLI could map the same names to exit codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[cfg_attr(test, derive(strum::EnumIter))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 #[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
@@ -67,9 +65,7 @@ pub enum ErrorKind {
 /// so records and IPC responses carry this while the detail stays in the
 /// message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum OverlayErrorCategory {
     /// The game installation cannot be used. Point the user at their game dir.
@@ -82,6 +78,9 @@ pub enum OverlayErrorCategory {
     Corrupt,
     /// An `ltk_overlay` invariant broke. Nothing the user did; report it.
     Bug,
+    /// An overlay file is held open by another process, usually a game still
+    /// running on the old overlay. Closing it helps.
+    FileInUse,
     /// An IO, parse or archive failure with no category of its own.
     Other,
 }
@@ -94,9 +93,52 @@ impl From<&ltk_overlay::Error> for OverlayErrorCategory {
             ltk_overlay::Error::WadLimit(_) => Self::WadLimit,
             ltk_overlay::Error::Corrupt(_) => Self::Corrupt,
             ltk_overlay::Error::Bug(_) => Self::Bug,
+            ltk_overlay::Error::Write { source, .. } if is_held_open(source) => Self::FileInUse,
             _ => Self::Other,
         }
     }
+}
+
+/// Whether a write failed because another process holds the file open.
+///
+/// `ERROR_ACCESS_DENIED` (5) counts too: replacing a file that another process
+/// has mapped fails with it rather than with a sharing violation.
+fn is_held_open(error: &std::io::Error) -> bool {
+    const ERROR_ACCESS_DENIED: i32 = 5;
+    const ERROR_SHARING_VIOLATION: i32 = 32;
+    const ERROR_LOCK_VIOLATION: i32 = 33;
+    const ERROR_USER_MAPPED_FILE: i32 = 1224;
+
+    cfg!(windows)
+        && matches!(
+            error.raw_os_error(),
+            Some(
+                ERROR_ACCESS_DENIED
+                    | ERROR_SHARING_VIOLATION
+                    | ERROR_LOCK_VIOLATION
+                    | ERROR_USER_MAPPED_FILE
+            )
+        )
+}
+
+/// An error's message followed by the message of every error beneath it.
+///
+/// `Display` stops at the outermost error, so an OS error held as a `source`
+/// never reaches a reader without this.
+pub fn message_with_sources(error: &(dyn std::error::Error + 'static)) -> String {
+    let mut message = error.to_string();
+
+    let mut source = error.source();
+    while let Some(inner) = source {
+        let text = inner.to_string();
+        if !message.contains(&text) {
+            message.push_str(": ");
+            message.push_str(&text);
+        }
+        source = inner.source();
+    }
+
+    message
 }
 
 impl AppError {
@@ -242,6 +284,32 @@ impl From<ltk_mod_project::ModProjectError> for AppError {
     }
 }
 
+impl From<ltk_fantome::FantomeExtractError> for AppError {
+    fn from(error: ltk_fantome::FantomeExtractError) -> Self {
+        AppError::Fantome(error.to_string())
+    }
+}
+
+/// `error` as an [`AppError::Io`] of the same kind, its message led by the step that failed.
+pub(crate) fn io_context(error: std::io::Error, what: impl std::fmt::Display) -> AppError {
+    AppError::Io(std::io::Error::new(
+        error.kind(),
+        format!("{what}: {error}"),
+    ))
+}
+
+/// An I/O result whose error names the step that failed.
+pub(crate) trait IoContext<T> {
+    /// The error through [`io_context`].
+    fn context(self, what: impl std::fmt::Display) -> AppResult<T>;
+}
+
+impl<T> IoContext<T> for std::io::Result<T> {
+    fn context(self, what: impl std::fmt::Display) -> AppResult<T> {
+        self.map_err(|error| io_context(error, what))
+    }
+}
+
 /// Convenience type alias for internal Result usage
 pub type AppResult<T> = Result<T, AppError>;
 
@@ -298,6 +366,26 @@ mod tests {
         let error: AppError = fs_err::read(&missing).unwrap_err().into();
 
         assert!(error.to_string().contains("absent.json"), "{error}");
+    }
+
+    /// An overlay write that fails on a file another process holds names the
+    /// OS error and reads as a file in use.
+    #[cfg(windows)]
+    #[test]
+    fn overlay_write_on_a_held_file_is_file_in_use() {
+        const ERROR_SHARING_VIOLATION: i32 = 32;
+        let error = AppError::Overlay(ltk_overlay::Error::Write {
+            path: Utf8PathBuf::from("overlay/DATA/FINAL/Champions/Rengar.wad.client"),
+            source: std::io::Error::from_raw_os_error(ERROR_SHARING_VIOLATION),
+        });
+
+        assert_eq!(
+            error.overlay_category(),
+            Some(OverlayErrorCategory::FileInUse)
+        );
+        let message = message_with_sources(&error);
+        assert!(message.starts_with("Failed to write overlay/"), "{message}");
+        assert!(message.contains("os error 32"), "{message}");
     }
 
     #[test]

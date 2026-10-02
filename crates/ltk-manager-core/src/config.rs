@@ -6,6 +6,7 @@
 //! persists to a single `settings.json`.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 fn default_true() -> bool {
@@ -26,7 +27,7 @@ fn default_keep_incidents() -> u32 {
 /// against every WAD filename in the game install; the pattern is always
 /// applied case-insensitively.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum WadBlocklistEntry {
     Exact { value: String },
@@ -63,15 +64,12 @@ where
 /// Every field is optional or defaulted so a partial (or empty) JSON document
 /// deserializes into a usable configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
-    #[cfg_attr(feature = "ts", ts(as = "Option<String>"))]
     pub league_path: Option<PathBuf>,
-    #[cfg_attr(feature = "ts", ts(as = "Option<String>"))]
     pub mod_storage_path: Option<PathBuf>,
     /// Directory where mod projects are stored (for Creator Workshop).
-    #[cfg_attr(feature = "ts", ts(as = "Option<String>"))]
     pub workshop_path: Option<PathBuf>,
     /// Whether to patch TFT game files (Map22.wad.client). Default: false.
     #[serde(default)]
@@ -87,13 +85,14 @@ pub struct Config {
         default = "default_wad_blocklist",
         deserialize_with = "deserialize_wad_blocklist"
     )]
+    #[cfg_attr(feature = "ts", specta(type = Vec<WadBlocklistEntry>))]
     pub wad_blocklist: Vec<WadBlocklistEntry>,
     /// Run the injection host elevated (UAC). An elevated game can only be
     /// injected by an equally elevated host, so this is required when League
     /// runs as administrator. Off by default: when off, non-elevated users
     /// avoid a UAC prompt on every patcher start. Auto-elevation still kicks in
     /// when League is detected configured to run as admin, regardless of this
-    /// flag (see `commands::patcher::start_patcher_inner`).
+    /// flag (see `services::patcher::start_patcher_inner`).
     #[serde(default)]
     pub elevate_injector: bool,
     /// Whether to automatically categorize mods from their content (champions,
@@ -173,19 +172,51 @@ pub struct Config {
 }
 
 /// The built-in mods a user turned on, every one off by default.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase", default)]
 pub struct BuiltinModSettings {
     /// Every ward shows its own base skin.
     pub default_ward_skins: bool,
     /// Which champions show their base skin on every skin.
     pub base_skins: BaseSkinsScope,
+    /// Which map skin every game shows.
+    pub map_skin: MapSkinMode,
+    /// The `name` of the map skin [`MapSkinMode::Forced`] shows, kept while another mode is on.
+    pub forced_map_skin: String,
+    /// What each map decoration does, by the mutator that switches it. One absent follows the
+    /// game.
+    pub map_decorations: BTreeMap<String, MapDecorationMode>,
+}
+
+/// What a map decoration a mutator switches does, whatever mutators the game applies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum MapDecorationMode {
+    /// Never drawn.
+    Hide,
+    /// Drawn in every game.
+    Show,
+}
+
+/// Which map skin every game shows, whatever skin the server names.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum MapSkinMode {
+    /// The skin the server names.
+    #[default]
+    Game,
+    /// The map's `Default` skin.
+    Classic,
+    /// The skin named by `forcedMapSkin`.
+    Forced,
 }
 
 /// Which champions show their base skin on every skin, a mod's where one replaces it.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum BaseSkinsScope {
     /// Every champion keeps its skins.
@@ -261,10 +292,30 @@ mod tests {
         let config: Config = serde_json::from_str(r#"{ "builtinMods": {} }"#).unwrap();
         assert!(!config.builtin_mods.default_ward_skins);
         assert_eq!(config.builtin_mods.base_skins, BaseSkinsScope::Off);
+        assert_eq!(config.builtin_mods.map_skin, MapSkinMode::Game);
 
         let config: Config =
             serde_json::from_str(r#"{ "builtinMods": { "baseSkins": "allChampions" } }"#).unwrap();
         assert_eq!(config.builtin_mods.base_skins, BaseSkinsScope::AllChampions);
+
+        let config: Config = serde_json::from_str(
+            r#"{ "builtinMods": { "mapSkin": "forced", "forcedMapSkin": "Sodapop_SRS" } }"#,
+        )
+        .unwrap();
+        assert_eq!(config.builtin_mods.map_skin, MapSkinMode::Forced);
+        assert_eq!(config.builtin_mods.forced_map_skin, "Sodapop_SRS");
+
+        let config: Config = serde_json::from_str(
+            r#"{ "builtinMods": { "mapDecorations": { "SR_Hall_Of_Legends": "hide" } } }"#,
+        )
+        .unwrap();
+        assert_eq!(
+            config
+                .builtin_mods
+                .map_decorations
+                .get("SR_Hall_Of_Legends"),
+            Some(&MapDecorationMode::Hide)
+        );
     }
 
     /// A config written before the retention setting was removed still carries

@@ -23,6 +23,21 @@ export const CHIP = [
   "text-channel-4-text",
 ] as const;
 
+/**
+ * The hue a channel draws in: a scalar's is the float socket's, the hue its value node carries
+ * in the Graph pane, and any other family's is its channel's. DS-KIND-HUE.
+ */
+export function strokeOf(family: ValueFamily, channel: number): string {
+  if (family === "scalar") return "text-socket-float";
+  return STROKE[channel] ?? STROKE[0];
+}
+
+/** `strokeOf`'s hue as a label, per DS-TEXT. */
+export function chipOf(family: ValueFamily, channel: number): string {
+  if (family === "scalar") return "text-socket-float-text";
+  return CHIP[channel] ?? CHIP[0];
+}
+
 /** What `channel` is called on a `family`, falling back to its own index. */
 export function channelName(family: ValueFamily, channel: number): string {
   return CHANNELS[family][channel] ?? String(channel);

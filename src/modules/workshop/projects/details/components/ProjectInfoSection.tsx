@@ -56,9 +56,9 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
         className="flex w-full items-center gap-2 px-5 py-3.5 text-left text-sm font-medium text-surface-300 transition-colors hover:text-surface-100"
       >
         <span className={twMerge("transition-transform duration-200", isOpen && "rotate-90")}>
-          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          {isOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         </span>
-        <Info className="h-4 w-4 text-surface-400" />
+        <Info className="size-4 text-surface-400" />
         Project Info
       </button>
 
@@ -79,20 +79,18 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                         if (e.key === "Escape") handleCancelSlug();
                       }}
                       autoFocus
-                      className="w-48 rounded border border-surface-500 bg-surface-700 px-2 py-1 font-mono text-sm text-surface-200 focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none"
+                      className="w-48 rounded-md border border-surface-500 bg-surface-700 px-2 py-1 font-mono text-sm text-surface-200 focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none"
                     />
                     <IconButton
-                      icon={<Check className="h-3.5 w-3.5" />}
-                      variant="ghost"
-                      size="xs"
+                      compact={false}
+                      icon={<Check className="size-3.5" />}
                       onClick={handleSaveSlug}
                       loading={renameProject.isPending}
                       aria-label="Save slug"
                     />
                     <IconButton
-                      icon={<X className="h-3.5 w-3.5" />}
-                      variant="ghost"
-                      size="xs"
+                      compact={false}
+                      icon={<X className="size-3.5" />}
                       onClick={handleCancelSlug}
                       aria-label="Cancel editing"
                     />
@@ -101,9 +99,8 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                   <>
                     <span className="font-mono text-surface-200">{project.name}</span>
                     <IconButton
-                      icon={<Pencil className="h-3 w-3" />}
-                      variant="ghost"
-                      size="xs"
+                      compact={false}
+                      icon={<Pencil className="size-3" />}
                       onClick={() => {
                         setSlugValue(project.name);
                         setIsEditingSlug(true);

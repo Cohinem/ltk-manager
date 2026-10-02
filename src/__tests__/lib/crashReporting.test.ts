@@ -3,6 +3,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { describeThrown, installGlobalErrorHandlers } from "@/lib/crashReporting";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 
 /** An event carrying a field the constructor in this environment may not take. */
@@ -13,7 +14,9 @@ function eventCarrying(type: string, field: string, value: unknown): Event {
 }
 
 function reported(): Record<string, unknown> | undefined {
-  const call = mockInvoke.mock.calls.find(([name]) => name === "track_ui_error");
+  const call = mockInvoke.mock.calls.find(
+    ([name]) => name === commandNames.diagnostics.trackUiError,
+  );
   return (call?.[1] as { error: Record<string, unknown> } | undefined)?.error;
 }
 

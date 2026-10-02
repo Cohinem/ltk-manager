@@ -26,6 +26,33 @@ vi.mock("@/modules/settings", () => ({
   useSettings: () => ({ data: { showModTags: true } }),
 }));
 
+vi.mock("@/lib/previewUrl", () => ({
+  usePreviewUrl: () => "ltk-asset://kayn-square",
+}));
+
+vi.mock("@/modules/champions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/champions")>();
+  const roster = actual.championRoster([
+    { id: "MonkeyKing", metadataName: "Wukong", name: "Wukong", icon: null },
+    { id: "KSante", metadataName: "KSante", name: "K'Sante", icon: null },
+    {
+      id: "Kayn",
+      metadataName: "Kayn",
+      name: "Kayn",
+      icon: {
+        path: "assets/characters/kayn/hud/kayn_square.tex",
+        asset: {
+          kind: "gameChunk",
+          wad: "Champions/Kayn.wad.client",
+          pathHash: "0123456789abcdef",
+        },
+        page: false,
+      },
+    },
+  ]);
+  return { ...actual, useChampionRoster: () => roster };
+});
+
 function mod(over: Partial<InstalledMod> = {}): InstalledMod {
   return { ...installedMod("a", "A Mod"), ...over };
 }
@@ -45,13 +72,19 @@ beforeEach(() => {
 });
 
 describe("ModPills", () => {
-  /* Two pills saying one thing cost two of the three a card has room for. The
-     helmet carries "skin", so the label is free to be only the champion. */
+  /* Two pills saying one thing cost two of the three a card has room for. */
   it("folds a champion skin and its champion into one pill", () => {
     show({ tags: ["champion-skin"], champions: ["Kayn"] });
 
     expect(screen.getByLabelText("Kayn skin")).toHaveTextContent("Kayn");
     expect(screen.queryByText("Champion Skin")).not.toBeInTheDocument();
+  });
+
+  it("draws the champion's portrait on a folded skin pill", () => {
+    show({ tags: ["champion-skin"], champions: ["Kayn"] });
+
+    const portrait = screen.getByLabelText("Kayn skin").querySelector("img");
+    expect(portrait).toHaveAttribute("src", "ltk-asset://kayn-square");
   });
 
   it("folds one pill per champion when a skin covers several", () => {
@@ -75,12 +108,24 @@ describe("ModPills", () => {
     expect(screen.getByText("Champion Skin")).toBeInTheDocument();
   });
 
-  /* No skin tag to fold, so the pill is a plain champion and takes no helmet. */
+  /* No skin tag to fold, so the pill is a plain champion. */
   it("keeps a champion that came without the tag", () => {
     show({ champions: ["Thresh"] });
 
     expect(screen.getByText("Thresh")).toBeInTheDocument();
     expect(screen.queryByLabelText("Thresh skin")).not.toBeInTheDocument();
+  });
+
+  it("names a champion by its display name in the game", () => {
+    show({ tags: ["champion-skin"], champions: ["ksante"], maps: [] });
+
+    expect(screen.getByLabelText("K'Sante skin")).toBeInTheDocument();
+  });
+
+  it("names a champion its ID names by its display name", () => {
+    show({ champions: ["MonkeyKing"] });
+
+    expect(screen.getByText("Wukong")).toBeInTheDocument();
   });
 
   it("folds an auto-detected pair the same way", () => {

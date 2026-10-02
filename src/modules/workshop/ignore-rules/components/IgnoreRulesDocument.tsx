@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef } from "react";
 
-import { Button, Code, EmptyState, Spinner } from "@/components";
+import { Button, Code, EmptyState, LoadingState } from "@/components";
 import { m } from "@/i18n";
 import {
   DocumentToolbar,
@@ -17,6 +17,7 @@ import {
 import { twMerge } from "@/utils";
 
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import {
   useIgnoreLineRevealRequest,
   useSetDocumentDirty,
@@ -56,10 +57,7 @@ export function IgnoreRulesDocument({
   useDocumentFind(documentId, find.reveal);
 
   return (
-    <div
-      data-ui="IgnoreRulesDocument"
-      className="@container flex min-h-0 flex-1 flex-col bg-surface-950"
-    >
+    <DocumentFrame data-ui="IgnoreRulesDocument" className="@container">
       <DocumentToolbar active={active}>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {/* Two rules documents carry the same title, so the path is what tells them apart. */}
@@ -88,7 +86,7 @@ export function IgnoreRulesDocument({
       {find.open && <TextFindBar find={find} />}
 
       <Body editor={editor} documentId={documentId} at={at} find={find} />
-    </div>
+    </DocumentFrame>
   );
 }
 
@@ -104,11 +102,7 @@ interface BodyProps {
 
 function Body({ editor, documentId, at, find }: BodyProps) {
   if (editor.isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   /* The default anchors to content/, so only the root file is offered it. A

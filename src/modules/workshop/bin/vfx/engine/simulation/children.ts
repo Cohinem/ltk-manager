@@ -63,6 +63,22 @@ export function childPrefix(path: string): string {
   return `${path}/`;
 }
 
+/** One step down a child path: the emitter whose set lists the child, and its slot there. */
+export interface ChildStep {
+  readonly emitter: number;
+  readonly slot: number;
+}
+
+/** The steps of `path` from the opened system down, which `childPath` joins. */
+export function childSteps(path: string): ChildStep[] {
+  if (path === "") return [];
+
+  return path.split("/").map((step) => {
+    const [emitter = Number.NaN, slot = Number.NaN] = step.split(".").map(Number);
+    return { emitter, slot };
+  });
+}
+
 /** One child a run spawned: which definition, off which emitter, and when. */
 export interface ChildBirth {
   readonly path: string;
@@ -598,7 +614,7 @@ function advance(child: Child, dt: number, now: number, lineage: Lineage): void 
     world: child.world.basis,
     stopped: child.stopped,
     pinned: lineage.pinned,
-    surfaces: lineage.surfaces,
+    surfaces: lineage.surfaces.get(child.path),
   };
   stepEmitters(child.pool, child.system, step, child.rng, child.states);
   child.children.step(child, child.system, dt, now);

@@ -9,6 +9,7 @@ import {
   type ExtractProgress,
   type ExtractSummary,
   type ExtractTarget,
+  type WadSource,
 } from "@/lib/tauri";
 import { mutationFn } from "@/utils/query";
 
@@ -21,11 +22,12 @@ import { extractQueries } from "../api/queries";
  * rather than something the tree already knows. Disabled while there is nothing
  * aimed at.
  */
-export function usePlanGameExtract(targets: readonly ExtractTarget[] | null) {
-  return useQuery(extractQueries.extractPlan(targets));
+export function usePlanGameExtract(source: WadSource, targets: readonly ExtractTarget[] | null) {
+  return useQuery(extractQueries.extractPlan(source, targets));
 }
 
 interface ExtractArgs {
+  source: WadSource;
   targets: readonly ExtractTarget[];
   options: ExtractOptions;
 }
@@ -38,8 +40,8 @@ interface ExtractArgs {
  */
 export function useExtractGameFiles() {
   return useMutation<ExtractSummary | null, AppError, ExtractArgs>({
-    mutationFn: mutationFn(({ targets, options }: ExtractArgs) =>
-      api.extractGameFiles([...targets], options),
+    mutationFn: mutationFn(({ source, targets, options }: ExtractArgs) =>
+      api.extractGameFiles(source, [...targets], options),
     ),
   });
 }

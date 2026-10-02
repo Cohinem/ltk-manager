@@ -12,6 +12,7 @@ mod resolve;
 
 pub(crate) use artifacts::OverlayStorageExt;
 pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
+pub use builtin_mods::{ForcibleMapSkin, MapDecoration, forcible_map_skins, map_decorations};
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 
 use crate::config::Config;
@@ -19,10 +20,39 @@ use crate::error::{AppResult, Utf8PathExt};
 use crate::events::BackendEvent;
 use crate::meta_schema::{self, PatchSchema};
 use crate::mods::ModLibrary;
+use crate::mods::StorageLayout as _;
 use crate::problems::GameBuild;
 use ltk_overlay::game_data::{GameDataDiagnostic, GameDataDiagnosticKind};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+/// A workshop project an overlay tests, with the layers the test turns on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WorkshopTestProject {
+    /// The project directory.
+    pub path: PathBuf,
+    /// The layers the test turns on, or `None` for every layer. `base` is on either way.
+    pub enabled_layers: Option<HashSet<String>>,
+}
+
+impl WorkshopTestProject {
+    /// A test of `path` with every layer on.
+    pub fn all_layers(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            enabled_layers: None,
+        }
+    }
+
+    /// Whether the test turns `layer` on.
+    pub fn is_layer_active(&self, layer: &str) -> bool {
+        match &self.enabled_layers {
+            None => true,
+            Some(enabled) => layer == ltk_overlay::BASE_LAYER_NAME || enabled.contains(layer),
+        }
+    }
+}
 
 /// One completed overlay build: where it landed, plus everything it learned.
 pub struct OverlayBuild {
@@ -42,8 +72,9 @@ impl ModLibrary {
     /// a CLI, say — therefore doesn't silently mutate the badge caches or fire
     /// UI events as a side effect of asking for one.
     ///
-    /// Workshop project paths (if any) are loaded via `FsModContent` and prepended
-    /// to the enabled mod list, and the built-in mods `config` turns on go above them.
+    /// Workshop projects (if any) are loaded via `FsModContent` with the layers each
+    /// test turns on and prepended to the enabled mod list, and the built-in mods
+    /// `config` turns on go above them.
     ///
     /// # Errors
     ///
@@ -53,10 +84,11 @@ impl ModLibrary {
     pub fn ensure_overlay(
         &self,
         config: &Config,
-        workshop_project_paths: &[PathBuf],
+        workshop_projects: &[WorkshopTestProject],
         force_rebuild: bool,
         called_off: impl Fn() -> bool + Send + Sync + 'static,
     ) -> AppResult<OverlayBuild> {
+        let _building = self.overlay_lock().lock();
         let storage_dir = self.storage_dir(config)?;
 
         storage_dir.invalidate_stale_overlays(self.app_version());
@@ -64,7 +96,7 @@ impl ModLibrary {
         let game_dir = crate::utils::game::GameDir::resolve(config)?;
         let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(config)?;
 
-        let profile_dir = storage_dir.join("profiles").join(profile_slug.as_str());
+        let profile_dir = storage_dir.profile_dir(profile_slug.as_str());
         let overlay_root = profile_dir.join("overlay");
 
         // A manual rebuild discards this profile's cached overlay state so the
@@ -79,7 +111,7 @@ impl ModLibrary {
         tracing::info!("Overlay: overlay_root={}", overlay_root.display());
         tracing::info!("Overlay: game_dir={}", game_dir.path().display());
 
-        let mods = self.collect_overlay_mods(workshop_project_paths, enabled_mods)?;
+        let mods = self.collect_overlay_mods(workshop_projects, enabled_mods)?;
         let tables = self.wad_resolver();
         let mods = builtin_mods::inject(
             &storage_dir,
@@ -145,7 +177,7 @@ impl ModLibrary {
     /// The overlay's mods below the built-in ones, highest priority first: workshop projects, then enabled mods.
     fn collect_overlay_mods(
         &self,
-        workshop_project_paths: &[PathBuf],
+        workshop_projects: &[WorkshopTestProject],
         enabled_mods: Vec<ltk_overlay::EnabledMod>,
     ) -> AppResult<Vec<ltk_overlay::EnabledMod>> {
         let enabled_ids = enabled_mods
@@ -159,20 +191,28 @@ impl ModLibrary {
         );
 
         let mut all_mods = Vec::new();
-        for project_path in workshop_project_paths {
-            let utf8_path = project_path
+        for project in workshop_projects {
+            let utf8_path = project
+                .path
                 .clone()
                 .try_into_utf8("workshop project path")?;
-            let dir_name = project_path
+            let dir_name = project
+                .path
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("unknown");
             let id = format!("workshop:{}", dir_name);
-            tracing::info!("Adding workshop project: id={}, path={}", id, utf8_path);
+            tracing::info!(
+                "Adding workshop project: id={}, path={}, layers={:?}",
+                id,
+                utf8_path,
+                project.enabled_layers
+            );
+
             all_mods.push(ltk_overlay::EnabledMod {
                 id,
                 content: Box::new(ltk_overlay::FsModContent::new(utf8_path)),
-                enabled_layers: None,
+                enabled_layers: project.enabled_layers.clone(),
             });
         }
         all_mods.extend(enabled_mods);

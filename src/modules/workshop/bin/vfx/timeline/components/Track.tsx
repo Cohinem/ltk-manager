@@ -1,14 +1,22 @@
-import { CaretRightIcon } from "@phosphor-icons/react";
-import { type PointerEvent as ReactPointerEvent, useRef } from "react";
-import { twMerge } from "tailwind-merge";
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react";
 
-import { Tooltip } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
-import { type LaneBar, type TimeWindow, xOf } from "../utils/laneModel";
+import type { SnapKeys, TimeSnap } from "../hooks/useTimeSnap";
+import {
+  barFields,
+  type BarGrip,
+  barGripAt,
+  draggedBar,
+  dragReadout,
+  edgeTime,
+} from "../utils/barDrag";
+import { type LaneBar, type TimeWindow, timeAt, xOf } from "../utils/laneModel";
+import { Bar } from "./BarShape";
 
-/** How long a pointer rests on a bar before its times show, in milliseconds. */
-const BAR_DELAY = 400;
+/** How far a press travels before it drags rather than seeks, in pixels. */
+const DRAG_START = 3;
 
 interface TrackProps {
   label: string;
@@ -18,114 +26,315 @@ interface TrackProps {
   dimmed: boolean;
   /** The room left at the lane's right edge, in pixels. */
   right: number;
-  onSeek: (x: number) => void;
+  /** Seek to `x` pixels into the track, snapped under the pointer's keys. */
+  onSeek: (x: number, keys: SnapKeys) => void;
+  /** Pause the clock while a press scrubs. */
+  onScrubStart: () => void;
+  /** Let the clock run again once the scrub ends. */
+  onScrubEnd: () => void;
+  /** Write the first bar as a drag left it, and undefined for a lane whose bars are read-only. */
+  onBarEdit?: (grip: BarGrip, bar: LaneBar) => Promise<boolean>;
+  /** Run the preview on the bar a drag holds, and on the written one again with null. */
+  onBarPreview?: (bar: LaneBar | null) => void;
+  /** Open the first bar's exact times, at a point on the screen. */
+  onBarOpen?: (at: { readonly x: number; readonly y: number }) => void;
+  /** The first bar offers its linger edge. */
+  lingers?: boolean;
+  /** How a dragged edge snaps. */
+  snap: TimeSnap;
 }
 
-/** A lane's bars over the view, which a press or a drag seeks along. */
-export function Track({ label, view, width, bars, dimmed, right, onSeek }: TrackProps) {
+/** A drag of the lane's first bar: the part it holds, the bar at the press, and where it began. */
+interface BarDrag {
+  readonly grip: BarGrip;
+  readonly held: LaneBar;
+  readonly x: number;
+  /** The seconds between the press and the edge it holds, which the edge keeps. */
+  readonly offset: number;
+  moved: boolean;
+}
+
+interface Draft {
+  readonly grip: BarGrip;
+  readonly bar: LaneBar;
+  /** The time the edge snapped to, for the guide, and null for a free drag. */
+  readonly snapped: number | null;
+  /** The pointer has travelled, so the value reads beside the edge. */
+  readonly moved: boolean;
+}
+
+/**
+ * A lane's bars over the view, which a press or a drag scrubs along.
+ *
+ * Where `onBarEdit` is given, the first bar edits. A drag on its body moves it, on its left
+ * edge trims its first emission, on its right edge sets its lifetime and on the end of its
+ * hatch its linger. The edge snaps through `snap`. The dragged bar
+ * and its value draw until the edit lands, and Escape drops the drag. A press on the bar
+ * that never travels seeks, as the rest of the lane does, and a double click opens its
+ * exact times. "The timeline" in docs/ux/BIN_EDITOR.md.
+ */
+export function Track({
+  label,
+  view,
+  width,
+  bars,
+  dimmed,
+  right,
+  onSeek,
+  onScrubStart,
+  onScrubEnd,
+  onBarEdit,
+  onBarPreview,
+  onBarOpen,
+  lingers = false,
+  snap,
+}: TrackProps) {
   const pressed = useRef(false);
+  const drag = useRef<BarDrag | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  const [hovered, setHovered] = useState<BarGrip | null>(null);
+  const editable = onBarEdit !== undefined && bars.length > 0;
+
+  /* A landed edit reads the emitter again, whose new bar replaces the draft. */
+  useEffect(() => {
+    if (drag.current === null) setDraft(null);
+  }, [bars]);
+
+  const dropDrag = () => {
+    drag.current = null;
+    setDraft(null);
+    onBarPreview?.(null);
+  };
+  const dropRef = useRef(dropDrag);
+  dropRef.current = dropDrag;
+
+  useEffect(() => {
+    if (draft === null || drag.current === null) return;
+
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      dropRef.current();
+    };
+    window.addEventListener("keydown", cancel, true);
+    return () => window.removeEventListener("keydown", cancel, true);
+  }, [draft]);
+
   const at = (event: ReactPointerEvent<HTMLDivElement>) =>
     event.clientX - event.currentTarget.getBoundingClientRect().left;
+  const gripAt = (x: number) => (editable ? barGripAt(bars[0], view, width, x, lingers) : null);
+
+  const finishDrag = (x: number, keys: SnapKeys) => {
+    const held = drag.current;
+    drag.current = null;
+    if (held === null) return;
+
+    if (!held.moved) {
+      setDraft(null);
+      onSeek(x, keys);
+      return;
+    }
+    const before = barFields(held.grip, held.held);
+    const after = draft === null ? before : barFields(draft.grip, draft.bar);
+    if (draft === null || onBarEdit === undefined || sameFields(before, after)) {
+      dropDrag();
+      return;
+    }
+    void onBarEdit(draft.grip, draft.bar).then((landed) => {
+      if (landed) return;
+      setDraft(null);
+      onBarPreview?.(null);
+    });
+  };
+
+  const moveDrag = (held: BarDrag, event: ReactPointerEvent<HTMLDivElement>) => {
+    const x = at(event);
+    if (!held.moved && Math.abs(x - held.x) < DRAG_START) return;
+
+    held.moved = true;
+    const raw = timeAt(view, width, x) - held.offset;
+    const { time, snapped } = snap(raw, event);
+    const bar = draggedBar(held.grip, held.held, time);
+    setDraft({ grip: held.grip, bar, snapped, moved: true });
+    onBarPreview?.(bar);
+  };
+
   const letGo = (event: ReactPointerEvent<HTMLDivElement>) => {
-    pressed.current = false;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    if (drag.current !== null) {
+      finishDrag(at(event), event);
+      return;
+    }
+    if (!pressed.current) return;
+
+    pressed.current = false;
+    onScrubEnd();
   };
+
+  const shown = draft === null ? bars : [draft.bar, ...bars.slice(1)];
+  const cursor = cursorOf(draft?.grip ?? hovered, draft !== null);
 
   return (
     <div
       data-track=""
       role="group"
       aria-label={label}
-      className={twMerge("absolute inset-y-0 left-0 overflow-hidden", dimmed && "opacity-50")}
-      style={{ right }}
+      title={editable ? m.workshop_bin_timeline_bar_hint() : undefined}
+      className={twMerge(
+        "group/track absolute inset-y-0 left-0 overflow-hidden",
+        dimmed && "opacity-50",
+      )}
+      style={{ right, cursor }}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.currentTarget.setPointerCapture(event.pointerId);
+        const x = at(event);
+        const grip = gripAt(x);
+        if (grip !== null) {
+          const first = bars[0];
+          const held = grip === "end" ? { ...first, end: first.end ?? view.to } : first;
+          const edge = edgeTime(grip, held, view) ?? held.start;
+          drag.current = { grip, held, x, offset: timeAt(view, width, x) - edge, moved: false };
+          setDraft({ grip, bar: held, snapped: null, moved: false });
+          return;
+        }
+
         pressed.current = true;
-        onSeek(at(event));
+        onScrubStart();
+        onSeek(x, event);
       }}
       onPointerMove={(event) => {
-        if (pressed.current) onSeek(at(event));
+        const held = drag.current;
+        if (held !== null) {
+          moveDrag(held, event);
+          return;
+        }
+        if (pressed.current) {
+          onSeek(at(event), event);
+          return;
+        }
+        setHovered(gripAt(at(event)));
       }}
+      onPointerLeave={() => setHovered(null)}
       onPointerUp={letGo}
       onPointerCancel={letGo}
+      onDoubleClick={(event) => {
+        const x = event.clientX - event.currentTarget.getBoundingClientRect().left;
+        if (onBarOpen !== undefined && gripAt(x) !== null) {
+          onBarOpen({ x: event.clientX, y: event.clientY });
+        }
+      }}
     >
-      {bars.map((bar, index) => (
-        <Bar key={index} bar={bar} view={view} width={width} />
+      {shown.map((bar, index) => (
+        <Bar key={index} bar={bar} view={view} width={width} quiet={draft !== null} />
       ))}
+      {editable && (
+        <Grips
+          bar={shown[0]}
+          view={view}
+          width={width}
+          lingers={lingers}
+          active={draft?.grip ?? hovered}
+        />
+      )}
+      {draft?.snapped != null && (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 w-px bg-accent-200"
+          style={{ left: xOf(view, width, draft.snapped) }}
+        />
+      )}
+      {draft?.moved === true && (
+        <DragValue grip={draft.grip} bar={draft.bar} view={view} width={width} />
+      )}
     </div>
   );
 }
 
-/** One bar: the solid emission view, the faded particle tail and the hatched linger. */
-function Bar({ bar, view, width }: { bar: LaneBar; view: TimeWindow; width: number }) {
-  const left = xOf(view, width, bar.start);
-  const endless = bar.end === null;
-  const end = bar.end ?? view.to;
-  const right = xOf(view, width, end);
-  const tail = xOf(view, width, end + bar.tail);
-  const linger = xOf(view, width, end + bar.tail + bar.linger);
-  if (right < 0 || left > width) return null;
+function cursorOf(grip: BarGrip | null, dragging: boolean): string | undefined {
+  if (grip === null) return undefined;
+  if (grip === "move") return dragging ? "grabbing" : "grab";
+  return "ew-resize";
+}
+
+function sameFields(
+  a: readonly { field: string; value: number }[],
+  b: readonly { field: string; value: number }[],
+): boolean {
+  return a.length === b.length && a.every((each, at) => each.value === b[at]?.value);
+}
+
+/** The edges a drag takes: faint while the pointer is over the lane, lit on the one it holds. */
+function Grips({
+  bar,
+  view,
+  width,
+  lingers,
+  active,
+}: {
+  bar: LaneBar;
+  view: TimeWindow;
+  width: number;
+  lingers: boolean;
+  active: BarGrip | null;
+}) {
+  const grips: BarGrip[] = lingers ? ["start", "end", "linger"] : ["start", "end"];
 
   return (
     <>
-      <Tooltip content={<BarTimes bar={bar} />} delay={BAR_DELAY} side="top">
-        <span
-          className="absolute top-1.5 bottom-1.5 rounded-sm border border-accent-500/50 bg-accent-500/25"
-          style={{ left, width: Math.max(right - left, 2) }}
-        />
-      </Tooltip>
-      {endless && (
-        <CaretRightIcon
-          weight="bold"
-          role="img"
-          aria-label={m.workshop_bin_timeline_endless_label()}
-          className="absolute top-1/2 h-3 w-3 -translate-y-1/2 text-accent-400"
-          style={{ left: Math.min(right, width) - 12 }}
-        />
-      )}
-      {!endless && bar.tail > 0 && (
-        <span
-          aria-hidden="true"
-          className="absolute top-2 bottom-2 bg-accent-500/10"
-          style={{ left: right, width: Math.max(tail - right, 0) }}
-        />
-      )}
-      {!endless && bar.linger > 0 && (
-        <span
-          aria-hidden="true"
-          className="absolute top-2.5 bottom-2.5 bg-[repeating-linear-gradient(135deg,var(--color-accent-500)_0_1px,transparent_1px_4px)] opacity-30"
-          style={{ left: tail, width: Math.max(linger - tail, 0) }}
-        />
-      )}
+      {grips.map((grip) => {
+        const time = edgeTime(grip, bar, view);
+        if (time === null) return null;
+
+        const lit = active === grip || (active === "move" && grip === "start");
+        return (
+          <span
+            key={grip}
+            aria-hidden="true"
+            data-grip={grip}
+            className={twMerge(
+              "pointer-events-none absolute top-1 bottom-1 w-[3px] -translate-x-1/2 rounded-full bg-accent-300 opacity-0 group-hover/track:opacity-60",
+              grip === "linger" && "bg-accent-400",
+              lit && "opacity-100 group-hover/track:opacity-100",
+            )}
+            style={{ left: xOf(view, width, time) }}
+          />
+        );
+      })}
     </>
   );
 }
 
-/** When a bar emits, how long its particles live on, and where its linger ends, in seconds. */
-function BarTimes({ bar }: { bar: LaneBar }) {
-  const from = bar.start.toFixed(2);
-  if (bar.end === null) {
-    return <span className="text-meta">{m.workshop_bin_timeline_bar_endless_label({ from })}</span>;
-  }
-  const particles = bar.end + bar.tail;
+/** The value a drag writes, beside the edge it moves. */
+function DragValue({
+  grip,
+  bar,
+  view,
+  width,
+}: {
+  grip: BarGrip;
+  bar: LaneBar;
+  view: TimeWindow;
+  width: number;
+}) {
+  const seconds = dragReadout(grip, bar).toFixed(2);
+  const edge = edgeTime(grip, bar, view) ?? bar.start;
+  const text =
+    grip === "end"
+      ? m.workshop_bin_timeline_drag_lifetime_label({ seconds })
+      : grip === "linger"
+        ? m.workshop_bin_timeline_drag_linger_label({ seconds })
+        : m.workshop_bin_timeline_drag_start_label({ seconds });
+
   return (
-    <span className="flex flex-col font-mono text-meta tabular-nums">
-      <span>{m.workshop_bin_timeline_bar_emits_label({ from, to: bar.end.toFixed(2) })}</span>
-      {bar.tail > 0 && (
-        <span className="text-surface-300">
-          {m.workshop_bin_timeline_bar_particles_label({ to: particles.toFixed(2) })}
-        </span>
-      )}
-      {bar.linger > 0 && (
-        <span className="text-surface-400">
-          {m.workshop_bin_timeline_bar_linger_label({
-            to: (particles + bar.linger).toFixed(2),
-          })}
-        </span>
-      )}
+    <span
+      role="status"
+      className="pointer-events-none absolute inset-y-0.5 flex items-center rounded-sm bg-surface-800 px-1 font-mono text-meta text-surface-100 tabular-nums shadow"
+      style={{ left: Math.min(xOf(view, width, edge) + 6, Math.max(width - 96, 0)) }}
+    >
+      {text}
     </span>
   );
 }

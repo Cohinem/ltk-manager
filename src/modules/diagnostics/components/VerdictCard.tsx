@@ -1,9 +1,9 @@
 import skinhackMark from "@/assets/game/skinhack.png";
+import { m } from "@/i18n";
 import type { Incident } from "@/lib/tauri";
-import { scanRejectionCause } from "@/modules/patcher";
 import { twMerge } from "@/utils";
 
-import { isSkinhackRejection, verdictTitle } from "../utils/incident";
+import { isSkinhackRejection, verdictCause, verdictTitle } from "../utils/incident";
 import { ConsequenceChip } from "./ConsequenceChip";
 import { VerdictGlyph } from "./VerdictGlyph";
 
@@ -32,7 +32,7 @@ export function VerdictCard({ incident }: VerdictCardProps) {
           src={skinhackMark}
           alt=""
           draggable={false}
-          className="m-1 h-40 w-40 shrink-0 self-center select-none"
+          className="m-1 size-40 shrink-0 self-center select-none"
         />
       )}
       {/* The art supplies the left inset when it is there, so only a card
@@ -42,7 +42,7 @@ export function VerdictCard({ incident }: VerdictCardProps) {
           {/* Glyphs take the -text variant: DS-TEXT. */}
           <VerdictGlyph
             kind={verdict.kind}
-            className={twMerge("mt-0.5 h-5 w-5 shrink-0", skinhack && "text-void-text")}
+            className={twMerge("mt-0.5 size-5 shrink-0", skinhack && "text-void-text")}
           />
           <h2
             className={twMerge(
@@ -54,14 +54,12 @@ export function VerdictCard({ incident }: VerdictCardProps) {
           </h2>
           <ConsequenceChip consequence={verdict.consequence} />
           {incident.dismissed && (
-            <span className="inline-flex h-5 items-center rounded-sm border border-surface-600 px-1.5 text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
-              Dismissed
+            <span className="inline-flex h-5 items-center rounded-sm border border-surface-600 px-1.5 text-fine font-medium tracking-wider text-surface-400 uppercase">
+              {m.diagnostics_dismissed_label()}
             </span>
           )}
         </div>
-        <p className="mt-1 text-sm leading-relaxed text-surface-300">
-          {scanRejectionCause(incident)}
-        </p>
+        <p className="mt-1 text-sm leading-relaxed text-surface-300">{verdictCause(incident)}</p>
         {verdict.subject && (
           /* An inset inside a card is the one place a lower rung is right: DS-GROUND. */
           <p

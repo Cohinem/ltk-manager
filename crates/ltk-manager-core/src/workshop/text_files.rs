@@ -2,6 +2,7 @@
 
 use super::{ProjectDir, WorkshopError};
 use crate::error::{AppResult, Utf8PathRefExt};
+use crate::utils::fs::atomic_write;
 use fs_err as fs;
 use ltk_mod_project::{LICENSE_FILE_NAMES, find_license_file};
 use serde::{Deserialize, Serialize};
@@ -16,9 +17,7 @@ pub const README_FILE_NAME: &str = "README.md";
 /// Naming the files rather than taking a path is what keeps a command that
 /// writes into a project from being addressable at an arbitrary one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub enum ProjectTextFile {
     /// The long description a package carries, in Markdown.
@@ -29,9 +28,7 @@ pub enum ProjectTextFile {
 
 /// One of a project's root text files, as the editor reads it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectText {
     /// Absolute path of the file, whether or not one exists.
@@ -50,9 +47,7 @@ pub struct ProjectText {
 /// answers it, and prose a person typed does not change back into the same
 /// length within the same millisecond.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct Revision {
     /// Milliseconds since the Unix epoch, or 0 where the platform has no time.
@@ -183,7 +178,7 @@ impl ProjectDir {
             Err(_) => LineEnding::Lf,
         };
 
-        write_atomically(&path, ending.apply(text).as_bytes())?;
+        atomic_write(&path, ending.apply(text).as_bytes())?;
         self.project_text(file)
     }
 }
@@ -223,14 +218,6 @@ fn revision_of(path: &Path) -> Option<Revision> {
         modified_ms,
         size: metadata.len(),
     })
-}
-
-/// Write `bytes` to `path` through a temporary file beside it.
-fn write_atomically(path: &Path, bytes: &[u8]) -> AppResult<()> {
-    let temporary = path.with_extension("ltk-tmp");
-    fs::write(&temporary, bytes)?;
-    fs::rename(&temporary, path)?;
-    Ok(())
 }
 
 #[cfg(test)]

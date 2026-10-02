@@ -6,7 +6,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ConfirmHost, ToastProvider } from "@/components";
-import type { IntegrationStatus } from "@/lib/tauri";
+import type { FileTypeStatus, IntegrationStatus } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -28,15 +29,19 @@ const absent: IntegrationStatus = {
   operation: null,
 };
 
-function show(status: Partial<IntegrationStatus> = {}, offline = false) {
+function show(
+  status: Partial<IntegrationStatus> = {},
+  offline = false,
+  fileTypes: FileTypeStatus[] = [],
+) {
   const client = createTestQueryClient();
   const settings = createMockSettings();
   client.setQueryData(settingsKeys.settings(), settings);
   client.setQueryData(settingsKeys.defaults(), settings);
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "integration_status")
+    if (command === commandNames.integrations.integrationStatus)
       return Promise.resolve({ ok: true, value: [{ ...absent, ...status }] });
-    if (command === "integration_release") {
+    if (command === commandNames.integrations.integrationRelease) {
       if (offline)
         return Promise.resolve({
           ok: false,
@@ -50,7 +55,12 @@ function show(status: Partial<IntegrationStatus> = {}, offline = false) {
         },
       });
     }
-    if (command === "get_settings" || command === "get_default_settings")
+    if (command === commandNames.integrations.fileTypeStatus)
+      return Promise.resolve({ ok: true, value: fileTypes });
+    if (
+      command === commandNames.settings.getSettings ||
+      command === commandNames.settings.getDefaultSettings
+    )
       return Promise.resolve({ ok: true, value: settings });
     return Promise.resolve({ ok: true, value: null });
   });
@@ -67,6 +77,37 @@ function show(status: Partial<IntegrationStatus> = {}, offline = false) {
 beforeEach(() => mockInvoke.mockReset());
 
 describe("IntegrationsSection", () => {
+  it("names the program each mod file type opens with", async () => {
+    const user = userEvent.setup();
+    show({}, false, [
+      { fileType: "fantome", owner: { kind: "other", program: "7-Zip File Manager" } },
+      { fileType: "modpkg", owner: { kind: "manager" } },
+    ]);
+
+    expect(await screen.findByText("Opens with 7-Zip File Manager")).toBeInTheDocument();
+    expect(screen.getByText("Opens with LTK Manager")).toBeInTheDocument();
+
+    const choose = screen.getAllByRole("button", { name: "Choose in Windows" });
+    expect(choose).toHaveLength(1);
+    await user.click(choose[0]);
+
+    await waitFor(() =>
+      expect(
+        mockInvoke.mock.calls.some(
+          ([command]) => command === commandNames.integrations.openDefaultApps,
+        ),
+      ).toBe(true),
+    );
+  });
+
+  it("leaves the mod files card out where no type can be registered", async () => {
+    show();
+
+    await screen.findByRole("region", { name: "Wad Tools" });
+
+    expect(screen.queryByText("Open mod files with LTK Manager")).not.toBeInTheDocument();
+  });
+
   it.each([
     ["wadtools", "Wad Tools"],
     ["tex-toolz", "Tex Tools"],
@@ -109,7 +150,7 @@ describe("IntegrationsSection", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Install" }));
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("change_integration", {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.integrations.changeIntegration, {
         tool: "wadtools",
         action: "installOnly",
         conflicts: "preserve",
@@ -130,7 +171,11 @@ describe("IntegrationsSection", () => {
     await user.click(await screen.findByRole("button", { name: "Uninstall" }));
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-    expect(mockInvoke.mock.calls.some(([command]) => command === "change_integration")).toBe(false);
+    expect(
+      mockInvoke.mock.calls.some(
+        ([command]) => command === commandNames.integrations.changeIntegration,
+      ),
+    ).toBe(false);
   });
 
   it("requires explicit replacement before changing another installation's menu", async () => {
@@ -139,10 +184,14 @@ describe("IntegrationsSection", () => {
     await user.click(await screen.findByRole("button", { name: "Enable" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("C:/other/wadtools.exe")).toBeInTheDocument();
-    expect(mockInvoke.mock.calls.some(([command]) => command === "change_integration")).toBe(false);
+    expect(
+      mockInvoke.mock.calls.some(
+        ([command]) => command === commandNames.integrations.changeIntegration,
+      ),
+    ).toBe(false);
     await user.click(within(dialog).getByRole("button", { name: "Replace menus" }));
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("change_integration", {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.integrations.changeIntegration, {
         tool: "wadtools",
         action: "enableMenu",
         conflicts: "replace",
@@ -165,7 +214,7 @@ describe("IntegrationsSection", () => {
     expect(screen.getByRole("button", { name: "Install" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Cancel download" }));
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("cancel_integration_download", {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.integrations.cancelIntegrationDownload, {
         operationId: "run-1",
       }),
     );
@@ -208,11 +257,13 @@ describe("IntegrationsSection", () => {
     await userEvent.click(
       within(managedPaths).getByRole("button", { name: "Open in file manager" }),
     );
-    expect(mockInvoke).toHaveBeenCalledWith("reveal_in_explorer", { path: "C:/managed" });
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.desktop.revealInExplorer, {
+      path: "C:/managed",
+    });
     const external = paths.getAllByRole("listitem")[1]!;
     await userEvent.hover(external);
     await userEvent.click(within(external).getByRole("button", { name: "Open in file manager" }));
-    expect(mockInvoke).toHaveBeenCalledWith("reveal_in_explorer", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.desktop.revealInExplorer, {
       path: "D:/tools/wadtools.exe",
     });
   });

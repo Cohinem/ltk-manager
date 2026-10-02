@@ -1,17 +1,18 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ToastProvider } from "@/components";
-import type { BinRow, DeclaredState, WorkshopProject } from "@/lib/tauri";
+import type { BinRow, DeclaredModuleChoice, DeclaredState, WorkshopProject } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../../../projects/state/ProjectContext";
+import { EMPTY_EDITOR, useWorkshopEditorStore } from "../../../../state";
 import { BinRowLine } from "../../../tree/components/BinRow";
 import type { RowLine } from "../../../tree/utils/binRows";
 import { DeclaredRowsContext, useDeclaredRows } from "../../hooks/useDeclared";
@@ -37,12 +38,35 @@ const PROJECT: WorkshopProject = {
   ],
   thumbnailPath: null,
   lastModified: "2026-09-21T10:00:00Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-jade-teemo",
 } as WorkshopProject;
 
 const DECLARED: DeclaredState = {
   layer: "base",
+  module: { kind: "auto" },
+  modules: [
+    { index: 0, name: null, takesKeys: true },
+    { index: 1, name: "Glow", takesKeys: true },
+    { index: 2, name: null, takesKeys: false },
+  ],
   layers: ["base", "chroma"],
-  marks: [{ entry: ENTRY, path: GLOW, sign: "set", whole: false, reference: null, game: "0.0" }],
+  marks: [
+    {
+      entry: ENTRY,
+      path: GLOW,
+      property: "skinMeshProperties.selfIllumination",
+      module: 1,
+      moduleName: "Glow",
+      sign: "set",
+      whole: false,
+      reference: null,
+      game: "0.0",
+    },
+  ],
+  objects: [],
+  links: [],
   diagnostics: [
     {
       entry: ENTRY,
@@ -51,6 +75,7 @@ const DECLARED: DeclaredState = {
       key: "skinMeshProperties.selfIllumination",
       kind: "propertyEditSkipped",
       reason: "kindMismatch",
+      object: null,
       detail: null,
     },
     {
@@ -60,6 +85,7 @@ const DECLARED: DeclaredState = {
       key: "-links",
       kind: "linkRemovalUnmatched",
       reason: null,
+      object: null,
       detail: null,
     },
   ],
@@ -102,18 +128,30 @@ function glowLine(path: string): RowLine {
 }
 
 function MarkedRows({ children }: { children: ReactNode }) {
-  return <DeclaredRowsContext value={useDeclaredRows(DOCUMENT)}>{children}</DeclaredRowsContext>;
+  return (
+    <DeclaredRowsContext value={useDeclaredRows(DOCUMENT, true)}>{children}</DeclaredRowsContext>
+  );
 }
 
 let declared: DeclaredState | null;
 
 beforeEach(() => {
+  useWorkshopEditorStore.setState({ byProject: { [PROJECT.path]: EMPTY_EDITOR } });
   declared = DECLARED;
+  useWorkshopEditorStore.getState().selectModule(PROJECT.path, null);
+  useWorkshopEditorStore.getState().selectLayer(PROJECT.path, "base");
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === "bin_declared") return Promise.resolve({ ok: true, value: declared });
-    if (command === "bin_declare_into") {
-      declared = { ...DECLARED, layer: args?.layer as string, marks: [], diagnostics: [] };
+    if (command === commandNames.bin.binDeclared)
+      return Promise.resolve({ ok: true, value: declared });
+    if (command === commandNames.bin.binDeclareInto) {
+      declared = {
+        ...DECLARED,
+        layer: args?.layer as string,
+        module: args?.module as DeclaredModuleChoice,
+        marks: [],
+        diagnostics: [],
+      };
       return Promise.resolve({ ok: true, value: declared });
     }
     return Promise.reject(new Error(`unexpected command ${command}`));
@@ -149,17 +187,7 @@ describe("a declared row", () => {
 describe("the toolbar of a declared document", () => {
   const asset = { kind: "gameChunk", wad: "Champions/Teemo.wad.client", pathHash: "ab" } as const;
 
-  it("names the layer in place of the save status", async () => {
-    render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
-      wrapper: Providers,
-    });
-
-    expect(
-      await screen.findByRole("button", { name: "Layer the edits declare into" }),
-    ).toHaveTextContent("Base");
-  });
-
-  it("draws a diagnostic that names no row beside the layer", async () => {
+  it("draws a diagnostic that names no row in the toolbar", async () => {
     render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
       wrapper: Providers,
     });
@@ -167,30 +195,10 @@ describe("the toolbar of a declared document", () => {
     expect(await screen.findByRole("img", { name: "1 apply diagnostic" })).toBeInTheDocument();
   });
 
-  it("declares into the layer the menu picks", async () => {
-    const user = userEvent.setup();
-    render(<BinEditState document={DOCUMENT} asset={asset} readOnly={null} onReload={() => {}} />, {
-      wrapper: Providers,
-    });
-
-    await user.click(await screen.findByRole("button", { name: "Layer the edits declare into" }));
-    await user.click(await screen.findByRole("menuitemradio", { name: "Chroma" }));
-
-    await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_declare_into", {
-        document: DOCUMENT,
-        layer: "chroma",
-      }),
-    );
-    expect(
-      await screen.findByRole("button", { name: "Layer the edits declare into" }),
-    ).toHaveTextContent("Chroma");
-  });
-
-  it("keeps the lock on a game bin that declares nothing", async () => {
+  it("keeps the lock on a game bin of the game sandbox", async () => {
     declared = null;
     render(
-      <BinEditState document={DOCUMENT} asset={asset} readOnly="install" onReload={() => {}} />,
+      <BinEditState document={DOCUMENT} asset={asset} readOnly="gameSandbox" onReload={() => {}} />,
       { wrapper: Providers },
     );
 

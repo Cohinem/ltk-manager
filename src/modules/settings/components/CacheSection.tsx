@@ -5,7 +5,7 @@ import {
   AlertBox,
   Button,
   EmptyState,
-  Progress,
+  ProgressBar,
   SectionCard,
   Separator,
   Spinner,
@@ -101,20 +101,20 @@ function unsupportedLabel(ids: string[]): string {
  */
 function syncFraction(progress: HashtableSyncProgress): number | null {
   if (progress.totalBytes === null) return null;
-  const total = Number(progress.totalBytes);
+  const total = progress.totalBytes;
   if (total === 0) return null;
-  return Math.min(1, Number(progress.downloaded) / total);
+  return Math.min(1, progress.downloaded / total);
 }
 
 function syncBytesLabel(progress: HashtableSyncProgress): string {
-  const done = formatBytes(Number(progress.downloaded));
+  const done = formatBytes(progress.downloaded);
   if (progress.totalBytes === null) return done;
-  return `${done} / ${formatBytes(Number(progress.totalBytes))}`;
+  return `${done} / ${formatBytes(progress.totalBytes)}`;
 }
 
-function downloadSizeLabel(bytes: bigint | null): string {
+function downloadSizeLabel(bytes: number | null): string {
   if (bytes === null) return "";
-  return ` · ${formatBytes(Number(bytes))}`;
+  return ` · ${formatBytes(bytes)}`;
 }
 
 export function CacheSection() {
@@ -145,7 +145,7 @@ export function CacheSection() {
 
   if (!status) {
     return (
-      <SectionCard title="Hashtables" icon={<DatabaseIcon className="h-5 w-5" />}>
+      <SectionCard title="Hashtables" icon={<DatabaseIcon className="size-5" />}>
         {!error && (
           <div className="flex justify-center py-6">
             <Spinner />
@@ -157,7 +157,7 @@ export function CacheSection() {
   }
 
   const isEmpty = status.generatedAt === null;
-  const totalBytes = status.tables.reduce((total, table) => total + Number(table.sizeBytes), 0);
+  const totalBytes = status.tables.reduce((total, table) => total + table.sizeBytes, 0);
   /* A table the cache has none of is behind too, and it has no row to mark -
      the "Not downloaded yet" line below is where those are named. */
   const behind = new Map((updates?.behind ?? []).map((update) => [update.id, update]));
@@ -167,7 +167,7 @@ export function CacheSection() {
       variant="filled"
       size="sm"
       loading={syncing}
-      left={<DownloadSimpleIcon weight="bold" className="h-4 w-4" />}
+      left={<DownloadSimpleIcon weight="bold" className="size-4" />}
       onClick={() => runSync(false)}
     >
       Sync now
@@ -188,11 +188,7 @@ export function CacheSection() {
         <>
           {/* One bar for the whole run, in its bytes where the release
               recorded them and with no end where it did not. */}
-          <Progress.Root value={fraction === null ? null : fraction * 100}>
-            <Progress.Track size="sm">
-              <Progress.Indicator />
-            </Progress.Track>
-          </Progress.Root>
+          <ProgressBar value={fraction === null ? null : fraction * 100} size="sm" />
           <div className="flex min-w-0 items-baseline gap-3 text-xs text-surface-400">
             <span className="truncate">{tableLabel(progress.table)}</span>
             <span className="ml-auto shrink-0 tabular-nums">
@@ -206,7 +202,7 @@ export function CacheSection() {
   );
 
   return (
-    <SectionCard title="Hashtables" icon={<DatabaseIcon className="h-5 w-5" />}>
+    <SectionCard title="Hashtables" icon={<DatabaseIcon className="size-5" />}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <p className="text-sm text-surface-400">
@@ -267,7 +263,7 @@ export function CacheSection() {
                       </span>
                     )}
                     <span className="ml-auto text-xs text-surface-400 tabular-nums">
-                      {formatBytes(Number(table.sizeBytes))}
+                      {formatBytes(table.sizeBytes)}
                     </span>
                   </li>
                 ))}
@@ -303,7 +299,7 @@ export function CacheSection() {
                   variant="outline"
                   size="sm"
                   disabled={syncing}
-                  left={<ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />}
+                  left={<ArrowsClockwiseIcon weight="bold" className="size-4" />}
                   onClick={() => runSync(true)}
                 >
                   Re-download all

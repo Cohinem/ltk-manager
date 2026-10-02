@@ -3,7 +3,7 @@ import { lazy, Suspense } from "react";
 import { ErrorBoundary } from "@/components";
 import { m } from "@/i18n";
 
-import { Notice } from "./Notice";
+import { Notice } from "../../../shared/preview/Notice";
 import { PaneFault } from "./PaneFault";
 
 /**

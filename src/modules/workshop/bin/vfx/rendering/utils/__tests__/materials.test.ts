@@ -41,12 +41,14 @@ import { mirrorInto, standingInto } from "../../../engine/utils/basis";
 import { geometryOf } from "../../hooks/useVfxMeshes";
 import type { EmitterSamplers } from "../../hooks/useVfxTextures";
 import { CUSTOM_FRAGMENT } from "../../shaders/custom";
-import { ARBITRARY_UV } from "../../shaders/quad";
+import { ARBITRARY_UV, FRAGMENT } from "../../shaders/quad";
+import { RIBBON_FRAGMENT } from "../../shaders/ribbon";
 import { blendState, drawState, fragmentTests, premultiplyInto, sortsBackToFront } from "../blend";
 import { meshBuffers, MESHES_PER_EMITTER, quadBuffers } from "../buffers";
 import {
   attachedMaterial,
   meshMaterial,
+  pickMaterial,
   quadMaterial,
   type QuadOrientation,
   ribbonMaterial,
@@ -190,6 +192,7 @@ describe("sortsBackToFront", () => {
     expect(sortsBackToFront(BLEND_MODE.add)).toBe(false);
     expect(sortsBackToFront(BLEND_MODE.min)).toBe(false);
     expect(sortsBackToFront(BLEND_MODE.max)).toBe(false);
+    expect(sortsBackToFront(BLEND_MODE.subtract)).toBe(false);
     expect(sortsBackToFront(BLEND_MODE.none)).toBe(false);
   });
 });
@@ -483,7 +486,7 @@ describe("ARBITRARY_UV", () => {
 });
 
 describe("meshBuffers", () => {
-  it("places the tint and the drive on the geometry it is given, as the attributes it returns", () => {
+  it("places the tint and the lookup on the geometry it is given, as the attributes it returns", () => {
     const geometry = new BufferGeometry();
     const buffers = meshBuffers(geometry);
 
@@ -491,14 +494,14 @@ describe("meshBuffers", () => {
     expect(geometry.getAttribute("instanceMatrix")).toBe(buffers.instanceMatrix);
     expect(buffers.instanceMatrix.itemSize).toBe(16);
     expect(geometry.getAttribute("tint")).toBe(buffers.tint);
-    expect(geometry.getAttribute("erode")).toBe(buffers.erode);
+    expect(geometry.getAttribute("lookup")).toBe(buffers.lookup);
     expect(geometry.getAttribute("uvTurn")).toBe(buffers.uvTurn);
     expect(geometry.getAttribute("uvShift")).toBe(buffers.uvShift);
     expect(geometry.getAttribute("uvTurnMult")).toBe(buffers.uvTurnMult);
     expect(geometry.getAttribute("uvShiftMult")).toBe(buffers.uvShiftMult);
     expect(buffers.tint.count).toBe(MESHES_PER_EMITTER);
     expect(buffers.tint.itemSize).toBe(4);
-    expect(buffers.erode.itemSize).toBe(1);
+    expect(buffers.lookup.itemSize).toBe(3);
     expect(buffers.uvTurn.itemSize).toBe(3);
     expect(buffers.uvShift.itemSize).toBe(4);
   });
@@ -548,6 +551,46 @@ describe("wireMaterial", () => {
     const wire = wireMaterial(solid, new Color(1, 0, 0), 1);
 
     expect(wire.defines).toHaveProperty("SOFT");
+  });
+});
+
+describe("pickMaterial", () => {
+  it("draws the solid's shader and uniform objects under PICK, with a pickId uniform", () => {
+    const solid = quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING);
+    const pick = pickMaterial(solid);
+
+    expect(pick.vertexShader).toBe(solid.vertexShader);
+    expect(pick.fragmentShader).toBe(solid.fragmentShader);
+    expect(pick.uniforms.map).toBe(solid.uniforms.map);
+    expect(pick.defines).toHaveProperty("PICK");
+    expect(pick.defines).toHaveProperty("BILLBOARD");
+    expect(pick.uniforms).toHaveProperty("pickId");
+  });
+
+  it("writes its id unblended, the nearest texel winning by depth, whatever the solid blends", () => {
+    const solid = ribbonMaterial(BLEND_MODE.add, null, [0, 0], PLAIN_LAYERS, PASSING);
+    const pick = pickMaterial(solid);
+
+    expect(pick.blending).toBe(NoBlending);
+    expect(pick.depthTest).toBe(true);
+    expect(pick.depthWrite).toBe(true);
+    expect(pick.transparent).toBe(false);
+  });
+
+  it("leaves the solid it redraws as it was", () => {
+    const solid = meshMaterial(BLEND_MODE.add, null, [0, 0], PLAIN_LAYERS, PASSING, FrontSide);
+    const pick = pickMaterial(solid);
+
+    expect(pick.side).toBe(FrontSide);
+    expect(solid.uniforms).not.toHaveProperty("pickId");
+    expect(solid.defines).not.toHaveProperty("PICK");
+  });
+
+  it("finds the id in every fragment pass a particle draws with", () => {
+    for (const fragment of [FRAGMENT, RIBBON_FRAGMENT, CUSTOM_FRAGMENT]) {
+      expect(fragment).toContain("uniform vec4 pickId;");
+      expect(fragment).toContain("gl_FragColor = pickId;");
+    }
   });
 });
 

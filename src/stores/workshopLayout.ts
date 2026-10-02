@@ -4,6 +4,7 @@ import { persist } from "zustand/middleware";
 import type { MapPath } from "@/lib/tauri";
 import type {
   AmbientOcclusion,
+  AntiAliasing,
   CameraPreset,
   PlacementMode,
   PostEffects,
@@ -19,7 +20,14 @@ type LayerPanelSide = "left" | "right";
 type WadSort = "name" | "size";
 
 /** Which view the rail has the primary side panel showing, ADR-0038. */
-type SidebarViewId = "explorer" | "search" | "problems" | "objects" | "game" | "source";
+type SidebarViewId =
+  | "explorer"
+  | "search"
+  | "problems"
+  | "objects"
+  | "declarations"
+  | "game"
+  | "source";
 
 /**
  * What a viewport draws around the run, and how the inspector lists a class.
@@ -36,6 +44,8 @@ interface PreviewDisplay {
   previewBackdrop: MapPath | null;
   /** The backdrop plays the particle systems its map stands in it. */
   previewBackdropParticles: boolean;
+  /** The backdrop also plays the particle systems a script or a visibility controller turns on. */
+  previewBackdropEvents: boolean;
   /** The backdrop stands the structures and the level props its map places. */
   previewBackdropStructures: boolean;
   /** The backdrop draws the sky cube map behind its map. */
@@ -46,6 +56,8 @@ interface PreviewDisplay {
   previewPostEffects: PostEffects | null;
   /** The ambient occlusion of every backdrop, and null for each map's own. */
   previewAmbientOcclusion: AmbientOcclusion | null;
+  /** How every viewport smooths the edges of its finished frame. */
+  previewAntiAliasing: AntiAliasing;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
@@ -85,9 +97,16 @@ interface PreviewDisplay {
   previewMaterialOnShape: boolean;
   /** The timeline's lanes draw each emitter's live particles per step over its bar. */
   timelineHistogram: boolean;
+  /** A dragged or scrubbed time on the timeline snaps to its markers, edges and ticks. */
+  timelineSnap: boolean;
   /** The inspector lists every field the class declares, the unauthored ones dimmed. */
   inspectorDefaults: boolean;
 }
+/** A preview display preference that is a switch. */
+type PreviewFlag = {
+  [K in keyof PreviewDisplay]: PreviewDisplay[K] extends boolean ? K : never;
+}[keyof PreviewDisplay];
+
 /** Which drawing of an explorer's rows is on screen. */
 type ExplorerView = "tree" | "grid" | "details";
 
@@ -105,6 +124,13 @@ type ExplorerTileSize = (typeof EXPLORER_TILE_SIZES)[number];
  */
 const EXPLORER_ROW_HEIGHTS = [20, 24, 28, 36, 48, 64] as const;
 type ExplorerRowHeight = (typeof EXPLORER_ROW_HEIGHTS)[number];
+
+/** The heights a tree row draws at while it draws thumbnails. */
+const EXPLORER_TREE_ROW_HEIGHTS = [20, 26, 32, 48, 64] as const;
+type ExplorerTreeRowHeight = (typeof EXPLORER_TREE_ROW_HEIGHTS)[number];
+
+/** A tree thumbnail's box: a square, or the image's own aspect ratio. */
+type ExplorerArtShape = "square" | "original";
 
 /**
  * The fixed columns of the details list, in px, which its dividers drag.
@@ -186,11 +212,18 @@ interface WorkshopLayoutStore extends PreviewDisplay {
   explorerTileSize: ExplorerTileSize;
   explorerRowHeight: ExplorerRowHeight;
   explorerThumbnails: boolean;
+  /** The tree's own switch, apart from the grid's, because thumbnails make every tree row taller. */
+  explorerTreeThumbnails: boolean;
+  explorerTreeRowHeight: ExplorerTreeRowHeight;
+  explorerTreeArtShape: ExplorerArtShape;
   explorerColumns: ExplorerColumns;
   setExplorerView: (explorerView: ExplorerView) => void;
   setExplorerTileSize: (explorerTileSize: ExplorerTileSize) => void;
   setExplorerRowHeight: (explorerRowHeight: ExplorerRowHeight) => void;
   setExplorerThumbnails: (explorerThumbnails: boolean) => void;
+  setExplorerTreeThumbnails: (explorerTreeThumbnails: boolean) => void;
+  setExplorerTreeRowHeight: (explorerTreeRowHeight: ExplorerTreeRowHeight) => void;
+  setExplorerTreeArtShape: (explorerTreeArtShape: ExplorerArtShape) => void;
   setExplorerColumn: (column: keyof ExplorerColumns, width: number) => void;
   setLayerPanelSide: (layerPanelSide: LayerPanelSide) => void;
   setLayerPanelOpen: (layerPanelOpen: boolean) => void;
@@ -224,11 +257,14 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewMidlane: true,
   previewBackdrop: null,
   previewBackdropParticles: true,
+  previewBackdropEvents: false,
   previewBackdropStructures: true,
   previewBackdropSky: true,
   previewSun: null,
   previewPostEffects: null,
   previewAmbientOcclusion: null,
+  /* The game's own default, `DEFAULT_ANTI_ALIASING`, kept a literal so the store loads no renderer. */
+  previewAntiAliasing: "fxaa",
   previewGizmo: true,
   previewStats: false,
   previewArmature: false,
@@ -246,6 +282,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewTurntable: false,
   previewMaterialOnShape: false,
   timelineHistogram: false,
+  timelineSnap: true,
   inspectorDefaults: false,
 };
 
@@ -279,6 +316,9 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       explorerTileSize: 128,
       explorerRowHeight: 24,
       explorerThumbnails: true,
+      explorerTreeThumbnails: false,
+      explorerTreeRowHeight: 48,
+      explorerTreeArtShape: "square",
       explorerColumns: { size: 88, kind: 112 },
       ...PROJECT_EDITOR_DEFAULTS,
       ...PREVIEW_DISPLAY_DEFAULTS,
@@ -286,17 +326,26 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
       setExplorerTileSize: (explorerTileSize) => set({ explorerTileSize }),
       setExplorerRowHeight: (explorerRowHeight) => set({ explorerRowHeight }),
       setExplorerThumbnails: (explorerThumbnails) => set({ explorerThumbnails }),
+      setExplorerTreeThumbnails: (explorerTreeThumbnails) => set({ explorerTreeThumbnails }),
+      setExplorerTreeRowHeight: (explorerTreeRowHeight) => set({ explorerTreeRowHeight }),
+      setExplorerTreeArtShape: (explorerTreeArtShape) => set({ explorerTreeArtShape }),
       /* One column rather than the record, so a drag's writer is stable across
          the re-renders the drag itself causes. */
       setExplorerColumn: (column, width) =>
-        set((state) => ({ explorerColumns: { ...state.explorerColumns, [column]: width } })),
+        set((state) => ({
+          explorerColumns: { ...state.explorerColumns, [column]: width },
+        })),
       setLayerPanelSide: (layerPanelSide) => set({ layerPanelSide }),
       setLayerPanelOpen: (layerPanelOpen) => set({ layerPanelOpen }),
       showSidebarView: (sidebarView) => set({ layerPanelOpen: true, sidebarView }),
       toggleSection: (id, open) =>
-        set((state) => ({ openSections: { ...state.openSections, [id]: open } })),
+        set((state) => ({
+          openSections: { ...state.openSections, [id]: open },
+        })),
       setSectionHeight: (id, height) =>
-        set((state) => ({ sectionHeights: { ...state.sectionHeights, [id]: height } })),
+        set((state) => ({
+          sectionHeights: { ...state.sectionHeights, [id]: height },
+        })),
       setBrowserSplit: (browserSplit) => set({ browserSplit }),
       setShowLayerStats: (showLayerStats) => set({ showLayerStats }),
       setWadSort: (wadSort) => set({ wadSort }),
@@ -355,19 +404,23 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
 export {
   EXPLORER_ROW_HEIGHTS,
   EXPLORER_TILE_SIZES,
+  EXPLORER_TREE_ROW_HEIGHTS,
   PREVIEW_DISPLAY_DEFAULTS,
   PROJECT_EDITOR_DEFAULTS,
 };
 export type {
+  ExplorerArtShape,
   ExplorerColumns,
   ExplorerRowHeight,
   ExplorerSort,
   ExplorerSortDirection,
   ExplorerSortField,
   ExplorerTileSize,
+  ExplorerTreeRowHeight,
   ExplorerView,
   LayerPanelSide,
   PreviewDisplay,
+  PreviewFlag,
   ProjectEditorKey,
   SidebarViewId,
   WadSort,
@@ -381,6 +434,17 @@ export const useSetExplorerTileSize = () => useWorkshopLayoutStore((s) => s.setE
 export const useExplorerThumbnails = () => useWorkshopLayoutStore((s) => s.explorerThumbnails);
 export const useSetExplorerThumbnails = () =>
   useWorkshopLayoutStore((s) => s.setExplorerThumbnails);
+export const useExplorerTreeThumbnails = () =>
+  useWorkshopLayoutStore((s) => s.explorerTreeThumbnails);
+export const useSetExplorerTreeThumbnails = () =>
+  useWorkshopLayoutStore((s) => s.setExplorerTreeThumbnails);
+export const useExplorerTreeRowHeight = () =>
+  useWorkshopLayoutStore((s) => s.explorerTreeRowHeight);
+export const useSetExplorerTreeRowHeight = () =>
+  useWorkshopLayoutStore((s) => s.setExplorerTreeRowHeight);
+export const useExplorerTreeArtShape = () => useWorkshopLayoutStore((s) => s.explorerTreeArtShape);
+export const useSetExplorerTreeArtShape = () =>
+  useWorkshopLayoutStore((s) => s.setExplorerTreeArtShape);
 export const useExplorerColumns = () => useWorkshopLayoutStore((s) => s.explorerColumns);
 export const useSetExplorerColumn = () => useWorkshopLayoutStore((s) => s.setExplorerColumn);
 export const useLayerPanelSide = () => useWorkshopLayoutStore((s) => s.layerPanelSide);
@@ -417,11 +481,14 @@ export const usePreviewMidlane = () => useWorkshopLayoutStore((s) => s.previewMi
 export const usePreviewBackdrop = () => useWorkshopLayoutStore((s) => s.previewBackdrop);
 export const usePreviewBackdropParticles = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropParticles);
+export const usePreviewBackdropEvents = () =>
+  useWorkshopLayoutStore((s) => s.previewBackdropEvents);
 export const usePreviewBackdropStructures = () =>
   useWorkshopLayoutStore((s) => s.previewBackdropStructures);
 export const usePreviewBackdropSky = () => useWorkshopLayoutStore((s) => s.previewBackdropSky);
 export const usePreviewSun = () => useWorkshopLayoutStore((s) => s.previewSun);
 export const usePreviewPostEffects = () => useWorkshopLayoutStore((s) => s.previewPostEffects);
+export const usePreviewAntiAliasing = () => useWorkshopLayoutStore((s) => s.previewAntiAliasing);
 export const usePreviewAmbientOcclusion = () =>
   useWorkshopLayoutStore((s) => s.previewAmbientOcclusion);
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
@@ -442,5 +509,7 @@ export const usePreviewTurntable = () => useWorkshopLayoutStore((s) => s.preview
 export const usePreviewMaterialOnShape = () =>
   useWorkshopLayoutStore((s) => s.previewMaterialOnShape);
 export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timelineHistogram);
+export const useTimelineSnap = () => useWorkshopLayoutStore((s) => s.timelineSnap);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
 export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);
+export const usePreviewFlag = (flag: PreviewFlag) => useWorkshopLayoutStore((s) => s[flag]);

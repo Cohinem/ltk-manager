@@ -1,8 +1,9 @@
 import { WarningIcon } from "@phosphor-icons/react";
 
-import { Button, Dialog, useToast } from "@/components";
+import { Button, Dialog, OVERLINE, useToast } from "@/components";
 import { useBulkUninstallMods } from "@/modules/library/api";
 import { useDialog } from "@/stores";
+import { twMerge } from "@/utils";
 
 import { useBulkUninstallDialog, useLibrarySelectionStore } from "../state";
 
@@ -82,7 +83,7 @@ export function BulkUninstallDialog() {
     >
       <Dialog.Body>
         <div className="flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/10 p-4">
-          <WarningIcon weight="bold" className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
+          <WarningIcon weight="bold" className="mt-0.5 size-5 shrink-0 text-danger-text" />
           <div className="min-w-0">
             <h3 className="font-medium text-danger-text">
               This will permanently delete the selected mod files from disk.
@@ -95,10 +96,8 @@ export function BulkUninstallDialog() {
         </div>
 
         {preview.length > 0 && (
-          <div className="mt-4">
-            <p className="mb-2 text-xs font-medium tracking-wide text-surface-400 uppercase">
-              To be removed
-            </p>
+          <div>
+            <p className={twMerge(OVERLINE, "mb-2")}>To be removed</p>
             <ul className="space-y-1 text-sm text-surface-200">
               {preview.map((mod) => (
                 <li key={mod.id} className="truncate">

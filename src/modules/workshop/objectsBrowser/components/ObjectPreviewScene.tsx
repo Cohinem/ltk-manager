@@ -1,10 +1,12 @@
 import { useFrame } from "@react-three/fiber";
 import { queryOptions, useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NoColorSpace } from "three";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type Group, Mesh, MeshLambertMaterial, NoColorSpace } from "three";
 
-import type { BinDocumentId, MaterialProgram, SkinModel } from "@/lib/tauri";
+import { useDisposable } from "@/hooks";
+import type { AssetRef, BinDocumentId, MaterialProgram, SkinModel } from "@/lib/tauri";
 import {
+  AXIS_SIGN,
   Character,
   createPose,
   createSceneClock,
@@ -12,176 +14,142 @@ import {
   MaterialSubject,
   meshBounds,
   PREVIEW_BOUNDS,
+  previewGeometry,
+  programPasses,
   programTextureAssets,
-  programWith,
   useAssetTextures,
   useSceneColors,
   viewportQueries,
 } from "@/modules/viewport";
 
+import {
+  AtlasStill,
+  type AtlasStillKind,
+  type AtlasStillStatus,
+} from "../../bin/atlas/components/AtlasStill";
 import { useBinDocument } from "../../bin/documents/hooks/useBinDocument";
 import { materialQueries } from "../../bin/material/api/materialQueries";
 import { skinQueries } from "../../bin/skin/api/skinQueries";
 import { bindingOf, textureAssets } from "../../bin/skin/utils/skinScene";
-import type { SystemModel } from "../../bin/vfx/engine/model/model";
-import { FIRST_RIG } from "../../bin/vfx/engine/model/rig";
-import { systemSpan } from "../../bin/vfx/engine/model/systemModel";
-import { readVfxSystem } from "../../bin/vfx/engine/parsing/readVfxSystem";
-import { createDriver } from "../../bin/vfx/engine/simulation/driver";
-import { vfxQueries } from "../../bin/vfx/hooks/useVfxSystem";
 import { Passes } from "../../bin/vfx/rendering/components/Passes";
-import { VfxSystem } from "../../bin/vfx/rendering/components/VfxSystem";
-import { useVfxMeshes } from "../../bin/vfx/rendering/hooks/useVfxMeshes";
-import { useVfxTextures } from "../../bin/vfx/rendering/hooks/useVfxTextures";
-import { type AssetLoad } from "../../bin/vfx/rendering/utils/assetLoad";
-import { drawnEmitters } from "../../bin/vfx/rendering/utils/definitions";
-import { distorts } from "../../bin/vfx/rendering/utils/drawKind";
-import { definitionBounds } from "../../bin/vfx/rendering/utils/systemBounds";
-import { objectPreviewKind } from "../utils/objectPreview";
+import { useObjectPreviewKind } from "../hooks/useObjectPreviewKind";
+import { EMPTY_OUTCOME, FAILED_OUTCOME, type PreviewOutcome } from "../state/previewStills";
+import { fallbackTexture } from "../utils/materialFallback";
 import type { ObjectRowNode } from "../utils/objectTree";
-import { createPreviewPlayback } from "../utils/previewPlayback";
-import { createPreviewWarmup } from "../utils/previewWarmup";
+import { PREVIEW_GROUND, PREVIEW_MIP_WIDTH } from "../utils/previewFrame";
+import { ParticleRead } from "./ParticlePreview";
+import { PreviewCapture } from "./PreviewCapture";
+import { PreviewSettled } from "./PreviewSettled";
+import { UiIconPreview } from "./UiIconPreview";
 
-const MIP_WIDTH = 128;
-const ORIGIN = [0, 0, 0] as const;
+/** How fast a hovered character turns, in radians per second. Matches the material turntable. */
+const TURN_RATE = 0.5;
+
+type Report = (outcome: PreviewOutcome) => void;
 
 interface SceneProps {
   node: ObjectRowNode;
-  onImage: (image: string | null) => void;
+  /** The preview is on screen and keeps animating after its capture. */
+  playing: boolean;
+  onOutcome: Report;
+  /** Called as the preview advances, which restarts the slot's job timeout. */
+  onProgress: () => void;
 }
 
 /** One object held open for the grid's shared rendering surface. */
-export default function ObjectPreviewScene({ node, onImage }: SceneProps) {
+export default function ObjectPreviewScene({ node, playing, onOutcome, onProgress }: SceneProps) {
   const declaration = node.declarations[0]!;
   const { state } = useBinDocument(declaration.asset, node.objectHash);
-  const kind = objectPreviewKind(node);
+  const kind = useObjectPreviewKind()(node);
+
+  useEffect(() => {
+    if (state.status === "open") onProgress();
+  }, [state.status, onProgress]);
 
   if (state.status === "failed") {
-    return <PreviewFailure onImage={onImage} />;
+    return <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={onOutcome} />;
   }
 
   if (state.status !== "open") {
     return null;
   }
 
+  const read = { document: state.handle.document, entry: node.objectHash, onOutcome };
   if (kind === "vfx") {
-    return (
-      <ParticleRead document={state.handle.document} entry={node.objectHash} onImage={onImage} />
-    );
+    return <ParticleRead {...read} playing={playing} onProgress={onProgress} />;
   }
 
   if (kind === "material") {
-    return (
-      <MaterialRead document={state.handle.document} entry={node.objectHash} onImage={onImage} />
-    );
+    return <MaterialRead {...read} />;
   }
 
-  return <SkinRead document={state.handle.document} entry={node.objectHash} onImage={onImage} />;
+  if (kind === "ui") {
+    return <UiIconPreview {...read} />;
+  }
+
+  if (kind === "view" || kind === "element" || kind === "font") {
+    return <AtlasRead {...read} kind={kind} playing={playing} />;
+  }
+
+  return <SkinRead {...read} playing={playing} />;
 }
 
 interface ReadProps {
   document: BinDocumentId;
   entry: string;
-  onImage: (image: string | null) => void;
+  onOutcome: Report;
 }
 
-function ParticleRead({ document, entry, onImage }: ReadProps) {
-  const { data, isError } = useQuery({ ...vfxQueries.system(document, entry), gcTime: 0 });
-  const system = useMemo(() => (data === undefined ? null : readVfxSystem(data)), [data]);
-  if (isError || system?.emitters.length === 0) {
-    return <PreviewFailure onImage={onImage} />;
-  }
-  if (system === null) {
-    return null;
-  }
-
-  return <ParticleScene system={system} onImage={onImage} />;
-}
-
-function ParticleScene({
-  system,
-  onImage,
-}: {
-  system: SystemModel;
-  onImage: (image: string | null) => void;
-}) {
-  const drawn = useMemo(() => drawnEmitters(system), [system]);
-  const [textureLoad, reportTextures] = useState<AssetLoad | null>(null);
-  const [meshLoad, reportMeshes] = useState<AssetLoad | null>(null);
-  const textures = useVfxTextures(drawn, reportTextures, MIP_WIDTH);
-  const meshes = useVfxMeshes(drawn, reportMeshes);
-  const driver = useMemo(() => {
-    const next = createDriver(1337, { capacity: 4096, seekable: false });
-    next.swap(system);
-    next.steer({ ...FIRST_RIG.rig, life: "once" });
-    return next;
-  }, [system]);
-  const bounds = useMemo(() => definitionBounds(system, drawn, FIRST_RIG.rig), [system, drawn]);
-  const advance = useMemo(
-    () =>
-      createPreviewPlayback(
-        driver,
-        systemSpan(system),
-        Math.max(
-          0,
-          ...system.emitters
-            .filter((emitter) => !emitter.disabled)
-            .map((emitter) => emitter.timeBeforeFirstEmission),
-        ),
-      ),
-    [driver, system],
-  );
-  const warmup = useMemo(
-    () =>
-      createPreviewWarmup(
-        advance,
-        undefined,
-        () => driver.pool.count > 0 || driver.liveChildren() > 0,
-      ),
-    [driver, advance],
-  );
-  const ready = textureLoad?.pending === 0 && meshLoad?.pending === 0;
-
-  useFrame((_, delta) => {
-    if (!warmup.ready) {
-      warmup.run();
-    } else if (ready) {
-      advance(Math.min(delta, 1 / 30));
-    }
-  }, -1);
+/** A UI view, element or font drawn by the Atlas renderer, copied once it has settled. */
+function AtlasRead({
+  document,
+  entry,
+  onOutcome,
+  kind,
+  playing,
+}: ReadProps & { kind: AtlasStillKind; playing: boolean }) {
+  const [status, setStatus] = useState<AtlasStillStatus>("pending");
 
   return (
     <>
-      <Passes warps={drawn.some(({ emitter }) => distorts(emitter))} softens={false} />
-      <FitCamera bounds={bounds} ground={ORIGIN} token={0} animate={false} fit="box" />
-      <VfxSystem drawn={drawn} driver={driver} textures={textures} meshes={meshes} room={4096} />
-      <Capture
-        ready={ready}
-        onImage={onImage}
-        hasContent={() => warmup.ready && (driver.pool.count > 0 || driver.liveChildren() > 0)}
+      <AtlasStill
+        document={document}
+        entry={entry}
+        kind={kind}
+        playing={playing}
+        onStatus={setStatus}
       />
+      {status === "empty" && <PreviewSettled outcome={EMPTY_OUTCOME} onOutcome={onOutcome} />}
+      {status === "failed" && <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={onOutcome} />}
+      <PreviewCapture ready={status === "ready"} onOutcome={onOutcome} />
     </>
   );
 }
 
-function SkinRead({ document, entry, onImage }: ReadProps) {
+function SkinRead({ document, entry, onOutcome, playing }: ReadProps & { playing: boolean }) {
   const { data, isError } = useQuery({ ...skinQueries.skin(document, entry), gcTime: 0 });
-  if (isError || (data !== undefined && (!data.mesh?.asset || !data.skeleton?.asset))) {
-    return <PreviewFailure onImage={onImage} />;
+  if (isError) {
+    return <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={onOutcome} />;
+  }
+  if (data !== undefined && (!data.mesh?.asset || !data.skeleton?.asset)) {
+    return <PreviewSettled outcome={EMPTY_OUTCOME} onOutcome={onOutcome} />;
   }
   if (data === undefined) {
     return null;
   }
 
-  return <SkinScene skin={data} onImage={onImage} />;
+  return <SkinScene skin={data} playing={playing} onOutcome={onOutcome} />;
 }
 
+/** The textured bind pose, turning about the up axis while it plays. */
 function SkinScene({
   skin,
-  onImage,
+  playing,
+  onOutcome,
 }: {
   skin: SkinModel;
-  onImage: (image: string | null) => void;
+  playing: boolean;
+  onOutcome: Report;
 }) {
   const meshOptions = viewportQueries.mesh(skin.mesh?.asset ?? null);
   const skeletonOptions = viewportQueries.skeleton(skin.skeleton?.asset ?? null);
@@ -202,7 +170,7 @@ function SkinScene({
   const assets = useMemo(() => textureAssets(skin), [skin]);
   const [load, report] = useState<{ pending: number; failed: number } | null>(null);
   const textures = useAssetTextures(assets, {
-    fullWidth: MIP_WIDTH,
+    fullWidth: PREVIEW_MIP_WIDTH,
     concurrency: 2,
     report,
   });
@@ -218,9 +186,14 @@ function SkinScene({
     () => (mesh.data ? meshBounds(mesh.data, skin.hidden, scale) : null),
     [mesh.data, skin.hidden, scale],
   );
+  const turntable = useRef<Group>(null);
+
+  useFrame((_, delta) => {
+    if (playing && turntable.current) turntable.current.rotation.y += delta * TURN_RATE;
+  });
 
   if (mesh.isError || skeleton.isError) {
-    return <PreviewFailure onImage={onImage} />;
+    return <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={onOutcome} />;
   }
 
   if (!mesh.data || !pose) {
@@ -230,76 +203,87 @@ function SkinScene({
   return (
     <>
       <Passes warps={false} softens={false} />
-      <FitCamera bounds={bounds} ground={ORIGIN} token={0} animate={false} fit="box" />
-      <Character
-        mesh={mesh.data}
-        pose={pose}
-        clock={clock}
-        bindingOf={bindingFor}
-        colors={colors}
-        hidden={skin.hidden}
-        scale={scale}
-      />
-      <Capture
+      <FitCamera bounds={bounds} ground={PREVIEW_GROUND} token={0} animate={false} fit="box" />
+      <group ref={turntable}>
+        <Character
+          mesh={mesh.data}
+          pose={pose}
+          clock={clock}
+          bindingOf={bindingFor}
+          colors={colors}
+          hidden={skin.hidden}
+          scale={scale}
+        />
+      </group>
+      <PreviewCapture
         ready={load?.pending === 0 && textures.size >= assets.size - load.failed}
-        onImage={onImage}
+        onOutcome={onOutcome}
       />
     </>
   );
 }
 
-function MaterialRead({ document, entry, onImage }: ReadProps) {
+function MaterialRead({ document, entry, onOutcome }: ReadProps) {
   const { data, isError } = useQuery({ ...materialQueries.program(document, entry), gcTime: 0 });
-  if (isError || data === null) {
-    return <PreviewFailure onImage={onImage} />;
+  if (isError) {
+    return <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={onOutcome} />;
+  }
+  if (data === null) {
+    return <PreviewSettled outcome={EMPTY_OUTCOME} onOutcome={onOutcome} />;
   }
   if (data === undefined) {
     return null;
   }
 
-  return <MaterialScene program={data} onImage={onImage} />;
+  return <MaterialScene program={data} onOutcome={onOutcome} />;
 }
 
 /**
- * The material on a turning sphere, its first translated pass drawn with the game's shader.
+ * The material on a turning sphere, its translated passes drawn with the game's shaders.
  *
- * A material with no pass that translated has nothing a thumbnail can say, so it fails.
+ * A material with no translated pass draws its base texture instead, and one with no
+ * texture either reports an empty outcome.
  */
-function MaterialScene({
-  program,
-  onImage,
-}: {
-  program: MaterialProgram;
-  onImage: (image: string | null) => void;
-}) {
+function MaterialScene({ program, onOutcome }: { program: MaterialProgram; onOutcome: Report }) {
   const programs = useMemo(() => [program], [program]);
   const assets = useMemo(() => programTextureAssets(programs), [programs]);
   const [load, report] = useState<{ pending: number; failed: number } | null>(null);
   const textures = useAssetTextures(assets, {
     colorSpace: NoColorSpace,
-    fullWidth: MIP_WIDTH,
+    fullWidth: PREVIEW_MIP_WIDTH,
     concurrency: 2,
     report,
   });
-  const drawn = useMemo(() => programWith(program, textures), [program, textures]);
+  const drawn = useMemo(() => programPasses(program, textures), [program, textures]);
+  const fallback = useMemo(() => fallbackTexture(program), [program]);
 
-  if (programWith(program, EMPTY_TEXTURES) === null) {
-    return <PreviewFailure onImage={onImage} />;
+  if (programPasses(program, EMPTY_TEXTURES).length === 0) {
+    if (fallback === null) {
+      return <PreviewSettled outcome={EMPTY_OUTCOME} onOutcome={onOutcome} />;
+    }
+
+    return <TexturedSphere asset={fallback} onOutcome={onOutcome} />;
   }
 
   return (
     <>
       <Passes warps={false} softens={false} />
-      <FitCamera bounds={PREVIEW_BOUNDS} ground={ORIGIN} token={0} animate={false} fit="box" />
+      <FitCamera
+        bounds={PREVIEW_BOUNDS}
+        ground={PREVIEW_GROUND}
+        token={0}
+        animate={false}
+        fit="box"
+      />
       <MaterialSubject
-        program={drawn}
+        programs={drawn}
         skinned={program.kind === "skinnedMesh"}
         shape="sphere"
         turntable
       />
-      <Capture
+      <PreviewCapture
         ready={load?.pending === 0 && textures.size >= assets.size - load.failed}
-        onImage={onImage}
+        onOutcome={onOutcome}
       />
     </>
   );
@@ -307,43 +291,51 @@ function MaterialScene({
 
 const EMPTY_TEXTURES: ReadonlyMap<string, unknown> = new Map<string, unknown>();
 
-/** A still after assets and camera have settled, copied immediately after the colour pass. */
-function Capture({
-  ready,
-  onImage,
-  hasContent,
-}: {
-  ready: boolean;
-  onImage: (image: string | null) => void;
-  hasContent?: () => boolean;
-}) {
-  const frames = useRef(0);
-  const captured = useRef(false);
+const FALLBACK_TEXTURE = "fallback";
 
-  useFrame(({ gl, controls }) => {
-    if (!ready || !controls || captured.current) {
-      return;
-    }
+/** One texture on a lit, turning preview sphere, mirrored into the engine's space as `MaterialSubject` is. */
+function TexturedSphere({ asset, onOutcome }: { asset: AssetRef; onOutcome: Report }) {
+  const assets = useMemo(() => new Map([[FALLBACK_TEXTURE, asset]]), [asset]);
+  const [load, report] = useState<{ pending: number; failed: number } | null>(null);
+  const textures = useAssetTextures(assets, {
+    fullWidth: PREVIEW_MIP_WIDTH,
+    concurrency: 1,
+    report,
+  });
+  const map = textures.get(FALLBACK_TEXTURE) ?? null;
+  const geometry = useDisposable(() => previewGeometry("sphere", false), []);
+  const material = useDisposable(() => new MeshLambertMaterial(), []);
+  const sphere = useMemo(() => {
+    const mesh = new Mesh(geometry, material);
+    mesh.scale.set(...AXIS_SIGN);
+    return mesh;
+  }, [geometry, material]);
 
-    frames.current += 1;
-    if (frames.current < 2 || (hasContent && !hasContent())) {
-      return;
-    }
+  useLayoutEffect(() => {
+    material.map = map;
+    material.needsUpdate = true;
+  }, [material, map]);
 
-    captured.current = true;
-    try {
-      const image = gl.domElement.toDataURL("image/webp", 0.75);
-      onImage(image.startsWith("data:image/") ? image : null);
-    } catch {
-      onImage(null);
-    }
-  }, 2);
+  useFrame((_, delta) => {
+    sphere.rotation.y += delta * TURN_RATE;
+  });
 
-  return null;
-}
+  if (load !== null && load.failed > 0) {
+    return <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={onOutcome} />;
+  }
 
-/** A failed preview releases the shared worker for the next visible tile. */
-export function PreviewFailure({ onImage }: { onImage: (image: string | null) => void }) {
-  useEffect(() => onImage(null), [onImage]);
-  return null;
+  return (
+    <>
+      <Passes warps={false} softens={false} />
+      <FitCamera
+        bounds={PREVIEW_BOUNDS}
+        ground={PREVIEW_GROUND}
+        token={0}
+        animate={false}
+        fit="box"
+      />
+      <primitive object={sphere} />
+      <PreviewCapture ready={load?.pending === 0 && map !== null} onOutcome={onOutcome} />
+    </>
+  );
 }

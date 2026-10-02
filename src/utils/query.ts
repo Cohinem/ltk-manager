@@ -60,6 +60,8 @@ export function queryFnWithArgs<T, E, Args extends unknown[]>(
 /**
  * Create a mutation function that unwraps the Result.
  *
+ * Only the variables reach `fn`, never the context TanStack passes after them.
+ *
  * @example
  * ```ts
  * useMutation({
@@ -67,7 +69,7 @@ export function queryFnWithArgs<T, E, Args extends unknown[]>(
  * });
  * ```
  */
-export function mutationFn<T, E, TVariables>(
+export function mutationFn<T, E, TVariables = void>(
   fn: (variables: TVariables) => Promise<Result<T, E>>,
 ): (variables: TVariables) => Promise<T> {
   return async (variables) => {

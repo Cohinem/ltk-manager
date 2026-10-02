@@ -2,6 +2,7 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useMemo } from "react";
 import type { LineSegments, Mesh } from "three";
 
+import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
 
 import { BEAM_MODE, QUAD_TYPE } from "../../engine/model/enums";
@@ -18,14 +19,18 @@ import {
   standingFrameInto,
 } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
-import { multiplyInto, standingInto } from "../../engine/utils/basis";
+import { multiplyInto, standingInto, turnInto } from "../../engine/utils/basis";
 import { sampleCurve } from "../../engine/utils/sampleCurve";
+import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
 import { distorts } from "../utils/drawKind";
+import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { ribbonMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
+import { RIBBON_DRAW } from "../utils/particleDraws";
+import { writePaletteScroll } from "../utils/particleProgram";
 import {
   type BeamEnds,
   type BeamParticle,
@@ -38,7 +43,7 @@ import {
 } from "../utils/ribbon";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { uvDraw, uvTransformInto } from "../utils/uvTransform";
-import { DrawPair, useDrawPair } from "./drawPair";
+import { DrawPair, showPair, useDrawPair, useProgramDraw } from "./drawPair";
 
 /** How many beams one emitter draws across every source, which caps its share of the pools. */
 const BEAMS_PER_EMITTER = 256;
@@ -53,6 +58,7 @@ const CURSOR: Cursor = { vertex: 0, index: 0 };
 const EYE: [number, number, number] = [0, 0, 0];
 const SOURCE: [number, number, number] = [0, 0, 0];
 const TARGET: [number, number, number] = [0, 0, 0];
+const OFFSET = new Float32Array(3);
 const LOCAL: [number, number, number] = [0, 0, 0];
 const PARTICLE: BeamParticle = {
   scale: DRAWN.scale,
@@ -85,6 +91,8 @@ export interface BeamsProps {
   /** Where the emitter falls in the system's draw order, from `drawRanks`. */
   rank: number;
   hidden: boolean;
+  /** The document the system was read from, whose project the game's shaders resolve through. */
+  document?: BinDocumentId | null;
 }
 
 /**
@@ -96,8 +104,11 @@ export interface BeamsProps {
  * `mAnimatedColorWithDistance` at the beam's raw length. The segment beam draws the same
  * quad, and its ribs are not built. Its erosion drive stands at zero, which its builder
  * writes in place of the particle's.
+ *
+ * With the game's shaders on, the beams draw through the translated `quad` or `distortion`
+ * pair once it is ready, and through the hand-written material until then.
  */
-export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) {
+export function Beams({ emitter, sources, samplers, rank, hidden, document = null }: BeamsProps) {
   const beam = emitter.beam;
   const buffers = useMemo(() => ribbonBuffers(BEAMS_PER_EMITTER * 4), []);
   const material = useMemo(
@@ -121,16 +132,22 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
   );
 
   const pair = useDrawPair<Mesh | LineSegments>(material, distorts(emitter));
+  const programs = useParticlePrograms(emitter, samplers, RIBBON_DRAW, buffers.geometry, document);
+  useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && beam !== null && emitter.mesh === null;
 
   useFrame((state) => {
     if (!drawn || beam === null) {
       buffers.geometry.setDrawRange(0, 0);
+      buffers.edgeGeometry.setDrawRange(0, 0);
+      showPair(pair, false);
       return;
     }
 
-    sourcesScrollInto(emitter, sources, material.uniforms.paletteScroll.value as number[]);
+    const scroll = material.uniforms.paletteScroll.value as number[];
+    sourcesScrollInto(emitter, sources, scroll);
+    for (const each of programs) writePaletteScroll(each.material, scroll);
     const eye = state.camera.position;
     EYE[0] = eye.x * AXIS_SIGN[0];
     EYE[1] = eye.y * AXIS_SIGN[1];
@@ -138,6 +155,7 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
 
     CURSOR.vertex = 0;
     CURSOR.index = 0;
+    const stamp = renderStamp(state.gl);
     const layers = { base: emitter.uv, mult: emitter.multUv };
     const segmented = emitter.quadType === QUAD_TYPE.cameraSegmentBeam;
     let held = 0;
@@ -146,10 +164,14 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
       const origin = source.origin;
       const target = source.target;
       const frame = frameOf(source, emitter);
-      for (let axis = 0; axis < 3; axis += 1) {
-        SOURCE[axis] = origin[axis] + beam.sourceOffset[axis];
-        TARGET[axis] = target[axis] + beam.targetOffset[axis];
-      }
+      /* The offsets are local to the system, so they turn with it before landing on the
+         ends (`VfxRibbon_ShapesAndPrimitives.md` section 3.2). */
+      OFFSET.set(beam.sourceOffset);
+      turnInto(source.orientation, OFFSET, 0);
+      for (let axis = 0; axis < 3; axis += 1) SOURCE[axis] = origin[axis] + OFFSET[axis];
+      OFFSET.set(beam.targetOffset);
+      turnInto(source.orientation, OFFSET, 0);
+      for (let axis = 0; axis < 3; axis += 1) TARGET[axis] = target[axis] + OFFSET[axis];
       const ends: BeamEnds = {
         source: SOURCE,
         target: TARGET,
@@ -163,8 +185,10 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
       );
       const bound = beam.colorBoundToDistance ? sampleCurve(beam.colorByDistance, length) : UNBOUND;
 
-      for (let at = 0; at < pool.count && held < BEAMS_PER_EMITTER; at += 1) {
-        if (pool.emitter[at] !== emitter.index) continue;
+      const buckets = bucketsOf(pool, stamp);
+      const [first, last] = bucketRange(buckets, emitter.index);
+      for (let listed = first; listed < last && held < BEAMS_PER_EMITTER; listed += 1) {
+        const at = buckets.order[listed];
         held += 1;
 
         const time = frame.now;
@@ -198,13 +222,14 @@ export function Beams({ emitter, sources, samplers, rank, hidden }: BeamsProps) 
       }
     }
     commitRibbon(buffers, CURSOR);
+    showPair(pair, CURSOR.index > 0);
   });
 
   return (
     <DrawPair
       pair={pair}
       geometry={buffers.geometry}
-      material={material}
+      material={programs[0]?.material ?? material}
       rank={rank}
       edges={buffers.edgeGeometry}
     />

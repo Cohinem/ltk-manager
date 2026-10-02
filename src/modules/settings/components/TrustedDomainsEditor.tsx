@@ -2,14 +2,12 @@ import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
 import { Button, Field, ListEditor, type ListEditorAction, useToast } from "@/components";
-import type { Settings } from "@/lib/tauri";
 
-interface TrustedDomainsEditorProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
+import { useLoadedSettings, useUpdateSettings } from "../api";
 
-export function TrustedDomainsEditor({ settings, onSave }: TrustedDomainsEditorProps) {
+export function TrustedDomainsEditor() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   const [newDomain, setNewDomain] = useState("");
   const { toast } = useToast();
 
@@ -24,13 +22,13 @@ export function TrustedDomainsEditor({ settings, onSave }: TrustedDomainsEditorP
 
   function addDomain() {
     if (!trimmed || alreadyTrusted) return;
-    onSave({ ...settings, trustedDomains: [...domains, trimmed] });
+    update({ trustedDomains: [...domains, trimmed] });
     setNewDomain("");
   }
 
   function removeDomain(domain: string) {
     const index = domains.indexOf(domain);
-    onSave({ ...settings, trustedDomains: domains.filter((d) => d !== domain) });
+    update({ trustedDomains: domains.filter((d) => d !== domain) });
 
     toast({
       title: `Removed ${domain}`,
@@ -41,7 +39,7 @@ export function TrustedDomainsEditor({ settings, onSave }: TrustedDomainsEditorP
           const current = settingsRef.current;
           const restored = [...(current.trustedDomains ?? [])];
           restored.splice(index, 0, domain);
-          onSave({ ...current, trustedDomains: restored });
+          update({ trustedDomains: restored });
         },
       },
     });
@@ -56,7 +54,7 @@ export function TrustedDomainsEditor({ settings, onSave }: TrustedDomainsEditorP
 
   const actions: ListEditorAction<string>[] = [
     {
-      icon: <XIcon weight="bold" className="h-3.5 w-3.5" />,
+      icon: <XIcon weight="bold" className="size-3.5" />,
       label: (domain) => `Remove ${domain}`,
       variant: "danger",
       onSelect: removeDomain,
@@ -92,7 +90,7 @@ export function TrustedDomainsEditor({ settings, onSave }: TrustedDomainsEditorP
             <Button
               variant="outline"
               size="sm"
-              left={<PlusIcon weight="bold" className="h-4 w-4" />}
+              left={<PlusIcon weight="bold" className="size-4" />}
               onClick={addDomain}
               disabled={!trimmed || alreadyTrusted}
               className="shrink-0"

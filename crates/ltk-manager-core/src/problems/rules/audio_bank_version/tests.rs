@@ -3,6 +3,7 @@
 
 use std::sync::Arc;
 
+use crate::hashing::named;
 use fs_err as fs;
 use ltk_hash::BinHash;
 use ltk_meta::property::values;
@@ -32,14 +33,12 @@ const HIERARCHY: ChunkId = *b"HIRC";
 /* The bin shape a request for a bank travels in. Written out here rather than
 read from the rule, so a wrong constant there fails rather than agrees. */
 
-/// `SkinAudioProperties`.
-const SKIN_AUDIO: BinHash = BinHash(0x8f7b_194f);
+const SKIN_AUDIO: BinHash = named("SkinAudioProperties");
 /// `bankUnits` on it.
-const BANK_UNITS: BinHash = BinHash(0xf8f2_9f92);
-/// `BankUnit`.
-const UNIT: BinHash = BinHash(0xa441_6515);
+const BANK_UNITS: BinHash = named("bankUnits");
+const UNIT: BinHash = named("BankUnit");
 /// `bankPath` on it.
-const UNIT_PATH: BinHash = BinHash(0x2a21_ad00);
+const UNIT_PATH: BinHash = named("bankPath");
 /// The object the fixture hangs its audio properties on.
 const ENTRY: BinHash = BinHash(0x1234_5678);
 
@@ -142,7 +141,7 @@ fn a_legacy_bank_carrying_its_hierarchy_is_reported() {
     assert_eq!(problems.len(), 1);
     let problem = &problems[0];
     assert_eq!(problem.rule, ID);
-    assert_eq!(problem.severity, Severity::Warning);
+    assert_eq!(problem.severity, ProblemSeverity::Warning);
     assert_eq!(problem.site.layer, "base");
     assert_eq!(problem.site.path, BANK_IN_LAYER);
 
@@ -314,7 +313,7 @@ fn a_bank_the_install_holds_is_offered_for_removal() {
     let (_tmp, files) = project_with(
         &silent_bank(),
         &[BANK_IN_WAD],
-        Some(FakeContent::holding(&[BANK_IN_WAD])),
+        Some(FakeContent::containing(&[BANK_IN_WAD])),
     );
 
     let problems = found_in(&files);
@@ -379,7 +378,7 @@ fn fix_run(root: &std::path::Path, game: Option<Arc<dyn GameContent>>) -> FixRun
 
 #[test]
 fn the_repair_deletes_the_bank_and_leaves_the_rest_alone() {
-    let game = FakeContent::holding(&[BANK_IN_WAD]);
+    let game = FakeContent::containing(&[BANK_IN_WAD]);
     let (tmp, files) = project_with(&silent_bank(), &[BANK_IN_WAD], Some(Arc::clone(&game)));
     let problems = found_in(&files);
     let chosen: Vec<&Problem> = problems.iter().collect();
@@ -419,7 +418,7 @@ fn the_repair_refuses_where_the_guard_no_longer_holds() {
     let (tmp, files) = project_with(
         &silent_bank(),
         &[BANK_IN_WAD],
-        Some(FakeContent::holding(&[BANK_IN_WAD])),
+        Some(FakeContent::containing(&[BANK_IN_WAD])),
     );
     let problems = found_in(&files);
     let chosen: Vec<&Problem> = problems.iter().collect();
@@ -448,7 +447,7 @@ fn the_repair_refuses_where_the_guard_no_longer_holds() {
 /// to judge at all.
 #[test]
 fn a_second_repair_over_a_removed_bank_skips_it() {
-    let game = FakeContent::holding(&[BANK_IN_WAD]);
+    let game = FakeContent::containing(&[BANK_IN_WAD]);
     let (tmp, files) = project_with(&silent_bank(), &[], Some(Arc::clone(&game)));
     let problems = found_in(&files);
     let chosen: Vec<&Problem> = problems.iter().collect();

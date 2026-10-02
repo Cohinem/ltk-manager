@@ -4,9 +4,9 @@
 //! "Editing a list, a map, an option and a pointer" in docs/ux/BIN_EDITOR.md. `ltk_meta`
 //! hands out no insert or remove on a list or a map, so an edit rebuilds the one it changes.
 
-use std::fmt::Write as _;
 use std::mem;
 
+use indexmap::IndexMap;
 use ltk_hash::BinHash;
 use ltk_meta::property::{Kind, ValueMut, values};
 use ltk_meta::{BinObject, PropertyValueEnum};
@@ -15,17 +15,15 @@ use serde::{Deserialize, Serialize};
 use super::edit::{Edit, LeafValue, bin_hash, edit_node, set};
 use super::properties::empty_struct;
 use super::{
-    BinDocument, BinDocumentError, EditRejection, EntryKey, Node, Step, descend, dot, hex, is_null,
-    parse_steps, wire_key,
+    BinDocument, BinDocumentError, EditRejection, EntryKey, HashPath, Node, Step, as_list,
+    as_struct, descend, hex, is_null, key_text, parse_steps,
 };
-use crate::meta_schema::SchemaAt;
+use crate::meta_schema::{DeclaredField, SchemaAt};
 
 /// An item Add item writes into a list, a map or an option.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct NewItem {
     /// Where the item lands in a list or a map, or `None` for the end.
     pub index: Option<usize>,
@@ -40,9 +38,7 @@ pub struct NewItem {
 /// One class a class line offers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ClassChoice {
     /// `0x` and eight hex digits.
     pub hash: String,
@@ -247,7 +243,7 @@ impl BinDocument {
             return Err(refuse(EditRejection::NotAnItem));
         };
         let key = key_value(map.key_kind(), text).map_err(refuse)?;
-        if wire_key(&key) == held.text {
+        if key_text(&key) == held.text {
             return Ok(path.to_owned());
         }
         if holds_key(map, &key) {
@@ -291,6 +287,52 @@ impl BinDocument {
         }
 
         let value = class.map_or_else(values::Struct::default, empty_struct);
+        let inverse = self.swap_pointer(entry, path, value)?;
+        self.record(inverse)?;
+        Ok(())
+    }
+
+    /// Swap the pointer at `path` under `entry` to the class `class` names, or to null
+    /// where `class` is `None`.
+    ///
+    /// A property stays where the held class and the new one declare its field with one
+    /// type, and every other property is dropped. A pointer holding `class` already is left
+    /// as it is.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`BinDocumentError::NodeNotFound`] where the path reaches nothing, and
+    /// with [`BinDocumentError::EditRejected`] where it reaches no pointer and where the
+    /// class text is malformed.
+    pub fn replace_pointer(
+        &mut self,
+        entry: BinHash,
+        path: &str,
+        class: Option<&str>,
+        schema: SchemaAt<'_>,
+    ) -> Result<(), BinDocumentError> {
+        let refuse = |rejection| rejected(entry, path, rejection);
+        let class = class
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(bin_hash)
+            .transpose()
+            .map_err(refuse)?;
+        let Node::Value(PropertyValueEnum::Struct(pointer)) = self.node(entry, path)? else {
+            return Err(refuse(EditRejection::NotAPointer));
+        };
+        let held = (!is_null(pointer)).then_some(pointer.class_hash);
+        if held == class {
+            return Ok(());
+        }
+
+        let value = match class {
+            Some(class) => values::Struct {
+                class_hash: class,
+                properties: shared_properties(pointer, class, schema),
+            },
+            None => values::Struct::default(),
+        };
         let inverse = self.swap_pointer(entry, path, value)?;
         self.record(inverse)?;
         Ok(())
@@ -471,7 +513,8 @@ impl BinDocument {
     }
 }
 
-/// The path an edit addresses: the node it acts on, and the holder of an insert.
+/// The path an edit addresses: the node it acts on, and the holder of an insert. Empty for
+/// the header.
 fn landing(edit: &Edit) -> &str {
     match edit {
         Edit::RemoveItem { path, .. }
@@ -482,6 +525,7 @@ fn landing(edit: &Edit) -> &str {
         | Edit::ReplaceProperty { path, .. }
         | Edit::RemoveProperty { path, .. } => path,
         Edit::InsertItem { holder, .. } | Edit::InsertProperty { holder, .. } => holder,
+        Edit::Dependencies { .. } | Edit::Group { .. } => "",
     }
 }
 
@@ -496,6 +540,32 @@ fn rejected(entry: BinHash, path: &str, rejection: EditRejection) -> BinDocument
         address: format!("{}:{path}", hex(entry)),
         rejection,
     }
+}
+
+/// The properties of `pointer` whose field `class` declares with the type its own class does.
+fn shared_properties(
+    pointer: &values::Struct,
+    class: BinHash,
+    schema: SchemaAt<'_>,
+) -> IndexMap<BinHash, PropertyValueEnum> {
+    let held = schema.declared_fields(pointer.class_hash);
+    let next = schema.declared_fields(class);
+    let declared = |fields: &[DeclaredField<'_>], field: BinHash| {
+        fields
+            .iter()
+            .find(|declared| declared.field == field)
+            .map(|declared| (declared.shape, declared.class))
+    };
+
+    pointer
+        .properties
+        .iter()
+        .filter(|(field, _)| {
+            let before = declared(&held, **field);
+            before.is_some() && before == declared(&next, **field)
+        })
+        .map(|(field, value)| (*field, value.clone()))
+        .collect()
 }
 
 /// Put `value` into the list, map or option `node` is, answering the segment that reaches it.
@@ -580,8 +650,8 @@ fn take_from(
 
 /// Whether an entry of `map` holds `key` already.
 fn holds_key(map: &values::Map, key: &PropertyValueEnum) -> bool {
-    let text = wire_key(key);
-    map.entries().iter().any(|(held, _)| wire_key(held) == text)
+    let text = key_text(key);
+    map.entries().iter().any(|(held, _)| key_text(held) == text)
 }
 
 /// Rebuild `items` around `change`, which keeps every item the list's own kind.
@@ -615,22 +685,9 @@ fn rebuild_map<R>(
 pub(super) fn split_item(path: &str) -> Option<(String, Step)> {
     let mut steps = parse_steps(path)?;
     match steps.pop()? {
-        step @ (Step::Index(_) | Step::Key(_)) => Some((wire_path(&steps), step)),
+        step @ (Step::Index(_) | Step::Key(_)) => Some((HashPath::of(&steps).into(), step)),
         Step::Field(_) => None,
     }
-}
-
-/// The wire path `steps` write, as `parse_steps` reads one.
-fn wire_path(steps: &[Step]) -> String {
-    let mut path = String::new();
-    for step in steps {
-        let _ = match step {
-            Step::Field(field) => write!(path, "{}{:08x}", dot(&path), field.0),
-            Step::Index(index) => write!(path, "[{index}]"),
-            Step::Key(held) => write!(path, "{held}"),
-        };
-    }
-    path
 }
 
 /// A map key of `kind` as a person types it.
@@ -685,22 +742,17 @@ fn item_start(kind: Kind, class: Option<BinHash>) -> Result<PropertyValueEnum, E
 }
 
 /// The classes the struct items of a list, a map or an option hold, in first-seen order.
-fn held_classes(value: &PropertyValueEnum) -> Vec<BinHash> {
+pub(super) fn held_classes(value: &PropertyValueEnum) -> Vec<BinHash> {
     let items: Box<dyn Iterator<Item = &PropertyValueEnum>> = match value {
-        PropertyValueEnum::Container(items)
-        | PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(items)) => {
-            Box::new(items.items().iter())
-        }
+        _ if let Some(items) = as_list(value) => Box::new(items.iter()),
         PropertyValueEnum::Map(map) => Box::new(map.entries().iter().map(|(_, value)| value)),
         PropertyValueEnum::Optional(optional) => Box::new(optional.value().into_iter()),
         _ => return Vec::new(),
     };
     let mut classes = Vec::new();
     for item in items {
-        let class = match item {
-            PropertyValueEnum::Struct(inner) if !is_null(inner) => inner.class_hash,
-            PropertyValueEnum::Embedded(values::Embedded(inner)) => inner.class_hash,
-            _ => continue,
+        let Some(class) = as_struct(item).map(|inner| inner.class_hash) else {
+            continue;
         };
         if !classes.contains(&class) {
             classes.push(class);
@@ -711,7 +763,11 @@ fn held_classes(value: &PropertyValueEnum) -> Vec<BinHash> {
 
 /// The class the schema declares for the value `steps` reach: what the field its last field
 /// step names holds.
-fn declared_class(object: &BinObject, steps: &[Step], schema: SchemaAt<'_>) -> Option<BinHash> {
+pub(super) fn declared_class(
+    object: &BinObject,
+    steps: &[Step],
+    schema: SchemaAt<'_>,
+) -> Option<BinHash> {
     let at = steps
         .iter()
         .rposition(|step| matches!(step, Step::Field(_)))?;

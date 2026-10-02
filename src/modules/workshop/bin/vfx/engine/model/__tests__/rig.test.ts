@@ -4,16 +4,23 @@ import { FORWARD } from "@/modules/viewport";
 
 import {
   type Anchor,
+  carrierOf,
+  CONTINUOUS_RUN,
   facingAt,
+  FLIGHT_HEIGHT,
   flightPath,
+  fliesAsMissile,
+  GROUND_RIG,
   landed,
   type Motion,
   originAt,
   phaseAt,
-  RIG_PRESETS,
+  playbackOf,
   runLength,
-  STAND_HEIGHT,
+  runSpan,
   targetAt,
+  withCarrier,
+  withPlayback,
 } from "../rig";
 
 /** A path a hundred units long at one unit a second, so a second is one percent of it. */
@@ -52,7 +59,7 @@ describe("facingAt", () => {
   });
 
   it("faces an orbit along its own tangent", () => {
-    const orbit: Motion = { kind: "orbit", radius: 10, period: 4 };
+    const orbit: Motion = { kind: "orbit", radius: 10, period: 4, orientation: "missile" };
     expect(rounded(facingAt(orbit, 0))).toEqual([0, 0, 1]);
     expect(rounded(facingAt(orbit, 1))).toEqual([-1, 0, 0]);
   });
@@ -94,7 +101,9 @@ describe("targetAt", () => {
   });
 
   it("aims an orbit at what it circles", () => {
-    expect(targetAt({ kind: "orbit", radius: 10, period: 1 }, 0.3)).toEqual([0, 0, 0]);
+    expect(targetAt({ kind: "orbit", radius: 10, period: 1, orientation: "missile" }, 0.3)).toEqual(
+      [0, 0, 0],
+    );
   });
 
   it("aims a still rig a fixed reach ahead, so a beam has a length", () => {
@@ -130,7 +139,7 @@ describe("originAt", () => {
   });
 
   it("circles an orbit in the ground plane, once per period", () => {
-    const orbit: Motion = { kind: "orbit", radius: 10, period: 4 };
+    const orbit: Motion = { kind: "orbit", radius: 10, period: 4, orientation: "missile" };
 
     expect(originAt(orbit, 0)).toEqual([10, 0, 0]);
 
@@ -161,7 +170,7 @@ describe("flightPath", () => {
 
     expect(path.from[1]).toBe(0);
     expect(path.to[1]).toBe(0);
-    expect(originAt(path, 0, STAND_HEIGHT)[1]).toBe(STAND_HEIGHT);
+    expect(originAt(path, 0, FLIGHT_HEIGHT)[1]).toBe(FLIGHT_HEIGHT);
   });
 });
 
@@ -173,7 +182,12 @@ describe("runLength", () => {
 
   it("is the scrub's whole window, one flight however long the system", () => {
     expect(runLength(SLOW, 300)).toBe(100);
-    expect(runLength(RIG_PRESETS.still.motion, 6)).toBe(6);
+    expect(runLength(GROUND_RIG.motion, 6)).toBe(6);
+  });
+
+  it("runs a bone on a clip for one pass of the clip, so a replay fires on its frame", () => {
+    expect(runLength({ kind: "bone", anchor: WALKER, target: null, period: 2.5 }, 6)).toBe(2.5);
+    expect(runLength({ kind: "bone", anchor: WALKER, target: null }, 6)).toBe(6);
   });
 
   it("gives a still rig the system's own span", () => {
@@ -181,7 +195,7 @@ describe("runLength", () => {
   });
 
   it("gives an orbit whichever of its period and the span is longer", () => {
-    const slow: Motion = { kind: "orbit", radius: 1, period: 9 };
+    const slow: Motion = { kind: "orbit", radius: 1, period: 9, orientation: "missile" };
 
     expect(runLength(slow, 2)).toBe(9);
     expect(runLength(slow, 20)).toBe(20);
@@ -212,7 +226,7 @@ describe("phaseAt", () => {
   });
 
   it("wraps a still rig on the system's own span", () => {
-    expect(phaseAt(RIG_PRESETS.burst, 7, 3)).toBe(1);
+    expect(phaseAt(withPlayback(GROUND_RIG, "replay"), 7, 3)).toBe(1);
   });
 
   it("wraps a looping flight past its linger tail", () => {
@@ -232,27 +246,64 @@ describe("landed", () => {
   });
 });
 
-describe("RIG_PRESETS", () => {
-  it("opens on the rig that moves nothing and plays through once", () => {
-    expect(RIG_PRESETS.still).toEqual({
-      motion: { kind: "still" },
-      life: "once",
-      height: STAND_HEIGHT,
-    });
+describe("runSpan", () => {
+  it("is the run's own length for a rig that plays once or replays", () => {
+    expect(runSpan(GROUND_RIG, 4)).toBe(4);
+    expect(runSpan(withPlayback(GROUND_RIG, "replay"), 4)).toBe(4);
   });
 
-  it("separates a burst from a still rig by replaying it, not by moving it", () => {
-    expect(RIG_PRESETS.burst.motion).toEqual(RIG_PRESETS.still.motion);
-    expect(RIG_PRESETS.burst.life).toBe("loop");
+  it("spans all a seek reaches for a continuous run, which never starts over", () => {
+    expect(runSpan(withPlayback(GROUND_RIG, "continuous"), 4)).toBe(CONTINUOUS_RUN);
+    expect(phaseAt(withPlayback(GROUND_RIG, "continuous"), 30, 4)).toBe(30);
+  });
+});
+
+describe("carrierOf and playbackOf", () => {
+  it("names the half of a rig each motion and lifecycle is", () => {
+    expect(carrierOf({ kind: "still" })).toBe("ground");
+    expect(carrierOf(SLOW)).toBe("flight");
+    expect(carrierOf({ kind: "orbit", radius: 1, period: 1, orientation: "missile" })).toBe(
+      "orbit",
+    );
+    expect(carrierOf({ kind: "bone", anchor: WALKER, target: null })).toBe("bone");
+    expect(playbackOf("loop")).toBe("replay");
+    expect(playbackOf("once")).toBe("once");
+    expect(playbackOf("continuous")).toBe("continuous");
+  });
+});
+
+describe("fliesAsMissile", () => {
+  it("carries a flight and a missile-oriented orbit on a missile's frame, and nothing else", () => {
+    expect(fliesAsMissile(SLOW)).toBe(true);
+    expect(fliesAsMissile(withCarrier(GROUND_RIG, "orbit").motion)).toBe(true);
+    expect(fliesAsMissile({ kind: "orbit", radius: 1, period: 1, orientation: "unit" })).toBe(
+      false,
+    );
+    expect(fliesAsMissile({ kind: "still" })).toBe(false);
+  });
+});
+
+describe("withCarrier", () => {
+  it("stands the ground on the ground and flies the rest at flight height", () => {
+    expect(GROUND_RIG.height).toBe(0);
+    expect(withCarrier(GROUND_RIG, "flight").height).toBe(FLIGHT_HEIGHT);
+    expect(withCarrier(GROUND_RIG, "orbit").height).toBe(FLIGHT_HEIGHT);
+    expect(withCarrier(withCarrier(GROUND_RIG, "flight"), "ground").height).toBe(0);
   });
 
-  it("flies a missile and replays it on arrival", () => {
-    expect(RIG_PRESETS.missile.motion.kind).toBe("path");
-    expect(RIG_PRESETS.missile.life).toBe("loop");
+  it("keeps the playback, the stop and a height the author tuned", () => {
+    const tuned = { ...withPlayback(GROUND_RIG, "replay"), height: 40, stopAt: 3 };
+    const next = withCarrier(tuned, "orbit");
+
+    expect(next.motion.kind).toBe("orbit");
+    expect(next.height).toBe(40);
+    expect(next.stopAt).toBe(3);
+    expect(next.life).toBe("loop");
   });
 
-  it("circles a trail without ever restarting it", () => {
-    expect(RIG_PRESETS.trail.motion.kind).toBe("orbit");
-    expect(RIG_PRESETS.trail.life).toBe("once");
+  it("keeps the skeleton a child set spawns on", () => {
+    const joints = () => WALKER;
+
+    expect(withCarrier({ ...GROUND_RIG, joints }, "flight").joints).toBe(joints);
   });
 });

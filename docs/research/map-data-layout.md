@@ -176,7 +176,7 @@ the key as FNV-1a-32 of the lowercased path, which is the ordinary bin entry-pat
 at load time (`ltk_mapgeo/src/submesh.rs`).
 
 It is the same class, the same slots and the same shader join this repository already reads for
-champion materials in `crates/ltk-manager-core/src/material/mod.rs`: `samplerValues` by
+champion materials in `crates/ltk-manager-game/src/material.rs`: `samplerValues` by
 `TextureName`, `paramValues` by `name`, `techniques` to `passes` to a `CustomShaderDef` through
 `StaticMaterialPassDef.shader`. Three differences matter to a consumer.
 

@@ -24,6 +24,7 @@ import type {
 import { DocumentToolbarSlotContext } from "@/modules/editor";
 import { useWorkshopEditorStore } from "@/modules/workshop/shell/state/workshopEditor";
 import { useWorkshopLayoutStore } from "@/stores/workshopLayout";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -86,6 +87,9 @@ const PROJECT: WorkshopProject = {
   ],
   thumbnailPath: null,
   lastModified: "2026-08-21T21:14:02Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-high-res",
 };
 
 interface ProblemInit {
@@ -249,9 +253,10 @@ type Envelope<T> = { ok: true; value: T } | { ok: false; error: AppError };
  */
 function mockBackend(analyzed: Envelope<Run>) {
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "analyze_project") return Promise.resolve(analyzed);
+    if (command === commandNames.workshop.analyzeProject) return Promise.resolve(analyzed);
     if (command === "fix_runs") return Promise.resolve({ ok: true, value: [] });
-    if (command === "fix_problems") return Promise.resolve({ ok: true, value: FIX_REPORT });
+    if (command === commandNames.workshop.fixProblems)
+      return Promise.resolve({ ok: true, value: FIX_REPORT });
     if (command === "undo_fix_run") return Promise.resolve({ ok: true, value: null });
     return Promise.resolve({ ok: true, value: null });
   });
@@ -637,6 +642,47 @@ describe("ProblemsDocument", () => {
     });
   });
 
+  describe("collapse all", () => {
+    function collapseAllButton() {
+      return screen.getByRole("button", { name: "Collapse all folders" });
+    }
+
+    /// An auto-opened list reopens whatever `touched` leaves to the rule, so the
+    /// gesture has to count as a touch for the list to stay collapsed.
+    it("collapses every group and object from the toolbar, and they stay collapsed", async () => {
+      mockBackend({ ok: true, value: run() });
+      renderPanel();
+
+      await skin0Group();
+      await userEvent.click(collapseAllButton());
+
+      expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
+      expect(screen.queryByRole("button", { name: /iconAvatar/ })).toBeNull();
+    });
+
+    it("collapses every group on Ctrl+Left inside the list", async () => {
+      mockBackend({ ok: true, value: run() });
+      renderPanel();
+
+      const group = await skin0Group();
+      group.focus();
+      await userEvent.keyboard("{Control>}{ArrowLeft}{/Control}");
+
+      expect(screen.queryAllByRole("button", { expanded: true })).toHaveLength(0);
+    });
+
+    it("opens only the clicked group after a collapse", async () => {
+      mockBackend({ ok: true, value: run() });
+      renderPanel();
+
+      const group = await skin0Group();
+      await userEvent.click(collapseAllButton());
+      await userEvent.click(group);
+
+      expect(expandedNames()).toEqual([groupName("base", SKIN0)]);
+    });
+  });
+
   describe("states with no list", () => {
     it("reports a clean project rather than an empty list", async () => {
       mockBackend({ ok: true, value: run({ problems: [] }) });
@@ -655,8 +701,63 @@ describe("ProblemsDocument", () => {
       await skin0Group();
 
       const alert = screen.getByRole("alert");
-      expect(within(alert).getByText("1 file could not be read")).toBeInTheDocument();
-      expect(within(alert).getByText(SKIN4)).toBeInTheDocument();
+      expect(within(alert).getByText("1 file was not checked")).toBeInTheDocument();
+      expect(
+        within(alert).getByText("data/characters/smolder/skins/skin4.bin"),
+      ).toBeInTheDocument();
+      expect(within(alert).getByText(UNREADABLE.message)).toBeInTheDocument();
+    });
+
+    it("counts a file two rules stopped on once", async () => {
+      const second = { ...UNREADABLE, rule: "tex/block-alignment" };
+      mockBackend({ ok: true, value: run({ failed: [UNREADABLE, second] }) });
+      renderPanel();
+
+      await skin0Group();
+
+      expect(within(screen.getByRole("alert")).getByText("1 file was not checked")).toBeVisible();
+    });
+
+    it("opens a file it could not check on a click", async () => {
+      mockBackend({ ok: true, value: run({ failed: [UNREADABLE] }) });
+      renderPanel();
+
+      await skin0Group();
+      await userEvent.click(
+        within(screen.getByRole("alert")).getByRole("button", { name: /skin4\.bin/ }),
+      );
+
+      expect(openTabs()).toContain(
+        previewDocumentId({ kind: "layer", project: PROJECT.path, layer: "base", path: SKIN4 }),
+      );
+    });
+
+    /// A map overhaul can fail on hundreds of files, and a notice that lists
+    /// them all pushes every problem off screen.
+    it("lists many files it could not check only on request", async () => {
+      const failed = ["a", "b", "c", "d"].map((name) => ({
+        ...UNREADABLE,
+        site: { layer: "base", path: `Smolder.wad.client/${name}.bin`, node: null },
+      }));
+      mockBackend({ ok: true, value: run({ failed }) });
+      renderPanel();
+
+      await skin0Group();
+      const alert = screen.getByRole("alert");
+      expect(within(alert).getByText("4 files were not checked")).toBeVisible();
+      expect(within(alert).queryByText("a.bin")).not.toBeInTheDocument();
+
+      await userEvent.click(within(alert).getByRole("button", { name: "Show files" }));
+
+      expect(within(alert).getByText("a.bin")).toBeVisible();
+    });
+
+    it("does not call a project clean when a file went unchecked", async () => {
+      mockBackend({ ok: true, value: run({ problems: [], failed: [UNREADABLE] }) });
+      renderPanel();
+
+      expect(await screen.findByText("No problems found")).toBeInTheDocument();
+      expect(screen.queryByText("All good")).not.toBeInTheDocument();
     });
 
     it("carries the backend's message into the error state", async () => {
@@ -736,7 +837,9 @@ describe("ProblemsDocument", () => {
       screen.getByRole("button", { name: `Fix every problem in ${SKIN0_OBJECT}` }),
     );
 
-    const fixes = mockInvoke.mock.calls.filter(([command]) => command === "fix_problems");
+    const fixes = mockInvoke.mock.calls.filter(
+      ([command]) => command === commandNames.workshop.fixProblems,
+    );
     expect(fixes).toHaveLength(1);
     expect(fixes[0][1]).toEqual({
       projectPath: PROJECT.path,
@@ -752,7 +855,9 @@ describe("ProblemsDocument", () => {
     await userEvent.type(filter(), "iconAvatar");
     await userEvent.click(screen.getByRole("button", { name: "Fix this problem" }));
 
-    const fixes = mockInvoke.mock.calls.filter(([command]) => command === "fix_problems");
+    const fixes = mockInvoke.mock.calls.filter(
+      ([command]) => command === commandNames.workshop.fixProblems,
+    );
     expect(fixes).toHaveLength(1);
     expect(fixes[0][1]).toEqual({
       projectPath: PROJECT.path,
@@ -864,7 +969,9 @@ describe("ProblemsDocument", () => {
       renderPanel();
 
       await skin0Group();
-      const runs = mockInvoke.mock.calls.filter(([command]) => command === "analyze_project");
+      const runs = mockInvoke.mock.calls.filter(
+        ([command]) => command === commandNames.workshop.analyzeProject,
+      );
       expect(runs).toHaveLength(1);
     });
 

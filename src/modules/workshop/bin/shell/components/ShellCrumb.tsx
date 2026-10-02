@@ -1,9 +1,9 @@
 import { CaretDownIcon, CaretRightIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { Menu } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
 import { nameOf } from "../../vfx/inspector/utils/emitterCards";
@@ -22,10 +22,10 @@ export function ShellCrumb({ system }: { system: string }) {
     <nav
       data-ui="ShellCrumb"
       aria-label={m.workshop_bin_shell_crumb_label()}
-      className="flex min-w-0 items-center gap-1 px-1 text-meta"
+      className="flex min-w-0 items-center gap-0.5 text-row select-none"
     >
       <CrumbSegment on={target === "system"} onClick={() => aim("system")}>
-        {system}
+        <span className="min-w-0 truncate">{system}</span>
       </CrumbSegment>
       {root !== undefined && (
         <>
@@ -35,7 +35,7 @@ export function ShellCrumb({ system }: { system: string }) {
             onClick={() => (child === null ? aim("emitter") : chooseCard(root.key))}
           >
             <span className="min-w-0 truncate">{nameOf(root)}</span>
-            <span className="shrink-0 text-surface-500">[{root.index}]</span>
+            <CrumbIndex index={root.index} />
           </CrumbSegment>
         </>
       )}
@@ -44,7 +44,7 @@ export function ShellCrumb({ system }: { system: string }) {
           <CrumbCaret />
           <CrumbSegment on={target === "emitter"} onClick={() => aim("emitter")}>
             <span className="min-w-0 truncate">{child.emitter.name}</span>
-            <span className="shrink-0 text-surface-500">[{child.emitter.listIndex}]</span>
+            <CrumbIndex index={child.emitter.listIndex} />
           </CrumbSegment>
         </>
       )}
@@ -58,8 +58,18 @@ export function ShellCrumb({ system }: { system: string }) {
   );
 }
 
+/* Button's xs box, so a segment lines up with the row's controls. DS-RADIUS, DS-VEIL */
+const SEGMENT =
+  "flex h-7 min-w-0 cursor-pointer items-center gap-1 rounded-md px-2 font-medium transition-colors";
+
+const SEGMENT_OFF = "text-surface-400 hover:bg-surface-veil hover:text-surface-100";
+
 function CrumbCaret() {
-  return <CaretRightIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-500" />;
+  return <CaretRightIcon weight="bold" className="size-3 shrink-0 text-surface-500" />;
+}
+
+function CrumbIndex({ index }: { index: number }) {
+  return <span className="shrink-0 font-normal tabular-nums opacity-60">[{index}]</span>;
 }
 
 function CrumbSegment({
@@ -74,11 +84,8 @@ function CrumbSegment({
   return (
     <button
       type="button"
-      /* DS-RADIUS, DS-VEIL */
-      className={twMerge(
-        "flex min-w-0 cursor-pointer items-center gap-1 truncate rounded-sm px-1 py-0.5",
-        on ? "bg-accent-500/15 text-accent-300" : "text-surface-400 hover:bg-surface-veil",
-      )}
+      aria-current={on ? "location" : undefined}
+      className={twMerge(SEGMENT, on ? "bg-accent-500/15 text-accent-300" : SEGMENT_OFF)}
       onClick={onClick}
     >
       {children}
@@ -102,28 +109,28 @@ function GroupSegment({ card, group }: { card: EmitterCardData; group: EmitterGr
         render={
           <button
             type="button"
-            /* DS-RADIUS, DS-VEIL */
-            className="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-surface-400 hover:bg-surface-veil"
+            className={twMerge(
+              SEGMENT,
+              "shrink-0",
+              SEGMENT_OFF,
+              "data-[popup-open]:bg-surface-veil",
+            )}
           >
             {GROUP_TITLE[group]()}
-            <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0" />
+            <CaretDownIcon weight="bold" className="size-3 shrink-0" />
           </button>
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="start" sideOffset={4}>
-          <Menu.Popup className="w-40">
-            {card.groups.map((each) => (
-              <Menu.Item
-                key={each.group}
-                onClick={() => chooseGroup({ key: card.key, group: each.group })}
-              >
-                {GROUP_TITLE[each.group]()}
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="start" sideOffset={4} className="w-40">
+        {card.groups.map((each) => (
+          <Menu.Item
+            key={each.group}
+            onClick={() => chooseGroup({ key: card.key, group: each.group })}
+          >
+            {GROUP_TITLE[each.group]()}
+          </Menu.Item>
+        ))}
+      </Menu.Content>
     </Menu.Root>
   );
 }

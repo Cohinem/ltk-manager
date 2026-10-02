@@ -201,7 +201,7 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
       <BaseDialog.Close
         ref={ref}
         className={twMerge(
-          "inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md",
+          "inline-flex size-8 cursor-pointer items-center justify-center rounded-md",
           "text-surface-200 transition-colors hover:bg-danger/15 hover:text-danger-text",
           "active:bg-danger/25",
           className,
@@ -209,7 +209,7 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
         aria-label="Close"
         {...props}
       >
-        <X className="h-5 w-5" />
+        <X className="size-5" />
       </BaseDialog.Close>
     );
   },
@@ -257,7 +257,7 @@ export interface DialogBodyProps {
 export const DialogBody = forwardRef<HTMLDivElement, DialogBodyProps>(
   ({ className, children }, ref) => {
     return (
-      <div ref={ref} className={twMerge("px-6 py-4", className)}>
+      <div ref={ref} className={twMerge("flex flex-col gap-4 px-6 py-4", className)}>
         {children}
       </div>
     );
@@ -287,6 +287,36 @@ export const DialogFooter = forwardRef<HTMLDivElement, DialogFooterProps>(
   },
 );
 DialogFooter.displayName = "Dialog.Footer";
+
+// Frame (root, portal, backdrop and overlay, with the content the caller's)
+export interface DialogFrameProps extends Omit<BaseDialog.Popup.Props, "className" | "children"> {
+  open: boolean;
+  /** Run when the reader dismisses by Escape or the backdrop. Absent, the dialog cannot be dismissed. */
+  onClose?: () => void;
+  size?: DialogOverlaySize;
+  className?: string;
+  children?: ReactNode;
+}
+
+/** A dialog's frame from the backdrop to the popup, for content that draws its own header. */
+export const DialogFrame = forwardRef<HTMLDivElement, DialogFrameProps>(
+  ({ open, onClose, size, className, children, ...props }, ref) => {
+    return (
+      <DialogRoot
+        open={open}
+        onOpenChange={onClose === undefined ? undefined : (next) => !next && onClose()}
+      >
+        <DialogPortal>
+          <DialogBackdrop />
+          <DialogOverlay ref={ref} size={size} className={className} {...props}>
+            {children}
+          </DialogOverlay>
+        </DialogPortal>
+      </DialogRoot>
+    );
+  },
+);
+DialogFrame.displayName = "Dialog.Frame";
 
 // Shell (the whole frame: root, portal, backdrop, overlay and a title header)
 export interface DialogShellProps extends Omit<
@@ -334,26 +364,28 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
     ref,
   ) => {
     return (
-      <DialogRoot open={open} onOpenChange={(next) => !next && onClose()}>
-        <DialogPortal>
-          <DialogBackdrop />
-          <DialogOverlay ref={ref} size={size} className={className} {...props}>
-            <DialogHeader tone={tone}>
-              {description === undefined && (
-                <DialogTitle className={titleClassName}>{title}</DialogTitle>
-              )}
-              {description !== undefined && (
-                <div className="min-w-0">
-                  <DialogTitle className={titleClassName}>{title}</DialogTitle>
-                  <DialogDescription className="mt-0.5">{description}</DialogDescription>
-                </div>
-              )}
-              {closable && <DialogClose />}
-            </DialogHeader>
-            {children}
-          </DialogOverlay>
-        </DialogPortal>
-      </DialogRoot>
+      <DialogFrame
+        ref={ref}
+        open={open}
+        onClose={onClose}
+        size={size}
+        className={className}
+        {...props}
+      >
+        <DialogHeader tone={tone}>
+          {description === undefined && (
+            <DialogTitle className={titleClassName}>{title}</DialogTitle>
+          )}
+          {description !== undefined && (
+            <div className="min-w-0">
+              <DialogTitle className={titleClassName}>{title}</DialogTitle>
+              <DialogDescription className="mt-0.5">{description}</DialogDescription>
+            </div>
+          )}
+          {closable && <DialogClose />}
+        </DialogHeader>
+        {children}
+      </DialogFrame>
     );
   },
 );
@@ -373,5 +405,6 @@ export const Dialog = {
   Header: DialogHeader,
   Body: DialogBody,
   Footer: DialogFooter,
+  Frame: DialogFrame,
   Shell: DialogShell,
 };

@@ -1,6 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
-
-import type { AppError, InstalledMod } from "@/lib/bindings";
+import type { InstalledMod_Serialize } from "@/lib/bindings";
+import { commands } from "@/lib/ipc/library";
 import type { Result } from "@/utils/result";
 
 /**
@@ -11,14 +10,7 @@ export async function applyLeagueSkin(
   championId: number,
   skinId: number,
   chromaId?: number | null,
-): Promise<Result<InstalledMod>> {
-  const response = await invoke<{ ok: true; value: InstalledMod } | { ok: false; error: AppError }>(
-    "apply_league_skin",
-    {
-      championId,
-      skinId,
-      chromaId: chromaId ?? null,
-    },
-  );
+): Promise<Result<InstalledMod_Serialize>> {
+  const response = await commands.applyLeagueSkin(championId, skinId, chromaId ?? null);
   return response.ok ? { ok: true, value: response.value } : { ok: false, error: response.error };
 }

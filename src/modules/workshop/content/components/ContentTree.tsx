@@ -1,18 +1,22 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ContextMenu } from "@/components";
-import { useZoomedPx } from "@/hooks";
-import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
+import { useRemeasure, useZoomedPx } from "@/hooks";
 import type { LayerContent } from "@/lib/tauri";
 
-import { ignoreRulesDocument, previewDocument } from "../../documents/utils/contentDocument";
-import { useContentTreeNav, useStickyTreeRows } from "../../hooks";
+import {
+  declarationsDocument,
+  ignoreRulesDocument,
+  previewDocument,
+} from "../../documents/utils/contentDocument";
+import { type NodeActivation, useReadOnlyTreeNav, useStickyTreeRows } from "../../hooks";
 import { MODIGNORE_FILE_NAME } from "../../ignore-rules";
 import { useProjectContext } from "../../projects/state/ProjectContext";
-import { TreeStickyBand } from "../../shared/components/TreeStickyBand";
+import { VirtualTree } from "../../shared/components/VirtualTree";
+import { treeItemIndexOf } from "../../shared/utils/tree";
 import {
+  useCollapseLayerDirs,
   useCollapsedDirs,
   useOpenDocument,
   useOpenRowPreview,
@@ -20,14 +24,18 @@ import {
   useToggleCollapsed,
 } from "../../state";
 import {
+  allDirPaths,
   buildContentTree,
   buildDirFileCounts,
   type ContentTreeNode,
+  type DirNode,
   type FileNode,
   flattenTree,
   type FlatTreeRow,
   nodeCovers,
+  toggledDirTree,
 } from "../utils/contentTree";
+import { AssetDragGhost } from "./AssetDragGhost";
 import { ContentTreeContextMenu } from "./ContentTreeContextMenu";
 import { TreeRow } from "./ContentTreeRow";
 import { DeleteContentPopover, type DeleteContentTarget } from "./DeleteContentPopover";
@@ -61,20 +69,34 @@ export function ContentTree({ layer }: ContentTreeProps) {
      outlives a trip to another layer and the panel move ahead of it. */
   const collapsed = useCollapsedDirs(layerName);
   const toggle = useToggleCollapsed(layerName);
+  const collapseLayerDirs = useCollapseLayerDirs();
   const rows = useMemo(() => flattenTree(tree, collapsed), [tree, collapsed]);
 
+  const toggleSubtree = useCallback(
+    (dir: DirNode) => collapseLayerDirs(layerName, toggledDirTree(collapsed, dir)),
+    [collapseLayerDirs, layerName, collapsed],
+  );
+  const collapseAll = useCallback(
+    () => collapseLayerDirs(layerName, allDirPaths(tree)),
+    [collapseLayerDirs, layerName, tree],
+  );
+
   const documentFor = useCallback(
-    (node: FileNode) =>
+    (node: FileNode) => {
       /* A nested `.modignore` opens as rules rather than as bytes, which is the
          only way the tree reaches one. */
-      node.name === MODIGNORE_FILE_NAME
-        ? ignoreRulesDocument(`content/${layerName}/${node.entry.relativePath}`)
-        : previewDocument({
-            kind: "layer",
-            project: projectPath,
-            layer: layerName,
-            path: node.entry.relativePath,
-          }),
+      if (node.name === MODIGNORE_FILE_NAME) {
+        return ignoreRulesDocument(`content/${layerName}/${node.entry.relativePath}`);
+      }
+      if (node.entry.kind === "game_data") return declarationsDocument(layerName);
+
+      return previewDocument({
+        kind: "layer",
+        project: projectPath,
+        layer: layerName,
+        path: node.entry.relativePath,
+      });
+    },
     [projectPath, layerName],
   );
 
@@ -117,12 +139,7 @@ export function ContentTree({ layer }: ContentTreeProps) {
        landing under it. */
     scrollPaddingStart: stickyHeight,
   });
-
-  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
-     one of the inputs the measurement memo watches. */
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
+  useRemeasure(virtualizer, rowHeight);
 
   /* The tree owns the confirmation rather than the menu, so the keyboard route
      and the menu item reach the same one. The node rather than what the
@@ -163,12 +180,45 @@ export function ContentTree({ layer }: ContentTreeProps) {
     scrollRef.current?.focus();
   }, [pendingNode]);
 
-  const { focusedIndex, setFocusedIndex, handleKeyDown } = useContentTreeNav({
+  const isExpanded = useCallback(
+    (node: ContentTreeNode) => node.type === "dir" && !collapsed.has(node.path),
+    [collapsed],
+  );
+  const toggleNode = useCallback(
+    (node: ContentTreeNode) => {
+      if (node.type === "dir") toggle(node.path);
+    },
+    [toggle],
+  );
+  const openNode = useCallback(
+    (node: ContentTreeNode) => {
+      if (node.type === "file") openFile(node);
+    },
+    [openFile],
+  );
+
+  /* The row's own key rather than the tree's, so no modifier a browser or the OS claims is in
+     the way. The delete is confirmed either way. */
+  const deleteKey = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>, node: ContentTreeNode) => {
+      if (event.key !== "Delete") return false;
+
+      event.preventDefault();
+      requestDelete(node);
+      return true;
+    },
+    [requestDelete],
+  );
+
+  const { focusedIndex, setFocusedIndex, handleKeyDown } = useReadOnlyTreeNav({
     rows,
-    collapsed,
-    onToggle: toggle,
-    onOpen: openFile,
-    onDelete: requestDelete,
+    isExpanded,
+    onToggle: toggleNode,
+    onOpen: openNode,
+    expandable: isDir,
+    activation: activationOf,
+    onKey: deleteKey,
+    onCollapseAll: collapseAll,
     virtualizer,
     scrollElementRef: scrollRef,
   });
@@ -207,105 +257,73 @@ export function ContentTree({ layer }: ContentTreeProps) {
   const [menuNode, setMenuNode] = useState<ContentTreeNode | null>(null);
 
   function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
-    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-treeitem-index]");
-    const index = Number(row?.dataset.treeitemIndex);
-    setMenuNode(Number.isInteger(index) ? (rows[index]?.node ?? null) : null);
+    const index = treeItemIndexOf(event.target);
+    setMenuNode(index === null ? null : (rows[index]?.node ?? null));
   }
 
   return (
     <>
-      <ContextMenu.Root>
-        <ContextMenu.Trigger
-          data-ui="ContentTree"
-          ref={scrollRef}
-          className="flex-1 overflow-auto font-mono text-xs outline-none scrollbar-md scrollbar-track"
-          role="tree"
-          aria-label="Layer files"
-          tabIndex={-1}
-          onKeyDown={handleKeyDown}
-          onContextMenu={handleContextMenu}
-          {...NO_OVERSCROLL}
-        >
-          {/* The padding rides inside the scrollport rather than on it: a sticky
-              box is confined to its containing block, so the scroll container's
-              own padding would hold the band that far below the top edge and let
-              rows scroll through the gap above it. */}
-          <div className="py-1">
-            <TreeStickyBand height={stickyHeight}>
-              {sticky.map((pin, slot) => (
-                <div
-                  key={nodeKey(pin.row.node)}
-                  role="presentation"
-                  className="absolute inset-x-0 bg-surface-950"
-                  /* Outermost on top, so the innermost row slides away behind it. */
-                  style={{ top: `${pin.top}px`, zIndex: sticky.length - slot }}
-                >
-                  <TreeRow
-                    node={pin.row.node}
-                    depth={pin.row.depth}
-                    isExpanded
-                    isSelected={pin.index === focusedIndex}
-                    dirFileCount={
-                      pin.row.node.type === "dir" ? (dirFileCounts.get(pin.row.node.path) ?? 0) : 0
-                    }
-                    onToggle={() => revealRow(pin.index)}
-                    onSelect={setFocusedIndex}
-                    onOpen={openFile}
-                    height={rowHeight}
-                    rowIndex={pin.index}
-                    tabIndex={-1}
-                  />
-                </div>
-              ))}
-            </TreeStickyBand>
+      <AssetDragGhost />
+      <VirtualTree
+        data-ui="ContentTree"
+        aria-label="Layer files"
+        scrollRef={scrollRef}
+        rows={rows}
+        items={virtualizer.getVirtualItems()}
+        totalSize={virtualizer.getTotalSize()}
+        sticky={{ rows: sticky, height: stickyHeight }}
+        onKeyDown={handleKeyDown}
+        onContextMenu={handleContextMenu}
+        menu={
+          <ContentTreeContextMenu
+            node={menuNode}
+            projectPath={projectPath}
+            layerName={layerName}
+            onOpen={openFile}
+            onDelete={requestDelete}
+          />
+        }
+        renderRow={(row, index, pinned) => {
+          const isSelected = index === focusedIndex;
+          const dirFileCount =
+            row.node.type === "dir" ? (dirFileCounts.get(row.node.path) ?? 0) : 0;
+          if (pinned) {
+            return (
+              <TreeRow
+                node={row.node}
+                depth={row.depth}
+                isExpanded
+                isSelected={isSelected}
+                dirFileCount={dirFileCount}
+                onToggle={() => revealRow(index)}
+                onSelect={setFocusedIndex}
+                onOpen={openFile}
+                height={rowHeight}
+                rowIndex={index}
+                tabIndex={-1}
+              />
+            );
+          }
 
-            <div
-              role="presentation"
-              data-tree-rows=""
-              className="relative w-full"
-              style={{ height: `${virtualizer.getTotalSize()}px` }}
-            >
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const row = rows[virtualRow.index]!;
-                const isSelected = virtualRow.index === focusedIndex;
-                return (
-                  <div
-                    key={virtualRow.key}
-                    role="presentation"
-                    className="absolute inset-x-0"
-                    style={{ transform: `translateY(${virtualRow.start}px)` }}
-                  >
-                    <TreeRow
-                      node={row.node}
-                      depth={row.depth}
-                      isExpanded={row.node.type === "dir" && !collapsed.has(row.node.path)}
-                      isSelected={isSelected}
-                      dirFileCount={
-                        row.node.type === "dir" ? (dirFileCounts.get(row.node.path) ?? 0) : 0
-                      }
-                      onToggle={toggle}
-                      onSelect={setFocusedIndex}
-                      onOpen={openFile}
-                      onPreview={previewFile}
-                      height={rowHeight}
-                      rowIndex={virtualRow.index}
-                      tabIndex={isSelected ? 0 : -1}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </ContextMenu.Trigger>
-
-        <ContentTreeContextMenu
-          node={menuNode}
-          projectPath={projectPath}
-          layerName={layerName}
-          onOpen={openFile}
-          onDelete={requestDelete}
-        />
-      </ContextMenu.Root>
+          return (
+            <TreeRow
+              node={row.node}
+              depth={row.depth}
+              isExpanded={row.node.type === "dir" && !collapsed.has(row.node.path)}
+              isSelected={isSelected}
+              dirFileCount={dirFileCount}
+              onToggle={toggle}
+              onToggleSubtree={toggleSubtree}
+              onSelect={setFocusedIndex}
+              onOpen={openFile}
+              onPreview={previewFile}
+              height={rowHeight}
+              rowIndex={index}
+              tabIndex={isSelected ? 0 : -1}
+            />
+          );
+        }}
+      />
 
       <DeleteContentPopover
         target={pendingDelete}
@@ -336,4 +354,13 @@ function deleteTarget(node: ContentTreeNode, counts: Map<string, number>): Delet
 
 function nodeKey(node: ContentTreeNode): string {
   return node.type === "dir" ? `d:${node.path}` : `f:${node.entry.relativePath}`;
+}
+
+function isDir(node: ContentTreeNode): boolean {
+  return node.type === "dir";
+}
+
+/** `Enter` opens a file, the way a double click does, and folds a directory. */
+function activationOf(node: ContentTreeNode): NodeActivation {
+  return node.type === "file" ? "open" : "toggle";
 }

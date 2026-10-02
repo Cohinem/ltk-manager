@@ -286,7 +286,7 @@ function completionRow(source: PaletteSourceId, klass: ClassCount, query: string
       name: klass.name,
       path: "",
       trailing: m.workshop_objects_class_count_label({ count: klass.count }),
-      icon: <ObjectGlyph objectClass={klass.name} className="h-4 w-4 text-surface-400" />,
+      icon: <ObjectGlyph objectClass={klass.name} className="size-4 text-surface-400" />,
       target: { kind: "query", query: completeClassTerm(query, klass.name) },
     },
     band: 0,

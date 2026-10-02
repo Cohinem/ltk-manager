@@ -4,6 +4,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 
 import { SettingGroup } from "../SettingGroup";
@@ -27,7 +28,8 @@ function Startup() {
 const RESET_GROUP = /Reset \d+ changed settings in this group/;
 
 function saveCount() {
-  return mockInvoke.mock.calls.filter(([command]) => command === "save_settings").length;
+  return mockInvoke.mock.calls.filter(([command]) => command === commandNames.settings.saveSettings)
+    .length;
 }
 
 describe("the gear", () => {
@@ -91,7 +93,17 @@ describe("the gear", () => {
     const user = userEvent.setup();
     renderSettings(
       <SettingRow setting="builtinMods.defaultWardSkins" control={<input type="checkbox" />} />,
-      { settings: { builtinMods: { defaultWardSkins: true, baseSkins: "allChampions" } } },
+      {
+        settings: {
+          builtinMods: {
+            defaultWardSkins: true,
+            baseSkins: "allChampions",
+            mapSkin: "forced",
+            forcedMapSkin: "Sodapop_SRS",
+            mapDecorations: { MSITrophy: "hide" },
+          },
+        },
+      },
     );
 
     await user.click(screen.getByLabelText("Actions for Default ward skins"));
@@ -101,6 +113,9 @@ describe("the gear", () => {
     expect(savedSettings().builtinMods).toEqual({
       defaultWardSkins: false,
       baseSkins: "allChampions",
+      mapSkin: "forced",
+      forcedMapSkin: "Sodapop_SRS",
+      mapDecorations: { MSITrophy: "hide" },
     });
   });
 

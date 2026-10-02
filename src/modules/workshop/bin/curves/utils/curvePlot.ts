@@ -72,7 +72,13 @@ export function plotOf(
       y: level(key.values[channel] ?? lowest),
     }));
     points.push(drawn);
-    lines.push(lineOf(drawn, box.width));
+    /* A key dragged past a neighbour keeps its index, so the line draws in time order. */
+    lines.push(
+      lineOf(
+        [...drawn].sort((left, right) => left.x - right.x),
+        box.width,
+      ),
+    );
   }
 
   return { lines, points, at, first, last, low, high };

@@ -110,8 +110,8 @@ project
 ```
 
 `▽` is the sort and filter popover, `☑▾` the selection button and its bulk actions, `⊞≣⋮` the
-view mode control with its view options, and `＋▾` New project with the three imports on its
-caret.
+view mode control with its view options, and `＋▾` New project with Open folder, the three
+imports and the Recent group on its caret.
 
 | Slot         | Grid                                    | Project                    |
 | ------------ | --------------------------------------- | -------------------------- |
@@ -371,7 +371,7 @@ the grid for - disabled until something is, and in the same green a project's ow
 it, so one action reads the same from either surface. Pack and Delete are what a selection is
 for, so they arrive with one rather than standing disabled beside it.
 
-**The picks are spent as Test is pressed.** The run answers over the grid and there is nothing
+**The picks are spent as Test or Pack is pressed.** The run answers over the grid and there is nothing
 left to press again, and a menu that closes on the press would otherwise carry a completion
 callback down with it - the caret and a selected card's right click draw the same four commands
 from the same place, so neither can end up spending the picks when the other does not.
@@ -411,6 +411,70 @@ Grid against list is a `SegmentedControl` in the view slot, and the view options
 edge carries the card scale the mod library's grid uses too. Card width is that scale times the
 app zoom, so the column count follows both.
 
+## Open any folder
+
+A project is a folder the workshop knows about, not only a child of the workshop folder. The
+workshop folder is scanned as before and stays the default home for New project and every import.
+Any other folder joins the workshop the first time it is opened, the way a folder opens in VS Code.
+
+| Term            | What it is                                                                    |
+| --------------- | ----------------------------------------------------------------------------- |
+| Workshop folder | The scanned root, `workshopPath` in `settings.json`                           |
+| Opened folder   | A project folder outside it, kept in `workshop-projects.json` beside settings |
+| Recent          | Not a third list. Every project carries a last-opened time                    |
+| Project id      | A hash of the project's path, which the route `/workshop/$projectId` takes    |
+
+The id replaces the folder name in the route, so two opened projects with the same name coexist.
+
+### Ways in
+
+- **Open folder…** on the New caret, `Ctrl+O`, and the palette's command list
+- A folder dropped on the grid
+- A row of the Recent group on the caret, or of the palette's `/` source, which ranks by last
+  opened. `Ctrl+R` opens the palette on that source with an empty query.
+- The start page, when no workshop folder is set and there is nothing to list
+
+### What the picked folder decides
+
+| The folder holds                              | What happens                                                                                   |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `mod.config.json` or `mod.config.toml`        | The editor opens. A folder outside the workshop folder joins the list, and a toast offers Undo |
+| The fantome layout (`META/info.json`, `WAD/`) | The convert dialog lists what it found                                                         |
+| Subfolders that are projects or fantome mods  | The batch dialog                                                                               |
+| None of these                                 | The convert dialog, offering an empty project in place                                         |
+| Nothing, the path is gone                     | An error toast                                                                                 |
+
+**Convert.** "Make it a project here" writes `mod.config.json` from `META/info.json`, moves
+unpacked WAD directories into `content/base`, unpacks packed WADs there and deletes the packed
+originals, and moves `RAW/` to `content/base/raw`. `META/` stays. Packed WADs unpack into
+temporary directories before anything moves, so a failed unpack leaves the folder as it was.
+"Copy into the workshop folder" does the same to a copy and leaves the source alone.
+
+**Batch.** "Add all to the list" opens every project subfolder and converts every fantome one in
+place, under the name its metadata suggests. A folder that fails is listed with its reason and the
+rest still land. "Use as the workshop folder" sets `workshopPath` instead. There is one workshop
+folder, never several.
+
+### On the grid
+
+Opened folders sit on the same grid as the workshop folder's projects, at the same card size. In
+the grid view the card is identical, and hovering its name shows the folder's path. The list
+view has the room for the path itself, after the authors, truncated from the left so the folder
+name, which tells two paths apart, stays visible.
+
+The default sort is Recently opened. A project never opened sorts by when it last changed. The
+filter popover has a Location section: all, workshop folder, opened folders.
+
+An opened folder whose config is gone keeps a dashed card below the grid, with **Locate…** to point
+the entry at the folder's new place and **Remove from list** to forget it. The missing cards sit
+outside the grid's roving stop, so the keyboard reaches only cards that open.
+
+### Leaving the list
+
+An opened project's menu adds **Remove from list**, which forgets the path and leaves the files.
+Delete stays below it, and for an opened project it asks for the project name typed out before it
+removes the folder from disk.
+
 ## The navigation history
 
 One stack for the shell, not one per project. A stop is either the grid or a document in a named
@@ -420,6 +484,7 @@ project, and the two arrows walk between them.
 | ----------------------------------------------------- | --------------------------------------- |
 | Opening, activating, focusing or revealing a document | Pushes a stop                           |
 | Arriving on the grid                                  | Pushes a grid stop                      |
+| Entering a project whose stop is not the current one  | Pushes a stop for its open tab          |
 | Moving an explorer's location                         | Pushes a stop carrying that directory   |
 | Walking with an arrow                                 | Moves the index, and hands the tab back |
 | Closing a tab                                         | Drops the stops matching that tab       |

@@ -2,13 +2,14 @@ import { EyeClosedIcon, EyeIcon } from "@phosphor-icons/react";
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useEffect,
   useMemo,
   useRef,
 } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { useVfxRun } from "../../playback/state/run";
 import { laneSpan, painted, shownAlone, soloAlone } from "../utils/laneModel";
@@ -81,7 +82,7 @@ export function useLaneGestures(drawn: readonly number[], every: readonly number
 
 /* DS-RADIUS, DS-VEIL */
 const TOGGLE =
-  "flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-surface-veil hover:text-surface-100";
+  "flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-surface-veil hover:text-surface-100";
 
 /** The handlers one lane's toggle hands its gestures. A key's click carries no pointer. */
 function gestureHandlers(column: LaneColumn, lane: number, gestures: LaneGestures) {
@@ -112,8 +113,8 @@ export function VisibleToggle({ lane, hidden, gestures }: ToggleProps & { hidden
       className={twMerge(TOGGLE, hidden ? "text-surface-500" : "text-surface-300")}
       {...gestureHandlers("visible", lane, gestures)}
     >
-      {!hidden && <EyeIcon weight="bold" className="h-3.5 w-3.5" />}
-      {hidden && <EyeClosedIcon weight="bold" className="h-3.5 w-3.5" />}
+      {!hidden && <EyeIcon weight="bold" className="size-3.5" />}
+      {hidden && <EyeClosedIcon weight="bold" className="size-3.5" />}
     </button>
   );
 }
@@ -133,13 +134,20 @@ export function SoloToggle({ lane, soloed, gestures }: ToggleProps & { soloed: b
       )}
       {...gestureHandlers("solo", lane, gestures)}
     >
-      S
+      {m.workshop_bin_preview_solo_glyph_label()}
     </button>
   );
 }
 
 /** Over the lane heads: every lane shown or hidden at once, and every solo cleared. */
-export function VisibilityHeader({ every }: { every: readonly number[] }) {
+export function VisibilityHeader({
+  every,
+  children,
+}: {
+  every: readonly number[];
+  /** What the name column carries between the eye and the S, such as the lane filter. */
+  children?: ReactNode;
+}) {
   const { muted, soloed, setMuted, setSoloed } = useVfxRun();
   const shown = muted.size === 0;
 
@@ -153,10 +161,10 @@ export function VisibilityHeader({ every }: { every: readonly number[] }) {
         className={twMerge(TOGGLE, shown ? "text-surface-300" : "text-surface-500")}
         onClick={() => setMuted(() => (shown ? new Set(every) : new Set()))}
       >
-        {shown && <EyeIcon weight="bold" className="h-3.5 w-3.5" />}
-        {!shown && <EyeClosedIcon weight="bold" className="h-3.5 w-3.5" />}
+        {shown && <EyeIcon weight="bold" className="size-3.5" />}
+        {!shown && <EyeClosedIcon weight="bold" className="size-3.5" />}
       </button>
-      <span className="min-w-0 flex-1" />
+      <span className="flex min-w-0 flex-1 items-center">{children}</span>
       <button
         type="button"
         aria-label={m.workshop_bin_timeline_solo_clear_action()}
@@ -167,7 +175,7 @@ export function VisibilityHeader({ every }: { every: readonly number[] }) {
         )}
         onClick={() => setSoloed(() => new Set())}
       >
-        S
+        {m.workshop_bin_preview_solo_glyph_label()}
       </button>
     </div>
   );

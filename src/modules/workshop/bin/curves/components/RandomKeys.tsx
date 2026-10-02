@@ -1,13 +1,15 @@
 import { CaretDownIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { DataTable, type DataTableColumn, Popover } from "@/components";
+import { DataTable, type DataTableColumn, Popover, Readout } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import type { CurveKey, ValueFamily } from "../../values/utils/valueRows";
-import { channelName, CHIP } from "../utils/curveChannels";
+import { type RandomEdit, useRandomEdit } from "../state/randomEdit";
+import { channelName, chipOf } from "../utils/curveChannels";
 import { type ChannelDraw, neverRolled } from "../utils/randomDraw";
+import { tableKeys, withKey } from "../utils/randomEdits";
 import { factorText, readout } from "../utils/randomText";
 
 /** A random channel's keys, behind a button at the end of its row. */
@@ -19,32 +21,32 @@ export function KeysPopover({ channel, family }: { channel: ChannelDraw; family:
         className="flex h-5 cursor-pointer items-center gap-0.5 rounded-sm px-1 text-meta text-surface-400 select-none hover:bg-surface-veil hover:text-surface-200"
       >
         {m.workshop_bin_random_keys_action()}
-        <CaretDownIcon weight="bold" className="h-3 w-3" />
+        <CaretDownIcon weight="bold" className="size-3" />
       </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end">
-          <Popover.Popup className="flex flex-col gap-1.5 p-2 text-row">
-            <Popover.Title className="flex items-baseline gap-1.5 text-meta font-normal text-surface-400">
-              {family !== "scalar" && (
-                <span
-                  /* DS-KIND-HUE, DS-TEXT */
-                  className={twMerge("font-mono font-semibold", CHIP[channel.channel] ?? CHIP[0])}
-                >
-                  {channelName(family, channel.channel)}
-                </span>
-              )}
-              {factorText(channel)}
-            </Popover.Title>
-            <ChanceTable channel={channel} />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content side="bottom" align="end" className="flex flex-col gap-1.5 p-2 text-row">
+        <Popover.Title className="flex items-baseline gap-1.5 text-meta font-normal text-surface-400">
+          {family !== "scalar" && (
+            <span
+              /* DS-KIND-HUE, DS-TEXT */
+              className={twMerge("font-mono font-semibold", chipOf(family, channel.channel))}
+            >
+              {channelName(family, channel.channel)}
+            </span>
+          )}
+          {factorText(channel)}
+        </Popover.Title>
+        <ChanceTable channel={channel} />
+      </Popover.Content>
     </Popover.Root>
   );
 }
 
-/** A table's keys: the chance, the factor there, and the result where the base holds still. */
+/**
+ * A table's keys: the chance, the factor there, and the result where the base holds still.
+ * Where the table can be written, the chance and the factor are fields.
+ */
 function ChanceTable({ channel }: { channel: ChannelDraw }) {
+  const editor = useRandomEdit();
   const { table } = channel;
   if (table === null) return null;
   const base = channel.results === null ? null : channel.base;
@@ -54,12 +56,30 @@ function ChanceTable({ channel }: { channel: ChannelDraw }) {
     {
       id: "chance",
       header: () => <Head>{m.workshop_bin_random_chance_column()}</Head>,
-      cell: ({ row }) => <Cell>{row.original.time.toFixed(3)}</Cell>,
+      cell: ({ row }) => (
+        <KeyCell
+          text={row.original.time.toFixed(3)}
+          label={m.workshop_bin_random_chance_column()}
+          editor={editor}
+          onCommit={(value) =>
+            write(editor, channel, row.index, { time: value, factor: factor(row.original) })
+          }
+        />
+      ),
     },
     {
       id: "factor",
       header: () => <Head>{m.workshop_bin_random_factor_column()}</Head>,
-      cell: ({ row }) => <Cell>{readout(factor(row.original))}</Cell>,
+      cell: ({ row }) => (
+        <KeyCell
+          text={readout(factor(row.original))}
+          label={m.workshop_bin_random_factor_column()}
+          editor={editor}
+          onCommit={(value) =>
+            write(editor, channel, row.index, { time: row.original.time, factor: value })
+          }
+        />
+      ),
     },
   ];
   if (base !== null)
@@ -92,6 +112,45 @@ function ChanceTable({ channel }: { channel: ChannelDraw }) {
         ),
       })}
     />
+  );
+}
+
+function write(
+  editor: RandomEdit | null,
+  channel: ChannelDraw,
+  at: number,
+  key: { time: number; factor: number },
+) {
+  if (editor === null || channel.table === null) return;
+  editor.write(channel, withKey(tableKeys(channel.table), at, key));
+}
+
+/** One number of a key, a field where the table can be written. */
+function KeyCell({
+  text,
+  label,
+  editor,
+  onCommit,
+}: {
+  text: string;
+  label: string;
+  editor: RandomEdit | null;
+  onCommit: (value: number) => void;
+}) {
+  if (editor === null) return <Cell>{text}</Cell>;
+
+  return (
+    <td className="px-1 py-0.5">
+      <Readout
+        value={text}
+        aria-label={label}
+        className="w-16 text-right"
+        onCommit={(typed) => {
+          const value = Number(typed);
+          if (typed.trim() !== "" && Number.isFinite(value)) onCommit(value);
+        }}
+      />
+    </td>
   );
 }
 

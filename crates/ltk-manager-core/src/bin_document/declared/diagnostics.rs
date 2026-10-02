@@ -2,25 +2,24 @@
 //! bin" in docs/ux/BIN_EDITOR.md.
 
 use ltk_game_data::{
-    ApplyDiagnostic, ApplyDiagnosticKind, Edit, EntryName, PropertyPath, PropertySkipReason, Sign,
+    ApplyDiagnostic, ApplyDiagnosticKind, Edit, EntryName, ObjectSkipReason, PropertyPath,
+    PropertySkipReason, Sign,
 };
 use ltk_meta::Bin;
 use serde::Serialize;
 
 use super::super::hex;
-use super::wire_path;
+use super::hash_path;
 
 /// One diagnostic of the last apply, on the row it names.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct DeclaredDiagnostic {
     /// The object's path hash, `0x` and eight hex digits. Empty where the diagnostic names no
     /// object of the chunk.
     pub entry: String,
-    /// The row's path on the wire. Empty where the key reaches no row, which lists the
+    /// The row's hash path. Empty where the key reaches no row, which lists the
     /// diagnostic under its object.
     pub path: String,
     /// The layer whose declaration raised it.
@@ -30,6 +29,8 @@ pub struct DeclaredDiagnostic {
     pub kind: DeclaredDiagnosticKind,
     /// Why a property edit was skipped. Absent for every other kind.
     pub reason: Option<SkipReason>,
+    /// Why an object's creation or removal was skipped. Absent for every other kind.
+    pub object: Option<ObjectSkip>,
     /// What a lower layer said, where it said something the codes do not carry.
     pub detail: Option<String>,
 }
@@ -37,9 +38,7 @@ pub struct DeclaredDiagnostic {
 /// The category of a [`DeclaredDiagnostic`], as `ltk_game_data` names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum DeclaredDiagnosticKind {
     OverrideUnreadable,
     OverrideInvalid,
@@ -49,6 +48,8 @@ pub enum DeclaredDiagnosticKind {
     /// A property typed from the game's copy, the schema saying nothing. Information.
     SchemaFallback,
     ReferenceUnreadable,
+    /// An object's creation or removal that does not apply.
+    ObjectSkipped,
     Unknown,
 }
 
@@ -62,6 +63,7 @@ impl From<ApplyDiagnosticKind> for DeclaredDiagnosticKind {
             ApplyDiagnosticKind::PropertyEditSkipped => Self::PropertyEditSkipped,
             ApplyDiagnosticKind::SchemaFallback => Self::SchemaFallback,
             ApplyDiagnosticKind::ReferenceUnreadable => Self::ReferenceUnreadable,
+            ApplyDiagnosticKind::ObjectSkipped => Self::ObjectSkipped,
             _ => Self::Unknown,
         }
     }
@@ -70,9 +72,7 @@ impl From<ApplyDiagnosticKind> for DeclaredDiagnosticKind {
 /// Why a property edit does not apply, as `ltk_game_data` names it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum SkipReason {
     MissingObject,
     MissingProperty,
@@ -130,6 +130,30 @@ impl From<PropertySkipReason> for SkipReason {
     }
 }
 
+/// Why an object edit does not apply, as `ltk_game_data` names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub enum ObjectSkip {
+    ObjectExists,
+    SourceMissing,
+    UnknownClass,
+    RemovalUnmatched,
+    Unknown,
+}
+
+impl From<ObjectSkipReason> for ObjectSkip {
+    fn from(reason: ObjectSkipReason) -> Self {
+        match reason {
+            ObjectSkipReason::ObjectExists => Self::ObjectExists,
+            ObjectSkipReason::SourceMissing => Self::SourceMissing,
+            ObjectSkipReason::UnknownClass => Self::UnknownClass,
+            ObjectSkipReason::RemovalUnmatched => Self::RemovalUnmatched,
+            _ => Self::Unknown,
+        }
+    }
+}
+
 /// A diagnostic as an apply raised it, with what places it: its layer, and the entries of the
 /// edit it counts from.
 #[derive(Debug, Clone)]
@@ -161,12 +185,16 @@ impl Raised {
         let path = PropertyPath::new(Sign::of(&diagnostic.path).1).ok();
         let reaches = |name: &EntryName| -> Option<String> {
             let object = applied.objects.get(&name.object_hash())?;
-            wire_path(object, path.as_ref()?)
+            hash_path(object, path.as_ref()?)
         };
 
-        /* A skipped key names its entry. Any other diagnostic counts from an edit, which an
-        `entries` module lowers to one entry. */
-        let named = diagnostic.property.as_ref().map(|property| &property.entry);
+        /* A skipped key names its entry, and a skipped object edit its object. Any other
+        diagnostic counts from an edit, which an `entries` module lowers to one entry. */
+        let named = diagnostic
+            .property
+            .as_ref()
+            .map(|property| &property.entry)
+            .or_else(|| diagnostic.object.as_ref().map(|object| &object.name));
         let (entry, row) = match named {
             Some(name) => (Some(name), reaches(name)),
             None => self
@@ -189,6 +217,10 @@ impl Raised {
                 .property
                 .as_ref()
                 .map(|property| property.reason.into()),
+            object: diagnostic
+                .object
+                .as_ref()
+                .map(|object| object.reason.into()),
             detail: diagnostic.detail.clone(),
         }
     }

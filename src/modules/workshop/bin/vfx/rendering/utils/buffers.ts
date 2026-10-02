@@ -103,6 +103,44 @@ export function quadBuffers(capacity: number): QuadBuffers {
   return { geometry, ...written };
 }
 
+/** The instanced attributes one planar projection's decal carries, each written once per frame. */
+export interface ProjectionBuffers {
+  readonly geometry: InstancedBufferGeometry;
+  /** Three per decal: the particle's centre in the engine's space, before the mirror. */
+  readonly center: InstancedBufferAttribute;
+  /** Three per decal: the two half-extents and the uv's turn in radians. */
+  readonly footprint: InstancedBufferAttribute;
+  /** Four per decal, `MODULATE_COLOR`. */
+  readonly color: InstancedBufferAttribute;
+  /** Two per decal, `COLOR_UV`, where the colour ramp is read. */
+  readonly lookup: InstancedBufferAttribute;
+}
+
+/** The geometry one emitter draws its decals from, the unit quad expanded per instance. */
+export function projectionBuffers(capacity: number): ProjectionBuffers {
+  const geometry = new InstancedBufferGeometry();
+  geometry.setAttribute("corner", new BufferAttribute(CORNERS, 2));
+  geometry.setAttribute(
+    "position",
+    new BufferAttribute(new Float32Array((CORNERS.length / 2) * 3), 3),
+  );
+  geometry.setIndex([0, 1, 2, 0, 2, 3]);
+
+  const written = {
+    center: new InstancedBufferAttribute(new Float32Array(capacity * 3), 3),
+    footprint: new InstancedBufferAttribute(new Float32Array(capacity * 3), 3),
+    color: new InstancedBufferAttribute(new Float32Array(capacity * 4), 4),
+    lookup: new InstancedBufferAttribute(new Float32Array(capacity * 2), 2),
+  };
+  for (const [name, attribute] of Object.entries(written)) {
+    attribute.setUsage(DynamicDrawUsage);
+    geometry.setAttribute(name, attribute);
+  }
+  geometry.instanceCount = 0;
+
+  return { geometry, ...written };
+}
+
 /** How many meshes one emitter draws, which caps its share of the pool. */
 export const MESHES_PER_EMITTER = 512;
 
@@ -117,8 +155,11 @@ export interface MeshBuffers {
   readonly instanceMatrix: InstancedBufferAttribute;
   /** Four per mesh, straight multiplied onto the texture's sample. */
   readonly tint: InstancedBufferAttribute;
-  /** One per mesh: the erosion drive, the map value its kept band opens at. */
-  readonly erode: InstancedBufferAttribute;
+  /**
+   * Three per mesh: where the colour ramp is read, which a translated pair reads, and the
+   * erosion drive, the map value its kept band opens at.
+   */
+  readonly lookup: InstancedBufferAttribute;
   /** The two layers' transforms, as a quad carries them. */
   readonly uvTurn: InstancedBufferAttribute;
   readonly uvShift: InstancedBufferAttribute;
@@ -139,7 +180,7 @@ export function meshBuffers(geometry: BufferGeometry): MeshBuffers {
   const written = {
     instanceMatrix: new InstancedBufferAttribute(new Float32Array(count * 16), 16),
     tint: new InstancedBufferAttribute(new Float32Array(count * 4), 4),
-    erode: new InstancedBufferAttribute(new Float32Array(count), 1),
+    lookup: new InstancedBufferAttribute(new Float32Array(count * 3), 3),
     uvTurn: new InstancedBufferAttribute(new Float32Array(count * 3), 3),
     uvShift: new InstancedBufferAttribute(new Float32Array(count * 4), 4),
     uvTurnMult: new InstancedBufferAttribute(new Float32Array(count * 3), 3),

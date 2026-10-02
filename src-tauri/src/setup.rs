@@ -2,15 +2,15 @@ use tauri::Manager;
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_deep_link::DeepLinkExt;
 
-use crate::commands::launcher::LauncherState;
 use crate::deep_link::DeepLinkState;
 use crate::events::TauriEventSink;
 use crate::mods::{
     ChecksumMismatchState, LinkedBinState, ModLibrary, ModLibraryState, WadReportState,
 };
 use crate::patcher::{PatcherHostState, PatcherState};
+use crate::services::launcher::LauncherState;
 use crate::state::{IncidentStoreState, SettingsState};
-use crate::workshop::{Workshop, WorkshopState};
+use crate::workshop::{ProjectRegistry, Workshop, WorkshopState};
 use ltk_manager_core::diagnostics::store::IncidentStore;
 use ltk_manager_core::events::EventSink;
 use std::sync::Arc;
@@ -27,7 +27,11 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let settings_state = SettingsState::new(&app_handle);
     let patcher_state = PatcherState::new();
     let events: Arc<dyn EventSink> = Arc::new(TauriEventSink::new(app_handle.clone()));
-    let workshop = WorkshopState(Workshop::new(Arc::clone(&events)));
+    let registry = match crate::state::get_app_data_dir(&app_handle) {
+        Some(dir) => ProjectRegistry::load(dir.join(ProjectRegistry::FILE_NAME)),
+        None => ProjectRegistry::default(),
+    };
+    let workshop = WorkshopState(Workshop::new(Arc::clone(&events)).with_registry(registry));
 
     initialize_first_run(&app_handle, &settings_state);
 
@@ -101,6 +105,13 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         let _ = autolaunch.disable();
     }
 
+    // Off the setup path, because the shell is told about any change and that is not instant.
+    let for_file_types = app_handle.clone();
+    let register_file_types = settings.register_file_types;
+    std::thread::spawn(move || {
+        crate::services::integrations::apply_file_types(&for_file_types, register_file_types);
+    });
+
     let deep_link_state = DeepLinkState::new();
 
     let launcher_state = LauncherState::new(&app_handle, &settings.config)?;
@@ -114,7 +125,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     crate::telemetry::install(&telemetry_state);
     app.manage(telemetry_state);
     app.manage(launcher_state);
-    app.manage(crate::commands::launcher::LaunchState::default());
+    app.manage(crate::services::launcher::LaunchState::default());
     app.manage(linked_bins);
     app.manage(checksum_mismatches);
     app.manage(wad_reports);
@@ -123,43 +134,43 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(wad_resolver);
     app.manage(ltk_manager_core::game_index::SearchGeneration::default());
     app.manage(ltk_manager_core::game_index::FindGeneration::default());
+    app.manage(ltk_manager_core::game_index::PathSearchGeneration::default());
     app.manage(ltk_manager_core::game_wads::WadCache::default());
-    app.manage(ltk_manager_core::material::defs::ShaderDefsCache::default());
-    app.manage(crate::commands::ObjectIndexState::default());
+    app.manage(ltk_manager_game::material::defs::ShaderDefsCache::default());
+    app.manage(crate::services::objects::ObjectIndexState::default());
     app.manage(ltk_manager_core::object_index::ObjectSearchGeneration::default());
     app.manage(ltk_manager_core::object_index::ObjectFindGeneration::default());
     app.manage(ltk_manager_core::object_index::ObjectReferenceGeneration::default());
     app.manage(ltk_manager_core::problems::ProblemsState::default());
     app.manage(ltk_manager_core::bin_document::BinDocuments::default());
+    let sandboxes = ltk_manager_core::sandbox::SandboxState::default();
+    app.manage(sandboxes.clone());
     app.manage(ltk_manager_core::hashtables::BinHashTablesState::default());
-    app.manage(crate::commands::ExtractState::default());
-    app.manage(crate::commands::ReferenceWalkState::default());
+    app.manage(crate::services::game::ExtractState::default());
+    app.manage(crate::services::objects::ReferenceWalkState::default());
     app.manage(mod_library);
     app.manage(workshop);
+    app.manage(
+        crate::workshop::LayerWatches::new(Arc::clone(&events), sandboxes).with_sources(
+            atlas::SOURCES_DIR,
+            crate::workshop::source_rebuild(app.handle().clone()),
+        ),
+    );
     app.manage(hotkey_manager);
     app.manage(deep_link_state);
+    app.manage(crate::deep_link::files::OpenedFilesState::default());
 
     // Started below the `manage` calls rather than beside the library it
     // maintains: its hashtable sync ends by dropping what the app read out of
     // the tables it replaced, and `state` on an unmanaged one is a panic.
     let for_tables = app_handle.clone();
     library.maintain_in_background(settings.config.clone(), move || {
-        crate::commands::hashtables::reopen_after_sync(&for_tables);
+        crate::services::game::hashtables::reopen_after_sync(&for_tables);
     });
 
     crate::telemetry::refresh_from_document(&app_handle);
 
-    app.manage(crate::updater::UpdaterState::default());
     crate::tray::setup(app)?;
-
-    if let Some(window) = app_handle.get_webview_window("main") {
-        let app = app_handle.clone();
-        window.on_window_event(move |event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                crate::updater::install_on_quit(&app);
-            }
-        });
-    }
 
     #[cfg(target_os = "macos")]
     {
@@ -188,6 +199,13 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(Some(urls)) = app.deep_link().get_current() {
         crate::deep_link::handle_urls(&app_handle, &urls);
     }
+
+    // `args` panics on an argument that is not Unicode, where a lossy one only fails to resolve.
+    let argv: Vec<String> = std::env::args_os()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect();
+    let cwd = std::env::current_dir().unwrap_or_default();
+    crate::deep_link::files::open(&app_handle, crate::deep_link::files::mod_files(&argv, &cwd));
 
     let handle_clone = app_handle.clone();
     app.deep_link().on_open_url(move |event| {

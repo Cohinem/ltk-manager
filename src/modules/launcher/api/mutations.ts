@@ -2,7 +2,7 @@ import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type LaunchOutcome, type LaunchTarget } from "@/lib/tauri";
 import { usePlaySessionStore } from "@/stores";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn } from "@/utils/query";
 
 import { launcherKeys } from "./keys";
 
@@ -14,7 +14,7 @@ export const launchMutations = {
     mutationOptions<LaunchOutcome | null, AppError, LaunchTarget | undefined>({
       /* usePlay reports the failure through the launch-error toast. */
       meta: { silentError: true },
-      mutationFn: async (target) => unwrapForQuery(await api.launchLeague(target)),
+      mutationFn: mutationFn(api.launchLeague),
       onSettled: () => {
         client.invalidateQueries({ queryKey: launcherKeys.availability() });
       },
@@ -26,7 +26,7 @@ export const launchMutations = {
      launch: a request the Riot Client already accepted still starts a game. */
   cancel: () =>
     mutationOptions<boolean, AppError, void>({
-      mutationFn: async () => unwrapForQuery(await api.cancelLaunch()),
+      mutationFn: mutationFn(api.cancelLaunch),
       onMutate: () => {
         usePlaySessionStore.getState().setStep("cancelling");
       },

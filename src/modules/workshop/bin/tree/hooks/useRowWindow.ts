@@ -7,6 +7,7 @@ import {
 import { type RefObject, useCallback, useEffect, useMemo } from "react";
 
 import { useZoomedPx } from "@/hooks";
+import { measureRow } from "@/utils";
 
 import { ROW_HEIGHT } from "../components/BinRow";
 import type { VisibleRow } from "../utils/binRows";
@@ -23,8 +24,11 @@ export interface RowWindow {
   readonly rowHeight: number;
   /** The ref a drawn line takes, which reports its height back. */
   readonly measureElement: (node: Element | null) => void;
-  /** Scroll a line to the top. False where the tree holds no such line. */
-  readonly scrollToKey: (key: string) => boolean;
+  /**
+   * Scroll a line to the top, or only as far as it shows with `"auto"`. False where the tree
+   * contains no such line.
+   */
+  readonly scrollToKey: (key: string, align?: "start" | "auto") => boolean;
 }
 
 /**
@@ -33,7 +37,7 @@ export interface RowWindow {
  * The app's `scroll-behavior: smooth` animates a plain `scrollTo`. A reveal re-aims on every
  * frame a row measures, and each re-aim restarts that animation.
  */
-function instantScroll(
+export function instantScroll(
   offset: number,
   { adjustments, behavior }: { adjustments?: number; behavior?: ScrollBehavior },
   instance: Virtualizer<HTMLDivElement, Element>,
@@ -65,6 +69,7 @@ export function useRowWindow(
     overscan: 16,
     getItemKey: (index) => visible[index]?.key ?? index,
     scrollToFn: instantScroll,
+    measureElement: measureRow,
   });
 
   /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not one of
@@ -82,10 +87,10 @@ export function useRowWindow(
   const lines = useMemo(() => items.flatMap((item) => visible[item.index] ?? []), [items, visible]);
 
   const scrollToKey = useCallback(
-    (key: string) => {
+    (key: string, align: "start" | "auto" = "start") => {
       const index = visible.findIndex((line) => line.key === key);
       if (index < 0) return false;
-      virtualizer.scrollToIndex(index, { align: "start" });
+      virtualizer.scrollToIndex(index, { align });
       return true;
     },
     [visible, virtualizer],

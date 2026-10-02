@@ -5,6 +5,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -25,7 +26,7 @@ function batched(children: ReactNode) {
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "get_mod_thumbnails") {
+    if (command === commandNames.library.getModThumbnails) {
       return Promise.resolve({ ok: true, value: { a: "C:/mods/a/thumbnail.webp" } });
     }
     return Promise.resolve({ ok: true, value: null });
@@ -38,7 +39,7 @@ describe("ModThumbnails", () => {
 
     await waitFor(() => expect(mockInvoke).toHaveBeenCalled());
 
-    expect(mockInvoke).toHaveBeenCalledExactlyOnceWith("get_mod_thumbnails", {
+    expect(mockInvoke).toHaveBeenCalledExactlyOnceWith(commandNames.library.getModThumbnails, {
       modIds: ["a", "b"],
     });
   });
@@ -60,6 +61,9 @@ describe("ModThumbnails", () => {
 
     await waitFor(() => expect(result.current.data).toBe(""));
 
-    expect(mockInvoke).not.toHaveBeenCalledWith("get_mod_thumbnail", expect.anything());
+    expect(mockInvoke).not.toHaveBeenCalledWith(
+      commandNames.library.getModThumbnail,
+      expect.anything(),
+    );
   });
 });

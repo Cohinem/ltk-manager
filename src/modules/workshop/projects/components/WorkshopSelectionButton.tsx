@@ -62,7 +62,7 @@ export function WorkshopSelectionButton() {
         <Button
           variant="ghost"
           size="sm"
-          left={<PlayIcon weight="bold" className="h-4 w-4" />}
+          left={<PlayIcon weight="bold" className="size-4" />}
           loading={actions.testPending}
           disabled={!actions.canTest}
           onClick={actions.test}
@@ -80,7 +80,7 @@ export function WorkshopSelectionButton() {
           variant="ghost"
           size="sm"
           disabled
-          left={<PlayIcon weight="bold" className="h-4 w-4" />}
+          left={<PlayIcon weight="bold" className="size-4" />}
           className={testTint}
         >
           Test
@@ -91,24 +91,22 @@ export function WorkshopSelectionButton() {
 
   return (
     <ButtonGroup>
-      <Tooltip
-        content={
+      <IconButton
+        compact={false}
+        icon={<CheckSquareIcon />}
+        variant="outline"
+        size="sm"
+        disabled={testing || (filteredProjects.length === 0 && !hasSelection)}
+        aria-pressed={hasSelection}
+        aria-label={clearsOnClick ? "Clear selection" : "Select all projects"}
+        onClick={handleToggleAll}
+        className={hasSelection ? activeClass : undefined}
+        tooltip={
           <>
             {clearsOnClick ? "Clear selection" : "Select all"} <Kbd shortcut="Ctrl+A" />
           </>
         }
-      >
-        <IconButton
-          icon={<CheckSquareIcon weight="bold" className="h-4 w-4" />}
-          variant="outline"
-          size="sm"
-          disabled={testing || (filteredProjects.length === 0 && !hasSelection)}
-          aria-pressed={hasSelection}
-          aria-label={clearsOnClick ? "Clear selection" : "Select all projects"}
-          onClick={handleToggleAll}
-          className={hasSelection ? activeClass : undefined}
-        />
-      </Tooltip>
+      />
       {testButton}
 
       {hasSelection && (
@@ -116,7 +114,8 @@ export function WorkshopSelectionButton() {
           <Menu.Trigger
             render={
               <IconButton
-                icon={<CaretDownIcon weight="bold" className="h-3.5 w-3.5" />}
+                compact={false}
+                icon={<CaretDownIcon className="size-3.5" />}
                 variant="outline"
                 size="sm"
                 aria-label="Bulk actions"
@@ -124,13 +123,9 @@ export function WorkshopSelectionButton() {
               />
             }
           />
-          <Menu.Portal>
-            <Menu.Positioner>
-              <Menu.Popup className="w-56">
-                <ProjectSelectionMenuItems />
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
+          <Menu.Content className="w-56">
+            <ProjectSelectionMenuItems />
+          </Menu.Content>
         </Menu.Root>
       )}
     </ButtonGroup>

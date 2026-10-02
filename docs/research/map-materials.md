@@ -2,7 +2,7 @@
 
 Research note. **The existing path applies unchanged.** Every shipped map material is a
 `StaticMaterialDef` whose pass links a `CustomShaderDef` in the same `data/shaders/shaders.bin`
-the champion path already opens, and `crates/ltk-manager-core/src/material/mod.rs` reads all
+the champion path already opens, and `crates/ltk-manager-game/src/material.rs` reads all
 8,265 of them with one warning in total. The differences are matters of degree rather than of
 kind, and they are listed in section 7.
 

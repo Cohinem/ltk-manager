@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 
 import { ToastProvider } from "@/components";
 import type { Settings } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -18,6 +19,8 @@ export function freshSettings(): Settings {
 interface RenderSettingsOptions {
   /** What the app currently holds, over the fresh values. */
   settings?: Partial<Settings>;
+  /** What other commands answer, by name. Any other command answers `null`. */
+  answers?: Record<string, unknown>;
 }
 
 /**
@@ -36,9 +39,11 @@ export function renderSettings(ui: ReactElement, options?: RenderSettingsOptions
 
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "get_settings") return Promise.resolve({ ok: true, value: current });
-    if (command === "get_default_settings") return Promise.resolve({ ok: true, value: fresh });
-    return Promise.resolve({ ok: true, value: null });
+    if (command === commandNames.settings.getSettings)
+      return Promise.resolve({ ok: true, value: current });
+    if (command === commandNames.settings.getDefaultSettings)
+      return Promise.resolve({ ok: true, value: fresh });
+    return Promise.resolve({ ok: true, value: options?.answers?.[command] ?? null });
   });
 
   return render(ui, {
@@ -52,6 +57,8 @@ export function renderSettings(ui: ReactElement, options?: RenderSettingsOptions
 
 /** The settings object one `save_settings` call carried. */
 export function savedSettings(nth = 0): Settings {
-  const saves = mockInvoke.mock.calls.filter(([command]) => command === "save_settings");
+  const saves = mockInvoke.mock.calls.filter(
+    ([command]) => command === commandNames.settings.saveSettings,
+  );
   return saves[nth]?.[1]?.settings as Settings;
 }

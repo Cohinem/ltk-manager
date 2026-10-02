@@ -2,8 +2,7 @@ import { FloppyDiskIcon } from "@phosphor-icons/react";
 import { useMutation } from "@tanstack/react-query";
 import { save } from "@tauri-apps/plugin-dialog";
 
-import { IconButton, Tooltip, useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { IconButton, useToast } from "@/components";
 import { api, type AppError, type AssetRef } from "@/lib/tauri";
 import { mutationFn } from "@/utils/query";
 
@@ -22,13 +21,12 @@ interface SaveCopyActionProps {
  * open should not have to go back to the tree for it.
  */
 export function SaveCopyAction({ asset, name }: SaveCopyActionProps) {
-  const { success, error } = useToast();
+  const { success } = useToast();
 
-  const saveCopy = useMutation<void, AppError, string>({
-    meta: { silentError: true },
+  const saveCopy = useMutation<null, AppError, string>({
+    meta: { errorTitle: "Could not save a copy" },
     mutationFn: mutationFn((destination: string) => api.saveAssetCopy(asset, destination)),
     onSuccess: () => success("Saved a copy", name),
-    onError: (e) => error("Could not save a copy", errorSummary(e)),
   });
 
   async function handleClick() {
@@ -42,16 +40,12 @@ export function SaveCopyAction({ asset, name }: SaveCopyActionProps) {
   }
 
   return (
-    <Tooltip content="Save a copy…">
-      <IconButton
-        icon={<FloppyDiskIcon className="h-4 w-4" />}
-        variant="ghost"
-        size="xs"
-        compact
-        onClick={() => void handleClick()}
-        disabled={saveCopy.isPending}
-        aria-label={`Save a copy of ${name}`}
-      />
-    </Tooltip>
+    <IconButton
+      icon={<FloppyDiskIcon />}
+      onClick={() => void handleClick()}
+      disabled={saveCopy.isPending}
+      aria-label={`Save a copy of ${name}`}
+      tooltip="Save a copy…"
+    />
   );
 }

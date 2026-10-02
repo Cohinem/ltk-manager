@@ -35,26 +35,28 @@
 
 use std::collections::HashMap;
 
+use crate::hashing::named;
 use ltk_hash::BinHash;
 use ltk_meta::property::Kind;
 use ltk_meta::walk::{Node, TreeNode as _};
 use ltk_meta::{BinFile, PropertyValueEnum};
 
+use crate::problems::engine::parse_bin;
 use crate::problems::game::GameContent;
 use crate::problems::walk::Declared;
 use crate::problems::{
     Applied, Detail, Dormancy, FileHandle, FixError, FixRun, NodeAddress, ObjectRead, Pass,
-    Problem, ProjectFiles, Rule, RuleId, Severity, Site, Weight,
+    Problem, ProblemSeverity, ProjectFiles, Rule, RuleId, RuleMeta, Site, Weight,
 };
 
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("bin/resolver-key-loss");
 
 /// `ResourceResolver`, the class holding the map a spell script resolves through.
-const RESOURCE_RESOLVER: BinHash = BinHash(0xef3a_0f33);
+const RESOURCE_RESOLVER: BinHash = named("ResourceResolver");
 
 /// `resourceMap` on that class, which is the map itself.
-const RESOURCE_MAP: BinHash = BinHash(0xd2f5_8721);
+const RESOURCE_MAP: BinHash = named("resourceMap");
 
 /// How many keys a resolver has to have lost before it is worth reporting.
 ///
@@ -75,25 +77,18 @@ impl BinResolverKeyLoss {
     }
 }
 
+/// The rule as the catalogue lists it.
+const META: RuleMeta = RuleMeta {
+    id: ID,
+    title: "Partial resource resolver",
+    description: "A mod's resource resolver doesn't define all of the expected resources",
+    unfixable: "Couldn't restore the resources because writing the game's copy in would tie the mod to one patch",
+    severity: Some(ProblemSeverity::Info),
+};
+
 impl Rule for BinResolverKeyLoss {
-    fn id(&self) -> RuleId {
-        ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Partial resource resolver"
-    }
-
-    fn description(&self) -> &'static str {
-        "A mod's resource resolver doesn't define all of the expected resources"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't restore the resources because writing the game's copy in would tie the mod to one patch"
-    }
-
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Info)
+    fn meta(&self) -> &RuleMeta {
+        &META
     }
 
     /// Nothing to compare against is not the same as nothing to report.
@@ -128,7 +123,7 @@ impl Rule for BinResolverKeyLoss {
                             label: None,
                         },
                     );
-                    finish.problem(Severity::Info, site, loss.detail());
+                    finish.problem(ProblemSeverity::Info, site, loss.detail());
                 }
             }
         });
@@ -139,13 +134,7 @@ impl Rule for BinResolverKeyLoss {
     /// The rule derives no repair, so a caller reaches this only by naming a
     /// finding that never offered one.
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        for problem in problems {
-            run.skipped(&problem.site.layer, &problem.site.path, 1);
-        }
-        Ok(Applied {
-            applied: 0,
-            skipped: problems.len() as u32,
-        })
+        Ok(run.skip_all(problems))
     }
 }
 
@@ -204,7 +193,7 @@ impl ObjectRead for Resolvers<'_> {
         let Some(bytes) = self.game.read(hash)? else {
             return Ok(Resolved::default());
         };
-        let theirs = resolvers_in(&parsed(&bytes)?);
+        let theirs = resolvers_in(&parse_bin(&bytes)?);
 
         let lost = kept
             .keeps
@@ -224,11 +213,6 @@ impl ObjectRead for Resolvers<'_> {
             lost,
         })
     }
-}
-
-/// Parse the game's own copy of a bin.
-fn parsed(bytes: &[u8]) -> Result<BinFile, String> {
-    BinFile::from_reader(&mut std::io::Cursor::new(bytes)).map_err(|e| e.to_string())
 }
 
 /// How many keys each of the game's resolvers holds, off the owned tree.

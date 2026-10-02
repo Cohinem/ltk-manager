@@ -3,11 +3,11 @@ import { lazy, Suspense } from "react";
 
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId } from "@/lib/tauri";
-import { usePreviewMaterialOnShape, useSetPreviewDisplay } from "@/stores";
+import { usePreviewMaterialOnShape } from "@/stores";
 
+import { Notice } from "../../shared/preview/Notice";
+import { PreviewToggle } from "../../shared/preview/PreviewToggle";
 import { SkinPreview } from "../../skin/components/SkinPreview";
-import { Notice } from "../../vfx/preview/components/Notice";
-import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { type LinkingSkin, useLinkingSkin } from "../hooks/useLinkingSkin";
 import { ProgramNotes } from "./ProgramNotes";
 
@@ -25,6 +25,8 @@ export interface MaterialPreviewProps {
   asset: AssetRef;
   /** The `StaticMaterialDef` object the preview draws. */
   entry: string | null;
+  /** The backend no longer holds `document`, so the tab reopens it. */
+  onNotOpen?: () => void;
 }
 
 /**
@@ -33,10 +35,9 @@ export interface MaterialPreviewProps {
  *
  * A material no skin of the file draws with takes the shape, and no toggle.
  */
-export function MaterialPreview({ document, asset, entry }: MaterialPreviewProps) {
+export function MaterialPreview({ document, asset, entry, onNotOpen }: MaterialPreviewProps) {
   const linking = useLinkingSkin(document, entry);
   const onShape = usePreviewMaterialOnShape();
-  const setDisplay = useSetPreviewDisplay();
 
   return (
     <div
@@ -49,6 +50,7 @@ export function MaterialPreview({ document, asset, entry }: MaterialPreviewProps
         document={document}
         asset={asset}
         entry={entry}
+        onNotOpen={onNotOpen}
         linking={linking}
         onShape={onShape}
       />
@@ -60,11 +62,10 @@ export function MaterialPreview({ document, asset, entry }: MaterialPreviewProps
           /* DS-GLASS, DS-RADIUS, DS-VEIL */
           className="absolute bottom-2 left-2 z-10 rounded-md border border-surface-veil bg-scrim p-1 shadow-md backdrop-blur-sm"
         >
-          <ViewToggle
+          <PreviewToggle
+            flag="previewMaterialOnShape"
             label={m.workshop_bin_material_preview_on_shape_label()}
-            active={onShape}
-            icon={<SphereIcon weight="bold" className="h-4 w-4" />}
-            onClick={() => setDisplay({ previewMaterialOnShape: !onShape })}
+            icon={<SphereIcon />}
           />
         </div>
       )}
@@ -77,6 +78,7 @@ function Subject({
   document,
   asset,
   entry,
+  onNotOpen,
   linking,
   onShape,
 }: MaterialPreviewProps & { linking: LinkingSkin; onShape: boolean }) {
@@ -84,7 +86,9 @@ function Subject({
     return <Notice text={m.workshop_bin_material_preview_loading_label()} />;
   }
   if (!onShape && linking.status === "skin") {
-    return <SkinPreview document={document} asset={asset} entry={linking.entry} />;
+    return (
+      <SkinPreview document={document} asset={asset} entry={linking.entry} onNotOpen={onNotOpen} />
+    );
   }
   return (
     <Suspense fallback={<Notice text={m.workshop_bin_material_preview_loading_label()} />}>

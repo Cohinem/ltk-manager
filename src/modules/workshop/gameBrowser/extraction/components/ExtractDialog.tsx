@@ -22,6 +22,7 @@ import { usePlanGameExtract } from "../hooks/useGameExtract";
 export function ExtractDialog() {
   const targets = useExtractDialogStore((s) => s.targets);
   const subject = useExtractDialogStore((s) => s.subject);
+  const source = useExtractDialogStore((s) => s.source);
   const close = useExtractDialogStore((s) => s.close);
 
   const destination = useExtractDialogStore((s) => s.destination);
@@ -37,7 +38,7 @@ export function ExtractDialog() {
   const openWhenDone = useExtractDialogStore((s) => s.openWhenDone);
   const setOpenWhenDone = useExtractDialogStore((s) => s.setOpenWhenDone);
 
-  const plan = usePlanGameExtract(targets);
+  const plan = usePlanGameExtract(source, targets);
   const start = useStartExtract();
   const busy = useExtractRunning();
 
@@ -48,6 +49,7 @@ export function ExtractDialog() {
 
     start({
       targets,
+      source,
       subject,
       options: { destination, layout, perArchiveFolder, existing, recoverNames, kinds: null },
       reveal: openWhenDone,
@@ -154,7 +156,7 @@ interface SummaryProps {
 function Summary({ subject, files, bytes, archives, loading }: SummaryProps) {
   return (
     <div className="flex items-center gap-2 rounded-lg bg-surface-950/40 px-3 py-2 text-sm select-none">
-      {loading && <Spinner size="sm" className="h-3.5 w-3.5" />}
+      {loading && <Spinner size="sm" className="size-3.5" />}
       {loading && <span className="text-surface-400">Counting…</span>}
       {!loading && (
         <span className="min-w-0 truncate text-surface-300">

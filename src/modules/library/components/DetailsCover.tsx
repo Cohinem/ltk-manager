@@ -21,10 +21,10 @@ export function DetailsCover({ mod, thumbnailUrl, children }: DetailsCoverProps)
   return (
     <div className="relative aspect-video w-full shrink-0 overflow-hidden bg-linear-to-br from-surface-700 to-surface-800">
       {thumbnailUrl && (
-        <img src={thumbnailUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={thumbnailUrl} alt="" className="absolute inset-0 size-full object-cover" />
       )}
       {!thumbnailUrl && (
-        <div className="flex h-full w-full items-center justify-center">
+        <div className="flex size-full items-center justify-center">
           <span className="text-5xl font-bold text-surface-500 select-none">
             {mod.displayName.charAt(0).toUpperCase()}
           </span>

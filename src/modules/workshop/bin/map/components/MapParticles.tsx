@@ -1,17 +1,19 @@
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Frustum, Matrix4, Sphere, Vector3 } from "three";
 
-import type { MapParticle } from "@/lib/tauri";
+import type { BinDocumentId, MapParticle } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
 
 import type { SystemModel } from "../../vfx/engine/model/model";
 import { capacityOf } from "../../vfx/engine/simulation/childPool";
 import { createDriver } from "../../vfx/engine/simulation/driver";
+import { ShimmerMeshDraws, useShimmerMeshes } from "../../vfx/rendering/components/ShimmerMeshes";
 import { VfxSystem } from "../../vfx/rendering/components/VfxSystem";
 import { type EmitterMeshes, useVfxMeshes } from "../../vfx/rendering/hooks/useVfxMeshes";
 import { useVfxTextures, type VfxTextures } from "../../vfx/rendering/hooks/useVfxTextures";
 import { type DrawnEmitter, drawnEmitters } from "../../vfx/rendering/utils/definitions";
+import type { ShimmerMesh } from "../../vfx/rendering/utils/shimmerMeshes";
 import type { MapParticleGroup } from "../hooks/useMapParticles";
 import { particleOrigin, particleRig, particleSeed } from "../utils/mapParticles";
 
@@ -64,23 +66,58 @@ export function MapParticles({ groups }: MapParticlesProps) {
   return groups.map((group) => <SystemPlacements key={group.entry} group={group} />);
 }
 
-/** One system's textures and meshes, loaded once for every place the map stands it. */
+/**
+ * One system's textures and meshes, loaded once for every place the map stands it, with
+ * its shimmer emitters' particles in each place at the frame's time.
+ */
 function SystemPlacements({ group }: { readonly group: MapParticleGroup }) {
   const drawn = useMemo(() => drawnEmitters(group.system), [group.system]);
   const textures = useVfxTextures(drawn);
   const meshes = useVfxMeshes(drawn);
+  const shimmer = useShimmerMeshes(group.document, group.entry);
   /* A system of sounds alone draws nothing, and Summoner's Rift stands 131 of them. */
-  if (drawn.length === 0) return null;
+  if (drawn.length === 0 && shimmer.length === 0) return null;
   return group.particles.map((particle) => (
-    <PlacedSystem
-      key={particle.name}
-      particle={particle}
-      system={group.system}
-      drawn={drawn}
-      textures={textures}
-      meshes={meshes}
-    />
+    <Fragment key={particle.name}>
+      {drawn.length > 0 && (
+        <PlacedSystem
+          particle={particle}
+          system={group.system}
+          drawn={drawn}
+          textures={textures}
+          meshes={meshes}
+        />
+      )}
+      {shimmer.length > 0 && (
+        <PlacedMeshes particle={particle} document={group.document} meshes={shimmer} />
+      )}
+    </Fragment>
   ));
+}
+
+/** The engine's mirror, which a placement's transform is conjugated by to stand in the scene. */
+const MIRROR = new Matrix4().makeScale(...AXIS_SIGN);
+
+/** Shimmer meshes under the placement `particle`, its transform carried into the scene's space. */
+function PlacedMeshes({
+  particle,
+  document,
+  meshes,
+}: {
+  particle: MapParticle;
+  document: BinDocumentId;
+  meshes: readonly ShimmerMesh[];
+}) {
+  const matrix = useMemo(() => {
+    const placed = new Matrix4().fromArray(particle.transform.map((each) => each ?? 0));
+    return MIRROR.clone().multiply(placed).multiply(MIRROR);
+  }, [particle.transform]);
+
+  return (
+    <group matrix={matrix} matrixAutoUpdate={false}>
+      <ShimmerMeshDraws document={document} meshes={meshes} />
+    </group>
+  );
 }
 
 interface PlacedSystemProps {

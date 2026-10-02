@@ -29,7 +29,7 @@ import {
   WardIcon,
 } from "@/components";
 
-const ICON_CLASS = "h-4 w-4";
+const ICON_CLASS = "size-4";
 
 /* Riot's own marks where the category has one, phosphor for the rest. */
 const TAG_ICONS: Record<string, ReactNode> = {

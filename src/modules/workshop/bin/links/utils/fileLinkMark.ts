@@ -34,6 +34,9 @@ export function fileLinkMark(
   if (sniffed === undefined) return PENDING;
   if (sniffed === null) return { kind: "badge", fileKind: "unknown" };
   if (sniffed.kind === "texture") return SWATCH;
+  if (sniffed.kind === "web") {
+    return { kind: "badge", fileKind: sniffed.format === "svg" ? "svg" : "unknown" };
+  }
   return { kind: "badge", fileKind: sniffed.fileKind };
 }
 

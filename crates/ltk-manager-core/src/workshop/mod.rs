@@ -1,17 +1,37 @@
 mod chunk_names;
 mod content;
 mod declarations;
+mod folders;
 mod ignore_rules;
 pub mod layer;
+mod layer_changes;
 mod layers;
 mod packing;
 mod projects;
+mod registry;
+mod requests;
 mod text_files;
+mod watcher;
 
 pub use chunk_names::LayerChunks;
 pub use content::{ContentTree, WorkshopFileKind};
+pub use declarations::{
+    DeclarationsLayer, DeclarationsLoadError, DeclaredEntry, DeclaredKey, DeclaredModule,
+    DeclaredObjectEdit, LineSpan, ModuleSelector,
+};
+pub use declarations::{ManifestChange, ModuleAction};
+pub use folders::{
+    AddFoldersReport, ConvertFolderArgs, ConvertPlacement, FantomeFolder, FolderFailure,
+    FolderInspection, FolderWad,
+};
 pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
+pub(crate) use ignore_rules::{holds_ignore_rules, recommended_ignore_filter};
+pub use layer_changes::{LayerFile, LayerFilesChanged};
+pub use layers::layer_name_for;
+pub use registry::{OpenedProjectFolder, ProjectKey, ProjectRegistry};
+pub use requests::{ProjectEdit, ProjectSource};
 pub use text_files::{ProjectText, ProjectTextFile, README_FILE_NAME, Revision};
+pub use watcher::{LayerWatches, SourceRebuild};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathRefExt};
@@ -30,9 +50,7 @@ use thiserror::Error;
 /// Sent over IPC as the `context` payload of an `AppError` with code `WORKSHOP`.
 /// Frontend code can switch on `kind` to handle each variant.
 #[derive(Debug, Clone, Serialize, Deserialize, Error)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(tag = "kind", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum WorkshopError {
     /// One or more files already exist in the target layer directory.
@@ -83,11 +101,26 @@ pub enum WorkshopError {
 /// can change at runtime.
 pub struct Workshop {
     events: Arc<dyn EventSink>,
+    registry: ProjectRegistry,
 }
 
 impl Workshop {
     pub fn new(events: Arc<dyn EventSink>) -> Self {
-        Self { events }
+        Self {
+            events,
+            registry: ProjectRegistry::default(),
+        }
+    }
+
+    /// Keep opened folders and recent times in `registry` rather than in memory.
+    #[must_use]
+    pub fn with_registry(mut self, registry: ProjectRegistry) -> Self {
+        self.registry = registry;
+        self
+    }
+
+    pub(crate) fn registry(&self) -> &ProjectRegistry {
+        &self.registry
     }
 
     pub(crate) fn events(&self) -> &Arc<dyn EventSink> {
@@ -156,10 +189,11 @@ impl ProjectDir {
 
 /// A workshop project displayed in the UI.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopProject {
+    /// Stable id the route names the project by, derived from its path
+    pub id: String,
     /// Absolute path to the project directory
     pub path: String,
     /// Project slug name (directory name)
@@ -184,11 +218,26 @@ pub struct WorkshopProject {
     pub thumbnail_path: Option<String>,
     /// Last modification time
     pub last_modified: DateTime<Utc>,
+    /// Whether the project sits in the workshop folder or was opened from elsewhere
+    pub location: ProjectLocation,
+    /// When the project was last opened in the editor
+    pub last_opened: Option<DateTime<Utc>>,
+}
+
+/// Where a project lives relative to the workshop folder.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum ProjectLocation {
+    /// A direct child of the workshop folder.
+    #[default]
+    Workshop,
+    /// A folder opened from anywhere else.
+    Opened,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopAuthor {
     pub name: String,
@@ -196,22 +245,19 @@ pub struct WorkshopAuthor {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopLayer {
     pub name: String,
     pub display_name: String,
     pub priority: i32,
     pub description: Option<String>,
-    #[serde(default)]
     pub string_overrides: IndexMap<String, IndexMap<String, String>>,
 }
 
 /// Runtime info about a layer's content directory, fetched separately from config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct WorkshopLayerInfo {
     pub wad_files: Vec<String>,
@@ -239,8 +285,7 @@ pub(crate) fn slug_to_display_name(slug: &str) -> String {
 
 /// Metadata peeked from a .fantome archive without extracting content.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct FantomePeekResult {
     pub name: String,
@@ -253,8 +298,7 @@ pub struct FantomePeekResult {
 
 /// Arguments for importing a .fantome archive.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ImportFantomeArgs {
     pub file_path: String,
@@ -264,19 +308,17 @@ pub struct ImportFantomeArgs {
 
 /// Arguments for importing a project from a GitHub repository.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ImportGitRepoArgs {
     pub url: String,
-    #[cfg_attr(feature = "ts", ts(optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub branch: Option<String>,
 }
 
 /// Arguments for creating a new project.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct CreateProjectArgs {
     pub name: String,
@@ -285,13 +327,11 @@ pub struct CreateProjectArgs {
     pub authors: Vec<String>,
 }
 
-/// Arguments for saving project configuration changes.
+/// The metadata a project's config carries: its name shown, version, description and credits.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
-pub struct SaveProjectConfigArgs {
-    pub project_path: String,
+pub struct ProjectMetadata {
     pub display_name: String,
     pub version: String,
     pub description: String,
@@ -303,19 +343,17 @@ pub struct SaveProjectConfigArgs {
 
 /// Arguments for packing a project.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PackProjectArgs {
     pub project_path: String,
-    #[cfg_attr(feature = "ts", ts(optional))]
+    #[cfg_attr(feature = "ts", specta(optional))]
     pub output_dir: Option<String>,
     pub format: PackFormat,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
 pub enum PackFormat {
     Modpkg,
@@ -324,8 +362,7 @@ pub enum PackFormat {
 
 /// Result of a successful pack operation.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct PackResult {
     pub output_path: String,
@@ -337,8 +374,7 @@ pub struct PackResult {
 
 /// An entry the ignore rules kept out of a package.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct IgnoredEntry {
     /// Path under `content/`, forward-slashed, where a rule's own path starts.
@@ -349,8 +385,7 @@ pub struct IgnoredEntry {
 
 /// Result of adding files/folders to a layer.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct AddFilesReport {
     /// Basenames of items added to the layer directory.
@@ -359,8 +394,7 @@ pub struct AddFilesReport {
 
 /// Validation result for a project.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ValidationResult {
     pub valid: bool,
@@ -441,6 +475,7 @@ fn load_workshop_project(project_dir: &Path) -> AppResult<WorkshopProject> {
     let maps = mod_project.maps.iter().map(|m| m.to_string()).collect();
 
     Ok(WorkshopProject {
+        id: ProjectKey::of(project_dir).id(),
         path: project_dir.display().to_string(),
         name: mod_project.name,
         display_name: mod_project.display_name,
@@ -453,6 +488,8 @@ fn load_workshop_project(project_dir: &Path) -> AppResult<WorkshopProject> {
         layers,
         thumbnail_path,
         last_modified,
+        location: ProjectLocation::default(),
+        last_opened: None,
     })
 }
 

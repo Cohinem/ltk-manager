@@ -17,6 +17,7 @@ import type {
 import { layerTitle } from "../../documents/utils/contentDocument";
 import type { MatchRange } from "../../palette/utils/matcher";
 import { compareNames } from "../../shared/utils/naturalOrder";
+import { branchIdsOf, type TreeRow, treeRows } from "../../shared/utils/tree";
 
 /** The prefix of the group holding the objects no table names, as the backend keys it. */
 export const UNNAMED_PREFIX = "?";
@@ -351,27 +352,16 @@ function foldHits(
   return { children: [...prefixes, ...objects], count };
 }
 
-export interface ObjectTreeRow {
-  readonly node: ObjectTreeNode;
-  readonly depth: number;
-}
+export type ObjectTreeRow = TreeRow<ObjectTreeNode>;
 
 /** Walk a tree into the rows to render, for the virtualizer. */
 export function flattenObjectTree(
   nodes: readonly ObjectTreeNode[],
   isExpanded: (node: ObjectTreeNode) => boolean,
 ): ObjectTreeRow[] {
-  const out: ObjectTreeRow[] = [];
-  const walk = (list: readonly ObjectTreeNode[], depth: number): void => {
-    for (const node of list) {
-      out.push({ node, depth });
-      if ((node.type === "prefix" || node.type === "object") && isExpanded(node)) {
-        walk(node.children, depth + 1);
-      }
-    }
-  };
-  walk(nodes, 0);
-  return out;
+  return treeRows(nodes, (node) =>
+    (node.type === "prefix" || node.type === "object") && isExpanded(node) ? node.children : null,
+  );
 }
 
 /** The runs of `ranges`, offsets into `path`, that fall in its last segment, re-based on it. */
@@ -418,4 +408,14 @@ export function ancestorPrefixes(path: string): string[] {
     out.push(segments.slice(0, at).join("/"));
   }
   return out;
+}
+
+/** Whether `path` sits somewhere below the prefix `prefix`, the prefix itself excluded. */
+export function isBelowPrefix(path: string, prefix: string): boolean {
+  return ancestorPrefixes(path).includes(prefix);
+}
+
+/** The ids of every node in `nodes` that has children to open, at any depth. */
+export function branchIds(nodes: readonly ObjectTreeNode[]): string[] {
+  return branchIdsOf(nodes, (node) => (expandable(node) ? node : null));
 }

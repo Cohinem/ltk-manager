@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { Group, Panel } from "react-resizable-panels";
 
 import { Spinner } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 import {
   type DropOutcome,
@@ -39,6 +39,7 @@ import {
   useMoveDocument,
   useOpenDocument,
   useOpenDocuments,
+  useRecordProjectVisit,
   useReorderDocuments,
   useRestoreMaximizedLeaf,
   useSelectedLayerName,
@@ -99,6 +100,11 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
     const first = project.layers[0];
     if (first) openDocument(filesDocument(first.name));
   }, [documents.length, project, projectPath, openDocument]);
+
+  const recordProjectVisit = useRecordProjectVisit();
+  useEffect(() => {
+    recordProjectVisit(projectPath);
+  }, [projectPath, recordProjectVisit]);
 
   const addFilesToLayer = useAddFilesToLayer();
 
@@ -165,26 +171,27 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const surface = (
     <div
       data-ui="ContentBrowser:surface"
-      /* DS-GROUND: the grid is one island, so the frame is the surface's and not
-         each leaf's. A split then shows one divider where two leaves meet. */
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip border border-surface-700"
+      /* DS-GROUND: each editor group is an island that frames itself, so a split
+         parts two frames with a gap. */
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-clip"
     >
       {isLoading && (
         <div className="flex items-center gap-2 px-4 py-4 text-sm text-surface-400">
           <Spinner size="sm" />
-          Scanning project…
+          {m.workshop_content_scanning_label()}
         </div>
       )}
 
       {error && (
         <div className="m-3 rounded-md border border-danger/30 bg-danger/8 px-3 py-2 text-sm text-danger-text">
-          Couldn&rsquo;t read the content directory: {errorSummary(error)}
+          {m.workshop_content_read_failed_description({ reason: errorSummary(error) })}
         </div>
       )}
 
       <TabDndProvider tree={layout} onDrop={handleTabDrop} overlay={renderGhost}>
         <SplitLayout
           node={layout}
+          seamVariant="gap"
           onLayoutChanged={setSplitLayout}
           renderLeaf={renderLeaf}
           maximizedLeafId={maximizedLeafId}
@@ -214,7 +221,8 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   return (
     <div
       data-ui="ContentBrowser"
-      className="relative flex h-full min-h-0 bg-surface-900 px-1.5 pb-1.5"
+      /* DS-GROUND: the gaps between islands are the ground, as the gaps between panes are. */
+      className="relative flex h-full min-h-0 bg-surface-950 px-1.5 pb-1.5"
     >
       {/* Outside the Group the panel is a share of, because the rail answers for
           the project rather than for the panel and stays while that panel is hidden. */}
@@ -265,7 +273,7 @@ function TabDragGhost({ documentId }: { documentId: string }) {
       <TabGlyph>{definition.icon(document)}</TabGlyph>
       <span className="truncate">{title}</span>
       {(context ?? layer) && (
-        <span className="truncate text-[0.6875rem] text-surface-400">{context ?? layer}</span>
+        <span className="truncate text-meta text-surface-400">{context ?? layer}</span>
       )}
     </div>
   );

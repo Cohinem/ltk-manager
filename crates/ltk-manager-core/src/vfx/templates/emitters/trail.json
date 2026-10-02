@@ -1,0 +1,204 @@
+{
+  "format": "ltk-manager/bin-value",
+  "version": 1,
+  "class": "VfxEmitterDefinitionData",
+  "classHash": "0x09cde442",
+  "value": {
+    "kind": "Struct",
+    "value": {
+      "class_hash": 164488258,
+      "properties": {
+        "1025882318": {
+          "kind": "String",
+          "value": {
+            "value": "Trail"
+          }
+        },
+        "2927860839": {
+          "kind": "Embedded",
+          "value": {
+            "class_hash": 70254680,
+            "properties": {
+              "3031705514": {
+                "kind": "F32",
+                "value": {
+                  "value": 60.0
+                }
+              }
+            }
+          }
+        },
+        "710223508": {
+          "kind": "Embedded",
+          "value": {
+            "class_hash": 70254680,
+            "properties": {
+              "3031705514": {
+                "kind": "F32",
+                "value": {
+                  "value": 0.3
+                }
+              }
+            }
+          }
+        },
+        "8066294": {
+          "kind": "Struct",
+          "value": {
+            "class_hash": 678973881,
+            "properties": {
+              "1583751124": {
+                "kind": "Embedded",
+                "value": {
+                  "class_hash": 12755856,
+                  "properties": {
+                    "2891566923": {
+                      "kind": "U8",
+                      "value": {
+                        "value": 0
+                      }
+                    },
+                    "2356694983": {
+                      "kind": "Embedded",
+                      "value": {
+                        "class_hash": 1759261366,
+                        "properties": {
+                          "3031705514": {
+                            "kind": "Vector3",
+                            "value": {
+                              "value": [300.0, 0.0, 0.0]
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "4001898525": {
+                      "kind": "F32",
+                      "value": {
+                        "value": 0.0
+                      }
+                    },
+                    "2130103752": {
+                      "kind": "I32",
+                      "value": {
+                        "value": 0
+                      }
+                    },
+                    "245815745": {
+                      "kind": "U8",
+                      "value": {
+                        "value": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "1013213428": {
+          "kind": "String",
+          "value": {
+            "value": "assets/shared/particles/base_trail_01.tex"
+          }
+        },
+        "4202188459": {
+          "kind": "U8",
+          "value": {
+            "value": 4
+          }
+        },
+        "4041961604": {
+          "kind": "Embedded",
+          "value": {
+            "class_hash": 1759261366,
+            "properties": {
+              "3031705514": {
+                "kind": "Vector3",
+                "value": {
+                  "value": [40.0, 40.0, 40.0]
+                }
+              }
+            }
+          }
+        },
+        "2211310241": {
+          "kind": "Embedded",
+          "value": {
+            "class_hash": 122655197,
+            "properties": {
+              "3031705514": {
+                "kind": "Vector4",
+                "value": {
+                  "value": [0.6, 0.85, 1.0, 1.0]
+                }
+              }
+            }
+          }
+        },
+        "1031692888": {
+          "kind": "Embedded",
+          "value": {
+            "class_hash": 122655197,
+            "properties": {
+              "3031705514": {
+                "kind": "Vector4",
+                "value": {
+                  "value": [1.0, 1.0, 1.0, 1.0]
+                }
+              },
+              "3154345447": {
+                "kind": "Struct",
+                "value": {
+                  "class_hash": 1128908277,
+                  "properties": {
+                    "1567157941": {
+                      "kind": "Container",
+                      "value": {
+                        "item_kind": "F32",
+                        "items": [
+                          {
+                            "kind": "F32",
+                            "value": {
+                              "value": 0.0
+                            }
+                          },
+                          {
+                            "kind": "F32",
+                            "value": {
+                              "value": 1.0
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    "877087803": {
+                      "kind": "Container",
+                      "value": {
+                        "item_kind": "Vector4",
+                        "items": [
+                          {
+                            "kind": "Vector4",
+                            "value": {
+                              "value": [1.0, 1.0, 1.0, 1.0]
+                            }
+                          },
+                          {
+                            "kind": "Vector4",
+                            "value": {
+                              "value": [1.0, 1.0, 1.0, 0.0]
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

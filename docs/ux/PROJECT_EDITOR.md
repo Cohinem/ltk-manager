@@ -4,16 +4,16 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-10-02 | Report each working file, only for a project with no ignore rules     |
+| 2026-09-27 | Redraw every preview of a layer file saved from another program       |
+| 2026-09-25 | Make modules, and drag modules, entries and keys to organize them     |
+| 2026-09-25 | Read a manifest as one line per key, and act on its modules in place  |
+| 2026-09-24 | Read a layer's game data manifest as an outline                       |
 | 2026-09-20 | Reveal a file tab in the browser its file came from                   |
 | 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
 | 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen        |
 | 2026-09-18 | Command routes to every document, closes, maximize, and a strip list  |
 | 2026-09-18 | Answer the editor's keys, and find text inside a text document        |
-| 2026-09-18 | Save from the close question, queue the rest, and guard a quit        |
-| 2026-09-14 | Walk every bin for an embedded class and an object's incoming links   |
-| 2026-09-12 | Fill the primary side panel from a rail of views                      |
-| 2026-09-12 | Write a project's readme beside its rendered half                     |
-| 2026-09-12 | Report what the ignore rules left out of a package                    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -43,82 +43,86 @@ This table holds every major feature of the editor. A status word has one meanin
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature                | Status      | Note                                                               |
-| ---------------------- | ----------- | ------------------------------------------------------------------ |
-| Layer file tree        | Available   | Moves to the secondary side panel                                  |
-| Mod details document   | Available   | -                                                                  |
-| String overrides       | Available   | -                                                                  |
-| Tab strip, per project | Available   | -                                                                  |
-| Tab context menu       | Available   | Pin, the four closes, copy path and copy name, splits and the lock |
-| Reveal in Files        | Available   | A file tab's row, in the layer files or the game files             |
-| Group lock             | Available   | A locked group takes only what a gesture aims at it                |
-| Unsaved-edits question | Available   | Save, Discard and Cancel. A batch close queues one per document    |
-| Quit guard             | Available   | A window close asks while a document holds unsaved edits           |
-| Editor keys            | Available   | Close, walk, take by index, save and find, in the focused group    |
-| Find in a text file    | Available   | A bar in the readme, the license and the ignore rules              |
-| Keyboard tab drag      | Available   | Arrows move a tab, through the drop a pointer drag resolves        |
-| Pinned tabs            | Available   | Lead their strip, and a batch close passes them over               |
-| Secondary side panel   | In progress | Holds the file tree and the asset inspector                        |
-| Preview tabs           | Available   | One reusable tab per group, opened beside the browser that asked   |
-| Reopen a closed tab    | Available   | `Ctrl+Shift+T` and a command, over the session's last twenty       |
-| Tree search            | Planned     | Reads every layer, and groups a result by layer                    |
-| Tab title prefix       | Available   | The layer after the title, where two tabs take the same name       |
-| Tab overflow list      | Available   | A control beside the lock lists a full strip and counts it         |
-| Panel host choice      | Planned     | Either side panel accepts any panel type                           |
-| Tree expansion rules   | Planned     | Stops the full expand of every directory                           |
-| Layer conflict mark    | Planned     | No backend work, because the payload holds every layer             |
-| Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                       |
-| Directory size and bar | Planned     | Needs a size total for each directory                              |
-| File type filter       | In progress | The kind groups, in a game grid. The layer file tree remains       |
-| Explorer bar           | In progress | The two game explorers draw it. The layer file tree remains        |
-| Breadcrumb navigator   | In progress | Crumbs, caret menus and `Ctrl+L`. The fold is by count, not width  |
-| Grid view              | In progress | Tiles in the two game explorers. The layer file tree remains       |
-| Asset thumbnails       | Available   | `?w=` and the queue, which the bin swatch already rode             |
-| Details list           | In progress | Name, size and kind in the two game explorers. Modified remains    |
-| Explorer sorting       | In progress | Name, size and kind, directories first. The layer tree remains     |
-| Explorer filters       | In progress | Text in every view, kind and unnamed in the two item views         |
-| Multi-select and copy  | In progress | One model under both game views. The layer file tree remains       |
-| Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                        |
-| Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                |
-| Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)           |
-| Object tab             | Available   | One declaration as a document. ADR-0028                            |
-| Objects browser        | Available   | Every object of the install, one tree over its paths               |
-| References document    | Available   | A class's objects from the index, the rest from a walk             |
-| Mesh preview           | Planned     | A model in a small viewport                                        |
-| Modified time          | Planned     | Needs a time field in the content scan                             |
-| Game archive check     | Planned     | Finds a path that the game never reads. Uses the index             |
-| Game browser           | In progress | A folded read-only tree and a grid over it, on one bar             |
-| Game index             | In progress | Folded, in memory and searchable. The mmap cache remains           |
-| Scoped game browser    | Available   | One tab for each archive, from either list of archives             |
-| Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings          |
-| Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain           |
-| Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick             |
-| Copy conflict setting  | Proposed    | Ask, skip or replace. Ask is the default, and asks once            |
-| Game clipboard         | Proposed    | `Ctrl+C` in a game browser, `Ctrl+V` into a layer                  |
-| Held mark              | Proposed    | A game row that the selected layer holds. No backend work          |
-| Extract to disk        | Available   | A row, a directory or an archive. Quick, or into a layer           |
-| Extractor in `ltk_wad` | In progress | Pinned to the branch's rev. The release remains                    |
-| Item drag              | Proposed    | Onto a surface to open, onto a layer to copy. Every view           |
-| Property bin links     | Planned     | First declarative type. `league-mod` issue **#190**                |
-| PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**               |
-| Source control section | Planned     | Git history for the declarative data                               |
-| Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                    |
-| Panel maximize         | Available   | A kept tab's double click fills the grid, and Esc restores it      |
-| Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains        |
-| Project bar            | Available   | Takes the header's middle, from the project name title             |
-| Command palette        | Available   | The project, the game and the bin objects of both halves           |
-| Bin object search      | Available   | `$` over both halves, with the `class:` filter and its completions |
-| Project object index   | Available   | The layers' own bins, read with the content scan, matched in place |
-| Bin object index       | Available   | The install's half on `BinStream::entries`, unnamed chunks sniffed |
-| Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                |
-| Navigation history     | Available   | The `←` `→` arrows, over the tabs and an explorer's directories    |
-| Quick open             | Available   | Absorbed by the project bar, which is the box it asked for         |
-| Merged layer view      | Proposed    | Names the layer that wins for each path                            |
-| Layer diff             | Proposed    | Compares one path across two layers                                |
-| Problems list          | Planned     | One panel for every check. [Project problems](PROJECT_PROBLEMS.md) |
-| Bin retype fix         | Planned     | Repairs the properties Riot changed to `File`. Urgent              |
-| Preserved fix names    | Available   | A fix keeps every path it hashes in the mod's own `hashes/`        |
-| Texture facts          | Available   | In the preview's status strip. The inspector row remains           |
+| Feature                | Status      | Note                                                                     |
+| ---------------------- | ----------- | ------------------------------------------------------------------------ |
+| Layer file tree        | Available   | Moves to the secondary side panel                                        |
+| Mod details document   | Available   | -                                                                        |
+| String overrides       | Available   | -                                                                        |
+| Tab strip, per project | Available   | -                                                                        |
+| Tab context menu       | Available   | Pin, the four closes, copy path and copy name, splits and the lock       |
+| Reveal in Files        | Available   | A file tab's row, in the layer files or the game files                   |
+| Group lock             | Available   | A locked group takes only what a gesture aims at it                      |
+| Unsaved-edits question | Available   | Save, Discard and Cancel. A batch close queues one per document          |
+| Quit guard             | Available   | A window close asks while a document holds unsaved edits                 |
+| Editor keys            | Available   | Close, walk, take by index, save and find, in the focused group          |
+| Find in a text file    | Available   | A bar in the readme, the license and the ignore rules                    |
+| Keyboard tab drag      | Available   | Arrows move a tab, through the drop a pointer drag resolves              |
+| Pinned tabs            | Available   | Lead their strip, and a batch close passes them over                     |
+| Secondary side panel   | In progress | Holds the file tree and the asset inspector                              |
+| Preview tabs           | Available   | One reusable tab per group, opened beside the browser that asked         |
+| Reopen a closed tab    | Available   | `Ctrl+Shift+T` and a command, over the session's last twenty             |
+| Tree search            | Planned     | Reads every layer, and groups a result by layer                          |
+| Tab title prefix       | Available   | The layer after the title, where two tabs take the same name             |
+| Tab overflow list      | Available   | A control beside the lock lists a full strip and counts it               |
+| Panel host choice      | Planned     | Either side panel accepts any panel type                                 |
+| Tree expansion rules   | In progress | Collapse all is in the layer, game and archive trees. The rest remains   |
+| Layer conflict mark    | Planned     | No backend work, because the payload holds every layer                   |
+| Asset inspector        | Planned     | Takes the fields that a tree row cannot hold                             |
+| Directory size and bar | Planned     | Needs a size total for each directory                                    |
+| File type filter       | In progress | The kind groups, in a game grid. The layer file tree remains             |
+| Explorer bar           | In progress | The two game explorers draw it. The layer file tree remains              |
+| Breadcrumb navigator   | In progress | Crumbs, caret menus and `Ctrl+L`. The fold is by count, not width        |
+| Grid view              | In progress | Tiles in the two game explorers. The layer file tree remains             |
+| Asset thumbnails       | Available   | `?w=` and the queue, which the bin swatch already rode                   |
+| Details list           | In progress | Name, size and kind in the two game explorers. Modified remains          |
+| Explorer sorting       | In progress | Name, size and kind, directories first. The layer tree remains           |
+| Explorer filters       | In progress | Text in every view, kind and unnamed in the two item views               |
+| Multi-select and copy  | In progress | One model under both game views. The layer file tree remains             |
+| Image preview          | Available   | DDS and TEX through the `ltk_texture` crate                              |
+| Web file preview       | Available   | Web images, video, audio, source text and fonts                          |
+| Preview pan and zoom   | Available   | Wheel, drag, pinch and double click, on the library                      |
+| Bin preview            | Available   | Blocks over the parsed tree. [Bin editor](BIN_EDITOR.md)                 |
+| Object tab             | Available   | One declaration as a document. ADR-0028                                  |
+| Objects browser        | Available   | Every object of the install, one tree over its paths                     |
+| References document    | Available   | A class's objects from the index, the rest from a walk                   |
+| Mesh preview           | Planned     | A model in a small viewport                                              |
+| Modified time          | Planned     | Needs a time field in the content scan                                   |
+| Game archive check     | Planned     | Finds a path that the game never reads. Uses the index                   |
+| Game browser           | In progress | A folded read-only tree and a grid over it, on one bar                   |
+| Game index             | In progress | Folded, in memory and searchable. The mmap cache remains                 |
+| Scoped game browser    | Available   | One tab for each archive, from either list of archives                   |
+| LCU browser            | Available   | The client's `Plugins` archives, browsed, previewed and extracted        |
+| Hash names from mimir  | Available   | The shared cache, synced from a Cache tab in the settings                |
+| Copy into a layer      | In progress | The menu route writes a row or a directory. Three remain                 |
+| Shared chunk archives  | Proposed    | The index keeps every archive of a chunk, for the pick                   |
+| Copy conflict setting  | Proposed    | Ask, skip or replace. Ask is the default, and asks once                  |
+| Game clipboard         | Proposed    | `Ctrl+C` in a game browser, `Ctrl+V` into a layer                        |
+| Held mark              | Proposed    | A game row that the selected layer holds. No backend work                |
+| Extract to disk        | Available   | A row, a directory or an archive. Quick, or into a layer                 |
+| Extractor in `ltk_wad` | In progress | Pinned to the branch's rev. The release remains                          |
+| Item drag              | Proposed    | Onto a surface to open, onto a layer to copy. Every view                 |
+| Property bin links     | Planned     | First declarative type. `league-mod` issue **#190**                      |
+| PTCH targeting         | Planned     | Second declarative type. `league-mod` issue **#191**                     |
+| Source control section | Planned     | Git history for the declarative data                                     |
+| Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                          |
+| Panel maximize         | Available   | A kept tab's double click fills the grid, and Esc restores it            |
+| Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains              |
+| Project bar            | Available   | Takes the header's middle, from the project name title                   |
+| Command palette        | Available   | The project, the game and the bin objects of both halves                 |
+| Bin object search      | Available   | `$` over both halves, with the `class:` filter and its completions       |
+| Project object index   | Available   | The layers' own bins, read with the content scan, matched in place       |
+| Bin object index       | Available   | The install's half on `BinStream::entries`, unnamed chunks sniffed       |
+| Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                      |
+| Navigation history     | Available   | The `←` `→` arrows, over the tabs and an explorer's directories          |
+| Quick open             | Available   | Absorbed by the project bar, which is the box it asked for               |
+| Merged layer view      | Proposed    | Names the layer that wins for each path                                  |
+| Layer diff             | Proposed    | Compares one path across two layers                                      |
+| Problems list          | Planned     | One panel for every check. [Project problems](PROJECT_PROBLEMS.md)       |
+| Bin retype fix         | Planned     | Repairs the properties Riot changed to `File`. Urgent                    |
+| Preserved fix names    | Available   | A fix keeps every path it hashes in the mod's own `hashes/`              |
+| Texture facts          | Available   | In the preview's status strip. The inspector row remains                 |
+| Game data document     | In progress | One line per key, module actions, raw text read-only. Diagnostics remain |
+| Declarations view      | In progress | Layers, modules and entries in the rail, with the module actions         |
 
 ## Scope
 
@@ -152,6 +156,91 @@ Property bin links come first in the editor. PTCH targeting follows it.
 
 Both are future additions. The editor design for them comes later, and this document does
 not describe one yet.
+
+### Game data
+
+A layer's `game_data` manifest opens as a document of its own, from its row in the layer
+files or from the Declarations view. The document has two views.
+
+| View    | What it shows                                                           |
+| ------- | ----------------------------------------------------------------------- |
+| Outline | Each module, then its overrides, entries, keys and links in apply order |
+| Raw     | The manifest's text, read-only, with its line numbers                   |
+
+The toolbar names the manifest's file and counts its modules and keys.
+
+#### Rows
+
+Every row is one line, and the outline reads the way the manifest does.
+
+| Row      | What it shows                                                                       |
+| -------- | ----------------------------------------------------------------------------------- |
+| Module   | Its name, what it edits, the comment above it, and a count of its objects and keys  |
+| Override | A `.ptch` file the module applies to its chunk                                      |
+| Entry    | An object the module edits, creates (`new` and its class) or removes (struck out)   |
+| Key      | A signed property path, then its value in a column every key of the document shares |
+| Link     | A dependency the module adds to its chunk's list, or removes from it                |
+| Empty    | Under a module that declares nothing yet, where to drag entries                     |
+| New      | The line that ends each layer and adds a module to it                               |
+
+A module is named by its place in the manifest, `Module 1`, until the manifest spells a name
+for it. A `target` module names its chunk's file, the full path on hover. The comment lines
+directly above a module are its note: the block a remove or a move carries with it.
+
+An entry or a class spelled as a hash reads as the name the hashtables know for it, the hash
+beside it as a chip.
+
+A key's value fits its row. A one-line value reads as spelled, a game-copy reference as a link,
+and a struct as its kind and class, whether the manifest spells it as a tag or as `pointer:`
+with a `class`. A block list folds into brackets and a block mapping into braces, a nested
+value standing as `…`. The full value is on hover, and Show in text selects its lines in Raw.
+
+A key's Go to row, or `Enter` on the key, opens the game bin that declares the entry, on the
+row the key reaches. The object index gives the chunk: the one a `target` module names, else
+the first in the index's order. A path through a map key reveals the map's own row. An object
+the module creates is in no game bin, so it has no Go to row.
+
+#### Module actions
+
+A row's context menu and a module's kebab carry the same list. The Declarations view offers
+them on its rows too, and lists every layer, one with no manifest included, each ending in a New
+module line.
+
+| Action               | Where                   | Key         | What it does                                              |
+| -------------------- | ----------------------- | ----------- | --------------------------------------------------------- |
+| Rename               | Module                  | `F2`        | Types over the name in place. Empty clears it             |
+| Write new edits here | `entries` module        |             | Makes it the module a declared edit joins                 |
+| Move up, Move down   | Module                  | `Alt+↑` `↓` | Moves it one place in the apply order                     |
+| Remove module        | Module                  | `Delete`    | Asks, then takes it and the comment above it out          |
+| Move to module       | `entries` entry and key |             | Carries the keys to another `entries` module              |
+| New module           | Layer, module, New line | `Enter`     | Adds an unnamed module at the end and types over its name |
+| Show in text         | Any row                 |             | Opens Raw with the row's lines selected                   |
+
+New module writes a module with no entry, `entries: {}`, which league-mod loads as a module
+that applies nothing (ADR-0054). Move to module ends with New module, which makes a module and
+moves the keys into it, then types over its name. A layer with no manifest offers New module
+in its empty document, and the first module starts the manifest.
+
+A named module stays when a move or a drop takes its last entry. An unnamed one goes.
+
+Rows drag to organize the manifest. A module dragged over another lands above it when that one
+is ahead of it and below it otherwise, and a line marks where. An entry or a key of an `entries`
+module lands in the `entries` module it is dropped on, which the drop tints. Nothing drags across
+layers, and a `target` module takes no dropped entry. Module rows carry Move up and Move down on
+hover beside the kebab.
+
+A double click on a module renames it too. Write new edits here also selects the module's layer,
+since a declared edit writes to the selected layer (ADR-0048). The chosen module carries the
+New edits mark.
+
+Remove is the one action with a question, because nothing here undoes it. The actions write
+the manifest's text and every open declared document applies it again.
+
+A manifest that does not load opens on its text, with the line the error names marked and
+selected. The error is under the text. The outline and the view follow the file: a declared
+edit and a return to the window both read it again.
+
+Raw reads. Keys are written through the declared bin (ADR-0042), or outside the app.
 
 ## Layout
 
@@ -206,7 +295,7 @@ control that answers for the whole view.
 | Bar      | Names the project, and searches it. The crumb in it returns to Workshop |
 | Layout   | Sets which side each side panel takes, and whether one shows            |
 | Test     | Builds the overlay and starts the patcher                               |
-| Pack     | Writes a distributable archive                                          |
+| Pack     | Writes the distributable archives, to the formats on its caret          |
 | Overflow | Opens the project folder, or deletes the project                        |
 
 The back arrow and the project name title are both gone. The bar took the name, the version
@@ -215,6 +304,33 @@ tag and the route back to the project list. Read [the project bar](#the-project-
 The row itself belongs to the shell, which draws the same five slots over the project grid and
 refills them rather than swapping the chrome. What the slots hold there, and how the row
 balances around the bar, is [Layout](WORKSHOP.md#layout).
+
+## Packing
+
+Pack writes as it is pressed. There is no dialog: the button turns to Packing while the
+project is written, and the outcome arrives as a toast. A creator packs many times while
+working on a release, and a dialog with one useful button made every one of those a second
+press.
+
+The caret beside Pack holds the formats a press writes: **Both formats**, the default,
+`.modpkg` or `.fantome`. The choice is the creator's rather than the project's, so it is
+remembered across projects. The caret matches the one beside Test, and Pack's tooltip names the
+formats a press writes.
+
+A `.fantome` carries every layer. The base layer's WADs go under `WAD/`, every other layer's
+under `WAD_<layer>/`, and the layer table in `META/info.json` (league-mod ADR-0036).
+
+The pre-flight check runs on the press. Errors stop the pack and become an error toast that
+lists them. Warnings do not stop it, and the toast of a pack with warnings lists them under the
+file names.
+
+A packed toast names the files written and offers **Show in Explorer**. A pack the rules left
+something out of offers the count as a second action, which opens the ignore rules. The content
+tree marks what the rules exclude, so the toast does not list it again.
+
+The same Pack runs from a card, the card menu, the palette and a grid selection, and every one
+of them shows the same busy state, because a pack outlives the menu that started it. A selection
+packs to the same formats and reports on one summary toast.
 
 ## The project bar
 
@@ -1083,6 +1199,7 @@ at a time. This is the shape Visual Studio Code uses, and most users know it alr
 | Search         | Every file of the install the pattern matches                |
 | Problems       | Everything the manager's checks found in this project        |
 | Objects        | Every object the install declares, as a tree over its paths  |
+| Declarations   | Each layer's game data modules and the entries they declare  |
 | Game index     | The install's own directories, read one level at a time      |
 | Source control | Version control for the declarative data. Under construction |
 
@@ -1258,8 +1375,11 @@ The tree expands every directory today. For a layer with 446 files this fills th
 rows that carry no information, and a user scrolls before the first read.
 
 - The first render expands to the first directory that holds more than one child
-- An expand-all control and a collapse-all control are in the panel header
-- `Alt` and a click on a chevron expand or collapse the whole subtree
+- An expand-all control and a collapse-all control are in the panel header. Collapse all is
+  available on every tree, as a header button and as `Ctrl+←` on a focused tree, the key of
+  Visual Studio Code's `list.collapseAll`
+- `Alt`, `Shift` or `Ctrl` and a click on a chevron expand or collapse the whole subtree. A tree that loads a
+  folder per request opens one level only, so a click never starts a fetch per descendant
 
 ### Size
 
@@ -1371,9 +1491,9 @@ A git import keeps whatever the repository holds, including nothing. The reposit
 author's, and a file written into a working tree the app did not create is a diff the creator
 did not ask for.
 
-A project that already exists is never written to. The offer lives in the document's empty
-state and in the problems rule, so a creator who deleted an entry on purpose is not given it
-back behind their back.
+A project that already exists is never written to. The default is offered in the document's
+empty state and by the problems rule. Both write the file only when the creator clicks, so an
+entry the creator deleted is not added back.
 
 ### What the tree draws
 
@@ -1458,26 +1578,41 @@ creator reads what the button writes before pressing it.
 
 ### What Pack reports
 
-The pack result carries the count of what the rules left out and the list, relative to `content/`
-where a rule's own path starts, with a pruned folder as one row and a link to the document. A
-creator finding an empty layer in a package is the failure this closes.
-
-The list is a disclosure, closed on arrival. The count beside its title is what answers whether
-anything was left out, and the list is what answers what. A pack that leaves nothing out draws no
-disclosure at all.
-
-The link opens the document in the project's own editor, which the dialog reaches from the grid as
-well. A document asked for there waits for the editor to read `.ltk/editor.json`, because an open
-written before that arrives is an open the reader's tabs are traded for.
+A pack the rules left something out of says how much on its toast, and the action opens this
+document. The content tree marks the excluded entries, so that is where a creator reads what was
+left out. A creator finding an empty layer in a package is the failure this closes.
 
 A layer the rules empty is a warning in the pre-flight list, in the shape the other pre-flight
-warnings take, and Pack stays enabled because a creator may mean it. A pattern that does not parse
+warnings take, and the pack goes ahead because a creator may mean it. A pattern that does not parse
 keeps its line number and its file, in the pre-flight errors and in the pack's own failure alike.
 
-The problems pass gains one rule, for a project with no ignore file at all, whose fix writes the
-default. No rule reports an unignored source file, so a creator who dropped an entry is not told
-twice. The pass and its repairs skip what the rules exclude, because a file that does not ship
-cannot break the game.
+### The problems rule
+
+The problems pass checks only the files that a pack puts in the package. It applies the project's
+ignore rules in the same way a pack does. A file the rules exclude is not checked, and no repair
+writes it. A dot-file that is not excluded is checked like any other file. "What a run does" in
+[PROJECT_PROBLEMS.md](PROJECT_PROBLEMS.md) describes the walk.
+
+`project/working-file`, **Working file in package**, reports each packed file that the default
+would exclude, such as a Photoshop source, a Maya swatch folder or a `.DS_Store`. It is a warning.
+The game loads the package, and the package is larger than necessary. The fix writes the default,
+and one fix clears every finding of the rule. The preview of each finding names the pattern that
+excludes the file, such as `*.psd`, so the creator sees the syntax before the file exists.
+
+The rule reports only for a workshop project that has no `.modignore` file:
+
+- **A project with a `.modignore` is not reported.** An empty file, a file in a folder under
+  `content/`, and a file that does not compile all count. If a creator removed an entry of the
+  default, the rule does not add it back. Add missing recommended rules in the document adds the
+  missing entries when the creator asks.
+- **A project with no file to exclude is not reported.** A missing `.modignore` is not a problem
+  when the default would exclude nothing. A warning on every older project could only be cleared
+  by creating an empty file.
+- **Library mods and archives are not reported.** The user does not edit their rules, and a
+  library repair would write the file into the mod's storage.
+
+A finding names a file, not the project, because the creator acts on the file. Clicking the
+finding opens the file, as for any other finding.
 
 ### Freshness
 
@@ -1571,7 +1706,7 @@ make.
 ### What Pack reports
 
 A project with no readme is a pre-flight warning, in the shape the missing thumbnail warning
-takes, and Pack stays enabled because a creator may mean it. A readme that exists is not
+takes, and the pack goes ahead because a creator may mean it. A readme that exists is not
 judged: nothing here can tell a deliberate one-line readme from an abandoned one.
 
 There is no problems rule. The problems pass is about a project that will misbehave in the
@@ -1838,6 +1973,30 @@ goes first.
 The last rule is the one worth a measurement. Raising the mount capacity is the other answer to
 it, and it costs a chunk table for each archive it adds.
 
+#### Thumbnails in the tree
+
+The tree has its own Thumbnails switch in the options, off by default. The grid's switch is on by
+default and does not reach the tree, because a tree with thumbnails holds a fraction of the rows
+it holds without them.
+
+On, every row of the tree takes one height, set on a slider over 20, 26, 32, 48 and 64 pixels, 48
+by default. The directories take it too: the virtualizer and the pinned band place rows at one
+fixed height. A file the backend has a viewer for draws its asset where the kind glyph was, any
+other file draws its glyph in the same box, and a directory draws the folder the grid draws.
+
+| Shape    | The plate                                                    | The slot           |
+| -------- | ------------------------------------------------------------ | ------------------ |
+| Square   | the art's box, the image fitted inside it                    | the box            |
+| Original | the image's own ratio once it lands, from half to twice wide | twice the box wide |
+
+Square is the default. The slot is a fixed column in both shapes, so every name in the tree starts
+on one edge whatever its plate's width, and an original plate sits at the slot's leading edge.
+Before the image lands its ratio is unknown, so the plate draws square until then.
+
+The art is inset 4px, as in the details list, and is asked for at the smallest tile size the slot
+fits in: `w=64` for a square at every height, and up to `w=128` for an original ratio at 64px.
+That keeps `w` to the six widths of the grid.
+
 #### The details list
 
 ```
@@ -2101,8 +2260,15 @@ the same two marks: a fill for the set, and a ring for the focus.
 | Focused  | the keys act here                   | the ring                  |
 
 A row's fill is its band and a tile's fill is its background, and the two read as one system.
-Covered is what makes the reach of a selected directory visible without a count: the rows under
-it in the tree, and the tiles inside it once the grid descends. The focus and the selection are
+Covered is what makes the reach of a selected directory visible without a count, in the tiles and
+rows inside it once the grid or the list descends. The game and LCU trees do not draw it: an open
+directory's covered rows would fill the whole subtree below a single click, so the tree marks
+depth with its guides instead.
+
+**The tree's guides mark the depth the focus is in,** as the bin tree's do. Each ancestor level
+draws a guide under that ancestor's caret, so a directory's guides join into one edge down every
+row it holds. The guide of the directory holding the focused row takes the accent, and the guide
+of the directory holding the row under the pointer lifts a rung. The focus and the selection are
 two marks, and an item can hold one without the other, which is what an arrow key without
 `Shift` moves. Every view sets `aria-multiselectable`, and `aria-selected` reports the selection
 and not the focus.
@@ -2236,6 +2402,7 @@ the rows take it as a move to the parent.
 | The view mode           | the app, per host              | a work habit, and a panel and a surface differ        |
 | The tile size           | the app                        | a work habit                                          |
 | Thumbnails on or off    | the app                        | a work habit, and a modder on a laptop turns them off |
+| The tree's thumbnails   | the app                        | the same, with its own row height and shape           |
 | The sort                | the tab, within its project    | each tab answers its own question                     |
 | The location            | the document                   | it is where the user left the project                 |
 | The expansion           | the document                   | the same, and the trees hold it already               |
@@ -2517,6 +2684,58 @@ index is the one signal the app gets that the install changed underneath it.
 
 The image preview decodes DDS and TEX through the `ltk_texture` crate. The `ltk-tex-utils`
 repository holds an integration to work from.
+
+### Files the webview reads
+
+The League client ships web content, and the game ships a few web files of its own. The
+preview draws them with what the webview already holds rather than a viewer per format.
+
+| Files                                                | Viewer                                                        |
+| ---------------------------------------------------- | ------------------------------------------------------------- |
+| SVG, GIF, WebP, BMP, ICO                             | The image preview, which zooms and pans them as any image     |
+| webm, mp4, ogg, wav, mp3                             | The webview's `<video>` or `<audio>`, which starts on a click |
+| JSON, JS, CSS, HTML, XML, YAML, Markdown, plain text | A read-only CodeMirror view, highlighted and searchable       |
+| OTF, TTF                                             | A sample at a ladder of sizes, which the reader can retype    |
+
+- The extension picks the viewer. A chunk no hash table names reaches the image preview, which
+  reads a web image off its bytes
+- A file arrives over the `ltk-asset` scheme as its own bytes, under the media type its
+  signature names. Every response carries `nosniff` and a policy that runs nothing, so an
+  HTML page or an SVG is never run as a page
+- An HTML page, a script and a stylesheet show as source. JSON opens indented, because the
+  client ships it on one line, and **Format** turns that off
+- The text view decodes the first 4 MB. Save a copy reaches the rest
+- `Ctrl+F` over a text preview opens the view's own search
+
+### A layer file saved from outside
+
+A modder edits a texture of the open project in another program and saves it. Every preview of
+that file redraws without a reopen: the particle viewport, the skin and material viewports, the
+graph's file nodes, the explorer tiles, the texture swatches and the open preview tab.
+
+| Part           | Behaviour                                                                |
+| -------------- | ------------------------------------------------------------------------ |
+| The watch      | `content/` of each open project, recursive, from mount to unmount        |
+| The debounce   | A path counts after 300 ms without events, and a write in progress waits |
+| The event      | `layer-files-changed`, the project and each file as its layer and path   |
+| The version    | A count per file, which a preview URL carries as `v`                     |
+| A page reload  | Drops every watch, and the new page acquires new ones                    |
+| The app's save | Arrives the same way, and redraws the same previews                      |
+
+An editor's save is a burst: a temporary file, a remove and a rename over the file. The
+debounce reads the burst as one change. An event names a file the way a layer asset reference
+names it, and the frontend matches it without a lookup.
+
+Only a changed file takes a new URL, and every other URL is unchanged. The scheme answers
+`no-store` and the backend reads the file for each request. The URL is the only cache key.
+The asset info of a changed file refetches, and the status strip reads the new header.
+
+A particle slot draws the old texture until the new one lands. The run keeps its clock: the
+warm-up pause covers the first load of a viewport and no reload. The preview tab keeps its zoom
+and its pan across a save of the same file.
+
+A mesh, a skeleton and a clip do not reload. Their buffers come from queries keyed by the asset
+rather than by the URL.
 
 ### Panning and zooming a preview
 
@@ -2804,6 +3023,24 @@ The open browsers share the rest of the surface.
 A side panel hosts one browser. A user who wants two archives side by side drags one tab
 onto a boundary, and the layout then holds two editor surfaces with one browser in each.
 Read [A tab drag creates a panel](#a-tab-drag-creates-a-panel).
+
+### The League client
+
+The League client ships its own archives, the `*.wad` files under `Plugins`, and a modder who
+themes the client looks for files in them the way a game modder does in the game's. The
+**LCU index** and **LCU WADs** tabs read those archives with the same browser, list and scoped
+tab as the game. The palette opens both, and the LCU index's archive control opens the list.
+
+- A separate index, built at its first read and rebuilt from its own control. 46 archives
+  and 61,436 files build in a third of a second
+- Names come from the `lcu` hash table, which the shared cache already holds
+- A row previews and extracts to a folder as a game row does. One folder per archive keeps
+  the archive's whole path, because nearly every client archive is named `assets.wad`
+
+The game reads no client file, and a client file is no part of a game mod. An LCU row
+therefore offers no copy into a layer, no Find references and no Open in VS Code. The
+palette's search, a path field's suggestions and the object index read the game index
+alone, and a bin document refuses a client chunk.
 
 ### The tree
 
@@ -3439,39 +3676,83 @@ the source tree.
 ### Object grid
 
 Tree and Grid show the same object directory. A grid folder opens its prefix. Breadcrumbs
-link every path segment, including folded prefixes, and Up opens the parent path. An object
-with children has a separate folder-and-count action inside its footer. Tiles default to
-128 pixels wide. The view options popover holds tile size and the thumbnail switch. Search
-shows matching objects as tiles. Reveal
-in Objects keeps the selected view. In Grid it opens the parent and scrolls to the focused
-tile. In Tree it expands the ancestors and focuses the row. View preferences survive editor
-layout remounts.
+link every path segment, including folded prefixes, and Up opens the parent path. Tiles
+default to 128 pixels wide. The view options popover contains tile size and the thumbnail switch.
+Search shows matching objects as tiles. Reveal in Objects keeps the selected view. In Grid it
+opens the parent and scrolls to the focused tile. In Tree it expands the ancestors and focuses
+the row. View preferences survive editor layout remounts.
+
+A tile has the explorer tile's layout: an art plate on the card surface, the name, and a second line with the
+class, or with the object count for a folder. The name wraps to two lines and is cut in the
+middle, because objects of one folder differ at the end of their names. The tile carries no
+footer. An object with children carries a folder-and-count badge on its art. The badge is a
+separate control that browses the children. The declaring file is in the tile's tooltip beside the path. A
+tile without a still draws its kind glyph: a sparkle for a particle system, a figure for a
+skin, a sphere for a material, and a cube for any other class.
 
 Switching from Tree to Grid carries the selected folder into its own directory. A selected
 object opens its parent grid and receives focus. A selected search hit stays in the search
-results. With no selection, the grid keeps its last location.
+results. With no selection, the grid keeps its last location. The grid writes the selection
+back: a focused tile selects its node, and a folder the grid moves to becomes the
+selection. Switching from Grid to Tree expands to the selection and focuses its row. A search
+keeps its hits in place in both directions.
 
-Thumbnails are on by default. Supported particles and skins get small stills, rendered as tiles
-enter view. A particle loops in a large anchored preview popover after a short hover or keyboard
-focus. The popover stays open across the pointer's move from tile to preview, and closes on
-leaving or Escape. The tile keeps its still. Reduced motion
-keeps the still. Opening a tile uses the same first declaration
-as the tree. Skin stills show the textured bind pose. Thumbnail cameras frame the projected
-box with five percent padding, using the same aspect ratio as the tile artwork.
+Thumbnails are on by default. Particle systems, skins and materials get small stills,
+rendered as tiles enter view. A tile the pointer rests on for 400 milliseconds plays in
+place: a particle system loops, a material turns on its sphere and a skin turns on a
+turntable. The tile plays until the pointer leaves it. Keyboard focus plays nothing in the
+tile, and a particle system the keyboard selection rests on opens as the preview tab, as
+[What a row opens](#what-a-row-opens) describes.
+A tile with a preview carries an expand button in its art's top right corner, shown while the
+pointer rests on the tile, while the tile has focus, and while its popover is open. The button
+opens the tile in a large anchored popover, and a second press, Escape or a press outside closes
+it. Space does the same for the tile under the pointer, or the focused tile, and the button's
+tooltip names the key. A click on the tile itself still opens the preview tab. The popover also
+plays a particle system whose sample saw no burst, so the reader can watch it, and a burst it
+shows becomes the tile's still. Reduced motion keeps the still on hover, and the button and
+Space still play the large preview, because the reader requested it. Opening a tile uses the same first
+declaration as the tree. Skin stills show the textured bind pose. Thumbnail cameras frame the
+projected box with five percent padding, using the same aspect ratio as the tile artwork.
+The preview canvas clears to the card surface, so a still and an empty plate share one
+colour one surface rung above the page ground.
 
 Skin captures wait two rendered frames after assets arrive, without a camera animation.
-Particle warm-up advances up to 0.8 seconds while assets load, stopping at the first visible
-burst, in batches capped at eight steps or two milliseconds per renderer per frame. A drained
-preview restarts after a quarter-second pause once every emitter's start time has passed.
-Texture requests fetch a single
-128-pixel mip rather than a chain for each still.
+Particle warm-up samples the system in batches capped at eight steps or two milliseconds per
+renderer per frame, and searches for the first drawn particle. A particle counts only when its
+emitter draws in a preview with no character, so an emitter that only spawns children, or one
+that draws the character it is attached to, counts for nothing. The search runs for at least
+two seconds and at most ten, and for one second past the last emitter's start. A found burst
+then settles until its oldest drawn particle is a third through its life, for at most 0.4
+seconds, and the capture counts its two frames from the end of the sample. A system with no
+drawn particle during its sample has no burst. A drained preview restarts after a
+quarter-second pause once every emitter's start time has passed. A preview draws the scene's
+depth pass whenever an emitter has a soft fade, as the object tab does, and resolves custom
+materials through the bin the system is read from. Texture requests fetch a single 128-pixel
+mip rather than a chain for each still.
 
-Two retained canvases load and render previews in parallel. Only visible rows and one overscan row
-request work, and a hovered particle takes priority. The grid keeps at most 128 stills,
-requests 128-pixel texture mips with two texture loads per preview at a time, and uses a 4,096-particle
-root pool without seek checkpoints. Full geometry is still required. Failed previews
-keep their kind glyph with a failure indicator and a retry action. A loading indicator marks
-active jobs. Hidden documents and background windows stop preview work.
+A preview ends in one of three outcomes. A still replaces the glyph. Nothing to preview
+keeps the glyph with no mark: a particle system with no emitters or no burst, a skin
+without a mesh or a skeleton, a material with no translated pass and no texture on this
+machine. A material with no translated pass draws its base texture on the lit sphere, or the
+first texture its passes name. A failure keeps the glyph with a failure mark. A job fails after
+fifteen seconds without progress, where progress is the bin opening and each asset load
+landing, so a large particle system still loading its textures is not failed. A throw from the
+simulation is a failure too. The toolbar counts the failures among the tiles on screen and
+offers to render them again. A tile's context menu retries that tile alone when it failed or
+when its particle system had no burst. Hovering a failed tile also tries it again. A save of a
+bin drops the stills of its objects.
+
+The objects document mounts two canvases above its grids, so a folder change, a search or a
+hidden tab keeps them and their compiled shader programs. An idle canvas stops drawing rather than
+unmounting. Only visible rows and one overscan row ask for stills, no new still starts
+during a scroll, and a played tile takes priority. Stills are kept for the session under the
+object, the project and the theme's ground, up to 512 of them. A still on screen is never
+evicted. The bin each preview reads stays open for ten seconds after its last preview, up to
+four bins, so objects of one file are parsed once. Previews draw at the display's pixel
+ratio, up to two. Texture requests take 128-pixel mips with two loads per preview at a time,
+and particles use a 4,096-particle root pool without seek checkpoints. Full geometry is still
+required. A loading indicator marks active jobs. Hidden documents and background windows stop
+preview work.
 
 ### A node with several declarations
 
@@ -3490,6 +3771,13 @@ the node row. A node only the project declares has no row. The tree's nodes are 
 An object row opens its declaration as an [object tab](BIN_EDITOR.md#the-object-tab): a
 preview on click, a pinned tab on double click, `Ctrl+Enter` beside. A directory row toggles on
 click. A node that is both opens on click, and expands from its caret or the Right arrow alone.
+
+The arrow keys, `Home` and `End` move the selection through the tree and the grid, and `Enter`
+opens the selection as a click does. A particle system the keyboard selection rests on for
+250 milliseconds opens as the preview tab, the way a click previews it, and focus stays in the
+browser, so the next key keeps browsing. Other kinds of object open only on `Enter`. With
+preview on click off, the keys only select. An open that splits the browser's group remounts
+the browser, and the selection is revealed and focused again.
 
 | Item              | Does                                               |
 | ----------------- | -------------------------------------------------- |

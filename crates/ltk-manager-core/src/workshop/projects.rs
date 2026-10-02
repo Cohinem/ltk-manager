@@ -1,7 +1,7 @@
 use super::text_files::write_default_readme;
 use super::{
     CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, ProjectDir,
-    SaveProjectConfigArgs, Workshop, WorkshopProject, is_valid_project_name,
+    ProjectKey, ProjectMetadata, Workshop, WorkshopProject, is_valid_project_name,
 };
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
@@ -9,53 +9,59 @@ use crate::events::{
     BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
 };
 use crate::hashtables::WadPathResolver;
+use crate::mods::fantome_layer::unpacked_layer_name;
 use crate::mods::long_paths::{self, ImportRoot};
+use crate::mods::{open_fantome, open_modpkg};
 use crate::utils::natural_order::compare_names;
 use fs_err as fs;
-use ltk_fantome::FantomeReader;
+use ltk_fantome::BASE_LAYER;
 use ltk_mod_project::fantome::FantomeImporter;
 use ltk_mod_project::modpkg::{ModpkgImportError, ModpkgImporter, read_project};
 use ltk_mod_project::{
     ImportError, ModMap, ModProject, ModProjectAuthor, ModProjectLayer, ModTag, ProjectImporter,
 };
-use ltk_modpkg::Modpkg;
+use std::collections::HashSet;
 use std::path::Path;
 
 impl Workshop {
-    /// Get all workshop projects from the configured workshop directory.
+    /// Every project the workshop knows: the workshop folder's children and the opened folders.
+    ///
+    /// An opened folder whose config is gone is left out, and
+    /// [`Workshop::opened_folders`] still lists it.
     pub fn get_projects(&self, config: &Config) -> AppResult<Vec<WorkshopProject>> {
-        let workshop_path = self.workshop_dir(config)?;
-
-        if !workshop_path.exists() {
-            return Ok(Vec::new());
-        }
-
         let mut projects = Vec::new();
+        let mut seen = HashSet::new();
 
-        for entry in fs::read_dir(&workshop_path)? {
-            let entry = entry?;
-            let path = entry.path();
+        if let Some(workshop_path) = config.workshop_path.as_deref()
+            && workshop_path.exists()
+        {
+            for entry in fs::read_dir(workshop_path)? {
+                let path = entry?.path();
+                if !path.is_dir() {
+                    continue;
+                }
 
-            if !path.is_dir() {
-                continue;
-            }
-
-            let Ok(project_dir) = ProjectDir::open(&path) else {
-                continue;
-            };
-            if project_dir.config_file().is_none() {
-                continue;
-            }
-
-            match project_dir.load() {
-                Ok(project) => projects.push(project),
-                Err(e) => {
-                    tracing::warn!("Skipping invalid project at {}: {}", path.display(), e);
+                if let Some(project) = load_listed(&path) {
+                    seen.insert(ProjectKey::of(&path));
+                    projects.push(project);
                 }
             }
         }
 
-        // Sort by last modified (newest first)
+        for path in self.registry().opened_paths() {
+            if !seen.insert(ProjectKey::of(&path)) {
+                continue;
+            }
+
+            if let Some(project) = load_listed(&path) {
+                projects.push(project);
+            }
+        }
+
+        let mut projects: Vec<_> = projects
+            .into_iter()
+            .map(|project| self.describe(config, project))
+            .collect();
         projects.sort_by_key(|p| std::cmp::Reverse(p.last_modified));
 
         Ok(projects)
@@ -117,19 +123,24 @@ impl Workshop {
     }
 
     /// Get a single workshop project by path.
-    pub fn get_project(&self, project_path: &str) -> AppResult<WorkshopProject> {
-        ProjectDir::open(project_path)?.load()
+    pub fn get_project(&self, config: &Config, project_path: &str) -> AppResult<WorkshopProject> {
+        let project = ProjectDir::open(project_path)?.load()?;
+        Ok(self.describe(config, project))
     }
 
-    /// Save project configuration changes.
-    pub fn save_config(&self, args: SaveProjectConfigArgs) -> AppResult<WorkshopProject> {
-        let project_dir = ProjectDir::open(&args.project_path)?;
+    /// Write `metadata` into the config of the project at `project_path`.
+    pub fn save_config(
+        &self,
+        project_path: &str,
+        metadata: ProjectMetadata,
+    ) -> AppResult<WorkshopProject> {
+        let project_dir = ProjectDir::open(project_path)?;
         let mut mod_project = project_dir.config()?;
 
-        mod_project.display_name = args.display_name;
-        mod_project.version = args.version;
-        mod_project.description = args.description;
-        mod_project.authors = args
+        mod_project.display_name = metadata.display_name;
+        mod_project.version = metadata.version;
+        mod_project.description = metadata.description;
+        mod_project.authors = metadata
             .authors
             .into_iter()
             .map(|a| match a.role {
@@ -137,9 +148,9 @@ impl Workshop {
                 None => ModProjectAuthor::Name(a.name),
             })
             .collect();
-        mod_project.tags = args.tags.into_iter().map(ModTag::from).collect();
-        mod_project.champions = args.champions;
-        mod_project.maps = args.maps.into_iter().map(ModMap::from).collect();
+        mod_project.tags = metadata.tags.into_iter().map(ModTag::from).collect();
+        mod_project.champions = metadata.champions;
+        mod_project.maps = metadata.maps.into_iter().map(ModMap::from).collect();
 
         project_dir.write_config(&mod_project)?;
 
@@ -181,7 +192,13 @@ impl Workshop {
         mod_project.name = new_name;
         new_dir.write_config(&mod_project)?;
 
-        new_dir.load()
+        let project = new_dir.load()?;
+        if self.registry().is_opened(&ProjectKey::of(old_dir.path())) {
+            self.registry()
+                .relocate(old_dir.path(), new_dir.path(), &project.display_name)?;
+        }
+
+        Ok(project)
     }
 
     /// Delete a workshop project.
@@ -194,6 +211,7 @@ impl Workshop {
         }
 
         fs::remove_dir_all(project_dir.path())?;
+        self.registry().forget(project_dir.path())?;
         Ok(())
     }
 
@@ -204,8 +222,22 @@ impl Workshop {
             .read_info()
             .map_err(|e| AppError::Fantome(format!("Failed to read META/info.json: {e}")))?;
 
-        let mut wad_files = reader.wad_names();
-        wad_files.sort_by(|a, b| compare_names(a, b));
+        let mut wads = reader.wad_names();
+        wads.sort_by(|a, b| {
+            (b.layer == BASE_LAYER)
+                .cmp(&(a.layer == BASE_LAYER))
+                .then_with(|| compare_names(&a.layer, &b.layer))
+                .then_with(|| compare_names(&a.name, &b.name))
+        });
+
+        /* A non-base layer's WAD is listed under the content path the import writes it to. */
+        let wad_files = wads
+            .into_iter()
+            .map(|wad| match wad.layer == BASE_LAYER {
+                true => wad.name,
+                false => format!("{}/{}", unpacked_layer_name(&info, &wad.layer), wad.name),
+            })
+            .collect();
 
         Ok(FantomePeekResult {
             suggested_name: slug::slugify(&info.name),
@@ -237,9 +269,9 @@ impl Workshop {
             return Err(AppError::ProjectAlreadyExists(args.name));
         }
 
-        // Ahead of the import rather than inside it, so an archive that cannot
-        // land at all fails through the call's own error instead of through a
-        // progress bar that opened and then reported an error with no reason.
+        // Checked before the import starts, so an archive that cannot be unpacked
+        // here fails with this call's error. Inside the import, the same failure
+        // would show only as a progress error with no reason.
         long_paths::preflight_fantome_import(
             Path::new(&args.file_path),
             &project_dir,
@@ -261,10 +293,10 @@ impl Workshop {
         result
     }
 
-    /// Unpack the archive into `project_dir` and load what landed there.
+    /// Unpack the archive into `project_dir` and load the result.
     ///
-    /// Split out so the caller owns the one cleanup path: every failure past
-    /// this point leaves a part-written directory to remove.
+    /// Separate so the caller holds the single cleanup path, since every failure
+    /// here leaves a part-written directory to remove.
     fn run_fantome_import(
         &self,
         project_dir: &Path,
@@ -304,10 +336,10 @@ impl Workshop {
     ) -> AppResult<WorkshopProject> {
         let workshop_path = self.workshop_dir(config)?;
 
-        // The package names the project and the name names the directory, so
-        // the metadata is read before the import has anywhere to write. Mounting
-        // decompresses that chunk alone, which is why reading it twice is cheap.
-        let mut modpkg = Modpkg::mount_from_reader(fs::File::open(file_path)?)?;
+        // The project name in the package is the directory name, so the metadata
+        // is read before the import. Mounting decompresses only the metadata
+        // chunk, so reading the package twice is cheap.
+        let mut modpkg = open_modpkg(Path::new(file_path))?;
         let name = read_project(&mut modpkg)?.name;
 
         let project_dir = workshop_path.join(&name);
@@ -315,16 +347,16 @@ impl Workshop {
             return Err(AppError::ProjectAlreadyExists(name));
         }
 
-        // The destination is the package's own name rather than a slug this
-        // side chose, so how long it is only becomes knowable here.
+        // The destination uses the package's own name, so its path length is
+        // known only after the metadata is read.
         long_paths::preflight_modpkg_import(&modpkg, &project_dir, ImportRoot::Workshop)?;
         drop(modpkg);
 
         if let Err(e) = ProjectImporter::new(project_dir.try_as_utf8("project directory")?)
             .import(ModpkgImporter::new(fs::File::open(file_path)?))
         {
-            // The driver created the directory before the package failed to
-            // decode, and removing what it half-wrote is the caller's.
+            // The driver creates the directory before decoding the package, so
+            // the caller removes the partial output.
             let _ = fs::remove_dir_all(&project_dir);
             return Err(modpkg_import_error(e));
         }
@@ -373,7 +405,7 @@ impl Workshop {
             let mut archive = tar::Archive::new(decoder);
             archive.unpack(&temp_dir)?;
 
-            // GitHub tarballs extract to "{repo}-{branch}/" — find the single top-level directory
+            // GitHub tarballs extract to "{repo}-{branch}/", a single top-level directory
             let mut entries = fs::read_dir(&temp_dir)?;
             let extracted_dir = entries
                 .next()
@@ -436,10 +468,24 @@ impl Workshop {
     }
 }
 
-/// Give a project this side just made its starter files, and read it back.
+/// Load the project at `path` for the listing, or `None` when it has no config or does not load.
+fn load_listed(path: &Path) -> Option<WorkshopProject> {
+    let project_dir = ProjectDir::open(path).ok()?;
+    project_dir.config_file()?;
+
+    match project_dir.load() {
+        Ok(project) => Some(project),
+        Err(e) => {
+            tracing::warn!("Skipping invalid project at {}: {}", path.display(), e);
+            None
+        }
+    }
+}
+
+/// Write the starter files into a newly created project and load it.
 ///
-/// A git import does not come here. The repository carries whatever its author
-/// chose, including no ignore rules at all.
+/// A git import skips this and keeps the repository's own files, which may
+/// include no ignore rules.
 fn start_project(project_dir: impl AsRef<Path>) -> AppResult<WorkshopProject> {
     let dir = ProjectDir::open(project_dir.as_ref())?;
     dir.write_default_ignore_rules()?;
@@ -477,21 +523,15 @@ fn parse_github_url(url: &str) -> AppResult<(String, String)> {
     Ok((parts[0].to_string(), parts[1].to_string()))
 }
 
-/// Keep a failed modpkg import reading as a modpkg failure.
+/// The [`AppError`] for a failed modpkg import, with a modpkg error kept as [`AppError::Modpkg`].
 ///
-/// The driver wraps the format's own error, and flattening the whole thing to
-/// [`AppError::Other`] would cost the frontend the error kind it routes on.
+/// The driver wraps the format's error. Mapping all of it to [`AppError::Other`]
+/// would lose the error kind the frontend routes on.
 fn modpkg_import_error(error: ImportError<ModpkgImportError>) -> AppError {
     match error {
         ImportError::Format(ModpkgImportError::Modpkg(e)) => AppError::Modpkg(e),
         other => AppError::Other(format!("Failed to import modpkg archive: {other}")),
     }
-}
-
-/// Open a `.fantome` for reading, naming the archive in the failure.
-fn open_fantome(path: &Path) -> AppResult<FantomeReader<fs::File>> {
-    FantomeReader::new(fs::File::open(path)?)
-        .map_err(|e| AppError::Fantome(format!("Failed to open {}: {e}", path.display())))
 }
 
 #[cfg(test)]

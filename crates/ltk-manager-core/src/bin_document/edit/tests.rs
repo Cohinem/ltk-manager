@@ -4,8 +4,9 @@
 use std::num::NonZeroUsize;
 
 use super::*;
-use crate::bin_document::{BinDocuments, wire_key};
+use crate::bin_document::{BinDocuments, key_text};
 use crate::error::AppError;
+use crate::sandbox::SandboxRef;
 use ltk_meta::Bin;
 use ltk_meta::property::PropertyValueEnum;
 
@@ -205,7 +206,7 @@ fn every_leaf_kind_takes_a_value_of_its_kind() {
             format!(
                 "{}{{{}}}",
                 field("map"),
-                wire_key(&values::Hash::new(h("key")).into())
+                key_text(&values::Hash::new(h("key")).into())
             ),
             LeafValue::Integer {
                 text: "5".to_owned(),
@@ -608,7 +609,7 @@ fn a_legacy_numbered_base_refuses_save_and_keeps_edits() {
 }
 
 #[test]
-fn only_a_prop_of_a_layer_takes_edits() {
+fn a_file_kind_gates_edits_and_a_game_chunk_leaves_it_to_the_sandbox() {
     let layer = AssetRef::Layer {
         project: "p".to_owned(),
         layer: "base".to_owned(),
@@ -617,7 +618,6 @@ fn only_a_prop_of_a_layer_takes_edits() {
     let chunk = AssetRef::GameChunk {
         wad: "Champions/Aatrox.wad.client".to_owned(),
         path_hash: "0000000000000001".to_owned(),
-        project: None,
     };
     let loose = AssetRef::File {
         path: "a.bin".to_owned(),
@@ -625,7 +625,7 @@ fn only_a_prop_of_a_layer_takes_edits() {
 
     let prop = document();
     assert_eq!(prop.read_only(&layer), None);
-    assert_eq!(prop.read_only(&chunk), Some(ReadOnly::Install));
+    assert_eq!(prop.read_only(&chunk), None);
     assert_eq!(prop.read_only(&loose), Some(ReadOnly::Loose));
 
     let mut out = Cursor::new(Vec::new());
@@ -638,19 +638,38 @@ fn only_a_prop_of_a_layer_takes_edits() {
 }
 
 #[test]
+fn the_store_refuses_a_client_chunk_without_reading_it() {
+    let store = BinDocuments::new(NonZeroUsize::new(2).unwrap());
+    let chunk = AssetRef::LcuChunk {
+        wad: "rcp-fe-lol-loot/assets.wad".to_owned(),
+        path_hash: "0000000000000001".to_owned(),
+    };
+
+    let opened = store.open(&SandboxRef::Game, chunk, || {
+        panic!("a refused asset is never read")
+    });
+
+    assert!(matches!(
+        opened,
+        Err(AppError::BinDocument(BinDocumentError::LcuChunk))
+    ));
+}
+
+#[test]
 fn the_store_refuses_a_patch_behind_a_gate_and_shares_one_across_ids() {
     let store = BinDocuments::new(NonZeroUsize::new(2).unwrap());
     let loose = AssetRef::File {
         path: "a.bin".to_owned(),
     };
-    let id = store.open(loose, || Ok(bytes_of(&bin()))).unwrap();
+    let id = store
+        .open(&SandboxRef::Game, loose, || Ok(bytes_of(&bin())))
+        .unwrap();
     assert!(matches!(
-        store.patch(
-            id,
+        store.edit(id, |open| open.set_leaf(
             edited(),
             &field("scale"),
             LeafValue::Float { value: 4.0 }
-        ),
+        )),
         Err(BinDocumentError::ReadOnly(ReadOnly::Loose))
     ));
     assert_eq!(store.read_only(id).unwrap(), Some(ReadOnly::Loose));
@@ -670,16 +689,13 @@ fn the_store_refuses_a_patch_behind_a_gate_and_shares_one_across_ids() {
         path: "a.bin".to_owned(),
     };
     let read = || layer.read(&crate::config::Config::default(), &Default::default());
-    let file_tab = store.open(layer.clone(), read).unwrap();
-    let object_tab = store.open(layer.clone(), read).unwrap();
+    let file_tab = store.open(&SandboxRef::Game, layer.clone(), read).unwrap();
+    let object_tab = store.open(&SandboxRef::Game, layer.clone(), read).unwrap();
 
     store
-        .patch(
-            file_tab,
-            edited(),
-            &field("scale"),
-            LeafValue::Float { value: 4.0 },
-        )
+        .edit(file_tab, |open| {
+            open.set_leaf(edited(), &field("scale"), LeafValue::Float { value: 4.0 })
+        })
         .unwrap();
     let seen = store
         .read(object_tab, |open| {
@@ -771,14 +787,22 @@ fn a_full_store_evicts_a_clean_tree_and_grows_past_a_dirty_one() {
     let second = layer_asset(dir.path(), "b.bin");
     let third = layer_asset(dir.path(), "c.bin");
 
-    let a = store.open(first.clone(), || read_layer(&first)).unwrap();
-    let b = store.open(second.clone(), || read_layer(&second)).unwrap();
+    let a = store
+        .open(&SandboxRef::Game, first.clone(), || read_layer(&first))
+        .unwrap();
+    let b = store
+        .open(&SandboxRef::Game, second.clone(), || read_layer(&second))
+        .unwrap();
     store
-        .patch(a, edited(), &field("scale"), float(4.0))
+        .edit(a, |open| {
+            open.set_leaf(edited(), &field("scale"), float(4.0))
+        })
         .unwrap();
     store.read(a, |_| Ok(())).unwrap();
 
-    let c = store.open(third.clone(), || read_layer(&third)).unwrap();
+    let c = store
+        .open(&SandboxRef::Game, third.clone(), || read_layer(&third))
+        .unwrap();
     assert!(
         store.is_open(a),
         "the dirty tree stays, though it was used before the clean one"
@@ -787,10 +811,14 @@ fn a_full_store_evicts_a_clean_tree_and_grows_past_a_dirty_one() {
     assert!(store.is_open(c));
 
     store
-        .patch(c, edited(), &field("scale"), float(4.0))
+        .edit(c, |open| {
+            open.set_leaf(edited(), &field("scale"), float(4.0))
+        })
         .unwrap();
     let fourth = layer_asset(dir.path(), "d.bin");
-    let d = store.open(fourth.clone(), || read_layer(&fourth)).unwrap();
+    let d = store
+        .open(&SandboxRef::Game, fourth.clone(), || read_layer(&fourth))
+        .unwrap();
     assert!(
         store.is_open(a) && store.is_open(c) && store.is_open(d),
         "a store of dirty trees grows rather than drop one"
@@ -802,9 +830,13 @@ fn a_reload_reads_the_file_again_and_drops_the_edits() {
     let dir = tempfile::tempdir().unwrap();
     let store = BinDocuments::default();
     let asset = layer_asset(dir.path(), "a.bin");
-    let id = store.open(asset.clone(), || read_layer(&asset)).unwrap();
+    let id = store
+        .open(&SandboxRef::Game, asset.clone(), || read_layer(&asset))
+        .unwrap();
     store
-        .patch(id, edited(), &field("scale"), float(4.0))
+        .edit(id, |open| {
+            open.set_leaf(edited(), &field("scale"), float(4.0))
+        })
         .unwrap();
 
     store.reload(id, read_layer).unwrap();
@@ -816,5 +848,55 @@ fn a_reload_reads_the_file_again_and_drops_the_edits() {
             Ok(())
         })
         .unwrap();
-    assert!(!store.undo(id).unwrap(), "a reload drops the undo stack");
+    assert_eq!(
+        store.step(id, HistoryStep::Undo).unwrap(),
+        None,
+        "a reload drops the undo stack"
+    );
+}
+
+#[test]
+fn closing_every_id_keeps_a_tree_with_unsaved_edits_for_the_next_open() {
+    let store = BinDocuments::default();
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("content/base")).unwrap();
+    fs::write(dir.path().join("content/base/a.bin"), bytes_of(&bin())).unwrap();
+    let layer = AssetRef::Layer {
+        project: dir.path().to_string_lossy().into_owned(),
+        layer: "base".to_owned(),
+        path: "a.bin".to_owned(),
+    };
+    let read = || layer.read(&crate::config::Config::default(), &Default::default());
+    let edited_tab = store.open(&SandboxRef::Game, layer.clone(), read).unwrap();
+    store
+        .edit(edited_tab, |open| {
+            open.set_leaf(edited(), &field("scale"), float(4.0))
+        })
+        .unwrap();
+    let loose = AssetRef::File {
+        path: "b.bin".to_owned(),
+    };
+    let clean_tab = store
+        .open(&SandboxRef::Game, loose.clone(), || Ok(bytes_of(&bin())))
+        .unwrap();
+
+    store.close_all();
+
+    assert!(!store.is_open(edited_tab));
+    assert!(!store.is_open(clean_tab));
+    let reopened = store
+        .open(&SandboxRef::Game, layer, || {
+            panic!("the edited tree was parsed again")
+        })
+        .unwrap();
+    let seen = store.read(reopened, |open| Ok(scale_of(open))).unwrap();
+    assert_eq!(seen, values::F32::new(4.0).into());
+    let parses = std::cell::Cell::new(0);
+    store
+        .open(&SandboxRef::Game, loose, || {
+            parses.set(parses.get() + 1);
+            Ok(bytes_of(&bin()))
+        })
+        .unwrap();
+    assert_eq!(parses.get(), 1, "the clean tree left the store");
 }

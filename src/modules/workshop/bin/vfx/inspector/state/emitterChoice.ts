@@ -4,6 +4,7 @@ import type { BinDocumentId, BinRow } from "@/lib/tauri";
 
 import type { LayoutPages } from "../../../classes/components/ClassCells";
 import type { LayoutFrame, PlacedSection } from "../../../classes/utils/classLayouts";
+import { rowKey } from "../../../tree/utils/binRows";
 import { useValueMarks } from "../../../values/hooks/useValueMarks";
 import type { CurveRead, ValueMark } from "../../../values/utils/valueRows";
 import {
@@ -88,6 +89,7 @@ export interface EmitterChoice {
 const NO_GROUPS: readonly GroupedRows[] = [];
 const NO_MARKED: readonly BinRow[] = [];
 const NO_OPEN_ROWS: ReadonlySet<string> = new Set();
+const NO_KEYS: ReadonlySet<string> = new Set();
 
 const NO_EMITTERS: EmitterChoice = {
   cards: NO_CARDS,
@@ -242,7 +244,20 @@ export function useEmitterChoice(
     [cards, shown, sections],
   );
 
-  const spark = useMemo(() => rowsOf(shown, sections, (each) => each.seen), [shown, sections]);
+  /* A row read for its curve stays read, so a section scrolled back into view draws the
+     marks it had rather than the shallower ones until the next read answers. */
+  const seen = useMemo(
+    () => rowsOf(shown, sections, (each) => each.seen).map(rowKey),
+    [shown, sections],
+  );
+  const [curveRead, setCurveRead] = useState<ReadonlySet<string>>(NO_KEYS);
+  if (seen.some((key) => !curveRead.has(key))) {
+    setCurveRead(new Set([...curveRead, ...seen]));
+  }
+  const spark = useMemo(
+    () => rowsOf(shown, sections, (each) => each.drawn).filter((row) => curveRead.has(rowKey(row))),
+    [shown, sections, curveRead],
+  );
 
   return useMemo(
     () => ({

@@ -4,6 +4,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { InstalledMod } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { createMockInstalledMod } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 
@@ -182,26 +183,9 @@ describe("useModCardController reveal", () => {
 
     await act(async () => view.current.onOpenLocation());
 
-    expect(mockInvoke).toHaveBeenCalledWith("reveal_in_explorer", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.desktop.revealInExplorer, {
       path: "/storage/mods/test-mod",
     });
-  });
-});
-
-/* The menu is the only way to act on a mod that cannot be switched on, so
-   being unusable cannot be what closes it. */
-describe("useModCardController menu", () => {
-  it("leaves a healthy mod's menu open", () => {
-    const result = mount(createMockInstalledMod({ id: "a" }));
-
-    expect(result.current.menuDisabled).toBe(false);
-  });
-
-  it("leaves the menu open while a selection exists", () => {
-    selectionState.selectedIds = new Set(["b"]);
-    const result = mount(createMockInstalledMod({ id: "a" }));
-
-    expect(result.current.menuDisabled).toBe(false);
   });
 });
 

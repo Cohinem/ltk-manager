@@ -66,11 +66,11 @@ export const SANS_FACES = {
 } satisfies Record<string, Face>;
 
 export const MONO_FACES = {
-  geist: { label: "Geist Mono", family: "Geist Mono Variable" },
-  jetbrains: {
-    label: "JetBrains Mono",
-    family: "JetBrains Mono Variable",
-    load: () => import("@fontsource-variable/jetbrains-mono"),
+  jetbrains: { label: "JetBrains Mono", family: "JetBrains Mono Variable" },
+  geist: {
+    label: "Geist Mono",
+    family: "Geist Mono Variable",
+    load: () => import("@fontsource-variable/geist-mono"),
   },
   fira: {
     label: "Fira Code",

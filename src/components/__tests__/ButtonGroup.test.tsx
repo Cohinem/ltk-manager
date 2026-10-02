@@ -12,20 +12,28 @@ import { ButtonGroup, IconButton, Menu } from "@/components";
 function renderGroup(open: boolean) {
   render(
     <ButtonGroup>
-      <IconButton icon={<span>+</span>} variant="filled" size="sm" aria-label="New project" />
+      <IconButton
+        compact={false}
+        icon={<span>+</span>}
+        variant="filled"
+        size="sm"
+        aria-label="New project"
+      />
       <Menu.Root open={open}>
         <Menu.Trigger
           render={
-            <IconButton icon={<span>v</span>} variant="filled" size="sm" aria-label="Import" />
+            <IconButton
+              compact={false}
+              icon={<span>v</span>}
+              variant="filled"
+              size="sm"
+              aria-label="Import"
+            />
           }
         />
-        <Menu.Portal>
-          <Menu.Positioner>
-            <Menu.Popup>
-              <Menu.Item>From Fantome</Menu.Item>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content>
+          <Menu.Item>From Fantome</Menu.Item>
+        </Menu.Content>
       </Menu.Root>
     </ButtonGroup>,
   );

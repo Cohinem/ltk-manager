@@ -91,7 +91,6 @@ fn a_group_carries_the_class_and_the_asset_of_every_object_in_it() {
         AssetRef::GameChunk {
             wad: "Aatrox.wad.client".to_owned(),
             path_hash: hex_name(WadHash::hash_str("data/resources.bin")),
-            project: None,
         }
     );
     let object = &group.objects[0];
@@ -105,6 +104,14 @@ fn a_group_carries_the_class_and_the_asset_of_every_object_in_it() {
         object.class_hash,
         hex(BinHash::hash_str("ResourceResolver"))
     );
+}
+
+#[test]
+fn a_class_counts_the_objects_that_declare_it() {
+    let (_tmp, index) = install();
+
+    assert_eq!(index.class_object_count(BinHash::hash_str(SKIN)), 3);
+    assert_eq!(index.class_object_count(BinHash::hash_str("MapData")), 0);
 }
 
 #[test]

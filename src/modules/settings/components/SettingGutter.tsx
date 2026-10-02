@@ -73,53 +73,49 @@ export function SettingGutter({ setting, target, className, children }: SettingG
           aria-label={m.settings_target_actions_label({ name: entry.title })}
           onClick={() => setPointer(null)}
           className={twMerge(
-            "absolute top-0.5 -left-7 flex h-5 w-5 items-center justify-center rounded-md",
+            "absolute top-0.5 -left-7 flex size-5 items-center justify-center rounded-md",
             "text-surface-400 opacity-0 transition-opacity hover:bg-surface-veil hover:text-surface-200",
             "group-focus-within/setting:opacity-100 group-hover/setting:opacity-100",
             "data-[popup-open]:opacity-100",
           )}
         >
-          <GearSixIcon className="h-3.5 w-3.5" />
+          <GearSixIcon className="size-3.5" />
         </Menu.Trigger>
 
         {children}
       </div>
 
-      <Menu.Portal>
-        <Menu.Positioner side="bottom" align="start" anchor={pointer ?? undefined}>
-          <Menu.Popup>
-            {resettable && (
-              <Menu.Item
-                disabled={!changed}
-                icon={<ArrowCounterClockwiseIcon className="h-4 w-4" />}
-                onClick={reset}
-              >
-                {m.settings_property_reset_action()}
-              </Menu.Item>
-            )}
-            {label && (
-              <div className="px-2 pt-1 pb-0.5 text-xs text-surface-400 select-none">
-                {m.settings_property_default_label({ value: label })}
-              </div>
-            )}
-            {resettable && <Menu.Separator />}
-            <Menu.Item
-              icon={<CopyIcon className="h-4 w-4" />}
-              onClick={() => void copy(entry.id, copyIdLabel)}
-            >
-              {setting === undefined && m.settings_target_copy_id_action()}
-              {setting !== undefined && m.settings_property_copy_id_action()}
-            </Menu.Item>
-            <Menu.Item
-              icon={<LinkIcon className="h-4 w-4" />}
-              onClick={() => void copy(settingLink(entry.id), copyLinkLabel)}
-            >
-              {setting === undefined && m.settings_target_copy_link_action()}
-              {setting !== undefined && m.settings_property_copy_link_action()}
-            </Menu.Item>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content side="bottom" align="start" anchor={pointer ?? undefined}>
+        {resettable && (
+          <Menu.Item
+            disabled={!changed}
+            icon={<ArrowCounterClockwiseIcon className="size-4" />}
+            onClick={reset}
+          >
+            {m.settings_property_reset_action()}
+          </Menu.Item>
+        )}
+        {label && (
+          <div className="px-2 pt-1 pb-0.5 text-xs text-surface-400 select-none">
+            {m.settings_property_default_label({ value: label })}
+          </div>
+        )}
+        {resettable && <Menu.Separator />}
+        <Menu.Item
+          icon={<CopyIcon className="size-4" />}
+          onClick={() => void copy(entry.id, copyIdLabel)}
+        >
+          {setting === undefined && m.settings_target_copy_id_action()}
+          {setting !== undefined && m.settings_property_copy_id_action()}
+        </Menu.Item>
+        <Menu.Item
+          icon={<LinkIcon className="size-4" />}
+          onClick={() => void copy(settingLink(entry.id), copyLinkLabel)}
+        >
+          {setting === undefined && m.settings_target_copy_link_action()}
+          {setting !== undefined && m.settings_property_copy_link_action()}
+        </Menu.Item>
+      </Menu.Content>
     </Menu.Root>
   );
 }

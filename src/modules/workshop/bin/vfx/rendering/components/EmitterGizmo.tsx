@@ -1,6 +1,6 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo, useRef } from "react";
-import type { BufferAttribute, BufferGeometry } from "three";
+import type { BufferAttribute, BufferGeometry, Color } from "three";
 
 import { useSceneColors } from "@/modules/viewport";
 
@@ -17,6 +17,8 @@ export interface EmitterGizmoProps {
   readonly driver: Driver;
   /** The emitter the strip has open, of the opened system. */
   readonly emitter: EmitterModel;
+  /** The lines' colour, the gizmo's where unset. */
+  readonly color?: Color;
 }
 
 /**
@@ -26,7 +28,7 @@ export interface EmitterGizmoProps {
  * birth is placed through, so what it draws is where the next particle lands. It is read
  * every frame, since the origin rides the rig and the offset rides the emitter's life.
  */
-export function EmitterGizmo({ system, driver, emitter }: EmitterGizmoProps) {
+export function EmitterGizmo({ system, driver, emitter, color }: EmitterGizmoProps) {
   const colors = useSceneColors();
   const positions = useMemo(() => new Float32Array(SEGMENTS * 6), []);
   const world = useMemo(() => worldOf(system), [system]);
@@ -53,7 +55,7 @@ export function EmitterGizmo({ system, driver, emitter }: EmitterGizmoProps) {
       <bufferGeometry ref={geometry}>
         <bufferAttribute ref={attribute} attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <lineBasicMaterial color={colors.gizmo} />
+      <lineBasicMaterial color={color ?? colors.gizmo} />
     </lineSegments>
   );
 }

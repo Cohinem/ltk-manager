@@ -2,11 +2,7 @@ import {
   AlwaysDepth,
   BackSide,
   ClampToEdgeWrapping,
-  CubeTexture,
   CustomBlending,
-  Data3DTexture,
-  DataArrayTexture,
-  DataTexture,
   type DepthModes,
   DoubleSide,
   DstColorFactor,
@@ -25,7 +21,6 @@ import {
   MirroredRepeatWrapping,
   NearestFilter,
   NearestMipmapNearestFilter,
-  NeverDepth,
   NoBlending,
   NotEqualDepth,
   OneFactor,
@@ -33,13 +28,11 @@ import {
   OneMinusSrcAlphaFactor,
   OneMinusSrcColorFactor,
   RawShaderMaterial,
-  RedIntegerFormat,
   RepeatWrapping,
   type Side,
   SrcAlphaFactor,
   SrcColorFactor,
   type Texture,
-  UnsignedIntType,
   type Wrapping,
   ZeroFactor,
 } from "three";
@@ -51,20 +44,32 @@ import type {
   ProgramRead,
   ResolvedPass,
   Sidecar,
+  StageProgram,
   TextureDimension,
   UniformBlock,
   Wrap,
 } from "@/lib/tauri";
 
+import { type BlockElement, elementView, floatsOf } from "./blockViews";
 import type { EngineEnvironment } from "./engineEnvironment";
+import { BLACK, GREY, neutral } from "./neutralTextures";
+import {
+  type MemberSlot,
+  splicePixelProgram,
+  spliceVertexProgram,
+  type StageSlots,
+  type VertexPrelude,
+} from "./vertexPrelude";
 
 /** A pass whose two stages translated. */
 export type ReadyProgram = Extract<ProgramRead, { kind: "ready" }>;
 
-/** What one submesh draws with under the game's own shader. */
+/** One pass a submesh draws with under the game's own shader. */
 export interface SubmeshProgram<T = Texture> {
   /** The material's path hash, which a value held in its inspector is addressed by. */
   readonly material: string;
+  /** The pass's place in the material's technique, which the passes draw in. */
+  readonly index: number;
   readonly pass: ResolvedPass;
   readonly program: ReadyProgram;
   /** The textures the pass names that this machine holds, by the shader texture's name. */
@@ -76,6 +81,12 @@ const MATERIAL_TEXTURE = "__TX";
 
 /** The suffix an engine-filled texture carries, which the environment binds neutral. */
 const SHARED_TEXTURE = "_SharedTexture";
+
+/** The engine's copy of the frame, which a distortion samples at a screen coordinate. */
+export const SCREEN_COPY = "SAMPLER_BACK_BUFFER_COPY_SharedTexture";
+
+/** The function the splice reads `SCREEN_COPY` through. */
+const SCREEN_COPY_READ = "hexshade_screenCopy";
 
 /** The block the material's own parameters and switches are packed into. */
 const GLOBALS = "$Globals";
@@ -104,6 +115,7 @@ const SHARED_NO_MIP = "No_Mip";
 
 const FLOAT_BYTES = 4;
 const VEC4_FLOATS = 4;
+const REGISTER_BYTES = 16;
 
 /** The `writeMask` bit that writes depth, and the four that write colour. */
 const WRITE_DEPTH = 16;
@@ -123,9 +135,12 @@ const BLEND_FACTORS = {
 /**
  * `depthCompareFunc` as three's depth modes, the D3D comparison enum less one, which is
  * what the class default of 3 being less-or-equal says. Inferred from that one value.
+ *
+ * 0 reads as the default rather than as never: the VFX materials that write it, such as
+ * `HKG_Eyes_Blink_Mat`, draw in the game.
  */
 const DEPTH_MODES: readonly DepthModes[] = [
-  NeverDepth,
+  LessEqualDepth,
   LessDepth,
   EqualDepth,
   LessEqualDepth,
@@ -146,27 +161,35 @@ const WRAPPING: Record<Wrap, Wrapping> = {
 /**
  * `program` as a material three draws, bound to `environment`'s buffers.
  *
- * The GLSL arrives with its own `#version`, which three writes itself. Every engine
- * block of either stage is one of the environment's `UniformsGroup`s. The material's own
- * `$Globals` is a plain `vec4` array uniform instead, packed from its parameters and
- * runtime switches at the sidecar's offsets, because three uploads a group once per
- * frame and the block carries what changes per draw. Each combined sampler is bound to
- * the texture of its name, a neutral grey where the pass names none this machine holds,
- * and transparent black for the engine's shared ones, which the remap ramp then leaves
- * alone.
+ * The GLSL carries a `#version` line, and three writes that line itself. Every engine
+ * block of either stage reads the environment's bytes through its `BufferBinding`. The
+ * material's `$Globals` is a plain `vec4` array uniform under either binding, packed
+ * from its parameters and runtime switches at the sidecar's offsets. Each combined
+ * sampler is bound to the texture of its name. A texture this machine does not have is
+ * a neutral grey, and an engine shared texture is transparent black, which the remap
+ * ramp leaves unchanged. A `prelude` computes the vertex stage's inputs, where the
+ * geometry carries other attributes than the engine's, and the members it names in place of
+ * the bound ones.
  */
 export function createProgramMaterial(
   program: SubmeshProgram,
   environment: EngineEnvironment,
+  prelude: VertexPrelude | null = null,
 ): RawShaderMaterial {
   const { pass, program: ready } = program;
-  const vertex = globalsAsUniform(ready.vertex.glsl);
-  const pixel = globalsAsUniform(ready.pixel.glsl);
+  const vertex = inlinedStage(ready.vertex, environment);
+  const pixel = inlinedStage(ready.pixel, environment);
+  const slots: StageSlots = {
+    vertex: prelude === null ? [] : memberSlots(ready.vertex.sidecar, vertex.blocks, prelude),
+    pixel: prelude === null ? [] : memberSlots(ready.pixel.sidecar, pixel.blocks, prelude),
+  };
+  const vertexSource =
+    prelude === null ? vertex.source : spliceVertexProgram(vertex.source, prelude, slots);
   const material = new RawShaderMaterial({
     name: pass.shader ?? "",
     glslVersion: GLSL3,
-    vertexShader: withoutVersion(vertex.source),
-    fragmentShader: withoutVersion(pixel.source),
+    vertexShader: withoutVersion(vertexSource),
+    fragmentShader: withoutVersion(withScreenCopy(splicePixelProgram(pixel.source, slots.pixel))),
   });
   /* GL feeds an input the geometry lacks as (0, 0, 0, 1), which draws a shader reading a
      vertex colour black. A white colour and a zero coordinate are what an absent stream
@@ -176,23 +199,31 @@ export function createProgramMaterial(
   const members = new Map<string, GlobalsMember[]>();
   const samplers = new Map<string, string[]>();
   const uniforms: Record<string, IUniform> = material.uniforms;
-  const stages: readonly (readonly [Sidecar, number])[] = [
-    [ready.vertex.sidecar, vertex.extent],
-    [ready.pixel.sidecar, pixel.extent],
+  const stages: readonly (readonly [Sidecar, ReadonlyMap<string, InlinedBlock>])[] = [
+    [ready.vertex.sidecar, vertex.blocks],
+    [ready.pixel.sidecar, pixel.blocks],
   ];
-  material.uniformsGroups = stages.flatMap(([sidecar, extent]) => {
+  material.uniformsGroups = stages.flatMap(([sidecar, inlined]) => {
     for (const binding of sidecar.textures) {
       const held = samplers.get(binding.name) ?? [];
-      held.push(...binding.samplers.map((sampler) => sampler.glslName));
+      held.push(...samplerNames(binding));
       samplers.set(binding.name, held);
     }
     return sidecar.blocks.flatMap((block) => {
-      if (block.name !== GLOBALS) return [environment.group(block)];
-      /* As long as the array the stage declares, which drops the unused tail the
-         translation drops, since GL takes exactly the array's length. */
-      const data = new Float32Array(extent * VEC4_FLOATS);
+      const declared = inlined.get(block.glslName);
+      if (block.name !== GLOBALS) {
+        if (environment.binding === "group") return [environment.group(block)];
+        if (declared !== undefined) {
+          uniforms[block.glslName] = { value: environment.array(block, declared) };
+        }
+        return [];
+      }
+
+      /* The length the stage declares, without the unused tail the translation cuts.
+         GL takes exactly the array's length. */
+      const data = new Float32Array((declared?.extent ?? 0) * VEC4_FLOATS);
       data.set(globalsData(block, pass).subarray(0, data.length));
-      uniforms[block.glslName] = { value: data };
+      uniforms[block.glslName] = { value: elementView(data, declared?.element ?? "vec4") };
       for (const member of block.members) {
         const held = members.get(member.name) ?? [];
         held.push({ block: block.glslName, offset: member.offset / FLOAT_BYTES });
@@ -205,6 +236,78 @@ export function createProgramMaterial(
   bindProgramTextures(material, program);
   applyPassState(material, pass.state);
   return material;
+}
+
+/**
+ * `program` as a material with every block of both stages an array uniform, for a caller that
+ * fills each block itself rather than through a pass and an environment.
+ *
+ * Every member of every block is writable by its engine name through `writeProgramMember`,
+ * and every texture binds by the bytecode's name through `bindProgramTexture`. Blending,
+ * depth and culling are left at three's defaults for the caller to set.
+ */
+export function createInlinedProgramMaterial(
+  program: ReadyProgram,
+  name: string,
+): RawShaderMaterial {
+  const stages = [program.vertex, program.pixel].map((stage) => ({
+    sidecar: stage.sidecar,
+    inlined: blocksAsUniforms(
+      stage.glsl,
+      new Set(stage.sidecar.blocks.map((block) => block.glslName)),
+    ),
+  }));
+  const [vertex, pixel] = stages;
+  const material = new RawShaderMaterial({
+    name,
+    glslVersion: GLSL3,
+    vertexShader: withoutVersion(vertex?.inlined.source ?? ""),
+    fragmentShader: withoutVersion(pixel?.inlined.source ?? ""),
+  });
+  material.defaultAttributeValues = { ...material.defaultAttributeValues, ...ABSENT_ATTRIBUTES };
+
+  const members = new Map<string, GlobalsMember[]>();
+  const samplers = new Map<string, string[]>();
+  const uniforms: Record<string, IUniform> = material.uniforms;
+  for (const { sidecar, inlined } of stages) {
+    for (const binding of sidecar.textures) {
+      const held = samplers.get(binding.name) ?? [];
+      held.push(...samplerNames(binding));
+      samplers.set(binding.name, held);
+      for (const sampler of samplerNames(binding)) {
+        uniforms[sampler] = { value: neutral(binding.dimension, BLACK) };
+      }
+    }
+
+    for (const block of sidecar.blocks) {
+      const declared = inlined.blocks.get(block.glslName);
+      if (declared === undefined) continue;
+
+      const data = new Float32Array(declared.extent * VEC4_FLOATS);
+      uniforms[block.glslName] = { value: elementView(data, declared.element) };
+      for (const member of block.members) {
+        const held = members.get(member.name) ?? [];
+        held.push({ block: block.glslName, offset: member.offset / FLOAT_BYTES });
+        members.set(member.name, held);
+      }
+    }
+  }
+  GLOBALS_OF.set(material, { members, samplers });
+  return material;
+}
+
+/** Every sampler `material` reads the bytecode's texture `name` through, bound to `texture`. */
+export function bindProgramTexture(
+  material: RawShaderMaterial,
+  name: string,
+  texture: Texture,
+): void {
+  const uniforms: Record<string, IUniform> = material.uniforms;
+  for (const sampler of GLOBALS_OF.get(material)?.samplers.get(name) ?? []) {
+    const held = uniforms[sampler];
+    if (held === undefined) uniforms[sampler] = { value: texture };
+    else held.value = texture;
+  }
 }
 
 /** Where a draw can write over what a program material packed into `$Globals`. */
@@ -228,6 +331,12 @@ export function programGlobals(material: Material): ProgramGlobals | undefined {
   return GLOBALS_OF.get(material);
 }
 
+/** Point `to` at the `$Globals` of `from`, for a material drawing over its uniforms. */
+export function shareProgramGlobals(from: Material, to: Material): void {
+  const globals = GLOBALS_OF.get(from);
+  if (globals !== undefined) GLOBALS_OF.set(to, globals);
+}
+
 /**
  * Every sampler of `material` bound to the texture `program` holds for it, which lands
  * a texture that arrived after the material was made.
@@ -237,13 +346,25 @@ export function bindProgramTextures(material: RawShaderMaterial, program: Submes
   for (const sidecar of [program.program.vertex.sidecar, program.program.pixel.sidecar]) {
     for (const binding of sidecar.textures) {
       const texture = textureFor(binding.name, binding.dimension, program);
-      for (const sampler of binding.samplers) {
-        const held = uniforms[sampler.glslName];
-        if (held === undefined) uniforms[sampler.glslName] = { value: texture };
+      for (const name of samplerNames(binding)) {
+        const held = uniforms[name];
+        if (held === undefined) uniforms[name] = { value: texture };
         else held.value = texture;
       }
     }
   }
+}
+
+/**
+ * The uniforms a stage reads `binding` through: each combined sampler, or for a buffer the
+ * stage fetches from, the buffer's own name.
+ *
+ * Left unbound, a buffer's uniform stands on unit 0 beside a 2D sampler of another type,
+ * and GL refuses the draw.
+ */
+function samplerNames(binding: Sidecar["textures"][number]): readonly string[] {
+  if (binding.samplers.length === 0) return [binding.name];
+  return binding.samplers.map((sampler) => sampler.glslName);
 }
 
 /**
@@ -339,9 +460,32 @@ export function writeProgramGlobals(
   for (const stage of [program.program.vertex, program.program.pixel]) {
     for (const block of stage.sidecar.blocks) {
       if (block.name !== GLOBALS) continue;
-      const data = uniforms[block.glslName]?.value;
-      if (!(data instanceof Float32Array)) continue;
+      const data = floatsOf(uniforms[block.glslName]?.value);
+      if (data === null) continue;
       data.set(globalsData(block, pass).subarray(0, data.length));
+    }
+  }
+  material.uniformsNeedUpdate = true;
+}
+
+/**
+ * `value` written into the `$Globals` member `name` of `material` from its component `from`,
+ * in every stage that declares the member, for a value that changes per frame.
+ */
+export function writeProgramMember(
+  material: RawShaderMaterial,
+  name: string,
+  value: ArrayLike<number>,
+  from = 0,
+): void {
+  const uniforms: Record<string, IUniform> = material.uniforms;
+  for (const at of GLOBALS_OF.get(material)?.members.get(name) ?? []) {
+    const data = floatsOf(uniforms[at.block]?.value);
+    if (data === null) continue;
+
+    for (let component = 0; component < value.length; component += 1) {
+      const index = at.offset + from + component;
+      if (index < data.length) data[index] = value[component] ?? 0;
     }
   }
   material.uniformsNeedUpdate = true;
@@ -388,89 +532,99 @@ export function sideOf(state: PassState): Side {
   return state.windingToCull === "ccw" ? FrontSide : BackSide;
 }
 
+/** Where each member `prelude` writes sits in a stage, within the registers it counts. */
+function memberSlots(
+  sidecar: Sidecar,
+  inlined: ReadonlyMap<string, InlinedBlock>,
+  prelude: VertexPrelude,
+): MemberSlot[] {
+  const counts = prelude.members ?? {};
+  return sidecar.blocks.flatMap((block) => {
+    if (!inlined.has(block.glslName)) return [];
+
+    return block.members.flatMap((member) => {
+      const registers = counts[member.name];
+      if (registers === undefined || !member.used) return [];
+      return [
+        {
+          member: member.name,
+          array: block.glslName,
+          offset: member.offset,
+          size: Math.min(member.size, registers * REGISTER_BYTES),
+        },
+      ];
+    });
+  });
+}
+
+/**
+ * `source` sampling `SCREEN_COPY` with its `v` turned over.
+ *
+ * The engine's copy has its first row at the top of the screen and three's at the bottom,
+ * and the shader reaches the copy at a coordinate it builds itself. A `texelFetch` at
+ * `gl_FragCoord` needs no turn.
+ */
+function withScreenCopy(source: string): string {
+  const declaration = `uniform highp sampler2D ${SCREEN_COPY};`;
+  if (!source.includes(declaration)) return source;
+
+  const read = `vec4 ${SCREEN_COPY_READ}(vec2 at)\n{\n    return texture(${SCREEN_COPY}, vec2(at.x, 1.0 - at.y));\n}`;
+  const readLod = `vec4 ${SCREEN_COPY_READ}Lod(vec2 at, float lod)\n{\n    return textureLod(${SCREEN_COPY}, vec2(at.x, 1.0 - at.y), lod);\n}`;
+  return source
+    .replaceAll(`textureLod(${SCREEN_COPY}, `, `${SCREEN_COPY_READ}Lod(`)
+    .replaceAll(`texture(${SCREEN_COPY}, `, `${SCREEN_COPY_READ}(`)
+    .replace(declaration, `${declaration}\n\n${read}\n\n${readLod}`);
+}
+
 /** `source` without the `#version` line three writes itself. */
 export function withoutVersion(source: string): string {
   return source.replace(/^#version[^\n]*\n/, "");
 }
 
+/** A block that a stage reads as an array uniform of the block's GLSL name. */
+export interface InlinedBlock {
+  readonly element: BlockElement;
+  /** The array's length. The translation cuts it after the last element the stage reads. */
+  readonly extent: number;
+}
+
+/** A translated stage's source with its inlined blocks, and each inlined block by GLSL name. */
+export interface InlinedStage {
+  readonly source: string;
+  readonly blocks: ReadonlyMap<string, InlinedBlock>;
+}
+
 /**
- * `source` with its `$Globals` block declared as a `vec4` array uniform of the block's
- * GLSL name and every read of the block through that array, with the array's length.
+ * `source` with each block in `names` declared as an array uniform of the block's GLSL
+ * name, and every read of the block through that array.
  *
  * The translation declares every buffer as one std140 block of `vec4 m[N]` behind an
- * instance name, and an array uniform of the same `N` reads at the same indices. A stage
- * without the block is answered as it is, with a length of zero.
+ * instance name. An array uniform of the same `N` reads at the same indices. A block the
+ * stage does not declare is not in the answer.
  */
-export function globalsAsUniform(source: string): { source: string; extent: number } {
-  const declared = GLOBALS_BLOCK.exec(source);
-  if (declared === null) return { source, extent: 0 };
-  const [whole, name = "", scalar = "", extent = "", instance = ""] = declared;
-  return {
-    source: source
-      .replace(whole, `uniform ${scalar} ${name}[${extent}];`)
-      .replaceAll(`${instance}.m[`, `${name}[`),
-    extent: Number(extent),
-  };
-}
+export function blocksAsUniforms(source: string, names: ReadonlySet<string>): InlinedStage {
+  const blocks = new Map<string, InlinedBlock>();
+  let inlined = source;
+  for (const [whole, name = "", element = "", extent = "", instance = ""] of source.matchAll(
+    BLOCK,
+  )) {
+    if (!names.has(name)) continue;
 
-/** The translated `$Globals` block: its GLSL name, element type, extent and instance. */
-const GLOBALS_BLOCK =
-  /layout\(std140\) uniform (Globals_(?:vs|ps))\n\{\n\s+([iu]?vec4) m\[(\d+)\];\n\} (\w+);/;
-
-/** An opaque mid-grey, drawn for a material texture nothing holds. */
-const GREY: readonly [number, number, number, number] = [128, 128, 128, 255];
-
-/** Transparent black, which a remap ramp of alpha zero leaves colour alone. */
-const BLACK: readonly [number, number, number, number] = [0, 0, 0, 0];
-
-const neutrals = new Map<string, Texture>();
-
-/** One texel of `rgba` in the shape `dimension` samples, made once per shape and colour. */
-function neutral(
-  dimension: TextureDimension,
-  rgba: readonly [number, number, number, number],
-): Texture {
-  const key = `${dimension}:${rgba.join(",")}`;
-  const found = neutrals.get(key);
-  if (found !== undefined) return found;
-  const made = texel(dimension, rgba);
-  made.needsUpdate = true;
-  neutrals.set(key, made);
-  return made;
-}
-
-function texel(
-  dimension: TextureDimension,
-  rgba: readonly [number, number, number, number],
-): Texture {
-  const bytes = new Uint8Array(rgba);
-  switch (dimension) {
-    case "texture2dArray":
-      return new DataArrayTexture(bytes, 1, 1, 1);
-    case "cubeArray":
-      return new DataArrayTexture(
-        new Uint8Array([...rgba, ...rgba, ...rgba, ...rgba, ...rgba, ...rgba]),
-        1,
-        1,
-        6,
-      );
-    case "texture3d":
-      return new Data3DTexture(bytes, 1, 1, 1);
-    case "cube": {
-      const face = () => {
-        const held = new DataTexture(bytes, 1, 1);
-        held.needsUpdate = true;
-        return held;
-      };
-      return new CubeTexture([face(), face(), face(), face(), face(), face()]);
-    }
-    case "buffer": {
-      const held = new DataTexture(new Uint32Array([0]), 1, 1, RedIntegerFormat, UnsignedIntType);
-      held.magFilter = NearestFilter;
-      held.minFilter = NearestFilter;
-      return held;
-    }
-    default:
-      return new DataTexture(bytes, 1, 1);
+    inlined = inlined
+      .replace(whole, `uniform ${element} ${name}[${extent}];`)
+      .replace(new RegExp(`\\b${instance}\\.m\\[`, "g"), `${name}[`);
+    blocks.set(name, { element: element as InlinedBlock["element"], extent: Number(extent) });
   }
+  return { source: inlined, blocks };
 }
+
+/** `stage` with `$Globals` inlined, and every other block as well under the `uniform` binding. */
+function inlinedStage(stage: StageProgram, environment: EngineEnvironment): InlinedStage {
+  const names = stage.sidecar.blocks
+    .filter((block) => block.name === GLOBALS || environment.binding === "uniform")
+    .map((block) => block.glslName);
+  return blocksAsUniforms(stage.glsl, new Set(names));
+}
+
+/** A translated block: its GLSL name, element type, extent and instance. */
+const BLOCK = /layout\(std140\) uniform (\w+)\n\{\n\s+([iu]?vec4) m\[(\d+)\];\n\} (\w+);/g;

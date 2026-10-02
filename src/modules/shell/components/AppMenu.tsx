@@ -52,37 +52,33 @@ export function AppMenu({ appInfo }: AppMenuProps) {
           data-ui="TitleBar:appMenu"
           className={twMerge(cellBase, isOpen ? cellActive : cellInactive)}
         >
-          <DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />
+          <DotsThreeVerticalIcon weight="bold" className="size-4" />
         </Menu.Trigger>
       </Tooltip>
 
-      <Menu.Portal>
-        <Menu.Positioner sideOffset={0}>
-          <Menu.Popup className="min-w-52">
-            <Menu.Item
-              icon={<FolderOpenIcon className="h-4 w-4" />}
-              onClick={handleOpenStorageDirectory}
-            >
-              {m.shell_menu_storage_action()}
-            </Menu.Item>
+      <Menu.Content sideOffset={0} className="min-w-52">
+        <Menu.Item
+          icon={<FolderOpenIcon className="size-4" />}
+          onClick={handleOpenStorageDirectory}
+        >
+          {m.shell_menu_storage_action()}
+        </Menu.Item>
 
-            <Menu.Separator />
+        <Menu.Separator />
 
-            <Menu.Item
-              icon={<WheelchairIcon weight="bold" className="h-4 w-4" />}
-              onClick={() => open(buildBugReportUrl(appInfo, diagnosticToken))}
-            >
-              {m.shell_menu_bug_report_action()}
-            </Menu.Item>
-            <Menu.Item
-              icon={<DiscordIcon className="h-4 w-4" />}
-              onClick={() => open("https://discord.gg/yhzDVRyQex")}
-            >
-              {m.shell_menu_discord_action()}
-            </Menu.Item>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+        <Menu.Item
+          icon={<WheelchairIcon weight="bold" className="size-4" />}
+          onClick={() => open(buildBugReportUrl(appInfo, diagnosticToken))}
+        >
+          {m.shell_menu_bug_report_action()}
+        </Menu.Item>
+        <Menu.Item
+          icon={<DiscordIcon className="size-4" />}
+          onClick={() => open("https://discord.gg/yhzDVRyQex")}
+        >
+          {m.shell_menu_discord_action()}
+        </Menu.Item>
+      </Menu.Content>
     </Menu.Root>
   );
 }

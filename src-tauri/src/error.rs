@@ -9,23 +9,21 @@
 
 use serde::{Deserialize, Serialize};
 use specta::datatype::{DataType, Enum, Field, Variant};
-use ts_rs::TS;
 
 use ltk_manager_core::bin_document::{BinDocumentError, EditRejection, ReadOnly};
+use ltk_manager_core::error::message_with_sources;
 pub use ltk_manager_core::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
+use ltk_manager_core::github::{GitHubError, GitHubErrorKind};
 use ltk_manager_core::launcher::LauncherError;
 use ltk_manager_core::patcher::PatcherError;
 use ltk_manager_core::workshop::WorkshopError;
-
-use crate::github::{GitHubError, GitHubErrorKind};
 
 /// What went wrong, as the fields the frontend translates over.
 ///
 /// The frontend owns every sentence a user reads (ADR-0017), so no variant
 /// carries one. A `detail` is prose from outside the app, such as an OS or
 /// crate error, which the frontend draws as data under a title of its own.
-#[derive(Debug, Clone, Serialize, Deserialize, TS, specta::Type)]
-#[ts(export, rename = "AppError")]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(
     tag = "code",
     rename_all = "SCREAMING_SNAKE_CASE",
@@ -103,11 +101,14 @@ pub enum AppErrorResponse {
     BinReadTooDeep,
     /// The open bin takes no edit, behind the gate named.
     BinReadOnly { gate: ReadOnly },
+
     /// An edit's value does not fit the leaf it addresses.
     BinEditRejected {
         address: String,
         rejection: EditRejection,
     },
+    /// A later layer declares the value a declared edit changes, so the build keeps its value.
+    BinEditOverridden { address: String, layer: String },
     /// The bin's file holds other bytes than the document opened.
     BinChangedOnDisk,
     /// The edited bin does not encode.
@@ -135,8 +136,7 @@ pub enum AppErrorResponse {
 }
 
 /// Which of the things GitHub publishes a read was after.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS, specta::Type)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum GitHubFeed {
     Releases,
@@ -344,6 +344,9 @@ impl From<AppError> for AppErrorResponse {
             AppError::BinDocument(BinDocumentError::Unreadable(e)) => Self::BinUnreadable {
                 detail: e.to_string(),
             },
+            AppError::BinDocument(e @ BinDocumentError::LcuChunk) => Self::BinUnreadable {
+                detail: e.to_string(),
+            },
             AppError::BinDocument(BinDocumentError::NotOpen(_)) => Self::BinNotOpen,
             AppError::BinDocument(BinDocumentError::NodeNotFound { address }) => {
                 Self::BinNodeNotFound { address }
@@ -354,8 +357,12 @@ impl From<AppError> for AppErrorResponse {
             AppError::BinDocument(BinDocumentError::ReadTooLarge) => Self::BinReadTooLarge,
             AppError::BinDocument(BinDocumentError::ReadTooDeep) => Self::BinReadTooDeep,
             AppError::BinDocument(BinDocumentError::ReadOnly(gate)) => Self::BinReadOnly { gate },
+
             AppError::BinDocument(BinDocumentError::EditRejected { address, rejection }) => {
                 Self::BinEditRejected { address, rejection }
+            }
+            AppError::BinDocument(BinDocumentError::Overridden { address, layer }) => {
+                Self::BinEditOverridden { address, layer }
             }
             AppError::BinDocument(BinDocumentError::Declaring(inner)) => Self::from(*inner),
             AppError::BinDocument(BinDocumentError::ChangedOnDisk) => Self::BinChangedOnDisk,
@@ -364,7 +371,7 @@ impl From<AppError> for AppErrorResponse {
             },
             AppError::Overlay(e) => Self::Overlay {
                 category: OverlayErrorCategory::from(&e),
-                detail: e.to_string(),
+                detail: message_with_sources(&e),
             },
             AppError::UntrustedDomain(domain) => Self::UntrustedDomain { domain },
         }

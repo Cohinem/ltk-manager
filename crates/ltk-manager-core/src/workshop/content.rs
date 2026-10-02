@@ -18,8 +18,7 @@ use walkdir::WalkDir;
 
 /// A project's content directory as a flat per-layer listing.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ContentTree {
     pub layers: Vec<LayerContent>,
@@ -27,8 +26,7 @@ pub struct ContentTree {
 
 /// The files inside a single layer directory.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LayerContent {
     pub name: String,
@@ -41,8 +39,7 @@ pub struct LayerContent {
 
 /// A directory the rules leave out, along with everything under it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct IgnoredDirectory {
     /// Path relative to the layer root, always POSIX-style (`/`).
@@ -52,8 +49,7 @@ pub struct IgnoredDirectory {
 
 /// The `.modignore` line that keeps an entry out of a package.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct IgnoreMatch {
     /// The pattern as written, its trailing `/` included.
@@ -66,8 +62,7 @@ pub struct IgnoreMatch {
 
 /// A single file entry in a layer's content directory.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ContentEntry {
     /// Path relative to the layer root, always POSIX-style (`/`).
@@ -82,8 +77,7 @@ pub struct ContentEntry {
 
 /// One object a layer's `.bin` declares.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ContentObject {
     /// The object's path hash, as `0x` and eight hex digits.
@@ -100,11 +94,12 @@ pub struct ContentObject {
 /// manually — the upstream enum is small and stable, and mirroring lets us
 /// export a TypeScript union without fighting external crate attributes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
 pub enum WorkshopFileKind {
     Animation,
+    /// A layer's game data declarations manifest, which [`LeagueFileKind`] has no kind for.
+    GameData,
     Jpeg,
     LightGrid,
     LuaObj,
@@ -161,6 +156,7 @@ impl From<WorkshopFileKind> for LeagueFileKind {
     fn from(value: WorkshopFileKind) -> Self {
         match value {
             WorkshopFileKind::Animation => Self::Animation,
+            WorkshopFileKind::GameData => Self::Unknown,
             WorkshopFileKind::Jpeg => Self::Jpeg,
             WorkshopFileKind::LightGrid => Self::LightGrid,
             WorkshopFileKind::LuaObj => Self::LuaObj,
@@ -435,7 +431,11 @@ fn scan_layer(
             .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("");
-        let kind = WorkshopFileKind::from(LeagueFileKind::from_extension(extension));
+        let kind = if ltk_game_data::MANIFEST_NAMES.contains(&relative_path.as_str()) {
+            WorkshopFileKind::GameData
+        } else {
+            WorkshopFileKind::from(LeagueFileKind::from_extension(extension))
+        };
 
         let declared = if kind == WorkshopFileKind::PropertyBin {
             declarations(dent.path()).unwrap_or_else(|e| {

@@ -1,7 +1,7 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type LibraryFolder } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
 import { refreshMods } from "./modMutations";
@@ -27,7 +27,7 @@ interface FolderRollback {
 export const folderMutations = {
   create: (client: QueryClient) =>
     mutationOptions<LibraryFolder, AppError, string>({
-      mutationFn: async (name) => unwrapForQuery(await api.createFolder(name)),
+      mutationFn: mutationFn(api.createFolder),
       onSettled: () => {
         client.invalidateQueries({ queryKey: libraryKeys.folders() });
         client.invalidateQueries({ queryKey: libraryKeys.folderOrder() });
@@ -35,7 +35,7 @@ export const folderMutations = {
     }),
 
   rename: (client: QueryClient) =>
-    mutationOptions<void, AppError, RenameFolderVariables, FolderRollback>({
+    mutationOptions<null, AppError, RenameFolderVariables, FolderRollback>({
       mutationFn: async ({ folderId, newName }) =>
         unwrapForQuery(await api.renameFolder(folderId, newName)),
       onMutate: async ({ folderId, newName }) => {
@@ -57,8 +57,8 @@ export const folderMutations = {
     }),
 
   remove: (client: QueryClient) =>
-    mutationOptions<void, AppError, string>({
-      mutationFn: async (folderId) => unwrapForQuery(await api.deleteFolder(folderId)),
+    mutationOptions<null, AppError, string>({
+      mutationFn: mutationFn(api.deleteFolder),
       onSettled: () => {
         client.invalidateQueries({ queryKey: libraryKeys.folders() });
         client.invalidateQueries({ queryKey: libraryKeys.folderOrder() });
@@ -67,7 +67,7 @@ export const folderMutations = {
     }),
 
   toggle: (client: QueryClient) =>
-    mutationOptions<void, AppError, ToggleFolderVariables>({
+    mutationOptions<null, AppError, ToggleFolderVariables>({
       mutationFn: async ({ folderId, enabled }) =>
         unwrapForQuery(await api.toggleFolder(folderId, enabled)),
       onSettled: () => refreshMods(client),

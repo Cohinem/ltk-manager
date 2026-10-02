@@ -1,4 +1,4 @@
-import type { InstalledMod, Profile, Settings } from "@/lib/bindings";
+import type { InstalledMod, Profile, Settings } from "@/lib/tauri";
 
 export function createMockSettings(overrides?: Partial<Settings>): Settings {
   return {
@@ -27,7 +27,9 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     authorProfiles: [],
     defaultAuthorProfileId: null,
     autoRun: false,
+    registerFileTypes: true,
     startInTrayUnlessUpdate: false,
+    autoDownloadUpdates: true,
     alwaysStartPatcher: false,
     openOn: "home",
     launchMode: "classic",
@@ -48,7 +50,13 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     hideRiotClientOnLaunch: true,
     readGameLog: true,
     keepIncidents: 50,
-    builtinMods: { defaultWardSkins: false, baseSkins: "off" },
+    builtinMods: {
+      defaultWardSkins: false,
+      baseSkins: "off",
+      mapSkin: "game",
+      forcedMapSkin: "",
+      mapDecorations: {},
+    },
     ...overrides,
   };
 }

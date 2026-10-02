@@ -27,6 +27,9 @@ const ASSET: AssetRef = {
 
 const HANDLE: BinDocumentHandle = {
   document: 9,
+  asset: ASSET,
+  sandbox: { kind: "game" },
+  readOnly: null,
   rows: [],
   object: {
     entry: ENTRY,
@@ -49,6 +52,9 @@ const PROJECT: WorkshopProject = {
   layers: [],
   thumbnailPath: null,
   lastModified: "2026-08-21T21:14:02Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-skin",
 };
 
 vi.mock("../../hooks/useBinDocument", () => ({

@@ -9,12 +9,16 @@ import { useNavigate } from "@tanstack/react-router";
 import { match } from "ts-pattern";
 
 import { Button, ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
+import { m } from "@/i18n";
 import type { Incident, WorkshopProject } from "@/lib/tauri";
 import { useLatestIncident } from "@/modules/diagnostics";
 import { useIncidentLineStore } from "@/stores";
 
+import { packTargetHint, PackTargetMenu } from "../../packing/components/PackTargetMenu";
 import { neutralTint, packTint, testTint } from "../../shared/utils/actionTints";
+import { usePackTarget } from "../../state";
 import { useWorkshopTestState } from "../../testing/api/useWorkshopTestState";
+import { TestLayersMenu } from "../../testing/components/TestLayersMenu";
 import { BuildingTestButton, StopTestButton } from "../../testing/components/testSessionButtons";
 import { useProjectActions } from "../hooks/useProjectActions";
 
@@ -22,11 +26,12 @@ interface ProjectActionsProps {
   project: WorkshopProject;
 }
 
-/** Test, pack and the overflow menu, joined into one control in the project header. */
+/** Test and pack, each with its caret, and the overflow menu, joined into one control in the project header. */
 export function ProjectActions({ project }: ProjectActionsProps) {
   const testState = useWorkshopTestState(project);
   const actions = useProjectActions(project);
   const failedTest = useFailedTest(project.path);
+  const packTarget = usePackTarget();
 
   const testButton = match(testState)
     .with({ kind: "idle" }, () => {
@@ -34,11 +39,11 @@ export function ProjectActions({ project }: ProjectActionsProps) {
         <Button
           variant="ghost"
           size="sm"
-          left={<PlayIcon weight="bold" className="h-4 w-4" />}
+          left={<PlayIcon weight="bold" className="size-4" />}
           onClick={actions.handleTestProject}
           className={testTint}
         >
-          Test
+          {m.workshop_header_test_action()}
         </Button>
       );
       if (!failedTest) return button;
@@ -47,28 +52,28 @@ export function ProjectActions({ project }: ProjectActionsProps) {
     .with({ kind: "building-this" }, () => <BuildingTestButton />)
     .with({ kind: "running-this" }, () => <StopTestButton />)
     .with({ kind: "building-other" }, { kind: "running-other" }, ({ otherLabel }) => (
-      <Tooltip content={`Testing "${otherLabel}" - stop it first`}>
+      <Tooltip content={m.workshop_header_test_blocked_hint({ name: otherLabel })}>
         <Button
           variant="ghost"
           size="sm"
           disabled
-          left={<PlayIcon weight="bold" className="h-4 w-4" />}
+          left={<PlayIcon weight="bold" className="size-4" />}
           className={testTint}
         >
-          Test
+          {m.workshop_header_test_action()}
         </Button>
       </Tooltip>
     ))
     .with({ kind: "building-library" }, { kind: "running-library" }, () => (
-      <Tooltip content="Patcher is running - stop it first">
+      <Tooltip content={m.workshop_header_test_patcher_hint()}>
         <Button
           variant="ghost"
           size="sm"
           disabled
-          left={<PlayIcon weight="bold" className="h-4 w-4" />}
+          left={<PlayIcon weight="bold" className="size-4" />}
           className={testTint}
         >
-          Test
+          {m.workshop_header_test_action()}
         </Button>
       </Tooltip>
     ))
@@ -77,49 +82,50 @@ export function ProjectActions({ project }: ProjectActionsProps) {
   return (
     <ButtonGroup className="shrink-0">
       {testButton}
+      <TestLayersMenu project={project} className={testTint} />
 
-      <Button
-        variant="ghost"
-        size="sm"
-        left={<PackageIcon weight="bold" className="h-4 w-4" />}
-        onClick={actions.handleOpenPackDialog}
-        className={packTint}
-      >
-        Pack
-      </Button>
+      <Tooltip content={packTargetHint(packTarget)}>
+        <Button
+          variant="ghost"
+          size="sm"
+          left={<PackageIcon weight="bold" className="size-4" />}
+          loading={actions.isPacking}
+          onClick={actions.handlePack}
+          className={packTint}
+        >
+          {actions.isPacking ? m.workshop_pack_packing_label() : m.workshop_header_pack_action()}
+        </Button>
+      </Tooltip>
+      <PackTargetMenu className={packTint} />
 
       <Menu.Root>
         <Menu.Trigger
           render={
             <IconButton
-              icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
-              variant="ghost"
+              compact={false}
+              icon={<DotsThreeVerticalIcon />}
               size="sm"
-              aria-label="Project actions"
+              aria-label={m.workshop_header_actions_label()}
               className={neutralTint}
             />
           }
         />
-        <Menu.Portal>
-          <Menu.Positioner>
-            <Menu.Popup>
-              <Menu.Item
-                icon={<FolderOpenIcon className="h-4 w-4" />}
-                onClick={actions.handleOpenLocation}
-              >
-                Open Location
-              </Menu.Item>
-              <Menu.Separator />
-              <Menu.Item
-                icon={<TrashIcon className="h-4 w-4" />}
-                variant="danger"
-                onClick={actions.handleOpenDeleteDialog}
-              >
-                Delete
-              </Menu.Item>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content>
+          <Menu.Item
+            icon={<FolderOpenIcon className="size-4" />}
+            onClick={actions.handleOpenLocation}
+          >
+            {m.workshop_header_open_location_action()}
+          </Menu.Item>
+          <Menu.Separator />
+          <Menu.Item
+            icon={<TrashIcon className="size-4" />}
+            variant="danger"
+            onClick={actions.handleOpenDeleteDialog}
+          >
+            {m.workshop_header_delete_action()}
+          </Menu.Item>
+        </Menu.Content>
       </Menu.Root>
     </ButtonGroup>
   );
@@ -145,8 +151,8 @@ function FailedTestTip({ incident }: { incident: Incident }) {
 
   return (
     <div className="flex max-w-[260px] flex-col gap-1.5">
-      <span className="text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
-        Last test
+      <span className="text-fine font-medium tracking-wider text-surface-400 uppercase">
+        {m.workshop_header_last_test_label()}
       </span>
       <p className="font-semibold text-surface-100">{incident.verdict.title}</p>
       {incident.verdict.subject && (
@@ -161,7 +167,7 @@ function FailedTestTip({ incident }: { incident: Incident }) {
           navigate({ to: "/diagnostics", search: { tab: "games", incident: incident.id } })
         }
       >
-        Details
+        {m.workshop_header_last_test_details_action()}
       </Button>
     </div>
   );

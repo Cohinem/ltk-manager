@@ -12,7 +12,9 @@ use std::panic::AssertUnwindSafe;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::preview::{AssetRef, Preview, PreviewError, PreviewImage, PreviewRequest};
+use ltk_manager_core::preview::{
+    AssetRef, Preview, PreviewError, PreviewFile, PreviewFont, PreviewImage, PreviewRequest,
+};
 use tauri::http::{header, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager};
 
@@ -50,6 +52,22 @@ const CUBE_FORM: &str = "cube";
 
 /// The [`FORM_PARAMETER`] value asking a texture for its own mip chain in one buffer.
 const MIPS_FORM: &str = "mips";
+
+/// The [`FORM_PARAMETER`] value asking a light grid for its ambient buffer.
+const LIGHT_GRID_FORM: &str = "lightgrid";
+
+/// The [`FORM_PARAMETER`] value asking an OpenType or TrueType file for its own bytes.
+const FONT_FORM: &str = "font";
+
+/// The [`FORM_PARAMETER`] value asking any file for its own bytes, to play or to read as text.
+const FILE_FORM: &str = "file";
+
+/// What every response may do as a document, which is nothing.
+///
+/// A response is an image, a buffer or a file's own bytes, and a game or client file is data
+/// rather than code. The policy keeps an SVG or an HTML file from running anything if one is
+/// ever loaded as a page, and an `<img>`, a `<video>` and a `fetch` ignore it.
+const CONTENT_SECURITY_POLICY: &str = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 
 /// Answer one preview request, whatever [`serve`] does.
 ///
@@ -89,6 +107,8 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     match asset.preview(wanted, &config, &app.state::<WadCache>()) {
         Ok(Preview::Image(image)) => image_response(image),
         Ok(Preview::Buffer(bytes)) => buffer_response(bytes),
+        Ok(Preview::Font(font)) => font_response(font),
+        Ok(Preview::File(file)) => file_response(file),
         Err(e) => {
             tracing::debug!("No preview for {asset:?}: {e}");
             message_response(status_for(&e), &e.to_string())
@@ -121,6 +141,9 @@ fn requested(query: Option<&str>) -> Result<PreviewRequest, String> {
         Some(MIPS_FORM) => Ok(PreviewRequest::Mips {
             min_width: requested_width(query)?,
         }),
+        Some(LIGHT_GRID_FORM) => Ok(PreviewRequest::LightGrid),
+        Some(FONT_FORM) => Ok(PreviewRequest::Font),
+        Some(FILE_FORM) => Ok(PreviewRequest::File),
         Some(form) => Err(format!("Not a form: {FORM_PARAMETER}={form}")),
     }
 }
@@ -151,7 +174,7 @@ fn parameter<'a>(query: Option<&'a str>, key: &str) -> Option<&'a str> {
 fn status_for(error: &AppError) -> StatusCode {
     match error {
         AppError::Preview(
-            PreviewError::Unsupported(_) | PreviewError::UnsupportedMesh(_) | PreviewError::NotCube,
+            PreviewError::Unsupported(_) | PreviewError::NotCube | PreviewError::NotFont,
         ) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
         AppError::InvalidPath(_) | AppError::LeagueNotFound => StatusCode::NOT_FOUND,
         AppError::Io(e) if e.kind() == io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
@@ -166,6 +189,14 @@ fn image_response(image: PreviewImage) -> Response<Vec<u8>> {
 /// A buffer, which the webview decodes rather than renders.
 fn buffer_response(bytes: Vec<u8>) -> Response<Vec<u8>> {
     build(StatusCode::OK, "application/octet-stream", bytes)
+}
+
+fn font_response(font: PreviewFont) -> Response<Vec<u8>> {
+    build(StatusCode::OK, font.mime, font.bytes)
+}
+
+fn file_response(file: PreviewFile) -> Response<Vec<u8>> {
+    build(StatusCode::OK, file.mime, file.bytes)
 }
 
 fn message_response(status: StatusCode, message: &str) -> Response<Vec<u8>> {
@@ -183,6 +214,10 @@ fn build(status: StatusCode, mime: &str, body: Vec<u8>) -> Response<Vec<u8>> {
         modder replaces it and a stale image is worse than a second decode. */
         .header(header::CACHE_CONTROL, "no-store")
         .header(header::CONTENT_TYPE, mime)
+        /* The type this module names is the type, so a file served as bytes is never
+        sniffed into a page. */
+        .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
+        .header(header::CONTENT_SECURITY_POLICY, CONTENT_SECURITY_POLICY)
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
         .body(body)
         .expect("the headers this module writes are static and valid")
@@ -298,6 +333,41 @@ mod tests {
     }
 
     #[test]
+    fn a_light_grid_form_asks_for_the_ambient_buffer() {
+        assert_eq!(
+            requested(Some("as=lightgrid")),
+            Ok(PreviewRequest::LightGrid)
+        );
+    }
+
+    #[test]
+    fn a_font_form_asks_for_the_font_file() {
+        assert_eq!(requested(Some("as=font")), Ok(PreviewRequest::Font));
+    }
+
+    #[test]
+    fn a_file_form_asks_for_the_files_own_bytes() {
+        assert_eq!(requested(Some("as=file")), Ok(PreviewRequest::File));
+    }
+
+    #[test]
+    fn a_response_is_never_sniffed_into_a_page() {
+        let response = file_response(PreviewFile {
+            bytes: b"<html><script></script></html>".to_vec(),
+            mime: "application/octet-stream",
+        });
+
+        assert_eq!(
+            response.headers()[header::X_CONTENT_TYPE_OPTIONS],
+            "nosniff"
+        );
+        assert!(response.headers()[header::CONTENT_SECURITY_POLICY]
+            .to_str()
+            .unwrap()
+            .contains("sandbox"));
+    }
+
+    #[test]
     fn a_mips_form_carries_the_width_its_chain_starts_at() {
         assert_eq!(
             requested(Some("as=mips&w=64")),
@@ -333,9 +403,6 @@ mod tests {
             ltk_manager_core::preview::LeagueFileKind::PropertyBin,
         ));
         assert_eq!(status_for(&error), StatusCode::UNSUPPORTED_MEDIA_TYPE);
-
-        let mesh = AppError::Preview(PreviewError::UnsupportedMesh(".tmesh"));
-        assert_eq!(status_for(&mesh), StatusCode::UNSUPPORTED_MEDIA_TYPE);
     }
 
     #[test]

@@ -3,27 +3,38 @@
     windows_subsystem = "windows"
 )]
 
-mod commands;
 mod deep_link;
 mod error;
 mod events;
-mod github;
 mod hotkeys;
 mod ipc;
 #[cfg(debug_assertions)]
 mod log_layer;
 mod logging;
 mod mods;
-mod news;
 pub mod patcher;
 mod protocol;
-mod releases;
+mod services;
 mod setup;
 mod state;
 mod telemetry;
 mod tray;
 mod updater;
 mod workshop;
+
+use ltk_manager_core::bin_document::BinDocuments;
+use semver::Version;
+use tauri::webview::PageLoadEvent;
+use tauri::Manager;
+
+/// The one window the frontend runs in, as `tauri.conf.json` leaves it unlabelled.
+const MAIN_WINDOW: &str = "main";
+
+/// The version this build runs at.
+fn running_version() -> Version {
+    Version::parse(env!("CARGO_PKG_VERSION"))
+        .expect("CARGO_PKG_VERSION is semver, since cargo refuses a manifest whose version is not")
+}
 
 fn main() {
     // Before logging, so a panic while that is still being set up is reported.
@@ -38,11 +49,12 @@ fn main() {
     }
 
     let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            deep_link::handle_argv(app, &argv);
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            deep_link::handle_argv(app, &argv, std::path::Path::new(&cwd));
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
@@ -57,7 +69,24 @@ fn main() {
                         & !tauri_plugin_window_state::StateFlags::VISIBLE,
                 )
                 .build(),
-        );
+        )
+        .plugin(services::app_update::plugin())
+        .plugin(services::atlas::plugin())
+        .plugin(services::bin::plugin())
+        .plugin(services::game::plugin())
+        .plugin(services::library::plugin())
+        .plugin(services::objects::plugin())
+        .plugin(services::preview::plugin())
+        .plugin(services::settings::plugin())
+        .plugin(services::patcher::plugin())
+        .plugin(services::launcher::plugin())
+        .plugin(services::diagnostics::plugin())
+        .plugin(services::hotkeys::plugin())
+        .plugin(services::desktop::plugin())
+        .plugin(services::integrations::plugin())
+        .plugin(services::links::plugin())
+        .plugin(services::news::plugin())
+        .plugin(services::workshop::plugin());
 
     builder
         /* The preview's pixels come this way rather than over IPC, so an
@@ -71,166 +100,20 @@ fn main() {
         })
         .manage(logging_guards)
         .setup(setup::run)
-        .invoke_handler(ipc::invoke_handler(tauri::generate_handler![
-            // App
-            commands::get_app_info,
-            commands::get_platform_support,
-            commands::show_main_window,
-            // Settings
-            commands::get_settings,
-            commands::save_settings,
-            commands::get_default_settings,
-            commands::auto_detect_league_path,
-            commands::validate_league_path,
-            commands::check_setup_required,
-            commands::detect_league_run_as_admin,
-            commands::list_available_wads,
-            // Mods
-            commands::get_installed_mods,
-            commands::install_mod,
-            commands::update_mod,
-            commands::install_mods,
-            commands::uninstall_mod,
-            commands::toggle_mod,
-            commands::set_mod_layers,
-            commands::enable_mod_with_layers,
-            commands::edit_mod_metadata,
-            commands::set_mod_storage,
-            commands::check_mod_health,
-            commands::repair_mod,
-            commands::repair_mods,
-            commands::get_mod_health_verdicts,
-            #[cfg(debug_assertions)]
-            commands::time_mod_health,
-            commands::cancel_mod_health_run,
-            commands::get_health_sweep,
-            commands::sweep_mod_health,
-            commands::get_health_check_readiness,
-            commands::export_mods,
-            commands::inspect_modpkg,
-            commands::get_mod_thumbnail,
-            commands::get_mod_thumbnails,
-            commands::get_mod_readme,
-            commands::get_mod_license_text,
-            commands::get_storage_directory,
-            commands::reorder_mods,
-            commands::get_mod_wad_report,
-            commands::get_all_mod_wad_reports,
-            commands::analyze_mod_wads,
-            // Native
-            commands::apply_league_skin,
-            // Folders
-            commands::get_folders,
-            commands::get_folder_order,
-            commands::create_folder,
-            commands::rename_folder,
-            commands::delete_folder,
-            commands::move_mod_to_folder,
-            commands::toggle_folder,
-            commands::reorder_folder_mods,
-            commands::reorder_folders,
-            // Migration
-            commands::scan_cslol_mods,
-            commands::import_cslol_mods,
-            commands::get_layout_migration_state,
-            // Patcher
-            commands::start_patcher,
-            commands::stop_patcher,
-            commands::rebuild_overlay,
-            commands::get_patcher_status,
-            commands::get_linked_bin_offenders,
-            commands::get_checksum_mismatches,
-            // Launcher
-            commands::launch_league,
-            commands::cancel_launch,
-            commands::stop_league,
-            commands::get_launch_availability,
-            commands::get_league_session,
-            // Hotkeys
-            commands::pause_hotkeys,
-            commands::resume_hotkeys,
-            commands::set_hotkey,
-            commands::kill_league,
-            // Profiles
-            commands::list_mod_profiles,
-            commands::get_active_mod_profile,
-            commands::create_mod_profile,
-            commands::delete_mod_profile,
-            commands::switch_mod_profile,
-            commands::rename_mod_profile,
-            // Shell
-            commands::reveal_in_explorer,
-            commands::minimize_to_tray,
-            // Storage
-            commands::detect_storage_medium,
-            // Workshop
-            commands::get_workshop_projects,
-            commands::create_workshop_project,
-            commands::get_workshop_project,
-            commands::get_project_content_tree,
-            commands::save_project_config,
-            commands::rename_workshop_project,
-            commands::delete_workshop_project,
-            commands::pack_workshop_project,
-            commands::import_from_modpkg,
-            commands::peek_fantome,
-            commands::import_from_fantome,
-            commands::import_from_git_repo,
-            commands::validate_project,
-            commands::set_project_thumbnail,
-            commands::remove_project_thumbnail,
-            commands::get_project_thumbnail,
-            commands::save_layer_string_overrides,
-            commands::search_string_keys,
-            commands::lookup_string_values,
-            commands::get_layer_content_path,
-            commands::get_layer_info,
-            commands::create_project_layer,
-            commands::rename_project_layer,
-            commands::delete_project_layer,
-            commands::reorder_project_layers,
-            commands::update_layer_description,
-            commands::add_files_to_layer,
-            commands::delete_layer_content,
-            commands::get_project_editor_state,
-            commands::save_project_editor_state,
-            // Problems
-            commands::analyze_project,
-            commands::fix_problems,
-            // Hashtables
-            commands::get_hashtable_cache_status,
-            commands::check_hashtable_updates,
-            commands::sync_hashtables,
-            // Game WADs
-            commands::get_game_wads,
-            commands::read_game_wad,
-            // Game index
-            commands::get_game_index,
-            commands::read_game_dir,
-            commands::refresh_game_index,
-            commands::search_game_index,
-            commands::find_in_game_index,
-            // Extract to disk
-            commands::plan_game_extract,
-            commands::extract_game_files,
-            commands::cancel_extract,
-            // Asset preview
-            commands::read_asset_info,
-            commands::save_asset_copy,
-            // Ritobin
-            commands::detect_ritobin_integration,
-            commands::open_asset_in_ritobin,
-            // Deep Link
-            commands::deep_link_install_mod,
-            commands::take_pending_deep_link,
-            // Releases
-            commands::list_releases,
-            // News
-            commands::list_announcements,
-            commands::list_notices,
-            // for dynamic icons
-            tray::set_tray_state,
-        ]))
+        /* A reload runs no cleanup, so the handles the last page held are dropped here,
+        before the new page can open any. */
+        .on_page_load(|webview, payload| {
+            if payload.event() != PageLoadEvent::Started || webview.label() != MAIN_WINDOW {
+                return;
+            }
+            if let Some(documents) = webview.try_state::<BinDocuments>() {
+                documents.close_all();
+            }
+            if let Some(watches) = webview.try_state::<workshop::LayerWatches>() {
+                watches.release_all();
+            }
+        })
+
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(setup::handle_run_event);

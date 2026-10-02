@@ -76,12 +76,12 @@ function NavLink({
       {({ isActive }) => (
         <>
           <span className="relative">
-            <Icon className="h-4 w-4" />
+            <Icon className="size-4" />
             {dot && (
               <span
                 aria-hidden
                 data-ui="TitleBar:unread"
-                className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-accent-400"
+                className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-accent-400"
               />
             )}
           </span>
@@ -215,7 +215,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
             </span>
             {version && (
               <span
-                className="text-[0.625rem] leading-none whitespace-nowrap text-surface-500"
+                className="text-fine leading-none whitespace-nowrap text-surface-500"
                 data-tauri-drag-region
               >
                 v{version}
@@ -248,12 +248,12 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
               data-ui="TitleBar:diagnostics"
             >
               <span className="relative">
-                <StethoscopeIcon className="h-4 w-4" />
+                <StethoscopeIcon className="size-4" />
                 {latest && (
                   <span
                     aria-hidden
                     className={twMerge(
-                      "absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full",
+                      "absolute -top-0.5 -right-0.5 size-1.5 rounded-full",
                       incidentDotClass[incidentDotKind(latest.verdict.kind)],
                     )}
                   />
@@ -270,7 +270,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
               aria-label={m.shell_settings_label()}
               data-ui="TitleBar:settings"
             >
-              <GearIcon className="h-4 w-4" />
+              <GearIcon className="size-4" />
             </Link>
           </Tooltip>
 
@@ -283,22 +283,22 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
             <div className="flex h-full">
               <IconButton
-                icon={<MinusIcon className="h-3.5 w-3.5" />}
-                variant="ghost"
+                compact={false}
+                icon={<MinusIcon className="size-3.5" />}
                 size="sm"
                 onClick={handleMinimize}
                 aria-label={m.shell_window_minimize_action()}
                 className={windowControlClass}
               />
               <IconButton
+                compact={false}
                 icon={
                   isMaximized ? (
-                    <OverlappingSquares className="h-3 w-3" />
+                    <OverlappingSquares className="size-3" />
                   ) : (
-                    <SquareIcon className="h-3 w-3" />
+                    <SquareIcon className="size-3" />
                   )
                 }
-                variant="ghost"
                 size="sm"
                 onClick={handleMaximize}
                 aria-label={
@@ -307,8 +307,8 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                 className={windowControlClass}
               />
               <IconButton
-                icon={<XIcon className="h-4 w-4" />}
-                variant="ghost"
+                compact={false}
+                icon={<XIcon />}
                 size="sm"
                 onClick={handleClose}
                 aria-label={m.shell_window_close_action()}

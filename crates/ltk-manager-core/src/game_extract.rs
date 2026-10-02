@@ -13,7 +13,6 @@
 
 use fs_err as fs;
 use std::collections::{BTreeMap, HashSet};
-use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -30,7 +29,7 @@ use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, EventSink, ExtractProgress};
 use crate::game_index::GameIndex;
-use crate::game_wads::GameArchives;
+use crate::game_wads::{GameArchives, WadSource, mount_wad};
 use crate::hashtables::WadPathResolver;
 use crate::utils::game::GameDir;
 use crate::workshop::WorkshopFileKind;
@@ -45,8 +44,7 @@ const PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
 
 /// One row of the browser, as a thing to extract.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(
     rename_all = "camelCase",
     rename_all_fields = "camelCase",
@@ -62,10 +60,6 @@ pub enum ExtractTarget {
         wad: String,
         path_hash: String,
         path: Option<String>,
-        /* The tree holds this as a JS number, and a chunk size never reaches
-        the range where that loses a digit. Binding it as `bigint` would only
-        make every call site build one that `JSON.stringify` then refuses. */
-        #[cfg_attr(feature = "ts", ts(type = "number"))]
         size_bytes: u64,
     },
     /// Every file at or below one directory of the folded index.
@@ -81,8 +75,7 @@ pub enum ExtractTarget {
 
 /// Where each file of an extract lands under the destination.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum ExtractLayout {
     /// Each file at its game path, which is what a repack reads back.
@@ -103,8 +96,7 @@ impl From<ExtractLayout> for WadExtractLayout {
 
 /// What an extract does about a file already sitting where one would land.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum ExistingFiles {
     /// Leave it, and count it. The dialog's default, and not the crate's.
@@ -125,8 +117,7 @@ impl From<ExistingFiles> for ExistingFilePolicy {
 
 /// Everything one extract needs beyond the targets themselves.
 #[derive(Debug, Clone, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractOptions {
     /// The folder to write into. Made if it is not there.
@@ -156,21 +147,19 @@ pub struct ExtractOptions {
 /// The dialog's summary line reads this, so a user sees the count, the size
 /// and the archives before choosing a destination.
 #[derive(Debug, Clone, Default, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractPlan {
     pub files: u32,
     /// Uncompressed bytes, which is what lands on disk.
     pub bytes: u64,
-    /// The `DATA/FINAL`-relative archives the run reads, in the order it does.
+    /// The root-relative archives the run reads, in the order it does.
     pub archives: Vec<String>,
 }
 
 /// One kind of file an extract wrote, and how many.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractKindCount {
     pub kind: WorkshopFileKind,
@@ -179,8 +168,7 @@ pub struct ExtractKindCount {
 
 /// What an extract did, summed over every archive it read.
 #[derive(Debug, Clone, Default, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractSummary {
     pub extracted: u32,
@@ -213,7 +201,7 @@ pub struct ExtractSummary {
 /// One archive's share of an extract.
 #[derive(Debug)]
 struct ArchiveWork {
-    /// `DATA/FINAL`-relative name, as [`GameArchives::list`] gives it.
+    /// Root-relative name, as [`GameArchives::list`] gives it.
     wad: String,
     /// Chunks a hash table names, already past the kind filter.
     named: Vec<WadHash>,
@@ -301,7 +289,7 @@ impl ExtractJob {
                 ExtractTarget::Archive { wad } => {
                     let entry = grouped.entry(wad.clone()).or_default();
                     let path = archives.archive_path(wad)?;
-                    let archive = Wad::mount(BufReader::new(fs::File::open(&path)?))?;
+                    let archive = mount_wad(&path)?;
                     let chunks = archive.chunks().as_slice();
                     let hashes: Vec<WadHash> =
                         chunks.iter().map(|chunk| chunk.path_hash()).collect();
@@ -395,7 +383,7 @@ impl ExtractJob {
 
         for work in &self.archives {
             let out_dir = if options.per_archive_folder {
-                destination.join(archive_folder(&work.wad))
+                destination.join(archive_folder(&work.wad, archives.source()))
             } else {
                 destination.clone()
             };
@@ -409,7 +397,7 @@ impl ExtractJob {
                 .to_owned();
 
             let path = archives.archive_path(&work.wad)?;
-            let mut archive = Wad::mount(BufReader::new(fs::File::open(&path)?))?;
+            let mut archive = mount_wad(&path)?;
 
             let recovered = if !options.recover_names || work.unnamed.is_empty() {
                 RecoveredNames::default()
@@ -613,11 +601,15 @@ fn parse_hash(hex: &str) -> AppResult<WadHash> {
 
 /// The folder one archive's files sit under with **One folder per archive**.
 ///
-/// The archive's own file name and not its `DATA/FINAL`-relative path, because
+/// A game archive's own file name and not its `DATA/FINAL`-relative path, because
 /// that is the shape a layer holds and the point of the switch is that the
-/// folder drops straight onto one.
-fn archive_folder(wad: &str) -> &str {
-    wad.rsplit_once('/').map_or(wad, |(_, name)| name)
+/// folder drops straight onto one. Every client archive is named `assets.wad` or close
+/// to it, so a client archive keeps its whole `Plugins`-relative path.
+fn archive_folder(wad: &str, source: WadSource) -> &str {
+    match source {
+        WadSource::Game => wad.rsplit_once('/').map_or(wad, |(_, name)| name),
+        WadSource::Lcu => wad,
+    }
 }
 
 /// The by-kind counts as the report shows them, most written first.
@@ -646,7 +638,9 @@ fn reject_the_install(config: &Config, destination: &Path) -> AppResult<()> {
         return Ok(());
     };
 
-    if is_within(game_dir.path(), destination) {
+    if is_within(game_dir.path(), destination)
+        || is_within(&game_dir.lcu_plugins_dir(), destination)
+    {
         return Err(AppError::ValidationFailed(format!(
             "Cannot extract into the League install: {}",
             destination.display()

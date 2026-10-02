@@ -8,18 +8,16 @@ repository = "https://github.com/LeagueToolkit/ltk-manager"
 publish = false
 
 [features]
-# Derive `ts_rs::TS` and `specta::Type` on core types so the Tauri shell can
-# export bindings for types that cross IPC (e.g. `Config` flattened into
-# `Settings`). The two exporters run side by side while the command table moves
-# onto `tauri-specta` one module at a time.
-# The `ts-rs` impl features belong with the derive rather than with the shell
-# that consumes it, so this crate builds and tests on its own.
-ts = ["dep:ts-rs", "ts-rs/chrono-impl", "ts-rs/indexmap-impl", "dep:specta"]
+# Derive `specta::Type` on core types so the Tauri shell can export bindings for
+# types that cross IPC (e.g. `Config` flattened into `Settings`).
+ts = ["dep:specta", "ltk-meta-docs/ts"]
 
 [dependencies]
+filetime = { workspace = true }
 ritoclient = { workspace = true }
 
 ltk-declarations = { workspace = true }
+ltk-meta-docs = { workspace = true }
 ltk_anim = { workspace = true }
 ltk_fantome = { workspace = true }
 ltk_file = { workspace = true }
@@ -40,6 +38,7 @@ ltk_wad = { workspace = true }
 ltk-telemetry = { workspace = true }
 
 base64 = { workspace = true }
+brex = { workspace = true }
 camino = { workspace = true }
 chrono = { workspace = true }
 flate2 = { workspace = true }
@@ -49,7 +48,10 @@ image = { workspace = true }
 image_dds = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
+notify = { workspace = true }
+notify-debouncer-mini = { workspace = true }
 parking_lot = { workspace = true }
+quick-xml = { workspace = true }
 rayon = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
@@ -66,7 +68,6 @@ tar = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-ts-rs = { workspace = true, optional = true }
 uuid = { workspace = true }
 walkdir = { workspace = true }
 webp = { workspace = true }
@@ -85,9 +86,10 @@ windows-sys = { workspace = true, features = [
     "Win32_System_IO",
     "Win32_System_Registry",
     "Win32_System_Threading",
+    "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-filetime = { workspace = true }
+ltk_primitives = "0.3.6"

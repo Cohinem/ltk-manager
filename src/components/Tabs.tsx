@@ -97,7 +97,7 @@ export const TabsPanel = forwardRef<HTMLDivElement, TabsPanelProps>(
     return (
       <BaseTabs.Panel
         ref={ref}
-        className={twMerge("mt-4 focus-visible:outline-none", className)}
+        className={twMerge("focus-visible:outline-none", className)}
         {...props}
       >
         {children}

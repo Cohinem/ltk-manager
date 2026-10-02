@@ -7,6 +7,8 @@
   the merge a built-in mod's chunks stay outside of.
   [ADR-0024](0024-a-setting-id-is-its-key-in-settings-json.md), whose flat file the
   `builtinMods` group departs from.
+  [ADR-0052](0052-a-map-skin-choice-copies-one-skins-environment-over-the-others.md), the first
+  built-in mod that declares properties rather than overriding chunks.
 
 ## Context and problem statement
 
@@ -55,8 +57,12 @@ than the fallback to `skin0.bin` the loader's code describes. A ward survives it
 - A mod **ships** a skin bin when an enabled mod or workshop project holds it in a layer turned
   on, with bytes other than the game's. A bin a mod ships stays that mod's. A whole archive a
   mod repacks ships only the bins it changed.
-- **Modded champions** takes in each character whose `skin0.bin` a mod ships. **Every
-  champion** takes in each character with a skin bin in a champion archive.
+- A mod ships a **base model file** of a character the same way. It is a `.skn`, `.tex` or `.dds`
+  directly in `assets/characters/<c>/skins/base/`, and reskins the base skin without its bin.
+  Particles and animations in subfolders there are often shared with other skins, so they do
+  not count.
+- **Modded champions** takes in each character for which a mod ships `skin0.bin` or a base model
+  file. **Every champion** takes in each character with a skin bin in a champion archive.
 - A skin bin is named by its plain path, by the WAD path tables, or as the skin bin of a
   character a champion archive is named after. The tables name a champion's companions, such as
   Tibbers in Annie's archive.

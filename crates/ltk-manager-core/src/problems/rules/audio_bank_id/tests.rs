@@ -1,6 +1,7 @@
 //! Unit tests for what the rule reports, what it stays quiet about, and what
 //! its repair writes.
 
+use crate::hashing::named;
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_meta::property::values;
@@ -110,7 +111,7 @@ fn a_bank_carrying_no_id_is_worth_knowing_and_nothing_more() {
     assert_eq!(problem.rule, ID);
     assert_eq!(
         problem.severity,
-        Severity::Info,
+        ProblemSeverity::Info,
         "nothing is known to read the field, so the mod is not broken by this"
     );
     assert_eq!(problem.site.layer, "base");
@@ -276,21 +277,19 @@ fn a_chunk_named_by_its_hash_is_reported_without_a_repair() {
         }
     );
     assert_eq!(read_back(&tmp, hashed), bank(0), "nothing was written");
-    assert!(!AudioBankId::new().unfixable_description().is_empty());
+    assert!(!AudioBankId::new().meta().unfixable.is_empty());
 }
 
 /* The bin shape a bank's own name survives an unpack in. Written out here
 rather than read from the scanner, so a wrong constant there fails rather than
 agrees. */
 
-/// `SkinAudioProperties`.
-const SKIN_AUDIO: BinHash = BinHash(0x8f7b_194f);
+const SKIN_AUDIO: BinHash = named("SkinAudioProperties");
 /// `bankUnits` on it.
-const BANK_UNITS: BinHash = BinHash(0xf8f2_9f92);
-/// `BankUnit`.
-const UNIT: BinHash = BinHash(0xa441_6515);
+const BANK_UNITS: BinHash = named("bankUnits");
+const UNIT: BinHash = named("BankUnit");
 /// `bankPath` on it.
-const UNIT_PATH: BinHash = BinHash(0x2a21_ad00);
+const UNIT_PATH: BinHash = named("bankPath");
 /// The object the fixture hangs its audio properties on.
 const BIN_ENTRY: BinHash = BinHash(0x1234_5678);
 

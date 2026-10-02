@@ -7,7 +7,6 @@ import { twMerge } from "@/utils";
 import { IconButton } from "./Button";
 import { FieldAffix, fieldAffixButtonClass } from "./FieldAffix";
 import { Field } from "./FormField";
-import { Tooltip } from "./Tooltip";
 
 /** What the browse button opens a picker for. */
 export type PathPick = "directory" | "file";
@@ -51,8 +50,8 @@ const browseHint: Record<PathPick, string> = {
 };
 
 const validityIcon: Record<PathValidity, ReactNode> = {
-  valid: <CheckCircleIcon weight="bold" className="h-5 w-5 text-success-text" />,
-  invalid: <WarningCircleIcon weight="bold" className="h-5 w-5 text-danger-text" />,
+  valid: <CheckCircleIcon weight="bold" className="size-5 text-success-text" />,
+  invalid: <WarningCircleIcon weight="bold" className="size-5 text-danger-text" />,
 };
 
 /** Last segment of a path, under either separator. */
@@ -105,7 +104,7 @@ export function PathField({
 
   const hint = browseHint[pick];
   const shown = value && display === "name" ? basename(value) : (value ?? "");
-  const icon = browseIcon ?? <FolderOpenIcon weight="bold" className="h-5 w-5" />;
+  const icon = browseIcon ?? <FolderOpenIcon weight="bold" className="size-5" />;
   const canClear = !!onClear && !!value;
 
   return (
@@ -129,29 +128,21 @@ export function PathField({
               </span>
             )}
             {canClear && (
-              <Tooltip content="Clear">
-                <IconButton
-                  icon={<XIcon weight="bold" className="h-5 w-5" />}
-                  variant="ghost"
-                  size="sm"
-                  compact
-                  aria-label="Clear"
-                  onClick={onClear}
-                  className={fieldAffixButtonClass}
-                />
-              </Tooltip>
-            )}
-            <Tooltip content={hint}>
               <IconButton
-                icon={icon}
-                variant="ghost"
+                icon={<XIcon className="size-5" />}
                 size="sm"
-                compact
-                aria-label={hint}
-                onClick={handleBrowse}
+                onClick={onClear}
                 className={fieldAffixButtonClass}
+                label="Clear"
               />
-            </Tooltip>
+            )}
+            <IconButton
+              icon={icon}
+              size="sm"
+              onClick={handleBrowse}
+              className={fieldAffixButtonClass}
+              label={hint}
+            />
           </FieldAffix>
         </div>
         {actions}

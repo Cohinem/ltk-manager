@@ -7,8 +7,10 @@ import {
 } from "react";
 
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import type { LoopRange } from "../../../../state";
+import type { SnapKeys, TimeSnap } from "../hooks/useTimeSnap";
 import {
   draggedLoop,
   gripAt,
@@ -21,7 +23,7 @@ import {
   xOf,
 } from "../utils/laneModel";
 
-/** How far a pointer moves on the ruler before a press is a drag rather than a seek, in pixels. */
+/** How far a pointer moves on the ruler before a press is a drag rather than a click, in pixels. */
 const DRAG_SLOP = 4;
 
 interface RulerProps {
@@ -30,21 +32,43 @@ interface RulerProps {
   /** Seconds one run lasts, which a dragged loop stays inside. */
   span: number;
   loop: LoopRange | null;
-  onSeek: (x: number) => void;
+  /** How a scrubbed time and a dragged loop edge snap. */
+  snap: TimeSnap;
+  /** Seek to `x` pixels into the ruler, snapped under the pointer's keys. */
+  onSeek: (x: number, keys: SnapKeys) => void;
+  /** Pause the clock while a drag scrubs. */
+  onScrubStart: () => void;
+  /** Let the clock run again once the scrub ends. */
+  onScrubEnd: () => void;
   onLoop: (loop: LoopRange | null) => void;
   onRefit: () => void;
 }
 
 /**
- * The ruler: ticks over the view, the loop band, and the gestures that seek, loop and refit.
+ * The ruler: ticks over the view, the loop band, and the gestures that scrub, loop and refit.
  *
- * A press seeks. A drag on the open ruler sets a new loop, and a drag on the band's edge or
- * its body moves the in, the out or the whole range. A double click inside the band or on
- * its x clears it, and a double click elsewhere refits the view.
+ * A drag on the open ruler scrubs from the press, and Shift and a drag draws a new loop. A
+ * drag on the band's edge or its body moves the in, the out or the whole range, and a click
+ * on the band seeks. A double click inside the band or on its x clears it, and a double
+ * click elsewhere refits the view.
  */
-export function Ruler({ view, width, span, loop, onSeek, onLoop, onRefit }: RulerProps) {
+export function Ruler({
+  view,
+  width,
+  span,
+  loop,
+  snap,
+  onSeek,
+  onScrubStart,
+  onScrubEnd,
+  onLoop,
+  onRefit,
+}: RulerProps) {
   const press = useRef<{ x: number; grip: LoopGrip; dragging: boolean } | null>(null);
+  const scrubbing = useRef(false);
   const [draft, setDraft] = useState<LoopRange | null>(null);
+  /* Shift is down under the pointer, so a press draws a loop wherever it lands. */
+  const [drawing, setDrawing] = useState(false);
   const shown = draft ?? loop;
   const labelled = ticks(view, width);
 
@@ -52,48 +76,77 @@ export function Ruler({ view, width, span, loop, onSeek, onLoop, onRefit }: Rule
     event.clientX - event.currentTarget.getBoundingClientRect().left;
 
   const letGo = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const held = press.current;
+    const pressed = press.current;
     press.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+
+    if (scrubbing.current) {
+      scrubbing.current = false;
+      onScrubEnd();
+    }
     setDraft(null);
-    return held;
+    return pressed;
   };
 
   return (
     <div
       role="group"
       aria-label={m.workshop_bin_timeline_ruler_label()}
-      className="relative h-full w-full select-none"
+      title={m.workshop_bin_timeline_ruler_hint()}
+      className={twMerge(
+        "relative size-full select-none",
+        drawing ? "cursor-crosshair" : "cursor-ew-resize",
+      )}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.currentTarget.setPointerCapture(event.pointerId);
+        setDrawing(event.shiftKey);
         const x = at(event);
-        press.current = { x, grip: gripAt(loop, view, width, x), dragging: false };
+        const grip = event.shiftKey ? "ruler" : gripAt(loop, view, width, x);
+        if (grip !== "ruler" || event.shiftKey) {
+          press.current = { x, grip, dragging: false };
+          return;
+        }
+
+        /* The second press of a double click is the double click's, which refits. */
+        if (event.detail >= 2) return;
+        scrubbing.current = true;
+        onScrubStart();
+        onSeek(x, event);
       }}
       onPointerMove={(event) => {
-        const held = press.current;
-        if (held === null) return;
+        setDrawing(event.shiftKey);
         const x = at(event);
-        if (!held.dragging && Math.abs(x - held.x) < DRAG_SLOP) return;
-        held.dragging = true;
-        if (held.grip === "ruler" || loop === null) {
-          const [from, to] = [timeAt(view, width, held.x), timeAt(view, width, x)].sort(
-            (a, b) => a - b,
-          );
+        if (scrubbing.current) {
+          onSeek(x, event);
+          return;
+        }
+
+        const pressed = press.current;
+        if (pressed === null) return;
+        if (!pressed.dragging && Math.abs(x - pressed.x) < DRAG_SLOP) return;
+        pressed.dragging = true;
+        const snapped = (time: number) => snap(time, event, { loop: true });
+        if (pressed.grip === "ruler" || loop === null) {
+          const [from, to] = [
+            snapped(timeAt(view, width, pressed.x)).time,
+            snapped(timeAt(view, width, x)).time,
+          ].sort((a, b) => a - b);
           setDraft({ from: Math.max(from, 0), to });
           return;
         }
-        const moved = timeAt(view, width, x) - timeAt(view, width, held.x);
-        setDraft(draggedLoop(held.grip, loop, moved, span));
+        const moved = timeAt(view, width, x) - timeAt(view, width, pressed.x);
+        const grip = pressed.grip;
+        setDraft(draggedLoop(grip, loop, snappedMove(grip, loop, moved, snapped), span));
       }}
       onPointerUp={(event) => {
-        const held = letGo(event);
-        if (held === null) return;
-        if (held.dragging && draft !== null) onLoop(draft);
+        const pressed = letGo(event);
+        if (pressed === null) return;
+        if (pressed.dragging && draft !== null) onLoop(draft);
         /* The second press of a double click is the double click's, which refits or clears. */
-        else if (event.detail < 2) onSeek(held.x);
+        else if (event.detail < 2) onSeek(pressed.x, event);
       }}
       onPointerCancel={letGo}
       onDoubleClick={(event) => {
@@ -126,14 +179,17 @@ export function Ruler({ view, width, span, loop, onSeek, onLoop, onRefit }: Rule
             from: shown.from.toFixed(2),
             to: shown.to.toFixed(2),
           })}
-          className="absolute inset-y-0 cursor-grab border-x border-accent-500 bg-accent-500/20 active:cursor-grabbing"
+          className={twMerge(
+            "absolute inset-y-0 border-x border-accent-500 bg-accent-500/20",
+            drawing ? "cursor-crosshair" : "cursor-grab active:cursor-grabbing",
+          )}
           style={{
             left: xOf(view, width, shown.from),
             width: Math.max(xOf(view, width, shown.to) - xOf(view, width, shown.from), 1),
           }}
         >
-          <LoopHandle side="left" />
-          <LoopHandle side="right" />
+          <LoopHandle side="left" drawing={drawing} />
+          <LoopHandle side="right" drawing={drawing} />
           {draft === null && (
             <button
               type="button"
@@ -146,13 +202,31 @@ export function Ruler({ view, width, span, loop, onSeek, onLoop, onRefit }: Rule
                 onLoop(null);
               }}
             >
-              <XIcon weight="bold" className="h-3 w-3" />
+              <XIcon weight="bold" className="size-3" />
             </button>
           )}
         </span>
       )}
     </div>
   );
+}
+
+/**
+ * `moved` adjusted so the edge `grip` names lands where it snaps. The band moves by its in
+ * where the in snaps, and by its out otherwise.
+ */
+function snappedMove(
+  grip: Exclude<LoopGrip, "ruler">,
+  range: LoopRange,
+  moved: number,
+  snapped: (time: number) => { readonly time: number; readonly snapped: number | null },
+): number {
+  const byIn = snapped(range.from + moved);
+  if (grip === "in") return byIn.time - range.from;
+
+  const byOut = snapped(range.to + moved);
+  if (grip === "out" || byIn.snapped === null) return byOut.time - range.to;
+  return byIn.time - range.from;
 }
 
 /** The shade over whatever of the view lies past the run's end, from `x` to the edge. */
@@ -168,11 +242,14 @@ export function PastRun({ x, width }: { x: number; width: number }) {
 }
 
 /** The hit box over one edge of the loop band, as wide as the grip `gripAt` reads. */
-function LoopHandle({ side }: { side: "left" | "right" }) {
+function LoopHandle({ side, drawing }: { side: "left" | "right"; drawing: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className="absolute inset-y-0 cursor-ew-resize hover:bg-accent-500/40"
+      className={twMerge(
+        "absolute inset-y-0",
+        drawing ? "cursor-crosshair" : "cursor-ew-resize hover:bg-accent-500/40",
+      )}
       style={{ [side]: -LOOP_GRIP, width: LOOP_GRIP * 2 }}
     />
   );

@@ -127,7 +127,7 @@ export function Slider({
             <span
               key={mark.value}
               className={twMerge(
-                "absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full",
+                "absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-full",
                 isActive ? "bg-accent-400" : "bg-surface-500",
               )}
               style={{ left: `${pct}%` }}

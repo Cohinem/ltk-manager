@@ -102,6 +102,23 @@ export const COLOR_LOOKUP = { constant: 0, lifetime: 1, velocity: 2, birthRandom
 
 export type ColorLookup = (typeof COLOR_LOOKUP)[keyof typeof COLOR_LOOKUP];
 
+/**
+ * `ParticleSystem::IMPORTANCE`, the tier the effects quality culls an emitter by.
+ *
+ * The reflected enum names the first three. The rest are named for what the cull mask does
+ * with them, since the mask keys six tiers (`VfxEmitter_Evaluation.md` section 9.1).
+ */
+export const IMPORTANCE = {
+  low: 0,
+  medium: 1,
+  high: 2,
+  always: 3,
+  lowSpecOnly: 4,
+  highSpecOnly: 5,
+} as const;
+
+export type Importance = (typeof IMPORTANCE)[keyof typeof IMPORTANCE];
+
 /** `VfxEmitterDefinitionData::ParticleLingerType`, what a finished emitter does with its particles. */
 export const LINGER_TYPE = {
   maxLifetimeAfterEmitterDies: 0,

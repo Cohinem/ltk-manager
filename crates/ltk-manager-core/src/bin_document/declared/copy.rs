@@ -1,19 +1,18 @@
 //! A row as the declaration and the reference an author would write for it, and a reference
-//! declared in its place. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+//! declared in its place. "Game data declarations" in docs/ux/BIN_EDITOR.md.
 
 use indexmap::IndexMap;
-use ltk_declarations::{Edit as ManifestEdit, Operation, ValueText};
+use ltk_declarations::{Edit as ManifestEdit, ModuleChoice, Operation, ValueText};
 use ltk_game_data::{Reference, Value};
 use ltk_hash::BinHash;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::path::{FieldNames as _, MapKey, PropertyPath, ValuePath};
-use ltk_meta::property::values;
 use ltk_meta::walk::TreeValue as _;
 use serde::Serialize;
 
 use super::super::{
-    BinDocument, BinDocumentError, EditRejection, EntryKey, Node, RowNames, Step, descend, hex,
-    parse_steps,
+    BinDocument, BinDocumentError, EditRejection, EntryKey, Node, RowNames, Step, as_list,
+    as_struct, descend, hex, parse_steps,
 };
 use super::{RenderNames, declaring, entry_name, not_declared, value_path};
 use crate::error::AppError;
@@ -23,9 +22,7 @@ use crate::error::AppError;
 /// an object, which names no path.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct RowDeclaration {
     /// An `entries` module setting the row to its value, as it stands under `modules`.
     pub declaration: Option<String>,
@@ -41,7 +38,7 @@ impl BinDocument {
     /// the object itself.
     ///
     /// A struct and an object copy as a block of their fields, which an apply sets one by one
-    /// on the game's own struct. "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
+    /// on the game's own struct. "Game data declarations" in docs/ux/BIN_EDITOR.md.
     ///
     /// # Errors
     ///
@@ -88,6 +85,7 @@ impl BinDocument {
                     entry: name.clone(),
                     path: PropertyPath::new(key).ok()?,
                     operation: Operation::Set(ValueText::try_from(&value).ok()?),
+                    module: ModuleChoice::Auto,
                 })
             })
             .collect();
@@ -137,8 +135,7 @@ impl BinDocument {
         let declared = self.declared.as_ref().ok_or_else(not_declared)?;
 
         let mut edit = None;
-        declared.context.game.with_names(&mut |names| {
-            let names = RenderNames(names);
+        declared.context.with_names(&mut |names| {
             edit = spelled_path(&steps, &trace, &names).map(|property| ManifestEdit {
                 chunk_hash: declared.chunk_hash,
                 entry: entry_name(entry, &names),
@@ -148,6 +145,7 @@ impl BinDocument {
                 } else {
                     Operation::Set(text.clone())
                 },
+                module: ModuleChoice::Auto,
             });
         });
         let edit = edit.ok_or_else(nameless)?;
@@ -222,8 +220,8 @@ impl Spelling<'_> {
         at: &ValuePath,
         value: &PropertyValueEnum,
     ) {
-        if let Some((class, properties)) = struct_of(value) {
-            let fields = self.fields(class, properties);
+        if let Some(inner) = as_struct(value) {
+            let fields = self.fields(inner.class_hash, &inner.properties);
             if !fields.is_empty() {
                 block.insert(key, Value::Mapping(fields));
             }
@@ -266,11 +264,11 @@ enum Item<'a> {
 
 /// The items of a list, a map or a present option, and none for any other value.
 fn items_of(value: &PropertyValueEnum) -> Vec<(Item<'_>, &PropertyValueEnum)> {
+    if let Some(items) = as_list(value) {
+        return indexed(items);
+    }
+
     match value {
-        PropertyValueEnum::Container(items) => indexed(items.items()),
-        PropertyValueEnum::UnorderedContainer(values::UnorderedContainer(items)) => {
-            indexed(items.items())
-        }
         PropertyValueEnum::Optional(option) => option
             .value()
             .map(|item| vec![(Item::Index(0), item)])
@@ -290,21 +288,6 @@ fn indexed(items: &[PropertyValueEnum]) -> Vec<(Item<'_>, &PropertyValueEnum)> {
         .enumerate()
         .map(|(index, item)| (Item::Index(index), item))
         .collect()
-}
-
-/// The class and the fields of a struct or an embed, and none for a null pointer.
-fn struct_of(
-    value: &PropertyValueEnum,
-) -> Option<(BinHash, &IndexMap<BinHash, PropertyValueEnum>)> {
-    match value {
-        PropertyValueEnum::Struct(pointer) if *pointer.class_hash != 0 => {
-            Some((pointer.class_hash, &pointer.properties))
-        }
-        PropertyValueEnum::Embedded(values::Embedded(embed)) => {
-            Some((embed.class_hash, &embed.properties))
-        }
-        _ => None,
-    }
 }
 
 /// Whether `name` is one field name a key spells, hashing to `field`.

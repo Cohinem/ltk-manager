@@ -1,4 +1,4 @@
-import { COLOR, ERODE, FETCH, GROUND, SOFT, WARP, WIRE } from "./quad";
+import { COLOR, ERODE, FETCH, GROUND, PICK, SOFT, WARP, WIRE } from "./quad";
 
 export const RIBBON_VERTEX = /* glsl */ `
 ${GROUND}
@@ -34,6 +34,7 @@ void main() {
 
 export const RIBBON_FRAGMENT = /* glsl */ `
 ${WIRE}
+${PICK}
 uniform sampler2D map;
 uniform float alphaRef;
 uniform int address;
@@ -69,6 +70,11 @@ void main() {
   texel.a = fetch(map, vAlphaUv, vec4(0.0), vec2(1.0), address).a;
 #endif
 #endif
+#ifdef PICK
+  if (texel.a < PICK_ALPHA) discard;
+  gl_FragColor = pickId;
+  return;
+#endif
 #ifdef RAMP_AT_MULT
   texel = colored(texel, vMultCell + vMultUv * cellMult);
 #else
@@ -78,11 +84,10 @@ void main() {
   texel *= fetch(mapMult, vMultUv, vec4(0.0, 0.0, vMultCell), cellMult, addressMult);
 #endif
   texel.a *= eroding(vCell + vUv * cellSize);
-  vec4 lit = texel * vColor;
+  vec4 lit = softened(texel * vColor);
   if (lit.a < alphaRef) discard;
-  lit = softened(lit);
 #ifdef DISTORTS
-  gl_FragColor = warp != 0.0 ? warped(vUv, lit.a) : lit;
+  gl_FragColor = warped(vUv, lit.a);
 #else
   gl_FragColor = lit;
 #endif

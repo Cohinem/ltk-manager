@@ -4,6 +4,9 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-10-02 | Importing a mod the library holds                          |
+| 2026-10-02 | Opening a mod file from Explorer installs it               |
+| 2026-09-30 | A library edit reaches a running patcher between games     |
 | 2026-09-12 | The documents panel is a drawer over the grid, not a pane  |
 | 2026-09-12 | The licenses tab follows the open mod, like the other two  |
 | 2026-09-12 | A right click reads a card and no longer picks it          |
@@ -50,7 +53,7 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Filters and sort       | Available | A popover off the search box, and chips under the toolbar     |
 | Search                 | Available | `Ctrl+F`. Flattens the folders while it has a query           |
 | Manual reorder         | Available | Drag within a folder. Off under a search, a filter or a pick  |
-| Import                 | Available | `Ctrl+I`, the toolbar button, or a drop onto the window       |
+| Import                 | Available | `Ctrl+I`, the toolbar button, a drop, or a file from Explorer |
 | Layers                 | Available | A popover on a multi-layer card                               |
 | Storage                | Available | Project or archive, on the card's menu. ADR-0008              |
 | Mod health             | Available | Its own document, [MOD_HEALTH.md](MOD_HEALTH.md)              |
@@ -111,9 +114,8 @@ Uninstall spends it when the run comes back, which is what lets the failures sta
 not a way around it. Disable is always offered, and Uninstall is the reason the mod is pickable
 at all.
 
-**Every write is off while the patcher runs.** Enable, Disable and Uninstall all go dark, because
-the backend refuses a write to a mod under a running patcher. Check health only reads, so it
-stays.
+**Every command stays on while the patcher runs.** Enable, Disable and Uninstall reach the
+running session as [An edit while the patcher runs](#an-edit-while-the-patcher-runs) describes.
 
 **The bar is over the library, not in the toolbar.** It appears while the selection is non-empty
 and it names its own count, with a second count for the picks a filter or a search is currently
@@ -164,6 +166,72 @@ under a filter for the same reason it always was - the order on screen is not th
 Navigating away from the library clears the selection. A pick carried to another screen and back
 would let `Uninstall N` act on mods the reader cannot see, and a folder drilldown is the case that
 makes it concrete. The selection is session state and is never written to disk.
+
+## An edit while the patcher runs
+
+A library edit reaches a running patcher without a restart. Switching a mod, reordering, layers,
+a folder's switch, a move into a folder, an install, an update, an uninstall, a mod's storage and a
+profile switch all apply to the next game.
+
+The overlay is rebuilt between games, never under one. A game opens the overlay's files as it
+starts and holds them until it closes.
+
+- **No game open.** The patcher rebuilds the overlay a moment after the last edit, so a burst of
+  edits costs one rebuild. Play shows the build the way it does at a start.
+- **A game open.** The edit is saved and waits. `Applies after this game` sits beside Play until
+  the game closes, and the rebuild runs then.
+
+A game launched during the few seconds of a rebuild runs without mods, the same as a game that was
+already running when the patcher started.
+
+A repair and a profile rename still wait for the patcher to stop. A repair rewrites the archive the
+rebuild reads, and a rename moves the folder the overlay is in.
+
+## Opening a mod file
+
+With `Open mod files with LTK Manager` on in Settings, double-clicking a `.fantome` or `.modpkg`
+file in Explorer installs it. The window comes forward on the Mods page, and the install runs
+exactly as a drop onto the window does: the same progress dialog for several files, and the same
+toast with the result. Nothing asks first, because the reader chose a local file.
+
+The app may be closed, running in the tray or open on another page. A file opened before the window
+is ready waits for it. A first run still opens on Settings, and the file installs once the reader
+reaches the library.
+
+Explorer starts the app once per selected file. The files that arrive within 300 ms of each other
+install as one import, so a multi-select reads as one action.
+
+## Importing a mod the library holds
+
+An import compares each archive with what the library already holds, and does one of three things.
+
+| The archive is                          | The import                                            |
+| --------------------------------------- | ----------------------------------------------------- |
+| Byte for byte one the library holds     | Installs nothing and names the mod it already is      |
+| A newer version of a mod in the library | Updates that mod in place, as `Update from file` does |
+| Anything else                           | Installs it as a new mod                              |
+
+The file name does not matter, so a renamed copy of the same archive is still the same mod.
+
+**A newer version is the same mod at a higher version.** The same mod has the same project name and
+the same authors, ignoring case. A higher version is a greater semver version, and an archive whose
+version does not parse is never one. The updated mod keeps its place, its folder and whether each
+profile enables it. When the library holds several older copies, the one at the highest version is
+updated. An older or equal version installs beside the mod, so downgrading stays a choice the reader
+makes with `Update from file`.
+
+How the result reaches the reader:
+
+- One file: a toast names the mod that was updated or that the library already holds.
+- Several files: the result dialog lists the updated mods and the ones already in the library apart
+  from the mods it installed and the files that failed. A batch that carries one archive twice
+  installs it once, and a batch that carries two versions of a new mod lists it once, at the newer
+  version.
+- A deep link: the dialog says the mod was updated or is already in the library.
+
+A mod is matched to an archive it already holds by the archive it was installed or last updated
+from. A mod installed before the check existed has no record of that archive, so its stored archive
+stands in, and it matches only when the import left that archive unchanged.
 
 ## The documents panel
 
@@ -311,6 +379,8 @@ not also drop the selection.
 | Is the panel's width written to disk?           | Yes, and neither the open state nor the mod it held        |
 | Does the licenses tab follow the opened mod?    | Yes. Every tab in the panel answers for the one mod        |
 | Is a license text cached to disk?               | No. It is read once per session and held in memory         |
+| Can the library be edited while patching?       | Yes. The overlay is rebuilt between games                  |
+| Does an edit reach a game already running?      | No. It applies to the next game                            |
 
 ## Open questions
 

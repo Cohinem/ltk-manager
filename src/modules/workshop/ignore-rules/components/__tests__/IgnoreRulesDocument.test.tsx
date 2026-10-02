@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
 import { documentFind, DocumentToolbarSlotContext } from "@/modules/editor";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient, renderWithProviders } from "@/test/utils";
 
@@ -26,7 +27,7 @@ const world = {
 
 function answer(command: string): unknown {
   switch (command) {
-    case "get_project_ignore_rules":
+    case commandNames.workshop.getProjectIgnoreRules:
       return {
         ok: true,
         value: {
@@ -35,7 +36,7 @@ function answer(command: string): unknown {
           missingRecommended: world.text === null ? ["*.psd", "*.fbx"] : ["*.fbx"],
         },
       };
-    case "save_project_ignore_rules":
+    case commandNames.workshop.saveProjectIgnoreRules:
       if (world.refusal) {
         return {
           ok: false,
@@ -53,7 +54,7 @@ function answer(command: string): unknown {
           missingRecommended: [],
         },
       };
-    case "add_recommended_ignore_rules":
+    case commandNames.workshop.addRecommendedIgnoreRules:
       return {
         ok: true,
         value: {
@@ -62,7 +63,7 @@ function answer(command: string): unknown {
           missingRecommended: [],
         },
       };
-    case "recommended_ignore_rules":
+    case commandNames.workshop.recommendedIgnoreRules:
       return { ok: true, value: RECOMMENDED };
     default:
       return { ok: true, value: null };
@@ -87,6 +88,9 @@ function project(): WorkshopProject {
     layers: [],
     thumbnailPath: null,
     lastModified: "2026-09-12T00:00:00Z",
+    location: "workshop",
+    lastOpened: null,
+    id: "id-my-mod",
   };
 }
 
@@ -144,8 +148,10 @@ describe("IgnoreRulesDocument", () => {
     const buffer = await screen.findByRole("textbox", { name: "Ignore rules" });
     await user.type(buffer, "*.fbx");
 
-    await waitFor(() => expect(calls("save_project_ignore_rules")).toHaveLength(1));
-    expect(calls("save_project_ignore_rules")[0]?.[1]).toMatchObject({
+    await waitFor(() =>
+      expect(calls(commandNames.workshop.saveProjectIgnoreRules)).toHaveLength(1),
+    );
+    expect(calls(commandNames.workshop.saveProjectIgnoreRules)[0]?.[1]).toMatchObject({
       projectPath: PROJECT_PATH,
       text: "*.psd\n*.fbx",
     });
@@ -179,7 +185,9 @@ describe("IgnoreRulesDocument", () => {
     expect(screen.getByText("Fix the rule to save")).toBeInTheDocument();
 
     /* One attempt, and no loop: the next edit is what asks again. */
-    await waitFor(() => expect(calls("save_project_ignore_rules")).toHaveLength(1));
+    await waitFor(() =>
+      expect(calls(commandNames.workshop.saveProjectIgnoreRules)).toHaveLength(1),
+    );
   });
 
   it("offers the whole default when the project has no file", async () => {
@@ -189,7 +197,9 @@ describe("IgnoreRulesDocument", () => {
 
     await user.click(await screen.findByRole("button", { name: "Write the recommended rules" }));
 
-    await waitFor(() => expect(calls("add_recommended_ignore_rules")).toHaveLength(1));
+    await waitFor(() =>
+      expect(calls(commandNames.workshop.addRecommendedIgnoreRules)).toHaveLength(1),
+    );
   });
 
   it("offers only the missing entries when the file is short of some", async () => {
@@ -198,7 +208,9 @@ describe("IgnoreRulesDocument", () => {
 
     await user.click(await screen.findByRole("button", { name: "Add 1 missing recommended rule" }));
 
-    await waitFor(() => expect(calls("add_recommended_ignore_rules")).toHaveLength(1));
+    await waitFor(() =>
+      expect(calls(commandNames.workshop.addRecommendedIgnoreRules)).toHaveLength(1),
+    );
   });
 
   /* The rules answer the same find bar the readme does. */

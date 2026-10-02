@@ -181,6 +181,21 @@ export interface TrailModel {
  * Both ends are the system's, so every particle of the emitter draws the same segment and
  * differs in colour, width and uv.
  */
+/**
+ * `VfxProjectionDefinitionData`: how far above or below the ground a projecting particle
+ * still draws.
+ *
+ * The decal is whole while the particle stands within `yRange` of the surface and fades
+ * out over the next `fading` units. `colorModulate` is carried by the class and read by no
+ * draw.
+ */
+export interface ProjectionModel {
+  /** `mYRange`, the height band the decal draws whole in. */
+  readonly yRange: number;
+  /** `mFading`, the units past that band it fades out over. */
+  readonly fading: number;
+}
+
 export interface BeamModel {
   /** `mMode`, of [`BEAM_MODE`]. */
   readonly mode: BeamMode;
@@ -499,6 +514,18 @@ export interface OrbitalFieldModel {
   readonly localSpace: boolean;
 }
 
+/**
+ * Why the engine would not instantiate an emitter at the preview's settings: Very High effects
+ * quality culls the low-spec `importance`, and the default palette culls a colourblind-only one.
+ */
+export type EmitterCull = "importance" | "colorblind";
+
+/** An emission cycle: the seconds one cycle lasts, and the seconds of each it emits for. */
+export interface EmissionPeriod {
+  readonly length: number;
+  readonly active: number;
+}
+
 /** One emitter of a system, as the renderer reads it. */
 export interface EmitterModel {
   /** The shared static preview of `CustomMaterial`, and null for the particle shader. */
@@ -511,7 +538,10 @@ export interface EmitterModel {
   /** Its place in its own list, which is what the strip's own cards are keyed on. */
   readonly listIndex: number;
   readonly name: string;
+  /** The emitter is not instantiated: its `disabled` flag is set, or a gate in `culled` removed it. */
   readonly disabled: boolean;
+  /** The instantiation gate that removed the emitter from the preview, and null for none. */
+  readonly culled: EmitterCull | null;
 
   /** Particles per second, driven by the emitter's life. */
   readonly rate: ValueCurve;
@@ -520,6 +550,8 @@ export interface EmitterModel {
   /** Seconds the emitter emits for, and null for one that never stops. */
   readonly lifetime: number | null;
   readonly timeBeforeFirstEmission: number;
+  /** `period` and `timeActiveDuringPeriod`, and null for an emitter that emits throughout. */
+  readonly period: EmissionPeriod | null;
   /** `isSingleParticle`: the emitter's whole output is one burst at its start. */
   readonly singleParticle: boolean;
   /**
@@ -740,6 +772,8 @@ export interface EmitterModel {
   readonly trail: TrailModel | null;
   /** The ribbon a beam primitive reaches the target with, and null for every other kind. */
   readonly beam: BeamModel | null;
+  /** The decal a planar projection lays on the ground, and null for every other kind. */
+  readonly projection: ProjectionModel | null;
   /** `childParticleSetDefinition`, and null for an emitter spawning no systems. */
   readonly childSet: ChildSetModel | null;
   /** `fieldCollectionDefinition`, and null for an emitter whose particles cross no field. */

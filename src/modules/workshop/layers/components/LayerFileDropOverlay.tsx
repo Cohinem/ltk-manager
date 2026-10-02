@@ -24,7 +24,7 @@ export function LayerFileDropOverlay({ visible, layerDisplayName }: LayerFileDro
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
           >
-            <Upload className="h-16 w-16 text-accent-500" />
+            <Upload className="size-16 text-accent-500" />
             <div className="text-center">
               <p className="text-lg font-medium text-surface-100">
                 Drop to add to <span className="text-accent-300">{layerDisplayName}</span>

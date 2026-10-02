@@ -1,11 +1,21 @@
-import { Matrix4, type Uniform } from "three";
+import {
+  DetachedBindMode,
+  Matrix4,
+  Object3D,
+  OrthographicCamera,
+  PerspectiveCamera,
+  type RawShaderMaterial,
+  SkinnedMesh,
+  type Uniform,
+  type WebGLRenderer,
+} from "three";
 import { describe, expect, it } from "vitest";
 
 import type { UniformBlock } from "@/lib/tauri";
 
 import { DEFAULT_SUN } from "../../scene/utils/sunLight";
 import { ambientCube, EngineEnvironment, writeRows } from "../engineEnvironment";
-import { createProgramMaterial } from "../programMaterial";
+import { createProgramMaterial, writeProgramMember } from "../programMaterial";
 
 const BLOCK: UniformBlock = {
   name: "PerFrameVertexCB",
@@ -27,6 +37,27 @@ describe("EngineEnvironment", () => {
     expect((group.uniforms[0] as Uniform).value).toHaveLength(140);
   });
 
+  it("carries a skinned mesh bound detached by its transform over its bones", () => {
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+    const camera = new PerspectiveCamera();
+    camera.position.set(1, 2, 3);
+    camera.updateMatrixWorld();
+    const clipFor = (object: Object3D) => {
+      object.scale.setScalar(2);
+      object.updateMatrixWorld();
+      const environment = new EngineEnvironment("uniform");
+      environment.write(renderer, camera, object, 0);
+      const out = new Float32Array(16);
+      environment.writeClip(out, 0);
+      return [...out];
+    };
+    const detached = new SkinnedMesh();
+    detached.bindMode = DetachedBindMode;
+
+    expect(clipFor(detached)).toEqual(clipFor(new Object3D()));
+    expect(clipFor(new SkinnedMesh())).not.toEqual(clipFor(new Object3D()));
+  });
+
   it("halves the clip transform's depth row into the D3D range", () => {
     const environment = new EngineEnvironment();
     const out = new Float32Array(16);
@@ -37,69 +68,80 @@ describe("EngineEnvironment", () => {
   });
 });
 
+const member = (name: string, offset: number) => ({
+  name,
+  offset,
+  size: 16,
+  used: true,
+  scalar: "float" as const,
+  rows: 1,
+  columns: 4,
+  elements: 0,
+  rowMajor: false,
+});
+
+const GLOBALS: UniformBlock = {
+  name: "$Globals",
+  glslName: "Globals_ps",
+  size: 32,
+  members: [member("BAKED_LIGHT_SCALE_AND_BIAS", 0), member("Tint", 16)],
+};
+
+/** A translated block of `extent` elements behind the instance `<name>_i`. */
+function declared(glslName: string, element: string, extent: number): string {
+  return `layout(std140) uniform ${glslName}\n{\n    ${element} m[${extent}];\n} ${glslName}_i;`;
+}
+
+/** A material of one pass whose stages declare `vertex` and `pixel` and nothing else. */
+function programMaterial(
+  environment: EngineEnvironment,
+  vertex: readonly (readonly [UniformBlock, string])[],
+  pixel: readonly (readonly [UniformBlock, string])[],
+): RawShaderMaterial {
+  const stage = (blocks: readonly (readonly [UniformBlock, string])[]) => ({
+    id: 1,
+    glsl: [...blocks.map(([, glsl]) => glsl), "void main() {}"].join("\n"),
+    cached: false,
+    sidecar: { blocks: blocks.map(([block]) => block), textures: [], attributes: [] },
+  });
+  return createProgramMaterial(
+    {
+      material: "0x1",
+      index: 0,
+      pass: {
+        shader: "Shaders/StaticMesh/DefaultEnv_Flat",
+        defines: [],
+        runtimeSwitches: [],
+        textures: [],
+        params: [{ name: "Tint", value: [1, 2, 3, 4], source: "material" }],
+        state: {
+          blendEnable: false,
+          srcColor: "one",
+          dstColor: "zero",
+          srcAlpha: "one",
+          dstAlpha: "zero",
+          cullEnable: true,
+          windingToCull: "ccw",
+          depthEnable: true,
+          depthCompareFunc: 3,
+          writeMask: 31,
+        },
+        schema: null,
+      },
+      program: { kind: "ready", defines: [], vertex: stage(vertex), pixel: stage(pixel) },
+      textures: new Map(),
+    },
+    environment,
+  );
+}
+
 describe("EngineEnvironment.draw", () => {
   it("writes the mesh's light map transform into the material's globals and flags the upload", () => {
     const environment = new EngineEnvironment();
-    const member = (name: string, offset: number) => ({
-      name,
-      offset,
-      size: 16,
-      used: true,
-      scalar: "float" as const,
-      rows: 1,
-      columns: 4,
-      elements: 0,
-      rowMajor: false,
-    });
-    const globals: UniformBlock = {
-      name: "$Globals",
-      glslName: "Globals_ps",
-      size: 32,
-      members: [member("BAKED_LIGHT_SCALE_AND_BIAS", 0), member("Tint", 16)],
-    };
-    const stage = { id: 1, glsl: "void main() {}", cached: false };
-    const pixel = {
-      ...stage,
-      glsl: [
-        "layout(std140) uniform Globals_ps",
-        "{",
-        "    vec4 m[2];",
-        "} Globals_i;",
-        "void main() {}",
-      ].join("\n"),
-    };
-    const material = createProgramMaterial(
-      {
-        material: "0x1",
-        pass: {
-          shader: "Shaders/StaticMesh/DefaultEnv_Flat",
-          defines: [],
-          runtimeSwitches: [],
-          textures: [],
-          params: [{ name: "Tint", value: [1, 2, 3, 4], source: "material" }],
-          state: {
-            blendEnable: false,
-            srcColor: "one",
-            dstColor: "zero",
-            srcAlpha: "one",
-            dstAlpha: "zero",
-            cullEnable: true,
-            windingToCull: "ccw",
-            depthEnable: true,
-            depthCompareFunc: 3,
-            writeMask: 31,
-          },
-          schema: null,
-        },
-        program: {
-          kind: "ready",
-          defines: [],
-          vertex: { ...stage, sidecar: { blocks: [], textures: [], attributes: [] } },
-          pixel: { ...pixel, sidecar: { blocks: [globals], textures: [], attributes: [] } },
-        },
-        textures: new Map(),
-      },
+    const material = programMaterial(
       environment,
+      [],
+      [[GLOBALS, declared("Globals_ps", "vec4", 2)]],
     );
 
     material.uniformsNeedUpdate = false;
@@ -114,10 +156,154 @@ describe("EngineEnvironment.draw", () => {
     ]);
     expect(material.uniformsNeedUpdate).toBe(true);
   });
+
+  it("keeps a globals block the translation reads as integers bit for bit", () => {
+    const environment = new EngineEnvironment();
+    const material = programMaterial(
+      environment,
+      [],
+      [[GLOBALS, declared("Globals_ps", "uvec4", 2)]],
+    );
+
+    environment.draw(material, {
+      baked: { texture: null, scale: [0.5, 0.25], bias: [0.125, 0] },
+      stationary: null,
+    });
+    writeProgramMember(material, "Tint", [0.75], 1);
+
+    const globals = material.uniforms["Globals_ps"]?.value as Uint32Array;
+    expect(globals).toBeInstanceOf(Uint32Array);
+    expect([...new Float32Array(globals.buffer, globals.byteOffset, globals.length)]).toEqual([
+      0.5, 0.25, 0.125, 0, 1, 0.75, 3, 4,
+    ]);
+  });
+});
+
+describe("EngineEnvironment under the uniform binding", () => {
+  const INSTANCE: UniformBlock = {
+    name: "VFXDynamicPerParticleInstanceCBVS",
+    glslName: "VFXDynamicPerParticleInstanceCBVS_vs",
+    size: 48,
+    members: [],
+  };
+  const vertex = [
+    [BLOCK, declared("PerFrameVertexCB_vs", "vec4", 6)],
+    [INSTANCE, declared("VFXDynamicPerParticleInstanceCBVS_vs", "uvec4", 3)],
+  ] as const;
+
+  it("binds every buffer as an array uniform over bytes each material of the object shares", () => {
+    const environment = new EngineEnvironment("uniform");
+
+    const material = programMaterial(environment, vertex, []);
+    const other = programMaterial(environment, vertex, []);
+
+    expect(material.uniformsGroups).toEqual([]);
+    expect(material.vertexShader).toContain("uniform vec4 PerFrameVertexCB_vs[6];");
+    const frame = material.uniforms["PerFrameVertexCB_vs"]?.value as Float32Array;
+    expect(frame).toHaveLength(24);
+    expect(other.uniforms["PerFrameVertexCB_vs"]?.value.buffer).toBe(frame.buffer);
+    expect(material.uniforms["VFXDynamicPerParticleInstanceCBVS_vs"]?.value).toBeInstanceOf(
+      Uint32Array,
+    );
+  });
+
+  it("writes a frame into the material's array uniform and flags its upload on every draw", () => {
+    const environment = new EngineEnvironment("uniform");
+    const material = programMaterial(environment, vertex, []);
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+
+    environment.write(renderer, new PerspectiveCamera(), new Object3D(), 3.5);
+    material.uniformsNeedUpdate = false;
+    environment.draw(material);
+
+    const frame = material.uniforms["PerFrameVertexCB_vs"]?.value as Float32Array | undefined;
+    expect(frame?.[20]).toBe(3.5);
+    expect(material.uniformsNeedUpdate).toBe(true);
+  });
+
+  it("writes a particle's colour factor for the pixel stage, and one where no particle draws", () => {
+    const pixel: UniformBlock = {
+      name: "VFXDynamicPerParticleInstanceCBPS",
+      glslName: "VFXDynamicPerParticleInstanceCBPS_ps",
+      size: 16,
+      members: [],
+    };
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+    const factorOf = (environment: EngineEnvironment) => {
+      const material = programMaterial(
+        environment,
+        [],
+        [[pixel, declared(pixel.glslName, "vec4", 1)]],
+      );
+      environment.write(renderer, new PerspectiveCamera(), new Object3D(), 0);
+      return [
+        ...(material.uniforms["VFXDynamicPerParticleInstanceCBPS_ps"]?.value as Float32Array),
+      ];
+    };
+
+    expect(factorOf(new EngineEnvironment("uniform"))).toEqual([1, 1, 1, 1]);
+
+    const tinted = new EngineEnvironment("uniform");
+    tinted.particle = { colorFactor: [0.5, 0.25, 1, 0.75], depthPushPull: 0 };
+    expect(factorOf(tinted)).toEqual([0.5, 0.25, 1, 0.75]);
+  });
+
+  it("states a depth gap as the eye distance between two depths, in either projection", () => {
+    const pixel: UniformBlock = {
+      name: "PerFramePixelCB",
+      glslName: "PerFramePixelCB_ps",
+      size: 560,
+      members: [],
+    };
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+    /* `1 / (d * y + x)` at the stored depths of the scene and the fragment, as `quad_ps` reads it. */
+    const gapOf = (camera: PerspectiveCamera | OrthographicCamera, scene: number, here: number) => {
+      const environment = new EngineEnvironment("uniform");
+      const material = programMaterial(
+        environment,
+        [],
+        [[pixel, declared(pixel.glslName, "vec4", 6)]],
+      );
+      environment.write(renderer, camera, new Object3D(), 0);
+      const values = material.uniforms["PerFramePixelCB_ps"]?.value as Float32Array;
+      const [x = 0, y = 0] = values.subarray(20, 22);
+      return 1 / (scene * y + x) - 1 / (here * y + x);
+    };
+
+    const perspective = new PerspectiveCamera(50, 1, 1, 101);
+    const stored = (distance: number) => (101 * (distance - 1)) / (100 * distance);
+    expect(gapOf(perspective, stored(30), stored(10))).toBeCloseTo(20, 3);
+
+    const orthographic = new OrthographicCamera(-1, 1, 1, -1, 0, 400);
+    expect(gapOf(orthographic, 0.5, 0.25)).toBeCloseTo(100, 0);
+  });
+
+  it("writes the skin's self-illumination into every colour channel of SELF_ILLUMINATION", () => {
+    const perDraw: UniformBlock = {
+      name: "CharacterPerDrawPS",
+      glslName: "CharacterPerDrawPS_ps",
+      size: 256,
+      members: [],
+    };
+    const environment = new EngineEnvironment("uniform");
+    environment.selfIllumination = 0.5;
+    const material = programMaterial(
+      environment,
+      [],
+      [[perDraw, declared(perDraw.glslName, "vec4", 3)]],
+    );
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+
+    environment.write(renderer, new PerspectiveCamera(), new Object3D(), 0);
+
+    const values = material.uniforms["CharacterPerDrawPS_ps"]?.value as Float32Array | undefined;
+    expect(Array.from(values?.subarray(0, 4) ?? [])).toEqual([0.5, 0.5, 0.5, 0]);
+    expect(values?.[9]).toBe(1);
+  });
 });
 
 describe("ambientCube", () => {
-  it("lights the faces by sky, ground and horizon at the sky's scale, rising to the sun where it falls", () => {
+  it("lights the faces by sky, ground and horizon at the sky's scale, adding the sun where it falls", () => {
     const cube = ambientCube(
       {
         ...DEFAULT_SUN,
@@ -132,7 +318,7 @@ describe("ambientCube", () => {
       [0, 1, 0],
     );
 
-    expect(cube[2]).toEqual([1, 0.5, 0.2]);
+    expect(cube[2]).toEqual([1.2, 0.7, 0.2]);
     expect(cube[3]).toEqual([0.1, 0.1, 0.1]);
     expect(cube[0]).toEqual([0.4, 0.4, 0.4]);
   });

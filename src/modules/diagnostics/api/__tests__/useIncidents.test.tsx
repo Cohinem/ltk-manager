@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import type { Incident } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -33,6 +34,7 @@ function incident(id: string, overrides?: Partial<Incident>): Incident {
     scanStatus: null,
     scanStatusCode: null,
     scanRejected: 0,
+    shader: null,
     hostElevated: false,
     patcher: {},
     overlayDetail: null,
@@ -60,7 +62,8 @@ function incident(id: string, overrides?: Partial<Incident>): Incident {
 /** The backend lists newest first, so the order given here is the order kept. */
 function mockIncidents(incidents: Incident[]) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === "list_incidents") return Promise.resolve({ ok: true, value: incidents });
+    if (cmd === commandNames.diagnostics.listIncidents)
+      return Promise.resolve({ ok: true, value: incidents });
     return Promise.resolve({ ok: true, value: null });
   });
 }
@@ -109,7 +112,9 @@ describe("useLatestIncident", () => {
     const { result } = renderHook(() => useLatestIncidentWithQuery(), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.query.isSuccess).toBe(true));
-    const listings = mockInvoke.mock.calls.filter(([cmd]) => cmd === "list_incidents");
+    const listings = mockInvoke.mock.calls.filter(
+      ([cmd]) => cmd === commandNames.diagnostics.listIncidents,
+    );
     expect(listings).toHaveLength(1);
   });
 });

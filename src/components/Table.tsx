@@ -94,7 +94,7 @@ export const TableSortButton = forwardRef<HTMLButtonElement, TableSortButtonProp
         {children}
         <Icon
           weight="bold"
-          className={twMerge("h-3.5 w-3.5", direction ? "text-accent-400" : "text-surface-500")}
+          className={twMerge("size-3.5", direction ? "text-accent-400" : "text-surface-500")}
         />
       </button>
     );

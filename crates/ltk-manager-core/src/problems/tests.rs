@@ -65,10 +65,15 @@ fn two_sites_in_one_file_take_different_ids() {
 fn a_report_counts_by_severity() {
     let rule = RuleId("bin/property-type");
     let mut report = Report::default();
-    report.problem(rule, Severity::Error, site(), Detail::new("wrong type"));
     report.problem(
         rule,
-        Severity::Warning,
+        ProblemSeverity::Error,
+        site(),
+        Detail::new("wrong type"),
+    );
+    report.problem(
+        rule,
+        ProblemSeverity::Warning,
         Site::file("base", "mod.config.json"),
         Detail::new("no thumbnail"),
     );
@@ -113,7 +118,7 @@ fn an_object_no_table_names_is_left_out_of_the_catalogue() {
     let mut report = Report::default();
     report.problem(
         RuleId("bin/property-type"),
-        Severity::Warning,
+        ProblemSeverity::Warning,
         Site::node(
             "base",
             "skin0.bin",
@@ -209,7 +214,7 @@ fn active(id: RuleId) -> RuleInfo {
         title: "Meta property type mismatch".to_owned(),
         description: "The declared type is not the one the game reads".to_owned(),
         unfixable: String::new(),
-        severity: Some(Severity::Fatal),
+        severity: Some(ProblemSeverity::Fatal),
         state: RuleState::Active,
     }
 }
@@ -228,7 +233,7 @@ fn problem_at(rule: RuleId, path: &str, fix: Option<FixPreview>) -> Problem {
     Problem {
         id: ProblemId::new(rule, &site),
         rule,
-        severity: Severity::Fatal,
+        severity: ProblemSeverity::Fatal,
         site,
         mismatch: None,
         message: None,

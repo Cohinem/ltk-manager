@@ -1,5 +1,19 @@
 use fs_err as fs;
 use sha2::{Digest, Sha256};
+use tauri_build::{Attributes, DefaultPermissionRule, InlinedPlugin};
+
+/// Each service of `src/services/table.rs` as its plugin name and command names.
+macro_rules! services {
+    ($($module:ident($name:literal) {
+        $($command:ident),* $(,)?
+        $(; debug: $($debug:ident),* $(,)?)?
+    })*) => {
+        [$((
+            $name,
+            &[$(stringify!($command),)* $($(stringify!($debug),)*)?] as &'static [&'static str],
+        )),*]
+    };
+}
 
 fn main() {
     // Ensure the frontendDist path exists so tauri::generate_context!() doesn't
@@ -13,7 +27,18 @@ fn main() {
 
     bake_patcher_checksums();
 
-    tauri_build::build()
+    /* A debug-only command is allowed in every build, because one the build does not
+    register answers as unknown either way. */
+    let mut attributes = Attributes::new();
+    for (name, commands) in include!("src/services/table.rs") {
+        attributes = attributes.plugin(
+            name,
+            InlinedPlugin::new()
+                .commands(commands)
+                .default_permission(DefaultPermissionRule::AllowAllCommands),
+        );
+    }
+    tauri_build::try_build(attributes).expect("the Tauri build to succeed");
 }
 
 fn bake_patcher_checksums() {

@@ -1,6 +1,7 @@
 //! Unit tests for the built-in mods and the projects they write.
 
 use super::base_skins::Champions;
+use super::mod_skins::BaseModel;
 use super::skin_bin::SkinBin;
 use super::*;
 use ltk_hash::BinHash;
@@ -405,6 +406,7 @@ fn every_built_in_mod_turned_on_is_injected_in_priority_order() {
     let settings = BuiltinModSettings {
         default_ward_skins: true,
         base_skins: crate::config::BaseSkinsScope::AllChampions,
+        ..BuiltinModSettings::default()
     };
 
     let mods = inject(
@@ -630,6 +632,88 @@ fn modded_champions_stand_in_for_every_other_skin_of_a_champion_a_mod_reskins() 
             stand_in("Ahri.wad.client", &skin("ahri", 86), MOD),
         ]
     );
+}
+
+fn base_texture(character: &str) -> String {
+    format!("assets/characters/{character}/skins/base/{character}_base_tx_cm.tex")
+}
+
+#[test]
+fn modded_champions_stand_in_for_every_other_skin_of_a_champion_a_mod_retextures() {
+    let game = tempfile::tempdir().unwrap();
+    build_wad(
+        &champions_dir(game.path()).join("Ahri.wad.client"),
+        &[&skin("ahri", 0), &skin("ahri", 1), &base_texture("ahri")],
+    );
+    let texture_mod = tempfile::tempdir().unwrap();
+    write_mod_with(
+        texture_mod.path(),
+        &[("Ahri.wad.client", &base_texture("ahri"))],
+        b"TEX of a mod",
+    );
+    let builtin = tempfile::tempdir().unwrap();
+
+    let files = modded_champions(
+        game.path(),
+        builtin.path(),
+        &mut [fs_mod("ahri", texture_mod.path())],
+    );
+
+    assert_eq!(files, [stand_in("Ahri.wad.client", &skin("ahri", 1), GAME)]);
+}
+
+#[test]
+fn modded_champions_take_in_no_champion_whose_base_texture_a_mod_ships_unchanged() {
+    let game = tempfile::tempdir().unwrap();
+    build_wad(
+        &champions_dir(game.path()).join("Ahri.wad.client"),
+        &[&skin("ahri", 0), &skin("ahri", 1), &base_texture("ahri")],
+    );
+    let unchanged = tempfile::tempdir().unwrap();
+    write_mod_with(
+        unchanged.path(),
+        &[("Ahri.wad.client", &base_texture("ahri"))],
+        b"PROP",
+    );
+    let builtin = tempfile::tempdir().unwrap();
+
+    let files = modded_champions(
+        game.path(),
+        builtin.path(),
+        &mut [fs_mod("unchanged", unchanged.path())],
+    );
+
+    assert_eq!(files, []);
+}
+
+#[test]
+fn modded_champions_name_a_hashed_base_texture_by_the_tables() {
+    let game = tempfile::tempdir().unwrap();
+    build_wad(
+        &champions_dir(game.path()).join("Ahri.wad.client"),
+        &[&skin("ahri", 0), &skin("ahri", 1)],
+    );
+    let texture_mod = tempfile::tempdir().unwrap();
+    let hashed = format!(
+        "{:016x}.tex",
+        WadHash::from(base_texture("ahri").as_str()).0
+    );
+    write_mod_with(
+        texture_mod.path(),
+        &[("Ahri.wad.client", &hashed)],
+        b"TEX of a mod",
+    );
+    let builtin = tempfile::tempdir().unwrap();
+
+    let files = stand_ins(&base_skins(
+        game.path(),
+        builtin.path(),
+        Champions::Modded,
+        &Tables::naming(&[base_texture("ahri")]),
+        &mut [fs_mod("ahri", texture_mod.path())],
+    ));
+
+    assert_eq!(files, [stand_in("Ahri.wad.client", &skin("ahri", 1), GAME)]);
 }
 
 #[test]
@@ -1110,4 +1194,31 @@ fn a_skin_bin_reads_back_from_its_path() {
         None
     );
     assert_eq!(SkinBin::parse("data/characters/ahri/ahri.bin"), None);
+}
+
+#[test]
+fn a_base_model_file_is_a_mesh_or_texture_directly_in_the_base_skin_folder() {
+    let character = |path: &str| BaseModel::parse(path).map(|model| model.character);
+
+    assert_eq!(
+        character("ASSETS\\Characters\\Tristana\\Skins\\Base\\Tristana.skn"),
+        Some("tristana".to_owned())
+    );
+    assert_eq!(
+        character("assets/characters/tristana/skins/base/tristana_base_tx_cm.dds"),
+        Some("tristana".to_owned())
+    );
+    assert_eq!(
+        character("assets/characters/tristana/skins/base/particles/tristana_q_tx.tex"),
+        None
+    );
+    assert_eq!(
+        character("assets/characters/tristana/skins/base/animations/tristana_idle1.anm"),
+        None
+    );
+    assert_eq!(
+        character("assets/characters/tristana/skins/skin01/tristana_skin01_tx_cm.tex"),
+        None
+    );
+    assert_eq!(character(&skin("tristana", 0)), None);
 }

@@ -18,6 +18,14 @@ impl DocumentText {
         Self(text.into())
     }
 
+    /// A manifest holding `module`, a standalone module document, as its one module.
+    pub(crate) fn with_module(module: &str) -> Self {
+        Self(format!(
+            "version: 1\nmodules:\n{}",
+            syntax::layout_item(module, 2)
+        ))
+    }
+
     pub(crate) fn as_str(&self) -> &str {
         &self.0
     }
@@ -60,16 +68,28 @@ impl DocumentText {
     }
 
     /// A value's text as a standalone document: its lines after the first moved
-    /// left by the column it starts at.
+    /// left by the column it starts at, or by their own least indent where that is
+    /// less.
+    ///
+    /// The second is a value that starts beside its key, `a: !pointer(C)` with the
+    /// fields under it, whose nesting the first would flatten.
     pub(crate) fn standalone(&self, value: &Node) -> String {
         let body = self.0[syntax::start(value)..syntax::end(value)].trim_end();
-        let shift = self.column(value);
+        let indent = |line: &str| line.len() - line.trim_start_matches(' ').len();
+        let column = self.column(value);
+        let shift = body
+            .lines()
+            .skip(1)
+            .filter(|line| !line.trim().is_empty())
+            .map(indent)
+            .min()
+            .map_or(column, |least| least.min(column));
+
         let mut out = String::with_capacity(body.len());
         for (index, line) in body.lines().enumerate() {
             if index > 0 {
                 out.push('\n');
-                let spaces = line.len() - line.trim_start_matches(' ').len();
-                out.push_str(&line[spaces.min(shift)..]);
+                out.push_str(&line[indent(line).min(shift)..]);
             } else {
                 out.push_str(line);
             }
@@ -94,6 +114,17 @@ impl DocumentText {
         } else {
             self.splice(at, at, &format!("\n{lines}"))
         }
+    }
+
+    /// The text with `node` replaced by `lines`, whose first line is padded to the column
+    /// `node` starts at. What stands before `node` on its first line, such as a list
+    /// item's dash, is kept.
+    pub(crate) fn replace_entry(&self, node: &Node, lines: &str) -> Self {
+        let start = syntax::start(node);
+        let pad = self
+            .column(node)
+            .min(lines.len() - lines.trim_start_matches(' ').len());
+        self.splice(start, syntax::line_end(node), &lines[pad..])
     }
 
     /// The text with the lines `node` spans replaced by `lines`.

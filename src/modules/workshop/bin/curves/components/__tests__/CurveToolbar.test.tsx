@@ -42,6 +42,8 @@ function toolbar(over: Partial<Parameters<typeof CurveToolbar>[0]> = {}) {
       tab="graph"
       tabled
       onTab={() => {}}
+      onAddRandom={null}
+      linking={null}
       keyCount={2}
       selectedCount={1}
       editable
@@ -93,13 +95,25 @@ describe("CurveToolbar", () => {
     expect(onRemove).toHaveBeenCalledOnce();
   });
 
-  it("names the tables where the value has them", () => {
+  it("says the value is random where it has tables", () => {
     const { rerender } = render(toolbar());
-    expect(screen.queryByText("probabilityTables")).toBeNull();
+    expect(screen.queryByText("Random")).toBeNull();
 
     rerender(toolbar({ draw: drawOf([GROWN, table(1, []), table(2, [])]) }));
 
-    expect(screen.getByText("probabilityTables")).toBeInTheDocument();
+    expect(screen.getByText("Random")).toBeInTheDocument();
+  });
+
+  it("offers to remove the tables of a random value it can write", async () => {
+    const onRemoveRandom = vi.fn();
+    const draw = drawOf([GROWN, table(1, []), table(2, [])]);
+    const { rerender } = render(toolbar({ draw }));
+    expect(screen.queryByRole("button", { name: "Remove random" })).toBeNull();
+
+    rerender(toolbar({ draw, onRemoveRandom }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Remove random" }));
+
+    expect(onRemoveRandom).toHaveBeenCalledOnce();
   });
 
   it("warns of a random table on a value drawn every frame", () => {

@@ -20,6 +20,7 @@ import { useHomeStore } from "@/modules/home";
 import { verdict } from "@/modules/library/components/__tests__/modHealthFixtures";
 import type { ReleaseFeed, UseReleaseHistoryOptions } from "@/modules/updater";
 import { useModHealthDrawerStore, useUpdaterStore } from "@/stores";
+import { commandNames } from "@/test/commandNames";
 import { createMockInstalledMod, createMockProfile, createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
@@ -62,15 +63,15 @@ const world = {
 
 function answer(cmd: string): unknown {
   switch (cmd) {
-    case "get_settings":
+    case commandNames.settings.getSettings:
       return world.settings;
-    case "get_installed_mods":
+    case commandNames.library.getInstalledMods:
       return world.mods;
-    case "get_active_mod_profile":
+    case commandNames.library.getActiveModProfile:
       return createMockProfile({ name: "Default" });
-    case "get_platform_support":
+    case commandNames.desktop.getPlatformSupport:
       return { patcherAvailable: world.patcherAvailable, os: "windows" };
-    case "get_app_info":
+    case commandNames.desktop.getAppInfo:
       return {
         name: "LTK Manager",
         version: "1.15.4",
@@ -78,13 +79,13 @@ function answer(cmd: string): unknown {
         os: "windows",
         arch: "x64",
       };
-    case "list_incidents":
+    case commandNames.diagnostics.listIncidents:
       return world.incidents;
-    case "get_mod_health_verdicts":
+    case commandNames.library.getModHealthVerdicts:
       return world.verdicts;
-    case "get_health_check_readiness":
+    case commandNames.library.getHealthCheckReadiness:
       return world.readiness;
-    case "sweep_mod_health":
+    case commandNames.library.sweepModHealth:
       return {
         basis: { build: "16.17.8087655", manager: "1.15.4" },
         checked: world.mods.length,
@@ -92,9 +93,9 @@ function answer(cmd: string): unknown {
         repairable: [],
         unrepairable: [],
       };
-    case "list_announcements":
+    case commandNames.news.listAnnouncements:
       return world.posts;
-    case "list_notices":
+    case commandNames.news.listNotices:
       return world.notices;
     default:
       return null;
@@ -231,7 +232,7 @@ describe("Home", () => {
       expect(await screen.findByText("No hashtables")).toBeVisible();
       await userEvent.click(marker());
 
-      await waitFor(() => expect(calls("sync_hashtables")).toHaveLength(1));
+      await waitFor(() => expect(calls(commandNames.game.syncHashtables)).toHaveLength(1));
     });
 
     it("says the hashtables are syncing, and takes no press until they have", async () => {
@@ -248,7 +249,7 @@ describe("Home", () => {
       expect(await screen.findByText("Not checked")).toBeVisible();
       await userEvent.click(marker());
 
-      await waitFor(() => expect(calls("sweep_mod_health")).toHaveLength(1));
+      await waitFor(() => expect(calls(commandNames.library.sweepModHealth)).toHaveLength(1));
     });
 
     /* A flagged mod loads and plays, so it is not what the count is spent on,
@@ -298,7 +299,7 @@ describe("Home", () => {
       expect(await screen.findByText("Healthy")).toBeVisible();
       await userEvent.click(marker());
 
-      await waitFor(() => expect(calls("sweep_mod_health")).toHaveLength(1));
+      await waitFor(() => expect(calls(commandNames.library.sweepModHealth)).toHaveLength(1));
     });
   });
 
@@ -381,13 +382,19 @@ describe("Home", () => {
       renderWithProviders(<Home />);
 
       const tile = (await screen.findByText("News")).closest("section")!;
-      await waitFor(() => expect(calls("list_announcements")).toHaveLength(1));
+      await waitFor(() => expect(calls(commandNames.news.listAnnouncements)).toHaveLength(1));
 
       expect(
         within(tile)
           .getAllByRole("link")
           .map((link) => link.textContent),
-      ).toEqual(["Getting started", "Managing mods", "Troubleshooting"]);
+      ).toEqual([
+        "Getting started",
+        "Managing mods",
+        "Troubleshooting",
+        "Runeforge",
+        "Runeforge Wiki",
+      ]);
 
       /* The community pair is the foot, and a press rather than a fourth link. */
       expect(
@@ -410,8 +417,8 @@ describe("Home", () => {
 
       await userEvent.click(within(tile).getByRole("button", { name: "Dismiss" }));
 
-      await waitFor(() => expect(calls("save_settings")).toHaveLength(1));
-      expect(calls("save_settings")[0][1]).toMatchObject({
+      await waitFor(() => expect(calls(commandNames.settings.saveSettings)).toHaveLength(1));
+      expect(calls(commandNames.settings.saveSettings)[0][1]).toMatchObject({
         settings: { migrationDismissed: true },
       });
     });
@@ -429,7 +436,7 @@ describe("Home", () => {
     it("says nothing when there is no incident", async () => {
       renderWithProviders(<Home />);
 
-      await waitFor(() => expect(calls("list_incidents")).toHaveLength(1));
+      await waitFor(() => expect(calls(commandNames.diagnostics.listIncidents)).toHaveLength(1));
       expect(screen.queryByText("Last game")).toBeNull();
     });
 

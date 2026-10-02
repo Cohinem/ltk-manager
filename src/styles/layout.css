@@ -1,0 +1,46 @@
+/* The layout primitives in components/Layout.tsx. Each reads only the custom
+   properties its own component sets inline, so a nested one inherits nothing. */
+@layer components {
+  [data-layout="stack"] {
+    display: flex;
+    flex-direction: column;
+    gap: var(--layout-gap);
+    align-items: var(--layout-align);
+    justify-content: var(--layout-justify);
+  }
+
+  [data-layout="inline"] {
+    display: flex;
+    flex-wrap: var(--layout-wrap);
+    column-gap: var(--layout-gap);
+    row-gap: var(--layout-row-gap);
+    align-items: var(--layout-align);
+    justify-content: var(--layout-justify);
+  }
+
+  [data-layout="grid"] {
+    display: grid;
+    grid-template-columns: var(--layout-columns);
+    column-gap: var(--layout-gap);
+    row-gap: var(--layout-row-gap);
+    align-items: var(--layout-align);
+  }
+
+  [data-layout-fill] {
+    flex: 1 1 0%;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  @media (width < 48rem) {
+    [data-layout="grid"][data-layout-collapse="md"] {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (width < 64rem) {
+    [data-layout="grid"][data-layout-collapse="lg"] {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+}

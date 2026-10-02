@@ -12,7 +12,6 @@ export const libraryKeys = {
   folders: () => [...libraryKeys.all, "folders"] as const,
   folderOrder: () => [...libraryKeys.all, "folderOrder"] as const,
   wadReports: () => [...libraryKeys.all, "wadReport"] as const,
-  wadReport: (modId: string) => [...libraryKeys.wadReports(), modId] as const,
   modHealthVerdicts: () => [...libraryKeys.all, "modHealthVerdicts"] as const,
   healthSweep: () => [...libraryKeys.all, "healthSweep"] as const,
   healthCheckReadiness: () => [...libraryKeys.all, "healthCheckReadiness"] as const,

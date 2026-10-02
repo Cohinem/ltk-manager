@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 
+import { PageInset } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
@@ -29,9 +30,10 @@ import {
   useLibrarySelectionStore,
   useLibrarySidebarStore,
   useModFileDrop,
+  useOpenedModFiles,
   useVisibleMods,
 } from "@/modules/library";
-import { PatcherUnsupported, usePatcherStatus } from "@/modules/patcher";
+import { PatcherUnsupported } from "@/modules/patcher";
 
 interface LibraryProps {
   folderId?: string;
@@ -46,10 +48,8 @@ export function Library({ folderId }: LibraryProps = {}) {
   const { data: mods = [], isLoading, error } = useInstalledMods();
   const actions = useLibraryActions();
   const isDragOver = useModFileDrop(actions.handleBulkInstallFiles);
+  useOpenedModFiles(actions.handleBulkInstallFiles);
   useLibraryHotkeys(actions.handleImportMods);
-
-  const { data: patcherStatus } = usePatcherStatus();
-  const isPatcherActive = patcherStatus?.running ?? false;
 
   const filterOptions = useFilterOptions(mods);
   const visibleMods = useVisibleMods(mods, searchQuery, folderId);
@@ -86,23 +86,20 @@ export function Library({ folderId }: LibraryProps = {}) {
         onSearchChange={setSearchQuery}
         actions={actions}
         isLoading={isLoading}
-        isPatcherActive={isPatcherActive}
         filterOptions={filterOptions}
         visibleMods={visibleMods}
         playButton={<PlayButton disabled={isInstalling} />}
       />
       <LibraryBody mods={mods}>
-        <div className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-surface-700 bg-surface-900 shadow-pressed">
-          <LibraryContent
-            mods={mods}
-            searchQuery={searchQuery}
-            isLoading={isLoading}
-            error={error}
-            folderId={folderId}
-          />
-          {hasSelection && <SelectionActionBar visibleMods={visibleMods} />}
-          <ModHealthSweep />
-        </div>
+        <LibraryContent
+          mods={mods}
+          searchQuery={searchQuery}
+          isLoading={isLoading}
+          error={error}
+          folderId={folderId}
+        />
+        {hasSelection && <SelectionActionBar visibleMods={visibleMods} />}
+        <ModHealthSweep />
       </LibraryBody>
       <LibraryDialogs />
       <ImportProgressDialog
@@ -129,12 +126,7 @@ const KEY_STEP = 16;
 function LibraryBody({ mods, children }: { mods: InstalledMod[]; children: ReactNode }) {
   const open = useLibrarySidebarStore((s) => s.open);
 
-  return (
-    <div className="relative mx-2 flex min-h-0 flex-1 flex-col">
-      {children}
-      {open && <DocumentsDrawer mods={mods} />}
-    </div>
-  );
+  return <PageInset overlay={open && <DocumentsDrawer mods={mods} />}>{children}</PageInset>;
 }
 
 /** The drawer, and the edge a reader drags to decide how much it covers. */

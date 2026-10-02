@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DeepLinkInstallRequest, Settings } from "@/lib/tauri";
 import { useDialogQueueStore } from "@/stores";
+import { commandNames } from "@/test/commandNames";
 import { createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
@@ -19,16 +20,17 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 const world = {
   settings: createMockSettings({ trustedDomains: ["runeforge.dev"] }),
+  installKind: "installed" as "installed" | "updated" | "alreadyInstalled",
 };
 
 function answer(command: string): unknown {
   switch (command) {
-    case "get_settings":
+    case commandNames.settings.getSettings:
       return world.settings;
-    case "save_settings":
+    case commandNames.settings.saveSettings:
       return null;
-    case "deep_link_install_mod":
-      return { id: "a", name: "Zama Iroha Master Yi" };
+    case commandNames.links.deepLinkInstallMod:
+      return { kind: world.installKind, mod: { id: "a", name: "Zama Iroha Master Yi" } };
     default:
       return null;
   }
@@ -56,6 +58,7 @@ describe("ProtocolInstallDialog", () => {
       Promise.resolve({ ok: true, value: answer(command) }),
     );
     world.settings = createMockSettings({ trustedDomains: ["runeforge.dev"] });
+    world.installKind = "installed";
     useDeepLinkStore.getState().reset();
     useDialogQueueStore.setState({ current: null, claims: [] });
   });
@@ -86,11 +89,15 @@ describe("ProtocolInstallDialog", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Trust and install/ }));
 
-    await waitFor(() => expect(calls("deep_link_install_mod")).toHaveLength(1));
-    const [[, saved]] = calls("save_settings") as [[string, { settings: Settings }]];
+    await waitFor(() => expect(calls(commandNames.links.deepLinkInstallMod)).toHaveLength(1));
+    const [[, saved]] = calls(commandNames.settings.saveSettings) as [
+      [string, { settings: Settings }],
+    ];
     expect(saved.settings.trustedDomains).toEqual(["runeforge.dev", "ultrawidehud.lol"]);
-    expect(mockInvoke.mock.calls.findIndex(([name]) => name === "save_settings")).toBeLessThan(
-      mockInvoke.mock.calls.findIndex(([name]) => name === "deep_link_install_mod"),
+    expect(
+      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.settings.saveSettings),
+    ).toBeLessThan(
+      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.links.deepLinkInstallMod),
     );
   });
 
@@ -100,8 +107,8 @@ describe("ProtocolInstallDialog", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Reject" }));
 
-    expect(calls("save_settings")).toHaveLength(0);
-    expect(calls("deep_link_install_mod")).toHaveLength(0);
+    expect(calls(commandNames.settings.saveSettings)).toHaveLength(0);
+    expect(calls(commandNames.links.deepLinkInstallMod)).toHaveLength(0);
     expect(useDeepLinkStore.getState().request).toBeNull();
   });
 
@@ -116,5 +123,27 @@ describe("ProtocolInstallDialog", () => {
 
     expect(await screen.findByRole("button", { name: "Install" })).toBeVisible();
     expect(screen.queryByText(/is not a trusted provider/)).toBeNull();
+  });
+
+  it("says the mod is already in the library when the link names an installed archive", async () => {
+    world.installKind = "alreadyInstalled";
+    useDeepLinkStore.getState().setRequest(request());
+    renderWithProviders(<ProtocolInstallDialog />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Install" }));
+
+    expect(await screen.findByText(/is already in your library/)).toBeVisible();
+    expect(useDeepLinkStore.getState().status).toBe("existing");
+  });
+
+  it("says the mod was updated when the link names a newer version of an installed mod", async () => {
+    world.installKind = "updated";
+    useDeepLinkStore.getState().setRequest(request());
+    renderWithProviders(<ProtocolInstallDialog />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Install" }));
+
+    expect(await screen.findByText(/has been updated to the newer version/)).toBeVisible();
+    expect(useDeepLinkStore.getState().status).toBe("updated");
   });
 });

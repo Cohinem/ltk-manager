@@ -157,18 +157,14 @@ function ClipPicker({ clips, value, onValueChange }: ClipPickerProps) {
         <Select.Value className="truncate">{nameOf}</Select.Value>
         <Select.Icon />
       </Select.Trigger>
-      <Select.Portal>
-        <Select.Positioner>
-          <Select.Popup>
-            <Select.Item value={BIND_POSE}>{m.workshop_bin_mesh_preview_bind_label()}</Select.Item>
-            {clips.map((clip) => (
-              <Select.Item key={clip.hash} value={clip.hash}>
-                {clip.name}
-              </Select.Item>
-            ))}
-          </Select.Popup>
-        </Select.Positioner>
-      </Select.Portal>
+      <Select.Content>
+        <Select.Item value={BIND_POSE}>{m.workshop_bin_mesh_preview_bind_label()}</Select.Item>
+        {clips.map((clip) => (
+          <Select.Item key={clip.hash} value={clip.hash}>
+            {clip.name}
+          </Select.Item>
+        ))}
+      </Select.Content>
     </Select.Root>
   );
 }
@@ -199,7 +195,7 @@ function ParameterSlider({
     <span className="flex shrink-0 items-center gap-1.5">
       <Tooltip content={m.workshop_bin_clip_parameter_label()}>
         <span className="flex shrink-0">
-          <SlidersHorizontalIcon aria-hidden className="h-3.5 w-3.5 text-surface-400" />
+          <SlidersHorizontalIcon aria-hidden className="size-3.5 text-surface-400" />
         </span>
       </Tooltip>
       {/* The ruler the library sizes its cards with: a tick per value, the one held lit. */}
@@ -246,7 +242,7 @@ function Leaf({ steps, clip, time }: LeafProps) {
       className="flex min-w-0 items-center gap-1 text-meta"
       aria-label={m.workshop_bin_clip_playing_label({ name: leaf.name })}
     >
-      <CaretRightIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-500" />
+      <CaretRightIcon weight="bold" className="size-3 shrink-0 text-surface-500" />
       {/* DS-CODE-CHIP */}
       <Code className="min-w-0 truncate text-surface-300">{leaf.name}</Code>
     </span>

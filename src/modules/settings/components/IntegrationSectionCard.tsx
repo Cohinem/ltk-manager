@@ -40,7 +40,7 @@ export function IntegrationSectionCard({
         <SectionCard
           title={title}
           description={description}
-          icon={<Icon weight="duotone" className="h-5 w-5" />}
+          icon={<Icon weight="duotone" className="size-5" />}
           action={
             <ExternalLink href={`https://github.com/LeagueToolkit/${repo}`} className="text-row">
               {m.settings_integrations_repository_action()}

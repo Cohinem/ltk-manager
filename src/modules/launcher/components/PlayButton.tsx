@@ -1,4 +1,10 @@
-import { ArrowsClockwiseIcon, CaretDownIcon, XCircleIcon, XIcon } from "@phosphor-icons/react";
+import {
+  ArrowsClockwiseIcon,
+  CaretDownIcon,
+  HourglassIcon,
+  XCircleIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 
 import {
   Button,
@@ -70,8 +76,8 @@ function primaryTooltip(
  * the surrounding icons sit at.
  */
 function PrimaryIcon({ patcherOnly }: { patcherOnly: boolean }) {
-  if (patcherOnly) return <PatcherIcon className="h-6 w-6 shrink-0" />;
-  return <LeagueIcon className="h-6 w-6 shrink-0" />;
+  if (patcherOnly) return <PatcherIcon className="size-6 shrink-0" />;
+  return <LeagueIcon className="size-6 shrink-0" />;
 }
 
 /**
@@ -91,17 +97,36 @@ function PendingRebuildPill() {
         data-ui="PlayButton:pending-rebuild"
         className="inline-flex h-7 items-center justify-center gap-1 rounded-full bg-accent-500/10 pr-1 pl-2.5 text-xs font-medium text-accent-400 select-none"
       >
-        <ArrowsClockwiseIcon weight="bold" className="h-3.5 w-3.5" />
+        <ArrowsClockwiseIcon weight="bold" className="size-3.5" />
         {m.patcher_rebuild_pending_label()}
         <IconButton
-          icon={<XIcon weight="bold" className="h-3 w-3" />}
-          variant="ghost"
-          size="xs"
-          compact
+          icon={<XIcon className="size-3" />}
           onClick={clear}
           aria-label={m.patcher_rebuild_pending_clear_label()}
-          className="h-5 w-5"
+          className="size-5"
         />
+      </span>
+    </Tooltip>
+  );
+}
+
+/**
+ * Library edits the running game holds back until it ends. Per "An edit while
+ * the patcher runs" in docs/ux/LIBRARY.md.
+ */
+function ChangesAfterGamePill() {
+  const { data: status } = usePatcherStatus();
+
+  if (!status?.changesAfterGame) return null;
+
+  return (
+    <Tooltip content={m.patcher_changes_after_game_hint()}>
+      <span
+        data-ui="PlayButton:changes-after-game"
+        className="inline-flex h-7 items-center justify-center gap-1 rounded-full bg-accent-500/10 px-2.5 text-xs font-medium text-accent-400 select-none"
+      >
+        <HourglassIcon weight="bold" className="size-3.5" />
+        {m.patcher_changes_after_game_label()}
       </span>
     </Tooltip>
   );
@@ -122,7 +147,7 @@ function StopLeagueMenuItem() {
 
   return (
     <Menu.Item
-      icon={<XCircleIcon weight="bold" className="h-4 w-4" />}
+      icon={<XCircleIcon weight="bold" className="size-4" />}
       onClick={() => stopLeague.mutate()}
       disabled={stopLeague.isPending}
     >
@@ -146,7 +171,7 @@ interface LaunchMenuItemProps {
  * the action, not the state - and the reason rides alongside it.
  */
 function LaunchMenuItem({ label, leagueRunning, disabled, onClick }: LaunchMenuItemProps) {
-  const icon = <LeagueIcon className="h-4 w-4" />;
+  const icon = <LeagueIcon className="size-4" />;
 
   if (leagueRunning) {
     return (
@@ -193,6 +218,7 @@ export function PlayButton({ disabled = false, block = false }: PlayButtonProps)
       data-ui="PlayButton"
       className={twMerge("flex items-center gap-2", block && "w-full flex-col items-stretch")}
     >
+      <ChangesAfterGamePill />
       <PendingRebuildPill />
       <ModHealthLaunchGuard className={block ? "w-full" : undefined}>
         {(ask) => <LaunchControls ask={ask} disabled={disabled} block={block} />}
@@ -272,7 +298,7 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
           className={twMerge("grow font-bold tracking-wide uppercase", RUNNING_SKIN)}
           left={
             !stopping && (
-              <span className="inline-flex h-3 w-3 rounded-full bg-success shadow-[0_0_5px_1px] shadow-success/50" />
+              <span className="inline-flex size-3 rounded-full bg-success shadow-[0_0_5px_1px] shadow-success/50" />
             )
           }
         >
@@ -291,7 +317,8 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
           <Menu.Trigger
             render={
               <IconButton
-                icon={<CaretDownIcon weight="bold" className="h-4 w-4" />}
+                compact={false}
+                icon={<CaretDownIcon weight="bold" className="size-4" />}
                 variant="duotone"
                 size={size}
                 aria-label={m.library_launch_options_label()}
@@ -299,21 +326,17 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
               />
             }
           />
-          <Menu.Portal>
-            <Menu.Positioner>
-              <Menu.Popup className="w-64">
-                {/* Unguarded: this starts the game without the patcher, so
+          <Menu.Content className="w-64">
+            {/* Unguarded: this starts the game without the patcher, so
                     it carries no mods for the ask to be about. */}
-                <LaunchMenuItem
-                  label={m.library_launch_league_action()}
-                  leagueRunning={leagueRunning}
-                  onClick={launchOnly}
-                  disabled={!canLaunch || isBusy}
-                />
-                <StopLeagueMenuItem />
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
+            <LaunchMenuItem
+              label={m.library_launch_league_action()}
+              leagueRunning={leagueRunning}
+              onClick={launchOnly}
+              disabled={!canLaunch || isBusy}
+            />
+            <StopLeagueMenuItem />
+          </Menu.Content>
         </Menu.Root>
       </ButtonGroup>
     );
@@ -353,7 +376,8 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
         <Menu.Trigger
           render={
             <IconButton
-              icon={<CaretDownIcon weight="bold" className="h-4 w-4" />}
+              compact={false}
+              icon={<CaretDownIcon weight="bold" className="size-4" />}
               variant="duotone"
               size={size}
               disabled={busy}
@@ -362,38 +386,34 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
             />
           }
         />
-        <Menu.Portal>
-          <Menu.Positioner>
-            <Menu.Popup className="w-64">
-              {patcherOnly && (
-                <LaunchMenuItem
-                  label={m.library_play_action()}
-                  leagueRunning={leagueRunning}
-                  onClick={() => ask(handlePlay)}
-                  disabled={!canLaunch}
-                />
-              )}
-              {!patcherOnly && (
-                <Menu.Item
-                  icon={<PatcherIcon className="h-4 w-4" />}
-                  onClick={() => ask(handleStartPatcherOnly)}
-                  disabled={!hasModsToApply}
-                  shortcut="Ctrl+P"
-                >
-                  {m.library_patcher_only_action()}
-                </Menu.Item>
-              )}
-              {/* Unguarded, for the reason the other one is. */}
-              <LaunchMenuItem
-                label={m.library_launch_league_only_action()}
-                leagueRunning={leagueRunning}
-                onClick={launchOnly}
-                disabled={!canLaunch}
-              />
-              <StopLeagueMenuItem />
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content className="w-64">
+          {patcherOnly && (
+            <LaunchMenuItem
+              label={m.library_play_action()}
+              leagueRunning={leagueRunning}
+              onClick={() => ask(handlePlay)}
+              disabled={!canLaunch}
+            />
+          )}
+          {!patcherOnly && (
+            <Menu.Item
+              icon={<PatcherIcon className="size-4" />}
+              onClick={() => ask(handleStartPatcherOnly)}
+              disabled={!hasModsToApply}
+              shortcut="Ctrl+P"
+            >
+              {m.library_patcher_only_action()}
+            </Menu.Item>
+          )}
+          {/* Unguarded, for the reason the other one is. */}
+          <LaunchMenuItem
+            label={m.library_launch_league_only_action()}
+            leagueRunning={leagueRunning}
+            onClick={launchOnly}
+            disabled={!canLaunch}
+          />
+          <StopLeagueMenuItem />
+        </Menu.Content>
       </Menu.Root>
     </ButtonGroup>
   );

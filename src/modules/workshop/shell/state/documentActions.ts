@@ -20,6 +20,7 @@ import type { PersistedProjectEditor } from "../../bin/documents/state/editorFil
 import { type ContentDocument, documentLayerName } from "../../documents/utils/contentDocument";
 import { openGroup } from "./documentPlacement";
 import type { EditorGet, EditorSet } from "./editorRoot";
+import { replacedDocument } from "./layerRename";
 import { withoutPreviewDocument, withPreview } from "./previewTabs";
 import { EMPTY_EDITOR } from "./projectEditor";
 import {
@@ -64,6 +65,11 @@ export interface DocumentActions {
    * locales and every preview of its files have nothing left to read.
    */
   closeLayerDocuments: (projectPath: string, layerName: string) => void;
+  /**
+   * Put `document` in place of the tab `from`, as a sandbox switch does. When `document` is
+   * already open, it is activated where it is and `from` closes.
+   */
+  replaceDocument: (projectPath: string, from: string, document: ContentDocument) => void;
   /** Rewrites one strip's order from a full list of its ids. */
   reorderDocuments: (projectPath: string, leafId: string, ids: readonly string[]) => void;
   moveDocument: (projectPath: string, documentId: string, toLeafId: string, index?: number) => void;
@@ -80,7 +86,7 @@ export interface DocumentActions {
 
 /** These actions, closed over the writer of the store that holds them. */
 export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentActions {
-  return {
+  const actions: DocumentActions = {
     requestDocument: (projectPath, document) =>
       set((current) => ({
         pendingDocuments: { ...current.pendingDocuments, [projectPath]: document },
@@ -107,10 +113,14 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
             layout: state.layout,
             activeLeafId: state.activeLeafId,
             selectedLayer: state.selectedLayer,
+            useDeclarations: state.useDeclarations,
+            hiddenMarkLayers: state.hiddenMarkLayers,
+            selectedModule: state.selectedModule ?? null,
             previewIds: state.previewIds,
             pinned: state.pinned,
             shells: state.shells,
             abilities: state.abilities,
+            markers: state.markers,
           },
         },
       })),
@@ -329,6 +339,19 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
         return afterRemoval(editor, layout, scoped, "gone");
       }),
 
+    replaceDocument: (projectPath, from, document) => {
+      const editor = get().byProject[projectPath];
+      if (editor === undefined || from === document.id) return;
+
+      if (document.id in editor.documents) {
+        const holder = leafHolding(editor.layout, from);
+        actions.openDocument(projectPath, document);
+        if (holder) actions.closeDocument(projectPath, holder.id, from);
+        return;
+      }
+      setProject(set, projectPath, (held) => replacedDocument(held, from, document));
+    },
+
     reorderDocuments: (projectPath, leafId, ids) =>
       setProject(set, projectPath, (editor) => {
         const layout = reorderLeafTabs(editor.layout, leafId, pinnedFirst(ids, editor.pinned));
@@ -428,4 +451,6 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
         return { ...editor, dirty: next };
       }),
   };
+
+  return actions;
 }

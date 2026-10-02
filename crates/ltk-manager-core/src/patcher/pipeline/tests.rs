@@ -28,6 +28,7 @@ impl PatcherEvents for SilentEvents {
     fn game_attached(&self, _pid: Option<u64>) {}
     fn game_overlay(&self, _outcome: OverlayOutcome) {}
     fn game_exited(&self) {}
+    fn overlay_deferred(&self) {}
     fn incident_recorded(&self, _incident: Incident) {}
 }
 

@@ -52,6 +52,7 @@ fn edit_in(chunk: &str, entry: &str, path: &str, op: Operation) -> Edit {
         entry: EntryName::try_from(entry).unwrap(),
         path: PropertyPath::new(path).unwrap(),
         operation: op,
+        module: ModuleChoice::Auto,
     }
 }
 
@@ -377,7 +378,6 @@ modules:
         skinMeshProperties.selfIllumination: 0.37 # game 0.0
         iconCircle: assets/characters/jade_teemo/hud/jade_teemo_circle_301.tex # circle
 
-  # Hand-written target edit.
 "
     );
 }
@@ -875,4 +875,68 @@ fn several_edits_of_one_entry_spell_one_module() {
         ),
     );
     assert_eq!(module_text(&[]), None);
+}
+
+const VARIANT: &str = "clientstates/gameplay/ux/test/uirtl";
+const ICON: &str = "ClientStates/Gameplay/UX/Test/UIBase/Root/Icon";
+
+/// An edit of the variant chunk into its `target` module.
+fn variant_edit(entry: &str, path: &str, op: Operation) -> Edit {
+    Edit {
+        module: ModuleChoice::Target(Target::try_from(VARIANT).unwrap()),
+        ..edit_in(VARIANT, entry, path, op)
+    }
+}
+
+#[test]
+fn a_target_choice_writes_a_target_module_into_a_blank_manifest() {
+    let text = edited(
+        None,
+        &[variant_edit(
+            ICON,
+            "Position.UIRect.Position",
+            Operation::Set(value("[10, 20]")),
+        )],
+    );
+
+    assert_eq!(
+        text,
+        "version: 1\nmodules:\n  - target: clientstates/gameplay/ux/test/uirtl\n    \
+         ClientStates/Gameplay/UX/Test/UIBase/Root/Icon:\n      \
+         Position.UIRect.Position: [10, 20]\n"
+    );
+}
+
+#[test]
+fn a_target_choice_joins_the_last_target_module_of_the_chunk() {
+    let text = edited(
+        None,
+        &[
+            variant_edit(ICON, "Layer", Operation::Set(value("3"))),
+            variant_edit("UI/Other", "Layer", Operation::Set(value("4"))),
+            variant_edit(ICON, "Scene", Operation::Set(value("UI/Root"))),
+        ],
+    );
+
+    let declarations = load_declarations(FILE_NAME, &text, |_| unreachable!()).unwrap();
+    assert_eq!(declarations.modules.len(), 1);
+    assert!(
+        text.contains("  Layer: 3\n      Scene: UI/Root\n"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_target_choice_beside_an_entries_module_adds_a_trailing_target_module() {
+    let text = edited(
+        Some(MANIFEST),
+        &[variant_edit(ICON, "Layer", Operation::Set(value("3")))],
+    );
+
+    let declarations = load_declarations(FILE_NAME, &text, |_| unreachable!()).unwrap();
+    assert_eq!(declarations.modules.len(), 3);
+    assert!(text.ends_with(
+        "  - target: clientstates/gameplay/ux/test/uirtl\n    \
+         ClientStates/Gameplay/UX/Test/UIBase/Root/Icon:\n      Layer: 3\n"
+    ));
 }

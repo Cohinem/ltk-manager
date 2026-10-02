@@ -1,11 +1,12 @@
 use fs_err as fs;
 use std::path::{Path, PathBuf};
 
+use ltk_hash::WadHash;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
-use crate::game_wads::{GameArchives, WadCache};
+use crate::game_wads::{GameArchives, WadCache, WadSource};
 use crate::utils::path::resolve_within;
 
 /// Where a previewed asset's bytes come from.
@@ -15,9 +16,7 @@ use crate::utils::path::resolve_within;
 /// rather than joining it on, and [`File`](Self::File) is the one variant that
 /// names a path outright.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum AssetRef {
     /// A file of one layer of a workshop project.
@@ -36,11 +35,14 @@ pub enum AssetRef {
         wad: String,
         /// The chunk's path hash as 16 lowercase hex digits.
         path_hash: String,
-        /// The project directory whose game tree the chunk was opened from, which makes a
-        /// bin of it a declared document (ADR-0042). Absent for a chunk opened anywhere else.
-        #[cfg_attr(feature = "ts", ts(optional = nullable))]
-        #[cfg_attr(feature = "ts", specta(optional))]
-        project: Option<String>,
+    },
+    /// One chunk of one archive of the installed League client.
+    #[serde(rename_all = "camelCase")]
+    LcuChunk {
+        /// A `Plugins`-relative archive name.
+        wad: String,
+        /// The chunk's path hash as 16 lowercase hex digits.
+        path_hash: String,
     },
     /// Any file on disk, for a preview that belongs to no project.
     ///
@@ -52,10 +54,20 @@ pub enum AssetRef {
 }
 
 impl AssetRef {
+    /// The path hash of a game chunk, and `None` for any other asset and a hash that is
+    /// not hex.
+    #[must_use]
+    pub fn chunk_hash(&self) -> Option<WadHash> {
+        match self {
+            Self::GameChunk { path_hash, .. } => path_hash.parse().ok(),
+            _ => None,
+        }
+    }
+
     /// Read the asset's bytes from wherever it lives.
     ///
-    /// `wads` is only touched by [`GameChunk`](Self::GameChunk), whose archive
-    /// it keeps mounted for the chunks read after this one.
+    /// `wads` is only touched by a chunk reference, whose archive it keeps
+    /// mounted for the chunks read after this one.
     ///
     /// # Errors
     ///
@@ -70,11 +82,11 @@ impl AssetRef {
                     .expect("a layer asset names a layer file")?;
                 Ok(fs::read(path)?)
             }
-            Self::GameChunk { wad, path_hash, .. } => {
-                let path_hash = path_hash.parse().map_err(|_| {
-                    AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}"))
-                })?;
-                wads.read_chunk(&GameArchives::resolve(config)?, wad, path_hash)
+            Self::GameChunk { wad, path_hash } => {
+                read_chunk(config, wads, WadSource::Game, wad, path_hash)
+            }
+            Self::LcuChunk { wad, path_hash } => {
+                read_chunk(config, wads, WadSource::Lcu, wad, path_hash)
             }
             Self::File { path } => Ok(fs::read(path)?),
         }
@@ -101,23 +113,6 @@ impl AssetRef {
         Some(resolve_within(&root, &format!("{layer}/{path}")))
     }
 
-    /// Whether both name the same bytes. The project a game chunk was opened from is no
-    /// part of that.
-    #[must_use]
-    pub fn same_file(&self, other: &Self) -> bool {
-        match (self, other) {
-            (
-                Self::GameChunk { wad, path_hash, .. },
-                Self::GameChunk {
-                    wad: other_wad,
-                    path_hash: other_hash,
-                    ..
-                },
-            ) => wad == other_wad && path_hash == other_hash,
-            _ => self == other,
-        }
-    }
-
     /// The name a viewer shows, and what a guess at the file kind falls back to.
     ///
     /// A game chunk has the hash for a name, because the reference carries no
@@ -128,7 +123,7 @@ impl AssetRef {
             Self::Layer { path, .. } | Self::File { path } => {
                 path.rsplit(['/', '\\']).next().unwrap_or(path)
             }
-            Self::GameChunk { path_hash, .. } => path_hash,
+            Self::GameChunk { path_hash, .. } | Self::LcuChunk { path_hash, .. } => path_hash,
         }
     }
 
@@ -164,7 +159,7 @@ impl AssetRef {
                 resolve_within(&root, &format!("{layer}/{path}"))
             }
             Self::File { path } => Ok(PathBuf::from(path)),
-            Self::GameChunk { wad, path_hash, .. } => {
+            Self::GameChunk { wad, path_hash } | Self::LcuChunk { wad, path_hash } => {
                 let bytes = self.read(config, wads)?;
                 let path = chunk_copy_path(wad, path_hash, name);
 
@@ -175,6 +170,24 @@ impl AssetRef {
             }
         }
     }
+}
+
+/// One chunk of one of `source`'s archives, decompressed.
+fn read_chunk(
+    config: &Config,
+    wads: &WadCache,
+    source: WadSource,
+    wad: &str,
+    path_hash: &str,
+) -> AppResult<Vec<u8>> {
+    let path_hash = path_hash
+        .parse()
+        .map_err(|_| AppError::InvalidPath(format!("Not a chunk path hash: {path_hash}")))?;
+    wads.read_chunk(
+        &GameArchives::resolve_source(config, source)?,
+        wad,
+        path_hash,
+    )
 }
 
 /// Characters Windows will not take in a file name.
@@ -334,7 +347,6 @@ mod tests {
         let err = AssetRef::GameChunk {
             wad: "Champions/Aatrox.wad.client".to_owned(),
             path_hash: "not a hash".to_owned(),
-            project: None,
         }
         .read(&Config::default(), &WadCache::default())
         .unwrap_err();
@@ -404,7 +416,6 @@ mod tests {
             AssetRef::GameChunk {
                 wad: "UI.wad.client".to_owned(),
                 path_hash: "0123456789abcdef".to_owned(),
-                project: None,
             }
             .name(),
             "0123456789abcdef"

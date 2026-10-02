@@ -46,11 +46,12 @@ export type FileLinkDecision =
       readonly side?: string;
     };
 
-/** The copy of a chunk path a layer holds, for the layer side of a `file` link. */
-export interface LayerCopy {
-  readonly asset: AssetRef;
-  /** The layer's title, which is the word the chip carries. */
-  readonly title: string;
+/** The display title of a layer, which a chip for a layer's copy shows. */
+export type LayerTitle = (layer: string) => string;
+
+/** The title of the layer `asset` is a file of, or undefined for an asset of the install. */
+export function layerCopyTitle(asset: AssetRef, title: LayerTitle): string | undefined {
+  return asset.kind === "layer" ? title(asset.layer) : undefined;
 }
 
 const TEXT = { kind: "text" } as const satisfies LinkDecision;
@@ -107,40 +108,47 @@ export function decideHash(hash: string, targets: LinkTargets): LinkDecision {
 /**
  * What a `WadChunkLink` draws as.
  *
- * The layer's copy answers first and the install's second, and the chip carries the
- * side that answered. A path nothing resolves is text. A path both sides lack is
+ * The sandbox returns the copy the build uses, a layer's before the install's, and the chip
+ * shows where that copy is. A path nothing resolves is text. A path nothing holds is
  * missing, which is a chunk the file names and nothing on this machine holds.
  */
 export function decideFileLink(
   path: string | null,
   targets: LinkTargets,
-  layer: LayerCopy | null,
+  title: LayerTitle,
 ): FileLinkDecision {
   if (path === null) return TEXT;
-  if (layer) {
-    return { kind: "chip", document: previewDocument(layer.asset, path), side: layer.title };
-  }
   const located = targets.located.get(path);
   if (located) {
-    const asset = { kind: "gameChunk", wad: located.wad, pathHash: located.pathHash } as const;
-    return { kind: "chip", document: previewDocument(asset, path), side: assetContext(asset) };
+    const side = located.kind === "layer" ? title(located.layer) : assetContext(located);
+    return { kind: "chip", document: previewDocument(located, path), side };
   }
   return targets.pending ? PENDING : MISSING;
 }
 
+/** The roots the game's own chunks sit under, whose paths may hold a space. */
+const GAME_ROOTS = ["assets/", "data/"];
+
 /**
  * The chunk path a `string` names, or null where it names none.
  *
- * An `ASSETS/` or `DATA/` prefix in any case, and an extension. Lowercased as the
- * tables spell it, which is the one spelling the resolver, the layer and the preview
- * all answer under.
+ * A folder and a file name with an extension. A mod's own chunks sit under roots of its
+ * choosing, so any root counts, and one outside `ASSETS/` and `DATA/` holds no whitespace
+ * so that prose with a slash stays text. Lowercased as the tables spell it, which is the
+ * one spelling the resolver, the layer and the preview all answer under.
  */
 export function chunkPath(text: string): string | null {
   const path = text.toLowerCase();
-  if (!path.startsWith("assets/") && !path.startsWith("data/")) return null;
-  const name = path.slice(path.lastIndexOf("/") + 1);
+  const slash = path.lastIndexOf("/");
+  if (slash < 1 || path.startsWith("/")) return null;
+
+  const gameRoot = GAME_ROOTS.some((root) => path.startsWith(root));
+  if (!gameRoot && /\s/.test(path)) return null;
+
+  const name = path.slice(slash + 1);
   const dot = name.lastIndexOf(".");
   if (dot < 1 || dot === name.length - 1) return null;
+
   return path;
 }
 
@@ -153,11 +161,11 @@ export function chunkPath(text: string): string | null {
 export function decideStringLink(
   text: string,
   targets: LinkTargets,
-  layer: (path: string) => LayerCopy | null,
+  title: LayerTitle,
 ): LinkDecision | MissingChunk {
   const path = chunkPath(text);
   if (path !== null) {
-    const chunk = decideFileLink(path, targets, layer(path));
+    const chunk = decideFileLink(path, targets, title);
     if (chunk.kind === "chip") return chunk;
     /* A path-shaped string the index also declares is that object, not a lost chunk. */
     const declared = decideHash(nameHash(text), targets);
@@ -170,7 +178,7 @@ export function decideStringLink(
 export function decideLink(
   value: BinValue,
   targets: LinkTargets,
-  layer: (path: string) => LayerCopy | null,
+  title: LayerTitle,
 ): LinkDecision | MissingChunk | null {
   switch (value.type) {
     case "objectLink":
@@ -178,9 +186,9 @@ export function decideLink(
     case "hash":
       return decideHash(value.hash, targets);
     case "wadChunkLink":
-      return decideFileLink(value.path, targets, value.path === null ? null : layer(value.path));
+      return decideFileLink(value.path, targets, title);
     case "string":
-      return decideStringLink(value.value, targets, layer);
+      return decideStringLink(value.value, targets, title);
     default:
       return null;
   }

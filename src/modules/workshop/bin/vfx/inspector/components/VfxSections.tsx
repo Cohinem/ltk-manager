@@ -205,7 +205,7 @@ function EmitterCard({ card, open }: { card: EmitterCardData; open: EmitterGroup
             weight="bold"
             role="img"
             aria-label={m.workshop_bin_emitter_disabled_label()}
-            className="h-3.5 w-3.5 shrink-0 text-surface-400"
+            className="size-3.5 shrink-0 text-surface-400"
             data-row-key={disabled === undefined ? undefined : rowKey(disabled)}
           />
         )}
@@ -293,13 +293,13 @@ function ColourSquare({
       className={twMerge(
         "block shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong [background-size:8px_8px]",
         CHECKERBOARD,
-        size === "card" ? "aspect-square w-full" : "h-5 w-5",
+        size === "card" ? "aspect-square w-full" : "size-5",
       )}
     >
       <span
         role="img"
         aria-label={m.workshop_bin_emitter_colour_label()}
-        className="block h-full w-full"
+        className="block size-full"
         style={{ background }}
       />
     </Cell>

@@ -1,16 +1,33 @@
-import { type Color, DoubleSide, ShaderMaterial, type Side, type Texture, Vector4 } from "three";
+import {
+  type Color,
+  DoubleSide,
+  NoBlending,
+  ShaderMaterial,
+  type Side,
+  type Texture,
+  Vector4,
+} from "three";
 
-import { type BlendMode, type SimpleOrientation, UV_MODE } from "../../engine/model/enums";
+import {
+  type BlendMode,
+  SIMPLE_ORIENTATION,
+  type SimpleOrientation,
+  UV_MODE,
+} from "../../engine/model/enums";
+import type { EmitterModel } from "../../engine/model/model";
 import { ATTACHED_VERTEX, MESH_VERTEX } from "../shaders/mesh";
+import { PROJECTION_FRAGMENT, PROJECTION_VERTEX } from "../shaders/projection";
 import { FRAGMENT, VERTEX } from "../shaders/quad";
 import { RIBBON_FRAGMENT, RIBBON_VERTEX } from "../shaders/ribbon";
 import { drawState, type FragmentTests } from "./blend";
 import { customMaterial } from "./customMaterial";
+import { facesTheCamera, isRay, isUnitQuad } from "./drawKind";
 import {
   ALPHA_LOCK,
   colorDefines,
   colorUniforms,
   type DepthBias,
+  type Defines,
   type DepthOffset,
   distortionDefines,
   distortionUniforms,
@@ -60,6 +77,37 @@ const PIVOT_UP = 0.5;
 const REACH = 2;
 const UNIT_REACH = 1;
 
+/** How the quads of `emitter` turn, off its primitive kind and its simple definition. */
+export function quadOrientation(emitter: EmitterModel): QuadOrientation {
+  const simple = emitter.legacySimple;
+  return {
+    billboard: facesTheCamera(emitter) || simple !== null,
+    directed: facesTheCamera(emitter) && emitter.directionOriented && simple === null,
+    ray: isRay(emitter) && simple === null,
+    plane: simple?.orientation ?? SIMPLE_ORIENTATION.camera,
+    unitQuad: isUnitQuad(emitter),
+    pivotUp: emitter.pivotUp,
+  };
+}
+
+/** The defines `QUAD_CORNER` places a corner by. */
+export function orientationDefines(orientation: QuadOrientation): Defines {
+  return {
+    ...(orientation.billboard ? { BILLBOARD: "" } : {}),
+    ...(orientation.directed ? { DIRECTED: "" } : {}),
+    ...(orientation.ray ? { RAY: "" } : {}),
+    PLANE: orientation.plane,
+  };
+}
+
+/** The uniforms `QUAD_CORNER` places a corner by. */
+export function orientationUniforms(orientation: QuadOrientation) {
+  return {
+    reach: { value: orientation.unitQuad ? UNIT_REACH : REACH },
+    pivot: { value: orientation.pivotUp ? PIVOT_UP : 0 },
+  };
+}
+
 /**
  * The material one emitter's quads draw with.
  *
@@ -93,17 +141,13 @@ export function quadMaterial(
       ...layerUniforms(texture, layers, tests),
       ...softUniforms(mode, layers.soft),
       pushPull: { value: depth.pushPull },
-      reach: { value: orientation.unitQuad ? UNIT_REACH : REACH },
-      pivot: { value: orientation.pivotUp ? PIVOT_UP : 0 },
+      ...orientationUniforms(orientation),
     },
     defines: {
       ...layerDefines(texture, layers),
       ...softDefines(layers.soft),
       FALLOFF: "",
-      ...(orientation.billboard ? { BILLBOARD: "" } : {}),
-      ...(orientation.directed ? { DIRECTED: "" } : {}),
-      ...(orientation.ray ? { RAY: "" } : {}),
-      PLANE: orientation.plane,
+      ...orientationDefines(orientation),
       ...groundDefines(layers),
     },
     side: DoubleSide,
@@ -291,5 +335,68 @@ export function wireMaterial(
     depthTest: solid.depthTest,
     depthWrite: false,
     transparent: true,
+  });
+}
+
+/**
+ * The material one emitter's planar projections draw with.
+ *
+ * The texture spans the footprint once whatever the emitter's uv fields say, since the decal
+ * shader takes its uv from the projection alone. A footprint authoring no depth bias takes
+ * `OVERLAY`, which holds it over the ground plane it lies on.
+ */
+export function projectionMaterial(
+  emitter: EmitterModel,
+  texture: Texture | null,
+  ramp: Texture | null,
+  tests: FragmentTests,
+): ShaderMaterial {
+  const state = drawState(emitter.blendMode, false);
+  const projection = emitter.projection;
+
+  return new ShaderMaterial({
+    vertexShader: PROJECTION_VERTEX,
+    fragmentShader: PROJECTION_FRAGMENT,
+    uniforms: {
+      map: { value: texture },
+      address: { value: emitter.uv.addressMode },
+      mapRamp: { value: ramp },
+      alphaRef: { value: tests.alphaRef },
+      heightFade: { value: [projection?.yRange ?? 0, projection?.fading ?? 0] },
+    },
+    defines: {
+      ...(texture !== null ? { HAS_MAP: "" } : {}),
+      ...(ramp !== null ? { HAS_RAMP: "" } : {}),
+    },
+    side: DoubleSide,
+    depthTest: tests.depthTest,
+    depthWrite: state.depthWrite,
+    transparent: state.transparent && !emitter.groundLayer,
+    blending: state.blending,
+    blendSrc: state.blendSrc,
+    blendDst: state.blendDst,
+    blendEquation: state.blendEquation,
+    blendSrcAlpha: state.blendSrcAlpha,
+    blendDstAlpha: state.blendDstAlpha,
+    ...polygonOffsetOf(offsets(emitter.depthBias) ? emitter.depthBias : OVERLAY),
+  });
+}
+
+/**
+ * `solid` drawn as one flat id in place of its colour, over its uniforms.
+ *
+ * The vertex program and the uniform objects are the solid's. A pick lands on the vertices the
+ * last frame drew. The nearest texel wins by depth, whatever the solid blends.
+ */
+export function pickMaterial(solid: ShaderMaterial): ShaderMaterial {
+  return new ShaderMaterial({
+    vertexShader: solid.vertexShader,
+    fragmentShader: solid.fragmentShader,
+    uniforms: { ...solid.uniforms, pickId: { value: new Vector4() } },
+    defines: { ...solid.defines, PICK: "" },
+    side: solid.side,
+    depthTest: true,
+    depthWrite: true,
+    blending: NoBlending,
   });
 }

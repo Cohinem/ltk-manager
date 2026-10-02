@@ -1,6 +1,6 @@
-import type { AppError } from "@/lib/bindings";
+import type { AppErrorResponse as AppError } from "@/lib/bindings";
 
-export type { AppError, OverlayErrorCategory } from "@/lib/bindings";
+export type { AppErrorResponse as AppError, OverlayErrorCategory } from "@/lib/bindings";
 
 /** The `code` tag of an `AppError`, the name a caller branches on. */
 export type ErrorCode = AppError["code"];

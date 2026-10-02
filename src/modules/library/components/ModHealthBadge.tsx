@@ -34,10 +34,10 @@ interface ModHealthBadgeProps {
  */
 function PopoverMark({ alarm, tone }: { alarm: SweepAlarm; tone: string }) {
   if (alarm === "repairable") {
-    return <WrenchIcon className={`h-10 w-10 shrink-0 ${tone}`} weight="duotone" />;
+    return <WrenchIcon className={`size-10 shrink-0 ${tone}`} weight="duotone" />;
   }
 
-  return <ShockedPoroDuotoneIcon className={`h-10 w-10 shrink-0 ${tone}`} />;
+  return <ShockedPoroDuotoneIcon className={`size-10 shrink-0 ${tone}`} />;
 }
 
 /**
@@ -53,19 +53,18 @@ function RecheckButton({ modId, repairing }: { modId: string; repairing: boolean
 
   return (
     <IconButton
-      variant="ghost"
       size="sm"
-      compact
       icon={
         <ArrowsClockwiseIcon
           weight="bold"
-          className={`h-4 w-4 ${check.isPending ? "animate-spin" : ""}`}
+          className={`size-4 ${check.isPending ? "animate-spin" : ""}`}
         />
       }
       onClick={() => check.mutate(modId)}
       /* A verdict outlives the tables it was taken against, so this popover can
-         open on a launch that has none. */
-      disabled={check.isPending || repairing || readiness !== "ready"}
+         open on a launch that has none. */ disabled={
+        check.isPending || repairing || readiness !== "ready"
+      }
       aria-label="Re-check mod"
     />
   );
@@ -156,52 +155,44 @@ export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
         <Popover.Trigger
           render={
             <IconButton
-              compact
-              variant="ghost"
               size="sm"
-              icon={<PillIcon className="h-4 w-4" weight="bold" />}
+              icon={<PillIcon className="size-4" weight="bold" />}
               aria-label={pillLabel(verdict, alarm)}
-              className={`h-6 gap-1 rounded py-0.5 text-xs leading-tight font-medium ring-1 ring-inset ${tone.pill}`}
+              className={`h-6 gap-1 rounded-sm py-0.5 text-xs leading-tight font-medium ring-1 ring-inset ${tone.pill}`}
             />
           }
         />
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner sideOffset={6}>
-          <Popover.Popup className="w-72 overflow-hidden">
-            <div
-              className={`relative flex items-start gap-2.5 px-3 py-2.5 select-none ${tone.wash}`}
+      <Popover.Content sideOffset={6} className="w-72 overflow-hidden">
+        <div className={`relative flex items-start gap-2.5 px-3 py-2.5 select-none ${tone.wash}`}>
+          <PopoverMark alarm={alarm} tone={tone.chip} />
+          <div className="min-w-0 flex-1">
+            <Popover.Title className="font-medium">{headline}</Popover.Title>
+            <p className="text-xs text-surface-300">{sentence}</p>
+          </div>
+          <RecheckButton modId={modId} repairing={repair.isPending} />
+          <span
+            aria-hidden="true"
+            className={`pointer-events-none absolute inset-x-0 bottom-0 h-px ${tone.rule}`}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-2 px-3 py-1 select-none">
+          <p className="text-fine text-surface-500">
+            Checked {formatDistanceToNow(new Date(verdict.checkedAt), { addSuffix: true })}
+          </p>
+          {alarm === "repairable" && (
+            <Button
+              variant="filled"
+              size="xs"
+              loading={repair.isPending}
+              onClick={() => repair.mutate(modId)}
             >
-              <PopoverMark alarm={alarm} tone={tone.chip} />
-              <div className="min-w-0 flex-1">
-                <Popover.Title className="font-medium">{headline}</Popover.Title>
-                <p className="text-xs text-surface-300">{sentence}</p>
-              </div>
-              <RecheckButton modId={modId} repairing={repair.isPending} />
-              <span
-                aria-hidden="true"
-                className={`pointer-events-none absolute inset-x-0 bottom-0 h-px ${tone.rule}`}
-              />
-            </div>
-            <div className="flex items-center justify-between gap-2 px-3 py-1 select-none">
-              <p className="text-[0.625rem] text-surface-500">
-                Checked {formatDistanceToNow(new Date(verdict.checkedAt), { addSuffix: true })}
-              </p>
-              {alarm === "repairable" && (
-                <Button
-                  variant="filled"
-                  size="xs"
-                  loading={repair.isPending}
-                  onClick={() => repair.mutate(modId)}
-                >
-                  <PlugsIcon className="h-4 w-4" weight="duotone" />
-                  Repair
-                </Button>
-              )}
-            </div>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+              <PlugsIcon className="size-4" weight="duotone" />
+              Repair
+            </Button>
+          )}
+        </div>
+      </Popover.Content>
     </Popover.Root>
   );
 }

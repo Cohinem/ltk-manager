@@ -1,0 +1,517 @@
+use crate::error::{AppError, AppResult, IpcResult};
+use crate::services::shared::Workshop;
+use crate::state::SettingsState;
+use crate::workshop::{
+    AddFilesReport, AddFoldersReport, ContentTree, ConvertFolderArgs, DeclarationsLayer,
+    FantomePeekResult, FolderInspection, IgnoreRules, LayerWatches, OpenedProjectFolder,
+    PackProjectArgs, PackResult, ProjectEdit, ProjectSource, ProjectText, ProjectTextFile,
+    Revision, ValidationResult, WorkshopLayerInfo, WorkshopProject, WorkshopState,
+    RECOMMENDED_IGNORE_RULES,
+};
+use chrono::Local;
+use fs_err as fs;
+use ltk_manager_core::bin_document::BinDocuments;
+use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
+use ltk_manager_core::object_index::CacheNames;
+use ltk_manager_core::sandbox::SandboxState;
+use ltk_manager_core::workshop::layer_name_for;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use tauri::{AppHandle, Manager, State};
+
+use crate::services::shared::off_thread;
+
+/// An edited project with its location and last-opened time, which a load leaves at their
+/// defaults.
+fn described(
+    edited: AppResult<WorkshopProject>,
+    workshop: &WorkshopState,
+    settings: &SettingsState,
+) -> IpcResult<WorkshopProject> {
+    edited
+        .map(|project| workshop.0.describe(&settings.config(), project))
+        .into()
+}
+
+/// Apply `edit` to the project at `project_path`, answering the project.
+///
+/// An edit that reshapes the layers drops the project's sandboxes, and a layer rename moves the
+/// open documents to the new name. ADR-0056.
+#[tauri::command]
+#[specta::specta]
+pub fn edit_project(
+    project_path: String,
+    edit: ProjectEdit,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+    documents: State<BinDocuments>,
+    sandboxes: State<SandboxState>,
+) -> IpcResult<WorkshopProject> {
+    let reshapes = edit.reshapes_layers();
+    let renamed = if let ProjectEdit::RenameLayer {
+        layer,
+        display_name,
+    } = &edit
+    {
+        layer_name_for(display_name).map(|to| (layer.clone(), to))
+    } else {
+        None
+    };
+
+    let edited = workshop
+        .0
+        .edit_project(&settings.config(), &project_path, edit);
+    if reshapes {
+        sandboxes.invalidate(&project_path);
+    }
+    if let (Ok(_), Some((from, to))) = (&edited, renamed) {
+        documents.rename_layer(&project_path, &from, &to);
+    }
+    edited.into()
+}
+
+/// Make a project out of `source` in the workshop folder, answering the project.
+#[tauri::command]
+#[specta::specta]
+pub async fn create_project(
+    source: ProjectSource,
+    app_handle: AppHandle,
+) -> IpcResult<WorkshopProject> {
+    off_thread(move || {
+        let config = app_handle.state::<SettingsState>().config();
+        let resolver = app_handle.state::<Arc<WadPathResolverState>>().get();
+        app_handle
+            .state::<WorkshopState>()
+            .0
+            .create_from(&config, source, &resolver)
+    })
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_workshop_projects(workshop: Workshop) -> IpcResult<Vec<WorkshopProject>> {
+    workshop.with(|projects, config| projects.get_projects(config))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_workshop_project(
+    project_path: String,
+    workshop: Workshop,
+) -> IpcResult<WorkshopProject> {
+    workshop.with(|projects, config| projects.get_project(config, &project_path))
+}
+
+/// Classify a folder picked with Open folder.
+#[tauri::command]
+#[specta::specta]
+pub fn inspect_project_folder(path: String, workshop: Workshop) -> IpcResult<FolderInspection> {
+    workshop.with(|projects, config| projects.inspect_folder(config, &path))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn open_project_folder(path: String, workshop: Workshop) -> IpcResult<WorkshopProject> {
+    workshop.with(|projects, config| projects.open_folder(config, &path))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn record_project_opened(path: String, workshop: State<WorkshopState>) -> IpcResult<()> {
+    workshop.0.record_opened(&path).into()
+}
+
+/// Watch the layers of `project_path` for files saved from outside the app.
+#[tauri::command]
+#[specta::specta]
+pub fn watch_project_layers(project_path: String, watches: State<LayerWatches>) -> IpcResult<()> {
+    watches.acquire(&project_path).into()
+}
+
+/// Release one watch on the layers of `project_path`.
+#[tauri::command]
+#[specta::specta]
+pub fn unwatch_project_layers(project_path: String, watches: State<LayerWatches>) -> IpcResult<()> {
+    watches.release(&project_path);
+    IpcResult::Ok { value: () }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_opened_project_folders(
+    workshop: State<WorkshopState>,
+) -> IpcResult<Vec<OpenedProjectFolder>> {
+    IpcResult::Ok {
+        value: workshop.0.opened_folders(),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn forget_project_folder(path: String, workshop: State<WorkshopState>) -> IpcResult<()> {
+    workshop.0.forget_folder(&path).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn relocate_project_folder(
+    old_path: String,
+    new_path: String,
+    workshop: Workshop,
+) -> IpcResult<WorkshopProject> {
+    workshop.with(|projects, config| projects.relocate_folder(config, &old_path, &new_path))
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn convert_folder_to_project(
+    args: ConvertFolderArgs,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+    resolvers: State<std::sync::Arc<WadPathResolverState>>,
+) -> IpcResult<WorkshopProject> {
+    let config = settings.config();
+    let resolver = resolvers.get();
+    workshop.0.convert_folder(&config, args, &resolver).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn add_project_folders(
+    paths: Vec<String>,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+    resolvers: State<std::sync::Arc<WadPathResolverState>>,
+) -> IpcResult<AddFoldersReport> {
+    let config = settings.config();
+    let resolver = resolvers.get();
+    IpcResult::Ok {
+        value: workshop.0.add_folders(&config, paths, &resolver),
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_project_content_tree(
+    project_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<ContentTree> {
+    workshop.0.get_project_content_tree(&project_path).into()
+}
+
+/// Read the `.modignore` at project-relative `at`, or the root file for none.
+#[tauri::command]
+#[specta::specta]
+pub fn get_project_ignore_rules(
+    project_path: String,
+    at: Option<String>,
+    workshop: State<WorkshopState>,
+) -> IpcResult<IgnoreRules> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.ignore_rules(at.as_deref()))
+        .into()
+}
+
+/// The starter rules, for the empty state that draws them before writing them.
+#[tauri::command]
+#[specta::specta]
+pub fn recommended_ignore_rules() -> IpcResult<String> {
+    IpcResult::Ok {
+        value: RECOMMENDED_IGNORE_RULES.to_string(),
+    }
+}
+
+/// Write the `.modignore` at project-relative `at`, or the root file for none.
+#[tauri::command]
+#[specta::specta]
+pub fn save_project_ignore_rules(
+    project_path: String,
+    at: Option<String>,
+    text: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<IgnoreRules> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.write_ignore_rules(at.as_deref(), &text))
+        .into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn add_recommended_ignore_rules(
+    project_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<IgnoreRules> {
+    let today = Local::now().date_naive();
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.add_recommended_ignore_rules(today))
+        .into()
+}
+
+/// Read one of the project's root text files, the readme or the license.
+#[tauri::command]
+#[specta::specta]
+pub fn get_project_text(
+    project_path: String,
+    file: ProjectTextFile,
+    workshop: State<WorkshopState>,
+) -> IpcResult<ProjectText> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.project_text(file))
+        .into()
+}
+
+/// Write one of the project's root text files, guarded by `expected`.
+#[tauri::command]
+#[specta::specta]
+pub fn save_project_text(
+    project_path: String,
+    file: ProjectTextFile,
+    text: String,
+    expected: Option<Revision>,
+    workshop: State<WorkshopState>,
+) -> IpcResult<ProjectText> {
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.write_project_text(file, &text, expected))
+        .into()
+}
+
+/// Every layer's declarations manifest as modules, entries and keys, in build order.
+#[tauri::command]
+#[specta::specta]
+pub fn declarations_outline(
+    project_path: String,
+    workshop: State<WorkshopState>,
+    bin: State<BinHashTablesState>,
+    wad: State<Arc<WadPathResolverState>>,
+) -> IpcResult<Vec<DeclarationsLayer>> {
+    let bin = bin.get();
+    let wad = wad.get();
+    let names = CacheNames::new(&bin, &wad);
+
+    workshop
+        .0
+        .project(&project_path)
+        .and_then(|project| project.declarations_outline(&names))
+        .into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn rename_workshop_project(
+    project_path: String,
+    new_name: String,
+    workshop: State<WorkshopState>,
+    settings: State<SettingsState>,
+) -> IpcResult<WorkshopProject> {
+    described(
+        workshop.0.rename_project(&project_path, &new_name),
+        &workshop,
+        &settings,
+    )
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn delete_workshop_project(
+    project_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<()> {
+    workshop.0.delete_project(&project_path).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn pack_workshop_project(
+    args: PackProjectArgs,
+    app_handle: AppHandle,
+) -> IpcResult<PackResult> {
+    off_thread(move || app_handle.state::<WorkshopState>().0.pack_project(args)).await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn peek_fantome(
+    file_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<FantomePeekResult> {
+    workshop.0.peek_fantome(&file_path).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn validate_project(
+    project_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<ValidationResult> {
+    workshop.0.validate_project(&project_path).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_project_thumbnail(
+    thumbnail_path: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<String> {
+    workshop.0.get_thumbnail(&thumbnail_path).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_layer_content_path(
+    project_path: String,
+    layer_name: String,
+    workshop: State<WorkshopState>,
+) -> IpcResult<String> {
+    workshop
+        .0
+        .get_layer_content_path(&project_path, &layer_name)
+        .into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn get_layer_info(
+    project_path: String,
+    layer_names: Vec<String>,
+    workshop: State<WorkshopState>,
+) -> IpcResult<HashMap<String, WorkshopLayerInfo>> {
+    workshop.0.get_layer_info(&project_path, layer_names).into()
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn add_files_to_layer(
+    project_path: String,
+    layer_name: String,
+    sources: Vec<String>,
+    workshop: State<WorkshopState>,
+    resolvers: State<std::sync::Arc<WadPathResolverState>>,
+    sandboxes: State<SandboxState>,
+) -> IpcResult<AddFilesReport> {
+    let resolver = resolvers.get();
+    let added = workshop
+        .0
+        .add_files_to_layer(&project_path, &layer_name, sources, &resolver);
+    sandboxes.invalidate(&project_path);
+    added.into()
+}
+
+/// Delete one file or directory from a layer's content directory.
+///
+/// `relative_path` is layer-relative, the way the content tree names its rows.
+#[tauri::command]
+#[specta::specta]
+pub fn delete_layer_content(
+    project_path: String,
+    layer_name: String,
+    relative_path: String,
+    workshop: State<WorkshopState>,
+    sandboxes: State<SandboxState>,
+) -> IpcResult<()> {
+    let deleted = workshop
+        .0
+        .delete_layer_content(&project_path, &layer_name, &relative_path);
+    sandboxes.invalidate(&project_path);
+    deleted.into()
+}
+
+/// Read the frontend-owned editor state at `<project>/.ltk/editor.json`.
+///
+/// The content is opaque here - the frontend versions and interprets it. A
+/// missing file reads as `None`, and only a genuine IO failure is an error.
+#[tauri::command]
+#[specta::specta]
+pub fn get_project_editor_state(project_path: String) -> IpcResult<Option<String>> {
+    get_project_editor_state_inner(&project_path).into()
+}
+
+fn get_project_editor_state_inner(project_path: &str) -> AppResult<Option<String>> {
+    match fs::read_to_string(editor_state_path(project_path)) {
+        Ok(content) => Ok(Some(content)),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(AppError::Io(e)),
+    }
+}
+
+/// Write the frontend-owned editor state to `<project>/.ltk/editor.json`.
+///
+/// Creates `.ltk/` on first write, and lands through a temp file in the same
+/// directory so a crash mid-write never leaves a truncated file behind.
+#[tauri::command]
+#[specta::specta]
+pub fn save_project_editor_state(project_path: String, content: String) -> IpcResult<()> {
+    save_project_editor_state_inner(&project_path, &content).into()
+}
+
+fn save_project_editor_state_inner(project_path: &str, content: &str) -> AppResult<()> {
+    let dest = editor_state_path(project_path);
+    let dir = dest
+        .parent()
+        .expect("editor state path always ends in .ltk/editor.json");
+    fs::create_dir_all(dir)?;
+
+    let temp = dir.join(".editor.json.tmp");
+    fs::write(&temp, content)?;
+    if let Err(e) = fs::rename(&temp, &dest) {
+        let _ = fs::remove_file(&temp);
+        return Err(AppError::Io(e));
+    }
+    Ok(())
+}
+
+fn editor_state_path(project_path: &str) -> PathBuf {
+    Path::new(project_path).join(".ltk").join("editor.json")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn read_reports_a_missing_file_as_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy();
+
+        assert_eq!(get_project_editor_state_inner(&project).unwrap(), None);
+    }
+
+    #[test]
+    fn save_creates_the_ltk_directory_and_reads_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy();
+
+        save_project_editor_state_inner(&project, r#"{"version":1}"#).unwrap();
+
+        assert_eq!(
+            get_project_editor_state_inner(&project).unwrap().as_deref(),
+            Some(r#"{"version":1}"#)
+        );
+    }
+
+    #[test]
+    fn save_replaces_an_existing_file_and_leaves_no_temp() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().to_string_lossy();
+
+        save_project_editor_state_inner(&project, "first").unwrap();
+        save_project_editor_state_inner(&project, "second").unwrap();
+
+        assert_eq!(
+            get_project_editor_state_inner(&project).unwrap().as_deref(),
+            Some("second")
+        );
+        assert!(!dir.path().join(".ltk").join(".editor.json.tmp").exists());
+    }
+}

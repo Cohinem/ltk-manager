@@ -1,4 +1,12 @@
-import { type MouseEvent, use, useMemo } from "react";
+import {
+  type MouseEvent,
+  type PointerEvent,
+  use,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
@@ -18,9 +26,10 @@ import {
 import { keysAt } from "../../vfx/engine/utils/sampleCurve";
 import { VfxRunContext } from "../../vfx/playback/state/run";
 import { axisText } from "../utils/curvePlot";
-import { drawsFlat, drawsSpread, type RandomDraw, stopsAt } from "../utils/randomDraw";
+import { CURVE_TIME_STEP, snapCurveValue } from "../utils/curveSnapping";
+import { drawsFlat, type RandomDraw, stopsAt } from "../utils/randomDraw";
 import type { CurveSelectionMode } from "./CurveGraph";
-import { DrawReadout, pinGesture } from "./RandomLanes";
+import { DrawReadout } from "./RandomLanes";
 
 /** The chances an animated random colour's ramp is drawn at: the two ends of the roll. */
 const ENDS: readonly number[] = [0, 1];
@@ -38,6 +47,16 @@ interface StopsProps {
   /** The stops the readout and the rail have selected, as indices into `stops`. */
   selected: ReadonlySet<number>;
 }
+
+/** A stop dragged along the axis, held until the curve it was saved to reads back. */
+interface StopMove {
+  readonly at: number;
+  readonly time: number;
+  readonly committed: boolean;
+}
+
+/** How far the pointer travels, in pixels, before a press on a stop becomes a drag. */
+const DRAG_SLOP = 3;
 
 /**
  * A colour curve as the ramp it runs through. "The tabs" in docs/ux/BIN_EDITOR.md.
@@ -57,6 +76,7 @@ export function GradientPlot({
   editable = false,
   onSelect,
   onAdd,
+  onChange,
 }: {
   keys: readonly CurveKey[];
   draw?: RandomDraw | null;
@@ -64,11 +84,42 @@ export function GradientPlot({
   editable?: boolean;
   onSelect?: (at: number, mode: CurveSelectionMode) => void;
   onAdd?: (key: CurveKey) => void;
+  onChange?: (at: number, key: CurveKey) => boolean | Promise<boolean>;
 }) {
-  const stops = useMemo(() => colorStops(keys), [keys]);
+  const saved = useMemo(() => colorStops(keys), [keys]);
+  const [move, setMove] = useState<StopMove | null>(null);
   const pinned = use(VfxRunContext)?.pinned ?? null;
-  const span = timeSpan(stops.map((stop) => stop.time));
-  const rolled = drawsSpread(draw);
+  const span = timeSpan(saved.map((stop) => stop.time));
+  const stops = useMemo(
+    () =>
+      move === null
+        ? saved
+        : saved.map((stop, at) => (at === move.at ? { ...stop, time: move.time } : stop)),
+    [saved, move],
+  );
+  /* A stop dragged past a neighbour keeps its marker, so the bands draw the stops in time order. */
+  const ordered = useMemo(
+    () => (move === null ? stops : [...stops].sort((left, right) => left.time - right.time)),
+    [move, stops],
+  );
+  /* A stop is a key only while every key reads as a colour, which is what the move writes. */
+  const movable = editable && onChange !== undefined && saved.length === keys.length;
+
+  useEffect(() => {
+    setMove((held) => (held?.committed === true ? null : held));
+  }, [keys]);
+
+  async function place(at: number, time: number) {
+    const key = keys[at];
+    if (onChange === undefined || key === undefined || key.time === time) {
+      setMove(null);
+      return;
+    }
+
+    setMove({ at, time, committed: true });
+    if ((await onChange(at, { ...key, time })) === false) setMove(null);
+  }
+  const rolled = draw !== null && draw !== undefined;
 
   function addStop(event: MouseEvent<HTMLSpanElement>) {
     if (!editable || onAdd === undefined) return;
@@ -95,18 +146,25 @@ export function GradientPlot({
     <div data-ui="GradientPlot" className="flex min-h-0 flex-1 flex-col gap-1">
       {/* The rail hangs off the band, so the two are one object with no gap between them. */}
       <div className="flex shrink-0 flex-col gap-px">
-        {!rolled && <Band stops={stops} editable={editable} onDoubleClick={addStop} />}
+        {!rolled && <Band stops={ordered} editable={editable} onDoubleClick={addStop} />}
         {rolled &&
           chances.map((chance, at) => (
             <Band
               key={at}
-              stops={stopsAt(stops, draw, chance)}
+              stops={stopsAt(ordered, draw, chance)}
               label={m.workshop_bin_random_at_chance_label({ chance: chance.toFixed(2) })}
               editable={editable}
               onDoubleClick={addStop}
             />
           ))}
-        <StopRail stops={stops} span={span} selected={selected} onSelect={onSelect} />
+        <StopRail
+          stops={stops}
+          span={span}
+          selected={selected}
+          onSelect={onSelect}
+          onMove={movable ? (at, time) => setMove({ at, time, committed: false }) : undefined}
+          onPlace={(at, time) => void place(at, time)}
+        />
       </div>
       {stops.length > 0 && (
         <span className="flex shrink-0 justify-between text-meta text-surface-500">
@@ -141,15 +199,12 @@ function ChanceRamp({ base, draw }: { base: ColorStop["rgba"]; draw: RandomDraw 
   return (
     <div data-ui="GradientPlot:chance" className="flex shrink-0 flex-col gap-0.5">
       <div
+        role="img"
         aria-label={m.workshop_bin_random_ramp_label()}
-        {...pinGesture(pinned, run?.setPinned ?? null, (share) => share)}
         /* DS-TOKEN, DS-VEIL, DS-RADIUS */
-        className={twMerge(
-          `relative h-8 touch-none overflow-hidden rounded-sm border border-surface-veil-strong outline-none focus-visible:ring-1 focus-visible:ring-accent-500 ${CHECKERBOARD} [background-size:8px_8px]`,
-          run !== null && "cursor-ew-resize",
-        )}
+        className={`relative h-8 overflow-hidden rounded-sm border border-surface-veil-strong ${CHECKERBOARD} [background-size:8px_8px]`}
       >
-        <span className="block h-full w-full" style={{ background: gradientCss(ramp) }} />
+        <span className="block size-full" style={{ background: gradientCss(ramp) }} />
         {pinned !== null && (
           <span
             aria-hidden
@@ -196,7 +251,7 @@ function Band({
       )}
       onDoubleClick={onDoubleClick}
     >
-      <span className="block h-full w-full" style={{ background: gradientCss(stops) }} />
+      <span className="block size-full" style={{ background: gradientCss(stops) }} />
       {label !== undefined && (
         <span
           aria-hidden
@@ -210,19 +265,65 @@ function Band({
   );
 }
 
+/** Where a stop was pressed: the pointer, the stop's time then, and whether it has moved. */
+interface StopPress {
+  readonly x: number;
+  readonly time: number;
+  moved: boolean;
+}
+
 /**
  * One marker per stop, hanging off the band at the stop's own time.
  *
  * A marker points at the band rather than floating under it, so it reads as a stop of that
  * ramp and not as a chip beside one. Its body carries the colour it lands on, which is what
- * tells two stops of one ramp apart at this size.
+ * tells two stops of one ramp apart at this size. A marker drags along the axis once the
+ * pointer has travelled, so a click only selects, and one dragged past a neighbour swaps with it.
  */
 function StopRail({
   stops,
   span,
   selected,
   onSelect,
-}: StopsProps & { onSelect: ((at: number, mode: CurveSelectionMode) => void) | undefined }) {
+  onMove,
+  onPlace,
+}: StopsProps & {
+  onSelect: ((at: number, mode: CurveSelectionMode) => void) | undefined;
+  /** Follow a drag. Absent where the stops do not move. */
+  onMove: ((at: number, time: number) => void) | undefined;
+  onPlace: (at: number, time: number) => void;
+}) {
+  const press = useRef<StopPress | null>(null);
+  const moved = useRef<number | null>(null);
+
+  function follow(event: PointerEvent<HTMLButtonElement>, at: number) {
+    const held = press.current;
+    const rail = event.currentTarget.parentElement?.getBoundingClientRect();
+    if (held === null || onMove === undefined || rail === undefined || rail.width === 0) return;
+
+    const dx = event.clientX - held.x;
+    if (!held.moved && Math.abs(dx) < DRAG_SLOP) return;
+    held.moved = true;
+
+    const dragged = held.time + (dx / rail.width) * (span.last - span.first);
+    const time = Math.min(
+      Math.max(snapCurveValue(dragged, CURVE_TIME_STEP), span.first),
+      span.last,
+    );
+    moved.current = time;
+    onMove(at, time);
+  }
+
+  function release(event: PointerEvent<HTMLButtonElement>, at: number) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    const time = moved.current;
+    press.current = null;
+    moved.current = null;
+    if (time !== null) onPlace(at, time);
+  }
+
   return (
     <span data-ui="StopRail" className="relative h-4 min-w-0">
       {stops.map((stop, at) => (
@@ -234,8 +335,21 @@ function StopRail({
             color: colorHex(stop.rgba),
           })}
           aria-pressed={selected.has(at)}
-          className="group/stop absolute top-0 flex -translate-x-1/2 cursor-pointer flex-col items-center"
+          className={twMerge(
+            "group/stop absolute top-0 flex -translate-x-1/2 cursor-pointer touch-none flex-col items-center",
+            onMove !== undefined && "cursor-ew-resize",
+          )}
           style={{ left: `${(placeTime(stop.time, span) * 100).toFixed(2)}%` }}
+          onPointerDown={(event) => {
+            if (onMove === undefined || event.button !== 0) return;
+            if (event.shiftKey || event.ctrlKey || event.metaKey) return;
+
+            event.currentTarget.setPointerCapture(event.pointerId);
+            press.current = { x: event.clientX, time: stop.time, moved: false };
+          }}
+          onPointerMove={(event) => follow(event, at)}
+          onPointerUp={(event) => release(event, at)}
+          onPointerCancel={(event) => release(event, at)}
           onClick={(event) => {
             if (event.shiftKey) {
               onSelect?.(at, "range");
@@ -251,7 +365,7 @@ function StopRail({
           <Swatch
             rgba={stop.rgba}
             className={twMerge(
-              "h-3 w-3",
+              "size-3",
               selected.has(at) ? "border-accent-500" : "group-hover/stop:border-accent-hover",
             )}
           />
@@ -267,7 +381,7 @@ function Tip({ selected }: { selected: boolean }) {
     <span
       aria-hidden
       className={twMerge(
-        "h-0 w-0 border-x-4 border-b-4 border-x-transparent",
+        "size-0 border-x-4 border-b-4 border-x-transparent",
         selected ? "border-b-accent-500" : "border-b-surface-500",
       )}
     />

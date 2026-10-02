@@ -1,0 +1,501 @@
+import {
+  AddEquation,
+  type Camera,
+  CustomBlending,
+  Line,
+  LinearFilter,
+  Mesh,
+  NoColorSpace,
+  type Material,
+  type Object3D,
+  OneFactor,
+  OneMinusSrcAlphaFactor,
+  OrthographicCamera,
+  RGBAFormat,
+  Scene,
+  type Texture,
+  UnsignedByteType,
+  type WebGLRenderer,
+  WebGLRenderTarget,
+  ZeroFactor,
+} from "three";
+
+import type { AssetRef, UiShader } from "@/lib/tauri";
+import type { ReadyProgram } from "@/modules/viewport";
+
+import { batchDraws } from "../../engine/commands/batch";
+import type { Command, DrawCommand, TextCommand } from "../../engine/commands/types";
+import { effectConstants, isTimed } from "../../engine/effects/effects";
+import type { Geometry } from "../../engine/geometry/quads";
+import type { PixelRect, Screen } from "../../engine/layout/solve";
+import { assetKey } from "../text/fontFiles";
+import type { GlyphPage } from "../text/glyphCache";
+import { bufferOf, textBufferOf } from "./buffers";
+import { fontMaterial } from "./fontMaterials";
+import {
+  type ViewMaterial,
+  viewMaterial,
+  UI_COLOR,
+  UI_TIME,
+  type UiMaterial,
+  uiMaterial,
+} from "./uiMaterials";
+
+/** What the frame reads besides its commands. */
+export interface FrameInputs {
+  readonly programs: ReadonlyMap<UiShader, ReadyProgram>;
+  /** The texture of each index of the view's textures, where it has loaded. */
+  readonly textures: ReadonlyMap<number, Texture>;
+  /** Drawn where a command's texture has not loaded, so the draw keeps its place. */
+  readonly missing: Texture;
+  /** The glyph page a text draw samples. */
+  readonly glyphPage: (page: number) => GlyphPage | undefined;
+  /** Each fill and icon texture a text samples, by `assetKey`, where it has loaded. */
+  readonly textTextures: ReadonlyMap<string, Texture>;
+  /** A fill where a font names none. */
+  readonly white: Texture;
+  /** Each material an icon or a custom material effect names that translated, by its path or hash. */
+  readonly materials: ReadonlyMap<string, ViewMaterial>;
+}
+
+/** One draw as three holds it. */
+interface Drawn {
+  readonly command: DrawCommand;
+  readonly object: Mesh | Line;
+  readonly material: UiMaterial;
+  /** Whether the material is the renderer's shared one, which outlives the command list. */
+  readonly shared: boolean;
+}
+
+/** An element's particle system as three holds it: its scene, and the HUD camera it draws under. */
+export interface ParticleDraw {
+  readonly scene: Scene;
+  readonly camera: Camera;
+}
+
+/** Each element's particle draw, which the canvas keeps as the systems load. */
+export type ParticleDraws = ReadonlyMap<string, ParticleDraw>;
+
+type Step =
+  | { readonly kind: "run"; readonly scene: Scene; readonly scissor: PixelRect | null }
+  | { readonly kind: "particles"; readonly element: string; readonly scissor: PixelRect | null }
+  | { readonly kind: "push" }
+  | { readonly kind: "pop"; readonly copy: Drawn; readonly scissor: PixelRect | null };
+
+/** The camera every step renders through. A UI program writes clip space itself. */
+const CAMERA: Camera = new OrthographicCamera();
+
+const NO_PARTICLES: ParticleDraws = new Map();
+
+/**
+ * The command list as a sequence of renders into one target, per section 3.4 of
+ * docs/plans/atlas-renderer.md: a run of draws that share a scissor rect is one render, and an
+ * offscreen group renders into a pooled target that its pop composites through `Copy`. Icons merge
+ * into batches as the client merges them, and a draw no effect drives takes a material shared by
+ * program, blend and texture that outlives the list, so a new list compiles no material again.
+ *
+ * The target is the screen's size times `scale`, RGBA8 without colour conversion and
+ * premultiplied, so the bytes are the ones the client's gamma-space pipeline writes. The geometry
+ * is in screen units, so a larger scale rasterizes the same draws more densely for a zoomed-in
+ * canvas. A board's frames each hold a list of their own and take turns in the one target.
+ */
+export class FrameRenderer {
+  readonly target: WebGLRenderTarget;
+  private frames: Step[][] = [];
+  private drawn: Drawn[] = [];
+  private texts: Mesh[] = [];
+  private timed: Drawn[] = [];
+  private readonly shared = new Map<string, UiMaterial>();
+  private sharedPrograms: FrameInputs["programs"] | null = null;
+  private readonly pool: WebGLRenderTarget[] = [];
+  private screen: Screen;
+  private texels = 1;
+
+  constructor(screen: Screen) {
+    this.screen = screen;
+    this.target = frameTarget(screen, this.texels);
+  }
+
+  /** The target's texels per screen pixel. */
+  get scale(): number {
+    return this.texels;
+  }
+
+  /** Render at `scale` texels per screen pixel from the next `render` on. */
+  setScale(scale: number): void {
+    if (scale === this.texels) return;
+
+    this.texels = scale;
+    this.resize();
+  }
+
+  private resize(): void {
+    this.target.setSize(
+      Math.round(this.screen.width * this.texels),
+      Math.round(this.screen.height * this.texels),
+    );
+    for (const target of this.pool) target.dispose();
+    this.pool.length = 0;
+  }
+
+  /** Whether a command changes with the clock. */
+  get animating(): boolean {
+    return (
+      this.timed.length > 0 ||
+      this.frames.some((steps) => steps.some((step) => step.kind === "particles"))
+    );
+  }
+
+  /** The command list of each frame, replacing the last ones. */
+  setCommands(frames: readonly (readonly Command[])[], inputs: FrameInputs, screen: Screen): void {
+    this.disposeDrawn();
+    if (inputs.programs !== this.sharedPrograms) {
+      this.disposeShared();
+      this.sharedPrograms = inputs.programs;
+    }
+    if (screen.width !== this.screen.width || screen.height !== this.screen.height) {
+      this.screen = screen;
+      this.resize();
+    }
+
+    let order = 0;
+    for (const commands of frames) {
+      const steps: Step[] = [];
+      order = this.addSteps(steps, batchDraws(commands), inputs, order);
+      this.frames.push(steps);
+    }
+    this.update(0, 0);
+  }
+
+  /** `commands` as steps, drawn from `order` on, answering the order after the last. */
+  private addSteps(
+    steps: Step[],
+    commands: readonly Command[],
+    inputs: FrameInputs,
+    first: number,
+  ): number {
+    let run: Scene | null = null;
+    let runScissor: PixelRect | null = null;
+    let order = first;
+    const openRun = (scissor: PixelRect | null): Scene => {
+      if (run !== null && sameRect(runScissor, scissor)) return run;
+
+      run = new Scene();
+      runScissor = scissor;
+      steps.push({ kind: "run", scene: run, scissor });
+      return run;
+    };
+
+    for (const command of commands) {
+      if (command.kind === "push") {
+        run = null;
+        steps.push({ kind: "push" });
+        continue;
+      }
+
+      if (command.kind === "particles") {
+        run = null;
+        steps.push({ kind: "particles", element: command.element, scissor: command.scissor });
+        continue;
+      }
+
+      if (command.kind === "pop") {
+        run = null;
+        const copy = this.drawCopy(command.rect, command.alpha, inputs);
+        steps.push({ kind: "pop", copy, scissor: command.scissor });
+        continue;
+      }
+
+      const object =
+        command.kind === "text"
+          ? this.drawText(command, inputs)
+          : this.draw(command, inputs).object;
+      object.renderOrder = order;
+      order += 1;
+      openRun(command.scissor).add(object);
+    }
+    return order;
+  }
+
+  /** Every timed and live constant written for `time` seconds and the live input `live`. */
+  update(time: number, live: number): void {
+    for (const drawn of this.drawn) {
+      if (drawn.command.material !== null) drawn.material.member(UI_TIME, [time]);
+
+      const { effect } = drawn.command;
+      if (effect === null) continue;
+
+      for (const [name, value] of Object.entries(effectConstants(effect, time, live))) {
+        drawn.material.member(name, value);
+      }
+    }
+  }
+
+  /** How many frames the last `setCommands` gave. */
+  get frameCount(): number {
+    return this.frames.length;
+  }
+
+  /**
+   * The command list of frame `frame` into the target, cleared to transparent black. A particle
+   * step draws the element's system from `particles`, and nothing until it has loaded.
+   */
+  render(gl: WebGLRenderer, particles: ParticleDraws = NO_PARTICLES, frame = 0): void {
+    const autoClear = gl.autoClear;
+    gl.autoClear = false;
+    const stack: WebGLRenderTarget[] = [this.target];
+    clearInto(gl, this.target);
+
+    for (const step of this.frames[frame] ?? []) {
+      const top = stack[stack.length - 1] ?? this.target;
+      if (step.kind === "run") {
+        renderScissored(gl, top, step.scene, step.scissor, this.screen, this.texels);
+        continue;
+      }
+
+      if (step.kind === "particles") {
+        const drawn = particles.get(step.element);
+        if (drawn !== undefined) {
+          const { scene, camera } = drawn;
+          coverageOf(scene);
+          renderScissored(gl, top, scene, step.scissor, this.screen, this.texels, camera);
+        }
+        continue;
+      }
+
+      if (step.kind === "push") {
+        const offscreen = this.pool.pop() ?? frameTarget(this.screen, this.texels);
+        clearInto(gl, offscreen);
+        stack.push(offscreen);
+        continue;
+      }
+
+      const offscreen = stack.pop();
+      const parent = stack[stack.length - 1] ?? this.target;
+      if (offscreen === undefined) continue;
+
+      step.copy.material.texture(offscreen.texture);
+      const scene = new Scene().add(step.copy.object);
+      renderScissored(gl, parent, scene, step.scissor, this.screen, this.texels);
+      this.pool.push(offscreen);
+    }
+
+    gl.setRenderTarget(null);
+    gl.autoClear = autoClear;
+  }
+
+  dispose(): void {
+    this.disposeDrawn();
+    this.disposeShared();
+    this.target.dispose();
+    for (const target of this.pool) target.dispose();
+  }
+
+  private draw(command: DrawCommand, inputs: FrameInputs): Drawn {
+    const own = command.material === null ? undefined : inputs.materials.get(command.material);
+    const shared = own === undefined && command.effect === null;
+    let material: UiMaterial;
+    if (own !== undefined) material = viewMaterial(own);
+    else if (shared) material = this.sharedMaterial(command, inputs);
+    else {
+      material = uiMaterial(
+        command.shader,
+        inputs.programs.get(command.shader) ?? null,
+        command.blend,
+      );
+    }
+    const texture =
+      command.texture === null
+        ? inputs.missing
+        : (inputs.textures.get(command.texture) ?? inputs.missing);
+    material.texture(texture);
+
+    const geometry = bufferOf(command.geometry);
+    const object =
+      command.primitive === "lineStrip"
+        ? new Line(geometry, material.material)
+        : new Mesh(geometry, material.material);
+    object.frustumCulled = false;
+
+    const drawn = { command, object, material, shared };
+    this.drawn.push(drawn);
+    const timed = command.effect !== null && isTimed(command.effect.effect);
+    if (timed || own?.animated === true) this.timed.push(drawn);
+    return drawn;
+  }
+
+  /** The material every draw of `command`'s program, blend and texture that no effect drives shares. */
+  private sharedMaterial(command: DrawCommand, inputs: FrameInputs): UiMaterial {
+    const key = `${command.shader}:${command.blend}:${command.texture ?? "none"}`;
+    const held = this.shared.get(key);
+    if (held !== undefined) return held;
+
+    const made = uiMaterial(
+      command.shader,
+      inputs.programs.get(command.shader) ?? null,
+      command.blend,
+    );
+    this.shared.set(key, made);
+    return made;
+  }
+
+  private drawText(command: TextCommand, inputs: FrameInputs): Mesh {
+    const texture = (asset: AssetRef | null | undefined) =>
+      asset === null || asset === undefined ? undefined : inputs.textTextures.get(assetKey(asset));
+    const page = command.glyphs.kind === "page" ? inputs.glyphPage(command.glyphs.page) : undefined;
+    const glyph =
+      command.glyphs.kind === "page"
+        ? (page?.fill ?? inputs.missing)
+        : (texture(command.glyphs.icon.texture?.asset) ?? inputs.missing);
+
+    const material = fontMaterial(
+      command,
+      inputs.programs.get(command.shader) ?? null,
+      this.screen,
+      {
+        glyph,
+        outline: page?.outline ?? inputs.missing,
+        fill: texture(command.fill?.asset) ?? inputs.white,
+      },
+    );
+    const object = new Mesh(textBufferOf(command.geometry), material);
+    object.frustumCulled = false;
+    this.texts.push(object);
+    return object;
+  }
+
+  /** The quad a pop composites its target through: the group's rect, sampled where it sits. */
+  private drawCopy(rect: PixelRect, alpha: number, inputs: FrameInputs): Drawn {
+    const { width, height } = this.screen;
+    const x0 = rect.x / width;
+    const y0 = rect.y / height;
+    const x1 = (rect.x + rect.w) / width;
+    const y1 = (rect.y + rect.h) / height;
+    /* A target's first row is the bottom of the screen, where a sprite's is the top. */
+    const geometry: Geometry = {
+      positions: [x0, y0, x1, y0, x0, y1, x1, y1],
+      colors: new Array<number>(16).fill(255),
+      texcoords: [x0, 1 - y0, 0, 0, x1, 1 - y0, 1, 0, x0, 1 - y1, 0, 1, x1, 1 - y1, 1, 1],
+      indices: [0, 2, 1, 1, 2, 3],
+    };
+    const material = uiMaterial("copy", inputs.programs.get("copy") ?? null, "premultiplied");
+    material.member(UI_COLOR, [1, 1, 1, alpha]);
+    const object = new Mesh(bufferOf(geometry), material.material);
+    object.frustumCulled = false;
+
+    const drawn: Drawn = {
+      command: {
+        kind: "draw",
+        shader: "copy",
+        texture: null,
+        geometry,
+        primitive: "triangles",
+        blend: "premultiplied",
+        effect: null,
+        material: null,
+        scissor: null,
+        element: "",
+      },
+      object,
+      material,
+      shared: false,
+    };
+    this.drawn.push(drawn);
+    return drawn;
+  }
+
+  private disposeDrawn(): void {
+    for (const drawn of this.drawn) {
+      drawn.object.geometry.dispose();
+      if (!drawn.shared) drawn.material.material.dispose();
+    }
+    for (const text of this.texts) {
+      text.geometry.dispose();
+      if (!Array.isArray(text.material)) text.material.dispose();
+    }
+    this.drawn = [];
+    this.texts = [];
+    this.timed = [];
+    this.frames = [];
+  }
+
+  private disposeShared(): void {
+    for (const material of this.shared.values()) material.material.dispose();
+    this.shared.clear();
+  }
+}
+
+/**
+ * A target of the screen's size at `scale` texels per pixel. No mips, since three would
+ * regenerate them after every run, and the composite filters a zoomed-out frame itself.
+ */
+function frameTarget(screen: Screen, scale: number): WebGLRenderTarget {
+  const width = Math.round(screen.width * scale);
+  const height = Math.round(screen.height * scale);
+  return new WebGLRenderTarget(width, height, {
+    format: RGBAFormat,
+    type: UnsignedByteType,
+    colorSpace: NoColorSpace,
+    depthBuffer: false,
+    generateMipmaps: false,
+    minFilter: LinearFilter,
+    magFilter: LinearFilter,
+  });
+}
+
+function clearInto(gl: WebGLRenderer, target: WebGLRenderTarget): void {
+  gl.setRenderTarget(target);
+  gl.setClearColor(0x000000, 0);
+  gl.clear(true, false, false);
+}
+
+/**
+ * `scene` into `target` clipped to `scissor`, a rect of screen pixels, which a target takes in its
+ * own texels with a bottom-left origin.
+ */
+function renderScissored(
+  gl: WebGLRenderer,
+  target: WebGLRenderTarget,
+  scene: Scene,
+  scissor: PixelRect | null,
+  screen: Screen,
+  scale: number,
+  camera: Camera = CAMERA,
+): void {
+  target.scissorTest = scissor !== null;
+  if (scissor !== null) {
+    const bottom = screen.height - scissor.y - scissor.h;
+    target.scissor.set(scissor.x * scale, bottom * scale, scissor.w * scale, scissor.h * scale);
+  }
+  gl.setRenderTarget(target);
+  gl.render(scene, camera);
+  target.scissorTest = false;
+}
+
+/**
+ * A particle scene's blend states rewritten for the premultiplied target. The VFX materials blend
+ * for an opaque canvas, whose alpha nothing reads, so they add coverage wherever they add light. An
+ * alpha blend keeps the "over" coverage, and every other mode leaves coverage as it found it,
+ * which is how premultiplied data holds pure emission. Run before each draw, since a system's
+ * materials load after its scene is made.
+ */
+function coverageOf(scene: Scene): void {
+  scene.traverse((object: Object3D) => {
+    if (!("material" in object)) return;
+
+    const held = object.material as Material | Material[] | undefined;
+    for (const material of Array.isArray(held) ? held : held === undefined ? [] : [held]) {
+      if (material.blending !== CustomBlending) continue;
+
+      const over = material.blendDst === OneMinusSrcAlphaFactor;
+      material.blendEquationAlpha = AddEquation;
+      material.blendSrcAlpha = over ? OneFactor : ZeroFactor;
+      material.blendDstAlpha = over ? OneMinusSrcAlphaFactor : OneFactor;
+    }
+  });
+}
+
+function sameRect(a: PixelRect | null, b: PixelRect | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+}

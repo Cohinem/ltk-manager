@@ -19,13 +19,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::bin_document::PropertyKind;
 use crate::bin_document::hex;
+use crate::hashing::HexBinHash;
 use crate::problems::GameBuild;
 
 mod fields;
 mod game_data;
+mod names;
 
 pub use fields::DeclaredField;
 pub use game_data::PatchSchema;
+pub use names::SchemaNames;
 
 #[cfg(test)]
 mod tests;
@@ -125,7 +128,13 @@ pub struct MetaSchema {
     digest: String,
     latest: u32,
     patch: Option<String>,
+    /// Each patch the database names and the build it shipped, by build.
+    patches: Vec<(u32, String)>,
     classes: HashMap<BinHash, ParsedClass>,
+    /// Every named field of every class, by its hash.
+    ///
+    /// A field hash is the hash of its name, so any class naming a hash names it the same.
+    field_names: HashMap<BinHash, String>,
 }
 
 /// What one meta schema database is, as the cache card names it.
@@ -134,8 +143,7 @@ pub struct MetaSchema {
 /// on their own schedule, so a database gains patches between two stamps.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct MetaSchemaVersion {
     /// The patch naming the newest build it describes, absent where it names none.
     pub patch: Option<String>,
@@ -284,9 +292,7 @@ impl Shape {
 /// or `map[hash,string]`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct KindShape {
     pub kind: PropertyKind,
     /// A `Map`'s key kind.
@@ -330,9 +336,7 @@ impl From<Shape> for KindShape {
 /// One class as the class card draws it: its name, and its fields typed at one build.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct ClassSchema {
     /// The class as the database names it.
     pub name: Option<String>,
@@ -342,18 +346,28 @@ pub struct ClassSchema {
     /// The patch a player names, where the install's own build is what was read.
     ///
     /// Absent where the database describes no build the install has and the newest it
-    /// names stood in, because that build belongs to no patch this install knows.
+    /// names was used instead, because that build belongs to no patch this install knows.
     pub patch: Option<String>,
+    /// The classes it derives from at `build`, nearest first.
+    pub bases: Vec<ClassRef>,
     /// The named fields first, by name, and the unnamed after them by hash.
     pub fields: Vec<FieldSchema>,
+}
+
+/// A class as a card names it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct ClassRef {
+    pub hash: HexBinHash,
+    /// The class as the database names it.
+    pub name: Option<String>,
 }
 
 /// One field of a class: its name, its type at the card's build, and every revision.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct FieldSchema {
     /// `0x` and eight hex digits.
     pub hash: String,
@@ -366,6 +380,8 @@ pub struct FieldSchema {
     pub class_hash: Option<String>,
     /// The constructor default as lossless JSON, absent when the schema has none.
     pub default_value: Option<String>,
+    /// The base class that declares the field, absent where the class itself does.
+    pub owner: Option<ClassRef>,
     /// Oldest first.
     pub revisions: Vec<FieldRevision>,
 }
@@ -373,26 +389,16 @@ pub struct FieldSchema {
 /// One field's type over one span of builds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct FieldRevision {
     /// The first content build the revision holds for.
     pub from: u32,
     /// The last content build it holds for, inclusive. Open where absent.
     pub to: Option<u32>,
+    /// The patch that shipped `from`, absent where the database names none that early.
+    pub patch: Option<String>,
     /// Absent for a type this build cannot map.
     pub shape: Option<KindShape>,
-}
-
-impl From<&Revision> for FieldRevision {
-    fn from(revision: &Revision) -> Self {
-        Self {
-            from: revision.from,
-            to: revision.to,
-            shape: revision.shape.map(KindShape::from),
-        }
-    }
 }
 
 /// The database read at the install's build, where it describes one.
@@ -527,22 +533,35 @@ impl MetaSchema {
                     },
                 ))
             })
+            .collect::<HashMap<BinHash, ParsedClass>>();
+
+        let field_names = classes
+            .values()
+            .flat_map(|class| &class.properties)
+            .filter_map(|(hash, property)| Some((*hash, property.name.clone()?)))
             .collect();
 
         let latest = published.latest;
-        let patch = published
+        let mut patches: Vec<(u32, String)> = published
             .versions
             .into_iter()
-            .filter(|version| version.build <= latest)
-            .max_by_key(|version| version.build)
-            .map(|version| version.patch);
+            .map(|version| (version.build, version.patch))
+            .collect();
+        patches.sort_by_key(|(build, _)| *build);
+        let patch = patches
+            .iter()
+            .rev()
+            .find(|(build, _)| *build <= latest)
+            .map(|(_, patch)| patch.clone());
 
         Ok(Self {
             generation: published.hash_source.fetched_at,
             digest: crate::diagnostics::binary_id::content_hash(json),
             latest,
             patch,
+            patches,
             classes,
+            field_names,
         })
     }
 
@@ -560,7 +579,17 @@ impl MetaSchema {
         field: BinHash,
         build: GameBuild,
     ) -> Option<Expected<'_>> {
-        let content = build.content();
+        self.expected_at(class, field, build.content())
+    }
+
+    /// The field as `class` or a base of it declares it at the newest build any revision
+    /// names.
+    #[must_use]
+    pub fn newest_expected(&self, class: BinHash, field: BinHash) -> Option<Expected<'_>> {
+        self.expected_at(class, field, self.latest)
+    }
+
+    fn expected_at(&self, class: BinHash, field: BinHash, content: u32) -> Option<Expected<'_>> {
         let (property, revision) = self.walk_hierarchy(
             class,
             BasesAt::Build(content),
@@ -592,6 +621,25 @@ impl MetaSchema {
     ) -> Option<T> {
         let bases = BasesAt::Build(self.content_build(build));
         self.walk_hierarchy(class, bases, &mut find, 0)
+    }
+
+    /// `class` and then its bases, in the order [`MetaSchema::find_in_hierarchy`] visits them.
+    ///
+    /// Only `class` where the database does not describe it.
+    #[must_use]
+    pub fn lineage(&self, class: BinHash, build: Option<GameBuild>) -> Vec<BinHash> {
+        let mut lineage = Vec::new();
+        let bases = BasesAt::Build(self.content_build(build));
+        self.walk_hierarchy(
+            class,
+            bases,
+            &mut |owner| {
+                lineage.push(owner);
+                None::<()>
+            },
+            0,
+        );
+        lineage
     }
 
     /// [`MetaSchema::find_in_hierarchy`] from `depth` bases up.
@@ -653,6 +701,12 @@ impl MetaSchema {
         self.classes.get(&class)?.name.as_deref()
     }
 
+    /// The field as the database names it on any class, at any build.
+    #[must_use]
+    pub fn any_field_name(&self, field: BinHash) -> Option<&str> {
+        self.field_names.get(&field).map(String::as_str)
+    }
+
     /// Whether the database holds `class` at any build, named or not.
     #[must_use]
     pub fn has_class(&self, class: BinHash) -> bool {
@@ -688,7 +742,8 @@ impl MetaSchema {
                     .at(build)
                     .and_then(|revision| revision.default.as_ref())
                     .map(ToString::to_string),
-                revisions: property.revisions.iter().map(FieldRevision::from).collect(),
+                owner: None,
+                revisions: self.field_revisions(property),
             })
             .collect();
 
@@ -707,7 +762,8 @@ impl MetaSchema {
                 declared: Some(inherited.shape.into()),
                 class_hash: inherited.class.map(hex),
                 default_value: inherited.default.map(ToString::to_string),
-                revisions: property.revisions.iter().map(FieldRevision::from).collect(),
+                owner: Some(self.class_ref(inherited.owner)),
+                revisions: self.field_revisions(property),
             });
         }
 
@@ -719,12 +775,49 @@ impl MetaSchema {
             )
         });
 
+        let bases = self
+            .lineage(class, described)
+            .into_iter()
+            .skip(1)
+            .map(|base| self.class_ref(base))
+            .collect();
+
         Some(ClassSchema {
             name: parsed.name.clone(),
             build,
             patch,
+            bases,
             fields,
         })
+    }
+
+    fn class_ref(&self, class: BinHash) -> ClassRef {
+        ClassRef {
+            hash: class.into(),
+            name: self.class_name(class).map(str::to_owned),
+        }
+    }
+
+    fn field_revisions(&self, property: &ParsedProperty) -> Vec<FieldRevision> {
+        property
+            .revisions
+            .iter()
+            .map(|revision| FieldRevision {
+                from: revision.from,
+                to: revision.to,
+                patch: self.patch_of(revision.from).map(str::to_owned),
+                shape: revision.shape.map(KindShape::from),
+            })
+            .collect()
+    }
+
+    /// The patch that shipped `build`: the newest one the database names at or before it.
+    fn patch_of(&self, build: u32) -> Option<&str> {
+        let after = self
+            .patches
+            .partition_point(|(shipped, _)| *shipped <= build);
+        let (_, patch) = self.patches.get(after.checked_sub(1)?)?;
+        Some(patch)
     }
 
     /// Whether this database describes `build` at all.
@@ -800,8 +893,7 @@ impl From<PublishedProperty> for ParsedProperty {
 
 /// The hash a database key writes, which is unpadded hex under `0x`.
 fn parse_hash(key: &str) -> Option<BinHash> {
-    let digits = key.strip_prefix("0x").unwrap_or(key);
-    u32::from_str_radix(digits, 16).ok().map(BinHash)
+    key.parse::<HexBinHash>().ok().map(HexBinHash::get)
 }
 
 /// Every type name the database writes, beside the kind `ltk_meta` calls it.

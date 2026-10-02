@@ -2,7 +2,7 @@ import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type DecodedIncident, type Incident } from "@/lib/tauri";
 import { useIncidentLineStore } from "@/stores";
-import { mutationFn, unwrapForQuery } from "@/utils/query";
+import { mutationFn } from "@/utils/query";
 
 import { diagnosticsKeys } from "./keys";
 
@@ -39,7 +39,7 @@ function refreshIncidents(client: QueryClient): void {
 export const incidentMutations = {
   dismiss: (client: QueryClient) =>
     mutationOptions<null, AppError, string, IncidentsRollback>({
-      mutationFn: async (id) => unwrapForQuery(await api.diagnostics.dismissIncident(id)),
+      mutationFn: mutationFn(api.diagnostics.dismissIncident),
       onMutate: (id) => {
         useIncidentLineStore.getState().clear(id);
         return holdIncidents(client, (incidents) =>
@@ -54,7 +54,7 @@ export const incidentMutations = {
 
   dismissAll: (client: QueryClient) =>
     mutationOptions<string[], AppError, void, IncidentsRollback>({
-      mutationFn: async () => unwrapForQuery(await api.diagnostics.dismissAllIncidents()),
+      mutationFn: mutationFn(api.diagnostics.dismissAllIncidents),
       onMutate: () => {
         useIncidentLineStore.getState().clear();
         return holdIncidents(client, (incidents) =>
@@ -80,6 +80,7 @@ export const incidentMutations = {
      be shown as it is. */
   decodeToken: () =>
     mutationOptions<DecodedIncident, AppError, string>({
+      meta: { silentError: true },
       mutationFn: mutationFn(api.diagnostics.decodeIncidentToken),
     }),
 } as const;

@@ -1,13 +1,14 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
-import type { BinRow, ClassSchema, WorkshopProject } from "@/lib/tauri";
+import type { BinRow, ClassDocs, ClassRef, ClassSchema, WorkshopProject } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -59,26 +60,32 @@ function line(row: BinRow, owner: string | null = SKIN_CLASS): RowLine {
   };
 }
 
+const BASE: ClassRef = { hash: "0x0000c0de", name: "SkinCharacterDataPropertiesBase" };
+
 const SCHEMA: ClassSchema = {
   name: "SkinCharacterDataProperties",
   build: 8104348,
   patch: "16.17",
+  bases: [BASE],
   fields: [
     {
       hash: "0x0000000a",
       name: "championSkinName",
       classHash: null,
-      defaultValue: null,
+      defaultValue: '""',
+      owner: BASE,
       declared: { kind: "string", key: null, value: null },
       revisions: [
         {
           from: 5229820,
           to: 8049184,
+          patch: null,
           shape: { kind: "hash", key: null, value: null },
         },
         {
           from: 8104348,
           to: null,
+          patch: "16.17",
           shape: { kind: "string", key: null, value: null },
         },
       ],
@@ -88,16 +95,33 @@ const SCHEMA: ClassSchema = {
       name: "iconCircle",
       classHash: null,
       defaultValue: null,
+      owner: null,
       declared: { kind: "option", key: null, value: "file" },
       revisions: [
         {
           from: 5229820,
           to: null,
+          patch: null,
           shape: { kind: "option", key: null, value: "file" },
         },
       ],
     },
   ],
+};
+
+const DOCS: ClassDocs = {
+  class: { description: "What a skin **is**.", notes: [], examples: [] },
+  properties: {
+    "0x0000000a": {
+      owner: "SkinCharacterDataPropertiesBase",
+      name: "championSkinName",
+      doc: {
+        description: "The champion, as [the character](/classes/characterrecord) names it.",
+        notes: ["Case-insensitive."],
+        examples: [],
+      },
+    },
+  },
 };
 
 /* The class card offers Find all references, which opens a document of the project the
@@ -115,6 +139,9 @@ const PROJECT: WorkshopProject = {
   layers: [],
   thumbnailPath: null,
   lastModified: "2026-08-21T21:14:02Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-skin",
 };
 
 function Providers({ children }: { children: ReactNode }) {
@@ -137,7 +164,13 @@ function renderLine(visible: RowLine, onToggle: (key: string) => void = () => {}
 beforeEach(() => {
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string) => {
-    if (command === "class_schema") return Promise.resolve({ ok: true, value: SCHEMA });
+    if (command === commandNames.bin.classSchema)
+      return Promise.resolve({ ok: true, value: SCHEMA });
+    if (command === commandNames.bin.classDocs) return Promise.resolve({ ok: true, value: DOCS });
+    if (command === commandNames.objects.classObjectCount) {
+      return Promise.resolve({ ok: true, value: { status: "ready", count: 42 } });
+    }
+    if (command === commandNames.bin.syncMetaDocs) return Promise.resolve({ ok: true, value: 0 });
     return Promise.reject(new Error(`unexpected command ${command}`));
   });
   Object.defineProperty(navigator, "clipboard", {
@@ -427,13 +460,27 @@ describe("the class card", () => {
 
     expect(await within(card).findByText("patch 16.17")).toBeInTheDocument();
     expect(within(card).queryByText("championSkinName")).toBeNull();
+    expect(within(card).getByText("SkinCharacterDataPropertiesBase")).toBeInTheDocument();
+    expect(within(card).getByText(/2 fields/)).toBeInTheDocument();
+    expect(await within(card).findByText(/42 objects/)).toBeInTheDocument();
+    expect(within(card).queryByText(SKIN_CLASS)).toBeNull();
     expect(within(card).getByRole("link", { name: /meta wiki/ })).toHaveAttribute(
       "href",
       "https://meta-wiki.leaguetoolkit.dev/classes/skincharacterdataproperties/",
     );
-    expect(mockInvoke).toHaveBeenCalledWith("class_schema", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.classSchema, {
       classHash: SKIN_CLASS,
     });
+  });
+
+  it("reads the wiki's prose for the class", async () => {
+    renderLine(line(embed));
+
+    await userEvent.hover(screen.getByText("SkinCharacterDataProperties"));
+    const card = await screen.findByRole("tooltip", { name: "SkinCharacterDataProperties" }, HOVER);
+
+    expect(await within(card).findByText("is", { selector: "strong" })).toBeInTheDocument();
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.classDocs, { classHash: SKIN_CLASS });
   });
 
   it("offers no wiki link for a class no table names, which the wiki cannot address", async () => {
@@ -501,16 +548,42 @@ describe("the field card", () => {
     },
   });
 
-  it("opens on hover with the declared kind and the revisions", async () => {
+  it("opens on hover with the type, the base declaring it and its default", async () => {
     renderLine(line(expandable));
 
     await userEvent.hover(screen.getByText("championSkinName"));
     const card = await screen.findByRole("tooltip", { name: "championSkinName" }, HOVER);
 
-    expect(await within(card).findByText("5229820 – 8049184")).toBeInTheDocument();
-    expect(within(card).getByText("since 8104348")).toBeInTheDocument();
-    expect(within(card).getByText("Declared")).toBeInTheDocument();
-    expect(within(card).getByText("0x0000000a")).toBeInTheDocument();
+    expect(await within(card).findByText("Declared on")).toBeInTheDocument();
+    expect(within(card).getByText("SkinCharacterDataPropertiesBase")).toBeInTheDocument();
+    expect(within(card).getByText("string")).toBeInTheDocument();
+    expect(within(card).getByText('""')).toBeInTheDocument();
+    expect(within(card).queryByText("0x0000000a")).toBeNull();
+  });
+
+  it("says the type a field had before the patch that changed it", async () => {
+    renderLine(line(expandable));
+
+    await userEvent.hover(screen.getByText("championSkinName"));
+    const card = await screen.findByRole("tooltip", { name: "championSkinName" }, HOVER);
+
+    await within(card).findByText("Declared on");
+    expect(card).toHaveTextContent("Was hash before 16.17.");
+  });
+
+  it("names both kinds where the file's is not the schema's", async () => {
+    const mismatched = row({
+      name: "championSkinName",
+      kind: "hash",
+      value: { type: "hash", hash: "0x00000001", name: null },
+      declared: { shape: { kind: "string", key: null, value: null }, mismatch: true },
+    });
+    renderLine(line(mismatched));
+
+    await userEvent.hover(screen.getByText("championSkinName"));
+    const card = await screen.findByRole("tooltip", { name: "championSkinName" }, HOVER);
+
+    expect(card).toHaveTextContent("The file writes hash, the schema declares string.");
   });
 
   it("carries no action, and leaves the click to the row it sits in", async () => {
@@ -520,6 +593,36 @@ describe("the field card", () => {
     await userEvent.click(screen.getByText("championSkinName"));
     expect(onToggle).toHaveBeenCalledWith(`${ENTRY}:0000000a`);
     expect(screen.queryByRole("button", { name: "Copy name" })).toBeNull();
+  });
+
+  it("reads the wiki's prose for the field, and links to the class the wiki writes it on", async () => {
+    renderLine(line(expandable));
+
+    await userEvent.hover(screen.getByText("championSkinName"));
+    const card = await screen.findByRole("tooltip", { name: "championSkinName" }, HOVER);
+
+    expect(await within(card).findByText("Case-insensitive.")).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "the character" })).toHaveAttribute(
+      "href",
+      "https://meta-wiki.leaguetoolkit.dev/classes/characterrecord",
+    );
+    expect(within(card).getByRole("link", { name: /meta wiki/ })).toHaveAttribute(
+      "href",
+      "https://meta-wiki.leaguetoolkit.dev/classes/skincharacterdatapropertiesbase/#championskinname",
+    );
+  });
+
+  it("draws no prose or wiki link for a field the wiki has not written about", async () => {
+    renderLine(line(row({ name: "iconCircle", path: "0000000b" })));
+
+    await userEvent.hover(screen.getByText("iconCircle"));
+    const card = await screen.findByRole("tooltip", { name: "iconCircle" }, HOVER);
+
+    expect(await within(card).findByText("option[file]")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.bin.classDocs, expect.anything()),
+    );
+    expect(within(card).queryByRole("link")).toBeNull();
   });
 
   it("says a field the schema has no line for is not declared", async () => {
@@ -568,7 +671,7 @@ describe("a value family's row", () => {
     });
 
     expect(screen.getByText("ValueColor")).toBeInTheDocument();
-    expect(screen.getByLabelText("2 colour stops")).toBeInTheDocument();
+    expect(screen.getByLabelText("2 color stops")).toBeInTheDocument();
   });
 
   it("draws the strip alone for a colour whose file writes no constant", () => {
@@ -583,7 +686,7 @@ describe("a value family's row", () => {
       curve: true,
     });
 
-    expect(screen.getByLabelText("2 colour stops")).toBeInTheDocument();
+    expect(screen.getByLabelText("2 color stops")).toBeInTheDocument();
   });
 
   it("draws no strip for a colour with no dynamics", () => {

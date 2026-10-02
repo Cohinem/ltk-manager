@@ -8,6 +8,9 @@ yarn.lock
 # Build output
 dist/
 
+# Permission schemas tauri-build writes on every build
+src-tauri/gen/schemas/
+
 # Editor
 .vscode/
 .idea/
@@ -31,10 +34,6 @@ debug/
 target/
 **/*.rs.bk
 *.pdb
-
-# ts-rs default output (real bindings go to src/lib/bindings/)
-src-tauri/bindings/
-src-tauri/src/lib/bindings/
 
 # Paraglide output, compiled from messages/ (see ADR-0018)
 src/paraglide/

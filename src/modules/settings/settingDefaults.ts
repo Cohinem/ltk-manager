@@ -3,7 +3,7 @@ import type { BuiltinModSettings, Settings } from "@/lib/tauri";
 import type { AppearanceKey, ProjectEditorKey } from "@/stores";
 
 import { LTK_PRESET } from "./api";
-import { baseSkinsOptions } from "./builtinMods";
+import { baseSkinsOptions, mapSkinOptions } from "./builtinMods";
 import type { SettingKey } from "./settingKey";
 
 /** Reads a key from whichever store owns it. */
@@ -82,6 +82,7 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   autoRun: onOff,
   telemetryEnabled: onOff,
   startInTrayUnlessUpdate: onOff,
+  autoDownloadUpdates: onOff,
   alwaysStartPatcher: onOff,
   openOn: titleCase,
   minimizeToTray: onOff,
@@ -96,6 +97,8 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   autoCategorizationEnabled: onOff,
   promoteEnabledMods: onOff,
   watcherEnabled: onOff,
+
+  registerFileTypes: onOff,
 
   applyStringOverridesToAllLocales: onOff,
 
@@ -112,6 +115,13 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   "builtinMods.defaultWardSkins": onOff,
   "builtinMods.baseSkins": (value) =>
     baseSkinsOptions().find((option) => option.value === value)?.label ?? titleCase(value),
+  "builtinMods.mapSkin": (value) =>
+    mapSkinOptions().find((option) => option.value === value)?.label ?? titleCase(value),
+  "builtinMods.forcedMapSkin": (value) => (value ? String(value) : "None"),
+  "builtinMods.mapDecorations": (value) => {
+    const changed = Object.keys((value as object | null) ?? {}).length;
+    return changed === 0 ? "Game" : `${String(changed)} forced`;
+  },
 
   theme: titleCase,
   accentColor: accentName,

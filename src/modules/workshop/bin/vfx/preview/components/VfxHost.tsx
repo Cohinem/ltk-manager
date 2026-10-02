@@ -1,6 +1,6 @@
 import { useFrame } from "@react-three/fiber";
 import { queryOptions, useQueries, useQuery } from "@tanstack/react-query";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 
 import { Select } from "@/components";
 import { m } from "@/i18n";
@@ -14,26 +14,44 @@ import {
   useSceneColors,
   viewportQueries,
 } from "@/modules/viewport";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs } from "@/utils/query";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { skinQueries } from "../../../skin/api/skinQueries";
 import { bindingOf, playableClips, playlistOf, textureAssets } from "../../../skin/utils/skinScene";
 import { useVfxRun } from "../../playback/state/run";
+import { takeHandedHost, useHandedRigStore } from "../../playback/state/vfxRunMemory";
 
 const NO_CLIPS: readonly GraphClip[] = [];
 const NO_TEXTURES: ReadonlyMap<string, AssetRef> = new Map();
 const SKIN = nameHash("SkinCharacterDataProperties");
 
-/** A skin and its selected clip, loaded from the open particle document. */
+/**
+ * A skin and its selected clip, loaded from the open particle document.
+ *
+ * A skin the system was opened from hands its own skin, clip and the event's frame, which
+ * the preview takes in place of the reader's choice.
+ */
 export function useVfxHost() {
-  const { document } = useVfxRun();
+  const { document, entry: system } = useVfxRun();
   const [selected, setSelected] = useState("");
   const [animation, setAnimation] = useState("");
+  const [offset, setOffset] = useState(0);
+  const handed = useHandedRigStore((state) => state.hosts[system.toLowerCase()] ?? null);
+  useEffect(() => {
+    if (handed === null) return;
+
+    const taken = takeHandedHost(system);
+    if (taken === null) return;
+
+    setSelected(taken.skin);
+    setAnimation(taken.clip);
+    setOffset(taken.offset);
+  }, [handed, system]);
   const roots = useQuery(
     queryOptions({
       queryKey: ["bin-file-roots", document],
-      queryFn: async () => unwrapForQuery(await api.bin.roots(document)),
+      queryFn: queryFnWithArgs(api.bin.roots, document),
       staleTime: Infinity,
     }),
   );
@@ -54,7 +72,7 @@ export function useVfxHost() {
   );
   const loaded = useQueries({
     queries: steps.map((clip) => viewportQueries.clip(clip.animation?.asset ?? null)),
-    combine: (results) => results.map((result) => result.data),
+    combine: clipData,
   });
   const mesh = useQuery(viewportQueries.mesh(model?.mesh?.asset ?? null));
   const skeleton = useQuery(viewportQueries.skeleton(model?.skeleton?.asset ?? null));
@@ -75,7 +93,11 @@ export function useVfxHost() {
   return {
     skins,
     selected: entry,
-    setSelected,
+    setSelected: (next: string) => {
+      setSelected(next);
+      setOffset(0);
+    },
+    offset,
     animation,
     setAnimation,
     playable,
@@ -145,17 +167,13 @@ function HostSelect({
         <Select.Value />
         <Select.Icon />
       </Select.Trigger>
-      <Select.Portal>
-        <Select.Positioner>
-          <Select.Popup>
-            {items.map((item) => (
-              <Select.Item key={item.value} value={item.value}>
-                {item.label}
-              </Select.Item>
-            ))}
-          </Select.Popup>
-        </Select.Positioner>
-      </Select.Portal>
+      <Select.Content>
+        {items.map((item) => (
+          <Select.Item key={item.value} value={item.value}>
+            {item.label}
+          </Select.Item>
+        ))}
+      </Select.Content>
     </Select.Root>
   );
 }
@@ -166,7 +184,7 @@ export function VfxHost({ host, children }: { readonly host: Host; readonly chil
   const colors = useSceneColors();
   const clock = useMemo(createSceneClock, []);
 
-  useFrame(() => clock.seek(driver.time), -1);
+  useFrame(() => clock.seek(driver.time + host.offset), -1);
 
   if (!host.ready || host.model === undefined || host.mesh === undefined || host.pose === null)
     return children;
@@ -186,4 +204,9 @@ export function VfxHost({ host, children }: { readonly host: Host; readonly chil
       {children}
     </Character>
   );
+}
+
+/* Module scope, so the query keeps its combined result rather than a new array per render. */
+function clipData<T>(results: readonly { data: T }[]): T[] {
+  return results.map((result) => result.data);
 }

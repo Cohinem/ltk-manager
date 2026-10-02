@@ -89,6 +89,7 @@ export function AddPropertyLine({ line, autoFocus }: AddPropertyLineProps) {
       >
         <Combobox.Input
           ref={inputRef}
+          data-draft={text !== "" || undefined}
           placeholder={label}
           aria-label={label}
           aria-invalid={error !== null || undefined}
@@ -102,23 +103,24 @@ export function AddPropertyLine({ line, autoFocus }: AddPropertyLineProps) {
             }
           }}
         />
-        <Combobox.Portal>
-          <Combobox.Positioner side="bottom" align="start" sideOffset={2}>
-            <Combobox.Popup className="max-h-64 min-w-80 py-0.5">
-              <Combobox.List>
-                {(suggestion: AddSuggestion) => (
-                  <Combobox.Item
-                    key={suggestionKey(suggestion)}
-                    value={suggestion}
-                    className="gap-2 px-2 py-1 font-mono text-mono-row"
-                  >
-                    <SuggestionText suggestion={suggestion} />
-                  </Combobox.Item>
-                )}
-              </Combobox.List>
-            </Combobox.Popup>
-          </Combobox.Positioner>
-        </Combobox.Portal>
+        <Combobox.Content
+          side="bottom"
+          align="start"
+          sideOffset={2}
+          className="max-h-64 min-w-80 py-0.5"
+        >
+          <Combobox.List>
+            {(suggestion: AddSuggestion) => (
+              <Combobox.Item
+                key={suggestionKey(suggestion)}
+                value={suggestion}
+                className="gap-2 px-2 py-1 font-mono text-mono-row"
+              >
+                <SuggestionText suggestion={suggestion} />
+              </Combobox.Item>
+            )}
+          </Combobox.List>
+        </Combobox.Content>
       </Combobox.Root>
       {addable.isSuccess && addable.data.fields.length === 0 && text === "" && (
         <span className="shrink-0 text-meta text-surface-400 select-none">

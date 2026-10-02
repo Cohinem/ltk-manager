@@ -61,4 +61,5 @@ export {
   selectionSummary,
   selectItem,
 } from "./utils/selection";
+export { type ExtractKeyHow, handleSelectionKey } from "./utils/selectionKeys";
 export { DEFAULT_SORT, sortItems, sortTree } from "./utils/sort";

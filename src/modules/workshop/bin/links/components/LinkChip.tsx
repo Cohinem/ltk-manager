@@ -1,7 +1,7 @@
 import { ArchiveIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, type ReactNode, use } from "react";
 
-import { Code, LayerIcon, Popover, Tooltip } from "@/components";
+import { Code, LayerIcon, Popover, Properties, Property, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, DeclaredObject } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -27,7 +27,7 @@ import { pathUnder, splitPath } from "../../shared/utils/textCut";
 import { KindBadge } from "../../values/components/KindBadge";
 import {
   LinkAssetContext,
-  useLayerCopy,
+  useLayerTitle,
   useLinkOpen,
   useLinkTargets,
 } from "../hooks/useLinkTargets";
@@ -38,6 +38,7 @@ import {
   decideHash,
   decideObjectLink,
   decideStringLink,
+  layerCopyTitle,
 } from "../utils/linkDecision";
 import { TextureSwatch } from "./TextureSwatch";
 
@@ -141,8 +142,8 @@ interface FileChipProps {
  */
 export function FileChip({ hash, path }: FileChipProps) {
   const targets = useLinkTargets();
-  const layer = useLayerCopy(path);
-  const decision = decideFileLink(path, targets, layer);
+  const title = useLayerTitle();
+  const decision = decideFileLink(path, targets, title);
 
   if (path === null) return <Hex>{hash}</Hex>;
   if (decision.kind !== "chip") return <Text missing={decision.kind === "missing"} path={path} />;
@@ -151,7 +152,38 @@ export function FileChip({ hash, path }: FileChipProps) {
       document={decision.document}
       path={path}
       side={decision.side}
-      layerTitle={layer?.title}
+      layerTitle={layerCopyTitle(decision.document.asset, title)}
+    />
+  );
+}
+
+interface DependencyChipProps {
+  /** The dependency as the file writes it, which opens and which the hover names in full. */
+  path: string;
+  /** What the chip reads: the brex spelling where one folds the path, else the path. */
+  label: string;
+}
+
+/**
+ * A header dependency as the chip a `file` link to it draws, resolved the same way: the
+ * layer's copy, else the install's, else missing. "Dependencies" in docs/ux/BIN_EDITOR.md.
+ */
+export function DependencyChip({ path, label }: DependencyChipProps) {
+  const targets = useLinkTargets();
+  const chunk = path.toLowerCase();
+  const title = useLayerTitle();
+  const decision = decideFileLink(chunk, targets, title);
+
+  if (decision.kind !== "chip") {
+    return <Text missing={decision.kind === "missing"} path={label} title={path} />;
+  }
+  return (
+    <ChunkChip
+      document={decision.document}
+      path={path}
+      label={label}
+      side={decision.side}
+      layerTitle={layerCopyTitle(decision.document.asset, title)}
     />
   );
 }
@@ -170,9 +202,9 @@ interface StringValueProps {
 export function StringValue({ text }: StringValueProps) {
   const targets = useLinkTargets();
   const path = chunkPath(text);
-  const layer = useLayerCopy(path);
+  const title = useLayerTitle();
   const open = useOpenDocumentAs();
-  const decision = decideStringLink(text, targets, () => layer);
+  const decision = decideStringLink(text, targets, title);
 
   if (decision.kind === "missing" && path !== null) return <Text missing path={path} />;
   if (decision.kind === "missing") return <Text missing>{text}</Text>;
@@ -181,7 +213,13 @@ export function StringValue({ text }: StringValueProps) {
   if (decision.kind !== "chip") return <Text>{text}</Text>;
   const { document } = decision;
   if (document.kind === "preview" && path !== null) {
-    return <ChunkChip document={document} path={path} layerTitle={layer?.title} />;
+    return (
+      <ChunkChip
+        document={document}
+        path={path}
+        layerTitle={layerCopyTitle(document.asset, title)}
+      />
+    );
   }
 
   const hash = nameHash(text);
@@ -242,21 +280,23 @@ function StringCard({ text, line }: { text: string; line: string }) {
 
 interface ChunkChipProps {
   document: ContentDocumentOf<"preview">;
-  /** The chunk's path as the tables name it, which is the chip's label. */
+  /** The chunk's path as the tables name it. */
   path: string;
+  /** What the chip reads, the path where absent. */
+  label?: string;
   /** The word the chip carries: the layer's title, or the archive's name. */
   side?: string;
   layerTitle?: string;
 }
 
 /** A resolved chunk: its chip, its swatch or badge, and the side that answered. */
-function ChunkChip({ document, path, side, layerTitle }: ChunkChipProps) {
+function ChunkChip({ document, path, label = path, side, layerTitle }: ChunkChipProps) {
   const open = useOpenDocumentAs();
   const onOpen = (intent: OpenIntent) => open(document, intent);
 
   return (
     <span className="flex min-w-0 items-center gap-2">
-      <LinkChip label={path} cut="path" onOpen={onOpen} />
+      <LinkChip label={label} whole={path} cut="path" onOpen={onOpen} />
       <FileMark asset={document.asset} path={path} layerTitle={layerTitle} onOpen={onOpen} />
       {side !== undefined && <SideTag side={side} layer={layerTitle !== undefined} />}
     </span>
@@ -273,8 +313,8 @@ function SideTag({ side, layer }: { side: string; layer: boolean }) {
     <Tooltip content={label}>
       <span className="flex max-w-40 min-w-0 shrink items-center gap-1 text-meta text-surface-400">
         {/* DS-KIND-HUE */}
-        {layer && <LayerIcon className="h-3 w-3 shrink-0 text-doc-layer-text" />}
-        {!layer && <ArchiveIcon className="h-3 w-3 shrink-0" />}
+        {layer && <LayerIcon className="size-3 shrink-0 text-doc-layer-text" />}
+        {!layer && <ArchiveIcon className="size-3 shrink-0" />}
         <span className="min-w-0 truncate">{side}</span>
       </span>
     </Tooltip>
@@ -365,13 +405,15 @@ export function LinkChip({
   return (
     <Popover.Root>
       <Popover.Trigger openOnHover delay={CARD_DELAY} render={button} />
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="start" sideOffset={6}>
-          <Popover.Popup aria-label={whole} className="w-80 p-3 text-meta select-none">
-            {card}
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="bottom"
+        align="start"
+        sideOffset={6}
+        aria-label={whole}
+        className="w-80 p-3 text-meta select-none"
+      >
+        {card}
+      </Popover.Content>
     </Popover.Root>
   );
 }
@@ -409,14 +451,17 @@ function TargetCard({ hash, declared }: { hash: string; declared: DeclaredObject
         <Code className="select-text">{hash}</Code>
       </header>
       {first && (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-          <dt className="text-surface-400">{m.workshop_bin_class_label()}</dt>
-          <dd className="min-w-0 truncate text-surface-200 select-text">{first.class}</dd>
-          <dt className="text-surface-400">{m.workshop_bin_declared_in_label()}</dt>
-          <dd className="min-w-0 truncate font-mono text-code text-surface-200 select-text">
+        <Properties>
+          <Property label={m.workshop_bin_class_label()} className="truncate select-text">
+            {first.class}
+          </Property>
+          <Property
+            label={m.workshop_bin_declared_in_label()}
+            className="truncate font-mono text-code select-text"
+          >
             {declaringFileContext(first.asset, first.file)}
-          </dd>
-        </dl>
+          </Property>
+        </Properties>
       )}
       <span className="text-surface-400">
         {m.workshop_bin_declarations_label({ count: declared.declarations.length })}
@@ -459,7 +504,7 @@ function Text({
       </span>
       {missing && (
         <Tooltip content={m.workshop_bin_missing_chunk_description()}>
-          <WarningCircleIcon weight="bold" className="h-3.5 w-3.5 shrink-0 text-warning-text" />
+          <WarningCircleIcon weight="bold" className="size-3.5 shrink-0 text-warning-text" />
         </Tooltip>
       )}
     </span>

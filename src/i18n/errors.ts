@@ -2,13 +2,15 @@ import { match } from "ts-pattern";
 
 import type {
   AppError,
+  EditRejection,
   InjectionStage,
+  IntegrationError,
   LauncherError,
   OverlayErrorCategory,
   PatcherError,
+  ReadOnly,
   WorkshopError,
-} from "@/lib/bindings";
-import type { EditRejection, ReadOnly, IntegrationError } from "@/lib/bindings.gen";
+} from "@/lib/tauri";
 import { m } from "@/paraglide/messages";
 import { isAppError } from "@/utils/errors";
 
@@ -93,6 +95,10 @@ export function describeError(error: AppError): ErrorCopy {
       title: m["error.BIN_EDIT_REJECTED.title"](),
       description: editRejection(rejection),
     }))
+    .with({ code: "BIN_EDIT_OVERRIDDEN" }, ({ layer }) => ({
+      title: m["error.BIN_EDIT_OVERRIDDEN.title"](),
+      description: m["error.BIN_EDIT_OVERRIDDEN.description"]({ layer }),
+    }))
     .with({ code: "BIN_CHANGED_ON_DISK" }, () => ({
       title: m["error.BIN_CHANGED_ON_DISK.title"](),
       description: m["error.BIN_CHANGED_ON_DISK.description"](),
@@ -122,7 +128,8 @@ function withDetail(title: string, detail: string): ErrorCopy {
 /** Why a bin takes no edit, as the gate it stands behind. */
 export function readOnlyDescription(gate: ReadOnly): string {
   return match(gate)
-    .with("install", () => m["error.BIN_READ_ONLY.install.description"]())
+    .with("declarationsOff", () => m["error.BIN_READ_ONLY.declarationsOff.description"]())
+    .with("gameSandbox", () => m["error.BIN_READ_ONLY.gameSandbox.description"]())
     .with("loose", () => m["error.BIN_READ_ONLY.loose.description"]())
     .with("patch", () => m["error.BIN_READ_ONLY.patch.description"]())
     .exhaustive();
@@ -163,7 +170,18 @@ export function editRejection(rejection: EditRejection): string {
     .with({ reason: "valueHeld" }, () => m["error.BIN_EDIT_REJECTED.valueHeld.description"]())
     .with({ reason: "namelessPath" }, () => m["error.BIN_EDIT_REJECTED.namelessPath.description"]())
     .with({ reason: "undeclarable" }, () => m["error.BIN_EDIT_REJECTED.undeclarable.description"]())
+    .with({ reason: "untypable" }, () => m["error.BIN_EDIT_REJECTED.untypable.description"]())
     .with({ reason: "noSuchIndex" }, () => m["error.BIN_EDIT_REJECTED.noSuchIndex.description"]())
+    .with({ reason: "objectExists" }, () => m["error.BIN_EDIT_REJECTED.objectExists.description"]())
+    .with({ reason: "notACopy" }, () => m["error.BIN_EDIT_REJECTED.notACopy.description"]())
+    .with({ reason: "foreignClass" }, () => m["error.BIN_EDIT_REJECTED.foreignClass.description"]())
+    .with({ reason: "emptyPath" }, () => m["error.BIN_EDIT_REJECTED.emptyPath.description"]())
+    .with({ reason: "malformedBrex" }, () =>
+      m["error.BIN_EDIT_REJECTED.malformedBrex.description"](),
+    )
+    .with({ reason: "dependencyExists" }, () =>
+      m["error.BIN_EDIT_REJECTED.dependencyExists.description"](),
+    )
     .exhaustive();
 }
 
@@ -175,6 +193,7 @@ function overlayTitle(category: OverlayErrorCategory): string {
     .with("WAD_LIMIT", () => m["error.OVERLAY.WAD_LIMIT.title"]())
     .with("CORRUPT", () => m["error.OVERLAY.CORRUPT.title"]())
     .with("BUG", () => m["error.OVERLAY.BUG.title"]())
+    .with("FILE_IN_USE", () => m["error.OVERLAY.FILE_IN_USE.title"]())
     .with("OTHER", () => m["error.OVERLAY.title"]())
     .exhaustive();
 }

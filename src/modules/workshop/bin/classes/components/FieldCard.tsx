@@ -1,11 +1,27 @@
-import { Code, HoverCard, SeverityGlyph, Spinner } from "@/components";
-import { errorSummary, m } from "@/i18n";
-import type { DeclaredKind, FieldRevision } from "@/lib/tauri";
+import type { ReactNode } from "react";
+
+import {
+  Code,
+  ExternalLink,
+  HoverCard,
+  Properties,
+  Property,
+  SeverityGlyph,
+  Spinner,
+} from "@/components";
+import { errorSummary, m, Marked } from "@/i18n";
+import type { AppError, ClassSchema, DeclaredKind, FieldSchema, KindShape } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { CutText } from "../../shared/components/CutText";
+import { Swatch } from "../../values/components/ColorMark";
 import { shapeTag } from "../../values/utils/kindTag";
+import { useClassDocs } from "../hooks/useClassDocs";
 import { useClassSchema } from "../hooks/useClassSchema";
+import { fieldPageUrl } from "../utils/metaWiki";
+import { type ColorScale, defaultText, earlierType, sameWords } from "../utils/schemaField";
+import { CARD_TEXT, CardLayout, ClassRefCard, SchemaClassCard } from "./ClassCard";
+import { DocProse } from "./DocProse";
 
 interface FieldCardProps {
   /** The class the field is read on. Null where the row's parent declares none. */
@@ -14,25 +30,15 @@ interface FieldCardProps {
   fieldHash: string;
   /** The field as the tables name it, or its hash where no table does. */
   name: string;
-  /** Creator-facing trigger text. Hover details retain the raw name and hash. */
+  /** Creator-facing trigger text, and the card's title. */
   label?: string;
   /** No table names the field, and `name` is its hash. */
   unnamed: boolean;
   declared: DeclaredKind | null;
-  /**
-   * What the field is worth where nothing authors it.
-   *
-   * The slot the card's "Shows" table in docs/ux/BIN_EDITOR.md names. `ClassSchema`
-   * carries no default, so nothing fills it and the card draws no line for it.
-   */
+  /** The tag of the kind the file writes, which a mismatch names beside the schema's. */
+  fileTag?: string | null;
+  /** A default the caller knows better than the schema, as JSON, such as a force's own. */
   defaultValue?: string | null;
-  /**
-   * The wiki's written doc for the field, the card's other unfilled slot.
-   *
-   * `meta-wiki.leaguetoolkit.dev` holds the prose and the schema snapshot does not, so
-   * the card links the class and draws no doc of its own.
-   */
-  doc?: string | null;
   triggerClassName?: string;
   /** The name fills its box and is cut in the middle, rather than at its end. */
   cut?: boolean;
@@ -42,7 +48,7 @@ interface FieldCardProps {
  * A field name, and what the schema says about it while the pointer is on it.
  *
  * "The field card" in docs/ux/BIN_EDITOR.md. The body mounts when the card opens, which
- * is when its query runs.
+ * is when its queries run. The wiki documentation for the field is looked up by `classHash`.
  */
 export function FieldCard({
   classHash,
@@ -51,24 +57,25 @@ export function FieldCard({
   label = name,
   unnamed,
   declared,
+  fileTag = null,
   defaultValue = null,
-  doc = null,
   triggerClassName,
   cut = false,
 }: FieldCardProps) {
   return (
     <HoverCard
       label={label}
-      className="w-72"
+      className={twMerge("w-max max-w-md min-w-72", CARD_TEXT)}
       content={
         <FieldCardBody
           classHash={classHash}
           fieldHash={fieldHash}
           name={name}
+          label={label}
           unnamed={unnamed}
           declared={declared}
+          fileTag={fileTag}
           defaultValue={defaultValue}
-          doc={doc}
         />
       }
     >
@@ -86,49 +93,224 @@ export function FieldCard({
   );
 }
 
+type FieldCardBodyProps = Required<
+  Pick<FieldCardProps, "classHash" | "fieldHash" | "name" | "label" | "unnamed" | "declared">
+> &
+  Pick<FieldCardProps, "fileTag" | "defaultValue">;
+
 function FieldCardBody({
   classHash,
   fieldHash,
   name,
+  label,
   unnamed,
   declared,
+  fileTag = null,
   defaultValue = null,
-  doc = null,
-}: FieldCardProps) {
+}: FieldCardBodyProps) {
+  const { data, error, isPending } = useClassSchema(classHash);
+  const field = data?.fields.find((candidate) => candidate.hash === fieldHash) ?? null;
+  const shape = declared?.shape ?? field?.declared ?? null;
+
   return (
-    <div data-ui="FieldCard" className="flex flex-col gap-2">
-      <header className="flex min-w-0 flex-col items-start gap-1">
-        {!unnamed && (
-          <span className="max-w-full truncate text-row font-medium text-surface-100 select-text">
-            {name}
-          </span>
+    <CardLayout
+      ui="FieldCard"
+      footer={
+        <Footer
+          classHash={classHash}
+          fieldHash={fieldHash}
+          pending={isPending && classHash !== null}
+          error={error}
+          schema={data}
+        />
+      }
+    >
+      <header className="flex min-w-0 flex-col gap-0.5 select-text">
+        {!unnamed && !sameWords(label, name) && (
+          <span className="truncate font-medium text-surface-50">{label}</span>
         )}
-        <Code className="select-text">{fieldHash}</Code>
+        <Signature
+          name={unnamed ? fieldHash : name}
+          shape={shape}
+          classHash={field?.classHash ?? null}
+        />
+        {shape === null && (
+          <span className="text-surface-400">{m.workshop_bin_field_undeclared_label()}</span>
+        )}
       </header>
-      <DeclaredLine declared={declared} />
-      <DefaultLine value={defaultValue} />
-      <DocLine text={doc} />
-      {classHash !== null && <Revisions classHash={classHash} fieldHash={fieldHash} />}
-    </div>
+      <Properties className="items-center gap-y-1.5 empty:hidden">
+        {field?.owner && (
+          <Fact label={m.workshop_bin_field_declared_on_label()}>
+            <ClassRefCard reference={field.owner} />
+          </Fact>
+        )}
+        {field && <DefaultFact field={field} shape={shape} override={defaultValue} />}
+      </Properties>
+      {declared?.mismatch && fileTag !== null && (
+        <Mismatch fileTag={fileTag} declared={declared.shape} />
+      )}
+      {field && <EarlierType field={field} />}
+      {classHash !== null && <FieldDoc classHash={classHash} fieldHash={fieldHash} />}
+    </CardLayout>
   );
 }
 
-/** The field's default, and nothing at all until the schema carries one. */
-function DefaultLine({ value }: { value: string | null }) {
-  if (value === null) return null;
+/** One labelled line of the card's facts. */
+function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <span className="flex items-center gap-1.5 text-surface-300">
-      <span>{m.workshop_bin_field_default_label()}</span>
-      {/* DS-CODE-CHIP */}
-      <Code className="select-text">{value}</Code>
+    <Property label={label} className="flex items-center gap-1.5">
+      {children}
+    </Property>
+  );
+}
+
+interface SignatureProps {
+  name: string;
+  shape: KindShape | null;
+  /** The class an embed, a pointer or the items hold. */
+  classHash: string | null;
+}
+
+/** The field as a bin preview writes it: its name, then its kind and class after a colon. */
+function Signature({ name, shape, classHash }: SignatureProps) {
+  return (
+    <span className="flex min-w-0 flex-wrap items-baseline gap-x-1.5 font-mono text-code">
+      <span className="min-w-0 truncate font-medium text-surface-50">
+        {name}
+        {shape !== null && <span className="text-surface-400">:</span>}
+      </span>
+      {/* DS-KIND-HUE, DS-TEXT */}
+      {shape !== null && <span className="text-bin-kind-text">{shapeTag(shape)}</span>}
+      {shape !== null && classHash !== null && <SchemaClassCard classHash={classHash} />}
     </span>
   );
 }
 
-/** The wiki's prose for the field, and nothing at all until the schema carries it. */
-function DocLine({ text }: { text: string | null }) {
-  if (text === null) return null;
-  return <p className="text-surface-300 select-text">{text}</p>;
+/** The schema's default in the row's notation, and no line where the card shows none. */
+function DefaultFact({
+  field,
+  shape,
+  override,
+}: {
+  field: FieldSchema;
+  shape: KindShape | null;
+  override: string | null;
+}) {
+  const valueClass = useClassSchema(field.classHash).data?.name ?? null;
+  const json = override ?? field.defaultValue;
+  if (json === null) return null;
+
+  const shown = defaultText(json, colorScale(shape, valueClass));
+  if (shown === null) return null;
+
+  return (
+    <Fact label={m.workshop_bin_field_default_label()}>
+      {shown.rgba !== null && <Swatch rgba={shown.rgba} />}
+      {/* DS-CODE-CHIP */}
+      <Code className="min-w-0 truncate select-text">{shown.text}</Code>
+    </Fact>
+  );
+}
+
+/** How a colour default writes its channels, or null for a default that is no colour. */
+function colorScale(shape: KindShape | null, valueClass: string | null): ColorScale | null {
+  if (shape?.kind === "rgba") return "byte";
+  if (valueClass?.startsWith("ValueColor")) return "unit";
+  return null;
+}
+
+/** The warning where the file's kind is not the one the schema declares. */
+function Mismatch({ fileTag, declared }: { fileTag: string; declared: KindShape }) {
+  return (
+    <span className="flex items-start gap-1.5 text-surface-300">
+      <SeverityGlyph severity="warning" />
+      <span>
+        <Marked
+          text={m.workshop_bin_field_mismatch_description({
+            file: fileTag,
+            declared: shapeTag(declared),
+          })}
+        >
+          {(kind) => <KindText tag={kind} />}
+        </Marked>
+      </span>
+    </span>
+  );
+}
+
+/** The type the field had before this one, where a patch changed it. */
+function EarlierType({ field }: { field: FieldSchema }) {
+  const earlier = earlierType(field);
+  if (earlier === null) return null;
+
+  const text =
+    earlier.patch === null
+      ? m.workshop_bin_field_retyped_unplaced_description({ kind: earlier.tag })
+      : m.workshop_bin_field_retyped_description({ kind: earlier.tag, patch: earlier.patch });
+  return (
+    <span className="text-surface-400">
+      <Marked text={text}>{(kind) => <KindText tag={kind} />}</Marked>
+    </span>
+  );
+}
+
+/** A kind in the bin preview's words and hue. */
+function KindText({ tag }: { tag: string }) {
+  /* DS-KIND-HUE, DS-TEXT */
+  return <span className="font-mono text-code text-bin-kind-text">{tag}</span>;
+}
+
+interface FieldDocProps {
+  classHash: string;
+  fieldHash: string;
+}
+
+/** The wiki's documentation for the field. Renders nothing when the wiki has none. */
+function FieldDoc({ classHash, fieldHash }: FieldDocProps) {
+  const { data } = useClassDocs(classHash);
+  const property = data?.properties[fieldHash];
+
+  if (!property) return null;
+  return <DocProse doc={property.doc} />;
+}
+
+interface FooterProps {
+  classHash: string | null;
+  fieldHash: string;
+  pending: boolean;
+  error: AppError | null;
+  schema: ClassSchema | null | undefined;
+}
+
+/** The schema's read state while it has none, and the link to the wiki's section. */
+function Footer({ classHash, fieldHash, pending, error, schema }: FooterProps) {
+  if (pending) return <Spinner size="sm" />;
+  if (error) return <span className="text-surface-400">{errorSummary(error)}</span>;
+  if (classHash === null || schema === undefined) return null;
+  return <FieldWikiLink classHash={classHash} fieldHash={fieldHash} />;
+}
+
+/** A link to the field's section on the wiki page of the class that documents it. */
+function FieldWikiLink({ classHash, fieldHash }: FieldDocProps) {
+  const { data } = useClassDocs(classHash);
+  const property = data?.properties[fieldHash];
+
+  if (!property) return null;
+  return (
+    <ExternalLink href={fieldPageUrl(property.owner, property.name)} className="self-end">
+      {m.workshop_bin_meta_wiki_action()}
+    </ExternalLink>
+  );
+}
+
+/** The kind `schema` declares for a field, for a card that has no file row to read it from. */
+export function schemaDeclared(
+  schema: ClassSchema | null | undefined,
+  fieldHash: string,
+): DeclaredKind | null {
+  const shape = schema?.fields.find((field) => field.hash === fieldHash)?.declared ?? null;
+  if (shape === null) return null;
+  return { shape, mismatch: false };
 }
 
 /** The schema's line for a field: its declared kind, or that it has none at this build. */
@@ -143,41 +325,4 @@ export function DeclaredLine({ declared }: { declared: DeclaredKind | null }) {
       <Code>{shapeTag(declared.shape)}</Code>
     </span>
   );
-}
-
-function Revisions({ classHash, fieldHash }: { classHash: string; fieldHash: string }) {
-  const { data, error, isPending } = useClassSchema(classHash);
-
-  if (isPending) return <Spinner size="sm" />;
-  if (error) return <span className="text-surface-400">{errorSummary(error)}</span>;
-  const field = data?.fields.find((candidate) => candidate.hash === fieldHash);
-  if (!field) return null;
-
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-surface-400">{m.workshop_bin_revisions_label()}</span>
-      <ul className="flex flex-col gap-0.5 select-text">
-        {field.revisions.map((revision) => (
-          <li key={revision.from} className="flex items-center gap-2 tabular-nums">
-            <span className="text-surface-400">{span(revision)}</span>
-            <span className="ml-auto font-mono text-code text-surface-200">
-              {revisionTag(revision)}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-/** The builds a revision holds for. */
-function span(revision: FieldRevision): string {
-  if (revision.to === null) return m.workshop_bin_revision_open_label({ from: revision.from });
-  return m.workshop_bin_revision_span_label({ from: revision.from, to: revision.to });
-}
-
-/** A revision's kind, or the word for one this build cannot map. */
-function revisionTag(revision: FieldRevision): string {
-  if (revision.shape === null) return m.workshop_bin_unmapped_kind_label();
-  return shapeTag(revision.shape);
 }

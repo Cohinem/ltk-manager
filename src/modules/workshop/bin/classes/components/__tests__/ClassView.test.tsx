@@ -8,11 +8,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ToastProvider } from "@/components";
 import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
+import { editCall, isEdit, landed, sentEdit } from "@/test/binEdit";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
 import { ProjectProvider } from "../../../../projects/state/ProjectContext";
 import { useHeldValueStore } from "../../../material/state/heldValue";
+import { useRowBaselineStore } from "../../../material/state/rowBaselines";
 import { nameHash } from "../../../shared/utils/binHash";
 import { materialLayout } from "../../utils/classLayouts";
 import { ClassView } from "../ClassView";
@@ -146,6 +149,9 @@ const PROJECT: WorkshopProject = {
   layers: [],
   thumbnailPath: null,
   lastModified: "2026-08-21T21:14:02Z",
+  location: "workshop",
+  lastOpened: null,
+  id: "id-skin",
 };
 
 function Providers({ children }: { children: ReactNode }) {
@@ -178,15 +184,17 @@ function renderView(onShowInProperties = vi.fn(), editable = false) {
 }
 
 beforeEach(() => {
+  useRowBaselineStore.setState({ baselines: new Map() });
   mockInvoke.mockReset();
   mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-    if (command === "bin_read") {
+    if (command === commandNames.bin.binRead) {
       const paths = (args?.paths ?? []) as string[];
       const answered = paths.map((path) => ELEMENTS[path] ?? FIELDS[path] ?? page([]));
       return Promise.resolve({ ok: true, value: answered });
     }
-    if (command === "locate_game_files") return Promise.resolve({ ok: true, value: {} });
-    if (command === "declared_objects") {
+    if (command === commandNames.preview.locateFilesNear)
+      return Promise.resolve({ ok: true, value: {} });
+    if (command === commandNames.objects.declaredObjects) {
       return Promise.resolve({
         ok: true,
         value: { index: { status: "ready" }, objects: {} },
@@ -239,7 +247,9 @@ describe("ClassView", () => {
     renderView();
 
     await waitFor(() => {
-      const reads = mockInvoke.mock.calls.filter(([command]) => command === "bin_read");
+      const reads = mockInvoke.mock.calls.filter(
+        ([command]) => command === commandNames.bin.binRead,
+      );
       expect(reads).toHaveLength(2);
       const held = Object.keys(ELEMENTS).filter((path) => path !== nameHash("switches").slice(2));
       expect(reads[0]?.[1]).toMatchObject({ entry: ENTRY, paths: held.sort() });
@@ -310,7 +320,7 @@ describe("ClassView over a material whose shader answers", () => {
   beforeEach(() => {
     const read = mockInvoke.getMockImplementation();
     mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
-      if (command === "read_material_programs") {
+      if (command === commandNames.preview.readMaterialPrograms) {
         return Promise.resolve({
           ok: true,
           value: [
@@ -327,18 +337,13 @@ describe("ClassView over a material whose shader answers", () => {
               ],
               warnings: [
                 { kind: "noTexturePath", name: "Diffuse_Texture" },
-                { kind: "secondPass" },
+                { kind: "noShaderDefs" },
               ],
             },
           ],
         });
       }
-      if (command === "bin_edit_property" || command === "bin_remove_item") {
-        return Promise.resolve({ ok: true, value: null });
-      }
-      if (command === "bin_patch") {
-        return Promise.resolve({ ok: true, value: args?.value });
-      }
+      if (command === commandNames.bin.binEdit) return landed();
       return read!(command, args);
     });
   });
@@ -364,13 +369,13 @@ describe("ClassView over a material whose shader answers", () => {
     renderView();
 
     expect(await screen.findByText("The shader did not build")).toBeInTheDocument();
-    expect(screen.getByText("Only the first pass draws")).toBeInTheDocument();
+    expect(screen.getByText("The shader defs were not opened")).toBeInTheDocument();
   });
 
   it("adds the material's own entry once the shader's default is edited", async () => {
     renderView(vi.fn(), true);
     const user = userEvent.setup();
-    await screen.findAllByRole("button", { name: "Reset to the shader default" });
+    await screen.findAllByRole("button", { name: "More actions" });
 
     const field = screen.getByRole("textbox", { name: "Alpha X" });
     expect(field).toHaveValue("0.75");
@@ -378,37 +383,39 @@ describe("ClassView over a material whose shader answers", () => {
     await user.type(field, "0.5{Enter}");
 
     const paramValues = nameHash("paramValues");
-    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
-      document: 7,
-      entry: ENTRY,
-      holder: "",
-      field: paramValues,
-      edits: [
-        {
-          type: "insertItem",
-          path: "",
-          item: { index: null, key: null, class: "StaticMaterialShaderParamDef" },
-        },
-        { type: "ensureProperty", path: "[1]", field: nameHash("name") },
-        {
-          type: "setLeaf",
-          path: `[1].${nameHash("name").slice(2)}`,
-          value: { type: "string", value: "Alpha" },
-        },
-        { type: "ensureProperty", path: "[1]", field: nameHash("value") },
-        {
-          type: "setLeaf",
-          path: `[1].${nameHash("value").slice(2)}`,
-          value: { type: "vector", values: [0.5, 0, 0, 0] },
-        },
-      ],
-    });
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...editCall(7, {
+        kind: "editProperty",
+        entry: ENTRY,
+        holder: "",
+        field: paramValues,
+        edits: [
+          {
+            type: "insertItem",
+            path: "",
+            item: { index: null, key: null, class: "StaticMaterialShaderParamDef" },
+          },
+          { type: "ensureProperty", path: "[1]", field: nameHash("name") },
+          {
+            type: "setLeaf",
+            path: `[1].${nameHash("name").slice(2)}`,
+            value: { type: "string", value: "Alpha" },
+          },
+          { type: "ensureProperty", path: "[1]", field: nameHash("value") },
+          {
+            type: "setLeaf",
+            path: `[1].${nameHash("value").slice(2)}`,
+            value: { type: "vector", values: [0.5, 0, 0, 0] },
+          },
+        ],
+      }),
+    );
   });
 
   it("holds a parameter's value while it is typed, then writes it and lets it go", async () => {
     renderView(vi.fn(), true);
     const user = userEvent.setup();
-    await screen.findAllByRole("button", { name: "Reset to the shader default" });
+    await screen.findAllByRole("button", { name: "More actions" });
     const field = screen.getByRole("textbox", { name: "Fresnel_Power X" });
 
     await user.clear(field);
@@ -423,30 +430,92 @@ describe("ClassView over a material whose shader answers", () => {
     await user.keyboard("{Enter}");
 
     await waitFor(() =>
-      expect(mockInvoke).toHaveBeenCalledWith("bin_patch", {
-        document: 7,
-        entry: ENTRY,
-        path: `${PARAM_PATH}.${nameHash("value").slice(2)}`,
-        value: { type: "vector", values: [5, 0, 0, 0] },
-      }),
+      expect(mockInvoke).toHaveBeenCalledWith(
+        ...editCall(7, {
+          kind: "patch",
+          entry: ENTRY,
+          path: `${PARAM_PATH}.${nameHash("value").slice(2)}`,
+          value: { type: "vector", values: [5, 0, 0, 0] },
+        }),
+      ),
     );
     await waitFor(() => expect(useHeldValueStore.getState().held).toBeNull());
   });
 
-  it("takes an entry out when its row is reset", async () => {
+  it("takes an entry out when its row is set back to the shader default", async () => {
     renderView(vi.fn(), true);
     const user = userEvent.setup();
     await screen.findByText("Fresnel_Power");
 
-    const resets = await screen.findAllByRole("button", { name: "Reset to the shader default" });
-    await user.click(resets.at(-1)!);
+    const menus = await screen.findAllByRole("button", { name: "More actions" });
+    await user.click(menus.at(-1)!);
+    await user.click(await screen.findByRole("menuitem", { name: "Use the shader default" }));
 
-    expect(mockInvoke).toHaveBeenCalledWith("bin_edit_property", {
-      document: 7,
-      entry: ENTRY,
-      holder: "",
-      field: nameHash("paramValues"),
-      edits: [{ type: "removeItem", path: "[0]" }],
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...editCall(7, {
+        kind: "editProperty",
+        entry: ENTRY,
+        holder: "",
+        field: nameHash("paramValues"),
+        edits: [{ type: "removeItem", path: "[0]" }],
+      }),
+    );
+  });
+  it("marks an edited row and takes it back to the value it held", async () => {
+    const fallback = mockInvoke.getMockImplementation()!;
+    const valuePath = `${PARAM_PATH}.${nameHash("value").slice(2)}`;
+    let power = 4;
+    mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+      const patched = sentEdit(command, args, "patch");
+      if (patched !== null) {
+        power = (patched.value as { values: number[] }).values[0] ?? 0;
+        return landed();
+      }
+      if (isEdit(command, args, "editProperty")) {
+        power = 4;
+        return landed();
+      }
+      if (command === commandNames.bin.binRead) {
+        const paths = (args?.paths ?? []) as string[];
+        const answered = paths.map((path) => {
+          if (path !== PARAM_PATH) return ELEMENTS[path] ?? FIELDS[path] ?? page([]);
+          return page([
+            FIELDS[PARAM_PATH]!.rows[0]!,
+            row(valuePath, "value", { type: "vector", values: [power, 0, 0, 0] }),
+          ]);
+        });
+        return Promise.resolve({ ok: true, value: answered });
+      }
+      return fallback(command, args);
     });
+    renderView(vi.fn(), true);
+    const user = userEvent.setup();
+    await screen.findAllByRole("button", { name: "More actions" });
+    const field = screen.getByRole("textbox", { name: "Fresnel_Power X" });
+    expect(screen.queryByRole("button", { name: "Back to 4, 0, 0, 0" })).not.toBeInTheDocument();
+
+    await user.clear(field);
+    await user.type(field, "5{Enter}");
+    await user.click(await screen.findByRole("button", { name: "Back to 4, 0, 0, 0" }));
+
+    expect(mockInvoke).toHaveBeenCalledWith(
+      ...editCall(7, {
+        kind: "editProperty",
+        entry: ENTRY,
+        holder: "",
+        field: nameHash("paramValues"),
+        edits: [
+          { type: "ensureProperty", path: "[0]", field: nameHash("value") },
+          {
+            type: "setLeaf",
+            path: `[0].${nameHash("value").slice(2)}`,
+            value: { type: "vector", values: [4, 0, 0, 0] },
+          },
+        ],
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Back to 4, 0, 0, 0" })).not.toBeInTheDocument(),
+    );
   });
 });

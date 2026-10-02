@@ -7,6 +7,7 @@ import { hasErrorCode } from "@/utils/errors";
 
 import { useGameIndex } from "../../gameBrowser/api/useGameIndex";
 import { GameWadsErrorState } from "../../gameBrowser/components/GameBrowserStates";
+import { PaneHint } from "../../shared/components/PaneHint";
 
 /**
  * The body of a view waiting on the object index: a spinner over the archive count.
@@ -18,7 +19,7 @@ export function ObjectIndexBuildingState() {
   const { data: game } = useGameIndex();
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 text-meta text-surface-400 select-none">
-      <SpinnerGapIcon className="h-5 w-5 animate-spin" />
+      <SpinnerGapIcon className="size-5 animate-spin" />
       {game !== undefined && (
         <span>{m.workshop_objects_indexing_label({ count: game.archives })}</span>
       )}
@@ -52,9 +53,5 @@ export function ObjectIndexFailedState({
 
 /** Every object is a bare hash, which is what an unsynced hash table leaves. */
 export function ObjectIndexUnnamedHint() {
-  return (
-    <p className="shrink-0 border-b border-surface-700/50 px-3 py-1.5 text-xs text-surface-400 select-none">
-      {m.workshop_objects_unnamed_label()}
-    </p>
-  );
+  return <PaneHint>{m.workshop_objects_unnamed_label()}</PaneHint>;
 }

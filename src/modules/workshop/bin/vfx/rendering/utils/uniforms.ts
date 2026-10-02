@@ -185,8 +185,9 @@ export function colorDefines(layers: QuadLayers): Defines {
 /**
  * Which alpha carries the rim and the reflection, and none for a shader compiling neither.
  *
- * `mesh_ps` carries both by the drawn alpha, and `skinnedmesh/particle_ps` by the texel's
- * own, before the particle's colour. Decision 2.42 of docs/plans/vfx-particle-renderer.md.
+ * `mesh_ps` carries the rim by the drawn alpha and adds the reflection whole, and
+ * `skinnedmesh/particle_ps` carries both by the texel's alpha, before the particle's colour.
+ * Both take the alpha before the erosion. Decision 2.42 of docs/plans/vfx-particle-renderer.md.
  */
 export const SHEEN = { none: 0, drawn: 1, texel: 2 } as const;
 
@@ -289,6 +290,7 @@ export function distortionUniforms(distortion: DistortionModel | null, texture: 
     mapNormal: { value: texture },
     frame: { value: FRAME },
     viewport: { value: VIEWPORT },
+    viewportOrigin: { value: [0, 0] },
   };
 }
 
@@ -322,7 +324,7 @@ export function erosionUniforms(erosion: ErosionModel | null, texture: Texture |
   const rate = (feather: number) => 1 / Math.max(feather, LEAST_FEATHER);
   return {
     mapErosion: { value: texture },
-    erosionDefault: { value: erosion?.map?.asset == null ? WHITE : NOTHING },
+    erosionDefault: { value: erosion?.map == null ? WHITE : NOTHING },
     addressErosion: { value: erosion?.addressMode ?? 0 },
     erosionMix: { value: [mix[0] ?? 0, mix[1] ?? 0, mix[2] ?? 0, mix[3] ?? 0] },
     featherRate: { value: [rate(erosion?.featherIn ?? 0), rate(erosion?.featherOut ?? 0)] },

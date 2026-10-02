@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use super::binary_id::PatcherBinaries;
 use super::exit_status;
-use super::game_log::{CodeSighting, GameLogFacts, Record};
+use super::game_log::{CodeSighting, GameLogFacts, LogMessage, MessageSighting, Record};
 use super::log_codes::{self, CodeKind, CodeRow, EvidenceMark};
 use crate::error::{ErrorKind, OverlayErrorCategory};
 use crate::patcher::injector::WadScanFailure;
@@ -24,9 +24,7 @@ use crate::patcher::{InjectionStage, SessionOrigin};
 
 /// What the DLL said after it attached.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum OverlayOutcome {
     /// `init done`.
@@ -71,9 +69,7 @@ impl fmt::Display for OverlayDetail {
 
 /// What kind of game it was, as the DLL read the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
 pub enum LaunchKind {
     Match,
@@ -84,9 +80,7 @@ pub enum LaunchKind {
 
 /// Which scan the DLL ran, as it decided from the flags and the command line.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
 pub enum ScanMode {
     Eager,
@@ -95,9 +89,7 @@ pub enum ScanMode {
 
 /// How far the game got, as its log says.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum GamePhase {
     /// No log was read.
@@ -113,9 +105,7 @@ pub enum GamePhase {
 
 /// What the session was started for, without the paths a workshop one carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum OriginKind {
     Library,
@@ -134,9 +124,7 @@ impl OriginKind {
 
 /// An archive the lazy scan skipped, with the DLL's reason.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct SkippedArchive {
     pub wad: String,
@@ -145,9 +133,7 @@ pub struct SkippedArchive {
 
 /// The facts the game log gives about the game itself.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameInfo {
     pub version: String,
@@ -159,15 +145,12 @@ pub struct GameInfo {
 
 /// How the game ended, as far as anything said.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct Ending {
     /// The Riot Client's reason: `Exit`, `Interrupt`, `Timeout`, `Unknown`, or a
     /// spelling the crate does not know. `None` on the Classic launch flow.
     pub exit_reason: Option<String>,
-    #[cfg_attr(feature = "ts", ts(type = "number | null"))]
     pub exit_code: Option<i64>,
     /// Whether `last_crash` fell inside the game's window. `None` when the
     /// marker was not read.
@@ -232,9 +215,7 @@ impl ClientReason {
 
 /// Which failure the classifier named.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum VerdictKind {
     /// The DLL never attached, which is the common startup failure.
@@ -260,6 +241,8 @@ pub enum VerdictKind {
     EndedWithoutReason,
     /// The game ran from another install than the overlay was built for.
     WrongInstall,
+    /// A shader did not compile, or a material had no pipeline to draw with.
+    ShaderFailed,
 }
 
 /// What a verdict cost the player, which is a fact whatever the manager makes
@@ -273,9 +256,7 @@ pub enum VerdictKind {
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, strum::Display,
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum Consequence {
     /// The overlay served the game without one archive, and the rest applied.
@@ -318,9 +299,7 @@ impl Consequence {
 
 /// What the manager concluded from one game.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase", from = "StoredVerdict")]
 pub struct Verdict {
     pub kind: VerdictKind,
@@ -384,9 +363,7 @@ impl From<StoredVerdict> for Verdict {
 
 /// Where a line of evidence came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum EvidenceSource {
@@ -399,9 +376,7 @@ pub enum EvidenceSource {
 
 /// What the table says about a code on an evidence line.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct EvidenceCode {
     pub id: String,
@@ -413,9 +388,7 @@ pub struct EvidenceCode {
 
 /// One line the verdict rests on.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct Evidence {
     /// Seconds into the game where the source has one, else the wall clock.
@@ -430,9 +403,7 @@ pub struct Evidence {
 
 /// A mod, or a workshop project, that the evidence implicates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct Suspect {
     pub mod_id: Option<String>,
@@ -455,9 +426,7 @@ pub struct Suspect {
 
 /// The record the manager keeps for one game that went wrong.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct Incident {
     /// The game log's stamp, or the game's start when there is no log.
@@ -491,6 +460,9 @@ pub struct Incident {
     /// the rest is what a reader still has to be told about.
     #[serde(default)]
     pub scan_rejected: u16,
+    /// What the log says about the shaders, on a shader verdict.
+    #[serde(default)]
+    pub shader: Option<ShaderFailure>,
     #[serde(default)]
     pub phase: GamePhase,
     pub game: Option<GameInfo>,
@@ -505,11 +477,22 @@ pub struct Incident {
     pub dismissed: bool,
 }
 
+/// The shaders a game log reports as failed, as facts the frontend puts into words.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ShaderFailure {
+    /// Shader variants that did not compile, each counted once.
+    pub variants: u16,
+    /// Every failed variant named no vertex shader.
+    pub unnamed_programs: bool,
+    /// The pipeline a material was drawn without, as League wrote it.
+    pub missing_pipeline: Option<String>,
+}
+
 /// A session that failed before any game ran.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub enum SessionFailure {
     /// The overlay build failed, with the builder's own words.
@@ -769,6 +752,7 @@ impl VerdictKind {
             Self::OverlayBuildFailed => 15,
             Self::InjectionHostFailed => 16,
             Self::WrongInstall => 17,
+            Self::ShaderFailed => 18,
         }
     }
 
@@ -792,6 +776,7 @@ impl VerdictKind {
             15 => Self::OverlayBuildFailed,
             16 => Self::InjectionHostFailed,
             17 => Self::WrongInstall,
+            18 => Self::ShaderFailed,
             _ => return None,
         })
     }
@@ -820,6 +805,7 @@ impl VerdictKind {
             Self::ArchiveSkipped => "Archive Verification Skipped",
             Self::EndedWithoutReason => "Unexplained Game Exit",
             Self::WrongInstall => "Wrong League Install",
+            Self::ShaderFailed => "Shader Compilation Failure",
         }
     }
 
@@ -843,7 +829,8 @@ impl VerdictKind {
             | Self::OutOfMemory
             | Self::GraphicsFault
             | Self::EndedWithoutReason
-            | Self::WrongInstall => Consequence::GameStopped,
+            | Self::WrongInstall
+            | Self::ShaderFailed => Consequence::GameStopped,
             Self::StuckLoading => Consequence::GameHung,
             Self::ArchiveSkipped => Consequence::ArchiveDropped,
         }
@@ -1047,9 +1034,7 @@ impl Incident {
 
 /// Why a suspect is one, as the line under its name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum Because {
     HoldsThePath,
@@ -1182,9 +1167,7 @@ impl ClassifyContext<'_> {
 /// another without reading [`Verdict::cause`] as prose, and sent beside the raw
 /// code on `patcher-wad-scan-failed` so the dialog keeps no second table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum ScanStatus {
     /// An official Riot skin ported onto a base champion.
@@ -1379,9 +1362,7 @@ fn is_champion_archive(basename: &str) -> bool {
 /// A code on the wire and in the store. The frontend catalog owns the sentence
 /// (ADR-0017), and the report text takes the sentences from there.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::EnumIter)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "kebab-case")]
 pub enum Hint {
     SystemChecks,
@@ -1405,6 +1386,11 @@ pub enum Hint {
     /// A modded archive was in the game, and a texture far larger than what it
     /// replaces raises the odds of an allocation failing.
     LargeTextures,
+    /// An overlay file was held open, usually by a game still running.
+    CloseGame,
+    /// A shader failed with no programs named, which a shader definition
+    /// outside the game's shaders bin reads as.
+    ShaderDefinition,
 }
 
 impl Hint {
@@ -1430,6 +1416,8 @@ impl Hint {
             Self::Elevate => 17,
             Self::Signature => 18,
             Self::LargeTextures => 19,
+            Self::CloseGame => 20,
+            Self::ShaderDefinition => 21,
         }
     }
 

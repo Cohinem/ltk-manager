@@ -1,4 +1,4 @@
-import { CaretRightIcon, PlayIcon } from "@phosphor-icons/react";
+import { PlayIcon } from "@phosphor-icons/react";
 import { queryOptions, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -23,13 +23,14 @@ import {
   SegmentedControl,
   Table,
 } from "@/components";
-import { NO_OVERSCROLL, useResizeObserver, useZoomedPx } from "@/hooks";
+import { NO_OVERSCROLL, useRemeasure, useResizeObserver, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import type { AnimationGraph, GraphClip } from "@/lib/tauri";
-import { twMerge } from "@/utils";
+import { measureRow, twMerge } from "@/utils";
 
+import { FoldCaret } from "../../shared/components/FoldCaret";
+import { Notice } from "../../shared/preview/Notice";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { skinQueries } from "../api/skinQueries";
 import type { GraphSource } from "../hooks/useGraphSource";
 import { type ClipTab, SkinChoiceContext } from "../state/skinChoice";
@@ -237,7 +238,7 @@ function ClipPlaying({ hash }: { hash: string }) {
       weight="fill"
       role="img"
       aria-label={m.workshop_bin_clip_posing_label()}
-      className="h-3 w-3 shrink-0 text-accent-300"
+      className="size-3 shrink-0 text-accent-300"
     />
   );
 }
@@ -264,12 +265,14 @@ function VirtualClips({
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scroller.current,
-    estimateSize: useCallback(() => rowHeight, [rowHeight]),
+    estimateSize: () => rowHeight,
     overscan: 12,
     scrollMargin: headerHeight,
     scrollPaddingStart: headerHeight,
     getItemKey: useCallback((index: number) => rows[index]?.id ?? index, [rows]),
+    measureElement: measureRow,
   });
+  useRemeasure(virtualizer, rowHeight);
 
   const picked = choice?.picked ?? null;
   const marked = choice?.marked?.tab === "clips" ? choice.marked.hash : null;
@@ -384,27 +387,13 @@ function ClipRow({ children, posing, marked, expanded, onToggle, onClick }: Clip
         }
       }}
     >
-      <FoldCaret expanded={expanded} onToggle={onToggle} />
+      <FoldCaret open={expanded} onToggle={onToggle} label={foldLabel(expanded)} />
       {children}
     </div>
   );
 }
 
-/** The caret at a row's start that unfolds what the row holds, as a field row's does. */
-export function FoldCaret({ expanded, onToggle }: { expanded: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={
-        expanded ? m.workshop_bin_clip_collapse_action() : m.workshop_bin_clip_expand_action()
-      }
-      className="flex h-6 w-4 shrink-0 cursor-pointer items-center justify-center text-surface-400 hover:text-surface-200"
-      onClick={(event) => {
-        event.stopPropagation();
-        onToggle();
-      }}
-    >
-      <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", expanded && "rotate-90")} />
-    </button>
-  );
+/** A clip row's fold, named for what a click on it does. */
+export function foldLabel(expanded: boolean): string {
+  return expanded ? m.workshop_bin_clip_collapse_action() : m.workshop_bin_clip_expand_action();
 }

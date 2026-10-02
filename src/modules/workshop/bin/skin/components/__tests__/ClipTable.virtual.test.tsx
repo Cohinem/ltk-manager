@@ -96,6 +96,13 @@ function mount() {
   return scroller;
 }
 
+/** The collapsed clip rows, apart from the fold caret each one starts with. */
+function clipRows() {
+  return screen
+    .getAllByRole("button", { expanded: false })
+    .filter((each) => each.getAttribute("role") === "button");
+}
+
 afterEach(() => vi.clearAllMocks());
 
 describe("clip virtualization", () => {
@@ -126,10 +133,7 @@ describe("clip virtualization", () => {
       "aria-sort",
       "ascending",
     );
-    const values = () =>
-      screen
-        .getAllByRole("button", { expanded: false })
-        .map((row) => Number(row.lastElementChild?.textContent));
+    const values = () => clipRows().map((row) => Number(row.lastElementChild?.textContent));
     expect(values().every((value) => value === 0)).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Events" }));
     expect(values().every((value) => value === 12)).toBe(true);
@@ -153,7 +157,7 @@ describe("clip virtualization", () => {
     });
     expect(screen.getByText("Clip1000")).toBeInTheDocument();
     expect(screen.queryByText("Clip0000")).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { expanded: false }).length).toBeLessThan(40);
+    expect(clipRows().length).toBeLessThan(40);
   });
 
   it("updates the playing indicator inside reused cells and expands the selected row", () => {

@@ -1,17 +1,22 @@
-import { FileArchiveIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import { FileArchiveIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent, RefObject } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, ContextMenu, EmptyState, Field, IconButton } from "@/components";
-import { useZoomedPx } from "@/hooks";
+import { Button, ContextMenu, EmptyState, LoadingState, SearchField } from "@/components";
+import { useRemeasure, useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import type { GameWadSummary } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
-import { type ContentDocumentOf, gameWadDocument } from "../../documents/utils/contentDocument";
+import {
+  type ContentDocumentOf,
+  documentSource,
+  gameWadDocument,
+} from "../../documents/utils/contentDocument";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import {
   keepScrollTop,
   keptScrollTop,
@@ -24,24 +29,30 @@ import { useGameWads } from "../api/useGameWads";
 import { ExtractMenuItems } from "../extraction/components/ExtractMenuItems";
 import { useExtractActions } from "../extraction/hooks/useExtractActions";
 import { archiveTarget } from "../extraction/utils/extractTargets";
+import { useWadSource, WadSourceProvider } from "../state/wadSource";
+import { sourceCopy } from "../utils/sourceCopy";
 import { wadBasename, wadDirname } from "../utils/sourceIndex";
-import { GameLoadingState, GameWadsErrorState } from "./GameBrowserStates";
+import { GameWadsErrorState } from "./GameBrowserStates";
 
 /* The file trees' row height, so a list of archives scans like the trees it
    opens into. */
 const ROW_HEIGHT = 24;
 
-/* One list, so one key. What the filter left rides the same scroll, the way it
-   does while the box is typed into. */
-const SCROLL_KEY = "game-wads";
-
 /**
- * Every archive the install holds, as the list the folded tree cannot be.
+ * Every archive one source of the install holds, as the list the folded tree cannot be.
  *
  * The root browser merges the archives away on purpose, so a modder after one
  * archive by name needs this instead.
  */
-export function GameWadsDocument({
+export function GameWadsDocument(props: EditorDocumentProps<ContentDocumentOf<"game-wads">>) {
+  return (
+    <WadSourceProvider source={documentSource(props.document)}>
+      <ArchivesDocument {...props} />
+    </WadSourceProvider>
+  );
+}
+
+function ArchivesDocument({
   document,
   active,
 }: EditorDocumentProps<ContentDocumentOf<"game-wads">>) {
@@ -59,7 +70,7 @@ export function GameWadsDocument({
   }, [wads.data, filter]);
 
   return (
-    <div data-ui="GameWadsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="GameWadsDocument">
       <DocumentToolbar active={active}>
         <FilterField
           value={filter}
@@ -74,7 +85,7 @@ export function GameWadsDocument({
         filtered={filter.trim().length > 0}
         onClearFilter={() => setFilter("")}
       />
-    </div>
+    </DocumentFrame>
   );
 }
 
@@ -94,29 +105,14 @@ function FilterField({ value, onChange, total, boxRef }: FilterFieldProps) {
   const placeholder = total > 0 ? `Search ${total} WADs` : "Search WADs";
 
   return (
-    <Field.Root className="relative min-w-0 flex-1">
-      <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
-      <Field.Control
-        ref={boxRef}
-        type="text"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        aria-label="Search WADs"
-        className="h-6 pr-7 pl-7 text-xs"
-      />
-      {value && (
-        <IconButton
-          icon={<XIcon weight="bold" className="h-3 w-3" />}
-          variant="transparent"
-          size="xs"
-          compact
-          onClick={() => onChange("")}
-          aria-label="Clear filter"
-          className="absolute top-1/2 right-1 h-4 w-4 -translate-y-1/2"
-        />
-      )}
-    </Field.Root>
+    <SearchField
+      value={value}
+      onChange={onChange}
+      label="Search WADs"
+      placeholder={placeholder}
+      clearLabel="Clear filter"
+      inputRef={boxRef}
+    />
   );
 }
 
@@ -128,6 +124,10 @@ interface ArchiveListProps {
 }
 
 function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
+  const source = useWadSource();
+  /* One list per source, so one key. What the filter left rides the same scroll, the
+     way it does while the box is typed into. */
+  const scrollKey = `${source}-wads`;
   const query = useGameWads();
   const scrollRef = useRef<HTMLDivElement>(null);
   const openDocument = useOpenDocument();
@@ -144,13 +144,13 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
     setMenuWad(wads.find((wad) => wad.name === name) ?? null);
   }
 
-  const [initialOffset] = useState(() => keptScrollTop(SCROLL_KEY));
+  const [initialOffset] = useState(() => keptScrollTop(scrollKey));
 
   /* The live element rather than one captured at mount, which is null on the
      renders that answer with a state instead of the list. */
   useEffect(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    return () => keepScrollTop(SCROLL_KEY, scrollRef.current?.scrollTop ?? 0);
+    return () => keepScrollTop(scrollKey, scrollRef.current?.scrollTop ?? 0);
   }, []);
 
   const zoomed = useZoomedPx();
@@ -163,14 +163,9 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
     getItemKey: (index) => wads[index]!.name,
     initialOffset,
   });
+  useRemeasure(virtualizer, rowHeight);
 
-  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
-     one of the inputs the measurement memo watches. */
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
-
-  if (query.isPending) return <GameLoadingState />;
+  if (query.isPending) return <LoadingState />;
   if (query.isError) return <GameWadsErrorState error={query.error} />;
 
   if (wads.length === 0 && filtered) {
@@ -190,7 +185,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
 
   if (wads.length === 0) {
     return (
-      <EmptyState size="sm" title="No archives" description="The installed game holds no WADs." />
+      <EmptyState size="sm" title="No archives" description={sourceCopy(source).emptyDescription} />
     );
   }
 
@@ -209,7 +204,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
         >
           {virtualizer.getVirtualItems().map((row) => {
             const wad = wads[row.index]!;
-            const document = gameWadDocument(wad.name);
+            const document = gameWadDocument(wad.name, source);
             const directory = wadDirname(wad.name);
 
             return (
@@ -229,7 +224,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
               >
                 <FileArchiveIcon
                   className={twMerge(
-                    "h-3.5 w-3.5 shrink-0",
+                    "size-3.5 shrink-0",
                     document.id === activeId ? "text-accent-400" : "text-surface-400",
                   )}
                 />
@@ -239,7 +234,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
                   {directory && <span className="text-surface-400">{directory}/</span>}
                   {wadBasename(wad.name)}
                 </span>
-                <span className="ml-auto shrink-0 text-[0.625rem] text-surface-400 tabular-nums">
+                <span className="ml-auto shrink-0 text-fine text-surface-400 tabular-nums">
                   {formatBytes(Number(wad.sizeBytes))}
                 </span>
               </button>
@@ -249,15 +244,11 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
       </ContextMenu.Trigger>
 
       {menuWad && (
-        <ContextMenu.Portal>
-          <ContextMenu.Positioner>
-            <ContextMenu.Popup className="w-60">
-              <ExtractMenuItems
-                onRun={(how) => run(how, [archiveTarget(menuWad.name)], wadBasename(menuWad.name))}
-              />
-            </ContextMenu.Popup>
-          </ContextMenu.Positioner>
-        </ContextMenu.Portal>
+        <ContextMenu.Content className="w-60">
+          <ExtractMenuItems
+            onRun={(how) => run(how, [archiveTarget(menuWad.name)], wadBasename(menuWad.name))}
+          />
+        </ContextMenu.Content>
       )}
     </ContextMenu.Root>
   );

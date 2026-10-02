@@ -28,39 +28,32 @@ export function SidebarViewMenu() {
         <Menu.Trigger
           render={
             <IconButton
-              variant="ghost"
-              size="xs"
-              compact
-              icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
+              icon={<DotsThreeVerticalIcon />}
               aria-label={m.workshop_sidebar_menu_label()}
-              className="h-5 w-5"
+              className="size-5"
             />
           }
         />
       </Tooltip>
-      <Menu.Portal>
-        <Menu.Positioner align="end" sideOffset={4}>
-          <Menu.Popup className="w-60">
-            <Menu.Item
-              icon={<ArrowSquareOutIcon className="h-4 w-4" />}
-              onClick={() => openDocument(wide.document())}
-            >
-              {m.workshop_sidebar_open_tab_action({ title: wide.title })}
-            </Menu.Item>
+      <Menu.Content align="end" sideOffset={4} className="w-60">
+        <Menu.Item
+          icon={<ArrowSquareOutIcon className="size-4" />}
+          onClick={() => openDocument(wide.document())}
+        >
+          {m.workshop_sidebar_open_tab_action({ title: wide.title })}
+        </Menu.Item>
 
-            {/* The tree folds the archives away, so the one route left to a
+        {/* The tree folds the archives away, so the one route left to a
                 single archive is the list this opens. */}
-            {id === "game" && (
-              <Menu.Item
-                icon={<FilesIcon className="h-4 w-4" />}
-                onClick={() => openDocument(gameWadsDocument())}
-              >
-                {m.workshop_game_wads_label()}
-              </Menu.Item>
-            )}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+        {id === "game" && (
+          <Menu.Item
+            icon={<FilesIcon className="size-4" />}
+            onClick={() => openDocument(gameWadsDocument())}
+          >
+            {m.workshop_game_wads_label()}
+          </Menu.Item>
+        )}
+      </Menu.Content>
     </Menu.Root>
   );
 }

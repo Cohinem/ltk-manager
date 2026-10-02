@@ -49,10 +49,14 @@ fn write_rules(dir: &Path, rules: &str) {
 }
 
 fn pack(dir: &Path) -> AppResult<PackResult> {
+    pack_as(dir, PackFormat::Modpkg)
+}
+
+fn pack_as(dir: &Path, format: PackFormat) -> AppResult<PackResult> {
     Workshop::new(Arc::new(NullEventSink)).pack_project(PackProjectArgs {
         project_path: dir.display().to_string(),
         output_dir: None,
-        format: PackFormat::Modpkg,
+        format,
     })
 }
 
@@ -318,6 +322,34 @@ fn pack_format_deserialization() {
     assert_eq!(modpkg, PackFormat::Modpkg);
     let fantome: PackFormat = serde_json::from_str("\"fantome\"").unwrap();
     assert_eq!(fantome, PackFormat::Fantome);
+}
+
+#[test]
+fn a_fantome_carries_every_layer() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut layers = base_layer();
+    layers.push(ModProjectLayer {
+        name: "chroma".to_string(),
+        display_name: Some("Chroma".to_string()),
+        priority: 1,
+        description: None,
+        string_overrides: IndexMap::new(),
+    });
+    make_project(
+        tmp.path(),
+        layers,
+        &[
+            "base/Aatrox.wad.client/data/skin0.bin",
+            "chroma/Aatrox.wad.client/data/skin0.bin",
+        ],
+    );
+
+    let result = pack_as(tmp.path(), PackFormat::Fantome).unwrap();
+
+    let archive = zip::ZipArchive::new(fs::File::open(&result.output_path).unwrap()).unwrap();
+    let names: Vec<_> = archive.file_names().collect();
+    assert!(names.contains(&"WAD/Aatrox.wad.client"), "{names:?}");
+    assert!(names.contains(&"WAD_chroma/Aatrox.wad.client"), "{names:?}");
 }
 
 #[test]

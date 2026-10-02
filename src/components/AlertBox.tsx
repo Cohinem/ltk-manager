@@ -65,11 +65,11 @@ const hoverStyles: Record<AlertBoxVariant, string> = {
 };
 
 const defaultIcons: Record<AlertBoxVariant, ReactNode> = {
-  neutral: <Info className="h-5 w-5" />,
-  info: <Info className="h-5 w-5" />,
-  success: <CircleCheck className="h-5 w-5" />,
-  warning: <CircleAlert className="h-5 w-5" />,
-  error: <CircleX className="h-5 w-5" />,
+  neutral: <Info className="size-5" />,
+  info: <Info className="size-5" />,
+  success: <CircleCheck className="size-5" />,
+  warning: <CircleAlert className="size-5" />,
+  error: <CircleX className="size-5" />,
 };
 
 export function AlertBox({
@@ -141,7 +141,7 @@ export function AlertBox({
           className="shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
           aria-label="Dismiss"
         >
-          <X className="h-4 w-4" />
+          <X className="size-4" />
         </button>
       )}
     </div>

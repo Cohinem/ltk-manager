@@ -66,13 +66,13 @@ export function computeEffectiveCategories(
   mod: InstalledMod,
   report: ModWadReport | null | undefined,
 ): EffectiveCategories {
-  const tags = mergeCategory(mod.tags, report?.derived.tags);
-  const champions = mergeCategory(mod.champions, report?.derived.champions);
-  const maps = mergeCategory(mod.maps, report?.derived.maps);
+  const tags = mergeCategory(mod.tags, report?.derived?.tags);
+  const champions = mergeCategory(mod.champions, report?.derived?.champions);
+  const maps = mergeCategory(mod.maps, report?.derived?.maps);
 
   // A declared champion outranks a derived one, so the primary is only the
   // primary while it is still one of the pills the report contributed.
-  const primary = report?.derived.primaryChampion ?? null;
+  const primary = report?.derived?.primaryChampion ?? null;
   const primaryDerivedChampion = champions.derivedOnly.includes(primary ?? "") ? primary : null;
 
   return {

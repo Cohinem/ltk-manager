@@ -1,8 +1,12 @@
 import type { ProjectTextFile } from "@/lib/tauri";
 
+/** The query root of every project's declarations outline, which a declared edit leaves stale. */
+export const DECLARATIONS_OUTLINE_ROOT = ["declarations-outline"] as const;
+
 export const workshopKeys = {
   all: ["workshop"] as const,
   projects: () => [...workshopKeys.all, "projects"] as const,
+  openedFolders: () => [...workshopKeys.all, "openedFolders"] as const,
   project: (path: string) => [...workshopKeys.projects(), path] as const,
   validation: (path: string) => [...workshopKeys.project(path), "validation"] as const,
   thumbnail: (path: string, thumbnailPath?: string | null) =>
@@ -21,6 +25,6 @@ export const workshopKeys = {
     [...workshopKeys.project(path), "text", file] as const,
   stringKeySearch: (query: string) => [...workshopKeys.all, "stringKeySearch", query] as const,
   stringValues: (keys: readonly string[]) => [...workshopKeys.all, "stringValues", keys] as const,
-  gameExtractPlan: (targets: readonly unknown[] | null) =>
-    [...workshopKeys.all, "gameExtractPlan", targets] as const,
+  gameExtractPlan: (source: string, targets: readonly unknown[] | null) =>
+    [...workshopKeys.all, "gameExtractPlan", source, targets] as const,
 };

@@ -40,7 +40,7 @@ export function UpdateCheckRow() {
         <Button
           variant="outline"
           size="sm"
-          left={<DownloadIcon className="h-4 w-4" />}
+          left={<DownloadIcon className="size-4" />}
           onClick={() => setDialogOpen(true)}
         >
           {m.updater_view_action()}
@@ -49,7 +49,7 @@ export function UpdateCheckRow() {
         <Button
           variant="outline"
           size="sm"
-          left={<ArrowsClockwiseIcon className="h-4 w-4" />}
+          left={<ArrowsClockwiseIcon className="size-4" />}
           loading={checking}
           onClick={() => void checkForUpdate()}
         >

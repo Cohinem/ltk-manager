@@ -10,6 +10,8 @@ import {
   curveDynamicsClass,
   insertionIndex,
   insertCurveKey,
+  moveCurveKey,
+  movedKeys,
   removeCurveKey,
   removeCurveKeys,
   suggestedCurveKey,
@@ -61,6 +63,46 @@ describe("curve edits", () => {
         path: `${nameHash("values").slice(2)}[1]`,
         value: { type: "float", value: 4 },
       },
+    ]);
+  });
+
+  it("swaps a key dragged past its neighbour into its time order", () => {
+    const keys = [
+      { time: 0, values: [1] },
+      { time: 0.5, values: [2] },
+      { time: 1, values: [3] },
+    ];
+
+    expect(movedKeys(keys, 0, { time: 0.75, values: [1] })).toEqual({
+      keys: [
+        { time: 0.5, values: [2] },
+        { time: 0.75, values: [1] },
+        { time: 1, values: [3] },
+      ],
+      to: 1,
+    });
+    expect(movedKeys(keys, 1, { time: 0.6, values: [2] }).to).toBe(1);
+  });
+
+  it("rewrites every key between the old and the new place in one edit", async () => {
+    const { edit, editProperty } = editor();
+    const keys = [
+      { time: 0, values: [1] },
+      { time: 0.5, values: [2] },
+      { time: 1, values: [3] },
+    ];
+    const times = nameHash("times").slice(2);
+    const values = nameHash("values").slice(2);
+
+    const to = await moveCurveKey(edit, ROW, "scalar", keys, 2, { time: 0.25, values: [3] });
+
+    expect(to).toBe(1);
+    expect(editProperty).toHaveBeenCalledOnce();
+    expect(editProperty.mock.calls[0]?.[2]).toEqual([
+      { type: "setLeaf", path: `${times}[1]`, value: { type: "float", value: 0.25 } },
+      { type: "setLeaf", path: `${values}[1]`, value: { type: "float", value: 3 } },
+      { type: "setLeaf", path: `${times}[2]`, value: { type: "float", value: 0.5 } },
+      { type: "setLeaf", path: `${values}[2]`, value: { type: "float", value: 2 } },
     ]);
   });
 

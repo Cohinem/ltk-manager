@@ -6,6 +6,7 @@ export { contentEditors, documentDefinition, useContentEditors } from "./state/r
 export {
   type ContentDocument,
   type ContentDocumentOf,
+  declarationsDocument,
   declaringFileContext,
   DETAILS_DOCUMENT_ID,
   detailsDocument,
@@ -18,6 +19,7 @@ export {
   gameWadsDocument,
   IGNORE_RULES_DOCUMENT_ID,
   ignoreRulesDocument,
+  inSandbox,
   layerTitle,
   objectDocument,
   objectDocumentId,

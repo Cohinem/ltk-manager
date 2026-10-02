@@ -1,9 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 
-import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type AppError } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn } from "@/utils/query";
 
 /**
  * Call off the check or repair the backend is running.
@@ -17,13 +16,8 @@ import { unwrapForQuery } from "@/utils/query";
  * see.
  */
 export function useCancelModHealthRun() {
-  const toast = useToast();
-
   return useMutation<null, AppError, void>({
-    meta: { silentError: true },
-    mutationFn: async () => unwrapForQuery(await api.cancelModHealthRun()),
-    onError: (error) => {
-      toast.error(m.library_health_cancel_failed_title(), errorSummary(error));
-    },
+    meta: { errorTitle: m.library_health_cancel_failed_title() },
+    mutationFn: mutationFn(api.cancelModHealthRun),
   });
 }

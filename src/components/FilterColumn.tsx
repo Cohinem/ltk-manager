@@ -2,6 +2,8 @@ import { type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { OVERLINE } from "./Overline";
+
 export interface FilterColumnProps {
   children: ReactNode;
   title?: string;
@@ -13,8 +15,10 @@ export interface FilterColumnProps {
 
 /* Every head is h-8 with the same underline, so the three columns line up and
    their rules read as one. */
-const headClass =
-  "flex h-8 shrink-0 items-center gap-1.5 border-b border-surface-600/50 px-3 text-xs font-medium tracking-wide text-surface-400 uppercase";
+const headClass = twMerge(
+  "flex h-8 shrink-0 items-center gap-1.5 border-b border-surface-600/50 px-3",
+  OVERLINE,
+);
 
 /** One scrolling column of a filter popover, so a long option list never wraps. */
 export function FilterColumn({ title, icon, head, children, className }: FilterColumnProps) {

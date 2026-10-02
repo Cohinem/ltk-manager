@@ -14,14 +14,18 @@ import {
   sequencePose,
   type SkeletonModel,
   type SubmeshBinding,
+  type SubmeshProgram,
   useAssetTextures,
   useSceneColors,
   viewportQueries,
 } from "@/modules/viewport";
+import { usePreviewShaders } from "@/stores";
 
+import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { nameHash } from "../../shared/utils/binHash";
 import { skinQueries } from "../../skin/api/skinQueries";
+import { useSkinPrograms } from "../../skin/hooks/useSkinPrograms";
 import { clipFrameSeconds } from "../../skin/utils/clipEvents";
 import { bindingOf, playlistOf, textureAssets } from "../../skin/utils/skinScene";
 import { mapQueries } from "../api/mapQueries";
@@ -41,8 +45,6 @@ const BEFORE_THE_POSES = -1;
 export interface MapCharactersProps {
   /** The map's open `.materials.bin`, and null until the scene holds it. */
   readonly document: BinDocumentId | null;
-  /** Any asset of the project whose layers answer a skin's bin before the install. */
-  readonly near: AssetRef;
   /** The visibility flags the backdrop draws, as a mask. */
   readonly flags: number;
   /** The chunks and placeables an outliner hid, which a backdrop has none of. */
@@ -58,7 +60,8 @@ const NONE_HIDDEN: ReadonlySet<string> = new Set();
  * map's, and drawn at every place the map stands it. They run on a clock of their own
  * rather than the scene's, since a map's banners wave on through a clip that restarts.
  */
-export function MapCharacters({ document, near, flags, hidden = NONE_HIDDEN }: MapCharactersProps) {
+export function MapCharacters({ document, flags, hidden = NONE_HIDDEN }: MapCharactersProps) {
+  const sandbox = useSandbox();
   const placed = useQuery(mapQueries.characters(document));
   const stood = useMemo(() => stoodCharacters(placed.data ?? [], flags), [placed.data, flags]);
   const skins = useMemo(
@@ -80,7 +83,7 @@ export function MapCharacters({ document, near, flags, hidden = NONE_HIDDEN }: M
     () => [...new Set(stood.map((character) => skinFile(character.skin)))],
     [stood],
   );
-  const files = useQuery(mapQueries.filesNear(near, paths)).data;
+  const files = useQuery(mapQueries.filesNear(sandbox, paths)).data;
 
   /* A skin whose bin nothing holds is a prop the map draws without. */
   return skins.map(([skin, characters]) => {
@@ -119,16 +122,20 @@ function ReadSkin({ document, ...props }: SkinProps & { readonly document: BinDo
   const skin = useQuery(skinQueries.skin(document, nameHash(props.skin)));
   const graphRead = useQuery(skinQueries.graph(document, skin.data?.animationGraph ?? null));
   if (skin.data === undefined) return null;
-  return <PlacedSkin {...props} model={skin.data} graph={graphRead.data ?? null} />;
+  return (
+    <PlacedSkin {...props} document={document} model={skin.data} graph={graphRead.data ?? null} />
+  );
 }
 
 interface PlacedSkinProps extends SkinProps {
+  /** The skin's bin, which the programs of its materials are read from. */
+  readonly document: BinDocumentId;
   readonly model: SkinModel;
   /** The skin's graph, and null while it reads and where the skin names none. */
   readonly graph: AnimationGraph | null;
 }
 
-function PlacedSkin({ model, graph, characters, clock, colors }: PlacedSkinProps) {
+function PlacedSkin({ document, model, graph, characters, clock, colors }: PlacedSkinProps) {
   const mesh = useQuery(viewportQueries.mesh(model.mesh?.asset ?? null));
   const bones = useQuery(viewportQueries.skeleton(model.skeleton?.asset ?? null));
   const assets = useMemo(() => textureAssets(model), [model]);
@@ -137,6 +144,7 @@ function PlacedSkin({ model, graph, characters, clock, colors }: PlacedSkinProps
     (submesh: string) => bindingOf(model, textures, submesh),
     [model, textures],
   );
+  const programs = useSkinPrograms(document, model, usePreviewShaders());
   const groups = useMemo(() => [...charactersByAnimation(characters)], [characters]);
 
   if (mesh.data === undefined || bones.data === undefined) return null;
@@ -150,6 +158,7 @@ function PlacedSkin({ model, graph, characters, clock, colors }: PlacedSkinProps
       skeleton={bones.data}
       model={model}
       bindingOf={binding}
+      programsOf={programs}
       clock={clock}
       colors={colors}
     />
@@ -165,6 +174,7 @@ interface PosedCharactersProps {
   readonly skeleton: SkeletonModel;
   readonly model: SkinModel;
   readonly bindingOf: (submesh: string) => SubmeshBinding;
+  readonly programsOf: (submesh: string) => readonly SubmeshProgram[];
   readonly clock: SceneClock;
   readonly colors: SceneColors;
 }
@@ -178,6 +188,7 @@ function PosedCharacters({
   skeleton,
   model,
   bindingOf: binding,
+  programsOf: programs,
   clock,
   colors,
 }: PosedCharactersProps) {
@@ -212,9 +223,11 @@ function PosedCharacters({
         pose={pose}
         clock={clock}
         bindingOf={binding}
+        programsOf={programs}
         colors={colors}
         hidden={model.hidden}
         scale={model.scale ?? 1}
+        selfIllumination={model.selfIllumination ?? 0}
       />
     </group>
   ));

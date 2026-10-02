@@ -1,5 +1,5 @@
 import type { LoopRange } from "../../../../state";
-import type { EmitterModel, SystemModel } from "../../engine/model/model";
+import type { EmissionPeriod, EmitterModel, SystemModel } from "../../engine/model/model";
 import { lingerSeconds, peak, systemSpan } from "../../engine/model/systemModel";
 import { type ChildBirth, childPath } from "../../engine/simulation/children";
 import { compareDrawOrder } from "../../rendering/utils/drawKind";
@@ -14,6 +14,10 @@ export interface LaneBar {
   readonly tail: number;
   /** Seconds past the tail the linger grants. */
   readonly linger: number;
+  /** The cycle the window repeats, and null for a window that emits throughout. */
+  readonly period: EmissionPeriod | null;
+  /** The emitter's whole output is one burst at `start`. */
+  readonly burst: boolean;
 }
 
 /** The bar of one emitter. */
@@ -24,7 +28,32 @@ export function laneBar(emitter: EmitterModel): LaneBar {
     end: emitter.lifetime === null ? null : start + emitter.lifetime,
     tail: peak(emitter.particleLifetime),
     linger: lingerSeconds(emitter),
+    period: emitter.period ?? null,
+    burst: emitter.singleParticle,
   };
+}
+
+/** How many cycles one bar draws, past which the rest go undrawn. */
+const MOST_CYCLES = 400;
+
+/** The cycles of `bar`'s period inside `view`: where each opens and where its emitting stops. */
+export function periodCycles(
+  bar: LaneBar,
+  view: TimeWindow,
+  most = MOST_CYCLES,
+): readonly { readonly from: number; readonly active: number }[] {
+  const period = bar.period;
+  if (period === null) return [];
+
+  const end = Math.min(bar.end ?? view.to, view.to);
+  const first = Math.max(Math.floor((view.from - bar.start) / period.length), 0);
+  const out: { from: number; active: number }[] = [];
+  for (let at = first; out.length < most; at += 1) {
+    const from = bar.start + at * period.length;
+    if (from >= end) break;
+    out.push({ from, active: Math.min(from + period.active, end) });
+  }
+  return out;
 }
 
 /** The emitters in the order the lanes list them, which is the engine's draw order. */

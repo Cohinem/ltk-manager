@@ -1,4 +1,5 @@
 import {
+  AppWindowIcon,
   CubeIcon,
   EyeSlashIcon,
   FileArchiveIcon,
@@ -11,6 +12,7 @@ import {
   PlayIcon,
   PushPinIcon,
   PushPinSlashIcon,
+  SealCheckIcon,
   SidebarSimpleIcon,
   SquareSplitHorizontalIcon,
   SquareSplitVerticalIcon,
@@ -20,8 +22,10 @@ import {
 import { useMemo } from "react";
 
 import { LeagueIcon, PlayerTitleIcon } from "@/components";
+import { m } from "@/i18n";
 import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 
+import { useDeclarationsOn } from "../../bin/documents/hooks/useDeclared";
 import {
   detailsDocument,
   gameDocument,
@@ -44,6 +48,7 @@ import {
   useResetLayout,
   useSetDocumentPinned,
   useSetLeafLocked,
+  useSetUseDeclarations,
   useSplitWithDocument,
 } from "../../state";
 import { useWorkshopTestState } from "../../testing/api/useWorkshopTestState";
@@ -52,7 +57,7 @@ import type { ProjectCommand } from "../utils/types";
 import { useGlobalCommands } from "./useGlobalCommands";
 import { useGroupCommands } from "./useGroupCommands";
 
-const GLYPH = "h-4 w-4";
+const GLYPH = "size-4";
 
 /**
  * Every action the bar can run under a project, composed out of the modules'
@@ -86,6 +91,9 @@ export function useProjectCommands(): readonly ProjectCommand[] {
   const setLayerPanelOpen = useSetLayerPanelOpen();
   const revealGameSearch = useRevealGameSearch();
 
+  const declarationsOn = useDeclarationsOn(project.path) === true;
+  const setUseDeclarations = useSetUseDeclarations();
+
   const layerCount = project.layers.length;
 
   return useMemo<readonly ProjectCommand[]>(() => {
@@ -108,9 +116,9 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         group: "Project",
         keywords: ["export", "build", "modpkg", "fantome"],
         icon: <PackageIcon weight="bold" className={GLYPH} />,
-        enabled: layerCount > 0,
-        disabledReason: "No layers",
-        run: actions.handleOpenPackDialog,
+        enabled: layerCount > 0 && !actions.isPacking,
+        disabledReason: actions.isPacking ? "Already packing" : "No layers",
+        run: actions.handlePack,
       },
       {
         id: "project.reveal",
@@ -119,6 +127,16 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         keywords: ["explorer", "reveal", "directory"],
         icon: <FolderOpenIcon className={GLYPH} />,
         run: actions.handleOpenLocation,
+      },
+      {
+        id: "project.useDeclarations",
+        title: declarationsOn
+          ? m.workshop_bin_declarations_stop_action()
+          : m.workshop_bin_declarations_toggle_label(),
+        group: "Project",
+        keywords: ["game data", "declare", "game_data.yaml", "read-only"],
+        icon: <SealCheckIcon className={GLYPH} />,
+        run: () => setUseDeclarations(!declarationsOn),
       },
       {
         id: "project.delete",
@@ -152,6 +170,22 @@ export function useProjectCommands(): readonly ProjectCommand[] {
         keywords: ["archives", "browse"],
         icon: <FileArchiveIcon className={GLYPH} />,
         run: () => openDocument(gameWadsDocument()),
+      },
+      {
+        id: "go.lcu",
+        title: m.workshop_command_lcu_open_action(),
+        group: "Go to",
+        keywords: ["browse", "league client", "client", "assets"],
+        icon: <AppWindowIcon className={GLYPH} />,
+        run: () => openDocument(gameDocument("lcu")),
+      },
+      {
+        id: "go.lcuWads",
+        title: m.workshop_command_lcu_wads_open_action(),
+        group: "Go to",
+        keywords: ["archives", "browse", "league client", "client"],
+        icon: <FileArchiveIcon className={GLYPH} />,
+        run: () => openDocument(gameWadsDocument("lcu")),
       },
       {
         id: "go.objects",
@@ -291,6 +325,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     activeLeafLocked,
     global,
     group,
+    declarationsOn,
     layerCount,
     layerPanelOpen,
     openDocument,
@@ -299,6 +334,7 @@ export function useProjectCommands(): readonly ProjectCommand[] {
     setDocumentPinned,
     setLayerPanelOpen,
     setLeafLocked,
+    setUseDeclarations,
     splitWithDocument,
     testState.kind,
   ]);

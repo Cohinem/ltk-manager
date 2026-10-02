@@ -2,7 +2,9 @@ import type { ReactNode } from "react";
 
 import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
 
+import { ChangedRowsContext, useChangedRows } from "../../documents/hooks/useChanges";
 import { DeclaredRowsContext, useDeclaredRows } from "../../documents/hooks/useDeclared";
+import { OverriddenRowsContext, useOverriddenRows } from "../../documents/hooks/useOverrides";
 import {
   LinkAssetContext,
   LinkOpenContext,
@@ -50,7 +52,9 @@ export function TreeContexts({
   const linkOpen = useWarmLinkOpen(linkTargets);
   const marks = useValueMarks(document, inView);
   const edit = useBinEditor(document, asset, editable, focus);
-  const declared = useDeclaredRows(document);
+  const declared = useDeclaredRows(document, editable);
+  const overridden = useOverriddenRows(document);
+  const changed = useChangedRows(document);
 
   return (
     <LinkAssetContext value={asset}>
@@ -58,13 +62,17 @@ export function TreeContexts({
         <LinkTargetsContext value={linkTargets}>
           <LinkOpenContext value={linkOpen}>
             <ValueMarksContext value={marks}>
-              <DeclaredRowsContext value={declared}>
-                <RowDocumentContext value={document}>
-                  <LeafEditContext value={null}>
-                    <BinEditContext value={edit}>{children}</BinEditContext>
-                  </LeafEditContext>
-                </RowDocumentContext>
-              </DeclaredRowsContext>
+              <ChangedRowsContext value={changed}>
+                <DeclaredRowsContext value={declared}>
+                  <OverriddenRowsContext value={overridden}>
+                    <RowDocumentContext value={document}>
+                      <LeafEditContext value={null}>
+                        <BinEditContext value={edit}>{children}</BinEditContext>
+                      </LeafEditContext>
+                    </RowDocumentContext>
+                  </OverriddenRowsContext>
+                </DeclaredRowsContext>
+              </ChangedRowsContext>
             </ValueMarksContext>
           </LinkOpenContext>
         </LinkTargetsContext>

@@ -5,7 +5,7 @@ import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import type { Incident } from "@/lib/bindings";
+import type { Incident } from "@/lib/tauri";
 import { useIncidentLineStore } from "@/stores";
 import { mockListen } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -38,6 +38,7 @@ function incident(id: string, dismissed = false): Incident {
     scanStatus: null,
     scanStatusCode: null,
     scanRejected: 0,
+    shader: null,
     hostElevated: false,
     patcher: {},
     overlayDetail: null,

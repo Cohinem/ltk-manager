@@ -71,7 +71,7 @@ impl ReferenceScan {
         self.overtaken
     }
 
-    /// The groups on the wire, each resolved through `index`.
+    /// The serialized groups, each resolved through `index`.
     fn finish(self, index: &ObjectIndex) -> ReferenceResult {
         ReferenceResult {
             groups: self
@@ -102,6 +102,16 @@ impl ObjectIndex {
         is_overtaken: impl Fn() -> bool,
     ) -> ReferenceResult {
         self.class_references_capped(class, FIND_LIMIT, is_overtaken)
+    }
+
+    /// How many objects of the install declare `class`.
+    #[must_use]
+    pub fn class_object_count(&self, class: BinHash) -> usize {
+        self.declared
+            .rows
+            .iter()
+            .filter(|row| row.class == class)
+            .count()
     }
 
     /// [`class_references`](Self::class_references) with the cap a test can afford to fill.

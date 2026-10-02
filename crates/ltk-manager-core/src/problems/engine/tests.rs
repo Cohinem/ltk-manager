@@ -61,7 +61,7 @@ fn a_dot_directory_under_content_is_not_a_layer() {
 }
 
 #[test]
-fn a_dot_file_inside_a_layer_is_skipped() {
+fn a_dot_file_inside_a_layer_is_read_since_a_pack_includes_it() {
     let tmp = tempfile::tempdir().unwrap();
     let base = tmp.path().join(CONTENT_DIR).join("base");
     touch(&base.join("a.bin"), b"bin");
@@ -69,11 +69,133 @@ fn a_dot_file_inside_a_layer_is_skipped() {
     touch(&base.join(".tools").join("b.bin"), b"bin");
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert_eq!(
+        paths(&layer(&files, "base")),
+        [".hidden.bin", ".tools/b.bin", "a.bin"]
+    );
+}
+
+#[test]
+fn a_file_the_ignore_rules_exclude_is_not_read() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("a.bin"), b"bin");
+    touch(&base.join("draft.bin"), b"bin");
+    touch(&base.join("scratch").join("b.bin"), b"bin");
+    touch(
+        &tmp.path().join(".modignore"),
+        b"/base/draft.bin\nscratch/\n",
+    );
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
 }
 
-/// A site's path crosses IPC and keys a fix, so it has to read the same on
-/// Windows as it does anywhere else.
+#[test]
+fn a_layer_the_ignore_rules_exclude_reads_empty() {
+    let tmp = tempfile::tempdir().unwrap();
+    touch(
+        &tmp.path().join(CONTENT_DIR).join("base").join("a.bin"),
+        b"bin",
+    );
+    touch(
+        &tmp.path().join(CONTENT_DIR).join("alt").join("b.bin"),
+        b"bin",
+    );
+    touch(&tmp.path().join(".modignore"), b"/alt/\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(paths(&layer(&files, "alt")).is_empty());
+    assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
+}
+
+#[test]
+fn a_file_is_read_again_once_its_ignore_rule_is_removed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("draft.bin"), b"bin");
+    touch(&tmp.path().join(".modignore"), b"draft.bin\n");
+
+    let before = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(paths(&layer(&before, "base")).is_empty());
+
+    touch(&tmp.path().join(".modignore"), b"");
+    let after = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert_eq!(paths(&layer(&after, "base")), ["draft.bin"]);
+}
+
+#[test]
+fn a_nested_modignore_is_neither_read_as_a_file_nor_ignored() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("a.bin"), b"bin");
+    touch(&base.join("data").join("draft.bin"), b"bin");
+    touch(&base.join("data").join(".modignore"), b"draft.bin\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
+}
+
+/// The content tree also lists every file of such a project.
+#[test]
+fn rules_that_do_not_compile_leave_every_file_read() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("a.bin"), b"bin");
+    touch(&tmp.path().join(".modignore"), b"a{b\n*.bin\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
+}
+
+#[test]
+fn only_a_workshop_project_with_no_modignore_lacks_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    touch(
+        &tmp.path().join(CONTENT_DIR).join("base").join("a.bin"),
+        b"bin",
+    );
+
+    let read = || ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(
+        !read().lacks_ignore_rules(),
+        "a library mod is never reported"
+    );
+    assert!(read().in_workshop().lacks_ignore_rules());
+
+    touch(&tmp.path().join(".modignore"), b"");
+    assert!(
+        !read().in_workshop().lacks_ignore_rules(),
+        "an empty file counts as rules"
+    );
+}
+
+#[test]
+fn a_nested_modignore_counts_as_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("a.bin"), b"bin");
+    touch(&base.join(".modignore"), b"*.psd\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(!files.in_workshop().lacks_ignore_rules());
+}
+
+#[test]
+fn a_modignore_that_does_not_compile_counts_as_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    touch(
+        &tmp.path().join(CONTENT_DIR).join("base").join("a.bin"),
+        b"bin",
+    );
+    touch(&tmp.path().join(".modignore"), b"a{b\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(!files.in_workshop().lacks_ignore_rules());
+}
+
+/// A site's path crosses IPC and keys a fix, so it has to be the same on
+/// Windows as on every other platform.
 #[test]
 fn a_path_is_posix_style_and_relative_to_the_layer_root() {
     let tmp = tempfile::tempdir().unwrap();
@@ -147,8 +269,8 @@ fn a_hex_named_file_that_is_not_a_bin_is_left_unknown() {
     assert_eq!(files.bins().count(), 0);
 }
 
-/// A named file keeps taking its kind from its extension, so nothing pays a
-/// read for content the tree already names.
+/// A named file takes its kind from its extension, so the run does not read a
+/// file whose extension already gives its kind.
 #[test]
 fn a_named_file_is_not_sniffed() {
     let tmp = tempfile::tempdir().unwrap();
@@ -229,8 +351,8 @@ fn a_head_reads_the_first_bytes_of_a_file_on_disk() {
     assert_eq!(handle.head(9).unwrap(), b"the first");
 }
 
-/// A rule judging from a header has nothing to require of the rest, so a file
-/// with less than the bound is a normal answer rather than a failure.
+/// A rule that reads a header needs nothing past it, so a file shorter than
+/// the bound is a normal answer rather than a failure.
 #[test]
 fn a_head_of_a_short_file_on_disk_answers_with_what_there_is() {
     let tmp = tempfile::tempdir().unwrap();
@@ -243,7 +365,7 @@ fn a_head_of_a_short_file_on_disk_answers_with_what_there_is() {
     assert_eq!(handle.head(8192).unwrap(), b"short");
 }
 
-/// A directory layer's files are files, so nothing records a chunk for them.
+/// A directory layer holds plain files, so they carry no chunk info.
 #[test]
 fn a_file_on_disk_carries_no_chunk_info() {
     let tmp = tempfile::tempdir().unwrap();
@@ -306,12 +428,11 @@ fn analyzing_a_project_with_nothing_to_report_finds_nothing() {
     assert!(run.failed.is_empty());
 }
 
-/// A run over a project with nothing to gate on lists every rule as
-/// speaking, which is what a panel needs to tell a clean project from a
-/// quiet one.
+/// A run over a project with nothing to gate on lists every rule as active,
+/// so a panel can tell a clean project from one where rules did not run.
 ///
-/// An install is handed in because having one is part of "nothing to gate on":
-/// a rule that reads the game is gated on a machine that has it.
+/// The run gets an install because a rule that reads the game is gated on
+/// having one.
 #[test]
 fn a_rule_with_nothing_to_wait_for_is_listed_as_active() {
     let tmp = tempfile::tempdir().unwrap();
@@ -325,8 +446,8 @@ fn a_rule_with_nothing_to_wait_for_is_listed_as_active() {
     assert!(run.rules.iter().all(|info| info.state == RuleState::Active));
 }
 
-/// A game install from before the one shipped table, so every rule keyed
-/// on that build reports what it is waiting for.
+/// A game install older than the build the shipped table is keyed on, so
+/// every rule keyed on that build reports what it is waiting for.
 fn project_on_an_older_game() -> (tempfile::TempDir, Config) {
     let tmp = tempfile::tempdir().unwrap();
     touch(
@@ -368,23 +489,77 @@ fn a_rule_waiting_on_a_newer_game_says_so_on_the_run() {
     assert!(!reason.contains("8087655"), "{reason}");
 }
 
-/* An archive read where it lies. The fixtures are the health suite's own, so
-these hold the archive constructor to the answers the walk gives for the tree
-an unpack would have written. */
+/// A tree of three bins under one WAD: one equal to the game's copy, one the
+/// same size with different bytes, and one larger than the game's copy.
+fn wad_bins(game: Option<Arc<dyn GameContent>>) -> (tempfile::TempDir, ProjectFiles) {
+    let tmp = tempfile::tempdir().unwrap();
+    let data = tmp
+        .path()
+        .join(CONTENT_DIR)
+        .join("base")
+        .join("data.wad.client")
+        .join("data");
+    touch(&data.join("same.bin"), b"PROP-same");
+    touch(&data.join("edited.bin"), b"PROP-ours");
+    touch(&data.join("grown.bin"), b"PROP-grown-longer");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), game).unwrap();
+    (tmp, files)
+}
+
+fn sorted_paths(files: &ProjectFiles) -> Vec<String> {
+    let mut paths: Vec<String> = files.files().map(|file| file.path().to_owned()).collect();
+    paths.sort();
+    paths
+}
+
+#[test]
+fn a_bin_equal_to_the_game_copy_is_removed() {
+    let game = FakeContent::containing_bytes(&[
+        ("data/same.bin", b"PROP-same"),
+        ("data/edited.bin", b"PROP-game"),
+        ("data/grown.bin", b"PROP-grown"),
+    ]);
+    let (_tmp, files) = wad_bins(Some(game));
+
+    let files = files.without_game_copies();
+
+    assert_eq!(
+        sorted_paths(&files),
+        [
+            "data.wad.client/data/edited.bin",
+            "data.wad.client/data/grown.bin"
+        ]
+    );
+}
+
+#[test]
+fn with_no_install_every_bin_is_kept() {
+    let (_tmp, files) = wad_bins(None);
+
+    let files = files.without_game_copies();
+
+    assert_eq!(sorted_paths(&files).len(), 3);
+}
+
+/* Reading an archive in place. The fixtures are the health suite's own, and
+these tests check that the archive constructor gives the same answers as the
+walk over the tree an unpack writes. */
 
 mod archive {
     use super::*;
     use crate::mods::test_support::{
         STALE_BIN_IN_WAD, bin_bytes, healthy_bin, make_bin_fantome_zip,
-        make_packed_bin_fantome_zip, make_raw_bin_fantome_zip, resolver_naming, stale_bin,
+        make_layer_wads_fantome_zip, make_packed_bin_fantome_zip, make_raw_bin_fantome_zip,
+        resolver_naming, stale_bin,
     };
     use zip::CompressionMethod;
 
     /// Where the fixture bin lands inside the layer, in either archive shape.
     const BIN_IN_LAYER: &str = "Aatrox.wad.client/data/skin0.bin";
 
-    /// A resolver naming the fixture chunk, which is what puts it under
-    /// [`BIN_IN_LAYER`] rather than under its hash.
+    /// A resolver naming the fixture chunk, so the chunk is listed under
+    /// [`BIN_IN_LAYER`] instead of under its hash.
     fn naming_the_bin() -> crate::hashtables::WadPathResolver {
         resolver_naming(&[STALE_BIN_IN_WAD])
     }
@@ -422,6 +597,50 @@ mod archive {
     }
 
     #[test]
+    fn each_wad_directory_of_an_archive_is_a_layer_under_its_declared_name() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("layers.fantome");
+        make_layer_wads_fantome_zip(&archive, &healthy_bin(), &stale_bin());
+
+        let files = files_in(&archive, &naming_the_bin());
+
+        let names: Vec<&str> = files
+            .layers()
+            .iter()
+            .map(|layer| layer.name.as_str())
+            .collect();
+        assert_eq!(names, ["base", "Chroma", "zeta"]);
+        for name in names {
+            assert_eq!(paths(&layer(&files, name)), [BIN_IN_LAYER]);
+        }
+    }
+
+    #[test]
+    fn each_layer_of_an_archive_reads_back_its_own_bin() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("layers.fantome");
+        make_layer_wads_fantome_zip(&archive, &healthy_bin(), &stale_bin());
+
+        let files = files_in(&archive, &naming_the_bin());
+
+        let read: Vec<(&str, Vec<u8>)> = files
+            .bins()
+            .map(|handle| {
+                let bin = handle.bin().unwrap();
+                (handle.layer(), bin_bytes(bin.as_prop().unwrap()))
+            })
+            .collect();
+        assert_eq!(
+            read,
+            [
+                ("base", bin_bytes(&healthy_bin())),
+                ("Chroma", bin_bytes(&stale_bin())),
+                ("zeta", bin_bytes(&stale_bin())),
+            ]
+        );
+    }
+
+    #[test]
     fn a_packed_wads_bin_is_listed_under_the_path_its_hash_names() {
         let tmp = tempfile::tempdir().unwrap();
         let bin = stale_bin();
@@ -452,7 +671,7 @@ mod archive {
     }
 
     /// A deflated entry cannot be seeked into, so it is inflated whole first.
-    /// Which of the two a caller got must not change what it reads back.
+    /// Both kinds of entry have to read back the same bytes.
     #[test]
     fn a_deflated_packed_wad_reads_the_same_as_a_stored_one() {
         let tmp = tempfile::tempdir().unwrap();
@@ -484,14 +703,13 @@ mod archive {
         );
     }
 
-    /// A chunk nothing names is listed under its bare hash, which is what the
-    /// unpack writes it as, and read as the bin its first bytes say it is.
+    /// A chunk no table names is listed under its bare hash, as the unpack
+    /// writes it, and read as a bin because its first bytes are one.
     ///
-    /// The hex path is what makes both halves possible: the import runs under
-    /// `NamingPolicy::Lossless`, which invents no extension, so naming the
-    /// chunk by its magic instead would put the check's site somewhere the
-    /// tree has no file. The kind is what the magic decides, and the path is
-    /// left exactly as it was.
+    /// The import runs under `NamingPolicy::Lossless`, which adds no
+    /// extension, so naming the chunk by its magic would put the check's site
+    /// at a path where the tree has no file. The magic sets the kind, and the
+    /// path stays the hex name.
     #[test]
     fn a_chunk_no_table_names_is_read_as_a_bin_under_its_bare_hash() {
         let tmp = tempfile::tempdir().unwrap();
@@ -516,8 +734,8 @@ mod archive {
         assert_eq!(from_tree.bins().count(), 1);
     }
 
-    /// The bin reads back through its handle under the hex path, which is what
-    /// lets a rule parse a chunk no table names.
+    /// The bin reads back through its handle under the hex path, so a rule can
+    /// parse a chunk no table names.
     #[test]
     fn a_chunk_no_table_names_reads_back_through_its_handle() {
         let tmp = tempfile::tempdir().unwrap();
@@ -533,7 +751,7 @@ mod archive {
     }
 
     /// A deflated WAD is inflated whole and read out of memory, so the sniff
-    /// has to reach the same answer through that path too.
+    /// has to give the same answer there too.
     #[test]
     fn a_deflated_chunk_no_table_names_is_read_as_a_bin() {
         let tmp = tempfile::tempdir().unwrap();
@@ -544,8 +762,8 @@ mod archive {
         assert_eq!(files.bins().count(), 1);
     }
 
-    /// The magic decides, so a nameless chunk that is not a bin stays one the
-    /// bin rules never open.
+    /// The magic decides, so the bin rules never open a nameless chunk that is
+    /// not a bin.
     #[test]
     fn a_nameless_chunk_that_is_not_a_bin_is_left_unknown() {
         let tmp = tempfile::tempdir().unwrap();
@@ -581,8 +799,8 @@ mod archive {
         assert_eq!(files.bins().count(), 1);
     }
 
-    /// An unpack writes `RAW/` entries under the layer rather than beside it,
-    /// so they are content a rule reads and not something to skip.
+    /// An unpack writes `RAW/` entries under the base layer, so a rule reads
+    /// them like any other content.
     #[test]
     fn a_raw_entry_is_read_under_the_layer_the_unpack_would_put_it_in() {
         let tmp = tempfile::tempdir().unwrap();
@@ -599,8 +817,8 @@ mod archive {
         );
     }
 
-    /// Story: the check that used to unpack a gigabyte reports what the
-    /// unpacked tree reported.
+    /// Story: a check that reads an archive without unpacking it reports what
+    /// the unpacked tree reports.
     #[test]
     fn analyzing_an_archive_finds_what_its_unpacked_tree_would() {
         let tmp = tempfile::tempdir().unwrap();
@@ -628,17 +846,16 @@ mod archive {
         );
     }
 
-    /// The texture in the bin-named fixture. No table names it - the only
-    /// record of its path is a string inside the bin packed beside it, which
-    /// is what name recovery reads.
+    /// The texture in the bin-named fixture. No table names it. The only
+    /// record of its path is a string inside the bin packed beside it, and
+    /// name recovery reads that string.
     const RECOVERED_TEXTURE: &str = "data/characters/ashe/ashe_tx_cm.dds";
 
-    /// Unpack `archive` into `into` the way a repair does, and answer the
+    /// Unpack `archive` into `into` the way a repair does, and return the
     /// project root it wrote.
     ///
-    /// The real importer on purpose: a parity test that hand-places the tree
-    /// it compares against is only asserting that the fixture agrees with
-    /// itself.
+    /// This uses the real importer, because a parity test against a
+    /// hand-placed tree only compares the fixture with itself.
     fn unpacked(archive: &Path, into: &Path) -> PathBuf {
         let into_utf8 = camino::Utf8PathBuf::from_path_buf(into.to_path_buf()).unwrap();
         ltk_mod_project::ProjectImporter::new(&into_utf8)
@@ -649,11 +866,11 @@ mod archive {
         into.to_path_buf()
     }
 
-    /// Story: the check that stopped unpacking still has to see what the
-    /// unpack saw.
+    /// Story: a check that reads an archive in place lists what the unpack
+    /// lists.
     ///
     /// An unpack runs name recovery over a WAD's bins, so a chunk no table
-    /// names lands under the path a bin spells for it. A scan that skips the
+    /// names lands under the path a bin gives for it. A scan that skips the
     /// recovery lists that chunk under its hash instead, and the check and the
     /// repair then disagree about where a problem is.
     #[test]
@@ -671,9 +888,8 @@ mod archive {
         assert_eq!(paths(&in_archive), paths(&in_tree));
     }
 
-    /// The same archive, read with a resolver that names nothing: the
-    /// recovered path has to be there on its own merits, not because the
-    /// caller happened to supply it.
+    /// The same archive, read with a resolver that names nothing, so the
+    /// recovered path comes from name recovery and not from the caller.
     #[test]
     fn a_chunk_only_a_bin_names_is_listed_under_that_name() {
         let tmp = tempfile::tempdir().unwrap();
@@ -690,29 +906,31 @@ mod archive {
         );
     }
 
-    /// The walk skips a dot-file inside a layer, so the archive scan has to
-    /// skip one too. A file only one of them lists is one the check calls
-    /// repairable and the repair then never touches.
+    /// If only one of the archive scan and the tree walk lists a file, the
+    /// check can report a problem that the repair cannot reach.
     #[test]
-    fn a_dot_file_in_an_archive_is_skipped_as_the_walk_skips_it() {
+    fn a_dot_file_in_an_archive_is_listed_as_the_tree_it_unpacks_to_lists_it() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("dotted.fantome");
         crate::mods::test_support::make_dot_file_fantome_zip(&archive);
 
-        let files = files_in(&archive, &ltk_wad::NoResolver);
+        let tree = unpacked(&archive, &tmp.path().join("staging"));
+        let from_tree = ProjectFiles::read(&tree, &Config::default(), None).unwrap();
+        let from_archive = files_in(&archive, &ltk_wad::NoResolver);
 
-        let base = layer(&files, "base");
+        let in_archive = layer(&from_archive, "base");
         assert!(
-            !paths(&base).iter().any(|path| path.contains("/.")),
-            "a dot-file was listed: {:?}",
-            paths(&base)
+            paths(&in_archive).contains(&"Ashe.wad.client/data/.hidden.bin"),
+            "the dot-file is missing from {:?}",
+            paths(&in_archive)
         );
+        assert_eq!(paths(&in_archive), paths(&layer(&from_tree, "base")));
     }
 
-    /// An archive declaring a table it does not hold is broken in a way that
-    /// changes every name in it. The unpack refuses such an archive; a scan
-    /// that shrugs and carries on names its chunks differently from the repair
-    /// that follows, which is the divergence worth failing over.
+    /// An archive that declares a hashtable it does not hold cannot name its
+    /// chunks as declared. The unpack refuses such an archive, and a scan that
+    /// continues would name its chunks differently from the repair that
+    /// follows.
     #[test]
     fn an_undeclarable_hashtable_fails_the_scan() {
         let tmp = tempfile::tempdir().unwrap();
@@ -733,8 +951,8 @@ mod archive {
         );
     }
 
-    /// What the WAD records about a chunk is what a rule about how a mod was
-    /// packed reads, and reading it costs the table of contents alone.
+    /// A rule about how a mod was packed reads what the WAD records about a
+    /// chunk, and only the table of contents is read for it.
     #[test]
     fn a_packed_chunk_carries_what_the_wad_records_about_it() {
         let tmp = tempfile::tempdir().unwrap();
@@ -751,8 +969,8 @@ mod archive {
         assert!(chunk.compressed_size > 0);
     }
 
-    /// The one difference between the layer sources a rule can see, and its
-    /// absence is a normal state rather than an error.
+    /// Chunk info is the one difference between layer sources that a rule can
+    /// see, and its absence is a normal state rather than an error.
     #[test]
     fn a_loose_entry_carries_no_chunk_info() {
         let tmp = tempfile::tempdir().unwrap();
@@ -803,10 +1021,6 @@ mod archive {
     }
 
     /// Story: a rule reads the same header whichever way the mod is stored.
-    ///
-    /// The property the seam exists to guarantee, and the one the old
-    /// layer-and-file pair would have broken silently: it handed back a path
-    /// for a directory layer and nothing at all for an archive.
     #[test]
     fn a_head_reads_the_same_bytes_from_a_tree_and_from_an_archive() {
         let tmp = tempfile::tempdir().unwrap();
@@ -821,9 +1035,9 @@ mod archive {
         assert_eq!(in_archive, in_tree);
     }
 
-    /// The escalation: 16 KB of this chunk decodes to nothing at all, because a
-    /// compressed block reads whole or not at all, so the read comes back for
-    /// more rather than answering short.
+    /// The first 16 KB of this chunk decode to nothing, because a compressed
+    /// block decodes only once it is read whole, so the head reads more
+    /// instead of returning short.
     #[test]
     fn a_head_of_a_chunk_whose_first_block_was_cut_short_reads_it_anyway() {
         let tmp = tempfile::tempdir().unwrap();
@@ -843,8 +1057,28 @@ mod archive {
         assert_eq!(handle.head(16).unwrap(), bytes[..16]);
     }
 
-    /// A check never leaves anything behind, which is now true because it
-    /// never writes anything in the first place.
+    /// A packed chunk is compared by the hash in its WAD's table of contents.
+    #[test]
+    fn a_packed_bin_equal_to_the_game_copy_is_removed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let bin = stale_bin();
+        let archive = packed(tmp.path(), &bin, CompressionMethod::Deflated);
+        let game = FakeContent::containing_bytes(&[(STALE_BIN_IN_WAD, &bin_bytes(&bin))]);
+
+        let files = ProjectFiles::in_archive(
+            &archive,
+            &Config::default(),
+            Budget::repair(),
+            &naming_the_bin(),
+            Some(game),
+        )
+        .unwrap()
+        .without_game_copies();
+
+        assert_eq!(files.bins().count(), 0);
+    }
+
+    /// A check writes nothing, so it leaves nothing beside the archive.
     #[test]
     fn analyzing_an_archive_writes_nothing_beside_it() {
         let tmp = tempfile::tempdir().unwrap();

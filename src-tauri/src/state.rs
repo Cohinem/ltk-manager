@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
-use ts_rs::TS;
 
 /// Get the application data directory for storing settings using Tauri's path resolver.
 pub fn get_app_data_dir(app_handle: &AppHandle) -> Option<PathBuf> {
@@ -109,8 +108,7 @@ impl Default for SettingsState {
 }
 
 /// Theme selection for the application.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum Theme {
     #[default]
@@ -120,8 +118,7 @@ pub enum Theme {
 }
 
 /// The page the window opens on.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum OpenOn {
     #[default]
@@ -141,8 +138,7 @@ pub enum OpenOn {
 /// Classic is the default while the launcher is experimental: it is the
 /// behaviour every existing install already has, and it depends on nothing
 /// outside this app.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum LaunchMode {
     #[default]
@@ -151,8 +147,7 @@ pub enum LaunchMode {
 }
 
 /// Accent color configuration.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AccentColor {
     /// Preset name: "ltk" (the brand accent), or one of the generated hues
@@ -164,8 +159,7 @@ pub struct AccentColor {
 }
 
 /// A saved author profile that can be reused across workshop projects.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct AuthorProfile {
     pub id: String,
@@ -184,8 +178,7 @@ fn default_trusted_domains() -> Vec<String> {
 /// Application settings: UI/shell preferences plus the flattened core
 /// [`Config`]. The flatten keeps `settings.json` a single document, so the
 /// split is invisible to both the file on disk and the frontend.
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
     /// Patching-relevant configuration shared with non-GUI frontends.
@@ -197,7 +190,6 @@ pub struct Settings {
     /// Accent color configuration.
     pub accent_color: AccentColor,
     /// Optional backdrop image path for glassmorphism effect.
-    #[ts(as = "Option<String>")]
     pub backdrop_image: Option<PathBuf>,
     /// Backdrop blur amount in pixels (default: 40).
     pub backdrop_blur: Option<u32>,
@@ -212,9 +204,15 @@ pub struct Settings {
     /// Whether to register the app to launch automatically on login. Default: false.
     #[serde(default)]
     pub auto_run: bool,
+    /// Whether `.fantome` and `.modpkg` open with the app from Explorer. Default: true.
+    #[serde(default = "default_true")]
+    pub register_file_types: bool,
     /// When starting in tray, show the window if an update is available. Default: false.
     #[serde(default)]
     pub start_in_tray_unless_update: bool,
+    /// Whether a release downloads as soon as a check finds it, to install at quit. Default: true.
+    #[serde(default = "default_true")]
+    pub auto_download_updates: bool,
     /// Always start the patcher automatically on launch. Default: false.
     #[serde(default)]
     pub always_start_patcher: bool,
@@ -302,7 +300,9 @@ impl Default for Settings {
             minimize_to_tray: true,
             start_in_tray: false,
             auto_run: false,
+            register_file_types: true,
             start_in_tray_unless_update: false,
+            auto_download_updates: true,
             always_start_patcher: false,
             open_on: OpenOn::default(),
             launch_mode: LaunchMode::default(),

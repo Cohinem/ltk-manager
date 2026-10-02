@@ -1,12 +1,14 @@
-import { ErrorBoundary, Field, TogglePill } from "@/components";
-import { m } from "@/i18n";
-import { useSetPreviewDisplay, useTimelineHistogram } from "@/stores";
+import { ChartBarIcon, FlagIcon, MagnetIcon } from "@phosphor-icons/react";
 
-import { useEmitters } from "../../inspector/state/emitterChoice";
+import { ErrorBoundary, IconButton, Separator } from "@/components";
+import { m } from "@/i18n";
+import { useSetPreviewDisplay, useTimelineHistogram, useTimelineSnap } from "@/stores";
+
+import { Notice } from "../../../shared/preview/Notice";
 import { RunTransport } from "../../playback/components/RunTransport";
 import { useVfxRun } from "../../playback/state/run";
-import { Notice } from "../../preview/components/Notice";
 import { PaneFault } from "../../preview/components/PaneFault";
+import { useTimelineMarkers } from "../hooks/useTimelineMarkers";
 import { Lanes } from "./Lanes";
 
 export interface TimelinePaneProps {
@@ -14,7 +16,7 @@ export interface TimelinePaneProps {
   drawable: boolean;
 }
 
-/** The timeline pane: the transport row over one lane per emitter (ADR-0037). */
+/** The timeline pane: one lane per emitter, under the transport its strip carries (ADR-0037). */
 export function TimelinePane({ drawable }: TimelinePaneProps) {
   if (!drawable) return <Notice text={m.workshop_bin_preview_pane_empty()} />;
   return (
@@ -35,48 +37,53 @@ function Timeline() {
 
   return (
     <div data-ui="TimelinePane" className="flex min-h-0 flex-1 flex-col select-none">
-      <TransportRow />
       <Lanes />
     </div>
   );
 }
 
-/** The run's controls, "The transport row" in docs/ux/BIN_EDITOR.md, the name filter first. */
-function TransportRow() {
-  const run = useVfxRun();
-  const { filter, setFilter } = useEmitters();
+/**
+ * The run's controls in the timeline pane's strip, "The transport row" in
+ * docs/ux/BIN_EDITOR.md.
+ *
+ * The strip carries them after the pane tabs, so the lanes keep the row a separate transport
+ * row would take. The view switches sit at the far end.
+ */
+export function TimelineTransport() {
   const histogram = useTimelineHistogram();
+  const snap = useTimelineSnap();
   const setDisplay = useSetPreviewDisplay();
-  const looping = run.rig.rig.life === "loop";
+  const markers = useTimelineMarkers();
+  const { driver } = useVfxRun();
 
   return (
-    <div className="flex shrink-0 items-center border-b border-surface-700/50 pl-2">
-      <Field.Control
-        className="h-6 w-40 shrink-0 px-2 font-sans text-meta"
-        aria-label={m.workshop_bin_emitter_filter_label()}
-        placeholder={m.workshop_bin_emitter_filter_placeholder()}
-        value={filter}
-        onChange={(event) => setFilter(event.target.value)}
-      />
-      <RunTransport className="min-w-0 flex-1 justify-end" scrub={false}>
-        <TogglePill
-          size="xs"
-          label={m.workshop_bin_preview_loop_label()}
-          active={looping}
-          onClick={() =>
-            run.setRig({
-              preset: run.rig.preset,
-              rig: { ...run.rig.rig, life: looping ? "once" : "loop" },
-            })
-          }
+    <>
+      <Separator orientation="vertical" className="mx-1 h-4" />
+      <RunTransport className="min-w-0 flex-1 py-0 pl-0" scrub={false}>
+        {markers !== null && (
+          <IconButton
+            aria-label={m.workshop_bin_timeline_marker_add_action()}
+            className="text-surface-400"
+            icon={<FlagIcon />}
+            onClick={() => markers.add(driver.phase)}
+            tooltip={m.workshop_bin_timeline_marker_add_hint()}
+          />
+        )}
+        <IconButton
+          pressed={snap}
+          className="text-surface-400"
+          icon={<MagnetIcon />}
+          onClick={() => setDisplay({ timelineSnap: !snap })}
+          label={m.workshop_bin_timeline_snap_label()}
         />
-        <TogglePill
-          size="xs"
-          label={m.workshop_bin_timeline_histogram_label()}
-          active={histogram}
+        <IconButton
+          pressed={histogram}
+          className="text-surface-400"
+          icon={<ChartBarIcon />}
           onClick={() => setDisplay({ timelineHistogram: !histogram })}
+          label={m.workshop_bin_timeline_histogram_label()}
         />
       </RunTransport>
-    </div>
+    </>
   );
 }

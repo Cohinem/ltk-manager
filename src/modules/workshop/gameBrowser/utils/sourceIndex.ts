@@ -5,8 +5,11 @@
  * thin adapter and nothing in this file imports one.
  */
 
+import { toggledSubtree } from "@/utils";
+
 import { compareNames } from "../../shared/utils/naturalOrder";
 import { pathAncestors } from "../../shared/utils/pathAncestors";
+import { branchIdsOf, type TreeRow, treeRows } from "../../shared/utils/tree";
 
 /** The path the index gives the group of entries no hash table names. */
 export const UNKNOWN_DIR = "?";
@@ -250,9 +253,62 @@ function basename(entry: SourceEntry): string {
   return slash < 0 ? entry.path : entry.path.slice(slash + 1);
 }
 
-export interface SourceRow {
-  readonly node: SourceTreeNode;
-  readonly depth: number;
+/** The id of every directory in a tree, which is the collapsed set that folds all of them. */
+export function sourceDirIds(tree: readonly SourceTreeNode[]): Set<string> {
+  return new Set(
+    branchIdsOf(tree, (node) =>
+      node.type === "dir" ? { id: node.id, children: node.children } : null,
+    ),
+  );
+}
+
+/**
+ * A collapsed set after an Alt+click on `dir`, which toggles its whole subtree.
+ *
+ * For a tree that holds every child, where the set names what is collapsed by node id.
+ */
+export function toggledSourceDirTree(
+  collapsed: ReadonlySet<string>,
+  dir: SourceDirNode,
+): Set<string> {
+  return toggledSubtree(collapsed, dir.id, sourceDirIds([dir]));
+}
+
+export type SourceRow = TreeRow<SourceTreeNode>;
+
+const NO_GUIDES: readonly string[] = [];
+
+/**
+ * Each row's ancestor ids in a flattened tree, outermost first, which name the blocks its
+ * guides draw.
+ *
+ * One pass finds each row's parent and a chain is built when a row first asks for it, so a
+ * screen of rows walks its own depth rather than the directory above it.
+ */
+export function sourceGuides(rows: readonly SourceRow[]): (index: number) => readonly string[] {
+  const parents = new Int32Array(rows.length);
+  const latest: number[] = [];
+
+  rows.forEach((row, index) => {
+    parents[index] = row.depth === 0 ? -1 : (latest[row.depth - 1] ?? -1);
+    latest[row.depth] = index;
+    latest.length = row.depth + 1;
+  });
+
+  const chains = new Map<number, readonly string[]>();
+  const chainOf = (index: number): readonly string[] => {
+    if (index < 0 || index >= rows.length) return NO_GUIDES;
+
+    const known = chains.get(index);
+    if (known) return known;
+
+    const parent = parents[index]!;
+    const chain = parent < 0 ? NO_GUIDES : [...chainOf(parent), rows[parent]!.node.id];
+    chains.set(index, chain);
+    return chain;
+  };
+
+  return chainOf;
 }
 
 /**
@@ -265,17 +321,9 @@ export function flattenSourceTree(
   nodes: readonly SourceTreeNode[],
   isExpanded: (node: SourceDirNode) => boolean,
 ): SourceRow[] {
-  const out: SourceRow[] = [];
-  const walk = (list: readonly SourceTreeNode[], depth: number): void => {
-    for (const node of list) {
-      out.push({ node, depth });
-      if (node.type === "dir" && isExpanded(node)) {
-        walk(node.children, depth + 1);
-      }
-    }
-  };
-  walk(nodes, 0);
-  return out;
+  return treeRows(nodes, (node) =>
+    node.type === "dir" && isExpanded(node) ? node.children : null,
+  );
 }
 
 /** Whether a root listing holds the unnamed group and nothing else. */

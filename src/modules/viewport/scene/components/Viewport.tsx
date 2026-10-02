@@ -1,16 +1,5 @@
-import { Canvas, type RootState } from "@react-three/fiber";
-import {
-  type ComponentProps,
-  type ReactNode,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { WebGLRenderer, type WebGLRendererParameters } from "three";
-
-import { useContentVisible, useResizeObserver } from "@/hooks";
+import type { RootState } from "@react-three/fiber";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { SceneCamera } from "../../camera/components/SceneCamera";
 import { CameraPresetContext } from "../../camera/state/presetContext";
@@ -18,17 +7,22 @@ import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
 import { AXIS_SIGN } from "../../shared/utils/space";
 import { useSceneColors } from "../hooks/sceneColors";
 import { type BackdropSource, useMapBackdrop } from "../hooks/useMapBackdrop";
+import { type CharacterLight, CharacterLightContext } from "../state/characterLightContext";
 import { ViewModeContext } from "../state/viewModeContext";
 import {
   type AmbientOcclusion,
   drawsAmbientOcclusion,
   NO_AMBIENT_OCCLUSION,
 } from "../utils/ambientOcclusion";
+import { type AntiAliasing, DEFAULT_ANTI_ALIASING } from "../utils/antiAliasing";
 import { drawsPostEffects, NO_POST_EFFECTS, type PostEffects } from "../utils/postEffects";
+import type { RendererUse } from "../utils/sharedRenderer";
 import { DEFAULT_SUN, type SunOverride, withSunOverride } from "../utils/sunLight";
 import { edgesOf, type ViewMode } from "../utils/viewMode";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
+import { AntiAliasingPass } from "./AntiAliasingPass";
 import { Backdrop } from "./Backdrop";
+import { HostCanvas, useCanvasHost } from "./HostCanvas";
 import { PostEffectsPass } from "./PostEffectsPass";
 import { Sky } from "./Sky";
 import { Stage } from "./Stage";
@@ -37,6 +31,13 @@ import { Sun } from "./Sun";
 export interface ViewportProps {
   /** Whether this surface spends frames, including while its canvas remains mounted. */
   readonly active?: boolean;
+  /**
+   * Which renderer the scene draws with, its own unless said otherwise.
+   *
+   * A shared one falls back to its own where another viewport drawing with it is on
+   * screen at the same time, which remounts the scene once.
+   */
+  readonly renderer?: RendererUse;
   /** A fixed pixel ratio for small preview surfaces. */
   readonly dpr?: number;
   /** The orientation control is drawn over the scene. */
@@ -62,8 +63,14 @@ export interface ViewportProps {
   readonly postEffects?: PostEffects | null;
   /** The scene's ambient occlusion, and the backdrop's own or none when absent. */
   readonly ambientOcclusion?: AmbientOcclusion | null;
+  /** How the finished frame's edges are smoothed. */
+  readonly antiAliasing?: AntiAliasing;
   /** Which camera the scene draws through, "The viewer" in docs/ux/BIN_EDITOR.md. */
   readonly camera: CameraPreset;
+  /** The kind of viewport whose last camera pose this one opens at, and records, if any. */
+  readonly cameraMemory?: string;
+  /** The scene colour the canvas clears to: the pane's ground, or the raised card ground. */
+  readonly clearColor?: "backdrop" | "ground";
   /** How the backdrop and every character draw their meshes. */
   readonly viewMode?: ViewMode;
   /** The triangle edges draw over a lit or untextured scene. */
@@ -82,39 +89,6 @@ export interface ViewportProps {
 }
 
 /**
- * How the fibre measures the canvas: on every change, and never on a scroll.
- *
- * The default waits 50ms for a resize to settle, which leaves a dragged seam drawing a
- * frame sized for the old box. Pointer events read offsets, so nothing reads where the
- * canvas stands on the page.
- */
-const MEASURE: ComponentProps<typeof Canvas>["resize"] = { scroll: false, debounce: 0 };
-
-/** What `opaqueRenderer` reads of the defaults the fibre hands a renderer factory. */
-interface CanvasDefaults {
-  /** The mounted canvas, which the fibre types against DOM typings of its own. */
-  readonly canvas: unknown;
-  readonly powerPreference?: WebGLRendererParameters["powerPreference"];
-}
-
-/**
- * A renderer on a drawing buffer with no alpha channel.
- *
- * ThreeJS asks the canvas for an alpha channel whatever its own `alpha` says, and a
- * compositor then shows the pane through wherever a blend left the alpha short of one.
- */
-function opaqueRenderer({ canvas, powerPreference }: CanvasDefaults): WebGLRenderer {
-  const surface = canvas as HTMLCanvasElement;
-  const context = surface.getContext("webgl2", {
-    alpha: false,
-    antialias: true,
-    stencil: false,
-    powerPreference,
-  });
-  return new WebGLRenderer({ canvas: surface, context: context ?? undefined });
-}
-
-/**
  * A scene in the engine's frame: the camera and its orbit, the colour space and the stage.
  *
  * What a preview draws is its children, so a particle system, a character, or a character
@@ -124,6 +98,7 @@ function opaqueRenderer({ canvas, powerPreference }: CanvasDefaults): WebGLRende
  */
 export function Viewport({
   active = true,
+  renderer = "own",
   dpr,
   gizmo = true,
   stage,
@@ -134,7 +109,10 @@ export function Viewport({
   sun = null,
   postEffects = null,
   ambientOcclusion = null,
+  antiAliasing = DEFAULT_ANTI_ALIASING,
   camera,
+  cameraMemory,
+  clearColor = "backdrop",
   viewMode = "lit",
   wireOverlay = false,
   onCameraStand,
@@ -144,18 +122,16 @@ export function Viewport({
   const colors = useSceneColors();
   const map = useMapBackdrop(backdrop);
   const light = useMemo(() => withSunOverride(map.sun ?? DEFAULT_SUN, sun), [map.sun, sun]);
+  const grid = map.geometry === null ? null : map.lightGrid;
+  const characterLight = useMemo<CharacterLight>(() => ({ grid, sun: light }), [grid, light]);
   const edges = edgesOf(viewMode, wireOverlay);
   const view = useMemo(
     () => ({ mode: viewMode, edges, edgeColour: colors.wire }),
     [viewMode, edges, colors],
   );
-  const visible = useContentVisible();
-  const [sized, setSized] = useState(false);
+  const host = useCanvasHost(active, renderer === "shared");
+  const { running } = host;
   const [started, setStarted] = useState(false);
-  const measure = useResizeObserver<HTMLDivElement>((element) => {
-    setSized(element.clientWidth > 0 && element.clientHeight > 0);
-  });
-  const running = active && visible && sized;
   const root = useRef<RootState | null>(null);
   const runningNow = useRef(running);
   // Canvas skips configuration at zero size, so hidden panes stop the root directly.
@@ -183,14 +159,14 @@ export function Viewport({
 
   return (
     <div
-      ref={measure}
+      ref={host.hold}
       /* ThreeJS pins the canvas at the size last measured, a frame behind the box. */
       className="relative size-full [&_canvas]:size-full!"
     >
       {(started || running) && (
-        <Canvas
+        <HostCanvas
+          host={host}
           dpr={dpr}
-          resize={MEASURE}
           frameloop={running ? "always" : "never"}
           camera={{
             position: [...CAMERA.position],
@@ -198,7 +174,6 @@ export function Viewport({
             far: CAMERA.far,
             fov: CAMERA.fov,
           }}
-          gl={opaqueRenderer}
           onCreated={(state) => {
             root.current = state;
             setRunning(state, runningNow.current);
@@ -207,8 +182,14 @@ export function Viewport({
             gl.toneMapping = TONE_MAPPING;
           }}
         >
-          <color attach="background" args={[colors.backdrop]} />
-          <SceneCamera preset={camera} colors={colors} onStand={onCameraStand} gizmo={gizmo} />
+          <color attach="background" args={[colors[clearColor]]} />
+          <SceneCamera
+            preset={camera}
+            colors={colors}
+            onStand={onCameraStand}
+            gizmo={gizmo}
+            memory={cameraMemory}
+          />
           <Sun light={light} />
           <Stage colors={colors} shown={stage && map.geometry === null} textured={textured} />
           {map.geometry !== null && (
@@ -229,13 +210,16 @@ export function Viewport({
               />
             </>
           )}
-          <CameraPresetContext value={camera}>
-            <ViewModeContext value={view}>{children}</ViewModeContext>
-          </CameraPresetContext>
+          <CharacterLightContext value={characterLight}>
+            <CameraPresetContext value={camera}>
+              <ViewModeContext value={view}>{children}</ViewModeContext>
+            </CameraPresetContext>
+          </CharacterLightContext>
           {(drawsPostEffects(effects) || drawsAmbientOcclusion(occlusion)) && (
             <PostEffectsPass effects={effects} occlusion={occlusion} />
           )}
-        </Canvas>
+          {antiAliasing !== "off" && <AntiAliasingPass mode={antiAliasing} />}
+        </HostCanvas>
       )}
     </div>
   );

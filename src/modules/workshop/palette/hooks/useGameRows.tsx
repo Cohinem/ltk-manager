@@ -79,7 +79,7 @@ function toRow(hit: GameSearchHit): RankedRow {
       trailing: wadBasename(hit.wad),
       icon: (
         <span style={{ color: `var(${descriptor.tintToken})` }}>
-          <Glyph className="h-4 w-4" strokeWidth={1.75} />
+          <Glyph className="size-4" strokeWidth={1.75} />
         </span>
       ),
       target: {
@@ -93,7 +93,7 @@ function toRow(hit: GameSearchHit): RankedRow {
        against the ones the frontend ranked. Re-deriving either here would only
        invite the two scorers to disagree. */
     band: hit.band,
-    score: hit.score,
+    score: hit.score ?? 0,
     nameRanges: hit.nameRanges,
     pathRanges: hit.pathRanges,
   };

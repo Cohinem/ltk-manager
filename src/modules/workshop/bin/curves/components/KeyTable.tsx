@@ -4,6 +4,7 @@ import { DataTable, type DataTableColumn } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { Notice } from "../../shared/preview/Notice";
 import { Swatch } from "../../values/components/ColorMark";
 import {
   colorHex,
@@ -31,7 +32,7 @@ interface KeyTableProps {
  * own hands the selection down, so its mark and this row are one choice.
  */
 export function KeyTable({ keys, family, selected, onSelect }: KeyTableProps) {
-  if (keys.length === 0) return <Empty />;
+  if (keys.length === 0) return <Notice text={m.workshop_bin_curve_keys_empty()} />;
 
   const names = CHANNELS[family];
   const columns: DataTableColumn<CurveKey>[] = [
@@ -103,17 +104,9 @@ function ColorCell({ values }: { values: readonly number[] }) {
   const rgba: ColorStop["rgba"] = [r, g, b, a];
   return (
     <span className="flex items-center gap-1.5">
-      <Swatch rgba={rgba} className="h-3 w-3" />
+      <Swatch rgba={rgba} className="size-3" />
       <span className="text-surface-400 select-text">{colorHex(rgba)}</span>
     </span>
-  );
-}
-
-function Empty() {
-  return (
-    <div className="flex min-h-0 flex-1 items-center justify-center text-meta text-surface-500">
-      {m.workshop_bin_curve_keys_empty()}
-    </div>
   );
 }
 

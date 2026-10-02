@@ -59,17 +59,29 @@ interface FaceModel {
   readonly rotation: [number, number, number];
 }
 
-/** The three faces, each between two arms and looking along the third. */
-const FACES: readonly FaceModel[] = [
-  { normal: AXES[2], rotation: [0, 0, 0] },
-  { normal: AXES[0], rotation: [0, Math.PI / 2, 0] },
-  { normal: AXES[1], rotation: [-Math.PI / 2, 0, 0] },
+/** The turn of each face, which lies between two arms and looks along the third. */
+const FACE_TURNS: readonly (readonly [number, [number, number, number]])[] = [
+  [2, [0, 0, 0]],
+  [0, [0, Math.PI / 2, 0]],
+  [1, [-Math.PI / 2, 0, 0]],
 ];
+
+/** The viewport's own axes, unmirrored. */
+const UNSIGNED: Look = [1, 1, 1];
 
 export interface OrientationGizmoProps {
   readonly colors: SceneColors;
   /** An arm's head or a face was picked, so the reader wants the camera standing on its `look`. */
   readonly onLook: (look: Look) => void;
+  /**
+   * What each axis is multiplied by, so a gizmo can draw a space mirrored against the
+   * viewport's, such as the bin's with `AXIS_SIGN`. A look it reports is still the viewport's.
+   */
+  readonly sign?: Look;
+  /** An arm's length in pixels. */
+  readonly size?: number;
+  /** Where the gizmo sits, in pixels off the pane's top left corner. */
+  readonly margin?: [number, number];
 }
 
 /**
@@ -81,24 +93,43 @@ export interface OrientationGizmoProps {
  * itself, so the stand goes through the same controls a preset does and the store learns
  * which preset it is. Drawn in the viewport's own axes.
  */
-export function OrientationGizmo({ colors, onLook }: OrientationGizmoProps) {
+export function OrientationGizmo({
+  colors,
+  onLook,
+  sign = UNSIGNED,
+  size = SIZE,
+  margin = MARGIN,
+}: OrientationGizmoProps) {
+  const axes = useMemo(
+    () =>
+      AXES.map((axis) => ({
+        ...axis,
+        look: [axis.look[0] * sign[0], axis.look[1] * sign[1], axis.look[2] * sign[2]] as const,
+      })),
+    [sign],
+  );
+  const faces = useMemo(
+    () => FACE_TURNS.map(([at, rotation]): FaceModel => ({ normal: axes[at]!, rotation })),
+    [axes],
+  );
   const pick = (event: ThreeEvent<MouseEvent>, look: Look) => {
     event.stopPropagation();
     onLook(look);
   };
 
   return (
-    <GizmoHelper alignment="top-left" margin={MARGIN} renderPriority={OVER_THE_FRAME}>
-      <group scale={SIZE}>
+    <GizmoHelper alignment="top-left" margin={margin} renderPriority={OVER_THE_FRAME}>
+      <group scale={size}>
         {/* Stood back by half a cube, so the corner turns about the cube's own middle. */}
-        <group position={[-0.5, -0.5, -0.5]}>
-          {AXES.map((axis) => (
+        <group position={[-0.5 * sign[0], -0.5 * sign[1], -0.5 * sign[2]]}>
+          {axes.map((axis) => (
             <Arm key={axis.label} axis={axis} color={colors[axis.channel]} onPick={pick} />
           ))}
-          {FACES.map((face) => (
+          {faces.map((face) => (
             <Face
               key={face.normal.label}
               face={face}
+              sign={sign}
               color={colors[face.normal.channel]}
               onPick={pick}
             />
@@ -150,11 +181,12 @@ function Arm({ axis, color, onPick }: ArmProps) {
 
 interface FaceProps extends PickProps {
   readonly face: FaceModel;
+  readonly sign: Look;
   readonly color: Color;
 }
 
 /** The square between two arms, filled thin in the colour of the axis it looks along. */
-function Face({ face, color, onPick }: FaceProps) {
+function Face({ face, sign, color, onPick }: FaceProps) {
   const { normal, rotation } = face;
   const [hovered, setHovered] = useState(false);
   const span = FACE_TO - FACE_FROM;
@@ -162,9 +194,9 @@ function Face({ face, color, onPick }: FaceProps) {
   /* The square's middle lies in its plane, which is off the corner along both arms
      it spans and not at all along its normal. */
   const position: [number, number, number] = [
-    normal.look[0] === 0 ? middle : 0,
-    normal.look[1] === 0 ? middle : 0,
-    normal.look[2] === 0 ? middle : 0,
+    normal.look[0] === 0 ? middle * sign[0] : 0,
+    normal.look[1] === 0 ? middle * sign[1] : 0,
+    normal.look[2] === 0 ? middle * sign[2] : 0,
   ];
   const half = span / 2;
   const border = useMemo<[number, number, number][]>(

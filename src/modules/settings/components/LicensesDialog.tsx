@@ -1,8 +1,7 @@
-import { ChevronRight, Search } from "lucide-react";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 
-import { AlertBox, Dialog, ExternalLink, Field, Spinner } from "@/components";
-import { twMerge } from "@/utils";
+import { AlertBox, Dialog, Disclosure, ExternalLink, Field, LoadingState } from "@/components";
 
 import { type LicenseText, type ThirdPartyCrate, useThirdPartyLicenses } from "../api";
 
@@ -47,11 +46,7 @@ function LicensesContent({ open }: { open: boolean }) {
   }, [manifest, query]);
 
   if (isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner size="lg" />
-      </div>
-    );
+    return <LoadingState size="lg" />;
   }
 
   if (error || !manifest) {
@@ -65,7 +60,7 @@ function LicensesContent({ open }: { open: boolean }) {
   return (
     <>
       <Field.Root className="relative shrink-0">
-        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-500" />
+        <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-surface-500" />
         <Field.Control
           type="text"
           placeholder={`Search ${manifest.crates.length} libraries...`}
@@ -95,46 +90,36 @@ function LicensesContent({ open }: { open: boolean }) {
 }
 
 function CrateEntry({ crate, texts }: { crate: ThirdPartyCrate; texts: LicenseText[] }) {
-  const [expanded, setExpanded] = useState(false);
-
   const licenseIds = [...new Set(crate.licenses.map((index) => texts[index].id))];
 
   return (
-    <li className="border border-surface-600 bg-surface-800/50 first:rounded-t last:rounded-b">
-      <button
-        type="button"
-        onClick={() => setExpanded((prev) => !prev)}
-        className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-surface-700/50"
-      >
-        <ChevronRight
-          className={twMerge(
-            "h-4 w-4 shrink-0 text-surface-500 transition-transform duration-150",
-            expanded && "rotate-90",
-          )}
-        />
+    <Disclosure.Root
+      render={<li />}
+      className="border border-surface-600 bg-surface-800/50 first:rounded-t-sm last:rounded-b-sm"
+    >
+      <Disclosure.Trigger className="flex w-full items-center gap-2 px-3 py-2 transition-colors hover:bg-surface-700/50">
+        <Disclosure.Caret className="size-4 text-surface-500" />
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-surface-100">
           {crate.name}
           <span className="ml-2 font-normal text-surface-500">{crate.version}</span>
         </span>
         <span className="shrink-0 text-xs text-surface-400">{licenseIds.join(", ")}</span>
-      </button>
-      {expanded && (
-        <div className="flex flex-col gap-3 border-t border-surface-700 px-3 py-3">
-          {crate.url && (
-            <ExternalLink href={crate.url} className="self-start text-xs">
-              {crate.url}
-            </ExternalLink>
-          )}
-          {crate.licenses.map((index) => (
-            <div key={index}>
-              <p className="mb-1 text-xs font-medium text-surface-300">{texts[index].name}</p>
-              <pre className="rounded-md bg-surface-900/60 p-3 text-xs leading-relaxed whitespace-pre-wrap text-surface-300">
-                {texts[index].text}
-              </pre>
-            </div>
-          ))}
-        </div>
-      )}
-    </li>
+      </Disclosure.Trigger>
+      <Disclosure.Panel className="flex flex-col gap-3 border-t border-surface-700 px-3 py-3">
+        {crate.url && (
+          <ExternalLink href={crate.url} className="self-start text-xs">
+            {crate.url}
+          </ExternalLink>
+        )}
+        {crate.licenses.map((index) => (
+          <div key={index}>
+            <p className="mb-1 text-xs font-medium text-surface-300">{texts[index].name}</p>
+            <pre className="rounded-md bg-surface-900/60 p-3 text-xs leading-relaxed whitespace-pre-wrap text-surface-300">
+              {texts[index].text}
+            </pre>
+          </div>
+        ))}
+      </Disclosure.Panel>
+    </Disclosure.Root>
   );
 }

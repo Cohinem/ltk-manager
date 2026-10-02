@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
 import { api, type AppError } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -27,8 +26,8 @@ export function useDeleteLayerContent() {
   const queryClient = useQueryClient();
   const toast = useToast();
 
-  return useMutation<void, AppError, DeleteLayerContentArgs>({
-    meta: { silentError: true },
+  return useMutation<null, AppError, DeleteLayerContentArgs>({
+    meta: { errorTitle: "Couldn't delete" },
     mutationFn: async ({ projectPath, layerName, relativePath }) => {
       const result = await api.deleteLayerContent(projectPath, layerName, relativePath);
       return unwrapForQuery(result);
@@ -36,9 +35,6 @@ export function useDeleteLayerContent() {
     onSuccess: (_result, { projectPath, name }) => {
       queryClient.invalidateQueries({ queryKey: workshopKeys.contentTree(projectPath) });
       toast.success(`Deleted ${name}`);
-    },
-    onError: (error) => {
-      toast.error("Couldn't delete", errorSummary(error));
     },
   });
 }

@@ -204,15 +204,12 @@ function LockToggle({ locked, onToggle }: LockToggleProps) {
   return (
     <IconButton
       icon={<LockGlyph closed={locked} weight="bold" />}
-      variant="ghost"
-      size="xs"
-      compact
       title={label}
       aria-label={label}
       aria-pressed={locked}
       onClick={() => onToggle(!locked)}
       className={twMerge(
-        "mr-2 h-6 w-6 shrink-0 opacity-0 transition-opacity",
+        "mr-2 size-6 shrink-0 opacity-0 transition-opacity",
         "group-hover/strip:opacity-100 focus-visible:opacity-100",
         locked && "text-accent-400 opacity-100",
       )}
@@ -223,8 +220,8 @@ function LockToggle({ locked, onToggle }: LockToggleProps) {
 /* The gesture on offer rather than the state, the way the lock item is: a tab
    that is not pinned shows the pin its item would give it. */
 function PinGlyph({ pinned }: { pinned: boolean }) {
-  if (pinned) return <PushPinSlashIcon className="h-4 w-4" />;
-  return <PushPinIcon className="h-4 w-4" />;
+  if (pinned) return <PushPinSlashIcon className="size-4" />;
+  return <PushPinIcon className="size-4" />;
 }
 
 interface LockGlyphProps {
@@ -234,8 +231,8 @@ interface LockGlyphProps {
 }
 
 function LockGlyph({ closed, weight = "regular" }: LockGlyphProps) {
-  if (closed) return <LockSimpleIcon weight={weight} className="h-4 w-4" />;
-  return <LockSimpleOpenIcon weight={weight} className="h-4 w-4" />;
+  if (closed) return <LockSimpleIcon weight={weight} className="size-4" />;
+  return <LockSimpleOpenIcon weight={weight} className="size-4" />;
 }
 
 /**
@@ -358,9 +355,7 @@ const SortableTab = memo(function SortableTab({
         {tab.icon && <TabGlyph>{tab.icon}</TabGlyph>}
         <span className={twMerge("truncate", tab.preview && "italic")}>{tab.title}</span>
         {tab.context && (
-          <span className="shrink-[3] truncate text-[0.6875rem] text-surface-400">
-            {tab.context}
-          </span>
+          <span className="shrink-[3] truncate text-meta text-surface-400">{tab.context}</span>
         )}
       </Tabs.Tab>
 
@@ -407,107 +402,100 @@ const SortableTab = memo(function SortableTab({
       {caretBefore && <DropCaret />}
       <ContextMenu.Root>
         <ContextMenu.Trigger render={<div {...tabProps} />}>{body}</ContextMenu.Trigger>
-        <ContextMenu.Portal>
-          <ContextMenu.Positioner>
-            <ContextMenu.Popup className="w-60">
-              {tab.menu && (
-                <>
-                  {tab.menu}
-                  <ContextMenu.Separator />
-                </>
-              )}
-              {onTogglePin && (
-                <>
-                  <ContextMenu.Item
-                    icon={<PinGlyph pinned={pinned} />}
-                    onClick={() => onTogglePin(tab.id, !pinned)}
-                  >
-                    {pinLabel}
-                  </ContextMenu.Item>
-                  <ContextMenu.Separator />
-                </>
-              )}
-
-              <ContextMenu.Item
-                icon={<XIcon className="h-4 w-4" />}
-                onClick={() => onClose(tab.id)}
-              >
-                {m.editor_tab_close_action()}
-              </ContextMenu.Item>
-              <ContextMenu.Item
-                icon={<XSquareIcon className="h-4 w-4" />}
-                disabled={!othersClosable || !onCloseOthers}
-                onClick={() => onCloseOthers?.(tab.id)}
-              >
-                {m.editor_tab_close_others_action()}
-              </ContextMenu.Item>
-              <ContextMenu.Item
-                icon={<ArrowLineRightIcon className="h-4 w-4" />}
-                disabled={!rightClosable || !onCloseToRight}
-                onClick={() => onCloseToRight?.(tab.id)}
-              >
-                {m.editor_tab_close_right_action()}
-              </ContextMenu.Item>
-              <ContextMenu.Item
-                icon={<XCircleIcon className="h-4 w-4" />}
-                disabled={!allClosable || !onCloseAll}
-                onClick={() => onCloseAll?.()}
-              >
-                {m.editor_tab_close_all_action()}
-              </ContextMenu.Item>
-
+        <ContextMenu.Content className="w-60">
+          {tab.menu && (
+            <>
+              {tab.menu}
               <ContextMenu.Separator />
-
+            </>
+          )}
+          {onTogglePin && (
+            <>
               <ContextMenu.Item
-                icon={<PathIcon className="h-4 w-4" />}
-                disabled={tab.path === undefined}
-                onClick={() => tab.path !== undefined && void copy(tab.path, "path")}
+                icon={<PinGlyph pinned={pinned} />}
+                onClick={() => onTogglePin(tab.id, !pinned)}
               >
-                {m.editor_tab_copy_path_action()}
+                {pinLabel}
+              </ContextMenu.Item>
+              <ContextMenu.Separator />
+            </>
+          )}
+
+          <ContextMenu.Item icon={<XIcon className="size-4" />} onClick={() => onClose(tab.id)}>
+            {m.editor_tab_close_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            icon={<XSquareIcon className="size-4" />}
+            disabled={!othersClosable || !onCloseOthers}
+            onClick={() => onCloseOthers?.(tab.id)}
+          >
+            {m.editor_tab_close_others_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            icon={<ArrowLineRightIcon className="size-4" />}
+            disabled={!rightClosable || !onCloseToRight}
+            onClick={() => onCloseToRight?.(tab.id)}
+          >
+            {m.editor_tab_close_right_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            icon={<XCircleIcon className="size-4" />}
+            disabled={!allClosable || !onCloseAll}
+            onClick={() => onCloseAll?.()}
+          >
+            {m.editor_tab_close_all_action()}
+          </ContextMenu.Item>
+
+          <ContextMenu.Separator />
+
+          <ContextMenu.Item
+            icon={<PathIcon className="size-4" />}
+            disabled={tab.path === undefined}
+            onClick={() => tab.path !== undefined && void copy(tab.path, "path")}
+          >
+            {m.editor_tab_copy_path_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            icon={<CopyIcon className="size-4" />}
+            onClick={() => void copy(tab.title, "name")}
+          >
+            {m.editor_tab_copy_name_action()}
+          </ContextMenu.Item>
+
+          {onSplit && (
+            <>
+              <ContextMenu.Separator />
+              <ContextMenu.Item
+                icon={<SquareSplitHorizontalIcon className="size-4" />}
+                disabled={!splittable}
+                onClick={() => onSplit(tab.id, "right")}
+              >
+                {m.editor_tab_split_right_action()}
               </ContextMenu.Item>
               <ContextMenu.Item
-                icon={<CopyIcon className="h-4 w-4" />}
-                onClick={() => void copy(tab.title, "name")}
+                icon={<SquareSplitVerticalIcon className="size-4" />}
+                disabled={!splittable}
+                onClick={() => onSplit(tab.id, "bottom")}
               >
-                {m.editor_tab_copy_name_action()}
+                {m.editor_tab_split_down_action()}
               </ContextMenu.Item>
+            </>
+          )}
 
-              {onSplit && (
-                <>
-                  <ContextMenu.Separator />
-                  <ContextMenu.Item
-                    icon={<SquareSplitHorizontalIcon className="h-4 w-4" />}
-                    disabled={!splittable}
-                    onClick={() => onSplit(tab.id, "right")}
-                  >
-                    {m.editor_tab_split_right_action()}
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    icon={<SquareSplitVerticalIcon className="h-4 w-4" />}
-                    disabled={!splittable}
-                    onClick={() => onSplit(tab.id, "bottom")}
-                  >
-                    {m.editor_tab_split_down_action()}
-                  </ContextMenu.Item>
-                </>
-              )}
-
-              {onToggleLock && (
-                <>
-                  <ContextMenu.Separator />
-                  {/* The glyph is the gesture on offer rather than the state, so an
+          {onToggleLock && (
+            <>
+              <ContextMenu.Separator />
+              {/* The glyph is the gesture on offer rather than the state, so an
                       unlocked group shows the shut padlock its item would give it. */}
-                  <ContextMenu.Item
-                    icon={<LockGlyph closed={!locked} />}
-                    onClick={() => onToggleLock(!locked)}
-                  >
-                    {lockLabel}
-                  </ContextMenu.Item>
-                </>
-              )}
-            </ContextMenu.Popup>
-          </ContextMenu.Positioner>
-        </ContextMenu.Portal>
+              <ContextMenu.Item
+                icon={<LockGlyph closed={!locked} />}
+                onClick={() => onToggleLock(!locked)}
+              >
+                {lockLabel}
+              </ContextMenu.Item>
+            </>
+          )}
+        </ContextMenu.Content>
       </ContextMenu.Root>
       {dividerAfter && <PinnedDivider />}
     </>
@@ -539,7 +527,7 @@ function TrailingButton({ tab, pinned, onClose, onTogglePin }: TrailingButtonPro
   /* Out of flow, so revealing it never resizes the strip. The fill arrives with
      it, to mask the label it now covers. */
   const className = twMerge(
-    "absolute top-0 right-1 bottom-0.5 z-10 my-auto h-5 w-5 opacity-0 transition-opacity",
+    "absolute top-0 right-1 bottom-0.5 z-10 my-auto size-5 opacity-0 transition-opacity",
     "group-hover/tab:bg-surface-800 group-hover/tab:opacity-100 hover:bg-surface-700",
     "focus-visible:opacity-100",
     (tab.dirty === true || pinned) && "opacity-100",
@@ -548,10 +536,7 @@ function TrailingButton({ tab, pinned, onClose, onTogglePin }: TrailingButtonPro
   if (pinned && onTogglePin) {
     return (
       <IconButton
-        icon={<PushPinIcon weight="fill" className="h-3 w-3" />}
-        variant="ghost"
-        size="xs"
-        compact
+        icon={<PushPinIcon weight="fill" className="size-3" />}
         onClick={() => onTogglePin(tab.id, false)}
         title={m.editor_tab_unpin_label({ title: tab.title })}
         aria-label={m.editor_tab_unpin_label({ title: tab.title })}
@@ -563,9 +548,6 @@ function TrailingButton({ tab, pinned, onClose, onTogglePin }: TrailingButtonPro
   return (
     <IconButton
       icon={<CloseGlyph dirty={tab.dirty} />}
-      variant="ghost"
-      size="xs"
-      compact
       onClick={() => onClose(tab.id)}
       aria-label={m.editor_tab_close_label({ title: tab.title })}
       className={className}
@@ -574,12 +556,12 @@ function TrailingButton({ tab, pinned, onClose, onTogglePin }: TrailingButtonPro
 }
 
 function CloseGlyph({ dirty }: { dirty?: boolean }) {
-  if (!dirty) return <XIcon weight="bold" className="h-3 w-3" />;
+  if (!dirty) return <XIcon weight="bold" className="size-3" />;
 
   return (
     <>
-      <span aria-hidden="true" className="h-2 w-2 rounded-full bg-current group-hover/tab:hidden" />
-      <XIcon weight="bold" className="hidden h-3 w-3 group-hover/tab:block" />
+      <span aria-hidden="true" className="size-2 rounded-full bg-current group-hover/tab:hidden" />
+      <XIcon weight="bold" className="hidden size-3 group-hover/tab:block" />
     </>
   );
 }

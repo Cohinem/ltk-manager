@@ -65,13 +65,13 @@ export function DeleteContentPopover({
             <Popover.Arrow />
 
             <div className="flex flex-col gap-3 p-3">
-              <p className="rounded-md border border-surface-600 bg-surface-950/40 px-2.5 py-2 font-mono text-[0.6875rem] leading-relaxed break-all text-surface-500">
+              <p className="rounded-md border border-surface-600 bg-surface-950/40 px-2.5 py-2 font-mono text-meta leading-relaxed break-all text-surface-500">
                 {keeps}
                 <span className="text-surface-100">{goes}</span>
               </p>
 
               <div className="flex items-start gap-2.5">
-                <WarningIcon className="mt-px h-4 w-4 shrink-0 text-danger-text" />
+                <WarningIcon className="mt-px size-4 shrink-0 text-danger-text" />
                 <div className="flex min-w-0 flex-col gap-1">
                   <Popover.Title className="font-medium text-danger-text">
                     {describeLoss(target)}

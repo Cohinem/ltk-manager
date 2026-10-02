@@ -13,16 +13,15 @@
 //! Neither offers a repair, because which value the author meant is not in the
 //! file.
 
-use std::borrow::Cow;
-
+use crate::hashing::named;
 use ltk_hash::BinHash;
-use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit, Visitor};
+use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit};
 
 use crate::problems::names::BinNames;
-use crate::problems::walk::{Address, Declared, FieldNames};
+use crate::problems::walk::{Address, Declared};
 use crate::problems::{
-    Applied, BinVisitor, Detail, FixError, FixRun, NodeAddress, Pass, Problem, Rule, RuleId,
-    Severity, Sink, Walk,
+    Applied, BinVisitor, Detail, FixError, FixRun, NodeAddress, Pass, Problem, ProblemSeverity,
+    PropertyRead, PropertyWalk, Rule, RuleId, RuleMeta, Sink, Walk,
 };
 
 /// The id every row of the per-frame rule carries.
@@ -32,19 +31,19 @@ pub const PER_FRAME_ID: RuleId = RuleId("vfx/per-frame-random");
 pub const BROKEN_ID: RuleId = RuleId("vfx/broken-random");
 
 /// `probabilityTables`, the list of one table per channel under a value's `dynamics`.
-const PROBABILITY_TABLES: BinHash = BinHash(0xa708_4719);
+const PROBABILITY_TABLES: BinHash = named("probabilityTables");
 
 /// `keyTimes`, a table's chances.
-const KEY_TIMES: BinHash = BinHash(0x40c3_51da);
+const KEY_TIMES: BinHash = named("keyTimes");
 
 /// `keyValues`, a table's factors.
-const KEY_VALUES: BinHash = BinHash(0xe44b_7382);
+const KEY_VALUES: BinHash = named("keyValues");
 
 /// `dynamics`, the pointer from a value to its curve and its tables.
-const DYNAMICS: BinHash = BinHash(0xbc03_7de7);
+const DYNAMICS: BinHash = named("dynamics");
 
 /// `VfxEmitterDefinitionData`, the class whose per-frame fields these are.
-const EMITTER: BinHash = BinHash(0x09cd_e442);
+const EMITTER: BinHash = named("VfxEmitterDefinitionData");
 
 /// `Color` and `scale0`, the per-frame fields a table is attested to re-roll on.
 const REROLLED: [BinHash; 2] = [BinHash(0x3d7e_6258), BinHash(0xd4e1_7a53)];
@@ -60,25 +59,18 @@ impl VfxPerFrameRandom {
     }
 }
 
+/// The rule as the catalogue lists it.
+const PER_FRAME_META: RuleMeta = RuleMeta {
+    id: PER_FRAME_ID,
+    title: "Per-frame random table",
+    description: "A probability table on a value the game reads every frame, so its particles flicker",
+    unfixable: "Couldn't move the table because the birth value it was meant for isn't in the file",
+    severity: Some(ProblemSeverity::Warning),
+};
+
 impl Rule for VfxPerFrameRandom {
-    fn id(&self) -> RuleId {
-        PER_FRAME_ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Per-frame random table"
-    }
-
-    fn description(&self) -> &'static str {
-        "A probability table on a value the game reads every frame, so its particles flicker"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't move the table because the birth value it was meant for isn't in the file"
-    }
-
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Warning)
+    fn meta(&self) -> &RuleMeta {
+        &PER_FRAME_META
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -90,7 +82,7 @@ impl Rule for VfxPerFrameRandom {
     }
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        Ok(skip_all(problems, run))
+        Ok(run.skip_all(problems))
     }
 }
 
@@ -105,25 +97,18 @@ impl VfxBrokenRandom {
     }
 }
 
+/// The rule as the catalogue lists it.
+const BROKEN_META: RuleMeta = RuleMeta {
+    id: BROKEN_ID,
+    title: "Unreadable random table set",
+    description: "A probability table set the game can't read, which crashes it or zeroes the value",
+    unfixable: "Couldn't complete the set because the tables the author meant aren't in the file",
+    severity: Some(ProblemSeverity::Error),
+};
+
 impl Rule for VfxBrokenRandom {
-    fn id(&self) -> RuleId {
-        BROKEN_ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Unreadable random table set"
-    }
-
-    fn description(&self) -> &'static str {
-        "A probability table set the game can't read, which crashes it or zeroes the value"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't complete the set because the tables the author meant aren't in the file"
-    }
-
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Error)
+    fn meta(&self) -> &RuleMeta {
+        &BROKEN_META
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -135,18 +120,7 @@ impl Rule for VfxBrokenRandom {
     }
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        Ok(skip_all(problems, run))
-    }
-}
-
-/// Every problem recorded as skipped, since neither rule derives a repair.
-fn skip_all(problems: &[&Problem], run: &mut FixRun<'_>) -> Applied {
-    for problem in problems {
-        run.skipped(&problem.site.layer, &problem.site.path, 1);
-    }
-    Applied {
-        applied: 0,
-        skipped: u32::try_from(problems.len()).unwrap_or(u32::MAX),
+        Ok(run.skip_all(problems))
     }
 }
 
@@ -165,42 +139,46 @@ struct Tables<'p> {
 
 impl BinVisitor for Tables<'_> {
     fn begin<'r, 'f: 'r>(&'r self, sink: Sink<'f>) -> Box<dyn Walk<'f> + 'r> {
-        Box::new(Reading {
-            fault: self.fault,
-            names: Names(self.names),
+        Box::new(PropertyWalk::new(
+            Reading {
+                fault: self.fault,
+                names: self.names,
+            },
             sink,
-        })
+        ))
     }
 }
 
-/// One bin's walk, reporting each table list its rule objects to.
-struct Reading<'n, 'f> {
+/// One bin's read, reporting each table list its rule objects to.
+struct Reading<'n> {
     fault: Fault,
-    names: Names<'n>,
-    sink: Sink<'f>,
+    names: &'n BinNames,
 }
 
-impl<'a, V: Declared<'a>> Visitor<'a, V> for Reading<'_, '_> {
-    type Error = ltk_meta::Error;
-
+impl PropertyRead for Reading<'_> {
     /// Read a table list and prune it, since nothing under one holds another.
-    fn enter_property(
+    fn property<'a, V: Declared<'a>>(
         &mut self,
         field: BinHash,
         value: V,
         node: &Node<'_, 'a, V>,
+        sink: &mut Sink<'_>,
     ) -> Result<Visit, ltk_meta::Error> {
         if field != PROBABILITY_TABLES {
             return Ok(Visit::Continue);
         }
         let set = TableSet::read(value)?;
         let finding = match self.fault {
-            Fault::PerFrame => (set.random && rerolled(node)).then_some((Severity::Warning, None)),
-            Fault::Broken => set.fault().map(|message| (Severity::Error, Some(message))),
+            Fault::PerFrame => {
+                (set.random && rerolled(node)).then_some((ProblemSeverity::Warning, None))
+            }
+            Fault::Broken => set
+                .fault()
+                .map(|message| (ProblemSeverity::Error, Some(message))),
         };
         if let Some((severity, message)) = finding {
-            let address = Address::of(node.trail(), field, node.class_hash(), &self.names);
-            self.sink.problem(
+            let address = Address::of(node.trail(), field, node.class_hash(), self.names);
+            sink.problem(
                 severity,
                 Some(NodeAddress {
                     entry: node.object_hash(),
@@ -215,12 +193,6 @@ impl<'a, V: Declared<'a>> Visitor<'a, V> for Reading<'_, '_> {
             );
         }
         Ok(Visit::Skip)
-    }
-}
-
-impl<'f> Walk<'f> for Reading<'_, 'f> {
-    fn end(self: Box<Self>) -> Sink<'f> {
-        self.sink
     }
 }
 
@@ -321,19 +293,6 @@ fn varies<'a, V: TreeValue<'a>>(factors: V) -> Result<bool, ltk_meta::Error> {
         }
     }
     Ok(false)
-}
-
-/// The run's names, spelling a finding's path.
-struct Names<'n>(&'n BinNames);
-
-impl FieldNames for Names<'_> {
-    fn field(&self, field: BinHash, _class: Option<BinHash>) -> Option<Cow<'_, str>> {
-        self.0.field(field).map(Cow::Owned)
-    }
-
-    fn hash(&self, hash: BinHash) -> Option<Cow<'_, str>> {
-        self.0.value(hash).map(Cow::Owned)
-    }
 }
 
 #[cfg(test)]

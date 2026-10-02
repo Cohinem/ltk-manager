@@ -159,20 +159,22 @@ export function yawInto(direction: Point, out: Float32Array): Float32Array {
 
 /**
  * The basis a missile flies on, into `out`: local `Y` along `direction` laid flat, local
- * `X` to its right and local `Z` down.
+ * `Z` up and local `X` to its left.
  *
  * A missile-attached system takes the game object's own matrix rather than one the VFX
  * code builds, so the rig stands in for that object and has to carry its convention.
  * Shipped missiles author their travel
  * on `Y`: `Ezreal_Base_BA_crit_mis` gives `arcane_noodles` no rotation at all and
  * `birthVelocity (50, -200, 0)` with `birthScale0 (20, 70, 1)`, a quad 70 long on the
- * axis it streams back along. A direction with no reach in the plane flies forward.
+ * axis it streams back along. `Xerath_Base_E_mis` fixes `Z` up: `GroundGlow` is an unrotated
+ * arbitrary quad spawned at `(0, 0, -100)`, which lies flat under the missile only when `-Z`
+ * is down. A direction with no reach in the plane flies forward.
  */
 export function flightInto(direction: Point, out: Float32Array): Float32Array {
   const length = Math.hypot(direction[0], direction[2]);
   const x = length === 0 ? 0 : direction[0] / length;
   const z = length === 0 ? 1 : direction[2] / length;
-  out.set([z, x, 0, 0, 0, -1, -x, z, 0]);
+  out.set([-z, x, 0, 0, 0, 1, x, z, 0]);
   return out;
 }
 

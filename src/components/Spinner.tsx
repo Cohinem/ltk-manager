@@ -1,20 +1,25 @@
-import { Loader2 } from "lucide-react";
+import { SpinnerGapIcon } from "@phosphor-icons/react";
 
 import { twMerge } from "@/utils";
 
 const sizeClasses = {
-  sm: "h-4 w-4",
-  md: "h-6 w-6",
-  lg: "h-8 w-8",
+  xs: "size-3",
+  sm: "size-4",
+  md: "size-6",
+  lg: "size-8",
 } as const;
 
 export interface SpinnerProps {
-  size?: "sm" | "md" | "lg";
+  size?: keyof typeof sizeClasses;
   className?: string;
 }
 
+/** A pending mark, muted unless `className` gives it a colour. */
 export function Spinner({ size = "md", className }: SpinnerProps) {
   return (
-    <Loader2 className={twMerge("animate-spin text-surface-400", sizeClasses[size], className)} />
+    <SpinnerGapIcon
+      weight="bold"
+      className={twMerge("animate-spin text-surface-400", sizeClasses[size], className)}
+    />
   );
 }

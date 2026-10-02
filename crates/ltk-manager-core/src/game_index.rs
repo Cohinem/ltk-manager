@@ -3,16 +3,16 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BinaryHeap, HashSet};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{WadHash, hex_name};
-use parking_lot::Mutex;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::error::AppResult;
-use crate::game_wads::GameArchives;
+use crate::game_wads::{GameArchives, WadSource};
+use crate::generation::{Generation, line};
 use crate::matcher::{FindQuery, Query, Range, letter_mask, mask_covers};
+use crate::utils::lazy_slot::LazySlot;
 use crate::utils::natural_order::compare_names;
 
 /// The directory id of the group holding chunks no hash table names.
@@ -23,8 +23,7 @@ pub const UNKNOWN_DIR: &str = "?";
 
 /// What one directory of the folded index holds.
 #[derive(Debug, Clone, Default, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameDirListing {
     /// Subdirectories, sorted by name.
@@ -35,8 +34,7 @@ pub struct GameDirListing {
 
 /// One subdirectory, folded through any chain of single-child directories.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameDirEntry {
     /// What [`GameIndex::read_dir`] takes to open this row, forward slashes.
@@ -49,9 +47,7 @@ pub struct GameDirEntry {
 
 /// One file of the folded index, in the shape a single archive reads back.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct GameFileEntry {
     /// Chunk path hash as 16 lowercase hex digits.
@@ -60,7 +56,7 @@ pub struct GameFileEntry {
     pub path: Option<String>,
     /// Uncompressed chunk size.
     pub size_bytes: u64,
-    /// The `DATA/FINAL`-relative archive the chunk was read from.
+    /// The archive the chunk was read from, relative to its source's root.
     ///
     /// The fold drops every copy of a chunk after the first, so this names the
     /// archive that copy came from and not every archive that carries it.
@@ -69,8 +65,7 @@ pub struct GameFileEntry {
 
 /// What a built index holds.
 #[derive(Debug, Clone, Copy, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameIndexStats {
     /// Archives merged, including any that failed to read.
@@ -86,8 +81,7 @@ pub struct GameIndexStats {
 /// Marked runs are byte offsets into `name` and `path`, which the palette
 /// slices to lift the matched characters out of the rest.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameSearchHit {
     /// Chunk path hash as 16 lowercase hex digits.
@@ -96,7 +90,7 @@ pub struct GameSearchHit {
     pub name: String,
     /// The directory holding it, empty at the root and for an unnamed chunk.
     pub path: String,
-    /// The `DATA/FINAL`-relative archive the chunk was read from.
+    /// The archive the chunk was read from, relative to its source's root.
     pub wad: String,
     /// 0 is a name the query opens, 1 a name holding it, 2 a match reaching the directory.
     pub band: u8,
@@ -107,8 +101,7 @@ pub struct GameSearchHit {
 
 /// What one search of the folded index found.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameSearchResult {
     /// The best rows, best first, capped at [`SEARCH_LIMIT`].
@@ -131,14 +124,27 @@ pub struct GameSearchResult {
 /// How many rows a search returns. Nothing sorts a million of them.
 pub const SEARCH_LIMIT: usize = 100;
 
+/// The files a path field wants ranked first in a search.
+///
+/// Files with an expected extension rank first, then files from the field's archive,
+/// then the bands decide. A preference changes the order of the matches and adds no match.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct SearchPreference {
+    /// The extensions the field expects, without the dot. Empty means no preferred kind.
+    pub extensions: Vec<String>,
+    /// The file name of the field's archive, such as `Ahri.wad.client`.
+    pub archive: Option<String>,
+}
+
 /// One file the full search matched, shaped as an entry a file tree can hold.
 ///
 /// The pattern is matched over the full path, and the marked runs arrive
 /// split at the basename: `name_ranges` are byte offsets into `name`, and
 /// `path_ranges` are byte offsets into the directory prefix of `path`.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameFindHit {
     /// Chunk path hash as 16 lowercase hex digits.
@@ -147,7 +153,7 @@ pub struct GameFindHit {
     pub path: Option<String>,
     /// The path's basename, or the hash when no hash table names the chunk.
     pub name: String,
-    /// The `DATA/FINAL`-relative archive the chunk was read from.
+    /// The archive the chunk was read from, relative to its source's root.
     pub wad: String,
     /// Uncompressed chunk size.
     pub size_bytes: u64,
@@ -157,8 +163,7 @@ pub struct GameFindHit {
 
 /// What one full search of the folded index found.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GameFindResult {
     /// Every matching row in tree order, capped at [`FIND_LIMIT`].
@@ -187,41 +192,19 @@ const STALE_CHECK_INTERVAL: u32 = 4096;
 ///
 /// Without this, a ten-character query runs ten full scans of the install and
 /// only the last of them is one anybody wants.
-#[derive(Debug, Default)]
-pub struct SearchGeneration(AtomicU64);
-
-impl SearchGeneration {
-    /// Take the newest ticket, which every scan already running is now behind.
-    pub fn claim(&self) -> u64 {
-        self.0.fetch_add(1, AtomicOrdering::Relaxed) + 1
-    }
-
-    /// Whether a later search has claimed a ticket since this one.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.load(AtomicOrdering::Relaxed) > ticket
-    }
-}
+pub type SearchGeneration = Generation<line::Palette>;
 
 /// The newest full search asked for, on its own line apart from the palette's.
 ///
 /// Separate from [`SearchGeneration`] so a keystroke in one box never gives up
 /// a scan the other box is waiting on.
-#[derive(Debug, Default)]
-pub struct FindGeneration(SearchGeneration);
+pub type FindGeneration = Generation<line::Find>;
 
-impl FindGeneration {
-    /// Take the newest ticket, which every scan already running is now behind.
-    pub fn claim(&self) -> u64 {
-        self.0.claim()
-    }
-
-    /// Whether a later search has claimed a ticket since this one.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.overtook(ticket)
-    }
-}
+/// The ticket counter for path field searches.
+///
+/// Separate from [`SearchGeneration`], so a path field search cancels only older path field
+/// searches and never a palette search.
+pub type PathSearchGeneration = Generation<line::PathField>;
 
 /// Every archive of an install merged into one deduplicated directory tree.
 ///
@@ -269,7 +252,7 @@ struct File {
 }
 
 impl GameIndex {
-    /// Merge every archive under `DATA/FINAL` into one tree.
+    /// Merge every archive of one source into one tree.
     ///
     /// An archive that cannot be read is logged and skipped, because one
     /// corrupt file in an install is not a reason to show no tree at all.
@@ -367,6 +350,16 @@ impl GameIndex {
     /// wants handed to them unasked, and the palette only reaches this source
     /// once something is typed.
     pub fn search(&self, query: &str, is_overtaken: impl Fn() -> bool) -> GameSearchResult {
+        self.search_preferring(query, &SearchPreference::default(), is_overtaken)
+    }
+
+    /// [`search`](Self::search), with the files `preference` names ranked first.
+    pub fn search_preferring(
+        &self,
+        query: &str,
+        preference: &SearchPreference,
+        is_overtaken: impl Fn() -> bool,
+    ) -> GameSearchResult {
         let unnamed = self.dirs[0].file_count == 0 && !self.unknown.is_empty();
 
         let Some(query) = Query::parse(query) else {
@@ -382,6 +375,7 @@ impl GameIndex {
             index: self,
             mask: query.mask(),
             query,
+            preferred: Preferred::new(self, preference),
             heap: BinaryHeap::with_capacity(SEARCH_LIMIT + 1),
             total: 0,
             path: String::with_capacity(128),
@@ -728,6 +722,7 @@ struct Scan<'a> {
     index: &'a GameIndex,
     /// Split and lowercased once for every candidate that follows.
     query: Query,
+    preferred: Preferred<'a>,
     mask: u32,
     /// The best rows so far, worst at the root so the cap knows what to drop.
     heap: BinaryHeap<Hit>,
@@ -857,6 +852,7 @@ impl Scan<'_> {
         path_ranges: Vec<Range>,
     ) -> Hit {
         Hit {
+            tier: self.preferred.tier(file),
             band,
             score,
             length: (self.path.len() + file.name.len()) as u32,
@@ -1000,9 +996,58 @@ impl FindScan<'_> {
     }
 }
 
+/// A [`SearchPreference`] prepared for one index, checked against each candidate.
+struct Preferred<'a> {
+    extensions: &'a [String],
+    /// Whether each archive, by ordinal, is the one preferred.
+    archives: Vec<bool>,
+}
+
+impl<'a> Preferred<'a> {
+    fn new(index: &GameIndex, preference: &'a SearchPreference) -> Self {
+        let archives = index
+            .wads
+            .iter()
+            .map(|wad| {
+                preference.archive.as_deref().is_none_or(|archive| {
+                    let name = wad.rsplit_once('/').map_or(wad.as_str(), |(_, name)| name);
+                    name.eq_ignore_ascii_case(archive)
+                })
+            })
+            .collect();
+
+        Self {
+            extensions: &preference.extensions,
+            archives,
+        }
+    }
+
+    /// The file's rank group, where 0 ranks first.
+    ///
+    /// A wrong kind adds 2 and a wrong archive adds 1, so a texture from another archive
+    /// still ranks above a mesh from the field's archive.
+    fn tier(&self, file: &File) -> u8 {
+        let kind = self.extensions.is_empty()
+            || file.name.rsplit_once('.').is_some_and(|(_, extension)| {
+                self.extensions
+                    .iter()
+                    .any(|expected| expected.eq_ignore_ascii_case(extension))
+            });
+        let archive = self
+            .archives
+            .get(file.wad as usize)
+            .copied()
+            .unwrap_or(true);
+
+        u8::from(!kind) * 2 + u8::from(!archive)
+    }
+}
+
 /// One kept row, ordered worst first so a bounded heap drops the right one.
 #[derive(Debug)]
 struct Hit {
+    /// The rank group from `Preferred::tier`, where 0 ranks first.
+    tier: u8,
     band: u8,
     score: f64,
     /// The length of `path/name`, so the shorter path wins a tie.
@@ -1011,10 +1056,11 @@ struct Hit {
 }
 
 impl Ord for Hit {
-    /// Greater is worse: a higher band, then a lower score, then a longer path.
+    /// Greater is worse: a higher tier, a higher band, a lower score, then a longer path.
     fn cmp(&self, other: &Self) -> Ordering {
-        self.band
-            .cmp(&other.band)
+        self.tier
+            .cmp(&other.tier)
+            .then_with(|| self.band.cmp(&other.band))
             .then_with(|| other.score.total_cmp(&self.score))
             .then_with(|| self.length.cmp(&other.length))
             .then_with(|| self.row.path.cmp(&other.row.path))
@@ -1058,12 +1104,15 @@ fn split_ranges(ranges: &[Range], boundary: u32) -> (Vec<Range>, Vec<Range>) {
     (path, name)
 }
 
-/// Lazily-built, app-managed [`GameIndex`].
+/// Lazily-built, app-managed [`GameIndex`], one for each [`WadSource`].
 #[derive(Debug, Default)]
-pub struct GameIndexState(Mutex<Option<Arc<GameIndex>>>);
+pub struct GameIndexState {
+    game: LazySlot<GameIndex>,
+    lcu: LazySlot<GameIndex>,
+}
 
 impl GameIndexState {
-    /// Return the index, building it on first use.
+    /// Return the index over `archives`, building it on first use.
     ///
     /// `resolver` is read only when a build happens. The lock is held across
     /// the build, so concurrent callers wait rather than each walking the whole
@@ -1077,19 +1126,26 @@ impl GameIndexState {
         archives: &GameArchives,
         resolver: &LayeredHashDb,
     ) -> AppResult<Arc<GameIndex>> {
-        let mut slot = self.0.lock();
-        if let Some(index) = slot.as_ref() {
-            return Ok(Arc::clone(index));
-        }
-
-        let index = Arc::new(GameIndex::build(archives, resolver)?);
-        *slot = Some(Arc::clone(&index));
-        Ok(index)
+        self.slot(archives.source())
+            .get_or_try_init(|| GameIndex::build(archives, resolver))
     }
 
-    /// Drop the built index, so the next read walks the install again.
-    pub fn clear(&self) {
-        *self.0.lock() = None;
+    /// Drop the built index of one source, so its next read walks the install again.
+    pub fn clear(&self, source: WadSource) {
+        self.slot(source).clear();
+    }
+
+    /// Drop every built index, for a change such as new hash tables that both read.
+    pub fn clear_all(&self) {
+        self.clear(WadSource::Game);
+        self.clear(WadSource::Lcu);
+    }
+
+    fn slot(&self, source: WadSource) -> &LazySlot<GameIndex> {
+        match source {
+            WadSource::Game => &self.game,
+            WadSource::Lcu => &self.lcu,
+        }
     }
 }
 

@@ -1,15 +1,26 @@
+import { DownloadSimpleIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
+import {
+  Button,
+  Inline,
+  Kbd,
+  PageInset,
+  ReadingColumn,
+  Toolbar,
+  ToolbarRow,
+  Tooltip,
+} from "@/components";
 import { usePlatformSupport } from "@/hooks";
+import { m } from "@/i18n";
 import {
   LastGameTile,
   LibraryTile,
   NewsTile,
   NoticeBanners,
-  RecentChanges,
-  RuneforgeBanners,
   StatusLine,
   useMarkHomeSeen,
+  WhatsNew,
 } from "@/modules/home";
 import { PlayButton } from "@/modules/launcher";
 import {
@@ -25,8 +36,9 @@ import { PatcherUnsupported } from "@/modules/patcher";
 /**
  * The page the manager opens on, per docs/ux/HOME.md.
  *
- * The drop, the import dialog and the migration wizard are the library page's,
- * mounted here again over this page's own actions. The two pages never mount
+ * Framed as the library page is: its toolbar with Import and Play at the trailing edge, then an
+ * inset region holding the cards. The drop, the import dialog and the migration wizard are the
+ * library page's, mounted here again over this page's own actions. The two pages never mount
  * together, so a drop lands with whichever is up.
  */
 export function Home() {
@@ -43,34 +55,57 @@ export function Home() {
   const installing = actions.installMod.isPending || actions.bulkInstallMods.isPending;
 
   return (
-    <div data-ui="Home" className="relative h-full">
+    <div data-ui="Home" className="relative flex h-full flex-col">
       <DragDropOverlay visible={isDragOver} />
 
-      {/* Capped and centred: a wider window buys margins, not one wider card. */}
-      <div className="mx-auto flex h-full max-w-6xl flex-col gap-4 p-4">
+      <div className="flex flex-col gap-2 px-4 pt-3 empty:hidden">
         {!patcherAvailable && <PatcherUnsupported />}
         <NoticeBanners />
-
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_20rem] gap-4">
-          <div data-ui="Home:content" className="flex min-h-0 min-w-0 flex-col gap-4">
-            <RuneforgeBanners />
-            <RecentChanges />
-          </div>
-          <div data-ui="Home:rail" className="flex min-h-0 flex-col gap-4">
-            {/* Outside the scroller: the primary action stays put while the tiles move. */}
-            <PlayButton block disabled={installing} />
-            <StatusLine />
-            <div data-ui="Home:tiles" className="flex min-h-0 flex-col gap-4 overflow-y-auto">
-              <LibraryTile
-                onAddMod={actions.handleImportMods}
-                onImportFromCslol={() => setMigrationOpen(true)}
-              />
-              <LastGameTile />
-              <NewsTile />
-            </div>
-          </div>
-        </div>
+        <StatusLine />
       </div>
+
+      <Toolbar>
+        <ToolbarRow className="justify-end">
+          <Inline gap={5}>
+            <Tooltip
+              content={
+                <>
+                  {m.home_library_add_hint()} <Kbd shortcut="Ctrl+I" />
+                </>
+              }
+            >
+              <Button
+                variant="light"
+                size="sm"
+                onClick={actions.handleImportMods}
+                loading={installing}
+                aria-label={m.home_library_add_hint()}
+                left={<DownloadSimpleIcon weight="bold" className="size-4" />}
+              >
+                {m.home_library_add_action()}
+              </Button>
+            </Tooltip>
+
+            <PlayButton disabled={installing} />
+          </Inline>
+        </ToolbarRow>
+      </Toolbar>
+
+      <PageInset>
+        <div data-ui="Home:content" className="flex-1 overflow-auto">
+          <ReadingColumn width="wide">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+              <WhatsNew />
+
+              <div className="order-first flex min-w-0 flex-col gap-4 lg:order-none">
+                <LibraryTile onImportFromCslol={() => setMigrationOpen(true)} />
+                <LastGameTile />
+                <NewsTile />
+              </div>
+            </div>
+          </ReadingColumn>
+        </div>
+      </PageInset>
 
       <ImportProgressDialog
         open={actions.importDialogOpen}

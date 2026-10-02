@@ -5,6 +5,7 @@ import { cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import type { EffectSystem } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
 
@@ -25,7 +26,7 @@ afterEach(cleanup);
 
 function mount(patch: Record<string, unknown> = {}) {
   mockInvoke.mockImplementation(async (command) => {
-    if (command === "read_spell")
+    if (command === commandNames.preview.readSpell)
       return {
         ok: true,
         value: {
@@ -42,7 +43,7 @@ function mount(patch: Record<string, unknown> = {}) {
           ...patch,
         },
       };
-    if (command === "declared_objects")
+    if (command === commandNames.objects.declaredObjects)
       return {
         ok: true,
         value: {

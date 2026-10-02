@@ -91,17 +91,21 @@ export function readLegacyEditorSeed(projectPath: string): PersistedProjectEdito
   return entry === undefined ? null : sanitizeEditorState(entry);
 }
 
-function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEditor | null {
+/** The slice of one project's editor that `.ltk/editor.json` holds, or null for none. */
+export function persistedSlice(editor: ProjectEditor | undefined): PersistedProjectEditor | null {
   if (!editor) return null;
   return {
     documents: editor.documents,
     layout: editor.layout,
     activeLeafId: editor.activeLeafId,
     selectedLayer: editor.selectedLayer,
+    useDeclarations: editor.useDeclarations,
+    selectedModule: editor.selectedModule,
     previewIds: editor.previewIds,
     pinned: editor.pinned,
     shells: editor.shells,
     abilities: editor.abilities,
+    markers: editor.markers,
   };
 }
 
@@ -115,10 +119,13 @@ function sameSlice(a: PersistedProjectEditor | null, b: PersistedProjectEditor |
     a.layout === b.layout &&
     a.activeLeafId === b.activeLeafId &&
     a.selectedLayer === b.selectedLayer &&
+    a.useDeclarations === b.useDeclarations &&
+    a.selectedModule === b.selectedModule &&
     a.previewIds === b.previewIds &&
     a.pinned === b.pinned &&
     a.shells === b.shells &&
-    a.abilities === b.abilities
+    a.abilities === b.abilities &&
+    a.markers === b.markers
   );
 }
 

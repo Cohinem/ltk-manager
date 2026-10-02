@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-10-02 | Integrations adds Mod files, which opens `.fantome` and `.modpkg` files |
 | 2026-09-14 | Integrations adds managed tool installations and classic Explorer menus |
 | 2026-09-06 | The gear returns to the title bar. A menu cannot mark a page current    |
 | 2026-09-04 | A blocked install domain is answered in the dialog, not in Settings     |
@@ -13,7 +14,6 @@
 | 2026-08-25 | Phase 4c shipped. The routed deep link, and the link in the gear's menu |
 | 2026-08-25 | Phase 4b shipped. The index, the public id, the palette and the copy    |
 | 2026-08-25 | Phase 4a shipped. The gutter gear, the modified bar and three resets    |
-| 2026-08-25 | Adopt the VS Code settings editor: a gutter gear replaces the marker    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -95,7 +95,7 @@ A status word has one meaning.
 | The modified bar        | Available | Dimmed accent on the edge of a row that is off its default             |
 | The group reset         | Available | On a group with two or more changed rows, with `Undo`                  |
 | `DS-SETTING-GUTTER`     | Available | In the `design-system` skill, cited by the gutter and the group        |
-| The setting index       | Available | `SETTINGS_INDEX`. Id, key and title for 44 rows, in one table          |
+| The setting index       | Available | `SETTINGS_INDEX`. Id, key and title for 55 rows, in one table          |
 | The public setting id   | Available | `appearance.theme`. Group ids are namespaced beside them               |
 | Copy setting ID         | Available | In the gear's menu, on every row the index carries                     |
 | Settings in the palette | Available | A source of its own, so a resting box still lists the commands         |
@@ -900,7 +900,7 @@ separators do not carry.
 | Card              | Rows | Verdict                                                      |
 | ----------------- | ---- | ------------------------------------------------------------ |
 | League of Legends | 4    | Two groups. It draws a `Separator` today, per the count test |
-| Startup and tray  | 6    | Two groups. Renamed from `System Tray & Autostart`           |
+| Startup and tray  | 7    | Three groups. Renamed from `System Tray & Autostart`         |
 | Import            | -    | An action card, and not a row list                           |
 
 The tab goes single-column. `Startup and tray` runs the full width once it has groups, which leaves
@@ -920,6 +920,7 @@ Card `Startup and tray`:
 | ------- | ---------------------------------------------------------------------------------------------------------- |
 | Startup | Auto run, and its dependent Start in tray unless update available. Always start patcher at launch. Open on |
 | Tray    | Minimize to system tray, Start minimized to tray                                                           |
+| Updates | Download updates automatically                                                                             |
 
 ### The rest
 
@@ -986,9 +987,28 @@ Closed on 2026-08-25:
 
 ## Integrations
 
-The Integrations tab follows Workshop and holds one section for **Wad Tools** and one for
-**Tex Tools**. Each section separates tool status from Windows Explorer. Tool versions, paths,
-errors and external installation candidates are selectable data.
+The Integrations tab follows Workshop. It opens with **Mod files**, then holds one section for
+**Wad Tools** and one for **Tex Tools**. Each tool section separates tool status from Windows
+Explorer.
+
+### Mod files
+
+`Open mod files with LTK Manager` (`integrations.registerFileTypes`) registers `.fantome` and
+`.modpkg` with Explorer for the current user, with a name and an icon for each. It is on for a new
+install. Opening either file then installs it, as [LIBRARY.md](LIBRARY.md#opening-a-mod-file)
+describes. Turning the switch off removes the registration and leaves another program's entries
+alone. ADR-0060 records why the app writes the registration rather than the installer.
+
+While the switch is on, one dependent row per type names the program Windows opens it with. The app
+takes a type only where no program had it. A type another program holds keeps that program,
+because Windows lets only the reader change a default they chose. That row offers
+`Choose in Windows`, which opens the app's page in Default apps, and the card refreshes when the
+reader comes back. The card is absent off Windows, and a development build changes nothing in the
+registry.
+
+### Tools
+
+Tool versions, paths, errors and external installation candidates are selectable data.
 
 Status and primary actions lead each section without a separate Installation heading. Locations
 expands to show paths grouped under Manager and Elsewhere, with the external count on its trigger

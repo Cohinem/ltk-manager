@@ -43,8 +43,8 @@ export function DropLine({ orientation, side, visible }: DropLineProps) {
           <div
             className={`${MARK} absolute inset-x-1 h-0.5 -translate-y-1/2 shadow-[0_0_8px_var(--accent-500)]`}
           />
-          <div className={`${MARK} absolute -left-0.5 h-1.5 w-1.5 -translate-y-1/2`} />
-          <div className={`${MARK} absolute -right-0.5 h-1.5 w-1.5 -translate-y-1/2`} />
+          <div className={`${MARK} absolute -left-0.5 size-1.5 -translate-y-1/2`} />
+          <div className={`${MARK} absolute -right-0.5 size-1.5 -translate-y-1/2`} />
         </>
       )}
       {!horizontal && (
@@ -52,8 +52,8 @@ export function DropLine({ orientation, side, visible }: DropLineProps) {
           <div
             className={`${MARK} absolute inset-y-1 w-0.5 -translate-x-1/2 shadow-[0_0_8px_var(--accent-500)]`}
           />
-          <div className={`${MARK} absolute -top-0.5 h-1.5 w-1.5 -translate-x-1/2`} />
-          <div className={`${MARK} absolute -bottom-0.5 h-1.5 w-1.5 -translate-x-1/2`} />
+          <div className={`${MARK} absolute -top-0.5 size-1.5 -translate-x-1/2`} />
+          <div className={`${MARK} absolute -bottom-0.5 size-1.5 -translate-x-1/2`} />
         </>
       )}
     </div>

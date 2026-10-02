@@ -18,7 +18,7 @@ use parking_lot::Mutex;
 use super::*;
 use crate::config::Config;
 use crate::problems::bank_units::{BANK_PATH, BANK_UNIT, BankUnits};
-use crate::problems::{Applied, Budget, FixError, FixRun, Problem, RuleFailure, budget};
+use crate::problems::{Applied, Budget, FixError, FixRun, Problem, RuleFailure, RuleMeta, budget};
 
 const ENTRY: BinHash = BinHash(0x0100_0001);
 const OTHER_ENTRY: BinHash = BinHash(0x0100_0002);
@@ -95,7 +95,7 @@ fn project_under(files: &[(&str, &[u8])], budget: Budget) -> (tempfile::TempDir,
 
 /// A rule that is nothing but its subscription.
 struct Subscribing {
-    id: RuleId,
+    meta: RuleMeta,
     subscribe: Box<dyn for<'x> Fn(&mut Pass<'x>) + Send + Sync>,
 }
 
@@ -105,27 +105,21 @@ impl Subscribing {
         subscribe: impl for<'x> Fn(&mut Pass<'x>) + Send + Sync + 'static,
     ) -> Self {
         Self {
-            id: RuleId(id),
+            meta: RuleMeta {
+                id: RuleId(id),
+                title: "A test rule",
+                description: "Reports what its subscription saw",
+                unfixable: "",
+                severity: Some(ProblemSeverity::Info),
+            },
             subscribe: Box::new(subscribe),
         }
     }
 }
 
 impl Rule for Subscribing {
-    fn id(&self) -> RuleId {
-        self.id
-    }
-
-    fn title(&self) -> &'static str {
-        "A test rule"
-    }
-
-    fn description(&self) -> &'static str {
-        "Reports what its subscription saw"
-    }
-
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Info)
+    fn meta(&self) -> &RuleMeta {
+        &self.meta
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -280,7 +274,7 @@ fn rule_over_roots(id: &'static str) -> Subscribing {
         pass.finish(move |finish| {
             for (handle, classes) in finish.take(roots) {
                 finish.problem(
-                    Severity::Info,
+                    ProblemSeverity::Info,
                     Site::file(handle.layer(), handle.path()),
                     Detail::new(format!("{classes:?}")),
                 );
@@ -300,7 +294,7 @@ fn rule_over_heads(id: &'static str, bytes: usize) -> Subscribing {
         pass.finish(move |finish| {
             for (handle, seen) in finish.take(heads) {
                 finish.problem(
-                    Severity::Info,
+                    ProblemSeverity::Info,
                     Site::file(handle.layer(), handle.path()),
                     Detail::new(seen.to_string()),
                 );
@@ -324,7 +318,7 @@ fn two_head_sizes_on_one_kind_each_see_their_own_prefix() {
         pass.finish(move |finish| {
             for (handle, seen) in finish.take(all) {
                 finish.problem(
-                    Severity::Info,
+                    ProblemSeverity::Info,
                     Site::file(handle.layer(), handle.path()),
                     Detail::new(seen.to_string()),
                 );
@@ -365,7 +359,11 @@ fn results_come_back_in_file_order() {
             .collect(|head| Ok(head.handle().path().to_owned()));
         pass.finish(move |finish| {
             for (_, path) in finish.take(heads) {
-                finish.problem(Severity::Info, Site::file("base", &path), Detail::new(path));
+                finish.problem(
+                    ProblemSeverity::Info,
+                    Site::file("base", &path),
+                    Detail::new(path),
+                );
             }
         });
     });
@@ -390,7 +388,7 @@ fn a_closure_error_is_a_failure_of_that_rule_alone() {
         pass.finish(move |finish| {
             for (handle, ()) in finish.take(heads) {
                 finish.problem(
-                    Severity::Info,
+                    ProblemSeverity::Info,
                     Site::file(handle.layer(), handle.path()),
                     Detail::new(handle.path()),
                 );
@@ -427,7 +425,11 @@ fn a_selection_reads_only_the_files_the_fact_names() {
             .collect(|head| Ok(head.handle().path().to_owned()));
         pass.finish(move |finish| {
             for (_, path) in finish.take(banks) {
-                finish.problem(Severity::Info, Site::file("base", &path), Detail::new(path));
+                finish.problem(
+                    ProblemSeverity::Info,
+                    Site::file("base", &path),
+                    Detail::new(path),
+                );
             }
         });
     });
@@ -461,7 +463,11 @@ fn a_selection_is_per_subscription() {
             .collect(|head| Ok(head.handle().path().to_owned()));
         pass.finish(move |finish| {
             for (_, path) in finish.take(banks) {
-                finish.problem(Severity::Info, Site::file("base", &path), Detail::new(path));
+                finish.problem(
+                    ProblemSeverity::Info,
+                    Site::file("base", &path),
+                    Detail::new(path),
+                );
             }
         });
     });
@@ -472,7 +478,11 @@ fn a_selection_is_per_subscription() {
             .collect(|head| Ok(format!("{} {}", head.handle().path(), head.bytes().len())));
         pass.finish(move |finish| {
             for (_, seen) in finish.take(banks) {
-                finish.problem(Severity::Info, Site::file("base", "-"), Detail::new(seen));
+                finish.problem(
+                    ProblemSeverity::Info,
+                    Site::file("base", "-"),
+                    Detail::new(seen),
+                );
             }
         });
     });
@@ -509,7 +519,11 @@ fn a_selection_against_an_incomplete_fact_reads_every_file() {
             .collect(|head| Ok(head.handle().path().to_owned()));
         pass.finish(move |finish| {
             for (_, path) in finish.take(banks) {
-                finish.problem(Severity::Info, Site::file("base", &path), Detail::new(path));
+                finish.problem(
+                    ProblemSeverity::Info,
+                    Site::file("base", &path),
+                    Detail::new(path),
+                );
             }
         });
     });
@@ -622,7 +636,7 @@ fn one_bad_bin_fails_once_per_subscribing_rule() {
         pass.finish(move |finish| {
             let units = finish.fact(units);
             finish.problem(
-                Severity::Info,
+                ProblemSeverity::Info,
                 Site::file("base", "units"),
                 Detail::new(units.asks_for(WadHash(1)).to_string()),
             );
@@ -715,7 +729,7 @@ fn a_cancelled_run_fails_every_unreached_file_under_every_subscriber() {
         pass.finish(move |finish| {
             let units = finish.fact(units);
             finish.problem(
-                Severity::Info,
+                ProblemSeverity::Info,
                 Site::file("base", "units"),
                 Detail::new(units.asks_for(WadHash(1)).to_string()),
             );
@@ -769,7 +783,11 @@ fn a_cancel_partway_finishes_the_file_in_flight_and_fails_the_rest() {
             });
         pass.finish(move |finish| {
             for (_, path) in finish.take(heads) {
-                finish.problem(Severity::Info, Site::file("base", &path), Detail::new(path));
+                finish.problem(
+                    ProblemSeverity::Info,
+                    Site::file("base", &path),
+                    Detail::new(path),
+                );
             }
         });
     });
@@ -806,7 +824,7 @@ fn two_rules_demanding_one_fact_read_the_same_one() {
                 let units = finish.fact(units);
                 let named = units.path_of(WadHash::hash_str("sfx/asked.bnk"));
                 finish.problem(
-                    Severity::Info,
+                    ProblemSeverity::Info,
                     Site::file("base", "units"),
                     Detail::new(format!(
                         "{} {}",
@@ -851,7 +869,7 @@ fn a_rule_subscribing_to_nothing_still_finishes() {
     let quiet = Subscribing::new("quiet", |pass| {
         pass.finish(|finish| {
             finish.problem(
-                Severity::Info,
+                ProblemSeverity::Info,
                 Site::file("base", "project"),
                 Detail::new(finish.project().layers().len().to_string()),
             );

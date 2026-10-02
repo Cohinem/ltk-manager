@@ -1,10 +1,12 @@
-//! Background patching thread: builds the overlay, runs one injection session,
-//! and reports everything user-facing through [`PatcherEvents`].
+//! Background patching thread: builds the overlay, runs the injection session,
+//! rebuilds between games when the library changes, and reports everything
+//! user-facing through [`PatcherEvents`].
 
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
 
@@ -14,17 +16,26 @@ use crate::config::Config;
 use crate::diagnostics::binary_id::PatcherBinaries;
 use crate::diagnostics::incident::SessionFailure;
 use crate::diagnostics::store::IncidentStore;
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, message_with_sources};
+use crate::launcher::is_game_running;
 use crate::mods::ModLibrary;
-use crate::overlay::OverlayBuild;
+use crate::overlay::{OverlayBuild, WorkshopTestProject};
 
 use super::error::PatcherError;
 use super::events::PatcherEvents;
 use super::host::{HostConfig, HostLogLevel, PatcherHost};
+use super::injector::SessionEnd;
 use super::pipeline::IncidentPipeline;
 use super::recorder::GameRecorder;
+use super::refresh::OverlayRefresh;
 use super::session::{self, SessionError, SessionObserver};
 use super::state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
+
+/// How long a rebuild waits for the last game's process to let go of the overlay.
+const GAME_RELEASE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// How often a rebuild checks whether the game process is gone.
+const GAME_RELEASE_POLL: Duration = Duration::from_millis(100);
 
 /// Per-session inputs for [`PatcherThread::start`], resolved by the caller
 /// before the patcher state is claimed.
@@ -32,7 +43,7 @@ pub struct SessionParams {
     pub injector_exe: PathBuf,
     pub config: Config,
     pub library: ModLibrary,
-    pub workshop_paths: Vec<PathBuf>,
+    pub workshop_projects: Vec<WorkshopTestProject>,
     pub host_flags: u32,
     pub should_elevate: bool,
     pub patcher_binaries: PatcherBinaries,
@@ -51,10 +62,11 @@ pub struct PatcherThread {
     state: Arc<Mutex<PatcherStateInner>>,
     host: Arc<Mutex<Option<PatcherHost>>>,
     stop_flag: Arc<AtomicBool>,
+    refresh: Arc<OverlayRefresh>,
     injector_exe: PathBuf,
     config: Config,
     library: ModLibrary,
-    workshop_paths: Vec<PathBuf>,
+    workshop_projects: Vec<WorkshopTestProject>,
     host_flags: u32,
     should_elevate: bool,
     force_rebuild: bool,
@@ -93,7 +105,7 @@ impl PatcherThread {
             injector_exe,
             config,
             library,
-            workshop_paths,
+            workshop_projects,
             host_flags,
             should_elevate,
             patcher_binaries,
@@ -105,7 +117,7 @@ impl PatcherThread {
             config.clone(),
             host_flags,
             library.clone(),
-            workshop_paths.clone(),
+            workshop_projects.clone(),
             incident_store,
             Arc::clone(&events),
             telemetry,
@@ -121,10 +133,11 @@ impl PatcherThread {
             state: Arc::clone(state),
             host: Arc::clone(host),
             stop_flag: Arc::clone(&patcher_state.stop_flag),
+            refresh: Arc::clone(&patcher_state.overlay_refresh),
             injector_exe,
             config,
             library,
-            workshop_paths,
+            workshop_projects,
             host_flags,
             should_elevate,
             force_rebuild,
@@ -134,20 +147,40 @@ impl PatcherThread {
     }
 
     fn run(self) {
-        let Some(overlay_prefix) = self.build_overlay() else {
-            return;
-        };
-        self.run_session(overlay_prefix);
+        let mut force_rebuild = self.force_rebuild;
+        let mut first_build = true;
+
+        loop {
+            let Some((overlay_prefix, offender_count)) = self.build_overlay(force_rebuild) else {
+                return;
+            };
+            if first_build {
+                self.check_linked_bins(offender_count);
+            }
+            force_rebuild = false;
+            first_build = false;
+
+            if self.run_session(overlay_prefix) == SessionEnd::Stopped {
+                break;
+            }
+            self.resume_building();
+        }
+
+        self.reset_to_idle();
+        tracing::info!("Patcher thread exiting");
     }
 
-    /// Build the overlay and return its prefix path, or `None` on failure/early
-    /// stop (state already reset).
-    fn build_overlay(&self) -> Option<String> {
+    /// Build the overlay and return its prefix path with the count of mods
+    /// missing linked bins, or `None` on failure or an early stop (state
+    /// already reset).
+    fn build_overlay(&self, force_rebuild: bool) -> Option<(String, usize)> {
+        self.refresh.clear();
+
         let stop_flag = Arc::clone(&self.stop_flag);
         let build = match self.library.ensure_overlay(
             &self.config,
-            &self.workshop_paths,
-            self.force_rebuild,
+            &self.workshop_projects,
+            force_rebuild,
             move || stop_flag.load(Ordering::SeqCst),
         ) {
             Ok(build) => build,
@@ -161,7 +194,7 @@ impl PatcherThread {
                 self.observer.session_failed(SessionFailure::Build {
                     kind: e.kind(),
                     category: e.overlay_category(),
-                    message: e.to_string(),
+                    message: message_with_sources(&e),
                 });
                 self.events.error(e);
                 self.reset_to_idle();
@@ -184,11 +217,10 @@ impl PatcherThread {
             return None;
         }
 
-        self.check_linked_bins(offender_count);
-
         tracing::info!("Using overlay root: {}", overlay_root.display());
-        Some(session::normalize_overlay_prefix(
-            &overlay_root.display().to_string(),
+        Some((
+            session::normalize_overlay_prefix(&overlay_root.display().to_string()),
+            offender_count,
         ))
     }
 
@@ -204,8 +236,9 @@ impl PatcherThread {
     }
 
     /// Run one injection session via the core orchestration, blocking until the
-    /// game exits or the caller stops, then reset state.
-    fn run_session(&self, overlay_prefix: String) {
+    /// caller stops or a library edit asks for a rebuild. A failure is reported
+    /// and ends the session.
+    fn run_session(&self, overlay_prefix: String) -> SessionEnd {
         self.enter_patching(overlay_prefix.clone());
 
         let host_config = HostConfig {
@@ -224,13 +257,16 @@ impl PatcherThread {
             self.should_elevate,
             &host_config,
             &self.stop_flag,
+            &self.refresh,
             Arc::clone(&self.observer),
         );
 
         match result {
-            Ok(()) => {
+            Ok(SessionEnd::Refresh) => SessionEnd::Refresh,
+            Ok(SessionEnd::Stopped) => {
                 tracing::info!("Injector stopped");
                 self.observer.session_stopped();
+                SessionEnd::Stopped
             }
             Err(e) => {
                 match &e {
@@ -247,11 +283,25 @@ impl PatcherThread {
                     });
                 }
                 self.events.error(AppError::from(error));
+                SessionEnd::Stopped
             }
         }
+    }
 
-        self.reset_to_idle();
-        tracing::info!("Patcher thread exiting");
+    /// Return to the build phase for a rebuild, once the last game's process has
+    /// let go of the overlay or the wait runs out.
+    fn resume_building(&self) {
+        self.state.lock().resume_building();
+        self.events.phase_changed(PatcherPhase::Building);
+
+        let deadline = Instant::now() + GAME_RELEASE_TIMEOUT;
+        while is_game_running() && !self.stop_flag.load(Ordering::SeqCst) {
+            if Instant::now() >= deadline {
+                tracing::warn!("Game still running, rebuilding the overlay anyway");
+                break;
+            }
+            thread::sleep(GAME_RELEASE_POLL);
+        }
     }
 
     /// Move the session to patching against the overlay the build produced.

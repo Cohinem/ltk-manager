@@ -29,6 +29,12 @@ pub use crate::mods::HealthSweepReport;
 /// As above, for how far a walk of the bins for references has read.
 pub use crate::object_index::ReferenceWalkProgress;
 
+/// As above, for the layer files a watch on a workshop project saw change.
+pub use crate::workshop::LayerFilesChanged;
+
+/// As above, for how far the download an install link started has got.
+pub use crate::deep_link::ProtocolInstallProgress;
+
 /// Receives notifications from domain operations.
 ///
 /// Implementations must not block: sinks are called from inside index locks and
@@ -47,8 +53,7 @@ impl EventSink for NullEventSink {
 
 /// Stage of an overlay build.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum OverlayStage {
     Indexing,
@@ -60,8 +65,7 @@ pub enum OverlayStage {
 
 /// Progress of an overlay build.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct OverlayProgress {
     pub stage: OverlayStage,
@@ -72,8 +76,7 @@ pub struct OverlayProgress {
 
 /// Progress of a bulk mod install, emitted per file.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct InstallProgress {
     pub current: usize,
@@ -83,8 +86,7 @@ pub struct InstallProgress {
 
 /// Progress of a mod export, emitted per mod.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExportProgress {
     pub current: usize,
@@ -94,8 +96,7 @@ pub struct ExportProgress {
 
 /// Which half of a cslol migration is running.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum MigrationPhase {
     Packaging,
@@ -104,8 +105,7 @@ pub enum MigrationPhase {
 
 /// Progress of a cslol migration, across both phases.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct MigrationProgress {
     pub phase: MigrationPhase,
@@ -119,8 +119,7 @@ pub struct MigrationProgress {
 /// Separate from [`MigrationProgress`], which is the cslol import: the two run
 /// at different moments, mean different things, and share nothing but the word.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LayoutMigrationProgress {
     pub current: usize,
@@ -134,8 +133,7 @@ pub struct LayoutMigrationProgress {
 /// every mod's name, and looking one up here would mean a `mod.config.json`
 /// read per mod on top of the check itself.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HealthSweepProgress {
     /// Mods the sweep has finished, however they turned out.
@@ -151,8 +149,7 @@ pub struct HealthSweepProgress {
 /// Its own payload rather than [`HealthSweepProgress`] reused: the two run at
 /// different moments and a surface drawing one must not be driven by the other.
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ModRepairProgress {
     /// Mods the run has finished, however they turned out.
@@ -170,8 +167,7 @@ pub struct ModRepairProgress {
 /// could be drawn from. `Error` has no counterpart there at all, since a failed
 /// import returns rather than reporting, so the caller emits it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum FantomeImportStage {
     Extracting,
@@ -182,8 +178,7 @@ pub enum FantomeImportStage {
 
 /// Progress of a fantome import.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct FantomeImportProgress {
     pub stage: FantomeImportStage,
@@ -201,8 +196,7 @@ pub struct FantomeImportProgress {
 /// must not drive it. The stage is shared, since the two report the same four
 /// states.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ModStorageProgress {
     pub mod_id: String,
@@ -264,8 +258,7 @@ impl From<ltk_mod_project::ImportProgress<'_>> for FantomeImportProgress {
 /// The tables are tens of megabytes each, so the emitter throttles rather than
 /// sending one of these per chunk.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct HashtableSyncProgress {
     /// Id of the table being fetched, e.g. `game`.
@@ -289,8 +282,7 @@ pub struct HashtableSyncProgress {
 /// archive, so the emitter throttles rather than sending one of these each
 /// time.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct ExtractProgress {
     pub current: u32,
@@ -305,8 +297,7 @@ pub struct ExtractProgress {
 
 /// Stage of a git repository import.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum GitImportStage {
     Downloading,
@@ -317,17 +308,16 @@ pub enum GitImportStage {
 
 /// Progress of a git repository import.
 #[derive(Clone, Debug, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct GitImportProgress {
     pub stage: GitImportStage,
     pub message: Option<String>,
 }
 
-/// Declares [`BackendEvent`] and its wire names from a single list.
+/// Declares [`BackendEvent`] and its event names from a single list.
 ///
-/// Each entry is `Variant(Payload) => "wire-name"`, or `Variant => "wire-name"`
+/// Each entry is `Variant(Payload) => "event-name"`, or `Variant => "event-name"`
 /// for a payload-free event. Keeping the name adjacent to the variant is the
 /// point: a variant cannot be added without also giving it a name, and the name
 /// can't drift away from the payload it belongs to.
@@ -341,11 +331,15 @@ macro_rules! declare_events {
     ),* $(,)?) => {
         /// Everything the backend can announce.
         ///
-        /// This is also the registry of wire names: before it, names were
+        /// This is also the registry of event names: before it, names were
         /// scattered string literals at each emit site, so a rename could
         /// silently desynchronize the backend from the frontend's `listen()`
         /// calls.
-        #[derive(Clone, Debug)]
+        ///
+        /// Serializes as its payload alone, and an event with no payload as `null`, which is
+        /// what a listener receives.
+        #[derive(Clone, Debug, Serialize)]
+        #[serde(untagged)]
         pub enum BackendEvent {
             $(
                 $(#[$meta])*
@@ -354,7 +348,7 @@ macro_rules! declare_events {
         }
 
         impl BackendEvent {
-            /// Wire name for this event, matching the frontend's `listen()` calls.
+            /// The name this event is emitted under, matching the frontend's `listen()` calls.
             pub fn name(&self) -> &'static str {
                 match self {
                     $( Self::$variant { .. } => $name, )*
@@ -402,6 +396,8 @@ declare_events! {
     ModStorageProgress(ModStorageProgress) => "mod-storage-progress",
     /// A git repository import advanced.
     GitImportProgress(GitImportProgress) => "git-import-progress",
+    /// The download an install link started advanced.
+    ProtocolInstallProgress(ProtocolInstallProgress) => "protocol-install-progress",
     /// A League launch request advanced.
     LaunchProgress(LaunchProgress) => "launch-progress",
     /// The Riot Client opened a session for League. Emitted once per session,
@@ -421,6 +417,8 @@ declare_events! {
     ExtractProgress(ExtractProgress) => "extract-progress",
     /// A walk of the bins for references advanced. Throttled by its emitter.
     ReferenceWalkProgress(ReferenceWalkProgress) => "reference-walk-progress",
+    /// Files of an open workshop project's layers changed on disk.
+    LayerFilesChanged(LayerFilesChanged) => "layer-files-changed",
 }
 
 #[cfg(test)]

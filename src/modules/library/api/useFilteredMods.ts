@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
+import { useChampionRoster } from "@/modules/champions";
 import { sortMods } from "@/modules/library/utils";
 
 import {
@@ -17,6 +18,7 @@ export function useFilteredMods(mods: InstalledMod[], searchQuery: string): Inst
   const selectedMaps = useLibrarySelectedMaps();
   const sort = useLibrarySort();
   const effective = useEffectiveCategories(mods);
+  const roster = useChampionRoster();
 
   return useMemo(() => {
     let result = mods;
@@ -35,8 +37,11 @@ export function useFilteredMods(mods: InstalledMod[], searchQuery: string): Inst
       );
     }
     if (selectedChampions.size > 0) {
+      const championKeys = new Set([...selectedChampions].map(roster.keyOf));
       result = result.filter((mod) =>
-        (effective.get(mod.id)?.champions ?? mod.champions).some((c) => selectedChampions.has(c)),
+        (effective.get(mod.id)?.champions ?? mod.champions).some((c) =>
+          championKeys.has(roster.keyOf(c)),
+        ),
       );
     }
     if (selectedMaps.size > 0) {
@@ -46,5 +51,5 @@ export function useFilteredMods(mods: InstalledMod[], searchQuery: string): Inst
     }
 
     return sortMods(result, sort);
-  }, [mods, searchQuery, selectedTags, selectedChampions, selectedMaps, sort, effective]);
+  }, [mods, searchQuery, selectedTags, selectedChampions, selectedMaps, sort, effective, roster]);
 }

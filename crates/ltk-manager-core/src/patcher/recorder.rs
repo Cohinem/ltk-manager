@@ -119,6 +119,7 @@ impl GameRecorder {
                 self.push_line(*source, text, now);
                 None
             }
+            InjectorEvent::OverlayDeferred => None,
         }
     }
 

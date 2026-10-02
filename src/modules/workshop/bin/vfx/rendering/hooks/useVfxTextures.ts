@@ -1,12 +1,18 @@
-import { useEffect, useState } from "react";
-import { DataTexture, LinearFilter, type Texture, TextureLoader } from "three";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { DataTexture, type Texture } from "three";
 
+import {
+  assetVersion,
+  type AssetVersions,
+  useAssetVersions,
+  versionedUrl,
+} from "@/lib/assetVersions";
 import { previewCubeUrl } from "@/lib/previewUrl";
-import { loadCubeTexture, PARTICLE_COLOR_SPACE } from "@/modules/viewport";
 
 import { previewUrl } from "../../../../preview/utils/assetRef";
 import { assetLoad, type AssetLoad } from "../utils/assetLoad";
 import type { DrawnEmitter } from "../utils/definitions";
+import { acquireTexture, type TextureRef } from "../utils/textureCache";
 
 /** The samplers one emitter draws with, null for one it names nothing for or that has not arrived. */
 export interface EmitterSamplers {
@@ -38,9 +44,9 @@ export const NO_SAMPLERS: EmitterSamplers = Object.freeze({
 });
 
 /**
- * What slot 0 holds for an emitter naming no texture, the engine's 1x1 transparent black.
+ * What slot 0 binds for an emitter naming no texture, the engine's 1x1 transparent black.
  *
- * Such an emitter draws nothing of its own and carries only its children.
+ * Such an emitter draws nothing itself and carries only its children.
  */
 const UNNAMED = unnamedTexture();
 
@@ -53,11 +59,76 @@ function unnamedTexture(): DataTexture {
 /** `NO_SAMPLERS`, its base slot seeded with `UNNAMED` for an emitter naming no texture. */
 export const UNNAMED_SAMPLERS: EmitterSamplers = Object.freeze({ ...NO_SAMPLERS, base: UNNAMED });
 
-/** The samplers `definition` draws with: the held bundle, or a stand-in before one arrives. */
+/** The samplers `definition` draws with: the loaded bundle, or a placeholder before one arrives. */
 export function samplersOf(textures: VfxTextures, definition: DrawnEmitter): EmitterSamplers {
-  const held = textures.get(definition.key);
-  if (held !== undefined) return held;
+  const loaded = textures.get(definition.key);
+  if (loaded !== undefined) return loaded;
   return definition.emitter.texture === null ? UNNAMED_SAMPLERS : NO_SAMPLERS;
+}
+
+/** One sampler slot of one drawn emitter, and the url it loads from, null for an unshipped asset. */
+interface TextureRequest {
+  /** The slot and its url together, the key a reference is reused under across edits. */
+  readonly id: string;
+  /** The slot and its file at any version, which a reload of the file keeps. */
+  readonly lineage: string;
+  readonly key: string;
+  readonly slot: keyof EmitterSamplers;
+  readonly url: string | null;
+}
+
+/** A reference the load acquired, and the lineage of the request that took it. */
+interface Acquired {
+  readonly ref: TextureRef;
+  readonly lineage: string;
+}
+
+/** Every slot the drawn emitters name, and the emitters that name no base texture. */
+interface TextureRequests {
+  readonly requests: readonly TextureRequest[];
+  readonly unnamed: readonly string[];
+  /** Everything the load depends on, which an edit leaves the same unless it moved an asset. */
+  readonly signature: string;
+}
+
+function textureRequests(
+  drawn: readonly DrawnEmitter[],
+  versions: AssetVersions,
+  minWidth?: number,
+): TextureRequests {
+  const requests: TextureRequest[] = [];
+  const unnamed: string[] = [];
+
+  for (const { key, emitter } of drawn) {
+    if (emitter.texture === null) unnamed.push(key);
+
+    const named = [
+      ["base", emitter.texture],
+      ["mult", emitter.multTexture],
+      ["color", emitter.colorTexture],
+      ["palette", emitter.palette?.texture ?? null],
+      ["erosion", emitter.erosion?.map ?? null],
+      ["normal", emitter.distortion?.map ?? null],
+      ["reflection", emitter.reflection?.map ?? null],
+    ] as const;
+    for (const [slot, asset] of named) {
+      if (asset === null) continue;
+
+      let file: string | null = null;
+      let url: string | null = null;
+      if (asset.asset != null) {
+        file =
+          slot === "reflection" ? previewCubeUrl(asset.asset) : previewUrl(asset.asset, minWidth);
+        url = versionedUrl(file, assetVersion(versions, asset.asset));
+      }
+
+      const lineage = `${key}|${slot}|${file ?? ""}`;
+      requests.push({ id: `${key}|${slot}|${url ?? ""}`, lineage, key, slot, url });
+    }
+  }
+
+  const signature = `${unnamed.join(",")}\n${requests.map(({ id }) => id).join("\n")}`;
+  return { requests, unnamed, signature };
 }
 
 /**
@@ -66,6 +137,13 @@ export function samplersOf(textures: VfxTextures, definition: DrawnEmitter): Emi
  * The pixels never cross the JavaScript heap and the renderer adds no decode path
  * (decision 2.2 of docs/plans/vfx-particle-renderer.md). An emitter whose texture the
  * install does not ship draws untextured rather than not at all.
+ *
+ * The load follows the asset urls rather than the identity of `drawn`, so an edit that
+ * moves no asset keeps every texture, and one that does reloads only what it moved. The
+ * textures come from `textureCache.ts`, so emitters and viewports naming one url share it.
+ *
+ * A layer file saved on disk takes a new url, and its slot draws the old texture until the
+ * new one lands.
  */
 export function useVfxTextures(
   drawn: readonly DrawnEmitter[],
@@ -73,90 +151,101 @@ export function useVfxTextures(
   minWidth?: number,
 ): VfxTextures {
   const [textures, setTextures] = useState<VfxTextures>(EMPTY);
+  const versions = useAssetVersions();
+  const wanted = useMemo(
+    () => textureRequests(drawn, versions, minWidth),
+    [drawn, versions, minWidth],
+  );
+  const latest = useRef(wanted);
+  latest.current = wanted;
+
+  /* The references outlive one run of the load effect, so the next run reuses them before
+     releasing the rest. The unmount effect below releases them all. */
+  const refs = useRef(new Map<string, Acquired>());
+  const shown = useRef<VfxTextures>(EMPTY);
 
   useEffect(() => {
-    const requests = drawn
-      .flatMap(({ key, emitter }) => [
-        { key, slot: "base" as const, named: emitter.texture },
-        { key, slot: "mult" as const, named: emitter.multTexture },
-        { key, slot: "color" as const, named: emitter.colorTexture },
-        { key, slot: "palette" as const, named: emitter.palette?.texture ?? null },
-        { key, slot: "erosion" as const, named: emitter.erosion?.map ?? null },
-        { key, slot: "normal" as const, named: emitter.distortion?.map ?? null },
-        { key, slot: "reflection" as const, named: emitter.reflection?.map ?? null },
-      ])
-      .filter(({ named }) => named !== null);
+    const { requests, unnamed } = latest.current;
+    const previous = refs.current;
+    const next = new Map<string, Acquired>();
     const batch = assetLoad(requests.length, report);
-    if (drawn.length === 0) {
-      setTextures(EMPTY);
-      return;
-    }
-
     let live = true;
+
     const bundles = new Map<string, EmitterSamplers>();
-    for (const { key, emitter } of drawn) {
-      if (emitter.texture === null) bundles.set(key, UNNAMED_SAMPLERS);
-    }
-    setTextures(new Map(bundles));
+    for (const key of unnamed) bundles.set(key, UNNAMED_SAMPLERS);
 
-    const loader = new TextureLoader();
-
-    const take = (key: string, slot: keyof EmitterSamplers, texture: Texture) => {
-      if (!live) {
-        texture.dispose();
-        return;
-      }
-      texture.colorSpace = PARTICLE_COLOR_SPACE;
-      /* The first row is `v = 0`, as DirectX samples it, which is the space every uv
-         formula here is written in. */
-      texture.flipY = false;
-      texture.minFilter = LinearFilter;
-      const held = bundles.get(key) ?? NO_SAMPLERS;
-      bundles.set(key, { ...held, [slot]: texture });
-      setTextures(new Map(bundles));
+    const place = (key: string, slot: keyof EmitterSamplers, texture: Texture | null) => {
+      const bundle = bundles.get(key) ?? NO_SAMPLERS;
+      bundles.set(key, { ...bundle, [slot]: texture });
     };
 
-    let next = 0;
+    const earlier = new Map<string, TextureRef>();
+    for (const { ref, lineage } of previous.values()) earlier.set(lineage, ref);
+
+    /* The textures of a file's last version, each drawn until its reload lands. */
+    const stale = new Set<TextureRef>();
+
+    const queue: { request: TextureRequest; ref: TextureRef; superseded?: TextureRef }[] = [];
+    for (const request of requests) {
+      if (request.url === null) {
+        batch.done(true);
+        continue;
+      }
+
+      const ref =
+        previous.get(request.id)?.ref ??
+        acquireTexture(request.url, request.slot === "reflection" ? "cube" : "flat");
+      next.set(request.id, { ref, lineage: request.lineage });
+      if (ref.texture === null) {
+        const superseded = earlier.get(request.lineage);
+        if (superseded !== undefined && superseded !== ref && superseded.texture !== null) {
+          stale.add(superseded);
+          place(request.key, request.slot, superseded.texture);
+        }
+
+        queue.push({ request, ref, superseded });
+        continue;
+      }
+
+      place(request.key, request.slot, ref.texture);
+      batch.done();
+    }
+
+    for (const [id, { ref }] of previous) {
+      if (!next.has(id) && !stale.has(ref)) ref.release();
+    }
+    refs.current = next;
+
+    const publish = () => {
+      const settled = keepUnchanged(bundles, shown.current);
+      shown.current = settled;
+      setTextures(settled);
+    };
+    publish();
+
+    let at = 0;
     let running = 0;
     const concurrency = minWidth === undefined ? Infinity : 2;
-    const done = (failed = false) => {
-      running -= 1;
-      batch.done(failed);
-      queueMicrotask(pump);
-    };
-
-    const load = ({ key, slot, named }: (typeof requests)[number]) => {
-      const asset = named?.asset;
-      if (asset == null) {
-        done(true);
-        return;
-      }
-      if (slot !== "reflection") {
-        loader.load(
-          previewUrl(asset, minWidth),
-          (texture) => {
-            take(key, slot, texture);
-            done();
-          },
-          undefined,
-          () => done(true),
-        );
-      } else {
-        void loadCubeTexture(previewCubeUrl(asset))
-          .then((texture) => {
-            if (texture !== null) take(key, slot, texture);
-            done(texture === null);
-          })
-          .catch(() => done(true));
-      }
-    };
 
     function pump() {
-      while (live && running < concurrency && next < requests.length) {
-        const request = requests[next]!;
-        next += 1;
+      while (live && running < concurrency && at < queue.length) {
+        const { request, ref, superseded } = queue[at]!;
+        at += 1;
         running += 1;
-        load(request);
+        void ref.load().then((texture) => {
+          running -= 1;
+          if (!live) return;
+
+          const replaced = superseded !== undefined && stale.delete(superseded);
+          if (texture !== null || replaced) {
+            place(request.key, request.slot, texture);
+            publish();
+          }
+          if (replaced) superseded.release();
+
+          batch.done(texture === null);
+          queueMicrotask(pump);
+        });
       }
     }
 
@@ -165,14 +254,46 @@ export function useVfxTextures(
     return () => {
       live = false;
       batch.cancel();
-      for (const bundle of bundles.values()) {
-        for (const texture of Object.values(bundle)) {
-          if (texture !== null && texture !== UNNAMED) texture.dispose();
-        }
-      }
-      setTextures(EMPTY);
+      for (const ref of stale) ref.release();
     };
-  }, [drawn, report, minWidth]);
+  }, [wanted.signature, report, minWidth]);
+
+  useEffect(() => {
+    const acquired = refs;
+    return () => {
+      for (const { ref } of acquired.current.values()) ref.release();
+      acquired.current = new Map();
+      shown.current = EMPTY;
+    };
+  }, []);
 
   return textures;
+}
+
+/**
+ * `next` with every bundle that has the same textures as `shown` swapped for the shown
+ * object, so a draw memoised on its samplers keeps its material.
+ */
+function keepUnchanged(
+  next: ReadonlyMap<string, EmitterSamplers>,
+  shown: VfxTextures,
+): VfxTextures {
+  const out = new Map<string, EmitterSamplers>();
+  for (const [key, bundle] of next) {
+    const current = shown.get(key);
+    out.set(key, current !== undefined && samplersEquals(current, bundle) ? current : bundle);
+  }
+  return out;
+}
+
+function samplersEquals(a: EmitterSamplers, b: EmitterSamplers): boolean {
+  return (
+    a.base === b.base &&
+    a.mult === b.mult &&
+    a.color === b.color &&
+    a.palette === b.palette &&
+    a.erosion === b.erosion &&
+    a.normal === b.normal &&
+    a.reflection === b.reflection
+  );
 }

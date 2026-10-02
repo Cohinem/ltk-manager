@@ -1,4 +1,4 @@
-import type { AppError } from "@/lib/bindings";
+import type { AppError } from "@/lib/tauri";
 import { hasErrorCode, isAppError } from "@/utils/errors";
 
 describe("hasErrorCode", () => {

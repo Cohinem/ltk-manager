@@ -32,6 +32,7 @@ function twoDocumentState(): PersistedProjectEditor {
     layout,
     activeLeafId: layout.id,
     selectedLayer: "base",
+    selectedModule: null,
     previewIds: {},
     pinned: [],
     shells: defaultShellArrangements(),
@@ -40,12 +41,69 @@ function twoDocumentState(): PersistedProjectEditor {
 
 describe("editorFile", () => {
   describe("round trip", () => {
+    it("carries the chosen module, and reads a mis-shaped one as none", () => {
+      const chosen = {
+        ...twoDocumentState(),
+        selectedModule: { layer: "base", kind: "new", name: "Glow" } as const,
+      };
+      expect(parseEditorFile(serializeEditorFile(chosen))).toEqual({ kind: "ok", state: chosen });
+
+      const raw = JSON.parse(serializeEditorFile(chosen)) as Record<string, unknown>;
+      raw.selectedModule = { layer: "base", kind: "index", index: -1 };
+      expect(parseEditorFile(JSON.stringify(raw))).toEqual({
+        kind: "ok",
+        state: { ...chosen, selectedModule: null },
+      });
+    });
+
     it("parses back what serializeEditorFile wrote", () => {
       const state = twoDocumentState();
 
       const parsed = parseEditorFile(serializeEditorFile(state));
 
       expect(parsed).toEqual({ kind: "ok", state });
+    });
+
+    it("carries the League client's browser tabs across the file", () => {
+      const index = gameDocument("lcu");
+      const wads = gameWadsDocument("lcu");
+      const wad = gameWadDocument("rcp-fe-lol-loot/assets.wad", "lcu");
+      const preview = previewDocument(
+        { kind: "lcuChunk", wad: wad.wadName, pathHash: "0123456789abcdef" },
+        "plugins/rcp-fe-lol-loot/global/default/a.png",
+      );
+      const ids = [index.id, wads.id, wad.id, preview.id];
+      const layout = singleLeaf(ids, index.id);
+      const state: PersistedProjectEditor = {
+        ...twoDocumentState(),
+        documents: { [index.id]: index, [wads.id]: wads, [wad.id]: wad, [preview.id]: preview },
+        layout,
+        activeLeafId: layout.id,
+      };
+
+      expect(parseEditorFile(serializeEditorFile(state))).toEqual({ kind: "ok", state });
+    });
+
+    it("carries the project's declarations choice across a reload", () => {
+      const state = { ...twoDocumentState(), useDeclarations: false };
+
+      const parsed = parseEditorFile(serializeEditorFile(state));
+
+      expect(parsed).toEqual({ kind: "ok", state });
+    });
+
+    it("carries the layers left unmarked across a reload", () => {
+      const state = { ...twoDocumentState(), hiddenMarkLayers: ["chroma"] };
+
+      const parsed = parseEditorFile(serializeEditorFile(state));
+
+      expect(parsed).toEqual({ kind: "ok", state });
+    });
+
+    it("leaves the declarations choice unmade in a file that never wrote one", () => {
+      const parsed = parseEditorFile(serializeEditorFile(twoDocumentState()));
+
+      expect(parsed.kind === "ok" && "useDeclarations" in parsed.state).toBe(false);
     });
 
     it("carries visual recipes across a project reload and drops malformed recipes", () => {
@@ -72,6 +130,16 @@ describe("editorFile", () => {
           abilities: [recipe, { ...recipe, id: "bad", release: -1 }],
         })?.abilities,
       ).toEqual([recipe]);
+    });
+
+    it("carries each system's timeline markers across the file", () => {
+      const markers = { "layer:base:a.bin:0x1a2b3c4d": [{ id: "m", time: 0.5, name: "impact" }] };
+      const state = { ...twoDocumentState(), markers };
+
+      expect(parseEditorFile(serializeEditorFile(state))).toEqual({ kind: "ok", state });
+      expect(
+        sanitizeEditorState({ ...state, markers: { broken: [{ id: "x", time: -1 }] } })?.markers,
+      ).toEqual({});
     });
 
     it("carries a pinned tab across the file", () => {
@@ -370,6 +438,12 @@ describe("editorFile", () => {
       });
 
       expect(state?.previewIds).toEqual({ [layout.id]: "details" });
+    });
+
+    it("drops a declarations choice that is not a boolean", () => {
+      const state = sanitizeEditorState({ ...twoDocumentState(), useDeclarations: "yes" });
+
+      expect(state).not.toHaveProperty("useDeclarations");
     });
 
     it("completes an entry that lost fields rather than crashing on it", () => {

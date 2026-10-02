@@ -1,7 +1,7 @@
 import { ArrowClockwiseIcon, ClipboardTextIcon, StethoscopeIcon } from "@phosphor-icons/react";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 
-import { AlertBox, Button, Separator, Spinner, Tabs, useToast } from "@/components";
+import { AlertBox, Button, ReadingColumn, Separator, Spinner, Tabs, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { DiagnosticReport } from "@/lib/tauri";
 import { DiagnosticsReportView, GamesTab, useDiagnostics } from "@/modules/diagnostics";
@@ -63,7 +63,7 @@ export function Diagnostics() {
             rather than standing over it in a band of its own. */}
         <header className="flex shrink-0 items-center border-b border-surface-700/50 px-4 select-none">
           <h1 className="flex shrink-0 items-center gap-2 text-sm font-semibold text-surface-200">
-            <StethoscopeIcon className="h-4 w-4 text-accent-400" />
+            <StethoscopeIcon className="size-4 text-accent-400" />
             Diagnostics
           </h1>
           <Separator orientation="vertical" className="mx-2 h-4" />
@@ -73,10 +73,10 @@ export function Diagnostics() {
           </Tabs.List>
         </header>
 
-        <Tabs.Panel value="games" className="mt-0 flex min-h-0 flex-1 flex-col">
+        <Tabs.Panel value="games" className="flex min-h-0 flex-1 flex-col">
           <GamesTab modAction={(modId) => <SuspectModAction modId={modId} />} />
         </Tabs.Panel>
-        <Tabs.Panel value="system" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+        <Tabs.Panel value="system" className="min-h-0 flex-1 overflow-y-auto">
           <SystemTab />
         </Tabs.Panel>
       </Tabs.Root>
@@ -98,7 +98,7 @@ function SystemTab() {
   }
 
   return (
-    <div data-ui="SystemTab" className="mx-auto w-full max-w-5xl space-y-6 p-6">
+    <ReadingColumn data-ui="SystemTab">
       <header className="flex items-start justify-between gap-4 select-none">
         <div>
           <p className="text-sm text-surface-400">
@@ -118,7 +118,7 @@ function SystemTab() {
             size="sm"
             onClick={copyReport}
             disabled={!report}
-            left={<ClipboardTextIcon weight="bold" className="h-4 w-4" />}
+            left={<ClipboardTextIcon weight="bold" className="size-4" />}
           >
             Copy report
           </Button>
@@ -127,7 +127,7 @@ function SystemTab() {
             size="sm"
             onClick={() => diagnostics.refetch()}
             loading={diagnostics.isFetching}
-            left={<ArrowClockwiseIcon weight="bold" className="h-4 w-4" />}
+            left={<ArrowClockwiseIcon weight="bold" className="size-4" />}
           >
             {diagnostics.isFetching ? "Running…" : "Re-run"}
           </Button>
@@ -147,6 +147,6 @@ function SystemTab() {
       )}
 
       {report && <DiagnosticsReportView report={report} />}
-    </div>
+    </ReadingColumn>
   );
 }

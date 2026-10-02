@@ -17,7 +17,7 @@ import {
   POINT_SHAPE,
   type SystemModel,
 } from "../../model/model";
-import { type Joints, STAND_HEIGHT } from "../../model/rig";
+import type { Joints } from "../../model/rig";
 import { multiplyInto } from "../../utils/basis";
 import { createDriver, type Driver } from "../driver";
 import type { Pool } from "../pool";
@@ -35,10 +35,12 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     listIndex: 0,
     name: "smoke",
     disabled: false,
+    culled: null,
     rate: constant(20),
     particleLifetime: constant(1),
     lifetime: null,
     timeBeforeFirstEmission: 0,
+    period: null,
     singleParticle: false,
     sharedRandom: false,
     birthVelocity: constant(0, 100, 0),
@@ -104,6 +106,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     mesh: null,
     trail: null,
     beam: null,
+    projection: null,
     childSet: null,
     fields: null,
     depthBias: [0, 0],
@@ -294,32 +297,53 @@ describe("createDriver", () => {
     expect(driver.pool.velocity[born * 3 + 2]).toBeCloseTo(0, 3);
   });
 
-  it("starts over when an edit adds or removes an emitter", () => {
+  it("replays to the current phase when an edit adds or removes an emitter", () => {
+    const next = system(emitter(), emitter({ index: 1, listIndex: 1, name: "spark" }));
     const driver = run(system(emitter()), 3, 60);
-    expect(driver.pool.count).toBeGreaterThan(0);
+    const phase = driver.phase;
 
-    driver.swap(system(emitter(), emitter({ index: 1, listIndex: 1, name: "spark" })));
+    driver.swap(next);
 
-    expect(driver.pool.count).toBe(0);
+    expect(driver.phase).toBeCloseTo(phase, 9);
+    expect(snapshot(driver.pool)).toEqual(snapshot(run(next, 3, 60).pool));
   });
 
-  it("starts over when an edit replaces one emitter of the same count", () => {
+  it("replays to the current phase when an edit replaces one emitter of the same count", () => {
     const spark = emitter({ index: 1, listIndex: 1, name: "spark" });
+    const next = system(emitter(), emitter({ index: 1, listIndex: 1, name: "ember" }));
     const driver = run(system(emitter(), spark), 3, 60);
-    expect(driver.pool.count).toBeGreaterThan(0);
 
-    driver.swap(system(emitter(), emitter({ index: 1, listIndex: 1, name: "ember" })));
+    driver.swap(next);
 
-    expect(driver.pool.count).toBe(0);
+    expect(snapshot(driver.pool)).toEqual(snapshot(run(next, 3, 60).pool));
   });
 
-  it("starts over when an emitter moves between the two lists", () => {
+  it("replays to the current phase when an emitter moves between the two lists", () => {
+    const next = system(emitter({ simple: true }));
     const driver = run(system(emitter()), 3, 60);
-    expect(driver.pool.count).toBeGreaterThan(0);
 
-    driver.swap(system(emitter({ simple: true })));
+    driver.swap(next);
 
-    expect(driver.pool.count).toBe(0);
+    expect(snapshot(driver.pool)).toEqual(snapshot(run(next, 3, 60).pool));
+  });
+
+  it("keeps the checkpoints across an edit to what only the draw reads", () => {
+    /* A play at 30 Hz writes checkpoints a 60 Hz replay from zero would not reproduce. */
+    const played = () => {
+      const driver = driverFor(system(emitter()), 3);
+      for (let at = 0; at < 90; at += 1) driver.advance(1 / 30);
+      return driver;
+    };
+    const plain = played();
+    plain.seek(plain.phase);
+    const edited = played();
+    edited.swap(system(emitter({ blendMode: 1 })));
+    edited.seek(edited.phase);
+    const replayed = driverFor(system(emitter()), 3);
+    replayed.seek(plain.phase);
+
+    expect(snapshot(edited.pool)).toEqual(snapshot(plain.pool));
+    expect(snapshot(edited.pool)).not.toEqual(snapshot(replayed.pool));
   });
 
   it("holds the phase when an edit shortens a looping run", () => {
@@ -397,7 +421,7 @@ describe("child sets", () => {
 
     expect(driver.pool.count).toBe(1);
     expect(child.origin[1]).toBeCloseTo(driver.pool.position[1], 3);
-    expect(child.origin[1]).toBeGreaterThan(STAND_HEIGHT + 40);
+    expect(child.origin[1]).toBeGreaterThan(40);
   });
 
   it("stops a child where its particle died, and reaps it once it has played out", () => {
@@ -429,7 +453,7 @@ describe("child sets", () => {
 
     for (let at = 0; at < 36; at += 1) driver.advance(1 / 60);
     const [child] = driver.sources("0.0");
-    expect(child.origin[1]).toBeGreaterThan(STAND_HEIGHT + 90);
+    expect(child.origin[1]).toBeGreaterThan(90);
 
     const where = child.origin[1];
     for (let at = 0; at < 12; at += 1) driver.advance(1 / 60);
@@ -571,7 +595,7 @@ describe("child sets", () => {
     /** `model` run with `joints` bound before any particle spawns, so bone children reach it. */
     function boneRun(model: SystemModel, seed: number, frames: number, joints: Joints) {
       const driver = driverFor(model, seed);
-      driver.steer({ motion: { kind: "still" }, life: "once", height: STAND_HEIGHT, joints });
+      driver.steer({ motion: { kind: "still" }, life: "once", height: 0, joints });
       for (let at = 0; at < frames; at += 1) driver.advance(1 / 60);
       return driver;
     }
@@ -783,7 +807,7 @@ describe("the rig", () => {
     expect(driver.origin[0]).toBeCloseTo((94 / 60 - 1.5) * 100, 2);
   });
 
-  it("flies a path rig on its Y, so a birth along Y flies with it and Z hangs down", () => {
+  it("flies a path rig on its Y, so a birth along Y flies with it and Z points up", () => {
     const driver = driverFor(system(emitter({ birthVelocity: constant(0, 100, 0) })), 3);
     driver.steer({
       motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
@@ -797,7 +821,7 @@ describe("the rig", () => {
     expect(driver.pool.velocity[1]).toBeCloseTo(0, 3);
     expect(driver.pool.velocity[2]).toBeCloseTo(0, 3);
 
-    const lifted = driverFor(system(emitter({ birthVelocity: constant(0, 0, -100) })), 3);
+    const lifted = driverFor(system(emitter({ birthVelocity: constant(0, 0, 100) })), 3);
     lifted.steer({
       motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
       life: "once",
@@ -865,14 +889,34 @@ describe("the rig", () => {
 
     expect(driver.pool.count).toBeGreaterThan(0);
     expect(driver.pool.position[0]).toBeCloseTo(500, 3);
-    expect(driver.origin).toEqual([500, STAND_HEIGHT, 0]);
+    expect(driver.origin).toEqual([500, 0, 0]);
+  });
+
+  it("carries an orbit on a missile's frame, or on a unit's under that orientation", () => {
+    const orbiting = (orientation: "missile" | "unit") => {
+      const driver = run(system(emitter()), 3, 0);
+      driver.steer({
+        motion: { kind: "orbit", radius: 100, period: 60, orientation },
+        life: "once",
+        height: 0,
+      });
+      driver.advance(1 / 60);
+      return [...driver.orientation].map((cell) => Math.round(cell * 100) / 100 + 0);
+    };
+
+    expect(orbiting("missile")).toEqual([-1, 0, 0, 0, 0, 1, 0, 1, 0]);
+    expect(orbiting("unit")).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
   });
 
   it("puts the run back to its start when the motion itself changes", () => {
     const driver = run(system(emitter()), 3, 60);
     expect(driver.pool.count).toBeGreaterThan(0);
 
-    driver.steer({ motion: { kind: "orbit", radius: 100, period: 2 }, life: "once", height: 0 });
+    driver.steer({
+      motion: { kind: "orbit", radius: 100, period: 2, orientation: "missile" },
+      life: "once",
+      height: 0,
+    });
 
     expect(driver.pool.count).toBe(0);
     expect(driver.time).toBe(0);

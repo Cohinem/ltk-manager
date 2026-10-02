@@ -1,0 +1,394 @@
+import { DndContext, DragOverlay, pointerWithin } from "@dnd-kit/core";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  type CSSProperties,
+  type KeyboardEvent,
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
+import { ContextMenu } from "@/components";
+import { useRemeasure, useZoomedPx } from "@/hooks";
+import type { DeclarationsLayer, DeclaredModule } from "@/lib/tauri";
+
+import { useReadOnlyTreeNav } from "../../hooks";
+import type { OpenIntent } from "../../palette/utils/types";
+import { VirtualTree } from "../../shared/components/VirtualTree";
+import { treeItemIndexOf } from "../../shared/utils/tree";
+import type { ModuleLanding, OutlineActions } from "../hooks/useOutlineActions";
+import { useOutlineDrag } from "../hooks/useOutlineDrag";
+import {
+  ancestorIds,
+  flattenOutline,
+  isBranch,
+  moduleItemId,
+  outlineBranchIds,
+  type OutlineNode,
+  type OutlineShape,
+  pathColumn,
+  toggleOutlineSubtree,
+} from "../utils/outlineTree";
+import { DeclarationsTreeRow } from "./DeclarationsTreeRow";
+import { type OutlineMenuHandlers, OutlineMenuItems } from "./OutlineMenuItems";
+import { DragChip, OutlineRowContext, type OutlineRowShared } from "./OutlineRowParts";
+
+/* Every read-only tree of the editor scans alike. */
+const ROW_HEIGHT = 24;
+
+/** A request to select and show one item, told apart from the last by its token. */
+export interface OutlineReveal {
+  itemId: string;
+  /** Type over the module's name once it shows. */
+  rename?: boolean;
+  token: number;
+}
+
+interface DeclarationsTreeProps {
+  layers: readonly DeclarationsLayer[];
+  shape: OutlineShape;
+  ariaLabel: string;
+  /** What `Enter`, a click on a leaf, or a row's own action does. */
+  onOpen: (node: OutlineNode, intent: OpenIntent) => void;
+  /** Whether a click on a branch opens it rather than folding it. */
+  openBranches: boolean;
+  /** The module actions the rows offer, or none for a tree that only reads. */
+  actions?: OutlineActions;
+  /** Select a node's lines in the manifest's text. Absent where no text is on screen. */
+  onShowInText?: (node: OutlineNode) => void;
+  reveal?: OutlineReveal | null;
+  onRevealed?: (token: number) => void;
+  /** The row the keyboard sits on, as it moves. */
+  onSelect?: (node: OutlineNode | null) => void;
+  /** Bumped to collapse every branch, from a control outside the tree. */
+  collapseRequest?: number;
+}
+
+/**
+ * A read-only virtualized tree over a project's declarations: layer, module, entry, key.
+ *
+ * - Every branch starts open. A reveal opens the branches above its item, then selects and
+ *   scrolls to it.
+ * - Every key's value starts at one column, as wide as the longest path up to a cap.
+ * - With `actions`, a row's context menu and a module's kebab carry the module actions, and a
+ *   module takes `F2` to rename, `Alt+↑` and `Alt+↓` to move and `Delete` to remove.
+ * - With `actions`, a module drags to a new place in the apply order, and an entry or a key of
+ *   an `entries` module drags into another one. A New module line ends each layer.
+ * - A module just made shows with its name being typed.
+ */
+export function DeclarationsTree({
+  layers,
+  shape,
+  ariaLabel,
+  onOpen,
+  openBranches,
+  actions,
+  onShowInText,
+  reveal = null,
+  onRevealed,
+  onSelect,
+  collapseRequest = 0,
+}: DeclarationsTreeProps) {
+  const [shut, setShut] = useState<ReadonlySet<string>>(() => new Set());
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [menuNode, setMenuNode] = useState<OutlineNode | null>(null);
+  /* A module's id is its place, so a moved or made module is found in the outline the action
+     read again, once the tree draws that one. */
+  const [following, setFollowing] = useState<{ landing: ModuleLanding; rename: boolean } | null>(
+    null,
+  );
+  const follow = useCallback((landing: ModuleLanding | null, rename: boolean) => {
+    if (landing !== null) setFollowing({ landing, rename });
+  }, []);
+
+  const isShut = useCallback((id: string) => shut.has(id), [shut]);
+  const rows = useMemo(() => flattenOutline(layers, isShut, shape), [layers, isShut, shape]);
+  const pathCols = useMemo(() => pathColumn(layers), [layers]);
+
+  const branches = useMemo(() => outlineBranchIds(layers, shape), [layers, shape]);
+
+  const toggle = useCallback(
+    (node: OutlineNode, subtree = false) => {
+      if (subtree) {
+        setShut((held) => toggleOutlineSubtree(held, node.id, branches));
+        return;
+      }
+
+      setShut((held) => {
+        const next = new Set(held);
+        if (!next.delete(node.id)) next.add(node.id);
+        return next;
+      });
+    },
+    [branches],
+  );
+
+  const collapseAll = useCallback(() => setShut(new Set(branches)), [branches]);
+
+  const [seenCollapse, setSeenCollapse] = useState(collapseRequest);
+  if (seenCollapse !== collapseRequest) {
+    setSeenCollapse(collapseRequest);
+    setShut(new Set(branches));
+  }
+
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const zoomed = useZoomedPx();
+  const rowHeight = zoomed(ROW_HEIGHT);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => rowHeight,
+    overscan: 12,
+    getItemKey: (index) => rows[index]!.node.id,
+  });
+  useRemeasure(virtualizer, rowHeight);
+
+  const modulesOf = useCallback(
+    (layer: string): readonly DeclaredModule[] =>
+      layers.find((held) => held.layer === layer)?.modules ?? [],
+    [layers],
+  );
+
+  const create = useCallback(
+    (layer: string) => {
+      if (actions === undefined) return;
+      void actions.create(layer).then((landing) => follow(landing, true));
+    },
+    [actions, follow],
+  );
+
+  const open = useCallback(
+    (node: OutlineNode, intent: OpenIntent) => {
+      if (node.type === "add") {
+        create(node.layer);
+        return;
+      }
+      onOpen(node, intent);
+    },
+    [create, onOpen],
+  );
+
+  const { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown } = useReadOnlyTreeNav({
+    rows,
+    isExpanded: (node: OutlineNode) => isBranch(node, shape) && !shut.has(node.id),
+    onToggle: toggle,
+    onOpen: open,
+    expandable: (node: OutlineNode) => isBranch(node, shape),
+    activation: (node: OutlineNode) => {
+      if (openBranches || !isBranch(node, shape)) return "open";
+      return "toggle";
+    },
+    virtualizer,
+    scrollElementRef: scrollRef,
+    onCollapseAll: collapseAll,
+  });
+
+  const selected = rows[focusedIndex]?.node ?? null;
+  useEffect(() => {
+    onSelect?.(selected);
+  }, [selected, onSelect]);
+
+  /* A rename takes the focus into its field, so the row is selected and scrolled to without
+     being focused. */
+  const land = useCallback(
+    (at: number, rename: boolean) => {
+      if (!rename) {
+        moveFocus(at);
+        return;
+      }
+
+      setFocusedIndex(at);
+      virtualizer.scrollToIndex(at, { align: "auto", behavior: "auto" });
+      setRenamingId(rows[at]!.node.id);
+    },
+    [moveFocus, rows, setFocusedIndex, virtualizer],
+  );
+
+  /* The branches open first, and the row is looked up on the render that draws it. */
+  useEffect(() => {
+    if (!reveal) return;
+
+    const closed = ancestorIds(reveal.itemId).filter((id) => shut.has(id));
+    if (closed.length > 0) {
+      setShut((held) => {
+        const next = new Set(held);
+        for (const id of closed) next.delete(id);
+        return next;
+      });
+      return;
+    }
+
+    const at = rows.findIndex((row) => row.node.id === reveal.itemId);
+    if (at >= 0) land(at, reveal.rename === true);
+    onRevealed?.(reveal.token);
+  }, [reveal, rows, shut, land, onRevealed]);
+
+  useEffect(() => {
+    if (following === null) return;
+
+    const { landing, rename } = following;
+    const drawn = layers.find((layer) => layer.layer === landing.layer.layer);
+    if (drawn !== landing.layer) return;
+
+    const id = moduleItemId(landing.layer.layer, landing.index);
+    const at = rows.findIndex((row) => row.node.id === id);
+    if (at >= 0) land(at, rename);
+    setFollowing(null);
+  }, [following, layers, rows, land]);
+
+  const drag = useOutlineDrag(actions, follow);
+
+  const handlers = useMemo<OutlineMenuHandlers | null>(() => {
+    if (actions === undefined) return null;
+
+    return {
+      actions,
+      modulesOf,
+      onOpen: open,
+      onRename: (node) => {
+        if (node.type === "module") setRenamingId(node.id);
+      },
+      onCreate: create,
+      onMoveToNew: (layer, module, entry, path) => {
+        void actions
+          .moveToNewModule(layer, module, entry, path)
+          .then((landing) => follow(landing, true));
+      },
+      onShowInText,
+    };
+  }, [actions, create, follow, modulesOf, onShowInText, open]);
+
+  const endRename = useCallback(() => {
+    setRenamingId(null);
+    requestAnimationFrame(() =>
+      scrollRef.current?.querySelector<HTMLElement>("[tabindex='0']")?.focus(),
+    );
+  }, []);
+
+  const shared = useMemo<OutlineRowShared>(
+    () => ({
+      shape,
+      handlers,
+      renamingId,
+      endRename,
+      drop: drag.drop,
+      draggedId: drag.dragged?.id ?? null,
+      isDragClick: drag.isDragClick,
+    }),
+    [shape, handlers, renamingId, endRename, drag.drop, drag.dragged, drag.isDragClick],
+  );
+
+  function handleTreeKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (
+      handlers !== null &&
+      selected?.type === "module" &&
+      moduleKey(event, selected, handlers, (landing) => follow(landing, false))
+    ) {
+      event.preventDefault();
+      return;
+    }
+    handleKeyDown(event);
+  }
+
+  function handleContextMenu(event: MouseEvent<HTMLDivElement>) {
+    const at = treeItemIndexOf(event.target);
+    const node = at === null ? null : (rows[at]?.node ?? null);
+    if (at === null || node === null || handlers === null) {
+      event.preventDefault();
+      setMenuNode(null);
+      return;
+    }
+
+    setFocusedIndex(at);
+    setMenuNode(node);
+  }
+
+  return (
+    <OutlineRowContext value={shared}>
+      <DndContext
+        sensors={drag.sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={drag.onDragStart}
+        onDragOver={drag.onDragOver}
+        onDragEnd={drag.onDragEnd}
+        onDragCancel={drag.onDragCancel}
+      >
+        <VirtualTree
+          data-ui="DeclarationsTree"
+          aria-label={ariaLabel}
+          scrollRef={scrollRef}
+          rows={rows}
+          items={virtualizer.getVirtualItems()}
+          totalSize={virtualizer.getTotalSize()}
+          onKeyDown={handleTreeKeyDown}
+          onContextMenu={handleContextMenu}
+          style={{ "--path-cols": pathCols } as CSSProperties}
+          menu={
+            handlers !== null &&
+            menuNode !== null && (
+              <ContextMenu.Content data-ui="DeclarationsTree:menu" className="w-60">
+                <OutlineMenuItems node={menuNode} handlers={handlers} />
+              </ContextMenu.Content>
+            )
+          }
+          renderRow={(row, index) => {
+            const isSelected = index === focusedIndex;
+            return (
+              <DeclarationsTreeRow
+                node={row.node}
+                depth={row.depth}
+                branch={isBranch(row.node, shape)}
+                isExpanded={!shut.has(row.node.id)}
+                isSelected={isSelected}
+                openBranches={openBranches}
+                onToggle={toggle}
+                onSelect={setFocusedIndex}
+                onOpen={open}
+                height={rowHeight}
+                rowIndex={index}
+                tabIndex={isSelected ? 0 : -1}
+              />
+            );
+          }}
+        />
+
+        <DragOverlay dropAnimation={null}>
+          {drag.dragged !== null && <DragChip node={drag.dragged} />}
+        </DragOverlay>
+      </DndContext>
+    </OutlineRowContext>
+  );
+}
+
+/** Run the module action a key names on the selected module, and say whether one ran. */
+function moduleKey(
+  event: KeyboardEvent,
+  node: Extract<OutlineNode, { type: "module" }>,
+  handlers: OutlineMenuHandlers,
+  follow: (landing: ModuleLanding | null) => void,
+): boolean {
+  const { actions } = handlers;
+  const { layer, module } = node;
+  const last = handlers.modulesOf(layer).length - 1;
+
+  if (event.key === "F2") {
+    handlers.onRename(node);
+    return true;
+  }
+  if (event.key === "Delete") {
+    actions.remove(layer, module);
+    return true;
+  }
+  if (event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
+    const to = module.index + (event.key === "ArrowUp" ? -1 : 1);
+    if (to < 0 || to > last) return true;
+
+    void actions.move(layer, module, to).then(follow);
+    return true;
+  }
+  return false;
+}

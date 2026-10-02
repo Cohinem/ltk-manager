@@ -2,7 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, getLocale, m } from "@/i18n";
 import { api, type BulkInstallResult, unwrap } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";
 
@@ -32,7 +32,7 @@ export function useLibraryActions() {
     const files = await open({
       multiple: true,
       filters: [
-        { name: "Mod Archives", extensions: [...MOD_ARCHIVE_EXTENSIONS] },
+        { name: m.library_import_archives_filter_label(), extensions: [...MOD_ARCHIVE_EXTENSIONS] },
         { name: "Modpkg", extensions: ["modpkg"] },
         { name: "Fantome", extensions: ["fantome", "zip"] },
       ],
@@ -75,33 +75,56 @@ export function useLibraryActions() {
         setImportResult(result);
 
         // Check installed mods for skinhacks and disable any flagged ones
-        for (const mod of result.installed) {
+        for (const mod of [...result.installed, ...result.updated]) {
           const flag = checkModForSkinhack(mod);
           if (flag) {
             api.toggleMod(mod.id, false);
-            toast.warning("Skinhack Detected", `Skinhack detected in "${mod.displayName}"`);
+            toast.warning(
+              m.library_install_skinhack_title(),
+              m.library_install_skinhack_description({ name: mod.displayName }),
+            );
           }
         }
 
-        if (result.failed.length === 0) {
-          toast.success(
-            "Mods installed",
-            `${result.installed.length} mod${result.installed.length !== 1 ? "s" : ""} installed successfully`,
-          );
-        } else if (result.installed.length === 0) {
-          toast.error("Import failed", `All ${result.failed.length} files failed to import`);
-        } else {
-          toast.warning(
-            "Import completed with errors",
-            `${result.installed.length} installed, ${result.failed.length} failed`,
-          );
-        }
+        announceImport(result);
       },
       onError: (error) => {
         handleCloseImportDialog();
-        toast.error("Import failed", errorSummary(error));
+        toast.error(m.library_import_failed_title(), errorSummary(error));
       },
     });
+  }
+
+  function announceImport({ installed, updated, alreadyInstalled, failed }: BulkInstallResult) {
+    const changed = installed.length + updated.length;
+    const summary = new Intl.ListFormat(getLocale(), { style: "short", type: "unit" }).format(
+      [
+        installed.length > 0 &&
+          m.library_import_summary_installed_label({ count: installed.length }),
+        updated.length > 0 && m.library_import_summary_updated_label({ count: updated.length }),
+        alreadyInstalled.length > 0 &&
+          m.library_import_summary_existing_label({ count: alreadyInstalled.length }),
+        failed.length > 0 && m.library_import_summary_failed_label({ count: failed.length }),
+      ].filter((part) => part !== false),
+    );
+
+    if (failed.length > 0 && changed === 0 && alreadyInstalled.length === 0) {
+      toast.error(
+        m.library_import_failed_title(),
+        m.library_import_failed_description({ count: failed.length }),
+      );
+    } else if (failed.length > 0) {
+      toast.warning(m.library_import_partial_title(), summary);
+    } else if (changed === 0) {
+      toast.info(
+        m.library_import_already_installed_title(),
+        m.library_import_already_installed_description({ count: alreadyInstalled.length }),
+      );
+    } else if (installed.length === 0) {
+      toast.success(m.library_import_updated_title(), summary);
+    } else {
+      toast.success(m.library_import_installed_title(), summary);
+    }
   }
 
   function handleCloseImportDialog() {
@@ -140,7 +163,7 @@ export function useLibraryActions() {
       await api.revealInExplorer(path);
     } catch (error: unknown) {
       toast.error(
-        "Failed to open directory",
+        m.library_storage_open_failed_title(),
         error instanceof Error ? error.message : String(error),
       );
     }

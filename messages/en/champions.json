@@ -1,0 +1,6 @@
+{
+  "$schema": "https://inlang.com/schema/inlang-message-format",
+  "champions_picker_add_action": "Add \"{name}\"",
+  "champions_picker_empty": "No champions match",
+  "champions_picker_placeholder": "Add champions"
+}

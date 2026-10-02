@@ -1,8 +1,8 @@
 import { ArrowElbowDownRightIcon, CaretRightIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { memo, useMemo } from "react";
-import { twMerge } from "tailwind-merge";
 
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { EmptyTile } from "../../../classes/components/ClassCells";
 import { CutText } from "../../../shared/components/CutText";
@@ -11,6 +11,7 @@ import { CardSquare } from "../../inspector/components/VfxSections";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import type { EmitterCardData } from "../../inspector/utils/emitterTypes";
 import { useVfxRun } from "../../playback/state/run";
+import type { SnapKeys, TimeSnap } from "../hooks/useTimeSnap";
 import { liveCount } from "../utils/histogram";
 import {
   childBars,
@@ -19,8 +20,10 @@ import {
   laneBar,
   type TimeWindow,
 } from "../utils/laneModel";
+import { BarEditor } from "./BarEditor";
 import { type LaneGestures, SoloToggle, VisibleToggle } from "./laneVisibility";
 import { Track } from "./Track";
+import { useBarEditing } from "./useBarEditing";
 
 /** The room the live count takes at a lane's right edge, in pixels. */
 export const COUNT = 40;
@@ -43,7 +46,9 @@ interface LaneRowProps {
   expanded: boolean;
   onExpand: (emitter: number) => void;
   onSelect: (row: Row) => void;
-  onSeek: (x: number) => void;
+  onSeek: (x: number, keys: SnapKeys) => void;
+  /** How a dragged edge snaps. */
+  snap: TimeSnap;
 }
 
 /**
@@ -64,6 +69,7 @@ export const LaneRow = memo(function LaneRow({
   onExpand,
   onSelect,
   onSeek,
+  snap,
 }: LaneRowProps) {
   const run = useVfxRun();
   const { open, child } = useEmitters();
@@ -82,6 +88,7 @@ export const LaneRow = memo(function LaneRow({
   const muted = row.kind === "emitter" && run.muted.has(emitter.index);
   const soloed = row.kind === "emitter" && run.soloed.has(emitter.index);
   const dimmed = emitter.disabled || muted || (run.soloed.size > 0 && !soloed);
+  const editing = useBarEditing(emitter, row.kind === "emitter" ? card : undefined);
 
   return (
     <div
@@ -94,7 +101,7 @@ export const LaneRow = memo(function LaneRow({
     >
       <div
         className={twMerge(
-          "flex h-full shrink-0 items-center gap-1 border-r border-surface-700/50 px-1 font-mono text-code select-none",
+          "flex h-full shrink-0 items-center gap-1 border-r border-surface-700/50 px-1 select-none",
           row.kind === "child" && "pl-5",
           dimmed && "opacity-60",
         )}
@@ -105,15 +112,15 @@ export const LaneRow = memo(function LaneRow({
             type="button"
             aria-label={m.workshop_bin_timeline_children_action()}
             aria-expanded={expanded}
-            className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200"
+            className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200"
             onClick={() => onExpand(emitter.index)}
           >
-            <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", expanded && "rotate-90")} />
+            <CaretRightIcon weight="bold" className={twMerge("size-3", expanded && "rotate-90")} />
           </button>
         )}
         {row.kind === "emitter" && !row.nested && <span className="w-4 shrink-0" />}
         {row.kind === "child" && (
-          <ArrowElbowDownRightIcon className="h-3 w-3 shrink-0 text-surface-500" />
+          <ArrowElbowDownRightIcon className="size-3 shrink-0 text-surface-500" />
         )}
         {row.kind === "emitter" && (
           <VisibleToggle lane={emitter.index} hidden={muted} gestures={gestures} />
@@ -130,8 +137,8 @@ export const LaneRow = memo(function LaneRow({
             <EyeSlashIcon
               weight="bold"
               role="img"
-              aria-label={m.workshop_bin_emitter_disabled_label()}
-              className="h-3 w-3 shrink-0 text-surface-400"
+              aria-label={offLabel(emitter)}
+              className="size-3 shrink-0 text-surface-400"
             />
           )}
           <CutText text={emitter.name} className="text-surface-200" />
@@ -156,7 +163,15 @@ export const LaneRow = memo(function LaneRow({
           dimmed={dimmed}
           right={COUNT}
           onSeek={onSeek}
+          onScrubStart={run.beginScrub}
+          onScrubEnd={run.endScrub}
+          onBarEdit={editing.onBarEdit}
+          onBarPreview={editing.onBarPreview}
+          onBarOpen={editing.onBarOpen}
+          lingers={!emitter.simple}
+          snap={snap}
         />
+        {editing.editor !== null && <BarEditor emitter={emitter} {...editing.editor} />}
         {row.kind === "emitter" && (
           <span
             data-count={emitter.index}
@@ -179,4 +194,11 @@ export const SIMPLE_TAG = 7;
 /** What a lane head's name and index take, as characters its width is fitted to. */
 export function laneLabel(emitter: EmitterModel): string {
   return `${emitter.name} [${emitter.listIndex}]${" ".repeat(emitter.simple ? SIMPLE_TAG : 0)}`;
+}
+
+/** Why the lane's emitter draws nothing: its `disabled` flag, or a gate the engine applies. */
+function offLabel(emitter: EmitterModel): string {
+  if (emitter.culled === "importance") return m.workshop_bin_emitter_low_spec_label();
+  if (emitter.culled === "colorblind") return m.workshop_bin_emitter_colorblind_only_label();
+  return m.workshop_bin_emitter_disabled_label();
 }

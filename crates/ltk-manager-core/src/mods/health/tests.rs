@@ -2,6 +2,7 @@
 //! fixtures the repair suite uses.
 
 use super::*;
+use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
@@ -21,7 +22,7 @@ fn checking_a_stale_archived_fantome_reports_it_repairable_and_remembers() {
     point_at_installed_build(&mut config, storage.path());
     place_bin_archived_fantome(storage.path(), "stale-mod", &stale_bin());
     seed_library(&library, &config, vec![archived_entry("id-1", "stale-mod")]);
-    let archive = storage.path().join("mods").join("stale-mod.fantome");
+    let archive = storage.path().mods_dir().join("stale-mod.fantome");
     let before = fs::read(&archive).unwrap();
 
     let verdict = library.check_mod_health(&config, "id-1").unwrap();
@@ -58,7 +59,7 @@ fn checking_a_stale_packed_fantome_unpacks_nothing_and_reports_what_a_repair_cou
         &config,
         vec![archived_entry("id-1", "packed-mod")],
     );
-    let mods_dir = storage.path().join("mods");
+    let mods_dir = storage.path().mods_dir();
     let before = fs::read(mods_dir.join("packed-mod.fantome")).unwrap();
 
     let verdict = library.check_mod_health(&config, "id-1").unwrap();
@@ -108,7 +109,7 @@ fn checking_many_skips_the_mod_it_cannot_read() {
     place_bin_archived_fantome(storage.path(), "good-mod", &stale_bin());
     // An archive-storage entry whose archive is gone is a mod the check
     // cannot read.
-    let broken_dir = storage.path().join("mods").join("broken-mod");
+    let broken_dir = storage.path().mods_dir().join("broken-mod");
     fs::create_dir_all(&broken_dir).unwrap();
     fs::write(broken_dir.join("mod.config.json"), "{}").unwrap();
     seed_library(
@@ -120,10 +121,14 @@ fn checking_many_skips_the_mod_it_cannot_read() {
         ],
     );
 
-    let recorded =
-        library.check_mods_health(&config, &["id-broken".to_string(), "id-good".to_string()]);
+    let report = library
+        .sweep_mod_health(
+            &config,
+            &SweepScope::Installed(vec!["id-broken".to_string(), "id-good".to_string()]),
+        )
+        .unwrap();
 
-    assert_eq!(recorded, 1);
+    assert_eq!(report.checked, 1);
     let verdicts = library.mod_health_verdicts(&config).unwrap();
     assert_eq!(
         verdicts.get("id-good").unwrap().health,
@@ -189,7 +194,7 @@ fn the_store_keeps_what_the_run_saw_and_a_load_rebuilds_the_rest() {
         rule: "bin/property-type".to_owned(),
         title: "A title an older build wrote".to_owned(),
         description: "A sentence an older build wrote".to_owned(),
-        severity: problems::Severity::Fatal,
+        severity: problems::ProblemSeverity::Fatal,
         count: 3,
         fixable: 1,
         mismatches: vec![problems::TypeMismatch {
@@ -226,16 +231,13 @@ fn the_store_keeps_what_the_run_saw_and_a_load_rebuilds_the_rest() {
         .into_iter()
         .find(|rule| rule.id().0 == "bin/property-type")
         .unwrap();
-    assert_eq!(brief.title, rule.title());
-    assert_eq!(brief.description, rule.description());
-    assert_eq!(
-        brief.unfixable.as_deref(),
-        Some(rule.unfixable_description())
-    );
+    assert_eq!(brief.title, rule.meta().title);
+    assert_eq!(brief.description, rule.meta().description);
+    assert_eq!(brief.unfixable.as_deref(), Some(rule.meta().unfixable));
     assert_eq!((brief.count, brief.fixable), (3, 1));
     assert_eq!(
         brief.severity,
-        problems::Severity::Fatal,
+        problems::ProblemSeverity::Fatal,
         "this rule's findings each answer for themselves, so the run's is the only answer"
     );
 }
@@ -254,7 +256,7 @@ fn a_declared_severity_is_the_builds_word_and_not_the_stores() {
         .unwrap();
     assert_eq!(
         rule.severity(),
-        Some(problems::Severity::Info),
+        Some(problems::ProblemSeverity::Info),
         "the rule this test is about has to be one that declares"
     );
 
@@ -270,7 +272,7 @@ fn a_declared_severity_is_the_builds_word_and_not_the_stores() {
                     rule: "bin/resolver-key-loss".to_owned(),
                     title: String::new(),
                     description: String::new(),
-                    severity: problems::Severity::Warning,
+                    severity: problems::ProblemSeverity::Warning,
                     count: 75,
                     fixable: 0,
                     mismatches: Vec::new(),
@@ -287,7 +289,7 @@ fn a_declared_severity_is_the_builds_word_and_not_the_stores() {
     let loaded = VerdictFile::load(storage.path());
     let brief = &loaded.verdicts["id-1"].rules[0];
 
-    assert_eq!(brief.severity, problems::Severity::Info);
+    assert_eq!(brief.severity, problems::ProblemSeverity::Info);
     assert_eq!(brief.count, 75, "the counts are still the run's to answer");
 }
 
@@ -308,7 +310,7 @@ fn a_rule_the_build_dropped_keeps_the_severity_it_was_stored_with() {
                     rule: "bin/a-rule-this-build-retired".to_owned(),
                     title: String::new(),
                     description: String::new(),
-                    severity: problems::Severity::Error,
+                    severity: problems::ProblemSeverity::Error,
                     count: 2,
                     fixable: 0,
                     mismatches: Vec::new(),
@@ -325,7 +327,7 @@ fn a_rule_the_build_dropped_keeps_the_severity_it_was_stored_with() {
     let loaded = VerdictFile::load(storage.path());
     let brief = &loaded.verdicts["id-1"].rules[0];
 
-    assert_eq!(brief.severity, problems::Severity::Error);
+    assert_eq!(brief.severity, problems::ProblemSeverity::Error);
     assert_eq!(brief.title, "bin/a-rule-this-build-retired");
 }
 
@@ -438,7 +440,7 @@ fn forgetting_a_verdict_that_is_not_held_writes_nothing() {
 }
 
 /// A run holding one finding at `severity`, for the verdict tests below.
-fn run_of(severity: problems::Severity) -> Run {
+fn run_of(severity: problems::ProblemSeverity) -> Run {
     let mut report = problems::Report::default();
     report.problem(
         problems::RuleId("audio/bank-id"),
@@ -464,7 +466,7 @@ fn run_of(severity: problems::Severity) -> Run {
 fn a_mod_whose_findings_are_all_informative_reads_healthy() {
     let verdict = ModHealthVerdict::from_run(
         "id-1",
-        &run_of(problems::Severity::Info),
+        &run_of(problems::ProblemSeverity::Info),
         HealthCheckBasis::default(),
     );
 
@@ -480,7 +482,7 @@ fn a_mod_whose_findings_are_all_informative_reads_healthy() {
 fn one_rung_above_informative_is_a_mod_the_library_reports() {
     let verdict = ModHealthVerdict::from_run(
         "id-1",
-        &run_of(problems::Severity::Warning),
+        &run_of(problems::ProblemSeverity::Warning),
         HealthCheckBasis::default(),
     );
 

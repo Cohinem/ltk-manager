@@ -15,10 +15,11 @@ use crate::diagnostics::incident::{EvidenceSource, LaunchKind, OverlayDetail, Ov
 
 use super::dll_lines::{self, DllLine, host_status};
 use super::host::{self, HOST_EXE_NAME, HostError, HostEvent, HostLine, HostState, PatcherHost};
+use super::refresh::OverlayRefresh;
 
 pub use super::dll_lines::{DllLevel, parse_wad_scan_failure};
 
-/// Re-export the executable name that `commands/patcher.rs` resolves.
+/// Re-export the executable name that `services/patcher.rs` resolves.
 pub const INJECTOR_EXE_NAME: &str = HOST_EXE_NAME;
 
 #[derive(Debug, thiserror::Error)]
@@ -57,6 +58,8 @@ pub enum InjectorEvent {
     Launch(LaunchKind),
     /// The game process ended. The last sign of a game, and not of the session.
     GameExited,
+    /// A library edit's overlay rebuild waits for the open game to end.
+    OverlayDeferred,
     /// One or more archives failed the injected DLL's integrity scan, so no mods
     /// were applied this session. The DLL aborts on the first failure, so we
     /// auto-stop the patcher and surface the failures instead of silently doing
@@ -98,6 +101,15 @@ impl WadScanFailure {
 
 type EventCallback = Box<dyn Fn(InjectorEvent) + Send>;
 
+/// Why a session's event loop returned without an error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionEnd {
+    /// The caller stopped it, or a failed scan did.
+    Stopped,
+    /// No game was open when a library edit asked for the overlay to be rebuilt.
+    Refresh,
+}
+
 /// Ends the host's current injection session.
 ///
 /// The event loop needs exactly one thing from the host - the ability to say
@@ -130,7 +142,7 @@ const ATTACH_PID_WINDOW: Duration = Duration::from_secs(1);
 /// Drives one patching session against an already-running [`PatcherHost`].
 ///
 /// The host process itself is spawned and kept alive by the caller (see
-/// `commands::patcher`); the injector only runs the per-session event loop and,
+/// `services::patcher`); the injector only runs the per-session event loop and,
 /// on stop, issues a `stop` command rather than killing the host.
 pub struct Injector {
     elevate: bool,
@@ -173,7 +185,7 @@ impl Injector {
     }
 
     /// Run one patching session's event loop against a persistent host, blocking
-    /// until the game exits or `stop_flag` is set.
+    /// until `stop_flag` is set or `refresh` comes due with no game open.
     ///
     /// The caller has already configured the host and started the scan; here we
     /// only consume `events` - the host's stdout line stream - dispatching events
@@ -187,8 +199,9 @@ impl Injector {
         events: Receiver<HostLine>,
         host: &Arc<Mutex<Option<PatcherHost>>>,
         stop_flag: &AtomicBool,
-    ) -> (Result<(), InjectorError>, Receiver<HostLine>) {
-        let result = self.event_loop(&events, host, stop_flag);
+        refresh: &OverlayRefresh,
+    ) -> (Result<SessionEnd, InjectorError>, Receiver<HostLine>) {
+        let result = self.event_loop(&events, host, stop_flag, refresh);
         (result, events)
     }
 
@@ -198,7 +211,8 @@ impl Injector {
         rx: &Receiver<HostLine>,
         control: &dyn SessionControl,
         stop_flag: &AtomicBool,
-    ) -> Result<(), InjectorError> {
+        refresh: &OverlayRefresh,
+    ) -> Result<SessionEnd, InjectorError> {
         let mut state = SessionState::default();
 
         loop {
@@ -221,7 +235,19 @@ impl Injector {
             if stop_flag.load(Ordering::SeqCst) {
                 tracing::info!("Stop requested, sending stop to host");
                 control.stop_session();
-                return Ok(());
+                return Ok(SessionEnd::Stopped);
+            }
+
+            if refresh.is_due(Instant::now()) {
+                if !state.game_open {
+                    tracing::info!("Library changed, stopping the scan to rebuild the overlay");
+                    control.stop_session();
+                    return Ok(SessionEnd::Refresh);
+                }
+                if refresh.defer_to_game_end() {
+                    tracing::info!("Library changed, rebuilding the overlay once the game ends");
+                    self.emit_event(InjectorEvent::OverlayDeferred);
+                }
             }
 
             let line = match rx.recv_timeout(Duration::from_millis(100)) {
@@ -229,7 +255,7 @@ impl Injector {
                 Ok(Err(e)) => {
                     tracing::warn!("Host stdout read error: {}", e);
                     if stop_flag.load(Ordering::SeqCst) {
-                        return Ok(());
+                        return Ok(SessionEnd::Stopped);
                     }
                     return Err(self
                         .unexpected_exit_error(state.last_error.or_else(|| Some(e.to_string()))));
@@ -242,7 +268,7 @@ impl Injector {
                     // dismissed the UAC prompt. Surface that instead of silently
                     // reporting a clean stop.
                     if stop_flag.load(Ordering::SeqCst) {
-                        return Ok(());
+                        return Ok(SessionEnd::Stopped);
                     }
                     return Err(self.unexpected_exit_error(state.last_error));
                 }
@@ -303,14 +329,19 @@ impl Injector {
                 match message.as_str() {
                     host_status::SCANNING_FOR_GAME => {
                         self.flush_attach(session);
+                        session.game_open = false;
                         self.emit_event(InjectorEvent::Scanning);
                     }
-                    host_status::GAME_FOUND => self.emit_event(InjectorEvent::GameFound),
+                    host_status::GAME_FOUND => {
+                        session.game_open = true;
+                        self.emit_event(InjectorEvent::GameFound);
+                    }
                     _ => self.emit_host_line(timestamp, message),
                 }
             }
             HostState::Injected => {
                 tracing::info!("[ltk-host] injected: {}", message);
+                session.game_open = true;
                 session.await_attach_pid();
             }
             HostState::Waiting => {
@@ -323,6 +354,7 @@ impl Injector {
                     message
                 );
                 self.flush_attach(session);
+                session.game_open = false;
                 self.emit_event(InjectorEvent::GameExited);
             }
             HostState::Failed => {
@@ -447,6 +479,8 @@ struct SessionState {
     /// Set at `status injected`, and cleared when a `dll` record names the pid,
     /// a later status line ends the wait, or the window runs out.
     attach_deadline: Option<Instant>,
+    /// Whether a game holds the overlay, from the host finding it until it exits.
+    game_open: bool,
 }
 
 impl SessionState {
@@ -548,6 +582,7 @@ mod tests {
         injector: Injector,
         control: StubControl,
         stop_flag: Arc<AtomicBool>,
+        refresh: OverlayRefresh,
         tx: Option<Sender<HostLine>>,
         rx: Receiver<HostLine>,
         events: Arc<Mutex<Vec<InjectorEvent>>>,
@@ -565,6 +600,7 @@ mod tests {
                 injector,
                 control: StubControl::default(),
                 stop_flag: Arc::new(AtomicBool::new(false)),
+                refresh: OverlayRefresh::default(),
                 tx: Some(tx),
                 rx,
                 events,
@@ -588,15 +624,15 @@ mod tests {
         /// Runs the loop behind a watchdog that trips the stop flag if the loop
         /// outlives any legitimate case. Without it, a test that feeds a line the
         /// parser rejects hangs the whole suite instead of failing.
-        fn run(&self) -> Result<(), InjectorError> {
+        fn run(&self) -> Result<SessionEnd, InjectorError> {
             let watchdog_flag = Arc::clone(&self.stop_flag);
             let watchdog = std::thread::spawn(move || {
                 std::thread::sleep(Duration::from_secs(10));
                 watchdog_flag.store(true, Ordering::SeqCst);
             });
-            let result = self
-                .injector
-                .event_loop(&self.rx, &self.control, &self.stop_flag);
+            let result =
+                self.injector
+                    .event_loop(&self.rx, &self.control, &self.stop_flag, &self.refresh);
             drop(watchdog);
             result
         }
@@ -707,6 +743,47 @@ mod tests {
         // Only the disconnect ends it, and since no stop was requested that is an
         // error - proving the loop survived the `exited` line.
         assert!(harness.run().is_err());
+    }
+
+    /// A settled refresh with no game open ends the loop, stopping the scan so the
+    /// thread can rebuild.
+    #[test]
+    fn a_due_refresh_ends_the_loop_while_scanning() {
+        let harness = Harness::new(false);
+        harness.send("status 1.0000000 injecting scanning for game");
+        harness.refresh.request();
+
+        assert_eq!(harness.run().unwrap(), SessionEnd::Refresh);
+        assert!(harness.control.was_stopped());
+    }
+
+    /// A game holds the overlay's files, so a refresh waits for it, says so once,
+    /// and runs when the game exits.
+    #[test]
+    fn a_due_refresh_waits_for_the_open_game() {
+        let harness = Harness::new(false);
+        harness.send("status 1.0000000 injecting game found");
+        harness.refresh.request();
+
+        let exit = {
+            let tx = harness.tx.clone().expect("sender still open");
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(1500));
+                tx.send(Ok("status 2.0000000 exited dll detached".to_string()))
+                    .unwrap();
+            })
+        };
+
+        assert_eq!(harness.run().unwrap(), SessionEnd::Refresh);
+        exit.join().unwrap();
+
+        let typed = harness.typed();
+        let deferred = typed
+            .iter()
+            .filter(|e| **e == InjectorEvent::OverlayDeferred)
+            .count();
+        assert_eq!(deferred, 1, "got: {typed:?}");
+        assert_eq!(typed.last(), Some(&InjectorEvent::GameExited));
     }
 
     /// The DLL emits one line per rejected archive then aborts. They must be

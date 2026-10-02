@@ -1,5 +1,6 @@
-//! The mapping from a repaired project file to what it addresses in the archive
-//! it came out of, over the three shapes a lossless unpack names a chunk with.
+//! Mapping a repaired project file to its target in the archive it was unpacked
+//! from, over the three forms of chunk name a lossless unpack writes: a path, a
+//! bare hash and a path with a `.ltk` suffix.
 
 use super::*;
 use ltk_hash::Hash as _;
@@ -29,8 +30,8 @@ fn a_file_of_a_wad_directory_is_a_chunk_keyed_by_its_path() {
     );
 }
 
-/// A chunk nothing named comes out under sixteen hex digits and no extension,
-/// which reads back as itself rather than as a path to hash.
+/// An unnamed chunk is written as sixteen hex digits with no extension, which
+/// parses as the hash itself rather than as a path to hash.
 #[test]
 fn a_nameless_chunk_keeps_the_hash_it_was_written_under() {
     assert_eq!(
@@ -39,7 +40,7 @@ fn a_nameless_chunk_keeps_the_hash_it_was_written_under() {
     );
 }
 
-/// A path two chunks claim gains a `.ltk` suffix, which comes off again.
+/// A path two chunks share gets a `.ltk` suffix, which the mapping strips.
 #[test]
 fn a_collided_path_addresses_the_chunk_it_was_renamed_from() {
     assert_eq!(
@@ -73,11 +74,32 @@ fn a_loose_file_of_the_base_layer_is_a_wad_entry() {
     );
 }
 
-/// Fantome stores the base layer alone, so another layer's file has nowhere to
-/// land and the repack is what answers for it.
 #[test]
-fn a_layer_the_archive_has_no_place_for_maps_nowhere() {
-    assert_eq!(DeltaTarget::of("high-res", "X.wad.client/f.bin"), None);
+fn a_file_of_another_layers_wad_directory_is_a_chunk_of_that_layer() {
+    assert_eq!(
+        chunk("high-res", "Aatrox.wad.client/data/skin0.bin"),
+        (
+            "Aatrox.wad.client".to_owned(),
+            WadHash::hash_str("data/skin0.bin")
+        )
+    );
+}
+
+/// Only the base layer has a `RAW/` directory, so another layer's `raw`
+/// directory is an ordinary directory under its `WAD_<layer>/`.
+#[test]
+fn a_loose_file_of_another_layer_is_an_entry_of_its_wad_directory() {
+    assert_eq!(entry("high-res", "notes.txt"), "WAD_high-res/notes.txt");
+    assert_eq!(
+        entry("high-res", "raw/config.ini"),
+        "WAD_high-res/raw/config.ini"
+    );
+}
+
+#[test]
+fn a_layer_no_wad_directory_can_hold_maps_nowhere() {
+    assert_eq!(DeltaTarget::of("high res", "X.wad.client/f.bin"), None);
+    assert_eq!(DeltaTarget::of("../x", "X.wad.client/f.bin"), None);
 }
 
 #[test]
@@ -88,8 +110,8 @@ fn a_declared_table_keeps_its_name_under_the_archives_hashes() {
     );
 }
 
-/// A table declared anywhere but flat under `hashes/` is routed by rules
-/// `ltk_mod_project` owns, and the repack is what applies them.
+/// A table declared anywhere other than directly under `hashes/` follows the
+/// routing rules in `ltk_mod_project`, which only the repack applies.
 #[test]
 fn a_table_declared_elsewhere_maps_nowhere() {
     assert_eq!(archive_table_path("tables/game.hashes.txt"), None);
@@ -97,8 +119,8 @@ fn a_table_declared_elsewhere_maps_nowhere() {
     assert_eq!(archive_table_path("hashes/"), None);
 }
 
-/// A repair that deleted a file states the deletion as a delta, and reads no
-/// bytes for it - the staged tree no longer holds any.
+/// A file the repair deleted becomes a removal in the delta, and no bytes are
+/// read for it, since the staged tree no longer holds the file.
 #[test]
 fn a_removal_is_written_as_an_edit() {
     let report = crate::problems::FixReport {
@@ -124,7 +146,7 @@ fn a_removal_is_written_as_an_edit() {
     assert!(edit.is_ok(), "{:?}", edit.err());
 }
 
-/// The edit a held run states, applied to the archive the run read.
+/// Edits from a held run, applied to the archive the run read.
 mod held {
     use super::*;
 
@@ -187,8 +209,8 @@ mod held {
         zip.finish().unwrap();
     }
 
-    /// Story: the repair wrote one chunk and hashed one path away, and the
-    /// edit puts both into the archive without a tree ever having existed.
+    /// Story: the repair writes one chunk and keeps one name, and the edit
+    /// writes both into the archive with no unpacked tree.
     #[test]
     fn a_held_write_and_its_kept_name_land_in_the_archive() {
         let tmp = tempfile::tempdir().unwrap();
@@ -225,7 +247,7 @@ mod held {
     }
 
     /// Story: the archive already declares a game table, and the run's names
-    /// join it rather than displacing it or declaring a second.
+    /// are added to it instead of replacing it or declaring a second table.
     #[test]
     fn a_kept_name_joins_the_table_the_archive_already_declares() {
         let tmp = tempfile::tempdir().unwrap();
@@ -252,8 +274,8 @@ mod held {
         assert!(names.contains(&ICON) && names.contains(&OTHER), "{names:?}");
     }
 
-    /// A file the report says was written but the run holds no bytes for is
-    /// a bug the edit refuses rather than writes around.
+    /// A file the report lists as written but the run holds no bytes for is a
+    /// bug, and the edit returns an error for it.
     #[test]
     fn a_written_file_the_run_does_not_hold_is_refused() {
         let report = crate::problems::FixReport {

@@ -6,12 +6,12 @@ import { Button, Slider } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN, useFitCamera, Viewport } from "@/modules/viewport";
-import { usePreviewCamera } from "@/stores";
+import { usePreviewAntiAliasing, usePreviewCamera } from "@/stores";
 
+import { Notice } from "../../shared/preview/Notice";
 import type { SystemModel } from "../../vfx/engine/model/model";
 import { createDriver } from "../../vfx/engine/simulation/driver";
 import { useVfxSystem } from "../../vfx/hooks/useVfxSystem";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { VfxSystem } from "../../vfx/rendering/components/VfxSystem";
 import { useVfxMeshes } from "../../vfx/rendering/hooks/useVfxMeshes";
@@ -83,6 +83,7 @@ function LoadedMissile({ system, flight }: { system: SystemModel; flight: Flight
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const camera = usePreviewCamera();
+  const antiAliasing = usePreviewAntiAliasing();
   const sample = useMemo(() => flightSampler(driver), [driver]);
   const clock = useRef(0);
   const setTime = useCallback((next: number) => {
@@ -147,9 +148,9 @@ function LoadedMissile({ system, flight }: { system: SystemModel; flight: Flight
       )}
       <div className="relative min-h-64 flex-1">
         <div className="absolute inset-0">
-          <Viewport stage textured={false} camera={camera}>
+          <Viewport antiAliasing={antiAliasing} stage textured={false} camera={camera}>
             <Passes
-              warps={system.emitters.some(distorts)}
+              warps={drawn.some(({ emitter }) => distorts(emitter))}
               softens={drawn.some(({ emitter }) => fades(emitter))}
             />
             <Fit system={system} flight={flight} />

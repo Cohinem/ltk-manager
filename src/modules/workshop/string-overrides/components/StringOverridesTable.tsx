@@ -1,7 +1,7 @@
 import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
-import { IconButton, TextareaField, Tooltip } from "@/components";
+import { IconButton, TextareaField } from "@/components";
 import type { StringKeySuggestion } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
@@ -161,16 +161,14 @@ function ComposerRow({ seed, onCommit }: ComposerRowProps) {
         }}
         placeholder="Replacement text"
       />
-      <Tooltip content="Add override">
-        <IconButton
-          icon={<PlusIcon weight="bold" className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          disabled={!key.trim()}
-          onClick={commit}
-          aria-label="Add override"
-        />
-      </Tooltip>
+      <IconButton
+        compact={false}
+        icon={<PlusIcon />}
+        size="sm"
+        disabled={!key.trim()}
+        onClick={commit}
+        label="Add override"
+      />
     </div>
   );
 }
@@ -197,17 +195,13 @@ function OverrideRow({ entry, original, error, onUpdate, onPick, onRemove }: Ove
         <div className="flex min-w-0 flex-1 flex-col">
           <KeyCell entry={entry} error={error} onUpdate={onUpdate} onPick={onPick} />
         </div>
-        <Tooltip content="Delete override">
-          <IconButton
-            icon={<TrashIcon className="h-4 w-4" />}
-            variant="ghost"
-            size="xs"
-            compact
-            onClick={() => onRemove(entry.id)}
-            aria-label={`Delete the ${entry.key} override`}
-            className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
-          />
-        </Tooltip>
+        <IconButton
+          icon={<TrashIcon />}
+          onClick={() => onRemove(entry.id)}
+          aria-label={`Delete the ${entry.key} override`}
+          className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          tooltip="Delete override"
+        />
       </div>
       <ValueCell entry={entry} original={original} onUpdate={onUpdate} />
     </li>

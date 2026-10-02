@@ -210,22 +210,18 @@ function ListEditorEntry<T>({
     <li className={styles.slot}>
       <ContextMenu.Root>
         <ContextMenu.Trigger>{entry}</ContextMenu.Trigger>
-        <ContextMenu.Portal>
-          <ContextMenu.Positioner>
-            <ContextMenu.Popup>
-              {visible.map((action) => (
-                <ContextMenu.Item
-                  key={resolve(action.label, item)}
-                  icon={resolve(action.icon, item)}
-                  variant={action.variant}
-                  onClick={() => action.onSelect(item)}
-                >
-                  {resolve(action.label, item)}
-                </ContextMenu.Item>
-              ))}
-            </ContextMenu.Popup>
-          </ContextMenu.Positioner>
-        </ContextMenu.Portal>
+        <ContextMenu.Content>
+          {visible.map((action) => (
+            <ContextMenu.Item
+              key={resolve(action.label, item)}
+              icon={resolve(action.icon, item)}
+              variant={action.variant}
+              onClick={() => action.onSelect(item)}
+            >
+              {resolve(action.label, item)}
+            </ContextMenu.Item>
+          ))}
+        </ContextMenu.Content>
       </ContextMenu.Root>
     </li>
   );
@@ -264,9 +260,7 @@ function EntryAction<T>({ action, item, layout }: EntryActionProps<T>) {
     <Tooltip content={label} delay={400}>
       <IconButton
         icon={resolve(action.icon, item)}
-        variant="ghost"
         size={styles.actionSize}
-        compact
         aria-label={label}
         className={twMerge(
           "transition-opacity",

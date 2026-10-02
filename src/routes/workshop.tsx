@@ -3,11 +3,11 @@ import { useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { Toolbar } from "@/components";
-import { useSettings } from "@/modules/settings";
 import {
-  NotConfiguredState,
   ProjectProvider,
+  RouteSandboxProvider,
   useNewProjectDialog,
+  useOpenFolder,
   useRecordListVisit,
   useWorkshopProjects,
   WorkshopActiveFilterChips,
@@ -21,57 +21,54 @@ export const Route = createFileRoute("/workshop")({
 });
 
 function WorkshopLayout() {
-  const { data: settings } = useSettings();
-  const workshopConfigured = !!settings?.workshopPath;
-
-  if (!workshopConfigured) {
-    return <NotConfiguredState />;
-  }
-
   return <WorkshopShell />;
 }
 
 /* The header sits above the outlet, so the route resolves the project rather
    than the page under it, and provides null where there is none. */
 function WorkshopShell() {
-  const { projectName } = useParams({ strict: false });
+  const { projectId } = useParams({ strict: false });
   const { data: projects } = useWorkshopProjects();
-  const project = projects?.find((candidate) => candidate.name === projectName) ?? null;
+  const project = projects?.find((candidate) => candidate.id === projectId) ?? null;
 
   const openNewProjectDialog = useNewProjectDialog((s) => s.open);
   useHotkeys("ctrl+n", () => openNewProjectDialog(), { preventDefault: true });
+
+  const openFolder = useOpenFolder();
+  useHotkeys("ctrl+o", openFolder.pick, { preventDefault: true }, [openFolder.pick]);
 
   /* The route rather than the resolved project, which arrives a frame late and
      would record a grid the user never stood on. A document records itself. */
   const recordListVisit = useRecordListVisit();
   useEffect(() => {
-    if (projectName === undefined) recordListVisit();
-  }, [projectName, recordListVisit]);
+    if (projectId === undefined) recordListVisit();
+  }, [projectId, recordListVisit]);
 
   return (
     <ProjectProvider project={project}>
-      <div
-        data-ui="WorkshopShell"
-        className={twMerge(
-          "flex h-full flex-col",
-          projectName !== undefined
-            ? "border border-b-0 border-surface-700/50 bg-surface-900"
-            : "bg-surface-900 shadow-pressed",
-        )}
-      >
-        <Toolbar
-          className={twMerge("bg-surface-900", projectName === undefined && "bg-transparent pt-2")}
+      <RouteSandboxProvider project={project?.path ?? null}>
+        <div
+          data-ui="WorkshopShell"
+          className={twMerge(
+            "flex h-full flex-col",
+            projectId !== undefined
+              ? /* DS-GROUND: the project's islands and the bar over them share the ground. */
+                "border border-b-0 border-surface-700/50 bg-surface-950"
+              : "bg-surface-900 shadow-pressed",
+          )}
         >
-          <WorkshopHeader />
-          {!project && <WorkshopActiveFilterChips />}
-        </Toolbar>
+          <Toolbar className={twMerge(projectId === undefined && "bg-transparent pt-2")}>
+            <WorkshopHeader />
+            {!project && <WorkshopActiveFilterChips />}
+          </Toolbar>
 
-        <div data-ui="WorkshopShell:fold" className={twMerge("min-h-0 flex-1 overflow-hidden")}>
-          <Outlet />
+          <div data-ui="WorkshopShell:fold" className={twMerge("min-h-0 flex-1 overflow-hidden")}>
+            <Outlet />
+          </div>
         </div>
-      </div>
 
-      <WorkshopDialogs />
+        <WorkshopDialogs />
+      </RouteSandboxProvider>
     </ProjectProvider>
   );
 }

@@ -10,21 +10,16 @@ import { renderWithProviders } from "@/test/utils";
 
 import { ModCardUpdateItem } from "../ModCardUpdateItem";
 
-const picker = vi.hoisted(() => ({ open: vi.fn(), running: false }));
+const picker = vi.hoisted(() => ({ open: vi.fn() }));
 vi.mock("@tauri-apps/plugin-dialog", () => ({ open: picker.open }));
-vi.mock("@/modules/patcher", () => ({ usePatcherRunning: () => picker.running }));
 
 async function openMenu() {
   renderWithProviders(
     <Menu.Root>
       <Menu.Trigger>Options</Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner>
-          <Menu.Popup>
-            <ModCardUpdateItem modId="existing-id" />
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content>
+        <ModCardUpdateItem modId="existing-id" />
+      </Menu.Content>
     </Menu.Root>,
   );
   fireEvent.click(screen.getByText("Options"));
@@ -33,7 +28,6 @@ async function openMenu() {
 
 describe("mod updates", () => {
   beforeEach(() => {
-    picker.running = false;
     picker.open.mockReset();
     vi.restoreAllMocks();
   });
@@ -54,13 +48,5 @@ describe("mod updates", () => {
     fireEvent.click(await openMenu());
     await waitFor(() => expect(picker.open).toHaveBeenCalledOnce());
     expect(update).not.toHaveBeenCalled();
-  });
-
-  it("blocks updates while the patcher owns the library", async () => {
-    picker.running = true;
-    const item = await openMenu();
-    expect(item).toHaveAttribute("aria-disabled", "true");
-    fireEvent.click(item);
-    expect(picker.open).not.toHaveBeenCalled();
   });
 });

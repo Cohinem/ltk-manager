@@ -2,7 +2,7 @@ import { Terminal, Trash2, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { twMerge } from "@/utils";
 
 import { isLevelVisible, type LogEntry, useDevConsoleStore } from "../state";
@@ -72,13 +72,13 @@ export function DevConsole() {
     <div className="flex h-64 shrink-0 flex-col border-t border-surface-600 bg-surface-900">
       {/* Toolbar */}
       <div className="flex items-center gap-2 border-b border-surface-700 px-2 py-1">
-        <Terminal className="h-3.5 w-3.5 text-surface-400" />
+        <Terminal className="size-3.5 text-surface-400" />
         <span className="text-xs font-medium text-surface-300">Dev Console</span>
 
         <select
           value={levelFilter}
           onChange={(e) => setLevelFilter(e.target.value as (typeof LEVEL_OPTIONS)[number])}
-          className="ml-2 rounded border border-surface-600 bg-surface-800 px-1.5 py-0.5 text-xs text-surface-300"
+          className="ml-2 rounded-md border border-surface-600 bg-surface-800 px-1.5 py-0.5 text-xs text-surface-300"
         >
           {LEVEL_OPTIONS.map((level) => (
             <option key={level} value={level}>
@@ -92,31 +92,25 @@ export function DevConsole() {
           value={targetFilter}
           onChange={(e) => setTargetFilter(e.target.value)}
           placeholder="Filter target..."
-          className="w-40 rounded border border-surface-600 bg-surface-800 px-1.5 py-0.5 text-xs text-surface-300 placeholder:text-surface-600"
+          className="w-40 rounded-md border border-surface-600 bg-surface-800 px-1.5 py-0.5 text-xs text-surface-300 placeholder:text-surface-600"
         />
 
         <span className="ml-auto text-xs text-surface-500">{filteredEntries.length} entries</span>
 
-        <Tooltip content="Clear console">
-          <IconButton
-            icon={<Trash2 className="h-3.5 w-3.5" />}
-            variant="ghost"
-            size="xs"
-            onClick={clear}
-            aria-label="Clear console"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
-        <Tooltip content="Close console">
-          <IconButton
-            icon={<X className="h-3.5 w-3.5" />}
-            variant="ghost"
-            size="xs"
-            onClick={toggle}
-            aria-label="Close console"
-            className="text-surface-400 hover:text-surface-200"
-          />
-        </Tooltip>
+        <IconButton
+          compact={false}
+          icon={<Trash2 className="size-3.5" />}
+          onClick={clear}
+          className="text-surface-400 hover:text-surface-200"
+          label="Clear console"
+        />
+        <IconButton
+          compact={false}
+          icon={<X className="size-3.5" />}
+          onClick={toggle}
+          className="text-surface-400 hover:text-surface-200"
+          label="Close console"
+        />
       </div>
 
       {/* Log entries */}

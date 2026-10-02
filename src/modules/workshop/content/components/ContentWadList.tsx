@@ -5,7 +5,7 @@ import {
   PlusIcon,
 } from "@phosphor-icons/react";
 
-import { Button, EmptyState, IconButton, Tooltip } from "@/components";
+import { Button, EmptyState, IconButton } from "@/components";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
@@ -66,7 +66,7 @@ export function ContentWadList({ wads, layerName, layerDisplayName }: ContentWad
               <span className="min-w-0 flex-1 truncate text-sm">{wad.name}</span>
               <span
                 className={twMerge(
-                  "shrink-0 text-[0.6875rem] text-surface-400 tabular-nums",
+                  "shrink-0 text-meta text-surface-400 tabular-nums",
                   browsable &&
                     "transition-opacity group-focus-within/row:opacity-0 group-hover/row:opacity-0",
                 )}
@@ -76,17 +76,13 @@ export function ContentWadList({ wads, layerName, layerDisplayName }: ContentWad
             </button>
             {browsable && (
               <div className="absolute inset-y-0 right-1 flex items-center opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
-                <Tooltip content="Browse game archive">
-                  <IconButton
-                    icon={<FileMagnifyingGlassIcon className="h-3.5 w-3.5" />}
-                    variant="ghost"
-                    size="xs"
-                    compact
-                    onClick={() => browse(wad.name)}
-                    aria-label={`Browse ${wad.name} in the game`}
-                    className="h-5 w-5"
-                  />
-                </Tooltip>
+                <IconButton
+                  icon={<FileMagnifyingGlassIcon className="size-3.5" />}
+                  onClick={() => browse(wad.name)}
+                  aria-label={`Browse ${wad.name} in the game`}
+                  className="size-5"
+                  tooltip="Browse game archive"
+                />
               </div>
             )}
           </li>
@@ -97,8 +93,8 @@ export function ContentWadList({ wads, layerName, layerDisplayName }: ContentWad
 }
 
 function WadIcon({ kind }: { kind: LayerWad["kind"] }) {
-  if (kind === "wad") return <FileArchiveIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />;
-  return <FileIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />;
+  if (kind === "wad") return <FileArchiveIcon className="size-3.5 shrink-0 text-surface-400" />;
+  return <FileIcon className="size-3.5 shrink-0 text-surface-400" />;
 }
 
 type WadsEmptyStateProps = Omit<ContentWadListProps, "wads">;
@@ -125,7 +121,7 @@ function WadsEmptyState({ layerName, layerDisplayName }: WadsEmptyStateProps) {
           variant="outline"
           size="xs"
           loading={wadImport.isPending}
-          left={<PlusIcon weight="bold" className="h-4 w-4" />}
+          left={<PlusIcon weight="bold" className="size-4" />}
           onClick={wadImport.pickFiles}
         >
           Import WAD…

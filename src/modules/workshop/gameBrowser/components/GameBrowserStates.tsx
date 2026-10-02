@@ -1,18 +1,12 @@
 import { GearIcon } from "@phosphor-icons/react";
 import { Link } from "@tanstack/react-router";
 
-import { Button, EmptyState, Spinner } from "@/components";
+import { Button, EmptyState } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { AppError } from "@/lib/tauri";
 import { hasErrorCode } from "@/utils/errors";
 
-export function GameLoadingState() {
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <Spinner size="md" />
-    </div>
-  );
-}
+import { PaneHint } from "../../shared/components/PaneHint";
 
 /** Why the archive listing failed: no League path yet, or a real error. */
 export function GameWadsErrorState({ error }: { error: AppError }) {
@@ -24,7 +18,7 @@ export function GameWadsErrorState({ error }: { error: AppError }) {
         description="Point the manager at your League install to browse its archives."
         action={
           <Link to="/settings" search={{ focus: "general.leaguePath" }}>
-            <Button variant="outline" size="xs" left={<GearIcon className="h-4 w-4" />}>
+            <Button variant="outline" size="xs" left={<GearIcon className="size-4" />}>
               Open Settings
             </Button>
           </Link>
@@ -41,8 +35,8 @@ export function GameWadsErrorState({ error }: { error: AppError }) {
 /** Every entry is a bare hash, which is what an unsynced hash table leaves. */
 export function UnknownHashHint() {
   return (
-    <p className="shrink-0 border-b border-surface-700/50 px-3 py-1.5 text-xs text-surface-400 select-none">
+    <PaneHint>
       Hash tables are not downloaded, so files show as hashes. Settings → Cache syncs them.
-    </p>
+    </PaneHint>
   );
 }

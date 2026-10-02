@@ -12,7 +12,7 @@ function Picker({ start, onChange }: { start: RgbColor; onChange: (next: RgbColo
   const [value, setValue] = useState(start);
   return (
     <ColorPicker
-      label="Sun colour"
+      label="Sun color"
       value={value}
       onValueChange={(next) => {
         setValue(next);
@@ -33,7 +33,7 @@ describe("ColorPicker", () => {
     const onChange = vi.fn();
     render(<Picker start={[1, 0, 0]} onChange={onChange} />);
 
-    fireEvent.keyDown(screen.getByRole("slider", { name: "Sun colour" }), { key: "ArrowDown" });
+    fireEvent.keyDown(screen.getByRole("slider", { name: "Sun color" }), { key: "ArrowDown" });
 
     const [r, g, b] = lastColor(onChange);
     expect(r).toBeCloseTo(0.99);
@@ -44,7 +44,7 @@ describe("ColorPicker", () => {
   it("takes six hex digits on Enter", async () => {
     const onChange = vi.fn();
     render(<Picker start={[1, 1, 1]} onChange={onChange} />);
-    const field = screen.getByRole("textbox", { name: "Sun colour hex" });
+    const field = screen.getByRole("textbox", { name: "Sun color hex" });
 
     await userEvent.clear(field);
     await userEvent.type(field, "00FF00{Enter}");
@@ -56,7 +56,7 @@ describe("ColorPicker", () => {
   it("drops text that is not a colour and shows the colour again", async () => {
     const onChange = vi.fn();
     render(<Picker start={[1, 0, 0]} onChange={onChange} />);
-    const field = screen.getByRole("textbox", { name: "Sun colour hex" });
+    const field = screen.getByRole("textbox", { name: "Sun color hex" });
 
     await userEvent.clear(field);
     await userEvent.type(field, "nope{Enter}");
@@ -68,7 +68,7 @@ describe("ColorPicker", () => {
   it("keeps its hue through a grey", () => {
     const onChange = vi.fn();
     render(<Picker start={[0, 0, 1]} onChange={onChange} />);
-    const shade = screen.getByRole("slider", { name: "Sun colour" });
+    const shade = screen.getByRole("slider", { name: "Sun color" });
 
     for (let at = 0; at < 10; at += 1) {
       fireEvent.keyDown(shade, { key: "ArrowLeft", shiftKey: true });
@@ -84,27 +84,19 @@ describe("ColorPicker", () => {
     render(
       <Popover.Root defaultOpen>
         <Popover.Trigger>Sun</Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Positioner>
-            <Popover.Popup aria-label="Sun">
-              <Popover.Root>
-                <Popover.Trigger>Sun colour</Popover.Trigger>
-                <Popover.Portal>
-                  <Popover.Positioner>
-                    <Popover.Popup aria-label="Picker">
-                      <Picker start={[1, 0, 0]} onChange={vi.fn()} />
-                    </Popover.Popup>
-                  </Popover.Positioner>
-                </Popover.Portal>
-              </Popover.Root>
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
+        <Popover.Content aria-label="Sun">
+          <Popover.Root>
+            <Popover.Trigger>Sun color</Popover.Trigger>
+            <Popover.Content aria-label="Picker">
+              <Picker start={[1, 0, 0]} onChange={vi.fn()} />
+            </Popover.Content>
+          </Popover.Root>
+        </Popover.Content>
       </Popover.Root>,
     );
 
-    await userEvent.click(screen.getByRole("button", { name: "Sun colour" }));
-    await userEvent.click(screen.getByRole("slider", { name: "Sun colour" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sun color" }));
+    await userEvent.click(screen.getByRole("slider", { name: "Sun color" }));
 
     expect(screen.getByRole("dialog", { name: "Sun" })).toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Picker" })).toBeInTheDocument();

@@ -53,6 +53,7 @@
   --ltk-doc-ignore: #94a3b8;
   --ltk-doc-readme: #e879f9;
   --ltk-doc-license: #a3e635;
+  --ltk-doc-declarations: #2dd4bf;
   --ltk-doc-details-text: var(--ltk-doc-details);
   --ltk-doc-base-text: var(--ltk-doc-base);
   --ltk-doc-layer-text: var(--ltk-doc-layer);
@@ -62,6 +63,7 @@
   --ltk-doc-ignore-text: var(--ltk-doc-ignore);
   --ltk-doc-readme-text: var(--ltk-doc-readme);
   --ltk-doc-license-text: var(--ltk-doc-license);
+  --ltk-doc-declarations-text: var(--ltk-doc-declarations);
 
   /* The folder of a tree row. */
   --ltk-folder: #dcb67a;
@@ -73,6 +75,26 @@
   --ltk-bin-class-text: var(--ltk-bin-class);
   --ltk-bin-kind-text: var(--ltk-bin-kind);
 
+  /* The token hues of highlighted source text. */
+  --ltk-syntax-keyword: #569cd6;
+  --ltk-syntax-control: #c586c0;
+  --ltk-syntax-string: #ce9178;
+  --ltk-syntax-number: #b5cea8;
+  --ltk-syntax-property: #9cdcfe;
+  --ltk-syntax-function: #dcdcaa;
+  --ltk-syntax-type: #4ec9b0;
+  --ltk-syntax-keyword-text: var(--ltk-syntax-keyword);
+  --ltk-syntax-control-text: var(--ltk-syntax-control);
+  --ltk-syntax-string-text: var(--ltk-syntax-string);
+  --ltk-syntax-number-text: var(--ltk-syntax-number);
+  --ltk-syntax-property-text: var(--ltk-syntax-property);
+  --ltk-syntax-function-text: var(--ltk-syntax-function);
+  --ltk-syntax-type-text: var(--ltk-syntax-type);
+
+  /* The Geometry node of the particle graph. */
+  --ltk-graph-geometry: #f472b6;
+  --ltk-graph-geometry-text: var(--ltk-graph-geometry);
+
   /* Colors for the channels of one curve, in the order a value holds them. */
   --ltk-channel-1: #f87171;
   --ltk-channel-2: #4ade80;
@@ -82,6 +104,16 @@
   --ltk-channel-2-text: var(--ltk-channel-2);
   --ltk-channel-3-text: var(--ltk-channel-3);
   --ltk-channel-4-text: var(--ltk-channel-4);
+
+  /* Colors for the value kinds a driver graph's sockets and edges carry. */
+  --ltk-socket-float: #2dd4bf;
+  --ltk-socket-vec2: #a3e635;
+  --ltk-socket-vec3: #a78bfa;
+  --ltk-socket-vec4: #fbbf24;
+  --ltk-socket-float-text: var(--ltk-socket-float);
+  --ltk-socket-vec2-text: var(--ltk-socket-vec2);
+  --ltk-socket-vec3-text: var(--ltk-socket-vec3);
+  --ltk-socket-vec4-text: var(--ltk-socket-vec4);
 
   /* Void hue for skinhack detection. */
   --ltk-void: #c084fc;
@@ -105,14 +137,27 @@
   --ltk-doc-ignore-text: color-mix(in srgb, var(--ltk-doc-ignore) 50%, black);
   --ltk-doc-readme-text: color-mix(in srgb, var(--ltk-doc-readme) 50%, black);
   --ltk-doc-license-text: color-mix(in srgb, var(--ltk-doc-license) 50%, black);
+  --ltk-doc-declarations-text: color-mix(in srgb, var(--ltk-doc-declarations) 50%, black);
   --ltk-folder-text: color-mix(in srgb, var(--ltk-folder) 60%, black);
   --ltk-bin-class-text: color-mix(in srgb, var(--ltk-bin-class) 55%, black);
   --ltk-bin-kind-text: color-mix(in srgb, var(--ltk-bin-kind) 55%, black);
+  --ltk-syntax-keyword-text: color-mix(in srgb, var(--ltk-syntax-keyword) 55%, black);
+  --ltk-syntax-control-text: color-mix(in srgb, var(--ltk-syntax-control) 55%, black);
+  --ltk-syntax-string-text: color-mix(in srgb, var(--ltk-syntax-string) 50%, black);
+  --ltk-syntax-number-text: color-mix(in srgb, var(--ltk-syntax-number) 40%, black);
+  --ltk-syntax-property-text: color-mix(in srgb, var(--ltk-syntax-property) 45%, black);
+  --ltk-syntax-function-text: color-mix(in srgb, var(--ltk-syntax-function) 40%, black);
+  --ltk-syntax-type-text: color-mix(in srgb, var(--ltk-syntax-type) 50%, black);
+  --ltk-graph-geometry-text: color-mix(in srgb, var(--ltk-graph-geometry) 55%, black);
   --ltk-void-text: color-mix(in srgb, var(--ltk-void) 50%, black);
   --ltk-channel-1-text: color-mix(in srgb, var(--ltk-channel-1) 55%, black);
   --ltk-channel-2-text: color-mix(in srgb, var(--ltk-channel-2) 55%, black);
   --ltk-channel-3-text: color-mix(in srgb, var(--ltk-channel-3) 55%, black);
   --ltk-channel-4-text: color-mix(in srgb, var(--ltk-channel-4) 55%, black);
+  --ltk-socket-float-text: color-mix(in srgb, var(--ltk-socket-float) 55%, black);
+  --ltk-socket-vec2-text: color-mix(in srgb, var(--ltk-socket-vec2) 55%, black);
+  --ltk-socket-vec3-text: color-mix(in srgb, var(--ltk-socket-vec3) 55%, black);
+  --ltk-socket-vec4-text: color-mix(in srgb, var(--ltk-socket-vec4) 55%, black);
 }
 
 /* ============================================
@@ -315,7 +360,7 @@
      the "* Variable" family names. */
   --face-sans: "Geist Variable", system-ui, sans-serif;
   --face-display: "Bricolage Grotesque Variable", "Geist Variable", system-ui, sans-serif;
-  --face-mono: "Geist Mono Variable", ui-monospace, monospace;
+  --face-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
   /* The weight scale, in plain CSS weights. It belongs to no face: one that
      reads wrong at a plain number brings its own - see DS-WEIGHT-TIER. */
@@ -462,6 +507,8 @@ html {
     --weight-semibold: 600;
     --weight-bold: 700;
     font-weight: var(--weight-normal);
+    /* Mono text is data, and a coding face's ligatures redraw a hash's `0x` as `0×`. */
+    font-variant-ligatures: none;
   }
 
   /* Levelling the x-height is for the faces a user swaps between. The display

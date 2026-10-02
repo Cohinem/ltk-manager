@@ -1,6 +1,18 @@
 {
   "$schema": "https://inlang.com/schema/inlang-message-format",
-  "home_changes_title": "Recent changes",
+  "home_changes_all_action": "All release notes",
+  "home_changes_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} change",
+        "countPlural=other": "{count} changes"
+      }
+    }
+  ],
+  "home_changes_fewer_action": "Hide release notes",
+  "home_changes_title": "What's new",
   "home_last_game_review_action": "Review",
   "home_last_game_title": "Last game",
   "home_learn_discord_label": "Discord",
@@ -8,7 +20,8 @@
   "home_learn_managing_mods_label": "Managing mods",
   "home_learn_repository_label": "GitHub",
   "home_learn_troubleshooting_label": "Troubleshooting",
-  "home_library_add_action": "Add mod",
+  "home_library_add_action": "Import",
+  "home_library_add_hint": "Import mods",
   "home_library_enabled_count_label": "{enabled} of {total} enabled",
   "home_library_export_action": "Export mods",
   "home_library_export_confirm_action": "Export",
@@ -72,11 +85,7 @@
   "home_news_title": "News",
   "home_notice_link_action": "What to do",
   "home_release_update_action": "Update",
-  "home_runeforge_action": "Browse mods",
-  "home_runeforge_description": "Discover community mods or publish your own.",
   "home_runeforge_title": "Runeforge",
-  "home_runeforge_wiki_action": "Get started",
-  "home_runeforge_wiki_description": "Learn to create mods and share your guides.",
   "home_runeforge_wiki_title": "Runeforge Wiki",
   "home_status_league_unset_action": "Set it",
   "home_status_league_unset_label": "League's folder is not set",

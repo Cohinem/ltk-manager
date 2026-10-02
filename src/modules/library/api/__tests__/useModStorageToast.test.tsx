@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import type { InstalledMod, ModStorageProgress } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { createMockInstalledMod } from "@/test/fixtures";
 import { mockInvoke, mockListen } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -141,7 +142,7 @@ describe("useModStorageToast", () => {
     expect(action.label).toBe("Open Location");
     await act(async () => action.onClick());
 
-    expect(mockInvoke).toHaveBeenCalledWith("reveal_in_explorer", {
+    expect(mockInvoke).toHaveBeenCalledWith(commandNames.desktop.revealInExplorer, {
       path: "/storage/mods/test-mod",
     });
   });

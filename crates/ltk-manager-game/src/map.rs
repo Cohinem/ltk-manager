@@ -12,13 +12,15 @@ use serde::{Deserialize, Serialize};
 
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument, RowNames};
-use ltk_manager_core::material::{MaterialPreview, resolve_material};
 use ltk_manager_core::preview::AssetRef;
+
+use crate::material::{MaterialPreview, resolve_material};
 
 mod characters;
 mod component;
 #[cfg(test)]
 mod fixtures;
+mod lighting;
 mod outline;
 mod particles;
 mod placeable;
@@ -28,6 +30,7 @@ mod sun;
 mod variants;
 
 pub use characters::{MapCharacter, map_characters};
+pub use lighting::light_grid_path;
 pub use outline::{MapChunk, MapChunkItem, MapItemKind, map_outline};
 pub use particles::{MapParticle, map_particles};
 pub use post_effects::{MapDepthOfField, MapFog, MapPostEffects, map_post_effects};
@@ -50,9 +53,7 @@ const GEOMETRY_SUFFIX: &str = ".mapgeo";
 /// has.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapPath(String);
 
 impl MapPath {
@@ -100,9 +101,7 @@ impl fmt::Display for MapPath {
 /// Where the two files of one map live, each none where nothing holds it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapFiles {
     /// The `.mapgeo`, which the scheme answers as one buffer.
     pub geometry: Option<AssetRef>,
@@ -113,9 +112,7 @@ pub struct MapFiles {
 /// One map's materials, one per path asked for and in that order, and its lighting and screen effects.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct MapModel {
     /// Null where the map's own bin declares no object at that path, which a backdrop
     /// draws flat rather than not at all.
@@ -126,6 +123,9 @@ pub struct MapModel {
     pub post_effects: Option<MapPostEffects>,
     /// Null where the map's container states no ambient occlusion, as all but one shipped map.
     pub ssao: Option<MapSsao>,
+    /// The `LightGrid.dat` the map lights its characters with, and null where it bakes
+    /// none or nothing holds it.
+    pub light_grid: Option<AssetRef>,
 }
 
 /// The materials `paths` name and the lighting and screen effects of `map`, read out of its own
@@ -154,6 +154,7 @@ pub fn resolve_map(
         sun: map_sun(materials, map),
         post_effects: map_post_effects(materials, map),
         ssao: map_ssao(materials, map),
+        light_grid: light_grid_path(materials, map).and_then(|path| assets.locate(path)),
     }
 }
 
@@ -165,6 +166,7 @@ pub fn unresolved_map(paths: &[String]) -> MapModel {
         sun: None,
         post_effects: None,
         ssao: None,
+        light_grid: None,
     }
 }
 

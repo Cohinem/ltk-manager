@@ -35,7 +35,14 @@ export function AddItemLine({ line, autoFocus }: AddItemLineProps) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<AppError | null>(null);
   const { target } = line;
-  if (edit === null || target.kind === "property") return null;
+  if (
+    edit === null ||
+    target.kind === "property" ||
+    target.kind === "object" ||
+    target.kind === "dependency"
+  ) {
+    return null;
+  }
 
   const inserting = edit;
   async function send(text: string): Promise<boolean> {
@@ -60,7 +67,9 @@ export function AddItemLine({ line, autoFocus }: AddItemLineProps) {
 }
 
 /** What a line is typed or pressed in: a key, a class, or nothing for a leaf item. */
-function fieldOf(target: Exclude<LineTarget, { kind: "property" }>): "key" | "class" | "press" {
+function fieldOf(
+  target: Exclude<LineTarget, { kind: "property" } | { kind: "object" } | { kind: "dependency" }>,
+): "key" | "class" | "press" {
   if (target.kind === "entry") return "key";
   if (target.kind === "pointer") return "class";
   return holdsClass(target.itemKind) ? "class" : "press";
@@ -144,6 +153,7 @@ function KeyField({ line, edit, autoFocus, error, send, onType }: FieldProps) {
       ref={ref}
       type="text"
       value={text}
+      data-draft={text !== "" || undefined}
       placeholder={label}
       aria-label={label}
       aria-invalid={error !== null || undefined}
@@ -212,6 +222,7 @@ function ClassField({ line, edit, autoFocus, error, send, onType }: FieldProps) 
     >
       <Combobox.Input
         ref={ref}
+        data-draft={text !== "" || undefined}
         placeholder={label}
         aria-label={label}
         aria-invalid={error !== null || undefined}
@@ -226,32 +237,32 @@ function ClassField({ line, edit, autoFocus, error, send, onType }: FieldProps) 
           setText("");
         }}
       />
-      <Combobox.Portal>
-        <Combobox.Positioner side="bottom" align="start" sideOffset={2}>
-          <Combobox.Popup className="max-h-64 min-w-80 py-0.5">
-            <Combobox.List>
-              {(suggestion: ClassSuggestion) => (
-                <Combobox.Item
-                  key={
-                    suggestion.kind === "choice"
-                      ? suggestion.choice.hash
-                      : `typed:${suggestion.text}`
-                  }
-                  value={suggestion}
-                  className="gap-2 px-2 py-1 font-mono text-mono-row"
-                >
-                  <ClassText suggestion={suggestion} />
-                </Combobox.Item>
-              )}
-            </Combobox.List>
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
+      <Combobox.Content
+        side="bottom"
+        align="start"
+        sideOffset={2}
+        className="max-h-64 min-w-80 py-0.5"
+      >
+        <Combobox.List>
+          {(suggestion: ClassSuggestion) => (
+            <Combobox.Item
+              key={
+                suggestion.kind === "choice" ? suggestion.choice.hash : `typed:${suggestion.text}`
+              }
+              value={suggestion}
+              className="gap-2 px-2 py-1 font-mono text-mono-row"
+            >
+              <ClassText suggestion={suggestion} />
+            </Combobox.Item>
+          )}
+        </Combobox.List>
+      </Combobox.Content>
     </Combobox.Root>
   );
 }
 
-function ClassText({ suggestion }: { suggestion: ClassSuggestion }) {
+/** A class suggestion as a line of a class list: its name, and whether the file holds it. */
+export function ClassText({ suggestion }: { suggestion: ClassSuggestion }) {
   let note: string | null = null;
   if (suggestion.kind === "typed") note = m.workshop_bin_class_typed_label();
   else if (suggestion.choice.held) note = m.workshop_bin_class_held_label();
@@ -262,7 +273,7 @@ function ClassText({ suggestion }: { suggestion: ClassSuggestion }) {
 
   return (
     <span className="flex min-w-0 flex-1 items-center gap-2">
-      <span className={twMerge("truncate text-surface-100", unnamed && "text-surface-300")}>
+      <span className={twMerge("truncate text-surface-100", unnamed && "text-surface-400")}>
         {classLabel(suggestion)}
       </span>
       {note !== null && <span className="ml-auto shrink-0 text-meta text-surface-400">{note}</span>}

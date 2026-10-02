@@ -10,6 +10,7 @@ export { BUILDING_POLL_MS, GAME_STALE_MS, gameKeys } from "./api/keys";
 export { gameQueries, objectIndexQueries } from "./api/queries";
 export { useGameFind } from "./api/useGameFind";
 export { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./api/useGameIndex";
+export { useGamePathSearch } from "./api/useGamePathSearch";
 export { useGameSearch } from "./api/useGameSearch";
 export { useGameWadEntries } from "./api/useGameWadEntries";
 export { useGameWads } from "./api/useGameWads";
@@ -20,7 +21,7 @@ export {
   GameIndexTree,
   MatchCount,
 } from "./components/GameDocument";
-export { GameFindResults } from "./components/GameFindResults";
+export { CollapseFindAction, GameFindResults } from "./components/GameFindResults";
 export { GameWadDocument } from "./components/GameWadDocument";
 export { GameWadsDocument } from "./components/GameWadsDocument";
 export { SourceTree } from "./components/SourceTree";
@@ -32,6 +33,6 @@ export { archiveTarget, chunkPath, chunkTarget } from "./extraction/utils/extrac
 export { useGameSearchRevealTarget, useRevealGameSearch } from "./hooks/useGameSearchReveal";
 export { useRevealInGameFiles } from "./hooks/useRevealInGameFiles";
 export { type OpenSourceFile, useSourcePreview } from "./hooks/useSourcePreview";
-export { useSourceTreeNav } from "./hooks/useSourceTreeNav";
+export { useWadSource, WadSourceProvider } from "./state/wadSource";
 export { fileKindFromPath } from "./utils/fileKind";
 export * from "./utils/sourceIndex";

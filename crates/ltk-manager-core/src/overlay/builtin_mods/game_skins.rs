@@ -2,13 +2,14 @@
 
 use super::skin_bin::SkinBin;
 use crate::error::AppResult;
+use crate::game_wads::{chunk_bytes, mount_wad};
 use crate::utils::game::{GameDir, archive_stem};
 use fs_err as fs;
 use ltk_wad::{PathResolver, Wad, WadHash};
 use std::cell::OnceCell;
 use std::collections::HashMap;
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 /// The skin bins a set of the game's archives hold, named by the roster and the WAD path tables.
 ///
@@ -61,7 +62,7 @@ impl<'t> GameSkins<'t> {
     ) -> Self {
         let archives = found
             .into_iter()
-            .filter_map(|(name, path)| match mount(&path) {
+            .filter_map(|(name, path)| match mount_wad(&path) {
                 Ok(wad) => Some(Archive { name, wad }),
                 Err(e) => {
                     tracing::warn!("Built-in mods: passing over {}: {e}", path.display());
@@ -121,28 +122,40 @@ impl<'t> GameSkins<'t> {
 
     /// The bytes of `bin` in the first archive holding it, where it reads.
     pub(super) fn read(&mut self, bin: &SkinBin) -> Option<Vec<u8>> {
-        let hash = bin.hash();
+        self.read_chunk(&bin.path())
+    }
+
+    /// The bytes of the chunk at `path` in the first archive holding it, where it reads.
+    pub(super) fn read_chunk(&mut self, path: &str) -> Option<Vec<u8>> {
+        let hash = WadHash::from(path);
         let archive = self
             .archives
             .iter_mut()
             .find(|archive| archive.wad.chunks().contains(hash))?;
-        let chunk = *archive.wad.chunks().get(hash)?;
-        archive
-            .wad
-            .load_chunk_decompressed(&chunk)
-            .map(Vec::from)
-            .inspect_err(|e| tracing::warn!("Built-in mods: cannot read {}: {e}", bin.path()))
+        chunk_bytes(&mut archive.wad, hash)
+            .inspect_err(|e| tracing::warn!("Built-in mods: cannot read {path}: {e}"))
             .ok()
+            .flatten()
+            .map(Vec::from)
     }
 
     /// The skin bin at each of `hashes`, where one is, in one pass over the tables.
     pub(super) fn resolve_all(&self, hashes: &[WadHash]) -> Vec<Option<SkinBin>> {
+        self.name_all(hashes)
+            .into_iter()
+            .map(|name| SkinBin::parse(&name?))
+            .collect()
+    }
+
+    /// The chunk path at each of `hashes`, where the roster or the tables name one, in one pass
+    /// over the tables.
+    pub(super) fn name_all(&self, hashes: &[WadHash]) -> Vec<Option<String>> {
         let roster = self.roster_bins();
         self.tables
             .resolve_all(hashes)
             .into_iter()
             .zip(hashes)
-            .map(|(name, hash)| roster.get(hash).cloned().or_else(|| SkinBin::parse(&name?)))
+            .map(|(name, hash)| roster.get(hash).map(SkinBin::path).or(name))
             .collect()
     }
 
@@ -157,8 +170,4 @@ impl<'t> GameSkins<'t> {
                 .collect()
         })
     }
-}
-
-fn mount(path: &Path) -> AppResult<Wad<BufReader<fs::File>>> {
-    Ok(Wad::mount(BufReader::new(fs::File::open(path)?))?)
 }

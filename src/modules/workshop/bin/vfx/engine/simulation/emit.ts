@@ -1,5 +1,6 @@
 import { DRAG_MOTION, type DragMotion } from "../model/enums";
 import type { EmitterModel, LegacySimpleModel, UvLayer } from "../model/model";
+import { periodActive } from "../model/systemModel";
 import { analyticTerminal } from "../utils/analyticDrag";
 import { turnInto } from "../utils/basis";
 import type { Rng } from "../utils/Rng";
@@ -50,6 +51,11 @@ export function emit(
   if (emitter.singleParticle && state.emitted) return;
   if (state.age < emitter.timeBeforeFirstEmission) return;
   if (emitter.lifetime !== null && state.age > emitter.lifetime) return;
+  if (!periodActive(emitter.period, state.age - emitter.timeBeforeFirstEmission)) {
+    /* The rate counts from the cycle's next active part rather than the pause before it. */
+    state.since = state.age;
+    return;
+  }
 
   const t01 = life01(emitter, state);
   const rate = Math.max(sampleScalar(emitter.rate, t01), 0);
@@ -87,7 +93,7 @@ export function emit(
        here, and the emitter's space stores what the integrator then moves. The whole
        local placement is turned by the spawn frame, and so is the birth velocity. */
     sampleShape(emitter.shape, rng, t01, chance, BORN);
-    const surface = step.surfaces?.get(emitter);
+    const surface = step.surfaces?.get(index);
     const onSurface = surface?.sample(state.age, rng, SURFACE_BIRTH) ?? false;
     if (onSurface) {
       for (let axis = 0; axis < 3; axis += 1) BORN.offset[axis] += SURFACE_BIRTH.position[axis];
@@ -179,7 +185,7 @@ function travel(state: EmitterState, step: SystemStep): void {
  * table on it keeps the particle square. The roll and its rate land about the view
  * axis, which is the one a simple quad turns on.
  */
-function bornSimple(
+export function bornSimple(
   pool: Pool,
   at: number,
   legacy: LegacySimpleModel,
@@ -203,7 +209,7 @@ function bornSimple(
  * included. The draw is the one the pool already holds, and the mult layer reads the base
  * layer's book, so both layers open on the same cell.
  */
-function bornUv(
+export function bornUv(
   pool: Pool,
   at: number,
   emitter: EmitterModel,

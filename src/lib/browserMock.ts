@@ -168,7 +168,7 @@ if (
           return { ok: true, value: null };
         case "get_installed_mods":
           return { ok: true, value: sampleMods };
-        case "apply_league_skin":
+        case "plugin:library|apply_league_skin":
           return {
             ok: true,
             value: leagueSkinPreviewMod(

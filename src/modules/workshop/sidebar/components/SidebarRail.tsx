@@ -98,7 +98,7 @@ export function SidebarRail() {
 
         <RailButton
           label={m.workshop_sidebar_folder_action()}
-          icon={<FolderOpenIcon className="h-5 w-5" />}
+          icon={<FolderOpenIcon className="size-5" />}
           current={false}
           onClick={projectActions.handleOpenLocation}
           markSide={markSide}
@@ -139,7 +139,7 @@ function RailButton({
         aria-label={label}
         onClick={onClick}
         className={twMerge(
-          "relative flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-surface-400 transition-colors outline-none",
+          "relative flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-surface-400 transition-colors outline-none",
           /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100 active:bg-surface-veil-strong",
           "focus-visible:ring-1 focus-visible:ring-accent-500/60",
           current && "text-accent-200",

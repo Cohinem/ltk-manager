@@ -1,19 +1,19 @@
 //! Reading a mod's metadata out of its archive and back off disk.
 //!
-//! Every installed mod, whatever it arrived as, has a `mod.config.json` in its
-//! directory. A fantome gets one from its importer and a modpkg gets one
-//! written here, both normalized into the same [`ModProject`] shape, which is
-//! why nothing downstream needs to know which format a mod came in as — and
-//! why the library view never mounts an archive just to render a list.
+//! Every installed mod has a `mod.config.json` in its directory, whatever format
+//! it arrived in. A fantome gets one from its importer and a modpkg gets one
+//! written here, both in the same [`ModProject`] shape. Code downstream does
+//! not depend on the archive format, and the library view lists mods without
+//! mounting an archive.
 
-use crate::error::{AppError, AppResult};
-use crate::mods::index::LibraryModEntry;
+use crate::error::{AppError, AppResult, IoContext};
+use crate::mods::archive::reader::{ModArchive, open_fantome};
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{InstalledMod, ModLayer, ModLicense};
 use fs_err as fs;
 use ltk_mod_project::{ModProject, ModProjectLayer};
-use ltk_modpkg::Modpkg;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub(crate) fn read_installed_mod(
     entry: &LibraryModEntry,
@@ -77,157 +77,82 @@ pub(crate) fn read_installed_mod(
     })
 }
 
-/// The layer table a fantome archive declares, or `None` when it declares none.
+/// The layer table of a fantome archive: the layers `META/info.json` declares,
+/// plus one for each undeclared `WAD_<layer>/` directory. `None` when the
+/// archive has no layers.
 ///
 /// Only the layout migration reads this. Every other path gets the table from
-/// the importer, which keeps what `META/info.json` carries — but a config an
-/// older version of the app wrote does not, and repairing one means reading the
-/// archive again. `None` is what says to leave such a config alone.
+/// the importer. A config written by an older version of the app may lack the
+/// table, and repairing it means reading the archive again. `None` means the
+/// config is left unchanged.
 ///
-/// Derived through the same conversion the importer uses, so the migration
-/// cannot decide a config needs rewriting over an ordering only this disagreed
-/// about. Both sides order through [`ModProjectLayer::normalize_table`].
+/// Derived through the same conversion the importer uses, so the migration and
+/// the importer agree on layer order. Both order through
+/// [`ModProjectLayer::normalize_table`].
 ///
 /// # Errors
 ///
 /// Fails when the archive cannot be opened or its `META/info.json` cannot be
 /// read.
 pub(crate) fn fantome_layers(archive: &Path) -> AppResult<Option<Vec<ModProjectLayer>>> {
-    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)
-        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
-    let info = reader
-        .read_info()
-        .map_err(|e| AppError::Other(format!("Failed to read META/info.json: {e}")))?;
-
-    if info.layers.is_empty() {
-        return Ok(None);
-    }
-
-    Ok(Some(ModProject::from(info).layers))
+    let layers = ModArchive::Fantome(open_fantome(archive)?)
+        .project()?
+        .layers;
+    Ok((!layers.is_empty()).then_some(layers))
 }
 
 pub(crate) fn load_mod_project(mod_dir: &Path) -> AppResult<ModProject> {
     let config_path = mod_dir.join("mod.config.json");
-    let contents = fs::read_to_string(&config_path).map_err(|e| {
-        AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to read {}: {}", config_path.display(), e),
-        ))
-    })?;
+    let contents = fs::read_to_string(&config_path)
+        .context(format!("Failed to read {}", config_path.display()))?;
     serde_json::from_str(&contents).map_err(AppError::from)
 }
 
-/// Write a fantome's own metadata out as a mod project config.
+/// Write an archive's own metadata out as a mod project config, with its thumbnail and a
+/// modpkg's readme.
 ///
-/// Reads `META/info.json` and the thumbnail, never the content, so this costs
-/// one seek where importing the archive costs an unpack. It is what gives a
-/// mod kept in its archive the config every card and every slug is read from.
+/// Reads the metadata and no WAD content, so it costs a few small reads where an import costs
+/// an unpack. A mod kept in its archive reads its card and slug from this config.
 ///
 /// # Errors
 ///
-/// Fails when the archive cannot be opened, its `META/info.json` cannot be
-/// read, or the config cannot be written.
-pub(crate) fn extract_fantome_metadata(archive: &Path, metadata_dir: &Path) -> AppResult<()> {
-    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive)?)
-        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
-    let info = reader
-        .read_info()
-        .map_err(|e| AppError::Other(format!("Failed to read META/info.json: {e}")))?;
-
-    let project = ModProject::from(info);
+/// Fails when the archive cannot be opened, its metadata cannot be read, or the config
+/// cannot be written.
+pub(crate) fn extract_metadata(
+    archive: &Path,
+    format: ModArchiveFormat,
+    metadata_dir: &Path,
+) -> AppResult<()> {
+    let mut opened = ModArchive::open(archive, format)?;
+    let project = opened.project()?;
 
     fs::create_dir_all(metadata_dir)?;
     fs::write(
         metadata_dir.join("mod.config.json"),
         serde_json::to_string_pretty(&project)?,
     )?;
-    let _ = extract_fantome_thumbnail(archive, metadata_dir);
+    if let ModArchive::Modpkg(modpkg) = &mut opened
+        && let Ok(readme) = modpkg.load_readme()
+    {
+        let _ = fs::write(metadata_dir.join("README.md"), readme);
+    }
+    let _ = opened.write_thumbnail(metadata_dir);
 
-    tracing::info!("Extracted fantome metadata to {}", metadata_dir.display());
-
+    tracing::info!(
+        "Extracted {} metadata to {}",
+        format.extension(),
+        metadata_dir.display()
+    );
     Ok(())
-}
-
-/// Write a modpkg's own metadata out as a mod project config.
-///
-/// It is what gives a mod kept in its archive the config every card and every
-/// slug is read from.
-///
-/// # Errors
-///
-/// Fails when the package cannot be mounted or read, or the config cannot be
-/// written.
-pub(crate) fn extract_modpkg_metadata(file_path: &Path, metadata_dir: &Path) -> AppResult<()> {
-    let file = fs::File::open(file_path)?;
-    let mut modpkg = Modpkg::mount_from_reader(file)?;
-
-    let project = ltk_mod_project::modpkg::read_project(&mut modpkg)?;
-
-    let config_path = metadata_dir.join("mod.config.json");
-    fs::write(config_path, serde_json::to_string_pretty(&project)?)?;
-
-    if let Ok(readme_bytes) = modpkg.load_readme() {
-        let _ = fs::write(metadata_dir.join("README.md"), readme_bytes);
-    }
-
-    if let Ok(thumbnail_bytes) = modpkg.load_thumbnail() {
-        let _ = fs::write(metadata_dir.join("thumbnail.webp"), thumbnail_bytes);
-    }
-
-    tracing::info!("Extracted modpkg metadata to {}", metadata_dir.display());
-
-    Ok(())
-}
-
-/// Extract thumbnail from a fantome archive and save to the metadata directory.
-/// Returns the path to the saved file, or `None` if the archive has no thumbnail.
-///
-/// # Errors
-///
-/// Fails when the archive cannot be opened or its thumbnail cannot be written.
-pub(crate) fn extract_fantome_thumbnail(
-    archive_path: &Path,
-    metadata_dir: &Path,
-) -> AppResult<Option<PathBuf>> {
-    let mut reader = ltk_fantome::FantomeReader::new(fs::File::open(archive_path)?)
-        .map_err(|e| AppError::Other(format!("Failed to open fantome archive: {e}")))?;
-    let Some(png) = reader
-        .read_image_png()
-        .map_err(|e| AppError::Other(format!("Failed to read the thumbnail: {e}")))?
-    else {
-        return Ok(None);
-    };
-
-    let dest = metadata_dir.join("thumbnail.png");
-    fs::write(&dest, png)?;
-    Ok(Some(dest))
-}
-
-/// Extract thumbnail from a modpkg archive and save to the metadata directory.
-/// Returns the path to the saved file, or `None` if the archive has no thumbnail.
-pub(crate) fn extract_modpkg_thumbnail(
-    archive_path: &Path,
-    metadata_dir: &Path,
-) -> AppResult<Option<PathBuf>> {
-    let file = fs::File::open(archive_path)?;
-    let mut modpkg = Modpkg::mount_from_reader(file)?;
-
-    match modpkg.load_thumbnail() {
-        Ok(thumbnail_bytes) => {
-            let dest = metadata_dir.join("thumbnail.webp");
-            fs::write(&dest, &thumbnail_bytes)?;
-            Ok(Some(dest))
-        }
-        Err(_) => Ok(None),
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mods::index::ModArchiveFormat;
+    use crate::mods::StorageLayout as _;
     use crate::mods::test_support::make_slugged_entry;
     use std::io::Write;
+    use std::path::PathBuf;
 
     fn make_test_mod_config_json() -> String {
         serde_json::to_string_pretty(&ltk_mod_project::ModProject {
@@ -318,7 +243,7 @@ mod tests {
     fn read_installed_mod_populates_all_fields() {
         let storage = tempfile::tempdir().unwrap();
         let id = "test-id";
-        let mods_dir = storage.path().join("mods").join(id);
+        let mods_dir = storage.path().mods_dir().join(id);
         fs::create_dir_all(&mods_dir).unwrap();
         fs::write(
             mods_dir.join("mod.config.json"),
@@ -344,7 +269,7 @@ mod tests {
     fn read_installed_mod_empty_description_becomes_none() {
         let storage = tempfile::tempdir().unwrap();
         let id = "test-id-2";
-        let mods_dir = storage.path().join("mods").join(id);
+        let mods_dir = storage.path().mods_dir().join(id);
         fs::create_dir_all(&mods_dir).unwrap();
 
         let config = serde_json::to_string_pretty(&ltk_mod_project::ModProject {
@@ -386,7 +311,10 @@ mod tests {
         let metadata_dir = dir.path().join("metadata");
         fs::create_dir_all(&metadata_dir).unwrap();
 
-        let result = extract_fantome_thumbnail(&archive_path, &metadata_dir).unwrap();
+        let result = ModArchive::open(&archive_path, ModArchiveFormat::Fantome)
+            .unwrap()
+            .write_thumbnail(&metadata_dir)
+            .unwrap();
         assert!(result.is_some());
         assert!(result.unwrap().exists());
     }
@@ -398,7 +326,30 @@ mod tests {
         let metadata_dir = dir.path().join("metadata");
         fs::create_dir_all(&metadata_dir).unwrap();
 
-        let result = extract_fantome_thumbnail(&archive_path, &metadata_dir).unwrap();
+        let result = ModArchive::open(&archive_path, ModArchiveFormat::Fantome)
+            .unwrap()
+            .write_thumbnail(&metadata_dir)
+            .unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn extracted_metadata_gives_an_undeclared_layer_directory_a_layer() {
+        let tmp = tempfile::tempdir().unwrap();
+        let archive = tmp.path().join("layers.fantome");
+        let bin = crate::mods::test_support::stale_bin();
+        crate::mods::test_support::make_layer_wads_fantome_zip(&archive, &bin, &bin);
+
+        extract_metadata(
+            &archive,
+            ModArchiveFormat::Fantome,
+            &tmp.path().join("meta"),
+        )
+        .unwrap();
+
+        let project = load_mod_project(&tmp.path().join("meta")).unwrap();
+        let mut names: Vec<&str> = project.layers.iter().map(|l| l.name.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(names, ["Chroma", "base", "zeta"]);
     }
 }

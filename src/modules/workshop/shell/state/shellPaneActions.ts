@@ -32,7 +32,10 @@ export interface ShellPaneActions {
     leafId: string,
     paneId: ShellPaneId,
   ) => void;
-  /** Puts a closed pane back into the focused leaf, which is what the Panes menu asks for. */
+  /**
+   * Puts a closed pane back into the focused leaf, which is what the Panes menu asks for, and
+   * brings an open one to the front of its leaf.
+   */
   openShellPane: (projectPath: string, kind: ShellKind, paneId: ShellPaneId) => void;
   /** Commits one finished pane drag: a reorder, a move between leaves, or a split. */
   applyShellDrop: (projectPath: string, kind: ShellKind, outcome: DropOutcome) => void;
@@ -69,7 +72,12 @@ export function createShellPaneActions(set: EditorSet): ShellPaneActions {
 
     openShellPane: (projectPath, kind, paneId) =>
       setShell(set, projectPath, kind, (shell) => {
-        if (leafHolding(shell.layout, paneId)) return null;
+        const holder = leafHolding(shell.layout, paneId);
+        if (holder !== null) {
+          const layout = setActiveTab(shell.layout, holder.id, paneId);
+          return layout === shell.layout ? null : { layout, leafId: holder.id };
+        }
+
         const leafId = heldLeafId(shell.layout, shell.leafId);
         return { layout: insertTab(shell.layout, leafId, paneId), leafId };
       }),

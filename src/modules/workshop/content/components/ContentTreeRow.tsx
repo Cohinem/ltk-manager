@@ -1,4 +1,4 @@
-import { CaretRightIcon, EyeSlashIcon } from "@phosphor-icons/react";
+import { EyeSlashIcon } from "@phosphor-icons/react";
 import { memo } from "react";
 
 import { Tooltip } from "@/components";
@@ -7,23 +7,19 @@ import type { IgnoreMatch } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
-import { FolderGlyph } from "../../shared/components/TreeRowParts";
+import { entryChunkPath } from "../../bin/links/hooks/useLinkTargets";
+import {
+  FolderGlyph,
+  IndentRails,
+  TreeCaret,
+  TREE_ROW_BASE_CLASSES as ROW_BASE_CLASSES,
+  TREE_ROW_STATE_CLASSES as ROW_STATE_CLASSES,
+} from "../../shared/components/TreeRowParts";
 import { describeFileKind } from "../../shared/utils/fileKindIcon";
+import { isSubtreeClick } from "../../shared/utils/treeGestures";
+import { beginAssetDrag } from "../state/assetDrag";
 import type { ContentTreeNode, DirNode, FileNode } from "../utils/contentTree";
 
-/** Shared row styling. Kept as string constants so the hover/selected variants
- * cascade cleanly in Tailwind 4 — selected-hover has to beat plain hover, so
- * it appears later in the class string. */
-/* The tree is set in mono, whose even advance carries more ink per row than the
-   sans the rest of the app uses, so the same rung reads brighter here. The name
-   settles a little under it and the hover still climbs to a full rung. */
-const ROW_BASE_CLASSES =
-  "flex items-center gap-1 pr-3 select-none text-surface-200/90 outline-none transition-colors duration-100";
-const ROW_STATE_CLASSES =
-  "hover:bg-surface-700/70 hover:text-surface-100 " +
-  "aria-selected:bg-accent-500/15 aria-selected:text-accent-100 " +
-  "aria-selected:hover:bg-accent-500/25 " +
-  "focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-accent-500/70";
 const EXCLUDED_ROW_CLASSES = "text-surface-400 hover:text-surface-300";
 
 /**
@@ -49,7 +45,7 @@ function ExcludedMark({ rule }: { rule: IgnoreMatch }) {
       }
     >
       <span className="shrink-0 text-surface-500" aria-label={`${subject} ${where}`}>
-        <EyeSlashIcon className="h-3.5 w-3.5" />
+        <EyeSlashIcon className="size-3.5" />
       </span>
     </Tooltip>
   );
@@ -62,6 +58,8 @@ interface TreeRowProps {
   isSelected: boolean;
   dirFileCount: number;
   onToggle: (path: string) => void;
+  /** An Alt+click on a directory row, which collapses or expands its whole subtree. */
+  onToggleSubtree?: (node: DirNode) => void;
   onSelect: (index: number) => void;
   /** A double click on a file row, or its Open menu item. */
   onOpen?: (node: FileNode) => void;
@@ -79,6 +77,7 @@ function TreeRowInner({
   isSelected,
   dirFileCount,
   onToggle,
+  onToggleSubtree,
   onSelect,
   onOpen,
   onPreview,
@@ -95,6 +94,7 @@ function TreeRowInner({
         isSelected={isSelected}
         fileCount={dirFileCount}
         onToggle={onToggle}
+        onToggleSubtree={onToggleSubtree}
         onSelect={onSelect}
         height={height}
         rowIndex={rowIndex}
@@ -117,30 +117,6 @@ function TreeRowInner({
   );
 }
 
-const RAIL_CLASSES = "w-[10px] shrink-0 self-stretch";
-
-/** One column per ancestor level, each drawing a 1px vertical guide on its left
- * edge. Since every row in the virtual window draws its own rails at the same
- * left offsets, the lines appear continuous.
- *
- * The first column stays blank. A root entry's guide would sit against the
- * pane's own edge and read as a second border running down it. */
-function IndentRails({ depth }: { depth: number }) {
-  if (depth === 0) return null;
-  return (
-    <>
-      <span aria-hidden="true" className={RAIL_CLASSES} />
-      {Array.from({ length: depth - 1 }).map((_, i) => (
-        <span
-          key={i}
-          aria-hidden="true"
-          className={twMerge(RAIL_CLASSES, "border-l border-surface-700/60")}
-        />
-      ))}
-    </>
-  );
-}
-
 export const TreeRow = memo(TreeRowInner);
 
 interface DirRowProps {
@@ -150,6 +126,7 @@ interface DirRowProps {
   isSelected: boolean;
   fileCount: number;
   onToggle: (path: string) => void;
+  onToggleSubtree?: (node: DirNode) => void;
   onSelect: (index: number) => void;
   height: number;
   rowIndex: number;
@@ -163,6 +140,7 @@ function DirRow({
   isSelected,
   fileCount,
   onToggle,
+  onToggleSubtree,
   onSelect,
   height,
   rowIndex,
@@ -178,9 +156,14 @@ function DirRow({
       data-ui="ContentTreeRow:dir"
       data-treeitem-index={rowIndex}
       tabIndex={tabIndex}
-      onClick={() => {
+      onClick={(event) => {
         onSelect(rowIndex);
-        onToggle(node.path);
+
+        if (onToggleSubtree && isSubtreeClick(event)) {
+          onToggleSubtree(node);
+        } else {
+          onToggle(node.path);
+        }
       }}
       onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}
@@ -193,17 +176,12 @@ function DirRow({
       )}
     >
       <IndentRails depth={depth} />
-      <CaretRightIcon
-        className={twMerge(
-          "h-3 w-3 shrink-0 text-surface-400 transition-transform",
-          isExpanded && "rotate-90",
-        )}
-      />
+      <TreeCaret isExpanded={isExpanded} />
       <FolderGlyph unknown={false} isExpanded={isExpanded} />
       <span className="truncate">{node.name}</span>
       {/* A folder keeps its count: what it holds is true whether or not it ships. */}
       <span className="ml-auto flex shrink-0 items-center gap-1.5">
-        <span className="text-[0.625rem] text-surface-500 tabular-nums">{fileCount}</span>
+        <span className="text-fine text-surface-500 tabular-nums">{fileCount}</span>
         {node.ignoredBy && <ExcludedMark rule={node.ignoredBy} />}
       </span>
     </button>
@@ -250,6 +228,10 @@ function FileRow({
         onPreview?.(node);
       }}
       onDoubleClick={() => onOpen?.(node)}
+      onPointerDown={(event) => {
+        const path = entryChunkPath(node.entry.relativePath);
+        if (path !== null) beginAssetDrag(event, path);
+      }}
       onContextMenu={() => onSelect(rowIndex)}
       onFocus={() => onSelect(rowIndex)}
       style={{ height: `${height}px` }}
@@ -262,7 +244,7 @@ function FileRow({
     >
       <IndentRails depth={depth} />
       {/* Reserve chevron slot on files so file and dir names stay column-aligned. */}
-      <span aria-hidden="true" className="h-3 w-3 shrink-0" />
+      <span aria-hidden="true" className="size-3 shrink-0" />
       <Tooltip content={descriptor.label}>
         <span
           className="shrink-0"
@@ -271,7 +253,7 @@ function FileRow({
           aria-label={descriptor.label}
         >
           <Icon
-            className={twMerge("h-3.5 w-3.5", excluded && "text-surface-500")}
+            className={twMerge("size-3.5", excluded && "text-surface-500")}
             strokeWidth={1.75}
           />
         </span>
@@ -281,7 +263,7 @@ function FileRow({
       <span className="ml-auto shrink-0">
         {excluded && <ExcludedMark rule={excluded} />}
         {!excluded && (
-          <span className="font-mono text-[0.625rem] text-surface-400 tabular-nums">
+          <span className="text-fine text-surface-400 tabular-nums">
             {formatBytes(Number(node.entry.sizeBytes))}
           </span>
         )}

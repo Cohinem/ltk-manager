@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { ChildSetModel, ValueCurve } from "../../model/model";
 import { emptySystem } from "../../model/systemModel";
-import { childIndex } from "../children";
+import { childIndex, childPath, childPrefix, childSteps } from "../children";
 
 function constant(...values: number[]): ValueCurve {
   return { constant: values, keys: [], tables: [] };
@@ -85,5 +85,21 @@ describe("childIndex", () => {
 
     expect(childIndex(setOf(2, { probability: keyed }), 0, counted())).toBe(0);
     expect(childIndex(setOf(2, { probability: keyed }), 2, counted())).toBe(1);
+  });
+});
+
+describe("childSteps", () => {
+  it("reads no step off the opened system's path", () => {
+    expect(childSteps("")).toEqual([]);
+  });
+
+  it("reads back each step childPath joined, from the opened system down", () => {
+    const path = childPath(childPrefix(childPath("", 3, 0)), 5, 1);
+
+    expect(path).toBe("3.0/5.1");
+    expect(childSteps(path)).toEqual([
+      { emitter: 3, slot: 0 },
+      { emitter: 5, slot: 1 },
+    ]);
   });
 });

@@ -5,8 +5,10 @@ export { useAutoDetectLeaguePath } from "./useAutoDetectLeaguePath";
 export { useAvailableWads } from "./useAvailableWads";
 export { useCheckSetupRequired } from "./useCheckSetupRequired";
 export { useDetectLeagueRunAsAdmin } from "./useDetectLeagueRunAsAdmin";
+export { useForcibleMapSkins } from "./useForcibleMapSkins";
 export { useHashtableCacheStatus } from "./useHashtableCacheStatus";
 export { useHashtableUpdateCheck } from "./useHashtableUpdateCheck";
+export { useMapDecorations } from "./useMapDecorations";
 export { useResetTelemetrySecret } from "./useResetTelemetrySecret";
 export { useSaveSettings } from "./useSaveSettings";
 export { useSettingDefaults } from "./useSettingDefaults";
@@ -20,4 +22,5 @@ export {
   type ThirdPartyLicensesManifest,
   useThirdPartyLicenses,
 } from "./useThirdPartyLicenses";
+export { type SettingsPatch, useLoadedSettings, useUpdateSettings } from "./useUpdateSettings";
 export { useValidateLeaguePath } from "./useValidateLeaguePath";

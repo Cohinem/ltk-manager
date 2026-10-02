@@ -1,15 +1,22 @@
 import type { MaterialPreview, VfxSystem, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
-import { COLOR_LOOKUP, DRAG_MOTION, STENCIL_MODE } from "../model/enums";
-import type { ChildSetModel, EmitterModel, SystemModel, UvLayer } from "../model/model";
-import { emptySystem } from "../model/systemModel";
+import { COLOR_LOOKUP, DRAG_MOTION, IMPORTANCE, STENCIL_MODE } from "../model/enums";
+import type {
+  ChildSetModel,
+  EmitterCull,
+  EmitterModel,
+  SystemModel,
+  UvLayer,
+} from "../model/model";
+import { emissionPeriod, emptySystem } from "../model/systemModel";
 import { readEmissionSurface } from "./readEmissionSurface";
 import {
   readBeam,
   readFields,
   readLegacySimple,
   readLinger,
+  readProjection,
   readShape,
   readTrail,
 } from "./readMotion";
@@ -65,7 +72,13 @@ const FLAGS_DEFAULT = 0xd4;
 /** `kAnalyticDragMotion` in `flags`. */
 const ANALYTIC_DRAG_MOTION = 0x100;
 
-/** The two lists a system holds its emitters in, in the order the strip reads them. */
+/** `importance`'s schema default. */
+const IMPORTANCE_DEFAULT = 1;
+
+/** `colorblindVisibility` for an emitter that exists only on the colourblind palette. */
+const COLORBLIND_ONLY = 2;
+
+/** The two lists a system contains its emitters in, in the order the strip reads them. */
 const EMITTER_LISTS = [
   { hash: nameHash("complexEmitterDefinitionData"), simple: false },
   { hash: nameHash("simpleEmitterDefinitionData"), simple: true },
@@ -75,10 +88,14 @@ const EMITTER_LISTS = [
 const FIELD = {
   name: nameHash("emitterName"),
   disabled: nameHash("disabled"),
+  importance: nameHash("importance"),
+  colorblindVisibility: nameHash("colorblindVisibility"),
   rate: nameHash("rate"),
   particleLifetime: nameHash("particleLifetime"),
   lifetime: nameHash("lifetime"),
   timeBeforeFirstEmission: nameHash("timeBeforeFirstEmission"),
+  period: nameHash("period"),
+  timeActiveDuringPeriod: nameHash("timeActiveDuringPeriod"),
   singleParticle: nameHash("isSingleParticle"),
   sharedRandom: nameHash("ParticlesShareRandomValue"),
   birthVelocity: nameHash("birthVelocity"),
@@ -234,6 +251,7 @@ function readEmitter(
   const multTexture = mult?.type === "struct" ? field(mult, MULT_TEXTURE) : null;
   const legacySimple = readLegacySimple(field(node, FIELD.legacySimple));
   const stencil = stencilMode(field(node, FIELD.stencilMode));
+  const culled = cullOf(node, simple);
 
   /* What the legacy block says about the whole emitter lowers onto the fields it
      stands in for, so the integrator reads one place for either kind of emitter. */
@@ -249,12 +267,17 @@ function readEmitter(
     simple,
     listIndex,
     name: text(field(node, FIELD.name)) ?? "",
-    disabled: flag(field(node, FIELD.disabled)),
+    disabled: flag(field(node, FIELD.disabled)) || culled !== null,
+    culled,
 
     rate: curve(field(node, FIELD.rate), DEFAULT.rate),
     particleLifetime: curve(field(node, FIELD.particleLifetime), DEFAULT.particleLifetime),
     lifetime: number(field(node, FIELD.lifetime)),
     timeBeforeFirstEmission: number(field(node, FIELD.timeBeforeFirstEmission)) ?? 0,
+    period: emissionPeriod(
+      number(field(node, FIELD.period)),
+      number(field(node, FIELD.timeActiveDuringPeriod)),
+    ),
     singleParticle: flag(field(node, FIELD.singleParticle)),
     sharedRandom: flag(field(node, FIELD.sharedRandom)),
 
@@ -336,6 +359,7 @@ function readEmitter(
     mesh: readMesh(primitive),
     trail: readTrail(primitive),
     beam: readBeam(primitive),
+    projection: readProjection(primitive),
     childSet: readChildSet(field(node, FIELD.childSet), materials),
     fields: readFields(field(node, FIELD.fields)),
 
@@ -386,5 +410,22 @@ function readChild(
       return readSystem(held, held.object?.entry ?? null, held.object?.name ?? null, materials);
     }
   }
+  return null;
+}
+
+/**
+ * The gate that keeps the emitter from being instantiated in the preview, and null for none.
+ *
+ * The preview draws at Very High effects quality on the default palette. A simple emitter
+ * takes the importance gate alone (`VfxEmitter_Evaluation.md` section 3.2).
+ */
+function cullOf(node: VfxValue & { type: "struct" }, simple: boolean): EmitterCull | null {
+  const importance = number(field(node, FIELD.importance)) ?? IMPORTANCE_DEFAULT;
+  /* The preview draws at Very High, which culls the low-spec tier alone. */
+  if (importance === IMPORTANCE.lowSpecOnly) return "importance";
+
+  const palette = number(field(node, FIELD.colorblindVisibility)) ?? 0;
+  if (!simple && palette === COLORBLIND_ONLY) return "colorblind";
+
   return null;
 }

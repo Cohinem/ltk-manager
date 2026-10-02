@@ -8,6 +8,7 @@ import {
   IntType,
   type Material,
   Matrix4,
+  type Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
   type RawShaderMaterial,
@@ -17,6 +18,7 @@ import {
   type Texture,
   Uint16BufferAttribute,
   Vector2,
+  Vector3,
 } from "three";
 
 import { LOCAL_FLOATS, type Pose } from "../../animation/evaluation/pose";
@@ -24,14 +26,18 @@ import type { SceneClock } from "../../animation/state/clock";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "../../assets/parsing/meshBuffer";
 import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
 import { EngineEnvironment } from "../../hexshade/engineEnvironment";
+import { passTwins } from "../../hexshade/passTwin";
 import type { SubmeshProgram } from "../../hexshade/programMaterial";
 import { type HeldValue, ProgramMaterials } from "../../hexshade/programMaterials";
+import { useCharacterLight } from "../../scene/state/characterLightContext";
 import { useViewMode } from "../../scene/state/viewModeContext";
 import { drawsSolids, type Surface, surfaceOf } from "../../scene/utils/viewMode";
 import { AXIS_SIGN } from "../../scene/utils/world";
+import { isClick } from "../../shared/utils/click";
 import { useEdgeTwin } from "../hooks/useEdgeTwin";
 import { type CharacterSkin, CharacterSkinContext } from "../state/characterSkin";
 import { tintFloats, vertexTints } from "../utils/jointTint";
+import { gridLitMaterial, lightFrom, lightGridUniforms } from "../utils/lightGridShading";
 import {
   type FallbackColors,
   applyBinding,
@@ -49,10 +55,10 @@ export interface CharacterProps {
   /** What a submesh draws with, by its name. */
   readonly bindingOf: (submesh: string) => SubmeshBinding;
   /**
-   * The game's own shader a submesh draws with, by its name, and null to draw it with
-   * the stock material `bindingOf` names.
+   * The passes of the game's own shaders a submesh draws with, by its name, in draw order,
+   * and none to draw it with the stock material `bindingOf` names.
    */
-  readonly programOf?: (submesh: string) => SubmeshProgram | null;
+  readonly programsOf?: (submesh: string) => readonly SubmeshProgram[];
   /** A value a material's control holds, drawn in place of its program's own until let go. */
   readonly held?: HeldValue | null;
   /** What a submesh no texture or no material reaches is drawn in. */
@@ -61,6 +67,8 @@ export interface CharacterProps {
   readonly hidden: readonly string[];
   /** `skinScale`, which the whole character is drawn at. */
   readonly scale: number;
+  /** `selfIllumination`, added to the character's ambient light. */
+  readonly selfIllumination?: number;
   /** The submesh drawn at full strength while every other one dims, and null to dim none. */
   readonly highlighted?: string | null;
   /** A mask's weight per joint slot, which dims every vertex it does not weigh, and null to dim none. */
@@ -80,8 +88,7 @@ const UNTEXTURED: SubmeshBinding = { material: null, base: null, texture: null }
 /** What a hidden submesh drawn by a translated program binds to, which draws nothing. */
 const HIDDEN = new MeshBasicMaterial({ visible: false });
 
-/** How far a press may travel, in pixels, and still read as a click rather than a camera drag. */
-const CLICK_SLOP = 4;
+const NO_PASSES: readonly SubmeshProgram[] = [];
 
 /** Each input a translated vertex shader declares, and the stock attribute it is. */
 const PROGRAM_ATTRIBUTES: readonly (readonly [string, string])[] = [
@@ -105,11 +112,12 @@ export function Character({
   pose,
   clock,
   bindingOf,
-  programOf,
+  programsOf,
   held = null,
   colors,
   hidden,
   scale,
+  selfIllumination = 0,
   highlighted = null,
   jointWeights = null,
   onSubmeshPick,
@@ -122,15 +130,24 @@ export function Character({
     () => ({ geometry: drawn.geometry, skeleton: rig.skeleton, ranges: drawn.ranges, hidden }),
     [drawn, rig, hidden],
   );
+  const ambient = useMemo(() => lightGridUniforms(), []);
   const shaded = useMemo<readonly ShadingModels[]>(
     () =>
       drawn.ranges.map(() => ({
-        lit: new MeshLambertMaterial({ side: DoubleSide, vertexColors: true }),
+        lit: gridLitMaterial(ambient),
         unlit: new MeshBasicMaterial({ side: DoubleSide, vertexColors: true }),
       })),
-    [drawn],
+    [drawn, ambient],
   );
-  const environment = useMemo(() => new EngineEnvironment(), []);
+  /* A map scene draws dozens of characters. */
+  const environment = useMemo(() => new EngineEnvironment("uniform"), []);
+  const { grid: lightGrid, sun } = useCharacterLight();
+  useLayoutEffect(() => {
+    environment.grid = lightGrid;
+    environment.light = sun;
+    environment.selfIllumination = selfIllumination;
+    ambient.selfIllumination.value = selfIllumination;
+  }, [environment, ambient, lightGrid, sun, selfIllumination]);
   const view = useViewMode();
   const surface = surfaceOf(view.mode);
   const skinned = useMemo(() => {
@@ -157,13 +174,30 @@ export function Character({
     };
   }, [skinned, rig]);
 
+  const depth = useMemo(
+    () =>
+      surface === "material" && programsOf !== undefined
+        ? Math.max(0, ...drawn.ranges.map((range) => programsOf(range.name).length))
+        : 0,
+    [surface, programsOf, drawn],
+  );
+  const twins = useMemo(() => passTwins(skinned, depth), [skinned, depth]);
+  useLayoutEffect(() => {
+    if (twins.length === 0) return;
+
+    skinned.add(...twins);
+    return () => {
+      skinned.remove(...twins);
+    };
+  }, [skinned, twins]);
+
   const scrolling = useRef<readonly Scrolling[]>([]);
   const programs = useMemo(() => new ProgramMaterials(environment), [environment]);
   useLayoutEffect(() => programs.hold(held), [programs, held]);
   useLayoutEffect(() => {
-    scrolling.current = bind(skinned, shaded, drawn.ranges, {
+    scrolling.current = bind(skinned, twins, shaded, drawn.ranges, {
       bindingOf,
-      programOf,
+      programsOf,
       programs,
       colors,
       hidden,
@@ -172,10 +206,11 @@ export function Character({
     });
   }, [
     skinned,
+    twins,
     shaded,
     drawn,
     bindingOf,
-    programOf,
+    programsOf,
     programs,
     colors,
     hidden,
@@ -227,7 +262,11 @@ export function Character({
   );
 
   const locals = useMemo(() => new Float32Array(rig.bones.length * LOCAL_FLOATS), [rig]);
+  const centre = useMemo(() => new Vector3(), []);
   useFrame(() => {
+    /* The game lights a character by the cell under the centre of its bounds. */
+    centre.copy(drawn.centre).applyMatrix4(skinned.matrixWorld);
+    lightFrom(lightGrid, centre.x, centre.z, ambient);
     pose.localsInto(clock.time, locals);
     rig.bones.forEach((bone, slot) => {
       const at = slot * LOCAL_FLOATS;
@@ -293,7 +332,7 @@ function buildRig(skeleton: SkeletonModel, parents: Int32Array): Rig {
 /** What a submesh's material is bound from. */
 interface Bind {
   readonly bindingOf: (submesh: string) => SubmeshBinding;
-  readonly programOf: ((submesh: string) => SubmeshProgram | null) | undefined;
+  readonly programsOf: ((submesh: string) => readonly SubmeshProgram[]) | undefined;
   /** The program materials made so far, one per material and permutation. */
   readonly programs: ProgramMaterials;
   readonly colors: FallbackColors;
@@ -320,29 +359,41 @@ interface Scrolling {
  * to none where the skin hides it. Every submesh but a highlighted one dims. Answers the
  * maps that scroll.
  *
- * A submesh with a translated program draws under it instead, one material per program
- * for the program's life, with whatever textures have arrived bound on every pass here.
- * A program material neither dims nor scrolls, since the shader owns its colour.
+ * A submesh with translated programs draws its first pass instead, and each later pass on
+ * the twin of that layer. There is one material per pass for the program's life, with
+ * whatever textures have arrived bound on every bind here. A program material neither
+ * dims nor scrolls, since the shader owns its colour.
  */
 function bind(
   skinned: SkinnedMesh,
+  twins: readonly Mesh[],
   shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
-  { bindingOf, programOf, programs, colors, hidden, highlighted, surface }: Bind,
+  { bindingOf, programsOf, programs, colors, hidden, highlighted, surface }: Bind,
 ): readonly Scrolling[] {
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const picked = highlighted?.toLowerCase() ?? null;
   const scrolling: Scrolling[] = [];
   const bound = skinned.material as Material[];
+  const layers: Material[][] = twins.map(() => ranges.map(() => HIDDEN));
   const used = new Set<RawShaderMaterial>();
   ranges.forEach((range, at) => {
-    const program = surface === "material" ? (programOf?.(range.name) ?? null) : null;
-    if (program !== null) {
-      const material = programs.acquire(program);
+    const passes = surface === "material" ? (programsOf?.(range.name) ?? NO_PASSES) : NO_PASSES;
+    const [first, ...later] = passes;
+    if (first !== undefined) {
+      const shown = !skip.has(range.name.toLowerCase());
+      const material = programs.acquire(first);
       used.add(material);
       /* Every submesh of one material shares its program material, so a hidden one swaps
          in a material of its own rather than hiding the rest. */
-      bound[at] = skip.has(range.name.toLowerCase()) ? HIDDEN : material;
+      bound[at] = shown ? material : HIDDEN;
+
+      later.forEach((program, layer) => {
+        const drawn = programs.acquire(program);
+        used.add(drawn);
+        const twin = layers[layer];
+        if (shown && twin !== undefined) twin[at] = drawn;
+      });
       return;
     }
     const binding = surface === "untextured" ? UNTEXTURED : bindingOf(range.name);
@@ -355,6 +406,10 @@ function bind(
     if (picked !== null && range.name.toLowerCase() !== picked) {
       material.color.multiplyScalar(DIMMED);
     }
+  });
+
+  twins.forEach((twin, layer) => {
+    twin.material = layers[layer] ?? [];
   });
   programs.retain(used);
   return scrolling;
@@ -372,7 +427,11 @@ function useSubmeshPick(
   hidden: readonly string[],
   onPick: ((submesh: string | null) => void) | undefined,
 ): void {
-  const element = useThree((state) => state.gl.domElement);
+  /* The element the fibre listens on, since a shared renderer's canvas is drawn into by
+     every viewport sharing it. */
+  const element = useThree(
+    (state) => (state.events.connected as HTMLElement | undefined) ?? state.gl.domElement,
+  );
   const camera = useThree((state) => state.camera);
 
   useEffect(() => {
@@ -387,9 +446,9 @@ function useSubmeshPick(
     };
     const release = (event: PointerEvent) => {
       if (pressed === null) return;
-      const moved = Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y);
+      const clicked = isClick(pressed, { x: event.clientX, y: event.clientY });
       pressed = null;
-      if (moved > CLICK_SLOP) return;
+      if (!clicked) return;
 
       const box = element.getBoundingClientRect();
       pointer.set(
@@ -422,6 +481,8 @@ function useSubmeshPick(
 interface Drawn {
   readonly geometry: BufferGeometry;
   readonly ranges: readonly MeshRange[];
+  /** The middle of the bind pose's bounds, in the mesh's own space. */
+  readonly centre: Vector3;
 }
 
 function buildGeometry(mesh: MeshGeometry, rig: Rig): Drawn {
@@ -449,7 +510,10 @@ function buildGeometry(mesh: MeshGeometry, rig: Rig): Drawn {
   const ranges = drawnRanges(mesh, []);
   ranges.forEach((range, at) => geometry.addGroup(range.startIndex, range.indexCount, at));
 
-  return { geometry, ranges };
+  geometry.computeBoundingBox();
+  const centre = geometry.boundingBox?.getCenter(new Vector3()) ?? new Vector3();
+
+  return { geometry, ranges, centre };
 }
 
 /**

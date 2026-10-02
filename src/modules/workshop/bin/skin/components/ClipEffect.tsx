@@ -1,14 +1,12 @@
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef } from "react";
 import type { Group } from "three";
 
 import type { Pose, SceneClock } from "@/modules/viewport";
 
 import type { SystemModel } from "../../vfx/engine/model/model";
-import { createDriver } from "../../vfx/engine/simulation/driver";
 import { VfxSystem } from "../../vfx/rendering/components/VfxSystem";
-import { useVfxMeshes } from "../../vfx/rendering/hooks/useVfxMeshes";
-import { useVfxTextures } from "../../vfx/rendering/hooks/useVfxTextures";
+import { useParticleSystem } from "../../vfx/rendering/hooks/useParticleSystem";
 import { drawnEmitters } from "../../vfx/rendering/utils/definitions";
 import type { ParticleCue } from "../utils/clipEvents";
 import { followCue, following } from "../utils/follow";
@@ -38,20 +36,10 @@ export interface ClipEffectProps {
  */
 export function ClipEffect({ cue, system, pose, clock, scale, duration }: ClipEffectProps) {
   const drawn = useMemo(() => drawnEmitters(system, true), [system]);
-  const textures = useVfxTextures(drawn);
-  const meshes = useVfxMeshes(drawn);
-  const driver = useMemo(() => createDriver(CUE_SEED), []);
-  const followed = useMemo(following, []);
   const rig = useMemo(() => cueRig(pose, cue, scale), [pose, cue, scale]);
+  const { textures, meshes, driver } = useParticleSystem(system, drawn, CUE_SEED, rig);
+  const followed = useMemo(following, []);
   const group = useRef<Group>(null);
-
-  useEffect(() => {
-    driver.swap(system);
-  }, [driver, system]);
-
-  useEffect(() => {
-    driver.steer(rig);
-  }, [driver, rig]);
 
   /* The frame callback runs before the draw, so the group is hidden before it is first drawn. */
   useFrame(() => {

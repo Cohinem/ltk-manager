@@ -73,9 +73,14 @@ function stage(id: number, glslName: string, offset: number) {
   };
 }
 
-function program(tint: [number, number, number, number], material = MATERIAL): SubmeshProgram {
+function program(
+  tint: [number, number, number, number],
+  material = MATERIAL,
+  index = 0,
+): SubmeshProgram {
   return {
     material,
+    index,
     pass: pass(tint),
     program: {
       kind: "ready",
@@ -95,7 +100,7 @@ const HELD: HeldValue = { material: MATERIAL, physical: "Tint", fields: 0b0111, 
 
 describe("scatter", () => {
   /* The same cases `a_logical_value_scatters_through_its_mask_and_an_absent_value_writes_zeros`
-     runs against `scatter` in crates/ltk-manager-core/src/material/pass.rs. */
+     runs against `scatter` in crates/ltk-manager-game/src/material/pass.rs. */
   it("writes the input's components into the ones the mask selects, as the Rust scatter does", () => {
     const speed = scatter([9, 9, 9, 9], 0b0011, [1, 2, 3, 4]);
 
@@ -130,8 +135,19 @@ describe("withHeld", () => {
 });
 
 describe("ProgramMaterials", () => {
-  it("keys a material by the material and both stages' permutations", () => {
-    expect(programKey(program([1, 1, 1, 1]))).toBe(`${MATERIAL}|Shaders/SkinnedMesh/Diffuse|3|7`);
+  it("keys a material by the material, the pass and both stages' permutations", () => {
+    expect(programKey(program([1, 1, 1, 1]))).toBe(`${MATERIAL}|0|Shaders/SkinnedMesh/Diffuse|3|7`);
+  });
+
+  it("keeps two passes of one material and permutation apart", () => {
+    const materials = new ProgramMaterials(new EngineEnvironment());
+
+    const first = materials.acquire(program([1, 1, 1, 1], MATERIAL, 0));
+    const second = materials.acquire(program([2, 2, 2, 2], MATERIAL, 1));
+
+    expect(second).not.toBe(first);
+    expect(globals(first, "Globals_ps").slice(4)).toEqual([1, 1, 1, 1]);
+    expect(globals(second, "Globals_ps").slice(4)).toEqual([2, 2, 2, 2]);
   });
 
   it("refreshes a committed value in place rather than building the material again", () => {

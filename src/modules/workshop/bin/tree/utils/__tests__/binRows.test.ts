@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AppError, BinRow } from "@/lib/tauri";
+import { toggledIn } from "@/utils";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import {
@@ -22,7 +23,6 @@ import {
   repeatsKey,
   revealPage,
   rowKey,
-  toggled,
 } from "../binRows";
 
 const ENTRY = "0x2a1f3c7d";
@@ -214,9 +214,9 @@ describe("entryKeyHash", () => {
 
 describe("toggled", () => {
   it("adds a key that is absent and removes one that is present", () => {
-    const once = toggled(new Set(), "a");
+    const once = toggledIn(new Set(), "a");
     expect([...once]).toEqual(["a"]);
-    expect([...toggled(once, "a")]).toEqual([]);
+    expect([...toggledIn(once, "a")]).toEqual([]);
   });
 });
 

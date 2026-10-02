@@ -51,3 +51,47 @@ it("gives repeated reveals distinct tokens after the previous request settles", 
   store.requestReveal(first.path);
   expect(useObjectsBrowserStore.getState().reveal!.token).toBeGreaterThan(first.token);
 });
+
+it("expands to the focused tile and reveals its row when switching back to tree", () => {
+  const store = useObjectsBrowserStore.getState();
+  store.setDisplay({ view: "grid", location: "Characters/Annie/Skins" });
+  store.selectNode({ type: "object", id: "Characters/Annie/Skins/Skin0" });
+  store.setView("tree");
+  const state = useObjectsBrowserStore.getState();
+  expect(state.display.view).toBe("tree");
+  expect([...state.expandedPrefixes]).toEqual([
+    "Characters",
+    "Characters/Annie",
+    "Characters/Annie/Skins",
+  ]);
+  expect(state.reveal?.path).toBe("Characters/Annie/Skins/Skin0");
+});
+
+it("leaves a search tree without a reveal when switching back from grid", () => {
+  const store = useObjectsBrowserStore.getState();
+  store.setDisplay({ view: "grid" });
+  store.setSearchPattern("Annie");
+  store.selectNode({ type: "object", id: "Characters/Annie/Skins/Skin0" });
+  store.setView("tree");
+  expect(useObjectsBrowserStore.getState().reveal).toBeNull();
+});
+
+it("collapses a prefix with every open prefix below it and leaves its siblings open", () => {
+  const store = useObjectsBrowserStore.getState();
+  store.expandPrefixes(["characters", "characters/aatrox", "characters/aatrox/skins", "maps"]);
+  store.collapsePrefixSubtree("characters");
+  expect([...useObjectsBrowserStore.getState().expandedPrefixes]).toEqual(["maps"]);
+});
+
+it("collapses every prefix of the browse tree", () => {
+  useObjectsBrowserStore.getState().expandPrefixes(["characters", "maps"]);
+  useObjectsBrowserStore.getState().collapseAllPrefixes();
+  expect(useObjectsBrowserStore.getState().expandedPrefixes.size).toBe(0);
+});
+
+it("expands a search results subtree and keeps its siblings collapsed", () => {
+  const store = useObjectsBrowserStore.getState();
+  store.collapseFindPrefixes(["characters", "characters/aatrox/skins", "maps"]);
+  store.expandFindSubtree("characters");
+  expect([...useObjectsBrowserStore.getState().shutFindPrefixes]).toEqual(["maps"]);
+});

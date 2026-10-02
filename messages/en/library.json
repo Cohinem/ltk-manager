@@ -2,9 +2,7 @@
   "$schema": "https://inlang.com/schema/inlang-message-format",
   "library_card_select_label": "Select {name}",
   "library_details_cancel_action": "Cancel",
-  "library_details_champions_description": "Comma-separated list of champions (e.g. Ahri, Yasuo)",
   "library_details_champions_label": "Champions",
-  "library_details_champions_placeholder": "e.g. Riven, Lee Sin",
   "library_details_discard_action": "Discard",
   "library_details_discard_description": "Leaving this mod drops what you typed. Nothing is saved until you save it.",
   "library_details_discard_heading": "Discard your changes?",
@@ -86,6 +84,11 @@
   "library_documents_resize_action": "Resize the drawer",
   "library_documents_title": "Documents",
   "library_documents_toggle_action": "Documents",
+  "library_filter_trigger_label": "Sort and filter mods",
+  "library_folder_create_action": "Create",
+  "library_folder_new_title": "New Folder",
+  "library_folder_rename_action": "Rename",
+  "library_folder_rename_title": "Rename Folder",
   "library_health_all_repairable_description": "All of them can be repaired automatically, so *repairing is recommended*",
   "library_health_cancel_failed_title": "Couldn't stop the run",
   "library_health_check_clean_hint": [
@@ -101,6 +104,7 @@
   "library_health_check_clean_title": "No problems found",
   "library_health_check_library_failed_title": "Failed to check the library",
   "library_health_check_mod_failed_title": "Failed to check mod",
+  "library_health_check_stop_action": "Stop checking",
   "library_health_checking_label": "Checking your mods",
   "library_health_enabled_label": "Enabled",
   "library_health_flagged_hint": "Some of your mods contain non-fatal issues which are not repairable",
@@ -186,6 +190,63 @@
   "library_health_status_hide_hint": "Hide the mods this found something in.",
   "library_health_status_repairable_hint": "Some of your mods require attention. Open the list and repair them.",
   "library_health_type_mismatch_description": "Expected *{expected}*, found *{found}*",
+  "library_import_already_installed_description": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod is already in your library",
+        "countPlural=other": "{count} mods are already in your library"
+      }
+    }
+  ],
+  "library_import_already_installed_title": "Already installed",
+  "library_import_archives_filter_label": "Mod Archives",
+  "library_import_failed_description": "All {count} files failed to import",
+  "library_import_failed_title": "Import failed",
+  "library_import_installed_title": "Mods installed",
+  "library_import_partial_title": "Import completed with errors",
+  "library_import_results_existing_label": "{count} already in your library",
+  "library_import_results_failed_label": "{count} failed",
+  "library_import_results_imported_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod imported",
+        "countPlural=other": "{count} mods imported"
+      }
+    }
+  ],
+  "library_import_results_installed_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod installed",
+        "countPlural=other": "{count} mods installed"
+      }
+    }
+  ],
+  "library_import_results_updated_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod updated",
+        "countPlural=other": "{count} mods updated"
+      }
+    }
+  ],
+  "library_import_summary_existing_label": "{count} already in your library",
+  "library_import_summary_failed_label": "{count} failed",
+  "library_import_summary_installed_label": "{count} installed",
+  "library_import_summary_updated_label": "{count} updated",
+  "library_import_updated_title": "Mods updated",
+  "library_install_already_installed_description": "\"{name}\" is already in your library",
+  "library_install_skinhack_description": "Skinhack detected in \"{name}\"",
+  "library_install_skinhack_title": "Skinhack Detected",
+  "library_install_updated_description": "\"{name}\" updated to {version}",
   "library_launch_already_running_label": "already running",
   "library_launch_league_action": "Launch League",
   "library_launch_league_only_action": "Launch League only",
@@ -197,6 +258,7 @@
   "library_licenses_undeclared_description": "This mod's author named no license for it",
   "library_licenses_undeclared_title": "No license declared",
   "library_licenses_unreadable_description": "This mod's archive did not answer, so its license cannot be read",
+  "library_load_failed_title": "Failed to load mods",
   "library_mod_auto_categories_hint": "Auto-detected from this mod's contents",
   "library_mod_champion_skin_label": "{champion} skin",
   "library_mod_copy_id_action": "Copy ID",
@@ -249,5 +311,11 @@
   "library_readme_none_open_description": "Open a mod's readme from its card menu",
   "library_readme_none_open_title": "No mod open",
   "library_readme_unreadable_description": "This mod's archive did not answer, so the mod may not work at all",
-  "library_readme_unreadable_title": "Readme unreadable"
+  "library_readme_unreadable_title": "Readme unreadable",
+  "library_sort_added_label": "Date Added",
+  "library_sort_champion_label": "Champion",
+  "library_sort_enabled_label": "Enabled",
+  "library_sort_name_label": "Name",
+  "library_sort_priority_label": "Priority",
+  "library_storage_open_failed_title": "Failed to open directory"
 }

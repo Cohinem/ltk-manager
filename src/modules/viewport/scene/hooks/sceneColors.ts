@@ -21,6 +21,12 @@ const TOKENS = {
   untextured: "--color-surface-500",
   /* A character's submesh whose material link resolves to nothing. */
   errored: "--color-danger",
+  /* A map placeable's marker, by what it places, and one the reader hid. */
+  markerParticle: "--color-warning",
+  markerCharacter: "--color-channel-3",
+  markerLocator: "--color-channel-2",
+  markerOther: "--color-surface-300",
+  markerHidden: "--color-surface-600",
 } as const;
 
 /** What the grid, the ground, the gizmo and an untextured mesh are painted in. */
@@ -57,6 +63,11 @@ export function sceneColors(): SceneColors {
     wire: read(TOKENS.wire),
     untextured: read(TOKENS.untextured),
     errored: read(TOKENS.errored),
+    markerParticle: read(TOKENS.markerParticle),
+    markerCharacter: read(TOKENS.markerCharacter),
+    markerLocator: read(TOKENS.markerLocator),
+    markerOther: read(TOKENS.markerOther),
+    markerHidden: read(TOKENS.markerHidden),
   };
 }
 
@@ -99,4 +110,25 @@ export function useSceneColors(): SceneColors {
   }, []);
 
   return colors;
+}
+
+/**
+ * One colour token as a scene colour, for a stage colour a reader picks rather than one of
+ * `useSceneColors`, re-read whenever the theme or the accent moves it.
+ */
+export function useTokenColor(token: string): Color {
+  const [held, setHeld] = useState(() => ({ token, color: tokenColor(token) }));
+  if (held.token !== token) setHeld({ token, color: tokenColor(token) });
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => setHeld({ token, color: tokenColor(token) }));
+    observer.observe(document.documentElement, { attributeFilter: THEMED });
+    return () => observer.disconnect();
+  }, [token]);
+
+  return held.color;
+}
+
+function tokenColor(token: string): Color {
+  return painter()(getComputedStyle(document.documentElement).getPropertyValue(token).trim());
 }

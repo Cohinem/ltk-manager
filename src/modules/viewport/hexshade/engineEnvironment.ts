@@ -1,10 +1,13 @@
 import {
   type Camera,
   DataTexture,
+  DetachedBindMode,
   type IUniform,
   type Material,
   Matrix4,
   type Object3D,
+  OrthographicCamera,
+  PerspectiveCamera,
   type RawShaderMaterial,
   type SkinnedMesh,
   type Texture,
@@ -16,71 +19,112 @@ import {
 
 import type { UniformBlock } from "@/lib/tauri";
 
+import {
+  CUBE_FACES as GRID_FACES,
+  type LightGrid,
+  sceneCubeAt,
+} from "../assets/parsing/lightGridBuffer";
 import { DEFAULT_SUN, type SunColor, type SunLight } from "../scene/utils/sunLight";
 import { AXIS_SIGN } from "../shared/utils/space";
-import { programGlobals } from "./programMaterial";
+import { elementView, floatsOf } from "./blockViews";
+import { type InlinedBlock, programGlobals } from "./programMaterial";
 
 /**
- * The engine's own constant buffers, written once per frame for every program material of
- * one object.
+ * How a program material reads the environment's buffers.
  *
- * Every buffer but `$Globals` has one layout in every shipped blob, so each is one
- * `Float32Array` of the buffer's bytes that every material of the object binds through
- * the same `UniformsGroup`, and a member is written at the byte offset section 3.2 of
+ * `group` binds each buffer through one `UniformsGroup` that every material of the object
+ * shares. A group takes one renderer binding point until it is disposed. A WebGL2 context
+ * on ANGLE has 24 binding points. `uniform` declares each buffer as an array uniform of
+ * the material over the same bytes, and takes no binding point.
+ */
+export type BufferBinding = "group" | "uniform";
+
+/**
+ * The engine's constant buffers for the program materials of one object, written once per
+ * frame.
+ *
+ * Every buffer but `$Globals` has one layout in every shipped blob. Each is one
+ * `Float32Array` of the buffer's bytes, which every material of the object reads through
+ * its `BufferBinding`. A member is written at the byte offset section 3.2 of
  * docs/research/static-material-studio-rendering.md lists. A buffer the studio has no
- * value for stays zero. The matrices are written as the rows the shader's `dp4` reads, so
- * the clip transform is D3D's, whose `z` the translated shader maps to GL's.
+ * value for stays zero. The matrices are written as the rows the shader's `dp4` reads.
+ * The clip transform is D3D's, and the translated shader maps its `z` to GL's.
  *
- * A skinned mesh's vertices land in the world through `BONES`, which carry the object's
- * own transform, so its clip transform is the camera's alone. A static mesh's shader
- * multiplies by a `WORLD_MATRIX` the material packs as the identity, so its clip
- * transform carries the object's, and the camera is stated in the object's space.
+ * A skinned mesh's `BONES` carry the object's transform, and its clip transform is the
+ * camera's alone. A skinned mesh bound detached draws at its transform over the bones, as
+ * three draws it, so its clip transform carries that. A static mesh's shader multiplies by a
+ * `WORLD_MATRIX` the material packs as the identity. Its clip transform carries the
+ * object's, and the camera is stated in the object's space.
  *
- * `$Globals` is no group at all but each material's own array uniform, because three
- * uploads a group once per frame and keeps a binding point per group for its life, and
- * the block carries what changes per draw for one of hundreds of materials.
+ * `$Globals` is an array uniform of each material under either binding. It carries what
+ * changes per draw for one of hundreds of materials, and three uploads a group once per
+ * frame.
  */
 export class EngineEnvironment {
   /** The sun the pixel buffer states, which a map's own replaces. */
   light: SunLight = DEFAULT_SUN;
+  /** The map's baked ambient, which lights a character in place of the sun where it holds one. */
+  grid: LightGrid | null = null;
+  /** The skin's `selfIllumination`, written to each colour channel of `SELF_ILLUMINATION`. */
+  selfIllumination = 0;
+  /** The particle emitter the object draws, which a particle material's instance buffer reads. */
+  particle: ParticleEmitter | null = null;
 
-  private readonly held = new Map<string, HeldBlock>();
+  private readonly buffers = new Map<string, BlockBuffer>();
   private readonly clip = new Matrix4();
   private readonly inverse = new Matrix4();
   private readonly identity = new Matrix4();
   private readonly eye = new Vector3();
   private frame = -1;
 
+  constructor(readonly binding: BufferBinding = "group") {}
+
   /** The group `block` binds through, one per block name for the object's life. */
   group(block: UniformBlock): UniformsGroup {
-    const found = this.held.get(block.glslName);
-    if (found !== undefined) return found.group;
-    const data = new Float32Array(block.size / FLOAT_BYTES);
-    const group = new UniformsGroup().setName(block.glslName);
-    group.add(new Uniform(data));
-    this.held.set(block.glslName, { group, data, base: block.name });
-    return group;
+    const buffer = this.bufferOf(block);
+    if (buffer.group === null) {
+      buffer.group = new UniformsGroup().setName(block.glslName);
+      buffer.group.add(new Uniform(buffer.data));
+    }
+    return buffer.group;
+  }
+
+  /**
+   * The bytes of `block` as a typed array of the elements a stage declares it with.
+   *
+   * The array is a view of the environment's bytes, not a copy. Every material that reads
+   * the block reads each write.
+   */
+  array(
+    block: UniformBlock,
+    { element, extent }: InlinedBlock,
+  ): Float32Array | Int32Array | Uint32Array {
+    const { data } = this.bufferOf(block);
+    return elementView(data.subarray(0, Math.min(extent * VEC4_FLOATS, data.length)), element);
   }
 
   /**
    * The light maps of the mesh about to draw written over `material`'s `$Globals` and
    * bound to its samplers.
    *
-   * A light map and its scale and bias belong to the mesh, while `$Globals` and the
-   * samplers belong to the material, which every mesh of it shares. Three uploads a
-   * material's uniforms again when it is told they moved, so a mesh that moves either
-   * lands before its draw.
+   * A light map and its scale and bias belong to the mesh. `$Globals` and the samplers
+   * belong to the material, which every mesh of it shares. Three uploads a material's
+   * uniforms again only when `uniformsNeedUpdate` is set, and a change of either sets it.
+   * Under the `uniform` binding the buffers are material uniforms as well, and every draw
+   * sets it.
    */
   draw(material: Material, lights: MeshLights | null = null): void {
     const globals = programGlobals(material);
     if (globals === undefined) return;
     const program = material as RawShaderMaterial;
     const uniforms: Record<string, IUniform> = program.uniforms;
+    if (this.binding === "uniform") program.uniformsNeedUpdate = true;
+
     for (const [channel, member, texture] of LIGHT_CHANNELS) {
       const light = lights?.[channel] ?? null;
       for (const at of globals.members.get(member) ?? []) {
-        const block = uniforms[at.block]?.value;
-        if (!(block instanceof Float32Array)) continue;
+        const block = floatsOf(uniforms[at.block]?.value);
+        if (block === null) continue;
         const scale = light?.scale ?? UNIT_SCALE;
         const bias = light?.bias ?? NO_BIAS;
         if (
@@ -108,25 +152,25 @@ export class EngineEnvironment {
     }
   }
 
-  /** Every held buffer written for `object` as `camera` sees it, once per frame. */
+  /** Every buffer written for `object` as `camera` sees it, once per frame. */
   write(renderer: WebGLRenderer, camera: Camera, object: Object3D, time: number): void {
     if (renderer.info.render.frame === this.frame) return;
     this.frame = renderer.info.render.frame;
     this.clip.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.eye.setFromMatrixPosition(camera.matrixWorld);
-    if (!isSkinned(object)) {
+    if (!isSkinned(object) || object.bindMode === DetachedBindMode) {
       this.clip.multiply(object.matrixWorld);
       this.eye.applyMatrix4(this.inverse.copy(object.matrixWorld).invert());
     }
-    for (const { data, base } of this.held.values()) {
+    for (const { data, base } of this.buffers.values()) {
       const write = WRITERS[base];
       if (write !== undefined) write(data, this, camera, object, time);
     }
   }
 
   dispose(): void {
-    for (const { group } of this.held.values()) group.dispose();
-    this.held.clear();
+    for (const { group } of this.buffers.values()) group?.dispose();
+    this.buffers.clear();
   }
 
   /** The rows of the clip transform with a D3D depth range. */
@@ -148,13 +192,36 @@ export class EngineEnvironment {
   writeIdentity(out: Float32Array, at: number): void {
     writeRows(out, at, this.identity);
   }
+
+  /** The environment's buffer for `block`, created on the block's first bind. */
+  private bufferOf(block: UniformBlock): BlockBuffer {
+    const found = this.buffers.get(block.glslName);
+    if (found !== undefined) return found;
+
+    const made: BlockBuffer = {
+      group: null,
+      data: new Float32Array(block.size / FLOAT_BYTES),
+      base: block.name,
+    };
+    this.buffers.set(block.glslName, made);
+    return made;
+  }
 }
 
-interface HeldBlock {
-  readonly group: UniformsGroup;
+interface BlockBuffer {
+  /** The group the block binds through, and null under the `uniform` binding. */
+  group: UniformsGroup | null;
   readonly data: Float32Array;
   /** The engine's name for the block, which says what to write into it. */
   readonly base: string;
+}
+
+/** What an emitter's draw writes to `VFXDynamicPerParticleInstanceCBVS`. */
+export interface ParticleEmitter {
+  /** `PARTICLE_COLOR_FACTOR`, which a particle material multiplies its colour by. */
+  readonly colorFactor: readonly [number, number, number, number];
+  /** `EMITTER_DEPTH_PUSH_PULL`, the emitter's `DepthPushPull`. */
+  readonly depthPushPull: number;
 }
 
 /** The light maps one mesh is lit by, each with the transform its `uv1` reads through. */
@@ -199,6 +266,7 @@ type Writer = (
 ) => void;
 
 const FLOAT_BYTES = 4;
+const VEC4_FLOATS = 4;
 
 /** The light map transform of a mesh without one, reading its `uv1` as it is. */
 const UNIT_SCALE: readonly [number, number] = [1, 1];
@@ -252,13 +320,12 @@ function sunDirectionFor(light: SunLight, object: Object3D): readonly [number, n
 /**
  * The ambient cube of `LIGHTGRID_COLORS`, `+X -X +Y -Y +Z -Z`, which the vertex shader
  * weighs by the squared normal into `COLOR0` and the pixel shader scales by
- * `LIGHTGRID_SCALE.x`.
+ * `LIGHTGRID_SCALE.x`, for a map that bakes no light grid.
  *
- * No shipped map on the Rift carries a light grid, so the cube is built off the map's
- * sun properties as their names read: the sky lights the face up, the ground the face
- * down and the horizon the four sides, all at the sky's scale, and a face the sun meets
- * rises toward the sun's light by how squarely it meets it, as the shadow complement of
- * the pixel buffer does. Inferred from the field names, not traced.
+ * As `MapLightingInfo::SetupLighting` builds it: the sky lights the face up, the ground
+ * the face down and the horizon the four sides, all at the sky's scale, and the sun adds
+ * its light by how squarely a face meets it. The game divides the cube by its brightest
+ * channel and scales it back by the same, which is this cube unscaled.
  */
 export function ambientCube(
   light: SunLight,
@@ -274,13 +341,36 @@ export function ambientCube(
       face[0] * direction[0] + face[1] * direction[1] + face[2] * direction[2],
       0,
     );
-    const lit = (channel: number) => {
-      const shaded = (base[channel] ?? 0) * skyScale;
-      return shaded + Math.max((color[channel] ?? 0) * sunScale - shaded, 0) * facing;
-    };
+    const lit = (channel: number) =>
+      (base[channel] ?? 0) * skyScale + (color[channel] ?? 0) * sunScale * facing;
     return [lit(0), lit(1), lit(2)];
   });
 }
+
+const gridColours = new Float32Array(GRID_FACES * 3);
+const gridCentre = new Vector3();
+
+/**
+ * The cube of the grid cell under the middle of `object`'s bounds, as the game picks it
+ * for a character, with no filtering between cells.
+ */
+function gridCube(grid: LightGrid, object: Object3D): readonly SunColor[] {
+  const geometry = (object as Partial<SkinnedMesh>).geometry;
+  if (geometry === undefined) gridCentre.setFromMatrixPosition(object.matrixWorld);
+  else {
+    if (geometry.boundingBox === null) geometry.computeBoundingBox();
+    geometry.boundingBox?.getCenter(gridCentre).applyMatrix4(object.matrixWorld);
+  }
+  sceneCubeAt(grid, gridCentre.x, gridCentre.z, gridColours);
+  return Array.from({ length: GRID_FACES }, (_, face) => [
+    gridColours[face * 3] ?? 0,
+    gridColours[face * 3 + 1] ?? 0,
+    gridColours[face * 3 + 2] ?? 0,
+  ]);
+}
+
+/** The colour factor of an object no particle draws, which leaves a fragment as it is. */
+const NEUTRAL_FACTOR = [1, 1, 1, 1] as const;
 
 /** Each buffer's writer, at the member offsets of section 3.2, in floats. */
 const WRITERS: Record<string, Writer> = {
@@ -312,6 +402,7 @@ const WRITERS: Record<string, Writer> = {
     out[15] = 1;
     writeVector(out, 16, complement[0] ?? 0, complement[1] ?? 0, complement[2] ?? 0);
     out[19] = 1;
+    writeDepthConversion(out, 20, camera);
     writeVector(out, 24, sun[0] ?? 0, sun[1] ?? 0, sun[2] ?? 0);
     out[27] = 1;
     writeVector(out, 29, direction[0], direction[1], direction[2]);
@@ -336,7 +427,10 @@ const WRITERS: Record<string, Writer> = {
   },
   CharacterPerDrawVertexCB: (out, environment, _camera, object) => {
     environment.writeIdentity(out, 0);
-    const cube = ambientCube(environment.light, sunDirectionFor(environment.light, object));
+    const cube =
+      environment.grid === null
+        ? ambientCube(environment.light, sunDirectionFor(environment.light, object))
+        : gridCube(environment.grid, object);
     cube.forEach(([r, g, b], face) => {
       writeVector(out, 16 + face * 4, r, g, b);
       out[16 + face * 4 + 3] = 1;
@@ -344,12 +438,28 @@ const WRITERS: Record<string, Writer> = {
     environment.writeIdentity(out, 44);
   },
   CharacterPerDrawPS: (out, environment) => {
+    const { selfIllumination } = environment;
+    writeVector(out, 0, selfIllumination, selfIllumination, selfIllumination);
     /* `kGrassFade.w` multiplies every fragment's alpha, so anything but one draws nothing. */
     out[7] = 1;
+    /* `LIGHTGRID_SCALE`: the grid's own scale is already in its cube. */
     out[8] = 1;
-    out[9] = 1;
+    out[9] = environment.grid?.fullBright ?? 1;
     environment.writeIdentity(out, 16);
     environment.writeIdentity(out, 32);
+  },
+  /* `DYNAMIC_PARTICLE_ENABLE_MASK` stays zero, which keeps the shader off the dynamic
+     particle buffers the preview has none of. */
+  VFXDynamicPerParticleInstanceCBVS: (out, environment) => {
+    const particle = environment.particle;
+    if (particle === null) return;
+    out.set(particle.colorFactor, 4);
+    out[10] = particle.depthPushPull;
+  },
+  /* `PARTICLE_COLOR_FACTOR` scales every fragment's colour and alpha, so an object with no
+     particle draws at one rather than at the zero an unwritten buffer holds. */
+  VFXDynamicPerParticleInstanceCBPS: (out, environment) => {
+    out.set(environment.particle?.colorFactor ?? NEUTRAL_FACTOR, 0);
   },
   BonesCB: (out, _environment, _camera, object) => {
     if (!isSkinned(object)) return;
@@ -379,6 +489,24 @@ export function writeRows(out: Float32Array, at: number, matrix: Matrix4): void 
     }
   }
 }
+
+/** `cDepthConversionParams`, the eye distance of a stored depth `d` as `1 / (d * y + x)`. */
+function writeDepthConversion(out: Float32Array, at: number, camera: Camera): void {
+  if (camera instanceof PerspectiveCamera) {
+    out[at] = 1 / camera.near;
+    out[at + 1] = 1 / camera.far - 1 / camera.near;
+    return;
+  }
+
+  /* An orthographic depth is linear. `1 / (x + y d)` is `span / ORTHO_SLOPE + span d` to
+     within `ORTHO_SLOPE`, and a gap only ever subtracts the constant term. */
+  const span = camera instanceof OrthographicCamera ? camera.far - camera.near : 1;
+  out[at] = ORTHO_SLOPE / span;
+  out[at + 1] = -(ORTHO_SLOPE * ORTHO_SLOPE) / span;
+}
+
+/** How far the reciprocal of an orthographic depth strays from a line, as a fraction. */
+const ORTHO_SLOPE = 1e-3;
 
 function writeVector(out: Float32Array, at: number, x: number, y: number, z: number): void {
   out[at] = x;

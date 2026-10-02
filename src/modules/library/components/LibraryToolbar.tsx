@@ -35,8 +35,8 @@ import { SelectionButton } from "./SelectionButton";
 import { ViewOptionsPopover } from "./ViewOptionsPopover";
 
 const VIEW_OPTIONS: SegmentedOption<"grid" | "list">[] = [
-  { value: "grid", label: <GridFourIcon weight="bold" className="h-4 w-4" />, name: "Grid view" },
-  { value: "list", label: <ListIcon weight="bold" className="h-4 w-4" />, name: "List view" },
+  { value: "grid", label: <GridFourIcon weight="bold" className="size-4" />, name: "Grid view" },
+  { value: "list", label: <ListIcon weight="bold" className="size-4" />, name: "List view" },
 ];
 
 interface LibraryToolbarProps {
@@ -44,7 +44,6 @@ interface LibraryToolbarProps {
   onSearchChange: (query: string) => void;
   actions: ReturnType<typeof useLibraryActions>;
   isLoading: boolean;
-  isPatcherActive: boolean;
   filterOptions: FilterOptions;
   visibleMods: InstalledMod[];
   /* A slot rather than an import: the play control belongs to launcher, which
@@ -57,7 +56,6 @@ export function LibraryToolbar({
   onSearchChange,
   actions,
   isLoading,
-  isPatcherActive,
   filterOptions,
   visibleMods,
   playButton,
@@ -75,7 +73,7 @@ export function LibraryToolbar({
     <Toolbar>
       <ToolbarRow>
         <div className="relative flex min-w-45 flex-1 items-center">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 h-4 w-4 text-surface-500" />
+          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 size-4 text-surface-500" />
           <Field.Control
             ref={searchRef}
             type="text"
@@ -91,13 +89,9 @@ export function LibraryToolbar({
 
         <ProfileSelector />
 
-        <SelectionButton
-          actions={actions}
-          visibleMods={visibleMods}
-          disabled={isPatcherActive || isLoading}
-        />
+        <SelectionButton actions={actions} visibleMods={visibleMods} disabled={isLoading} />
 
-        <AnalyzeUncategorizedAction disabled={isPatcherActive || isLoading} />
+        <AnalyzeUncategorizedAction disabled={isLoading} />
 
         <ModHealthCheckAction disabled={isLoading} />
 
@@ -125,9 +119,8 @@ export function LibraryToolbar({
               size="sm"
               onClick={actions.handleImportMods}
               loading={isInstalling}
-              disabled={isPatcherActive}
               aria-label="Import mods"
-              left={<DownloadSimpleIcon weight="bold" className="h-4 w-4" />}
+              left={<DownloadSimpleIcon weight="bold" className="size-4" />}
               /* Narrow windows wrap the toolbar onto a second row, so the label
                  drops and the button squares off to its icon. */
               className="max-lg:w-8 max-lg:gap-0 max-lg:px-0"

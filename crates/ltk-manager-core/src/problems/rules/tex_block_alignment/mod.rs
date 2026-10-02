@@ -25,15 +25,19 @@
 //! container and asserts on the format, so a cubemap ships as a `.dds` in Bc1
 //! carrying `DDSCAPS2_CUBEMAP`. That is a separate file kind, no rule scans it,
 //! and the format constraint on it is unchecked.
+//!
+//! A `.tex` that contains DDS data, such as a renamed `.dds`, is skipped. The
+//! game detects the container from the magic bytes, so the file is valid.
 
 use std::io::Cursor;
 
 use image::imageops::FilterType;
-use ltk_texture::Tex;
 use ltk_texture::tex::{EncodeFormat, EncodeOptions, Format, MipmapFilter, ResourceType};
+use ltk_texture::{Dds, Tex};
 
 use crate::problems::{
-    Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, Rule, RuleId, Severity, Site,
+    Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity, Rule, RuleId,
+    RuleMeta, Site,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -57,39 +61,32 @@ impl TexBlockAlignment {
     }
 }
 
+/// The rule as the catalogue lists it.
+const META: RuleMeta = RuleMeta {
+    id: ID,
+    title: "Block-unaligned texture size",
+    // The code is on the rule rather than on each row, because it is the
+    // same on every one of them.
+    description: "A block-compressed texture whose size is not a whole number of blocks, which crashes the game with ALE-D0D00020",
+    unfixable: "Couldn't resample because the manager cannot write this texture back",
+    severity: Some(ProblemSeverity::Fatal),
+};
+
 impl Rule for TexBlockAlignment {
-    fn id(&self) -> RuleId {
-        ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Block-unaligned texture size"
-    }
-
-    fn description(&self) -> &'static str {
-        // The code is on the rule rather than on each row, because it is the
-        // same on every one of them.
-        "A block-compressed texture whose size is not a whole number of blocks, which crashes the game with ALE-D0D00020"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't resample because the manager cannot write this texture back"
-    }
-
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Fatal)
+    fn meta(&self) -> &RuleMeta {
+        &META
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
         let headers = pass
             .files(WorkshopFileKind::Texture)
             .head(HEADER_BYTES)
-            .collect(|head| read_header(head.bytes()).map(|tex| Ragged::of(&tex)));
+            .collect(|head| ragged_header(head.bytes()));
         pass.finish(move |finish| {
             for (handle, ragged) in finish.take(headers) {
                 if let Some(ragged) = ragged {
                     finish.problem(
-                        Severity::Fatal,
+                        ProblemSeverity::Fatal,
                         Site::file(handle.layer(), handle.path()),
                         ragged.detail(),
                     );
@@ -99,14 +96,11 @@ impl Rule for TexBlockAlignment {
     }
 
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError> {
-        let mut applied = Applied::default();
-
-        for problem in problems {
-            let (layer, path) = (problem.site.layer.clone(), problem.site.path.clone());
-            let bytes = run.read(&layer, &path)?;
+        run.per_file(problems, |run, layer, path| {
+            let bytes = run.read(layer, path)?;
             let parse = |message: String| FixError::Parse {
-                layer: layer.clone(),
-                path: path.clone(),
+                layer: layer.to_owned(),
+                path: path.to_owned(),
                 message,
             };
 
@@ -115,24 +109,20 @@ impl Rule for TexBlockAlignment {
             // Re-derived from the file rather than from what the check
             // recorded, so a texture re-exported since the run is left alone.
             let Some(size) = Ragged::of(&tex).and_then(|ragged| ragged.repair().ok()) else {
-                applied.skipped += 1;
-                run.skipped(&layer, &path, 1);
-                continue;
+                return Ok(false);
             };
 
             let repaired = resampled(&tex, size).map_err(parse)?;
             let mut out = Vec::with_capacity(bytes.len());
             repaired.write(&mut out).map_err(|source| FixError::File {
-                layer: layer.clone(),
-                path: path.clone(),
+                layer: layer.to_owned(),
+                path: path.to_owned(),
                 source,
             })?;
 
-            run.write(&layer, &path, &out, 1, 0)?;
-            applied.applied += 1;
-        }
-
-        Ok(applied)
+            run.write(layer, path, &out, 1, 0)?;
+            Ok(true)
+        })
     }
 }
 
@@ -228,9 +218,18 @@ fn on_grid(size: u32, block: u32) -> u32 {
     (size - size % block).max(block)
 }
 
-/// Read a `.tex` header out of the first bytes of the file.
-fn read_header(head: &[u8]) -> Result<Tex, String> {
-    Tex::from_reader(&mut Cursor::new(head)).map_err(|e| e.to_string())
+/// What the first bytes of a `.tex` say the game will not create, where the
+/// file holds a TEX header at all.
+fn ragged_header(head: &[u8]) -> Result<Option<Ragged>, String> {
+    if head
+        .first_chunk::<4>()
+        .is_some_and(|magic| u32::from_le_bytes(*magic) == Dds::MAGIC)
+    {
+        return Ok(None);
+    }
+
+    let tex = Tex::from_reader(&mut Cursor::new(head)).map_err(|e| e.to_string())?;
+    Ok(Ragged::of(&tex))
 }
 
 /// `tex` resampled to `size` and re-encoded to the format it already had.

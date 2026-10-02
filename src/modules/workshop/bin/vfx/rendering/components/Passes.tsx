@@ -1,9 +1,12 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect } from "react";
-import type { Camera } from "three";
+import type { Camera, Scene, WebGLRenderer } from "three";
 
 import {
+  bindFrameTargets,
   DISTORTION_LAYER,
+  drawGlow,
+  glowing,
   grabDepth,
   grabFrame,
   PARTICLE_LAYER,
@@ -30,12 +33,12 @@ export interface PassesProps {
  */
 export function Passes({ warps, softens }: PassesProps) {
   const camera = useThree((state) => state.camera);
+  const gl = useThree((state) => state.gl);
   useEffect(() => {
     camera.layers.enable(PARTICLE_LAYER);
   }, [camera]);
-  /* The grabs hold viewport-sized textures for the module's life, so a closed viewport
-     hands them back. */
-  useEffect(() => releaseFrame, []);
+  /* The grabs keep viewport-sized textures per renderer, so a closed viewport frees them. */
+  useEffect(() => () => releaseFrame(gl), [gl]);
 
   return <FramePasses warps={warps} softens={softens} />;
 }
@@ -47,10 +50,11 @@ function seeColour(camera: Camera): void {
 }
 
 /**
- * The frame drawn in up to three passes, which takes the render loop off ThreeJS.
+ * The frame drawn in up to four passes, which takes the render loop off ThreeJS.
  *
- * The depth of the scene alone goes first for a soft fade, and the distorting layer last
- * over a copy of the frame. Decisions 2.43 and 2.25 of docs/plans/vfx-particle-renderer.md.
+ * The depth of the scene alone goes first for a soft fade or a glow, and the distorting
+ * layer over a copy of the frame. The glow layer draws last over that depth, and its blur
+ * adds to the frame. Decisions 2.43 and 2.25 of docs/plans/vfx-particle-renderer.md.
  */
 function FramePasses({ warps, softens }: PassesProps) {
   const gl = useThree((state) => state.gl);
@@ -58,25 +62,33 @@ function FramePasses({ warps, softens }: PassesProps) {
 
   useFrame((state) => {
     const camera = state.camera;
-    if (softens) grabDepth(gl, scene, camera);
+    const glows = glowing(scene);
+    bindFrameTargets(gl);
+    if (softens || glows) grabDepth(gl, scene, camera);
     seeColour(camera);
     gl.render(scene, camera);
-    if (!warps) return;
-
-    grabFrame(gl);
-
-    /* The warp draws over the frame rather than in place of it, so neither the colour
-       nor the depth the first pass left is cleared, and the background is what would
-       clear them. */
-    const background = scene.background;
-    scene.background = null;
-    gl.autoClear = false;
-    camera.layers.set(DISTORTION_LAYER);
-    gl.render(scene, camera);
-    gl.autoClear = true;
-    scene.background = background;
+    if (warps) drawWarp(gl, scene, camera);
+    if (glows) drawGlow(gl, scene, camera);
     seeColour(camera);
   }, AFTER_THE_EMITTERS);
 
   return null;
+}
+
+/**
+ * The distorting layer drawn over a copy of the frame.
+ *
+ * The warp draws over the frame rather than in place of it, so neither the colour nor the
+ * depth the first pass left is cleared, and the background is what would clear them.
+ */
+function drawWarp(gl: WebGLRenderer, scene: Scene, camera: Camera): void {
+  grabFrame(gl);
+
+  const background = scene.background;
+  scene.background = null;
+  gl.autoClear = false;
+  camera.layers.set(DISTORTION_LAYER);
+  gl.render(scene, camera);
+  gl.autoClear = true;
+  scene.background = background;
 }

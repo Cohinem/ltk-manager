@@ -15,12 +15,12 @@
 //! the entries still without a slug.
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult};
+use crate::error::{AppError, AppResult, IoContext, io_context};
 use crate::events::{BackendEvent, LayoutMigrationProgress};
 use crate::mods::ModLibrary;
-use crate::mods::archive::metadata::{
-    extract_fantome_metadata, extract_modpkg_metadata, fantome_layers, load_mod_project,
-};
+use crate::mods::StorageLayout as _;
+use crate::mods::archive::metadata::{extract_metadata, fantome_layers, load_mod_project};
+use crate::mods::archive::reader::open_modpkg;
 use crate::mods::index::document::{archive_path, load_library_index, save_library_index};
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::slug::{ModSlug, TakenSlugs};
@@ -31,8 +31,7 @@ use std::path::Path;
 
 /// One mod the migration could not convert.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct FailedConversion {
     /// The mod's index id, which is also the directory the uuid layout gave it.
@@ -45,8 +44,7 @@ pub struct FailedConversion {
 
 /// What one migration run did.
 #[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct LayoutMigrationReport {
     /// How many mods reached the slug layout.
@@ -61,8 +59,7 @@ pub struct LayoutMigrationReport {
 /// [`LayoutMigrationFinished`](crate::events::BackendEvent) event to catch. It
 /// asks instead, and [`Pending`](Self::Pending) is what tells it to ask again.
 #[derive(Debug, Clone, Default, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(tag = "status", rename_all = "camelCase")]
 pub enum LayoutMigrationState {
     /// The startup pass has not reported yet, so the answer is still coming.
@@ -115,7 +112,7 @@ impl ModLibrary {
         }
 
         let mut migrated_ids = Vec::new();
-        let mut taken = TakenSlugs::collect(&index, &storage_dir.join("mods"));
+        let mut taken = TakenSlugs::collect(&index, &storage_dir.mods_dir());
 
         for (i, mod_id) in pending.iter().enumerate() {
             let Some(position) = index.mods.iter().position(|m| &m.id == mod_id) else {
@@ -222,24 +219,19 @@ fn convert_entry(
     };
 
     let slug = ModSlug::assign(&project.name, taken);
-    let new_dir = storage_dir.join("mods").join(slug.as_str());
+    let new_dir = storage_dir.mods_dir().join(slug.as_str());
     let new_archive = archive_path(storage_dir, &slug, entry.format);
 
-    fs::rename(&old_dir, &new_dir).map_err(|e| {
-        AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to move the mod into the new layout: {e}"),
-        ))
-    })?;
+    fs::rename(&old_dir, &new_dir).context("Failed to move the mod into the new layout")?;
 
     if let Err(e) = fs::rename(&old_archive, &new_archive) {
         // Put the directory back, so the entry stays wholly in the old layout
         // and the next run has something intact to try again with.
         let _ = fs::rename(&new_dir, &old_dir);
-        return Err(AppError::Io(std::io::Error::new(
-            e.kind(),
-            format!("Failed to move the archive into the new layout: {e}"),
-        )));
+        return Err(io_context(
+            e,
+            "Failed to move the archive into the new layout",
+        ));
     }
 
     Ok(slug)
@@ -267,7 +259,7 @@ fn refresh_config_from_archive(
     mut project: ltk_mod_project::ModProject,
 ) -> AppResult<ltk_mod_project::ModProject> {
     if matches!(format, ModArchiveFormat::Modpkg) {
-        ltk_modpkg::Modpkg::mount_from_reader(fs::File::open(archive)?)?;
+        open_modpkg(archive)?;
         return Ok(project);
     }
 
@@ -299,14 +291,7 @@ fn refresh_config_from_archive(
 /// a corrupt one fail rather than move silently.
 fn rebuild_metadata(dir: &Path, archive: &Path, format: ModArchiveFormat) -> AppResult<()> {
     tracing::info!("Rebuilding missing metadata for {}", dir.display());
-    match format {
-        ModArchiveFormat::Modpkg => extract_modpkg_metadata(archive, dir),
-        // A discovered directory has no archive and never reaches here, but the
-        // legacy layout had no way to record one either.
-        ModArchiveFormat::Fantome | ModArchiveFormat::Unknown => {
-            extract_fantome_metadata(archive, dir)
-        }
-    }
+    extract_metadata(archive, format, dir)
 }
 
 /// What to call this mod in progress and failure lines, falling back to its id

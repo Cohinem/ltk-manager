@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { WorkshopProject } from "@/lib/tauri";
 
-import { useBulkDeleteDialog, useBulkPackDialog, useWorkshopSelectionStore } from "../../../state";
+import { useBulkDeleteDialog, useWorkshopSelectionStore } from "../../../state";
 import { useProjectSelectionActions } from "../useProjectSelectionActions";
 
 function project(name: string): WorkshopProject {
@@ -22,16 +22,23 @@ function project(name: string): WorkshopProject {
     layers: [],
     thumbnailPath: null,
     lastModified: "2026-08-21T21:14:02Z",
+    location: "workshop",
+    lastOpened: null,
+    id: "project-id",
   };
 }
 
 const PROJECTS = [project("one"), project("two"), project("three")];
 const testMutate = vi.fn();
+const packProjects = vi.fn();
 const testState = { kind: "idle" as string };
 
 vi.mock("../useFilteredProjects", () => ({ useFilteredProjects: () => PROJECTS }));
 vi.mock("../../../testing/api/useTestProject", () => ({
   useTestProjects: () => ({ mutate: testMutate, isPending: false }),
+}));
+vi.mock("../../../packing/api/usePackProjects", () => ({
+  usePackProjects: () => packProjects,
 }));
 vi.mock("../../../testing/api/useWorkshopTestState", () => ({
   useWorkshopTestState: () => testState,
@@ -47,7 +54,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   testState.kind = "idle";
   useWorkshopSelectionStore.setState({ selectedPaths: new Set() });
-  useBulkPackDialog.setState({ payload: null, isOpen: false });
   useBulkDeleteDialog.setState({ payload: null, isOpen: false });
 });
 
@@ -64,9 +70,7 @@ describe("useProjectSelectionActions", () => {
 
     actions().test();
 
-    expect(testMutate.mock.calls[0][0]).toEqual({
-      projects: [{ path: PROJECTS[1].path, displayName: PROJECTS[1].displayName }],
-    });
+    expect(testMutate.mock.calls[0][0]).toEqual({ projects: [PROJECTS[1]] });
   });
 
   /* The picks are spent by the press, because a menu that closes as it is
@@ -92,12 +96,13 @@ describe("useProjectSelectionActions", () => {
     expect(actions().canTest).toBe(false);
   });
 
-  it("asks before it packs, over the picks", () => {
+  it("packs the picks on the press and drops them", () => {
     pick(["one", "two"]);
 
     actions().pack();
 
-    expect(useBulkPackDialog.getState().payload).toEqual([PROJECTS[0], PROJECTS[1]]);
+    expect(packProjects).toHaveBeenCalledWith([PROJECTS[0], PROJECTS[1]]);
+    expect(useWorkshopSelectionStore.getState().selectedPaths.size).toBe(0);
   });
 
   it("asks before it deletes, over the picks", () => {

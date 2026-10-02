@@ -57,7 +57,7 @@ export function DiagnosticsNoticeDialog() {
       closable={false}
       title={
         <>
-          <TargetIcon className="h-6 w-6 shrink-0 text-accent-400" weight="duotone" />
+          <TargetIcon className="size-6 shrink-0 text-accent-400" weight="duotone" />
           {m.diagnostics_notice_title()}
         </>
       }
@@ -76,7 +76,7 @@ export function DiagnosticsNoticeDialog() {
                 <li key={line()} className="flex gap-2.5 text-sm text-surface-300">
                   <span
                     aria-hidden
-                    className="mt-[0.4375rem] h-1 w-1 shrink-0 rounded-full bg-surface-400"
+                    className="mt-[0.4375rem] size-1 shrink-0 rounded-full bg-surface-400"
                   />
                   <span>{line()}</span>
                 </li>

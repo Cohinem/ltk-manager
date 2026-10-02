@@ -226,6 +226,13 @@ project writes its edits as declarations — see ADR-0042. Not a **merge**, whic
 the mod ships.
 _Avoid_: patch, override
 
+**Module** — one item of a layer's `game_data.yaml` list of modules: an `entries` map of
+declarations by entry, or a `target` chunk with its edits, applied in list order. It may carry a
+`name`, which changes nothing about how it applies, and an `entries` module may hold no entry yet.
+A declared document writes its new keys to the module the reader chose, else to the last one
+naming the entry — see ADR-0048 and ADR-0054.
+_Avoid_: group, section
+
 **Game-copy reference** — a declaration's value spelled `!ref <entry>:<path>`, read from the game's
 copy of that entry at every build instead of copied into the mod. Not what Find references lists,
 which is the places a bin names an object, class or file.
@@ -233,7 +240,7 @@ which is the places a bin names an object, class or file.
 **Built-in mod** — a mod project the manager generates from the installed game and the other
 mods when a setting turns it on, under `<storage>/builtin/<slug>`. It is injected above workshop
 projects and every enabled mod, belongs to no profile, and never enters the library. Default ward
-skins and base skins are the two. See ADR-0043.
+skins, base skins, map skins and map decorations are the four. See ADR-0043, ADR-0052 and ADR-0053.
 _Avoid_: tweak, preset
 
 **Profile** — a named set of enabled mods, their order, and their per-mod layer states. The active
@@ -257,6 +264,31 @@ names no rule either, and for the same reason: each of the three defects that wo
 it was measured at zero, and each is a state the build should assert over the archives it just
 wrote rather than one a pass over a library should hunt for. So the naming rule now has no
 instance, which does not make it wrong — see ADR-0010.
+
+## The Creator Workshop
+
+**Sandbox** - the data source a workshop editor reads from and writes to: the installed game
+alone, or a mod project's layers stacked over the game in the overlay's order. A document opens in
+a sandbox. The sandbox decides which copy of a path the build uses, and whether an edit writes a
+layer file or a **declaration** for a game bin that no layer ships. A project sandbox shows the
+project's own build output, without other mods. The word comes from Riot's own editor, and the
+object tab's header shows it - see ADR-0056. Not a **layer**, which is one part of a sandbox's
+stack, and not a **profile**, which is what the overlay builds from.
+_Avoid_: environment, workspace, baseline
+
+**VFX template** - a stored emitter or particle system an author starts a new effect from, kept
+in the core crate's catalog as clipboard text beside its rig. An emitter template lands in a
+system, and a system template lands its emitters in one or creates a new system. See ADR-0058.
+_Avoid_: preset, which names a **Built-in mod**, and starter
+
+**Rig** - how the preview carries a particle system, which the file does not say: a **carrier**
+and a **playback**, and where the choice came from. The rig picks itself from the context a system
+was opened from, a template, or the system alone, until the author changes it. See ADR-0057.
+
+**Carrier** - the half of a rig that places the system's origin: Ground, Bone, Flight or Orbit.
+A word for the code and the docs, and the UI shows the kind names alone.
+
+**Playback** - the half of a rig that says when a run starts over: Once, Replay or Continuous.
 
 ## Settings
 

@@ -7,9 +7,7 @@ import {
   ComboboxItem,
   ComboboxList,
   type ComboboxOption,
-  ComboboxPopup,
-  ComboboxPortal,
-  ComboboxPositioner,
+  ComboboxContent,
   ComboboxRoot,
   ComboboxTrigger,
   Field,
@@ -21,9 +19,7 @@ import {
   SelectIcon,
   SelectItem,
   type SelectOption,
-  SelectPopup,
-  SelectPortal,
-  SelectPositioner,
+  SelectContent,
   SelectRoot,
   SelectTrigger,
   SelectValue,
@@ -162,17 +158,13 @@ export function SelectField({
           <SelectValue />
           <SelectIcon />
         </SelectTrigger>
-        <SelectPortal>
-          <SelectPositioner>
-            <SelectPopup>
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectPopup>
-          </SelectPositioner>
-        </SelectPortal>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </SelectRoot>
       {hasError && <FieldError>{field.state.meta.errors.join(", ")}</FieldError>}
     </FieldRoot>
@@ -231,20 +223,16 @@ export function ComboboxField({
             <ComboboxIcon />
           </ComboboxTrigger>
         </div>
-        <ComboboxPortal>
-          <ComboboxPositioner>
-            <ComboboxPopup>
-              <ComboboxList>
-                {(item: ComboboxOption) => (
-                  <ComboboxItem key={item.value} value={item} disabled={item.disabled}>
-                    {item.label}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-              <ComboboxEmpty />
-            </ComboboxPopup>
-          </ComboboxPositioner>
-        </ComboboxPortal>
+        <ComboboxContent>
+          <ComboboxList>
+            {(item: ComboboxOption) => (
+              <ComboboxItem key={item.value} value={item} disabled={item.disabled}>
+                {item.label}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+          <ComboboxEmpty />
+        </ComboboxContent>
       </ComboboxRoot>
       {hasError && <FieldError>{field.state.meta.errors.join(", ")}</FieldError>}
     </FieldRoot>
@@ -285,7 +273,7 @@ export function SubmitButton({ children, className, variant = "filled" }: Submit
             {isSubmitting ? (
               <>
                 <span className="absolute inset-0 flex items-center justify-center">
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  <span className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                 </span>
                 <span className="invisible">{children}</span>
               </>

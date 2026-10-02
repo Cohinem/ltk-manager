@@ -117,8 +117,8 @@ fn import_writes_the_license_and_a_webp_thumbnail() {
     assert!(!project.join("thumbnail.png").exists());
 }
 
-/// Fantome tools in the wild write checksums that describe nothing, so an
-/// import that trusts them rejects archives users really have.
+/// Some fantome tools write checksums that do not match the entry bytes, and
+/// an import that trusts them rejects archives users have.
 #[test]
 fn import_reads_an_archive_whose_checksums_are_wrong() {
     let tmp = tempfile::tempdir().unwrap();
@@ -172,8 +172,8 @@ fn a_failed_import_reports_it_and_leaves_no_directory() {
 /// One progress event, flattened so a whole run compares in one assert.
 type Reported = (FantomeImportStage, Option<String>, u32, u32);
 
-/// A sink that keeps only the fantome progress, which is what the import
-/// dialog's bar is driven from.
+/// A sink that keeps only the fantome progress, which drives the import
+/// dialog's progress bar.
 #[derive(Default)]
 struct RecordingStages(Mutex<Vec<Reported>>);
 
@@ -247,9 +247,9 @@ fn a_fantome_import_past_the_path_limit_is_refused_and_leaves_no_project() {
     assert!(!tmp.path().join("full-mod").exists());
 }
 
-/// The estimate cannot see past a packed WAD, so a resolver that names its
-/// chunks is caught by the pass over what actually landed — and the project
-/// that pass condemns is removed with it.
+/// The estimate cannot read chunk names inside a packed WAD, so a resolved
+/// chunk path past the limit is caught by the check over the written files,
+/// and that check removes the project.
 #[test]
 fn a_resolved_chunk_past_the_limit_takes_the_project_with_it() {
     let tmp = tempfile::tempdir().unwrap();
@@ -301,9 +301,8 @@ fn make_modpkg_with_readme(path: &Path, name: &str) {
     .unwrap();
 }
 
-/// A package stores which WAD a chunk belonged to, and an import that
-/// flattened that away would pack back into a project the game reads
-/// differently.
+/// A package stores which WAD each chunk belongs to. An import that dropped it
+/// would repack into a project the game reads differently.
 ///
 /// The directory is lower case because that is the spelling the package holds.
 /// A modpkg records a WAD as a `WadNameHash` beside a name, and only the
@@ -321,9 +320,9 @@ fn a_modpkg_import_keeps_each_chunk_under_its_wad() {
         .unwrap();
 
     let base = tmp.path().join("packed-mod").join("content").join("base");
-    /* Listed rather than reached through a joined path, because a
-    case-insensitive filesystem answers one built with the wrong spelling and
-    leaves the difference to show up only where the suite runs elsewhere. */
+    /* Listed rather than opened through a joined path, because a
+    case-insensitive filesystem opens a path with the wrong casing, and the
+    test would then fail only on a case-sensitive one. */
     let wads: Vec<String> = fs::read_dir(&base)
         .unwrap()
         .map(|entry| entry.unwrap().file_name().into_string().unwrap())
@@ -440,6 +439,28 @@ fn peek_sorts_wads_in_natural_order() {
     );
 }
 
+#[test]
+fn peek_lists_a_layers_wads_under_its_unpacked_name_after_the_base_wads() {
+    let tmp = tempfile::tempdir().unwrap();
+    let archive = tmp.path().join("layers.fantome");
+    let bin = crate::mods::test_support::stale_bin();
+    crate::mods::test_support::make_layer_wads_fantome_zip(&archive, &bin, &bin);
+    let (workshop, _) = make_workshop(tmp.path());
+
+    let peeked = workshop
+        .peek_fantome(&archive.display().to_string())
+        .unwrap();
+
+    assert_eq!(
+        peeked.wad_files,
+        [
+            "Aatrox.wad.client",
+            "Chroma/Aatrox.wad.client",
+            "zeta/Aatrox.wad.client"
+        ]
+    );
+}
+
 fn load_mod_project_json(project_dir: &Path) -> ModProject {
     let contents = fs::read_to_string(project_dir.join("mod.config.json")).unwrap();
     serde_json::from_str(&contents).unwrap()
@@ -513,8 +534,8 @@ fn parse_github_url_trailing_slash_and_git() {
     assert_eq!(repo, "repo");
 }
 
-/// A project starts with the recommended rules, so nothing ships an author's
-/// sources before they have met the file.
+/// A project starts with the recommended ignore rules, so a pack leaves out an
+/// author's source files even before the author has opened the ignore file.
 #[test]
 fn a_new_project_starts_with_the_recommended_ignore_rules() {
     let tmp = tempfile::tempdir().unwrap();

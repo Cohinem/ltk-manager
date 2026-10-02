@@ -3,12 +3,17 @@
 import type { BinRow } from "@/lib/tauri";
 import { findLeaf, leafHolding, leaves, neighbourLeaf, singleLeaf } from "@/modules/editor";
 import {
+  declarationsDocument,
   detailsDocument,
   filesDocument,
   gameDocument,
   migrateFromV1,
+  objectDocument,
+  parseEditorFile,
+  persistedSlice,
   previewDocument,
   readLegacyEditorSeed,
+  serializeEditorFile,
   stringsDocument,
 } from "@/modules/workshop";
 import {
@@ -436,6 +441,82 @@ describe("workshopEditor store", () => {
       const before = editorOf(A);
 
       store().closeLayerDocuments(A, "base");
+
+      expect(editorOf(A)).toBe(before);
+    });
+  });
+
+  /* Acceptance test 6 of docs/plans/sandbox.md: a rename keeps the layer's tabs, and they
+     come back from `.ltk/editor.json` under the new name. */
+  describe("renameLayer", () => {
+    const chroma = {
+      kind: "layer",
+      project: A,
+      layer: "chroma",
+      path: "W.wad.client/a.bin",
+    } as const;
+
+    function openChroma() {
+      store().openDocument(A, previewDocument(chroma));
+      store().openDocument(A, objectDocument(chroma, "0x12345678", "Skin0", "a.bin"));
+      store().openDocument(A, filesDocument("chroma"));
+      store().openDocument(A, declarationsDocument("chroma"));
+      store().openDocument(A, filesDocument("base"));
+      store().selectLayer(A, "chroma");
+      store().selectModule(A, { layer: "chroma", kind: "index", index: 0 });
+      store().toggleCollapsed(A, "chroma", "W.wad.client");
+      store().setDocumentDirty(A, "preview:layer:chroma:W.wad.client/a.bin", true);
+    }
+
+    const jade = { ...chroma, layer: "jade" };
+    const renamedIds = [
+      "preview:layer:jade:W.wad.client/a.bin",
+      "object:layer:jade:W.wad.client/a.bin:0x12345678",
+      "files:jade",
+      "declarations:jade",
+      "files:base",
+    ];
+
+    it("moves every tab of the layer to the new name and keeps its place", () => {
+      openChroma();
+
+      store().renameLayer(A, "chroma", "jade");
+
+      expect(openIds(A)).toEqual(renamedIds);
+      expect(editorOf(A).documents["preview:layer:jade:W.wad.client/a.bin"]).toMatchObject({
+        asset: jade,
+        context: "jade",
+      });
+      expect(
+        editorOf(A).documents["object:layer:jade:W.wad.client/a.bin:0x12345678"],
+      ).toMatchObject({ asset: jade, objectHash: "0x12345678" });
+      expect(editorOf(A).selectedLayer).toBe("jade");
+      expect(editorOf(A).selectedModule).toEqual({ layer: "jade", kind: "index", index: 0 });
+      expect(editorOf(A).collapsed.jade?.has("W.wad.client")).toBe(true);
+      expect(editorOf(A).dirty.has("preview:layer:jade:W.wad.client/a.bin")).toBe(true);
+    });
+
+    it("writes the renamed tabs to the editor file, which reads them back", () => {
+      openChroma();
+      store().renameLayer(A, "chroma", "jade");
+
+      const slice = persistedSlice(editorOf(A));
+      expect(slice).not.toBeNull();
+      const read = parseEditorFile(serializeEditorFile(slice!));
+
+      /* The editor file does not store manifest tabs yet, with or without a rename. */
+      const persisted = renamedIds.filter((id) => !id.startsWith("declarations:"));
+      expect(read.kind).toBe("ok");
+      if (read.kind !== "ok") return;
+      expect(Object.keys(read.state.documents)).toEqual(expect.arrayContaining(persisted));
+      expect(leaves(read.state.layout).flatMap((leaf) => leaf.tabs)).toEqual(persisted);
+    });
+
+    it("leaves an editor that names no such layer alone", () => {
+      store().openDocument(A, filesDocument("base"));
+      const before = editorOf(A);
+
+      store().renameLayer(A, "chroma", "jade");
 
       expect(editorOf(A)).toBe(before);
     });
@@ -892,6 +973,17 @@ describe("workshopEditor store", () => {
     });
   });
 
+  describe("collapseDirs", () => {
+    it("shuts exactly the given directories of one layer", () => {
+      store().toggleCollapsed(A, "base", "old");
+
+      store().collapseDirs(A, "base", new Set(["assets", "data"]));
+
+      expect([...(editorOf(A).collapsed.base ?? [])]).toEqual(["assets", "data"]);
+      expect(editorOf(A).collapsed.test).toBeUndefined();
+    });
+  });
+
   describe("openDirs", () => {
     it("opens the directories a reveal has to pass through", () => {
       store().toggleCollapsed(A, "base", "assets");
@@ -1162,6 +1254,41 @@ describe("workshopEditor store", () => {
       const at = entry.location === undefined ? "" : `@${entry.location.path || "/"}`;
       return `${entry.project}/${entry.documentId}${at}`;
     }
+
+    describe("entering a project", () => {
+      it("records the restored active tab, so back returns to the grid", () => {
+        const layout = singleLeaf(["details"], "details");
+        store().recordListVisit();
+        store().hydrateProject(A, {
+          ...EMPTY_EDITOR,
+          documents: { details: detailsDocument() },
+          layout,
+          activeLeafId: layout.id,
+        });
+
+        store().recordProjectVisit(A);
+
+        expect(historyOf()).toEqual({ stops: ["list", `${A}/details`], at: 1 });
+      });
+
+      it("records nothing where the arrows already stand in the project", () => {
+        store().recordListVisit();
+        store().openDocument(A, detailsDocument());
+
+        store().recordProjectVisit(A);
+
+        expect(historyOf()).toEqual({ stops: ["list", `${A}/details`], at: 1 });
+      });
+
+      it("records nothing for a project with no tab open", () => {
+        store().recordListVisit();
+        store().hydrateProject(A, EMPTY_EDITOR);
+
+        store().recordProjectVisit(A);
+
+        expect(historyOf()).toEqual({ stops: ["list"], at: 0 });
+      });
+    });
 
     describe("an explorer's location", () => {
       const GAME = "game";
@@ -1506,6 +1633,15 @@ describe("workshopEditor store", () => {
       store().openShellPane(A, "vfx", "curve");
 
       expect(editorOf(A).shells.vfx.layout).toBe(before);
+    });
+
+    it("brings an open pane behind another to the front of its panel", () => {
+      store().applyShellDrop(A, "vfx", { kind: "move", documentId: "curve", toLeafId: "leaf-4" });
+      store().activateShellPane(A, "vfx", "leaf-4", "inspector");
+
+      store().openShellPane(A, "vfx", "curve");
+
+      expect(leafHolding(editorOf(A).shells.vfx.layout, "curve")?.activeTab).toBe("curve");
     });
 
     it("stacks one pane onto another's strip", () => {

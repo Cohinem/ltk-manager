@@ -1,14 +1,14 @@
 import { DownloadSimpleIcon, StackPlusIcon } from "@phosphor-icons/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { type BreadcrumbItem, Button, EmptyState } from "@/components";
+import { type BreadcrumbItem, Button, EmptyState, LoadingState } from "@/components";
 import { m } from "@/i18n";
-import type { AppError, AssetRef, GameWadSummary } from "@/lib/tauri";
-import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
+import type { AppError, GameWadSummary, WadSource } from "@/lib/tauri";
+import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { useExplorerThumbnails, useExplorerTileSize, useExplorerView } from "@/stores";
 import { formatBytes } from "@/utils";
 
-import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
+import { type ContentDocumentOf, documentSource } from "../../documents/utils/contentDocument";
 import {
   ExplorerSortScope,
   useExplorerSort,
@@ -32,15 +32,17 @@ import {
   selectionTargets,
   sortItems,
   sortTree,
-  useExplorerKeys,
   useExplorerNav,
   useExplorerSelectionApi,
 } from "../../explorer";
+import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import {
   useExplorerFilter,
   useExplorerScope,
   useSetExplorerFilter,
   useSetExplorerScope,
+  useSetCollapsedWadDirs,
   useShutWadDirs,
   useToggleWadDir,
 } from "../../state";
@@ -48,35 +50,43 @@ import { useGameWadEntries } from "../api/useGameWadEntries";
 import { useGameWads } from "../api/useGameWads";
 import { type ExtractHow, useExtractActions } from "../extraction/hooks/useExtractActions";
 import { archiveTarget, entryTarget } from "../extraction/utils/extractTargets";
+import { useExplorerShell } from "../hooks/useExplorerShell";
 import { useSourcePreview, useSourceRowPreview } from "../hooks/useSourcePreview";
+import { useWadSource, WadSourceProvider } from "../state/wadSource";
+import { fileNodeOf, isPresent, itemAsset, menuNodeOf } from "../utils/explorerItems";
 import {
   buildSourceTree,
   flattenSourceTree,
   hasOnlyUnknownPaths,
+  sourceDirIds,
   type SourceDirListing,
+  toggledSourceDirTree,
   type SourceDirNode,
   type SourceEntry,
-  type SourceFileNode,
-  type SourceTreeNode,
-  UNKNOWN_DIR,
   wadBasename,
 } from "../utils/sourceIndex";
-import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
+import { GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
 import { SourceTree } from "./SourceTree";
 import { SourceTreeContextMenu } from "./SourceTreeContextMenu";
 
 /** One archive's explorer, kept apart from the whole install's and from another archive's. */
-function explorerIdOf(wadName: string): string {
-  return `game-wad:${wadName}`;
+function archiveExplorerId(source: WadSource, wadName: string): string {
+  return `${source}-wad:${wadName}`;
 }
 
-/** One game archive's files, without the archive level the tab already names. */
-export function GameWadDocument({
-  document,
-  active,
-}: EditorDocumentProps<ContentDocumentOf<"game-wad">>) {
+/** One archive's files, without the archive level the tab already names. */
+export function GameWadDocument(props: EditorDocumentProps<ContentDocumentOf<"game-wad">>) {
+  return (
+    <WadSourceProvider source={documentSource(props.document)}>
+      <ArchiveDocument {...props} />
+    </WadSourceProvider>
+  );
+}
+
+function ArchiveDocument({ document, active }: EditorDocumentProps<ContentDocumentOf<"game-wad">>) {
+  const source = useWadSource();
   const wadName = document.wadName;
-  const explorerId = explorerIdOf(wadName);
+  const explorerId = archiveExplorerId(source, wadName);
 
   const wads = useGameWads();
   const summary = findArchive(wads.data, wadName);
@@ -89,26 +99,18 @@ export function GameWadDocument({
      already known and a listing costs no read. */
   const listings = useMemo(() => listingsOf(entries ?? []), [entries]);
 
-  const nav = useExplorerNav(explorerId, document.id);
-  const [typing, setTyping] = useState(false);
-  const boxRef = useFindBox(document.id);
-
-  const handleKeyDown = useExplorerKeys({
-    onUp: nav.goUp,
-    onType: () => setTyping(true),
-    boxRef,
-  });
+  const { nav, typing, setTyping, boxRef, handleKeyDown } = useExplorerShell(
+    explorerId,
+    document.id,
+  );
 
   return (
     <ExplorerSortScope documentId={document.id}>
-      <div
-        data-ui="GameWadDocument"
-        className="flex min-h-0 flex-1 flex-col bg-surface-950"
-        onKeyDown={handleKeyDown}
-      >
+      <DocumentFrame data-ui="GameWadDocument" onKeyDown={handleKeyDown}>
         <DocumentToolbar active={active}>
           <ArchiveBar
             explorerId={explorerId}
+            wadName={wadName}
             summary={summary}
             listings={listings}
             nav={nav}
@@ -127,7 +129,7 @@ export function GameWadDocument({
           error={error}
           nav={nav}
         />
-      </div>
+      </DocumentFrame>
     </ExplorerSortScope>
   );
 }
@@ -148,6 +150,7 @@ function findArchive(
 
 interface ArchiveBarProps {
   explorerId: string;
+  wadName: string;
   summary: GameWadSummary | undefined;
   listings: ReadonlyMap<string, SourceDirListing>;
   nav: ReturnType<typeof useExplorerNav>;
@@ -158,6 +161,7 @@ interface ArchiveBarProps {
 
 function ArchiveBar({
   explorerId,
+  wadName,
   summary,
   listings,
   nav,
@@ -216,6 +220,7 @@ function ArchiveBar({
       actions={
         <>
           <ArchiveStats summary={summary} />
+          <CollapseArchiveAction wadName={wadName} summary={summary} />
           <ArchiveActions summary={summary} />
         </>
       }
@@ -225,6 +230,27 @@ function ArchiveBar({
 
 /* The bar reads the selection's totals and never its order, so it asks for none. */
 const NO_ORDER: never[] = [];
+
+/** Collapse all for the archive's tree, which only the tree view draws. */
+function CollapseArchiveAction({
+  wadName,
+  summary,
+}: {
+  wadName: string;
+  summary: GameWadSummary | undefined;
+}) {
+  const view = useExplorerView();
+  const { data: entries } = useGameWadEntries(summary?.name ?? null);
+  const setCollapsedWadDirs = useSetCollapsedWadDirs();
+
+  if (view !== "tree" || !entries) return null;
+
+  return (
+    <CollapseAllButton
+      onCollapse={() => setCollapsedWadDirs(wadName, sourceDirIds(buildSourceTree(entries)))}
+    />
+  );
+}
 
 function ArchiveStats({ summary }: { summary: GameWadSummary | undefined }) {
   const { data: entries } = useGameWadEntries(summary?.name ?? null);
@@ -259,7 +285,7 @@ function ArchiveActions({ summary }: { summary: GameWadSummary | undefined }) {
         <Button
           variant="ghost"
           size="xs"
-          left={<StackPlusIcon className="h-4 w-4" />}
+          left={<StackPlusIcon className="size-4" />}
           disabled={busy}
           onClick={() => run("copy", targets, subject)}
         >
@@ -270,7 +296,7 @@ function ArchiveActions({ summary }: { summary: GameWadSummary | undefined }) {
         <Button
           variant="ghost"
           size="xs"
-          left={<DownloadSimpleIcon className="h-4 w-4" />}
+          left={<DownloadSimpleIcon className="size-4" />}
           disabled={busy}
           onClick={() => run("quick", targets, subject)}
         >
@@ -280,7 +306,7 @@ function ArchiveActions({ summary }: { summary: GameWadSummary | undefined }) {
       <Button
         variant="ghost"
         size="xs"
-        left={<DownloadSimpleIcon className="h-4 w-4" />}
+        left={<DownloadSimpleIcon className="size-4" />}
         onClick={() => run("dialog", targets, subject)}
       >
         {m.workshop_archive_extract_action()}
@@ -304,7 +330,7 @@ function ArchiveBody(props: ArchiveBodyProps) {
   const view = useExplorerView();
 
   if (props.error) return <GameWadsErrorState error={props.error} />;
-  if (props.pending) return <GameLoadingState />;
+  if (props.pending) return <LoadingState />;
   if (!props.summary) {
     return (
       <EmptyState
@@ -329,17 +355,18 @@ function ArchiveTree({ explorerId, wadName, summary, entries, listings }: Archiv
   const previewFile = useSourceRowPreview();
   const shutDirs = useShutWadDirs(wadName);
   const toggleWadDir = useToggleWadDir();
+  const setCollapsedWadDirs = useSetCollapsedWadDirs();
   const filter = useExplorerFilter(explorerId);
   const sort = useExplorerSort();
 
+  const built = useMemo(() => buildSourceTree(entries ?? []), [entries]);
   const tree = useMemo(() => {
-    const built = buildSourceTree(entries ?? []);
     /* The archive holds every entry, so the box narrows the whole tree here
        whatever the scope says. The scope is a grid question: a tree draws the
        depth a flat list of hits cannot. */
     const narrowed = filterTree(built, filter.text);
     return sortTree(narrowed, sort);
-  }, [entries, filter.text, sort]);
+  }, [built, filter.text, sort]);
 
   const isExpanded = useCallback((node: SourceDirNode) => !shutDirs.has(node.id), [shutDirs]);
   const rows = useMemo(() => flattenSourceTree(tree, isExpanded), [tree, isExpanded]);
@@ -352,6 +379,14 @@ function ArchiveTree({ explorerId, wadName, summary, entries, listings }: Archiv
   const handleToggle = useCallback(
     (node: SourceDirNode) => toggleWadDir(wadName, node.id),
     [toggleWadDir, wadName],
+  );
+  const handleToggleSubtree = useCallback(
+    (node: SourceDirNode) => setCollapsedWadDirs(wadName, toggledSourceDirTree(shutDirs, node)),
+    [setCollapsedWadDirs, wadName, shutDirs],
+  );
+  const handleCollapseAll = useCallback(
+    () => setCollapsedWadDirs(wadName, sourceDirIds(built)),
+    [setCollapsedWadDirs, wadName, built],
   );
 
   const dirTargetsAt = useCallback(
@@ -369,11 +404,13 @@ function ArchiveTree({ explorerId, wadName, summary, entries, listings }: Archiv
       ariaLabel={m.workshop_archive_tree_label({ archive: summary?.name ?? wadName })}
       isExpanded={isExpanded}
       onToggle={handleToggle}
+      onToggleSubtree={handleToggleSubtree}
+      onCollapseAll={handleCollapseAll}
       onOpen={openFile}
       onPreview={previewFile}
       selection={selection}
       selectionTargets={targets}
-      scrollKey={`game-wad:${wadName}`}
+      scrollKey={explorerId}
     />
   );
 }
@@ -386,6 +423,7 @@ function ArchiveItems({
   listings,
   nav,
 }: ArchiveBodyProps & { view: "grid" | "details" }) {
+  const source = useWadSource();
   const openFile = useSourcePreview();
   const previewFile = useSourceRowPreview();
   const filter = useExplorerFilter(explorerId);
@@ -460,45 +498,11 @@ function ArchiveItems({
     onOpen: handleOpen,
     onPreview: handlePreview,
     onUp: nav.goUp,
-    assetOf: chunkAsset,
+    assetOf: (item: ExplorerItem) => itemAsset(source, item),
     renderMenu,
     onRun: runSelection,
   };
 
   if (view === "details") return <ExplorerDetails {...shared} />;
   return <ExplorerGrid {...shared} size={tileSize} showFacts={tileSize >= 128} />;
-}
-
-/** A chunk names the archive it came from, which is the route back to its bytes. */
-function chunkAsset(item: ExplorerItem): AssetRef | null {
-  if (item.kind === "dir") return null;
-  return { kind: "gameChunk", wad: item.entry.wad, pathHash: item.entry.pathHash };
-}
-
-function fileNodeOf(item: ExplorerFileItem): SourceFileNode {
-  return { type: "file", id: item.id, name: item.name, entry: item.entry };
-}
-
-/**
- * The tile the menu opened on, as the node that menu reads.
- *
- * A directory tile carries no children here, and the menu never walks any: it
- * offers the ways out, and those act on the selection the right click aimed.
- */
-function menuNodeOf(item: ExplorerItem | null): SourceTreeNode | null {
-  if (item === null) return null;
-  if (item.kind === "file") return fileNodeOf(item);
-  return {
-    type: "dir",
-    id: item.id,
-    path: item.id,
-    name: item.name,
-    unknown: item.id === UNKNOWN_DIR,
-    fileCount: item.fileCount,
-    children: [],
-  };
-}
-
-function isPresent<T>(value: T | null): value is T {
-  return value !== null;
 }

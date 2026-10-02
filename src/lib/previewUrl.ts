@@ -1,5 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 
+import { useAssetVersion, versionedUrl } from "@/lib/assetVersions";
 import type { AssetRef } from "@/lib/tauri";
 
 /** The URI scheme the backend serves a rendered preview on. */
@@ -15,7 +16,7 @@ const FORM_PARAMETER = "as";
  * A buffer the scheme answers, each in the layout the Rust module of its name documents
  * under `crates/ltk-manager-core/src/preview/`.
  */
-export type PreviewForm = "geometry" | "map" | "skeleton" | "animation";
+export type PreviewForm = "geometry" | "map" | "skeleton" | "animation" | "lightgrid";
 
 /**
  * The URL an `<img>` draws this asset from.
@@ -31,6 +32,17 @@ export function previewUrl(asset: AssetRef, minWidth?: number): string {
   const url = convertFileSrc(encodeToken(asset), SCHEME);
   if (minWidth === undefined) return url;
   return `${url}?${WIDTH_PARAMETER}=${minWidth}`;
+}
+
+/**
+ * `previewUrl` for a component, a new URL each time the file changes on disk.
+ *
+ * The URL names the file's version, per "A layer file saved from outside" in
+ * docs/ux/PROJECT_EDITOR.md.
+ */
+export function usePreviewUrl(asset: AssetRef, minWidth?: number): string {
+  const version = useAssetVersion(asset);
+  return versionedUrl(previewUrl(asset, minWidth), version);
 }
 
 /** The URL the scheme answers `asset`'s buffer of `form` on. */
@@ -54,6 +66,27 @@ export function previewMipsUrl(asset: AssetRef, minWidth?: number): string {
  */
 export function previewCubeUrl(asset: AssetRef): string {
   return `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=cube`;
+}
+
+/** The URL an OpenType or TrueType file's own bytes arrive on, for a `FontFace` to load. */
+export function previewFontUrl(asset: AssetRef): string {
+  return `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=font`;
+}
+
+/**
+ * The URL a file's own bytes arrive on, for a `<video>`, an `<audio>` or a text read.
+ *
+ * Under a video or an audio type where the bytes carry one's signature, and as bytes
+ * otherwise.
+ */
+export function previewFileUrl(asset: AssetRef): string {
+  return `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=file`;
+}
+
+/** `previewFileUrl` for a component, a new URL each time the file changes on disk. */
+export function usePreviewFileUrl(asset: AssetRef): string {
+  const version = useAssetVersion(asset);
+  return versionedUrl(previewFileUrl(asset), version);
 }
 
 /**

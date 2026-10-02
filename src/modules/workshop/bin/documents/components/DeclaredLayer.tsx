@@ -1,76 +1,15 @@
-import { CaretDownIcon } from "@phosphor-icons/react";
-
-import { Button, Code, Menu, SeverityGlyph, Tooltip } from "@/components";
+import { Code, SeverityGlyph, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import type { BinDocumentId, DeclaredDiagnostic, DeclaredMark, DeclaredState } from "@/lib/tauri";
+import type { DeclaredDiagnostic, DeclaredMark, LinkChange, ObjectChange } from "@/lib/tauri";
 
 import { layerTitle } from "../../../documents/utils/contentDocument";
 import { LayerGlyph } from "../../../layers/components/LayerGlyph";
 import { useProjectContext } from "../../../projects/state/ProjectContext";
-import { useSelectedLayerName, useSelectLayer } from "../../../state";
-import { useDeclareInto, useDeclaredMark, useRowDiagnostics } from "../hooks/useDeclared";
+import { useDeclaredMark, useRowDiagnostics } from "../hooks/useDeclared";
+import { useRowOverrides } from "../hooks/useOverrides";
 import { diagnosticSeverity, diagnosticText } from "../utils/declaredDiagnostics";
-
-interface DeclaredLayerChipProps {
-  document: BinDocumentId;
-  declared: DeclaredState;
-}
-
-/**
- * The layer a declared document's edits write to, and the menu that switches it. The
- * choice is the project's selected layer, so it holds across tabs and sessions.
- * "Declaring from a game bin" in docs/ux/BIN_EDITOR.md.
- */
-export function DeclaredLayerChip({ document, declared }: DeclaredLayerChipProps) {
-  const project = useProjectContext();
-  const selectLayer = useSelectLayer();
-  useDeclareInto(document, declared, useSelectedLayerName());
-
-  return (
-    <span className="flex shrink-0 items-center gap-1">
-      <DeclaredDiagnosticsMark
-        diagnostics={declared.diagnostics.filter((diagnostic) => diagnostic.entry.length === 0)}
-      />
-      <Menu.Root>
-        <Tooltip content={m.workshop_bin_declares_into_hint()}>
-          <Menu.Trigger
-            render={
-              <Button
-                variant="ghost"
-                size="xs"
-                compact
-                aria-label={m.workshop_bin_declares_into_label()}
-                left={<LayerGlyph layerName={declared.layer} />}
-                right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
-              >
-                {layerTitle(project, declared.layer)}
-              </Button>
-            }
-          />
-        </Tooltip>
-        <Menu.Portal>
-          <Menu.Positioner align="end">
-            <Menu.Popup
-              data-ui="DeclaredLayerMenu"
-              className="max-h-96 w-56 overflow-y-auto scrollbar-md"
-            >
-              <Menu.RadioGroup
-                value={declared.layer}
-                onValueChange={(layer) => selectLayer(layer as string)}
-              >
-                {declared.layers.map((layer) => (
-                  <Menu.RadioItem key={layer} value={layer}>
-                    {layerTitle(project, layer)}
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioGroup>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-    </span>
-  );
-}
+import { moduleLabel } from "../utils/declaredModule";
+import { OverrideRowMark } from "./OverrideMark";
 
 interface DeclaredDiagnosticsMarkProps {
   diagnostics: readonly DeclaredDiagnostic[];
@@ -124,13 +63,85 @@ interface DeclaredRowMarkProps {
 /** A field's declaration marker and apply diagnostics. */
 export function DeclaredRowState({ rowKey }: { rowKey: string }) {
   const declared = useDeclaredMark(rowKey);
+  const overrides = useRowOverrides(rowKey);
   const diagnostics = useRowDiagnostics(rowKey);
 
   return (
     <>
       {declared !== null && <DeclaredRowMark mark={declared.mark} layer={declared.layer} />}
+      {overrides.length > 0 && <OverrideRowMark overrides={overrides} />}
       <DeclaredDiagnosticsMark diagnostics={diagnostics} />
     </>
+  );
+}
+
+/**
+ * The mark on an object row the chosen layer creates or removes: the layer's glyph for a
+ * creation, and a `removed` tag for a removal. ADR-0049.
+ */
+export function ObjectChangeMark({ change, layer }: { change: ObjectChange; layer: string }) {
+  const title = layerTitle(useProjectContext(), layer);
+  if (change === "created") {
+    return (
+      <ChangeMark layer={layer} label={m.workshop_bin_object_created_label({ layer: title })} />
+    );
+  }
+  return (
+    <ChangeMark
+      removed
+      layer={layer}
+      label={m.workshop_bin_object_removed_label({ layer: title })}
+    />
+  );
+}
+
+/** The mark on a dependency row the chosen layer adds or removes, drawn as an object's. ADR-0050. */
+export function LinkChangeMark({ change, layer }: { change: LinkChange; layer: string }) {
+  const title = layerTitle(useProjectContext(), layer);
+  if (change === "added") {
+    return (
+      <ChangeMark layer={layer} label={m.workshop_bin_dependency_added_label({ layer: title })} />
+    );
+  }
+  return (
+    <ChangeMark
+      removed
+      layer={layer}
+      label={m.workshop_bin_dependency_removed_label({ layer: title })}
+    />
+  );
+}
+
+interface ChangeMarkProps {
+  layer: string;
+  label: string;
+  /** A removal, which carries a `removed` tag after the glyph. */
+  removed?: boolean;
+}
+
+function ChangeMark({ layer, label, removed = false }: ChangeMarkProps) {
+  if (!removed) {
+    return (
+      <Tooltip content={label}>
+        <span role="img" aria-label={label} className="flex shrink-0">
+          {/* DS-KIND-HUE */}
+          <LayerGlyph layerName={layer} className="size-3" />
+        </span>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <Tooltip content={label}>
+      <span
+        aria-label={label}
+        className="flex shrink-0 items-center gap-1 text-meta text-surface-400 select-none"
+      >
+        {/* DS-KIND-HUE */}
+        <LayerGlyph layerName={layer} className="size-3" />
+        {m.workshop_bin_object_removed_tag()}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -144,6 +155,12 @@ export function DeclaredRowMark({ mark, layer }: DeclaredRowMarkProps) {
       content={
         <span className="flex flex-col gap-1">
           <span>{label}</span>
+          <span className="flex items-baseline gap-1.5">
+            {m.workshop_bin_declared_module_label()}
+            <span className="text-surface-100">
+              {moduleLabel({ index: mark.module, name: mark.moduleName })}
+            </span>
+          </span>
           {mark.whole && <span>{m.workshop_bin_declared_whole_hint()}</span>}
           {mark.reference !== null && (
             <span className="flex items-baseline gap-1.5">
@@ -162,7 +179,7 @@ export function DeclaredRowMark({ mark, layer }: DeclaredRowMarkProps) {
     >
       <span role="img" aria-label={label} className="flex shrink-0">
         {/* DS-KIND-HUE */}
-        <LayerGlyph layerName={layer} className="h-3 w-3" />
+        <LayerGlyph layerName={layer} className="size-3" />
       </span>
     </Tooltip>
   );

@@ -1,14 +1,17 @@
-import { type ReactNode, lazy, Suspense, useMemo, useState } from "react";
+import { type ReactNode, lazy, Suspense, use, useMemo, useState } from "react";
 
 import { RetainedContent } from "@/components";
 import type { BinDocumentId } from "@/lib/tauri";
-import { leafHolding } from "@/modules/editor";
+import { leafHolding, type PortalHost, PortalSlot } from "@/modules/editor";
 
 import { useShellLayout, useShellMaximizedLeaf } from "../../../state";
+import { AtlasCanvas, FontPreview, TooltipBar } from "../../atlas";
 import { ChanceReadout } from "../../curves/components/ChancePin";
 import { CurveSurface } from "../../curves/components/CurveSurface";
+import { LinkAssetContext } from "../../links/hooks/useLinkTargets";
 import { MapOutliner } from "../../map/components/MapOutliner";
 import { MapPreview } from "../../map/components/MapPreview";
+import { PlaceableInspector } from "../../map/components/PlaceableInspector";
 import { MaterialPane } from "../../material/components/MaterialPane";
 import { MaterialPreview } from "../../material/components/MaterialPreview";
 import { ShellCrumb } from "../../shell/components/ShellCrumb";
@@ -24,7 +27,8 @@ import { ClipTabs } from "../../skin/components/ClipTable";
 import { SkinPreview } from "../../skin/components/SkinPreview";
 import { SpellsPane } from "../../spells/components/SpellsPane";
 import type { AbilityRecipe } from "../../spells/utils/abilityRecipe";
-import { PreviewPane, RunKeys, TimelinePane, VfxRunProvider } from "../../vfx";
+import { PreviewPane, RunKeys, TimelinePane, TimelineTransport, VfxRunProvider } from "../../vfx";
+import { GraphPane, PreviewInGraph } from "../../vfx/drivers/components/GraphPane";
 import { EmitterFields } from "../../vfx/inspector/components/EmitterInspector";
 import { EmitterModes, Emitters } from "../../vfx/inspector/components/VfxSections";
 import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
@@ -40,7 +44,7 @@ export interface FrameProps {
   view: ViewContext;
 }
 
-interface ShellFrameProps extends FrameProps {
+export interface ShellFrameProps extends FrameProps {
   /** Where the preview pane shows the view's one preview. */
   preview: ReactNode;
 }
@@ -50,6 +54,10 @@ interface ShellProps extends ShellFrameProps {
   system: string;
   /** The object's class is one the renderer draws. */
   drawable: boolean;
+  /** The host the view's one preview renders into, which the graph pane's preview node takes. */
+  previewHost: PortalHost;
+  /** Switch the tab to Properties and reveal the row. Absent outside an object tab. */
+  onShowInProperties?: (key: string) => void;
 }
 
 /** The run above whichever frame draws it, and no run at all over a class no renderer draws. */
@@ -66,7 +74,7 @@ export function RunHost({
 }) {
   if (!drawable) return children;
   return (
-    <VfxRunProvider document={document} entry={entry}>
+    <VfxRunProvider document={document} asset={use(LinkAssetContext)} entry={entry}>
       <RunKeys>{children}</RunKeys>
     </VfxRunProvider>
   );
@@ -75,17 +83,19 @@ export function RunHost({
 /**
  * Every section down one scrolling column, which is the frame a layout draws in by default.
  *
- * `hero` stands above the sections, which is where a shell's preview goes when the pane is
- * too narrow for the shell.
+ * `hero` sits above the column and out of its scroll, which is where a shell's preview goes
+ * when the pane is too narrow for the shell.
  */
 export function Stack({ placed, pages, view, hero }: FrameProps & { hero?: ReactNode }) {
   return (
-    <div
-      data-ui="ClassView:stack"
-      className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto p-3 scrollbar-md"
-    >
+    <div data-ui="ClassView:stack" className="flex min-h-0 flex-1 flex-col gap-3 p-3">
       {hero}
-      <Sections placed={placed} pages={pages} view={view} />
+      <div
+        data-ui="ClassView:stack-sections"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto scrollbar-md"
+      >
+        <Sections placed={placed} pages={pages} view={view} />
+      </div>
     </div>
   );
 }
@@ -95,8 +105,8 @@ export function Hero({ children }: { children: ReactNode }) {
   return (
     <div
       data-ui="ClassView:hero"
-      /* DS-GROUND */
-      className="flex h-[min(60vh,32rem)] shrink-0 flex-col overflow-hidden rounded-md border border-surface-700/50 bg-surface-900"
+      /* DS-GROUND. The floor keeps the transport and the controls usable in a short pane. */
+      className="flex h-[min(50%,32rem)] min-h-48 shrink-0 flex-col overflow-hidden rounded-md border border-surface-700/50 bg-surface-900"
     >
       {children}
     </div>
@@ -118,11 +128,37 @@ interface FramePreviewProps {
  */
 export function FramePreview({ kind, view, entry, drawable }: FramePreviewProps) {
   if (kind === "map") return <MapPreview document={view.document} />;
+  if (kind === "atlas") {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <TooltipBar document={view.document} entry={entry ?? ""} />
+        <AtlasCanvas document={view.document} entry={entry ?? ""} />
+      </div>
+    );
+  }
+  if (kind === "font") return <FontPreview document={view.document} entry={entry ?? ""} />;
+  if (kind === "element") {
+    return <AtlasCanvas document={view.document} entry={entry ?? ""} focus />;
+  }
   if (kind === "material") {
-    return <MaterialPreview document={view.document} asset={view.asset} entry={entry} />;
+    return (
+      <MaterialPreview
+        document={view.document}
+        asset={view.asset}
+        entry={entry}
+        onNotOpen={view.onNotOpen}
+      />
+    );
   }
   if (kind === "skin") {
-    return <SkinPreview document={view.document} asset={view.asset} entry={entry} />;
+    return (
+      <SkinPreview
+        document={view.document}
+        asset={view.asset}
+        entry={entry}
+        onNotOpen={view.onNotOpen}
+      />
+    );
   }
   return <VfxPreview drawable={drawable} frame={view.frame} />;
 }
@@ -244,14 +280,23 @@ interface MapShellProps extends ShellFrameProps {
 /**
  * The panes of a map class: the drawn map, its chunk graph, and the sections of the object.
  *
- * The preview and the outliner share the `MapSceneHost` the view mounts above them.
+ * The preview, the outliner and the inspector share the `MapSceneHost` the view mounts above
+ * them, and the inspector heads its sections with the placeable picked last.
  */
 export function MapShell({ placed, pages, view, entry, preview }: MapShellProps) {
   const content = useMemo<ShellPaneContent<"map">>(
     () => ({
       preview: { body: preview },
       outliner: { body: <MapOutliner /> },
-      inspector: { body: <SectionColumn placed={placed} pages={pages} view={view} /> },
+      inspector: {
+        body: (
+          /* DS-SCROLLBAR */
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2 scrollbar-md">
+            <PlaceableInspector objectName={view.objectName} onNotOpen={view.onNotOpen} />
+            <Sections placed={placed} pages={pages} view={view} />
+          </div>
+        ),
+      },
     }),
     [placed, pages, view, preview],
   );
@@ -267,41 +312,12 @@ export function MapShell({ placed, pages, view, entry, preview }: MapShellProps)
   );
 }
 
-interface MaterialShellProps extends ShellFrameProps {
-  /** The `StaticMaterialDef` object the header names. */
-  entry: string | null;
-}
-
-/**
- * The panes of a material: the material drawn on its character or a preview shape, and the
- * sections of the object (ADR-0047).
- */
-export function MaterialShell({ placed, pages, view, entry, preview }: MaterialShellProps) {
-  const content = useMemo<ShellPaneContent<"material">>(
-    () => ({
-      preview: { body: preview },
-      inspector: { body: <SectionColumn placed={placed} pages={pages} view={view} /> },
-    }),
-    [placed, pages, view, preview],
-  );
-
-  return (
-    <div data-ui="ClassView:shell" className="flex min-h-0 flex-1 flex-col gap-2">
-      <ShellHeader
-        kind="material"
-        crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
-      />
-      <ShellPaneTree kind="material" content={content} />
-    </div>
-  );
-}
-
 /** The object's own path on the header row, beside the class that only types it. */
-function ObjectPath({ path }: { path: string }) {
+export function ObjectPath({ path }: { path: string }) {
   return (
     <span
       data-ui="ClassView:object-path"
-      className="min-w-0 truncate px-1 font-mono text-meta text-code text-surface-200 select-text"
+      className="min-w-0 truncate px-1 font-mono text-row text-code text-surface-200 select-text"
     >
       {path}
     </span>
@@ -315,7 +331,7 @@ function ObjectPath({ path }: { path: string }) {
  * "One row holds the object tab's header and the crumb", "The shell" in
  * docs/ux/BIN_EDITOR.md.
  */
-function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNode }) {
+export function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNode }) {
   const held = useShellHeaderHeld();
 
   if (held) {
@@ -343,9 +359,25 @@ function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNode }) {
  * Where each pane sits and how much room it takes is the project's own tree, so this
  * builds the five of them and hands them over without arranging any of it (ADR-0034).
  */
-export function VfxShell({ placed, pages, view, system, drawable, preview }: ShellProps) {
+export function VfxShell({
+  placed,
+  pages,
+  view,
+  system,
+  drawable,
+  preview,
+  previewHost,
+  onShowInProperties,
+}: ShellProps) {
   const emitters = useMemo(() => placed.find((each) => each.widget === "emitters"), [placed]);
   const others = useMemo(() => placed.filter((each) => each.widget !== "emitters"), [placed]);
+  /* One state decides both slots. The viewport moves between them in one commit, and its
+     content never sees the host unheld. */
+  const [inGraph, setInGraph] = useState(false);
+  const graphViewport = useMemo(
+    () => (inGraph ? <PortalSlot host={previewHost} /> : null),
+    [inGraph, previewHost],
+  );
 
   const content = useMemo<ShellPaneContent<"vfx">>(
     () => ({
@@ -364,10 +396,25 @@ export function VfxShell({ placed, pages, view, system, drawable, preview }: She
         body: <InspectorPane placed={others} pages={pages} view={view} />,
         actions: <ChanceReadout />,
       },
-      preview: { body: preview },
-      timeline: { body: <TimelinePane drawable={drawable} /> },
+      preview: { body: inGraph ? <PreviewInGraph /> : preview },
+      timeline: {
+        body: <TimelinePane drawable={drawable} />,
+        actions: drawable && <TimelineTransport />,
+        actionsWidth: "rest",
+      },
+      graph: {
+        body: (
+          <GraphPane
+            document={view.document}
+            entry={view.entry}
+            viewport={graphViewport}
+            onPreviewShown={setInGraph}
+            onShowInProperties={onShowInProperties}
+          />
+        ),
+      },
     }),
-    [emitters, others, pages, view, drawable, preview],
+    [emitters, others, pages, view, drawable, preview, inGraph, graphViewport, onShowInProperties],
   );
 
   return (
@@ -419,7 +466,7 @@ function InspectorPane({ placed, pages, view }: FrameProps) {
 }
 
 /** Every placed section down a pane of its own, which scrolls apart from the panes beside it. */
-function SectionColumn({ placed, pages, view }: FrameProps) {
+export function SectionColumn({ placed, pages, view }: FrameProps) {
   return (
     /* DS-SCROLLBAR */
     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2 scrollbar-md">

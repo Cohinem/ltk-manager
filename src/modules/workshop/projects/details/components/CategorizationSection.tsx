@@ -1,22 +1,19 @@
-import { Tags } from "lucide-react";
-import { useMemo } from "react";
+import { TagIcon } from "@phosphor-icons/react";
+import { type ReactNode, useMemo } from "react";
 
-import {
-  ChampionIcon,
-  Field,
-  MultiSelect,
-  type MultiSelectOption,
-  SectionCard,
-} from "@/components";
+import { ChampionIcon, MultiSelect, type MultiSelectOption, SectionCard } from "@/components";
+import { m } from "@/i18n";
+import { ChampionPicker } from "@/modules/champions";
 import { getMapLabel, getTagLabel, WELL_KNOWN_MAPS, WELL_KNOWN_TAGS } from "@/modules/library";
+import { twMerge } from "@/utils";
 
 interface CategorizationSectionProps {
   selectedTags: Set<string>;
   onTagsChange: (tags: Set<string>) => void;
   selectedMaps: Set<string>;
   onMapsChange: (maps: Set<string>) => void;
-  championsText: string;
-  onChampionsChange: (text: string) => void;
+  champions: readonly string[];
+  onChampionsChange: (champions: string[]) => void;
 }
 
 export function CategorizationSection({
@@ -24,7 +21,7 @@ export function CategorizationSection({
   onTagsChange,
   selectedMaps,
   onMapsChange,
-  championsText,
+  champions,
   onChampionsChange,
 }: CategorizationSectionProps) {
   const tagOptions = useMemo<MultiSelectOption[]>(
@@ -38,47 +35,66 @@ export function CategorizationSection({
 
   return (
     <SectionCard
-      title="Categorization"
-      icon={<Tags className="h-4 w-4" />}
-      description="Help users find your mod by adding tags, maps, and champions."
+      title={m.workshop_details_categorization_title()}
+      icon={<TagIcon className="size-4" />}
+      description={m.workshop_details_categorization_description()}
       panelClassName="bg-surface-800"
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-surface-200">Tags</label>
+        <Labelled label={m.workshop_details_tags_label()}>
           <MultiSelect
             variant="field"
             options={tagOptions}
             selected={selectedTags}
             onChange={onTagsChange}
-            label="Select tags..."
-            placeholder="Search tags..."
+            label={m.workshop_details_tags_empty()}
+            placeholder={m.workshop_details_tags_placeholder()}
           />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-surface-200">Maps</label>
+        </Labelled>
+        <Labelled label={m.workshop_details_maps_label()}>
           <MultiSelect
             variant="field"
             options={mapOptions}
             selected={selectedMaps}
             onChange={onMapsChange}
-            label="Select maps..."
-            placeholder="Search maps..."
+            label={m.workshop_details_maps_empty()}
+            placeholder={m.workshop_details_maps_placeholder()}
           />
-        </div>
-        <Field.Root className="sm:col-span-2">
-          <Field.Label className="flex items-center gap-1.5">
-            <ChampionIcon className="h-4 w-4 text-surface-400" />
-            Champions
-          </Field.Label>
-          <Field.Control
-            value={championsText}
-            onChange={(e) => onChampionsChange(e.target.value)}
-            placeholder="Aatrox, Ahri, Zed..."
+        </Labelled>
+        <Labelled
+          label={m.workshop_details_champions_label()}
+          icon={<ChampionIcon className="size-4 text-surface-400" />}
+          className="sm:col-span-2"
+        >
+          <ChampionPicker
+            value={champions}
+            onChange={onChampionsChange}
+            aria-label={m.workshop_details_champions_label()}
           />
-          <Field.Description>Comma-separated champion names.</Field.Description>
-        </Field.Root>
+        </Labelled>
       </div>
     </SectionCard>
+  );
+}
+
+function Labelled({
+  label,
+  icon,
+  className,
+  children,
+}: {
+  label: string;
+  icon?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={twMerge("flex flex-col gap-1.5", className)}>
+      <span className="flex items-center gap-1.5 text-sm font-medium text-surface-200 select-none">
+        {icon}
+        {label}
+      </span>
+      {children}
+    </div>
   );
 }

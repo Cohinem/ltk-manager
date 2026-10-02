@@ -1,16 +1,16 @@
 import { useRef } from "react";
 
-import { EmptyState, Spinner } from "@/components";
+import { Count, EmptyState, SearchField, Spinner } from "@/components";
 import { m } from "@/i18n";
 import { DocumentToolbar } from "@/modules/editor";
 
 import {
+  CollapseFindAction,
   GameFindResults,
   MatchCount,
   useGameFind,
   useGameSearchRevealTarget,
 } from "../../gameBrowser";
-import { TreeSearchBox } from "../../shared/components/TreeSearchBox";
 import { focusRows } from "../../shared/utils/focusRows";
 import {
   useGameSearchPattern,
@@ -27,7 +27,8 @@ export function GameSearchView() {
   return (
     <>
       <DocumentToolbar active>
-        <SearchField onCommit={() => focusRows(bodyRef.current)} />
+        <GameSearchBox onCommit={() => focusRows(bodyRef.current)} />
+        <CollapseFindAction />
       </DocumentToolbar>
 
       <div ref={bodyRef} className="flex min-h-0 flex-1 flex-col">
@@ -38,7 +39,7 @@ export function GameSearchView() {
   );
 }
 
-function SearchField({ onCommit }: { onCommit: () => void }) {
+function GameSearchBox({ onCommit }: { onCommit: () => void }) {
   const pattern = useGameSearchPattern();
   const regex = useGameSearchRegex();
   const setPattern = useSetGameSearchPattern();
@@ -51,7 +52,7 @@ function SearchField({ onCommit }: { onCommit: () => void }) {
   useGameSearchRevealTarget(boxRef);
 
   return (
-    <TreeSearchBox
+    <SearchField
       value={pattern}
       onChange={setPattern}
       regex={regex}
@@ -64,11 +65,11 @@ function SearchField({ onCommit }: { onCommit: () => void }) {
       inputRef={boxRef}
     >
       {counted && (
-        <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums select-none">
+        <Count>
           <MatchCount result={data} />
-        </span>
+        </Count>
       )}
-      {isFetching && <Spinner size="sm" className="h-3 w-3 shrink-0" />}
-    </TreeSearchBox>
+      {isFetching && <Spinner size="xs" className="shrink-0" />}
+    </SearchField>
   );
 }

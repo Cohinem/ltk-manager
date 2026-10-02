@@ -84,10 +84,12 @@ function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
     listIndex: 0,
     name: "spark",
     disabled: false,
+    culled: null,
     rate: flat(0),
     particleLifetime: flat(100),
     lifetime: null,
     timeBeforeFirstEmission: 0,
+    period: null,
     singleParticle: false,
     sharedRandom: false,
     birthVelocity: flat(0, 0, 0),
@@ -153,6 +155,7 @@ function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
     mesh: null,
     trail: null,
     beam: null,
+    projection: null,
     childSet: null,
     fields: null,
     depthBias: [0, 0],
@@ -411,6 +414,19 @@ describe("stepEmitters", () => {
 
     sim.step();
     expect(sim.pool.count).toBe(1);
+  });
+
+  it("pauses an emitter outside the active part of each period", () => {
+    const sim = run([emitterOf({ rate: flat(4), period: { length: 2, active: 0.5 } })]);
+    sim.step(2);
+    const active = sim.pool.count;
+    expect(active).toBeGreaterThan(0);
+
+    sim.step(5);
+    expect(sim.pool.count).toBe(active);
+
+    sim.step(2);
+    expect(sim.pool.count).toBeGreaterThan(active);
   });
 
   it("emits a single-particle emitter's whole burst once and never again", () => {

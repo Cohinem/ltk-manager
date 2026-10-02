@@ -1,12 +1,13 @@
 import { XIcon } from "@phosphor-icons/react";
 import { useEffect, useRef } from "react";
 
-import { IconButton, Tabs, Tooltip } from "@/components";
+import { IconButton, Tabs } from "@/components";
 import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
 import { type DocumentsTab, useLibrarySidebarStore } from "@/modules/library/state";
 
 import { DetailsTab } from "./DetailsTab";
+import { DocumentGate } from "./DocumentBody";
 import { LicensesTab } from "./LicensesTab";
 import { ReadmeTab } from "./ReadmeTab";
 
@@ -59,28 +60,47 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
             <Tabs.Tab value="readme">{m.library_documents_readme_tab()}</Tabs.Tab>
             <Tabs.Tab value="licenses">{m.library_documents_licenses_tab()}</Tabs.Tab>
           </Tabs.List>
-          <Tooltip content={m.library_documents_close_action()}>
-            <IconButton
-              variant="ghost"
-              size="sm"
-              aria-label={m.library_documents_close_action()}
-              icon={<XIcon weight="bold" className="h-4 w-4" />}
-              onClick={close}
-              className="mr-1 shrink-0"
-            />
-          </Tooltip>
+          <IconButton
+            compact={false}
+            size="sm"
+            icon={<XIcon />}
+            onClick={close}
+            className="mr-1 shrink-0"
+            label={m.library_documents_close_action()}
+          />
         </div>
 
         <Header mod={openMod} />
 
-        <Tabs.Panel value="details" className="mt-0 flex min-h-0 flex-1 flex-col">
-          <DetailsTab mod={openMod} missing={missing} />
+        <Tabs.Panel value="details" className="flex min-h-0 flex-1 flex-col">
+          <DocumentGate
+            mod={openMod}
+            missing={missing}
+            emptyTitle={m.library_details_none_open_title()}
+            emptyDescription={m.library_details_none_open_description()}
+          >
+            {(mod) => <DetailsTab mod={mod} />}
+          </DocumentGate>
         </Tabs.Panel>
-        <Tabs.Panel value="readme" className="mt-0 flex min-h-0 flex-1 flex-col">
-          <ReadmeTab mod={openMod} missing={missing} />
+        <Tabs.Panel value="readme" className="flex min-h-0 flex-1 flex-col">
+          <DocumentGate
+            mod={openMod}
+            missing={missing}
+            emptyTitle={m.library_readme_none_open_title()}
+            emptyDescription={m.library_readme_none_open_description()}
+          >
+            {(mod) => <ReadmeTab mod={mod} />}
+          </DocumentGate>
         </Tabs.Panel>
-        <Tabs.Panel value="licenses" className="mt-0 flex min-h-0 flex-1 flex-col">
-          <LicensesTab mod={openMod} missing={missing} />
+        <Tabs.Panel value="licenses" className="flex min-h-0 flex-1 flex-col">
+          <DocumentGate
+            mod={openMod}
+            missing={missing}
+            emptyTitle={m.library_licenses_none_open_title()}
+            emptyDescription={m.library_licenses_none_open_description()}
+          >
+            {(mod) => <LicensesTab mod={mod} />}
+          </DocumentGate>
         </Tabs.Panel>
       </Tabs.Root>
     </div>

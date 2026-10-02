@@ -2,13 +2,14 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { Inline, Stack } from "./Layout";
+
 interface SectionCardProps {
   title: string;
   description?: string;
   icon?: ReactElement;
   action?: ReactNode;
   children: ReactNode;
-  className?: string;
   /** Re-grounds the panel, for a card that sits on something other than the page. */
   panelClassName?: string;
 }
@@ -24,21 +25,20 @@ export function SectionCard({
   icon,
   action,
   children,
-  className,
   panelClassName,
 }: SectionCardProps) {
   return (
-    <section className={twMerge("space-y-2", className)}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
+    <Stack as="section" gap={2}>
+      <Inline align="start" justify="between" gap={4}>
+        <Stack gap={0.5}>
           <h3 className="flex items-center gap-2 text-sm font-semibold text-surface-100">
             {icon && <span className="text-surface-400">{icon}</span>}
             {title}
           </h3>
-          {description && <p className="mt-0.5 text-xs text-surface-400">{description}</p>}
-        </div>
+          {description && <p className="text-xs text-surface-400">{description}</p>}
+        </Stack>
         {action}
-      </div>
+      </Inline>
       <div
         className={twMerge(
           "flex flex-col gap-4 rounded-xl border border-surface-700/50 bg-surface-900/95 p-5",
@@ -47,6 +47,6 @@ export function SectionCard({
       >
         {children}
       </div>
-    </section>
+    </Stack>
   );
 }

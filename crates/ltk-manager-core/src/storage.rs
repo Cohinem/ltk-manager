@@ -8,8 +8,7 @@
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 // `Ssd` and `Hdd` are only constructed inside `windows_impl`; on other targets
 // this enum is still emitted for the shared ts-rs binding, so we suppress the
@@ -44,8 +43,10 @@ mod windows_impl {
     use super::StorageMedium;
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
+    use std::os::windows::io::AsRawHandle;
     use std::ptr;
-    use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+
+    use crate::platform::windows::owned_handle;
     use windows_sys::Win32::Storage::FileSystem::{
         CreateFileW, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
     };
@@ -79,18 +80,12 @@ mod windows_impl {
             )
         };
 
-        if handle == INVALID_HANDLE_VALUE || handle.is_null() {
+        // SAFETY: the handle came from CreateFileW and nothing else holds it.
+        let Some(handle) = (unsafe { owned_handle(handle) }) else {
             return StorageMedium::Unknown;
-        }
+        };
 
-        let result = query_seek_penalty(handle);
-
-        // SAFETY: handle came from CreateFileW and is not INVALID_HANDLE_VALUE.
-        unsafe {
-            CloseHandle(handle);
-        }
-
-        result
+        query_seek_penalty(handle.as_raw_handle())
     }
 
     fn query_seek_penalty(handle: windows_sys::Win32::Foundation::HANDLE) -> StorageMedium {

@@ -1,9 +1,12 @@
 import { Button as BaseButton } from "@base-ui/react";
+import { IconContext } from "@phosphor-icons/react";
 import { Loader2 } from "lucide-react";
 import { forwardRef, type ReactNode } from "react";
 import { match } from "ts-pattern";
 
 import { twMerge } from "@/utils";
+
+import { Tooltip, type TooltipProps } from "./Tooltip";
 
 export type ButtonVariant =
   | "default"
@@ -45,19 +48,19 @@ const compactSizeClasses: Record<ButtonSize, string> = {
 };
 
 const iconOnlySizeClasses: Record<ButtonSize, string> = {
-  xs: "h-7 w-7",
-  sm: "h-8 w-8",
-  md: "h-9 w-9",
-  lg: "h-10 w-10",
-  xl: "h-12 w-12",
+  xs: "size-7",
+  sm: "size-8",
+  md: "size-9",
+  lg: "size-10",
+  xl: "size-12",
 };
 
 const compactIconOnlySizeClasses: Record<ButtonSize, string> = {
-  xs: "h-6 w-6",
-  sm: "h-7 w-7",
-  md: "h-8 w-8",
-  lg: "h-9 w-9",
-  xl: "h-10 w-10",
+  xs: "size-6",
+  sm: "size-7",
+  md: "size-8",
+  lg: "size-9",
+  xl: "size-10",
 };
 
 const variantClasses: Record<ButtonVariant, string> = {
@@ -87,11 +90,11 @@ const spinnerSizeClasses: Record<ButtonSize, string> = {
 };
 
 const iconSlotSizeClasses: Record<ButtonSize, string> = {
-  xs: "h-4 w-4",
-  sm: "h-4 w-4",
-  md: "h-4 w-4",
-  lg: "h-5 w-5",
-  xl: "h-5 w-5",
+  xs: "size-4",
+  sm: "size-4",
+  md: "size-4",
+  lg: "size-5",
+  xl: "size-5",
 };
 
 function IconSlot({ children, size }: { children: ReactNode; size: ButtonSize }) {
@@ -164,13 +167,91 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
 
 Button.displayName = "Button";
 
-export interface IconButtonProps extends Omit<ButtonProps, "children" | "left" | "right"> {
+export type IconButtonSize = ButtonSize | "row";
+
+export interface IconButtonProps extends Omit<ButtonProps, "children" | "left" | "right" | "size"> {
   icon: ReactNode;
+  size?: IconButtonSize;
+  /** The accessible name, shown as the tooltip unless `tooltip` replaces it. */
+  label?: string;
+  /** Tooltip content in place of `label`, or `false` for none. */
+  tooltip?: ReactNode;
+  tooltipSide?: TooltipProps["side"];
+  /** A toggle's state, set as `aria-pressed` and shown as the accent fill. */
+  pressed?: boolean;
 }
 
+const iconPixels: Record<IconButtonSize, number> = {
+  row: 14,
+  xs: 16,
+  sm: 16,
+  md: 16,
+  lg: 20,
+  xl: 20,
+};
+
+/* A button inside a row: smaller than any toolbar size, DS-VEIL and DS-RADIUS. */
+const rowClasses = "size-5 rounded-sm";
+
+const pressedClasses =
+  "aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300 aria-pressed:hover:bg-accent-500/25";
+
+/**
+ * A square button showing one icon, ghost and compact `xs` unless told otherwise.
+ *
+ * The icon takes the bold weight and the size's pixel size from phosphor's `IconContext`, so a
+ * call site passes the bare glyph. `label` is both the accessible name and the tooltip. `row` is
+ * the 20px size for actions inside a tree or list row.
+ */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
-  ({ icon, ...props }, ref) => {
-    return <Button ref={ref} left={icon} {...props} />;
+  (
+    {
+      icon,
+      variant = "ghost",
+      size = "xs",
+      compact = true,
+      label,
+      tooltip,
+      tooltipSide,
+      pressed,
+      className,
+      "aria-label": ariaLabel,
+      ...props
+    },
+    ref,
+  ) => {
+    const glyph = (
+      <IconContext.Provider value={{ weight: "bold", size: iconPixels[size] }}>
+        {icon}
+      </IconContext.Provider>
+    );
+
+    const button = (
+      <Button
+        ref={ref}
+        variant={variant}
+        size={size === "row" ? "xs" : size}
+        compact={compact}
+        left={glyph}
+        aria-label={label ?? ariaLabel}
+        aria-pressed={pressed}
+        className={twMerge(
+          size === "row" && rowClasses,
+          pressed !== undefined && pressedClasses,
+          className,
+        )}
+        {...props}
+      />
+    );
+
+    const tip = tooltip ?? label;
+    if (tip === undefined || tip === false) return button;
+
+    return (
+      <Tooltip content={tip} side={tooltipSide}>
+        {button}
+      </Tooltip>
+    );
   },
 );
 

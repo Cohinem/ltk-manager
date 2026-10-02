@@ -34,6 +34,7 @@ import {
   useShellPanes,
   useToggleMaximizedShellLeaf,
 } from "../../../state";
+import { Notice } from "../../shared/preview/Notice";
 import {
   isShellPaneId,
   SHELL_PANE_TITLE,
@@ -44,14 +45,17 @@ import {
 } from "../utils/shellPanes";
 
 /** The box one pane draws, so no pane invents a surface of its own. DS-GROUND. */
-const PANE = "flex min-h-0 min-w-0 flex-1 flex-col border border-surface-700/50 bg-surface-900";
+const PANE =
+  "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-surface-700/50 bg-surface-900";
 
 /** What one pane draws: its body, and the controls its own strip carries. */
 export interface ShellPane {
   body: ReactNode;
   onFocus?: () => void;
-  /** Drawn at the right end of the strip while this pane is the open one. */
+  /** Drawn in the strip after the tabs while this pane is the open one. */
   actions?: ReactNode;
+  /** Whether the actions sit at the strip's right end, the default, or take the rest of it. */
+  actionsWidth?: "end" | "rest";
 }
 
 /** What each pane of a `K` shell draws, one body per pane it holds, which the tree places. */
@@ -84,16 +88,19 @@ export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneT
 
   return (
     <TabDndProvider tree={tree} onDrop={applyDrop} overlay={PaneGhost}>
-      <SplitLayout
-        node={tree}
-        seamVariant="gap"
-        onLayoutChanged={setSplitLayout}
-        renderLeaf={(leaf) => (
-          <PaneLeaf key={leaf.id} kind={kind} leaf={leaf} content={content} hostOf={hostOf} />
-        )}
-        maximizedLeafId={maximizedLeafId}
-        onRestore={restoreMaximized}
-      />
+      {/* `data-islands` tells the frame the panes draw their own edges. */}
+      <div data-islands className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <SplitLayout
+          node={tree}
+          seamVariant="gap"
+          onLayoutChanged={setSplitLayout}
+          renderLeaf={(leaf) => (
+            <PaneLeaf key={leaf.id} kind={kind} leaf={leaf} content={content} hostOf={hostOf} />
+          )}
+          maximizedLeafId={maximizedLeafId}
+          onRestore={restoreMaximized}
+        />
+      </div>
       {/* After the tree, so a panel has adopted its host before a body's layout effects run. */}
       {heldPanes(tree, maximizedLeafId).map(({ pane, shown }) => {
         const focus = () => bodies[pane]?.onFocus?.();
@@ -174,24 +181,16 @@ function PaneLeaf<K extends ShellKind>({
           onClose={(id) => isShellPaneId(id) && close(leaf.id, id)}
           onMaximize={() => toggleMaximized(leaf.id)}
           actions={active === null ? null : bodies[active]?.actions}
+          actionsWidth={active === null ? undefined : bodies[active]?.actionsWidth}
         />
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {panes.map((pane) => (
             <PortalSlot key={pane} host={hostOf(pane)} />
           ))}
-          {active === null && <NoPanes />}
+          {active === null && <Notice text={m.workshop_bin_panes_empty()} />}
         </div>
       </div>
     </LeafDropZones>
-  );
-}
-
-/** What a panel whose last pane was closed says, which only the root leaf can be. */
-function NoPanes() {
-  return (
-    <span className="flex flex-1 items-center justify-center px-2 text-center text-meta text-surface-400 select-none">
-      {m.workshop_bin_panes_empty()}
-    </span>
   );
 }
 
@@ -223,29 +222,25 @@ export function PanesMenu({ kind, className }: { kind: ShellKind; className?: st
             size="xs"
             compact
             className={twMerge("font-sans", className)}
-            left={<ColumnsIcon weight="bold" className="h-4 w-4" />}
+            left={<ColumnsIcon weight="bold" className="size-4" />}
           >
             {m.workshop_bin_panes_menu_label()}
           </Button>
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          <Menu.Popup className="w-48">
-            {shellPanesOf(kind).map((pane) => (
-              <Menu.Item
-                key={pane}
-                icon={open.has(pane) && <CheckIcon weight="bold" className="h-4 w-4" />}
-                onClick={() => toggle(pane)}
-              >
-                {SHELL_PANE_TITLE[pane]()}
-              </Menu.Item>
-            ))}
-            <Menu.Separator />
-            <Menu.Item onClick={reset}>{m.workshop_bin_panes_reset_action()}</Menu.Item>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="end" className="w-48">
+        {shellPanesOf(kind).map((pane) => (
+          <Menu.Item
+            key={pane}
+            icon={open.has(pane) && <CheckIcon weight="bold" className="size-4" />}
+            onClick={() => toggle(pane)}
+          >
+            {SHELL_PANE_TITLE[pane]()}
+          </Menu.Item>
+        ))}
+        <Menu.Separator />
+        <Menu.Item onClick={reset}>{m.workshop_bin_panes_reset_action()}</Menu.Item>
+      </Menu.Content>
     </Menu.Root>
   );
 }

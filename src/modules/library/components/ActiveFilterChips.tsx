@@ -1,5 +1,6 @@
-import { XIcon } from "@phosphor-icons/react";
-
+import { Chip } from "@/components";
+import { m } from "@/i18n";
+import { ChampionChip } from "@/modules/champions";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 
 import {
@@ -22,66 +23,30 @@ export function ActiveFilterChips() {
   return (
     <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
       {[...selectedTags].map((tag) => (
-        <Chip
-          key={`tag:${tag}`}
-          label={getTagLabel(tag)}
-          color="tag"
-          onRemove={() => toggleTag(tag)}
-        />
+        <Chip key={`tag:${tag}`} size="md" tone="tag" onRemove={() => toggleTag(tag)}>
+          {getTagLabel(tag)}
+        </Chip>
       ))}
       {[...selectedChampions].map((champ) => (
-        <Chip
+        <ChampionChip
           key={`champ:${champ}`}
-          label={champ}
-          color="champion"
+          value={champ}
+          size="md"
           onRemove={() => toggleChampion(champ)}
         />
       ))}
       {[...selectedMaps].map((map) => (
-        <Chip
-          key={`map:${map}`}
-          label={getMapLabel(map)}
-          color="map"
-          onRemove={() => toggleMap(map)}
-        />
+        <Chip key={`map:${map}`} size="md" tone="map" onRemove={() => toggleMap(map)}>
+          {getMapLabel(map)}
+        </Chip>
       ))}
       <button
+        type="button"
         onClick={clearFilters}
         className="cursor-pointer text-xs text-surface-400 hover:text-surface-200"
       >
-        Clear all
+        {m.common_filter_clear_all_action()}
       </button>
     </div>
-  );
-}
-
-// Same categorical hues as the library's ModPills.
-const COLOR_CLASSES = {
-  tag: "bg-accent-500/15 text-accent-300 border-accent-500/30",
-  champion: "bg-cat-champion/15 text-cat-champion-text border-cat-champion/30",
-  map: "bg-cat-map/15 text-cat-map-text border-cat-map/30",
-} as const;
-
-function Chip({
-  label,
-  color,
-  onRemove,
-}: {
-  label: string;
-  color: keyof typeof COLOR_CLASSES;
-  onRemove: () => void;
-}) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs ${COLOR_CLASSES[color]}`}
-    >
-      {label}
-      <button
-        onClick={onRemove}
-        className="cursor-pointer rounded-full p-0.5 hover:bg-surface-50/10"
-      >
-        <XIcon weight="bold" className="h-3 w-3" />
-      </button>
-    </span>
   );
 }

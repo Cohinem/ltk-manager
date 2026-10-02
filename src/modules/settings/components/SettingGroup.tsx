@@ -1,7 +1,7 @@
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
 
-import { Button, HintIcon, Separator, Tooltip } from "@/components";
+import { Button, HintIcon, OVERLINE, Separator, Tooltip } from "@/components";
 import { twMerge } from "@/utils";
 
 import { useSettingMark } from "./SettingFocus";
@@ -34,7 +34,7 @@ function SettingGroupReset() {
         size="xs"
         compact
         aria-label={`Reset ${changed.length} changed settings in this group`}
-        left={<ArrowCounterClockwiseIcon weight="bold" className="h-3.5 w-3.5" />}
+        left={<ArrowCounterClockwiseIcon weight="bold" className="size-3.5" />}
         onClick={reset}
       />
     </Tooltip>
@@ -93,10 +93,7 @@ export function SettingGroup({
             className="flex items-center justify-between gap-2 pl-7 select-none"
           >
             <div className="min-w-0">
-              <h4
-                id={headingId}
-                className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-surface-400 uppercase"
-              >
+              <h4 id={headingId} className={twMerge(OVERLINE, "flex items-center gap-1.5")}>
                 {title}
                 {hint && <HintIcon content={hint} />}
                 {badge}

@@ -6,6 +6,7 @@ import { use } from "react";
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
 import type { BinRow } from "@/lib/tauri";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 
 import { assetKey } from "../../../../preview/utils/assetRef";
@@ -43,14 +44,29 @@ function weight(index: number): BinRow {
   });
 }
 
-function answering(answers: Record<string, unknown>) {
-  mockInvoke.mockImplementation((command: string) =>
-    Promise.resolve({ ok: true, value: command in answers ? answers[command] : null }),
-  );
+/** An invoke's edit or choice query kind, or its command where it carries neither. */
+function kindOf(command: string, args?: Record<string, unknown>): string {
+  if (command === commandNames.bin.binEdit) return (args?.edit as { kind: string }).kind;
+  if (command === commandNames.bin.binChoices) return (args?.query as { kind: string }).kind;
+  return command;
 }
 
-function calls(command: string) {
-  return mockInvoke.mock.calls.filter(([called]) => called === command).map(([, args]) => args);
+/** Answer each edit and choice query by its kind, an edit with no answer as done. */
+function answering(answers: Record<string, unknown>) {
+  mockInvoke.mockImplementation((command: string, args?: Record<string, unknown>) => {
+    const kind = kindOf(command, args);
+    const fallback = command === commandNames.bin.binEdit ? { kind: "done" } : null;
+    return Promise.resolve({ ok: true, value: kind in answers ? answers[kind] : fallback });
+  });
+}
+
+/** The `bin_edit` invokes of edit `kind`, as their arguments. */
+function calls(kind: string) {
+  return mockInvoke.mock.calls
+    .filter(
+      ([command, args]) => command === commandNames.bin.binEdit && kindOf(command, args) === kind,
+    )
+    .map(([, args]) => args);
 }
 
 type FocusSpy = TreeFocus & Record<"to" | "reach" | "remap" | "addTo" | "insertAt", Mock>;
@@ -73,19 +89,22 @@ function firstRemap(focus: FocusSpy): (key: string) => string | null {
 
 describe("the items of a list", () => {
   it("appends a leaf item from the list row and focuses it", async () => {
-    answering({ bin_insert_item: "0000000b[3]" });
+    answering({ insertItem: { kind: "path", path: "0000000b[3]" } });
     const focus = spyFocus();
     renderRow(WEIGHTS, { focus });
 
     await userEvent.click(screen.getByRole("button", { name: "Add item" }));
 
     await waitFor(() =>
-      expect(calls("bin_insert_item")).toEqual([
+      expect(calls("insertItem")).toEqual([
         {
           document: DOCUMENT,
-          entry: ENTRY,
-          path: "0000000b",
-          item: { index: null, key: null, class: null },
+          edit: {
+            kind: "insertItem",
+            entry: ENTRY,
+            path: "0000000b",
+            item: { index: null, key: null, class: null },
+          },
         },
       ]),
     );
@@ -94,24 +113,26 @@ describe("the items of a list", () => {
   });
 
   it("inserts after an item from its action and from Ctrl+Enter, and moves the rows below", async () => {
-    answering({ bin_insert_item: "0000000b[2]" });
+    answering({ insertItem: { kind: "path", path: "0000000b[2]" } });
     const focus = spyFocus();
     renderRow(weight(1), { parent: WEIGHTS, index: 1, focus });
 
     await userEvent.click(screen.getByRole("button", { name: "Insert after" }));
-    await waitFor(() => expect(calls("bin_insert_item")).toHaveLength(1));
-    expect(calls("bin_insert_item")[0]).toMatchObject({ path: "0000000b", item: { index: 2 } });
+    await waitFor(() => expect(calls("insertItem")).toHaveLength(1));
+    expect(calls("insertItem")[0]).toMatchObject({
+      edit: { path: "0000000b", item: { index: 2 } },
+    });
     await waitFor(() => expect(focus.remap).toHaveBeenCalled());
     expect(firstRemap(focus)(`${LIST}[2].0000000c`)).toBe(`${LIST}[3].0000000c`);
     expect(firstRemap(focus)(`${LIST}[1]`)).toBe(`${LIST}[1]`);
 
     act(() => screen.getByDisplayValue("1.5").focus());
     await userEvent.keyboard("{Control>}{Enter}{/Control}");
-    await waitFor(() => expect(calls("bin_insert_item")).toHaveLength(2));
+    await waitFor(() => expect(calls("insertItem")).toHaveLength(2));
   });
 
   it("moves the focused item with Alt+ArrowDown and follows it", async () => {
-    answering({ bin_move_item: "0000000b[2]" });
+    answering({ moveItem: { kind: "path", path: "0000000b[2]" } });
     const focus = spyFocus();
     renderRow(weight(1), { parent: WEIGHTS, index: 1, focus });
 
@@ -119,8 +140,11 @@ describe("the items of a list", () => {
     await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
 
     await waitFor(() =>
-      expect(calls("bin_move_item")).toEqual([
-        { document: DOCUMENT, entry: ENTRY, path: "0000000b[1]", to: 2 },
+      expect(calls("moveItem")).toEqual([
+        {
+          document: DOCUMENT,
+          edit: { kind: "moveItem", entry: ENTRY, path: "0000000b[1]", to: 2 },
+        },
       ]),
     );
     await waitFor(() => expect(focus.to).toHaveBeenCalledWith(`${LIST}[2]`, null));
@@ -133,7 +157,7 @@ describe("the items of a list", () => {
     act(() => screen.getByDisplayValue("0.5").focus());
     await userEvent.keyboard("{Alt>}{ArrowUp}{/Alt}");
 
-    expect(calls("bin_move_item")).toEqual([]);
+    expect(calls("moveItem")).toEqual([]);
   });
 
   it("removes an item and drops the rows it held", async () => {
@@ -144,8 +168,8 @@ describe("the items of a list", () => {
     await userEvent.click(screen.getByRole("button", { name: "Remove item" }));
 
     await waitFor(() =>
-      expect(calls("bin_remove_item")).toEqual([
-        { document: DOCUMENT, entry: ENTRY, path: "0000000b[1]" },
+      expect(calls("removeItem")).toEqual([
+        { document: DOCUMENT, edit: { kind: "removeItem", entry: ENTRY, path: "0000000b[1]" } },
       ]),
     );
     await waitFor(() => expect(focus.remap).toHaveBeenCalled());
@@ -164,7 +188,7 @@ const NAMES = row({
 
 describe("the entries of a map", () => {
   it("sets an entry's key through the name's edit action", async () => {
-    answering({ bin_set_key: "0000000e{0000abcd}" });
+    answering({ setKey: { kind: "path", path: "0000000e{0000abcd}" } });
     const idle = row({
       path: "0000000e{0000beef}",
       label: 'names{"Idle"}',
@@ -179,14 +203,17 @@ describe("the entries of a map", () => {
     await userEvent.type(field, "Run{Enter}");
 
     await waitFor(() =>
-      expect(calls("bin_set_key")).toEqual([
-        { document: DOCUMENT, entry: ENTRY, path: "0000000e{0000beef}", key: "Run" },
+      expect(calls("setKey")).toEqual([
+        {
+          document: DOCUMENT,
+          edit: { kind: "setKey", entry: ENTRY, path: "0000000e{0000beef}", key: "Run" },
+        },
       ]),
     );
   });
 
   it("adds an entry under the key typed, and Enter on its value returns to the line", async () => {
-    answering({ bin_insert_item: "0000000e{0000abcd}" });
+    answering({ insertItem: { kind: "path", path: "0000000e{0000abcd}" } });
     const focus = spyFocus();
     const probed: { edit: BinEdit | null } = { edit: null };
     const line: AddLine = {
@@ -214,12 +241,15 @@ describe("the entries of a map", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "Add entry" }), '"Walk"{Enter}');
 
     await waitFor(() =>
-      expect(calls("bin_insert_item")).toEqual([
+      expect(calls("insertItem")).toEqual([
         {
           document: DOCUMENT,
-          entry: ENTRY,
-          path: "0000000e",
-          item: { index: null, key: "Walk", class: null },
+          edit: {
+            kind: "insertItem",
+            entry: ENTRY,
+            path: "0000000e",
+            item: { index: null, key: "Walk", class: null },
+          },
         },
       ]),
     );
@@ -235,10 +265,13 @@ describe("the entries of a map", () => {
 describe("the class line of a pointer list", () => {
   it("offers the classes the list can hold and adds the one picked", async () => {
     answering({
-      bin_item_classes: [
-        { hash: "0x00000abc", name: "VfxEmitterDefinitionData", held: true, derivesFrom: null },
-      ],
-      bin_insert_item: "0000000f[1]",
+      itemClasses: {
+        kind: "classes",
+        classes: [
+          { hash: "0x00000abc", name: "VfxEmitterDefinitionData", held: true, derivesFrom: null },
+        ],
+      },
+      insertItem: { kind: "path", path: "0000000f[1]" },
     });
     const focus = spyFocus();
     const line: AddLine = {
@@ -257,12 +290,15 @@ describe("the class line of a pointer list", () => {
     await userEvent.click(await screen.findByRole("option", { name: /VfxEmitterDefinitionData/ }));
 
     await waitFor(() =>
-      expect(calls("bin_insert_item")).toEqual([
+      expect(calls("insertItem")).toEqual([
         {
           document: DOCUMENT,
-          entry: ENTRY,
-          path: "0000000f",
-          item: { index: null, key: null, class: "0x00000abc" },
+          edit: {
+            kind: "insertItem",
+            entry: ENTRY,
+            path: "0000000f",
+            item: { index: null, key: null, class: "0x00000abc" },
+          },
         },
       ]),
     );
@@ -279,8 +315,8 @@ describe("an option and a pointer", () => {
     await userEvent.click(screen.getByRole("button", { name: "Clear value" }));
 
     await waitFor(() =>
-      expect(calls("bin_remove_item")).toEqual([
-        { document: DOCUMENT, entry: ENTRY, path: "0000000a[0]" },
+      expect(calls("removeItem")).toEqual([
+        { document: DOCUMENT, edit: { kind: "removeItem", entry: ENTRY, path: "0000000a[0]" } },
       ]),
     );
   });

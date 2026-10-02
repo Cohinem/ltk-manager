@@ -61,7 +61,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
         data-ui="ErrorBoundary"
       >
         <div className="flex max-w-md flex-col items-center gap-4 rounded-lg bg-surface-900 p-8 text-center">
-          <WarningOctagonIcon className="h-10 w-10 text-danger-text" weight="duotone" />
+          <WarningOctagonIcon className="size-10 text-danger-text" weight="duotone" />
           <div className="flex flex-col gap-2">
             <h1 className="text-base font-medium text-surface-100">{m.common_crash_title()}</h1>
             <p className="text-sm text-surface-400">{m.common_crash_description()}</p>

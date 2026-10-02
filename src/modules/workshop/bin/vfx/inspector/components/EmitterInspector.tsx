@@ -11,32 +11,38 @@ import {
   useState,
 } from "react";
 
-import { AlertBox, Button, Code } from "@/components";
+import { AlertBox, Button, Code, OVERLINE, SearchField } from "@/components";
 import { m, Marked } from "@/i18n";
-import type { BinRow } from "@/lib/tauri";
+import type { BinRow, FieldSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { TreeSearchBox } from "../../../../shared/components/TreeSearchBox";
 import { AlsoCheck, FieldRow } from "../../../classes/components/ClassCells";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { FieldLabelsContext } from "../../../classes/state/fieldLabels";
 import { CurveChainContext } from "../../../curves/state/curveTarget";
 import { type RailMark, railMark } from "../../../curves/utils/rollRail";
+import { useChangedOnlyView } from "../../../documents/hooks/useChanges";
 import { useLinkOpen } from "../../../links/hooks/useLinkTargets";
+import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import { RowDocumentContext, type RowFold, RowFoldContext } from "../../../tree/state/rowFold";
 import { fieldHash, rowKey } from "../../../tree/utils/binRows";
 import { ValueMarksContext } from "../../../values/hooks/useValueMarks";
+import { EmitterPreviewBox } from "../../drivers/components/EmitterPreviewBox";
 import { FORCE_COLLECTION } from "../../forces/forceModel";
 import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
 import { useForces } from "../../forces/useForces";
+import { VfxRunContext } from "../../playback/state/run";
 import { useEmitters } from "../state/emitterChoice";
+import { useDefinedOnly, useInspectorPreview } from "../state/inspectorView";
 import { emitterChain, emitterRows } from "../utils/emitterCards";
 import {
   type DefaultField,
+  defaultField,
   type EmitterGroup,
   GROUP_TITLE,
   type GroupedRows,
   type InspectorGroup,
+  type InspectorProperty,
   inspectorGroups,
   inspectorProperties,
   unauthoredFields,
@@ -48,12 +54,16 @@ import {
   SECTION_FOLDED,
   SECTION_SHOWN,
 } from "../utils/emitterTypes";
+import { PRIMITIVE_FIELD } from "../utils/primitives";
 import { rowHasDefault } from "../utils/propertyDefaults";
+import { AddPropertyBox, useAddedJump } from "./AddPropertyBox";
 import { DefaultProperty } from "./DefaultProperty";
+import { InspectorActions } from "./InspectorActions";
+import { PrimitiveProperty } from "./PrimitiveProperty";
 
 /** The shared label column of the inspector's property tables. */
 const NAME_COLUMN = "w-(--name-width)";
-const COLUMN_STYLE = {
+export const COLUMN_STYLE = {
   "--name-width": "clamp(7rem, 32%, 12rem)",
   "--readout-height": "1.25rem",
   "--readout-padding-x": "0.25rem",
@@ -102,6 +112,12 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const forces = useForces();
+  const definedOnly = useDefinedOnly();
+  const changedOnly = useChangedOnlyView();
+  const preview = useInspectorPreview();
+  const running = (use(VfxRunContext)?.system ?? null) !== null;
+  const addable = use(LeafEditContext)?.addProperty !== undefined;
+  const [adding, setAdding] = useState(false);
 
   const groups = useMemo(() => {
     const source = target === "system" ? NO_GROUPED : (card?.groups ?? NO_GROUPED);
@@ -111,7 +127,13 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
           rows: group.rows.filter((row) => fieldHash(row.path) !== FORCE_COLLECTION),
         }))
       : source;
-    if (data == null) {
+    if (changedOnly !== null) {
+      const changed = (row: BinRow) =>
+        changedOnly.rows.has(rowKey(row)) || changedOnly.within.has(rowKey(row));
+      const rows = held.map((group) => ({ ...group, rows: group.rows.filter(changed) }));
+      return inspectorGroups(rows, NO_DEFAULTS);
+    }
+    if (data == null || definedOnly) {
       return inspectorGroups(held, NO_DEFAULTS);
     }
 
@@ -121,8 +143,10 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     }
 
     return inspectorGroups(held, unauthoredFields(data.fields, authored));
-  }, [target, card, data, forces.visible]);
+  }, [target, card, data, forces.visible, definedOnly, changedOnly]);
   const filtered = filterEmitterGroups(groups, search);
+  const jumpTo = useAddedJump(groups);
+  const holder = addable && target !== "system" ? card?.row : undefined;
   const hasMatches =
     filtered.some((group) => group.rows.length > 0 || group.defaults.length > 0) ||
     (forces.visible && forces.forces.some((force) => forceMatches(force, search)));
@@ -151,22 +175,38 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     <div data-ui="EmitterPanel" className={twMerge("flex min-h-0 flex-col", className)}>
       {child !== null && <ChildBanner child={child} />}
       <PanelHeader actions={actions} />
+      {preview && running && child === null && target !== "system" && card !== undefined && (
+        <EmitterPreviewBox
+          simple={card.simple}
+          listIndex={card.index}
+          className="mx-auto mt-1.5 w-full max-w-72 shrink-0"
+        />
+      )}
       <div
         data-ui="EmitterFields:search"
         className="flex shrink-0 items-center gap-2 border-b border-surface-700/40 px-2 py-1.5"
       >
-        <TreeSearchBox
-          value={search}
-          onChange={setSearch}
-          inputRef={searchRef}
-          label={m.workshop_bin_inspector_search_label()}
-          clearLabel={m.workshop_bin_inspector_clear_action()}
-          onCommit={() =>
-            scroller.current
-              ?.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled)")
-              ?.focus()
-          }
+        <InspectorActions
+          adding={holder === undefined ? null : adding}
+          onAddingChange={setAdding}
         />
+        {adding && holder !== undefined && (
+          <AddPropertyBox holder={holder} onAdded={jumpTo} onClose={() => setAdding(false)} />
+        )}
+        {(!adding || holder === undefined) && (
+          <SearchField
+            value={search}
+            onChange={setSearch}
+            inputRef={searchRef}
+            label={m.workshop_bin_inspector_search_label()}
+            clearLabel={m.workshop_bin_inspector_clear_action()}
+            onCommit={() =>
+              scroller.current
+                ?.querySelector<HTMLElement>("button:not(:disabled), input:not(:disabled)")
+                ?.focus()
+            }
+          />
+        )}
       </div>
       {/* DS-SCROLLBAR. The left padding is the roll rail's gutter, outside every row. */}
       <div
@@ -198,6 +238,25 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
                     {m.workshop_bin_inspector_matches_empty()}
                   </p>
                 )}
+                {search.trim() === "" &&
+                  changedOnly !== null &&
+                  card !== undefined &&
+                  target !== "system" &&
+                  !hasMatches && (
+                    <p role="status" className="px-2 py-4 text-meta text-surface-400">
+                      {m.workshop_bin_inspector_changed_empty()}
+                    </p>
+                  )}
+                {search.trim() === "" &&
+                  changedOnly === null &&
+                  definedOnly &&
+                  card !== undefined &&
+                  target !== "system" &&
+                  !hasMatches && (
+                    <p role="status" className="px-2 py-4 text-meta text-surface-400">
+                      {m.workshop_bin_inspector_defined_empty()}
+                    </p>
+                  )}
               </RowFoldContext>
             </FieldLabelsContext>
           </CurveChainContext>
@@ -377,15 +436,31 @@ function GroupSection({
         aria-expanded={open}
         disabled={searching}
         /* DS-GROUND: opaque, since the rows scroll under it rather than past it. */
-        className="sticky top-0 z-10 -ml-2 flex min-h-6 cursor-pointer items-center gap-1 bg-surface-900 pr-1 pl-3 text-left font-sans text-xs font-medium tracking-wide text-surface-400 uppercase hover:text-surface-200"
+        className={twMerge(
+          OVERLINE,
+          "sticky top-0 z-10 -ml-2 flex min-h-6 cursor-pointer items-center gap-1 bg-surface-900 pr-1 pl-3 text-left font-sans hover:text-surface-200",
+        )}
         onClick={() => setFold(!expanded)}
       >
-        <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
+        <CaretRightIcon weight="bold" className={twMerge("size-3", open && "rotate-90")} />
         {title}
       </button>
       {open &&
         properties.map((property, at) => {
           const key = `${card?.key ?? owner}:${property.hash}`;
+          if (property.hash === PRIMITIVE_FIELD && card !== undefined) {
+            return (
+              <PrimitiveProperty
+                key={key}
+                field={primitiveField(property, schema?.fields)}
+                holder={card.row}
+                authored={"row" in property ? property.row : undefined}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
           if ("field" in property) {
             if (card === undefined) {
               return null;
@@ -445,6 +520,23 @@ function GroupSection({
         })}
     </section>
   );
+}
+
+/** The schema's reading of a property, and its bare name where the schema has none. */
+function primitiveField(
+  property: InspectorProperty,
+  fields: readonly FieldSchema[] | undefined,
+): DefaultField {
+  if ("field" in property) {
+    return property.field;
+  }
+
+  const declared = fields?.find((field) => field.hash === property.hash);
+  if (declared !== undefined) {
+    return defaultField(declared);
+  }
+
+  return { hash: property.hash, name: property.row.name, declared: null };
 }
 
 /**

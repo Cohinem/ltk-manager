@@ -23,7 +23,7 @@ export interface ToastData {
   /**
    * A mark of the toast's own, where the type's glyph is not the subject.
    *
-   * Sized as the type glyphs are, `h-5 w-5`, and coloured by the caller. The
+   * Sized as the type glyphs are, `size-5`, and coloured by the caller. The
    * stripe and the countdown stay the type's either way, so the line is still
    * found as an info toast by everything except its mark.
    */
@@ -62,15 +62,19 @@ export const toastManager = heldUntilListened(BaseToast.createToastManager<Toast
  * Report a failure nothing else speaks for, from outside React.
  *
  * The data layer's last resort, so a mutation with no `onError` still reaches
- * the reader rather than the devtools alone.
+ * the reader rather than the devtools alone. A `title` names the action that
+ * failed, and the error's own title moves into the description when nothing
+ * else would fill it.
  */
-export function reportUnhandledFailure(error: unknown): void {
+export function reportUnhandledFailure(error: unknown, title?: string): void {
   const copy = isAppError(error)
     ? describeError(error)
     : { title: m.common_action_failed_title(), detail: errorMessage(error) };
+  const summary = copy.detail ?? copy.description;
+
   toastManager.add({
-    title: copy.title,
-    description: copy.detail ?? copy.description,
+    title: title ?? copy.title,
+    description: title === undefined ? summary : (summary ?? copy.title),
     data: { type: "error", timeout: 7000 },
     timeout: 7000,
   });
@@ -120,10 +124,10 @@ function heldUntilListened(manager: ToastManager<ToastData>): ToastManager<Toast
 }
 
 const typeIcons: Record<ToastType, ReactNode> = {
-  success: <CircleCheck className="h-5 w-5 text-success-text" />,
-  error: <CircleX className="h-5 w-5 text-danger-text" />,
-  warning: <CircleAlert className="h-5 w-5 text-warning-text" />,
-  info: <Info className="h-5 w-5 text-info-text" />,
+  success: <CircleCheck className="size-5 text-success-text" />,
+  error: <CircleX className="size-5 text-danger-text" />,
+  warning: <CircleAlert className="size-5 text-warning-text" />,
+  info: <Info className="size-5 text-info-text" />,
 };
 
 const typeStripeClasses: Record<ToastType, string> = {
@@ -283,7 +287,7 @@ export function ToastItem({ toast }: ToastItemProps) {
           className="shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
           aria-label="Close"
         >
-          <X className="h-4 w-4" />
+          <X className="size-4" />
         </BaseToast.Close>
       </BaseToast.Content>
       {progress === undefined && (
@@ -398,14 +402,16 @@ export function useToast() {
        * A toast that stays until the work behind it ends, reporting how far it
        * has got where a dismissing toast counts itself down.
        *
-       * For work the user did not start and cannot cancel. Anything they can wait
-       * on belongs in the UI that started it.
+       * For work the user did not start. Anything they can wait on belongs in the
+       * UI that started it. `action` stops the work, and `report` keeps it on
+       * the toast.
        */
-      task: (title: string, description?: string): ToastTask => {
+      task: (title: string, description?: string, action?: ToastAction): ToastTask => {
+        const actions = action ? [action] : [];
         const id = toastManager.add({
           title,
           description,
-          data: { type: "info", progress: 0 },
+          data: { type: "info", progress: 0, actions },
           timeout: 0,
         });
 
@@ -413,7 +419,7 @@ export function useToast() {
           report: (percent: number, description: string) => {
             toastManager.update(id, {
               description,
-              data: { type: "info", progress: percent },
+              data: { type: "info", progress: percent, actions },
             });
           },
           close: () => toastManager.close(id),

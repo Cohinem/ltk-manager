@@ -90,6 +90,12 @@ describe("CurveGraph", () => {
     expect(drawn).toEqual(["text-channel-1", "text-channel-2", "text-channel-3"]);
   });
 
+  it("draws a scalar in the hue its value node carries in the Graph pane", () => {
+    const keys = VECTOR.map((key) => ({ time: key.time, values: key.values.slice(0, 1) }));
+
+    expect(strokes(draw(keys, "scalar"))).toEqual(["text-socket-float"]);
+  });
+
   it("draws no line for a channel the toolbar muted", () => {
     const { container } = render(<CurveGraph keys={VECTOR} family="vector" muted={new Set([1])} />);
 
@@ -101,8 +107,8 @@ describe("CurveGraph", () => {
       <CurveGraph keys={[]} family="vector" draw={randomDraw(randomX([]))} unit="degrees" />,
     );
 
-    expect(screen.getByRole("slider", { name: "Pin the chance on X" })).toBeInTheDocument();
-    expect(screen.getByText("0 .. 360")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "What X draws" })).toBeInTheDocument();
+    expect(screen.getByText("360")).toBeInTheDocument();
     expect(container.querySelector('[data-ui="ChannelPlot"]')).toBeNull();
   });
 
@@ -112,7 +118,8 @@ describe("CurveGraph", () => {
     );
 
     const plot = container.querySelector('[data-ui="ChannelPlot"] svg');
-    expect(plot?.querySelectorAll("polyline")).toHaveLength(3);
+    // Three channel lines, and the random band's least and most edges.
+    expect(plot?.querySelectorAll("polyline")).toHaveLength(5);
     expect(screen.getByText("births")).toBeInTheDocument();
     expect(screen.getAllByRole("img", { name: "How often each value is drawn" })).toHaveLength(1);
     expect(screen.getByText("uniform")).toBeInTheDocument();
@@ -128,7 +135,7 @@ describe("CurveGraph", () => {
   it("draws a colour as its ramp alone, with no line and no channel chip", () => {
     const container = draw(COLOR, "color");
 
-    expect(screen.getByLabelText("2 colour stops")).toBeInTheDocument();
+    expect(screen.getByLabelText("2 color stops")).toBeInTheDocument();
     expect(strokes(container)).toEqual([]);
     for (const channel of ["R", "G", "B", "A"]) {
       expect(screen.queryByRole("button", { name: channel })).toBeNull();
@@ -144,8 +151,8 @@ describe("CurveGraph", () => {
       "color",
     );
 
-    const first = screen.getByRole("button", { name: "Colour stop at 0.250, #FF0000FF" });
-    const last = screen.getByRole("button", { name: "Colour stop at 0.750, #0000FF00" });
+    const first = screen.getByRole("button", { name: "Color stop at 0.250, #FF0000FF" });
+    const last = screen.getByRole("button", { name: "Color stop at 0.750, #0000FF00" });
 
     expect(first).toHaveStyle({ left: "25.00%" });
     expect(last).toHaveStyle({ left: "75.00%" });
@@ -163,8 +170,8 @@ describe("CurveGraph", () => {
       <CurveGraph keys={COLOR} family="color" selected={new Set([0])} onSelect={onSelect} />,
     );
     const user = userEvent.setup();
-    const first = screen.getByRole("button", { name: "Colour stop at 0.000, #FF0000FF" });
-    const last = screen.getByRole("button", { name: "Colour stop at 1.000, #0000FF00" });
+    const first = screen.getByRole("button", { name: "Color stop at 0.000, #FF0000FF" });
+    const last = screen.getByRole("button", { name: "Color stop at 1.000, #0000FF00" });
 
     expect(first).toHaveAttribute("aria-pressed", "true");
     await user.click(last);
@@ -173,10 +180,53 @@ describe("CurveGraph", () => {
     rerender(
       <CurveGraph keys={COLOR} family="color" selected={new Set([1])} onSelect={onSelect} />,
     );
-    expect(screen.getByRole("button", { name: "Colour stop at 1.000, #0000FF00" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "Color stop at 1.000, #0000FF00" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
+  });
+
+  it("drags a colour stop along the axis, and a click moves none", () => {
+    const keys: CurveKey[] = [
+      { time: 0, values: [1, 0, 0, 1] },
+      { time: 0.5, values: [0, 1, 0, 1] },
+      { time: 1, values: [0, 0, 1, 1] },
+    ];
+    const onChange = vi.fn(async () => true);
+    render(<CurveGraph keys={keys} family="color" editable onChange={onChange} />);
+    const middle = screen.getByRole("button", { name: "Color stop at 0.500, #00FF00FF" });
+
+    fireEvent.pointerDown(middle, { pointerId: 1, button: 0, clientX: 100 });
+    fireEvent.pointerUp(middle, { pointerId: 1, clientX: 101 });
+    expect(onChange).not.toHaveBeenCalled();
+
+    fireEvent.pointerDown(middle, { pointerId: 2, button: 0, clientX: 100 });
+    fireEvent.pointerMove(middle, { pointerId: 2, clientX: 125 });
+    fireEvent.pointerUp(middle, { pointerId: 2, clientX: 125 });
+    expect(onChange).toHaveBeenCalledWith(1, { time: 0.75, values: [0, 1, 0, 1] });
+
+    fireEvent.pointerDown(middle, { pointerId: 3, button: 0, clientX: 100 });
+    fireEvent.pointerMove(middle, { pointerId: 3, clientX: 1000 });
+    fireEvent.pointerUp(middle, { pointerId: 3, clientX: 1000 });
+    expect(onChange).toHaveBeenLastCalledWith(1, { time: 1, values: [0, 1, 0, 1] });
+  });
+
+  it("lets a dragged key pass its neighbour, drawing the line in time order", () => {
+    const keys: CurveKey[] = [
+      { time: 0, values: [0] },
+      { time: 0.5, values: [5] },
+      { time: 1, values: [10] },
+    ];
+    const onChange = vi.fn(async (_at: number, _key: CurveKey) => true);
+    render(<CurveGraph keys={keys} family="scalar" editable onChange={onChange} />);
+    const first = screen.getByRole("button", { name: /key 1 at 0\.000/ });
+
+    fireEvent.pointerDown(first, { pointerId: 1, button: 0, clientX: 0, clientY: 50 });
+    fireEvent.pointerMove(first, { pointerId: 1, clientX: 75, clientY: 50 });
+    fireEvent.pointerUp(first, { pointerId: 1, clientX: 75, clientY: 50 });
+
+    expect(onChange).toHaveBeenCalledOnce();
+    expect(onChange.mock.calls[0]?.[1]?.time).toBeGreaterThan(0.5);
   });
 
   it("selects a graph point and adds an interpolated key on double click", async () => {
@@ -241,10 +291,26 @@ describe("CurveGraph", () => {
     expect(line).toHaveAttribute("points", dragged);
   });
 
+  it("selects a key it is clicked on without moving it", () => {
+    const onChange = vi.fn(async () => true);
+    const onSelect = vi.fn();
+    render(
+      <CurveGraph keys={VECTOR} family="vector" editable onChange={onChange} onSelect={onSelect} />,
+    );
+    const point = screen.getByRole("button", { name: "X key 2 at 1.000" });
+
+    fireEvent.pointerDown(point, { pointerId: 1, clientX: 80, clientY: 20 });
+    fireEvent.pointerMove(point, { pointerId: 1, clientX: 81, clientY: 21 });
+    fireEvent.pointerUp(point, { pointerId: 1, clientX: 81, clientY: 21 });
+
+    expect(onSelect).toHaveBeenCalledWith(1, "replace");
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("offers neither handle nor readout for a family that is no colour", () => {
     draw(VECTOR, "vector");
 
-    expect(screen.queryByLabelText(/Colour stop at/)).toBeNull();
+    expect(screen.queryByLabelText(/Color stop at/)).toBeNull();
   });
 
   it("draws a scalar with no chips, because it has one channel to tell apart from none", () => {

@@ -25,8 +25,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 /// sorted. Champions hold display names (e.g. `"Aatrox"`); maps and tags hold
 /// well-known slugs (e.g. `"summoners-rift"`, `"champion-skin"`).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct DerivedCategorization {
     pub champions: Vec<String>,
@@ -126,7 +125,7 @@ impl ChampionRoster {
 
 /// Map a champion's internal name to its display name (`"MonkeyKing"` →
 /// `"Wukong"`); names without an override pass through unchanged.
-fn champion_display_name(internal: &str) -> String {
+pub fn champion_display_name(internal: &str) -> String {
     match internal {
         "MonkeyKing" => "Wukong".to_string(),
         other => other.to_string(),

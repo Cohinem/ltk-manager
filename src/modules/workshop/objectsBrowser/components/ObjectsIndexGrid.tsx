@@ -1,13 +1,10 @@
 import { ArrowUpIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
-import { Breadcrumb, IconButton, EmptyState } from "@/components";
+import { Breadcrumb, Count, EmptyState, IconButton, LoadingState } from "@/components";
 import { m } from "@/i18n";
 
-import {
-  GameLoadingState,
-  GameWadsErrorState,
-} from "../../gameBrowser/components/GameBrowserStates";
+import { GameWadsErrorState } from "../../gameBrowser/components/GameBrowserStates";
 import { useObjectsReveal, useSettleObjectsReveal } from "../../state";
 import { useObjectDir } from "../api/useObjectDir";
 import { useWarmOnAbsent } from "../api/useObjectIndex";
@@ -60,12 +57,9 @@ export function ObjectsIndexGrid({
     <>
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-surface-veil-strong px-2">
         <IconButton
-          size="xs"
-          compact
-          variant="ghost"
           disabled={!canGoUp}
           onClick={onUp}
-          icon={<ArrowUpIcon weight="bold" className="size-4" />}
+          icon={<ArrowUpIcon />}
           aria-label={m.workshop_objects_up_action()}
         />
         <Breadcrumb
@@ -75,12 +69,10 @@ export function ObjectsIndexGrid({
           className="flex-1"
         />
         {root.data?.status === "ready" && (
-          <span className="shrink-0 text-meta text-surface-400 tabular-nums">
-            {m.workshop_objects_items_label({ count: nodes.length })}
-          </span>
+          <Count>{m.workshop_objects_items_label({ count: nodes.length })}</Count>
         )}
       </div>
-      {root.isPending && <GameLoadingState />}
+      {root.isPending && <LoadingState />}
       {root.isError && <GameWadsErrorState error={root.error} />}
       {root.data?.status === "failed" && (
         <ObjectIndexFailedState error={root.data.error} onRetry={retry} />

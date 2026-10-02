@@ -5,7 +5,6 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { Menu, useToast } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import { api, type AppError, type InstalledMod } from "@/lib/tauri";
-import { usePatcherRunning } from "@/modules/patcher";
 import { unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "../../api/keys";
@@ -14,7 +13,6 @@ import { libraryKeys } from "../../api/keys";
 export function ModCardUpdateItem({ modId }: { modId: string }) {
   const client = useQueryClient();
   const toast = useToast();
-  const patcherRunning = usePatcherRunning();
   const update = useMutation<InstalledMod, AppError, string>({
     mutationFn: async (filePath: string) => unwrapForQuery(await api.updateMod(modId, filePath)),
     onSuccess: () => toast.success(m.library_mod_update_success_title()),
@@ -39,8 +37,8 @@ export function ModCardUpdateItem({ modId }: { modId: string }) {
 
   return (
     <Menu.Item
-      icon={<ArrowClockwiseIcon className="h-4 w-4" weight="bold" />}
-      disabled={patcherRunning || update.isPending}
+      icon={<ArrowClockwiseIcon className="size-4" weight="bold" />}
+      disabled={update.isPending}
       onClick={chooseArchive}
     >
       {m.library_mod_update_action()}

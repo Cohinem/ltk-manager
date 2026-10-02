@@ -9,7 +9,7 @@ export { type ProjectImports, useProjectImports } from "../imports/hooks/useProj
 export { useAddFilesToLayer } from "../layers/api/useAddFilesToLayer";
 export { useDeleteLayerContent } from "../layers/api/useDeleteLayerContent";
 export { useLayerFileDrop } from "../layers/hooks/useLayerFileDrop";
-export { usePackProject } from "../packing/api/usePackProject";
+export { type PackOutcome, packProject, usePackProjects } from "../packing/api/usePackProjects";
 export { useFixProblems } from "../problems/api/useFixProblems";
 export { useProjectProblems } from "../problems/api/useProjectProblems";
 export { useValidateProject } from "../problems/api/useValidateProject";

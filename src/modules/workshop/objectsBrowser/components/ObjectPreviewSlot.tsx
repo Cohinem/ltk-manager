@@ -1,92 +1,112 @@
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { ErrorBoundary, Popover } from "@/components";
 import { m } from "@/i18n";
 
-import { objectPreviewKey } from "../utils/objectPreview";
+import {
+  FAILED_OUTCOME,
+  isNoBurst,
+  type PreviewOutcome,
+  savePreviewOutcome,
+} from "../state/previewStills";
 import type { ObjectRowNode } from "../utils/objectTree";
+import type { PreviewJob } from "../utils/previewSlots";
+import { PreviewSettled } from "./PreviewSettled";
 
 const ObjectPreviewWorker = lazy(() => import("./ObjectPreviewWorker"));
+
+/** How long a job may go without progress before it fails: the bin opening, an asset landing. */
 const JOB_TIMEOUT_MS = 15_000;
 
-/** One bounded renderer slot, docked for stills or displayed in an anchored hover preview. */
-export function ObjectPreviewSlot({
-  node,
-  revision,
-  onImage,
-  scroll,
-  targetIndex,
-  onEnter,
-  onLeave,
-  onClose,
-}: {
-  onEnter: () => void;
-  onLeave: () => void;
-  onClose: () => void;
-  scroll: RefObject<HTMLDivElement | null>;
-  targetIndex: number | null;
-  node: ObjectRowNode | null;
-  revision: number;
-  onImage: (key: string, revision: number, image: string | null) => void;
-}) {
-  const key = node === null ? null : objectPreviewKey(node);
+/** One preview job of the objects grid. */
+export type ObjectPreviewJob = PreviewJob<ObjectRowNode>;
+
+/** Where a slot's surface draws: hidden in the dock, over its tile's art, or in the large popover. */
+export type PreviewDisplay =
+  | { readonly mode: "dock" }
+  | { readonly mode: "tile"; readonly stage: HTMLElement }
+  | { readonly mode: "large"; readonly anchor: HTMLElement };
+
+export const DOCKED: PreviewDisplay = Object.freeze({ mode: "dock" });
+
+interface ObjectPreviewSlotProps {
+  job: ObjectPreviewJob | null;
+  display: PreviewDisplay;
+  /** The retry generation. A retry starts a new request for the same key. */
+  generation: number;
+  /** Called when the large popover closes. */
+  onDismiss: () => void;
+}
+
+/**
+ * One bounded renderer slot, docked for stills or shown over a tile or in the large popover.
+ *
+ * A job fails after `JOB_TIMEOUT_MS` without progress. The large popover keeps drawing a
+ * particle system whose sample missed its burst, so the reader can watch it play.
+ */
+export function ObjectPreviewSlot({ job, display, generation, onDismiss }: ObjectPreviewSlotProps) {
+  const key = job?.key ?? null;
+  /* Incremented when the slot takes a new key, so a key assigned again ignores its last outcome. */
+  const [run, setRun] = useState({ key, count: 0 });
+  if (run.key !== key) setRun({ key, count: run.count + 1 });
+  const request = `${generation}:${run.count}:${key}`;
+  const current = useRef(request);
   const dock = useRef<HTMLDivElement>(null);
-  const popup = useRef<HTMLDivElement>(null);
-  // A stable portal host retains the renderer when it moves between the dock and popover.
+  const popup = useRef<HTMLDivElement | null>(null);
+  // A stable portal host keeps the renderer mounted when it moves between the dock, a tile and the popover.
   const [surface] = useState(() => {
     const element = document.createElement("div");
     element.className = "pointer-events-none absolute inset-0 size-full";
     element.setAttribute("aria-hidden", "true");
     return element;
   });
-  const [ready, setReady] = useState<string | null>(null);
-  const [failed, setFailed] = useState<string | null>(null);
-  const request = `${revision}:${key}`;
-  useEffect(() => {
-    setReady(null);
-    setFailed(null);
-  }, [request]);
+  const [settled, setSettled] = useState<{ request: string; outcome: PreviewOutcome } | null>(null);
+  const shownOutcome = settled?.request === request ? settled.outcome : null;
+  const shown = shownOutcome?.kind ?? null;
+  const replaying = display.mode === "large" && isNoBurst(shownOutcome ?? undefined);
+  const [beat, setBeat] = useState(0);
+
   useLayoutEffect(() => {
-    const parent = targetIndex === null ? dock.current : (popup.current ?? dock.current);
+    current.current = request;
+  }, [request]);
+
+  useLayoutEffect(() => {
+    let parent: HTMLElement | null = dock.current;
+    if (display.mode === "tile") parent = display.stage;
+    if (display.mode === "large") parent = popup.current ?? dock.current;
+
     if (parent && surface.parentElement !== parent) {
       parent.appendChild(surface);
     }
 
-    surface.style.opacity = ready === request ? "1" : "0";
+    surface.style.opacity = shown === "image" || replaying ? "1" : "0";
   });
   useLayoutEffect(() => () => surface.remove(), [surface]);
+
   const report = useCallback(
-    (image: string | null) => {
-      if (key !== null) {
-        if (image !== null) {
-          setReady(request);
-        } else {
-          setFailed(request);
-        }
-        onImage(key, revision, image);
-      }
+    (outcome: PreviewOutcome) => {
+      if (key === null || current.current !== request) return;
+
+      setSettled({ request, outcome });
+      savePreviewOutcome(key, outcome);
     },
-    [key, revision, onImage, request],
+    [key, request],
   );
 
-  useEffect(() => {
-    if (key === null || ready === request || failed === request) {
-      return;
-    }
+  const progress = useCallback(() => {
+    if (current.current === request) setBeat((count) => count + 1);
+  }, [request]);
 
-    const timer = window.setTimeout(() => report(null), JOB_TIMEOUT_MS);
+  useEffect(() => {
+    if (key === null || shown !== null) return;
+
+    const timer = window.setTimeout(() => report(FAILED_OUTCOME), JOB_TIMEOUT_MS);
     return () => window.clearTimeout(timer);
-  }, [key, ready, failed, request, report]);
+  }, [key, shown, report, beat]);
+
+  const large = display.mode === "large" ? display : null;
+  const drawing = shown !== "failed" && (shown !== "empty" || replaying);
 
   return (
     <>
@@ -97,69 +117,69 @@ export function ObjectPreviewSlot({
         style={{ aspectRatio: "1 / 0.72" }}
       />
       <Popover.Root
-        open={targetIndex !== null}
+        open={large !== null}
         onOpenChange={(open) => {
-          if (!open) onClose();
+          if (!open) onDismiss();
         }}
       >
-        <Popover.Portal>
-          <Popover.Positioner
-            anchor={() =>
-              scroll.current?.querySelector<HTMLElement>(`[data-object-index="${targetIndex}"]`) ??
-              null
-            }
-            side="right"
-            align="start"
-            sideOffset={10}
-            collisionPadding={12}
+        <Popover.Content
+          anchor={large?.anchor ?? null}
+          side="right"
+          align="start"
+          sideOffset={10}
+          collisionPadding={12}
+          initialFocus={false}
+          finalFocus={false}
+          aria-label={job?.node.name}
+          className="w-96 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl"
+        >
+          <div className="border-b border-surface-veil-strong px-3 py-2 text-row font-medium text-surface-100">
+            {job?.node.name}
+          </div>
+          <div
+            ref={(element) => {
+              popup.current = element;
+              if (element && large !== null) element.appendChild(surface);
+            }}
+            className="relative aspect-[1/0.72] bg-surface-950/40"
           >
-            <Popover.Popup
-              initialFocus={false}
-              finalFocus={false}
-              aria-label={node?.name}
-              className="w-96 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl"
-              onPointerEnter={onEnter}
-              onPointerLeave={onLeave}
-            >
-              <div className="border-b border-surface-veil-strong px-3 py-2 text-row font-medium text-surface-100">
-                {node?.name}
-              </div>
-              <div
-                ref={(element) => {
-                  popup.current = element;
-                  if (element && targetIndex !== null) element.appendChild(surface);
-                }}
-                className="relative aspect-[1/0.72] bg-surface-950/40"
-              >
-                {ready !== request && failed !== request && (
-                  <span
-                    role="status"
-                    className="absolute inset-0 grid place-items-center text-meta text-surface-400"
-                  >
-                    {m.workshop_objects_loading_label()}
-                  </span>
-                )}
-                {failed === request && (
-                  <span
-                    role="status"
-                    className="absolute inset-0 grid place-items-center text-meta text-surface-400"
-                  >
-                    {m.workshop_objects_preview_failed_label()}
-                  </span>
-                )}
-              </div>
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
+            {shown === null && <PopupStatus label={m.workshop_objects_loading_label()} />}
+            {shown === "failed" && (
+              <PopupStatus label={m.workshop_objects_preview_failed_label()} />
+            )}
+            {shown === "empty" && !replaying && (
+              <PopupStatus label={m.workshop_objects_preview_empty_label()} />
+            )}
+          </div>
+        </Popover.Content>
       </Popover.Root>
       {createPortal(
-        <ErrorBoundary key={revision} fallback={() => null}>
+        <ErrorBoundary
+          key={generation}
+          fallback={() => <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={report} />}
+        >
           <Suspense fallback={null}>
-            <ObjectPreviewWorker node={failed === request ? null : node} onImage={report} />
+            <ObjectPreviewWorker
+              node={drawing ? (job?.node ?? null) : null}
+              playing={display.mode !== "dock"}
+              onOutcome={report}
+              onProgress={progress}
+            />
           </Suspense>
         </ErrorBoundary>,
         surface,
       )}
     </>
+  );
+}
+
+function PopupStatus({ label }: { label: string }) {
+  return (
+    <span
+      role="status"
+      className="absolute inset-0 grid place-items-center text-meta text-surface-400"
+    >
+      {label}
+    </span>
   );
 }

@@ -1,14 +1,14 @@
-import { CaretLeftIcon, CaretRightIcon, PaletteIcon } from "@phosphor-icons/react";
+import { InfoIcon, PaletteIcon } from "@phosphor-icons/react";
 import { type ReactNode, useEffect, useState } from "react";
 
 import { Button, ColorPicker, Popover, StepperField, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import type { RgbColor } from "@/utils";
+import { type RgbColor, twMerge } from "@/utils";
 
 import { Swatch } from "../../values/components/ColorMark";
 import { type FieldUnit, UNIT_SUFFIX } from "../../values/utils/fieldUnits";
 import { colorHex, type CurveKey, type ValueFamily } from "../../values/utils/valueRows";
-import { CHANNELS, CHIP } from "../utils/curveChannels";
+import { CHANNELS, chipOf } from "../utils/curveChannels";
 import { CURVE_TIME_STEP, curveValueStep, snapCurveValue } from "../utils/curveSnapping";
 
 interface CurveKeyEditorProps {
@@ -17,51 +17,68 @@ interface CurveKeyEditorProps {
   selected: readonly number[];
   unit: FieldUnit | null;
   editable: boolean;
-  onSelect: (at: number) => void;
   onCommit: (key: CurveKey) => void;
 }
 
-/** Exact time and channel controls for the key selected on the curve canvas. */
+/**
+ * One line of the dock under the graph, the same height whatever it holds, so selecting a key
+ * never takes a row from the graph. A pane too narrow for the fields narrows them.
+ */
+const STRIP =
+  "flex h-8 shrink-0 flex-nowrap items-center gap-x-2 overflow-hidden border-t border-surface-700/40 px-2 text-meta select-none";
+
+/** A key field, 80px where the strip has room and down to 48px where it has not. */
+const FIELD = "min-w-12 shrink basis-20 text-meta";
+
+/**
+ * The selected key's exact time and channels, in one strip under the graph.
+ *
+ * The graph selects, so the strip only edits. A selection of several keys reads as a count,
+ * and the canvas's gestures sit in the hint at its end.
+ */
 export function CurveKeyEditor({
   keys,
   family,
   selected,
   unit,
   editable,
-  onSelect,
   onCommit,
 }: CurveKeyEditorProps) {
   const selectedAt = selected.at(-1) ?? 0;
   const key = selected.length === 1 ? keys[selectedAt] : undefined;
-  const [draft, setDraft] = useState<CurveKey | null>(key ?? null);
+  /* The draft belongs to the key it was typed over, so a new selection reads its own key on
+     the render that selects it rather than a frame later. */
+  const [held, setHeld] = useState<{ of: CurveKey; draft: CurveKey } | null>(null);
+  const draft = key === undefined ? null : held !== null && held.of === key ? held.draft : key;
+  const setDraft = (changed: CurveKey) => {
+    if (key !== undefined) setHeld({ of: key, draft: changed });
+  };
 
-  useEffect(() => {
-    setDraft(key ?? null);
-  }, [key]);
+  const hint = editable && keys.length > 0 && <GestureHint />;
 
   if (selected.length > 1) {
     return (
-      <aside
-        data-ui="CurveKeyEditor"
-        className="flex h-20 w-full shrink-0 flex-col justify-center gap-1 border-t border-surface-700/50 bg-surface-950/30 px-3 text-meta select-none @min-[34rem]:h-auto @min-[34rem]:w-52 @min-[34rem]:border-t-0 @min-[34rem]:border-l"
-      >
-        <span className="font-medium text-surface-300">
+      <div data-ui="CurveKeyEditor" className={STRIP}>
+        <span className="shrink-0 font-medium text-surface-300">
           {m.workshop_bin_curve_selected_count_label({ count: selected.length })}
         </span>
-        <span className="text-surface-500">{m.workshop_bin_curve_multi_selection_hint()}</span>
-      </aside>
+        <span className="truncate text-surface-500">
+          {m.workshop_bin_curve_multi_selection_hint()}
+        </span>
+        {hint}
+      </div>
     );
   }
 
   if (key === undefined || draft === null) {
     return (
-      <aside
-        data-ui="CurveKeyEditor"
-        className="flex h-12 w-full shrink-0 items-center justify-center border-t border-surface-700/50 bg-surface-950/30 px-3 text-meta text-surface-500 select-none @min-[34rem]:h-auto @min-[34rem]:w-52 @min-[34rem]:border-t-0 @min-[34rem]:border-l"
-      >
-        {keys.length === 0 && m.workshop_bin_curve_keys_empty()}
-        {keys.length > 0 && m.workshop_bin_curve_selection_empty()}
-      </aside>
+      <div data-ui="CurveKeyEditor" className={STRIP}>
+        <span className="text-surface-500">
+          {keys.length === 0 && m.workshop_bin_curve_keys_empty()}
+          {keys.length > 0 && m.workshop_bin_curve_selection_empty()}
+        </span>
+        {hint}
+      </div>
     );
   }
 
@@ -69,6 +86,8 @@ export function CurveKeyEditor({
   const next = keys[selectedAt + 1];
   const names = CHANNELS[family];
   const suffix = unit === null ? null : UNIT_SUFFIX[unit]();
+  /* A vector's or a colour's channels are named by their sash, as the inspector's are. */
+  const sashed = family !== "scalar";
 
   function changeTime(value: number, commit: boolean) {
     if (draft === null) return;
@@ -103,92 +122,86 @@ export function CurveKeyEditor({
   }
 
   return (
-    <aside
-      data-ui="CurveKeyEditor"
-      className="flex max-h-40 w-full shrink-0 flex-col border-t border-surface-700/50 bg-surface-950/30 select-none @min-[34rem]:max-h-none @min-[34rem]:w-52 @min-[34rem]:border-t-0 @min-[34rem]:border-l"
-    >
-      <div className="flex h-7 shrink-0 items-center gap-1 border-b border-surface-700/40 px-2">
-        <span className="min-w-0 flex-1 truncate text-meta font-medium text-surface-300">
-          {m.workshop_bin_curve_key_label({ current: selectedAt + 1, count: keys.length })}
-        </span>
-        <Button
-          variant="ghost"
-          size="xs"
-          compact
-          aria-label={m.workshop_bin_curve_previous_key_action()}
-          disabled={previous === undefined}
-          onClick={() => onSelect(selectedAt - 1)}
-          left={<CaretLeftIcon weight="bold" />}
+    <div data-ui="CurveKeyEditor" className={STRIP}>
+      <KeyField
+        label={m.workshop_bin_curve_time_short_label()}
+        hint={`${m.workshop_bin_curve_lifetime_label()}: ${m.workshop_bin_curve_lifetime_hint()}`}
+      >
+        <StepperField
+          className={FIELD}
+          aria-label={m.workshop_bin_curve_lifetime_label()}
+          increaseLabel={m.common_number_increase_action()}
+          decreaseLabel={m.common_number_decrease_action()}
+          value={draft.time}
+          min={previous?.time}
+          max={next?.time}
+          step={CURVE_TIME_STEP.step}
+          smallStep={CURVE_TIME_STEP.smallStep}
+          largeStep={CURVE_TIME_STEP.largeStep}
+          decimals={CURVE_TIME_STEP.decimals}
+          disabled={!editable}
+          onValueChange={(value) => changeTime(value, false)}
+          onValueCommitted={(value) => changeTime(value, true)}
         />
-        <Button
-          variant="ghost"
-          size="xs"
-          compact
-          aria-label={m.workshop_bin_curve_next_key_action()}
-          disabled={next === undefined}
-          onClick={() => onSelect(selectedAt + 1)}
-          left={<CaretRightIcon weight="bold" />}
-        />
-      </div>
+      </KeyField>
 
-      <div className="grid min-h-0 flex-1 grid-cols-2 gap-1 overflow-auto px-2 py-1.5 scrollbar-sm @min-[34rem]:flex @min-[34rem]:flex-col">
-        <KeyField
-          label={m.workshop_bin_curve_lifetime_label()}
-          hint={m.workshop_bin_curve_lifetime_hint()}
-        >
+      {family === "color" && (
+        <ColorEditor values={draft.values} editable={editable} onCommit={changeColor} />
+      )}
+
+      {draft.values.map((value, channel) => {
+        const name = names[channel] ?? String(channel);
+        const label = suffix === null ? name : `${name} ${suffix}`;
+        const colorLimit = family === "color";
+        const guide = curveValueStep(keys, channel, colorLimit);
+        const field = (
           <StepperField
-            className="w-full text-meta"
-            aria-label={m.workshop_bin_curve_lifetime_label()}
+            key={channel}
+            className={FIELD}
+            aria-label={label}
+            channel={sashed ? channel : undefined}
             increaseLabel={m.common_number_increase_action()}
             decreaseLabel={m.common_number_decrease_action()}
-            value={draft.time}
-            min={previous?.time}
-            max={next?.time}
-            step={CURVE_TIME_STEP.step}
-            smallStep={CURVE_TIME_STEP.smallStep}
-            largeStep={CURVE_TIME_STEP.largeStep}
-            decimals={CURVE_TIME_STEP.decimals}
+            value={value}
+            min={colorLimit ? 0 : undefined}
+            max={colorLimit ? 1 : undefined}
+            step={guide.step}
+            smallStep={guide.smallStep}
+            largeStep={guide.largeStep}
+            decimals={guide.decimals}
             disabled={!editable}
-            onValueChange={(value) => changeTime(value, false)}
-            onValueCommitted={(value) => changeTime(value, true)}
+            onValueChange={(nextValue) => changeChannel(channel, nextValue, false)}
+            onValueCommitted={(nextValue) => changeChannel(channel, nextValue, true)}
           />
-        </KeyField>
+        );
 
-        {family === "color" && (
-          <div className="col-span-2 @min-[34rem]:col-span-1">
-            <ColorEditor values={draft.values} editable={editable} onCommit={changeColor} />
-          </div>
-        )}
+        if (sashed) return field;
+        return (
+          <KeyField key={channel} label={label} tone={chipOf(family, channel)}>
+            {field}
+          </KeyField>
+        );
+      })}
+      {sashed && suffix !== null && (
+        <span className="-ml-1 shrink-0 text-surface-400">{suffix}</span>
+      )}
+      {hint}
+    </div>
+  );
+}
 
-        {draft.values.map((value, channel) => {
-          const name = names[channel] ?? String(channel);
-          const label = suffix === null ? name : `${name} ${suffix}`;
-          const colorLimit = family === "color";
-          const guide = curveValueStep(keys, channel, colorLimit);
-
-          return (
-            <KeyField key={channel} label={label} tone={CHIP[channel] ?? CHIP[0]}>
-              <StepperField
-                className="w-full text-meta"
-                aria-label={label}
-                increaseLabel={m.common_number_increase_action()}
-                decreaseLabel={m.common_number_decrease_action()}
-                value={value}
-                min={colorLimit ? 0 : undefined}
-                max={colorLimit ? 1 : undefined}
-                step={guide.step}
-                smallStep={guide.smallStep}
-                largeStep={guide.largeStep}
-                decimals={guide.decimals}
-                disabled={!editable}
-                onValueChange={(nextValue) => changeChannel(channel, nextValue, false)}
-                onValueCommitted={(nextValue) => changeChannel(channel, nextValue, true)}
-              />
-            </KeyField>
-          );
-        })}
-      </div>
-    </aside>
+/** The canvas's gestures, behind a mark at the strip's end rather than a line under the plot. */
+function GestureHint() {
+  return (
+    <Tooltip content={m.workshop_bin_curve_graph_edit_hint()}>
+      <span
+        tabIndex={0}
+        aria-label={m.workshop_bin_curve_graph_edit_hint()}
+        className="ml-auto flex shrink-0 cursor-help items-center text-surface-500 outline-none hover:text-surface-300 focus-visible:ring-1 focus-visible:ring-accent-500"
+      >
+        <InfoIcon weight="bold" className="size-3.5" />
+      </span>
+    </Tooltip>
   );
 }
 
@@ -203,10 +216,10 @@ function KeyField({
   tone?: string;
   children: ReactNode;
 }) {
-  const text = <span className={tone ?? "text-surface-400"}>{label}</span>;
+  const text = <span className={twMerge("shrink-0", tone ?? "text-surface-400")}>{label}</span>;
 
   return (
-    <label className="grid grid-cols-[3.75rem_minmax(0,1fr)] items-center gap-1.5 text-meta">
+    <label className="flex min-w-0 shrink items-center gap-1.5 text-meta">
       {hint !== undefined && <Tooltip content={hint}>{text}</Tooltip>}
       {hint === undefined && text}
       {children}
@@ -237,38 +250,34 @@ function ColorEditor({
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger
         disabled={!editable}
-        className="flex h-7 w-full cursor-pointer items-center gap-2 rounded-sm border border-surface-veil bg-surface-veil-soft px-1.5 text-left font-mono text-code text-surface-300 transition-colors hover:border-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex h-6 w-32 cursor-pointer items-center gap-2 rounded-sm border border-surface-veil bg-surface-veil-soft px-1.5 text-left font-mono text-code text-surface-300 transition-colors hover:border-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Swatch rgba={rgba} className="h-4 w-4" />
+        <Swatch rgba={rgba} className="size-4" />
         <span className="min-w-0 flex-1 truncate">{colorHex(rgba)}</span>
-        <PaletteIcon aria-hidden className="h-3.5 w-3.5 text-surface-400" />
+        <PaletteIcon aria-hidden className="size-3.5 text-surface-400" />
       </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner side="left" align="start" sideOffset={8}>
-          <Popover.Popup className="w-64 p-3">
-            <ColorPicker
-              value={draft}
-              label={m.workshop_bin_curve_edit_color_action()}
-              onValueChange={setDraft}
-            />
-            <div className="mt-3 flex justify-end gap-2">
-              <Button variant="ghost" size="xs" onClick={() => setOpen(false)}>
-                {m.common_cancel_action()}
-              </Button>
-              <Button
-                variant="filled"
-                size="xs"
-                onClick={() => {
-                  onCommit(draft);
-                  setOpen(false);
-                }}
-              >
-                {m.workshop_bin_curve_save_color_action()}
-              </Button>
-            </div>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content side="top" align="start" sideOffset={8} className="w-64 p-3">
+        <ColorPicker
+          value={draft}
+          label={m.workshop_bin_curve_edit_color_action()}
+          onValueChange={setDraft}
+        />
+        <div className="mt-3 flex justify-end gap-2">
+          <Button variant="ghost" size="xs" onClick={() => setOpen(false)}>
+            {m.common_cancel_action()}
+          </Button>
+          <Button
+            variant="filled"
+            size="xs"
+            onClick={() => {
+              onCommit(draft);
+              setOpen(false);
+            }}
+          >
+            {m.workshop_bin_curve_save_color_action()}
+          </Button>
+        </div>
+      </Popover.Content>
     </Popover.Root>
   );
 }

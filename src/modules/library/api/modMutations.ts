@@ -11,7 +11,7 @@ import {
 } from "@/lib/tauri";
 import { promoteToFolderFront } from "@/modules/library/utils";
 import { settingsKeys } from "@/modules/settings";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
 
@@ -75,7 +75,7 @@ function refreshMods(client: QueryClient): void {
 /** Writes against the installed mods. */
 export const modMutations = {
   toggle: (client: QueryClient) =>
-    mutationOptions<void, AppError, ToggleModVariables, ModsRollback>({
+    mutationOptions<null, AppError, ToggleModVariables, ModsRollback>({
       mutationFn: async ({ modId, enabled }) => unwrapForQuery(await api.toggleMod(modId, enabled)),
       onMutate: ({ modId, enabled }) => {
         const promote =
@@ -91,7 +91,7 @@ export const modMutations = {
     }),
 
   setLayers: (client: QueryClient) =>
-    mutationOptions<void, AppError, SetModLayersVariables, ModsRollback>({
+    mutationOptions<null, AppError, SetModLayersVariables, ModsRollback>({
       mutationFn: async ({ modId, layerStates }) =>
         unwrapForQuery(await api.setModLayers(modId, layerStates)),
       onMutate: ({ modId, layerStates }) =>
@@ -103,7 +103,7 @@ export const modMutations = {
     }),
 
   enableWithLayers: (client: QueryClient) =>
-    mutationOptions<void, AppError, SetModLayersVariables, ModsRollback>({
+    mutationOptions<null, AppError, SetModLayersVariables, ModsRollback>({
       mutationFn: async ({ modId, layerStates }) =>
         unwrapForQuery(await api.enableModWithLayers(modId, layerStates)),
       onMutate: ({ modId, layerStates }) => {
@@ -139,14 +139,14 @@ export const modMutations = {
         /* The tree the overlay reads was rewritten, so the cached scan of it is
            about a directory that no longer exists, and the archive the mod's
            documents are read from may be gone with it. */
-        client.invalidateQueries({ queryKey: libraryKeys.wadReport(modId) });
+        client.invalidateQueries({ queryKey: libraryKeys.wadReports() });
         client.invalidateQueries({ queryKey: libraryKeys.mod(modId) });
       },
     }),
 
   uninstall: (client: QueryClient) =>
-    mutationOptions<void, AppError, string, ModsRollback>({
-      mutationFn: async (modId) => unwrapForQuery(await api.uninstallMod(modId)),
+    mutationOptions<null, AppError, string, ModsRollback>({
+      mutationFn: mutationFn(api.uninstallMod),
       onMutate: (modId) => holdMods(client, (mods) => mods.filter((mod) => mod.id !== modId)),
       onError: (_error, _variables, context) => releaseMods(client, context),
       onSettled: () => refreshMods(client),

@@ -1,10 +1,4 @@
-import {
-  CaretRightIcon,
-  DiceFiveIcon,
-  MinusIcon,
-  WarningCircleIcon,
-  WaveSineIcon,
-} from "@phosphor-icons/react";
+import { DiceFiveIcon, MinusIcon, WarningCircleIcon, WaveSineIcon } from "@phosphor-icons/react";
 import { type ReactNode, use, useMemo } from "react";
 
 import {
@@ -22,6 +16,7 @@ import { twMerge } from "@/utils";
 import { fileKindFromPath } from "../../../gameBrowser/utils/fileKind";
 import type { OpenIntent } from "../../../palette/utils/types";
 import { useOpenDocumentAs } from "../../../state";
+import { RandomFields, useRandomizer } from "../../curves/components/RandomFields";
 import { useCurveChain, useCurveDock } from "../../curves/state/curveTarget";
 import {
   CURVE_DYNAMICS,
@@ -29,28 +24,31 @@ import {
   curveDynamicsClass,
 } from "../../curves/utils/curveEdits";
 import { drawSummary, randomDraw, rerollsEveryFrame } from "../../curves/utils/randomDraw";
+import { valueMode } from "../../curves/utils/randomizer";
 import { summaryText } from "../../curves/utils/randomText";
+import { ChangeMark } from "../../documents/components/ChangeMark";
 import { DeclaredRowState } from "../../documents/components/DeclaredLayer";
 import { useBinRead } from "../../documents/hooks/useBinRead";
 import { TextureSwatch } from "../../links/components/TextureSwatch";
 import {
-  joinDeclarations,
   type LinkTargets,
   LinkTargetsContext,
   type RowGroup,
   useCheckLinkTargets,
-  useLayerCopy,
+  useLayerTitle,
   useLinkTargets,
 } from "../../links/hooks/useLinkTargets";
-import { chunkPath, decideFileLink } from "../../links/utils/linkDecision";
+import { chunkPath, decideFileLink, layerCopyTitle } from "../../links/utils/linkDecision";
 import { CutText } from "../../shared/components/CutText";
-import { AxisCells, ownField, RowValue, ValueMarkCell } from "../../tree/components/BinRow";
+import { FoldCaret } from "../../shared/components/FoldCaret";
 import { BinTree } from "../../tree/components/BinTree";
-import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
+import { LeafEditContext, type Reopen } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext, useRowFold } from "../../tree/state/rowFold";
 import { useHeldRows } from "../../tree/state/rowRegistry";
 import { canExpand, childCount, fieldHash, rowKey } from "../../tree/utils/binRows";
+import { AxisCells, ownField, RowValue, ValueMarkCell } from "../../values/components/RowValue";
 import { useValueMark, useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
+import { rowTag } from "../../values/utils/kindTag";
 import { markRanges, valueFamily, type ValueMark } from "../../values/utils/valueRows";
 import { FieldLabelsContext } from "../state/fieldLabels";
 import type { LayoutFrame, PlacedSection } from "../utils/classLayouts";
@@ -73,7 +71,7 @@ export interface ViewContext {
   /** The name of the object an entry hash addresses, for the path a cell copies. */
   readonly objectName: (entry: string) => string;
   /** The backend holds no document with this id. The caller reopens it. */
-  readonly onNotOpen: () => void;
+  readonly onNotOpen: Reopen;
   /** The frame it is drawn in, which a widget with two halves reads to place them. */
   readonly frame: LayoutFrame;
 }
@@ -107,7 +105,7 @@ export function AlsoCheck({
   const merged = useMemo<LinkTargets>(
     () => ({
       index: inner.index ?? outer.index,
-      declared: joinDeclarations(outer.declared, inner.declared),
+      declared: new Map([...outer.declared, ...inner.declared]),
       located: new Map([...outer.located, ...inner.located]),
       strings: new Map([...outer.strings, ...inner.strings]),
       pending: outer.pending || inner.pending,
@@ -358,7 +356,11 @@ export function FieldRow({
   const document = use(RowDocumentContext);
   const folds = document !== null && family === null && axes === null && canExpand(row);
   const [open, toggle] = useRowFold(row);
-  const caret = folds ? <FoldCaret open={open} onToggle={toggle} /> : <FoldGutter />;
+  const caret = folds ? (
+    <FoldCaret open={open} onToggle={toggle} label={m.workshop_bin_row_fields_action()} />
+  ) : (
+    <FoldGutter />
+  );
   const nameWidth = vertical ? "w-full" : width;
   const name = (
     <FieldName
@@ -387,13 +389,14 @@ export function FieldRow({
           tree row, and the chips on it stop the click themselves. */}
       <div
         className={twMerge(
-          "relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft",
+          "group/row relative flex min-h-6 items-center gap-2 rounded-sm px-1.5 hover:bg-surface-veil-soft",
           family !== null && "items-start",
           vertical && "flex-col items-stretch gap-0.5 py-1",
           tableLayout && "gap-0 rounded-none",
           folds && "cursor-pointer",
         )}
         data-row-key={rowKey(row)}
+        data-row-owner={owner ?? undefined}
         aria-expanded={folds ? open : undefined}
         onClick={folds ? toggle : undefined}
       >
@@ -409,7 +412,7 @@ export function FieldRow({
         >
           {valueSlot}
           {valueSlot === undefined && family !== null && (
-            <ValueCell row={row} shaped railed={rail !== undefined} />
+            <ValueCell row={row} shaped railed={rail !== undefined} randomFields />
           )}
           {valueSlot === undefined && family === null && axes !== null && !editable && (
             <AxisCells values={axes} />
@@ -423,6 +426,7 @@ export function FieldRow({
             row.node === "element" && <ElementClass value={row.value} />}
           {valueSlot === undefined && family === null && axes === null && <RowValue row={row} />}
           {valueAction}
+          <ChangeMark rowKey={rowKey(row)} />
           <DeclaredRowState rowKey={rowKey(row)} />
         </div>
       </div>
@@ -439,30 +443,6 @@ function ElementClass({ value }: { value: BinRow["value"] }) {
 
 /** The gutter every field row's name starts with, which a fold's caret stands in. */
 const GUTTER = "h-6 w-4 shrink-0";
-
-/**
- * A struct's or a list's fold, in the gutter before the name so the names stay in one
- * column. The row itself folds on a click too, so the caret keeps its click to itself.
- */
-export function FoldCaret({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={m.workshop_bin_row_fields_action()}
-      aria-expanded={open}
-      className={twMerge(
-        GUTTER,
-        "flex cursor-pointer items-center justify-center text-surface-400 hover:text-surface-100",
-      )}
-      onClick={(event) => {
-        event.stopPropagation();
-        onToggle();
-      }}
-    >
-      <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
-    </button>
-  );
-}
 
 /** The gutter of a row that folds nothing, so its name lines up with one that does. */
 function FoldGutter() {
@@ -566,6 +546,7 @@ function FieldName({ row, label, width, depth, owner, caret }: FieldNameProps) {
         label={label}
         unnamed={row.unnamed}
         declared={row.declared}
+        fileTag={rowTag(row)}
         triggerClassName={twMerge(
           "text-surface-200",
           label && "font-sans font-medium",
@@ -588,11 +569,20 @@ export function ValueCell({
   row,
   shaped = false,
   railed = false,
+  controls = false,
+  randomFields = false,
+  chip = true,
 }: {
   row: BinRow;
   shaped?: boolean;
   /** The layout draws a roll rail, which already says when the table is re-rolled. */
   railed?: boolean;
+  /** The host draws the curve itself, so the cell draws only its toggle and random chip. */
+  controls?: boolean;
+  /** The row has the room for a random value's Min and Max, which a one-line host lacks. */
+  randomFields?: boolean;
+  /** Whether the cell draws its random chip, which a host aiming the dock itself leaves out. */
+  chip?: boolean;
 }) {
   const mark = useValueMark(rowKey(row));
   const { aim, clear, target } = useCurveDock();
@@ -604,6 +594,9 @@ export function ValueCell({
   const dynamicsClass = curveDynamicsClass(valueClass);
   const curve = mark?.curve === true;
   const canActivate = edit?.editProperty !== undefined && dynamicsClass !== null;
+  const mode = valueMode(mark);
+  const randomizer = useRandomizer(row, mark);
+  const ranged = mode === "random" && randomFields && !controls && mark !== undefined;
 
   async function activateCurve() {
     if (edit?.editProperty === undefined || valueClass === null) return;
@@ -615,6 +608,14 @@ export function ValueCell({
     if (!activated || row.value.type !== "struct") return;
 
     aim({ row: { ...row, value: { ...row.value, len: row.value.len + 1 } }, chain, tab: "graph" });
+  }
+
+  /* A random value leaves its draw behind for a curve, and a curve opens in the dock. */
+  async function toCurve() {
+    if (mode === "constant") return activateCurve();
+    if (mode === "random" && randomizer !== null && !(await randomizer.stop())) return;
+
+    aim({ row, chain, tab: "graph" });
   }
 
   async function deactivateCurve() {
@@ -631,19 +632,30 @@ export function ValueCell({
         shaped && "flex-wrap gap-y-1 py-0.5",
       )}
     >
-      {constant !== undefined && <RowValue row={constant} field={ownField(row)} />}
-      {constant === undefined && (
+      {ranged && <RandomFields row={row} mark={mark} />}
+      {!controls && !ranged && constant !== undefined && (
+        <RowValue row={constant} field={ownField(row)} color={mark?.family === "color"} />
+      )}
+      {!controls && !ranged && constant === undefined && (
         <ValueMarkCell mark={mark} axes={shaped} field={shaped ? ownField(row) : null} />
       )}
-      {mark?.constantRow !== undefined && <DeclaredRowState rowKey={rowKey(mark.constantRow)} />}
+      {!controls && mark?.constantRow !== undefined && (
+        <DeclaredRowState rowKey={rowKey(mark.constantRow)} />
+      )}
       {(curve || canActivate) && (
         <CurveToggle
-          active={curve}
-          onCurve={curve ? () => aim({ row, chain, tab: "graph" }) : () => void activateCurve()}
+          active={mode === "curve"}
+          random={mode === "random"}
+          onCurve={() => void toCurve()}
           onConstant={edit?.setPointer === undefined ? undefined : () => void deactivateCurve()}
+          onRandom={
+            randomizer === null || mode === "random" ? undefined : () => void randomizer.start()
+          }
         />
       )}
-      {curve && <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} railed={railed} />}
+      {curve && !ranged && chip && (
+        <RandomChip row={row} mark={mark} chain={chain} shaped={shaped} railed={railed} />
+      )}
     </span>
   );
 }
@@ -651,12 +663,18 @@ export function ValueCell({
 /** The compact row action that creates or opens a value's dynamics. */
 export function CurveToggle({
   active = false,
+  random = false,
   onCurve,
   onConstant,
+  onRandom,
 }: {
   active?: boolean;
+  /** The value draws between two ends at birth. */
+  random?: boolean;
   onCurve: () => void;
   onConstant?: () => void;
+  /** Turn the value random. Absent where it already is, or the host offers no Random mode. */
+  onRandom?: () => void;
 }) {
   const curveLabel = active
     ? m.workshop_bin_force_curve_action()
@@ -672,17 +690,33 @@ export function CurveToggle({
         <button
           type="button"
           aria-label={m.workshop_bin_use_constant_action()}
-          aria-pressed={!active}
+          aria-pressed={!active && !random}
           disabled={onConstant === undefined}
           className={twMerge(
             "flex h-full w-5 cursor-pointer items-center justify-center border-r border-surface-veil-strong text-surface-500 transition-colors hover:bg-surface-veil hover:text-surface-200 disabled:cursor-not-allowed disabled:opacity-50",
-            !active && "bg-surface-veil-strong text-surface-200",
+            !active && !random && "bg-surface-veil-strong text-surface-200",
           )}
           onClick={onConstant}
         >
-          <MinusIcon weight="bold" className="h-3.5 w-3.5" />
+          <MinusIcon weight="bold" className="size-3.5" />
         </button>
       </Tooltip>
+      {(random || onRandom !== undefined) && (
+        <Tooltip content={m.workshop_bin_use_random_action()}>
+          <button
+            type="button"
+            aria-label={m.workshop_bin_use_random_action()}
+            aria-pressed={random}
+            className={twMerge(
+              "flex h-full w-5 cursor-pointer items-center justify-center border-r border-surface-veil-strong text-surface-500 transition-colors hover:bg-surface-veil hover:text-surface-200",
+              random && "bg-surface-veil-strong text-accent-400",
+            )}
+            onClick={onRandom}
+          >
+            <DiceFiveIcon weight="bold" className="size-3.5" />
+          </button>
+        </Tooltip>
+      )}
       <Tooltip content={curveLabel}>
         <button
           type="button"
@@ -694,7 +728,7 @@ export function CurveToggle({
           )}
           onClick={onCurve}
         >
-          <WaveSineIcon weight="bold" className="h-3.5 w-3.5" />
+          <WaveSineIcon weight="bold" className="size-3.5" />
         </button>
       </Tooltip>
     </span>
@@ -743,7 +777,7 @@ function RandomChip({
       )}
       onClick={() => aim({ row, chain, tab: "graph" })}
     >
-      <DiceFiveIcon weight="bold" className="h-3.5 w-3.5 shrink-0" />
+      <DiceFiveIcon weight="bold" className="size-3.5 shrink-0" />
       {flickers && (
         <span className="ml-1 font-sans text-meta whitespace-nowrap">
           {m.workshop_bin_random_flicker_label()}
@@ -789,18 +823,18 @@ export type TileSize = "card" | "tile" | "row";
 
 /** The room each size takes, and the mark that fits in it. */
 const EMPTY_BOX: Record<TileSize, { box: string; mark: string }> = {
-  card: { box: "aspect-square w-full", mark: "h-5 w-5" },
-  tile: { box: "h-12 w-12", mark: "h-4 w-4" },
-  row: { box: "h-5 w-5", mark: "h-3 w-3" },
+  card: { box: "aspect-square w-full", mark: "size-5" },
+  tile: { box: "size-12", mark: "size-4" },
+  row: { box: "size-5", mark: "size-3" },
 };
 
 /** A texture at `size`, for a `file` and for a string that resolves as one. */
 export function TextureTile({ row, size = "tile" }: { row: BinRow | undefined; size?: TileSize }) {
   const targets = useLinkTargets();
   const path = texturePath(row);
-  const layer = useLayerCopy(path);
+  const title = useLayerTitle();
   const open = useOpenDocumentAs();
-  const decision = decideFileLink(path, targets, layer);
+  const decision = decideFileLink(path, targets, title);
 
   const fileKind = path === null ? "unknown" : fileKindFromPath(path);
   if (decision.kind === "missing") return <EmptyTile size={size} missing />;
@@ -812,7 +846,7 @@ export function TextureTile({ row, size = "tile" }: { row: BinRow | undefined; s
       asset={decision.document.asset}
       path={path}
       fileKind={fileKind}
-      layerTitle={layer?.title}
+      layerTitle={layerCopyTitle(decision.document.asset, title)}
       size={size}
       onOpen={(intent: OpenIntent) => open(decision.document, intent)}
     />

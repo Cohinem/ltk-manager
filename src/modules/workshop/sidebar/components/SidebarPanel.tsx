@@ -4,6 +4,7 @@ import { DocumentToolbarSlotContext } from "@/modules/editor";
 import { useSidebarView } from "@/stores";
 
 import { ContentSidebar, type ContentSidebarProps } from "../../content/components/ContentSidebar";
+import { DeclarationsView } from "../../declarations";
 import { objectsDocument, problemsDocument } from "../../documents";
 import { ObjectsDocument } from "../../objectsBrowser";
 import { ProblemsDocument } from "../../problems";
@@ -28,14 +29,14 @@ export function SidebarPanel(props: ContentSidebarProps) {
   return (
     <aside
       data-ui="SidebarPanel"
-      /* DS-GROUND: an island inside the fold sits a rung below it. */
-      className="flex h-full w-full flex-col overflow-hidden border border-surface-700 bg-surface-950 select-none"
+      /* DS-GROUND: an island on the ground, which its border marks. */
+      className="flex size-full flex-col overflow-hidden rounded-lg border border-surface-700 bg-surface-950 select-none"
     >
       <div
         data-ui="SidebarPanel:title"
         className="flex h-9 shrink-0 items-center gap-1.5 border-b border-surface-700/50 pr-1.5 pl-3"
       >
-        <span className="min-w-0 flex-1 truncate text-[0.6875rem] font-medium tracking-wide text-surface-300 uppercase">
+        <span className="min-w-0 flex-1 truncate text-meta font-medium tracking-wide text-surface-300 uppercase">
           {title}
         </span>
         <SidebarViewMenu />
@@ -66,6 +67,7 @@ function SidebarBody(props: ContentSidebarProps) {
     return <ProblemsDocument document={problemsDocument()} active />;
   }
   if (view === "objects") return <ObjectsDocument document={objectsDocument()} active />;
+  if (view === "declarations") return <DeclarationsView />;
   if (view === "game") return <GameIndexView />;
   if (view === "source") return <SourceControlView />;
   return <ContentSidebar {...props} />;

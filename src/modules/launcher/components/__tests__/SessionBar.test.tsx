@@ -4,9 +4,10 @@ import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
-import type { Incident, LaunchProgress, OverlayProgress, PatcherPhase } from "@/lib/bindings";
+import type { Incident, LaunchProgress, OverlayProgress, PatcherPhase } from "@/lib/tauri";
 import { usePatcherStatus } from "@/modules/patcher";
 import { useIncidentLineStore, usePatcherFailureStore, usePlaySessionStore } from "@/stores";
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke, mockListen } from "@/test/mocks/tauri";
 import { renderWithProviders } from "@/test/utils";
 
@@ -45,16 +46,16 @@ async function emit(name: string, payload: unknown) {
 
 function mockPatcher(phase: PatcherPhase, patcherAvailable = true, leagueRunning = false) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === "get_patcher_status") {
+    if (cmd === commandNames.patcher.getPatcherStatus) {
       return Promise.resolve({
         ok: true,
         value: { running: phase !== "idle", phase, session: null },
       });
     }
-    if (cmd === "get_platform_support") {
+    if (cmd === commandNames.desktop.getPlatformSupport) {
       return Promise.resolve({ ok: true, value: { patcherAvailable } });
     }
-    if (cmd === "get_launch_availability") {
+    if (cmd === commandNames.launcher.getLaunchAvailability) {
       return Promise.resolve({
         ok: true,
         value: {
@@ -117,6 +118,7 @@ const missingData: Incident = {
   scanStatus: null,
   scanStatusCode: null,
   scanRejected: 0,
+  shader: null,
   hostElevated: false,
   patcher: {},
   overlayDetail: null,
@@ -334,7 +336,9 @@ describe("SessionBar", () => {
       await userEvent.click(screen.getByRole("button", { name: "Rebuild overlay" }));
 
       await waitFor(() =>
-        expect(mockInvoke.mock.calls.map(([cmd]) => cmd)).toContain("rebuild_overlay"),
+        expect(mockInvoke.mock.calls.map(([cmd]) => cmd)).toContain(
+          commandNames.patcher.rebuildOverlay,
+        ),
       );
     });
 
@@ -366,7 +370,9 @@ describe("SessionBar", () => {
       await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
 
       expect(await screen.findByText("Patcher idle")).toBeInTheDocument();
-      expect(mockInvoke).toHaveBeenCalledWith("dismiss_incident", { id: missingData.id });
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.diagnostics.dismissIncident, {
+        id: missingData.id,
+      });
     });
 
     /// The bar's job is the present. The incident waits on the Games tab.

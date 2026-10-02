@@ -2,7 +2,8 @@ import { useMemo } from "react";
 
 import type { WorkshopProject } from "@/lib/tauri";
 
-import { useBulkDeleteDialog, useBulkPackDialog, useWorkshopSelectionStore } from "../../state";
+import { usePackProjects } from "../../packing/api/usePackProjects";
+import { useBulkDeleteDialog, useWorkshopSelectionStore } from "../../state";
 import { useTestProjects } from "../../testing/api/useTestProject";
 import { useWorkshopTestState } from "../../testing/api/useWorkshopTestState";
 import { useFilteredProjects } from "./useFilteredProjects";
@@ -30,7 +31,7 @@ export interface ProjectSelectionActions {
 export function useProjectSelectionActions(): ProjectSelectionActions {
   const selectedPaths = useWorkshopSelectionStore((s) => s.selectedPaths);
   const clear = useWorkshopSelectionStore((s) => s.clear);
-  const openBulkPackDialog = useBulkPackDialog((s) => s.open);
+  const packProjects = usePackProjects();
   const openBulkDeleteDialog = useBulkDeleteDialog((s) => s.open);
 
   const filteredProjects = useFilteredProjects();
@@ -51,12 +52,16 @@ export function useProjectSelectionActions(): ProjectSelectionActions {
     test: () => {
       if (count === 0) return;
       testProjects.mutate(
-        { projects: projects.map((p) => ({ path: p.path, displayName: p.displayName })) },
+        { projects },
         { onError: (err) => console.error("Failed to test projects:", err) },
       );
       clear();
     },
-    pack: () => count > 0 && openBulkPackDialog(projects),
+    pack: () => {
+      if (count === 0) return;
+      void packProjects(projects);
+      clear();
+    },
     delete: () => count > 0 && openBulkDeleteDialog(projects),
     clear,
     canTest: count > 0 && testState.kind === "idle",

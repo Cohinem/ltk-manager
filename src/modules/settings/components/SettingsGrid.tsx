@@ -1,14 +1,16 @@
 import { type ReactNode } from "react";
 
+import { Grid } from "@/components";
+
 interface SettingsGridProps {
   children: ReactNode;
 }
 
-/**
- * Lays a tab's section cards into two columns once there is room.
- *
- * A card whose contents need the full width takes `lg:col-span-2`.
- */
+/** A tab's section cards, in two columns once there is room. */
 export function SettingsGrid({ children }: SettingsGridProps) {
-  return <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">{children}</div>;
+  return (
+    <Grid columns={2} collapseBelow="lg" align="start" gap={6}>
+      {children}
+    </Grid>
+  );
 }

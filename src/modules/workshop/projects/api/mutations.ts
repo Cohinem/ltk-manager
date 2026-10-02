@@ -30,14 +30,13 @@ export interface RemoveThumbnailVariables {
 export const projectDetailsMutations = {
   create: (client: QueryClient) =>
     mutationOptions<WorkshopProject, AppError, CreateProjectArgs>({
-      mutationFn: async (args) => unwrapForQuery(await api.createWorkshopProject(args)),
+      mutationFn: mutationFn(api.createWorkshopProject),
       onSuccess: (created) => addProject(client, created),
     }),
 
   remove: (client: QueryClient) =>
-    mutationOptions<void, AppError, string>({
-      mutationFn: async (projectPath) =>
-        unwrapForQuery(await api.deleteWorkshopProject(projectPath)),
+    mutationOptions<null, AppError, string>({
+      mutationFn: mutationFn(api.deleteWorkshopProject),
       onSuccess: (_answer, projectPath) => {
         client.setQueryData<WorkshopProject[]>(workshopKeys.projects(), (old) =>
           old?.filter((project) => project.path !== projectPath),
@@ -62,7 +61,7 @@ export const projectDetailsMutations = {
 
   saveConfig: (client: QueryClient) =>
     mutationOptions<WorkshopProject, AppError, SaveProjectConfigArgs>({
-      mutationFn: async (args) => unwrapForQuery(await api.saveProjectConfig(args)),
+      mutationFn: mutationFn(api.saveProjectConfig),
       onSuccess: (updated) => replaceProject(client, updated),
     }),
 

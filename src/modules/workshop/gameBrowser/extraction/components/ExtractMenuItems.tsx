@@ -22,7 +22,7 @@ export function ExtractMenuItems({ onRun }: ExtractMenuItemsProps) {
     <>
       {layerLabel && (
         <ContextMenu.Item
-          icon={<StackPlusIcon className="h-4 w-4" />}
+          icon={<StackPlusIcon className="size-4" />}
           shortcut="Ctrl+I"
           disabled={busy}
           onClick={() => onRun("copy")}
@@ -32,7 +32,7 @@ export function ExtractMenuItems({ onRun }: ExtractMenuItemsProps) {
       )}
       {lastFolder && (
         <ContextMenu.Item
-          icon={<DownloadSimpleIcon className="h-4 w-4" />}
+          icon={<DownloadSimpleIcon className="size-4" />}
           shortcut="Ctrl+E"
           disabled={busy}
           onClick={() => onRun("quick")}
@@ -44,7 +44,7 @@ export function ExtractMenuItems({ onRun }: ExtractMenuItemsProps) {
           plain key while there is no folder to go straight to, because then it
           is the only extract there is. */}
       <ContextMenu.Item
-        icon={<DownloadSimpleIcon className="h-4 w-4" />}
+        icon={<DownloadSimpleIcon className="size-4" />}
         shortcut={lastFolder ? "Ctrl+Shift+E" : "Ctrl+E"}
         onClick={() => onRun("dialog")}
       >

@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SuspectModAction } from "@/modules/library";
+import { commandNames } from "@/test/commandNames";
 import { createMockInstalledMod } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
 
@@ -23,7 +24,7 @@ vi.mock("@tanstack/react-router", () => ({
 function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
   mockInvoke.mockImplementation((cmd: string) => {
     switch (cmd) {
-      case "get_installed_mods":
+      case commandNames.library.getInstalledMods:
         return Promise.resolve({
           ok: true,
           value: [
@@ -34,7 +35,7 @@ function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
             }),
           ],
         });
-      case "get_patcher_status":
+      case commandNames.patcher.getPatcherStatus:
         return Promise.resolve({
           ok: true,
           value: {
@@ -43,9 +44,11 @@ function mockBackend({ patcherRunning = false, modEnabled = true } = {}) {
             session: null,
           },
         });
-      case "incident_report":
+      case commandNames.workshop.getWorkshopProject:
+        return Promise.resolve({ ok: true, value: { id: "a1b2c3d4e5f6a7b8" } });
+      case commandNames.diagnostics.incidentReport:
         return Promise.resolve({ ok: true, value: "# LTK Manager - League diagnostics" });
-      case "incident_token":
+      case commandNames.diagnostics.incidentToken:
         return Promise.resolve({ ok: true, value: "DIAG1-abc" });
       default:
         return Promise.resolve({ ok: true, value: null });
@@ -78,19 +81,19 @@ describe("IncidentDetail", () => {
     await user.click(await screen.findByRole("button", { name: "Disable" }));
 
     await waitFor(() => {
-      expect(mockInvoke).toHaveBeenCalledWith("toggle_mod", {
+      expect(mockInvoke).toHaveBeenCalledWith(commandNames.library.toggleMod, {
         modId: "mod-aatrox",
         enabled: false,
       });
     });
   });
 
-  /// A mod cannot come out of a running overlay, so the action waits.
-  it("holds Disable while the patcher runs", async () => {
+  /// A disabled mod reaches the running session between games, and a forced rebuild still waits.
+  it("keeps Disable and holds Rebuild overlay while the patcher runs", async () => {
     mockBackend({ patcherRunning: true });
     renderWithApp(<IncidentDetail incident={createMockIncident()} modAction={modAction} />);
 
-    expect(await screen.findByRole("button", { name: "Disable" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Disable" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Rebuild overlay" })).toBeDisabled();
   });
 
@@ -101,7 +104,7 @@ describe("IncidentDetail", () => {
     expect(await screen.findByRole("button", { name: "Disabled" })).toBeDisabled();
   });
 
-  it("opens a workshop project by its directory name", async () => {
+  it("opens a workshop project by the id its path resolves to", async () => {
     mockBackend();
     const user = userEvent.setup();
     const incident = createMockIncident({
@@ -119,10 +122,12 @@ describe("IncidentDetail", () => {
 
     await user.click(screen.getByRole("button", { name: "Open" }));
 
-    expect(mockNavigate).toHaveBeenCalledWith({
-      to: "/workshop/$projectName",
-      params: { projectName: "aatrox-justicar" },
-    });
+    await waitFor(() =>
+      expect(mockNavigate).toHaveBeenCalledWith({
+        to: "/workshop/$projectId",
+        params: { projectId: "a1b2c3d4e5f6a7b8" },
+      }),
+    );
   });
 
   it("draws a coded evidence line with its meaning", () => {

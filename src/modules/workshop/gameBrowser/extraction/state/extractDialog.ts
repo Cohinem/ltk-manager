@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-import type { ExistingFiles, ExtractLayout, ExtractTarget } from "@/lib/tauri";
+import type { ExistingFiles, ExtractLayout, ExtractTarget, WadSource } from "@/lib/tauri";
 import { keepUnversioned } from "@/stores/storage";
 
 interface ExtractDialogStore {
@@ -15,6 +15,8 @@ interface ExtractDialogStore {
   targets: readonly ExtractTarget[] | null;
   /** What the summary line calls the targets, e.g. `Aatrox.wad.client`. */
   subject: string;
+  /** The archives the targets are read out of. */
+  source: WadSource;
 
   /* Remembered field by field, so the second extract is two clicks. */
   destination: string;
@@ -24,7 +26,7 @@ interface ExtractDialogStore {
   recoverNames: boolean;
   openWhenDone: boolean;
 
-  open: (targets: readonly ExtractTarget[], subject: string) => void;
+  open: (targets: readonly ExtractTarget[], subject: string, source: WadSource) => void;
   close: () => void;
   setDestination: (destination: string) => void;
   setLayout: (layout: ExtractLayout) => void;
@@ -39,6 +41,7 @@ export const useExtractDialogStore = create<ExtractDialogStore>()(
     (set) => ({
       targets: null,
       subject: "",
+      source: "game",
       destination: "",
       layout: "paths",
       perArchiveFolder: false,
@@ -46,7 +49,7 @@ export const useExtractDialogStore = create<ExtractDialogStore>()(
       recoverNames: false,
       openWhenDone: true,
 
-      open: (targets, subject) => set({ targets, subject }),
+      open: (targets, subject, source) => set({ targets, subject, source }),
       close: () => set({ targets: null, subject: "" }),
       setDestination: (destination) => set({ destination }),
       setLayout: (layout) => set({ layout }),

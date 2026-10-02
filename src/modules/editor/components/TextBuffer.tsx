@@ -16,6 +16,8 @@ export interface TextBufferProps {
   /** The buffer's own name, for a reader that cannot see the document around it. */
   ariaLabel: string;
   spellCheck?: boolean;
+  /** Draw the text for reading and selecting only. */
+  readOnly?: boolean;
   /** What a find matched, painted behind the text. */
   matches?: readonly TextMatch[];
   /** Which of `matches` the find bar sits on, and -1 for none. */
@@ -41,6 +43,7 @@ export function TextBuffer({
   onChange,
   ariaLabel,
   spellCheck,
+  readOnly,
   matches,
   current = -1,
   bufferRef,
@@ -115,11 +118,12 @@ export function TextBuffer({
         ref={area}
         value={value}
         spellCheck={spellCheck}
+        readOnly={readOnly}
         aria-label={ariaLabel}
         onChange={(event) => onChange(event.target.value)}
         onScroll={(event) => handleScroll(event.currentTarget.scrollTop)}
         className={twMerge(
-          "absolute inset-0 h-full w-full resize-none overflow-y-scroll bg-transparent break-words text-surface-200 outline-none scrollbar-md",
+          "absolute inset-0 size-full resize-none overflow-y-scroll bg-transparent break-words text-surface-200 outline-none scrollbar-md",
           className,
         )}
       />

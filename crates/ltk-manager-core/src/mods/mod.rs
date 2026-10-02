@@ -1,32 +1,34 @@
 //! The mod library: what is installed, how it is organized, and how it reaches
 //! the overlay.
 //!
-//! [`ModLibrary`] is the entry point. It owns no mod data itself — everything
-//! lives in `library.json` on disk — so its job is to hold the shared handles
-//! (event sink, WAD report cache, linked-bin state) and to serialize access to
-//! that file. The work is split by concern:
+//! [`ModLibrary`] is the entry point. It holds no mod data, which lives in
+//! `library.json` on disk. It holds the shared handles (event sink, WAD report
+//! cache, linked-bin state) and serializes access to that file. The modules:
 //!
 //! | Module             | Concern                                           |
 //! | ------------------ | ------------------------------------------------- |
 //! | `index`            | `library.json`: shape, versioning, reconciliation  |
 //! | `archive`          | Mod archives in, out, and read                     |
+//! | `fantome_layer`    | The content directory a fantome layer unpacks into |
 //! | `analysis`         | What a mod touches and what that makes it          |
 //! | `health`           | The Problems rules over an installed mod           |
 //! | `organize`         | Folders and profiles                               |
 //! | `types`            | The shapes the frontend sees                       |
 //! | `library`          | Library reads and per-profile mod state            |
 //! | `overlay_content`  | Turning library entries into overlay inputs        |
-//! | `slug`             | What a mod's directory is called                   |
-//! | `long_paths`       | The 260-character limit, as unpacking meets it     |
+//! | `slug`             | A mod's directory name                             |
+//! | `long_paths`       | The 260-character path limit during unpacking      |
 //!
 //! Every installed mod is a directory under `<storage>/mods/`, named by its
-//! slug. What is inside it, and why a modpkg's is shaped differently from a
-//! fantome's, is `docs/adr/0001-fantome-unpacks-modpkg-stays-packed.md`.
+//! slug. `docs/adr/0001-fantome-unpacks-modpkg-stays-packed.md` describes its
+//! contents and why a modpkg's differ from a fantome's.
 
 mod analysis;
 mod archive;
+pub(crate) mod fantome_layer;
 mod health;
 mod index;
+mod layout;
 mod library;
 pub(crate) mod long_paths;
 mod organize;
@@ -37,14 +39,14 @@ mod types;
 #[cfg(test)]
 pub(crate) mod test_support;
 
-pub use analysis::categorize::{ChampionRoster, DerivedCategorization};
+pub use analysis::categorize::{ChampionRoster, DerivedCategorization, champion_display_name};
 pub use analysis::checksum_mismatches::{ChecksumMismatchInfo, ChecksumMismatchState};
 pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};
 pub use archive::documents::ModDocument;
 pub use archive::export::{ExportScope, ExportShape, ExportSummary, with_zip_extension};
-pub use archive::inspect::{ModpkgInfo, inspect_modpkg_file};
 pub use archive::migration::*;
+pub(crate) use archive::reader::{open_fantome, open_modpkg};
 pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
 pub use health::sweep::{HealthSweepReport, HealthSweepState, SweepScope};
 #[cfg(debug_assertions)]
@@ -52,8 +54,10 @@ pub use health::timing::{HealthTiming, ModTiming};
 pub use health::{HealthCheckBasis, HealthCheckReadiness, ModHealth, ModHealthVerdict};
 pub use index::document::{ModArchiveFormat, ModSource, ModStorage};
 pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
+pub use layout::StorageLayout;
 pub use types::{
-    BulkInstallResult, EditModMetadataArgs, InstalledMod, LibraryFolder, ModLicense, Profile,
+    BulkInstallResult, EditModMetadataArgs, InstallOutcome, InstalledMod, LibraryFolder,
+    ModLicense, Profile,
 };
 
 use crate::config::Config;
@@ -131,6 +135,11 @@ pub struct ModLibrary {
     /// The budget the check or repair now running spends, for a cancel to
     /// reach. `None` between runs.
     health_budget: Arc<Mutex<Option<crate::problems::Budget>>>,
+    /// Serializes library sweeps, so an install check waits for the startup
+    /// sweep instead of sharing its progress state and cancel handle.
+    sweep_lock: Arc<Mutex<()>>,
+    /// Serializes overlay builds, since two of one profile write the same files.
+    overlay_lock: Arc<Mutex<()>>,
     index_lock: Arc<Mutex<()>>,
     /// Serializes the read-modify-write of `mod-health-verdicts.json`.
     ///
@@ -158,6 +167,8 @@ impl Clone for ModLibrary {
             layout_migration: Arc::clone(&self.layout_migration),
             health_sweep: Arc::clone(&self.health_sweep),
             health_budget: Arc::clone(&self.health_budget),
+            sweep_lock: Arc::clone(&self.sweep_lock),
+            overlay_lock: Arc::clone(&self.overlay_lock),
             index_lock: Arc::clone(&self.index_lock),
             verdict_lock: Arc::clone(&self.verdict_lock),
             last_mutation_epoch_ms: Arc::clone(&self.last_mutation_epoch_ms),
@@ -187,6 +198,8 @@ impl ModLibrary {
             layout_migration: Arc::new(Mutex::new(LayoutMigrationState::default())),
             health_sweep: Arc::new(Mutex::new(HealthSweepState::default())),
             health_budget: Arc::new(Mutex::new(None)),
+            sweep_lock: Arc::new(Mutex::new(())),
+            overlay_lock: Arc::new(Mutex::new(())),
             index_lock: Arc::new(Mutex::new(())),
             verdict_lock: Arc::new(Mutex::new(())),
             last_mutation_epoch_ms: Arc::new(AtomicI64::new(0)),
@@ -204,6 +217,10 @@ impl ModLibrary {
 
     pub(in crate::mods) fn verdict_lock(&self) -> &Mutex<()> {
         &self.verdict_lock
+    }
+
+    pub(crate) fn overlay_lock(&self) -> &Mutex<()> {
+        &self.overlay_lock
     }
 
     /// Take `budget` as the run now under way, so a cancel can reach it.

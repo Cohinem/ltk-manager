@@ -1,3 +1,4 @@
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
 import {
   type KeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -9,6 +10,8 @@ import {
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { ChannelSash } from "./ChannelSash";
+import { FieldDiscardContext } from "./FieldDiscardContext";
 import { InputDefaultContext } from "./InputDefaultContext";
 import { stepNumber } from "./stepNumber";
 
@@ -22,9 +25,10 @@ export interface ReadoutProps {
   value: string;
   /** Placeholder text for an implicit value, including an empty string. */
   placeholder?: string;
-  /** The letter naming one component of a vector or a colour, drawn left of the value. */
+  /** The letter naming one component of a vector or a colour, which is the field's name. */
   label?: string;
-  labelClassName?: string;
+  /** The component's channel, whose `ChannelSash` heads the field. */
+  channel?: number;
   "aria-label"?: string;
   /** The room the value takes. Not the label, which is as wide as its letter. */
   className?: string;
@@ -54,7 +58,7 @@ export function Readout({
   value,
   placeholder: placeholderText,
   label,
-  labelClassName,
+  channel,
   "aria-label": ariaLabel,
   className,
   onCommit,
@@ -65,6 +69,7 @@ export function Readout({
   step,
 }: ReadoutProps) {
   const implicit = use(InputDefaultContext);
+  const discard = use(FieldDiscardContext);
   const [draft, setDraft] = useState<{ text: string; over: string; implicit: boolean } | null>(
     null,
   );
@@ -76,7 +81,7 @@ export function Readout({
   const discarding = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const editable = onCommit !== undefined;
-  const wrapped = label !== undefined || (editable && step !== undefined);
+  const wrapped = channel !== undefined || (editable && step !== undefined);
   const hasDraft = draft !== null && draft.over === value && draft.implicit === implicit;
   const placeholder = implicit && !hasDraft;
   const shown = hasDraft ? draft.text : implicit ? "" : value;
@@ -114,6 +119,7 @@ export function Readout({
     if (event.key === "Escape") {
       discarding.current = true;
       setDraft(null);
+      discard?.();
       event.currentTarget.blur();
     }
   }
@@ -141,6 +147,7 @@ export function Readout({
       aria-invalid={invalid || undefined}
       title={step !== undefined && editable ? m.common_number_step_hint() : undefined}
       data-draft={(hasDraft && (shown !== value || implicit)) || undefined}
+      data-value-field={editable || undefined}
       autoFocus={autoFocus}
       onFocus={autoFocus ? (event) => event.currentTarget.select() : undefined}
       data-ui="Readout"
@@ -148,6 +155,7 @@ export function Readout({
         "h-[var(--readout-height,auto)] min-w-0 bg-surface-veil-soft px-[var(--readout-padding-x,0.375rem)] py-0.5",
         "font-mono text-surface-200 tabular-nums select-text focus:outline-none",
         editable ? "cursor-text" : "cursor-default",
+        step !== undefined && "text-right",
         /* DS-VEIL, DS-HOVER, DS-RADIUS. The wrapper draws them for a labelled one. */
         !wrapped &&
           "rounded-sm border border-surface-veil transition-colors hover:border-accent-hover",
@@ -172,34 +180,23 @@ export function Readout({
     return field;
   }
 
-  /* The letter rides a rung above the value, so the pair reads as one control with a
-     named half rather than as a caption beside a box. */
   return (
     <span
       /* DS-VEIL, DS-HOVER, DS-RADIUS */
       className={twMerge(
-        "inline-flex min-w-0 items-stretch overflow-hidden rounded-sm border border-surface-veil transition-colors hover:border-accent-hover",
+        "group/readout inline-flex min-w-0 items-stretch overflow-hidden rounded-sm border border-surface-veil transition-colors hover:border-accent-hover",
         editable && "focus-within:border-accent-500",
         invalid && "border-danger",
         placeholder && "border-dashed focus-within:border-solid",
       )}
     >
-      {label !== undefined && (
-        <span
-          aria-hidden
-          /* DS-WEIGHT-TIER: weight rather than size, which a dense row has no room for. */
-          className={twMerge(
-            "flex items-center bg-surface-veil px-[var(--readout-padding-x,0.375rem)] font-mono font-semibold text-surface-300 select-none",
-            labelClassName,
-            placeholder && "bg-transparent text-surface-400",
-          )}
-        >
-          {label}
-        </span>
+      {channel !== undefined && (
+        <ChannelSash channel={channel} className={twMerge(placeholder && "opacity-50")} />
       )}
       {field}
       {editable && step !== undefined && (
-        <span className="flex shrink-0 flex-col border-l border-surface-veil">
+        /* Keeps its room while hidden, so a column of fields does not shift under the pointer. */
+        <span className="flex shrink-0 flex-col border-l border-surface-veil opacity-0 group-focus-within/readout:opacity-100 group-hover/readout:opacity-100 group-hover/row:opacity-100">
           {[1, -1].map((direction) => (
             <button
               key={direction}
@@ -209,7 +206,8 @@ export function Readout({
                   ? m.common_number_increase_action()
                   : m.common_number_decrease_action()
               }
-              className="flex h-[calc(var(--readout-height,1.5rem)/2)] w-[var(--readout-step-width,1rem)] items-center justify-center text-fine text-surface-400 hover:bg-surface-veil hover:text-surface-100"
+              /* DS-VEIL */
+              className="flex h-[calc(var(--readout-height,1.5rem)/2)] w-[var(--readout-step-width,1rem)] items-center justify-center text-surface-400 hover:bg-surface-veil hover:text-surface-100"
               onMouseDown={(event) => {
                 event.preventDefault();
                 input.current?.focus();
@@ -220,8 +218,8 @@ export function Readout({
                 nudge(direction, event.ctrlKey || event.metaKey, event.shiftKey);
               }}
             >
-              {direction === 1 && "+"}
-              {direction === -1 && "−"}
+              {direction === 1 && <CaretUpIcon weight="bold" className="size-2.5" />}
+              {direction === -1 && <CaretDownIcon weight="bold" className="size-2.5" />}
             </button>
           ))}
         </span>

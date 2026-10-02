@@ -1,0 +1,37 @@
+[package]
+name = "atlas"
+version = "0.1.0"
+description = "Atlas, the game's UI views read, laid out and packed for the workshop's UI editor"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+
+[features]
+# Derive `specta::Type` on what crosses IPC, which takes core's and the game crate's.
+ts = ["dep:specta", "ltk-manager-core/ts", "ltk-manager-game/ts"]
+
+[dependencies]
+hexshade = { workspace = true }
+ltk-manager-core = { workspace = true }
+ltk-manager-game = { workspace = true }
+
+fs-err = { workspace = true }
+glam = { workspace = true }
+image = { workspace = true }
+ltk_hash = { workspace = true }
+ltk_meta = { workspace = true }
+ltk_texture = { workspace = true }
+
+rayon = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+specta = { workspace = true, optional = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+ltk_primitives = "0.3.6"
+ltk_rst = { workspace = true }
+ltk_wad = { workspace = true }
+tempfile = { workspace = true }

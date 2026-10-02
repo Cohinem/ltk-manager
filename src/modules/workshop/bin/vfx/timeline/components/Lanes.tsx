@@ -1,206 +1,130 @@
 import {
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
+import { Field } from "@/components";
 import { useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
 import { useTimelineHistogram } from "@/stores";
 
-import { nameColumn } from "../../../shared/utils/textCut";
 import type { EmitterModel } from "../../engine/model/model";
 import { useEmitters } from "../../inspector/state/emitterChoice";
-import { toggled, useVfxRun } from "../../playback/state/run";
+import { useVfxRun } from "../../playback/state/run";
+import { useLaneHead } from "../hooks/useLaneHead";
+import { useLaneRows } from "../hooks/useLaneRows";
+import { useLaneSelect } from "../hooks/useLaneSelect";
 import { useLaneView } from "../hooks/useLaneView";
-import { drawHistogram, writeCounts } from "../utils/histogram";
-import { childLanes, laneOrder, matchingLanes, timeAt, xOf } from "../utils/laneModel";
-import { COUNT, laneLabel, LaneRow, type Row } from "./LaneRow";
+import { useLiveCounts } from "../hooks/useLiveCounts";
+import { useTimelineMarkers } from "../hooks/useTimelineMarkers";
+import { type SnapKeys, type TimeSnap, useTimeSnap } from "../hooks/useTimeSnap";
+import type { LaneLayout } from "../utils/histogram";
+import { timeAt, type TimeWindow, xOf } from "../utils/laneModel";
+import { COUNT, LaneRow } from "./LaneRow";
 import { useLaneGestures, VisibilityHeader } from "./laneVisibility";
+import { MarkerLines, MarkerRuler } from "./Markers";
 import { PastRun, Ruler } from "./Ruler";
+import {
+  PlayheadFlag,
+  PlayheadLine,
+  PointerFlag,
+  PointerLine,
+  usePlayhead,
+  useTimeLine,
+} from "./timeLines";
+
+/**
+ * The ruler with the open system's markers over it, or the ruler alone for a system that has
+ * nowhere to keep markers.
+ */
+function RulerMarkers({
+  view,
+  width,
+  snap,
+  onSeek,
+  children,
+}: {
+  view: TimeWindow;
+  width: number;
+  snap: TimeSnap;
+  onSeek: (time: number) => void;
+  children: ReactNode;
+}) {
+  const markers = useTimelineMarkers();
+  if (markers === null) return children;
+
+  return (
+    <MarkerRuler view={view} width={width} snap={snap} markers={markers} onSeek={onSeek}>
+      {children}
+    </MarkerRuler>
+  );
+}
 
 /** One lane's height in pixels, which the histogram canvas is laid out by. */
 const ROW = 24;
 
-/** What a lane head holds beside its name and index, in pixels: the caret, square, M and S. */
-const HEAD_EXTRA = 104;
-
-/** The share of the pane past which a lane head cuts its names. */
-const HEAD_CAP = 1 / 3;
-
-/** How often the counts and the histogram redraw while the run plays, in milliseconds. */
-const REDRAW_MS = 100;
-
-/** The token the histogram is painted in, resolved off the canvas. */
-const HISTOGRAM_TOKEN = "--color-accent-400";
-
-/** The width of the time chip on the playhead and the pointer's line, in pixels. */
-const FLAG = 36;
-
-/** Stand `chip` over `x`, held inside the ruler's `width` so it never clips at an end. */
-function placeChip(chip: HTMLElement, x: number, width: number): void {
-  const offset = Math.min(Math.max(-FLAG / 2, -x), width - x - FLAG);
-  chip.style.transform = `translateX(${offset}px)`;
-}
-
-/** Show or hide a line that stands at `x`, with its chip reading `time`. */
-function standLine(
-  lines: readonly (HTMLElement | null)[],
-  chip: HTMLElement | null,
-  x: number,
-  width: number,
-  time: number,
-): void {
-  const shown = x >= 0 && x <= width;
-  for (const line of lines) {
-    if (line === null) continue;
-    line.style.visibility = shown ? "visible" : "hidden";
-    line.style.transform = `translateX(${x}px)`;
-  }
-  if (chip === null || !shown) return;
-  chip.textContent = time.toFixed(2);
-  placeChip(chip, x, width);
-}
-
 /**
  * One lane per emitter under one playhead, "The timeline" in docs/ux/BIN_EDITOR.md.
  *
- * The bars and the heads are the DOM's, and the histogram is one canvas over the tracks,
- * redrawn at `REDRAW_MS` off the run's clock. The playhead, its flag, the pointer's line and
- * the live counts are written to the DOM outside React's render, and a row re-renders on a
- * change of its own.
+ * The bars and the heads are the DOM's, and the histogram is one canvas over the tracks. The
+ * playhead, the pointer's line and the live counts are written to the DOM off the run's clock,
+ * and a row re-renders only when its data changes. The name filter sits in the ruler row's
+ * head cell, over the names it narrows.
  */
 export function Lanes() {
-  const run = useVfxRun();
-  const { system, driver, span, loop, seek, setLoop, subscribe } = run;
-  const { cards, filter, chooseCard, chooseChild } = useEmitters();
+  const { system, span, loop, seek, setLoop, beginScrub, endScrub } = useVfxRun();
+  const { cards, filter, setFilter } = useEmitters();
   const histogram = useTimelineHistogram();
+  const select = useLaneSelect();
 
   const [width, setWidth] = useState(0);
   const measure = useResizeObserver<HTMLDivElement>((element) => setWidth(element.clientWidth));
-  const [pane, setPane] = useState(0);
-  const measurePane = useResizeObserver<HTMLDivElement>((element) => setPane(element.clientWidth));
-  /* A cap in pixels rather than a share, so the ruler's row and the scrolled rows under it,
-     which a scrollbar narrows, draw one width. */
-  const head = useMemo(
-    () =>
-      nameColumn(
-        system === null ? [] : laneOrder(system).map(laneLabel),
-        HEAD_EXTRA,
-        pane > 0 ? `${Math.round(pane * HEAD_CAP)}px` : `${HEAD_CAP * 100}%`,
-      ),
-    [system, pane],
-  );
-  const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set());
-  /* How many children the pass has spawned, which is what moves a child lane's bars. */
-  const [spawned, setSpawned] = useState(0);
+  const { head, measure: measurePane } = useLaneHead(system);
 
-  const rows = useMemo<Row[]>(() => {
-    if (system === null) return [];
-    return matchingLanes(laneOrder(system), filter).flatMap((emitter) => {
-      const nested = childLanes(emitter);
-      const own: Row = { kind: "emitter", emitter, nested: nested.length > 0 };
-      if (!expanded.has(emitter.index)) return [own];
-      return [own, ...nested.map((lane): Row => ({ kind: "child", lane, parent: emitter }))];
-    });
-  }, [system, filter, expanded]);
-  const every = useMemo(
-    () => (system === null ? [] : laneOrder(system).map((emitter) => emitter.index)),
-    [system],
-  );
-  const listed = useMemo(
-    () => rows.flatMap((row) => (row.kind === "emitter" ? [row.emitter.index] : [])),
-    [rows],
-  );
+  const body = useRef<HTMLDivElement>(null);
+  const tracks = useRef<HTMLDivElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const { view, refit } = useLaneView(span, body, width);
+
+  const { rows, every, listed, edges, expanded, expand } = useLaneRows(system, filter);
   const gestures = useLaneGestures(listed, every);
-
   const cardOf = useCallback(
     (emitter: EmitterModel) =>
       cards.find((card) => card.simple === emitter.simple && card.index === emitter.listIndex),
     [cards],
   );
-  const select = useCallback(
-    (row: Row) => {
-      if (row.kind === "child") {
-        chooseChild({
-          path: row.lane.path,
-          parent: cardOf(row.parent)?.key ?? null,
-          system: row.lane.system,
-          emitter: row.lane.emitter,
-        });
-        return;
-      }
-      const card = cardOf(row.emitter);
-      if (card !== undefined) chooseCard(card.key);
-    },
-    [cardOf, chooseCard, chooseChild],
-  );
-  const expand = useCallback((index: number) => setExpanded((held) => toggled(held, index)), []);
 
-  /* The playhead and its flag follow every frame, and the counts and the histogram every
-     `REDRAW_MS`. The paint colour is read once here rather than per redraw, since a computed
-     style forces the document's styles to settle first. */
-  const body = useRef<HTMLDivElement>(null);
-  const playhead = useRef<HTMLDivElement>(null);
-  const flag = useRef<HTMLDivElement>(null);
-  const chip = useRef<HTMLSpanElement>(null);
-  const canvas = useRef<HTMLCanvasElement>(null);
-  const drawn = useRef(0);
-  const { view, refit } = useLaneView(span, body, width);
-  useEffect(() => {
-    const colour =
-      canvas.current === null
-        ? ""
-        : getComputedStyle(canvas.current).getPropertyValue(HISTOGRAM_TOKEN).trim();
-    const paint = () => {
-      const x = xOf(view, width, driver.phase);
-      standLine([playhead.current, flag.current], chip.current, x, width, driver.phase);
-      const now = performance.now();
-      if (now - drawn.current < REDRAW_MS) return;
-      drawn.current = now;
-      drawHistogram(canvas.current, colour, driver.histogram, {
-        lanes: rows.map((row) => (row.kind === "emitter" ? row.emitter.index : null)),
-        row: ROW,
-        view,
-        width,
-      });
-      writeCounts(body.current, driver.histogram);
-      setSpawned(driver.births().length);
-    };
-    drawn.current = 0;
-    paint();
-    return subscribe(paint);
-  }, [subscribe, driver, rows, view, width]);
+  const layout = useMemo<LaneLayout>(
+    () => ({
+      lanes: rows.map((row) => (row.kind === "emitter" ? row.emitter.index : null)),
+      row: ROW,
+      view,
+      width,
+    }),
+    [rows, view, width],
+  );
+  const spawned = useLiveCounts(body, canvas, layout);
+  const playhead = usePlayhead(view, width);
+  const pointer = useTimeLine();
+  const snap = useTimeSnap(view, width, edges);
+  const markers = useTimelineMarkers();
 
   const seekAt = useCallback(
-    (x: number) => seek(Math.max(timeAt(view, width, x), 0)),
-    [seek, view, width],
+    (x: number, keys: SnapKeys) =>
+      seek(
+        Math.max(snap(timeAt(view, width, x), keys, { playhead: true, minorTicks: true }).time, 0),
+      ),
+    [seek, snap, view, width],
   );
-
-  /* The pointer's line reads where a press would seek, over the ruler and every lane. */
-  const tracks = useRef<HTMLDivElement>(null);
-  const ghost = useRef<HTMLDivElement>(null);
-  const ghostFlag = useRef<HTMLDivElement>(null);
-  const ghostChip = useRef<HTMLSpanElement>(null);
-  const trackX = (event: ReactPointerEvent) =>
-    event.clientX - (tracks.current?.getBoundingClientRect().left ?? 0);
+  const trackX = (clientX: number) => clientX - (tracks.current?.getBoundingClientRect().left ?? 0);
   const hover = (event: ReactPointerEvent) => {
-    const x = trackX(event);
-    standLine(
-      [ghost.current, ghostFlag.current],
-      ghostChip.current,
-      x,
-      width,
-      timeAt(view, width, x),
-    );
+    const x = trackX(event.clientX);
+    pointer.stand(x, width, timeAt(view, width, x));
   };
-  const unhover = () => standLine([ghost.current, ghostFlag.current], null, -1, width, 0);
-
-  /* The flag is the ruler's scrub handle, where a drag on the open ruler sets a loop. */
-  const scrubbing = useRef(false);
 
   return (
     <div
@@ -208,14 +132,19 @@ export function Lanes() {
       data-ui="Lanes"
       className="flex min-h-0 flex-1 flex-col"
       onPointerMove={hover}
-      onPointerLeave={unhover}
+      onPointerLeave={pointer.hide}
     >
-      <div ref={measurePane} className="flex h-5 shrink-0 border-b border-surface-700/50">
-        <div
-          className="shrink-0 border-r border-surface-700/50 font-mono text-code"
-          style={{ width: head }}
-        >
-          <VisibilityHeader every={every} />
+      <div ref={measurePane} className="flex h-6 shrink-0 border-b border-surface-700/50">
+        <div className="shrink-0 border-r border-surface-700/50" style={{ width: head }}>
+          <VisibilityHeader every={every}>
+            <Field.Control
+              className="h-5 w-full min-w-0 px-1.5 font-sans text-meta"
+              aria-label={m.workshop_bin_emitter_filter_label()}
+              placeholder={m.workshop_bin_emitter_filter_placeholder()}
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+            />
+          </VisibilityHeader>
         </div>
         <div className="relative min-w-0 flex-1">
           <span className="absolute inset-y-0 right-1 flex items-end pb-px text-meta leading-none text-surface-500 select-none">
@@ -226,54 +155,27 @@ export function Lanes() {
             className="absolute inset-y-0 left-0 overflow-hidden"
             style={{ right: COUNT }}
           >
-            <Ruler
-              view={view}
-              width={width}
-              span={span}
-              loop={loop}
-              onSeek={seekAt}
-              onLoop={setLoop}
-              onRefit={refit}
-            />
-            <div
-              ref={ghostFlag}
-              aria-hidden="true"
-              className="pointer-events-none invisible absolute inset-y-0 left-0 border-l border-dashed border-surface-400/60"
-            >
-              <span
-                ref={ghostChip}
-                className="absolute top-px left-0 flex h-3.5 items-center justify-center rounded-sm bg-surface-700 font-mono text-meta leading-none text-surface-200 tabular-nums"
-                style={{ width: FLAG }}
+            <RulerMarkers view={view} width={width} snap={snap} onSeek={seek}>
+              <Ruler
+                view={view}
+                width={width}
+                span={span}
+                loop={loop}
+                snap={snap}
+                onSeek={seekAt}
+                onScrubStart={beginScrub}
+                onScrubEnd={endScrub}
+                onLoop={setLoop}
+                onRefit={refit}
               />
-            </div>
-            <div
-              ref={flag}
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 w-px bg-accent-400"
-            >
-              <span
-                ref={chip}
-                data-ui="Lanes:flag"
-                /* DS-INVARIANT */
-                className="pointer-events-auto absolute top-px left-0 flex h-3.5 cursor-ew-resize touch-none items-center justify-center rounded-sm bg-accent-500 font-mono text-meta leading-none text-brand-on tabular-nums shadow-sm"
-                style={{ width: FLAG }}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  if (event.button !== 0) return;
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                  scrubbing.current = true;
-                }}
-                onPointerMove={(event) => {
-                  if (scrubbing.current) seekAt(trackX(event));
-                }}
-                onPointerUp={() => {
-                  scrubbing.current = false;
-                }}
-                onPointerCancel={() => {
-                  scrubbing.current = false;
-                }}
+              <PointerFlag line={pointer} />
+              <PlayheadFlag
+                line={playhead}
+                onScrubStart={beginScrub}
+                onScrub={(clientX, keys) => seekAt(trackX(clientX), keys)}
+                onScrubEnd={endScrub}
               />
-            </div>
+            </RulerMarkers>
           </div>
         </div>
       </div>
@@ -299,11 +201,12 @@ export function Lanes() {
               onExpand={expand}
               onSelect={select}
               onSeek={seekAt}
+              snap={snap}
             />
           ))}
           <div
             ref={tracks}
-            className="pointer-events-none absolute inset-y-0 overflow-hidden font-mono text-code"
+            className="pointer-events-none absolute inset-y-0 overflow-hidden"
             style={{ left: head, right: COUNT }}
             aria-hidden="true"
           >
@@ -324,15 +227,11 @@ export function Lanes() {
                 style={{ width, height: rows.length * ROW }}
               />
             )}
-            <div
-              ref={ghost}
-              className="invisible absolute inset-y-0 left-0 border-l border-dashed border-surface-400/50"
-            />
-            <div
-              ref={playhead}
-              className="absolute inset-y-0 left-0 w-px bg-accent-400 shadow-[0_0_6px_var(--color-accent-500)]"
-              style={{ transform: `translateX(${xOf(view, width, driver.phase)}px)` }}
-            />
+            {markers !== null && (
+              <MarkerLines markers={markers.markers} view={view} width={width} />
+            )}
+            <PointerLine line={pointer} />
+            <PlayheadLine line={playhead} />
           </div>
         </div>
       </div>

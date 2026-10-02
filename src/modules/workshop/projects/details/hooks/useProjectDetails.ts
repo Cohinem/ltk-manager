@@ -6,13 +6,7 @@ import { useAppForm } from "@/lib/form";
 import type { WorkshopAuthor, WorkshopProject } from "@/lib/tauri";
 
 import { useSaveProjectConfig } from "../../../api";
-import {
-  appendAuthor,
-  filterEmptyAuthors,
-  parseChampionsText,
-  removeAuthorAt,
-  updateAuthorAt,
-} from "../utils/utils";
+import { appendAuthor, filterEmptyAuthors, removeAuthorAt, updateAuthorAt } from "../utils/utils";
 
 /** The three fields the form itself owns. Everything else is state beside it. */
 interface DetailsValues {
@@ -38,7 +32,7 @@ export function useProjectDetails(project: WorkshopProject) {
   const [authors, setAuthors] = useState<WorkshopAuthor[]>(() => seedAuthors(project));
   const [tags, setTags] = useState<Set<string>>(() => new Set(project.tags));
   const [maps, setMaps] = useState<Set<string>>(() => new Set(project.maps));
-  const [championsText, setChampionsText] = useState(() => project.champions.join(", "));
+  const [champions, setChampions] = useState<string[]>(() => project.champions);
 
   const form = useAppForm({
     defaultValues: {
@@ -56,7 +50,7 @@ export function useProjectDetails(project: WorkshopProject) {
     authors,
     tags: [...tags],
     maps: [...maps],
-    champions: parseChampionsText(championsText),
+    champions,
   });
 
   const saved = snapshot({
@@ -86,7 +80,7 @@ export function useProjectDetails(project: WorkshopProject) {
       description: values.description,
       authors: filterEmptyAuthors(authors),
       tags: [...tags],
-      champions: parseChampionsText(championsText),
+      champions,
       maps: [...maps],
     });
   }
@@ -100,7 +94,7 @@ export function useProjectDetails(project: WorkshopProject) {
     setAuthors(seedAuthors(project));
     setTags(new Set(project.tags));
     setMaps(new Set(project.maps));
-    setChampionsText(project.champions.join(", "));
+    setChampions(project.champions);
   }
 
   return {
@@ -115,8 +109,8 @@ export function useProjectDetails(project: WorkshopProject) {
     setTags,
     maps,
     setMaps,
-    championsText,
-    setChampionsText,
+    champions,
+    setChampions,
     hasChanges: edited !== saved,
     canSave: canSubmit,
     isSaving: saveConfig.isPending,
@@ -146,7 +140,7 @@ interface DetailsSnapshot extends DetailsValues {
 }
 
 /* Tags and maps come off a Set, whose order says nothing, so they sort before
-   comparing. Champions keep the order they were typed in. */
+   comparing. Champions keep the order they were picked in. */
 function snapshot(details: DetailsSnapshot): string {
   return JSON.stringify({
     displayName: details.displayName,

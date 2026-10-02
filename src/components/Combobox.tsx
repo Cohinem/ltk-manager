@@ -7,6 +7,9 @@ import { twMerge } from "@/utils";
 // Re-export the filter hook for consumers
 export const useComboboxFilter = BaseCombobox.useFilter;
 
+/** The items the filter keeps, which a `virtualized` root's list renders a window of. */
+export const useComboboxFilteredItems = BaseCombobox.useFilteredItems;
+
 // Root
 export interface ComboboxRootProps<
   Value = string,
@@ -84,7 +87,7 @@ export const ComboboxIcon = forwardRef<HTMLDivElement, ComboboxIconProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseCombobox.Icon ref={ref} className={twMerge("text-surface-400", className)} {...props}>
-        <ChevronDown className="h-4 w-4" />
+        <ChevronDown className="size-4" />
       </BaseCombobox.Icon>
     );
   },
@@ -153,6 +156,51 @@ export const ComboboxPopup = forwardRef<HTMLDivElement, ComboboxPopupProps>(
 );
 ComboboxPopup.displayName = "Combobox.Popup";
 
+// Content
+export interface ComboboxContentProps
+  extends
+    ComboboxPopupProps,
+    Pick<
+      ComboboxPositionerProps,
+      "side" | "align" | "sideOffset" | "alignOffset" | "anchor" | "collisionPadding"
+    > {
+  positionerClassName?: string;
+}
+
+/** Portal, Positioner and Popup as one part, taking the positioning props itself. */
+export const ComboboxContent = forwardRef<HTMLDivElement, ComboboxContentProps>(
+  (
+    {
+      side,
+      align,
+      sideOffset,
+      alignOffset,
+      anchor,
+      collisionPadding,
+      positionerClassName,
+      ...props
+    },
+    ref,
+  ) => {
+    return (
+      <ComboboxPortal>
+        <ComboboxPositioner
+          side={side}
+          align={align}
+          sideOffset={sideOffset}
+          alignOffset={alignOffset}
+          anchor={anchor}
+          collisionPadding={collisionPadding}
+          className={positionerClassName}
+        >
+          <ComboboxPopup ref={ref} {...props} />
+        </ComboboxPositioner>
+      </ComboboxPortal>
+    );
+  },
+);
+ComboboxContent.displayName = "Combobox.Content";
+
 // List
 export interface ComboboxListProps extends Omit<BaseCombobox.List.Props, "className"> {
   className?: string;
@@ -184,8 +232,8 @@ export const ComboboxItem = forwardRef<HTMLDivElement, ComboboxItemProps>(
         )}
         {...props}
       >
-        <BaseCombobox.ItemIndicator className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
-          <Check className="h-3.5 w-3.5" />
+        <BaseCombobox.ItemIndicator className="inline-flex size-4 shrink-0 items-center justify-center">
+          <Check className="size-3.5" />
         </BaseCombobox.ItemIndicator>
         {children}
       </BaseCombobox.Item>
@@ -205,7 +253,8 @@ export const ComboboxEmpty = forwardRef<HTMLDivElement, ComboboxEmptyProps>(
     return (
       <BaseCombobox.Empty
         ref={ref}
-        className={twMerge("px-3 py-6 text-center text-sm text-surface-400", className)}
+        /* The live region stays mounted while items show, so it must take no space then. */
+        className={twMerge("px-3 py-6 text-center text-sm text-surface-400 empty:p-0", className)}
         {...props}
       >
         {children ?? "No results found"}
@@ -232,12 +281,21 @@ export const ComboboxClear = forwardRef<HTMLButtonElement, ComboboxClearProps>(
         )}
         {...props}
       >
-        {children ?? <X className="h-4 w-4" />}
+        {children ?? <X className="size-4" />}
       </BaseCombobox.Clear>
     );
   },
 );
 ComboboxClear.displayName = "Combobox.Clear";
+
+// Value
+export type ComboboxValueProps = BaseCombobox.Value.Props;
+
+/** The selected value, drawn by `children`, such as a multiple root's chips. Adds no DOM element. */
+export function ComboboxValue(props: ComboboxValueProps) {
+  return <BaseCombobox.Value {...props} />;
+}
+ComboboxValue.displayName = "Combobox.Value";
 
 // Chips
 export interface ComboboxChipsProps extends Omit<BaseCombobox.Chips.Props, "className"> {
@@ -293,13 +351,13 @@ export const ComboboxChipRemove = forwardRef<HTMLButtonElement, ComboboxChipRemo
       <BaseCombobox.ChipRemove
         ref={ref}
         className={twMerge(
-          "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm",
+          "inline-flex size-4 shrink-0 items-center justify-center rounded-sm",
           "text-surface-400 transition-colors hover:bg-surface-500 hover:text-surface-200",
           className,
         )}
         {...props}
       >
-        {children ?? <X className="h-3 w-3" />}
+        {children ?? <X className="size-3" />}
       </BaseCombobox.ChipRemove>
     );
   },
@@ -344,6 +402,15 @@ export const ComboboxGroupLabel = forwardRef<HTMLDivElement, ComboboxGroupLabelP
 );
 ComboboxGroupLabel.displayName = "Combobox.GroupLabel";
 
+// Collection
+export type ComboboxCollectionProps = BaseCombobox.Collection.Props;
+
+/** Renders the `items` of one `Group`. Adds no DOM element. */
+export function ComboboxCollection(props: ComboboxCollectionProps) {
+  return <BaseCombobox.Collection {...props} />;
+}
+ComboboxCollection.displayName = "Combobox.Collection";
+
 // Status
 export interface ComboboxStatusProps extends Omit<BaseCombobox.Status.Props, "className"> {
   className?: string;
@@ -370,15 +437,18 @@ export const Combobox = {
   Portal: ComboboxPortal,
   Positioner: ComboboxPositioner,
   Popup: ComboboxPopup,
+  Content: ComboboxContent,
   List: ComboboxList,
   Item: ComboboxItem,
   Empty: ComboboxEmpty,
   Clear: ComboboxClear,
+  Value: ComboboxValue,
   Chips: ComboboxChips,
   Chip: ComboboxChip,
   ChipRemove: ComboboxChipRemove,
   Group: ComboboxGroup,
   GroupLabel: ComboboxGroupLabel,
+  Collection: ComboboxCollection,
   Status: ComboboxStatus,
 };
 

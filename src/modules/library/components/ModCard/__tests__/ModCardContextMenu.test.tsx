@@ -27,7 +27,6 @@ function view(over: Partial<ModCardView> = {}): ModCardView {
   return {
     mod: createMockInstalledMod({ id: "a" }),
     isFlagged: false,
-    menuDisabled: false,
     isInUserFolder: false,
     canChangeStorage: false,
     storageChangePending: false,
@@ -84,11 +83,5 @@ describe("a mod card's right click", () => {
 
     expect(await screen.findByRole("menuitem", { name: "Details" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Check Health" })).toBeNull();
-  });
-
-  it("opens nothing while the patcher owns the library", () => {
-    rightClick({ menuDisabled: true });
-
-    expect(screen.queryByRole("menuitem")).toBeNull();
   });
 });

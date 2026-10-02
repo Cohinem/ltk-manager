@@ -3,6 +3,7 @@ import type { BinRow, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../shared/utils/binHash";
 import { field } from "../engine/parsing/readValue";
+import { parseDefault } from "../inspector/utils/defaultValue";
 
 export type ForceKind = "acceleration" | "attraction" | "noise" | "drag" | "orbital";
 export type ForceValue = readonly number[] | boolean;
@@ -277,4 +278,31 @@ export function forceValue(
   }
 
   return { value, authored: constant !== null, valid, row, leaf };
+}
+
+/**
+ * The schema's default of `property`, read off its field's constructor JSON, or null where the
+ * schema holds none of the property's shape. An animated property's default is its
+ * `constantValue`.
+ */
+export function schemaForceDefault(
+  property: ForceProperty,
+  defaultJson: string | null | undefined,
+): ForceValue | null {
+  const raw = parseDefault(defaultJson);
+  const value =
+    property.animated && typeof raw === "object" && raw !== null && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>).constantValue
+      : raw;
+
+  if (property.shape === "bool") return typeof value === "boolean" ? value : null;
+  if (property.shape === "scalar") {
+    return typeof value === "number" && Number.isFinite(value) ? [value] : null;
+  }
+
+  const finite =
+    Array.isArray(value) &&
+    value.length === 3 &&
+    value.every((cell) => typeof cell === "number" && Number.isFinite(cell));
+  return finite ? (value as number[]) : null;
 }

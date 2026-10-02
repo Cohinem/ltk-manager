@@ -2,13 +2,14 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ContextMenu } from "@/components";
-import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
+import { useRemeasure, useZoomedPx } from "@/hooks";
 
 import { useReadOnlyTreeNav, useStickyTreeRows } from "../../hooks";
 import type { OpenIntent } from "../../palette/utils/types";
-import { TreeStickyBand } from "../../shared/components/TreeStickyBand";
+import { VirtualTree } from "../../shared/components/VirtualTree";
+import { treeItemIndexOf } from "../../shared/utils/tree";
 import { keepScrollTop, keptScrollTop, type ObjectsReveal, useSelectObjectNode } from "../../state";
+import { useRestPreview } from "../hooks/useRestPreview";
 import {
   activation,
   expandable,
@@ -29,7 +30,10 @@ interface ObjectsTreeProps {
   nodes: readonly ObjectTreeNode[];
   ariaLabel: string;
   isExpanded: (node: ObjectTreeNode) => boolean;
-  onToggle: (node: ObjectTreeNode) => void;
+  /** A folder toggle. `subtree` asks for every level below as well. */
+  onToggle: (node: ObjectTreeNode, subtree?: boolean) => void;
+  /** Collapse every folder, for `Ctrl+Left`. */
+  onCollapseAll?: () => void;
   /** A click on an object row, or its Open menu item. */
   onOpen: (node: ObjectTreeNode, intent: OpenIntent) => void;
   /** Names this tree's scroll to the browser store. Absent starts at the top. */
@@ -40,12 +44,17 @@ interface ObjectsTreeProps {
   onRevealed?: (token: number) => void;
 }
 
-/** A read-only virtualized tree over the object nodes, browse and find alike. */
+/**
+ * A read-only virtualized tree over the object nodes, browse and find alike.
+ *
+ * A keyboard move that rests on a particle system opens its preview tab.
+ */
 export function ObjectsTree({
   nodes,
   ariaLabel,
   isExpanded,
   onToggle,
+  onCollapseAll,
   onOpen,
   scrollKey,
   reveal = null,
@@ -91,13 +100,9 @@ export function ObjectsTree({
     initialOffset,
     scrollPaddingStart: stickyHeight,
   });
+  useRemeasure(virtualizer, rowHeight);
 
-  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
-     one of the inputs the measurement memo watches. */
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
-
+  const restPreview = useRestPreview(scrollRef);
   const { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown } = useReadOnlyTreeNav({
     rows,
     isExpanded,
@@ -107,6 +112,8 @@ export function ObjectsTree({
     activation: (node) => activation(node, "row"),
     virtualizer,
     scrollElementRef: scrollRef,
+    onKeyMove: restPreview,
+    onCollapseAll,
   });
   const select = (index: number) => {
     setFocusedIndex(index);
@@ -140,96 +147,62 @@ export function ObjectsTree({
   const [menuNode, setMenuNode] = useState<ObjectTreeNode | null>(null);
 
   function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
-    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-treeitem-index]");
-    const index = Number(row?.dataset.treeitemIndex);
-    setMenuNode(Number.isInteger(index) ? (rows[index]?.node ?? null) : null);
+    const index = treeItemIndexOf(event.target);
+    setMenuNode(index === null ? null : (rows[index]?.node ?? null));
   }
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger
-        data-ui="ObjectsTree"
-        ref={scrollRef}
-        className="flex-1 overflow-auto font-mono text-xs outline-none scrollbar-md scrollbar-track"
-        role="tree"
-        aria-label={ariaLabel}
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-        onFocusCapture={(event) => {
-          const element = (event.target as HTMLElement).closest<HTMLElement>(
-            "[data-treeitem-index]",
+    <VirtualTree
+      data-ui="ObjectsTree"
+      aria-label={ariaLabel}
+      scrollRef={scrollRef}
+      rows={rows}
+      items={virtualizer.getVirtualItems()}
+      totalSize={virtualizer.getTotalSize()}
+      sticky={{ rows: sticky, height: stickyHeight }}
+      onKeyDown={handleKeyDown}
+      onFocusCapture={(event) => {
+        const index = treeItemIndexOf(event.target);
+        const row = index === null ? undefined : rows[index];
+        if (row) selectNode(row.node);
+      }}
+      onContextMenu={handleContextMenu}
+      menu={<ObjectsContextMenu node={menuNode} onOpen={onOpen} />}
+      renderRow={(row, index, pinned) => {
+        const isSelected = index === focusedIndex;
+        if (pinned) {
+          return (
+            <ObjectsTreeRow
+              node={row.node}
+              depth={row.depth}
+              isExpanded
+              isSelected={isSelected}
+              onToggle={() => revealRow(index)}
+              onSelect={select}
+              onOpen={() => revealRow(index)}
+              height={rowHeight}
+              rowIndex={index}
+              tabIndex={-1}
+            />
           );
-          const index = Number(element?.dataset.treeitemIndex);
-          const row = rows[index];
-          if (row) selectNode(row.node);
-        }}
-        onContextMenu={handleContextMenu}
-        {...NO_OVERSCROLL}
-      >
-        <div className="py-1">
-          <TreeStickyBand height={stickyHeight}>
-            {sticky.map((pin, slot) => (
-              <div
-                key={pin.row.node.id}
-                role="presentation"
-                className="absolute inset-x-0 bg-surface-950"
-                style={{ top: `${pin.top}px`, zIndex: sticky.length - slot }}
-              >
-                <ObjectsTreeRow
-                  node={pin.row.node}
-                  depth={pin.row.depth}
-                  isExpanded
-                  isSelected={pin.index === focusedIndex}
-                  onToggle={() => revealRow(pin.index)}
-                  onSelect={select}
-                  onOpen={() => revealRow(pin.index)}
-                  height={rowHeight}
-                  rowIndex={pin.index}
-                  tabIndex={-1}
-                />
-              </div>
-            ))}
-          </TreeStickyBand>
+        }
 
-          <div
-            role="presentation"
-            data-tree-rows=""
-            className="relative w-full"
-            style={{ height: `${virtualizer.getTotalSize()}px` }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const row = rows[virtualRow.index]!;
-              const node = row.node;
-              const expanded =
-                (node.type === "prefix" || node.type === "object") && isExpanded(node);
-              const isSelected = virtualRow.index === focusedIndex;
-              return (
-                <div
-                  key={virtualRow.key}
-                  role="presentation"
-                  className="absolute inset-x-0"
-                  style={{ transform: `translateY(${virtualRow.start}px)` }}
-                >
-                  <ObjectsTreeRow
-                    node={node}
-                    depth={row.depth}
-                    isExpanded={expanded}
-                    isSelected={isSelected}
-                    onToggle={onToggle}
-                    onSelect={select}
-                    onOpen={onOpen}
-                    height={rowHeight}
-                    rowIndex={virtualRow.index}
-                    tabIndex={isSelected ? 0 : -1}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </ContextMenu.Trigger>
-
-      <ObjectsContextMenu node={menuNode} onOpen={onOpen} />
-    </ContextMenu.Root>
+        const node = row.node;
+        return (
+          <ObjectsTreeRow
+            node={node}
+            depth={row.depth}
+            isExpanded={(node.type === "prefix" || node.type === "object") && isExpanded(node)}
+            isSelected={isSelected}
+            onToggle={onToggle}
+            onSelect={select}
+            onOpen={onOpen}
+            height={rowHeight}
+            rowIndex={index}
+            tabIndex={isSelected ? 0 : -1}
+          />
+        );
+      }}
+    />
   );
 }

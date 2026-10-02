@@ -16,7 +16,7 @@ import {
   type ModWadReport,
   type Profile,
 } from "@/lib/tauri";
-import { queryFn, unwrapForQuery } from "@/utils/query";
+import { queryFn, queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
 
@@ -77,28 +77,28 @@ export const modQueries = {
   wadReports: () =>
     queryOptions<Record<string, ModWadReport>, AppError>({
       queryKey: libraryKeys.wadReports(),
-      queryFn: async () => unwrapForQuery(await api.getAllModWadReports()),
+      queryFn: queryFn(api.getAllModWadReports),
       staleTime: REPORT_STALE_MS,
     }),
 
   linkedBinOffenders: () =>
     queryOptions<Record<string, LinkedBinOffenderInfo>, AppError>({
       queryKey: libraryKeys.linkedBinOffenders(),
-      queryFn: async () => unwrapForQuery(await api.getLinkedBinOffenders()),
+      queryFn: queryFn(api.getLinkedBinOffenders),
       staleTime: REPORT_STALE_MS,
     }),
 
   checksumMismatches: () =>
     queryOptions<Record<string, ChecksumMismatchInfo[]>, AppError>({
       queryKey: libraryKeys.checksumMismatches(),
-      queryFn: async () => unwrapForQuery(await api.getChecksumMismatches()),
+      queryFn: queryFn(api.getChecksumMismatches),
       staleTime: REPORT_STALE_MS,
     }),
 
   healthVerdicts: () =>
     queryOptions<Record<string, ModHealthVerdict>, AppError>({
       queryKey: libraryKeys.modHealthVerdicts(),
-      queryFn: async () => unwrapForQuery(await api.getModHealthVerdicts()),
+      queryFn: queryFn(api.getModHealthVerdicts),
       staleTime: REPORT_STALE_MS,
     }),
 
@@ -108,7 +108,7 @@ export const modQueries = {
   readme: (modId: string) =>
     queryOptions<ModDocument, AppError>({
       queryKey: libraryKeys.readme(modId),
-      queryFn: async () => unwrapForQuery(await api.getModReadme(modId)),
+      queryFn: queryFnWithArgs(api.getModReadme, modId),
       staleTime: Infinity,
     }),
 
@@ -117,7 +117,7 @@ export const modQueries = {
   licenseText: (modId: string) =>
     queryOptions<ModDocument, AppError>({
       queryKey: libraryKeys.licenseText(modId),
-      queryFn: async () => unwrapForQuery(await api.getModLicenseText(modId)),
+      queryFn: queryFnWithArgs(api.getModLicenseText, modId),
       staleTime: Infinity,
       gcTime: Infinity,
     }),

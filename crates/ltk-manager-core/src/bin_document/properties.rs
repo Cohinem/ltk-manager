@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::edit::{Edit, bin_hash, edit_under};
-use super::{BinDocument, BinDocumentError, EditRejection, Node, Step, descend, dot, hex, is_null};
+use super::{
+    BinDocument, BinDocumentError, EditRejection, HashPath, Node, Step, descend, hex, is_null,
+};
 use crate::meta_schema::{KindShape, SchemaAt, Shape};
 
 /// A property Add property writes: a field the schema declares, or one the reader shapes.
@@ -22,9 +24,7 @@ use crate::meta_schema::{KindShape, SchemaAt, Shape};
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub enum NewProperty {
     /// A field the holder's class or one of its bases declares, at its published default.
     Declared {
@@ -44,9 +44,7 @@ pub enum NewProperty {
 /// One field Add property offers for a holder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct AddableField {
     /// `0x` and eight hex digits.
     pub hash: String,
@@ -62,9 +60,7 @@ pub struct AddableField {
 /// What Add property offers for one holder.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 pub struct AddableFields {
     /// The holder's class, `0x` and eight hex digits.
     pub class_hash: String,
@@ -159,7 +155,12 @@ impl BinDocument {
                     .map(|text| bin_hash(&text))
                     .transpose()
                     .map_err(rejected)?;
-                let value = starting_value(shape.into(), class, None).map_err(rejected)?;
+                let shape: Shape = shape.into();
+                /* A typed pointer names its class, where a declared one starts at the schema's default. */
+                let value = match (shape.kind, class) {
+                    (Kind::Struct, Some(class)) => empty_struct(class).into(),
+                    _ => starting_value(shape, class, None).map_err(rejected)?,
+                };
                 (field, value)
             }
         };
@@ -288,14 +289,14 @@ impl BinDocument {
     }
 }
 
-/// The wire path of `field` under the holder at `holder`.
+/// The hash path of `field` under the holder at `holder`.
 pub(super) fn field_path(holder: &str, field: BinHash) -> String {
-    format!("{holder}{}{:08x}", dot(holder), field.0)
+    HashPath::under(holder).field(field).into()
 }
 
 /// The holder's path and the field of a property's path, or `None` where the last step
 /// is no field.
-fn split_field(path: &str) -> Option<(&str, BinHash)> {
+pub(super) fn split_field(path: &str) -> Option<(&str, BinHash)> {
     let steps = super::parse_steps(path)?;
     let Some(Step::Field(field)) = steps.last() else {
         return None;

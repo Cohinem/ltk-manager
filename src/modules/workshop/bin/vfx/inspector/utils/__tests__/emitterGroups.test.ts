@@ -51,6 +51,21 @@ describe("groupRows", () => {
     expect(grouped.map((each) => each.group)).toEqual(["birth", "scale", "texture", "render"]);
   });
 
+  it("puts the effects that change how the texture draws under Texture", () => {
+    const grouped = groupRows([
+      field("texture", { type: "string", value: "assets/x.dds" }),
+      field("alphaErosionDefinition"),
+      field("distortionDefinition"),
+      field("reflectionDefinition"),
+      field("childParticleSetDefinition"),
+    ]);
+
+    expect(grouped.map((each) => [each.group, each.rows.length])).toEqual([
+      ["texture", 4],
+      ["effects", 1],
+    ]);
+  });
+
   it("sends a field no group names to Other", () => {
     const grouped = groupRows([field("0x1234abcd"), field("rate")]);
 
@@ -88,6 +103,7 @@ function declared(name: string): FieldSchema {
     declared: { kind: "f32", key: null, value: null },
     classHash: null,
     defaultValue: "0",
+    owner: null,
     revisions: [],
   };
 }

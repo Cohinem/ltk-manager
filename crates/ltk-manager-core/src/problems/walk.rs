@@ -225,7 +225,7 @@ impl Address {
 ///
 /// `Leaf` is non-exhaustive (W22), and a kind this build does not know renders
 /// as `?`, the same as a key that does not decode.
-pub(crate) fn write_key(out: &mut String, leaf: Option<Leaf<'_>>) {
+pub fn write_key(out: &mut String, leaf: Option<Leaf<'_>>) {
     let _ = match leaf {
         None => out.write_str("?"),
         Some(Leaf::None) => Ok(()),

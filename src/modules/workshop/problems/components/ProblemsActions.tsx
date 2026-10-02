@@ -1,6 +1,6 @@
 import { ArrowsClockwiseIcon, WrenchIcon } from "@phosphor-icons/react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { twMerge } from "@/utils";
 
 import { useFixProblems, useProjectProblems } from "../../api";
@@ -28,36 +28,21 @@ export function ProblemsActions() {
   return (
     <>
       {fixable.length > 0 && (
-        <Tooltip content={fixTip(fixable.length)}>
-          <IconButton
-            icon={<WrenchIcon weight="bold" className="h-4 w-4" />}
-            variant="ghost"
-            size="xs"
-            compact
-            loading={fix.isPending}
-            onClick={handleFix}
-            aria-label={fixTip(fixable.length)}
-            className="h-6 w-6"
-          />
-        </Tooltip>
+        <IconButton
+          icon={<WrenchIcon />}
+          loading={fix.isPending}
+          onClick={handleFix}
+          className="size-6"
+          label={fixTip(fixable.length)}
+        />
       )}
 
-      <Tooltip content="Check the project again">
-        <IconButton
-          icon={
-            <ArrowsClockwiseIcon
-              weight="bold"
-              className={twMerge("h-4 w-4", isFetching && "animate-spin")}
-            />
-          }
-          variant="ghost"
-          size="xs"
-          compact
-          onClick={() => void refetch()}
-          aria-label="Check the project again"
-          className="h-6 w-6"
-        />
-      </Tooltip>
+      <IconButton
+        icon={<ArrowsClockwiseIcon className={twMerge("size-4", isFetching && "animate-spin")} />}
+        onClick={() => void refetch()}
+        className="size-6"
+        label="Check the project again"
+      />
     </>
   );
 }

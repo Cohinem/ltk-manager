@@ -58,7 +58,7 @@ export function EditLayerDialog({ open, layer, onClose, projectPath }: EditLayer
           form.handleSubmit();
         }}
       >
-        <Dialog.Body className="space-y-4">
+        <Dialog.Body>
           <form.AppField name="description">
             {(field) => (
               <field.TextareaField

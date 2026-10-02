@@ -1,13 +1,13 @@
 //! One pass of every rule over one project.
 //!
 //! A run lists each layer's files, hands them to each rule and collects what
-//! the rules report. A rule that throws does not take the run with it: a
-//! project with one unreadable `.bin` still gets every problem in the other
-//! forty, and the panel names the file it could not read.
+//! the rules report. A rule that fails does not stop the run. The other files
+//! still get their problems, and the panel names the file that could not be
+//! read.
 //!
-//! Where those files are is [`LayerFiles`]'s business alone. A project's are a
-//! directory, and an archive's are the archive - read where it lies, never
-//! unpacked. Everything above [`LayerSource`] is written once for both.
+//! Only [`LayerFiles`] knows where the files are. A project's files are in a
+//! directory, and an archive's files are read from the archive without
+//! unpacking it. The code above [`LayerSource`] is the same for both.
 
 mod archive;
 
@@ -16,21 +16,23 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
+use camino::Utf8Path;
 use chrono::Utc;
 use fs_err as fs;
 use ltk_file::LeagueFileKind;
 use ltk_hash::Hash as _;
+use ltk_mod_project::{MODIGNORE_FILE_NAME, ModIgnore};
 use ltk_wad::{PathResolver, WadChunk, WadChunkCompression, WadHash, is_hex_chunk_path};
 use walkdir::WalkDir;
 
 use crate::config::Config;
-use crate::error::AppResult;
+use crate::error::{AppResult, Utf8PathRefExt};
 use crate::workshop::layer;
-use crate::workshop::{ProjectDir, WorkshopFileKind};
+use crate::workshop::{ProjectDir, WorkshopFileKind, holds_ignore_rules};
 
 use archive::ArchiveFiles;
 
-use super::budget::Budget;
+use super::budget::{self, Budget};
 use super::game::GameContent;
 use super::pass::Fact;
 use super::{BinNames, GameBuild, ObjectInfo, Report, Rule, RuleState, Run};
@@ -41,23 +43,22 @@ const CONTENT_DIR: &str = "content";
 /// The suffix naming a layer directory that is one of the mod's WADs.
 ///
 /// A file under one is a chunk the game addresses by hash, whether the mod is
-/// stored as a tree or as an archive. Anything else - a `RAW/` entry, say -
-/// reaches the game another way and has no chunk hash at all.
+/// stored as a tree or as an archive. Any other file, such as a `RAW/` entry,
+/// reaches the game another way and has no chunk hash.
 const WAD_DIR_SUFFIX: &str = ".wad.client";
 
 /// The files of one project, and what else a run hands every rule.
 ///
-/// Built once for a run and shared by every rule, because listing the content
-/// is the one cost worth paying exactly once. Reading a file's bytes is the
-/// pass's business, on a rule's subscription.
+/// Built once per run and shared by every rule, so the content is listed only
+/// once. The pass reads a file's bytes when a rule subscribes to them.
 ///
-/// The installed build, the hash tables and the installed game's content ride
-/// here too. A rule needs all of them to decide what it has to say, and each
-/// costs the same whichever rule reads it.
+/// It also holds the installed build, the hash tables and the installed game's
+/// content. Any rule may need them, and each costs the same whichever rule
+/// reads it.
 ///
-/// The build and the names are read from the project. The game is handed in,
-/// because it is an index over a whole install and building one per mod would
-/// make a sweep pay for it once a mod.
+/// The build and the names are read when the files are listed. The caller
+/// passes the game in, because it indexes a whole install, and building it per
+/// mod would rebuild it for every mod of a sweep.
 #[derive(Debug)]
 pub struct ProjectFiles {
     root: PathBuf,
@@ -66,19 +67,30 @@ pub struct ProjectFiles {
     names: Arc<BinNames>,
     budget: Budget,
     game: Option<Arc<dyn GameContent>>,
+    /// Whether the tree holds a `.modignore` anywhere, the root or under
+    /// `content/`. `false` for an archive, which holds none.
+    has_ignore_rules: bool,
+    /// Whether the tree is a workshop project, not a library mod or an archive.
+    workshop: bool,
 }
 
 impl ProjectFiles {
     /// Walk `project_root`'s content directory, in every layer.
     ///
+    /// Each layer is filtered by the project's ignore rules in the same way a
+    /// pack filters it, so a rule reads only the files a package contains. If
+    /// the rules do not compile, the error is logged and no file is filtered,
+    /// as in the content tree.
+    ///
     /// `game` is what the installed game holds, for the rules that ask it a
-    /// question. `None` is a machine with no install, and a rule that needs one
-    /// says so rather than guessing.
+    /// question. `None` means no game is installed, and a rule that needs one
+    /// reports that instead of guessing.
     ///
     /// # Errors
     ///
-    /// Reports a project whose `content/` directory cannot be read at all. An
-    /// unreadable file inside it is skipped and logged, never fatal.
+    /// Reports a project whose `content/` directory cannot be read at all, or
+    /// whose path is not UTF-8. An unreadable file inside it is skipped and
+    /// logged, never fatal.
     pub fn read(
         project_root: &Path,
         config: &Config,
@@ -99,19 +111,28 @@ impl ProjectFiles {
         game: Option<Arc<dyn GameContent>>,
     ) -> AppResult<Self> {
         let content_dir = project_root.join(CONTENT_DIR);
-        let layers = if content_dir.exists() {
-            layer::dirs_in(&content_dir)?
+        let (layers, has_ignore_rules) = if content_dir.exists() {
+            let (ignore, has_ignore_rules) = pack_filter(project_root)?;
+            let layers = layer::dirs_in(&content_dir)?
                 .iter()
-                .map(|dir| {
-                    let name = dir
-                        .file_name()
-                        .and_then(|name| name.to_str())
-                        .unwrap_or_default();
-                    LayerFiles::read(dir, name)
+                .filter_map(|dir| {
+                    let Some(dir) = Utf8Path::from_path(dir) else {
+                        tracing::warn!(
+                            "Skipping a layer whose name is not UTF-8: {}",
+                            dir.display()
+                        );
+                        return None;
+                    };
+                    Some(LayerFiles::read(
+                        dir,
+                        dir.file_name().unwrap_or_default(),
+                        &ignore,
+                    ))
                 })
-                .collect()
+                .collect();
+            (layers, has_ignore_rules)
         } else {
-            Vec::new()
+            (Vec::new(), false)
         };
 
         Ok(Self {
@@ -121,20 +142,30 @@ impl ProjectFiles {
             names: Arc::new(BinNames::open(project_root)),
             budget,
             game,
+            has_ignore_rules,
+            workshop: false,
         })
     }
 
-    /// List a fantome archive's files, reading them where the archive keeps
-    /// them.
+    /// Mark these files as the files of a workshop project.
+    #[must_use]
+    pub(crate) fn in_workshop(mut self) -> Self {
+        self.workshop = true;
+        self
+    }
+
+    /// List a fantome archive's files, one layer per layer the archive holds.
     ///
-    /// The archive is never unpacked. A packed WAD is read chunk by chunk and
-    /// a WAD kept as a directory of entries entry by entry, so a check costs
-    /// the bins it parses rather than the tree an unpack would have written.
+    /// The base layer is `WAD/` plus `RAW/`, and each other layer is a
+    /// `WAD_<layer>/` directory.
     ///
-    /// `resolver` names a packed WAD's chunks, the same resolver an unpack
-    /// would have named them with, so a site addresses the same path either
-    /// way. The archive's own declared tables are read from inside it, which
-    /// is where a project keeps them under `hashes/`.
+    /// The archive is not unpacked. A packed WAD is read chunk by chunk, and a
+    /// WAD stored as a directory of entries is read entry by entry, so a check
+    /// reads only the bins it parses.
+    ///
+    /// `resolver` names a packed WAD's chunks the same way an unpack does, so a
+    /// site has the same path in both cases. The archive's declared hash tables
+    /// are read from its `hashes/` directory, where a project also keeps them.
     ///
     /// # Errors
     ///
@@ -151,11 +182,13 @@ impl ProjectFiles {
 
         Ok(Self {
             root: archive.to_path_buf(),
-            layers: vec![scan.layer],
+            layers: scan.layers,
             build: GameBuild::installed(config),
             names: Arc::new(BinNames::with_declared(scan.tables)),
             budget,
             game,
+            has_ignore_rules: false,
+            workshop: false,
         })
     }
 
@@ -179,11 +212,20 @@ impl ProjectFiles {
 
     /// What the installed game holds, where there is an install to ask.
     ///
-    /// `None` on a machine with no game, which is the honest answer to a
-    /// question about the install rather than a reason to guess at one.
+    /// `None` when no game is installed. A rule must not guess what the install
+    /// holds in that case.
     #[must_use]
     pub fn game(&self) -> Option<&dyn GameContent> {
         self.game.as_deref()
+    }
+
+    /// Whether this is a workshop project with no `.modignore` anywhere.
+    ///
+    /// `false` for a library mod and an archive, because the user does not edit
+    /// their rules.
+    #[must_use]
+    pub fn lacks_ignore_rules(&self) -> bool {
+        self.workshop && !self.has_ignore_rules
     }
 
     /// The names a row can give the hashes a bin holds.
@@ -200,8 +242,8 @@ impl ProjectFiles {
 
     /// The memory this run may hold parsed at once, and its cancel flag.
     ///
-    /// A rule fans its own files out through this rather than over a pool of
-    /// its own, so every rule of every mod in flight spends one allowance.
+    /// A rule processes its files in parallel through this budget instead of
+    /// its own pool, so all rules of all mods in progress share one allowance.
     #[must_use]
     pub fn budget(&self) -> &Budget {
         &self.budget
@@ -209,9 +251,8 @@ impl ProjectFiles {
 
     /// Every file of every layer, as something a rule can read.
     ///
-    /// The seam a rule reads through: it names the files and hands back a
-    /// handle rather than the bytes, so which layer source is underneath is
-    /// [`FileHandle`]'s business and never a rule's.
+    /// Each item is a handle rather than the bytes, so only [`FileHandle`]
+    /// knows which layer source holds the file. A rule does not.
     pub fn files(&self) -> impl Iterator<Item = FileHandle<'_>> {
         self.layers.iter().flat_map(|layer| {
             layer
@@ -219,6 +260,13 @@ impl ProjectFiles {
                 .iter()
                 .map(move |file| FileHandle { layer, file })
         })
+    }
+
+    /// The file at `path` in `layer`, where the project holds one.
+    #[must_use]
+    pub fn file(&self, layer: &str, path: &str) -> Option<FileHandle<'_>> {
+        self.files()
+            .find(|handle| handle.layer() == layer && handle.path() == path)
     }
 
     /// Every file of every layer that reports `kind`.
@@ -237,11 +285,87 @@ impl ProjectFiles {
         self.layers.iter().map(|layer| layer.files.len()).sum()
     }
 
-    /// Lay `bytes` over the file at `path` of `layer`, for every read after.
+    /// Remove every property bin whose bytes equal the installed game's copy.
     ///
-    /// The file's size follows the bytes, so a budget charges what a reader
-    /// will hold. `false` for a file the project does not list, which a write
-    /// cannot add.
+    /// The overlay does not ship such a file, so a finding in it has no effect
+    /// in game. A bin whose size differs from the game's table of contents is
+    /// kept without reading either copy. A bin not compared before the run was
+    /// cancelled is kept.
+    #[must_use]
+    pub(crate) fn without_game_copies(mut self) -> Self {
+        let Some(installed) = self.game.clone() else {
+            return self;
+        };
+        let game = installed.as_ref();
+
+        let candidates: Vec<(usize, usize, WadHash)> = self
+            .layers
+            .iter()
+            .enumerate()
+            .flat_map(|(at_layer, layer)| {
+                layer
+                    .files
+                    .iter()
+                    .enumerate()
+                    .filter_map(move |(at_file, file)| {
+                        if file.kind != WorkshopFileKind::PropertyBin {
+                            return None;
+                        }
+                        let hash = FileHandle { layer, file }.wad_hash()?;
+                        (game.size(hash) == Some(file.size_bytes))
+                            .then_some((at_layer, at_file, hash))
+                    })
+            })
+            .collect();
+
+        let copies = self.budget.map(
+            &candidates,
+            budget::files_at_once(),
+            |&(at_layer, at_file, _)| 2 * self.layers[at_layer].files[at_file].size_bytes,
+            |&(at_layer, at_file, hash)| {
+                let layer = &self.layers[at_layer];
+                let handle = FileHandle {
+                    layer,
+                    file: &layer.files[at_file],
+                };
+                handle.bytes().is_ok_and(|ours| {
+                    game.read(hash)
+                        .is_ok_and(|theirs| theirs.is_some_and(|theirs| theirs == ours))
+                })
+            },
+        );
+
+        let mut dropped = vec![Vec::new(); self.layers.len()];
+        for (&(at_layer, at_file, _), copy) in candidates.iter().zip(copies) {
+            if copy == Some(true) {
+                dropped[at_layer].push(at_file);
+            }
+        }
+
+        let count: usize = dropped.iter().map(Vec::len).sum();
+        for (layer, dropped) in self.layers.iter_mut().zip(dropped) {
+            let mut at_file = 0;
+            layer.files.retain(|_| {
+                let keep = dropped.binary_search(&at_file).is_err();
+                at_file += 1;
+                keep
+            });
+        }
+
+        if count > 0 {
+            tracing::debug!(
+                "Skipping {count} bins of {} equal to the installed game's copy",
+                self.root.display()
+            );
+        }
+        self
+    }
+
+    /// Replace the file at `path` of `layer` with `bytes` for every later read.
+    ///
+    /// The file's size is set to the length of `bytes`, so a budget charges
+    /// what a reader will hold. `false` for a file the project does not list,
+    /// because a write cannot add a file.
     pub(crate) fn wrote(&mut self, layer: &str, path: &str, bytes: Arc<[u8]>) -> bool {
         let Some(layer) = self.layers.iter_mut().find(|held| held.name == layer) else {
             return false;
@@ -254,8 +378,7 @@ impl ProjectFiles {
         true
     }
 
-    /// Drop the file at `path` of `layer` from the listing, as a removal
-    /// leaves it.
+    /// Remove the file at `path` of `layer` from the listing, after a removal.
     ///
     /// `false` for a file the project does not list.
     pub(crate) fn dropped(&mut self, layer: &str, path: &str) -> bool {
@@ -276,20 +399,20 @@ pub struct LayerFiles {
     pub name: String,
     pub files: Vec<ProjectFile>,
     source: LayerSource,
-    /// What a fix run wrote over this layer's files, by path, read ahead of
-    /// the source.
+    /// What a fix run wrote over this layer's files, by path, read before the
+    /// source.
     ///
-    /// A run over an archive has nowhere on disk to put a write, so the bytes
-    /// stay here until the edit, and a rule that runs after the one that wrote
-    /// reads them here.
+    /// A run over an archive cannot write to disk, so the bytes stay here
+    /// until the archive is edited. A rule that runs after the writing rule
+    /// reads them from here.
     written: HashMap<String, Arc<[u8]>>,
 }
 
 /// Where a layer's files are.
 ///
-/// The seam between "which files a run sees" and "what a file's bytes are".
-/// Everything above it - the rules, the sites they report, the budget they
-/// spend - is written once and reads both.
+/// Separates which files a run sees from how a file's bytes are read. The
+/// rules, the sites they report and the budget use the same code for both
+/// sources.
 #[derive(Debug, Clone)]
 enum LayerSource {
     /// A directory on disk, holding each file at its own path under this root.
@@ -324,9 +447,9 @@ impl LayerSource {
 
     /// At most `limit` bytes from the start of one of the layer's files.
     ///
-    /// A file shorter than `limit` answers with what it has. An archive-backed
-    /// file decompresses only the prefix, which is what keeps a rule judging
-    /// from a header off the whole of a chunk.
+    /// A file shorter than `limit` returns all of its bytes. An archive-backed
+    /// file decompresses only the prefix, so a rule that reads a header does
+    /// not decompress the whole chunk.
     fn head(&self, file: &ProjectFile, limit: usize) -> Result<Vec<u8>, String> {
         match self {
             Self::Directory(root) => {
@@ -353,8 +476,8 @@ pub enum Opened {
     /// A file of a directory layer, read from disk as it is asked for, so a
     /// reader that seeks holds only what it asked for.
     File(fs::File),
-    /// An archive's entry, decompressed whole: the smallest unit its
-    /// compression hands out.
+    /// An archive's entry, decompressed whole, because its compression cannot
+    /// decompress less.
     Memory(std::io::Cursor<Vec<u8>>),
 }
 
@@ -383,12 +506,11 @@ fn absolute(root: &Path, file: &ProjectFile) -> PathBuf {
 
 /// What one file of a tree is, by its extension or by its first bytes.
 ///
-/// An extension is what names a file, so it decides wherever there is one to
-/// read, which leaves a file whose extension disagrees with its content read as
-/// what it claims to be. The exception is the bare hex an unpack writes a chunk
-/// as when nothing named it: that name says only which chunk, never what, so
-/// the file is opened for the eight bytes that do say - a bin the tables could
-/// not name is still a bin the rules have to read.
+/// A known extension decides the kind, even when the content disagrees with
+/// it. The exception is a file an unpack named by the hex of its chunk hash
+/// because no table named it. That name identifies the chunk but not its kind,
+/// so the file's first eight bytes decide. A bin the tables could not name is
+/// still a bin the rules must read.
 ///
 /// `at` is where the file is, and `relative` the path a site names it by.
 fn kind_in_tree(at: &Path, relative: &str) -> WorkshopFileKind {
@@ -398,11 +520,10 @@ fn kind_in_tree(at: &Path, relative: &str) -> WorkshopFileKind {
         return WorkshopFileKind::from(named);
     }
 
-    /* A file with no extension at all, or one an unpack named by its hash.
-    Riot ships bins under a bare name - `UX/FloatingText` is one - and an
-    extension is the only thing a walk has to go on, so without one the
-    first bytes are what says whether a rule should read it. A file whose
-    extension simply names nothing is left alone: it is not content. */
+    /* A file with no extension, or one an unpack named by its hash. Riot
+    ships some bins without an extension, such as `UX/FloatingText`, so the
+    first bytes decide whether a rule reads such a file. A file with an
+    unknown extension is not content and stays unknown. */
     if extension.is_some() && !is_hex_chunk_path(camino::Utf8Path::new(relative)) {
         return WorkshopFileKind::from(named);
     }
@@ -416,31 +537,61 @@ fn kind_in_tree(at: &Path, relative: &str) -> WorkshopFileKind {
     WorkshopFileKind::from(sniffed)
 }
 
+/// The ignore rules a pack of `project_root` applies, and whether the project
+/// has any `.modignore`.
+///
+/// If the rules do not compile, the error is logged and an empty filter is
+/// returned. The Ignore rules document reports the error, and a pack fails on
+/// it.
+fn pack_filter(project_root: &Path) -> AppResult<(ModIgnore, bool)> {
+    let root = project_root.try_as_utf8("project path")?;
+
+    let filter = ProjectDir::open(project_root)?.ignore_filter();
+    let has_ignore_rules = holds_ignore_rules(&filter);
+    let ignore = filter.unwrap_or_else(|e| {
+        tracing::warn!("Checking {root} with no ignore rules: {e}");
+        ModIgnore::empty(root)
+    });
+
+    Ok((ignore, has_ignore_rules))
+}
+
+/// Whether a pack skips `entry`: a `.modignore` file, or a path that `ignore`
+/// excludes.
+///
+/// Parent folders are not checked. The walk does not enter an excluded folder,
+/// so no parent of `entry` is excluded.
+fn left_out(ignore: &ModIgnore, entry: &walkdir::DirEntry) -> bool {
+    if entry
+        .file_name()
+        .to_str()
+        .is_some_and(|name| name.eq_ignore_ascii_case(MODIGNORE_FILE_NAME))
+    {
+        return true;
+    }
+
+    Utf8Path::from_path(entry.path())
+        .is_some_and(|at| ignore.matched(at, entry.file_type().is_dir()).is_ignored())
+}
+
 impl LayerFiles {
-    /// Walk one layer's content directory, recursively.
+    /// Walk one layer's content directory through `ignore`, recursively.
     ///
-    /// An entry the walk cannot read is logged and skipped, because one
-    /// unreadable directory is no reason to report nothing about the rest.
-    fn read(dir: &Path, name: &str) -> Self {
+    /// Skips the entries a pack skips: an excluded file or folder, and every
+    /// `.modignore`. Links are followed, as in a pack. An entry the walk cannot
+    /// read is logged and skipped, and the rest of the layer is still listed.
+    fn read(dir: &Utf8Path, name: &str, ignore: &ModIgnore) -> Self {
         let walk = WalkDir::new(dir)
-            .follow_links(false)
+            .follow_links(true)
             .into_iter()
-            .filter_entry(|entry| {
-                // The walk starts at the layer root, whose basename is out of
-                // the project's hands - a temp directory may begin with a dot.
-                entry.depth() == 0
-                    || entry
-                        .file_name()
-                        .to_str()
-                        .is_some_and(|name| !name.starts_with('.'))
-            });
+            .filter_entry(|entry| !left_out(ignore, entry));
 
         let mut files = Vec::new();
         for entry in walk {
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(e) => {
-                    tracing::warn!("Skipping unreadable entry in {}: {e}", dir.display());
+                    tracing::warn!("Skipping unreadable entry in {dir}: {e}");
                     continue;
                 }
             };
@@ -471,12 +622,12 @@ impl LayerFiles {
         Self {
             name: name.to_owned(),
             files,
-            source: LayerSource::Directory(dir.to_path_buf()),
+            source: LayerSource::Directory(dir.as_std_path().to_path_buf()),
             written: HashMap::new(),
         }
     }
 
-    /// The layer an archive holds, reading back through `source`.
+    /// One layer of an archive, read through `source`.
     fn in_archive(name: &str, files: Vec<ProjectFile>, source: ArchiveFiles) -> Self {
         Self {
             name: name.to_owned(),
@@ -488,9 +639,9 @@ impl LayerFiles {
 
     /// Where one of this layer's files is on disk, for a layer on disk.
     ///
-    /// `None` for a layer read out of an archive, whose files have no path of
-    /// their own - which is what [`FileHandle::bytes`] exists to spare a rule
-    /// having to know.
+    /// `None` for a layer read from an archive, whose files have no path on
+    /// disk. A rule reads through [`FileHandle::bytes`] and does not need to
+    /// know which case applies.
     #[must_use]
     pub fn absolute(&self, file: &ProjectFile) -> Option<PathBuf> {
         match &self.source {
@@ -503,8 +654,8 @@ impl LayerFiles {
 /// One file of one layer, not yet read.
 ///
 /// Names where the file is and opens it on demand. A rule holds one per file
-/// and reads at most once, which is what keeps a check and the repair that
-/// follows it to a single read.
+/// and reads it at most once, so a check and the repair that follows it read
+/// the file only once.
 #[derive(Debug, Clone, Copy)]
 pub struct FileHandle<'a> {
     layer: &'a LayerFiles,
@@ -530,7 +681,7 @@ impl<'a> FileHandle<'a> {
         self.file.kind
     }
 
-    /// The file's size unpacked, which is what a budget is spent in.
+    /// The file's unpacked size, the unit a budget is charged in.
     #[must_use]
     pub fn size_bytes(&self) -> u64 {
         self.file.size_bytes
@@ -546,13 +697,13 @@ impl<'a> FileHandle<'a> {
 
     /// The hash the WAD holding this file addresses it by.
     ///
-    /// Read off the chunk where a packed WAD is where the file lives, and
-    /// derived from the path otherwise - so a mod unpacked into a tree answers
-    /// the same hash as the archive it came from, which is what lets a rule ask
-    /// the installed game about either.
+    /// Read from the chunk when the file is in a packed WAD, and derived from
+    /// the path otherwise. A mod unpacked into a tree then has the same hashes
+    /// as the archive it came from, so a rule can look up either in the
+    /// installed game.
     ///
-    /// `None` for a file that is not inside one of the mod's WADs, which is a
-    /// file the game addresses no other way.
+    /// `None` for a file outside the mod's WADs, which the game does not
+    /// address by hash.
     #[must_use]
     pub fn wad_hash(&self) -> Option<WadHash> {
         if let Some(chunk) = self.chunk() {
@@ -564,8 +715,8 @@ impl<'a> FileHandle<'a> {
             return None;
         }
 
-        // An unpack writes a chunk no table named as the hex of its hash, which
-        // is the hash itself rather than a path to hash.
+        // An unpack names a chunk no table named by the hex of its hash, so the
+        // name is parsed as the hash rather than hashed as a path.
         let relative = camino::Utf8Path::new(inside);
         if is_hex_chunk_path(relative) {
             return relative
@@ -576,7 +727,7 @@ impl<'a> FileHandle<'a> {
         Some(WadHash::hash_str(inside))
     }
 
-    /// Where the file sits on disk, where it sits on disk at all.
+    /// Where the file is on disk, for a file on disk.
     ///
     /// See [`LayerFiles::absolute`] for the `None`.
     #[must_use]
@@ -586,8 +737,7 @@ impl<'a> FileHandle<'a> {
 
     /// At most `limit` bytes from the start of the file.
     ///
-    /// A file shorter than `limit` answers with what it has, because a rule
-    /// judging from a header has nothing to require of the rest.
+    /// A file shorter than `limit` returns all of its bytes without an error.
     ///
     /// # Errors
     ///
@@ -630,17 +780,21 @@ impl<'a> FileHandle<'a> {
 
     /// Parse the file as a bin of either kind.
     ///
-    /// A `PTCH` is as much a bin as a `PROP` and carries objects of its own, so
-    /// a rule that walks objects reads both and never has to ask which it got.
+    /// A `PTCH` bin carries objects like a `PROP` bin, so a rule that walks
+    /// objects reads both without checking which kind it has.
     ///
     /// # Errors
     ///
     /// Reports the file it could not open or parse, as one sentence a panel
     /// can draw.
     pub fn bin(&self) -> Result<ltk_meta::BinFile, String> {
-        let bytes = self.bytes()?;
-        ltk_meta::BinFile::from_reader(&mut std::io::Cursor::new(&bytes)).map_err(|e| e.to_string())
+        parse_bin(&self.bytes()?)
     }
+}
+
+/// Parse `bytes` as a bin of either kind, failing with one sentence a panel can draw.
+pub(crate) fn parse_bin(bytes: &[u8]) -> Result<ltk_meta::BinFile, String> {
+    ltk_meta::BinFile::from_reader(&mut std::io::Cursor::new(bytes)).map_err(|e| e.to_string())
 }
 
 /// One file of one layer.
@@ -653,23 +807,22 @@ pub struct ProjectFile {
     /// What the packed WAD holding this file records about it, where a packed
     /// WAD is where it lives.
     ///
-    /// Absent for a file of a directory layer and for an archive's loose
-    /// entries. That absence is a normal state rather than an error: it is the
-    /// one difference between the two layer sources a rule can see.
+    /// `None` for a file of a directory layer and for an archive's loose
+    /// entries. This is a normal state, not an error, and it is the only
+    /// difference between the two layer sources that a rule can see.
     pub chunk: Option<ChunkInfo>,
 }
 
 /// What a packed WAD's table of contents records about one chunk.
 ///
-/// Read off the table the scan already walks, so a rule about how a mod was
-/// packed costs no decompression at all.
+/// Read from the table the scan already walks, so a rule about how a mod was
+/// packed decompresses nothing.
 ///
-/// The hash rides here rather than beside it, because it is a fact about the
-/// chunk like the rest of them and because two `Option`s that must always agree
-/// is an invariant an interface cannot state. A chunk is addressed by hash, and
-/// its path is only what a hashtable made of that hash - so the hash cannot be
-/// read back out of the path, and a chunk no table names has no path to read it
-/// out of at all.
+/// The hash is kept here rather than in its own field on [`ProjectFile`],
+/// because two `Option`s that must always agree are an invariant the type
+/// cannot enforce. A chunk is addressed by hash, and its path comes from a
+/// hashtable lookup of that hash. So the hash cannot be recovered from the
+/// path, and a chunk no table names has no path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ChunkInfo {
     pub hash: WadHash,
@@ -724,12 +877,30 @@ pub fn analyze_within(
     Ok(ProjectFiles::within(project.path(), config, budget, game)?.checked())
 }
 
+/// One pass of every rule over a workshop project.
+///
+/// The same as [`analyze`], plus the checks that apply only to a workshop
+/// project, such as `project/working-file`.
+///
+/// # Errors
+///
+/// The same as [`analyze`].
+pub fn analyze_project(
+    project_root: &Path,
+    config: &Config,
+    game: Option<Arc<dyn GameContent>>,
+) -> AppResult<Run> {
+    let project = ProjectDir::open(project_root)?;
+    Ok(ProjectFiles::read(project.path(), config, game)?
+        .in_workshop()
+        .checked())
+}
+
 /// One pass of every rule over a fantome archive, read where it lies.
 ///
-/// The archive is never unpacked, so a check costs the bins it parses rather
-/// than the whole of the tree an unpack would have written. `resolver` names
-/// a packed WAD's chunks, exactly as it does for an unpack, so a site
-/// addresses the same path either way.
+/// The archive is not unpacked, so a check reads only the bins it parses.
+/// `resolver` names a packed WAD's chunks the same way an unpack does, so a
+/// site has the same path in both cases.
 ///
 /// # Errors
 ///
@@ -770,8 +941,8 @@ impl ProjectFiles {
         let subscribed: Vec<&dyn Rule> = all.iter().map(AsRef::as_ref).collect();
         let (mut problems, failed) = self.report(&subscribed).finish();
 
-        // The panel draws this list in the order it arrives, so the order is
-        // the engine's to decide: worst first, then by where the problem is.
+        // The panel shows this list in the order it arrives, so the engine
+        // sorts it: worst first, then by where the problem is.
         problems.sort_by(|a, b| {
             a.severity
                 .cmp(&b.severity)
@@ -806,7 +977,7 @@ impl ProjectFiles {
 
     /// One pass of `rules` over these files, as the rules reported it.
     ///
-    /// In file order and unsorted, which is what a test of one rule reads.
+    /// In file order and unsorted, for a test of one rule.
     /// [`checked`](Self::checked) sorts it into a run.
     #[must_use]
     pub(crate) fn report(&self, rules: &[&dyn Rule]) -> Report {
@@ -815,8 +986,8 @@ impl ProjectFiles {
 
     /// Compute one fact over these files, in a bin round of its own.
     ///
-    /// For a repair, which reads the mod as it is now and cannot ride the
-    /// check's pass.
+    /// For a repair, which reads the mod in its current state and cannot reuse
+    /// the check's pass.
     #[must_use]
     pub fn fact<F: Fact>(&self) -> F {
         super::pass::fact(self)

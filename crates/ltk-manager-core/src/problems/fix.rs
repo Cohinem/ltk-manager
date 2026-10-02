@@ -26,11 +26,14 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::utils::fs::atomic_write;
 
 use super::game::GameContent;
 use super::pass::Fact;
 use super::preserve::{KeptTable, PreservedNames};
-use super::{BinNames, NodeAddress, ProblemId, ProjectFiles, RuleId, Run, Site, rules};
+use super::{
+    Applied, BinNames, NodeAddress, Problem, ProblemId, ProjectFiles, RuleId, Run, Site, rules,
+};
 
 /// The directory a project keeps its layers under.
 const CONTENT_DIR: &str = "content";
@@ -164,6 +167,16 @@ impl<'a> FixRun<'a> {
         }
     }
 
+    /// The tree this run writes in place, or `None` for a run that holds its
+    /// writes.
+    #[must_use]
+    pub fn tree(&self) -> Option<&Path> {
+        match &self.target {
+            Target::Tree(root) => Some(root),
+            Target::Held { .. } => None,
+        }
+    }
+
     /// The mod as this run has left it so far.
     ///
     /// A rule re-derives a claim about the rest of the mod from this rather
@@ -257,8 +270,7 @@ impl<'a> FixRun<'a> {
             }
             Target::Held { project, .. } => {
                 let handle = project
-                    .files()
-                    .find(|handle| handle.layer() == layer && handle.path() == path)
+                    .file(layer, path)
                     .ok_or_else(|| file_error(layer, path, io::ErrorKind::NotFound.into()))?;
                 handle
                     .bytes()
@@ -285,7 +297,8 @@ impl<'a> FixRun<'a> {
         match &mut self.target {
             Target::Tree(root) => {
                 let destination = resolve_in(root, layer, path)?;
-                land(&destination, bytes).map_err(|error| file_error(layer, path, error))?;
+                atomic_write(&destination, bytes)
+                    .map_err(|error| file_error(layer, path, error))?;
             }
             Target::Held { project, written } => {
                 let bytes: Arc<[u8]> = Arc::from(bytes);
@@ -333,6 +346,50 @@ impl<'a> FixRun<'a> {
     /// Record a file the rule read and left alone.
     pub fn skipped(&mut self, layer: &str, path: &str, skipped: u32) {
         self.record(layer, path, 0, skipped, FileChange::Written);
+    }
+
+    /// Record problems at one file that a write to a different file repaired.
+    /// The file itself is unchanged.
+    pub fn repaired(&mut self, layer: &str, path: &str, applied: u32) {
+        self.record(layer, path, applied, 0, FileChange::Written);
+    }
+
+    /// Record every one of `problems` as skipped, for a rule that derives no repair for them.
+    pub fn skip_all(&mut self, problems: &[&Problem]) -> Applied {
+        for problem in problems {
+            self.skipped(&problem.site.layer, &problem.site.path, 1);
+        }
+
+        Applied {
+            applied: 0,
+            skipped: u32::try_from(problems.len()).unwrap_or(u32::MAX),
+        }
+    }
+
+    /// Repair each of `problems` in its own file through `repair`, which writes or removes
+    /// that file and answers whether it did. A file it leaves alone is recorded as skipped.
+    ///
+    /// # Errors
+    ///
+    /// Stops at the first error `repair` reports.
+    pub fn per_file(
+        &mut self,
+        problems: &[&Problem],
+        mut repair: impl FnMut(&mut Self, &str, &str) -> Result<bool, FixError>,
+    ) -> Result<Applied, FixError> {
+        let mut applied = Applied::default();
+
+        for problem in problems {
+            let (layer, path) = (&problem.site.layer, &problem.site.path);
+            if repair(self, layer, path)? {
+                applied.applied += 1;
+            } else {
+                applied.skipped += 1;
+                self.skipped(layer, path, 1);
+            }
+        }
+
+        Ok(applied)
     }
 
     /// Write the kept names and report what the run did.
@@ -481,24 +538,6 @@ fn report(
         files,
         failed: Vec::new(),
     }
-}
-
-/// Put `bytes` at `destination` through a temp file beside it and a rename.
-fn land(destination: &Path, bytes: &[u8]) -> io::Result<()> {
-    let dir = destination
-        .parent()
-        .expect("a path resolved inside a layer always has a parent");
-    let name = destination
-        .file_name()
-        .expect("a path resolved inside a layer always names a file");
-    let temp = dir.join(format!(".{}.tmp", name.to_string_lossy()));
-
-    fs::write(&temp, bytes)?;
-    if let Err(error) = fs::rename(&temp, destination) {
-        let _ = fs::remove_file(&temp);
-        return Err(error);
-    }
-    Ok(())
 }
 
 /// Resolve a layer-relative path to somewhere the layer under `root` genuinely
@@ -654,8 +693,7 @@ fn file_error(layer: &str, path: &str, source: io::Error) -> FixError {
 /// What one fix run applied, skipped and wrote.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct FixReport {
     pub applied: u32,
     /// Problems the file no longer matched, which the rules left alone.
@@ -677,8 +715,7 @@ pub struct FixReport {
 /// What one fix run did to one file.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct FileOutcome {
     pub layer: String,
     /// POSIX-style and relative to the layer root.
@@ -700,8 +737,7 @@ pub struct FileOutcome {
 /// the repair as a chunk write.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
-#[cfg_attr(feature = "ts", ts(export))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum FileChange {
     #[default]
     Written,
@@ -730,6 +766,10 @@ pub enum FixError {
         path: String,
         message: String,
     },
+
+    /// A project file outside the layers could not be read or written.
+    #[error("{path}: {message}")]
+    Project { path: String, message: String },
 }
 
 #[cfg(test)]

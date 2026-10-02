@@ -5,12 +5,13 @@ governs `crates/ltk-manager-core/`, whose `AGENTS.md` points here.
 
 ## Workspace Crates
 
-| Crate                     | Knows about                       | Depends on             | License            |
-| ------------------------- | --------------------------------- | ---------------------- | ------------------ |
-| `crates/ltk-manager-core` | Manager domain logic, UI-agnostic | `ritoclient`           | `GPL-3.0-or-later` |
-| `crates/ltk-manager-game` | What League's own classes mean    | core, hexshade         | `GPL-3.0-or-later` |
-| `crates/hexshade`         | The game's shaders as GLSL        | `dxbc-spirv-sys`       | `GPL-3.0-or-later` |
-| `src-tauri`               | Tauri commands, IPC, events       | core, game, hexshade   | `GPL-3.0-or-later` |
+| Crate                     | Knows about                       | Depends on                  | License            |
+| ------------------------- | --------------------------------- | --------------------------- | ------------------ |
+| `crates/ltk-manager-core` | Manager domain logic, UI-agnostic | `ritoclient`                | `GPL-3.0-or-later` |
+| `crates/ltk-manager-game` | What League's own classes mean    | core, hexshade              | `GPL-3.0-or-later` |
+| `crates/hexshade`         | The game's shaders as GLSL        | `dxbc-spirv-sys`            | `GPL-3.0-or-later` |
+| `crates/atlas`            | The game's UI views, for Atlas    | core, game, hexshade        | `GPL-3.0-or-later` |
+| `src-tauri`               | Tauri commands, IPC, events       | core, game, hexshade, atlas | `GPL-3.0-or-later` |
 
 `ritoclient` is an external dependency rather than a workspace member, pinned to a git rev in the
 root `Cargo.toml` until it ships on crates.io. It is **Apache-2.0**, where this workspace is
@@ -22,11 +23,21 @@ is added or relicensed.
 is its FFI crate, named for the library it binds.
 
 `ltk-manager-game` sits above core. Core owns the open document, the names and where an asset
-lives, and the game crate owns the classes read out of them: a map today, and the material, skin,
-VFX and spell reads as they follow. Core never calls it, so nothing core holds knows what a
-`MapContainer` is. It reads a bin through what `bin_document` exports for that (`Fields`,
-`struct_of`, `items`, `leaf`, `link`, `text`, `Namer`) and never through `ltk_meta` matches of
-its own. A type of it that crosses IPC derives under its own `ts` feature, which takes core's.
+lives, and the game crate owns the classes read out of them: the map, material, skin, VFX and
+spell reads. Core never calls it, so nothing core holds knows what a `MapContainer` is. The VFX
+template catalog stays in core, because a new object of a declared document starts from it. The
+game crate reads a bin through what `bin_document` exports for that (`struct_of`, `items`,
+`entries`, `struct_entries`, `optional`, `leaf`, `link`, `text`, `boolean`, `float`, `unsigned`,
+`vector4` and the rest, `Namer`, `Locator`, `object_at`) and never through `ltk_meta` matches of
+its own. The two exceptions read the kind itself: the VFX resolve turns every kind into its tree,
+and the spell read reports a field of the wrong kind. A field or class hash is
+`hashing::named("…")` wherever its name is known. A type of it that crosses IPC derives under its
+own `ts` feature, which takes core's.
+
+`atlas` sits above the game crate and holds the UI editor's backend: a view controller resolved
+into its scenes and elements, the sprite manifest, the UI programs and the sheet a mod packs. It
+reads a bin the same way the game crate does, and reaches the shader cache through the game
+crate's `AssetChunks`.
 
 Dependencies point one way only. `ritoclient` takes plain arguments (`Option<&Path>`) and reports
 through its own `LaunchObserver` and `SessionObserver` traits - it must never learn about `Config`,
@@ -40,15 +51,23 @@ building a launcher return `LauncherError`.
 
 ## IPC
 
-The command table has two halves. `main.rs` holds `generate_handler!`, and `ipc.rs` holds the
-commands on `tauri-specta` (ADR-0029). A command moves by gaining `#[specta::specta]`, leaving
-the `generate_handler!` list and joining `migrated![]`. Both halves answer the same names over
-the same `IpcResult` envelope.
+A service is an inline Tauri plugin, on `tauri-specta` (ADR-0029, ADR-0059). `services/table.rs`
+names each service and its commands once, and both `build.rs` and `services/mod.rs` read it. A
+command carries `#[tauri::command]` and `#[specta::specta]`, returns `IpcResult<T>`, and joins its
+service's row, or the row's `debug:` list when only a debug build registers it. Every command
+belongs to a service. An event payload no command reaches is named once with `.typ::<T>()` in
+`ipc::builder`.
 
-A type that crosses IPC derives `ts_rs::TS` and `specta::Type` under core's `ts` feature.
-`pnpm generate:types` writes `src/lib/bindings/` from the first and `src/lib/bindings.gen.ts`
-from the second, and `src/lib/tauri.ts` re-exports a migrated module's types out of the
-generated file.
+What more than one service uses lives in `services/shared/`: `off_thread`, the asset and document
+reads, the `InFlight` slot and `overtaken` check, and the `Library` and `Workshop` arguments, which
+stand in for the states a library or workshop command takes and which a binding leaves out.
+
+A type that crosses IPC derives `specta::Type` under its crate's `ts` feature.
+`pnpm generate:types` writes every type to `src/lib/bindings.ts`, and each service's commands to
+`src/lib/ipc/<service>.ts`. `src/lib/tauri.ts`
+wraps each generated command in the `api` map and re-exports the types, with the serialize half of
+a phase-split type under its plain name. A test matches an invoke on `commandNames` from
+`src/test/commandNames.ts`, never on a string.
 
 ## Filesystem
 

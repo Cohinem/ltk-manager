@@ -11,7 +11,6 @@ import {
   useUninstallMod,
 } from "@/modules/library/api";
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
-import { usePatcherRunning } from "@/modules/patcher";
 
 import { useLibrarySelectionStore } from "../../state";
 
@@ -53,14 +52,6 @@ export interface ModCardView {
   storageChangePending: boolean;
   /** Whether the mod cannot be switched, because it is blocked or the patcher owns the library. */
   disabled: boolean;
-  /**
-   * Whether the card's menu is closed to the reader.
-   *
-   * Narrower than [`disabled`], which also covers a mod that cannot be switched
-   * on. A blocked mod still needs its menu, or there would be no way left to
-   * act on it.
-   */
-  menuDisabled: boolean;
   isInUserFolder: boolean;
   isMultiLayer: boolean;
   /** Whether anything at all is picked, which is what draws every card's checkbox. */
@@ -95,7 +86,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
   const uninstallMod = useUninstallMod();
   const moveModToFolder = useMoveModToFolder();
   const setModStorage = useSetModStorage();
-  const patcherRunning = usePatcherRunning();
 
   const hasSelection = useLibrarySelectionStore((s) => s.selectedIds.size > 0);
   const isSelected = useLibrarySelectionStore((s) => s.selectedIds.has(mod.id));
@@ -109,10 +99,7 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     setInfoOpen: setSkinhackInfoOpen,
   } = useSkinhackFlag(mod);
 
-  const disabled = isFlagged || patcherRunning;
-  // A patcher run owns the library. Being unusable is not the same thing, and is
-  // the state most in need of a menu.
-  const menuDisabled = patcherRunning;
+  const disabled = isFlagged;
   const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
 
@@ -212,7 +199,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     canCheckHealth,
     storageChangePending: setModStorage.isPending,
     disabled,
-    menuDisabled,
     isInUserFolder,
     isMultiLayer,
     hasSelection,

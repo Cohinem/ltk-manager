@@ -157,6 +157,9 @@ Named behaviours are presets over that pair rather than cases in the evaluator. 
 looping run restarts on `runLength`, which for a path is the flight time, because a missile's system
 dies where the missile lands, and for everything else is the system's own span.
 
+ADR-0057 replaced the presets with a carrier and a playback that the system picks for itself,
+and added a Continuous playback that never starts over.
+
 **Where a run stands is read off the clock, never stored.** `phaseAt` is `time` for a rig that plays
 once and `time % runLength` for one that loops, so nothing the rig remembers about when the reader
 picked it can make a play and a seek disagree, which decision 2.6 does not allow. A rig that counted
@@ -170,8 +173,9 @@ decision 2.5 keeps it across an edit, so a drag along a slider moves what it is 
 
 The scrub spans `max(systemSpan, runLength)`, so a flight longer than the effect is reachable.
 
-`flightPath` centres its path on the origin at half a champion's height, so an effect authored about
-its own origin is on screen for the whole run and clears the ground plane. The path's direction is
+`flightPath` centres its path on the origin, so an effect authored about its own origin is on screen
+for the whole run. A rig that moves flies at half a champion's height, and one that stands still
+stands on the ground, as the skin, spell and map previews do (ADR-0057). The path's direction is
 not a control: the reader orbits the camera instead.
 
 **A moving origin alone draws no trail**, which is why `bindWeight` (`0xca406316`) joined the field
@@ -203,7 +207,7 @@ Primitive behaviour indexes by a number with no name of its own. The number is t
 | 4    | `CAMERATRAIL`         | `VfxPrimitiveCameraTrail`       | —                                                                       |
 | 5    | `ARBITRARYTRAIL`      | `VfxPrimitiveArbitraryTrail`    | —                                                                       |
 | 6    | `BEAM`                | `VfxPrimitiveBeam`              | Folds one further colour factor from the primitive sub-object           |
-| 7    | `PLANAR_PROJECTION`   | `VfxPrimitivePlanarProjection`  | —                                                                       |
+| 7    | `PLANAR_PROJECTION`   | `VfxPrimitivePlanarProjection`  | A decal per particle through `UNLIT_DECAL`, "Planar projection" in T8   |
 | 8    | `CAMERA_UNIT_QUAD`    | `VfxPrimitiveCameraUnitQuad`    | The camera quad's builder at half the factor, so it spans `scale0` once |
 | 9    | `CAMERA_SEGMENT_BEAM` | `VfxPrimitiveCameraSegmentBeam` | Folds one further colour factor. Excluded from direction orientation    |
 | 11   | `ATTACHED_MESH`       | `VfxPrimitiveAttachedMesh`      | `isDirectionOriented` applies. Orientation comes from the attachment    |
@@ -510,25 +514,25 @@ can be drawn. `worldAcceleration` was recorded here and is now built, section 2.
 These readings replaced the rest of the guesses, about ribbons, rays and beams, and correct the
 spawn-shape table. What each changed:
 
-| Question                     | Reading                                                                                                                                                                                                                                                                                                                                   | Where it landed                                                                                                  |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| A trail's points             | A particle each, walked in birth order, `scale0.x` the half-width per point. A camera trail expands across the view and its tangent, an arbitrary one along the particle's own `+X`                                                                                                                                                       | `writeTrail` in `ribbon.ts`, `Trails.tsx`, and `basis.ts` for the particle's axes                                |
-| `mMode`                      | `WAKE` runs `u` on the emitter's odometer at each particle's birth, so the texture is pinned to the path. `DEFAULT` re-measures the ribbon each frame. Shipped data authors `WAKE` alone, 91,396 objects                                                                                                                                  | `EmitterState.travelled`, `pool.odometer`, stamped in `emit()`                                                   |
-| `mSmoothingMode`             | The walk's direction: `BackToFront` runs oldest to newest, the others newest to oldest, which is where `u` opens and `mCutoff` truncates. Either on mode box-filters interior points over three neighbours a side and miters each joint to the bisector. Mode 2 also narrows the width on a sharp turn against a threshold not identified | The walk, the filter and the miter in `writeTrail`. The width adaptation is not built, for want of its threshold |
-| `mCutoff`                    | Truncates at that walked length from the walk's start, and never the first point. Not a gap test                                                                                                                                                                                                                                          | `writeTrail`                                                                                                     |
-| Trail UV                     | `u = numerator / tiling.x`, zero at or below zero tiling rather than stretched. `v` spans `0.5 ± halfWidth / tiling.y / 2`, one repeat at zero, a literal `-y` below. Both through the particle's 2x3 transform. `mBirthTilingSize` draws per particle at birth, `z` dropped. The first point's even part is subtracted from every `u`    | `pool.tiling`, `packUv` and the affine in `ribbon.ts`, the `cell` attribute on the ribbon material               |
-| `mMaxAddedPerFrame`          | The last step of the spawn count: `count >= n` returns `n`                                                                                                                                                                                                                                                                                | `emit()` in `integrate.ts`                                                                                       |
-| A ray                        | Lies along the particle's own `+Z` after its whole orientation, never its velocity, and kind 2 is excluded from `isDirectionOriented`. `scale0.x` across, `.y` along, `.z` where the near edge starts. Rolls about the axis to face the eye                                                                                               | The ray branch of the quad vertex shader, and `size` as three                                                    |
-| A beam's ends                | Both the system's: its position plus `mLocalSpaceSourceOffset`, its target plus `mLocalSpaceTargetOffset`. The particle contributes nothing, so every particle draws one segment                                                                                                                                                          | `writeBeam` in `ribbon.ts`, `Beams.tsx`, `Driver.origin`                                                         |
-| `mMode` on a beam            | `DEFAULT` faces the eye. `ARBITRARY`, the only value authored, is `cross(L, +Y)` run through the particle's local matrix as a point and left unnormalised, so a near-vertical beam collapses and the particle's position leaks into the width                                                                                             | `writeBeam`, both paths, the leak included                                                                       |
-| `scale0` on a beam           | `x` the width. `y` and `z` trim the quad in from the source and the target as shares of the length. UV: `width / tiling.x` across, the full length `/ tiling.y` along, a component at or below zero spanning one                                                                                                                          | `writeBeam`                                                                                                      |
-| `mIsColorBindedWithDistance` | `mAnimatedColorWithDistance` sampled at the raw distance between the two anchors in engine units, one colour for the whole beam, only under the flag. Not a position along the beam                                                                                                                                                       | `Beams.tsx`                                                                                                      |
-| `mSegments`                  | Inert on `VfxPrimitiveBeam`, which draws one quad per particle. Only the camera segment beam reads it, as ribs the particles stand in for                                                                                                                                                                                                 | Read and not applied. The segment beam draws as the plain beam, and its ribs are not built                       |
-| `mMesh` on a beam            | Suppresses the ribbon, and the mesh draw dispatch excludes the kind, so nothing draws (inferred)                                                                                                                                                                                                                                          | `drawsAsBeam` refuses an emitter whose beam names a mesh                                                         |
-| `mTrailMode`                 | No consumer                                                                                                                                                                                                                                                                                                                               | Read and not applied                                                                                             |
-| Shape ranges                 | `Size` is half-extents, `-1..+1` per axis, and so is a cylinder's radius. A cylinder's `height` is one-sided, `0..height` up from the emitter. A volume cylinder's radial draw is `-1..+1` too                                                                                                                                            | `sampleShape`, the cylinder case                                                                                 |
-| Shape angles                 | Cylinder about `+Y` by a full turn. Sphere about `+Y` then `+Z`, both full, on a vector along `+X`, so the first is the polar angle and the second the azimuth, and the shell piles up at the poles. Box by quarter turns in the same order, skipped under `flags & 1`. Every distribution is naive and is reproduced                     | As built, kept                                                                                                   |
-| `flags & 1`                  | Interior against boundary. Authored on 101,615 boxes and 56,021 cylinders and no sphere, so every shipped sphere is a shell                                                                                                                                                                                                               | As built, kept                                                                                                   |
+| Question                     | Reading                                                                                                                                                                                                                                                                                                                                                                          | Where it landed                                                                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| A trail's points             | A particle each, walked in birth order, `scale0.x` the half-width per point. A camera trail expands across the view and its tangent, an arbitrary one along the particle's own `+X`                                                                                                                                                                                              | `writeTrail` in `ribbon.ts`, `Trails.tsx`, and `basis.ts` for the particle's axes                                |
+| `mMode`                      | `WAKE` runs `u` on the emitter's odometer at each particle's birth, so the texture is pinned to the path. `DEFAULT` re-measures the ribbon each frame. Shipped data authors `WAKE` alone, 91,396 objects                                                                                                                                                                         | `EmitterState.travelled`, `pool.odometer`, stamped in `emit()`                                                   |
+| `mSmoothingMode`             | The walk's direction: `BackToFront` runs oldest to newest, the others newest to oldest, which is where `u` opens and `mCutoff` truncates. Either on mode box-filters interior points over three neighbours a side and miters each joint to the bisector. Mode 2 also narrows the width on a sharp turn against a threshold not identified                                        | The walk, the filter and the miter in `writeTrail`. The width adaptation is not built, for want of its threshold |
+| `mCutoff`                    | Truncates at that walked length from the walk's start, and never the first point. Not a gap test                                                                                                                                                                                                                                                                                 | `writeTrail`                                                                                                     |
+| Trail UV                     | `u = numerator / tiling.x`, zero at or below zero tiling rather than stretched. `v` spans `0.5 ± halfWidth / tiling.y / 2`, one repeat at zero, a literal `-y` below. Both through the particle's 2x3 transform. `mBirthTilingSize` draws per particle at birth, `z` dropped. The first point's even part is subtracted from every `u`                                           | `pool.tiling`, `packUv` and the affine in `ribbon.ts`, the `cell` attribute on the ribbon material               |
+| `mMaxAddedPerFrame`          | The last step of the spawn count: `count >= n` returns `n`                                                                                                                                                                                                                                                                                                                       | `emit()` in `integrate.ts`                                                                                       |
+| A ray                        | Lies along the particle's own `+Z` after its whole orientation, never its velocity, and kind 2 is excluded from `isDirectionOriented`. `scale0.x` across, `.y` along, `.z` where the near edge starts. Rolls about the axis to face the eye                                                                                                                                      | The ray branch of the quad vertex shader, and `size` as three                                                    |
+| A beam's ends                | Both the system's: its position plus `mLocalSpaceSourceOffset`, its target plus `mLocalSpaceTargetOffset`. The particle contributes nothing, so every particle draws one segment                                                                                                                                                                                                 | `writeBeam` in `ribbon.ts`, `Beams.tsx`, `Driver.origin`                                                         |
+| `mMode` on a beam            | `DEFAULT` faces the eye. `ARBITRARY`, the only value authored, is `cross(L, +Y)` run through the particle's local matrix as a point and left unnormalised, so a near-vertical beam collapses and the particle's position leaks into the width                                                                                                                                    | `writeBeam`, both paths, the leak included                                                                       |
+| `scale0` on a beam           | `x` the width. `y` and `z` trim the quad in from the source and the target as shares of the length. UV: `width / tiling.x` across, the full length `/ tiling.y` along, a component at or below zero spanning one                                                                                                                                                                 | `writeBeam`                                                                                                      |
+| `mIsColorBindedWithDistance` | `mAnimatedColorWithDistance` sampled at the raw distance between the two anchors in engine units, one colour for the whole beam, only under the flag. Not a position along the beam                                                                                                                                                                                              | `Beams.tsx`                                                                                                      |
+| `mSegments`                  | Inert on `VfxPrimitiveBeam`, which draws one quad per particle. Only the camera segment beam reads it, as ribs the particles stand in for                                                                                                                                                                                                                                        | Read and not applied. The segment beam draws as the plain beam, and its ribs are not built                       |
+| `mMesh` on a beam            | Suppresses the ribbon, and the mesh draw dispatch excludes the kind, so nothing draws (inferred)                                                                                                                                                                                                                                                                                 | `drawsAsBeam` refuses an emitter whose beam names a mesh                                                         |
+| `mTrailMode`                 | No consumer                                                                                                                                                                                                                                                                                                                                                                      | Read and not applied                                                                                             |
+| Shape ranges                 | `Size` is half-extents, `-1..+1` per axis, and so is a cylinder's radius. A cylinder's `height` is one-sided, `0..height` up from the emitter. A volume cylinder's radial draw is `-1..+1` too                                                                                                                                                                                   | `sampleShape`, the cylinder case                                                                                 |
+| Shape angles                 | Cylinder about `+Y` by a full turn. Sphere about `+Y` then `+Z`, both full, on a vector along `+X`, `+Y` applied first as the row-vector product does, so the first is the polar angle and the second the azimuth, and the shell piles up at the poles on `±Z`. Box by quarter turns in the same order, skipped under `flags & 1`. Every distribution is naive and is reproduced | As built, kept                                                                                                   |
+| `flags & 1`                  | Interior against boundary. Authored on 101,615 boxes and 56,021 cylinders and no sphere, so every shipped sphere is a shell                                                                                                                                                                                                                                                      | As built, kept                                                                                                   |
 
 Two readings go beyond what is directly attested. The camera trail's `cameraVec` is a per-frame
 constant and is read as the view direction, since a position would cross to nothing. The beam's
@@ -611,7 +615,7 @@ by a system whose look it fixes:
 | A mesh's fragment      | A mesh runs the quad's whole fragment pass: both uv layers, the palette, erosion, `LOCK_ALPHA` and the `falloff` uniform an untextured draw takes. The colour ramp stays a per-emitter uniform | `meshMaterial` and `fragmentTests` shared with the quad                |
 | A mesh's scale         | `isUniformScale` is read, and the first scale component serves all three axes                                                                                                                  | `SPREAD.setScalar(DRAWN.scale[0])` in `Meshes.tsx`                     |
 | A mesh's turn          | The one rotation channel is the first, about `X`, off `Ezreal_Base_R_mis` authoring `birthRotation0 (90, 0, 0)`                                                                                | `meshTurn` in `integrate.ts`                                           |
-| A path rig's frame     | A rig flies on its local `Y`: `X` right, `Y` along the flight, `Z` down, the one proper rotation. Shipped missiles author everything on `Y`                                                    | `flightInto` in `basis.ts`                                             |
+| A path rig's frame     | A rig flies on its local `Y`: `Y` along the flight, `Z` up and `X` left, the one proper rotation. Shipped missiles author everything on `Y`                                                    | `flightInto` in `basis.ts`                                             |
 | A path rig's run       | The system stops where it lands, so a run is the flight plus `lingerTail` and the scrub spans it                                                                                               | `landed` in `rig.ts`, and `scrubSpan` is gone                          |
 | An arbitrary quad's uv | The texture is sampled transposed, `u = 0.5 - corner.y` and `v = corner.x + 0.5`, read off three textures decoded from the WAD. A transpose mirrors, which no shipped texture could settle     | The arbitrary path of the quad vertex shader                           |
 | A mesh's handedness    | The viewport mirrors on `X`, so a mesh's vertices and normals mirror with it and every face rewinds, and the material culls unless `disableBackfaceCull` is written                            | `mirrorX` and `rewind` in `meshBuffer.ts`, `backfaceCull` on the model |
@@ -763,9 +767,12 @@ only evidence for it is what the shipped systems author against it.
   the art. Under the yaw the same quad stands 70 tall across the flight and reads as a sliver.
 - `leading_glow1` is the same kind and turns with it.
 
-So the frame goes back to `flightInto`: local `Y` along the flight, `X` to its right, `Z` down.
-The `90` degrees about `X` that separates it from a yaw is real, but it belongs to the object's
-frame rather than to an artist's `birthRotation0`, and an emitter that authors no rotation cannot
+So the frame goes back to `flightInto`: local `Y` along the flight, `Z` up and `X` to its left.
+`Xerath_Base_E_mis` settles the sign of `Z`: its `GroundGlow` is an unrotated arbitrary quad
+spawned by a point shape at `(0, 0, -100)`, which lies flat under the missile only when `-Z` is
+down, and floated above it while the frame put `Z` down.
+The turn that separates it from a yaw, a quarter about `X` and a half about `Y`, is real, but it
+belongs to the object's frame rather than to an artist's `birthRotation0`, and an emitter that authors no rotation cannot
 be supplying it.
 
 A census of `birthRotation0` over 243,307 mesh emitters closed it from the other side. Of the
@@ -1833,7 +1840,8 @@ rim    = (1 - pow(facing, vFresnel.w)) * vFresnel.rgb
 Half of each under `REFLECTIVE` add `reflect(I, N)` and an opacity
 `lerp(vReflection.y, vReflection.z, 1 - pow(facing, vReflection.x))`. The mesh fragment shader
 adds `cube * opacity * lerp(1, vReflectionFColor.rgb, opacity)`
-and then `rim * alpha` to the colour, saturated, and leaves the alpha. The skinned mesh particle
+and then `rim * alpha` to the colour, and leaves the alpha. The alpha that carries the rim is
+taken before the erosion, and the colour saturates after the soft fade. The skinned mesh particle
 fragment shader scales both terms by the texture's alpha before the particle's colour, where the
 mesh fragment shader takes the drawn alpha. `REFLECTION_MAP` is a cube, bound at a fixed sampler
 slot. Neither the quad vertex nor the quad fragment shader names either constant, so the 2,227
@@ -2319,11 +2327,10 @@ sphere 514, and no pre-split `VfxShape`.
 
 These ranges are attested (2.12): a box's `Size` and a
 cylinder's `radius` are half-extents drawn `-1..+1`, and a cylinder's `height` runs `0..height` up
-from the emitter. A surface box is the `+Z` face sent to one of the four sides by quarter turns, so
-it never emits from its top or bottom, which is what the quadrant rotation does, and shipped data
-sets `flags & 1` on essentially every box and cylinder and on no sphere. Every distribution is the
-engine's naive one and is left so. `VfxShapePointDoNotUse` is a hash crack, and the hash is what a
-bin writes.
+from the emitter. A surface box is the `+Z` face turned by quarter turns about `+Y` and then
+about `+Z`, so it reaches all six sides, and shipped data sets `flags & 1` on essentially every
+box and cylinder and on no sphere. Every distribution is the engine's naive one and is left so.
+`VfxShapePointDoNotUse` is a hash crack, and the hash is what a bin writes.
 
 ### T4 — force fields
 
@@ -2535,6 +2542,38 @@ every block is a plain dissolve, and the tail at `0.1` to `0.5` is a band burnin
 map samples at the base layer's own uv, a mesh at its own, under `erosionMapAddressMode` as
 the sampler receives it, unremapped. `erosionDriveSource` reaches no shader and is read by
 nothing here.
+
+**Planar projection.** `VfxPrimitivePlanarProjection` lays each particle on the ground as a
+decal. Read in 16.17.8057408, where both families reach one projector
+(`0x1412F8790`): the simple draw (`0x1412C4AC0`) and the complex batch's kind-7 branch
+(`0x1412F578D`). Per live particle the projector takes the ground position, a half-width and
+half-height, a turn in degrees, `COLOR_UV`, `MODULATE_COLOR` and a vector of the particle's
+height, `mYRange` and `mFading`. It queries the map triangles under the footprint's bounding box
+and redraws them with `Environment/UNLIT_DECAL_VS` and `UNLIT_DECAL_PS`, which
+`VfxEmitter_SelectShaderPermutation` picks for kind 7 on every pass, distortion included.
+
+| Input            | Simple emitter            | Complex emitter                                                |
+| ---------------- | ------------------------- | -------------------------------------------------------------- |
+| Half-extents     | scale times `scaleBias`   | `scale.x` by `scale.z`, `scale.x` twice under `isUniformScale` |
+| Turn, degrees    | the rotation stream       | `deg(atan2(-m00, m02))` wrapped, less 270                      |
+| `MODULATE_COLOR` | white                     | the particle's colour                                          |
+| `COLOR_UV`       | the colour lookup streams | the colour lookup                                              |
+
+The uv matrix is `T(-x, 0, -z) . RotY(turn) . S(1/2w, 1, 1/2h) . T(0.5, 0, 0.5)` under the row
+vector convention, and the vertex shader flips `v`. The complex turn undoes the particle's own
+yaw, so the texture lies along the particle's `X` and `Z`. The vertex shader fades by height:
+with `d = |surface.y - particle.y|` the decal is whole while `d <= mYRange` and scales its alpha
+by `1 - (d - mYRange) / mFading` past it. The `.troy` loader stores `p-projection-y-range` at
+`+0` and `p-projection-fading` at `+4` of the block, which is the order the projector reads. The
+pixel shader is the texel times the ramp at `COLOR_UV` times `MODULATE_COLOR` times the fog of
+war, with no vertex colour and none of the emitter's uv transform, cell or flipbook.
+`colorModulate` is read by no draw.
+
+`Projections.tsx` draws the footprint itself as one quad at `GROUND_LEVEL`, because the
+preview's ground is flat, with `OVERLAY` as its depth offset where the emitter writes none. Four
+things are left out: the fog of war, the `MULT_PASS`, `ALPHA_EROSION` and `PALETTIZE_TEXTURES`
+permutations, terrain, and what a wrapping texture draws past the footprint over a whole map
+triangle. The decal has no game-shader route.
 
 ### T9 — child particle sets
 

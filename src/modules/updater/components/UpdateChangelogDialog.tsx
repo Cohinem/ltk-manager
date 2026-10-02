@@ -1,6 +1,6 @@
 import { DownloadIcon, SparkleIcon } from "@phosphor-icons/react";
 
-import { AlertBox, Button, Checkbox, Dialog, Progress } from "@/components";
+import { AlertBox, Button, Checkbox, Dialog, ProgressBar } from "@/components";
 import { m } from "@/i18n";
 import {
   usePlaySessionStore,
@@ -44,93 +44,89 @@ export function UpdateChangelogDialog() {
       : m.updater_install_action();
 
   return (
-    <Dialog.Root open={showing} onOpenChange={updating ? undefined : setDialogOpen}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        <Dialog.Overlay size="lg" data-ui="UpdateChangelogDialog">
-          <Dialog.Header tone="accent">
-            <div className="flex items-center gap-3">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-500/15">
-                <SparkleIcon className="size-5 text-accent-400" />
-              </span>
-              <div>
-                <Dialog.Title>{m.updater_changelog_title()}</Dialog.Title>
-                <p className="text-xs font-medium text-accent-400">
-                  {m.updater_version_upgrade_label({
-                    from: update.currentVersion,
-                    to: update.version,
-                  })}
-                </p>
-              </div>
-            </div>
-            {!updating && <Dialog.Close />}
-          </Dialog.Header>
+    <Dialog.Frame
+      open={showing}
+      onClose={updating ? undefined : () => setDialogOpen(false)}
+      size="lg"
+      data-ui="UpdateChangelogDialog"
+    >
+      <Dialog.Header tone="accent">
+        <div className="flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-500/15">
+            <SparkleIcon className="size-5 text-accent-400" />
+          </span>
+          <div>
+            <Dialog.Title>{m.updater_changelog_title()}</Dialog.Title>
+            <p className="text-xs font-medium text-accent-400">
+              {m.updater_version_upgrade_label({
+                from: update.currentVersion,
+                to: update.version,
+              })}
+            </p>
+          </div>
+        </div>
+        {!updating && <Dialog.Close />}
+      </Dialog.Header>
 
-          <Dialog.Body className="flex h-[65vh] flex-col gap-4 overflow-hidden">
-            {error && (
-              <AlertBox
-                variant="error"
-                title={m.updater_install_failed_title()}
-                onDismiss={dismissError}
-              >
-                {error}
-              </AlertBox>
-            )}
+      <Dialog.Body className="flex h-[65vh] flex-col gap-4 overflow-hidden">
+        {error && (
+          <AlertBox
+            variant="error"
+            title={m.updater_install_failed_title()}
+            onDismiss={dismissError}
+          >
+            {error}
+          </AlertBox>
+        )}
 
-            {leagueRunning && !updating && (
-              <AlertBox variant="info">{m.updater_league_running_hint()}</AlertBox>
-            )}
+        {leagueRunning && !updating && (
+          <AlertBox variant="info">{m.updater_league_running_hint()}</AlertBox>
+        )}
 
-            {downloaded && !updating && !skipped && (
-              <p className="text-sm text-surface-400">{m.updater_install_on_quit_hint()}</p>
-            )}
+        {downloaded && !updating && !skipped && (
+          <p className="text-sm text-surface-400">{m.updater_install_on_quit_hint()}</p>
+        )}
 
-            {updating && (
-              <div className="flex flex-col gap-1.5">
-                <Progress.Root
-                  value={progress}
-                  label={m.updater_install_progress_label()}
-                  valueLabel={`${progress}%`}
-                >
-                  <Progress.Track>
-                    <Progress.Indicator />
-                  </Progress.Track>
-                </Progress.Root>
-                <p className="text-sm text-surface-400">{m.updater_install_restart_hint()}</p>
-              </div>
-            )}
+        {updating && (
+          <div className="flex flex-col gap-1.5">
+            <ProgressBar
+              value={progress}
+              label={m.updater_install_progress_label()}
+              valueLabel={`${progress}%`}
+            />
+            <p className="text-sm text-surface-400">{m.updater_install_restart_hint()}</p>
+          </div>
+        )}
 
-            <div className="-mx-2 flex-1 overflow-y-auto px-2 select-none">
-              <ReleaseSection pending version={update.version} body={update.body ?? undefined} />
-              <ReleaseHistory enabled={showing} excludeVersion={update.version} />
-            </div>
-          </Dialog.Body>
+        <div className="-mx-2 flex-1 overflow-y-auto px-2 select-none">
+          <ReleaseSection pending version={update.version} body={update.body ?? undefined} />
+          <ReleaseHistory enabled={showing} excludeVersion={update.version} />
+        </div>
+      </Dialog.Body>
 
-          {!updating && (
-            <Dialog.Footer className="items-center justify-between">
-              <Checkbox
-                size="sm"
-                label={m.updater_skip_version_label()}
-                checked={skipped}
-                onCheckedChange={(val) => setSkipVersion(val === true)}
-              />
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" onClick={() => setDialogOpen(false)}>
-                  {m.common_close_action()}
-                </Button>
-                <Button
-                  variant="filled"
-                  left={<DownloadIcon weight="bold" className="h-4 w-4" />}
-                  disabled={leagueRunning}
-                  onClick={install}
-                >
-                  {installLabel}
-                </Button>
-              </div>
-            </Dialog.Footer>
-          )}
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+      {!updating && (
+        <Dialog.Footer className="items-center justify-between">
+          <Checkbox
+            size="sm"
+            label={m.updater_skip_version_label()}
+            checked={skipped}
+            onCheckedChange={(val) => setSkipVersion(val === true)}
+          />
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
+              {m.common_close_action()}
+            </Button>
+            <Button
+              variant="filled"
+              left={<DownloadIcon weight="bold" className="size-4" />}
+              disabled={leagueRunning}
+              onClick={install}
+            >
+              {installLabel}
+            </Button>
+          </div>
+        </Dialog.Footer>
+      )}
+    </Dialog.Frame>
   );
 }

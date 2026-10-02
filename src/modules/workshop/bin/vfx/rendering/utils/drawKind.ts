@@ -158,6 +158,15 @@ export function drawsTheAttachment(emitter: EmitterModel): boolean {
 }
 
 /**
+ * The emitter lays each particle on the ground as a decal, `VfxPrimitivePlanarProjection`.
+ *
+ * A projection never distorts: the engine gives kind 7 its own decal shaders on every pass.
+ */
+export function drawsAsProjection(emitter: EmitterModel): boolean {
+  return emitter.quadType === QUAD_TYPE.planarProjection;
+}
+
+/**
  * The emitter names a primitive this build has no renderer for.
  *
  * A null `quadType` reaches here too, because a class with no kind matches none of the
@@ -169,6 +178,7 @@ export function isUndrawn(emitter: EmitterModel): boolean {
     !drawsAsMesh(emitter) &&
     !drawsAsTrail(emitter) &&
     !drawsTheAttachment(emitter) &&
+    !drawsAsProjection(emitter) &&
     emitter.beam === null
   );
 }

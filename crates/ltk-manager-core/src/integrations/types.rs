@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// A supported external tool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::Display)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "kebab-case")]
 pub enum Tool {
     /// WAD extraction and hashtable tools.
@@ -34,7 +34,7 @@ impl Tool {
 
 /// The requested installation change.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum IntegrationAction {
     /// Install or update to a verified stable release.
@@ -53,7 +53,7 @@ pub enum IntegrationAction {
 
 /// An explicit replacement decision for existing context menus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum MenuConflictPolicy {
     /// Preserve another installation's registrations.
@@ -64,7 +64,7 @@ pub enum MenuConflictPolicy {
 
 /// An observed classic context-menu state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum MenuStatus {
     /// No menus are registered.
@@ -79,7 +79,7 @@ pub enum MenuStatus {
 
 /// A stage of an installation operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum IntegrationStage {
     /// Resolving release metadata.
@@ -102,7 +102,7 @@ pub enum IntegrationStage {
 
 /// A retryable integration failure.
 #[derive(Debug, Clone, Serialize, Deserialize, thiserror::Error)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum IntegrationError {
     /// No supported Windows architecture is available.
@@ -158,7 +158,7 @@ impl From<serde_json::Error> for IntegrationError {
 
 /// The operation snapshot retained when the settings panel unmounts.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct IntegrationOperation {
     /// Unique operation identity.
@@ -177,7 +177,7 @@ pub struct IntegrationOperation {
 
 /// A stable release available for installation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct IntegrationRelease {
     /// Release tag from the tool repository.
@@ -188,7 +188,7 @@ pub struct IntegrationRelease {
 
 /// Local files and Explorer registrations observed independently of release availability.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS, specta::Type))]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct IntegrationStatus {
     /// The external tool.

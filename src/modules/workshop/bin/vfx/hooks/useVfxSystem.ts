@@ -2,7 +2,7 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { api, type AppError, type BinDocumentId, type VfxSystem } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs } from "@/utils/query";
 
 import type { SystemModel } from "../engine/model/model";
 import { readVfxSystem } from "../engine/parsing/readVfxSystem";
@@ -16,6 +16,8 @@ export const vfxKeys = {
    * docs/plans/vfx-particle-renderer.md).
    */
   system: (document: BinDocumentId, entry: string) => ["vfx-system", document, entry] as const,
+  /** Every system read out of one open document, which a retry of a failed read refetches. */
+  document: (document: BinDocumentId) => ["vfx-system", document] as const,
 };
 
 export const vfxQueries = {
@@ -29,7 +31,7 @@ export const vfxQueries = {
   system: (document: BinDocumentId, entry: string) =>
     queryOptions<VfxSystem, AppError>({
       queryKey: vfxKeys.system(document, entry),
-      queryFn: async () => unwrapForQuery(await api.bin.readVfxSystem(document, entry)),
+      queryFn: queryFnWithArgs(api.bin.readVfxSystem, document, entry),
       staleTime: Infinity,
       retry: false,
     }),

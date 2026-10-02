@@ -23,7 +23,7 @@ export function RemoveFromFolderZone({ visible }: RemoveFromFolderZoneProps) {
           : "border-t border-surface-700 bg-surface-900 text-surface-400"
       }`}
     >
-      <FolderOutput className="h-5 w-5 shrink-0" />
+      <FolderOutput className="size-5 shrink-0" />
       <span className="text-sm font-medium whitespace-nowrap">Drop here to remove from folder</span>
     </div>
   );

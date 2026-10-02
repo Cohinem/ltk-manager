@@ -1,7 +1,7 @@
 import { MutationObserver } from "@tanstack/react-query";
 import { vi } from "vitest";
 
-import type { AppError } from "@/lib/bindings";
+import type { AppError } from "@/lib/tauri";
 
 const reportUnhandledFailure = vi.fn();
 
@@ -31,7 +31,7 @@ async function runFailingMutation(
 it("reports a mutation that says nothing about its own failure", async () => {
   await runFailingMutation();
 
-  expect(reportUnhandledFailure).toHaveBeenCalledWith(failure);
+  expect(reportUnhandledFailure).toHaveBeenCalledWith(failure, undefined);
 });
 
 /* An onError that only rolls an optimistic update back leaves the reader with a
@@ -39,7 +39,7 @@ it("reports a mutation that says nothing about its own failure", async () => {
 it("reports a mutation whose onError only rolls back", async () => {
   await runFailingMutation({ onError: () => undefined });
 
-  expect(reportUnhandledFailure).toHaveBeenCalledWith(failure);
+  expect(reportUnhandledFailure).toHaveBeenCalledWith(failure, undefined);
 });
 
 it("stays quiet when the mutation opts out through meta", async () => {
@@ -53,5 +53,11 @@ it("stays quiet when the mutation opts out through meta", async () => {
 it("reports a mutation the caller handles only per call", async () => {
   await runFailingMutation({}, { onError: () => undefined });
 
-  expect(reportUnhandledFailure).toHaveBeenCalledWith(failure);
+  expect(reportUnhandledFailure).toHaveBeenCalledWith(failure, undefined);
+});
+
+it("titles the report with the action the mutation names", async () => {
+  await runFailingMutation({ meta: { errorTitle: "Couldn't delete" } });
+
+  expect(reportUnhandledFailure).toHaveBeenCalledWith(failure, "Couldn't delete");
 });

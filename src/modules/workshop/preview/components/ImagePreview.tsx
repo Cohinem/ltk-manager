@@ -1,13 +1,5 @@
 import { CheckerboardIcon, MinusIcon, PlusIcon } from "@phosphor-icons/react";
-import {
-  type RefObject,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   type ReactZoomPanPinchContentRef,
   type ReactZoomPanPinchRef,
@@ -17,16 +9,18 @@ import {
 
 import { Button, EmptyState, IconButton, Spinner, Tooltip } from "@/components";
 import { useReducedMotion, useResizeObserver } from "@/hooks";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import type { AppError, AssetInfo, AssetRef } from "@/lib/tauri";
 import { usePreviewCheckered, useSetPreviewCheckered } from "@/stores";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { useAssetInfo } from "../api/useAssetInfo";
 import { useImageSlot } from "../hooks/useImageSlot";
-import { assetArchive, previewUrl } from "../utils/assetRef";
+import { assetArchive, assetKey, usePreviewUrl } from "../utils/assetRef";
 import { BinPreview, isPropertyBin } from "./BinPreview";
+import { PreviewStatus } from "./PreviewStatus";
 
 /** How far a zoom reaches, either side of the image's own scale. */
 const ZOOM_RANGE = [0.05, 32] as const;
@@ -83,7 +77,8 @@ interface ImagePreviewProps {
  */
 export function ImagePreview({ asset, name }: ImagePreviewProps) {
   const info = useAssetInfo(asset);
-  const url = useMemo(() => previewUrl(asset), [asset]);
+  const url = usePreviewUrl(asset);
+  const subject = assetKey(asset);
 
   const [natural, setNatural] = useState<Size | null>(null);
   const [pane, setPane] = useState<Size | null>(null);
@@ -100,12 +95,15 @@ export function ImagePreview({ asset, name }: ImagePreviewProps) {
   const [zoom, setZoom] = useState<PreviewZoom>("fit");
   const controls = useRef<ReactZoomPanPinchContentRef>(null);
 
-  /* A fresh asset in the same tab is a fresh load, so what the old one measured
-     goes and the viewport goes with it. */
+  /* A fresh asset in the same tab resets the viewport. A save of the same file keeps the
+     viewport and measures the new pixels. */
+  useEffect(() => {
+    setZoom("fit");
+  }, [subject]);
+
   useEffect(() => {
     setNatural(null);
     setFailed(false);
-    setZoom("fit");
   }, [url]);
 
   const onResize = useCallback((width: number, height: number) => {
@@ -121,9 +119,10 @@ export function ImagePreview({ asset, name }: ImagePreviewProps) {
   }
 
   return (
-    <div data-ui="ImagePreview" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="ImagePreview">
       <Canvas
         url={url}
+        subject={subject}
         archive={assetArchive(asset)}
         name={name}
         natural={natural}
@@ -144,7 +143,7 @@ export function ImagePreview({ asset, name }: ImagePreviewProps) {
         controls={controls}
         onZoom={setZoom}
       />
-    </div>
+    </DocumentFrame>
   );
 }
 
@@ -153,6 +152,8 @@ type Controls = RefObject<ReactZoomPanPinchContentRef | null>;
 
 interface CanvasProps {
   url: string;
+  /** The file the url draws, at any version. A pan survives a save of it. */
+  subject: string;
   /** The archive the pixels come from, for the line's order. */
   archive: string | null;
   name: string;
@@ -180,6 +181,7 @@ interface CanvasProps {
  */
 function Canvas({
   url,
+  subject,
   archive,
   name,
   natural,
@@ -215,8 +217,8 @@ function Canvas({
     const api = controls.current;
     if (!api || !natural) return;
 
-    const fresh = drawn.current !== url;
-    drawn.current = url;
+    const fresh = drawn.current !== subject;
+    drawn.current = subject;
 
     /* A pan is the user's until the image under it changes, so only a fresh
        file and a re-fit move it. The strip reaches the transform directly. */
@@ -225,7 +227,7 @@ function Canvas({
       if (Math.abs(api.instance.state.scale - scale) < SCALE_EPSILON) return;
     }
     api.centerView(scale, 0);
-  }, [url, natural, scale, controls]);
+  }, [subject, natural, scale, controls]);
 
   const onTransform = useCallback(
     (_: ReactZoomPanPinchRef, state: { scale: number }) => {
@@ -361,82 +363,61 @@ function StatusStrip({ info, natural, fit, zoom, controls, onZoom }: StatusStrip
     facts.push(info.format ? `${info.container} · ${info.format}` : info.container);
     if (info.mipCount > 1) facts.push(`${info.mipCount} mips`);
   }
+  if (info?.kind === "web") facts.push(info.format.toUpperCase());
   if (info && info.kind !== "unsupported") facts.push(formatBytes(Number(info.sizeBytes)));
 
   return (
-    <div
-      data-ui="ImagePreview:status"
-      className="flex h-8 shrink-0 items-center gap-3 border-t border-surface-700/50 bg-surface-900 px-3 font-mono text-xs text-surface-400 select-none"
-    >
-      {facts.map((fact) => (
-        <span key={fact} className="select-text">
-          {fact}
-        </span>
-      ))}
+    <PreviewStatus facts={facts}>
+      <IconButton
+        pressed={checkered}
+        icon={<CheckerboardIcon />}
+        onClick={() => setCheckered(!checkered)}
+        tooltip={
+          checkered
+            ? m.workshop_preview_checkerboard_hide_label()
+            : m.workshop_preview_checkerboard_show_label()
+        }
+      />
 
-      <div className="ml-auto flex items-center gap-1">
-        <Tooltip
-          content={checkered ? "Hide the alpha checkerboard" : "Show the alpha checkerboard"}
+      <IconButton
+        icon={<MinusIcon />}
+        disabled={scale <= ZOOM_RANGE[0]}
+        onClick={() => controls.current?.zoomOut(ZOOM_EXPONENT, animation)}
+        tooltip={m.workshop_preview_zoom_out_label()}
+      />
+
+      <Tooltip content={m.workshop_preview_zoom_actual_label()}>
+        <Button
+          variant="ghost"
+          size="xs"
+          compact
+          className="min-w-12 tabular-nums"
+          onClick={() => goTo(1)}
         >
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-pressed={checkered}
-            icon={<CheckerboardIcon className="h-4 w-4" weight="bold" />}
-            className={checkered ? "text-accent-300" : undefined}
-            onClick={() => setCheckered(!checkered)}
-          />
-        </Tooltip>
+          {m.workshop_preview_zoom_percent_label({ percent: Math.round(scale * 100) })}
+        </Button>
+      </Tooltip>
 
-        <Tooltip content="Zoom out">
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            icon={<MinusIcon className="h-4 w-4" weight="bold" />}
-            disabled={scale <= ZOOM_RANGE[0]}
-            onClick={() => controls.current?.zoomOut(ZOOM_EXPONENT, animation)}
-          />
-        </Tooltip>
+      <IconButton
+        icon={<PlusIcon />}
+        disabled={scale >= ZOOM_RANGE[1]}
+        onClick={() => controls.current?.zoomIn(ZOOM_EXPONENT, animation)}
+        tooltip={m.workshop_preview_zoom_in_label()}
+      />
 
-        <Tooltip content="Actual size">
-          <Button
-            variant="ghost"
-            size="xs"
-            compact
-            className="min-w-12 tabular-nums"
-            onClick={() => goTo(1)}
-          >
-            {Math.round(scale * 100)}%
-          </Button>
-        </Tooltip>
-
-        <Tooltip content="Zoom in">
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            icon={<PlusIcon className="h-4 w-4" weight="bold" />}
-            disabled={scale >= ZOOM_RANGE[1]}
-            onClick={() => controls.current?.zoomIn(ZOOM_EXPONENT, animation)}
-          />
-        </Tooltip>
-
-        <Tooltip content="Fit to the pane">
-          <Button
-            variant="ghost"
-            size="xs"
-            compact
-            aria-pressed={zoom === "fit"}
-            className={zoom === "fit" ? "text-accent-300" : undefined}
-            onClick={() => goTo("fit")}
-          >
-            Fit
-          </Button>
-        </Tooltip>
-      </div>
-    </div>
+      <Tooltip content={m.workshop_preview_zoom_fit_label()}>
+        <Button
+          variant="ghost"
+          size="xs"
+          compact
+          aria-pressed={zoom === "fit"}
+          className={zoom === "fit" ? "text-accent-300" : undefined}
+          onClick={() => goTo("fit")}
+        >
+          {m.workshop_preview_zoom_fit_action()}
+        </Button>
+      </Tooltip>
+    </PreviewStatus>
   );
 }
 
@@ -470,8 +451,8 @@ function PreviewUnavailable({ asset, name, info, error }: PreviewUnavailableProp
       <EmptyState
         size="sm"
         className="h-full"
-        title="No preview for this file"
-        description={`${name} is a file type the editor cannot draw yet.`}
+        title={m.workshop_preview_unsupported_title()}
+        description={m.workshop_preview_unsupported_description({ name })}
       />
     );
   }
@@ -480,8 +461,10 @@ function PreviewUnavailable({ asset, name, info, error }: PreviewUnavailableProp
     <EmptyState
       size="sm"
       className="h-full"
-      title="Could not read this file"
-      description={error ? errorSummary(error) : `${name} did not decode as an image.`}
+      title={m.workshop_preview_unreadable_title()}
+      description={
+        error ? errorSummary(error) : m.workshop_preview_unreadable_description({ name })
+      }
     />
   );
 }

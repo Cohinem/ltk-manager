@@ -4,6 +4,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 
 import { GamesTab } from "../GamesTab";
@@ -22,21 +23,21 @@ vi.mock("@tanstack/react-router", () => ({
 function mockBackend(incidents: ReturnType<typeof createMockIncident>[]) {
   mockInvoke.mockImplementation((cmd: string) => {
     switch (cmd) {
-      case "list_incidents":
+      case commandNames.diagnostics.listIncidents:
         return Promise.resolve({ ok: true, value: incidents });
-      case "dismiss_all_incidents":
+      case commandNames.diagnostics.dismissAllIncidents:
         for (const incident of incidents) incident.dismissed = true;
         return Promise.resolve({ ok: true, value: incidents.map((incident) => incident.id) });
-      case "get_installed_mods":
+      case commandNames.library.getInstalledMods:
         return Promise.resolve({ ok: true, value: [] });
-      case "get_patcher_status":
+      case commandNames.patcher.getPatcherStatus:
         return Promise.resolve({
           ok: true,
           value: { running: false, phase: "idle", session: null },
         });
-      case "incident_report":
+      case commandNames.diagnostics.incidentReport:
         return Promise.resolve({ ok: true, value: "# report" });
-      case "incident_token":
+      case commandNames.diagnostics.incidentToken:
         return Promise.resolve({ ok: true, value: "DIAG1-abc" });
       default:
         return Promise.resolve({ ok: true, value: null });
@@ -113,7 +114,9 @@ describe("GamesTab", () => {
     expect(button).toBeEnabled();
     await user.click(button);
 
-    expect(mockInvoke.mock.calls.map((call) => call[0])).toContain("dismiss_all_incidents");
+    expect(mockInvoke.mock.calls.map((call) => call[0])).toContain(
+      commandNames.diagnostics.dismissAllIncidents,
+    );
     await waitFor(() => expect(screen.getByRole("button", { name: "Dismiss all" })).toBeDisabled());
     expect(screen.getAllByRole("option")).toHaveLength(2);
   });

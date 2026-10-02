@@ -26,8 +26,10 @@ export interface PaneStripProps {
   onClose?: (id: string) => void;
   /** A double click on a tab, which fills the shell with this leaf. */
   onMaximize?: () => void;
-  /** Drawn at the strip's right end, for a control the pane itself owns. */
+  /** Drawn after the tabs, for a control the pane itself owns. */
   actions?: ReactNode;
+  /** Whether the actions sit at the strip's right end or take the rest of the strip. */
+  actionsWidth?: "end" | "rest";
   className?: string;
 }
 
@@ -46,8 +48,10 @@ export function PaneStrip({
   onClose,
   onMaximize,
   actions,
+  actionsWidth = "end",
   className,
 }: PaneStripProps) {
+  const rest = actionsWidth === "rest";
   const sortableIds = panes.map((pane) => tabDroppableId(leafId, pane.id));
   const caretIndex = useForeignCaretIndex(
     leafId,
@@ -64,7 +68,10 @@ export function PaneStrip({
         className,
       )}
     >
-      <Tabs.List variant="plain" className="h-full min-w-0 flex-1 items-center gap-1">
+      <Tabs.List
+        variant="plain"
+        className={twMerge("h-full min-w-0 flex-1 items-center gap-1", rest && "flex-none")}
+      >
         <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
           {panes.map((pane, index) => (
             <SortableStripTab
@@ -80,7 +87,8 @@ export function PaneStrip({
         </SortableContext>
         {caretIndex === panes.length && <DropCaret />}
       </Tabs.List>
-      {actions}
+      {!rest && actions}
+      {rest && <div className="flex h-full min-w-0 flex-1 items-center">{actions}</div>}
     </Tabs.Root>
   );
 }
@@ -141,13 +149,10 @@ function SortableStripTab({
         </Tabs.Tab>
         {onClose && (
           <IconButton
-            icon={<XIcon weight="bold" className="h-3 w-3" />}
-            variant="ghost"
-            size="xs"
-            compact
+            icon={<XIcon className="size-3" />}
             onClick={() => onClose(pane.id)}
             aria-label={`Close ${pane.title}`}
-            className="h-4 w-4 opacity-0 group-hover/pane:opacity-100 focus-visible:opacity-100"
+            className="size-4 opacity-0 group-hover/pane:opacity-100 focus-visible:opacity-100"
           />
         )}
       </div>

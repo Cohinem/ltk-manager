@@ -7,6 +7,7 @@ import { useSearchObjects } from "@/stores";
 import { mutationFn } from "@/utils/query";
 
 import { useWarmObjectIndex } from "../../objectsBrowser/api/useObjectIndex";
+import { useWadSource } from "../state/wadSource";
 import type { SourceDirListing } from "../utils/sourceIndex";
 import { gameKeys } from "./keys";
 import { gameQueries } from "./queries";
@@ -14,13 +15,13 @@ import { gameQueries } from "./queries";
 const EMPTY_LISTING: SourceDirListing = { dirs: [], files: [] };
 
 /**
- * One directory of the folded game index, `""` for the root.
+ * One directory of the enclosing browser's folded index, `""` for the root.
  *
  * The first read of a session builds the index, which walks every archive the
- * install carries. Every read after it answers from what that built.
+ * source carries. Every read after it answers from what that built.
  */
 export function useGameDir(path: string) {
-  return useQuery(gameQueries.dir(path));
+  return useQuery(gameQueries.dir(useWadSource(), path));
 }
 
 /**
@@ -32,6 +33,7 @@ export function useGameDir(path: string) {
 export function useGameDirs(
   paths: readonly string[],
 ): ReadonlyMap<string, SourceDirListing | null> {
+  const source = useWadSource();
   const combine = useCallback(
     (results: ReadonlyArray<{ data?: SourceDirListing; isError: boolean }>) => {
       const byPath = new Map<string, SourceDirListing | null>();
@@ -47,32 +49,36 @@ export function useGameDirs(
     [paths],
   );
 
-  return useQueries({ queries: paths.map((path) => gameQueries.dir(path)), combine });
+  return useQueries({ queries: paths.map((path) => gameQueries.dir(source, path)), combine });
 }
 
-/** What the folded index holds, once it is built. */
+/** What the enclosing browser's folded index holds, once it is built. */
 export function useGameIndex() {
-  return useQuery(gameQueries.index());
+  return useQuery(gameQueries.index(useWadSource()));
 }
 
 /**
- * Drop the built index, so the next read walks the install again.
+ * Drop the enclosing browser's built index, so the next read walks the install again.
  *
- * The object index goes with it, and is warmed again while the Objects switch
- * is on, because the game index it is fed by has just been declared stale.
+ * For the game, the object index goes with it, and is warmed again while the
+ * Objects switch is on, because the game index it is fed by has just been
+ * declared stale.
  */
 export function useRefreshGameIndex() {
+  const source = useWadSource();
   const queryClient = useQueryClient();
   const searchObjects = useSearchObjects();
   const warmObjects = useWarmObjectIndex();
   const warmMutate = warmObjects.mutate;
 
-  return useMutation<void, AppError, void>({
-    mutationFn: mutationFn(api.refreshGameIndex),
+  return useMutation<null, AppError, void>({
+    mutationFn: mutationFn(() => api.refreshGameIndex(source)),
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: gameKeys.index });
-      queryClient.invalidateQueries({ queryKey: gameKeys.dirs });
-      queryClient.invalidateQueries({ queryKey: gameKeys.wads });
+      queryClient.invalidateQueries({ queryKey: gameKeys.index(source) });
+      queryClient.invalidateQueries({ queryKey: gameKeys.sourceDirs(source) });
+      queryClient.invalidateQueries({ queryKey: gameKeys.wads(source) });
+      if (source !== "game") return;
+
       queryClient.invalidateQueries({ queryKey: gameKeys.objectSearches });
       /* A viewport holds where a file lived, which the index it was read out of no
          longer answers. */

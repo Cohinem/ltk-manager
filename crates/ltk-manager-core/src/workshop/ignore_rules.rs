@@ -18,9 +18,7 @@ pub const RECOMMENDED_IGNORE_RULES: &str = include_str!("default.modignore");
 
 /// One `.modignore` of a project, as the editor reads it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(ts_rs::TS))]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
-#[cfg_attr(feature = "ts", ts(export))]
 #[serde(rename_all = "camelCase")]
 pub struct IgnoreRules {
     /// Absolute path of the file, whether or not one exists.
@@ -158,6 +156,25 @@ impl ProjectDir {
         fs::write(path, RECOMMENDED_IGNORE_RULES)?;
         Ok(())
     }
+}
+
+/// Whether a project has any `.modignore`, at the root or in a folder under
+/// `content/`.
+///
+/// A file that does not compile also counts.
+pub(crate) fn holds_ignore_rules(filter: &AppResult<ModIgnore>) -> bool {
+    filter
+        .as_ref()
+        .map_or(true, |ignore| ignore.source_files().next().is_some())
+}
+
+/// [`RECOMMENDED_IGNORE_RULES`] as a matcher over content-relative paths.
+///
+/// Compiled against a root that does not exist on disk, so no nested
+/// `.modignore` is read.
+pub(crate) fn recommended_ignore_filter() -> ModIgnore {
+    ModIgnore::parse(&unwritten_root(), RECOMMENDED_IGNORE_RULES)
+        .expect("the recommended rules compile, see every_recommended_line_compiles")
 }
 
 /// `relative` as a path under a project root, or `None` for anything else.

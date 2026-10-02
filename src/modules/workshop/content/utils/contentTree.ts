@@ -1,6 +1,8 @@
 import type { ContentEntry, IgnoredDirectory, IgnoreMatch } from "@/lib/tauri";
+import { toggledSubtree } from "@/utils";
 
 import { compareNames } from "../../shared/utils/naturalOrder";
+import { branchIdsOf, type TreeRow, treeRows } from "../../shared/utils/tree";
 
 export type ContentTreeNode = DirNode | FileNode;
 
@@ -151,10 +153,7 @@ function compareNodes(a: ContentTreeNode, b: ContentTreeNode): number {
   return compareNames(a.name, b.name);
 }
 
-export interface FlatTreeRow {
-  readonly node: ContentTreeNode;
-  readonly depth: number;
-}
+export type FlatTreeRow = TreeRow<ContentTreeNode>;
 
 /**
  * Walk a tree and produce the linear list of rows that should currently be
@@ -173,17 +172,9 @@ export function flattenTree(
   tree: readonly ContentTreeNode[],
   collapsed: ReadonlySet<string>,
 ): FlatTreeRow[] {
-  const out: FlatTreeRow[] = [];
-  const walk = (nodes: readonly ContentTreeNode[], depth: number): void => {
-    for (const node of nodes) {
-      out.push({ node, depth });
-      if (node.type === "dir" && !collapsed.has(node.path)) {
-        walk(node.children, depth + 1);
-      }
-    }
-  };
-  walk(tree, 0);
-  return out;
+  return treeRows(tree, (node) =>
+    node.type === "dir" && !collapsed.has(node.path) ? node.children : null,
+  );
 }
 
 /**
@@ -193,17 +184,21 @@ export function flattenTree(
  * of the empty set that opens them all.
  */
 export function allDirPaths(tree: readonly ContentTreeNode[]): Set<string> {
-  const set = new Set<string>();
-  const walk = (nodes: readonly ContentTreeNode[]): void => {
-    for (const node of nodes) {
-      if (node.type === "dir") {
-        set.add(node.path);
-        walk(node.children);
-      }
-    }
-  };
-  walk(tree);
-  return set;
+  return new Set(
+    branchIdsOf(tree, (node) =>
+      node.type === "dir" ? { id: node.path, children: node.children } : null,
+    ),
+  );
+}
+
+/**
+ * The collapsed-set after an Alt+click on `dir`, which toggles its whole subtree.
+ *
+ * A collapsed directory expands along with every directory under it, and an expanded one
+ * collapses the same way.
+ */
+export function toggledDirTree(collapsed: ReadonlySet<string>, dir: DirNode): Set<string> {
+  return toggledSubtree(collapsed, dir.path, allDirPaths([dir]));
 }
 
 /**
@@ -240,9 +235,6 @@ export interface LayerWad {
 
 /**
  * Summarise a layer by its top level - one row per WAD, plus any loose file.
- *
- * Sizes come back as numbers rather than the entries' `bigint`, which is what
- * `formatBytes` and a sort comparator both want.
  */
 export function buildLayerWads(entries: readonly ContentEntry[]): LayerWad[] {
   const roots = new Map<
@@ -256,7 +248,7 @@ export function buildLayerWads(entries: readonly ContentEntry[]): LayerWad[] {
     if (!name) continue;
 
     const existing = roots.get(name);
-    const size = Number(entry.sizeBytes);
+    const size = entry.sizeBytes;
     if (existing) {
       existing.count += 1;
       existing.size += size;

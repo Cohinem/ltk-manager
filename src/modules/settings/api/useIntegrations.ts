@@ -3,13 +3,14 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import {
   api,
   type AppError,
+  type FileTypeStatus,
   type IntegrationStatus,
   type IntegrationRelease,
   type IntegrationAction,
   type MenuConflictPolicy,
   type Tool,
 } from "@/lib/tauri";
-import { queryFn, unwrapForQuery } from "@/utils/query";
+import { queryFn, queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
 const statusKey = ["settings", "integrations"] as const;
 
@@ -30,7 +31,7 @@ export function useIntegrationRelease(tool: Tool, enabled: boolean) {
   return useQuery(
     queryOptions<IntegrationRelease, AppError>({
       queryKey: ["settings", "integration-release", tool],
-      queryFn: async () => unwrapForQuery(await api.integrations.release(tool)),
+      queryFn: queryFnWithArgs(api.integrations.release, tool),
       enabled,
       staleTime: 10 * 60 * 1000,
       retry: false,
@@ -52,6 +53,35 @@ export function useChangeIntegration(tool: Tool) {
       unwrapForQuery(await api.integrations.change(tool, action, conflicts));
     },
     onSettled: () => client.invalidateQueries({ queryKey: statusKey }),
+  });
+}
+
+/** How often the file type status is read while the card is mounted. */
+const FILE_TYPES_POLL_MS = 2000;
+
+/**
+ * Which program opens each mod file type.
+ *
+ * Polled rather than invalidated, because the switch applies its change after the
+ * settings save and Default apps changes it outside the app.
+ */
+export function useFileTypes() {
+  return useQuery(
+    queryOptions<FileTypeStatus[], AppError>({
+      queryKey: ["settings", "file-types"],
+      queryFn: queryFn(api.integrations.fileTypeStatus),
+      refetchInterval: FILE_TYPES_POLL_MS,
+      refetchOnWindowFocus: true,
+    }),
+  );
+}
+
+/** Opens the app's page in Windows' Default apps settings. */
+export function useOpenDefaultApps() {
+  return useMutation<void, AppError>({
+    mutationFn: async () => {
+      unwrapForQuery(await api.integrations.openDefaultApps());
+    },
   });
 }
 

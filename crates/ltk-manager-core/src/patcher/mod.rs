@@ -6,6 +6,7 @@ pub mod host;
 pub mod injector;
 pub mod pipeline;
 pub mod recorder;
+pub mod refresh;
 pub mod session;
 pub mod state;
 pub mod thread;
@@ -17,6 +18,7 @@ pub use events::PatcherEvents;
 pub use injector::InjectorEvent;
 pub use pipeline::IncidentPipeline;
 pub use recorder::GameRecorder;
+pub use refresh::OverlayRefresh;
 pub use session::SessionObserver;
 pub use state::{
     PatcherPhase, PatcherSession, PatcherStateInner, SessionOrigin, StoredPatcherConfig,

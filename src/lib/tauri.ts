@@ -1,525 +1,237 @@
-import { invoke } from "@tauri-apps/api/core";
-
 import type {
-  AddFilesReport,
-  Announcement,
-  AppError,
-  AppInfo,
-  AssetInfo,
   AssetRef,
-  BulkInstallResult,
-  ChecksumMismatchInfo,
-  ContentTree,
+  BinDocumentId,
   CreateProjectArgs,
-  CslolModInfo,
-  EditModMetadataArgs,
-  ExportScope,
-  ExportShape,
-  ExportSummary,
   ExtractOptions,
-  ExtractPlan,
-  ExtractSummary,
   ExtractTarget,
-  FantomePeekResult,
-  FixReport,
-  GameDirListing,
-  GameFindResult,
-  GameIndexStats,
-  GameSearchResult,
-  GameWadEntry,
-  GameWadSummary,
-  HashtableCacheStatus,
-  HashtableSyncReport,
-  HashtableUpdateCheck,
-  HealthCheckReadiness,
-  HealthSweepReport,
-  HealthSweepState,
-  HealthTiming,
-  HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
-  InstalledMod,
-  LaunchAvailability,
-  LaunchOutcome,
   LaunchTarget,
-  LayoutMigrationState,
-  LibraryFolder,
-  LibraryRepairReport,
-  LinkedBinOffenderInfo,
-  ModDocument,
-  ModHealthVerdict,
-  ModpkgInfo,
-  ModStorage,
-  ModWadReport,
-  Notice,
-  PackProjectArgs,
-  PackResult,
-  PatcherConfig,
-  PatcherStatus,
-  PlatformSupport,
-  ProblemId,
-  Profile,
-  ReleasePage,
-  Run,
-  SaveProjectConfigArgs,
-  SessionStarted,
-  Settings,
-  StorageMedium,
-  StringKeySearchResult,
-  ValidationResult,
+  MaterialSource,
+  ParticleDefine,
+  ParticleShader,
+  ProgramOptions,
+  SandboxRef,
+  ProjectMetadata,
+  SearchPreference,
+  UiShader,
+  WadSource,
   WorkshopFileKind,
-  WorkshopLayerInfo,
-  WorkshopProject,
 } from "@/lib/bindings";
-import type {
-  IntegrationAction,
-  MenuConflictPolicy,
-  Tool,
-  LeafValue,
-  NewItem,
-  NewProperty,
-  ValueEdit,
-  ProjectTextFile,
-  ReferenceQuery,
-  Revision,
-  UiError,
-} from "@/lib/bindings.gen";
-import {
-  type BinDocumentId,
-  commands,
-  type MaterialSource,
-  type ProgramOptions,
-} from "@/lib/bindings.gen";
-import type { Result } from "@/utils/result";
+import { commands as appUpdate } from "@/lib/ipc/appUpdate";
+import { commands as atlas } from "@/lib/ipc/atlas";
+import { commands as bin } from "@/lib/ipc/bin";
+import { commands as desktop } from "@/lib/ipc/desktop";
+import { commands as diagnostics } from "@/lib/ipc/diagnostics";
+import { commands as game } from "@/lib/ipc/game";
+import { commands as hotkeys } from "@/lib/ipc/hotkeys";
+import { commands as integrations } from "@/lib/ipc/integrations";
+import { commands as launcher } from "@/lib/ipc/launcher";
+import { commands as library } from "@/lib/ipc/library";
+import { commands as links } from "@/lib/ipc/links";
+import { commands as news } from "@/lib/ipc/news";
+import { commands as objects } from "@/lib/ipc/objects";
+import { commands as patcher } from "@/lib/ipc/patcher";
+import { commands as preview } from "@/lib/ipc/preview";
+import { commands as settings } from "@/lib/ipc/settings";
+import { commands as workshop } from "@/lib/ipc/workshop";
+import { map as mapResult } from "@/utils/result";
 
 export type * from "@/lib/bindings";
+/* A serde `default` or `skip_serializing_if` splits a type by phase, and a command answers
+the serialize side, so that side takes the plain name. An explicit export shadows the star. */
 export type {
-  IntegrationAction,
-  IntegrationError,
-  IntegrationOperation,
-  IntegrationRelease,
-  IntegrationStage,
-  IntegrationStatus,
-  MenuConflictPolicy,
-  MenuStatus,
-  Tool,
-} from "@/lib/bindings.gen";
-// The bin editor's types, per ADR-0029. An explicit export shadows the star above.
-export type {
-  AddableField,
-  AddableFields,
-  BinDocumentHandle,
-  BinDocumentId,
-  BinFileKind,
-  BinFindHit,
-  BinFindResult,
-  BinHeader,
-  BinObjectHeader,
-  BinRow,
-  BinRows,
-  BinValue,
-  ClassChoice,
-  ClassSchema,
-  DeclaredDiagnostic,
-  DeclaredDiagnosticKind,
-  DeclaredKind,
-  DeclaredMark,
-  DeclaredSign,
-  DeclaredState,
-  EditRejection,
-  FieldRevision,
-  FieldSchema,
-  KindShape,
-  LeafValue,
-  NewItem,
-  NewProperty,
-  ObjectName,
-  PropertyKind,
-  ReadOnly,
-  RowDeclaration,
-  RowNode,
-  SkipReason,
-  ValueEdit,
-} from "@/lib/bindings.gen";
-// The object index's types, per ADR-0029.
-export type {
-  CharacterSpell,
-  CharacterSpells,
-  DeclaredObject,
-  DeclaredObjects,
-  GameFileEntry,
-  ObjectClassHit,
-  ObjectDeclaration,
-  ObjectDir,
-  ObjectDirListing,
-  ObjectFind,
-  ObjectFindHit,
-  ObjectFindResult,
-  ObjectIndexStatus,
-  ObjectNodeEntry,
-  ObjectPrefixEntry,
-  ObjectReferences,
-  ObjectSearch,
-  ObjectSearchHit,
-  ObjectSearchResult,
-  ReferenceGroup,
-  ReferenceHit,
-  ReferenceProperty,
-  ReferenceQuery,
-  ReferenceResult,
-  SpellCatalog,
-} from "@/lib/bindings.gen";
-// The ignore rules' type, per ADR-0029.
-export type { IgnoreRules } from "@/lib/bindings.gen";
-// The shader pipeline's types, per ADR-0029.
-export type {
-  Attribute,
-  BlendFactor,
-  BlockMember,
-  Define,
-  DefineSource,
-  MaterialKind,
-  MaterialProgram,
-  MaterialSource,
-  MemberScalar,
-  ParamSource,
-  PassParam,
-  PassProgram,
-  PassState,
-  PassTexture,
-  ProgramOptions,
-  ProgramRead,
-  ResolvedPass,
-  RuntimeSwitch,
-  SamplerBinding,
-  SamplerState,
-  SchemaParam,
-  SchemaSwitch,
-  SchemaTexture,
-  ShaderSchema,
-  Sidecar,
-  StageProgram,
-  TextureBinding,
-  TextureDimension,
-  TextureSource,
-  UniformBlock,
-  Winding,
-} from "@/lib/bindings.gen";
-export type { ProjectText, ProjectTextFile, Revision } from "@/lib/bindings.gen";
-// The particle renderer's types, per ADR-0029.
-export type { VfxField, VfxMapEntry, VfxSystem, VfxValue } from "@/lib/bindings.gen";
-// The skin preview's types, per ADR-0029.
-export type {
-  MissileMovement,
-  MissileSpec,
-  SpellIssue,
-  SpellIssueKind,
-  SpellPreview,
-} from "@/lib/bindings.gen";
-export type {
-  AnimationGraph,
-  BaseRule,
-  BaseTexture,
-  Blending,
-  ClipEvent,
-  ClipHeader,
-  EffectSystem,
-  EventKind,
-  EventSpawn,
-  GraphClip,
-  HashRef,
-  IdleEffect,
-  KeyRef,
-  MapCharacter,
-  MapChunk,
-  MapChunkItem,
-  MapDepthOfField,
-  MapFiles,
-  MapFog,
-  MapItemKind,
-  MapModel,
-  MapParticle,
-  MapPath,
-  MapPostEffects,
-  MapSsao,
-  MapSun,
-  MapVariant,
-  Mask,
-  MaterialPreview,
-  MaterialWarning,
-  NamedAsset,
-  RenderState,
-  SkinModel,
-  SubmeshOverride,
-  SyncGroup,
-  Track,
-  Wrap,
-} from "@/lib/bindings.gen";
-/* The diagnostics types. A serde `default` or `skip_serializing_if` splits a type by
-phase, and a command answers the serialize side, so that side takes the plain name. */
-export type {
-  BinaryId,
-  Category,
+  AppErrorResponse as AppError,
+  BulkInstallResult_Serialize as BulkInstallResult,
   Check_Serialize as Check,
-  CheckDetail,
-  Consequence,
-  DecodedBinary,
-  DecodedIncident,
+  Config_Serialize as Config,
   DiagnosticReport_Serialize as DiagnosticReport,
-  Ending,
-  Evidence,
-  EvidenceCode,
-  EvidenceMark,
-  EvidenceSource,
-  GameInfo,
-  GamePhase,
-  Hint,
+  FixPreview_Serialize as FixPreview,
+  HashtableUpdateCheck_Serialize as HashtableUpdateCheck,
+  HealthCheckBasis_Serialize as HealthCheckBasis,
+  HealthSweepReport_Serialize as HealthSweepReport,
+  HealthSweepState_Serialize as HealthSweepState,
   Incident_Serialize as Incident,
-  InstallMismatch,
-  LaunchKind,
-  OriginKind,
-  OverlayOutcome,
+  InstalledMod_Serialize as InstalledMod,
+  InstallOutcome_Serialize as InstallOutcome,
+  ModHealthVerdict_Serialize as ModHealthVerdict,
+  ModLicense_Serialize as ModLicense,
+  NodeAddress_Serialize as NodeAddress,
+  ObjectInfo_Serialize as ObjectInfo,
   PatcherBinaries_Serialize as PatcherBinaries,
-  PendingUpdate,
-  ScanMode,
-  ScanStatus,
-  SessionFailure,
-  Severity,
-  SkippedArchive,
-  Suspect,
-  UiError,
+  Problem_Serialize as Problem,
+  RuleBrief_Serialize as RuleBrief,
+  RuleFailure_Serialize as RuleFailure,
+  RuleInfo_Serialize as RuleInfo,
+  Run_Serialize as Run,
+  Settings_Serialize as Settings,
+  Site_Serialize as Site,
+  StoredVerdict_Serialize as StoredVerdict,
   Verdict_Serialize as Verdict,
-  VerdictKind,
-} from "@/lib/bindings.gen";
+} from "@/lib/bindings";
 export type { Result } from "@/utils/result";
+
+/** A project's metadata and the project it is written to. */
+export type SaveProjectConfigArgs = ProjectMetadata & { projectPath: string };
 export { isErr, isOk, match, unwrap, unwrapOr } from "@/utils/result";
-
-type IpcResponse<T> = { ok: true; value: T } | { ok: false; error: AppError };
-
-/**
- * Transform the raw IPC response to our Result type.
- */
-function toResult<T>(response: IpcResponse<T>): Result<T> {
-  if (response.ok) {
-    return { ok: true, value: response.value };
-  }
-  return { ok: false, error: response.error };
-}
-
-/**
- * Invoke a Tauri command and return a typed Result.
- */
-async function invokeResult<T>(cmd: string, args?: Record<string, unknown>): Promise<Result<T>> {
-  const response = await invoke<IpcResponse<T>>(cmd, args);
-  return toResult(response);
-}
-
-// Deep-link protocol types
-export type DeepLinkInstallRequest = {
-  url: string;
-  name: string | null;
-  author: string | null;
-  source: string | null;
-  /** The host the trusted providers list does not cover, or `null` where it does. */
-  untrustedDomain: string | null;
-};
-
-export type ProtocolInstallProgress = {
-  stage: "downloading" | "validating" | "installing" | "complete" | "error";
-  bytesDownloaded: number;
-  totalBytes: number | null;
-  error: string | null;
-};
-
-export type DeepLinkSettingsRequest = {
-  focus: string;
-};
-
-/** A deep link that reached the backend before the frontend was listening for it. */
-export type PendingDeepLink =
-  | ({ kind: "install" } & DeepLinkInstallRequest)
-  | ({ kind: "settings" } & DeepLinkSettingsRequest);
 
 // API functions
 export const api = {
   integrations: {
-    status: () => commands.integrationStatus().then(toResult),
-    release: (tool: Tool) => commands.integrationRelease(tool).then(toResult),
-    change: (tool: Tool, action: IntegrationAction, conflicts: MenuConflictPolicy) =>
-      commands.changeIntegration(tool, action, conflicts).then(toResult),
-    cancel: (operationId: string) => commands.cancelIntegrationDownload(operationId).then(toResult),
+    status: integrations.integrationStatus,
+    release: integrations.integrationRelease,
+    change: integrations.changeIntegration,
+    cancel: integrations.cancelIntegrationDownload,
+    fileTypeStatus: integrations.fileTypeStatus,
+    openDefaultApps: integrations.openDefaultApps,
   },
-  getAppInfo: () => invokeResult<AppInfo>("get_app_info"),
-  getPlatformSupport: () => invokeResult<PlatformSupport>("get_platform_support"),
-  showMainWindow: () => invokeResult<void>("show_main_window"),
-  listReleases: (page: number) => invokeResult<ReleasePage>("list_releases", { page }),
-  listAnnouncements: () => invokeResult<Announcement[]>("list_announcements"),
-  listNotices: () => invokeResult<Notice[]>("list_notices"),
+  getAppInfo: desktop.getAppInfo,
+  getPlatformSupport: desktop.getPlatformSupport,
+  showMainWindow: desktop.showMainWindow,
+  listReleases: news.listReleases,
+  listAnnouncements: news.listAnnouncements,
+  listNotices: news.listNotices,
 
   // Settings
-  getSettings: () => invokeResult<Settings>("get_settings"),
-  getDefaultSettings: () => invokeResult<Settings>("get_default_settings"),
-  saveSettings: (settings: Settings) => invokeResult<void>("save_settings", { settings }),
-  autoDetectLeaguePath: () => invokeResult<string | null>("auto_detect_league_path"),
-  validateLeaguePath: (path: string) => invokeResult<boolean>("validate_league_path", { path }),
-  checkSetupRequired: () => invokeResult<boolean>("check_setup_required"),
-  detectLeagueRunAsAdmin: () => invokeResult<boolean>("detect_league_run_as_admin"),
-  listAvailableWads: () => invokeResult<string[]>("list_available_wads"),
+  getSettings: settings.getSettings,
+  getDefaultSettings: settings.getDefaultSettings,
+  saveSettings: settings.saveSettings,
+  autoDetectLeaguePath: settings.autoDetectLeaguePath,
+  validateLeaguePath: settings.validateLeaguePath,
+  checkSetupRequired: settings.checkSetupRequired,
+  detectLeagueRunAsAdmin: settings.detectLeagueRunAsAdmin,
+  listAvailableWads: settings.listAvailableWads,
+  listForcibleMapSkins: settings.listForcibleMapSkins,
+  listMapDecorations: settings.listMapDecorations,
 
   // Mods
-  getInstalledMods: () => invokeResult<InstalledMod[]>("get_installed_mods"),
-  installMod: (filePath: string) => invokeResult<InstalledMod>("install_mod", { filePath }),
-  installMods: (filePaths: string[]) =>
-    invokeResult<BulkInstallResult>("install_mods", { filePaths }),
-  updateMod: (modId: string, filePath: string) =>
-    invokeResult<InstalledMod>("update_mod", { modId, filePath }),
-  uninstallMod: (modId: string) => invokeResult<void>("uninstall_mod", { modId }),
-  exportMods: (scope: ExportScope, shape: ExportShape, destination: string) =>
-    invokeResult<ExportSummary>("export_mods", { scope, shape, destination }),
-  toggleMod: (modId: string, enabled: boolean) =>
-    invokeResult<void>("toggle_mod", { modId, enabled }),
-  getModThumbnail: (modId: string) => invokeResult<string | null>("get_mod_thumbnail", { modId }),
-  getModThumbnails: (modIds: readonly string[]) =>
-    invokeResult<Record<string, string>>("get_mod_thumbnails", { modIds }),
-  getModReadme: (modId: string) => invokeResult<ModDocument>("get_mod_readme", { modId }),
-  getModLicenseText: (modId: string) =>
-    invokeResult<ModDocument>("get_mod_license_text", { modId }),
-  getStorageDirectory: () => invokeResult<string>("get_storage_directory"),
-  reorderMods: (modIds: string[]) => invokeResult<void>("reorder_mods", { modIds }),
+  getInstalledMods: library.getInstalledMods,
+  installMod: library.installMod,
+  installMods: library.installMods,
+  updateMod: library.updateMod,
+  uninstallMod: library.uninstallMod,
+  exportMods: library.exportMods,
+  toggleMod: library.toggleMod,
+  getModThumbnail: library.getModThumbnail,
+  getModThumbnails: (modIds: readonly string[]) => library.getModThumbnails([...modIds]),
+  getModReadme: library.getModReadme,
+  getModLicenseText: library.getModLicenseText,
+  getStorageDirectory: library.getStorageDirectory,
+  reorderMods: library.reorderMods,
   setModLayers: (modId: string, layerStates: Record<string, boolean>) =>
-    invokeResult<void>("set_mod_layers", { modId, layerStates }),
+    library.setModLayers(modId, layerStates),
   enableModWithLayers: (modId: string, layerStates: Record<string, boolean>) =>
-    invokeResult<void>("enable_mod_with_layers", { modId, layerStates }),
-  editModMetadata: (modId: string, metadata: EditModMetadataArgs) =>
-    invokeResult<InstalledMod>("edit_mod_metadata", { modId, metadata }),
-  setModStorage: (modId: string, storage: ModStorage) =>
-    invokeResult<InstalledMod>("set_mod_storage", { modId, storage }),
-  getModWadReport: (modId: string) =>
-    invokeResult<ModWadReport | null>("get_mod_wad_report", { modId }),
-  getAllModWadReports: () => invokeResult<Record<string, ModWadReport>>("get_all_mod_wad_reports"),
-  analyzeModWads: (modId: string) => invokeResult<ModWadReport>("analyze_mod_wads", { modId }),
-  checkModHealth: (modId: string) => invokeResult<ModHealthVerdict>("check_mod_health", { modId }),
+    library.enableModWithLayers(modId, layerStates),
+  editModMetadata: library.editModMetadata,
+  setModStorage: library.setModStorage,
+  getAllModWadReports: library.getAllModWadReports,
+  analyzeModWads: library.analyzeModWads,
+  checkModHealth: library.checkModHealth,
   /** Re-check `modIds`, or every mod in the library when none are named. */
-  sweepModHealth: (modIds?: string[]) =>
-    invokeResult<HealthSweepReport>("sweep_mod_health", { modIds: modIds ?? null }),
-  repairMod: (modId: string) => invokeResult<FixReport>("repair_mod", { modId }),
-  repairMods: (modIds: string[]) => invokeResult<LibraryRepairReport>("repair_mods", { modIds }),
-  getModHealthVerdicts: () =>
-    invokeResult<Record<string, ModHealthVerdict>>("get_mod_health_verdicts"),
-  getHealthSweep: () => invokeResult<HealthSweepState>("get_health_sweep"),
-  getHealthCheckReadiness: () => invokeResult<HealthCheckReadiness>("get_health_check_readiness"),
-  cancelModHealthRun: () => invokeResult<null>("cancel_mod_health_run"),
+  sweepModHealth: (modIds?: string[]) => library.sweepModHealth(modIds ?? null),
+  repairMod: library.repairMod,
+  repairMods: library.repairMods,
+  getModHealthVerdicts: library.getModHealthVerdicts,
+  getHealthSweep: library.getHealthSweep,
+  getHealthCheckReadiness: library.getHealthCheckReadiness,
+  cancelModHealthRun: library.cancelModHealthRun,
   /**
    * Time a health pass over the real library, into the dev console.
    *
    * Registered only in a debug build. `repair` runs the real repair, which
    * rewrites the mods it can fix and keeps no way back.
    */
-  timeModHealth: (repair: boolean) => invokeResult<HealthTiming>("time_mod_health", { repair }),
+  timeModHealth: library.timeModHealth,
 
   // Migration
-  scanCslolMods: (directory: string) =>
-    invokeResult<CslolModInfo[]>("scan_cslol_mods", { directory }),
-  importCslolMods: (directory: string, selectedFolders: string[]) =>
-    invokeResult<BulkInstallResult>("import_cslol_mods", { directory, selectedFolders }),
-  getLayoutMigrationState: () => invokeResult<LayoutMigrationState>("get_layout_migration_state"),
+  scanCslolMods: library.scanCslolMods,
+  importCslolMods: library.importCslolMods,
+  getLayoutMigrationState: library.getLayoutMigrationState,
 
   // Inspector
-  inspectModpkg: (filePath: string) => invokeResult<ModpkgInfo>("inspect_modpkg", { filePath }),
 
   // Patcher
-  startPatcher: (config: PatcherConfig) => invokeResult<void>("start_patcher", { config }),
-  stopPatcher: () => invokeResult<void>("stop_patcher"),
-  rebuildOverlay: () => invokeResult<void>("rebuild_overlay"),
-  getPatcherStatus: () => invokeResult<PatcherStatus>("get_patcher_status"),
-  getLinkedBinOffenders: () =>
-    invokeResult<Record<string, LinkedBinOffenderInfo>>("get_linked_bin_offenders"),
-  getChecksumMismatches: () =>
-    invokeResult<Record<string, ChecksumMismatchInfo[]>>("get_checksum_mismatches"),
+  startPatcher: patcher.startPatcher,
+  stopPatcher: patcher.stopPatcher,
+  rebuildOverlay: patcher.rebuildOverlay,
+  getPatcherStatus: patcher.getPatcherStatus,
+  getLinkedBinOffenders: patcher.getLinkedBinOffenders,
+  getChecksumMismatches: patcher.getChecksumMismatches,
 
   // Launcher
   // Resolves to null when a launch was already in flight - a redundant click.
-  launchLeague: (target?: LaunchTarget) =>
-    invokeResult<LaunchOutcome | null>("launch_league", { target: target ?? null }),
+  launchLeague: (target?: LaunchTarget) => launcher.launchLeague(target ?? null),
   // Resolves to false when nothing was in flight, which is what a Cancel
   // pressed just as the request landed looks like.
-  cancelLaunch: () => invokeResult<boolean>("cancel_launch"),
-  stopLeague: () => invokeResult<void>("stop_league"),
-  getLaunchAvailability: () => invokeResult<LaunchAvailability>("get_launch_availability"),
+  cancelLaunch: launcher.cancelLaunch,
+  stopLeague: launcher.stopLeague,
+  getLaunchAvailability: launcher.getLaunchAvailability,
   // Also starts following the session it reports, so a game already in progress
   // when the app opened still reaches the session events.
-  getLeagueSession: () => invokeResult<SessionStarted | null>("get_league_session"),
+  getLeagueSession: launcher.getLeagueSession,
 
   // Hotkeys
-  pauseHotkeys: () => invokeResult<void>("pause_hotkeys"),
-  resumeHotkeys: () => invokeResult<void>("resume_hotkeys"),
-  setHotkey: (action: HotkeyAction, accelerator: string | null) =>
-    invokeResult<void>("set_hotkey", { action, accelerator }),
-  killLeague: () => invokeResult<void>("kill_league"),
+  pauseHotkeys: hotkeys.pauseHotkeys,
+  resumeHotkeys: hotkeys.resumeHotkeys,
+  setHotkey: hotkeys.setHotkey,
 
   // Profiles
-  listModProfiles: () => invokeResult<Profile[]>("list_mod_profiles"),
-  getActiveModProfile: () => invokeResult<Profile>("get_active_mod_profile"),
-  createModProfile: (name: string) => invokeResult<Profile>("create_mod_profile", { name }),
-  deleteModProfile: (profileId: string) => invokeResult<void>("delete_mod_profile", { profileId }),
-  switchModProfile: (profileId: string) =>
-    invokeResult<Profile>("switch_mod_profile", { profileId }),
-  renameModProfile: (profileId: string, newName: string) =>
-    invokeResult<Profile>("rename_mod_profile", { profileId, newName }),
+  listModProfiles: library.listModProfiles,
+  getActiveModProfile: library.getActiveModProfile,
+  createModProfile: library.createModProfile,
+  deleteModProfile: library.deleteModProfile,
+  switchModProfile: library.switchModProfile,
+  renameModProfile: library.renameModProfile,
 
   // Folders
-  getFolders: () => invokeResult<LibraryFolder[]>("get_folders"),
-  getFolderOrder: () => invokeResult<string[]>("get_folder_order"),
-  createFolder: (name: string) => invokeResult<LibraryFolder>("create_folder", { name }),
-  renameFolder: (folderId: string, newName: string) =>
-    invokeResult<void>("rename_folder", { folderId, newName }),
-  deleteFolder: (folderId: string) => invokeResult<void>("delete_folder", { folderId }),
-  moveModToFolder: (modId: string, folderId: string) =>
-    invokeResult<void>("move_mod_to_folder", { modId, folderId }),
-  toggleFolder: (folderId: string, enabled: boolean) =>
-    invokeResult<void>("toggle_folder", { folderId, enabled }),
-  reorderFolderMods: (folderId: string, modIds: string[]) =>
-    invokeResult<void>("reorder_folder_mods", { folderId, modIds }),
-  reorderFolders: (folderOrder: string[]) => invokeResult<void>("reorder_folders", { folderOrder }),
+  getFolders: library.getFolders,
+  getFolderOrder: library.getFolderOrder,
+  createFolder: library.createFolder,
+  renameFolder: library.renameFolder,
+  deleteFolder: library.deleteFolder,
+  moveModToFolder: library.moveModToFolder,
+  toggleFolder: library.toggleFolder,
+  reorderFolderMods: library.reorderFolderMods,
+  reorderFolders: library.reorderFolders,
 
   // Hashtables
-  getHashtableCacheStatus: () => invokeResult<HashtableCacheStatus>("get_hashtable_cache_status"),
-  checkHashtableUpdates: () => invokeResult<HashtableUpdateCheck>("check_hashtable_updates"),
-  syncHashtables: (force: boolean) =>
-    invokeResult<HashtableSyncReport>("sync_hashtables", { force }),
+  getHashtableCacheStatus: game.getHashtableCacheStatus,
+  checkHashtableUpdates: game.checkHashtableUpdates,
+  syncHashtables: game.syncHashtables,
 
-  // Game WADs
-  getGameWads: () => invokeResult<GameWadSummary[]>("get_game_wads"),
-  readGameWad: (wadName: string) => invokeResult<GameWadEntry[]>("read_game_wad", { wadName }),
+  // Game and LCU WADs
+  getGameWads: game.getGameWads,
+  readGameWad: (source: WadSource, wadName: string) => game.readGameWad(wadName, source),
 
-  // Game index
-  getGameIndex: () => invokeResult<GameIndexStats>("get_game_index"),
-  readGameDir: (path: string) => invokeResult<GameDirListing>("read_game_dir", { path }),
-  refreshGameIndex: () => invokeResult<void>("refresh_game_index"),
-  searchGameIndex: (query: string) =>
-    invokeResult<GameSearchResult>("search_game_index", { query }),
-  findInGameIndex: (pattern: string, regex: boolean) =>
-    invokeResult<GameFindResult>("find_in_game_index", { pattern, regex }),
+  // Game and LCU index
+  getGameIndex: game.getGameIndex,
+  readGameDir: (source: WadSource, path: string) => game.readGameDir(path, source),
+  refreshGameIndex: game.refreshGameIndex,
+  searchGameIndex: (query: string) => game.searchGameIndex(query, { kind: "palette" }),
+  findInGameIndex: (source: WadSource, pattern: string, regex: boolean) =>
+    game.findInGameIndex(pattern, regex, source),
 
   // Extract to disk
-  planGameExtract: (targets: ExtractTarget[], kinds: WorkshopFileKind[] | null) =>
-    invokeResult<ExtractPlan>("plan_game_extract", { targets, kinds }),
+  planGameExtract: (
+    source: WadSource,
+    targets: ExtractTarget[],
+    kinds: WorkshopFileKind[] | null,
+  ) => game.planGameExtract(targets, kinds, source),
   // Resolves to null when an extract was already in flight - a redundant click.
-  extractGameFiles: (targets: ExtractTarget[], options: ExtractOptions) =>
-    invokeResult<ExtractSummary | null>("extract_game_files", { targets, options }),
+  extractGameFiles: (source: WadSource, targets: ExtractTarget[], options: ExtractOptions) =>
+    game.extractGameFiles(targets, options, source),
   // Resolves to false when nothing was in flight, which is what a Cancel
   // pressed just as the run finished looks like.
-  cancelExtract: () => invokeResult<boolean>("cancel_extract"),
+  cancelExtract: game.cancelExtract,
 
   // Asset preview
-  readAssetInfo: (asset: AssetRef) => invokeResult<AssetInfo>("read_asset_info", { asset }),
-  saveAssetCopy: (asset: AssetRef, destination: string) =>
-    invokeResult<void>("save_asset_copy", { asset, destination }),
+  readAssetInfo: preview.readAssetInfo,
+  saveAssetCopy: preview.saveAssetCopy,
 
   // Ritobin
-  detectRitobinIntegration: () => invokeResult<boolean>("detect_ritobin_integration"),
+  detectRitobinIntegration: preview.detectRitobinIntegration,
   openAssetInRitobin: (asset: AssetRef, name?: string) =>
-    invokeResult<void>("open_asset_in_ritobin", { asset, name }),
+    preview.openAssetInRitobin(asset, name ?? null),
 
   // Deep Link
   deepLinkInstallMod: (
@@ -527,268 +239,280 @@ export const api = {
     name?: string | null,
     author?: string | null,
     source?: string | null,
-  ) => invokeResult<InstalledMod>("deep_link_install_mod", { url, name, author, source }),
-  takePendingDeepLink: () => invokeResult<PendingDeepLink | null>("take_pending_deep_link"),
+  ) => links.deepLinkInstallMod(url, name ?? null, author ?? null, source ?? null),
+  takePendingDeepLink: links.takePendingDeepLink,
+  takePendingOpenedFiles: links.takePendingOpenedFiles,
 
   // Shell
-  revealInExplorer: (path: string) => invokeResult<void>("reveal_in_explorer", { path }),
-  minimizeToTray: () => invokeResult<void>("minimize_to_tray"),
+  revealInExplorer: desktop.revealInExplorer,
+  minimizeToTray: desktop.minimizeToTray,
 
   // Storage
-  detectStorageMedium: (path: string) =>
-    invokeResult<StorageMedium>("detect_storage_medium", { path }),
+  detectStorageMedium: desktop.detectStorageMedium,
 
-  // Diagnostics. One group per migrated module: the generated `commands` object is
-  // The bin editor and the class reads over its documents, on tauri-specta.
+  // The bin editor and the class reads over its documents.
   bin: {
-    open: (asset: AssetRef, entry: string | null) => commands.binOpen(asset, entry).then(toResult),
-    children: (
-      document: BinDocumentId,
-      entry: string,
-      path: string,
-      offset: number,
-      limit: number,
-    ) => commands.binChildren(document, entry, path, offset, limit).then(toResult),
+    open: bin.binOpen,
+    openVariant: bin.binOpenVariant,
+    children: bin.binChildren,
     read: (document: BinDocumentId, entry: string, paths: readonly string[]) =>
-      commands.binRead(document, entry, [...paths]).then(toResult),
-    find: (document: BinDocumentId, entry: string | null, query: string) =>
-      commands.binFind(document, entry, query).then(toResult),
-    patch: (document: BinDocumentId, entry: string, path: string, value: LeafValue) =>
-      commands.binPatch(document, entry, path, value).then(toResult),
-    editProperty: (
+      bin.binRead(document, entry, [...paths]),
+    find: bin.binFind,
+    edit: bin.binEdit,
+    choices: bin.binChoices,
+    copyValue: bin.binCopyValue,
+    save: bin.binSave,
+    reload: bin.binReload,
+    undo: (document: BinDocumentId) => bin.binHistory(document, "undo"),
+    redo: (document: BinDocumentId) => bin.binHistory(document, "redo"),
+    changes: bin.binChanges,
+    revert: bin.binRevert,
+    declared: bin.binDeclared,
+    overrides: bin.binOverrides,
+    declareInto: bin.binDeclareInto,
+    setDeclaring: bin.binSetDeclaring,
+    rowDeclaration: bin.binRowDeclaration,
+    roots: bin.binRoots,
+    dependencies: bin.binDependencies,
+    close: bin.binClose,
+    classSchema: bin.classSchema,
+    derivedClasses: bin.derivedClasses,
+    classDocs: bin.classDocs,
+    syncMetaDocs: bin.syncMetaDocs,
+    readVfxSystem: preview.readVfxSystem,
+    vfxTemplates: preview.vfxTemplates,
+    readUiView: atlas.readUiView,
+    readUiSceneView: atlas.readUiSceneView,
+    readUiFont: atlas.readUiFont,
+    readUiFontCatalog: atlas.readUiFontCatalog,
+    readUiMaterialPrograms: (documents: readonly BinDocumentId[], entries: readonly string[]) =>
+      atlas.readUiMaterialPrograms([...documents], [...entries]),
+    readUiPrograms: (document: BinDocumentId | null, shaders: readonly UiShader[]) =>
+      atlas.readUiPrograms(document, [...shaders]),
+    readUiLoadout: atlas.readUiLoadout,
+    readUiTooltips: atlas.readUiTooltips,
+    readUiCharacters: atlas.readUiCharacters,
+    atlasExportSprite: (
+      texture: AssetRef,
+      uv: readonly [number, number, number, number],
+      destination: string,
+    ) => atlas.atlasExportSprite(texture, [...uv], destination),
+    atlasImportFontFile: atlas.atlasImportFontFile,
+    atlasImportSprite: atlas.atlasImportSprite,
+    atlasMakeSurface: atlas.atlasMakeSurface,
+    atlasPatchSprite: (
       document: BinDocumentId,
-      entry: string,
-      holder: string,
-      field: string,
-      edits: ValueEdit[],
-    ) => commands.binEditProperty(document, entry, holder, field, edits).then(toResult),
-    save: (document: BinDocumentId) => commands.binSave(document).then(toResult),
-    reload: (document: BinDocumentId) => commands.binReload(document).then(toResult),
-    undo: (document: BinDocumentId) => commands.binUndo(document).then(toResult),
-    redo: (document: BinDocumentId) => commands.binRedo(document).then(toResult),
-    declared: (document: BinDocumentId) => commands.binDeclared(document).then(toResult),
-    declareInto: (document: BinDocumentId, layer: string) =>
-      commands.binDeclareInto(document, layer).then(toResult),
-    rowDeclaration: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binRowDeclaration(document, entry, path).then(toResult),
-    declareReference: (
-      document: BinDocumentId,
-      entry: string,
-      path: string,
-      reference: string,
-      merge: boolean,
-    ) => commands.binDeclareReference(document, entry, path, reference, merge).then(toResult),
-    roots: (document: BinDocumentId) => commands.binRoots(document).then(toResult),
-    addableFields: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binAddableFields(document, entry, path).then(toResult),
-    addProperty: (document: BinDocumentId, entry: string, path: string, property: NewProperty) =>
-      commands.binAddProperty(document, entry, path, property).then(toResult),
-    removeProperty: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binRemoveProperty(document, entry, path).then(toResult),
-    itemClasses: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binItemClasses(document, entry, path).then(toResult),
-    insertItem: (document: BinDocumentId, entry: string, path: string, item: NewItem) =>
-      commands.binInsertItem(document, entry, path, item).then(toResult),
-    removeItem: (document: BinDocumentId, entry: string, path: string) =>
-      commands.binRemoveItem(document, entry, path).then(toResult),
-    moveItem: (document: BinDocumentId, entry: string, path: string, to: number) =>
-      commands.binMoveItem(document, entry, path, to).then(toResult),
-    setKey: (document: BinDocumentId, entry: string, path: string, key: string) =>
-      commands.binSetKey(document, entry, path, key).then(toResult),
-    setPointer: (document: BinDocumentId, entry: string, path: string, className: string | null) =>
-      commands.binSetPointer(document, entry, path, className).then(toResult),
-    close: (document: BinDocumentId) => commands.binClose(document).then(toResult),
-    classSchema: (classHash: string) => commands.classSchema(classHash).then(toResult),
-    readVfxSystem: (document: BinDocumentId, entry: string) =>
-      commands.readVfxSystem(document, entry).then(toResult),
-    readSkin: (document: BinDocumentId, entry: string) =>
-      commands.readSkin(document, entry).then(toResult),
+      page: string,
+      uv: readonly [number, number, number, number],
+      source: string,
+    ) => atlas.atlasPatchSprite(document, page, [...uv], source),
+    atlasSheet: atlas.atlasSheet,
+    readSkin: preview.readSkin,
     readMaterialPrograms: (
       source: MaterialSource,
       entries: readonly string[],
       options: ProgramOptions,
-    ) => commands.readMaterialPrograms(source, [...entries], options).then(toResult),
-    bakeSkinTangents: (document: BinDocumentId, entry: string) =>
-      commands.bakeSkinTangents(document, entry).then(toResult),
-    readMap: (document: BinDocumentId | null, map: string, materials: string[]) =>
-      commands.readMap(document, map, materials).then(toResult),
-    readMapParticles: (document: BinDocumentId) =>
-      commands.readMapParticles(document).then(toResult),
-    readMapCharacters: (document: BinDocumentId) =>
-      commands.readMapCharacters(document).then(toResult),
-    readMapVariants: (document: BinDocumentId, entry: string) =>
-      commands.readMapVariants(document, entry).then(toResult),
-    readMapOutline: (document: BinDocumentId) => commands.readMapOutline(document).then(toResult),
-    locateFilesNear: (near: AssetRef, paths: readonly string[]) =>
-      commands.locateFilesNear(near, [...paths]).then(toResult),
-    locateMapFiles: (near: AssetRef, map: string) =>
-      commands.locateMapFiles(near, map).then(toResult),
-    readAnimationGraph: (document: BinDocumentId, entry: string) =>
-      commands.readAnimationGraph(document, entry).then(toResult),
-    readClipHeader: (asset: AssetRef) => commands.readClipHeader(asset).then(toResult),
-    readSpell: (document: BinDocumentId, entry: string) =>
-      commands.readSpell(document, entry).then(toResult),
+    ) =>
+      preview.readMaterialPrograms(
+        source,
+        entries.map((entry) => ({ kind: "object" as const, entry })),
+        options,
+      ),
+    readEmbeddedMaterialProgram: (
+      source: MaterialSource,
+      entry: string,
+      path: string,
+      options: ProgramOptions,
+    ) =>
+      preview
+        .readMaterialPrograms(source, [{ kind: "embedded", entry, path }], options)
+        .then((result) => mapResult(result, ([program]) => program ?? null)),
+    readDefaultSkinnedProgram: (document: BinDocumentId, options: ProgramOptions) =>
+      preview.readEngineProgram({ kind: "defaultSkinned", document }, options),
+    readParticleProgram: (
+      document: BinDocumentId | null,
+      shader: ParticleShader,
+      defines: readonly ParticleDefine[],
+      options: ProgramOptions,
+    ) =>
+      preview.readEngineProgram(
+        { kind: "particle", document, shader, defines: [...defines] },
+        options,
+      ),
+    bakeSkinTangents: preview.bakeSkinTangents,
+    readMap: preview.readMap,
+    readMapParticles: preview.readMapParticles,
+    readMapCharacters: preview.readMapCharacters,
+    readMapVariants: preview.readMapVariants,
+    readMapOutline: preview.readMapOutline,
+    locateFilesNear: (sandbox: SandboxRef, paths: readonly string[]) =>
+      preview.locateFilesNear(sandbox, [...paths]),
+    locateMapFiles: preview.locateMapFiles,
+    readAnimationGraph: preview.readAnimationGraph,
+    readClipHeader: preview.readClipHeader,
+    readSpell: preview.readSpell,
   },
 
-  // The object index and the install lookups a bin page makes, on tauri-specta.
+  // The object index and the install lookups a bin page makes.
   objects: {
-    search: (query: string) => commands.searchObjectIndex(query).then(toResult),
-    warm: () => commands.warmObjectIndex().then(toResult),
-    drop: () => commands.dropObjectIndex().then(toResult),
-    declared: (objectHashes: readonly string[], document: BinDocumentId | null = null) =>
-      commands.declaredObjects([...objectHashes], document).then(toResult),
-    dir: (prefix: string) => commands.objectDir(prefix).then(toResult),
-    spells: (character: string) => commands.characterSpells(character).then(toResult),
-    find: (pattern: string, regex: boolean, cls: string | null) =>
-      commands.findObjects(pattern, regex, cls).then(toResult),
-    references: (query: ReferenceQuery, project: string | null) =>
-      commands.findReferences(query, project).then(toResult),
-    cancelWalk: () => commands.cancelReferenceWalk().then(toResult),
-    locateGameFiles: (paths: readonly string[]) =>
-      commands.locateGameFiles([...paths]).then(toResult),
+    search: objects.searchObjectIndex,
+    warm: objects.warmObjectIndex,
+    drop: objects.dropObjectIndex,
+    declared: (
+      sandbox: SandboxRef,
+      objectHashes: readonly string[],
+      document: BinDocumentId | null = null,
+    ) => objects.declaredObjects(sandbox, [...objectHashes], document),
+    dir: objects.objectDir,
+    spells: objects.characterSpells,
+    classCount: objects.classObjectCount,
+    find: objects.findObjects,
+    references: objects.findReferences,
+    cancelWalk: objects.cancelReferenceWalk,
+    locateGameFiles: (paths: readonly string[]) => game.locateGameFiles([...paths]),
+    searchGamePaths: (query: string, preference: SearchPreference) =>
+      game.searchGameIndex(query, { kind: "pathField", preference }),
   },
 
-  // flat, so the module boundary lives here.
+  // Diagnostics. The generated `commands` object is flat, so the module boundary lives here.
   diagnostics: {
-    run: () => commands.runDiagnostics().then(toResult),
-    openElevatedTerminal: (withBanner: boolean) =>
-      commands.openElevatedTerminal(withBanner).then(toResult),
-    listIncidents: () => commands.listIncidents().then(toResult),
-    dismissIncident: (id: string) => commands.dismissIncident(id).then(toResult),
-    dismissAllIncidents: () => commands.dismissAllIncidents().then(toResult),
-    revealGameLog: (id: string) => commands.revealGameLog(id).then(toResult),
-    incidentReport: (id: string, hints: string[]) =>
-      commands.incidentReport(id, hints).then(toResult),
-    incidentToken: (id: string) => commands.incidentToken(id).then(toResult),
-    decodeIncidentToken: (token: string) => commands.decodeIncidentToken(token).then(toResult),
-    telemetryIdentity: () => commands.telemetryIdentity().then(toResult),
-    resetTelemetrySecret: () => commands.resetTelemetrySecret().then(toResult),
-    trackUiError: (error: UiError) => commands.trackUiError(error).then(toResult),
+    run: diagnostics.runDiagnostics,
+    openElevatedTerminal: diagnostics.openElevatedTerminal,
+    listIncidents: diagnostics.listIncidents,
+    dismissIncident: diagnostics.dismissIncident,
+    dismissAllIncidents: diagnostics.dismissAllIncidents,
+    revealGameLog: diagnostics.revealGameLog,
+    incidentReport: diagnostics.incidentReport,
+    incidentToken: diagnostics.incidentToken,
+    decodeIncidentToken: diagnostics.decodeIncidentToken,
+    telemetryIdentity: diagnostics.telemetryIdentity,
+    resetTelemetrySecret: diagnostics.resetTelemetrySecret,
+    trackUiError: diagnostics.trackUiError,
   },
 
-  // Launcher, on tauri-specta.
+  // Launcher.
   launcher: {
-    checkInstallMismatch: () => commands.checkInstallMismatch().then(toResult),
-    switchLeagueInstall: (installRoot: string) =>
-      commands.switchLeagueInstall(installRoot).then(toResult),
+    checkInstallMismatch: launcher.checkInstallMismatch,
+    switchLeagueInstall: launcher.switchLeagueInstall,
   },
 
-  // The app's own update, on tauri-specta.
+  // The app's own update.
   updater: {
-    check: () => commands.checkUpdate().then(toResult),
-    download: () => commands.downloadUpdate().then(toResult),
-    install: () => commands.installUpdate().then(toResult),
-    discard: () => commands.discardUpdate().then(toResult),
+    check: appUpdate.checkUpdate,
+    download: appUpdate.downloadUpdate,
+    install: appUpdate.installUpdate,
+    discard: appUpdate.discardUpdate,
   },
 
-  // A project's ignore rules, on tauri-specta.
+  // A project's ignore rules.
   ignoreRules: {
-    read: (projectPath: string, at: string | null) =>
-      commands.getProjectIgnoreRules(projectPath, at).then(toResult),
-    recommended: () => commands.recommendedIgnoreRules().then(toResult),
-    save: (projectPath: string, at: string | null, text: string) =>
-      commands.saveProjectIgnoreRules(projectPath, at, text).then(toResult),
-    addRecommended: (projectPath: string) =>
-      commands.addRecommendedIgnoreRules(projectPath).then(toResult),
+    read: workshop.getProjectIgnoreRules,
+    recommended: workshop.recommendedIgnoreRules,
+    save: workshop.saveProjectIgnoreRules,
+    addRecommended: workshop.addRecommendedIgnoreRules,
   },
 
-  // A project's root text files, on tauri-specta.
+  // Folders opened as projects from anywhere on disk.
+  projectFolders: {
+    inspect: workshop.inspectProjectFolder,
+    open: workshop.openProjectFolder,
+    recordOpened: workshop.recordProjectOpened,
+    list: workshop.getOpenedProjectFolders,
+    forget: workshop.forgetProjectFolder,
+    relocate: workshop.relocateProjectFolder,
+    convert: workshop.convertFolderToProject,
+    addAll: (paths: readonly string[]) => workshop.addProjectFolders([...paths]),
+  },
+
+  // Watches on an open project's layers, which announce `layer-files-changed`.
+  layerWatch: {
+    acquire: workshop.watchProjectLayers,
+    release: workshop.unwatchProjectLayers,
+  },
+
+  // A project's root text files.
   projectText: {
-    read: (projectPath: string, file: ProjectTextFile) =>
-      commands.getProjectText(projectPath, file).then(toResult),
-    save: (projectPath: string, file: ProjectTextFile, text: string, expected: Revision | null) =>
-      commands.saveProjectText(projectPath, file, text, expected).then(toResult),
+    read: workshop.getProjectText,
+    save: workshop.saveProjectText,
+  },
+
+  // A project's game data declarations.
+  declarations: {
+    outline: workshop.declarationsOutline,
+    /** A module action with no document to undo it, for a view of the manifest itself. */
+    moduleAction: bin.declarationsModuleAction,
   },
 
   // Workshop
-  getWorkshopProjects: () => invokeResult<WorkshopProject[]>("get_workshop_projects"),
-  createWorkshopProject: (args: CreateProjectArgs) =>
-    invokeResult<WorkshopProject>("create_workshop_project", { args }),
-  getWorkshopProject: (projectPath: string) =>
-    invokeResult<WorkshopProject>("get_workshop_project", { projectPath }),
-  getProjectContentTree: (projectPath: string) =>
-    invokeResult<ContentTree>("get_project_content_tree", { projectPath }),
-  saveProjectConfig: (args: SaveProjectConfigArgs) =>
-    invokeResult<WorkshopProject>("save_project_config", { args }),
-  renameWorkshopProject: (projectPath: string, newName: string) =>
-    invokeResult<WorkshopProject>("rename_workshop_project", { projectPath, newName }),
-  deleteWorkshopProject: (projectPath: string) =>
-    invokeResult<void>("delete_workshop_project", { projectPath }),
-  packWorkshopProject: (args: PackProjectArgs) =>
-    invokeResult<PackResult>("pack_workshop_project", { args }),
-  importFromModpkg: (filePath: string) =>
-    invokeResult<WorkshopProject>("import_from_modpkg", { filePath }),
-  peekFantome: (filePath: string) => invokeResult<FantomePeekResult>("peek_fantome", { filePath }),
-  importFromFantome: (args: ImportFantomeArgs) =>
-    invokeResult<WorkshopProject>("import_from_fantome", { args }),
-  importFromGitRepo: (args: ImportGitRepoArgs) =>
-    invokeResult<WorkshopProject>("import_from_git_repo", { args }),
-  validateProject: (projectPath: string) =>
-    invokeResult<ValidationResult>("validate_project", { projectPath }),
-  analyzeProject: (projectPath: string) => invokeResult<Run>("analyze_project", { projectPath }),
-  fixProblems: (projectPath: string, problems: ProblemId[]) =>
-    invokeResult<FixReport>("fix_problems", { projectPath, problems }),
+  getWorkshopProjects: workshop.getWorkshopProjects,
+  createWorkshopProject: (args: CreateProjectArgs) => workshop.createProject({ kind: "new", args }),
+  getWorkshopProject: workshop.getWorkshopProject,
+  getProjectContentTree: workshop.getProjectContentTree,
+  saveProjectConfig: ({ projectPath, ...metadata }: SaveProjectConfigArgs) =>
+    workshop.editProject(projectPath, { kind: "metadata", metadata }),
+  renameWorkshopProject: workshop.renameWorkshopProject,
+  deleteWorkshopProject: workshop.deleteWorkshopProject,
+  packWorkshopProject: workshop.packWorkshopProject,
+  importFromModpkg: (filePath: string) => workshop.createProject({ kind: "modpkg", filePath }),
+  peekFantome: workshop.peekFantome,
+  importFromFantome: (args: ImportFantomeArgs) => workshop.createProject({ kind: "fantome", args }),
+  importFromGitRepo: (args: ImportGitRepoArgs) => workshop.createProject({ kind: "gitRepo", args }),
+  validateProject: workshop.validateProject,
+  analyzeProject: workshop.analyzeProject,
+  fixProblems: workshop.fixProblems,
   setProjectThumbnail: (projectPath: string, imagePath: string) =>
-    invokeResult<WorkshopProject>("set_project_thumbnail", { projectPath, imagePath }),
+    workshop.editProject(projectPath, { kind: "setThumbnail", imagePath }),
   removeProjectThumbnail: (projectPath: string) =>
-    invokeResult<WorkshopProject>("remove_project_thumbnail", { projectPath }),
-  getProjectThumbnail: (thumbnailPath: string) =>
-    invokeResult<string>("get_project_thumbnail", { thumbnailPath }),
+    workshop.editProject(projectPath, { kind: "removeThumbnail" }),
+  getProjectThumbnail: workshop.getProjectThumbnail,
   saveLayerStringOverrides: (
     projectPath: string,
     layerName: string,
     stringOverrides: Record<string, Record<string, string>>,
   ) =>
-    invokeResult<WorkshopProject>("save_layer_string_overrides", {
-      projectPath,
-      layerName,
-      stringOverrides,
+    workshop.editProject(projectPath, {
+      kind: "stringOverrides",
+      layer: layerName,
+      overrides: stringOverrides,
     }),
-  searchStringKeys: (query: string, limit?: number) =>
-    invokeResult<StringKeySearchResult>("search_string_keys", { query, limit }),
-  lookupStringValues: (keys: string[]) =>
-    invokeResult<Record<string, string>>("lookup_string_values", { keys }),
-  getLayerContentPath: (projectPath: string, layerName: string) =>
-    invokeResult<string>("get_layer_content_path", { projectPath, layerName }),
-  getLayerInfo: (projectPath: string, layerNames: string[]) =>
-    invokeResult<Record<string, WorkshopLayerInfo>>("get_layer_info", { projectPath, layerNames }),
+  searchStringKeys: (query: string, limit?: number) => game.searchStringKeys(query, limit ?? null),
+  lookupStringValues: game.lookupStringValues,
+  readChampions: game.readChampions,
+  getLayerContentPath: workshop.getLayerContentPath,
+  getLayerInfo: workshop.getLayerInfo,
   createProjectLayer: (
     projectPath: string,
     name: string,
     displayName?: string,
     description?: string,
   ) =>
-    invokeResult<WorkshopProject>("create_project_layer", {
-      projectPath,
+    workshop.editProject(projectPath, {
+      kind: "createLayer",
       name,
-      displayName,
-      description,
+      displayName: displayName ?? null,
+      description: description ?? null,
     }),
   renameProjectLayer: (projectPath: string, layerName: string, newDisplayName: string) =>
-    invokeResult<WorkshopProject>("rename_project_layer", {
-      projectPath,
-      layerName,
-      newDisplayName,
+    workshop.editProject(projectPath, {
+      kind: "renameLayer",
+      layer: layerName,
+      displayName: newDisplayName,
     }),
   deleteProjectLayer: (projectPath: string, layerName: string) =>
-    invokeResult<WorkshopProject>("delete_project_layer", { projectPath, layerName }),
+    workshop.editProject(projectPath, { kind: "deleteLayer", layer: layerName }),
   reorderProjectLayers: (projectPath: string, layerNames: string[]) =>
-    invokeResult<WorkshopProject>("reorder_project_layers", { projectPath, layerNames }),
+    workshop.editProject(projectPath, { kind: "reorderLayers", layers: layerNames }),
   updateLayerDescription: (projectPath: string, layerName: string, description?: string) =>
-    invokeResult<WorkshopProject>("update_layer_description", {
-      projectPath,
-      layerName,
-      description,
+    workshop.editProject(projectPath, {
+      kind: "describeLayer",
+      layer: layerName,
+      description: description ?? null,
     }),
-  addFilesToLayer: (projectPath: string, layerName: string, sources: string[]) =>
-    invokeResult<AddFilesReport>("add_files_to_layer", { projectPath, layerName, sources }),
-  deleteLayerContent: (projectPath: string, layerName: string, relativePath: string) =>
-    invokeResult<void>("delete_layer_content", { projectPath, layerName, relativePath }),
+  addFilesToLayer: workshop.addFilesToLayer,
+  deleteLayerContent: workshop.deleteLayerContent,
   // The editor state file is opaque to the backend, so both sides are strings.
-  getProjectEditorState: (projectPath: string) =>
-    invokeResult<string | null>("get_project_editor_state", { projectPath }),
-  saveProjectEditorState: (projectPath: string, content: string) =>
-    invokeResult<void>("save_project_editor_state", { projectPath, content }),
+  getProjectEditorState: workshop.getProjectEditorState,
+  saveProjectEditorState: workshop.saveProjectEditorState,
 };
 
 /**

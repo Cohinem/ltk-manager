@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 
-import { Accordion, Code, Field } from "@/components";
+import { Accordion, Code, Field, Properties, Property } from "@/components";
 import { m } from "@/i18n";
 import type { EffectSystem, SpellPreview } from "@/lib/tauri";
 
@@ -66,24 +66,20 @@ export function MissileOptions({
         <Accordion.Panel>
           <div className="flex flex-col gap-3 px-3 pb-3 text-meta text-surface-400 select-text">
             <p className="leading-relaxed">{m.workshop_missile_manual_hint()}</p>
-            <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-4 gap-y-2">
-              <dt>{m.workshop_missile_movement_label()}</dt>
-              <dd>
+            <Properties className="items-baseline gap-x-4 gap-y-2">
+              <Property label={m.workshop_missile_movement_label()} className="text-surface-400">
                 <Code>{motion ?? "—"}</Code>
-              </dd>
-              <dt>{m.workshop_missile_bones_label()}</dt>
-              <dd>
+              </Property>
+              <Property label={m.workshop_missile_bones_label()} className="text-surface-400">
                 <Code>{`${preview.missile?.startBone ?? "—"} → ${preview.missile?.targetBone ?? "—"}`}</Code>
-              </dd>
-              <dt>{m.workshop_missile_key_label()}</dt>
-              <dd>
+              </Property>
+              <Property label={m.workshop_missile_key_label()} className="text-surface-400">
                 <Code>{preview.effectKey ?? "—"}</Code>
-              </dd>
-              <dt>{m.workshop_missile_system_label()}</dt>
-              <dd>
+              </Property>
+              <Property label={m.workshop_missile_system_label()} className="text-surface-400">
                 <Code>{effect?.system ?? "—"}</Code>
-              </dd>
-            </dl>
+              </Property>
+            </Properties>
             {preview.issues.length > 0 && (
               <div className="flex flex-col gap-2">
                 <p>{m.workshop_missile_skipped_label()}</p>

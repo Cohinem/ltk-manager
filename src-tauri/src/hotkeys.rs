@@ -3,11 +3,9 @@ use crate::state::Settings;
 use serde::Deserialize;
 use tauri::AppHandle;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
-use ts_rs::TS;
 
 /// The action a global hotkey triggers when pressed.
-#[derive(Debug, Clone, Copy, Deserialize, TS)]
-#[ts(export)]
+#[derive(Debug, Clone, Copy, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum HotkeyAction {
     ReloadMods,
@@ -62,8 +60,8 @@ impl HotkeyAction {
     /// Execute the action associated with this hotkey, emitting an error event on failure.
     fn execute(self, app_handle: &AppHandle) {
         let result = match self {
-            Self::ReloadMods => crate::commands::hotkeys::execute_hot_reload(app_handle),
-            Self::KillLeague => crate::commands::hotkeys::execute_kill_league(app_handle),
+            Self::ReloadMods => crate::services::hotkeys::execute_hot_reload(app_handle),
+            Self::KillLeague => crate::services::hotkeys::execute_kill_league(app_handle),
         };
         if let Err(e) = result {
             tracing::error!("{} failed: {}", self.label(), e);

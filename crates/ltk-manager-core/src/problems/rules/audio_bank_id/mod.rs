@@ -18,8 +18,8 @@
 
 use crate::problems::bank_units::BankUnits;
 use crate::problems::{
-    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Pass, Problem, Rule, RuleId,
-    Severity, Site,
+    Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity,
+    Rule, RuleId, RuleMeta, Site,
 };
 use crate::workshop::WorkshopFileKind;
 
@@ -55,25 +55,18 @@ impl AudioBankId {
     }
 }
 
+/// The rule as the catalogue lists it.
+const META: RuleMeta = RuleMeta {
+    id: ID,
+    title: "Unset soundbank id",
+    description: "The audio bank has no id",
+    unfixable: "Couldn't derive an id because the bank's intended name is unknown",
+    severity: Some(ProblemSeverity::Info),
+};
+
 impl Rule for AudioBankId {
-    fn id(&self) -> RuleId {
-        ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Unset soundbank id"
-    }
-
-    fn description(&self) -> &'static str {
-        "The audio bank has no id"
-    }
-
-    fn unfixable_description(&self) -> &'static str {
-        "Couldn't derive an id because the bank's intended name is unknown"
-    }
-
-    fn severity(&self) -> Option<Severity> {
-        Some(Severity::Info)
+    fn meta(&self) -> &RuleMeta {
+        &META
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {
@@ -90,7 +83,7 @@ impl Rule for AudioBankId {
                 }
                 let detail = detail(&handle, units);
                 finish.problem(
-                    Severity::Info,
+                    ProblemSeverity::Info,
                     Site::file(handle.layer(), handle.path()),
                     detail,
                 );
@@ -104,37 +97,27 @@ impl Rule for AudioBankId {
         // hash-named chunk is a fact about the rest of it and the rest of it
         // may have changed.
         let units = run.fact::<BankUnits>().unwrap_or_default();
-        let mut applied = Applied::default();
 
-        for problem in problems {
-            let (layer, path) = (problem.site.layer.clone(), problem.site.path.clone());
-            let id = run.project().ok().and_then(|project| {
-                let handle = project
-                    .files()
-                    .find(|handle| handle.layer() == layer && handle.path() == path)?;
-                bank_id_for(&handle, &units)
-            });
+        run.per_file(problems, |run, layer, path| {
+            let id = run
+                .project()
+                .ok()
+                .and_then(|project| bank_id_for(&project.file(layer, path)?, &units));
             let Some(id) = id else {
-                applied.skipped += 1;
-                run.skipped(&layer, &path, 1);
-                continue;
+                return Ok(false);
             };
 
-            let mut bytes = run.read(&layer, &path)?;
+            let mut bytes = run.read(layer, path)?;
             // Re-read from the file rather than trusted from the check, so a
             // bank rebuilt since the run keeps the id its builder gave it.
             if !carries_no_id(&bytes) {
-                applied.skipped += 1;
-                run.skipped(&layer, &path, 1);
-                continue;
+                return Ok(false);
             }
 
             bytes[BANK_ID_AT..BANK_ID_AT + 4].copy_from_slice(&id.to_le_bytes());
-            run.write(&layer, &path, &bytes, 1, 0)?;
-            applied.applied += 1;
-        }
-
-        Ok(applied)
+            run.write(layer, path, &bytes, 1, 0)?;
+            Ok(true)
+        })
     }
 }
 
