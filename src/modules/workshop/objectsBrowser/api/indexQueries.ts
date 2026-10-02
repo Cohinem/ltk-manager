@@ -4,7 +4,7 @@ import {
   api,
   type AppError,
   type DeclaredObjects,
-  type IndexAnswer,
+  type IndexResponse,
   type ObjectSearchResult,
   type SandboxRef,
 } from "@/lib/tauri";
@@ -16,7 +16,7 @@ import {
   liveSearchOptions,
   pollUntilReady,
   pollWhileBuilding,
-  supersededAnswer,
+  supersededResponse,
 } from "../../shared/api/indexQueries";
 
 /** What the object index answers, and how it reports a build still running. */
@@ -39,9 +39,9 @@ export const objectIndexQueries = {
      runs reads as building rather than as nothing, and asks again until the build
      lands. */
   search: (query: string, active: boolean) =>
-    queryOptions<IndexAnswer<ObjectSearchResult>, AppError>({
+    queryOptions<IndexResponse<ObjectSearchResult>, AppError>({
       queryKey: gameKeys.objectSearch(query),
       queryFn: active ? queryFnWithArgs(api.objects.search, query) : skipToken,
-      ...liveSearchOptions(supersededAnswer, (answer) => pollUntilReady(answer.status)),
+      ...liveSearchOptions(supersededResponse, (answer) => pollUntilReady(answer.status)),
     }),
 } as const;

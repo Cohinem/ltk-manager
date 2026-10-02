@@ -8,11 +8,10 @@ use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{WadHash, hex_name};
 use serde::{Deserialize, Serialize};
 
-use crate::capped::Capped;
 use crate::error::AppResult;
 use crate::game_wads::{GameArchives, WadSource};
 use crate::generation::{Generation, STALE_CHECK_INTERVAL, line};
-use crate::matcher::{FindQuery, Query, Range, letter_mask, mask_covers};
+use crate::matcher::{FindQuery, Query, Range, SearchHits, letter_mask, mask_covers};
 use crate::utils::lazy_slot::LazySlot;
 use crate::utils::natural_order::compare_names;
 
@@ -101,7 +100,7 @@ pub struct GameSearchHit {
 }
 
 /// What one search of the folded index found, best first, capped at [`SEARCH_LIMIT`].
-pub type GameSearchResult = Capped<GameSearchHit>;
+pub type GameSearchResult = SearchHits<GameSearchHit>;
 
 /// How many rows a search returns. Nothing sorts a million of them.
 pub const SEARCH_LIMIT: usize = 100;
@@ -144,7 +143,7 @@ pub struct GameFindHit {
 }
 
 /// What one full search of the folded index found, in tree order, capped at [`FIND_LIMIT`].
-pub type GameFindResult = Capped<GameFindHit>;
+pub type GameFindResult = SearchHits<GameFindHit>;
 
 /// How many rows a full search returns.
 ///
@@ -308,7 +307,7 @@ impl GameIndex {
     ///
     /// `is_overtaken` is tested every few thousand files. A scan that has been
     /// overtaken returns what it has rather than finishing a walk nobody is
-    /// waiting for, and says so through [`Capped::superseded`].
+    /// waiting for, and says so through [`SearchHits::superseded`].
     ///
     /// An empty query matches nothing here. The install is not a list anybody
     /// wants handed to them unasked, and the palette only reaches this source
@@ -327,7 +326,7 @@ impl GameIndex {
         let unnamed = self.dirs[0].file_count == 0 && !self.unknown.is_empty();
 
         let Some(query) = Query::parse(query) else {
-            return Capped::empty(unnamed);
+            return SearchHits::empty(unnamed);
         };
 
         let mut scan = Scan {

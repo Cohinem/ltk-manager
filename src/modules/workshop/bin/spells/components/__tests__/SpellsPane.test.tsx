@@ -5,7 +5,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { IndexAnswer, SpellCatalog } from "@/lib/tauri";
+import type { IndexResponse, SpellCatalog } from "@/lib/tauri";
 import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -36,7 +36,7 @@ const CATALOG: SpellCatalog = {
     },
   ],
 };
-const READY: IndexAnswer<SpellCatalog> = { status: "ready", value: CATALOG };
+const READY: IndexResponse<SpellCatalog> = { status: "ready", value: CATALOG };
 
 function mount(path = "Characters/Sejuani/Skins/Skin0") {
   const client = createTestQueryClient();

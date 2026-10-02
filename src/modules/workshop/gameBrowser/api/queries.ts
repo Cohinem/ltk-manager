@@ -3,7 +3,7 @@ import { queryOptions, skipToken } from "@tanstack/react-query";
 import {
   api,
   type AppError,
-  type Capped,
+  type SearchHits,
   type GameDirListing,
   type GameFindHit,
   type GameIndexStats,
@@ -83,7 +83,7 @@ export const gameQueries = {
     }),
 
   search: (query: string, active: boolean) =>
-    queryOptions<Capped<GameSearchHit>, AppError>({
+    queryOptions<SearchHits<GameSearchHit>, AppError>({
       queryKey: gameKeys.search(query),
       queryFn: active ? queryFnWithArgs(api.searchGameIndex, query) : skipToken,
       ...liveSearchOptions(supersededScan),
@@ -91,7 +91,7 @@ export const gameQueries = {
 
   /** A path field's search, which ranks the files `preference` names first. */
   paths: (query: string, preference: SearchPreference, active: boolean) =>
-    queryOptions<Capped<GameSearchHit>, AppError>({
+    queryOptions<SearchHits<GameSearchHit>, AppError>({
       queryKey: gameKeys.paths(query, preference),
       queryFn: active ? queryFnWithArgs(api.objects.searchGamePaths, query, preference) : skipToken,
       ...liveSearchOptions(supersededScan),
@@ -101,7 +101,7 @@ export const gameQueries = {
      answer in `data`, which is what lets the box report the parse error under
      the input without blanking the results. */
   find: (source: WadSource, pattern: string, regex: boolean, active: boolean) =>
-    queryOptions<Capped<GameFindHit>, AppError>({
+    queryOptions<SearchHits<GameFindHit>, AppError>({
       queryKey: gameKeys.find(source, pattern, regex),
       queryFn: active ? queryFnWithArgs(api.findInGameIndex, source, pattern, regex) : skipToken,
       ...liveSearchOptions(supersededScan),

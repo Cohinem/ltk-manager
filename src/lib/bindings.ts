@@ -625,27 +625,6 @@ export type BulkInstallResult_Serialize = {
 	failed: BulkInstallError[],
 };
 
-/**  The rows one search of an index kept, cut at its limit, and how many matched in all. */
-export type Capped<T> = {
-	/**  The rows in the order the search gives them, at most its limit. */
-	hits: T[],
-	/**  How many rows matched in all, counted on past the cap. */
-	total: number,
-	/**
-	 *  A newer search overtook this one, so the hits are a part of the answer.
-	 * 
-	 *  The caller is expected to be showing the newer search by now.
-	 */
-	superseded: boolean,
-	/**
-	 *  No table named a single entry of the index, so only a hash can match.
-	 * 
-	 *  An index whose names never resolved answers every path query with nothing,
-	 *  which reads exactly like an index that holds no match. The caller says which.
-	 */
-	unnamed: boolean,
-};
-
 /**  Coarse grouping for the UI. */
 export type Category = 
 /**  OS-level checks (Windows version, UAC, long paths). */
@@ -3041,8 +3020,8 @@ export type Incident_Serialize = {
 	dismissed: boolean,
 };
 
-/**  An answer of the object index, given the slot the index is in. */
-export type IndexAnswer<T> = 
+/**  A response of the object index, given the slot the index is in. */
+export type IndexResponse<T> = 
 /**  Nothing has warmed the index, or the switch that gates it is off. */
 { status: "absent" } | 
 /**  A build is running. The answer follows it. */
@@ -5861,6 +5840,27 @@ export type SearchFor =
 { kind: "palette" } | 
 /**  A path field, the files `preference` names first. */
 { kind: "pathField"; preference: SearchPreference };
+
+/**  The rows one search of an index kept, up to its limit, and how many matched in all. */
+export type SearchHits<T> = {
+	/**  The rows in the order the search gives them, at most its limit. */
+	hits: T[],
+	/**  How many rows matched in all, counted on past the limit. */
+	total: number,
+	/**
+	 *  A newer search overtook this one, so the hits are a part of the answer.
+	 * 
+	 *  The caller is expected to be showing the newer search by now.
+	 */
+	superseded: boolean,
+	/**
+	 *  No table named a single entry of the index, so only a hash can match.
+	 * 
+	 *  An index whose names never resolved answers every path query with nothing,
+	 *  which reads exactly like an index that holds no match. The caller says which.
+	 */
+	unnamed: boolean,
+};
 
 /**
  *  The files a path field wants ranked first in a search.

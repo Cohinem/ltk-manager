@@ -1,5 +1,5 @@
 import { splitClassTerm } from "../../palette/utils/classTerm";
-import { FIND_DEBOUNCE_MS, supersededAnswer, useLiveSearch } from "../../shared/api/indexQueries";
+import { FIND_DEBOUNCE_MS, supersededResponse, useLiveSearch } from "../../shared/api/indexQueries";
 import { objectTreeQueries } from "./queries";
 
 /**
@@ -13,7 +13,7 @@ export function useObjectFind(input: string, regex: boolean) {
     input,
     FIND_DEBOUNCE_MS,
     (debounced) => findQuery(debounced, regex),
-    supersededAnswer,
+    supersededResponse,
   );
 }
 

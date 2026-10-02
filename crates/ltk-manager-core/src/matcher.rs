@@ -17,6 +17,7 @@
 use std::borrow::Cow;
 
 use regex::{Regex, RegexBuilder};
+use serde::Serialize;
 
 /// A term beginning at a word boundary, which is where a name starts.
 const BOUNDARY_BONUS: f64 = 1.0;
@@ -35,6 +36,38 @@ pub type Range = (u32, u32);
 pub struct Match {
     pub score: f64,
     pub ranges: Vec<Range>,
+}
+
+/// The rows one search of an index kept, up to its limit, and how many matched in all.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct SearchHits<T> {
+    /// The rows in the order the search gives them, at most its limit.
+    pub hits: Vec<T>,
+    /// How many rows matched in all, counted on past the limit.
+    pub total: u32,
+    /// A newer search overtook this one, so the hits are a part of the answer.
+    ///
+    /// The caller is expected to be showing the newer search by now.
+    pub superseded: bool,
+    /// No table named a single entry of the index, so only a hash can match.
+    ///
+    /// An index whose names never resolved answers every path query with nothing,
+    /// which reads exactly like an index that holds no match. The caller says which.
+    pub unnamed: bool,
+}
+
+impl<T> SearchHits<T> {
+    /// A search that found nothing.
+    pub fn empty(unnamed: bool) -> Self {
+        Self {
+            hits: Vec::new(),
+            total: 0,
+            superseded: false,
+            unnamed,
+        }
+    }
 }
 
 /// A query, split into the terms a candidate has to hold all of.

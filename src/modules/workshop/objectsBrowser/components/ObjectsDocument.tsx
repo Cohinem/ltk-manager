@@ -3,7 +3,7 @@ import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 
 import { Button, Count, EmptyState, LoadingState, SearchField, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import type { Capped, ObjectFindHit } from "@/lib/tauri";
+import type { SearchHits, ObjectFindHit } from "@/lib/tauri";
 import {
   DocumentToolbar,
   type EditorDocumentProps,
@@ -257,7 +257,7 @@ function ObjectSearch({ onCommit, boxRef }: ObjectSearchProps) {
   );
 }
 
-function countText(result: Capped<ObjectFindHit>): string {
+function countText(result: SearchHits<ObjectFindHit>): string {
   if (result.hits.length < result.total) {
     return m.workshop_objects_matches_capped_label({
       shown: result.hits.length.toLocaleString(),

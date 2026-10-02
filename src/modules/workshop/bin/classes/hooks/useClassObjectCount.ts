@@ -1,13 +1,13 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 
-import { api, type AppError, type HexBinHash, type IndexAnswer } from "@/lib/tauri";
+import { api, type AppError, type HexBinHash, type IndexResponse } from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
 
 /* The leaf rather than the browser's barrel, which reaches this module back mid-evaluation. */
 import { pollWhileBuilding, readyValue } from "../../../shared/api/indexQueries";
 
 const classObjectCountQuery = (classHash: HexBinHash) =>
-  queryOptions<IndexAnswer<number>, AppError>({
+  queryOptions<IndexResponse<number>, AppError>({
     queryKey: ["class-object-count", classHash],
     queryFn: queryFnWithArgs(api.objects.classCount, classHash),
     refetchInterval: (query) => pollWhileBuilding(query.state.data?.status),

@@ -37,10 +37,10 @@ use tauri::{AppHandle, Manager};
 /// The managed object index, keeping a failed build as the error the frontend reads.
 pub type ObjectIndexState = object_index::ObjectIndexState<AppErrorResponse>;
 
-/// An answer of the object index, given the slot the index is in.
+/// A response of the object index, given the slot the index is in.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(tag = "status", rename_all = "camelCase")]
-pub enum IndexAnswer<T> {
+pub enum IndexResponse<T> {
     /// Nothing has warmed the index, or the switch that gates it is off.
     Absent,
     /// A build is running. The answer follows it.
@@ -51,19 +51,19 @@ pub enum IndexAnswer<T> {
     Ready { value: T },
 }
 
-/// `read` of the ready index, or the slot the index is in when it is not ready.
-fn answer<T>(
+/// Run `read` on the ready index, or report the slot the index is in when it is not ready.
+fn with_ready_index<T>(
     app: &AppHandle,
     read: impl FnOnce(Arc<ObjectIndex>) -> AppResult<T>,
-) -> AppResult<IndexAnswer<T>> {
+) -> AppResult<IndexResponse<T>> {
     let index = match app.state::<ObjectIndexState>().snapshot() {
-        ObjectIndexSnapshot::Absent => return Ok(IndexAnswer::Absent),
-        ObjectIndexSnapshot::Building => return Ok(IndexAnswer::Building),
-        ObjectIndexSnapshot::Failed(error) => return Ok(IndexAnswer::Failed { error }),
+        ObjectIndexSnapshot::Absent => return Ok(IndexResponse::Absent),
+        ObjectIndexSnapshot::Building => return Ok(IndexResponse::Building),
+        ObjectIndexSnapshot::Failed(error) => return Ok(IndexResponse::Failed { error }),
         ObjectIndexSnapshot::Ready(index) => index,
     };
 
-    read(index).map(|value| IndexAnswer::Ready { value })
+    read(index).map(|value| IndexResponse::Ready { value })
 }
 
 /// Build the object index, unless one is built or building.
@@ -133,11 +133,11 @@ pub async fn drop_object_index(app_handle: AppHandle) -> IpcResult<()> {
 pub async fn search_object_index(
     query: String,
     app_handle: AppHandle,
-) -> IpcResult<IndexAnswer<ObjectSearchResult>> {
+) -> IpcResult<IndexResponse<ObjectSearchResult>> {
     let overtaken = overtaken::<line::ObjectSearch>(&app_handle);
 
     off_thread(move || {
-        answer(&app_handle, |index| {
+        with_ready_index(&app_handle, |index| {
             let result = index.search(&query, overtaken);
             tracing::debug!(
                 query = %query,
@@ -158,9 +158,9 @@ pub async fn search_object_index(
 pub async fn character_spells(
     character: String,
     app_handle: AppHandle,
-) -> IpcResult<IndexAnswer<SpellCatalog>> {
+) -> IpcResult<IndexResponse<SpellCatalog>> {
     off_thread(move || {
-        answer(&app_handle, |index| {
+        with_ready_index(&app_handle, |index| {
             Ok(spell::character_spells(&index, &character))
         })
     })
@@ -177,9 +177,9 @@ pub async fn character_spells(
 pub async fn object_dir(
     prefix: String,
     app_handle: AppHandle,
-) -> IpcResult<IndexAnswer<ObjectDirListing>> {
+) -> IpcResult<IndexResponse<ObjectDirListing>> {
     off_thread(move || {
-        answer(&app_handle, |index| {
+        with_ready_index(&app_handle, |index| {
             index.object_dir(&prefix).ok_or_else(|| {
                 AppError::InvalidPath(format!("No such prefix in the object index: {prefix}"))
             })
@@ -194,9 +194,9 @@ pub async fn object_dir(
 pub async fn class_object_count(
     class_hash: HexBinHash,
     app_handle: AppHandle,
-) -> IpcResult<IndexAnswer<u32>> {
+) -> IpcResult<IndexResponse<u32>> {
     off_thread(move || {
-        answer(&app_handle, |index| {
+        with_ready_index(&app_handle, |index| {
             let count = index.class_object_count(class_hash.get());
             Ok(u32::try_from(count).unwrap_or(u32::MAX))
         })
@@ -222,16 +222,16 @@ pub async fn find_objects(
     regex: bool,
     class_term: Option<String>,
     app_handle: AppHandle,
-) -> IpcResult<IndexAnswer<ObjectFindResult>> {
+) -> IpcResult<IndexResponse<ObjectFindResult>> {
     let query = match find_query(&pattern, regex) {
         Ok(query) => query,
-        Err(e) => return IpcResult::from(Err::<IndexAnswer<ObjectFindResult>, _>(e)),
+        Err(e) => return IpcResult::from(Err::<IndexResponse<ObjectFindResult>, _>(e)),
     };
 
     let overtaken = overtaken::<line::ObjectFind>(&app_handle);
 
     off_thread(move || {
-        answer(&app_handle, |index| {
+        with_ready_index(&app_handle, |index| {
             let result = index.find(query.as_ref(), class_term.as_deref(), overtaken);
             tracing::debug!(
                 pattern = %pattern,
@@ -346,16 +346,16 @@ pub async fn find_references(
     query: ReferenceQuery,
     project: Option<String>,
     app_handle: AppHandle,
-) -> IpcResult<IndexAnswer<ReferenceResult>> {
+) -> IpcResult<IndexResponse<ReferenceResult>> {
     let lookup = match query.resolve() {
         Ok(lookup) => lookup,
-        Err(e) => return IpcResult::from(Err::<IndexAnswer<ReferenceResult>, _>(e)),
+        Err(e) => return IpcResult::from(Err::<IndexResponse<ReferenceResult>, _>(e)),
     };
 
     let overtaken = overtaken::<line::References>(&app_handle);
 
     off_thread(move || {
-        answer(&app_handle, |index| {
+        with_ready_index(&app_handle, |index| {
             let result = match lookup {
                 ReferenceLookup::Class(class) => index.class_references(class, overtaken),
                 ReferenceLookup::Walk(target) => {

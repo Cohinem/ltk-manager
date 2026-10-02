@@ -9,7 +9,7 @@ import {
 import { useCallback, useState } from "react";
 
 import { useDebouncedValue } from "@/hooks";
-import type { AppError, IndexAnswer } from "@/lib/tauri";
+import type { AppError, IndexResponse } from "@/lib/tauri";
 
 /** How often an answer the index has not given whole asks again. */
 export const INDEX_POLL_MS = 1000;
@@ -29,7 +29,7 @@ export const SEARCH_DEBOUNCE_MS = 120;
  */
 export const FIND_DEBOUNCE_MS = 200;
 
-type IndexStatus = IndexAnswer<unknown>["status"];
+type IndexStatus = IndexResponse<unknown>["status"];
 
 /** The poll for an answer whose build is running. */
 export function pollWhileBuilding(status: IndexStatus | undefined): number | false {
@@ -42,7 +42,7 @@ export function pollUntilReady(status: IndexStatus | undefined): number | false 
 }
 
 /** The value of a ready answer, and undefined for any other. */
-export function readyValue<T>(answer: IndexAnswer<T> | undefined): T | undefined {
+export function readyValue<T>(answer: IndexResponse<T> | undefined): T | undefined {
   return answer?.status === "ready" ? answer.value : undefined;
 }
 
@@ -51,8 +51,8 @@ export function supersededScan(scan: { superseded: boolean }): boolean {
   return scan.superseded;
 }
 
-/** An index answer holding a scan a newer one overtook. */
-export function supersededAnswer(answer: IndexAnswer<{ superseded: boolean }>): boolean {
+/** An index response holding a scan a newer one overtook. */
+export function supersededResponse(answer: IndexResponse<{ superseded: boolean }>): boolean {
   return answer.status === "ready" && answer.value.superseded;
 }
 

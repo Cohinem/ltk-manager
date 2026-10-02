@@ -1,4 +1,8 @@
-import { SEARCH_DEBOUNCE_MS, supersededAnswer, useLiveSearch } from "../../shared/api/indexQueries";
+import {
+  SEARCH_DEBOUNCE_MS,
+  supersededResponse,
+  useLiveSearch,
+} from "../../shared/api/indexQueries";
 import { objectIndexQueries } from "./indexQueries";
 
 /**
@@ -12,6 +16,6 @@ export function useObjectSearch(query: string, enabled: boolean) {
     query,
     SEARCH_DEBOUNCE_MS,
     (debounced) => objectIndexQueries.search(debounced, enabled && debounced.trim().length > 0),
-    supersededAnswer,
+    supersededResponse,
   );
 }

@@ -3,7 +3,7 @@ import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query
 import {
   api,
   type AppError,
-  type IndexAnswer,
+  type IndexResponse,
   type ReferenceQuery,
   type ReferenceResult,
 } from "@/lib/tauri";
@@ -42,7 +42,7 @@ export const referenceQueries = {
      stands until Run again rather than being asked again on every mount and focus. */
   forRequest: (request: ReferenceRequest | null) => {
     const walk = request !== null && isWalk(request.query);
-    return queryOptions<IndexAnswer<ReferenceResult>, AppError>({
+    return queryOptions<IndexResponse<ReferenceResult>, AppError>({
       queryKey: referenceKeys.request(request),
       queryFn: request
         ? queryFnWithArgs(api.objects.references, request.query, request.project)

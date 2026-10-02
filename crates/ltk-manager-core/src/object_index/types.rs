@@ -8,8 +8,7 @@ use std::time::Duration;
 use ltk_wad::WadHash;
 use serde::Serialize;
 
-use crate::capped::Capped;
-use crate::matcher::Range;
+use crate::matcher::{Range, SearchHits};
 use crate::preview::AssetRef;
 use crate::sandbox::layer_chunk_hash;
 
@@ -201,7 +200,7 @@ pub struct ObjectFindHit {
 
 /// What one full search of the object index found: every matching object in path order,
 /// capped at `FIND_LIMIT`, the unnamed last.
-pub type ObjectFindResult = Capped<ObjectFindHit>;
+pub type ObjectFindResult = SearchHits<ObjectFindHit>;
 
 /// One object a reference query found, in the file that declares it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

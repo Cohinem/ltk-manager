@@ -3,8 +3,8 @@ import { queryOptions, skipToken } from "@tanstack/react-query";
 import {
   api,
   type AppError,
-  type Capped,
-  type IndexAnswer,
+  type SearchHits,
+  type IndexResponse,
   type ObjectDirListing,
   type ObjectFindHit,
 } from "@/lib/tauri";
@@ -12,7 +12,11 @@ import { queryFnWithArgs } from "@/utils/query";
 
 /* The leaves rather than the browser's barrel. The barrel reaches this module back
    through the documents registry mid-evaluation, its keys unbound. */
-import { liveSearchOptions, pollUntilReady, supersededAnswer } from "../../shared/api/indexQueries";
+import {
+  liveSearchOptions,
+  pollUntilReady,
+  supersededResponse,
+} from "../../shared/api/indexQueries";
 import { objectKeys } from "./keys";
 
 /** The object tree of the install, in the slot the index is in. */
@@ -20,7 +24,7 @@ export const objectTreeQueries = {
   /* The install's for the session. A warm or a drop settling asks again, and an
      answer the build has not given asks again each second. */
   dir: (prefix: string) =>
-    queryOptions<IndexAnswer<ObjectDirListing>, AppError>({
+    queryOptions<IndexResponse<ObjectDirListing>, AppError>({
       queryKey: objectKeys.dir(prefix),
       queryFn: queryFnWithArgs(api.objects.dir, prefix),
       staleTime: Infinity,
@@ -30,9 +34,9 @@ export const objectTreeQueries = {
   /* A pattern that does not parse resolves as an error and leaves the last good
      answer in `data`. */
   find: (pattern: string, regex: boolean, cls: string | null, active: boolean) =>
-    queryOptions<IndexAnswer<Capped<ObjectFindHit>>, AppError>({
+    queryOptions<IndexResponse<SearchHits<ObjectFindHit>>, AppError>({
       queryKey: objectKeys.find(pattern, regex, cls),
       queryFn: active ? queryFnWithArgs(api.objects.find, pattern, regex, cls) : skipToken,
-      ...liveSearchOptions(supersededAnswer, (answer) => pollUntilReady(answer.status)),
+      ...liveSearchOptions(supersededResponse, (answer) => pollUntilReady(answer.status)),
     }),
 } as const;

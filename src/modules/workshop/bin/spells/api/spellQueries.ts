@@ -7,7 +7,7 @@ import {
   type CharacterSpell,
   type AssetRef,
   type DeclaredObjects,
-  type IndexAnswer,
+  type IndexResponse,
   type SandboxRef,
   type SpellCatalog,
   type SpellPreview,
@@ -98,7 +98,7 @@ export const spellQueries = {
       retry: false,
     }),
   catalog: (character: string) =>
-    queryOptions<IndexAnswer<SpellCatalog>, AppError>({
+    queryOptions<IndexResponse<SpellCatalog>, AppError>({
       queryKey: [...gameKeys.objectSearches, "spells", character.toLowerCase()],
       queryFn: queryFnWithArgs(api.objects.spells, character),
       staleTime: Infinity,
