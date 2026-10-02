@@ -1,12 +1,12 @@
 //! The champions an install ships, each read out of its own archive in `DATA/FINAL/Champions`.
 
-use crate::bin_document::{AssetLookup, GameCopy, RowNames};
-use crate::error::AppResult;
-use crate::preview::AssetRef;
-use crate::utils::game::{GameDir, archive_stem};
-use crate::utils::natural_order::compare_names;
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _};
+use ltk_manager_core::bin_document::{AssetLookup, GameCopy, RowNames};
+use ltk_manager_core::error::AppResult;
+use ltk_manager_core::preview::AssetRef;
+use ltk_manager_core::utils::game::{GameDir, archive_stem};
+use ltk_manager_core::utils::natural_order::compare_names;
 use ltk_wad::{Wad, WadHash};
 use parking_lot::Mutex;
 use rayon::prelude::*;

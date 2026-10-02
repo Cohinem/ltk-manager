@@ -3269,6 +3269,7 @@ dependencies = [
  "ltk_modpkg",
  "ltk_wad",
  "parking_lot",
+ "rayon",
  "regex",
  "serde",
  "serde_json",

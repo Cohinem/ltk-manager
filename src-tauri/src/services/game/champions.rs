@@ -2,10 +2,10 @@ use crate::commands::off_thread;
 use crate::error::IpcResult;
 use crate::state::SettingsState;
 use atlas::{read_characters, UiTexture};
-use ltk_manager_core::champions::ChampionArchives;
 use ltk_manager_core::mods::champion_display_name;
 use ltk_manager_core::strings::StringKeyIndexState;
 use ltk_manager_core::utils::game::GameDir;
+use ltk_manager_game::champions::ChampionArchives;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
