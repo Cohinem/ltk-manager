@@ -4,18 +4,20 @@ import {
   api,
   type AppError,
   type BinDocumentId,
-  type CharacterSpells,
   type CharacterSpell,
   type AssetRef,
   type DeclaredObjects,
+  type IndexResponse,
   type SandboxRef,
+  type SpellCatalog,
   type SpellPreview,
 } from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
 
-import { BUILDING_POLL_MS, gameKeys } from "../../../gameBrowser/api/keys";
+import { gameKeys } from "../../../gameBrowser/api/keys";
 import { assetKey } from "../../../preview/utils/assetRef";
 import { GAME_SANDBOX } from "../../../sandbox/utils/sandboxRef";
+import { pollWhileBuilding } from "../../../shared/api/indexQueries";
 import { compileFlight } from "../utils/flight";
 
 export type SpellAvailability = "supported" | "unsupported" | "ambiguous" | "unavailable";
@@ -96,12 +98,11 @@ export const spellQueries = {
       retry: false,
     }),
   catalog: (character: string) =>
-    queryOptions<CharacterSpells, AppError>({
+    queryOptions<IndexResponse<SpellCatalog>, AppError>({
       queryKey: [...gameKeys.objectSearches, "spells", character.toLowerCase()],
       queryFn: queryFnWithArgs(api.objects.spells, character),
       staleTime: Infinity,
       retry: false,
-      refetchInterval: ({ state }) =>
-        state.data?.status === "building" ? BUILDING_POLL_MS : false,
+      refetchInterval: ({ state }) => pollWhileBuilding(state.data?.status),
     }),
 };

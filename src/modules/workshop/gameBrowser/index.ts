@@ -6,7 +6,7 @@ export {
 } from "../objectsBrowser/api/useObjectIndex";
 export { useObjectSearch } from "../objectsBrowser/api/useObjectSearch";
 export { ObjectIndexLifecycle } from "../objectsBrowser/components/ObjectIndexLifecycle";
-export { BUILDING_POLL_MS, GAME_STALE_MS, gameKeys } from "./api/keys";
+export { GAME_STALE_MS, gameKeys } from "./api/keys";
 export { gameQueries, objectIndexQueries } from "./api/queries";
 export { useGameFind } from "./api/useGameFind";
 export { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "./api/useGameIndex";

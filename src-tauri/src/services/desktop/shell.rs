@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use tauri::Manager;
+
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::state::SettingsState;
 
@@ -52,17 +54,12 @@ pub(crate) fn reveal_in_explorer_inner(path: &str) -> AppResult<()> {
 /// otherwise performs a regular minimize.
 #[tauri::command]
 #[specta::specta]
-pub fn minimize_to_tray(
-    window: tauri::WebviewWindow,
-    state: tauri::State<SettingsState>,
-) -> IpcResult<()> {
-    minimize_to_tray_inner(window, &state).into()
+pub async fn minimize_to_tray(window: tauri::WebviewWindow) -> IpcResult<()> {
+    minimize_to_tray_inner(window).into()
 }
 
-fn minimize_to_tray_inner(
-    window: tauri::WebviewWindow,
-    state: &tauri::State<SettingsState>,
-) -> AppResult<()> {
+fn minimize_to_tray_inner(window: tauri::WebviewWindow) -> AppResult<()> {
+    let state = window.state::<SettingsState>();
     let settings = state.0.lock();
 
     if settings.minimize_to_tray {

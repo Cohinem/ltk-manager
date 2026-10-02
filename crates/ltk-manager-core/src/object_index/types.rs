@@ -8,7 +8,7 @@ use std::time::Duration;
 use ltk_wad::WadHash;
 use serde::Serialize;
 
-use crate::matcher::Range;
+use crate::matcher::{Range, SearchHits};
 use crate::preview::AssetRef;
 use crate::sandbox::layer_chunk_hash;
 
@@ -198,32 +198,9 @@ pub struct ObjectFindHit {
     pub declarations: Vec<ObjectDeclaration>,
 }
 
-/// What one full search of the object index found.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub struct ObjectFindResult {
-    /// Every matching object in path order, capped at `FIND_LIMIT`, the unnamed last.
-    pub hits: Vec<ObjectFindHit>,
-    /// How many objects matched in all, counted on past the cap.
-    pub total: u32,
-    /// A newer search overtook this one. The hits are a part of the answer.
-    pub superseded: bool,
-    /// No table named a single object. Only a hash can match.
-    pub unnamed: bool,
-}
-
-impl ObjectFindResult {
-    /// A search that found nothing.
-    pub(super) fn empty(unnamed: bool) -> Self {
-        Self {
-            hits: Vec::new(),
-            total: 0,
-            superseded: false,
-            unnamed,
-        }
-    }
-}
+/// What one full search of the object index found: every matching object in path order,
+/// capped at `FIND_LIMIT`, the unnamed last.
+pub type ObjectFindResult = SearchHits<ObjectFindHit>;
 
 /// One object a reference query found, in the file that declares it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

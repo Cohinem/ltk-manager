@@ -1,9 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
-
-import { useDebouncedValue } from "@/hooks";
-
-import { FIND_DEBOUNCE_MS } from "../../gameBrowser/api/useGameFind";
 import { splitClassTerm } from "../../palette/utils/classTerm";
+import { FIND_DEBOUNCE_MS, supersededResponse, useLiveSearch } from "../../shared/api/indexQueries";
 import { objectTreeQueries } from "./queries";
 
 /**
@@ -13,11 +9,18 @@ import { objectTreeQueries } from "./queries";
  * as its own argument.
  */
 export function useObjectFind(input: string, regex: boolean) {
-  const debounced = useDebouncedValue(input, FIND_DEBOUNCE_MS);
-  const term = splitClassTerm(debounced);
-  const pattern = term === null ? debounced.trim() : term.rest;
-  const cls = term === null ? null : term.value;
-  const active = pattern.length > 0 || cls !== null;
+  return useLiveSearch(
+    input,
+    FIND_DEBOUNCE_MS,
+    (debounced) => findQuery(debounced, regex),
+    supersededResponse,
+  );
+}
 
-  return useQuery(objectTreeQueries.find(pattern, regex, cls, active));
+function findQuery(input: string, regex: boolean) {
+  const term = splitClassTerm(input);
+  const pattern = term === null ? input.trim() : term.rest;
+  const cls = term === null ? null : term.value;
+
+  return objectTreeQueries.find(pattern, regex, cls, pattern.length > 0 || cls !== null);
 }

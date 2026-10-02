@@ -39,7 +39,7 @@ fn reject_if_untrusted(url: &str, settings: &State<SettingsState>) -> AppResult<
 /// once, as its listener comes up, and the answer is `None` from then on.
 #[tauri::command]
 #[specta::specta]
-pub fn take_pending_deep_link(app_handle: AppHandle) -> IpcResult<Option<DeepLinkRequest>> {
+pub async fn take_pending_deep_link(app_handle: AppHandle) -> IpcResult<Option<DeepLinkRequest>> {
     let pending: AppResult<Option<DeepLinkRequest>> =
         Ok(crate::deep_link::take_pending(&app_handle));
     pending.into()
@@ -48,7 +48,7 @@ pub fn take_pending_deep_link(app_handle: AppHandle) -> IpcResult<Option<DeepLin
 /// Take the mod files Explorer opened before the frontend could listen for them.
 #[tauri::command]
 #[specta::specta]
-pub fn take_pending_opened_files(app_handle: AppHandle) -> IpcResult<FilesOpened> {
+pub async fn take_pending_opened_files(app_handle: AppHandle) -> IpcResult<FilesOpened> {
     IpcResult::ok(files::take_pending(&app_handle))
 }
 

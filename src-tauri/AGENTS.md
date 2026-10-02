@@ -58,6 +58,10 @@ service's row, or the row's `debug:` list when only a debug build registers it. 
 belongs to a service. An event payload no command reaches is named once with `.typ::<T>()` in
 `ipc::builder`.
 
+A command that shows, hides, focuses or minimizes a window is `async`. Tauri runs a sync plugin
+command on the main thread while it holds the plugin store's lock, and the window event the call
+raises waits for that same lock, so the app hangs.
+
 What more than one service uses lives in `services/shared/`: `off_thread`, the asset and document
 reads, the `InFlight` slot and `overtaken` check, and the `Library` and `Workshop` arguments, which
 stand in for the states a library or workshop command takes and which a binding leaves out.

@@ -37,10 +37,6 @@ export function useGameRows(term: string, enabled: boolean): PaletteGroup | null
        first query of a session pays for the index over every archive. */
     if (!data) return { ...group(label, []), pending: isFetching };
 
-    /* A scan a later one overtook holds part of an answer. The newer query is
-       what the box is showing by now, so this one draws nothing. */
-    if (data.superseded) return null;
-
     /* An install whose chunk names never resolved answers every path with
        nothing, which is indistinguishable from an install that holds no match.
        Say which, because the fix is a sync and not a different query. */

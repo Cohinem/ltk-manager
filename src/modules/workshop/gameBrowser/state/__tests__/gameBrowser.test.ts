@@ -1,92 +1,94 @@
-import { keepScrollTop, keptScrollTop, useGameBrowserStore } from "../gameBrowser";
+import { keepScrollTop, keptScrollTop } from "../../../shared/state/scrollTops";
+import { useGameBrowserStore } from "../gameBrowser";
 
 describe("gameBrowser store", () => {
   beforeEach(() => {
     useGameBrowserStore.setState({
-      expandedDirs: new Set(),
+      expanded: new Set(),
       shutWadDirs: {},
+      revealToken: 0,
       reveal: null,
     });
   });
 
-  describe("toggleDir", () => {
+  describe("toggleExpanded", () => {
     it("opens a directory that was shut", () => {
-      useGameBrowserStore.getState().toggleDir("assets/characters");
-      expect(useGameBrowserStore.getState().expandedDirs).toEqual(new Set(["assets/characters"]));
+      useGameBrowserStore.getState().toggleExpanded("assets/characters");
+      expect(useGameBrowserStore.getState().expanded).toEqual(new Set(["assets/characters"]));
     });
 
     it("shuts a directory that was open", () => {
-      useGameBrowserStore.setState({ expandedDirs: new Set(["assets/characters"]) });
-      useGameBrowserStore.getState().toggleDir("assets/characters");
-      expect(useGameBrowserStore.getState().expandedDirs).toEqual(new Set());
+      useGameBrowserStore.setState({ expanded: new Set(["assets/characters"]) });
+      useGameBrowserStore.getState().toggleExpanded("assets/characters");
+      expect(useGameBrowserStore.getState().expanded).toEqual(new Set());
     });
 
     it("leaves the other directories alone", () => {
       const store = useGameBrowserStore.getState();
-      store.toggleDir("assets");
-      store.toggleDir("data");
-      useGameBrowserStore.getState().toggleDir("assets");
-      expect(useGameBrowserStore.getState().expandedDirs).toEqual(new Set(["data"]));
+      store.toggleExpanded("assets");
+      store.toggleExpanded("data");
+      useGameBrowserStore.getState().toggleExpanded("assets");
+      expect(useGameBrowserStore.getState().expanded).toEqual(new Set(["data"]));
     });
 
     /* The tree reads the set on every render, so a mutated one would leave the
        rows it drew standing. */
     it("replaces the set rather than mutating it", () => {
-      const before = useGameBrowserStore.getState().expandedDirs;
-      useGameBrowserStore.getState().toggleDir("assets");
-      expect(useGameBrowserStore.getState().expandedDirs).not.toBe(before);
+      const before = useGameBrowserStore.getState().expanded;
+      useGameBrowserStore.getState().toggleExpanded("assets");
+      expect(useGameBrowserStore.getState().expanded).not.toBe(before);
       expect(before.size).toBe(0);
     });
   });
 
-  describe("expandDirs", () => {
+  describe("expand", () => {
     it("opens every directory a reveal has to pass through", () => {
-      useGameBrowserStore.setState({ expandedDirs: new Set(["data"]) });
-      useGameBrowserStore.getState().expandDirs(["assets", "assets/characters"]);
+      useGameBrowserStore.setState({ expanded: new Set(["data"]) });
+      useGameBrowserStore.getState().expand(["assets", "assets/characters"]);
 
-      expect(useGameBrowserStore.getState().expandedDirs).toEqual(
+      expect(useGameBrowserStore.getState().expanded).toEqual(
         new Set(["data", "assets", "assets/characters"]),
       );
     });
 
     it("keeps the set when every directory is open already", () => {
-      useGameBrowserStore.setState({ expandedDirs: new Set(["assets"]) });
-      const before = useGameBrowserStore.getState().expandedDirs;
+      useGameBrowserStore.setState({ expanded: new Set(["assets"]) });
+      const before = useGameBrowserStore.getState().expanded;
 
-      useGameBrowserStore.getState().expandDirs(["assets"]);
+      useGameBrowserStore.getState().expand(["assets"]);
 
-      expect(useGameBrowserStore.getState().expandedDirs).toBe(before);
+      expect(useGameBrowserStore.getState().expanded).toBe(before);
     });
   });
 
-  describe("collapseDirTree", () => {
+  describe("collapseSubtree", () => {
     it("collapses a directory and every directory under it, and nothing beside it", () => {
       useGameBrowserStore.setState({
-        expandedDirs: new Set(["assets", "assets/characters", "assets/characters/ahri", "assetsx"]),
+        expanded: new Set(["assets", "assets/characters", "assets/characters/ahri", "assetsx"]),
       });
 
-      useGameBrowserStore.getState().collapseDirTree("assets");
+      useGameBrowserStore.getState().collapseSubtree("assets");
 
-      expect(useGameBrowserStore.getState().expandedDirs).toEqual(new Set(["assetsx"]));
+      expect(useGameBrowserStore.getState().expanded).toEqual(new Set(["assetsx"]));
     });
 
     it("keeps the set when nothing under the directory is expanded", () => {
-      useGameBrowserStore.setState({ expandedDirs: new Set(["data"]) });
-      const before = useGameBrowserStore.getState().expandedDirs;
+      useGameBrowserStore.setState({ expanded: new Set(["data"]) });
+      const before = useGameBrowserStore.getState().expanded;
 
-      useGameBrowserStore.getState().collapseDirTree("assets");
+      useGameBrowserStore.getState().collapseSubtree("assets");
 
-      expect(useGameBrowserStore.getState().expandedDirs).toBe(before);
+      expect(useGameBrowserStore.getState().expanded).toBe(before);
     });
   });
 
   describe("setCollapsedFindDirs", () => {
     it("collapses exactly the given directories of the search results", () => {
-      useGameBrowserStore.setState({ shutFindDirs: new Set(["d:old"]) });
+      useGameBrowserStore.setState({ shutFind: new Set(["d:old"]) });
 
       useGameBrowserStore.getState().setCollapsedFindDirs(new Set(["d:a", "d:a/b"]));
 
-      expect(useGameBrowserStore.getState().shutFindDirs).toEqual(new Set(["d:a", "d:a/b"]));
+      expect(useGameBrowserStore.getState().shutFind).toEqual(new Set(["d:a", "d:a/b"]));
     });
   });
 
