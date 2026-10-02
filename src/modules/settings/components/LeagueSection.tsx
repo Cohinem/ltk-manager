@@ -8,19 +8,15 @@ import {
   type PathValidity,
   RadioGroup,
   SectionCard,
-  Switch,
 } from "@/components";
-import type { LaunchMode, Settings } from "@/lib/tauri";
+import type { LaunchMode } from "@/lib/tauri";
 import { useAutoDetectLeaguePath, useValidateLeaguePath } from "@/modules/settings/api";
 
+import { useLoadedSettings, useUpdateSettings } from "../api";
 import { ExperimentalChip } from "./ExperimentalChip";
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
-
-interface LeagueSectionProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
+import { SettingSwitch } from "./SettingSwitch";
 
 const LAUNCH_MODES: {
   value: LaunchMode;
@@ -64,12 +60,14 @@ function pathValidity(valid: boolean | undefined): PathValidity | undefined {
   return valid ? "valid" : "invalid";
 }
 
-export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
+export function LeagueSection() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   const { data: pathIsValid } = useValidateLeaguePath(settings.leaguePath);
   const autoDetect = useAutoDetectLeaguePath();
 
   function selectPath(path: string) {
-    onSave({ ...settings, leaguePath: path, firstRunComplete: true });
+    update({ leaguePath: path, firstRunComplete: true });
   }
 
   function handleAutoDetect() {
@@ -82,7 +80,7 @@ export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
   }
 
   return (
-    <SectionCard title="League of Legends" icon={<LeagueIcon className="h-5 w-5" />}>
+    <SectionCard title="League of Legends" icon={<LeagueIcon className="size-5" />}>
       <SettingGroup id="general.installation" title="Installation">
         <SettingRow
           kind="action"
@@ -102,7 +100,7 @@ export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  left={<CrosshairIcon weight="bold" className="h-4 w-4" />}
+                  left={<CrosshairIcon weight="bold" className="size-4" />}
                   loading={autoDetect.isPending}
                   onClick={handleAutoDetect}
                   className="shrink-0"
@@ -124,9 +122,7 @@ export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
           control={
             <RadioGroup.Root
               value={settings.launchMode}
-              onValueChange={(value: unknown) =>
-                onSave({ ...settings, launchMode: value as LaunchMode })
-              }
+              onValueChange={(value: unknown) => update({ launchMode: value as LaunchMode })}
             >
               <RadioGroup.Options>
                 {LAUNCH_MODES.map((mode) => (
@@ -146,27 +142,13 @@ export function LeagueSection({ settings, onSave }: LeagueSectionProps) {
         <SettingRow
           setting="hideRiotClientOnLaunch"
           hint={HIDE_RIOT_CLIENT_HINT}
-          control={
-            <Switch
-              checked={settings.hideRiotClientOnLaunch}
-              onCheckedChange={(checked) =>
-                onSave({ ...settings, hideRiotClientOnLaunch: checked })
-              }
-            />
-          }
+          control={<SettingSwitch setting="hideRiotClientOnLaunch" />}
         />
 
         <SettingRow
           setting="stopPatcherOnSessionEnd"
           hint={STOP_PATCHER_HINT}
-          control={
-            <Switch
-              checked={settings.stopPatcherOnSessionEnd}
-              onCheckedChange={(checked) =>
-                onSave({ ...settings, stopPatcherOnSessionEnd: checked })
-              }
-            />
-          }
+          control={<SettingSwitch setting="stopPatcherOnSessionEnd" />}
         />
       </SettingGroup>
     </SectionCard>

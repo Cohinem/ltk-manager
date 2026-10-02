@@ -87,7 +87,7 @@ export function SplitLayout({
       {node.children.map((child, index) => (
         <Fragment key={child.id}>
           {index > 0 && <Seam orientation={orientation} variant={seamVariant} />}
-          <Panel id={resizeId(child.id)} minSize={120} className="flex h-full w-full flex-col">
+          <Panel id={resizeId(child.id)} minSize={120} className="flex size-full flex-col">
             {child.kind === "leaf" && renderLeaf(child)}
             {child.kind === "split" && (
               <SplitLayout
@@ -144,9 +144,9 @@ export function Seam({ orientation, variant = "gap" }: SeamProps) {
           horizontal ? "flex-col" : "flex-row",
         )}
       >
-        <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
-        <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
-        <span className="h-0.5 w-0.5 rounded-full bg-surface-500" />
+        <span className="size-0.5 rounded-full bg-surface-500" />
+        <span className="size-0.5 rounded-full bg-surface-500" />
+        <span className="size-0.5 rounded-full bg-surface-500" />
       </span>
       <span
         aria-hidden="true"

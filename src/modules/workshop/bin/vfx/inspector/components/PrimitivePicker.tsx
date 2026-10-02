@@ -96,41 +96,37 @@ export function PrimitivePicker({ held, known, text, label, onPick }: PrimitiveP
           onClick={(event: ReactMouseEvent<HTMLButtonElement>) => event.stopPropagation()}
         >
           <Select.Value>{() => text}</Select.Value>
-          <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-400" />
+          <CaretDownIcon weight="bold" className="size-3 shrink-0 text-surface-400" />
         </Select.Trigger>
-        <Select.Portal>
-          <Select.Positioner>
-            <Select.Popup className="max-h-96 min-w-64">
-              <Select.Item
-                value={UNSET}
-                label={m.workshop_bin_vfx_primitive_unset_label()}
-                description={m.workshop_bin_vfx_primitive_unset_description()}
-              >
-                {m.workshop_bin_vfx_primitive_unset_label()}
-              </Select.Item>
-              {held !== null && known === undefined && (
-                <Select.Item value={held.classHash} label={text}>
-                  {text}
+        <Select.Content className="max-h-96 min-w-64">
+          <Select.Item
+            value={UNSET}
+            label={m.workshop_bin_vfx_primitive_unset_label()}
+            description={m.workshop_bin_vfx_primitive_unset_description()}
+          >
+            {m.workshop_bin_vfx_primitive_unset_label()}
+          </Select.Item>
+          {held !== null && known === undefined && (
+            <Select.Item value={held.classHash} label={text}>
+              {text}
+            </Select.Item>
+          )}
+          {PRIMITIVE_FAMILIES.map(({ family, label: heading }) => (
+            <Select.Group key={family}>
+              <Select.GroupLabel>{heading()}</Select.GroupLabel>
+              {PRIMITIVES.filter((each) => each.family === family).map((each) => (
+                <Select.Item
+                  key={each.hash}
+                  value={each.hash}
+                  label={each.label()}
+                  description={each.description()}
+                >
+                  {each.label()}
                 </Select.Item>
-              )}
-              {PRIMITIVE_FAMILIES.map(({ family, label: heading }) => (
-                <Select.Group key={family}>
-                  <Select.GroupLabel>{heading()}</Select.GroupLabel>
-                  {PRIMITIVES.filter((each) => each.family === family).map((each) => (
-                    <Select.Item
-                      key={each.hash}
-                      value={each.hash}
-                      label={each.label()}
-                      description={each.description()}
-                    >
-                      {each.label()}
-                    </Select.Item>
-                  ))}
-                </Select.Group>
               ))}
-            </Select.Popup>
-          </Select.Positioner>
-        </Select.Portal>
+            </Select.Group>
+          ))}
+        </Select.Content>
       </Select.Root>
       {card}
     </span>

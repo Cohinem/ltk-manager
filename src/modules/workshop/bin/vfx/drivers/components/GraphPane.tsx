@@ -6,6 +6,7 @@ import { useContentVisible } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
 
+import { Notice } from "../../../shared/preview/Notice";
 import { vfxQueries } from "../../hooks/useVfxSystem";
 import { isMaterial, layoutGraph } from "../utils/driverLayout";
 import { NO_PENDING, type PendingFields } from "../utils/emitterGraph";
@@ -230,12 +231,5 @@ function collapsible(tree: GraphTree, type?: GraphItem["type"]): Set<string> {
 
 /** What the Preview pane says while the Graph pane holds the viewport. */
 export function PreviewInGraph() {
-  return (
-    <p
-      data-ui="PreviewInGraph"
-      className="flex flex-1 items-center justify-center p-2 text-center text-meta text-surface-400 select-none"
-    >
-      {m.workshop_bin_graph_preview_moved()}
-    </p>
-  );
+  return <Notice text={m.workshop_bin_graph_preview_moved()} />;
 }

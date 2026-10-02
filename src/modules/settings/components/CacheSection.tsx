@@ -5,7 +5,7 @@ import {
   AlertBox,
   Button,
   EmptyState,
-  Progress,
+  ProgressBar,
   SectionCard,
   Separator,
   Spinner,
@@ -145,7 +145,7 @@ export function CacheSection() {
 
   if (!status) {
     return (
-      <SectionCard title="Hashtables" icon={<DatabaseIcon className="h-5 w-5" />}>
+      <SectionCard title="Hashtables" icon={<DatabaseIcon className="size-5" />}>
         {!error && (
           <div className="flex justify-center py-6">
             <Spinner />
@@ -167,7 +167,7 @@ export function CacheSection() {
       variant="filled"
       size="sm"
       loading={syncing}
-      left={<DownloadSimpleIcon weight="bold" className="h-4 w-4" />}
+      left={<DownloadSimpleIcon weight="bold" className="size-4" />}
       onClick={() => runSync(false)}
     >
       Sync now
@@ -188,11 +188,7 @@ export function CacheSection() {
         <>
           {/* One bar for the whole run, in its bytes where the release
               recorded them and with no end where it did not. */}
-          <Progress.Root value={fraction === null ? null : fraction * 100}>
-            <Progress.Track size="sm">
-              <Progress.Indicator />
-            </Progress.Track>
-          </Progress.Root>
+          <ProgressBar value={fraction === null ? null : fraction * 100} size="sm" />
           <div className="flex min-w-0 items-baseline gap-3 text-xs text-surface-400">
             <span className="truncate">{tableLabel(progress.table)}</span>
             <span className="ml-auto shrink-0 tabular-nums">
@@ -206,7 +202,7 @@ export function CacheSection() {
   );
 
   return (
-    <SectionCard title="Hashtables" icon={<DatabaseIcon className="h-5 w-5" />}>
+    <SectionCard title="Hashtables" icon={<DatabaseIcon className="size-5" />}>
       <div className="flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <p className="text-sm text-surface-400">
@@ -303,7 +299,7 @@ export function CacheSection() {
                   variant="outline"
                   size="sm"
                   disabled={syncing}
-                  left={<ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />}
+                  left={<ArrowsClockwiseIcon weight="bold" className="size-4" />}
                   onClick={() => runSync(true)}
                 >
                   Re-download all

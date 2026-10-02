@@ -123,7 +123,7 @@ export function TextBuffer({
         onChange={(event) => onChange(event.target.value)}
         onScroll={(event) => handleScroll(event.currentTarget.scrollTop)}
         className={twMerge(
-          "absolute inset-0 h-full w-full resize-none overflow-y-scroll bg-transparent break-words text-surface-200 outline-none scrollbar-md",
+          "absolute inset-0 size-full resize-none overflow-y-scroll bg-transparent break-words text-surface-200 outline-none scrollbar-md",
           className,
         )}
       />

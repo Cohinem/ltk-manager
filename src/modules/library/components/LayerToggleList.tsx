@@ -33,7 +33,7 @@ export function LayerToggleList({ layers, onToggle, disabled, className }: Layer
               className="flex border-collapse items-center gap-3 border border-surface-700 bg-surface-800/50 px-3 py-2 select-none"
             >
               {name}
-              <Lock className="h-4 w-4 shrink-0 text-surface-500" />
+              <Lock className="size-4 shrink-0 text-surface-500" />
             </div>
           );
         }

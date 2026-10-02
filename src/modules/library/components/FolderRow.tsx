@@ -36,11 +36,11 @@ export function FolderRow({ folder, mods, modDropLine, dndDisabled = true }: Fol
           onClick={() => toggleFolderExpanded(folder.id)}
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left"
         >
-          <span className="h-4 w-4 shrink-0 text-surface-400">
-            {isExpanded && <ChevronDown className="h-4 w-4" />}
-            {!isExpanded && <ChevronRight className="h-4 w-4" />}
+          <span className="size-4 shrink-0 text-surface-400">
+            {isExpanded && <ChevronDown className="size-4" />}
+            {!isExpanded && <ChevronRight className="size-4" />}
           </span>
-          <FolderOpen className="h-4 w-4 shrink-0 text-accent-400" />
+          <FolderOpen className="size-4 shrink-0 text-accent-400" />
           <span className="flex-1 truncate text-sm font-medium text-surface-100">
             {folder.name}
           </span>

@@ -1,13 +1,13 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import { ContextMenu } from "@/components";
-import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
+import { useRemeasure, useZoomedPx } from "@/hooks";
 
 import { useReadOnlyTreeNav, useStickyTreeRows } from "../../hooks";
 import type { OpenIntent } from "../../palette/utils/types";
-import { TreeStickyBand } from "../../shared/components/TreeStickyBand";
+import { VirtualTree } from "../../shared/components/VirtualTree";
+import { treeItemIndexOf } from "../../shared/utils/tree";
 import type {
   ReferenceFileNode,
   ReferenceNode,
@@ -76,12 +76,7 @@ export function ReferencesTree({
     getItemKey: (index) => rows[index]!.node.id,
     scrollPaddingStart: stickyHeight,
   });
-
-  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not one of
-     the inputs the measurement memo watches. */
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
+  useRemeasure(virtualizer, rowHeight);
 
   const { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown } = useReadOnlyTreeNav({
     rows,
@@ -103,89 +98,58 @@ export function ReferencesTree({
   const [menuNode, setMenuNode] = useState<ReferenceNode | null>(null);
 
   function handleContextMenu(event: ReactMouseEvent<HTMLElement>) {
-    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-treeitem-index]");
-    const index = Number(row?.dataset.treeitemIndex);
-    setMenuNode(Number.isInteger(index) ? (rows[index]?.node ?? null) : null);
+    const index = treeItemIndexOf(event.target);
+    setMenuNode(index === null ? null : (rows[index]?.node ?? null));
   }
 
   return (
-    <ContextMenu.Root>
-      <ContextMenu.Trigger
-        data-ui="ReferencesTree"
-        ref={scrollRef}
-        className="flex-1 overflow-auto text-row outline-none scrollbar-md scrollbar-track"
-        role="tree"
-        aria-label={ariaLabel}
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-        onContextMenu={handleContextMenu}
-        {...NO_OVERSCROLL}
-      >
-        <div className="py-1">
-          <TreeStickyBand height={stickyHeight}>
-            {sticky.map((pin, slot) => (
-              <div
-                key={pin.row.node.id}
-                role="presentation"
-                className="absolute inset-x-0 bg-surface-950"
-                style={{ top: `${pin.top}px`, zIndex: sticky.length - slot }}
-              >
-                <ReferencesTreeRow
-                  node={pin.row.node}
-                  depth={pin.row.depth}
-                  isExpanded
-                  isSelected={pin.index === focusedIndex}
-                  /* A pinned row answers a click by going to the row it stands for.
-                     Shutting from up there would hide a group whose extent the user
-                     cannot see. */
-                  onToggle={() => moveFocus(pin.index)}
-                  onSelect={setFocusedIndex}
-                  onOpen={() => moveFocus(pin.index)}
-                  height={rowHeight}
-                  rowIndex={pin.index}
-                  tabIndex={-1}
-                />
-              </div>
-            ))}
-          </TreeStickyBand>
+    <VirtualTree
+      data-ui="ReferencesTree"
+      aria-label={ariaLabel}
+      scrollRef={scrollRef}
+      rows={rows}
+      items={virtualizer.getVirtualItems()}
+      totalSize={virtualizer.getTotalSize()}
+      sticky={{ rows: sticky, height: stickyHeight }}
+      onKeyDown={handleKeyDown}
+      onContextMenu={handleContextMenu}
+      menu={<ReferencesContextMenu node={menuNode} onOpen={onOpen} />}
+      renderRow={(row, index, pinned) => {
+        const isSelected = index === focusedIndex;
+        if (pinned) {
+          /* A pinned row answers a click by going to the row it stands for. Shutting from up
+             there would hide a group whose extent the user cannot see. */
+          return (
+            <ReferencesTreeRow
+              node={row.node}
+              depth={row.depth}
+              isExpanded
+              isSelected={isSelected}
+              onToggle={() => moveFocus(index)}
+              onSelect={setFocusedIndex}
+              onOpen={() => moveFocus(index)}
+              height={rowHeight}
+              rowIndex={index}
+              tabIndex={-1}
+            />
+          );
+        }
 
-          <div
-            role="presentation"
-            data-tree-rows=""
-            className="relative w-full"
-            style={{ height: `${virtualizer.getTotalSize()}px` }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const row = rows[virtualRow.index]!;
-              const node = row.node;
-              const isSelected = virtualRow.index === focusedIndex;
-              return (
-                <div
-                  key={virtualRow.key}
-                  role="presentation"
-                  className="absolute inset-x-0"
-                  style={{ transform: `translateY(${virtualRow.start}px)` }}
-                >
-                  <ReferencesTreeRow
-                    node={node}
-                    depth={row.depth}
-                    isExpanded={node.type === "file" && !isShut(node)}
-                    isSelected={isSelected}
-                    onToggle={onToggle}
-                    onSelect={setFocusedIndex}
-                    onOpen={onOpen}
-                    height={rowHeight}
-                    rowIndex={virtualRow.index}
-                    tabIndex={isSelected ? 0 : -1}
-                  />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </ContextMenu.Trigger>
-
-      <ReferencesContextMenu node={menuNode} onOpen={onOpen} />
-    </ContextMenu.Root>
+        return (
+          <ReferencesTreeRow
+            node={row.node}
+            depth={row.depth}
+            isExpanded={row.node.type === "file" && !isShut(row.node)}
+            isSelected={isSelected}
+            onToggle={onToggle}
+            onSelect={setFocusedIndex}
+            onOpen={onOpen}
+            height={rowHeight}
+            rowIndex={index}
+            tabIndex={isSelected ? 0 : -1}
+          />
+        );
+      }}
+    />
   );
 }

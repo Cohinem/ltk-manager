@@ -26,7 +26,9 @@ interface UseReadOnlyTreeNavParams<Node, Row extends DepthRow<Node>> {
   virtualizer: Virtualizer<HTMLDivElement, Element>;
   scrollElementRef: RefObject<HTMLDivElement | null>;
   /** Called with the row a key moved focus to. A tree without it only moves focus. */
-  onKeyMove?: (node: Node) => void;
+  onKeyMove?: (node: Node, event: KeyboardEvent<HTMLDivElement>) => void;
+  /** Keys the tree answers before the shared ones, returning whether it took `event`. */
+  onKey?: (event: KeyboardEvent<HTMLDivElement>, node: Node) => boolean;
   /** Shut every folder, for `Ctrl+Left`. */
   onCollapseAll?: () => void;
 }
@@ -56,6 +58,7 @@ export function useReadOnlyTreeNav<Node, Row extends DepthRow<Node>>({
   virtualizer,
   scrollElementRef,
   onKeyMove,
+  onKey,
   onCollapseAll,
 }: UseReadOnlyTreeNavParams<Node, Row>): UseReadOnlyTreeNavReturn {
   const [focusedIndex, setFocusedIndex] = useState(0);
@@ -93,11 +96,12 @@ export function useReadOnlyTreeNav<Node, Row extends DepthRow<Node>>({
       const row = rows[focusedIndex];
       if (!row) return;
       const node = row.node;
+      if (onKey?.(e, node)) return;
 
       const keyMove = (index: number) => {
         moveFocus(index);
         const target = rows[Math.max(0, Math.min(index, rows.length - 1))];
-        if (target) onKeyMove?.(target.node);
+        if (target) onKeyMove?.(target.node, e);
       };
 
       switch (e.key) {
@@ -161,6 +165,7 @@ export function useReadOnlyTreeNav<Node, Row extends DepthRow<Node>>({
       activation,
       moveFocus,
       onKeyMove,
+      onKey,
       onCollapseAll,
     ],
   );

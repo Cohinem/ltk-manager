@@ -41,7 +41,7 @@ export const ExternalLink = forwardRef<HTMLAnchorElement, ExternalLinkProps>(
         {...props}
       >
         {children}
-        {!hideIcon && <ExternalLinkIcon className="h-3.5 w-3.5" />}
+        {!hideIcon && <ExternalLinkIcon className="size-3.5" />}
       </a>
     );
   },

@@ -18,7 +18,7 @@ export function UpdateButton() {
       <Button
         variant="ghost"
         size="sm"
-        left={<Download className="h-4 w-4" />}
+        left={<Download className="size-4" />}
         onClick={() => setDialogOpen(true)}
         aria-label={m.shell_update_to_action({ version: update.version })}
         data-ui="TitleBar:update"

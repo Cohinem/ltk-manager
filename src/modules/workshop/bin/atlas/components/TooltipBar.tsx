@@ -1,4 +1,3 @@
-import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import { type RefObject, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -6,6 +5,7 @@ import { type RefObject, useLayoutEffect, useMemo, useRef, useState } from "reac
 import {
   Combobox,
   SegmentedControl,
+  Spinner,
   StepperField,
   TogglePill,
   Tooltip,
@@ -93,7 +93,7 @@ function TooltipRow({ document }: { document: BinDocumentId }) {
       <LevelField />
       <RankField ranks={chosen?.ranks ?? FIRST_RANK} />
       <ShiftToggle />
-      {pending && <SpinnerGapIcon className="h-3.5 w-3.5 shrink-0 animate-spin text-surface-400" />}
+      {pending && <Spinner size="sm" className="size-3.5 shrink-0" />}
       {!pending && chosen === null && (
         <span className="min-w-0 truncate text-meta text-surface-400">
           {m.workshop_bin_atlas_tooltip_no_abilities_hint()}
@@ -193,7 +193,7 @@ function ShiftToggle() {
 function AbilityLabel({ sample }: { sample: TooltipSample }) {
   return (
     <span className="flex items-center gap-1.5">
-      <TextureIcon texture={sample.icon} className="h-4 w-4" />
+      <TextureIcon texture={sample.icon} className="size-4" />
       {sample.hotkey ?? m.workshop_bin_atlas_tooltip_passive_label()}
     </span>
   );
@@ -244,7 +244,7 @@ function CharacterPicker({ document }: { document: BinDocumentId }) {
       <div className="relative w-56 shrink-0" data-ui="TooltipBar:character">
         <TextureIcon
           texture={chosen.icon}
-          className="pointer-events-none absolute top-1.5 left-1.5 h-4 w-4"
+          className="pointer-events-none absolute top-1.5 left-1.5 size-4"
         />
         <Combobox.Input
           aria-label={m.workshop_bin_atlas_tooltip_character_label()}
@@ -255,20 +255,20 @@ function CharacterPicker({ document }: { document: BinDocumentId }) {
           <Combobox.Icon />
         </Combobox.Trigger>
       </div>
-      <Combobox.Portal>
-        <Combobox.Positioner className="min-w-(--anchor-width)">
-          <Combobox.Popup ref={setPopup} className="max-h-80">
-            <Combobox.Empty>
-              {read.isPending
-                ? m.workshop_bin_atlas_tooltip_character_pending()
-                : m.workshop_bin_atlas_tooltip_character_empty()}
-            </Combobox.Empty>
-            <Combobox.List>
-              <CharacterRows scroller={popup} rows={rows} />
-            </Combobox.List>
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
+      <Combobox.Content
+        positionerClassName="min-w-(--anchor-width)"
+        ref={setPopup}
+        className="max-h-80"
+      >
+        <Combobox.Empty>
+          {read.isPending
+            ? m.workshop_bin_atlas_tooltip_character_pending()
+            : m.workshop_bin_atlas_tooltip_character_empty()}
+        </Combobox.Empty>
+        <Combobox.List>
+          <CharacterRows scroller={popup} rows={rows} />
+        </Combobox.List>
+      </Combobox.Content>
     </Combobox.Root>
   );
 }
@@ -310,7 +310,7 @@ function CharacterRows({
             /* The virtualizer's offset, which no class can hold. */
             style={{ transform: `translateY(${row.start}px)` }}
           >
-            <TextureIcon texture={character.icon} className="h-5 w-5" />
+            <TextureIcon texture={character.icon} className="size-5" />
             <span className="min-w-0 flex-1 truncate text-row">
               {character.name ?? character.id}
             </span>

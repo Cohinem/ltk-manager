@@ -20,22 +20,18 @@ export interface SaveStatusProps {
  */
 export function SaveStatus({ state, blockedHint, failedReason, onRetry }: SaveStatusProps) {
   if (state === "pending" || state === "saving") {
-    return <Spinner size="sm" className="h-3 w-3 shrink-0" />;
+    return <Spinner size="xs" className="shrink-0" />;
   }
 
   if (state === "blocked") {
     /* DS-TEXT */
-    return (
-      <span className="shrink-0 text-[0.6875rem] text-warning-text select-none">{blockedHint}</span>
-    );
+    return <span className="shrink-0 text-meta text-warning-text select-none">{blockedHint}</span>;
   }
 
   if (state === "failed") {
     /* DS-TEXT */
     const failed = (
-      <span className="text-[0.6875rem] text-danger-text select-none">
-        {m.editor_save_failed_hint()}
-      </span>
+      <span className="text-meta text-danger-text select-none">{m.editor_save_failed_hint()}</span>
     );
     return (
       <span className="flex shrink-0 items-center gap-1.5">

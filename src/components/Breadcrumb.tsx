@@ -39,7 +39,7 @@ const crumbClass =
   "max-w-[14rem] truncate rounded-sm px-1 py-0.5 text-meta text-surface-300 outline-none " +
   "hover:bg-surface-veil hover:text-surface-100 focus-visible:ring-1 focus-visible:ring-accent-500";
 
-const caretClass = "mx-0.5 h-3 w-3 shrink-0 text-surface-500";
+const caretClass = "mx-0.5 size-3 shrink-0 text-surface-500";
 
 /**
  * The trail to a place, and a way back to any part of it.
@@ -73,19 +73,15 @@ export function Breadcrumb({
                 className={crumbClass}
                 aria-label={m.common_breadcrumb_overflow_action()}
               >
-                <DotsThreeIcon weight="bold" className="h-4 w-4" />
+                <DotsThreeIcon weight="bold" className="size-4" />
               </Menu.Trigger>
-              <Menu.Portal>
-                <Menu.Positioner side="bottom" align="start" sideOffset={4}>
-                  <Menu.Popup className="w-56">
-                    {folded.map((item) => (
-                      <Menu.Item key={item.id} onClick={() => onNavigate(item.id)}>
-                        {item.label}
-                      </Menu.Item>
-                    ))}
-                  </Menu.Popup>
-                </Menu.Positioner>
-              </Menu.Portal>
+              <Menu.Content side="bottom" align="start" sideOffset={4} className="w-56">
+                {folded.map((item) => (
+                  <Menu.Item key={item.id} onClick={() => onNavigate(item.id)}>
+                    {item.label}
+                  </Menu.Item>
+                ))}
+              </Menu.Content>
             </Menu.Root>
             <CaretRightIcon weight="bold" aria-hidden className={caretClass} />
           </li>

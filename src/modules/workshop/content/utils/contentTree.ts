@@ -1,6 +1,8 @@
 import type { ContentEntry, IgnoredDirectory, IgnoreMatch } from "@/lib/tauri";
+import { toggledSubtree } from "@/utils";
 
 import { compareNames } from "../../shared/utils/naturalOrder";
+import { branchIdsOf, type TreeRow, treeRows } from "../../shared/utils/tree";
 
 export type ContentTreeNode = DirNode | FileNode;
 
@@ -151,10 +153,7 @@ function compareNodes(a: ContentTreeNode, b: ContentTreeNode): number {
   return compareNames(a.name, b.name);
 }
 
-export interface FlatTreeRow {
-  readonly node: ContentTreeNode;
-  readonly depth: number;
-}
+export type FlatTreeRow = TreeRow<ContentTreeNode>;
 
 /**
  * Walk a tree and produce the linear list of rows that should currently be
@@ -173,17 +172,9 @@ export function flattenTree(
   tree: readonly ContentTreeNode[],
   collapsed: ReadonlySet<string>,
 ): FlatTreeRow[] {
-  const out: FlatTreeRow[] = [];
-  const walk = (nodes: readonly ContentTreeNode[], depth: number): void => {
-    for (const node of nodes) {
-      out.push({ node, depth });
-      if (node.type === "dir" && !collapsed.has(node.path)) {
-        walk(node.children, depth + 1);
-      }
-    }
-  };
-  walk(tree, 0);
-  return out;
+  return treeRows(tree, (node) =>
+    node.type === "dir" && !collapsed.has(node.path) ? node.children : null,
+  );
 }
 
 /**
@@ -193,17 +184,11 @@ export function flattenTree(
  * of the empty set that opens them all.
  */
 export function allDirPaths(tree: readonly ContentTreeNode[]): Set<string> {
-  const set = new Set<string>();
-  const walk = (nodes: readonly ContentTreeNode[]): void => {
-    for (const node of nodes) {
-      if (node.type === "dir") {
-        set.add(node.path);
-        walk(node.children);
-      }
-    }
-  };
-  walk(tree);
-  return set;
+  return new Set(
+    branchIdsOf(tree, (node) =>
+      node.type === "dir" ? { id: node.path, children: node.children } : null,
+    ),
+  );
 }
 
 /**
@@ -213,18 +198,7 @@ export function allDirPaths(tree: readonly ContentTreeNode[]): Set<string> {
  * collapses the same way.
  */
 export function toggledDirTree(collapsed: ReadonlySet<string>, dir: DirNode): Set<string> {
-  const next = new Set(collapsed);
-  const collapse = !collapsed.has(dir.path);
-
-  for (const path of allDirPaths([dir])) {
-    if (collapse) {
-      next.add(path);
-    } else {
-      next.delete(path);
-    }
-  }
-
-  return next;
+  return toggledSubtree(collapsed, dir.path, allDirPaths([dir]));
 }
 
 /**

@@ -69,18 +69,14 @@ export function ComboSection({ combo, view, editable, apply }: ComboSectionProps
             </Select.Value>
             <Select.Icon />
           </Select.Trigger>
-          <Select.Portal>
-            <Select.Positioner>
-              <Select.Popup className="max-h-80">
-                <Select.Item value={NONE}>{m.workshop_bin_atlas_combo_none_value()}</Select.Item>
-                {options.map((option) => (
-                  <Select.Item key={option} value={String(option)}>
-                    {optionLabel(String(option))}
-                  </Select.Item>
-                ))}
-              </Select.Popup>
-            </Select.Positioner>
-          </Select.Portal>
+          <Select.Content className="max-h-80">
+            <Select.Item value={NONE}>{m.workshop_bin_atlas_combo_none_value()}</Select.Item>
+            {options.map((option) => (
+              <Select.Item key={option} value={String(option)}>
+                {optionLabel(String(option))}
+              </Select.Item>
+            ))}
+          </Select.Content>
         </Select.Root>
       </FieldLine>
       <FieldLine label={m.workshop_bin_atlas_combo_direction_label()}>

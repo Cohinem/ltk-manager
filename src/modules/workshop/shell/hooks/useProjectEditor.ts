@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
-import type { BinRow, WorkshopProject } from "@/lib/tauri";
-import { type DropOutcome, type Edge, findLeaf, type LayoutNode, leaves } from "@/modules/editor";
+import type { WorkshopProject } from "@/lib/tauri";
+import { findLeaf, type LayoutNode, leaves } from "@/modules/editor";
 import { usePreviewOnClick } from "@/stores/workshopLayout";
 
 import type { SelectedModule } from "../../bin/documents/state/editorFile";
@@ -26,6 +26,7 @@ import {
   type HistoryEntry,
   type IgnoreLineRevealRequest,
   NO_COLLAPSED_DIRS,
+  type ProjectEditor,
   type RowRevealRequest,
   type RevealRequest,
   type StringKeyAimRequest,
@@ -43,6 +44,79 @@ import {
  */
 function useProjectPath(): string {
   return useProjectContext().path;
+}
+
+type EditorStore = ReturnType<typeof useWorkshopEditorStore.getState>;
+
+/** A store action that takes the project path first. */
+type ProjectActionKey = {
+  [K in keyof EditorStore]: EditorStore[K] extends (
+    projectPath: string,
+    ...rest: never[]
+  ) => unknown
+    ? K
+    : never;
+}[keyof EditorStore];
+
+/** A store action that takes the project path and one more leading argument. */
+type LeadActionKey<L> = {
+  [K in keyof EditorStore]: EditorStore[K] extends (
+    projectPath: string,
+    lead: L,
+    ...rest: never[]
+  ) => unknown
+    ? K
+    : never;
+}[keyof EditorStore];
+
+type WithoutPath<F> = F extends (projectPath: string, ...rest: infer R) => infer T
+  ? (...rest: R) => T
+  : never;
+
+type WithoutLead<F> = F extends (projectPath: string, lead: never, ...rest: infer R) => infer T
+  ? (...rest: R) => T
+  : never;
+
+type AnyAction = (...args: unknown[]) => unknown;
+
+type DocumentRequestKey = "revealRow" | "revealIgnoreLine" | "aimCurve" | "aimStringKey";
+
+/** The request `key` the project holds for document `documentId`, until the document settles it. */
+function useDocumentRequest<K extends DocumentRequestKey>(
+  key: K,
+  documentId: string,
+): ProjectEditor[K] | null {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore((s) => {
+    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR)[key];
+    if (!request || request.documentId !== documentId) return null;
+    return request;
+  });
+}
+
+/** Store action `key`, bound to the caller's project. */
+function useProjectAction<K extends ProjectActionKey>(key: K): WithoutPath<EditorStore[K]> {
+  const projectPath = useProjectPath();
+  const action = useWorkshopEditorStore((s) => s[key]) as AnyAction;
+
+  return useCallback(
+    (...rest: unknown[]) => action(projectPath, ...rest),
+    [action, projectPath],
+  ) as WithoutPath<EditorStore[K]>;
+}
+
+/** Store action `key`, bound to the caller's project and to `lead`, such as a shell's kind. */
+function useLeadAction<L, K extends LeadActionKey<L>>(
+  key: K,
+  lead: L,
+): WithoutLead<EditorStore[K]> {
+  const projectPath = useProjectPath();
+  const action = useWorkshopEditorStore((s) => s[key]) as AnyAction;
+
+  return useCallback(
+    (...rest: unknown[]) => action(projectPath, lead, ...rest),
+    [action, projectPath, lead],
+  ) as WithoutLead<EditorStore[K]>;
 }
 
 export function useLayoutTree(): LayoutNode {
@@ -123,12 +197,7 @@ export function usePinnedDocumentIds(): readonly string[] {
 }
 
 export function useSetDocumentPinned() {
-  const projectPath = useProjectPath();
-  const setDocumentPinned = useWorkshopEditorStore((s) => s.setDocumentPinned);
-  return useCallback(
-    (id: string, pinned: boolean) => setDocumentPinned(projectPath, id, pinned),
-    [setDocumentPinned, projectPath],
-  );
+  return useProjectAction("setDocumentPinned");
 }
 
 /**
@@ -338,21 +407,11 @@ export function useEditorDocument(id: string): ContentDocument | null {
 
 /** Put a document in the tab another holds, keeping its place, as a sandbox switch does. */
 export function useReplaceDocument() {
-  const projectPath = useProjectPath();
-  const replaceDocument = useWorkshopEditorStore((s) => s.replaceDocument);
-  return useCallback(
-    (from: string, document: ContentDocument) => replaceDocument(projectPath, from, document),
-    [replaceDocument, projectPath],
-  );
+  return useProjectAction("replaceDocument");
 }
 
 export function usePromoteDocument() {
-  const projectPath = useProjectPath();
-  const promoteDocument = useWorkshopEditorStore((s) => s.promoteDocument);
-  return useCallback(
-    (id: string) => promoteDocument(projectPath, id),
-    [promoteDocument, projectPath],
-  );
+  return useProjectAction("promoteDocument");
 }
 
 export function useActivateDocument() {
@@ -373,22 +432,12 @@ export function useActivateDocument() {
 }
 
 export function useCloseDocument() {
-  const projectPath = useProjectPath();
-  const closeDocument = useWorkshopEditorStore((s) => s.closeDocument);
-  return useCallback(
-    (leafId: string, id: string) => closeDocument(projectPath, leafId, id),
-    [closeDocument, projectPath],
-  );
+  return useProjectAction("closeDocument");
 }
 
 /** Close every document a layer owns, which is what a delete of that layer asks for. */
 export function useCloseLayerDocuments() {
-  const projectPath = useProjectPath();
-  const closeLayerDocuments = useWorkshopEditorStore((s) => s.closeLayerDocuments);
-  return useCallback(
-    (layerName: string) => closeLayerDocuments(projectPath, layerName),
-    [closeLayerDocuments, projectPath],
-  );
+  return useProjectAction("closeLayerDocuments");
 }
 
 /**
@@ -432,12 +481,7 @@ export function useReopenClosedDocument() {
 }
 
 export function useReorderDocuments() {
-  const projectPath = useProjectPath();
-  const reorderDocuments = useWorkshopEditorStore((s) => s.reorderDocuments);
-  return useCallback(
-    (leafId: string, ids: readonly string[]) => reorderDocuments(projectPath, leafId, ids),
-    [reorderDocuments, projectPath],
-  );
+  return useProjectAction("reorderDocuments");
 }
 
 export function useMoveDocument() {
@@ -451,13 +495,7 @@ export function useMoveDocument() {
 }
 
 export function useSplitWithDocument() {
-  const projectPath = useProjectPath();
-  const splitWithDocument = useWorkshopEditorStore((s) => s.splitWithDocument);
-  return useCallback(
-    (documentId: string, targetLeafId: string, edge: Edge) =>
-      splitWithDocument(projectPath, documentId, targetLeafId, edge),
-    [splitWithDocument, projectPath],
-  );
+  return useProjectAction("splitWithDocument");
 }
 
 export function useFocusLeaf() {
@@ -490,9 +528,7 @@ export function useSetSplitLayout() {
 }
 
 export function useResetLayout() {
-  const projectPath = useProjectPath();
-  const resetLayout = useWorkshopEditorStore((s) => s.resetLayout);
-  return useCallback(() => resetLayout(projectPath), [resetLayout, projectPath]);
+  return useProjectAction("resetLayout");
 }
 
 /** One group holds itself against an open that did not name it. */
@@ -505,12 +541,7 @@ export function useLeafLocked(leafId: string): boolean {
 }
 
 export function useSetLeafLocked() {
-  const projectPath = useProjectPath();
-  const setLeafLocked = useWorkshopEditorStore((s) => s.setLeafLocked);
-  return useCallback(
-    (leafId: string, locked: boolean) => setLeafLocked(projectPath, leafId, locked),
-    [setLeafLocked, projectPath],
-  );
+  return useProjectAction("setLeafLocked");
 }
 
 /**
@@ -529,37 +560,20 @@ export function useMaximizedLeafId(): string | null {
 
 /** Fill the grid with one panel, or give the tree back. */
 export function useToggleMaximizedLeaf() {
-  const projectPath = useProjectPath();
-  const toggleMaximizedLeaf = useWorkshopEditorStore((s) => s.toggleMaximizedLeaf);
-  return useCallback(
-    (leafId: string) => toggleMaximizedLeaf(projectPath, leafId),
-    [toggleMaximizedLeaf, projectPath],
-  );
+  return useProjectAction("toggleMaximizedLeaf");
 }
 
 /** Give the tree back, which is what Esc asks for. */
 export function useRestoreMaximizedLeaf() {
-  const projectPath = useProjectPath();
-  const restoreMaximizedLeaf = useWorkshopEditorStore((s) => s.restoreMaximizedLeaf);
-  return useCallback(() => restoreMaximizedLeaf(projectPath), [restoreMaximizedLeaf, projectPath]);
+  return useProjectAction("restoreMaximizedLeaf");
 }
 
 export function useSetDocumentDirty() {
-  const projectPath = useProjectPath();
-  const setDocumentDirty = useWorkshopEditorStore((s) => s.setDocumentDirty);
-  return useCallback(
-    (id: string, dirty: boolean) => setDocumentDirty(projectPath, id, dirty),
-    [setDocumentDirty, projectPath],
-  );
+  return useProjectAction("setDocumentDirty");
 }
 
 export function useSelectLayer() {
-  const projectPath = useProjectPath();
-  const selectLayer = useWorkshopEditorStore((s) => s.selectLayer);
-  return useCallback(
-    (layerName: string) => selectLayer(projectPath, layerName),
-    [selectLayer, projectPath],
-  );
+  return useProjectAction("selectLayer");
 }
 
 /** The project's "Use game data declarations" choice, undefined where it made none. */
@@ -570,12 +584,7 @@ export function useUseDeclarationsChoice(projectPath: string | undefined): boole
 }
 
 export function useSetUseDeclarations() {
-  const projectPath = useProjectPath();
-  const setUseDeclarations = useWorkshopEditorStore((s) => s.setUseDeclarations);
-  return useCallback(
-    (on: boolean) => setUseDeclarations(projectPath, on),
-    [setUseDeclarations, projectPath],
-  );
+  return useProjectAction("setUseDeclarations");
 }
 
 const NO_HIDDEN_LAYERS: readonly string[] = [];
@@ -590,12 +599,7 @@ export function useHiddenMarkLayers(projectPath: string | undefined): readonly s
 }
 
 export function useSetMarkLayerShown() {
-  const projectPath = useProjectPath();
-  const setMarkLayerShown = useWorkshopEditorStore((s) => s.setMarkLayerShown);
-  return useCallback(
-    (layerName: string, shown: boolean) => setMarkLayerShown(projectPath, layerName, shown),
-    [setMarkLayerShown, projectPath],
-  );
+  return useProjectAction("setMarkLayerShown");
 }
 
 /** The module a declared document's new keys join, null for the default placement. ADR-0048. */
@@ -605,50 +609,25 @@ export function useSelectedModule(): SelectedModule | null {
 }
 
 export function useSelectModule() {
-  const projectPath = useProjectPath();
-  const selectModule = useWorkshopEditorStore((s) => s.selectModule);
-  return useCallback(
-    (selected: SelectedModule | null) => selectModule(projectPath, selected),
-    [selectModule, projectPath],
-  );
+  return useProjectAction("selectModule");
 }
 
 export function useToggleCollapsed(layerName: string) {
-  const projectPath = useProjectPath();
-  const toggleCollapsed = useWorkshopEditorStore((s) => s.toggleCollapsed);
-  return useCallback(
-    (path: string) => toggleCollapsed(projectPath, layerName, path),
-    [toggleCollapsed, projectPath, layerName],
-  );
+  return useLeadAction("toggleCollapsed", layerName);
 }
 
 /** Collapse every directory in `paths` of one layer's tree. */
 export function useCollapseLayerDirs() {
-  const projectPath = useProjectPath();
-  const collapseDirs = useWorkshopEditorStore((s) => s.collapseDirs);
-  return useCallback(
-    (layerName: string, paths: ReadonlySet<string>) => collapseDirs(projectPath, layerName, paths),
-    [collapseDirs, projectPath],
-  );
+  return useProjectAction("collapseDirs");
 }
 
 /** Open every directory in `paths` that the user had shut, for a reveal. */
 export function useOpenLayerDirs() {
-  const projectPath = useProjectPath();
-  const openDirs = useWorkshopEditorStore((s) => s.openDirs);
-  return useCallback(
-    (layerName: string, paths: readonly string[]) => openDirs(projectPath, layerName, paths),
-    [openDirs, projectPath],
-  );
+  return useProjectAction("openDirs");
 }
 
 export function useRevealInTree() {
-  const projectPath = useProjectPath();
-  const reveal = useWorkshopEditorStore((s) => s.reveal);
-  return useCallback(
-    (layerName: string, path: string) => reveal(projectPath, layerName, path),
-    [reveal, projectPath],
-  );
+  return useProjectAction("reveal");
 }
 
 /**
@@ -658,112 +637,62 @@ export function useRevealInTree() {
  * bin.
  */
 export function useRowRevealRequest(documentId: string): RowRevealRequest | null {
-  const projectPath = useProjectPath();
-  return useWorkshopEditorStore((s) => {
-    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).revealRow;
-    if (!request || request.documentId !== documentId) return null;
-    return request;
-  });
+  return useDocumentRequest("revealRow", documentId);
 }
 
 /** Drop the row request with `token`. The tab it addressed has answered it. */
 export function useSettleRowReveal() {
-  const projectPath = useProjectPath();
-  const settle = useWorkshopEditorStore((s) => s.settleRowReveal);
-  return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
+  return useProjectAction("settleRowReveal");
 }
 
 /** Ask the open tab `documentId` to expand down to the row `key` and scroll to it. */
 export function useRevealRow() {
-  const projectPath = useProjectPath();
-  const revealRow = useWorkshopEditorStore((s) => s.revealRow);
-  return useCallback(
-    (documentId: string, key: string) => revealRow(projectPath, documentId, key),
-    [revealRow, projectPath],
-  );
+  return useProjectAction("revealRow");
 }
 
 /** The pending line request aimed at `documentId`, or null for a tab nobody aimed. */
 export function useIgnoreLineRevealRequest(documentId: string): IgnoreLineRevealRequest | null {
-  const projectPath = useProjectPath();
-  return useWorkshopEditorStore((s) => {
-    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).revealIgnoreLine;
-    if (!request || request.documentId !== documentId) return null;
-    return request;
-  });
+  return useDocumentRequest("revealIgnoreLine", documentId);
 }
 
 /** Ask the open rules document `documentId` to sit on `line`. */
 export function useRevealIgnoreLine() {
-  const projectPath = useProjectPath();
-  const revealIgnoreLine = useWorkshopEditorStore((s) => s.revealIgnoreLine);
-  return useCallback(
-    (documentId: string, line: number) => revealIgnoreLine(projectPath, documentId, line),
-    [revealIgnoreLine, projectPath],
-  );
+  return useProjectAction("revealIgnoreLine");
 }
 
 /** Drop the line request with `token`. The document it addressed has answered it. */
 export function useSettleIgnoreLineReveal() {
-  const projectPath = useProjectPath();
-  const settle = useWorkshopEditorStore((s) => s.settleIgnoreLineReveal);
-  return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
+  return useProjectAction("settleIgnoreLineReveal");
 }
 
 /** The pending curve request aimed at `documentId`, or null for a tab nobody aimed. */
 export function useCurveAimRequest(documentId: string): CurveAimRequest | null {
-  const projectPath = useProjectPath();
-  return useWorkshopEditorStore((s) => {
-    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).aimCurve;
-    if (!request || request.documentId !== documentId) return null;
-    return request;
-  });
+  return useDocumentRequest("aimCurve", documentId);
 }
 
 /** Drop the curve request with `token`. The tab it addressed has answered it. */
 export function useSettleCurveAim() {
-  const projectPath = useProjectPath();
-  const settle = useWorkshopEditorStore((s) => s.settleCurveAim);
-  return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
+  return useProjectAction("settleCurveAim");
 }
 
 /** The pending key request aimed at `documentId`, or null for a document nobody aimed. */
 export function useStringKeyAimRequest(documentId: string): StringKeyAimRequest | null {
-  const projectPath = useProjectPath();
-  return useWorkshopEditorStore((s) => {
-    const request = (s.byProject[projectPath] ?? EMPTY_EDITOR).aimStringKey;
-    if (!request || request.documentId !== documentId) return null;
-    return request;
-  });
+  return useDocumentRequest("aimStringKey", documentId);
 }
 
 /** Drop the key request with `token`. The document it addressed has answered it. */
 export function useSettleStringKeyAim() {
-  const projectPath = useProjectPath();
-  const settle = useWorkshopEditorStore((s) => s.settleStringKeyAim);
-  return useCallback((token: number) => settle(projectPath, token), [settle, projectPath]);
+  return useProjectAction("settleStringKeyAim");
 }
 
 /** Ask the strings document `documentId` to take up `key`, whose in-game text is `line`. */
 export function useAimStringKey() {
-  const projectPath = useProjectPath();
-  const aimStringKey = useWorkshopEditorStore((s) => s.aimStringKey);
-  return useCallback(
-    (documentId: string, key: string, line: string) =>
-      aimStringKey(projectPath, documentId, key, line),
-    [aimStringKey, projectPath],
-  );
+  return useProjectAction("aimStringKey");
 }
 
 /** Ask the object tab `documentId` to open its dock on `row`, captioned `chain`. */
 export function useAimCurve() {
-  const projectPath = useProjectPath();
-  const aimCurve = useWorkshopEditorStore((s) => s.aimCurve);
-  return useCallback(
-    (documentId: string, row: BinRow, chain: string) =>
-      aimCurve(projectPath, documentId, row, chain),
-    [aimCurve, projectPath],
-  );
+  return useProjectAction("aimCurve");
 }
 
 /**
@@ -794,12 +723,7 @@ export function useRecentDocumentIds(): readonly string[] {
 
 /** Moves this project's editor to the path a rename gave it. */
 export function useMoveProjectDocuments() {
-  const projectPath = useProjectPath();
-  const moveProject = useWorkshopEditorStore((s) => s.moveProject);
-  return useCallback(
-    (toPath: string) => moveProject(projectPath, toPath),
-    [moveProject, projectPath],
-  );
+  return useProjectAction("moveProject");
 }
 
 /** The split tree of one shell's panes, which every object tab of that kind draws in. */
@@ -841,39 +765,19 @@ export function useOpenShellPanes(kind: ShellKind): ReadonlySet<ShellPaneId> {
 }
 
 export function useActivateShellPane(kind: ShellKind) {
-  const projectPath = useProjectPath();
-  const activateShellPane = useWorkshopEditorStore((s) => s.activateShellPane);
-  return useCallback(
-    (leafId: string, paneId: ShellPaneId) => activateShellPane(projectPath, kind, leafId, paneId),
-    [activateShellPane, projectPath, kind],
-  );
+  return useLeadAction("activateShellPane", kind);
 }
 
 export function useCloseShellPane(kind: ShellKind) {
-  const projectPath = useProjectPath();
-  const closeShellPane = useWorkshopEditorStore((s) => s.closeShellPane);
-  return useCallback(
-    (leafId: string, paneId: ShellPaneId) => closeShellPane(projectPath, kind, leafId, paneId),
-    [closeShellPane, projectPath, kind],
-  );
+  return useLeadAction("closeShellPane", kind);
 }
 
 export function useOpenShellPane(kind: ShellKind) {
-  const projectPath = useProjectPath();
-  const openShellPane = useWorkshopEditorStore((s) => s.openShellPane);
-  return useCallback(
-    (paneId: ShellPaneId) => openShellPane(projectPath, kind, paneId),
-    [openShellPane, projectPath, kind],
-  );
+  return useLeadAction("openShellPane", kind);
 }
 
 export function useApplyShellDrop(kind: ShellKind) {
-  const projectPath = useProjectPath();
-  const applyShellDrop = useWorkshopEditorStore((s) => s.applyShellDrop);
-  return useCallback(
-    (outcome: DropOutcome) => applyShellDrop(projectPath, kind, outcome),
-    [applyShellDrop, projectPath, kind],
-  );
+  return useLeadAction("applyShellDrop", kind);
 }
 
 export function useSetShellSplitLayout(kind: ShellKind) {
@@ -887,12 +791,7 @@ export function useSetShellSplitLayout(kind: ShellKind) {
 }
 
 export function useResetShellLayout(kind: ShellKind) {
-  const projectPath = useProjectPath();
-  const resetShellLayout = useWorkshopEditorStore((s) => s.resetShellLayout);
-  return useCallback(
-    () => resetShellLayout(projectPath, kind),
-    [resetShellLayout, projectPath, kind],
-  );
+  return useLeadAction("resetShellLayout", kind);
 }
 
 /**
@@ -912,20 +811,10 @@ export function useShellMaximizedLeaf(kind: ShellKind): string | null {
 
 /** Fill one shell with one pane, or give its panes back. */
 export function useToggleMaximizedShellLeaf(kind: ShellKind) {
-  const projectPath = useProjectPath();
-  const toggleMaximizedShellLeaf = useWorkshopEditorStore((s) => s.toggleMaximizedShellLeaf);
-  return useCallback(
-    (leafId: string) => toggleMaximizedShellLeaf(projectPath, kind, leafId),
-    [toggleMaximizedShellLeaf, projectPath, kind],
-  );
+  return useLeadAction("toggleMaximizedShellLeaf", kind);
 }
 
 /** Give one shell's panes back, which is what Esc asks for. */
 export function useRestoreMaximizedShellLeaf(kind: ShellKind) {
-  const projectPath = useProjectPath();
-  const restoreMaximizedShellLeaf = useWorkshopEditorStore((s) => s.restoreMaximizedShellLeaf);
-  return useCallback(
-    () => restoreMaximizedShellLeaf(projectPath, kind),
-    [restoreMaximizedShellLeaf, projectPath, kind],
-  );
+  return useLeadAction("restoreMaximizedShellLeaf", kind);
 }

@@ -37,7 +37,7 @@ export function ModCardUpdateItem({ modId }: { modId: string }) {
 
   return (
     <Menu.Item
-      icon={<ArrowClockwiseIcon className="h-4 w-4" weight="bold" />}
+      icon={<ArrowClockwiseIcon className="size-4" weight="bold" />}
       disabled={update.isPending}
       onClick={chooseArchive}
     >

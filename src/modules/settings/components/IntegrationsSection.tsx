@@ -1,7 +1,7 @@
 import { CheckCircleIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
-import { AlertBox, Button, Checkbox, Code, Progress, Spinner, useConfirm } from "@/components";
+import { AlertBox, Button, Checkbox, Code, ProgressBar, Spinner, useConfirm } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import {
   type IntegrationAction,
@@ -149,7 +149,7 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
             {installed && (
               <div className="flex flex-wrap items-center gap-2">
                 {!status.needsRepair && !status.pendingCleanup && (
-                  <CheckCircleIcon weight="duotone" className="h-4 w-4 text-success-text" />
+                  <CheckCircleIcon weight="duotone" className="size-4 text-success-text" />
                 )}
                 <span className="font-medium text-surface-200">
                   {m.settings_integrations_installed_label()}
@@ -257,14 +257,11 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
               )}
             </div>
             {operation.stage === "downloading" && (
-              <Progress.Root
+              <ProgressBar
                 value={downloadPercent}
                 aria-label={m.settings_integrations_downloading_label()}
-              >
-                <Progress.Track size="sm">
-                  <Progress.Indicator />
-                </Progress.Track>
-              </Progress.Root>
+                size="sm"
+              />
             )}
           </div>
         )}

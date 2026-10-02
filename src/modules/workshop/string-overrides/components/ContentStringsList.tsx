@@ -42,7 +42,7 @@ export function ContentStringsList({ layerName, overrides }: ContentStringsListP
           <Button
             variant="outline"
             size="xs"
-            left={<PlusIcon weight="bold" className="h-4 w-4" />}
+            left={<PlusIcon weight="bold" className="size-4" />}
             onClick={() => openDocument(stringsDocument(layerName, DEFAULT_LOCALE))}
           >
             Add overrides
@@ -71,14 +71,14 @@ export function ContentStringsList({ layerName, overrides }: ContentStringsListP
             >
               <TranslateIcon
                 className={twMerge(
-                  "h-3.5 w-3.5 shrink-0",
+                  "size-3.5 shrink-0",
                   active ? "text-accent-400" : "text-surface-400",
                 )}
               />
               <span className="min-w-0 flex-1 truncate text-sm">{locale}</span>
               <span
                 className={twMerge(
-                  "shrink-0 text-[0.6875rem] tabular-nums",
+                  "shrink-0 text-meta tabular-nums",
                   active ? "text-accent-300" : "text-surface-400",
                 )}
               >
@@ -109,35 +109,28 @@ export function AddLocaleMenu({ layerName, overrides }: AddLocaleMenuProps) {
         <Menu.Trigger
           render={
             <IconButton
-              icon={<PlusIcon weight="bold" className="h-3.5 w-3.5" />}
-              variant="ghost"
-              size="xs"
-              compact
+              icon={<PlusIcon className="size-3.5" />}
               aria-label="Open a locale"
-              className="h-5 w-5"
+              className="size-5"
             />
           }
         />
       </Tooltip>
-      <Menu.Portal>
-        <Menu.Positioner align="end" sideOffset={4}>
-          <Menu.Popup className="max-h-80 overflow-y-auto">
-            {LOCALES.map((locale) => {
-              const count = Object.keys(overrides[locale.value] ?? {}).length;
+      <Menu.Content align="end" sideOffset={4} className="max-h-80 overflow-y-auto">
+        {LOCALES.map((locale) => {
+          const count = Object.keys(overrides[locale.value] ?? {}).length;
 
-              return (
-                <Menu.Item
-                  key={locale.value}
-                  shortcut={count > 0 ? String(count) : undefined}
-                  onClick={() => openDocument(stringsDocument(layerName, locale.value))}
-                >
-                  {locale.label}
-                </Menu.Item>
-              );
-            })}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+          return (
+            <Menu.Item
+              key={locale.value}
+              shortcut={count > 0 ? String(count) : undefined}
+              onClick={() => openDocument(stringsDocument(layerName, locale.value))}
+            >
+              {locale.label}
+            </Menu.Item>
+          );
+        })}
+      </Menu.Content>
     </Menu.Root>
   );
 }

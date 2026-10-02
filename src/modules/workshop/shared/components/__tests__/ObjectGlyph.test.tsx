@@ -21,10 +21,10 @@ describe("objectIcon", () => {
 
 describe("ObjectGlyph", () => {
   it("draws the mark at the size its caller gives", () => {
-    const { container } = render(<ObjectGlyph objectClass="Champion" className="h-4 w-4" />);
+    const { container } = render(<ObjectGlyph objectClass="Champion" className="size-4" />);
 
     const svg = container.querySelector("svg");
     expect(svg).not.toBeNull();
-    expect(svg).toHaveClass("h-4", "w-4");
+    expect(svg).toHaveClass("size-4");
   });
 });

@@ -63,7 +63,7 @@ export function Diagnostics() {
             rather than standing over it in a band of its own. */}
         <header className="flex shrink-0 items-center border-b border-surface-700/50 px-4 select-none">
           <h1 className="flex shrink-0 items-center gap-2 text-sm font-semibold text-surface-200">
-            <StethoscopeIcon className="h-4 w-4 text-accent-400" />
+            <StethoscopeIcon className="size-4 text-accent-400" />
             Diagnostics
           </h1>
           <Separator orientation="vertical" className="mx-2 h-4" />
@@ -118,7 +118,7 @@ function SystemTab() {
             size="sm"
             onClick={copyReport}
             disabled={!report}
-            left={<ClipboardTextIcon weight="bold" className="h-4 w-4" />}
+            left={<ClipboardTextIcon weight="bold" className="size-4" />}
           >
             Copy report
           </Button>
@@ -127,7 +127,7 @@ function SystemTab() {
             size="sm"
             onClick={() => diagnostics.refetch()}
             loading={diagnostics.isFetching}
-            left={<ArrowClockwiseIcon weight="bold" className="h-4 w-4" />}
+            left={<ArrowClockwiseIcon weight="bold" className="size-4" />}
           >
             {diagnostics.isFetching ? "Running…" : "Re-run"}
           </Button>

@@ -14,7 +14,7 @@ import {
   useSceneColors,
   viewportQueries,
 } from "@/modules/viewport";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs } from "@/utils/query";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { skinQueries } from "../../../skin/api/skinQueries";
@@ -51,7 +51,7 @@ export function useVfxHost() {
   const roots = useQuery(
     queryOptions({
       queryKey: ["bin-file-roots", document],
-      queryFn: async () => unwrapForQuery(await api.bin.roots(document)),
+      queryFn: queryFnWithArgs(api.bin.roots, document),
       staleTime: Infinity,
     }),
   );
@@ -167,17 +167,13 @@ function HostSelect({
         <Select.Value />
         <Select.Icon />
       </Select.Trigger>
-      <Select.Portal>
-        <Select.Positioner>
-          <Select.Popup>
-            {items.map((item) => (
-              <Select.Item key={item.value} value={item.value}>
-                {item.label}
-              </Select.Item>
-            ))}
-          </Select.Popup>
-        </Select.Positioner>
-      </Select.Portal>
+      <Select.Content>
+        {items.map((item) => (
+          <Select.Item key={item.value} value={item.value}>
+            {item.label}
+          </Select.Item>
+        ))}
+      </Select.Content>
     </Select.Root>
   );
 }

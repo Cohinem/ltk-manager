@@ -1,6 +1,7 @@
-import { createContext, use, useEffect, useMemo } from "react";
+import { createContext, use, useMemo } from "react";
 import { Color, type ShaderMaterial } from "three";
 
+import { useDisposable } from "@/hooks";
 import { EDGE_OVERLAY_OPACITY, type Edges } from "@/modules/viewport";
 
 import { wireMaterial } from "../utils/materials";
@@ -42,7 +43,6 @@ export function useWireTwin(): {
 /** The edge twin the run's wireframe mode asks of `solid`, "The viewer" in docs/ux/BIN_EDITOR.md. */
 export function useWire(solid: ShaderMaterial): Wire {
   const { twinOf, shaded } = useWireTwin();
-  const material = useMemo(() => twinOf(solid), [twinOf, solid]);
-  useEffect(() => () => material?.dispose(), [material]);
+  const material = useDisposable(() => twinOf(solid), [twinOf, solid]);
   return { material, shaded };
 }

@@ -10,6 +10,7 @@ import {
   type WebGLRenderer,
 } from "three";
 
+import { useDisposable } from "@/hooks";
 import {
   api,
   type AppError,
@@ -160,14 +161,13 @@ export function useParticlePrograms(
 ): readonly ParticleProgram[] {
   const shaders = usePreviewShaders() && !use(HandDrawnContext);
   const custom = drawsCustom(emitter);
-  const environment = useMemo(() => new EngineEnvironment("uniform"), []);
-  useEffect(() => () => environment.dispose(), [environment]);
+  const environment = useDisposable(() => new EngineEnvironment("uniform"), []);
   useEffect(() => {
     environment.particle = particleBufferOf(emitter);
   }, [environment, emitter]);
 
   const read = useEngineRead(emitter, draw.path, document, shaders && !custom);
-  const engine = useMemo(() => {
+  const engine = useDisposable(() => {
     const textures = read === null ? null : particleTextures(emitter, samplers);
     if (read === null || textures === null) return null;
     return particleProgramMaterial(
@@ -180,7 +180,6 @@ export function useParticlePrograms(
       SCENE_DEPTH,
     );
   }, [read, emitter, samplers, draw, environment]);
-  useEffect(() => () => engine?.dispose(), [engine]);
 
   const passes = useCustomPasses(emitter, document, shaders && custom);
   const customMaterials = useMemo(

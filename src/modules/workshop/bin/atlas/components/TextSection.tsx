@@ -134,30 +134,26 @@ function FontPicker({ fonts, value, drawn, disabled, onPick }: FontPickerProps) 
           <Combobox.Icon />
         </Combobox.Trigger>
       </div>
-      <Combobox.Portal>
-        <Combobox.Positioner className="min-w-(--anchor-width)">
-          <Combobox.Popup className="max-h-80">
-            <Combobox.List>
-              {(font: UiFontChoice) => (
-                <Combobox.Item key={font.entry} value={font} className="gap-2 pr-2">
-                  <span className="min-w-0 flex-1 truncate">{labelOf(font)}</span>
-                  {font.project && (
-                    <span className="shrink-0 text-meta text-accent-300">
-                      {m.workshop_bin_atlas_font_project_tag()}
-                    </span>
-                  )}
-                  {font.face !== null && (
-                    <span className="max-w-32 shrink-0 truncate text-meta text-surface-400">
-                      {leafOfPath(font.face)}
-                    </span>
-                  )}
-                </Combobox.Item>
+      <Combobox.Content positionerClassName="min-w-(--anchor-width)" className="max-h-80">
+        <Combobox.List>
+          {(font: UiFontChoice) => (
+            <Combobox.Item key={font.entry} value={font} className="gap-2 pr-2">
+              <span className="min-w-0 flex-1 truncate">{labelOf(font)}</span>
+              {font.project && (
+                <span className="shrink-0 text-meta text-accent-300">
+                  {m.workshop_bin_atlas_font_project_tag()}
+                </span>
               )}
-            </Combobox.List>
-            <Combobox.Empty>{m.workshop_bin_atlas_font_empty()}</Combobox.Empty>
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
+              {font.face !== null && (
+                <span className="max-w-32 shrink-0 truncate text-meta text-surface-400">
+                  {leafOfPath(font.face)}
+                </span>
+              )}
+            </Combobox.Item>
+          )}
+        </Combobox.List>
+        <Combobox.Empty>{m.workshop_bin_atlas_font_empty()}</Combobox.Empty>
+      </Combobox.Content>
     </Combobox.Root>
   );
 }
@@ -193,50 +189,42 @@ function NewFontButton({ suggested, onCreate }: NewFontButtonProps) {
       }}
     >
       <Tooltip content={label}>
-        <Popover.Trigger
-          render={
-            <IconButton
-              variant="ghost"
-              size="xs"
-              compact
-              aria-label={label}
-              icon={<CopyIcon weight="bold" className="h-4 w-4" />}
-            />
-          }
-        />
+        <Popover.Trigger render={<IconButton aria-label={label} icon={<CopyIcon />} />} />
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="left" align="start" sideOffset={8}>
-          <Popover.Popup aria-label={label} className="flex w-80 flex-col gap-2 p-3">
-            <Field.Root>
-              <Field.Label className="text-meta text-surface-300">
-                {m.workshop_bin_atlas_font_new_name_label()}
-              </Field.Label>
-              <Field.Control
-                type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") void submit();
-                }}
-                autoComplete="off"
-                spellCheck={false}
-                className="h-7 px-2 font-mono text-meta select-text"
-              />
-            </Field.Root>
-            <p className="text-meta text-surface-400">{m.workshop_bin_atlas_font_new_hint()}</p>
-            <Button
-              variant="filled"
-              size="xs"
-              disabled={busy || name.trim() === ""}
-              onClick={() => void submit()}
-              className="self-end"
-            >
-              {m.workshop_bin_atlas_font_new_create_action()}
-            </Button>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="left"
+        align="start"
+        sideOffset={8}
+        aria-label={label}
+        className="flex w-80 flex-col gap-2 p-3"
+      >
+        <Field.Root>
+          <Field.Label className="text-meta text-surface-300">
+            {m.workshop_bin_atlas_font_new_name_label()}
+          </Field.Label>
+          <Field.Control
+            type="text"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void submit();
+            }}
+            autoComplete="off"
+            spellCheck={false}
+            className="h-7 px-2 font-mono text-meta select-text"
+          />
+        </Field.Root>
+        <p className="text-meta text-surface-400">{m.workshop_bin_atlas_font_new_hint()}</p>
+        <Button
+          variant="filled"
+          size="xs"
+          disabled={busy || name.trim() === ""}
+          onClick={() => void submit()}
+          className="self-end"
+        >
+          {m.workshop_bin_atlas_font_new_create_action()}
+        </Button>
+      </Popover.Content>
     </Popover.Root>
   );
 }

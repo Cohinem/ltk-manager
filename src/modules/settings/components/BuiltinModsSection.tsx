@@ -3,26 +3,24 @@ import { type ReactNode } from "react";
 
 import { SectionCard, SegmentedControl, Switch } from "@/components";
 import { m } from "@/i18n";
-import type { ForcibleMapSkin, Settings } from "@/lib/tauri";
+import type { ForcibleMapSkin } from "@/lib/tauri";
 
 import { useForcibleMapSkins } from "../api";
+import { useLoadedSettings, useUpdateSettings } from "../api";
 import { baseSkinsOptions, mapSkinDescription, mapSkinOptions } from "../builtinMods";
 import { ForcedMapSkinPicker } from "./ForcedMapSkinPicker";
 import { MapDecorationsControl } from "./MapDecorationsControl";
 import { SettingRow } from "./SettingRow";
 import { SettingRows } from "./SettingRows";
 
-interface BuiltinModsSectionProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
-
 /** The switches for the mods the manager generates, one row each. */
-export function BuiltinModsSection({ settings, onSave }: BuiltinModsSectionProps) {
+export function BuiltinModsSection() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   return (
     <SectionCard
       title={m.settings_tab_builtins_title()}
-      icon={<PuzzlePieceIcon className="h-5 w-5" />}
+      icon={<PuzzlePieceIcon className="size-5" />}
       description={m.settings_builtins_description()}
     >
       <SettingRows>
@@ -34,10 +32,7 @@ export function BuiltinModsSection({ settings, onSave }: BuiltinModsSectionProps
             <Switch
               checked={settings.builtinMods.defaultWardSkins}
               onCheckedChange={(checked) =>
-                onSave({
-                  ...settings,
-                  builtinMods: { ...settings.builtinMods, defaultWardSkins: checked },
-                })
+                update({ builtinMods: { ...settings.builtinMods, defaultWardSkins: checked } })
               }
             />
           }
@@ -53,7 +48,7 @@ export function BuiltinModsSection({ settings, onSave }: BuiltinModsSectionProps
               options={baseSkinsOptions()}
               value={settings.builtinMods.baseSkins ?? "off"}
               onChange={(baseSkins) =>
-                onSave({ ...settings, builtinMods: { ...settings.builtinMods, baseSkins } })
+                update({ builtinMods: { ...settings.builtinMods, baseSkins } })
               }
             />
           }
@@ -68,21 +63,19 @@ export function BuiltinModsSection({ settings, onSave }: BuiltinModsSectionProps
               aria-label={m.settings_builtins_map_skin_title()}
               options={mapSkinOptions()}
               value={settings.builtinMods.mapSkin ?? "game"}
-              onChange={(mapSkin) =>
-                onSave({ ...settings, builtinMods: { ...settings.builtinMods, mapSkin } })
-              }
+              onChange={(mapSkin) => update({ builtinMods: { ...settings.builtinMods, mapSkin } })}
             />
           }
         />
 
-        <ForcedMapSkinRow settings={settings} onSave={onSave} />
+        <ForcedMapSkinRow />
 
         <SettingRow
           setting="builtinMods.mapDecorations"
           layout="stacked"
           description={m.settings_builtins_map_decorations_description()}
           hint={m.settings_builtins_map_decorations_hint()}
-          control={<MapDecorationsControl settings={settings} onSave={onSave} />}
+          control={<MapDecorationsControl />}
         />
       </SettingRows>
     </SectionCard>
@@ -90,7 +83,9 @@ export function BuiltinModsSection({ settings, onSave }: BuiltinModsSectionProps
 }
 
 /** The chosen skin's row, drawn only while the map skin mode is `forced`. */
-function ForcedMapSkinRow({ settings, onSave }: BuiltinModsSectionProps) {
+function ForcedMapSkinRow() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   const { data: skins = [], isPending } = useForcibleMapSkins(settings.leaguePath);
   const hasPath = !!settings.leaguePath;
   const value = settings.builtinMods.forcedMapSkin ?? "";
@@ -108,7 +103,7 @@ function ForcedMapSkinRow({ settings, onSave }: BuiltinModsSectionProps) {
           value={value}
           disabled={!hasPath || isPending}
           onChange={(forcedMapSkin) =>
-            onSave({ ...settings, builtinMods: { ...settings.builtinMods, forcedMapSkin } })
+            update({ builtinMods: { ...settings.builtinMods, forcedMapSkin } })
           }
         />
       }

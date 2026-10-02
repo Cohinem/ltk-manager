@@ -38,7 +38,7 @@ export function DeclaredChoices({
       <Menu.Separator />
       {handle.readOnly === "declarationsOff" && (
         <span className="flex items-center gap-1.5 px-2 py-1 text-meta text-surface-400">
-          <LockSimpleIcon className="h-3.5 w-3.5 shrink-0" />
+          <LockSimpleIcon className="size-3.5 shrink-0" />
           {m.workshop_bin_declarations_off_title()}
         </span>
       )}
@@ -162,13 +162,9 @@ function ChoiceSubmenu({ label, value, glyph, disabled, children }: ChoiceSubmen
           </span>
         </span>
       </Menu.SubmenuTrigger>
-      <Menu.Portal>
-        <Menu.SubmenuPositioner>
-          <Menu.Popup className="max-h-[28rem] w-64 overflow-y-auto scrollbar-md">
-            {children}
-          </Menu.Popup>
-        </Menu.SubmenuPositioner>
-      </Menu.Portal>
+      <Menu.SubmenuContent className="max-h-[28rem] w-64 overflow-y-auto scrollbar-md">
+        {children}
+      </Menu.SubmenuContent>
     </Menu.SubmenuRoot>
   );
 }

@@ -31,15 +31,16 @@ export function CrumbSiblings({ path, onNavigate, useChildDirs }: CrumbSiblingsP
         aria-label={m.workshop_explorer_siblings_action()}
         className="mx-0.5 rounded-sm p-0.5 text-surface-500 outline-none hover:bg-surface-veil hover:text-surface-200"
       >
-        <CaretRightIcon weight="bold" className="h-3 w-3" />
+        <CaretRightIcon weight="bold" className="size-3" />
       </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner side="bottom" align="start" sideOffset={4}>
-          <Menu.Popup className="max-h-80 w-64 overflow-auto scrollbar-md">
-            <SiblingItems path={path} onNavigate={onNavigate} useChildDirs={useChildDirs} />
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content
+        side="bottom"
+        align="start"
+        sideOffset={4}
+        className="max-h-80 w-64 overflow-auto scrollbar-md"
+      >
+        <SiblingItems path={path} onNavigate={onNavigate} useChildDirs={useChildDirs} />
+      </Menu.Content>
     </Menu.Root>
   );
 }

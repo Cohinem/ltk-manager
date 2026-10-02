@@ -24,7 +24,6 @@ import type { ReactNode } from "react";
 
 import { IconButton, Menu, Slider, Tooltip } from "@/components";
 import { m } from "@/i18n";
-import { twMerge } from "@/utils";
 
 import { PREVIEW_KEYS } from "../canvas/previewKeys";
 import type { ButtonState } from "../engine/model/buttons";
@@ -93,14 +92,14 @@ export function CanvasToolbar() {
         label={m.workshop_bin_atlas_transform_label()}
         shortcut={PREVIEW_KEYS.transform}
         on={!interact}
-        icon={<ArrowsOutCardinalIcon weight="bold" className="h-4 w-4" />}
+        icon={<ArrowsOutCardinalIcon weight="bold" className="size-4" />}
         onToggle={actions.chooseTransform}
       />
       <ToggleTool
         label={m.workshop_bin_atlas_interact_label()}
         shortcut={PREVIEW_KEYS.interact}
         on={interact}
-        icon={<HandTapIcon weight="bold" className="h-4 w-4" />}
+        icon={<HandTapIcon weight="bold" className="size-4" />}
         onToggle={actions.toggleInteract}
       />
       <Divider />
@@ -110,35 +109,35 @@ export function CanvasToolbar() {
         label={m.workshop_bin_atlas_safe_zone_label()}
         shortcut={PREVIEW_KEYS.safeZone}
         on={safeZone}
-        icon={<FrameCornersIcon weight="bold" className="h-4 w-4" />}
+        icon={<FrameCornersIcon weight="bold" className="size-4" />}
         onToggle={actions.toggleSafeZone}
       />
       <ToggleTool
         label={m.workshop_bin_atlas_show_disabled_label()}
         shortcut={PREVIEW_KEYS.showDisabled}
         on={showDisabled}
-        icon={<EyeIcon weight="bold" className="h-4 w-4" />}
+        icon={<EyeIcon weight="bold" className="size-4" />}
         onToggle={actions.toggleShowDisabled}
       />
       <ToggleTool
         label={m.workshop_bin_atlas_effects_label()}
         shortcut={PREVIEW_KEYS.effects}
         on={effects}
-        icon={<SparkleIcon weight="bold" className="h-4 w-4" />}
+        icon={<SparkleIcon weight="bold" className="size-4" />}
         onToggle={actions.toggleEffects}
       />
       <ToggleTool
         label={m.workshop_bin_atlas_samples_label()}
         shortcut={PREVIEW_KEYS.samples}
         on={samples}
-        icon={<TextAaIcon weight="bold" className="h-4 w-4" />}
+        icon={<TextAaIcon weight="bold" className="size-4" />}
         onToggle={actions.toggleSamples}
       />
       <ToggleTool
         label={m.workshop_bin_atlas_stack_scenes_label()}
         shortcut={PREVIEW_KEYS.stackScenes}
         on={stackScenes}
-        icon={<StackIcon weight="bold" className="h-4 w-4" />}
+        icon={<StackIcon weight="bold" className="size-4" />}
         onToggle={actions.toggleStackScenes}
       />
       <Divider />
@@ -146,7 +145,7 @@ export function CanvasToolbar() {
       <span className="ml-auto flex shrink-0 items-center gap-1">
         <Tooltip content={m.workshop_bin_atlas_live_label()}>
           <span className="flex items-center gap-1.5 px-1">
-            <GaugeIcon weight="bold" className="h-4 w-4 text-surface-400" />
+            <GaugeIcon weight="bold" className="size-4 text-surface-400" />
             <Slider
               className="w-20"
               aria-label={m.workshop_bin_atlas_live_label()}
@@ -159,17 +158,13 @@ export function CanvasToolbar() {
             />
           </span>
         </Tooltip>
-        <Tooltip content={<KeyHint label={clockLabel} shortcut={PREVIEW_KEYS.play} />}>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-label={clockLabel}
-            aria-keyshortcuts={PREVIEW_KEYS.play}
-            icon={<Clock weight="bold" className="h-4 w-4" />}
-            onClick={actions.togglePlaying}
-          />
-        </Tooltip>
+        <IconButton
+          aria-label={clockLabel}
+          aria-keyshortcuts={PREVIEW_KEYS.play}
+          icon={<Clock weight="bold" className="size-4" />}
+          onClick={actions.togglePlaying}
+          tooltip={<KeyHint label={clockLabel} shortcut={PREVIEW_KEYS.play} />}
+        />
       </span>
     </div>
   );
@@ -190,21 +185,14 @@ interface ToggleToolProps {
 /** An icon that switches one preview setting, tinted while it is on. */
 function ToggleTool({ label, shortcut, on, icon, onToggle }: ToggleToolProps) {
   return (
-    <Tooltip content={<KeyHint label={label} shortcut={shortcut} />}>
-      <IconButton
-        variant="ghost"
-        size="xs"
-        compact
-        aria-label={label}
-        aria-pressed={on}
-        aria-keyshortcuts={shortcut}
-        icon={icon}
-        className={twMerge(
-          on && "bg-accent-500/15 text-accent-300 hover:bg-accent-500/25 hover:text-accent-200",
-        )}
-        onClick={onToggle}
-      />
-    </Tooltip>
+    <IconButton
+      aria-label={label}
+      pressed={on}
+      aria-keyshortcuts={shortcut}
+      icon={icon}
+      onClick={onToggle}
+      tooltip={<KeyHint label={label} shortcut={shortcut} />}
+    />
   );
 }
 
@@ -226,33 +214,29 @@ function ButtonStateMenu() {
           aria-label={label}
           aria-keyshortcuts={PREVIEW_KEYS.buttonState}
           /* DS-VEIL, DS-RADIUS */
-          className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-surface-300 hover:bg-surface-veil hover:text-surface-100 data-[popup-open]:bg-surface-veil-strong"
+          className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-surface-300 hover:bg-surface-veil hover:text-surface-100 data-[popup-open]:bg-surface-veil-strong"
         >
-          <Glyph weight="bold" className="h-4 w-4" />
+          <Glyph weight="bold" className="size-4" />
         </Menu.Trigger>
       </Tooltip>
-      <Menu.Portal>
-        <Menu.Positioner align="start">
-          <Menu.Popup>
-            <Menu.RadioGroup
-              value={value}
-              onValueChange={(next: ButtonState | typeof OWN) =>
-                setButtonState(next === OWN ? null : next)
-              }
+      <Menu.Content align="start">
+        <Menu.RadioGroup
+          value={value}
+          onValueChange={(next: ButtonState | typeof OWN) =>
+            setButtonState(next === OWN ? null : next)
+          }
+        >
+          {BUTTON_STATES.map(([id, StateGlyph, stateName]) => (
+            <Menu.RadioItem
+              key={id}
+              value={id}
+              icon={<StateGlyph weight="bold" className="size-4" />}
             >
-              {BUTTON_STATES.map(([id, StateGlyph, stateName]) => (
-                <Menu.RadioItem
-                  key={id}
-                  value={id}
-                  icon={<StateGlyph weight="bold" className="h-4 w-4" />}
-                >
-                  {stateName()}
-                </Menu.RadioItem>
-              ))}
-            </Menu.RadioGroup>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+              {stateName()}
+            </Menu.RadioItem>
+          ))}
+        </Menu.RadioGroup>
+      </Menu.Content>
     </Menu.Root>
   );
 }

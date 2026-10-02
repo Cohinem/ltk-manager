@@ -86,6 +86,21 @@ ProgressIndicator.displayName = "Progress.Indicator";
 
 // Compound export
 
+export interface ProgressBarProps extends Omit<ProgressRootProps, "children"> {
+  size?: ProgressSize;
+}
+
+/** A progress bar in one tag: the root, its labels, the track and the indicator. */
+export function ProgressBar({ size, ...props }: ProgressBarProps) {
+  return (
+    <ProgressRoot {...props}>
+      <ProgressTrack size={size}>
+        <ProgressIndicator />
+      </ProgressTrack>
+    </ProgressRoot>
+  );
+}
+
 export const Progress = {
   Root: ProgressRoot,
   Track: ProgressTrack,

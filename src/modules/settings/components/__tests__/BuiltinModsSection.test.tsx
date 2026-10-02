@@ -2,12 +2,12 @@
 
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type { ForcibleMapSkin, MapDecoration, Settings } from "@/lib/tauri";
 
 import { BuiltinModsSection } from "../BuiltinModsSection";
-import { freshSettings, renderSettings } from "./fixtures";
+import { freshSettings, renderSettings, savedSettings } from "./fixtures";
 
 const SKINS: ForcibleMapSkin[] = [
   { name: "Bloom", maps: ["Map11.wad.client", "Map12.wad.client"] },
@@ -28,26 +28,27 @@ const DECORATIONS: MapDecoration[] = [
   { mutator: "SR_Hall_Of_Legends", maps: ["Map11.wad.client"] },
 ];
 
-function renderSection(settings: Settings, onSave = vi.fn()) {
-  renderSettings(<BuiltinModsSection settings={settings} onSave={onSave} />, {
+function renderSection(settings: Settings) {
+  renderSettings(<BuiltinModsSection />, {
     settings,
     answers: { list_forcible_map_skins: SKINS, list_map_decorations: DECORATIONS },
   });
-  return onSave;
 }
 
 describe("BuiltinModsSection map skin", () => {
   it("saves the mode the reader picks", async () => {
     const settings = withMapSkin("game");
-    const onSave = renderSection(settings);
+    renderSection(settings);
 
     const modes = screen.getByRole("group", { name: "Map skin" });
     await userEvent.click(within(modes).getByText("Classic"));
 
-    expect(onSave).toHaveBeenCalledWith({
-      ...settings,
-      builtinMods: { ...settings.builtinMods, mapSkin: "classic" },
-    });
+    await waitFor(() =>
+      expect(savedSettings()).toEqual({
+        ...settings,
+        builtinMods: { ...settings.builtinMods, mapSkin: "classic" },
+      }),
+    );
   });
 
   it("offers the skin picker only once a chosen skin is the mode", () => {
@@ -64,7 +65,7 @@ describe("BuiltinModsSection map skin", () => {
 
   it("finds a skin by the map it covers and saves it", async () => {
     const settings = withMapSkin("forced");
-    const onSave = renderSection(settings);
+    renderSection(settings);
 
     const search = await screen.findByRole("combobox", { name: "Chosen map skin" });
     await waitFor(() => expect(search).toBeEnabled());
@@ -75,10 +76,12 @@ describe("BuiltinModsSection map skin", () => {
 
     await userEvent.click(screen.getByRole("option", { name: /Bloom/ }));
 
-    expect(onSave).toHaveBeenCalledWith({
-      ...settings,
-      builtinMods: { ...settings.builtinMods, forcedMapSkin: "Bloom" },
-    });
+    await waitFor(() =>
+      expect(savedSettings()).toEqual({
+        ...settings,
+        builtinMods: { ...settings.builtinMods, forcedMapSkin: "Bloom" },
+      }),
+    );
   });
 
   it("says nothing changes until a skin is chosen", () => {
@@ -119,27 +122,31 @@ describe("BuiltinModsSection map decorations", () => {
 
   it("saves a decoration forced off", async () => {
     const settings = withDecorations({});
-    const onSave = renderSection(settings);
+    renderSection(settings);
 
     const modes = await screen.findByRole("group", { name: "Hall of Legends" });
     await userEvent.click(within(modes).getByText("Hidden"));
 
-    expect(onSave).toHaveBeenCalledWith({
-      ...settings,
-      builtinMods: { ...settings.builtinMods, mapDecorations: { SR_Hall_Of_Legends: "hide" } },
-    });
+    await waitFor(() =>
+      expect(savedSettings()).toEqual({
+        ...settings,
+        builtinMods: { ...settings.builtinMods, mapDecorations: { SR_Hall_Of_Legends: "hide" } },
+      }),
+    );
   });
 
   it("drops a decoration set back to the game", async () => {
     const settings = withDecorations({ SR_Hall_Of_Legends: "hide", MSITrophy: "show" });
-    const onSave = renderSection(settings);
+    renderSection(settings);
 
     const modes = await screen.findByRole("group", { name: "Hall of Legends" });
     await userEvent.click(within(modes).getByText("Game"));
 
-    expect(onSave).toHaveBeenCalledWith({
-      ...settings,
-      builtinMods: { ...settings.builtinMods, mapDecorations: { MSITrophy: "show" } },
-    });
+    await waitFor(() =>
+      expect(savedSettings()).toEqual({
+        ...settings,
+        builtinMods: { ...settings.builtinMods, mapDecorations: { MSITrophy: "show" } },
+      }),
+    );
   });
 });

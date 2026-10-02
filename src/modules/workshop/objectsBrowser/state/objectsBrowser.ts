@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { toggledIn } from "@/utils";
+
 import { ancestorPrefixes, isBelowPrefix, type ObjectTreeNode } from "../utils/objectTree";
 
 /** A row the objects browser is asked to expand to, focus and scroll to. */
@@ -43,16 +45,6 @@ interface ObjectsBrowserStore {
   requestReveal: (path: string) => void;
   /** Drop the reveal with `token`. The tree it addressed has answered it. */
   settleReveal: (token: number) => void;
-}
-
-function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
-  const next = new Set(set);
-  if (next.has(value)) {
-    next.delete(value);
-  } else {
-    next.add(value);
-  }
-  return next;
 }
 
 /** `set` without `path` and every path below it. */
@@ -123,7 +115,7 @@ export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
   revealToken: 0,
   expandedPrefixes: new Set(),
   togglePrefix: (path) =>
-    set((state) => ({ expandedPrefixes: toggled(state.expandedPrefixes, path) })),
+    set((state) => ({ expandedPrefixes: toggledIn(state.expandedPrefixes, path) })),
   expandPrefixes: (paths) =>
     set((state) => {
       if (paths.every((path) => state.expandedPrefixes.has(path))) return state;
@@ -140,7 +132,7 @@ export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
   setSearchRegex: (searchRegex) => set({ searchRegex }),
   shutFindPrefixes: new Set(),
   toggleFindPrefix: (path) =>
-    set((state) => ({ shutFindPrefixes: toggled(state.shutFindPrefixes, path) })),
+    set((state) => ({ shutFindPrefixes: toggledIn(state.shutFindPrefixes, path) })),
   collapseFindPrefixes: (paths) =>
     set((state) => ({ shutFindPrefixes: new Set([...state.shutFindPrefixes, ...paths]) })),
   expandFindSubtree: (path) =>

@@ -123,10 +123,10 @@ export function CreateLayerDialog({
                 />
                 <Field.Description>
                   <span className="flex items-start gap-1.5 text-xs">
-                    <FolderClosed className="mt-0.5 h-3 w-3 shrink-0 text-surface-500" />
+                    <FolderClosed className="mt-0.5 size-3 shrink-0 text-surface-500" />
                     <span>
                       Saved to disk as{" "}
-                      <code className="rounded bg-surface-800 px-1 py-0.5 font-mono text-[0.6875rem] text-surface-300">
+                      <code className="rounded-sm bg-surface-800 px-1 py-0.5 font-mono text-meta text-surface-300">
                         content/{field.state.value || "layer-slug"}
                       </code>
                       . Lowercase letters, numbers, hyphens, and underscores only.

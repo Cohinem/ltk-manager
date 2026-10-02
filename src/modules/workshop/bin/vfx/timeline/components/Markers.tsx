@@ -93,36 +93,29 @@ export function MarkerRuler({ view, width, snap, markers, onSeek, children }: Ma
           />
         ))}
       </ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Positioner>
-          {/* A rename's field takes focus, which the ruler taking it back would end at once. */}
-          <ContextMenu.Popup finalFocus={false}>
-            {menu?.marker != null && (
-              <>
-                <ContextMenu.Item
-                  icon={<PencilSimpleIcon />}
-                  onClick={() => setRenaming(menu.marker)}
-                >
-                  {m.workshop_bin_timeline_marker_rename_action()}
-                </ContextMenu.Item>
-                <ContextMenu.Item
-                  icon={<TrashIcon />}
-                  onClick={() => menu.marker !== null && remove(menu.marker)}
-                >
-                  {m.workshop_bin_timeline_marker_delete_action()}
-                </ContextMenu.Item>
-                <ContextMenu.Separator />
-              </>
-            )}
-            <ContextMenu.Item
-              icon={<FlagIcon />}
-              onClick={() => menu !== null && markers.add(menu.time)}
-            >
-              {m.workshop_bin_timeline_marker_add_action()}
+      {/* A rename's field takes focus, which the ruler taking it back would end at once. */}
+      <ContextMenu.Content finalFocus={false}>
+        {menu?.marker != null && (
+          <>
+            <ContextMenu.Item icon={<PencilSimpleIcon />} onClick={() => setRenaming(menu.marker)}>
+              {m.workshop_bin_timeline_marker_rename_action()}
             </ContextMenu.Item>
-          </ContextMenu.Popup>
-        </ContextMenu.Positioner>
-      </ContextMenu.Portal>
+            <ContextMenu.Item
+              icon={<TrashIcon />}
+              onClick={() => menu.marker !== null && remove(menu.marker)}
+            >
+              {m.workshop_bin_timeline_marker_delete_action()}
+            </ContextMenu.Item>
+            <ContextMenu.Separator />
+          </>
+        )}
+        <ContextMenu.Item
+          icon={<FlagIcon />}
+          onClick={() => menu !== null && markers.add(menu.time)}
+        >
+          {m.workshop_bin_timeline_marker_add_action()}
+        </ContextMenu.Item>
+      </ContextMenu.Content>
     </ContextMenu.Root>
   );
 }

@@ -43,43 +43,42 @@ export function TabOverflowList({
         <Popover.Trigger
           render={
             <Button
-              right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
+              right={<CaretDownIcon weight="bold" className="size-3" />}
               variant="ghost"
               size="xs"
               compact
               aria-label={label}
               data-ui="TabOverflowList:trigger"
-              className="mr-2 h-6 shrink-0 gap-0.5 px-1 text-[0.6875rem] text-surface-300"
+              className="mr-2 h-6 shrink-0 gap-0.5 px-1 text-meta text-surface-300"
             >
               {offscreen}
             </Button>
           }
         />
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end" sideOffset={6}>
-          <Popover.Popup
-            data-ui="TabOverflowList:popup"
-            aria-label={label}
-            className="w-72 p-1 select-none"
-          >
-            <ul className="flex max-h-80 flex-col overflow-y-auto scrollbar-sm">
-              {tabs.map((tab) => (
-                <TabRow
-                  key={tab.id}
-                  tab={tab}
-                  active={tab.id === activeId}
-                  onActivate={(id) => {
-                    setOpen(false);
-                    onActivate(id);
-                  }}
-                  onClose={onClose}
-                />
-              ))}
-            </ul>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="bottom"
+        align="end"
+        sideOffset={6}
+        data-ui="TabOverflowList:popup"
+        aria-label={label}
+        className="w-72 p-1 select-none"
+      >
+        <ul className="flex max-h-80 flex-col overflow-y-auto scrollbar-sm">
+          {tabs.map((tab) => (
+            <TabRow
+              key={tab.id}
+              tab={tab}
+              active={tab.id === activeId}
+              onActivate={(id) => {
+                setOpen(false);
+                onActivate(id);
+              }}
+              onClose={onClose}
+            />
+          ))}
+        </ul>
+      </Popover.Content>
     </Popover.Root>
   );
 }
@@ -107,26 +106,21 @@ function TabRow({ tab, active, onActivate, onClose }: TabRowProps) {
         {tab.icon && <span className="flex shrink-0 [&_svg]:h-4 [&_svg]:w-4">{tab.icon}</span>}
         <span className={twMerge("truncate", tab.preview && "italic")}>{tab.title}</span>
         {tab.context && (
-          <span className="shrink-[3] truncate text-[0.6875rem] text-surface-400">
-            {tab.context}
-          </span>
+          <span className="shrink-[3] truncate text-meta text-surface-400">{tab.context}</span>
         )}
         {tab.dirty === true && (
           <span
             aria-hidden="true"
-            className="ml-auto h-2 w-2 shrink-0 rounded-full bg-current group-hover/row:invisible"
+            className="ml-auto size-2 shrink-0 rounded-full bg-current group-hover/row:invisible"
           />
         )}
       </button>
 
       <IconButton
-        icon={<XIcon weight="bold" className="h-3 w-3" />}
-        variant="ghost"
-        size="xs"
-        compact
+        icon={<XIcon className="size-3" />}
         onClick={() => onClose(tab.id)}
         aria-label={m.editor_tab_close_label({ title: tab.title })}
-        className="absolute top-0 right-1 bottom-0 my-auto h-5 w-5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+        className="absolute top-0 right-1 bottom-0 my-auto size-5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
       />
     </li>
   );

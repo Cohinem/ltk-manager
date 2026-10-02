@@ -11,12 +11,11 @@ import {
   useState,
 } from "react";
 
-import { AlertBox, Button, Code } from "@/components";
+import { AlertBox, Button, Code, OVERLINE, SearchField } from "@/components";
 import { m, Marked } from "@/i18n";
 import type { BinRow, FieldSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { TreeSearchBox } from "../../../../shared/components/TreeSearchBox";
 import { AlsoCheck, FieldRow } from "../../../classes/components/ClassCells";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { FieldLabelsContext } from "../../../classes/state/fieldLabels";
@@ -195,7 +194,7 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
           <AddPropertyBox holder={holder} onAdded={jumpTo} onClose={() => setAdding(false)} />
         )}
         {(!adding || holder === undefined) && (
-          <TreeSearchBox
+          <SearchField
             value={search}
             onChange={setSearch}
             inputRef={searchRef}
@@ -437,10 +436,13 @@ function GroupSection({
         aria-expanded={open}
         disabled={searching}
         /* DS-GROUND: opaque, since the rows scroll under it rather than past it. */
-        className="sticky top-0 z-10 -ml-2 flex min-h-6 cursor-pointer items-center gap-1 bg-surface-900 pr-1 pl-3 text-left font-sans text-xs font-medium tracking-wide text-surface-400 uppercase hover:text-surface-200"
+        className={twMerge(
+          OVERLINE,
+          "sticky top-0 z-10 -ml-2 flex min-h-6 cursor-pointer items-center gap-1 bg-surface-900 pr-1 pl-3 text-left font-sans hover:text-surface-200",
+        )}
         onClick={() => setFold(!expanded)}
       >
-        <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
+        <CaretRightIcon weight="bold" className={twMerge("size-3", open && "rotate-90")} />
         {title}
       </button>
       {open &&

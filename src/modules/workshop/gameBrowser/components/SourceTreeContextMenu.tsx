@@ -56,13 +56,9 @@ export function SourceTreeContextMenu({ node, onOpen, onRun }: SourceTreeContext
   if (node?.type === "dir") {
     if (!onRun) return null;
     return (
-      <ContextMenu.Portal>
-        <ContextMenu.Positioner>
-          <ContextMenu.Popup className="w-60">
-            <ExtractMenuItems onRun={(how) => onRun(node, how)} />
-          </ContextMenu.Popup>
-        </ContextMenu.Positioner>
-      </ContextMenu.Portal>
+      <ContextMenu.Content className="w-60">
+        <ExtractMenuItems onRun={(how) => onRun(node, how)} />
+      </ContextMenu.Content>
     );
   }
 
@@ -74,68 +70,64 @@ export function SourceTreeContextMenu({ node, onOpen, onRun }: SourceTreeContext
   const bin = inGame && isPropertyBin(fileKindFromPath(node.name)) && ritobin.data === true;
 
   return (
-    <ContextMenu.Portal>
-      <ContextMenu.Positioner>
-        <ContextMenu.Popup className="w-60">
-          {onOpen && (
-            <ContextMenu.Item icon={<TabsIcon className="h-4 w-4" />} onClick={() => onOpen(node)}>
-              Open
-            </ContextMenu.Item>
-          )}
-          {bin && (
-            <ContextMenu.Item
-              icon={<ArrowSquareOutIcon className="h-4 w-4" />}
-              onClick={() =>
-                openInRitobin.mutate({
-                  asset: {
-                    kind: "gameChunk",
-                    wad: node.entry.wad,
-                    pathHash: node.entry.pathHash,
-                  },
-                  name: node.name,
-                })
-              }
-            >
-              Open in VS Code
-            </ContextMenu.Item>
-          )}
-          {(onOpen || bin) && <ContextMenu.Separator />}
-          {onRun && <ExtractMenuItems onRun={(how) => onRun(node, how)} />}
-          {onRun && <ContextMenu.Separator />}
-          {inGame && (
-            <>
-              <ContextMenu.Item
-                icon={<MagnifyingGlassIcon className="h-4 w-4" />}
-                onClick={() =>
-                  find(path !== null ? fileReferences(path) : chunkReferences(node.entry.pathHash))
-                }
-              >
-                {m.workshop_references_find_file_action()}
-              </ContextMenu.Item>
-              <ContextMenu.Separator />
-            </>
-          )}
+    <ContextMenu.Content className="w-60">
+      {onOpen && (
+        <ContextMenu.Item icon={<TabsIcon className="size-4" />} onClick={() => onOpen(node)}>
+          Open
+        </ContextMenu.Item>
+      )}
+      {bin && (
+        <ContextMenu.Item
+          icon={<ArrowSquareOutIcon className="size-4" />}
+          onClick={() =>
+            openInRitobin.mutate({
+              asset: {
+                kind: "gameChunk",
+                wad: node.entry.wad,
+                pathHash: node.entry.pathHash,
+              },
+              name: node.name,
+            })
+          }
+        >
+          Open in VS Code
+        </ContextMenu.Item>
+      )}
+      {(onOpen || bin) && <ContextMenu.Separator />}
+      {onRun && <ExtractMenuItems onRun={(how) => onRun(node, how)} />}
+      {onRun && <ContextMenu.Separator />}
+      {inGame && (
+        <>
           <ContextMenu.Item
-            icon={<CopyIcon className="h-4 w-4" />}
-            onClick={() => void copy(node.name, "name")}
+            icon={<MagnifyingGlassIcon className="size-4" />}
+            onClick={() =>
+              find(path !== null ? fileReferences(path) : chunkReferences(node.entry.pathHash))
+            }
           >
-            Copy Name
+            {m.workshop_references_find_file_action()}
           </ContextMenu.Item>
-          <ContextMenu.Item
-            icon={<PathIcon className="h-4 w-4" />}
-            disabled={path === null}
-            onClick={() => path !== null && void copy(path, "chunk path")}
-          >
-            Copy Chunk Path
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            icon={<HashIcon className="h-4 w-4" />}
-            onClick={() => void copy(node.entry.pathHash, "path hash")}
-          >
-            Copy Path Hash
-          </ContextMenu.Item>
-        </ContextMenu.Popup>
-      </ContextMenu.Positioner>
-    </ContextMenu.Portal>
+          <ContextMenu.Separator />
+        </>
+      )}
+      <ContextMenu.Item
+        icon={<CopyIcon className="size-4" />}
+        onClick={() => void copy(node.name, "name")}
+      >
+        Copy Name
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        icon={<PathIcon className="size-4" />}
+        disabled={path === null}
+        onClick={() => path !== null && void copy(path, "chunk path")}
+      >
+        Copy Chunk Path
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        icon={<HashIcon className="size-4" />}
+        onClick={() => void copy(node.entry.pathHash, "path hash")}
+      >
+        Copy Path Hash
+      </ContextMenu.Item>
+    </ContextMenu.Content>
   );
 }

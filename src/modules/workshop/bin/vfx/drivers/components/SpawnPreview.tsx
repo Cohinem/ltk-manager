@@ -74,7 +74,7 @@ export function ShapePreview({ emitter }: { emitter: EmitterModel | undefined })
 
   return (
     <div className="relative my-1 shrink-0 self-center" style={BOX_STYLE}>
-      <PreviewView className={twMerge(NODE_BOX, "my-0 h-full w-full")}>
+      <PreviewView className={twMerge(NODE_BOX, "my-0 size-full")}>
         {drawn !== null && <SpawnScene drawn={drawn} zero={zero} />}
       </PreviewView>
       {zero && (

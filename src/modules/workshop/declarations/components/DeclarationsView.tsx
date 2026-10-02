@@ -2,7 +2,7 @@ import { BracketsCurlyIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback } from "react";
 
-import { EmptyState, Spinner } from "@/components";
+import { EmptyState, LoadingState } from "@/components";
 import { m } from "@/i18n";
 
 import { declarationsDocument } from "../../documents/utils/contentDocument";
@@ -40,11 +40,7 @@ export function DeclarationsView() {
   );
 
   if (outline.isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   const layers = outline.data ?? [];
@@ -52,7 +48,7 @@ export function DeclarationsView() {
     return (
       <EmptyState
         size="sm"
-        icon={<BracketsCurlyIcon className="h-8 w-8" />}
+        icon={<BracketsCurlyIcon className="size-8" />}
         title={m.workshop_declarations_view_empty_title()}
         description={m.workshop_declarations_view_empty_description()}
       />

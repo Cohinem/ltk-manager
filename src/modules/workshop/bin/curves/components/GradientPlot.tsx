@@ -204,7 +204,7 @@ function ChanceRamp({ base, draw }: { base: ColorStop["rgba"]; draw: RandomDraw 
         /* DS-TOKEN, DS-VEIL, DS-RADIUS */
         className={`relative h-8 overflow-hidden rounded-sm border border-surface-veil-strong ${CHECKERBOARD} [background-size:8px_8px]`}
       >
-        <span className="block h-full w-full" style={{ background: gradientCss(ramp) }} />
+        <span className="block size-full" style={{ background: gradientCss(ramp) }} />
         {pinned !== null && (
           <span
             aria-hidden
@@ -251,7 +251,7 @@ function Band({
       )}
       onDoubleClick={onDoubleClick}
     >
-      <span className="block h-full w-full" style={{ background: gradientCss(stops) }} />
+      <span className="block size-full" style={{ background: gradientCss(stops) }} />
       {label !== undefined && (
         <span
           aria-hidden
@@ -365,7 +365,7 @@ function StopRail({
           <Swatch
             rgba={stop.rgba}
             className={twMerge(
-              "h-3 w-3",
+              "size-3",
               selected.has(at) ? "border-accent-500" : "group-hover/stop:border-accent-hover",
             )}
           />
@@ -381,7 +381,7 @@ function Tip({ selected }: { selected: boolean }) {
     <span
       aria-hidden
       className={twMerge(
-        "h-0 w-0 border-x-4 border-b-4 border-x-transparent",
+        "size-0 border-x-4 border-b-4 border-x-transparent",
         selected ? "border-b-accent-500" : "border-b-surface-500",
       )}
     />

@@ -89,11 +89,11 @@ interface ProjectGlyphProps {
    initial, which is what the card does. */
 export function ProjectGlyph({ project, thumbnailUrl }: ProjectGlyphProps) {
   if (thumbnailUrl) {
-    return <img src={thumbnailUrl} alt="" className="h-4 w-4 rounded-sm object-cover" />;
+    return <img src={thumbnailUrl} alt="" className="size-4 rounded-sm object-cover" />;
   }
 
   return (
-    <span className="flex h-4 w-4 items-center justify-center rounded-sm bg-linear-to-br from-surface-600 to-surface-700 text-meta leading-none font-medium text-surface-300">
+    <span className="flex size-4 items-center justify-center rounded-sm bg-linear-to-br from-surface-600 to-surface-700 text-meta leading-none font-medium text-surface-300">
       {project.displayName.charAt(0).toUpperCase()}
     </span>
   );

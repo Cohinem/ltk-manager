@@ -119,10 +119,8 @@ export function ModHealthSweepPanel({ onClose }: ModHealthSweepPanelProps) {
           </p>
         </div>
         <IconButton
-          variant="ghost"
           size="sm"
-          compact
-          icon={<XIcon className="h-4 w-4" weight="bold" />}
+          icon={<XIcon />}
           onClick={onClose}
           aria-label={m.common_close_action()}
         />
@@ -153,9 +151,9 @@ export function ModHealthSweepPanel({ onClose }: ModHealthSweepPanelProps) {
  * for one that no repair reaches and nothing stops loading.
  */
 function PanelMark({ alarm, tone }: { alarm: SweepAlarm; tone: SweepTone }) {
-  if (alarm === "repairable") return <WolfIcon className="h-10 w-10 shrink-0" />;
+  if (alarm === "repairable") return <WolfIcon className="size-10 shrink-0" />;
 
-  return <ShockedPoroDuotoneIcon className={twMerge("h-10 w-10 shrink-0", tone.chip)} />;
+  return <ShockedPoroDuotoneIcon className={twMerge("size-10 shrink-0", tone.chip)} />;
 }
 
 /**
@@ -216,7 +214,7 @@ function RepairPress({ run }: { run: RepairRun }) {
   if (enabled.length === all.length) {
     return (
       <Button size="sm" variant="filled" loading={run.isRepairing} onClick={() => start(all)}>
-        <PlugsIcon className="h-4 w-4" weight="duotone" />
+        <PlugsIcon className="size-4" weight="duotone" />
         {m.library_health_repair_action({ count: all.length })}
       </Button>
     );
@@ -228,7 +226,7 @@ function RepairPress({ run }: { run: RepairRun }) {
   if (enabled.length === 0) {
     return (
       <Button size="sm" variant="filled" loading={run.isRepairing} onClick={() => start(all)}>
-        <StackIcon className="h-4 w-4" weight="duotone" />
+        <StackIcon className="size-4" weight="duotone" />
         {m.library_health_repair_all_action({ count: all.length })}
       </Button>
     );
@@ -237,14 +235,15 @@ function RepairPress({ run }: { run: RepairRun }) {
   return (
     <ButtonGroup>
       <Button size="sm" variant="filled" loading={run.isRepairing} onClick={() => start(enabled)}>
-        <PlugsIcon className="h-4 w-4" weight="duotone" />
+        <PlugsIcon className="size-4" weight="duotone" />
         {m.library_health_repair_enabled_action({ count: enabled.length })}
       </Button>
       <Menu.Root>
         <Menu.Trigger
           render={
             <IconButton
-              icon={<CaretUpIcon weight="bold" className="h-4 w-4" />}
+              compact={false}
+              icon={<CaretUpIcon />}
               variant="filled"
               size="sm"
               aria-label={m.library_health_repair_options_label()}
@@ -253,18 +252,14 @@ function RepairPress({ run }: { run: RepairRun }) {
             />
           }
         />
-        <Menu.Portal>
-          <Menu.Positioner side="top" align="end">
-            <Menu.Popup className="w-56">
-              <Menu.Item
-                icon={<StackIcon weight="duotone" className="h-4 w-4" />}
-                onClick={() => start(all)}
-              >
-                {m.library_health_repair_all_action({ count: all.length })}
-              </Menu.Item>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content side="top" align="end" className="w-56">
+          <Menu.Item
+            icon={<StackIcon weight="duotone" className="size-4" />}
+            onClick={() => start(all)}
+          >
+            {m.library_health_repair_all_action({ count: all.length })}
+          </Menu.Item>
+        </Menu.Content>
       </Menu.Root>
     </ButtonGroup>
   );
@@ -307,14 +302,11 @@ function RepairProgress({ progress }: { progress: ModRepairProgress }) {
           {/* A mod already written stays written, so this stops the run rather
               than undoing it. What it did not reach keeps its own verdict. */}
           <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            icon={<XIcon className="h-3.5 w-3.5" weight="bold" />}
+            icon={<XIcon className="size-3.5" />}
             onClick={() => cancel.mutate()}
             disabled={cancel.isPending}
             aria-label={m.library_health_repair_stop_label()}
-            className="-my-1 h-5 w-5 shrink-0"
+            className="-my-1 size-5 shrink-0"
           />
         </div>
         <Progress.Track size="sm">
@@ -444,7 +436,7 @@ function InformationalFold({ count }: { count: number }) {
         <span className="tabular-nums">{count}</span>
         <CaretDownIcon
           weight="bold"
-          className={twMerge("h-3 w-3 shrink-0 transition-transform", showing && "rotate-180")}
+          className={twMerge("size-3 shrink-0 transition-transform", showing && "rotate-180")}
         />
         <span aria-hidden="true" className="ml-1 h-px flex-1 bg-surface-600" />
       </button>
@@ -498,7 +490,7 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
             <CaretDownIcon
               weight="bold"
               className={twMerge(
-                "h-3 w-3 shrink-0 text-surface-500 transition-transform",
+                "size-3 shrink-0 text-surface-500 transition-transform",
                 open && "rotate-180",
               )}
             />
@@ -530,7 +522,7 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
               repair.isPending && "opacity-100",
             )}
           >
-            <PlugsIcon className="h-4 w-4" weight="duotone" />
+            <PlugsIcon className="size-4" weight="duotone" />
             {m.library_health_repair_one_action()}
           </Button>
         )}
@@ -563,13 +555,13 @@ const NO_PRESS: Record<Exclude<SweepAlarm, "repairable">, () => string> = {
 /** The row's package mark: the accent for a mod the next game carries, dim otherwise. */
 function RowMark({ enabled }: { enabled: boolean }) {
   if (!enabled) {
-    return <PackageIcon weight="duotone" className="h-4 w-4 shrink-0 text-surface-600" />;
+    return <PackageIcon weight="duotone" className="size-4 shrink-0 text-surface-600" />;
   }
 
   return (
     <Tooltip content={m.library_health_enabled_label()}>
       <span className="flex shrink-0" aria-label={m.library_health_enabled_label()}>
-        <PackageIcon weight="duotone" className="h-4 w-4 text-accent-400" />
+        <PackageIcon weight="duotone" className="size-4 text-accent-400" />
       </span>
     </Tooltip>
   );

@@ -6,6 +6,7 @@ import { m } from "@/i18n";
 import type { DeclaredModule } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { TreeRowCount } from "../../shared/components/TreeRowParts";
 import { moduleTally, moduleTitle, type OutlineNode } from "../utils/outlineTree";
 import { ModuleNameInput, RowKebab, useOutlineRow } from "./OutlineRowParts";
 
@@ -44,14 +45,12 @@ export function ModuleBody({ node }: { node: Extract<OutlineNode, { type: "modul
           <PencilSimpleLineIcon
             weight="bold"
             aria-label={m.workshop_declarations_writes_here_label()}
-            className="h-3 w-3 shrink-0 text-accent-400"
+            className="size-3 shrink-0 text-accent-400"
           />
         </Tooltip>
       )}
       <ModuleDetail module={module} />
-      <span className="ml-auto shrink-0 pl-2 font-sans text-[0.625rem] text-surface-500 tabular-nums">
-        {tallyText(module)}
-      </span>
+      <TreeRowCount className="pl-2 font-sans">{tallyText(module)}</TreeRowCount>
       {handlers !== null && <MoveButtons node={node} />}
       <RowKebab node={node} />
     </>
@@ -70,13 +69,13 @@ function MoveButtons({ node }: { node: Extract<OutlineNode, { type: "module" }> 
     <>
       <RowButton
         label={m.workshop_declarations_move_up_action()}
-        icon={<ArrowUpIcon weight="bold" className="h-3 w-3" />}
+        icon={<ArrowUpIcon weight="bold" className="size-3" />}
         disabled={module.index === 0}
         onPress={() => void handlers.actions.move(layer, module, module.index - 1)}
       />
       <RowButton
         label={m.workshop_declarations_move_down_action()}
-        icon={<ArrowDownIcon weight="bold" className="h-3 w-3" />}
+        icon={<ArrowDownIcon weight="bold" className="size-3" />}
         disabled={module.index >= last}
         onPress={() => void handlers.actions.move(layer, module, module.index + 1)}
       />
@@ -94,22 +93,17 @@ interface RowButtonProps {
 /** A hover action of a row, out of the tab order the row's own keys cover. */
 function RowButton({ label, icon, disabled, onPress }: RowButtonProps) {
   return (
-    <Tooltip content={label}>
-      <IconButton
-        icon={icon}
-        variant="ghost"
-        size="xs"
-        compact
-        tabIndex={-1}
-        aria-label={label}
-        disabled={disabled}
-        onClick={(event) => {
-          event.stopPropagation();
-          onPress();
-        }}
-        className="h-5 w-5 shrink-0 opacity-0 group-hover/row:opacity-100 group-aria-selected/row:opacity-100"
-      />
-    </Tooltip>
+    <IconButton
+      icon={icon}
+      tabIndex={-1}
+      disabled={disabled}
+      onClick={(event) => {
+        event.stopPropagation();
+        onPress();
+      }}
+      className="size-5 shrink-0 opacity-0 group-hover/row:opacity-100 group-aria-selected/row:opacity-100"
+      label={label}
+    />
   );
 }
 
@@ -118,7 +112,7 @@ function ModuleDetail({ module }: { module: DeclaredModule }) {
   const file = module.target?.slice(module.target.lastIndexOf("/") + 1);
 
   return (
-    <span className="flex min-w-0 shrink items-center gap-2 text-[0.625rem] text-surface-400">
+    <span className="flex min-w-0 shrink items-center gap-2 text-fine text-surface-400">
       <span className="shrink-0" title={module.target ?? undefined}>
         {file ?? m.workshop_declarations_entries_label()}
       </span>

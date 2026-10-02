@@ -5,8 +5,11 @@
  * thin adapter and nothing in this file imports one.
  */
 
+import { toggledSubtree } from "@/utils";
+
 import { compareNames } from "../../shared/utils/naturalOrder";
 import { pathAncestors } from "../../shared/utils/pathAncestors";
+import { branchIdsOf, type TreeRow, treeRows } from "../../shared/utils/tree";
 
 /** The path the index gives the group of entries no hash table names. */
 export const UNKNOWN_DIR = "?";
@@ -252,18 +255,11 @@ function basename(entry: SourceEntry): string {
 
 /** The id of every directory in a tree, which is the collapsed set that folds all of them. */
 export function sourceDirIds(tree: readonly SourceTreeNode[]): Set<string> {
-  const ids = new Set<string>();
-  const walk = (nodes: readonly SourceTreeNode[]): void => {
-    for (const node of nodes) {
-      if (node.type !== "dir") continue;
-
-      ids.add(node.id);
-      walk(node.children);
-    }
-  };
-
-  walk(tree);
-  return ids;
+  return new Set(
+    branchIdsOf(tree, (node) =>
+      node.type === "dir" ? { id: node.id, children: node.children } : null,
+    ),
+  );
 }
 
 /**
@@ -275,24 +271,10 @@ export function toggledSourceDirTree(
   collapsed: ReadonlySet<string>,
   dir: SourceDirNode,
 ): Set<string> {
-  const next = new Set(collapsed);
-  const collapse = !collapsed.has(dir.id);
-
-  for (const id of sourceDirIds([dir])) {
-    if (collapse) {
-      next.add(id);
-    } else {
-      next.delete(id);
-    }
-  }
-
-  return next;
+  return toggledSubtree(collapsed, dir.id, sourceDirIds([dir]));
 }
 
-export interface SourceRow {
-  readonly node: SourceTreeNode;
-  readonly depth: number;
-}
+export type SourceRow = TreeRow<SourceTreeNode>;
 
 const NO_GUIDES: readonly string[] = [];
 
@@ -339,17 +321,9 @@ export function flattenSourceTree(
   nodes: readonly SourceTreeNode[],
   isExpanded: (node: SourceDirNode) => boolean,
 ): SourceRow[] {
-  const out: SourceRow[] = [];
-  const walk = (list: readonly SourceTreeNode[], depth: number): void => {
-    for (const node of list) {
-      out.push({ node, depth });
-      if (node.type === "dir" && isExpanded(node)) {
-        walk(node.children, depth + 1);
-      }
-    }
-  };
-  walk(nodes, 0);
-  return out;
+  return treeRows(nodes, (node) =>
+    node.type === "dir" && isExpanded(node) ? node.children : null,
+  );
 }
 
 /** Whether a root listing holds the unnamed group and nothing else. */

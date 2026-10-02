@@ -10,7 +10,6 @@ import {
   FormField,
   IconButton,
   MultiSelect,
-  Tooltip,
   useConfirm,
   useToast,
 } from "@/components";
@@ -154,30 +153,26 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
         <DetailsCover mod={{ ...mod, displayName }} thumbnailUrl={staged}>
           {/* DS-INVARIANT: a control over cover art takes the scrim and `brand-on`. */}
           <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-scrim p-0.5 backdrop-blur-sm">
-            <Tooltip content={m.library_details_thumbnail_set_action()}>
-              <IconButton
-                variant="ghost"
-                size="sm"
-                aria-label={m.library_details_thumbnail_set_action()}
-                icon={<ImageIcon className="h-4 w-4" weight="bold" />}
-                onClick={handleSetThumbnail}
-                className="text-brand-on"
-              />
-            </Tooltip>
+            <IconButton
+              compact={false}
+              size="sm"
+              icon={<ImageIcon />}
+              onClick={handleSetThumbnail}
+              className="text-brand-on"
+              label={m.library_details_thumbnail_set_action()}
+            />
             {staged && (
-              <Tooltip content={m.library_details_thumbnail_remove_action()}>
-                <IconButton
-                  variant="ghost"
-                  size="sm"
-                  aria-label={m.library_details_thumbnail_remove_action()}
-                  icon={<TrashIcon className="h-4 w-4" weight="bold" />}
-                  onClick={() => {
-                    setThumbnailPath(null);
-                    setRemoveThumbnail(true);
-                  }}
-                  className="text-brand-on"
-                />
-              </Tooltip>
+              <IconButton
+                compact={false}
+                size="sm"
+                icon={<TrashIcon />}
+                onClick={() => {
+                  setThumbnailPath(null);
+                  setRemoveThumbnail(true);
+                }}
+                className="text-brand-on"
+                label={m.library_details_thumbnail_remove_action()}
+              />
             )}
           </div>
         </DetailsCover>
@@ -222,7 +217,7 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
             <div className="flex flex-col gap-2 rounded-lg border border-dashed border-surface-600 bg-surface-800/40 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 text-row font-medium text-surface-200 select-none">
-                  <SparkleIcon className="h-4 w-4 text-accent-400" />
+                  <SparkleIcon className="size-4 text-accent-400" />
                   {m.library_details_suggestions_label()}
                 </span>
                 <Button variant="outline" size="sm" onClick={applyAllSuggestions}>

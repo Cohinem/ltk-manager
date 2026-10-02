@@ -14,6 +14,7 @@ import {
 } from "..";
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
 import { useProjectContext } from "../../projects/state/ProjectContext";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { useSetDocumentDirty, useSettleStringKeyAim, useStringKeyAimRequest } from "../../state";
 import { useGameStringValues } from "../api/useGameStringValues";
 
@@ -77,7 +78,7 @@ export function StringsDocument({
   );
 
   return (
-    <div data-ui="StringsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="StringsDocument">
       <DocumentToolbar active={active}>
         <StringOverridesToolbar
           layerName={document.layerName}
@@ -105,7 +106,7 @@ export function StringsDocument({
           seed={seed}
         />
       </div>
-    </div>
+    </DocumentFrame>
   );
 }
 
@@ -118,13 +119,13 @@ interface SaveStatusProps {
    states worth a word are the ones holding the author's edits back. */
 function SaveStatus({ state, onRetry }: SaveStatusProps) {
   if (state === "pending" || state === "saving") {
-    return <Spinner size="sm" className="h-3 w-3 shrink-0" />;
+    return <Spinner size="xs" className="shrink-0" />;
   }
 
   if (state === "blocked") {
     return (
       /* DS-TEXT */
-      <span className="shrink-0 text-[0.6875rem] text-warning-text select-none">
+      <span className="shrink-0 text-meta text-warning-text select-none">
         Fix the errors to save
       </span>
     );
@@ -134,7 +135,7 @@ function SaveStatus({ state, onRetry }: SaveStatusProps) {
     return (
       <span className="flex shrink-0 items-center gap-1.5">
         {/* DS-TEXT */}
-        <span className="text-[0.6875rem] text-danger-text select-none">Save failed</span>
+        <span className="text-meta text-danger-text select-none">Save failed</span>
         <Button variant="ghost" size="xs" compact onClick={onRetry}>
           Retry
         </Button>

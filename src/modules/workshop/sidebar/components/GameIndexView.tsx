@@ -1,14 +1,13 @@
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react";
 import { useRef } from "react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton, SearchField } from "@/components";
 import { m } from "@/i18n";
 import { DocumentToolbar, ToolbarOverflow } from "@/modules/editor";
 import { twMerge } from "@/utils";
 
 import { GAME_EXPLORER_ID, GameIndexTree, useRefreshGameIndex } from "../../gameBrowser";
 import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
-import { TreeSearchBox } from "../../shared/components/TreeSearchBox";
 import { focusRows } from "../../shared/utils/focusRows";
 import { useExplorerFilter, useSetExplorerFilter, useCollapseAllGameDirs } from "../../state";
 
@@ -45,7 +44,7 @@ function FilterField({ onCommit }: { onCommit: () => void }) {
   const setFilter = useSetExplorerFilter();
 
   return (
-    <TreeSearchBox
+    <SearchField
       value={filter.text}
       onChange={(text) => setFilter(GAME_EXPLORER_ID, { ...filter, text })}
       label={m.workshop_game_files_tree_label()}
@@ -59,20 +58,14 @@ function RebuildAction() {
   const rebuild = useRefreshGameIndex();
 
   return (
-    <Tooltip content={m.workshop_game_rebuild_label()}>
-      <IconButton
-        icon={
-          <ArrowsClockwiseIcon
-            className={twMerge("h-4 w-4", rebuild.isPending && "animate-spin")}
-          />
-        }
-        variant="ghost"
-        size="xs"
-        compact
-        onClick={() => rebuild.mutate()}
-        disabled={rebuild.isPending}
-        aria-label={m.workshop_game_rebuild_action()}
-      />
-    </Tooltip>
+    <IconButton
+      icon={
+        <ArrowsClockwiseIcon className={twMerge("size-4", rebuild.isPending && "animate-spin")} />
+      }
+      onClick={() => rebuild.mutate()}
+      disabled={rebuild.isPending}
+      aria-label={m.workshop_game_rebuild_action()}
+      tooltip={m.workshop_game_rebuild_label()}
+    />
   );
 }

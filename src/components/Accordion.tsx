@@ -93,7 +93,7 @@ export const AccordionTrigger = forwardRef<HTMLButtonElement, AccordionTriggerPr
           {children}
           <CaretDownIcon
             weight="bold"
-            className="ml-auto h-3.5 w-3.5 shrink-0 text-surface-400 transition-transform group-data-[panel-open]/accordion:rotate-180"
+            className="ml-auto size-3.5 shrink-0 text-surface-400 transition-transform group-data-[panel-open]/accordion:rotate-180"
           />
         </BaseAccordion.Trigger>
       </BaseAccordion.Header>

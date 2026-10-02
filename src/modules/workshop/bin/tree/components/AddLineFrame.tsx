@@ -30,13 +30,13 @@ export function AddLineFrame({ line, pending, error, children }: AddLineFramePro
       <span className="flex min-w-0 flex-1 items-center gap-1.5 self-stretch">
         <Guides depth={line.depth} parent={lineParent(line)} />
         <span className="flex h-4 w-3 shrink-0 items-center justify-center text-surface-400">
-          {pending && <SpinnerGapIcon className="h-3 w-3 animate-spin" />}
-          {!pending && <PlusIcon weight="bold" className="h-3 w-3" />}
+          {pending && <SpinnerGapIcon className="size-3 animate-spin" />}
+          {!pending && <PlusIcon weight="bold" className="size-3" />}
         </span>
         {children}
         {error !== null && (
           <Tooltip content={errorSummary(error)}>
-            <WarningCircleIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />
+            <WarningCircleIcon className="size-3.5 shrink-0 text-danger-text" />
           </Tooltip>
         )}
       </span>

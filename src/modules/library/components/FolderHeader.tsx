@@ -17,13 +17,13 @@ export function FolderHeader({ folder, mods }: FolderHeaderProps) {
     <div className="flex items-center gap-3">
       <Link to="/mods">
         <IconButton
+          compact={false}
           icon={<ArrowLeft />}
-          variant="ghost"
           size="sm"
           aria-label="Back to all folders"
         />
       </Link>
-      <FolderOpen className="h-5 w-5 text-accent-400" />
+      <FolderOpen className="size-5 text-accent-400" />
       <h2 className="text-lg font-semibold text-surface-100">{folder.name}</h2>
       <span className="text-sm text-surface-500">
         {mods.length} {mods.length === 1 ? "mod" : "mods"}

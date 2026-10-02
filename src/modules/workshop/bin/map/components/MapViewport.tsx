@@ -2,42 +2,34 @@ import {
   CaretDownIcon,
   CastleTurretIcon,
   CloudSunIcon,
-  FrameCornersIcon,
   ConfettiIcon,
   SparkleIcon,
 } from "@phosphor-icons/react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
-import { Button, HexshadeIcon, IconButton, Menu, Tooltip } from "@/components";
+import { Button, IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
-import {
-  type Bounds,
-  FitCamera,
-  useBackdropFlags,
-  useSceneColors,
-  Viewport,
-} from "@/modules/viewport";
+import { type Bounds, FitCamera, useBackdropFlags, useSceneColors } from "@/modules/viewport";
 import {
   usePreviewAmbientOcclusion,
-  usePreviewAntiAliasing,
   usePreviewBackdropEvents,
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
   usePreviewBackdropStructures,
-  usePreviewCamera,
   usePreviewPostEffects,
   usePreviewShaders,
   usePreviewSun,
-  usePreviewViewMode,
-  usePreviewWireOverlay,
   useSetPreviewDisplay,
 } from "@/stores";
 
-import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
-import { Notice } from "../../vfx/preview/components/Notice";
-import { ViewModeMenu } from "../../vfx/preview/components/ViewModeMenu";
-import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
+import { CameraMenu } from "../../shared/preview/CameraMenu";
+import { Notice } from "../../shared/preview/Notice";
+import { PreviewToggle, ShadersToggle } from "../../shared/preview/PreviewToggle";
+import { PreviewViewport } from "../../shared/preview/PreviewViewport";
+import { useFitRequest } from "../../shared/preview/useFitRequest";
+import { ViewModeMenu } from "../../shared/preview/ViewModeMenu";
+import { FitButton, ViewportControls } from "../../shared/preview/ViewportControls";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { passesOf } from "../../vfx/rendering/utils/passes";
 import { useMapParticles } from "../hooks/useMapParticles";
@@ -110,10 +102,6 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
     [chosen.map, document, geometry, shaders],
   );
 
-  const camera = usePreviewCamera();
-  const antiAliasing = usePreviewAntiAliasing();
-  const viewMode = usePreviewViewMode();
-  const wireOverlay = usePreviewWireOverlay();
   const particles = usePreviewBackdropParticles();
   const structures = usePreviewBackdropStructures();
   const sky = usePreviewBackdropSky();
@@ -132,14 +120,12 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   });
   const { warps, softens } = useMemo(() => passesOf(played.map((group) => group.system)), [played]);
 
-  const [fitToken, setFitToken] = useState(0);
-  const refit = useCallback(() => setFitToken((token) => token + 1), []);
+  const [fitToken, refit] = useFitRequest();
 
   return (
     <>
       <div ref={box} data-ui="MapViewport" className="relative min-h-0 flex-1">
-        <Viewport
-          antiAliasing={antiAliasing}
+        <PreviewViewport
           renderer="shared"
           stage={false}
           textured={false}
@@ -149,10 +135,6 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           sun={sun}
           postEffects={postEffects}
           ambientOcclusion={ambientOcclusion}
-          camera={camera}
-          viewMode={viewMode}
-          wireOverlay={wireOverlay}
-          onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
         >
           {origin !== null && <FitCamera bounds={MAP_FRAME} ground={origin} token={fitToken} />}
@@ -169,7 +151,7 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
               projector={picking.projector}
             />
           )}
-        </Viewport>
+        </PreviewViewport>
         <BoxSelect target={box} active={picking.boxing} onBox={picking.onBox} />
         {origin === null && (
           <div className="pointer-events-none absolute inset-0 flex">
@@ -177,61 +159,40 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           </div>
         )}
 
-        <div
-          data-ui="MapViewport:controls"
-          /* DS-GLASS, DS-RADIUS, DS-VEIL. The descendant selector outranks the size of each button. */
-          className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
-        >
+        <ViewportControls data-ui="MapViewport:controls">
           {variants.length > 1 && <VariantMenu variants={variants} chosen={chosen} onPick={pick} />}
-          <ViewToggle
+          <PreviewToggle
+            flag="previewBackdropParticles"
             label={m.workshop_bin_preview_backdrop_particles_label()}
-            active={particles}
-            icon={<SparkleIcon weight="bold" className="h-4 w-4" />}
-            onClick={() => setDisplay({ previewBackdropParticles: !particles })}
+            icon={<SparkleIcon />}
           />
-          <ViewToggle
-            label={m.workshop_bin_preview_backdrop_events_label()}
-            active={particles && events}
-            icon={<ConfettiIcon weight="bold" className="h-4 w-4" />}
+          <IconButton
+            pressed={particles && events}
+            icon={<ConfettiIcon />}
             onClick={() =>
               setDisplay({ previewBackdropParticles: true, previewBackdropEvents: !events })
             }
+            label={m.workshop_bin_preview_backdrop_events_label()}
           />
-          <ViewToggle
+          <PreviewToggle
+            flag="previewBackdropStructures"
             label={m.workshop_bin_preview_backdrop_structures_label()}
-            active={structures}
-            icon={<CastleTurretIcon weight="bold" className="h-4 w-4" />}
-            onClick={() => setDisplay({ previewBackdropStructures: !structures })}
+            icon={<CastleTurretIcon />}
           />
-          <ViewToggle
+          <PreviewToggle
+            flag="previewBackdropSky"
             label={m.workshop_bin_preview_backdrop_sky_label()}
-            active={sky}
-            icon={<CloudSunIcon weight="bold" className="h-4 w-4" />}
-            onClick={() => setDisplay({ previewBackdropSky: !sky })}
+            icon={<CloudSunIcon />}
           />
-          <ViewToggle
-            label={m.workshop_bin_preview_shaders_label()}
-            active={shaders}
-            icon={<HexshadeIcon className={shaders ? "h-4 w-4" : "h-4 w-4 grayscale"} />}
-            onClick={() => setDisplay({ previewShaders: !shaders })}
-          />
+          <ShadersToggle />
           <PlaceableButtons picking={picking} />
           <BackdropLayerMenu layers={layers} flags={flags} onLayerChange={setLayer} />
           <SunControl source={source} />
           <PostEffectsControl source={source} />
           <ViewModeMenu />
           <CameraMenu />
-          <Tooltip content={m.workshop_bin_mesh_preview_fit_action()}>
-            <IconButton
-              variant="ghost"
-              size="xs"
-              compact
-              aria-label={m.workshop_bin_mesh_preview_fit_action()}
-              icon={<FrameCornersIcon weight="bold" className="h-4 w-4" />}
-              onClick={refit}
-            />
-          </Tooltip>
-        </div>
+          <FitButton label={m.workshop_bin_mesh_preview_fit_action()} onFit={refit} />
+        </ViewportControls>
       </div>
     </>
   );
@@ -254,26 +215,26 @@ function VariantMenu({ variants, chosen, onPick }: VariantMenuProps) {
             size="xs"
             compact
             aria-label={m.workshop_bin_map_preview_skin_label()}
-            right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
+            right={<CaretDownIcon weight="bold" className="size-3" />}
           >
             {variantLabel(chosen)}
           </Button>
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          {/* A map lists up to 37 skins, more than a menu shows without scrolling. */}
-          <Menu.Popup data-ui="MapSkinMenu" className="max-h-96 w-56 overflow-y-auto scrollbar-md">
-            <Menu.RadioGroup value={chosen.map} onValueChange={(map) => onPick(map as MapPath)}>
-              {variants.map((variant) => (
-                <Menu.RadioItem key={`${variant.skin}:${variant.map}`} value={variant.map}>
-                  {variantLabel(variant)}
-                </Menu.RadioItem>
-              ))}
-            </Menu.RadioGroup>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      {/* A map lists up to 37 skins, more than a menu shows without scrolling. */}
+      <Menu.Content
+        align="end"
+        data-ui="MapSkinMenu"
+        className="max-h-96 w-56 overflow-y-auto scrollbar-md"
+      >
+        <Menu.RadioGroup value={chosen.map} onValueChange={(map) => onPick(map as MapPath)}>
+          {variants.map((variant) => (
+            <Menu.RadioItem key={`${variant.skin}:${variant.map}`} value={variant.map}>
+              {variantLabel(variant)}
+            </Menu.RadioItem>
+          ))}
+        </Menu.RadioGroup>
+      </Menu.Content>
     </Menu.Root>
   );
 }

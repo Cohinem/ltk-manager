@@ -2,8 +2,9 @@ import { FolderOpenIcon, FolderSimpleIcon, LinkSimpleIcon, PlusIcon } from "@pho
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
-import { Kbd } from "@/components";
+import { Kbd, OVERLINE } from "@/components";
 import { m } from "@/i18n";
+import { twMerge } from "@/utils";
 
 import { useOpenedFolders } from "../api/projectFolders";
 import { useOpenFolder } from "../hooks/useOpenFolder";
@@ -33,13 +34,13 @@ export function WorkshopStartPage() {
 
         <div className="flex flex-col gap-1">
           <StartAction
-            icon={<FolderOpenIcon weight="bold" className="h-4 w-4" />}
+            icon={<FolderOpenIcon weight="bold" className="size-4" />}
             label={m.workshop_folder_open_action()}
             shortcut="Ctrl+O"
             onClick={openFolder.pick}
           />
           <StartAction
-            icon={<PlusIcon weight="bold" className="h-4 w-4" />}
+            icon={<PlusIcon weight="bold" className="size-4" />}
             label={m.workshop_start_new_action()}
             onClick={openFolder.pick}
           />
@@ -48,7 +49,7 @@ export function WorkshopStartPage() {
             search={{ focus: "workshop.workshopPath" }}
             className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm text-accent-400 hover:bg-surface-veil"
           >
-            <FolderSimpleIcon weight="bold" className="h-4 w-4" />
+            <FolderSimpleIcon weight="bold" className="size-4" />
             {m.workshop_start_choose_action()}
           </Link>
         </div>
@@ -56,9 +57,7 @@ export function WorkshopStartPage() {
 
       {recent.length > 0 && (
         <div>
-          <h3 className="mb-2 text-xs font-medium tracking-wide text-surface-400 uppercase">
-            {m.workshop_start_recent_label()}
-          </h3>
+          <h3 className={twMerge(OVERLINE, "mb-2")}>{m.workshop_start_recent_label()}</h3>
           <ul className="flex flex-col">
             {recent.map((folder) => (
               <li key={folder.id}>
@@ -68,7 +67,7 @@ export function WorkshopStartPage() {
                   onClick={() => void openFolder.openPath(folder.path)}
                   className="grid w-full grid-cols-[1rem_minmax(0,1fr)] items-center gap-x-2.5 rounded-md px-2 py-1.5 text-left hover:bg-surface-veil-soft disabled:opacity-50"
                 >
-                  <LinkSimpleIcon className="h-4 w-4 text-surface-400" />
+                  <LinkSimpleIcon className="size-4 text-surface-400" />
                   <span className="truncate text-sm font-medium text-surface-100">
                     {folder.displayName}
                   </span>

@@ -245,17 +245,13 @@ function Choice({
           </Select.Value>
           <Select.Icon />
         </Select.Trigger>
-        <Select.Portal>
-          <Select.Positioner>
-            <Select.Popup>
-              {items.map((item) => (
-                <Select.Item key={item.value} value={item.value} className="text-meta">
-                  {item.label}
-                </Select.Item>
-              ))}
-            </Select.Popup>
-          </Select.Positioner>
-        </Select.Portal>
+        <Select.Content>
+          {items.map((item) => (
+            <Select.Item key={item.value} value={item.value} className="text-meta">
+              {item.label}
+            </Select.Item>
+          ))}
+        </Select.Content>
       </Select.Root>
     </div>
   );

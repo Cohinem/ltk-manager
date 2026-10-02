@@ -79,30 +79,32 @@ export function ModHealthLaunchGuard({ children, className }: ModHealthLaunchGua
     <div ref={anchor} className={twMerge("inline-flex", className)}>
       {children(ask)}
       <Popover.Root open={held !== null} onOpenChange={(next) => !next && setHeld(null)}>
-        <Popover.Portal>
-          <Popover.Positioner anchor={anchor} side="bottom" align="end" sideOffset={8}>
-            <Popover.Popup className="w-80 p-3">
-              <Popover.Title>Launch with {count(asked.length)}?</Popover.Title>
-              <Popover.Description className="mt-1 text-xs">
-                <Consequence repairable={repairable} />
-              </Popover.Description>
-              <div className="mt-3 flex gap-2">
-                <Button
-                  variant="filled"
-                  size="sm"
-                  className="flex-1"
-                  onClick={showTheList}
-                  left={<WayOutIcon repairable={repairable} />}
-                >
-                  {wayOut(repairable)}
-                </Button>
-                <Button variant="outline" size="sm" onClick={launchAnyway}>
-                  Launch anyway
-                </Button>
-              </div>
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
+        <Popover.Content
+          anchor={anchor}
+          side="bottom"
+          align="end"
+          sideOffset={8}
+          className="w-80 p-3"
+        >
+          <Popover.Title>Launch with {count(asked.length)}?</Popover.Title>
+          <Popover.Description className="mt-1 text-xs">
+            <Consequence repairable={repairable} />
+          </Popover.Description>
+          <div className="mt-3 flex gap-2">
+            <Button
+              variant="filled"
+              size="sm"
+              className="flex-1"
+              onClick={showTheList}
+              left={<WayOutIcon repairable={repairable} />}
+            >
+              {wayOut(repairable)}
+            </Button>
+            <Button variant="outline" size="sm" onClick={launchAnyway}>
+              Launch anyway
+            </Button>
+          </div>
+        </Popover.Content>
       </Popover.Root>
     </div>
   );
@@ -127,6 +129,6 @@ function wayOut(repairable: number): string {
 }
 
 function WayOutIcon({ repairable }: { repairable: number }) {
-  if (repairable === 0) return <WarningCircleIcon weight="duotone" className="h-4 w-4" />;
-  return <PlugsIcon weight="duotone" className="h-4 w-4" />;
+  if (repairable === 0) return <WarningCircleIcon weight="duotone" className="size-4" />;
+  return <PlugsIcon weight="duotone" className="size-4" />;
 }

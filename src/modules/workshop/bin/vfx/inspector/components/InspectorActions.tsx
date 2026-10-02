@@ -1,9 +1,8 @@
 import { FunnelSimpleIcon, MonitorPlayIcon, PlusIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
-import { twMerge } from "@/utils";
 
 import { ChangesMenu } from "../../../documents/components/ChangeMark";
 import {
@@ -44,7 +43,7 @@ export function InspectorActions({
         pressed={definedOnly}
         onPress={toggleDefinedOnly}
       >
-        <FunnelSimpleIcon weight="bold" className="h-4 w-4" />
+        <FunnelSimpleIcon weight="bold" className="size-4" />
       </ActionToggle>
       {adding !== null && (
         <ActionToggle
@@ -52,7 +51,7 @@ export function InspectorActions({
           pressed={adding}
           onPress={() => onAddingChange(!adding)}
         >
-          <PlusIcon weight="bold" className="h-4 w-4" />
+          <PlusIcon weight="bold" className="size-4" />
         </ActionToggle>
       )}
       <ActionToggle
@@ -60,7 +59,7 @@ export function InspectorActions({
         pressed={preview}
         onPress={togglePreview}
       >
-        <MonitorPlayIcon weight="bold" className="h-4 w-4" />
+        <MonitorPlayIcon weight="bold" className="size-4" />
       </ActionToggle>
       <ChangesMenu />
       <EmitterClipboardActions />
@@ -80,17 +79,6 @@ function ActionToggle({
   children: ReactNode;
 }) {
   return (
-    <Tooltip content={label}>
-      <IconButton
-        variant="ghost"
-        size="xs"
-        aria-label={label}
-        aria-pressed={pressed}
-        /* DS-VEIL */
-        className={twMerge(pressed && "bg-surface-veil-strong text-accent-400")}
-        icon={children}
-        onClick={onPress}
-      />
-    </Tooltip>
+    <IconButton compact={false} pressed={pressed} icon={children} onClick={onPress} label={label} />
   );
 }

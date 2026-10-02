@@ -1,10 +1,11 @@
-import { CaretRightIcon, DotsThreeVerticalIcon } from "@phosphor-icons/react";
+import { DotsThreeVerticalIcon } from "@phosphor-icons/react";
 import { createContext, type MouseEvent, type ReactNode, use, useRef, useState } from "react";
 
 import { IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { TreeCaret, TreeRowCount } from "../../shared/components/TreeRowParts";
 import type { DropTarget } from "../utils/outlineDrop";
 import { entryTitle, moduleTitle, type OutlineNode, type OutlineShape } from "../utils/outlineTree";
 import { type OutlineMenuHandlers, OutlineMenuItems } from "./OutlineMenuItems";
@@ -47,24 +48,15 @@ export function Caret({
         event.stopPropagation();
         onClick(event);
       }}
-      className="flex h-3 w-3 shrink-0 cursor-pointer items-center justify-center"
+      className="flex size-3 shrink-0 cursor-pointer items-center justify-center"
     >
-      <CaretRightIcon
-        className={twMerge(
-          "h-3 w-3 text-surface-400 transition-transform",
-          isExpanded && "rotate-90",
-        )}
-      />
+      <TreeCaret isExpanded={isExpanded} />
     </span>
   );
 }
 
 export function Count({ value }: { value: number }) {
-  return (
-    <span className="ml-auto shrink-0 pl-2 text-[0.625rem] text-surface-500 tabular-nums">
-      {value.toLocaleString()}
-    </span>
-  );
+  return <TreeRowCount className="pl-2">{value.toLocaleString()}</TreeRowCount>;
 }
 
 /** The row's menu behind a kebab, the same list its context menu draws. DS-MENU-SCOPE. */
@@ -78,28 +70,21 @@ export function RowKebab({ node, className }: { node: OutlineNode; className?: s
       <Menu.Trigger
         render={
           <IconButton
-            icon={<DotsThreeVerticalIcon weight="bold" className="h-3.5 w-3.5" />}
-            variant="ghost"
-            size="xs"
-            compact
+            icon={<DotsThreeVerticalIcon className="size-3.5" />}
             tabIndex={-1}
             aria-label={m.workshop_declarations_more_action()}
             onClick={(event) => event.stopPropagation()}
             className={twMerge(
-              "h-5 w-5 shrink-0 opacity-0 group-hover/row:opacity-100 group-aria-selected/row:opacity-100",
+              "size-5 shrink-0 opacity-0 group-hover/row:opacity-100 group-aria-selected/row:opacity-100",
               open && "opacity-100",
               className,
             )}
           />
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          <Menu.Popup data-ui="DeclarationsTreeRow:menu" className="w-60">
-            <OutlineMenuItems node={node} handlers={handlers} />
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="end" data-ui="DeclarationsTreeRow:menu" className="w-60">
+        <OutlineMenuItems node={node} handlers={handlers} />
+      </Menu.Content>
     </Menu.Root>
   );
 }
@@ -161,7 +146,7 @@ export function RowTag({ children, className }: { children: ReactNode; className
   return (
     <span
       className={twMerge(
-        "flex min-w-0 shrink items-center gap-1 font-sans text-[0.625rem] text-surface-400",
+        "flex min-w-0 shrink items-center gap-1 font-sans text-fine text-surface-400",
         className,
       )}
     >

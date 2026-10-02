@@ -101,19 +101,15 @@ export function BinContextMenu({
   /* A removed object's row offers its restore and its path, and nothing that reads it. */
   if (change === "removed") {
     return (
-      <ContextMenu.Portal>
-        <ContextMenu.Positioner>
-          <ContextMenu.Popup className="w-56">
-            <ObjectMenuItems row={row} />
-            <ContextMenu.Item
-              icon={<PathIcon />}
-              onClick={() => void copy(row.name, m.workshop_bin_path_label())}
-            >
-              {m.workshop_bin_copy_path_action()}
-            </ContextMenu.Item>
-          </ContextMenu.Popup>
-        </ContextMenu.Positioner>
-      </ContextMenu.Portal>
+      <ContextMenu.Content className="w-56">
+        <ObjectMenuItems row={row} />
+        <ContextMenu.Item
+          icon={<PathIcon />}
+          onClick={() => void copy(row.name, m.workshop_bin_path_label())}
+        >
+          {m.workshop_bin_copy_path_action()}
+        </ContextMenu.Item>
+      </ContextMenu.Content>
     );
   }
   const edits = edit === null ? [] : rowEdits(line);
@@ -132,162 +128,149 @@ export function BinContextMenu({
   const openLink = linkOpener(row.value, link, open, wantOpen);
 
   return (
-    <ContextMenu.Portal>
-      <ContextMenu.Positioner>
-        <ContextMenu.Popup className="w-56">
-          {openLink && (
-            <>
-              <ContextMenu.Item icon={<LinkIcon />} onClick={() => openLink("default")}>
-                {m.workshop_bin_open_link_action()}
-              </ContextMenu.Item>
-              <ContextMenu.Item icon={<LinkIcon />} onClick={() => openLink("beside")}>
-                {m.workshop_bin_open_link_beside_action()}
-              </ContextMenu.Item>
-              <ContextMenu.Separator />
-            </>
-          )}
-          {openObject && (
-            <>
-              <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={() => openObject("default")}>
-                {m.workshop_bin_open_object_action()}
-              </ContextMenu.Item>
-              <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={() => openObject("beside")}>
-                {m.workshop_bin_open_object_beside_action()}
-              </ContextMenu.Item>
-              <ContextMenu.Separator />
-            </>
-          )}
-          {(object || target) && (
-            <>
-              <ContextMenu.Item
-                icon={<MagnifyingGlassIcon />}
-                onClick={() => findReferences(objectReferences(row.entry, row.name))}
-              >
-                {m.workshop_references_find_object_action()}
-              </ContextMenu.Item>
-              <ContextMenu.Item
-                icon={<TreeStructureIcon />}
-                onClick={() => revealInObjects(row.name)}
-              >
-                {m.workshop_objects_reveal_action()}
-              </ContextMenu.Item>
-            </>
-          )}
-          {struct !== null && (
-            <ContextMenu.Item
-              icon={<MagnifyingGlassIcon />}
-              onClick={() =>
-                findReferences(
-                  object
-                    ? classReferences(struct.classHash, struct.class)
-                    : embeddedReferences(struct.classHash, struct.class),
-                )
-              }
-            >
-              {m.workshop_references_find_class_action()}
-            </ContextMenu.Item>
-          )}
-          {onShowInProperties && (
-            <ContextMenu.Item
-              icon={<TreeStructureIcon />}
-              onClick={() => onShowInProperties(line.key)}
-            >
-              {m.workshop_bin_show_in_properties_action()}
-            </ContextMenu.Item>
-          )}
-          {mark?.curve === true && (
-            <ContextMenu.Item
-              icon={<WaveSineIcon />}
-              onClick={() => aim({ row, chain: row.label })}
-            >
-              {m.workshop_bin_show_curve_action()}
-            </ContextMenu.Item>
-          )}
-          {(object || target || struct !== null || onShowInProperties || mark?.curve === true) && (
-            <ContextMenu.Separator />
-          )}
-          {edit !== null && TEXT_VALUES.has(row.value.type) && (
-            <ContextMenu.Item icon={<PencilSimpleIcon />} onClick={() => edit.editValue(line.key)}>
-              {m.workshop_bin_edit_value_action()}
-            </ContextMenu.Item>
-          )}
-          {edits.map((kind) => {
-            const Glyph = EDIT_ICON[kind];
-            const refused = declares ? undeclarable(kind, row) : null;
-            return (
-              <ContextMenu.Item
-                key={kind}
-                icon={<Glyph />}
-                disabled={refused !== null}
-                title={refused ?? undefined}
-                onClick={() => edit?.run(line, kind)}
-              >
-                {editLabel(kind)}
-              </ContextMenu.Item>
-            );
-          })}
-          {resets && <ResetMenuItem row={row} owner={line.owner} curve={mark?.curve === true} />}
-          <RevertMenuItem row={row} />
-          {(edits.length > 0 || resets) && <ContextMenu.Separator />}
-          <ObjectMenuItems row={row} />
-          <DeclarationMenuItems row={row} />
-          <ContextMenu.Item
-            icon={<PathIcon />}
-            onClick={() => void copy(path, m.workshop_bin_path_label())}
-          >
-            {m.workshop_bin_copy_path_action()}
+    <ContextMenu.Content className="w-56">
+      {openLink && (
+        <>
+          <ContextMenu.Item icon={<LinkIcon />} onClick={() => openLink("default")}>
+            {m.workshop_bin_open_link_action()}
           </ContextMenu.Item>
-          {property && !row.unnamed && (
-            <ContextMenu.Item
-              icon={<CopyIcon />}
-              onClick={() => void copy(row.name, m.workshop_bin_name_label())}
-            >
-              {m.workshop_bin_copy_name_action()}
-            </ContextMenu.Item>
-          )}
-          {property && (
-            <ContextMenu.Item
-              icon={<HashIcon />}
-              onClick={() => void copy(fieldHash(row.path), m.workshop_bin_hash_label())}
-            >
-              {m.workshop_bin_copy_field_hash_action()}
-            </ContextMenu.Item>
-          )}
-          {valueText !== null && (
-            <ContextMenu.Item
-              icon={<CopyIcon />}
-              onClick={() => void copy(valueText, m.workshop_bin_value_label())}
-            >
-              {m.workshop_bin_copy_value_action()}
-            </ContextMenu.Item>
-          )}
-          {valueHash !== null && (
-            <ContextMenu.Item
-              icon={<HashIcon />}
-              onClick={() => void copy(valueHash, m.workshop_bin_hash_label())}
-            >
-              {m.workshop_bin_copy_value_hash_action()}
-            </ContextMenu.Item>
-          )}
-          {structName !== null && (
-            <ContextMenu.Item
-              icon={<CopyIcon />}
-              onClick={() => void copy(structName, m.workshop_bin_name_label())}
-            >
-              {m.workshop_bin_copy_class_name_action()}
-            </ContextMenu.Item>
-          )}
-          {struct !== null && (
-            <ContextMenu.Item
-              icon={<HashIcon />}
-              onClick={() => void copy(struct.classHash, m.workshop_bin_hash_label())}
-            >
-              {m.workshop_bin_copy_class_hash_action()}
-            </ContextMenu.Item>
-          )}
-        </ContextMenu.Popup>
-      </ContextMenu.Positioner>
-    </ContextMenu.Portal>
+          <ContextMenu.Item icon={<LinkIcon />} onClick={() => openLink("beside")}>
+            {m.workshop_bin_open_link_beside_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Separator />
+        </>
+      )}
+      {openObject && (
+        <>
+          <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={() => openObject("default")}>
+            {m.workshop_bin_open_object_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={() => openObject("beside")}>
+            {m.workshop_bin_open_object_beside_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Separator />
+        </>
+      )}
+      {(object || target) && (
+        <>
+          <ContextMenu.Item
+            icon={<MagnifyingGlassIcon />}
+            onClick={() => findReferences(objectReferences(row.entry, row.name))}
+          >
+            {m.workshop_references_find_object_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Item icon={<TreeStructureIcon />} onClick={() => revealInObjects(row.name)}>
+            {m.workshop_objects_reveal_action()}
+          </ContextMenu.Item>
+        </>
+      )}
+      {struct !== null && (
+        <ContextMenu.Item
+          icon={<MagnifyingGlassIcon />}
+          onClick={() =>
+            findReferences(
+              object
+                ? classReferences(struct.classHash, struct.class)
+                : embeddedReferences(struct.classHash, struct.class),
+            )
+          }
+        >
+          {m.workshop_references_find_class_action()}
+        </ContextMenu.Item>
+      )}
+      {onShowInProperties && (
+        <ContextMenu.Item icon={<TreeStructureIcon />} onClick={() => onShowInProperties(line.key)}>
+          {m.workshop_bin_show_in_properties_action()}
+        </ContextMenu.Item>
+      )}
+      {mark?.curve === true && (
+        <ContextMenu.Item icon={<WaveSineIcon />} onClick={() => aim({ row, chain: row.label })}>
+          {m.workshop_bin_show_curve_action()}
+        </ContextMenu.Item>
+      )}
+      {(object || target || struct !== null || onShowInProperties || mark?.curve === true) && (
+        <ContextMenu.Separator />
+      )}
+      {edit !== null && TEXT_VALUES.has(row.value.type) && (
+        <ContextMenu.Item icon={<PencilSimpleIcon />} onClick={() => edit.editValue(line.key)}>
+          {m.workshop_bin_edit_value_action()}
+        </ContextMenu.Item>
+      )}
+      {edits.map((kind) => {
+        const Glyph = EDIT_ICON[kind];
+        const refused = declares ? undeclarable(kind, row) : null;
+        return (
+          <ContextMenu.Item
+            key={kind}
+            icon={<Glyph />}
+            disabled={refused !== null}
+            title={refused ?? undefined}
+            onClick={() => edit?.run(line, kind)}
+          >
+            {editLabel(kind)}
+          </ContextMenu.Item>
+        );
+      })}
+      {resets && <ResetMenuItem row={row} owner={line.owner} curve={mark?.curve === true} />}
+      <RevertMenuItem row={row} />
+      {(edits.length > 0 || resets) && <ContextMenu.Separator />}
+      <ObjectMenuItems row={row} />
+      <DeclarationMenuItems row={row} />
+      <ContextMenu.Item
+        icon={<PathIcon />}
+        onClick={() => void copy(path, m.workshop_bin_path_label())}
+      >
+        {m.workshop_bin_copy_path_action()}
+      </ContextMenu.Item>
+      {property && !row.unnamed && (
+        <ContextMenu.Item
+          icon={<CopyIcon />}
+          onClick={() => void copy(row.name, m.workshop_bin_name_label())}
+        >
+          {m.workshop_bin_copy_name_action()}
+        </ContextMenu.Item>
+      )}
+      {property && (
+        <ContextMenu.Item
+          icon={<HashIcon />}
+          onClick={() => void copy(fieldHash(row.path), m.workshop_bin_hash_label())}
+        >
+          {m.workshop_bin_copy_field_hash_action()}
+        </ContextMenu.Item>
+      )}
+      {valueText !== null && (
+        <ContextMenu.Item
+          icon={<CopyIcon />}
+          onClick={() => void copy(valueText, m.workshop_bin_value_label())}
+        >
+          {m.workshop_bin_copy_value_action()}
+        </ContextMenu.Item>
+      )}
+      {valueHash !== null && (
+        <ContextMenu.Item
+          icon={<HashIcon />}
+          onClick={() => void copy(valueHash, m.workshop_bin_hash_label())}
+        >
+          {m.workshop_bin_copy_value_hash_action()}
+        </ContextMenu.Item>
+      )}
+      {structName !== null && (
+        <ContextMenu.Item
+          icon={<CopyIcon />}
+          onClick={() => void copy(structName, m.workshop_bin_name_label())}
+        >
+          {m.workshop_bin_copy_class_name_action()}
+        </ContextMenu.Item>
+      )}
+      {struct !== null && (
+        <ContextMenu.Item
+          icon={<HashIcon />}
+          onClick={() => void copy(struct.classHash, m.workshop_bin_hash_label())}
+        >
+          {m.workshop_bin_copy_class_hash_action()}
+        </ContextMenu.Item>
+      )}
+    </ContextMenu.Content>
   );
 }
 

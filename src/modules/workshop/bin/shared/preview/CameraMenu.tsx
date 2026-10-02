@@ -32,28 +32,24 @@ export function CameraMenu() {
             size="xs"
             compact
             aria-label={m.workshop_bin_preview_camera_label()}
-            left={<VideoCameraIcon weight="bold" className="h-4 w-4" />}
-            right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
+            left={<VideoCameraIcon weight="bold" className="size-4" />}
+            right={<CaretDownIcon weight="bold" className="size-3" />}
           >
             {PRESET_LABEL[camera]()}
           </Button>
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          <Menu.Popup data-ui="CameraMenu" className="w-36">
-            {CAMERA_PRESETS.map((preset) => (
-              <Menu.Item
-                key={preset}
-                icon={preset === camera && <CheckIcon weight="bold" className="h-4 w-4" />}
-                onClick={() => setDisplay({ previewCamera: preset })}
-              >
-                {PRESET_LABEL[preset]()}
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="end" data-ui="CameraMenu" className="w-36">
+        {CAMERA_PRESETS.map((preset) => (
+          <Menu.Item
+            key={preset}
+            icon={preset === camera && <CheckIcon weight="bold" className="size-4" />}
+            onClick={() => setDisplay({ previewCamera: preset })}
+          >
+            {PRESET_LABEL[preset]()}
+          </Menu.Item>
+        ))}
+      </Menu.Content>
     </Menu.Root>
   );
 }

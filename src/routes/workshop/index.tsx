@@ -1,11 +1,11 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { ErrorState, LoadingState } from "@/components";
+import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { useSettings } from "@/modules/settings";
 import {
-  ErrorState,
-  LoadingState,
   MissingProjects,
   NoProjectsState,
   NoSearchResultsState,
@@ -51,8 +51,8 @@ function WorkshopIndex() {
   }
 
   function renderContent() {
-    if (isLoading) return <LoadingState />;
-    if (error) return <ErrorState error={error} />;
+    if (isLoading) return <LoadingState className="h-64" />;
+    if (error) return <ErrorState error={error} title={m.workshop_projects_error_title()} />;
     if (!settings?.workshopPath && projects?.length === 0) return <WorkshopStartPage />;
     if (filteredProjects.length === 0) {
       if (searchQuery || hasActiveFilters) return <NoSearchResultsState />;

@@ -191,7 +191,7 @@ export function ConvertFolderDialog() {
           <Button
             variant="ghost"
             className="mr-auto whitespace-nowrap"
-            left={<FolderOpenIcon weight="bold" className="h-4 w-4" />}
+            left={<FolderOpenIcon weight="bold" className="size-4" />}
             onClick={handleChooseAnother}
             disabled={convert.isPending}
           >
@@ -235,8 +235,8 @@ function PickedFolder({ path }: { path: string }) {
       data-ui="ConvertFolderDialog:folder"
       className="flex items-center gap-3 rounded-lg border border-surface-700 bg-surface-950/30 px-3 py-2.5"
     >
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-folder/15 text-folder-text">
-        <FolderSimpleIcon weight="fill" className="h-5 w-5" />
+      <span className="grid size-9 shrink-0 place-items-center rounded-md bg-folder/15 text-folder-text">
+        <FolderSimpleIcon weight="fill" className="size-5" />
       </span>
       <span className="flex min-w-0 flex-col select-text">
         <span className="truncate text-sm font-medium text-surface-100">{name}</span>
@@ -280,7 +280,7 @@ function FoundFiles({ layout }: { layout: FantomeFolder }) {
 function FoundRow({ name, hint }: { name: string; hint: string }) {
   return (
     <li className="flex items-center gap-2.5 px-3 py-2">
-      <CheckIcon weight="bold" className="h-4 w-4 shrink-0 text-success-text" />
+      <CheckIcon weight="bold" className="size-4 shrink-0 text-success-text" />
       <span className="min-w-0 truncate font-mono text-code text-surface-200 select-text">
         {name}
       </span>

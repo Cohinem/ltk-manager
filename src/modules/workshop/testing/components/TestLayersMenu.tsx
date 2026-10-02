@@ -32,6 +32,7 @@ export function TestLayersMenu({ project, className }: TestLayersMenuProps) {
       <Menu.Trigger
         render={
           <IconButton
+            compact={false}
             data-ui="TestLayersMenu"
             icon={
               <span className="flex items-center gap-1">
@@ -43,39 +44,34 @@ export function TestLayersMenu({ project, className }: TestLayersMenuProps) {
                     })}
                   </span>
                 )}
-                <CaretDownIcon weight="bold" className="h-3.5 w-3.5" />
+                <CaretDownIcon weight="bold" className="size-3.5" />
               </span>
             }
-            variant="ghost"
             size="sm"
             aria-label={m.workshop_test_layers_label()}
             className={twMerge("w-auto px-1.5", className)}
           />
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          <Menu.Popup className="w-56">
-            <Menu.Group>
-              <Menu.GroupLabel>{m.workshop_test_layers_title()}</Menu.GroupLabel>
-              {layers.map((layer) => {
-                const isBase = layer.name === "base";
+      <Menu.Content align="end" className="w-56">
+        <Menu.Group>
+          <Menu.GroupLabel>{m.workshop_test_layers_title()}</Menu.GroupLabel>
+          {layers.map((layer) => {
+            const isBase = layer.name === "base";
 
-                return (
-                  <Menu.CheckboxItem
-                    key={layer.name}
-                    checked={isBase || !excluded.includes(layer.name)}
-                    disabled={isBase}
-                    onCheckedChange={() => toggleLayer(project.path, layer.name)}
-                  >
-                    {layer.displayName || layer.name}
-                  </Menu.CheckboxItem>
-                );
-              })}
-            </Menu.Group>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+            return (
+              <Menu.CheckboxItem
+                key={layer.name}
+                checked={isBase || !excluded.includes(layer.name)}
+                disabled={isBase}
+                onCheckedChange={() => toggleLayer(project.path, layer.name)}
+              >
+                {layer.displayName || layer.name}
+              </Menu.CheckboxItem>
+            );
+          })}
+        </Menu.Group>
+      </Menu.Content>
     </Menu.Root>
   );
 }

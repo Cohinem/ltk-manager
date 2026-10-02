@@ -1,8 +1,9 @@
 import { PerspectiveCamera } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { type Camera, Color, type IUniform, Scene } from "three";
 
+import { useResizeObserver } from "@/hooks";
 import { type Bounds, OUTPUT_COLOR_SPACE, TONE_MAPPING } from "@/modules/viewport";
 
 import type { EmitterModel } from "../../engine/model/model";
@@ -41,7 +42,10 @@ const MARGIN = 0.85;
  * one WebGL context serves every node. Pointer events pass through to the nodes.
  */
 export function EmitterPreviewLayer() {
-  const [box, sized] = useHasSize();
+  const [sized, setSized] = useState(false);
+  const box = useResizeObserver<HTMLDivElement>((element) => {
+    setSized(element.clientWidth > 0 && element.clientHeight > 0);
+  });
 
   return (
     <div
@@ -92,23 +96,6 @@ function FrameGuard() {
 
 /* Below every other callback's priority, the views' draws and R3F's default included. */
 const BEFORE_ALL = -1000;
-
-/** A box to measure, and whether it has an area, which a pane in a hidden tab does not. */
-function useHasSize(): [(element: HTMLDivElement | null) => void, boolean] {
-  const [sized, setSized] = useState(false);
-  const box = useCallback((element: HTMLDivElement | null) => {
-    if (element === null) return;
-
-    const observer = new ResizeObserver(([entry]) => {
-      const rect = entry?.contentRect;
-      setSized(rect !== undefined && rect.width > 0 && rect.height > 0);
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-
-  return [box, sized];
-}
 
 /**
  * Keeps the canvas's size and place on the page equal to the layer's, which each view is

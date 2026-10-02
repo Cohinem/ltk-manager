@@ -24,7 +24,7 @@ import {
 } from "../../state";
 import type { ProjectCommand } from "../utils/types";
 
-const GLYPH = "h-4 w-4";
+const GLYPH = "size-4";
 const VIEW = "View";
 /** What a batch close of pinned tabs alone says in place of its shortcut. */
 const PINNED_THROUGH = "Every tab of the batch is pinned";

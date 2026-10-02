@@ -8,7 +8,7 @@ import {
   type ImportGitRepoArgs,
   type WorkshopProject,
 } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn } from "@/utils/query";
 
 import { addProject } from "../../projects/api/cache";
 
@@ -16,25 +16,25 @@ import { addProject } from "../../projects/api/cache";
 export const projectImportMutations = {
   fromFantome: (client: QueryClient) =>
     mutationOptions<WorkshopProject, AppError, ImportFantomeArgs>({
-      mutationFn: async (args) => unwrapForQuery(await api.importFromFantome(args)),
+      mutationFn: mutationFn(api.importFromFantome),
       onSuccess: (created) => addProject(client, created),
     }),
 
   fromGitRepo: (client: QueryClient) =>
     mutationOptions<WorkshopProject, AppError, ImportGitRepoArgs>({
-      mutationFn: async (args) => unwrapForQuery(await api.importFromGitRepo(args)),
+      mutationFn: mutationFn(api.importFromGitRepo),
       onSuccess: (created) => addProject(client, created),
     }),
 
   fromModpkg: (client: QueryClient) =>
     mutationOptions<WorkshopProject, AppError, string>({
-      mutationFn: async (filePath) => unwrapForQuery(await api.importFromModpkg(filePath)),
+      mutationFn: mutationFn(api.importFromModpkg),
       onSuccess: (created) => addProject(client, created),
     }),
 
   /** What a `.fantome` holds, read without unpacking it. */
   peekFantome: () =>
     mutationOptions<FantomePeekResult, AppError, string>({
-      mutationFn: async (filePath) => unwrapForQuery(await api.peekFantome(filePath)),
+      mutationFn: mutationFn(api.peekFantome),
     }),
 } as const;

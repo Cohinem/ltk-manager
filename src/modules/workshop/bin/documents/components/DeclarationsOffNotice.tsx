@@ -31,7 +31,7 @@ export function DeclarationsOffNotice({ asset, file, subject }: DeclarationsOffN
     <AlertBox
       data-ui="DeclarationsOffNotice"
       variant="neutral"
-      icon={<LockSimpleIcon className="h-4 w-4" />}
+      icon={<LockSimpleIcon className="size-4" />}
       title={m.workshop_bin_declarations_off_title()}
       className="mx-2 mt-2 shrink-0 select-none"
       actions={
@@ -40,7 +40,7 @@ export function DeclarationsOffNotice({ asset, file, subject }: DeclarationsOffN
             <Button
               variant="ghost"
               size="xs"
-              left={<StackPlusIcon weight="bold" className="h-4 w-4" />}
+              left={<StackPlusIcon weight="bold" className="size-4" />}
               disabled={busy}
               onClick={() => run("copy", [target], subject)}
             >
@@ -50,7 +50,7 @@ export function DeclarationsOffNotice({ asset, file, subject }: DeclarationsOffN
           <Button
             variant="outline"
             size="xs"
-            left={<SealCheckIcon weight="bold" className="h-4 w-4" />}
+            left={<SealCheckIcon weight="bold" className="size-4" />}
             onClick={() => setUseDeclarations(true)}
           >
             {m.workshop_bin_declarations_declare_action()}

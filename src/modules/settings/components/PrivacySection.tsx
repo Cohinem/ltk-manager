@@ -1,21 +1,16 @@
 import { ShieldCheckIcon } from "@phosphor-icons/react";
 
-import { Button, Code, ExternalLink, SectionCard, Switch, useToast } from "@/components";
+import { Button, Code, ExternalLink, SectionCard, useToast } from "@/components";
 import { m } from "@/i18n";
-import type { Settings } from "@/lib/tauri";
 
 import { useResetTelemetrySecret, useTelemetryIdentity } from "../api";
 import { PRIVACY_PAGE_URL } from "../privacyPage";
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
-
-interface PrivacySectionProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
+import { SettingSwitch } from "./SettingSwitch";
 
 /** What leaves the machine, and the two controls a reader has over it. */
-export function PrivacySection({ settings, onSave }: PrivacySectionProps) {
+export function PrivacySection() {
   const { data: identity } = useTelemetryIdentity();
   const resetSecret = useResetTelemetrySecret();
   const toast = useToast();
@@ -30,18 +25,13 @@ export function PrivacySection({ settings, onSave }: PrivacySectionProps) {
     <SectionCard
       title={m.diagnostics_privacy_title()}
       description={m.diagnostics_privacy_description()}
-      icon={<ShieldCheckIcon className="h-5 w-5" />}
+      icon={<ShieldCheckIcon className="size-5" />}
     >
       <SettingGroup id="general.privacy" title={m.diagnostics_privacy_title()}>
         <SettingRow
           setting="telemetryEnabled"
           description={m.diagnostics_telemetry_row_description()}
-          control={
-            <Switch
-              checked={settings.telemetryEnabled}
-              onCheckedChange={(checked) => onSave({ ...settings, telemetryEnabled: checked })}
-            />
-          }
+          control={<SettingSwitch setting="telemetryEnabled" />}
         />
 
         <div className="flex flex-col gap-3 pl-7 select-none">

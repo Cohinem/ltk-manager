@@ -37,47 +37,46 @@ export function ContentLayoutPopover() {
         <Popover.Trigger
           render={
             <IconButton
-              icon={<SidebarSimpleIcon weight="bold" className="h-4 w-4" />}
-              variant="ghost"
+              compact={false}
+              icon={<SidebarSimpleIcon />}
               size="sm"
               aria-label="Layout options"
             />
           }
         />
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end" sideOffset={8}>
-          <Popover.Popup
-            aria-label="Layout options"
-            className="w-56 divide-y divide-surface-600/50 p-0 select-none"
-          >
-            <FilterSection>
-              <Checkbox
-                size="sm"
-                label="Show side panel"
-                checked={layerPanelOpen}
-                onCheckedChange={setLayerPanelOpen}
-              />
-            </FilterSection>
+      <Popover.Content
+        side="bottom"
+        align="end"
+        sideOffset={8}
+        aria-label="Layout options"
+        className="w-56 divide-y divide-surface-600/50 p-0 select-none"
+      >
+        <FilterSection>
+          <Checkbox
+            size="sm"
+            label="Show side panel"
+            checked={layerPanelOpen}
+            onCheckedChange={setLayerPanelOpen}
+          />
+        </FilterSection>
 
-            {layerPanelOpen && (
-              <FilterSection title="Side panel position">
-                <SegmentedControl
-                  options={SIDE_OPTIONS}
-                  value={layerPanelSide}
-                  onChange={setLayerPanelSide}
-                />
-              </FilterSection>
-            )}
+        {layerPanelOpen && (
+          <FilterSection title="Side panel position">
+            <SegmentedControl
+              options={SIDE_OPTIONS}
+              value={layerPanelSide}
+              onChange={setLayerPanelSide}
+            />
+          </FilterSection>
+        )}
 
-            <FilterSection>
-              <Button variant="outline" size="sm" className="w-full" onClick={resetLayout}>
-                Reset layout
-              </Button>
-            </FilterSection>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+        <FilterSection>
+          <Button variant="outline" size="sm" className="w-full" onClick={resetLayout}>
+            Reset layout
+          </Button>
+        </FilterSection>
+      </Popover.Content>
     </Popover.Root>
   );
 }

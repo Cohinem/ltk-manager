@@ -2,9 +2,9 @@ import { MapPinIcon, SelectionPlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
 
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
 
-import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { mapQueries } from "../api/mapQueries";
 import { useMapScene } from "../state/mapScene";
 import { type PlacedItem, placedItems } from "../utils/mapOutline";
@@ -64,20 +64,20 @@ export function PlaceableButtons({ picking }: { picking: PlaceablePicking }) {
 
   return (
     <>
-      <ViewToggle
-        label={m.workshop_bin_map_markers_label()}
-        active={picking.shown}
-        icon={<MapPinIcon weight="bold" className="h-4 w-4" />}
+      <IconButton
+        pressed={picking.shown}
+        icon={<MapPinIcon />}
         onClick={() => {
           setMarkers(!picking.shown);
           if (picking.shown) picking.setBoxing(false);
         }}
+        label={m.workshop_bin_map_markers_label()}
       />
-      <ViewToggle
-        label={m.workshop_bin_map_box_select_label()}
-        active={picking.boxing}
-        icon={<SelectionPlusIcon weight="bold" className="h-4 w-4" />}
+      <IconButton
+        pressed={picking.boxing}
+        icon={<SelectionPlusIcon />}
         onClick={() => picking.setBoxing(!picking.boxing)}
+        label={m.workshop_bin_map_box_select_label()}
       />
     </>
   );

@@ -19,15 +19,12 @@ import {
   SectionCard,
   useToast,
 } from "@/components";
-import type { AuthorProfile, Settings } from "@/lib/tauri";
+import type { AuthorProfile } from "@/lib/tauri";
+
+import { useLoadedSettings, useUpdateSettings } from "../api";
 
 /** A cap the UI imposes on itself - settings will hold as many as it is given. */
 const MAX_PROFILES = 5;
-
-interface AuthorProfilesSectionProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
 
 interface Draft {
   id: string;
@@ -37,7 +34,9 @@ interface Draft {
   isNew: boolean;
 }
 
-export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectionProps) {
+export function AuthorProfilesSection() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   const [draft, setDraft] = useState<Draft | null>(null);
   const { toast } = useToast();
 
@@ -74,7 +73,7 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
       : profiles.map((profile) => (profile.id === draft.id ? { ...profile, name, role } : profile));
 
     setDraft(null);
-    onSave({ ...settings, authorProfiles: updated });
+    update({ authorProfiles: updated });
   }
 
   function settleDraft() {
@@ -91,8 +90,7 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
     const wasDefault = defaultId === profile.id;
 
     if (draft?.id === profile.id) setDraft(null);
-    onSave({
-      ...settings,
+    update({
       authorProfiles: profiles.filter((p) => p.id !== profile.id),
       defaultAuthorProfileId: wasDefault ? null : defaultId,
     });
@@ -106,8 +104,7 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
           const current = settingsRef.current;
           const restored = [...(current.authorProfiles ?? [])];
           restored.splice(index, 0, profile);
-          onSave({
-            ...current,
+          update({
             authorProfiles: restored,
             defaultAuthorProfileId: wasDefault ? profile.id : current.defaultAuthorProfileId,
           });
@@ -117,10 +114,7 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
   }
 
   function toggleDefault(profile: AuthorProfile) {
-    onSave({
-      ...settings,
-      defaultAuthorProfileId: defaultId === profile.id ? null : profile.id,
-    });
+    update({ defaultAuthorProfileId: defaultId === profile.id ? null : profile.id });
   }
 
   const actions: ListEditorAction<AuthorProfile>[] = [
@@ -132,12 +126,12 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
       onSelect: toggleDefault,
     },
     {
-      icon: <PencilSimpleIcon weight="bold" className="h-4 w-4" />,
+      icon: <PencilSimpleIcon weight="bold" className="size-4" />,
       label: "Edit",
       onSelect: beginEdit,
     },
     {
-      icon: <TrashIcon weight="bold" className="h-4 w-4" />,
+      icon: <TrashIcon weight="bold" className="size-4" />,
       label: "Remove",
       variant: "danger",
       onSelect: removeProfile,
@@ -147,7 +141,7 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
   return (
     <SectionCard
       title="Author profiles"
-      icon={<UsersThreeIcon className="h-5 w-5" />}
+      icon={<UsersThreeIcon className="size-5" />}
       description="Saved author identities you can reuse across projects."
       action={
         <div className="flex items-center gap-2">
@@ -155,7 +149,7 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
           <Button
             variant="outline"
             size="sm"
-            left={<PlusIcon weight="bold" className="h-4 w-4" />}
+            left={<PlusIcon weight="bold" className="size-4" />}
             onClick={beginAdd}
             disabled={atLimit}
           >
@@ -195,7 +189,7 @@ export function AuthorProfilesSection({ settings, onSave }: AuthorProfilesSectio
               <Button
                 variant="light"
                 size="sm"
-                left={<PlusIcon weight="bold" className="h-4 w-4" />}
+                left={<PlusIcon weight="bold" className="size-4" />}
                 onClick={beginAdd}
               >
                 Add Profile
@@ -229,7 +223,7 @@ function ProfileRow({ profile, isDefault }: { profile: AuthorProfile; isDefault:
           {profile.name}
         </span>
         {isDefault && (
-          <span className="shrink-0 rounded-full bg-accent-500/15 px-2 py-0.5 text-[0.625rem] font-medium tracking-wide text-accent-300 uppercase">
+          <span className="shrink-0 rounded-full bg-accent-500/15 px-2 py-0.5 text-fine font-medium tracking-wide text-accent-300 uppercase">
             Default
           </span>
         )}
@@ -298,22 +292,13 @@ function ProfileEditor({
           className="w-44 shrink-0"
         />
         <IconButton
-          icon={<CheckIcon weight="bold" className="h-4 w-4" />}
-          variant="ghost"
+          icon={<CheckIcon />}
           size="sm"
-          compact
           aria-label="Save profile"
           disabled={!canCommit}
           onClick={onCommit}
         />
-        <IconButton
-          icon={<XIcon weight="bold" className="h-4 w-4" />}
-          variant="ghost"
-          size="sm"
-          compact
-          aria-label="Discard changes"
-          onClick={onCancel}
-        />
+        <IconButton icon={<XIcon />} size="sm" aria-label="Discard changes" onClick={onCancel} />
       </div>
       {duplicateName && (
         <p className="px-1 text-xs text-danger-text">A profile with that name already exists.</p>
@@ -323,8 +308,8 @@ function ProfileEditor({
 }
 
 function DefaultStar({ active }: { active: boolean }) {
-  if (active) return <StarIcon weight="fill" className="h-4 w-4 text-accent-400" />;
-  return <StarIcon weight="bold" className="h-4 w-4" />;
+  if (active) return <StarIcon weight="fill" className="size-4 text-accent-400" />;
+  return <StarIcon weight="bold" className="size-4" />;
 }
 
 function ProfileCount({ used }: { used: number }) {

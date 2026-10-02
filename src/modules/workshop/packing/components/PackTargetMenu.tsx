@@ -33,9 +33,9 @@ export function PackTargetMenu({ disabled, className }: PackTargetMenuProps) {
       <Menu.Trigger
         render={
           <IconButton
+            compact={false}
             data-ui="PackTargetMenu"
-            icon={<CaretDownIcon weight="bold" className="h-3.5 w-3.5" />}
-            variant="ghost"
+            icon={<CaretDownIcon className="size-3.5" />}
             size="sm"
             disabled={disabled}
             aria-label={m.workshop_pack_target_label()}
@@ -43,25 +43,21 @@ export function PackTargetMenu({ disabled, className }: PackTargetMenuProps) {
           />
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          <Menu.Popup className="w-60">
-            <Menu.Group>
-              <Menu.GroupLabel>{m.workshop_pack_target_title()}</Menu.GroupLabel>
-              <Menu.RadioGroup
-                value={target}
-                onValueChange={(value: unknown) => setTarget(value as PackTarget)}
-              >
-                {(Object.keys(TARGET_LABELS) as PackTarget[]).map((option) => (
-                  <Menu.RadioItem key={option} value={option} closeOnClick>
-                    {TARGET_LABELS[option]()}
-                  </Menu.RadioItem>
-                ))}
-              </Menu.RadioGroup>
-            </Menu.Group>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="end" className="w-60">
+        <Menu.Group>
+          <Menu.GroupLabel>{m.workshop_pack_target_title()}</Menu.GroupLabel>
+          <Menu.RadioGroup
+            value={target}
+            onValueChange={(value: unknown) => setTarget(value as PackTarget)}
+          >
+            {(Object.keys(TARGET_LABELS) as PackTarget[]).map((option) => (
+              <Menu.RadioItem key={option} value={option} closeOnClick>
+                {TARGET_LABELS[option]()}
+              </Menu.RadioItem>
+            ))}
+          </Menu.RadioGroup>
+        </Menu.Group>
+      </Menu.Content>
     </Menu.Root>
   );
 }

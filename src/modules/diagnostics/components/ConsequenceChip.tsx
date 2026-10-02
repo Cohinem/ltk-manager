@@ -35,7 +35,7 @@ export function ConsequenceChip({ consequence, className }: ConsequenceChipProps
     <span
       data-ui="ConsequenceChip"
       className={twMerge(
-        "inline-flex h-5 shrink-0 items-center rounded-sm border px-1.5 font-mono text-[0.625rem] font-semibold tracking-wider uppercase select-none",
+        "inline-flex h-5 shrink-0 items-center rounded-sm border px-1.5 font-mono text-fine font-semibold tracking-wider uppercase select-none",
         cost.className,
         className,
       )}

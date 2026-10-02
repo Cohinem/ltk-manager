@@ -1,6 +1,14 @@
 import type { ReactNode } from "react";
 
-import { Code, ExternalLink, HoverCard, SeverityGlyph, Spinner } from "@/components";
+import {
+  Code,
+  ExternalLink,
+  HoverCard,
+  Properties,
+  Property,
+  SeverityGlyph,
+  Spinner,
+} from "@/components";
 import { errorSummary, m, Marked } from "@/i18n";
 import type { AppError, ClassSchema, DeclaredKind, FieldSchema, KindShape } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -130,14 +138,14 @@ function FieldCardBody({
           <span className="text-surface-400">{m.workshop_bin_field_undeclared_label()}</span>
         )}
       </header>
-      <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5 empty:hidden">
+      <Properties className="items-center gap-y-1.5 empty:hidden">
         {field?.owner && (
           <Fact label={m.workshop_bin_field_declared_on_label()}>
             <ClassRefCard reference={field.owner} />
           </Fact>
         )}
         {field && <DefaultFact field={field} shape={shape} override={defaultValue} />}
-      </dl>
+      </Properties>
       {declared?.mismatch && fileTag !== null && (
         <Mismatch fileTag={fileTag} declared={declared.shape} />
       )}
@@ -150,10 +158,9 @@ function FieldCardBody({
 /** One labelled line of the card's facts. */
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <>
-      <dt className="text-surface-400">{label}</dt>
-      <dd className="flex min-w-0 items-center gap-1.5 text-surface-200">{children}</dd>
-    </>
+    <Property label={label} className="flex items-center gap-1.5">
+      {children}
+    </Property>
   );
 }
 

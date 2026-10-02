@@ -93,10 +93,10 @@ export function StepperField({
         />
         <span className="flex flex-col border-l border-surface-veil">
           <BaseNumberField.Increment aria-label={increaseLabel} className={ARROW}>
-            <CaretUpIcon weight="bold" className="h-2.5 w-2.5" />
+            <CaretUpIcon weight="bold" className="size-2.5" />
           </BaseNumberField.Increment>
           <BaseNumberField.Decrement aria-label={decreaseLabel} className={ARROW}>
-            <CaretDownIcon weight="bold" className="h-2.5 w-2.5" />
+            <CaretDownIcon weight="bold" className="size-2.5" />
           </BaseNumberField.Decrement>
         </span>
       </BaseNumberField.Group>

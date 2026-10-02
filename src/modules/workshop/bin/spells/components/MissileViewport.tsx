@@ -8,10 +8,10 @@ import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN, useFitCamera, Viewport } from "@/modules/viewport";
 import { usePreviewAntiAliasing, usePreviewCamera } from "@/stores";
 
+import { Notice } from "../../shared/preview/Notice";
 import type { SystemModel } from "../../vfx/engine/model/model";
 import { createDriver } from "../../vfx/engine/simulation/driver";
 import { useVfxSystem } from "../../vfx/hooks/useVfxSystem";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { VfxSystem } from "../../vfx/rendering/components/VfxSystem";
 import { useVfxMeshes } from "../../vfx/rendering/hooks/useVfxMeshes";

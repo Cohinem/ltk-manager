@@ -8,7 +8,7 @@ export interface KbdProps extends HTMLAttributes<HTMLElement> {
 }
 
 const sizeClasses = {
-  sm: "px-1 py-0.5 text-[0.625rem] min-w-[18px] gap-0.5",
+  sm: "px-1 py-0.5 text-fine min-w-[18px] gap-0.5",
   md: "px-1.5 py-0.5 text-xs min-w-[22px] gap-1",
 } as const;
 

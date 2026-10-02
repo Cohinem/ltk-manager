@@ -7,6 +7,7 @@ import type {
   DeclaredModule,
   LineSpan,
 } from "@/lib/tauri";
+import { toggledSubtree } from "@/utils";
 
 interface LayerNode {
   type: "layer";
@@ -445,18 +446,9 @@ export function toggleOutlineSubtree(
   id: string,
   branches: readonly string[],
 ): ReadonlySet<string> {
-  const subtree = [id, ...branches.filter((branch) => ancestorIds(branch).includes(id))];
-  const next = new Set(collapsed);
-
-  if (collapsed.has(id)) {
-    for (const branch of subtree) {
-      next.delete(branch);
-    }
-  } else {
-    for (const branch of subtree) {
-      next.add(branch);
-    }
-  }
-
-  return next;
+  return toggledSubtree(
+    collapsed,
+    id,
+    branches.filter((branch) => ancestorIds(branch).includes(id)),
+  );
 }

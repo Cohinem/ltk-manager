@@ -1,10 +1,11 @@
 import type { VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
+import { hashOf } from "../../../shared/utils/binHash";
 import type { DriverDiagnostic } from "../../engine/drivers/diagnostics";
 import type { DriverKind, DriverNode } from "../../engine/drivers/node";
 import { readDriver } from "../../engine/drivers/readDriver";
-import { driverClass, graphRootKind, hashOf } from "../../engine/drivers/registry";
+import { driverClass, graphRootKind } from "../../engine/drivers/registry";
 import { field, flag, text } from "../../engine/parsing/readValue";
 import { classicEmitters, hex, materialTree, NO_PENDING, type PendingFields } from "./emitterGraph";
 import type { ComponentLine, GraphItem, GraphTree, LeafTarget } from "./graphItems";

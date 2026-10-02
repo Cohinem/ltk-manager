@@ -44,7 +44,7 @@ export function ProfileSelector() {
                       right={
                         <CaretDownIcon
                           weight="bold"
-                          className="h-4 w-4 text-surface-400 transition-transform group-data-popup-open:rotate-180"
+                          className="size-4 text-surface-400 transition-transform group-data-popup-open:rotate-180"
                         />
                       }
                     />
@@ -71,28 +71,24 @@ export function ProfileSelector() {
           </Tooltip.Root>
         </Tooltip.Provider>
 
-        <Popover.Portal>
-          <Popover.Positioner side="bottom" align="start">
-            <Popover.Popup className="w-64">
-              <div className="max-h-[400px] overflow-y-auto p-1">
-                {profiles.map((profile) => (
-                  <ProfileListItem
-                    key={profile.id}
-                    profile={profile}
-                    isActive={profile.id === activeProfile?.id}
-                    onSwitch={handleSwitch}
-                    onDeleteClick={setProfileToDelete}
-                    isSwitching={switchProfile.isPending}
-                  />
-                ))}
+        <Popover.Content side="bottom" align="start" className="w-64">
+          <div className="max-h-[400px] overflow-y-auto p-1">
+            {profiles.map((profile) => (
+              <ProfileListItem
+                key={profile.id}
+                profile={profile}
+                isActive={profile.id === activeProfile?.id}
+                onSwitch={handleSwitch}
+                onDeleteClick={setProfileToDelete}
+                isSwitching={switchProfile.isPending}
+              />
+            ))}
 
-                <div className="mt-1 border-t border-surface-700 pt-1">
-                  <ProfileCreateForm />
-                </div>
-              </div>
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
+            <div className="mt-1 border-t border-surface-700 pt-1">
+              <ProfileCreateForm />
+            </div>
+          </div>
+        </Popover.Content>
       </Popover.Root>
 
       <ProfileDeleteDialog

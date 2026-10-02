@@ -1,10 +1,4 @@
-import {
-  CaretRightIcon,
-  DiceFiveIcon,
-  MinusIcon,
-  WarningCircleIcon,
-  WaveSineIcon,
-} from "@phosphor-icons/react";
+import { DiceFiveIcon, MinusIcon, WarningCircleIcon, WaveSineIcon } from "@phosphor-icons/react";
 import { type ReactNode, use, useMemo } from "react";
 
 import {
@@ -46,12 +40,13 @@ import {
 } from "../../links/hooks/useLinkTargets";
 import { chunkPath, decideFileLink, layerCopyTitle } from "../../links/utils/linkDecision";
 import { CutText } from "../../shared/components/CutText";
-import { AxisCells, ownField, RowValue, ValueMarkCell } from "../../tree/components/BinRow";
+import { FoldCaret } from "../../shared/components/FoldCaret";
 import { BinTree } from "../../tree/components/BinTree";
 import { LeafEditContext, type Reopen } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext, useRowFold } from "../../tree/state/rowFold";
 import { useHeldRows } from "../../tree/state/rowRegistry";
 import { canExpand, childCount, fieldHash, rowKey } from "../../tree/utils/binRows";
+import { AxisCells, ownField, RowValue, ValueMarkCell } from "../../values/components/RowValue";
 import { useValueMark, useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
 import { rowTag } from "../../values/utils/kindTag";
 import { markRanges, valueFamily, type ValueMark } from "../../values/utils/valueRows";
@@ -361,7 +356,11 @@ export function FieldRow({
   const document = use(RowDocumentContext);
   const folds = document !== null && family === null && axes === null && canExpand(row);
   const [open, toggle] = useRowFold(row);
-  const caret = folds ? <FoldCaret open={open} onToggle={toggle} /> : <FoldGutter />;
+  const caret = folds ? (
+    <FoldCaret open={open} onToggle={toggle} label={m.workshop_bin_row_fields_action()} />
+  ) : (
+    <FoldGutter />
+  );
   const nameWidth = vertical ? "w-full" : width;
   const name = (
     <FieldName
@@ -444,30 +443,6 @@ function ElementClass({ value }: { value: BinRow["value"] }) {
 
 /** The gutter every field row's name starts with, which a fold's caret stands in. */
 const GUTTER = "h-6 w-4 shrink-0";
-
-/**
- * A struct's or a list's fold, in the gutter before the name so the names stay in one
- * column. The row itself folds on a click too, so the caret keeps its click to itself.
- */
-export function FoldCaret({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label={m.workshop_bin_row_fields_action()}
-      aria-expanded={open}
-      className={twMerge(
-        GUTTER,
-        "flex cursor-pointer items-center justify-center text-surface-400 hover:text-surface-100",
-      )}
-      onClick={(event) => {
-        event.stopPropagation();
-        onToggle();
-      }}
-    >
-      <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
-    </button>
-  );
-}
 
 /** The gutter of a row that folds nothing, so its name lines up with one that does. */
 function FoldGutter() {
@@ -723,7 +698,7 @@ export function CurveToggle({
           )}
           onClick={onConstant}
         >
-          <MinusIcon weight="bold" className="h-3.5 w-3.5" />
+          <MinusIcon weight="bold" className="size-3.5" />
         </button>
       </Tooltip>
       {(random || onRandom !== undefined) && (
@@ -738,7 +713,7 @@ export function CurveToggle({
             )}
             onClick={onRandom}
           >
-            <DiceFiveIcon weight="bold" className="h-3.5 w-3.5" />
+            <DiceFiveIcon weight="bold" className="size-3.5" />
           </button>
         </Tooltip>
       )}
@@ -753,7 +728,7 @@ export function CurveToggle({
           )}
           onClick={onCurve}
         >
-          <WaveSineIcon weight="bold" className="h-3.5 w-3.5" />
+          <WaveSineIcon weight="bold" className="size-3.5" />
         </button>
       </Tooltip>
     </span>
@@ -802,7 +777,7 @@ function RandomChip({
       )}
       onClick={() => aim({ row, chain, tab: "graph" })}
     >
-      <DiceFiveIcon weight="bold" className="h-3.5 w-3.5 shrink-0" />
+      <DiceFiveIcon weight="bold" className="size-3.5 shrink-0" />
       {flickers && (
         <span className="ml-1 font-sans text-meta whitespace-nowrap">
           {m.workshop_bin_random_flicker_label()}
@@ -848,9 +823,9 @@ export type TileSize = "card" | "tile" | "row";
 
 /** The room each size takes, and the mark that fits in it. */
 const EMPTY_BOX: Record<TileSize, { box: string; mark: string }> = {
-  card: { box: "aspect-square w-full", mark: "h-5 w-5" },
-  tile: { box: "h-12 w-12", mark: "h-4 w-4" },
-  row: { box: "h-5 w-5", mark: "h-3 w-3" },
+  card: { box: "aspect-square w-full", mark: "size-5" },
+  tile: { box: "size-12", mark: "size-4" },
+  row: { box: "size-5", mark: "size-3" },
 };
 
 /** A texture at `size`, for a `file` and for a string that resolves as one. */

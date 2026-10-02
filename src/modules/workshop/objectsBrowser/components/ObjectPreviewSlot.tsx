@@ -122,41 +122,36 @@ export function ObjectPreviewSlot({ job, display, generation, onDismiss }: Objec
           if (!open) onDismiss();
         }}
       >
-        <Popover.Portal>
-          <Popover.Positioner
-            anchor={large?.anchor ?? null}
-            side="right"
-            align="start"
-            sideOffset={10}
-            collisionPadding={12}
+        <Popover.Content
+          anchor={large?.anchor ?? null}
+          side="right"
+          align="start"
+          sideOffset={10}
+          collisionPadding={12}
+          initialFocus={false}
+          finalFocus={false}
+          aria-label={job?.node.name}
+          className="w-96 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl"
+        >
+          <div className="border-b border-surface-veil-strong px-3 py-2 text-row font-medium text-surface-100">
+            {job?.node.name}
+          </div>
+          <div
+            ref={(element) => {
+              popup.current = element;
+              if (element && large !== null) element.appendChild(surface);
+            }}
+            className="relative aspect-[1/0.72] bg-surface-950/40"
           >
-            <Popover.Popup
-              initialFocus={false}
-              finalFocus={false}
-              aria-label={job?.node.name}
-              className="w-96 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl"
-            >
-              <div className="border-b border-surface-veil-strong px-3 py-2 text-row font-medium text-surface-100">
-                {job?.node.name}
-              </div>
-              <div
-                ref={(element) => {
-                  popup.current = element;
-                  if (element && large !== null) element.appendChild(surface);
-                }}
-                className="relative aspect-[1/0.72] bg-surface-950/40"
-              >
-                {shown === null && <PopupStatus label={m.workshop_objects_loading_label()} />}
-                {shown === "failed" && (
-                  <PopupStatus label={m.workshop_objects_preview_failed_label()} />
-                )}
-                {shown === "empty" && !replaying && (
-                  <PopupStatus label={m.workshop_objects_preview_empty_label()} />
-                )}
-              </div>
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
+            {shown === null && <PopupStatus label={m.workshop_objects_loading_label()} />}
+            {shown === "failed" && (
+              <PopupStatus label={m.workshop_objects_preview_failed_label()} />
+            )}
+            {shown === "empty" && !replaying && (
+              <PopupStatus label={m.workshop_objects_preview_empty_label()} />
+            )}
+          </div>
+        </Popover.Content>
       </Popover.Root>
       {createPortal(
         <ErrorBoundary

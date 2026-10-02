@@ -6,6 +6,7 @@ export * from "./overlay";
 export * from "./path";
 export * from "./query";
 export * from "./result";
+export * from "./set";
 export * from "./slug";
 export * from "./twMerge";
 export * from "./virtualRows";

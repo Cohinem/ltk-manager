@@ -1,7 +1,7 @@
 import { ArrowClockwiseIcon } from "@phosphor-icons/react";
 import { type RefObject, useCallback, useEffect, useMemo, useRef } from "react";
 
-import { Button, EmptyState, Spinner } from "@/components";
+import { Button, Count, EmptyState, LoadingState, SearchField, Spinner } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { ObjectFindResult } from "@/lib/tauri";
 import {
@@ -15,12 +15,9 @@ import { twMerge } from "@/utils";
 import { hasErrorCode } from "@/utils/errors";
 
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
-import {
-  GameLoadingState,
-  GameWadsErrorState,
-} from "../../gameBrowser/components/GameBrowserStates";
+import { GameWadsErrorState } from "../../gameBrowser/components/GameBrowserStates";
 import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
-import { TreeSearchBox } from "../../shared/components/TreeSearchBox";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { focusRows } from "../../shared/utils/focusRows";
 import {
   useCollapseAllObjectPrefixes,
@@ -104,13 +101,9 @@ export function ObjectsDocument({
   const searching = pattern.length > 0;
 
   return (
-    <div
-      data-ui="ObjectsDocument"
-      ref={bodyRef}
-      className="relative flex min-h-0 flex-1 flex-col bg-surface-950"
-    >
+    <DocumentFrame data-ui="ObjectsDocument" ref={bodyRef} className="relative">
       <DocumentToolbar active={active}>
-        <SearchField onCommit={() => focusRows(bodyRef.current)} boxRef={boxRef} />
+        <ObjectSearch onCommit={() => focusRows(bodyRef.current)} boxRef={boxRef} />
         {view === "grid" && thumbnails && <RetryPreviews />}
         <ToolbarOverflow>
           <ObjectsStats />
@@ -157,7 +150,7 @@ export function ObjectsDocument({
           />
         )}
       </ObjectPreviewPool>
-    </div>
+    </DocumentFrame>
   );
 }
 
@@ -226,13 +219,13 @@ function ObjectsStats() {
   );
 }
 
-interface SearchFieldProps {
+interface ObjectSearchProps {
   onCommit: () => void;
   /** The box a find reaches. */
   boxRef: RefObject<HTMLInputElement | null>;
 }
 
-function SearchField({ onCommit, boxRef }: SearchFieldProps) {
+function ObjectSearch({ onCommit, boxRef }: ObjectSearchProps) {
   const pattern = useObjectsSearchPattern();
   const regex = useObjectsSearchRegex();
   const onPatternChange = useSetObjectsSearchPattern();
@@ -242,7 +235,7 @@ function SearchField({ onCommit, boxRef }: SearchFieldProps) {
   const counted = pattern.length > 0 && data?.status === "ready" && data.total > 0 && !error;
 
   return (
-    <TreeSearchBox
+    <SearchField
       value={pattern}
       onChange={onPatternChange}
       regex={regex}
@@ -254,13 +247,9 @@ function SearchField({ onCommit, boxRef }: SearchFieldProps) {
       onCommit={onCommit}
       inputRef={boxRef}
     >
-      {counted && (
-        <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums select-none">
-          {countText(data)}
-        </span>
-      )}
-      {isFetching && <Spinner size="sm" className="h-3 w-3 shrink-0" />}
-    </TreeSearchBox>
+      {counted && <Count>{countText(data)}</Count>}
+      {isFetching && <Spinner size="xs" className="shrink-0" />}
+    </SearchField>
   );
 }
 
@@ -331,7 +320,7 @@ function ObjectsIndexTree() {
   const reveal = useObjectsReveal();
   const settle = useSettleObjectsReveal();
 
-  if (root.isPending) return <GameLoadingState />;
+  if (root.isPending) return <LoadingState />;
   if (root.isError) return <GameWadsErrorState error={root.error} />;
   if (root.data.status === "failed") {
     return <ObjectIndexFailedState error={root.data.error} onRetry={retry} />;
@@ -442,7 +431,7 @@ function FindResults({
   );
 
   if (error && !patternError) return <GameWadsErrorState error={error} />;
-  if (!data && !patternError) return <GameLoadingState />;
+  if (!data && !patternError) return <LoadingState />;
   if (data?.status === "failed") {
     return <ObjectIndexFailedState error={data.error} onRetry={retry} />;
   }

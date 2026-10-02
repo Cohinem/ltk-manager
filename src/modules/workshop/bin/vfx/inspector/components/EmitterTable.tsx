@@ -19,8 +19,8 @@ import {
 import { FieldCard, schemaDeclared } from "../../../classes/components/FieldCard";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { nameHash } from "../../../shared/utils/binHash";
-import { RowValue } from "../../../tree/components/BinRow";
 import { rowKey } from "../../../tree/utils/binRows";
+import { RowValue } from "../../../values/components/RowValue";
 import { useValueMarks, ValueMarksContext } from "../../../values/hooks/useValueMarks";
 import { useEmitters } from "../state/emitterChoice";
 import { emitterLabel } from "../utils/emitterLabels";

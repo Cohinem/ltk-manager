@@ -1,22 +1,21 @@
 import { Keyboard, X } from "lucide-react";
 import { useState } from "react";
 
-import { Button, ButtonGroup, IconButton, SectionCard, Switch, useToast } from "@/components";
+import { Button, ButtonGroup, IconButton, SectionCard, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
-import { api, isErr, type Settings } from "@/lib/tauri";
+import { api, isErr } from "@/lib/tauri";
 
+import { useLoadedSettings, useUpdateSettings } from "../api";
 import type { IndexedSettingKey } from "../settingsIndex";
 import { SettingRow } from "./SettingRow";
 import { SettingRows } from "./SettingRows";
+import { SettingSwitch } from "./SettingSwitch";
 
-interface HotkeySectionProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
-
-export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
+export function HotkeySection() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   return (
-    <SectionCard title="Hotkeys" icon={<Keyboard className="h-5 w-5" />}>
+    <SectionCard title="Hotkeys" icon={<Keyboard className="size-5" />}>
       <p className="text-sm text-surface-400">
         System-wide keyboard shortcuts that work even when the app is not focused. Useful for
         quickly reloading mods while testing in-game.
@@ -30,7 +29,7 @@ export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
           onSet={async (accelerator) => {
             const result = await api.setHotkey("reloadMods", accelerator);
             if (isErr(result)) throw new Error(errorSummary(result.error));
-            onSave({ ...settings, reloadModsHotkey: accelerator });
+            update({ reloadModsHotkey: accelerator });
           }}
         />
 
@@ -41,21 +40,14 @@ export function HotkeySection({ settings, onSave }: HotkeySectionProps) {
           onSet={async (accelerator) => {
             const result = await api.setHotkey("killLeague", accelerator);
             if (isErr(result)) throw new Error(errorSummary(result.error));
-            onSave({ ...settings, killLeagueHotkey: accelerator });
+            update({ killLeagueHotkey: accelerator });
           }}
         />
 
         <SettingRow
           setting="killLeagueStopsPatcher"
           description="When the Kill League hotkey is pressed, also stop the patcher."
-          control={
-            <Switch
-              checked={settings.killLeagueStopsPatcher}
-              onCheckedChange={(checked) =>
-                onSave({ ...settings, killLeagueStopsPatcher: checked })
-              }
-            />
-          }
+          control={<SettingSwitch setting="killLeagueStopsPatcher" />}
         />
       </SettingRows>
     </SectionCard>
@@ -161,7 +153,7 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
             <Button
               variant="outline"
               size="sm"
-              left={<Keyboard className="h-3.5 w-3.5" />}
+              left={<Keyboard className="size-3.5" />}
               onClick={() => startCapture()}
               loading={isPending}
             >
@@ -171,9 +163,10 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
 
           {value && !isCapturing && (
             <IconButton
+              compact={false}
               variant="outline"
               size="sm"
-              icon={<X className="h-3.5 w-3.5" />}
+              icon={<X className="size-3.5" />}
               onClick={handleClear}
               loading={isPending}
             />

@@ -5,11 +5,11 @@ import { m } from "@/i18n";
 import type { BinDocumentId, SkinModel } from "@/lib/tauri";
 import { createPose, viewportQueries } from "@/modules/viewport";
 
+import { Notice } from "../../shared/preview/Notice";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { type GraphSource, useSkinGraphSource } from "../../skin/hooks/useGraphSource";
 import { clipFrameSeconds } from "../../skin/utils/clipEvents";
 import { systemModel } from "../../skin/utils/skinScene";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { abilityQueries } from "../api/abilityQueries";
 import type { AbilityRecipe } from "../utils/abilityRecipe";
 import { abilitySteps, oncePose } from "../utils/abilitySequence";

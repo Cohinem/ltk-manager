@@ -1,8 +1,8 @@
-import { FrameCornersIcon, XIcon } from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, HexshadeIcon, IconButton, Tooltip } from "@/components";
+import { Button } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { BinRow } from "@/lib/tauri";
 import {
@@ -11,21 +11,21 @@ import {
   useCameraPreset,
   useFitCamera,
   useSeesBounds,
-  Viewport,
 } from "@/modules/viewport";
 import {
-  usePreviewAntiAliasing,
-  usePreviewCamera,
   usePreviewGizmo,
   usePreviewGround,
   usePreviewMidlane,
-  usePreviewShaders,
   usePreviewStats,
   usePreviewViewMode,
   usePreviewWireOverlay,
-  useSetPreviewDisplay,
 } from "@/stores";
 
+import { CameraMenu } from "../../../shared/preview/CameraMenu";
+import { ShadersToggle } from "../../../shared/preview/PreviewToggle";
+import { PreviewViewport } from "../../../shared/preview/PreviewViewport";
+import { ViewModeMenu } from "../../../shared/preview/ViewModeMenu";
+import { FitButton, ViewportControls } from "../../../shared/preview/ViewportControls";
 import { nameHash } from "../../../shared/utils/binHash";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import type { EmitterModel, SystemModel } from "../../engine/model/model";
@@ -53,7 +53,6 @@ import { definitionBounds, rigGround } from "../../rendering/utils/systemBounds"
 import { chosenEmitter } from "../../timeline/utils/selection";
 import { createGrabLatch } from "../utils/grabLatch";
 import { handleBlock, type HandleKind } from "../utils/spatialHandles";
-import { CameraMenu } from "./CameraMenu";
 import { EmitterMarks } from "./EmitterMarks";
 import { EmitterTransform, type TransformMode } from "./EmitterTransform";
 import { HandleMenu } from "./HandleMenu";
@@ -61,9 +60,7 @@ import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
 import { SpatialHandle } from "./SpatialHandle";
 import { useVfxHost, VfxHost, VfxHostControls } from "./VfxHost";
-import { ViewModeMenu } from "./ViewModeMenu";
 import { ViewportPick } from "./ViewportPick";
-import { ViewToggle } from "./ViewToggle";
 
 export interface VfxViewportProps {
   transport: PreviewTransport;
@@ -107,12 +104,8 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const midlane = usePreviewMidlane();
   const gizmo = usePreviewGizmo();
   const stats = usePreviewStats();
-  const camera = usePreviewCamera();
-  const antiAliasing = usePreviewAntiAliasing();
   const viewMode = usePreviewViewMode();
   const wireOverlay = usePreviewWireOverlay();
-  const shaders = usePreviewShaders();
-  const setDisplay = useSetPreviewDisplay();
 
   const { root, child } = useEmitters();
   const edit = use(LeafEditContext);
@@ -152,16 +145,11 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   return (
     <div data-ui="VfxViewport" className="flex min-h-0 flex-1 flex-col select-none">
       <div className="relative min-h-0 flex-1">
-        <Viewport
+        <PreviewViewport
           renderer="shared"
           cameraMemory={VFX_CAMERA}
-          antiAliasing={antiAliasing}
           stage={ground}
           textured={midlane}
-          camera={camera}
-          viewMode={viewMode}
-          wireOverlay={wireOverlay}
-          onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
         >
           <Passes warps={warps} softens={softens} />
           {system?.entry != null && <ShimmerMeshes document={document} entry={system.entry} />}
@@ -234,7 +222,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
               {stats && <StatsProbe driver={driver} drawn={drawn} feed={feed} />}
             </>
           )}
-        </Viewport>
+        </PreviewViewport>
 
         {pending && <ViewportNotice text={m.workshop_bin_preview_loading_label()} />}
         {error !== null && (
@@ -248,18 +236,9 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           <ViewportNotice text={m.workshop_bin_preview_emitters_empty()} />
         )}
 
-        <div
-          data-ui="VfxViewport:controls"
-          /* DS-GLASS, DS-RADIUS, DS-VEIL. The descendant selector outranks each button's own size. */
-          className="absolute top-2 right-2 flex items-center gap-1 rounded-md border border-surface-veil bg-scrim p-0.5 shadow-md backdrop-blur-sm [&_button]:text-meta"
-        >
+        <ViewportControls data-ui="VfxViewport:controls">
           <ShowMenu />
-          <ViewToggle
-            label={m.workshop_bin_preview_shaders_label()}
-            active={shaders}
-            icon={<HexshadeIcon className={shaders ? "h-4 w-4" : "h-4 w-4 grayscale"} />}
-            onClick={() => setDisplay({ previewShaders: !shaders })}
-          />
+          <ShadersToggle />
           <ViewModeMenu />
           <CameraMenu />
           {edit !== null && child === null && opened !== null && (
@@ -274,18 +253,9 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
               />
             </>
           )}
-          <Tooltip content={m.workshop_bin_preview_fit_action()}>
-            <IconButton
-              variant="ghost"
-              size="xs"
-              compact
-              aria-label={m.workshop_bin_preview_fit_action()}
-              icon={<FrameCornersIcon weight="bold" className="h-4 w-4" />}
-              onClick={requestFit}
-            />
-          </Tooltip>
+          <FitButton label={m.workshop_bin_preview_fit_action()} onFit={requestFit} />
           <RigControl />
-        </div>
+        </ViewportControls>
 
         <div className="absolute bottom-2 left-2 flex flex-col items-start gap-1 select-none">
           {pinned !== null && (
@@ -301,7 +271,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                 className="flex cursor-pointer items-center rounded-sm p-0.5 text-surface-400 hover:bg-surface-veil hover:text-surface-100"
                 onClick={() => setPinned(null)}
               >
-                <XIcon weight="bold" className="h-3 w-3" />
+                <XIcon weight="bold" className="size-3" />
               </button>
             </span>
           )}

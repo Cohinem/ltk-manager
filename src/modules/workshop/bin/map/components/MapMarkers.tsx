@@ -9,6 +9,7 @@ import {
   Vector3,
 } from "three";
 
+import { useDisposable } from "@/hooks";
 import { AXIS_SIGN, type SceneColors } from "@/modules/viewport";
 
 import type { PlacedItem } from "../utils/mapOutline";
@@ -55,7 +56,7 @@ export function MapMarkers({ items, hidden, selected, colors, projector }: MapMa
     return out;
   }, [items]);
 
-  const geometry = useMemo(() => {
+  const geometry = useDisposable(() => {
     const made = new BufferGeometry();
     made.setAttribute("position", new BufferAttribute(places, 3));
     const tints = new Float32Array(items.length * 3);
@@ -69,7 +70,7 @@ export function MapMarkers({ items, hidden, selected, colors, projector }: MapMa
     return made;
   }, [places, items, hidden, colors]);
 
-  const picked = useMemo(() => {
+  const picked = useDisposable(() => {
     const made = new BufferGeometry();
     const chosen = items.flatMap(({ id }, at) => (selected.has(id) ? [at] : []));
     const out = new Float32Array(chosen.length * 3);
@@ -78,15 +79,12 @@ export function MapMarkers({ items, hidden, selected, colors, projector }: MapMa
     return made;
   }, [items, selected, places]);
 
-  const dot = useMemo(() => roundDot(), []);
-  const material = useMemo(() => markerMaterial(dot, MARKER_SIZE, null), [dot]);
-  const ring = useMemo(() => markerMaterial(dot, SELECTED_SIZE, colors.gizmo), [dot, colors.gizmo]);
-
-  useEffect(() => () => geometry.dispose(), [geometry]);
-  useEffect(() => () => picked.dispose(), [picked]);
-  useEffect(() => () => material.dispose(), [material]);
-  useEffect(() => () => ring.dispose(), [ring]);
-  useEffect(() => () => dot.dispose(), [dot]);
+  const dot = useDisposable(() => roundDot(), []);
+  const material = useDisposable(() => markerMaterial(dot, MARKER_SIZE, null), [dot]);
+  const ring = useDisposable(
+    () => markerMaterial(dot, SELECTED_SIZE, colors.gizmo),
+    [dot, colors.gizmo],
+  );
 
   useEffect(() => {
     const point = new Vector3();

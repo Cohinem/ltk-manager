@@ -3,7 +3,7 @@ import { useEffect } from "react";
 
 import { previewUrl } from "@/lib/previewUrl";
 import { api, type BinDocumentId } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs } from "@/utils/query";
 
 import { spriteDataUrl } from "../../bin/atlas/utils/spriteImages";
 import { EMPTY_OUTCOME, FAILED_OUTCOME, type PreviewOutcome } from "../state/previewStills";
@@ -26,7 +26,7 @@ export function UiIconPreview({ document, entry, onOutcome }: UiIconPreviewProps
   const view = useQuery(
     queryOptions({
       queryKey: ["object-preview", "ui-icon", document, entry],
-      queryFn: async () => unwrapForQuery(await api.bin.readUiSceneView(document, entry)),
+      queryFn: queryFnWithArgs(api.bin.readUiSceneView, document, entry),
       gcTime: 0,
     }),
   );

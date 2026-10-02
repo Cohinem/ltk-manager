@@ -2,11 +2,13 @@ import { MonitorIcon } from "@phosphor-icons/react";
 
 import { SectionCard, SegmentedControl, Switch } from "@/components";
 import { m } from "@/i18n";
-import type { OpenOn, Settings } from "@/lib/tauri";
+import type { OpenOn } from "@/lib/tauri";
 import { discardDownload } from "@/modules/updater";
 
+import { useLoadedSettings, useUpdateSettings } from "../api";
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
+import { SettingSwitch } from "./SettingSwitch";
 
 const OPEN_ON_OPTIONS: { value: OpenOn; label: string }[] = [
   { value: "home", label: "Home" },
@@ -14,29 +16,21 @@ const OPEN_ON_OPTIONS: { value: OpenOn; label: string }[] = [
   { value: "workshop", label: "Workshop" },
 ];
 
-interface StartupAndTraySectionProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
-
-export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectionProps) {
+export function StartupAndTraySection() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   const saveAutoDownload = (checked: boolean) => {
-    onSave({ ...settings, autoDownloadUpdates: checked });
+    update({ autoDownloadUpdates: checked });
     if (!checked) void discardDownload();
   };
 
   return (
-    <SectionCard title="Startup and tray" icon={<MonitorIcon className="h-5 w-5" />}>
+    <SectionCard title="Startup and tray" icon={<MonitorIcon className="size-5" />}>
       <SettingGroup id="general.startup" title="Startup">
         <SettingRow
           setting="autoRun"
           description="Automatically launch LTK Manager when you start your computer."
-          control={
-            <Switch
-              checked={settings.autoRun}
-              onCheckedChange={(checked) => onSave({ ...settings, autoRun: checked })}
-            />
-          }
+          control={<SettingSwitch setting="autoRun" />}
         />
 
         <SettingRow
@@ -44,25 +38,13 @@ export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectio
           dependent
           hidden={!settings.autoRun}
           description="Stay hidden in the tray on autostart, and show the window when a new update is ready."
-          control={
-            <Switch
-              checked={settings.startInTrayUnlessUpdate}
-              onCheckedChange={(checked) =>
-                onSave({ ...settings, startInTrayUnlessUpdate: checked })
-              }
-            />
-          }
+          control={<SettingSwitch setting="startInTrayUnlessUpdate" />}
         />
 
         <SettingRow
           setting="alwaysStartPatcher"
           description="Starts your last active profile every time the app launches."
-          control={
-            <Switch
-              checked={settings.alwaysStartPatcher}
-              onCheckedChange={(checked) => onSave({ ...settings, alwaysStartPatcher: checked })}
-            />
-          }
+          control={<SettingSwitch setting="alwaysStartPatcher" />}
         />
 
         <SettingRow
@@ -72,7 +54,7 @@ export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectio
             <SegmentedControl
               options={OPEN_ON_OPTIONS}
               value={settings.openOn}
-              onChange={(openOn) => onSave({ ...settings, openOn })}
+              onChange={(openOn) => update({ openOn })}
             />
           }
         />
@@ -82,23 +64,13 @@ export function StartupAndTraySection({ settings, onSave }: StartupAndTraySectio
         <SettingRow
           setting="minimizeToTray"
           description="Minimizing hides the window to the tray instead of the taskbar. Click the tray icon to restore it."
-          control={
-            <Switch
-              checked={settings.minimizeToTray}
-              onCheckedChange={(checked) => onSave({ ...settings, minimizeToTray: checked })}
-            />
-          }
+          control={<SettingSwitch setting="minimizeToTray" />}
         />
 
         <SettingRow
           setting="startInTray"
           description="The app starts hidden in the tray. Click the tray icon to open it."
-          control={
-            <Switch
-              checked={settings.startInTray}
-              onCheckedChange={(checked) => onSave({ ...settings, startInTray: checked })}
-            />
-          }
+          control={<SettingSwitch setting="startInTray" />}
         />
       </SettingGroup>
 

@@ -2,13 +2,13 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import { api, type VfxTemplate, type VfxTemplateKind } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFn } from "@/utils/query";
 
 export const templateQueries = {
   all: () =>
     queryOptions({
       queryKey: ["vfx-templates"],
-      queryFn: async () => unwrapForQuery(await api.bin.vfxTemplates()),
+      queryFn: queryFn(api.bin.vfxTemplates),
       staleTime: Infinity,
       retry: false,
     }),

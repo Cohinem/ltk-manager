@@ -21,7 +21,7 @@ export function StripButton({
         aria-label={label}
         aria-pressed={pressed}
         /* DS-VEIL, DS-RADIUS */
-        className="nodrag flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-100 aria-pressed:text-accent-400"
+        className="nodrag flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-100 aria-pressed:text-accent-400"
         onClick={onClick}
       >
         {children}

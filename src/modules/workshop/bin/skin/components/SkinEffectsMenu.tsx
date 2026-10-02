@@ -101,53 +101,37 @@ function EffectsMenu({
   return (
     <Menu.Root>
       <Tooltip content={action}>
-        <Menu.Trigger
-          render={
-            <IconButton
-              variant="ghost"
-              size="xs"
-              compact
-              aria-label={action}
-              icon={<ArrowSquareOutIcon weight="bold" className="h-4 w-4" />}
-            />
-          }
-        />
+        <Menu.Trigger render={<IconButton aria-label={action} icon={<ArrowSquareOutIcon />} />} />
       </Tooltip>
-      <Menu.Portal>
-        <Menu.Positioner>
-          <Menu.Popup data-ui="SkinEffectsMenu" className="max-h-96 w-72 overflow-y-auto">
-            {idle.length > 0 && (
-              <Menu.Group>
-                <Menu.GroupLabel>
-                  {m.workshop_bin_mesh_preview_idle_effects_label()}
-                </Menu.GroupLabel>
-                {idle.map((held) => (
-                  <Menu.Item
-                    key={`${held.effect.effectKey}:${held.system}`}
-                    onClick={(event) => openIdle(held, event)}
-                  >
-                    <EffectLine name={leafOf(held.system)} where={held.effect.bone} />
-                  </Menu.Item>
-                ))}
-              </Menu.Group>
-            )}
-            {idle.length > 0 && cues.length > 0 && <Menu.Separator />}
-            {cues.length > 0 && (
-              <Menu.Group>
-                <Menu.GroupLabel>{clipName ?? clip}</Menu.GroupLabel>
-                {cues.map((cue) => (
-                  <Menu.Item key={cue.key} onClick={(event) => openCue(cue, event)}>
-                    <EffectLine
-                      name={leafOf(cue.system)}
-                      where={m.workshop_bin_preview_time_label({ seconds: cue.at.toFixed(2) })}
-                    />
-                  </Menu.Item>
-                ))}
-              </Menu.Group>
-            )}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content data-ui="SkinEffectsMenu" className="max-h-96 w-72 overflow-y-auto">
+        {idle.length > 0 && (
+          <Menu.Group>
+            <Menu.GroupLabel>{m.workshop_bin_mesh_preview_idle_effects_label()}</Menu.GroupLabel>
+            {idle.map((held) => (
+              <Menu.Item
+                key={`${held.effect.effectKey}:${held.system}`}
+                onClick={(event) => openIdle(held, event)}
+              >
+                <EffectLine name={leafOf(held.system)} where={held.effect.bone} />
+              </Menu.Item>
+            ))}
+          </Menu.Group>
+        )}
+        {idle.length > 0 && cues.length > 0 && <Menu.Separator />}
+        {cues.length > 0 && (
+          <Menu.Group>
+            <Menu.GroupLabel>{clipName ?? clip}</Menu.GroupLabel>
+            {cues.map((cue) => (
+              <Menu.Item key={cue.key} onClick={(event) => openCue(cue, event)}>
+                <EffectLine
+                  name={leafOf(cue.system)}
+                  where={m.workshop_bin_preview_time_label({ seconds: cue.at.toFixed(2) })}
+                />
+              </Menu.Item>
+            ))}
+          </Menu.Group>
+        )}
+      </Menu.Content>
     </Menu.Root>
   );
 }

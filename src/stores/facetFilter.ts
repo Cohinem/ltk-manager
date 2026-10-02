@@ -1,3 +1,4 @@
+import { toggledIn } from "@/utils";
 export type SortDirection = "asc" | "desc";
 
 /** Which field a list is ordered by, and which way. */
@@ -28,13 +29,6 @@ type SetFacets<F extends string> = (
   updater: (state: FacetFilterState<F>) => Partial<FacetFilterState<F>>,
 ) => void;
 
-function toggled(selected: Set<string>, value: string): Set<string> {
-  const next = new Set(selected);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
-}
-
 /**
  * The facet half of a list store, spread into the store that owns it.
  *
@@ -51,10 +45,10 @@ export function facetFilterSlice<F extends string>(
     selectedMaps: new Set(),
     sort: defaultSort,
 
-    toggleTag: (tag) => set((state) => ({ selectedTags: toggled(state.selectedTags, tag) })),
+    toggleTag: (tag) => set((state) => ({ selectedTags: toggledIn(state.selectedTags, tag) })),
     toggleChampion: (champion) =>
-      set((state) => ({ selectedChampions: toggled(state.selectedChampions, champion) })),
-    toggleMap: (map) => set((state) => ({ selectedMaps: toggled(state.selectedMaps, map) })),
+      set((state) => ({ selectedChampions: toggledIn(state.selectedChampions, champion) })),
+    toggleMap: (map) => set((state) => ({ selectedMaps: toggledIn(state.selectedMaps, map) })),
 
     setTags: (tags) => set(() => ({ selectedTags: new Set(tags) })),
     setChampions: (champions) => set(() => ({ selectedChampions: new Set(champions) })),

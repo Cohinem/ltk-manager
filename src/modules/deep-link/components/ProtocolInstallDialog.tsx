@@ -99,8 +99,8 @@ export function ProtocolInstallDialog() {
             {untrustedDomain && <UntrustedBand domain={untrustedDomain} />}
 
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent-500/15">
-                <PackageIcon className="h-5 w-5 text-accent-400" />
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-accent-500/15">
+                <PackageIcon className="size-5 text-accent-400" />
               </div>
               <div className="min-w-0">
                 <p className="truncate font-medium text-surface-100">{displayName}</p>
@@ -108,13 +108,13 @@ export function ProtocolInstallDialog() {
                   <div className="mt-0.5 flex items-center gap-3 text-xs text-surface-400">
                     {request.author && (
                       <span className="flex items-center gap-1">
-                        <UserIcon className="h-3 w-3 shrink-0" />
+                        <UserIcon className="size-3 shrink-0" />
                         {request.author}
                       </span>
                     )}
                     {request.source && (
                       <span className="flex items-center gap-1">
-                        <GlobeIcon className="h-3 w-3 shrink-0" />
+                        <GlobeIcon className="size-3 shrink-0" />
                         {request.source}
                       </span>
                     )}
@@ -135,8 +135,8 @@ export function ProtocolInstallDialog() {
 
         {isComplete && (
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success/15">
-              <CheckCircleIcon className="h-5 w-5 text-success-text" />
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/15">
+              <CheckCircleIcon className="size-5 text-success-text" />
             </div>
             <p className="text-sm text-surface-300">
               <Marked text={m.deep_link_install_succeeded_description({ name: displayName })}>
@@ -148,8 +148,8 @@ export function ProtocolInstallDialog() {
 
         {isError && error && (
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-danger/15">
-              <XCircleIcon className="h-5 w-5 text-danger-text" />
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-danger/15">
+              <XCircleIcon className="size-5 text-danger-text" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-medium text-surface-100">
@@ -168,7 +168,7 @@ export function ProtocolInstallDialog() {
               {m.deep_link_untrusted_reject_action()}
             </Button>
             <Button variant="filled" onClick={trustAndInstall} loading={busy}>
-              <ShieldWarningIcon weight="bold" className="h-4 w-4" />
+              <ShieldWarningIcon weight="bold" className="size-4" />
               {m.deep_link_untrusted_trust_action()}
             </Button>
           </>
@@ -179,7 +179,7 @@ export function ProtocolInstallDialog() {
               {m.common_cancel_action()}
             </Button>
             <Button variant="filled" onClick={runInstall} loading={busy}>
-              <DownloadSimpleIcon weight="bold" className="h-4 w-4" />
+              <DownloadSimpleIcon weight="bold" className="size-4" />
               {m.deep_link_install_action()}
             </Button>
           </>
@@ -212,7 +212,7 @@ function UntrustedBand({ domain }: { domain: string }) {
       data-ui="ProtocolInstallDialog:untrusted"
       className="flex items-start gap-2.5 rounded-lg border border-danger/30 bg-danger/8 px-3 py-2 select-none"
     >
-      <ShieldWarningIcon className="h-5 w-5 shrink-0 text-danger-text" weight="bold" />
+      <ShieldWarningIcon className="size-5 shrink-0 text-danger-text" weight="bold" />
       <div className="min-w-0">
         <p className="text-sm font-medium text-surface-100">
           {m.deep_link_untrusted_title({ domain })}

@@ -1,7 +1,7 @@
 import { FolderOpen, Loader2, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { Button, Checkbox, Dialog, Progress } from "@/components";
+import { Button, Checkbox, Dialog, ProgressBar } from "@/components";
 import type { CslolModInfo, MigrationProgress } from "@/lib/tauri";
 import { BulkInstallResults } from "@/modules/library";
 
@@ -108,19 +108,19 @@ function BrowseStep({ onBrowse, isScanning, error }: BrowseStepProps) {
       </p>
       <p className="text-sm text-surface-400">
         The directory should contain an{" "}
-        <code className="rounded bg-surface-700 px-1.5 py-0.5 text-surface-200">installed</code>{" "}
+        <code className="rounded-sm bg-surface-700 px-1.5 py-0.5 text-surface-200">installed</code>{" "}
         folder with your mods.
       </p>
       <Button variant="outline" size="sm" onClick={onBrowse} disabled={isScanning}>
         {isScanning && (
           <span className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" />
             Scanning...
           </span>
         )}
         {!isScanning && (
           <span className="flex items-center gap-2">
-            <FolderOpen className="h-4 w-4" />
+            <FolderOpen className="size-4" />
             Browse...
           </span>
         )}
@@ -173,7 +173,7 @@ function SelectStep({
       </div>
 
       <div className="relative">
-        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-surface-500" />
+        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-surface-500" />
         <input
           type="text"
           placeholder="Search mods..."
@@ -217,27 +217,17 @@ function SelectStep({
 
 function MigrationImportProgress({ progress }: { progress: MigrationProgress | null }) {
   if (!progress) {
-    return (
-      <Progress.Root value={null} label="Preparing import...">
-        <Progress.Track>
-          <Progress.Indicator />
-        </Progress.Track>
-      </Progress.Root>
-    );
+    return <ProgressBar value={null} label="Preparing import..." />;
   }
 
   const phaseLabel = progress.phase === "packaging" ? "Packaging" : "Installing";
 
   return (
     <>
-      <Progress.Root
+      <ProgressBar
         value={progress.total > 0 ? (progress.current / progress.total) * 100 : 0}
         label={`${phaseLabel} ${progress.current} / ${progress.total}`}
-      >
-        <Progress.Track>
-          <Progress.Indicator />
-        </Progress.Track>
-      </Progress.Root>
+      />
       <p className="truncate text-sm text-surface-400">{progress.currentFile}</p>
     </>
   );

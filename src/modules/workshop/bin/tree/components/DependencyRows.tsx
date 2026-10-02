@@ -89,10 +89,10 @@ export function DependenciesRow({ line, onToggle }: DependenciesRowProps) {
         <span className="flex h-4 w-3 shrink-0 items-center justify-center text-surface-400">
           <CaretRightIcon
             weight="bold"
-            className={twMerge("h-3 w-3", line.expanded && "rotate-90")}
+            className={twMerge("size-3", line.expanded && "rotate-90")}
           />
         </span>
-        <LinkSimpleIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />
+        <LinkSimpleIcon className="size-3.5 shrink-0 text-surface-400" />
         <span className="truncate font-medium text-surface-100">
           {m.workshop_bin_dependencies_title()}
         </span>

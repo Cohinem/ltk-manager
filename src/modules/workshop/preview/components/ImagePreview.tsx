@@ -15,10 +15,12 @@ import { usePreviewCheckered, useSetPreviewCheckered } from "@/stores";
 import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { useAssetInfo } from "../api/useAssetInfo";
 import { useImageSlot } from "../hooks/useImageSlot";
 import { assetArchive, assetKey, usePreviewUrl } from "../utils/assetRef";
 import { BinPreview, isPropertyBin } from "./BinPreview";
+import { PreviewStatus } from "./PreviewStatus";
 
 /** How far a zoom reaches, either side of the image's own scale. */
 const ZOOM_RANGE = [0.05, 32] as const;
@@ -117,7 +119,7 @@ export function ImagePreview({ asset, name }: ImagePreviewProps) {
   }
 
   return (
-    <div data-ui="ImagePreview" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="ImagePreview">
       <Canvas
         url={url}
         subject={subject}
@@ -141,7 +143,7 @@ export function ImagePreview({ asset, name }: ImagePreviewProps) {
         controls={controls}
         onZoom={setZoom}
       />
-    </div>
+    </DocumentFrame>
   );
 }
 
@@ -365,83 +367,57 @@ function StatusStrip({ info, natural, fit, zoom, controls, onZoom }: StatusStrip
   if (info && info.kind !== "unsupported") facts.push(formatBytes(Number(info.sizeBytes)));
 
   return (
-    <div
-      data-ui="ImagePreview:status"
-      className="flex h-8 shrink-0 items-center gap-3 border-t border-surface-700/50 bg-surface-900 px-3 font-mono text-xs text-surface-400 select-none"
-    >
-      {facts.map((fact) => (
-        <span key={fact} className="select-text">
-          {fact}
-        </span>
-      ))}
+    <PreviewStatus facts={facts}>
+      <IconButton
+        pressed={checkered}
+        icon={<CheckerboardIcon />}
+        onClick={() => setCheckered(!checkered)}
+        tooltip={
+          checkered
+            ? m.workshop_preview_checkerboard_hide_label()
+            : m.workshop_preview_checkerboard_show_label()
+        }
+      />
 
-      <div className="ml-auto flex items-center gap-1">
-        <Tooltip
-          content={
-            checkered
-              ? m.workshop_preview_checkerboard_hide_label()
-              : m.workshop_preview_checkerboard_show_label()
-          }
+      <IconButton
+        icon={<MinusIcon />}
+        disabled={scale <= ZOOM_RANGE[0]}
+        onClick={() => controls.current?.zoomOut(ZOOM_EXPONENT, animation)}
+        tooltip={m.workshop_preview_zoom_out_label()}
+      />
+
+      <Tooltip content={m.workshop_preview_zoom_actual_label()}>
+        <Button
+          variant="ghost"
+          size="xs"
+          compact
+          className="min-w-12 tabular-nums"
+          onClick={() => goTo(1)}
         >
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-pressed={checkered}
-            icon={<CheckerboardIcon className="h-4 w-4" weight="bold" />}
-            className={checkered ? "text-accent-300" : undefined}
-            onClick={() => setCheckered(!checkered)}
-          />
-        </Tooltip>
+          {m.workshop_preview_zoom_percent_label({ percent: Math.round(scale * 100) })}
+        </Button>
+      </Tooltip>
 
-        <Tooltip content={m.workshop_preview_zoom_out_label()}>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            icon={<MinusIcon className="h-4 w-4" weight="bold" />}
-            disabled={scale <= ZOOM_RANGE[0]}
-            onClick={() => controls.current?.zoomOut(ZOOM_EXPONENT, animation)}
-          />
-        </Tooltip>
+      <IconButton
+        icon={<PlusIcon />}
+        disabled={scale >= ZOOM_RANGE[1]}
+        onClick={() => controls.current?.zoomIn(ZOOM_EXPONENT, animation)}
+        tooltip={m.workshop_preview_zoom_in_label()}
+      />
 
-        <Tooltip content={m.workshop_preview_zoom_actual_label()}>
-          <Button
-            variant="ghost"
-            size="xs"
-            compact
-            className="min-w-12 tabular-nums"
-            onClick={() => goTo(1)}
-          >
-            {m.workshop_preview_zoom_percent_label({ percent: Math.round(scale * 100) })}
-          </Button>
-        </Tooltip>
-
-        <Tooltip content={m.workshop_preview_zoom_in_label()}>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            icon={<PlusIcon className="h-4 w-4" weight="bold" />}
-            disabled={scale >= ZOOM_RANGE[1]}
-            onClick={() => controls.current?.zoomIn(ZOOM_EXPONENT, animation)}
-          />
-        </Tooltip>
-
-        <Tooltip content={m.workshop_preview_zoom_fit_label()}>
-          <Button
-            variant="ghost"
-            size="xs"
-            compact
-            aria-pressed={zoom === "fit"}
-            className={zoom === "fit" ? "text-accent-300" : undefined}
-            onClick={() => goTo("fit")}
-          >
-            {m.workshop_preview_zoom_fit_action()}
-          </Button>
-        </Tooltip>
-      </div>
-    </div>
+      <Tooltip content={m.workshop_preview_zoom_fit_label()}>
+        <Button
+          variant="ghost"
+          size="xs"
+          compact
+          aria-pressed={zoom === "fit"}
+          className={zoom === "fit" ? "text-accent-300" : undefined}
+          onClick={() => goTo("fit")}
+        >
+          {m.workshop_preview_zoom_fit_action()}
+        </Button>
+      </Tooltip>
+    </PreviewStatus>
   );
 }
 

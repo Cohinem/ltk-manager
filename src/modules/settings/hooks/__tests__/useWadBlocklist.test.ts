@@ -8,13 +8,21 @@ import { createMockSettings } from "@/test/fixtures";
 
 import { useWadBlocklist } from "../useWadBlocklist";
 
+const { held, onSave } = vi.hoisted(() => ({
+  held: { settings: null as Settings | null },
+  onSave: vi.fn<(patch: Partial<Settings>) => void>(),
+}));
+
+vi.mock("../../api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../api")>()),
+  useLoadedSettings: () => held.settings,
+  useUpdateSettings: () => onSave,
+}));
+
 function setup(initial: WadBlocklistEntry[] = []) {
-  const onSave = vi.fn<(s: Settings) => void>();
-  const settings = createMockSettings({ wadBlocklist: initial });
-  const { result, rerender } = renderHook(({ s }: { s: Settings }) => useWadBlocklist(s, onSave), {
-    initialProps: { s: settings },
-  });
-  return { result, rerender, onSave, settings };
+  held.settings = createMockSettings({ wadBlocklist: initial });
+  const { result } = renderHook(() => useWadBlocklist());
+  return { result, onSave };
 }
 
 describe("useWadBlocklist", () => {
@@ -29,14 +37,13 @@ describe("useWadBlocklist", () => {
   });
 
   it("defaults to an empty array when wadBlocklist is unset", () => {
-    const onSave = vi.fn();
-    const settings = { ...createMockSettings(), wadBlocklist: undefined as unknown as never };
-    const { result } = renderHook(() => useWadBlocklist(settings, onSave));
+    held.settings = { ...createMockSettings(), wadBlocklist: undefined as unknown as never };
+    const { result } = renderHook(() => useWadBlocklist());
     expect(result.current.blocklist).toEqual([]);
   });
 
   describe("add", () => {
-    it("appends a new entry and calls onSave with the updated settings", () => {
+    it("appends a new entry and saves the updated blocklist", () => {
       const { result, onSave } = setup();
       let added = false;
       act(() => {
@@ -49,13 +56,12 @@ describe("useWadBlocklist", () => {
       ]);
     });
 
-    it("preserves other settings fields when saving", () => {
+    it("saves the blocklist alone, which the update merges onto the rest", () => {
       const { result, onSave } = setup();
       act(() => result.current.add({ kind: "exact", value: "x.wad.client" }));
-      const saved = onSave.mock.calls[0][0];
-      expect(saved.leaguePath).toBe(null);
-      expect(saved.blockScriptsWad).toBe(true);
-      expect(saved.trustedDomains).toEqual(["runeforge.dev", "divineskins.gg"]);
+      expect(onSave.mock.calls[0][0]).toEqual({
+        wadBlocklist: [{ kind: "exact", value: "x.wad.client" }],
+      });
     });
 
     it("rejects a same-kind duplicate (case-insensitive) without calling onSave", () => {

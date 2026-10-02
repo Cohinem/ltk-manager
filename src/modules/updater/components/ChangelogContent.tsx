@@ -19,7 +19,7 @@ const components: Components = {
   ul: ({ children }) => <ul className="mb-3 flex flex-col gap-1 pl-1">{children}</ul>,
   li: ({ children }) => (
     <li className="flex gap-2.5 text-sm leading-relaxed text-surface-300">
-      <span className="mt-2.5 h-1 w-1 shrink-0 rounded-full bg-accent-400" />
+      <span className="mt-2.5 size-1 shrink-0 rounded-full bg-accent-400" />
       <span className="min-w-0">{children}</span>
     </li>
   ),

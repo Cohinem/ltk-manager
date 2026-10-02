@@ -1,6 +1,6 @@
 import { LinearFilter, type Texture, TextureLoader } from "three";
 
-import { loadCubeTexture, PARTICLE_COLOR_SPACE } from "@/modules/viewport";
+import { createRetainedCache, loadCubeTexture, PARTICLE_COLOR_SPACE } from "@/modules/viewport";
 
 /** How a url decodes: one flat image, or the six faces of a cube map stacked. */
 export type TextureForm = "flat" | "cube";
@@ -14,46 +14,34 @@ export interface TextureRef {
   release(): void;
 }
 
-interface Entry {
-  refs: number;
+/** One url's texture, shared by every reference to it. */
+interface Shared {
   texture: Texture | null;
   loading: Promise<Texture | null> | null;
-  lapse: ReturnType<typeof setTimeout> | null;
+  /** The cache let the texture go, so a load that lands after it disposes what it read. */
+  dropped: boolean;
 }
 
-const ENTRIES = new Map<string, Entry>();
+const TEXTURES = createRetainedCache<string, Shared>((shared) => {
+  shared.dropped = true;
+  shared.texture?.dispose();
+  shared.texture = null;
+});
 
 const LOADER = new TextureLoader();
-
-/**
- * How long a texture outlives its last reference.
- *
- * A preview replaced by the next system releases its textures in the commit that mounts
- * the next one, which often names the same files.
- */
-const RELEASE_GRACE_MS = 15_000;
 
 /**
  * A reference to the texture at `url`, shared by every reference to the same url.
  *
  * Every particle texture takes the same sampler state, so one upload serves every emitter,
- * slot and viewport naming it. The texture is disposed `RELEASE_GRACE_MS` after its last
- * reference is released, unless another reference takes it up first.
+ * slot and viewport naming it. The texture outlives its last reference by the retained
+ * cache's grace period, which covers a preview replaced by the next system naming the
+ * same files.
  */
 export function acquireTexture(url: string, form: TextureForm): TextureRef {
-  let entry = ENTRIES.get(url);
-  if (entry === undefined) {
-    entry = { refs: 0, texture: null, loading: null, lapse: null };
-    ENTRIES.set(url, entry);
-  }
-  entry.refs += 1;
-  if (entry.lapse !== null) {
-    clearTimeout(entry.lapse);
-    entry.lapse = null;
-  }
+  const shared = TEXTURES.get(url, () => ({ texture: null, loading: null, dropped: false }));
+  const release = TEXTURES.hold(url);
 
-  const shared = entry;
-  let released = false;
   return {
     get texture() {
       return shared.texture;
@@ -65,28 +53,17 @@ export function acquireTexture(url: string, form: TextureForm): TextureRef {
           shared.loading = null;
           return null;
         }
-        if (ENTRIES.get(url) !== shared) {
+        if (shared.dropped) {
           texture.dispose();
           return null;
         }
+
         shared.texture = texture;
         return texture;
       });
       return shared.loading;
     },
-    release() {
-      if (released) return;
-      released = true;
-      shared.refs -= 1;
-      if (shared.refs > 0) return;
-
-      shared.lapse = setTimeout(() => {
-        shared.lapse = null;
-        shared.texture?.dispose();
-        shared.texture = null;
-        if (ENTRIES.get(url) === shared) ENTRIES.delete(url);
-      }, RELEASE_GRACE_MS);
-    },
+    release,
   };
 }
 

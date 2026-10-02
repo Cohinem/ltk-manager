@@ -119,44 +119,34 @@ export function ElementEditItems({
         <ContextMenu.SubmenuTrigger icon={<StackIcon />}>
           {m.workshop_bin_atlas_arrange_label()}
         </ContextMenu.SubmenuTrigger>
-        <ContextMenu.Portal>
-          <ContextMenu.SubmenuPositioner>
-            <ContextMenu.Popup className="w-52">
-              {LAYER_STEPS.map(({ step, icon, label, shortcut }) => (
-                <ContextMenu.Item
-                  key={step}
-                  icon={icon}
-                  shortcut={canvas ? shortcut : undefined}
-                  onClick={() => run(layerEdits(tree, target, step))}
-                >
-                  {label()}
-                </ContextMenu.Item>
-              ))}
-            </ContextMenu.Popup>
-          </ContextMenu.SubmenuPositioner>
-        </ContextMenu.Portal>
+        <ContextMenu.SubmenuContent className="w-52">
+          {LAYER_STEPS.map(({ step, icon, label, shortcut }) => (
+            <ContextMenu.Item
+              key={step}
+              icon={icon}
+              shortcut={canvas ? shortcut : undefined}
+              onClick={() => run(layerEdits(tree, target, step))}
+            >
+              {label()}
+            </ContextMenu.Item>
+          ))}
+        </ContextMenu.SubmenuContent>
       </ContextMenu.SubmenuRoot>
       {scenes.length > 0 && (
         <ContextMenu.SubmenuRoot>
           <ContextMenu.SubmenuTrigger icon={<StackSimpleIcon />}>
             {m.workshop_bin_atlas_move_scene_label()}
           </ContextMenu.SubmenuTrigger>
-          <ContextMenu.Portal>
-            <ContextMenu.SubmenuPositioner>
-              <ContextMenu.Popup className="max-h-80 w-60 overflow-y-auto">
-                {scenes.map((scene) => (
-                  <ContextMenu.Item
-                    key={scene.key}
-                    onClick={() =>
-                      run(acting.flatMap((key) => sceneMoveEdits(tree, key, scene.key)))
-                    }
-                  >
-                    {labelOf(scene.label, scene.path, scene.key)}
-                  </ContextMenu.Item>
-                ))}
-              </ContextMenu.Popup>
-            </ContextMenu.SubmenuPositioner>
-          </ContextMenu.Portal>
+          <ContextMenu.SubmenuContent className="max-h-80 w-60 overflow-y-auto">
+            {scenes.map((scene) => (
+              <ContextMenu.Item
+                key={scene.key}
+                onClick={() => run(acting.flatMap((key) => sceneMoveEdits(tree, key, scene.key)))}
+              >
+                {labelOf(scene.label, scene.path, scene.key)}
+              </ContextMenu.Item>
+            ))}
+          </ContextMenu.SubmenuContent>
         </ContextMenu.SubmenuRoot>
       )}
       {acting.length > 1 && solved !== null && (
@@ -164,38 +154,34 @@ export function ElementEditItems({
           <ContextMenu.SubmenuTrigger icon={<AlignLeftIcon />}>
             {m.workshop_bin_atlas_align_label()}
           </ContextMenu.SubmenuTrigger>
-          <ContextMenu.Portal>
-            <ContextMenu.SubmenuPositioner>
-              <ContextMenu.Popup className="w-56">
-                {ALIGNMENTS.map(({ how, icon, label }) => (
-                  <ContextMenu.Item
-                    key={how}
-                    icon={icon}
-                    onClick={() => run(alignEdits(tree, settings, solved, acting, how))}
-                  >
-                    {label()}
-                  </ContextMenu.Item>
-                ))}
-                {acting.length > 2 && (
-                  <>
-                    <ContextMenu.Separator />
-                    <ContextMenu.Item
-                      icon={<ColumnsIcon />}
-                      onClick={() => run(distributeEdits(tree, settings, solved, acting, 0))}
-                    >
-                      {m.workshop_bin_atlas_distribute_horizontal_action()}
-                    </ContextMenu.Item>
-                    <ContextMenu.Item
-                      icon={<RowsIcon />}
-                      onClick={() => run(distributeEdits(tree, settings, solved, acting, 1))}
-                    >
-                      {m.workshop_bin_atlas_distribute_vertical_action()}
-                    </ContextMenu.Item>
-                  </>
-                )}
-              </ContextMenu.Popup>
-            </ContextMenu.SubmenuPositioner>
-          </ContextMenu.Portal>
+          <ContextMenu.SubmenuContent className="w-56">
+            {ALIGNMENTS.map(({ how, icon, label }) => (
+              <ContextMenu.Item
+                key={how}
+                icon={icon}
+                onClick={() => run(alignEdits(tree, settings, solved, acting, how))}
+              >
+                {label()}
+              </ContextMenu.Item>
+            ))}
+            {acting.length > 2 && (
+              <>
+                <ContextMenu.Separator />
+                <ContextMenu.Item
+                  icon={<ColumnsIcon />}
+                  onClick={() => run(distributeEdits(tree, settings, solved, acting, 0))}
+                >
+                  {m.workshop_bin_atlas_distribute_horizontal_action()}
+                </ContextMenu.Item>
+                <ContextMenu.Item
+                  icon={<RowsIcon />}
+                  onClick={() => run(distributeEdits(tree, settings, solved, acting, 1))}
+                >
+                  {m.workshop_bin_atlas_distribute_vertical_action()}
+                </ContextMenu.Item>
+              </>
+            )}
+          </ContextMenu.SubmenuContent>
         </ContextMenu.SubmenuRoot>
       )}
     </>

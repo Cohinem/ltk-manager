@@ -3,7 +3,7 @@ import { lazy, Suspense } from "react";
 import { m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
 
-import { Notice } from "../../vfx/preview/components/Notice";
+import { Notice } from "../../shared/preview/Notice";
 
 /** The map viewport, in a chunk of its own as the skin viewport is. */
 const MapViewport = lazy(() => import("./MapViewport"));

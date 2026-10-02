@@ -67,7 +67,7 @@ export function SpriteSection({ element, tree }: SpriteSectionProps) {
                 variant="outline"
                 size="xs"
                 disabled={sprites.importing}
-                left={<ImageSquareIcon weight="bold" className="h-3.5 w-3.5" />}
+                left={<ImageSquareIcon weight="bold" className="size-3.5" />}
                 onClick={() =>
                   void sprites.run(
                     [element.key],
@@ -84,7 +84,7 @@ export function SpriteSection({ element, tree }: SpriteSectionProps) {
                 variant="outline"
                 size="xs"
                 disabled={exports.exporting}
-                left={<ExportIcon weight="bold" className="h-3.5 w-3.5" />}
+                left={<ExportIcon weight="bold" className="size-3.5" />}
                 onClick={() => void exports.run(exported)}
               >
                 {m.workshop_bin_atlas_sprites_export_action()}

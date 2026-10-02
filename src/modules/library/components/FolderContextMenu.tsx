@@ -1,10 +1,11 @@
 import { Pencil, Power, PowerOff, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-import { ContextMenu, Dialog } from "@/components";
+import { ContextMenu } from "@/components";
+import { m } from "@/i18n";
 
 import { useDeleteFolder, useRenameFolder, useToggleFolder } from "../api";
-import { FolderNameForm } from "./FolderNameForm";
+import { FolderNameDialog } from "./FolderNameDialog";
 
 interface FolderContextMenuProps {
   folderId: string;
@@ -24,64 +25,47 @@ export function FolderContextMenu({ folderId, folderName, children }: FolderCont
         <ContextMenu.Trigger data-folder-item className="h-full">
           {children}
         </ContextMenu.Trigger>
-        <ContextMenu.Portal>
-          <ContextMenu.Positioner>
-            <ContextMenu.Popup>
-              <ContextMenu.Item
-                icon={<Pencil className="h-4 w-4" />}
-                onClick={() => setRenameOpen(true)}
-              >
-                Rename
-              </ContextMenu.Item>
-              <ContextMenu.Separator />
-              <ContextMenu.Item
-                icon={<Power className="h-4 w-4" />}
-                onClick={() => toggleFolder.mutate({ folderId, enabled: true })}
-              >
-                Enable All
-              </ContextMenu.Item>
-              <ContextMenu.Item
-                icon={<PowerOff className="h-4 w-4" />}
-                onClick={() => toggleFolder.mutate({ folderId, enabled: false })}
-              >
-                Disable All
-              </ContextMenu.Item>
-              <ContextMenu.Separator />
-              <ContextMenu.Item
-                icon={<Trash2 className="h-4 w-4" />}
-                variant="danger"
-                onClick={() => deleteFolder.mutate(folderId)}
-              >
-                Delete
-              </ContextMenu.Item>
-            </ContextMenu.Popup>
-          </ContextMenu.Positioner>
-        </ContextMenu.Portal>
+        <ContextMenu.Content>
+          <ContextMenu.Item
+            icon={<Pencil className="size-4" />}
+            onClick={() => setRenameOpen(true)}
+          >
+            Rename
+          </ContextMenu.Item>
+          <ContextMenu.Separator />
+          <ContextMenu.Item
+            icon={<Power className="size-4" />}
+            onClick={() => toggleFolder.mutate({ folderId, enabled: true })}
+          >
+            Enable All
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            icon={<PowerOff className="size-4" />}
+            onClick={() => toggleFolder.mutate({ folderId, enabled: false })}
+          >
+            Disable All
+          </ContextMenu.Item>
+          <ContextMenu.Separator />
+          <ContextMenu.Item
+            icon={<Trash2 className="size-4" />}
+            variant="danger"
+            onClick={() => deleteFolder.mutate(folderId)}
+          >
+            Delete
+          </ContextMenu.Item>
+        </ContextMenu.Content>
       </ContextMenu.Root>
-      <Dialog.Root open={renameOpen} onOpenChange={setRenameOpen}>
-        <Dialog.Portal>
-          <Dialog.Backdrop />
-          <Dialog.Overlay size="sm">
-            <div className="p-5">
-              <Dialog.Title>Rename Folder</Dialog.Title>
-              <div className="mt-3">
-                <FolderNameForm
-                  initialName={folderName}
-                  submitLabel="Rename"
-                  isPending={renameFolder.isPending}
-                  onSubmit={(newName) =>
-                    renameFolder.mutate(
-                      { folderId, newName },
-                      { onSuccess: () => setRenameOpen(false) },
-                    )
-                  }
-                  onCancel={() => setRenameOpen(false)}
-                />
-              </div>
-            </div>
-          </Dialog.Overlay>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <FolderNameDialog
+        open={renameOpen}
+        onClose={() => setRenameOpen(false)}
+        title={m.library_folder_rename_title()}
+        submitLabel={m.library_folder_rename_action()}
+        initialName={folderName}
+        isPending={renameFolder.isPending}
+        onSubmit={(newName) =>
+          renameFolder.mutate({ folderId, newName }, { onSuccess: () => setRenameOpen(false) })
+        }
+      />
     </>
   );
 }

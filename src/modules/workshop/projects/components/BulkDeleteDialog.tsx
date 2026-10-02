@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Check, TriangleAlert, X } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
-import { Button, Dialog, Progress } from "@/components";
+import { Button, Dialog, ProgressBar } from "@/components";
 import { errorSummary } from "@/i18n";
 import { api } from "@/lib/tauri";
 import { useDialog } from "@/stores";
@@ -88,7 +88,7 @@ export function BulkDeleteDialog() {
         {phase === "confirm" && (
           <div className="space-y-4">
             <div className="flex items-start gap-3 rounded-lg border border-danger/30 bg-danger/10 p-4">
-              <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-danger-text" />
+              <TriangleAlert className="mt-0.5 size-5 shrink-0 text-danger-text" />
               <div>
                 <h3 className="font-medium text-danger-text">
                   Are you sure you want to delete {projects.length} projects?
@@ -116,16 +116,12 @@ export function BulkDeleteDialog() {
         {(phase === "deleting" || phase === "done") && (
           <div className="space-y-4">
             {phase === "deleting" && (
-              <Progress.Root
+              <ProgressBar
                 value={currentIndex + 1}
                 max={projects.length}
                 label={`Deleting: ${projects[currentIndex]?.displayName ?? ""}`}
                 valueLabel={`${currentIndex + 1} / ${projects.length}`}
-              >
-                <Progress.Track>
-                  <Progress.Indicator />
-                </Progress.Track>
-              </Progress.Root>
+              />
             )}
 
             {phase === "done" && (
@@ -142,9 +138,9 @@ export function BulkDeleteDialog() {
                 {results.map((r, i) => (
                   <li key={i} className="flex items-center gap-2">
                     {r.outcome.ok ? (
-                      <Check className="h-4 w-4 shrink-0 text-success-text" />
+                      <Check className="size-4 shrink-0 text-success-text" />
                     ) : (
-                      <X className="h-4 w-4 shrink-0 text-danger-text" />
+                      <X className="size-4 shrink-0 text-danger-text" />
                     )}
                     <span className={r.outcome.ok ? "text-surface-300" : "text-danger-text"}>
                       {r.displayName}

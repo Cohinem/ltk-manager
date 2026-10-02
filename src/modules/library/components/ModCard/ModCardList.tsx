@@ -105,7 +105,7 @@ export function ModCardList({ view }: { view: ModCardView }) {
           <h3 className="truncate font-medium text-surface-100">{mod.displayName}</h3>
           {isFlagged && (
             <Tooltip content={skinhackReason}>
-              <ShieldWarningIcon className="h-4 w-4 shrink-0 text-danger-text" />
+              <ShieldWarningIcon className="size-4 shrink-0 text-danger-text" />
             </Tooltip>
           )}
         </div>

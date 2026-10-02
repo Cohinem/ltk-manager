@@ -10,6 +10,7 @@ import type {
 import { useCallback, useEffect, useState } from "react";
 
 import { ContextMenu } from "@/components";
+import { useRemeasure } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import { twMerge } from "@/utils";
 
@@ -17,6 +18,7 @@ import { stirImages } from "../../preview/hooks/useImageSlot";
 import { gridStep } from "../../shared/utils/gridNav";
 import type { ExplorerSelectionApi } from "../hooks/useExplorer";
 import type { ExplorerFileItem, ExplorerItem } from "../utils/items";
+import { type ExtractKeyHow, handleSelectionKey } from "../utils/selectionKeys";
 
 /** What a row carries, including the debug and hit-test data attributes. */
 export type ExplorerRowAttributes = HTMLAttributes<HTMLDivElement> & {
@@ -78,7 +80,7 @@ export interface ExplorerSurfaceProps {
    */
   renderMenu?: (item: ExplorerItem | null) => ReactNode;
   /** `Ctrl+E` and `Ctrl+I`, the ways out the tree row offers on the same keys. */
-  onRun?: (how: "quick" | "dialog" | "copy") => void;
+  onRun?: (how: ExtractKeyHow) => void;
 }
 
 /**
@@ -130,10 +132,7 @@ export function ExplorerSurface({
        thumbnails before the scroll reaches them. */
     overscan: 1,
   });
-
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, rowHeight]);
+  useRemeasure(virtualizer, rowHeight);
 
   const focusItem = useCallback(
     (index: number) => {
@@ -149,36 +148,7 @@ export function ExplorerSurface({
   const handleKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLDivElement>) => {
       const item = items[focused];
-
-      if (event.ctrlKey || event.metaKey) {
-        const key = event.key.toLowerCase();
-        if (key === "a") {
-          event.preventDefault();
-          selection.selectAll();
-          return;
-        }
-        if (onRun && key === "e") {
-          event.preventDefault();
-          onRun(event.shiftKey ? "dialog" : "quick");
-          return;
-        }
-        if (onRun && key === "i") {
-          event.preventDefault();
-          onRun("copy");
-          return;
-        }
-        if (key === " ") {
-          event.preventDefault();
-          if (item) selection.select(item.id, { toggle: true, extend: false });
-          return;
-        }
-      }
-
-      if (event.key === "Escape") {
-        event.preventDefault();
-        selection.clear();
-        return;
-      }
+      if (handleSelectionKey(event, { selection, focusedId: item?.id ?? null, onRun })) return;
 
       if (event.key === "Backspace") {
         event.preventDefault();

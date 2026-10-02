@@ -89,7 +89,7 @@ export function IncidentList({ incidents, selectedId, onSelect }: IncidentListPr
       {groups.map((group) => (
         <div key={group.key} role="group" aria-label={group.label} className="flex flex-col">
           {/* A band of its own, so a long day still says which day while it scrolls. */}
-          <div className="sticky top-0 z-10 flex h-6 items-center gap-2 border-y border-surface-800 bg-surface-900 px-3 text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
+          <div className="sticky top-0 z-10 flex h-6 items-center gap-2 border-y border-surface-800 bg-surface-900 px-3 text-fine font-medium tracking-wider text-surface-400 uppercase">
             <span className="min-w-0 flex-1 truncate">{group.label}</span>
             <span className="shrink-0 font-mono tabular-nums">{group.incidents.length}</span>
           </div>
@@ -165,7 +165,7 @@ function IncidentRow({ incident, selected, onSelect, ref }: IncidentRowProps) {
       {/* Glyphs take the -text variant: DS-TEXT. */}
       <VerdictGlyph
         kind={incident.verdict.kind}
-        className={twMerge("mt-0.5 h-3.5 w-3.5 shrink-0", skinhack && "text-void-text")}
+        className={twMerge("mt-0.5 size-3.5 shrink-0", skinhack && "text-void-text")}
       />
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-baseline gap-2">
@@ -177,11 +177,11 @@ function IncidentRow({ incident, selected, onSelect, ref }: IncidentRowProps) {
           >
             {incident.verdict.title}
           </span>
-          <span className="shrink-0 font-mono text-[0.6875rem] text-surface-500 tabular-nums">
+          <span className="shrink-0 font-mono text-meta text-surface-500 tabular-nums">
             {formatClock(incident.endedAt)}
           </span>
         </span>
-        <span className="flex items-baseline gap-2 font-mono text-[0.6875rem] text-surface-500">
+        <span className="flex items-baseline gap-2 font-mono text-meta text-surface-500">
           {subtitle && <span className="min-w-0 flex-1 truncate">{subtitle}</span>}
           <span className={twMerge("shrink-0 truncate", !subtitle && "min-w-0 flex-1")}>
             {metaLine(incident)}

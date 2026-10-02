@@ -229,28 +229,24 @@ function ExpandButton({ index, expanded, onExpand }: ExpandButtonProps) {
   const Glyph = expanded ? ArrowsInSimpleIcon : ArrowsOutSimpleIcon;
 
   return (
-    <Tooltip content={hint}>
-      <IconButton
-        variant="ghost"
-        size="xs"
-        compact
-        tabIndex={-1}
-        aria-label={label}
-        aria-pressed={expanded}
-        onPointerDown={() => {
-          openAtPress.current = expanded;
-        }}
-        onClick={(event) => {
-          const wasOpen = event.detail === 0 ? expanded : openAtPress.current;
-          onExpand(wasOpen ? null : index);
-        }}
-        className={twMerge(
-          "pointer-events-auto rounded-sm bg-scrim text-surface-200 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-scrim hover:text-surface-50",
-          expanded && "text-accent-300 opacity-100",
-        )}
-        icon={<Glyph weight="bold" className="size-3.5" />}
-      />
-    </Tooltip>
+    <IconButton
+      tabIndex={-1}
+      aria-label={label}
+      aria-pressed={expanded}
+      onPointerDown={() => {
+        openAtPress.current = expanded;
+      }}
+      onClick={(event) => {
+        const wasOpen = event.detail === 0 ? expanded : openAtPress.current;
+        onExpand(wasOpen ? null : index);
+      }}
+      className={twMerge(
+        "pointer-events-auto rounded-sm bg-scrim text-surface-200 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-scrim hover:text-surface-50",
+        expanded && "text-accent-300 opacity-100",
+      )}
+      icon={<Glyph weight="bold" className="size-3.5" />}
+      tooltip={hint}
+    />
   );
 }
 

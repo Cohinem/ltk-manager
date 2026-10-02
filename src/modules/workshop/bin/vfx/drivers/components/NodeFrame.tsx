@@ -69,7 +69,7 @@ export function NodeFrame({
       {key !== null && (
         <ChangeMark
           rowKey={key}
-          className="absolute -top-1 -right-1 z-10 h-2.5 w-2.5 ring-2 ring-surface-900"
+          className="absolute -top-1 -right-1 z-10 size-2.5 ring-2 ring-surface-900"
         />
       )}
       {key !== null && (
@@ -132,7 +132,7 @@ export function RowPlate({ item }: { item: GraphItem }) {
       )}
       style={{ background: "color-mix(in srgb, var(--node-hue) 22%, var(--color-surface-800))" }}
     >
-      {face.type === "picture" && <div className="h-full w-full">{face.picture}</div>}
+      {face.type === "picture" && <div className="size-full">{face.picture}</div>}
       {face.type !== "picture" && (
         <span
           className={twMerge(
@@ -177,7 +177,7 @@ function InsidePlate({ title, face, hue, height }: InsidePlateProps) {
       )}
       style={{ background: `color-mix(in srgb, ${hue} 22%, var(--color-surface-800))` }}
     >
-      {face.type === "picture" && <div className="h-full w-full py-[14cqh]">{face.picture}</div>}
+      {face.type === "picture" && <div className="size-full py-[14cqh]">{face.picture}</div>}
       {face.type === "value" && <PlateText text={face.text} height={height} mono />}
       {face.type === "title" && <PlateText text={title} height={height} mono={false} />}
     </div>

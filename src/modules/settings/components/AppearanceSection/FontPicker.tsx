@@ -34,19 +34,15 @@ export function InterfaceFontPicker() {
         </Select.Value>
         <Select.Icon />
       </Select.Trigger>
-      <Select.Portal>
-        <Select.Positioner>
-          <Select.Popup>
-            {SANS_OPTIONS.map(({ value, label }) => (
-              /* The one place a family is named rather than a utility written:
+      <Select.Content>
+        {SANS_OPTIONS.map(({ value, label }) => (
+          /* The one place a family is named rather than a utility written:
                  each row is drawn in the face it names. */
-              <Select.Item key={value} value={value} style={{ fontFamily: sansStack(value) }}>
-                {label}
-              </Select.Item>
-            ))}
-          </Select.Popup>
-        </Select.Positioner>
-      </Select.Portal>
+          <Select.Item key={value} value={value} style={{ fontFamily: sansStack(value) }}>
+            {label}
+          </Select.Item>
+        ))}
+      </Select.Content>
     </Select.Root>
   );
 }
@@ -70,17 +66,13 @@ export function CodeFontPicker() {
         </Select.Value>
         <Select.Icon />
       </Select.Trigger>
-      <Select.Portal>
-        <Select.Positioner>
-          <Select.Popup>
-            {MONO_OPTIONS.map(({ value, label }) => (
-              <Select.Item key={value} value={value} style={{ fontFamily: monoStack(value) }}>
-                {label}
-              </Select.Item>
-            ))}
-          </Select.Popup>
-        </Select.Positioner>
-      </Select.Portal>
+      <Select.Content>
+        {MONO_OPTIONS.map(({ value, label }) => (
+          <Select.Item key={value} value={value} style={{ fontFamily: monoStack(value) }}>
+            {label}
+          </Select.Item>
+        ))}
+      </Select.Content>
     </Select.Root>
   );
 }

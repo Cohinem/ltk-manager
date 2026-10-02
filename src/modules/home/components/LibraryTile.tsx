@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { Button, CollectionIcon, IconButton, Menu, Popover, SegmentedControl } from "@/components";
 import { m } from "@/i18n";
 import { api, type ExportScope, type ExportShape } from "@/lib/tauri";
-import { useSaveSettings, useSettings } from "@/modules/settings";
+import { useSettings, useUpdateSettings } from "@/modules/settings";
 
 import { useExportMods, useLibraryFacts } from "../api";
 import { LibraryHealthMarker } from "./LibraryHealthMarker";
@@ -20,7 +20,7 @@ interface LibraryTileProps {
 export function LibraryTile({ onImportFromCslol }: LibraryTileProps) {
   const { profileName, enabledLabel, enabled, total } = useLibraryFacts();
   const { data: settings } = useSettings();
-  const saveSettings = useSaveSettings();
+  const updateSettings = useUpdateSettings();
   const navigate = useNavigate();
 
   const anchor = useRef<HTMLDivElement>(null);
@@ -34,7 +34,7 @@ export function LibraryTile({ onImportFromCslol }: LibraryTileProps) {
 
   function dismissImport() {
     if (!settings) return;
-    saveSettings.mutate({ ...settings, migrationDismissed: true });
+    updateSettings({ migrationDismissed: true });
   }
 
   /* The scrim is for choosing. Once there is a destination the decision is
@@ -59,33 +59,26 @@ export function LibraryTile({ onImportFromCslol }: LibraryTileProps) {
             <Menu.Trigger
               render={
                 <IconButton
-                  icon={<DotsThreeVerticalIcon className="h-4 w-4" />}
-                  variant="ghost"
-                  size="xs"
-                  compact
+                  icon={<DotsThreeVerticalIcon />}
                   aria-label={m.home_library_more_action()}
                 />
               }
             />
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup>
-                  <Menu.Item
-                    icon={<ExportIcon className="h-4 w-4" />}
-                    /* The menu is still closing, and it takes focus back first. */
-                    onClick={() => setTimeout(() => setChooserOpen(true), 0)}
-                  >
-                    {m.home_library_export_action()}
-                  </Menu.Item>
-                  <Menu.Item
-                    icon={<FolderOpenIcon className="h-4 w-4" />}
-                    onClick={() => void openStorage()}
-                  >
-                    {m.home_library_storage_action()}
-                  </Menu.Item>
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
+            <Menu.Content>
+              <Menu.Item
+                icon={<ExportIcon className="size-4" />}
+                /* The menu is still closing, and it takes focus back first. */
+                onClick={() => setTimeout(() => setChooserOpen(true), 0)}
+              >
+                {m.home_library_export_action()}
+              </Menu.Item>
+              <Menu.Item
+                icon={<FolderOpenIcon className="size-4" />}
+                onClick={() => void openStorage()}
+              >
+                {m.home_library_storage_action()}
+              </Menu.Item>
+            </Menu.Content>
           </Menu.Root>
 
           <Popover.Root modal open={chooserOpen} onOpenChange={setChooserOpen}>
@@ -134,7 +127,7 @@ export function LibraryTile({ onImportFromCslol }: LibraryTileProps) {
                       variant="filled"
                       size="sm"
                       className="flex-1"
-                      left={<ExportIcon weight="bold" className="h-4 w-4" />}
+                      left={<ExportIcon weight="bold" className="size-4" />}
                       onClick={() => void runExport()}
                     >
                       {m.home_library_export_confirm_action()}
@@ -193,10 +186,7 @@ export function LibraryTile({ onImportFromCslol }: LibraryTileProps) {
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm font-medium text-surface-100">{m.home_library_import_title()}</p>
             <IconButton
-              icon={<XIcon className="h-4 w-4" />}
-              variant="ghost"
-              size="xs"
-              compact
+              icon={<XIcon />}
               aria-label={m.home_library_import_dismiss_action()}
               onClick={dismissImport}
             />
@@ -211,7 +201,7 @@ export function LibraryTile({ onImportFromCslol }: LibraryTileProps) {
         variant="light"
         size="sm"
         className="self-start"
-        left={<CollectionIcon className="h-4 w-4" />}
+        left={<CollectionIcon className="size-4" />}
         onClick={() => void navigate({ to: "/mods" })}
       >
         {m.home_library_open_action()}

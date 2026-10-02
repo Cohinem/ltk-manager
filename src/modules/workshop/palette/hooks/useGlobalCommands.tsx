@@ -18,7 +18,7 @@ import { useProjectImports } from "../../imports/hooks/useProjectImports";
 import { useNewProjectDialog } from "../../state";
 import type { ProjectCommand } from "../utils/types";
 
-const GLYPH = "h-4 w-4";
+const GLYPH = "size-4";
 
 /**
  * The actions that need no project, so the bar can run them from either surface.

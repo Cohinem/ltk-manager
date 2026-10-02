@@ -41,7 +41,7 @@ export function RangePicture({ curve }: { curve: ValueCurve }) {
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
       preserveAspectRatio="none"
-      className="block h-full w-full overflow-visible"
+      className="block size-full overflow-visible"
     >
       {keyed &&
         first.map((_, channel) => (

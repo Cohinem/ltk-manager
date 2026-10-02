@@ -69,80 +69,76 @@ export function ContentTreeContextMenu({
   const chunk = file !== null ? entryChunkPath(relativePath) : null;
 
   return (
-    <ContextMenu.Portal>
-      <ContextMenu.Positioner>
-        <ContextMenu.Popup className="w-52">
-          {file && onOpen && (
-            <ContextMenu.Item icon={<TabsIcon className="h-4 w-4" />} onClick={() => onOpen(file)}>
-              {m.workshop_tree_open_action()}
-            </ContextMenu.Item>
-          )}
-          {bin && (
-            <ContextMenu.Item
-              icon={<ArrowSquareOutIcon className="h-4 w-4" />}
-              onClick={() =>
-                openInRitobin.mutate({
-                  asset: {
-                    kind: "layer",
-                    project: projectPath,
-                    layer: layerName,
-                    path: relativePath,
-                  },
-                  name: file.name,
-                })
-              }
-            >
-              {m.workshop_tree_open_vscode_action()}
-            </ContextMenu.Item>
-          )}
-          {chunk !== null && (
-            <ContextMenu.Item
-              icon={<MagnifyingGlassIcon className="h-4 w-4" />}
-              onClick={() => find(fileReferences(chunk))}
-            >
-              {m.workshop_references_find_file_action()}
-            </ContextMenu.Item>
-          )}
-          {((file && onOpen) || bin || chunk !== null) && <ContextMenu.Separator />}
-          <ContextMenu.Item
-            icon={<CopyIcon className="h-4 w-4" />}
-            onClick={() => void copy(node.name, "name")}
-          >
-            {m.workshop_tree_copy_name_action()}
-          </ContextMenu.Item>
-          <ContextMenu.Item
-            icon={<ArrowBendDoubleUpRightIcon className="h-4 w-4" />}
-            onClick={() => void copy(relativePath, "relative path")}
-          >
-            {m.workshop_tree_copy_path_action()}
-          </ContextMenu.Item>
+    <ContextMenu.Content className="w-52">
+      {file && onOpen && (
+        <ContextMenu.Item icon={<TabsIcon className="size-4" />} onClick={() => onOpen(file)}>
+          {m.workshop_tree_open_action()}
+        </ContextMenu.Item>
+      )}
+      {bin && (
+        <ContextMenu.Item
+          icon={<ArrowSquareOutIcon className="size-4" />}
+          onClick={() =>
+            openInRitobin.mutate({
+              asset: {
+                kind: "layer",
+                project: projectPath,
+                layer: layerName,
+                path: relativePath,
+              },
+              name: file.name,
+            })
+          }
+        >
+          {m.workshop_tree_open_vscode_action()}
+        </ContextMenu.Item>
+      )}
+      {chunk !== null && (
+        <ContextMenu.Item
+          icon={<MagnifyingGlassIcon className="size-4" />}
+          onClick={() => find(fileReferences(chunk))}
+        >
+          {m.workshop_references_find_file_action()}
+        </ContextMenu.Item>
+      )}
+      {((file && onOpen) || bin || chunk !== null) && <ContextMenu.Separator />}
+      <ContextMenu.Item
+        icon={<CopyIcon className="size-4" />}
+        onClick={() => void copy(node.name, "name")}
+      >
+        {m.workshop_tree_copy_name_action()}
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        icon={<ArrowBendDoubleUpRightIcon className="size-4" />}
+        onClick={() => void copy(relativePath, "relative path")}
+      >
+        {m.workshop_tree_copy_path_action()}
+      </ContextMenu.Item>
+      <ContextMenu.Separator />
+      <ContextMenu.Item
+        icon={<FolderOpenIcon className="size-4" />}
+        onClick={() => {
+          void api.revealInExplorer(absolutePath);
+        }}
+      >
+        {m.workshop_tree_reveal_action()}
+      </ContextMenu.Item>
+      <ContextMenu.Separator />
+      <IgnoreItems node={node} layerName={layerName} />
+      {onDelete && (
+        <>
           <ContextMenu.Separator />
           <ContextMenu.Item
-            icon={<FolderOpenIcon className="h-4 w-4" />}
-            onClick={() => {
-              void api.revealInExplorer(absolutePath);
-            }}
+            icon={<TrashIcon className="size-4" />}
+            variant="danger"
+            shortcut="Del"
+            onClick={() => onDelete(node)}
           >
-            {m.workshop_tree_reveal_action()}
+            {m.workshop_tree_delete_action()}
           </ContextMenu.Item>
-          <ContextMenu.Separator />
-          <IgnoreItems node={node} layerName={layerName} />
-          {onDelete && (
-            <>
-              <ContextMenu.Separator />
-              <ContextMenu.Item
-                icon={<TrashIcon className="h-4 w-4" />}
-                variant="danger"
-                shortcut="Del"
-                onClick={() => onDelete(node)}
-              >
-                {m.workshop_tree_delete_action()}
-              </ContextMenu.Item>
-            </>
-          )}
-        </ContextMenu.Popup>
-      </ContextMenu.Positioner>
-    </ContextMenu.Portal>
+        </>
+      )}
+    </ContextMenu.Content>
   );
 }
 
@@ -167,7 +163,7 @@ function IgnoreItems({ node, layerName }: IgnoreItemsProps) {
     if (!isOwnLine(rule, layerName, { relativePath, isDir })) {
       return (
         <ContextMenu.Item
-          icon={<EyeSlashIcon className="h-4 w-4" />}
+          icon={<EyeSlashIcon className="size-4" />}
           onClick={() => openRules(rule)}
         >
           {m.workshop_ignore_show_rule_action()}
@@ -177,7 +173,7 @@ function IgnoreItems({ node, layerName }: IgnoreItemsProps) {
 
     return (
       <ContextMenu.Item
-        icon={<EyeIcon className="h-4 w-4" />}
+        icon={<EyeIcon className="size-4" />}
         onClick={() => void stopIgnoring(rule.pattern)}
       >
         {m.workshop_ignore_stop_action()}
@@ -188,7 +184,7 @@ function IgnoreItems({ node, layerName }: IgnoreItemsProps) {
   if (isDir) {
     return (
       <ContextMenu.Item
-        icon={<EyeSlashIcon className="h-4 w-4" />}
+        icon={<EyeSlashIcon className="size-4" />}
         onClick={() => void ignore(folderIgnoreLine(layerName, relativePath), "folder")}
       >
         {m.workshop_ignore_folder_action()}
@@ -201,14 +197,14 @@ function IgnoreItems({ node, layerName }: IgnoreItemsProps) {
   return (
     <>
       <ContextMenu.Item
-        icon={<EyeSlashIcon className="h-4 w-4" />}
+        icon={<EyeSlashIcon className="size-4" />}
         onClick={() => void ignore(fileIgnoreLine(layerName, relativePath), "file")}
       >
         {m.workshop_ignore_file_action()}
       </ContextMenu.Item>
       {extension && (
         <ContextMenu.Item
-          icon={<EyeSlashIcon className="h-4 w-4" />}
+          icon={<EyeSlashIcon className="size-4" />}
           onClick={() => void ignore(extension, "extension")}
         >
           {m.workshop_ignore_extension_action({ extension })}

@@ -31,7 +31,7 @@ export function IntegrationPaths({
     <Accordion.Root variant="filled" data-ui="IntegrationPaths" className="-mx-3">
       <Accordion.Item variant="filled">
         <Accordion.Trigger variant="filled" className="text-row font-medium text-surface-200">
-          <FolderOpenIcon weight="duotone" className="h-4 w-4 shrink-0 text-surface-400" />
+          <FolderOpenIcon weight="duotone" className="size-4 shrink-0 text-surface-400" />
           {m.settings_integrations_paths_label()}
           {externalPaths.length > 0 && (
             <span className="text-meta font-normal text-surface-400">

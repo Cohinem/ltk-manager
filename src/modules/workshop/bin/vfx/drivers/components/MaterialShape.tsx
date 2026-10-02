@@ -109,7 +109,7 @@ export function MaterialShape({ material }: { material: MaterialRef | undefined 
               pressed={each === shape}
               onClick={() => setShape(each)}
             >
-              <Glyph weight="bold" className="h-3 w-3" />
+              <Glyph weight="bold" className="size-3" />
             </StripButton>
           );
         })}

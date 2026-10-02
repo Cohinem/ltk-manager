@@ -91,7 +91,7 @@ function toRow(hit: ObjectSearchHit): RankedRow {
       name: hit.path,
       path: `${hit.class} · ${hit.file}`,
       trailing: wadBasename(hit.wad),
-      icon: <ObjectGlyph objectClass={hit.class} className="h-4 w-4 text-surface-400" />,
+      icon: <ObjectGlyph objectClass={hit.class} className="size-4 text-surface-400" />,
       target: {
         kind: "object",
         wad: hit.wad,
@@ -118,7 +118,7 @@ function toClassRow(hit: ObjectClassHit, query: string): RankedRow {
       name: hit.class,
       path: "",
       trailing: m.workshop_objects_class_count_label({ count: hit.rows }),
-      icon: <ObjectGlyph objectClass={hit.class} className="h-4 w-4 text-surface-400" />,
+      icon: <ObjectGlyph objectClass={hit.class} className="size-4 text-surface-400" />,
       target: { kind: "query", query: completeClassTerm(query, hit.class) },
     },
     band: 0,

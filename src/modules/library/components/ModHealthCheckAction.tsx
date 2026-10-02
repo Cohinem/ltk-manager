@@ -1,6 +1,6 @@
 import { HeartbeatIcon } from "@phosphor-icons/react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import type { HealthCheckReadiness } from "@/lib/tauri";
 import { useHealthCheckReadiness, useSweepModHealth } from "@/modules/library/api";
 
@@ -19,17 +19,17 @@ export function ModHealthCheckAction({ disabled }: ModHealthCheckActionProps) {
   const sweep = useSweepModHealth();
 
   return (
-    <Tooltip content={HINTS[readiness]}>
-      <IconButton
-        icon={<HeartbeatIcon weight="bold" className="h-4 w-4" />}
-        variant="outline"
-        size="sm"
-        loading={sweep.isPending}
-        disabled={disabled || readiness !== "ready"}
-        aria-label="Check every mod"
-        onClick={() => sweep.mutate(undefined)}
-      />
-    </Tooltip>
+    <IconButton
+      compact={false}
+      icon={<HeartbeatIcon />}
+      variant="outline"
+      size="sm"
+      loading={sweep.isPending}
+      disabled={disabled || readiness !== "ready"}
+      aria-label="Check every mod"
+      onClick={() => sweep.mutate(undefined)}
+      tooltip={HINTS[readiness]}
+    />
   );
 }
 

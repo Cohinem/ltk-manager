@@ -2,7 +2,7 @@ import { CubeIcon, FileIcon, type Icon, ImageIcon } from "@phosphor-icons/react"
 import type { NodeProps } from "@xyflow/react";
 import { useMemo } from "react";
 
-import { RowValue } from "../../../tree/components/BinRow";
+import { RowValue } from "../../../values/components/RowValue";
 import type { FileItem, FileKind } from "../utils/graphItems";
 import { fieldAlias, itemSubtitle, itemTitle } from "../utils/nodeText";
 import { outputTop } from "../utils/outputSocket";

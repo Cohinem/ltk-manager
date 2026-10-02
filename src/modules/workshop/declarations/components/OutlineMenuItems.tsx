@@ -241,29 +241,23 @@ function MoveToModule({ layer, module, entry, path, handlers }: MoveToModuleProp
       <Menu.SubmenuTrigger icon={<ArrowsLeftRightIcon />}>
         {m.workshop_bin_move_to_module_action()}
       </Menu.SubmenuTrigger>
-      <Menu.Portal>
-        <Menu.SubmenuPositioner>
-          <Menu.Popup data-ui="OutlineMenuItems:move-to-module">
-            {targets.map((target) => (
-              <Menu.Item
-                key={target.index}
-                onClick={() =>
-                  void handlers.actions.moveKeys(layer, module, entry, path, target.index)
-                }
-              >
-                {moduleTitle(target)}
-              </Menu.Item>
-            ))}
-            {targets.length > 0 && <Menu.Separator />}
-            <Menu.Item
-              icon={<PlusIcon />}
-              onClick={() => handlers.onMoveToNew(layer, module, entry, path)}
-            >
-              {m.workshop_declarations_new_module_ellipsis_action()}
-            </Menu.Item>
-          </Menu.Popup>
-        </Menu.SubmenuPositioner>
-      </Menu.Portal>
+      <Menu.SubmenuContent data-ui="OutlineMenuItems:move-to-module">
+        {targets.map((target) => (
+          <Menu.Item
+            key={target.index}
+            onClick={() => void handlers.actions.moveKeys(layer, module, entry, path, target.index)}
+          >
+            {moduleTitle(target)}
+          </Menu.Item>
+        ))}
+        {targets.length > 0 && <Menu.Separator />}
+        <Menu.Item
+          icon={<PlusIcon />}
+          onClick={() => handlers.onMoveToNew(layer, module, entry, path)}
+        >
+          {m.workshop_declarations_new_module_ellipsis_action()}
+        </Menu.Item>
+      </Menu.SubmenuContent>
     </Menu.SubmenuRoot>
   );
 }

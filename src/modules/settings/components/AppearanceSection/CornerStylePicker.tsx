@@ -11,7 +11,7 @@ const CORNER_OPTIONS: { value: CornerStyle; label: string; preview: string }[] =
 ];
 
 const previewClass =
-  "h-6 w-6 border-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
+  "size-6 border-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
 const activePreviewClass = "border-accent-400 bg-accent-500/30";
 const idlePreviewClass = "border-surface-400 bg-surface-400/25 hover:border-surface-300";
 

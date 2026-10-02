@@ -12,11 +12,13 @@ import {
 } from "react";
 
 import { ContextMenu } from "@/components";
-import { NO_OVERSCROLL, useZoomedPx } from "@/hooks";
+import { useRemeasure, useZoomedPx } from "@/hooks";
 import type { DeclarationsLayer, DeclaredModule } from "@/lib/tauri";
 
 import { useReadOnlyTreeNav } from "../../hooks";
 import type { OpenIntent } from "../../palette/utils/types";
+import { VirtualTree } from "../../shared/components/VirtualTree";
+import { treeItemIndexOf } from "../../shared/utils/tree";
 import type { ModuleLanding, OutlineActions } from "../hooks/useOutlineActions";
 import { useOutlineDrag } from "../hooks/useOutlineDrag";
 import {
@@ -143,10 +145,7 @@ export function DeclarationsTree({
     overscan: 12,
     getItemKey: (index) => rows[index]!.node.id,
   });
-
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
+  useRemeasure(virtualizer, rowHeight);
 
   const modulesOf = useCallback(
     (layer: string): readonly DeclaredModule[] =>
@@ -296,10 +295,9 @@ export function DeclarationsTree({
   }
 
   function handleContextMenu(event: MouseEvent<HTMLDivElement>) {
-    const row = (event.target as HTMLElement).closest<HTMLElement>("[data-treeitem-index]");
-    const at = row === null ? -1 : Number(row.dataset.treeitemIndex);
-    const node = rows[at]?.node ?? null;
-    if (node === null || handlers === null) {
+    const at = treeItemIndexOf(event.target);
+    const node = at === null ? null : (rows[at]?.node ?? null);
+    if (at === null || node === null || handlers === null) {
       event.preventDefault();
       setMenuNode(null);
       return;
@@ -319,66 +317,44 @@ export function DeclarationsTree({
         onDragEnd={drag.onDragEnd}
         onDragCancel={drag.onDragCancel}
       >
-        <ContextMenu.Root>
-          <ContextMenu.Trigger
-            data-ui="DeclarationsTree"
-            ref={scrollRef}
-            className="flex-1 overflow-auto text-row outline-none scrollbar-md scrollbar-track"
-            role="tree"
-            aria-label={ariaLabel}
-            tabIndex={-1}
-            onKeyDown={handleTreeKeyDown}
-            onContextMenu={handleContextMenu}
-            style={{ "--path-cols": pathCols } as CSSProperties}
-            {...NO_OVERSCROLL}
-          >
-            <div
-              role="presentation"
-              data-tree-rows=""
-              className="relative w-full"
-              style={{ height: `${virtualizer.getTotalSize()}px` }}
-            >
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const row = rows[virtualRow.index]!;
-                const isSelected = virtualRow.index === focusedIndex;
-
-                return (
-                  <div
-                    key={virtualRow.key}
-                    role="presentation"
-                    className="absolute inset-x-0"
-                    style={{ transform: `translateY(${virtualRow.start}px)` }}
-                  >
-                    <DeclarationsTreeRow
-                      node={row.node}
-                      depth={row.depth}
-                      branch={isBranch(row.node, shape)}
-                      isExpanded={!shut.has(row.node.id)}
-                      isSelected={isSelected}
-                      openBranches={openBranches}
-                      onToggle={toggle}
-                      onSelect={setFocusedIndex}
-                      onOpen={open}
-                      height={rowHeight}
-                      rowIndex={virtualRow.index}
-                      tabIndex={isSelected ? 0 : -1}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </ContextMenu.Trigger>
-
-          {handlers !== null && menuNode !== null && (
-            <ContextMenu.Portal>
-              <ContextMenu.Positioner>
-                <ContextMenu.Popup data-ui="DeclarationsTree:menu" className="w-60">
-                  <OutlineMenuItems node={menuNode} handlers={handlers} />
-                </ContextMenu.Popup>
-              </ContextMenu.Positioner>
-            </ContextMenu.Portal>
-          )}
-        </ContextMenu.Root>
+        <VirtualTree
+          data-ui="DeclarationsTree"
+          aria-label={ariaLabel}
+          scrollRef={scrollRef}
+          rows={rows}
+          items={virtualizer.getVirtualItems()}
+          totalSize={virtualizer.getTotalSize()}
+          onKeyDown={handleTreeKeyDown}
+          onContextMenu={handleContextMenu}
+          style={{ "--path-cols": pathCols } as CSSProperties}
+          menu={
+            handlers !== null &&
+            menuNode !== null && (
+              <ContextMenu.Content data-ui="DeclarationsTree:menu" className="w-60">
+                <OutlineMenuItems node={menuNode} handlers={handlers} />
+              </ContextMenu.Content>
+            )
+          }
+          renderRow={(row, index) => {
+            const isSelected = index === focusedIndex;
+            return (
+              <DeclarationsTreeRow
+                node={row.node}
+                depth={row.depth}
+                branch={isBranch(row.node, shape)}
+                isExpanded={!shut.has(row.node.id)}
+                isSelected={isSelected}
+                openBranches={openBranches}
+                onToggle={toggle}
+                onSelect={setFocusedIndex}
+                onOpen={open}
+                height={rowHeight}
+                rowIndex={index}
+                tabIndex={isSelected ? 0 : -1}
+              />
+            );
+          }}
+        />
 
         <DragOverlay dropAnimation={null}>
           {drag.dragged !== null && <DragChip node={drag.dragged} />}

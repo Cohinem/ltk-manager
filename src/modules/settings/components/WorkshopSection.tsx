@@ -1,21 +1,14 @@
-import type { Settings } from "@/lib/tauri";
-
 import { AuthorProfilesSection } from "./AuthorProfilesSection";
 import { ProjectEditorSection } from "./ProjectEditorSection";
 import { SettingsGrid } from "./SettingsGrid";
 import { WorkshopPathSection } from "./WorkshopPathSection";
 
-interface WorkshopSectionProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
-
-export function WorkshopSection({ settings, onSave }: WorkshopSectionProps) {
+export function WorkshopSection() {
   return (
     <SettingsGrid>
-      <WorkshopPathSection settings={settings} onSave={onSave} />
+      <WorkshopPathSection />
       <ProjectEditorSection />
-      <AuthorProfilesSection settings={settings} onSave={onSave} />
+      <AuthorProfilesSection />
     </SettingsGrid>
   );
 }

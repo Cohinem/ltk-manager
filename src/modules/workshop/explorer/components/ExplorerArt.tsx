@@ -220,7 +220,7 @@ function Thumbnail({ asset, kind, box, requestWidth, variant, shape }: Thumbnail
             slot.onSettled();
             setFailedUrl(url);
           }}
-          className="h-full w-full object-contain"
+          className="size-full object-contain"
         />
       )}
       {/* A .tex and a .dds of the same art read apart only by this badge, and a

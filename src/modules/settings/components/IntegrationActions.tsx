@@ -19,7 +19,7 @@ export function IntegrationActions({ installed, disabled, onAction }: Integratio
           size="sm"
           className="text-row"
           variant="outline"
-          left={<WrenchIcon weight="bold" className="h-3.5 w-3.5" />}
+          left={<WrenchIcon weight="bold" className="size-3.5" />}
           disabled={disabled}
           onClick={() => void onAction("repair")}
         >
@@ -31,7 +31,7 @@ export function IntegrationActions({ installed, disabled, onAction }: Integratio
         size="sm"
         className="text-row"
         variant="outline"
-        left={<TrashIcon weight="bold" className="h-3.5 w-3.5" />}
+        left={<TrashIcon weight="bold" className="size-3.5" />}
         disabled={disabled}
         onClick={() => void onAction("uninstall")}
       >

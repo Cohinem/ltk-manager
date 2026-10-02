@@ -70,19 +70,20 @@ export function LinePicker<T>({
         className={LINE_INPUT}
         onFocus={() => show(true)}
       />
-      <Combobox.Portal>
-        <Combobox.Positioner side="bottom" align="start" sideOffset={2}>
-          <Combobox.Popup className="max-h-64 min-w-64 py-0.5">
-            <Combobox.List>
-              {(item: T) => (
-                <Combobox.Item key={itemKey(item)} value={item} className="px-2 py-1 text-row">
-                  {itemText(item)}
-                </Combobox.Item>
-              )}
-            </Combobox.List>
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
+      <Combobox.Content
+        side="bottom"
+        align="start"
+        sideOffset={2}
+        className="max-h-64 min-w-64 py-0.5"
+      >
+        <Combobox.List>
+          {(item: T) => (
+            <Combobox.Item key={itemKey(item)} value={item} className="px-2 py-1 text-row">
+              {itemText(item)}
+            </Combobox.Item>
+          )}
+        </Combobox.List>
+      </Combobox.Content>
     </Combobox.Root>
   );
 }

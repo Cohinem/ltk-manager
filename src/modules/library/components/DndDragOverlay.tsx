@@ -35,7 +35,7 @@ export function DndDragOverlay({ activeMod, activeFolder }: DndDragOverlayProps)
       )}
       {activeFolder && (
         <div className="flex w-fit max-w-56 cursor-grabbing items-center gap-2 rounded-lg bg-surface-800 px-3 py-1.5 shadow-lg ring-2 ring-accent-500/30">
-          <FolderOpen className="h-4 w-4 shrink-0 text-accent-400" />
+          <FolderOpen className="size-4 shrink-0 text-accent-400" />
           <span className="truncate text-sm font-medium text-surface-100">{activeFolder.name}</span>
         </div>
       )}

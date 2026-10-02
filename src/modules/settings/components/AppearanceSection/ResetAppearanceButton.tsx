@@ -17,7 +17,7 @@ export function ResetAppearanceButton() {
     <Button
       variant="outline"
       size="sm"
-      left={<ArrowCounterClockwiseIcon weight="bold" className="h-4 w-4" />}
+      left={<ArrowCounterClockwiseIcon weight="bold" className="size-4" />}
       onClick={reset}
       disabled={changed.length === 0}
     >

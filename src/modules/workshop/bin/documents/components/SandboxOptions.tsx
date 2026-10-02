@@ -99,20 +99,18 @@ export function SandboxOptions({ documentId, handle }: SandboxOptionsProps) {
               {m.workshop_bin_sandbox_current_label({ name })}
             </span>
             {target !== null && <TargetSegment target={target} />}
-            <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0" />
+            <CaretDownIcon weight="bold" className="size-3 shrink-0" />
           </Menu.Trigger>
         </HoverCard>
-        <Menu.Portal>
-          <Menu.Positioner align="start" sideOffset={4}>
-            <Menu.Popup
-              data-ui="SandboxOptions"
-              className="max-h-[28rem] w-72 overflow-y-auto scrollbar-md"
-            >
-              <SandboxChoice documentId={documentId} handle={handle} />
-              {declared !== null && <DeclaredChoices handle={handle} declared={declared} />}
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content
+          align="start"
+          sideOffset={4}
+          data-ui="SandboxOptions"
+          className="max-h-[28rem] w-72 overflow-y-auto scrollbar-md"
+        >
+          <SandboxChoice documentId={documentId} handle={handle} />
+          {declared !== null && <DeclaredChoices handle={handle} declared={declared} />}
+        </Menu.Content>
       </Menu.Root>
     </span>
   );
@@ -182,8 +180,8 @@ function DeclareIntoChoice({
 
 /** A lock when the tab takes no edit, else the League icon in the game sandbox. */
 function LeadGlyph({ handle }: { handle: BinDocumentHandle }) {
-  if (handle.readOnly !== null) return <LockSimpleIcon className="h-3.5 w-3.5 shrink-0" />;
-  if (handle.sandbox.kind === "game") return <LeagueIcon className="h-3.5 w-3.5 shrink-0" />;
+  if (handle.readOnly !== null) return <LockSimpleIcon className="size-3.5 shrink-0" />;
+  if (handle.sandbox.kind === "game") return <LeagueIcon className="size-3.5 shrink-0" />;
   return null;
 }
 

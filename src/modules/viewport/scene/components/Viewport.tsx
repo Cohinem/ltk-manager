@@ -1,18 +1,5 @@
-import { Canvas, type RootState } from "@react-three/fiber";
-import {
-  type ComponentProps,
-  type ReactNode,
-  type RefObject,
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import type { WebGLRendererParameters } from "three";
-
-import { useContentVisible, useResizeObserver } from "@/hooks";
+import type { RootState } from "@react-three/fiber";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { SceneCamera } from "../../camera/components/SceneCamera";
 import { CameraPresetContext } from "../../camera/state/presetContext";
@@ -29,20 +16,14 @@ import {
 } from "../utils/ambientOcclusion";
 import { type AntiAliasing, DEFAULT_ANTI_ALIASING } from "../utils/antiAliasing";
 import { drawsPostEffects, NO_POST_EFFECTS, type PostEffects } from "../utils/postEffects";
-import {
-  createOpaqueRenderer,
-  releaseSharedRenderer,
-  type RendererLease,
-  type RendererUse,
-  sharedRenderer,
-} from "../utils/sharedRenderer";
+import type { RendererUse } from "../utils/sharedRenderer";
 import { DEFAULT_SUN, type SunOverride, withSunOverride } from "../utils/sunLight";
 import { edgesOf, type ViewMode } from "../utils/viewMode";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { AntiAliasingPass } from "./AntiAliasingPass";
 import { Backdrop } from "./Backdrop";
+import { HostCanvas, useCanvasHost } from "./HostCanvas";
 import { PostEffectsPass } from "./PostEffectsPass";
-import { SharedRendererClaim } from "./SharedRendererClaim";
 import { Sky } from "./Sky";
 import { Stage } from "./Stage";
 import { Sun } from "./Sun";
@@ -108,27 +89,6 @@ export interface ViewportProps {
 }
 
 /**
- * How the fibre measures the canvas: on every change, never on a scroll, and by its layout box.
- *
- * The default waits 50ms for a resize to settle, which leaves a dragged seam drawing a
- * frame sized for the old box. Pointer events read offsets, so nothing reads where the
- * canvas stands on the page. `offsetSize` reads the box before any CSS transform. A canvas
- * inside a zoomed graph node draws at its own size, and the zoom only scales it on screen.
- */
-const MEASURE: ComponentProps<typeof Canvas>["resize"] = {
-  scroll: false,
-  debounce: 0,
-  offsetSize: true,
-};
-
-/** What `opaqueRenderer` reads of the defaults the fibre hands a renderer factory. */
-interface CanvasDefaults {
-  /** The mounted canvas, which the fibre types against DOM typings of its own. */
-  readonly canvas: unknown;
-  readonly powerPreference?: WebGLRendererParameters["powerPreference"];
-}
-
-/**
  * A scene in the engine's frame: the camera and its orbit, the colour space and the stage.
  *
  * What a preview draws is its children, so a particle system, a character, or a character
@@ -169,40 +129,16 @@ export function Viewport({
     () => ({ mode: viewMode, edges, edgeColour: colors.wire }),
     [viewMode, edges, colors],
   );
-  const visible = useContentVisible();
-  const [sized, setSized] = useState(false);
+  const host = useCanvasHost(active, renderer === "shared");
+  const { running } = host;
   const [started, setStarted] = useState(false);
-  const measure = useResizeObserver<HTMLDivElement>((element) => {
-    setSized(element.clientWidth > 0 && element.clientHeight > 0);
-  });
-  const box = useRef<HTMLDivElement | null>(null);
-  const hold = useCallback(
-    (element: HTMLDivElement) => {
-      box.current = element;
-      return measure(element);
-    },
-    [measure],
-  );
-  const running = active && visible && sized;
   const root = useRef<RootState | null>(null);
-  const [lease] = useState<RendererLease>(() => ({ running: false }));
-  const [fellBack, setFellBack] = useState(false);
-  const shares = renderer === "shared" && !fellBack;
   const runningNow = useRef(running);
   // Canvas skips configuration at zero size, so hidden panes stop the root directly.
   useLayoutEffect(() => {
     runningNow.current = running;
-    lease.running = running;
     if (root.current !== null) setRunning(root.current, running);
-  }, [lease, running]);
-  /* A layout cleanup, so a tab replacing this one in the same commit finds it let go. */
-  useLayoutEffect(
-    () => () => {
-      lease.running = false;
-      releaseSharedRenderer(lease);
-    },
-    [lease],
-  );
+  }, [running]);
   useEffect(() => {
     if (running) setStarted(true);
   }, [running]);
@@ -223,15 +159,14 @@ export function Viewport({
 
   return (
     <div
-      ref={hold}
+      ref={host.hold}
       /* ThreeJS pins the canvas at the size last measured, a frame behind the box. */
       className="relative size-full [&_canvas]:size-full!"
     >
       {(started || running) && (
-        <Canvas
-          key={shares ? "shared" : "own"}
+        <HostCanvas
+          host={host}
           dpr={dpr}
-          resize={MEASURE}
           frameloop={running ? "always" : "never"}
           camera={{
             position: [...CAMERA.position],
@@ -239,12 +174,6 @@ export function Viewport({
             far: CAMERA.far,
             fov: CAMERA.fov,
           }}
-          eventSource={shares ? (box as RefObject<HTMLDivElement>) : undefined}
-          gl={({ canvas, powerPreference }: CanvasDefaults) =>
-            shares
-              ? sharedRenderer(powerPreference)
-              : createOpaqueRenderer(canvas as HTMLCanvasElement, powerPreference)
-          }
           onCreated={(state) => {
             root.current = state;
             setRunning(state, runningNow.current);
@@ -254,16 +183,6 @@ export function Viewport({
           }}
         >
           <color attach="background" args={[colors[clearColor]]} />
-          {shares && (
-            <SharedRendererClaim
-              lease={lease}
-              box={box}
-              onTaken={() => {
-                releaseSharedRenderer(lease);
-                setFellBack(true);
-              }}
-            />
-          )}
           <SceneCamera
             preset={camera}
             colors={colors}
@@ -300,7 +219,7 @@ export function Viewport({
             <PostEffectsPass effects={effects} occlusion={occlusion} />
           )}
           {antiAliasing !== "off" && <AntiAliasingPass mode={antiAliasing} />}
-        </Canvas>
+        </HostCanvas>
       )}
     </div>
   );

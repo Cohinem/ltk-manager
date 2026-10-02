@@ -84,22 +84,23 @@ export function SystemTemplatePicker({ className, onPick, onEscape }: SystemTemp
           else setText("");
         }}
       />
-      <Combobox.Portal>
-        <Combobox.Positioner side="bottom" align="start" sideOffset={2}>
-          <Combobox.Popup className="max-h-72 min-w-80 py-0.5">
-            <Combobox.List>
-              {(start: SystemStart) => (
-                <Combobox.Item key={startKey(start)} value={start} className="px-2 py-1">
-                  <span className="flex min-w-0 flex-col">
-                    <span>{startLabel(start)}</span>
-                    <span className="text-meta text-surface-400">{startDescription(start)}</span>
-                  </span>
-                </Combobox.Item>
-              )}
-            </Combobox.List>
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
+      <Combobox.Content
+        side="bottom"
+        align="start"
+        sideOffset={2}
+        className="max-h-72 min-w-80 py-0.5"
+      >
+        <Combobox.List>
+          {(start: SystemStart) => (
+            <Combobox.Item key={startKey(start)} value={start} className="px-2 py-1">
+              <span className="flex min-w-0 flex-col">
+                <span>{startLabel(start)}</span>
+                <span className="text-meta text-surface-400">{startDescription(start)}</span>
+              </span>
+            </Combobox.Item>
+          )}
+        </Combobox.List>
+      </Combobox.Content>
     </Combobox.Root>
   );
 }

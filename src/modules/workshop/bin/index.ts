@@ -55,7 +55,6 @@ export {
   rowKey,
   type RowLine,
   splitKey,
-  toggled,
   type VisibleRow,
 } from "./tree/utils/binRows";
 export { rowShape, rowTag, shapeTag } from "./values/utils/kindTag";

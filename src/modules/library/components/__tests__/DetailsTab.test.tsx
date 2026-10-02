@@ -6,11 +6,13 @@ import { StrictMode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ConfirmHost } from "@/components";
+import { m } from "@/i18n";
 import type { ChecksumMismatchInfo, InstalledMod, ModWadReport } from "@/lib/tauri";
 import { useLibrarySidebarStore } from "@/modules/library/state";
 import { renderWithProviders } from "@/test/utils";
 
 import { DetailsTab } from "../DetailsTab";
+import { DocumentGate } from "../DocumentBody";
 import { installedMod } from "./modHealthFixtures";
 
 const analyze = vi.fn();
@@ -78,7 +80,7 @@ function mod(over: Partial<InstalledMod> = {}): InstalledMod {
 }
 
 function show(over: Partial<InstalledMod> = {}, strict = false) {
-  const tab = <DetailsTab mod={mod(over)} missing={false} />;
+  const tab = <DetailsTab mod={mod(over)} />;
   renderWithProviders(strict ? <StrictMode>{tab}</StrictMode> : tab);
 }
 
@@ -90,7 +92,7 @@ async function startEditing() {
 function showWithConfirm() {
   renderWithProviders(
     <>
-      <DetailsTab mod={mod()} missing={false} />
+      <DetailsTab mod={mod()} />
       <ConfirmHost />
     </>,
   );
@@ -410,14 +412,27 @@ describe("the unsaved guard, as the reader meets it", () => {
 });
 
 describe("the panel with no mod", () => {
+  function showGate(missing: boolean) {
+    renderWithProviders(
+      <DocumentGate
+        mod={null}
+        missing={missing}
+        emptyTitle={m.library_details_none_open_title()}
+        emptyDescription={m.library_details_none_open_description()}
+      >
+        {(open) => <DetailsTab mod={open} />}
+      </DocumentGate>,
+    );
+  }
+
   it("says how to open one", () => {
-    renderWithProviders(<DetailsTab mod={null} missing={false} />);
+    showGate(false);
 
     expect(screen.getByText("No mod open")).toBeInTheDocument();
   });
 
   it("says the mod is gone rather than showing stale facts", () => {
-    renderWithProviders(<DetailsTab mod={null} missing />);
+    showGate(true);
 
     expect(screen.getByText("Mod uninstalled")).toBeInTheDocument();
   });

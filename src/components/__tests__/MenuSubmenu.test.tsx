@@ -22,32 +22,21 @@ function renderStorageMenu({
   render(
     <Menu.Root open>
       <Menu.Trigger>Actions</Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner>
-          <Menu.Popup>
-            <Menu.SubmenuRoot>
-              <Menu.SubmenuTrigger disabled={disabled}>Storage</Menu.SubmenuTrigger>
-              <Menu.Portal>
-                <Menu.SubmenuPositioner>
-                  <Menu.Popup>
-                    <Menu.RadioGroup
-                      value={value}
-                      onValueChange={(next) => onValueChange(next as string)}
-                    >
-                      <Menu.RadioItem value="project" closeOnClick>
-                        Project
-                      </Menu.RadioItem>
-                      <Menu.RadioItem value="archive" closeOnClick>
-                        Archive
-                      </Menu.RadioItem>
-                    </Menu.RadioGroup>
-                  </Menu.Popup>
-                </Menu.SubmenuPositioner>
-              </Menu.Portal>
-            </Menu.SubmenuRoot>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content>
+        <Menu.SubmenuRoot>
+          <Menu.SubmenuTrigger disabled={disabled}>Storage</Menu.SubmenuTrigger>
+          <Menu.SubmenuContent>
+            <Menu.RadioGroup value={value} onValueChange={(next) => onValueChange(next as string)}>
+              <Menu.RadioItem value="project" closeOnClick>
+                Project
+              </Menu.RadioItem>
+              <Menu.RadioItem value="archive" closeOnClick>
+                Archive
+              </Menu.RadioItem>
+            </Menu.RadioGroup>
+          </Menu.SubmenuContent>
+        </Menu.SubmenuRoot>
+      </Menu.Content>
     </Menu.Root>,
   );
 }

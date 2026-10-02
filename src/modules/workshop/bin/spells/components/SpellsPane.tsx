@@ -7,7 +7,7 @@ import { errorSummary, m } from "@/i18n";
 import type { AssetRef } from "@/lib/tauri";
 
 import { useWarmOnAbsent } from "../../../objectsBrowser/api/useObjectIndex";
-import { Notice } from "../../vfx/preview/components/Notice";
+import { Notice } from "../../shared/preview/Notice";
 import { spellQueries } from "../api/spellQueries";
 import type { AbilityRecipe } from "../utils/abilityRecipe";
 import { characterOf, spellGroups } from "../utils/catalog";

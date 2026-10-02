@@ -229,17 +229,17 @@ export function NodeHeader({
           }
           aria-expanded={!collapsed}
           /* DS-VEIL, DS-RADIUS */
-          className="nodrag -ml-1 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-100"
+          className="nodrag -ml-1 flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-100"
           onClick={() => actions?.toggleCollapsed(id)}
         >
           {collapsed ? (
-            <CaretRightIcon weight="bold" className="h-3.5 w-3.5" />
+            <CaretRightIcon weight="bold" className="size-3.5" />
           ) : (
-            <CaretDownIcon weight="bold" className="h-3.5 w-3.5" />
+            <CaretDownIcon weight="bold" className="size-3.5" />
           )}
         </button>
       )}
-      <Glyph weight="duotone" className={twMerge("h-5 w-5 shrink-0", iconTone)} />
+      <Glyph weight="duotone" className={twMerge("size-5 shrink-0", iconTone)} />
       <div className="flex min-w-0 flex-1 flex-col leading-tight">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="min-w-0 flex-1 truncate font-medium text-surface-100">{title}</span>
@@ -294,10 +294,10 @@ export function RevealButton({ onReveal }: { onReveal: () => void }) {
         type="button"
         aria-label={label}
         /* DS-VEIL, DS-RADIUS */
-        className="nodrag flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 opacity-0 group-hover/node:opacity-100 hover:bg-surface-veil hover:text-surface-100 focus-visible:opacity-100"
+        className="nodrag flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 opacity-0 group-hover/node:opacity-100 hover:bg-surface-veil hover:text-surface-100 focus-visible:opacity-100"
         onClick={onReveal}
       >
-        <TreeStructureIcon weight="bold" className="h-3.5 w-3.5" />
+        <TreeStructureIcon weight="bold" className="size-3.5" />
       </button>
     </Tooltip>
   );

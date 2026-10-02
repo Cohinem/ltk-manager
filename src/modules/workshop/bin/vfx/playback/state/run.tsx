@@ -11,6 +11,7 @@ import {
 
 import { useContentVisible } from "@/hooks";
 import type { AppError, AssetRef, BinDocumentId } from "@/lib/tauri";
+import { toggledIn } from "@/utils";
 
 import {
   type LoopRange,
@@ -435,8 +436,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
         setRig({ source: CUSTOM_SOURCE, rig: withPlayback(rig.rig, next ? "replay" : "once") });
       },
       reroll: () => setSeed((current) => current + 1),
-      toggleMuted: (emitter) => setMuted((current) => toggled(current, emitter)),
-      toggleSoloed: (emitter) => setSoloed((current) => toggled(current, emitter)),
+      toggleMuted: (emitter) => setMuted((current) => toggledIn(current, emitter)),
+      toggleSoloed: (emitter) => setSoloed((current) => toggledIn(current, emitter)),
       setMuted,
       setSoloed,
       setLoop: (range) => setLoop(boundedLoop(range, span)),
@@ -505,12 +506,4 @@ function boundedLoop(range: LoopRange | null, span: number): LoopRange | null {
   const from = Math.max(range.from, 0);
   const to = Math.min(range.to, span);
   return to <= from ? null : { from, to };
-}
-
-/** `held` with `member` added, or taken out where it already is. */
-export function toggled(held: ReadonlySet<number>, member: number): ReadonlySet<number> {
-  const next = new Set(held);
-  if (next.has(member)) next.delete(member);
-  else next.add(member);
-  return next;
 }

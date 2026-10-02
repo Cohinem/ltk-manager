@@ -69,7 +69,7 @@ export function SortableFolderRow({
             {...attributes}
             {...listeners}
           >
-            <GripVertical className="h-5 w-5" />
+            <GripVertical className="size-5" />
           </div>
         )}
         <div className="min-w-0 flex-1">

@@ -1,9 +1,9 @@
-import { SpinnerGapIcon } from "@phosphor-icons/react";
 import { createRootRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
+import { Spinner } from "@/components";
 import {
   useOverscrollSpring,
   useReducedMotion,
@@ -215,7 +215,7 @@ function RootLayout() {
   if (isCheckingSetup) {
     return (
       <div className="flex h-screen items-center justify-center bg-linear-to-br from-surface-950 via-surface-900 to-surface-950">
-        <SpinnerGapIcon className="h-6 w-6 animate-spin text-surface-400" />
+        <Spinner />
       </div>
     );
   }

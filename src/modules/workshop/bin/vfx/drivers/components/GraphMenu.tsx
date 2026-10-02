@@ -49,13 +49,9 @@ interface GraphMenuProps {
  */
 export function GraphMenu(props: GraphMenuProps) {
   return (
-    <ContextMenu.Portal>
-      <ContextMenu.Positioner>
-        <ContextMenu.Popup data-ui="GraphMenu">
-          <MenuItems {...props} />
-        </ContextMenu.Popup>
-      </ContextMenu.Positioner>
-    </ContextMenu.Portal>
+    <ContextMenu.Content data-ui="GraphMenu">
+      <MenuItems {...props} />
+    </ContextMenu.Content>
   );
 }
 

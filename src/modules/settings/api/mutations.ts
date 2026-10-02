@@ -2,17 +2,26 @@ import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type HashtableSyncReport, type Settings } from "@/lib/tauri";
 import { dropPlacements } from "@/modules/viewport";
-import { mutationFn, queryFn } from "@/utils/query";
+import { mutationFn } from "@/utils/query";
 
 import { settingsKeys } from "./keys";
 
 /** Writes against the app settings. */
 export const settingsMutations = {
+  /* Saves run one at a time and show at once, so a second change merged onto the
+     first reaches the backend after it rather than racing it. A refused save reads
+     the settings back. */
   save: (client: QueryClient) =>
     mutationOptions<null, AppError, Settings>({
       mutationFn: mutationFn(api.saveSettings),
-      onSuccess: (_answer, settings) => {
+      scope: { id: "settings" },
+      onMutate: (settings) => {
         client.setQueryData(settingsKeys.settings(), settings);
+      },
+      onError: () => {
+        client.invalidateQueries({ queryKey: settingsKeys.settings() });
+      },
+      onSuccess: () => {
         client.invalidateQueries({ queryKey: settingsKeys.setupRequired() });
       },
     }),
@@ -20,7 +29,7 @@ export const settingsMutations = {
   /** Finding nothing answers `null` rather than rejecting. */
   autoDetectLeaguePath: () =>
     mutationOptions<string | null, AppError, void>({
-      mutationFn: queryFn(api.autoDetectLeaguePath),
+      mutationFn: mutationFn(api.autoDetectLeaguePath),
     }),
 } as const;
 

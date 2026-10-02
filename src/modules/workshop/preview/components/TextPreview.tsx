@@ -2,13 +2,15 @@ import type { Extension } from "@codemirror/state";
 import { useQuery } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, EmptyState, Spinner, Tooltip } from "@/components";
+import { Button, EmptyState, LoadingState, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { usePreviewFileUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 import { useDocumentFind } from "@/modules/editor";
 import { formatBytes } from "@/utils";
 
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
+import { PaneHint } from "../../shared/components/PaneHint";
 import { MAX_TEXT_BYTES, previewQueries, type SourceText } from "../api/queries";
 import { codeLanguageOf } from "../utils/codeLanguage";
 import type { CodeViewHandle } from "./CodeView";
@@ -88,7 +90,7 @@ export function TextPreview({ documentId, asset, name }: TextPreviewProps) {
   const shown = formatOn && formatted !== null ? formatted : (source.data?.text ?? "");
   const lines = useMemo(() => lineCount(shown), [shown]);
 
-  if (source.isPending) return <Loading />;
+  if (source.isPending) return <LoadingState />;
 
   if (source.isError) {
     return (
@@ -107,17 +109,17 @@ export function TextPreview({ documentId, asset, name }: TextPreviewProps) {
   ];
 
   return (
-    <div data-ui="TextPreview" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="TextPreview">
       {source.data.truncated && (
-        <p className="shrink-0 border-b border-surface-700/50 px-3 py-1.5 text-xs text-surface-400 select-none">
+        <PaneHint>
           {m.workshop_preview_text_truncated_hint({
             shown: formatBytes(MAX_TEXT_BYTES),
             size: formatBytes(source.data.sizeBytes),
           })}
-        </p>
+        </PaneHint>
       )}
 
-      <Suspense fallback={<Loading />}>
+      <Suspense fallback={<LoadingState />}>
         <CodeView
           ref={code}
           value={shown}
@@ -155,14 +157,6 @@ export function TextPreview({ documentId, asset, name }: TextPreviewProps) {
           </Button>
         </Tooltip>
       </PreviewStatus>
-    </div>
-  );
-}
-
-function Loading() {
-  return (
-    <div className="flex flex-1 items-center justify-center">
-      <Spinner size="md" />
-    </div>
+    </DocumentFrame>
   );
 }

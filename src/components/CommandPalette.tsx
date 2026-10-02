@@ -10,6 +10,7 @@ import {
 
 import { useListNav } from "@/hooks/useListNav";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
+import { useRemeasure } from "@/hooks/useRemeasure";
 import { useZoomedPx } from "@/hooks/useZoomedPx";
 import { twMerge } from "@/utils";
 
@@ -171,10 +172,7 @@ export function CommandPalette({
     getItemKey: (index) => composeItemKey(items[index]!),
     overscan: 8,
   });
-
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
+  useRemeasure(virtualizer, zoomed);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -216,13 +214,13 @@ export function CommandPalette({
       )}
     >
       <div className="flex h-8 shrink-0 items-center gap-2 px-2.5">
-        <MagnifyingGlassIcon weight="bold" className="h-4 w-4 shrink-0 text-surface-400" />
+        <MagnifyingGlassIcon weight="bold" className="size-4 shrink-0 text-surface-400" />
 
         {scope !== undefined && (
           <button
             type="button"
             onClick={onScopeRemove}
-            className="shrink-0 cursor-pointer rounded-sm bg-accent-500/20 px-1.5 py-0.5 text-[0.6875rem] text-accent-200 transition-colors hover:bg-accent-500/30"
+            className="shrink-0 cursor-pointer rounded-sm bg-accent-500/20 px-1.5 py-0.5 text-meta text-accent-200 transition-colors hover:bg-accent-500/30"
           >
             {scope}
           </button>
@@ -307,13 +305,13 @@ function PaletteItemView({ item, id, active, setSize, onHover, onRun }: PaletteI
   if (item.kind === "header") {
     const { group } = item;
     return (
-      <div className="flex h-full items-center justify-between gap-2 px-3 text-[0.6875rem] font-medium tracking-wide text-surface-400 uppercase">
+      <div className="flex h-full items-center justify-between gap-2 px-3 text-meta font-medium tracking-wide text-surface-400 uppercase">
         <span className="truncate">{group.label}</span>
         <span className="flex shrink-0 items-center gap-1.5">
           {group.total !== undefined && !group.pending && (
             <span className="tabular-nums">{group.total}</span>
           )}
-          {group.pending && <Spinner size="sm" className="h-3 w-3" />}
+          {group.pending && <Spinner size="xs" />}
         </span>
       </div>
     );

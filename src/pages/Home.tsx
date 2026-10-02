@@ -71,7 +71,7 @@ export function Home() {
                 onClick={actions.handleImportMods}
                 loading={installing}
                 aria-label={m.home_library_add_hint()}
-                left={<DownloadSimpleIcon weight="bold" className="h-4 w-4" />}
+                left={<DownloadSimpleIcon weight="bold" className="size-4" />}
               >
                 {m.home_library_add_action()}
               </Button>

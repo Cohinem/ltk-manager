@@ -1,4 +1,3 @@
-import { CaretRightIcon } from "@phosphor-icons/react";
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
 
 import { MarkedText, Popover } from "@/components";
@@ -17,7 +16,9 @@ import {
   IndentRails,
   TREE_ROW_BASE_CLASSES as ROW_BASE_CLASSES,
   TREE_ROW_STATE_CLASSES as ROW_STATE_CLASSES,
+  TreeCaret,
   TreeLoadingRow,
+  TreeRowCount,
 } from "../../shared/components/TreeRowParts";
 import { isSubtreeClick } from "../../shared/utils/treeGestures";
 import { clickIntent } from "../../state";
@@ -70,17 +71,6 @@ function ObjectsTreeRowInner(props: ObjectsTreeRowProps) {
 
 export const ObjectsTreeRow = memo(ObjectsTreeRowInner);
 
-function Caret({ isExpanded }: { isExpanded: boolean }) {
-  return (
-    <CaretRightIcon
-      className={twMerge(
-        "h-3 w-3 shrink-0 text-surface-400 transition-transform",
-        isExpanded && "rotate-90",
-      )}
-    />
-  );
-}
-
 interface PrefixRowProps extends ObjectsTreeRowProps {
   node: ObjectPrefixNode;
 }
@@ -115,12 +105,10 @@ function PrefixRow({
       className={twMerge("w-full cursor-pointer text-left", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
     >
       <IndentRails depth={depth} />
-      <Caret isExpanded={isExpanded} />
+      <TreeCaret isExpanded={isExpanded} />
       <FolderGlyph unknown={node.unnamed} isExpanded={isExpanded} />
       <span className="truncate">{node.name}</span>
-      <span className="ml-auto shrink-0 text-[0.625rem] text-surface-500 tabular-nums">
-        {node.count.toLocaleString()}
-      </span>
+      <TreeRowCount>{node.count.toLocaleString()}</TreeRowCount>
     </button>
   );
 }
@@ -182,11 +170,11 @@ function ObjectRow({
           }}
           onDoubleClick={(event) => event.stopPropagation()}
         >
-          <Caret isExpanded={isExpanded} />
+          <TreeCaret isExpanded={isExpanded} />
         </span>
       )}
       {!opens && <CaretSlot />}
-      <ObjectGlyph objectClass={first?.class} className="h-3.5 w-3.5 shrink-0 text-surface-400" />
+      <ObjectGlyph objectClass={first?.class} className="size-3.5 shrink-0 text-surface-400" />
       <span className={twMerge("min-w-0 truncate", node.unnamed && "text-surface-400")}>
         <MarkedText text={node.name} ranges={rangesInName(node.path, node.ranges)} />
       </span>
@@ -195,14 +183,14 @@ function ObjectRow({
           <ClassCard classHash={first.classHash} name={classLabel(first.class, first.classHash)} />
         </span>
       )}
-      <span className="ml-auto min-w-0 shrink-10 pl-2 text-[0.625rem] text-surface-400">
+      <span className="ml-auto min-w-0 shrink-10 pl-2 text-fine text-surface-400">
         <span className="block max-w-32 truncate">
           <ObjectSource node={node} />
         </span>
       </span>
       {node.layers.map((layer) => (
-        <span key={layer.name} className="flex shrink-0 items-center gap-1 text-[0.625rem]">
-          <LayerGlyph layerName={layer.name} className="h-3 w-3" />
+        <span key={layer.name} className="flex shrink-0 items-center gap-1 text-fine">
+          <LayerGlyph layerName={layer.name} className="size-3" />
           <span className="text-surface-400">{layer.title}</span>
         </span>
       ))}
@@ -253,18 +241,20 @@ function FilesChip({ node }: { node: ObjectRowNode }) {
       >
         {label}
       </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end" sideOffset={6}>
-          <Popover.Popup aria-label={label} className="w-96 p-1 select-none">
-            <DeclarationList
-              declarations={node.declarations}
-              objectHash={node.objectHash}
-              objectPath={node.path}
-              layerTitle={layerTitle}
-            />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="bottom"
+        align="end"
+        sideOffset={6}
+        aria-label={label}
+        className="w-96 p-1 select-none"
+      >
+        <DeclarationList
+          declarations={node.declarations}
+          objectHash={node.objectHash}
+          objectPath={node.path}
+          layerTitle={layerTitle}
+        />
+      </Popover.Content>
     </Popover.Root>
   );
 }

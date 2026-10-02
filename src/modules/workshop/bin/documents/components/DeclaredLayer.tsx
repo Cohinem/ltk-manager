@@ -125,7 +125,7 @@ function ChangeMark({ layer, label, removed = false }: ChangeMarkProps) {
       <Tooltip content={label}>
         <span role="img" aria-label={label} className="flex shrink-0">
           {/* DS-KIND-HUE */}
-          <LayerGlyph layerName={layer} className="h-3 w-3" />
+          <LayerGlyph layerName={layer} className="size-3" />
         </span>
       </Tooltip>
     );
@@ -138,7 +138,7 @@ function ChangeMark({ layer, label, removed = false }: ChangeMarkProps) {
         className="flex shrink-0 items-center gap-1 text-meta text-surface-400 select-none"
       >
         {/* DS-KIND-HUE */}
-        <LayerGlyph layerName={layer} className="h-3 w-3" />
+        <LayerGlyph layerName={layer} className="size-3" />
         {m.workshop_bin_object_removed_tag()}
       </span>
     </Tooltip>
@@ -179,7 +179,7 @@ export function DeclaredRowMark({ mark, layer }: DeclaredRowMarkProps) {
     >
       <span role="img" aria-label={label} className="flex shrink-0">
         {/* DS-KIND-HUE */}
-        <LayerGlyph layerName={layer} className="h-3 w-3" />
+        <LayerGlyph layerName={layer} className="size-3" />
       </span>
     </Tooltip>
   );

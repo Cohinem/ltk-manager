@@ -52,17 +52,13 @@ export function SurfaceField({ element, tree, sheet }: SurfaceFieldProps) {
           </Select.Value>
           <Select.Icon />
         </Select.Trigger>
-        <Select.Portal>
-          <Select.Positioner>
-            <Select.Popup className="max-h-80">
-              {surfaces.surfaces.map((surface) => (
-                <Select.Item key={surface.key} value={surface.key}>
-                  {surface.key}
-                </Select.Item>
-              ))}
-            </Select.Popup>
-          </Select.Positioner>
-        </Select.Portal>
+        <Select.Content className="max-h-80">
+          {surfaces.surfaces.map((surface) => (
+            <Select.Item key={surface.key} value={surface.key}>
+              {surface.key}
+            </Select.Item>
+          ))}
+        </Select.Content>
       </Select.Root>
     </FieldLine>
   );

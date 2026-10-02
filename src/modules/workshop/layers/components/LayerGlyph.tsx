@@ -10,7 +10,7 @@ interface LayerGlyphProps {
 export function LayerGlyph({ layerName, className }: LayerGlyphProps) {
   const base = layerName === "base";
   const classes = twMerge(
-    "h-3.5 w-3.5 shrink-0",
+    "size-3.5 shrink-0",
     base ? "text-doc-base-text" : "text-doc-layer-text",
     className,
   );

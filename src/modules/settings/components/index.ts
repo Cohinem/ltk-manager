@@ -13,4 +13,5 @@ export { SettingGroup } from "./SettingGroup";
 export { SettingRow } from "./SettingRow";
 export { SettingRows } from "./SettingRows";
 export { SettingScope, useSettingReset } from "./SettingScope";
+export { type BooleanSettingKey, SettingSwitch } from "./SettingSwitch";
 export { WorkshopSection } from "./WorkshopSection";

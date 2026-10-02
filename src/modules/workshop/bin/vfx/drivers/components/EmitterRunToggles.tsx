@@ -9,7 +9,7 @@ import { VfxRunContext } from "../../playback/state/run";
 
 /** A header button's box: DS-VEIL, DS-RADIUS. */
 const BUTTON =
-  "nodrag flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-300 hover:bg-surface-veil hover:text-surface-100";
+  "nodrag flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-300 hover:bg-surface-veil hover:text-surface-100";
 
 /** Where an emitter stands in the run: its pool index, and whether the preview leaves it out. */
 export interface RunPresence {
@@ -61,8 +61,8 @@ export function EmitterRunToggles({ presence }: { presence: RunPresence | null }
           className={twMerge(BUTTON, presence.muted && "text-surface-500")}
           onClick={() => run.toggleMuted(presence.index)}
         >
-          {presence.muted && <EyeClosedIcon weight="bold" className="h-3.5 w-3.5" />}
-          {!presence.muted && <EyeIcon weight="bold" className="h-3.5 w-3.5" />}
+          {presence.muted && <EyeClosedIcon weight="bold" className="size-3.5" />}
+          {!presence.muted && <EyeIcon weight="bold" className="size-3.5" />}
         </button>
       </Tooltip>
       <Tooltip content={m.workshop_bin_preview_solo_label()}>

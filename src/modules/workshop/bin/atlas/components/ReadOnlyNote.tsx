@@ -21,7 +21,7 @@ export function ReadOnlyNote({
   const toProject = useProjectSwitchAction();
   const mark = (
     <span className="flex shrink-0 items-center gap-1 text-surface-300">
-      <LockSimpleIcon className="h-3.5 w-3.5" />
+      <LockSimpleIcon className="size-3.5" />
       {m.workshop_bin_read_only_label()}
     </span>
   );

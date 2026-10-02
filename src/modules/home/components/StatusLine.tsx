@@ -46,8 +46,8 @@ function ActionLabel({ action }: { action: HomeStatusAction }) {
   return (
     <span className="flex items-center gap-0.5 text-xs font-medium text-surface-300">
       {action.label}
-      {action.pending && <SpinnerGapIcon className="h-3.5 w-3.5 animate-spin" />}
-      {!action.pending && <CaretRightIcon weight="bold" className="h-3.5 w-3.5" />}
+      {action.pending && <SpinnerGapIcon className="size-3.5 animate-spin" />}
+      {!action.pending && <CaretRightIcon weight="bold" className="size-3.5" />}
     </span>
   );
 }

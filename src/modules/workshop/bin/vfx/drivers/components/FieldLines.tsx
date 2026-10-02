@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Handle, Position } from "@xyflow/react";
 import { type CSSProperties, type ReactNode, use, useMemo, useState } from "react";
 
-import { InputDefaultContext } from "@/components";
+import { InputDefaultContext, OVERLINE } from "@/components";
 import { m } from "@/i18n";
 import type { BinRow, ClassChoice } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -231,7 +231,7 @@ export function EntryLines({
             "nodrag ml-1 flex shrink-0 cursor-pointer items-center gap-0.5 truncate text-surface-500 hover:text-surface-200",
           )}
         >
-          <Caret weight="bold" className="h-3 w-3 shrink-0" />
+          <Caret weight="bold" className="size-3 shrink-0" />
           <span className="truncate">{`${label} [${entries.length}]`}</span>
         </button>
       </Line>
@@ -264,9 +264,7 @@ function EntryLine({ entry }: { entry: ListEntry }) {
 export function GroupLine({ title, add }: { title: string; add?: ReactNode }) {
   return (
     <Line className="border-t border-surface-700/40 pr-1 first:border-t-0">
-      <span className="px-2 font-sans text-xs font-medium tracking-wide text-surface-400 uppercase">
-        {title}
-      </span>
+      <span className={twMerge(OVERLINE, "px-2 font-sans")}>{title}</span>
       {add}
     </Line>
   );

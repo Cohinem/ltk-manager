@@ -1,22 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  type KeyboardEvent,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { useZoomedPx } from "@/hooks";
+import { useRemeasure, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
+import { toggledIn } from "@/utils";
 
+import { steppedRow, useActiveRow } from "../../../shared/hooks/useActiveRow";
 import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
+import { Notice } from "../../shared/preview/Notice";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
 import { instantScroll } from "../../tree/hooks/useRowWindow";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { mapQueries } from "../api/mapQueries";
 import { useMapScene } from "../state/mapScene";
 import {
@@ -89,11 +83,7 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
 
   const toggle = useCallback(
     (chunk: string) => {
-      const flip = (held: ReadonlySet<string>) => {
-        const next = new Set(held);
-        if (!next.delete(chunk)) next.add(chunk);
-        return next;
-      };
+      const flip = (held: ReadonlySet<string>) => toggledIn(held, chunk);
       if (narrowed) setShut(flip);
       else setOpened(flip);
     },
@@ -119,50 +109,30 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scroller.current,
-    estimateSize: useCallback(() => rowHeight, [rowHeight]),
+    estimateSize: () => rowHeight,
     overscan: 12,
     getItemKey: useCallback((index: number) => rows[index]?.id ?? index, [rows]),
     scrollToFn: instantScroll,
   });
+  useRemeasure(virtualizer, rowHeight);
 
-  /* The row the keyboard stands on, by id, so a filter or a fold keeps it where it can. */
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const found = activeId === null ? -1 : rows.findIndex((row) => row.id === activeId);
-  const active = found >= 0 ? found : Math.min(0, rows.length - 1);
-  const idPrefix = useId();
+  const { active, setActiveId, stepTo, reveal, domId, activeDescendant, isActive } = useActiveRow(
+    rows,
+    virtualizer,
+  );
 
   /* A pick made anywhere, the viewport's box included, opens its chunk and scrolls the tree to
      it once the row stands. */
   const revealed = useRef<string | null>(null);
-  const scrollTo = useRef<string | null>(null);
   useEffect(() => {
     if (lead === null || lead === revealed.current || !selected.has(lead)) return;
     revealed.current = lead;
-    scrollTo.current = lead;
-    setActiveId(lead);
+    reveal(lead);
 
     const chunk = lead.slice(0, lead.indexOf("/"));
     if (narrowed) setShut((held) => (held.has(chunk) ? without(held, chunk) : held));
     else setOpened((held) => (held.has(chunk) ? held : new Set([...held, chunk])));
-  }, [lead, selected, narrowed]);
-  useEffect(() => {
-    const target = scrollTo.current;
-    if (target === null) return;
-
-    const index = rows.findIndex((row) => row.id === target);
-    if (index < 0) return;
-    scrollTo.current = null;
-    virtualizer.scrollToIndex(index, { align: "auto" });
-  }, [rows, virtualizer]);
-
-  const moveTo = (index: number) => {
-    const at = Math.max(0, Math.min(rows.length - 1, index));
-    const row = rows[at];
-    if (row === undefined) return;
-
-    setActiveId(row.id);
-    virtualizer.scrollToIndex(at, { align: "auto" });
-  };
+  }, [lead, selected, narrowed, reveal]);
 
   /* A plain pick selects the placeable alone and flies to it, and a modified one edits the
      selection in place. */
@@ -212,11 +182,9 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
     if (step === null) return;
 
     event.preventDefault();
-    /* The first key a fresh tree hears shows where the keyboard stands rather than moving it. */
-    if (activeId === null && typeof step === "number") setActiveId(row.id);
-    else if (step === "act") act(row);
+    if (step === "act") act(row);
     else if (step === "toggle" && row.type === "chunk") toggle(row.chunk.entry);
-    else if (typeof step === "number") moveTo(step);
+    else if (typeof step === "number") stepTo(step);
   }
 
   if (failed || outline.error !== null) {
@@ -245,7 +213,7 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
         role="tree"
         tabIndex={0}
         aria-label={m.workshop_bin_pane_outliner_label()}
-        aria-activedescendant={active < 0 ? undefined : `${idPrefix}-${active}`}
+        aria-activedescendant={activeDescendant}
         /* DS-SCROLLBAR */
         className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5 font-mono text-mono-row outline-none scrollbar-md"
         onKeyDown={handleKeyDown}
@@ -263,12 +231,12 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
                 style={{ height: virtual.size, transform: `translateY(${virtual.start}px)` }}
               >
                 <OutlinerRow
-                  domId={`${idPrefix}-${virtual.index}`}
+                  domId={domId(virtual.index)}
                   row={row}
                   hidden={rowIsHidden}
                   focused={row.type === "item" && focus?.id === row.id}
                   selected={selected.has(row.id)}
-                  active={virtual.index === active && activeId !== null}
+                  active={isActive(virtual.index)}
                   query={filter.text}
                   narrowed={narrowed}
                   onActivate={(event) => act(row, modeOf(event))}
@@ -320,19 +288,10 @@ function navigation(
   rows: readonly OutlineRow[],
   page: number,
 ): number | "toggle" | "act" | null {
+  const stepped = steppedRow(key, at, rows.length, page);
+  if (stepped !== null) return stepped;
+
   switch (key) {
-    case "ArrowDown":
-      return at + 1;
-    case "ArrowUp":
-      return at - 1;
-    case "Home":
-      return 0;
-    case "End":
-      return rows.length - 1;
-    case "PageDown":
-      return at + Math.max(page - 1, 1);
-    case "PageUp":
-      return at - Math.max(page - 1, 1);
     case "Enter":
     case " ":
       return "act";

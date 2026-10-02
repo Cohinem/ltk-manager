@@ -3,8 +3,8 @@ import { useCallback } from "react";
 import { useToast } from "@/components";
 import { api, isOk } from "@/lib/tauri";
 
-import { useSaveSettings } from "../api/useSaveSettings";
 import { useSettings } from "../api/useSettings";
+import { useUpdateSettings } from "../api/useUpdateSettings";
 
 /**
  * Returns a callback that, when invoked, checks whether the user's League
@@ -18,7 +18,7 @@ import { useSettings } from "../api/useSettings";
 export function useHddWarning() {
   const toast = useToast();
   const { data: settings } = useSettings();
-  const saveSettings = useSaveSettings();
+  const updateSettings = useUpdateSettings();
 
   return useCallback(async () => {
     if (!settings || settings.hasSeenHddWarning) return;
@@ -52,6 +52,6 @@ export function useHddWarning() {
       timeout: 15000,
     });
 
-    saveSettings.mutate({ ...settings, hasSeenHddWarning: true });
-  }, [settings, toast, saveSettings]);
+    updateSettings({ hasSeenHddWarning: true });
+  }, [settings, toast, updateSettings]);
 }

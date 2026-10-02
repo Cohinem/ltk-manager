@@ -33,7 +33,7 @@ import type { PaletteBranchProps } from "./ResultsPalette";
 import { WorkshopPalette } from "./WorkshopPalette";
 
 const BOX =
-  "flex h-full w-full items-center gap-1.5 rounded-md border bg-surface-900 pl-2.5 transition-colors";
+  "flex size-full items-center gap-1.5 rounded-md border bg-surface-900 pl-2.5 transition-colors";
 
 /**
  * The header's middle: where you are, and the route to everything in front of you.
@@ -312,7 +312,7 @@ function IdleBar({ onOpen, onFilterOpenChange, ref }: IdleBarProps) {
 
   return (
     <div className={twMerge(BOX, "border-surface-600 pr-1.5 hover:border-accent-hover")}>
-      <MagnifyingGlassIcon weight="bold" className="h-4 w-4 shrink-0 text-surface-400" />
+      <MagnifyingGlassIcon weight="bold" className="size-4 shrink-0 text-surface-400" />
 
       {project && (
         <>
@@ -365,7 +365,7 @@ function FilterBox({
 }: FilterBoxProps) {
   return (
     <div className={twMerge(BOX, "border-accent-500 pr-1.5")}>
-      <MagnifyingGlassIcon weight="bold" className="h-4 w-4 shrink-0 text-surface-400" />
+      <MagnifyingGlassIcon weight="bold" className="size-4 shrink-0 text-surface-400" />
 
       <input
         ref={ref}

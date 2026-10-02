@@ -13,7 +13,6 @@ import { twMerge } from "@/utils";
 import { IconButton } from "./Button";
 import { FieldAffix } from "./FieldAffix";
 import { Field } from "./FormField";
-import { Tooltip } from "./Tooltip";
 
 const pathIcons = {
   directory: FolderIcon,
@@ -56,20 +55,16 @@ export function FilesystemPath({
         aria-hidden="true"
         className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-surface-400"
       >
-        <Icon weight="duotone" className="h-4 w-4" />
+        <Icon weight="duotone" className="size-4" />
       </span>
       <FieldAffix className="pointer-events-none opacity-0 transition-opacity group-focus-within/path:pointer-events-auto group-focus-within/path:opacity-100 group-hover/path:pointer-events-auto group-hover/path:opacity-100">
-        <Tooltip content={m.common_path_open_action()}>
-          <IconButton
-            icon={<FolderOpenIcon weight="bold" className="h-4 w-4" />}
-            aria-label={m.common_path_open_action()}
-            variant="ghost"
-            size="sm"
-            compact
-            className="h-full rounded-none"
-            onClick={() => revealPath(value)}
-          />
-        </Tooltip>
+        <IconButton
+          icon={<FolderOpenIcon />}
+          size="sm"
+          className="h-full rounded-none"
+          onClick={() => revealPath(value)}
+          label={m.common_path_open_action()}
+        />
       </FieldAffix>
     </Field.Root>
   );

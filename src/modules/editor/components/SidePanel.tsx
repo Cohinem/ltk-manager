@@ -11,6 +11,7 @@ import {
   useState,
 } from "react";
 
+import { Count } from "@/components";
 import { useResizeObserver } from "@/hooks";
 import { twMerge } from "@/utils";
 
@@ -223,18 +224,14 @@ export function SidePanel({
                   <CaretRightIcon
                     weight="bold"
                     className={twMerge(
-                      "h-3 w-3 shrink-0 text-surface-400 transition-transform",
+                      "size-3 shrink-0 text-surface-400 transition-transform",
                       open && "rotate-90",
                     )}
                   />
-                  <span className="truncate text-[0.6875rem] font-medium tracking-wide text-surface-300 uppercase">
+                  <span className="truncate text-meta font-medium tracking-wide text-surface-300 uppercase">
                     {section.title}
                   </span>
-                  {section.meta !== undefined && (
-                    <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums">
-                      {section.meta}
-                    </span>
-                  )}
+                  {section.meta !== undefined && <Count>{section.meta}</Count>}
                 </Accordion.Trigger>
               </Accordion.Header>
 

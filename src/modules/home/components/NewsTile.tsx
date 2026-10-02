@@ -117,7 +117,7 @@ export function NewsTile() {
               hideIcon
               className={twMerge(ROW, "gap-2 text-sm text-surface-200")}
             >
-              <Glyph className="h-4 w-4 shrink-0 text-surface-400 group-hover:text-accent-300" />
+              <Glyph className="size-4 shrink-0 text-surface-400 group-hover:text-accent-300" />
               {label()}
             </ExternalLink>
           ))}
@@ -134,7 +134,7 @@ function Community() {
       <Button
         variant="ghost"
         size="sm"
-        left={<DiscordLogoIcon weight="duotone" className="h-4 w-4" />}
+        left={<DiscordLogoIcon weight="duotone" className="size-4" />}
         onClick={() => void open(DISCORD)}
       >
         {m.home_learn_discord_label()}
@@ -142,7 +142,7 @@ function Community() {
       <Button
         variant="ghost"
         size="sm"
-        left={<GithubLogoIcon weight="duotone" className="h-4 w-4" />}
+        left={<GithubLogoIcon weight="duotone" className="size-4" />}
         onClick={() => void open(REPOSITORY)}
       >
         {m.home_learn_repository_label()}

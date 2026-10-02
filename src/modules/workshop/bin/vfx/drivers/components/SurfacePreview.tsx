@@ -12,6 +12,7 @@ import { type RefObject, use, useEffect, useMemo, useRef, useState } from "react
 import { type Mesh, type ShaderMaterial, Vector4, type WebGLRenderer } from "three";
 
 import { Tooltip } from "@/components";
+import { useDisposable } from "@/hooks";
 import { m } from "@/i18n";
 import { whiteTexel } from "@/modules/viewport";
 import { twMerge } from "@/utils";
@@ -244,9 +245,9 @@ function SurfaceBox({
             <span
               role="img"
               aria-label={m.workshop_bin_graph_surface_failed_label({ error: failure })}
-              className="flex h-4 w-4 shrink-0 items-center justify-center text-warning-text"
+              className="flex size-4 shrink-0 items-center justify-center text-warning-text"
             >
-              <WarningIcon weight="bold" className="h-3 w-3" />
+              <WarningIcon weight="bold" className="size-3" />
             </span>
           </Tooltip>
         )}
@@ -256,7 +257,7 @@ function SurfaceBox({
             pressed={tiled}
             onClick={() => setTiled(!tiled)}
           >
-            <GridNineIcon weight="bold" className="h-3 w-3" />
+            <GridNineIcon weight="bold" className="size-3" />
           </StripButton>
         )}
         {mesh && (
@@ -265,7 +266,7 @@ function SurfaceBox({
             pressed={meshShown}
             onClick={() => setMeshShown(!meshShown)}
           >
-            <CubeIcon weight="bold" className="h-3 w-3" />
+            <CubeIcon weight="bold" className="size-3" />
           </StripButton>
         )}
         {!live && emitter?.distortion != null && (
@@ -274,12 +275,12 @@ function SurfaceBox({
             pressed={magnified}
             onClick={() => setMagnified(!magnified)}
           >
-            <MagnifyingGlassPlusIcon weight="bold" className="h-3 w-3" />
+            <MagnifyingGlassPlusIcon weight="bold" className="size-3" />
           </StripButton>
         )}
         {!live && only === undefined && emitter?.multTexture != null && (
           <StripButton label={SHOWN_LABEL[shown]()} onClick={() => setShown(NEXT[shown])}>
-            <ShownIcon weight="bold" className="h-3 w-3" />
+            <ShownIcon weight="bold" className="size-3" />
           </StripButton>
         )}
       </div>
@@ -308,19 +309,15 @@ function SurfaceScene({ emitter, looped, tiled, shown, magnified, bar, onFail }:
   );
   const textures = useVfxTextures(drawn, undefined, TEXTURE_WIDTH);
   const samplers = drawn[0] === undefined ? NO_SAMPLERS : samplersOf(textures, drawn[0]);
-  const material = useMemo(() => surfaceMaterial(emitter, samplers), [emitter, samplers]);
-  const outline = useMemo(() => outlineMaterial(material), [material]);
-  const backdrop = useMemo(backdropMaterial, []);
+  const material = useDisposable(() => surfaceMaterial(emitter, samplers), [emitter, samplers]);
+  const outline = useDisposable(() => outlineMaterial(material), [material]);
+  const backdrop = useDisposable(backdropMaterial, []);
   const draw = useMemo(surfaceDraw, []);
   const followed = useMemo<Followed>(() => ({ serial: -1 }), []);
   const particle = useRef<Mesh>(null);
   const grid = useRef<Mesh>(null);
   const ground = useBackdropColor();
   const scene = useThree((state) => state.scene);
-
-  useEffect(() => () => material.dispose(), [material]);
-  useEffect(() => () => outline.dispose(), [outline]);
-  useEffect(() => () => backdrop.dispose(), [backdrop]);
 
   /* A new material is a new chance to draw, so it shows the scene a failure hid. */
   useEffect(() => {

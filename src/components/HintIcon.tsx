@@ -16,8 +16,8 @@ const variantStyles: Record<HintIconVariant, string> = {
 };
 
 const defaultIcons: Record<HintIconVariant, ReactNode> = {
-  info: <InfoIcon weight="duotone" className="h-4.5 w-4.5" />,
-  warning: <WarningIcon weight="duotone" className="h-4.5 w-4.5" />,
+  info: <InfoIcon weight="duotone" className="size-4.5" />,
+  warning: <WarningIcon weight="duotone" className="size-4.5" />,
 };
 
 export interface HintIconProps {

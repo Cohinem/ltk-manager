@@ -18,6 +18,8 @@ import type { ReactElement, ReactNode } from "react";
 import {
   AutoPill,
   type AutoPillTone,
+  type CategoryTone,
+  Chip,
   ChampionIcon,
   ContextMenu,
   Dialog,
@@ -97,14 +99,14 @@ export function ModCardThumbnail({
           alt=""
           loading="lazy"
           decoding="async"
-          className={twMerge("absolute inset-0 h-full w-full object-cover", styles.image)}
+          className={twMerge("absolute inset-0 size-full object-cover", styles.image)}
         />
       )}
       {/* A mod with no art is a letter on a flat panel, and that is most of a
           library. Colouring the letter puts the state in the middle of the
           card, where art of its own would have been carrying it. */}
       {!thumbnailUrl && (
-        <div className="flex h-full w-full items-center justify-center">
+        <div className="flex size-full items-center justify-center">
           <span
             className={twMerge(
               styles.placeholder,
@@ -147,36 +149,32 @@ function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
   return (
     <Menu.SubmenuRoot>
       <Menu.SubmenuTrigger
-        icon={<PackageIcon className="h-4 w-4" weight="bold" />}
+        icon={<PackageIcon className="size-4" weight="bold" />}
         disabled={view.storageChangePending}
       >
         {m.library_mod_storage_label()}
       </Menu.SubmenuTrigger>
-      <Menu.Portal>
-        <Menu.SubmenuPositioner>
-          <Menu.Popup data-ui="ModCardMenu:storage">
-            <Menu.RadioGroup
-              value={view.mod.storage}
-              onValueChange={(storage) => view.onSetStorage(storage as ModStorage)}
-            >
-              <Menu.RadioItem
-                value="project"
-                icon={<FolderIcon className="h-4 w-4" weight="bold" />}
-                closeOnClick
-              >
-                {m.library_mod_storage_project_label()}
-              </Menu.RadioItem>
-              <Menu.RadioItem
-                value="archive"
-                icon={<ArchiveIcon className="h-4 w-4" weight="bold" />}
-                closeOnClick
-              >
-                {m.library_mod_storage_archive_label()}
-              </Menu.RadioItem>
-            </Menu.RadioGroup>
-          </Menu.Popup>
-        </Menu.SubmenuPositioner>
-      </Menu.Portal>
+      <Menu.SubmenuContent data-ui="ModCardMenu:storage">
+        <Menu.RadioGroup
+          value={view.mod.storage}
+          onValueChange={(storage) => view.onSetStorage(storage as ModStorage)}
+        >
+          <Menu.RadioItem
+            value="project"
+            icon={<FolderIcon className="size-4" weight="bold" />}
+            closeOnClick
+          >
+            {m.library_mod_storage_project_label()}
+          </Menu.RadioItem>
+          <Menu.RadioItem
+            value="archive"
+            icon={<ArchiveIcon className="size-4" weight="bold" />}
+            closeOnClick
+          >
+            {m.library_mod_storage_archive_label()}
+          </Menu.RadioItem>
+        </Menu.RadioGroup>
+      </Menu.SubmenuContent>
     </Menu.SubmenuRoot>
   );
 }
@@ -195,22 +193,16 @@ export function ModCardMenu({ view, className }: { view: ModCardView; className?
       <Menu.Trigger
         render={
           <IconButton
-            icon={<DotsThreeVerticalIcon className="h-4 w-4" weight="bold" />}
-            variant="ghost"
+            icon={<DotsThreeVerticalIcon />}
             size="sm"
-            compact
             aria-label={m.library_mod_options_label({ name: view.mod.displayName })}
             className={className}
           />
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner>
-          <Menu.Popup>
-            <ModCardMenuItems view={view} />
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content>
+        <ModCardMenuItems view={view} />
+      </Menu.Content>
     </Menu.Root>
   );
 }
@@ -236,13 +228,9 @@ export function ModCardContextMenu({
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger render={card}>{children}</ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Positioner>
-          <ContextMenu.Popup>
-            <ModCardMenuItems view={view} />
-          </ContextMenu.Popup>
-        </ContextMenu.Positioner>
-      </ContextMenu.Portal>
+      <ContextMenu.Content>
+        <ModCardMenuItems view={view} />
+      </ContextMenu.Content>
     </ContextMenu.Root>
   );
 }
@@ -261,7 +249,7 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
     <>
       {isFlagged && (
         <Menu.Item
-          icon={<ShieldWarningIcon className="h-4 w-4" weight="bold" />}
+          icon={<ShieldWarningIcon className="size-4" weight="bold" />}
           onClick={() => view.setSkinhackInfoOpen(true)}
         >
           {m.library_mod_skinhack_action()}
@@ -270,7 +258,7 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
       {!isFlagged && <ModCardDetailsItem modId={mod.id} />}
       <ModCardReadmeItem modId={mod.id} />
       <Menu.Item
-        icon={<FolderOpenIcon className="h-4 w-4" weight="bold" />}
+        icon={<FolderOpenIcon className="size-4" weight="bold" />}
         onClick={view.onOpenLocation}
       >
         {m.library_mod_open_location_action()}
@@ -278,12 +266,12 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
       {canChangeStorage && <ModCardStorageSubmenu view={view} />}
       {canCheckHealth && <ModCardHealthItem modId={mod.id} />}
       <ModCardUpdateItem modId={mod.id} />
-      <Menu.Item icon={<CopyIcon className="h-4 w-4" weight="bold" />} onClick={view.onCopyId}>
+      <Menu.Item icon={<CopyIcon className="size-4" weight="bold" />} onClick={view.onCopyId}>
         {m.library_mod_copy_id_action()}
       </Menu.Item>
       {isInUserFolder && (
         <Menu.Item
-          icon={<FolderMinusIcon className="h-4 w-4" weight="bold" />}
+          icon={<FolderMinusIcon className="size-4" weight="bold" />}
           onClick={view.onRemoveFromFolder}
         >
           {m.library_mod_remove_from_folder_action()}
@@ -291,7 +279,7 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
       )}
       <Menu.Separator />
       <Menu.Item
-        icon={<TrashIcon className="h-4 w-4" weight="bold" />}
+        icon={<TrashIcon className="size-4" weight="bold" />}
         variant="danger"
         onClick={view.onUninstall}
       >
@@ -313,7 +301,7 @@ function ModCardDetailsItem({ modId }: { modId: string }) {
 
   return (
     <Menu.Item
-      icon={<InfoIcon className="h-4 w-4" weight="bold" />}
+      icon={<InfoIcon className="size-4" weight="bold" />}
       onClick={() => showDetails(modId)}
     >
       {m.library_mod_details_action()}
@@ -333,7 +321,7 @@ function ModCardReadmeItem({ modId }: { modId: string }) {
 
   return (
     <Menu.Item
-      icon={<BookOpenTextIcon className="h-4 w-4" weight="bold" />}
+      icon={<BookOpenTextIcon className="size-4" weight="bold" />}
       onClick={() => showReadme(modId)}
     >
       {m.library_mod_readme_action()}
@@ -354,7 +342,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
 
   if (readiness === "syncing") {
     return (
-      <Menu.Item icon={<SpinnerGapIcon className="h-4 w-4 animate-spin" weight="bold" />} disabled>
+      <Menu.Item icon={<SpinnerGapIcon className="size-4 animate-spin" weight="bold" />} disabled>
         {m.library_mod_hashtables_syncing_label()}
       </Menu.Item>
     );
@@ -362,7 +350,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
 
   if (readiness === "unsynced") {
     return (
-      <Menu.Item icon={<HeartbeatIcon className="h-4 w-4" weight="bold" />} disabled>
+      <Menu.Item icon={<HeartbeatIcon className="size-4" weight="bold" />} disabled>
         {m.library_mod_hashtables_unsynced_label()}
       </Menu.Item>
     );
@@ -402,7 +390,7 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
 
   return (
     <Menu.Item
-      icon={<HeartbeatIcon className="h-4 w-4" weight="bold" />}
+      icon={<HeartbeatIcon className="size-4" weight="bold" />}
       disabled={checkModHealth.isPending}
       onClick={handleCheckHealth}
     >
@@ -411,19 +399,9 @@ export function ModCardHealthItem({ modId }: { modId: string }) {
   );
 }
 
-/* Same categorical hues as AutoPill, minus the dashed outline that marks a
-   pill as auto-detected. */
-const DECLARED_PILL_CLASSES = {
-  /* Neutral, because a plain tag names no kind: DS-KIND-HUE. The accent is what
-     an enabled card's edge is drawn in, and a pill wearing it on every card was
-     the loudest thing competing with that. */
-  tag: "bg-surface-700 text-surface-300",
-  champion: "bg-cat-champion/15 text-cat-champion-text",
-} as const;
-
 interface DeclaredPill {
   label: string;
-  tone: keyof typeof DECLARED_PILL_CLASSES;
+  tone: CategoryTone;
   key: string;
   icon?: ReactNode;
   /** What the pill reads as, for one whose icon carries half the meaning. */
@@ -490,7 +468,7 @@ export function ModPills({
     label: champion,
     tone: "champion" as const,
     key,
-    icon: <ChampionIcon className="h-3 w-3 shrink-0" />,
+    icon: <ChampionIcon className="size-3 shrink-0" />,
     ariaLabel: m.library_mod_champion_skin_label({ champion }),
   });
 
@@ -532,14 +510,10 @@ export function ModPills({
   return (
     <div className={`flex flex-wrap items-center gap-1 ${className ?? ""}`}>
       {declaredVisible.map((pill) => (
-        <span
-          key={pill.key}
-          aria-label={pill.ariaLabel}
-          className={`inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[0.625rem] leading-tight ${DECLARED_PILL_CLASSES[pill.tone]}`}
-        >
+        <Chip key={pill.key} tone={pill.tone} aria-label={pill.ariaLabel}>
           {pill.icon}
           {pill.label}
-        </span>
+        </Chip>
       ))}
       {autoVisible.length > 0 && (
         <Tooltip content={m.library_mod_auto_categories_hint()}>
@@ -557,7 +531,7 @@ export function ModPills({
         </Tooltip>
       )}
       {overflow > 0 && (
-        <span className="text-[0.625rem] text-surface-500">
+        <span className="text-fine text-surface-500">
           {m.library_mod_overflow_label({ count: overflow })}
         </span>
       )}

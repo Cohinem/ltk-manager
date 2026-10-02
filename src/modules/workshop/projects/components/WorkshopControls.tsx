@@ -17,7 +17,6 @@ import {
   SegmentedControl,
   type SegmentedOption,
   Separator,
-  Tooltip,
 } from "@/components";
 import { m } from "@/i18n";
 import { ViewOptionsPopover } from "@/modules/library";
@@ -40,12 +39,12 @@ function viewOptions(): SegmentedOption<ViewMode>[] {
   return [
     {
       value: "grid",
-      label: <GridFourIcon weight="bold" className="h-4 w-4" />,
+      label: <GridFourIcon weight="bold" className="size-4" />,
       name: m.workshop_controls_grid_view_label(),
     },
     {
       value: "list",
-      label: <ListIcon weight="bold" className="h-4 w-4" />,
+      label: <ListIcon weight="bold" className="size-4" />,
       name: m.workshop_controls_list_view_label(),
     },
   ];
@@ -90,73 +89,67 @@ export function WorkshopActions() {
       <Separator orientation="vertical" />
 
       <ButtonGroup>
-        <Tooltip
-          content={
+        <IconButton
+          compact={false}
+          icon={<PlusIcon />}
+          variant="filled"
+          size="sm"
+          onClick={openNewProjectDialog}
+          aria-label={m.workshop_controls_new_project_label()}
+          tooltip={
             <>
               {m.workshop_controls_new_project_label()} <Kbd shortcut="Ctrl+N" />
             </>
           }
-        >
-          <IconButton
-            icon={<PlusIcon weight="bold" className="h-4 w-4" />}
-            variant="filled"
-            size="sm"
-            onClick={openNewProjectDialog}
-            aria-label={m.workshop_controls_new_project_label()}
-          />
-        </Tooltip>
+        />
 
         <Menu.Root>
           <Menu.Trigger
             render={
               <IconButton
-                icon={<CaretDownIcon weight="bold" className="h-3.5 w-3.5" />}
+                compact={false}
+                icon={<CaretDownIcon className="size-3.5" />}
                 variant="filled"
                 size="sm"
                 loading={imports.pending || openFolder.pending}
                 aria-label={m.workshop_controls_more_label()}
                 /* A filled half carries no border to share, so the seam is the
-                   groove its own pressed state is drawn in. */
-                className="w-auto border-l border-accent-700 px-1"
+                   groove its own pressed state is drawn in. */ className="w-auto border-l border-accent-700 px-1"
               />
             }
           />
-          <Menu.Portal>
-            <Menu.Positioner>
-              <Menu.Popup className="w-72">
-                <Menu.Item
-                  icon={<FolderOpenIcon weight="bold" className="h-4 w-4" />}
-                  shortcut="Ctrl+O"
-                  onClick={openFolder.pick}
-                >
-                  {m.workshop_folder_open_action()}
-                </Menu.Item>
-                <Menu.Separator />
-                <Menu.Group>
-                  <Menu.GroupLabel>{m.workshop_controls_import_label()}</Menu.GroupLabel>
-                  <Menu.Item
-                    icon={<FileZipIcon weight="bold" className="h-4 w-4" />}
-                    onClick={imports.fromFantome}
-                  >
-                    {m.workshop_controls_from_fantome_action()}
-                  </Menu.Item>
-                  <Menu.Item
-                    icon={<PackageIcon weight="bold" className="h-4 w-4" />}
-                    onClick={imports.fromModpkg}
-                  >
-                    {m.workshop_controls_from_modpkg_action()}
-                  </Menu.Item>
-                  <Menu.Item
-                    icon={<GitBranchIcon weight="bold" className="h-4 w-4" />}
-                    onClick={imports.fromGitRepo}
-                  >
-                    {m.workshop_controls_from_git_action()}
-                  </Menu.Item>
-                </Menu.Group>
-                <RecentProjectMenuItems />
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
+          <Menu.Content className="w-72">
+            <Menu.Item
+              icon={<FolderOpenIcon weight="bold" className="size-4" />}
+              shortcut="Ctrl+O"
+              onClick={openFolder.pick}
+            >
+              {m.workshop_folder_open_action()}
+            </Menu.Item>
+            <Menu.Separator />
+            <Menu.Group>
+              <Menu.GroupLabel>{m.workshop_controls_import_label()}</Menu.GroupLabel>
+              <Menu.Item
+                icon={<FileZipIcon weight="bold" className="size-4" />}
+                onClick={imports.fromFantome}
+              >
+                {m.workshop_controls_from_fantome_action()}
+              </Menu.Item>
+              <Menu.Item
+                icon={<PackageIcon weight="bold" className="size-4" />}
+                onClick={imports.fromModpkg}
+              >
+                {m.workshop_controls_from_modpkg_action()}
+              </Menu.Item>
+              <Menu.Item
+                icon={<GitBranchIcon weight="bold" className="size-4" />}
+                onClick={imports.fromGitRepo}
+              >
+                {m.workshop_controls_from_git_action()}
+              </Menu.Item>
+            </Menu.Group>
+            <RecentProjectMenuItems />
+          </Menu.Content>
         </Menu.Root>
       </ButtonGroup>
     </>

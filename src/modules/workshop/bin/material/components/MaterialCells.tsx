@@ -4,7 +4,7 @@ import { twMerge } from "@/utils";
 
 import { Cell } from "../../classes/components/ClassCells";
 import { nameHash } from "../../shared/utils/binHash";
-import { RowValue } from "../../tree/components/BinRow";
+import { RowValue } from "../../values/components/RowValue";
 import { useElementField } from "../hooks/useEntryEdits";
 
 /** The fields of the three material list classes, by hash. */

@@ -6,7 +6,7 @@ import {
 } from "@phosphor-icons/react";
 import { type ReactNode, use } from "react";
 
-import { type DataTableColumn, IconButton, Menu, Table, Tooltip } from "@/components";
+import { type DataTableColumn, IconButton, Menu, Table } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -161,7 +161,7 @@ function RowMark({ text, tone = "warning" }: { text: string; tone?: "warning" | 
     <WarningCircleIcon
       aria-label={text}
       className={twMerge(
-        "h-3.5 w-3.5 shrink-0",
+        "size-3.5 shrink-0",
         tone === "warning" ? "text-warning-text" : "text-danger-text",
       )}
     >
@@ -182,50 +182,35 @@ function RowActions() {
       <span className={ACTIONS}>
         {refusal !== null && <RowMark text={refusal} tone="danger" />}
         {revert !== null && (
-          <Tooltip content={revertLabel}>
-            <IconButton
-              variant="ghost"
-              size="xs"
-              compact
-              aria-label={revertLabel}
-              icon={<ArrowCounterClockwiseIcon weight="bold" className="h-3 w-3" />}
-              onClick={revert}
-            />
-          </Tooltip>
+          <IconButton
+            icon={<ArrowCounterClockwiseIcon className="size-3" />}
+            onClick={revert}
+            label={revertLabel}
+          />
         )}
         {(revert !== null || toDefault !== null) && (
           <Menu.Root>
             <Menu.Trigger
               render={
                 <IconButton
-                  variant="ghost"
-                  size="xs"
-                  compact
                   aria-label={m.workshop_bin_material_row_actions_label()}
                   className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
-                  icon={<DotsThreeVerticalIcon weight="bold" className="h-3 w-3" />}
+                  icon={<DotsThreeVerticalIcon className="size-3" />}
                 />
               }
             />
-            <Menu.Portal>
-              <Menu.Positioner align="end">
-                <Menu.Popup>
-                  {revert !== null && (
-                    <Menu.Item
-                      icon={<ArrowCounterClockwiseIcon className="h-4 w-4" />}
-                      onClick={revert}
-                    >
-                      {revertLabel}
-                    </Menu.Item>
-                  )}
-                  {toDefault !== null && (
-                    <Menu.Item icon={<EraserIcon className="h-4 w-4" />} onClick={toDefault}>
-                      {m.workshop_bin_material_reset_action()}
-                    </Menu.Item>
-                  )}
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
+            <Menu.Content align="end">
+              {revert !== null && (
+                <Menu.Item icon={<ArrowCounterClockwiseIcon className="size-4" />} onClick={revert}>
+                  {revertLabel}
+                </Menu.Item>
+              )}
+              {toDefault !== null && (
+                <Menu.Item icon={<EraserIcon className="size-4" />} onClick={toDefault}>
+                  {m.workshop_bin_material_reset_action()}
+                </Menu.Item>
+              )}
+            </Menu.Content>
           </Menu.Root>
         )}
       </span>

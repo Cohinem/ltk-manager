@@ -129,7 +129,7 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
         <Button
           variant="ghost"
           size="xs"
-          left={<StackPlusIcon className="h-4 w-4" />}
+          left={<StackPlusIcon className="size-4" />}
           disabled={busy}
           onClick={() => run("copy", [target], name)}
         >
@@ -141,7 +141,7 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
           <Button
             variant="ghost"
             size="xs"
-            left={<DownloadSimpleIcon className="h-4 w-4" />}
+            left={<DownloadSimpleIcon className="size-4" />}
             disabled={busy}
             onClick={() => run("quick", [target], name)}
           >

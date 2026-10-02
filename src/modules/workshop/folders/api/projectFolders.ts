@@ -15,7 +15,7 @@ import {
   type OpenedProjectFolder,
   type WorkshopProject,
 } from "@/lib/tauri";
-import { queryFn, unwrapForQuery } from "@/utils/query";
+import { mutationFn, queryFn, unwrapForQuery } from "@/utils/query";
 
 import { workshopKeys } from "../../shared/api/keys";
 
@@ -46,25 +46,25 @@ export interface FolderRelocation {
 export const projectFolderMutations = {
   open: (client: QueryClient) =>
     mutationOptions<WorkshopProject, AppError, string>({
-      mutationFn: async (path) => unwrapForQuery(await api.projectFolders.open(path)),
+      mutationFn: mutationFn(api.projectFolders.open),
       onSuccess: () => refreshProjectFolders(client),
     }),
 
   convert: (client: QueryClient) =>
     mutationOptions<WorkshopProject, AppError, ConvertFolderArgs>({
-      mutationFn: async (args) => unwrapForQuery(await api.projectFolders.convert(args)),
+      mutationFn: mutationFn(api.projectFolders.convert),
       onSuccess: () => refreshProjectFolders(client),
     }),
 
   addAll: (client: QueryClient) =>
     mutationOptions<AddFoldersReport, AppError, readonly string[]>({
-      mutationFn: async (paths) => unwrapForQuery(await api.projectFolders.addAll(paths)),
+      mutationFn: mutationFn(api.projectFolders.addAll),
       onSuccess: () => refreshProjectFolders(client),
     }),
 
   forget: (client: QueryClient) =>
     mutationOptions<null, AppError, string>({
-      mutationFn: async (path) => unwrapForQuery(await api.projectFolders.forget(path)),
+      mutationFn: mutationFn(api.projectFolders.forget),
       onSuccess: () => refreshProjectFolders(client),
     }),
 

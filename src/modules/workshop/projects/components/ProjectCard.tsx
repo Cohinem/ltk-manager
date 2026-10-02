@@ -2,7 +2,7 @@ import { EllipsisVertical, Package, Play, X } from "lucide-react";
 import { type KeyboardEvent, type ReactElement, type ReactNode, useState } from "react";
 import { match } from "ts-pattern";
 
-import { Button, Checkbox, ContextMenu, IconButton, Menu, Tooltip } from "@/components";
+import { Button, Checkbox, Chip, ContextMenu, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { SuspectBadge } from "@/modules/diagnostics";
@@ -99,7 +99,7 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
       className="group/pill flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-xs font-medium text-success-text transition-colors hover:bg-success/20 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {m.workshop_card_testing_label()}
-      <X className="h-3 w-3 opacity-60 group-hover/pill:opacity-100" />
+      <X className="size-3 opacity-60 group-hover/pill:opacity-100" />
     </button>
   );
 
@@ -108,21 +108,16 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
       <Menu.Trigger
         render={
           <IconButton
-            icon={<EllipsisVertical className="h-4 w-4" />}
-            variant="ghost"
+            icon={<EllipsisVertical className="size-4" />}
             size={viewMode === "list" ? "sm" : "md"}
             compact={viewMode === "grid"}
             aria-label={m.workshop_card_options_label({ name: project.displayName })}
           />
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner>
-          <Menu.Popup>
-            <ProjectCardMenuItems project={project} onEdit={onEdit} />
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content>
+        <ProjectCardMenuItems project={project} onEdit={onEdit} />
+      </Menu.Content>
     </Menu.Root>
   );
 
@@ -163,13 +158,9 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
 
         <div className="relative h-12 w-21 shrink-0 overflow-hidden rounded-lg bg-linear-to-br from-surface-600 to-surface-700">
           {thumbnailUrl ? (
-            <img
-              src={thumbnailUrl}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover"
-            />
+            <img src={thumbnailUrl} alt="" className="absolute inset-0 size-full object-cover" />
           ) : (
-            <div className="flex h-full w-full items-center justify-center">
+            <div className="flex size-full items-center justify-center">
               <span className="text-lg font-bold text-surface-500">
                 {project.displayName.charAt(0).toUpperCase()}
               </span>
@@ -205,7 +196,7 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
           <Button
             variant="outline"
             size="sm"
-            left={<Package className="h-4 w-4" />}
+            left={<Package className="size-4" />}
             loading={actions.isPacking}
             onClick={actions.handlePack}
           >
@@ -262,9 +253,9 @@ export function ProjectCard({ project, viewMode, onEdit, tabIndex }: ProjectCard
 
       <div className="relative aspect-video overflow-hidden rounded-t-xl bg-linear-to-br from-surface-600 to-surface-700">
         {thumbnailUrl ? (
-          <img src={thumbnailUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <img src={thumbnailUrl} alt="" className="absolute inset-0 size-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
+          <div className="flex size-full items-center justify-center">
             <span className="text-4xl font-bold text-surface-400">
               {project.displayName.charAt(0).toUpperCase()}
             </span>
@@ -332,14 +323,10 @@ function ProjectCardContextMenu({
   return (
     <ContextMenu.Root>
       <ContextMenu.Trigger render={card}>{children}</ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Positioner>
-          <ContextMenu.Popup>
-            {scope === "selection" && <ProjectSelectionMenuItems />}
-            {scope === "card" && <ProjectCardMenuItems project={project} onEdit={onEdit} />}
-          </ContextMenu.Popup>
-        </ContextMenu.Positioner>
-      </ContextMenu.Portal>
+      <ContextMenu.Content>
+        {scope === "selection" && <ProjectSelectionMenuItems />}
+        {scope === "card" && <ProjectCardMenuItems project={project} onEdit={onEdit} />}
+      </ContextMenu.Content>
     </ContextMenu.Root>
   );
 }
@@ -364,7 +351,7 @@ function renderTestButton({
       <Button
         variant="outline"
         size="sm"
-        left={<Play className="h-4 w-4" />}
+        left={<Play className="size-4" />}
         onClick={onTest}
         loading={isTesting}
       >
@@ -385,7 +372,7 @@ function renderTestButton({
         disabled={isStopping}
         left={
           !isStopping && (
-            <span className="inline-flex h-2 w-2 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
+            <span className="inline-flex size-2 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
           )
         }
         className="border-success/40 bg-success/10 text-success-text hover:border-success/60 hover:bg-success/20"
@@ -395,14 +382,14 @@ function renderTestButton({
     ))
     .with({ kind: "building-other" }, { kind: "running-other" }, ({ otherLabel }) => (
       <Tooltip content={m.workshop_card_test_blocked_hint({ name: otherLabel })}>
-        <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
+        <Button variant="outline" size="sm" disabled left={<Play className="size-4" />}>
           {m.workshop_card_test_action()}
         </Button>
       </Tooltip>
     ))
     .with({ kind: "building-library" }, { kind: "running-library" }, () => (
       <Tooltip content={m.workshop_card_test_patcher_hint()}>
-        <Button variant="outline" size="sm" disabled left={<Play className="h-4 w-4" />}>
+        <Button variant="outline" size="sm" disabled left={<Play className="size-4" />}>
           {m.workshop_card_test_action()}
         </Button>
       </Tooltip>
@@ -431,24 +418,15 @@ function ProjectPills({
   const visible = pills.slice(0, max);
   const overflow = pills.length - max;
 
-  // Same categorical hues as the library's ModPills.
-  const colorClasses = {
-    tag: "bg-accent-500/15 text-accent-400",
-    champion: "bg-cat-champion/15 text-cat-champion-text",
-  } as const;
-
   return (
     <div className={`flex flex-wrap items-center gap-1 ${className ?? ""}`}>
       {visible.map((pill) => (
-        <span
-          key={`${pill.color}:${pill.label}`}
-          className={`rounded px-1.5 py-0.5 text-[0.625rem] leading-tight ${colorClasses[pill.color]}`}
-        >
+        <Chip key={`${pill.color}:${pill.label}`} tone={pill.color}>
           {pill.label}
-        </span>
+        </Chip>
       ))}
       {overflow > 0 && (
-        <span className="text-[0.625rem] text-surface-500">
+        <span className="text-fine text-surface-500">
           {m.workshop_card_pills_overflow_label({ count: overflow })}
         </span>
       )}

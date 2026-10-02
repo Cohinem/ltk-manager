@@ -82,7 +82,7 @@ export function useLaneGestures(drawn: readonly number[], every: readonly number
 
 /* DS-RADIUS, DS-VEIL */
 const TOGGLE =
-  "flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-surface-veil hover:text-surface-100";
+  "flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-surface-veil hover:text-surface-100";
 
 /** The handlers one lane's toggle hands its gestures. A key's click carries no pointer. */
 function gestureHandlers(column: LaneColumn, lane: number, gestures: LaneGestures) {
@@ -113,8 +113,8 @@ export function VisibleToggle({ lane, hidden, gestures }: ToggleProps & { hidden
       className={twMerge(TOGGLE, hidden ? "text-surface-500" : "text-surface-300")}
       {...gestureHandlers("visible", lane, gestures)}
     >
-      {!hidden && <EyeIcon weight="bold" className="h-3.5 w-3.5" />}
-      {hidden && <EyeClosedIcon weight="bold" className="h-3.5 w-3.5" />}
+      {!hidden && <EyeIcon weight="bold" className="size-3.5" />}
+      {hidden && <EyeClosedIcon weight="bold" className="size-3.5" />}
     </button>
   );
 }
@@ -161,8 +161,8 @@ export function VisibilityHeader({
         className={twMerge(TOGGLE, shown ? "text-surface-300" : "text-surface-500")}
         onClick={() => setMuted(() => (shown ? new Set(every) : new Set()))}
       >
-        {shown && <EyeIcon weight="bold" className="h-3.5 w-3.5" />}
-        {!shown && <EyeClosedIcon weight="bold" className="h-3.5 w-3.5" />}
+        {shown && <EyeIcon weight="bold" className="size-3.5" />}
+        {!shown && <EyeClosedIcon weight="bold" className="size-3.5" />}
       </button>
       <span className="flex min-w-0 flex-1 items-center">{children}</span>
       <button

@@ -51,7 +51,7 @@ export function ProfileCreateForm() {
         variant="ghost"
         size="sm"
         onClick={() => setIsCreating(true)}
-        left={<Plus className="h-4 w-4" />}
+        left={<Plus className="size-4" />}
         className="w-full justify-start"
       >
         New Profile
@@ -71,20 +71,14 @@ export function ProfileCreateForm() {
         placeholder="Profile name..."
       />
       <IconButton
-        icon={<Check className="h-4 w-4" />}
-        variant="ghost"
-        size="xs"
+        compact={false}
+        icon={<Check className="size-4" />}
         onClick={handleSubmit}
         disabled={!name.trim() || createProfile.isPending}
         loading={createProfile.isPending}
         className="text-success-text hover:text-success-text"
       />
-      <IconButton
-        icon={<X className="h-4 w-4" />}
-        variant="ghost"
-        size="xs"
-        onClick={handleCancel}
-      />
+      <IconButton compact={false} icon={<X className="size-4" />} onClick={handleCancel} />
     </div>
   );
 }

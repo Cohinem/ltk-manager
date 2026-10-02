@@ -1,7 +1,7 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type LibraryFolder } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
 import { refreshMods } from "./modMutations";
@@ -27,7 +27,7 @@ interface FolderRollback {
 export const folderMutations = {
   create: (client: QueryClient) =>
     mutationOptions<LibraryFolder, AppError, string>({
-      mutationFn: async (name) => unwrapForQuery(await api.createFolder(name)),
+      mutationFn: mutationFn(api.createFolder),
       onSettled: () => {
         client.invalidateQueries({ queryKey: libraryKeys.folders() });
         client.invalidateQueries({ queryKey: libraryKeys.folderOrder() });
@@ -58,7 +58,7 @@ export const folderMutations = {
 
   remove: (client: QueryClient) =>
     mutationOptions<null, AppError, string>({
-      mutationFn: async (folderId) => unwrapForQuery(await api.deleteFolder(folderId)),
+      mutationFn: mutationFn(api.deleteFolder),
       onSettled: () => {
         client.invalidateQueries({ queryKey: libraryKeys.folders() });
         client.invalidateQueries({ queryKey: libraryKeys.folderOrder() });

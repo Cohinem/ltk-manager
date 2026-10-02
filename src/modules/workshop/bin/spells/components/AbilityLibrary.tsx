@@ -6,8 +6,8 @@ import type { AssetRef, BinDocumentId } from "@/lib/tauri";
 
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { useWorkshopEditorStore } from "../../../shell/state/workshopEditor";
+import { Notice } from "../../shared/preview/Notice";
 import { useSkinGraphSource } from "../../skin/hooks/useGraphSource";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { abilityRecipeSchema, type AbilityRecipe } from "../utils/abilityRecipe";
 import { RecipeFields } from "./RecipeFields";
 import { SpellRecipe, type SpellSelection } from "./SpellRecipe";

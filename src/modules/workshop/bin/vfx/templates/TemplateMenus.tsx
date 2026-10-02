@@ -74,13 +74,9 @@ export function TemplateSubmenu({ place }: { place: TemplatePlace }) {
       <Menu.SubmenuTrigger icon={<SparkleIcon />}>
         {m.workshop_bin_emitter_template_action()}
       </Menu.SubmenuTrigger>
-      <Menu.Portal>
-        <Menu.SubmenuPositioner>
-          <Menu.Popup data-ui="TemplateSubmenu" className={POPUP}>
-            <TemplateGroups emitters={emitters} systems={systems} onPick={land} />
-          </Menu.Popup>
-        </Menu.SubmenuPositioner>
-      </Menu.Portal>
+      <Menu.SubmenuContent data-ui="TemplateSubmenu" className={POPUP}>
+        <TemplateGroups emitters={emitters} systems={systems} onPick={land} />
+      </Menu.SubmenuContent>
     </Menu.SubmenuRoot>
   );
 }
@@ -97,23 +93,12 @@ export function TemplateMenuButton({ place }: { place: TemplatePlace }) {
     <Menu.Root>
       <Tooltip content={label}>
         <Menu.Trigger
-          render={
-            <IconButton
-              variant="ghost"
-              size="xs"
-              aria-label={label}
-              icon={<SparkleIcon weight="bold" className="h-4 w-4" />}
-            />
-          }
+          render={<IconButton compact={false} aria-label={label} icon={<SparkleIcon />} />}
         />
       </Tooltip>
-      <Menu.Portal>
-        <Menu.Positioner>
-          <Menu.Popup data-ui="TemplateMenuButton" className={POPUP}>
-            <TemplateGroups emitters={emitters} systems={systems} onPick={land} />
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content data-ui="TemplateMenuButton" className={POPUP}>
+        <TemplateGroups emitters={emitters} systems={systems} onPick={land} />
+      </Menu.Content>
     </Menu.Root>
   );
 }

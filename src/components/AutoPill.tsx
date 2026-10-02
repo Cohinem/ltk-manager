@@ -1,10 +1,12 @@
-import { Sparkles } from "lucide-react";
+import { SparkleIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import type { CategoryTone } from "./Chip";
+
 /** What the pill labels. The hue is the category, so the tone is named for it. */
-export type AutoPillTone = "tag" | "champion" | "map";
+export type AutoPillTone = CategoryTone;
 
 const TONE_CLASSES: Record<AutoPillTone, string> = {
   /* Neutral, because a plain tag names no kind: DS-KIND-HUE. */
@@ -43,10 +45,10 @@ export function AutoPill({
   onClick,
   className,
 }: AutoPillProps) {
-  const mark = icon ?? <Sparkles className="h-2.5 w-2.5" />;
+  const mark = icon ?? <SparkleIcon weight="bold" className="size-2.5" />;
 
   const classes = twMerge(
-    "inline-flex items-center gap-0.5 rounded-md border border-dashed px-1.5 py-0.5 text-[0.625rem] leading-tight",
+    "inline-flex items-center gap-0.5 rounded-md border border-dashed px-1.5 py-0.5 text-fine leading-tight",
     TONE_CLASSES[tone],
     onClick && "cursor-pointer transition-colors hover:bg-surface-700/40",
     className,

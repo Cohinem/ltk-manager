@@ -2,6 +2,8 @@ import { type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { OVERLINE } from "./Overline";
+
 export interface FilterSectionProps {
   children: ReactNode;
   /** Omit where the section's own leading control already names it. */
@@ -18,7 +20,7 @@ export function FilterSection({ title, children, icon, action, className }: Filt
     <section className={twMerge("px-3 py-2.5", className)}>
       {title && (
         <div className="mb-1.5 flex min-h-6 items-center justify-between gap-2">
-          <h4 className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-surface-400 uppercase">
+          <h4 className={twMerge(OVERLINE, "flex items-center gap-1.5")}>
             {icon}
             {title}
           </h4>

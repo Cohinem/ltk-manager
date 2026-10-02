@@ -1,7 +1,7 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type Profile } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
 import { refreshMods } from "./modMutations";
@@ -16,7 +16,7 @@ export interface RenameProfileVariables {
 export const profileMutations = {
   create: (client: QueryClient) =>
     mutationOptions<Profile, AppError, string>({
-      mutationFn: async (name) => unwrapForQuery(await api.createModProfile(name)),
+      mutationFn: mutationFn(api.createModProfile),
       onSuccess: () => {
         client.invalidateQueries({ queryKey: libraryKeys.profiles() });
       },
@@ -24,7 +24,7 @@ export const profileMutations = {
 
   remove: (client: QueryClient) =>
     mutationOptions<null, AppError, string>({
-      mutationFn: async (profileId) => unwrapForQuery(await api.deleteModProfile(profileId)),
+      mutationFn: mutationFn(api.deleteModProfile),
       onSuccess: () => {
         client.invalidateQueries({ queryKey: libraryKeys.profiles() });
       },
@@ -42,7 +42,7 @@ export const profileMutations = {
 
   switchTo: (client: QueryClient) =>
     mutationOptions<Profile, AppError, string>({
-      mutationFn: async (profileId) => unwrapForQuery(await api.switchModProfile(profileId)),
+      mutationFn: mutationFn(api.switchModProfile),
       onSuccess: () => {
         client.invalidateQueries({ queryKey: libraryKeys.activeProfile() });
         refreshMods(client);

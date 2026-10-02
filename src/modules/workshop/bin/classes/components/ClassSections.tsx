@@ -1,6 +1,7 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
 import { type CSSProperties, type ReactNode, useMemo } from "react";
 
+import { Count } from "@/components";
 import { m } from "@/i18n";
 import type { BinRow } from "@/lib/tauri";
 import { useSectionOpen, useToggleSection } from "@/stores";
@@ -124,10 +125,10 @@ function Section({ section, pages, view }: SectionProps) {
           aria-expanded={open}
           onClick={() => toggle(id, !open)}
         >
-          <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
+          <CaretRightIcon weight="bold" className={twMerge("size-3", open && "rotate-90")} />
           <span className="text-xs font-medium tracking-wide uppercase">{title}</span>
         </button>
-        {count !== null && <span className="text-meta text-surface-400 tabular-nums">{count}</span>}
+        {count !== null && <Count>{count}</Count>}
         {empty && (
           <span className="text-meta text-surface-400">{m.workshop_bin_section_none_empty()}</span>
         )}

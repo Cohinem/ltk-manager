@@ -1,7 +1,14 @@
 import { useEffect, useState } from "react";
 import { Group, Panel } from "react-resizable-panels";
 
-import { Button, Code, EmptyState, MarkdownView, SegmentedControl, Spinner } from "@/components";
+import {
+  Button,
+  Code,
+  EmptyState,
+  LoadingState,
+  MarkdownView,
+  SegmentedControl,
+} from "@/components";
 import { m } from "@/i18n";
 import {
   DocumentToolbar,
@@ -18,6 +25,7 @@ import {
 } from "@/modules/editor";
 
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { useSetDocumentDirty } from "../../state";
 import { useProjectTextEditor } from "../hooks/useProjectTextEditor";
 import { lacksTemplateSection, type TextFileKind, textFileKind } from "../utils/textFileKind";
@@ -63,10 +71,7 @@ export function ProjectTextDocument({
   const showsTemplate = kind.markdown && editor.exists && lacksTemplateSection(editor.text);
 
   return (
-    <div
-      data-ui="ProjectTextDocument"
-      className="@container flex min-h-0 flex-1 flex-col bg-surface-950"
-    >
+    <DocumentFrame data-ui="ProjectTextDocument" className="@container">
       <DocumentToolbar active={active}>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Code className="shrink-0">{kind.fileName}</Code>
@@ -100,7 +105,7 @@ export function ProjectTextDocument({
       {find.open && <TextFindBar find={find} />}
 
       <Body editor={editor} file={document.file} half={narrow ? half : null} find={find} />
-    </div>
+    </DocumentFrame>
   );
 }
 
@@ -118,11 +123,7 @@ function Body({ editor, file, half, find }: BodyProps) {
   const kind = textFileKind(file);
 
   if (editor.isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (!editor.readable) {

@@ -8,7 +8,13 @@ import {
   useState,
 } from "react";
 
-import { Combobox, FieldDiscardContext, InputDefaultContext, LayerIcon } from "@/components";
+import {
+  Combobox,
+  FieldDiscardContext,
+  InputDefaultContext,
+  LayerIcon,
+  OVERLINE,
+} from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -194,46 +200,45 @@ export function PathInput({
         onKeyDown={keys}
         onBlur={leave}
       />
-      <Combobox.Portal>
-        <Combobox.Positioner side="bottom" align="start" sideOffset={2}>
-          <Combobox.Popup
-            data-ui="PathInput:list"
-            className="max-h-80 w-[max(var(--anchor-width),32rem)] max-w-[40rem] py-0.5"
-            onMouseDown={keepFocus}
-          >
-            <Combobox.List>
-              {(group: PathGroup) => (
-                <Combobox.Group key={group.value} items={group.items}>
-                  <Combobox.GroupLabel className="px-2 pt-1.5 pb-0.5 text-xs font-medium tracking-wide text-surface-400 uppercase select-none">
-                    {groupLabel(group.value)}
-                  </Combobox.GroupLabel>
-                  <Combobox.Collection>
-                    {(suggestion: PathSuggestion) => (
-                      <Combobox.Item
-                        key={`${suggestion.source.kind}:${suggestion.path}`}
-                        value={suggestion}
-                        className="px-2 py-1 font-mono text-mono-row"
-                      >
-                        <SuggestionRow suggestion={suggestion} />
-                      </Combobox.Item>
-                    )}
-                  </Combobox.Collection>
-                </Combobox.Group>
-              )}
-            </Combobox.List>
-            {more > 0 && (
-              <div className="px-2 py-1 text-meta text-surface-400 select-none">
-                {m.workshop_bin_path_more_hint({ count: more })}
-              </div>
-            )}
-            {searching && groups.length === 0 && (
-              <div className="px-2 py-1 text-meta text-surface-400 select-none">
-                {m.workshop_bin_path_searching_label()}
-              </div>
-            )}
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
+      <Combobox.Content
+        side="bottom"
+        align="start"
+        sideOffset={2}
+        data-ui="PathInput:list"
+        className="max-h-80 w-[max(var(--anchor-width),32rem)] max-w-[40rem] py-0.5"
+        onMouseDown={keepFocus}
+      >
+        <Combobox.List>
+          {(group: PathGroup) => (
+            <Combobox.Group key={group.value} items={group.items}>
+              <Combobox.GroupLabel className={twMerge(OVERLINE, "px-2 pt-1.5 pb-0.5 select-none")}>
+                {groupLabel(group.value)}
+              </Combobox.GroupLabel>
+              <Combobox.Collection>
+                {(suggestion: PathSuggestion) => (
+                  <Combobox.Item
+                    key={`${suggestion.source.kind}:${suggestion.path}`}
+                    value={suggestion}
+                    className="px-2 py-1 font-mono text-mono-row"
+                  >
+                    <SuggestionRow suggestion={suggestion} />
+                  </Combobox.Item>
+                )}
+              </Combobox.Collection>
+            </Combobox.Group>
+          )}
+        </Combobox.List>
+        {more > 0 && (
+          <div className="px-2 py-1 text-meta text-surface-400 select-none">
+            {m.workshop_bin_path_more_hint({ count: more })}
+          </div>
+        )}
+        {searching && groups.length === 0 && (
+          <div className="px-2 py-1 text-meta text-surface-400 select-none">
+            {m.workshop_bin_path_searching_label()}
+          </div>
+        )}
+      </Combobox.Content>
     </Combobox.Root>
   );
 }
@@ -268,7 +273,7 @@ function SuggestionRow({ suggestion }: { suggestion: PathSuggestion }) {
   return (
     <span className="flex w-full min-w-0 items-center gap-2">
       <span className="flex shrink-0" style={{ color: `var(${kind.tintToken})` }}>
-        <KindIcon className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <KindIcon className="size-3.5" strokeWidth={1.75} />
       </span>
       <span className="shrink-0 font-medium text-surface-100">{file}</span>
       <CutText text={folder} className="text-surface-400" />
@@ -279,8 +284,8 @@ function SuggestionRow({ suggestion }: { suggestion: PathSuggestion }) {
       )}
       <span className="flex max-w-40 shrink-0 items-center gap-1 text-meta text-surface-400">
         {/* DS-KIND-HUE */}
-        {source.kind === "layer" && <LayerIcon className="h-3 w-3 shrink-0 text-doc-layer-text" />}
-        {source.kind === "game" && <ArchiveIcon className="h-3 w-3 shrink-0" />}
+        {source.kind === "layer" && <LayerIcon className="size-3 shrink-0 text-doc-layer-text" />}
+        {source.kind === "game" && <ArchiveIcon className="size-3 shrink-0" />}
         <span className="min-w-0 truncate">{side}</span>
       </span>
     </span>

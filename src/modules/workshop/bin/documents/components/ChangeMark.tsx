@@ -34,7 +34,7 @@ export function ChangeMark({ rowKey: key, className }: { rowKey: string; classNa
         role="img"
         aria-label={label}
         data-change={change}
-        className={twMerge("h-1.5 w-1.5 shrink-0 rounded-full", TONE[change], className)}
+        className={twMerge("size-1.5 shrink-0 rounded-full", TONE[change], className)}
       />
     </Tooltip>
   );
@@ -98,31 +98,27 @@ export function ChangesMenu() {
             title={m.workshop_bin_change_menu_label()}
             data-pressed={changedOnly || undefined}
             className="data-pressed:bg-accent-500/15 data-pressed:text-accent-300"
-            left={<GitDiffIcon weight="bold" className="h-3.5 w-3.5" />}
-            right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
+            left={<GitDiffIcon weight="bold" className="size-3.5" />}
+            right={<CaretDownIcon weight="bold" className="size-3" />}
           />
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="start">
-          <Menu.Popup data-ui="ChangesMenu" className="w-60">
-            <Menu.CheckboxItem checked={marks} onCheckedChange={toggleMarks}>
-              {m.workshop_bin_change_marks_action()}
-            </Menu.CheckboxItem>
-            <Menu.CheckboxItem checked={changedOnly} onCheckedChange={toggleChangedOnly}>
-              {m.workshop_bin_change_only_action()}
-            </Menu.CheckboxItem>
-            <Menu.Separator />
-            <Menu.RadioGroup
-              value={baseline}
-              onValueChange={(value) => setBaseline(value as ChangeBaseline)}
-            >
-              <Menu.RadioItem value="opened">{m.workshop_bin_change_opened_label()}</Menu.RadioItem>
-              <Menu.RadioItem value="game">{m.workshop_bin_change_game_label()}</Menu.RadioItem>
-            </Menu.RadioGroup>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="start" data-ui="ChangesMenu" className="w-60">
+        <Menu.CheckboxItem checked={marks} onCheckedChange={toggleMarks}>
+          {m.workshop_bin_change_marks_action()}
+        </Menu.CheckboxItem>
+        <Menu.CheckboxItem checked={changedOnly} onCheckedChange={toggleChangedOnly}>
+          {m.workshop_bin_change_only_action()}
+        </Menu.CheckboxItem>
+        <Menu.Separator />
+        <Menu.RadioGroup
+          value={baseline}
+          onValueChange={(value) => setBaseline(value as ChangeBaseline)}
+        >
+          <Menu.RadioItem value="opened">{m.workshop_bin_change_opened_label()}</Menu.RadioItem>
+          <Menu.RadioItem value="game">{m.workshop_bin_change_game_label()}</Menu.RadioItem>
+        </Menu.RadioGroup>
+      </Menu.Content>
     </Menu.Root>
   );
 }

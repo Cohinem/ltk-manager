@@ -60,7 +60,7 @@ function MissingProjectCard({ folder }: { folder: OpenedProjectFolder }) {
         <bdi>{folder.path}</bdi>
       </p>
       <p className="flex items-center gap-1.5 text-xs font-medium text-warning-text">
-        <WarningIcon weight="bold" className="h-3.5 w-3.5" />
+        <WarningIcon weight="bold" className="size-3.5" />
         {m.workshop_folder_missing_label()}
       </p>
       <div className="mt-1 flex gap-2">

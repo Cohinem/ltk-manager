@@ -102,13 +102,9 @@ function Menu({ objects }: { objects?: ReadonlyMap<string, ObjectChange> }) {
         <ContextMenu.Trigger>
           <span>the row</span>
         </ContextMenu.Trigger>
-        <ContextMenu.Portal>
-          <ContextMenu.Positioner>
-            <ContextMenu.Popup>
-              <ObjectMenuItems row={OBJECT} />
-            </ContextMenu.Popup>
-          </ContextMenu.Positioner>
-        </ContextMenu.Portal>
+        <ContextMenu.Content>
+          <ObjectMenuItems row={OBJECT} />
+        </ContextMenu.Content>
       </ContextMenu.Root>
     </Providers>
   );

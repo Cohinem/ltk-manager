@@ -6,6 +6,7 @@ import { m } from "@/i18n";
 import { usePreviewFileUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { PreviewStatus } from "./PreviewStatus";
 
 interface MediaFacts {
@@ -60,7 +61,7 @@ export function MediaPreview({ asset, name, media }: MediaPreviewProps) {
   }
 
   return (
-    <div data-ui="MediaPreview" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="MediaPreview">
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 p-4">
         {media === "video" && (
           <video
@@ -74,7 +75,7 @@ export function MediaPreview({ asset, name, media }: MediaPreviewProps) {
         )}
         {media === "audio" && (
           <>
-            <MusicNotesIcon className="h-12 w-12 text-surface-500" />
+            <MusicNotesIcon className="size-12 text-surface-500" />
             <audio
               src={url}
               controls
@@ -87,7 +88,7 @@ export function MediaPreview({ asset, name, media }: MediaPreviewProps) {
       </div>
 
       <PreviewStatus facts={factsOf(facts)} />
-    </div>
+    </DocumentFrame>
   );
 }
 

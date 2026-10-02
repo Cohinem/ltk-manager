@@ -55,7 +55,7 @@ function ValueHeader({ item }: { item: ValueItem }) {
       )}
       style={{ height: VALUE_HEADER_HEIGHT }}
     >
-      <Glyph weight="duotone" className={twMerge("h-4 w-4 shrink-0", tone)} />
+      <Glyph weight="duotone" className={twMerge("size-4 shrink-0", tone)} />
       {item.kind !== null && (
         <span className={twMerge("shrink-0 text-meta", tone)}>{KIND_NAME[item.kind]}</span>
       )}

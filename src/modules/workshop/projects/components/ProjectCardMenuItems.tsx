@@ -45,28 +45,28 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
   return (
     <>
       <Menu.Item
-        icon={<PencilSimpleIcon weight="bold" className="h-4 w-4" />}
+        icon={<PencilSimpleIcon weight="bold" className="size-4" />}
         onClick={() => onEdit(project)}
       >
         {m.workshop_card_edit_action()}
       </Menu.Item>
       <ProjectTestItem testState={testState} onTest={actions.handleTestProject} />
       <Menu.Item
-        icon={<PackageIcon weight="bold" className="h-4 w-4" />}
+        icon={<PackageIcon weight="bold" className="size-4" />}
         disabled={actions.isPacking}
         onClick={actions.handlePack}
       >
         {m.workshop_pack_action()}
       </Menu.Item>
       <Menu.Item
-        icon={<CursorTextIcon weight="bold" className="h-4 w-4" />}
+        icon={<CursorTextIcon weight="bold" className="size-4" />}
         shortcut="F2"
         onClick={actions.handleOpenRenameDialog}
       >
         {m.workshop_card_rename_action()}
       </Menu.Item>
       <Menu.Item
-        icon={<FolderOpenIcon weight="bold" className="h-4 w-4" />}
+        icon={<FolderOpenIcon weight="bold" className="size-4" />}
         onClick={actions.handleOpenLocation}
       >
         {m.workshop_card_open_location_action()}
@@ -74,7 +74,7 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
       <Menu.Separator />
       {project.location === "opened" && (
         <Menu.Item
-          icon={<LinkBreakIcon weight="bold" className="h-4 w-4" />}
+          icon={<LinkBreakIcon weight="bold" className="size-4" />}
           disabled={testing}
           onClick={() => forgetFolder.mutate(project.path)}
         >
@@ -82,7 +82,7 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
         </Menu.Item>
       )}
       <Menu.Item
-        icon={<TrashIcon weight="bold" className="h-4 w-4" />}
+        icon={<TrashIcon weight="bold" className="size-4" />}
         variant="danger"
         onClick={actions.handleOpenDeleteDialog}
       >
@@ -105,18 +105,18 @@ function ProjectTestItem({
 
   return match(testState)
     .with({ kind: "idle" }, () => (
-      <Menu.Item icon={<PlayIcon weight="bold" className="h-4 w-4" />} onClick={onTest}>
+      <Menu.Item icon={<PlayIcon weight="bold" className="size-4" />} onClick={onTest}>
         {m.workshop_card_test_action()}
       </Menu.Item>
     ))
     .with({ kind: "building-this" }, () => (
-      <Menu.Item icon={<PlayIcon weight="bold" className="h-4 w-4" />} disabled>
+      <Menu.Item icon={<PlayIcon weight="bold" className="size-4" />} disabled>
         {m.workshop_card_building_label()}
       </Menu.Item>
     ))
     .with({ kind: "running-this" }, () => (
       <Menu.Item
-        icon={<PlayIcon weight="bold" className="h-4 w-4" />}
+        icon={<PlayIcon weight="bold" className="size-4" />}
         disabled={stopping}
         onClick={() => stopPatcher.mutate()}
       >
@@ -129,7 +129,7 @@ function ProjectTestItem({
       { kind: "building-library" },
       { kind: "running-library" },
       () => (
-        <Menu.Item icon={<PlayIcon weight="bold" className="h-4 w-4" />} disabled>
+        <Menu.Item icon={<PlayIcon weight="bold" className="size-4" />} disabled>
           {m.workshop_card_test_action()}
         </Menu.Item>
       ),
@@ -151,24 +151,24 @@ export function ProjectSelectionMenuItems() {
     <Menu.Group>
       <Menu.GroupLabel>{m.workshop_card_selection_count_label({ count })}</Menu.GroupLabel>
       <Menu.Item
-        icon={<PlayIcon weight="bold" className="h-4 w-4" />}
+        icon={<PlayIcon weight="bold" className="size-4" />}
         disabled={!actions.canTest}
         onClick={actions.test}
       >
         {m.workshop_card_selection_test_action({ count })}
       </Menu.Item>
-      <Menu.Item icon={<PackageIcon weight="bold" className="h-4 w-4" />} onClick={actions.pack}>
+      <Menu.Item icon={<PackageIcon weight="bold" className="size-4" />} onClick={actions.pack}>
         {m.workshop_card_selection_pack_action({ count })}
       </Menu.Item>
       <Menu.Item
-        icon={<TrashIcon weight="bold" className="h-4 w-4" />}
+        icon={<TrashIcon weight="bold" className="size-4" />}
         variant="danger"
         onClick={actions.delete}
       >
         {m.workshop_card_selection_delete_action({ count })}
       </Menu.Item>
       <Menu.Separator />
-      <Menu.Item icon={<XIcon weight="bold" className="h-4 w-4" />} onClick={actions.clear}>
+      <Menu.Item icon={<XIcon weight="bold" className="size-4" />} onClick={actions.clear}>
         {m.workshop_card_selection_clear_action()}
       </Menu.Item>
     </Menu.Group>

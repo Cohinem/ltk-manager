@@ -1,7 +1,7 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { api, type AppError, type ClassObjectCount, type HexBinHash } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs } from "@/utils/query";
 
 /* The leaf rather than the browser's barrel, which reaches this module back mid-evaluation. */
 import { BUILDING_POLL_MS } from "../../../gameBrowser/api/keys";
@@ -9,7 +9,7 @@ import { BUILDING_POLL_MS } from "../../../gameBrowser/api/keys";
 const classObjectCountQuery = (classHash: HexBinHash) =>
   queryOptions<ClassObjectCount, AppError>({
     queryKey: ["class-object-count", classHash],
-    queryFn: async () => unwrapForQuery(await api.objects.classCount(classHash)),
+    queryFn: queryFnWithArgs(api.objects.classCount, classHash),
     refetchInterval: (query) =>
       query.state.data?.status === "building" ? BUILDING_POLL_MS : false,
     retry: false,

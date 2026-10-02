@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 
+import { toggledIn } from "@/utils";
+
 import type { SystemModel } from "../../engine/model/model";
-import { toggled } from "../../playback/state/run";
 import type { Row } from "../components/LaneRow";
 import {
   childLanes,
@@ -31,7 +32,7 @@ export interface LaneRows {
 /** The lanes' rows for `system`, with a folded or unfolded child system under each emitter. */
 export function useLaneRows(system: SystemModel | null, filter: string): LaneRows {
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set());
-  const expand = useCallback((index: number) => setExpanded((held) => toggled(held, index)), []);
+  const expand = useCallback((index: number) => setExpanded((held) => toggledIn(held, index)), []);
 
   const rows = useMemo<Row[]>(() => {
     if (system === null) return [];

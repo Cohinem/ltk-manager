@@ -35,7 +35,7 @@ export function TextFindBar({ find }: { find: TextFind }) {
       className="flex shrink-0 items-center gap-1.5 border-b border-surface-700/50 bg-surface-900 px-2 py-1 select-none"
     >
       <Field.Root className="relative min-w-0 flex-1">
-        <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
+        <MagnifyingGlassIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-surface-400" />
         <Field.Control
           ref={find.fieldRef}
           type="text"
@@ -57,30 +57,21 @@ export function TextFindBar({ find }: { find: TextFind }) {
       </Field.Root>
 
       <IconButton
-        icon={<CaretUpIcon weight="bold" className="h-3.5 w-3.5" />}
-        variant="ghost"
-        size="xs"
-        compact
+        icon={<CaretUpIcon className="size-3.5" />}
         disabled={count === 0}
         onClick={find.previous}
         title={m.editor_find_previous_action()}
         aria-label={m.editor_find_previous_action()}
       />
       <IconButton
-        icon={<CaretDownIcon weight="bold" className="h-3.5 w-3.5" />}
-        variant="ghost"
-        size="xs"
-        compact
+        icon={<CaretDownIcon className="size-3.5" />}
         disabled={count === 0}
         onClick={find.next}
         title={m.editor_find_next_action()}
         aria-label={m.editor_find_next_action()}
       />
       <IconButton
-        icon={<XIcon weight="bold" className="h-3.5 w-3.5" />}
-        variant="ghost"
-        size="xs"
-        compact
+        icon={<XIcon className="size-3.5" />}
         onClick={find.close}
         title={m.editor_find_close_action()}
         aria-label={m.editor_find_close_action()}

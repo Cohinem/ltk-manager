@@ -14,7 +14,7 @@ import { m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
 import { blackTexel, FlatViewport, useSceneColors, whiteTexel } from "@/modules/viewport";
 
-import { Notice } from "../../vfx/preview/components/Notice";
+import { Notice } from "../../shared/preview/Notice";
 import { BaseElsewhereNotice } from "../components/BaseElsewhereNotice";
 import { boardCommands } from "../engine/commands/board";
 import { type PreviewState, visibleElements } from "../engine/commands/build";

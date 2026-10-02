@@ -34,7 +34,7 @@ export function RecentProjectMenuItems() {
           <RecentProjectItem key={project.id} project={project} />
         ))}
         <Menu.Item
-          icon={<MagnifyingGlassIcon className="h-4 w-4" />}
+          icon={<MagnifyingGlassIcon className="size-4" />}
           shortcut="Ctrl+R"
           onClick={() => revealPalette("projects")}
           className="text-surface-400"

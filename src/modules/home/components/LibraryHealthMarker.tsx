@@ -55,7 +55,7 @@ export function LibraryHealthMarker() {
   if (!health) return null;
 
   const Glyph = GLYPHS[health.state];
-  const glyph = <Glyph className="h-4 w-4" weight="bold" />;
+  const glyph = <Glyph className="size-4" weight="bold" />;
 
   if (!health.press) {
     return (
@@ -88,8 +88,8 @@ function Reading({ health }: { health: LibraryHealth }) {
   return (
     <span className="flex items-center gap-1 text-xs font-medium text-surface-300">
       {health.reading}
-      {health.pending && <SpinnerGapIcon className="h-3.5 w-3.5 animate-spin" />}
-      {!health.pending && health.press && <CaretRightIcon weight="bold" className="h-3.5 w-3.5" />}
+      {health.pending && <SpinnerGapIcon className="size-3.5 animate-spin" />}
+      {!health.pending && health.press && <CaretRightIcon weight="bold" className="size-3.5" />}
     </span>
   );
 }

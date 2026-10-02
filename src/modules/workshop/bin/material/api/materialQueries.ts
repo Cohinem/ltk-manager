@@ -7,7 +7,7 @@ import {
   type BinRow,
   type MaterialProgram,
 } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
 /** The reads a material view draws from, keyed on the document as `skinQueries` is. */
 export const materialQueries = {
@@ -36,7 +36,7 @@ export const materialQueries = {
   objects: (document: BinDocumentId) =>
     queryOptions<readonly BinRow[], AppError>({
       queryKey: ["bin-file-roots", document, "material"],
-      queryFn: async () => unwrapForQuery(await api.bin.roots(document)),
+      queryFn: queryFnWithArgs(api.bin.roots, document),
       staleTime: Infinity,
       retry: false,
     }),
