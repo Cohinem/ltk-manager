@@ -1,31 +1,57 @@
 import { SlidersHorizontalIcon } from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 
-import { Checkbox, FilterSection, IconButton, Popover, Slider, Tooltip } from "@/components";
+import {
+  ArrangedTableOptions,
+  Checkbox,
+  FilterSection,
+  IconButton,
+  Popover,
+  Slider,
+  Tooltip,
+} from "@/components";
+import { m } from "@/i18n";
+import { useLibraryViewMode } from "@/modules/library/api";
 import { useSettings, useUpdateSettings } from "@/modules/settings";
 import { type CardScale, useCardScale, useSetCardScale, VALID_CARD_SCALES } from "@/stores";
+
+import { useLibraryTableStore } from "../state";
+import { COLUMN_SPECS, GROUP_BY_LABELS } from "./ModTable/columns";
 
 const SCALE_MARKS = VALID_CARD_SCALES.map((value) => ({ value }));
 const MIN_SCALE = VALID_CARD_SCALES[0];
 const MAX_SCALE = VALID_CARD_SCALES[VALID_CARD_SCALES.length - 1];
 
-/** Card size and what a card shows, behind the view toggle's caret. Sliders, not a kebab: DS-GLYPH-ROLE. */
-export function ViewOptionsPopover() {
+/**
+ * How the library is drawn, behind the view toggle's caret: card size for the
+ * grid, rows, columns and grouping for the table. Sliders, not a kebab:
+ * DS-GLYPH-ROLE.
+ */
+export function ViewOptionsPopover({
+  viewMode: shownMode,
+  tableOptions = <LibraryTableOptions />,
+}: {
+  /** The view the options are for, the library's own unless another page says. */
+  viewMode?: "grid" | "table";
+  /** The table's sections, the library table's unless another page draws its own. */
+  tableOptions?: ReactNode;
+} = {}) {
   const { data: settings } = useSettings();
   const updateSettings = useUpdateSettings();
-  const cardScale = useCardScale();
-  const setCardScale = useSetCardScale();
+  const { viewMode: libraryMode } = useLibraryViewMode();
+  const viewMode = shownMode ?? libraryMode;
 
   if (!settings) return null;
 
   return (
     <Popover.Root>
-      <Tooltip content="View options">
+      <Tooltip content={m.library_view_options_label()}>
         <Popover.Trigger
           render={
             <IconButton
               icon={<SlidersHorizontalIcon />}
               size="sm"
-              aria-label="View options"
+              aria-label={m.library_view_options_label()}
               className="h-full w-auto rounded-none px-1"
             />
           }
@@ -37,31 +63,53 @@ export function ViewOptionsPopover() {
         side="bottom"
         align="end"
         sideOffset={8}
-        aria-label="View options"
-        className="w-64 divide-y divide-surface-600/50 bg-surface-900 p-0 select-none"
+        aria-label={m.library_view_options_label()}
+        className="w-72 divide-y divide-surface-600/50 bg-surface-900 p-0 select-none"
       >
-        <FilterSection title="Card size">
-          <Slider
-            variant="ruler"
-            value={cardScale}
-            onValueChange={(value) => setCardScale(value as CardScale)}
-            min={MIN_SCALE}
-            max={MAX_SCALE}
-            step={10}
-            marks={SCALE_MARKS}
-            aria-label="Card size"
-          />
-        </FilterSection>
+        {viewMode === "grid" && <CardSize />}
+        {viewMode === "table" && tableOptions}
 
-        <FilterSection title="Card display">
-          <Checkbox
-            size="sm"
-            label="Tags"
-            checked={settings.showModTags}
-            onCheckedChange={(checked) => updateSettings({ showModTags: checked })}
-          />
-        </FilterSection>
+        {viewMode === "grid" && (
+          <FilterSection title={m.library_view_card_display_label()}>
+            <Checkbox
+              size="sm"
+              label={m.library_view_tags_label()}
+              checked={settings.showModTags}
+              onCheckedChange={(checked) => updateSettings({ showModTags: checked })}
+            />
+          </FilterSection>
+        )}
       </Popover.Content>
     </Popover.Root>
+  );
+}
+
+function CardSize() {
+  const cardScale = useCardScale();
+  const setCardScale = useSetCardScale();
+
+  return (
+    <FilterSection title={m.library_view_card_size_label()}>
+      <Slider
+        variant="ruler"
+        value={cardScale}
+        onValueChange={(value) => setCardScale(value as CardScale)}
+        min={MIN_SCALE}
+        max={MAX_SCALE}
+        step={10}
+        marks={SCALE_MARKS}
+        aria-label={m.library_view_card_size_label()}
+      />
+    </FilterSection>
+  );
+}
+
+function LibraryTableOptions() {
+  return (
+    <ArrangedTableOptions
+      store={useLibraryTableStore}
+      specs={COLUMN_SPECS}
+      groupLabels={GROUP_BY_LABELS}
+    />
   );
 }

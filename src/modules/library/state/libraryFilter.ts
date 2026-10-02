@@ -10,7 +10,20 @@ import {
   type SortDirection,
 } from "@/stores/facetFilter";
 
-export type SortField = "priority" | "name" | "champion" | "installedAt" | "enabled";
+export type SortField =
+  | "priority"
+  | "name"
+  | "champion"
+  | "installedAt"
+  | "enabled"
+  | "version"
+  | "author"
+  | "layers"
+  | "health"
+  | "folder"
+  | "format"
+  | "storage"
+  | "license";
 export type SortConfig = FacetSortConfig<SortField>;
 export type { SortDirection };
 

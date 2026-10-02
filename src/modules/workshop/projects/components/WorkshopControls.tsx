@@ -4,12 +4,13 @@ import {
   FolderOpenIcon,
   GitBranchIcon,
   GridFourIcon,
-  ListIcon,
   PackageIcon,
   PlusIcon,
+  TableIcon,
 } from "@phosphor-icons/react";
 
 import {
+  ArrangedTableOptions,
   ButtonGroup,
   IconButton,
   Kbd,
@@ -26,10 +27,12 @@ import { useOpenFolder } from "../../folders/hooks/useOpenFolder";
 import { useProjectImports } from "../../imports/hooks/useProjectImports";
 import {
   useNewProjectDialog,
+  useProjectTableStore,
   useSetWorkshopViewMode,
   useWorkshopViewMode,
   type ViewMode,
 } from "../../state";
+import { PROJECT_COLUMN_SPECS, PROJECT_GROUP_LABELS } from "./ProjectTable/columns";
 import { WorkshopSelectionButton } from "./WorkshopSelectionButton";
 
 /* What the header's slots hold while no project is open. Each is one slot, so a
@@ -43,9 +46,9 @@ function viewOptions(): SegmentedOption<ViewMode>[] {
       name: m.workshop_controls_grid_view_label(),
     },
     {
-      value: "list",
-      label: <ListIcon weight="bold" className="size-4" />,
-      name: m.workshop_controls_list_view_label(),
+      value: "table",
+      label: <TableIcon weight="bold" className="size-4" />,
+      name: m.workshop_controls_table_view_label(),
     },
   ];
 }
@@ -64,7 +67,18 @@ export function WorkshopViewControls() {
         options={viewOptions()}
         value={viewMode}
         onChange={setViewMode}
-        action={<ViewOptionsPopover />}
+        action={
+          <ViewOptionsPopover
+            viewMode={viewMode}
+            tableOptions={
+              <ArrangedTableOptions
+                store={useProjectTableStore}
+                specs={PROJECT_COLUMN_SPECS}
+                groupLabels={PROJECT_GROUP_LABELS}
+              />
+            }
+          />
+        }
       />
     </>
   );

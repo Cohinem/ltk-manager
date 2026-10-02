@@ -1,4 +1,5 @@
 import { BulkUninstallDialog } from "./BulkUninstallDialog";
+import { NewFolderForModsDialog } from "./MoveToFolderMenu";
 
 /**
  * Every library dialog a store raises, mounted once for the whole module.
@@ -10,6 +11,7 @@ export function LibraryDialogs() {
   return (
     <>
       <BulkUninstallDialog />
+      <NewFolderForModsDialog />
     </>
   );
 }

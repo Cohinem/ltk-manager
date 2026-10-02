@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                     |
-| ---------- | ---------------------------------------------------------- |
-| 2026-10-02 | Importing a mod the library holds                          |
-| 2026-10-02 | Opening a mod file from Explorer installs it               |
-| 2026-09-30 | A library edit reaches a running patcher between games     |
-| 2026-09-12 | The documents panel is a drawer over the grid, not a pane  |
-| 2026-09-12 | The licenses tab follows the open mod, like the other two  |
-| 2026-09-12 | A right click reads a card and no longer picks it          |
-| 2026-09-12 | The details tab, which folds the three mod dialogs in      |
-| 2026-09-12 | The documents panel, its two tabs and what it persists     |
-| 2026-09-07 | The library selects by gesture, and select mode is retired |
-| 2026-09-07 | First draft of this document                               |
+| Date       | Change                                                    |
+| ---------- | --------------------------------------------------------- |
+| 2026-10-02 | Table load order by drag, and Move to folder              |
+| 2026-10-02 | The table view, its dock, grouping and row picking        |
+| 2026-10-02 | A second shift-click moves the range from the same anchor |
+| 2026-10-02 | Importing a mod the library holds                         |
+| 2026-10-02 | Opening a mod file from Explorer installs it              |
+| 2026-09-30 | A library edit reaches a running patcher between games    |
+| 2026-09-12 | The documents panel is a drawer over the grid, not a pane |
+| 2026-09-12 | The licenses tab follows the open mod, like the other two |
+| 2026-09-12 | A right click reads a card and no longer picks it         |
+| 2026-09-12 | The details tab, which folds the three mod dialogs in     |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -43,11 +43,14 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | ---------------------- | --------- | ------------------------------------------------------------- |
 | Selection by gesture   | Available | Ctrl-click picks, shift-click ranges, no mode to enter        |
 | The checkbox           | Available | On the hovered card, and on every card under a selection      |
-| The floating bar       | Available | Five commands, while the selection is non-empty               |
+| The floating bar       | Available | Six commands, while the selection is non-empty                |
 | Select all             | Available | The toolbar button, toggling all visible against clear        |
 | All visible Enable     | Available | On the button's caret, beside Disable                         |
-| Enable and disable     | Available | A bare press on a card, and a switch on a list row            |
-| Grid and list          | Available | A segmented control, with the view options on its action slot |
+| Enable and disable     | Available | A bare press on a card, and a switch on a table row           |
+| Grid and table         | Available | A segmented control, with the view options on its action slot |
+| The table view         | Available | Columns, row heights and a dock that follows the pointer      |
+| Grouping               | Available | Folder by default, or any of eleven derived groupings         |
+| Drag down the checkbox | Available | The table's way to pick a run of rows with one press          |
 | Folders                | Available | One level, drag to fill, and a drilldown route per folder     |
 | Profiles               | Available | Named enabled-sets, switched from the toolbar                 |
 | Filters and sort       | Available | A popover off the search box, and chips under the toolbar     |
@@ -63,22 +66,24 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | The licenses tab       | Available | One mod's license name, its link, and the text it ships       |
 | Skinhack blocklist     | Available | Retiring into a Problems rule over the project manifest       |
 | Marquee selection      | Proposed  | Competes with drag-to-reorder for the same press              |
-| Folder moves on a pick | Proposed  | A selection carries no destination today                      |
+| Folder moves on a pick | Available | Move to folder, on the bar and on a mod's menu                |
 
 ## How a mod is picked
 
 **A bare press is the switch.** Enabling and disabling is what the library is for, and it is the
 one action a card offers without a modifier. A grid card has no switch of its own, so the card is
-the control. A list row carries a real switch on its trailing edge, and pressing anywhere else on
-the row does the same thing.
+the control. A table row carries a real switch in its On column, and pressing anywhere else on the
+row does the same thing.
 
 **Ctrl-click adds and removes.** The card joins the selection, or leaves it, and the mod stays
 switched exactly as it was. `Cmd` does the same, so a mac keyboard is not a second gesture to
 learn.
 
 **Shift-click ranges from the anchor.** The anchor is the last card picked without shift, and the
-range covers every card between the two in the order the grid draws them. With no anchor to range
-from, the shift-click picks the one card under the pointer.
+range covers every card between the two in the order the grid draws them. A second shift-click
+redraws the range from the same anchor, so it moves the far end rather than adding a second range,
+and the picks made before the range began stay picked. With no anchor to range from, the
+shift-click picks the one card under the pointer.
 
 **A picked mod that cannot be switched on is still picked.** A blocked mod refuses a bare press,
 and uninstalling it is the reason to reach for it in the first place, so the modifier gestures
@@ -86,7 +91,7 @@ stay open where the switch is closed.
 
 **The checkbox is the way in without the modifier.** It draws on the card under the pointer, and
 on every card while the selection is non-empty. A press on it adds or removes that one card. The
-grid draws it in the card's top-left corner, over the art, and the list draws it at the head of
+grid draws it in the card's top-left corner, over the art, and the table draws it at the head of
 the row. Neither reflows as a pointer crosses it - a row holds its place at all times, and a card
 draws it over the corner with the marks sliding aside.
 
@@ -95,18 +100,19 @@ cannot mean both. Ctrl-click and shift-click reach every set a rubber band would
 
 ## What a selection carries
 
-Five commands, and the same five wherever they are drawn:
+Six commands, and the same six wherever they are drawn:
 
-| Command         | What it does                                                  |
-| --------------- | ------------------------------------------------------------- |
-| Enable N        | Switches on every picked mod that is off and not blocked      |
-| Disable N       | Switches off every picked mod that is on                      |
-| Check health N  | Runs the [health](MOD_HEALTH.md) rules over the picks         |
-| Uninstall N     | Deletes them from disk, behind a confirmation that names them |
-| Clear selection | Drops the picks and takes the bar with them                   |
+| Command         | What it does                                                     |
+| --------------- | ---------------------------------------------------------------- |
+| Enable N        | Switches on every picked mod that is off and not blocked         |
+| Disable N       | Switches off every picked mod that is on                         |
+| Move to folder  | Files the picks into a folder, out of every folder, or a new one |
+| Check health N  | Runs the [health](MOD_HEALTH.md) rules over the picks            |
+| Uninstall N     | Deletes them from disk, behind a confirmation that names them    |
+| Clear selection | Drops the picks and takes the bar with them                      |
 
-**Enable and disable leave the selection standing.** They are reversible and are pressed in
-pairs, so the set a reader assembled survives the press. Check health spends it as the press
+**Enable, disable and Move to folder leave the selection standing.** They are reversible, and
+the first two are pressed in pairs, so the set a reader assembled survives the press. Check health spends it as the press
 lands, because the run reports through its own progress toast and answers over the library.
 Uninstall spends it when the run comes back, which is what lets the failures stay picked.
 
@@ -351,6 +357,107 @@ type.
 Escape and `Ctrl+A` stay with the library underneath. The panel is not modal, so leaving it does
 not also drop the selection.
 
+## Table view
+
+The table draws one row per mod, in columns the reader arranges, with the documents panel docked
+beside it. It replaces the list. Search, filters, sort and the selection are the same stores the
+grid reads, so switching views keeps all four.
+
+Columns resize, reorder by dragging their header or with Move left and Move right in its menu,
+hide from the header's menu or the view options, and reset from either. A press on a header that
+does not travel sorts by it, so dragging and sorting share the header without a handle. Row height
+is Compact, Default or Comfortable, and the art column scales with it. The name column takes the
+width the others leave, so it has no edge to drag, and it stays in view beside the checkbox and
+the switch when a narrow window scrolls the table sideways. The layout is per machine and survives a
+restart: column order, widths and visibility, row height, grouping, which groups are collapsed,
+and the dock's width and whether it is collapsed. Sort is shared with the grid and lasts the
+session, like the filters.
+
+### What a click does
+
+**A bare press switches the mod**, as it does on a card, and the On column is the same switch
+drawn where a column can show it. The dock already follows the pointer, so a press spent on
+showing a mod would do nothing the hover had not. The press also makes the row the current row,
+and Space switches the current row from the keyboard. Ctrl-click and shift-click pick exactly as
+they do on a card, and a blocked mod refuses the bare press the way its card does.
+
+**The current row is the dock's mod.** It is drawn tinted, and the keyboard moves from it. Arrow
+keys, Page Up and Page Down, Home and End move it. Left and Right collapse and expand a group
+heading, and Enter or Space on a heading does both.
+
+### The panel follows the pointer
+
+**The dock shows the row under the pointer.** Hovering a row makes it the current row and shows
+it, with no delay, because the table is where a reader compares mods. A pointer heading right
+toward the dock gets a short grace period, so a diagonal path across other rows keeps the mod it
+started from.
+
+**An accent sash lines up with the row the dock shows.** It sits in the table's left gutter,
+between the frame and the row, and it follows the pointer from row to row. A reader who scrolled away finds the open mod by it, and it is gone while
+that row is scrolled out of view or the dock is collapsed.
+
+**Pin holds the dock on one mod**, and an open edit form holds it the same way, so moving the
+pointer never raises the unsaved-changes prompt. A readme or a license is read only once the
+pointer rests on a row, so sweeping the table opens no archives.
+
+### Grouping
+
+**Folder is the default grouping**, and its headings carry the folder's own switch and menu,
+because a folder exists apart from the table. Champion, map, tag, author, health, on or off,
+installed, format, storage and license are views of the library instead, so their headings carry
+a checkbox that picks the group's mods.
+
+**A mod files under every group it belongs to.** A skin for two champions has a row under each,
+and a range or a pick counts it once. A search or a filter opens every collapsed group that holds
+a match, so a match is never hidden behind a heading, and no heading folds until it clears.
+
+**A heading reaches only the mods drawn under it.** Under a search, a folder's switch turns the
+matches on or off and leaves the rest of the folder as it was. A group's checkbox opens a folded
+group as it picks, so every mod it picked is on screen.
+
+### Picking rows in the table
+
+**The anchor is the last row picked.** A checkbox press or a Ctrl-click sets it, so ticking one
+row and shift-clicking another picks the run between them. A bare press switches the mod and leaves
+the anchor alone, or the first row of every range would flip on the way in. Hovering never moves
+the anchor either, or every shift-click would range from the row under the pointer. The arrow keys
+set the anchor, and Shift with an arrow key extends the range from it.
+
+**A range runs over the drawn rows.** A mod filed under two groups ranges from the copy that was
+pressed, and a collapsed group's mods are not in a range that crosses its heading.
+
+**Dragging down the checkbox column picks the rows it crosses.** The first checkbox decides the
+direction: pressing an unpicked row picks every row the drag reaches, and pressing a picked one
+drops them. This is the table's answer to a marquee, and it competes with nothing, since the
+column has no other drag.
+
+**Ctrl+Space picks the current row**, so the keyboard reaches every pick a pointer does.
+
+**A run of picked rows draws as one block.** Neighbouring picks join, and the run's corners are
+the block's corners.
+
+**Visible is what the table draws.** `Select all`, the header checkbox and the bar's hidden count
+all stop at a collapsed heading, because a mod behind one is a mod the reader cannot see.
+
+### Load order in the table
+
+**Dragging a row moves it in the load order.** A press that travels a few pixels is a drag, and one
+that does not is the switch, the same split the grid's cards and the table's headers make. A line
+marks where the row lands, beside the row under the pointer, and the table scrolls while the pointer
+is near its top or bottom edge. Escape puts the row back.
+
+**A drop beside a mod files the row into that mod's folder.** Under folder grouping the headings
+show which folder that is, so a row moves between folders as freely as within one, and dropping it
+on a folder's heading files it at the end of that folder. A flat table shows no folders, so a row
+there moves only among the mods of its own folder.
+
+**The drag is offered where the order on screen is the load order.** That is the priority sort,
+with no search, filter or selection standing, and grouped by folder or not at all. Any other
+grouping draws a mod under several headings, which have no order of their own.
+
+**Move to folder is on every mod's menu.** It lists the folders, takes the mod out of its folder
+and names a new one, and it is the keyboard's way to file a mod.
+
 ## Decided questions
 
 | Question                                        | Answer                                                     |
@@ -360,6 +467,13 @@ not also drop the selection.
 | Can a blocked mod be picked?                    | Yes. Uninstalling it is the reason to                      |
 | Does the checkbox draw with nothing picked?     | Yes, on the card under the pointer                         |
 | Is there a marquee?                             | No. It competes with drag-to-reorder for one press         |
+| What does a bare press do in the table?         | Switches the mod and makes the row current, not the anchor |
+| Does hovering a row move the anchor?            | No. Only a pick or an arrow key does                       |
+| Does a second shift-click add a second range?   | No. It redraws the range from the same anchor              |
+| Does the table pick by dragging?                | Yes, down the checkbox column, which has no other drag     |
+| Does the table reorder by dragging a row?       | Yes, under the priority sort with folders or no grouping   |
+| Where does a selection get moved to a folder?   | Move to folder on the bar, the same list as a mod's menu   |
+| Is a mod in a collapsed group visible?          | No. Select all and ranges stop at the heading              |
 | What does the toolbar button do?                | Select all visible, or clear once they all are             |
 | Where do Enable and Disable all visible live?   | The button's caret, and they ignore the selection          |
 | Does a right click change the pick?             | No. It reads the card and leaves the selection alone       |
@@ -384,9 +498,6 @@ not also drop the selection.
 
 ## Open questions
 
-1. What does a selection do about folders? Moving a picked set into a folder is the obvious sixth
-   command, and it needs a destination the bar has nowhere to put. The right click is no longer
-   the cheap half, since it carries no selection commands at all, so the bar is the whole problem.
-2. Does the keyboard reach a range? Enter and Space carry their modifiers, so a focused card
+1. Does the keyboard reach a range? Enter and Space carry their modifiers, so a focused card
    picks and ranges the way a click does. What has no answer is arrowing between cards, which the
    grid does not offer at all.

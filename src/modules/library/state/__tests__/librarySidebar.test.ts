@@ -13,6 +13,8 @@ beforeEach(() => {
     modId: null,
     pending: null,
     dirty: false,
+    pinned: false,
+    editing: false,
   });
 });
 
@@ -134,5 +136,34 @@ describe("how wide the drawer may be dragged", () => {
 describe("the drawer's own defaults", () => {
   it("opens at the default width before anyone drags it", () => {
     expect(useLibrarySidebarStore.getState().width).toBe(DEFAULT_DRAWER_WIDTH);
+  });
+});
+
+describe("the docked panel's preview", () => {
+  it("follows the pointer and keeps the tab the reader chose", () => {
+    state().preview("a");
+
+    expect(state()).toMatchObject({ modId: "a", tab: "licenses" });
+  });
+
+  it("holds the mod while pinned", () => {
+    state().preview("a");
+    state().togglePinned();
+    state().preview("b");
+
+    expect(state().modId).toBe("a");
+  });
+
+  /* Hover never raises the unsaved-changes prompt, so an open form holds the panel. */
+  it("holds the mod while the Details form is open or dirty", () => {
+    state().preview("a");
+    state().setEditing(true);
+    state().preview("b");
+    expect(state().modId).toBe("a");
+
+    state().setEditing(false);
+    state().setDirty(true);
+    state().preview("b");
+    expect(state()).toMatchObject({ modId: "a", pending: null });
   });
 });

@@ -1757,9 +1757,9 @@
   "workshop_controls_from_modpkg_action": "From Modpkg…",
   "workshop_controls_grid_view_label": "Grid view",
   "workshop_controls_import_label": "Import a project",
-  "workshop_controls_list_view_label": "List view",
   "workshop_controls_more_label": "More ways to start a project",
   "workshop_controls_new_project_label": "New project",
+  "workshop_controls_table_view_label": "Table view",
   "workshop_declarations_clone_tag": "copy of",
   "workshop_declarations_construct_tag": "new",
   "workshop_declarations_copy_action": "Copy {what}",
@@ -2559,6 +2559,26 @@
   "workshop_start_new_action": "New project…",
   "workshop_start_recent_label": "Recent",
   "workshop_start_title": "Start a mod project",
+  "workshop_table_column_actions_label": "Test and pack",
+  "workshop_table_column_location_label": "Location",
+  "workshop_table_column_modified_label": "Modified",
+  "workshop_table_column_opened_label": "Opened",
+  "workshop_table_group_count_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} project",
+        "countPlural=other": "{count} projects"
+      }
+    }
+  ],
+  "workshop_table_group_location_label": "Location",
+  "workshop_table_group_select_label": "Select the projects in {group}",
+  "workshop_table_label": "Projects",
+  "workshop_table_never_opened_label": "Never",
+  "workshop_table_select_all_label": "Select all visible projects",
+  "workshop_table_sort_clear_action": "Back to recently opened",
   "workshop_test_layers_count_label": "{tested}/{total}",
   "workshop_test_layers_label": "Choose layers to test",
   "workshop_test_layers_title": "Layers to test",

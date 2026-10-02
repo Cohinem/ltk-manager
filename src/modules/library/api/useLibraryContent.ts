@@ -10,7 +10,7 @@ import {
   useLibraryViewStore,
 } from "../state";
 import { useFolderOrder, useFolders } from "./queries";
-import { useFilteredMods } from "./useFilteredMods";
+import { useFilteredMods, useSortContext } from "./useFilteredMods";
 import { useLibraryViewMode } from "./useLibraryViewMode";
 
 const ROOT_FOLDER_ID = "root";
@@ -47,6 +47,7 @@ export function useLibraryContent({
   const filteredMods = useFilteredMods(mods, searchQuery);
   const hasActiveFilters = useHasActiveFilters();
   const sort = useLibrarySort();
+  const sortContext = useSortContext();
   const { data: folders } = useFolders();
   const { data: folderOrder } = useFolderOrder();
   const cleanupStaleFolders = useLibraryViewStore((s) => s.cleanupStaleFolders);
@@ -90,8 +91,8 @@ export function useLibraryContent({
   }, [mods]);
 
   const sortedModsByFolder = useMemo(
-    () => sortModsByFolder(modsByFolder, sort),
-    [modsByFolder, sort],
+    () => sortModsByFolder(modsByFolder, sort, sortContext),
+    [modsByFolder, sort, sortContext],
   );
 
   const contentView = useMemo((): ContentView => {

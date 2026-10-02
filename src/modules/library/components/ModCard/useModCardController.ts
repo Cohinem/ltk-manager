@@ -4,7 +4,6 @@ import { useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import { api, type InstalledMod, type ModStorage } from "@/lib/tauri";
 import {
-  useMoveModToFolder,
   useSetModStorage,
   useSkinhackFlag,
   useToggleMod,
@@ -13,8 +12,6 @@ import {
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
 
 import { useLibrarySelectionStore } from "../../state";
-
-const ROOT_FOLDER_ID = "root";
 
 type Modifiers = Pick<React.MouseEvent, "shiftKey" | "ctrlKey" | "metaKey">;
 
@@ -52,7 +49,6 @@ export interface ModCardView {
   storageChangePending: boolean;
   /** Whether the mod cannot be switched, because it is blocked or the patcher owns the library. */
   disabled: boolean;
-  isInUserFolder: boolean;
   isMultiLayer: boolean;
   /** Whether anything at all is picked, which is what draws every card's checkbox. */
   hasSelection: boolean;
@@ -72,7 +68,6 @@ export interface ModCardView {
   onSetStorage: (storage: ModStorage) => void;
   onCopyId: () => void;
   onOpenLocation: () => void;
-  onRemoveFromFolder: () => void;
 }
 
 /**
@@ -84,7 +79,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
   const toast = useToast();
   const toggleMod = useToggleMod();
   const uninstallMod = useUninstallMod();
-  const moveModToFolder = useMoveModToFolder();
   const setModStorage = useSetModStorage();
 
   const hasSelection = useLibrarySelectionStore((s) => s.selectedIds.size > 0);
@@ -100,7 +94,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
   } = useSkinhackFlag(mod);
 
   const disabled = isFlagged;
-  const isInUserFolder = mod.folderId != null && mod.folderId !== ROOT_FOLDER_ID;
   const isMultiLayer = mod.layers.length > 1;
 
   // "Legacy is transient": ADR-0008.
@@ -144,10 +137,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     if (!result.ok) {
       console.error("Failed to open location:", result.error);
     }
-  }
-
-  function handleRemoveFromFolder() {
-    moveModToFolder.mutate({ modId: mod.id, folderId: ROOT_FOLDER_ID });
   }
 
   /**
@@ -199,7 +188,6 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     canCheckHealth,
     storageChangePending: setModStorage.isPending,
     disabled,
-    isInUserFolder,
     isMultiLayer,
     hasSelection,
     isSelected,
@@ -217,6 +205,5 @@ export function useModCardController({ mod }: ModCardProps): ModCardView {
     onSetStorage: handleSetStorage,
     onCopyId: handleCopyId,
     onOpenLocation: handleOpenLocation,
-    onRemoveFromFolder: handleRemoveFromFolder,
   };
 }

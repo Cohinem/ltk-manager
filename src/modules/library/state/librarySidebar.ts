@@ -31,6 +31,10 @@ interface LibrarySidebarStore extends SidebarView {
   dirty: boolean;
   /** How wide the drawer opens, in pixels. */
   width: number;
+  /** Whether the docked panel holds its mod while the pointer moves over the table. */
+  pinned: boolean;
+  /** Whether the Details form is open, which holds the docked panel like a pin. */
+  editing: boolean;
   /** Show the panel, or hide it, on whichever tab it was left. */
   toggle: () => void;
   close: () => void;
@@ -39,6 +43,15 @@ interface LibrarySidebarStore extends SidebarView {
   showDetails: (modId: string) => void;
   /** Open the panel on `modId`'s readme. */
   showReadme: (modId: string) => void;
+  /**
+   * Show `modId` in the docked panel because the pointer or the cursor reached it.
+   *
+   * Never guarded: it does nothing while pinned or while the Details form is
+   * open, so moving the pointer never raises the unsaved-changes prompt.
+   */
+  preview: (modId: string) => void;
+  togglePinned: () => void;
+  setEditing: (editing: boolean) => void;
   setDirty: (dirty: boolean) => void;
   /** Take the view the guard held back, or drop it. */
   resolvePending: (take: boolean) => void;
@@ -103,12 +116,21 @@ export const useLibrarySidebarStore = create<LibrarySidebarStore>()(
         pending: null,
         dirty: false,
         width: DEFAULT_DRAWER_WIDTH,
+        pinned: false,
+        editing: false,
 
         toggle: () => requestView({ ...view(), open: !get().open }),
         close: () => requestView({ ...view(), open: false }),
         showTab: (tab) => requestView({ ...view(), open: true, tab }),
         showDetails: (modId) => requestView({ open: true, tab: "details", modId }),
         showReadme: (modId) => requestView({ open: true, tab: "readme", modId }),
+        preview: (modId) => {
+          const { pinned, editing, dirty, modId: current } = get();
+          if (pinned || editing || dirty || modId === current) return;
+          set({ modId });
+        },
+        togglePinned: () => set({ pinned: !get().pinned }),
+        setEditing: (editing) => set({ editing }),
         setDirty: (dirty) => set({ dirty }),
         resolvePending: (take) => {
           const { pending } = get();
