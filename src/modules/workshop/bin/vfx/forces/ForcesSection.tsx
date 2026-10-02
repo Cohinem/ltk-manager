@@ -8,7 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import { use, useRef, useState } from "react";
 
-import { Button, IconButton, Menu, Table, Tooltip } from "@/components";
+import { Button, IconButton, Menu, OVERLINE, Table } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -86,9 +86,12 @@ export function ForcesSection({ search }: { search: string }) {
           aria-expanded={open}
           disabled={search.trim() !== ""}
           onClick={() => setExpanded(!open)}
-          className="flex min-h-6 flex-1 cursor-pointer items-center gap-1 text-left text-xs font-medium tracking-wide text-surface-400 uppercase hover:text-surface-200"
+          className={twMerge(
+            OVERLINE,
+            "flex min-h-6 flex-1 cursor-pointer items-center gap-1 text-left hover:text-surface-200",
+          )}
         >
-          <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
+          <CaretRightIcon weight="bold" className={twMerge("size-3", open && "rotate-90")} />
           {m.workshop_bin_forces_title()}
         </button>
         {edit?.editProperty !== undefined && (
@@ -98,20 +101,16 @@ export function ForcesSection({ search }: { search: string }) {
                 <Button variant="ghost" size="sm" disabled={busy || pending || error !== null} />
               }
             >
-              <PlusIcon weight="bold" className="h-3.5 w-3.5" />
+              <PlusIcon weight="bold" className="size-3.5" />
               {m.workshop_bin_force_add_action()}
             </Menu.Trigger>
-            <Menu.Portal>
-              <Menu.Positioner>
-                <Menu.Popup>
-                  {FORCE_DEFINITIONS.map((definition) => (
-                    <Menu.Item key={definition.kind} onClick={() => void add(definition)}>
-                      {definition.title()}
-                    </Menu.Item>
-                  ))}
-                </Menu.Popup>
-              </Menu.Positioner>
-            </Menu.Portal>
+            <Menu.Content>
+              {FORCE_DEFINITIONS.map((definition) => (
+                <Menu.Item key={definition.kind} onClick={() => void add(definition)}>
+                  {definition.title()}
+                </Menu.Item>
+              ))}
+            </Menu.Content>
           </Menu.Root>
         )}
       </header>
@@ -203,57 +202,43 @@ function ForceGroup({
           disabled={searching}
           onClick={() => setExpanded(!open)}
         >
-          <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
+          <CaretRightIcon weight="bold" className={twMerge("size-3", open && "rotate-90")} />
           {force.definition.title()}{" "}
           <span className="text-meta text-surface-400">{force.index + 1}</span>
         </Button>
         {hosted && force.supported && (
           <>
-            <Tooltip content={m.workshop_bin_force_handle_action()}>
-              <IconButton
-                variant="ghost"
-                size="xs"
-                icon={<ArrowsOutCardinalIcon className="h-3.5 w-3.5" />}
-                aria-label={m.workshop_bin_force_handle_action()}
-                aria-pressed={selected}
-                onClick={() => preview.select(selected ? null : force.key)}
-              />
-            </Tooltip>
-            <Tooltip content={m.workshop_bin_force_mute_action()}>
-              <IconButton
-                variant="ghost"
-                size="xs"
-                icon={<EyeSlashIcon className="h-3.5 w-3.5" />}
-                aria-label={m.workshop_bin_force_mute_action()}
-                aria-pressed={preview.muted.has(force.key)}
-                className="aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
-                onClick={() => preview.mute(force.key)}
-              />
-            </Tooltip>
-            <Tooltip content={m.workshop_bin_force_solo_action()}>
-              <IconButton
-                variant="ghost"
-                size="xs"
-                icon={<CrosshairIcon className="h-3.5 w-3.5" />}
-                aria-label={m.workshop_bin_force_solo_action()}
-                aria-pressed={preview.solo === force.key}
-                className="aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
-                onClick={() => preview.isolate(force.key)}
-              />
-            </Tooltip>
+            <IconButton
+              compact={false}
+              icon={<ArrowsOutCardinalIcon className="size-3.5" />}
+              aria-pressed={selected}
+              onClick={() => preview.select(selected ? null : force.key)}
+              label={m.workshop_bin_force_handle_action()}
+            />
+            <IconButton
+              compact={false}
+              icon={<EyeSlashIcon className="size-3.5" />}
+              pressed={preview.muted.has(force.key)}
+              onClick={() => preview.mute(force.key)}
+              label={m.workshop_bin_force_mute_action()}
+            />
+            <IconButton
+              compact={false}
+              icon={<CrosshairIcon className="size-3.5" />}
+              pressed={preview.solo === force.key}
+              onClick={() => preview.isolate(force.key)}
+              label={m.workshop_bin_force_solo_action()}
+            />
           </>
         )}
         {edit?.removeItem !== undefined && (
-          <Tooltip content={m.workshop_bin_force_remove_action()}>
-            <IconButton
-              variant="ghost"
-              size="xs"
-              disabled={busy}
-              icon={<TrashIcon className="h-3.5 w-3.5" />}
-              aria-label={m.workshop_bin_force_remove_action()}
-              onClick={() => void remove()}
-            />
-          </Tooltip>
+          <IconButton
+            compact={false}
+            disabled={busy}
+            icon={<TrashIcon className="size-3.5" />}
+            onClick={() => void remove()}
+            label={m.workshop_bin_force_remove_action()}
+          />
         )}
       </header>
       {failed && (

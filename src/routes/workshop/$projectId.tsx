@@ -3,14 +3,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect } from "react";
 
-import { Button } from "@/components";
+import { Button, LoadingState } from "@/components";
 import { m } from "@/i18n";
 import { api, type WorkshopProject } from "@/lib/tauri";
 import {
   ContentBrowser,
   ExtractDialog,
   ExtractRunner,
-  LoadingState,
   useEditorPersistence,
   useLayerFileReload,
   usePruneTimelineMarkers,
@@ -30,7 +29,7 @@ function ProjectDetail() {
   const project = projects?.find((candidate) => candidate.id === projectId);
 
   if (isLoading) {
-    return <LoadingState />;
+    return <LoadingState className="h-64" />;
   }
 
   if (!project) {
@@ -40,7 +39,7 @@ function ProjectDetail() {
           {m.workshop_project_not_found_description({ projectId })}
         </p>
         <Link to="/workshop">
-          <Button variant="outline" left={<ArrowLeftIcon className="h-4 w-4" />}>
+          <Button variant="outline" left={<ArrowLeftIcon className="size-4" />}>
             {m.workshop_project_back_action()}
           </Button>
         </Link>
@@ -72,7 +71,7 @@ function HydratedContentBrowser({ project }: { project: WorkshopProject }) {
   useLayerFileReload(project.path);
   usePruneTimelineMarkers(project.path, ready);
 
-  if (!ready) return <LoadingState />;
+  if (!ready) return <LoadingState className="h-64" />;
   return <ContentBrowser project={project} />;
 }
 

@@ -119,14 +119,14 @@ export const RadioGroupItem = forwardRef<HTMLButtonElement, RadioGroupItemProps>
       >
         <Radio.Indicator
           className={twMerge(
-            "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors",
+            "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
             "border-surface-600 bg-surface-800",
             "group-hover:border-surface-500",
             "group-focus-visible:ring-2 group-focus-visible:ring-accent-500 group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface-900",
             "group-data-[checked]:border-accent-600 group-data-[checked]:bg-accent-600",
           )}
         >
-          <span className="hidden h-2 w-2 rounded-full bg-on-accent group-data-[checked]:block" />
+          <span className="hidden size-2 rounded-full bg-on-accent group-data-[checked]:block" />
         </Radio.Indicator>
         {(label || description) && (
           <div className="flex flex-col">

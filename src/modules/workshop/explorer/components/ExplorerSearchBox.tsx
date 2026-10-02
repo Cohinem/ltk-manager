@@ -1,7 +1,7 @@
 import { CaretDownIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode, RefObject } from "react";
 
-import { Field, IconButton, Menu, Tooltip } from "@/components";
+import { Field, IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -66,22 +66,18 @@ export function ExplorerSearchBox({
       <Menu.Root>
         <Menu.Trigger className="flex h-full shrink-0 items-center gap-0.5 rounded-l-md px-2 text-fine text-surface-300 outline-none hover:bg-surface-veil hover:text-surface-100">
           {scopeLabel}
-          <CaretDownIcon className="h-3 w-3" />
+          <CaretDownIcon className="size-3" />
         </Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Positioner side="bottom" align="start" sideOffset={6}>
-            <Menu.Popup className="w-44">
-              <Menu.Item onClick={() => onScopeChange("here")}>
-                {m.workshop_explorer_scope_here_label()}
-              </Menu.Item>
-              <Menu.Item onClick={() => onScopeChange("whole")}>{wholeLabel}</Menu.Item>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content side="bottom" align="start" sideOffset={6} className="w-44">
+          <Menu.Item onClick={() => onScopeChange("here")}>
+            {m.workshop_explorer_scope_here_label()}
+          </Menu.Item>
+          <Menu.Item onClick={() => onScopeChange("whole")}>{wholeLabel}</Menu.Item>
+        </Menu.Content>
       </Menu.Root>
 
       <span className="h-4 w-px shrink-0 bg-surface-veil-strong" aria-hidden />
-      <MagnifyingGlassIcon className="ml-1 h-3.5 w-3.5 shrink-0 text-surface-400" />
+      <MagnifyingGlassIcon className="ml-1 size-3.5 shrink-0 text-surface-400" />
 
       <Field.Root className="min-w-0 flex-1">
         <Field.Control
@@ -101,28 +97,19 @@ export function ExplorerSearchBox({
 
       {value.length > 0 && (
         <IconButton
-          icon={<XIcon weight="bold" className="h-3 w-3" />}
-          variant="ghost"
-          size="xs"
-          compact
+          icon={<XIcon className="size-3" />}
           onClick={() => onChange("")}
           aria-label={m.workshop_explorer_clear_box_action()}
         />
       )}
 
       {regex && (
-        <Tooltip content={m.workshop_game_search_regex_action()}>
-          <IconButton
-            icon={<span className="font-mono text-fine">.*</span>}
-            variant="ghost"
-            size="xs"
-            compact
-            aria-pressed={regex.on}
-            onClick={() => regex.onChange(!regex.on)}
-            aria-label={m.workshop_game_search_regex_action()}
-            className={regex.on ? "text-accent-300" : undefined}
-          />
-        </Tooltip>
+        <IconButton
+          icon={<span className="font-mono text-fine">.*</span>}
+          pressed={regex.on}
+          onClick={() => regex.onChange(!regex.on)}
+          label={m.workshop_game_search_regex_action()}
+        />
       )}
     </div>
   );

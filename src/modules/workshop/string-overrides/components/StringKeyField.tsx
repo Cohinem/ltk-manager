@@ -72,42 +72,41 @@ export function StringKeyField({
           onKeyDown={onKeyDown}
           onBlur={onBlur}
         />
-        <Combobox.Portal>
-          <Combobox.Positioner side="bottom" sideOffset={4} className="z-50">
-            <Combobox.Popup className="max-h-72 w-[calc(var(--anchor-width)+8rem)] min-w-72 overflow-y-auto rounded-lg border border-surface-600 bg-surface-800 py-1 shadow-xl data-ending-style:opacity-0 data-starting-style:opacity-0">
-              <Combobox.List>
-                {(suggestion: StringKeySuggestion) => (
-                  <Combobox.Item
-                    key={suggestion.key}
-                    value={suggestion}
-                    className="text-surface-300 data-highlighted:bg-surface-600"
-                  >
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate font-mono text-xs text-surface-100">
-                        {suggestion.key}
-                      </span>
-                      {suggestion.value && (
-                        <span className="truncate text-xs text-surface-400">
-                          {suggestion.value}
-                        </span>
-                      )}
-                    </span>
-                  </Combobox.Item>
-                )}
-              </Combobox.List>
-              <Combobox.Empty>
-                <p className="px-3 py-4 text-center text-sm text-surface-400">
-                  {search.isPending && "Loading field names… (first load can take a moment)"}
-                  {search.isError && "Field name search is unavailable right now."}
-                  {search.isSuccess &&
-                    (search.data?.totalKeys === 0
-                      ? "No field names yet. Sync the hashtables in Settings."
-                      : "No field name or in-game text matches.")}
-                </p>
-              </Combobox.Empty>
-            </Combobox.Popup>
-          </Combobox.Positioner>
-        </Combobox.Portal>
+        <Combobox.Content
+          side="bottom"
+          sideOffset={4}
+          positionerClassName="z-50"
+          className="max-h-72 w-[calc(var(--anchor-width)+8rem)] min-w-72 overflow-y-auto rounded-lg border border-surface-600 bg-surface-800 py-1 shadow-xl data-ending-style:opacity-0 data-starting-style:opacity-0"
+        >
+          <Combobox.List>
+            {(suggestion: StringKeySuggestion) => (
+              <Combobox.Item
+                key={suggestion.key}
+                value={suggestion}
+                className="text-surface-300 data-highlighted:bg-surface-600"
+              >
+                <span className="flex min-w-0 flex-col">
+                  <span className="truncate font-mono text-xs text-surface-100">
+                    {suggestion.key}
+                  </span>
+                  {suggestion.value && (
+                    <span className="truncate text-xs text-surface-400">{suggestion.value}</span>
+                  )}
+                </span>
+              </Combobox.Item>
+            )}
+          </Combobox.List>
+          <Combobox.Empty>
+            <p className="px-3 py-4 text-center text-sm text-surface-400">
+              {search.isPending && "Loading field names… (first load can take a moment)"}
+              {search.isError && "Field name search is unavailable right now."}
+              {search.isSuccess &&
+                (search.data?.totalKeys === 0
+                  ? "No field names yet. Sync the hashtables in Settings."
+                  : "No field name or in-game text matches.")}
+            </p>
+          </Combobox.Empty>
+        </Combobox.Content>
       </Combobox.Root>
       {/* Without `match`, Base UI only shows errors for native ValidityState
           failures — ours come from external validation. */}

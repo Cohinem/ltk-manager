@@ -53,81 +53,73 @@ function DependencyMenuItems({ line }: { line: DependencyLine }) {
 
   if (removed) {
     return (
-      <ContextMenu.Portal>
-        <ContextMenu.Positioner>
-          <ContextMenu.Popup className="w-56">
-            {edit !== null && (
-              <ContextMenu.Item
-                icon={<ArrowCounterClockwiseIcon />}
-                onClick={() => send(edit.restore(path))}
-              >
-                {m.workshop_bin_dependency_restore_action()}
-              </ContextMenu.Item>
-            )}
-            {copyPath}
-          </ContextMenu.Popup>
-        </ContextMenu.Positioner>
-      </ContextMenu.Portal>
+      <ContextMenu.Content className="w-56">
+        {edit !== null && (
+          <ContextMenu.Item
+            icon={<ArrowCounterClockwiseIcon />}
+            onClick={() => send(edit.restore(path))}
+          >
+            {m.workshop_bin_dependency_restore_action()}
+          </ContextMenu.Item>
+        )}
+        {copyPath}
+      </ContextMenu.Content>
     );
   }
 
   return (
-    <ContextMenu.Portal>
-      <ContextMenu.Positioner>
-        <ContextMenu.Popup className="w-56">
+    <ContextMenu.Content className="w-56">
+      <ContextMenu.Item
+        icon={<ArrowSquareOutIcon />}
+        disabled={open === null}
+        onClick={() => open?.("default")}
+      >
+        {m.workshop_bin_dependency_open_action()}
+      </ContextMenu.Item>
+      <ContextMenu.Item
+        icon={<ArrowSquareOutIcon />}
+        disabled={open === null}
+        onClick={() => open?.("beside")}
+      >
+        {m.workshop_bin_dependency_open_beside_action()}
+      </ContextMenu.Item>
+      {copyPath}
+      {edit !== null && (
+        <>
+          <ContextMenu.Separator />
           <ContextMenu.Item
-            icon={<ArrowSquareOutIcon />}
-            disabled={open === null}
-            onClick={() => open?.("default")}
+            icon={<PencilSimpleIcon />}
+            disabled={refusal !== null}
+            title={refusal ?? undefined}
+            onClick={() => editing.start(index)}
           >
-            {m.workshop_bin_dependency_open_action()}
+            {m.workshop_bin_dependency_edit_action()}
           </ContextMenu.Item>
-          <ContextMenu.Item
-            icon={<ArrowSquareOutIcon />}
-            disabled={open === null}
-            onClick={() => open?.("beside")}
-          >
-            {m.workshop_bin_dependency_open_beside_action()}
-          </ContextMenu.Item>
-          {copyPath}
-          {edit !== null && (
-            <>
-              <ContextMenu.Separator />
-              <ContextMenu.Item
-                icon={<PencilSimpleIcon />}
-                disabled={refusal !== null}
-                title={refusal ?? undefined}
-                onClick={() => editing.start(index)}
-              >
-                {m.workshop_bin_dependency_edit_action()}
-              </ContextMenu.Item>
-              {index > 0 && (
-                <ContextMenu.Item
-                  icon={<ArrowUpIcon />}
-                  disabled={refusal !== null}
-                  title={refusal ?? undefined}
-                  onClick={() => send(edit.move(index, index - 1))}
-                >
-                  {m.workshop_bin_move_up_action()}
-                </ContextMenu.Item>
-              )}
-              {index < count - 1 && (
-                <ContextMenu.Item
-                  icon={<ArrowDownIcon />}
-                  disabled={refusal !== null}
-                  title={refusal ?? undefined}
-                  onClick={() => send(edit.move(index, index + 1))}
-                >
-                  {m.workshop_bin_move_down_action()}
-                </ContextMenu.Item>
-              )}
-              <ContextMenu.Item icon={<MinusCircleIcon />} onClick={() => send(edit.remove(index))}>
-                {m.workshop_bin_dependency_remove_action()}
-              </ContextMenu.Item>
-            </>
+          {index > 0 && (
+            <ContextMenu.Item
+              icon={<ArrowUpIcon />}
+              disabled={refusal !== null}
+              title={refusal ?? undefined}
+              onClick={() => send(edit.move(index, index - 1))}
+            >
+              {m.workshop_bin_move_up_action()}
+            </ContextMenu.Item>
           )}
-        </ContextMenu.Popup>
-      </ContextMenu.Positioner>
-    </ContextMenu.Portal>
+          {index < count - 1 && (
+            <ContextMenu.Item
+              icon={<ArrowDownIcon />}
+              disabled={refusal !== null}
+              title={refusal ?? undefined}
+              onClick={() => send(edit.move(index, index + 1))}
+            >
+              {m.workshop_bin_move_down_action()}
+            </ContextMenu.Item>
+          )}
+          <ContextMenu.Item icon={<MinusCircleIcon />} onClick={() => send(edit.remove(index))}>
+            {m.workshop_bin_dependency_remove_action()}
+          </ContextMenu.Item>
+        </>
+      )}
+    </ContextMenu.Content>
   );
 }

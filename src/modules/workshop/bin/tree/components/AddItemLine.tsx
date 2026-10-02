@@ -237,27 +237,26 @@ function ClassField({ line, edit, autoFocus, error, send, onType }: FieldProps) 
           setText("");
         }}
       />
-      <Combobox.Portal>
-        <Combobox.Positioner side="bottom" align="start" sideOffset={2}>
-          <Combobox.Popup className="max-h-64 min-w-80 py-0.5">
-            <Combobox.List>
-              {(suggestion: ClassSuggestion) => (
-                <Combobox.Item
-                  key={
-                    suggestion.kind === "choice"
-                      ? suggestion.choice.hash
-                      : `typed:${suggestion.text}`
-                  }
-                  value={suggestion}
-                  className="gap-2 px-2 py-1 font-mono text-mono-row"
-                >
-                  <ClassText suggestion={suggestion} />
-                </Combobox.Item>
-              )}
-            </Combobox.List>
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
+      <Combobox.Content
+        side="bottom"
+        align="start"
+        sideOffset={2}
+        className="max-h-64 min-w-80 py-0.5"
+      >
+        <Combobox.List>
+          {(suggestion: ClassSuggestion) => (
+            <Combobox.Item
+              key={
+                suggestion.kind === "choice" ? suggestion.choice.hash : `typed:${suggestion.text}`
+              }
+              value={suggestion}
+              className="gap-2 px-2 py-1 font-mono text-mono-row"
+            >
+              <ClassText suggestion={suggestion} />
+            </Combobox.Item>
+          )}
+        </Combobox.List>
+      </Combobox.Content>
     </Combobox.Root>
   );
 }

@@ -82,7 +82,7 @@ export function OutlinerSearch({
           "transition-colors focus-within:border-accent-500 hover:border-accent-hover",
         )}
       >
-        <MagnifyingGlassIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />
+        <MagnifyingGlassIcon className="size-3.5 shrink-0 text-surface-400" />
         <Field.Root className="min-w-0 flex-1">
           <Field.Control
             ref={inputRef}
@@ -101,10 +101,7 @@ export function OutlinerSearch({
         )}
         {filter.text !== "" && (
           <IconButton
-            icon={<XIcon weight="bold" className="h-3 w-3" />}
-            variant="ghost"
-            size="xs"
-            compact
+            icon={<XIcon className="size-3" />}
             onClick={() => onChange({ ...filter, text: "" })}
             aria-label={m.workshop_bin_map_outliner_search_clear_action()}
           />

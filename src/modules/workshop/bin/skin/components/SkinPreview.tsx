@@ -3,7 +3,7 @@ import { lazy, Suspense } from "react";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId } from "@/lib/tauri";
 
-import { Notice } from "../../vfx/preview/components/Notice";
+import { Notice } from "../../shared/preview/Notice";
 
 /** The skin viewport, in a chunk of its own as the particle viewport is. */
 const SkinViewport = lazy(() => import("./SkinViewport"));

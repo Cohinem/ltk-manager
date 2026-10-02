@@ -1,6 +1,5 @@
 import {
   ArrowsClockwiseIcon,
-  CaretRightIcon,
   FolderOpenIcon,
   PackageIcon,
   PencilSimpleIcon,
@@ -9,7 +8,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, EmptyState } from "@/components";
+import { Button, Chip, Disclosure, OVERLINE } from "@/components";
 import { m } from "@/i18n";
 import { type InstalledMod, revealPath } from "@/lib/tauri";
 import {
@@ -27,10 +26,7 @@ import { DetailsEditForm } from "./DetailsEditForm";
 import { LayerToggleList } from "./LayerToggleList";
 
 interface DetailsTabProps {
-  /** The mod the panel was opened about, or none yet. */
-  mod: InstalledMod | null;
-  /** Whether the mod the panel held has been uninstalled under it. */
-  missing: boolean;
+  mod: InstalledMod;
 }
 
 /**
@@ -39,31 +35,7 @@ interface DetailsTabProps {
  * The three dialogs this replaces each answered part of that question and each
  * covered the library to do it.
  */
-export function DetailsTab({ mod, missing }: DetailsTabProps) {
-  if (missing) {
-    return (
-      <Body>
-        <EmptyState
-          size="sm"
-          title={m.library_documents_removed_title()}
-          description={m.library_documents_removed_description()}
-        />
-      </Body>
-    );
-  }
-
-  if (!mod) {
-    return (
-      <Body>
-        <EmptyState
-          size="sm"
-          title={m.library_details_none_open_title()}
-          description={m.library_details_none_open_description()}
-        />
-      </Body>
-    );
-  }
-
+export function DetailsTab({ mod }: DetailsTabProps) {
   /* Keyed by the mod, so an unfinished edit never survives onto another. */
   return <Details key={mod.id} mod={mod} />;
 }
@@ -97,7 +69,7 @@ function Actions({ mod, onEdit }: { mod: InstalledMod; onEdit: () => void }) {
       <Button
         variant="ghost"
         size="sm"
-        left={<PencilSimpleIcon className="h-4 w-4" />}
+        left={<PencilSimpleIcon className="size-4" />}
         onClick={onEdit}
       >
         {m.library_details_edit_action()}
@@ -105,7 +77,7 @@ function Actions({ mod, onEdit }: { mod: InstalledMod; onEdit: () => void }) {
       <Button
         variant="ghost"
         size="sm"
-        left={<FolderOpenIcon className="h-4 w-4" />}
+        left={<FolderOpenIcon className="size-4" />}
         onClick={() => revealPath(mod.modDir)}
       >
         {m.library_details_open_location_action()}
@@ -137,13 +109,6 @@ function Facts({ mod }: { mod: InstalledMod }) {
   );
 }
 
-/* The card's own declared-pill hues. DS-KIND-HUE. */
-const PILL_CLASSES = {
-  tag: "bg-surface-700 text-surface-300",
-  champion: "bg-cat-champion/15 text-cat-champion-text",
-  map: "bg-cat-map/15 text-cat-map-text",
-} as const;
-
 function Categories({ mod }: { mod: InstalledMod }) {
   const pills = [
     ...mod.tags.map((tag) => ({
@@ -168,15 +133,9 @@ function Categories({ mod }: { mod: InstalledMod }) {
   return (
     <div className="flex flex-wrap gap-1.5">
       {pills.map((pill) => (
-        <span
-          key={pill.key}
-          className={twMerge(
-            "rounded-full px-2.5 py-0.5 text-meta select-none",
-            PILL_CLASSES[pill.tone],
-          )}
-        >
+        <Chip key={pill.key} size="md" tone={pill.tone} className="select-none">
           {pill.label}
-        </span>
+        </Chip>
       ))}
     </div>
   );
@@ -239,7 +198,7 @@ function WadReport({ modId }: { modId: string }) {
       <div className="flex flex-col items-start gap-2">
         <p className="text-meta text-surface-400">{m.library_details_wads_failed_description()}</p>
         <Button variant="outline" size="sm" loading={isPending} onClick={() => analyze(modId)}>
-          <ArrowsClockwiseIcon className="h-4 w-4" weight="bold" />
+          <ArrowsClockwiseIcon className="size-4" weight="bold" />
           {m.library_details_wads_retry_action()}
         </Button>
       </div>
@@ -249,7 +208,7 @@ function WadReport({ modId }: { modId: string }) {
   if (!report) {
     return (
       <p className="flex items-center gap-2 text-meta text-surface-400">
-        <SpinnerGapIcon className="h-4 w-4 animate-spin" />
+        <SpinnerGapIcon className="size-4 animate-spin" />
         {m.library_details_wads_reading_label()}
       </p>
     );
@@ -287,7 +246,7 @@ function WadReport({ modId }: { modId: string }) {
         onClick={() => analyze(modId)}
         className="self-start"
       >
-        <ArrowsClockwiseIcon className="h-4 w-4" weight="bold" />
+        <ArrowsClockwiseIcon className="size-4" weight="bold" />
         {m.library_details_wads_reanalyze_action()}
       </Button>
     </div>
@@ -302,7 +261,7 @@ interface CategoryGroup {
 function CategorySection({ group }: { group: CategoryGroup }) {
   return (
     <div>
-      <div className="text-xs font-medium tracking-wide text-surface-400 uppercase select-none">
+      <div className={twMerge(OVERLINE, "select-none")}>
         {group.label} · {group.wads.length}
       </div>
       <ul className="mt-0.5 text-meta">
@@ -379,7 +338,7 @@ function Packaging({ modId }: { modId: string }) {
   return (
     <Section className="flex flex-col gap-2">
       <p className="flex items-center gap-1.5 text-row font-medium text-surface-200 select-none">
-        <PackageIcon className="h-4 w-4 text-warning-text" />
+        <PackageIcon className="size-4 text-warning-text" />
         {m.library_details_packaging_label()}
       </p>
       <div className="flex flex-col gap-2 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2.5">
@@ -424,37 +383,20 @@ function Fold({
   trailing?: string;
   children: ReactNode;
 }) {
-  const [open, setOpen] = useState(false);
-
   return (
     <Section className="p-0">
-      <button
-        type="button"
-        onClick={() => setOpen((shown) => !shown)}
-        aria-expanded={open}
-        className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors select-none hover:bg-surface-veil"
-      >
-        <CaretRightIcon
-          weight="bold"
-          className={twMerge(
-            "h-3.5 w-3.5 shrink-0 text-surface-500 transition-transform duration-150",
-            open && "rotate-90",
+      <Disclosure.Root>
+        <Disclosure.Trigger className="flex w-full items-center gap-2 px-3 py-2 transition-colors select-none hover:bg-surface-veil">
+          <Disclosure.Caret className="text-surface-500" />
+          <span className="min-w-0 flex-1 truncate text-row font-medium text-surface-200">
+            {title}
+          </span>
+          {trailing && (
+            <span className="shrink-0 text-meta text-surface-500 tabular-nums">{trailing}</span>
           )}
-        />
-        <span className="min-w-0 flex-1 truncate text-row font-medium text-surface-200">
-          {title}
-        </span>
-        {trailing && (
-          <span className="shrink-0 text-meta text-surface-500 tabular-nums">{trailing}</span>
-        )}
-      </button>
-      {open && <div className="px-3 pb-3">{children}</div>}
+        </Disclosure.Trigger>
+        <Disclosure.Panel className="px-3 pb-3">{children}</Disclosure.Panel>
+      </Disclosure.Root>
     </Section>
-  );
-}
-
-function Body({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-6">{children}</div>
   );
 }

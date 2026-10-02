@@ -1,7 +1,7 @@
 import { ArrowsClockwiseIcon, XIcon } from "@phosphor-icons/react";
 import { useCallback, useMemo, useState } from "react";
 
-import { Button, EmptyState, Progress } from "@/components";
+import { Button, EmptyState, LoadingState, ProgressBar } from "@/components";
 import { m } from "@/i18n";
 import { api, type ReferenceResult, type ReferenceWalkProgress } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
@@ -10,10 +10,7 @@ import { twMerge } from "@/utils";
 
 import { ClassCard } from "../../bin/classes/components/ClassCard";
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
-import {
-  GameLoadingState,
-  GameWadsErrorState,
-} from "../../gameBrowser/components/GameBrowserStates";
+import { GameWadsErrorState } from "../../gameBrowser/components/GameBrowserStates";
 import { useWarmOnAbsent } from "../../objectsBrowser/api/useObjectIndex";
 /* The leaf rather than the browser's barrel, which reaches this module back through
    the documents registry mid-evaluation. */
@@ -22,6 +19,7 @@ import {
   ObjectIndexFailedState,
 } from "../../objectsBrowser/components/ObjectIndexStates";
 import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import {
   type ReferenceRequest,
   useCollapseReferenceFiles,
@@ -53,7 +51,7 @@ export function ReferencesDocument({
   const walk = request !== null && isWalk(request.query);
 
   return (
-    <div data-ui="ReferencesDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="ReferencesDocument">
       <DocumentToolbar active={active}>
         <Question request={request} />
         {data?.status === "ready" && <Counts result={data} walk={walk} />}
@@ -63,7 +61,7 @@ export function ReferencesDocument({
             size="xs"
             className="ml-auto"
             left={
-              <ArrowsClockwiseIcon className={twMerge("h-4 w-4", isFetching && "animate-spin")} />
+              <ArrowsClockwiseIcon className={twMerge("size-4", isFetching && "animate-spin")} />
             }
             onClick={() => void refetch()}
           >
@@ -84,7 +82,7 @@ export function ReferencesDocument({
         />
       )}
       {request !== null && <Answer request={request} />}
-    </div>
+    </DocumentFrame>
   );
 }
 
@@ -189,11 +187,12 @@ function WalkProgress({ walking }: { walking: boolean }) {
       data-ui="ReferencesDocument:walk"
       className="flex shrink-0 items-center gap-3 border-b border-surface-600 px-3 py-1.5 text-meta text-surface-400 select-none"
     >
-      <Progress.Root value={progress.walked} max={Math.max(progress.total, 1)} className="flex-1">
-        <Progress.Track size="sm">
-          <Progress.Indicator />
-        </Progress.Track>
-      </Progress.Root>
+      <ProgressBar
+        value={progress.walked}
+        max={Math.max(progress.total, 1)}
+        className="flex-1"
+        size="sm"
+      />
       <span className="shrink-0 tabular-nums">
         {m.workshop_references_walk_label({
           walked: progress.walked.toLocaleString(),
@@ -207,7 +206,7 @@ function WalkProgress({ walking }: { walking: boolean }) {
       <Button
         variant="ghost"
         size="xs"
-        left={<XIcon weight="bold" className="h-4 w-4" />}
+        left={<XIcon weight="bold" className="size-4" />}
         onClick={() => void api.objects.cancelWalk()}
       >
         {m.workshop_references_cancel_action()}
@@ -238,7 +237,7 @@ function Answer({ request }: { request: ReferenceRequest }) {
   );
 
   if (error) return <GameWadsErrorState error={error} />;
-  if (!data) return <GameLoadingState />;
+  if (!data) return <LoadingState />;
   if (data.status === "failed")
     return <ObjectIndexFailedState error={data.error} onRetry={retry} />;
   if (data.status !== "ready") return <ObjectIndexBuildingState />;

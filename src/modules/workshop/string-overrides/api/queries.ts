@@ -1,7 +1,7 @@
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 
 import { api, type AppError, type StringKeySearchResult } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
 import { workshopKeys } from "../../shared/api/keys";
 
@@ -12,7 +12,7 @@ export const stringQueries = {
   keySearch: (query: string) =>
     queryOptions<StringKeySearchResult, AppError>({
       queryKey: workshopKeys.stringKeySearch(query),
-      queryFn: async () => unwrapForQuery(await api.searchStringKeys(query, 50)),
+      queryFn: queryFnWithArgs(api.searchStringKeys, query, 50),
       staleTime: Infinity,
       placeholderData: keepPreviousData,
       retry: false,

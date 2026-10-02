@@ -18,4 +18,9 @@ export function nameHash(name: string): string {
   return `0x${fnv1a32(name).toString(16).padStart(8, "0")}`;
 }
 
+/** A class or field as the hash it is keyed on: a name hashed, or a hex hash as it stands. */
+export function hashOf(name: string): string {
+  return name.startsWith("0x") ? name : nameHash(name);
+}
+
 const ENCODER = new TextEncoder();

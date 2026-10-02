@@ -28,7 +28,7 @@ export function Density({ density, hue }: { density: readonly number[]; hue: str
       viewBox={`0 0 ${density.length} 1`}
       preserveAspectRatio="none"
       /* DS-KIND-HUE */
-      className={twMerge("absolute inset-0 h-full w-full", hue)}
+      className={twMerge("absolute inset-0 size-full", hue)}
     >
       <polygon points={`0,1 ${edge} ${density.length},1`} fill="currentColor" opacity={0.3} />
       <polyline

@@ -21,26 +21,22 @@ export function KeysPopover({ channel, family }: { channel: ChannelDraw; family:
         className="flex h-5 cursor-pointer items-center gap-0.5 rounded-sm px-1 text-meta text-surface-400 select-none hover:bg-surface-veil hover:text-surface-200"
       >
         {m.workshop_bin_random_keys_action()}
-        <CaretDownIcon weight="bold" className="h-3 w-3" />
+        <CaretDownIcon weight="bold" className="size-3" />
       </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end">
-          <Popover.Popup className="flex flex-col gap-1.5 p-2 text-row">
-            <Popover.Title className="flex items-baseline gap-1.5 text-meta font-normal text-surface-400">
-              {family !== "scalar" && (
-                <span
-                  /* DS-KIND-HUE, DS-TEXT */
-                  className={twMerge("font-mono font-semibold", chipOf(family, channel.channel))}
-                >
-                  {channelName(family, channel.channel)}
-                </span>
-              )}
-              {factorText(channel)}
-            </Popover.Title>
-            <ChanceTable channel={channel} />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content side="bottom" align="end" className="flex flex-col gap-1.5 p-2 text-row">
+        <Popover.Title className="flex items-baseline gap-1.5 text-meta font-normal text-surface-400">
+          {family !== "scalar" && (
+            <span
+              /* DS-KIND-HUE, DS-TEXT */
+              className={twMerge("font-mono font-semibold", chipOf(family, channel.channel))}
+            >
+              {channelName(family, channel.channel)}
+            </span>
+          )}
+          {factorText(channel)}
+        </Popover.Title>
+        <ChanceTable channel={channel} />
+      </Popover.Content>
     </Popover.Root>
   );
 }

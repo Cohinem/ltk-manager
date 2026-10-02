@@ -130,17 +130,14 @@ function Arrow({ direction, entry, onClick }: ArrowProps) {
     <IconButton
       icon={
         back ? (
-          <ArrowLeftIcon weight="bold" className="h-4 w-4" />
+          <ArrowLeftIcon weight="bold" className="size-4" />
         ) : (
-          <ArrowRightIcon weight="bold" className="h-4 w-4" />
+          <ArrowRightIcon weight="bold" className="size-4" />
         )
       }
-      variant="ghost"
       size="sm"
-      compact
       /* Narrower than it is tall: a square box puts 12px between two 16px
-         glyphs, and the height is what holds the arrows against the bar. */
-      className="w-6"
+         glyphs, and the height is what holds the arrows against the bar. */ className="w-6"
       disabled={entry === null}
       onClick={onClick}
       aria-label={label}

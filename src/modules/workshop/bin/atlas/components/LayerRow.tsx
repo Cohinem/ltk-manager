@@ -122,9 +122,9 @@ export function LayerRowView({
           onFold();
         }}
       >
-        <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", row.open && "rotate-90")} />
+        <CaretRightIcon weight="bold" className={twMerge("size-3", row.open && "rotate-90")} />
       </button>
-      {thumb === null && <Glyph className="h-3.5 w-3.5 shrink-0 text-surface-400" />}
+      {thumb === null && <Glyph className="size-3.5 shrink-0 text-surface-400" />}
       {thumb !== null && (
         <SpriteThumb
           asset={thumb.asset}
@@ -154,7 +154,7 @@ function EnabledMark() {
   return (
     <Tooltip content={hint}>
       <span aria-label={hint} className="flex shrink-0">
-        <span className="h-1.5 w-1.5 rounded-full bg-accent-400" />
+        <span className="size-1.5 rounded-full bg-accent-400" />
       </span>
     </Tooltip>
   );
@@ -166,7 +166,7 @@ function PatchedMark() {
   return (
     <Tooltip content={hint}>
       <span aria-label={hint} className="flex shrink-0">
-        <span className="h-1.5 w-1.5 rounded-full border border-accent-400" />
+        <span className="size-1.5 rounded-full border border-accent-400" />
       </span>
     </Tooltip>
   );
@@ -191,7 +191,7 @@ function EyeButton({
       title={label}
       /* DS-VEIL, DS-RADIUS. A hidden row keeps its eye on screen, since that is what says it is hidden. */
       className={twMerge(
-        "flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200",
+        "flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200",
         !hidden && "opacity-0 group-hover/row:opacity-100",
       )}
       onClick={(event) => {
@@ -199,7 +199,7 @@ function EyeButton({
         onClick();
       }}
     >
-      <Eye weight="bold" className="h-3.5 w-3.5" />
+      <Eye weight="bold" className="size-3.5" />
     </button>
   );
 }

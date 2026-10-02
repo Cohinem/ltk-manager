@@ -63,7 +63,7 @@ export function GeometryPreview({ item }: { item: RenderItem }) {
         }}
         onDoubleClick={() => setHanded(false)}
       >
-        <PreviewView className="h-full w-full">
+        <PreviewView className="size-full">
           {emitter !== undefined && system !== null && box !== null && (
             <GeometryScene
               system={system}

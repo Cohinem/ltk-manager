@@ -7,7 +7,7 @@ import { stripReleasePreamble } from "../api";
 import { ChangelogContent } from "./ChangelogContent";
 
 const CHIP =
-  "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[0.625rem] leading-tight font-medium";
+  "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-fine leading-tight font-medium";
 
 /* Accent marks the release on offer. The installed one and a pre-release name
    no status, so both take the surface: DS-KIND-HUE. */

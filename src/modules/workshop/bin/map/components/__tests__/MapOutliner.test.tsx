@@ -30,6 +30,7 @@ vi.mock("@tanstack/react-virtual", () => ({
   }) => {
     const size = count === 0 ? 0 : estimateSize(0);
     return {
+      measure: () => {},
       scrollToIndex: () => {},
       getTotalSize: () => size * count,
       getVirtualItems: () =>

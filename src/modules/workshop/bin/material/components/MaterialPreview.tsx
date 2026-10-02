@@ -3,11 +3,11 @@ import { lazy, Suspense } from "react";
 
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId } from "@/lib/tauri";
-import { usePreviewMaterialOnShape, useSetPreviewDisplay } from "@/stores";
+import { usePreviewMaterialOnShape } from "@/stores";
 
+import { Notice } from "../../shared/preview/Notice";
+import { PreviewToggle } from "../../shared/preview/PreviewToggle";
 import { SkinPreview } from "../../skin/components/SkinPreview";
-import { Notice } from "../../vfx/preview/components/Notice";
-import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { type LinkingSkin, useLinkingSkin } from "../hooks/useLinkingSkin";
 import { ProgramNotes } from "./ProgramNotes";
 
@@ -38,7 +38,6 @@ export interface MaterialPreviewProps {
 export function MaterialPreview({ document, asset, entry, onNotOpen }: MaterialPreviewProps) {
   const linking = useLinkingSkin(document, entry);
   const onShape = usePreviewMaterialOnShape();
-  const setDisplay = useSetPreviewDisplay();
 
   return (
     <div
@@ -63,11 +62,10 @@ export function MaterialPreview({ document, asset, entry, onNotOpen }: MaterialP
           /* DS-GLASS, DS-RADIUS, DS-VEIL */
           className="absolute bottom-2 left-2 z-10 rounded-md border border-surface-veil bg-scrim p-1 shadow-md backdrop-blur-sm"
         >
-          <ViewToggle
+          <PreviewToggle
+            flag="previewMaterialOnShape"
             label={m.workshop_bin_material_preview_on_shape_label()}
-            active={onShape}
-            icon={<SphereIcon weight="bold" className="h-4 w-4" />}
-            onClick={() => setDisplay({ previewMaterialOnShape: !onShape })}
+            icon={<SphereIcon />}
           />
         </div>
       )}

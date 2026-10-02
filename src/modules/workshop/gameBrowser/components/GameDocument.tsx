@@ -1,10 +1,17 @@
 import { ArrowsClockwiseIcon, FilesIcon } from "@phosphor-icons/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 
-import { type BreadcrumbItem, EmptyState, IconButton, Spinner, Tooltip } from "@/components";
+import {
+  type BreadcrumbItem,
+  Count,
+  EmptyState,
+  IconButton,
+  LoadingState,
+  Spinner,
+} from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, GameFindResult, WadSource } from "@/lib/tauri";
-import { DocumentToolbar, type EditorDocumentProps, useFindBox } from "@/modules/editor";
+import type { GameFindResult } from "@/lib/tauri";
+import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { useExplorerThumbnails, useExplorerTileSize, useExplorerView } from "@/stores";
 import { twMerge } from "@/utils";
 
@@ -33,11 +40,11 @@ import {
   selectionTargets,
   sortItems,
   sortTree,
-  useExplorerKeys,
   useExplorerNav,
   useExplorerSelectionApi,
 } from "../../explorer";
 import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import {
   useExpandedGameDirs,
   useExplorerFilter,
@@ -59,20 +66,19 @@ import { useGameFind } from "../api/useGameFind";
 import { useGameDir, useGameDirs, useGameIndex, useRefreshGameIndex } from "../api/useGameIndex";
 import { type ExtractHow, useExtractActions } from "../extraction/hooks/useExtractActions";
 import { indexDirTarget } from "../extraction/utils/extractTargets";
+import { useExplorerShell } from "../hooks/useExplorerShell";
 import { useGameSearchRevealTarget } from "../hooks/useGameSearchReveal";
 import { useSourcePreview, useSourceRowPreview } from "../hooks/useSourcePreview";
-import { chunkAsset, explorerIdOf, useWadSource, WadSourceProvider } from "../state/wadSource";
+import { explorerIdOf, useWadSource, WadSourceProvider } from "../state/wadSource";
+import { fileNodeOf, isPresent, itemAsset, menuNodeOf } from "../utils/explorerItems";
 import { sourceCopy } from "../utils/sourceCopy";
 import {
   buildIndexTree,
   flattenSourceTree,
   holdsOnlyUnknown,
   type SourceDirNode,
-  type SourceFileNode,
-  type SourceTreeNode,
-  UNKNOWN_DIR,
 } from "../utils/sourceIndex";
-import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
+import { GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
 import { CollapseFindAction, GameFindResults } from "./GameFindResults";
 import { SourceTree } from "./SourceTree";
 import { SourceTreeContextMenu } from "./SourceTreeContextMenu";
@@ -102,28 +108,19 @@ export function GameDocument(props: EditorDocumentProps<ContentDocumentOf<"game"
 }
 
 function SourceDocument({ document, active }: EditorDocumentProps<ContentDocumentOf<"game">>) {
-  const nav = useExplorerNav(useExplorerId(), document.id);
-  const [typing, setTyping] = useState(false);
-  const boxRef = useFindBox(document.id);
-
-  const handleKeyDown = useExplorerKeys({
-    onUp: nav.goUp,
-    onType: () => setTyping(true),
-    boxRef,
-  });
+  const { nav, typing, setTyping, boxRef, handleKeyDown } = useExplorerShell(
+    useExplorerId(),
+    document.id,
+  );
 
   return (
     <ExplorerSortScope documentId={document.id}>
-      <div
-        data-ui="GameDocument"
-        className="flex min-h-0 flex-1 flex-col bg-surface-950"
-        onKeyDown={handleKeyDown}
-      >
+      <DocumentFrame data-ui="GameDocument" onKeyDown={handleKeyDown}>
         <DocumentToolbar active={active}>
           <GameExplorerBar nav={nav} typing={typing} onTypingChange={setTyping} boxRef={boxRef} />
         </DocumentToolbar>
         <GameBody location={nav.location} onNavigate={nav.goTo} onUp={nav.goUp} />
-      </div>
+      </DocumentFrame>
     </ExplorerSortScope>
   );
 }
@@ -240,16 +237,12 @@ function ArchivesAction() {
   const openDocument = useOpenDocument();
 
   return (
-    <Tooltip content={copy.wadsLabel}>
-      <IconButton
-        icon={<FilesIcon className="h-4 w-4" />}
-        variant="ghost"
-        size="xs"
-        compact
-        onClick={() => openDocument(gameWadsDocument(source))}
-        aria-label={copy.wadsAction}
-      />
-    </Tooltip>
+    <IconButton
+      icon={<FilesIcon />}
+      onClick={() => openDocument(gameWadsDocument(source))}
+      aria-label={copy.wadsAction}
+      tooltip={copy.wadsLabel}
+    />
   );
 }
 
@@ -260,21 +253,15 @@ function RebuildAction() {
   const rebuild = useRefreshGameIndex();
 
   return (
-    <Tooltip content={m.workshop_game_rebuild_label()}>
-      <IconButton
-        icon={
-          <ArrowsClockwiseIcon
-            className={twMerge("h-4 w-4", rebuild.isPending && "animate-spin")}
-          />
-        }
-        variant="ghost"
-        size="xs"
-        compact
-        onClick={() => rebuild.mutate()}
-        disabled={rebuild.isPending}
-        aria-label={copy.rebuildAction}
-      />
-    </Tooltip>
+    <IconButton
+      icon={
+        <ArrowsClockwiseIcon className={twMerge("size-4", rebuild.isPending && "animate-spin")} />
+      }
+      onClick={() => rebuild.mutate()}
+      disabled={rebuild.isPending}
+      aria-label={copy.rebuildAction}
+      tooltip={m.workshop_game_rebuild_label()}
+    />
   );
 }
 
@@ -336,11 +323,11 @@ function SearchField({ boxRef }: SearchFieldProps) {
       inputRef={boxRef}
     >
       {counted && (
-        <span className="shrink-0 text-[0.6875rem] text-surface-400 tabular-nums select-none">
+        <Count>
           <MatchCount result={data} />
-        </span>
+        </Count>
       )}
-      {scope === "whole" && isFetching && <Spinner size="sm" className="h-3 w-3 shrink-0" />}
+      {scope === "whole" && isFetching && <Spinner size="xs" className="shrink-0" />}
     </ExplorerSearchBox>
   );
 }
@@ -418,7 +405,7 @@ export function GameIndexTree() {
     [selection.selection],
   );
 
-  if (root.isPending) return <GameLoadingState />;
+  if (root.isPending) return <LoadingState />;
   if (root.isError) return <GameWadsErrorState error={root.error} />;
   if (root.data.dirs.length === 0 && root.data.files.length === 0) {
     return (
@@ -511,7 +498,7 @@ function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps
     [openFile, runSelection],
   );
 
-  if (here.isPending) return <GameLoadingState />;
+  if (here.isPending) return <LoadingState />;
   if (here.isError) return <GameWadsErrorState error={here.error} />;
   if (items.length === 0) {
     return (
@@ -541,38 +528,4 @@ function GameIndexItems({ view, location, onDescend, onUp }: GameIndexItemsProps
   return <ExplorerGrid {...shared} size={tileSize} showFacts={tileSize >= 128} />;
 }
 
-/** A chunk names the archive it came from, which is the route back to its bytes. */
-function itemAsset(source: WadSource, item: ExplorerItem): AssetRef | null {
-  if (item.kind === "dir") return null;
-  return chunkAsset(source, item.entry.wad, item.entry.pathHash);
-}
-
-function fileNodeOf(item: ExplorerFileItem): SourceFileNode {
-  return { type: "file", id: item.id, name: item.name, entry: item.entry };
-}
-
-/**
- * The tile the menu opened on, as the node that menu reads.
- *
- * A directory tile carries no children here, and the menu never walks any: it
- * offers the ways out, and those act on the selection the right click aimed.
- */
-function menuNodeOf(item: ExplorerItem | null): SourceTreeNode | null {
-  if (item === null) return null;
-  if (item.kind === "file") return fileNodeOf(item);
-  return {
-    type: "dir",
-    id: item.id,
-    path: item.id,
-    name: item.name,
-    unknown: item.id === UNKNOWN_DIR,
-    fileCount: item.fileCount,
-    children: [],
-  };
-}
-
 const indexDirTargets = (path: string) => [indexDirTarget(path)];
-
-function isPresent<T>(value: T | null): value is T {
-  return value !== null;
-}

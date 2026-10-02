@@ -65,7 +65,7 @@ const SEGMENT =
 const SEGMENT_OFF = "text-surface-400 hover:bg-surface-veil hover:text-surface-100";
 
 function CrumbCaret() {
-  return <CaretRightIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-500" />;
+  return <CaretRightIcon weight="bold" className="size-3 shrink-0 text-surface-500" />;
 }
 
 function CrumbIndex({ index }: { index: number }) {
@@ -117,24 +117,20 @@ function GroupSegment({ card, group }: { card: EmitterCardData; group: EmitterGr
             )}
           >
             {GROUP_TITLE[group]()}
-            <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0" />
+            <CaretDownIcon weight="bold" className="size-3 shrink-0" />
           </button>
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="start" sideOffset={4}>
-          <Menu.Popup className="w-40">
-            {card.groups.map((each) => (
-              <Menu.Item
-                key={each.group}
-                onClick={() => chooseGroup({ key: card.key, group: each.group })}
-              >
-                {GROUP_TITLE[each.group]()}
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="start" sideOffset={4} className="w-40">
+        {card.groups.map((each) => (
+          <Menu.Item
+            key={each.group}
+            onClick={() => chooseGroup({ key: card.key, group: each.group })}
+          >
+            {GROUP_TITLE[each.group]()}
+          </Menu.Item>
+        ))}
+      </Menu.Content>
     </Menu.Root>
   );
 }

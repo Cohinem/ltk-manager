@@ -53,7 +53,7 @@ export function useAnalyzeUncategorizedMods() {
   const toast = useToast();
 
   return useMutation<AnalyzeBackfillResult, AppError, InstalledMod[]>({
-    meta: { silentError: true },
+    meta: { errorTitle: "Failed to analyze mods" },
     mutationFn: async (mods) => {
       let analyzed = 0;
       const failures: AnalyzeFailure[] = [];
@@ -97,9 +97,6 @@ export function useAnalyzeUncategorizedMods() {
         `Categorized ${analyzed}, ${failures.length} failed`,
         describeFailures(failures),
       );
-    },
-    onError: (error) => {
-      toast.error("Failed to analyze mods", errorSummary(error));
     },
   });
 }

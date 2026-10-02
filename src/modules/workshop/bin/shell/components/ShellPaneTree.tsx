@@ -34,6 +34,7 @@ import {
   useShellPanes,
   useToggleMaximizedShellLeaf,
 } from "../../../state";
+import { Notice } from "../../shared/preview/Notice";
 import {
   isShellPaneId,
   SHELL_PANE_TITLE,
@@ -186,19 +187,10 @@ function PaneLeaf<K extends ShellKind>({
           {panes.map((pane) => (
             <PortalSlot key={pane} host={hostOf(pane)} />
           ))}
-          {active === null && <NoPanes />}
+          {active === null && <Notice text={m.workshop_bin_panes_empty()} />}
         </div>
       </div>
     </LeafDropZones>
-  );
-}
-
-/** What a panel whose last pane was closed says, which only the root leaf can be. */
-function NoPanes() {
-  return (
-    <span className="flex flex-1 items-center justify-center px-2 text-center text-meta text-surface-400 select-none">
-      {m.workshop_bin_panes_empty()}
-    </span>
   );
 }
 
@@ -230,29 +222,25 @@ export function PanesMenu({ kind, className }: { kind: ShellKind; className?: st
             size="xs"
             compact
             className={twMerge("font-sans", className)}
-            left={<ColumnsIcon weight="bold" className="h-4 w-4" />}
+            left={<ColumnsIcon weight="bold" className="size-4" />}
           >
             {m.workshop_bin_panes_menu_label()}
           </Button>
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          <Menu.Popup className="w-48">
-            {shellPanesOf(kind).map((pane) => (
-              <Menu.Item
-                key={pane}
-                icon={open.has(pane) && <CheckIcon weight="bold" className="h-4 w-4" />}
-                onClick={() => toggle(pane)}
-              >
-                {SHELL_PANE_TITLE[pane]()}
-              </Menu.Item>
-            ))}
-            <Menu.Separator />
-            <Menu.Item onClick={reset}>{m.workshop_bin_panes_reset_action()}</Menu.Item>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="end" className="w-48">
+        {shellPanesOf(kind).map((pane) => (
+          <Menu.Item
+            key={pane}
+            icon={open.has(pane) && <CheckIcon weight="bold" className="size-4" />}
+            onClick={() => toggle(pane)}
+          >
+            {SHELL_PANE_TITLE[pane]()}
+          </Menu.Item>
+        ))}
+        <Menu.Separator />
+        <Menu.Item onClick={reset}>{m.workshop_bin_panes_reset_action()}</Menu.Item>
+      </Menu.Content>
     </Menu.Root>
   );
 }

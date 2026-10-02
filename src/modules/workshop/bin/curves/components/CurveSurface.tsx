@@ -1,12 +1,14 @@
 import { WaveSineIcon } from "@phosphor-icons/react";
 import { use, useEffect, useMemo, useState } from "react";
 
+import { OVERLINE } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId, BinRow } from "@/lib/tauri";
+import { twMerge } from "@/utils";
 
-import { ownField } from "../../tree/components/BinRow";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
+import { ownField } from "../../values/components/RowValue";
 import { useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
 import { fieldUnit } from "../../values/utils/fieldUnits";
 import type { CurveKey, ValueMark } from "../../values/utils/valueRows";
@@ -90,7 +92,7 @@ export function CurveSurface({
 
 function PaneLabel() {
   return (
-    <span className="shrink-0 px-1 text-xs font-medium tracking-wide text-surface-400 uppercase select-none">
+    <span className={twMerge(OVERLINE, "shrink-0 px-1 select-none")}>
       {m.workshop_bin_curve_pane_label()}
     </span>
   );
@@ -327,7 +329,7 @@ function Untargeted() {
         aria-hidden="true"
         viewBox="0 0 100 40"
         preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full text-surface-700"
+        className="absolute inset-0 size-full text-surface-700"
       >
         <polyline
           points="0,36 20,34 40,24 60,10 80,6 100,4"
@@ -356,7 +358,7 @@ function Untargeted() {
                 className="flex cursor-pointer items-center gap-1 rounded-sm bg-surface-veil px-1.5 py-0.5 font-mono text-code text-surface-200 hover:bg-surface-veil-strong hover:text-surface-100"
                 onClick={() => aim({ row, chain: fieldChain(card, row) })}
               >
-                <WaveSineIcon weight="bold" aria-hidden="true" className="h-3 w-3 shrink-0" />
+                <WaveSineIcon weight="bold" aria-hidden="true" className="size-3 shrink-0" />
                 {row.name}
               </button>
             ))}

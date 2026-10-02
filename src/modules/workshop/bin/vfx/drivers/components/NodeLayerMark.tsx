@@ -58,7 +58,7 @@ export function NodeLayerMark({
         style={{ width: size, height: size } as CSSProperties}
       >
         {/* DS-KIND-HUE */}
-        <LayerGlyph layerName={layer} className="h-full w-full" />
+        <LayerGlyph layerName={layer} className="size-full" />
       </span>
     </Tooltip>
   );

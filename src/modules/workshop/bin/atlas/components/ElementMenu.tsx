@@ -86,137 +86,126 @@ export function ElementMenu({
           open(objectDocument(asset, target.key, path, base.path, target.class), intent);
 
   return (
-    <ContextMenu.Portal>
-      <ContextMenu.Positioner>
-        <ContextMenu.Popup data-ui="ElementMenu" className="w-60" finalFocus={false}>
-          {target !== undefined && (
+    <ContextMenu.Content data-ui="ElementMenu" className="w-60" finalFocus={false}>
+      {target !== undefined && (
+        <>
+          <ContextMenu.Item
+            icon={<CornersOutIcon />}
+            shortcut={canvas ? "F" : undefined}
+            onClick={() => requestFrame(key, target.key)}
+          >
+            {m.workshop_bin_atlas_frame_action()}
+          </ContextMenu.Item>
+          {group !== undefined && (
+            <ContextMenu.Item icon={<SquaresFourIcon />} onClick={() => select(key, group)}>
+              {m.workshop_bin_atlas_select_group_action()}
+            </ContextMenu.Item>
+          )}
+          {under.length > 1 && (
+            <ContextMenu.SubmenuRoot>
+              <ContextMenu.SubmenuTrigger icon={<StackSimpleIcon />}>
+                {m.workshop_bin_atlas_select_layer_label()}
+              </ContextMenu.SubmenuTrigger>
+              <ContextMenu.SubmenuContent className="max-h-80 w-64 overflow-y-auto">
+                {under.map((each) => {
+                  const node = tree.elements.get(each);
+                  return (
+                    <ContextMenu.Item
+                      key={each}
+                      icon={each === selected ? <CheckIcon /> : undefined}
+                      onClick={() => select(key, each)}
+                    >
+                      {node === undefined ? each : labelOf(node.label, node.path, each)}
+                    </ContextMenu.Item>
+                  );
+                })}
+              </ContextMenu.SubmenuContent>
+            </ContextMenu.SubmenuRoot>
+          )}
+          <ContextMenu.Item
+            icon={hiddenElements.has(target.key) ? <EyeIcon /> : <EyeSlashIcon />}
+            onClick={() => toggleElement(key, target.key)}
+          >
+            {hiddenElements.has(target.key)
+              ? m.workshop_bin_atlas_element_show_action()
+              : m.workshop_bin_atlas_element_hide_action()}
+          </ContextMenu.Item>
+          {scene !== null && sceneLabel !== null && (
+            <ContextMenu.Item
+              icon={hiddenScenes.has(scene) ? <EyeIcon /> : <EyeSlashIcon />}
+              onClick={() => toggleScene(key, scene)}
+            >
+              {hiddenScenes.has(scene)
+                ? m.workshop_bin_atlas_scene_show_action({ scene: sceneLabel })
+                : m.workshop_bin_atlas_scene_hide_action({ scene: sceneLabel })}
+            </ContextMenu.Item>
+          )}
+          <ContextMenu.Separator />
+          <ElementEditItems
+            tree={tree}
+            settings={settings}
+            solved={solved}
+            target={target.key}
+            selection={selection}
+            canvas={canvas}
+          />
+          <ContextMenu.Separator />
+          {openElement !== null && (
             <>
               <ContextMenu.Item
-                icon={<CornersOutIcon />}
-                shortcut={canvas ? "F" : undefined}
-                onClick={() => requestFrame(key, target.key)}
+                icon={<ArrowSquareOutIcon />}
+                onClick={() => openElement("default")}
               >
-                {m.workshop_bin_atlas_frame_action()}
+                {m.workshop_bin_open_object_action()}
               </ContextMenu.Item>
-              {group !== undefined && (
-                <ContextMenu.Item icon={<SquaresFourIcon />} onClick={() => select(key, group)}>
-                  {m.workshop_bin_atlas_select_group_action()}
-                </ContextMenu.Item>
-              )}
-              {under.length > 1 && (
-                <ContextMenu.SubmenuRoot>
-                  <ContextMenu.SubmenuTrigger icon={<StackSimpleIcon />}>
-                    {m.workshop_bin_atlas_select_layer_label()}
-                  </ContextMenu.SubmenuTrigger>
-                  <ContextMenu.Portal>
-                    <ContextMenu.SubmenuPositioner>
-                      <ContextMenu.Popup className="max-h-80 w-64 overflow-y-auto">
-                        {under.map((each) => {
-                          const node = tree.elements.get(each);
-                          return (
-                            <ContextMenu.Item
-                              key={each}
-                              icon={each === selected ? <CheckIcon /> : undefined}
-                              onClick={() => select(key, each)}
-                            >
-                              {node === undefined ? each : labelOf(node.label, node.path, each)}
-                            </ContextMenu.Item>
-                          );
-                        })}
-                      </ContextMenu.Popup>
-                    </ContextMenu.SubmenuPositioner>
-                  </ContextMenu.Portal>
-                </ContextMenu.SubmenuRoot>
-              )}
-              <ContextMenu.Item
-                icon={hiddenElements.has(target.key) ? <EyeIcon /> : <EyeSlashIcon />}
-                onClick={() => toggleElement(key, target.key)}
-              >
-                {hiddenElements.has(target.key)
-                  ? m.workshop_bin_atlas_element_show_action()
-                  : m.workshop_bin_atlas_element_hide_action()}
+              <ContextMenu.Item icon={<ArrowSquareOutIcon />} onClick={() => openElement("beside")}>
+                {m.workshop_bin_open_object_beside_action()}
               </ContextMenu.Item>
-              {scene !== null && sceneLabel !== null && (
-                <ContextMenu.Item
-                  icon={hiddenScenes.has(scene) ? <EyeIcon /> : <EyeSlashIcon />}
-                  onClick={() => toggleScene(key, scene)}
-                >
-                  {hiddenScenes.has(scene)
-                    ? m.workshop_bin_atlas_scene_show_action({ scene: sceneLabel })
-                    : m.workshop_bin_atlas_scene_hide_action({ scene: sceneLabel })}
-                </ContextMenu.Item>
-              )}
-              <ContextMenu.Separator />
-              <ElementEditItems
-                tree={tree}
-                settings={settings}
-                solved={solved}
-                target={target.key}
-                selection={selection}
-                canvas={canvas}
-              />
-              <ContextMenu.Separator />
-              {openElement !== null && (
-                <>
-                  <ContextMenu.Item
-                    icon={<ArrowSquareOutIcon />}
-                    onClick={() => openElement("default")}
-                  >
-                    {m.workshop_bin_open_object_action()}
-                  </ContextMenu.Item>
-                  <ContextMenu.Item
-                    icon={<ArrowSquareOutIcon />}
-                    onClick={() => openElement("beside")}
-                  >
-                    {m.workshop_bin_open_object_beside_action()}
-                  </ContextMenu.Item>
-                </>
-              )}
-              <ContextMenu.Item
-                icon={<CopyIcon />}
-                onClick={() => void copy(target.label, m.workshop_bin_name_label())}
-              >
-                {m.workshop_bin_copy_name_action()}
-              </ContextMenu.Item>
-              {path !== null && (
-                <ContextMenu.Item
-                  icon={<PathIcon />}
-                  onClick={() => void copy(path, m.workshop_bin_path_label())}
-                >
-                  {m.workshop_bin_copy_path_action()}
-                </ContextMenu.Item>
-              )}
-              {sprite !== null && (
-                <ContextMenu.Item icon={<ExportIcon />} onClick={() => void exports.run(sprite)}>
-                  {m.workshop_bin_atlas_sprites_export_action()}
-                </ContextMenu.Item>
-              )}
-              <SurfaceItems tree={tree} target={target.key} selection={selection} />
             </>
           )}
-          {canvas && (
-            <>
-              {target !== undefined && <ContextMenu.Separator />}
-              <ContextMenu.Item
-                icon={<ArrowsInIcon />}
-                shortcut="0"
-                onClick={() => requestFrame(key, null)}
-              >
-                {m.workshop_bin_atlas_fit_action()}
-              </ContextMenu.Item>
-              {selected !== null && (
-                <ContextMenu.Item
-                  icon={<SelectionSlashIcon />}
-                  shortcut="Esc"
-                  onClick={() => select(key, null)}
-                >
-                  {m.workshop_bin_atlas_clear_selection_action()}
-                </ContextMenu.Item>
-              )}
-            </>
+          <ContextMenu.Item
+            icon={<CopyIcon />}
+            onClick={() => void copy(target.label, m.workshop_bin_name_label())}
+          >
+            {m.workshop_bin_copy_name_action()}
+          </ContextMenu.Item>
+          {path !== null && (
+            <ContextMenu.Item
+              icon={<PathIcon />}
+              onClick={() => void copy(path, m.workshop_bin_path_label())}
+            >
+              {m.workshop_bin_copy_path_action()}
+            </ContextMenu.Item>
           )}
-        </ContextMenu.Popup>
-      </ContextMenu.Positioner>
-    </ContextMenu.Portal>
+          {sprite !== null && (
+            <ContextMenu.Item icon={<ExportIcon />} onClick={() => void exports.run(sprite)}>
+              {m.workshop_bin_atlas_sprites_export_action()}
+            </ContextMenu.Item>
+          )}
+          <SurfaceItems tree={tree} target={target.key} selection={selection} />
+        </>
+      )}
+      {canvas && (
+        <>
+          {target !== undefined && <ContextMenu.Separator />}
+          <ContextMenu.Item
+            icon={<ArrowsInIcon />}
+            shortcut="0"
+            onClick={() => requestFrame(key, null)}
+          >
+            {m.workshop_bin_atlas_fit_action()}
+          </ContextMenu.Item>
+          {selected !== null && (
+            <ContextMenu.Item
+              icon={<SelectionSlashIcon />}
+              shortcut="Esc"
+              onClick={() => select(key, null)}
+            >
+              {m.workshop_bin_atlas_clear_selection_action()}
+            </ContextMenu.Item>
+          )}
+        </>
+      )}
+    </ContextMenu.Content>
   );
 }

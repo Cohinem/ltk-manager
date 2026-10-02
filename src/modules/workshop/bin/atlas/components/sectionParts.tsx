@@ -45,7 +45,7 @@ export function SectionHeading({ id, title }: { id: string; title: string }) {
       >
         <CaretRightIcon
           weight="bold"
-          className={twMerge("h-3 w-3 shrink-0 text-surface-400", open && "rotate-90")}
+          className={twMerge("size-3 shrink-0 text-surface-400", open && "rotate-90")}
         />
         {title}
       </button>

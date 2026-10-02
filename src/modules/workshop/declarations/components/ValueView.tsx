@@ -52,7 +52,7 @@ export function ValueSummaryView({ value }: { value: string }) {
     case "reference":
       return (
         <span className="flex min-w-0 items-center gap-1 text-surface-200" title={value}>
-          <LinkSimpleIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-400" />
+          <LinkSimpleIcon weight="bold" className="size-3 shrink-0 text-surface-400" />
           <span className="truncate">{summary.target}</span>
         </span>
       );

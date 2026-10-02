@@ -1,7 +1,7 @@
 import { CrosshairIcon, EyeIcon, EyeSlashIcon, XIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
 import type { MapChunk } from "@/lib/tauri";
 
@@ -31,25 +31,25 @@ export function SelectionBar({ chunks }: { chunks: readonly MapChunk[] }) {
         {m.workshop_bin_map_selection_count_label({ count: selected.size })}
       </span>
       <BarButton label={m.workshop_bin_map_selection_frame_action()} onClick={frame}>
-        <CrosshairIcon weight="bold" className="h-3.5 w-3.5" />
+        <CrosshairIcon weight="bold" className="size-3.5" />
       </BarButton>
       <BarButton
         label={m.workshop_bin_map_selection_hide_action()}
         onClick={() => setHidden(ids, true)}
       >
-        <EyeSlashIcon weight="bold" className="h-3.5 w-3.5" />
+        <EyeSlashIcon weight="bold" className="size-3.5" />
       </BarButton>
       <BarButton
         label={m.workshop_bin_map_selection_show_action()}
         onClick={() => setHidden(ids, false)}
       >
-        <EyeIcon weight="bold" className="h-3.5 w-3.5" />
+        <EyeIcon weight="bold" className="size-3.5" />
       </BarButton>
       <BarButton
         label={m.workshop_bin_map_selection_clear_action()}
         onClick={() => select([], "replace")}
       >
-        <XIcon weight="bold" className="h-3.5 w-3.5" />
+        <XIcon weight="bold" className="size-3.5" />
       </BarButton>
     </div>
   );
@@ -64,18 +64,7 @@ function BarButton({
   onClick: () => void;
   children: ReactNode;
 }) {
-  return (
-    <Tooltip content={label}>
-      <IconButton
-        variant="ghost"
-        size="xs"
-        compact
-        aria-label={label}
-        icon={children}
-        onClick={onClick}
-      />
-    </Tooltip>
-  );
+  return <IconButton icon={children} onClick={onClick} label={label} />;
 }
 
 /** The middle of the selected placeables' places in the map's space, and null for none found. */

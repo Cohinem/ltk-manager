@@ -1,7 +1,7 @@
 import { ArrowSquareInIcon, ArrowSquareOutIcon, type Icon } from "@phosphor-icons/react";
 import { use } from "react";
 
-import { Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -64,16 +64,12 @@ function EmbedButton({
   onPress: () => void;
 }) {
   return (
-    <Tooltip content={label}>
-      <button
-        type="button"
-        aria-label={label}
-        /* DS-VEIL, DS-RADIUS */
-        className="nodrag flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-500 hover:bg-surface-veil hover:text-surface-100"
-        onClick={onPress}
-      >
-        <Glyph weight="bold" className="h-3.5 w-3.5" />
-      </button>
-    </Tooltip>
+    <IconButton
+      size="row"
+      label={label}
+      icon={<Glyph />}
+      className="nodrag shrink-0 text-surface-500 hover:text-surface-100"
+      onClick={onPress}
+    />
   );
 }

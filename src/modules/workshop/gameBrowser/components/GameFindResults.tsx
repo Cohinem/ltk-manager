@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 
-import { EmptyState } from "@/components";
+import { EmptyState, LoadingState } from "@/components";
 import { errorSummary } from "@/i18n";
 import { m } from "@/i18n";
 import type { GameFindHit } from "@/lib/tauri";
@@ -27,7 +27,7 @@ import {
   type SourceEntry,
   toggledSourceDirTree,
 } from "../utils/sourceIndex";
-import { GameLoadingState, GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
+import { GameWadsErrorState, UnknownHashHint } from "./GameBrowserStates";
 import { SourceTree } from "./SourceTree";
 
 /**
@@ -72,7 +72,7 @@ export function GameFindResults() {
   );
 
   if (error && !patternError) return <GameWadsErrorState error={error} />;
-  if (!data && !patternError) return <GameLoadingState />;
+  if (!data && !patternError) return <LoadingState />;
 
   return (
     <>

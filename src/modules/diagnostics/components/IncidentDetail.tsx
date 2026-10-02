@@ -97,7 +97,7 @@ export function IncidentDetail({ incident, modAction }: IncidentDetailProps) {
 function DetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-2">
-      <h3 className="text-[0.625rem] font-semibold tracking-wider text-surface-500 uppercase select-none">
+      <h3 className="text-fine font-semibold tracking-wider text-surface-500 uppercase select-none">
         {title}
       </h3>
       {children}
@@ -132,7 +132,7 @@ function OpenProjectButton({ projectPath }: { projectPath: string }) {
     <Button
       variant="outline"
       size="xs"
-      left={<ArrowSquareOutIcon weight="bold" className="h-3.5 w-3.5" />}
+      left={<ArrowSquareOutIcon weight="bold" className="size-3.5" />}
       onClick={async () => {
         const project = await api.getWorkshopProject(projectPath);
         if (!project.ok) {
@@ -220,7 +220,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
       size="sm"
       disabled={patcherRunning}
       loading={rebuild.isPending}
-      left={<ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />}
+      left={<ArrowsClockwiseIcon weight="bold" className="size-4" />}
       onClick={rebuildOverlay}
     >
       {m.patcher_rebuild_action()}
@@ -234,7 +234,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
         size="sm"
         disabled={!incident.game}
         loading={revealLog.isPending}
-        left={<FileTextIcon weight="bold" className="h-4 w-4" />}
+        left={<FileTextIcon weight="bold" className="size-4" />}
         onClick={openGameLog}
       >
         {m.diagnostics_open_game_log_action()}
@@ -242,7 +242,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
       <Button
         variant="outline"
         size="sm"
-        left={<ClipboardTextIcon weight="bold" className="h-4 w-4" />}
+        left={<ClipboardTextIcon weight="bold" className="size-4" />}
         onClick={copyReport}
       >
         {m.diagnostics_copy_report_action()}
@@ -250,7 +250,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
       <Button
         variant="outline"
         size="sm"
-        left={<HashIcon weight="bold" className="h-4 w-4" />}
+        left={<HashIcon weight="bold" className="size-4" />}
         onClick={copyToken}
       >
         {m.diagnostics_copy_token_action()}
@@ -267,7 +267,7 @@ function IncidentActions({ incident }: { incident: Incident }) {
         size="sm"
         disabled={incident.dismissed}
         loading={dismiss.isPending}
-        left={<XIcon weight="bold" className="h-4 w-4" />}
+        left={<XIcon weight="bold" className="size-4" />}
         onClick={() => dismiss.mutate(incident.id)}
       >
         {incident.dismissed && m.diagnostics_dismissed_label()}

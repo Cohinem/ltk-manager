@@ -16,7 +16,7 @@ import {
 } from "./classReaders";
 import type { DriverKind } from "./node";
 
-export { type DriverClass, type DriverPort, type DriverReader, hashOf } from "./classReaders";
+export { type DriverClass, type DriverPort, type DriverReader } from "./classReaders";
 
 /*
  * Defaults are the meta schema's at 16.19. `VfxColorConstantDriver`'s `Color` is

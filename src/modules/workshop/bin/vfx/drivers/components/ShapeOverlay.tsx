@@ -99,14 +99,13 @@ export function ShapeInViewButton({ id }: { id: string }) {
 
   return (
     <IconButton
-      variant="ghost"
-      size="xs"
+      compact={false}
       aria-label={label}
       title={label}
-      aria-pressed={pressed}
+      pressed={pressed}
       disabled={own === undefined}
-      className="nodrag shrink-0 aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300"
-      icon={<CubeTransparentIcon weight="bold" className="h-3.5 w-3.5" />}
+      className="nodrag shrink-0"
+      icon={<CubeTransparentIcon className="size-3.5" />}
       onClick={() => {
         if (own === undefined) return;
         if (pressed) {

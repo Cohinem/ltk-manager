@@ -46,10 +46,7 @@ export function LegendBar({ title, terms, notes, action, defaultOpen = true }: L
           className="flex cursor-default items-center gap-1.5 rounded-sm text-meta text-surface-400 hover:text-surface-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500"
         >
           <CaretDownIcon
-            className={twMerge(
-              "h-3.5 w-3.5 transition-transform duration-200",
-              !open && "-rotate-90",
-            )}
+            className={twMerge("size-3.5 transition-transform duration-200", !open && "-rotate-90")}
           />
           {/* DS-TEXT */}
           <span className="text-xs font-medium tracking-wide uppercase">{title}</span>

@@ -39,13 +39,13 @@ it("reports the row each key moved focus to, and nothing for Enter", () => {
   const { result } = nav(moved);
 
   act(() => result.current.handleKeyDown(press("ArrowDown")));
-  expect(moved).toHaveBeenLastCalledWith("second");
+  expect(moved).toHaveBeenLastCalledWith("second", expect.anything());
 
   act(() => result.current.handleKeyDown(press("End")));
-  expect(moved).toHaveBeenLastCalledWith("third");
+  expect(moved).toHaveBeenLastCalledWith("third", expect.anything());
 
   act(() => result.current.handleKeyDown(press("ArrowDown")));
-  expect(moved).toHaveBeenLastCalledWith("third");
+  expect(moved).toHaveBeenLastCalledWith("third", expect.anything());
 
   moved.mockClear();
   act(() => result.current.handleKeyDown(press("Enter")));

@@ -69,13 +69,9 @@ function Menu({ declares, row = ROW, editable = true }: MenuProps) {
       <ContextMenu.Trigger>
         <span>the row</span>
       </ContextMenu.Trigger>
-      <ContextMenu.Portal>
-        <ContextMenu.Positioner>
-          <ContextMenu.Popup>
-            <DeclarationMenuItems row={row} />
-          </ContextMenu.Popup>
-        </ContextMenu.Positioner>
-      </ContextMenu.Portal>
+      <ContextMenu.Content>
+        <DeclarationMenuItems row={row} />
+      </ContextMenu.Content>
     </ContextMenu.Root>,
   );
 }

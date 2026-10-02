@@ -111,7 +111,7 @@ export function CurveToolbar({
             tabIndex={0}
             className="flex cursor-help items-center gap-1 rounded-sm text-meta text-surface-300 outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
           >
-            <DiceFiveIcon weight="bold" className="h-3.5 w-3.5" />
+            <DiceFiveIcon weight="bold" className="size-3.5" />
             {m.workshop_bin_random_chip_label()}
           </span>
         </Tooltip>
@@ -234,7 +234,7 @@ function Fault({ tone, label, hint }: { tone: "warning" | "danger"; label: strin
           tone === "warning" ? "text-warning-text" : "text-danger-text",
         )}
       >
-        <WarningCircleIcon weight="bold" className="h-3.5 w-3.5 shrink-0" />
+        <WarningCircleIcon weight="bold" className="size-3.5 shrink-0" />
         {label}
       </span>
     </Tooltip>

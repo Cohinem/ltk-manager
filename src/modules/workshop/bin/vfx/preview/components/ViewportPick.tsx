@@ -1,6 +1,7 @@
 import { useThree } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 
+import { useDisposable } from "@/hooks";
 import { isClick, type ScreenPoint } from "@/modules/viewport";
 
 import type { SystemModel } from "../../engine/model/model";
@@ -30,8 +31,7 @@ export function ViewportPick({ picks, system, latch }: ViewportPickProps) {
   );
   const get = useThree((state) => state.get);
   const select = useLaneSelect();
-  const picker = useMemo(createPicker, []);
-  useEffect(() => () => picker.dispose(), [picker]);
+  const picker = useDisposable(createPicker, []);
 
   const latest = useRef({ system, select });
   useLayoutEffect(() => {

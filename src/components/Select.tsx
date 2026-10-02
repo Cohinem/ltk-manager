@@ -87,7 +87,7 @@ export const SelectIcon = forwardRef<HTMLSpanElement, SelectIconProps>(
         )}
         {...props}
       >
-        <ChevronDown className="h-4 w-4" />
+        <ChevronDown className="size-4" />
       </BaseSelect.Icon>
     );
   },
@@ -168,6 +168,59 @@ export const SelectPopup = forwardRef<HTMLDivElement, SelectPopupProps>(
 );
 SelectPopup.displayName = "Select.Popup";
 
+// Content
+export interface SelectContentProps
+  extends
+    SelectPopupProps,
+    Pick<
+      SelectPositionerProps,
+      | "side"
+      | "align"
+      | "sideOffset"
+      | "alignOffset"
+      | "anchor"
+      | "collisionPadding"
+      | "alignItemWithTrigger"
+    > {
+  positionerClassName?: string;
+}
+
+/** Portal, Positioner and Popup as one part, taking the positioning props itself. */
+export const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
+  (
+    {
+      side,
+      align,
+      sideOffset,
+      alignOffset,
+      anchor,
+      collisionPadding,
+      alignItemWithTrigger,
+      positionerClassName,
+      ...props
+    },
+    ref,
+  ) => {
+    return (
+      <SelectPortal>
+        <SelectPositioner
+          side={side}
+          align={align}
+          sideOffset={sideOffset}
+          alignOffset={alignOffset}
+          anchor={anchor}
+          collisionPadding={collisionPadding}
+          alignItemWithTrigger={alignItemWithTrigger}
+          className={positionerClassName}
+        >
+          <SelectPopup ref={ref} {...props} />
+        </SelectPositioner>
+      </SelectPortal>
+    );
+  },
+);
+SelectContent.displayName = "Select.Content";
+
 // Item
 export interface SelectItemProps extends Omit<BaseSelect.Item.Props, "className"> {
   className?: string;
@@ -191,8 +244,8 @@ export const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
         )}
         {...props}
       >
-        <BaseSelect.ItemIndicator className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
-          <Check className="h-3.5 w-3.5" />
+        <BaseSelect.ItemIndicator className="inline-flex size-4 shrink-0 items-center justify-center">
+          <Check className="size-3.5" />
         </BaseSelect.ItemIndicator>
         {description === undefined && text}
         {description !== undefined && (
@@ -272,6 +325,7 @@ export const Select = {
   Portal: SelectPortal,
   Positioner: SelectPositioner,
   Popup: SelectPopup,
+  Content: SelectContent,
   Item: SelectItem,
   Separator: SelectSeparator,
   Group: SelectGroup,
@@ -342,17 +396,13 @@ export function SelectField({
           </SelectValue>
           <SelectIcon />
         </SelectTrigger>
-        <SelectPortal>
-          <SelectPositioner>
-            <SelectPopup>
-              {options.map((option) => (
-                <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectPopup>
-          </SelectPositioner>
-        </SelectPortal>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
       </SelectRoot>
       {error && <p className="text-xs text-danger-text">{error}</p>}
     </div>

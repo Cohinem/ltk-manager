@@ -8,7 +8,7 @@ import {
   type InstalledMod,
 } from "@/lib/tauri";
 import { libraryKeys } from "@/modules/library";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 export interface ImportCslolModsVariables {
   directory: string;
@@ -19,7 +19,7 @@ export interface ImportCslolModsVariables {
 export const cslolMutations = {
   scan: () =>
     mutationOptions<CslolModInfo[], AppError, string>({
-      mutationFn: async (directory) => unwrapForQuery(await api.scanCslolMods(directory)),
+      mutationFn: mutationFn(api.scanCslolMods),
     }),
 
   importMods: (client: QueryClient) =>

@@ -128,7 +128,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           {isFlagged && (
             <Tooltip content={skinhackReason}>
               <div className="rounded-md bg-danger/90 p-1">
-                <ShieldWarningIcon className="h-4 w-4 text-brand-on" />
+                <ShieldWarningIcon className="size-4 text-brand-on" />
               </div>
             </Tooltip>
           )}
@@ -182,7 +182,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
           <h3 className="min-w-0 truncate text-sm font-medium text-surface-100 select-text">
             {mod.displayName}
           </h3>
-          {isFlagged && <ShieldWarningIcon className="h-3.5 w-3.5 shrink-0 text-danger-text" />}
+          {isFlagged && <ShieldWarningIcon className="size-3.5 shrink-0 text-danger-text" />}
         </div>
 
         <div className="flex items-center text-xs text-surface-500">

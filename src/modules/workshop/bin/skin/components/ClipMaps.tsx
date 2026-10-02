@@ -8,8 +8,9 @@ import { useSetPreviewDisplay } from "@/stores";
 import { twMerge } from "@/utils";
 
 import { None } from "../../classes/components/ClassCells";
+import { FoldCaret } from "../../shared/components/FoldCaret";
 import { type ClipTab, SkinChoiceContext } from "../state/skinChoice";
-import { FoldCaret } from "./ClipTable";
+import { foldLabel } from "./ClipTable";
 
 /** One column of a sibling map's table. */
 interface MapColumn<T> {
@@ -217,8 +218,9 @@ function Rows<T extends { hash: string }>({
                   >
                     {detail !== undefined && (
                       <FoldCaret
-                        expanded={expanded}
+                        open={expanded}
                         onToggle={() => choice?.toggleExpanded(tab, row.hash)}
+                        label={foldLabel(expanded)}
                       />
                     )}
                     <DataTableCells row={tableRow} customCells />

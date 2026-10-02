@@ -40,13 +40,9 @@ function show(state: HealthCheckReadiness) {
   render(
     <ToastProvider>
       <Menu.Root open>
-        <Menu.Portal>
-          <Menu.Positioner>
-            <Menu.Popup>
-              <ModCardHealthItem modId="a" />
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content>
+          <ModCardHealthItem modId="a" />
+        </Menu.Content>
       </Menu.Root>
     </ToastProvider>,
   );

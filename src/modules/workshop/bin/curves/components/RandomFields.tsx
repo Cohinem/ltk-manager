@@ -126,7 +126,7 @@ export function RandomFields({ row, mark }: { row: BinRow; mark: ValueMark }) {
                 )}
                 onClick={() => flip(channel)}
               >
-                <PlusMinusIcon weight="bold" className="h-3 w-3" />
+                <PlusMinusIcon weight="bold" className="size-3" />
               </button>
             </Tooltip>
           );

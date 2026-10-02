@@ -6,11 +6,10 @@ import { m } from "@/i18n";
 import type { InstalledMod, ModDocument, ModLicense } from "@/lib/tauri";
 import { modQueries } from "@/modules/library/api";
 
+import { DocumentBody } from "./DocumentBody";
+
 interface LicensesTabProps {
-  /** The mod the panel was opened about, or none yet. */
-  mod: InstalledMod | null;
-  /** Whether the mod the panel held has been uninstalled under it. */
-  missing: boolean;
+  mod: InstalledMod;
 }
 
 /**
@@ -20,40 +19,16 @@ interface LicensesTabProps {
  * The text is on disk for neither format, so reading it mounts that mod's
  * archive, and the answer is held for the session and never written to disk.
  */
-export function LicensesTab({ mod, missing }: LicensesTabProps) {
-  if (missing) {
-    return (
-      <Body>
-        <EmptyState
-          size="sm"
-          title={m.library_documents_removed_title()}
-          description={m.library_documents_removed_description()}
-        />
-      </Body>
-    );
-  }
-
-  if (!mod) {
-    return (
-      <Body>
-        <EmptyState
-          size="sm"
-          title={m.library_licenses_none_open_title()}
-          description={m.library_licenses_none_open_description()}
-        />
-      </Body>
-    );
-  }
-
+export function LicensesTab({ mod }: LicensesTabProps) {
   if (!mod.license) {
     return (
-      <Body>
+      <DocumentBody>
         <EmptyState
           size="sm"
           title={m.library_licenses_undeclared_title()}
           description={m.library_licenses_undeclared_description()}
         />
-      </Body>
+      </DocumentBody>
     );
   }
 
@@ -83,17 +58,17 @@ function Text({ modId }: { modId: string }) {
 
   if (isPending) {
     return (
-      <Body>
+      <DocumentBody>
         <Spinner />
-      </Body>
+      </DocumentBody>
     );
   }
 
   if (error) {
     return (
-      <Body>
+      <DocumentBody>
         <Note>{m.library_licenses_unreadable_description()}</Note>
-      </Body>
+      </DocumentBody>
     );
   }
 
@@ -109,17 +84,17 @@ function Text({ modId }: { modId: string }) {
 function Document({ document }: { document: ModDocument }) {
   if (document.state === "absent") {
     return (
-      <Body>
+      <DocumentBody>
         <Note>{m.library_licenses_no_text_description()}</Note>
-      </Body>
+      </DocumentBody>
     );
   }
 
   if (document.state === "unreadable") {
     return (
-      <Body>
+      <DocumentBody>
         <Note>{m.library_licenses_unreadable_description()}</Note>
-      </Body>
+      </DocumentBody>
     );
   }
 
@@ -137,10 +112,4 @@ function Document({ document }: { document: ModDocument }) {
 
 function Note({ children }: { children: ReactNode }) {
   return <p className="text-center text-meta text-surface-500">{children}</p>;
-}
-
-function Body({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center p-6">{children}</div>
-  );
 }

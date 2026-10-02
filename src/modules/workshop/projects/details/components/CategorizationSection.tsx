@@ -39,7 +39,7 @@ export function CategorizationSection({
   return (
     <SectionCard
       title="Categorization"
-      icon={<Tags className="h-4 w-4" />}
+      icon={<Tags className="size-4" />}
       description="Help users find your mod by adding tags, maps, and champions."
       panelClassName="bg-surface-800"
     >
@@ -68,7 +68,7 @@ export function CategorizationSection({
         </div>
         <Field.Root className="sm:col-span-2">
           <Field.Label className="flex items-center gap-1.5">
-            <ChampionIcon className="h-4 w-4 text-surface-400" />
+            <ChampionIcon className="size-4 text-surface-400" />
             Champions
           </Field.Label>
           <Field.Control

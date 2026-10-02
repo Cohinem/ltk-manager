@@ -14,7 +14,6 @@ import {
   FieldRows,
   fieldsIn,
   fieldsOf,
-  FoldCaret,
   type LayoutPages,
   None,
   TableRows,
@@ -29,8 +28,8 @@ import { useBinRead } from "../../documents/hooks/useBinRead";
 import { ObjectChip } from "../../links/components/LinkChip";
 import { useLinkTargets } from "../../links/hooks/useLinkTargets";
 import { declaredElsewhere } from "../../links/utils/linkDecision";
+import { FoldCaret } from "../../shared/components/FoldCaret";
 import { nameHash } from "../../shared/utils/binHash";
-import { RowValue } from "../../tree/components/BinRow";
 import {
   childCount,
   entryKeyHash,
@@ -39,6 +38,7 @@ import {
   PAGE_SIZE,
   rowKey,
 } from "../../tree/utils/binRows";
+import { RowValue } from "../../values/components/RowValue";
 import { sameSubmesh, SkinChoiceContext } from "../state/skinChoice";
 
 /** The icons a skin carries, each as a tile under its own field's name. */
@@ -127,7 +127,13 @@ function SubmeshCell({ element }: { element: BinRow }) {
   const fold = use(OverrideFold);
   return (
     <span className={twMerge(SUBMESH_WIDTH, "flex min-w-0 items-center gap-1")}>
-      {fold !== null && <FoldCaret open={fold.open} onToggle={fold.toggle} />}
+      {fold !== null && (
+        <FoldCaret
+          open={fold.open}
+          onToggle={fold.toggle}
+          label={m.workshop_bin_row_fields_action()}
+        />
+      )}
       {fold === null && <span aria-hidden className="w-4 shrink-0" />}
       <TextCell
         row={useOverrideField(element, OVERRIDE.submesh)}
@@ -444,7 +450,7 @@ function TargetCell({ row }: { row: { id: string } }) {
   if (!textOf(target)) return null;
   return (
     <span className="flex w-32 shrink-0 items-center gap-1 text-surface-400">
-      <ArrowRightIcon aria-hidden className="h-3 w-3 shrink-0" />
+      <ArrowRightIcon aria-hidden className="size-3 shrink-0" />
       <TextCell row={target} className="min-w-0" />
     </span>
   );

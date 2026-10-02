@@ -58,63 +58,55 @@ export function SceneMenu({ document, entry, scene }: SceneMenuProps) {
   const draw = (target: string) => setFrames(key, drawOn(tree, choices, held.key, target));
 
   return (
-    <ContextMenu.Portal>
-      <ContextMenu.Positioner>
-        <ContextMenu.Popup data-ui="SceneMenu" className="w-60" finalFocus={false}>
-          <ContextMenu.Item
-            icon={hiddenScenes.has(held.key) ? <EyeIcon /> : <EyeSlashIcon />}
-            onClick={() => toggleScene(key, held.key)}
-          >
-            {hiddenScenes.has(held.key)
-              ? m.workshop_bin_atlas_scene_show_action({ scene: label })
-              : m.workshop_bin_atlas_scene_hide_action({ scene: label })}
-          </ContextMenu.Item>
-          {!stackScenes && (
-            <>
-              <ContextMenu.Separator />
-              {head !== held.key && (
-                <ContextMenu.Item icon={<FrameCornersIcon />} onClick={() => draw(held.key)}>
-                  {m.workshop_bin_atlas_frame_own_action()}
-                </ContextMenu.Item>
-              )}
-              {others.length > 0 && (
-                <ContextMenu.SubmenuRoot>
-                  <ContextMenu.SubmenuTrigger icon={<StackIcon />}>
-                    {m.workshop_bin_atlas_frame_join_label()}
-                  </ContextMenu.SubmenuTrigger>
-                  <ContextMenu.Portal>
-                    <ContextMenu.SubmenuPositioner>
-                      <ContextMenu.Popup className="max-h-80 w-60 overflow-y-auto">
-                        {others.map((frame) => (
-                          <ContextMenu.Item key={frame.head} onClick={() => draw(frame.head)}>
-                            {frame.label}
-                          </ContextMenu.Item>
-                        ))}
-                      </ContextMenu.Popup>
-                    </ContextMenu.SubmenuPositioner>
-                  </ContextMenu.Portal>
-                </ContextMenu.SubmenuRoot>
-              )}
-              {head === held.key && own !== undefined && own.scenes.length > 1 && (
-                <ContextMenu.Item
-                  icon={<SquareSplitHorizontalIcon />}
-                  onClick={() => setFrames(key, splitFrame(tree, choices, head, own.scenes))}
-                >
-                  {m.workshop_bin_atlas_frame_split_action()}
-                </ContextMenu.Item>
-              )}
-              {Object.keys(choices).length > 0 && (
-                <ContextMenu.Item
-                  icon={<ArrowCounterClockwiseIcon />}
-                  onClick={() => setFrames(key, NO_FRAME_CHOICES)}
-                >
-                  {m.workshop_bin_atlas_frame_reset_action()}
-                </ContextMenu.Item>
-              )}
-            </>
+    <ContextMenu.Content data-ui="SceneMenu" className="w-60" finalFocus={false}>
+      <ContextMenu.Item
+        icon={hiddenScenes.has(held.key) ? <EyeIcon /> : <EyeSlashIcon />}
+        onClick={() => toggleScene(key, held.key)}
+      >
+        {hiddenScenes.has(held.key)
+          ? m.workshop_bin_atlas_scene_show_action({ scene: label })
+          : m.workshop_bin_atlas_scene_hide_action({ scene: label })}
+      </ContextMenu.Item>
+      {!stackScenes && (
+        <>
+          <ContextMenu.Separator />
+          {head !== held.key && (
+            <ContextMenu.Item icon={<FrameCornersIcon />} onClick={() => draw(held.key)}>
+              {m.workshop_bin_atlas_frame_own_action()}
+            </ContextMenu.Item>
           )}
-        </ContextMenu.Popup>
-      </ContextMenu.Positioner>
-    </ContextMenu.Portal>
+          {others.length > 0 && (
+            <ContextMenu.SubmenuRoot>
+              <ContextMenu.SubmenuTrigger icon={<StackIcon />}>
+                {m.workshop_bin_atlas_frame_join_label()}
+              </ContextMenu.SubmenuTrigger>
+              <ContextMenu.SubmenuContent className="max-h-80 w-60 overflow-y-auto">
+                {others.map((frame) => (
+                  <ContextMenu.Item key={frame.head} onClick={() => draw(frame.head)}>
+                    {frame.label}
+                  </ContextMenu.Item>
+                ))}
+              </ContextMenu.SubmenuContent>
+            </ContextMenu.SubmenuRoot>
+          )}
+          {head === held.key && own !== undefined && own.scenes.length > 1 && (
+            <ContextMenu.Item
+              icon={<SquareSplitHorizontalIcon />}
+              onClick={() => setFrames(key, splitFrame(tree, choices, head, own.scenes))}
+            >
+              {m.workshop_bin_atlas_frame_split_action()}
+            </ContextMenu.Item>
+          )}
+          {Object.keys(choices).length > 0 && (
+            <ContextMenu.Item
+              icon={<ArrowCounterClockwiseIcon />}
+              onClick={() => setFrames(key, NO_FRAME_CHOICES)}
+            >
+              {m.workshop_bin_atlas_frame_reset_action()}
+            </ContextMenu.Item>
+          )}
+        </>
+      )}
+    </ContextMenu.Content>
   );
 }

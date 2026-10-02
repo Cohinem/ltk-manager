@@ -1,7 +1,7 @@
-import { ArrowCounterClockwiseIcon, CloudFogIcon } from "@phosphor-icons/react";
+import { CloudFogIcon } from "@phosphor-icons/react";
 import { type ReactNode, useId } from "react";
 
-import { IconButton, Popover, SegmentedControl, Switch, Tooltip } from "@/components";
+import { SegmentedControl, Switch } from "@/components";
 import { m } from "@/i18n";
 import {
   type AmbientOcclusion,
@@ -16,7 +16,8 @@ import {
 } from "@/modules/viewport";
 import { usePreviewAmbientOcclusion, usePreviewPostEffects, useSetPreviewDisplay } from "@/stores";
 
-import { type SliderRange, SliderRow } from "../../vfx/preview/components/SliderRow";
+import { PreviewPopover } from "../../shared/preview/PreviewPopover";
+import { type SliderRange, SliderRow } from "../../shared/preview/SliderRow";
 import { ColorRow } from "./ColorRow";
 
 /** What each slider spans, in world units, in shares of the frame and in pixels. */
@@ -67,109 +68,60 @@ export function PostEffectsControl({ source }: PostEffectsControlProps) {
   const customized = custom !== null || customOcclusion !== null;
 
   return (
-    <Popover.Root>
-      <Tooltip content={m.workshop_bin_preview_post_effects_label()}>
-        <Popover.Trigger
-          render={
-            <IconButton
-              variant="ghost"
-              size="xs"
-              compact
-              aria-label={m.workshop_bin_preview_post_effects_label()}
-              /* DS-VEIL, DS-RADIUS */
-              className={
-                customized ? "bg-accent-500/15 text-accent-300 hover:bg-accent-500/25" : undefined
-              }
-              icon={<CloudFogIcon weight="bold" className="h-4 w-4" />}
-            />
-          }
+    <PreviewPopover
+      label={m.workshop_bin_preview_post_effects_label()}
+      description={m.workshop_bin_preview_post_effects_description()}
+      icon={<CloudFogIcon />}
+      customized={customized}
+      onReset={() => setDisplay({ previewPostEffects: null, previewAmbientOcclusion: null })}
+      resetLabel={m.workshop_bin_preview_post_effects_reset_action()}
+      data-ui="PostEffectsControl"
+      className="max-h-[70vh] overflow-y-auto"
+    >
+      <OcclusionSection
+        occlusion={customOcclusion ?? ownOcclusion}
+        onChange={(previewAmbientOcclusion) => setDisplay({ previewAmbientOcclusion })}
+      />
+      <FogSection
+        label={m.workshop_bin_preview_post_effects_depth_fog_label()}
+        fog={effects.depthFog}
+        range={RANGE.distance}
+        onChange={(depthFog) => change({ depthFog })}
+      />
+      <FogSection
+        label={m.workshop_bin_preview_post_effects_height_fog_label()}
+        fog={effects.heightFog}
+        range={RANGE.height}
+        onChange={(heightFog) => change({ heightFog })}
+      />
+      <EffectSection
+        label={m.workshop_bin_preview_post_effects_depth_of_field_label()}
+        enabled={focus.enabled}
+        onEnabledChange={(enabled) => change({ depthOfField: { ...focus, enabled } })}
+      >
+        <SliderRow
+          label={m.workshop_bin_preview_post_effects_focal_distance_label()}
+          reading={Math.round(focus.focalDistance).toString()}
+          value={focus.focalDistance}
+          range={RANGE.focalDistance}
+          onValueChange={(focalDistance) => change({ depthOfField: { ...focus, focalDistance } })}
         />
-      </Tooltip>
-
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end" sideOffset={8}>
-          <Popover.Popup
-            data-ui="PostEffectsControl"
-            aria-label={m.workshop_bin_preview_post_effects_label()}
-            className="max-h-[70vh] w-72 overflow-y-auto p-3 select-none"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex flex-col">
-                <Popover.Title className="text-xs font-medium tracking-wide text-surface-400 uppercase">
-                  {m.workshop_bin_preview_post_effects_label()}
-                </Popover.Title>
-                <Popover.Description className="mt-0.5 text-meta text-surface-400">
-                  {m.workshop_bin_preview_post_effects_description()}
-                </Popover.Description>
-              </div>
-              <Tooltip content={m.workshop_bin_preview_post_effects_reset_action()}>
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  compact
-                  aria-label={m.workshop_bin_preview_post_effects_reset_action()}
-                  icon={<ArrowCounterClockwiseIcon weight="bold" className="h-4 w-4" />}
-                  disabled={!customized}
-                  onClick={() =>
-                    setDisplay({ previewPostEffects: null, previewAmbientOcclusion: null })
-                  }
-                />
-              </Tooltip>
-            </div>
-
-            <div className="mt-3 flex flex-col gap-3">
-              <OcclusionSection
-                occlusion={customOcclusion ?? ownOcclusion}
-                onChange={(previewAmbientOcclusion) => setDisplay({ previewAmbientOcclusion })}
-              />
-              <FogSection
-                label={m.workshop_bin_preview_post_effects_depth_fog_label()}
-                fog={effects.depthFog}
-                range={RANGE.distance}
-                onChange={(depthFog) => change({ depthFog })}
-              />
-              <FogSection
-                label={m.workshop_bin_preview_post_effects_height_fog_label()}
-                fog={effects.heightFog}
-                range={RANGE.height}
-                onChange={(heightFog) => change({ heightFog })}
-              />
-              <EffectSection
-                label={m.workshop_bin_preview_post_effects_depth_of_field_label()}
-                enabled={focus.enabled}
-                onEnabledChange={(enabled) => change({ depthOfField: { ...focus, enabled } })}
-              >
-                <SliderRow
-                  label={m.workshop_bin_preview_post_effects_focal_distance_label()}
-                  reading={Math.round(focus.focalDistance).toString()}
-                  value={focus.focalDistance}
-                  range={RANGE.focalDistance}
-                  onValueChange={(focalDistance) =>
-                    change({ depthOfField: { ...focus, focalDistance } })
-                  }
-                />
-                <SliderRow
-                  label={m.workshop_bin_preview_post_effects_in_focus_width_label()}
-                  reading={Math.round(focus.inFocusWidth).toString()}
-                  value={focus.inFocusWidth}
-                  range={RANGE.inFocusWidth}
-                  onValueChange={(inFocusWidth) =>
-                    change({ depthOfField: { ...focus, inFocusWidth } })
-                  }
-                />
-                <SliderRow
-                  label={m.workshop_bin_preview_post_effects_coc_label()}
-                  reading={focus.coc.toFixed(1)}
-                  value={focus.coc}
-                  range={RANGE.coc}
-                  onValueChange={(coc) => change({ depthOfField: { ...focus, coc } })}
-                />
-              </EffectSection>
-            </div>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
+        <SliderRow
+          label={m.workshop_bin_preview_post_effects_in_focus_width_label()}
+          reading={Math.round(focus.inFocusWidth).toString()}
+          value={focus.inFocusWidth}
+          range={RANGE.inFocusWidth}
+          onValueChange={(inFocusWidth) => change({ depthOfField: { ...focus, inFocusWidth } })}
+        />
+        <SliderRow
+          label={m.workshop_bin_preview_post_effects_coc_label()}
+          reading={focus.coc.toFixed(1)}
+          value={focus.coc}
+          range={RANGE.coc}
+          onValueChange={(coc) => change({ depthOfField: { ...focus, coc } })}
+        />
+      </EffectSection>
+    </PreviewPopover>
   );
 }
 

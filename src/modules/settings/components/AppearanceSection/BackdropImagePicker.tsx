@@ -1,15 +1,10 @@
 import { ImageIcon } from "@phosphor-icons/react";
 
 import { PathField, Slider } from "@/components";
-import type { Settings } from "@/lib/tauri";
 
+import { useLoadedSettings, useUpdateSettings } from "../../api";
 import { SettingRow } from "../SettingRow";
 import { useDebouncedSlider } from "./useDebouncedSlider";
-
-interface BackdropImagePickerProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
 
 const IMAGE_FILTERS = [
   { name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "bmp", "gif"] },
@@ -19,9 +14,11 @@ const IMAGE_FILTERS = [
    narrow - a rigid slot would crowd the label off its own row. */
 const controlClass = "w-72 shrink";
 
-export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerProps) {
+export function BackdropImagePicker() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   const [localBlur, handleBlurChange] = useDebouncedSlider(settings.backdropBlur ?? 40, (blur) => {
-    onSave({ ...settings, backdropBlur: blur });
+    update({ backdropBlur: blur });
   });
 
   return (
@@ -38,11 +35,11 @@ export function BackdropImagePicker({ settings, onSave }: BackdropImagePickerPro
             display="name"
             aria-label="Background image"
             value={settings.backdropImage}
-            onSelect={(path) => onSave({ ...settings, backdropImage: path })}
-            onClear={() => onSave({ ...settings, backdropImage: null })}
+            onSelect={(path) => update({ backdropImage: path })}
+            onClear={() => update({ backdropImage: null })}
             placeholder="No image selected"
             dialogTitle="Select Background Image"
-            browseIcon={<ImageIcon weight="bold" className="h-5 w-5" />}
+            browseIcon={<ImageIcon weight="bold" className="size-5" />}
           />
         }
       />

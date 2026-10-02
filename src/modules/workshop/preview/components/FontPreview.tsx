@@ -1,11 +1,12 @@
 import { useEffect, useId, useState } from "react";
 
-import { EmptyState, Field, Spinner } from "@/components";
+import { EmptyState, Field, LoadingState } from "@/components";
 import { m } from "@/i18n";
 import { useAssetVersion, versionedUrl } from "@/lib/assetVersions";
 import { previewFontUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { PreviewStatus } from "./PreviewStatus";
 
 /** The sizes the sample is set at, in px. */
@@ -80,15 +81,11 @@ export function FontPreview({ asset, name }: FontPreviewProps) {
   }
 
   if (state === "loading") {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner size="md" />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   return (
-    <div data-ui="FontPreview" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="FontPreview">
       <div className="shrink-0 border-b border-surface-700/50 px-3 py-2">
         <Field.Root>
           <Field.Control
@@ -122,6 +119,6 @@ export function FontPreview({ asset, name }: FontPreviewProps) {
       </div>
 
       <PreviewStatus facts={[name]} />
-    </div>
+    </DocumentFrame>
   );
 }

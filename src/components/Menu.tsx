@@ -122,7 +122,7 @@ const itemVariantClasses: Record<MenuItemVariant, string> = {
 
 /** The leading slot, sized so rows with and without an icon still line up. */
 const MenuItemIcon = ({ children }: { children: ReactNode }) => (
-  <span className="h-4 w-4 shrink-0 opacity-70">{children}</span>
+  <span className="size-4 shrink-0 opacity-70">{children}</span>
 );
 
 export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
@@ -179,7 +179,7 @@ export const MenuSubmenuTrigger = forwardRef<HTMLDivElement, MenuSubmenuTriggerP
       >
         {icon && <MenuItemIcon>{icon}</MenuItemIcon>}
         <span className="flex-1">{children}</span>
-        <CaretRightIcon className="h-3.5 w-3.5 shrink-0 opacity-70" weight="bold" />
+        <CaretRightIcon className="size-3.5 shrink-0 opacity-70" weight="bold" />
       </BaseMenu.SubmenuTrigger>
     );
   },
@@ -242,8 +242,8 @@ export const MenuRadioItem = forwardRef<HTMLDivElement, MenuRadioItemProps>(
       >
         {icon && <MenuItemIcon>{icon}</MenuItemIcon>}
         <span className="flex-1">{children}</span>
-        <BaseMenu.RadioItemIndicator className="flex h-4 w-4 shrink-0 items-center justify-center text-accent-400">
-          <CheckIcon className="h-3.5 w-3.5" weight="bold" />
+        <BaseMenu.RadioItemIndicator className="flex size-4 shrink-0 items-center justify-center text-accent-400">
+          <CheckIcon className="size-3.5" weight="bold" />
         </BaseMenu.RadioItemIndicator>
       </BaseMenu.RadioItem>
     );
@@ -269,8 +269,8 @@ export const MenuCheckboxItem = forwardRef<HTMLDivElement, MenuCheckboxItemProps
       >
         {icon && <MenuItemIcon>{icon}</MenuItemIcon>}
         <span className="flex-1">{children}</span>
-        <BaseMenu.CheckboxItemIndicator className="flex h-4 w-4 shrink-0 items-center justify-center text-accent-400">
-          <CheckIcon className="h-3.5 w-3.5" weight="bold" />
+        <BaseMenu.CheckboxItemIndicator className="flex size-4 shrink-0 items-center justify-center text-accent-400">
+          <CheckIcon className="size-3.5" weight="bold" />
         </BaseMenu.CheckboxItemIndicator>
       </BaseMenu.CheckboxItem>
     );
@@ -325,7 +325,7 @@ export const MenuGroupLabel = forwardRef<HTMLDivElement, MenuGroupLabelProps>(
       <BaseMenu.GroupLabel
         ref={ref}
         className={twMerge(
-          "px-2 py-1 text-[0.6875rem] font-medium tracking-wide text-surface-400 uppercase",
+          "px-2 py-1 text-meta font-medium tracking-wide text-surface-400 uppercase",
           className,
         )}
         {...props}
@@ -337,6 +337,96 @@ export const MenuGroupLabel = forwardRef<HTMLDivElement, MenuGroupLabelProps>(
 );
 MenuGroupLabel.displayName = "Menu.GroupLabel";
 
+// Content
+export interface MenuContentProps
+  extends
+    MenuPopupProps,
+    Pick<
+      MenuPositionerProps,
+      "side" | "align" | "sideOffset" | "alignOffset" | "anchor" | "collisionPadding"
+    > {
+  positionerClassName?: string;
+}
+
+/** Portal, Positioner and Popup as one part, taking the positioning props itself. */
+export const MenuContent = forwardRef<HTMLDivElement, MenuContentProps>(
+  (
+    {
+      side,
+      align,
+      sideOffset,
+      alignOffset,
+      anchor,
+      collisionPadding,
+      positionerClassName,
+      ...props
+    },
+    ref,
+  ) => {
+    return (
+      <MenuPortal>
+        <MenuPositioner
+          side={side}
+          align={align}
+          sideOffset={sideOffset}
+          alignOffset={alignOffset}
+          anchor={anchor}
+          collisionPadding={collisionPadding}
+          className={positionerClassName}
+        >
+          <MenuPopup ref={ref} {...props} />
+        </MenuPositioner>
+      </MenuPortal>
+    );
+  },
+);
+MenuContent.displayName = "Menu.Content";
+
+// SubmenuContent
+export interface MenuSubmenuContentProps
+  extends
+    MenuPopupProps,
+    Pick<
+      MenuPositionerProps,
+      "side" | "align" | "sideOffset" | "alignOffset" | "anchor" | "collisionPadding"
+    > {
+  positionerClassName?: string;
+}
+
+/** The submenu's Portal, Positioner and Popup as one part, aimed sideways. */
+export const MenuSubmenuContent = forwardRef<HTMLDivElement, MenuSubmenuContentProps>(
+  (
+    {
+      side,
+      align,
+      sideOffset,
+      alignOffset,
+      anchor,
+      collisionPadding,
+      positionerClassName,
+      ...props
+    },
+    ref,
+  ) => {
+    return (
+      <MenuPortal>
+        <MenuSubmenuPositioner
+          side={side}
+          align={align}
+          sideOffset={sideOffset}
+          alignOffset={alignOffset}
+          anchor={anchor}
+          collisionPadding={collisionPadding}
+          className={positionerClassName}
+        >
+          <MenuPopup ref={ref} {...props} />
+        </MenuSubmenuPositioner>
+      </MenuPortal>
+    );
+  },
+);
+MenuSubmenuContent.displayName = "Menu.SubmenuContent";
+
 // Compound export
 export const Menu = {
   Root: MenuRoot,
@@ -344,6 +434,8 @@ export const Menu = {
   Portal: MenuPortal,
   Positioner: MenuPositioner,
   Popup: MenuPopup,
+  Content: MenuContent,
+  SubmenuContent: MenuSubmenuContent,
   Item: MenuItem,
   SubmenuRoot: MenuSubmenuRoot,
   SubmenuTrigger: MenuSubmenuTrigger,

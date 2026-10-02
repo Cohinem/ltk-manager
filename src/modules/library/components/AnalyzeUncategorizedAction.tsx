@@ -1,6 +1,6 @@
 import { SparkleIcon } from "@phosphor-icons/react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import {
   useAllModWadReports,
   useAnalyzeUncategorizedMods,
@@ -35,23 +35,23 @@ export function AnalyzeUncategorizedAction({ disabled }: AnalyzeUncategorizedAct
         }`;
 
   return (
-    <Tooltip content={tooltip}>
-      <IconButton
-        icon={
-          <div className="relative">
-            <SparkleIcon weight="bold" className="h-4 w-4" />
-            {uncategorized.length > 0 && (
-              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent-500" />
-            )}
-          </div>
-        }
-        variant="outline"
-        size="sm"
-        loading={analyze.isPending}
-        disabled={disabled || uncategorized.length === 0}
-        aria-label="Analyze uncategorized mods"
-        onClick={() => analyze.mutate(uncategorized)}
-      />
-    </Tooltip>
+    <IconButton
+      compact={false}
+      icon={
+        <div className="relative">
+          <SparkleIcon weight="bold" className="size-4" />
+          {uncategorized.length > 0 && (
+            <span className="absolute -top-1 -right-1 size-2 rounded-full bg-accent-500" />
+          )}
+        </div>
+      }
+      variant="outline"
+      size="sm"
+      loading={analyze.isPending}
+      disabled={disabled || uncategorized.length === 0}
+      aria-label="Analyze uncategorized mods"
+      onClick={() => analyze.mutate(uncategorized)}
+      tooltip={tooltip}
+    />
   );
 }

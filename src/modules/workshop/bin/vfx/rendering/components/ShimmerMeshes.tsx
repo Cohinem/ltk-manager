@@ -12,6 +12,7 @@ import {
   type Texture,
 } from "three";
 
+import { useDisposable } from "@/hooks";
 import { useAssetVersion, versionedUrl } from "@/lib/assetVersions";
 import { previewUrl } from "@/lib/previewUrl";
 import type { BinDocumentId } from "@/lib/tauri";
@@ -266,7 +267,7 @@ function PassMesh({
 /** The flat material a mesh draws with until its passes are ready, tinted per frame. */
 function useFlatMaterial(mesh: ShimmerMesh): MeshBasicMaterial {
   const texture = useFlatTexture(mesh);
-  const material = useMemo(
+  const material = useDisposable(
     () =>
       new MeshBasicMaterial({
         map: texture,
@@ -276,7 +277,6 @@ function useFlatMaterial(mesh: ShimmerMesh): MeshBasicMaterial {
       }),
     [texture],
   );
-  useEffect(() => () => material.dispose(), [material]);
   return material;
 }
 

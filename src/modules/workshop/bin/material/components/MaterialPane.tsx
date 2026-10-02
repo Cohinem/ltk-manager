@@ -13,13 +13,13 @@ import { useLayoutRead } from "../../classes/hooks/useLayoutRead";
 import { materialLayout, placeRows } from "../../classes/utils/classLayouts";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { useBinReadState } from "../../documents/hooks/useBinRead";
+import { Notice } from "../../shared/preview/Notice";
 import { nameHash } from "../../shared/utils/binHash";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { SkinChoiceContext } from "../../skin/state/skinChoice";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { LeafEditContext, useLeafEdit } from "../../tree/hooks/useLeafEdit";
 import { objectKey, PAGE_SIZE } from "../../tree/utils/binRows";
-import { Notice } from "../../vfx/preview/components/Notice";
 
 const STATIC_MATERIAL = nameHash("StaticMaterialDef");
 
@@ -225,7 +225,7 @@ function MaterialPicker({
             compact
             className="min-w-0"
             aria-label={m.workshop_bin_material_pane_pick_label()}
-            right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
+            right={<CaretDownIcon weight="bold" className="size-3" />}
           >
             <span className="truncate font-mono text-code">
               {lastSegment(shown?.name ?? current)}
@@ -233,21 +233,17 @@ function MaterialPicker({
           </Button>
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="start">
-          <Menu.Popup data-ui="MaterialPane:materials" className="max-w-md">
-            {materials.map((material) => (
-              <Menu.Item
-                key={material.hash}
-                icon={material.hash === current && <CheckIcon weight="bold" className="h-4 w-4" />}
-                onClick={() => onPick(material.hash)}
-              >
-                <span className="truncate font-mono text-code">{lastSegment(material.name)}</span>
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="start" data-ui="MaterialPane:materials" className="max-w-md">
+        {materials.map((material) => (
+          <Menu.Item
+            key={material.hash}
+            icon={material.hash === current && <CheckIcon weight="bold" className="size-4" />}
+            onClick={() => onPick(material.hash)}
+          >
+            <span className="truncate font-mono text-code">{lastSegment(material.name)}</span>
+          </Menu.Item>
+        ))}
+      </Menu.Content>
     </Menu.Root>
   );
 }
@@ -264,7 +260,7 @@ function ShadersHint() {
       size="xs"
       compact
       className="ml-auto"
-      left={<HexshadeIcon className="h-4 w-4" />}
+      left={<HexshadeIcon className="size-4" />}
       onClick={() => setDisplay({ previewShaders: true })}
     >
       {m.workshop_bin_material_pane_shaders_action()}

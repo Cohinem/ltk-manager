@@ -75,7 +75,7 @@ function DeclarationRow({ declaration, layerName, onOpen }: DeclarationRowProps)
       >
         <ObjectGlyph
           objectClass={declaration.class}
-          className="h-3.5 w-3.5 shrink-0 text-surface-400"
+          className="size-3.5 shrink-0 text-surface-400"
         />
         <span className="min-w-0 flex-1 truncate font-mono text-code text-surface-200">
           {declaration.file}

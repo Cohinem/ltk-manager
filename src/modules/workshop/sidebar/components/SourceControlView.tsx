@@ -8,7 +8,7 @@ export function SourceControlView() {
   return (
     <EmptyState
       size="sm"
-      icon={<GitBranchIcon className="h-8 w-8" />}
+      icon={<GitBranchIcon className="size-8" />}
       title={m.workshop_sidebar_source_title()}
       description={m.workshop_sidebar_source_empty()}
     />

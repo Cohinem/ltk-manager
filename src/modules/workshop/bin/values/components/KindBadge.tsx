@@ -15,7 +15,7 @@ export function KindBadge({ fileKind }: { fileKind: WorkshopFileKind }) {
         className="flex shrink-0"
         style={{ color: `var(${descriptor.tintToken})` }}
       >
-        <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <Icon className="size-3.5" strokeWidth={1.75} />
       </span>
     </Tooltip>
   );

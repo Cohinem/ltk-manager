@@ -1,7 +1,7 @@
 import { ArchiveIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { type MouseEvent as ReactMouseEvent, type ReactNode, use } from "react";
 
-import { Code, LayerIcon, Popover, Tooltip } from "@/components";
+import { Code, LayerIcon, Popover, Properties, Property, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, DeclaredObject } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -313,8 +313,8 @@ function SideTag({ side, layer }: { side: string; layer: boolean }) {
     <Tooltip content={label}>
       <span className="flex max-w-40 min-w-0 shrink items-center gap-1 text-meta text-surface-400">
         {/* DS-KIND-HUE */}
-        {layer && <LayerIcon className="h-3 w-3 shrink-0 text-doc-layer-text" />}
-        {!layer && <ArchiveIcon className="h-3 w-3 shrink-0" />}
+        {layer && <LayerIcon className="size-3 shrink-0 text-doc-layer-text" />}
+        {!layer && <ArchiveIcon className="size-3 shrink-0" />}
         <span className="min-w-0 truncate">{side}</span>
       </span>
     </Tooltip>
@@ -405,13 +405,15 @@ export function LinkChip({
   return (
     <Popover.Root>
       <Popover.Trigger openOnHover delay={CARD_DELAY} render={button} />
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="start" sideOffset={6}>
-          <Popover.Popup aria-label={whole} className="w-80 p-3 text-meta select-none">
-            {card}
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="bottom"
+        align="start"
+        sideOffset={6}
+        aria-label={whole}
+        className="w-80 p-3 text-meta select-none"
+      >
+        {card}
+      </Popover.Content>
     </Popover.Root>
   );
 }
@@ -449,14 +451,17 @@ function TargetCard({ hash, declared }: { hash: string; declared: DeclaredObject
         <Code className="select-text">{hash}</Code>
       </header>
       {first && (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-          <dt className="text-surface-400">{m.workshop_bin_class_label()}</dt>
-          <dd className="min-w-0 truncate text-surface-200 select-text">{first.class}</dd>
-          <dt className="text-surface-400">{m.workshop_bin_declared_in_label()}</dt>
-          <dd className="min-w-0 truncate font-mono text-code text-surface-200 select-text">
+        <Properties>
+          <Property label={m.workshop_bin_class_label()} className="truncate select-text">
+            {first.class}
+          </Property>
+          <Property
+            label={m.workshop_bin_declared_in_label()}
+            className="truncate font-mono text-code select-text"
+          >
             {declaringFileContext(first.asset, first.file)}
-          </dd>
-        </dl>
+          </Property>
+        </Properties>
       )}
       <span className="text-surface-400">
         {m.workshop_bin_declarations_label({ count: declared.declarations.length })}
@@ -499,7 +504,7 @@ function Text({
       </span>
       {missing && (
         <Tooltip content={m.workshop_bin_missing_chunk_description()}>
-          <WarningCircleIcon weight="bold" className="h-3.5 w-3.5 shrink-0 text-warning-text" />
+          <WarningCircleIcon weight="bold" className="size-3.5 shrink-0 text-warning-text" />
         </Tooltip>
       )}
     </span>

@@ -1,7 +1,16 @@
 import { ChevronDown, PackageCheck, PackageX, ShieldAlert } from "lucide-react";
 import { useState } from "react";
 
-import { AlertBox, Button, Checkbox, Dialog, Spinner, Tooltip, useToast } from "@/components";
+import {
+  AlertBox,
+  Button,
+  Checkbox,
+  Dialog,
+  OVERLINE,
+  Spinner,
+  Tooltip,
+  useToast,
+} from "@/components";
 import type { LinkedBinOffenderInfo } from "@/lib/tauri";
 import { useLinkedBinGuardStore, useQueuedDialog } from "@/stores";
 import { twMerge } from "@/utils";
@@ -99,8 +108,8 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
         onClose={onClose}
         title={
           <>
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-success/15 text-success-text">
-              <PackageCheck className="h-4 w-4" />
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-success/15 text-success-text">
+              <PackageCheck className="size-4" />
             </span>
             No missing dependencies
           </>
@@ -132,8 +141,8 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       title={
         <>
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning-text">
-            <PackageX className="h-4 w-4" />
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-warning/15 text-warning-text">
+            <PackageX className="size-4" />
           </span>
           {title}
         </>
@@ -157,9 +166,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
         {!isLoading && (
           <div className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium tracking-wide text-surface-400 uppercase">
-                {sectionLabel}
-              </span>
+              <span className={OVERLINE}>{sectionLabel}</span>
               {isMulti && (
                 <Button
                   variant="transparent"
@@ -201,11 +208,11 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
                             onClick={() => toggleExpanded(offender.modId)}
                             aria-expanded={isOpen}
                             aria-label={isOpen ? "Hide missing files" : "Show missing files"}
-                            className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
+                            className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
                           >
                             <ChevronDown
                               className={twMerge(
-                                "h-4 w-4 transition-transform duration-150",
+                                "size-4 transition-transform duration-150",
                                 isOpen && "rotate-180",
                               )}
                             />
@@ -242,7 +249,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
 
         <AlertBox
           variant="warning"
-          icon={<ShieldAlert className="h-5 w-5" />}
+          icon={<ShieldAlert className="size-5" />}
           title="Leaving these enabled may glitch or crash the game when they load."
         />
       </Dialog.Body>

@@ -112,15 +112,15 @@ export const LaneRow = memo(function LaneRow({
             type="button"
             aria-label={m.workshop_bin_timeline_children_action()}
             aria-expanded={expanded}
-            className="flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200"
+            className="flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200"
             onClick={() => onExpand(emitter.index)}
           >
-            <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", expanded && "rotate-90")} />
+            <CaretRightIcon weight="bold" className={twMerge("size-3", expanded && "rotate-90")} />
           </button>
         )}
         {row.kind === "emitter" && !row.nested && <span className="w-4 shrink-0" />}
         {row.kind === "child" && (
-          <ArrowElbowDownRightIcon className="h-3 w-3 shrink-0 text-surface-500" />
+          <ArrowElbowDownRightIcon className="size-3 shrink-0 text-surface-500" />
         )}
         {row.kind === "emitter" && (
           <VisibleToggle lane={emitter.index} hidden={muted} gestures={gestures} />
@@ -138,7 +138,7 @@ export const LaneRow = memo(function LaneRow({
               weight="bold"
               role="img"
               aria-label={offLabel(emitter)}
-              className="h-3 w-3 shrink-0 text-surface-400"
+              className="size-3 shrink-0 text-surface-400"
             />
           )}
           <CutText text={emitter.name} className="text-surface-200" />

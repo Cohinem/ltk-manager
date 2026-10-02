@@ -89,7 +89,7 @@ export function AddPropertyBox({ holder, onAdded, onClose }: AddPropertyBoxProps
       itemToStringValue={suggestionLabel}
     >
       <div className="relative min-w-0 flex-1">
-        <PlusIcon className="pointer-events-none absolute top-1/2 left-2 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
+        <PlusIcon className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-surface-400" />
         <Combobox.Input
           autoFocus
           placeholder={label}
@@ -112,23 +112,24 @@ export function AddPropertyBox({ holder, onAdded, onClose }: AddPropertyBoxProps
           }}
         />
       </div>
-      <Combobox.Portal>
-        <Combobox.Positioner side="bottom" align="start" sideOffset={2}>
-          <Combobox.Popup className="max-h-72 min-w-80 py-0.5">
-            <Combobox.List>
-              {(suggestion: AddSuggestion) => (
-                <Combobox.Item
-                  key={suggestionKey(suggestion)}
-                  value={suggestion}
-                  className="gap-2 px-2 py-1 text-row"
-                >
-                  <SuggestionText suggestion={suggestion} />
-                </Combobox.Item>
-              )}
-            </Combobox.List>
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
+      <Combobox.Content
+        side="bottom"
+        align="start"
+        sideOffset={2}
+        className="max-h-72 min-w-80 py-0.5"
+      >
+        <Combobox.List>
+          {(suggestion: AddSuggestion) => (
+            <Combobox.Item
+              key={suggestionKey(suggestion)}
+              value={suggestion}
+              className="gap-2 px-2 py-1 text-row"
+            >
+              <SuggestionText suggestion={suggestion} />
+            </Combobox.Item>
+          )}
+        </Combobox.List>
+      </Combobox.Content>
     </Combobox.Root>
   );
 }

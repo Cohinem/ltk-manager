@@ -33,7 +33,6 @@ export { archiveTarget, chunkPath, chunkTarget } from "./extraction/utils/extrac
 export { useGameSearchRevealTarget, useRevealGameSearch } from "./hooks/useGameSearchReveal";
 export { useRevealInGameFiles } from "./hooks/useRevealInGameFiles";
 export { type OpenSourceFile, useSourcePreview } from "./hooks/useSourcePreview";
-export { useSourceTreeNav } from "./hooks/useSourceTreeNav";
 export { useWadSource, WadSourceProvider } from "./state/wadSource";
 export { fileKindFromPath } from "./utils/fileKind";
 export * from "./utils/sourceIndex";

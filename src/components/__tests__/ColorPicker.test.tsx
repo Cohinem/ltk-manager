@@ -84,22 +84,14 @@ describe("ColorPicker", () => {
     render(
       <Popover.Root defaultOpen>
         <Popover.Trigger>Sun</Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Positioner>
-            <Popover.Popup aria-label="Sun">
-              <Popover.Root>
-                <Popover.Trigger>Sun color</Popover.Trigger>
-                <Popover.Portal>
-                  <Popover.Positioner>
-                    <Popover.Popup aria-label="Picker">
-                      <Picker start={[1, 0, 0]} onChange={vi.fn()} />
-                    </Popover.Popup>
-                  </Popover.Positioner>
-                </Popover.Portal>
-              </Popover.Root>
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
+        <Popover.Content aria-label="Sun">
+          <Popover.Root>
+            <Popover.Trigger>Sun color</Popover.Trigger>
+            <Popover.Content aria-label="Picker">
+              <Picker start={[1, 0, 0]} onChange={vi.fn()} />
+            </Popover.Content>
+          </Popover.Root>
+        </Popover.Content>
       </Popover.Root>,
     );
 

@@ -79,7 +79,7 @@ function toRow(hit: GameSearchHit): RankedRow {
       trailing: wadBasename(hit.wad),
       icon: (
         <span style={{ color: `var(${descriptor.tintToken})` }}>
-          <Glyph className="h-4 w-4" strokeWidth={1.75} />
+          <Glyph className="size-4" strokeWidth={1.75} />
         </span>
       ),
       target: {

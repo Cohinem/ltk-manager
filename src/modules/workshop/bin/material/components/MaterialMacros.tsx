@@ -5,8 +5,8 @@ import { m } from "@/i18n";
 import type { BinRow } from "@/lib/tauri";
 
 import { Cell, elementsOf, None, type WidgetProps } from "../../classes/components/ClassCells";
-import { RowValue } from "../../tree/components/BinRow";
 import { rowKey } from "../../tree/utils/binRows";
+import { RowValue } from "../../values/components/RowValue";
 import { useDeclaredNames } from "../hooks/useShaderSchema";
 import { DeclaredCell, Heading, nameWidth, ROW_CLASS, TABLE_CLASS } from "./DeclaredRow";
 import { VALUE_WIDTH } from "./MaterialCells";

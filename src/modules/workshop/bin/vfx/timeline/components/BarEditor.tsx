@@ -46,76 +46,74 @@ export function BarEditor({ emitter, row, at, onClose }: BarEditorProps) {
         if (!open) onClose();
       }}
     >
-      <Popover.Portal>
-        <Popover.Positioner
-          anchor={at === null ? undefined : pointAnchor(at)}
-          side="bottom"
-          align="start"
-          sideOffset={6}
-        >
-          <Popover.Popup data-ui="BarEditor" className="flex w-64 flex-col gap-2 p-3">
-            <Popover.Title className="truncate text-row font-medium text-surface-200">
-              {emitter.name}
-            </Popover.Title>
+      <Popover.Content
+        anchor={at === null ? undefined : pointAnchor(at)}
+        side="bottom"
+        align="start"
+        sideOffset={6}
+        data-ui="BarEditor"
+        className="flex w-64 flex-col gap-2 p-3"
+      >
+        <Popover.Title className="truncate text-row font-medium text-surface-200">
+          {emitter.name}
+        </Popover.Title>
+        <Seconds
+          label={label("timeBeforeFirstEmission")}
+          value={emitter.timeBeforeFirstEmission}
+          onCommit={(value) => write("timeBeforeFirstEmission", seconds(value))}
+        />
+        <Seconds
+          label={label("lifetime")}
+          value={emitter.lifetime ?? 0}
+          disabled={emitter.lifetime === null}
+          onCommit={(value) => write("lifetime", seconds(value))}
+        />
+        <Checkbox
+          size="sm"
+          label={m.workshop_bin_timeline_endless_action()}
+          checked={emitter.lifetime === null}
+          onCheckedChange={(endless) => {
+            if (endless) clear("lifetime");
+            else write("lifetime", seconds(1));
+          }}
+        />
+        {!emitter.simple && (
+          <Seconds
+            label={label("particleLinger")}
+            value={emitter.particleLinger}
+            onCommit={(value) => write("particleLinger", seconds(value))}
+          />
+        )}
+        <Checkbox
+          size="sm"
+          label={m.workshop_bin_timeline_repeats_action()}
+          checked={emitter.period !== null}
+          onCheckedChange={(repeats) => {
+            if (repeats) write("period", seconds(1));
+            else clear("period");
+          }}
+        />
+        {emitter.period !== null && (
+          <>
             <Seconds
-              label={label("timeBeforeFirstEmission")}
-              value={emitter.timeBeforeFirstEmission}
-              onCommit={(value) => write("timeBeforeFirstEmission", seconds(value))}
+              label={label("period")}
+              value={emitter.period.length}
+              onCommit={(value) => write("period", seconds(value))}
             />
             <Seconds
-              label={label("lifetime")}
-              value={emitter.lifetime ?? 0}
-              disabled={emitter.lifetime === null}
-              onCommit={(value) => write("lifetime", seconds(value))}
+              label={label("timeActiveDuringPeriod")}
+              value={emitter.period.active}
+              onCommit={(value) => write("timeActiveDuringPeriod", seconds(value))}
             />
-            <Checkbox
-              size="sm"
-              label={m.workshop_bin_timeline_endless_action()}
-              checked={emitter.lifetime === null}
-              onCheckedChange={(endless) => {
-                if (endless) clear("lifetime");
-                else write("lifetime", seconds(1));
-              }}
-            />
-            {!emitter.simple && (
-              <Seconds
-                label={label("particleLinger")}
-                value={emitter.particleLinger}
-                onCommit={(value) => write("particleLinger", seconds(value))}
-              />
-            )}
-            <Checkbox
-              size="sm"
-              label={m.workshop_bin_timeline_repeats_action()}
-              checked={emitter.period !== null}
-              onCheckedChange={(repeats) => {
-                if (repeats) write("period", seconds(1));
-                else clear("period");
-              }}
-            />
-            {emitter.period !== null && (
-              <>
-                <Seconds
-                  label={label("period")}
-                  value={emitter.period.length}
-                  onCommit={(value) => write("period", seconds(value))}
-                />
-                <Seconds
-                  label={label("timeActiveDuringPeriod")}
-                  value={emitter.period.active}
-                  onCommit={(value) => write("timeActiveDuringPeriod", seconds(value))}
-                />
-              </>
-            )}
-            <Checkbox
-              size="sm"
-              label={label("isSingleParticle")}
-              checked={emitter.singleParticle}
-              onCheckedChange={(burst) => write("isSingleParticle", { type: "bool", value: burst })}
-            />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+          </>
+        )}
+        <Checkbox
+          size="sm"
+          label={label("isSingleParticle")}
+          checked={emitter.singleParticle}
+          onCheckedChange={(burst) => write("isSingleParticle", { type: "bool", value: burst })}
+        />
+      </Popover.Content>
     </Popover.Root>
   );
 }

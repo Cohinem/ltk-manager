@@ -259,7 +259,7 @@ function ShapePicker({ channel, editor }: { channel: ChannelDraw; editor: Random
               aria-label={word()}
               /* DS-RADIUS, DS-VEIL */
               className={twMerge(
-                "flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200",
+                "flex size-5 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-200",
                 current === shape &&
                   "bg-surface-veil text-accent-300 hover:bg-surface-veil hover:text-accent-300",
               )}
@@ -267,7 +267,7 @@ function ShapePicker({ channel, editor }: { channel: ChannelDraw; editor: Random
                 if (current !== shape) editor.write(channel, shapeKeys(channel, shape));
               }}
             >
-              <Glyph weight="bold" className="h-3.5 w-3.5" />
+              <Glyph weight="bold" className="size-3.5" />
             </button>
           </Tooltip>
         );
@@ -317,7 +317,7 @@ function LinkMark({
   return (
     <Tooltip content={hint}>
       <span tabIndex={0} aria-label={hint} className="flex cursor-help text-surface-400">
-        <LinkSimpleIcon weight="bold" className="h-3 w-3" />
+        <LinkSimpleIcon weight="bold" className="size-3" />
       </span>
     </Tooltip>
   );

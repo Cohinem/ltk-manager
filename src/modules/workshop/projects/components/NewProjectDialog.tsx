@@ -146,12 +146,13 @@ export function NewProjectDialog() {
                   <img
                     src={convertFileSrc(selectedThumbnailPath)}
                     alt="Thumbnail preview"
-                    className="absolute inset-0 h-full w-full object-cover"
+                    className="absolute inset-0 size-full object-cover"
                   />
                   <IconButton
+                    compact={false}
                     size="sm"
                     variant="filled"
-                    icon={<X className="h-3.5 w-3.5" />}
+                    icon={<X className="size-3.5" />}
                     className="absolute top-2 right-2 bg-surface-900/70 hover:bg-surface-900"
                     onClick={() => setSelectedThumbnailPath(null)}
                   />
@@ -162,7 +163,7 @@ export function NewProjectDialog() {
                   onClick={handlePickThumbnail}
                   className="flex aspect-video w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-surface-600 bg-surface-700/30 transition-colors hover:border-accent-hover hover:bg-surface-700/50"
                 >
-                  <ImagePlus className="h-8 w-8 text-surface-400" />
+                  <ImagePlus className="size-8 text-surface-400" />
                   <span className="text-xs text-surface-400">Add Thumbnail</span>
                 </button>
               )}
@@ -248,20 +249,16 @@ export function NewProjectDialog() {
                       </Select.Value>
                       <Select.Icon />
                     </Select.Trigger>
-                    <Select.Portal>
-                      <Select.Positioner>
-                        <Select.Popup>
-                          {profiles.map((p) => (
-                            <Select.Item key={p.id} value={p.id}>
-                              {p.name || "Unnamed"}
-                              {p.role ? ` — ${p.role}` : ""}
-                            </Select.Item>
-                          ))}
-                          <Select.Separator />
-                          <Select.Item value={CUSTOM_AUTHOR}>Custom...</Select.Item>
-                        </Select.Popup>
-                      </Select.Positioner>
-                    </Select.Portal>
+                    <Select.Content>
+                      {profiles.map((p) => (
+                        <Select.Item key={p.id} value={p.id}>
+                          {p.name || "Unnamed"}
+                          {p.role ? ` — ${p.role}` : ""}
+                        </Select.Item>
+                      ))}
+                      <Select.Separator />
+                      <Select.Item value={CUSTOM_AUTHOR}>Custom...</Select.Item>
+                    </Select.Content>
                   </Select.Root>
                 </Field.Root>
               )}

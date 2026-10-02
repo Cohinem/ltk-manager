@@ -78,7 +78,7 @@ export function ConfirmDialog({
         {heading !== undefined && (
           <div className={twMerge("flex items-start gap-3 rounded-lg border p-4", callout)}>
             <span className={twMerge("mt-0.5 shrink-0", headingClass)}>
-              {icon ?? <WarningIcon className="h-5 w-5" weight="bold" />}
+              {icon ?? <WarningIcon className="size-5" weight="bold" />}
             </span>
             <div className="min-w-0">
               <h3 className={twMerge("font-medium", headingClass)}>{heading}</h3>

@@ -76,7 +76,7 @@ function toRow(hit: BinFindHit, tabId: string, bin: OpenBin): RankedRow {
         value !== undefined && value.length > VALUE_CHARS
           ? `${value.slice(0, VALUE_CHARS - 1)}…`
           : value,
-      icon: <RowsIcon className="h-4 w-4 text-surface-400" />,
+      icon: <RowsIcon className="size-4 text-surface-400" />,
       target: { kind: "row", documentId: tabId, key },
     },
     band: 0,

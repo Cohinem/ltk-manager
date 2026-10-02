@@ -1,7 +1,7 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type IgnoreRules } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { workshopKeys } from "../../shared/api/keys";
 
@@ -42,8 +42,7 @@ export const ignoreRuleMutations = {
 
   addRecommended: (client: QueryClient) =>
     mutationOptions<IgnoreRules, AppError, string>({
-      mutationFn: async (projectPath) =>
-        unwrapForQuery(await api.ignoreRules.addRecommended(projectPath)),
+      mutationFn: mutationFn(api.ignoreRules.addRecommended),
       onSuccess: (saved, projectPath) => putIgnoreRules(client, projectPath, null, saved),
     }),
 } as const;

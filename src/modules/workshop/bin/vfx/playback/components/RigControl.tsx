@@ -9,10 +9,11 @@ import {
   SpiralIcon,
 } from "@phosphor-icons/react";
 
-import { Button, IconButton, Popover, SegmentedControl, Switch, Tooltip } from "@/components";
+import { Button, IconButton, OVERLINE, Popover, SegmentedControl, Switch } from "@/components";
 import { m } from "@/i18n";
 import { CHAMPION_HEIGHT } from "@/modules/viewport";
 
+import { SliderRow } from "../../../shared/preview/SliderRow";
 import {
   type Carrier,
   carrierOf,
@@ -30,7 +31,6 @@ import {
   withCarrier,
   withPlayback,
 } from "../../engine/model/rig";
-import { SliderRow } from "../../preview/components/SliderRow";
 import { useVfxRun } from "../state/run";
 
 /** What each slider spans, in the engine's own units and seconds. */
@@ -95,8 +95,8 @@ export function RigControl() {
             variant="ghost"
             size="xs"
             compact
-            left={<CarrierIcon weight="bold" className="h-4 w-4" />}
-            right={<CaretDownIcon weight="bold" className="h-3 w-3" />}
+            left={<CarrierIcon weight="bold" className="size-4" />}
+            right={<CaretDownIcon weight="bold" className="size-3" />}
             aria-label={m.workshop_bin_preview_rig_label()}
           >
             {CARRIER_LABEL[carrier]()}
@@ -107,102 +107,96 @@ export function RigControl() {
         }
       />
 
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end" sideOffset={8}>
-          <Popover.Popup
-            data-ui="RigControl"
-            aria-label={m.workshop_bin_preview_rig_label()}
-            className="w-72 p-3 select-none"
-          >
-            <Popover.Title className="text-xs font-medium tracking-wide text-surface-400 uppercase">
-              {m.workshop_bin_preview_rig_label()}
-            </Popover.Title>
-            <Popover.Description className="mt-0.5 text-meta text-surface-400">
-              {m.workshop_bin_preview_rig_description()}
-            </Popover.Description>
+      <Popover.Content
+        side="bottom"
+        align="end"
+        sideOffset={8}
+        data-ui="RigControl"
+        aria-label={m.workshop_bin_preview_rig_label()}
+        className="w-72 p-3 select-none"
+      >
+        <Popover.Title className={OVERLINE}>{m.workshop_bin_preview_rig_label()}</Popover.Title>
+        <Popover.Description className="mt-0.5 text-meta text-surface-400">
+          {m.workshop_bin_preview_rig_description()}
+        </Popover.Description>
 
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <span className="min-w-0 truncate text-xs text-surface-300">
-                {sourceLine(choice.source)}
-              </span>
-              {choice.source.kind !== "auto" && (
-                <Button
-                  variant="ghost"
-                  size="xs"
-                  compact
-                  left={<ArrowCounterClockwiseIcon weight="bold" className="h-3.5 w-3.5" />}
-                  onClick={resetRig}
-                >
-                  {m.workshop_bin_preview_rig_reset_action()}
-                </Button>
-              )}
-            </div>
-
-            <SegmentedControl
-              className="mt-3 w-full"
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <span className="min-w-0 truncate text-xs text-surface-300">
+            {sourceLine(choice.source)}
+          </span>
+          {choice.source.kind !== "auto" && (
+            <Button
+              variant="ghost"
               size="xs"
-              aria-label={m.workshop_bin_preview_rig_motion_label()}
-              value={carrier}
-              onChange={(next: Carrier) => {
-                if (next !== "bone") change(withCarrier(rig, next));
-              }}
-              options={carrierOptions(carrier)}
+              compact
+              left={<ArrowCounterClockwiseIcon weight="bold" className="size-3.5" />}
+              onClick={resetRig}
+            >
+              {m.workshop_bin_preview_rig_reset_action()}
+            </Button>
+          )}
+        </div>
+
+        <SegmentedControl
+          className="mt-3 w-full"
+          size="xs"
+          aria-label={m.workshop_bin_preview_rig_motion_label()}
+          value={carrier}
+          onChange={(next: Carrier) => {
+            if (next !== "bone") change(withCarrier(rig, next));
+          }}
+          options={carrierOptions(carrier)}
+        />
+
+        <SegmentedControl
+          className="mt-2 w-full"
+          size="xs"
+          aria-label={m.workshop_bin_preview_rig_playback_label()}
+          value={playbackOf(rig.life)}
+          onChange={(next: Playback) => change(withPlayback(rig, next))}
+          options={PLAYBACKS.map((each) => ({ value: each, label: PLAYBACK_LABEL[each]() }))}
+        />
+
+        <div className="mt-3 flex flex-col gap-3">
+          {carrier !== "bone" && (
+            <SliderRow
+              label={m.workshop_bin_preview_rig_height_label()}
+              reading={m.workshop_bin_preview_rig_units_label({
+                value: Math.round(rig.height),
+              })}
+              value={rig.height}
+              range={RANGE.height}
+              onValueChange={(height) => change({ ...rig, height })}
             />
+          )}
 
-            <SegmentedControl
-              className="mt-2 w-full"
-              size="xs"
-              aria-label={m.workshop_bin_preview_rig_playback_label()}
-              value={playbackOf(rig.life)}
-              onChange={(next: Playback) => change(withPlayback(rig, next))}
-              options={PLAYBACKS.map((each) => ({ value: each, label: PLAYBACK_LABEL[each]() }))}
+          <MotionRows motion={rig.motion} onMotionChange={(motion) => change({ ...rig, motion })} />
+
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-surface-300">
+              {m.workshop_bin_preview_rig_stop_label()}
+            </span>
+            <Switch
+              aria-label={m.workshop_bin_preview_rig_stop_label()}
+              checked={rig.stopAt != null}
+              onCheckedChange={(stop) => change({ ...rig, stopAt: stop ? FIRST_STOP : null })}
             />
+          </div>
+          {rig.stopAt != null && (
+            <SliderRow
+              label={m.workshop_bin_preview_rig_stop_after_label()}
+              reading={m.workshop_bin_preview_time_label({
+                seconds: rig.stopAt.toFixed(2),
+              })}
+              value={rig.stopAt}
+              range={RANGE.stop}
+              onValueChange={(stopAt) => change({ ...rig, stopAt })}
+            />
+          )}
 
-            <div className="mt-3 flex flex-col gap-3">
-              {carrier !== "bone" && (
-                <SliderRow
-                  label={m.workshop_bin_preview_rig_height_label()}
-                  reading={m.workshop_bin_preview_rig_units_label({
-                    value: Math.round(rig.height),
-                  })}
-                  value={rig.height}
-                  range={RANGE.height}
-                  onValueChange={(height) => change({ ...rig, height })}
-                />
-              )}
-
-              <MotionRows
-                motion={rig.motion}
-                onMotionChange={(motion) => change({ ...rig, motion })}
-              />
-
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-xs text-surface-300">
-                  {m.workshop_bin_preview_rig_stop_label()}
-                </span>
-                <Switch
-                  aria-label={m.workshop_bin_preview_rig_stop_label()}
-                  checked={rig.stopAt != null}
-                  onCheckedChange={(stop) => change({ ...rig, stopAt: stop ? FIRST_STOP : null })}
-                />
-              </div>
-              {rig.stopAt != null && (
-                <SliderRow
-                  label={m.workshop_bin_preview_rig_stop_after_label()}
-                  reading={m.workshop_bin_preview_time_label({
-                    seconds: rig.stopAt.toFixed(2),
-                  })}
-                  value={rig.stopAt}
-                  range={RANGE.stop}
-                  onValueChange={(stopAt) => change({ ...rig, stopAt })}
-                />
-              )}
-
-              <SeedRow />
-            </div>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+          <SeedRow />
+        </div>
+      </Popover.Content>
     </Popover.Root>
   );
 }
@@ -252,16 +246,11 @@ function SeedRow() {
       <span className="text-xs text-surface-300">{m.workshop_bin_preview_seed_label()}</span>
       <div className="flex items-center gap-1">
         <span className="font-mono text-meta text-code text-surface-400 tabular-nums">{seed}</span>
-        <Tooltip content={m.workshop_bin_preview_seed_reroll_action()}>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-label={m.workshop_bin_preview_seed_reroll_action()}
-            icon={<DiceFiveIcon weight="bold" className="h-4 w-4" />}
-            onClick={reroll}
-          />
-        </Tooltip>
+        <IconButton
+          icon={<DiceFiveIcon />}
+          onClick={reroll}
+          label={m.workshop_bin_preview_seed_reroll_action()}
+        />
       </div>
     </div>
   );

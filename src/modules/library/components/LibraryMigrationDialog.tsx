@@ -1,7 +1,7 @@
 import { PackageIcon, WarningCircleIcon } from "@phosphor-icons/react";
 import { useRef, useState } from "react";
 
-import { Accordion, Button, Dialog, ShockedPoroDuotoneIcon } from "@/components";
+import { Accordion, Button, Count, Dialog, ShockedPoroDuotoneIcon } from "@/components";
 import { type FailedConversion } from "@/lib/tauri";
 import { useQueuedDialog } from "@/stores";
 
@@ -28,56 +28,51 @@ export function LibraryMigrationDialog() {
   const plural = report.failed.length === 1 ? "mod" : "mods";
 
   return (
-    <Dialog.Root open>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        {/* Focus starts on the panel rather than on the first group's press,
-            so the dialog opens saying what happened, not wearing a ring. */}
-        {/* The height is fixed rather than fit, so a group folding open
-            scrolls the list instead of reshaping the dialog. */}
-        <Dialog.Overlay
-          ref={panel}
-          size="lg"
-          initialFocus={panel}
-          data-ui="LibraryMigrationDialog"
-          aria-label="Mods the library upgrade could not move"
-          className="flex h-[70vh] max-w-[38.5rem] flex-col overflow-hidden"
-        >
-          <header className="relative flex shrink-0 items-start gap-2.5 bg-linear-to-r from-warning/15 to-warning/0 px-3 py-2.5 select-none">
-            <ShockedPoroDuotoneIcon className="h-10 w-10 shrink-0 text-warning-text" />
-            <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-medium text-surface-100">
-                {report.failed.length} {plural} could not be upgraded
-              </h2>
-              <p className="text-xs text-surface-300">
-                They still work and stay in your library. Moving them is tried again the next time
-                the app starts.
-              </p>
-            </div>
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-linear-to-r from-warning/50 to-warning/0"
-            />
-          </header>
+    /* Focus starts on the panel rather than on the first group's press, so the dialog opens
+       saying what happened, not wearing a ring. The height is fixed rather than fit, so a
+       group folding open scrolls the list instead of reshaping the dialog. */
+    <Dialog.Frame
+      open
+      ref={panel}
+      size="lg"
+      initialFocus={panel}
+      data-ui="LibraryMigrationDialog"
+      aria-label="Mods the library upgrade could not move"
+      className="flex h-[70vh] max-w-[38.5rem] flex-col overflow-hidden"
+    >
+      <header className="relative flex shrink-0 items-start gap-2.5 bg-linear-to-r from-warning/15 to-warning/0 px-3 py-2.5 select-none">
+        <ShockedPoroDuotoneIcon className="size-10 shrink-0 text-warning-text" />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-sm font-medium text-surface-100">
+            {report.failed.length} {plural} could not be upgraded
+          </h2>
+          <p className="text-xs text-surface-300">
+            They still work and stay in your library. Moving them is tried again the next time the
+            app starts.
+          </p>
+        </div>
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-px bg-linear-to-r from-warning/50 to-warning/0"
+        />
+      </header>
 
-          {/* Every group opens open: the list is the report, and collapsing is
+      {/* Every group opens open: the list is the report, and collapsing is
               for wrangling it, not for finding out what it says. */}
-          <div className="mx-2 my-2 min-h-0 flex-1 overflow-y-auto rounded-xl border border-surface-700 bg-surface-950/30 scrollbar-md">
-            <Accordion.Root variant="filled" multiple defaultValue={groups.map(([error]) => error)}>
-              {groups.map(([error, failures]) => (
-                <FailureGroup key={error} error={error} failures={failures} />
-              ))}
-            </Accordion.Root>
-          </div>
+      <div className="mx-2 my-2 min-h-0 flex-1 overflow-y-auto rounded-xl border border-surface-700 bg-surface-950/30 scrollbar-md">
+        <Accordion.Root variant="filled" multiple defaultValue={groups.map(([error]) => error)}>
+          {groups.map(([error, failures]) => (
+            <FailureGroup key={error} error={error} failures={failures} />
+          ))}
+        </Accordion.Root>
+      </div>
 
-          <div className="flex shrink-0 justify-end gap-2 px-3 pt-0 pb-2.5 select-none">
-            <Button variant="filled" size="sm" onClick={() => setDismissed(true)}>
-              Done
-            </Button>
-          </div>
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <div className="flex shrink-0 justify-end gap-2 px-3 pt-0 pb-2.5 select-none">
+        <Button variant="filled" size="sm" onClick={() => setDismissed(true)}>
+          Done
+        </Button>
+      </div>
+    </Dialog.Frame>
   );
 }
 
@@ -93,10 +88,10 @@ function FailureGroup({ error, failures }: { error: string; failures: FailedConv
       <Accordion.Trigger variant="filled">
         <WarningCircleIcon
           weight="duotone"
-          className="mt-0.5 h-4 w-4 shrink-0 self-start text-warning-text"
+          className="mt-0.5 size-4 shrink-0 self-start text-warning-text"
         />
         <span className="min-w-0 flex-1 text-sm font-medium text-warning-text">{error}</span>
-        <span className="shrink-0 text-meta text-surface-400 tabular-nums">{failures.length}</span>
+        <Count>{failures.length}</Count>
       </Accordion.Trigger>
       <Accordion.Panel variant="filled">
         <ul className="flex flex-col py-1 select-none">
@@ -105,7 +100,7 @@ function FailureGroup({ error, failures }: { error: string; failures: FailedConv
               key={failure.id}
               className="flex items-center gap-2 px-3 py-1.5 text-row hover:bg-surface-veil-soft"
             >
-              <PackageIcon weight="duotone" className="h-4 w-4 shrink-0 text-surface-400" />
+              <PackageIcon weight="duotone" className="size-4 shrink-0 text-surface-400" />
               <span className="min-w-0 flex-1 truncate font-medium text-surface-100 select-text">
                 {failure.displayName}
               </span>

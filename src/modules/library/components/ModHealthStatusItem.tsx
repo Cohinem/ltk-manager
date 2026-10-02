@@ -53,7 +53,7 @@ export function ModHealthStatusItem() {
            a stepper mid-build would stretch this into a panel. */
         className={`mr-1.5 h-6 shrink-0 gap-1 self-center rounded-sm px-2 text-row tabular-nums ${tone.cell} ${shown ? tone.held : ""}`}
       >
-        <ItemIcon className="h-4 w-4 shrink-0" weight="bold" />
+        <ItemIcon className="size-4 shrink-0" weight="bold" />
         {label(alarm, count)}
       </Button>
     </Tooltip>

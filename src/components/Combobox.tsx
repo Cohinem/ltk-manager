@@ -87,7 +87,7 @@ export const ComboboxIcon = forwardRef<HTMLDivElement, ComboboxIconProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseCombobox.Icon ref={ref} className={twMerge("text-surface-400", className)} {...props}>
-        <ChevronDown className="h-4 w-4" />
+        <ChevronDown className="size-4" />
       </BaseCombobox.Icon>
     );
   },
@@ -156,6 +156,51 @@ export const ComboboxPopup = forwardRef<HTMLDivElement, ComboboxPopupProps>(
 );
 ComboboxPopup.displayName = "Combobox.Popup";
 
+// Content
+export interface ComboboxContentProps
+  extends
+    ComboboxPopupProps,
+    Pick<
+      ComboboxPositionerProps,
+      "side" | "align" | "sideOffset" | "alignOffset" | "anchor" | "collisionPadding"
+    > {
+  positionerClassName?: string;
+}
+
+/** Portal, Positioner and Popup as one part, taking the positioning props itself. */
+export const ComboboxContent = forwardRef<HTMLDivElement, ComboboxContentProps>(
+  (
+    {
+      side,
+      align,
+      sideOffset,
+      alignOffset,
+      anchor,
+      collisionPadding,
+      positionerClassName,
+      ...props
+    },
+    ref,
+  ) => {
+    return (
+      <ComboboxPortal>
+        <ComboboxPositioner
+          side={side}
+          align={align}
+          sideOffset={sideOffset}
+          alignOffset={alignOffset}
+          anchor={anchor}
+          collisionPadding={collisionPadding}
+          className={positionerClassName}
+        >
+          <ComboboxPopup ref={ref} {...props} />
+        </ComboboxPositioner>
+      </ComboboxPortal>
+    );
+  },
+);
+ComboboxContent.displayName = "Combobox.Content";
+
 // List
 export interface ComboboxListProps extends Omit<BaseCombobox.List.Props, "className"> {
   className?: string;
@@ -187,8 +232,8 @@ export const ComboboxItem = forwardRef<HTMLDivElement, ComboboxItemProps>(
         )}
         {...props}
       >
-        <BaseCombobox.ItemIndicator className="inline-flex h-4 w-4 shrink-0 items-center justify-center">
-          <Check className="h-3.5 w-3.5" />
+        <BaseCombobox.ItemIndicator className="inline-flex size-4 shrink-0 items-center justify-center">
+          <Check className="size-3.5" />
         </BaseCombobox.ItemIndicator>
         {children}
       </BaseCombobox.Item>
@@ -236,7 +281,7 @@ export const ComboboxClear = forwardRef<HTMLButtonElement, ComboboxClearProps>(
         )}
         {...props}
       >
-        {children ?? <X className="h-4 w-4" />}
+        {children ?? <X className="size-4" />}
       </BaseCombobox.Clear>
     );
   },
@@ -297,13 +342,13 @@ export const ComboboxChipRemove = forwardRef<HTMLButtonElement, ComboboxChipRemo
       <BaseCombobox.ChipRemove
         ref={ref}
         className={twMerge(
-          "inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm",
+          "inline-flex size-4 shrink-0 items-center justify-center rounded-sm",
           "text-surface-400 transition-colors hover:bg-surface-500 hover:text-surface-200",
           className,
         )}
         {...props}
       >
-        {children ?? <X className="h-3 w-3" />}
+        {children ?? <X className="size-3" />}
       </BaseCombobox.ChipRemove>
     );
   },
@@ -383,6 +428,7 @@ export const Combobox = {
   Portal: ComboboxPortal,
   Positioner: ComboboxPositioner,
   Popup: ComboboxPopup,
+  Content: ComboboxContent,
   List: ComboboxList,
   Item: ComboboxItem,
   Empty: ComboboxEmpty,

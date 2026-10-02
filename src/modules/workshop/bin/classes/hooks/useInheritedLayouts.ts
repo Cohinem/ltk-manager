@@ -1,7 +1,7 @@
 import { queryOptions, type UseQueryResult, useQueries } from "@tanstack/react-query";
 
 import { type AppError, api } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs } from "@/utils/query";
 
 import { type ClassLayout, INHERITED_LAYOUTS } from "../utils/classLayouts";
 
@@ -9,7 +9,7 @@ import { type ClassLayout, INHERITED_LAYOUTS } from "../utils/classLayouts";
 const derivedQuery = (base: string) =>
   queryOptions<string[], AppError>({
     queryKey: ["derived-classes", base],
-    queryFn: async () => unwrapForQuery(await api.bin.derivedClasses(base)),
+    queryFn: queryFnWithArgs(api.bin.derivedClasses, base),
     staleTime: Infinity,
     gcTime: Infinity,
     retry: false,

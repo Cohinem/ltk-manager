@@ -90,7 +90,7 @@ function WayOut({ asset, name }: Pick<BinPreviewProps, "asset" | "name">) {
     <Button
       size="xs"
       loading={open.isPending}
-      left={<ArrowSquareOutIcon className="h-3.5 w-3.5" weight="bold" />}
+      left={<ArrowSquareOutIcon className="size-3.5" weight="bold" />}
       onClick={() => open.mutate({ asset, name })}
     >
       {m.workshop_bin_open_vscode_action()}
@@ -116,7 +116,7 @@ function BinGlyph() {
 
   return (
     <span style={{ color: `var(${descriptor.tintToken})` }}>
-      <Icon className="h-10 w-10" strokeWidth={1.5} />
+      <Icon className="size-10" strokeWidth={1.5} />
     </span>
   );
 }
@@ -138,10 +138,10 @@ function InstallSteps() {
           <button
             type="button"
             onClick={() => void copy(PALETTE_COMMAND, m.workshop_bin_command_label())}
-            className="mt-1 flex w-full items-center gap-1.5 rounded-sm bg-surface-800 px-1.5 py-1 text-left font-mono text-[0.6875rem] text-surface-200 transition-colors hover:bg-surface-700"
+            className="mt-1 flex w-full items-center gap-1.5 rounded-sm bg-surface-800 px-1.5 py-1 text-left font-mono text-meta text-surface-200 transition-colors hover:bg-surface-700"
           >
             <span className="truncate">{PALETTE_COMMAND}</span>
-            <CopyIcon className="ml-auto h-3 w-3 shrink-0 text-surface-400" />
+            <CopyIcon className="ml-auto size-3 shrink-0 text-surface-400" />
           </button>
         </Tooltip>
       </li>

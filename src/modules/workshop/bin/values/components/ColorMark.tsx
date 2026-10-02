@@ -46,12 +46,12 @@ export function Swatch({ rgba, className }: { rgba: ColorStop["rgba"]; className
     <span
       /* DS-TOKEN, DS-VEIL, DS-RADIUS */
       className={twMerge(
-        `h-3.5 w-3.5 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong ${CHECKERBOARD} [background-size:6px_6px]`,
+        `size-3.5 shrink-0 overflow-hidden rounded-sm border border-surface-veil-strong ${CHECKERBOARD} [background-size:6px_6px]`,
         className,
       )}
       aria-hidden
     >
-      <span className="block h-full w-full" style={{ background: colorCss(rgba) }} />
+      <span className="block size-full" style={{ background: colorCss(rgba) }} />
     </span>
   );
 }
@@ -68,23 +68,22 @@ function Strip({ stops, wide }: { stops: readonly ColorStop[]; wide: boolean }) 
         wide && "h-5 w-48",
       )}
     >
-      <span className="block h-full w-full" style={{ background: gradientCss(stops) }} />
+      <span className="block size-full" style={{ background: gradientCss(stops) }} />
     </span>
   );
 
   return (
     <Popover.Root>
       <Popover.Trigger openOnHover delay={CARD_DELAY} nativeButton={false} render={trigger} />
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="start" sideOffset={6}>
-          <Popover.Popup
-            aria-label={m.workshop_bin_gradient_label({ count: stops.length })}
-            className="w-64 p-3 text-meta select-none"
-          >
-            <StopList stops={stops} />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="bottom"
+        align="start"
+        sideOffset={6}
+        aria-label={m.workshop_bin_gradient_label({ count: stops.length })}
+        className="w-64 p-3 text-meta select-none"
+      >
+        <StopList stops={stops} />
+      </Popover.Content>
     </Popover.Root>
   );
 }

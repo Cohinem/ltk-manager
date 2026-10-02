@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { BinDocumentId, BinRow, Dependency } from "@/lib/tauri";
+import { toggledIn } from "@/utils";
 
 import { type ChildrenRequest, useBinChildren } from "../../documents/hooks/useBinDocument";
 import type { RowGroup } from "../../links/hooks/useLinkTargets";
@@ -14,7 +15,6 @@ import {
   type LoadedChildren,
   PAGE_SIZE,
   pagesWanted,
-  toggled,
   type VisibleRow,
 } from "../utils/binRows";
 
@@ -138,7 +138,7 @@ export function useTreeRows({
 
   const toggle = useCallback((key: string) => {
     setExpanded((current) => {
-      if (!current.has(key)) return toggled(current, key);
+      if (!current.has(key)) return toggledIn(current, key);
       /* Collapsing forgets what was open underneath. Nothing hidden is fetched. */
       return new Set([...current].filter((open) => !isUnder(key, open)));
     });

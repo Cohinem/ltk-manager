@@ -1,7 +1,7 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 
 import { api, type AppError, type ClassDocs } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFn, unwrapForQuery } from "@/utils/query";
 
 export const classDocsKeys = {
   sync: () => ["class-docs", "sync"] as const,
@@ -17,7 +17,7 @@ export const classDocsQueries = {
   sync: () =>
     queryOptions<number, AppError>({
       queryKey: classDocsKeys.sync(),
-      queryFn: async () => unwrapForQuery(await api.bin.syncMetaDocs()),
+      queryFn: queryFn(api.bin.syncMetaDocs),
       staleTime: Infinity,
       gcTime: Infinity,
       retry: false,

@@ -4,6 +4,7 @@ import { Button, IconButton, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { ReadOnly } from "@/lib/tauri";
 
+import { StatusBar } from "../../../shared/components/StatusBar";
 import { KeyHint } from "../components/KeyHint";
 import { ReadOnlyNote } from "../components/ReadOnlyNote";
 import { type ResizeBlock, resizeBlock } from "../engine/edit/targets";
@@ -43,10 +44,7 @@ export function CanvasStatus({ transform, selection, editing }: CanvasStatusProp
   const zoom = transform.view.zoom;
 
   return (
-    <div
-      data-ui="CanvasStatus"
-      className="flex h-8 shrink-0 items-center gap-3 border-t border-surface-700/50 bg-surface-900 px-3 font-mono text-xs text-surface-400 select-none"
-    >
+    <StatusBar data-ui="CanvasStatus">
       <span className="w-24 shrink-0 tabular-nums">
         {pointer !== null &&
           m.workshop_bin_atlas_pointer_label({
@@ -79,21 +77,15 @@ export function CanvasStatus({ transform, selection, editing }: CanvasStatusProp
 
       <div className="ml-auto flex shrink-0 items-center gap-1">
         <CanvasShortcuts />
-        <Tooltip
-          content={
+        <IconButton
+          aria-label={m.workshop_preview_zoom_out_label()}
+          icon={<MinusIcon />}
+          disabled={zoom <= ZOOM_MIN}
+          onClick={() => transform.zoomBy(1 / ZOOM_STEP)}
+          tooltip={
             <KeyHint label={m.workshop_preview_zoom_out_label()} shortcut={CANVAS_KEYS.zoomOut} />
           }
-        >
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-label={m.workshop_preview_zoom_out_label()}
-            icon={<MinusIcon className="h-4 w-4" weight="bold" />}
-            disabled={zoom <= ZOOM_MIN}
-            onClick={() => transform.zoomBy(1 / ZOOM_STEP)}
-          />
-        </Tooltip>
+        />
         <Tooltip
           content={
             <KeyHint label={m.workshop_preview_zoom_actual_label()} shortcut={CANVAS_KEYS.actual} />
@@ -109,21 +101,15 @@ export function CanvasStatus({ transform, selection, editing }: CanvasStatusProp
             {m.workshop_preview_zoom_percent_label({ percent: Math.round(zoom * 100) })}
           </Button>
         </Tooltip>
-        <Tooltip
-          content={
+        <IconButton
+          aria-label={m.workshop_preview_zoom_in_label()}
+          icon={<PlusIcon />}
+          disabled={zoom >= ZOOM_MAX}
+          onClick={() => transform.zoomBy(ZOOM_STEP)}
+          tooltip={
             <KeyHint label={m.workshop_preview_zoom_in_label()} shortcut={CANVAS_KEYS.zoomIn} />
           }
-        >
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-label={m.workshop_preview_zoom_in_label()}
-            icon={<PlusIcon className="h-4 w-4" weight="bold" />}
-            disabled={zoom >= ZOOM_MAX}
-            onClick={() => transform.zoomBy(ZOOM_STEP)}
-          />
-        </Tooltip>
+        />
         <Tooltip
           content={
             <KeyHint label={m.workshop_preview_zoom_fit_label()} shortcut={CANVAS_KEYS.fit} />
@@ -141,7 +127,7 @@ export function CanvasStatus({ transform, selection, editing }: CanvasStatusProp
           </Button>
         </Tooltip>
       </div>
-    </div>
+    </StatusBar>
   );
 }
 

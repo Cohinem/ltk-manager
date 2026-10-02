@@ -6,7 +6,7 @@ import { m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
 import { blackTexel, FlatViewport, useSceneColors, whiteTexel } from "@/modules/viewport";
 
-import { Notice } from "../../vfx/preview/components/Notice";
+import { Notice } from "../../shared/preview/Notice";
 import { uiQueries } from "../api/uiQueries";
 import type { Screen } from "../engine/layout/solve";
 import { finiteFont, type ViewLook, type ViewStyleSheet } from "../engine/model/view";

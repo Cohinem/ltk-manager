@@ -1,14 +1,12 @@
 import { useFrame } from "@react-three/fiber";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 
 import type { IdleEffect as IdleEffectModel } from "@/lib/tauri";
 import type { Pose, SceneClock } from "@/modules/viewport";
 
 import type { SystemModel } from "../../vfx/engine/model/model";
-import { createDriver } from "../../vfx/engine/simulation/driver";
 import { VfxSystem } from "../../vfx/rendering/components/VfxSystem";
-import { useVfxMeshes } from "../../vfx/rendering/hooks/useVfxMeshes";
-import { useVfxTextures } from "../../vfx/rendering/hooks/useVfxTextures";
+import { useParticleSystem } from "../../vfx/rendering/hooks/useParticleSystem";
 import { drawnEmitters } from "../../vfx/rendering/utils/definitions";
 import { followClock, following } from "../utils/follow";
 import { idleRig } from "../utils/skinScene";
@@ -33,19 +31,9 @@ export interface IdleEffectProps {
  */
 export function IdleEffect({ effect, system, pose, clock, scale }: IdleEffectProps) {
   const drawn = useMemo(() => drawnEmitters(system, true), [system]);
-  const textures = useVfxTextures(drawn);
-  const meshes = useVfxMeshes(drawn);
-  const driver = useMemo(() => createDriver(IDLE_SEED), []);
-  const followed = useMemo(following, []);
   const rig = useMemo(() => idleRig(pose, effect, scale), [pose, effect, scale]);
-
-  useEffect(() => {
-    driver.swap(system);
-  }, [driver, system]);
-
-  useEffect(() => {
-    driver.steer(rig);
-  }, [driver, rig]);
+  const { textures, meshes, driver } = useParticleSystem(system, drawn, IDLE_SEED, rig);
+  const followed = useMemo(following, []);
 
   useFrame(() => followClock(driver, clock, followed));
 

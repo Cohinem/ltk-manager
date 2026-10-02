@@ -171,7 +171,7 @@ function dropMarkClasses(drop: DropTarget | null, id: string) {
 
 function EmptyBody() {
   return (
-    <span className="min-w-0 truncate font-sans text-[0.625rem] text-surface-500 italic">
+    <span className="min-w-0 truncate font-sans text-fine text-surface-500 italic">
       {m.workshop_declarations_empty_module_hint()}
     </span>
   );
@@ -180,7 +180,7 @@ function EmptyBody() {
 function AddBody() {
   return (
     <span className="flex min-w-0 items-center gap-1.5 font-sans text-surface-400 group-hover/row:text-surface-200">
-      <PlusIcon weight="bold" className="h-3 w-3 shrink-0" />
+      <PlusIcon weight="bold" className="size-3 shrink-0" />
       {m.workshop_declarations_new_module_action()}
     </span>
   );
@@ -194,10 +194,10 @@ function LayerBody({ node }: { node: Extract<OutlineNode, { type: "layer" }> }) 
     <>
       <LayerGlyph layerName={layer.layer} />
       <span className="truncate font-sans font-medium">{layerTitle(project, layer.layer)}</span>
-      <span className="min-w-0 shrink truncate text-[0.625rem] text-surface-400">{layer.file}</span>
+      <span className="min-w-0 shrink truncate text-fine text-surface-400">{layer.file}</span>
       {layer.error !== null && (
         <Tooltip content={layer.error.message}>
-          <span className="ml-auto flex shrink-0 items-center gap-1 text-[0.625rem] text-danger-text">
+          <span className="ml-auto flex shrink-0 items-center gap-1 text-fine text-danger-text">
             <SeverityGlyph severity="error" />
             {m.workshop_declarations_load_error_label()}
           </span>
@@ -241,16 +241,16 @@ function EntryBody({
 /** What the entry is to the chunk: an object the game holds, or one the module creates or removes. */
 function EntryGlyph({ entry }: { entry: DeclaredEntry }) {
   const object = entry.object;
-  if (object === null) return <CubeIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />;
+  if (object === null) return <CubeIcon className="size-3.5 shrink-0 text-surface-400" />;
 
   /* A sign's tone, the same the keys take: SIGN_CLASSES. */
   if (object.kind === "remove") {
-    return <MinusCircleIcon weight="bold" className="h-3.5 w-3.5 shrink-0 text-danger-text" />;
+    return <MinusCircleIcon weight="bold" className="size-3.5 shrink-0 text-danger-text" />;
   }
   if (object.kind === "clone") {
-    return <CopySimpleIcon weight="bold" className="h-3.5 w-3.5 shrink-0 text-success-text" />;
+    return <CopySimpleIcon weight="bold" className="size-3.5 shrink-0 text-success-text" />;
   }
-  return <PlusCircleIcon weight="bold" className="h-3.5 w-3.5 shrink-0 text-success-text" />;
+  return <PlusCircleIcon weight="bold" className="size-3.5 shrink-0 text-success-text" />;
 }
 
 function ObjectEditTag({ entry }: { entry: DeclaredEntry }) {
@@ -339,7 +339,7 @@ function LinkBody({ node }: { node: Extract<OutlineNode, { type: "link" }> }) {
   return (
     <>
       <Sign sign={node.sign} />
-      <LinkSimpleIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />
+      <LinkSimpleIcon className="size-3.5 shrink-0 text-surface-400" />
       <span className="min-w-0 truncate text-surface-200" title={node.path}>
         {node.path}
       </span>
@@ -352,7 +352,7 @@ function OverrideBody({ node }: { node: Extract<OutlineNode, { type: "override" 
   return (
     <>
       <span className="w-[1ch] shrink-0" />
-      <FileIcon className="h-3.5 w-3.5 shrink-0 text-surface-400" />
+      <FileIcon className="size-3.5 shrink-0 text-surface-400" />
       <span className="min-w-0 truncate text-surface-200" title={node.path}>
         {node.path}
       </span>
@@ -363,20 +363,16 @@ function OverrideBody({ node }: { node: Extract<OutlineNode, { type: "override" 
 
 function GoToAction({ onGoTo }: { onGoTo: (intent: OpenIntent) => void }) {
   return (
-    <Tooltip content={m.workshop_declarations_go_to_action()} side="left">
-      <IconButton
-        icon={<ArrowSquareOutIcon weight="bold" className="h-3.5 w-3.5" />}
-        variant="ghost"
-        size="xs"
-        compact
-        tabIndex={-1}
-        aria-label={m.workshop_declarations_go_to_action()}
-        onClick={(event) => {
-          event.stopPropagation();
-          onGoTo(clickIntent(event));
-        }}
-        className="h-5 w-5 shrink-0 opacity-0 group-hover/row:opacity-100 group-aria-selected/row:opacity-100"
-      />
-    </Tooltip>
+    <IconButton
+      icon={<ArrowSquareOutIcon className="size-3.5" />}
+      tabIndex={-1}
+      onClick={(event) => {
+        event.stopPropagation();
+        onGoTo(clickIntent(event));
+      }}
+      className="size-5 shrink-0 opacity-0 group-hover/row:opacity-100 group-aria-selected/row:opacity-100"
+      label={m.workshop_declarations_go_to_action()}
+      tooltipSide="left"
+    />
   );
 }

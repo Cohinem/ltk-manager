@@ -218,8 +218,8 @@ export function Readout({
                 nudge(direction, event.ctrlKey || event.metaKey, event.shiftKey);
               }}
             >
-              {direction === 1 && <CaretUpIcon weight="bold" className="h-2.5 w-2.5" />}
-              {direction === -1 && <CaretDownIcon weight="bold" className="h-2.5 w-2.5" />}
+              {direction === 1 && <CaretUpIcon weight="bold" className="size-2.5" />}
+              {direction === -1 && <CaretDownIcon weight="bold" className="size-2.5" />}
             </button>
           ))}
         </span>

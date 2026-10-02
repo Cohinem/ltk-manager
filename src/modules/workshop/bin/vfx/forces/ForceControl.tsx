@@ -181,19 +181,17 @@ export function ForceControl({
               )}
               <span className="flex w-5 shrink-0 items-center">
                 {hosted && handle && editable && !curve && (
-                  <Tooltip content={m.workshop_bin_force_handle_action()}>
-                    <IconButton
-                      size="xs"
-                      variant="ghost"
-                      disabled={
-                        preview.muted.has(force.key) ||
-                        (preview.solo !== null && preview.solo !== force.key)
-                      }
-                      icon={<ArrowsOutCardinalIcon className="h-3.5 w-3.5" />}
-                      aria-label={m.workshop_bin_force_handle_label({ property: property.label() })}
-                      onClick={() => preview.select(force.key, property.name)}
-                    />
-                  </Tooltip>
+                  <IconButton
+                    compact={false}
+                    disabled={
+                      preview.muted.has(force.key) ||
+                      (preview.solo !== null && preview.solo !== force.key)
+                    }
+                    icon={<ArrowsOutCardinalIcon className="size-3.5" />}
+                    aria-label={m.workshop_bin_force_handle_label({ property: property.label() })}
+                    onClick={() => preview.select(force.key, property.name)}
+                    tooltip={m.workshop_bin_force_handle_action()}
+                  />
                 )}
               </span>
             </div>

@@ -1,7 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
 import { api, type AppError, type FixReport, type ProblemId } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
@@ -35,7 +34,7 @@ export function useFixProblems() {
   const toast = useToast();
 
   return useMutation<FixReport, AppError, FixProblemsArgs>({
-    meta: { silentError: true },
+    meta: { errorTitle: "Couldn't fix problems" },
     mutationFn: async ({ projectPath, problems }) => {
       const result = await api.fixProblems(projectPath, problems);
       return unwrapForQuery(result);
@@ -65,9 +64,6 @@ export function useFixProblems() {
       if (skips) {
         toast.info(`Nothing left to fix in ${scope}`, skips);
       }
-    },
-    onError: (error) => {
-      toast.error("Couldn't fix problems", errorSummary(error));
     },
   });
 }

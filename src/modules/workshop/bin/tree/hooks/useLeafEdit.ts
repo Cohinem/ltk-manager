@@ -5,6 +5,7 @@ import {
   type AppError,
   type AssetRef,
   type BinDocumentId,
+  type BinEdit,
   type BinRow,
   type NewProperty,
   type ValueEdit,
@@ -106,6 +107,21 @@ export function useLeafEdit(
     [invalidate, key],
   );
 
+  /** Send `edit`, mark its outcome under the row key `at`, and queue the save where it landed. */
+  const apply = useCallback(
+    async (at: string, edit: BinEdit, blocking = false) => {
+      const { result, id } = await send((id) => api.bin.edit(id, edit));
+      mark(at, result.ok ? null : result.error, blocking);
+      if (!result.ok) {
+        return false;
+      }
+
+      landed(id);
+      return true;
+    },
+    [landed, mark, send],
+  );
+
   const commit = useCallback(
     async (row: BinRow, typed: TypedLeaf) => {
       const at = rowKey(row);
@@ -114,105 +130,60 @@ export function useLeafEdit(
         return false;
       }
 
-      const { result, id } = await send((id) =>
-        api.bin.edit(id, { kind: "patch", entry: row.entry, path: row.path, value: typed.leaf }),
+      return apply(
+        at,
+        { kind: "patch", entry: row.entry, path: row.path, value: typed.leaf },
+        true,
       );
-      mark(at, result.ok ? null : result.error);
-      if (!result.ok) {
-        return false;
-      }
-
-      landed(id);
-      return true;
     },
-    [landed, mark, send],
+    [apply, mark],
   );
 
   const editProperty = useCallback(
-    async (holder: BinRow, field: string, edits: ValueEdit[]) => {
-      const { result, id } = await send((id) =>
-        api.bin.edit(id, {
-          kind: "editProperty",
-          entry: holder.entry,
-          holder: holder.path,
-          field,
-          edits,
-        }),
-      );
-      mark(rowKey(holder), result.ok ? null : result.error, false);
-      if (!result.ok) {
-        return false;
-      }
-
-      landed(id);
-      return true;
-    },
-    [landed, mark, send],
+    (holder: BinRow, field: string, edits: ValueEdit[]) =>
+      apply(rowKey(holder), {
+        kind: "editProperty",
+        entry: holder.entry,
+        holder: holder.path,
+        field,
+        edits,
+      }),
+    [apply],
   );
 
   const removeItem = useCallback(
-    async (row: BinRow) => {
-      const { result, id } = await send((id) =>
-        api.bin.edit(id, { kind: "removeItem", entry: row.entry, path: row.path }),
-      );
-      mark(rowKey(row), result.ok ? null : result.error, false);
-      if (!result.ok) {
-        return false;
-      }
-
-      landed(id);
-      return true;
-    },
-    [landed, mark, send],
+    (row: BinRow) => apply(rowKey(row), { kind: "removeItem", entry: row.entry, path: row.path }),
+    [apply],
   );
 
   const removeProperty = useCallback(
-    async (row: BinRow) => {
-      const { result, id } = await send((id) =>
-        api.bin.edit(id, { kind: "removeProperty", entry: row.entry, path: row.path }),
-      );
-      mark(rowKey(row), result.ok ? null : result.error, false);
-      if (!result.ok) {
-        return false;
-      }
-
-      landed(id);
-      return true;
-    },
-    [landed, mark, send],
+    (row: BinRow) =>
+      apply(rowKey(row), { kind: "removeProperty", entry: row.entry, path: row.path }),
+    [apply],
   );
 
   const addProperty = useCallback(
-    async (holder: BinRow, property: NewProperty) => {
-      const { result, id } = await send((id) =>
-        api.bin.edit(id, { kind: "addProperty", entry: holder.entry, path: holder.path, property }),
-      );
-      mark(rowKey(holder), result.ok ? null : result.error, false);
-      if (!result.ok) {
-        return false;
-      }
-
-      landed(id);
-      return true;
-    },
-    [landed, mark, send],
+    (holder: BinRow, property: NewProperty) =>
+      apply(rowKey(holder), {
+        kind: "addProperty",
+        entry: holder.entry,
+        path: holder.path,
+        property,
+      }),
+    [apply],
   );
 
   const setPointer = useCallback(
-    async (holder: BinRow, field: string, className: string | null) => {
+    (holder: BinRow, field: string, className: string | null) => {
       const path = [holder.path, field.slice(2)].filter(Boolean).join(".");
-      const { result, id } = await send((id) =>
-        api.bin.edit(id, { kind: "setPointer", entry: holder.entry, path, className }),
-      );
-      mark(`${holder.entry}:${path}`, result.ok ? null : result.error, false);
-      if (!result.ok) {
-        return false;
-      }
-
-      landed(id);
-      return true;
+      return apply(`${holder.entry}:${path}`, {
+        kind: "setPointer",
+        entry: holder.entry,
+        path,
+        className,
+      });
     },
-    [landed, mark, send],
+    [apply],
   );
 
   return {

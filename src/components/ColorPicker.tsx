@@ -118,7 +118,7 @@ function ShadeSquare({ hsv, label, onChange }: ShadeSquareProps) {
     >
       <span
         aria-hidden
-        className="pointer-events-none absolute h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-brand-on shadow-md"
+        className="pointer-events-none absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-brand-on shadow-md"
         style={{
           left: `${hsv.saturation * 100}%`,
           top: `${(1 - hsv.brightness) * 100}%`,

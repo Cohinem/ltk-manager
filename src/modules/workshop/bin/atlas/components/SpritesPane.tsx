@@ -2,16 +2,15 @@ import { ExportIcon, ImageSquareIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { type KeyboardEvent, useCallback, useId, useMemo, useRef, useState } from "react";
 
-import { IconButton, Tooltip } from "@/components";
-import { useZoomedPx } from "@/hooks";
+import { Count, IconButton, SearchField } from "@/components";
+import { useRemeasure, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import type { BinDocumentId, SheetSpec } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { MatchedText } from "../../../shared/components/MatchedText";
-import { TreeSearchBox } from "../../../shared/components/TreeSearchBox";
+import { Notice } from "../../shared/preview/Notice";
 import { instantScroll } from "../../tree/hooks/useRowWindow";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { sheetSpriteAt } from "../engine/edit/spriteEdits";
 import {
   type SpriteRow,
@@ -75,14 +74,13 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => scroller.current,
-    estimateSize: useCallback(
-      (index: number) => zoomed(rows[index]?.type === "texture" ? HEADING_ROW : SPRITE_ROW),
-      [rows, zoomed],
-    ),
+    estimateSize: (index: number) =>
+      zoomed(rows[index]?.type === "texture" ? HEADING_ROW : SPRITE_ROW),
     overscan: 8,
     getItemKey: useCallback((index: number) => rows[index]?.id ?? index, [rows]),
     scrollToFn: instantScroll,
   });
+  useRemeasure(virtualizer, zoomed);
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const found = activeId === null ? -1 : rows.findIndex((row) => row.id === activeId);
@@ -165,7 +163,7 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
     <div data-ui="SpritesPane" className="flex min-h-0 flex-1 flex-col select-none">
       <div className="flex shrink-0 flex-col gap-1.5 p-1.5 pb-1">
         <div className="flex items-center gap-1.5">
-          <TreeSearchBox
+          <SearchField
             value={query}
             onChange={setQuery}
             label={m.workshop_bin_atlas_sprites_search_label()}
@@ -173,10 +171,8 @@ export function SpritesPane({ document, entry }: SpritesPaneProps) {
             onCommit={() => scroller.current?.focus()}
             inputRef={search}
           >
-            {query.trim() !== "" && (
-              <span className="shrink-0 text-meta text-surface-400 tabular-nums">{shown}</span>
-            )}
-          </TreeSearchBox>
+            {query.trim() !== "" && <Count>{shown}</Count>}
+          </SearchField>
         </div>
         {sprites.sheet !== null && <SheetSummary sheet={sprites.sheet} />}
       </div>
@@ -335,52 +331,40 @@ function SpriteRowView({
         </span>
       </span>
       {texture.asset !== null && (
-        <Tooltip
-          content={
+        <IconButton
+          tabIndex={-1}
+          aria-label={m.workshop_bin_atlas_sprites_export_action()}
+          disabled={exporting}
+          className={twMerge(idle && "opacity-0 group-hover/row:opacity-100")}
+          icon={<ExportIcon className="size-3.5" />}
+          onClick={(event) => {
+            event.stopPropagation();
+            onExport();
+          }}
+          tooltip={
             <KeyHint label={m.workshop_bin_atlas_sprites_export_action()} shortcut={EXPORT_KEY} />
           }
-        >
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            tabIndex={-1}
-            aria-label={m.workshop_bin_atlas_sprites_export_action()}
-            disabled={exporting}
-            className={twMerge(idle && "opacity-0 group-hover/row:opacity-100")}
-            icon={<ExportIcon weight="bold" className="h-3.5 w-3.5" />}
-            onClick={(event) => {
-              event.stopPropagation();
-              onExport();
-            }}
-          />
-        </Tooltip>
+        />
       )}
       {sprites.available && (
-        <Tooltip
-          content={
+        <IconButton
+          tabIndex={-1}
+          aria-label={m.workshop_bin_atlas_sprites_replace_action()}
+          disabled={sprites.importing}
+          className={twMerge(idle && "opacity-0 group-hover/row:opacity-100")}
+          icon={<ImageSquareIcon className="size-3.5" />}
+          onClick={(event) => {
+            event.stopPropagation();
+            void sprites.run(
+              sprite.elements,
+              replaceKey,
+              pageOf(texture.path, sprite.uv, sprites.sheet),
+            );
+          }}
+          tooltip={
             <KeyHint label={m.workshop_bin_atlas_sprites_replace_action()} shortcut={REPLACE_KEY} />
           }
-        >
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            tabIndex={-1}
-            aria-label={m.workshop_bin_atlas_sprites_replace_action()}
-            disabled={sprites.importing}
-            className={twMerge(idle && "opacity-0 group-hover/row:opacity-100")}
-            icon={<ImageSquareIcon weight="bold" className="h-3.5 w-3.5" />}
-            onClick={(event) => {
-              event.stopPropagation();
-              void sprites.run(
-                sprite.elements,
-                replaceKey,
-                pageOf(texture.path, sprite.uv, sprites.sheet),
-              );
-            }}
-          />
-        </Tooltip>
+        />
       )}
     </div>
   );

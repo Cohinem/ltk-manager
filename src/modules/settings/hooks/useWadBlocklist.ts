@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from "react";
 
-import type { Settings, WadBlocklistEntry } from "@/lib/tauri";
+import type { WadBlocklistEntry } from "@/lib/tauri";
+
+import { useLoadedSettings, useUpdateSettings } from "../api";
 
 export interface UseWadBlocklistResult {
   blocklist: WadBlocklistEntry[];
@@ -11,25 +13,22 @@ export interface UseWadBlocklistResult {
 }
 
 /**
- * CRUD surface for the `wadBlocklist` slice of `Settings`. Every mutation calls
- * `onSave` with the full updated settings object — the same write-through
- * pattern used by the other settings sections.
+ * CRUD surface for the `wadBlocklist` slice of `Settings`, saved as each change lands.
  *
  * `add` treats two entries as equivalent when they share the same `kind` and a
  * case-insensitive value match. Exact and Regex entries with the same literal
  * value are allowed to coexist because they block different things.
  */
-export function useWadBlocklist(
-  settings: Settings,
-  onSave: (settings: Settings) => void,
-): UseWadBlocklistResult {
+export function useWadBlocklist(): UseWadBlocklistResult {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   const blocklist = useMemo(() => settings.wadBlocklist ?? [], [settings.wadBlocklist]);
 
   const replace = useCallback(
     (next: WadBlocklistEntry[]) => {
-      onSave({ ...settings, wadBlocklist: next });
+      update({ wadBlocklist: next });
     },
-    [settings, onSave],
+    [update],
   );
 
   const add = useCallback(

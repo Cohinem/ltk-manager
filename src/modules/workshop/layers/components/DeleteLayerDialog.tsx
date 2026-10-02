@@ -30,7 +30,7 @@ export function DeleteLayerDialog({
       confirmLabel="Delete Layer"
       onConfirm={onConfirm}
       pending={isPending}
-      icon={<TrashIcon className="h-5 w-5" weight="bold" />}
+      icon={<TrashIcon className="size-5" weight="bold" />}
       size="sm"
     />
   );

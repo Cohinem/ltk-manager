@@ -1,4 +1,10 @@
-import { FolderDashedIcon, FolderIcon, FolderOpenIcon } from "@phosphor-icons/react";
+import {
+  CaretRightIcon,
+  FolderDashedIcon,
+  FolderIcon,
+  FolderOpenIcon,
+} from "@phosphor-icons/react";
+import type { ReactNode } from "react";
 
 import { Spinner } from "@/components";
 import { twMerge } from "@/utils";
@@ -61,9 +67,33 @@ export function GuideRails({ blocks }: { blocks: readonly string[] }) {
   ));
 }
 
+/** A branch row's caret, turned down while the branch is open. */
+export function TreeCaret({ isExpanded }: { isExpanded: boolean }) {
+  return (
+    <CaretRightIcon
+      aria-hidden="true"
+      className={twMerge(
+        "size-3 shrink-0 text-surface-400 transition-transform",
+        isExpanded && "rotate-90",
+      )}
+    />
+  );
+}
+
 /** The caret's slot, reserved. Names stay column-aligned across the row kinds. */
+/** A row's trailing count, pushed to the row's far end. */
+export function TreeRowCount({ className, children }: { className?: string; children: ReactNode }) {
+  return (
+    <span
+      className={twMerge("ml-auto shrink-0 text-fine text-surface-500 tabular-nums", className)}
+    >
+      {children}
+    </span>
+  );
+}
+
 export function CaretSlot() {
-  return <span aria-hidden="true" className="h-3 w-3 shrink-0" />;
+  return <span aria-hidden="true" className="size-3 shrink-0" />;
 }
 
 interface FolderGlyphProps {
@@ -73,7 +103,7 @@ interface FolderGlyphProps {
 }
 
 /* DS-KIND-HUE */
-const FOLDER_CLASSES = "h-3.5 w-3.5 shrink-0 text-folder-text";
+const FOLDER_CLASSES = "size-3.5 shrink-0 text-folder-text";
 
 /** A directory row's filled folder, dashed and dimmed for the unnamed group. */
 export function FolderGlyph({ unknown, isExpanded }: FolderGlyphProps) {
@@ -119,7 +149,7 @@ export function TreeLoadingRow({
     >
       {guides ? <GuideRails blocks={guides} /> : <IndentRails depth={depth} />}
       <CaretSlot />
-      <Spinner size="sm" className="h-3.5 w-3.5 shrink-0" />
+      <Spinner size="sm" className="size-3.5 shrink-0" />
       <span className="text-surface-400">{label}</span>
     </div>
   );

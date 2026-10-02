@@ -56,11 +56,11 @@ export function ThumbnailSection({ project }: ThumbnailSectionProps) {
           <img
             src={thumbnailUrl}
             alt="Project thumbnail"
-            className="absolute inset-0 h-full w-full object-cover"
+            className="absolute inset-0 size-full object-cover"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <Image className="h-10 w-10 text-surface-500" />
+          <div className="flex size-full items-center justify-center">
+            <Image className="size-10 text-surface-500" />
           </div>
         )}
       </div>
@@ -71,36 +71,32 @@ export function ThumbnailSection({ project }: ThumbnailSectionProps) {
               <Button
                 variant="outline"
                 size="sm"
-                left={<Pencil className="h-3.5 w-3.5" />}
+                left={<Pencil className="size-3.5" />}
                 loading={setThumbnail.isPending || removeThumbnail.isPending}
               >
                 Edit
               </Button>
             }
           />
-          <Menu.Portal>
-            <Menu.Positioner>
-              <Menu.Popup>
-                <Menu.Item icon={<Image className="h-4 w-4" />} onClick={handleSetThumbnail}>
-                  Change
-                </Menu.Item>
-                <Menu.Separator />
-                <Menu.Item
-                  icon={<Trash2 className="h-4 w-4" />}
-                  variant="danger"
-                  onClick={handleRemoveThumbnail}
-                >
-                  Remove
-                </Menu.Item>
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
+          <Menu.Content>
+            <Menu.Item icon={<Image className="size-4" />} onClick={handleSetThumbnail}>
+              Change
+            </Menu.Item>
+            <Menu.Separator />
+            <Menu.Item
+              icon={<Trash2 className="size-4" />}
+              variant="danger"
+              onClick={handleRemoveThumbnail}
+            >
+              Remove
+            </Menu.Item>
+          </Menu.Content>
         </Menu.Root>
       ) : (
         <Button
           variant="outline"
           size="sm"
-          left={<Image className="h-4 w-4" />}
+          left={<Image className="size-4" />}
           onClick={handleSetThumbnail}
           loading={setThumbnail.isPending}
         >

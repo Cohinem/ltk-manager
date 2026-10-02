@@ -173,3 +173,4 @@ export {
 export { type TextureProgress, useAssetTextures } from "./shared/hooks/useAssetTextures";
 export { isClick, type ScreenPoint } from "./shared/utils/click";
 export { loadCubeTexture } from "./shared/utils/cubeTexture";
+export { createRetainedCache, type RetainedCache, useRetained } from "./shared/utils/retainedCache";

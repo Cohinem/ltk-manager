@@ -7,7 +7,7 @@ import { settingFocusTab, SETTINGS_INDEX, SETTINGS_TAB_LABELS } from "@/modules/
 import { buildCandidate } from "../utils/candidate";
 import type { PaletteCandidate } from "../utils/types";
 
-const GLYPH = "h-4 w-4";
+const GLYPH = "size-4";
 
 /**
  * Every setting the bar can open, as rows of a source that waits for a term.

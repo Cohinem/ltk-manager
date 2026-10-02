@@ -32,7 +32,7 @@ export function StopTestButton() {
       disabled={stopping}
       left={
         !stopping && (
-          <span className="inline-flex h-2 w-2 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
+          <span className="inline-flex size-2 rounded-full bg-success shadow-[0_0_6px_2px] shadow-success/60" />
         )
       }
       className={runningTint}

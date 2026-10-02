@@ -68,7 +68,7 @@ export function ProblemGroupRow({ group, expanded, onToggle }: GroupRowProps) {
         >
           <CaretRightIcon
             weight="bold"
-            className={twMerge("h-3 w-3 shrink-0 text-surface-400", expanded && "rotate-90")}
+            className={twMerge("size-3 shrink-0 text-surface-400", expanded && "rotate-90")}
           />
           <SeverityTally counts={group} />
           <span className="shrink-0 text-meta text-surface-400">{group.layer}</span>
@@ -77,18 +77,13 @@ export function ProblemGroupRow({ group, expanded, onToggle }: GroupRowProps) {
       </Tooltip>
 
       {fixable.length > 0 && (
-        <Tooltip content={`Fix every problem in ${group.fileName}`}>
-          <IconButton
-            icon={<WrenchIcon weight="bold" className="h-3.5 w-3.5" />}
-            variant="ghost"
-            size="xs"
-            compact
-            loading={fix.isPending}
-            onClick={handleFix}
-            aria-label={`Fix every problem in ${group.fileName}`}
-            className="h-5 w-5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
-          />
-        </Tooltip>
+        <IconButton
+          icon={<WrenchIcon className="size-3.5" />}
+          loading={fix.isPending}
+          onClick={handleFix}
+          className="size-5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+          label={`Fix every problem in ${group.fileName}`}
+        />
       )}
     </div>
   );
@@ -138,25 +133,20 @@ export function ProblemObjectRow({ object, expanded, onToggle }: ObjectRowProps)
         >
           <CaretRightIcon
             weight="bold"
-            className={twMerge("h-3 w-3 shrink-0 text-surface-500", expanded && "rotate-90")}
+            className={twMerge("size-3 shrink-0 text-surface-500", expanded && "rotate-90")}
           />
           <span className="truncate font-mono text-code text-surface-200">{object.name}</span>
         </button>
       </Tooltip>
 
       {fixable.length > 0 && (
-        <Tooltip content={`Fix every problem in ${object.name}`}>
-          <IconButton
-            icon={<WrenchIcon weight="bold" className="h-3.5 w-3.5" />}
-            variant="ghost"
-            size="xs"
-            compact
-            loading={fix.isPending}
-            onClick={handleFix}
-            aria-label={`Fix every problem in ${object.name}`}
-            className="h-5 w-5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
-          />
-        </Tooltip>
+        <IconButton
+          icon={<WrenchIcon className="size-3.5" />}
+          loading={fix.isPending}
+          onClick={handleFix}
+          className="size-5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+          label={`Fix every problem in ${object.name}`}
+        />
       )}
     </div>
   );
@@ -226,18 +216,15 @@ export function ProblemRow({ problem }: { problem: Problem }) {
       </Tooltip>
 
       {problem.fix && (
-        <Tooltip content="Apply this repair" side="left">
-          <IconButton
-            icon={<WrenchIcon weight="bold" className="h-3.5 w-3.5" />}
-            variant="ghost"
-            size="xs"
-            compact
-            loading={fix.isPending}
-            onClick={handleFix}
-            aria-label="Fix this problem"
-            className="h-6 w-6 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
-          />
-        </Tooltip>
+        <IconButton
+          icon={<WrenchIcon className="size-3.5" />}
+          loading={fix.isPending}
+          onClick={handleFix}
+          aria-label="Fix this problem"
+          className="size-6 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+          tooltip="Apply this repair"
+          tooltipSide="left"
+        />
       )}
     </div>
   );

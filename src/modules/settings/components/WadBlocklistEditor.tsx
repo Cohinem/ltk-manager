@@ -1,19 +1,11 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  AlertCircle,
-  ChevronRight,
-  Plus,
-  Regex as RegexIcon,
-  Search,
-  Trash2,
-  X,
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, Plus, Regex as RegexIcon, Search, Trash2, X } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
 import { match, P } from "ts-pattern";
 
-import { Button, Field, IconButton, SelectField, Tabs } from "@/components";
-import { useClickOutside, useZoomedPx } from "@/hooks";
-import type { Settings, WadBlocklistEntry } from "@/lib/tauri";
+import { Button, Disclosure, Field, IconButton, SelectField, Tabs } from "@/components";
+import { useClickOutside, useRemeasure, useZoomedPx } from "@/hooks";
+import type { WadBlocklistEntry } from "@/lib/tauri";
 import { useAvailableWads } from "@/modules/settings/api";
 import {
   type BlocklistSortKey,
@@ -30,13 +22,8 @@ type Mode = "exact" | "regex";
  * without per-row measurement. */
 const SUGGESTION_ROW_HEIGHT = 32;
 
-interface WadBlocklistEditorProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
-
-export function WadBlocklistEditor({ settings, onSave }: WadBlocklistEditorProps) {
-  const { blocklist, add, removeAt, clear } = useWadBlocklist(settings, onSave);
+export function WadBlocklistEditor() {
+  const { blocklist, add, removeAt, clear } = useWadBlocklist();
   const {
     data: availableWads,
     isLoading: availableWadsLoading,
@@ -78,7 +65,7 @@ export function WadBlocklistEditor({ settings, onSave }: WadBlocklistEditorProps
         Additional WAD files to exclude from overlay building. Mods will not be able to modify these
         files. Use <span className="font-medium text-surface-200">Regex</span> to block many files
         with a single pattern - for example{" "}
-        <code className="rounded bg-surface-800 px-1 py-0.5 font-mono text-xs text-surface-200">
+        <code className="rounded-sm bg-surface-800 px-1 py-0.5 font-mono text-xs text-surface-200">
           ^map\d+\.en_us\.wad\.client$
         </code>
         .
@@ -90,7 +77,7 @@ export function WadBlocklistEditor({ settings, onSave }: WadBlocklistEditorProps
             Exact filename
           </Tabs.Tab>
           <Tabs.Tab value="regex" variant="pills">
-            <RegexIcon className="mr-1.5 inline h-3.5 w-3.5" />
+            <RegexIcon className="mr-1.5 inline size-3.5" />
             Regex pattern
           </Tabs.Tab>
         </Tabs.List>
@@ -121,7 +108,7 @@ export function WadBlocklistEditor({ settings, onSave }: WadBlocklistEditorProps
       {totalCount > 0 && (
         <div className="flex items-center gap-2 pt-1">
           <div className="relative flex-1">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 h-3.5 w-3.5 -translate-y-1/2 text-surface-400" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-surface-400" />
             <input
               type="text"
               value={search}
@@ -198,7 +185,7 @@ export function WadBlocklistEditor({ settings, onSave }: WadBlocklistEditorProps
               onClick={() => setConfirmingClear(true)}
               className="text-surface-400 hover:text-danger-text"
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="size-3" />
               Clear all
             </Button>
           )}
@@ -272,13 +259,13 @@ function ExactAddRow({
           )}
         </div>
         <Button variant="ghost" size="sm" onClick={onSubmit} disabled={!draft.trim()}>
-          <Plus className="h-4 w-4" />
+          <Plus className="size-4" />
           Add
         </Button>
       </div>
       {availableWadsError && (
         <p className="flex items-center gap-1.5 text-xs text-warning-text">
-          <AlertCircle className="h-3 w-3" />
+          <AlertCircle className="size-3" />
           Couldn&apos;t load WAD suggestions. Check your League path in General settings.
         </p>
       )}
@@ -306,12 +293,7 @@ function WadSuggestionList({
     overscan: 10,
     getItemKey: (index) => suggestions[index]!,
   });
-
-  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
-     one of the inputs the measurement memo watches. */
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
+  useRemeasure(virtualizer, zoomed(SUGGESTION_ROW_HEIGHT));
 
   return (
     <div
@@ -387,7 +369,7 @@ function RegexAddRow({
           spellCheck={false}
         />
         <Button variant="ghost" size="sm" onClick={onSubmit} disabled={!canAdd}>
-          <Plus className="h-4 w-4" />
+          <Plus className="size-4" />
           Add
         </Button>
       </div>
@@ -400,7 +382,7 @@ function RegexAddRow({
       })
         .with({ showError: true }, () => (
           <p className="flex items-center gap-1.5 text-xs text-danger-text">
-            <AlertCircle className="h-3 w-3" />
+            <AlertCircle className="size-3" />
             Invalid regex pattern.
           </p>
         ))
@@ -435,8 +417,6 @@ function BlocklistRow({
   availableWads: string[] | undefined;
   onRemove: () => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
-
   const matches = useMemo(
     () =>
       entry.kind === "regex" && availableWads ? listRegexMatches(entry.value, availableWads) : null,
@@ -445,7 +425,7 @@ function BlocklistRow({
   const canExpand = matches !== null && matches.length > 0;
 
   return (
-    <div className="rounded-md bg-surface-800">
+    <Disclosure.Root className="rounded-md bg-surface-800">
       <div className="flex items-center justify-between gap-2 px-3 py-2">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <KindBadge kind={entry.kind} />
@@ -456,41 +436,34 @@ function BlocklistRow({
             {entry.value}
           </span>
           {canExpand && (
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              aria-expanded={expanded}
-              className="flex shrink-0 cursor-pointer items-center gap-0.5 text-xs text-surface-500 hover:text-surface-300"
-            >
-              <ChevronRight
-                className={`h-3 w-3 transition-transform ${expanded ? "rotate-90" : ""}`}
-              />
+            <Disclosure.Trigger className="flex shrink-0 items-center gap-0.5 text-xs text-surface-500 hover:text-surface-300">
+              <Disclosure.Caret className="size-3 text-current" />
               {matches.length} matched
-            </button>
+            </Disclosure.Trigger>
           )}
           {matches !== null && matches.length === 0 && (
             <span className="shrink-0 text-xs text-surface-500">· no matches</span>
           )}
         </div>
         <IconButton
-          icon={<X className="h-3.5 w-3.5" />}
-          variant="ghost"
-          size="xs"
-          compact
+          icon={<X className="size-3.5" />}
           onClick={onRemove}
           aria-label={`Remove ${entry.value}`}
         />
       </div>
-      {expanded && canExpand && (
-        <ul className="max-h-40 space-y-0.5 overflow-y-auto border-t border-surface-700 px-3 py-2">
+      {canExpand && (
+        <Disclosure.Panel
+          render={<ul />}
+          className="flex max-h-40 flex-col gap-0.5 overflow-y-auto border-t border-surface-700 px-3 py-2"
+        >
           {matches.map((wad) => (
             <li key={wad} className="truncate font-mono text-xs text-surface-300" title={wad}>
               {wad}
             </li>
           ))}
-        </ul>
+        </Disclosure.Panel>
       )}
-    </div>
+    </Disclosure.Root>
   );
 }
 
@@ -499,7 +472,7 @@ function KindBadge({ kind }: { kind: WadBlocklistEntry["kind"] }) {
     kind === "exact" ? "bg-surface-700 text-surface-300" : "bg-accent-500/15 text-accent-300";
   return (
     <span
-      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[0.625rem] font-medium tracking-wide uppercase ${classes}`}
+      className={`inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-fine font-medium tracking-wide uppercase ${classes}`}
     >
       {kind}
     </span>

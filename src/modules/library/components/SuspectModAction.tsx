@@ -34,7 +34,7 @@ export function SuspectModAction({ modId }: { modId: string }) {
       variant="outline"
       size="xs"
       loading={toggleMod.isPending}
-      left={<ProhibitIcon weight="bold" className="h-3.5 w-3.5" />}
+      left={<ProhibitIcon weight="bold" className="size-3.5" />}
       onClick={() =>
         toggleMod.mutate(
           { modId, enabled: false },

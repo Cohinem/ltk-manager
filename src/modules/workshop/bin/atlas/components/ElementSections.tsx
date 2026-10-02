@@ -120,17 +120,13 @@ function IdentitySection({
             <Select.Value className="truncate">{(key: string) => label(key)}</Select.Value>
             <Select.Icon />
           </Select.Trigger>
-          <Select.Portal>
-            <Select.Positioner>
-              <Select.Popup className="max-h-80">
-                {scenes.map((each) => (
-                  <Select.Item key={each.key} value={each.key}>
-                    {label(each.key)}
-                  </Select.Item>
-                ))}
-              </Select.Popup>
-            </Select.Positioner>
-          </Select.Portal>
+          <Select.Content className="max-h-80">
+            {scenes.map((each) => (
+              <Select.Item key={each.key} value={each.key}>
+                {label(each.key)}
+              </Select.Item>
+            ))}
+          </Select.Content>
         </Select.Root>
       </FieldLine>
       <FieldLine label={m.workshop_bin_atlas_layer_label()}>
@@ -176,7 +172,7 @@ function LookSection({ element }: { element: ViewElement }) {
           {swatch !== undefined && (
             /* The swatch is the file's colour, which no token can stand for. */
             <span
-              className="h-3.5 w-3.5 shrink-0 rounded-sm border border-surface-600"
+              className="size-3.5 shrink-0 rounded-sm border border-surface-600"
               style={{ backgroundColor: value }}
             />
           )}

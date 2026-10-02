@@ -8,9 +8,9 @@ import { twMerge } from "@/utils";
 
 import { Cell, fieldsOf, type WidgetProps } from "../../classes/components/ClassCells";
 import { nameHash } from "../../shared/utils/binHash";
-import { RowValue } from "../../tree/components/BinRow";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { rowKey } from "../../tree/utils/binRows";
+import { RowValue } from "../../values/components/RowValue";
 import {
   useElementField,
   useEntryWrite,
@@ -229,7 +229,7 @@ function SwitchOn({ row }: { row: DeclaredRow<SchemaSwitch> }) {
       {compiled && (
         <ArrowsClockwiseIcon
           aria-label={m.workshop_bin_material_compiled_switch_hint()}
-          className="h-3 w-3 shrink-0 text-surface-500"
+          className="size-3 shrink-0 text-surface-500"
         >
           <title>{m.workshop_bin_material_compiled_switch_hint()}</title>
         </ArrowsClockwiseIcon>

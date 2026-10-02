@@ -33,26 +33,22 @@ export function ToolbarOverflow({ children }: { children: ReactNode }) {
         <Popover.Trigger
           render={
             <IconButton
-              size="xs"
-              compact
-              variant="ghost"
-              icon={<DotsThreeVerticalIcon weight="bold" className="size-4" />}
+              icon={<DotsThreeVerticalIcon />}
               aria-label={m.editor_toolbar_more_action()}
             />
           }
         />
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end" sideOffset={8}>
-          <Popover.Popup
-            data-ui="ToolbarOverflow"
-            aria-label={m.editor_toolbar_more_action()}
-            className="flex items-center gap-2 bg-surface-900 p-2 select-none"
-          >
-            <InOverflowContext value>{children}</InOverflowContext>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="bottom"
+        align="end"
+        sideOffset={8}
+        data-ui="ToolbarOverflow"
+        aria-label={m.editor_toolbar_more_action()}
+        className="flex items-center gap-2 bg-surface-900 p-2 select-none"
+      >
+        <InOverflowContext value>{children}</InOverflowContext>
+      </Popover.Content>
     </Popover.Root>
   );
 }

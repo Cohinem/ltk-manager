@@ -56,7 +56,7 @@ export function ColorField({
 
   const face = (
     <>
-      <Swatch rgba={[...rgb, clamp01(alpha ?? 1)]} className="h-4 w-4" />
+      <Swatch rgba={[...rgb, clamp01(alpha ?? 1)]} className="size-4" />
       <span className="min-w-0 flex-1 truncate">{colorHex(rgb)}</span>
       {alpha !== null && (
         <span className="shrink-0 text-surface-400 tabular-nums">{percent(alpha)}</span>
@@ -96,67 +96,67 @@ export function ColorField({
           {face}
         </Popover.Trigger>
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="start" sideOffset={6}>
-          <Popover.Popup aria-label={label} className="nodrag flex w-64 flex-col gap-3 p-3">
-            <ColorPicker
-              value={rgb}
-              label={label}
-              onValueChange={(next) =>
-                setDraft((before) => [...next, ...before.slice(3)] as number[])
-              }
-            />
-            {alpha !== null && (
-              <Slider
-                aria-label={m.workshop_bin_color_alpha_label()}
-                min={0}
-                max={1}
+      <Popover.Content
+        side="bottom"
+        align="start"
+        sideOffset={6}
+        aria-label={label}
+        className="nodrag flex w-64 flex-col gap-3 p-3"
+      >
+        <ColorPicker
+          value={rgb}
+          label={label}
+          onValueChange={(next) => setDraft((before) => [...next, ...before.slice(3)] as number[])}
+        />
+        {alpha !== null && (
+          <Slider
+            aria-label={m.workshop_bin_color_alpha_label()}
+            min={0}
+            max={1}
+            step={CHANNEL_STEP}
+            value={clamp01(alpha)}
+            onValueChange={(value) => change(3, value)}
+          />
+        )}
+        <span className="grid grid-cols-2 gap-1.5">
+          {draft.map((value, at) => (
+            <span
+              key={CHANNEL_NAMES[at] ?? at}
+              /* DS-VEIL, DS-RADIUS */
+              className="flex min-w-0 items-stretch overflow-hidden rounded-sm border border-surface-veil"
+            >
+              <ChannelSash channel={at} />
+              <StepperField
+                className="min-w-0 flex-1 text-meta"
+                aria-label={m.workshop_bin_color_channel_label({
+                  channel: CHANNEL_NAMES[at] ?? String(at),
+                })}
+                increaseLabel={m.common_number_increase_action()}
+                decreaseLabel={m.common_number_decrease_action()}
                 step={CHANNEL_STEP}
-                value={clamp01(alpha)}
-                onValueChange={(value) => change(3, value)}
+                decimals={CHANNEL_DECIMALS}
+                value={value}
+                onValueChange={(next) => change(at, next)}
               />
-            )}
-            <span className="grid grid-cols-2 gap-1.5">
-              {draft.map((value, at) => (
-                <span
-                  key={CHANNEL_NAMES[at] ?? at}
-                  /* DS-VEIL, DS-RADIUS */
-                  className="flex min-w-0 items-stretch overflow-hidden rounded-sm border border-surface-veil"
-                >
-                  <ChannelSash channel={at} />
-                  <StepperField
-                    className="min-w-0 flex-1 text-meta"
-                    aria-label={m.workshop_bin_color_channel_label({
-                      channel: CHANNEL_NAMES[at] ?? String(at),
-                    })}
-                    increaseLabel={m.common_number_increase_action()}
-                    decreaseLabel={m.common_number_decrease_action()}
-                    step={CHANNEL_STEP}
-                    decimals={CHANNEL_DECIMALS}
-                    value={value}
-                    onValueChange={(next) => change(at, next)}
-                  />
-                </span>
-              ))}
             </span>
-            <span className="flex justify-end gap-2">
-              <Button variant="ghost" size="xs" onClick={() => setOpen(false)}>
-                {m.common_cancel_action()}
-              </Button>
-              <Button
-                variant="filled"
-                size="xs"
-                onClick={() => {
-                  onCommit(draft);
-                  setOpen(false);
-                }}
-              >
-                {m.workshop_bin_curve_save_color_action()}
-              </Button>
-            </span>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+          ))}
+        </span>
+        <span className="flex justify-end gap-2">
+          <Button variant="ghost" size="xs" onClick={() => setOpen(false)}>
+            {m.common_cancel_action()}
+          </Button>
+          <Button
+            variant="filled"
+            size="xs"
+            onClick={() => {
+              onCommit(draft);
+              setOpen(false);
+            }}
+          >
+            {m.workshop_bin_curve_save_color_action()}
+          </Button>
+        </span>
+      </Popover.Content>
     </Popover.Root>
   );
 }

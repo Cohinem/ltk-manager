@@ -96,7 +96,7 @@ export function Ruler({
       aria-label={m.workshop_bin_timeline_ruler_label()}
       title={m.workshop_bin_timeline_ruler_hint()}
       className={twMerge(
-        "relative h-full w-full select-none",
+        "relative size-full select-none",
         drawing ? "cursor-crosshair" : "cursor-ew-resize",
       )}
       onPointerDown={(event) => {
@@ -202,7 +202,7 @@ export function Ruler({
                 onLoop(null);
               }}
             >
-              <XIcon weight="bold" className="h-3 w-3" />
+              <XIcon weight="bold" className="size-3" />
             </button>
           )}
         </span>

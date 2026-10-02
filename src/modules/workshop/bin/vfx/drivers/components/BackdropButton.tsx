@@ -1,6 +1,6 @@
 import { CircleHalfIcon } from "@phosphor-icons/react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -23,15 +23,12 @@ export function BackdropButton({ className }: { className?: string }) {
   const label = m.workshop_bin_preview_backdrop_action({ tone: TONE_LABEL[backdrop]() });
 
   return (
-    <Tooltip content={label}>
-      <IconButton
-        variant="ghost"
-        size="xs"
-        aria-label={label}
-        className={twMerge("nodrag", className)}
-        icon={<CircleHalfIcon weight="bold" className="h-4 w-4" />}
-        onClick={cycle}
-      />
-    </Tooltip>
+    <IconButton
+      compact={false}
+      className={twMerge("nodrag", className)}
+      icon={<CircleHalfIcon />}
+      onClick={cycle}
+      label={label}
+    />
   );
 }

@@ -1,6 +1,7 @@
 import { create, useStore } from "zustand";
 
 import type { WadSource } from "@/lib/tauri";
+import { toggledIn } from "@/utils";
 
 import { useWadSource } from "./wadSource";
 
@@ -50,16 +51,6 @@ interface GameBrowserStore {
 /** The shut set of an archive nobody has shut a directory in. */
 const NO_SHUT_DIRS: ReadonlySet<string> = new Set();
 
-function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
-  const next = new Set(set);
-  if (next.has(value)) {
-    next.delete(value);
-  } else {
-    next.add(value);
-  }
-  return next;
-}
-
 /**
  * What a game browser is showing, held outside the documents that draw it.
  *
@@ -73,7 +64,7 @@ function toggled(set: ReadonlySet<string>, value: string): ReadonlySet<string> {
 const createGameBrowserStore = () =>
   create<GameBrowserStore>()((set) => ({
     expandedDirs: new Set(),
-    toggleDir: (path) => set((state) => ({ expandedDirs: toggled(state.expandedDirs, path) })),
+    toggleDir: (path) => set((state) => ({ expandedDirs: toggledIn(state.expandedDirs, path) })),
     expandDirs: (paths) =>
       set((state) => {
         if (paths.every((path) => state.expandedDirs.has(path))) return state;
@@ -100,14 +91,15 @@ const createGameBrowserStore = () =>
     setSearchPattern: (searchPattern) => set({ searchPattern }),
     setSearchRegex: (searchRegex) => set({ searchRegex }),
     shutFindDirs: new Set(),
-    toggleFindDir: (path) => set((state) => ({ shutFindDirs: toggled(state.shutFindDirs, path) })),
+    toggleFindDir: (path) =>
+      set((state) => ({ shutFindDirs: toggledIn(state.shutFindDirs, path) })),
     setCollapsedFindDirs: (paths) => set({ shutFindDirs: new Set(paths) }),
     shutWadDirs: {},
     toggleWadDir: (wadName, path) =>
       set((state) => ({
         shutWadDirs: {
           ...state.shutWadDirs,
-          [wadName]: toggled(state.shutWadDirs[wadName] ?? NO_SHUT_DIRS, path),
+          [wadName]: toggledIn(state.shutWadDirs[wadName] ?? NO_SHUT_DIRS, path),
         },
       })),
     setCollapsedWadDirs: (wadName, paths) =>

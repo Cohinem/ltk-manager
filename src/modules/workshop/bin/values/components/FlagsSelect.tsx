@@ -40,27 +40,23 @@ export function FlagsSelect({ held, text, onChange }: FlagsSelectProps) {
           onClick={(event: ReactMouseEvent<HTMLButtonElement>) => event.stopPropagation()}
         >
           <span className="min-w-0 truncate">{reading ?? m.workshop_bin_flags_none_label()}</span>
-          <CaretDownIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-400" />
+          <CaretDownIcon weight="bold" className="size-3 shrink-0 text-surface-400" />
         </Menu.Trigger>
-        <Menu.Portal>
-          <Menu.Positioner align="start">
-            <Menu.Popup data-ui="FlagsSelect" className="min-w-48">
-              {Object.entries(held.names).map(([name, bit]) => (
-                <Menu.CheckboxItem
-                  key={name}
-                  checked={(value & bit) !== 0}
-                  onCheckedChange={(on) => onChange(String(withFlag(value, bit, on)))}
-                >
-                  <span className="flex items-center justify-between gap-3">
-                    {enumText(held, bit) ?? name}
-                    {/* DS-CODE-CHIP */}
-                    <Code className="text-surface-400">{`0x${bit.toString(16)}`}</Code>
-                  </span>
-                </Menu.CheckboxItem>
-              ))}
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content align="start" data-ui="FlagsSelect" className="min-w-48">
+          {Object.entries(held.names).map(([name, bit]) => (
+            <Menu.CheckboxItem
+              key={name}
+              checked={(value & bit) !== 0}
+              onCheckedChange={(on) => onChange(String(withFlag(value, bit, on)))}
+            >
+              <span className="flex items-center justify-between gap-3">
+                {enumText(held, bit) ?? name}
+                {/* DS-CODE-CHIP */}
+                <Code className="text-surface-400">{`0x${bit.toString(16)}`}</Code>
+              </span>
+            </Menu.CheckboxItem>
+          ))}
+        </Menu.Content>
       </Menu.Root>
       {/* DS-CODE-CHIP */}
       <Code

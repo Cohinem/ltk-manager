@@ -18,7 +18,7 @@ import {
   type UiView,
   type ViewVariant,
 } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
 import { BUILDING_POLL_MS } from "../../../gameBrowser/api/keys";
 import { sandboxKey } from "../../../sandbox/utils/sandboxRef";
@@ -187,8 +187,7 @@ export const uiQueries = {
   ) =>
     queryOptions<UiView, AppError>({
       queryKey: uiKeys.view(document, entry, scene, variant),
-      queryFn: async () =>
-        unwrapForQuery(await api.bin.readUiView(document, entry, scene, variant)),
+      queryFn: queryFnWithArgs(api.bin.readUiView, document, entry, scene, variant),
       staleTime: Infinity,
       retry: false,
     }),
@@ -196,14 +195,14 @@ export const uiQueries = {
   sceneView: (document: BinDocumentId, entry: string) =>
     queryOptions<UiView, AppError>({
       queryKey: uiKeys.sceneView(document, entry),
-      queryFn: async () => unwrapForQuery(await api.bin.readUiSceneView(document, entry)),
+      queryFn: queryFnWithArgs(api.bin.readUiSceneView, document, entry),
       staleTime: Infinity,
       retry: false,
     }),
   font: (document: BinDocumentId, entry: string) =>
     queryOptions<UiFont, AppError>({
       queryKey: uiKeys.font(document, entry),
-      queryFn: async () => unwrapForQuery(await api.bin.readUiFont(document, entry)),
+      queryFn: queryFnWithArgs(api.bin.readUiFont, document, entry),
       staleTime: Infinity,
       retry: false,
     }),
@@ -233,10 +232,7 @@ export const uiQueries = {
   fontCatalog: (document: BinDocumentId | null) =>
     queryOptions<UiFontCatalog, AppError>({
       queryKey: uiKeys.fontCatalog(document),
-      queryFn:
-        document === null
-          ? skipToken
-          : async () => unwrapForQuery(await api.bin.readUiFontCatalog(document)),
+      queryFn: document === null ? skipToken : queryFnWithArgs(api.bin.readUiFontCatalog, document),
       staleTime: Infinity,
       retry: false,
     }),
@@ -259,7 +255,7 @@ export const uiQueries = {
   programs: (document: BinDocumentId | null) =>
     queryOptions<ProgramRead[], AppError>({
       queryKey: uiKeys.programs(document),
-      queryFn: async () => unwrapForQuery(await api.bin.readUiPrograms(document, FRAME_SHADERS)),
+      queryFn: queryFnWithArgs(api.bin.readUiPrograms, document, FRAME_SHADERS),
       staleTime: Infinity,
       retry: false,
     }),

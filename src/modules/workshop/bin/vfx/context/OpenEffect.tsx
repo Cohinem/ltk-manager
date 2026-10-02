@@ -1,6 +1,6 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef } from "@/lib/tauri";
 
@@ -75,14 +75,12 @@ function OpenEffectAction({
   const openEffect = useOpenEffect();
   const action = m.workshop_bin_vfx_open_effect_action();
   return (
-    <Tooltip content={m.workshop_bin_vfx_open_effect_hint()}>
-      <IconButton
-        variant="ghost"
-        size="xs"
-        aria-label={action}
-        icon={<ArrowSquareOutIcon weight="bold" className="h-4 w-4" />}
-        onClick={(event) => openEffect(target, rig, label, clickIntent(event))}
-      />
-    </Tooltip>
+    <IconButton
+      compact={false}
+      aria-label={action}
+      icon={<ArrowSquareOutIcon />}
+      onClick={(event) => openEffect(target, rig, label, clickIntent(event))}
+      tooltip={m.workshop_bin_vfx_open_effect_hint()}
+    />
   );
 }

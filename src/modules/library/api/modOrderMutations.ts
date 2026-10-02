@@ -1,7 +1,7 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type InstalledMod } from "@/lib/tauri";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
 import { holdMods, type ModsRollback, refreshMods, releaseMods } from "./modMutations";
@@ -61,7 +61,7 @@ export const modOrderMutations = {
 
   reorderFolders: (client: QueryClient) =>
     mutationOptions<null, AppError, string[]>({
-      mutationFn: async (folderOrder) => unwrapForQuery(await api.reorderFolders(folderOrder)),
+      mutationFn: mutationFn(api.reorderFolders),
       onSettled: () => {
         client.invalidateQueries({ queryKey: libraryKeys.folderOrder() });
         refreshMods(client);

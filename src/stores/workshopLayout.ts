@@ -102,6 +102,11 @@ interface PreviewDisplay {
   /** The inspector lists every field the class declares, the unauthored ones dimmed. */
   inspectorDefaults: boolean;
 }
+/** A preview display preference that is a switch. */
+type PreviewFlag = {
+  [K in keyof PreviewDisplay]: PreviewDisplay[K] extends boolean ? K : never;
+}[keyof PreviewDisplay];
+
 /** Which drawing of an explorer's rows is on screen. */
 type ExplorerView = "tree" | "grid" | "details";
 
@@ -415,6 +420,7 @@ export type {
   ExplorerView,
   LayerPanelSide,
   PreviewDisplay,
+  PreviewFlag,
   ProjectEditorKey,
   SidebarViewId,
   WadSort,
@@ -506,3 +512,4 @@ export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timeli
 export const useTimelineSnap = () => useWorkshopLayoutStore((s) => s.timelineSnap);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
 export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);
+export const usePreviewFlag = (flag: PreviewFlag) => useWorkshopLayoutStore((s) => s[flag]);

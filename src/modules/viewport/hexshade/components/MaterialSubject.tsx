@@ -2,6 +2,8 @@ import { useFrame } from "@react-three/fiber";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Matrix4, Mesh, MeshBasicMaterial, type RawShaderMaterial, SkinnedMesh } from "three";
 
+import { useDisposable } from "@/hooks";
+
 import { useSceneColors } from "../../scene/hooks/sceneColors";
 import { AXIS_SIGN } from "../../shared/utils/space";
 import { EngineEnvironment } from "../engineEnvironment";
@@ -44,8 +46,11 @@ export function MaterialSubject({
 }: MaterialSubjectProps) {
   const colors = useSceneColors();
   const environment = useMemo(() => new EngineEnvironment(), []);
-  const geometry = useMemo(() => previewGeometry(shape, skinned), [shape, skinned]);
-  const errored = useMemo(() => new MeshBasicMaterial({ color: colors.errored }), [colors.errored]);
+  const geometry = useDisposable(() => previewGeometry(shape, skinned), [shape, skinned]);
+  const errored = useDisposable(
+    () => new MeshBasicMaterial({ color: colors.errored }),
+    [colors.errored],
+  );
   const time = useRef(0);
 
   const mesh = useMemo(() => {
@@ -105,8 +110,6 @@ export function MaterialSubject({
     if (turntable) mesh.rotation.y += delta * TURN_RATE;
   });
 
-  useEffect(() => () => geometry.dispose(), [geometry]);
-  useEffect(() => () => errored.dispose(), [errored]);
   useEffect(() => {
     if (mesh instanceof SkinnedMesh) return () => mesh.skeleton.dispose();
   }, [mesh]);

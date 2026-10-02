@@ -1,6 +1,6 @@
 import { type MouseEvent as ReactMouseEvent, useState } from "react";
 
-import { Popover, Spinner } from "@/components";
+import { Popover, Properties, Property, Spinner } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, TextureInfo, WorkshopFileKind } from "@/lib/tauri";
 import { usePreviewCheckered } from "@/stores";
@@ -25,8 +25,8 @@ export const SQUARE_WIDTH = 320;
 
 /** How big the swatch is drawn, and which mipmap that asks for. */
 const SIZES = {
-  row: { box: "h-5 w-5", width: SWATCH_WIDTH },
-  tile: { box: "h-12 w-12", width: TILE_WIDTH },
+  row: { box: "size-5", width: SWATCH_WIDTH },
+  tile: { box: "size-12", width: TILE_WIDTH },
   card: { box: "aspect-square w-full", width: SQUARE_WIDTH },
 } as const;
 
@@ -98,7 +98,7 @@ export function TextureSwatch({
             slot.onSettled();
             setFailedUrl(url);
           }}
-          className="h-full w-full object-cover"
+          className="size-full object-cover"
         />
       )}
     </button>
@@ -107,13 +107,15 @@ export function TextureSwatch({
   return (
     <Popover.Root>
       <Popover.Trigger openOnHover delay={CARD_DELAY} render={button} />
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="start" sideOffset={6}>
-          <Popover.Popup aria-label={path} className="p-3 text-meta select-none">
-            <TextureCard asset={asset} path={path} layerTitle={layerTitle} />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="bottom"
+        align="start"
+        sideOffset={6}
+        aria-label={path}
+        className="p-3 text-meta select-none"
+      >
+        <TextureCard asset={asset} path={path} layerTitle={layerTitle} />
+      </Popover.Content>
     </Popover.Root>
   );
 }
@@ -137,7 +139,7 @@ function TextureCard({ asset, path, layerTitle }: TextureCardProps) {
     <div data-ui="TextureSwatch:card" className="flex w-64 flex-col gap-2">
       <div
         className={twMerge(
-          "relative grid h-64 w-64 place-items-center overflow-hidden rounded-sm bg-surface-950/40",
+          "relative grid size-64 place-items-center overflow-hidden rounded-sm bg-surface-950/40",
           checkered && CHECKERBOARD,
           checkered && "[background-size:16px_16px]",
         )}
@@ -172,32 +174,30 @@ interface TextureFactsProps {
 function TextureFacts({ texture, asset, layerTitle }: TextureFactsProps) {
   const { container, format } = texture;
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-      <dt className="text-surface-400">{m.workshop_bin_texture_size_label()}</dt>
-      <dd className="text-surface-200 select-text">
+    <Properties>
+      <Property label={m.workshop_bin_texture_size_label()} className="select-text">
         {m.workshop_bin_texture_dimensions_label({ width: texture.width, height: texture.height })}
-      </dd>
-      <dt className="text-surface-400">{m.workshop_bin_texture_format_label()}</dt>
-      <dd className="text-surface-200 select-text">
+      </Property>
+      <Property label={m.workshop_bin_texture_format_label()} className="select-text">
         {format === null && container}
         {format !== null && m.workshop_bin_texture_container_format_label({ container, format })}
-      </dd>
-      <dt className="text-surface-400">{m.workshop_bin_texture_mips_label()}</dt>
-      <dd className="text-surface-200 select-text">{texture.mipCount}</dd>
+      </Property>
+      <Property label={m.workshop_bin_texture_mips_label()} className="select-text">
+        {texture.mipCount}
+      </Property>
       {asset.kind === "gameChunk" && (
-        <>
-          <dt className="text-surface-400">{m.workshop_bin_archive_label()}</dt>
-          <dd className="min-w-0 truncate font-mono text-code text-surface-200 select-text">
-            {asset.wad}
-          </dd>
-        </>
+        <Property
+          label={m.workshop_bin_archive_label()}
+          className="truncate font-mono text-code select-text"
+        >
+          {asset.wad}
+        </Property>
       )}
       {asset.kind === "layer" && layerTitle !== undefined && (
-        <>
-          <dt className="text-surface-400">{m.workshop_bin_layer_label()}</dt>
-          <dd className="min-w-0 truncate text-surface-200 select-text">{layerTitle}</dd>
-        </>
+        <Property label={m.workshop_bin_layer_label()} className="truncate select-text">
+          {layerTitle}
+        </Property>
       )}
-    </dl>
+    </Properties>
   );
 }

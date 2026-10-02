@@ -1,6 +1,6 @@
 import { ArrowCounterClockwiseIcon } from "@phosphor-icons/react";
 
-import { Checkbox, IconButton, SegmentedControl, Slider, Tooltip } from "@/components";
+import { Checkbox, IconButton, SegmentedControl, Slider } from "@/components";
 import { m } from "@/i18n";
 import type { PropertyEdit } from "@/lib/tauri";
 
@@ -79,17 +79,12 @@ export function MeterSection({ element, meter, tree, view, editable, apply }: Me
         <span className="w-9 shrink-0 text-right tabular-nums">
           {m.workshop_bin_atlas_hud_value({ percent: Math.round(fill * PERCENT) })}
         </span>
-        <Tooltip content={m.workshop_bin_atlas_meter_fill_reset_action()}>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-label={m.workshop_bin_atlas_meter_fill_reset_action()}
-            icon={<ArrowCounterClockwiseIcon weight="bold" className="h-3.5 w-3.5" />}
-            disabled={own === undefined}
-            onClick={() => setMeter(view, element.key, null)}
-          />
-        </Tooltip>
+        <IconButton
+          icon={<ArrowCounterClockwiseIcon className="size-3.5" />}
+          disabled={own === undefined}
+          onClick={() => setMeter(view, element.key, null)}
+          label={m.workshop_bin_atlas_meter_fill_reset_action()}
+        />
       </FieldLine>
       <FieldLine label={m.workshop_bin_atlas_meter_bars_label()}>
         <span className="min-w-0 truncate font-mono select-text">

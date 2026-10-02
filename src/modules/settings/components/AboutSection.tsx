@@ -29,7 +29,7 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
           </div>
           {appInfo?.logFilePath && (
             <Button variant="outline" size="sm" onClick={() => revealPath(appInfo.logFilePath!)}>
-              <FileTextIcon className="h-4 w-4" weight="bold" />
+              <FileTextIcon className="size-4" weight="bold" />
               {m.settings_about_open_log_action()}
             </Button>
           )}
@@ -61,7 +61,7 @@ export function AboutSection({ appInfo }: AboutSectionProps) {
             className="ml-auto"
             onClick={() => setLicensesOpen(true)}
           >
-            <ScrollIcon className="h-4 w-4" weight="bold" />
+            <ScrollIcon className="size-4" weight="bold" />
             {m.settings_about_licenses_action()}
           </Button>
         </div>

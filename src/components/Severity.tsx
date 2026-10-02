@@ -6,15 +6,15 @@ import type { Counts, ProblemSeverity } from "@/lib/tauri";
 export function SeverityGlyph({ severity }: { severity: ProblemSeverity }) {
   /* DS-TEXT */
   if (severity === "fatal") {
-    return <XCircleIcon weight="duotone" className="h-3.5 w-3.5 shrink-0 text-danger-text" />;
+    return <XCircleIcon weight="duotone" className="size-3.5 shrink-0 text-danger-text" />;
   }
   if (severity === "error") {
-    return <XCircleIcon weight="duotone" className="h-3.5 w-3.5 shrink-0 text-danger-text" />;
+    return <XCircleIcon weight="duotone" className="size-3.5 shrink-0 text-danger-text" />;
   }
   if (severity === "warning") {
-    return <WarningIcon weight="duotone" className="h-3.5 w-3.5 shrink-0 text-warning-text" />;
+    return <WarningIcon weight="duotone" className="size-3.5 shrink-0 text-warning-text" />;
   }
-  return <InfoIcon weight="duotone" className="h-3.5 w-3.5 shrink-0 text-info-text" />;
+  return <InfoIcon weight="duotone" className="size-3.5 shrink-0 text-info-text" />;
 }
 
 /** What a set of problems holds, by severity, with the empty rungs left out. */

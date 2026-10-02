@@ -1,7 +1,7 @@
 import { WarningIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { useIncidentLineStore } from "@/stores";
 
 import { useLatestIncident } from "../api";
@@ -48,21 +48,17 @@ export function SuspectBadge({ modId, projectPath, enabled = true }: SuspectBadg
   );
 
   return (
-    <Tooltip content={tooltipContent}>
-      <IconButton
-        compact
-        variant="ghost"
-        size="sm"
-        data-ui="SuspectBadge"
-        icon={<WarningIcon className="h-4 w-4" weight="bold" />}
-        onClick={(event) => {
-          event.stopPropagation();
-          navigate({ to: "/diagnostics", search: { tab: "games", incident: latest.id } });
-        }}
-        aria-label={`Suspected in "${latest.verdict.title}", click to review`}
-        /* `ModHealthBadge`'s pill in the warning tone, so the two stack as one row. */
-        className="h-6 rounded-sm bg-warning/15 text-warning-text ring-1 ring-warning/30 ring-inset hover:bg-warning/25"
-      />
-    </Tooltip>
+    <IconButton
+      size="sm"
+      data-ui="SuspectBadge"
+      icon={<WarningIcon />}
+      onClick={(event) => {
+        event.stopPropagation();
+        navigate({ to: "/diagnostics", search: { tab: "games", incident: latest.id } });
+      }}
+      aria-label={`Suspected in "${latest.verdict.title}", click to review`}
+      /* `ModHealthBadge`'s pill in the warning tone, so the two stack as one row. */ className="h-6 rounded-sm bg-warning/15 text-warning-text ring-1 ring-warning/30 ring-inset hover:bg-warning/25"
+      tooltip={tooltipContent}
+    />
   );
 }

@@ -21,14 +21,14 @@ export function AuthorsSection({
   return (
     <SectionCard
       title="Authors"
-      icon={<Users className="h-4 w-4" />}
+      icon={<Users className="size-4" />}
       description="People who contributed to this mod."
       panelClassName="bg-surface-800"
       action={
         <Button
           variant="outline"
           size="sm"
-          left={<Plus className="h-4 w-4" />}
+          left={<Plus className="size-4" />}
           onClick={() => onAdd()}
         >
           Add Author
@@ -58,8 +58,8 @@ export function AuthorsSection({
                 className="w-48"
               />
               <IconButton
-                icon={<Trash2 className="h-4 w-4" />}
-                variant="ghost"
+                compact={false}
+                icon={<Trash2 className="size-4" />}
                 size="sm"
                 onClick={() => onRemove(index)}
               />

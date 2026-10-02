@@ -3,7 +3,7 @@ import { open, save } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import {
   api,
   type AppError,
@@ -43,12 +43,11 @@ export function useExportMods(): ModExport {
   useTauriEvent<ExportProgress>("export-progress", setProgress);
 
   const exportMods = useMutation<ExportSummary, AppError, ExportRequest>({
-    meta: { silentError: true },
+    meta: { errorTitle: m.home_library_export_failed_title() },
     mutationFn: mutationFn(({ scope, shape, destination }) =>
       api.exportMods(scope, shape, destination),
     ),
     onSuccess: (summary) => announce(summary),
-    onError: (e) => toast.error(m.home_library_export_failed_title(), errorSummary(e)),
     onSettled: () => setProgress(null),
   });
 

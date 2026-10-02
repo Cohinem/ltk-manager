@@ -7,10 +7,10 @@ import { createPose, jointAnchor, viewportQueries } from "@/modules/viewport";
 
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
+import { Notice } from "../../shared/preview/Notice";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { useSkinGraphSource } from "../../skin/hooks/useGraphSource";
 import { clipFrameSeconds } from "../../skin/utils/clipEvents";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { spellQueries } from "../api/spellQueries";
 import type { AbilityRecipe } from "../utils/abilityRecipe";
 import { oncePose } from "../utils/abilitySequence";

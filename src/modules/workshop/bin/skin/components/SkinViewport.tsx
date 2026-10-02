@@ -2,9 +2,7 @@ import {
   ArrowsClockwiseIcon,
   ArrowsOutCardinalIcon,
   BoneIcon,
-  CaretDownIcon,
   EyeSlashIcon,
-  FrameCornersIcon,
   GridFourIcon,
   MapTrifoldIcon,
   MountainsIcon,
@@ -15,7 +13,7 @@ import { useFrame } from "@react-three/fiber";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ButtonGroup, HexshadeIcon, IconButton, Menu, Tooltip } from "@/components";
+import { IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, GraphClip, MapPath, SkinModel } from "@/lib/tauri";
 import {
@@ -35,20 +33,17 @@ import {
   useBackdropFlags,
   useBackdropMaps,
   useSceneColors,
-  Viewport,
   viewportQueries,
 } from "@/modules/viewport";
 import {
   type PreviewDisplay,
   usePreviewAmbientOcclusion,
-  usePreviewAntiAliasing,
   usePreviewArmature,
   usePreviewBackdrop,
   usePreviewBackdropEvents,
   usePreviewBackdropParticles,
   usePreviewBackdropSky,
   usePreviewBackdropStructures,
-  usePreviewCamera,
   usePreviewFacing,
   usePreviewGround,
   usePreviewJointNames,
@@ -60,8 +55,6 @@ import {
   usePreviewPostEffects,
   usePreviewShaders,
   usePreviewSun,
-  usePreviewViewMode,
-  usePreviewWireOverlay,
   useSetPreviewDisplay,
 } from "@/stores";
 
@@ -75,11 +68,19 @@ import { PostEffectsControl } from "../../map/components/PostEffectsControl";
 import { SunControl } from "../../map/components/SunControl";
 import { useMapMaterialsFile, useMapParticles } from "../../map/hooks/useMapParticles";
 import { useHeldValue } from "../../material/state/heldValue";
+import { CameraMenu } from "../../shared/preview/CameraMenu";
+import { Notice } from "../../shared/preview/Notice";
+import { PreviewToggle, ShadersToggle } from "../../shared/preview/PreviewToggle";
+import { PreviewViewport } from "../../shared/preview/PreviewViewport";
+import { useFitRequest } from "../../shared/preview/useFitRequest";
+import { ViewModeMenu } from "../../shared/preview/ViewModeMenu";
+import {
+  ControlDivider,
+  FitButton,
+  SplitToggle,
+  ViewportControls,
+} from "../../shared/preview/ViewportControls";
 import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
-import { CameraMenu } from "../../vfx/preview/components/CameraMenu";
-import { Notice } from "../../vfx/preview/components/Notice";
-import { ViewModeMenu } from "../../vfx/preview/components/ViewModeMenu";
-import { ViewToggle } from "../../vfx/preview/components/ViewToggle";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { passesOf } from "../../vfx/rendering/utils/passes";
 import { skinQueries } from "../api/skinQueries";
@@ -202,10 +203,6 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     setLayer: setBackdropLayer,
   } = useBackdropFlags(backdropSource);
   const midlane = usePreviewMidlane();
-  const camera = usePreviewCamera();
-  const antiAliasing = usePreviewAntiAliasing();
-  const viewMode = usePreviewViewMode();
-  const wireOverlay = usePreviewWireOverlay();
   const armature = usePreviewArmature();
   const jointNames = usePreviewJointNames();
   const move = usePreviewMove();
@@ -372,8 +369,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     [mesh.data, skin.hidden, scale],
   );
   /* Fit answers the F key and the button. A change of preset frames again on its own. */
-  const [fitToken, setFitToken] = useState(0);
-  const refit = useCallback(() => setFitToken((token) => token + 1), []);
+  const [fitToken, refit] = useFitRequest();
 
   const keys = useSkinKeys({ clock, playing, setPlaying, speed, setSpeed, fit: refit });
 
@@ -442,8 +438,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
         data-ui="SkinViewport"
         className="relative min-h-0 flex-1 outline-none"
       >
-        <Viewport
-          antiAliasing={antiAliasing}
+        <PreviewViewport
           renderer="shared"
           gizmo={!controlsHidden}
           stage={ground}
@@ -454,10 +449,6 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           sun={backdrop === null ? null : sun}
           postEffects={backdrop === null ? null : postEffects}
           ambientOcclusion={backdrop === null ? null : ambientOcclusion}
-          camera={camera}
-          viewMode={viewMode}
-          wireOverlay={wireOverlay}
-          onCameraStand={(preset) => setDisplay({ previewCamera: preset })}
           onBackdropOrigin={setOrigin}
         >
           <Clock clock={clock} playing={playing} speed={speed} />
@@ -544,7 +535,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               />
             )}
           </Placement>
-        </Viewport>
+        </PreviewViewport>
         {!controlsHidden && armature && jointNames && (
           <canvas
             ref={setLabels}
@@ -555,11 +546,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
         )}
 
         {!controlsHidden && (
-          <div
-            data-ui="SkinViewport:controls"
-            /* DS-GLASS, DS-RADIUS, DS-VEIL. The descendant selector outranks each button's own size. */
-            className="absolute top-2 right-2 flex items-center gap-0.5 rounded-md border border-surface-veil bg-scrim p-1 shadow-md backdrop-blur-sm [&_button]:text-meta"
-          >
+          <ViewportControls data-ui="SkinViewport:controls">
             <div className="flex shrink-0 items-center gap-0.5">
               <BackdropToggle />
               {backdrop !== null && (
@@ -574,34 +561,32 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                 </>
               )}
             </div>
-            <ViewportControlDivider />
+            <ControlDivider />
             <div className="flex shrink-0 items-center gap-0.5">
               <PlacementToggle />
               {backdrop === null && (
-                <ViewToggle
+                <PreviewToggle
+                  flag="previewGround"
                   label={m.workshop_bin_preview_stage_label()}
-                  active={ground}
-                  icon={<GridFourIcon weight="bold" className="h-4 w-4" />}
-                  onClick={() => setDisplay({ previewGround: !ground })}
+                  icon={<GridFourIcon />}
                 />
               )}
               {backdrop === null && ground && (
-                <ViewToggle
+                <PreviewToggle
+                  flag="previewMidlane"
                   label={m.workshop_bin_preview_midlane_label()}
-                  active={midlane}
-                  icon={<MapTrifoldIcon weight="bold" className="h-4 w-4" />}
-                  onClick={() => setDisplay({ previewMidlane: !midlane })}
+                  icon={<MapTrifoldIcon />}
                 />
               )}
             </div>
-            <ViewportControlDivider />
+            <ControlDivider />
             <div className="flex shrink-0 items-center gap-0.5">
               {(idle.length > 0 || cues.length > 0) && (
-                <ViewToggle
-                  label={m.workshop_bin_mesh_preview_effects_label()}
-                  active={effects}
-                  icon={<SparkleIcon weight="bold" className="h-4 w-4" />}
+                <IconButton
+                  pressed={effects}
+                  icon={<SparkleIcon />}
                   onClick={() => setEffects(!effects)}
+                  label={m.workshop_bin_mesh_preview_effects_label()}
                 />
               )}
               <SkinEffectsMenu
@@ -616,12 +601,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                 scale={scale}
               />
               <ArmatureMenu />
-              <ViewToggle
-                label={m.workshop_bin_preview_shaders_label()}
-                active={shaders}
-                icon={<HexshadeIcon className={shaders ? "h-4 w-4" : "h-4 w-4 grayscale"} />}
-                onClick={() => setDisplay({ previewShaders: !shaders })}
-              />
+              <ShadersToggle />
               <BakeTangentsButton
                 document={document}
                 entry={entry}
@@ -636,33 +616,20 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                 onReset={resetShown}
               />
             </div>
-            <ViewportControlDivider />
+            <ControlDivider />
             <div className="flex shrink-0 items-center gap-0.5">
               <ViewModeMenu />
               <CameraMenu />
-              <Tooltip content={m.workshop_bin_mesh_preview_fit_action()}>
-                <IconButton
-                  variant="ghost"
-                  size="xs"
-                  compact
-                  aria-label={m.workshop_bin_mesh_preview_fit_action()}
-                  icon={<FrameCornersIcon weight="bold" className="h-4 w-4" />}
-                  onClick={refit}
-                />
-              </Tooltip>
+              <FitButton label={m.workshop_bin_mesh_preview_fit_action()} onFit={refit} />
             </div>
-            <ViewportControlDivider />
-            <Tooltip content={m.workshop_bin_preview_hide_ui_hint()}>
-              <IconButton
-                variant="ghost"
-                size="xs"
-                compact
-                aria-label={m.workshop_bin_preview_hide_ui_action()}
-                icon={<EyeSlashIcon weight="bold" className="h-4 w-4" />}
-                onClick={() => setControlsHidden(true)}
-              />
-            </Tooltip>
-          </div>
+            <ControlDivider />
+            <IconButton
+              aria-label={m.workshop_bin_preview_hide_ui_action()}
+              icon={<EyeSlashIcon />}
+              onClick={() => setControlsHidden(true)}
+              tooltip={m.workshop_bin_preview_hide_ui_hint()}
+            />
+          </ViewportControls>
         )}
       </div>
 
@@ -684,10 +651,6 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
       )}
     </>
   );
-}
-
-function ViewportControlDivider() {
-  return <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-surface-veil" />;
 }
 
 /**
@@ -743,73 +706,53 @@ function BackdropToggle() {
   const pick = (map: unknown) => setDisplay({ previewBackdrop: map as MapPath | null });
 
   return (
-    <ButtonGroup className="overflow-hidden rounded-md bg-surface-veil">
-      <ViewToggle
-        label={m.workshop_bin_preview_backdrop_label()}
-        active={backdrop !== null}
-        icon={<MountainsIcon weight="bold" className="h-4 w-4" />}
-        onClick={() => setDisplay({ previewBackdrop: backdrop === null ? opening : null })}
-      />
-      <Menu.Root>
-        <Tooltip content={m.workshop_bin_preview_backdrop_menu_label()}>
-          <Menu.Trigger
-            render={
-              <IconButton
-                variant="ghost"
-                size="xs"
-                compact
-                className="w-5 text-surface-400"
-                aria-label={m.workshop_bin_preview_backdrop_menu_label()}
-                icon={<CaretDownIcon weight="bold" className="h-3 w-3" />}
-              />
-            }
-          />
-        </Tooltip>
-        <Menu.Portal>
-          <Menu.Positioner align="end">
-            <Menu.Popup data-ui="BackdropMenu" className="w-52">
-              {choices.length === 0 && (
-                <Menu.Item disabled>{m.workshop_bin_preview_backdrop_empty_label()}</Menu.Item>
-              )}
-              <Menu.RadioGroup value={backdrop} onValueChange={pick}>
-                <Menu.RadioItem value={null}>
-                  {m.workshop_bin_preview_backdrop_none_label()}
-                </Menu.RadioItem>
-              </Menu.RadioGroup>
-              {groups.map((group) => (
-                <MapSkinSubmenu key={group.folder} group={group} chosen={backdrop} onPick={pick} />
-              ))}
-              <Menu.Separator />
-              <Menu.CheckboxItem
-                checked={particles}
-                onCheckedChange={(checked) => setDisplay({ previewBackdropParticles: checked })}
-              >
-                {m.workshop_bin_preview_backdrop_particles_label()}
-              </Menu.CheckboxItem>
-              <Menu.CheckboxItem
-                checked={particles && events}
-                disabled={!particles}
-                onCheckedChange={(checked) => setDisplay({ previewBackdropEvents: checked })}
-              >
-                {m.workshop_bin_preview_backdrop_events_label()}
-              </Menu.CheckboxItem>
-              <Menu.CheckboxItem
-                checked={structures}
-                onCheckedChange={(checked) => setDisplay({ previewBackdropStructures: checked })}
-              >
-                {m.workshop_bin_preview_backdrop_structures_label()}
-              </Menu.CheckboxItem>
-              <Menu.CheckboxItem
-                checked={sky}
-                onCheckedChange={(checked) => setDisplay({ previewBackdropSky: checked })}
-              >
-                {m.workshop_bin_preview_backdrop_sky_label()}
-              </Menu.CheckboxItem>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-    </ButtonGroup>
+    <SplitToggle
+      label={m.workshop_bin_preview_backdrop_label()}
+      pressed={backdrop !== null}
+      icon={<MountainsIcon />}
+      onClick={() => setDisplay({ previewBackdrop: backdrop === null ? opening : null })}
+      menuLabel={m.workshop_bin_preview_backdrop_menu_label()}
+    >
+      <Menu.Content align="end" data-ui="BackdropMenu" className="w-52">
+        {choices.length === 0 && (
+          <Menu.Item disabled>{m.workshop_bin_preview_backdrop_empty_label()}</Menu.Item>
+        )}
+        <Menu.RadioGroup value={backdrop} onValueChange={pick}>
+          <Menu.RadioItem value={null}>
+            {m.workshop_bin_preview_backdrop_none_label()}
+          </Menu.RadioItem>
+        </Menu.RadioGroup>
+        {groups.map((group) => (
+          <MapSkinSubmenu key={group.folder} group={group} chosen={backdrop} onPick={pick} />
+        ))}
+        <Menu.Separator />
+        <Menu.CheckboxItem
+          checked={particles}
+          onCheckedChange={(checked) => setDisplay({ previewBackdropParticles: checked })}
+        >
+          {m.workshop_bin_preview_backdrop_particles_label()}
+        </Menu.CheckboxItem>
+        <Menu.CheckboxItem
+          checked={particles && events}
+          disabled={!particles}
+          onCheckedChange={(checked) => setDisplay({ previewBackdropEvents: checked })}
+        >
+          {m.workshop_bin_preview_backdrop_events_label()}
+        </Menu.CheckboxItem>
+        <Menu.CheckboxItem
+          checked={structures}
+          onCheckedChange={(checked) => setDisplay({ previewBackdropStructures: checked })}
+        >
+          {m.workshop_bin_preview_backdrop_structures_label()}
+        </Menu.CheckboxItem>
+        <Menu.CheckboxItem
+          checked={sky}
+          onCheckedChange={(checked) => setDisplay({ previewBackdropSky: checked })}
+        >
+          {m.workshop_bin_preview_backdrop_sky_label()}
+        </Menu.CheckboxItem>
+      </Menu.Content>
+    </SplitToggle>
   );
 }
 
@@ -828,67 +771,41 @@ function PlacementToggle() {
   const turning = move && mode === "rotate";
 
   return (
-    <ButtonGroup className="overflow-hidden rounded-md bg-surface-veil">
-      <ViewToggle
-        label={
-          turning ? m.workshop_bin_preview_move_rotate_label() : m.workshop_bin_preview_move_label()
-        }
-        active={move}
-        icon={
-          turning ? (
-            <ArrowsClockwiseIcon weight="bold" className="h-4 w-4" />
-          ) : (
-            <ArrowsOutCardinalIcon weight="bold" className="h-4 w-4" />
-          )
-        }
-        /* One button cycles off, move, turn because the mode changes more often than the
-           reset action in the attached menu. */
-        onClick={() => setDisplay(nextPlacement(move, mode))}
-      />
-      <Menu.Root>
-        <Tooltip content={m.workshop_bin_preview_move_menu_label()}>
-          <Menu.Trigger
-            render={
-              <IconButton
-                variant="ghost"
-                size="xs"
-                compact
-                className="w-5 text-surface-400"
-                aria-label={m.workshop_bin_preview_move_menu_label()}
-                icon={<CaretDownIcon weight="bold" className="h-3 w-3" />}
-              />
-            }
-          />
-        </Tooltip>
-        <Menu.Portal>
-          <Menu.Positioner align="end">
-            <Menu.Popup data-ui="PlacementMenu" className="w-44">
-              <Menu.RadioGroup
-                value={mode}
-                onValueChange={(picked) =>
-                  setDisplay({ previewMove: true, previewMoveMode: picked as PlacementMode })
-                }
-              >
-                <Menu.RadioItem value="translate">
-                  {m.workshop_bin_preview_move_translate_label()}
-                </Menu.RadioItem>
-                <Menu.RadioItem value="rotate">
-                  {m.workshop_bin_preview_move_rotate_label()}
-                </Menu.RadioItem>
-              </Menu.RadioGroup>
-              <Menu.Separator />
-              <Menu.Item
-                onClick={() =>
-                  setDisplay({ previewPlacement: null, previewPlacedOn: null, previewFacing: 0 })
-                }
-              >
-                {m.workshop_bin_preview_move_reset_action()}
-              </Menu.Item>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-    </ButtonGroup>
+    <SplitToggle
+      label={
+        turning ? m.workshop_bin_preview_move_rotate_label() : m.workshop_bin_preview_move_label()
+      }
+      pressed={move}
+      icon={turning ? <ArrowsClockwiseIcon /> : <ArrowsOutCardinalIcon />}
+      /* One button cycles off, move, turn because the mode changes more often than the
+         reset action in the attached menu. */
+      onClick={() => setDisplay(nextPlacement(move, mode))}
+      menuLabel={m.workshop_bin_preview_move_menu_label()}
+    >
+      <Menu.Content align="end" data-ui="PlacementMenu" className="w-44">
+        <Menu.RadioGroup
+          value={mode}
+          onValueChange={(picked) =>
+            setDisplay({ previewMove: true, previewMoveMode: picked as PlacementMode })
+          }
+        >
+          <Menu.RadioItem value="translate">
+            {m.workshop_bin_preview_move_translate_label()}
+          </Menu.RadioItem>
+          <Menu.RadioItem value="rotate">
+            {m.workshop_bin_preview_move_rotate_label()}
+          </Menu.RadioItem>
+        </Menu.RadioGroup>
+        <Menu.Separator />
+        <Menu.Item
+          onClick={() =>
+            setDisplay({ previewPlacement: null, previewPlacedOn: null, previewFacing: 0 })
+          }
+        >
+          {m.workshop_bin_preview_move_reset_action()}
+        </Menu.Item>
+      </Menu.Content>
+    </SplitToggle>
   );
 }
 
@@ -913,20 +830,16 @@ function MapSkinSubmenu({ group, chosen, onPick }: MapSkinSubmenuProps) {
       <Menu.SubmenuTrigger className={holds ? "text-accent-300" : undefined}>
         {group.name}
       </Menu.SubmenuTrigger>
-      <Menu.Portal>
-        <Menu.SubmenuPositioner>
-          {/* A map ships up to 37 skins, more than a menu shows without scrolling. */}
-          <Menu.Popup data-ui="BackdropMenu:skins" className="max-h-96 w-56 overflow-y-auto">
-            <Menu.RadioGroup value={chosen} onValueChange={onPick}>
-              {group.skins.map((skin) => (
-                <Menu.RadioItem key={skin.map} value={skin.map} closeOnClick>
-                  {skin.geometry}
-                </Menu.RadioItem>
-              ))}
-            </Menu.RadioGroup>
-          </Menu.Popup>
-        </Menu.SubmenuPositioner>
-      </Menu.Portal>
+      {/* A map ships up to 37 skins, more than a menu shows without scrolling. */}
+      <Menu.SubmenuContent data-ui="BackdropMenu:skins" className="max-h-96 w-56 overflow-y-auto">
+        <Menu.RadioGroup value={chosen} onValueChange={onPick}>
+          {group.skins.map((skin) => (
+            <Menu.RadioItem key={skin.map} value={skin.map} closeOnClick>
+              {skin.geometry}
+            </Menu.RadioItem>
+          ))}
+        </Menu.RadioGroup>
+      </Menu.SubmenuContent>
     </Menu.SubmenuRoot>
   );
 }
@@ -938,43 +851,23 @@ function ArmatureMenu() {
   const setDisplay = useSetPreviewDisplay();
 
   return (
-    <ButtonGroup className="overflow-hidden rounded-md bg-surface-veil">
-      <ViewToggle
-        label={m.workshop_bin_preview_armature_label()}
-        active={armature}
-        icon={<BoneIcon weight="bold" className="h-4 w-4" />}
-        onClick={() => setDisplay({ previewArmature: !armature })}
-      />
-      <Menu.Root>
-        <Tooltip content={m.workshop_bin_preview_armature_menu_label()}>
-          <Menu.Trigger
-            render={
-              <IconButton
-                variant="ghost"
-                size="xs"
-                compact
-                className="w-5 text-surface-400"
-                aria-label={m.workshop_bin_preview_armature_menu_label()}
-                icon={<CaretDownIcon weight="bold" className="h-3 w-3" />}
-              />
-            }
-          />
-        </Tooltip>
-        <Menu.Portal>
-          <Menu.Positioner align="end">
-            <Menu.Popup data-ui="ArmatureMenu" className="w-44">
-              <Menu.CheckboxItem
-                checked={armature && jointNames}
-                disabled={!armature}
-                onCheckedChange={(checked) => setDisplay({ previewJointNames: checked })}
-              >
-                {m.workshop_bin_preview_joint_names_label()}
-              </Menu.CheckboxItem>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
-      </Menu.Root>
-    </ButtonGroup>
+    <SplitToggle
+      label={m.workshop_bin_preview_armature_label()}
+      pressed={armature}
+      icon={<BoneIcon />}
+      onClick={() => setDisplay({ previewArmature: !armature })}
+      menuLabel={m.workshop_bin_preview_armature_menu_label()}
+    >
+      <Menu.Content align="end" data-ui="ArmatureMenu" className="w-44">
+        <Menu.CheckboxItem
+          checked={armature && jointNames}
+          disabled={!armature}
+          onCheckedChange={(checked) => setDisplay({ previewJointNames: checked })}
+        >
+          {m.workshop_bin_preview_joint_names_label()}
+        </Menu.CheckboxItem>
+      </Menu.Content>
+    </SplitToggle>
   );
 }
 
@@ -1014,43 +907,39 @@ function SubmeshMenu({ submeshes, hidden, overridden, onShow, onReset }: Submesh
         <Menu.Trigger
           render={
             <IconButton
-              variant="ghost"
-              size="xs"
-              compact
               aria-label={m.workshop_bin_preview_submeshes_label()}
-              /* DS-VEIL, DS-RADIUS */
-              className={
+              /* DS-VEIL, DS-RADIUS */ className={
                 overridden ? "bg-accent-500/15 text-accent-300 hover:bg-accent-500/25" : undefined
               }
-              icon={<StackIcon weight="bold" className="h-4 w-4" />}
+              icon={<StackIcon />}
             />
           }
         />
       </Tooltip>
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          <Menu.Popup data-ui="SubmeshMenu" className="max-h-80 w-56 overflow-y-auto scrollbar-md">
-            {submeshes.map((name) => (
-              <Menu.CheckboxItem
-                key={name}
-                closeOnClick={false}
-                checked={!skipped.has(name.toLowerCase())}
-                onCheckedChange={(checked) => onShow(name, checked)}
-              >
-                <span className="truncate font-mono text-code select-text">{name}</span>
-              </Menu.CheckboxItem>
-            ))}
-            {overridden && (
-              <>
-                <Menu.Separator />
-                <Menu.Item onClick={onReset}>
-                  {m.workshop_bin_preview_submeshes_reset_action()}
-                </Menu.Item>
-              </>
-            )}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content
+        align="end"
+        data-ui="SubmeshMenu"
+        className="max-h-80 w-56 overflow-y-auto scrollbar-md"
+      >
+        {submeshes.map((name) => (
+          <Menu.CheckboxItem
+            key={name}
+            closeOnClick={false}
+            checked={!skipped.has(name.toLowerCase())}
+            onCheckedChange={(checked) => onShow(name, checked)}
+          >
+            <span className="truncate font-mono text-code select-text">{name}</span>
+          </Menu.CheckboxItem>
+        ))}
+        {overridden && (
+          <>
+            <Menu.Separator />
+            <Menu.Item onClick={onReset}>
+              {m.workshop_bin_preview_submeshes_reset_action()}
+            </Menu.Item>
+          </>
+        )}
+      </Menu.Content>
     </Menu.Root>
   );
 }

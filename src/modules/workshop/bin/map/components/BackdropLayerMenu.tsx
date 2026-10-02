@@ -1,6 +1,6 @@
 import { IntersectThreeIcon } from "@phosphor-icons/react";
 
-import { IconButton, Menu, Tooltip } from "@/components";
+import { Count, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { MapLayer } from "@/modules/viewport";
 
@@ -26,47 +26,38 @@ export function BackdropLayerMenu({ layers, flags, onLayerChange }: BackdropLaye
         <Menu.Trigger
           render={
             <IconButton
-              variant="ghost"
-              size="xs"
-              compact
               aria-label={m.workshop_bin_preview_backdrop_layers_label()}
-              icon={<IntersectThreeIcon weight="bold" className="h-4 w-4" />}
+              icon={<IntersectThreeIcon />}
             />
           }
         />
       </Tooltip>
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          <Menu.Popup data-ui="BackdropLayerMenu" className="w-60">
-            <Menu.Group>
-              <Menu.GroupLabel>{m.workshop_bin_preview_backdrop_layers_label()}</Menu.GroupLabel>
-              {layers.length === 0 && (
-                <Menu.Item disabled>
-                  {m.workshop_bin_preview_backdrop_layers_empty_label()}
-                </Menu.Item>
-              )}
-              {layers.map((layer) => (
-                <Menu.CheckboxItem
-                  key={layer.index}
-                  closeOnClick={false}
-                  checked={(flags & (1 << layer.index)) !== 0}
-                  onCheckedChange={(checked) => onLayerChange(layer.index, checked)}
-                >
-                  <span className="flex items-baseline justify-between gap-3">
-                    {m.workshop_bin_preview_backdrop_layer_label({ number: layer.index + 1 })}
-                    <span className="text-meta text-surface-400 tabular-nums">
-                      {m.workshop_bin_preview_backdrop_layer_triangles_label({
-                        count: layer.triangles,
-                        formatted: layer.triangles.toLocaleString(),
-                      })}
-                    </span>
-                  </span>
-                </Menu.CheckboxItem>
-              ))}
-            </Menu.Group>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="end" data-ui="BackdropLayerMenu" className="w-60">
+        <Menu.Group>
+          <Menu.GroupLabel>{m.workshop_bin_preview_backdrop_layers_label()}</Menu.GroupLabel>
+          {layers.length === 0 && (
+            <Menu.Item disabled>{m.workshop_bin_preview_backdrop_layers_empty_label()}</Menu.Item>
+          )}
+          {layers.map((layer) => (
+            <Menu.CheckboxItem
+              key={layer.index}
+              closeOnClick={false}
+              checked={(flags & (1 << layer.index)) !== 0}
+              onCheckedChange={(checked) => onLayerChange(layer.index, checked)}
+            >
+              <span className="flex items-baseline justify-between gap-3">
+                {m.workshop_bin_preview_backdrop_layer_label({ number: layer.index + 1 })}
+                <Count>
+                  {m.workshop_bin_preview_backdrop_layer_triangles_label({
+                    count: layer.triangles,
+                    formatted: layer.triangles.toLocaleString(),
+                  })}
+                </Count>
+              </span>
+            </Menu.CheckboxItem>
+          ))}
+        </Menu.Group>
+      </Menu.Content>
     </Menu.Root>
   );
 }

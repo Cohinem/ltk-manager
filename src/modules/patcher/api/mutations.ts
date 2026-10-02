@@ -2,7 +2,7 @@ import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, isOk, type PatcherConfig, type Result } from "@/lib/tauri";
 import { usePatcherSessionStore, usePendingRebuildStore } from "@/stores";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { patcherKeys } from "./keys";
 
@@ -40,7 +40,7 @@ export const patcherMutations = {
      multi-second wait. */
   stop: (client: QueryClient) =>
     mutationOptions<null, AppError, void>({
-      mutationFn: async () => unwrapForQuery(await api.stopPatcher()),
+      mutationFn: mutationFn(api.stopPatcher),
       onMutate: () => {
         usePatcherSessionStore.getState().setStopping(true);
       },
@@ -62,6 +62,6 @@ export const patcherMutations = {
     mutationOptions<null, AppError, void>({
       /* Every caller reports: PatchingSection, IncidentDetail, useRebuildOverlayAction. */
       meta: { silentError: true },
-      mutationFn: async () => unwrapForQuery(await api.rebuildOverlay()),
+      mutationFn: mutationFn(api.rebuildOverlay),
     }),
 } as const;

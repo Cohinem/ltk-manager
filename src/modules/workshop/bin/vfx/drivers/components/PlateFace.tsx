@@ -69,7 +69,7 @@ export function MarkedCurve({
   if (shape === "keys" && drawsRandom(item.curve)) marker = "band";
 
   return (
-    <div className="relative h-full w-full">
+    <div className="relative size-full">
       <CurvePicture curve={item.curve} shape={shape} />
       {marker !== null && <CurveMarker item={item} shape={marker} face={face} />}
     </div>
@@ -118,11 +118,11 @@ function Band({ background }: { background: string }) {
     <span
       /* DS-TOKEN, DS-RADIUS */
       className={twMerge(
-        "block h-full w-full overflow-hidden rounded-md border border-surface-veil-strong [background-size:12px_12px]",
+        "block size-full overflow-hidden rounded-md border border-surface-veil-strong [background-size:12px_12px]",
         CHECKERBOARD,
       )}
     >
-      <span className="block h-full w-full" style={{ background }} />
+      <span className="block size-full" style={{ background }} />
     </span>
   );
 }
@@ -140,7 +140,7 @@ function Lines({ lines, single, dashed }: LinesProps) {
     <svg
       viewBox={`0 0 ${CURVE_BOX.width} ${CURVE_BOX.height}`}
       preserveAspectRatio="none"
-      className="block h-full w-full overflow-visible"
+      className="block size-full overflow-visible"
     >
       {lines.map(({ points, channel }) => (
         <polyline

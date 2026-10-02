@@ -57,7 +57,7 @@ import type { ProjectCommand } from "../utils/types";
 import { useGlobalCommands } from "./useGlobalCommands";
 import { useGroupCommands } from "./useGroupCommands";
 
-const GLYPH = "h-4 w-4";
+const GLYPH = "size-4";
 
 /**
  * Every action the bar can run under a project, composed out of the modules'

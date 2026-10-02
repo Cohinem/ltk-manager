@@ -1,7 +1,7 @@
 import { CaretDownIcon, ChecksIcon, CheckSquareIcon, ProhibitIcon } from "@phosphor-icons/react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { ButtonGroup, IconButton, Kbd, Menu, Tooltip } from "@/components";
+import { ButtonGroup, IconButton, Kbd, Menu } from "@/components";
 import type { InstalledMod } from "@/lib/tauri";
 import type { useLibraryActions } from "@/modules/library/api";
 import { isOverlayOpen } from "@/utils";
@@ -55,29 +55,28 @@ export function SelectionButton({ actions, visibleMods, disabled }: SelectionBut
 
   return (
     <ButtonGroup>
-      <Tooltip
-        content={
+      <IconButton
+        compact={false}
+        icon={<CheckSquareIcon />}
+        variant="outline"
+        size="sm"
+        disabled={disabled}
+        aria-pressed={hasSelection}
+        aria-label={clearsOnClick ? "Clear selection" : "Select all mods"}
+        onClick={handleToggleAll}
+        className={hasSelection ? activeClass : undefined}
+        tooltip={
           <>
             {clearsOnClick ? "Clear selection" : "Select all"} <Kbd shortcut="Ctrl+A" />
           </>
         }
-      >
-        <IconButton
-          icon={<CheckSquareIcon weight="bold" className="h-4 w-4" />}
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          aria-pressed={hasSelection}
-          aria-label={clearsOnClick ? "Clear selection" : "Select all mods"}
-          onClick={handleToggleAll}
-          className={hasSelection ? activeClass : undefined}
-        />
-      </Tooltip>
+      />
       <Menu.Root>
         <Menu.Trigger
           render={
             <IconButton
-              icon={<CaretDownIcon weight="bold" className="h-3.5 w-3.5" />}
+              compact={false}
+              icon={<CaretDownIcon className="size-3.5" />}
               variant="outline"
               size="sm"
               disabled={disabled}
@@ -86,29 +85,25 @@ export function SelectionButton({ actions, visibleMods, disabled }: SelectionBut
             />
           }
         />
-        <Menu.Portal>
-          <Menu.Positioner>
-            <Menu.Popup className="w-56">
-              <Menu.Group>
-                <Menu.GroupLabel>All visible</Menu.GroupLabel>
-                <Menu.Item
-                  icon={<ChecksIcon weight="bold" className="h-4 w-4" />}
-                  disabled={bulkDisabled || !canEnableAll}
-                  onClick={() => actions.handleSetEnabledForMods(visibleMods, true)}
-                >
-                  Enable
-                </Menu.Item>
-                <Menu.Item
-                  icon={<ProhibitIcon weight="bold" className="h-4 w-4" />}
-                  disabled={bulkDisabled || !canDisableAll}
-                  onClick={() => actions.handleSetEnabledForMods(visibleMods, false)}
-                >
-                  Disable
-                </Menu.Item>
-              </Menu.Group>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content className="w-56">
+          <Menu.Group>
+            <Menu.GroupLabel>All visible</Menu.GroupLabel>
+            <Menu.Item
+              icon={<ChecksIcon weight="bold" className="size-4" />}
+              disabled={bulkDisabled || !canEnableAll}
+              onClick={() => actions.handleSetEnabledForMods(visibleMods, true)}
+            >
+              Enable
+            </Menu.Item>
+            <Menu.Item
+              icon={<ProhibitIcon weight="bold" className="size-4" />}
+              disabled={bulkDisabled || !canDisableAll}
+              onClick={() => actions.handleSetEnabledForMods(visibleMods, false)}
+            >
+              Disable
+            </Menu.Item>
+          </Menu.Group>
+        </Menu.Content>
       </Menu.Root>
     </ButtonGroup>
   );

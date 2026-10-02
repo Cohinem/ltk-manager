@@ -1,13 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, use, useRef, useState } from "react";
 
-import { Button, ChannelSash, ColorPicker, NumberField, Popover } from "@/components";
+import { ChannelSash, NumberField } from "@/components";
 import { m } from "@/i18n";
 import type { SchemaParam } from "@/lib/tauri";
 import type { HeldValue } from "@/modules/viewport";
 import { twMerge } from "@/utils";
 
 import { Swatch } from "../../values/components/ColorMark";
+import { SwatchPicker } from "../../values/components/SwatchPicker";
 import { useHeldValueStore } from "../state/heldValue";
 import { componentCount, paramDefault } from "../utils/declaredRows";
 
@@ -173,14 +174,15 @@ export function LiveParam({ param, material, stored, write }: LiveParamProps) {
       ))}
       {color && (
         <span className={twMerge(SWATCH_SEAT, SWATCH_COLUMN[count])}>
-          <ColorSwatch
+          <SwatchPicker
             label={param.name}
-            values={shown}
+            value={[shown[0] ?? 0, shown[1] ?? 0, shown[2] ?? 0]}
             muted={inherited}
-            onChange={(rgb) =>
+            onValueChange={(rgb) =>
               change((latest.current ?? [...shown]).map((value, index) => rgb[index] ?? value))
             }
             onClose={() => void commit()}
+            data-ui="LiveParam:picker"
           />
         </span>
       )}
@@ -231,52 +233,10 @@ export function ParamReadout({ param, values, inherited }: ParamReadoutProps) {
         <span className={twMerge(SWATCH_SEAT, SWATCH_COLUMN[count])}>
           <Swatch
             rgba={[values[0] ?? 0, values[1] ?? 0, values[2] ?? 0, 1]}
-            className={twMerge("h-4 w-4", inherited && "opacity-50")}
+            className={twMerge("size-4", inherited && "opacity-50")}
           />
         </span>
       )}
     </span>
-  );
-}
-
-/** The colour's swatch, which opens a picker held live until it closes. */
-function ColorSwatch({
-  label,
-  values,
-  muted,
-  onChange,
-  onClose,
-}: {
-  label: string;
-  values: readonly number[];
-  muted: boolean;
-  onChange: (rgb: readonly [number, number, number]) => void;
-  onClose: () => void;
-}) {
-  const rgb: readonly [number, number, number] = [values[0] ?? 0, values[1] ?? 0, values[2] ?? 0];
-
-  return (
-    <Popover.Root onOpenChange={(open) => !open && onClose()}>
-      <Popover.Trigger
-        render={
-          <Button
-            variant="ghost"
-            size="xs"
-            compact
-            aria-label={label}
-            left={
-              <Swatch rgba={[...rgb, 1]} className={twMerge("h-4 w-4", muted && "opacity-50")} />
-            }
-          />
-        }
-      />
-      <Popover.Portal>
-        <Popover.Positioner side="left" align="center" sideOffset={12}>
-          <Popover.Popup data-ui="LiveParam:picker" aria-label={label} className="w-60 p-3">
-            <ColorPicker value={rgb} label={label} onValueChange={onChange} />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
-    </Popover.Root>
   );
 }

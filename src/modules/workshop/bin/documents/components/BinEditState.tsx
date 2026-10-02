@@ -57,7 +57,7 @@ function NewObjectAction() {
         variant="ghost"
         size="xs"
         compact
-        left={<PlusIcon weight="bold" className="h-3 w-3" />}
+        left={<PlusIcon weight="bold" className="size-3" />}
         onClick={() => drafts.start({ kind: "class" })}
       >
         {m.workshop_bin_new_object_action()}
@@ -95,7 +95,7 @@ function AutosaveStatus({ document, asset, onReload }: AutosaveStatusProps) {
       <span className="flex shrink-0 items-center gap-1.5">
         <Tooltip content={errorSummary(save.error)}>
           {/* DS-TEXT */}
-          <span className="text-[0.6875rem] text-danger-text select-none">
+          <span className="text-meta text-danger-text select-none">
             {m.workshop_bin_changed_on_disk_hint()}
           </span>
         </Tooltip>
@@ -120,7 +120,7 @@ function ReadOnlyMark({ gate }: { gate: ReadOnly }) {
   return (
     <Tooltip content={readOnlyDescription(gate)}>
       <span className="flex shrink-0 items-center gap-1 text-meta text-surface-400 select-none">
-        <LockSimpleIcon className="h-3.5 w-3.5" />
+        <LockSimpleIcon className="size-3.5" />
         {m.workshop_bin_read_only_label()}
       </span>
     </Tooltip>

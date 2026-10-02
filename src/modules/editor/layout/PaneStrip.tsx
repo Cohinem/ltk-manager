@@ -149,13 +149,10 @@ function SortableStripTab({
         </Tabs.Tab>
         {onClose && (
           <IconButton
-            icon={<XIcon weight="bold" className="h-3 w-3" />}
-            variant="ghost"
-            size="xs"
-            compact
+            icon={<XIcon className="size-3" />}
             onClick={() => onClose(pane.id)}
             aria-label={`Close ${pane.title}`}
-            className="h-4 w-4 opacity-0 group-hover/pane:opacity-100 focus-visible:opacity-100"
+            className="size-4 opacity-0 group-hover/pane:opacity-100 focus-visible:opacity-100"
           />
         )}
       </div>

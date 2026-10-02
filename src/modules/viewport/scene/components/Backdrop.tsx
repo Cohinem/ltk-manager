@@ -13,6 +13,7 @@ import {
   type Texture,
 } from "three";
 
+import { useDisposable } from "@/hooks";
 import type { MaterialPreview, MaterialProgram } from "@/lib/tauri";
 
 import {
@@ -138,11 +139,10 @@ export function Backdrop({
   const geometry = useRetained(GEOMETRIES, map, () => mapGeometry(map));
 
   const colors = useMemo(() => ({ untextured: new Color(STONE), errored: new Color(STONE) }), []);
-  const environment = useMemo(() => new EngineEnvironment(), []);
+  const environment = useDisposable(() => new EngineEnvironment(), []);
   useEffect(() => {
     environment.light = light;
   }, [environment, light]);
-  useEffect(() => () => environment.dispose(), [environment]);
 
   const surface = surfaceOf(viewMode);
 
@@ -222,7 +222,7 @@ export function Backdrop({
   const bound = drawn.bound;
   const materials = useMemo<Material[]>(() => bound.map((entry) => entry.material), [bound]);
 
-  const edgeMaterial = useMemo(
+  const edgeMaterial = useDisposable(
     () => (edges === "none" ? null : createEdgeMaterial(edgeColour, edges)),
     [edges, edgeColour],
   );
@@ -231,7 +231,6 @@ export function Backdrop({
     () => (edgeMaterial === null ? null : bound.map(() => edgeMaterial)),
     [edgeMaterial, bound],
   );
-  useEffect(() => () => edgeMaterial?.dispose(), [edgeMaterial]);
 
   /* Written here rather than beside the array they index, because a render the fibre
      throws away would leave the geometry pointing into an array the mesh never took, and

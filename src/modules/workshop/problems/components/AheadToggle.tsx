@@ -38,7 +38,7 @@ export function AheadToggle() {
           active={on}
           size="xs"
           onClick={() => setOn(!on)}
-          icon={<ClockCountdownIcon weight="duotone" className="h-3.5 w-3.5" />}
+          icon={<ClockCountdownIcon weight="duotone" className="size-3.5" />}
           /* A label and a count are two inline spans, which a screen reader runs
              together into one number unless the pill names itself. */
           aria-label={`${label}, ${count} ${count === 1 ? "finding" : "findings"} ahead`}

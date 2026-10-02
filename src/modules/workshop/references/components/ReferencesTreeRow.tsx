@@ -1,4 +1,3 @@
-import { CaretRightIcon } from "@phosphor-icons/react";
 import { memo } from "react";
 
 import { twMerge } from "@/utils";
@@ -15,6 +14,8 @@ import {
   IndentRails,
   TREE_ROW_BASE_CLASSES as ROW_BASE_CLASSES,
   TREE_ROW_STATE_CLASSES as ROW_STATE_CLASSES,
+  TreeCaret,
+  TreeRowCount,
 } from "../../shared/components/TreeRowParts";
 import { describeFileKind } from "../../shared/utils/fileKindIcon";
 import { clickIntent } from "../../state";
@@ -41,17 +42,6 @@ function ReferencesTreeRowInner(props: ReferencesTreeRowProps) {
 }
 
 export const ReferencesTreeRow = memo(ReferencesTreeRowInner);
-
-function Caret({ isExpanded }: { isExpanded: boolean }) {
-  return (
-    <CaretRightIcon
-      className={twMerge(
-        "h-3 w-3 shrink-0 text-surface-400 transition-transform",
-        isExpanded && "rotate-90",
-      )}
-    />
-  );
-}
 
 interface FileRowProps extends ReferencesTreeRowProps {
   node: ReferenceFileNode;
@@ -92,17 +82,13 @@ function FileRow({
       className={twMerge("w-full cursor-pointer text-left", ROW_BASE_CLASSES, ROW_STATE_CLASSES)}
     >
       <IndentRails depth={depth} />
-      <Caret isExpanded={isExpanded} />
+      <TreeCaret isExpanded={isExpanded} />
       <span className="shrink-0" style={{ color: `var(${descriptor.tintToken})` }}>
-        <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+        <Icon className="size-3.5" strokeWidth={1.75} />
       </span>
       <span className="truncate">{node.file}</span>
-      {where !== undefined && (
-        <span className="shrink-0 text-[0.625rem] text-surface-400">{where}</span>
-      )}
-      <span className="ml-auto shrink-0 text-[0.625rem] text-surface-500 tabular-nums">
-        {node.children.length.toLocaleString()}
-      </span>
+      {where !== undefined && <span className="shrink-0 text-fine text-surface-400">{where}</span>}
+      <TreeRowCount>{node.children.length.toLocaleString()}</TreeRowCount>
     </button>
   );
 }
@@ -146,15 +132,13 @@ function ObjectRow({
     >
       <IndentRails depth={depth} />
       <CaretSlot />
-      <ObjectGlyph objectClass={node.class} className="h-3.5 w-3.5 shrink-0 text-surface-400" />
+      <ObjectGlyph objectClass={node.class} className="size-3.5 shrink-0 text-surface-400" />
       <span className={twMerge("truncate", node.unnamed && "text-surface-400")}>{node.name}</span>
       {node.property !== null && (
         <span className="min-w-0 shrink truncate text-surface-300">{node.property.label}</span>
       )}
       {node.prefix.length > 0 && (
-        <span className="min-w-0 shrink truncate text-[0.625rem] text-surface-400">
-          {node.prefix}
-        </span>
+        <span className="min-w-0 shrink truncate text-fine text-surface-400">{node.prefix}</span>
       )}
       <span className="ml-auto max-w-[40%] shrink-0 truncate">
         <ClassCard classHash={node.classHash} name={node.class} />

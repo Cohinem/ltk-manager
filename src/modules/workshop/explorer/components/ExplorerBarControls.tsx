@@ -126,10 +126,7 @@ export function SelectionReadout({
         size,
       })}
       <IconButton
-        icon={<XIcon weight="bold" className="h-3 w-3" />}
-        variant="ghost"
-        size="xs"
-        compact
+        icon={<XIcon className="size-3" />}
         onClick={onClear}
         aria-label={m.workshop_explorer_selection_clear_action()}
       />
@@ -149,17 +146,17 @@ export function ViewToggle({ view }: { view: ExplorerView }) {
       options={[
         {
           value: "tree",
-          label: <ListBulletsIcon weight="bold" className="h-4 w-4" />,
+          label: <ListBulletsIcon weight="bold" className="size-4" />,
           name: m.workshop_explorer_view_tree_label(),
         },
         {
           value: "grid",
-          label: <SquaresFourIcon weight="bold" className="h-4 w-4" />,
+          label: <SquaresFourIcon weight="bold" className="size-4" />,
           name: m.workshop_explorer_view_grid_label(),
         },
         {
           value: "details",
-          label: <RowsIcon weight="bold" className="h-4 w-4" />,
+          label: <RowsIcon weight="bold" className="size-4" />,
           name: m.workshop_explorer_view_details_label(),
         },
       ]}
@@ -217,145 +214,141 @@ export function ExplorerOptions({ view, filter, onFilterChange }: ExplorerOption
         <Popover.Trigger
           render={
             <IconButton
-              icon={<SlidersHorizontalIcon weight="bold" className="h-4 w-4" />}
-              variant="ghost"
-              size="xs"
-              compact
+              icon={<SlidersHorizontalIcon />}
               aria-label={m.workshop_explorer_view_options_label()}
               className={narrowed ? "text-accent-300" : undefined}
             />
           }
         />
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end" sideOffset={8}>
-          <Popover.Popup
-            aria-label={m.workshop_explorer_view_options_label()}
-            className="w-64 divide-y divide-surface-600/50 bg-surface-900 p-0 select-none"
-          >
-            <FilterSection
-              title={m.workshop_explorer_sort_section_label()}
-              action={
+      <Popover.Content
+        side="bottom"
+        align="end"
+        sideOffset={8}
+        aria-label={m.workshop_explorer_view_options_label()}
+        className="w-64 divide-y divide-surface-600/50 bg-surface-900 p-0 select-none"
+      >
+        <FilterSection
+          title={m.workshop_explorer_sort_section_label()}
+          action={
+            <Button
+              variant="ghost"
+              size="xs"
+              compact
+              right={<DirectionIcon weight="bold" className="size-3.5" />}
+              onClick={() => pickField(sort.field)}
+              className="text-fine text-accent-300"
+            >
+              {sort.direction === "asc"
+                ? m.workshop_explorer_sort_ascending_label()
+                : m.workshop_explorer_sort_descending_label()}
+            </Button>
+          }
+        >
+          <div className="flex flex-wrap gap-1.5">
+            {SORT_FIELDS.map((option) => (
+              <TogglePill
+                key={option.field}
+                label={option.label()}
+                active={sort.field === option.field}
+                onClick={() => pickField(option.field)}
+              />
+            ))}
+          </div>
+        </FilterSection>
+
+        {view !== "tree" && (
+          <FilterSection
+            title={m.workshop_explorer_kind_section_label()}
+            action={
+              narrowed && (
                 <Button
                   variant="ghost"
                   size="xs"
                   compact
-                  right={<DirectionIcon weight="bold" className="h-3.5 w-3.5" />}
-                  onClick={() => pickField(sort.field)}
+                  onClick={() =>
+                    onFilterChange({
+                      ...filter,
+                      kinds: new Set(),
+                      unnamedOnly: false,
+                    })
+                  }
                   className="text-fine text-accent-300"
                 >
-                  {sort.direction === "asc"
-                    ? m.workshop_explorer_sort_ascending_label()
-                    : m.workshop_explorer_sort_descending_label()}
+                  {m.workshop_explorer_clear_filters_action()}
                 </Button>
-              }
-            >
-              <div className="flex flex-wrap gap-1.5">
-                {SORT_FIELDS.map((option) => (
-                  <TogglePill
-                    key={option.field}
-                    label={option.label()}
-                    active={sort.field === option.field}
-                    onClick={() => pickField(option.field)}
-                  />
-                ))}
-              </div>
-            </FilterSection>
-
-            {view !== "tree" && (
-              <FilterSection
-                title={m.workshop_explorer_kind_section_label()}
-                action={
-                  narrowed && (
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      compact
-                      onClick={() =>
-                        onFilterChange({
-                          ...filter,
-                          kinds: new Set(),
-                          unnamedOnly: false,
-                        })
-                      }
-                      className="text-fine text-accent-300"
-                    >
-                      {m.workshop_explorer_clear_filters_action()}
-                    </Button>
-                  )
-                }
-              >
-                <div className="flex flex-col gap-1.5">
-                  {KIND_GROUPS.map((group) => (
-                    <Checkbox
-                      key={group.id}
-                      size="sm"
-                      label={KIND_GROUP_LABELS[group.id]()}
-                      checked={filter.kinds.has(group.id)}
-                      onCheckedChange={(on) => toggleKind(group.id, on)}
-                    />
-                  ))}
-                  <Checkbox
-                    size="sm"
-                    label={m.workshop_explorer_unnamed_label()}
-                    checked={filter.unnamedOnly}
-                    onCheckedChange={(on) => onFilterChange({ ...filter, unnamedOnly: on })}
-                  />
-                </div>
-              </FilterSection>
-            )}
-
-            {view === "grid" && (
-              <FilterSection title={m.workshop_explorer_tile_size_label()}>
-                <Slider
-                  variant="ruler"
-                  value={tileSize}
-                  onValueChange={(value) => setTileSize(nearestTileSize(value))}
-                  min={EXPLORER_TILE_SIZES[0]}
-                  max={EXPLORER_TILE_SIZES[EXPLORER_TILE_SIZES.length - 1]}
-                  step={32}
-                  marks={TILE_MARKS}
-                  aria-label={m.workshop_explorer_tile_size_label()}
+              )
+            }
+          >
+            <div className="flex flex-col gap-1.5">
+              {KIND_GROUPS.map((group) => (
+                <Checkbox
+                  key={group.id}
+                  size="sm"
+                  label={KIND_GROUP_LABELS[group.id]()}
+                  checked={filter.kinds.has(group.id)}
+                  onCheckedChange={(on) => toggleKind(group.id, on)}
                 />
-              </FilterSection>
-            )}
+              ))}
+              <Checkbox
+                size="sm"
+                label={m.workshop_explorer_unnamed_label()}
+                checked={filter.unnamedOnly}
+                onCheckedChange={(on) => onFilterChange({ ...filter, unnamedOnly: on })}
+              />
+            </div>
+          </FilterSection>
+        )}
 
-            {view === "details" && (
-              <FilterSection title={m.workshop_explorer_row_height_label()}>
-                <Slider
-                  variant="ruler"
-                  value={rowHeight}
-                  onValueChange={(value) => setRowHeight(nearestRowHeight(value))}
-                  min={EXPLORER_ROW_HEIGHTS[0]}
-                  max={EXPLORER_ROW_HEIGHTS[EXPLORER_ROW_HEIGHTS.length - 1]}
-                  step={4}
-                  marks={ROW_MARKS}
-                  aria-label={m.workshop_explorer_row_height_label()}
-                />
-              </FilterSection>
-            )}
+        {view === "grid" && (
+          <FilterSection title={m.workshop_explorer_tile_size_label()}>
+            <Slider
+              variant="ruler"
+              value={tileSize}
+              onValueChange={(value) => setTileSize(nearestTileSize(value))}
+              min={EXPLORER_TILE_SIZES[0]}
+              max={EXPLORER_TILE_SIZES[EXPLORER_TILE_SIZES.length - 1]}
+              step={32}
+              marks={TILE_MARKS}
+              aria-label={m.workshop_explorer_tile_size_label()}
+            />
+          </FilterSection>
+        )}
 
-            {view === "tree" && <TreeThumbnailOptions />}
+        {view === "details" && (
+          <FilterSection title={m.workshop_explorer_row_height_label()}>
+            <Slider
+              variant="ruler"
+              value={rowHeight}
+              onValueChange={(value) => setRowHeight(nearestRowHeight(value))}
+              min={EXPLORER_ROW_HEIGHTS[0]}
+              max={EXPLORER_ROW_HEIGHTS[EXPLORER_ROW_HEIGHTS.length - 1]}
+              step={4}
+              marks={ROW_MARKS}
+              aria-label={m.workshop_explorer_row_height_label()}
+            />
+          </FilterSection>
+        )}
 
-            {view !== "tree" && (
-              <FilterSection
-                title={m.workshop_explorer_thumbnails_label()}
-                action={
-                  <Switch
-                    checked={thumbnails}
-                    onCheckedChange={setThumbnails}
-                    aria-label={m.workshop_explorer_thumbnails_action()}
-                  />
-                }
-              >
-                <p className="text-fine text-surface-400">
-                  {m.workshop_explorer_thumbnails_description()}
-                </p>
-              </FilterSection>
-            )}
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+        {view === "tree" && <TreeThumbnailOptions />}
+
+        {view !== "tree" && (
+          <FilterSection
+            title={m.workshop_explorer_thumbnails_label()}
+            action={
+              <Switch
+                checked={thumbnails}
+                onCheckedChange={setThumbnails}
+                aria-label={m.workshop_explorer_thumbnails_action()}
+              />
+            }
+          >
+            <p className="text-fine text-surface-400">
+              {m.workshop_explorer_thumbnails_description()}
+            </p>
+          </FilterSection>
+        )}
+      </Popover.Content>
     </Popover.Root>
   );
 }

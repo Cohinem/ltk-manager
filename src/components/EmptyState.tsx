@@ -42,9 +42,9 @@ const SIZES: Record<EmptyStateSize, { root: string; icon: string; title: string;
 };
 
 const DEFAULT_ICON: Record<EmptyStateSize, ReactNode> = {
-  xs: <SearchEmptyPoroIcon className="h-9 w-9" />,
-  sm: <SearchEmptyPoroIcon className="h-14 w-14" />,
-  md: <SearchEmptyPoroIcon className="h-20 w-20" />,
+  xs: <SearchEmptyPoroIcon className="size-9" />,
+  sm: <SearchEmptyPoroIcon className="size-14" />,
+  md: <SearchEmptyPoroIcon className="size-20" />,
 };
 
 /** Nothing to show: a mark, what happened, and the way out if there is one. */

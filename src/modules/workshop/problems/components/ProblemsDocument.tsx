@@ -11,6 +11,7 @@ import {
    component this file exports. */
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
 import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { filterProblems } from "../utils/problemGroups";
 import { useObjectNames, useShownProblems } from "../utils/runCatalogue";
 import { AheadToggle } from "./AheadToggle";
@@ -39,7 +40,7 @@ export function ProblemsDocument({
   );
 
   return (
-    <div data-ui="ProblemsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="ProblemsDocument">
       <DocumentToolbar active={active}>
         <ProblemsToolbar
           query={query}
@@ -60,6 +61,6 @@ export function ProblemsDocument({
       <div className="min-h-0 flex-1 overflow-hidden p-3">
         <ProblemsList query={query} collapseAllSignal={collapseAllSignal} />
       </div>
-    </div>
+    </DocumentFrame>
   );
 }

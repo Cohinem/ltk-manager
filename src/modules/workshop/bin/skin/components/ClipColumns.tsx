@@ -140,7 +140,7 @@ function KeyChip({ tab, keyRef }: { tab: ClipTab; keyRef: KeyRef | null }) {
         {keyRef.name}
       </Code>
       {!keyRef.declared && (
-        <WarningCircleIcon weight="bold" className="h-3.5 w-3.5 shrink-0 text-warning-text" />
+        <WarningCircleIcon weight="bold" className="size-3.5 shrink-0 text-warning-text" />
       )}
     </button>
   );

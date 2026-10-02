@@ -87,14 +87,14 @@ function HeadingCell({ column, active, descending, onSort }: HeadingCellProps) {
         type="button"
         onClick={() => onSort(column)}
         className={twMerge(
-          "flex h-full w-full items-center gap-1 px-2 outline-none hover:bg-surface-veil",
+          "flex size-full items-center gap-1 px-2 outline-none hover:bg-surface-veil",
           "focus-visible:ring-1 focus-visible:ring-accent-500 focus-visible:ring-inset",
           column !== "name" && "justify-end",
           active && "text-surface-300",
         )}
       >
         <span className="truncate">{HEADINGS[column]()}</span>
-        {active && <Caret weight="bold" className="h-3 w-3 shrink-0" />}
+        {active && <Caret weight="bold" className="size-3 shrink-0" />}
       </button>
     </div>
   );

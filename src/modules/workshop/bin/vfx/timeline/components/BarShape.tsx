@@ -48,7 +48,7 @@ export function Bar({
         <span
           role="img"
           aria-label={m.workshop_bin_timeline_burst_label()}
-          className="pointer-events-none absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-accent-300"
+          className="pointer-events-none absolute top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-accent-300"
           style={{ left }}
         />
       )}
@@ -57,7 +57,7 @@ export function Bar({
           weight="bold"
           role="img"
           aria-label={m.workshop_bin_timeline_endless_label()}
-          className="absolute top-1/2 h-3 w-3 -translate-y-1/2 text-accent-400"
+          className="absolute top-1/2 size-3 -translate-y-1/2 text-accent-400"
           style={{ left: Math.min(right, width) - 12 }}
         />
       )}

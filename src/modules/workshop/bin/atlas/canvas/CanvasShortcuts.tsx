@@ -47,19 +47,19 @@ export function CanvasShortcuts() {
         <Popover.Trigger
           aria-label={label}
           /* DS-VEIL, DS-RADIUS */
-          className="flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-surface-400 hover:bg-surface-veil hover:text-surface-100 data-[popup-open]:bg-surface-veil-strong"
+          className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-surface-400 hover:bg-surface-veil hover:text-surface-100 data-[popup-open]:bg-surface-veil-strong"
         >
-          <KeyboardIcon weight="bold" className="h-4 w-4" />
+          <KeyboardIcon weight="bold" className="size-4" />
         </Popover.Trigger>
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="top" align="end">
-          <Popover.Popup className="flex w-72 flex-col gap-2 p-2 font-sans select-none">
-            <ShortcutGroup title={m.workshop_bin_atlas_shortcuts_canvas_label()} keys={CANVAS} />
-            <ShortcutGroup title={m.workshop_bin_atlas_shortcuts_preview_label()} keys={PREVIEW} />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="top"
+        align="end"
+        className="flex w-72 flex-col gap-2 p-2 font-sans select-none"
+      >
+        <ShortcutGroup title={m.workshop_bin_atlas_shortcuts_canvas_label()} keys={CANVAS} />
+        <ShortcutGroup title={m.workshop_bin_atlas_shortcuts_preview_label()} keys={PREVIEW} />
+      </Popover.Content>
     </Popover.Root>
   );
 }

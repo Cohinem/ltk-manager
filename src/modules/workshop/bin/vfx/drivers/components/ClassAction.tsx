@@ -102,21 +102,16 @@ function ActionMenu({
         <Menu.Trigger
           render={
             <IconButton
-              variant="ghost"
-              size="xs"
-              compact
               aria-label={label}
               className="nodrag ml-auto text-surface-400"
-              icon={<ArrowsLeftRightIcon weight="bold" className="h-3.5 w-3.5" />}
+              icon={<ArrowsLeftRightIcon className="size-3.5" />}
             />
           }
         />
       </Tooltip>
-      <Menu.Portal>
-        <Menu.Positioner align="end">
-          <Menu.Popup className="max-h-80 overflow-y-auto">{children}</Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content align="end" className="max-h-80 overflow-y-auto">
+        {children}
+      </Menu.Content>
     </Menu.Root>
   );
 }

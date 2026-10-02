@@ -217,7 +217,7 @@ function BaseLayerRow({
         projectPath={projectPath}
         onRenamed={onRenamed}
         canRename={false}
-        leading={<LockIcon className="h-3 w-3 shrink-0 text-surface-400" />}
+        leading={<LockIcon className="size-3 shrink-0 text-surface-400" />}
         trailing={
           <RowMenu
             canDelete={false}
@@ -283,7 +283,7 @@ function SortableLayerRow({
             {...listeners}
             onClick={(e) => e.stopPropagation()}
           >
-            <DotsSixVerticalIcon weight="bold" className="h-4 w-4" />
+            <DotsSixVerticalIcon weight="bold" className="size-4" />
           </button>
         }
         trailing={
@@ -413,7 +413,7 @@ function RowShell({
         {stats && showStats && (
           <span
             className={twMerge(
-              "shrink-0 text-[0.6875rem] tabular-nums transition-opacity group-hover/row:opacity-0 group-has-[[aria-expanded=true]]/row:opacity-0",
+              "shrink-0 text-meta tabular-nums transition-opacity group-hover/row:opacity-0 group-has-[[aria-expanded=true]]/row:opacity-0",
               selected ? "text-accent-300" : "text-surface-400",
             )}
           >
@@ -442,39 +442,28 @@ function RowMenu({ canDelete, onEdit, onDelete, onOpenFolder }: RowMenuProps) {
       <Menu.Trigger
         render={
           <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
+            icon={<DotsThreeVerticalIcon />}
             aria-label="Layer actions"
-            className="h-5 w-5"
+            className="size-5"
           />
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner align="end" sideOffset={4}>
-          <Menu.Popup>
-            <Menu.Item icon={<FolderOpenIcon className="h-4 w-4" />} onClick={onOpenFolder}>
-              Open Folder
+      <Menu.Content align="end" sideOffset={4}>
+        <Menu.Item icon={<FolderOpenIcon className="size-4" />} onClick={onOpenFolder}>
+          Open Folder
+        </Menu.Item>
+        <Menu.Item icon={<PencilSimpleIcon className="size-4" />} onClick={onEdit}>
+          Edit
+        </Menu.Item>
+        {canDelete && (
+          <>
+            <Menu.Separator />
+            <Menu.Item icon={<TrashIcon className="size-4" />} variant="danger" onClick={onDelete}>
+              Delete
             </Menu.Item>
-            <Menu.Item icon={<PencilSimpleIcon className="h-4 w-4" />} onClick={onEdit}>
-              Edit
-            </Menu.Item>
-            {canDelete && (
-              <>
-                <Menu.Separator />
-                <Menu.Item
-                  icon={<TrashIcon className="h-4 w-4" />}
-                  variant="danger"
-                  onClick={onDelete}
-                >
-                  Delete
-                </Menu.Item>
-              </>
-            )}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+          </>
+        )}
+      </Menu.Content>
     </Menu.Root>
   );
 }

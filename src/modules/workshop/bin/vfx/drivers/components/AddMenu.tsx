@@ -39,23 +39,18 @@ export function AddMenu({ label, sections }: { label: string; sections: readonly
       <Menu.Trigger
         render={
           <IconButton
-            variant="ghost"
-            size="xs"
+            compact={false}
             aria-label={label}
             title={label}
             className="nodrag ml-auto shrink-0"
-            icon={<PlusIcon weight="bold" className="h-3.5 w-3.5" />}
+            icon={<PlusIcon className="size-3.5" />}
           />
         }
       />
-      <Menu.Portal>
-        <Menu.Positioner>
-          <Menu.Popup className={POPUP}>
-            {flat && <Choices choices={only.choices} />}
-            {!flat && shown.map((section) => <Submenu key={section.title} section={section} />)}
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content className={POPUP}>
+        {flat && <Choices choices={only.choices} />}
+        {!flat && shown.map((section) => <Submenu key={section.title} section={section} />)}
+      </Menu.Content>
     </Menu.Root>
   );
 }
@@ -64,13 +59,9 @@ function Submenu({ section }: { section: AddSection }) {
   return (
     <Menu.SubmenuRoot>
       <Menu.SubmenuTrigger>{section.title}</Menu.SubmenuTrigger>
-      <Menu.Portal>
-        <Menu.SubmenuPositioner>
-          <Menu.Popup className={POPUP}>
-            <Choices choices={section.choices} />
-          </Menu.Popup>
-        </Menu.SubmenuPositioner>
-      </Menu.Portal>
+      <Menu.SubmenuContent className={POPUP}>
+        <Choices choices={section.choices} />
+      </Menu.SubmenuContent>
     </Menu.SubmenuRoot>
   );
 }

@@ -20,22 +20,19 @@ export function ModHealthSweepDialog({ open, onClose }: ModHealthSweepDialogProp
   const panel = useRef<HTMLDivElement>(null);
 
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
-      <Dialog.Portal>
-        <Dialog.Backdrop />
-        {/* Focus starts on the panel rather than on its first tab stop, which is
-            Close. A list this long opens saying what to read, not how to leave. */}
-        <Dialog.Overlay
-          ref={panel}
-          size="lg"
-          initialFocus={panel}
-          data-ui="ModHealthSweepDialog"
-          aria-label="What the check found"
-          className="flex h-[70vh] max-w-[38.5rem] flex-col overflow-hidden"
-        >
-          <ModHealthSweepPanel onClose={onClose} />
-        </Dialog.Overlay>
-      </Dialog.Portal>
-    </Dialog.Root>
+    /* Focus starts on the panel rather than on its first tab stop, which is Close. A list
+       this long opens saying what to read, not how to leave. */
+    <Dialog.Frame
+      open={open}
+      onClose={onClose}
+      ref={panel}
+      size="lg"
+      initialFocus={panel}
+      data-ui="ModHealthSweepDialog"
+      aria-label="What the check found"
+      className="flex h-[70vh] max-w-[38.5rem] flex-col overflow-hidden"
+    >
+      <ModHealthSweepPanel onClose={onClose} />
+    </Dialog.Frame>
   );
 }

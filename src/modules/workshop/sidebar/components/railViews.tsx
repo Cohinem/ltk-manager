@@ -66,41 +66,41 @@ export function railViews(): readonly RailView[] {
     {
       id: "explorer",
       title: m.workshop_sidebar_explorer_title(),
-      icon: <StackIcon className="h-5 w-5" />,
+      icon: <StackIcon className="size-5" />,
     },
     {
       id: "search",
       title: m.workshop_sidebar_search_title(),
-      icon: <MagnifyingGlassIcon weight="bold" className="h-5 w-5" />,
+      icon: <MagnifyingGlassIcon weight="bold" className="size-5" />,
       wide: { title: m.workshop_sidebar_game_title(), document: gameDocument },
     },
     {
       id: "problems",
       title: m.workshop_sidebar_problems_title(),
-      icon: <WarningDiamondIcon className="h-5 w-5" />,
+      icon: <WarningDiamondIcon className="size-5" />,
       wide: { title: m.workshop_sidebar_problems_title(), document: problemsDocument },
     },
     {
       id: "objects",
       title: m.workshop_objects_title(),
-      icon: <CubeIcon className="h-5 w-5" />,
+      icon: <CubeIcon className="size-5" />,
       wide: { title: m.workshop_objects_title(), document: objectsDocument },
     },
     {
       id: "declarations",
       title: m.workshop_sidebar_declarations_title(),
-      icon: <BracketsCurlyIcon className="h-5 w-5" />,
+      icon: <BracketsCurlyIcon className="size-5" />,
     },
     {
       id: "game",
       title: m.workshop_sidebar_game_title(),
-      icon: <LeagueIcon className="h-5 w-5" />,
+      icon: <LeagueIcon className="size-5" />,
       wide: { title: m.workshop_sidebar_game_title(), document: gameDocument },
     },
     {
       id: "source",
       title: m.workshop_sidebar_source_title(),
-      icon: <GitBranchIcon className="h-5 w-5" />,
+      icon: <GitBranchIcon className="size-5" />,
     },
   ];
 }
@@ -111,19 +111,19 @@ export function railDocuments(): readonly RailDocument[] {
     {
       documentId: DETAILS_DOCUMENT_ID,
       label: m.workshop_sidebar_details_action(),
-      icon: <PlayerTitleIcon className="h-6 w-6" />,
+      icon: <PlayerTitleIcon className="size-6" />,
       document: detailsDocument,
     },
     {
       documentId: README_DOCUMENT_ID,
       label: m.workshop_readme_title(),
-      icon: <BookOpenTextIcon className="h-5 w-5" />,
+      icon: <BookOpenTextIcon className="size-5" />,
       document: () => projectTextDocument("readme"),
     },
     {
       documentId: IGNORE_RULES_DOCUMENT_ID,
       label: m.workshop_ignore_title(),
-      icon: <EyeSlashIcon weight="bold" className="h-5 w-5" />,
+      icon: <EyeSlashIcon weight="bold" className="size-5" />,
       document: ignoreRulesDocument,
     },
   ];

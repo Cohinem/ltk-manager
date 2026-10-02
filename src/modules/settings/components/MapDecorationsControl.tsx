@@ -1,8 +1,9 @@
 import { SegmentedControl } from "@/components";
 import { m } from "@/i18n";
-import type { MapDecorationMode, Settings } from "@/lib/tauri";
+import type { MapDecorationMode } from "@/lib/tauri";
 
 import { useMapDecorations } from "../api";
+import { useLoadedSettings, useUpdateSettings } from "../api";
 import {
   type DecorationChoice,
   decorationLabel,
@@ -11,11 +12,6 @@ import {
 } from "../builtinMods";
 import { MapTags } from "./MapTags";
 
-interface MapDecorationsControlProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
-
 /**
  * One line per map decoration the install's mutators switch, each with a Game, Hidden or
  * Always picker.
@@ -23,7 +19,9 @@ interface MapDecorationsControlProps {
  * The list is read from the install, so a decoration a new patch adds appears without a
  * release, under its mutator's name until it has a label of its own.
  */
-export function MapDecorationsControl({ settings, onSave }: MapDecorationsControlProps) {
+export function MapDecorationsControl() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   const { data: decorations, isPending } = useMapDecorations(settings.leaguePath);
   const modes = settings.builtinMods.mapDecorations ?? {};
 
@@ -40,8 +38,7 @@ export function MapDecorationsControl({ settings, onSave }: MapDecorationsContro
   }
 
   const save = (mutator: string, choice: DecorationChoice) =>
-    onSave({
-      ...settings,
+    update({
       builtinMods: {
         ...settings.builtinMods,
         mapDecorations: withDecoration(withoutOtherSpellings(modes, mutator), mutator, choice),

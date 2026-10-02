@@ -2,14 +2,14 @@ import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { type MouseEvent, useMemo } from "react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
 
 import { objectDocument } from "../../../documents/utils/contentDocument";
 import { clickIntent, useOpenDocumentAs, useRevealRow } from "../../../state";
 import { useBinRead } from "../../documents/hooks/useBinRead";
-import { nameHash } from "../../shared/utils/binHash";
+import { hashOf } from "../../shared/utils/binHash";
 import { BinTree } from "../../tree/components/BinTree";
 import { rowKey } from "../../tree/utils/binRows";
 import { mapQueries } from "../api/mapQueries";
@@ -90,17 +90,12 @@ export function PlaceableInspector({
             {m.workshop_bin_map_selection_count_label({ count: selected.size })}
           </span>
         )}
-        <Tooltip content={m.workshop_bin_map_placeable_open_action()}>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            className="ml-auto"
-            aria-label={m.workshop_bin_map_placeable_open_action()}
-            icon={<ArrowSquareOutIcon weight="bold" className="h-3.5 w-3.5" />}
-            onClick={showInChunk}
-          />
-        </Tooltip>
+        <IconButton
+          className="ml-auto"
+          icon={<ArrowSquareOutIcon className="size-3.5" />}
+          onClick={showInChunk}
+          label={m.workshop_bin_map_placeable_open_action()}
+        />
       </header>
       {/* DS-GROUND, DS-RADIUS */}
       <div className="flex flex-col rounded-md border border-surface-700/50 bg-surface-900">
@@ -109,7 +104,7 @@ export function PlaceableInspector({
           document={materials}
           asset={materialsAsset}
           roots={rows}
-          rootOwner={classHashOf(item.class)}
+          rootOwner={hashOf(item.class)}
           label={item.name}
           maxRows={TREE_ROWS}
           objectName={objectName}
@@ -118,9 +113,4 @@ export function PlaceableInspector({
       </div>
     </section>
   );
-}
-
-/** The class the outline names, by its hash: a name hashes, and an unnamed hash is itself. */
-function classHashOf(name: string): string {
-  return name.startsWith("0x") ? name : nameHash(name);
 }

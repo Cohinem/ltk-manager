@@ -1,6 +1,6 @@
 import { type KeyboardEvent, useState } from "react";
 
-import { Button, Dialog, TextareaField } from "@/components";
+import { Button, Dialog, Properties, Property, TextareaField } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { DecodedIncident } from "@/lib/tauri";
 import { SCAN_STATUS_LABELS } from "@/modules/patcher";
@@ -159,7 +159,7 @@ export function DecodedTokenCard({ incident }: DecodedTokenCardProps) {
       className="flex flex-col gap-3 rounded-lg border border-surface-700/50 bg-surface-900/95 p-4"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex h-5 items-center rounded-sm border border-accent-500/40 bg-accent-500/10 px-1.5 font-mono text-[0.625rem] font-semibold tracking-wider text-accent-300 uppercase select-none">
+        <span className="inline-flex h-5 items-center rounded-sm border border-accent-500/40 bg-accent-500/10 px-1.5 font-mono text-fine font-semibold tracking-wider text-accent-300 uppercase select-none">
           From a token
         </span>
       </div>
@@ -169,7 +169,7 @@ export function DecodedTokenCard({ incident }: DecodedTokenCardProps) {
       </div>
       <p className="font-mono text-xs text-surface-400 select-text">{facts.join(" · ")}</p>
 
-      <dl className="grid grid-cols-[max-content_minmax(0,1fr)] gap-x-4 gap-y-1 text-xs select-text">
+      <Properties className="grid-cols-[max-content_minmax(0,1fr)] gap-x-4 text-xs select-text">
         {overlay && <Fact label="Overlay" value={overlay} />}
         <Fact
           label="Mods"
@@ -202,7 +202,7 @@ export function DecodedTokenCard({ incident }: DecodedTokenCardProps) {
         )}
         {loading && <Fact label="Loading" value={loading} />}
         {incident.missingHash && <Fact label="Missing hash" value={`0x${incident.missingHash}`} />}
-      </dl>
+      </Properties>
 
       {incident.codes.length > 0 && (
         <ul
@@ -225,9 +225,8 @@ export function DecodedTokenCard({ incident }: DecodedTokenCardProps) {
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <>
-      <dt className="text-surface-500">{label}</dt>
-      <dd className="break-words text-surface-300">{value}</dd>
-    </>
+    <Property label={label} className="break-words text-surface-300">
+      {value}
+    </Property>
   );
 }

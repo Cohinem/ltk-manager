@@ -7,14 +7,12 @@ import type { AssetRef, BinDocumentId, VfxSystem as VfxSystemRead } from "@/lib/
 
 import { useSandbox } from "../../../../sandbox/state/SandboxContext";
 import { useBinDocument } from "../../../documents/hooks/useBinDocument";
-import { nameHash } from "../../../shared/utils/binHash";
+import { hashOf } from "../../../shared/utils/binHash";
 import type { RigModel } from "../../../vfx/engine/model/rig";
 import { readVfxSystem } from "../../../vfx/engine/parsing/readVfxSystem";
-import { createDriver } from "../../../vfx/engine/simulation/driver";
 import { vfxQueries } from "../../../vfx/hooks/useVfxSystem";
 import { VfxSystem } from "../../../vfx/rendering/components/VfxSystem";
-import { useVfxMeshes } from "../../../vfx/rendering/hooks/useVfxMeshes";
-import { useVfxTextures } from "../../../vfx/rendering/hooks/useVfxTextures";
+import { useParticleSystem } from "../../../vfx/rendering/hooks/useParticleSystem";
 import { drawnEmitters } from "../../../vfx/rendering/utils/definitions";
 import { uiQueries } from "../../api/uiQueries";
 import type { Command, ParticleCommand } from "../../engine/commands/types";
@@ -141,14 +139,7 @@ function SystemRun({
       drawnEmitters(system).map((each) => ({ ...each, emitter: { ...each.emitter, soft: null } })),
     [system],
   );
-  const textures = useVfxTextures(drawn);
-  const meshes = useVfxMeshes(drawn);
-  const driver = useMemo(() => createDriver(PARTICLE_SEED), []);
-
-  useEffect(() => {
-    driver.swap(system);
-    driver.steer(HUD_RIG);
-  }, [driver, system]);
+  const { textures, meshes, driver } = useParticleSystem(system, drawn, PARTICLE_SEED, HUD_RIG);
 
   useFrame((_, delta) => {
     if (playing) driver.advance(Math.min(delta, MAX_STEP));
@@ -163,9 +154,4 @@ function SystemRun({
       document={document}
     />
   );
-}
-
-/** The object hash a link names: a path hashed, or a hash as it stands. */
-function hashOf(system: string): string {
-  return system.startsWith("0x") ? system : nameHash(system);
 }

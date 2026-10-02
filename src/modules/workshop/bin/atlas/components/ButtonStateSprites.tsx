@@ -1,6 +1,6 @@
 import { ExportIcon, ImageSquareIcon } from "@phosphor-icons/react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
 
 import { BUTTON_STATES } from "../engine/model/buttons";
@@ -73,36 +73,28 @@ function StateRow({ tree, state }: { tree: ViewTree; state: ButtonState }) {
         {element === undefined ? "" : labelOf(element.label, element.path, element.key)}
       </span>
       {key !== null && drawn !== null && texture !== undefined && sprites.available && (
-        <Tooltip content={m.workshop_bin_atlas_sprites_replace_action()}>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-label={m.workshop_bin_atlas_button_state_replace_label({ state: name })}
-            disabled={sprites.importing}
-            icon={<ImageSquareIcon weight="bold" className="h-3.5 w-3.5" />}
-            onClick={() =>
-              void sprites.run(
-                [key],
-                soleKey(tree, drawn.sprite, texture, sprites.sheet),
-                pageOf(texture.path, drawn.sprite.uv, sprites.sheet),
-              )
-            }
-          />
-        </Tooltip>
+        <IconButton
+          aria-label={m.workshop_bin_atlas_button_state_replace_label({ state: name })}
+          disabled={sprites.importing}
+          icon={<ImageSquareIcon className="size-3.5" />}
+          onClick={() =>
+            void sprites.run(
+              [key],
+              soleKey(tree, drawn.sprite, texture, sprites.sheet),
+              pageOf(texture.path, drawn.sprite.uv, sprites.sheet),
+            )
+          }
+          tooltip={m.workshop_bin_atlas_sprites_replace_action()}
+        />
       )}
       {exported !== null && (
-        <Tooltip content={m.workshop_bin_atlas_sprites_export_action()}>
-          <IconButton
-            variant="ghost"
-            size="xs"
-            compact
-            aria-label={m.workshop_bin_atlas_button_state_export_label({ state: name })}
-            disabled={exports.exporting}
-            icon={<ExportIcon weight="bold" className="h-3.5 w-3.5" />}
-            onClick={() => void exports.run(exported)}
-          />
-        </Tooltip>
+        <IconButton
+          aria-label={m.workshop_bin_atlas_button_state_export_label({ state: name })}
+          disabled={exports.exporting}
+          icon={<ExportIcon className="size-3.5" />}
+          onClick={() => void exports.run(exported)}
+          tooltip={m.workshop_bin_atlas_sprites_export_action()}
+        />
       )}
     </div>
   );

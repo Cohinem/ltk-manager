@@ -3,6 +3,7 @@ import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Group, Mesh, MeshLambertMaterial, NoColorSpace } from "three";
 
+import { useDisposable } from "@/hooks";
 import type { AssetRef, BinDocumentId, MaterialProgram, SkinModel } from "@/lib/tauri";
 import {
   AXIS_SIGN,
@@ -302,8 +303,8 @@ function TexturedSphere({ asset, onOutcome }: { asset: AssetRef; onOutcome: Repo
     report,
   });
   const map = textures.get(FALLBACK_TEXTURE) ?? null;
-  const geometry = useMemo(() => previewGeometry("sphere", false), []);
-  const material = useMemo(() => new MeshLambertMaterial(), []);
+  const geometry = useDisposable(() => previewGeometry("sphere", false), []);
+  const material = useDisposable(() => new MeshLambertMaterial(), []);
   const sphere = useMemo(() => {
     const mesh = new Mesh(geometry, material);
     mesh.scale.set(...AXIS_SIGN);
@@ -314,8 +315,6 @@ function TexturedSphere({ asset, onOutcome }: { asset: AssetRef; onOutcome: Repo
     material.map = map;
     material.needsUpdate = true;
   }, [material, map]);
-  useEffect(() => () => geometry.dispose(), [geometry]);
-  useEffect(() => () => material.dispose(), [material]);
 
   useFrame((_, delta) => {
     sphere.rotation.y += delta * TURN_RATE;

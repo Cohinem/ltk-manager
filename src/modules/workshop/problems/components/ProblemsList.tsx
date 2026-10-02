@@ -11,7 +11,7 @@ import {
 } from "react";
 
 import { AlertBox, EmptyState, Spinner } from "@/components";
-import { useZoomedPx } from "@/hooks";
+import { useRemeasure, useZoomedPx } from "@/hooks";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import { errorSummary, m } from "@/i18n";
 
@@ -135,12 +135,7 @@ export function ProblemsList({ query, collapseAllSignal = 0 }: ProblemsListProps
     overscan: 12,
     getItemKey: (index) => rows[index]?.id ?? index,
   });
-
-  /* Sizes cached at the old zoom outlive a change to it: `estimateSize` is not
-     one of the inputs the measurement memo watches. */
-  useEffect(() => {
-    virtualizer.measure();
-  }, [virtualizer, zoomed]);
+  useRemeasure(virtualizer, zoomed);
 
   if (isPending) {
     return (
@@ -230,7 +225,7 @@ function ProblemsBody({ empty, partial, filteredOut, query, children }: Problems
     return (
       <EmptyState
         className="flex-1"
-        icon={<CheckCircleIcon weight="duotone" className="h-10 w-10 text-surface-400" />}
+        icon={<CheckCircleIcon weight="duotone" className="size-10 text-surface-400" />}
         title={m.workshop_problems_partial_title()}
         description={m.workshop_problems_partial_description()}
       />
@@ -241,7 +236,7 @@ function ProblemsBody({ empty, partial, filteredOut, query, children }: Problems
     return (
       <EmptyState
         className="flex-1"
-        icon={<CheckCircleIcon weight="duotone" className="h-10 w-10 text-success-text" />}
+        icon={<CheckCircleIcon weight="duotone" className="size-10 text-success-text" />}
         title={m.workshop_problems_clean_title()}
         description={m.workshop_problems_clean_description()}
       />

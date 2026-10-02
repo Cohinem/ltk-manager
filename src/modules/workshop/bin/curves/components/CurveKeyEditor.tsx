@@ -199,7 +199,7 @@ function GestureHint() {
         aria-label={m.workshop_bin_curve_graph_edit_hint()}
         className="ml-auto flex shrink-0 cursor-help items-center text-surface-500 outline-none hover:text-surface-300 focus-visible:ring-1 focus-visible:ring-accent-500"
       >
-        <InfoIcon weight="bold" className="h-3.5 w-3.5" />
+        <InfoIcon weight="bold" className="size-3.5" />
       </span>
     </Tooltip>
   );
@@ -252,36 +252,32 @@ function ColorEditor({
         disabled={!editable}
         className="flex h-6 w-32 cursor-pointer items-center gap-2 rounded-sm border border-surface-veil bg-surface-veil-soft px-1.5 text-left font-mono text-code text-surface-300 transition-colors hover:border-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
-        <Swatch rgba={rgba} className="h-4 w-4" />
+        <Swatch rgba={rgba} className="size-4" />
         <span className="min-w-0 flex-1 truncate">{colorHex(rgba)}</span>
-        <PaletteIcon aria-hidden className="h-3.5 w-3.5 text-surface-400" />
+        <PaletteIcon aria-hidden className="size-3.5 text-surface-400" />
       </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Positioner side="top" align="start" sideOffset={8}>
-          <Popover.Popup className="w-64 p-3">
-            <ColorPicker
-              value={draft}
-              label={m.workshop_bin_curve_edit_color_action()}
-              onValueChange={setDraft}
-            />
-            <div className="mt-3 flex justify-end gap-2">
-              <Button variant="ghost" size="xs" onClick={() => setOpen(false)}>
-                {m.common_cancel_action()}
-              </Button>
-              <Button
-                variant="filled"
-                size="xs"
-                onClick={() => {
-                  onCommit(draft);
-                  setOpen(false);
-                }}
-              >
-                {m.workshop_bin_curve_save_color_action()}
-              </Button>
-            </div>
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content side="top" align="start" sideOffset={8} className="w-64 p-3">
+        <ColorPicker
+          value={draft}
+          label={m.workshop_bin_curve_edit_color_action()}
+          onValueChange={setDraft}
+        />
+        <div className="mt-3 flex justify-end gap-2">
+          <Button variant="ghost" size="xs" onClick={() => setOpen(false)}>
+            {m.common_cancel_action()}
+          </Button>
+          <Button
+            variant="filled"
+            size="xs"
+            onClick={() => {
+              onCommit(draft);
+              setOpen(false);
+            }}
+          >
+            {m.workshop_bin_curve_save_color_action()}
+          </Button>
+        </div>
+      </Popover.Content>
     </Popover.Root>
   );
 }

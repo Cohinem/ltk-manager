@@ -15,7 +15,7 @@ import { Tile } from "./Tile";
 const BUNDLED = bundledReleaseNote();
 
 const CHIP =
-  "inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-[0.625rem] leading-tight font-medium";
+  "inline-flex shrink-0 items-center rounded-sm px-1.5 py-0.5 text-fine leading-tight font-medium";
 
 /** The release a digest is drawn for: the one on offer, else the one installed. */
 interface HeadRelease {
@@ -88,7 +88,7 @@ export function WhatsNew() {
         /* Puts the label, not the ghost fill, on the column edge. */
         className="-ml-3 self-start"
         aria-expanded={expanded}
-        right={<ToggleGlyph weight="bold" className="h-3.5 w-3.5" />}
+        right={<ToggleGlyph weight="bold" className="size-3.5" />}
         onClick={() => setExpanded((open) => !open)}
       >
         {toggleLabel}

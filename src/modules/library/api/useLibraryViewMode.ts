@@ -1,21 +1,21 @@
 import { useCallback } from "react";
 
-import { useSaveSettings, useSettings } from "@/modules/settings";
+import { useSettings, useUpdateSettings } from "@/modules/settings";
 
 export type ViewMode = "grid" | "list";
 
 export function useLibraryViewMode() {
   const { data: settings } = useSettings();
-  const saveSettings = useSaveSettings();
+  const updateSettings = useUpdateSettings();
 
   const viewMode: ViewMode = settings?.libraryViewMode === "list" ? "list" : "grid";
 
   const setViewMode = useCallback(
     (mode: ViewMode) => {
       if (!settings) return;
-      saveSettings.mutate({ ...settings, libraryViewMode: mode });
+      updateSettings({ libraryViewMode: mode });
     },
-    [settings, saveSettings],
+    [settings, updateSettings],
   );
 
   return { viewMode, setViewMode } as const;

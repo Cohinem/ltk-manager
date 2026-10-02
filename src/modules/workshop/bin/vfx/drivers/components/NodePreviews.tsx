@@ -70,7 +70,7 @@ function TexturePicture({ asset }: { asset: AssetRef }) {
           src={slot.src}
           alt=""
           draggable={false}
-          className="h-full w-full object-contain"
+          className="size-full object-contain"
           onLoad={slot.onSettled}
           onError={() => {
             slot.onSettled();

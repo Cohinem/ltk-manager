@@ -273,7 +273,7 @@ function TabDragGhost({ documentId }: { documentId: string }) {
       <TabGlyph>{definition.icon(document)}</TabGlyph>
       <span className="truncate">{title}</span>
       {(context ?? layer) && (
-        <span className="truncate text-[0.6875rem] text-surface-400">{context ?? layer}</span>
+        <span className="truncate text-meta text-surface-400">{context ?? layer}</span>
       )}
     </div>
   );

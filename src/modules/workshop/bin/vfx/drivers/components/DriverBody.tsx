@@ -5,8 +5,8 @@ import type { BinRow, VfxValue } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { useBinRead } from "../../../documents/hooks/useBinRead";
-import { RowValue } from "../../../tree/components/BinRow";
 import { Swatch } from "../../../values/components/ColorMark";
+import { RowValue } from "../../../values/components/RowValue";
 import { easingName } from "../../engine/drivers/easing";
 import { type DriverNode, type EasingNode, frequencyScope } from "../../engine/drivers/node";
 import { isColorDriver } from "../../engine/drivers/registry";

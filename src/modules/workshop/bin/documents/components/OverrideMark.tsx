@@ -54,7 +54,7 @@ export function OverrideRowMark({ overrides }: { overrides: readonly LayerOverri
     >
       <span role="img" aria-label={label} className="flex shrink-0">
         {/* DS-KIND-HUE */}
-        <LayerGlyph layerName={last.layer} className="h-3 w-3" />
+        <LayerGlyph layerName={last.layer} className="size-3" />
       </span>
     </Tooltip>
   );

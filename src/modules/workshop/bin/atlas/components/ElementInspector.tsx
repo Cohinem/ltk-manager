@@ -1,16 +1,16 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import type { MouseEvent, ReactNode } from "react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, UiFile } from "@/lib/tauri";
 
 import { objectDocument } from "../../../documents/utils/contentDocument";
 import { clickIntent, useOpenDocumentAs } from "../../../state";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
-import { nameHash } from "../../shared/utils/binHash";
+import { Notice } from "../../shared/preview/Notice";
+import { hashOf } from "../../shared/utils/binHash";
 import { BinTree } from "../../tree/components/BinTree";
-import { Notice } from "../../vfx/preview/components/Notice";
 import type { LayoutSettings, PixelRect } from "../engine/layout/solve";
 import { classAlias } from "../engine/model/classNames";
 import { labelOf } from "../engine/model/layers";
@@ -136,17 +136,12 @@ function ElementFields({
           >
             {classAlias(element.class)}
           </span>
-          <Tooltip content={m.workshop_bin_open_object_action()}>
-            <IconButton
-              variant="ghost"
-              size="xs"
-              compact
-              className="ml-auto"
-              aria-label={m.workshop_bin_open_object_action()}
-              icon={<ArrowSquareOutIcon weight="bold" className="h-3.5 w-3.5" />}
-              onClick={openElement}
-            />
-          </Tooltip>
+          <IconButton
+            className="ml-auto"
+            icon={<ArrowSquareOutIcon className="size-3.5" />}
+            onClick={openElement}
+            label={m.workshop_bin_open_object_action()}
+          />
         </div>
         {rect !== null && (
           <span className="min-w-0 truncate font-mono text-meta text-surface-400 tabular-nums select-text">
@@ -206,7 +201,7 @@ function Fields({
         document={state.handle.document}
         asset={state.handle.asset}
         roots={state.handle.rows}
-        rootOwner={classHashOf(element.class)}
+        rootOwner={hashOf(element.class)}
         label={element.label}
         maxRows={TREE_ROWS}
         editable={editable && state.handle.readOnly === null}
@@ -215,9 +210,4 @@ function Fields({
       />
     </div>
   );
-}
-
-/** The class the view names, by its hash: a name hashes, and an unnamed hash is itself. */
-function classHashOf(name: string): string {
-  return name.startsWith("0x") ? name : nameHash(name);
 }

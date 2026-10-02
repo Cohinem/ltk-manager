@@ -1,7 +1,6 @@
 import { PaletteIcon } from "@phosphor-icons/react";
 
 import { SectionCard } from "@/components";
-import type { Settings } from "@/lib/tauri";
 import { useRotateAppMark } from "@/stores";
 
 import { SettingGroup } from "../SettingGroup";
@@ -33,33 +32,24 @@ function MarkRotator() {
   );
 }
 
-interface AppearanceSectionProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
-
-export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) {
+export function AppearanceSection() {
   return (
     <SettingScope>
       <SectionCard
         title="Appearance"
-        icon={<PaletteIcon className="h-5 w-5" />}
+        icon={<PaletteIcon className="size-5" />}
         description="Options for how the app looks"
         action={<ResetAppearanceButton />}
         panelClassName="relative"
       >
         <SettingGroup id="appearance.color" title="Color">
-          <SettingRow
-            kind="action"
-            setting="theme"
-            control={<ThemePicker settings={settings} onSave={onSave} />}
-          />
+          <SettingRow kind="action" setting="theme" control={<ThemePicker />} />
 
           <SettingRow
             kind="action"
             setting="accentColor"
             hint="The last swatch opens a hue slider for a color of your own."
-            control={<AccentColorPicker settings={settings} onSave={onSave} />}
+            control={<AccentColorPicker />}
           />
 
           <SettingRow
@@ -125,7 +115,7 @@ export function AppearanceSection({ settings, onSave }: AppearanceSectionProps) 
         </SettingGroup>
 
         <SettingGroup id="appearance.backdrop" title="Backdrop">
-          <BackdropImagePicker settings={settings} onSave={onSave} />
+          <BackdropImagePicker />
         </SettingGroup>
 
         <MarkRotator />

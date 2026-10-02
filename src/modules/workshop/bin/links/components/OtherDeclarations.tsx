@@ -51,7 +51,7 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
     return (
       <Dotted>
         <span className="flex items-center gap-1 text-surface-400">
-          <SpinnerGapIcon className="h-3 w-3 animate-spin" />
+          <SpinnerGapIcon className="size-3 animate-spin" />
           {m.workshop_objects_building_label()}
         </span>
       </Dotted>
@@ -94,18 +94,20 @@ export function OtherDeclarations({ asset, objectHash, objectPath }: OtherDeclar
         >
           {label}
         </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Positioner side="bottom" align="end" sideOffset={8}>
-            <Popover.Popup aria-label={label} className="w-96 p-1">
-              <DeclarationList
-                declarations={others}
-                objectHash={objectHash}
-                objectPath={objectPath}
-                layerTitle={title}
-              />
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
+        <Popover.Content
+          side="bottom"
+          align="end"
+          sideOffset={8}
+          aria-label={label}
+          className="w-96 p-1"
+        >
+          <DeclarationList
+            declarations={others}
+            objectHash={objectHash}
+            objectPath={objectPath}
+            layerTitle={title}
+          />
+        </Popover.Content>
       </Popover.Root>
     </Dotted>
   );

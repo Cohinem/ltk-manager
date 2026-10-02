@@ -30,27 +30,29 @@ import {
   SETTINGS_TAB_LABELS,
   type SettingsTab,
   useAppInfo,
-  useSaveSettings,
   useSettings,
   WorkshopSection,
 } from "@/modules/settings";
+import { twMerge } from "@/utils";
 
 const routeApi = getRouteApi("/settings");
 
 const tabClass =
   "flex items-center gap-2.5 text-left text-base data-active:bg-accent-500/15 data-active:text-accent-300";
 
+const PANEL = "mx-auto max-w-5xl px-6 pt-4 pb-6";
+
 const TABS: { value: SettingsTab; icon: ReactNode }[] = [
-  { value: "general", icon: <GearIcon className="h-5 w-5 shrink-0" /> },
-  { value: "library", icon: <BooksIcon className="h-5 w-5 shrink-0" /> },
-  { value: "workshop", icon: <LootIcon className="h-5 w-5 shrink-0" /> },
-  { value: "builtins", icon: <PuzzlePieceIcon className="h-5 w-5 shrink-0" /> },
-  { value: "integrations", icon: <PlugsConnectedIcon className="h-5 w-5 shrink-0" /> },
-  { value: "patching", icon: <PatcherIcon className="h-5 w-5 shrink-0" /> },
-  { value: "cache", icon: <DatabaseIcon className="h-5 w-5 shrink-0" /> },
-  { value: "hotkeys", icon: <KeyboardIcon className="h-5 w-5 shrink-0" /> },
-  { value: "appearance", icon: <PaletteIcon className="h-5 w-5 shrink-0" /> },
-  { value: "about", icon: <InfoIcon className="h-5 w-5 shrink-0" /> },
+  { value: "general", icon: <GearIcon className="size-5 shrink-0" /> },
+  { value: "library", icon: <BooksIcon className="size-5 shrink-0" /> },
+  { value: "workshop", icon: <LootIcon className="size-5 shrink-0" /> },
+  { value: "builtins", icon: <PuzzlePieceIcon className="size-5 shrink-0" /> },
+  { value: "integrations", icon: <PlugsConnectedIcon className="size-5 shrink-0" /> },
+  { value: "patching", icon: <PatcherIcon className="size-5 shrink-0" /> },
+  { value: "cache", icon: <DatabaseIcon className="size-5 shrink-0" /> },
+  { value: "hotkeys", icon: <KeyboardIcon className="size-5 shrink-0" /> },
+  { value: "appearance", icon: <PaletteIcon className="size-5 shrink-0" /> },
+  { value: "about", icon: <InfoIcon className="size-5 shrink-0" /> },
 ];
 
 export function Settings() {
@@ -58,18 +60,13 @@ export function Settings() {
   const navigate = routeApi.useNavigate();
   const { data: settings, isLoading } = useSettings();
   const { data: appInfo } = useAppInfo();
-  const saveSettingsMutation = useSaveSettings();
 
   if (isLoading || !settings) {
     return (
       <div className="flex h-full items-center justify-center">
-        <SpinnerGapIcon className="h-8 w-8 animate-spin text-accent-500" />
+        <SpinnerGapIcon className="size-8 animate-spin text-accent-500" />
       </div>
     );
-  }
-
-  function saveSettings(newSettings: typeof settings) {
-    saveSettingsMutation.mutate(newSettings!);
   }
 
   function selectTab(value: unknown) {
@@ -99,10 +96,10 @@ export function Settings() {
 
         <div className="min-h-0 flex-1 overflow-auto">
           <SettingFocusProvider>
-            <Tabs.Panel value="general" className="mx-auto max-w-5xl space-y-8 px-6 pt-4 pb-6">
+            <Tabs.Panel value="general" className={twMerge(PANEL, "flex flex-col gap-8")}>
               {firstRun && !settings.leaguePath && (
                 <div className="flex items-start gap-3 rounded-xl border border-accent-500/30 bg-accent-500/10 p-5">
-                  <InfoIcon className="mt-0.5 h-5 w-5 shrink-0 text-accent-400" />
+                  <InfoIcon className="mt-0.5 size-5 shrink-0 text-accent-400" />
                   <div>
                     <h3 className="font-medium text-accent-300">{m.settings_welcome_title()}</h3>
                     <p className="mt-1 text-sm text-surface-400">
@@ -111,46 +108,42 @@ export function Settings() {
                   </div>
                 </div>
               )}
-              <GeneralSection
-                settings={settings}
-                onSave={saveSettings}
-                migration={<MigrationPanel />}
-              />
+              <GeneralSection migration={<MigrationPanel />} />
             </Tabs.Panel>
 
-            <Tabs.Panel value="library" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-              <LibrarySection settings={settings} onSave={saveSettings} />
+            <Tabs.Panel value="library" className={PANEL}>
+              <LibrarySection />
             </Tabs.Panel>
 
-            <Tabs.Panel value="workshop" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-              <WorkshopSection settings={settings} onSave={saveSettings} />
+            <Tabs.Panel value="workshop" className={PANEL}>
+              <WorkshopSection />
             </Tabs.Panel>
 
-            <Tabs.Panel value="builtins" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-              <BuiltinModsSection settings={settings} onSave={saveSettings} />
+            <Tabs.Panel value="builtins" className={PANEL}>
+              <BuiltinModsSection />
             </Tabs.Panel>
 
-            <Tabs.Panel value="integrations" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+            <Tabs.Panel value="integrations" className={PANEL}>
               <IntegrationsSection />
             </Tabs.Panel>
 
-            <Tabs.Panel value="patching" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-              <PatchingSection settings={settings} onSave={saveSettings} />
+            <Tabs.Panel value="patching" className={PANEL}>
+              <PatchingSection />
             </Tabs.Panel>
 
-            <Tabs.Panel value="cache" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+            <Tabs.Panel value="cache" className={PANEL}>
               <CacheSection />
             </Tabs.Panel>
 
-            <Tabs.Panel value="hotkeys" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-              <HotkeySection settings={settings} onSave={saveSettings} />
+            <Tabs.Panel value="hotkeys" className={PANEL}>
+              <HotkeySection />
             </Tabs.Panel>
 
-            <Tabs.Panel value="appearance" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
-              <AppearanceSection settings={settings} onSave={saveSettings} />
+            <Tabs.Panel value="appearance" className={PANEL}>
+              <AppearanceSection />
             </Tabs.Panel>
 
-            <Tabs.Panel value="about" className="mx-auto max-w-5xl px-6 pt-4 pb-6">
+            <Tabs.Panel value="about" className={PANEL}>
               <AboutSection appInfo={appInfo} />
             </Tabs.Panel>
           </SettingFocusProvider>

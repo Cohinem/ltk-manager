@@ -123,7 +123,7 @@ export function ChanceButton({ className }: { className?: string }) {
                 "shrink-0 gap-1 text-surface-400 data-pinned:bg-accent-500/15 data-pinned:text-accent-300",
                 className,
               )}
-              left={<DiceFiveIcon weight="bold" className="h-4 w-4" />}
+              left={<DiceFiveIcon weight="bold" className="size-4" />}
             >
               {pinned !== null && (
                 <span className="font-mono text-code tabular-nums">{pinned.toFixed(2)}</span>
@@ -132,13 +132,15 @@ export function ChanceButton({ className }: { className?: string }) {
           }
         />
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="top" align="end" sideOffset={6}>
-          <Popover.Popup aria-label={m.workshop_bin_random_chance_label()} className="p-2">
-            <ChancePin />
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="top"
+        align="end"
+        sideOffset={6}
+        aria-label={m.workshop_bin_random_chance_label()}
+        className="p-2"
+      >
+        <ChancePin />
+      </Popover.Content>
     </Popover.Root>
   );
 }

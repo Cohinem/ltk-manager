@@ -51,7 +51,7 @@ export function AnchorDiagram({
         <svg
           viewBox={`${frame.x} ${frame.y} ${width} ${height}`}
           preserveAspectRatio="none"
-          className="absolute inset-0 h-full w-full overflow-hidden"
+          className="absolute inset-0 size-full overflow-hidden"
           aria-hidden
         >
           <rect
@@ -90,7 +90,7 @@ export function AnchorDiagram({
                   disabled={disabled}
                   style={{ left: `${x * 100}%`, top: `${y * 100}%` }}
                   className={twMerge(
-                    "absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-surface-500 bg-surface-800",
+                    "absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border border-surface-500 bg-surface-800",
                     "focus-visible:ring-1 focus-visible:ring-accent-500 focus-visible:outline-none enabled:cursor-pointer enabled:hover:border-accent-hover disabled:opacity-60",
                     lit && "border-accent-300 bg-accent-500",
                   )}

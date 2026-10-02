@@ -11,7 +11,7 @@ import {
 } from "@/lib/tauri";
 import { promoteToFolderFront } from "@/modules/library/utils";
 import { settingsKeys } from "@/modules/settings";
-import { unwrapForQuery } from "@/utils/query";
+import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";
 
@@ -146,7 +146,7 @@ export const modMutations = {
 
   uninstall: (client: QueryClient) =>
     mutationOptions<null, AppError, string, ModsRollback>({
-      mutationFn: async (modId) => unwrapForQuery(await api.uninstallMod(modId)),
+      mutationFn: mutationFn(api.uninstallMod),
       onMutate: (modId) => holdMods(client, (mods) => mods.filter((mod) => mod.id !== modId)),
       onError: (_error, _variables, context) => releaseMods(client, context),
       onSettled: () => refreshMods(client),

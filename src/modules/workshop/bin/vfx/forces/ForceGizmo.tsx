@@ -3,6 +3,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { type ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowHelper, Group, Matrix4, Vector3 } from "three";
 
+import { useDisposable } from "@/hooks";
 import { AXIS_SIGN, useSceneColors } from "@/modules/viewport";
 
 import type { LeafEdit } from "../../tree/hooks/useLeafEdit";
@@ -40,7 +41,7 @@ export function ForceGizmo({ system, emitter, force, handle, edit, onGrab }: Pro
   const object = useMemo(() => new Group(), []);
   const sphere = useRef<Group>(null);
   const ring = useRef<Group>(null);
-  const arrow = useMemo(() => new ArrowHelper(), []);
+  const arrow = useDisposable(() => new ArrowHelper(), []);
   const transform = useRef<ComponentRef<typeof TransformControls>>(null);
   const placement = useRef({
     origin: new Vector3(),
@@ -130,8 +131,6 @@ export function ForceGizmo({ system, emitter, force, handle, edit, onGrab }: Pro
       restoreRef.current();
     };
   }, [system, force.key, handle]);
-
-  useEffect(() => () => arrow.dispose(), [arrow]);
 
   useFrame(() => {
     if (drag.current !== null) {

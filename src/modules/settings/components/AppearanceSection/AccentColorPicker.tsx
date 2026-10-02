@@ -1,7 +1,7 @@
 import { Popover, Tooltip } from "@/components";
-import type { Settings } from "@/lib/tauri";
 
 import { ACCENT_PRESETS, BRAND_HUE, LTK_PRESET } from "../../api";
+import { useLoadedSettings, useUpdateSettings } from "../../api";
 import { useDebouncedSlider } from "./useDebouncedSlider";
 
 const HUE_WHEEL = `conic-gradient(
@@ -30,15 +30,12 @@ const ACCENT_PRESET_DISPLAY: { key: string; label: string; background: string }[
 ];
 
 const swatchClass =
-  "h-6 w-6 rounded-md transition-[filter] hover:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
+  "size-6 rounded-md transition-[filter] hover:brightness-125 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500";
 const activeSwatchClass = "ring-2 ring-surface-400 ring-offset-2 ring-offset-surface-900";
 
-interface AccentColorPickerProps {
-  settings: Settings;
-  onSave: (settings: Settings) => void;
-}
-
-export function AccentColorPicker({ settings, onSave }: AccentColorPickerProps) {
+export function AccentColorPicker() {
+  const settings = useLoadedSettings();
+  const update = useUpdateSettings();
   const isCustomHue = settings.accentColor?.customHue != null;
   const settingsHue = isCustomHue
     ? settings.accentColor.customHue!
@@ -50,11 +47,11 @@ export function AccentColorPicker({ settings, onSave }: AccentColorPickerProps) 
   const activePreset = isCustomHue ? null : (settings.accentColor?.preset ?? LTK_PRESET);
 
   const [localHue, handleHueChange] = useDebouncedSlider(settingsHue, (hue) => {
-    onSave({ ...settings, accentColor: { preset: null, customHue: hue } });
+    update({ accentColor: { preset: null, customHue: hue } });
   });
 
   function handlePresetClick(preset: string) {
-    onSave({ ...settings, accentColor: { preset, customHue: null } });
+    update({ accentColor: { preset, customHue: null } });
   }
 
   return (
@@ -84,41 +81,37 @@ export function AccentColorPicker({ settings, onSave }: AccentColorPickerProps) 
             />
           }
         />
-        <Popover.Portal>
-          <Popover.Positioner sideOffset={8}>
-            <Popover.Popup className="w-60 p-3">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <Popover.Title className="text-sm font-medium text-surface-100">
-                    Custom hue
-                  </Popover.Title>
-                  <span className="font-mono text-xs text-surface-400">
-                    {Math.round(localHue)}&deg;
-                  </span>
-                </div>
-                <div className="relative">
-                  <input
-                    type="range"
-                    min="0"
-                    max="360"
-                    value={localHue}
-                    onChange={(e) => handleHueChange(Number(e.target.value))}
-                    aria-label="Custom hue"
-                    className="h-3 w-full cursor-pointer appearance-none rounded-full"
-                    style={{ background: HUE_RAMP }}
-                  />
-                  <div
-                    className="pointer-events-none absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-md border-2 border-brand-on shadow-md"
-                    style={{
-                      left: `calc(${(localHue / 360) * 100}% - 10px)`,
-                      backgroundColor: `hsl(${localHue}, 100%, 50%)`,
-                    }}
-                  />
-                </div>
-              </div>
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
+        <Popover.Content sideOffset={8} className="w-60 p-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Popover.Title className="text-sm font-medium text-surface-100">
+                Custom hue
+              </Popover.Title>
+              <span className="font-mono text-xs text-surface-400">
+                {Math.round(localHue)}&deg;
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                type="range"
+                min="0"
+                max="360"
+                value={localHue}
+                onChange={(e) => handleHueChange(Number(e.target.value))}
+                aria-label="Custom hue"
+                className="h-3 w-full cursor-pointer appearance-none rounded-full"
+                style={{ background: HUE_RAMP }}
+              />
+              <div
+                className="pointer-events-none absolute top-1/2 size-5 -translate-y-1/2 rounded-md border-2 border-brand-on shadow-md"
+                style={{
+                  left: `calc(${(localHue / 360) * 100}% - 10px)`,
+                  backgroundColor: `hsl(${localHue}, 100%, 50%)`,
+                }}
+              />
+            </div>
+          </div>
+        </Popover.Content>
       </Popover.Root>
     </div>
   );

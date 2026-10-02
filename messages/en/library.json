@@ -86,6 +86,11 @@
   "library_documents_resize_action": "Resize the drawer",
   "library_documents_title": "Documents",
   "library_documents_toggle_action": "Documents",
+  "library_filter_trigger_label": "Sort and filter mods",
+  "library_folder_create_action": "Create",
+  "library_folder_new_title": "New Folder",
+  "library_folder_rename_action": "Rename",
+  "library_folder_rename_title": "Rename Folder",
   "library_health_all_repairable_description": "All of them can be repaired automatically, so *repairing is recommended*",
   "library_health_cancel_failed_title": "Couldn't stop the run",
   "library_health_check_clean_hint": [
@@ -198,6 +203,7 @@
   "library_licenses_undeclared_description": "This mod's author named no license for it",
   "library_licenses_undeclared_title": "No license declared",
   "library_licenses_unreadable_description": "This mod's archive did not answer, so its license cannot be read",
+  "library_load_failed_title": "Failed to load mods",
   "library_mod_auto_categories_hint": "Auto-detected from this mod's contents",
   "library_mod_champion_skin_label": "{champion} skin",
   "library_mod_copy_id_action": "Copy ID",
@@ -250,5 +256,10 @@
   "library_readme_none_open_description": "Open a mod's readme from its card menu",
   "library_readme_none_open_title": "No mod open",
   "library_readme_unreadable_description": "This mod's archive did not answer, so the mod may not work at all",
-  "library_readme_unreadable_title": "Readme unreadable"
+  "library_readme_unreadable_title": "Readme unreadable",
+  "library_sort_added_label": "Date Added",
+  "library_sort_champion_label": "Champion",
+  "library_sort_enabled_label": "Enabled",
+  "library_sort_name_label": "Name",
+  "library_sort_priority_label": "Priority"
 }

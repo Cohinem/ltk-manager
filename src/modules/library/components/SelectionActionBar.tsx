@@ -43,15 +43,14 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-6">
       <div className="pointer-events-auto flex max-w-full animate-slide-up flex-wrap items-center gap-1 rounded-xl border border-surface-700 bg-surface-800/95 p-1.5 shadow-glass backdrop-blur-md">
-        <Tooltip content="Clear selection (Esc)">
-          <IconButton
-            icon={<XIcon weight="bold" className="h-4 w-4" />}
-            variant="ghost"
-            size="sm"
-            onClick={actions.clear}
-            aria-label="Clear selection"
-          />
-        </Tooltip>
+        <IconButton
+          compact={false}
+          icon={<XIcon />}
+          size="sm"
+          onClick={actions.clear}
+          aria-label="Clear selection"
+          tooltip="Clear selection (Esc)"
+        />
 
         <span className="px-2 text-sm whitespace-nowrap text-surface-200 select-none">
           <span className="font-semibold text-accent-400">{actions.count}</span> selected
@@ -65,7 +64,7 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
           size="sm"
           onClick={actions.enable}
           disabled={!actions.canEnable}
-          left={<ChecksIcon weight="bold" className="h-4 w-4" />}
+          left={<ChecksIcon weight="bold" className="size-4" />}
         >
           Enable {actions.count}
         </Button>
@@ -75,7 +74,7 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
           size="sm"
           onClick={actions.disable}
           disabled={!actions.canDisable}
-          left={<ProhibitIcon weight="bold" className="h-4 w-4" />}
+          left={<ProhibitIcon weight="bold" className="size-4" />}
         >
           Disable {actions.count}
         </Button>
@@ -89,7 +88,7 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
             onClick={actions.checkHealth}
             loading={actions.checkPending}
             disabled={actions.count === 0 || actions.checkReadiness !== "ready"}
-            left={<HeartbeatIcon weight="bold" className="h-4 w-4" />}
+            left={<HeartbeatIcon weight="bold" className="size-4" />}
           >
             Check health {actions.count}
           </Button>
@@ -100,7 +99,7 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
           size="sm"
           onClick={actions.uninstall}
           disabled={!actions.canUninstall}
-          left={<TrashIcon weight="bold" className="h-4 w-4" />}
+          left={<TrashIcon weight="bold" className="size-4" />}
         >
           Uninstall {actions.count}
         </Button>

@@ -48,6 +48,7 @@ import {
   useFindReferences,
 } from "../../../references/api/useFindReferences";
 import { CollapseAllButton } from "../../../shared/components/CollapseAllButton";
+import { DocumentFrame } from "../../../shared/components/DocumentFrame";
 import {
   clickIntent,
   useCurveAimRequest,
@@ -242,19 +243,19 @@ function OpenObject({
 
   return (
     <ProjectSwitchContext value={toProject}>
-      <div
+      <DocumentFrame
         ref={steps.root}
         data-ui="ObjectDocument"
         /* Focusable, so a click anywhere in the tab is where the timeline's step keys land. */
         tabIndex={-1}
-        className="flex min-h-0 flex-1 flex-col bg-surface-950 outline-none"
+        className="outline-none"
         onKeyDown={steps.onKeyDown}
       >
         <DocumentToolbar active={active}>
           <span className="flex min-w-0 shrink-0 items-center gap-2 px-1 text-row text-surface-400 select-none">
             <span className="flex shrink-0 items-center gap-0.5">
               <SandboxOptions documentId={documentId} handle={handle} />
-              <CaretRightIcon weight="bold" className="h-3 w-3 shrink-0 text-surface-500" />
+              <CaretRightIcon weight="bold" className="size-3 shrink-0 text-surface-500" />
             </span>
             <ClassCard classHash={object.classHash} name={object.class} />
             {!narrow && (
@@ -286,7 +287,7 @@ function OpenObject({
             <Button
               variant="ghost"
               size="xs"
-              left={<FileIcon className="h-4 w-4" />}
+              left={<FileIcon className="size-4" />}
               onClick={showFile}
             >
               {m.workshop_bin_show_in_file_action()}
@@ -385,7 +386,7 @@ function OpenObject({
             </Group>
           </CurveDockContext>
         </ShellHeaderContext>
-      </div>
+      </DocumentFrame>
     </ProjectSwitchContext>
   );
 }
@@ -413,80 +414,69 @@ function HeaderMenu({ document, object, onShowInFile }: HeaderMenuProps) {
   return (
     <Menu.Root>
       <Menu.Trigger
-        render={
-          <IconButton
-            variant="ghost"
-            size="xs"
-            icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
-            aria-label={label}
-          />
-        }
+        render={<IconButton compact={false} icon={<DotsThreeVerticalIcon />} aria-label={label} />}
       />
-      <Menu.Portal>
-        <Menu.Positioner align="end" sideOffset={4}>
-          <Menu.Popup className="w-56">
-            {onShowInFile && (
-              <>
-                <Menu.Item icon={<FileIcon className="h-4 w-4" />} onClick={onShowInFile}>
-                  {m.workshop_bin_show_in_file_action()}
-                </Menu.Item>
-                <Menu.Separator />
-              </>
-            )}
-            <Menu.Item
-              icon={<MagnifyingGlassIcon className="h-4 w-4" />}
-              onClick={() => findReferences(objectReferences(object.entry, object.name))}
-            >
-              {m.workshop_references_find_object_action()}
-            </Menu.Item>
-            <Menu.Item
-              icon={<MagnifyingGlassIcon className="h-4 w-4" />}
-              onClick={() => findReferences(classReferences(object.classHash, object.class))}
-            >
-              {m.workshop_references_find_class_action()}
+      <Menu.Content align="end" sideOffset={4} className="w-56">
+        {onShowInFile && (
+          <>
+            <Menu.Item icon={<FileIcon className="size-4" />} onClick={onShowInFile}>
+              {m.workshop_bin_show_in_file_action()}
             </Menu.Item>
             <Menu.Separator />
-            <Menu.Item
-              icon={<PathIcon className="h-4 w-4" />}
-              onClick={() => void copy(object.name, m.workshop_bin_path_label())}
-            >
-              {m.workshop_bin_copy_path_action()}
-            </Menu.Item>
-            <Menu.Item
-              icon={<CodeBlockIcon className="h-4 w-4" />}
-              disabled={spelled?.declaration == null}
-              title={
-                spelled !== null && spelled.declaration === null
-                  ? m.workshop_bin_copy_declaration_refused_hint()
-                  : undefined
-              }
-              onClick={() => spelled !== null && copyDeclaration(spelled)}
-            >
-              {m.workshop_bin_copy_declaration_action()}
-            </Menu.Item>
-            <Menu.Item
-              icon={<HashIcon className="h-4 w-4" />}
-              onClick={() => void copy(object.entry, m.workshop_bin_hash_label())}
-            >
-              {m.workshop_bin_copy_hash_action()}
-            </Menu.Item>
-            {objectClass !== null && (
-              <Menu.Item
-                icon={<CopyIcon className="h-4 w-4" />}
-                onClick={() => void copy(objectClass, m.workshop_bin_name_label())}
-              >
-                {m.workshop_bin_copy_class_name_action()}
-              </Menu.Item>
-            )}
-            <Menu.Item
-              icon={<HashIcon className="h-4 w-4" />}
-              onClick={() => void copy(object.classHash, m.workshop_bin_hash_label())}
-            >
-              {m.workshop_bin_copy_class_hash_action()}
-            </Menu.Item>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+          </>
+        )}
+        <Menu.Item
+          icon={<MagnifyingGlassIcon className="size-4" />}
+          onClick={() => findReferences(objectReferences(object.entry, object.name))}
+        >
+          {m.workshop_references_find_object_action()}
+        </Menu.Item>
+        <Menu.Item
+          icon={<MagnifyingGlassIcon className="size-4" />}
+          onClick={() => findReferences(classReferences(object.classHash, object.class))}
+        >
+          {m.workshop_references_find_class_action()}
+        </Menu.Item>
+        <Menu.Separator />
+        <Menu.Item
+          icon={<PathIcon className="size-4" />}
+          onClick={() => void copy(object.name, m.workshop_bin_path_label())}
+        >
+          {m.workshop_bin_copy_path_action()}
+        </Menu.Item>
+        <Menu.Item
+          icon={<CodeBlockIcon className="size-4" />}
+          disabled={spelled?.declaration == null}
+          title={
+            spelled !== null && spelled.declaration === null
+              ? m.workshop_bin_copy_declaration_refused_hint()
+              : undefined
+          }
+          onClick={() => spelled !== null && copyDeclaration(spelled)}
+        >
+          {m.workshop_bin_copy_declaration_action()}
+        </Menu.Item>
+        <Menu.Item
+          icon={<HashIcon className="size-4" />}
+          onClick={() => void copy(object.entry, m.workshop_bin_hash_label())}
+        >
+          {m.workshop_bin_copy_hash_action()}
+        </Menu.Item>
+        {objectClass !== null && (
+          <Menu.Item
+            icon={<CopyIcon className="size-4" />}
+            onClick={() => void copy(objectClass, m.workshop_bin_name_label())}
+          >
+            {m.workshop_bin_copy_class_name_action()}
+          </Menu.Item>
+        )}
+        <Menu.Item
+          icon={<HashIcon className="size-4" />}
+          onClick={() => void copy(object.classHash, m.workshop_bin_hash_label())}
+        >
+          {m.workshop_bin_copy_class_hash_action()}
+        </Menu.Item>
+      </Menu.Content>
     </Menu.Root>
   );
 }

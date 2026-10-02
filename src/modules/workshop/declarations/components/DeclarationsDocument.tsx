@@ -2,7 +2,7 @@ import { PlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, Code, EmptyState, SegmentedControl, Spinner } from "@/components";
+import { Button, Code, EmptyState, LoadingState, SegmentedControl } from "@/components";
 import { m } from "@/i18n";
 import type { DeclarationsLayer, LineSpan } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps, TextBuffer } from "@/modules/editor";
@@ -12,6 +12,7 @@ import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
 import type { OpenIntent } from "../../palette/utils/types";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
+import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { declarationQueries } from "../api/queries";
 import { useGoToDeclaredRow } from "../hooks/useGoToDeclaredRow";
 import { useOutlineActions } from "../hooks/useOutlineActions";
@@ -59,10 +60,7 @@ export function DeclarationsDocument({
   }, [request]);
 
   return (
-    <div
-      data-ui="DeclarationsDocument"
-      className="@container flex min-h-0 flex-1 flex-col bg-surface-950"
-    >
+    <DocumentFrame data-ui="DeclarationsDocument" className="@container">
       <DocumentToolbar active={active}>
         <div className="flex min-w-0 flex-1 items-center gap-2">
           {layer?.file && <Code className="shrink-0">{layer.file}</Code>}
@@ -98,7 +96,7 @@ export function DeclarationsDocument({
           setChosen("raw");
         }}
       />
-    </div>
+    </DocumentFrame>
   );
 }
 
@@ -140,11 +138,7 @@ function Body({
   onShowInText,
 }: BodyProps) {
   if (isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner />
-      </div>
-    );
+    return <LoadingState />;
   }
 
   if (layer?.text == null) {
@@ -296,7 +290,7 @@ function NewModuleButton({ documentId, layerName }: { documentId: string; layerN
     <Button
       size="sm"
       variant="outline"
-      left={<PlusIcon weight="bold" className="h-3.5 w-3.5" />}
+      left={<PlusIcon weight="bold" className="size-3.5" />}
       onClick={() => {
         void actions.create(layerName).then((landing) => {
           if (landing !== null) reveal(documentId, moduleItemId(layerName, landing.index), true);

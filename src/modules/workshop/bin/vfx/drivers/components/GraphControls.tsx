@@ -10,9 +10,8 @@ import {
 import { Panel, useReactFlow } from "@xyflow/react";
 import type { ReactNode } from "react";
 
-import { IconButton, Tooltip } from "@/components";
+import { IconButton } from "@/components";
 import { m } from "@/i18n";
-import { twMerge } from "@/utils";
 
 import { BackdropButton } from "./BackdropButton";
 
@@ -52,42 +51,42 @@ export function GraphControls({
         label={m.workshop_bin_graph_zoom_in_action()}
         onPress={() => void flow.zoomIn({ duration: 150 })}
       >
-        <MagnifyingGlassPlusIcon weight="bold" className="h-4 w-4" />
+        <MagnifyingGlassPlusIcon weight="bold" className="size-4" />
       </ControlButton>
       <ControlButton
         label={m.workshop_bin_graph_zoom_out_action()}
         onPress={() => void flow.zoomOut({ duration: 150 })}
       >
-        <MagnifyingGlassMinusIcon weight="bold" className="h-4 w-4" />
+        <MagnifyingGlassMinusIcon weight="bold" className="size-4" />
       </ControlButton>
       <ControlButton label={m.workshop_bin_graph_fit_action()} onPress={onFit}>
-        <CornersOutIcon weight="bold" className="h-4 w-4" />
+        <CornersOutIcon weight="bold" className="size-4" />
       </ControlButton>
       <ControlButton
         label={m.workshop_bin_graph_collapse_all_action()}
         onPress={() => onCollapseAll(true)}
       >
-        <ArrowsInSimpleIcon weight="bold" className="h-4 w-4" />
+        <ArrowsInSimpleIcon weight="bold" className="size-4" />
       </ControlButton>
       <ControlButton
         label={m.workshop_bin_graph_expand_all_action()}
         onPress={() => onCollapseAll(false)}
       >
-        <ArrowsOutSimpleIcon weight="bold" className="h-4 w-4" />
+        <ArrowsOutSimpleIcon weight="bold" className="size-4" />
       </ControlButton>
       <ControlButton
         label={previewLabel}
         pressed={previewed}
         onPress={() => onPreviewedChange(!previewed)}
       >
-        <MonitorPlayIcon weight="bold" className="h-4 w-4" />
+        <MonitorPlayIcon weight="bold" className="size-4" />
       </ControlButton>
       <ControlButton
         label={m.workshop_bin_graph_surface_loop_action()}
         pressed={looped}
         onPress={() => onLoopedChange(!looped)}
       >
-        <RepeatIcon weight="bold" className="h-4 w-4" />
+        <RepeatIcon weight="bold" className="size-4" />
       </ControlButton>
       <BackdropButton />
     </Panel>
@@ -107,17 +106,6 @@ function ControlButton({
   children: ReactNode;
 }) {
   return (
-    <Tooltip content={label}>
-      <IconButton
-        variant="ghost"
-        size="xs"
-        aria-label={label}
-        aria-pressed={pressed}
-        /* DS-VEIL */
-        className={twMerge(pressed === true && "bg-surface-veil-strong text-accent-400")}
-        icon={children}
-        onClick={onPress}
-      />
-    </Tooltip>
+    <IconButton compact={false} pressed={pressed} icon={children} onClick={onPress} label={label} />
   );
 }

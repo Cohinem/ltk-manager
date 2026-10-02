@@ -32,7 +32,7 @@ export function VerdictCard({ incident }: VerdictCardProps) {
           src={skinhackMark}
           alt=""
           draggable={false}
-          className="m-1 h-40 w-40 shrink-0 self-center select-none"
+          className="m-1 size-40 shrink-0 self-center select-none"
         />
       )}
       {/* The art supplies the left inset when it is there, so only a card
@@ -42,7 +42,7 @@ export function VerdictCard({ incident }: VerdictCardProps) {
           {/* Glyphs take the -text variant: DS-TEXT. */}
           <VerdictGlyph
             kind={verdict.kind}
-            className={twMerge("mt-0.5 h-5 w-5 shrink-0", skinhack && "text-void-text")}
+            className={twMerge("mt-0.5 size-5 shrink-0", skinhack && "text-void-text")}
           />
           <h2
             className={twMerge(
@@ -54,7 +54,7 @@ export function VerdictCard({ incident }: VerdictCardProps) {
           </h2>
           <ConsequenceChip consequence={verdict.consequence} />
           {incident.dismissed && (
-            <span className="inline-flex h-5 items-center rounded-sm border border-surface-600 px-1.5 text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
+            <span className="inline-flex h-5 items-center rounded-sm border border-surface-600 px-1.5 text-fine font-medium tracking-wider text-surface-400 uppercase">
               {m.diagnostics_dismissed_label()}
             </span>
           )}

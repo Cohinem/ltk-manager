@@ -156,28 +156,24 @@ function MoveToModule({ document, mark, layer }: MoveToModuleProps) {
       >
         {m.workshop_bin_move_to_module_action()}
       </Menu.SubmenuTrigger>
-      <Menu.Portal>
-        <Menu.SubmenuPositioner>
-          <Menu.Popup data-ui="DeclarationMenuItems:move-to-module">
-            {targets.map((module) => (
-              <Menu.Item
-                key={module.index}
-                onClick={() =>
-                  void act(layer, {
-                    kind: "moveKeys",
-                    module: mark.module,
-                    entry: mark.entry,
-                    path: mark.property,
-                    to: module.index,
-                  })
-                }
-              >
-                {moduleLabel(module)}
-              </Menu.Item>
-            ))}
-          </Menu.Popup>
-        </Menu.SubmenuPositioner>
-      </Menu.Portal>
+      <Menu.SubmenuContent data-ui="DeclarationMenuItems:move-to-module">
+        {targets.map((module) => (
+          <Menu.Item
+            key={module.index}
+            onClick={() =>
+              void act(layer, {
+                kind: "moveKeys",
+                module: mark.module,
+                entry: mark.entry,
+                path: mark.property,
+                to: module.index,
+              })
+            }
+          >
+            {moduleLabel(module)}
+          </Menu.Item>
+        ))}
+      </Menu.SubmenuContent>
     </Menu.SubmenuRoot>
   );
 }

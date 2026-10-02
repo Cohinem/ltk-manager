@@ -72,18 +72,18 @@ const SandboxedObjectDocument = inDocumentSandbox(ObjectDocument);
 
 function glyphClass(file: ContentDocumentOf<"text">["file"]): string {
   const hue = file === "readme" ? "text-doc-readme-text" : "text-doc-license-text";
-  return `h-4 w-4 shrink-0 ${hue}`;
+  return `size-4 shrink-0 ${hue}`;
 }
 
 export function contentEditors(project: WorkshopProject): EditorRegistry<ContentDocument> {
   return {
     details: {
-      icon: () => <PlayerTitleIcon className="h-4 w-4 shrink-0 text-doc-details-text" />,
+      icon: () => <PlayerTitleIcon className="size-4 shrink-0 text-doc-details-text" />,
       label: () => ({ title: "Mod details", path: project.path }),
       component: DetailsDocument,
     },
     files: {
-      icon: (document) => <LayerGlyph layerName={document.layerName} className="h-4 w-4" />,
+      icon: (document) => <LayerGlyph layerName={document.layerName} className="size-4" />,
       label: (document) => ({
         title: layerTitle(project, document.layerName),
         path: `${project.path}/content/${document.layerName}`,
@@ -91,7 +91,7 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       component: FilesDocument,
     },
     strings: {
-      icon: () => <TranslateIcon className="h-4 w-4 shrink-0 text-doc-strings-text" />,
+      icon: () => <TranslateIcon className="size-4 shrink-0 text-doc-strings-text" />,
       label: (document) => ({
         title: document.locale,
         layer: layerTitle(project, document.layerName),
@@ -99,7 +99,7 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       component: StringsDocument,
     },
     "ignore-rules": {
-      icon: () => <EyeSlashIcon className="h-4 w-4 shrink-0 text-doc-ignore-text" />,
+      icon: () => <EyeSlashIcon className="size-4 shrink-0 text-doc-ignore-text" />,
       label: (document) => ({
         title: m.workshop_ignore_title(),
         context: document.at,
@@ -108,7 +108,7 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       component: IgnoreRulesDocument,
     },
     declarations: {
-      icon: () => <BracketsCurlyIcon className="h-4 w-4 shrink-0 text-doc-declarations-text" />,
+      icon: () => <BracketsCurlyIcon className="size-4 shrink-0 text-doc-declarations-text" />,
       label: (document) => ({
         title: m.workshop_declarations_title(),
         layer: layerTitle(project, document.layerName),
@@ -125,16 +125,16 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       component: ProjectTextDocument,
     },
     problems: {
-      icon: () => <WarningDiamondIcon className="h-4 w-4 shrink-0 text-doc-problems-text" />,
+      icon: () => <WarningDiamondIcon className="size-4 shrink-0 text-doc-problems-text" />,
       label: () => ({ title: "Problems", path: project.path }),
       component: ProblemsDocument,
     },
     game: {
       icon: (document) => {
         if (documentSource(document) === "lcu") {
-          return <AppWindowIcon className="h-4 w-4 shrink-0 text-doc-game-text" />;
+          return <AppWindowIcon className="size-4 shrink-0 text-doc-game-text" />;
         }
-        return <LeagueIcon className="h-4 w-4 shrink-0 text-doc-game-text" />;
+        return <LeagueIcon className="size-4 shrink-0 text-doc-game-text" />;
       },
       label: (document) => {
         if (documentSource(document) === "lcu") return { title: m.workshop_lcu_index_title() };
@@ -143,7 +143,7 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       component: GameDocument,
     },
     "game-wads": {
-      icon: () => <FilesIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      icon: () => <FilesIcon className="size-4 shrink-0 text-doc-game-text" />,
       label: (document) => {
         if (documentSource(document) === "lcu") return { title: m.workshop_lcu_wads_label() };
         return { title: "Game WADs" };
@@ -151,7 +151,7 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       component: GameWadsDocument,
     },
     "game-wad": {
-      icon: () => <FileArchiveIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      icon: () => <FileArchiveIcon className="size-4 shrink-0 text-doc-game-text" />,
       label: (document) => ({
         title: wadBasename(document.wadName),
         context: documentSource(document) === "lcu" ? m.workshop_lcu_source_label() : undefined,
@@ -165,12 +165,12 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       ),
     },
     objects: {
-      icon: () => <TreeStructureIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      icon: () => <TreeStructureIcon className="size-4 shrink-0 text-doc-game-text" />,
       label: () => ({ title: m.workshop_objects_title() }),
       component: ObjectsDocument,
     },
     references: {
-      icon: () => <MagnifyingGlassIcon className="h-4 w-4 shrink-0 text-doc-game-text" />,
+      icon: () => <MagnifyingGlassIcon className="size-4 shrink-0 text-doc-game-text" />,
       label: () => ({ title: m.workshop_references_title(), path: project.path }),
       component: ReferencesDocument,
     },
@@ -203,7 +203,7 @@ export function contentEditors(project: WorkshopProject): EditorRegistry<Content
       icon: (document) => (
         <ObjectGlyph
           objectClass={document.objectClass}
-          className="h-4 w-4 shrink-0 text-surface-400"
+          className="size-4 shrink-0 text-surface-400"
         />
       ),
       label: (document) => ({
@@ -233,13 +233,13 @@ function ObjectTabMenu({ objectHash, objectPath }: ObjectTabMenuProps) {
   return (
     <>
       <ContextMenu.Item
-        icon={<MagnifyingGlassIcon className="h-4 w-4" />}
+        icon={<MagnifyingGlassIcon className="size-4" />}
         onClick={() => find(objectReferences(objectHash, objectPath))}
       >
         {m.workshop_references_find_object_action()}
       </ContextMenu.Item>
       <ContextMenu.Item
-        icon={<TreeStructureIcon className="h-4 w-4" />}
+        icon={<TreeStructureIcon className="size-4" />}
         onClick={() => reveal(objectPath)}
       >
         {m.workshop_objects_reveal_action()}
@@ -308,7 +308,7 @@ function RevealInFilesItem({ document }: { document: ContentDocumentOf<"preview"
   }
 
   return (
-    <ContextMenu.Item icon={<FilesIcon className="h-4 w-4" />} onClick={reveal}>
+    <ContextMenu.Item icon={<FilesIcon className="size-4" />} onClick={reveal}>
       {m.workshop_files_reveal_action()}
     </ContextMenu.Item>
   );
@@ -321,7 +321,7 @@ function PreviewGlyph({ title }: { title: string }) {
 
   return (
     <span className="shrink-0" style={{ color: `var(${descriptor.tintToken})` }}>
-      <Icon className="h-4 w-4" strokeWidth={1.75} />
+      <Icon className="size-4" strokeWidth={1.75} />
     </span>
   );
 }

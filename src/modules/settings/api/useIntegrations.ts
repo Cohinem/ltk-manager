@@ -9,7 +9,7 @@ import {
   type MenuConflictPolicy,
   type Tool,
 } from "@/lib/tauri";
-import { queryFn, unwrapForQuery } from "@/utils/query";
+import { queryFn, queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
 const statusKey = ["settings", "integrations"] as const;
 
@@ -30,7 +30,7 @@ export function useIntegrationRelease(tool: Tool, enabled: boolean) {
   return useQuery(
     queryOptions<IntegrationRelease, AppError>({
       queryKey: ["settings", "integration-release", tool],
-      queryFn: async () => unwrapForQuery(await api.integrations.release(tool)),
+      queryFn: queryFnWithArgs(api.integrations.release, tool),
       enabled,
       staleTime: 10 * 60 * 1000,
       retry: false,

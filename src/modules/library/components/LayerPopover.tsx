@@ -39,34 +39,30 @@ export function LayerPopover({ mod, disabled }: LayerPopoverProps) {
               size="xs"
               compact
               disabled={disabled}
-              left={<Layers className="h-3.5 w-3.5" />}
+              left={<Layers className="size-3.5" />}
             >
               {enabledCount}/{mod.layers.length}
             </Button>
           }
         />
-        <Popover.Portal>
-          <Popover.Positioner side="bottom" align="start" sideOffset={6}>
-            <Popover.Popup className="w-64">
-              <Popover.Arrow />
-              <div className="p-2">
-                <div className="mb-1 flex items-center gap-2">
-                  <Layers className="h-4 w-4 shrink-0 text-surface-400" />
-                  <Popover.Title className="min-w-0 truncate">{mod.displayName}</Popover.Title>
-                </div>
-                <Popover.Description className="text-xs">
-                  Choose which layers to apply. Enable the mod afterward to use them.
-                </Popover.Description>
-              </div>
-              <LayerToggleList
-                layers={mod.layers}
-                onToggle={handleToggle}
-                disabled={disabled}
-                className="rounded-b-lg"
-              />
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
+        <Popover.Content side="bottom" align="start" sideOffset={6} className="w-64">
+          <Popover.Arrow />
+          <div className="p-2">
+            <div className="mb-1 flex items-center gap-2">
+              <Layers className="size-4 shrink-0 text-surface-400" />
+              <Popover.Title className="min-w-0 truncate">{mod.displayName}</Popover.Title>
+            </div>
+            <Popover.Description className="text-xs">
+              Choose which layers to apply. Enable the mod afterward to use them.
+            </Popover.Description>
+          </div>
+          <LayerToggleList
+            layers={mod.layers}
+            onToggle={handleToggle}
+            disabled={disabled}
+            className="rounded-b-lg"
+          />
+        </Popover.Content>
       </Popover.Root>
     </span>
   );

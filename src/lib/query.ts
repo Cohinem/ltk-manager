@@ -16,6 +16,8 @@ declare module "@tanstack/react-query" {
        * reaches `mutation.options` at all.
        */
       silentError?: boolean;
+      /** The default toast's title, naming the action that failed. */
+      errorTitle?: string;
     };
   }
 }
@@ -34,12 +36,17 @@ export function createAppQueryClient(): QueryClient {
         retry: 1,
       },
     },
-    mutationCache: new MutationCache({
-      onError: (error, _variables, _context, mutation) => {
-        if (mutation.meta?.silentError) return;
-        reportUnhandledFailure(error);
-      },
-    }),
+    mutationCache: createAppMutationCache(),
+  });
+}
+
+/** The cache that reports a failed mutation per its `meta`. */
+export function createAppMutationCache(): MutationCache {
+  return new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      if (mutation.meta?.silentError) return;
+      reportUnhandledFailure(error, mutation.meta?.errorTitle);
+    },
   });
 }
 

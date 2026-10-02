@@ -6,7 +6,7 @@ import { m } from "@/i18n";
 import type { BinDocumentId } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { Notice } from "../../vfx/preview/components/Notice";
+import { Notice } from "../../shared/preview/Notice";
 import {
   type VariantSlot,
   type VariantTarget,
@@ -195,7 +195,7 @@ function TargetRow({ target, open, onFold, onSelect }: TargetRowProps) {
           className="flex h-4 w-3 shrink-0 cursor-pointer items-center justify-center text-surface-400"
           onClick={onFold}
         >
-          <CaretRightIcon weight="bold" className={twMerge("h-3 w-3", open && "rotate-90")} />
+          <CaretRightIcon weight="bold" className={twMerge("size-3", open && "rotate-90")} />
         </button>
         <button
           type="button"
@@ -206,7 +206,7 @@ function TargetRow({ target, open, onFold, onSelect }: TargetRowProps) {
           onClick={target.element ? onSelect : onFold}
         >
           <span className="min-w-0 truncate">{target.label}</span>
-          {stale && <WarningIcon className="h-3.5 w-3.5 shrink-0 text-warning-text" />}
+          {stale && <WarningIcon className="size-3.5 shrink-0 text-warning-text" />}
           <span className="ml-auto shrink-0 pl-2 text-meta text-surface-400">
             {m.workshop_bin_atlas_variants_records_label({ count: target.records.length })}
           </span>
@@ -226,7 +226,7 @@ function TargetRow({ target, open, onFold, onSelect }: TargetRowProps) {
                 >
                   <WarningIcon
                     aria-label={m.workshop_bin_atlas_variants_skipped_label()}
-                    className="h-3.5 w-3.5 shrink-0 text-warning-text"
+                    className="size-3.5 shrink-0 text-warning-text"
                   />
                 </Tooltip>
               )}

@@ -53,20 +53,16 @@ export function SurfaceItems({ tree, target, selection }: SurfaceItemsProps) {
           <ContextMenu.SubmenuTrigger icon={<SquareSplitHorizontalIcon />}>
             {m.workshop_bin_atlas_surface_apply_label()}
           </ContextMenu.SubmenuTrigger>
-          <ContextMenu.Portal>
-            <ContextMenu.SubmenuPositioner>
-              <ContextMenu.Popup className="max-h-80 w-60 overflow-y-auto">
-                {surfaces.surfaces.map((surface) => (
-                  <ContextMenu.Item
-                    key={surface.key}
-                    onClick={() => void surfaces.apply(images, surface)}
-                  >
-                    {surface.key}
-                  </ContextMenu.Item>
-                ))}
-              </ContextMenu.Popup>
-            </ContextMenu.SubmenuPositioner>
-          </ContextMenu.Portal>
+          <ContextMenu.SubmenuContent className="max-h-80 w-60 overflow-y-auto">
+            {surfaces.surfaces.map((surface) => (
+              <ContextMenu.Item
+                key={surface.key}
+                onClick={() => void surfaces.apply(images, surface)}
+              >
+                {surface.key}
+              </ContextMenu.Item>
+            ))}
+          </ContextMenu.SubmenuContent>
         </ContextMenu.SubmenuRoot>
       )}
     </>

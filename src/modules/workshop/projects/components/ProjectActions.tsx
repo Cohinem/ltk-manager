@@ -39,7 +39,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
         <Button
           variant="ghost"
           size="sm"
-          left={<PlayIcon weight="bold" className="h-4 w-4" />}
+          left={<PlayIcon weight="bold" className="size-4" />}
           onClick={actions.handleTestProject}
           className={testTint}
         >
@@ -57,7 +57,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
           variant="ghost"
           size="sm"
           disabled
-          left={<PlayIcon weight="bold" className="h-4 w-4" />}
+          left={<PlayIcon weight="bold" className="size-4" />}
           className={testTint}
         >
           {m.workshop_header_test_action()}
@@ -70,7 +70,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
           variant="ghost"
           size="sm"
           disabled
-          left={<PlayIcon weight="bold" className="h-4 w-4" />}
+          left={<PlayIcon weight="bold" className="size-4" />}
           className={testTint}
         >
           {m.workshop_header_test_action()}
@@ -88,7 +88,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
         <Button
           variant="ghost"
           size="sm"
-          left={<PackageIcon weight="bold" className="h-4 w-4" />}
+          left={<PackageIcon weight="bold" className="size-4" />}
           loading={actions.isPacking}
           onClick={actions.handlePack}
           className={packTint}
@@ -102,34 +102,30 @@ export function ProjectActions({ project }: ProjectActionsProps) {
         <Menu.Trigger
           render={
             <IconButton
-              icon={<DotsThreeVerticalIcon weight="bold" className="h-4 w-4" />}
-              variant="ghost"
+              compact={false}
+              icon={<DotsThreeVerticalIcon />}
               size="sm"
               aria-label={m.workshop_header_actions_label()}
               className={neutralTint}
             />
           }
         />
-        <Menu.Portal>
-          <Menu.Positioner>
-            <Menu.Popup>
-              <Menu.Item
-                icon={<FolderOpenIcon className="h-4 w-4" />}
-                onClick={actions.handleOpenLocation}
-              >
-                {m.workshop_header_open_location_action()}
-              </Menu.Item>
-              <Menu.Separator />
-              <Menu.Item
-                icon={<TrashIcon className="h-4 w-4" />}
-                variant="danger"
-                onClick={actions.handleOpenDeleteDialog}
-              >
-                {m.workshop_header_delete_action()}
-              </Menu.Item>
-            </Menu.Popup>
-          </Menu.Positioner>
-        </Menu.Portal>
+        <Menu.Content>
+          <Menu.Item
+            icon={<FolderOpenIcon className="size-4" />}
+            onClick={actions.handleOpenLocation}
+          >
+            {m.workshop_header_open_location_action()}
+          </Menu.Item>
+          <Menu.Separator />
+          <Menu.Item
+            icon={<TrashIcon className="size-4" />}
+            variant="danger"
+            onClick={actions.handleOpenDeleteDialog}
+          >
+            {m.workshop_header_delete_action()}
+          </Menu.Item>
+        </Menu.Content>
       </Menu.Root>
     </ButtonGroup>
   );
@@ -155,7 +151,7 @@ function FailedTestTip({ incident }: { incident: Incident }) {
 
   return (
     <div className="flex max-w-[260px] flex-col gap-1.5">
-      <span className="text-[0.625rem] font-medium tracking-wider text-surface-400 uppercase">
+      <span className="text-fine font-medium tracking-wider text-surface-400 uppercase">
         {m.workshop_header_last_test_label()}
       </span>
       <p className="font-semibold text-surface-100">{incident.verdict.title}</p>

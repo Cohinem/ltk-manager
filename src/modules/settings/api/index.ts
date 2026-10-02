@@ -22,4 +22,5 @@ export {
   type ThirdPartyLicensesManifest,
   useThirdPartyLicenses,
 } from "./useThirdPartyLicenses";
+export { type SettingsPatch, useLoadedSettings, useUpdateSettings } from "./useUpdateSettings";
 export { useValidateLeaguePath } from "./useValidateLeaguePath";

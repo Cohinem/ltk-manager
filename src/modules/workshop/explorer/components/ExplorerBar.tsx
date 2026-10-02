@@ -1,7 +1,7 @@
 import { ArrowUpIcon } from "@phosphor-icons/react";
 import { type ReactNode } from "react";
 
-import { Breadcrumb, type BreadcrumbItem, IconButton, Tooltip } from "@/components";
+import { Breadcrumb, type BreadcrumbItem, IconButton } from "@/components";
 import { m } from "@/i18n";
 import type { ExplorerView } from "@/stores";
 
@@ -70,17 +70,13 @@ export function ExplorerBar({
   return (
     <div data-ui="ExplorerBar" className="flex min-w-0 flex-1 flex-col gap-1 select-none">
       <div data-ui="ExplorerBar:location" className="flex min-w-0 items-center gap-1.5">
-        <Tooltip content={m.workshop_explorer_up_label()}>
-          <IconButton
-            icon={<ArrowUpIcon weight="bold" className="h-4 w-4" />}
-            variant="ghost"
-            size="xs"
-            compact
-            disabled={atRoot}
-            onClick={onUp}
-            aria-label={m.workshop_explorer_up_action()}
-          />
-        </Tooltip>
+        <IconButton
+          icon={<ArrowUpIcon />}
+          disabled={atRoot}
+          onClick={onUp}
+          aria-label={m.workshop_explorer_up_action()}
+          tooltip={m.workshop_explorer_up_label()}
+        />
 
         <Location
           items={items}

@@ -10,6 +10,7 @@ import {
 import { Handle, type NodeProps, Position } from "@xyflow/react";
 import { type CSSProperties, useMemo } from "react";
 
+import { OVERLINE } from "@/components";
 import type { BinRow } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
@@ -139,9 +140,7 @@ function SectionLine({ line }: { line: SectionLineOf }) {
   if (line.depth === 0 && line.index === null) {
     return (
       <Line className="border-t border-surface-700/40 first:border-t-0">
-        <span className="truncate px-2 font-sans text-xs font-medium tracking-wide text-surface-400 uppercase">
-          {name}
-        </span>
+        <span className={twMerge(OVERLINE, "truncate px-2 font-sans")}>{name}</span>
       </Line>
     );
   }
@@ -212,7 +211,7 @@ function MaterialLine({ line }: { line: Extract<ComponentLine, { type: "material
         {fieldAlias(line.name, line.hash)}
       </span>
       <span className="flex min-w-0 flex-1 items-center gap-1.5 border-l border-surface-700/40 pl-2 text-meta text-bin-class-text">
-        <SphereIcon weight="duotone" className="h-3.5 w-3.5 shrink-0" />
+        <SphereIcon weight="duotone" className="size-3.5 shrink-0" />
         <span className="min-w-0 truncate">{line.className}</span>
       </span>
     </Line>

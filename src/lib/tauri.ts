@@ -1,48 +1,21 @@
 import { commands } from "@/lib/bindings";
 import type {
-  AppErrorResponse as AppError,
   AssetRef,
   BinDocumentId,
-  BinEdit,
-  ChangeBaseline,
-  ChoiceQuery,
-  ConvertFolderArgs,
   CreateProjectArgs,
-  DeclaredModuleChoice,
-  Declaring,
-  EditModMetadataArgs,
-  ExportScope,
-  ExportShape,
   ExtractOptions,
   ExtractTarget,
-  HexBinHash,
-  HotkeyAction,
   ImportFantomeArgs,
   ImportGitRepoArgs,
-  IntegrationAction,
   LaunchTarget,
   MaterialSource,
-  MenuConflictPolicy,
-  ModStorage,
-  ModuleAction,
-  PackProjectArgs,
   ParticleDefine,
   ParticleShader,
-  PatcherConfig,
-  ProblemId,
   ProgramOptions,
-  ProjectTextFile,
-  ReferenceQuery,
-  Revision,
   SandboxRef,
   ProjectMetadata,
   SearchPreference,
-  Settings_Serialize as Settings,
-  SurfaceSource,
-  Tool,
-  UiError,
   UiShader,
-  ViewVariant,
   WadSource,
   WorkshopFileKind,
 } from "@/lib/bindings";
@@ -53,7 +26,7 @@ import { commands as library } from "@/lib/ipc/library";
 import { commands as objects } from "@/lib/ipc/objects";
 import { commands as preview } from "@/lib/ipc/preview";
 import { commands as workshop } from "@/lib/ipc/workshop";
-import { map as mapResult, type Result } from "@/utils/result";
+import { map as mapResult } from "@/utils/result";
 
 export type * from "@/lib/bindings";
 /* A serde `default` or `skip_serializing_if` splits a type by phase, and a command answers
@@ -92,188 +65,161 @@ export type { Result } from "@/utils/result";
 export type SaveProjectConfigArgs = ProjectMetadata & { projectPath: string };
 export { isErr, isOk, match, unwrap, unwrapOr } from "@/utils/result";
 
-type IpcResponse<T> = { ok: true; value: T } | { ok: false; error: AppError };
-
-/**
- * Transform the raw IPC response to our Result type.
- */
-function toResult<T>(response: IpcResponse<T>): Result<T> {
-  if (response.ok) {
-    return { ok: true, value: response.value };
-  }
-  return { ok: false, error: response.error };
-}
-
 // API functions
 export const api = {
   integrations: {
-    status: () => commands.integrationStatus().then(toResult),
-    release: (tool: Tool) => commands.integrationRelease(tool).then(toResult),
-    change: (tool: Tool, action: IntegrationAction, conflicts: MenuConflictPolicy) =>
-      commands.changeIntegration(tool, action, conflicts).then(toResult),
-    cancel: (operationId: string) => commands.cancelIntegrationDownload(operationId).then(toResult),
+    status: commands.integrationStatus,
+    release: commands.integrationRelease,
+    change: commands.changeIntegration,
+    cancel: commands.cancelIntegrationDownload,
   },
-  getAppInfo: () => commands.getAppInfo().then(toResult),
-  getPlatformSupport: () => commands.getPlatformSupport().then(toResult),
-  showMainWindow: () => commands.showMainWindow().then(toResult),
-  listReleases: (page: number) => commands.listReleases(page).then(toResult),
-  listAnnouncements: () => commands.listAnnouncements().then(toResult),
-  listNotices: () => commands.listNotices().then(toResult),
+  getAppInfo: commands.getAppInfo,
+  getPlatformSupport: commands.getPlatformSupport,
+  showMainWindow: commands.showMainWindow,
+  listReleases: commands.listReleases,
+  listAnnouncements: commands.listAnnouncements,
+  listNotices: commands.listNotices,
 
   // Settings
-  getSettings: () => commands.getSettings().then(toResult),
-  getDefaultSettings: () => commands.getDefaultSettings().then(toResult),
-  saveSettings: (settings: Settings) => commands.saveSettings(settings).then(toResult),
-  autoDetectLeaguePath: () => commands.autoDetectLeaguePath().then(toResult),
-  validateLeaguePath: (path: string) => commands.validateLeaguePath(path).then(toResult),
-  checkSetupRequired: () => commands.checkSetupRequired().then(toResult),
-  detectLeagueRunAsAdmin: () => commands.detectLeagueRunAsAdmin().then(toResult),
-  listAvailableWads: () => commands.listAvailableWads().then(toResult),
-  listForcibleMapSkins: () => commands.listForcibleMapSkins().then(toResult),
-  listMapDecorations: () => commands.listMapDecorations().then(toResult),
+  getSettings: commands.getSettings,
+  getDefaultSettings: commands.getDefaultSettings,
+  saveSettings: commands.saveSettings,
+  autoDetectLeaguePath: commands.autoDetectLeaguePath,
+  validateLeaguePath: commands.validateLeaguePath,
+  checkSetupRequired: commands.checkSetupRequired,
+  detectLeagueRunAsAdmin: commands.detectLeagueRunAsAdmin,
+  listAvailableWads: commands.listAvailableWads,
+  listForcibleMapSkins: commands.listForcibleMapSkins,
+  listMapDecorations: commands.listMapDecorations,
 
   // Mods
-  getInstalledMods: () => library.getInstalledMods().then(toResult),
-  installMod: (filePath: string) => library.installMod(filePath).then(toResult),
-  installMods: (filePaths: string[]) => library.installMods(filePaths).then(toResult),
-  updateMod: (modId: string, filePath: string) => library.updateMod(modId, filePath).then(toResult),
-  uninstallMod: (modId: string) => library.uninstallMod(modId).then(toResult),
-  exportMods: (scope: ExportScope, shape: ExportShape, destination: string) =>
-    library.exportMods(scope, shape, destination).then(toResult),
-  toggleMod: (modId: string, enabled: boolean) => library.toggleMod(modId, enabled).then(toResult),
-  getModThumbnail: (modId: string) => library.getModThumbnail(modId).then(toResult),
-  getModThumbnails: (modIds: readonly string[]) =>
-    library.getModThumbnails([...modIds]).then(toResult),
-  getModReadme: (modId: string) => library.getModReadme(modId).then(toResult),
-  getModLicenseText: (modId: string) => library.getModLicenseText(modId).then(toResult),
-  getStorageDirectory: () => library.getStorageDirectory().then(toResult),
-  reorderMods: (modIds: string[]) => library.reorderMods(modIds).then(toResult),
+  getInstalledMods: library.getInstalledMods,
+  installMod: library.installMod,
+  installMods: library.installMods,
+  updateMod: library.updateMod,
+  uninstallMod: library.uninstallMod,
+  exportMods: library.exportMods,
+  toggleMod: library.toggleMod,
+  getModThumbnail: library.getModThumbnail,
+  getModThumbnails: (modIds: readonly string[]) => library.getModThumbnails([...modIds]),
+  getModReadme: library.getModReadme,
+  getModLicenseText: library.getModLicenseText,
+  getStorageDirectory: library.getStorageDirectory,
+  reorderMods: library.reorderMods,
   setModLayers: (modId: string, layerStates: Record<string, boolean>) =>
-    library.setModLayers(modId, layerStates).then(toResult),
+    library.setModLayers(modId, layerStates),
   enableModWithLayers: (modId: string, layerStates: Record<string, boolean>) =>
-    library.enableModWithLayers(modId, layerStates).then(toResult),
-  editModMetadata: (modId: string, metadata: EditModMetadataArgs) =>
-    library.editModMetadata(modId, metadata).then(toResult),
-  setModStorage: (modId: string, storage: ModStorage) =>
-    library.setModStorage(modId, storage).then(toResult),
-  getAllModWadReports: () => library.getAllModWadReports().then(toResult),
-  analyzeModWads: (modId: string) => library.analyzeModWads(modId).then(toResult),
-  checkModHealth: (modId: string) => library.checkModHealth(modId).then(toResult),
+    library.enableModWithLayers(modId, layerStates),
+  editModMetadata: library.editModMetadata,
+  setModStorage: library.setModStorage,
+  getAllModWadReports: library.getAllModWadReports,
+  analyzeModWads: library.analyzeModWads,
+  checkModHealth: library.checkModHealth,
   /** Re-check `modIds`, or every mod in the library when none are named. */
-  sweepModHealth: (modIds?: string[]) => library.sweepModHealth(modIds ?? null).then(toResult),
-  repairMod: (modId: string) => library.repairMod(modId).then(toResult),
-  repairMods: (modIds: string[]) => library.repairMods(modIds).then(toResult),
-  getModHealthVerdicts: () => library.getModHealthVerdicts().then(toResult),
-  getHealthSweep: () => library.getHealthSweep().then(toResult),
-  getHealthCheckReadiness: () => library.getHealthCheckReadiness().then(toResult),
-  cancelModHealthRun: () => library.cancelModHealthRun().then(toResult),
+  sweepModHealth: (modIds?: string[]) => library.sweepModHealth(modIds ?? null),
+  repairMod: library.repairMod,
+  repairMods: library.repairMods,
+  getModHealthVerdicts: library.getModHealthVerdicts,
+  getHealthSweep: library.getHealthSweep,
+  getHealthCheckReadiness: library.getHealthCheckReadiness,
+  cancelModHealthRun: library.cancelModHealthRun,
   /**
    * Time a health pass over the real library, into the dev console.
    *
    * Registered only in a debug build. `repair` runs the real repair, which
    * rewrites the mods it can fix and keeps no way back.
    */
-  timeModHealth: (repair: boolean) => library.timeModHealth(repair).then(toResult),
+  timeModHealth: library.timeModHealth,
 
   // Migration
-  scanCslolMods: (directory: string) => library.scanCslolMods(directory).then(toResult),
-  importCslolMods: (directory: string, selectedFolders: string[]) =>
-    library.importCslolMods(directory, selectedFolders).then(toResult),
-  getLayoutMigrationState: () => library.getLayoutMigrationState().then(toResult),
+  scanCslolMods: library.scanCslolMods,
+  importCslolMods: library.importCslolMods,
+  getLayoutMigrationState: library.getLayoutMigrationState,
 
   // Inspector
 
   // Patcher
-  startPatcher: (config: PatcherConfig) => commands.startPatcher(config).then(toResult),
-  stopPatcher: () => commands.stopPatcher().then(toResult),
-  rebuildOverlay: () => commands.rebuildOverlay().then(toResult),
-  getPatcherStatus: () => commands.getPatcherStatus().then(toResult),
-  getLinkedBinOffenders: () => commands.getLinkedBinOffenders().then(toResult),
-  getChecksumMismatches: () => commands.getChecksumMismatches().then(toResult),
+  startPatcher: commands.startPatcher,
+  stopPatcher: commands.stopPatcher,
+  rebuildOverlay: commands.rebuildOverlay,
+  getPatcherStatus: commands.getPatcherStatus,
+  getLinkedBinOffenders: commands.getLinkedBinOffenders,
+  getChecksumMismatches: commands.getChecksumMismatches,
 
   // Launcher
   // Resolves to null when a launch was already in flight - a redundant click.
-  launchLeague: (target?: LaunchTarget) => commands.launchLeague(target ?? null).then(toResult),
+  launchLeague: (target?: LaunchTarget) => commands.launchLeague(target ?? null),
   // Resolves to false when nothing was in flight, which is what a Cancel
   // pressed just as the request landed looks like.
-  cancelLaunch: () => commands.cancelLaunch().then(toResult),
-  stopLeague: () => commands.stopLeague().then(toResult),
-  getLaunchAvailability: () => commands.getLaunchAvailability().then(toResult),
+  cancelLaunch: commands.cancelLaunch,
+  stopLeague: commands.stopLeague,
+  getLaunchAvailability: commands.getLaunchAvailability,
   // Also starts following the session it reports, so a game already in progress
   // when the app opened still reaches the session events.
-  getLeagueSession: () => commands.getLeagueSession().then(toResult),
+  getLeagueSession: commands.getLeagueSession,
 
   // Hotkeys
-  pauseHotkeys: () => commands.pauseHotkeys().then(toResult),
-  resumeHotkeys: () => commands.resumeHotkeys().then(toResult),
-  setHotkey: (action: HotkeyAction, accelerator: string | null) =>
-    commands.setHotkey(action, accelerator).then(toResult),
+  pauseHotkeys: commands.pauseHotkeys,
+  resumeHotkeys: commands.resumeHotkeys,
+  setHotkey: commands.setHotkey,
 
   // Profiles
-  listModProfiles: () => library.listModProfiles().then(toResult),
-  getActiveModProfile: () => library.getActiveModProfile().then(toResult),
-  createModProfile: (name: string) => library.createModProfile(name).then(toResult),
-  deleteModProfile: (profileId: string) => library.deleteModProfile(profileId).then(toResult),
-  switchModProfile: (profileId: string) => library.switchModProfile(profileId).then(toResult),
-  renameModProfile: (profileId: string, newName: string) =>
-    library.renameModProfile(profileId, newName).then(toResult),
+  listModProfiles: library.listModProfiles,
+  getActiveModProfile: library.getActiveModProfile,
+  createModProfile: library.createModProfile,
+  deleteModProfile: library.deleteModProfile,
+  switchModProfile: library.switchModProfile,
+  renameModProfile: library.renameModProfile,
 
   // Folders
-  getFolders: () => library.getFolders().then(toResult),
-  getFolderOrder: () => library.getFolderOrder().then(toResult),
-  createFolder: (name: string) => library.createFolder(name).then(toResult),
-  renameFolder: (folderId: string, newName: string) =>
-    library.renameFolder(folderId, newName).then(toResult),
-  deleteFolder: (folderId: string) => library.deleteFolder(folderId).then(toResult),
-  moveModToFolder: (modId: string, folderId: string) =>
-    library.moveModToFolder(modId, folderId).then(toResult),
-  toggleFolder: (folderId: string, enabled: boolean) =>
-    library.toggleFolder(folderId, enabled).then(toResult),
-  reorderFolderMods: (folderId: string, modIds: string[]) =>
-    library.reorderFolderMods(folderId, modIds).then(toResult),
-  reorderFolders: (folderOrder: string[]) => library.reorderFolders(folderOrder).then(toResult),
+  getFolders: library.getFolders,
+  getFolderOrder: library.getFolderOrder,
+  createFolder: library.createFolder,
+  renameFolder: library.renameFolder,
+  deleteFolder: library.deleteFolder,
+  moveModToFolder: library.moveModToFolder,
+  toggleFolder: library.toggleFolder,
+  reorderFolderMods: library.reorderFolderMods,
+  reorderFolders: library.reorderFolders,
 
   // Hashtables
-  getHashtableCacheStatus: () => game.getHashtableCacheStatus().then(toResult),
-  checkHashtableUpdates: () => game.checkHashtableUpdates().then(toResult),
-  syncHashtables: (force: boolean) => game.syncHashtables(force).then(toResult),
+  getHashtableCacheStatus: game.getHashtableCacheStatus,
+  checkHashtableUpdates: game.checkHashtableUpdates,
+  syncHashtables: game.syncHashtables,
 
   // Game and LCU WADs
-  getGameWads: (source: WadSource) => game.getGameWads(source).then(toResult),
-  readGameWad: (source: WadSource, wadName: string) =>
-    game.readGameWad(wadName, source).then(toResult),
+  getGameWads: game.getGameWads,
+  readGameWad: (source: WadSource, wadName: string) => game.readGameWad(wadName, source),
 
   // Game and LCU index
-  getGameIndex: (source: WadSource) => game.getGameIndex(source).then(toResult),
-  readGameDir: (source: WadSource, path: string) => game.readGameDir(path, source).then(toResult),
-  refreshGameIndex: (source: WadSource) => game.refreshGameIndex(source).then(toResult),
-  searchGameIndex: (query: string) =>
-    game.searchGameIndex(query, { kind: "palette" }).then(toResult),
+  getGameIndex: game.getGameIndex,
+  readGameDir: (source: WadSource, path: string) => game.readGameDir(path, source),
+  refreshGameIndex: game.refreshGameIndex,
+  searchGameIndex: (query: string) => game.searchGameIndex(query, { kind: "palette" }),
   findInGameIndex: (source: WadSource, pattern: string, regex: boolean) =>
-    game.findInGameIndex(pattern, regex, source).then(toResult),
+    game.findInGameIndex(pattern, regex, source),
 
   // Extract to disk
   planGameExtract: (
     source: WadSource,
     targets: ExtractTarget[],
     kinds: WorkshopFileKind[] | null,
-  ) => game.planGameExtract(targets, kinds, source).then(toResult),
+  ) => game.planGameExtract(targets, kinds, source),
   // Resolves to null when an extract was already in flight - a redundant click.
   extractGameFiles: (source: WadSource, targets: ExtractTarget[], options: ExtractOptions) =>
-    game.extractGameFiles(targets, options, source).then(toResult),
+    game.extractGameFiles(targets, options, source),
   // Resolves to false when nothing was in flight, which is what a Cancel
   // pressed just as the run finished looks like.
-  cancelExtract: () => game.cancelExtract().then(toResult),
+  cancelExtract: game.cancelExtract,
 
   // Asset preview
-  readAssetInfo: (asset: AssetRef) => preview.readAssetInfo(asset).then(toResult),
-  saveAssetCopy: (asset: AssetRef, destination: string) =>
-    preview.saveAssetCopy(asset, destination).then(toResult),
+  readAssetInfo: preview.readAssetInfo,
+  saveAssetCopy: preview.saveAssetCopy,
 
   // Ritobin
-  detectRitobinIntegration: () => preview.detectRitobinIntegration().then(toResult),
+  detectRitobinIntegration: preview.detectRitobinIntegration,
   openAssetInRitobin: (asset: AssetRef, name?: string) =>
-    preview.openAssetInRitobin(asset, name ?? null).then(toResult),
+    preview.openAssetInRitobin(asset, name ?? null),
 
   // Deep Link
   deepLinkInstallMod: (
@@ -281,127 +227,84 @@ export const api = {
     name?: string | null,
     author?: string | null,
     source?: string | null,
-  ) =>
-    commands.deepLinkInstallMod(url, name ?? null, author ?? null, source ?? null).then(toResult),
-  takePendingDeepLink: () => commands.takePendingDeepLink().then(toResult),
+  ) => commands.deepLinkInstallMod(url, name ?? null, author ?? null, source ?? null),
+  takePendingDeepLink: commands.takePendingDeepLink,
 
   // Shell
-  revealInExplorer: (path: string) => commands.revealInExplorer(path).then(toResult),
-  minimizeToTray: () => commands.minimizeToTray().then(toResult),
+  revealInExplorer: commands.revealInExplorer,
+  minimizeToTray: commands.minimizeToTray,
 
   // Storage
-  detectStorageMedium: (path: string) => commands.detectStorageMedium(path).then(toResult),
+  detectStorageMedium: commands.detectStorageMedium,
 
   // The bin editor and the class reads over its documents.
   bin: {
-    open: (sandbox: SandboxRef, asset: AssetRef, entry: string | null) =>
-      bin.binOpen(sandbox, asset, entry).then(toResult),
-    openVariant: (sandbox: SandboxRef, asset: AssetRef, base: AssetRef, path: string) =>
-      bin.binOpenVariant(sandbox, asset, base, path).then(toResult),
-    children: (
-      document: BinDocumentId,
-      entry: string,
-      path: string,
-      offset: number,
-      limit: number,
-    ) => bin.binChildren(document, entry, path, offset, limit).then(toResult),
+    open: bin.binOpen,
+    openVariant: bin.binOpenVariant,
+    children: bin.binChildren,
     read: (document: BinDocumentId, entry: string, paths: readonly string[]) =>
-      bin.binRead(document, entry, [...paths]).then(toResult),
-    find: (document: BinDocumentId, entry: string | null, query: string) =>
-      bin.binFind(document, entry, query).then(toResult),
-    edit: (document: BinDocumentId, edit: BinEdit) => bin.binEdit(document, edit).then(toResult),
-    choices: (document: BinDocumentId, query: ChoiceQuery) =>
-      bin.binChoices(document, query).then(toResult),
-    copyValue: (document: BinDocumentId, entry: string, path: string) =>
-      bin.binCopyValue(document, entry, path).then(toResult),
-    save: (document: BinDocumentId) => bin.binSave(document).then(toResult),
-    reload: (document: BinDocumentId) => bin.binReload(document).then(toResult),
-    undo: (document: BinDocumentId) => bin.binHistory(document, "undo").then(toResult),
-    redo: (document: BinDocumentId) => bin.binHistory(document, "redo").then(toResult),
-    changes: (document: BinDocumentId, baseline: ChangeBaseline) =>
-      bin.binChanges(document, baseline).then(toResult),
-    revert: (document: BinDocumentId, entry: string, path: string, baseline: ChangeBaseline) =>
-      bin.binRevert(document, entry, path, baseline).then(toResult),
-    declared: (document: BinDocumentId) => bin.binDeclared(document).then(toResult),
-    overrides: (document: BinDocumentId) => bin.binOverrides(document).then(toResult),
-    declareInto: (document: BinDocumentId, layer: string, module: DeclaredModuleChoice) =>
-      bin.binDeclareInto(document, layer, module).then(toResult),
-    setDeclaring: (document: BinDocumentId, declaring: Declaring) =>
-      bin.binSetDeclaring(document, declaring).then(toResult),
-    rowDeclaration: (document: BinDocumentId, entry: string, path: string) =>
-      bin.binRowDeclaration(document, entry, path).then(toResult),
-    roots: (document: BinDocumentId) => bin.binRoots(document).then(toResult),
-    dependencies: (document: BinDocumentId) => bin.binDependencies(document).then(toResult),
-    close: (document: BinDocumentId) => bin.binClose(document).then(toResult),
-    classSchema: (classHash: string) => bin.classSchema(classHash).then(toResult),
-    derivedClasses: (classHash: string) => bin.derivedClasses(classHash).then(toResult),
-    classDocs: (classHash: string) => bin.classDocs(classHash).then(toResult),
-    syncMetaDocs: () => bin.syncMetaDocs().then(toResult),
-    readVfxSystem: (document: BinDocumentId, entry: string) =>
-      preview.readVfxSystem(document, entry).then(toResult),
-    vfxTemplates: () => preview.vfxTemplates().then(toResult),
-    readUiView: (
-      document: BinDocumentId,
-      entry: string,
-      scene: BinDocumentId | null,
-      variant: ViewVariant | null,
-    ) => commands.readUiView(document, entry, scene, variant).then(toResult),
-    readUiSceneView: (document: BinDocumentId, entry: string) =>
-      commands.readUiSceneView(document, entry).then(toResult),
-    readUiFont: (document: BinDocumentId, entry: string) =>
-      commands.readUiFont(document, entry).then(toResult),
-    readUiFontCatalog: (document: BinDocumentId) =>
-      commands.readUiFontCatalog(document).then(toResult),
+      bin.binRead(document, entry, [...paths]),
+    find: bin.binFind,
+    edit: bin.binEdit,
+    choices: bin.binChoices,
+    copyValue: bin.binCopyValue,
+    save: bin.binSave,
+    reload: bin.binReload,
+    undo: (document: BinDocumentId) => bin.binHistory(document, "undo"),
+    redo: (document: BinDocumentId) => bin.binHistory(document, "redo"),
+    changes: bin.binChanges,
+    revert: bin.binRevert,
+    declared: bin.binDeclared,
+    overrides: bin.binOverrides,
+    declareInto: bin.binDeclareInto,
+    setDeclaring: bin.binSetDeclaring,
+    rowDeclaration: bin.binRowDeclaration,
+    roots: bin.binRoots,
+    dependencies: bin.binDependencies,
+    close: bin.binClose,
+    classSchema: bin.classSchema,
+    derivedClasses: bin.derivedClasses,
+    classDocs: bin.classDocs,
+    syncMetaDocs: bin.syncMetaDocs,
+    readVfxSystem: preview.readVfxSystem,
+    vfxTemplates: preview.vfxTemplates,
+    readUiView: commands.readUiView,
+    readUiSceneView: commands.readUiSceneView,
+    readUiFont: commands.readUiFont,
+    readUiFontCatalog: commands.readUiFontCatalog,
     readUiMaterialPrograms: (documents: readonly BinDocumentId[], entries: readonly string[]) =>
-      commands.readUiMaterialPrograms([...documents], [...entries]).then(toResult),
+      commands.readUiMaterialPrograms([...documents], [...entries]),
     readUiPrograms: (document: BinDocumentId | null, shaders: readonly UiShader[]) =>
-      commands.readUiPrograms(document, [...shaders]).then(toResult),
-    readUiLoadout: (document: BinDocumentId) => commands.readUiLoadout(document).then(toResult),
-    readUiTooltips: (document: BinDocumentId, character: string, level: number, rank: number) =>
-      commands.readUiTooltips(document, character, level, rank).then(toResult),
-    readUiCharacters: (document: BinDocumentId) =>
-      commands.readUiCharacters(document).then(toResult),
+      commands.readUiPrograms(document, [...shaders]),
+    readUiLoadout: commands.readUiLoadout,
+    readUiTooltips: commands.readUiTooltips,
+    readUiCharacters: commands.readUiCharacters,
     atlasExportSprite: (
       texture: AssetRef,
       uv: readonly [number, number, number, number],
       destination: string,
-    ) => commands.atlasExportSprite(texture, [...uv], destination).then(toResult),
-    atlasImportFontFile: (document: BinDocumentId, source: string) =>
-      commands.atlasImportFontFile(document, source).then(toResult),
-    atlasImportSprite: (
-      document: BinDocumentId,
-      sheet: string,
-      source: string,
-      replace: string | null,
-    ) => commands.atlasImportSprite(document, sheet, source, replace).then(toResult),
-    atlasMakeSurface: (
-      document: BinDocumentId,
-      sheet: string,
-      name: string,
-      source: SurfaceSource,
-    ) => commands.atlasMakeSurface(document, sheet, name, source).then(toResult),
+    ) => commands.atlasExportSprite(texture, [...uv], destination),
+    atlasImportFontFile: commands.atlasImportFontFile,
+    atlasImportSprite: commands.atlasImportSprite,
+    atlasMakeSurface: commands.atlasMakeSurface,
     atlasPatchSprite: (
       document: BinDocumentId,
       page: string,
       uv: readonly [number, number, number, number],
       source: string,
-    ) => commands.atlasPatchSprite(document, page, [...uv], source).then(toResult),
-    atlasSheet: (document: BinDocumentId, sheet: string) =>
-      commands.atlasSheet(document, sheet).then(toResult),
-    readSkin: (document: BinDocumentId, entry: string) =>
-      preview.readSkin(document, entry).then(toResult),
+    ) => commands.atlasPatchSprite(document, page, [...uv], source),
+    atlasSheet: commands.atlasSheet,
+    readSkin: preview.readSkin,
     readMaterialPrograms: (
       source: MaterialSource,
       entries: readonly string[],
       options: ProgramOptions,
     ) =>
-      preview
-        .readMaterialPrograms(
-          source,
-          entries.map((entry) => ({ kind: "object" as const, entry })),
-          options,
-        )
-        .then(toResult),
+      preview.readMaterialPrograms(
+        source,
+        entries.map((entry) => ({ kind: "object" as const, entry })),
+        options,
+      ),
     readEmbeddedMaterialProgram: (
       source: MaterialSource,
       entry: string,
@@ -410,237 +313,192 @@ export const api = {
     ) =>
       preview
         .readMaterialPrograms(source, [{ kind: "embedded", entry, path }], options)
-        .then(toResult)
         .then((result) => mapResult(result, ([program]) => program ?? null)),
     readDefaultSkinnedProgram: (document: BinDocumentId, options: ProgramOptions) =>
-      preview.readEngineProgram({ kind: "defaultSkinned", document }, options).then(toResult),
+      preview.readEngineProgram({ kind: "defaultSkinned", document }, options),
     readParticleProgram: (
       document: BinDocumentId | null,
       shader: ParticleShader,
       defines: readonly ParticleDefine[],
       options: ProgramOptions,
     ) =>
-      preview
-        .readEngineProgram({ kind: "particle", document, shader, defines: [...defines] }, options)
-        .then(toResult),
-    bakeSkinTangents: (document: BinDocumentId, entry: string) =>
-      preview.bakeSkinTangents(document, entry).then(toResult),
-    readMap: (document: BinDocumentId | null, map: string, materials: string[]) =>
-      preview.readMap(document, map, materials).then(toResult),
-    readMapParticles: (document: BinDocumentId) =>
-      preview.readMapParticles(document).then(toResult),
-    readMapCharacters: (document: BinDocumentId) =>
-      preview.readMapCharacters(document).then(toResult),
-    readMapVariants: (document: BinDocumentId, entry: string) =>
-      preview.readMapVariants(document, entry).then(toResult),
-    readMapOutline: (document: BinDocumentId) => preview.readMapOutline(document).then(toResult),
+      preview.readEngineProgram(
+        { kind: "particle", document, shader, defines: [...defines] },
+        options,
+      ),
+    bakeSkinTangents: preview.bakeSkinTangents,
+    readMap: preview.readMap,
+    readMapParticles: preview.readMapParticles,
+    readMapCharacters: preview.readMapCharacters,
+    readMapVariants: preview.readMapVariants,
+    readMapOutline: preview.readMapOutline,
     locateFilesNear: (sandbox: SandboxRef, paths: readonly string[]) =>
-      preview.locateFilesNear(sandbox, [...paths]).then(toResult),
-    locateMapFiles: (sandbox: SandboxRef, map: string) =>
-      preview.locateMapFiles(sandbox, map).then(toResult),
-    readAnimationGraph: (document: BinDocumentId, entry: string) =>
-      preview.readAnimationGraph(document, entry).then(toResult),
-    readClipHeader: (asset: AssetRef) => preview.readClipHeader(asset).then(toResult),
-    readSpell: (document: BinDocumentId, entry: string) =>
-      preview.readSpell(document, entry).then(toResult),
+      preview.locateFilesNear(sandbox, [...paths]),
+    locateMapFiles: preview.locateMapFiles,
+    readAnimationGraph: preview.readAnimationGraph,
+    readClipHeader: preview.readClipHeader,
+    readSpell: preview.readSpell,
   },
 
   // The object index and the install lookups a bin page makes.
   objects: {
-    search: (query: string) => objects.searchObjectIndex(query).then(toResult),
-    warm: () => objects.warmObjectIndex().then(toResult),
-    drop: () => objects.dropObjectIndex().then(toResult),
+    search: objects.searchObjectIndex,
+    warm: objects.warmObjectIndex,
+    drop: objects.dropObjectIndex,
     declared: (
       sandbox: SandboxRef,
       objectHashes: readonly string[],
       document: BinDocumentId | null = null,
-    ) => objects.declaredObjects(sandbox, [...objectHashes], document).then(toResult),
-    dir: (prefix: string) => objects.objectDir(prefix).then(toResult),
-    spells: (character: string) => objects.characterSpells(character).then(toResult),
-    classCount: (classHash: HexBinHash) => objects.classObjectCount(classHash).then(toResult),
-    find: (pattern: string, regex: boolean, cls: string | null) =>
-      objects.findObjects(pattern, regex, cls).then(toResult),
-    references: (query: ReferenceQuery, project: string | null) =>
-      objects.findReferences(query, project).then(toResult),
-    cancelWalk: () => objects.cancelReferenceWalk().then(toResult),
-    locateGameFiles: (paths: readonly string[]) => game.locateGameFiles([...paths]).then(toResult),
+    ) => objects.declaredObjects(sandbox, [...objectHashes], document),
+    dir: objects.objectDir,
+    spells: objects.characterSpells,
+    classCount: objects.classObjectCount,
+    find: objects.findObjects,
+    references: objects.findReferences,
+    cancelWalk: objects.cancelReferenceWalk,
+    locateGameFiles: (paths: readonly string[]) => game.locateGameFiles([...paths]),
     searchGamePaths: (query: string, preference: SearchPreference) =>
-      game.searchGameIndex(query, { kind: "pathField", preference }).then(toResult),
+      game.searchGameIndex(query, { kind: "pathField", preference }),
   },
 
   // Diagnostics. The generated `commands` object is flat, so the module boundary lives here.
   diagnostics: {
-    run: () => commands.runDiagnostics().then(toResult),
-    openElevatedTerminal: (withBanner: boolean) =>
-      commands.openElevatedTerminal(withBanner).then(toResult),
-    listIncidents: () => commands.listIncidents().then(toResult),
-    dismissIncident: (id: string) => commands.dismissIncident(id).then(toResult),
-    dismissAllIncidents: () => commands.dismissAllIncidents().then(toResult),
-    revealGameLog: (id: string) => commands.revealGameLog(id).then(toResult),
-    incidentReport: (id: string, hints: string[]) =>
-      commands.incidentReport(id, hints).then(toResult),
-    incidentToken: (id: string) => commands.incidentToken(id).then(toResult),
-    decodeIncidentToken: (token: string) => commands.decodeIncidentToken(token).then(toResult),
-    telemetryIdentity: () => commands.telemetryIdentity().then(toResult),
-    resetTelemetrySecret: () => commands.resetTelemetrySecret().then(toResult),
-    trackUiError: (error: UiError) => commands.trackUiError(error).then(toResult),
+    run: commands.runDiagnostics,
+    openElevatedTerminal: commands.openElevatedTerminal,
+    listIncidents: commands.listIncidents,
+    dismissIncident: commands.dismissIncident,
+    dismissAllIncidents: commands.dismissAllIncidents,
+    revealGameLog: commands.revealGameLog,
+    incidentReport: commands.incidentReport,
+    incidentToken: commands.incidentToken,
+    decodeIncidentToken: commands.decodeIncidentToken,
+    telemetryIdentity: commands.telemetryIdentity,
+    resetTelemetrySecret: commands.resetTelemetrySecret,
+    trackUiError: commands.trackUiError,
   },
 
   // Launcher.
   launcher: {
-    checkInstallMismatch: () => commands.checkInstallMismatch().then(toResult),
-    switchLeagueInstall: (installRoot: string) =>
-      commands.switchLeagueInstall(installRoot).then(toResult),
+    checkInstallMismatch: commands.checkInstallMismatch,
+    switchLeagueInstall: commands.switchLeagueInstall,
   },
 
   // The app's own update.
   updater: {
-    check: () => appUpdate.checkUpdate().then(toResult),
-    download: () => appUpdate.downloadUpdate().then(toResult),
-    install: () => appUpdate.installUpdate().then(toResult),
-    discard: () => appUpdate.discardUpdate().then(toResult),
+    check: appUpdate.checkUpdate,
+    download: appUpdate.downloadUpdate,
+    install: appUpdate.installUpdate,
+    discard: appUpdate.discardUpdate,
   },
 
   // A project's ignore rules.
   ignoreRules: {
-    read: (projectPath: string, at: string | null) =>
-      workshop.getProjectIgnoreRules(projectPath, at).then(toResult),
-    recommended: () => workshop.recommendedIgnoreRules().then(toResult),
-    save: (projectPath: string, at: string | null, text: string) =>
-      workshop.saveProjectIgnoreRules(projectPath, at, text).then(toResult),
-    addRecommended: (projectPath: string) =>
-      workshop.addRecommendedIgnoreRules(projectPath).then(toResult),
+    read: workshop.getProjectIgnoreRules,
+    recommended: workshop.recommendedIgnoreRules,
+    save: workshop.saveProjectIgnoreRules,
+    addRecommended: workshop.addRecommendedIgnoreRules,
   },
 
   // Folders opened as projects from anywhere on disk.
   projectFolders: {
-    inspect: (path: string) => workshop.inspectProjectFolder(path).then(toResult),
-    open: (path: string) => workshop.openProjectFolder(path).then(toResult),
-    recordOpened: (path: string) => workshop.recordProjectOpened(path).then(toResult),
-    list: () => workshop.getOpenedProjectFolders().then(toResult),
-    forget: (path: string) => workshop.forgetProjectFolder(path).then(toResult),
-    relocate: (oldPath: string, newPath: string) =>
-      workshop.relocateProjectFolder(oldPath, newPath).then(toResult),
-    convert: (args: ConvertFolderArgs) => workshop.convertFolderToProject(args).then(toResult),
-    addAll: (paths: readonly string[]) => workshop.addProjectFolders([...paths]).then(toResult),
+    inspect: workshop.inspectProjectFolder,
+    open: workshop.openProjectFolder,
+    recordOpened: workshop.recordProjectOpened,
+    list: workshop.getOpenedProjectFolders,
+    forget: workshop.forgetProjectFolder,
+    relocate: workshop.relocateProjectFolder,
+    convert: workshop.convertFolderToProject,
+    addAll: (paths: readonly string[]) => workshop.addProjectFolders([...paths]),
   },
 
   // Watches on an open project's layers, which announce `layer-files-changed`.
   layerWatch: {
-    acquire: (projectPath: string) => workshop.watchProjectLayers(projectPath).then(toResult),
-    release: (projectPath: string) => workshop.unwatchProjectLayers(projectPath).then(toResult),
+    acquire: workshop.watchProjectLayers,
+    release: workshop.unwatchProjectLayers,
   },
 
   // A project's root text files.
   projectText: {
-    read: (projectPath: string, file: ProjectTextFile) =>
-      workshop.getProjectText(projectPath, file).then(toResult),
-    save: (projectPath: string, file: ProjectTextFile, text: string, expected: Revision | null) =>
-      workshop.saveProjectText(projectPath, file, text, expected).then(toResult),
+    read: workshop.getProjectText,
+    save: workshop.saveProjectText,
   },
 
   // A project's game data declarations.
   declarations: {
-    outline: (projectPath: string) => workshop.declarationsOutline(projectPath).then(toResult),
+    outline: workshop.declarationsOutline,
     /** A module action with no document to undo it, for a view of the manifest itself. */
-    moduleAction: (projectPath: string, layer: string, action: ModuleAction) =>
-      bin.declarationsModuleAction(projectPath, layer, action).then(toResult),
+    moduleAction: bin.declarationsModuleAction,
   },
 
   // Workshop
-  getWorkshopProjects: () => workshop.getWorkshopProjects().then(toResult),
-  createWorkshopProject: (args: CreateProjectArgs) =>
-    workshop.createProject({ kind: "new", args }).then(toResult),
-  getWorkshopProject: (projectPath: string) =>
-    workshop.getWorkshopProject(projectPath).then(toResult),
-  getProjectContentTree: (projectPath: string) =>
-    workshop.getProjectContentTree(projectPath).then(toResult),
+  getWorkshopProjects: workshop.getWorkshopProjects,
+  createWorkshopProject: (args: CreateProjectArgs) => workshop.createProject({ kind: "new", args }),
+  getWorkshopProject: workshop.getWorkshopProject,
+  getProjectContentTree: workshop.getProjectContentTree,
   saveProjectConfig: ({ projectPath, ...metadata }: SaveProjectConfigArgs) =>
-    workshop.editProject(projectPath, { kind: "metadata", metadata }).then(toResult),
-  renameWorkshopProject: (projectPath: string, newName: string) =>
-    workshop.renameWorkshopProject(projectPath, newName).then(toResult),
-  deleteWorkshopProject: (projectPath: string) =>
-    workshop.deleteWorkshopProject(projectPath).then(toResult),
-  packWorkshopProject: (args: PackProjectArgs) => workshop.packWorkshopProject(args).then(toResult),
-  importFromModpkg: (filePath: string) =>
-    workshop.createProject({ kind: "modpkg", filePath }).then(toResult),
-  peekFantome: (filePath: string) => workshop.peekFantome(filePath).then(toResult),
-  importFromFantome: (args: ImportFantomeArgs) =>
-    workshop.createProject({ kind: "fantome", args }).then(toResult),
-  importFromGitRepo: (args: ImportGitRepoArgs) =>
-    workshop.createProject({ kind: "gitRepo", args }).then(toResult),
-  validateProject: (projectPath: string) => workshop.validateProject(projectPath).then(toResult),
-  analyzeProject: (projectPath: string) => workshop.analyzeProject(projectPath).then(toResult),
-  fixProblems: (projectPath: string, problems: ProblemId[]) =>
-    workshop.fixProblems(projectPath, problems).then(toResult),
+    workshop.editProject(projectPath, { kind: "metadata", metadata }),
+  renameWorkshopProject: workshop.renameWorkshopProject,
+  deleteWorkshopProject: workshop.deleteWorkshopProject,
+  packWorkshopProject: workshop.packWorkshopProject,
+  importFromModpkg: (filePath: string) => workshop.createProject({ kind: "modpkg", filePath }),
+  peekFantome: workshop.peekFantome,
+  importFromFantome: (args: ImportFantomeArgs) => workshop.createProject({ kind: "fantome", args }),
+  importFromGitRepo: (args: ImportGitRepoArgs) => workshop.createProject({ kind: "gitRepo", args }),
+  validateProject: workshop.validateProject,
+  analyzeProject: workshop.analyzeProject,
+  fixProblems: workshop.fixProblems,
   setProjectThumbnail: (projectPath: string, imagePath: string) =>
-    workshop.editProject(projectPath, { kind: "setThumbnail", imagePath }).then(toResult),
+    workshop.editProject(projectPath, { kind: "setThumbnail", imagePath }),
   removeProjectThumbnail: (projectPath: string) =>
-    workshop.editProject(projectPath, { kind: "removeThumbnail" }).then(toResult),
-  getProjectThumbnail: (thumbnailPath: string) =>
-    workshop.getProjectThumbnail(thumbnailPath).then(toResult),
+    workshop.editProject(projectPath, { kind: "removeThumbnail" }),
+  getProjectThumbnail: workshop.getProjectThumbnail,
   saveLayerStringOverrides: (
     projectPath: string,
     layerName: string,
     stringOverrides: Record<string, Record<string, string>>,
   ) =>
-    workshop
-      .editProject(projectPath, {
-        kind: "stringOverrides",
-        layer: layerName,
-        overrides: stringOverrides,
-      })
-      .then(toResult),
-  searchStringKeys: (query: string, limit?: number) =>
-    game.searchStringKeys(query, limit ?? null).then(toResult),
-  lookupStringValues: (keys: string[]) => game.lookupStringValues(keys).then(toResult),
-  getLayerContentPath: (projectPath: string, layerName: string) =>
-    workshop.getLayerContentPath(projectPath, layerName).then(toResult),
-  getLayerInfo: (projectPath: string, layerNames: string[]) =>
-    workshop.getLayerInfo(projectPath, layerNames).then(toResult),
+    workshop.editProject(projectPath, {
+      kind: "stringOverrides",
+      layer: layerName,
+      overrides: stringOverrides,
+    }),
+  searchStringKeys: (query: string, limit?: number) => game.searchStringKeys(query, limit ?? null),
+  lookupStringValues: game.lookupStringValues,
+  getLayerContentPath: workshop.getLayerContentPath,
+  getLayerInfo: workshop.getLayerInfo,
   createProjectLayer: (
     projectPath: string,
     name: string,
     displayName?: string,
     description?: string,
   ) =>
-    workshop
-      .editProject(projectPath, {
-        kind: "createLayer",
-        name,
-        displayName: displayName ?? null,
-        description: description ?? null,
-      })
-      .then(toResult),
+    workshop.editProject(projectPath, {
+      kind: "createLayer",
+      name,
+      displayName: displayName ?? null,
+      description: description ?? null,
+    }),
   renameProjectLayer: (projectPath: string, layerName: string, newDisplayName: string) =>
-    workshop
-      .editProject(projectPath, {
-        kind: "renameLayer",
-        layer: layerName,
-        displayName: newDisplayName,
-      })
-      .then(toResult),
+    workshop.editProject(projectPath, {
+      kind: "renameLayer",
+      layer: layerName,
+      displayName: newDisplayName,
+    }),
   deleteProjectLayer: (projectPath: string, layerName: string) =>
-    workshop.editProject(projectPath, { kind: "deleteLayer", layer: layerName }).then(toResult),
+    workshop.editProject(projectPath, { kind: "deleteLayer", layer: layerName }),
   reorderProjectLayers: (projectPath: string, layerNames: string[]) =>
-    workshop.editProject(projectPath, { kind: "reorderLayers", layers: layerNames }).then(toResult),
+    workshop.editProject(projectPath, { kind: "reorderLayers", layers: layerNames }),
   updateLayerDescription: (projectPath: string, layerName: string, description?: string) =>
-    workshop
-      .editProject(projectPath, {
-        kind: "describeLayer",
-        layer: layerName,
-        description: description ?? null,
-      })
-      .then(toResult),
-  addFilesToLayer: (projectPath: string, layerName: string, sources: string[]) =>
-    workshop.addFilesToLayer(projectPath, layerName, sources).then(toResult),
-  deleteLayerContent: (projectPath: string, layerName: string, relativePath: string) =>
-    workshop.deleteLayerContent(projectPath, layerName, relativePath).then(toResult),
+    workshop.editProject(projectPath, {
+      kind: "describeLayer",
+      layer: layerName,
+      description: description ?? null,
+    }),
+  addFilesToLayer: workshop.addFilesToLayer,
+  deleteLayerContent: workshop.deleteLayerContent,
   // The editor state file is opaque to the backend, so both sides are strings.
-  getProjectEditorState: (projectPath: string) =>
-    workshop.getProjectEditorState(projectPath).then(toResult),
-  saveProjectEditorState: (projectPath: string, content: string) =>
-    workshop.saveProjectEditorState(projectPath, content).then(toResult),
+  getProjectEditorState: workshop.getProjectEditorState,
+  saveProjectEditorState: workshop.saveProjectEditorState,
 };
 
 /**

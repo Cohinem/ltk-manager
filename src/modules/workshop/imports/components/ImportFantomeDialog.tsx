@@ -112,7 +112,7 @@ export function ImportFantomeDialog() {
               )}
               <div className="text-sm">
                 <span className="text-surface-500">WAD Files ({peekResult.wadFiles.length})</span>
-                <div className="mt-1 max-h-28 overflow-y-auto rounded border border-surface-700 bg-surface-800 p-2">
+                <div className="mt-1 max-h-28 overflow-y-auto rounded-md border border-surface-700 bg-surface-800 p-2">
                   {peekResult.wadFiles.map((wad) => (
                     <div key={wad} className="truncate font-mono text-xs text-surface-400">
                       {wad}

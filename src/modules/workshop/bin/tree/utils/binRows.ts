@@ -727,13 +727,6 @@ export function pagesWanted(loaded: number): number {
   return Math.floor(loaded / PAGE_SIZE) + 1;
 }
 
-/** `expanded` with `key` added or removed. */
-export function toggled(expanded: ReadonlySet<string>, key: string): Set<string> {
-  const next = new Set(expanded);
-  if (!next.delete(key)) next.add(key);
-  return next;
-}
-
 /** The key of the row a line hangs under, which names the block its innermost guide draws. */
 export function lineParent(line: VisibleRow): string | null {
   if (line.depth === 0) return null;

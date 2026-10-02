@@ -14,7 +14,7 @@ import {
   type SandboxRef,
 } from "@/lib/tauri";
 import { MAP_FILES_NEAR_ROOT, MAP_FILES_ROOT } from "@/modules/viewport";
-import { unwrapForQuery } from "@/utils/query";
+import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
 /** The reads a map's scene draws from, each keyed on the open document it asks. */
 export const mapQueries = {
@@ -25,7 +25,7 @@ export const mapQueries = {
       queryFn:
         document === null || entry === null
           ? skipToken
-          : async () => unwrapForQuery(await api.bin.readMapVariants(document, entry)),
+          : queryFnWithArgs(api.bin.readMapVariants, document, entry),
       staleTime: Infinity,
       retry: false,
     }),
@@ -33,10 +33,7 @@ export const mapQueries = {
   particles: (document: BinDocumentId | null) =>
     queryOptions<MapParticle[], AppError>({
       queryKey: ["map-particles", document],
-      queryFn:
-        document === null
-          ? skipToken
-          : async () => unwrapForQuery(await api.bin.readMapParticles(document)),
+      queryFn: document === null ? skipToken : queryFnWithArgs(api.bin.readMapParticles, document),
       staleTime: Infinity,
       retry: false,
     }),
@@ -44,10 +41,7 @@ export const mapQueries = {
   characters: (document: BinDocumentId | null) =>
     queryOptions<MapCharacter[], AppError>({
       queryKey: ["map-characters", document],
-      queryFn:
-        document === null
-          ? skipToken
-          : async () => unwrapForQuery(await api.bin.readMapCharacters(document)),
+      queryFn: document === null ? skipToken : queryFnWithArgs(api.bin.readMapCharacters, document),
       staleTime: Infinity,
       retry: false,
     }),
@@ -55,10 +49,7 @@ export const mapQueries = {
   outline: (document: BinDocumentId | null) =>
     queryOptions<MapChunk[], AppError>({
       queryKey: ["map-outline", document],
-      queryFn:
-        document === null
-          ? skipToken
-          : async () => unwrapForQuery(await api.bin.readMapOutline(document)),
+      queryFn: document === null ? skipToken : queryFnWithArgs(api.bin.readMapOutline, document),
       staleTime: Infinity,
       retry: false,
     }),
@@ -66,10 +57,7 @@ export const mapQueries = {
   files: (sandbox: SandboxRef, map: MapPath | null) =>
     queryOptions<MapFiles, AppError>({
       queryKey: [...MAP_FILES_ROOT, sandbox, map],
-      queryFn:
-        map === null
-          ? skipToken
-          : async () => unwrapForQuery(await api.bin.locateMapFiles(sandbox, map)),
+      queryFn: map === null ? skipToken : queryFnWithArgs(api.bin.locateMapFiles, sandbox, map),
       staleTime: Infinity,
       retry: false,
     }),

@@ -3,7 +3,7 @@ import { save } from "@tauri-apps/plugin-dialog";
 import { useCallback } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { m } from "@/i18n";
 import { api, type AppError } from "@/lib/tauri";
 import { mutationFn } from "@/utils/query";
 
@@ -23,14 +23,12 @@ export function useSpriteExport(): SpriteExport {
   const toast = useToast();
 
   const write = useMutation<null, AppError, ExportedSprite & { destination: string }>({
-    meta: { silentError: true },
+    meta: { errorTitle: m.workshop_bin_atlas_sprites_export_failed() },
     mutationFn: mutationFn(({ asset, uv, destination }) =>
       api.bin.atlasExportSprite(asset, uv, destination),
     ),
     onSuccess: (_, { destination }) =>
       toast.success(m.workshop_bin_atlas_sprites_exported(), destination),
-    onError: (error) =>
-      toast.error(m.workshop_bin_atlas_sprites_export_failed(), errorSummary(error)),
   });
   const { mutateAsync } = write;
 

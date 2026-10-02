@@ -42,7 +42,7 @@ export function ModHealthSweep() {
           description: m.library_health_flagged_hint(),
           /* The drawer's own mark for this rung, so the line the reader is sent
              from and the panel they land on are the same finding. */
-          icon: <ShockedPoroDuotoneIcon className={`h-5 w-5 ${toneOf("flagged").chip}`} />,
+          icon: <ShockedPoroDuotoneIcon className={`size-5 ${toneOf("flagged").chip}`} />,
           timeout: 8000,
           action: { label: m.library_health_show_action(), onClick: openDrawer },
         }),

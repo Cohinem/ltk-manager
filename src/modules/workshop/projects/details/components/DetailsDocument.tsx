@@ -10,6 +10,7 @@ import { useSettings } from "@/modules/settings";
 import { projectTextDocument } from "../../../documents/utils/contentDocument";
 import type { ContentDocumentOf } from "../../../documents/utils/contentDocument";
 import { DETAILS_DOCUMENT_ID } from "../../../documents/utils/contentDocument";
+import { DocumentFrame } from "../../../shared/components/DocumentFrame";
 import { useOpenDocument } from "../../../state";
 import { useMoveProjectDocuments, useSetDocumentDirty } from "../../../state";
 import { useProjectContext } from "../../state/ProjectContext";
@@ -73,7 +74,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
   }, [active]);
 
   return (
-    <div data-ui="DetailsDocument" className="flex min-h-0 flex-1 flex-col bg-surface-950">
+    <DocumentFrame data-ui="DetailsDocument">
       <DocumentToolbar active={active}>
         {hasChanges && (
           <Button variant="ghost" size="xs" compact onClick={editor.discard}>
@@ -96,7 +97,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
         <div className="mx-auto max-w-4xl space-y-5 p-5">
           <SectionCard
             title={m.workshop_details_identity_title()}
-            icon={<PackageIcon className="h-4 w-4" />}
+            icon={<PackageIcon className="size-4" />}
             panelClassName="bg-surface-800"
           >
             <div className="flex flex-col gap-6 md:flex-row md:gap-8">
@@ -125,7 +126,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
                           <span className="inline-flex items-center gap-1.5">
                             {m.workshop_details_version_label()}
                             <Tooltip content={<VersionHint />} side="right" sideOffset={6}>
-                              <InfoIcon className="h-3.5 w-3.5 cursor-help text-surface-400" />
+                              <InfoIcon className="size-3.5 cursor-help text-surface-400" />
                             </Tooltip>
                           </span>
                         </Field.Label>
@@ -190,7 +191,7 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
           />
         </div>
       </div>
-    </div>
+    </DocumentFrame>
   );
 }
 

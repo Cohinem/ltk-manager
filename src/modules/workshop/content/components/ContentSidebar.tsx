@@ -123,17 +123,12 @@ export function ContentSidebar({
           <SectionSettings label="Content options">
             <ContentOptions />
           </SectionSettings>
-          <Tooltip content="Add layer">
-            <IconButton
-              icon={<PlusIcon weight="bold" className="h-3.5 w-3.5" />}
-              variant="ghost"
-              size="xs"
-              compact
-              onClick={() => setCreateOpen(true)}
-              aria-label="Add layer"
-              className="h-5 w-5"
-            />
-          </Tooltip>
+          <IconButton
+            icon={<PlusIcon className="size-3.5" />}
+            onClick={() => setCreateOpen(true)}
+            className="size-5"
+            label="Add layer"
+          />
         </>
       ),
       content: (
@@ -236,26 +231,22 @@ function SectionSettings({ label, children }: SectionSettingsProps) {
         <Popover.Trigger
           render={
             <IconButton
-              icon={<GearSixIcon className="h-3.5 w-3.5" />}
-              variant="ghost"
-              size="xs"
-              compact
+              icon={<GearSixIcon className="size-3.5" />}
               aria-label={label}
-              className="h-5 w-5"
+              className="size-5"
             />
           }
         />
       </Tooltip>
-      <Popover.Portal>
-        <Popover.Positioner side="bottom" align="end" sideOffset={6}>
-          <Popover.Popup
-            aria-label={label}
-            className="w-52 divide-y divide-surface-600/50 p-0 select-none"
-          >
-            {children}
-          </Popover.Popup>
-        </Popover.Positioner>
-      </Popover.Portal>
+      <Popover.Content
+        side="bottom"
+        align="end"
+        sideOffset={6}
+        aria-label={label}
+        className="w-52 divide-y divide-surface-600/50 p-0 select-none"
+      >
+        {children}
+      </Popover.Content>
     </Popover.Root>
   );
 }

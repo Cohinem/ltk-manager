@@ -17,13 +17,9 @@ async function openMenu() {
   renderWithProviders(
     <Menu.Root>
       <Menu.Trigger>Options</Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner>
-          <Menu.Popup>
-            <ModCardUpdateItem modId="existing-id" />
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
+      <Menu.Content>
+        <ModCardUpdateItem modId="existing-id" />
+      </Menu.Content>
     </Menu.Root>,
   );
   fireEvent.click(screen.getByText("Options"));

@@ -109,7 +109,7 @@ function useFileCandidates(): readonly PaletteCandidate[] {
           }),
           icon: (
             <span style={{ color: `var(${descriptor.tintToken})` }}>
-              <Glyph className="h-4 w-4" strokeWidth={1.75} />
+              <Glyph className="size-4" strokeWidth={1.75} />
             </span>
           ),
           target: { kind: "layerFile", layerName: layer.name, path: entry.relativePath },
@@ -166,7 +166,7 @@ function useProjectObjectCandidates(): readonly PaletteCandidate[] {
               },
               object.objectHash,
             ),
-            icon: <ObjectGlyph objectClass={object.class} className="h-4 w-4 text-surface-400" />,
+            icon: <ObjectGlyph objectClass={object.class} className="size-4 text-surface-400" />,
             target: {
               kind: "layerObject",
               layerName: layer.name,
@@ -206,7 +206,7 @@ function useLayerCandidates(): readonly PaletteCandidate[] {
         trailing: layer.displayName === layer.name ? undefined : layer.name,
         layerName: layer.name,
         keywords: layer.description?.toLowerCase(),
-        icon: <LayerGlyph layerName={layer.name} className="h-4 w-4" />,
+        icon: <LayerGlyph layerName={layer.name} className="size-4" />,
         target: { kind: "document", document: filesDocument(layer.name) },
       }),
     );
@@ -227,7 +227,7 @@ function useStringCandidates(): readonly PaletteCandidate[] {
             path: value,
             trailing: locale,
             layerName: layer.name,
-            icon: <TranslateIcon className="h-4 w-4 text-doc-strings-text" />,
+            icon: <TranslateIcon className="size-4 text-doc-strings-text" />,
             target: { kind: "document", document: stringsDocument(layer.name, locale) },
           }),
         ),

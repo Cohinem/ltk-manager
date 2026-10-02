@@ -3,7 +3,7 @@
  */
 import type { VfxValue } from "@/lib/tauri";
 
-import { nameHash } from "../../../shared/utils/binHash";
+import { hashOf, nameHash } from "../../../shared/utils/binHash";
 import type { ValueCurve } from "../model/model";
 import { components, curve, field, flagOr, number } from "../parsing/readValue";
 import type { DriverDiagnosticCode } from "./diagnostics";
@@ -47,11 +47,6 @@ export interface DriverClass {
   /** The fields of the values a node body edits: a constant's value, a clamp's bounds. */
   readonly leaves: readonly string[];
   read(node: StructValue, path: string, reader: DriverReader): DriverNode;
-}
-
-/** The hash a class or field is keyed on: the hash of its name, or the hex hash itself. */
-export function hashOf(name: string): string {
-  return name.startsWith("0x") ? name : nameHash(name);
 }
 
 /** A wrapper's own pointer field and the kind its driver outputs. */

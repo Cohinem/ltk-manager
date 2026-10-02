@@ -58,7 +58,7 @@ function NoticeBody({ index, error, building, onBuild }: NoticeBodyProps) {
   if (index === undefined || index.status === "building" || building) {
     return (
       <span className="flex items-center gap-1.5">
-        <SpinnerGapIcon className="h-3.5 w-3.5 animate-spin" />
+        <SpinnerGapIcon className="size-3.5 animate-spin" />
         {m.workshop_objects_building_label()}
       </span>
     );

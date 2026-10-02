@@ -1,12 +1,12 @@
 import { FileArrowUpIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
-import { Button, ColorPicker, IconButton, Popover, Select, Tooltip } from "@/components";
+import { IconButton, Select } from "@/components";
 import { m } from "@/i18n";
 import type { PropertyEdit, UiFontChoice } from "@/lib/tauri";
-import { colorHex, type RgbColor } from "@/utils";
+import type { RgbColor } from "@/utils";
 
-import { Swatch } from "../../values/components/ColorMark";
+import { SwatchPicker } from "../../values/components/SwatchPicker";
 import { type FontColor, fontColorEdit, fontFaceEdit } from "../engine/edit/fontEdits";
 import type { ViewFont } from "../engine/model/view";
 import { FieldLine } from "./sectionParts";
@@ -69,30 +69,21 @@ export function FontStyleFields({
             </Select.Value>
             <Select.Icon />
           </Select.Trigger>
-          <Select.Portal>
-            <Select.Positioner>
-              <Select.Popup className="max-h-80">
-                {faces.map((face) => (
-                  <Select.Item key={face.entry} value={face.entry}>
-                    {faceLabel(face)}
-                  </Select.Item>
-                ))}
-              </Select.Popup>
-            </Select.Positioner>
-          </Select.Portal>
+          <Select.Content className="max-h-80">
+            {faces.map((face) => (
+              <Select.Item key={face.entry} value={face.entry}>
+                {faceLabel(face)}
+              </Select.Item>
+            ))}
+          </Select.Content>
         </Select.Root>
         {editable && face !== undefined && (
-          <Tooltip content={importLabel}>
-            <IconButton
-              variant="ghost"
-              size="xs"
-              compact
-              aria-label={importLabel}
-              disabled={importing}
-              icon={<FileArrowUpIcon weight="bold" className="h-4 w-4" />}
-              onClick={() => onImportFace(face)}
-            />
-          </Tooltip>
+          <IconButton
+            disabled={importing}
+            icon={<FileArrowUpIcon />}
+            onClick={() => onImportFace(face)}
+            label={importLabel}
+          />
         )}
       </FieldLine>
       {COLORS.map(([field, name]) => (
@@ -133,34 +124,15 @@ function ColorLine({ label, value, disabled, onCommit }: ColorLineProps) {
 
   return (
     <FieldLine label={label}>
-      <Popover.Root
-        onOpenChange={(open) => {
-          if (!open) close();
-        }}
-      >
-        <Popover.Trigger
-          disabled={disabled}
-          render={
-            <Button
-              variant="ghost"
-              size="xs"
-              compact
-              aria-label={label}
-              left={<Swatch rgba={[...shown, value[3] / 255]} className="h-4 w-4" />}
-              className="font-mono text-code"
-            >
-              {colorHex(shown)}
-            </Button>
-          }
-        />
-        <Popover.Portal>
-          <Popover.Positioner side="left" align="center" sideOffset={12}>
-            <Popover.Popup aria-label={label} className="w-60 p-3">
-              <ColorPicker value={shown} label={label} onValueChange={setDraft} />
-            </Popover.Popup>
-          </Popover.Positioner>
-        </Popover.Portal>
-      </Popover.Root>
+      <SwatchPicker
+        label={label}
+        value={shown}
+        onValueChange={setDraft}
+        onClose={close}
+        alpha={value[3] / 255}
+        hex
+        disabled={disabled}
+      />
     </FieldLine>
   );
 }

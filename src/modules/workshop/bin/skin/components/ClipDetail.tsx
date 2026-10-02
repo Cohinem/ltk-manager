@@ -9,6 +9,7 @@ import { twMerge } from "@/utils";
 import { AlsoCheck, FieldRows, None } from "../../classes/components/ClassCells";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
 import { useBinRead } from "../../documents/hooks/useBinRead";
+import { Notice } from "../../shared/preview/Notice";
 import { nameHash } from "../../shared/utils/binHash";
 import { nameColumn } from "../../shared/utils/textCut";
 import { RowDocumentContext } from "../../tree/state/rowFold";
@@ -21,7 +22,6 @@ import {
   PAGE_SIZE,
   rowKey,
 } from "../../tree/utils/binRows";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { skinQueries } from "../api/skinQueries";
 import type { GraphSource } from "../hooks/useGraphSource";
 import { SkinChoiceContext } from "../state/skinChoice";

@@ -28,7 +28,7 @@ export function ProjectEditorSection() {
   return (
     <SectionCard
       title="Project editor"
-      icon={<TabsIcon className="h-5 w-5" />}
+      icon={<TabsIcon className="size-5" />}
       description="Options for the editor you open a project in"
     >
       <SettingRows>

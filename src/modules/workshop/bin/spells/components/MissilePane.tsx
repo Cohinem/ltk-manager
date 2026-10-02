@@ -15,10 +15,10 @@ import {
 import { assetKey } from "../../../preview/utils/assetRef";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { useBinDocument } from "../../documents/hooks/useBinDocument";
+import { Notice } from "../../shared/preview/Notice";
 import { skinQueries } from "../../skin/api/skinQueries";
 import { type EffectTarget, OpenEffectButton } from "../../vfx/context/OpenEffect";
 import { GROUND_RIG } from "../../vfx/engine/model/rig";
-import { Notice } from "../../vfx/preview/components/Notice";
 import { spellQueries } from "../api/spellQueries";
 import { compileFlight } from "../utils/flight";
 import { spellEffect, spellImpact } from "../utils/spellSuggestions";
@@ -171,17 +171,13 @@ function MissileSetup({
               </Select.Value>
               <Select.Icon />
             </Select.Trigger>
-            <Select.Portal>
-              <Select.Positioner>
-                <Select.Popup>
-                  {items.map((item) => (
-                    <Select.Item key={item.value} value={item.value} className="text-meta">
-                      {item.label}
-                    </Select.Item>
-                  ))}
-                </Select.Popup>
-              </Select.Positioner>
-            </Select.Portal>
+            <Select.Content>
+              {items.map((item) => (
+                <Select.Item key={item.value} value={item.value} className="text-meta">
+                  {item.label}
+                </Select.Item>
+              ))}
+            </Select.Content>
           </Select.Root>
           <OpenEffectButton
             target={target}

@@ -42,7 +42,7 @@ export function FrameNodeView({ data }: NodeProps<FrameFlowNode>) {
     <div
       data-ui="EmitterFrame"
       /* DS-GROUND, DS-RADIUS */
-      className="relative h-full w-full rounded-xl border border-surface-veil bg-surface-900/30"
+      className="relative size-full rounded-xl border border-surface-veil bg-surface-900/30"
     >
       <div
         className={twMerge(
@@ -54,7 +54,7 @@ export function FrameNodeView({ data }: NodeProps<FrameFlowNode>) {
       >
         <span
           aria-hidden
-          className="h-2 w-2 shrink-0 rounded-full"
+          className="size-2 shrink-0 rounded-full"
           style={{ background: itemHue(frame.root) }}
         />
         <span className="min-w-0 truncate text-row font-medium text-surface-200">{title}</span>

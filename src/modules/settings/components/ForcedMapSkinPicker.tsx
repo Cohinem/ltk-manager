@@ -52,23 +52,17 @@ export function ForcedMapSkinPicker({
         </Combobox.Trigger>
       </div>
 
-      <Combobox.Portal>
-        <Combobox.Positioner className="min-w-(--anchor-width)">
-          <Combobox.Popup className="max-h-72">
-            <Combobox.List>
-              {(skin: ForcibleMapSkin) => (
-                <Combobox.Item key={skin.name} value={skin} className="gap-2 pr-2">
-                  <span className="min-w-0 flex-1 truncate font-mono text-mono-row">
-                    {skin.name}
-                  </span>
-                  <MapTags maps={skin.maps} />
-                </Combobox.Item>
-              )}
-            </Combobox.List>
-            <Combobox.Empty>{m.settings_builtins_forced_map_skin_empty()}</Combobox.Empty>
-          </Combobox.Popup>
-        </Combobox.Positioner>
-      </Combobox.Portal>
+      <Combobox.Content positionerClassName="min-w-(--anchor-width)" className="max-h-72">
+        <Combobox.List>
+          {(skin: ForcibleMapSkin) => (
+            <Combobox.Item key={skin.name} value={skin} className="gap-2 pr-2">
+              <span className="min-w-0 flex-1 truncate font-mono text-mono-row">{skin.name}</span>
+              <MapTags maps={skin.maps} />
+            </Combobox.Item>
+          )}
+        </Combobox.List>
+        <Combobox.Empty>{m.settings_builtins_forced_map_skin_empty()}</Combobox.Empty>
+      </Combobox.Content>
     </Combobox.Root>
   );
 }

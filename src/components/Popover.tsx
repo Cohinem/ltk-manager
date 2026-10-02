@@ -109,6 +109,51 @@ export const PopoverPopup = forwardRef<HTMLDivElement, PopoverPopupProps>(
 );
 PopoverPopup.displayName = "Popover.Popup";
 
+// Content
+export interface PopoverContentProps
+  extends
+    PopoverPopupProps,
+    Pick<
+      PopoverPositionerProps,
+      "side" | "align" | "sideOffset" | "alignOffset" | "anchor" | "collisionPadding"
+    > {
+  positionerClassName?: string;
+}
+
+/** Portal, Positioner and Popup as one part, taking the positioning props itself. */
+export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
+  (
+    {
+      side,
+      align,
+      sideOffset,
+      alignOffset,
+      anchor,
+      collisionPadding,
+      positionerClassName,
+      ...props
+    },
+    ref,
+  ) => {
+    return (
+      <PopoverPortal>
+        <PopoverPositioner
+          side={side}
+          align={align}
+          sideOffset={sideOffset}
+          alignOffset={alignOffset}
+          anchor={anchor}
+          collisionPadding={collisionPadding}
+          className={positionerClassName}
+        >
+          <PopoverPopup ref={ref} {...props} />
+        </PopoverPositioner>
+      </PopoverPortal>
+    );
+  },
+);
+PopoverContent.displayName = "Popover.Content";
+
 // Arrow
 export interface PopoverArrowProps extends Omit<BasePopover.Arrow.Props, "className"> {
   className?: string;
@@ -206,6 +251,7 @@ export const Popover = {
   Backdrop: PopoverBackdrop,
   Positioner: PopoverPositioner,
   Popup: PopoverPopup,
+  Content: PopoverContent,
   Arrow: PopoverArrow,
   Title: PopoverTitle,
   Description: PopoverDescription,
