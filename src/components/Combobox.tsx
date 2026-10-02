@@ -288,6 +288,15 @@ export const ComboboxClear = forwardRef<HTMLButtonElement, ComboboxClearProps>(
 );
 ComboboxClear.displayName = "Combobox.Clear";
 
+// Value
+export type ComboboxValueProps = BaseCombobox.Value.Props;
+
+/** The selected value, drawn by `children`, such as a multiple root's chips. Adds no DOM element. */
+export function ComboboxValue(props: ComboboxValueProps) {
+  return <BaseCombobox.Value {...props} />;
+}
+ComboboxValue.displayName = "Combobox.Value";
+
 // Chips
 export interface ComboboxChipsProps extends Omit<BaseCombobox.Chips.Props, "className"> {
   className?: string;
@@ -433,6 +442,7 @@ export const Combobox = {
   Item: ComboboxItem,
   Empty: ComboboxEmpty,
   Clear: ComboboxClear,
+  Value: ComboboxValue,
   Chips: ComboboxChips,
   Chip: ComboboxChip,
   ChipRemove: ComboboxChipRemove,

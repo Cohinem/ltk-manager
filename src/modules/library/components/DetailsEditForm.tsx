@@ -15,10 +15,10 @@ import {
 } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
+import { ChampionPicker, ChampionPortrait, useChampionRoster } from "@/modules/champions";
 import { libraryKeys, useEditMod, useModEffectiveCategories } from "@/modules/library/api";
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
 import { useLibrarySidebarStore } from "@/modules/library/state";
-import { normKey } from "@/modules/library/utils/categories";
 import {
   getMapLabel,
   getTagLabel,
@@ -48,20 +48,21 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
   const [displayName, setDisplayName] = useState(mod.displayName);
   const [tags, setTags] = useState<Set<string>>(new Set(mod.tags));
   const [maps, setMaps] = useState<Set<string>>(new Set(mod.maps));
-  const [championsStr, setChampionsStr] = useState(mod.champions.join(", "));
+  const [champions, setChampions] = useState<string[]>(mod.champions);
   const [thumbnailPath, setThumbnailPath] = useState<string | null>(null);
   const [removeThumbnail, setRemoveThumbnail] = useState(false);
 
   const editMod = useEditMod();
   const toast = useToast();
   const queryClient = useQueryClient();
+  const roster = useChampionRoster();
   const { data: currentThumbnailUrl } = useModThumbnail(mod.id);
 
   const dirty =
     displayName !== mod.displayName ||
     !sameMembers(tags, mod.tags) ||
     !sameMembers(maps, mod.maps) ||
-    championsStr !== mod.champions.join(", ") ||
+    !sameOrder(champions, mod.champions) ||
     thumbnailPath !== null ||
     removeThumbnail;
 
@@ -72,42 +73,30 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
 
   const derived = useModEffectiveCategories(mod);
 
-  const currentChampions = useMemo(() => splitChampions(championsStr), [championsStr]);
-
   // Footprint-derived values not already staged in the form become suggestions.
   const suggestions = useMemo(() => {
-    const championKeys = new Set(currentChampions.map(normKey));
+    const championKeys = new Set(champions.map(roster.keyOf));
     return {
       tags: derived.derivedTags.filter((tag) => !tags.has(tag)),
       maps: derived.derivedMaps.filter((map) => !maps.has(map)),
       champions: derived.derivedChampions.filter(
-        (champion) => !championKeys.has(normKey(champion)),
+        (champion) => !championKeys.has(roster.keyOf(champion)),
       ),
     };
-  }, [derived, tags, maps, currentChampions]);
+  }, [derived, tags, maps, champions, roster]);
 
   const hasSuggestions =
     suggestions.tags.length + suggestions.maps.length + suggestions.champions.length > 0;
 
   const addTag = (tag: string) => setTags((prev) => new Set(prev).add(tag));
   const addMap = (map: string) => setMaps((prev) => new Set(prev).add(map));
-  const addChampion = (champion: string) =>
-    setChampionsStr((prev) => {
-      const list = splitChampions(prev);
-      if (list.some((name) => normKey(name) === normKey(champion))) return prev;
-      return [...list, champion].join(", ");
-    });
+  const addChampion = (champion: string) => setChampions((prev) => [...prev, champion]);
 
   function applyAllSuggestions() {
     if (suggestions.tags.length > 0) setTags((prev) => new Set([...prev, ...suggestions.tags]));
     if (suggestions.maps.length > 0) setMaps((prev) => new Set([...prev, ...suggestions.maps]));
     if (suggestions.champions.length > 0) {
-      setChampionsStr((prev) => {
-        const list = splitChampions(prev);
-        const keys = new Set(list.map(normKey));
-        const additions = suggestions.champions.filter((name) => !keys.has(normKey(name)));
-        return [...list, ...additions].join(", ");
-      });
+      setChampions((prev) => [...prev, ...suggestions.champions]);
     }
   }
 
@@ -129,7 +118,7 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
           displayName,
           tags: Array.from(tags),
           maps: Array.from(maps),
-          champions: splitChampions(championsStr),
+          champions,
           setThumbnailPath: thumbnailPath,
           removeThumbnail,
         },
@@ -205,13 +194,13 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
             />
           </Labelled>
 
-          <FormField
-            label={m.library_details_champions_label()}
-            description={m.library_details_champions_description()}
-            value={championsStr}
-            onChange={(event) => setChampionsStr(event.target.value)}
-            placeholder={m.library_details_champions_placeholder()}
-          />
+          <Labelled label={m.library_details_champions_label()}>
+            <ChampionPicker
+              value={champions}
+              onChange={setChampions}
+              aria-label={m.library_details_champions_label()}
+            />
+          </Labelled>
 
           {hasSuggestions && (
             <div className="flex flex-col gap-2 rounded-lg border border-dashed border-surface-600 bg-surface-800/40 p-3">
@@ -239,8 +228,14 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
                 {suggestions.champions.map((champion) => (
                   <AutoPill
                     key={`champion:${champion}`}
-                    label={champion}
+                    label={roster.labelOf(champion)}
                     tone="champion"
+                    icon={
+                      <ChampionPortrait
+                        champion={roster.find(champion)}
+                        className="mr-0.5 size-3"
+                      />
+                    }
                     onClick={() => addChampion(champion)}
                   />
                 ))}
@@ -328,13 +323,6 @@ function stagedThumbnail(
   return current;
 }
 
-function splitChampions(value: string): string[] {
-  return value
-    .split(",")
-    .map((name) => name.trim())
-    .filter(Boolean);
-}
-
 /** The well-known values, plus whatever else this mod already carries. */
 function optionsFor(wellKnown: string[], own: string[], label: (value: string) => string) {
   const options = wellKnown.map((value) => ({ value, label: label(value) }));
@@ -346,4 +334,8 @@ function optionsFor(wellKnown: string[], own: string[], label: (value: string) =
 
 function sameMembers(staged: Set<string>, saved: string[]): boolean {
   return staged.size === saved.length && saved.every((value) => staged.has(value));
+}
+
+function sameOrder(staged: string[], saved: string[]): boolean {
+  return staged.length === saved.length && saved.every((value, index) => staged[index] === value);
 }

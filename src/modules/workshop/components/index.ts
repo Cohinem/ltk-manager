@@ -19,7 +19,6 @@ export {
   AuthorsSection,
   CategorizationSection,
   filterEmptyAuthors,
-  parseChampionsText,
   ProjectInfoSection,
   removeAuthorAt,
   ThumbnailSection,

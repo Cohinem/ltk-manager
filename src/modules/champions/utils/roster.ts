@@ -55,6 +55,8 @@ export interface ChampionOption {
   readonly champion?: Champion;
   /** The lowercased text a search matches against. */
   readonly search: string;
+  /** A row adding a typed name that matches no other row. */
+  readonly created?: boolean;
 }
 
 /**
@@ -84,4 +86,38 @@ export function championOptions(
   }
 
   return [...options.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** The rows `values` select among `options`, one per champion, each keeping its value as written. */
+export function selectedOptions(
+  roster: ChampionRoster,
+  options: readonly ChampionOption[],
+  values: readonly string[],
+): ChampionOption[] {
+  const byKey = new Map(options.map((option) => [option.key, option]));
+  const seen = new Set<string>();
+  const rows: ChampionOption[] = [];
+
+  for (const value of values) {
+    const key = roster.keyOf(value);
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    const option = byKey.get(key) ?? { key, value, label: value, search: value.toLowerCase() };
+    rows.push({ ...option, value });
+  }
+  return rows;
+}
+
+/** A row adding `query` as typed, where it names none of `options`. */
+export function createdOption(
+  roster: ChampionRoster,
+  options: readonly ChampionOption[],
+  query: string,
+): ChampionOption | null {
+  const name = query.trim();
+  const key = roster.keyOf(name);
+  if (key === "" || options.some((option) => option.key === key)) return null;
+
+  return { key: `created:${key}`, value: name, label: name, search: "", created: true };
 }

@@ -1,13 +1,5 @@
 import type { WorkshopAuthor } from "@/lib/tauri";
 
-/** Splits a comma-separated champions field, dropping blanks. */
-export function parseChampionsText(text: string): string[] {
-  return text
-    .split(",")
-    .map((c) => c.trim())
-    .filter(Boolean);
-}
-
 export function filterEmptyAuthors(authors: WorkshopAuthor[]): WorkshopAuthor[] {
   return authors.filter((a) => a.name.trim());
 }

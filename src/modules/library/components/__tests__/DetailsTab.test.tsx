@@ -323,7 +323,8 @@ describe("editing in place", () => {
     const name = screen.getByLabelText("Mod Name");
     await userEvent.clear(name);
     await userEvent.type(name, "Renamed");
-    await userEvent.type(screen.getByLabelText(/Champions/), "Kayn");
+    await userEvent.type(screen.getByRole("combobox", { name: "Champions" }), "Kayn");
+    await userEvent.click(await screen.findByRole("option", { name: 'Add "Kayn"' }));
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(editMod).toHaveBeenCalledWith(

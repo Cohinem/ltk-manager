@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { Champion } from "@/lib/tauri";
 
-import { championKey, championOptions, championRoster } from "../roster";
+import {
+  championKey,
+  championOptions,
+  championRoster,
+  createdOption,
+  selectedOptions,
+} from "../roster";
 
 function champion(id: string, name: string | null, metadataName = id): Champion {
   return { id, metadataName, name, icon: null };
@@ -60,5 +66,36 @@ describe("championOptions", () => {
 
     expect(ksante?.search).toContain("k'sante");
     expect(wukong?.search).toContain("monkeyking");
+  });
+});
+
+describe("selectedOptions", () => {
+  it("selects one row per champion, each keeping its value as written", () => {
+    const values = ["monkeyking", "Teemo", "Wukong"];
+    const rows = selectedOptions(roster, championOptions(roster, values), values);
+
+    expect(rows.map((row) => [row.label, row.value])).toEqual([
+      ["Wukong", "monkeyking"],
+      ["Teemo", "Teemo"],
+    ]);
+    expect(rows[0]?.champion).toBe(WUKONG);
+  });
+});
+
+describe("createdOption", () => {
+  const options = championOptions(roster, ["Teemo"]);
+
+  it("adds a typed name that matches no row, trimmed", () => {
+    expect(createdOption(roster, options, "  Mel ")).toMatchObject({
+      value: "Mel",
+      label: "Mel",
+      created: true,
+    });
+  });
+
+  it("adds nothing for a name that matches a row, or for blank input", () => {
+    expect(createdOption(roster, options, "wukong")).toBeNull();
+    expect(createdOption(roster, options, "teemo")).toBeNull();
+    expect(createdOption(roster, options, "  ")).toBeNull();
   });
 });
