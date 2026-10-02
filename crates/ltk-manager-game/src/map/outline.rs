@@ -6,27 +6,22 @@
 use std::collections::HashMap;
 
 use ltk_hash::BinHash;
-use ltk_meta::PropertyValueEnum;
+use ltk_manager_core::hashing::named;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
 use super::characters::skin_of;
+use super::component::MAP_CONTAINER;
 use super::particles::PARTICLE;
 use super::placeable::{NAME, Placed, controller, placeables, transform, visibility};
-use ltk_manager_core::bin_document::{BinDocument, Namer, RowNames, hex, leaf, link};
+use ltk_manager_core::bin_document::{BinDocument, Namer, RowNames, entries, hex, leaf, link};
 
-/// `MapContainer`.
-const MAP_CONTAINER: BinHash = BinHash(0xdde8_c114);
 /// `MapContainer.chunks`, a `Map<Hash, Link<MapPlaceableContainer>>`.
-const CHUNKS: BinHash = BinHash(0x5e0e_1da3);
-/// `MapLocator`.
-const LOCATOR: BinHash = BinHash(0xa844_df61);
-/// `MapScriptLocator`.
-const SCRIPT_LOCATOR: BinHash = BinHash(0x091c_0b1c);
-/// `MapGroup`.
-const GROUP: BinHash = BinHash(0xf372_6d48);
-/// `MapAudio`.
-const AUDIO: BinHash = BinHash(0xa783_cfd5);
+const CHUNKS: BinHash = named("chunks");
+const LOCATOR: BinHash = named("MapLocator");
+const SCRIPT_LOCATOR: BinHash = named("MapScriptLocator");
+const GROUP: BinHash = named("MapGroup");
+const AUDIO: BinHash = named("MapAudio");
 
 /// What a placeable is to a scene, which is what an outliner marks its row with.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -106,7 +101,7 @@ pub fn map_outline(materials: &BinDocument, names: &dyn RowNames) -> Vec<MapChun
 
 fn item(placed: &Placed<'_>, namer: &mut Namer<'_>) -> MapChunkItem {
     let fields = placed.fields;
-    let stood = transform(fields);
+    let placement = transform(fields);
     MapChunkItem {
         key: hex(placed.key),
         name: match leaf(fields.get(&NAME)) {
@@ -118,7 +113,7 @@ fn item(placed: &Placed<'_>, namer: &mut Namer<'_>) -> MapChunkItem {
             .class(placed.class)
             .unwrap_or_else(|| hex(placed.class)),
         kind: kind_of(placed),
-        position: [stood[12], stood[13], stood[14]],
+        position: [placement[12], placement[13], placement[14]],
         visibility: visibility(fields),
         controller: controller(fields),
     }
@@ -141,10 +136,7 @@ fn listed_keys(materials: &BinDocument) -> HashMap<BinHash, BinHash> {
         .entries()
         .filter_map(|entry| materials.object_at(entry))
         .filter(|object| object.class_hash == MAP_CONTAINER)
-        .flat_map(|container| match container.properties.get(&CHUNKS) {
-            Some(PropertyValueEnum::Map(map)) => map.entries(),
-            _ => &[],
-        })
+        .flat_map(|container| entries(container.properties.get(&CHUNKS)))
         .filter_map(|(key, chunk)| match leaf(Some(key)) {
             Some(Leaf::Hash(key)) => Some((link(Some(chunk))?, key)),
             _ => None,

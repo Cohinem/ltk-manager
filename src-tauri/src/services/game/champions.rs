@@ -1,5 +1,5 @@
-use crate::commands::off_thread;
 use crate::error::IpcResult;
+use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 use atlas::{read_characters, UiTexture};
 use ltk_manager_core::mods::champion_display_name;

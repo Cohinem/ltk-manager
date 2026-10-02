@@ -4,10 +4,12 @@
 //! and owns the classes, so core never learns what a `MapContainer` is.
 
 pub mod champions;
+pub mod character;
 mod linked;
 pub mod map;
 pub mod material;
 pub mod program;
+mod resolver;
 pub mod skin;
 pub mod spell;
 pub mod vfx;

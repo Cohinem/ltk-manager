@@ -26,10 +26,13 @@ is its FFI crate, named for the library it binds.
 lives, and the game crate owns the classes read out of them: the map, material, skin, VFX and
 spell reads. Core never calls it, so nothing core holds knows what a `MapContainer` is. The VFX
 template catalog stays in core, because a new object of a declared document starts from it. The
-game crate reads a bin through what `bin_document` exports for that (`Fields`, `struct_of`,
-`items`, `leaf`, `link`, `text`, `Namer`, `Locator`, `object_at`) and never through `ltk_meta`
-matches of its own. A type of it that crosses IPC derives under its own `ts` feature, which takes
-core's.
+game crate reads a bin through what `bin_document` exports for that (`struct_of`, `items`,
+`entries`, `struct_entries`, `optional`, `leaf`, `link`, `text`, `boolean`, `float`, `unsigned`,
+`vector4` and the rest, `Namer`, `Locator`, `object_at`) and never through `ltk_meta` matches of
+its own. The two exceptions read the kind itself: the VFX resolve turns every kind into its tree,
+and the spell read reports a field of the wrong kind. A field or class hash is
+`hashing::named("…")` wherever its name is known. A type of it that crosses IPC derives under its
+own `ts` feature, which takes core's.
 
 `atlas` sits above the game crate and holds the UI editor's backend: a view controller resolved
 into its scenes and elements, the sprite manifest, the UI programs and the sheet a mod packs. It
@@ -51,13 +54,17 @@ building a launcher return `LauncherError`.
 A service is an inline Tauri plugin, on `tauri-specta` (ADR-0029, ADR-0059). `services/table.rs`
 names each service and its commands once, and both `build.rs` and `services/mod.rs` read it. A
 command carries `#[tauri::command]` and `#[specta::specta]`, returns `IpcResult<T>`, and joins its
-service's row, or the row's `debug:` list when only a debug build registers it. A command no
-service owns yet joins `command_table![]` in `ipc.rs`. An event payload no command reaches is named
-once with `.typ::<T>()` in `ipc::builder`.
+service's row, or the row's `debug:` list when only a debug build registers it. Every command
+belongs to a service. An event payload no command reaches is named once with `.typ::<T>()` in
+`ipc::builder`.
+
+What more than one service uses lives in `services/shared/`: `off_thread`, the asset and document
+reads, the `InFlight` slot and `overtaken` check, and the `Library` and `Workshop` arguments, which
+stand in for the states a library or workshop command takes and which a binding leaves out.
 
 A type that crosses IPC derives `specta::Type` under its crate's `ts` feature.
-`pnpm generate:types` writes every type and the commands outside a service to
-`src/lib/bindings.ts`, and each service's commands to `src/lib/ipc/<service>.ts`. `src/lib/tauri.ts`
+`pnpm generate:types` writes every type to `src/lib/bindings.ts`, and each service's commands to
+`src/lib/ipc/<service>.ts`. `src/lib/tauri.ts`
 wraps each generated command in the `api` map and re-exports the types, with the serialize half of
 a phase-split type under its plain name. A test matches an invoke on `commandNames` from
 `src/test/commandNames.ts`, never on a string.

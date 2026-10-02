@@ -29,7 +29,7 @@ function Harness({ onOpen }: { onOpen: (paths: string[]) => void }) {
 
 function pending(paths: string[]) {
   mockInvoke.mockImplementation((cmd: string) => {
-    if (cmd === commandNames.app.takePendingOpenedFiles) {
+    if (cmd === commandNames.links.takePendingOpenedFiles) {
       return Promise.resolve({ ok: true, value: { paths } });
     }
     return Promise.resolve({ ok: true, value: null });
@@ -87,7 +87,7 @@ describe("opened mod files", () => {
     await waitFor(() =>
       expect(
         mockInvoke.mock.calls.some(
-          ([command]) => command === commandNames.app.takePendingOpenedFiles,
+          ([command]) => command === commandNames.links.takePendingOpenedFiles,
         ),
       ).toBe(true),
     );

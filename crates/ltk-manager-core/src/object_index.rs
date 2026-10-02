@@ -21,25 +21,23 @@ mod find;
 mod names;
 mod references;
 mod search;
-mod spells;
 mod state;
+mod types;
 mod walk;
-mod wire;
 
 pub use build::{Declaration, for_each_declaration};
 pub use names::{CacheNames, ObjectNames};
-pub use spells::{CharacterSpell, SpellCatalog};
 pub use state::{
     BuildTicket, ObjectFindGeneration, ObjectIndexSnapshot, ObjectIndexState,
     ObjectReferenceGeneration, ObjectSearchGeneration,
 };
-pub use walk::{FileTarget, LayerBin, WalkRequest, WalkTarget, layer_bins};
-pub use wire::{
+pub use types::{
     DeclaredObject, ObjectClassHit, ObjectDeclaration, ObjectDirListing, ObjectFindHit,
     ObjectFindResult, ObjectIndexStats, ObjectNodeEntry, ObjectPrefixEntry, ObjectSearchHit,
     ObjectSearchResult, ReferenceGroup, ReferenceHit, ReferenceProperty, ReferenceResult,
     ReferenceWalkProgress,
 };
+pub use walk::{FileTarget, LayerBin, WalkRequest, WalkTarget, layer_bins};
 
 /// How many rows a scan reads between two tests of the generation.
 const STALE_CHECK_INTERVAL: u32 = 4096;
@@ -121,7 +119,7 @@ pub struct ObjectIndex {
 }
 
 impl ObjectIndex {
-    /// Every declaration of `object` in archive order, on the wire.
+    /// Every declaration of `object` in archive order, serialized.
     fn declarations_of(&self, object: BinHash) -> Vec<ObjectDeclaration> {
         self.declared
             .rows_of(object)
@@ -141,6 +139,23 @@ impl ObjectIndex {
         self.declared.objects.binary_search(&object).is_ok()
     }
 
+    /// Whether any file of the install declares `object` as an instance of `class`.
+    #[must_use]
+    pub fn declares_class(&self, object: BinHash, class: BinHash) -> bool {
+        self.declared
+            .rows_of(object)
+            .iter()
+            .any(|at| self.declared.rows[*at as usize].class == class)
+    }
+
+    /// Every object a table names, with its path, in path order.
+    pub fn named_objects(&self) -> impl Iterator<Item = (BinHash, &str)> + '_ {
+        self.names
+            .named
+            .iter()
+            .map(|object| (object.hash, &*object.name))
+    }
+
     /// Every declaration of `object` in archive order, or `None` where nothing declares it.
     #[must_use]
     pub fn declared(&self, object: BinHash) -> Option<DeclaredObject> {
@@ -154,7 +169,7 @@ impl ObjectIndex {
         })
     }
 
-    /// The row at `at` as a declaration on the wire.
+    /// The row at `at` as a serialized declaration.
     fn declaration(&self, at: u32) -> ObjectDeclaration {
         let row = &self.declared.rows[at as usize];
         let (file, wad) = self.declared.file(row.file).map_or_else(

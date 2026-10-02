@@ -3,16 +3,16 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, BinaryHeap, HashSet};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{WadHash, hex_name};
-use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
 use crate::error::AppResult;
 use crate::game_wads::{GameArchives, WadSource};
+use crate::generation::{Generation, line};
 use crate::matcher::{FindQuery, Query, Range, letter_mask, mask_covers};
+use crate::utils::lazy_slot::LazySlot;
 use crate::utils::natural_order::compare_names;
 
 /// The directory id of the group holding chunks no hash table names.
@@ -192,61 +192,19 @@ const STALE_CHECK_INTERVAL: u32 = 4096;
 ///
 /// Without this, a ten-character query runs ten full scans of the install and
 /// only the last of them is one anybody wants.
-#[derive(Debug, Default)]
-pub struct SearchGeneration(AtomicU64);
-
-impl SearchGeneration {
-    /// Take the newest ticket, which every scan already running is now behind.
-    pub fn claim(&self) -> u64 {
-        self.0.fetch_add(1, AtomicOrdering::Relaxed) + 1
-    }
-
-    /// Whether a later search has claimed a ticket since this one.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.load(AtomicOrdering::Relaxed) > ticket
-    }
-}
+pub type SearchGeneration = Generation<line::Palette>;
 
 /// The newest full search asked for, on its own line apart from the palette's.
 ///
 /// Separate from [`SearchGeneration`] so a keystroke in one box never gives up
 /// a scan the other box is waiting on.
-#[derive(Debug, Default)]
-pub struct FindGeneration(SearchGeneration);
-
-impl FindGeneration {
-    /// Take the newest ticket, which every scan already running is now behind.
-    pub fn claim(&self) -> u64 {
-        self.0.claim()
-    }
-
-    /// Whether a later search has claimed a ticket since this one.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.overtook(ticket)
-    }
-}
+pub type FindGeneration = Generation<line::Find>;
 
 /// The ticket counter for path field searches.
 ///
 /// Separate from [`SearchGeneration`], so a path field search cancels only older path field
 /// searches and never a palette search.
-#[derive(Debug, Default)]
-pub struct PathSearchGeneration(SearchGeneration);
-
-impl PathSearchGeneration {
-    /// Claim a new ticket. Every scan that is already running is now out of date.
-    pub fn claim(&self) -> u64 {
-        self.0.claim()
-    }
-
-    /// Whether a later search has claimed a ticket since this one.
-    #[must_use]
-    pub fn overtook(&self, ticket: u64) -> bool {
-        self.0.overtook(ticket)
-    }
-}
+pub type PathSearchGeneration = Generation<line::PathField>;
 
 /// Every archive of an install merged into one deduplicated directory tree.
 ///
@@ -1149,8 +1107,8 @@ fn split_ranges(ranges: &[Range], boundary: u32) -> (Vec<Range>, Vec<Range>) {
 /// Lazily-built, app-managed [`GameIndex`], one for each [`WadSource`].
 #[derive(Debug, Default)]
 pub struct GameIndexState {
-    game: Mutex<Option<Arc<GameIndex>>>,
-    lcu: Mutex<Option<Arc<GameIndex>>>,
+    game: LazySlot<GameIndex>,
+    lcu: LazySlot<GameIndex>,
 }
 
 impl GameIndexState {
@@ -1168,19 +1126,13 @@ impl GameIndexState {
         archives: &GameArchives,
         resolver: &LayeredHashDb,
     ) -> AppResult<Arc<GameIndex>> {
-        let mut slot = self.slot(archives.source()).lock();
-        if let Some(index) = slot.as_ref() {
-            return Ok(Arc::clone(index));
-        }
-
-        let index = Arc::new(GameIndex::build(archives, resolver)?);
-        *slot = Some(Arc::clone(&index));
-        Ok(index)
+        self.slot(archives.source())
+            .get_or_try_init(|| GameIndex::build(archives, resolver))
     }
 
     /// Drop the built index of one source, so its next read walks the install again.
     pub fn clear(&self, source: WadSource) {
-        *self.slot(source).lock() = None;
+        self.slot(source).clear();
     }
 
     /// Drop every built index, for a change such as new hash tables that both read.
@@ -1189,7 +1141,7 @@ impl GameIndexState {
         self.clear(WadSource::Lcu);
     }
 
-    fn slot(&self, source: WadSource) -> &Mutex<Option<Arc<GameIndex>>> {
+    fn slot(&self, source: WadSource) -> &LazySlot<GameIndex> {
         match source {
             WadSource::Game => &self.game,
             WadSource::Lcu => &self.lcu,

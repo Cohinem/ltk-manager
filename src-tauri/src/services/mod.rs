@@ -5,13 +5,25 @@
 //! with the types in the one file every service shares.
 
 pub mod app_update;
+pub mod atlas;
 pub mod bin;
+pub mod desktop;
+pub mod diagnostics;
 pub mod game;
+pub mod hotkeys;
+pub mod integrations;
+pub mod launcher;
 pub mod library;
+pub mod links;
+pub mod news;
 pub mod objects;
+pub mod patcher;
 pub mod preview;
+pub mod settings;
+pub(crate) mod shared;
 pub mod workshop;
 
+#[cfg(test)]
 use specta::Types;
 use tauri::plugin::Builder as PluginBuilder;
 use tauri::Wry;
@@ -29,6 +41,7 @@ pub trait Service {
     fn commands() -> Commands<Wry>;
 
     /// Register the types the commands reach.
+    #[cfg(test)]
     fn types(types: &mut Types);
 }
 
@@ -61,12 +74,12 @@ macro_rules! services {
                     collect_commands![$($module::$command,)* $($($module::$debug),*)?]
                 }
 
-                #[cfg(not(debug_assertions))]
+                #[cfg(all(test, not(debug_assertions)))]
                 fn types(types: &mut Types) {
                     specta::function::collect_functions![$($module::$command),*](types);
                 }
 
-                #[cfg(debug_assertions)]
+                #[cfg(all(test, debug_assertions))]
                 fn types(types: &mut Types) {
                     specta::function::collect_functions![
                         $($module::$command,)* $($($module::$debug),*)?
@@ -76,6 +89,7 @@ macro_rules! services {
         )*
 
         /// The types every service's commands reach, for the file the bindings share.
+        #[cfg(test)]
         pub fn types() -> Types {
             let mut types = Types::default();
             $(<$module::Table as Service>::types(&mut types);)*
@@ -105,7 +119,7 @@ pub(crate) fn builder<S: Service>() -> Builder<Wry> {
         .commands(S::commands())
         .constant(
             crate::ipc::COMMAND_NAMES,
-            crate::ipc::command_names(Some(S::NAME), S::COMMANDS),
+            crate::ipc::command_names(S::NAME, S::COMMANDS),
         )
         .dangerously_cast_bigints_to_number()
 }

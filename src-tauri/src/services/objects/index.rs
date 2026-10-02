@@ -1,30 +1,32 @@
 //! The bin object index: warm it, drop it, and search it.
 
-use crate::commands::document_assets;
-use crate::commands::off_thread;
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use crate::services::game::index::{built_game_index, find_query};
+use crate::services::shared::document_assets;
+use crate::services::shared::off_thread;
+use crate::services::shared::overtaken;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
 use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
 use ltk_manager_core::config::Config;
 use ltk_manager_core::events::{BackendEvent, EventSink as _};
 use ltk_manager_core::game_wads::GameArchives;
+use ltk_manager_core::generation::line;
 use ltk_manager_core::hashing::HexBinHash;
 use ltk_manager_core::hashtables::{
     BinHashTablesState, HashtableCache, WadPathResolver, WadPathResolverState,
 };
 use ltk_manager_core::object_index::{
     self, layer_bins, parse_hash, BuildTicket, CacheNames, DeclaredObject, FileTarget,
-    ObjectDirListing, ObjectFindGeneration, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
-    ObjectReferenceGeneration, ObjectSearchGeneration, ObjectSearchResult, ReferenceResult,
-    SpellCatalog, WalkRequest, WalkTarget,
+    ObjectDirListing, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot, ObjectSearchResult,
+    ReferenceResult, WalkRequest, WalkTarget,
 };
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::budget::files_at_once;
 use ltk_manager_core::problems::Budget;
 use ltk_manager_core::sandbox::SandboxRef;
+use ltk_manager_game::spell::{self, SpellCatalog};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -114,15 +116,7 @@ pub async fn drop_object_index(app_handle: AppHandle) -> IpcResult<()> {
 #[tauri::command]
 #[specta::specta]
 pub async fn search_object_index(query: String, app_handle: AppHandle) -> IpcResult<ObjectSearch> {
-    let ticket = app_handle.state::<ObjectSearchGeneration>().claim();
-    let overtaken = {
-        let app_handle = app_handle.clone();
-        move || {
-            app_handle
-                .state::<ObjectSearchGeneration>()
-                .overtook(ticket)
-        }
-    };
+    let overtaken = overtaken::<line::ObjectSearch>(&app_handle);
 
     off_thread(move || {
         let index = match app_handle.state::<ObjectIndexState>().snapshot() {
@@ -187,7 +181,9 @@ pub async fn character_spells(
             ObjectIndexSnapshot::Failed(error) => return Ok(CharacterSpells::Failed { error }),
             ObjectIndexSnapshot::Ready(index) => index,
         };
-        Ok(CharacterSpells::Ready(index.character_spells(&character)))
+        Ok(CharacterSpells::Ready(spell::character_spells(
+            &index, &character,
+        )))
     })
     .await
 }
@@ -288,11 +284,7 @@ pub async fn find_objects(
         Err(e) => return IpcResult::from(Err::<ObjectFind, _>(e)),
     };
 
-    let ticket = app_handle.state::<ObjectFindGeneration>().claim();
-    let overtaken = {
-        let app_handle = app_handle.clone();
-        move || app_handle.state::<ObjectFindGeneration>().overtook(ticket)
-    };
+    let overtaken = overtaken::<line::ObjectFind>(&app_handle);
 
     off_thread(move || {
         let index = match app_handle.state::<ObjectIndexState>().snapshot() {
@@ -435,15 +427,7 @@ pub async fn find_references(
         Err(e) => return IpcResult::from(Err::<ObjectReferences, _>(e)),
     };
 
-    let ticket = app_handle.state::<ObjectReferenceGeneration>().claim();
-    let overtaken = {
-        let app_handle = app_handle.clone();
-        move || {
-            app_handle
-                .state::<ObjectReferenceGeneration>()
-                .overtook(ticket)
-        }
-    };
+    let overtaken = overtaken::<line::References>(&app_handle);
 
     off_thread(move || {
         let index = match app_handle.state::<ObjectIndexState>().snapshot() {
@@ -499,7 +483,7 @@ fn walk(
     let bin = app.state::<BinHashTablesState>().get();
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let names = CacheNames::new(&bin, &wad);
-    let (schema, build) = crate::commands::installed::installed_schema(app);
+    let (schema, build) = crate::services::shared::installed::installed_schema(app);
 
     let events = TauriEventSink::new(app.clone());
     let last_report = Mutex::new(None::<Instant>);
@@ -628,11 +612,9 @@ fn fold_layer_declarations(
     if sandbox.is_game() {
         return;
     }
-    let bin = app.state::<BinHashTablesState>().get();
-    let wad = app.state::<Arc<WadPathResolverState>>().get();
-    let cache = CacheNames::new(&bin, &wad);
-
-    document_assets::sandbox(app, sandbox).join_declared(object_hashes, &cache, objects);
+    document_assets::with_cache_names(app, |cache| {
+        document_assets::sandbox(app, sandbox).join_declared(object_hashes, cache, objects);
+    });
 }
 
 /// Join the open document's own declarations of `hashes` into `objects`, and order
@@ -653,7 +635,7 @@ fn fold_own_declarations(
     let wad = app.state::<Arc<WadPathResolverState>>().get();
     let names = CacheNames::new(&bin, &wad);
     let file = own_file_name(&asset, &wad);
-    let (schema, build) = crate::commands::installed::installed_schema(app);
+    let (schema, build) = crate::services::shared::installed::installed_schema(app);
 
     let (dependencies, own) = store.read(document, |open| {
         let own: Vec<(&str, BinObjectHeader)> = object_hashes

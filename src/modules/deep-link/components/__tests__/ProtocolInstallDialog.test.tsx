@@ -24,11 +24,11 @@ const world = {
 
 function answer(command: string): unknown {
   switch (command) {
-    case commandNames.app.getSettings:
+    case commandNames.settings.getSettings:
       return world.settings;
-    case commandNames.app.saveSettings:
+    case commandNames.settings.saveSettings:
       return null;
-    case commandNames.app.deepLinkInstallMod:
+    case commandNames.links.deepLinkInstallMod:
       return { id: "a", name: "Zama Iroha Master Yi" };
     default:
       return null;
@@ -87,13 +87,15 @@ describe("ProtocolInstallDialog", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /Trust and install/ }));
 
-    await waitFor(() => expect(calls(commandNames.app.deepLinkInstallMod)).toHaveLength(1));
-    const [[, saved]] = calls(commandNames.app.saveSettings) as [[string, { settings: Settings }]];
+    await waitFor(() => expect(calls(commandNames.links.deepLinkInstallMod)).toHaveLength(1));
+    const [[, saved]] = calls(commandNames.settings.saveSettings) as [
+      [string, { settings: Settings }],
+    ];
     expect(saved.settings.trustedDomains).toEqual(["runeforge.dev", "ultrawidehud.lol"]);
     expect(
-      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.app.saveSettings),
+      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.settings.saveSettings),
     ).toBeLessThan(
-      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.app.deepLinkInstallMod),
+      mockInvoke.mock.calls.findIndex(([name]) => name === commandNames.links.deepLinkInstallMod),
     );
   });
 
@@ -103,8 +105,8 @@ describe("ProtocolInstallDialog", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Reject" }));
 
-    expect(calls(commandNames.app.saveSettings)).toHaveLength(0);
-    expect(calls(commandNames.app.deepLinkInstallMod)).toHaveLength(0);
+    expect(calls(commandNames.settings.saveSettings)).toHaveLength(0);
+    expect(calls(commandNames.links.deepLinkInstallMod)).toHaveLength(0);
     expect(useDeepLinkStore.getState().request).toBeNull();
   });
 
