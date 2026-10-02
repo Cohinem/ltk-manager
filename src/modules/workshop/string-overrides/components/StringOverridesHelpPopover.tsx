@@ -39,7 +39,7 @@ export function StringOverridesHelpPopover() {
           <code className="rounded-sm bg-surface-700 px-1 py-0.5 text-xs">f772a83b33773223</code>.
         </p>
         <p>
-          <ExternalLink href="https://wiki.leaguetoolkit.dev/guides/mod-creation/string-overrides/">
+          <ExternalLink href="https://wiki.leaguetoolkit.dev/making-mods/string-overrides/">
             Read the full guide on the LTK Wiki
           </ExternalLink>
         </p>
