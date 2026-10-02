@@ -1,7 +1,7 @@
 //! Resolve every VFX system of every property bin in some WADs, for the particle shader sweep.
 //!
 //! ```text
-//! cargo run --release -p ltk-manager-core --example vfx_systems -- <out.jsonl> <wad>...
+//! cargo run --release -p ltk-manager-game --example vfx_systems -- <out.jsonl> <wad>...
 //! ```
 //!
 //! One JSON line per `VfxSystemDefinitionData`, the resolved `VfxSystem` that
@@ -13,7 +13,7 @@ use std::io::{BufWriter, Write as _};
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::BinDocument;
-use ltk_manager_core::vfx::resolve_system;
+use ltk_manager_game::vfx::resolve_system;
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();

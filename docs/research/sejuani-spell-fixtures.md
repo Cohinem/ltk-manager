@@ -110,7 +110,7 @@ effect, so they do not establish the passive missile's actual effect or in-game 
 The existing example reads any bin object despite its VFX name:
 
 ```powershell
-cargo run -p ltk-manager-core --example dump_vfx -- `
+cargo run -p ltk-manager-game --example dump_vfx -- `
   "C:/Riot Games/League of Legends/Game/DATA/FINAL/Champions/Sejuani.wad.client" `
   "*" "Characters/Sejuani/Spells/SejuaniEAbility/SejuaniEPassiveMissile" --json
 ```

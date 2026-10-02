@@ -6,7 +6,8 @@ use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
-use crate::bin_document::resolve::RESOURCE_MAP;
+use ltk_manager_core::bin_document::RESOURCE_MAP;
+
 use crate::material::{BaseRule, Blending};
 
 const BODY_MATERIAL: &str = "Characters/Ahri/Skins/Skin3/Materials/Body";

@@ -52,10 +52,9 @@ pub use records::TARGET_PATH;
 pub use requests::{BinEdit, ChoiceQuery, Choices, DependencyEdit, EditOutcome, ObjectEdit};
 
 pub use resolve::{
-    AssetLookup, Fields, NamedAsset, Namer, fields_of, hex, items, leaf, link, owned, struct_of,
-    text,
+    AssetLookup, EFFECT_KEY, Fields, Locator, NamedAsset, Namer, RESOURCE_MAP, chunk_asset,
+    fields_of, hex, items, leaf, link, object_at, owned, resolver_entries, struct_of, text,
 };
-pub(crate) use resolve::{EFFECT_KEY, Locator, chunk_asset, object_at, resolver_entries};
 
 use crate::error::AppResult;
 use crate::meta_schema::{Expected, KindShape, SchemaAt};
@@ -1092,7 +1091,8 @@ impl BinDocument {
     }
 
     /// The bytes the document parsed from, before any patch.
-    pub(crate) fn base(&self) -> &[u8] {
+    #[must_use]
+    pub fn base(&self) -> &[u8] {
         &self.base
     }
 
@@ -1427,7 +1427,8 @@ impl BinDocument {
     /// The properties of the struct or embed the property path `path` under `entry` reaches.
     ///
     /// `None` where the path reaches no node, a leaf, a container or a null struct.
-    pub(crate) fn properties_at(
+    #[must_use]
+    pub fn properties_at(
         &self,
         entry: BinHash,
         path: &str,

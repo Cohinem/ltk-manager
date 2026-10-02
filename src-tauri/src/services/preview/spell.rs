@@ -4,7 +4,7 @@ use crate::commands::document_assets::parse_entry;
 use crate::commands::off_thread;
 use crate::error::IpcResult;
 use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments};
-use ltk_manager_core::spell::{read_spell as read, SpellPreview};
+use ltk_manager_game::spell::{read_spell as read, SpellPreview};
 use tauri::{AppHandle, Manager};
 
 /// The missile inputs written on one spell in an open document.

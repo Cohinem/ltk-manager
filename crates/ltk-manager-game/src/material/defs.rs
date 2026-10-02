@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use parking_lot::Mutex;
 
-use crate::bin_document::{BinDocument, BinDocumentError};
-use crate::preview::AssetRef;
+use ltk_manager_core::bin_document::{BinDocument, BinDocumentError};
+use ltk_manager_core::preview::AssetRef;
 
 /// The `shaders.bin` last parsed out of each asset, parsed again only when its bytes change.
 ///

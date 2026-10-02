@@ -3,6 +3,7 @@ use std::io::Cursor;
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
+
 use crate::material::tests::h;
 
 fn bytes_of(objects: &[&str]) -> Vec<u8> {

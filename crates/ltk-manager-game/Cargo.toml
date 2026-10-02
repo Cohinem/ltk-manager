@@ -17,16 +17,20 @@ ltk-manager-core = { workspace = true }
 
 fs-err = { workspace = true }
 glam = { workspace = true }
+indexmap = { workspace = true }
 ltk_hash = { workspace = true }
+ltk_mesh = { workspace = true }
 ltk_meta = { workspace = true }
 
+parking_lot = { workspace = true }
+regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 specta = { workspace = true, optional = true }
+tempfile = { workspace = true }
 tracing = { workspace = true }
 xxhash-rust = { workspace = true }
 
 [dev-dependencies]
 ltk_modpkg = { workspace = true }
 ltk_wad = { workspace = true }
-tempfile = { workspace = true }

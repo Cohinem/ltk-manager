@@ -1,7 +1,7 @@
 //! Print one object of a bin inside a WAD, so a system the viewport draws wrong can be read.
 //!
 //! ```text
-//! cargo run -p ltk-manager-core --example dump_vfx -- <wad> <chunk path> <object path> [--json]
+//! cargo run -p ltk-manager-game --example dump_vfx -- <wad> <chunk path> <object path> [--json]
 //! ```
 //!
 //! `--json` prints the resolved `VfxSystem` the viewport reads, with no names and no
@@ -20,7 +20,7 @@ use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_core::bin_document::BinDocument;
 use ltk_manager_core::hashtables::HashtableCache;
-use ltk_manager_core::vfx::resolve_system;
+use ltk_manager_game::vfx::resolve_system;
 use ltk_meta::BinFile;
 
 fn main() {
@@ -77,7 +77,7 @@ fn main() {
 
     if spell {
         let document = BinDocument::parse(bytes).expect("parse bin");
-        let preview = ltk_manager_core::spell::read_spell(&document, wanted).expect("read spell");
+        let preview = ltk_manager_game::spell::read_spell(&document, wanted).expect("read spell");
         println!(
             "{}",
             serde_json::to_string(&preview).expect("serialize spell")

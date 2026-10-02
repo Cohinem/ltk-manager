@@ -20,7 +20,7 @@ use super::{
     ShaderDef, VALUE, WINDING_TO_CULL, WRITE_MASK, Wrap, boolean, integer, string_map, structs,
     vector4,
 };
-use crate::bin_document::{
+use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, fields_of,
     hex, items, object_at, struct_of, text,
 };

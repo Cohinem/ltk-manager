@@ -8,8 +8,8 @@ use ltk_meta::property::Kind;
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
-use crate::bin_document::resolve::RESOURCE_MAP;
-use crate::preview::AssetRef;
+use ltk_manager_core::bin_document::RESOURCE_MAP;
+use ltk_manager_core::preview::AssetRef;
 
 fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)

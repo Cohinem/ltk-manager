@@ -10,7 +10,7 @@ use ltk_manager_core::bin_document::{BinDocument, BinDocumentError, BinDocumentI
 use ltk_manager_core::error::AppError;
 use ltk_manager_core::game_wads::WadCache;
 use ltk_manager_core::preview::{clip_header, AssetRef, ClipHeader};
-use ltk_manager_core::skin::{
+use ltk_manager_game::skin::{
     bake_mesh_tangents, graph_at, resolve_skin, search_linked, search_linked_materials,
     search_linked_systems, AnimationGraph, GraphRead, SkinModel,
 };
