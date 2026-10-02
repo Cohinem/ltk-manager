@@ -203,6 +203,9 @@ importers:
       '@inlang/plugin-message-format':
         specifier: 4.4.4
         version: 4.4.4
+      '@posthog/cli':
+        specifier: 0.18.9
+        version: 0.18.9
       '@tailwindcss/vite':
         specifier: ^4.2.4
         version: 4.2.4(vite@8.0.10(@types/node@22.19.17)(esbuild@0.27.7)(jiti@2.7.0)(tsx@4.21.0)(yaml@2.8.3))
@@ -1280,6 +1283,11 @@ packages:
     peerDependencies:
       react: '>= 16.8'
       react-dom: '>= 16.8'
+
+  '@posthog/cli@0.18.9':
+    resolution: {integrity: sha512-uASaB3MLV5zHIZs9IqeG9d5sgo1lHhxxGh01Ndkmw6RWzLhZaM8ud+pcT0DVbYvpRZvT+eGFookh0/QakeaJ1g==}
+    engines: {node: '>=14.14', npm: '>=6'}
+    hasBin: true
 
   '@react-three/drei@10.7.8':
     resolution: {integrity: sha512-rJXyuzLm2Xq0kafHuR47ajDGbOe/pEhzIr4m8E8zwzQs0iNjloFDqBwRhrXmP/w+onLeYyN3EYPFW/cwWK/4yA==}
@@ -5326,6 +5334,10 @@ snapshots:
     dependencies:
       react: 19.2.5
       react-dom: 19.2.5(react@19.2.5)
+
+  '@posthog/cli@0.18.9':
+    dependencies:
+      detect-libc: 2.1.2
 
   '@react-three/drei@10.7.8(patch_hash=ar7tfea6vvcq2icvklwtvla66i)(@react-three/fiber@9.7.0(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(three@0.185.1))(@types/react@19.2.14)(@types/three@0.185.4)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)(three@0.185.1)':
     dependencies:
