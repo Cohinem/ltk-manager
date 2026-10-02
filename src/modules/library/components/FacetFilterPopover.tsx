@@ -8,6 +8,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react";
 import { type ReactNode, useMemo, useState } from "react";
+import { type StoreApi, useStore } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -40,8 +41,16 @@ import {
   WELL_KNOWN_TAGS,
 } from "../utils";
 
-/** A facet filter store, by its selector. Both the library's and the workshop's fit it. */
-export type FacetStore<F extends string> = <T>(selector: (state: FacetFilterState<F>) => T) => T;
+/**
+ * A facet filter store, read through `useStore`. Both the library's and the workshop's fit it.
+ *
+ * The store rather than its hook, because the React Compiler memoizes a call it does not see as a
+ * hook, and a hook passed in a prop is not named like one.
+ */
+export type FacetStore<F extends string> = Pick<
+  StoreApi<FacetFilterState<F>>,
+  "getState" | "getInitialState" | "subscribe"
+>;
 
 /** One field a list sorts by, as a pill of the sort section. */
 export interface SortOption<F extends string> {
@@ -88,11 +97,12 @@ export function FacetFilterPopover<F extends string>({
   onOpenChange,
   children,
 }: FacetFilterPopoverProps<F>) {
-  const selectedTags = store((s) => s.selectedTags);
-  const selectedChampions = store((s) => s.selectedChampions);
-  const selectedMaps = store((s) => s.selectedMaps);
-  const sort = store((s) => s.sort);
-  const { toggleTag, toggleChampion, toggleMap, clearFilters, setSort } = store(
+  const selectedTags = useStore(store, (s) => s.selectedTags);
+  const selectedChampions = useStore(store, (s) => s.selectedChampions);
+  const selectedMaps = useStore(store, (s) => s.selectedMaps);
+  const sort = useStore(store, (s) => s.sort);
+  const { toggleTag, toggleChampion, toggleMap, clearFilters, setSort } = useStore(
+    store,
     useShallow(facetFilterActions<F>),
   );
   const [champSearch, setChampSearch] = useState("");
