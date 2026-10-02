@@ -1,5 +1,8 @@
 //! Getting mods into and out of the library.
 //!
+//! An archive the library already holds is not installed again: the import
+//! reports the mod it was installed as instead.
+//!
 //! Installing happens in two halves. Staging copies the archive to
 //! `mods/.staging-<uuid>.<ext>` and extracts its metadata into
 //! `mods/.staging-<uuid>/`, which is the slow part and holds no lock.
@@ -18,7 +21,9 @@ use crate::mods::archive::metadata::{extract_metadata, load_mod_project, read_in
 use crate::mods::index::document::archive_path;
 use crate::mods::index::{HarvestSummary, LibraryIndex, LibraryModEntry, ModArchiveFormat};
 use crate::mods::slug::{ModSlug, TakenSlugs};
-use crate::mods::types::{BulkInstallError, BulkInstallResult, InstalledMod, ROOT_FOLDER_ID};
+use crate::mods::types::{
+    BulkInstallError, BulkInstallResult, InstallOutcome, InstalledMod, ROOT_FOLDER_ID,
+};
 use chrono::{DateTime, Utc};
 use fs_err as fs;
 use ltk_wad::PathResolver;
@@ -27,7 +32,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 
+mod duplicate;
 mod update;
+
+use duplicate::{SourceDigest, installed_from, read_library_mod};
 
 /// Prefix an in-flight install's directory and archive copy share under `mods/`.
 ///
@@ -60,6 +68,8 @@ pub(crate) struct StagedMod {
     source_path: String,
     /// What preserving the mod's names found. `None` for a modpkg.
     harvest: Option<HarvestSummary>,
+    /// The source archive's bytes, which is what tells a repeat import.
+    digest: SourceDigest,
 }
 
 impl StagedMod {
@@ -87,6 +97,13 @@ impl StagedMod {
     }
 }
 
+/// What preparing one archive for registration produced.
+enum Staging {
+    New(StagedMod),
+    /// The library already holds the archive, as this mod.
+    AlreadyInstalled(InstalledMod),
+}
+
 /// What materializing one archive into staging produced.
 #[derive(Debug)]
 struct StagedContent {
@@ -97,26 +114,33 @@ struct StagedContent {
 }
 
 impl ModLibrary {
+    /// Install one mod archive, unless the library already holds it.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the file is missing, the archive is malformed, or the mod
+    /// cannot be moved into the library.
     pub fn install_mod_from_package(
         &self,
         config: &Config,
         file_path: &str,
-    ) -> AppResult<InstalledMod> {
+    ) -> AppResult<InstallOutcome> {
         let storage_dir = self.storage_dir(config)?;
         let resolver = self.wad_resolver();
-        let staged = stage_mod_package(
-            &storage_dir,
-            file_path,
-            &InstallContext {
-                resolver: resolver.as_ref(),
-            },
-        )?;
+        let context = InstallContext {
+            resolver: resolver.as_ref(),
+        };
+
+        let staged = match self.stage_new(config, &storage_dir, file_path, &context)? {
+            Staging::New(staged) => staged,
+            Staging::AlreadyInstalled(existing) => {
+                return Ok(InstallOutcome::AlreadyInstalled(existing));
+            }
+        };
 
         self.mutate_index(config, |storage_dir, index| {
             let mut taken = TakenSlugs::collect(index, &storage_dir.mods_dir());
-            let (_entry, installed_mod) =
-                register_staged_mod(storage_dir, index, staged, &mut taken)?;
-            Ok(installed_mod)
+            register_unless_installed(storage_dir, index, staged, &mut taken)
         })
     }
 
@@ -132,6 +156,7 @@ impl ModLibrary {
         if file_paths.is_empty() {
             return Ok(BulkInstallResult {
                 installed: Vec::new(),
+                already_installed: Vec::new(),
                 failed: Vec::new(),
             });
         }
@@ -145,6 +170,7 @@ impl ModLibrary {
 
         let total = file_paths.len();
         let mut staged = Vec::new();
+        let mut already_installed = Vec::new();
         let mut failed = Vec::new();
 
         for (i, file_path) in file_paths.iter().enumerate() {
@@ -155,8 +181,9 @@ impl ModLibrary {
                 current_file: file_name.clone(),
             }));
 
-            match stage_mod_package(&storage_dir, file_path, &context) {
-                Ok(mod_package) => staged.push(mod_package),
+            match self.stage_new(config, &storage_dir, file_path, &context) {
+                Ok(Staging::New(mod_package)) => staged.push(mod_package),
+                Ok(Staging::AlreadyInstalled(existing)) => already_installed.push(existing),
                 Err(e) => {
                     tracing::warn!("Failed to install {}: {}", file_path, e);
                     failed.push(BulkInstallError {
@@ -173,8 +200,11 @@ impl ModLibrary {
             let mut taken = TakenSlugs::collect(index, &storage_dir.mods_dir());
             for mod_package in staged {
                 let source_path = mod_package.source_path.clone();
-                match register_staged_mod(storage_dir, index, mod_package, &mut taken) {
-                    Ok((_entry, mod_info)) => installed.push(mod_info),
+                match register_unless_installed(storage_dir, index, mod_package, &mut taken) {
+                    Ok(InstallOutcome::Installed(mod_info)) => installed.push(mod_info),
+                    Ok(InstallOutcome::AlreadyInstalled(existing)) => {
+                        already_installed.push(existing);
+                    }
                     Err(e) => {
                         tracing::warn!("Failed to register {}: {}", source_path, e);
                         failed.push(BulkInstallError {
@@ -188,7 +218,36 @@ impl ModLibrary {
             Ok(())
         })?;
 
-        Ok(BulkInstallResult { installed, failed })
+        Ok(BulkInstallResult {
+            installed,
+            already_installed,
+            failed,
+        })
+    }
+
+    /// Stage `file_path`, or find the mod the library already installed it as.
+    ///
+    /// Checked before staging, which is the slow half, and again at
+    /// registration by [`register_unless_installed`].
+    fn stage_new(
+        &self,
+        config: &Config,
+        storage_dir: &Path,
+        file_path: &str,
+        context: &InstallContext<'_>,
+    ) -> AppResult<Staging> {
+        let digest = source_digest(Path::new(file_path))?;
+        let existing = self.with_index(config, |storage_dir, index| {
+            installed_from(storage_dir, index, &digest)
+                .map(|entry| read_library_mod(storage_dir, index, entry))
+                .transpose()
+        })?;
+
+        if let Some(existing) = existing {
+            return Ok(Staging::AlreadyInstalled(existing));
+        }
+
+        stage_digested(storage_dir, file_path, digest, context).map(Staging::New)
     }
 
     pub fn uninstall_mod_by_id(&self, config: &Config, mod_id: &str) -> AppResult<()> {
@@ -226,10 +285,31 @@ pub(crate) fn stage_mod_package(
     file_path: &str,
     context: &InstallContext<'_>,
 ) -> AppResult<StagedMod> {
-    let file_path = PathBuf::from(file_path);
+    let digest = source_digest(Path::new(file_path))?;
+    stage_digested(storage_dir, file_path, digest, context)
+}
+
+/// The digest of the archive an import names.
+///
+/// # Errors
+///
+/// Fails with [`AppError::InvalidPath`] when the file is missing.
+fn source_digest(file_path: &Path) -> AppResult<SourceDigest> {
     if !file_path.exists() {
         return Err(AppError::InvalidPath(file_path.display().to_string()));
     }
+
+    SourceDigest::of(file_path)
+}
+
+/// [`stage_mod_package`], for an archive whose digest is already known.
+fn stage_digested(
+    storage_dir: &Path,
+    file_path: &str,
+    digest: SourceDigest,
+    context: &InstallContext<'_>,
+) -> AppResult<StagedMod> {
+    let file_path = PathBuf::from(file_path);
 
     // A fantome is a zip, which is what an archive arriving under a name
     // nothing recognizes most often turns out to be. Guessing modpkg instead
@@ -262,6 +342,7 @@ pub(crate) fn stage_mod_package(
         project_name: staged.project_name,
         source_path: file_path.display().to_string(),
         harvest: staged.harvest,
+        digest,
     })
 }
 
@@ -379,6 +460,31 @@ fn strip_hashtable_boms(
     Ok(Some(normalized))
 }
 
+/// Register `staged`, or discard it when the library already holds its archive.
+///
+/// The check repeats under the index lock because one batch can carry the same
+/// archive twice.
+///
+/// # Errors
+///
+/// Whatever [`register_staged_mod`] reports, or a failure to read the mod the
+/// library already holds.
+fn register_unless_installed(
+    storage_dir: &Path,
+    index: &mut LibraryIndex,
+    staged: StagedMod,
+    taken: &mut TakenSlugs,
+) -> AppResult<InstallOutcome> {
+    if let Some(existing) = installed_from(storage_dir, index, &staged.digest) {
+        staged.discard();
+        return read_library_mod(storage_dir, index, existing)
+            .map(InstallOutcome::AlreadyInstalled);
+    }
+
+    let (_entry, installed) = register_staged_mod(storage_dir, index, staged, taken)?;
+    Ok(InstallOutcome::Installed(installed))
+}
+
 /// Assign a slug, move the staged files into place, and record the mod.
 ///
 /// Runs under the index lock. On any failure everything staging wrote is
@@ -429,6 +535,7 @@ pub(crate) fn register_staged_mod(
         storage: staged.format.installed_storage(),
         slug: Some(slug),
         harvest: staged.harvest,
+        source_sha256: Some(staged.digest.sha256),
     };
     let id = entry.id.clone();
     index.mods.push(entry.clone());

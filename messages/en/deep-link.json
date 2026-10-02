@@ -4,6 +4,8 @@
   "deep_link_install_complete_title": "Install Complete",
   "deep_link_install_done_action": "Done",
   "deep_link_install_downloading_label": "Downloading...",
+  "deep_link_install_existing_description": "*{name}* is already in your library.",
+  "deep_link_install_existing_title": "Already Installed",
   "deep_link_install_failed_description": "Failed to install {name}",
   "deep_link_install_failed_title": "Install Failed",
   "deep_link_install_succeeded_description": "*{name}* has been installed successfully.",

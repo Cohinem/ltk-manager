@@ -53,6 +53,7 @@ export type {
   HealthSweepState_Serialize as HealthSweepState,
   Incident_Serialize as Incident,
   InstalledMod_Serialize as InstalledMod,
+  InstallOutcome_Serialize as InstallOutcome,
   ModHealthVerdict_Serialize as ModHealthVerdict,
   ModLicense_Serialize as ModLicense,
   NodeAddress_Serialize as NodeAddress,

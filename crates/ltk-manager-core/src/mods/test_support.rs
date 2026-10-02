@@ -131,6 +131,7 @@ pub(crate) fn make_test_entry(id: &str, format: ModArchiveFormat) -> LibraryModE
         storage: ModStorage::Archive,
         slug: None,
         harvest: None,
+        source_sha256: None,
     }
 }
 

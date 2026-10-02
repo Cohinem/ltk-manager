@@ -2,7 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary } from "@/i18n";
+import { errorSummary, m } from "@/i18n";
 import { api, type BulkInstallResult, unwrap } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";
 
@@ -32,7 +32,7 @@ export function useLibraryActions() {
     const files = await open({
       multiple: true,
       filters: [
-        { name: "Mod Archives", extensions: [...MOD_ARCHIVE_EXTENSIONS] },
+        { name: m.library_import_archives_filter_label(), extensions: [...MOD_ARCHIVE_EXTENSIONS] },
         { name: "Modpkg", extensions: ["modpkg"] },
         { name: "Fantome", extensions: ["fantome", "zip"] },
       ],
@@ -79,29 +79,54 @@ export function useLibraryActions() {
           const flag = checkModForSkinhack(mod);
           if (flag) {
             api.toggleMod(mod.id, false);
-            toast.warning("Skinhack Detected", `Skinhack detected in "${mod.displayName}"`);
+            toast.warning(
+              m.library_install_skinhack_title(),
+              m.library_install_skinhack_description({ name: mod.displayName }),
+            );
           }
         }
 
-        if (result.failed.length === 0) {
-          toast.success(
-            "Mods installed",
-            `${result.installed.length} mod${result.installed.length !== 1 ? "s" : ""} installed successfully`,
-          );
-        } else if (result.installed.length === 0) {
-          toast.error("Import failed", `All ${result.failed.length} files failed to import`);
-        } else {
-          toast.warning(
-            "Import completed with errors",
-            `${result.installed.length} installed, ${result.failed.length} failed`,
-          );
-        }
+        announceImport(result);
       },
       onError: (error) => {
         handleCloseImportDialog();
-        toast.error("Import failed", errorSummary(error));
+        toast.error(m.library_import_failed_title(), errorSummary(error));
       },
     });
+  }
+
+  function announceImport({ installed, alreadyInstalled, failed }: BulkInstallResult) {
+    const counts = {
+      installed: installed.length,
+      existing: alreadyInstalled.length,
+      failed: failed.length,
+    };
+
+    if (counts.failed > 0 && counts.installed === 0 && counts.existing === 0) {
+      toast.error(
+        m.library_import_failed_title(),
+        m.library_import_failed_description({ count: counts.failed }),
+      );
+    } else if (counts.failed > 0) {
+      toast.warning(
+        m.library_import_partial_title(),
+        counts.existing > 0
+          ? m.library_import_partial_existing_description(counts)
+          : m.library_import_partial_description(counts),
+      );
+    } else if (counts.installed === 0) {
+      toast.info(
+        m.library_import_already_installed_title(),
+        m.library_import_already_installed_description({ count: counts.existing }),
+      );
+    } else {
+      toast.success(
+        m.library_import_installed_title(),
+        counts.existing > 0
+          ? m.library_import_installed_existing_description(counts)
+          : m.library_import_installed_description({ count: counts.installed }),
+      );
+    }
   }
 
   function handleCloseImportDialog() {
@@ -140,7 +165,7 @@ export function useLibraryActions() {
       await api.revealInExplorer(path);
     } catch (error: unknown) {
       toast.error(
-        "Failed to open directory",
+        m.library_storage_open_failed_title(),
         error instanceof Error ? error.message : String(error),
       );
     }

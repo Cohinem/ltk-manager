@@ -1,7 +1,7 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { errorSummary } from "@/i18n";
-import { api, type AppError, type InstalledMod } from "@/lib/tauri";
+import { api, type AppError, type InstalledMod, type InstallOutcome } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "../../library/api/keys";
@@ -17,17 +17,22 @@ export interface ProtocolInstallVariables {
 /** The install a `ltk://` link asks for. */
 export const deepLinkMutations = {
   install: (client: QueryClient) =>
-    mutationOptions<InstalledMod, AppError, ProtocolInstallVariables>({
+    mutationOptions<InstallOutcome, AppError, ProtocolInstallVariables>({
       /* The dialog draws the error this puts in the store. */
       meta: { silentError: true },
       mutationFn: async ({ url, name, author, source }) => {
         useDeepLinkStore.getState().setStatus("installing");
         return unwrapForQuery(await api.deepLinkInstallMod(url, name, author, source));
       },
-      onSuccess: (installed) => {
+      onSuccess: (outcome) => {
+        if (outcome.kind === "alreadyInstalled") {
+          useDeepLinkStore.getState().setStatus("existing");
+          return;
+        }
+
         useDeepLinkStore.getState().setStatus("complete");
         client.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) =>
-          old ? [installed, ...old] : [installed],
+          old ? [outcome.mod, ...old] : [outcome.mod],
         );
       },
       onError: (error) => {

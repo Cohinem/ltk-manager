@@ -4,6 +4,7 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-10-02 | Importing a mod the library holds                          |
 | 2026-10-02 | Opening a mod file from Explorer installs it               |
 | 2026-09-30 | A library edit reaches a running patcher between games     |
 | 2026-09-12 | The documents panel is a drawer over the grid, not a pane  |
@@ -199,6 +200,24 @@ reaches the library.
 
 Explorer starts the app once per selected file. The files that arrive within 300 ms of each other
 install as one import, so a multi-select reads as one action.
+
+## Importing a mod the library holds
+
+An import compares each archive with the archives already in the library, byte for byte. An
+archive the library already holds is not installed again. The file name does not matter, so a
+renamed copy of the same archive is still the same mod.
+
+- One file: a toast names the mod the library already holds.
+- Several files: the result dialog lists them as already in the library, apart from the mods it
+  installed and the files that failed. A batch that carries one archive twice installs it once.
+- A deep link: the dialog says the mod is already in the library.
+
+A changed archive, such as a new version of the mod, installs as a separate mod. `Update from file`
+is what replaces a mod with a new version.
+
+A mod is compared by the archive it was installed or last updated from. A mod installed before the
+check existed has no record of that archive, so its stored archive stands in, and it matches only
+when the import left that archive unchanged.
 
 ## The documents panel
 

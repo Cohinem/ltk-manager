@@ -45,7 +45,8 @@ fn bom_prefixed_hashtables_keep_their_names_when_installed_and_unpacked() {
 
         let installed = library
             .install_mod_from_package(&config, archive.to_str().unwrap())
-            .unwrap();
+            .unwrap()
+            .into_mod();
         library
             .set_mod_storage(&config, &installed.id, ModStorage::Project)
             .unwrap();
@@ -294,7 +295,8 @@ fn harvested_names_land_in_the_unpacked_projects_hashes_directory() {
 
     let installed = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
-        .unwrap();
+        .unwrap()
+        .into_mod();
     library
         .set_mod_storage(&config, &installed.id, ModStorage::Project)
         .unwrap();
@@ -322,7 +324,8 @@ fn a_packed_chunk_named_only_by_its_own_bin_unpacks_under_that_name() {
 
     let installed = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
-        .unwrap();
+        .unwrap()
+        .into_mod();
     library
         .set_mod_storage(&config, &installed.id, ModStorage::Project)
         .unwrap();
@@ -350,7 +353,8 @@ fn the_harvest_is_recorded_on_the_entry_and_the_installed_mod() {
 
     let installed = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
-        .unwrap();
+        .unwrap()
+        .into_mod();
 
     let expected = crate::mods::index::HarvestSummary {
         names_added: 1,
@@ -413,6 +417,7 @@ fn two_mods_with_one_name_get_distinct_directories() {
     for i in 0..3 {
         let archive = source.path().join(format!("copy-{i}.fantome"));
         make_named_fantome_zip(&archive, "Same Name");
+        append_readme(&archive, &format!("copy {i}"));
         paths.push(archive.to_str().unwrap().to_string());
     }
 
@@ -462,7 +467,8 @@ fn uninstall_removes_the_mod_directory_and_scrubs_every_reference() {
 
     let installed = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
-        .unwrap();
+        .unwrap()
+        .into_mod();
     let mod_dir = PathBuf::from(&installed.mod_dir);
     let retained = storage.path().mods_dir().join("doomed.fantome");
     assert!(mod_dir.is_dir());
@@ -568,7 +574,8 @@ fn an_update_keeps_identity_folders_and_every_profiles_choices() {
     let (library, config) = make_test_library(storage.path());
     let original = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
-        .unwrap();
+        .unwrap()
+        .into_mod();
     let before = library
         .mutate_index(&config, |_, index| {
             index.profiles[0].enabled_mods.clear();
@@ -636,7 +643,8 @@ fn a_failed_index_save_restores_the_old_archive_and_metadata() {
     let (library, config) = make_test_library(storage.path());
     let original = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
-        .unwrap();
+        .unwrap()
+        .into_mod();
     let old_archive = storage.path().join("mods/original.fantome");
     let old_bytes = fs::read(&old_archive).unwrap();
     let old_index = fs::read(storage.path().join("library.json")).unwrap();
@@ -672,7 +680,8 @@ fn an_invalid_update_leaves_the_old_mod_usable() {
     let (library, config) = make_test_library(storage.path());
     let original = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
-        .unwrap();
+        .unwrap()
+        .into_mod();
     fs::write(&archive, b"invalid archive").unwrap();
 
     assert!(
@@ -712,7 +721,8 @@ fn an_update_can_change_archive_format_without_leaving_the_old_archive() {
     let (library, config) = make_test_library(storage.path());
     let original = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
-        .unwrap();
+        .unwrap()
+        .into_mod();
     let replacement = source.path().join("replacement.modpkg");
     crate::mods::test_support::make_modpkg(&replacement, "Replacement");
 
@@ -736,7 +746,8 @@ fn an_update_replaces_an_unpacked_mod_with_the_new_archive() {
     let (library, config) = make_test_library(storage.path());
     let original = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
-        .unwrap();
+        .unwrap()
+        .into_mod();
     library
         .set_mod_storage(&config, &original.id, ModStorage::Project)
         .unwrap();
@@ -752,4 +763,134 @@ fn an_update_replaces_an_unpacked_mod_with_the_new_archive() {
     assert!(!Path::new(&updated.mod_dir).join("content").exists());
     assert_eq!(updated.display_name, "Replacement");
     assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 2);
+}
+
+/// Make `path` differ from another archive built by the same fixture.
+fn append_readme(path: &Path, text: &str) {
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(path)
+        .unwrap();
+    let mut zip = zip::ZipWriter::new_append(file).unwrap();
+    zip.start_file("README.md", zip::write::SimpleFileOptions::default())
+        .unwrap();
+    zip.write_all(text.as_bytes()).unwrap();
+    zip.finish().unwrap();
+}
+
+#[test]
+fn installing_an_archive_the_library_holds_reports_the_existing_mod() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("full.fantome");
+    crate::mods::test_support::make_full_fantome_zip(&archive);
+    let (library, config) = make_test_library(storage.path());
+    let first = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap()
+        .into_mod();
+
+    let copy = source.path().join("renamed copy.fantome");
+    fs::copy(&archive, &copy).unwrap();
+    let second = library
+        .install_mod_from_package(&config, copy.to_str().unwrap())
+        .unwrap();
+
+    assert_matches!(second, InstallOutcome::AlreadyInstalled(existing) if existing.id == first.id);
+    assert_eq!(library.get_installed_mods(&config).unwrap().len(), 1);
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 2);
+}
+
+#[test]
+fn a_batch_carrying_one_archive_twice_installs_it_once() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("mod.fantome");
+    make_named_fantome_zip(&archive, "Twice");
+    let copy = source.path().join("mod (1).fantome");
+    fs::copy(&archive, &copy).unwrap();
+    let (library, config) = make_test_library(storage.path());
+
+    let paths = [archive, copy].map(|path| path.to_str().unwrap().to_string());
+    let result = library.install_mods_from_packages(&config, &paths).unwrap();
+
+    assert!(result.failed.is_empty());
+    assert_eq!(result.installed.len(), 1);
+    assert_eq!(result.already_installed.len(), 1);
+    assert_eq!(result.already_installed[0].id, result.installed[0].id);
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 2);
+}
+
+#[test]
+fn an_entry_without_a_digest_is_matched_by_its_stored_archive() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("mod.fantome");
+    make_named_fantome_zip(&archive, "Legacy");
+    let (library, config) = make_test_library(storage.path());
+    let first = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap()
+        .into_mod();
+    library
+        .mutate_index(&config, |_, index| {
+            index.mods[0].source_sha256 = None;
+            Ok(())
+        })
+        .unwrap();
+
+    let second = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+
+    assert_matches!(second, InstallOutcome::AlreadyInstalled(existing) if existing.id == first.id);
+}
+
+#[test]
+fn a_changed_archive_installs_beside_the_original() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let archive = source.path().join("mod.fantome");
+    make_named_fantome_zip(&archive, "Edited");
+    let (library, config) = make_test_library(storage.path());
+    library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+
+    append_readme(&archive, "changed");
+    let second = library
+        .install_mod_from_package(&config, archive.to_str().unwrap())
+        .unwrap();
+
+    assert_matches!(second, InstallOutcome::Installed(_));
+    assert_eq!(library.get_installed_mods(&config).unwrap().len(), 2);
+}
+
+#[test]
+fn an_update_records_the_new_archive_as_the_mods_source() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let original = source.path().join("original.fantome");
+    make_named_fantome_zip(&original, "Original");
+    let replacement = source.path().join("replacement.fantome");
+    make_named_fantome_zip(&replacement, "Replacement");
+    let (library, config) = make_test_library(storage.path());
+    let installed = library
+        .install_mod_from_package(&config, original.to_str().unwrap())
+        .unwrap()
+        .into_mod();
+    library
+        .update_mod_from_package(&config, &installed.id, replacement.to_str().unwrap())
+        .unwrap();
+
+    let reinstalled = library
+        .install_mod_from_package(&config, replacement.to_str().unwrap())
+        .unwrap();
+    let original_again = library
+        .install_mod_from_package(&config, original.to_str().unwrap())
+        .unwrap();
+
+    assert_matches!(reinstalled, InstallOutcome::AlreadyInstalled(existing) if existing.id == installed.id);
+    assert_matches!(original_again, InstallOutcome::Installed(_));
 }

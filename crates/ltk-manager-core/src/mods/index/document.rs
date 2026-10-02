@@ -306,6 +306,10 @@ pub(crate) struct LibraryModEntry {
     /// the preserve existed. `None` for a modpkg and for older entries.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) harvest: Option<HarvestSummary>,
+    /// The SHA-256 of the archive this mod was installed or last updated from,
+    /// in lowercase hex. `None` for a discovered directory and older entries.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) source_sha256: Option<String>,
 }
 
 impl LibraryModEntry {

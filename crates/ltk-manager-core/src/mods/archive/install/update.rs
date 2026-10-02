@@ -36,19 +36,14 @@ impl ModLibrary {
             entry.format = staged.format;
             entry.storage = staged.format.installed_storage();
             entry.harvest = staged.harvest;
+            entry.source_sha256 = Some(staged.digest.sha256.clone());
             index.mods[pos] = entry.clone();
             for profile in &mut index.profiles {
                 if let Some(states) = profile.layer_states.get_mut(mod_id) {
                     states.retain(|name, _| project.layers.iter().any(|layer| &layer.name == name));
                 }
             }
-            let (enabled, layers) = index.profile_state(mod_id);
-            let mut installed = read_installed_mod(&entry, enabled, storage_dir, layers)?;
-            installed.folder_id = index
-                .folders
-                .iter()
-                .find(|folder| folder.mod_ids.iter().any(|id| id == mod_id))
-                .map(|folder| folder.id.clone());
+            let installed = read_library_mod(storage_dir, index, &entry)?;
             self.invalidate_overlay_for(storage_dir, &[mod_id.to_owned()]);
             self.forget_health_check(storage_dir, mod_id);
             Ok((replacement, installed))
