@@ -11,6 +11,7 @@ you are in here.
 | `global.css`     | Every value: palette, brand pair, state colors, surfaces, scales, glass tiers, gradients                                   |
 | `tailwind.css`   | Nothing of its own - the entry point, the font imports, and a `@theme` block aliasing `global.css` into Tailwind utilities |
 | `animations.css` | Keyframes and the stagger utility                                                                                          |
+| `layout.css`     | The rules behind the layout primitives, keyed on `data-layout`                                                             |
 
 `tailwind.css` is the single CSS entry point, imported in `main.tsx`. Keep the section
 banner comments in `global.css` and add to the right section rather than appending to

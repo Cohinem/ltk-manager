@@ -1,7 +1,7 @@
 import { ArrowClockwiseIcon, ClipboardTextIcon, StethoscopeIcon } from "@phosphor-icons/react";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 
-import { AlertBox, Button, Separator, Spinner, Tabs, useToast } from "@/components";
+import { AlertBox, Button, ReadingColumn, Separator, Spinner, Tabs, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
 import type { DiagnosticReport } from "@/lib/tauri";
 import { DiagnosticsReportView, GamesTab, useDiagnostics } from "@/modules/diagnostics";
@@ -73,10 +73,10 @@ export function Diagnostics() {
           </Tabs.List>
         </header>
 
-        <Tabs.Panel value="games" className="mt-0 flex min-h-0 flex-1 flex-col">
+        <Tabs.Panel value="games" className="flex min-h-0 flex-1 flex-col">
           <GamesTab modAction={(modId) => <SuspectModAction modId={modId} />} />
         </Tabs.Panel>
-        <Tabs.Panel value="system" className="mt-0 min-h-0 flex-1 overflow-y-auto">
+        <Tabs.Panel value="system" className="min-h-0 flex-1 overflow-y-auto">
           <SystemTab />
         </Tabs.Panel>
       </Tabs.Root>
@@ -98,7 +98,7 @@ function SystemTab() {
   }
 
   return (
-    <div data-ui="SystemTab" className="mx-auto w-full max-w-5xl space-y-6 p-6">
+    <ReadingColumn data-ui="SystemTab">
       <header className="flex items-start justify-between gap-4 select-none">
         <div>
           <p className="text-sm text-surface-400">
@@ -147,6 +147,6 @@ function SystemTab() {
       )}
 
       {report && <DiagnosticsReportView report={report} />}
-    </div>
+    </ReadingColumn>
   );
 }

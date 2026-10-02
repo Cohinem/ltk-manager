@@ -96,7 +96,7 @@ export function BulkUninstallDialog() {
         </div>
 
         {preview.length > 0 && (
-          <div className="mt-4">
+          <div>
             <p className={twMerge(OVERLINE, "mb-2")}>To be removed</p>
             <ul className="space-y-1 text-sm text-surface-200">
               {preview.map((mod) => (

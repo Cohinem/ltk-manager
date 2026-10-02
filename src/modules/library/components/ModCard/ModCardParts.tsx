@@ -555,10 +555,10 @@ export function SkinhackInfoDialog({
         <p className="text-sm leading-relaxed text-surface-300">
           {m.library_mod_skinhack_description()}
         </p>
-        <p className="mt-3 text-sm leading-relaxed text-surface-300">
+        <p className="text-sm leading-relaxed text-surface-300">
           {m.library_mod_skinhack_policy_hint()}
         </p>
-        <p className="mt-3 text-sm leading-relaxed text-surface-400">
+        <p className="text-sm leading-relaxed text-surface-400">
           {m.library_mod_skinhack_report_hint()}
         </p>
       </Dialog.Body>

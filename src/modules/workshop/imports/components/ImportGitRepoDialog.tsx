@@ -72,7 +72,7 @@ export function ImportGitRepoDialog() {
           form.handleSubmit();
         }}
       >
-        <Dialog.Body className="space-y-4">
+        <Dialog.Body>
           <form.AppField name="url">
             {(field) => (
               <field.TextField

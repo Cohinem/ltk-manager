@@ -91,7 +91,7 @@ export function ImportFantomeDialog() {
           form.handleSubmit();
         }}
       >
-        <Dialog.Body className="space-y-4" key={filePath}>
+        <Dialog.Body key={filePath}>
           {peekResult && (
             <div className="space-y-3 rounded-lg border border-surface-600 bg-surface-900 p-4">
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">

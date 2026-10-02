@@ -72,7 +72,7 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
 
         <Header mod={openMod} />
 
-        <Tabs.Panel value="details" className="mt-0 flex min-h-0 flex-1 flex-col">
+        <Tabs.Panel value="details" className="flex min-h-0 flex-1 flex-col">
           <DocumentGate
             mod={openMod}
             missing={missing}
@@ -82,7 +82,7 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
             {(mod) => <DetailsTab mod={mod} />}
           </DocumentGate>
         </Tabs.Panel>
-        <Tabs.Panel value="readme" className="mt-0 flex min-h-0 flex-1 flex-col">
+        <Tabs.Panel value="readme" className="flex min-h-0 flex-1 flex-col">
           <DocumentGate
             mod={openMod}
             missing={missing}
@@ -92,7 +92,7 @@ export function DocumentsSidebar({ mods }: DocumentsSidebarProps) {
             {(mod) => <ReadmeTab mod={mod} />}
           </DocumentGate>
         </Tabs.Panel>
-        <Tabs.Panel value="licenses" className="mt-0 flex min-h-0 flex-1 flex-col">
+        <Tabs.Panel value="licenses" className="flex min-h-0 flex-1 flex-col">
           <DocumentGate
             mod={openMod}
             missing={missing}

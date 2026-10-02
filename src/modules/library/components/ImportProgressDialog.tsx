@@ -27,7 +27,7 @@ export function ImportProgressDialog({
       size="sm"
       closable={false}
     >
-      <Dialog.Body className="space-y-4">
+      <Dialog.Body>
         {!isComplete && <BulkInstallProgress progress={progress} />}
         {isComplete && result && <BulkInstallResults result={result} />}
       </Dialog.Body>
