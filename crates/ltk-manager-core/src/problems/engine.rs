@@ -16,17 +16,19 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
+use camino::Utf8Path;
 use chrono::Utc;
 use fs_err as fs;
 use ltk_file::LeagueFileKind;
 use ltk_hash::Hash as _;
+use ltk_mod_project::{MODIGNORE_FILE_NAME, ModIgnore};
 use ltk_wad::{PathResolver, WadChunk, WadChunkCompression, WadHash, is_hex_chunk_path};
 use walkdir::WalkDir;
 
 use crate::config::Config;
-use crate::error::AppResult;
+use crate::error::{AppResult, Utf8PathRefExt};
 use crate::workshop::layer;
-use crate::workshop::{ProjectDir, WorkshopFileKind};
+use crate::workshop::{ProjectDir, WorkshopFileKind, holds_ignore_rules};
 
 use archive::ArchiveFiles;
 
@@ -65,10 +67,20 @@ pub struct ProjectFiles {
     names: Arc<BinNames>,
     budget: Budget,
     game: Option<Arc<dyn GameContent>>,
+    /// Whether the tree holds a `.modignore` anywhere, the root or under
+    /// `content/`. `false` for an archive, which holds none.
+    has_ignore_rules: bool,
+    /// Whether the tree is a workshop project, not a library mod or an archive.
+    workshop: bool,
 }
 
 impl ProjectFiles {
     /// Walk `project_root`'s content directory, in every layer.
+    ///
+    /// Each layer is filtered by the project's ignore rules in the same way a
+    /// pack filters it, so a rule reads only the files a package contains. If
+    /// the rules do not compile, the error is logged and no file is filtered,
+    /// as in the content tree.
     ///
     /// `game` is what the installed game holds, for the rules that ask it a
     /// question. `None` means no game is installed, and a rule that needs one
@@ -76,8 +88,9 @@ impl ProjectFiles {
     ///
     /// # Errors
     ///
-    /// Reports a project whose `content/` directory cannot be read at all. An
-    /// unreadable file inside it is skipped and logged, never fatal.
+    /// Reports a project whose `content/` directory cannot be read at all, or
+    /// whose path is not UTF-8. An unreadable file inside it is skipped and
+    /// logged, never fatal.
     pub fn read(
         project_root: &Path,
         config: &Config,
@@ -98,19 +111,28 @@ impl ProjectFiles {
         game: Option<Arc<dyn GameContent>>,
     ) -> AppResult<Self> {
         let content_dir = project_root.join(CONTENT_DIR);
-        let layers = if content_dir.exists() {
-            layer::dirs_in(&content_dir)?
+        let (layers, has_ignore_rules) = if content_dir.exists() {
+            let (ignore, has_ignore_rules) = pack_filter(project_root)?;
+            let layers = layer::dirs_in(&content_dir)?
                 .iter()
-                .map(|dir| {
-                    let name = dir
-                        .file_name()
-                        .and_then(|name| name.to_str())
-                        .unwrap_or_default();
-                    LayerFiles::read(dir, name)
+                .filter_map(|dir| {
+                    let Some(dir) = Utf8Path::from_path(dir) else {
+                        tracing::warn!(
+                            "Skipping a layer whose name is not UTF-8: {}",
+                            dir.display()
+                        );
+                        return None;
+                    };
+                    Some(LayerFiles::read(
+                        dir,
+                        dir.file_name().unwrap_or_default(),
+                        &ignore,
+                    ))
                 })
-                .collect()
+                .collect();
+            (layers, has_ignore_rules)
         } else {
-            Vec::new()
+            (Vec::new(), false)
         };
 
         Ok(Self {
@@ -120,7 +142,16 @@ impl ProjectFiles {
             names: Arc::new(BinNames::open(project_root)),
             budget,
             game,
+            has_ignore_rules,
+            workshop: false,
         })
+    }
+
+    /// Mark these files as the files of a workshop project.
+    #[must_use]
+    pub(crate) fn in_workshop(mut self) -> Self {
+        self.workshop = true;
+        self
     }
 
     /// List a fantome archive's files, one layer per layer the archive holds.
@@ -156,6 +187,8 @@ impl ProjectFiles {
             names: Arc::new(BinNames::with_declared(scan.tables)),
             budget,
             game,
+            has_ignore_rules: false,
+            workshop: false,
         })
     }
 
@@ -184,6 +217,15 @@ impl ProjectFiles {
     #[must_use]
     pub fn game(&self) -> Option<&dyn GameContent> {
         self.game.as_deref()
+    }
+
+    /// Whether this is a workshop project with no `.modignore` anywhere.
+    ///
+    /// `false` for a library mod and an archive, because the user does not edit
+    /// their rules.
+    #[must_use]
+    pub fn lacks_ignore_rules(&self) -> bool {
+        self.workshop && !self.has_ignore_rules
     }
 
     /// The names a row can give the hashes a bin holds.
@@ -488,31 +530,61 @@ fn kind_in_tree(at: &Path, relative: &str) -> WorkshopFileKind {
     WorkshopFileKind::from(sniffed)
 }
 
+/// The ignore rules a pack of `project_root` applies, and whether the project
+/// has any `.modignore`.
+///
+/// If the rules do not compile, the error is logged and an empty filter is
+/// returned. The Ignore rules document reports the error, and a pack fails on
+/// it.
+fn pack_filter(project_root: &Path) -> AppResult<(ModIgnore, bool)> {
+    let root = project_root.try_as_utf8("project path")?;
+
+    let filter = ProjectDir::open(project_root)?.ignore_filter();
+    let has_ignore_rules = holds_ignore_rules(&filter);
+    let ignore = filter.unwrap_or_else(|e| {
+        tracing::warn!("Checking {root} with no ignore rules: {e}");
+        ModIgnore::empty(root)
+    });
+
+    Ok((ignore, has_ignore_rules))
+}
+
+/// Whether a pack skips `entry`: a `.modignore` file, or a path that `ignore`
+/// excludes.
+///
+/// Parent folders are not checked. The walk does not enter an excluded folder,
+/// so no parent of `entry` is excluded.
+fn left_out(ignore: &ModIgnore, entry: &walkdir::DirEntry) -> bool {
+    if entry
+        .file_name()
+        .to_str()
+        .is_some_and(|name| name.eq_ignore_ascii_case(MODIGNORE_FILE_NAME))
+    {
+        return true;
+    }
+
+    Utf8Path::from_path(entry.path())
+        .is_some_and(|at| ignore.matched(at, entry.file_type().is_dir()).is_ignored())
+}
+
 impl LayerFiles {
-    /// Walk one layer's content directory, recursively.
+    /// Walk one layer's content directory through `ignore`, recursively.
     ///
-    /// An entry the walk cannot read is logged and skipped, so the rest of the
-    /// layer is still listed.
-    fn read(dir: &Path, name: &str) -> Self {
+    /// Skips the entries a pack skips: an excluded file or folder, and every
+    /// `.modignore`. Links are followed, as in a pack. An entry the walk cannot
+    /// read is logged and skipped, and the rest of the layer is still listed.
+    fn read(dir: &Utf8Path, name: &str, ignore: &ModIgnore) -> Self {
         let walk = WalkDir::new(dir)
-            .follow_links(false)
+            .follow_links(true)
             .into_iter()
-            .filter_entry(|entry| {
-                // The walk starts at the layer root, whose name the project
-                // does not control. A temp directory may begin with a dot.
-                entry.depth() == 0
-                    || entry
-                        .file_name()
-                        .to_str()
-                        .is_some_and(|name| !name.starts_with('.'))
-            });
+            .filter_entry(|entry| !left_out(ignore, entry));
 
         let mut files = Vec::new();
         for entry in walk {
             let entry = match entry {
                 Ok(entry) => entry,
                 Err(e) => {
-                    tracing::warn!("Skipping unreadable entry in {}: {e}", dir.display());
+                    tracing::warn!("Skipping unreadable entry in {dir}: {e}");
                     continue;
                 }
             };
@@ -543,7 +615,7 @@ impl LayerFiles {
         Self {
             name: name.to_owned(),
             files,
-            source: LayerSource::Directory(dir.to_path_buf()),
+            source: LayerSource::Directory(dir.as_std_path().to_path_buf()),
             written: HashMap::new(),
         }
     }
@@ -792,6 +864,25 @@ pub fn analyze_within(
 ) -> AppResult<Run> {
     let project = ProjectDir::open(project_root)?;
     Ok(ProjectFiles::within(project.path(), config, budget, game)?.checked())
+}
+
+/// One pass of every rule over a workshop project.
+///
+/// The same as [`analyze`], plus the checks that apply only to a workshop
+/// project, such as `project/working-file`.
+///
+/// # Errors
+///
+/// The same as [`analyze`].
+pub fn analyze_project(
+    project_root: &Path,
+    config: &Config,
+    game: Option<Arc<dyn GameContent>>,
+) -> AppResult<Run> {
+    let project = ProjectDir::open(project_root)?;
+    Ok(ProjectFiles::read(project.path(), config, game)?
+        .in_workshop()
+        .checked())
 }
 
 /// One pass of every rule over a fantome archive, read where it lies.

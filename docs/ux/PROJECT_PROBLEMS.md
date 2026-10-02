@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-02 | Check only packed files, and report packed working files     |
 | 2026-09-30 | Name each unchecked file once, with its reason               |
 | 2026-09-17 | Open a bin finding at the node it names                      |
 | 2026-09-05 | Point the lazy-read link at the reader that landed           |
@@ -13,7 +14,6 @@
 | 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md        |
 | 2026-08-24 | Draw the forward-looking lints by default, dimmed            |
 | 2026-08-24 | Give the forward-looking switch a row, and drop the notice   |
-| 2026-08-23 | Put the forward-looking lints behind one editor setting      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -56,6 +56,7 @@ This table holds every major feature of Problems. A status word has one meaning.
 | The migration tables | Available | 395 rows, `include_str!` into the core crate. What a later build wants |
 | Texture size rule    | Available | `tex/block-alignment`. The one confirmed crash, and it repairs         |
 | Audio bank rule      | Available | `audio/bank-version`. A bank the game drops without a word             |
+| Working file rule    | Available | `project/working-file`. A packed source file, with no ignore rules     |
 | Repair by removal    | Available | A fix may delete a file, where something still answers for it          |
 | The fix preview      | Available | The before value and the after value, for each problem                 |
 | Preserved names      | Available | A fix writes what it hashes into the mod's own `hashes/`               |
@@ -313,6 +314,13 @@ touching the value has neither.
 
 A run walks each layer's content directory, hands the files to each rule, and collects what the
 rules report. It produces one `Run`.
+
+The walk applies the project's ignore rules in the same way a pack does, so a rule reads only
+the files that are in the package. A file the rules exclude is not checked, and no repair writes
+it. A dot-file that is not excluded is checked like any other file. A `.modignore` file is never
+checked. If the rules do not compile, every file is checked, and the content tree also lists every
+file. The Ignore rules document reports the error, and a pack fails on it. See "Ignore rules" in
+[PROJECT_EDITOR.md](PROJECT_EDITOR.md).
 
 ```rust
 /// One pass of every rule over one project.

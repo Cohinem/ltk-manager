@@ -39,7 +39,7 @@ pub use budget::Budget;
 pub use build::GameBuild;
 pub use engine::{
     ChunkInfo, FileHandle, LayerFiles, Opened, ProjectFile, ProjectFiles, analyze, analyze_archive,
-    analyze_within,
+    analyze_project, analyze_within,
 };
 pub use fix::{
     FileChange, FileOutcome, FixError, FixReport, FixRun, HeldWrites, apply, apply_held,

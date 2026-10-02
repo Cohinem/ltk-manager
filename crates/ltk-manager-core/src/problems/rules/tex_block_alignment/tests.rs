@@ -98,6 +98,20 @@ fn found(bytes: &[u8]) -> Vec<Problem> {
     found_in(&files)
 }
 
+/// A file that is not in the package cannot affect the game.
+#[test]
+fn a_ragged_texture_the_ignore_rules_exclude_is_reported_only_once_the_rule_is_removed() {
+    let (tmp, _) = project(&tex_bytes(RAGGED, bc3()));
+    let rules = tmp.path().join(".modignore");
+    let reread = || ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+
+    fs::write(&rules, "/base/data/characters/\n").unwrap();
+    assert!(found_in(&reread()).is_empty());
+
+    fs::write(&rules, "").unwrap();
+    assert_eq!(found_in(&reread()).len(), 1);
+}
+
 #[test]
 fn a_block_compressed_texture_with_a_ragged_dimension_is_fatal() {
     let problems = found(&tex_bytes(RAGGED, bc3()));

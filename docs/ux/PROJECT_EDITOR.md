@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-10-02 | Report each working file, only for a project with no ignore rules     |
 | 2026-09-27 | Redraw every preview of a layer file saved from another program       |
 | 2026-09-25 | Make modules, and drag modules, entries and keys to organize them     |
 | 2026-09-25 | Read a manifest as one line per key, and act on its modules in place  |
@@ -13,7 +14,6 @@
 | 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen        |
 | 2026-09-18 | Command routes to every document, closes, maximize, and a strip list  |
 | 2026-09-18 | Answer the editor's keys, and find text inside a text document        |
-| 2026-09-18 | Save from the close question, queue the rest, and guard a quit        |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1491,9 +1491,9 @@ A git import keeps whatever the repository holds, including nothing. The reposit
 author's, and a file written into a working tree the app did not create is a diff the creator
 did not ask for.
 
-A project that already exists is never written to. The offer lives in the document's empty
-state and in the problems rule, so a creator who deleted an entry on purpose is not given it
-back behind their back.
+A project that already exists is never written to. The default is offered in the document's
+empty state and by the problems rule. Both write the file only when the creator clicks, so an
+entry the creator deleted is not added back.
 
 ### What the tree draws
 
@@ -1586,10 +1586,33 @@ A layer the rules empty is a warning in the pre-flight list, in the shape the ot
 warnings take, and the pack goes ahead because a creator may mean it. A pattern that does not parse
 keeps its line number and its file, in the pre-flight errors and in the pack's own failure alike.
 
-The problems pass gains one rule, for a project with no ignore file at all, whose fix writes the
-default. No rule reports an unignored source file, so a creator who dropped an entry is not told
-twice. The pass and its repairs skip what the rules exclude, because a file that does not ship
-cannot break the game.
+### The problems rule
+
+The problems pass checks only the files that a pack puts in the package. It applies the project's
+ignore rules in the same way a pack does. A file the rules exclude is not checked, and no repair
+writes it. A dot-file that is not excluded is checked like any other file. "What a run does" in
+[PROJECT_PROBLEMS.md](PROJECT_PROBLEMS.md) describes the walk.
+
+`project/working-file`, **Working file in package**, reports each packed file that the default
+would exclude, such as a Photoshop source, a Maya swatch folder or a `.DS_Store`. It is a warning.
+The game loads the package, and the package is larger than necessary. The fix writes the default,
+and one fix clears every finding of the rule. The preview of each finding names the pattern that
+excludes the file, such as `*.psd`, so the creator sees the syntax before the file exists.
+
+The rule reports only for a workshop project that has no `.modignore` file:
+
+- **A project with a `.modignore` is not reported.** An empty file, a file in a folder under
+  `content/`, and a file that does not compile all count. If a creator removed an entry of the
+  default, the rule does not add it back. Add missing recommended rules in the document adds the
+  missing entries when the creator asks.
+- **A project with no file to exclude is not reported.** A missing `.modignore` is not a problem
+  when the default would exclude nothing. A warning on every older project could only be cleared
+  by creating an empty file.
+- **Library mods and archives are not reported.** The user does not edit their rules, and a
+  library repair would write the file into the mod's storage.
+
+A finding names a file, not the project, because the creator acts on the file. Clicking the
+finding opens the file, as for any other finding.
 
 ### Freshness
 

@@ -482,16 +482,11 @@ fn chunk_of<S: std::io::Read + std::io::Seek>(
 /// unpack writes, which puts `RAW/` entries under the base layer's `raw`
 /// directory.
 fn layer_path(entry_name: &str) -> Option<(&str, String)> {
-    let (layer, path) = match classify_entry(entry_name)? {
-        FantomeEntry::WadFile { layer, path } => (layer, path.to_owned()),
-        FantomeEntry::Raw(relative) => (BASE_LAYER, format!("{RAW_DIR}/{relative}")),
-        _ => return None,
-    };
-
-    // The tree walk skips names that begin with a dot. Listing one here would
-    // raise a problem that the repair, which reads the tree, cannot fix.
-    let hidden = path.split('/').any(|part| part.starts_with('.'));
-    (!hidden).then_some((layer, path))
+    match classify_entry(entry_name)? {
+        FantomeEntry::WadFile { layer, path } => Some((layer, path.to_owned())),
+        FantomeEntry::Raw(relative) => Some((BASE_LAYER, format!("{RAW_DIR}/{relative}"))),
+        _ => None,
+    }
 }
 
 /// Where `layer` sits in `layers`, matched in any ASCII casing, appended when

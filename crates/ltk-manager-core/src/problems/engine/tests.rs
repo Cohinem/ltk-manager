@@ -61,7 +61,7 @@ fn a_dot_directory_under_content_is_not_a_layer() {
 }
 
 #[test]
-fn a_dot_file_inside_a_layer_is_skipped() {
+fn a_dot_file_inside_a_layer_is_read_since_a_pack_includes_it() {
     let tmp = tempfile::tempdir().unwrap();
     let base = tmp.path().join(CONTENT_DIR).join("base");
     touch(&base.join("a.bin"), b"bin");
@@ -69,7 +69,129 @@ fn a_dot_file_inside_a_layer_is_skipped() {
     touch(&base.join(".tools").join("b.bin"), b"bin");
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert_eq!(
+        paths(&layer(&files, "base")),
+        [".hidden.bin", ".tools/b.bin", "a.bin"]
+    );
+}
+
+#[test]
+fn a_file_the_ignore_rules_exclude_is_not_read() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("a.bin"), b"bin");
+    touch(&base.join("draft.bin"), b"bin");
+    touch(&base.join("scratch").join("b.bin"), b"bin");
+    touch(
+        &tmp.path().join(".modignore"),
+        b"/base/draft.bin\nscratch/\n",
+    );
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
     assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
+}
+
+#[test]
+fn a_layer_the_ignore_rules_exclude_reads_empty() {
+    let tmp = tempfile::tempdir().unwrap();
+    touch(
+        &tmp.path().join(CONTENT_DIR).join("base").join("a.bin"),
+        b"bin",
+    );
+    touch(
+        &tmp.path().join(CONTENT_DIR).join("alt").join("b.bin"),
+        b"bin",
+    );
+    touch(&tmp.path().join(".modignore"), b"/alt/\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(paths(&layer(&files, "alt")).is_empty());
+    assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
+}
+
+#[test]
+fn a_file_is_read_again_once_its_ignore_rule_is_removed() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("draft.bin"), b"bin");
+    touch(&tmp.path().join(".modignore"), b"draft.bin\n");
+
+    let before = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(paths(&layer(&before, "base")).is_empty());
+
+    touch(&tmp.path().join(".modignore"), b"");
+    let after = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert_eq!(paths(&layer(&after, "base")), ["draft.bin"]);
+}
+
+#[test]
+fn a_nested_modignore_is_neither_read_as_a_file_nor_ignored() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("a.bin"), b"bin");
+    touch(&base.join("data").join("draft.bin"), b"bin");
+    touch(&base.join("data").join(".modignore"), b"draft.bin\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
+}
+
+/// The content tree also lists every file of such a project.
+#[test]
+fn rules_that_do_not_compile_leave_every_file_read() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("a.bin"), b"bin");
+    touch(&tmp.path().join(".modignore"), b"a{b\n*.bin\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert_eq!(paths(&layer(&files, "base")), ["a.bin"]);
+}
+
+#[test]
+fn only_a_workshop_project_with_no_modignore_lacks_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    touch(
+        &tmp.path().join(CONTENT_DIR).join("base").join("a.bin"),
+        b"bin",
+    );
+
+    let read = || ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(
+        !read().lacks_ignore_rules(),
+        "a library mod is never reported"
+    );
+    assert!(read().in_workshop().lacks_ignore_rules());
+
+    touch(&tmp.path().join(".modignore"), b"");
+    assert!(
+        !read().in_workshop().lacks_ignore_rules(),
+        "an empty file counts as rules"
+    );
+}
+
+#[test]
+fn a_nested_modignore_counts_as_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    let base = tmp.path().join(CONTENT_DIR).join("base");
+    touch(&base.join("a.bin"), b"bin");
+    touch(&base.join(".modignore"), b"*.psd\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(!files.in_workshop().lacks_ignore_rules());
+}
+
+#[test]
+fn a_modignore_that_does_not_compile_counts_as_ignore_rules() {
+    let tmp = tempfile::tempdir().unwrap();
+    touch(
+        &tmp.path().join(CONTENT_DIR).join("base").join("a.bin"),
+        b"bin",
+    );
+    touch(&tmp.path().join(".modignore"), b"a{b\n");
+
+    let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
+    assert!(!files.in_workshop().lacks_ignore_rules());
 }
 
 /// A site's path crosses IPC and keys a fix, so it has to be the same on
@@ -784,23 +906,25 @@ mod archive {
         );
     }
 
-    /// The walk skips a dot-file inside a layer, so the archive scan has to
-    /// skip one too. A file only one of them lists is one the check calls
-    /// repairable and the repair then never touches.
+    /// If only one of the archive scan and the tree walk lists a file, the
+    /// check can report a problem that the repair cannot reach.
     #[test]
-    fn a_dot_file_in_an_archive_is_skipped_as_the_walk_skips_it() {
+    fn a_dot_file_in_an_archive_is_listed_as_the_tree_it_unpacks_to_lists_it() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("dotted.fantome");
         crate::mods::test_support::make_dot_file_fantome_zip(&archive);
 
-        let files = files_in(&archive, &ltk_wad::NoResolver);
+        let tree = unpacked(&archive, &tmp.path().join("staging"));
+        let from_tree = ProjectFiles::read(&tree, &Config::default(), None).unwrap();
+        let from_archive = files_in(&archive, &ltk_wad::NoResolver);
 
-        let base = layer(&files, "base");
+        let in_archive = layer(&from_archive, "base");
         assert!(
-            !paths(&base).iter().any(|path| path.contains("/.")),
-            "a dot-file was listed: {:?}",
-            paths(&base)
+            paths(&in_archive).contains(&"Ashe.wad.client/data/.hidden.bin"),
+            "the dot-file is missing from {:?}",
+            paths(&in_archive)
         );
+        assert_eq!(paths(&in_archive), paths(&layer(&from_tree, "base")));
     }
 
     /// An archive that declares a hashtable it does not hold cannot name its
