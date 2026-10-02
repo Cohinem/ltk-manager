@@ -268,7 +268,6 @@ pub struct Settings {
     pub has_seen_hdd_warning: bool,
     /// Root directory containing the LeagueSkins collection.
     #[serde(default)]
-    #[ts(as = "Option<String>")]
     pub league_skins_path: Option<PathBuf>,
     /// Whether anonymous diagnostics leave the machine. Default: true.
     #[serde(default = "default_true")]
