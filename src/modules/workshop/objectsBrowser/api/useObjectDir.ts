@@ -1,8 +1,8 @@
-import { useQueries, useQuery } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-import type { ObjectDir, ObjectDirListing } from "@/lib/tauri";
+import type { ObjectDirListing } from "@/lib/tauri";
 
+import { readyValue, useListings } from "../../shared/api/indexQueries";
 import { objectTreeQueries } from "./queries";
 
 export { objectKeys } from "./keys";
@@ -27,23 +27,5 @@ export function useObjectDir(prefix: string) {
 export function useObjectDirs(
   prefixes: readonly string[],
 ): ReadonlyMap<string, ObjectDirListing | null> {
-  const combine = useCallback(
-    (results: ReadonlyArray<{ data?: ObjectDir; isError: boolean }>) => {
-      const byPrefix = new Map<string, ObjectDirListing | null>();
-      prefixes.forEach((prefix, index) => {
-        const result = results[index];
-        /* A prefix the index no longer holds - a rebuild under an expansion the
-           store kept - reads as empty rather than as a row that spins forever. */
-        if (result?.isError) {
-          byPrefix.set(prefix, EMPTY_LISTING);
-          return;
-        }
-        byPrefix.set(prefix, result?.data?.status === "ready" ? result.data : null);
-      });
-      return byPrefix;
-    },
-    [prefixes],
-  );
-
-  return useQueries({ queries: prefixes.map((prefix) => objectTreeQueries.dir(prefix)), combine });
+  return useListings(prefixes, objectTreeQueries.dir, readyValue, EMPTY_LISTING);
 }

@@ -18,6 +18,7 @@ import {
   ObjectIndexBuildingState,
   ObjectIndexFailedState,
 } from "../../objectsBrowser/components/ObjectIndexStates";
+import { readyValue } from "../../shared/api/indexQueries";
 import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import {
@@ -54,7 +55,7 @@ export function ReferencesDocument({
     <DocumentFrame data-ui="ReferencesDocument">
       <DocumentToolbar active={active}>
         <Question request={request} />
-        {data?.status === "ready" && <Counts result={data} walk={walk} />}
+        {data?.status === "ready" && <Counts result={data.value} walk={walk} />}
         {request !== null && (
           <Button
             variant="ghost"
@@ -68,9 +69,7 @@ export function ReferencesDocument({
             {m.workshop_references_rerun_action()}
           </Button>
         )}
-        {request !== null && (
-          <CollapseReferencesButton result={data?.status === "ready" ? data : null} />
-        )}
+        {request !== null && <CollapseReferencesButton result={readyValue(data) ?? null} />}
       </DocumentToolbar>
 
       {walk && <WalkProgress walking={isFetching} />}
@@ -226,7 +225,7 @@ function Answer({ request }: { request: ReferenceRequest }) {
 
   const files = useMemo(() => {
     if (data?.status !== "ready") return [];
-    return buildReferenceTree(data.groups);
+    return buildReferenceTree(data.value.groups);
   }, [data]);
 
   const isShut = useCallback((node: ReferenceFileNode) => shut.has(node.id), [shut]);

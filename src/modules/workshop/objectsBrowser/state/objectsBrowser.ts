@@ -1,55 +1,22 @@
 import { create } from "zustand";
 
-import { toggledIn } from "@/utils";
-
+import {
+  type IndexBrowserSlice,
+  indexBrowserSlice,
+  withoutSubtree,
+} from "../../shared/state/indexBrowser";
 import { ancestorPrefixes, isBelowPrefix, type ObjectTreeNode } from "../utils/objectTree";
 
-/** A row the objects browser is asked to expand to, focus and scroll to. */
-export interface ObjectsReveal {
-  /** The object's path, which is its row's key. */
-  readonly path: string;
-  /** Bumped per request. Two reveals of one row both land. */
-  readonly token: number;
-}
-
-interface ObjectsBrowserStore {
+interface ObjectsBrowserStore extends IndexBrowserSlice {
   selected: { path: string; type: "object" | "prefix" } | null;
   selectNode: (node: Pick<ObjectTreeNode, "id" | "type">) => void;
   setView: (view: "tree" | "grid") => void;
   display: { view: "tree" | "grid"; thumbnails: boolean; location: string; tileSize: number };
   setDisplay: (display: Partial<ObjectsBrowserStore["display"]>) => void;
-  revealToken: number;
-  /** Prefixes the user has opened in the objects tree, by path. */
-  expandedPrefixes: ReadonlySet<string>;
-  togglePrefix: (path: string) => void;
-  /** Open every one of `paths`, for a reveal that walks down to a row. */
-  expandPrefixes: (paths: readonly string[]) => void;
-  /** Collapse `path` and every open prefix below it. */
-  collapsePrefixSubtree: (path: string) => void;
-  /** Collapse every prefix of the objects tree. */
-  collapseAllPrefixes: () => void;
-  /** What the objects document's search box holds. */
-  searchPattern: string;
-  searchRegex: boolean;
-  setSearchPattern: (searchPattern: string) => void;
-  setSearchRegex: (searchRegex: boolean) => void;
-  /** Prefixes the user has shut in the search results tree, by path. */
-  shutFindPrefixes: ReadonlySet<string>;
-  toggleFindPrefix: (path: string) => void;
   /** Collapse every one of `paths` in the search results tree. */
   collapseFindPrefixes: (paths: readonly string[]) => void;
   /** Expand `path` and every prefix below it in the search results tree. */
   expandFindSubtree: (path: string) => void;
-  /** The pending reveal, or null while none is owed. */
-  reveal: ObjectsReveal | null;
-  requestReveal: (path: string) => void;
-  /** Drop the reveal with `token`. The tree it addressed has answered it. */
-  settleReveal: (token: number) => void;
-}
-
-/** `set` without `path` and every path below it. */
-function withoutSubtree(set: ReadonlySet<string>, path: string): ReadonlySet<string> {
-  return new Set([...set].filter((held) => held !== path && !isBelowPrefix(held, path)));
 }
 
 /**
@@ -60,6 +27,7 @@ function withoutSubtree(set: ReadonlySet<string>, path: string): ReadonlySet<str
  * objects tab browses one install.
  */
 export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
+  ...indexBrowserSlice(set, isBelowPrefix),
   selected: null,
   selectNode: (node) => {
     if (node.type !== "object" && node.type !== "prefix") return;
@@ -86,12 +54,9 @@ export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
         const token = state.revealToken + 1;
         return {
           display: { ...state.display, view },
-          expandedPrefixes: new Set([
-            ...state.expandedPrefixes,
-            ...ancestorPrefixes(selected.path),
-          ]),
+          expanded: new Set([...state.expanded, ...ancestorPrefixes(selected.path)]),
           revealToken: token,
-          reveal: { path: selected.path, token },
+          reveal: { id: selected.path, token },
         };
       }
 
@@ -107,64 +72,34 @@ export const useObjectsBrowserStore = create<ObjectsBrowserStore>()((set) => ({
       return {
         display: { ...state.display, view, location: ancestorPrefixes(selected.path).at(-1) ?? "" },
         revealToken: token,
-        reveal: { path: selected.path, token },
+        reveal: { id: selected.path, token },
       };
     }),
   display: { view: "tree", thumbnails: true, location: "", tileSize: 128 },
   setDisplay: (display) => set((state) => ({ display: { ...state.display, ...display } })),
-  revealToken: 0,
-  expandedPrefixes: new Set(),
-  togglePrefix: (path) =>
-    set((state) => ({ expandedPrefixes: toggledIn(state.expandedPrefixes, path) })),
-  expandPrefixes: (paths) =>
-    set((state) => {
-      if (paths.every((path) => state.expandedPrefixes.has(path))) return state;
-      return { expandedPrefixes: new Set([...state.expandedPrefixes, ...paths]) };
-    }),
-  collapsePrefixSubtree: (path) =>
-    set((state) => ({
-      expandedPrefixes: withoutSubtree(state.expandedPrefixes, path),
-    })),
-  collapseAllPrefixes: () => set({ expandedPrefixes: new Set() }),
-  searchPattern: "",
-  searchRegex: false,
-  setSearchPattern: (searchPattern) => set({ searchPattern }),
-  setSearchRegex: (searchRegex) => set({ searchRegex }),
-  shutFindPrefixes: new Set(),
-  toggleFindPrefix: (path) =>
-    set((state) => ({ shutFindPrefixes: toggledIn(state.shutFindPrefixes, path) })),
   collapseFindPrefixes: (paths) =>
-    set((state) => ({ shutFindPrefixes: new Set([...state.shutFindPrefixes, ...paths]) })),
+    set((state) => ({ shutFind: new Set([...state.shutFind, ...paths]) })),
   expandFindSubtree: (path) =>
-    set((state) => ({ shutFindPrefixes: withoutSubtree(state.shutFindPrefixes, path) })),
-  reveal: null,
-  requestReveal: (path) =>
-    set((state) => ({
-      revealToken: state.revealToken + 1,
-      reveal: { path, token: state.revealToken + 1 },
-    })),
-  settleReveal: (token) =>
-    set((state) => (state.reveal?.token === token ? { reveal: null } : state)),
+    set((state) => ({ shutFind: withoutSubtree(state.shutFind, path, isBelowPrefix) })),
 }));
 
-export const useExpandedObjectPrefixes = () => useObjectsBrowserStore((s) => s.expandedPrefixes);
+export const useExpandedObjectPrefixes = () => useObjectsBrowserStore((s) => s.expanded);
 export const useObjectsDisplay = () => useObjectsBrowserStore((s) => s.display);
 export const useSetObjectsDisplay = () => useObjectsBrowserStore((s) => s.setDisplay);
 export const useSelectObjectNode = () => useObjectsBrowserStore((s) => s.selectNode);
 export const useSelectedObjectPath = () => useObjectsBrowserStore((s) => s.selected?.path ?? null);
 export const useSetObjectsView = () => useObjectsBrowserStore((s) => s.setView);
-export const useToggleObjectPrefix = () => useObjectsBrowserStore((s) => s.togglePrefix);
-export const useExpandObjectPrefixes = () => useObjectsBrowserStore((s) => s.expandPrefixes);
+export const useToggleObjectPrefix = () => useObjectsBrowserStore((s) => s.toggleExpanded);
+export const useExpandObjectPrefixes = () => useObjectsBrowserStore((s) => s.expand);
 export const useCollapseObjectPrefixSubtree = () =>
-  useObjectsBrowserStore((s) => s.collapsePrefixSubtree);
-export const useCollapseAllObjectPrefixes = () =>
-  useObjectsBrowserStore((s) => s.collapseAllPrefixes);
+  useObjectsBrowserStore((s) => s.collapseSubtree);
+export const useCollapseAllObjectPrefixes = () => useObjectsBrowserStore((s) => s.collapseAll);
 export const useObjectsSearchPattern = () => useObjectsBrowserStore((s) => s.searchPattern);
 export const useSetObjectsSearchPattern = () => useObjectsBrowserStore((s) => s.setSearchPattern);
 export const useObjectsSearchRegex = () => useObjectsBrowserStore((s) => s.searchRegex);
 export const useSetObjectsSearchRegex = () => useObjectsBrowserStore((s) => s.setSearchRegex);
-export const useShutFindPrefixes = () => useObjectsBrowserStore((s) => s.shutFindPrefixes);
-export const useToggleFindPrefix = () => useObjectsBrowserStore((s) => s.toggleFindPrefix);
+export const useShutFindPrefixes = () => useObjectsBrowserStore((s) => s.shutFind);
+export const useToggleFindPrefix = () => useObjectsBrowserStore((s) => s.toggleFind);
 export const useCollapseFindPrefixes = () => useObjectsBrowserStore((s) => s.collapseFindPrefixes);
 export const useExpandFindSubtree = () => useObjectsBrowserStore((s) => s.expandFindSubtree);
 export const useObjectsReveal = () => useObjectsBrowserStore((s) => s.reveal);

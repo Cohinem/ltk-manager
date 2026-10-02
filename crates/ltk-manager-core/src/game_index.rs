@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::AppResult;
 use crate::game_wads::{GameArchives, WadSource};
-use crate::generation::{Generation, line};
-use crate::matcher::{FindQuery, Query, Range, letter_mask, mask_covers};
+use crate::generation::{Generation, STALE_CHECK_INTERVAL, line};
+use crate::matcher::{FindQuery, Query, Range, SearchHits, letter_mask, mask_covers};
 use crate::utils::lazy_slot::LazySlot;
 use crate::utils::natural_order::compare_names;
 
@@ -99,27 +99,8 @@ pub struct GameSearchHit {
     pub path_ranges: Vec<Range>,
 }
 
-/// What one search of the folded index found.
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub struct GameSearchResult {
-    /// The best rows, best first, capped at [`SEARCH_LIMIT`].
-    pub hits: Vec<GameSearchHit>,
-    /// How many files matched in all, which the cap trimmed.
-    pub total: u32,
-    /// A newer search started before this one finished, so it gave up early.
-    ///
-    /// Its rows are whatever it had found, which is not the whole answer. The
-    /// caller is expected to be showing the newer query by now.
-    pub superseded: bool,
-    /// No hash table named a single chunk, so only a hash can match.
-    ///
-    /// An install whose names never resolved answers every path query with
-    /// nothing, which reads exactly like an install that holds no match. The
-    /// caller says which of the two it is.
-    pub unnamed: bool,
-}
+/// What one search of the folded index found, best first, capped at [`SEARCH_LIMIT`].
+pub type GameSearchResult = SearchHits<GameSearchHit>;
 
 /// How many rows a search returns. Nothing sorts a million of them.
 pub const SEARCH_LIMIT: usize = 100;
@@ -161,32 +142,14 @@ pub struct GameFindHit {
     pub path_ranges: Vec<Range>,
 }
 
-/// What one full search of the folded index found.
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub struct GameFindResult {
-    /// Every matching row in tree order, capped at [`FIND_LIMIT`].
-    pub hits: Vec<GameFindHit>,
-    /// How many files matched in all, counted on past the cap.
-    pub total: u32,
-    /// A newer search started before this one finished, so it gave up early.
-    ///
-    /// Its rows are whatever it had found, which is not the whole answer. The
-    /// caller is expected to be showing the newer pattern by now.
-    pub superseded: bool,
-    /// No hash table named a single chunk, so only a hash can match.
-    pub unnamed: bool,
-}
+/// What one full search of the folded index found, in tree order, capped at [`FIND_LIMIT`].
+pub type GameFindResult = SearchHits<GameFindHit>;
 
 /// How many rows a full search returns.
 ///
 /// The figure VS Code's own search stops at. A broader answer is not one a
 /// reader scrolls, and past it the fix is a narrower pattern.
 pub const FIND_LIMIT: usize = 20_000;
-
-/// How many files a scan reads between two tests of the generation.
-const STALE_CHECK_INTERVAL: u32 = 4096;
 
 /// The newest search asked for, so a scan can see it has been overtaken.
 ///
@@ -344,7 +307,7 @@ impl GameIndex {
     ///
     /// `is_overtaken` is tested every few thousand files. A scan that has been
     /// overtaken returns what it has rather than finishing a walk nobody is
-    /// waiting for, and says so through [`GameSearchResult::superseded`].
+    /// waiting for, and says so through [`SearchHits::superseded`].
     ///
     /// An empty query matches nothing here. The install is not a list anybody
     /// wants handed to them unasked, and the palette only reaches this source
@@ -363,12 +326,7 @@ impl GameIndex {
         let unnamed = self.dirs[0].file_count == 0 && !self.unknown.is_empty();
 
         let Some(query) = Query::parse(query) else {
-            return GameSearchResult {
-                hits: Vec::new(),
-                total: 0,
-                superseded: false,
-                unnamed,
-            };
+            return SearchHits::empty(unnamed);
         };
 
         let mut scan = Scan {

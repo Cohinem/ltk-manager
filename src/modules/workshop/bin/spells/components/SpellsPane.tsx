@@ -7,6 +7,7 @@ import { errorSummary, m } from "@/i18n";
 import type { AssetRef } from "@/lib/tauri";
 
 import { useWarmOnAbsent } from "../../../objectsBrowser/api/useObjectIndex";
+import { readyValue } from "../../../shared/api/indexQueries";
 import { Notice } from "../../shared/preview/Notice";
 import { spellQueries } from "../api/spellQueries";
 import type { AbilityRecipe } from "../utils/abilityRecipe";
@@ -58,7 +59,7 @@ function CharacterSpells({
   const [selected, setSelected] = useState<{ asset: AssetRef; entry: string; name: string } | null>(
     null,
   );
-  const spells = read.data?.status === "ready" ? read.data.spells : undefined;
+  const spells = readyValue(read.data)?.spells;
   const available = useQuery(spellQueries.availability(spells ?? [], onSelect !== undefined));
   const groups = useMemo(() => spellGroups(spells ?? [], filter), [spells, filter]);
 

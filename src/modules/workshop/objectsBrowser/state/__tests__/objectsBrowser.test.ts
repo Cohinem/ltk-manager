@@ -18,7 +18,7 @@ it("reveals the selected object in its parent grid and preserves a search", () =
   store.selectNode({ type: "object", id: "Characters/Annie/Skins/Skin0" });
   store.setView("grid");
   expect(useObjectsBrowserStore.getState().display.location).toBe("Characters/Annie/Skins");
-  expect(useObjectsBrowserStore.getState().reveal?.path).toBe("Characters/Annie/Skins/Skin0");
+  expect(useObjectsBrowserStore.getState().reveal?.id).toBe("Characters/Annie/Skins/Skin0");
   expect(useObjectsBrowserStore.getState().searchPattern).toBe("Annie");
 });
 
@@ -48,7 +48,7 @@ it("gives repeated reveals distinct tokens after the previous request settles", 
   store.requestReveal("Characters/Annie");
   const first = useObjectsBrowserStore.getState().reveal!;
   store.settleReveal(first.token);
-  store.requestReveal(first.path);
+  store.requestReveal(first.id);
   expect(useObjectsBrowserStore.getState().reveal!.token).toBeGreaterThan(first.token);
 });
 
@@ -59,12 +59,8 @@ it("expands to the focused tile and reveals its row when switching back to tree"
   store.setView("tree");
   const state = useObjectsBrowserStore.getState();
   expect(state.display.view).toBe("tree");
-  expect([...state.expandedPrefixes]).toEqual([
-    "Characters",
-    "Characters/Annie",
-    "Characters/Annie/Skins",
-  ]);
-  expect(state.reveal?.path).toBe("Characters/Annie/Skins/Skin0");
+  expect([...state.expanded]).toEqual(["Characters", "Characters/Annie", "Characters/Annie/Skins"]);
+  expect(state.reveal?.id).toBe("Characters/Annie/Skins/Skin0");
 });
 
 it("leaves a search tree without a reveal when switching back from grid", () => {
@@ -78,20 +74,20 @@ it("leaves a search tree without a reveal when switching back from grid", () => 
 
 it("collapses a prefix with every open prefix below it and leaves its siblings open", () => {
   const store = useObjectsBrowserStore.getState();
-  store.expandPrefixes(["characters", "characters/aatrox", "characters/aatrox/skins", "maps"]);
-  store.collapsePrefixSubtree("characters");
-  expect([...useObjectsBrowserStore.getState().expandedPrefixes]).toEqual(["maps"]);
+  store.expand(["characters", "characters/aatrox", "characters/aatrox/skins", "maps"]);
+  store.collapseSubtree("characters");
+  expect([...useObjectsBrowserStore.getState().expanded]).toEqual(["maps"]);
 });
 
 it("collapses every prefix of the browse tree", () => {
-  useObjectsBrowserStore.getState().expandPrefixes(["characters", "maps"]);
-  useObjectsBrowserStore.getState().collapseAllPrefixes();
-  expect(useObjectsBrowserStore.getState().expandedPrefixes.size).toBe(0);
+  useObjectsBrowserStore.getState().expand(["characters", "maps"]);
+  useObjectsBrowserStore.getState().collapseAll();
+  expect(useObjectsBrowserStore.getState().expanded.size).toBe(0);
 });
 
 it("expands a search results subtree and keeps its siblings collapsed", () => {
   const store = useObjectsBrowserStore.getState();
   store.collapseFindPrefixes(["characters", "characters/aatrox/skins", "maps"]);
   store.expandFindSubtree("characters");
-  expect([...useObjectsBrowserStore.getState().shutFindPrefixes]).toEqual(["maps"]);
+  expect([...useObjectsBrowserStore.getState().shutFind]).toEqual(["maps"]);
 });

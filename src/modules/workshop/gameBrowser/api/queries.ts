@@ -1,12 +1,13 @@
-import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
+import { queryOptions, skipToken } from "@tanstack/react-query";
 
 import {
   api,
   type AppError,
+  type SearchHits,
   type GameDirListing,
-  type GameFindResult,
+  type GameFindHit,
   type GameIndexStats,
-  type GameSearchResult,
+  type GameSearchHit,
   type GameWadEntry,
   type GameWadSummary,
   type SearchPreference,
@@ -14,6 +15,7 @@ import {
 } from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
 
+import { liveSearchOptions, supersededScan } from "../../shared/api/indexQueries";
 import { extractQueries } from "../extraction/api/queries";
 import type { SourceDirListing, SourceEntry } from "../utils/sourceIndex";
 import { GAME_STALE_MS, gameKeys } from "./keys";
@@ -80,38 +82,29 @@ export const gameQueries = {
       select: (entries) => toSourceEntries(entries, wadName ?? ""),
     }),
 
-  /* Nothing is cached across a query: a scan that a later one overtook returns
-     part of an answer, and holding that under its query would hand it back as
-     though it were the whole one. */
   search: (query: string, active: boolean) =>
-    queryOptions<GameSearchResult, AppError>({
+    queryOptions<SearchHits<GameSearchHit>, AppError>({
       queryKey: gameKeys.search(query),
       queryFn: active ? queryFnWithArgs(api.searchGameIndex, query) : skipToken,
-      placeholderData: keepPreviousData,
-      staleTime: 0,
-      gcTime: 0,
+      ...liveSearchOptions(supersededScan),
     }),
 
   /** A path field's search, which ranks the files `preference` names first. */
   paths: (query: string, preference: SearchPreference, active: boolean) =>
-    queryOptions<GameSearchResult, AppError>({
+    queryOptions<SearchHits<GameSearchHit>, AppError>({
       queryKey: gameKeys.paths(query, preference),
       queryFn: active ? queryFnWithArgs(api.objects.searchGamePaths, query, preference) : skipToken,
-      placeholderData: keepPreviousData,
-      staleTime: 0,
-      gcTime: 0,
+      ...liveSearchOptions(supersededScan),
     }),
 
   /* A pattern that does not parse resolves as an error and leaves the last good
      answer in `data`, which is what lets the box report the parse error under
      the input without blanking the results. */
   find: (source: WadSource, pattern: string, regex: boolean, active: boolean) =>
-    queryOptions<GameFindResult, AppError>({
+    queryOptions<SearchHits<GameFindHit>, AppError>({
       queryKey: gameKeys.find(source, pattern, regex),
       queryFn: active ? queryFnWithArgs(api.findInGameIndex, source, pattern, regex) : skipToken,
-      placeholderData: keepPreviousData,
-      staleTime: 0,
-      gcTime: 0,
+      ...liveSearchOptions(supersededScan),
     }),
   extractPlan: extractQueries.extractPlan,
 } as const;

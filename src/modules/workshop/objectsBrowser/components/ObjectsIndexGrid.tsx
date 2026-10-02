@@ -40,11 +40,11 @@ export function ObjectsIndexGrid({
   const reveal = useObjectsReveal();
   const settle = useSettleObjectsReveal();
   const target =
-    reveal !== null && (ancestorPrefixes(reveal.path).at(-1) ?? "") === prefix ? reveal : null;
+    reveal !== null && (ancestorPrefixes(reveal.id).at(-1) ?? "") === prefix ? reveal : null;
   const retry = useWarmOnAbsent(root.data?.status);
   const layers = useLayerDeclarations();
   const nodes = useMemo(
-    () => (root.data?.status === "ready" ? objectListingNodes(root.data, layers) : []),
+    () => (root.data?.status === "ready" ? objectListingNodes(root.data.value, layers) : []),
     [root.data, layers],
   );
   const segments = prefix.split("/").filter(Boolean);
@@ -80,7 +80,9 @@ export function ObjectsIndexGrid({
       {(root.data?.status === "building" || root.data?.status === "absent") && (
         <ObjectIndexBuildingState />
       )}
-      {root.data?.status === "ready" && holdsOnlyUnnamed(root.data) && <ObjectIndexUnnamedHint />}
+      {root.data?.status === "ready" && holdsOnlyUnnamed(root.data.value) && (
+        <ObjectIndexUnnamedHint />
+      )}
       {root.data?.status === "ready" && nodes.length === 0 && (
         <EmptyState
           size="sm"

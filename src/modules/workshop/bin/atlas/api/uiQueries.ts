@@ -20,8 +20,8 @@ import {
 } from "@/lib/tauri";
 import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
-import { BUILDING_POLL_MS } from "../../../gameBrowser/api/keys";
 import { sandboxKey } from "../../../sandbox/utils/sandboxRef";
+import { INDEX_POLL_MS, pollWhileBuilding } from "../../../shared/api/indexQueries";
 import { assetKey, type LoadedFont, loadFont } from "../rendering/text/fontFiles";
 
 /** The UI and font programs a frame draws with, section 2.2 of docs/plans/atlas-renderer.md. */
@@ -106,7 +106,7 @@ async function untilIndexed(sandbox: SandboxRef): Promise<void> {
   for (;;) {
     const status = await api.objects.declared(sandbox, []);
     if (!status.ok || status.value.index.status !== "building") return;
-    await new Promise((resolve) => setTimeout(resolve, BUILDING_POLL_MS));
+    await new Promise((resolve) => setTimeout(resolve, INDEX_POLL_MS));
   }
 }
 
@@ -172,8 +172,7 @@ export const uiQueries = {
       },
       staleTime: Infinity,
       retry: false,
-      refetchInterval: (query) =>
-        query.state.data?.index.status === "building" ? BUILDING_POLL_MS : false,
+      refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
     }),
   /**
    * The view at `entry`, its base scene bin drawn from the open `scene` where one is open, with

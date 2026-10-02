@@ -16,12 +16,13 @@ import { unwrapForQuery } from "@/utils/query";
 
 import { layerTitle } from "../../../documents/utils/contentDocument";
 /* The leaves rather than the browser barrel, which pulls the documents that route back here. */
-import { BUILDING_POLL_MS, gameKeys } from "../../../gameBrowser/api/keys";
+import { gameKeys } from "../../../gameBrowser/api/keys";
 import { useWarmObjectIndex } from "../../../objectsBrowser/api/useObjectIndex";
 import type { OpenIntent } from "../../../palette/utils/types";
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { sandboxKey } from "../../../sandbox/utils/sandboxRef";
+import { pollWhileBuilding } from "../../../shared/api/indexQueries";
 import { useOpenDocumentAs } from "../../../state";
 import { stringQueries } from "../../../string-overrides/api/queries";
 import { nameHash } from "../../shared/utils/binHash";
@@ -317,8 +318,7 @@ export function useCheckLinkTargets(
         unwrapForQuery(await api.objects.declared(sandbox, group.hashes, document)),
       staleTime: Infinity,
       retry: false,
-      refetchInterval: (query) =>
-        query.state.data?.index.status === "building" ? BUILDING_POLL_MS : false,
+      refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
     }));
   const declaredAnswer = useQueries({ queries: declaredQueries, combine: combineDeclared });
 

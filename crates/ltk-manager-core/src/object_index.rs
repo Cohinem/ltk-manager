@@ -39,8 +39,7 @@ pub use types::{
 };
 pub use walk::{FileTarget, LayerBin, WalkRequest, WalkTarget, layer_bins};
 
-/// How many rows a scan reads between two tests of the generation.
-const STALE_CHECK_INTERVAL: u32 = 4096;
+use crate::generation::STALE_CHECK_INTERVAL;
 
 /// The prefix of the group holding the objects no table names.
 ///

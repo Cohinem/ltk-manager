@@ -1,8 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-
-import { useDebouncedValue } from "@/hooks";
-
-import { SEARCH_DEBOUNCE_MS } from "../../gameBrowser/api/useGameSearch";
+import {
+  SEARCH_DEBOUNCE_MS,
+  supersededResponse,
+  useLiveSearch,
+} from "../../shared/api/indexQueries";
 import { objectIndexQueries } from "./indexQueries";
 
 /**
@@ -12,8 +12,10 @@ import { objectIndexQueries } from "./indexQueries";
  * build runs reads as building rather than as nothing.
  */
 export function useObjectSearch(query: string, enabled: boolean) {
-  const debounced = useDebouncedValue(query, SEARCH_DEBOUNCE_MS);
-  const active = enabled && debounced.trim().length > 0;
-
-  return useQuery(objectIndexQueries.search(debounced, active));
+  return useLiveSearch(
+    query,
+    SEARCH_DEBOUNCE_MS,
+    (debounced) => objectIndexQueries.search(debounced, enabled && debounced.trim().length > 0),
+    supersededResponse,
+  );
 }
