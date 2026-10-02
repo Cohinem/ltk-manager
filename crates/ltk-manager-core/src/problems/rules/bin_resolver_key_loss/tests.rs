@@ -4,7 +4,6 @@
 use std::sync::Arc;
 
 use fs_err as fs;
-use ltk_hash::Hash as _;
 use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
@@ -97,14 +96,6 @@ fn found_in(files: &ProjectFiles) -> Vec<Problem> {
         "the fixture should read cleanly: {failed:?}"
     );
     problems
-}
-
-/// The names the two constants stand for, so a mistyped hash is a failing test
-/// rather than a rule that quietly reports nothing forever.
-#[test]
-fn the_constants_are_the_names_they_stand_for() {
-    assert_eq!(RESOURCE_RESOLVER, BinHash::hash_str("ResourceResolver"));
-    assert_eq!(RESOURCE_MAP, BinHash::hash_str("resourceMap"));
 }
 
 #[test]
@@ -235,5 +226,5 @@ fn the_rule_offers_no_repair() {
     let (_tmp, files) = tree(63, Some(install(231)));
 
     assert_eq!(found_in(&files)[0].fix, None);
-    assert!(!BinResolverKeyLoss::new().unfixable_description().is_empty());
+    assert!(!BinResolverKeyLoss::new().meta().unfixable.is_empty());
 }

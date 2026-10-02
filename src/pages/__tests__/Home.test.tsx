@@ -63,15 +63,15 @@ const world = {
 
 function answer(cmd: string): unknown {
   switch (cmd) {
-    case commandNames.app.getSettings:
+    case commandNames.settings.getSettings:
       return world.settings;
     case commandNames.library.getInstalledMods:
       return world.mods;
     case commandNames.library.getActiveModProfile:
       return createMockProfile({ name: "Default" });
-    case commandNames.app.getPlatformSupport:
+    case commandNames.desktop.getPlatformSupport:
       return { patcherAvailable: world.patcherAvailable, os: "windows" };
-    case commandNames.app.getAppInfo:
+    case commandNames.desktop.getAppInfo:
       return {
         name: "LTK Manager",
         version: "1.15.4",
@@ -79,7 +79,7 @@ function answer(cmd: string): unknown {
         os: "windows",
         arch: "x64",
       };
-    case commandNames.app.listIncidents:
+    case commandNames.diagnostics.listIncidents:
       return world.incidents;
     case commandNames.library.getModHealthVerdicts:
       return world.verdicts;
@@ -93,9 +93,9 @@ function answer(cmd: string): unknown {
         repairable: [],
         unrepairable: [],
       };
-    case commandNames.app.listAnnouncements:
+    case commandNames.news.listAnnouncements:
       return world.posts;
-    case commandNames.app.listNotices:
+    case commandNames.news.listNotices:
       return world.notices;
     default:
       return null;
@@ -382,7 +382,7 @@ describe("Home", () => {
       renderWithProviders(<Home />);
 
       const tile = (await screen.findByText("News")).closest("section")!;
-      await waitFor(() => expect(calls(commandNames.app.listAnnouncements)).toHaveLength(1));
+      await waitFor(() => expect(calls(commandNames.news.listAnnouncements)).toHaveLength(1));
 
       expect(
         within(tile)
@@ -417,8 +417,8 @@ describe("Home", () => {
 
       await userEvent.click(within(tile).getByRole("button", { name: "Dismiss" }));
 
-      await waitFor(() => expect(calls(commandNames.app.saveSettings)).toHaveLength(1));
-      expect(calls(commandNames.app.saveSettings)[0][1]).toMatchObject({
+      await waitFor(() => expect(calls(commandNames.settings.saveSettings)).toHaveLength(1));
+      expect(calls(commandNames.settings.saveSettings)[0][1]).toMatchObject({
         settings: { migrationDismissed: true },
       });
     });
@@ -436,7 +436,7 @@ describe("Home", () => {
     it("says nothing when there is no incident", async () => {
       renderWithProviders(<Home />);
 
-      await waitFor(() => expect(calls(commandNames.app.listIncidents)).toHaveLength(1));
+      await waitFor(() => expect(calls(commandNames.diagnostics.listIncidents)).toHaveLength(1));
       expect(screen.queryByText("Last game")).toBeNull();
     });
 

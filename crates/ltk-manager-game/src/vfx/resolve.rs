@@ -5,20 +5,22 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, WadHash};
+use ltk_manager_core::hashing::named;
 use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
 
 use super::{VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
 use ltk_manager_core::bin_document::{
-    AssetLookup, BinDocument, BinDocumentError, EFFECT_KEY, Locator, Namer, RowNames, chunk_asset,
-    hex, link, object_at, owned, resolver_entries,
+    AssetLookup, BinDocument, BinDocumentError, Locator, Namer, RowNames, chunk_asset, hex, link,
+    object_at, owned,
 };
 use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::problems::walk;
 
 use crate::linked::find_linked_materials;
 use crate::material::{MaterialPreview, linked_material};
+use crate::resolver::{EFFECT_KEY, resolver_entries};
 
 /// How many values one system answers, past which the read is refused.
 ///
@@ -75,10 +77,10 @@ const MATERIAL: BinHash = BinHash(0xd2e4_d060);
 /// `VfxChildIdentifier`, the one class whose `effectKey` a walk resolves.
 ///
 /// Other classes write the field too, and nothing reads theirs as a child.
-const CHILD_IDENTIFIER: BinHash = BinHash(0x969a_ee94);
+const CHILD_IDENTIFIER: BinHash = named("VfxChildIdentifier");
 
 /// `ResourceResolver`, the scope a skin's effect keys resolve in.
-const RESOURCE_RESOLVER: BinHash = BinHash(0xef3a_0f33);
+const RESOURCE_RESOLVER: BinHash = named("ResourceResolver");
 
 /// One system's whole property subtree, with every reference resolved.
 ///

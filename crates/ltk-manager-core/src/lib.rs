@@ -6,13 +6,17 @@
 //! the Tauri shell in `src-tauri` supplies the adapters.
 
 pub mod bin_document;
+mod bin_source;
 pub mod config;
+pub mod deep_link;
 pub mod diagnostics;
 pub mod error;
 pub mod events;
 pub mod game_extract;
 pub mod game_index;
 pub mod game_wads;
+pub mod generation;
+pub mod github;
 pub mod hashing;
 pub mod hashtables;
 pub mod integrations;
@@ -21,11 +25,14 @@ pub mod matcher;
 pub mod meta_docs;
 pub mod meta_schema;
 pub mod mods;
+pub mod news;
 pub mod object_index;
 pub mod overlay;
 pub mod patcher;
+pub mod platform;
 pub mod preview;
 pub mod problems;
+pub mod releases;
 pub mod ritobin;
 pub mod sandbox;
 pub mod storage;

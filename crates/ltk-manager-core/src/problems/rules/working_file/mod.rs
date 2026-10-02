@@ -9,7 +9,7 @@ use ltk_mod_project::{MODIGNORE_FILE_NAME, ModIgnoreMatch};
 use crate::error::AppError;
 use crate::problems::{
     Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity, Rule, RuleId,
-    Site,
+    RuleMeta, Site,
 };
 use crate::workshop::{ProjectDir, holds_ignore_rules, recommended_ignore_filter};
 
@@ -27,21 +27,18 @@ impl WorkingFile {
     }
 }
 
+/// The rule as the catalogue lists it.
+const META: RuleMeta = RuleMeta {
+    id: ID,
+    title: "Working file in package",
+    description: "A source or editor file that the game never loads, in the package of a project that has no ignore rules",
+    unfixable: "",
+    severity: Some(ProblemSeverity::Warning),
+};
+
 impl Rule for WorkingFile {
-    fn id(&self) -> RuleId {
-        ID
-    }
-
-    fn title(&self) -> &'static str {
-        "Working file in package"
-    }
-
-    fn description(&self) -> &'static str {
-        "A source or editor file that the game never loads, in the package of a project that has no ignore rules"
-    }
-
-    fn severity(&self) -> Option<ProblemSeverity> {
-        Some(ProblemSeverity::Warning)
+    fn meta(&self) -> &RuleMeta {
+        &META
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {

@@ -1,111 +1,14 @@
-//! The commands no service owns yet, and the bindings `tauri-specta` generates out of them and
-//! every service's types (ADR-0029, ADR-0059).
+//! The handler each service answers through, and the bindings `tauri-specta` generates out of
+//! every service's types and the event payloads (ADR-0029, ADR-0059).
 
 use std::collections::BTreeMap;
 
 use tauri::ipc::Invoke;
 use tauri::Wry;
-use tauri_specta::{collect_commands, Builder, Commands};
+use tauri_specta::Builder;
 
-/// Every command the frontend reaches outside a service.
-macro_rules! command_table {
-    ($($name:ident),* $(,)?) => {
-        const COMMANDS: &[&str] = &[$(stringify!($name)),*];
-
-        fn commands() -> Commands<Wry> {
-            collect_commands![$(crate::commands::$name),*]
-        }
-    };
-}
-
-command_table![
-    // App
-    get_app_info,
-    get_platform_support,
-    show_main_window,
-    // Settings
-    get_settings,
-    save_settings,
-    get_default_settings,
-    auto_detect_league_path,
-    validate_league_path,
-    check_setup_required,
-    detect_league_run_as_admin,
-    list_available_wads,
-    list_forcible_map_skins,
-    list_map_decorations,
-    // Patcher
-    start_patcher,
-    stop_patcher,
-    rebuild_overlay,
-    get_patcher_status,
-    get_linked_bin_offenders,
-    get_checksum_mismatches,
-    // Launcher
-    launch_league,
-    cancel_launch,
-    stop_league,
-    get_launch_availability,
-    get_league_session,
-    // Hotkeys
-    pause_hotkeys,
-    resume_hotkeys,
-    set_hotkey,
-    // Shell
-    reveal_in_explorer,
-    minimize_to_tray,
-    // Storage
-    detect_storage_medium,
-    // Deep Link
-    deep_link_install_mod,
-    take_pending_deep_link,
-    take_pending_opened_files,
-    // Releases
-    list_releases,
-    // News
-    list_announcements,
-    list_notices,
-    integration_status,
-    integration_release,
-    change_integration,
-    cancel_integration_download,
-    file_type_status,
-    open_default_apps,
-    // Atlas
-    read_ui_view,
-    read_ui_scene_view,
-    read_ui_font,
-    read_ui_font_catalog,
-    read_ui_material_programs,
-    read_ui_programs,
-    read_ui_loadout,
-    read_ui_tooltips,
-    read_ui_characters,
-    atlas_export_sprite,
-    atlas_import_font_file,
-    atlas_import_sprite,
-    atlas_make_surface,
-    atlas_patch_sprite,
-    atlas_sheet,
-    // Diagnostics
-    run_diagnostics,
-    open_elevated_terminal,
-    list_incidents,
-    dismiss_incident,
-    dismiss_all_incidents,
-    reveal_game_log,
-    incident_report,
-    incident_token,
-    decode_incident_token,
-    telemetry_identity,
-    reset_telemetry_secret,
-    track_ui_error,
-    // Launcher
-    check_install_mismatch,
-    switch_league_install,
-];
-
-/// The builder the bindings are generated from and the handler is built out of.
+/// The builder the shared bindings are generated from.
+#[cfg(test)]
 fn builder() -> Builder<Wry> {
     use ltk_manager_core::diagnostics::incident::Incident;
     use ltk_manager_core::events::{
@@ -120,18 +23,16 @@ fn builder() -> Builder<Wry> {
     use ltk_manager_core::object_index::ReferenceWalkProgress;
     use ltk_manager_core::workshop::LayerFilesChanged;
 
-    use crate::deep_link::{
-        DeepLinkInstallRequest, DeepLinkSettingsRequest, ProtocolInstallProgress,
-    };
     use crate::patcher::thread::{
         GameAttachedPayload, GameOverlayPayload, LinkedBinWarningPayload, WadScanFailedPayload,
+    };
+    use ltk_manager_core::deep_link::{
+        DeepLinkInstallRequest, DeepLinkSettingsRequest, ProtocolInstallProgress,
     };
 
     /* A 64-bit integer crosses as a JS number. None reaches the range where that loses
     a digit, and `JSON.stringify` refuses a `bigint`. */
     Builder::<Wry>::new()
-        .commands(commands())
-        .constant(COMMAND_NAMES, command_names(None, COMMANDS))
         .types(&crate::services::types())
         // Event payloads, which no command signature reaches.
         .typ::<ExportProgress>()
@@ -168,18 +69,12 @@ fn builder() -> Builder<Wry> {
 /// The constant each generated file names its commands' invoke names under.
 pub(crate) const COMMAND_NAMES: &str = "commandNames";
 
-/// The name each of `commands` is invoked under, keyed by its generated function: the command
-/// itself, or `plugin:<plugin>|<command>` for a service's.
-pub(crate) fn command_names(plugin: Option<&str>, commands: &[&str]) -> BTreeMap<String, String> {
+/// The name each of `commands` is invoked under, `plugin:<plugin>|<command>`, keyed by its
+/// generated function.
+pub(crate) fn command_names(plugin: &str, commands: &[&str]) -> BTreeMap<String, String> {
     commands
         .iter()
-        .map(|command| {
-            let invoked = match plugin {
-                Some(plugin) => format!("plugin:{plugin}|{command}"),
-                None => (*command).to_owned(),
-            };
-            (lower_camel(command), invoked)
-        })
+        .map(|command| (lower_camel(command), format!("plugin:{plugin}|{command}")))
         .collect()
 }
 
@@ -196,11 +91,6 @@ fn lower_camel(text: &str) -> String {
         }
         name
     })
-}
-
-/// The handler that answers every command outside a service.
-pub fn invoke_handler() -> impl Fn(Invoke<Wry>) -> bool + Send + Sync + 'static {
-    handler(builder())
 }
 
 /// The handler that answers the commands of `builder`.

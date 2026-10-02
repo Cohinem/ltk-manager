@@ -356,7 +356,6 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.18",
  "tracing",
- "xxhash-rust",
 ]
 
 [[package]]
@@ -3150,7 +3149,6 @@ dependencies = [
  "notify",
  "notify-debouncer-mini",
  "parking_lot",
- "quick-xml",
  "regex",
  "reqwest 0.12.28",
  "semver",
@@ -3228,7 +3226,10 @@ dependencies = [
  "ltk_rst",
  "ltk_texture",
  "ltk_wad",
+ "notify",
+ "notify-debouncer-mini",
  "parking_lot",
+ "quick-xml",
  "rayon",
  "regex",
  "reqwest 0.12.28",

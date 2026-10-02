@@ -2,13 +2,13 @@ use tauri::Manager;
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_deep_link::DeepLinkExt;
 
-use crate::commands::launcher::LauncherState;
 use crate::deep_link::DeepLinkState;
 use crate::events::TauriEventSink;
 use crate::mods::{
     ChecksumMismatchState, LinkedBinState, ModLibrary, ModLibraryState, WadReportState,
 };
 use crate::patcher::{PatcherHostState, PatcherState};
+use crate::services::launcher::LauncherState;
 use crate::state::{IncidentStoreState, SettingsState};
 use crate::workshop::{ProjectRegistry, Workshop, WorkshopState};
 use ltk_manager_core::diagnostics::store::IncidentStore;
@@ -109,7 +109,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let for_file_types = app_handle.clone();
     let register_file_types = settings.register_file_types;
     std::thread::spawn(move || {
-        crate::commands::apply_file_types(&for_file_types, register_file_types);
+        crate::services::integrations::apply_file_types(&for_file_types, register_file_types);
     });
 
     let deep_link_state = DeepLinkState::new();
@@ -125,7 +125,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     crate::telemetry::install(&telemetry_state);
     app.manage(telemetry_state);
     app.manage(launcher_state);
-    app.manage(crate::commands::launcher::LaunchState::default());
+    app.manage(crate::services::launcher::LaunchState::default());
     app.manage(linked_bins);
     app.manage(checksum_mismatches);
     app.manage(wad_reports);
@@ -151,8 +151,10 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(mod_library);
     app.manage(workshop);
     app.manage(
-        crate::workshop::LayerWatches::new(Arc::clone(&events), sandboxes)
-            .with_sources(crate::workshop::source_rebuild(app.handle().clone())),
+        crate::workshop::LayerWatches::new(Arc::clone(&events), sandboxes).with_sources(
+            atlas::SOURCES_DIR,
+            crate::workshop::source_rebuild(app.handle().clone()),
+        ),
     );
     app.manage(hotkey_manager);
     app.manage(deep_link_state);
