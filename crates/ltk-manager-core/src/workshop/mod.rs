@@ -24,6 +24,7 @@ pub use folders::{
     FolderInspection, FolderWad,
 };
 pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
+pub(crate) use ignore_rules::{holds_ignore_rules, recommended_ignore_filter};
 pub use layer_changes::{LayerFile, LayerFilesChanged};
 pub use layers::layer_name_for;
 pub use registry::{OpenedProjectFolder, ProjectKey, ProjectRegistry};

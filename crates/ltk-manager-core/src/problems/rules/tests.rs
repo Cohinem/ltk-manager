@@ -33,6 +33,10 @@ fn each_rule_declares_who_answers_for_its_severity() {
                 "bin/resolver-key-loss".to_owned(),
                 Some(ProblemSeverity::Info)
             ),
+            (
+                "project/working-file".to_owned(),
+                Some(ProblemSeverity::Warning)
+            ),
         ]
     );
 }

@@ -164,6 +164,16 @@ impl<'a> FixRun<'a> {
         }
     }
 
+    /// The tree this run writes in place, or `None` for a run that holds its
+    /// writes.
+    #[must_use]
+    pub fn tree(&self) -> Option<&Path> {
+        match &self.target {
+            Target::Tree(root) => Some(root),
+            Target::Held { .. } => None,
+        }
+    }
+
     /// The mod as this run has left it so far.
     ///
     /// A rule re-derives a claim about the rest of the mod from this rather
@@ -333,6 +343,12 @@ impl<'a> FixRun<'a> {
     /// Record a file the rule read and left alone.
     pub fn skipped(&mut self, layer: &str, path: &str, skipped: u32) {
         self.record(layer, path, 0, skipped, FileChange::Written);
+    }
+
+    /// Record problems at one file that a write to a different file repaired.
+    /// The file itself is unchanged.
+    pub fn repaired(&mut self, layer: &str, path: &str, applied: u32) {
+        self.record(layer, path, applied, 0, FileChange::Written);
     }
 
     /// Write the kept names and report what the run did.
@@ -727,6 +743,10 @@ pub enum FixError {
         path: String,
         message: String,
     },
+
+    /// A project file outside the layers could not be read or written.
+    #[error("{path}: {message}")]
+    Project { path: String, message: String },
 }
 
 #[cfg(test)]

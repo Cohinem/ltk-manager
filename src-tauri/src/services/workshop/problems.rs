@@ -48,7 +48,7 @@ fn analyze_project_inner(
     let root = Path::new(project_path);
     let config = settings.config();
 
-    let run = problems::analyze(root, &config, library.0.game_content(&config))?;
+    let run = problems::analyze_project(root, &config, library.0.game_content(&config))?;
     runs.record(root, run.clone());
     Ok(run)
 }
