@@ -75,7 +75,7 @@ export function ObjectsTree({
   const zoomed = useZoomedPx();
   const rowHeight = zoomed(ROW_HEIGHT);
 
-  const { scrollRef, virtualizer, sticky } = useBrowseTree({
+  const { scrollRef, virtualizer, items, totalSize, sticky } = useBrowseTree({
     rows,
     rowHeight,
     offsetTop: CONTENT_TOP,
@@ -129,8 +129,8 @@ export function ObjectsTree({
       aria-label={ariaLabel}
       scrollRef={scrollRef}
       rows={rows}
-      items={virtualizer.getVirtualItems()}
-      totalSize={virtualizer.getTotalSize()}
+      items={items}
+      totalSize={totalSize}
       sticky={sticky}
       onKeyDown={handleKeyDown}
       onFocusCapture={(event) => {
