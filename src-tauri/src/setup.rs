@@ -105,6 +105,13 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
         let _ = autolaunch.disable();
     }
 
+    // Off the setup path, because the shell is told about any change and that is not instant.
+    let for_file_types = app_handle.clone();
+    let register_file_types = settings.register_file_types;
+    std::thread::spawn(move || {
+        crate::commands::apply_file_types(&for_file_types, register_file_types);
+    });
+
     let deep_link_state = DeepLinkState::new();
 
     let launcher_state = LauncherState::new(&app_handle, &settings.config)?;
@@ -149,6 +156,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     );
     app.manage(hotkey_manager);
     app.manage(deep_link_state);
+    app.manage(crate::deep_link::files::OpenedFilesState::default());
 
     // Started below the `manage` calls rather than beside the library it
     // maintains: its hashtable sync ends by dropping what the app read out of
@@ -189,6 +197,13 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(Some(urls)) = app.deep_link().get_current() {
         crate::deep_link::handle_urls(&app_handle, &urls);
     }
+
+    // `args` panics on an argument that is not Unicode, where a lossy one only fails to resolve.
+    let argv: Vec<String> = std::env::args_os()
+        .map(|arg| arg.to_string_lossy().into_owned())
+        .collect();
+    let cwd = std::env::current_dir().unwrap_or_default();
+    crate::deep_link::files::open(&app_handle, crate::deep_link::files::mod_files(&argv, &cwd));
 
     let handle_clone = app_handle.clone();
     app.deep_link().on_open_url(move |event| {

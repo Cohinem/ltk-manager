@@ -29,6 +29,7 @@ import {
   useLibrarySelectionStore,
   useLibrarySidebarStore,
   useModFileDrop,
+  useOpenedModFiles,
   useVisibleMods,
 } from "@/modules/library";
 import { PatcherUnsupported } from "@/modules/patcher";
@@ -46,6 +47,7 @@ export function Library({ folderId }: LibraryProps = {}) {
   const { data: mods = [], isLoading, error } = useInstalledMods();
   const actions = useLibraryActions();
   const isDragOver = useModFileDrop(actions.handleBulkInstallFiles);
+  useOpenedModFiles(actions.handleBulkInstallFiles);
   useLibraryHotkeys(actions.handleImportMods);
 
   const filterOptions = useFilterOptions(mods);

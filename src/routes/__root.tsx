@@ -33,6 +33,7 @@ import {
   ModHealthSweepListener,
   useLibraryWatcher,
   useModStorageToast,
+  useOpenedFilesListener,
   WadScanFailedDialog,
 } from "@/modules/library";
 import {
@@ -93,6 +94,7 @@ function RootLayout() {
 
   useDevLogStream();
   useDeepLinkListener();
+  useOpenedFilesListener();
   useLibraryWatcher();
   useModStorageToast();
   useAutoStartPatcher();

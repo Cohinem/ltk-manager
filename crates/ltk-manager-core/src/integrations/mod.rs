@@ -1,5 +1,6 @@
 //! Managed tool installations and observed Explorer registrations.
 
+pub mod file_types;
 mod process;
 mod registry;
 mod releases;

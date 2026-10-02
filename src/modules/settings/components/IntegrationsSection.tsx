@@ -17,6 +17,7 @@ import {
   useIntegrationRelease,
   useIntegrations,
 } from "../api/useIntegrations";
+import { FileTypesSection } from "./FileTypesSection";
 import { IntegrationActions } from "./IntegrationActions";
 import { IntegrationPaths } from "./IntegrationPaths";
 import { IntegrationSectionCard } from "./IntegrationSectionCard";
@@ -350,6 +351,7 @@ export function IntegrationsSection() {
     data?.some((status) => status.operation && !terminal.includes(status.operation.stage)) ?? false;
   return (
     <div data-ui="IntegrationsSection" className="flex flex-col gap-6 select-none">
+      <FileTypesSection />
       {data?.map((status) => (
         <IntegrationCard key={status.tool} status={status} busy={busy} />
       ))}

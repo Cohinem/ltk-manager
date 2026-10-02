@@ -98,6 +98,8 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   promoteEnabledMods: onOff,
   watcherEnabled: onOff,
 
+  registerFileTypes: onOff,
+
   applyStringOverridesToAllLocales: onOff,
 
   patchTft: onOff,

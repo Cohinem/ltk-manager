@@ -59,6 +59,7 @@ command_table![
     // Deep Link
     deep_link_install_mod,
     take_pending_deep_link,
+    take_pending_opened_files,
     // Releases
     list_releases,
     // News
@@ -68,6 +69,8 @@ command_table![
     integration_release,
     change_integration,
     cancel_integration_download,
+    file_type_status,
+    open_default_apps,
     // Atlas
     read_ui_view,
     read_ui_scene_view,

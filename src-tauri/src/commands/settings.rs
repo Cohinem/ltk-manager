@@ -35,7 +35,10 @@ pub(crate) fn save_settings_inner(
     // Before the write, so a secret minted here reaches the file with everything
     // else rather than waiting for the next save.
     let (secret, _) = crate::telemetry::ensure_secret(&mut settings);
-    let was_collecting = state.0.lock().telemetry_enabled;
+    let (was_collecting, had_file_types) = {
+        let current = state.0.lock();
+        (current.telemetry_enabled, current.register_file_types)
+    };
 
     // Sync OS autolaunch with the updated setting
     let autolaunch = app_handle.autolaunch();
@@ -46,6 +49,10 @@ pub(crate) fn save_settings_inner(
     }
 
     persist_settings(app_handle, &settings)?;
+
+    if settings.register_file_types != had_file_types {
+        crate::commands::apply_file_types(app_handle, settings.register_file_types);
+    }
 
     // The launcher is built from the install root and re-reads the window
     // hider, both of which the user may just have moved. Logged rather than

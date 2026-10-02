@@ -204,6 +204,9 @@ pub struct Settings {
     /// Whether to register the app to launch automatically on login. Default: false.
     #[serde(default)]
     pub auto_run: bool,
+    /// Whether `.fantome` and `.modpkg` open with the app from Explorer. Default: true.
+    #[serde(default = "default_true")]
+    pub register_file_types: bool,
     /// When starting in tray, show the window if an update is available. Default: false.
     #[serde(default)]
     pub start_in_tray_unless_update: bool,
@@ -293,6 +296,7 @@ impl Default for Settings {
             minimize_to_tray: true,
             start_in_tray: false,
             auto_run: false,
+            register_file_types: true,
             start_in_tray_unless_update: false,
             auto_download_updates: true,
             always_start_patcher: false,
