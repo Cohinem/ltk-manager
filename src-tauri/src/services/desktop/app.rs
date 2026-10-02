@@ -1,7 +1,7 @@
 use crate::error::IpcResult;
 use crate::state::SettingsState;
 use serde::Serialize;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Manager};
 
 #[derive(Debug, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -37,8 +37,9 @@ pub fn get_app_info() -> IpcResult<AppInfo> {
 /// icon (or an available update, handled in the UI) reveals it later.
 #[tauri::command]
 #[specta::specta]
-pub fn show_main_window(app: AppHandle, settings: State<SettingsState>) -> IpcResult<()> {
+pub async fn show_main_window(app: AppHandle) -> IpcResult<()> {
     let start_hidden = {
+        let settings = app.state::<SettingsState>();
         let settings = settings.0.lock();
         settings.start_in_tray || settings.start_in_tray_unless_update
     };
