@@ -24,40 +24,61 @@ impl ModLibrary {
             },
         )?;
         let result = self.mutate_index(config, |storage_dir, index| {
-            let pos = index
-                .mods
-                .iter()
-                .position(|entry| entry.id == mod_id)
-                .ok_or_else(|| AppError::ModNotFound(mod_id.to_owned()))?;
-            let mut entry = index.mods[pos].clone();
-            let project = load_mod_project(&staged.staging_dir)?;
-            let mut replacement = Replacement::new(storage_dir, &entry, &staged);
-            replacement.install(&staged)?;
-            entry.format = staged.format;
-            entry.storage = staged.format.installed_storage();
-            entry.harvest = staged.harvest;
-            entry.source_sha256 = Some(staged.digest.sha256.clone());
-            index.mods[pos] = entry.clone();
-            for profile in &mut index.profiles {
-                if let Some(states) = profile.layer_states.get_mut(mod_id) {
-                    states.retain(|name, _| project.layers.iter().any(|layer| &layer.name == name));
-                }
-            }
-            let installed = read_library_mod(storage_dir, index, &entry)?;
-            self.invalidate_overlay_for(storage_dir, &[mod_id.to_owned()]);
-            self.forget_health_check(storage_dir, mod_id);
-            Ok((replacement, installed))
+            self.replace_with_staged(storage_dir, index, mod_id, &staged)
         });
         staged.discard();
         let (mut replacement, installed) = result?;
         replacement.commit();
         Ok(installed)
     }
+
+    /// Move `staged` into `mod_id`'s place and record it, keeping the mod's id
+    /// and profile choices.
+    ///
+    /// Runs under the index lock. The caller commits the replacement once the
+    /// index is saved, and dropping it uncommitted puts the old files back.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the mod is missing or the staged files cannot be moved into place.
+    pub(super) fn replace_with_staged(
+        &self,
+        storage_dir: &Path,
+        index: &mut LibraryIndex,
+        mod_id: &str,
+        staged: &StagedMod,
+    ) -> AppResult<(Replacement, InstalledMod)> {
+        let pos = index
+            .mods
+            .iter()
+            .position(|entry| entry.id == mod_id)
+            .ok_or_else(|| AppError::ModNotFound(mod_id.to_owned()))?;
+        let mut entry = index.mods[pos].clone();
+        let project = load_mod_project(&staged.staging_dir)?;
+        let mut replacement = Replacement::new(storage_dir, &entry, staged);
+        replacement.install(staged)?;
+
+        entry.format = staged.format;
+        entry.storage = staged.format.installed_storage();
+        entry.harvest = staged.harvest;
+        entry.source_sha256 = Some(staged.digest.sha256.clone());
+        index.mods[pos] = entry.clone();
+        for profile in &mut index.profiles {
+            if let Some(states) = profile.layer_states.get_mut(mod_id) {
+                states.retain(|name, _| project.layers.iter().any(|layer| &layer.name == name));
+            }
+        }
+
+        let installed = read_library_mod(storage_dir, index, &entry)?;
+        self.invalidate_overlay_for(storage_dir, &[mod_id.to_owned()]);
+        self.forget_health_check(storage_dir, mod_id);
+        Ok((replacement, installed))
+    }
 }
 
 /// File moves held reversible until the index write succeeds.
 #[derive(Debug)]
-struct Replacement {
+pub(super) struct Replacement {
     mod_dir: PathBuf,
     archive: PathBuf,
     old_archive: PathBuf,
@@ -111,7 +132,7 @@ impl Replacement {
         Ok(())
     }
 
-    fn commit(&mut self) {
+    pub(super) fn commit(&mut self) {
         self.committed = true;
     }
 }

@@ -30,9 +30,16 @@ export function useInstallMod() {
         return;
       }
 
-      queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) =>
-        old ? [mod, ...old] : [mod],
-      );
+      if (outcome.kind === "updated") {
+        toast.success(
+          m.library_mod_update_success_title(),
+          m.library_install_updated_description({ name: mod.displayName, version: mod.version }),
+        );
+      } else {
+        queryClient.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) =>
+          old ? [mod, ...old] : [mod],
+        );
+      }
 
       const flag = checkModForSkinhack(mod);
       if (flag) {

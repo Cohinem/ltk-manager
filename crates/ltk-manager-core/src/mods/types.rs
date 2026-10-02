@@ -196,6 +196,8 @@ pub const ROOT_FOLDER_ID: &str = "root";
 #[serde(rename_all = "camelCase")]
 pub struct BulkInstallResult {
     pub installed: Vec<InstalledMod>,
+    /// Mods an archive replaced as a newer version of them.
+    pub updated: Vec<InstalledMod>,
     /// The library's mods for archives it already held, which were not installed again.
     pub already_installed: Vec<InstalledMod>,
     pub failed: Vec<BulkInstallError>,
@@ -208,6 +210,8 @@ pub struct BulkInstallResult {
 pub enum InstallOutcome {
     /// The archive is now in the library as this mod.
     Installed(InstalledMod),
+    /// The archive was a newer version of this mod, and replaced it.
+    Updated(InstalledMod),
     /// The library already held the archive as this mod, so nothing was installed.
     AlreadyInstalled(InstalledMod),
 }
@@ -216,7 +220,9 @@ impl InstallOutcome {
     /// The mod the archive is in the library as, whichever way it got there.
     pub fn into_mod(self) -> InstalledMod {
         match self {
-            Self::Installed(installed) | Self::AlreadyInstalled(installed) => installed,
+            Self::Installed(installed)
+            | Self::Updated(installed)
+            | Self::AlreadyInstalled(installed) => installed,
         }
     }
 }

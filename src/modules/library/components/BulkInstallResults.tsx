@@ -1,4 +1,4 @@
-import { CheckCircleIcon, InfoIcon, XCircleIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, CheckCircleIcon, InfoIcon, XCircleIcon } from "@phosphor-icons/react";
 
 import { m } from "@/i18n";
 import type { BulkInstallResult } from "@/lib/tauri";
@@ -21,6 +21,22 @@ export function BulkInstallResults({ result, verb = "installed" }: BulkInstallRe
         <div className="flex items-center gap-2 text-sm text-success-text">
           <CheckCircleIcon weight="duotone" className="size-4 shrink-0" />
           <span>{succeededLabel({ count: result.installed.length })}</span>
+        </div>
+      )}
+
+      {result.updated.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2 text-sm text-success-text">
+            <ArrowClockwiseIcon weight="duotone" className="size-4 shrink-0" />
+            <span>{m.library_import_results_updated_label({ count: result.updated.length })}</span>
+          </div>
+          <ul className="flex flex-col gap-1 pl-6">
+            {result.updated.map((mod) => (
+              <li key={mod.id} className="text-sm text-surface-300">
+                {mod.displayName} <span className="text-surface-400">{mod.version}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

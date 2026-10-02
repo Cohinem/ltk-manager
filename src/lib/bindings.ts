@@ -608,6 +608,8 @@ export type BulkInstallResult = BulkInstallResult_Serialize | BulkInstallResult_
 /**  Result of a bulk mod install operation. */
 export type BulkInstallResult_Deserialize = {
 	installed: InstalledMod_Deserialize[],
+	/**  Mods an archive replaced as a newer version of them. */
+	updated: InstalledMod_Deserialize[],
 	/**  The library's mods for archives it already held, which were not installed again. */
 	alreadyInstalled: InstalledMod_Deserialize[],
 	failed: BulkInstallError[],
@@ -616,6 +618,8 @@ export type BulkInstallResult_Deserialize = {
 /**  Result of a bulk mod install operation. */
 export type BulkInstallResult_Serialize = {
 	installed: InstalledMod_Serialize[],
+	/**  Mods an archive replaced as a newer version of them. */
+	updated: InstalledMod_Serialize[],
 	/**  The library's mods for archives it already held, which were not installed again. */
 	alreadyInstalled: InstalledMod_Serialize[],
 	failed: BulkInstallError[],
@@ -3113,6 +3117,8 @@ export type InstallOutcome = InstallOutcome_Serialize | InstallOutcome_Deseriali
 export type InstallOutcome_Deserialize = 
 /**  The archive is now in the library as this mod. */
 { kind: "installed"; mod: InstalledMod_Deserialize } | 
+/**  The archive was a newer version of this mod, and replaced it. */
+{ kind: "updated"; mod: InstalledMod_Deserialize } | 
 /**  The library already held the archive as this mod, so nothing was installed. */
 { kind: "alreadyInstalled"; mod: InstalledMod_Deserialize };
 
@@ -3120,6 +3126,8 @@ export type InstallOutcome_Deserialize =
 export type InstallOutcome_Serialize = 
 /**  The archive is now in the library as this mod. */
 { kind: "installed"; mod: InstalledMod_Serialize } | 
+/**  The archive was a newer version of this mod, and replaced it. */
+{ kind: "updated"; mod: InstalledMod_Serialize } | 
 /**  The library already held the archive as this mod, so nothing was installed. */
 { kind: "alreadyInstalled"; mod: InstalledMod_Serialize };
 

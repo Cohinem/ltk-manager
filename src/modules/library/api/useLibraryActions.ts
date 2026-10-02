@@ -2,7 +2,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
 import { useToast } from "@/components";
-import { errorSummary, m } from "@/i18n";
+import { errorSummary, getLocale, m } from "@/i18n";
 import { api, type BulkInstallResult, unwrap } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";
 
@@ -75,7 +75,7 @@ export function useLibraryActions() {
         setImportResult(result);
 
         // Check installed mods for skinhacks and disable any flagged ones
-        for (const mod of result.installed) {
+        for (const mod of [...result.installed, ...result.updated]) {
           const flag = checkModForSkinhack(mod);
           if (flag) {
             api.toggleMod(mod.id, false);
@@ -95,37 +95,35 @@ export function useLibraryActions() {
     });
   }
 
-  function announceImport({ installed, alreadyInstalled, failed }: BulkInstallResult) {
-    const counts = {
-      installed: installed.length,
-      existing: alreadyInstalled.length,
-      failed: failed.length,
-    };
+  function announceImport({ installed, updated, alreadyInstalled, failed }: BulkInstallResult) {
+    const changed = installed.length + updated.length;
+    const summary = new Intl.ListFormat(getLocale(), { style: "short", type: "unit" }).format(
+      [
+        installed.length > 0 &&
+          m.library_import_summary_installed_label({ count: installed.length }),
+        updated.length > 0 && m.library_import_summary_updated_label({ count: updated.length }),
+        alreadyInstalled.length > 0 &&
+          m.library_import_summary_existing_label({ count: alreadyInstalled.length }),
+        failed.length > 0 && m.library_import_summary_failed_label({ count: failed.length }),
+      ].filter((part) => part !== false),
+    );
 
-    if (counts.failed > 0 && counts.installed === 0 && counts.existing === 0) {
+    if (failed.length > 0 && changed === 0 && alreadyInstalled.length === 0) {
       toast.error(
         m.library_import_failed_title(),
-        m.library_import_failed_description({ count: counts.failed }),
+        m.library_import_failed_description({ count: failed.length }),
       );
-    } else if (counts.failed > 0) {
-      toast.warning(
-        m.library_import_partial_title(),
-        counts.existing > 0
-          ? m.library_import_partial_existing_description(counts)
-          : m.library_import_partial_description(counts),
-      );
-    } else if (counts.installed === 0) {
+    } else if (failed.length > 0) {
+      toast.warning(m.library_import_partial_title(), summary);
+    } else if (changed === 0) {
       toast.info(
         m.library_import_already_installed_title(),
-        m.library_import_already_installed_description({ count: counts.existing }),
+        m.library_import_already_installed_description({ count: alreadyInstalled.length }),
       );
+    } else if (installed.length === 0) {
+      toast.success(m.library_import_updated_title(), summary);
     } else {
-      toast.success(
-        m.library_import_installed_title(),
-        counts.existing > 0
-          ? m.library_import_installed_existing_description(counts)
-          : m.library_import_installed_description({ count: counts.installed }),
-      );
+      toast.success(m.library_import_installed_title(), summary);
     }
   }
 

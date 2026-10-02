@@ -12,6 +12,8 @@
   "deep_link_install_succeeded_title": "Mod Installed",
   "deep_link_install_title": "Install Mod",
   "deep_link_install_unknown_mod_label": "Unknown Mod",
+  "deep_link_install_updated_description": "*{name}* has been updated to the newer version.",
+  "deep_link_install_updated_title": "Mod Updated",
   "deep_link_install_validating_label": "Validating...",
   "deep_link_untrusted_description": "Trusting it installs this mod, and lets links from this domain install from now on.",
   "deep_link_untrusted_reject_action": "Reject",

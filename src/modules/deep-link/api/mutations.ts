@@ -30,6 +30,11 @@ export const deepLinkMutations = {
           return;
         }
 
+        if (outcome.kind === "updated") {
+          useDeepLinkStore.getState().setStatus("updated");
+          return;
+        }
+
         useDeepLinkStore.getState().setStatus("complete");
         client.setQueryData<InstalledMod[]>(libraryKeys.mods(), (old) =>
           old ? [outcome.mod, ...old] : [outcome.mod],

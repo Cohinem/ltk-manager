@@ -204,20 +204,7 @@
   "library_import_archives_filter_label": "Mod Archives",
   "library_import_failed_description": "All {count} files failed to import",
   "library_import_failed_title": "Import failed",
-  "library_import_installed_description": [
-    {
-      "declarations": ["input count", "local countPlural = count: plural"],
-      "selectors": ["countPlural"],
-      "match": {
-        "countPlural=one": "{count} mod installed successfully",
-        "countPlural=other": "{count} mods installed successfully"
-      }
-    }
-  ],
-  "library_import_installed_existing_description": "{installed} installed, {existing} already in your library",
   "library_import_installed_title": "Mods installed",
-  "library_import_partial_description": "{installed} installed, {failed} failed",
-  "library_import_partial_existing_description": "{installed} installed, {existing} already in your library, {failed} failed",
   "library_import_partial_title": "Import completed with errors",
   "library_import_results_existing_label": "{count} already in your library",
   "library_import_results_failed_label": "{count} failed",
@@ -241,9 +228,25 @@
       }
     }
   ],
+  "library_import_results_updated_label": [
+    {
+      "declarations": ["input count", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "{count} mod updated",
+        "countPlural=other": "{count} mods updated"
+      }
+    }
+  ],
+  "library_import_summary_existing_label": "{count} already in your library",
+  "library_import_summary_failed_label": "{count} failed",
+  "library_import_summary_installed_label": "{count} installed",
+  "library_import_summary_updated_label": "{count} updated",
+  "library_import_updated_title": "Mods updated",
   "library_install_already_installed_description": "\"{name}\" is already in your library",
   "library_install_skinhack_description": "Skinhack detected in \"{name}\"",
   "library_install_skinhack_title": "Skinhack Detected",
+  "library_install_updated_description": "\"{name}\" updated to {version}",
   "library_launch_already_running_label": "already running",
   "library_launch_league_action": "Launch League",
   "library_launch_league_only_action": "Launch League only",

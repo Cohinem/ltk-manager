@@ -1,8 +1,8 @@
 use super::*;
 use crate::mods::index::ModStorage;
 use crate::mods::test_support::{
-    make_named_fantome_zip, make_test_library, make_test_profile, place_installed_mod,
-    place_mod_files,
+    make_named_fantome_zip, make_test_library, make_test_profile, make_versioned_fantome_zip,
+    place_installed_mod, place_mod_files,
 };
 use crate::mods::types::LibraryFolder;
 use assert_matches::assert_matches;
@@ -893,4 +893,138 @@ fn an_update_records_the_new_archive_as_the_mods_source() {
 
     assert_matches!(reinstalled, InstallOutcome::AlreadyInstalled(existing) if existing.id == installed.id);
     assert_matches!(original_again, InstallOutcome::Installed(_));
+}
+
+/// Install `version` of a mod named `Versioned` by `author` from `dir`.
+fn install_version(
+    library: &ModLibrary,
+    config: &Config,
+    dir: &Path,
+    author: &str,
+    version: &str,
+) -> InstallOutcome {
+    let archive = dir.join(format!("{author}-{version}.fantome"));
+    make_versioned_fantome_zip(&archive, "Versioned", author, version);
+    library
+        .install_mod_from_package(config, archive.to_str().unwrap())
+        .unwrap()
+}
+
+#[test]
+fn a_newer_version_updates_the_installed_mod_in_place() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let first = install_version(&library, &config, source.path(), "Author", "1.0.0").into_mod();
+    library
+        .toggle_mod_enabled(&config, &first.id, false)
+        .unwrap();
+
+    let second = install_version(&library, &config, source.path(), "Author", "1.2.0");
+
+    assert_matches!(
+        &second,
+        InstallOutcome::Updated(updated)
+            if updated.id == first.id && updated.version == "1.2.0" && !updated.enabled
+    );
+    assert_eq!(library.get_installed_mods(&config).unwrap().len(), 1);
+    assert_eq!(fs::read_dir(storage.path().mods_dir()).unwrap().count(), 2);
+}
+
+#[test]
+fn the_same_or_an_older_version_installs_beside_the_installed_mod() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    install_version(&library, &config, source.path(), "Author", "2.0.0");
+
+    let older = install_version(&library, &config, source.path(), "Author", "1.0.0");
+
+    assert_matches!(older, InstallOutcome::Installed(_));
+    assert_eq!(library.get_installed_mods(&config).unwrap().len(), 2);
+}
+
+#[test]
+fn a_newer_version_by_other_authors_installs_as_its_own_mod() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    install_version(&library, &config, source.path(), "Author", "1.0.0");
+
+    let other = install_version(&library, &config, source.path(), "Someone Else", "2.0.0");
+
+    assert_matches!(other, InstallOutcome::Installed(_));
+    assert_eq!(library.get_installed_mods(&config).unwrap().len(), 2);
+}
+
+#[test]
+fn authors_match_without_case() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    install_version(&library, &config, source.path(), "Author", "1.0.0");
+
+    let newer = install_version(&library, &config, source.path(), "author", "1.0.1");
+
+    assert_matches!(newer, InstallOutcome::Updated(_));
+}
+
+#[test]
+fn of_several_older_copies_the_highest_version_is_updated() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    install_version(&library, &config, source.path(), "Author", "2.0.0");
+    install_version(&library, &config, source.path(), "Author", "1.0.0");
+
+    let newest = install_version(&library, &config, source.path(), "Author", "3.0.0");
+
+    let versions: std::collections::BTreeSet<String> = library
+        .get_installed_mods(&config)
+        .unwrap()
+        .into_iter()
+        .map(|installed| installed.version)
+        .collect();
+    assert_matches!(newest, InstallOutcome::Updated(_));
+    assert_eq!(versions, ["1.0.0", "3.0.0"].map(String::from).into());
+}
+
+#[test]
+fn a_batch_carrying_two_versions_of_a_new_mod_lists_it_once() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let paths = ["1.0.0", "1.1.0"].map(|version| {
+        let archive = source.path().join(format!("{version}.fantome"));
+        make_versioned_fantome_zip(&archive, "Versioned", "Author", version);
+        archive.to_str().unwrap().to_string()
+    });
+
+    let result = library.install_mods_from_packages(&config, &paths).unwrap();
+
+    assert!(result.failed.is_empty());
+    assert!(result.updated.is_empty());
+    assert_eq!(result.installed.len(), 1);
+    assert_eq!(result.installed[0].version, "1.1.0");
+    assert_eq!(library.get_installed_mods(&config).unwrap().len(), 1);
+}
+
+#[test]
+fn a_batch_reports_an_update_of_a_mod_it_did_not_install() {
+    let storage = tempfile::tempdir().unwrap();
+    let source = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(storage.path());
+    let first = install_version(&library, &config, source.path(), "Author", "1.0.0").into_mod();
+    let newer = source.path().join("newer.fantome");
+    make_versioned_fantome_zip(&newer, "Versioned", "Author", "2.0.0");
+    let unrelated = source.path().join("unrelated.fantome");
+    make_named_fantome_zip(&unrelated, "Unrelated");
+
+    let paths = [newer, unrelated].map(|path| path.to_str().unwrap().to_string());
+    let result = library.install_mods_from_packages(&config, &paths).unwrap();
+
+    assert_eq!(result.installed.len(), 1);
+    assert_eq!(result.updated.len(), 1);
+    assert_eq!(result.updated[0].id, first.id);
+    assert_eq!(result.updated[0].version, "2.0.0");
 }

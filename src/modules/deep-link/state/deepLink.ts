@@ -7,6 +7,7 @@ export type InstallStatus =
   | "downloading"
   | "installing"
   | "complete"
+  | "updated"
   | "existing"
   | "error";
 

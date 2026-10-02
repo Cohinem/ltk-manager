@@ -203,21 +203,35 @@ install as one import, so a multi-select reads as one action.
 
 ## Importing a mod the library holds
 
-An import compares each archive with the archives already in the library, byte for byte. An
-archive the library already holds is not installed again. The file name does not matter, so a
-renamed copy of the same archive is still the same mod.
+An import compares each archive with what the library already holds, and does one of three things.
 
-- One file: a toast names the mod the library already holds.
-- Several files: the result dialog lists them as already in the library, apart from the mods it
-  installed and the files that failed. A batch that carries one archive twice installs it once.
-- A deep link: the dialog says the mod is already in the library.
+| The archive is                          | The import                                            |
+| --------------------------------------- | ----------------------------------------------------- |
+| Byte for byte one the library holds     | Installs nothing and names the mod it already is      |
+| A newer version of a mod in the library | Updates that mod in place, as `Update from file` does |
+| Anything else                           | Installs it as a new mod                              |
 
-A changed archive, such as a new version of the mod, installs as a separate mod. `Update from file`
-is what replaces a mod with a new version.
+The file name does not matter, so a renamed copy of the same archive is still the same mod.
 
-A mod is compared by the archive it was installed or last updated from. A mod installed before the
-check existed has no record of that archive, so its stored archive stands in, and it matches only
-when the import left that archive unchanged.
+**A newer version is the same mod at a higher version.** The same mod has the same project name and
+the same authors, ignoring case. A higher version is a greater semver version, and an archive whose
+version does not parse is never one. The updated mod keeps its place, its folder and whether each
+profile enables it. When the library holds several older copies, the one at the highest version is
+updated. An older or equal version installs beside the mod, so downgrading stays a choice the reader
+makes with `Update from file`.
+
+How the result reaches the reader:
+
+- One file: a toast names the mod that was updated or that the library already holds.
+- Several files: the result dialog lists the updated mods and the ones already in the library apart
+  from the mods it installed and the files that failed. A batch that carries one archive twice
+  installs it once, and a batch that carries two versions of a new mod lists it once, at the newer
+  version.
+- A deep link: the dialog says the mod was updated or is already in the library.
+
+A mod is matched to an archive it already holds by the archive it was installed or last updated
+from. A mod installed before the check existed has no record of that archive, so its stored archive
+stands in, and it matches only when the import left that archive unchanged.
 
 ## The documents panel
 

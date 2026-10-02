@@ -32,7 +32,8 @@ pub fn install_mod(
     let result: AppResult<InstallOutcome> = (|| {
         let config = settings.config();
         let outcome = library.0.install_mod_from_package(&config, &file_path)?;
-        if let InstallOutcome::Installed(installed) = &outcome {
+        if let InstallOutcome::Installed(installed) | InstallOutcome::Updated(installed) = &outcome
+        {
             library
                 .0
                 .spawn_categorization(&config, vec![installed.id.clone()]);
@@ -58,7 +59,12 @@ pub fn install_mods(
     let result: AppResult<BulkInstallResult> = (|| {
         let config = settings.config();
         let result = library.0.install_mods_from_packages(&config, &file_paths)?;
-        let ids: Vec<String> = result.installed.iter().map(|m| m.id.clone()).collect();
+        let ids: Vec<String> = result
+            .installed
+            .iter()
+            .chain(&result.updated)
+            .map(|m| m.id.clone())
+            .collect();
         library.0.spawn_categorization(&config, ids.clone());
         library.0.spawn_health_check(&config, ids);
         Ok(result)

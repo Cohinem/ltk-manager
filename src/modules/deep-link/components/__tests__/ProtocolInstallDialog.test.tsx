@@ -20,7 +20,7 @@ vi.mock("@tauri-apps/api/event", () => ({
 
 const world = {
   settings: createMockSettings({ trustedDomains: ["runeforge.dev"] }),
-  installKind: "installed" as "installed" | "alreadyInstalled",
+  installKind: "installed" as "installed" | "updated" | "alreadyInstalled",
 };
 
 function answer(command: string): unknown {
@@ -134,5 +134,16 @@ describe("ProtocolInstallDialog", () => {
 
     expect(await screen.findByText(/is already in your library/)).toBeVisible();
     expect(useDeepLinkStore.getState().status).toBe("existing");
+  });
+
+  it("says the mod was updated when the link names a newer version of an installed mod", async () => {
+    world.installKind = "updated";
+    useDeepLinkStore.getState().setRequest(request());
+    renderWithProviders(<ProtocolInstallDialog />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Install" }));
+
+    expect(await screen.findByText(/has been updated to the newer version/)).toBeVisible();
+    expect(useDeepLinkStore.getState().status).toBe("updated");
   });
 });

@@ -33,9 +33,10 @@ export function ProtocolInstallDialog() {
   const open = useQueuedDialog("protocol-install", request !== null);
   const isInstalling = status === "installing" || install.isPending;
   const isComplete = status === "complete";
+  const isUpdated = status === "updated";
   const isExisting = status === "existing";
   const isError = status === "error";
-  const isDone = isComplete || isExisting || isError;
+  const isDone = isComplete || isUpdated || isExisting || isError;
 
   /* Read against the settings as they are rather than against the marker the
      link arrived with, so trusting the domain here - or in Settings, in another
@@ -54,6 +55,8 @@ export function ProtocolInstallDialog() {
           const name = mod.name ?? m.deep_link_install_unknown_mod_label();
           if (kind === "alreadyInstalled") {
             toast.info(m.deep_link_install_existing_title(), name);
+          } else if (kind === "updated") {
+            toast.success(m.deep_link_install_updated_title(), name);
           } else {
             toast.success(m.deep_link_install_succeeded_title(), name);
           }
@@ -138,13 +141,19 @@ export function ProtocolInstallDialog() {
           </>
         )}
 
-        {isComplete && (
+        {(isComplete || isUpdated) && (
           <div className="flex items-center gap-3">
             <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-success/15">
               <CheckCircleIcon className="size-5 text-success-text" />
             </div>
             <p className="text-sm text-surface-300">
-              <Marked text={m.deep_link_install_succeeded_description({ name: displayName })}>
+              <Marked
+                text={
+                  isUpdated
+                    ? m.deep_link_install_updated_description({ name: displayName })
+                    : m.deep_link_install_succeeded_description({ name: displayName })
+                }
+              >
                 {(clause) => <span className="font-medium text-surface-100">{clause}</span>}
               </Marked>
             </p>
@@ -215,6 +224,7 @@ export function ProtocolInstallDialog() {
 /** The dialog's own name for where the install has got to. */
 function title(status: InstallStatus): string {
   if (status === "complete") return m.deep_link_install_complete_title();
+  if (status === "updated") return m.deep_link_install_updated_title();
   if (status === "existing") return m.deep_link_install_existing_title();
   if (status === "error") return m.deep_link_install_failed_title();
   return m.deep_link_install_title();
