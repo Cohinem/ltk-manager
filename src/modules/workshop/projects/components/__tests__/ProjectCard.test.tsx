@@ -45,11 +45,9 @@ function project(name: string): WorkshopProject {
 
 const ONE = project("one");
 
-function show(viewMode: "grid" | "list" = "grid") {
+function show() {
   const onEdit = vi.fn();
-  renderWithProviders(
-    <ProjectCard project={ONE} viewMode={viewMode} onEdit={onEdit} tabIndex={0} />,
-  );
+  renderWithProviders(<ProjectCard project={ONE} onEdit={onEdit} tabIndex={0} />);
   return { onEdit, user: userEvent.setup() };
 }
 
@@ -64,8 +62,8 @@ beforeEach(() => {
 });
 
 describe("ProjectCard menu", () => {
-  it.each(["grid", "list"] as const)("opens the six commands on a right click in %s", async (v) => {
-    show(v);
+  it("opens the six commands on a right click", () => {
+    show();
 
     fireEvent.contextMenu(card());
 
@@ -77,8 +75,8 @@ describe("ProjectCard menu", () => {
     expect(item(/Delete/)).toBeInTheDocument();
   });
 
-  it.each(["grid", "list"] as const)("opens the same six on the kebab in %s", async (v) => {
-    const { user } = show(v);
+  it("opens the same six on the kebab", async () => {
+    const { user } = show();
 
     await user.click(screen.getByRole("button", { name: /More options/ }));
 

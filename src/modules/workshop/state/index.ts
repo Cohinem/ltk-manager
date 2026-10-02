@@ -14,6 +14,7 @@ export * from "../packing/state/packTarget";
 export * from "../projects/state/authorName";
 export * from "../projects/state/workshopFilter";
 export * from "../projects/state/workshopSelection";
+export * from "../projects/state/workshopTable";
 export * from "../references/state/references";
 export type { RowReveal } from "../shared/state/indexBrowser";
 export * from "../shared/state/scrollTops";

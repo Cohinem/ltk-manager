@@ -1,8 +1,8 @@
 import {
   DownloadSimpleIcon,
   GridFourIcon,
-  ListIcon,
   MagnifyingGlassIcon,
+  TableIcon,
 } from "@phosphor-icons/react";
 import { type ReactNode, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -20,9 +20,10 @@ import {
   ToolbarRow,
   Tooltip,
 } from "@/components";
+import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
 import type { FilterOptions } from "@/modules/library/api";
-import type { useLibraryActions } from "@/modules/library/api";
+import type { useLibraryActions, ViewMode } from "@/modules/library/api";
 import { useLibraryViewMode } from "@/modules/library/api";
 
 import { ActiveFilterChips } from "./ActiveFilterChips";
@@ -34,10 +35,20 @@ import { ProfileSelector } from "./ProfileSelector";
 import { SelectionButton } from "./SelectionButton";
 import { ViewOptionsPopover } from "./ViewOptionsPopover";
 
-const VIEW_OPTIONS: SegmentedOption<"grid" | "list">[] = [
-  { value: "grid", label: <GridFourIcon weight="bold" className="size-4" />, name: "Grid view" },
-  { value: "list", label: <ListIcon weight="bold" className="size-4" />, name: "List view" },
-];
+function viewOptions(): SegmentedOption<ViewMode>[] {
+  return [
+    {
+      value: "grid",
+      label: <GridFourIcon weight="bold" className="size-4" />,
+      name: m.library_view_grid_label(),
+    },
+    {
+      value: "table",
+      label: <TableIcon weight="bold" className="size-4" />,
+      name: m.library_view_table_label(),
+    },
+  ];
+}
 
 interface LibraryToolbarProps {
   searchQuery: string;
@@ -98,7 +109,7 @@ export function LibraryToolbar({
         <DocumentsToggle />
 
         <SegmentedControl
-          options={VIEW_OPTIONS}
+          options={viewOptions()}
           value={viewMode}
           onChange={setViewMode}
           action={<ViewOptionsPopover />}

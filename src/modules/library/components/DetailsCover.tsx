@@ -34,7 +34,7 @@ export function DetailsCover({ mod, thumbnailUrl, children }: DetailsCoverProps)
       {/* DS-INVARIANT: the wash holds its tone in both themes, where every rung
           under it flips. */}
       <div className="absolute inset-x-0 bottom-0 flex items-end gap-2 bg-linear-to-t from-scrim to-transparent px-3 pt-10 pb-2">
-        <p className="min-w-0 flex-1 truncate text-lg font-medium text-brand-on select-text">
+        <p className="line-clamp-2 min-w-0 flex-1 text-lg leading-snug font-medium text-brand-on select-text">
           {mod.displayName}
         </p>
         <span className="shrink-0 text-meta text-brand-on/70 select-text">v{mod.version}</span>

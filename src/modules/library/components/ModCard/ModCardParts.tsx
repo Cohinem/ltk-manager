@@ -4,7 +4,6 @@ import {
   CopyIcon,
   DotsThreeVerticalIcon,
   FolderIcon,
-  FolderMinusIcon,
   FolderOpenIcon,
   HeartbeatIcon,
   InfoIcon,
@@ -36,12 +35,13 @@ import {
   useHealthCheckReadiness,
   useModEffectiveCategories,
 } from "@/modules/library/api";
-import { useLibrarySidebarStore } from "@/modules/library/state";
+import { useLibrarySidebarStore, useLibraryTableStore } from "@/modules/library/state";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { useSettings } from "@/modules/settings";
 import { useModHealthDrawerStore } from "@/stores";
 import { twMerge } from "@/utils";
 
+import { MoveToFolderSubmenu } from "../MoveToFolderMenu";
 import { ModCardUpdateItem } from "./ModCardUpdateItem";
 import type { ModCardView } from "./useModCardController";
 
@@ -243,7 +243,7 @@ export function ModCardContextMenu({
  * different commands.
  */
 function ModCardMenuItems({ view }: { view: ModCardView }) {
-  const { mod, isFlagged, isInUserFolder, canChangeStorage, canCheckHealth } = view;
+  const { mod, isFlagged, canChangeStorage, canCheckHealth } = view;
 
   return (
     <>
@@ -269,14 +269,7 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
       <Menu.Item icon={<CopyIcon className="size-4" weight="bold" />} onClick={view.onCopyId}>
         {m.library_mod_copy_id_action()}
       </Menu.Item>
-      {isInUserFolder && (
-        <Menu.Item
-          icon={<FolderMinusIcon className="size-4" weight="bold" />}
-          onClick={view.onRemoveFromFolder}
-        >
-          {m.library_mod_remove_from_folder_action()}
-        </Menu.Item>
-      )}
+      <MoveToFolderSubmenu mods={[mod]} />
       <Menu.Separator />
       <Menu.Item
         icon={<TrashIcon className="size-4" weight="bold" />}
@@ -296,13 +289,21 @@ function ModCardMenuItems({ view }: { view: ModCardView }) {
  * footprint are sections of one tab, and a menu that listed them separately was
  * offering three routes to the same panel.
  */
+/** Bring back a collapsed dock, so an item that aims the panel always shows it. */
+function revealDock() {
+  useLibraryTableStore.getState().setDockCollapsed(false);
+}
+
 function ModCardDetailsItem({ modId }: { modId: string }) {
   const showDetails = useLibrarySidebarStore((s) => s.showDetails);
 
   return (
     <Menu.Item
       icon={<InfoIcon className="size-4" weight="bold" />}
-      onClick={() => showDetails(modId)}
+      onClick={() => {
+        showDetails(modId);
+        revealDock();
+      }}
     >
       {m.library_mod_details_action()}
     </Menu.Item>
@@ -322,7 +323,10 @@ function ModCardReadmeItem({ modId }: { modId: string }) {
   return (
     <Menu.Item
       icon={<BookOpenTextIcon className="size-4" weight="bold" />}
-      onClick={() => showReadme(modId)}
+      onClick={() => {
+        showReadme(modId);
+        revealDock();
+      }}
     >
       {m.library_mod_readme_action()}
     </Menu.Item>
@@ -446,10 +450,13 @@ interface AutoPillItem {
 export function ModPills({
   mod,
   max,
+  always = false,
   className,
 }: {
   mod: InstalledMod;
   max: number;
+  /** Draw the pills whatever the card display's Tags setting says, as a table column does. */
+  always?: boolean;
   className?: string;
 }) {
   const eff = useModEffectiveCategories(mod);
@@ -497,7 +504,7 @@ export function ModPills({
 
   const total = declared.length + auto.length;
   if (total === 0) return null;
-  if (settings && !settings.showModTags) return null;
+  if (!always && settings && !settings.showModTags) return null;
 
   // Declared pills get first claim on the budget so they never collapse before
   // the lower-confidence auto pills.
@@ -506,7 +513,7 @@ export function ModPills({
   const overflow = total - declaredVisible.length - autoVisible.length;
 
   return (
-    <div className={`flex flex-wrap items-center gap-1 ${className ?? ""}`}>
+    <div className={twMerge("flex flex-wrap items-center gap-1", className)}>
       {declaredVisible.map((pill) => (
         <Chip key={pill.key} tone={pill.tone} aria-label={pill.ariaLabel}>
           {pill.icon}

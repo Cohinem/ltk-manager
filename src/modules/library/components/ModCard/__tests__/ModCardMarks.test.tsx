@@ -38,7 +38,6 @@ function view(): ModCardView {
     canCheckHealth: true,
     storageChangePending: false,
     disabled: false,
-    isInUserFolder: false,
     isMultiLayer: false,
     hasSelection: false,
     isSelected: false,
@@ -56,7 +55,6 @@ function view(): ModCardView {
     onSetStorage: vi.fn(),
     onCopyId: vi.fn(),
     onOpenLocation: vi.fn(),
-    onRemoveFromFolder: vi.fn(),
   };
 }
 

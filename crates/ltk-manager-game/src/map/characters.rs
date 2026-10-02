@@ -46,7 +46,7 @@ pub struct MapCharacter {
     pub chunk: String,
     /// The key it sits under in that chunk, as `0x` and eight digits.
     pub key: String,
-    /// The placeable's own name, which is unique within a map.
+    /// The placeable's own name. A map skin can repeat one, so `chunk` and `key` identify it.
     pub name: String,
     /// The entry path of the skin it wears, such as `Characters/Turret/Skins/Skin0`.
     pub skin: String,

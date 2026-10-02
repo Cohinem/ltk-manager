@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
 import { useChampionRoster } from "@/modules/champions";
-import { sortMods } from "@/modules/library/utils";
+import { type SortContext, sortMods } from "@/modules/library/utils";
 
 import {
   useLibrarySelectedChampions,
@@ -10,7 +10,23 @@ import {
   useLibrarySelectedTags,
   useLibrarySort,
 } from "../state";
+import { useModHealthVerdicts } from "./modHealth";
+import { useFolders } from "./queries";
 import { useEffectiveCategories } from "./useEffectiveCategories";
+
+/** What the sort reads beyond a mod, for the fields another query answers. */
+export function useSortContext(): SortContext {
+  const { data: folders } = useFolders();
+  const { data: verdicts } = useModHealthVerdicts();
+
+  return useMemo(() => {
+    const names = new Map((folders ?? []).map((folder) => [folder.id, folder.name]));
+    return {
+      folderName: (folderId) => names.get(folderId),
+      healthOf: (modId) => verdicts?.[modId] ?? null,
+    };
+  }, [folders, verdicts]);
+}
 
 export function useFilteredMods(mods: InstalledMod[], searchQuery: string): InstalledMod[] {
   const selectedTags = useLibrarySelectedTags();
@@ -19,6 +35,7 @@ export function useFilteredMods(mods: InstalledMod[], searchQuery: string): Inst
   const sort = useLibrarySort();
   const effective = useEffectiveCategories(mods);
   const roster = useChampionRoster();
+  const sortContext = useSortContext();
 
   return useMemo(() => {
     let result = mods;
@@ -50,6 +67,16 @@ export function useFilteredMods(mods: InstalledMod[], searchQuery: string): Inst
       );
     }
 
-    return sortMods(result, sort);
-  }, [mods, searchQuery, selectedTags, selectedChampions, selectedMaps, sort, effective, roster]);
+    return sortMods(result, sort, sortContext);
+  }, [
+    mods,
+    searchQuery,
+    selectedTags,
+    selectedChampions,
+    selectedMaps,
+    sort,
+    effective,
+    roster,
+    sortContext,
+  ]);
 }

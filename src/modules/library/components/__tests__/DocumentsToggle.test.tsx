@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { useLibrarySidebarStore } from "@/modules/library";
+import { renderWithProviders } from "@/test/utils";
 
 import { DocumentsToggle } from "../DocumentsToggle";
 
@@ -17,7 +18,7 @@ describe("the toolbar toggle", () => {
      on and reopens wherever the reader left the panel. */
   it("reopens on the mod and the tab the panel was left on", async () => {
     useLibrarySidebarStore.setState({ open: false, tab: "licenses", modId: "a" });
-    render(<DocumentsToggle />);
+    renderWithProviders(<DocumentsToggle />);
 
     await userEvent.click(screen.getByRole("button", { name: "Documents" }));
 
@@ -29,7 +30,7 @@ describe("the toolbar toggle", () => {
   });
 
   it("closes the panel again and says which state it is in", async () => {
-    render(<DocumentsToggle />);
+    renderWithProviders(<DocumentsToggle />);
     const toggle = screen.getByRole("button", { name: "Documents" });
 
     await userEvent.click(toggle);

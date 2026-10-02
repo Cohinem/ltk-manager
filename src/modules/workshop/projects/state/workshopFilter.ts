@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { useShallow } from "zustand/react/shallow";
 
 import {
@@ -9,9 +10,10 @@ import {
   type SortConfig as FacetSortConfig,
   type SortDirection,
 } from "@/stores/facetFilter";
+import { keepUnversioned, localJsonStorage } from "@/stores/storage";
 
-/** How the workshop draws its projects, as cards or as rows. */
-export type ViewMode = "grid" | "list";
+/** How the workshop draws its projects, as cards or as a table. */
+export type ViewMode = "grid" | "table";
 
 export type WorkshopSortField = "name" | "lastModified" | "lastOpened";
 
@@ -29,28 +31,40 @@ interface WorkshopFilterStore extends FacetFilterState<WorkshopSortField> {
   setLocation: (location: WorkshopLocationFilter) => void;
 }
 
-export const useWorkshopFilterStore = create<WorkshopFilterStore>()((set) => {
-  const facets = facetFilterSlice<WorkshopSortField>(
-    { field: "lastOpened", direction: "desc" },
-    set,
-  );
+/** The sort the grid opens on, and the one a table header's menu goes back to. */
+export const DEFAULT_WORKSHOP_SORT: WorkshopSortConfig = { field: "lastOpened", direction: "desc" };
 
-  return {
-    ...facets,
-    /* The location is a facet like the others, so clearing them clears it too. */
-    clearFilters: () => {
-      facets.clearFilters();
-      set({ location: "all" });
+/* The view mode outlives a restart. The query and the filters are the session's. */
+export const useWorkshopFilterStore = create<WorkshopFilterStore>()(
+  persist(
+    (set) => {
+      const facets = facetFilterSlice<WorkshopSortField>(DEFAULT_WORKSHOP_SORT, set);
+
+      return {
+        ...facets,
+        /* The location is a facet like the others, so clearing them clears it too. */
+        clearFilters: () => {
+          facets.clearFilters();
+          set({ location: "all" });
+        },
+
+        viewMode: "grid",
+        searchQuery: "",
+        location: "all",
+        setViewMode: (mode) => set({ viewMode: mode }),
+        setSearchQuery: (query) => set({ searchQuery: query }),
+        setLocation: (location) => set({ location }),
+      };
     },
-
-    viewMode: "grid",
-    searchQuery: "",
-    location: "all",
-    setViewMode: (mode) => set({ viewMode: mode }),
-    setSearchQuery: (query) => set({ searchQuery: query }),
-    setLocation: (location) => set({ location }),
-  };
-});
+    {
+      name: "ltk-workshop-view",
+      version: 1,
+      migrate: keepUnversioned,
+      storage: localJsonStorage,
+      partialize: (state) => ({ viewMode: state.viewMode }),
+    },
+  ),
+);
 
 export function useHasActiveWorkshopFilters() {
   return useWorkshopFilterStore((s) => hasActiveFacets(s) || s.location !== "all");

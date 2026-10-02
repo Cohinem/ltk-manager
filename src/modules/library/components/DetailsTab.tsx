@@ -19,6 +19,7 @@ import {
   useSetModLayers,
 } from "@/modules/library/api";
 import { useModThumbnail } from "@/modules/library/api/useModThumbnail";
+import { useLibrarySidebarStore } from "@/modules/library/state";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
 import { twMerge } from "@/utils";
 
@@ -28,6 +29,8 @@ import { LayerToggleList } from "./LayerToggleList";
 
 interface DetailsTabProps {
   mod: InstalledMod;
+  /** Whether the tab draws the cover, which the docked panel draws above its tabs instead. */
+  showCover?: boolean;
 }
 
 /**
@@ -36,19 +39,25 @@ interface DetailsTabProps {
  * The three dialogs this replaces each answered part of that question and each
  * covered the library to do it.
  */
-export function DetailsTab({ mod }: DetailsTabProps) {
+export function DetailsTab({ mod, showCover = true }: DetailsTabProps) {
   /* Keyed by the mod, so an unfinished edit never survives onto another. */
-  return <Details key={mod.id} mod={mod} />;
+  return <Details key={mod.id} mod={mod} showCover={showCover} />;
 }
 
-function Details({ mod }: { mod: InstalledMod }) {
+function Details({ mod, showCover }: { mod: InstalledMod; showCover: boolean }) {
   const [editing, setEditing] = useState(false);
+  const setStoreEditing = useLibrarySidebarStore((s) => s.setEditing);
+
+  useEffect(() => {
+    setStoreEditing(editing);
+    return () => setStoreEditing(false);
+  }, [editing, setStoreEditing]);
 
   if (editing) return <DetailsEditForm mod={mod} onDone={() => setEditing(false)} />;
 
   return (
     <div data-ui="DetailsTab" className="min-h-0 flex-1 overflow-y-auto scrollbar-md select-none">
-      <Cover mod={mod} />
+      {showCover && <Cover mod={mod} />}
       <Actions mod={mod} onEdit={() => setEditing(true)} />
       <Facts mod={mod} />
       <Layers mod={mod} />
