@@ -18,6 +18,6 @@ export function bundledReleaseNote(): ReleaseNote | null {
     body,
     publishedAt: null,
     prerelease: false,
-    url: `https://github.com/LeagueToolkit/ltk-manager/releases/tag/v${version}`,
+    url: `https://github.com/Cohinem/ltk-manager/releases/tag/v${version}`,
   };
 }

@@ -12,7 +12,7 @@ jobs:
   prepare:
     name: Create Release PR
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'LeagueToolkit'
+    if: github.repository_owner == 'Cohinem'
     permissions:
       contents: write
       pull-requests: write

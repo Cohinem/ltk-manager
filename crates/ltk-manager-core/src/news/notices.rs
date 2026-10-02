@@ -13,7 +13,7 @@ use crate::github::{self, GitHubError};
 
 /// The document, read raw so a notice is a reviewed change.
 const DOCUMENT_URL: &str =
-    "https://raw.githubusercontent.com/LeagueToolkit/ltk-manager/main/news/notices.json";
+    "https://raw.githubusercontent.com/Cohinem/ltk-manager/main/news/notices.json";
 
 /// The one schema this build reads. A document on another is silence.
 const SCHEMA: u32 = 1;

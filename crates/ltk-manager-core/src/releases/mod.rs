@@ -12,7 +12,7 @@ use serde_json::Value;
 use crate::github::{self, GitHubError};
 
 /// Where the releases the changelog reads are published.
-const FEED_URL: &str = "https://api.github.com/repos/LeagueToolkit/ltk-manager/releases";
+const FEED_URL: &str = "https://api.github.com/repos/Cohinem/ltk-manager/releases";
 
 /// How many releases one page of the changelog holds.
 const PER_PAGE: u32 = 10;
