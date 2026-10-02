@@ -26,6 +26,12 @@ import {
 } from "@/components";
 import { m } from "@/i18n";
 import {
+  type ChampionOption,
+  championOptions,
+  ChampionPortrait,
+  useChampionRoster,
+} from "@/modules/champions";
+import {
   facetFilterActions,
   type FacetFilterState,
   type SortConfig,
@@ -101,21 +107,45 @@ export function FacetFilterPopover<F extends string>({
   const selectedChampions = useStore(store, (s) => s.selectedChampions);
   const selectedMaps = useStore(store, (s) => s.selectedMaps);
   const sort = useStore(store, (s) => s.sort);
-  const { toggleTag, toggleChampion, toggleMap, clearFilters, setSort } = useStore(
+  const { toggleTag, toggleChampion, toggleMap, setChampions, clearFilters, setSort } = useStore(
     store,
     useShallow(facetFilterActions<F>),
   );
+  const roster = useChampionRoster();
   const [champSearch, setChampSearch] = useState("");
-  const hasChampions = options.champions.length > 0;
 
   const tags = useMemo(() => mergeUnique(WELL_KNOWN_TAGS, options.tags), [options.tags]);
   const maps = useMemo(() => mergeUnique(WELL_KNOWN_MAPS, options.maps), [options.maps]);
 
+  const champions = useMemo(
+    () => championOptions(roster, options.champions),
+    [roster, options.champions],
+  );
+  const hasChampions = champions.length > 0;
+
   const filteredChampions = useMemo(() => {
-    if (!champSearch) return options.champions;
+    if (!champSearch) return champions;
+
     const q = champSearch.toLowerCase();
-    return options.champions.filter((c) => c.toLowerCase().includes(q));
-  }, [options.champions, champSearch]);
+    return champions.filter((option) => option.search.includes(q));
+  }, [champions, champSearch]);
+
+  const selectedChampionKeys = useMemo(
+    () => new Set([...selectedChampions].map(roster.keyOf)),
+    [selectedChampions, roster],
+  );
+
+  /* A row stands for every value naming its champion, so unchecking it drops them all. */
+  const toggleChampionOption = (option: ChampionOption) => {
+    if (!selectedChampionKeys.has(option.key)) {
+      toggleChampion(option.value);
+      return;
+    }
+
+    setChampions(
+      new Set([...selectedChampions].filter((value) => roster.keyOf(value) !== option.key)),
+    );
+  };
 
   return (
     <Popover.Root onOpenChange={onOpenChange}>
@@ -176,12 +206,13 @@ export function FacetFilterPopover<F extends string>({
                   </div>
                 }
               >
-                {filteredChampions.map((champ) => (
+                {filteredChampions.map((option) => (
                   <FilterOption
-                    key={champ}
-                    label={champ}
-                    checked={selectedChampions.has(champ)}
-                    onToggle={() => toggleChampion(champ)}
+                    key={option.key}
+                    label={option.label}
+                    icon={<ChampionPortrait champion={option.champion} className="size-4" />}
+                    checked={selectedChampionKeys.has(option.key)}
+                    onToggle={() => toggleChampionOption(option)}
                   />
                 ))}
                 {filteredChampions.length === 0 && (

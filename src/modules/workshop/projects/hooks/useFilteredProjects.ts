@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
 import type { WorkshopProject } from "@/lib/tauri";
+import { useChampionRoster } from "@/modules/champions";
 
 import {
   useWorkshopLocation,
@@ -20,6 +21,7 @@ export function useFilteredProjects() {
   const selectedMaps = useWorkshopSelectedMaps();
   const sort = useWorkshopSort();
   const location = useWorkshopLocation();
+  const roster = useChampionRoster();
 
   return useMemo(() => {
     let result = projects;
@@ -41,7 +43,8 @@ export function useFilteredProjects() {
       result = result.filter((p) => p.tags.some((t) => selectedTags.has(t)));
     }
     if (selectedChampions.size > 0) {
-      result = result.filter((p) => p.champions.some((c) => selectedChampions.has(c)));
+      const championKeys = new Set([...selectedChampions].map(roster.keyOf));
+      result = result.filter((p) => p.champions.some((c) => championKeys.has(roster.keyOf(c))));
     }
     if (selectedMaps.size > 0) {
       result = result.filter((p) => p.maps.some((m) => selectedMaps.has(m)));
@@ -64,7 +67,16 @@ export function useFilteredProjects() {
     });
 
     return sorted;
-  }, [projects, searchQuery, location, selectedTags, selectedChampions, selectedMaps, sort]);
+  }, [
+    projects,
+    searchQuery,
+    location,
+    selectedTags,
+    selectedChampions,
+    selectedMaps,
+    sort,
+    roster,
+  ]);
 }
 
 /* A project never opened sorts by when it last changed, so it lands among the others. */

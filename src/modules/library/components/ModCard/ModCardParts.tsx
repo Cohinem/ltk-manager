@@ -31,6 +31,7 @@ import {
 } from "@/components";
 import { m } from "@/i18n";
 import type { InstalledMod, ModStorage } from "@/lib/tauri";
+import { ChampionPortrait, useChampionRoster } from "@/modules/champions";
 import {
   useCheckModHealth,
   useHealthCheckReadiness,
@@ -454,6 +455,7 @@ export function ModPills({
 }) {
   const eff = useModEffectiveCategories(mod);
   const { data: settings } = useSettings();
+  const roster = useChampionRoster();
 
   const said = foldChampionSkin(mod.tags, mod.champions);
   const guessed = foldChampionSkin(
@@ -464,19 +466,28 @@ export function ModPills({
 
   /* The helmet says skin and the label says whose, so the pill spends its width
      on the one thing a `Champion Skin` beside it could not tell you. */
-  const skinPill = (champion: string, key: string) => ({
-    label: champion,
+  const skinPill = (value: string, key: string) => {
+    const champion = roster.labelOf(value);
+    return {
+      label: champion,
+      tone: "champion" as const,
+      key,
+      icon: <ChampionIcon className="size-3 shrink-0" />,
+      ariaLabel: m.library_mod_champion_skin_label({ champion }),
+    };
+  };
+  const championPill = (value: string, key: string) => ({
+    label: roster.labelOf(value),
     tone: "champion" as const,
     key,
-    icon: <ChampionIcon className="size-3 shrink-0" />,
-    ariaLabel: m.library_mod_champion_skin_label({ champion }),
+    icon: <ChampionPortrait champion={roster.find(value)} className="mr-0.5 size-3" />,
   });
 
   // The folded pill leads: it names the mod's subject, where a tag only sorts it.
   const declared: DeclaredPill[] = [
     ...said.skins.map((c) => skinPill(c, `skin:${c}`)),
     ...said.tags.map((t) => ({ label: getTagLabel(t), tone: "tag" as const, key: `tag:${t}` })),
-    ...said.champions.map((c) => ({ label: c, tone: "champion" as const, key: `champ:${c}` })),
+    ...said.champions.map((c) => championPill(c, `champ:${c}`)),
   ];
   const auto: AutoPillItem[] = [
     ...guessed.skins.map((c) => skinPill(c, `auto-skin:${c}`)),
@@ -485,11 +496,7 @@ export function ModPills({
       tone: "tag" as const,
       key: `auto-tag:${t}`,
     })),
-    ...guessed.champions.map((c) => ({
-      label: c,
-      tone: "champion" as const,
-      key: `auto-champ:${c}`,
-    })),
+    ...guessed.champions.map((c) => championPill(c, `auto-champ:${c}`)),
     ...eff.derivedMaps.map((m) => ({
       label: getMapLabel(m),
       tone: "map" as const,

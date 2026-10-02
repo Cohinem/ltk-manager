@@ -38,7 +38,7 @@ mod types;
 #[cfg(test)]
 pub(crate) mod test_support;
 
-pub use analysis::categorize::{ChampionRoster, DerivedCategorization};
+pub use analysis::categorize::{ChampionRoster, DerivedCategorization, champion_display_name};
 pub use analysis::checksum_mismatches::{ChecksumMismatchInfo, ChecksumMismatchState};
 pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};

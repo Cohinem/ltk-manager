@@ -5,6 +5,7 @@ import { match } from "ts-pattern";
 import { Button, Checkbox, Chip, ContextMenu, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
+import { ChampionChip } from "@/modules/champions";
 import { SuspectBadge } from "@/modules/diagnostics";
 import { getTagLabel } from "@/modules/library";
 import { useStopPatcher } from "@/modules/patcher";
@@ -409,8 +410,8 @@ function ProjectPills({
   const { data: settings } = useSettings();
 
   const pills = [
-    ...project.tags.map((t) => ({ label: getTagLabel(t), color: "tag" as const })),
-    ...project.champions.map((c) => ({ label: c, color: "champion" as const })),
+    ...project.tags.map((value) => ({ value, kind: "tag" as const })),
+    ...project.champions.map((value) => ({ value, kind: "champion" as const })),
   ];
   if (pills.length === 0) return null;
   if (settings && !settings.showModTags) return null;
@@ -420,11 +421,17 @@ function ProjectPills({
 
   return (
     <div className={`flex flex-wrap items-center gap-1 ${className ?? ""}`}>
-      {visible.map((pill) => (
-        <Chip key={`${pill.color}:${pill.label}`} tone={pill.color}>
-          {pill.label}
-        </Chip>
-      ))}
+      {visible.map((pill) => {
+        if (pill.kind === "champion") {
+          return <ChampionChip key={`champion:${pill.value}`} value={pill.value} />;
+        }
+
+        return (
+          <Chip key={`tag:${pill.value}`} tone="tag">
+            {getTagLabel(pill.value)}
+          </Chip>
+        );
+      })}
       {overflow > 0 && (
         <span className="text-fine text-surface-500">
           {m.workshop_card_pills_overflow_label({ count: overflow })}

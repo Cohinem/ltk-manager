@@ -464,6 +464,7 @@ export const api = {
     }),
   searchStringKeys: (query: string, limit?: number) => game.searchStringKeys(query, limit ?? null),
   lookupStringValues: game.lookupStringValues,
+  readChampions: game.readChampions,
   getLayerContentPath: workshop.getLayerContentPath,
   getLayerInfo: workshop.getLayerInfo,
   createProjectLayer: (

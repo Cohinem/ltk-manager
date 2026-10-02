@@ -1,5 +1,6 @@
 import { Chip } from "@/components";
 import { m } from "@/i18n";
+import { ChampionChip } from "@/modules/champions";
 import { getMapLabel, getTagLabel } from "@/modules/library";
 
 import {
@@ -38,14 +39,12 @@ export function WorkshopActiveFilterChips() {
         </Chip>
       ))}
       {[...selectedChampions].map((champ) => (
-        <Chip
+        <ChampionChip
           key={`champ:${champ}`}
+          value={champ}
           size="md"
-          tone="champion"
           onRemove={() => toggleChampion(champ)}
-        >
-          {champ}
-        </Chip>
+        />
       ))}
       {[...selectedMaps].map((map) => (
         <Chip key={`map:${map}`} size="md" tone="map" onRemove={() => toggleMap(map)}>
