@@ -40,6 +40,8 @@ export { useModStorageToast } from "./useModStorageToast";
 export { ModThumbnails, useThumbnailsBatched } from "./useModThumbnails";
 export { useAllModWadReports, useModWadReport } from "./useModWadReport";
 export { useMoveModToFolder, useReorderFolderMods, useReorderFolders } from "./useMoveMod";
+export { useOpenedFilesListener } from "./useOpenedFilesListener";
+export { useOpenedModFiles } from "./useOpenedModFiles";
 export { useOverlayProgress } from "./useOverlayProgress";
 export { useRenameProfile } from "./useRenameProfile";
 export { useReorderMods } from "./useReorderMods";

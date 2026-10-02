@@ -46,8 +46,8 @@ fn main() {
     }
 
     let builder = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
-            deep_link::handle_argv(app, &argv);
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            deep_link::handle_argv(app, &argv, std::path::Path::new(&cwd));
         }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())

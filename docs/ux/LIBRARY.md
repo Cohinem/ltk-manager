@@ -4,6 +4,7 @@
 
 | Date       | Change                                                     |
 | ---------- | ---------------------------------------------------------- |
+| 2026-10-02 | Opening a mod file from Explorer installs it               |
 | 2026-09-30 | A library edit reaches a running patcher between games     |
 | 2026-09-12 | The documents panel is a drawer over the grid, not a pane  |
 | 2026-09-12 | The licenses tab follows the open mod, like the other two  |
@@ -51,7 +52,7 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Filters and sort       | Available | A popover off the search box, and chips under the toolbar     |
 | Search                 | Available | `Ctrl+F`. Flattens the folders while it has a query           |
 | Manual reorder         | Available | Drag within a folder. Off under a search, a filter or a pick  |
-| Import                 | Available | `Ctrl+I`, the toolbar button, or a drop onto the window       |
+| Import                 | Available | `Ctrl+I`, the toolbar button, a drop, or a file from Explorer |
 | Layers                 | Available | A popover on a multi-layer card                               |
 | Storage                | Available | Project or archive, on the card's menu. ADR-0008              |
 | Mod health             | Available | Its own document, [MOD_HEALTH.md](MOD_HEALTH.md)              |
@@ -184,6 +185,20 @@ already running when the patcher started.
 
 A repair and a profile rename still wait for the patcher to stop. A repair rewrites the archive the
 rebuild reads, and a rename moves the folder the overlay is in.
+
+## Opening a mod file
+
+With `Open mod files with LTK Manager` on in Settings, double-clicking a `.fantome` or `.modpkg`
+file in Explorer installs it. The window comes forward on the Mods page, and the install runs
+exactly as a drop onto the window does: the same progress dialog for several files, and the same
+toast with the result. Nothing asks first, because the reader chose a local file.
+
+The app may be closed, running in the tray or open on another page. A file opened before the window
+is ready waits for it. A first run still opens on Settings, and the file installs once the reader
+reaches the library.
+
+Explorer starts the app once per selected file. The files that arrive within 300 ms of each other
+install as one import, so a multi-select reads as one action.
 
 ## The documents panel
 

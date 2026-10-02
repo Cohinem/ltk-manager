@@ -83,3 +83,33 @@ FunctionEnd
   nsExec::Exec 'taskkill /F /T /IM ltk_patcher_host.exe'
   Pop $0
 !macroend
+
+; Removes the mod file types the app registers for the user, per
+; docs/adr/0060-mod-file-types-are-registered-per-user-by-the-app.md. This
+; reaches the elevated token's hive alone, the limit ADR-0055 describes.
+; Values go one by one, because another program may share these keys.
+!macro LtkRemoveFileType EXT PROGID
+  DeleteRegKey HKCU "Software\Classes\${PROGID}"
+  DeleteRegValue HKCU "Software\Classes\${EXT}\OpenWithProgids" "${PROGID}"
+
+  ReadRegStr $0 HKCU "Software\Classes\${EXT}" ""
+  ${If} $0 == "${PROGID}"
+    DeleteRegValue HKCU "Software\Classes\${EXT}" ""
+  ${EndIf}
+
+  DeleteRegValue HKCU "Software\Classes\Applications\${MAINBINARYNAME}.exe\SupportedTypes" "${EXT}"
+!macroend
+
+!macro NSIS_HOOK_POSTUNINSTALL
+  ; An update uninstalls the old version too, and the new one owns the same keys.
+  ${If} $UpdateMode <> 1
+    !insertmacro LtkRemoveFileType ".fantome" "LTKManager.Fantome"
+    !insertmacro LtkRemoveFileType ".modpkg" "LTKManager.Modpkg"
+
+    DeleteRegValue HKCU "Software\Classes\Applications\${MAINBINARYNAME}.exe" "FriendlyAppName"
+    DeleteRegKey HKCU "Software\LeagueToolkit\Manager\Capabilities"
+    DeleteRegValue HKCU "Software\RegisteredApplications" "LTK Manager"
+
+    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+  ${EndIf}
+!macroend

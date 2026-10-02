@@ -1,4 +1,5 @@
 mod download;
+pub mod files;
 
 pub use download::download_mod_file;
 #[cfg(test)]
@@ -322,13 +323,15 @@ pub fn handle_urls(app_handle: &tauri::AppHandle, urls: &[url::Url]) {
     }
 }
 
-/// Process deep-link URLs from CLI argv (used by single-instance callback).
-pub fn handle_argv(app_handle: &tauri::AppHandle, argv: &[String]) {
+/// Route a second launch's arguments: `ltk://` links, and mod files Explorer opened.
+pub fn handle_argv(app_handle: &tauri::AppHandle, argv: &[String], cwd: &std::path::Path) {
     for arg in argv.iter().skip(1) {
         if arg.starts_with("ltk://") {
             handle_single(app_handle, arg);
         }
     }
+
+    files::open(app_handle, files::mod_files(argv, cwd));
 
     raise_main_window(app_handle);
 }

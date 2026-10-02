@@ -72,6 +72,8 @@ export const api = {
     release: commands.integrationRelease,
     change: commands.changeIntegration,
     cancel: commands.cancelIntegrationDownload,
+    fileTypeStatus: commands.fileTypeStatus,
+    openDefaultApps: commands.openDefaultApps,
   },
   getAppInfo: commands.getAppInfo,
   getPlatformSupport: commands.getPlatformSupport,
@@ -229,6 +231,7 @@ export const api = {
     source?: string | null,
   ) => commands.deepLinkInstallMod(url, name ?? null, author ?? null, source ?? null),
   takePendingDeepLink: commands.takePendingDeepLink,
+  takePendingOpenedFiles: commands.takePendingOpenedFiles,
 
   // Shell
   revealInExplorer: commands.revealInExplorer,

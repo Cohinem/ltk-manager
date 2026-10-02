@@ -6,7 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { ConfirmHost, ToastProvider } from "@/components";
-import type { IntegrationStatus } from "@/lib/tauri";
+import type { FileTypeStatus, IntegrationStatus } from "@/lib/tauri";
 import { commandNames } from "@/test/commandNames";
 import { createMockSettings } from "@/test/fixtures";
 import { mockInvoke } from "@/test/mocks/tauri";
@@ -29,7 +29,11 @@ const absent: IntegrationStatus = {
   operation: null,
 };
 
-function show(status: Partial<IntegrationStatus> = {}, offline = false) {
+function show(
+  status: Partial<IntegrationStatus> = {},
+  offline = false,
+  fileTypes: FileTypeStatus[] = [],
+) {
   const client = createTestQueryClient();
   const settings = createMockSettings();
   client.setQueryData(settingsKeys.settings(), settings);
@@ -51,6 +55,8 @@ function show(status: Partial<IntegrationStatus> = {}, offline = false) {
         },
       });
     }
+    if (command === commandNames.app.fileTypeStatus)
+      return Promise.resolve({ ok: true, value: fileTypes });
     if (command === commandNames.app.getSettings || command === commandNames.app.getDefaultSettings)
       return Promise.resolve({ ok: true, value: settings });
     return Promise.resolve({ ok: true, value: null });
@@ -68,6 +74,35 @@ function show(status: Partial<IntegrationStatus> = {}, offline = false) {
 beforeEach(() => mockInvoke.mockReset());
 
 describe("IntegrationsSection", () => {
+  it("names the program each mod file type opens with", async () => {
+    const user = userEvent.setup();
+    show({}, false, [
+      { fileType: "fantome", owner: { kind: "other", program: "7-Zip File Manager" } },
+      { fileType: "modpkg", owner: { kind: "manager" } },
+    ]);
+
+    expect(await screen.findByText("Opens with 7-Zip File Manager")).toBeInTheDocument();
+    expect(screen.getByText("Opens with LTK Manager")).toBeInTheDocument();
+
+    const choose = screen.getAllByRole("button", { name: "Choose in Windows" });
+    expect(choose).toHaveLength(1);
+    await user.click(choose[0]);
+
+    await waitFor(() =>
+      expect(
+        mockInvoke.mock.calls.some(([command]) => command === commandNames.app.openDefaultApps),
+      ).toBe(true),
+    );
+  });
+
+  it("leaves the mod files card out where no type can be registered", async () => {
+    show();
+
+    await screen.findByRole("region", { name: "Wad Tools" });
+
+    expect(screen.queryByText("Open mod files with LTK Manager")).not.toBeInTheDocument();
+  });
+
   it.each([
     ["wadtools", "Wad Tools"],
     ["tex-toolz", "Tex Tools"],

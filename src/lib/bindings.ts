@@ -171,6 +171,8 @@ export const commands = {
 	 *  once, as its listener comes up, and the answer is `None` from then on.
 	 */
 	takePendingDeepLink: () => __TAURI_INVOKE<({ ok: true; value: DeepLinkRequest | null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("take_pending_deep_link"),
+	/**  Take the mod files Explorer opened before the frontend could listen for them. */
+	takePendingOpenedFiles: () => __TAURI_INVOKE<({ ok: true; value: FilesOpened }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("take_pending_opened_files"),
 	/**  Read page `page` of the release feed, one-based as GitHub numbers it. */
 	listReleases: (page: number) => __TAURI_INVOKE<({ ok: true; value: ReleasePage }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("list_releases", { page }),
 	/**  Read the newest posts in the Announcements category. */
@@ -185,6 +187,10 @@ export const commands = {
 	changeIntegration: (tool: Tool, action: IntegrationAction, conflicts: MenuConflictPolicy) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("change_integration", { tool, action, conflicts }),
 	/**  Cancel a matching download before registration begins. */
 	cancelIntegrationDownload: (operationId: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("cancel_integration_download", { operationId }),
+	/**  Which program Explorer opens each mod file type with. */
+	fileTypeStatus: () => __TAURI_INVOKE<({ ok: true; value: FileTypeStatus[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("file_type_status"),
+	/**  Open the app's page in Windows' Default apps settings. */
+	openDefaultApps: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("open_default_apps"),
 	/**
 	 *  The view controller at `entry` in the open document `document`, with its base scene bin,
 	 *  its manifest and every sprite resolved through the document's sandbox.
@@ -432,7 +438,7 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","changeIntegration":"change_integration","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","minimizeToTray":"minimize_to_tray","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","readUiCharacters":"read_ui_characters","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiTooltips":"read_ui_tooltips","readUiView":"read_ui_view","rebuildOverlay":"rebuild_overlay","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveSettings":"save_settings","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","takePendingDeepLink":"take_pending_deep_link","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path"} as const;
+export const commandNames = {"atlasExportSprite":"atlas_export_sprite","atlasImportFontFile":"atlas_import_font_file","atlasImportSprite":"atlas_import_sprite","atlasMakeSurface":"atlas_make_surface","atlasPatchSprite":"atlas_patch_sprite","atlasSheet":"atlas_sheet","autoDetectLeaguePath":"auto_detect_league_path","cancelIntegrationDownload":"cancel_integration_download","cancelLaunch":"cancel_launch","changeIntegration":"change_integration","checkInstallMismatch":"check_install_mismatch","checkSetupRequired":"check_setup_required","decodeIncidentToken":"decode_incident_token","deepLinkInstallMod":"deep_link_install_mod","detectLeagueRunAsAdmin":"detect_league_run_as_admin","detectStorageMedium":"detect_storage_medium","dismissAllIncidents":"dismiss_all_incidents","dismissIncident":"dismiss_incident","fileTypeStatus":"file_type_status","getAppInfo":"get_app_info","getChecksumMismatches":"get_checksum_mismatches","getDefaultSettings":"get_default_settings","getLaunchAvailability":"get_launch_availability","getLeagueSession":"get_league_session","getLinkedBinOffenders":"get_linked_bin_offenders","getPatcherStatus":"get_patcher_status","getPlatformSupport":"get_platform_support","getSettings":"get_settings","incidentReport":"incident_report","incidentToken":"incident_token","integrationRelease":"integration_release","integrationStatus":"integration_status","launchLeague":"launch_league","listAnnouncements":"list_announcements","listAvailableWads":"list_available_wads","listForcibleMapSkins":"list_forcible_map_skins","listIncidents":"list_incidents","listMapDecorations":"list_map_decorations","listNotices":"list_notices","listReleases":"list_releases","minimizeToTray":"minimize_to_tray","openDefaultApps":"open_default_apps","openElevatedTerminal":"open_elevated_terminal","pauseHotkeys":"pause_hotkeys","readUiCharacters":"read_ui_characters","readUiFont":"read_ui_font","readUiFontCatalog":"read_ui_font_catalog","readUiLoadout":"read_ui_loadout","readUiMaterialPrograms":"read_ui_material_programs","readUiPrograms":"read_ui_programs","readUiSceneView":"read_ui_scene_view","readUiTooltips":"read_ui_tooltips","readUiView":"read_ui_view","rebuildOverlay":"rebuild_overlay","resetTelemetrySecret":"reset_telemetry_secret","resumeHotkeys":"resume_hotkeys","revealGameLog":"reveal_game_log","revealInExplorer":"reveal_in_explorer","runDiagnostics":"run_diagnostics","saveSettings":"save_settings","setHotkey":"set_hotkey","showMainWindow":"show_main_window","startPatcher":"start_patcher","stopLeague":"stop_league","stopPatcher":"stop_patcher","switchLeagueInstall":"switch_league_install","takePendingDeepLink":"take_pending_deep_link","takePendingOpenedFiles":"take_pending_opened_files","telemetryIdentity":"telemetry_identity","trackUiError":"track_ui_error","validateLeaguePath":"validate_league_path"} as const;
 
 /* Types */
 /**  Accent color configuration. */
@@ -2575,6 +2581,26 @@ export type FileOutcome = {
 	change?: FileChange,
 };
 
+/**  The program Explorer opens a mod file type with. */
+export type FileTypeOwner = 
+/**  This executable. */
+{ kind: "manager" } | 
+/**  Another program, by the name Windows shows for it. */
+{ kind: "other"; program: string } | 
+/**  No program, so Windows asks which one to use. */
+{ kind: "unassigned" };
+
+/**  One mod file type and the program that opens it. */
+export type FileTypeStatus = {
+	fileType: ModFileType,
+	owner: FileTypeOwner,
+};
+
+/**  Mod files the reader opened from Explorer, as one batch. */
+export type FilesOpened = {
+	paths: string[],
+};
+
 /**
  *  What a repair would change, in the words a row draws.
  * 
@@ -4595,6 +4621,13 @@ export type ModDocument =
 /**  The archive that would hold it did not answer. */
 { state: "unreadable"; reason: string };
 
+/**  A mod archive format Explorer opens with the manager. */
+export type ModFileType = 
+/**  A `.fantome` archive. */
+"fantome" | 
+/**  A `.modpkg` package. */
+"modpkg";
+
 /**  The one word a mod's badge says. */
 export type ModHealth = 
 /**
@@ -6483,6 +6516,8 @@ export type Settings_Deserialize = {
 	startInTray?: boolean,
 	/**  Whether to register the app to launch automatically on login. Default: false. */
 	autoRun?: boolean,
+	/**  Whether `.fantome` and `.modpkg` open with the app from Explorer. Default: true. */
+	registerFileTypes?: boolean,
 	/**  When starting in tray, show the window if an update is available. Default: false. */
 	startInTrayUnlessUpdate?: boolean,
 	/**  Whether a release downloads as soon as a check finds it, to install at quit. Default: true. */
@@ -6577,6 +6612,8 @@ export type Settings_Serialize = {
 	startInTray: boolean,
 	/**  Whether to register the app to launch automatically on login. Default: false. */
 	autoRun: boolean,
+	/**  Whether `.fantome` and `.modpkg` open with the app from Explorer. Default: true. */
+	registerFileTypes: boolean,
 	/**  When starting in tray, show the window if an update is available. Default: false. */
 	startInTrayUnlessUpdate: boolean,
 	/**  Whether a release downloads as soon as a check finds it, to install at quit. Default: true. */

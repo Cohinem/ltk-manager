@@ -3,6 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/r
 import {
   api,
   type AppError,
+  type FileTypeStatus,
   type IntegrationStatus,
   type IntegrationRelease,
   type IntegrationAction,
@@ -52,6 +53,35 @@ export function useChangeIntegration(tool: Tool) {
       unwrapForQuery(await api.integrations.change(tool, action, conflicts));
     },
     onSettled: () => client.invalidateQueries({ queryKey: statusKey }),
+  });
+}
+
+/** How often the file type status is read while the card is mounted. */
+const FILE_TYPES_POLL_MS = 2000;
+
+/**
+ * Which program opens each mod file type.
+ *
+ * Polled rather than invalidated, because the switch applies its change after the
+ * settings save and Default apps changes it outside the app.
+ */
+export function useFileTypes() {
+  return useQuery(
+    queryOptions<FileTypeStatus[], AppError>({
+      queryKey: ["settings", "file-types"],
+      queryFn: queryFn(api.integrations.fileTypeStatus),
+      refetchInterval: FILE_TYPES_POLL_MS,
+      refetchOnWindowFocus: true,
+    }),
+  );
+}
+
+/** Opens the app's page in Windows' Default apps settings. */
+export function useOpenDefaultApps() {
+  return useMutation<void, AppError>({
+    mutationFn: async () => {
+      unwrapForQuery(await api.integrations.openDefaultApps());
+    },
   });
 }
 

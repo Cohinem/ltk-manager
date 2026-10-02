@@ -26,6 +26,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     authorProfiles: [],
     defaultAuthorProfileId: null,
     autoRun: false,
+    registerFileTypes: true,
     startInTrayUnlessUpdate: false,
     autoDownloadUpdates: true,
     alwaysStartPatcher: false,

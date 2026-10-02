@@ -116,6 +116,12 @@ const INDEX = [
     title: m.settings_builtins_map_decorations_title(),
   },
 
+  {
+    id: "integrations.registerFileTypes",
+    key: "registerFileTypes",
+    title: m.settings_file_types_register_title(),
+  },
+
   { id: "patching.patchTft", key: "patchTft", title: "Patch TFT files" },
   { id: "patching.elevateInjector", key: "elevateInjector", title: "Run injector elevated" },
   {
