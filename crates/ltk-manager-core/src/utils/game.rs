@@ -236,7 +236,7 @@ fn archives_in(dir: &Path) -> AppResult<Vec<(String, PathBuf)>> {
 }
 
 /// `name` without its archive suffix, in any case, and `name` whole where it has none.
-pub(crate) fn archive_stem(name: &str) -> &str {
+pub fn archive_stem(name: &str) -> &str {
     let split = name.len().saturating_sub(ARCHIVE_SUFFIX.len());
     match name.get(split..) {
         Some(suffix) if suffix.eq_ignore_ascii_case(ARCHIVE_SUFFIX) => &name[..split],

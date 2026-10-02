@@ -1065,6 +1065,18 @@ export type Category =
 /**  Mod library state checks (index integrity). */
 "library";
 
+/**  One champion the install ships. */
+export type Champion = {
+	/**  The folder its paths name it by, such as `MonkeyKing`. */
+	id: string,
+	/**  The name a mod's metadata gives it, as categorization writes it, such as `Wukong`. */
+	metadataName: string,
+	/**  Its name in the game's string table, in the game's locale, such as `Wukong`. */
+	name: string | null,
+	/**  The square icon of its base skin. */
+	icon: UiTexture | null,
+};
+
 /**  What a document's rows are compared with. */
 export type ChangeBaseline = 
 /**  The file as the document read it, before any edit since. */

@@ -62,6 +62,8 @@ services! {
         // Strings
         search_string_keys,
         lookup_string_values,
+        // Champions
+        read_champions,
     }
     library("library") {
         // Mods

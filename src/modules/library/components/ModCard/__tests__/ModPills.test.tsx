@@ -26,6 +26,15 @@ vi.mock("@/modules/settings", () => ({
   useSettings: () => ({ data: { showModTags: true } }),
 }));
 
+vi.mock("@/modules/champions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/champions")>();
+  const roster = actual.championRoster([
+    { id: "MonkeyKing", metadataName: "Wukong", name: "Wukong", icon: null },
+    { id: "KSante", metadataName: "KSante", name: "K'Sante", icon: null },
+  ]);
+  return { ...actual, useChampionRoster: () => roster };
+});
+
 function mod(over: Partial<InstalledMod> = {}): InstalledMod {
   return { ...installedMod("a", "A Mod"), ...over };
 }
@@ -81,6 +90,18 @@ describe("ModPills", () => {
 
     expect(screen.getByText("Thresh")).toBeInTheDocument();
     expect(screen.queryByLabelText("Thresh skin")).not.toBeInTheDocument();
+  });
+
+  it("names a champion by its display name in the game", () => {
+    show({ tags: ["champion-skin"], champions: ["ksante"], maps: [] });
+
+    expect(screen.getByLabelText("K'Sante skin")).toBeInTheDocument();
+  });
+
+  it("names a champion its ID names by its display name", () => {
+    show({ champions: ["MonkeyKing"] });
+
+    expect(screen.getByText("Wukong")).toBeInTheDocument();
   });
 
   it("folds an auto-detected pair the same way", () => {

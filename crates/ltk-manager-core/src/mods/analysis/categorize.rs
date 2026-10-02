@@ -125,7 +125,7 @@ impl ChampionRoster {
 
 /// Map a champion's internal name to its display name (`"MonkeyKing"` →
 /// `"Wukong"`); names without an override pass through unchanged.
-fn champion_display_name(internal: &str) -> String {
+pub fn champion_display_name(internal: &str) -> String {
     match internal {
         "MonkeyKing" => "Wukong".to_string(),
         other => other.to_string(),

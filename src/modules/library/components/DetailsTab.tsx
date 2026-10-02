@@ -11,6 +11,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Chip, Disclosure, OVERLINE } from "@/components";
 import { m } from "@/i18n";
 import { type InstalledMod, revealPath } from "@/lib/tauri";
+import { ChampionChip } from "@/modules/champions";
 import {
   useAnalyzeModWads,
   useModChecksumMismatches,
@@ -110,31 +111,21 @@ function Facts({ mod }: { mod: InstalledMod }) {
 }
 
 function Categories({ mod }: { mod: InstalledMod }) {
-  const pills = [
-    ...mod.tags.map((tag) => ({
-      key: `tag:${tag}`,
-      label: getTagLabel(tag),
-      tone: "tag" as const,
-    })),
-    ...mod.champions.map((champion) => ({
-      key: `champion:${champion}`,
-      label: champion,
-      tone: "champion" as const,
-    })),
-    ...mod.maps.map((map) => ({
-      key: `map:${map}`,
-      label: getMapLabel(map),
-      tone: "map" as const,
-    })),
-  ];
-
-  if (pills.length === 0) return null;
+  if (mod.tags.length + mod.champions.length + mod.maps.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {pills.map((pill) => (
-        <Chip key={pill.key} size="md" tone={pill.tone} className="select-none">
-          {pill.label}
+    <div className="flex flex-wrap gap-1.5 select-none">
+      {mod.tags.map((tag) => (
+        <Chip key={`tag:${tag}`} size="md" tone="tag">
+          {getTagLabel(tag)}
+        </Chip>
+      ))}
+      {mod.champions.map((champion) => (
+        <ChampionChip key={`champion:${champion}`} value={champion} size="md" />
+      ))}
+      {mod.maps.map((map) => (
+        <Chip key={`map:${map}`} size="md" tone="map">
+          {getMapLabel(map)}
         </Chip>
       ))}
     </div>
