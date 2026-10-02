@@ -13,7 +13,7 @@ interface VirtualTreeProps<Row> extends Omit<
 > {
   scrollRef: RefObject<HTMLDivElement | null>;
   rows: readonly Row[];
-  /** `virtualizer.getVirtualItems()`, read in the component that owns the virtualizer. */
+  /** `virtualizer.getVirtualItems()`, read in the component or hook that calls `useVirtualizer`. */
   items: readonly VirtualItem[];
   /** `virtualizer.getTotalSize()`. */
   totalSize: number;

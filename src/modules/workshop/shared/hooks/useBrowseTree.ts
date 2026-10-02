@@ -23,7 +23,8 @@ interface UseBrowseTreeParams<Row extends DepthRow> {
  * The scroll element, pinned band and virtualizer of a read-only tree.
  *
  * Everything the tree scrolls to itself clears the pinned band rather than landing under it.
- * `sticky` is in the shape `VirtualTree` takes.
+ * `items`, `totalSize` and `sticky` are in the shape `VirtualTree` takes. The window is read
+ * here, since React Compiler memoizes a caller that reads it off the stable `virtualizer`.
  */
 export function useBrowseTree<Row extends DepthRow>({
   rows,
@@ -63,5 +64,11 @@ export function useBrowseTree<Row extends DepthRow>({
   });
   useRemeasure(virtualizer, rowHeight);
 
-  return { scrollRef, virtualizer, sticky: { rows: sticky, height } };
+  return {
+    scrollRef,
+    virtualizer,
+    items: virtualizer.getVirtualItems(),
+    totalSize: virtualizer.getTotalSize(),
+    sticky: { rows: sticky, height },
+  };
 }
