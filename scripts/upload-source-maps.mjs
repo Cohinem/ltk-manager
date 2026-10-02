@@ -11,6 +11,7 @@
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -46,9 +47,18 @@ function releaseVersion() {
   return version[1];
 }
 
+/**
+ * Run the pinned vendor CLI.
+ *
+ * Its JS entry runs under this Node, because Node refuses to spawn a Windows
+ * `.cmd` shim such as `npx.cmd` without a shell (CVE-2024-27980).
+ */
 function posthog(args) {
-  const npx = process.platform === "win32" ? "npx.cmd" : "npx";
-  execFileSync(npx, ["--yes", "@posthog/cli", ...args], { stdio: "inherit", cwd: root });
+  const cli = createRequire(import.meta.url).resolve("@posthog/cli/run-posthog-cli.js");
+  execFileSync(process.execPath, [cli, ...args], {
+    stdio: "inherit",
+    cwd: root,
+  });
 }
 
 function upload() {
