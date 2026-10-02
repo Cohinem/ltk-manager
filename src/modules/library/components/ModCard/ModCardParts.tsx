@@ -20,7 +20,6 @@ import {
   type AutoPillTone,
   type CategoryTone,
   Chip,
-  ChampionIcon,
   ContextMenu,
   Dialog,
   IconButton,
@@ -464,23 +463,15 @@ export function ModPills({
     eff.primaryDerivedChampion,
   );
 
-  /* The helmet says skin and the label says whose, so the pill spends its width
-     on the one thing a `Champion Skin` beside it could not tell you. */
-  const skinPill = (value: string, key: string) => {
-    const champion = roster.labelOf(value);
-    return {
-      label: champion,
-      tone: "champion" as const,
-      key,
-      icon: <ChampionIcon className="size-3 shrink-0" />,
-      ariaLabel: m.library_mod_champion_skin_label({ champion }),
-    };
-  };
   const championPill = (value: string, key: string) => ({
     label: roster.labelOf(value),
     tone: "champion" as const,
     key,
     icon: <ChampionPortrait champion={roster.find(value)} className="mr-0.5 size-3" />,
+  });
+  const skinPill = (value: string, key: string) => ({
+    ...championPill(value, key),
+    ariaLabel: m.library_mod_champion_skin_label({ champion: roster.labelOf(value) }),
   });
 
   // The folded pill leads: it names the mod's subject, where a tag only sorts it.
