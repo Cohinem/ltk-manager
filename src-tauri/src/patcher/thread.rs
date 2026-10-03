@@ -1,6 +1,6 @@
 //! Tauri adapter for the core patcher thread.
 //!
-//! The session logic itself lives in [`ltk_manager_core::patcher::thread`]; what
+//! The session logic itself lives in [`ltk_manager_core::patching::thread`]; what
 //! stays here is the [`PatcherEvents`] implementation that turns its
 //! notifications into frontend events and tray-icon changes, plus the `ts-rs`
 //! payload types those events carry.

@@ -194,7 +194,7 @@ pub(crate) fn start_patcher_inner(
     // Decides which tray icon set this session drives.
     let is_workshop = stored_config.origin().is_workshop();
 
-    let workshop_projects = stored_config.workshop_tests();
+    let workshop_projects = ltk_manager_core::patching::workshop_tests(&stored_config);
 
     let config_snapshot = settings.config();
     tracing::debug!(

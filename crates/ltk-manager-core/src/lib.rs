@@ -34,6 +34,7 @@ pub mod news;
 pub mod object_index;
 pub mod overlay;
 pub mod patcher;
+pub mod patching;
 pub mod platform;
 pub mod preview;
 pub mod problems;

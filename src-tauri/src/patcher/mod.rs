@@ -14,8 +14,9 @@ pub mod thread;
 
 pub use ltk_manager_core::patcher::{
     host, injector, session, PatcherError, PatcherEvents, PatcherPhase, PatcherSession,
-    PatcherStateInner, PatcherThread, SessionOrigin, SessionParams, StoredPatcherConfig,
+    PatcherStateInner, SessionOrigin, StoredPatcherConfig,
 };
+pub use ltk_manager_core::patching::{PatcherThread, SessionParams};
 
 use crate::error::{AppError, AppResult};
 use std::sync::atomic::Ordering;

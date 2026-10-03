@@ -33,8 +33,8 @@ use crate::mods::ModLibrary;
 use crate::overlay::WorkshopTestProject;
 use crate::workshop::ProjectDir;
 
-use super::events::PatcherEvents;
-use super::host::hook_flags;
+use crate::patcher::events::PatcherEvents;
+use crate::patcher::host::hook_flags;
 
 #[cfg(test)]
 mod tests;

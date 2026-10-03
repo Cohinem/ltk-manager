@@ -21,21 +21,38 @@ use crate::launcher::is_game_running;
 use crate::mods::ModLibrary;
 use crate::overlay::{OverlayBuild, WorkshopTestProject};
 
-use super::error::PatcherError;
-use super::events::PatcherEvents;
-use super::host::{HostConfig, HostLogLevel, PatcherHost};
-use super::injector::SessionEnd;
 use super::pipeline::IncidentPipeline;
-use super::recorder::GameRecorder;
-use super::refresh::OverlayRefresh;
-use super::session::{self, SessionError, SessionObserver};
-use super::state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
+use crate::patcher::error::PatcherError;
+use crate::patcher::events::PatcherEvents;
+use crate::patcher::host::{HostConfig, HostLogLevel, PatcherHost};
+use crate::patcher::injector::SessionEnd;
+use crate::patcher::recorder::GameRecorder;
+use crate::patcher::refresh::OverlayRefresh;
+use crate::patcher::session::{self, SessionError, SessionObserver};
+use crate::patcher::state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
 
 /// How long a rebuild waits for the last game's process to let go of the overlay.
 const GAME_RELEASE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// How often a rebuild checks whether the game process is gone.
 const GAME_RELEASE_POLL: Duration = Duration::from_millis(100);
+
+/// The workshop projects a session started from `config` tests.
+pub fn workshop_tests(config: &StoredPatcherConfig) -> Vec<WorkshopTestProject> {
+    let layers = config.workshop_layers.as_ref();
+
+    config
+        .workshop_projects
+        .iter()
+        .flatten()
+        .map(|path| WorkshopTestProject {
+            path: PathBuf::from(path),
+            enabled_layers: layers
+                .and_then(|layers| layers.get(path))
+                .map(|names| names.iter().cloned().collect()),
+        })
+        .collect()
+}
 
 /// Per-session inputs for [`PatcherThread::start`], resolved by the caller
 /// before the patcher state is claimed.
@@ -125,7 +142,7 @@ impl PatcherThread {
         let observer = Arc::new(SessionObserver::new(
             Arc::clone(&events),
             GameRecorder::new(origin, should_elevate, patcher_binaries),
-            pipeline,
+            Arc::new(move |record| pipeline.spawn(record)),
         ));
         let session = Self {
             events,
@@ -320,3 +337,6 @@ impl PatcherThread {
         self.events.phase_changed(PatcherPhase::Idle);
     }
 }
+
+#[cfg(test)]
+mod tests;

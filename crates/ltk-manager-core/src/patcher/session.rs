@@ -14,12 +14,11 @@ use std::sync::mpsc::Receiver;
 use chrono::Utc;
 use parking_lot::Mutex;
 
-use crate::diagnostics::incident::SessionFailure;
+use crate::diagnostics::incident::{GameRecord, SessionFailure};
 
 use super::events::PatcherEvents;
 use super::host::{HostConfig, HostError, HostLine, PatcherHost};
 use super::injector::{Injector, InjectorError, InjectorEvent, SessionEnd};
-use super::pipeline::IncidentPipeline;
 use super::recorder::GameRecorder;
 use super::refresh::OverlayRefresh;
 
@@ -34,6 +33,9 @@ pub enum SessionError {
     Injector(#[from] InjectorError),
 }
 
+/// Takes each game record a session closes.
+pub type RecordHandler = Arc<dyn Fn(GameRecord) + Send + Sync>;
+
 /// Where a session's events go: the embedder, and the game record.
 ///
 /// One per session, shared between the injector's callback and the thread
@@ -42,24 +44,24 @@ pub enum SessionError {
 pub struct SessionObserver {
     events: Arc<dyn PatcherEvents>,
     recorder: Mutex<GameRecorder>,
-    pipeline: Arc<IncidentPipeline>,
+    records: RecordHandler,
 }
 
 impl SessionObserver {
     pub fn new(
         events: Arc<dyn PatcherEvents>,
         recorder: GameRecorder,
-        pipeline: Arc<IncidentPipeline>,
+        records: RecordHandler,
     ) -> Self {
         Self {
             events,
             recorder: Mutex::new(recorder),
-            pipeline,
+            records,
         }
     }
 
     /// Routes one injector event to the embedder and the game record, and
-    /// hands a closed record to the pipeline.
+    /// hands a closed record to the handler.
     pub fn observe(&self, event: InjectorEvent) {
         match &event {
             InjectorEvent::WadScanFailed { failures } => {
@@ -73,15 +75,15 @@ impl SessionObserver {
         }
         let closed = self.recorder.lock().observe(&event, Utc::now());
         if let Some(record) = closed {
-            self.pipeline.spawn(record);
+            (self.records)(record);
         }
     }
 
     /// The session failed, in the build or at the host. The record, with any
-    /// open game folded in, goes to the pipeline.
+    /// open game folded in, goes to the handler.
     pub fn session_failed(&self, failure: SessionFailure) {
         let record = self.recorder.lock().session_failed(failure, Utc::now());
-        self.pipeline.spawn(record);
+        (self.records)(record);
     }
 
     /// The session ended by request. A game still running is dropped unless
@@ -89,7 +91,7 @@ impl SessionObserver {
     pub fn session_stopped(&self) {
         let closed = self.recorder.lock().session_stopped(Utc::now());
         if let Some(record) = closed {
-            self.pipeline.spawn(record);
+            (self.records)(record);
         }
     }
 }
