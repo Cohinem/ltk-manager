@@ -1,12 +1,12 @@
 //! A map's daylight: the `MapSunProperties` component of its `MapContainer`.
 
 use ltk_hash::BinHash;
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use serde::Serialize;
 
 use super::MapPath;
 use super::component::map_component;
-use ltk_manager_core::bin_document::{
+use ltk_manager_bin::bin_document::{
     BinDocument, Fields, boolean, float, vector2, vector3, vector4,
 };
 

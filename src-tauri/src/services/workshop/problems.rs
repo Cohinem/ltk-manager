@@ -9,9 +9,9 @@ use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::ModLibraryState;
 use crate::services::shared::off_thread;
 use crate::state::SettingsState;
-use ltk_manager_core::hashtables::WadPathResolverState;
-use ltk_manager_core::problems;
-use ltk_manager_core::problems::{FixReport, ProblemId, ProblemsState};
+use ltk_manager_assets::hashtables::WadPathResolverState;
+use ltk_manager_problems as problems;
+use ltk_manager_problems::{FixReport, ProblemId, ProblemsState};
 use std::path::Path;
 use tauri::{AppHandle, Manager};
 
@@ -123,13 +123,13 @@ mod tests {
     /// A library that announces nothing and stores nothing, for a test that
     /// fails before it reaches either.
     fn library() -> ModLibraryState {
-        ModLibraryState(ltk_manager_core::mods::ModLibrary::new(
-            Arc::new(ltk_manager_core::events::NullEventSink),
+        ModLibraryState(ltk_manager_library::mods::ModLibrary::new(
+            Arc::new(ltk_manager_base::events::NullEventSink),
             None,
             "0.0.0",
             Arc::default(),
             Arc::default(),
-            Arc::new(ltk_manager_core::mods::WadReportState::new(None)),
+            Arc::new(ltk_manager_library::mods::WadReportState::new(None)),
             Arc::default(),
         ))
     }

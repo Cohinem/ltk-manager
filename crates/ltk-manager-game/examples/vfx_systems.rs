@@ -12,7 +12,7 @@ use std::io::{BufWriter, Write as _};
 
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _};
-use ltk_manager_core::bin_document::BinDocument;
+use ltk_manager_bin::bin_document::BinDocument;
 use ltk_manager_game::vfx::resolve_system;
 
 fn main() {

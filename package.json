@@ -44,11 +44,32 @@
     "src-tauri/**/*.rs": [
       "cargo fmt --manifest-path src-tauri/Cargo.toml --"
     ],
+    "crates/ltk-manager-assets/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-assets/Cargo.toml --"
+    ],
+    "crates/ltk-manager-base/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-base/Cargo.toml --"
+    ],
+    "crates/ltk-manager-bin/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-bin/Cargo.toml --"
+    ],
     "crates/ltk-manager-core/**/*.rs": [
       "cargo fmt --manifest-path crates/ltk-manager-core/Cargo.toml --"
     ],
     "crates/ltk-manager-game/**/*.rs": [
       "cargo fmt --manifest-path crates/ltk-manager-game/Cargo.toml --"
+    ],
+    "crates/ltk-manager-library/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-library/Cargo.toml --"
+    ],
+    "crates/ltk-manager-problems/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-problems/Cargo.toml --"
+    ],
+    "crates/ltk-manager-runtime/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-runtime/Cargo.toml --"
+    ],
+    "crates/ltk-manager-workshop/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-workshop/Cargo.toml --"
     ]
   },
   "dependencies": {

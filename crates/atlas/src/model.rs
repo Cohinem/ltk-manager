@@ -2,7 +2,7 @@
 //!
 //! Every float is finite, a non-finite one read as 0, so none crosses as `null`.
 
-use ltk_manager_core::preview::AssetRef;
+use ltk_manager_assets::preview::AssetRef;
 use serde::Serialize;
 
 /// A view controller or a `UiPropertyLoadable`, and everything its base scene bin holds, resolved

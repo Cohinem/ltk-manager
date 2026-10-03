@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use fs_err as fs;
-use ltk_manager_core::integrations::file_types::ModFileType;
+use ltk_manager_runtime::integrations::file_types::ModFileType;
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{Emitter, Manager};

@@ -90,7 +90,7 @@ reserved slot for the future sanitized-fantome mode. `sourceFormat` is
 
 ## Phases
 
-All backend work in `crates/ltk-manager-core/src/mods/` unless noted. New test suites are sibling
+All backend work in `crates/ltk-manager-library/src/mods/` unless noted. New test suites are sibling
 `tests.rs` files (`#[cfg(test)] mod tests;` last item). TDD at the `ModLibrary` seam: a shared
 `make_test_library(storage)` constructor (NullEventSink + default `WadPathResolverState` + temp
 storage) joins `test_support.rs`.

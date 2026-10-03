@@ -9,8 +9,8 @@ is a transitive dependency of one it has. Adding it to a manifest compiles nothi
 
 - `package.json`, `Cargo.toml`, `crates/ltk-manager-core/Cargo.toml`, `Cargo.lock`
 - `src/lib/tauri.ts` and `src-tauri/src/main.rs` - the two sides of the command table
-- `crates/ltk-manager-core/src/error.rs` - `AppError` and the lock extension
-- `crates/ltk-manager-core/src/object_index.rs` - `map_bounded`
+- `crates/ltk-manager-base/src/error.rs` - `AppError` and the lock extension
+- `crates/ltk-manager-bin/src/object_index.rs` - `map_bounded`
 - `src-tauri/src/commands/shell.rs` - `reveal_in_explorer`
 - `src-tauri/src/logging.rs` - the tracing subscriber
 - `eslint.config.js`, `vitest.config.ts`, `src-tauri/capabilities/default.json`

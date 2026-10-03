@@ -5,18 +5,18 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, WadHash};
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
 
 use super::{VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
-use ltk_manager_core::bin_document::{
+use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Locator, Namer, RowNames, chunk_asset, hex, link,
     object_at, owned,
 };
-use ltk_manager_core::preview::AssetRef;
-use ltk_manager_core::problems::walk;
+use ltk_manager_bin::bin_walk as walk;
 
 use crate::linked::find_linked_materials;
 use crate::material::{MaterialPreview, linked_material};

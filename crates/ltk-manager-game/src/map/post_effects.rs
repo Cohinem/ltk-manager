@@ -1,12 +1,12 @@
 //! A map's screen effects: the `PostEffectOptions` of its post effect component.
 
 use ltk_hash::BinHash;
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use serde::Serialize;
 
 use super::MapPath;
 use super::component::map_component;
-use ltk_manager_core::bin_document::{BinDocument, Fields, boolean, float, struct_of, vector4};
+use ltk_manager_bin::bin_document::{BinDocument, Fields, boolean, float, struct_of, vector4};
 
 /// The unnamed `MapGraphicsFeature` whose `options` are the map's `PostEffectOptions`.
 const POST_EFFECTS: BinHash = BinHash(0x50db_156b);

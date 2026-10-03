@@ -4,7 +4,7 @@ Research note. The evidence is the tree at `6d8ab9a6`, read on 2026-09-24. Nothi
 or run, apart from a Node check of the RNG's first draws.
 
 The scope is `src/modules/workshop/bin/vfx/` and the Rust resolver in
-`crates/ltk-manager-core/src/vfx/`. It covers three things:
+`crates/ltk-manager-bin/src/vfx/`. It covers three things:
 
 - bugs that change how an effect looks
 - divergences from the engine as the reversing notes describe it
@@ -767,7 +767,7 @@ Two related parser gaps:
 - **Null first probability table.** A table set whose slot 0 is null still multiplies the other
   channels (`engine/parsing/readValue.ts:112-139`). `VfxPalette_ErosionAndProbability.md`
   section 5.1 skips the whole block in that case.
-- **Dependency bins not searched.** `crates/ltk-manager-core/src/vfx/resolve.rs:334-351` inlines
+- **Dependency bins not searched.** `crates/ltk-manager-bin/src/vfx/resolve.rs:334-351` inlines
   only `document.object_at`, so a child system linked from a dependency bin never resolves. The
   engine resolves `effect` and `effectKey` across loaded bins
   (`ResourceResolvers_VfxEffectKeys.md` section 4.3). The child set draws nothing and gives no

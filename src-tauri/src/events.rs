@@ -1,6 +1,6 @@
 //! Tauri adapter for the core [`EventSink`].
 
-use ltk_manager_core::events::{BackendEvent, EventSink};
+use ltk_manager_base::events::{BackendEvent, EventSink};
 use tauri::{AppHandle, Emitter};
 
 /// Delivers [`BackendEvent`]s to the webview.

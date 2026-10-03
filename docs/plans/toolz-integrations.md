@@ -206,7 +206,7 @@ explicit action when it would change registrations. Do not automatically overwri
 
 | Area                                                                     | Planned change                                                                                                                       |
 | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `crates/ltk-manager-core/src/integrations/`                              | Two tool definitions and adapters, discovery, release resolution, staging, receipts, lifecycle and Windows registration observations |
+| `crates/ltk-manager-runtime/src/integrations/`                           | Two tool definitions and adapters, discovery, release resolution, staging, receipts, lifecycle and Windows registration observations |
 | `crates/ltk-manager-core/src/lib.rs`                                     | Export the integrations module                                                                                                       |
 | Core error and event modules                                             | Typed integration errors and operation progress carrying tool ID, operation ID, stage and optional byte totals                       |
 | `src-tauri/src/commands/integrations.rs`                                 | Thin commands for status, release checks, installation, update, repair, feature changes, removal and safe download cancellation      |

@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 
 use fs_err as fs;
 use image::RgbaImage;
-use ltk_manager_core::error::{AppError, AppResult};
+use ltk_manager_base::error::{AppError, AppResult};
 use ltk_texture::tex::{EncodeFormat, EncodeOptions};
 use ltk_texture::{Tex, Texture};
 use serde::{Deserialize, Serialize};

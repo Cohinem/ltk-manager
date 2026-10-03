@@ -1,95 +1,51 @@
 [package]
 name = "ltk-manager-core"
 version = "0.1.0"
-description = "UI-agnostic core library for LTK Manager"
+description = "Patching sessions, install links and release feeds for LTK Manager"
 edition = "2024"
 license = "GPL-3.0-or-later"
 repository = "https://github.com/LeagueToolkit/ltk-manager"
 publish = false
 
 [features]
-# Derive `specta::Type` on core types so the Tauri shell can export bindings for
-# types that cross IPC (e.g. `Config` flattened into `Settings`).
-ts = ["dep:specta", "ltk-meta-docs/ts"]
+# Derive `specta::Type` on the types that cross IPC, so the Tauri shell can export bindings.
+ts = [
+    "dep:specta",
+    "ltk-manager-assets/ts",
+    "ltk-manager-base/ts",
+    "ltk-manager-library/ts",
+    "ltk-manager-runtime/ts",
+    "ltk-manager-workshop/ts",
+]
 
 [dependencies]
-filetime = { workspace = true }
-ritoclient = { workspace = true }
+ltk-manager-assets = { workspace = true }
+ltk-manager-base = { workspace = true }
+ltk-manager-library = { workspace = true }
+ltk-manager-runtime = { workspace = true }
+ltk-manager-workshop = { workspace = true }
 
-ltk-declarations = { workspace = true }
-ltk-meta-docs = { workspace = true }
-ltk_anim = { workspace = true }
-ltk_fantome = { workspace = true }
-ltk_file = { workspace = true }
-ltk_game_data = { workspace = true }
-ltk_hash = { workspace = true }
-ltk_hashdb = { workspace = true }
-ltk_hashtable = { workspace = true }
-ltk_mapgeo = { workspace = true }
-ltk_mesh = { workspace = true }
-ltk_meta = { workspace = true }
-ltk_mimir_cache = { workspace = true }
-ltk_modpkg = { workspace = true }
-ltk_mod_project = { workspace = true }
-ltk_overlay = { workspace = true }
-ltk_rst = { workspace = true }
-ltk_texture = { workspace = true }
-ltk_wad = { workspace = true }
-ltk-telemetry = { workspace = true }
-
-base64 = { workspace = true }
-brex = { workspace = true }
-camino = { workspace = true }
 chrono = { workspace = true }
-flate2 = { workspace = true }
 fs-err = { workspace = true }
-glam = { workspace = true }
-image = { workspace = true }
-image_dds = { workspace = true }
-indexmap = { workspace = true }
-lru = { workspace = true }
-notify = { workspace = true }
-notify-debouncer-mini = { workspace = true }
+ltk-telemetry = { workspace = true }
+ltk_overlay = { workspace = true }
 parking_lot = { workspace = true }
 quick-xml = { workspace = true }
-rayon = { workspace = true }
-regex = { workspace = true }
 reqwest = { workspace = true }
-rmp-serde = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-serde_yaml_ng = { workspace = true }
-sha2 = { workspace = true }
-slug = { workspace = true }
 specta = { workspace = true, optional = true }
-strum = { workspace = true }
-tar = { workspace = true }
-tempfile = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
-walkdir = { workspace = true }
-webp = { workspace = true }
-zip = { workspace = true }
-
-[target.'cfg(windows)'.dependencies]
-winreg = "0.55"
-windows-sys = { workspace = true, features = [
-    "Win32_Foundation",
-    "Win32_Security",
-    "Win32_Security_Cryptography",
-    "Win32_Security_WinTrust",
-    "Win32_Storage_FileSystem",
-    "Win32_System_Diagnostics_ToolHelp",
-    "Win32_System_Ioctl",
-    "Win32_System_IO",
-    "Win32_System_Registry",
-    "Win32_System_Threading",
-    "Win32_UI_Shell",
-    "Win32_UI_WindowsAndMessaging",
-] }
 
 [dev-dependencies]
-assert_matches = { workspace = true }
-ltk_primitives = "0.3.6"
+ltk-manager-bin = { workspace = true }
+ltk-manager-problems = { workspace = true }
+
+glam = { workspace = true }
+indexmap = { workspace = true }
+ltk_hash = { workspace = true }
+ltk_meta = { workspace = true }
+tempfile = { workspace = true }

@@ -1,7 +1,7 @@
 /**
  * The ambient buffer the `ltk-asset` scheme answers `?as=lightgrid` with.
  *
- * The layout is `crates/ltk-manager-core/src/preview/light_grid.rs`'s module doc, and this
+ * The layout is `crates/ltk-manager-assets/src/preview/light_grid.rs`'s module doc, and this
  * is the other half of it.
  */
 

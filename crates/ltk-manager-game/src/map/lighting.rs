@@ -2,11 +2,11 @@
 //! component of its `MapContainer`.
 
 use ltk_hash::BinHash;
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 
 use super::MapPath;
 use super::component::map_component;
-use ltk_manager_core::bin_document::{BinDocument, text};
+use ltk_manager_bin::bin_document::{BinDocument, text};
 
 const BAKE_PROPERTIES: BinHash = named("MapBakeProperties");
 /// `MapBakeProperties.lightGridFileName`, an `ASSETS/` file path.

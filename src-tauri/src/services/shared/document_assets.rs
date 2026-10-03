@@ -7,13 +7,14 @@ use crate::error::{AppError, AppResult};
 use crate::services::game::index::built_game_index;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{
+use ltk_manager_assets::game_index::GameIndex;
+use ltk_manager_assets::hashtables::CacheNames;
+use ltk_manager_assets::hashtables::{BinHashTablesState, WadPathResolverState};
+use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, BinDocumentId, BinDocuments, RowNames,
 };
-use ltk_manager_core::game_index::GameIndex;
-use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
-use ltk_manager_core::object_index::{parse_hash, CacheNames};
-use ltk_manager_core::sandbox::{Sandbox, SandboxRef, SandboxState};
+use ltk_manager_bin::object_index::parse_hash;
+use ltk_manager_bin::sandbox::{Sandbox, SandboxRef, SandboxState};
 use tauri::{AppHandle, Manager};
 
 /// An object hash a command was handed, `0x` and eight hex digits.

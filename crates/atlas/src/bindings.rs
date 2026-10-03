@@ -8,7 +8,7 @@
 use std::collections::HashSet;
 
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{Fields, entries, hex, items, struct_of};
+use ltk_manager_bin::bin_document::{Fields, entries, hex, items, struct_of};
 
 use super::fields::named;
 use super::model::{UiBinding, UiRole};

@@ -4,10 +4,10 @@
 use super::launcher::LauncherState;
 use crate::error::{AppResult, IpcResult};
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
-use ltk_manager_core::overlay::{
+use ltk_manager_base::utils::game::GameDir;
+use ltk_manager_library::overlay::{
     forcible_map_skins, map_decorations, ForcibleMapSkin, MapDecoration,
 };
-use ltk_manager_core::utils::game::GameDir;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 use tauri_plugin_autostart::ManagerExt;
@@ -121,7 +121,7 @@ pub fn auto_detect_league_path(state: State<SettingsState>) -> IpcResult<Option<
 /// client to be up.
 fn auto_detect_league_path_inner(launch_mode: LaunchMode) -> Option<PathBuf> {
     if launch_mode == LaunchMode::Modern {
-        if let Some(root) = ltk_manager_core::launcher::detect_league_install_root() {
+        if let Some(root) = ltk_manager_runtime::launcher::detect_league_install_root() {
             tracing::info!(
                 "Riot Client reports League installed at: {}",
                 root.display()
@@ -204,7 +204,7 @@ fn list_map_decorations_inner(state: &State<SettingsState>) -> AppResult<Vec<Map
 #[tauri::command]
 #[specta::specta]
 pub fn detect_league_run_as_admin() -> IpcResult<bool> {
-    IpcResult::ok(ltk_manager_core::diagnostics::league_configured_as_admin())
+    IpcResult::ok(ltk_manager_runtime::diagnostics::league_configured_as_admin())
 }
 
 /// Check if initial setup is required (league path not configured).

@@ -1,7 +1,7 @@
 /**
  * The map buffer the `ltk-asset` scheme answers `?as=map` with.
  *
- * The layout is `crates/ltk-manager-core/src/preview/map.rs`'s module doc, and this is
+ * The layout is `crates/ltk-manager-assets/src/preview/map.rs`'s module doc, and this is
  * the other half of it. The vertex blocks are read as views rather than copies, which is
  * what the format's four-byte alignment is for: a map is 73 to 93 MiB and copying it
  * doubles what the tab holds.

@@ -8,12 +8,14 @@ repository = "https://github.com/LeagueToolkit/ltk-manager"
 publish = false
 
 [features]
-# Derive `specta::Type` on what crosses IPC, which takes core's and the game crate's.
-ts = ["dep:specta", "ltk-manager-core/ts", "ltk-manager-game/ts"]
+# Derive `specta::Type` on what crosses IPC, which takes that of the crates below.
+ts = ["dep:specta", "ltk-manager-assets/ts", "ltk-manager-base/ts", "ltk-manager-bin/ts", "ltk-manager-game/ts"]
 
 [dependencies]
 hexshade = { workspace = true }
-ltk-manager-core = { workspace = true }
+ltk-manager-assets = { workspace = true }
+ltk-manager-base = { workspace = true }
+ltk-manager-bin = { workspace = true }
 ltk-manager-game = { workspace = true }
 
 fs-err = { workspace = true }
@@ -31,7 +33,7 @@ thiserror = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
-ltk_primitives = "0.3.6"
+ltk_primitives = { workspace = true }
 ltk_rst = { workspace = true }
 ltk_wad = { workspace = true }
 tempfile = { workspace = true }

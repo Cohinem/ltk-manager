@@ -1,9 +1,9 @@
 //! Patcher state owned by the Tauri shell.
 //!
-//! The session thread, its lifecycle state and the line protocol all live in the
-//! Tauri-free core crate; what stays here is the managed-state wrappers Tauri
-//! registers and the [`thread`] adapter that maps core notifications to UI
-//! events.
+//! The lifecycle state and the line protocol live in `ltk-manager-runtime`, and the
+//! session thread in `ltk-manager-core`, both Tauri-free. What stays here is the
+//! managed-state wrappers Tauri registers and the [`thread`] adapter that maps
+//! their notifications to UI events.
 //!
 //! The legacy in-process implementation (`api.rs` / `runner.rs`, which loaded
 //! the patcher DLL into the manager process and interfered with Vanguard) was
@@ -12,16 +12,17 @@
 
 pub mod thread;
 
-pub use ltk_manager_core::patcher::{
+pub use ltk_manager_core::patching::{PatcherThread, SessionParams};
+pub use ltk_manager_runtime::patcher::{
     host, injector, session, PatcherError, PatcherEvents, PatcherPhase, PatcherSession,
-    PatcherStateInner, PatcherThread, SessionOrigin, SessionParams, StoredPatcherConfig,
+    PatcherStateInner, SessionOrigin, StoredPatcherConfig,
 };
 
 use crate::error::{AppError, AppResult};
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 
-use ltk_manager_core::patcher::host::PatcherHost;
+use ltk_manager_runtime::patcher::host::PatcherHost;
 use parking_lot::Mutex;
 
 /// Tauri-managed patcher lifecycle state.

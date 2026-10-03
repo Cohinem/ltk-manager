@@ -1,13 +1,14 @@
 use crate::error::{AppResult, IpcResult, Utf8PathExt};
 use crate::mods::{
     with_zip_extension, BulkInstallResult, EditModMetadataArgs, ExportScope, ExportShape,
-    ExportSummary, InstallOutcome, InstalledMod, ModDocument, ModLibraryState, ModStorage,
-    ModWadReport, WadReportState,
+    ExportSummary, InstallOutcome, InstalledMod, ModDocument, ModLibraryState, ModWadReport,
+    WadReportState,
 };
 use crate::patcher::PatcherState;
 use crate::services::shared::off_thread;
 use crate::services::shared::Library;
 use crate::state::SettingsState;
+use ltk_manager_base::events::ModStorage;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -290,7 +291,7 @@ pub fn analyze_mod_wads(
 ) -> IpcResult<ModWadReport> {
     let result: AppResult<ModWadReport> = (|| {
         let config = settings.config();
-        let game_dir = ltk_manager_core::utils::game::GameDir::resolve(&config)?.into_path();
+        let game_dir = ltk_manager_base::utils::game::GameDir::resolve(&config)?.into_path();
         let (profile_dir, mut enabled_mod) =
             library.0.build_single_mod_provider(&config, &mod_id)?;
 

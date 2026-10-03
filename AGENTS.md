@@ -7,7 +7,7 @@ This file is the primary guidance document for the ltk-manager codebase.
 Guidance is scoped by directory:
 
 - `src-tauri/AGENTS.md` - workspace crates, the patcher and the Tauri states. Loads under
-  `src-tauri/`, and `crates/ltk-manager-core/AGENTS.md` points to it.
+  `src-tauri/`, and the `AGENTS.md` of each `crates/ltk-manager-*` crate points to it.
 - `src/AGENTS.md` - React/TypeScript conventions, loads when working under `src/`.
 - `src/styles/AGENTS.md` - how to author the design tokens, loads only in that directory.
 - The `design-system` skill - which token to reach for in a component. Loaded on demand, so it

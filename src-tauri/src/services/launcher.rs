@@ -11,11 +11,12 @@ use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::services::shared::InFlight;
 use crate::state::{IncidentStoreState, SettingsState};
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::EventSink;
-use ltk_manager_core::launcher::{
+use ltk_manager_base::config::Config;
+use ltk_manager_base::events::EventSink;
+use ltk_manager_base::events::SessionStarted;
+use ltk_manager_runtime::launcher::{
     detect_install_mismatch, InstallMismatch, LaunchAvailability, LaunchOutcome, LaunchTarget,
-    LauncherError, LeagueLauncher, SessionStarted, StopFlag,
+    LauncherError, LeagueLauncher, StopFlag,
 };
 
 use super::patcher::{start_patcher_inner, PatcherConfig};
@@ -36,7 +37,7 @@ impl LauncherState {
     /// # Errors
     ///
     /// Only for a launcher that cannot be configured at all, which is a bug in
-    /// `ltk-manager-core` rather than a machine the user can fix.
+    /// `ltk-manager-runtime` rather than a machine the user can fix.
     pub fn new(app: &AppHandle, config: &Config) -> Result<Self, LauncherError> {
         let events: Arc<dyn EventSink> = Arc::new(TauriEventSink::new(app.clone()));
         Ok(Self(Arc::new(LeagueLauncher::new(config, events)?)))
@@ -52,7 +53,7 @@ impl LauncherState {
 ///
 /// A double-clicked button must not produce two requests: the second would
 /// race the first's handoff, or arrive after League has come up and resolve to
-/// a pointless [`ltk_manager_core::launcher::LaunchRoute::AlreadyRunning`].
+/// a pointless [`ltk_manager_runtime::launcher::LaunchRoute::AlreadyRunning`].
 #[derive(Default)]
 pub struct LaunchState(InFlight<StopFlag>);
 

@@ -546,7 +546,7 @@ excerpt's budget, and a sighting keeps sixteen at most. A line that opens with a
 record or the torn remains of one, and never a detail line. The reader knows nothing of what
 a detail line means. A rule that wants a `Key: value` pair reads it off the sighting.
 
-The reader is a pure function over `BufRead` in `ltk-manager-core/src/diagnostics/game_log.rs`,
+The reader is a pure function over `BufRead` in `ltk-manager-runtime/src/diagnostics/game_log.rs`,
 and its tests run over a real log checked in as a fixture with its command line redacted.
 Nothing in it knows about Tauri, the patcher, or a mod.
 
@@ -566,7 +566,7 @@ at 44 games and 1.6MB.
 ## The verdict
 
 A verdict is what the classifier concluded from the evidence of one game. It is a pure
-function in `ltk-manager-core/src/diagnostics/incident.rs`, over the patcher's events, the
+function in `ltk-manager-runtime/src/diagnostics/incident.rs`, over the patcher's events, the
 host's boundaries, the session's ending, the log facts and the crash marker. It has no side
 effect and reads no file, so every row below is a unit test.
 
@@ -1380,15 +1380,15 @@ them.
 
 | Piece           | Where                                   | Is                                                                                                                                             |
 | --------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `game_log.rs`   | `ltk-manager-core/src/diagnostics/`     | The reader, pure over `BufRead`, tested on a fixture                                                                                           |
-| `log_codes.rs`  | `ltk-manager-core/src/diagnostics/`     | The table, `include_str!` over the TSV, `lookup(&str)`                                                                                         |
-| `incident.rs`   | `ltk-manager-core/src/diagnostics/`     | `Incident`, `Verdict`, `classify`, pure                                                                                                        |
-| `token.rs`      | `ltk-manager-core/src/diagnostics/`     | `encode`, `decode`, `find_in` and `resolve` for the incident token, with a pinned vector                                                       |
+| `game_log.rs`   | `ltk-manager-runtime/src/diagnostics/`  | The reader, pure over `BufRead`, tested on a fixture                                                                                           |
+| `log_codes.rs`  | `ltk-manager-runtime/src/diagnostics/`  | The table, `include_str!` over the TSV, `lookup(&str)`                                                                                         |
+| `incident.rs`   | `ltk-manager-runtime/src/diagnostics/`  | `Incident`, `Verdict`, `classify`, pure                                                                                                        |
+| `token.rs`      | `ltk-manager-runtime/src/diagnostics/`  | `encode`, `decode`, `find_in` and `resolve` for the incident token, with a pinned vector                                                       |
 | `dll_lines.rs`  | `patcher/`                              | The DLL's phrases as constants, each with a pointer to the DLL source file                                                                     |
 | `InjectorEvent` | `patcher/injector.rs`                   | `GameAttached`, `OverlayOutcome`, `WadRedirected`, `WadSkipped`, `GameExited`                                                                  |
 | `PatcherEvents` | `patcher/events.rs`                     | `game_attached`, `game_overlay`, `game_exited`, `incident_recorded`                                                                            |
 | The game record | `patcher/thread.rs`                     | Opened at `injected`, closed at `exited`, then classified                                                                                      |
-| `IncidentStore` | `ltk-manager-core/src/diagnostics/`     | The JSON files, the cap, and the dismiss flag                                                                                                  |
+| `IncidentStore` | `ltk-manager-runtime/src/diagnostics/`  | The JSON files, the cap, and the dismiss flag                                                                                                  |
 | Commands        | `src-tauri/src/services/diagnostics.rs` | `list_incidents`, `dismiss_incident`, `dismiss_all_incidents`, `reveal_game_log`, `incident_report`, `incident_token`, `decode_incident_token` |
 | Events          | `src-tauri/src/patcher/thread.rs`       | `patcher-game-attached`, `patcher-game-overlay`, `patcher-game-exited`, `incident-recorded`                                                    |
 

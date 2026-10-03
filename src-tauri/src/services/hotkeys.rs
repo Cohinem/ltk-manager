@@ -6,7 +6,7 @@ use crate::hotkeys::{HotkeyAction, HotkeyManager};
 use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::state::{persist_settings, IncidentStoreState, SettingsState};
-use ltk_manager_core::launcher::{kill_game, reconnect_client};
+use ltk_manager_runtime::launcher::{kill_game, reconnect_client};
 use tauri::{AppHandle, Manager, State};
 
 use super::patcher::{start_patcher_inner, PatcherConfig};

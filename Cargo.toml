@@ -5,8 +5,15 @@ members = [
     "crates/hexshade",
     "crates/dxbc-spirv-sys",
     "crates/ltk-declarations",
+    "crates/ltk-manager-assets",
+    "crates/ltk-manager-base",
+    "crates/ltk-manager-bin",
     "crates/ltk-manager-core",
     "crates/ltk-manager-game",
+    "crates/ltk-manager-library",
+    "crates/ltk-manager-problems",
+    "crates/ltk-manager-runtime",
+    "crates/ltk-manager-workshop",
     "crates/ltk-meta-docs",
     "crates/ltk-telemetry",
 ]
@@ -18,9 +25,22 @@ resolver = "2"
 [profile.dev.package."*"]
 opt-level = 3
 
-# Our own crate too, at the level that keeps it steppable: the bin walk is a
-# generic instantiated here, so the override above never reaches it.
-[profile.dev.package.ltk-manager-core]
+# Our own crates too, at the level that keeps them steppable: the bin walk is a
+# generic instantiated in the crate that calls it, so the override above never
+# reaches it.
+[profile.dev.package.ltk-manager-assets]
+opt-level = 1
+
+[profile.dev.package.ltk-manager-bin]
+opt-level = 1
+
+[profile.dev.package.ltk-manager-library]
+opt-level = 1
+
+[profile.dev.package.ltk-manager-problems]
+opt-level = 1
+
+[profile.dev.package.ltk-manager-workshop]
 opt-level = 1
 
 # The class reads walk the same generic, instantiated in this crate.
@@ -33,7 +53,7 @@ opt-level = 1
 
 [workspace.dependencies]
 # Pinned to a rev until it ships on crates.io. Declared here rather than in
-# `ltk-manager-core` so moving the pin is one edit in the place every other
+# `ltk-manager-runtime` so moving the pin is one edit in the place every other
 # pinned dependency is written down.
 ritoclient = { git = "https://github.com/Crauzer/ritoclient", rev = "f8283eb8f7ac94ffa66ccc9e3f44bbbb2ecbd631" }
 
@@ -45,8 +65,15 @@ ltk_mimir_cache = { git = "https://github.com/LeagueToolkit/mimir", rev = "67019
 atlas = { path = "crates/atlas" }
 hexshade = { path = "crates/hexshade" }
 ltk-declarations = { path = "crates/ltk-declarations" }
+ltk-manager-assets = { path = "crates/ltk-manager-assets" }
+ltk-manager-base = { path = "crates/ltk-manager-base" }
+ltk-manager-bin = { path = "crates/ltk-manager-bin" }
 ltk-manager-core = { path = "crates/ltk-manager-core" }
 ltk-manager-game = { path = "crates/ltk-manager-game" }
+ltk-manager-library = { path = "crates/ltk-manager-library" }
+ltk-manager-problems = { path = "crates/ltk-manager-problems" }
+ltk-manager-runtime = { path = "crates/ltk-manager-runtime" }
+ltk-manager-workshop = { path = "crates/ltk-manager-workshop" }
 ltk-meta-docs = { path = "crates/ltk-meta-docs" }
 ltk-telemetry = { path = "crates/ltk-telemetry" }
 
@@ -121,3 +148,5 @@ sha2 = "0.10"
 
 assert_matches = "1.5"
 filetime = "0.2"
+ltk_primitives = "0.3.6"
+winreg = "0.55"

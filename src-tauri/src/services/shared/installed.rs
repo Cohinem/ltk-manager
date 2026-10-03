@@ -8,13 +8,13 @@ use crate::error::AppResult;
 use crate::services::objects::index::ObjectIndexState;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{GameCopy, ProjectDeclarations, RowNames};
-use ltk_manager_core::meta_schema::{self, MetaSchema, PatchSchema};
-use ltk_manager_core::object_index::ObjectIndexSnapshot;
-use ltk_manager_core::preview::AssetRef;
-use ltk_manager_core::problems::GameBuild;
-use ltk_manager_core::sandbox::SandboxRef;
-use ltk_manager_core::workshop::ProjectDir;
+use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_base::game_build::GameBuild;
+use ltk_manager_bin::bin_document::{GameCopy, ProjectDeclarations, RowNames};
+use ltk_manager_bin::meta_schema::{self, MetaSchema, PatchSchema};
+use ltk_manager_bin::object_index::ObjectIndexSnapshot;
+use ltk_manager_bin::sandbox::SandboxRef;
+use ltk_manager_workshop::ProjectDir;
 use tauri::{AppHandle, Manager};
 
 /// The installed game as a declared document reads it: the shared tables for names, and

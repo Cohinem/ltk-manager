@@ -22,8 +22,8 @@ Two findings decide the rest:
 - Cloudflare Security Events for `leaguetoolkit.dev`, read from the dashboard
 - `scripts/generate-meta-schema.mjs` - the script that makes the call
 - `.github/workflows/release-prepare.yml` - its only automated caller
-- `crates/ltk-manager-core/src/meta_schema.rs` and `meta_schema/cache.rs` - the runtime path
-- `crates/ltk-manager-core/src/mods/health/sweep.rs` - where the app syncs the schema
+- `crates/ltk-manager-bin/src/meta_schema.rs` and `meta_schema/cache.rs` - the runtime path
+- `crates/ltk-manager-library/src/mods/health/sweep.rs` - where the app syncs the schema
 - `docs/DEVELOPMENT.md` - the recorded reason the release refreshes the snapshot
 - Response headers and payloads read directly from both hosts on 2026-09-01
 - [Get started with Bot Fight Mode](https://developers.cloudflare.com/bots/get-started/bot-fight-mode/)

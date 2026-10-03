@@ -10,10 +10,10 @@ readme" section of `docs/ux/PROJECT_EDITOR.md`.
 
 ## Sources
 
-- `crates/ltk-manager-core/src/workshop/projects.rs`, project creation
+- `crates/ltk-manager-workshop/src/projects.rs`, project creation
 - `ltk_mod_project` 0.9.2: `pack/plan.rs`, `modpkg/format.rs`, `fantome/pack.rs`,
   `modpkg/import.rs`, `fantome/import.rs`, `license_file.rs`
-- `crates/ltk-manager-core/src/mods/archive/metadata.rs`, archive import
+- `crates/ltk-manager-library/src/mods/archive/metadata.rs`, archive import
 
 ## 1. What the file already is
 

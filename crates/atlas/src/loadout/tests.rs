@@ -1,5 +1,5 @@
 use ltk_hash::{Hash as _, WadHash};
-use ltk_manager_core::preview::AssetRef;
+use ltk_manager_assets::preview::AssetRef;
 use ltk_meta::property::values;
 
 use super::*;

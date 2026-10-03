@@ -1,0 +1,350 @@
+//! The mod library: what is installed, how it is organized, and how it reaches
+//! the overlay.
+//!
+//! [`ModLibrary`] is the entry point. It holds no mod data, which lives in
+//! `library.json` on disk. It holds the shared handles (event sink, WAD report
+//! cache, linked-bin state) and serializes access to that file. The modules:
+//!
+//! | Module             | Concern                                           |
+//! | ------------------ | ------------------------------------------------- |
+//! | `index`            | `library.json`: shape, versioning, reconciliation  |
+//! | `archive`          | Mod archives in, out, and read                     |
+//! | `analysis`         | What a mod touches and what that makes it          |
+//! | `health`           | The Problems rules over an installed mod           |
+//! | `organize`         | Folders and profiles                               |
+//! | `types`            | The shapes the frontend sees                       |
+//! | `library`          | Library reads and per-profile mod state            |
+//! | `overlay_content`  | Turning library entries into overlay inputs        |
+//! | `slug`             | A mod's directory name                             |
+//!
+//! Every installed mod is a directory under `<storage>/mods/`, named by its
+//! slug. `docs/adr/0001-fantome-unpacks-modpkg-stays-packed.md` describes its
+//! contents and why a modpkg's differ from a fantome's.
+
+mod analysis;
+mod archive;
+mod health;
+mod index;
+mod layout;
+mod library;
+mod organize;
+mod overlay_content;
+mod slug;
+mod types;
+
+#[cfg(test)]
+pub(crate) mod test_support;
+
+pub use analysis::categorize::{ChampionRoster, DerivedCategorization, champion_display_name};
+pub use analysis::checksum_mismatches::{ChecksumMismatchInfo, ChecksumMismatchState};
+pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
+pub use analysis::wad_reports::{ModWadReport, WadReportState};
+pub use archive::documents::ModDocument;
+pub use archive::export::{ExportScope, ExportShape, ExportSummary, with_zip_extension};
+pub use archive::migration::*;
+pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
+pub use health::sweep::{HealthSweepState, SweepScope};
+#[cfg(debug_assertions)]
+pub use health::timing::{HealthTiming, ModTiming};
+pub use health::{HealthCheckReadiness, ModHealth, ModHealthVerdict};
+pub use index::document::ModArchiveFormat;
+pub use index::layout_migration::LayoutMigrationState;
+pub use layout::StorageLayout;
+pub use types::{
+    BulkInstallResult, EditModMetadataArgs, InstallOutcome, InstalledMod, LibraryFolder,
+    ModLicense, Profile,
+};
+
+use crate::overlay::OverlayStorageExt;
+use ltk_manager_assets::hashtables::WadPathResolverState;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::events::EventSink;
+use parking_lot::Mutex;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::AtomicI64;
+
+/// Cooldown period after a mutation during which the watcher ignores events.
+/// Must be longer than the debouncer window (2 s) plus margin for delayed
+/// Windows filesystem notifications.
+pub const WATCHER_SUPPRESS_SECS: i64 = 10;
+
+/// Managed struct that encapsulates mod library operations.
+///
+/// All index operations are serialized through `index_lock` to prevent
+/// concurrent reads/writes from clobbering each other.
+/// The [`Config`](ltk_manager_base::config::Config) is passed per-call since it
+/// can change at runtime.
+/// The one game index a library holds, and the install it was built over.
+type GameContentCache =
+    Arc<Mutex<Option<(GameStamp, Arc<ltk_manager_problems::InstalledContent>)>>>;
+
+/// What an installed-game index was read from, and what makes it stale.
+///
+/// The path alone does not answer the second, because a patch replaces the
+/// content under it without moving it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GameStamp {
+    league: PathBuf,
+    build: Option<ltk_manager_base::game_build::GameBuild>,
+}
+
+pub struct ModLibrary {
+    /// Notification channel, in place of emitting through a Tauri handle.
+    events: Arc<dyn EventSink>,
+    /// Fallback storage root when the user hasn't set a custom path. Supplied by
+    /// the caller (the shell resolves it from `app_data_dir`, a CLI from `dirs`)
+    /// rather than looked up, so nothing here depends on Tauri.
+    default_storage_dir: Option<PathBuf>,
+    /// Version of the host application, supplied for the same reason as
+    /// `default_storage_dir`: a `CARGO_PKG_VERSION` read here would report this
+    /// crate's version, which does not move when the app ships a release.
+    /// [`overlay`](crate::overlay) keys its once-per-release cache flush on it.
+    app_version: String,
+    /// Offenders from the latest overlay build. Owned directly rather than
+    /// fetched via `try_state`, which removes both the startup ordering
+    /// constraint and the silent no-op when the state wasn't registered.
+    linked_bins: Arc<LinkedBinState>,
+    /// Checksum mismatches from the latest overlay build. Owned for the same
+    /// reason as `linked_bins`.
+    checksum_mismatches: Arc<ChecksumMismatchState>,
+    /// Per-mod WAD analysis cache. Owned for the same reason as `linked_bins`.
+    wad_reports: Arc<WadReportState>,
+    /// Names for the chunks of a packed WAD, so an imported fantome lands under
+    /// real paths instead of hex. Best-effort: with no tables it names nothing.
+    wad_resolver: Arc<WadPathResolverState>,
+    /// What the installed game holds, for the rules that ask it a question.
+    ///
+    /// Kept rather than built per run: the index is a walk of every archive's
+    /// table of contents, and a sweep would otherwise pay for one a mod. Keyed
+    /// on the configured install so moving it in Settings rebuilds.
+    game_content: GameContentCache,
+    /// What the layout migration has to say, for as long as this process lives.
+    ///
+    /// The run starts with the app and can be over before a webview exists to
+    /// hear it announced, so the outcome is kept for whoever asks next rather
+    /// than only emitted.
+    layout_migration: Arc<Mutex<LayoutMigrationState>>,
+    /// What the mod health sweep has to say, kept for the same reason
+    /// `layout_migration` is.
+    health_sweep: Arc<Mutex<HealthSweepState>>,
+    /// The budget the check or repair now running spends, for a cancel to
+    /// reach. `None` between runs.
+    health_budget: Arc<Mutex<Option<ltk_manager_base::budget::Budget>>>,
+    /// Serializes library sweeps, so an install check waits for the startup
+    /// sweep instead of sharing its progress state and cancel handle.
+    sweep_lock: Arc<Mutex<()>>,
+    /// Serializes overlay builds, since two of one profile write the same files.
+    overlay_lock: Arc<Mutex<()>>,
+    index_lock: Arc<Mutex<()>>,
+    /// Serializes the read-modify-write of `mod-health-verdicts.json`.
+    ///
+    /// A startup sweep and an install's background check both record verdicts,
+    /// and each records by rewriting the whole file, so two at once would lose
+    /// whichever landed first.
+    verdict_lock: Arc<Mutex<()>>,
+    /// Epoch-millis timestamp of the last `mutate_index` completion.
+    /// The file watcher skips events that arrive within [`WATCHER_SUPPRESS_SECS`]
+    /// of this timestamp.
+    last_mutation_epoch_ms: Arc<AtomicI64>,
+}
+
+impl Clone for ModLibrary {
+    fn clone(&self) -> Self {
+        Self {
+            events: Arc::clone(&self.events),
+            default_storage_dir: self.default_storage_dir.clone(),
+            app_version: self.app_version.clone(),
+            linked_bins: Arc::clone(&self.linked_bins),
+            checksum_mismatches: Arc::clone(&self.checksum_mismatches),
+            wad_reports: Arc::clone(&self.wad_reports),
+            wad_resolver: Arc::clone(&self.wad_resolver),
+            game_content: Arc::clone(&self.game_content),
+            layout_migration: Arc::clone(&self.layout_migration),
+            health_sweep: Arc::clone(&self.health_sweep),
+            health_budget: Arc::clone(&self.health_budget),
+            sweep_lock: Arc::clone(&self.sweep_lock),
+            overlay_lock: Arc::clone(&self.overlay_lock),
+            index_lock: Arc::clone(&self.index_lock),
+            verdict_lock: Arc::clone(&self.verdict_lock),
+            last_mutation_epoch_ms: Arc::clone(&self.last_mutation_epoch_ms),
+        }
+    }
+}
+
+impl ModLibrary {
+    pub fn new(
+        events: Arc<dyn EventSink>,
+        default_storage_dir: Option<PathBuf>,
+        app_version: impl Into<String>,
+        linked_bins: Arc<LinkedBinState>,
+        checksum_mismatches: Arc<ChecksumMismatchState>,
+        wad_reports: Arc<WadReportState>,
+        wad_resolver: Arc<WadPathResolverState>,
+    ) -> Self {
+        Self {
+            events,
+            default_storage_dir,
+            app_version: app_version.into(),
+            linked_bins,
+            checksum_mismatches,
+            wad_reports,
+            wad_resolver,
+            game_content: Arc::new(Mutex::new(None)),
+            layout_migration: Arc::new(Mutex::new(LayoutMigrationState::default())),
+            health_sweep: Arc::new(Mutex::new(HealthSweepState::default())),
+            health_budget: Arc::new(Mutex::new(None)),
+            sweep_lock: Arc::new(Mutex::new(())),
+            overlay_lock: Arc::new(Mutex::new(())),
+            index_lock: Arc::new(Mutex::new(())),
+            verdict_lock: Arc::new(Mutex::new(())),
+            last_mutation_epoch_ms: Arc::new(AtomicI64::new(0)),
+        }
+    }
+
+    /// What the layout migration has to say for itself this launch.
+    pub fn layout_migration_state(&self) -> LayoutMigrationState {
+        self.layout_migration.lock().clone()
+    }
+
+    pub(crate) fn record_layout_migration(&self, outcome: LayoutMigrationState) {
+        *self.layout_migration.lock() = outcome;
+    }
+
+    pub(in crate::mods) fn verdict_lock(&self) -> &Mutex<()> {
+        &self.verdict_lock
+    }
+
+    pub(crate) fn overlay_lock(&self) -> &Mutex<()> {
+        &self.overlay_lock
+    }
+
+    /// Take `budget` as the run now under way, so a cancel can reach it.
+    ///
+    /// A second run started while one is going replaces it. Two library-wide
+    /// health runs at once is not a thing any surface offers, and the newer one
+    /// is the one a user would mean.
+    pub(in crate::mods) fn begin_health_run(
+        &self,
+        budget: ltk_manager_base::budget::Budget,
+    ) -> ltk_manager_base::budget::Budget {
+        *self.health_budget.lock() = Some(budget.clone());
+        budget
+    }
+
+    /// Forget `budget`, so a later cancel cancels nothing.
+    ///
+    /// Only where it is still the run that is installed. A second run that
+    /// replaced it is still going, and clearing its handle would leave its
+    /// cancel reaching nothing.
+    pub(in crate::mods) fn end_health_run(&self, budget: &ltk_manager_base::budget::Budget) {
+        let mut held = self.health_budget.lock();
+        if held.as_ref().is_some_and(|running| running.is(budget)) {
+            *held = None;
+        }
+    }
+
+    /// Call off the check or repair now running, if one is.
+    ///
+    /// Every worker stops at its next file. A mod the run had not finished
+    /// records no verdict, so the next sweep picks it up.
+    pub fn cancel_mod_health_run(&self) {
+        let held = self.health_budget.lock();
+        if let Some(budget) = held.as_ref() {
+            budget.cancel();
+        }
+    }
+
+    /// Drop what the overlay builder cached about these mods.
+    ///
+    /// For an operation that changed where a mod's content is read from without
+    /// moving anything in the builder's reuse key: the next build has to start
+    /// from the files rather than from what it remembers of them.
+    pub(crate) fn invalidate_overlay_for(&self, storage_dir: &std::path::Path, mod_ids: &[String]) {
+        storage_dir.invalidate_overlays_on_next_build();
+        let _ = self.wad_reports.0.lock().invalidate_by_content(mod_ids);
+    }
+
+    /// Notification sink for this library's operations.
+    pub(crate) fn events(&self) -> &Arc<dyn EventSink> {
+        &self.events
+    }
+
+    /// Announce that the library changed, so every cached view of it refetches.
+    ///
+    /// For a caller that made several changes through separate calls and wants
+    /// one refresh at the end of them rather than one each.
+    pub fn announce_change(&self) {
+        self.events
+            .emit(ltk_manager_base::events::BackendEvent::LibraryChanged);
+    }
+
+    /// Version of the host application, as supplied to [`ModLibrary::new`].
+    pub fn app_version(&self) -> &str {
+        &self.app_version
+    }
+
+    /// Offenders recorded by the most recent overlay build.
+    pub(crate) fn linked_bins(&self) -> &Arc<LinkedBinState> {
+        &self.linked_bins
+    }
+
+    pub(crate) fn checksum_mismatches(&self) -> &Arc<ChecksumMismatchState> {
+        &self.checksum_mismatches
+    }
+
+    /// Per-mod WAD analysis cache.
+    pub fn wad_reports(&self) -> &Arc<WadReportState> {
+        &self.wad_reports
+    }
+
+    /// Chunk-path names for unpacking a fantome's packed WADs.
+    ///
+    /// Absent tables are not an error — the resolver names nothing and the
+    /// chunks keep their hex file names, which the overlay reads either way.
+    pub(crate) fn wad_resolver(&self) -> Arc<ltk_manager_assets::hashtables::WadPathResolver> {
+        self.wad_resolver.get()
+    }
+
+    /// What the installed game holds, shared by every run this library starts.
+    ///
+    /// `None` on a machine with no install configured, which is what makes a
+    /// rule asking about the install say so rather than guess. The index behind
+    /// it is built the first time a rule actually asks, so a library of mods
+    /// that ask nothing pays nothing.
+    pub fn game_content(
+        &self,
+        config: &Config,
+    ) -> Option<Arc<dyn ltk_manager_problems::GameContent>> {
+        let stamp = GameStamp {
+            league: config.league_path.clone()?,
+            build: ltk_manager_base::game_build::GameBuild::installed(config),
+        };
+
+        let mut held = self.game_content.lock();
+        if held.as_ref().is_none_or(|(at, _)| at != &stamp) {
+            *held = Some((
+                stamp,
+                Arc::new(ltk_manager_problems::InstalledContent::resolve(config)?),
+            ));
+        }
+        held.as_ref()
+            .map(|(_, content)| Arc::clone(content) as Arc<dyn ltk_manager_problems::GameContent>)
+    }
+
+    /// Build the installed game's index now, so no check waits on it.
+    ///
+    /// Every bin worker of every mod in a sweep blocks on the one build the
+    /// first rule to ask starts, so startup pays it once, ahead of the sweep.
+    pub fn warm_game_content(&self, config: &Config) {
+        if let Some(game) = self.game_content(config) {
+            game.warm();
+        }
+    }
+
+    /// Epoch-millis timestamp of the last index mutation, for watchers that
+    /// need to ignore the filesystem events their own writes produce.
+    pub fn last_mutation_epoch_ms(&self) -> &Arc<AtomicI64> {
+        &self.last_mutation_epoch_ms
+    }
+}

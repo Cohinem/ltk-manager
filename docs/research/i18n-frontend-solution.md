@@ -30,14 +30,14 @@ Three findings decide the rest:
 
 Repository, read on 2026-09-02:
 
-- `src-tauri/src/error.rs`, `crates/ltk-manager-core/src/error.rs` - the IPC error shape
-- `crates/ltk-manager-core/src/launcher/types.rs`, `patcher/error.rs`, `workshop/mod.rs` - the
+- `src-tauri/src/error.rs`, `crates/ltk-manager-base/src/error.rs` - the IPC error shape
+- `crates/ltk-manager-runtime/src/launcher/types.rs`, `patcher/error.rs`, `workshop/mod.rs` - the
   tagged enums that already cross IPC
-- `crates/ltk-manager-core/src/problems/mod.rs` and `problems/rules/*/mod.rs` - the `Rule` trait
+- `crates/ltk-manager-problems/src/lib.rs` and `problems/rules/*/mod.rs` - the `Rule` trait
   and the five rules' copy
-- `crates/ltk-manager-core/src/mods/health.rs`, `docs/ux/MOD_HEALTH.md` - what a stored verdict
+- `crates/ltk-manager-library/src/mods/health.rs`, `docs/ux/MOD_HEALTH.md` - what a stored verdict
   keeps
-- `crates/ltk-manager-core/src/diagnostics/mod.rs`, `diagnostics/incident.rs` - checks and verdicts
+- `crates/ltk-manager-runtime/src/diagnostics/mod.rs`, `diagnostics/incident.rs` - checks and verdicts
 - `src-tauri/src/patcher/thread.rs`, `hotkeys.rs`, `deep_link/download.rs` - events carrying prose
 - `src/lib/tauri.ts`, `src/utils/errors.ts`, `src/modules/launcher/api/useLaunchErrorToast.ts`,
   `src/modules/patcher/api/usePatcherError.ts` - how the frontend renders an error
@@ -571,7 +571,7 @@ there, which is the opposite direction, and each also has its own defects for th
 
 The honest answer is that the backend should not own a string a user reads. What it owns is the
 fact: which error, which rule, which check, with which values. That is what
-`crates/ltk-manager-core/src/error.rs` already says of itself: "`AppError` describes _what went
+`crates/ltk-manager-base/src/error.rs` already says of itself: "`AppError` describes _what went
 wrong_, not how to report it. Rendering it for a consumer is the frontend's job." The variants
 that carry a `String` sentence are where that principle was not followed through.
 

@@ -18,8 +18,8 @@ use std::io::Cursor;
 
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _};
-use ltk_manager_core::bin_document::BinDocument;
-use ltk_manager_core::hashtables::HashtableCache;
+use ltk_manager_assets::hashtables::HashtableCache;
+use ltk_manager_bin::bin_document::BinDocument;
 use ltk_manager_game::vfx::resolve_system;
 use ltk_meta::BinFile;
 

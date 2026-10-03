@@ -11,8 +11,8 @@ settle are in the last section.
 ## Sources
 
 - Issues #542, #536 and #543 on `LeagueToolkit/ltk-manager`
-- `crates/ltk-manager-core/src/mods/`, the install, index and library surfaces
-- `crates/ltk-manager-core/src/mods/archive/metadata.rs`, the import's extraction
+- `crates/ltk-manager-library/src/mods/`, the install, index and library surfaces
+- `crates/ltk-manager-library/src/mods/archive/metadata.rs`, the import's extraction
 - `src/modules/library/`, the Library's components and state
 - `src/modules/workshop/text-files/MarkdownView.tsx`, the renderer
 - `src/modules/editor/`, the tab strip, the seam and the side panel
@@ -71,13 +71,13 @@ reads today - section 3.
 |   |-- <slug>.modpkg
 ```
 
-`storage_dir` is `crates/ltk-manager-core/src/mods/index/document.rs:29`, the directory is
+`storage_dir` is `crates/ltk-manager-library/src/mods/index/document.rs:29`, the directory is
 `:321`, the archive beside it is `:385`, and `library.json` is `:395`. The module doc states it at
-`crates/ltk-manager-core/src/mods/mod.rs:22` - "Every installed mod is a directory under
+`crates/ltk-manager-library/src/mods/mod.rs:22` - "Every installed mod is a directory under
 `<storage>/mods/`, named by its slug."
 
 There is no metadata directory separate from the mod directory. The parameter is named
-`metadata_dir` (`crates/ltk-manager-core/src/mods/archive/metadata.rs:129` and `:159`) and receives
+`metadata_dir` (`crates/ltk-manager-library/src/mods/archive/metadata.rs:129` and `:159`) and receives
 the staging directory that `install.rs:338` renames into `mods/<slug>/`. ADR-0002 removed the old
 sidecar: "There is no `identity.json` and no `.ltk/` inside an installed mod".
 
@@ -87,17 +87,17 @@ ADR-0007 reverses ADR-0001's fantome unpack:
 `docs/adr/0007-an-install-keeps-the-mod-in-its-archive.md:26` - "An install lands as `archive`
 storage, for every format. Staging copies the archive ... and extracts its metadata -
 `mod.config.json` and the thumbnail - into the mod directory, and nothing else." The mapping is
-`crates/ltk-manager-core/src/mods/index/document.rs:229`, where modpkg and fantome both become
+`crates/ltk-manager-library/src/mods/index/document.rs:229`, where modpkg and fantome both become
 `ModStorage::Archive`.
 
 The one path that unpacks is the opt-in per-mod storage switch,
-`crates/ltk-manager-core/src/mods/archive/storage.rs:54` and `:339`, and it refuses a modpkg:
+`crates/ltk-manager-library/src/mods/archive/storage.rs:54` and `:339`, and it refuses a modpkg:
 "A .modpkg is read straight out of its archive and has no unpacked form"
 (`storage.rs:285`).
 
 ### 2.3 A modpkg's readme is on disk and a fantome's is not
 
-This is the load-bearing fact. `crates/ltk-manager-core/src/mods/archive/metadata.rs:168`:
+This is the load-bearing fact. `crates/ltk-manager-library/src/mods/archive/metadata.rs:168`:
 
 ```rust
     if let Ok(readme_bytes) = modpkg.load_readme() {
@@ -122,13 +122,13 @@ either a mod that shipped none or a write that failed, and nothing on disk tells
 
 `ltk_fantome::FantomeReader::read_readme` is `reader.rs:533` in `ltk_fantome` 0.11.0, and it tries
 `META/README.md` then a root `README.md`. The manager already opens that reader for the info block
-and the thumbnail (`crates/ltk-manager-core/src/mods/archive/metadata.rs:95` and `:191`) and never
+and the thumbnail (`crates/ltk-manager-library/src/mods/archive/metadata.rs:95` and `:191`) and never
 calls `read_readme`. The modpkg side is `Modpkg::load_readme`, `ltk_modpkg` 0.9.2 `readme.rs:10`,
 over the chunk `_meta_/readme.md` (`readme.rs:6`).
 
 ### 2.5 The thumbnail is the shape a readme read would take
 
-`crates/ltk-manager-core/src/mods/library.rs:361` checks `mod_dir/thumbnail.webp` and
+`crates/ltk-manager-library/src/mods/library.rs:361` checks `mod_dir/thumbnail.webp` and
 `thumbnail.png`, and on a miss mounts the archive beside the mod and extracts per format. The
 command pair is `get_mod_thumbnail` and `get_mod_thumbnails`
 (`src-tauri/src/commands/mods.rs:232` and `:246`), and the batch reads the index once for the whole
@@ -161,10 +161,10 @@ The capability is there and unused: `ltk_modpkg::Modpkg::load_license_text` (`li
 `_meta_/license`) and `ltk_fantome::FantomeReader::read_license` (`reader.rs:551`), which matches
 `META/LICENSE`, `.md` and `.txt` without regard to case (`reader.rs:703`).
 `ltk_mod_project`'s `LICENSE_FILE_NAMES` (`license_file.rs:10`) is used by the workshop alone,
-through `crates/ltk-manager-core/src/workshop/text_files.rs:104`.
+through `crates/ltk-manager-workshop/src/text_files.rs:104`.
 
 The text does reach disk on the opt-in fantome unpack, through upstream `fantome/import.rs:248`,
-covered by `crates/ltk-manager-core/src/mods/long_paths/tests.rs:69`.
+covered by `crates/ltk-manager-assets/src/mod_archive/long_paths/tests.rs:69`.
 
 ### 3.2 The license name is already read and then dropped
 
@@ -172,11 +172,11 @@ covered by `crates/ltk-manager-core/src/mods/long_paths/tests.rs:69`.
 (`ltk_mod_project` 0.9.2 `lib.rs:292`), populated from a fantome's info block
 (`fantome/convert.rs:73`) and from modpkg metadata (`modpkg/convert.rs:75`). Every installed mod
 has that file and the manager reads it per mod. `read_installed_mod` copies fields at
-`crates/ltk-manager-core/src/mods/archive/metadata.rs:56` and the license is not among them.
+`crates/ltk-manager-library/src/mods/archive/metadata.rs:56` and the license is not among them.
 
 ### 3.3 What a gallery costs, by which half it shows
 
-`LibraryModEntry` is `crates/ltk-manager-core/src/mods/index/document.rs:285` and carries six
+`LibraryModEntry` is `crates/ltk-manager-library/src/mods/index/document.rs:285` and carries six
 fields: `id`, `installed_at`, `format`, `storage`, `slug`, `harvest`. Nothing textual. ADR-0002
 states the same list. Every textual field on a card comes from a per-mod `mod.config.json` read
 (`metadata.rs:24`).
@@ -234,9 +234,9 @@ button. It never shows `description`.
 ### 4.4 There is no last-enabled mod
 
 `enabled` is not a field on a mod. It is membership of the active profile's `enabled_mods`
-(`crates/ltk-manager-core/src/mods/library.rs:33`). Enabling appends to that vector
+(`crates/ltk-manager-library/src/mods/library.rs:33`). Enabling appends to that vector
 (`library.rs:135`) and then promotes the mod to the front of its folder (`library.rs:138`, and
-`crates/ltk-manager-core/src/mods/organize/folders.rs:117`).
+`crates/ltk-manager-library/src/mods/organize/folders.rs:117`).
 
 The append order does not survive. `sync_profile_orders` rewrites `enabled_mods` into the folders'
 flat visual order every time it runs (`folders.rs:136` to `:157`), and
@@ -565,7 +565,7 @@ A modpkg's readme is a file read. A fantome's is a zip mount. Three forks:
 
 - **Extract at import**, matching the modpkg path, so both formats have `mods/<slug>/README.md`.
   Every mod already installed needs a backfill, which is the reconcile pass
-  (`crates/ltk-manager-core/src/mods/index/reconcile.rs:363` already re-extracts modpkg metadata).
+  (`crates/ltk-manager-library/src/mods/index/reconcile.rs:363` already re-extracts modpkg metadata).
 - **Extract on demand and cache**, matching `thumbnail_path` exactly - check the file, mount the
   archive on a miss, write it beside the mod.
 - **Read without caching**, one mount per view.

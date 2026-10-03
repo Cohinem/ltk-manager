@@ -1,7 +1,7 @@
 /**
  * The geometry buffer the `ltk-asset` scheme answers `?as=geometry` with.
  *
- * The layout is `crates/ltk-manager-core/src/preview/mesh.rs`'s module doc, and this is
+ * The layout is `crates/ltk-manager-assets/src/preview/mesh.rs`'s module doc, and this is
  * the other half of it.
  */
 

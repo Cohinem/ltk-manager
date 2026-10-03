@@ -1,7 +1,7 @@
 /**
  * What a search query is, and what it matches.
  *
- * Plain substring matching, and the twin of `crates/ltk-manager-core/src/matcher.rs`.
+ * Plain substring matching, and the twin of `crates/ltk-manager-base/src/matcher.rs`.
  * The two must agree on order, so `__tests__/ranking.fixture.json` is checked by
  * both suites. Change one and the other's fixture test fails.
  *

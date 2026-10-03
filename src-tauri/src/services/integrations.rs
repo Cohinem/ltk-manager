@@ -1,8 +1,8 @@
 //! The integrations service: installing, changing and removing the external tools the settings
 //! offer, and the mod file types Explorer opens with the app.
 
-use ltk_manager_core::integrations::file_types::{self, FileTypeStatus};
-use ltk_manager_core::integrations::{
+use ltk_manager_runtime::integrations::file_types::{self, FileTypeStatus};
+use ltk_manager_runtime::integrations::{
     self, IntegrationAction, IntegrationError, IntegrationRelease, IntegrationStatus, Integrations,
     MenuConflictPolicy, Tool,
 };

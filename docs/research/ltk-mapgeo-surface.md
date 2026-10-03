@@ -36,7 +36,7 @@ section 6 field for field.
 - `~/dev/lol/league-toolkit/crates/ltk_shader/src/` - `lib.rs`, `loader.rs`, `toc.rs`, `defines.rs`
 - `~/.cargo/registry/src/index.crates.io-*/ltk_mapgeo-0.1.7/` - the published crate
 - `Cargo.toml` and `Cargo.lock` at this repository's root
-- `crates/ltk-manager-core/src/preview/mesh.rs` - the shape a preview reader is handed
+- `crates/ltk-manager-assets/src/preview/mesh.rs` - the shape a preview reader is handed
 - `docs/research/map-data-layout.md` - the sibling note on where map files live and how a material
   resolves
 

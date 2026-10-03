@@ -6,13 +6,13 @@ use atlas::{
     resolve_scene_bin, resolve_view, UiCharacter, UiFont, UiFontCatalog, UiLoadout, UiSpellTooltip,
     UiView, VariantChoice, FONTS_PATH,
 };
-use ltk_manager_core::bin_document::{
+use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_assets::strings::StringKeyIndexState;
+use ltk_manager_bin::bin_document::{
     BinDocument, BinDocumentError, BinDocumentId, BinDocuments, RowNames,
 };
-use ltk_manager_core::object_index::ObjectIndexSnapshot;
-use ltk_manager_core::preview::AssetRef;
-use ltk_manager_core::sandbox::SandboxRef;
-use ltk_manager_core::strings::StringKeyIndexState;
+use ltk_manager_bin::object_index::ObjectIndexSnapshot;
+use ltk_manager_bin::sandbox::SandboxRef;
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 
