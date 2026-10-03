@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { QueryClientProvider, queryOptions } from "@tanstack/react-query";
+import { QueryClientProvider, queryOptions, skipToken } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -34,7 +34,7 @@ describe("useLiveSearch", () => {
     const options = (input: string) =>
       queryOptions<SearchHits<number>, AppError>({
         queryKey: ["live", input],
-        queryFn: () => fetch(input),
+        queryFn: input.length > 0 ? () => fetch(input) : skipToken,
         ...liveSearchOptions(supersededScan),
       });
 
@@ -50,6 +50,55 @@ describe("useLiveSearch", () => {
 
     await waitFor(() => expect(result.current.data?.hits).toEqual([2]), { timeout: 3000 });
     expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("waits out the delay before the first input it mounts on", async () => {
+    const fetch = vi.fn(async (input: string) => scan([input.length]));
+    const options = (input: string) =>
+      queryOptions<SearchHits<number>, AppError>({
+        queryKey: ["live", input],
+        queryFn: input.length > 0 ? () => fetch(input) : skipToken,
+        ...liveSearchOptions(supersededScan),
+      });
+
+    const { result, rerender } = renderHook(
+      ({ input }) => useLiveSearch(input, 40, options, supersededScan),
+      { wrapper, initialProps: { input: "r" } },
+    );
+    expect(result.current.searching).toBe(true);
+
+    rerender({ input: "recall" });
+    await waitFor(() => expect(result.current.data?.hits).toEqual([6]));
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledWith("recall");
+  });
+
+  it("asks nothing for a second reader of a whole answer", async () => {
+    const fetch = vi.fn(async () => scan([1]));
+    const options = (input: string) =>
+      queryOptions<SearchHits<number>, AppError>({
+        queryKey: ["live", input],
+        queryFn: input.length > 0 ? fetch : skipToken,
+        ...liveSearchOptions(supersededScan),
+      });
+    const client = createTestQueryClient();
+    const shared = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+
+    const first = renderHook(() => useLiveSearch("a", 0, options, supersededScan), {
+      wrapper: shared,
+    });
+    await waitFor(() => expect(first.result.current.data?.hits).toEqual([1]));
+
+    const second = renderHook(() => useLiveSearch("a", 0, options, supersededScan), {
+      wrapper: shared,
+    });
+    await waitFor(() => expect(second.result.current.data?.hits).toEqual([1]));
+
+    expect(second.result.current.isFetching).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
 

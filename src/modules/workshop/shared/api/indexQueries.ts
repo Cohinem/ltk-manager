@@ -2,6 +2,7 @@ import {
   keepPreviousData,
   useQueries,
   useQuery,
+  useQueryClient,
   type QueryKey,
   type UseQueryOptions,
   type UseQueryResult,
@@ -57,28 +58,38 @@ export function supersededResponse(answer: IndexResponse<{ superseded: boolean }
 }
 
 /**
+ * How long a whole answer of an index stays fresh while something reads it.
+ *
+ * An index changes when it is rebuilt, which invalidates its answers, so a reader that mounts
+ * beside one already on screen asks nothing.
+ */
+export const SEARCH_STALE_MS = 15 * 60_000;
+
+/**
  * The options every live search of an index shares.
  *
- * The previous answer stays on screen while the next one arrives. Nothing is cached across a
- * query, because a scan a later one overtook holds part of an answer, and caching it would hand
- * it back as the whole one. An answer `isPartial` rejects, or one `poll` names a wait for, asks
- * again.
+ * The previous answer stays on screen while the next one arrives. An answer `isPartial` rejects,
+ * or one `poll` names a wait for, is stale at once and asks again. Nothing outlives its last
+ * reader, because a broad pattern holds thousands of rows.
  */
 export function liveSearchOptions<TData>(
   isPartial: (data: TData) => boolean,
   poll?: (data: TData) => number | false,
 ) {
+  const wait = (query: { state: { data: TData | undefined } }): number | false => {
+    const data = query.state.data;
+    if (data === undefined) return false;
+    if (isPartial(data)) return INDEX_POLL_MS;
+
+    return poll?.(data) ?? false;
+  };
+
   return {
     placeholderData: keepPreviousData,
-    staleTime: 0,
+    staleTime: (query: { state: { data: TData | undefined } }) =>
+      wait(query) === false ? SEARCH_STALE_MS : 0,
     gcTime: 0,
-    refetchInterval: (query: { state: { data: TData | undefined } }) => {
-      const data = query.state.data;
-      if (data === undefined) return false;
-      if (isPartial(data)) return INDEX_POLL_MS;
-
-      return poll?.(data) ?? false;
-    },
+    refetchInterval: wait,
   };
 }
 
@@ -97,6 +108,10 @@ export interface LiveSearch<TData> {
  *
  * `options` builds the query for the debounced input. A partial answer, as `isPartial` reads
  * one, never reaches the screen: the last whole answer stays until the one asked again lands.
+ *
+ * A search that mounts on an input with no answer held waits out the delay from the empty input,
+ * which `options` must build an inactive query for. A view that mounts at the first keystroke
+ * would otherwise ask for that one character.
  */
 export function useLiveSearch<TData>(
   input: string,
@@ -104,7 +119,12 @@ export function useLiveSearch<TData>(
   options: (debounced: string) => UseQueryOptions<TData, AppError, TData, QueryKey>,
   isPartial: (data: TData) => boolean,
 ): LiveSearch<TData> {
-  const debounced = useDebouncedValue(input, delayMs);
+  const client = useQueryClient();
+  const [initial] = useState(() =>
+    client.getQueryData(options(input).queryKey) === undefined ? "" : input,
+  );
+
+  const debounced = useDebouncedValue(input, delayMs, initial);
   const query = useQuery(options(debounced));
   const [whole, setWhole] = useState<TData | undefined>(undefined);
 
