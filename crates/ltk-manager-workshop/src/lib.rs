@@ -1,3 +1,5 @@
+//! A mod project on disk: its layers, declarations, packing and the watch on its files.
+
 mod chunk_names;
 mod content;
 mod declarations;
@@ -23,8 +25,9 @@ pub use folders::{
     AddFoldersReport, ConvertFolderArgs, ConvertPlacement, FantomeFolder, FolderFailure,
     FolderInspection, FolderWad,
 };
-pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
-pub(crate) use ignore_rules::{holds_ignore_rules, recommended_ignore_filter};
+pub use ignore_rules::{
+    IgnoreRules, RECOMMENDED_IGNORE_RULES, holds_ignore_rules, recommended_ignore_filter,
+};
 pub use layers::layer_name_for;
 pub use registry::{OpenedProjectFolder, ProjectKey, ProjectRegistry};
 pub use requests::{ProjectEdit, ProjectSource};
@@ -174,7 +177,7 @@ impl ProjectDir {
     }
 
     /// Read the project's authoring config.
-    pub(crate) fn config(&self) -> AppResult<ModProject> {
+    pub fn config(&self) -> AppResult<ModProject> {
         Ok(ModProject::load(self.0.try_as_utf8("project directory")?)?)
     }
 
@@ -271,7 +274,7 @@ pub struct WorkshopLayerInfo {
 ///
 /// Splits on hyphens and capitalizes the first letter of each word.
 /// Example: `"high-res"` → `"High Res"`, `"base"` → `"Base"`
-pub(crate) fn slug_to_display_name(slug: &str) -> String {
+pub fn slug_to_display_name(slug: &str) -> String {
     slug.split('-')
         .map(|word| {
             let mut chars = word.chars();

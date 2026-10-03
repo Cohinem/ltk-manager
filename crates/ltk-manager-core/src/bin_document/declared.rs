@@ -37,7 +37,7 @@ use super::{
 use crate::meta_schema::{PatchSchema, SchemaNames};
 use ltk_manager_base::error::{AppError, AppResult, Utf8PathRefExt as _};
 
-use crate::workshop::{DeclaredSign, ModuleAction, ProjectDir, declarations_error};
+use ltk_manager_workshop::{DeclaredSign, ModuleAction, ProjectDir, declarations_error};
 
 /// The layer a declared document writes to until a reader picks another.
 pub const BASE_LAYER: &str = ModProjectLayer::BASE_NAME;

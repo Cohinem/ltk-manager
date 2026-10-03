@@ -41,7 +41,7 @@ pub(crate) fn read_installed_mod(
             let display_name = l
                 .display_name
                 .clone()
-                .unwrap_or_else(|| crate::workshop::slug_to_display_name(&l.name));
+                .unwrap_or_else(|| ltk_manager_workshop::slug_to_display_name(&l.name));
             ModLayer {
                 name: l.name.clone(),
                 display_name,

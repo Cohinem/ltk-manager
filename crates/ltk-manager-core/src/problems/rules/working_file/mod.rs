@@ -10,8 +10,8 @@ use crate::problems::{
     Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity, Rule, RuleId,
     RuleMeta, Site,
 };
-use crate::workshop::{ProjectDir, holds_ignore_rules, recommended_ignore_filter};
 use ltk_manager_base::error::AppError;
+use ltk_manager_workshop::{ProjectDir, holds_ignore_rules, recommended_ignore_filter};
 
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("project/working-file");

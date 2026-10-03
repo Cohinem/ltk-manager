@@ -558,7 +558,7 @@ fn a_new_project_starts_with_the_recommended_ignore_rules() {
 
     assert_eq!(
         fs::read_to_string(tmp.path().join("new-mod").join(".modignore")).unwrap(),
-        crate::workshop::RECOMMENDED_IGNORE_RULES
+        crate::RECOMMENDED_IGNORE_RULES
     );
 }
 
@@ -573,7 +573,7 @@ fn a_fantome_import_starts_with_the_recommended_ignore_rules() {
 
     assert_eq!(
         fs::read_to_string(project.join(".modignore")).unwrap(),
-        crate::workshop::RECOMMENDED_IGNORE_RULES
+        crate::RECOMMENDED_IGNORE_RULES
     );
 }
 
@@ -590,6 +590,6 @@ fn a_modpkg_import_starts_with_the_recommended_ignore_rules() {
 
     assert_eq!(
         fs::read_to_string(tmp.path().join("packed-mod").join(".modignore")).unwrap(),
-        crate::workshop::RECOMMENDED_IGNORE_RULES
+        crate::RECOMMENDED_IGNORE_RULES
     );
 }

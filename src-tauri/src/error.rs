@@ -14,9 +14,9 @@ use ltk_manager_base::error::{message_with_sources, DomainError, ErrorKind};
 pub use ltk_manager_base::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_core::bin_document::{BinDocumentError, EditRejection, ReadOnly};
 use ltk_manager_core::github::{GitHubError, GitHubErrorKind};
-use ltk_manager_core::workshop::WorkshopError;
 use ltk_manager_runtime::launcher::LauncherError;
 use ltk_manager_runtime::patcher::PatcherError;
+use ltk_manager_workshop::WorkshopError;
 
 /// What went wrong, as the fields the frontend translates over.
 ///

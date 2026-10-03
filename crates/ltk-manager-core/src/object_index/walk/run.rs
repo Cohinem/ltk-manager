@@ -13,13 +13,13 @@ use walkdir::WalkDir;
 use crate::bin_document::{EntryKey, HashPath, Lens, RowNames, Wanted, hex};
 use crate::bin_walk::write_json_string;
 use crate::meta_schema::SchemaAt;
-use crate::workshop::layer;
 use ltk_manager_assets::game_index::FIND_LIMIT;
 use ltk_manager_assets::game_wads::{GameArchives, mount_wad};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::budget::Budget;
 use ltk_manager_base::error::AppResult;
 use ltk_manager_base::utils::natural_order::compare_names;
+use ltk_manager_workshop::layer;
 
 use super::super::{ObjectIndex, ReferenceGroup, ReferenceHit, ReferenceProperty, ReferenceResult};
 use super::{HitStep, WalkHit, WalkTarget, scan_bin};

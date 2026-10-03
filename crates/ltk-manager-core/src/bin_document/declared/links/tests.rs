@@ -17,7 +17,7 @@ fn target() -> String {
 }
 
 /// The game's copy of Teemo's skin, one object depending on Teemo's shared bin.
-fn declared(project: crate::workshop::ProjectDir) -> BinDocument {
+fn declared(project: ltk_manager_workshop::ProjectDir) -> BinDocument {
     let object = ltk_meta::BinObject::builder(h(SKIN), h("SkinCharacterDataProperties")).build();
     let mut bytes = Cursor::new(Vec::new());
     Bin::new([object], [SHARED]).to_writer(&mut bytes).unwrap();

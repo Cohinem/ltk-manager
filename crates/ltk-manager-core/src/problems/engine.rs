@@ -25,11 +25,11 @@ use ltk_mod_project::{MODIGNORE_FILE_NAME, ModIgnore};
 use ltk_wad::{PathResolver, WadChunk, WadChunkCompression, WadHash, is_hex_chunk_path};
 use walkdir::WalkDir;
 
-use crate::workshop::layer;
-use crate::workshop::{ProjectDir, holds_ignore_rules};
 use ltk_manager_assets::file_kind::WorkshopFileKind;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppResult, Utf8PathRefExt};
+use ltk_manager_workshop::layer;
+use ltk_manager_workshop::{ProjectDir, holds_ignore_rules};
 
 use archive::ArchiveFiles;
 

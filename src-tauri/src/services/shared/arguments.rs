@@ -4,7 +4,7 @@
 
 use ltk_manager_base::config::Config;
 use ltk_manager_core::mods::ModLibrary;
-use ltk_manager_core::workshop::Workshop as Projects;
+use ltk_manager_workshop::Workshop as Projects;
 use specta::datatype::DataType;
 use specta::function::FunctionArg;
 use specta::Types;

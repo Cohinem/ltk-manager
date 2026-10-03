@@ -12,8 +12,8 @@ use super::{
 };
 use crate::meta_schema::SchemaAt;
 use crate::object_index::parse_hash;
-use crate::workshop::ModuleAction;
 use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_workshop::ModuleAction;
 
 /// One edit of an open document, one variant per document method.
 ///

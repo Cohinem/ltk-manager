@@ -14,7 +14,7 @@ use ltk_manager_core::bin_document::{GameCopy, ProjectDeclarations, RowNames};
 use ltk_manager_core::meta_schema::{self, MetaSchema, PatchSchema};
 use ltk_manager_core::object_index::ObjectIndexSnapshot;
 use ltk_manager_core::sandbox::SandboxRef;
-use ltk_manager_core::workshop::ProjectDir;
+use ltk_manager_workshop::ProjectDir;
 use tauri::{AppHandle, Manager};
 
 /// The installed game as a declared document reads it: the shared tables for names, and

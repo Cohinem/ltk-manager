@@ -119,7 +119,7 @@ impl ProjectDir {
     /// project path no archive format stores,
     /// [`WorkshopError::PackIgnorePattern`] for a pattern the matcher refuses,
     /// and [`AppError::PackFailed`] for a `.modignore` that cannot be read.
-    pub(crate) fn ignore_filter(&self) -> AppResult<ModIgnore> {
+    pub fn ignore_filter(&self) -> AppResult<ModIgnore> {
         let root = self.path().try_as_utf8("project path")?;
         ModIgnore::load(root).map_err(|error| ignore_error(error, root))
     }
@@ -147,7 +147,7 @@ impl ProjectDir {
     /// A project that predates the feature is offered the default in the
     /// document rather than written to behind its author's back, so only a
     /// project this side just created reaches here.
-    pub(crate) fn write_default_ignore_rules(&self) -> AppResult<()> {
+    pub fn write_default_ignore_rules(&self) -> AppResult<()> {
         let path = self.ignore_file();
         if path.exists() {
             return Ok(());
@@ -162,7 +162,7 @@ impl ProjectDir {
 /// `content/`.
 ///
 /// A file that does not compile also counts.
-pub(crate) fn holds_ignore_rules(filter: &AppResult<ModIgnore>) -> bool {
+pub fn holds_ignore_rules(filter: &AppResult<ModIgnore>) -> bool {
     filter
         .as_ref()
         .map_or(true, |ignore| ignore.source_files().next().is_some())
@@ -172,7 +172,7 @@ pub(crate) fn holds_ignore_rules(filter: &AppResult<ModIgnore>) -> bool {
 ///
 /// Compiled against a root that does not exist on disk, so no nested
 /// `.modignore` is read.
-pub(crate) fn recommended_ignore_filter() -> ModIgnore {
+pub fn recommended_ignore_filter() -> ModIgnore {
     ModIgnore::parse(&unwritten_root(), RECOMMENDED_IGNORE_RULES)
         .expect("the recommended rules compile, see every_recommended_line_compiles")
 }

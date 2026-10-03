@@ -20,4 +20,3 @@ pub mod problems;
 pub mod releases;
 pub mod sandbox;
 pub mod vfx;
-pub mod workshop;

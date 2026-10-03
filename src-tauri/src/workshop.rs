@@ -7,7 +7,7 @@
 
 mod sheet_sources;
 
-pub use ltk_manager_core::workshop::*;
+pub use ltk_manager_workshop::*;
 pub use sheet_sources::source_rebuild;
 
 /// Tauri managed state wrapper for [`Workshop`].

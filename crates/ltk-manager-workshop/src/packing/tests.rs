@@ -1,7 +1,7 @@
 //! Unit tests for pre-flight validation and for what a pack reports.
 
 use super::*;
-use crate::workshop::WorkshopError;
+use crate::WorkshopError;
 use assert_matches::assert_matches;
 use indexmap::IndexMap;
 use ltk_manager_base::events::NullEventSink;

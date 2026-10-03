@@ -18,7 +18,6 @@ use ltk_telemetry::Telemetry;
 
 use crate::mods::ModLibrary;
 use crate::overlay::WorkshopTestProject;
-use crate::workshop::ProjectDir;
 use ltk_manager_assets::hashtables::{HashtableCache, LayeredHashDb, PathRef};
 use ltk_manager_base::config::Config;
 use ltk_manager_runtime::diagnostics::game_log::{GameWindow, LeagueLogs};
@@ -32,6 +31,7 @@ use ltk_manager_runtime::diagnostics::telemetry::{
 };
 use ltk_manager_runtime::launcher::install::installed_patchlines;
 use ltk_manager_runtime::launcher::same_install;
+use ltk_manager_workshop::ProjectDir;
 
 use ltk_manager_runtime::patcher::events::PatcherEvents;
 use ltk_manager_runtime::patcher::host::hook_flags;

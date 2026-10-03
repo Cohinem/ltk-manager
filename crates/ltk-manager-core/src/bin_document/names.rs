@@ -10,8 +10,8 @@ use ltk_meta::walk::{Leaf, TreeValue as _};
 
 use super::{BinValue, as_struct, hex, inlines, is_null, owned};
 use crate::meta_schema::SchemaAt;
-use crate::workshop::LayerChunks;
 use ltk_manager_assets::hashtables::CacheNames;
+use ltk_manager_workshop::LayerChunks;
 
 /// The names a row projection reads, one batch per table.
 ///

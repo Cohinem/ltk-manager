@@ -15,8 +15,8 @@ use super::super::{
     as_struct, descend, hex, parse_steps,
 };
 use super::{RenderNames, declaring, entry_name, not_declared, value_path};
-use crate::workshop::declarations_error;
 use ltk_manager_base::error::AppError;
+use ltk_manager_workshop::declarations_error;
 
 /// What a row copies as. Each half is absent where the row has no spelling for it: a path
 /// through a field no table names, a value nothing under which is named, and the reference of

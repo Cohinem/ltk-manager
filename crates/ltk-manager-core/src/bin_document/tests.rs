@@ -4,10 +4,10 @@
 use super::*;
 use crate::meta_schema::{KindShape, MetaSchema, SchemaAt};
 use crate::sandbox::SandboxRef;
-use crate::workshop::LayerChunks;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::game_build::GameBuild;
+use ltk_manager_workshop::LayerChunks;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinOverride, PropertyPatch};

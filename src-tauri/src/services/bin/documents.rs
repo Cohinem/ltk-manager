@@ -26,7 +26,7 @@ use ltk_manager_core::bin_document::{
 use ltk_manager_core::meta_schema::SchemaAt;
 use ltk_manager_core::meta_schema::{ClassSchema, PatchSchema, SchemaNames};
 use ltk_manager_core::sandbox::{layer_chunk_hash, Opening, SandboxRef};
-use ltk_manager_core::workshop::{ModuleAction, ProjectDir};
+use ltk_manager_workshop::{ModuleAction, ProjectDir};
 use tauri::{AppHandle, Manager};
 
 /// The window an object open reads its properties under: every one of them. A class
