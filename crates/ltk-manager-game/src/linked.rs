@@ -2,9 +2,9 @@
 
 use std::collections::{HashSet, VecDeque};
 
-use ltk_manager_core::bin_document::{AssetLookup, BinDocument, Locator, RowNames};
-use ltk_manager_core::object_index::parse_hash;
-use ltk_manager_core::preview::AssetRef;
+use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_bin::bin_document::{AssetLookup, BinDocument, Locator, RowNames};
+use ltk_manager_bin::object_index::parse_hash;
 
 use crate::material::{MaterialPreview, linked_material};
 

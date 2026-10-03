@@ -8,8 +8,8 @@ use fs_err as fs;
 use reqwest::Url;
 
 use super::{ProtocolInstallProgress, ProtocolInstallStage};
-use crate::error::{AppError, AppResult};
-use crate::events::{BackendEvent, EventSink};
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::events::{BackendEvent, EventSink};
 
 const CHUNK_SIZE: usize = 64 * 1024;
 const PROGRESS_INTERVAL_MS: u128 = 100;

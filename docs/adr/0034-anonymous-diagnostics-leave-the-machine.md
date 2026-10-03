@@ -59,6 +59,6 @@ what the sample rate in the published document exists to control.
 rather than holding it back, and an install with the switch off does not even fetch the published
 configuration.
 
-**The schema is one file per side.** `crates/ltk-manager-core/src/diagnostics/telemetry.rs` holds
+**The schema is one file per side.** `crates/ltk-manager-runtime/src/diagnostics/telemetry.rs` holds
 what a session reports and `src-tauri/src/telemetry/errors.rs` holds what a failure reports. A
 property that changes in either without `docs/ux/TELEMETRY.md` changing with it is a defect.

@@ -10,9 +10,9 @@ use std::sync::Arc;
 
 use hexshade::TranslationCache;
 use ltk_hash::{BinHash, Hash as _};
-use ltk_manager_core::bin_document::{AssetLookup, BinDocument, BinDocumentId, RowNames};
-use ltk_manager_core::object_index::parse_hash;
-use ltk_manager_core::preview::AssetRef;
+use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_bin::bin_document::{AssetLookup, BinDocument, BinDocumentId, RowNames};
+use ltk_manager_bin::object_index::parse_hash;
 use ltk_manager_game::map::MapPath;
 use ltk_manager_game::material::defs::ShaderDefsCache;
 use ltk_manager_game::material::SHADER_DEFS_PATH;

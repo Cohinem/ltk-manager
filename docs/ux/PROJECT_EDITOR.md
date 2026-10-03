@@ -2118,6 +2118,11 @@ would give the same keystroke two answers with nothing on screen saying which. S
 sits inside the box and names the scope in the source's own word: **This folder**, or **Whole
 game** and **Whole archive**.
 
+The game index starts in **Whole game**, because a root that holds a few directories gives This
+folder nothing to match, and a reader who types a name there is asking the install. An archive
+starts in **This folder**. The text follows a switch of scope, so the same question is asked
+wider or narrower without being typed again.
+
 | Scope         | In the game index                            | In a game archive                   |
 | ------------- | -------------------------------------------- | ----------------------------------- |
 | This folder   | narrows the rows on screen, live             | the same                            |
@@ -3068,7 +3073,7 @@ that section describes the ways to read a set of them.
 ### Search across the game
 
 The box in [the explorer bar](#the-explorer-bar) is the search, and its scope control is what
-widens it past the open directory. The box matches the full path, the same rule that the layer
+narrows it to the open directory. The box matches the full path, the same rule that the layer
 file tree obeys. A scoped browser searches its own archive, and the root browser searches every
 archive.
 
@@ -3534,8 +3539,9 @@ crate ships no HTTP client, so the manager supplies the download with the client
 already holds.
 
 A Cache tab in the settings owns the table state. It shows each table's entry count and
-size, syncs the cache from the mimir releases, and re-downloads every table when a user
-forces it. An empty cache never blocks the browser - every row still shows its hash.
+size, syncs the cache from the `LeagueToolkit/mimir-tables` releases, and re-downloads
+every table when a user forces it. An empty cache never blocks the browser - every row
+still shows its hash.
 
 The manager downloads the CommunityDragon `hashes.rst.xxh3.txt` list today, for the string
 override editor. The mimir cache publishes that list as its `RstXxh3` table, so a later

@@ -9,7 +9,7 @@ global index for the app, and what else it makes possible.
 
 Three findings decide the rest:
 
-- **It cannot replace [`GameIndex`](../../crates/ltk-manager-core/src/game_index.rs), and cannot
+- **It cannot replace [`GameIndex`](../../crates/ltk-manager-assets/src/game_index.rs), and cannot
   speed its build.** The database holds byte ranges, not asset paths. Getting from a chunk row to
   an asset requires the WAD's own table of contents, which is the read `GameIndex::build` already
   performs, so nothing is saved.
@@ -35,13 +35,13 @@ Primary, in order of weight:
   `league_of_legends.live.db`, copied to the scratchpad and opened
   `file:...?mode=ro&immutable=1`
 - The install on disk: `C:\Riot Games\League of Legends\Game\`, read but never written
-- `crates/ltk-manager-core/src/game_index.rs` - the app's own global index
-- `crates/ltk-manager-core/src/game_wads.rs` - `GameArchives`, what the build walks
+- `crates/ltk-manager-assets/src/game_index.rs` - the app's own global index
+- `crates/ltk-manager-assets/src/game_wads.rs` - `GameArchives`, what the build walks
 - `ltk_overlay` 0.9.7 `src/game_index.rs` - the second index, its disk cache and its game
   fingerprint
-- `crates/ltk-manager-core/src/mods/analysis/wad_reports.rs` - where a game fingerprint decides a
+- `crates/ltk-manager-library/src/mods/analysis/wad_reports.rs` - where a game fingerprint decides a
   cached report is stale
-- `crates/ltk-manager-core/src/overlay/artifacts.rs` - what the overlay keys its reuse on
+- `crates/ltk-manager-library/src/overlay/artifacts.rs` - what the overlay keys its reuse on
 - [ADR-0012](../adr/0012-the-overlay-merges-a-mod-over-the-games-copy.md) - why vanilla asset bytes
   are load-bearing
 - [SQLite, WAL mode](https://www.sqlite.org/wal.html) and

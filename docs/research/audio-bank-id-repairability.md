@@ -19,7 +19,7 @@ Primary, in order of weight:
 - **The bank-name hash** - `AK::SoundEngine::GetBankIDFromString` and what it computes
 - **The HIRC payload delta** behind `016-audio-bank-conversion`, relevant only to the
   neighbouring rule
-- `crates/ltk-manager-core/src/problems/rules/audio_bank_id/mod.rs` - the rule as shipped
+- `crates/ltk-manager-problems/src/rules/audio_bank_id/mod.rs` - the rule as shipped
 - `specs/013-mod-defect-rules/issues/013-audio-bank-id.md` - the issue that created it
 - `specs/013-mod-defect-rules/issues/004-audio-bank-version.md` and
   `specs/013-mod-defect-rules/issues/012-audio-bank-removal.md` - the two neighbouring
@@ -44,7 +44,7 @@ file offset   struct offset   field
 32            +0x18           16 B bank hash      (only read at version >= 143)
 ```
 
-`crates/ltk-manager-core/src/problems/rules/audio_bank_id/mod.rs:39` sets `BANK_ID_AT = 12`
+`crates/ltk-manager-problems/src/rules/audio_bank_id/mod.rs:39` sets `BANK_ID_AT = 12`
 counted from the start of the file, which is `+0x04` in the struct. That is the field.
 
 The value it would have to hold is not a mystery either.
@@ -159,7 +159,7 @@ of the files the unit needs. No id crosses that boundary.
 The rule stays, demoted to `Info`, and it now offers the repair.
 
 `Info` is "worth knowing, and nothing is wrong"
-(`crates/ltk-manager-core/src/problems/mod.rs:78`), which is what the evidence carries: a
+(`crates/ltk-manager-problems/src/lib.rs:78`), which is what the evidence carries: a
 zero id is reliable evidence that a bank was not built by the Wwise toolchain, and there is
 no observation of one failing because of it. Reporting it as an `Error` claimed a cost
 nothing measured.
@@ -169,7 +169,7 @@ _known_, not that none exists, and a file holding a value the format says is wro
 correcting whether or not this build of the game reads it. The repair costs four bytes and
 depends on nothing.
 
-What shipped, in `crates/ltk-manager-core/src/problems/rules/audio_bank_id/`:
+What shipped, in `crates/ltk-manager-problems/src/rules/audio_bank_id/`:
 
 - severity is `Info`
 - `fix` writes `FNV-1` of the lowercased file name with its extension stripped, little-endian
@@ -193,7 +193,7 @@ mismatch would report the game's own content.
 ### What the model holds today
 
 Severity already exists and is already four-valued
-(`crates/ltk-manager-core/src/problems/mod.rs:70`):
+(`crates/ltk-manager-problems/src/lib.rs:70`):
 
 ```
 Fatal    The game crashes on this.
@@ -203,14 +203,14 @@ Info     Worth knowing, and nothing is wrong.
 ```
 
 `ModHealthVerdict` already carries `counts: Counts` - fatals, errors, warnings, infos - per
-mod (`crates/ltk-manager-core/src/mods/health.rs:41`). So severity reaches the frontend
+mod (`crates/ltk-manager-library/src/mods/health.rs:41`). So severity reaches the frontend
 today, at mod granularity.
 
 `RuleBrief`, which is the per-issue-group struct the row unfolds into
-(`crates/ltk-manager-core/src/mods/health.rs:57`), carries `rule`, `title`, `description`,
+(`crates/ltk-manager-library/src/mods/health.rs:57`), carries `rule`, `title`, `description`,
 `count`, `fixable`, `mismatches` and `unfixable`. It has no severity field. That is the gap
 between the current model and "emit the severity per issue group" - one field on
-`RuleBrief`, populated in `rule_briefs` (`crates/ltk-manager-core/src/mods/health.rs:459`).
+`RuleBrief`, populated in `rule_briefs` (`crates/ltk-manager-library/src/mods/health.rs:459`).
 
 One wrinkle for that fold: severity is passed per problem at report time
 (`report.problem(ID, Severity::Error, site, detail)`), not declared per rule, so folding a
@@ -218,7 +218,7 @@ rule's problems into one brief needs a rule for combining them. Taking the worst
 obvious answer. Most rules emit one constant severity, so it would rarely bite.
 
 The two top-level groups are not severity and never were. `health` is derived in
-`ModHealthVerdict::from_run` (`crates/ltk-manager-core/src/mods/health.rs:405`) purely from
+`ModHealthVerdict::from_run` (`crates/ltk-manager-library/src/mods/health.rs:405`) purely from
 whether any finding is fixable:
 
 ```rust
@@ -280,7 +280,7 @@ current grouping as a decision with a reason rather than as an implementation de
 The two top-level groups are gone. Mods are the top-level rows, as files are in the project
 editor's Problems panel, and severity is emitted per issue group.
 
-- `RuleBrief` gains `severity` (`crates/ltk-manager-core/src/mods/health.rs`), the worst of
+- `RuleBrief` gains `severity` (`crates/ltk-manager-library/src/mods/health.rs`), the worst of
   the rule's live problems. Worst-wins is needed rather than a per-rule constant because
   `bin/property-type` genuinely reports at two severities depending on the installed build
 - the stored shape carries it, so `VERDICT_FILE_VERSION` went to 3 and old verdicts re-check

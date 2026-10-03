@@ -1,7 +1,7 @@
 /**
  * The mip chain buffer the `ltk-asset` scheme answers `?as=mips` with.
  *
- * The layout is `crates/ltk-manager-core/src/preview/mips.rs`'s module doc, and this is
+ * The layout is `crates/ltk-manager-assets/src/preview/mips.rs`'s module doc, and this is
  * the other half of it.
  */
 

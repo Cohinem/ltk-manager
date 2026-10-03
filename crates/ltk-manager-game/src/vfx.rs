@@ -11,7 +11,7 @@ pub use resolve::{MAX_DEPTH, MAX_NODES, resolve_system, search_linked_materials}
 
 use serde::Serialize;
 
-use ltk_manager_core::preview::AssetRef;
+use ltk_manager_assets::preview::AssetRef;
 
 use crate::material::MaterialPreview;
 

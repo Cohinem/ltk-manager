@@ -1,0 +1,54 @@
+[package]
+name = "ltk-manager-workshop"
+version = "0.1.0"
+description = "Mod projects on disk for LTK Manager"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+
+[features]
+# Derive `specta::Type` on the types that cross IPC, so the Tauri shell can export bindings.
+ts = ["dep:specta", "ltk-manager-assets/ts", "ltk-manager-base/ts"]
+
+[dependencies]
+ltk-manager-assets = { workspace = true }
+ltk-manager-base = { workspace = true }
+
+camino = { workspace = true }
+chrono = { workspace = true }
+flate2 = { workspace = true }
+fs-err = { workspace = true }
+indexmap = { workspace = true }
+ltk-declarations = { workspace = true }
+ltk_fantome = { workspace = true }
+ltk_file = { workspace = true }
+ltk_game_data = { workspace = true }
+ltk_hash = { workspace = true }
+ltk_hashtable = { workspace = true }
+ltk_meta = { workspace = true }
+ltk_mod_project = { workspace = true }
+ltk_modpkg = { workspace = true }
+ltk_wad = { workspace = true }
+notify = { workspace = true }
+notify-debouncer-mini = { workspace = true }
+parking_lot = { workspace = true }
+reqwest = { workspace = true }
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+slug = { workspace = true }
+tar = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+walkdir = { workspace = true }
+specta = { workspace = true, optional = true }
+
+[dev-dependencies]
+ltk-manager-assets = { workspace = true, features = ["test-util"] }
+assert_matches = { workspace = true }
+image = { workspace = true }
+tempfile = { workspace = true }
+zip = { workspace = true }

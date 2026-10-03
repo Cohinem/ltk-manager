@@ -3434,7 +3434,7 @@ export type LaunchStage =
 "error" | 
 /**
  *  A stage this build of the manager does not know, from a newer
- *  [`ritoclient`]. Not terminal, because there is no way to tell whether it
+ *  `ritoclient`. Not terminal, because there is no way to tell whether it
  *  should be.
  */
 "unknown";
@@ -3504,7 +3504,7 @@ export type LayerContent = {
 	ignoredDirectories: IgnoredDirectory[],
 };
 
-/**  One file of one project layer, as [`AssetRef::Layer`](crate::preview::AssetRef::Layer) names it. */
+/**  One file of one project layer, as a layer asset reference names it. */
 export type LayerFile = {
 	/**  The layer's directory name under `content`. */
 	layer: string,
@@ -3560,7 +3560,7 @@ export type LayoutMigrationReport = {
  *  What the layout migration has to say for itself this launch.
  * 
  *  The run starts with the app, so a window that opens afterwards has no
- *  [`LayoutMigrationFinished`](crate::events::BackendEvent) event to catch. It
+ *  [`LayoutMigrationFinished`](ltk_manager_base::events::BackendEvent) event to catch. It
  *  asks instead, and [`Pending`](Self::Pending) is what tells it to ask again.
  */
 export type LayoutMigrationState = 
@@ -5906,7 +5906,7 @@ export type SessionFailure =
  *  The overlay build failed, with the builder's own words.
  * 
  *  `kind` is carried because `message` is [`Display`](std::fmt::Display)
- *  output and several [`AppError`](crate::error::AppError) variants render
+ *  output and several [`AppError`](ltk_manager_base::error::AppError) variants render
  *  with no prefix of their own, so a thin inner error leaves nothing at all
  *  to read. The kind is always there to say what failed. `category` is the
  *  overlay's own word on which remedy applies, and `None` on records from

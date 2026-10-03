@@ -3,7 +3,7 @@
 //!
 //! `run_diagnostics` resolves the bundled hook DLL the injector loads into the
 //! game, snapshots settings, and runs every check in
-//! [`ltk_manager_core::diagnostics::run_all`]. It never returns an error, since
+//! [`ltk_manager_runtime::diagnostics::run_all`]. It never returns an error, since
 //! checks that fail to gather data report `Severity::Warn` or `Severity::Bad`
 //! instead. The incident commands read the store the patcher thread writes.
 
@@ -15,9 +15,9 @@ use std::sync::Arc;
 
 use crate::telemetry::errors::UiError;
 use crate::telemetry::TelemetryState;
-use ltk_manager_core::diagnostics::incident::Incident;
-use ltk_manager_core::diagnostics::token::{DecodedIncident, IncidentToken};
-use ltk_manager_core::diagnostics::{run_all, CheckCtx, DiagnosticReport};
+use ltk_manager_runtime::diagnostics::incident::Incident;
+use ltk_manager_runtime::diagnostics::token::{DecodedIncident, IncidentToken};
+use ltk_manager_runtime::diagnostics::{run_all, CheckCtx, DiagnosticReport};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 

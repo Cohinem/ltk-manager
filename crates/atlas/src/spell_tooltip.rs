@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{
+use ltk_manager_bin::bin_document::{
     Fields, entries, fields_of, items, leaf, string_map, struct_of, text,
 };
 use ltk_meta::PropertyValueEnum;

@@ -4,11 +4,11 @@
 use std::collections::HashMap;
 
 use ltk_hash::{BinHash, WadHash};
-use ltk_manager_core::bin_document::{
+use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_base::error::AppResult;
+use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, GameCopy, Namer, RowNames, fields_of, hex, leaf, link, text,
 };
-use ltk_manager_core::error::AppResult;
-use ltk_manager_core::preview::AssetRef;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::walk::Leaf;
 use ltk_meta::{ApplyReport, Bin, BinObject, PropertyPatch};

@@ -11,13 +11,13 @@ use crate::events::TauriEventSink;
 use crate::services::shared::off_thread;
 use crate::services::shared::InFlight;
 use crate::state::SettingsState;
-use ltk_manager_core::game_extract::{
+use ltk_manager_assets::file_kind::WorkshopFileKind;
+use ltk_manager_assets::game_extract::{
     ExtractJob, ExtractOptions, ExtractPlan, ExtractSummary, ExtractTarget,
 };
-use ltk_manager_core::game_index::GameIndex;
-use ltk_manager_core::game_wads::{GameArchives, WadSource};
-use ltk_manager_core::hashtables::{WadPathResolver, WadPathResolverState};
-use ltk_manager_core::workshop::WorkshopFileKind;
+use ltk_manager_assets::game_index::GameIndex;
+use ltk_manager_assets::game_wads::{GameArchives, WadSource};
+use ltk_manager_assets::hashtables::{WadPathResolver, WadPathResolverState};
 
 /// Keeps one extract in flight at a time, and holds the flag that calls it off.
 ///

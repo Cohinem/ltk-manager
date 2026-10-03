@@ -15,17 +15,17 @@ pub mod pass;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use regex::Regex;
 use serde::Serialize;
 
-use ltk_manager_core::bin_document::{
+use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, boolean,
     fields_of, hex, items, leaf, link, object_at, string_map, struct_of, text, unsigned, vector4,
 };
-use ltk_manager_core::preview::AssetRef;
 
 /// Where every `CustomShaderDef` lives, in `Shaders/Shaders.wad.client` and `Global.wad.client`.
 pub const SHADER_DEFS_PATH: &str = "data/shaders/shaders.bin";

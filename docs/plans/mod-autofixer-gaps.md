@@ -54,15 +54,15 @@ one row of the table, **check** and **repair** for the mod-health half.
 ### The engine ships one rule
 
 `rules::all()` returns a single `Box<dyn Rule>`, and `bin/property-type` is it —
-`crates/ltk-manager-core/src/problems/rules/mod.rs:10-14`. Every other defect the manager
+`crates/ltk-manager-problems/src/rules/mod.rs:10-14`. Every other defect the manager
 notices lives outside the engine, in four unrelated subsystems that produce no problem, no
 site and no fix. Section 6 lists them.
 
 ### The migration table, enumerated
 
 One JSONL file, 395 rows, shipped in the build:
-`crates/ltk-manager-core/src/problems/tables/binfile_migration_16.17.8087655.jsonl`, loaded at
-`crates/ltk-manager-core/src/problems/rules/bin_property_type/table.rs:26-29` as a claim about
+`crates/ltk-manager-problems/src/tables/binfile_migration_16.17.8087655.jsonl`, loaded at
+`crates/ltk-manager-problems/src/rules/bin_property_type/table.rs:26-29` as a claim about
 build `16.17.8087655`.
 
 The belief that the table holds only `String -> File` and `Hash -> File` is **wrong**. There
@@ -93,7 +93,7 @@ and one container whose element class hash moved. The rule handles all of them
 
 The table's type words are the meta dumper's, not `ltk_meta`'s, and the mapping between the two
 vocabularies is one twelve-row list at
-`crates/ltk-manager-core/src/problems/rules/bin_property_type/kinds.rs:29-42`. A row naming a
+`crates/ltk-manager-problems/src/rules/bin_property_type/kinds.rs:29-42`. A row naming a
 type outside that list is skipped and logged (`table.rs:250-273`).
 
 ### What the fix can apply, and what it cannot
@@ -102,15 +102,15 @@ Two decisions, in two places.
 
 **The rule sets the flag at check time.** `findings_of` attaches
 `fix: (!bin.is_override).then(|| preview(...)).flatten()` —
-`crates/ltk-manager-core/src/problems/rules/bin_property_type/mod.rs:385-387`. That `Option`
+`crates/ltk-manager-problems/src/rules/bin_property_type/mod.rs:385-387`. That `Option`
 is the whole contract the surfaces read: `Problem.fix` in
-`crates/ltk-manager-core/src/problems/mod.rs:330`, `fix: FixPreview | null` in
+`crates/ltk-manager-problems/src/lib.rs:330`, `fix: FixPreview | null` in
 `src/lib/bindings/Problem.ts:28`, and `Run::live_fixable()` at
-`crates/ltk-manager-core/src/problems/mod.rs:557-564`, which is what the verdict word and the
-one-button repair are computed from (`crates/ltk-manager-core/src/mods/health.rs:401-426`).
+`crates/ltk-manager-problems/src/lib.rs:557-564`, which is what the verdict word and the
+one-button repair are computed from (`crates/ltk-manager-library/src/mods/health.rs:401-426`).
 
 **`problems/fix.rs` performs no availability check at all.** `apply`
-(`crates/ltk-manager-core/src/problems/fix.rs:264-299`) groups problem ids by rule and hands
+(`crates/ltk-manager-problems/src/fix.rs:264-299`) groups problem ids by rule and hands
 them to `Rule::fix`. An id whose `fix` was `None` and that a caller passed anyway is re-derived
 from the file in front of it and comes back counted as skipped
 (`mod.rs:222-229`). The safety is re-derivation, not a gate.
@@ -128,7 +128,7 @@ The override-bin case is not a policy choice, it is a hole in `ltk_meta`:
 — `ltk_meta-0.6.1/src/tree/write.rs:35-40`. The comment at `mod.rs:191-192` says so.
 
 The name lookup behind the other two is `BinNames::path_value`
-(`crates/ltk-manager-core/src/problems/names.rs:159-164`), reading the mimir `binhashes` table
+(`crates/ltk-manager-problems/src/names.rs:159-164`), reading the mimir `binhashes` table
 and the mod's own declared tables, with FNV1a32 collisions deliberately poisoned so a repair
 never guesses (`names.rs:268-289`).
 
@@ -494,7 +494,7 @@ The tests are `X:\dev\league-mod\crates\ltk_overlay\tests\localized_wad_routing.
 
 `ModWadReport::from_meta` computes `affected_wads` from the same `route_targets` call the build
 uses (`builder/mod.rs:435-445`), the manager persists it
-(`crates/ltk-manager-core/src/mods/analysis/wad_reports.rs:52-80`), and
+(`crates/ltk-manager-library/src/mods/analysis/wad_reports.rs:52-80`), and
 `%APPDATA%\dev.leaguetoolkit.manager\wad-reports.json` on this machine already holds the answer
 for all three specimens:
 
@@ -540,7 +540,7 @@ last-writer-wins merge (`builder/metadata.rs:570-577`), and nothing reports the 
 league-mod's own design doc says so: "**No conflict detection.** … nothing reports the overlap"
 (`X:\dev\league-mod\docs\overlay-builder-design.md:213-216`).
 
-**The manager holds no hash-to-WAD index of its own.** `crates/ltk-manager-core/src/game_index.rs`
+**The manager holds no hash-to-WAD index of its own.** `crates/ltk-manager-assets/src/game_index.rs`
 is a file-browser directory tree, and it deliberately destroys the relation a router needs: the
 fold dedupes by hash and keeps only the first copy, and the doc on `GameFileEntry::wad` says so —
 "the fold drops every copy of a chunk after the first, so this names the archive that copy came
@@ -641,10 +641,10 @@ Four things block it as written:
    is a breaking change to a published crate's public enum.
 
 The manager's only production call is
-`crates/ltk-manager-core/src/mods/archive/install.rs:299-301`, in place over the staged copy,
+`crates/ltk-manager-library/src/mods/archive/install.rs:299-301`, in place over the staged copy,
 immediately after `preserve_archive_names` has harvested names into embedded hashtables. That
 ordering is league-mod's ADR-0002 contract and is pinned by
-`crates/ltk-manager-core/src/mods/archive/install/tests.rs:107-134`.
+`crates/ltk-manager-library/src/mods/archive/install/tests.rs:107-134`.
 
 **Conclusion for the proposal:** a WAD split does not belong in `normalize.rs`, and section 3
 argues it does not belong anywhere. Normalization is a container-encoding pass that has never
@@ -652,7 +652,7 @@ opened a WAD, it runs before the manager knows anything about the game, and its 
 means it would not even run for the archives that supposedly need splitting. The routing the
 split was meant to achieve already happens at overlay build, exactly, against the install the
 user has. What is missing is a rule that _reports_ the routing, and that reads chunks through
-`ArchiveFiles` (`crates/ltk-manager-core/src/problems/engine/archive.rs:48-54`) and resolves
+`ArchiveFiles` (`crates/ltk-manager-problems/src/engine/archive.rs:48-54`) and resolves
 names through the hashtables ADR-0009 already makes a precondition — no writes at all.
 
 ## 5. The three specimens
@@ -1367,7 +1367,7 @@ replaces a real game path whose bank is v145 with an id, while the matching even
 real path stays vanilla.
 
 **Detected today.** No. `.bnk` and `.wpk` are file-kind labels
-(`crates/ltk-manager-core/src/workshop/content.rs:70-71`) and nothing in the stack reads past the
+(`crates/ltk-manager-workshop/src/content.rs:70-71`) and nothing in the stack reads past the
 four magic bytes.
 
 **Repairable.** No. The id is assigned by the Wwise toolchain when the bank is built and cannot be
@@ -1444,12 +1444,12 @@ runs after blocked WADs are removed, so a blocked WAD is neither validated nor c
 (`:52-53`, called from `builder/mod.rs:816-817`).
 
 The manager surfaces it as `LinkedBinOffenderInfo`
-(`crates/ltk-manager-core/src/mods/analysis/linked_bins.rs:19-29`), in memory only and replaced
+(`crates/ltk-manager-library/src/mods/analysis/linked_bins.rs:19-29`), in memory only and replaced
 wholesale on each build because offender status depends on the whole enabled set rather than on
 one mod (`linked_bins.rs:1-7`). It reaches the user as a badge
 (`src/modules/library/components/MissingDepsBadge.tsx:24-31`) and a pre-launch dialog
 (`src/modules/patcher/components/LinkedBinWarningDialog.tsx`), gated on
-`config.linked_bin_check_enabled` (`crates/ltk-manager-core/src/config.rs:84`).
+`config.linked_bin_check_enabled` (`crates/ltk-manager-base/src/config.rs:84`).
 
 **Repairable.** Partially, and nobody has tried. Where the missing link is a chunk the mod itself
 ships in a _different_ WAD, the fix is to route a copy — the same fan-out `route_targets` already
@@ -1507,7 +1507,7 @@ a whole vanilla archive — but a single stray is enough to drag in a WAD.
 
 **Detected today.** No. The token `vanilla` appears nowhere in the codebase.
 `ScanStatus::BaseWad` ("the game's own copy of the archive") exists as a runtime scan verdict from
-the game (`crates/ltk-manager-core/src/diagnostics/incident.rs:1119-1126`), reported after a crash
+the game (`crates/ltk-manager-runtime/src/diagnostics/incident.rs:1119-1126`), reported after a crash
 rather than before a launch.
 
 **Repairable.** Yes, and cleanly: compare each chunk's decompressed bytes against the installed
@@ -1633,7 +1633,7 @@ mod. Both measured.
 
 **Detected today.** No. `skinhackCheck.ts` (`src/modules/library/utils/skinhackCheck.ts:1-31`)
 is an author and description blocklist, pure string matching against two names, and the runtime
-`ScanStatus::Skinhack` (`crates/ltk-manager-core/src/diagnostics/incident.rs:1110-1129`) is the
+`ScanStatus::Skinhack` (`crates/ltk-manager-runtime/src/diagnostics/incident.rs:1110-1129`) is the
 game's own scan reported after a crash. Neither inspects content.
 
 **Repairable.** Nothing to repair — `route_targets` already sends the Ziggs chunk into
@@ -1665,7 +1665,7 @@ that is genuinely nameless is 166, not 505.
 This is normal for a mod shipping its own assets under new paths, so it is not by itself a defect.
 
 **Detected today.** Partially. A nameless chunk gets `hex_name(chunk.path_hash)` as its path and
-its kind sniffed from magic (`crates/ltk-manager-core/src/problems/engine/archive.rs:299-322`),
+its kind sniffed from magic (`crates/ltk-manager-problems/src/engine/archive.rs:299-322`),
 and the frontend sorts hex names last (`src/modules/workshop/utils/contentTree.ts:117-127`).
 `PROJECT_PROBLEMS.md` names `wad/unknown-path` as a proposed rule that does not exist.
 
@@ -1740,7 +1740,7 @@ hash for every game WAD and keeps a `subchunktoc_blocked` set, and mod overrides
 hashes are stripped during the build — `X:\dev\league-mod\crates\ltk_overlay\src\game_index.rs:81-85`.
 So a mod cannot corrupt the game's subchunk loading even by shipping the table. The manager itself
 names `subchunk_toc` in exactly one place, to sniff a chunk's magic
-(`crates/ltk-manager-core/src/problems/engine/archive.rs:357`).
+(`crates/ltk-manager-problems/src/engine/archive.rs:357`).
 
 **Repairable.** Not applicable in practice. **Zero `ZstdMulti` chunks across all three
 specimens** — the game uses them heavily (1,696 of 2,689 chunks in `Sett.wad.client`) and mods do
@@ -1752,7 +1752,7 @@ re-packed a vanilla `ZstdMulti` chunk as plain `Zstd` costs the game its partial
 
 Nothing in this stack parses a `.bnk` or a `.wpk` beyond the four magic bytes. `WwiseBank` and
 `WwisePackage` are file-kind labels
-(`crates/ltk-manager-core/src/workshop/content.rs:70-71`) and nothing else. So this class is
+(`crates/ltk-manager-workshop/src/content.rs:70-71`) and nothing else. So this class is
 **entirely unverified** and would need a Wwise bank parser before it could be checked. Recorded
 because the question was asked, not because there is evidence for it.
 
@@ -1769,7 +1769,7 @@ does not work, which is what a user cares about — but the sentence a user read
 promise a crash the client does not produce.
 
 **A healthy verdict is not a claim that the mod works.** `ModHealthVerdict::from_run`
-(`crates/ltk-manager-core/src/mods/health.rs:401-426`) reads `Healthy` off a run with zero live
+(`crates/ltk-manager-library/src/mods/health.rs:401-426`) reads `Healthy` off a run with zero live
 problems, and with one rule installed that means "the one thing we check is fine". Section 6 has a
 mod that crashes the game carrying that word. `MOD_HEALTH.md` should say what the badge is a claim
 about, because a user reads `healthy` as "safe to play".

@@ -11,19 +11,19 @@ editor is its first user. Stages 4 and 5 start after the bin editor works on the
 
 | Piece                   | Where                                                            | Shape today                                                                                   |
 | ----------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Address                 | `crates/ltk-manager-core/src/preview/source.rs:22`               | `AssetRef` = `Layer`, `GameChunk { project? }`, `File`. `read` resolves bytes per kind        |
-| Held documents          | `crates/ltk-manager-core/src/bin_document.rs:144`                | `BinDocuments`, LRU of 32 keyed by `AssetRef`, each holding its tree and a `LayerChunks`      |
-| Declared apply          | `crates/ltk-manager-core/src/bin_document/declared.rs:463`       | Starts from the game copy, applies each layer's `game_data.yaml` in `apply_order`             |
-| File resolution         | `crates/ltk-manager-core/src/workshop/chunk_names.rs:28`, `:306` | `LayerChunks`, the highest layer's copy of each path, sorted by `cmp_for_stacking`            |
+| Address                 | `crates/ltk-manager-assets/src/preview/source.rs:22`             | `AssetRef` = `Layer`, `GameChunk { project? }`, `File`. `read` resolves bytes per kind        |
+| Held documents          | `crates/ltk-manager-bin/src/bin_document.rs:144`                 | `BinDocuments`, LRU of 32 keyed by `AssetRef`, each holding its tree and a `LayerChunks`      |
+| Declared apply          | `crates/ltk-manager-bin/src/bin_document/declared.rs:463`        | Starts from the game copy, applies each layer's `game_data.yaml` in `apply_order`             |
+| File resolution         | `crates/ltk-manager-workshop/src/chunk_names.rs:28`, `:306`      | `LayerChunks`, the highest layer's copy of each path, sorted by `cmp_for_stacking`            |
 | Link lookup             | `src-tauri/src/commands/document_assets.rs:96`                   | `DocumentAssets: AssetLookup`, layer copy then `GameIndex`, game results have `project: None` |
-| Read-only gate          | `crates/ltk-manager-core/src/bin_document/edit.rs:354`           | `ReadOnly` = `install`, `loose`, `patch`, `declarationsOff`                                   |
+| Read-only gate          | `crates/ltk-manager-bin/src/bin_document/edit.rs:354`            | `ReadOnly` = `install`, `loose`, `patch`, `declarationsOff`                                   |
 | Project on the frontend | `src/modules/workshop/projects/state/ProjectContext.tsx`         | 34 files call `useProjectContext`, 14 call `useOptionalProjectContext`                        |
 | Declared bin open       | `src/modules/workshop/bin/documents/hooks/useBinDocument.ts:69`  | Injects `project` into a `gameChunk` from `ProjectContext`                                    |
 | Document identity       | `src/modules/workshop/preview/utils/assetRef.ts:25`              | `assetKey` has no project part                                                                |
 | Frontend resolution     | `src/modules/workshop/bin/links/hooks/useLinkTargets.ts:427-480` | `lookupOrder`, `useLayerCopy`, `joinDeclarations` repeat the backend's lookup                 |
 | Target layer            | `src/modules/workshop/shell/hooks/useProjectEditor.ts:503`       | `selectedLayer` in the editor store, `selectedModule` in `.ltk/editor.json`                   |
-| Layer priority          | `crates/ltk-manager-core/src/workshop/layers.rs:43`, `:214`      | Create takes the highest plus one, reorder numbers from 1 over `base` at 0, never negative    |
-| Layer rename            | `crates/ltk-manager-core/src/workshop/layers.rs:123`             | Renames the directory and the config entry, and updates no open document                      |
+| Layer priority          | `crates/ltk-manager-workshop/src/layers.rs:43`, `:214`           | Create takes the highest plus one, reorder numbers from 1 over `base` at 0, never negative    |
+| Layer rename            | `crates/ltk-manager-workshop/src/layers.rs:123`                  | Renames the directory and the config entry, and updates no open document                      |
 
 ## 2. Decisions from review (2026-09-28)
 

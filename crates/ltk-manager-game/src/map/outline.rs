@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use ltk_hash::BinHash;
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
@@ -14,7 +14,7 @@ use super::characters::skin_of;
 use super::component::MAP_CONTAINER;
 use super::particles::PARTICLE;
 use super::placeable::{NAME, Placed, controller, placeables, transform, visibility};
-use ltk_manager_core::bin_document::{BinDocument, Namer, RowNames, entries, hex, leaf, link};
+use ltk_manager_bin::bin_document::{BinDocument, Namer, RowNames, entries, hex, leaf, link};
 
 /// `MapContainer.chunks`, a `Map<Hash, Link<MapPlaceableContainer>>`.
 const CHUNKS: BinHash = named("chunks");

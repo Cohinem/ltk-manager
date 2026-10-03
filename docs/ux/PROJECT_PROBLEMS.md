@@ -1092,7 +1092,7 @@ is [MOD_HEALTH.md](MOD_HEALTH.md).
 
 ## What ships in what order
 
-1. The model, the engine, the table and the rule, in `ltk-manager-core`, with tests over
+1. The model, the engine, the table and the rule, in `ltk-manager-problems`, with tests over
    crafted bins for each of the four conversions and for each of the four match cases
 2. The panel, read-only. A run, a list, and a reveal
 3. The preview, the fix, and the names the fix preserves

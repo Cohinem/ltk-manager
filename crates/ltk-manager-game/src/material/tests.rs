@@ -6,7 +6,7 @@ use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
-use ltk_manager_core::preview::AssetRef;
+use ltk_manager_assets::preview::AssetRef;
 
 pub(super) fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)

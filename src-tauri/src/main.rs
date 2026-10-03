@@ -22,7 +22,7 @@ mod tray;
 mod updater;
 mod workshop;
 
-use ltk_manager_core::bin_document::BinDocuments;
+use ltk_manager_bin::bin_document::BinDocuments;
 use semver::Version;
 use tauri::webview::PageLoadEvent;
 use tauri::Manager;

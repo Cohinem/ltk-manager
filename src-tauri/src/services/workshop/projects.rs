@@ -10,11 +10,11 @@ use crate::workshop::{
 };
 use chrono::Local;
 use fs_err as fs;
-use ltk_manager_core::bin_document::BinDocuments;
-use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
-use ltk_manager_core::object_index::CacheNames;
-use ltk_manager_core::sandbox::SandboxState;
-use ltk_manager_core::workshop::layer_name_for;
+use ltk_manager_assets::hashtables::CacheNames;
+use ltk_manager_assets::hashtables::{BinHashTablesState, WadPathResolverState};
+use ltk_manager_bin::bin_document::BinDocuments;
+use ltk_manager_bin::sandbox::SandboxState;
+use ltk_manager_workshop::layer_name_for;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

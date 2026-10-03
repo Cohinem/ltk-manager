@@ -25,7 +25,7 @@ import { fileURLToPath } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-const crateSrc = join(repoRoot, "crates", "ltk-manager-core", "src");
+const crateSrc = join(repoRoot, "crates", "ltk-manager-bin", "src");
 const snapshotPath = join(crateSrc, "meta_schema", "schema-snapshot.json.gz");
 const embedPath = join(crateSrc, "meta_schema.rs");
 

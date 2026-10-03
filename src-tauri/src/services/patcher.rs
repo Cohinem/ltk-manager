@@ -14,9 +14,9 @@ use crate::patcher::{
     PatcherThread, SessionParams, StoredPatcherConfig,
 };
 use crate::state::{IncidentStoreState, SettingsState};
-use ltk_manager_core::diagnostics::binary_id::PatcherBinaries;
-use ltk_manager_core::utils::client_settings::LeagueClientSettings;
-use ltk_manager_core::utils::game::GameDir;
+use ltk_manager_base::utils::client_settings::LeagueClientSettings;
+use ltk_manager_base::utils::game::GameDir;
+use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -194,7 +194,7 @@ pub(crate) fn start_patcher_inner(
     // Decides which tray icon set this session drives.
     let is_workshop = stored_config.origin().is_workshop();
 
-    let workshop_projects = stored_config.workshop_tests();
+    let workshop_projects = ltk_manager_core::patching::workshop_tests(&stored_config);
 
     let config_snapshot = settings.config();
     tracing::debug!(
@@ -233,7 +233,7 @@ pub(crate) fn start_patcher_inner(
         }
     }
 
-    let should_elevate = ltk_manager_core::patcher::should_elevate(&config_snapshot);
+    let should_elevate = ltk_manager_runtime::patcher::should_elevate(&config_snapshot);
 
     let dll_path = super::diagnostics::resolve_patcher_dll(app_handle)
         .or_else(|| injector_exe.parent().map(|dir| dir.join(HOOK_DLL_NAME)))

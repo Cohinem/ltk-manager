@@ -38,8 +38,8 @@ gets rewritten when the second file type arrives.
 | Piece            | Where                                                | Shape today                                                                      |
 | ---------------- | ---------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Layer files      | `<project>/content/<layer>/<relative path>`          | Loose files on disk. `ContentEntry` carries path, size and kind                  |
-| Game chunks      | `crates/ltk-manager-core/src/game_wads.rs`           | `GameArchives::read` lists chunks. Nothing reads a chunk's **bytes**             |
-| Game index       | `crates/ltk-manager-core/src/game_index.rs`          | Folds every archive into one tree, and **drops which archive a chunk came from** |
+| Game chunks      | `crates/ltk-manager-assets/src/game_wads.rs`         | `GameArchives::read` lists chunks. Nothing reads a chunk's **bytes**             |
+| Game index       | `crates/ltk-manager-assets/src/game_index.rs`        | Folds every archive into one tree, and **drops which archive a chunk came from** |
 | Layer tree rows  | `src/modules/workshop/components/ContentTreeRow.tsx` | A file row's click only moves the roving focus                                   |
 | Game tree rows   | `src/modules/workshop/gameBrowser/SourceTreeRow.tsx` | The same                                                                         |
 | Documents        | `src/modules/workshop/documents/contentDocument.ts`  | Six kinds, none of them a file                                                   |
@@ -119,7 +119,7 @@ Two concerns, kept apart, because they vary independently. Where the bytes come 
 question. What to draw with them is another.
 
 ```
-crates/ltk-manager-core/src/preview/
+crates/ltk-manager-assets/src/preview/
 ├─ mod.rs       AssetRef, Preview, PreviewError
 ├─ source.rs    AssetRef::read — the byte sources
 └─ texture.rs   the ltk_texture path

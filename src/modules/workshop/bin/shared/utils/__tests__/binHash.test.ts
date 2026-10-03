@@ -4,7 +4,7 @@ import { fnv1a32, nameHash } from "../binHash";
 
 /**
  * Names the meta schema's own snapshot resolves, read out of
- * `crates/ltk-manager-core/src/meta_schema/schema-snapshot.json.gz`.
+ * `crates/ltk-manager-bin/src/meta_schema/schema-snapshot.json.gz`.
  *
  * Every class a layout is keyed on and every field a layout or a value row names is
  * here, because a frontend hash that disagrees with the backend's places nothing.

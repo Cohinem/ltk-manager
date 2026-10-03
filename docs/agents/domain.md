@@ -26,10 +26,10 @@ both.
 │   └── 0002-....md
 ├── src/            ← React/TypeScript frontend
 ├── src-tauri/      ← Tauri backend
-└── crates/         ← ltk-manager-core
+└── crates/         ← the ltk-manager-* backend crates
 ```
 
-The per-directory `AGENTS.md` files (`src/`, `src/styles/`, `src-tauri/`, `crates/ltk-manager-core/`)
+The per-directory `AGENTS.md` files (`src/`, `src/styles/`, `src-tauri/`, `crates/ltk-manager-*/`)
 carry coding conventions, not domain vocabulary. They are not a substitute for `CONTEXT.md` and they
 do not make this a multi-context repo.
 

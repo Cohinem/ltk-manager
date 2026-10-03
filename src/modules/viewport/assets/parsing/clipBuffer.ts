@@ -1,7 +1,7 @@
 /**
  * The pose buffer the `ltk-asset` scheme answers `?as=animation` with.
  *
- * The layout is `crates/ltk-manager-core/src/preview/animation.rs`'s module doc, and this
+ * The layout is `crates/ltk-manager-assets/src/preview/animation.rs`'s module doc, and this
  * is the other half of it.
  */
 

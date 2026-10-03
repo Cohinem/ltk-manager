@@ -57,7 +57,7 @@ Primary, in order of weight:
   `vfxanimatedcolorvariabledata`, `vfxprobabilitytabledata`, `animationgraphdata`,
   `atomicclipdata`, `maskdata`, `trackdata`. Fetched with `curl` and read from the HTML, because
   the WebFetch summaries wrote `Link` for every pointer
-- `crates/ltk-manager-core/src/meta_schema/schema-snapshot.json.gz`, format version 1, latest
+- `crates/ltk-manager-bin/src/meta_schema/schema-snapshot.json.gz`, format version 1, latest
   build 8104348, 5,458 classes. The `[kind, key, value, class]` tuple of every field cited below
   was read out of it, and it is what settles pointer against embed where the wiki drops the
   wrapper
@@ -68,7 +68,7 @@ Primary, in order of weight:
   [ADR-0029](../adr/0029-the-generated-bindings-describe-the-wire-format-they-do-not-change-it.md)
 - `docs/research/bin-object-index.md` and `docs/research/game-db-as-precomputed-index.md`, for
   the index the links resolve through and the shape this note follows
-- `crates/ltk-manager-core/src/bin_document.rs`, `meta_schema.rs`, `object_index.rs`,
+- `crates/ltk-manager-bin/src/bin_document.rs`, `meta_schema.rs`, `object_index.rs`,
   `object_index/references.rs`, `object_index/wire.rs`, `preview/mod.rs`
 - `src-tauri/src/commands/bin.rs` and `src-tauri/src/commands/object_index.rs`
 - `src/modules/workshop/bin/`, every file, `src/modules/workshop/documents/contentDocument.ts`
@@ -88,15 +88,15 @@ nothing in the text describes its layout.
 
 ### 1.1 The data model
 
-| GDS                                                                                                                                                                                                                | Here                                                                                                                              |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| Two kinds of game data: "key-value pairs called property data" and "blobs of opaque binary data"                                                                                                                   | A `.bin` is the property data, a WAD chunk the blob                                                                               |
-| One JSON file per object at a path, `PROPERTIES/Items/BlackCleaver.json`                                                                                                                                           | One object per path hash, several per file, ADR-0028 opens one as a document                                                      |
-| `get?path=Items/BlackCleaver` answers the object                                                                                                                                                                   | `bin_open(asset, entry)` answers the object's rows, `src-tauri/src/commands/bin.rs:31-35`                                         |
-| `set&path=PROPERTIES/Items/BlackCleaver.FlatHPMod&value=1000` edits one field by path                                                                                                                              | ADR-0027 adopts the same path language. No set exists yet, "Editing" is Proposed in `docs/ux/BIN_EDITOR.md:739`                   |
-| Types are declared once, in engine code, with `PROPERTY_CLASS` and `PROPERTY` macros, and a "definition exporter" writes the JSON definition of "what classes exist, and which of their fields should be editable" | The meta schema snapshot is the community's reconstruction of that definition, `crates/ltk-manager-core/src/meta_schema.rs:27-66` |
-| A complex type such as `BoundingVolume` is referenced "provided they have their own sub-properties tagged up"                                                                                                      | An `embed` or a `pointer` row, whose class the schema names                                                                       |
-| A field can be skipped from the definition, so the editor never shows it                                                                                                                                           | Every field the file holds has a row, per "A kind with no widget still has a row" in `docs/ux/BIN_EDITOR.md`                      |
+| GDS                                                                                                                                                                                                                | Here                                                                                                                             |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| Two kinds of game data: "key-value pairs called property data" and "blobs of opaque binary data"                                                                                                                   | A `.bin` is the property data, a WAD chunk the blob                                                                              |
+| One JSON file per object at a path, `PROPERTIES/Items/BlackCleaver.json`                                                                                                                                           | One object per path hash, several per file, ADR-0028 opens one as a document                                                     |
+| `get?path=Items/BlackCleaver` answers the object                                                                                                                                                                   | `bin_open(asset, entry)` answers the object's rows, `src-tauri/src/commands/bin.rs:31-35`                                        |
+| `set&path=PROPERTIES/Items/BlackCleaver.FlatHPMod&value=1000` edits one field by path                                                                                                                              | ADR-0027 adopts the same path language. No set exists yet, "Editing" is Proposed in `docs/ux/BIN_EDITOR.md:739`                  |
+| Types are declared once, in engine code, with `PROPERTY_CLASS` and `PROPERTY` macros, and a "definition exporter" writes the JSON definition of "what classes exist, and which of their fields should be editable" | The meta schema snapshot is the community's reconstruction of that definition, `crates/ltk-manager-bin/src/meta_schema.rs:27-66` |
+| A complex type such as `BoundingVolume` is referenced "provided they have their own sub-properties tagged up"                                                                                                      | An `embed` or a `pointer` row, whose class the schema names                                                                      |
+| A field can be skipped from the definition, so the editor never shows it                                                                                                                                           | Every field the file holds has a row, per "A kind with no widget still has a row" in `docs/ux/BIN_EDITOR.md`                     |
 
 ### 1.2 The editor, and what sits under it
 
@@ -475,7 +475,7 @@ The third row is the one that needs a read the backend does not have.
 ### 5.2 What a row carries
 
 A row is `entry`, `path` on the wire, `label` for a person, `node`, `name`, `unnamed`, `kind`,
-`value` and `declared` (`crates/ltk-manager-core/src/bin_document.rs:559-577`). A `Struct`
+`value` and `declared` (`crates/ltk-manager-bin/src/bin_document.rs:559-577`). A `Struct`
 value carries `class_hash`, `class` and `len` (`bin_document.rs:794-799`), so a view knows the
 class of every `embed` and `pointer` under it without a second call, which is what routes a
 `ValueColor` to a swatch or a `VfxShapeSphere` to its radius. A `Hash` value carries the name
@@ -535,7 +535,7 @@ view mounted beside the tree needs the same providers around it.
 
 `ClassSchema` is the class's name, the build it was read at, the patch that build belongs to,
 and every field with its hash, name, declared shape and revisions
-(`crates/ltk-manager-core/src/meta_schema.rs:227-264`). `class_schema` reads it at the install's
+(`crates/ltk-manager-bin/src/meta_schema.rs:227-264`). `class_schema` reads it at the install's
 build (`meta_schema.rs:455-496`), `useClassSchema` holds it for the session
 (`src/modules/workshop/bin/useClassSchema.ts:16-24`), and the class card sends the reader to
 the wiki (`src/modules/workshop/bin/ClassCard.tsx:9-12`). The snapshot's tuple carries a class
@@ -546,7 +546,7 @@ inheritance, so it cannot say that `TftSkinCharacterDataProperties` is a skin. T
 ### 5.7 References
 
 `ReferenceQuery` is a class or an object (`src/lib/bindings/ReferenceQuery.ts:6-13`), answered
-by `class_references` and `object_references` (`crates/ltk-manager-core/src/object_index/references.rs:98, 131`)
+by `class_references` and `object_references` (`crates/ltk-manager-bin/src/object_index/references.rs:98, 131`)
 through `find_references` (`src-tauri/src/commands/object_index.rs:290`). "Every object of a
 class" comes from the index, and "every use of an embedded class" and "every object linking to
 an object" from "a walk of every bin" that is not built (`docs/ux/PROJECT_EDITOR.md:2729-2741`).
@@ -582,7 +582,7 @@ one, because a skin's `Material` is a `link` inside an `embed`.
   the tree behind the `serde` feature the workspace enables (`tree.rs:39-41`, `property.rs:14`,
   root `Cargo.toml:29`), and no derive that reads a bin object into a struct
 - No mesh, skeleton or animation preview. `AssetInfo` is `texture`, `image` or `unsupported`
-  (`crates/ltk-manager-core/src/preview/mod.rs:46`), the workspace depends on `ltk_meta` and
+  (`crates/ltk-manager-assets/src/preview/mod.rs:46`), the workspace depends on `ltk_meta` and
   `ltk_texture` and not on `ltk_mesh` or `ltk_anim` (root `Cargo.toml:29, 39`), and
   `package.json` names no 3D library
 - No reverse reference through an embedded link, per section 5.7

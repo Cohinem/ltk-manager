@@ -69,8 +69,11 @@ export function useRefreshGameIndex() {
       queryClient.invalidateQueries({ queryKey: gameKeys.index(source) });
       queryClient.invalidateQueries({ queryKey: gameKeys.sourceDirs(source) });
       queryClient.invalidateQueries({ queryKey: gameKeys.wads(source) });
+      queryClient.invalidateQueries({ queryKey: gameKeys.finds(source) });
       if (source !== "game") return;
 
+      queryClient.invalidateQueries({ queryKey: gameKeys.searches });
+      queryClient.invalidateQueries({ queryKey: gameKeys.pathSearches });
       queryClient.invalidateQueries({ queryKey: gameKeys.objectSearches });
       /* A viewport holds where a file lived, which the index it was read out of no
          longer answers. */

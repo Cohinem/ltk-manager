@@ -11,8 +11,8 @@ use std::panic::AssertUnwindSafe;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
-use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::preview::{
+use ltk_manager_assets::game_wads::WadCache;
+use ltk_manager_assets::preview::{
     AssetRef, Preview, PreviewError, PreviewFile, PreviewFont, PreviewImage, PreviewRequest,
 };
 use tauri::http::{header, Request, Response, StatusCode};
@@ -172,10 +172,13 @@ fn parameter<'a>(query: Option<&'a str>, key: &str) -> Option<&'a str> {
 
 /// The status that tells a caller what went wrong.
 fn status_for(error: &AppError) -> StatusCode {
+    if let Some(PreviewError::Unsupported(_) | PreviewError::NotCube | PreviewError::NotFont) =
+        error.domain::<PreviewError>()
+    {
+        return StatusCode::UNSUPPORTED_MEDIA_TYPE;
+    }
+
     match error {
-        AppError::Preview(
-            PreviewError::Unsupported(_) | PreviewError::NotCube | PreviewError::NotFont,
-        ) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
         AppError::InvalidPath(_) | AppError::LeagueNotFound => StatusCode::NOT_FOUND,
         AppError::Io(e) if e.kind() == io::ErrorKind::NotFound => StatusCode::NOT_FOUND,
         _ => StatusCode::INTERNAL_SERVER_ERROR,
@@ -399,8 +402,8 @@ mod tests {
 
     #[test]
     fn an_unsupported_kind_is_an_unsupported_media_type() {
-        let error = AppError::Preview(PreviewError::Unsupported(
-            ltk_manager_core::preview::LeagueFileKind::PropertyBin,
+        let error = AppError::from(PreviewError::Unsupported(
+            ltk_manager_assets::preview::LeagueFileKind::PropertyBin,
         ));
         assert_eq!(status_for(&error), StatusCode::UNSUPPORTED_MEDIA_TYPE);
     }

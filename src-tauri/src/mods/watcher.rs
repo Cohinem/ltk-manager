@@ -5,7 +5,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use fs_err as fs;
-use ltk_manager_core::mods::StorageLayout as _;
+use ltk_manager_library::mods::StorageLayout as _;
 use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use tauri::{AppHandle, Emitter, Manager};
 

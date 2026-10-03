@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 
 pub use download::download_mod_file;
 
-use crate::error::{AppError, AppResult};
-use crate::events::{BackendEvent, EventSink};
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::events::{
+    BackendEvent, EventSink, ProtocolInstallProgress, ProtocolInstallStage,
+};
 
 /// A `ltk://` deep link, as the route named in it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -44,28 +46,6 @@ pub struct DeepLinkInstallRequest {
 pub struct DeepLinkSettingsRequest {
     /// The public setting or group id the page opens on, as `?focus=` carries it.
     pub focus: String,
-}
-
-/// Where a protocol install has got to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub enum ProtocolInstallStage {
-    Downloading,
-    Validating,
-    Complete,
-    Error,
-}
-
-/// Progress payload emitted during protocol install download.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub struct ProtocolInstallProgress {
-    pub stage: ProtocolInstallStage,
-    pub bytes_downloaded: u64,
-    pub total_bytes: Option<u64>,
-    pub error: Option<String>,
 }
 
 /// Parse and validate a `ltk://` deep-link URL into the route it names.

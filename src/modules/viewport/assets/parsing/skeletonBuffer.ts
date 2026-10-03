@@ -1,7 +1,7 @@
 /**
  * The joint buffer the `ltk-asset` scheme answers `?as=skeleton` with.
  *
- * The layout is `crates/ltk-manager-core/src/preview/skeleton.rs`'s module doc, and this
+ * The layout is `crates/ltk-manager-assets/src/preview/skeleton.rs`'s module doc, and this
  * is the other half of it.
  */
 

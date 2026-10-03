@@ -1,7 +1,8 @@
-//! What League's own classes mean, read out of a document core holds open.
+//! What League's own classes mean, read out of an open bin document.
 //!
-//! Core owns the document, the names and where an asset lives. This crate sits above it
-//! and owns the classes, so core never learns what a `MapContainer` is.
+//! `ltk-manager-bin` owns the document and the names, and `ltk-manager-assets` where an
+//! asset lives. This crate sits above them and owns the classes, so neither learns what a
+//! `MapContainer` is.
 
 pub mod champions;
 pub mod character;

@@ -5,19 +5,19 @@ use crate::events::TauriEventSink;
 use crate::mods::ModLibraryState;
 use crate::services::shared::off_thread;
 use crate::state::SettingsState;
-use ltk_manager_core::game_index::GameIndexState;
-use ltk_manager_core::hashtables::{
+use ltk_manager_assets::game_index::GameIndexState;
+use ltk_manager_assets::hashtables::MetaSchemaVersion;
+use ltk_manager_assets::hashtables::{
     BinHashTablesState, HashtableCache, HashtableCacheStatus, HashtableSyncReport,
     HashtableUpdateCheck, WadPathResolverState,
 };
-use ltk_manager_core::meta_schema::{
+use ltk_manager_assets::strings::StringKeyIndexState;
+use ltk_manager_bin::meta_schema::{
     self,
     cache::{MetaSchemaCache, PublishedDb},
-    MetaSchemaVersion,
 };
-use ltk_manager_core::mods::{HealthSweepState, SweepScope};
-use ltk_manager_core::problems::BinNames;
-use ltk_manager_core::strings::StringKeyIndexState;
+use ltk_manager_library::mods::{HealthSweepState, SweepScope};
+use ltk_manager_problems::BinNames;
 use tauri::{AppHandle, Manager};
 
 /// User agent sent with hashtable release downloads.

@@ -2301,6 +2301,30 @@
       ]
     },
     {
+      "name": "ltk-manager-assets",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        63
+      ]
+    },
+    {
+      "name": "ltk-manager-base",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        63
+      ]
+    },
+    {
+      "name": "ltk-manager-bin",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        63
+      ]
+    },
+    {
       "name": "ltk-manager-core",
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
@@ -2310,6 +2334,38 @@
     },
     {
       "name": "ltk-manager-game",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        63
+      ]
+    },
+    {
+      "name": "ltk-manager-library",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        63
+      ]
+    },
+    {
+      "name": "ltk-manager-problems",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        63
+      ]
+    },
+    {
+      "name": "ltk-manager-runtime",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        63
+      ]
+    },
+    {
+      "name": "ltk-manager-workshop",
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [

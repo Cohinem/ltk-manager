@@ -15,18 +15,18 @@ use crate::services::shared::off_thread;
 use crate::services::shared::read_asset;
 use ltk_game_data::Target;
 use ltk_hash::{BinHash, WadHash};
-use ltk_manager_core::bin_document::{
+use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_base::hashing::HexBinHash;
+use ltk_manager_bin::bin_document::{
     BinChange, BinDocument, BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult,
     BinRow, BinRows, ChangeBaseline, ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice,
     DeclaredState, Declaring, Dependency, EditOutcome, HistoryStep, LayerOverride, ReadOnly,
     Reshape, RowDeclaration, RowNames, VariantSource,
 };
-use ltk_manager_core::hashing::HexBinHash;
-use ltk_manager_core::meta_schema::SchemaAt;
-use ltk_manager_core::meta_schema::{ClassSchema, PatchSchema, SchemaNames};
-use ltk_manager_core::preview::AssetRef;
-use ltk_manager_core::sandbox::{layer_chunk_hash, Opening, SandboxRef};
-use ltk_manager_core::workshop::{ModuleAction, ProjectDir};
+use ltk_manager_bin::meta_schema::SchemaAt;
+use ltk_manager_bin::meta_schema::{ClassSchema, PatchSchema, SchemaNames};
+use ltk_manager_bin::sandbox::{layer_chunk_hash, Opening, SandboxRef};
+use ltk_manager_workshop::{ModuleAction, ProjectDir};
 use tauri::{AppHandle, Manager};
 
 /// The window an object open reads its properties under: every one of them. A class

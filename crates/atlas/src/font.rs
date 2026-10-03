@@ -1,7 +1,7 @@
 //! The fonts and style sheets a text names, read out of the bins that declare them.
 
 use ltk_hash::{BinHash, WadHash};
-use ltk_manager_core::bin_document::{
+use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, Fields, Namer, RowNames, entries, fields_of, hex, items, link, text,
 };
 use ltk_meta::{BinObject, PropertyValueEnum};

@@ -2,7 +2,7 @@
 //!
 //! The crate knows a spool, a batch, a rotating identity, scrubbing, sampling
 //! and one wire format. It knows nothing about mods, incidents or game sessions,
-//! and it does not depend on `ltk-manager-core`.
+//! and it depends on no `ltk-manager` crate.
 //!
 //! [`Telemetry::track`] writes the event down and answers, which is what lets a
 //! panic hook record the event explaining the panic before it unwinds.

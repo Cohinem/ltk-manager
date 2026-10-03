@@ -4,7 +4,7 @@ use crate::error::IpcResult;
 use crate::services::shared::document_assets::parse_class;
 use crate::services::shared::installed::installed_schema;
 use crate::services::shared::off_thread;
-use ltk_manager_core::meta_docs::{self, ClassDocs};
+use ltk_manager_bin::meta_docs::{self, ClassDocs};
 use tauri::AppHandle;
 
 /// User agent sent with documentation requests. The publisher asks clients to identify

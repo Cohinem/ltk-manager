@@ -1,6 +1,6 @@
 //! Tauri adapter for the core patcher thread.
 //!
-//! The session logic itself lives in [`ltk_manager_core::patcher::thread`]; what
+//! The session logic itself lives in [`ltk_manager_core::patching::thread`]; what
 //! stays here is the [`PatcherEvents`] implementation that turns its
 //! notifications into frontend events and tray-icon changes, plus the `ts-rs`
 //! payload types those events carry.
@@ -10,10 +10,10 @@ use tauri::{AppHandle, Emitter};
 
 use crate::error::{AppError, AppErrorResponse};
 use crate::tray::AppTrayState;
-use ltk_manager_core::diagnostics::incident::{Incident, OverlayOutcome, ScanStatus};
-use ltk_manager_core::patcher::events::PatcherEvents;
-use ltk_manager_core::patcher::injector::WadScanFailure;
-use ltk_manager_core::patcher::PatcherPhase;
+use ltk_manager_runtime::diagnostics::incident::{Incident, OverlayOutcome, ScanStatus};
+use ltk_manager_runtime::patcher::events::PatcherEvents;
+use ltk_manager_runtime::patcher::injector::WadScanFailure;
+use ltk_manager_runtime::patcher::PatcherPhase;
 
 /// One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
 #[derive(Debug, Clone, Serialize, specta::Type)]

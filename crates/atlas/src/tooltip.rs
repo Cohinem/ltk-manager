@@ -2,7 +2,7 @@
 //! docs/research/ui-data-layout.md.
 
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{Fields, fields_of, hex, struct_of};
+use ltk_manager_bin::bin_document::{Fields, fields_of, hex, struct_of};
 
 use super::fields::named;
 use super::model::{UiTooltip, UiTooltipAdjustments};

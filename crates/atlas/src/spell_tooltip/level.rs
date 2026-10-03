@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{Fields, fields_of, items, leaf};
+use ltk_manager_bin::bin_document::{Fields, fields_of, items, leaf};
 use ltk_meta::walk::Leaf;
 
 use crate::fields::named;

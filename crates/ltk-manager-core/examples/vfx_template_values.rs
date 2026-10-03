@@ -13,7 +13,7 @@ use std::path::Path;
 use fs_err as fs;
 use glam::{Vec2, Vec3, Vec4};
 use ltk_hash::{BinHash, Hash as _};
-use ltk_manager_core::bin_document::clipboard_text;
+use ltk_manager_bin::bin_document::clipboard_text;
 use ltk_meta::PropertyValueEnum as Value;
 use ltk_meta::property::{Kind, values};
 

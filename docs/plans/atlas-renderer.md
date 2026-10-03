@@ -24,7 +24,7 @@ Everything the renderer needs has a working counterpart for materials and partic
 | a texture on the GPU     | the `ltk-asset` scheme: RGBA8 decoded in Rust, PNG across, `NoColorSpace` and `flipY = false` for a game shader                |
 | a canvas                 | `Viewport` in `src/modules/viewport/scene/`, on one shared WebGL2 renderer lent between viewports                              |
 | particles                | `VfxSystem` and its driver, drawn outside the VFX shell by `MapParticles`                                                      |
-| strings                  | `lookup_string_values` over `lol.stringtable` (`crates/ltk-manager-core/src/strings.rs`)                                       |
+| strings                  | `lookup_string_values` over `lol.stringtable` (`crates/ltk-manager-assets/src/strings.rs`)                                     |
 
 Four things do not fit as they stand:
 

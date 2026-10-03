@@ -6,16 +6,15 @@ use std::time::Instant;
 
 use ltk_hash::{BinHash, Hash as _};
 
-use ltk_manager_core::config::Config;
-use ltk_manager_core::game_index::GameIndex;
-use ltk_manager_core::game_wads::GameArchives;
-use ltk_manager_core::hashtables::{HashtableCache, WadPathResolver};
-use ltk_manager_core::meta_schema;
-use ltk_manager_core::object_index::{
-    CacheNames, FileTarget, ObjectIndex, WalkRequest, WalkTarget,
-};
-use ltk_manager_core::problems::budget::files_at_once;
-use ltk_manager_core::problems::{Budget, GameBuild};
+use ltk_manager_assets::game_index::GameIndex;
+use ltk_manager_assets::game_wads::GameArchives;
+use ltk_manager_assets::hashtables::CacheNames;
+use ltk_manager_assets::hashtables::{HashtableCache, WadPathResolver};
+use ltk_manager_base::budget::{files_at_once, Budget};
+use ltk_manager_base::config::Config;
+use ltk_manager_base::game_build::GameBuild;
+use ltk_manager_bin::meta_schema;
+use ltk_manager_bin::object_index::{FileTarget, ObjectIndex, WalkRequest, WalkTarget};
 
 /// The warm the app runs, over the install `LTK_LEAGUE_PATH` names, logged.
 ///

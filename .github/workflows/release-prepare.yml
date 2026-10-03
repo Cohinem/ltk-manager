@@ -99,7 +99,7 @@ jobs:
           git checkout -b "$BRANCH"
           git add package.json src-tauri/Cargo.toml Cargo.lock \
             public/third-party-licenses.json \
-            crates/ltk-manager-core/src/meta_schema/schema-snapshot.json.gz \
+            crates/ltk-manager-bin/src/meta_schema/schema-snapshot.json.gz \
             "$NOTES"
           git commit -m "chore: release v$VERSION"
           git push origin "$BRANCH"

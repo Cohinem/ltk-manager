@@ -9,7 +9,7 @@ import { PAGE_SIZE, splitKey } from "../../tree/utils/binRows";
 /**
  * How many rows one projected read answers, past which the backend refuses it.
  *
- * `READ_ROW_CAP` in `crates/ltk-manager-core/src/bin_document.rs`. A caller batches
+ * `READ_ROW_CAP` in `crates/ltk-manager-bin/src/bin_document.rs`. A caller batches
  * under it here, so the refusal is the guard rather than the path a reader meets.
  */
 export const READ_ROW_CAP = 2000;
