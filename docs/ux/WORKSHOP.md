@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                    |
 | ---------- | ------------------------------------------------------------------------- |
+| 2026-10-02 | Replace list mode with a table of arranged columns                        |
 | 2026-09-10 | Take the whole thumb-button gesture off the webview                       |
 | 2026-09-10 | Write an explorer's stops on its moves alone, never on its mount          |
 | 2026-09-10 | Climb out of a directory a tab opened inside, rather than out of the tab  |
@@ -51,6 +52,7 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | Command split             | Available | Global rows on both surfaces, a project's under a project      |
 | One navigation stack      | Available | Spans the shell, and the grid is a stop on it                  |
 | Grid keyboard             | Available | A roving stop, arrows that follow the wrap, `Enter` to open    |
+| The table                 | Available | Arranged columns, grouping and ranges, in place of list mode   |
 | Sort and filter           | Available | On the bar's trailing edge, beside the count it moves          |
 | Selection and bulk        | Available | Select all, then Test, Pack or Delete                          |
 | Test from the grid        | Available | The same state machine a project's own Test runs               |
@@ -302,7 +304,7 @@ commands are two ways into one flow, so the picker sits under the api rather tha
 toolbar.
 
 There is no `view.gridMode` command, and there is no "Open the workshop" command. A command can
-run an action and it cannot show a state, so grid against list keeps a visible control. The route
+run an action and it cannot show a state, so grid against table keeps a visible control. The route
 out of a project is the crumb and the Projects scope, twice over already.
 
 ## The grid
@@ -311,8 +313,8 @@ out of a project is the crumb and the Projects scope, twice over already.
 
 A card is the project: its thumbnail at 16:9, the display name, the tag and champion pills, the
 version and the first author. A checkbox rides the top-left corner of the thumbnail and the
-overflow menu sits at the trailing edge of the text. List mode lays the same parts in a row and
-adds Test and Pack inline.
+overflow menu sits at the trailing edge of the text. The [table](#the-table) lays the same parts
+out as columns and adds Test and Pack inline.
 
 The card sits at `surface-900` on the fold's ground and answers the pointer by lifting a rung
 rather than by rising off the page, DS-GROUND. A grid of cards that each translate and cast a
@@ -320,8 +322,8 @@ shadow reads as tiles floating over the surface rather than as what the surface 
 
 **One menu, two ways in.** The card's right click opens what its kebab opens, so nothing it
 offers is reachable only by finding a button that is not drawn. The list holds Edit, Test or Stop
-Test, Pack, Rename, Open Location and Delete, in grid mode and in list mode alike. A card testing
-right now carries a **Testing** pill that ends the run, and in list mode its Test reads Stop Test.
+Test, Pack, Rename, Open Location and Delete, on a card and on a table row alike. A project testing
+right now carries a **Testing** pill that ends the run, and in the table its Test reads Stop Test.
 
 **A right click over the selection reads over the selection.** Test N, Pack N, Delete N and Clear
 selection, the same set the selection button's caret draws. A right click outside the selection
@@ -344,7 +346,7 @@ the card's own controls - the checkbox, Pack, the overflow - keep their own stop
 | --------------- | ------------------------------------------------------- |
 | `Tab`           | Enters the grid at its stop, wherever the stop was left |
 | `←` `→`         | One card, following the wrap into the next row          |
-| `↑` `↓`         | One row, or one card in list mode                       |
+| `↑` `↓`         | One row                                                 |
 | `Home` `End`    | The first card and the last                             |
 | `Enter` `Space` | Opens the focused card, the way a click does            |
 | `F2`            | Renames the focused card, over its slug                 |
@@ -352,8 +354,7 @@ the card's own controls - the checkbox, Pack, the overflow - keep their own stop
 **The columns are measured rather than configured.** The grid wraps on `auto-fill` against a card
 width the zoom and the card scale both move, so nothing in the code knows how many columns are on
 screen. The cards' own distances from the top, read at the moment of the key press, are what
-answer. List mode falls out of the same reading for free: every card has a top of its own there,
-which measures one column, which is what a list is.
+answer.
 
 **A down out of a full row into a short one lands on the last card it holds.** APG says the focus
 does not move, and a grid of seven over three columns would then have a bottom row the down arrow
@@ -407,9 +408,33 @@ narrowing it. That is what makes a standing filter visible from `idle`.
 
 ### View mode and card size
 
-Grid against list is a `SegmentedControl` in the view slot, and the view options popover on its
-edge carries the card scale the mod library's grid uses too. Card width is that scale times the
+Grid against table is a `SegmentedControl` in the view slot, and it outlives a restart. The view
+options popover on its edge carries the card scale the mod library's grid uses too, and the
+table's row height, grouping and columns while the table is up. Card width is that scale times the
 app zoom, so the column count follows both.
+
+## The table
+
+The table draws one row per project, in columns the reader arranges, and it replaces list mode.
+It is the mod library's table with the workshop's columns, so columns resize, move and hide the
+same way, and the layout is per machine, as "Table view" in [Mod library](LIBRARY.md#table-view)
+describes. There is no panel beside it: a project's details are its own editor's.
+
+**A bare press opens the project**, as a press on a card does. Ctrl-click picks a row and
+shift-click picks the run from the last row picked. A drag down the checkbox column picks the
+rows it crosses, and the header's checkbox picks every drawn project.
+
+**The keyboard moves the current row.** The arrows, Page Up, Page Down, Home and End move it, and
+Shift with an arrow extends a range. `Enter` opens the current project, `Space` picks it and `F2`
+renames it. The bar hands the keyboard to the table the way it hands it to the grid.
+
+**A session holds the picks here too.** While the patcher runs, the checkboxes, the modifiers and
+the header's checkbox all go quiet, and the row of the project under test keeps its checkbox
+ticked, the rule "Selection, and a running session" sets for the grid.
+
+**Grouping** files projects by location, champion, map, tag or author. A project with two
+champions has a row under each, and a pick counts it once. A search or a filter holds every group
+open on its matches, and a group's checkbox opens a folded group as it picks.
 
 ## Open any folder
 

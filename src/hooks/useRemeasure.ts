@@ -8,8 +8,8 @@ import { useEffect } from "react";
  * zoom or row height outlive a change to it. `sizeKey` is what the estimate reads: the row height,
  * or the zoom an estimate per index scales by.
  *
- * The virtualizer stays a direct `useVirtualizer` call in the component, since React Compiler
- * skips memoizing a component only where it sees that call.
+ * React Compiler skips memoizing a function only where it sees the `useVirtualizer` call, so the
+ * function holding that call also reads the window, as `useBrowseTree` and `useRowWindow` do.
  */
 export function useRemeasure(
   virtualizer: Virtualizer<HTMLDivElement, Element>,

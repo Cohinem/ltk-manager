@@ -39,6 +39,7 @@ export * from "./ModHealthSweepDialog";
 export * from "./ModHealthSweepDrawer";
 export * from "./ModHealthSweepListener";
 export * from "./ModHealthSweepPanel";
+export * from "./MoveToFolderMenu";
 export * from "./ProfileSelector";
 export * from "./RemoveFromFolderZone";
 export * from "./SelectionActionBar";

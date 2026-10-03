@@ -28,7 +28,7 @@ pub struct MapParticle {
     pub chunk: String,
     /// The key it sits under in that chunk, as `0x` and eight digits.
     pub key: String,
-    /// The placeable's own name, which is unique within a map.
+    /// The placeable's own name. A map skin can repeat one, so `chunk` and `key` identify it.
     pub name: String,
     /// The system it plays, an object of the same document, as `0x` and eight digits.
     pub system: String,

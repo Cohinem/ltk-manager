@@ -55,18 +55,7 @@ const MEASURED = { scale: new Float32Array(3), color: new Float32Array(4) };
 /** The size, speed and frame of `emitter`'s swatch, read off one middle particle. */
 export function swatchMeasure(emitter: EmitterModel): SwatchMeasure {
   const life = lifeAt(emitter, MIDDLE);
-
-  MEASURE_POOL.count = 0;
-  const at = spawn(MEASURE_POOL, emitter.index, 0, life, MIDDLE)!;
-  bornScale(MEASURE_POOL, at, emitter, MIDDLE);
-
-  let reach = 0;
-  for (let sample = 0; sample <= WIDTH_SAMPLES; sample += 1) {
-    appearance(MEASURE_POOL, at, emitter, (sample / WIDTH_SAMPLES) * life, MEASURED);
-    reach = Math.max(reach, Math.abs(MEASURED.scale[0]));
-  }
-  if (!(reach > 0)) reach = 1;
-
+  const reach = widestScale(emitter);
   const across = reach * PATH_REACH;
   return {
     life,
@@ -76,6 +65,25 @@ export function swatchMeasure(emitter: EmitterModel): SwatchMeasure {
     halfWidth: across + reach,
     halfHeight: across * PATH_HEIGHT + reach,
   };
+}
+
+/**
+ * The widest `scale0.x` one middle particle of `emitter` draws at over its life, and 1 where
+ * it draws none: a trail's half-width, and a beam's whole width.
+ */
+export function widestScale(emitter: EmitterModel): number {
+  const life = lifeAt(emitter, MIDDLE);
+
+  MEASURE_POOL.count = 0;
+  const at = spawn(MEASURE_POOL, emitter.index, 0, life, MIDDLE)!;
+  bornScale(MEASURE_POOL, at, emitter, MIDDLE);
+
+  let widest = 0;
+  for (let sample = 0; sample <= WIDTH_SAMPLES; sample += 1) {
+    appearance(MEASURE_POOL, at, emitter, (sample / WIDTH_SAMPLES) * life, MEASURED);
+    widest = Math.max(widest, Math.abs(MEASURED.scale[0]));
+  }
+  return widest > 0 ? widest : 1;
 }
 
 /** The clock a swatch opens at, late enough that its oldest points have been born. */

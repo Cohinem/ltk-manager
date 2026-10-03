@@ -38,6 +38,22 @@ export function useRequestGridFocus(): () => void {
   return useFocusStore((state) => state.request);
 }
 
+/**
+ * Answer the requests to hand the keyboard over with `focus`, from whichever
+ * view of the projects is mounted.
+ */
+export function useAnswerGridFocus(focus: () => void) {
+  const requests = useFocusStore((state) => state.requests);
+  const handled = useFocusStore((state) => state.handled);
+  const markHandled = useFocusStore((state) => state.markHandled);
+
+  useEffect(() => {
+    if (requests === handled) return;
+    markHandled(requests);
+    focus();
+  }, [requests, handled, markHandled, focus]);
+}
+
 export interface ProjectGridNavParams {
   /**
    * One key per card, in the order the grid draws them.
@@ -80,17 +96,9 @@ export function useProjectGridNav({ keys, onOpen }: ProjectGridNavParams): Proje
     if (card instanceof HTMLElement) card.focus();
   }, []);
 
-  const requests = useFocusStore((state) => state.requests);
-  const handled = useFocusStore((state) => state.handled);
-  const markHandled = useFocusStore((state) => state.markHandled);
-
   /* Whichever way the keyboard arrives it lands on the grid's own stop, so a
      hand-off from the bar reaches the same card a Tab would. */
-  useEffect(() => {
-    if (requests === handled) return;
-    markHandled(requests);
-    focusCard(focusedIndex);
-  }, [requests, handled, markHandled, focusCard, focusedIndex]);
+  useAnswerGridFocus(useCallback(() => focusCard(focusedIndex), [focusCard, focusedIndex]));
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>) => {

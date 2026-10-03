@@ -106,7 +106,7 @@ export function SourceTree({
   const art = useTreeArt();
   const rowHeight = zoomed(art.height);
 
-  const { scrollRef, virtualizer, sticky } = useBrowseTree({
+  const { scrollRef, virtualizer, items, totalSize, sticky } = useBrowseTree({
     rows,
     rowHeight,
     offsetTop: CONTENT_TOP,
@@ -269,8 +269,8 @@ export function SourceTree({
         aria-multiselectable={selection !== undefined}
         scrollRef={scrollRef}
         rows={rows}
-        items={virtualizer.getVirtualItems()}
-        totalSize={virtualizer.getTotalSize()}
+        items={items}
+        totalSize={totalSize}
         sticky={sticky}
         onKeyDown={handleKeyDown}
         onContextMenu={handleContextMenu}

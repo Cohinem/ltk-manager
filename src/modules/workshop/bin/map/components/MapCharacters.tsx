@@ -38,6 +38,7 @@ import {
   stoodCharacters,
 } from "../utils/mapCharacters";
 import { isHidden } from "../utils/mapOutline";
+import { placeableKey } from "../utils/placeables";
 
 /** `useFrame` runs the lowest priority first, so the clock moves before a pose samples it. */
 const BEFORE_THE_POSES = -1;
@@ -217,7 +218,7 @@ function PosedCharacters({
   );
 
   return characters.map((character, at) => (
-    <group key={character.name} matrix={matrices[at]} matrixAutoUpdate={false}>
+    <group key={placeableKey(character)} matrix={matrices[at]} matrixAutoUpdate={false}>
       <Character
         mesh={mesh}
         pose={pose}

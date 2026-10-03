@@ -62,7 +62,7 @@ export function ReferencesTree({
     [isShut],
   );
 
-  const { scrollRef, virtualizer, sticky } = useBrowseTree({
+  const { scrollRef, virtualizer, items, totalSize, sticky } = useBrowseTree({
     rows,
     rowHeight,
     offsetTop: CONTENT_TOP,
@@ -100,8 +100,8 @@ export function ReferencesTree({
       aria-label={ariaLabel}
       scrollRef={scrollRef}
       rows={rows}
-      items={virtualizer.getVirtualItems()}
-      totalSize={virtualizer.getTotalSize()}
+      items={items}
+      totalSize={totalSize}
       sticky={sticky}
       onKeyDown={handleKeyDown}
       onContextMenu={handleContextMenu}

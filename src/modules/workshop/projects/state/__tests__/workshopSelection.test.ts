@@ -2,7 +2,11 @@ import { useWorkshopSelectionStore } from "../workshopSelection";
 
 describe("workshopSelection store", () => {
   beforeEach(() => {
-    useWorkshopSelectionStore.setState({ selectedPaths: new Set() });
+    useWorkshopSelectionStore.setState({
+      selectedPaths: new Set(),
+      anchorId: null,
+      rangeBase: null,
+    });
   });
 
   describe("toggle", () => {
@@ -52,6 +56,29 @@ describe("workshopSelection store", () => {
       useWorkshopSelectionStore.setState({ selectedPaths: new Set(["/a", "/b"]) });
       useWorkshopSelectionStore.getState().clear();
       expect(useWorkshopSelectionStore.getState().selectedPaths.size).toBe(0);
+    });
+  });
+
+  describe("ranges", () => {
+    it("anchors on the project a toggle picks", () => {
+      useWorkshopSelectionStore.getState().toggle("/a");
+      expect(useWorkshopSelectionStore.getState().anchorId).toBe("/a");
+    });
+
+    it("moves the range's far end rather than adding a second range", () => {
+      const store = useWorkshopSelectionStore.getState();
+      store.toggle("/a");
+      store.selectRange(["/a", "/b", "/c"]);
+      useWorkshopSelectionStore.getState().selectRange(["/a", "/b"]);
+
+      expect(useWorkshopSelectionStore.getState().selectedPaths).toEqual(new Set(["/a", "/b"]));
+    });
+
+    it("picks one project where no anchor stands", () => {
+      useWorkshopSelectionStore.getState().selectRangeTo("/c");
+
+      expect(useWorkshopSelectionStore.getState().selectedPaths).toEqual(new Set(["/c"]));
+      expect(useWorkshopSelectionStore.getState().anchorId).toBe("/c");
     });
   });
 });

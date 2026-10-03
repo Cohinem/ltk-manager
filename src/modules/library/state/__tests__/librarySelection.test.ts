@@ -10,6 +10,7 @@ beforeEach(() => {
     selectedIds: new Set(),
     orderedIds: ["a", "b", "c", "d"],
     anchorId: null,
+    rangeBase: null,
   });
 });
 
@@ -26,6 +27,31 @@ describe("librarySelection", () => {
     store().selectRangeTo("a");
 
     expect(picked()).toEqual(["c", "a", "b"]);
+  });
+
+  it("keeps the anchor, so a second shift-click moves the range instead of adding one", () => {
+    store().toggle("b");
+    store().selectRangeTo("d");
+    store().selectRangeTo("c");
+
+    expect(picked()).toEqual(["b", "c"]);
+    expect(store().anchorId).toBe("b");
+  });
+
+  it("keeps the picks made before the range began", () => {
+    store().toggle("a");
+    store().toggle("c");
+    store().selectRangeTo("d");
+    store().selectRangeTo("b");
+
+    expect(picked()).toEqual(["a", "c", "b"]);
+  });
+
+  it("ranges from an anchor set without a pick", () => {
+    store().setAnchor("b");
+    store().selectRangeTo("c");
+
+    expect(picked()).toEqual(["b", "c"]);
   });
 
   /* Nothing has been picked yet, so a range has no start and the shift-click

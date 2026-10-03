@@ -3674,7 +3674,7 @@ export type MapCharacter = {
 	chunk: string,
 	/**  The key it sits under in that chunk, as `0x` and eight digits. */
 	key: string,
-	/**  The placeable's own name, which is unique within a map. */
+	/**  The placeable's own name. A map skin can repeat one, so `chunk` and `key` identify it. */
 	name: string,
 	/**  The entry path of the skin it wears, such as `Characters/Turret/Skins/Skin0`. */
 	skin: string,
@@ -3809,7 +3809,7 @@ export type MapParticle = {
 	chunk: string,
 	/**  The key it sits under in that chunk, as `0x` and eight digits. */
 	key: string,
-	/**  The placeable's own name, which is unique within a map. */
+	/**  The placeable's own name. A map skin can repeat one, so `chunk` and `key` identify it. */
 	name: string,
 	/**  The system it plays, an object of the same document, as `0x` and eight digits. */
 	system: string,

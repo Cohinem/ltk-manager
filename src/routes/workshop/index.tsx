@@ -10,6 +10,7 @@ import {
   NoProjectsState,
   NoSearchResultsState,
   ProjectGrid,
+  ProjectTable,
   useFilteredProjects,
   useFolderDrop,
   useHasActiveWorkshopFilters,
@@ -18,6 +19,7 @@ import {
   useWorkshopSearchQuery,
   useWorkshopSelectionStore,
   useWorkshopTestState,
+  useWorkshopViewMode,
   WorkshopStartPage,
 } from "@/modules/workshop";
 
@@ -33,6 +35,7 @@ function WorkshopIndex() {
   const searchQuery = useWorkshopSearchQuery();
   const filteredProjects = useFilteredProjects();
   const hasActiveFilters = useHasActiveWorkshopFilters();
+  const viewMode = useWorkshopViewMode();
 
   const selectAll = useWorkshopSelectionStore((s) => s.selectAll);
 
@@ -48,6 +51,18 @@ function WorkshopIndex() {
 
   function handleEditProject(project: WorkshopProject) {
     navigate({ to: "/workshop/$projectId", params: { projectId: project.id } });
+  }
+
+  const ready = !isLoading && !error && filteredProjects.length > 0;
+  if (ready && viewMode === "table") {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <ProjectTable projects={filteredProjects} onEdit={handleEditProject} />
+        <div className="shrink-0 px-4 pb-4 empty:hidden">
+          <MissingProjects />
+        </div>
+      </div>
+    );
   }
 
   function renderContent() {

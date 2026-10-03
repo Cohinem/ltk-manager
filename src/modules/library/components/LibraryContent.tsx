@@ -11,6 +11,8 @@ import {
 import { FolderHeader } from "./FolderHeader";
 import { LibraryContextMenu } from "./LibraryContextMenu";
 import { LibraryEmptyState, LibraryErrorState, LibraryLoadingState } from "./LibraryStates";
+import { ModTable } from "./ModTable";
+import { ModTableSkeleton } from "./ModTable/ModTableSkeleton";
 import { SortableModList } from "./SortableModList";
 import { UnifiedDndGrid } from "./UnifiedDndGrid";
 
@@ -49,6 +51,37 @@ export function LibraryContent({
     ? "flex-1 overflow-auto px-6 pt-6 pb-28"
     : "flex-1 overflow-auto p-6";
 
+  const tableReady =
+    viewMode === "table" &&
+    contentView.type !== "loading" &&
+    contentView.type !== "error" &&
+    contentView.type !== "empty";
+
+  if (viewMode === "table" && contentView.type === "loading") {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <ModTableSkeleton />
+      </div>
+    );
+  }
+
+  if (tableReady) {
+    return (
+      <LibraryContextMenu>
+        <div className="flex min-h-0 flex-1 flex-col">
+          {contentView.type === "folder-drilldown" && (
+            <div className="shrink-0 px-4 pt-4 pb-3">
+              <FolderHeader folder={contentView.folder} mods={contentView.mods} />
+            </div>
+          )}
+          <ModThumbnails modIds={modIds}>
+            <ModTable mods={mods} searchQuery={searchQuery} folderId={folderId} />
+          </ModThumbnails>
+        </div>
+      </LibraryContextMenu>
+    );
+  }
+
   function content() {
     if (contentView.type === "loading") return <LibraryLoadingState />;
 
@@ -64,7 +97,7 @@ export function LibraryContent({
       return (
         <SortableModList
           mods={contentView.mods}
-          viewMode={viewMode}
+          viewMode="grid"
           onReorder={(ids) => reorderMods.mutate(ids)}
           disabled={dndDisabled}
         />
@@ -77,7 +110,7 @@ export function LibraryContent({
           <FolderHeader folder={contentView.folder} mods={contentView.mods} />
           <SortableModList
             mods={contentView.mods}
-            viewMode={viewMode}
+            viewMode="grid"
             onReorder={(ids) =>
               reorderFolderMods.mutate({ folderId: contentView.folder.id, modIds: ids })
             }
@@ -94,7 +127,7 @@ export function LibraryContent({
         folders={contentView.folders}
         rootMods={contentView.rootMods}
         modsByFolder={contentView.modsByFolder}
-        viewMode={viewMode}
+        viewMode="grid"
         dndDisabled={dndDisabled}
         onReorder={(ids) => reorderMods.mutate(ids)}
       />
