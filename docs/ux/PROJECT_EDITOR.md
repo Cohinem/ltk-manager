@@ -3539,8 +3539,9 @@ crate ships no HTTP client, so the manager supplies the download with the client
 already holds.
 
 A Cache tab in the settings owns the table state. It shows each table's entry count and
-size, syncs the cache from the mimir releases, and re-downloads every table when a user
-forces it. An empty cache never blocks the browser - every row still shows its hash.
+size, syncs the cache from the `LeagueToolkit/mimir-tables` releases, and re-downloads
+every table when a user forces it. An empty cache never blocks the browser - every row
+still shows its hash.
 
 The manager downloads the CommunityDragon `hashes.rst.xxh3.txt` list today, for the string
 override editor. The mimir cache publishes that list as its `RstXxh3` table, so a later

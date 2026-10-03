@@ -32,7 +32,8 @@ pub use ltk_hashdb::{HashDb, LayeredHashDb, PathRef};
 pub use ltk_mimir_cache::Table;
 
 /// Download base for the published hashtable release assets.
-const RELEASE_BASE_URL: &str = "https://github.com/LeagueToolkit/mimir/releases/latest/download";
+const RELEASE_BASE_URL: &str =
+    "https://github.com/LeagueToolkit/mimir-tables/releases/latest/download";
 
 /// The tables that name a WAD chunk, in the order a lookup consults them.
 ///
