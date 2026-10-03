@@ -6,7 +6,8 @@ use fs_err as fs;
 use super::super::tests::{Game, SKIN, declared, h, manifest, project};
 use super::super::{DeclaredDiagnosticKind, ObjectSkip};
 use super::*;
-use crate::bin_document::{BinValue, DeclaredSign, LeafValue};
+use crate::bin_document::{BinValue, LeafValue};
+use crate::workshop::DeclaredSign;
 
 const COPY: &str = "Mods/jade-teemo/Skin0Copy";
 const CHUNK: &str = "data/characters/teemo/skins/skin0.bin";

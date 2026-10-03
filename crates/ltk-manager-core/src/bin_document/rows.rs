@@ -11,9 +11,9 @@ use super::{
     DeclaredKind, EntryKey, HashPath, Named, Node, RowNode, Trace, as_list, dot, hex, inlines,
     key_text, owned,
 };
+use crate::bin_walk as walk;
+use crate::meta_schema::TypeSpec;
 use crate::meta_schema::{Expected, SchemaAt};
-use crate::problems::rules::bin_property_type::table::TypeSpec;
-use crate::problems::walk;
 
 /// A child of a node, with the segment that reaches it.
 #[derive(Clone, Copy)]

@@ -9,7 +9,7 @@ use ltk_meta::walk::TreeValue as _;
 use ltk_meta::{BinObject, PropertyValueEnum};
 
 use super::owned;
-use crate::problems::walk;
+use crate::bin_walk as walk;
 
 /// Whether an optional draws what it holds in place of a row of its own.
 ///

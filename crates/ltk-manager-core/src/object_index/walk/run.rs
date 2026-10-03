@@ -11,13 +11,13 @@ use ltk_wad::hex_name;
 use walkdir::WalkDir;
 
 use crate::bin_document::{EntryKey, HashPath, Lens, RowNames, Wanted, hex};
+use crate::bin_walk::write_json_string;
+use crate::budget::Budget;
 use crate::error::AppResult;
 use crate::game_index::FIND_LIMIT;
 use crate::game_wads::{GameArchives, mount_wad};
 use crate::meta_schema::SchemaAt;
 use crate::preview::AssetRef;
-use crate::problems::Budget;
-use crate::problems::walk::write_json_string;
 use crate::utils::natural_order::compare_names;
 use crate::workshop::layer;
 

@@ -25,8 +25,6 @@ mod state;
 mod types;
 mod walk;
 
-pub use build::{Declaration, for_each_declaration};
-pub use names::{CacheNames, ObjectNames};
 pub use state::{
     BuildTicket, ObjectFindGeneration, ObjectIndexSnapshot, ObjectIndexState,
     ObjectReferenceGeneration, ObjectSearchGeneration,

@@ -19,16 +19,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::bin_document::PropertyKind;
 use crate::bin_document::hex;
+use crate::game_build::GameBuild;
 use crate::hashing::HexBinHash;
-use crate::problems::GameBuild;
+use crate::hashtables::MetaSchemaVersion;
 
 mod fields;
 mod game_data;
 mod names;
+mod type_spec;
 
 pub use fields::DeclaredField;
 pub use game_data::PatchSchema;
 pub use names::SchemaNames;
+pub use type_spec::TypeSpec;
 
 #[cfg(test)]
 mod tests;
@@ -135,22 +138,6 @@ pub struct MetaSchema {
     ///
     /// A field hash is the hash of its name, so any class naming a hash names it the same.
     field_names: HashMap<BinHash, String>,
-}
-
-/// What one meta schema database is, as the cache card names it.
-///
-/// The patch rather than the generation: the publisher restamps the hash tables
-/// on their own schedule, so a database gains patches between two stamps.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-pub struct MetaSchemaVersion {
-    /// The patch naming the newest build it describes, absent where it names none.
-    pub patch: Option<String>,
-    /// That build, which is as far as the database reaches.
-    pub build: u32,
-    /// When the upstream hash tables behind it were read.
-    pub generation: String,
 }
 
 #[derive(Debug)]
@@ -556,7 +543,7 @@ impl MetaSchema {
 
         Ok(Self {
             generation: published.hash_source.fetched_at,
-            digest: crate::diagnostics::binary_id::content_hash(json),
+            digest: crate::hashing::content_hash(json),
             latest,
             patch,
             patches,

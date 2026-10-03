@@ -1,10 +1,25 @@
-//! A bin hash hashed from its name at compile time, and as it crosses IPC.
+//! A bin hash hashed from its name at compile time, and as it crosses IPC, and the hash that
+//! identifies content.
 
 use std::fmt;
 use std::str::FromStr;
 
 use ltk_hash::BinHash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
+use sha2::{Digest, Sha256};
+
+/// How many hex digits a [`content_hash`] is.
+pub const CONTENT_HASH_CHARS: usize = 16;
+
+/// The first [`CONTENT_HASH_CHARS`] hex digits of the SHA-256 of `bytes`.
+pub fn content_hash(bytes: &[u8]) -> String {
+    let digest = Sha256::digest(bytes);
+    let mut hex = String::with_capacity(CONTENT_HASH_CHARS);
+    for byte in digest.iter().take(CONTENT_HASH_CHARS / 2) {
+        hex.push_str(&format!("{byte:02x}"));
+    }
+    hex
+}
 
 /// The bin hash of a class or field `name`, which is FNV-1a over its lowercased ASCII.
 ///

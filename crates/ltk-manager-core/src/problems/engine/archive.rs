@@ -4,7 +4,7 @@
 //! directory of entries is read entry by entry. Nothing is written to disk.
 //!
 //! Each read opens the archive again instead of sharing one handle. Bins are
-//! read on a pool - see [`Budget::map`](crate::problems::Budget::map) - and a
+//! read on a pool - see [`Budget::map`](crate::budget::Budget::map) - and a
 //! zip entry borrows its archive mutably, so a shared handle would serialize the
 //! pool. Reopening a stored entry reads the archive's entry table and the WAD's,
 //! which is a few kilobytes.
@@ -29,11 +29,11 @@ use ltk_wad::{ChunkDecoder, NameRecovery, PathResolver, Wad, WadChunk, WadHash, 
 use zip::{CompressionMethod, ZipArchive};
 
 use crate::error::{AppError, AppResult};
+use crate::file_kind::WorkshopFileKind;
 use crate::game_wads::chunk_head;
-use crate::mods::fantome_layer::unpacked_layer_name;
-use crate::mods::open_fantome;
+use crate::mod_archive::open_fantome;
+use crate::mod_archive::unpacked_layer_name;
 use crate::utils::natural_order::compare_names;
-use crate::workshop::WorkshopFileKind;
 
 use super::{ChunkInfo, LayerFiles, ProjectFile};
 

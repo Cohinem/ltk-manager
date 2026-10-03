@@ -8,10 +8,11 @@ use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
+use crate::budget::Budget;
 use crate::config::Config;
 use crate::mods::test_support::{make_packed_chunk_fantome_zip, resolver_naming};
+use crate::problems::RuleState;
 use crate::problems::game::FakeContent;
-use crate::problems::{Budget, RuleState};
 
 /// The chunk the mod overrides, inside the WAD holding it.
 const BIN_IN_WAD: &str = "data/characters/sett/skins/skin66.bin";

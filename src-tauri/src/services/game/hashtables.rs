@@ -6,6 +6,7 @@ use crate::mods::ModLibraryState;
 use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 use ltk_manager_core::game_index::GameIndexState;
+use ltk_manager_core::hashtables::MetaSchemaVersion;
 use ltk_manager_core::hashtables::{
     BinHashTablesState, HashtableCache, HashtableCacheStatus, HashtableSyncReport,
     HashtableUpdateCheck, WadPathResolverState,
@@ -13,7 +14,6 @@ use ltk_manager_core::hashtables::{
 use ltk_manager_core::meta_schema::{
     self,
     cache::{MetaSchemaCache, PublishedDb},
-    MetaSchemaVersion,
 };
 use ltk_manager_core::mods::{HealthSweepState, SweepScope};
 use ltk_manager_core::problems::BinNames;

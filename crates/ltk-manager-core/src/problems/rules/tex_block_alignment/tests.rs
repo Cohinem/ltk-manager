@@ -4,9 +4,9 @@
 use fs_err as fs;
 
 use super::*;
+use crate::budget::Budget;
 use crate::config::Config;
 use crate::mods::test_support::{make_packed_chunk_fantome_zip, resolver_naming};
-use crate::problems::Budget;
 use crate::problems::ProjectFiles;
 
 /// Where the fixture texture sits, in the tree and inside the archive's WAD.

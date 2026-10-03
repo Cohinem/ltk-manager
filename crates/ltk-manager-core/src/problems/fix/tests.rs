@@ -201,10 +201,11 @@ fn a_fix_run_writes_no_restore_point() {
 mod held {
     use super::*;
 
+    use crate::budget::Budget;
     use crate::mods::test_support::{
         STALE_BIN_IN_WAD, bin_bytes, make_packed_bin_fantome_zip, resolver_naming, stale_bin,
     };
-    use crate::problems::{Budget, Preserved};
+    use crate::problems::Preserved;
 
     const CHUNK: &str = "Aatrox.wad.client/data/skin0.bin";
     const ICON: &str = "ASSETS/Characters/Smolder/HUD/Smolder_Circle.dds";

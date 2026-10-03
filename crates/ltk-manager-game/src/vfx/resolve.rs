@@ -15,8 +15,8 @@ use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Locator, Namer, RowNames, chunk_asset, hex, link,
     object_at, owned,
 };
+use ltk_manager_core::bin_walk as walk;
 use ltk_manager_core::preview::AssetRef;
-use ltk_manager_core::problems::walk;
 
 use crate::linked::find_linked_materials;
 use crate::material::{MaterialPreview, linked_material};

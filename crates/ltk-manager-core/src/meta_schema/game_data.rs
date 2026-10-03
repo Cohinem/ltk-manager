@@ -7,7 +7,7 @@ use std::sync::Arc;
 use ltk_hash::BinHash;
 
 use super::{MetaSchema, Shape};
-use crate::problems::GameBuild;
+use crate::game_build::GameBuild;
 
 /// The meta schema at one game build, as the game-data engine reads it.
 ///

@@ -37,7 +37,7 @@ use super::{
 use crate::error::{AppError, AppResult, Utf8PathRefExt as _};
 use crate::meta_schema::{PatchSchema, SchemaNames};
 
-use crate::workshop::{ModuleAction, ProjectDir};
+use crate::workshop::{DeclaredSign, ModuleAction, ProjectDir};
 
 /// The layer a declared document writes to until a reader picks another.
 pub const BASE_LAYER: &str = ModProjectLayer::BASE_NAME;
@@ -284,26 +284,6 @@ pub struct LayerOverride {
     pub mark: DeclaredMark,
     /// The value the declaration writes, as YAML. Absent when it cannot be written as YAML.
     pub value: Option<String>,
-}
-
-/// The sign of a declared key.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-pub enum DeclaredSign {
-    Set,
-    Add,
-    Remove,
-}
-
-impl From<Sign> for DeclaredSign {
-    fn from(sign: Sign) -> Self {
-        match sign {
-            Sign::Set => Self::Set,
-            Sign::Add => Self::Add,
-            Sign::Remove => Self::Remove,
-        }
-    }
 }
 
 impl BinDocument {

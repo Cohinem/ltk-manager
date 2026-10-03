@@ -5,6 +5,7 @@
 use super::{
     HealthCheckBasis, LEGACY_VERDICTS_FILENAME, ModHealth, ModHealthVerdict, Refused, VerdictFile,
 };
+use crate::budget::{self, Budget};
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, HealthSweepProgress};
@@ -12,7 +13,7 @@ use crate::hashtables::HashtableCache;
 use crate::meta_schema::cache::{MetaSchemaCache, PublishedDb};
 use crate::mods::ModLibrary;
 use crate::mods::index::LibraryModEntry;
-use crate::problems::{BinNames, Budget, budget};
+use crate::problems::BinNames;
 use fs_err as fs;
 use serde::Serialize;
 use std::collections::BTreeMap;

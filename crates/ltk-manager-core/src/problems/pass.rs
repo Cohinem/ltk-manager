@@ -25,14 +25,14 @@ use ltk_meta::walk::RawValue;
 use ltk_meta::walk::{Node, Visit, Visitor};
 use parking_lot::Mutex;
 
-use crate::workshop::WorkshopFileKind;
+use crate::file_kind::WorkshopFileKind;
 
-use super::budget::BIN_EXPANSION;
 use super::game::GameContent;
-use super::walk::Declared;
 use super::{
     Detail, FileHandle, NodeAddress, ProblemSeverity, ProjectFiles, Report, Rule, RuleId, Site,
 };
+use crate::bin_walk::Declared;
+use crate::budget::BIN_EXPANSION;
 
 use plan::{BinSub, Demands, Facts, FileSub, Lists, Objects, Plan, Reading, Shape, Subject};
 

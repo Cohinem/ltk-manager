@@ -5,6 +5,7 @@ use super::search::ClassTerm;
 use super::*;
 use crate::game_index::GameIndex;
 use crate::game_wads::GameArchives;
+use crate::hashtables::ObjectNames;
 use fs_err as fs;
 use ltk_hash::Hash as _;
 use ltk_hashdb::LayeredHashDb;

@@ -11,8 +11,9 @@ use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, BinDocumentId, BinDocuments, RowNames,
 };
 use ltk_manager_core::game_index::GameIndex;
+use ltk_manager_core::hashtables::CacheNames;
 use ltk_manager_core::hashtables::{BinHashTablesState, WadPathResolverState};
-use ltk_manager_core::object_index::{parse_hash, CacheNames};
+use ltk_manager_core::object_index::parse_hash;
 use ltk_manager_core::sandbox::{Sandbox, SandboxRef, SandboxState};
 use tauri::{AppHandle, Manager};
 

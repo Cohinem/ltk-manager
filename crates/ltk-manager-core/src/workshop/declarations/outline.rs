@@ -12,7 +12,7 @@ use fs_err as fs;
 use ltk_declarations::{Binding, BodyAt, Layout};
 use ltk_game_data::{
     BinHash, EntryName, Error as GameDataError, LinkEdit, MANIFEST_NAMES, Module, ObjectEdit,
-    PropertyEdit, Selector,
+    PropertyEdit, Selector, Sign,
 };
 use ltk_meta::path::{PropertyPath, Subscript};
 use ltk_mod_project::game_data::load_layer;
@@ -20,9 +20,29 @@ use ltk_mod_project::{ModIgnore, ModProjectLayer};
 use serde::Serialize;
 
 use super::ProjectDir;
-use crate::bin_document::{DeclaredSign, hex};
 use crate::error::{AppResult, Utf8PathRefExt as _};
-use crate::object_index::ObjectNames;
+use crate::hashing::HexBinHash;
+use crate::hashtables::ObjectNames;
+
+/// The sign of a declared key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub enum DeclaredSign {
+    Set,
+    Add,
+    Remove,
+}
+
+impl From<Sign> for DeclaredSign {
+    fn from(sign: Sign) -> Self {
+        match sign {
+            Sign::Set => Self::Set,
+            Sign::Add => Self::Add,
+            Sign::Remove => Self::Remove,
+        }
+    }
+}
 
 /// One layer's declarations manifest, read for an outline.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -484,7 +504,7 @@ impl Place<'_> {
         DeclaredEntry {
             name: name.as_str().to_owned(),
             known_name: None,
-            hash: hex(name.object_hash()),
+            hash: HexBinHash::from(name.object_hash()).to_string(),
             edit: count(edit),
             object: object.and_then(object_edit),
             span,

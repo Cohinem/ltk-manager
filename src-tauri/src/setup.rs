@@ -151,7 +151,11 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(mod_library);
     app.manage(workshop);
     app.manage(
-        crate::workshop::LayerWatches::new(Arc::clone(&events), sandboxes).with_sources(
+        crate::workshop::LayerWatches::new(
+            Arc::clone(&events),
+            Arc::new(move |project| sandboxes.invalidate(project)),
+        )
+        .with_sources(
             atlas::SOURCES_DIR,
             crate::workshop::source_rebuild(app.handle().clone()),
         ),

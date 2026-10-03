@@ -16,12 +16,12 @@
 //!
 //! **What it costs is not established, so this reports at `Info`.**
 
+use crate::file_kind::WorkshopFileKind;
 use crate::problems::bank_units::BankUnits;
 use crate::problems::{
     Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity,
     Rule, RuleId, RuleMeta, Site,
 };
-use crate::workshop::WorkshopFileKind;
 
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("audio/bank-id");

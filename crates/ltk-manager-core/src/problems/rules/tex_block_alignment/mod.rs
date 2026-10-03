@@ -35,11 +35,11 @@ use image::imageops::FilterType;
 use ltk_texture::tex::{EncodeFormat, EncodeOptions, Format, MipmapFilter, ResourceType};
 use ltk_texture::{Dds, Tex};
 
+use crate::file_kind::WorkshopFileKind;
 use crate::problems::{
     Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity, Rule, RuleId,
     RuleMeta, Site,
 };
-use crate::workshop::WorkshopFileKind;
 
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("tex/block-alignment");

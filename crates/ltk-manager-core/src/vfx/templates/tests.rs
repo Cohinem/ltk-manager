@@ -7,8 +7,8 @@ use std::collections::HashSet;
 use ltk_meta::property::values;
 
 use super::*;
+use crate::meta_schema::TypeSpec;
 use crate::meta_schema::{MetaSchema, SchemaAt};
-use crate::problems::rules::bin_property_type::table::TypeSpec;
 
 /// The most emitters one property edit lands, two edits each.
 const MOST_EMITTERS: usize = 32;

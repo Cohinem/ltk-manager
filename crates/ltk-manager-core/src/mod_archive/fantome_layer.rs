@@ -8,7 +8,7 @@ use ltk_fantome::{FantomeInfo, is_layer_name};
 ///
 /// The rule `ltk_fantome`'s `extract_wads` follows, so a layer read out of the
 /// archive has the name it has in an unpacked tree.
-pub(crate) fn unpacked_layer_name(info: &FantomeInfo, layer: &str) -> String {
+pub fn unpacked_layer_name(info: &FantomeInfo, layer: &str) -> String {
     info.layers
         .iter()
         .map(|(key, declared)| match declared.name.is_empty() {

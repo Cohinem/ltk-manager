@@ -17,8 +17,8 @@ use crate::hashing::named;
 use ltk_hash::BinHash;
 use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit};
 
+use crate::bin_walk::{Address, Declared};
 use crate::problems::names::BinNames;
-use crate::problems::walk::{Address, Declared};
 use crate::problems::{
     Applied, BinVisitor, Detail, FixError, FixRun, NodeAddress, Pass, Problem, ProblemSeverity,
     PropertyRead, PropertyWalk, Rule, RuleId, RuleMeta, Sink, Walk,

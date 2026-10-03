@@ -25,8 +25,8 @@ use thiserror::Error;
 
 use crate::config::Config;
 use crate::error::AppResult;
+use crate::file_kind::WorkshopFileKind;
 use crate::game_wads::WadCache;
-use crate::workshop::WorkshopFileKind;
 
 /// Re-exported because [`PreviewError::Unsupported`] carries one.
 pub use animation::{ClipHeader, header as clip_header};

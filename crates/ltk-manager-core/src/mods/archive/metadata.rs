@@ -7,7 +7,8 @@
 //! mounting an archive.
 
 use crate::error::{AppError, AppResult, IoContext};
-use crate::mods::archive::reader::{ModArchive, open_fantome};
+use crate::mod_archive::open_fantome;
+use crate::mods::archive::reader::ModArchive;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{InstalledMod, ModLayer, ModLicense};
 use fs_err as fs;

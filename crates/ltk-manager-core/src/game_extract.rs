@@ -28,11 +28,11 @@ use serde::{Deserialize, Serialize};
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, EventSink, ExtractProgress};
+use crate::file_kind::WorkshopFileKind;
 use crate::game_index::GameIndex;
 use crate::game_wads::{GameArchives, WadSource, mount_wad};
 use crate::hashtables::WadPathResolver;
 use crate::utils::game::GameDir;
-use crate::workshop::WorkshopFileKind;
 
 /// How often the run may emit an [`ExtractProgress`].
 ///

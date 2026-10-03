@@ -11,8 +11,8 @@ use ltk_meta::{Bin, BinObject};
 
 use super::*;
 use crate::bin_document::ValueEdit;
+use crate::game_build::GameBuild;
 use crate::meta_schema::{self, MetaSchema};
-use crate::problems::GameBuild;
 
 const BUILD: GameBuild = GameBuild::new(16, 17, 8_104_348);
 const SYSTEM: &str = "Characters/Teemo/Skins/Skin0/Particles/Teemo_Q";

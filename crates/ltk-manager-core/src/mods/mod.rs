@@ -9,7 +9,6 @@
 //! | ------------------ | ------------------------------------------------- |
 //! | `index`            | `library.json`: shape, versioning, reconciliation  |
 //! | `archive`          | Mod archives in, out, and read                     |
-//! | `fantome_layer`    | The content directory a fantome layer unpacks into |
 //! | `analysis`         | What a mod touches and what that makes it          |
 //! | `health`           | The Problems rules over an installed mod           |
 //! | `organize`         | Folders and profiles                               |
@@ -17,7 +16,6 @@
 //! | `library`          | Library reads and per-profile mod state            |
 //! | `overlay_content`  | Turning library entries into overlay inputs        |
 //! | `slug`             | A mod's directory name                             |
-//! | `long_paths`       | The 260-character path limit during unpacking      |
 //!
 //! Every installed mod is a directory under `<storage>/mods/`, named by its
 //! slug. `docs/adr/0001-fantome-unpacks-modpkg-stays-packed.md` describes its
@@ -25,12 +23,10 @@
 
 mod analysis;
 mod archive;
-pub(crate) mod fantome_layer;
 mod health;
 mod index;
 mod layout;
 mod library;
-pub(crate) mod long_paths;
 mod organize;
 mod overlay_content;
 mod slug;
@@ -46,7 +42,6 @@ pub use analysis::wad_reports::{ModWadReport, WadReportState};
 pub use archive::documents::ModDocument;
 pub use archive::export::{ExportScope, ExportShape, ExportSummary, with_zip_extension};
 pub use archive::migration::*;
-pub(crate) use archive::reader::{open_fantome, open_modpkg};
 pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
 pub use health::sweep::{HealthSweepReport, HealthSweepState, SweepScope};
 #[cfg(debug_assertions)]
@@ -90,7 +85,7 @@ type GameContentCache = Arc<Mutex<Option<(GameStamp, Arc<crate::problems::Instal
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct GameStamp {
     league: PathBuf,
-    build: Option<crate::problems::GameBuild>,
+    build: Option<crate::game_build::GameBuild>,
 }
 
 pub struct ModLibrary {
@@ -134,7 +129,7 @@ pub struct ModLibrary {
     health_sweep: Arc<Mutex<HealthSweepState>>,
     /// The budget the check or repair now running spends, for a cancel to
     /// reach. `None` between runs.
-    health_budget: Arc<Mutex<Option<crate::problems::Budget>>>,
+    health_budget: Arc<Mutex<Option<crate::budget::Budget>>>,
     /// Serializes library sweeps, so an install check waits for the startup
     /// sweep instead of sharing its progress state and cancel handle.
     sweep_lock: Arc<Mutex<()>>,
@@ -230,8 +225,8 @@ impl ModLibrary {
     /// is the one a user would mean.
     pub(in crate::mods) fn begin_health_run(
         &self,
-        budget: crate::problems::Budget,
-    ) -> crate::problems::Budget {
+        budget: crate::budget::Budget,
+    ) -> crate::budget::Budget {
         *self.health_budget.lock() = Some(budget.clone());
         budget
     }
@@ -241,7 +236,7 @@ impl ModLibrary {
     /// Only where it is still the run that is installed. A second run that
     /// replaced it is still going, and clearing its handle would leave its
     /// cancel reaching nothing.
-    pub(in crate::mods) fn end_health_run(&self, budget: &crate::problems::Budget) {
+    pub(in crate::mods) fn end_health_run(&self, budget: &crate::budget::Budget) {
         let mut held = self.health_budget.lock();
         if held.as_ref().is_some_and(|running| running.is(budget)) {
             *held = None;
@@ -319,7 +314,7 @@ impl ModLibrary {
     pub fn game_content(&self, config: &Config) -> Option<Arc<dyn crate::problems::GameContent>> {
         let stamp = GameStamp {
             league: config.league_path.clone()?,
-            build: crate::problems::GameBuild::installed(config),
+            build: crate::game_build::GameBuild::installed(config),
         };
 
         let mut held = self.game_content.lock();

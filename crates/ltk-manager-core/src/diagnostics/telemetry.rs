@@ -170,7 +170,7 @@ pub fn wad_paths_digest(wads: &[String]) -> String {
     let mut sorted: Vec<String> = wads.iter().map(|wad| wad.to_ascii_lowercase()).collect();
     sorted.sort();
     sorted.dedup();
-    super::binary_id::content_hash(sorted.join("\n").as_bytes())
+    crate::hashing::content_hash(sorted.join("\n").as_bytes())
 }
 
 /// A suspect as it travels: a digest of what it is, and why it was named.

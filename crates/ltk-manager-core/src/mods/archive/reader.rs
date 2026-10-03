@@ -8,26 +8,8 @@ use ltk_mod_project::ModProject;
 use ltk_modpkg::Modpkg;
 
 use crate::error::{AppError, AppResult};
+use crate::mod_archive::{open_fantome, open_modpkg};
 use crate::mods::index::ModArchiveFormat;
-
-/// Open `path` as a `.fantome`, naming the archive in the failure.
-///
-/// # Errors
-///
-/// Fails when the file does not open or holds no fantome.
-pub(crate) fn open_fantome(path: &Path) -> AppResult<FantomeReader<fs::File>> {
-    FantomeReader::new(fs::File::open(path)?)
-        .map_err(|e| AppError::Fantome(format!("Failed to open {}: {e}", path.display())))
-}
-
-/// Mount `path` as a `.modpkg`.
-///
-/// # Errors
-///
-/// Fails when the file does not open or holds no package.
-pub(crate) fn open_modpkg(path: &Path) -> AppResult<Modpkg<fs::File>> {
-    Ok(Modpkg::mount_from_reader(fs::File::open(path)?)?)
-}
 
 /// A mod archive, opened by its format.
 pub(crate) enum ModArchive {

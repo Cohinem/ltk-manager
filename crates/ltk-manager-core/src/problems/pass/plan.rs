@@ -8,10 +8,10 @@ use std::time::Instant;
 use ltk_meta::walk::{Node, Visit, Visitor};
 use parking_lot::Mutex;
 
-use crate::problems::budget;
-use crate::problems::walk::Declared;
+use crate::bin_walk::Declared;
+use crate::budget;
+use crate::file_kind::WorkshopFileKind;
 use crate::problems::{FileHandle, ProjectFiles, Report, RuleId, Site};
-use crate::workshop::WorkshopFileKind;
 
 use super::fan::Fan;
 use super::source::BinSource;

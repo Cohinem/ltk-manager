@@ -17,8 +17,6 @@
 //! wrong, and a fix offered twice applies once.
 
 pub mod bank_units;
-pub mod budget;
-pub mod build;
 mod engine;
 mod fix;
 pub mod game;
@@ -26,7 +24,6 @@ pub mod names;
 pub mod pass;
 pub mod preserve;
 pub mod rules;
-pub mod walk;
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -35,8 +32,6 @@ use chrono::{DateTime, Utc};
 use ltk_hash::BinHash;
 use serde::{Deserialize, Serialize};
 
-pub use budget::Budget;
-pub use build::GameBuild;
 pub use engine::{
     ChunkInfo, FileHandle, LayerFiles, Opened, ProjectFile, ProjectFiles, analyze, analyze_archive,
     analyze_project, analyze_within,

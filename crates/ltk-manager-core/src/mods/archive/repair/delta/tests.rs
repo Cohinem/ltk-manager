@@ -150,11 +150,12 @@ fn a_removal_is_written_as_an_edit() {
 mod held {
     use super::*;
 
+    use crate::budget::Budget;
     use crate::config::Config;
     use crate::mods::test_support::{
         STALE_BIN_IN_WAD, make_packed_bin_fantome_zip, resolver_naming, stale_bin,
     };
-    use crate::problems::{Budget, FixRun, Preserved, ProjectFiles};
+    use crate::problems::{FixRun, Preserved, ProjectFiles};
 
     const CHUNK: &str = "Aatrox.wad.client/data/skin0.bin";
     const ICON: &str = "ASSETS/Characters/Smolder/HUD/Smolder_Circle.dds";

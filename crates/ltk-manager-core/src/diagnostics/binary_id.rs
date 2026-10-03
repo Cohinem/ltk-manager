@@ -3,9 +3,8 @@ use std::path::Path;
 use chrono::{DateTime, Utc};
 use fs_err as fs;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
-const HASH_CHARS: usize = 16;
+use crate::hashing::content_hash;
 
 /// Patcher binary identity
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -96,16 +95,6 @@ impl PatcherBinaries {
     }
 }
 
-/// The first [`HASH_CHARS`] hex digits of the SHA-256 of `bytes`.
-pub fn content_hash(bytes: &[u8]) -> String {
-    let digest = Sha256::digest(bytes);
-    let mut hex = String::with_capacity(HASH_CHARS);
-    for byte in digest.iter().take(HASH_CHARS / 2) {
-        hex.push_str(&format!("{byte:02x}"));
-    }
-    hex
-}
-
 /// `bytes` is a PE file
 fn pe_timestamp(bytes: &[u8]) -> Option<u32> {
     if bytes.len() < 0x40 || &bytes[..2] != b"MZ" {
@@ -125,6 +114,7 @@ fn pe_timestamp(bytes: &[u8]) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hashing::CONTENT_HASH_CHARS as HASH_CHARS;
 
     /// A minimal PE: `MZ`, `e_lfanew` at 0x3C pointing at `PE\0\0`, then a
     /// `TimeDateStamp`. Everything between is zero padding.

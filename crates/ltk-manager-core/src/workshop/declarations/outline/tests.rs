@@ -4,6 +4,11 @@ use std::path::Path;
 use ltk_hash::Hash as _;
 use ltk_wad::WadHash;
 
+/// A hash as a row prints one.
+fn hex(hash: BinHash) -> String {
+    HexBinHash::from(hash).to_string()
+}
+
 /// Names that know no hash.
 struct NoNames;
 

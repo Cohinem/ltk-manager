@@ -22,12 +22,12 @@ use crate::error::{AppError, AppResult, IoContext, Utf8PathExt};
 use crate::events::{
     BackendEvent, EventSink, FantomeImportProgress, FantomeImportStage, ModStorageProgress,
 };
+use crate::mod_archive::long_paths;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::{load_mod_project, read_installed_mod};
 use crate::mods::index::{LibraryIndex, LibraryModEntry, ModStorage, get_active_profile};
-use crate::mods::long_paths;
 use crate::mods::types::InstalledMod;
 use crate::utils::fs::replace_keeping_old;
 use fs_err as fs;

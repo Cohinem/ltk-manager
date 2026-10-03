@@ -51,13 +51,13 @@
 //! Reference alone is the wrong axis. It says who asks, and only the install
 //! says who can answer.
 
+use crate::file_kind::WorkshopFileKind;
 use crate::problems::bank_units::BankUnits;
 use crate::problems::game::GameContent;
 use crate::problems::{
     Applied, Detail, FileHandle, FixError, FixPreview, FixRun, Head, Pass, Problem,
     ProblemSeverity, Rule, RuleId, RuleMeta, Site, Weight,
 };
-use crate::workshop::WorkshopFileKind;
 
 /// The diagnostics code a request nothing can answer is recorded under.
 const UNANSWERED_CODE: &str = "ALE-9B39AA45";

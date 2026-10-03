@@ -2,9 +2,9 @@
 //! toolkit's writer, the address in both forms, and the store the app keeps documents in.
 
 use super::*;
+use crate::game_build::GameBuild;
 use crate::meta_schema::{KindShape, MetaSchema, SchemaAt};
 use crate::preview::AssetRef;
-use crate::problems::GameBuild;
 use crate::sandbox::SandboxRef;
 use crate::workshop::LayerChunks;
 use ltk_hash::{BinHash, Hash as _, WadHash};

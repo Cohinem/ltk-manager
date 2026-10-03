@@ -73,13 +73,7 @@ pub fn check_version() -> Check {
 
 #[cfg(target_os = "windows")]
 pub fn check_long_paths_enabled() -> Check {
-    let value = reg_read_num(
-        HKLM,
-        "SYSTEM\\CurrentControlSet\\Control\\FileSystem",
-        "LongPathsEnabled",
-    )
-    .unwrap_or(0);
-    if value == 0 {
+    if !crate::platform::long_paths_enabled() {
         let mut c = LONG_PATHS.result(
             Severity::Warn,
             "Disabled — paths longer than 260 chars will fail",

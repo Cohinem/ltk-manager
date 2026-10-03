@@ -17,3 +17,24 @@ pub fn hide_console(command: &mut Command) -> &mut Command {
 
     command
 }
+
+/// Whether this machine accepts paths past the legacy 260-character limit.
+///
+/// Always true off Windows, where the limit does not exist.
+#[must_use]
+pub fn long_paths_enabled() -> bool {
+    #[cfg(windows)]
+    {
+        let enabled = windows::reg_read_num(
+            windows::HKLM,
+            "SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+            "LongPathsEnabled",
+        );
+        enabled.unwrap_or(0) != 0
+    }
+
+    #[cfg(not(windows))]
+    {
+        true
+    }
+}

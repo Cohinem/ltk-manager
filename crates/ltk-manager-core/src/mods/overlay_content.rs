@@ -15,10 +15,10 @@
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt};
+use crate::mod_archive::open_modpkg;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::metadata::load_mod_project;
-use crate::mods::archive::reader::open_modpkg;
 use crate::mods::index::get_active_profile;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{Profile, ProfileSlug};

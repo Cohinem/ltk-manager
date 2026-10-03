@@ -25,11 +25,13 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::events::{BackendEvent, EventSink, HashtableSyncProgress};
-use crate::meta_schema::MetaSchemaVersion;
 use crate::utils::lazy_slot::LazySlot;
+
+mod object_names;
 
 pub use ltk_hashdb::{HashDb, LayeredHashDb, PathRef};
 pub use ltk_mimir_cache::Table;
+pub use object_names::{CacheNames, ObjectNames};
 
 /// Download base for the published hashtable release assets.
 const RELEASE_BASE_URL: &str =
@@ -203,6 +205,22 @@ impl HashtableCacheStatus {
         self.schema = version;
         self
     }
+}
+
+/// What one meta schema database is, as the cache card names it.
+///
+/// The patch rather than the generation: the publisher restamps the hash tables
+/// on their own schedule, so a database gains patches between two stamps.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct MetaSchemaVersion {
+    /// The patch naming the newest build it describes, absent where it names none.
+    pub patch: Option<String>,
+    /// That build, which is as far as the database reaches.
+    pub build: u32,
+    /// When the upstream hash tables behind it were read.
+    pub generation: String,
 }
 
 /// One table the published release has a version of that this cache does not.

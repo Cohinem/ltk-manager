@@ -16,7 +16,6 @@ use parking_lot::Mutex;
 use super::LayerFilesChanged;
 use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, EventSink};
-use crate::sandbox::SandboxState;
 
 /// How long a path stays quiet before its change is announced.
 ///
@@ -30,13 +29,16 @@ const CONTENT_DIR: &str = "content";
 /// Rebuilds what a batch of changed Atlas source files feeds, given the project and those files.
 pub type SourceRebuild = Arc<dyn Fn(&str, &[PathBuf]) + Send + Sync>;
 
+/// Drops what is cached of a project whose layer files changed, given the project.
+pub type Invalidate = Arc<dyn Fn(&str) + Send + Sync>;
+
 /// The layer watches of the open workshop projects, by project directory.
 ///
-/// A change clears the project's cached sandboxes before the event is emitted, so a read the
-/// event starts sees the changed files. ADR-0056.
+/// A change runs the invalidation before the event is emitted, so a read the event starts
+/// sees the changed files. ADR-0056.
 pub struct LayerWatches {
     events: Arc<dyn EventSink>,
-    sandboxes: SandboxState,
+    invalidate: Invalidate,
     /// The directory under each project holding its Atlas sources, and what a change there
     /// rebuilds. Nothing where unset.
     sources: Option<(String, SourceRebuild)>,
@@ -50,12 +52,12 @@ struct LayerWatch {
 }
 
 impl LayerWatches {
-    /// An empty set of watches that emits through `events` and clears the changed project's
-    /// snapshots from `sandboxes`.
-    pub fn new(events: Arc<dyn EventSink>, sandboxes: SandboxState) -> Self {
+    /// An empty set of watches that emits through `events` and runs `invalidate` on the
+    /// changed project first.
+    pub fn new(events: Arc<dyn EventSink>, invalidate: Invalidate) -> Self {
         Self {
             events,
-            sandboxes,
+            invalidate,
             sources: None,
             watches: Mutex::default(),
         }
@@ -126,7 +128,7 @@ impl LayerWatches {
             None => None,
         };
         let events = Arc::clone(&self.events);
-        let sandboxes = self.sandboxes.clone();
+        let invalidate = Arc::clone(&self.invalidate);
         let rebuild = self
             .sources
             .as_ref()
@@ -146,7 +148,7 @@ impl LayerWatches {
                 if let Some(rebuild) = rebuild.as_ref().filter(|_| !changed.is_empty()) {
                     rebuild(&owner, &changed);
                 }
-                announce(&*events, &sandboxes, &owner, &root, &layers);
+                announce(&*events, &*invalidate, &owner, &root, &layers);
             }
             Err(error) => tracing::warn!("Layer watch on {owner} failed: {error}"),
         })
@@ -184,7 +186,7 @@ impl fmt::Debug for LayerWatches {
 /// Emit the layer files among `paths`, where there are any.
 fn announce(
     events: &dyn EventSink,
-    sandboxes: &SandboxState,
+    invalidate: &(dyn Fn(&str) + Send + Sync),
     project: &str,
     content: &Path,
     paths: &[PathBuf],
@@ -192,7 +194,7 @@ fn announce(
     if let Some(change) =
         LayerFilesChanged::collect(project, content, paths.iter().map(PathBuf::as_path))
     {
-        sandboxes.invalidate(project);
+        invalidate(project);
         tracing::debug!("{} layer files of {project} changed", change.files.len());
         events.emit(BackendEvent::LayerFilesChanged(change));
     }

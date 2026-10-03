@@ -10,6 +10,11 @@ use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyPatch};
 use ltk_mod_project::MODIGNORE_FILE_NAME;
 use std::io::Cursor;
+
+/// A hash as a row prints one.
+fn hex(hash: BinHash) -> String {
+    HexBinHash::from(hash).to_string()
+}
 use std::sync::Arc;
 
 fn touch(path: &Path, contents: &[u8]) {

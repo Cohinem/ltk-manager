@@ -19,9 +19,9 @@
 //! mod's own directory afterwards, so the staging path answers for a mod that
 //! never has it.
 
-use crate::diagnostics::{Severity, windows::check_long_paths_enabled};
 use crate::error::{AppError, AppResult};
-use crate::mods::archive::reader::open_fantome;
+use crate::mod_archive::open_fantome;
+use crate::platform::long_paths_enabled;
 use fs_err as fs;
 use ltk_mod_project::ProjectPaths;
 use ltk_modpkg::Modpkg;
@@ -61,7 +61,7 @@ fn utf16_len(text: &str) -> usize {
 ///
 /// Always true off Windows, where the limit does not exist.
 fn machine_allows_long_paths() -> bool {
-    check_long_paths_enabled().severity != Severity::Warn
+    long_paths_enabled()
 }
 
 /// How long a path an import may write, or `None` where nothing is enforced.

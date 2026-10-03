@@ -11,13 +11,15 @@ pub mod sweep;
 #[cfg(debug_assertions)]
 pub mod timing;
 
+use crate::budget::Budget;
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::game_build::GameBuild;
 use crate::hashtables::HashtableCache;
 use crate::mods::ModLibrary;
 use crate::mods::health::sweep::{HealthSweepState, SweepScope};
 use crate::mods::index::{LibraryModEntry, ModStorage};
-use crate::problems::{self, Budget, Counts, GameBuild, ProjectFiles, Run};
+use crate::problems::{self, Counts, ProjectFiles, Run};
 use crate::utils::fs::{read_json_or_default, write_json};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

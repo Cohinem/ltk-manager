@@ -14,10 +14,10 @@ mod text_files;
 mod watcher;
 
 pub use chunk_names::LayerChunks;
-pub use content::{ContentTree, WorkshopFileKind};
+pub use content::ContentTree;
 pub use declarations::{
     DeclarationsLayer, DeclarationsLoadError, DeclaredEntry, DeclaredKey, DeclaredModule,
-    DeclaredObjectEdit, LineSpan, ModuleSelector,
+    DeclaredObjectEdit, DeclaredSign, LineSpan, ModuleSelector,
 };
 pub use declarations::{ManifestChange, ModuleAction};
 pub use folders::{
@@ -31,7 +31,7 @@ pub use layers::layer_name_for;
 pub use registry::{OpenedProjectFolder, ProjectKey, ProjectRegistry};
 pub use requests::{ProjectEdit, ProjectSource};
 pub use text_files::{ProjectText, ProjectTextFile, README_FILE_NAME, Revision};
-pub use watcher::{LayerWatches, SourceRebuild};
+pub use watcher::{Invalidate, LayerWatches, SourceRebuild};
 
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathRefExt};

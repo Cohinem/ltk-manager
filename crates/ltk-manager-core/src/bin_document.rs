@@ -33,9 +33,9 @@ pub use changes::{BinChange, ChangeBaseline, ChangeKind, Originals};
 pub use clipboard::{CLIPBOARD_FORMAT, clipboard_text, clipboard_value};
 pub use declared::{
     BASE_LAYER, DeclareContext, DeclaredDiagnostic, DeclaredDiagnosticKind, DeclaredLinkMark,
-    DeclaredMark, DeclaredModuleChoice, DeclaredModuleSummary, DeclaredObjectMark, DeclaredSign,
-    DeclaredState, Declaring, GameCopy, LaidVariant, LayerOverride, LinkChange, NewObject,
-    ObjectChange, ObjectSkip, ProjectDeclarations, RowDeclaration, SkipReason, VariantSource,
+    DeclaredMark, DeclaredModuleChoice, DeclaredModuleSummary, DeclaredObjectMark, DeclaredState,
+    Declaring, GameCopy, LaidVariant, LayerOverride, LinkChange, NewObject, ObjectChange,
+    ObjectSkip, ProjectDeclarations, RowDeclaration, SkipReason, VariantSource,
 };
 pub use edit::{EditRejection, HistoryStep, LeafValue, ReadOnly, Reshape, UNDO_DEPTH};
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};

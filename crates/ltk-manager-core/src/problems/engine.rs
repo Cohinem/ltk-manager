@@ -27,15 +27,17 @@ use walkdir::WalkDir;
 
 use crate::config::Config;
 use crate::error::{AppResult, Utf8PathRefExt};
+use crate::file_kind::WorkshopFileKind;
 use crate::workshop::layer;
-use crate::workshop::{ProjectDir, WorkshopFileKind, holds_ignore_rules};
+use crate::workshop::{ProjectDir, holds_ignore_rules};
 
 use archive::ArchiveFiles;
 
-use super::budget::{self, Budget};
 use super::game::GameContent;
 use super::pass::Fact;
-use super::{BinNames, GameBuild, ObjectInfo, Report, Rule, RuleState, Run};
+use super::{BinNames, ObjectInfo, Report, Rule, RuleState, Run};
+use crate::budget::{self, Budget};
+use crate::game_build::GameBuild;
 
 /// The directory a project keeps its layers under.
 const CONTENT_DIR: &str = "content";

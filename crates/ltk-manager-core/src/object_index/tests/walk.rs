@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::bin_document::{BinDocument, RowNames};
-use crate::problems::Budget;
+use crate::budget::Budget;
 use ltk_meta::property::Kind;
 use std::sync::atomic::{AtomicU32, Ordering};
 

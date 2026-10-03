@@ -17,10 +17,10 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult, IoContext, io_context};
 use crate::events::{BackendEvent, LayoutMigrationProgress};
+use crate::mod_archive::open_modpkg;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::metadata::{extract_metadata, fantome_layers, load_mod_project};
-use crate::mods::archive::reader::open_modpkg;
 use crate::mods::index::document::{archive_path, load_library_index, save_library_index};
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
 use crate::mods::slug::{ModSlug, TakenSlugs};

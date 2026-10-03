@@ -10,10 +10,11 @@ use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
+use crate::budget::Budget;
 use crate::config::Config;
 use crate::mods::test_support::{audio_bank, make_packed_chunk_fantome_zip, resolver_naming};
+use crate::problems::ProjectFiles;
 use crate::problems::game::FakeContent;
-use crate::problems::{Budget, ProjectFiles};
 
 /// The bank's path inside the WAD, which is what a bank unit names it by.
 const BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/ashe_sfx_events.bnk";

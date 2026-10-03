@@ -8,8 +8,8 @@ use ltk_meta::Bin;
 
 use super::*;
 use crate::bin_document::{LeafValue, PropertyKind};
+use crate::game_build::GameBuild;
 use crate::meta_schema::MetaSchema;
-use crate::problems::GameBuild;
 
 fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)

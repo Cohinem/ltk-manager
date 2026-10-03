@@ -10,7 +10,7 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::events::BackendEvent;
-use crate::mods::archive::reader::open_modpkg;
+use crate::mod_archive::open_modpkg;
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::{
     ChampionRoster, DerivedCategorization, ModLibrary, ModWadReport, WadReportState,

@@ -9,9 +9,9 @@ use crate::events::{
     BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
 };
 use crate::hashtables::WadPathResolver;
-use crate::mods::fantome_layer::unpacked_layer_name;
-use crate::mods::long_paths::{self, ImportRoot};
-use crate::mods::{open_fantome, open_modpkg};
+use crate::mod_archive::long_paths::{self, ImportRoot};
+use crate::mod_archive::unpacked_layer_name;
+use crate::mod_archive::{open_fantome, open_modpkg};
 use crate::utils::natural_order::compare_names;
 use fs_err as fs;
 use ltk_fantome::BASE_LAYER;

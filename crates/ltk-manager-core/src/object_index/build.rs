@@ -3,7 +3,7 @@
 //! Fed by the built [`GameIndex`], which already folded the install's chunks and
 //! numbered its archives, so no table of contents is walked twice.
 
-use std::io::{Cursor, Read, Seek};
+use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -12,7 +12,7 @@ use ltk_hash::BinHash;
 use ltk_wad::{ChunkDecoder, WadHash, hex_name};
 use rayon::prelude::*;
 
-use crate::bin_source::BinSource;
+use crate::bin_source::for_each_declaration;
 use crate::error::{AppError, AppResult};
 use crate::game_index::GameIndex;
 use crate::game_wads::{ArchiveFile, GameArchives, chunk_bytes, chunk_head, mount_wad};
@@ -168,50 +168,6 @@ fn declarations(bytes: &[u8], file: WadHash, out: &mut Vec<Row>) -> Result<(), l
             file,
         });
     })
-}
-
-/// One object a bin declares, and the class it declares it as.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Declaration {
-    pub object: BinHash,
-    pub class: BinHash,
-}
-
-/// Visit every object the bin in `source` declares, in file order, by its magic.
-///
-/// A `PROP` is swept through the object table, one 8-byte hop an object. A
-/// `PTCH` is read whole, which is the fallback the problems pass carries too
-/// while the streaming form of a patch waits upstream, and its patch records
-/// declare nothing.
-///
-/// # Errors
-///
-/// Fails when `source` cannot be read or is not a bin the toolkit reads.
-/// Objects before the failure were visited.
-pub fn for_each_declaration<R: Read + Seek>(
-    source: R,
-    mut visit: impl FnMut(Declaration),
-) -> Result<(), ltk_meta::Error> {
-    let mut stream = match BinSource::open(source)? {
-        BinSource::Patch(patch) => {
-            for object in patch.objects.values() {
-                visit(Declaration {
-                    object: object.path_hash,
-                    class: object.class_hash,
-                });
-            }
-            return Ok(());
-        }
-        BinSource::Stream(stream) => stream,
-    };
-    for entry in stream.entries() {
-        let entry = entry?;
-        visit(Declaration {
-            object: entry.path_hash,
-            class: entry.class_hash,
-        });
-    }
-    Ok(())
 }
 
 /// Run `job` over every item of `work` on at most `workers` threads.

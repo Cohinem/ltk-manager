@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 pub use self::outline::{
     DeclarationsLayer, DeclarationsLoadError, DeclaredEntry, DeclaredKey, DeclaredModule,
-    DeclaredObjectEdit, LineSpan, ModuleSelector,
+    DeclaredObjectEdit, DeclaredSign, LineSpan, ModuleSelector,
 };
 
 use super::{ProjectDir, WorkshopError};

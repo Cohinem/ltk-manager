@@ -80,7 +80,7 @@ fn a_removed_bank_is_gone_from_the_repaired_archive() {
     let left = crate::problems::ProjectFiles::in_archive(
         &archive,
         &config,
-        crate::problems::Budget::repair(),
+        crate::budget::Budget::repair(),
         &resolver_naming(&[SILENT_BANK_IN_WAD, OTHER]),
         None,
     )

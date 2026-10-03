@@ -12,7 +12,7 @@ use ltk_meta::walk::{ChildSegment, Leaf, Node, NodeRef, TreeNode, TreeValue, Vis
 use ltk_meta::{Error, PropertyValueEnum};
 
 use crate::bin_source::BinSource;
-use crate::problems::walk::{Declared, write_key};
+use crate::bin_walk::{Declared, write_key};
 
 mod run;
 

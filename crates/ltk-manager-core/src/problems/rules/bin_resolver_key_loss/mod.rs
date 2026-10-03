@@ -41,9 +41,9 @@ use ltk_meta::property::Kind;
 use ltk_meta::walk::{Node, TreeNode as _};
 use ltk_meta::{BinFile, PropertyValueEnum};
 
+use crate::bin_walk::Declared;
 use crate::problems::engine::parse_bin;
 use crate::problems::game::GameContent;
-use crate::problems::walk::Declared;
 use crate::problems::{
     Applied, Detail, Dormancy, FileHandle, FixError, FixRun, NodeAddress, ObjectRead, Pass,
     Problem, ProblemSeverity, ProjectFiles, Rule, RuleId, RuleMeta, Site, Weight,
