@@ -43,12 +43,12 @@ pub use archive::documents::ModDocument;
 pub use archive::export::{ExportScope, ExportShape, ExportSummary, with_zip_extension};
 pub use archive::migration::*;
 pub use archive::repair::{LibraryRepairReport, ModRepairFailure};
-pub use health::sweep::{HealthSweepReport, HealthSweepState, SweepScope};
+pub use health::sweep::{HealthSweepState, SweepScope};
 #[cfg(debug_assertions)]
 pub use health::timing::{HealthTiming, ModTiming};
-pub use health::{HealthCheckBasis, HealthCheckReadiness, ModHealth, ModHealthVerdict};
-pub use index::document::{ModArchiveFormat, ModStorage};
-pub use index::layout_migration::{FailedConversion, LayoutMigrationReport, LayoutMigrationState};
+pub use health::{HealthCheckReadiness, ModHealth, ModHealthVerdict};
+pub use index::document::ModArchiveFormat;
+pub use index::layout_migration::LayoutMigrationState;
 pub use layout::StorageLayout;
 pub use types::{
     BulkInstallResult, EditModMetadataArgs, InstallOutcome, InstalledMod, LibraryFolder,

@@ -9,6 +9,8 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+use crate::error::{AppError, DomainError, ErrorKind};
+
 mod changes;
 mod clipboard;
 mod declared;
@@ -141,7 +143,13 @@ pub enum BinDocumentError {
 
     /// A declared document's project, manifest or apply failed. ADR-0042.
     #[error("{0}")]
-    Declaring(#[source] Box<crate::error::AppError>),
+    Declaring(#[source] Box<AppError>),
+}
+
+impl From<BinDocumentError> for AppError {
+    fn from(error: BinDocumentError) -> Self {
+        Self::Domain(DomainError::new(ErrorKind::BinDocument, error))
+    }
 }
 
 #[cfg(test)]

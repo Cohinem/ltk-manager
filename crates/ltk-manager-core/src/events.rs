@@ -11,29 +11,17 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::mods::ModStorage;
+mod launcher;
+mod layer_changes;
+mod library;
 
-/// The launcher's payloads are defined alongside the code that produces them,
-/// and re-exported here so every payload in the registry below can be named
-/// from one module.
-pub use crate::launcher::{
+pub use launcher::{
     LaunchProgress, LaunchStage, SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
 };
-
-/// As above, for the payload the layout migration defines beside itself.
-pub use crate::mods::LayoutMigrationReport;
-
-/// As above, for what a mod health sweep concludes.
-pub use crate::mods::HealthSweepReport;
-
-/// As above, for how far a walk of the bins for references has read.
-pub use crate::object_index::ReferenceWalkProgress;
-
-/// As above, for the layer files a watch on a workshop project saw change.
-pub use crate::workshop::LayerFilesChanged;
-
-/// As above, for how far the download an install link started has got.
-pub use crate::deep_link::ProtocolInstallProgress;
+pub use layer_changes::{LayerFile, LayerFilesChanged};
+pub use library::{
+    FailedConversion, HealthCheckBasis, HealthSweepReport, LayoutMigrationReport, ModStorage,
+};
 
 /// Receives notifications from domain operations.
 ///
@@ -313,6 +301,41 @@ pub enum GitImportStage {
 pub struct GitImportProgress {
     pub stage: GitImportStage,
     pub message: Option<String>,
+}
+
+/// How far one walk has read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ReferenceWalkProgress {
+    /// Bins read, or passed over because they would not read.
+    pub walked: u32,
+    /// Bins the walk reads in all: the project's layers and the install's.
+    pub total: u32,
+    /// References found so far, past any cap.
+    pub hits: u32,
+}
+
+/// Where a protocol install has got to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum ProtocolInstallStage {
+    Downloading,
+    Validating,
+    Complete,
+    Error,
+}
+
+/// Progress payload emitted during protocol install download.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct ProtocolInstallProgress {
+    pub stage: ProtocolInstallStage,
+    pub bytes_downloaded: u64,
+    pub total_bytes: Option<u64>,
+    pub error: Option<String>,
 }
 
 /// Declares [`BackendEvent`] and its event names from a single list.

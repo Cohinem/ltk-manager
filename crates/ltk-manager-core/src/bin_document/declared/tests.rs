@@ -533,10 +533,11 @@ fn the_game_sandbox_refuses_every_edit_and_every_save() {
         Err(BinDocumentError::ReadOnly(ReadOnly::GameSandbox))
     );
     assert_matches!(
-        store.save(id),
-        Err(AppError::BinDocument(BinDocumentError::ReadOnly(
-            ReadOnly::GameSandbox
-        )))
+        store
+            .save(id)
+            .as_ref()
+            .map_err(AppError::domain::<BinDocumentError>),
+        Err(Some(BinDocumentError::ReadOnly(ReadOnly::GameSandbox)))
     );
     assert_eq!(store.read_only(id).unwrap(), Some(ReadOnly::GameSandbox));
     assert_eq!(store.sandbox_of(id), Some(SandboxRef::Game));

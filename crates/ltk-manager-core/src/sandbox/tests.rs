@@ -152,8 +152,8 @@ fn a_client_chunk_opens_in_no_sandbox() {
     for sandbox in [Sandbox::game(), Sandbox::open(in_project(&dir))] {
         let error = sandbox.opening(asset.clone()).unwrap_err();
         assert!(matches!(
-            error,
-            AppError::BinDocument(BinDocumentError::LcuChunk)
+            error.domain::<BinDocumentError>(),
+            Some(BinDocumentError::LcuChunk)
         ));
     }
 }

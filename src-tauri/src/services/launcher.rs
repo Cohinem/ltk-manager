@@ -13,9 +13,10 @@ use crate::services::shared::InFlight;
 use crate::state::{IncidentStoreState, SettingsState};
 use ltk_manager_core::config::Config;
 use ltk_manager_core::events::EventSink;
+use ltk_manager_core::events::SessionStarted;
 use ltk_manager_core::launcher::{
     detect_install_mismatch, InstallMismatch, LaunchAvailability, LaunchOutcome, LaunchTarget,
-    LauncherError, LeagueLauncher, SessionStarted, StopFlag,
+    LauncherError, LeagueLauncher, StopFlag,
 };
 
 use super::patcher::{start_patcher_inner, PatcherConfig};

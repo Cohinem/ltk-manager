@@ -24,7 +24,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 use crate::config::Config;
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult, DomainError, ErrorKind};
 use crate::file_kind::WorkshopFileKind;
 use crate::game_wads::WadCache;
 
@@ -210,6 +210,12 @@ pub enum PreviewError {
     /// The bytes are not a light grid the game reads.
     #[error("Not a readable light grid: {0}")]
     LightGridRead(&'static str),
+}
+
+impl From<PreviewError> for AppError {
+    fn from(error: PreviewError) -> Self {
+        Self::Domain(DomainError::new(ErrorKind::Preview, error))
+    }
 }
 
 impl AssetRef {

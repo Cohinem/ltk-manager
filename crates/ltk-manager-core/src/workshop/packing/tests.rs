@@ -402,9 +402,9 @@ fn a_pattern_that_does_not_compile_fails_the_pack_with_its_line() {
     let error = pack(tmp.path()).unwrap_err();
 
     assert_matches!(
-        error,
-        AppError::Workshop(WorkshopError::PackIgnorePattern { path, line, .. }) => {
-            assert_eq!(line, 3);
+        error.domain::<WorkshopError>(),
+        Some(WorkshopError::PackIgnorePattern { path, line, .. }) => {
+            assert_eq!(*line, 3);
             // Project-relative, the form the creator knows the file by.
             assert_eq!(path, ".modignore");
         }

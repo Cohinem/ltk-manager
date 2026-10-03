@@ -607,9 +607,9 @@ fn add_files_to_layer_aborts_on_conflict() {
         vec![new_a, new_b],
         &no_names(),
     );
-    match result {
-        Err(AppError::Workshop(WorkshopError::LayerFileConflict { conflicts })) => {
-            assert_eq!(conflicts, vec!["Aatrox.wad.client".to_string()]);
+    match result.as_ref().map_err(AppError::domain::<WorkshopError>) {
+        Err(Some(WorkshopError::LayerFileConflict { conflicts })) => {
+            assert_eq!(*conflicts, vec!["Aatrox.wad.client".to_string()]);
         }
         other => panic!("expected LayerFileConflict, got: {:?}", other),
     }

@@ -21,11 +21,9 @@ use crate::preview::AssetRef;
 use crate::utils::natural_order::compare_names;
 use crate::workshop::layer;
 
-use super::super::{
-    ObjectIndex, ReferenceGroup, ReferenceHit, ReferenceProperty, ReferenceResult,
-    ReferenceWalkProgress,
-};
+use super::super::{ObjectIndex, ReferenceGroup, ReferenceHit, ReferenceProperty, ReferenceResult};
 use super::{HitStep, WalkHit, WalkTarget, scan_bin};
+use crate::events::ReferenceWalkProgress;
 
 /// One bin of a project's layers, which the walk reads beside the install's.
 #[derive(Debug, Clone, PartialEq, Eq)]

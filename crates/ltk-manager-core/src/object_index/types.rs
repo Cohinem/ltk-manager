@@ -258,19 +258,6 @@ pub struct ReferenceResult {
     pub cancelled: bool,
 }
 
-/// How far one walk has read.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub struct ReferenceWalkProgress {
-    /// Bins read, or passed over because they would not read.
-    pub walked: u32,
-    /// Bins the walk reads in all: the project's layers and the install's.
-    pub total: u32,
-    /// References found so far, past any cap.
-    pub hits: u32,
-}
-
 /// What a build measured.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ObjectIndexStats {

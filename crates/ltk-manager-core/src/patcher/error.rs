@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use super::injector::InjectorError;
 use super::session::SessionError;
+use crate::error::{AppError, DomainError, ErrorKind};
 
 /// Which stage of a start failed, for [`PatcherError::InjectionFailed`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
@@ -55,6 +56,12 @@ pub enum PatcherError {
         stage: InjectionStage,
         message: String,
     },
+}
+
+impl From<PatcherError> for AppError {
+    fn from(error: PatcherError) -> Self {
+        Self::Domain(DomainError::new(ErrorKind::Patcher, error))
+    }
 }
 
 impl From<SessionError> for PatcherError {

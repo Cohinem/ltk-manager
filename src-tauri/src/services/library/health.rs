@@ -12,8 +12,9 @@ use crate::services::shared::off_thread;
 use crate::services::shared::Library;
 use crate::state::SettingsState;
 use ltk_manager_core::config::Config;
+use ltk_manager_core::events::HealthSweepReport;
 use ltk_manager_core::mods::{
-    HealthCheckReadiness, HealthSweepReport, HealthSweepState, LibraryRepairReport, SweepScope,
+    HealthCheckReadiness, HealthSweepState, LibraryRepairReport, SweepScope,
 };
 use ltk_manager_core::problems::FixReport;
 use std::collections::BTreeMap;

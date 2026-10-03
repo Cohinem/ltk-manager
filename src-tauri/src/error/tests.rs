@@ -23,10 +23,7 @@ fn the_code_is_the_variant_in_screaming_snake_case() {
         "PROJECT_ALREADY_EXISTS"
     );
     assert_eq!(wire(AppError::Other("x".into()))["code"], "UNKNOWN");
-    assert_eq!(
-        wire(AppError::Patcher(PatcherError::Busy))["code"],
-        "PATCHER"
-    );
+    assert_eq!(wire(AppError::from(PatcherError::Busy))["code"], "PATCHER");
 }
 
 /// A variant with nothing to translate over is only its code, so the
@@ -98,7 +95,7 @@ fn schema_version_too_new_carries_both_versions() {
 /// `Serialize`, so the detail is the only place its own words can ride.
 #[test]
 fn every_hashtable_failure_shares_one_code() {
-    let json = wire(AppError::Hashtable(HashtableError::SyncLocked(
+    let json = wire(AppError::from(HashtableError::SyncLocked(
         SyncHolder::unknown(),
     )));
     assert_eq!(json["code"], "HASHTABLE");
@@ -123,7 +120,7 @@ fn every_patcher_variant_reaches_the_frontend_distinguishable() {
         ),
     ];
     for (error, expected) in kinds {
-        let json = wire(AppError::Patcher(error));
+        let json = wire(AppError::from(error));
         assert_eq!(json["code"], "PATCHER");
         assert_eq!(json["error"]["kind"], expected);
     }
@@ -134,7 +131,7 @@ fn an_injection_failure_keeps_the_stage_and_the_reason() {
     let error = PatcherError::from(SessionError::Injector(InjectorError::Failed(
         "DLL never attached after 60s".to_string(),
     )));
-    let json = wire(AppError::Patcher(error));
+    let json = wire(AppError::from(error));
 
     assert_eq!(json["error"]["kind"], "INJECTION_FAILED");
     assert_eq!(json["error"]["stage"], "INJECTION");
@@ -191,7 +188,7 @@ fn every_launcher_variant_shares_one_code_and_keeps_its_kind() {
     ];
 
     for (error, expected_kind) in cases {
-        let json = wire(AppError::Launcher(error));
+        let json = wire(AppError::from(error));
         assert_eq!(json["code"], "LAUNCHER");
         assert_eq!(json["error"]["kind"], expected_kind);
     }
@@ -199,7 +196,7 @@ fn every_launcher_variant_shares_one_code_and_keeps_its_kind() {
 
 #[test]
 fn riot_client_not_found_carries_the_path_it_tried() {
-    let json = wire(AppError::Launcher(LauncherError::RiotClientNotFound {
+    let json = wire(AppError::from(LauncherError::RiotClientNotFound {
         installs_path: "C:/ProgramData/Riot Games/RiotClientInstalls.json".to_string(),
     }));
 
@@ -212,7 +209,7 @@ fn riot_client_not_found_carries_the_path_it_tried() {
 
 #[test]
 fn a_workshop_error_travels_whole() {
-    let json = wire(AppError::Workshop(WorkshopError::LayerFileConflict {
+    let json = wire(AppError::from(WorkshopError::LayerFileConflict {
         conflicts: vec!["a.bin".into(), "b.bin".into()],
     }));
     assert_eq!(json["code"], "WORKSHOP");
@@ -354,4 +351,19 @@ fn ipc_result_from_err() {
     let json = serde_json::to_value(&result).unwrap();
     assert_eq!(json["ok"], false);
     assert_eq!(json["error"]["code"], "UNKNOWN");
+}
+
+/// A domain failure reaches the shell without its type, so each is read back by it.
+#[test]
+fn a_domain_failure_keeps_its_own_code() {
+    use ltk_manager_core::preview::PreviewError;
+
+    assert_eq!(
+        wire(AppError::from(PreviewError::NotCube))["code"],
+        "PREVIEW"
+    );
+    assert_eq!(
+        wire(AppError::from(BinDocumentError::ReadTooLarge))["code"],
+        "BIN_READ_TOO_LARGE"
+    );
 }

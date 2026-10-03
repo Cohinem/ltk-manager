@@ -367,10 +367,11 @@ fn every_edit_passes_the_gate() {
     for edit in edits {
         let shown = format!("{edit:?}");
         assert_matches!(
-            store.apply(id, edit, schema.at(None)),
-            Err(AppError::BinDocument(BinDocumentError::ReadOnly(
-                ReadOnly::Loose
-            ))),
+            store
+                .apply(id, edit, schema.at(None))
+                .as_ref()
+                .map_err(AppError::domain::<BinDocumentError>),
+            Err(Some(BinDocumentError::ReadOnly(ReadOnly::Loose))),
             "{shown}"
         );
     }

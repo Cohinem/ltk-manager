@@ -24,6 +24,7 @@ use parking_lot::{Mutex, MutexGuard};
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::error::{AppError, DomainError, ErrorKind};
 use crate::events::{BackendEvent, EventSink, HashtableSyncProgress};
 use crate::utils::lazy_slot::LazySlot;
 
@@ -94,6 +95,12 @@ pub enum HashtableError {
     /// The published release could not be compared against the cache.
     #[error("hashtable update check: {0}")]
     Check(#[from] CheckError<DownloadError>),
+}
+
+impl From<HashtableError> for AppError {
+    fn from(error: HashtableError) -> Self {
+        Self::Domain(DomainError::new(ErrorKind::Hashtable, error))
+    }
 }
 
 /// Why one release asset could not be fetched.

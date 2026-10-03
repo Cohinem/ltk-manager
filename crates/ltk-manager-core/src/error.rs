@@ -11,13 +11,6 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-use crate::bin_document::BinDocumentError;
-use crate::hashtables::HashtableError;
-use crate::launcher::LauncherError;
-use crate::patcher::PatcherError;
-use crate::preview::PreviewError;
-use crate::workshop::WorkshopError;
-
 /// Which [`AppError`] a failure was, as a name that outlives its message.
 ///
 /// A message is for a reader and can be empty. This is the part a consumer
@@ -150,6 +143,15 @@ impl AppError {
         }
     }
 
+    /// The domain failure this is, when it is one of type `E`.
+    #[must_use]
+    pub fn domain<E: std::error::Error + 'static>(&self) -> Option<&E> {
+        match self {
+            AppError::Domain(error) => error.downcast_ref(),
+            _ => None,
+        }
+    }
+
     /// Which variant this is, without its message.
     pub fn kind(&self) -> ErrorKind {
         match self {
@@ -169,17 +171,71 @@ impl AppError {
             AppError::Fantome { .. } => ErrorKind::Fantome,
             AppError::WadError { .. } => ErrorKind::WadError,
             AppError::WadBuilderError { .. } => ErrorKind::WadBuilderError,
-            AppError::Patcher { .. } => ErrorKind::Patcher,
-            AppError::Launcher { .. } => ErrorKind::Launcher,
             AppError::ZipError { .. } => ErrorKind::ZipError,
             AppError::SchemaVersionTooNew { .. } => ErrorKind::SchemaVersionTooNew,
-            AppError::Workshop { .. } => ErrorKind::Workshop,
-            AppError::Hashtable { .. } => ErrorKind::Hashtable,
-            AppError::Preview { .. } => ErrorKind::Preview,
-            AppError::BinDocument { .. } => ErrorKind::BinDocument,
+            AppError::Domain(error) => error.kind(),
             AppError::Overlay { .. } => ErrorKind::Overlay,
             AppError::UntrustedDomain { .. } => ErrorKind::UntrustedDomain,
         }
+    }
+}
+
+/// A failure a domain module owns, held without naming its type.
+///
+/// The module converts its own error into [`AppError`] through this, so the shared error names
+/// no domain. A consumer reads the failure back with [`AppError::domain`].
+#[derive(Debug)]
+pub struct DomainError {
+    kind: ErrorKind,
+    error: Box<dyn std::error::Error + Send + Sync + 'static>,
+}
+
+impl DomainError {
+    /// `error` reported as `kind`.
+    pub fn new(kind: ErrorKind, error: impl std::error::Error + Send + Sync + 'static) -> Self {
+        Self {
+            kind,
+            error: Box::new(error),
+        }
+    }
+
+    /// The kind the failure reports as.
+    #[must_use]
+    pub fn kind(&self) -> ErrorKind {
+        self.kind
+    }
+
+    /// The failure, when it is an `E`.
+    #[must_use]
+    pub fn downcast_ref<E: std::error::Error + 'static>(&self) -> Option<&E> {
+        self.error.downcast_ref()
+    }
+
+    /// The failure as the `E` it is.
+    ///
+    /// # Errors
+    ///
+    /// Returns the failure unchanged when it is another type.
+    pub fn downcast<E: std::error::Error + 'static>(self) -> Result<E, Self> {
+        match self.error.downcast() {
+            Ok(error) => Ok(*error),
+            Err(error) => Err(Self {
+                kind: self.kind,
+                error,
+            }),
+        }
+    }
+}
+
+impl std::fmt::Display for DomainError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.error.fmt(f)
+    }
+}
+
+impl std::error::Error for DomainError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.error.source()
     }
 }
 
@@ -235,12 +291,6 @@ pub enum AppError {
     #[error("WAD builder error: {0}")]
     WadBuilderError(#[from] ltk_wad::WadBuilderError),
 
-    #[error(transparent)]
-    Patcher(#[from] PatcherError),
-
-    #[error(transparent)]
-    Launcher(#[from] LauncherError),
-
     #[error("ZIP error: {0}")]
     ZipError(#[from] zip::result::ZipError),
 
@@ -252,17 +302,9 @@ pub enum AppError {
         max_supported: u32,
     },
 
+    /// A failure a domain module owns, under the kind it reports as.
     #[error(transparent)]
-    Workshop(#[from] WorkshopError),
-
-    #[error(transparent)]
-    Hashtable(#[from] HashtableError),
-
-    #[error(transparent)]
-    Preview(#[from] PreviewError),
-
-    #[error(transparent)]
-    BinDocument(#[from] BinDocumentError),
+    Domain(DomainError),
 
     #[error(transparent)]
     Overlay(#[from] ltk_overlay::Error),
@@ -386,6 +428,20 @@ mod tests {
         let message = message_with_sources(&error);
         assert!(message.starts_with("Failed to write overlay/"), "{message}");
         assert!(message.contains("os error 32"), "{message}");
+    }
+
+    #[derive(Debug, Error)]
+    #[error("no such layer")]
+    struct Missing;
+
+    #[test]
+    fn a_domain_failure_reads_back_as_its_type() {
+        let error = AppError::Domain(DomainError::new(ErrorKind::Workshop, Missing));
+
+        assert_eq!(error.kind(), ErrorKind::Workshop);
+        assert_eq!(error.to_string(), "no such layer");
+        assert!(error.domain::<Missing>().is_some());
+        assert!(error.domain::<std::io::Error>().is_none());
     }
 
     #[test]

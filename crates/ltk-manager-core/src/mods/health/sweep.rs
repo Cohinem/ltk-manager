@@ -2,13 +2,12 @@
 //!
 //! Per "The library sweep" in docs/ux/MOD_HEALTH.md.
 
-use super::{
-    HealthCheckBasis, LEGACY_VERDICTS_FILENAME, ModHealth, ModHealthVerdict, Refused, VerdictFile,
-};
+use super::{LEGACY_VERDICTS_FILENAME, ModHealth, ModHealthVerdict, Refused, VerdictFile};
 use crate::budget::{self, Budget};
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
 use crate::events::{BackendEvent, HealthSweepProgress};
+use crate::events::{HealthCheckBasis, HealthSweepReport};
 use crate::hashtables::HashtableCache;
 use crate::meta_schema::cache::{MetaSchemaCache, PublishedDb};
 use crate::mods::ModLibrary;
@@ -18,23 +17,6 @@ use fs_err as fs;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;
-
-/// What one library sweep concluded.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-pub struct HealthSweepReport {
-    /// What the sweep checked against.
-    pub basis: HealthCheckBasis,
-    /// Mods this run recorded a fresh verdict for.
-    pub checked: usize,
-    /// Checkable mods this run did not take.
-    pub skipped: usize,
-    /// Every mod in the library a repair would fix, by id.
-    pub repairable: Vec<String>,
-    /// Every mod in the library with findings and no fix for any, by id.
-    pub unrepairable: Vec<String>,
-}
 
 /// What the library sweep has to say for itself this launch.
 ///

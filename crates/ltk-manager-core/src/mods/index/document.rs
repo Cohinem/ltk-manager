@@ -10,6 +10,7 @@ use super::layout_migration::LayoutMigrationState;
 use super::schema_migration;
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::events::ModStorage;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::index::reconcile::reconcile_library_index;
@@ -232,23 +233,6 @@ impl ModArchiveFormat {
             ModArchiveFormat::Unknown => ModStorage::Project,
         }
     }
-}
-
-/// Where a mod's content is, which is what picks its content provider.
-///
-/// Recorded rather than derived: a fantome installs as
-/// [`Archive`](Self::Archive) but the user can unpack it after the fact, and a
-/// future sanitized-fantome mode would be another value here rather than
-/// another guess from the layout.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "lowercase")]
-pub enum ModStorage {
-    /// An unpacked mod project: `mod.config.json` plus a `content/` tree.
-    #[default]
-    Project,
-    /// Inside the mod's archive, which the provider reads without unpacking.
-    Archive,
 }
 
 /// What preserving a mod's names at import found.

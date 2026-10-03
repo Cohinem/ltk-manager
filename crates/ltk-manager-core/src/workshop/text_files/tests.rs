@@ -75,8 +75,8 @@ fn a_save_is_refused_when_the_file_moved_under_it() {
     let refused = project.write_project_text(ProjectTextFile::Readme, "# Mine\n", read.revision);
 
     assert_matches!(
-        refused,
-        Err(AppError::Workshop(WorkshopError::TextFileChanged { .. }))
+        refused.as_ref().map_err(AppError::domain::<WorkshopError>),
+        Err(Some(WorkshopError::TextFileChanged { .. }))
     );
     assert_eq!(
         fs::read_to_string(&path).unwrap(),

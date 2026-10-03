@@ -13,9 +13,8 @@ use notify_debouncer_mini::{
 };
 use parking_lot::Mutex;
 
-use super::LayerFilesChanged;
 use crate::error::{AppError, AppResult};
-use crate::events::{BackendEvent, EventSink};
+use crate::events::{BackendEvent, EventSink, LayerFilesChanged};
 
 /// How long a path stays quiet before its change is announced.
 ///

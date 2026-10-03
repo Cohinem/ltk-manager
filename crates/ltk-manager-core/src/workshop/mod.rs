@@ -4,7 +4,6 @@ mod declarations;
 mod folders;
 mod ignore_rules;
 pub mod layer;
-mod layer_changes;
 mod layers;
 mod packing;
 mod projects;
@@ -26,7 +25,6 @@ pub use folders::{
 };
 pub use ignore_rules::{IgnoreRules, RECOMMENDED_IGNORE_RULES};
 pub(crate) use ignore_rules::{holds_ignore_rules, recommended_ignore_filter};
-pub use layer_changes::{LayerFile, LayerFilesChanged};
 pub use layers::layer_name_for;
 pub use registry::{OpenedProjectFolder, ProjectKey, ProjectRegistry};
 pub use requests::{ProjectEdit, ProjectSource};
@@ -34,7 +32,7 @@ pub use text_files::{ProjectText, ProjectTextFile, README_FILE_NAME, Revision};
 pub use watcher::{Invalidate, LayerWatches, SourceRebuild};
 
 use crate::config::Config;
-use crate::error::{AppError, AppResult, Utf8PathRefExt};
+use crate::error::{AppError, AppResult, DomainError, ErrorKind, Utf8PathRefExt};
 use crate::events::EventSink;
 use chrono::{DateTime, Utc};
 use fs_err as fs;
@@ -92,6 +90,12 @@ pub enum WorkshopError {
     /// An edit the text of a declarations manifest cannot take.
     #[error("{path} cannot take the edit: {reason}")]
     DeclarationsUneditable { path: String, reason: String },
+}
+
+impl From<WorkshopError> for AppError {
+    fn from(error: WorkshopError) -> Self {
+        Self::Domain(DomainError::new(ErrorKind::Workshop, error))
+    }
 }
 
 /// Managed struct that encapsulates workshop operations.

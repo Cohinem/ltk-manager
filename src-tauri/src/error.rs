@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use specta::datatype::{DataType, Enum, Field, Variant};
 
 use ltk_manager_core::bin_document::{BinDocumentError, EditRejection, ReadOnly};
-use ltk_manager_core::error::message_with_sources;
+use ltk_manager_core::error::{message_with_sources, DomainError, ErrorKind};
 pub use ltk_manager_core::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_core::github::{GitHubError, GitHubErrorKind};
 use ltk_manager_core::launcher::LauncherError;
@@ -322,8 +322,6 @@ impl From<AppError> for AppErrorResponse {
             AppError::WadBuilderError(e) => Self::Wad {
                 detail: e.to_string(),
             },
-            AppError::Patcher(error) => Self::Patcher { error },
-            AppError::Launcher(error) => Self::Launcher { error },
             AppError::ZipError(e) => Self::Zip {
                 detail: e.to_string(),
             },
@@ -334,46 +332,68 @@ impl From<AppError> for AppErrorResponse {
                 file_version,
                 max_supported,
             },
-            AppError::Workshop(error) => Self::Workshop { error },
-            AppError::Hashtable(e) => Self::Hashtable {
-                detail: e.to_string(),
-            },
-            AppError::Preview(e) => Self::Preview {
-                detail: e.to_string(),
-            },
-            AppError::BinDocument(BinDocumentError::Unreadable(e)) => Self::BinUnreadable {
-                detail: e.to_string(),
-            },
-            AppError::BinDocument(e @ BinDocumentError::LcuChunk) => Self::BinUnreadable {
-                detail: e.to_string(),
-            },
-            AppError::BinDocument(BinDocumentError::NotOpen(_)) => Self::BinNotOpen,
-            AppError::BinDocument(BinDocumentError::NodeNotFound { address }) => {
-                Self::BinNodeNotFound { address }
-            }
-            AppError::BinDocument(BinDocumentError::ReadTooWide { rows, cap }) => {
-                Self::BinReadTooWide { rows, cap }
-            }
-            AppError::BinDocument(BinDocumentError::ReadTooLarge) => Self::BinReadTooLarge,
-            AppError::BinDocument(BinDocumentError::ReadTooDeep) => Self::BinReadTooDeep,
-            AppError::BinDocument(BinDocumentError::ReadOnly(gate)) => Self::BinReadOnly { gate },
-
-            AppError::BinDocument(BinDocumentError::EditRejected { address, rejection }) => {
-                Self::BinEditRejected { address, rejection }
-            }
-            AppError::BinDocument(BinDocumentError::Overridden { address, layer }) => {
-                Self::BinEditOverridden { address, layer }
-            }
-            AppError::BinDocument(BinDocumentError::Declaring(inner)) => Self::from(*inner),
-            AppError::BinDocument(BinDocumentError::ChangedOnDisk) => Self::BinChangedOnDisk,
-            AppError::BinDocument(BinDocumentError::Unwritable(e)) => Self::BinUnwritable {
-                detail: e.to_string(),
-            },
+            AppError::Domain(error) => Self::from(error),
             AppError::Overlay(e) => Self::Overlay {
                 category: OverlayErrorCategory::from(&e),
                 detail: message_with_sources(&e),
             },
             AppError::UntrustedDomain(domain) => Self::UntrustedDomain { domain },
+        }
+    }
+}
+
+/// The response for `$error` when it is a `$type`, and otherwise the failure to try as another.
+macro_rules! downcast_or {
+    ($error:expr, $type:ty, $found:pat => $response:expr) => {
+        match $error.downcast::<$type>() {
+            Ok($found) => return $response,
+            Err(other) => other,
+        }
+    };
+}
+
+impl From<DomainError> for AppErrorResponse {
+    fn from(error: DomainError) -> Self {
+        let error = downcast_or!(error, PatcherError, error => Self::Patcher { error });
+        let error = downcast_or!(error, LauncherError, error => Self::Launcher { error });
+        let error = downcast_or!(error, WorkshopError, error => Self::Workshop { error });
+        let error = downcast_or!(error, BinDocumentError, error => Self::from(error));
+
+        let detail = error.to_string();
+        match error.kind() {
+            ErrorKind::Hashtable => Self::Hashtable { detail },
+            ErrorKind::Preview => Self::Preview { detail },
+            _ => Self::Unknown { detail },
+        }
+    }
+}
+
+impl From<BinDocumentError> for AppErrorResponse {
+    fn from(error: BinDocumentError) -> Self {
+        match error {
+            BinDocumentError::Unreadable(e) => Self::BinUnreadable {
+                detail: e.to_string(),
+            },
+            e @ BinDocumentError::LcuChunk => Self::BinUnreadable {
+                detail: e.to_string(),
+            },
+            BinDocumentError::NotOpen(_) => Self::BinNotOpen,
+            BinDocumentError::NodeNotFound { address } => Self::BinNodeNotFound { address },
+            BinDocumentError::ReadTooWide { rows, cap } => Self::BinReadTooWide { rows, cap },
+            BinDocumentError::ReadTooLarge => Self::BinReadTooLarge,
+            BinDocumentError::ReadTooDeep => Self::BinReadTooDeep,
+            BinDocumentError::ReadOnly(gate) => Self::BinReadOnly { gate },
+            BinDocumentError::EditRejected { address, rejection } => {
+                Self::BinEditRejected { address, rejection }
+            }
+            BinDocumentError::Overridden { address, layer } => {
+                Self::BinEditOverridden { address, layer }
+            }
+            BinDocumentError::Declaring(inner) => Self::from(*inner),
+            BinDocumentError::ChangedOnDisk => Self::BinChangedOnDisk,
+            BinDocumentError::Unwritable(e) => Self::BinUnwritable {
+                detail: e.to_string(),
+            },
         }
     }
 }

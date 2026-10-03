@@ -28,15 +28,14 @@ use ritoclient::prelude::*;
 use ritoclient::{SessionEvent, SessionWatch};
 
 use crate::config::Config;
-use crate::events::{BackendEvent, EventSink};
+use crate::events::{
+    BackendEvent, EventSink, SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
+};
 
 pub use install::{InstallMismatch, InstalledPatchline, detect_install_mismatch, same_install};
 pub use reload::{kill_game, reconnect_client};
 pub use ritoclient::StopFlag;
-pub use types::{
-    LaunchOutcome, LaunchProgress, LaunchRoute, LaunchStage, LaunchTarget, LauncherError,
-    SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
-};
+pub use types::{LaunchOutcome, LaunchRoute, LaunchTarget, LauncherError};
 
 /// Lowercase basename of the League client.
 ///
@@ -457,7 +456,10 @@ struct SinkObserver(Arc<dyn EventSink>);
 
 impl ritoclient::LaunchObserver for SinkObserver {
     fn on_progress(&self, progress: ritoclient::LaunchProgress) {
-        self.0.emit(BackendEvent::LaunchProgress(progress.into()));
+        self.0
+            .emit(BackendEvent::LaunchProgress(types::launch_progress(
+                progress,
+            )));
     }
 }
 

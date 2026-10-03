@@ -5,13 +5,14 @@
 //! a fantome through the same importer.
 
 use crate::config::Config;
+use crate::events::ModStorage;
 use crate::events::{BackendEvent, EventSink, NullEventSink};
 use crate::hashtables::WadPathResolverState;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::analysis::linked_bins::LinkedBinState;
 use crate::mods::analysis::wad_reports::WadReportState;
-use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::slug::ModSlug;
 use crate::mods::types::{Profile, ProfileSlug};
 use chrono::Utc;

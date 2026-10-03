@@ -1,5 +1,5 @@
 use super::*;
-use crate::mods::index::ModStorage;
+use crate::events::ModStorage;
 use crate::mods::index::document::load_library_index;
 use crate::mods::test_support::{
     RecordingEventSink, make_full_fantome_zip, make_library_with_events, make_slugged_entry,

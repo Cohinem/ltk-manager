@@ -11,6 +11,7 @@
 use crate::budget::{self, Budget};
 use crate::config::Config;
 use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
+use crate::events::ModStorage;
 use crate::events::{BackendEvent, ModRepairProgress};
 use crate::mod_archive::open_fantome;
 use crate::mods::ModLibrary;
@@ -18,7 +19,6 @@ use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::load_mod_project;
 use crate::mods::health::{Refused, cancelled};
-use crate::mods::index::ModStorage;
 use crate::problems::{self, FixReport, ProjectFiles};
 use crate::utils::fs::replace_keeping_old;
 use camino::Utf8Path;

@@ -14,11 +14,12 @@ pub mod timing;
 use crate::budget::Budget;
 use crate::config::Config;
 use crate::error::{AppError, AppResult};
+use crate::events::{HealthCheckBasis, ModStorage};
 use crate::game_build::GameBuild;
 use crate::hashtables::HashtableCache;
 use crate::mods::ModLibrary;
 use crate::mods::health::sweep::{HealthSweepState, SweepScope};
-use crate::mods::index::{LibraryModEntry, ModStorage};
+use crate::mods::index::LibraryModEntry;
 use crate::problems::{self, Counts, ProjectFiles, Run};
 use crate::utils::fs::{read_json_or_default, write_json};
 use serde::{Deserialize, Serialize};
@@ -90,40 +91,6 @@ pub struct RuleBrief {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub unfixable: Option<String>,
-}
-
-/// What a check ran against, and therefore what makes an old one stale.
-///
-/// Per "The basis" in docs/ux/MOD_HEALTH.md.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-pub struct HealthCheckBasis {
-    /// The installed game build, absent where none could be read.
-    #[cfg_attr(feature = "ts", specta(type = Option<String>))]
-    pub build: Option<GameBuild>,
-    /// The manager version, which is what a migration table ships in.
-    pub manager: String,
-    /// What the shared hashtable cache held, absent where it held nothing.
-    ///
-    /// The cache's own generation stamp, which moves only when a sync installs
-    /// a table. A check taken against different tables was a claim about
-    /// different names, so a sync makes every verdict due again without waiting
-    /// for a game patch.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", specta(optional))]
-    pub tables: Option<String>,
-    /// What the meta schema database held, absent where none was open.
-    ///
-    /// It decides `bin/property-type` outright, so a check taken against
-    /// another database was a claim about other types. The database's own bytes
-    /// rather than the stamp it carries, because the publisher restamps the
-    /// hash tables behind it on a schedule of its own - a database that has
-    /// gained two patches can still carry the stamp it was first published
-    /// under.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[cfg_attr(feature = "ts", specta(optional))]
-    pub schema: Option<String>,
 }
 
 impl LibraryModEntry {

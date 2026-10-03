@@ -1,13 +1,14 @@
 use fs_err as fs;
 
 use super::*;
+use crate::events::ModStorage;
+use crate::mods::ModArchiveFormat;
 use crate::mods::index::LibraryIndex;
 use crate::mods::index::document::save_library_index;
 use crate::mods::test_support::{
     make_slugged_entry, make_test_library, make_test_profile, place_installed_mod, seed_library,
 };
 use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
-use crate::mods::{ModArchiveFormat, ModStorage};
 
 /// Two mods on disk, the second of which is only enabled when `enabled` says so.
 fn library_of_two(storage_dir: &Path, enabled: Vec<&str>) -> (crate::mods::ModLibrary, Config) {

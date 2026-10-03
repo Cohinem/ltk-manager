@@ -120,8 +120,8 @@ fn a_blocked_save_writes_nothing() {
         .unwrap_err();
 
     assert_matches!(
-        error,
-        AppError::Workshop(WorkshopError::IgnoreRulePattern { line: 2, .. })
+        error.domain::<WorkshopError>(),
+        Some(WorkshopError::IgnoreRulePattern { line: 2, .. })
     );
     assert_eq!(
         fs::read_to_string(project.ignore_file()).unwrap(),

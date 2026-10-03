@@ -506,8 +506,8 @@ fn an_untouched_legacy_object_refuses_save_and_keeps_edits() {
     let error = document.save_to(&path).unwrap_err();
     assert!(
         matches!(
-            error,
-            AppError::BinDocument(BinDocumentError::Unwritable(_))
+            error.domain::<BinDocumentError>(),
+            Some(BinDocumentError::Unwritable(_))
         ),
         "{error}"
     );
@@ -536,8 +536,8 @@ fn a_file_changed_on_disk_refuses_the_save() {
     let error = document.save_to(&path).unwrap_err();
     assert!(
         matches!(
-            error,
-            AppError::BinDocument(BinDocumentError::ChangedOnDisk)
+            error.domain::<BinDocumentError>(),
+            Some(BinDocumentError::ChangedOnDisk)
         ),
         "{error}"
     );
@@ -595,8 +595,8 @@ fn a_legacy_numbered_base_refuses_save_and_keeps_edits() {
     let error = document.save_to(&path).unwrap_err();
     assert!(
         matches!(
-            error,
-            AppError::BinDocument(BinDocumentError::Unwritable(_))
+            error.domain::<BinDocumentError>(),
+            Some(BinDocumentError::Unwritable(_))
         ),
         "{error}"
     );
@@ -650,8 +650,10 @@ fn the_store_refuses_a_client_chunk_without_reading_it() {
     });
 
     assert!(matches!(
-        opened,
-        Err(AppError::BinDocument(BinDocumentError::LcuChunk))
+        opened
+            .as_ref()
+            .map_err(AppError::domain::<BinDocumentError>),
+        Err(Some(BinDocumentError::LcuChunk))
     ));
 }
 
@@ -674,10 +676,11 @@ fn the_store_refuses_a_patch_behind_a_gate_and_shares_one_across_ids() {
     ));
     assert_eq!(store.read_only(id).unwrap(), Some(ReadOnly::Loose));
     assert!(matches!(
-        store.save(id),
-        Err(AppError::BinDocument(BinDocumentError::ReadOnly(
-            ReadOnly::Loose
-        )))
+        store
+            .save(id)
+            .as_ref()
+            .map_err(AppError::domain::<BinDocumentError>),
+        Err(Some(BinDocumentError::ReadOnly(ReadOnly::Loose)))
     ));
 
     let dir = tempfile::tempdir().unwrap();

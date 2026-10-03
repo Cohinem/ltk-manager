@@ -1,9 +1,10 @@
 //! End-to-end tests at the repair seam: a library holding a fantome whose bin
 //! carries a property type the migration table moves.
 
+use crate::events::ModStorage;
 use crate::mods::ModHealth;
 use crate::mods::StorageLayout as _;
-use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
     SILENT_BANK_IN_WAD, STALE_BIN_IN_WAD, STALE_ICON, healthy_bin, make_library_naming,
     make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,

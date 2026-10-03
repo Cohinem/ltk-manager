@@ -42,8 +42,8 @@ fn a_manifest_changed_on_disk_surfaces_as_its_workshop_error() {
     let result = manifest.write().map_err(AppError::from);
 
     assert_matches!(
-        result,
-        Err(AppError::Workshop(WorkshopError::DeclarationsChangedOnDisk { path }))
+        result.as_ref().map_err(AppError::domain::<WorkshopError>),
+        Err(Some(WorkshopError::DeclarationsChangedOnDisk { path }))
             if path.ends_with("game_data.yaml")
     );
 }

@@ -1,8 +1,8 @@
 use std::sync::mpsc::{self, Receiver, Sender};
 
 use super::*;
+use crate::events::LayerFile;
 use crate::events::NullEventSink;
-use crate::workshop::LayerFile;
 
 /// Where the tests keep a project's Atlas sources.
 const SOURCES_DIR: &str = "sources";

@@ -33,7 +33,6 @@ pub use types::{
     DeclaredObject, ObjectClassHit, ObjectDeclaration, ObjectDirListing, ObjectFindHit,
     ObjectFindResult, ObjectIndexStats, ObjectNodeEntry, ObjectPrefixEntry, ObjectSearchHit,
     ObjectSearchResult, ReferenceGroup, ReferenceHit, ReferenceProperty, ReferenceResult,
-    ReferenceWalkProgress,
 };
 pub use walk::{FileTarget, LayerBin, WalkRequest, WalkTarget, layer_bins};
 

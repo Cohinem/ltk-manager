@@ -17,41 +17,18 @@
 use crate::config::Config;
 use crate::error::{AppError, AppResult, IoContext, io_context};
 use crate::events::{BackendEvent, LayoutMigrationProgress};
+use crate::events::{FailedConversion, LayoutMigrationReport, ModStorage};
 use crate::mod_archive::open_modpkg;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::metadata::{extract_metadata, fantome_layers, load_mod_project};
 use crate::mods::index::document::{archive_path, load_library_index, save_library_index};
-use crate::mods::index::{LibraryModEntry, ModArchiveFormat, ModStorage};
+use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::slug::{ModSlug, TakenSlugs};
 
 use fs_err as fs;
 use serde::Serialize;
 use std::path::Path;
-
-/// One mod the migration could not convert.
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub struct FailedConversion {
-    /// The mod's index id, which is also the directory the uuid layout gave it.
-    pub id: String,
-    /// What to call the mod in the failure list, falling back to its id.
-    pub display_name: String,
-    /// Why it could not be moved, in the words the user reads.
-    pub error: String,
-}
-
-/// What one migration run did.
-#[derive(Debug, Clone, Serialize)]
-#[cfg_attr(feature = "ts", derive(specta::Type))]
-#[serde(rename_all = "camelCase")]
-pub struct LayoutMigrationReport {
-    /// How many mods reached the slug layout.
-    pub migrated: usize,
-    /// The mods that did not, each naming where its files went instead.
-    pub failed: Vec<FailedConversion>,
-}
 
 /// What the layout migration has to say for itself this launch.
 ///
