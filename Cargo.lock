@@ -3142,6 +3142,7 @@ dependencies = [
  "ltk-manager-base",
  "ltk-manager-core",
  "ltk-manager-game",
+ "ltk-manager-runtime",
  "ltk-telemetry",
  "ltk_file",
  "ltk_game_data",
@@ -3241,6 +3242,7 @@ dependencies = [
  "lru",
  "ltk-declarations",
  "ltk-manager-base",
+ "ltk-manager-runtime",
  "ltk-meta-docs",
  "ltk-telemetry",
  "ltk_anim",
@@ -3314,6 +3316,36 @@ dependencies = [
  "tempfile",
  "tracing",
  "xxhash-rust",
+]
+
+[[package]]
+name = "ltk-manager-runtime"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "base64 0.22.1",
+ "chrono",
+ "fs-err",
+ "ltk-manager-base",
+ "ltk-telemetry",
+ "parking_lot",
+ "regex",
+ "reqwest 0.12.28",
+ "ritoclient",
+ "rmp-serde",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specta",
+ "strum",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "uuid",
+ "windows-sys 0.59.0",
+ "winreg 0.55.0",
+ "zip 2.4.2",
 ]
 
 [[package]]

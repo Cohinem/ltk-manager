@@ -12,7 +12,7 @@ use crate::services::launcher::LauncherState;
 use crate::state::{IncidentStoreState, SettingsState};
 use crate::workshop::{ProjectRegistry, Workshop, WorkshopState};
 use ltk_manager_base::events::EventSink;
-use ltk_manager_core::diagnostics::store::IncidentStore;
+use ltk_manager_runtime::diagnostics::store::IncidentStore;
 use std::sync::Arc;
 
 pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {

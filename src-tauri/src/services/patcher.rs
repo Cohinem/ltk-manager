@@ -16,7 +16,7 @@ use crate::patcher::{
 use crate::state::{IncidentStoreState, SettingsState};
 use ltk_manager_base::utils::client_settings::LeagueClientSettings;
 use ltk_manager_base::utils::game::GameDir;
-use ltk_manager_core::diagnostics::binary_id::PatcherBinaries;
+use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -233,7 +233,7 @@ pub(crate) fn start_patcher_inner(
         }
     }
 
-    let should_elevate = ltk_manager_core::patcher::should_elevate(&config_snapshot);
+    let should_elevate = ltk_manager_runtime::patcher::should_elevate(&config_snapshot);
 
     let dll_path = super::diagnostics::resolve_patcher_dll(app_handle)
         .or_else(|| injector_exe.parent().map(|dir| dir.join(HOOK_DLL_NAME)))

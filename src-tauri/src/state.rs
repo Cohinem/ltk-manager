@@ -1,6 +1,6 @@
 use fs_err as fs;
 use ltk_manager_base::config::Config;
-use ltk_manager_core::diagnostics::store::IncidentStore;
+use ltk_manager_runtime::diagnostics::store::IncidentStore;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

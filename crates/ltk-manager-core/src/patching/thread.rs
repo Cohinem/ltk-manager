@@ -12,24 +12,24 @@ use parking_lot::Mutex;
 
 use ltk_telemetry::Telemetry;
 
-use crate::diagnostics::binary_id::PatcherBinaries;
-use crate::diagnostics::incident::SessionFailure;
-use crate::diagnostics::store::IncidentStore;
-use crate::launcher::is_game_running;
 use crate::mods::ModLibrary;
 use crate::overlay::{OverlayBuild, WorkshopTestProject};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, message_with_sources};
+use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
+use ltk_manager_runtime::diagnostics::incident::SessionFailure;
+use ltk_manager_runtime::diagnostics::store::IncidentStore;
+use ltk_manager_runtime::launcher::is_game_running;
 
 use super::pipeline::IncidentPipeline;
-use crate::patcher::error::PatcherError;
-use crate::patcher::events::PatcherEvents;
-use crate::patcher::host::{HostConfig, HostLogLevel, PatcherHost};
-use crate::patcher::injector::SessionEnd;
-use crate::patcher::recorder::GameRecorder;
-use crate::patcher::refresh::OverlayRefresh;
-use crate::patcher::session::{self, SessionError, SessionObserver};
-use crate::patcher::state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
+use ltk_manager_runtime::patcher::error::PatcherError;
+use ltk_manager_runtime::patcher::events::PatcherEvents;
+use ltk_manager_runtime::patcher::host::{HostConfig, HostLogLevel, PatcherHost};
+use ltk_manager_runtime::patcher::injector::SessionEnd;
+use ltk_manager_runtime::patcher::recorder::GameRecorder;
+use ltk_manager_runtime::patcher::refresh::OverlayRefresh;
+use ltk_manager_runtime::patcher::session::{self, SessionError, SessionObserver};
+use ltk_manager_runtime::patcher::state::{PatcherPhase, PatcherStateInner, StoredPatcherConfig};
 
 /// How long a rebuild waits for the last game's process to let go of the overlay.
 const GAME_RELEASE_TIMEOUT: Duration = Duration::from_secs(10);

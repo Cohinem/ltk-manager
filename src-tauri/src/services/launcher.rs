@@ -14,7 +14,7 @@ use crate::state::{IncidentStoreState, SettingsState};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::events::EventSink;
 use ltk_manager_base::events::SessionStarted;
-use ltk_manager_core::launcher::{
+use ltk_manager_runtime::launcher::{
     detect_install_mismatch, InstallMismatch, LaunchAvailability, LaunchOutcome, LaunchTarget,
     LauncherError, LeagueLauncher, StopFlag,
 };
@@ -53,7 +53,7 @@ impl LauncherState {
 ///
 /// A double-clicked button must not produce two requests: the second would
 /// race the first's handoff, or arrive after League has come up and resolve to
-/// a pointless [`ltk_manager_core::launcher::LaunchRoute::AlreadyRunning`].
+/// a pointless [`ltk_manager_runtime::launcher::LaunchRoute::AlreadyRunning`].
 #[derive(Default)]
 pub struct LaunchState(InFlight<StopFlag>);
 

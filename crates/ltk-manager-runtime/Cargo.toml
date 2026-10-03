@@ -1,0 +1,56 @@
+[package]
+name = "ltk-manager-runtime"
+version = "0.1.0"
+description = "Patcher host, launcher and diagnostics for LTK Manager"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+
+[features]
+# Derive `specta::Type` on the types that cross IPC, so the Tauri shell can export bindings.
+ts = ["dep:specta", "ltk-manager-base/ts"]
+
+[dependencies]
+ltk-manager-base = { workspace = true }
+
+base64 = { workspace = true }
+chrono = { workspace = true }
+fs-err = { workspace = true }
+ltk-telemetry = { workspace = true }
+parking_lot = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true }
+ritoclient = { workspace = true }
+rmp-serde = { workspace = true }
+semver = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+strum = { workspace = true }
+tempfile = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+zip = { workspace = true }
+specta = { workspace = true, optional = true }
+
+[target.'cfg(windows)'.dependencies]
+winreg = { workspace = true }
+windows-sys = { workspace = true, features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Cryptography",
+    "Win32_Security_WinTrust",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Ioctl",
+    "Win32_System_IO",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_UI_Shell",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[dev-dependencies]
+assert_matches = { workspace = true }

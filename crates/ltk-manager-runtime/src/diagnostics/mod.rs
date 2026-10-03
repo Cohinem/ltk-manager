@@ -27,7 +27,7 @@ mod storage_medium;
 pub mod store;
 pub mod telemetry;
 pub mod token;
-pub(crate) mod windows;
+pub mod windows;
 
 /// Severity of a diagnostic check result.
 ///

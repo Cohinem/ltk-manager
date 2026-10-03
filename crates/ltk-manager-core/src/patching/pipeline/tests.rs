@@ -7,14 +7,14 @@ use serde_json::{Value, json};
 use tempfile::TempDir;
 
 use super::*;
-use crate::diagnostics::incident::{Ending, GameRecord, LaunchKind, OverlayOutcome};
 use crate::hashtables::WadPathResolverState;
 use crate::mods::{ChecksumMismatchState, LinkedBinState, WadReportState};
-use crate::patcher::SessionOrigin;
-use crate::patcher::injector::WadScanFailure;
-use crate::patcher::state::PatcherPhase;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::AppError;
+use ltk_manager_runtime::diagnostics::incident::{Ending, GameRecord, LaunchKind, OverlayOutcome};
+use ltk_manager_runtime::patcher::SessionOrigin;
+use ltk_manager_runtime::patcher::injector::WadScanFailure;
+use ltk_manager_runtime::patcher::state::PatcherPhase;
 
 /// A listener that answers nothing, since these tests read the sink instead.
 #[derive(Debug)]

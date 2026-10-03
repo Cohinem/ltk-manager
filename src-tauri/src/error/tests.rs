@@ -2,9 +2,9 @@
 
 use super::*;
 use ltk_manager_core::hashtables::{HashtableError, SyncHolder};
-use ltk_manager_core::patcher::injector::InjectorError;
-use ltk_manager_core::patcher::session::SessionError;
-use ltk_manager_core::patcher::InjectionStage;
+use ltk_manager_runtime::patcher::injector::InjectorError;
+use ltk_manager_runtime::patcher::session::SessionError;
+use ltk_manager_runtime::patcher::InjectionStage;
 use serde_json::Value;
 
 fn wire(error: AppError) -> Value {

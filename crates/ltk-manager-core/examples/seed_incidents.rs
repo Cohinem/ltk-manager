@@ -21,15 +21,15 @@ use std::path::PathBuf;
 use chrono::{DateTime, Duration, Utc};
 use fs_err as fs;
 use ltk_manager_base::error::ErrorKind;
-use ltk_manager_core::diagnostics::game_log::GameLogFacts;
-use ltk_manager_core::diagnostics::incident::{
+use ltk_manager_runtime::diagnostics::game_log::GameLogFacts;
+use ltk_manager_runtime::diagnostics::incident::{
     ClassifyContext, Ending, EvidenceSource, GameRecord, LaunchKind, ModFootprint, OverlayDetail,
     OverlayOutcome, ProjectFootprint, RawEvidence, ScanMode, SessionFailure, SkippedArchive,
     VerdictKind,
 };
-use ltk_manager_core::diagnostics::store::IncidentStore;
-use ltk_manager_core::patcher::injector::WadScanFailure;
-use ltk_manager_core::patcher::{InjectionStage, SessionOrigin};
+use ltk_manager_runtime::diagnostics::store::IncidentStore;
+use ltk_manager_runtime::patcher::injector::WadScanFailure;
+use ltk_manager_runtime::patcher::{InjectionStage, SessionOrigin};
 
 /// The prefix every seeded id carries.
 const PREFIX: &str = "mock-";
@@ -204,12 +204,12 @@ fn base(ended_at: DateTime<Utc>) -> GameRecord {
         launch: LaunchKind::Match,
         scan: Some(ScanMode::Eager),
         host_elevated: false,
-        patcher: ltk_manager_core::diagnostics::binary_id::PatcherBinaries {
-            dll: Some(ltk_manager_core::diagnostics::binary_id::BinaryId {
+        patcher: ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries {
+            dll: Some(ltk_manager_runtime::diagnostics::binary_id::BinaryId {
                 hash: "a150130f1a90dcc2".to_string(),
                 built: Some(0x6A83_01AB),
             }),
-            host: Some(ltk_manager_core::diagnostics::binary_id::BinaryId {
+            host: Some(ltk_manager_runtime::diagnostics::binary_id::BinaryId {
                 hash: "cc714b6990a29678".to_string(),
                 built: Some(0x6A83_01D1),
             }),

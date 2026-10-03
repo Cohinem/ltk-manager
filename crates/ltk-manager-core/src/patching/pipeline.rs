@@ -16,25 +16,25 @@ use fs_err as fs;
 
 use ltk_telemetry::Telemetry;
 
-use crate::diagnostics::game_log::{GameWindow, LeagueLogs};
-use crate::diagnostics::incident::{
-    ClassifyContext, GameRecord, Incident, ModFootprint, OriginKind, ProjectFootprint, ScanMode,
-    Suspect,
-};
-use crate::diagnostics::store::IncidentStore;
-use crate::diagnostics::telemetry::{
-    self, Environment, GAME_SESSION_ENDED, SessionFacts, SuspectIdentity,
-};
 use crate::hashtables::{HashtableCache, LayeredHashDb, PathRef};
-use crate::launcher::install::installed_patchlines;
-use crate::launcher::same_install;
 use crate::mods::ModLibrary;
 use crate::overlay::WorkshopTestProject;
 use crate::workshop::ProjectDir;
 use ltk_manager_base::config::Config;
+use ltk_manager_runtime::diagnostics::game_log::{GameWindow, LeagueLogs};
+use ltk_manager_runtime::diagnostics::incident::{
+    ClassifyContext, GameRecord, Incident, ModFootprint, OriginKind, ProjectFootprint, ScanMode,
+    Suspect,
+};
+use ltk_manager_runtime::diagnostics::store::IncidentStore;
+use ltk_manager_runtime::diagnostics::telemetry::{
+    self, Environment, GAME_SESSION_ENDED, SessionFacts, SuspectIdentity,
+};
+use ltk_manager_runtime::launcher::install::installed_patchlines;
+use ltk_manager_runtime::launcher::same_install;
 
-use crate::patcher::events::PatcherEvents;
-use crate::patcher::host::hook_flags;
+use ltk_manager_runtime::patcher::events::PatcherEvents;
+use ltk_manager_runtime::patcher::host::hook_flags;
 
 #[cfg(test)]
 mod tests;
@@ -70,7 +70,7 @@ impl IncidentPipeline {
     ) -> Self {
         let environment = Environment {
             app_version: library.app_version().to_string(),
-            os_build: crate::diagnostics::windows::os_build(),
+            os_build: ltk_manager_runtime::diagnostics::windows::os_build(),
             arch: std::env::consts::ARCH.to_string(),
             locale: ltk_manager_base::utils::game::GameDir::resolve(&config)
                 .ok()

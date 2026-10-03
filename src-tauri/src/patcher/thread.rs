@@ -10,10 +10,10 @@ use tauri::{AppHandle, Emitter};
 
 use crate::error::{AppError, AppErrorResponse};
 use crate::tray::AppTrayState;
-use ltk_manager_core::diagnostics::incident::{Incident, OverlayOutcome, ScanStatus};
-use ltk_manager_core::patcher::events::PatcherEvents;
-use ltk_manager_core::patcher::injector::WadScanFailure;
-use ltk_manager_core::patcher::PatcherPhase;
+use ltk_manager_runtime::diagnostics::incident::{Incident, OverlayOutcome, ScanStatus};
+use ltk_manager_runtime::patcher::events::PatcherEvents;
+use ltk_manager_runtime::patcher::injector::WadScanFailure;
+use ltk_manager_runtime::patcher::PatcherPhase;
 
 /// One archive that failed the integrity scan, sent in [`WadScanFailedPayload`].
 #[derive(Debug, Clone, Serialize, specta::Type)]

@@ -4,7 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use ltk_manager_base::generation::Generation;
-use ltk_manager_core::launcher::StopFlag;
+use ltk_manager_runtime::launcher::StopFlag;
 use parking_lot::Mutex;
 use tauri::{AppHandle, Manager};
 

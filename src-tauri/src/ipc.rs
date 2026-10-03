@@ -21,7 +21,7 @@ fn builder() -> Builder<Wry> {
     use ltk_manager_base::events::{
         LaunchProgress, SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
     };
-    use ltk_manager_core::diagnostics::incident::Incident;
+    use ltk_manager_runtime::diagnostics::incident::Incident;
 
     use crate::patcher::thread::{
         GameAttachedPayload, GameOverlayPayload, LinkedBinWarningPayload, WadScanFailedPayload,
