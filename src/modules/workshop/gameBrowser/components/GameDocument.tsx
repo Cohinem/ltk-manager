@@ -30,6 +30,7 @@ import {
   type ExplorerFileItem,
   ExplorerGrid,
   type ExplorerItem,
+  type ExplorerScope,
   ExplorerSearchBox,
   filterItems,
   filterTree,
@@ -89,6 +90,11 @@ export const EXPLORER_ID = explorerIdOf("game");
 /** The explorer id of the browser the caller sits in. */
 function useExplorerId(): string {
   return explorerIdOf(useWadSource());
+}
+
+/** What the box reads, which is the whole index until the reader narrows it. */
+function useIndexScope(): ExplorerScope {
+  return useExplorerScope(useExplorerId(), "whole");
 }
 
 /**
@@ -188,7 +194,7 @@ interface GameBodyProps {
 
 function GameBody({ location, onNavigate, onUp }: GameBodyProps) {
   const view = useExplorerView();
-  const scope = useExplorerScope(useExplorerId());
+  const scope = useIndexScope();
   const pattern = useGameSearchPattern();
 
   if (scope === "whole" && pattern.length > 0) return <GameFindResults />;
@@ -200,7 +206,7 @@ function GameBody({ location, onNavigate, onUp }: GameBodyProps) {
 /** Collapse all for whichever tree the body draws: the search results, or the index tree. */
 function CollapseIndexAction() {
   const view = useExplorerView();
-  const scope = useExplorerScope(useExplorerId());
+  const scope = useIndexScope();
   const pattern = useGameSearchPattern();
   const collapseAllGameDirs = useCollapseAllGameDirs();
 
@@ -290,7 +296,7 @@ interface SearchFieldProps {
 function SearchField({ boxRef }: SearchFieldProps) {
   const explorerId = useExplorerId();
   const copy = sourceCopy(useWadSource());
-  const scope = useExplorerScope(explorerId);
+  const scope = useIndexScope();
   const setScope = useSetExplorerScope();
   const filter = useExplorerFilter(explorerId);
   const setFilter = useSetExplorerFilter();
@@ -310,12 +316,21 @@ function SearchField({ boxRef }: SearchFieldProps) {
     else setFilter(explorerId, { ...filter, text: next });
   };
 
+  /* The text follows the scope, so a switch asks the same question wider or narrower. */
+  const onScopeChange = (next: ExplorerScope) => {
+    if (next === scope) return;
+
+    setScope(explorerId, next);
+    onPatternChange(next === "whole" ? value : "");
+    setFilter(explorerId, { ...filter, text: next === "whole" ? "" : value });
+  };
+
   return (
     <ExplorerSearchBox
       value={value}
       onChange={onChange}
       scope={scope}
-      onScopeChange={(next) => setScope(explorerId, next)}
+      onScopeChange={onScopeChange}
       wholeLabel={copy.whole}
       /* The index is what a regex is worth writing against. A filter over the
          rows on screen matches a substring and nothing more. */
