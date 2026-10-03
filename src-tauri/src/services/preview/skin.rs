@@ -8,7 +8,7 @@ use crate::services::shared::off_thread;
 use crate::services::shared::{linked_assets, linked_reader, read_asset};
 use ltk_manager_assets::preview::{clip_header, AssetRef, ClipHeader};
 use ltk_manager_base::error::AppError;
-use ltk_manager_core::bin_document::{BinDocumentError, BinDocumentId, BinDocuments};
+use ltk_manager_bin::bin_document::{BinDocumentError, BinDocumentId, BinDocuments};
 use ltk_manager_game::skin::{
     bake_mesh_tangents, graph_at, resolve_skin, search_linked, search_linked_materials,
     search_linked_systems, AnimationGraph, GraphRead, SkinModel,

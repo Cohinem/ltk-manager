@@ -41,13 +41,13 @@ use ltk_meta::property::Kind;
 use ltk_meta::walk::{Node, TreeNode as _};
 use ltk_meta::{BinFile, PropertyValueEnum};
 
-use crate::bin_walk::Declared;
 use crate::problems::engine::parse_bin;
 use crate::problems::game::GameContent;
 use crate::problems::{
     Applied, Detail, Dormancy, FileHandle, FixError, FixRun, NodeAddress, ObjectRead, Pass,
     Problem, ProblemSeverity, ProjectFiles, Rule, RuleId, RuleMeta, Site, Weight,
 };
+use ltk_manager_bin::bin_walk::Declared;
 
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("bin/resolver-key-loss");

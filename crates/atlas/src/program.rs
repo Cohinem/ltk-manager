@@ -3,7 +3,7 @@
 use hexshade::{Defines, ShaderCache, ShaderPath, TranslationCache};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::AppResult;
-use ltk_manager_core::bin_document::AssetLookup;
+use ltk_manager_bin::bin_document::AssetLookup;
 use serde::{Deserialize, Serialize};
 
 use ltk_manager_game::program::{AssetChunks, ProgramRead, program_read};

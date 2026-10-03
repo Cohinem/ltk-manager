@@ -21,7 +21,7 @@ use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_assets::hashtables::{BinHashTables, HashtableCache};
 use ltk_manager_base::hashing::named;
-use ltk_manager_core::bin_document::{BinDocument, RowNames};
+use ltk_manager_bin::bin_document::{BinDocument, RowNames};
 use ltk_manager_game::vfx::{VfxValue, resolve_system};
 use ltk_meta::property::values;
 use ltk_meta::{BinObject, PropertyValueEnum};

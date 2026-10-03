@@ -9,7 +9,7 @@ use serde::Serialize;
 
 use super::MapPath;
 use super::component::MAP_CONTAINER;
-use ltk_manager_core::bin_document::{BinDocument, Fields, items, link, text};
+use ltk_manager_bin::bin_document::{BinDocument, Fields, items, link, text};
 
 const MAP: BinHash = named("Map");
 /// `Map.mapSkins`, a list of links to the `MapSkin` objects of the same file.

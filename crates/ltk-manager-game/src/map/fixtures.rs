@@ -8,7 +8,7 @@ use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::component::{COMPONENTS, MAP_CONTAINER};
 use super::placeable::{ITEMS, PLACEABLE_CONTAINER};
-use ltk_manager_core::bin_document::BinDocument;
+use ltk_manager_bin::bin_document::BinDocument;
 
 pub(super) fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)

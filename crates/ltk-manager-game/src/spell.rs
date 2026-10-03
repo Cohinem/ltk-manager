@@ -5,7 +5,7 @@ use ltk_meta::{PropertyValueEnum, walk::Leaf};
 use serde::Serialize;
 
 use ltk_manager_base::hashing::named;
-use ltk_manager_core::bin_document::{
+use ltk_manager_bin::bin_document::{
     BinDocument, BinDocumentError, Fields, fields_of, hex, leaf, object_at,
 };
 

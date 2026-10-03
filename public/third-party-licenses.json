@@ -2317,6 +2317,14 @@
       ]
     },
     {
+      "name": "ltk-manager-bin",
+      "version": "0.1.0",
+      "url": "https://github.com/LeagueToolkit/ltk-manager",
+      "licenses": [
+        63
+      ]
+    },
+    {
       "name": "ltk-manager-core",
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",

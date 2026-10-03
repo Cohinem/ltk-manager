@@ -138,12 +138,12 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_assets::game_wads::WadCache::default());
     app.manage(ltk_manager_game::material::defs::ShaderDefsCache::default());
     app.manage(crate::services::objects::ObjectIndexState::default());
-    app.manage(ltk_manager_core::object_index::ObjectSearchGeneration::default());
-    app.manage(ltk_manager_core::object_index::ObjectFindGeneration::default());
-    app.manage(ltk_manager_core::object_index::ObjectReferenceGeneration::default());
+    app.manage(ltk_manager_bin::object_index::ObjectSearchGeneration::default());
+    app.manage(ltk_manager_bin::object_index::ObjectFindGeneration::default());
+    app.manage(ltk_manager_bin::object_index::ObjectReferenceGeneration::default());
     app.manage(ltk_manager_core::problems::ProblemsState::default());
-    app.manage(ltk_manager_core::bin_document::BinDocuments::default());
-    let sandboxes = ltk_manager_core::sandbox::SandboxState::default();
+    app.manage(ltk_manager_bin::bin_document::BinDocuments::default());
+    let sandboxes = ltk_manager_bin::sandbox::SandboxState::default();
     app.manage(sandboxes.clone());
     app.manage(ltk_manager_assets::hashtables::BinHashTablesState::default());
     app.manage(crate::services::game::ExtractState::default());

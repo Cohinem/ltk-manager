@@ -343,6 +343,7 @@ dependencies = [
  "image",
  "ltk-manager-assets",
  "ltk-manager-base",
+ "ltk-manager-bin",
  "ltk-manager-core",
  "ltk-manager-game",
  "ltk_hash",
@@ -3142,6 +3143,7 @@ dependencies = [
  "indexmap 2.14.0",
  "ltk-manager-assets",
  "ltk-manager-base",
+ "ltk-manager-bin",
  "ltk-manager-core",
  "ltk-manager-game",
  "ltk-manager-runtime",
@@ -3267,6 +3269,45 @@ dependencies = [
 ]
 
 [[package]]
+name = "ltk-manager-bin"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "brex",
+ "camino",
+ "flate2",
+ "fs-err",
+ "glam",
+ "indexmap 2.14.0",
+ "lru",
+ "ltk-declarations",
+ "ltk-manager-assets",
+ "ltk-manager-base",
+ "ltk-manager-workshop",
+ "ltk-meta-docs",
+ "ltk_file",
+ "ltk_game_data",
+ "ltk_hash",
+ "ltk_hashdb",
+ "ltk_hashtable",
+ "ltk_meta",
+ "ltk_mimir_cache",
+ "ltk_mod_project",
+ "ltk_modpkg",
+ "ltk_wad",
+ "parking_lot",
+ "rayon",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "walkdir",
+]
+
+[[package]]
 name = "ltk-manager-core"
 version = "0.1.0"
 dependencies = [
@@ -3286,6 +3327,7 @@ dependencies = [
  "ltk-declarations",
  "ltk-manager-assets",
  "ltk-manager-base",
+ "ltk-manager-bin",
  "ltk-manager-runtime",
  "ltk-manager-workshop",
  "ltk-meta-docs",
@@ -3347,6 +3389,7 @@ dependencies = [
  "indexmap 2.14.0",
  "ltk-manager-assets",
  "ltk-manager-base",
+ "ltk-manager-bin",
  "ltk-manager-core",
  "ltk_hash",
  "ltk_mesh",

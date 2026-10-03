@@ -18,8 +18,8 @@ use ltk_meta::property::Kind;
 use serde::Deserialize;
 
 use super::kinds;
-use crate::meta_schema::TypeSpec;
 use ltk_manager_base::game_build::GameBuild;
+use ltk_manager_bin::meta_schema::TypeSpec;
 
 /// The first table, and the one the deadline names.
 const TABLE_16_17: &str = include_str!("../../tables/binfile_migration_16.17.8087655.jsonl");
@@ -414,7 +414,7 @@ mod tests {
     use ltk_meta::property::values;
 
     use super::*;
-    use crate::bin_document::PropertyKind;
+    use ltk_manager_bin::bin_document::PropertyKind;
     use ltk_meta::PropertyValueEnum;
     use ltk_meta::property::values::Container;
 

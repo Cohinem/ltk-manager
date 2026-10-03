@@ -297,7 +297,7 @@ impl ModLibrary {
                 .ok()
                 .and_then(|cache| cache.generation()),
             schema: Some(
-                crate::meta_schema::shared(GameBuild::installed(config))
+                ltk_manager_bin::meta_schema::shared(GameBuild::installed(config))
                     .digest()
                     .to_owned(),
             ),

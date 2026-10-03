@@ -3,7 +3,7 @@
 //! game" in docs/plans/atlas-ui-editor.md.
 
 use ltk_hash::BinHash;
-use ltk_manager_core::bin_document::{
+use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, Fields, GameCopy, Namer, RowNames, fields_of, items, leaf, optional,
     text,
 };

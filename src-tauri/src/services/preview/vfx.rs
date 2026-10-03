@@ -10,9 +10,9 @@ use crate::services::shared::installed::installed_schema;
 use crate::services::shared::off_thread;
 use crate::services::shared::{linked_assets, linked_reader};
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_core::bin_document::BinDocumentId;
-use ltk_manager_core::meta_schema::SchemaNames;
-use ltk_manager_core::vfx::{vfx_templates as catalog, VfxTemplate};
+use ltk_manager_bin::bin_document::BinDocumentId;
+use ltk_manager_bin::meta_schema::SchemaNames;
+use ltk_manager_bin::vfx::{vfx_templates as catalog, VfxTemplate};
 use ltk_manager_game::vfx::{resolve_system, search_linked_materials, VfxSystem};
 use tauri::AppHandle;
 

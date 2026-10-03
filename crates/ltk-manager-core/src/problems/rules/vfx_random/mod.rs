@@ -17,12 +17,12 @@ use ltk_hash::BinHash;
 use ltk_manager_base::hashing::named;
 use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit};
 
-use crate::bin_walk::{Address, Declared};
 use crate::problems::names::BinNames;
 use crate::problems::{
     Applied, BinVisitor, Detail, FixError, FixRun, NodeAddress, Pass, Problem, ProblemSeverity,
     PropertyRead, PropertyWalk, Rule, RuleId, RuleMeta, Sink, Walk,
 };
+use ltk_manager_bin::bin_walk::{Address, Declared};
 
 /// The id every row of the per-frame rule carries.
 pub const PER_FRAME_ID: RuleId = RuleId("vfx/per-frame-random");

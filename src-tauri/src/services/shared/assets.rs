@@ -2,7 +2,7 @@
 
 use ltk_manager_assets::game_wads::WadCache;
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_core::bin_document::{AssetLookup, BinDocument};
+use ltk_manager_bin::bin_document::{AssetLookup, BinDocument};
 use tauri::{AppHandle, Manager};
 
 use crate::error::AppResult;

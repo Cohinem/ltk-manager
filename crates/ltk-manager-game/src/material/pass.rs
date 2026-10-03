@@ -20,7 +20,7 @@ use super::{
     MaterialWarning, NAME, PARAM_VALUES, PASSES, Reader, SHADER_MACROS, SRC_COLOR_BLEND_FACTOR,
     ShaderDef, VALUE, WINDING_TO_CULL, WRITE_MASK, Wrap, structs,
 };
-use ltk_manager_core::bin_document::{
+use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, boolean,
     fields_of, hex, items, object_at, string_map, struct_of, text, unsigned, vector4,
 };

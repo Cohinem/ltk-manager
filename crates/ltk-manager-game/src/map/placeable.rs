@@ -4,7 +4,7 @@ use ltk_hash::BinHash;
 use ltk_manager_base::hashing::named;
 use ltk_meta::walk::Leaf;
 
-use ltk_manager_core::bin_document::{BinDocument, Fields, hex, leaf, link, struct_entries};
+use ltk_manager_bin::bin_document::{BinDocument, Fields, hex, leaf, link, struct_entries};
 
 pub(super) const PLACEABLE_CONTAINER: BinHash = named("MapPlaceableContainer");
 /// `MapPlaceableContainer.items`, a `Map<Hash, Pointer<MapPlaceableBase>>`.

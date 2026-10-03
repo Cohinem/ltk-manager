@@ -11,7 +11,7 @@
 
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _};
-use ltk_manager_core::bin_document::BinDocument;
+use ltk_manager_bin::bin_document::BinDocument;
 use ltk_manager_game::material::SHADER_DEFS_PATH;
 use ltk_manager_game::material::pass::{ResolvedMaterial, resolve_passes};
 

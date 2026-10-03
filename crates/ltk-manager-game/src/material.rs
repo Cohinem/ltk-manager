@@ -22,7 +22,7 @@ use regex::Regex;
 use serde::Serialize;
 
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_core::bin_document::{
+use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Fields, Locator, NamedAsset, RowNames, boolean,
     fields_of, hex, items, leaf, link, object_at, string_map, struct_of, text, unsigned, vector4,
 };

@@ -3,7 +3,6 @@
 //! Per "The library sweep" in docs/ux/MOD_HEALTH.md.
 
 use super::{LEGACY_VERDICTS_FILENAME, ModHealth, ModHealthVerdict, Refused, VerdictFile};
-use crate::meta_schema::cache::{MetaSchemaCache, PublishedDb};
 use crate::mods::ModLibrary;
 use crate::mods::index::LibraryModEntry;
 use crate::problems::BinNames;
@@ -14,6 +13,7 @@ use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_base::events::{BackendEvent, HealthSweepProgress};
 use ltk_manager_base::events::{HealthCheckBasis, HealthSweepReport};
+use ltk_manager_bin::meta_schema::cache::{MetaSchemaCache, PublishedDb};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;

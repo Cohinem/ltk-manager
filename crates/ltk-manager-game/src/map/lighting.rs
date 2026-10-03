@@ -6,7 +6,7 @@ use ltk_manager_base::hashing::named;
 
 use super::MapPath;
 use super::component::map_component;
-use ltk_manager_core::bin_document::{BinDocument, text};
+use ltk_manager_bin::bin_document::{BinDocument, text};
 
 const BAKE_PROPERTIES: BinHash = named("MapBakeProperties");
 /// `MapBakeProperties.lightGridFileName`, an `ASSETS/` file path.

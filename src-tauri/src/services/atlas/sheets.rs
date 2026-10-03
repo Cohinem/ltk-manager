@@ -9,8 +9,8 @@ use atlas::{
     SheetTarget,
 };
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_core::bin_document::{BinDocumentError, BinDocumentId, BinDocuments};
-use ltk_manager_core::sandbox::{SandboxRef, SandboxState};
+use ltk_manager_bin::bin_document::{BinDocumentError, BinDocumentId, BinDocuments};
+use ltk_manager_bin::sandbox::{SandboxRef, SandboxState};
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 

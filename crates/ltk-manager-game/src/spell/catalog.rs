@@ -4,8 +4,8 @@ use ltk_hash::{BinHash, Hash as _};
 use serde::Serialize;
 
 use ltk_manager_base::utils::natural_order::compare_names;
-use ltk_manager_core::bin_document::hex;
-use ltk_manager_core::object_index::{ObjectDeclaration, ObjectIndex};
+use ltk_manager_bin::bin_document::hex;
+use ltk_manager_bin::object_index::{ObjectDeclaration, ObjectIndex};
 
 /// One named spell and every file declaring its object.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

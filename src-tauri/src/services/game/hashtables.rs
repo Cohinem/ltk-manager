@@ -12,7 +12,7 @@ use ltk_manager_assets::hashtables::{
     HashtableUpdateCheck, WadPathResolverState,
 };
 use ltk_manager_assets::strings::StringKeyIndexState;
-use ltk_manager_core::meta_schema::{
+use ltk_manager_bin::meta_schema::{
     self,
     cache::{MetaSchemaCache, PublishedDb},
 };

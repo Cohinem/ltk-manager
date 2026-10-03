@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 
 use ltk_hash::{BinHash, WadHash};
-use ltk_manager_core::bin_document::{
+use ltk_manager_bin::bin_document::{
     AssetLookup, Fields, Namer, fields_of, hex, items, leaf, link, optional, struct_of, text,
 };
 use ltk_meta::PropertyValueEnum;

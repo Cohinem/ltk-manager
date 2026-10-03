@@ -31,8 +31,8 @@ use super::game::GameContent;
 use super::{
     Detail, FileHandle, NodeAddress, ProblemSeverity, ProjectFiles, Report, Rule, RuleId, Site,
 };
-use crate::bin_walk::Declared;
 use ltk_manager_base::budget::BIN_EXPANSION;
+use ltk_manager_bin::bin_walk::Declared;
 
 use plan::{BinSub, Demands, Facts, FileSub, Lists, Objects, Plan, Reading, Shape, Subject};
 

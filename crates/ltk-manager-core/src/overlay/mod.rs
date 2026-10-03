@@ -15,13 +15,13 @@ pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
 pub use builtin_mods::{ForcibleMapSkin, MapDecoration, forcible_map_skins, map_decorations};
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 
-use crate::meta_schema::{self, PatchSchema};
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppResult, Utf8PathExt};
 use ltk_manager_base::events::BackendEvent;
 use ltk_manager_base::game_build::GameBuild;
+use ltk_manager_bin::meta_schema::{self, PatchSchema};
 use ltk_overlay::game_data::{GameDataDiagnostic, GameDataDiagnosticKind};
 use std::collections::HashSet;
 use std::path::PathBuf;

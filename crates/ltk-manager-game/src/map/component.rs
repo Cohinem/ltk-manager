@@ -5,7 +5,7 @@ use ltk_manager_base::hashing::named;
 use ltk_meta::walk::Leaf;
 
 use super::MapPath;
-use ltk_manager_core::bin_document::{BinDocument, Fields, items, leaf, struct_of};
+use ltk_manager_bin::bin_document::{BinDocument, Fields, items, leaf, struct_of};
 
 pub(super) const MAP_CONTAINER: BinHash = named("MapContainer");
 /// `MapContainer.components`, a list of pointers to `MapComponent`.

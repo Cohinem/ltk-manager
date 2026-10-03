@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_core::bin_document::{AssetLookup, BinDocument, RowNames};
+use ltk_manager_bin::bin_document::{AssetLookup, BinDocument, RowNames};
 
 use crate::material::{MaterialPreview, resolve_material};
 

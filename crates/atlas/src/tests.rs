@@ -6,7 +6,7 @@ use glam::{Vec2, Vec4};
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::{AppError, AppResult};
-use ltk_manager_core::bin_document::{AssetLookup, BinDocument, GameCopy, RowNames, hex};
+use ltk_manager_bin::bin_document::{AssetLookup, BinDocument, GameCopy, RowNames, hex};
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyValueEnum};
@@ -558,7 +558,7 @@ fn the_font_catalog_lists_the_documents_fonts_before_the_games_with_their_faces(
 /// Names the base scene bin's chunk, as a hash table does.
 struct NamedBase;
 
-impl ltk_manager_core::bin_document::RowNames for NamedBase {
+impl ltk_manager_bin::bin_document::RowNames for NamedBase {
     fn for_each_entry(&self, _: &[BinHash], _: &mut dyn FnMut(usize, &str)) {}
     fn for_each_class(&self, _: &[BinHash], _: &mut dyn FnMut(usize, &str)) {}
     fn for_each_field(&self, _: &[BinHash], _: &mut dyn FnMut(usize, &str)) {}
@@ -1829,7 +1829,7 @@ fn every_ui_program_translates() {
 
 fn fields_of(
     properties: Vec<(BinHash, PropertyValueEnum)>,
-) -> ltk_manager_core::bin_document::Fields {
+) -> ltk_manager_bin::bin_document::Fields {
     properties.into_iter().collect()
 }
 

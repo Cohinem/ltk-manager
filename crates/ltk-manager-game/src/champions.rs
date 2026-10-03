@@ -6,7 +6,7 @@ use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::AppResult;
 use ltk_manager_base::utils::game::{GameDir, archive_stem};
 use ltk_manager_base::utils::natural_order::compare_names;
-use ltk_manager_core::bin_document::{AssetLookup, GameCopy, RowNames};
+use ltk_manager_bin::bin_document::{AssetLookup, GameCopy, RowNames};
 use ltk_wad::{Wad, WadHash};
 use parking_lot::Mutex;
 use rayon::prelude::*;

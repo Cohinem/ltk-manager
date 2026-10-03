@@ -20,13 +20,13 @@ use ltk_manager_base::config::Config;
 use ltk_manager_base::events::{BackendEvent, EventSink as _};
 use ltk_manager_base::generation::line;
 use ltk_manager_base::hashing::HexBinHash;
-use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
-use ltk_manager_core::object_index::{
+use ltk_manager_bin::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
+use ltk_manager_bin::object_index::{
     self, layer_bins, parse_hash, BuildTicket, DeclaredObject, FileTarget, ObjectDirListing,
     ObjectFindResult, ObjectIndex, ObjectIndexSnapshot, ObjectSearchResult, ReferenceResult,
     WalkRequest, WalkTarget,
 };
-use ltk_manager_core::sandbox::SandboxRef;
+use ltk_manager_bin::sandbox::SandboxRef;
 use ltk_manager_game::spell::{self, SpellCatalog};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};

@@ -72,9 +72,6 @@ use ltk_meta::property::{Kind, ValueMut, values};
 use ltk_meta::walk::{Node, PropertyRefMut, Visit, Visitor, VisitorMut};
 use ltk_meta::{BinDelta, BinKind, BinObject, BinStream, PropertyValueEnum};
 
-use crate::bin_document::{PropertyKind, hex, owned};
-use crate::bin_walk::{Address, Declared, FieldNames};
-use crate::meta_schema::{self, MetaSchema};
 use crate::problems::engine::parse_bin;
 use crate::problems::names::BinNames;
 use crate::problems::{
@@ -83,8 +80,11 @@ use crate::problems::{
     Rule, RuleId, RuleMeta, Sink, TypeMismatch, Walk,
 };
 use ltk_manager_base::game_build::GameBuild;
+use ltk_manager_bin::bin_document::{PropertyKind, hex, owned};
+use ltk_manager_bin::bin_walk::{Address, Declared, FieldNames};
+use ltk_manager_bin::meta_schema::{self, MetaSchema};
 
-use crate::meta_schema::TypeSpec;
+use ltk_manager_bin::meta_schema::TypeSpec;
 use table::{Conversion, Migration, MigrationTable};
 
 /// The id every row of this rule carries.
@@ -642,7 +642,7 @@ fn retags_an_empty_option<'a>(
 #[cfg(test)]
 fn check_bin(bin: &ltk_meta::BinFile, lens: Lens<'_>) -> Vec<(BinHash, Hit)> {
     let mut check = Check::new(lens);
-    owned(crate::bin_walk::bin(bin, &mut check));
+    owned(ltk_manager_bin::bin_walk::bin(bin, &mut check));
     check.found
 }
 

@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use super::MapPath;
 use super::component::{map_component, u32_of};
-use ltk_manager_core::bin_document::{BinDocument, Fields, boolean, float, struct_of};
+use ltk_manager_bin::bin_document::{BinDocument, Fields, boolean, float, struct_of};
 
 const MAP_SSAO: BinHash = named("MapSSAO");
 /// `MapSSAO.MapSSAORenderer`, an embedded `MapSSAORenderer`.

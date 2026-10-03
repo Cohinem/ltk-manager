@@ -6,8 +6,8 @@ use std::collections::HashSet;
 use ltk_hash::BinHash;
 use ltk_manager_base::hashing::named;
 use ltk_manager_base::utils::natural_order::compare_names;
-use ltk_manager_core::bin_document::{Fields, items, leaf};
-use ltk_manager_core::object_index::ObjectIndex;
+use ltk_manager_bin::bin_document::{Fields, items, leaf};
+use ltk_manager_bin::object_index::ObjectIndex;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 

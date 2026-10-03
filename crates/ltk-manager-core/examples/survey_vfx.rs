@@ -17,7 +17,7 @@ use fs_err as fs;
 use indexmap::IndexMap;
 use ltk_hash::BinHash;
 use ltk_manager_base::hashing::named;
-use ltk_manager_core::bin_document::owned;
+use ltk_manager_bin::bin_document::owned;
 use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinFile, BinObject, PropertyValueEnum};

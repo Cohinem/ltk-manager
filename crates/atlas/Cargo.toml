@@ -9,11 +9,12 @@ publish = false
 
 [features]
 # Derive `specta::Type` on what crosses IPC, which takes core's and the game crate's.
-ts = ["dep:specta", "ltk-manager-core/ts", "ltk-manager-game/ts", "ltk-manager-base/ts", "ltk-manager-assets/ts"]
+ts = ["dep:specta", "ltk-manager-core/ts", "ltk-manager-game/ts", "ltk-manager-base/ts", "ltk-manager-assets/ts", "ltk-manager-bin/ts"]
 
 [dependencies]
 hexshade = { workspace = true }
 ltk-manager-core = { workspace = true }
+ltk-manager-bin = { workspace = true }
 ltk-manager-assets = { workspace = true }
 ltk-manager-base = { workspace = true }
 ltk-manager-game = { workspace = true }
