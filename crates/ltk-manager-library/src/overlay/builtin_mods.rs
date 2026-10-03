@@ -151,7 +151,7 @@ pub fn forcible_map_skins(game_dir: &GameDir) -> AppResult<Vec<ForcibleMapSkin>>
 }
 
 /// How many built-in mods `settings` turns on, each one place above every other mod.
-pub(crate) fn count_enabled(settings: &BuiltinModSettings) -> usize {
+pub fn count_enabled(settings: &BuiltinModSettings) -> usize {
     enabled(settings).len()
 }
 

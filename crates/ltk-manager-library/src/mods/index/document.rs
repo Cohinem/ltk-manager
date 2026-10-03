@@ -40,7 +40,7 @@ impl ModLibrary {
     ///
     /// `None` for a mod stored unpacked, which has no one file to point at, and
     /// for an id the index does not carry.
-    pub(crate) fn archive_path_of(&self, config: &Config, mod_id: &str) -> Option<PathBuf> {
+    pub fn archive_path_of(&self, config: &Config, mod_id: &str) -> Option<PathBuf> {
         self.with_index(config, |storage_dir, index| {
             Ok(index
                 .mods

@@ -13,7 +13,7 @@ use crate::services::shared::Library;
 use crate::state::SettingsState;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::events::HealthSweepReport;
-use ltk_manager_core::mods::{
+use ltk_manager_library::mods::{
     HealthCheckReadiness, HealthSweepState, LibraryRepairReport, SweepScope,
 };
 use ltk_manager_problems::FixReport;
@@ -107,7 +107,7 @@ pub async fn repair_mods(
 pub async fn time_mod_health(
     repair: bool,
     app_handle: AppHandle,
-) -> IpcResult<ltk_manager_core::mods::HealthTiming> {
+) -> IpcResult<ltk_manager_library::mods::HealthTiming> {
     let guard = if repair {
         PatcherGuard::Reject
     } else {
@@ -116,7 +116,7 @@ pub async fn time_mod_health(
     let (config, library) = match library_setup(&app_handle, guard) {
         Ok(v) => v,
         Err(e) => {
-            return IpcResult::from(Err::<ltk_manager_core::mods::HealthTiming, _>(e));
+            return IpcResult::from(Err::<ltk_manager_library::mods::HealthTiming, _>(e));
         }
     };
 

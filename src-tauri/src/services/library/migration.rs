@@ -3,7 +3,7 @@ use crate::mods::{BulkInstallResult, CslolModInfo, ModLibraryState};
 use crate::patcher::PatcherState;
 use crate::services::shared::off_thread;
 use crate::state::SettingsState;
-use ltk_manager_core::mods::LayoutMigrationState;
+use ltk_manager_library::mods::LayoutMigrationState;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 

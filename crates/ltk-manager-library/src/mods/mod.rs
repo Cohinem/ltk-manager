@@ -280,7 +280,7 @@ impl ModLibrary {
     }
 
     /// Version of the host application, as supplied to [`ModLibrary::new`].
-    pub(crate) fn app_version(&self) -> &str {
+    pub fn app_version(&self) -> &str {
         &self.app_version
     }
 
@@ -294,7 +294,7 @@ impl ModLibrary {
     }
 
     /// Per-mod WAD analysis cache.
-    pub(crate) fn wad_reports(&self) -> &Arc<WadReportState> {
+    pub fn wad_reports(&self) -> &Arc<WadReportState> {
         &self.wad_reports
     }
 

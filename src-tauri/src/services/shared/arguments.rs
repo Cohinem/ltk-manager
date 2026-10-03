@@ -3,7 +3,7 @@
 //! Each crosses no IPC, so a binding leaves it out as it leaves out a `State`.
 
 use ltk_manager_base::config::Config;
-use ltk_manager_core::mods::ModLibrary;
+use ltk_manager_library::mods::ModLibrary;
 use ltk_manager_workshop::Workshop as Projects;
 use specta::datatype::DataType;
 use specta::function::FunctionArg;

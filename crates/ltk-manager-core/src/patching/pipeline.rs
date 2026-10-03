@@ -16,10 +16,10 @@ use fs_err as fs;
 
 use ltk_telemetry::Telemetry;
 
-use crate::mods::ModLibrary;
-use crate::overlay::WorkshopTestProject;
 use ltk_manager_assets::hashtables::{HashtableCache, LayeredHashDb, PathRef};
 use ltk_manager_base::config::Config;
+use ltk_manager_library::mods::ModLibrary;
+use ltk_manager_library::overlay::WorkshopTestProject;
 use ltk_manager_runtime::diagnostics::game_log::{GameWindow, LeagueLogs};
 use ltk_manager_runtime::diagnostics::incident::{
     ClassifyContext, GameRecord, Incident, ModFootprint, OriginKind, ProjectFootprint, ScanMode,
@@ -360,8 +360,9 @@ impl IncidentPipeline {
             }
         };
         let reports = self.library.wad_reports().0.lock();
-        let offset = crate::overlay::builtin_mods::count_enabled(&self.config.builtin_mods)
-            + self.workshop_projects.len();
+        let offset =
+            ltk_manager_library::overlay::builtin_mods::count_enabled(&self.config.builtin_mods)
+                + self.workshop_projects.len();
         mods.into_iter()
             .filter(|m| m.enabled)
             .enumerate()

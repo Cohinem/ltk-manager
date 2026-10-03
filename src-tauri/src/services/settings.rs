@@ -5,7 +5,7 @@ use super::launcher::LauncherState;
 use crate::error::{AppResult, IpcResult};
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
 use ltk_manager_base::utils::game::GameDir;
-use ltk_manager_core::overlay::{
+use ltk_manager_library::overlay::{
     forcible_map_skins, map_decorations, ForcibleMapSkin, MapDecoration,
 };
 use std::path::PathBuf;

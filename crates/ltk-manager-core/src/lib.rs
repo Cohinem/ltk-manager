@@ -7,8 +7,6 @@
 
 pub mod deep_link;
 pub mod github;
-pub mod mods;
 pub mod news;
-pub mod overlay;
 pub mod patching;
 pub mod releases;

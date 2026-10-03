@@ -16,7 +16,7 @@ use ltk_manager_bin::meta_schema::{
     self,
     cache::{MetaSchemaCache, PublishedDb},
 };
-use ltk_manager_core::mods::{HealthSweepState, SweepScope};
+use ltk_manager_library::mods::{HealthSweepState, SweepScope};
 use ltk_manager_problems::BinNames;
 use tauri::{AppHandle, Manager};
 

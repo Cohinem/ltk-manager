@@ -4,8 +4,8 @@ use crate::state::SettingsState;
 use atlas::{read_characters, UiTexture};
 use ltk_manager_assets::strings::StringKeyIndexState;
 use ltk_manager_base::utils::game::GameDir;
-use ltk_manager_core::mods::champion_display_name;
 use ltk_manager_game::champions::ChampionArchives;
+use ltk_manager_library::mods::champion_display_name;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 

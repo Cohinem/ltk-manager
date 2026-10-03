@@ -7,7 +7,7 @@
 
 mod artifacts;
 mod build;
-pub(crate) mod builtin_mods;
+pub mod builtin_mods;
 mod resolve;
 
 pub(crate) use artifacts::OverlayStorageExt;

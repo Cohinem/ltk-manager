@@ -7,10 +7,10 @@ use serde_json::{Value, json};
 use tempfile::TempDir;
 
 use super::*;
-use crate::mods::{ChecksumMismatchState, LinkedBinState, WadReportState};
 use ltk_manager_assets::hashtables::WadPathResolverState;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::AppError;
+use ltk_manager_library::mods::{ChecksumMismatchState, LinkedBinState, WadReportState};
 use ltk_manager_runtime::diagnostics::incident::{Ending, GameRecord, LaunchKind, OverlayOutcome};
 use ltk_manager_runtime::patcher::SessionOrigin;
 use ltk_manager_runtime::patcher::injector::WadScanFailure;
