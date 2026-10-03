@@ -1,7 +1,7 @@
 //! Whether an injection host needs the UAC bridge.
 
-use crate::config::Config;
 use crate::diagnostics;
+use ltk_manager_base::config::Config;
 
 /// Whether to spawn the host with `--elevate`.
 ///

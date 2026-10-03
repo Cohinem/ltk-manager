@@ -4,7 +4,7 @@
 //! skins. Each chain ends at a [`MapPath`], which is all a preview draws a map from.
 
 use ltk_hash::BinHash;
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use serde::Serialize;
 
 use super::MapPath;

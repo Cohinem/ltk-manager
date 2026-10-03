@@ -742,8 +742,8 @@ mod tests {
 
     use super::*;
     use crate::diagnostics::incident::{Evidence, EvidenceSource, SessionFailure, fixtures};
-    use crate::error::ErrorKind;
     use crate::patcher::{InjectionStage, SessionOrigin};
+    use ltk_manager_base::error::ErrorKind;
 
     fn sample() -> IncidentToken {
         IncidentToken::from_incident(

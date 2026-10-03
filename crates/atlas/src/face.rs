@@ -3,7 +3,7 @@
 use std::path::Path;
 
 use fs_err as fs;
-use ltk_manager_core::error::{AppError, AppResult};
+use ltk_manager_base::error::{AppError, AppResult};
 
 use super::sheet::write_through_temp;
 

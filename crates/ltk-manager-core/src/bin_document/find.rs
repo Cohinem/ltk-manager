@@ -8,8 +8,8 @@ use ltk_hash::BinHash;
 use ltk_meta::BinObject;
 use serde::Serialize;
 
-use crate::matcher::Range;
 use crate::meta_schema::SchemaAt;
+use ltk_manager_base::matcher::Range;
 
 use super::records::record_path;
 use super::{

@@ -1,7 +1,7 @@
 //! Unit tests for the layer list, and for adding files to a layer and removing them.
 
 use super::*;
-use crate::error::AppError;
+use ltk_manager_base::error::AppError;
 
 fn make_project_with_layers(dir: &std::path::Path, layers: Vec<ModProjectLayer>) {
     let mod_project = ltk_mod_project::ModProject {

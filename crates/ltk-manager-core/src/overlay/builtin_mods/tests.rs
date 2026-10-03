@@ -405,7 +405,7 @@ fn every_built_in_mod_turned_on_is_injected_in_priority_order() {
     let storage = tempfile::tempdir().unwrap();
     let settings = BuiltinModSettings {
         default_ward_skins: true,
-        base_skins: crate::config::BaseSkinsScope::AllChampions,
+        base_skins: ltk_manager_base::config::BaseSkinsScope::AllChampions,
         ..BuiltinModSettings::default()
     };
 

@@ -18,11 +18,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::bin_document::{AssetLookup, BinDocumentError, ProjectNames, RowNames, hex};
 use crate::bin_source::for_each_declaration;
-use crate::error::{AppError, AppResult};
 use crate::game_index::GameIndex;
 use crate::object_index::{DeclaredObject, ObjectDeclaration};
 use crate::preview::AssetRef;
 use crate::workshop::LayerChunks;
+use ltk_manager_base::error::{AppError, AppResult};
 
 /// Which sandbox a document opens in, as it crosses IPC.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

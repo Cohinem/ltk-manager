@@ -1,5 +1,5 @@
-use crate::config::Config;
-use crate::error::{AppError, AppResult};
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 

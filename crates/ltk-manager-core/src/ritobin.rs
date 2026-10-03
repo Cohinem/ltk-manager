@@ -9,10 +9,10 @@
 use std::path::Path;
 use std::process::Command;
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult};
 use crate::game_wads::WadCache;
 use crate::preview::AssetRef;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult};
 
 /// What Explorer puts the file's path in place of.
 const PLACEHOLDER: &str = "%1";
@@ -42,7 +42,7 @@ impl RitobinVerb {
     /// The verb as installed, or `None` when the extension has registered none.
     #[cfg(target_os = "windows")]
     pub fn installed() -> Option<Self> {
-        use crate::platform::windows::{HKCU, reg_read_str};
+        use ltk_manager_base::platform::windows::{HKCU, reg_read_str};
 
         let command = reg_read_str(HKCU, Self::COMMAND_KEY, "")?;
         (!command.trim().is_empty()).then_some(Self { command })

@@ -10,8 +10,8 @@ use ltk_meta::Bin;
 
 use super::*;
 use crate::bin_document::{HistoryStep, PropertyEdit, PropertyKind, Reshape, ValueEdit};
-use crate::game_build::GameBuild;
 use crate::meta_schema::MetaSchema;
+use ltk_manager_base::game_build::GameBuild;
 
 fn h(text: &str) -> BinHash {
     BinHash::hash_str(text)

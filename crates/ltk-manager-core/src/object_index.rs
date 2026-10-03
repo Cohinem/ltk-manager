@@ -36,7 +36,7 @@ pub use types::{
 };
 pub use walk::{FileTarget, LayerBin, WalkRequest, WalkTarget, layer_bins};
 
-use crate::generation::STALE_CHECK_INTERVAL;
+use ltk_manager_base::generation::STALE_CHECK_INTERVAL;
 
 /// The prefix of the group holding the objects no table names.
 ///

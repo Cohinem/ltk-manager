@@ -9,11 +9,12 @@ publish = false
 
 [features]
 # Derive `specta::Type` on what crosses IPC, which takes core's own.
-ts = ["dep:specta", "ltk-manager-core/ts", "hexshade/ts"]
+ts = ["dep:specta", "ltk-manager-core/ts", "hexshade/ts", "ltk-manager-base/ts"]
 
 [dependencies]
 hexshade = { workspace = true }
 ltk-manager-core = { workspace = true }
+ltk-manager-base = { workspace = true }
 
 fs-err = { workspace = true }
 glam = { workspace = true }

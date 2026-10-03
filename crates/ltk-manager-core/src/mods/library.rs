@@ -6,8 +6,6 @@
 //! archive parsing in [`super::metadata`], and overlay conversion in
 //! [`super::overlay_content`].
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult};
 use crate::mods::ModLibrary;
 use crate::mods::archive::documents::{ModDocument, entry_of, read_license, read_readme};
 use crate::mods::archive::metadata::{load_mod_project, read_installed_mod};
@@ -15,8 +13,10 @@ use crate::mods::archive::reader::ModArchive;
 use crate::mods::index::LibraryModEntry;
 use crate::mods::index::get_active_profile;
 use crate::mods::types::{EditModMetadataArgs, InstalledMod};
-use crate::utils::thumbnail::{THUMBNAIL_FILE, write_thumbnail};
 use fs_err as fs;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::thumbnail::{THUMBNAIL_FILE, write_thumbnail};
 use std::collections::HashMap;
 use std::path::Path;
 

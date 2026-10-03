@@ -1,7 +1,7 @@
 //! A map's screen effects: the `PostEffectOptions` of its post effect component.
 
 use ltk_hash::BinHash;
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use serde::Serialize;
 
 use super::MapPath;

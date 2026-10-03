@@ -12,11 +12,11 @@ mod skin_bin;
 mod stand_in;
 mod ward_skins;
 
-use crate::config::BuiltinModSettings;
-use crate::error::{AppResult, Utf8PathExt};
-use crate::utils::game::GameDir;
 use base_skins::BaseSkins;
 use fs_err as fs;
+use ltk_manager_base::config::BuiltinModSettings;
+use ltk_manager_base::error::{AppResult, Utf8PathExt};
+use ltk_manager_base::utils::game::GameDir;
 use ltk_overlay::{EnabledMod, FsModContent};
 use ltk_wad::PathResolver;
 use map_decorations::MapDecorations;

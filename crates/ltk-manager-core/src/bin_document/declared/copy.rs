@@ -15,7 +15,8 @@ use super::super::{
     as_struct, descend, hex, parse_steps,
 };
 use super::{RenderNames, declaring, entry_name, not_declared, value_path};
-use crate::error::AppError;
+use crate::workshop::declarations_error;
+use ltk_manager_base::error::AppError;
 
 /// What a row copies as. Each half is absent where the row has no spelling for it: a path
 /// through a field no table names, a value nothing under which is named, and the reference of
@@ -127,7 +128,7 @@ impl BinDocument {
         let quoted = serde_json::to_string(&reference.to_string())
             .map_err(|error| declaring(AppError::Other(error.to_string())))?;
         let text = ValueText::new(format!("!ref {quoted}"))
-            .map_err(|error| declaring(AppError::from(error)))?;
+            .map_err(|error| declaring(declarations_error(error)))?;
 
         let steps = parse_steps(path).ok_or_else(nameless)?;
         let object = self.object_at(entry).ok_or_else(nameless)?;

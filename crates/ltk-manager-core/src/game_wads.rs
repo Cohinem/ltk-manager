@@ -14,11 +14,11 @@ use ltk_wad::{ChunkDecoder, Wad, WadChunk, WadError, WadHash};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult};
-use crate::utils::game::GameDir;
-use crate::utils::natural_order::compare_names;
-use crate::utils::path::resolve_within;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::game::GameDir;
+use ltk_manager_base::utils::natural_order::compare_names;
+use ltk_manager_base::utils::path::resolve_within;
 
 /// Which set of an install's archives a reader browses.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]

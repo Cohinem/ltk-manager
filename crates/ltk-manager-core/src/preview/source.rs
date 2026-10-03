@@ -4,10 +4,10 @@ use std::path::{Path, PathBuf};
 use ltk_hash::WadHash;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult};
 use crate::game_wads::{GameArchives, WadCache, WadSource};
-use crate::utils::path::resolve_within;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::path::resolve_within;
 
 /// Where a previewed asset's bytes come from.
 ///

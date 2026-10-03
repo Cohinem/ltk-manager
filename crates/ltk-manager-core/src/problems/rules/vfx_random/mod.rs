@@ -13,8 +13,8 @@
 //! Neither offers a repair, because which value the author meant is not in the
 //! file.
 
-use crate::hashing::named;
 use ltk_hash::BinHash;
+use ltk_manager_base::hashing::named;
 use ltk_meta::walk::{Leaf, Node, TrailSegment, TreeNode as _, TreeValue, Visit};
 
 use crate::bin_walk::{Address, Declared};

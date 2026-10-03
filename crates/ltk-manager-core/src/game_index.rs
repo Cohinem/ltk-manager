@@ -8,12 +8,12 @@ use ltk_hashdb::LayeredHashDb;
 use ltk_wad::{WadHash, hex_name};
 use serde::{Deserialize, Serialize};
 
-use crate::error::AppResult;
 use crate::game_wads::{GameArchives, WadSource};
-use crate::generation::{Generation, STALE_CHECK_INTERVAL, line};
-use crate::matcher::{FindQuery, Query, Range, SearchHits, letter_mask, mask_covers};
-use crate::utils::lazy_slot::LazySlot;
-use crate::utils::natural_order::compare_names;
+use ltk_manager_base::error::AppResult;
+use ltk_manager_base::generation::{Generation, STALE_CHECK_INTERVAL, line};
+use ltk_manager_base::matcher::{FindQuery, Query, Range, SearchHits, letter_mask, mask_covers};
+use ltk_manager_base::utils::lazy_slot::LazySlot;
+use ltk_manager_base::utils::natural_order::compare_names;
 
 /// The directory id of the group holding chunks no hash table names.
 ///

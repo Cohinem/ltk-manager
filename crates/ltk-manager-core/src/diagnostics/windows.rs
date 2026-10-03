@@ -6,7 +6,7 @@ use super::{Category, Check, CheckSpec, Severity};
 #[cfg(target_os = "windows")]
 use super::CheckDetail;
 #[cfg(target_os = "windows")]
-use crate::platform::windows::{HKLM, reg_read_num};
+use ltk_manager_base::platform::windows::{HKLM, reg_read_num};
 
 const VERSION: CheckSpec = CheckSpec::new("windows.version", "Windows version", Category::System);
 const LONG_PATHS: CheckSpec =
@@ -73,7 +73,7 @@ pub fn check_version() -> Check {
 
 #[cfg(target_os = "windows")]
 pub fn check_long_paths_enabled() -> Check {
-    if !crate::platform::long_paths_enabled() {
+    if !ltk_manager_base::platform::long_paths_enabled() {
         let mut c = LONG_PATHS.result(
             Severity::Warn,
             "Disabled — paths longer than 260 chars will fail",

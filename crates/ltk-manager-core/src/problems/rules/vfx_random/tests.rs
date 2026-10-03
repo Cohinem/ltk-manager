@@ -6,8 +6,8 @@ use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
-use crate::config::Config;
 use crate::problems::ProjectFiles;
+use ltk_manager_base::config::Config;
 
 /// The name the fixture's one WAD goes by.
 const WAD: &str = "Aatrox.wad.client";

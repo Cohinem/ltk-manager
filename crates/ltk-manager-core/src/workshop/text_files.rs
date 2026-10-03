@@ -1,9 +1,9 @@
 //! Per "The readme" in docs/ux/PROJECT_EDITOR.md.
 
 use super::{ProjectDir, WorkshopError};
-use crate::error::{AppResult, Utf8PathRefExt};
-use crate::utils::fs::atomic_write;
 use fs_err as fs;
+use ltk_manager_base::error::{AppResult, Utf8PathRefExt};
+use ltk_manager_base::utils::fs::atomic_write;
 use ltk_mod_project::{LICENSE_FILE_NAMES, find_license_file};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -114,7 +114,7 @@ impl ProjectDir {
     /// does not exist is not an error, and neither is one whose bytes are not
     /// UTF-8, which reports `readable: false` for a document to refuse to edit.
     ///
-    /// [`AppError::Io`]: crate::error::AppError::Io
+    /// [`AppError::Io`]: ltk_manager_base::error::AppError::Io
     pub fn project_text(&self, file: ProjectTextFile) -> AppResult<ProjectText> {
         let path = self.text_file_path(file);
         let bytes = match fs::read(&path) {
@@ -155,7 +155,7 @@ impl ProjectDir {
     /// [`WorkshopError::TextFileChanged`] when the file moved under the
     /// caller, and [`AppError::Io`] when the write fails.
     ///
-    /// [`AppError::Io`]: crate::error::AppError::Io
+    /// [`AppError::Io`]: ltk_manager_base::error::AppError::Io
     pub fn write_project_text(
         &self,
         file: ProjectTextFile,
@@ -194,7 +194,7 @@ impl ProjectDir {
 ///
 /// [`AppError::Io`] when the file cannot be written.
 ///
-/// [`AppError::Io`]: crate::error::AppError::Io
+/// [`AppError::Io`]: ltk_manager_base::error::AppError::Io
 pub(crate) fn write_default_readme(project_root: &Path, display_name: &str) -> AppResult<()> {
     let path = project_root.join(README_FILE_NAME);
     if path.exists() {

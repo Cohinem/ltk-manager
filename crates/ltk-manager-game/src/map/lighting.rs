@@ -2,7 +2,7 @@
 //! component of its `MapContainer`.
 
 use ltk_hash::BinHash;
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 
 use super::MapPath;
 use super::component::map_component;

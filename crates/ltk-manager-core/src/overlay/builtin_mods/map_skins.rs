@@ -3,9 +3,9 @@
 use super::game_maps::{self, MapSkin};
 use super::overrides::{Overrides, quoted};
 use super::{BuiltinMod, Context};
-use crate::config::{BuiltinModSettings, MapSkinMode};
-use crate::error::AppResult;
 use ltk_hash::BinHash;
+use ltk_manager_base::config::{BuiltinModSettings, MapSkinMode};
+use ltk_manager_base::error::AppResult;
 use ltk_meta::PropertyValueEnum;
 
 /// The skin every map falls back to, and the one a server names in an ordinary game.

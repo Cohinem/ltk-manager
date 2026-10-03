@@ -18,7 +18,7 @@ pub use declarations::{
     DeclarationsLayer, DeclarationsLoadError, DeclaredEntry, DeclaredKey, DeclaredModule,
     DeclaredObjectEdit, DeclaredSign, LineSpan, ModuleSelector,
 };
-pub use declarations::{ManifestChange, ModuleAction};
+pub use declarations::{ManifestChange, ModuleAction, declarations_error};
 pub use folders::{
     AddFoldersReport, ConvertFolderArgs, ConvertPlacement, FantomeFolder, FolderFailure,
     FolderInspection, FolderWad,
@@ -31,12 +31,12 @@ pub use requests::{ProjectEdit, ProjectSource};
 pub use text_files::{ProjectText, ProjectTextFile, README_FILE_NAME, Revision};
 pub use watcher::{Invalidate, LayerWatches, SourceRebuild};
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult, DomainError, ErrorKind, Utf8PathRefExt};
-use crate::events::EventSink;
 use chrono::{DateTime, Utc};
 use fs_err as fs;
 use indexmap::IndexMap;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult, DomainError, ErrorKind, Utf8PathRefExt};
+use ltk_manager_base::events::EventSink;
 use ltk_mod_project::{ModProject, ModProjectAuthor};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};

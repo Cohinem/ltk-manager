@@ -27,8 +27,8 @@ use ritoclient::ids::{patchlines, products};
 use ritoclient::prelude::*;
 use ritoclient::{SessionEvent, SessionWatch};
 
-use crate::config::Config;
-use crate::events::{
+use ltk_manager_base::config::Config;
+use ltk_manager_base::events::{
     BackendEvent, EventSink, SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
 };
 
@@ -561,7 +561,11 @@ mod tests {
     }
 
     fn launcher() -> LeagueLauncher {
-        LeagueLauncher::new(&Config::default(), Arc::new(crate::events::NullEventSink)).unwrap()
+        LeagueLauncher::new(
+            &Config::default(),
+            Arc::new(ltk_manager_base::events::NullEventSink),
+        )
+        .unwrap()
     }
 
     /// The adapter's whole job is that launch progress reaches the sink under

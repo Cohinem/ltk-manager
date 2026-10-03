@@ -18,8 +18,8 @@ use super::{
     BinDocument, BinDocumentError, BinDocumentId, BinDocuments, EditRejection, Step, as_list,
     as_struct, hex, is_null, parse_steps,
 };
-use crate::error::AppResult;
 use crate::meta_schema::SchemaAt;
+use ltk_manager_base::error::AppResult;
 
 /// The `format` the clipboard text of a copied value carries.
 pub const CLIPBOARD_FORMAT: &str = "ltk-manager/bin-value";
@@ -56,7 +56,7 @@ impl BinDocuments {
     /// with [`BinDocumentError::NotOpen`] when `id` is closed, and with
     /// [`BinDocumentError::NodeNotFound`] where the path reaches no value.
     ///
-    /// [`AppError::ValidationFailed`]: crate::error::AppError::ValidationFailed
+    /// [`AppError::ValidationFailed`]: ltk_manager_base::error::AppError::ValidationFailed
     pub fn copy_value(
         &self,
         id: BinDocumentId,

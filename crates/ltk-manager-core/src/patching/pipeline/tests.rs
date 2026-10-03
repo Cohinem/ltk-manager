@@ -7,14 +7,14 @@ use serde_json::{Value, json};
 use tempfile::TempDir;
 
 use super::*;
-use crate::config::Config;
 use crate::diagnostics::incident::{Ending, GameRecord, LaunchKind, OverlayOutcome};
-use crate::error::AppError;
 use crate::hashtables::WadPathResolverState;
 use crate::mods::{ChecksumMismatchState, LinkedBinState, WadReportState};
 use crate::patcher::SessionOrigin;
 use crate::patcher::injector::WadScanFailure;
 use crate::patcher::state::PatcherPhase;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::AppError;
 
 /// A listener that answers nothing, since these tests read the sink instead.
 #[derive(Debug)]
@@ -64,7 +64,7 @@ impl Harness {
         };
 
         let library = ModLibrary::new(
-            Arc::new(crate::events::NullEventSink),
+            Arc::new(ltk_manager_base::events::NullEventSink),
             Some(storage.path().to_path_buf()),
             "1.17.0",
             Arc::new(LinkedBinState::default()),

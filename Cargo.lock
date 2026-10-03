@@ -341,6 +341,7 @@ dependencies = [
  "glam",
  "hexshade",
  "image",
+ "ltk-manager-base",
  "ltk-manager-core",
  "ltk-manager-game",
  "ltk_hash",
@@ -3138,6 +3139,7 @@ dependencies = [
  "hexshade",
  "image",
  "indexmap 2.14.0",
+ "ltk-manager-base",
  "ltk-manager-core",
  "ltk-manager-game",
  "ltk-telemetry",
@@ -3189,6 +3191,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "ltk-manager-base"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "camino",
+ "fs-err",
+ "image",
+ "ltk_fantome",
+ "ltk_hash",
+ "ltk_mod_project",
+ "ltk_modpkg",
+ "ltk_overlay",
+ "ltk_wad",
+ "parking_lot",
+ "regex",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "sha2",
+ "specta",
+ "strum",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "walkdir",
+ "webp",
+ "windows-sys 0.59.0",
+ "winreg 0.55.0",
+ "zip 2.4.2",
+]
+
+[[package]]
 name = "ltk-manager-core"
 version = "0.1.0"
 dependencies = [
@@ -3206,6 +3240,7 @@ dependencies = [
  "indexmap 2.14.0",
  "lru",
  "ltk-declarations",
+ "ltk-manager-base",
  "ltk-meta-docs",
  "ltk-telemetry",
  "ltk_anim",
@@ -3263,6 +3298,7 @@ dependencies = [
  "glam",
  "hexshade",
  "indexmap 2.14.0",
+ "ltk-manager-base",
  "ltk-manager-core",
  "ltk_hash",
  "ltk_mesh",

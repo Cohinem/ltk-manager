@@ -1,10 +1,10 @@
 //! Unit tests for the rule's findings, its severity, its previews and its fixes.
 
 use super::*;
-use crate::config::Config;
-use crate::hashing::named;
 use fs_err as fs;
 use indexmap::IndexMap;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::hashing::named;
 use ltk_meta::{Bin, BinFile};
 
 /// `SkinCharacterDataProperties`, which 225 of 232 real project bins declare.
@@ -1426,8 +1426,8 @@ fn a_file_with_an_unrecognised_extension_is_left_alone() {
 /// - by its first bytes. The mod that reached a player was exactly this shape.
 #[test]
 fn a_bin_with_no_extension_is_read_inside_an_archive_too() {
-    use crate::budget::Budget;
     use crate::mods::test_support::{make_loose_bin_fantome_zip_at, resolver_naming};
+    use ltk_manager_base::budget::Budget;
 
     let bin = object_bin(FLOAT_TEXT_ICON_DATA, M_ICON_FILE_NAME, text(ICON_TEX));
     let tmp = tempfile::tempdir().unwrap();

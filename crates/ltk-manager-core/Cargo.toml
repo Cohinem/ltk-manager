@@ -10,9 +10,10 @@ publish = false
 [features]
 # Derive `specta::Type` on core types so the Tauri shell can export bindings for
 # types that cross IPC (e.g. `Config` flattened into `Settings`).
-ts = ["dep:specta", "ltk-meta-docs/ts"]
+ts = ["dep:specta", "ltk-meta-docs/ts", "ltk-manager-base/ts"]
 
 [dependencies]
+ltk-manager-base = { workspace = true }
 filetime = { workspace = true }
 ritoclient = { workspace = true }
 
@@ -74,7 +75,7 @@ webp = { workspace = true }
 zip = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.55"
+winreg = { workspace = true }
 windows-sys = { workspace = true, features = [
     "Win32_Foundation",
     "Win32_Security",
@@ -92,4 +93,4 @@ windows-sys = { workspace = true, features = [
 
 [dev-dependencies]
 assert_matches = { workspace = true }
-ltk_primitives = "0.3.6"
+ltk_primitives = { workspace = true }

@@ -4,9 +4,6 @@
 //! real defaults. The archive builders are shared because both modules import
 //! a fantome through the same importer.
 
-use crate::config::Config;
-use crate::events::ModStorage;
-use crate::events::{BackendEvent, EventSink, NullEventSink};
 use crate::hashtables::WadPathResolverState;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
@@ -17,6 +14,9 @@ use crate::mods::slug::ModSlug;
 use crate::mods::types::{Profile, ProfileSlug};
 use chrono::Utc;
 use fs_err as fs;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::events::ModStorage;
+use ltk_manager_base::events::{BackendEvent, EventSink, NullEventSink};
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::Path;

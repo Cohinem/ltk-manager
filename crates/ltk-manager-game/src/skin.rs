@@ -13,7 +13,7 @@ pub use tangents::bake_mesh_tangents;
 use std::collections::{HashMap, HashSet};
 
 use ltk_hash::BinHash;
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;

@@ -9,8 +9,10 @@ use serde::{Deserialize, Serialize};
 
 pub use download::download_mod_file;
 
-use crate::error::{AppError, AppResult};
-use crate::events::{BackendEvent, EventSink, ProtocolInstallProgress, ProtocolInstallStage};
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::events::{
+    BackendEvent, EventSink, ProtocolInstallProgress, ProtocolInstallStage,
+};
 
 /// A `ltk://` deep link, as the route named in it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

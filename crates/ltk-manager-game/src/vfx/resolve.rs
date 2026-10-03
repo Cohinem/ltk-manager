@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, WadHash};
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};

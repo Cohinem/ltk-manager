@@ -7,9 +7,9 @@
 //! a CLI reuse this: it can supply its own mod list and print the offenders
 //! instead of persisting them for a badge UI.
 
-use crate::error::AppResult;
-use crate::events::{OverlayProgress, OverlayStage};
 use camino::Utf8PathBuf;
+use ltk_manager_base::error::AppResult;
+use ltk_manager_base::events::{OverlayProgress, OverlayStage};
 use ltk_overlay::game_data::GameDataDiagnostic;
 
 /// Everything a build needs, resolved by the caller.
@@ -59,7 +59,7 @@ pub struct OverlayBuildOutcome {
 ///
 /// # Errors
 ///
-/// [`AppError::Overlay`](crate::error::AppError::Overlay) holding
+/// [`AppError::Overlay`](ltk_manager_base::error::AppError::Overlay) holding
 /// [`ltk_overlay::Error::CalledOff`] where `called_off` answers `true`, and the
 /// builder's own failures otherwise.
 pub fn build_overlay(

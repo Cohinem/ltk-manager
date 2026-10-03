@@ -12,7 +12,7 @@ pub use self::outline::{
 };
 
 use super::{ProjectDir, WorkshopError};
-use crate::error::{AppError, AppResult};
+use ltk_manager_base::error::{AppError, AppResult};
 
 /// One module action on a layer's manifest, each module named by its index in `modules`.
 /// ADR-0048, ADR-0054.
@@ -83,13 +83,21 @@ impl ProjectDir {
 
         match action {
             ModuleAction::Create { name } => {
-                manifest.create_module(module_name(name)?.as_ref())?;
+                manifest
+                    .create_module(module_name(name)?.as_ref())
+                    .map_err(declarations_error)?;
             }
             ModuleAction::Rename { module, name } => {
-                manifest.rename_module(*module, module_name(name)?.as_ref())?;
+                manifest
+                    .rename_module(*module, module_name(name)?.as_ref())
+                    .map_err(declarations_error)?;
             }
-            ModuleAction::Remove { module } => manifest.remove_module(*module)?,
-            ModuleAction::Move { module, to } => manifest.move_module(*module, *to)?,
+            ModuleAction::Remove { module } => manifest
+                .remove_module(*module)
+                .map_err(declarations_error)?,
+            ModuleAction::Move { module, to } => manifest
+                .move_module(*module, *to)
+                .map_err(declarations_error)?,
             ModuleAction::MoveKeys {
                 module,
                 entry,
@@ -102,7 +110,9 @@ impl ProjectDir {
                     .map(PropertyPath::new)
                     .transpose()
                     .map_err(|error| invalid(&error))?;
-                manifest.move_keys(*module, entry.object_hash(), path.as_ref(), *to)?;
+                manifest
+                    .move_keys(*module, entry.object_hash(), path.as_ref(), *to)
+                    .map_err(declarations_error)?;
             }
             ModuleAction::DropKeys {
                 module,
@@ -111,11 +121,13 @@ impl ProjectDir {
             } => {
                 let entry = EntryName::try_from(entry.as_str()).map_err(|error| invalid(&error))?;
                 let path = PropertyPath::new(path).map_err(|error| invalid(&error))?;
-                manifest.drop_keys(*module, entry.object_hash(), &path)?;
+                manifest
+                    .drop_keys(*module, entry.object_hash(), &path)
+                    .map_err(declarations_error)?;
             }
         }
 
-        manifest.write()?;
+        manifest.write().map_err(declarations_error)?;
         let after = manifest.text().to_owned();
         Ok((before != after).then_some(ManifestChange { before, after }))
     }
@@ -132,37 +144,36 @@ impl ProjectDir {
                 "Invalid layer name: {layer}"
             )));
         }
-        Ok(Manifest::read(self.path().join("content").join(layer))?)
+        Manifest::read(self.path().join("content").join(layer)).map_err(declarations_error)
     }
 }
 
-impl From<ltk_declarations::Error> for AppError {
-    fn from(error: ltk_declarations::Error) -> Self {
-        use ltk_declarations::Error;
+/// A manifest failure as the workshop reports it.
+pub fn declarations_error(error: ltk_declarations::Error) -> AppError {
+    use ltk_declarations::Error;
 
-        match error {
-            Error::ChangedOnDisk { path } => WorkshopError::DeclarationsChangedOnDisk {
-                path: path.display().to_string(),
-            }
-            .into(),
-            Error::NotYaml { path } => WorkshopError::DeclarationsNotYaml {
-                path: path.display().to_string(),
-            }
-            .into(),
-            Error::Invalid { path, message } => WorkshopError::DeclarationsInvalid {
-                path: path.display().to_string(),
-                message,
-            }
-            .into(),
-            Error::Uneditable { path, reason } => WorkshopError::DeclarationsUneditable {
-                path: path.display().to_string(),
-                reason: reason.to_string(),
-            }
-            .into(),
-            Error::InvalidValue(reason) => AppError::ValidationFailed(reason),
-            Error::Io(error) => AppError::Io(error),
-            other => AppError::Other(other.to_string()),
+    match error {
+        Error::ChangedOnDisk { path } => WorkshopError::DeclarationsChangedOnDisk {
+            path: path.display().to_string(),
         }
+        .into(),
+        Error::NotYaml { path } => WorkshopError::DeclarationsNotYaml {
+            path: path.display().to_string(),
+        }
+        .into(),
+        Error::Invalid { path, message } => WorkshopError::DeclarationsInvalid {
+            path: path.display().to_string(),
+            message,
+        }
+        .into(),
+        Error::Uneditable { path, reason } => WorkshopError::DeclarationsUneditable {
+            path: path.display().to_string(),
+            reason: reason.to_string(),
+        }
+        .into(),
+        Error::InvalidValue(reason) => AppError::ValidationFailed(reason),
+        Error::Io(error) => AppError::Io(error),
+        other => AppError::Other(other.to_string()),
     }
 }
 

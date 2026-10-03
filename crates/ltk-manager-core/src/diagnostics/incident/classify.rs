@@ -5,7 +5,7 @@
 
 use super::*;
 use crate::launcher::same_install;
-use crate::utils::path::slashed;
+use ltk_manager_base::utils::path::slashed;
 
 /// One rule of the precedence table: a self-contained verdict that fires on a
 /// record, or `None` to let the next rule try. See [`GameRecord::RULES`].

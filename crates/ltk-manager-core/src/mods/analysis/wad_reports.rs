@@ -6,9 +6,9 @@
 //! on demand via the `analyze_mod_wads` Tauri command.
 
 use super::categorize::DerivedCategorization;
-use crate::error::AppResult;
-use crate::utils::fs::write_json;
 use fs_err as fs;
+use ltk_manager_base::error::AppResult;
+use ltk_manager_base::utils::fs::write_json;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};

@@ -16,10 +16,10 @@ use ltk_meta::{Bin, BinObject, BinOverride};
 use parking_lot::Mutex;
 
 use super::*;
-use crate::budget::{self, Budget};
-use crate::config::Config;
 use crate::problems::bank_units::{BANK_PATH, BANK_UNIT, BankUnits};
 use crate::problems::{Applied, FixError, FixRun, Problem, RuleFailure, RuleMeta};
+use ltk_manager_base::budget::{self, Budget};
+use ltk_manager_base::config::Config;
 
 const ENTRY: BinHash = BinHash(0x0100_0001);
 const OTHER_ENTRY: BinHash = BinHash(0x0100_0002);

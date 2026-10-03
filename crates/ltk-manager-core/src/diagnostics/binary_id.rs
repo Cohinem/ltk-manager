@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use fs_err as fs;
 use serde::{Deserialize, Serialize};
 
-use crate::hashing::content_hash;
+use ltk_manager_base::hashing::content_hash;
 
 /// Patcher binary identity
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -114,7 +114,7 @@ fn pe_timestamp(bytes: &[u8]) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::hashing::CONTENT_HASH_CHARS as HASH_CHARS;
+    use ltk_manager_base::hashing::CONTENT_HASH_CHARS as HASH_CHARS;
 
     /// A minimal PE: `MZ`, `e_lfanew` at 0x3C pointing at `PE\0\0`, then a
     /// `TimeDateStamp`. Everything between is zero padding.

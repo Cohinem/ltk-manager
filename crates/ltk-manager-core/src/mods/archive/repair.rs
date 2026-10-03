@@ -8,11 +8,6 @@
 //! unpacked into staging, fixed there, and repacked whole - ADR-0025.
 //! Replacing the archive, and keeping no copy of the original, is ADR-0005.
 
-use crate::budget::{self, Budget};
-use crate::config::Config;
-use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
-use crate::events::ModStorage;
-use crate::events::{BackendEvent, ModRepairProgress};
 use crate::mod_archive::open_fantome;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
@@ -20,11 +15,16 @@ use crate::mods::archive::install::STAGING_PREFIX;
 use crate::mods::archive::metadata::load_mod_project;
 use crate::mods::health::{Refused, cancelled};
 use crate::problems::{self, FixReport, ProjectFiles};
-use crate::utils::fs::replace_keeping_old;
 use camino::Utf8Path;
 use delta::RepairEdit;
 use fs_err as fs;
 use ltk_fantome::DeltaReport;
+use ltk_manager_base::budget::{self, Budget};
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
+use ltk_manager_base::events::ModStorage;
+use ltk_manager_base::events::{BackendEvent, ModRepairProgress};
+use ltk_manager_base::utils::fs::replace_keeping_old;
 use ltk_mod_project::ProjectImporter;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
 use serde::Serialize;

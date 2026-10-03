@@ -25,19 +25,19 @@ use ltk_mod_project::{MODIGNORE_FILE_NAME, ModIgnore};
 use ltk_wad::{PathResolver, WadChunk, WadChunkCompression, WadHash, is_hex_chunk_path};
 use walkdir::WalkDir;
 
-use crate::config::Config;
-use crate::error::{AppResult, Utf8PathRefExt};
 use crate::file_kind::WorkshopFileKind;
 use crate::workshop::layer;
 use crate::workshop::{ProjectDir, holds_ignore_rules};
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppResult, Utf8PathRefExt};
 
 use archive::ArchiveFiles;
 
 use super::game::GameContent;
 use super::pass::Fact;
 use super::{BinNames, ObjectInfo, Report, Rule, RuleState, Run};
-use crate::budget::{self, Budget};
-use crate::game_build::GameBuild;
+use ltk_manager_base::budget::{self, Budget};
+use ltk_manager_base::game_build::GameBuild;
 
 /// The directory a project keeps its layers under.
 const CONTENT_DIR: &str = "content";

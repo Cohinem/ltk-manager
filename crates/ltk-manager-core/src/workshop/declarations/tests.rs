@@ -39,7 +39,7 @@ fn a_manifest_changed_on_disk_surfaces_as_its_workshop_error() {
         .unwrap();
     fs::write(manifest.path(), "version: 1\nmodules: []\n").unwrap();
 
-    let result = manifest.write().map_err(AppError::from);
+    let result = manifest.write().map_err(declarations_error);
 
     assert_matches!(
         result.as_ref().map_err(AppError::domain::<WorkshopError>),

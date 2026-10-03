@@ -3,7 +3,7 @@
 use super::injector::WadScanFailure;
 use super::state::PatcherPhase;
 use crate::diagnostics::incident::{Incident, OverlayOutcome};
-use crate::error::AppError;
+use ltk_manager_base::error::AppError;
 
 /// Notable conditions the patcher surfaces while a session runs.
 ///

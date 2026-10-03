@@ -34,10 +34,10 @@ use super::edit::UNDO_DEPTH;
 use super::{
     BinDocument, BinDocumentError, EditRejection, EntryKey, HashPath, RowNames, Trace, hex,
 };
-use crate::error::{AppError, AppResult, Utf8PathRefExt as _};
 use crate::meta_schema::{PatchSchema, SchemaNames};
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathRefExt as _};
 
-use crate::workshop::{DeclaredSign, ModuleAction, ProjectDir};
+use crate::workshop::{DeclaredSign, ModuleAction, ProjectDir, declarations_error};
 
 /// The layer a declared document writes to until a reader picks another.
 pub const BASE_LAYER: &str = ModProjectLayer::BASE_NAME;
@@ -942,8 +942,8 @@ impl Declared {
         let mut manifest = self.context.project.declarations_manifest(&self.layer)?;
         let before = manifest.text().to_owned();
 
-        let module = edit(&mut manifest)?;
-        manifest.write()?;
+        let module = edit(&mut manifest).map_err(declarations_error)?;
+        manifest.write().map_err(declarations_error)?;
         let after = manifest.text().to_owned();
         Ok((before != after).then(|| TextEdit {
             layer: self.layer.clone(),
@@ -988,13 +988,12 @@ impl Declared {
     fn put(&self, layer: &str, from: &str, to: &str) -> AppResult<()> {
         let mut manifest = self.context.project.declarations_manifest(layer)?;
         if manifest.text() != from {
-            return Err(ltk_declarations::Error::ChangedOnDisk {
+            return Err(declarations_error(ltk_declarations::Error::ChangedOnDisk {
                 path: manifest.path().to_owned(),
-            }
-            .into());
+            }));
         }
-        manifest.restore(to)?;
-        manifest.write()?;
+        manifest.restore(to).map_err(declarations_error)?;
+        manifest.write().map_err(declarations_error)?;
         Ok(())
     }
 }

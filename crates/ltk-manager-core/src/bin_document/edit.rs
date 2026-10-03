@@ -16,9 +16,9 @@ use serde::{Deserialize, Serialize};
 
 use super::properties::field_path;
 use super::{BinDocument, BinDocumentError, Declaring, PropertyKind, Step, hex, inlines, is_null};
-use crate::error::AppResult;
 use crate::preview::AssetRef;
-use crate::utils::fs::atomic_write;
+use ltk_manager_base::error::AppResult;
+use ltk_manager_base::utils::fs::atomic_write;
 
 /// How many edits one tree reverts. "Undo" in docs/ux/BIN_EDITOR.md.
 pub const UNDO_DEPTH: usize = 200;

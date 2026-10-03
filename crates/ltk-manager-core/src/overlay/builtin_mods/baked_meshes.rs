@@ -1,6 +1,6 @@
 //! Moving a map's baked decoration meshes under a visibility controller, per ADR-0053.
 
-use crate::error::{AppError, AppResult};
+use ltk_manager_base::error::{AppError, AppResult};
 use ltk_mapgeo::{EnvironmentAsset, EnvironmentMesh};
 use std::io::Cursor;
 

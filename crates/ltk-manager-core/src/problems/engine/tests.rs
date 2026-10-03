@@ -411,7 +411,7 @@ fn analyzing_a_directory_that_is_not_a_project_is_an_error() {
 
     assert_matches::assert_matches!(
         analyze(&missing, &Config::default(), None),
-        Err(crate::error::AppError::ProjectNotFound(_))
+        Err(ltk_manager_base::error::AppError::ProjectNotFound(_))
     );
 }
 

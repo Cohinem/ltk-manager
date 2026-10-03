@@ -10,9 +10,9 @@
 use serde::{Deserialize, Serialize};
 use specta::datatype::{DataType, Enum, Field, Variant};
 
+use ltk_manager_base::error::{message_with_sources, DomainError, ErrorKind};
+pub use ltk_manager_base::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_core::bin_document::{BinDocumentError, EditRejection, ReadOnly};
-use ltk_manager_core::error::{message_with_sources, DomainError, ErrorKind};
-pub use ltk_manager_core::error::{AppError, AppResult, OverlayErrorCategory, Utf8PathExt};
 use ltk_manager_core::github::{GitHubError, GitHubErrorKind};
 use ltk_manager_core::launcher::LauncherError;
 use ltk_manager_core::patcher::PatcherError;

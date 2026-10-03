@@ -333,7 +333,7 @@ impl From<ltk_fantome::FantomeExtractError> for AppError {
 }
 
 /// `error` as an [`AppError::Io`] of the same kind, its message led by the step that failed.
-pub(crate) fn io_context(error: std::io::Error, what: impl std::fmt::Display) -> AppError {
+pub fn io_context(error: std::io::Error, what: impl std::fmt::Display) -> AppError {
     AppError::Io(std::io::Error::new(
         error.kind(),
         format!("{what}: {error}"),
@@ -341,7 +341,7 @@ pub(crate) fn io_context(error: std::io::Error, what: impl std::fmt::Display) ->
 }
 
 /// An I/O result whose error names the step that failed.
-pub(crate) trait IoContext<T> {
+pub trait IoContext<T> {
     /// The error through [`io_context`].
     fn context(self, what: impl std::fmt::Display) -> AppResult<T>;
 }

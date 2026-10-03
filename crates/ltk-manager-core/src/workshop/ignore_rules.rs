@@ -1,10 +1,10 @@
 //! Per "Ignore rules" in docs/ux/PROJECT_EDITOR.md.
 
 use super::{ProjectDir, WorkshopError};
-use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
 use camino::{Utf8Path, Utf8PathBuf};
 use chrono::NaiveDate;
 use fs_err as fs;
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
 use ltk_mod_project::{MODIGNORE_FILE_NAME, ModIgnore, ModIgnoreError};
 use serde::Serialize;
 use std::path::{Component, Path, PathBuf};

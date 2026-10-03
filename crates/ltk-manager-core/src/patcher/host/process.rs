@@ -7,7 +7,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use super::protocol::{HostConfig, command};
-use crate::platform::hide_console;
+use ltk_manager_base::platform::hide_console;
 
 #[derive(Debug, thiserror::Error)]
 pub enum HostError {

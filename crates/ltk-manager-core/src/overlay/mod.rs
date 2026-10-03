@@ -15,13 +15,13 @@ pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
 pub use builtin_mods::{ForcibleMapSkin, MapDecoration, forcible_map_skins, map_decorations};
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};
 
-use crate::config::Config;
-use crate::error::{AppResult, Utf8PathExt};
-use crate::events::BackendEvent;
-use crate::game_build::GameBuild;
 use crate::meta_schema::{self, PatchSchema};
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppResult, Utf8PathExt};
+use ltk_manager_base::events::BackendEvent;
+use ltk_manager_base::game_build::GameBuild;
 use ltk_overlay::game_data::{GameDataDiagnostic, GameDataDiagnosticKind};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -78,7 +78,7 @@ impl ModLibrary {
     ///
     /// # Errors
     ///
-    /// [`AppError::Overlay`](crate::error::AppError::Overlay) holding
+    /// [`AppError::Overlay`](ltk_manager_base::error::AppError::Overlay) holding
     /// [`ltk_overlay::Error::CalledOff`] where `called_off` answers `true`, and the
     /// resolve and build failures otherwise.
     pub fn ensure_overlay(
@@ -93,7 +93,7 @@ impl ModLibrary {
 
         storage_dir.invalidate_stale_overlays(self.app_version());
 
-        let game_dir = crate::utils::game::GameDir::resolve(config)?;
+        let game_dir = ltk_manager_base::utils::game::GameDir::resolve(config)?;
         let (profile_slug, enabled_mods) = self.get_enabled_mods_for_overlay(config)?;
 
         let profile_dir = storage_dir.profile_dir(profile_slug.as_str());

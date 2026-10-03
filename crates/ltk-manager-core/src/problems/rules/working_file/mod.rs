@@ -6,12 +6,12 @@
 use camino::Utf8PathBuf;
 use ltk_mod_project::{MODIGNORE_FILE_NAME, ModIgnoreMatch};
 
-use crate::error::AppError;
 use crate::problems::{
     Applied, Detail, FixError, FixPreview, FixRun, Pass, Problem, ProblemSeverity, Rule, RuleId,
     RuleMeta, Site,
 };
 use crate::workshop::{ProjectDir, holds_ignore_rules, recommended_ignore_filter};
+use ltk_manager_base::error::AppError;
 
 /// The id every row of this rule carries.
 pub const ID: RuleId = RuleId("project/working-file");

@@ -11,9 +11,9 @@ use crate::mods::ModLibraryState;
 use crate::patcher::{PatcherHostState, PatcherState};
 use crate::services::shared::InFlight;
 use crate::state::{IncidentStoreState, SettingsState};
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::EventSink;
-use ltk_manager_core::events::SessionStarted;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::events::EventSink;
+use ltk_manager_base::events::SessionStarted;
 use ltk_manager_core::launcher::{
     detect_install_mismatch, InstallMismatch, LaunchAvailability, LaunchOutcome, LaunchTarget,
     LauncherError, LeagueLauncher, StopFlag,

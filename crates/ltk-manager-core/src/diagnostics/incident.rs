@@ -18,9 +18,9 @@ use super::binary_id::PatcherBinaries;
 use super::exit_status;
 use super::game_log::{CodeSighting, GameLogFacts, LogMessage, MessageSighting, Record};
 use super::log_codes::{self, CodeKind, CodeRow, EvidenceMark};
-use crate::error::{ErrorKind, OverlayErrorCategory};
 use crate::patcher::injector::WadScanFailure;
 use crate::patcher::{InjectionStage, SessionOrigin};
+use ltk_manager_base::error::{ErrorKind, OverlayErrorCategory};
 
 /// What the DLL said after it attached.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -498,7 +498,7 @@ pub enum SessionFailure {
     /// The overlay build failed, with the builder's own words.
     ///
     /// `kind` is carried because `message` is [`Display`](std::fmt::Display)
-    /// output and several [`AppError`](crate::error::AppError) variants render
+    /// output and several [`AppError`](ltk_manager_base::error::AppError) variants render
     /// with no prefix of their own, so a thin inner error leaves nothing at all
     /// to read. The kind is always there to say what failed. `category` is the
     /// overlay's own word on which remedy applies, and `None` on records from
@@ -1290,7 +1290,7 @@ fn reading(row: &CodeRow) -> String {
 /// The error's own words, with the kind it was, for the end of a cause.
 ///
 /// `IO: Access is denied.`, or the bare kind when the message is empty, which
-/// several [`AppError`](crate::error::AppError) variants leave it.
+/// several [`AppError`](ltk_manager_base::error::AppError) variants leave it.
 fn failure_detail(kind: ErrorKind, message: &str) -> String {
     let message = capitalized_sentence(message);
     if message.is_empty() {

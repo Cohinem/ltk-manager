@@ -16,7 +16,6 @@ use fs_err as fs;
 
 use ltk_telemetry::Telemetry;
 
-use crate::config::Config;
 use crate::diagnostics::game_log::{GameWindow, LeagueLogs};
 use crate::diagnostics::incident::{
     ClassifyContext, GameRecord, Incident, ModFootprint, OriginKind, ProjectFootprint, ScanMode,
@@ -32,6 +31,7 @@ use crate::launcher::same_install;
 use crate::mods::ModLibrary;
 use crate::overlay::WorkshopTestProject;
 use crate::workshop::ProjectDir;
+use ltk_manager_base::config::Config;
 
 use crate::patcher::events::PatcherEvents;
 use crate::patcher::host::hook_flags;
@@ -72,7 +72,7 @@ impl IncidentPipeline {
             app_version: library.app_version().to_string(),
             os_build: crate::diagnostics::windows::os_build(),
             arch: std::env::consts::ARCH.to_string(),
-            locale: crate::utils::game::GameDir::resolve(&config)
+            locale: ltk_manager_base::utils::game::GameDir::resolve(&config)
                 .ok()
                 .and_then(|dir| dir.locale()),
         };
@@ -224,7 +224,7 @@ impl IncidentPipeline {
         let mod_id = suspect.mod_id.as_deref()?;
         let path = self.library.archive_path_of(&self.config, mod_id)?;
         match fs::read(&path) {
-            Ok(bytes) => Some(crate::hashing::content_hash(&bytes)),
+            Ok(bytes) => Some(ltk_manager_base::hashing::content_hash(&bytes)),
             Err(e) => {
                 tracing::debug!("Could not read a suspect archive for the session event: {e}");
                 None

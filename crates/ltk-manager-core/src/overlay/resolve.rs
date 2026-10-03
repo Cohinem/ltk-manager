@@ -4,8 +4,8 @@
 //! resolved value out. They are the two decisions a CLI would need to make
 //! identically to the GUI.
 
-use crate::config::{Config, WadBlocklistEntry};
-use crate::utils::game::GameDir;
+use ltk_manager_base::config::{Config, WadBlocklistEntry};
+use ltk_manager_base::utils::game::GameDir;
 
 const SCRIPTS_WAD: &str = "scripts.wad.client";
 const TFT_WAD: &str = "map22.wad.client";
@@ -40,7 +40,7 @@ pub(crate) fn resolve_string_override_mode(
 ///   can't break the whole patch.
 /// - `block_scripts_wad` and `!patch_tft` add their respective WADs.
 ///
-/// `available_wads` should come from [`GameDir::wads`](crate::utils::game::GameDir::wads); pass an empty slice if
+/// `available_wads` should come from [`GameDir::wads`](ltk_manager_base::utils::game::GameDir::wads); pass an empty slice if
 /// enumeration failed (regex entries then match nothing).
 pub(crate) fn resolve_blocked_wads(config: &Config, available_wads: &[String]) -> Vec<String> {
     let mut blocked: Vec<String> = Vec::new();

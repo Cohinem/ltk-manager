@@ -4,9 +4,9 @@
 //! and bulk-install results. The on-disk index that backs them lives in
 //! [`super::index`].
 
-use crate::events::ModStorage;
 use crate::mods::index::{HarvestSummary, LibraryIndex, ModArchiveFormat};
 use chrono::{DateTime, Utc};
+use ltk_manager_base::events::ModStorage;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

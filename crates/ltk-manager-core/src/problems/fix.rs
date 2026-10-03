@@ -24,9 +24,9 @@ use ltk_hashtable::{Hashtable, HashtableEntry};
 use ltk_wad::PathResolver;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult};
-use crate::utils::fs::atomic_write;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::fs::atomic_write;
 
 use super::game::GameContent;
 use super::pass::Fact;

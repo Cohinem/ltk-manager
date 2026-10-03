@@ -1,7 +1,7 @@
 //! The skin bin that gives a character's skin N the content of its skin 0, per ADR-0043.
 
-use crate::error::AppResult;
 use ltk_hash::BinHash;
+use ltk_manager_base::error::AppResult;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 use std::io::Cursor;
 

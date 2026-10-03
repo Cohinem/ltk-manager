@@ -1,6 +1,6 @@
 use super::*;
-use crate::error::AppError;
 use assert_matches::assert_matches;
+use ltk_manager_base::error::AppError;
 
 /// A project directory holding nothing but `content/`.
 fn make_project(dir: &Path) -> ProjectDir {

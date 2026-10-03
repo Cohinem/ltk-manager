@@ -11,8 +11,8 @@ use crate::patcher::PatcherState;
 use crate::services::shared::off_thread;
 use crate::services::shared::Library;
 use crate::state::SettingsState;
-use ltk_manager_core::config::Config;
-use ltk_manager_core::events::HealthSweepReport;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::events::HealthSweepReport;
 use ltk_manager_core::mods::{
     HealthCheckReadiness, HealthSweepState, LibraryRepairReport, SweepScope,
 };

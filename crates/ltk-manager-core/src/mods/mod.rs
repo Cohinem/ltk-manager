@@ -55,10 +55,10 @@ pub use types::{
     ModLicense, Profile,
 };
 
-use crate::config::Config;
-use crate::events::EventSink;
 use crate::hashtables::WadPathResolverState;
 use crate::overlay::OverlayStorageExt;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::events::EventSink;
 use parking_lot::Mutex;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -73,7 +73,7 @@ pub const WATCHER_SUPPRESS_SECS: i64 = 10;
 ///
 /// All index operations are serialized through `index_lock` to prevent
 /// concurrent reads/writes from clobbering each other.
-/// The [`Config`](crate::config::Config) is passed per-call since it
+/// The [`Config`](ltk_manager_base::config::Config) is passed per-call since it
 /// can change at runtime.
 /// The one game index a library holds, and the install it was built over.
 type GameContentCache = Arc<Mutex<Option<(GameStamp, Arc<crate::problems::InstalledContent>)>>>;
@@ -85,7 +85,7 @@ type GameContentCache = Arc<Mutex<Option<(GameStamp, Arc<crate::problems::Instal
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct GameStamp {
     league: PathBuf,
-    build: Option<crate::game_build::GameBuild>,
+    build: Option<ltk_manager_base::game_build::GameBuild>,
 }
 
 pub struct ModLibrary {
@@ -129,7 +129,7 @@ pub struct ModLibrary {
     health_sweep: Arc<Mutex<HealthSweepState>>,
     /// The budget the check or repair now running spends, for a cancel to
     /// reach. `None` between runs.
-    health_budget: Arc<Mutex<Option<crate::budget::Budget>>>,
+    health_budget: Arc<Mutex<Option<ltk_manager_base::budget::Budget>>>,
     /// Serializes library sweeps, so an install check waits for the startup
     /// sweep instead of sharing its progress state and cancel handle.
     sweep_lock: Arc<Mutex<()>>,
@@ -225,8 +225,8 @@ impl ModLibrary {
     /// is the one a user would mean.
     pub(in crate::mods) fn begin_health_run(
         &self,
-        budget: crate::budget::Budget,
-    ) -> crate::budget::Budget {
+        budget: ltk_manager_base::budget::Budget,
+    ) -> ltk_manager_base::budget::Budget {
         *self.health_budget.lock() = Some(budget.clone());
         budget
     }
@@ -236,7 +236,7 @@ impl ModLibrary {
     /// Only where it is still the run that is installed. A second run that
     /// replaced it is still going, and clearing its handle would leave its
     /// cancel reaching nothing.
-    pub(in crate::mods) fn end_health_run(&self, budget: &crate::budget::Budget) {
+    pub(in crate::mods) fn end_health_run(&self, budget: &ltk_manager_base::budget::Budget) {
         let mut held = self.health_budget.lock();
         if held.as_ref().is_some_and(|running| running.is(budget)) {
             *held = None;
@@ -275,7 +275,7 @@ impl ModLibrary {
     /// one refresh at the end of them rather than one each.
     pub fn announce_change(&self) {
         self.events
-            .emit(crate::events::BackendEvent::LibraryChanged);
+            .emit(ltk_manager_base::events::BackendEvent::LibraryChanged);
     }
 
     /// Version of the host application, as supplied to [`ModLibrary::new`].
@@ -314,7 +314,7 @@ impl ModLibrary {
     pub fn game_content(&self, config: &Config) -> Option<Arc<dyn crate::problems::GameContent>> {
         let stamp = GameStamp {
             league: config.league_path.clone()?,
-            build: crate::game_build::GameBuild::installed(config),
+            build: ltk_manager_base::game_build::GameBuild::installed(config),
         };
 
         let mut held = self.game_content.lock();

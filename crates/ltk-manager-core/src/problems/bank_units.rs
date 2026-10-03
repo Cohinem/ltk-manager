@@ -19,8 +19,8 @@
 
 use std::collections::HashMap;
 
-use crate::hashing::named;
 use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_manager_base::hashing::named;
 use ltk_meta::property::Kind;
 use ltk_meta::walk::{Leaf, Node, TreeNode as _, TreeValue, Visit, Visitor};
 use parking_lot::Mutex;

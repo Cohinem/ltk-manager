@@ -20,6 +20,7 @@ use std::path::PathBuf;
 
 use chrono::{DateTime, Duration, Utc};
 use fs_err as fs;
+use ltk_manager_base::error::ErrorKind;
 use ltk_manager_core::diagnostics::game_log::GameLogFacts;
 use ltk_manager_core::diagnostics::incident::{
     ClassifyContext, Ending, EvidenceSource, GameRecord, LaunchKind, ModFootprint, OverlayDetail,
@@ -27,7 +28,6 @@ use ltk_manager_core::diagnostics::incident::{
     VerdictKind,
 };
 use ltk_manager_core::diagnostics::store::IncidentStore;
-use ltk_manager_core::error::ErrorKind;
 use ltk_manager_core::patcher::injector::WadScanFailure;
 use ltk_manager_core::patcher::{InjectionStage, SessionOrigin};
 

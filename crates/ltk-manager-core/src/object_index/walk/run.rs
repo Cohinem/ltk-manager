@@ -12,18 +12,18 @@ use walkdir::WalkDir;
 
 use crate::bin_document::{EntryKey, HashPath, Lens, RowNames, Wanted, hex};
 use crate::bin_walk::write_json_string;
-use crate::budget::Budget;
-use crate::error::AppResult;
 use crate::game_index::FIND_LIMIT;
 use crate::game_wads::{GameArchives, mount_wad};
 use crate::meta_schema::SchemaAt;
 use crate::preview::AssetRef;
-use crate::utils::natural_order::compare_names;
 use crate::workshop::layer;
+use ltk_manager_base::budget::Budget;
+use ltk_manager_base::error::AppResult;
+use ltk_manager_base::utils::natural_order::compare_names;
 
 use super::super::{ObjectIndex, ReferenceGroup, ReferenceHit, ReferenceProperty, ReferenceResult};
 use super::{HitStep, WalkHit, WalkTarget, scan_bin};
-use crate::events::ReferenceWalkProgress;
+use ltk_manager_base::events::ReferenceWalkProgress;
 
 /// One bin of a project's layers, which the walk reads beside the install's.
 #[derive(Debug, Clone, PartialEq, Eq)]

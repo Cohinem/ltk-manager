@@ -124,7 +124,7 @@ mod tests {
     /// fails before it reaches either.
     fn library() -> ModLibraryState {
         ModLibraryState(ltk_manager_core::mods::ModLibrary::new(
-            Arc::new(ltk_manager_core::events::NullEventSink),
+            Arc::new(ltk_manager_base::events::NullEventSink),
             None,
             "0.0.0",
             Arc::default(),

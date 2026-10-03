@@ -25,14 +25,14 @@ use ltk_wad::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult};
-use crate::events::{BackendEvent, EventSink, ExtractProgress};
 use crate::file_kind::WorkshopFileKind;
 use crate::game_index::GameIndex;
 use crate::game_wads::{GameArchives, WadSource, mount_wad};
 use crate::hashtables::WadPathResolver;
-use crate::utils::game::GameDir;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::events::{BackendEvent, EventSink, ExtractProgress};
+use ltk_manager_base::utils::game::GameDir;
 
 /// How often the run may emit an [`ExtractProgress`].
 ///

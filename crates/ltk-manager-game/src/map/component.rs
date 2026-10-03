@@ -1,7 +1,7 @@
 //! A component of a map's `MapContainer`, and the scalars its fields state.
 
 use ltk_hash::{BinHash, Hash as _};
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use ltk_meta::walk::Leaf;
 
 use super::MapPath;

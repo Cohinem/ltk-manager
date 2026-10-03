@@ -13,8 +13,8 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::error::{AppError, DomainError, ErrorKind};
-use crate::events::{LaunchProgress, LaunchStage};
+use ltk_manager_base::error::{AppError, DomainError, ErrorKind};
+use ltk_manager_base::events::{LaunchProgress, LaunchStage};
 
 /// Which product and patchline to launch.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -231,7 +231,7 @@ impl From<ritoclient::LauncherError> for LauncherError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::events::{SessionEnded, SessionGameRunning, SessionStarted};
+    use ltk_manager_base::events::{SessionEnded, SessionGameRunning, SessionStarted};
 
     /// The frontend switches on these strings, so a mirror that drifts from the
     /// spelling upstream sends is worse than no mirror at all.

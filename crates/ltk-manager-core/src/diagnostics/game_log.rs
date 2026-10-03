@@ -19,7 +19,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 use super::log_codes::{self, CodeKind};
-use crate::utils::path::slashed;
+use ltk_manager_base::utils::path::slashed;
 
 /// The tail of the log the excerpt always keeps.
 const TAIL_LINES: usize = 40;

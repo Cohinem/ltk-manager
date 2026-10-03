@@ -3,11 +3,11 @@
 use super::super::{Context, ForcibleMapSkin, forcible_map_skins, inject};
 use super::*;
 use crate::meta_schema::{MetaSchema, PatchSchema};
-use crate::utils::game::GameDir;
 use fs_err as fs;
 use ltk_game_data::{
     ApplyDiagnosticKind, EntryName, OverridePath, Selector, apply, load_declarations,
 };
+use ltk_manager_base::utils::game::GameDir;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject};
 use ltk_overlay::ModContentProvider as _;

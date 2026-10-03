@@ -2,11 +2,11 @@
 
 use super::super::{Context, MapDecoration, map_decorations};
 use super::*;
-use crate::utils::game::GameDir;
 use fs_err as fs;
 use ltk_game_data::{
     ApplyDiagnosticKind, EntryName, NoSchema, OverridePath, Selector, apply, load_declarations,
 };
+use ltk_manager_base::utils::game::GameDir;
 use ltk_meta::BinObject;
 use ltk_meta::property::values;
 use ltk_wad::{PathResolver, WadBuilder, WadChunkBuilder, WadHash};

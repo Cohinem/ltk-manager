@@ -3,7 +3,7 @@
 use super::game_skins::GameSkins;
 use super::overrides::Overrides;
 use super::{BuiltinMod, Context};
-use crate::error::AppResult;
+use ltk_manager_base::error::AppResult;
 
 /// What a ward skin bin is replaced with, so the game falls back to the ward's base skin. No bin
 /// starts with these four bytes.

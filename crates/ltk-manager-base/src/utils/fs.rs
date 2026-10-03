@@ -18,7 +18,7 @@ use crate::error::{AppError, AppResult, IoContext, io_context};
 ///
 /// Fails when the existing `target` cannot be moved aside, or `staged` cannot be moved into
 /// place.
-pub(crate) fn replace_keeping_old(
+pub fn replace_keeping_old(
     staged: &Path,
     target: &Path,
     aside: &Path,
@@ -54,7 +54,7 @@ pub(crate) fn replace_keeping_old(
 ///
 /// Fails when the temporary file cannot be written or renamed. A failed rename removes the
 /// temporary file and leaves the destination as it was.
-pub(crate) fn atomic_write(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+pub fn atomic_write(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     let tmp = temp_beside(path);
     fs::write(&tmp, contents)?;
 
@@ -80,7 +80,7 @@ fn temp_beside(path: &Path) -> PathBuf {
 /// # Errors
 ///
 /// Fails when `value` cannot be serialized, or the folder or the file cannot be written.
-pub(crate) fn write_json<T: Serialize>(path: &Path, value: &T) -> AppResult<()> {
+pub fn write_json<T: Serialize>(path: &Path, value: &T) -> AppResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -93,7 +93,7 @@ pub(crate) fn write_json<T: Serialize>(path: &Path, value: &T) -> AppResult<()> 
 ///
 /// An unreadable document is logged and replaced, because every caller holds a cache that fills
 /// again.
-pub(crate) fn read_json_or_default<T: DeserializeOwned + Default>(path: &Path) -> T {
+pub fn read_json_or_default<T: DeserializeOwned + Default>(path: &Path) -> T {
     let Ok(contents) = fs::read(path) else {
         return T::default();
     };
@@ -115,7 +115,7 @@ pub(crate) fn read_json_or_default<T: DeserializeOwned + Default>(path: &Path) -
 ///
 /// Fails with [`AppError::Io`] on the first entry that cannot be read or
 /// written, which leaves whatever was already copied in place.
-pub(crate) fn copy_dir_all(source: &Path, destination: &Path) -> AppResult<()> {
+pub fn copy_dir_all(source: &Path, destination: &Path) -> AppResult<()> {
     fs::create_dir_all(destination)?;
 
     for entry in walkdir::WalkDir::new(source).follow_links(false) {

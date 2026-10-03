@@ -1,8 +1,8 @@
 //! Unit tests for the merged archive tree, and for the search and find over it.
 
 use super::*;
-use crate::matcher::PatternSyntax;
 use fs_err as fs;
+use ltk_manager_base::matcher::PatternSyntax;
 use ltk_wad::{WadBuilder, WadChunkBuilder};
 use std::io::Write as _;
 use std::path::Path;

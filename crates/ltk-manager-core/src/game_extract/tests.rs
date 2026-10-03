@@ -1,7 +1,7 @@
 //! Unit tests for the extract plan, the layouts it writes and the paths it refuses.
 
 use super::*;
-use crate::events::NullEventSink;
+use ltk_manager_base::events::NullEventSink;
 use ltk_wad::{WadBuilder, WadChunkBuilder};
 use std::io::Write as _;
 

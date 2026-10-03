@@ -10,24 +10,24 @@ use tauri_specta::Builder;
 /// The builder the shared bindings are generated from.
 #[cfg(test)]
 fn builder() -> Builder<Wry> {
-    use ltk_manager_core::diagnostics::incident::Incident;
-    use ltk_manager_core::events::LayerFilesChanged;
-    use ltk_manager_core::events::LayoutMigrationReport;
-    use ltk_manager_core::events::ReferenceWalkProgress;
-    use ltk_manager_core::events::{
+    use ltk_manager_base::events::LayerFilesChanged;
+    use ltk_manager_base::events::LayoutMigrationReport;
+    use ltk_manager_base::events::ReferenceWalkProgress;
+    use ltk_manager_base::events::{
         ExportProgress, ExtractProgress, FantomeImportProgress, GitImportProgress,
         HashtableSyncProgress, HealthSweepProgress, InstallProgress, LayoutMigrationProgress,
         MigrationProgress, ModRepairProgress, ModStorageProgress, OverlayProgress,
     };
-    use ltk_manager_core::events::{
+    use ltk_manager_base::events::{
         LaunchProgress, SessionChanged, SessionEnded, SessionGameRunning, SessionStarted,
     };
+    use ltk_manager_core::diagnostics::incident::Incident;
 
     use crate::patcher::thread::{
         GameAttachedPayload, GameOverlayPayload, LinkedBinWarningPayload, WadScanFailedPayload,
     };
+    use ltk_manager_base::events::ProtocolInstallProgress;
     use ltk_manager_core::deep_link::{DeepLinkInstallRequest, DeepLinkSettingsRequest};
-    use ltk_manager_core::events::ProtocolInstallProgress;
 
     /* A 64-bit integer crosses as a JS number. None reaches the range where that loses
     a digit, and `JSON.stringify` refuses a `bigint`. */

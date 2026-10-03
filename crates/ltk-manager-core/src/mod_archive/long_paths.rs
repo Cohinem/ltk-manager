@@ -19,10 +19,10 @@
 //! mod's own directory afterwards, so the staging path answers for a mod that
 //! never has it.
 
-use crate::error::{AppError, AppResult};
 use crate::mod_archive::open_fantome;
-use crate::platform::long_paths_enabled;
 use fs_err as fs;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::platform::long_paths_enabled;
 use ltk_mod_project::ProjectPaths;
 use ltk_modpkg::Modpkg;
 use std::io::{Read, Seek};

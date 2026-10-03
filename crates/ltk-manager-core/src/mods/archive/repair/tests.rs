@@ -1,7 +1,6 @@
 //! End-to-end tests at the repair seam: a library holding a fantome whose bin
 //! carries a property type the migration table moves.
 
-use crate::events::ModStorage;
 use crate::mods::ModHealth;
 use crate::mods::StorageLayout as _;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
@@ -15,6 +14,7 @@ use crate::mods::test_support::{
 };
 use fs_err as fs;
 use ltk_hash::{Hash as _, WadHash};
+use ltk_manager_base::events::ModStorage;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::values;
 use std::path::Path;
@@ -81,7 +81,7 @@ fn a_removed_bank_is_gone_from_the_repaired_archive() {
     let left = crate::problems::ProjectFiles::in_archive(
         &archive,
         &config,
-        crate::budget::Budget::repair(),
+        ltk_manager_base::budget::Budget::repair(),
         &resolver_naming(&[SILENT_BANK_IN_WAD, OTHER]),
         None,
     )

@@ -9,7 +9,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::error::{AppError, DomainError, ErrorKind};
+use ltk_manager_base::error::{AppError, DomainError, ErrorKind};
 
 mod changes;
 mod clipboard;

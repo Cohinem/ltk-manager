@@ -1,6 +1,6 @@
 //! The slot the app keeps one index in, and the generation each scan claims a ticket from.
 
-use crate::generation::{Generation, line};
+use ltk_manager_base::generation::{Generation, line};
 use parking_lot::Mutex;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};

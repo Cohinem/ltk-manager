@@ -8,8 +8,8 @@ use chrono::{DateTime, Utc};
 use serde::Deserialize;
 
 use super::incident::Incident;
-use crate::error::{AppError, AppResult};
-use crate::utils::fs::write_json;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::fs::write_json;
 
 /// The incident files, capped by count and by size.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 use ltk_hash::BinHash;
 
 use crate::bin_document::hex;
-use crate::utils::natural_order::compare_names;
+use ltk_manager_base::utils::natural_order::compare_names;
 
 use super::{
     NamedObject, ObjectDirListing, ObjectIndex, ObjectNodeEntry, ObjectPrefixEntry, UNNAMED_PREFIX,

@@ -8,7 +8,7 @@ use super::fs::atomic_write;
 use crate::error::{AppError, AppResult};
 
 /// The file a thumbnail is stored as, beside the mod's or the project's config.
-pub(crate) const THUMBNAIL_FILE: &str = "thumbnail.webp";
+pub const THUMBNAIL_FILE: &str = "thumbnail.webp";
 
 /// The PNG an older build stored, removed once a WebP replaces it.
 const LEGACY_THUMBNAIL_FILE: &str = "thumbnail.png";
@@ -30,7 +30,7 @@ const QUALITY: f32 = 90.0;
 ///
 /// Fails when `source` is missing, is not a supported image, does not decode, or the
 /// thumbnail cannot be written.
-pub(crate) fn write_thumbnail(source: &Path, dir: &Path) -> AppResult<()> {
+pub fn write_thumbnail(source: &Path, dir: &Path) -> AppResult<()> {
     if !source.exists() {
         return Err(AppError::InvalidPath(source.display().to_string()));
     }

@@ -13,9 +13,6 @@
 //!
 //! Uninstalling reverses both and scrubs the mod from every profile and folder.
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult, Utf8PathExt, io_context};
-use crate::events::{BackendEvent, InstallProgress};
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::metadata::{extract_metadata, load_mod_project, read_installed_mod};
@@ -27,6 +24,9 @@ use crate::mods::types::{
 };
 use chrono::{DateTime, Utc};
 use fs_err as fs;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, io_context};
+use ltk_manager_base::events::{BackendEvent, InstallProgress};
 use ltk_wad::PathResolver;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};

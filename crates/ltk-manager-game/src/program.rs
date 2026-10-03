@@ -9,8 +9,8 @@ use hexshade::{
     Defines, ShaderCache, ShaderPath, ShaderSource, SourceError, StageProgram, TranslationCache,
 };
 use ltk_hash::{BinHash, WadHash};
+use ltk_manager_base::error::AppResult;
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument, RowNames};
-use ltk_manager_core::error::AppResult;
 use ltk_manager_core::preview::AssetRef;
 use serde::{Deserialize, Serialize};
 

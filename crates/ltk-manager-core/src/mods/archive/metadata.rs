@@ -6,12 +6,12 @@
 //! not depend on the archive format, and the library view lists mods without
 //! mounting an archive.
 
-use crate::error::{AppError, AppResult, IoContext};
 use crate::mod_archive::open_fantome;
 use crate::mods::archive::reader::ModArchive;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{InstalledMod, ModLayer, ModLicense};
 use fs_err as fs;
+use ltk_manager_base::error::{AppError, AppResult, IoContext};
 use ltk_mod_project::{ModProject, ModProjectLayer};
 use std::collections::HashMap;
 use std::path::Path;

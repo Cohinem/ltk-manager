@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 use fs_err as fs;
 use ltk_mod_project::ModProjectLayer;
 
-use crate::error::AppResult;
-use crate::utils::natural_order::compare_names;
+use ltk_manager_base::error::AppResult;
+use ltk_manager_base::utils::natural_order::compare_names;
 
 /// One layer of a mod project, as much of it as a listing needs.
 ///

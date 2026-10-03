@@ -6,7 +6,7 @@
 
 use std::path::PathBuf;
 
-use ltk_manager_core::config::Config;
+use ltk_manager_base::config::Config;
 use ltk_manager_core::problems::{ProblemSeverity, analyze};
 
 fn main() {

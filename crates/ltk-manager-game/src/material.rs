@@ -15,7 +15,7 @@ pub mod pass;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use regex::Regex;

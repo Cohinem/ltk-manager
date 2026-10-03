@@ -5,7 +5,7 @@
 //! the engine derives the character from the placeable's own name.
 
 use ltk_hash::BinHash;
-use ltk_manager_core::hashing::named;
+use ltk_manager_base::hashing::named;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 

@@ -74,7 +74,6 @@ use ltk_meta::{BinDelta, BinKind, BinObject, BinStream, PropertyValueEnum};
 
 use crate::bin_document::{PropertyKind, hex, owned};
 use crate::bin_walk::{Address, Declared, FieldNames};
-use crate::game_build::GameBuild;
 use crate::meta_schema::{self, MetaSchema};
 use crate::problems::engine::parse_bin;
 use crate::problems::names::BinNames;
@@ -83,6 +82,7 @@ use crate::problems::{
     Preserved, PreservedNames, Problem, ProblemSeverity, ProjectFiles, PropertyRead, PropertyWalk,
     Rule, RuleId, RuleMeta, Sink, TypeMismatch, Walk,
 };
+use ltk_manager_base::game_build::GameBuild;
 
 use crate::meta_schema::TypeSpec;
 use table::{Conversion, Migration, MigrationTable};

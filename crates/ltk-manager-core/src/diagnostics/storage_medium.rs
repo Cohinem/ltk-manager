@@ -1,11 +1,11 @@
-//! Storage medium diagnostic — wraps `crate::storage::detect_path_storage_medium`.
+//! Storage medium diagnostic — wraps `ltk_manager_base::storage::detect_path_storage_medium`.
 //!
 //! Builds on HDD can take 15–20 minutes for a large library; this surfaces
 //! that explicitly so users see the same warning as the first-time setup
 //! flow even after they dismiss the banner.
 
 use super::{Category, Check, CheckCtx, CheckDetail, CheckSpec, Severity};
-use crate::storage::{StorageMedium, detect_path_storage_medium};
+use ltk_manager_base::storage::{StorageMedium, detect_path_storage_medium};
 
 const MEDIUM: CheckSpec = CheckSpec::new("storage.medium", "Storage medium", Category::Storage);
 

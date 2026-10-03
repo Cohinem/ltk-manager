@@ -19,7 +19,7 @@ use ltk_hashtable::{Algorithm, Category, Hashtable, HashtableEntry, HashtableSet
 use ltk_mod_project::{ConfigFormat, HASHES_DIR_NAME, ModProject, ModProjectHashtable};
 use ltk_wad::{PathResolver, WadHash};
 
-use crate::error::{AppError, AppResult, Utf8PathRefExt};
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathRefExt};
 
 /// Where a fresh table lands when the project declares none.
 const GAME_TABLE_PATH: &str = "hashes/game.hashes.txt";

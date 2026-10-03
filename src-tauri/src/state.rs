@@ -1,5 +1,5 @@
 use fs_err as fs;
-use ltk_manager_core::config::Config;
+use ltk_manager_base::config::Config;
 use ltk_manager_core::diagnostics::store::IncidentStore;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -323,7 +323,7 @@ impl Default for Settings {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ltk_manager_core::config::WadBlocklistEntry;
+    use ltk_manager_base::config::WadBlocklistEntry;
 
     #[test]
     fn settings_default_values() {

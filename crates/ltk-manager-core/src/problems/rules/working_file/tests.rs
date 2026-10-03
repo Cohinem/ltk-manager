@@ -7,9 +7,9 @@ use fs_err as fs;
 
 use super::*;
 
-use crate::config::Config;
 use crate::problems::ProjectFiles;
 use crate::workshop::RECOMMENDED_IGNORE_RULES;
+use ltk_manager_base::config::Config;
 
 /// Write `contents` to `relative` under `root`, creating every directory above it.
 fn touch(root: &Path, relative: &str, contents: &[u8]) {

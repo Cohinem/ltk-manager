@@ -12,11 +12,11 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
-use crate::error::AppResult;
-use crate::events::{BackendEvent, ExportProgress};
 use crate::mods::ModLibrary;
 use crate::mods::index::document::get_active_profile;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::AppResult;
+use ltk_manager_base::events::{BackendEvent, ExportProgress};
 
 use super::metadata::read_installed_mod;
 
@@ -76,9 +76,9 @@ impl ModLibrary {
     ///
     /// # Errors
     ///
-    /// Fails with [`AppError::Io`](crate::error::AppError::Io) when the
+    /// Fails with [`AppError::Io`](ltk_manager_base::error::AppError::Io) when the
     /// destination cannot be written, and with
-    /// [`AppError::ZipError`](crate::error::AppError::ZipError) when the zip
+    /// [`AppError::ZipError`](ltk_manager_base::error::AppError::ZipError) when the zip
     /// cannot be assembled. Either leaves what was already written in place.
     pub fn export_mods(
         &self,

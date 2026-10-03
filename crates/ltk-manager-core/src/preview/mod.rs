@@ -23,10 +23,10 @@ use std::num::NonZeroU32;
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult, DomainError, ErrorKind};
 use crate::file_kind::WorkshopFileKind;
 use crate::game_wads::WadCache;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult, DomainError, ErrorKind};
 
 /// Re-exported because [`PreviewError::Unsupported`] carries one.
 pub use animation::{ClipHeader, header as clip_header};

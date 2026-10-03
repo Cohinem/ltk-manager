@@ -5,7 +5,7 @@ use std::marker::PhantomData;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// How many rows a scan reads between two tests of its generation.
-pub(crate) const STALE_CHECK_INTERVAL: u32 = 4096;
+pub const STALE_CHECK_INTERVAL: u32 = 4096;
 
 /// The newest scan asked for on one line, so a scan can see it has been overtaken.
 ///

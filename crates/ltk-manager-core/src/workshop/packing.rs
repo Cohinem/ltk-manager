@@ -3,10 +3,10 @@ use super::{
     IgnoredEntry, PackFormat, PackProjectArgs, PackResult, ProjectDir, ProjectTextFile,
     README_FILE_NAME, ValidationResult, Workshop, WorkshopProject, is_valid_project_name,
 };
-use crate::error::{AppError, AppResult};
-use crate::utils::thumbnail::{THUMBNAIL_FILE, write_thumbnail};
 use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::thumbnail::{THUMBNAIL_FILE, write_thumbnail};
 use ltk_mod_project::fantome::FantomeFormat;
 use ltk_mod_project::modpkg::ModpkgFormat;
 use ltk_mod_project::{ModIgnore, ModProject, PackError, PackReport, PackageFormat, ProjectPacker};

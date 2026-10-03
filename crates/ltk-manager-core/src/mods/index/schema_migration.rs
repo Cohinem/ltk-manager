@@ -1,11 +1,11 @@
-use crate::error::{AppError, AppResult};
 use fs_err as fs;
+use ltk_manager_base::error::{AppError, AppResult};
 use serde_json::Value;
 use std::path::Path;
 
 use super::{LibraryIndex, library_index_path};
 use crate::mods::types::ROOT_FOLDER_ID;
-use crate::utils::fs::atomic_write;
+use ltk_manager_base::utils::fs::atomic_write;
 
 /// Current schema version for the library index.
 /// Increment this when making breaking changes to the schema and add a

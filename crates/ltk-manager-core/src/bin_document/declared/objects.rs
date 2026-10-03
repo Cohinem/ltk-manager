@@ -15,9 +15,9 @@ use super::super::edit::{Edit, bin_hash};
 use super::super::properties::field_path;
 use super::super::{BinDocument, BinDocumentError, ClassChoice, EditRejection, hex};
 use super::{RenderNames, declaring, entry_name, not_declared, read_entry};
-use crate::error::AppError;
 use crate::meta_schema::SchemaAt;
 use crate::vfx::vfx_system_template;
+use ltk_manager_base::error::AppError;
 
 /// Where a new object of a declared document starts.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

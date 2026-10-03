@@ -5,8 +5,8 @@ use std::num::NonZeroUsize;
 
 use super::*;
 use crate::bin_document::{BinDocuments, key_text};
-use crate::error::AppError;
 use crate::sandbox::SandboxRef;
+use ltk_manager_base::error::AppError;
 use ltk_meta::Bin;
 use ltk_meta::property::PropertyValueEnum;
 
@@ -691,7 +691,12 @@ fn the_store_refuses_a_patch_behind_a_gate_and_shares_one_across_ids() {
         layer: "base".to_owned(),
         path: "a.bin".to_owned(),
     };
-    let read = || layer.read(&crate::config::Config::default(), &Default::default());
+    let read = || {
+        layer.read(
+            &ltk_manager_base::config::Config::default(),
+            &Default::default(),
+        )
+    };
     let file_tab = store.open(&SandboxRef::Game, layer.clone(), read).unwrap();
     let object_tab = store.open(&SandboxRef::Game, layer.clone(), read).unwrap();
 
@@ -779,7 +784,10 @@ fn layer_asset(dir: &Path, name: &str) -> AssetRef {
 }
 
 fn read_layer(asset: &AssetRef) -> AppResult<Vec<u8>> {
-    asset.read(&crate::config::Config::default(), &Default::default())
+    asset.read(
+        &ltk_manager_base::config::Config::default(),
+        &Default::default(),
+    )
 }
 
 #[test]
@@ -869,7 +877,12 @@ fn closing_every_id_keeps_a_tree_with_unsaved_edits_for_the_next_open() {
         layer: "base".to_owned(),
         path: "a.bin".to_owned(),
     };
-    let read = || layer.read(&crate::config::Config::default(), &Default::default());
+    let read = || {
+        layer.read(
+            &ltk_manager_base::config::Config::default(),
+            &Default::default(),
+        )
+    };
     let edited_tab = store.open(&SandboxRef::Game, layer.clone(), read).unwrap();
     store
         .edit(edited_tab, |open| {

@@ -7,8 +7,8 @@ use super::overrides::Overrides;
 use super::skin_bin::SkinBin;
 use super::stand_in::BaseSkin;
 use super::{BuiltinMod, Context};
-use crate::config::BaseSkinsScope;
-use crate::error::AppResult;
+use ltk_manager_base::config::BaseSkinsScope;
+use ltk_manager_base::error::AppResult;
 use std::collections::BTreeMap;
 
 /// Every skin past the base of each champion in scope stands in for the base skin.

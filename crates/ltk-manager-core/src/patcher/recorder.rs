@@ -213,10 +213,10 @@ impl GameRecorder {
 mod tests {
     use super::*;
     use crate::diagnostics::incident::{LaunchKind, OverlayOutcome};
-    use crate::error::ErrorKind;
     use crate::patcher::InjectionStage;
     use crate::patcher::injector::WadScanFailure;
     use chrono::TimeZone;
+    use ltk_manager_base::error::ErrorKind;
 
     fn at(secs: i64) -> DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 8, 21, 21, 0, 0).unwrap() + chrono::Duration::seconds(secs)

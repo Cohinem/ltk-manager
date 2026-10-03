@@ -9,7 +9,7 @@ use ltk_wad::WadHash;
 
 use crate::bin_document::hex;
 use crate::game_index::FIND_LIMIT;
-use crate::utils::natural_order::compare_names;
+use ltk_manager_base::utils::natural_order::compare_names;
 
 use super::{ObjectIndex, ReferenceGroup, ReferenceHit, ReferenceResult, STALE_CHECK_INTERVAL};
 

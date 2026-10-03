@@ -1,11 +1,11 @@
 use super::*;
-use crate::events::ModStorage;
 use crate::mods::test_support::{
     make_named_fantome_zip, make_test_library, make_test_profile, make_versioned_fantome_zip,
     place_installed_mod, place_mod_files,
 };
 use crate::mods::types::LibraryFolder;
 use assert_matches::assert_matches;
+use ltk_manager_base::events::ModStorage;
 use ltk_wad::NoResolver;
 
 fn context() -> InstallContext<'static> {

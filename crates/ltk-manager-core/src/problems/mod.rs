@@ -121,7 +121,7 @@ mod bin_hash_hex {
     use ltk_hash::BinHash;
     use serde::{Deserialize as _, Deserializer, Serialize as _, Serializer};
 
-    use crate::hashing::HexBinHash;
+    use ltk_manager_base::hashing::HexBinHash;
 
     pub fn serialize<S: Serializer>(hash: &BinHash, ser: S) -> Result<S::Ok, S::Error> {
         HexBinHash::from(*hash).serialize(ser)

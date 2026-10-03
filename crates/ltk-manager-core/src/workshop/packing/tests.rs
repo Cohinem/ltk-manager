@@ -1,10 +1,10 @@
 //! Unit tests for pre-flight validation and for what a pack reports.
 
 use super::*;
-use crate::events::NullEventSink;
 use crate::workshop::WorkshopError;
 use assert_matches::assert_matches;
 use indexmap::IndexMap;
+use ltk_manager_base::events::NullEventSink;
 use ltk_mod_project::ModProjectLayer;
 use std::sync::Arc;
 

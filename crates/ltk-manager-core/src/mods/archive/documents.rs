@@ -8,10 +8,10 @@
 //! A license text reaches disk for neither format and is not cached here. It is
 //! read once, rarely, and only when a reader asks to see it.
 
-use crate::error::{AppError, AppResult};
 use crate::mods::index::{LibraryIndex, LibraryModEntry, ModArchiveFormat};
 use fs_err as fs;
 use ltk_fantome::FantomeReader;
+use ltk_manager_base::error::{AppError, AppResult};
 use ltk_modpkg::{Modpkg, error::ModpkgError};
 use serde::Serialize;
 use std::path::Path;

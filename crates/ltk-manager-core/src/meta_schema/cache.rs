@@ -6,10 +6,10 @@ use fs_err as fs;
 use serde::{Deserialize, Serialize};
 
 use super::{MetaSchema, MetaSchemaError};
-use crate::game_build::GameBuild;
 use crate::hashtables::HashtableCache;
 use crate::hashtables::MetaSchemaVersion;
-use crate::utils::fs::atomic_write;
+use ltk_manager_base::game_build::GameBuild;
+use ltk_manager_base::utils::fs::atomic_write;
 
 pub use ltk_mimir_cache::NoCacheDirError;
 

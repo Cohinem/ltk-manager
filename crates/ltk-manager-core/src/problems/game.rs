@@ -13,8 +13,8 @@ use std::sync::OnceLock;
 
 use ltk_wad::WadHash;
 
-use crate::config::Config;
 use crate::game_wads::{GameArchives, WadCache, mount_wad};
+use ltk_manager_base::config::Config;
 
 /// The chunks of the installed game.
 ///
@@ -153,7 +153,7 @@ impl InstalledContent {
 
     /// Each chunk's hash and decompressed size in one archive's table of
     /// contents.
-    fn chunks_in(&self, wad_name: &str) -> crate::error::AppResult<Vec<(WadHash, u64)>> {
+    fn chunks_in(&self, wad_name: &str) -> ltk_manager_base::error::AppResult<Vec<(WadHash, u64)>> {
         let wad = mount_wad(&self.archives.archive_path(wad_name)?)?;
         Ok(wad
             .chunks()

@@ -57,7 +57,7 @@ pub(crate) fn is_running_as_admin() -> bool {
         return false;
     }
     // SAFETY: the token came from OpenProcessToken and nothing else holds it.
-    let Some(token) = (unsafe { crate::platform::windows::owned_handle(token) }) else {
+    let Some(token) = (unsafe { ltk_manager_base::platform::windows::owned_handle(token) }) else {
         return false;
     };
 

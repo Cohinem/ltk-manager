@@ -35,8 +35,8 @@
 
 use std::collections::HashMap;
 
-use crate::hashing::named;
 use ltk_hash::BinHash;
+use ltk_manager_base::hashing::named;
 use ltk_meta::property::Kind;
 use ltk_meta::walk::{Node, TreeNode as _};
 use ltk_meta::{BinFile, PropertyValueEnum};

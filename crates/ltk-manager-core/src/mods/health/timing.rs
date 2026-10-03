@@ -13,10 +13,10 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 
-use crate::budget::Budget;
-use crate::config::Config;
-use crate::error::AppResult;
 use crate::mods::ModLibrary;
+use ltk_manager_base::budget::Budget;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::AppResult;
 
 /// What one timed pass over the library cost.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -77,7 +77,7 @@ impl ModLibrary {
         let budget = self.begin_health_run(Budget::repair());
         let timed = budget.map(
             &due,
-            crate::budget::MODS_AT_ONCE,
+            ltk_manager_base::budget::MODS_AT_ONCE,
             |_| 0,
             |(mod_id, _)| {
                 // Through the `_within` pair, so every mod of the pass spends

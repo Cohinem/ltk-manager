@@ -7,15 +7,15 @@
 //! can't. All of it is best-effort: a mod that fails analysis stays
 //! uncategorized rather than failing its install.
 
-use crate::config::Config;
-use crate::error::{AppError, AppResult};
-use crate::events::BackendEvent;
 use crate::mod_archive::open_modpkg;
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::{
     ChampionRoster, DerivedCategorization, ModLibrary, ModWadReport, WadReportState,
 };
 use camino::Utf8PathBuf;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::events::BackendEvent;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -66,7 +66,7 @@ impl ModLibrary {
         };
 
         let roster = ChampionRoster::from_internal_names(
-            crate::utils::game::GameDir::from_path(game_dir).champion_names(),
+            ltk_manager_base::utils::game::GameDir::from_path(game_dir).champion_names(),
         );
         let precise = DerivedCategorization::from_chunk_paths(&chunk_paths, &roster);
         if !precise.is_empty() {
@@ -86,7 +86,7 @@ impl ModLibrary {
         reports: &WadReportState,
         mod_id: &str,
     ) -> Option<ModWadReport> {
-        let game_dir = match crate::utils::game::GameDir::resolve(config) {
+        let game_dir = match ltk_manager_base::utils::game::GameDir::resolve(config) {
             Ok(dir) => dir.into_path(),
             Err(e) => {
                 tracing::info!("Skipping WAD analysis for {mod_id}: {e}");

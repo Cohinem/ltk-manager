@@ -1,10 +1,10 @@
 //! The chunks a built-in mod overrides and the properties it declares, written as a mod project
 //! for the overlay to read.
 
-use crate::error::AppResult;
 use camino::{Utf8Path, Utf8PathBuf};
 use filetime::FileTime;
 use fs_err as fs;
+use ltk_manager_base::error::AppResult;
 use ltk_mod_project::{ModProject, ModProjectAuthor, ModProjectLayer};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};

@@ -1,8 +1,8 @@
 use super::*;
-use crate::events::NullEventSink;
 use crate::hashtables::{LayeredHashDb, WadPathResolver};
 use crate::mods::test_support::{make_bad_crc_fantome_zip, make_full_fantome_zip};
 use assert_matches::assert_matches;
+use ltk_manager_base::events::NullEventSink;
 use parking_lot::Mutex;
 use std::io::Write;
 use std::path::PathBuf;
@@ -177,7 +177,7 @@ type Reported = (FantomeImportStage, Option<String>, u32, u32);
 #[derive(Default)]
 struct RecordingStages(Mutex<Vec<Reported>>);
 
-impl crate::events::EventSink for RecordingStages {
+impl ltk_manager_base::events::EventSink for RecordingStages {
     fn emit(&self, event: BackendEvent) {
         if let BackendEvent::FantomeImportProgress(progress) = event {
             self.0.lock().push((
@@ -198,7 +198,8 @@ fn import_reports_one_stage_per_unit_then_finalizing_and_complete() {
     let archive = tmp.path().join("full.fantome");
     make_full_fantome_zip(&archive);
     let stages = Arc::new(RecordingStages::default());
-    let workshop = Workshop::new(Arc::clone(&stages) as Arc<dyn crate::events::EventSink>);
+    let workshop =
+        Workshop::new(Arc::clone(&stages) as Arc<dyn ltk_manager_base::events::EventSink>);
     let config = Config {
         workshop_path: Some(tmp.path().to_path_buf()),
         ..Config::default()

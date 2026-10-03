@@ -20,9 +20,9 @@ use ltk_mod_project::{ModIgnore, ModProjectLayer};
 use serde::Serialize;
 
 use super::ProjectDir;
-use crate::error::{AppResult, Utf8PathRefExt as _};
-use crate::hashing::HexBinHash;
 use crate::hashtables::ObjectNames;
+use ltk_manager_base::error::{AppResult, Utf8PathRefExt as _};
+use ltk_manager_base::hashing::HexBinHash;
 
 /// The sign of a declared key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]

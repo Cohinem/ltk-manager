@@ -5,4 +5,4 @@ pub mod lazy_slot;
 pub mod locale;
 pub mod natural_order;
 pub mod path;
-pub(crate) mod thumbnail;
+pub mod thumbnail;

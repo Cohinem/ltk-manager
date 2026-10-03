@@ -19,9 +19,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::bin_document::PropertyKind;
 use crate::bin_document::hex;
-use crate::game_build::GameBuild;
-use crate::hashing::HexBinHash;
 use crate::hashtables::MetaSchemaVersion;
+use ltk_manager_base::game_build::GameBuild;
+use ltk_manager_base::hashing::HexBinHash;
 
 mod fields;
 mod game_data;
@@ -543,7 +543,7 @@ impl MetaSchema {
 
         Ok(Self {
             generation: published.hash_source.fetched_at,
-            digest: crate::hashing::content_hash(json),
+            digest: ltk_manager_base::hashing::content_hash(json),
             latest,
             patch,
             patches,

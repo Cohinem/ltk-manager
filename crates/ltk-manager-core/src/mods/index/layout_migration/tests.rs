@@ -1,11 +1,11 @@
 use super::*;
-use crate::events::ModStorage;
 use crate::mods::index::document::load_library_index;
 use crate::mods::test_support::{
     RecordingEventSink, make_full_fantome_zip, make_library_with_events, make_slugged_entry,
     make_test_entry, make_test_library, mod_project_named, place_installed_mod, seed_library,
 };
 use assert_matches::assert_matches;
+use ltk_manager_base::events::ModStorage;
 use std::sync::Arc;
 
 /// Lay out one mod the way the pre-slug library did: `archives/<id>.<ext>` plus

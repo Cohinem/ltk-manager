@@ -5,10 +5,10 @@
 //! workshop strings editor can suggest valid field names and show what each one
 //! currently says in game.
 
-use crate::config::Config;
 use crate::game_wads::{chunk_bytes, mount_wad};
 use crate::hashtables::HashtableCache;
-use crate::utils::lazy_slot::LazySlot;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::utils::lazy_slot::LazySlot;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -205,7 +205,7 @@ impl StringKeyIndexState {
 /// Any failure (unset league path, missing WAD/chunk, parse error) just means
 /// suggestions come without value previews.
 fn load_game_stringtable(config: &Config) -> Option<(String, ltk_rst::Stringtable)> {
-    let game_dir = match crate::utils::game::GameDir::resolve(config) {
+    let game_dir = match ltk_manager_base::utils::game::GameDir::resolve(config) {
         Ok(dir) => dir,
         Err(e) => {
             tracing::debug!("String index: game dir unavailable: {}", e);

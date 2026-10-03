@@ -1,7 +1,7 @@
 //! The UI classes and fields a view read matches, hashed from their names.
 
 use ltk_hash::BinHash;
-pub(super) use ltk_manager_core::hashing::named;
+pub(super) use ltk_manager_base::hashing::named;
 
 pub(super) const PATH_HASH_TO_SELF: BinHash = named("PathHashToSelf");
 pub(super) const BASE_LOADABLE: BinHash = named("BaseLoadable");

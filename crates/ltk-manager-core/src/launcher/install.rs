@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use ritoclient::ids::products;
 use ritoclient::prelude::*;
 
-use crate::utils::path::slashed;
+use ltk_manager_base::utils::path::slashed;
 
 /// One installed League patchline, as the product registry lists it.
 #[derive(Debug, Clone, PartialEq, Eq)]

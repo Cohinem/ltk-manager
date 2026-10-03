@@ -15,13 +15,13 @@ use crate::services::shared::off_thread;
 use crate::services::shared::read_asset;
 use ltk_game_data::Target;
 use ltk_hash::{BinHash, WadHash};
+use ltk_manager_base::hashing::HexBinHash;
 use ltk_manager_core::bin_document::{
     BinChange, BinDocument, BinDocumentHandle, BinDocumentId, BinDocuments, BinEdit, BinFindResult,
     BinRow, BinRows, ChangeBaseline, ChoiceQuery, Choices, DeclareContext, DeclaredModuleChoice,
     DeclaredState, Declaring, Dependency, EditOutcome, HistoryStep, LayerOverride, ReadOnly,
     Reshape, RowDeclaration, RowNames, VariantSource,
 };
-use ltk_manager_core::hashing::HexBinHash;
 use ltk_manager_core::meta_schema::SchemaAt;
 use ltk_manager_core::meta_schema::{ClassSchema, PatchSchema, SchemaNames};
 use ltk_manager_core::preview::AssetRef;

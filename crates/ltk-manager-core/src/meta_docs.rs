@@ -10,9 +10,9 @@ use parking_lot::Mutex;
 
 pub use ltk_meta_docs::{ClassDocs, Doc, PropertyDocs};
 
-use crate::game_build::GameBuild;
 use crate::meta_schema::MetaSchema;
 use crate::meta_schema::cache::MetaSchemaCache;
+use ltk_manager_base::game_build::GameBuild;
 
 /// The documentation for `class`, including the property documentation of its bases.
 ///

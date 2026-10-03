@@ -18,8 +18,8 @@ use ltk_meta::property::Kind;
 use serde::Deserialize;
 
 use super::kinds;
-use crate::game_build::GameBuild;
 use crate::meta_schema::TypeSpec;
+use ltk_manager_base::game_build::GameBuild;
 
 /// The first table, and the one the deadline names.
 const TABLE_16_17: &str = include_str!("../../tables/binfile_migration_16.17.8087655.jsonl");

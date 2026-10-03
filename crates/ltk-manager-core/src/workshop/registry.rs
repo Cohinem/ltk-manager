@@ -1,8 +1,8 @@
 //! The project folders the workshop knows about outside its own folder.
 
-use crate::error::AppResult;
-use crate::utils::fs::{read_json_or_default, write_json};
 use chrono::{DateTime, Utc};
+use ltk_manager_base::error::AppResult;
+use ltk_manager_base::utils::fs::{read_json_or_default, write_json};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

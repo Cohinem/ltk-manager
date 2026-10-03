@@ -14,9 +14,9 @@ use crate::patcher::{
     PatcherThread, SessionParams, StoredPatcherConfig,
 };
 use crate::state::{IncidentStoreState, SettingsState};
+use ltk_manager_base::utils::client_settings::LeagueClientSettings;
+use ltk_manager_base::utils::game::GameDir;
 use ltk_manager_core::diagnostics::binary_id::PatcherBinaries;
-use ltk_manager_core::utils::client_settings::LeagueClientSettings;
-use ltk_manager_core::utils::game::GameDir;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 

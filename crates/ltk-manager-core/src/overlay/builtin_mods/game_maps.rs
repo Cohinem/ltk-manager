@@ -1,9 +1,9 @@
 //! The map skins the game's map archives define, and the containers they draw with.
 
-use crate::error::{AppError, AppResult};
 use crate::game_wads::{ArchiveFile, chunk_bytes, mount_wad};
-use crate::utils::game::{GameDir, archive_stem};
 use ltk_hash::BinHash;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::game::{GameDir, archive_stem};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 use ltk_wad::WadHash;
 use std::io::Cursor;

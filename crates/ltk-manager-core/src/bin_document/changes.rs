@@ -10,7 +10,7 @@ use ltk_meta::property::values;
 use ltk_meta::{BinFile, BinObject, PropertyValueEnum};
 use serde::{Deserialize, Serialize};
 
-use crate::error::AppResult;
+use ltk_manager_base::error::AppResult;
 
 use super::declared::GameCopy;
 use super::edit::Edit;

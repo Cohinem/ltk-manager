@@ -10,10 +10,10 @@ use super::{
     AddableFields, BinDocumentId, BinDocuments, ClassChoice, DeclaredState, LeafValue, NewItem,
     NewObject, NewProperty, PropertyEdit, ValueEdit, hex,
 };
-use crate::error::{AppError, AppResult};
 use crate::meta_schema::SchemaAt;
 use crate::object_index::parse_hash;
 use crate::workshop::ModuleAction;
+use ltk_manager_base::error::{AppError, AppResult};
 
 /// One edit of an open document, one variant per document method.
 ///

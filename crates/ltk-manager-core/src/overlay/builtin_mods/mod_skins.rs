@@ -3,9 +3,9 @@
 
 use super::game_skins::GameSkins;
 use super::skin_bin::SkinBin;
-use crate::error::AppResult;
 use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
+use ltk_manager_base::error::AppResult;
 use ltk_overlay::{ContentHash, EnabledMod};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, btree_map};

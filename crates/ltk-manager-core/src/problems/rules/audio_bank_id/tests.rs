@@ -1,20 +1,20 @@
 //! Unit tests for what the rule reports, what it stays quiet about, and what
 //! its repair writes.
 
-use crate::hashing::named;
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_manager_base::hashing::named;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
 
-use crate::budget::Budget;
-use crate::config::Config;
 use crate::mods::test_support::{
     BUILT_BANK_ID, audio_bank_with_id, make_packed_chunk_fantome_zip, resolver_naming,
 };
 use crate::problems::ProjectFiles;
+use ltk_manager_base::budget::Budget;
+use ltk_manager_base::config::Config;
 
 /// Where the fixture bank sits inside the WAD holding it.
 const BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/sett_base_sfx_audio.bnk";

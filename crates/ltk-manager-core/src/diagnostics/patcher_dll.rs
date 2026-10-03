@@ -12,7 +12,7 @@ use super::binary_id::BinaryId;
 use super::{Category, Check, CheckCtx, CheckDetail, CheckSpec, Severity};
 
 #[cfg(target_os = "windows")]
-use crate::platform::windows::is_file_locked;
+use ltk_manager_base::platform::windows::is_file_locked;
 
 const DLL_PRESENT: CheckSpec = CheckSpec::new(
     "patcher.dll.present",
@@ -140,7 +140,7 @@ fn verify_authenticode(path: &std::path::Path) -> Result<i32, String> {
         WTD_UI_NONE, WinVerifyTrust,
     };
 
-    let wide = crate::platform::windows::path_to_wide(path);
+    let wide = ltk_manager_base::platform::windows::path_to_wide(path);
 
     let mut file = WINTRUST_FILE_INFO {
         cbStruct: std::mem::size_of::<WINTRUST_FILE_INFO>() as u32,

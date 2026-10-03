@@ -1,7 +1,7 @@
 use super::*;
-use crate::events::NullEventSink;
 use crate::hashtables::LayeredHashDb;
 use assert_matches::assert_matches;
+use ltk_manager_base::events::NullEventSink;
 use std::sync::Arc;
 
 struct Fixture {

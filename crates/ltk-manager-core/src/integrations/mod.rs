@@ -17,7 +17,7 @@ use fs_err as fs;
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::fs::atomic_write;
+use ltk_manager_base::utils::fs::atomic_write;
 
 type Result<T> = std::result::Result<T, IntegrationError>;
 static OPERATION: LazyLock<Mutex<Option<IntegrationOperation>>> =

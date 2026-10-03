@@ -10,15 +10,15 @@ use crate::services::shared::overtaken;
 use crate::services::shared::read_asset;
 use crate::state::SettingsState;
 use ltk_hash::{Hash as _, WadHash};
-use ltk_manager_core::config::Config;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::generation::line;
+use ltk_manager_base::matcher::{FindQuery, PatternSyntax};
 use ltk_manager_core::game_index::{
     GameDirListing, GameFileEntry, GameFindResult, GameIndex, GameIndexState, GameIndexStats,
     GameSearchResult, SearchPreference,
 };
 use ltk_manager_core::game_wads::{GameArchives, WadCache, WadSource};
-use ltk_manager_core::generation::line;
 use ltk_manager_core::hashtables::WadPathResolverState;
-use ltk_manager_core::matcher::{FindQuery, PatternSyntax};
 use ltk_manager_core::preview::AssetRef;
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};

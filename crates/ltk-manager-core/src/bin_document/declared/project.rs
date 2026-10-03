@@ -11,9 +11,9 @@ use ltk_mod_project::game_data::{LayerDeclarations, load_layer};
 
 use super::diagnostics::Raised;
 use super::{GameCopy, edits_on, read_entry};
-use crate::error::{AppError, AppResult, Utf8PathRefExt as _};
 use crate::meta_schema::PatchSchema;
 use crate::workshop::ProjectDir;
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathRefExt as _};
 
 /// Every layer's declarations of a project, each read once, in build order.
 pub struct ProjectDeclarations {

@@ -6,7 +6,7 @@ use fs_err as fs;
 use ltk_fantome::FantomeReader;
 use ltk_modpkg::Modpkg;
 
-use crate::error::{AppError, AppResult};
+use ltk_manager_base::error::{AppError, AppResult};
 
 mod fantome_layer;
 pub mod long_paths;

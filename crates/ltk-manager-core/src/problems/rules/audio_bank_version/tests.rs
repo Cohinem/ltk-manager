@@ -3,18 +3,18 @@
 
 use std::sync::Arc;
 
-use crate::hashing::named;
 use fs_err as fs;
 use ltk_hash::BinHash;
+use ltk_manager_base::hashing::named;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
-use crate::budget::Budget;
-use crate::config::Config;
 use crate::mods::test_support::{audio_bank, make_packed_chunk_fantome_zip, resolver_naming};
 use crate::problems::ProjectFiles;
 use crate::problems::game::FakeContent;
+use ltk_manager_base::budget::Budget;
+use ltk_manager_base::config::Config;
 
 /// The bank's path inside the WAD, which is what a bank unit names it by.
 const BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/ashe_sfx_events.bnk";

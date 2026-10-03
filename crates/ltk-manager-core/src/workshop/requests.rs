@@ -7,9 +7,9 @@ use super::{
     CreateProjectArgs, ImportFantomeArgs, ImportGitRepoArgs, ProjectMetadata, Workshop,
     WorkshopProject,
 };
-use crate::config::Config;
-use crate::error::AppResult;
 use crate::hashtables::WadPathResolver;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::AppResult;
 
 /// One edit of a project's config or its layers, one variant per [`Workshop`] method.
 #[derive(Debug, Clone, Deserialize)]

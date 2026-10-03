@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use super::{Category, Check, CheckCtx, CheckDetail, CheckSpec, Severity};
 
 #[cfg(target_os = "windows")]
-use crate::platform::windows::has_cloud_sync_attrs;
+use ltk_manager_base::platform::windows::has_cloud_sync_attrs;
 
 const LEAGUE_EXISTS: CheckSpec = CheckSpec::new(
     "paths.league.exists",
@@ -85,7 +85,7 @@ fn free_disk_bytes(path: &Path) -> Option<u64> {
     use std::ptr;
     use windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
 
-    let wide = crate::platform::windows::path_to_wide(path);
+    let wide = ltk_manager_base::platform::windows::path_to_wide(path);
     let mut free: u64 = 0;
     // SAFETY: null-terminated wide string; `free` is a stack u64.
     let ok = unsafe {

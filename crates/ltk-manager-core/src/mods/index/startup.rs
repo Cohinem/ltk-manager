@@ -3,9 +3,9 @@
 //! Each of the three is defined by the module that owns it. This is only the
 //! order they run in, which is the one thing none of them can decide alone.
 
-use crate::config::Config;
-use crate::events::BackendEvent;
 use crate::mods::ModLibrary;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::events::BackendEvent;
 
 use crate::mods::{HealthSweepState, SweepScope};
 

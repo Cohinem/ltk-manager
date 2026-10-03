@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use ltk_hash::BinHash;
 
 use super::{MetaSchema, SchemaAt, Shape};
-use crate::game_build::GameBuild;
+use ltk_manager_base::game_build::GameBuild;
 
 /// One field a class declares at one build, the way Add property offers it.
 #[derive(Debug, Clone, PartialEq)]

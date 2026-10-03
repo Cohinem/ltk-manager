@@ -2,7 +2,6 @@
 //! forgets.
 
 use super::*;
-use crate::events::BackendEvent;
 use crate::mods::StorageLayout as _;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
@@ -14,6 +13,7 @@ use crate::mods::test_support::{
 use crate::problems::Counts;
 use assert_matches::assert_matches;
 use fs_err as fs;
+use ltk_manager_base::events::BackendEvent;
 use std::sync::Arc;
 
 fn project_entry(id: &str, slug: &str) -> LibraryModEntry {

@@ -2,8 +2,8 @@
 //! the systems they play.
 
 use ltk_hash::BinHash;
+use ltk_manager_base::hashing::named;
 use ltk_manager_core::bin_document::{entries, owned};
-use ltk_manager_core::hashing::named;
 use ltk_meta::BinObject;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 

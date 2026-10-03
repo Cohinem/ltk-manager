@@ -6,7 +6,7 @@ use std::time::{Duration, Instant};
 use fs_err as fs;
 
 use super::IntegrationError;
-use crate::platform::hide_console;
+use ltk_manager_base::platform::hide_console;
 
 pub(super) fn run(executable: &Path, args: &[&str]) -> Result<String, IntegrationError> {
     let log = tempfile::NamedTempFile::new()?;

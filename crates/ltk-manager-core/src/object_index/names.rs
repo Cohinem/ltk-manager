@@ -11,7 +11,7 @@ use ltk_hash::BinHash;
 use ltk_wad::WadHash;
 
 use crate::hashtables::ObjectNames;
-use crate::matcher::letter_mask;
+use ltk_manager_base::matcher::letter_mask;
 
 use super::browse::compare_paths;
 use super::{NamedObject, Names, ObjectIndex};

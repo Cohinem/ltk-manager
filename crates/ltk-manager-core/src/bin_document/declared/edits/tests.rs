@@ -7,8 +7,8 @@ use super::super::{DeclareContext, DeclaredSign};
 use super::*;
 use crate::bin_document::edit::UNDO_DEPTH;
 use crate::bin_document::{LeafValue, NewItem, PropertyEdit, ValueEdit};
-use crate::game_build::GameBuild;
 use crate::meta_schema::{self, PatchSchema};
+use ltk_manager_base::game_build::GameBuild;
 
 const RESOURCES: &str = "Characters/Teemo/Skins/Skin0/Resources";
 const CHUNK: &str = "data/characters/teemo/skins/skin0.bin";

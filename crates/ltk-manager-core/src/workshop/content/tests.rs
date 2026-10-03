@@ -2,9 +2,9 @@
 //! project, and the objects a layer's bins declare.
 
 use super::*;
-use crate::events::NullEventSink;
 use fs_err as fs;
 use ltk_hash::Hash as _;
+use ltk_manager_base::events::NullEventSink;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyPatch};

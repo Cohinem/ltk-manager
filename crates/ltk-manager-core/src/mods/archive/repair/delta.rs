@@ -5,7 +5,6 @@
 //! raw-copies the rest. Packing the staged project again would re-encode every
 //! chunk the mod holds.
 
-use crate::error::{AppError, AppResult, Utf8PathRefExt};
 use crate::problems::{FileChange, FileOutcome, FixReport, HeldWrites, KeptTable};
 use camino::Utf8Path;
 use fs_err as fs;
@@ -14,6 +13,7 @@ use ltk_fantome::{
     wad_entry_name,
 };
 use ltk_hashtable::Category;
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathRefExt};
 use ltk_mod_project::{HASHES_DIR_NAME, ModProject, ModProjectLayer};
 use ltk_wad::{WadHash, chunk_hash_of};
 use std::path::{Path, PathBuf};

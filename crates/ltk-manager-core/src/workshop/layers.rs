@@ -1,13 +1,13 @@
 use super::{
     AddFilesReport, ProjectDir, Workshop, WorkshopError, WorkshopLayerInfo, WorkshopProject,
 };
-use crate::error::{AppError, AppResult};
 use crate::game_wads::mount_wad;
 use crate::hashtables::WadPathResolver;
-use crate::utils::fs::copy_dir_all;
 use camino::Utf8Path;
 use fs_err as fs;
 use indexmap::IndexMap;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::fs::copy_dir_all;
 use ltk_mod_project::ModProjectLayer;
 use ltk_modpkg::Slug;
 use ltk_wad::{NamingPolicy, PathResolver, WadExtractor};

@@ -4,10 +4,10 @@
 use fs_err as fs;
 
 use super::*;
-use crate::budget::Budget;
-use crate::config::Config;
 use crate::mods::test_support::{make_packed_chunk_fantome_zip, resolver_naming};
 use crate::problems::ProjectFiles;
+use ltk_manager_base::budget::Budget;
+use ltk_manager_base::config::Config;
 
 /// Where the fixture texture sits, in the tree and inside the archive's WAD.
 const TEX_IN_LAYER: &str = "data/characters/ashe/ashe_tx_cm.tex";

@@ -9,7 +9,7 @@ use ltk_wad::hex_name;
 
 use crate::bin_document::hex;
 use crate::game_index::SEARCH_LIMIT;
-use crate::matcher::{EXACT_SCORE, Query, Range, mask_covers};
+use ltk_manager_base::matcher::{EXACT_SCORE, Query, Range, mask_covers};
 
 use super::{
     ObjectClassHit, ObjectIndex, ObjectSearchHit, ObjectSearchResult, Row, STALE_CHECK_INTERVAL,

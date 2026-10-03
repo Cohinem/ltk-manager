@@ -24,9 +24,9 @@ use parking_lot::{Mutex, MutexGuard};
 use serde::Serialize;
 use thiserror::Error;
 
-use crate::error::{AppError, DomainError, ErrorKind};
-use crate::events::{BackendEvent, EventSink, HashtableSyncProgress};
-use crate::utils::lazy_slot::LazySlot;
+use ltk_manager_base::error::{AppError, DomainError, ErrorKind};
+use ltk_manager_base::events::{BackendEvent, EventSink, HashtableSyncProgress};
+use ltk_manager_base::utils::lazy_slot::LazySlot;
 
 mod object_names;
 

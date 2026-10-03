@@ -22,7 +22,7 @@ use super::{Category, Check, CheckSpec, Severity};
 #[cfg(target_os = "windows")]
 use super::CheckDetail;
 #[cfg(target_os = "windows")]
-use crate::platform::windows::{ROOTS, reg_list_value_names, reg_read_str};
+use ltk_manager_base::platform::windows::{ROOTS, reg_list_value_names, reg_read_str};
 
 const LAYERS: CheckSpec = CheckSpec::new(
     "compat_flags.layers",

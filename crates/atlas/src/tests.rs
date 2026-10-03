@@ -4,8 +4,8 @@ use std::io::Cursor;
 
 use glam::{Vec2, Vec4};
 use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument, GameCopy, RowNames, hex};
-use ltk_manager_core::error::{AppError, AppResult};
 use ltk_manager_core::preview::AssetRef;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::{Kind, values};

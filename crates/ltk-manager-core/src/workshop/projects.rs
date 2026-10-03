@@ -3,18 +3,18 @@ use super::{
     CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, ProjectDir,
     ProjectKey, ProjectMetadata, Workshop, WorkshopProject, is_valid_project_name,
 };
-use crate::config::Config;
-use crate::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
-use crate::events::{
-    BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
-};
 use crate::hashtables::WadPathResolver;
 use crate::mod_archive::long_paths::{self, ImportRoot};
 use crate::mod_archive::unpacked_layer_name;
 use crate::mod_archive::{open_fantome, open_modpkg};
-use crate::utils::natural_order::compare_names;
 use fs_err as fs;
 use ltk_fantome::BASE_LAYER;
+use ltk_manager_base::config::Config;
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
+use ltk_manager_base::events::{
+    BackendEvent, FantomeImportProgress, FantomeImportStage, GitImportProgress, GitImportStage,
+};
+use ltk_manager_base::utils::natural_order::compare_names;
 use ltk_mod_project::fantome::FantomeImporter;
 use ltk_mod_project::modpkg::{ModpkgImportError, ModpkgImporter, read_project};
 use ltk_mod_project::{

@@ -5,7 +5,6 @@
 //! by hand, or restores a storage folder without its `library.json`.
 //! Reconciliation runs on startup and on watcher wakeups to repair that drift.
 
-use crate::events::ModStorage;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::{self, InstallContext, STAGING_PREFIX};
 use crate::mods::archive::metadata;
@@ -14,6 +13,7 @@ use crate::mods::index::{LibraryIndex, LibraryModEntry, ModArchiveFormat};
 use crate::mods::slug::{ModSlug, TakenSlugs};
 use crate::mods::types::ROOT_FOLDER_ID;
 use fs_err as fs;
+use ltk_manager_base::events::ModStorage;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 

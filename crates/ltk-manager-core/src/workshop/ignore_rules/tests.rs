@@ -1,7 +1,7 @@
 use super::*;
-use crate::error::AppError;
 use assert_matches::assert_matches;
 use camino::Utf8Path;
+use ltk_manager_base::error::AppError;
 
 /// A project directory holding `content/base`, plus the rules text.
 fn make_project(dir: &std::path::Path, rules: Option<&str>) -> ProjectDir {

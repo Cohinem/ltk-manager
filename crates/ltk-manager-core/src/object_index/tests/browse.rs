@@ -2,7 +2,7 @@
 
 use super::*;
 
-use crate::matcher::{FindQuery, PatternSyntax};
+use ltk_manager_base::matcher::{FindQuery, PatternSyntax};
 
 /// The objects one install of the tests declares, as `(path, class)`.
 const OBJECTS: &[(&str, &str)] = &[

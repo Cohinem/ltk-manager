@@ -1,8 +1,8 @@
 //! Unit tests for sync progress, the update check and the WAD path resolver.
 
 use super::*;
-use crate::events::NullEventSink;
 use fs_err as fs;
+use ltk_manager_base::events::NullEventSink;
 use ltk_mimir_cache::{TableDiff, TableEntry};
 
 /// Keeps the sync progress it is handed, for the throttle tests.

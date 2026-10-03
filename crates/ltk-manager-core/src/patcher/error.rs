@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use super::injector::InjectorError;
 use super::session::SessionError;
-use crate::error::{AppError, DomainError, ErrorKind};
+use ltk_manager_base::error::{AppError, DomainError, ErrorKind};
 
 /// Which stage of a start failed, for [`PatcherError::InjectionFailed`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::Display)]
