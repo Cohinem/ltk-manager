@@ -26,7 +26,7 @@ import { PREVIEW_MIP_WIDTH, ViewGuard } from "./EmitterPreview";
 import type { Shown } from "./SurfacePreview";
 
 /** A narrow lens, so the camera stands far back and the flat ribbon reads as a drawing. */
-const FOV = 20;
+export const SWATCH_FOV = 20;
 
 /** The camera's distance as a factor of the one that holds the swatch's frame whole. */
 const MARGIN = 1.1;
@@ -87,7 +87,7 @@ export function TrailSwatch({ emitter, shown }: { emitter: EmitterModel; shown: 
       <ViewGuard />
       <PerspectiveCamera
         makeDefault
-        fov={FOV}
+        fov={SWATCH_FOV}
         onUpdate={(camera) => camera.layers.enable(PARTICLE_LAYER)}
       />
       {entry !== undefined && (
@@ -104,7 +104,7 @@ export function TrailSwatch({ emitter, shown }: { emitter: EmitterModel; shown: 
   );
 }
 
-type Mutable<T> = { -readonly [Key in keyof T]: T[Key] };
+export type Mutable<T> = { -readonly [Key in keyof T]: T[Key] };
 
 /** `samplers` with the layer `shown` leaves out as white, the neutral factor. */
 function layersShown(samplers: EmitterSamplers, shown: Shown): EmitterSamplers {
@@ -124,7 +124,7 @@ function flatTrail(emitter: EmitterModel): EmitterModel {
 }
 
 /** The camera straight in front of the swatch, far enough to hold its frame whole. */
-function stand(camera: Camera, halfWidth: number, halfHeight: number): void {
+export function stand(camera: Camera, halfWidth: number, halfHeight: number): void {
   const half = Math.max(halfHeight, halfWidth / (camera.aspect || 1));
   const distance = (half / Math.tan((camera.fov * Math.PI) / 360)) * MARGIN;
   if (camera.position.z === distance) return;

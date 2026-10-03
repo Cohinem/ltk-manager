@@ -25,7 +25,7 @@ import { type VfxRun, VfxRunContext } from "../../playback/state/run";
 import { NO_SAMPLERS, samplersOf, useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { premultiplyInto } from "../../rendering/utils/blend";
 import { drawnFor } from "../../rendering/utils/definitions";
-import { drawsAsMesh, drawsAsTrail } from "../../rendering/utils/drawKind";
+import { drawsAsBeam, drawsAsMesh, drawsAsTrail } from "../../rendering/utils/drawKind";
 import { paletteScrollInto } from "../../rendering/utils/palette";
 import type { UvDraw } from "../../rendering/utils/uvTransform";
 import { useBackdropColor, useBackdropCss } from "../state/previewBackdrop";
@@ -50,6 +50,7 @@ import {
   surfaceMaterial,
   TILES,
 } from "../utils/surfaceMaterial";
+import { BeamSwatch } from "./BeamSwatch";
 import { EmitterLive } from "./EmitterPreview";
 import { LoopedSurfacesContext } from "./graphActions";
 import { FilePreview } from "./NodePreviews";
@@ -126,9 +127,10 @@ interface LifeBar {
  *
  * A trail's particles are the points its ribbon runs through, each alive for a moment, so
  * following one would show a quad that jumps to the next every few frames. A trail draws as
- * a flat `TrailSwatch` instead, and a beam through `EmitterLive`, framed on its bounds. A mesh
- * draws its surface as a quad does, and through `EmitterLive` while the strip's mesh switch is
- * on. The bar of either holds the emitter's own life.
+ * a flat `TrailSwatch` instead, and a beam, often a thin line far longer than the box, as a
+ * flat `BeamSwatch` laid across it. A mesh draws its surface as a quad does, and through
+ * `EmitterLive` while the strip's mesh switch is on. The bar of each holds the emitter's own
+ * life.
  */
 export function EmitterSurface({
   simple,
@@ -210,6 +212,8 @@ function SurfaceBox({
           <>
             {drawsAsTrail(emitter) ? (
               <TrailSwatch emitter={emitter} shown={shown} />
+            ) : drawsAsBeam(emitter) ? (
+              <BeamSwatch emitter={emitter} />
             ) : (
               <EmitterLive emitter={emitter} />
             )}
