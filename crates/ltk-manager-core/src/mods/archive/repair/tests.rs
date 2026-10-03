@@ -5,15 +5,17 @@ use crate::mods::ModHealth;
 use crate::mods::StorageLayout as _;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
-    SILENT_BANK_IN_WAD, STALE_BIN_IN_WAD, STALE_ICON, healthy_bin, make_library_naming,
-    make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,
-    place_bin_project_mod, place_game_wad, place_installed_mod,
+    make_library_naming, make_slugged_entry, make_test_library, make_unpacked_entry,
+    place_bin_archived_fantome, place_bin_project_mod, place_installed_mod,
     place_packed_chunks_archived_fantome, place_packed_chunks_fantome_with_raw,
-    place_packed_fantome_with_raw, point_at_installed_build, property_in_unpacked_tree,
-    resolver_naming, seed_library, silent_audio_bank, stale_bin,
+    place_packed_fantome_with_raw, property_in_unpacked_tree, seed_library,
 };
 use fs_err as fs;
 use ltk_hash::{Hash as _, WadHash};
+use ltk_manager_assets::test_util::{
+    SILENT_BANK_IN_WAD, STALE_BIN_IN_WAD, STALE_ICON, healthy_bin, place_game_wad,
+    point_at_installed_build, resolver_naming, silent_audio_bank, stale_bin,
+};
 use ltk_manager_base::events::ModStorage;
 use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::values;
@@ -481,10 +483,10 @@ fn property_at(storage_dir: &Path, slug: &str, hex: &str) -> PropertyValueEnum {
         .join(hex);
     let bin = ltk_meta::Bin::from_reader(&mut fs::File::open(&bin_path).unwrap()).unwrap();
     bin.objects
-        .get(&crate::mods::test_support::STALE_ENTRY)
+        .get(&ltk_manager_assets::test_util::STALE_ENTRY)
         .unwrap()
         .properties
-        .get(&crate::mods::test_support::ICON_AVATAR)
+        .get(&ltk_manager_assets::test_util::ICON_AVATAR)
         .unwrap()
         .clone()
 }

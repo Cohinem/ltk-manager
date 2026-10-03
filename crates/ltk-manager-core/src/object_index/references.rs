@@ -8,7 +8,7 @@ use ltk_hash::BinHash;
 use ltk_wad::WadHash;
 
 use crate::bin_document::hex;
-use crate::game_index::FIND_LIMIT;
+use ltk_manager_assets::game_index::FIND_LIMIT;
 use ltk_manager_base::utils::natural_order::compare_names;
 
 use super::{ObjectIndex, ReferenceGroup, ReferenceHit, ReferenceResult, STALE_CHECK_INTERVAL};
@@ -94,7 +94,7 @@ impl ObjectIndex {
     /// path order, and the total counts on past the [`FIND_LIMIT`] the groups hold.
     ///
     /// `is_overtaken` is tested every few thousand rows, the contract
-    /// [`GameIndex::search`](crate::game_index::GameIndex::search) sets.
+    /// [`GameIndex::search`](ltk_manager_assets::game_index::GameIndex::search) sets.
     #[must_use]
     pub fn class_references(
         &self,

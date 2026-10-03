@@ -8,9 +8,9 @@ use ltk_meta::property::{Kind, values};
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
-use crate::mods::test_support::{make_packed_chunk_fantome_zip, resolver_naming};
 use crate::problems::RuleState;
 use crate::problems::game::FakeContent;
+use ltk_manager_assets::test_util::{make_packed_chunk_fantome_zip, resolver_naming};
 use ltk_manager_base::budget::Budget;
 use ltk_manager_base::config::Config;
 

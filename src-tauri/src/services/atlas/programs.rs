@@ -2,10 +2,10 @@
 
 use atlas::UiShader;
 use ltk_hash::{BinHash, Hash as _};
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_core::bin_document::GameCopy as _;
 use ltk_manager_core::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_core::object_index::parse_hash;
-use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::sandbox::SandboxRef;
 use ltk_manager_game::program::{
     read_programs, MaterialProgram, ProgramOptions, ProgramRead, Resolution,

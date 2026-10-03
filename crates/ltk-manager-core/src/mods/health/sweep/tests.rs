@@ -5,14 +5,16 @@ use super::*;
 use crate::mods::StorageLayout as _;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::test_support::{
-    RecordingEventSink, healthy_bin, make_library_with_events, make_library_with_version,
-    make_slugged_entry, make_test_library, make_unpacked_entry, place_bin_archived_fantome,
-    place_bin_project_mod, place_installed_mod, point_at_build, point_at_installed_build,
-    seed_library, stale_bin,
+    RecordingEventSink, make_library_with_events, make_library_with_version, make_slugged_entry,
+    make_test_library, make_unpacked_entry, place_bin_archived_fantome, place_bin_project_mod,
+    place_installed_mod, seed_library,
 };
 use crate::problems::Counts;
 use assert_matches::assert_matches;
 use fs_err as fs;
+use ltk_manager_assets::test_util::{
+    healthy_bin, point_at_build, point_at_installed_build, stale_bin,
+};
 use ltk_manager_base::events::BackendEvent;
 use std::sync::Arc;
 

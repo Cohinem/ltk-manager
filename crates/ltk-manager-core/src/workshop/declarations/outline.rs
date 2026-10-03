@@ -20,7 +20,7 @@ use ltk_mod_project::{ModIgnore, ModProjectLayer};
 use serde::Serialize;
 
 use super::ProjectDir;
-use crate::hashtables::ObjectNames;
+use ltk_manager_assets::hashtables::ObjectNames;
 use ltk_manager_base::error::{AppResult, Utf8PathRefExt as _};
 use ltk_manager_base::hashing::HexBinHash;
 

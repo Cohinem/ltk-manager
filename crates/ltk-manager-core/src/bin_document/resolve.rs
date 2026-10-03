@@ -15,7 +15,7 @@ use ltk_meta::{BinObject, PropertyValueEnum};
 use serde::Serialize;
 
 use super::{BinDocument, BinDocumentError, RowNames, as_list, as_struct};
-use crate::preview::AssetRef;
+use ltk_manager_assets::preview::AssetRef;
 
 /// A path a bin names, and where its bytes live.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

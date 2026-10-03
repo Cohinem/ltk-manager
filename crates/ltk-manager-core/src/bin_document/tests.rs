@@ -3,10 +3,10 @@
 
 use super::*;
 use crate::meta_schema::{KindShape, MetaSchema, SchemaAt};
-use crate::preview::AssetRef;
 use crate::sandbox::SandboxRef;
 use crate::workshop::LayerChunks;
 use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::game_build::GameBuild;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::{Kind, values};
@@ -387,7 +387,7 @@ fn project_naming(path: &str) -> tempfile::TempDir {
             algorithm: ltk_hashtable::Algorithm::Fnv1a32,
             bits: 32,
         }],
-        ..crate::mods::test_support::mod_project_named("probe")
+        ..ltk_manager_assets::test_util::mod_project_named("probe")
     };
 
     fs::write(

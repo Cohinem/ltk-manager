@@ -28,10 +28,10 @@ use ltk_hashtable::{GameResolver, Hashtable, HashtableEntry, HashtableSet};
 use ltk_wad::{ChunkDecoder, NameRecovery, PathResolver, Wad, WadChunk, WadHash, hex_name};
 use zip::{CompressionMethod, ZipArchive};
 
-use crate::file_kind::WorkshopFileKind;
-use crate::game_wads::chunk_head;
-use crate::mod_archive::open_fantome;
-use crate::mod_archive::unpacked_layer_name;
+use ltk_manager_assets::file_kind::WorkshopFileKind;
+use ltk_manager_assets::game_wads::chunk_head;
+use ltk_manager_assets::mod_archive::open_fantome;
+use ltk_manager_assets::mod_archive::unpacked_layer_name;
 use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_base::utils::natural_order::compare_names;
 

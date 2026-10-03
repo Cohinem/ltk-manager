@@ -1,7 +1,7 @@
 //! Unit tests for the response payload's wire shape and the IPC envelope.
 
 use super::*;
-use ltk_manager_core::hashtables::{HashtableError, SyncHolder};
+use ltk_manager_assets::hashtables::{HashtableError, SyncHolder};
 use ltk_manager_runtime::patcher::injector::InjectorError;
 use ltk_manager_runtime::patcher::session::SessionError;
 use ltk_manager_runtime::patcher::InjectionStage;
@@ -356,7 +356,7 @@ fn ipc_result_from_err() {
 /// A domain failure reaches the shell without its type, so each is read back by it.
 #[test]
 fn a_domain_failure_keeps_its_own_code() {
-    use ltk_manager_core::preview::PreviewError;
+    use ltk_manager_assets::preview::PreviewError;
 
     assert_eq!(
         wire(AppError::from(PreviewError::NotCube))["code"],

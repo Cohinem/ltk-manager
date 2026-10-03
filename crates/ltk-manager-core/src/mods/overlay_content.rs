@@ -13,7 +13,6 @@
 //! [`FantomeContent`] reads a mod whose content is still inside its archive:
 //! everything the layout migration moved, and everything it has not reached.
 
-use crate::mod_archive::open_modpkg;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::metadata::load_mod_project;
@@ -21,6 +20,7 @@ use crate::mods::index::get_active_profile;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{Profile, ProfileSlug};
 use fs_err::File;
+use ltk_manager_assets::mod_archive::open_modpkg;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt};
 use ltk_overlay::{FantomeContent, FsModContent, ModContentProvider, ModpkgContent};

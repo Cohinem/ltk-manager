@@ -1,9 +1,9 @@
 //! Unit tests for what a run sees: the files it lists, and how it reads them.
 
 use super::*;
-use crate::mods::test_support::bin_bytes;
 use crate::problems::game::FakeContent;
 use fs_err as fs;
+use ltk_manager_assets::test_util::bin_bytes;
 
 /// Write `contents` to `path`, creating every directory above it.
 fn touch(path: &Path, contents: &[u8]) {
@@ -239,7 +239,7 @@ fn a_hex_named_file_in_a_tree_is_a_bin_when_its_first_bytes_are_one() {
     let base = tmp.path().join(CONTENT_DIR).join("base");
     touch(
         &base.join("Aatrox.wad.client").join("32fa9b1e0c4d5a67"),
-        &bin_bytes(&crate::mods::test_support::stale_bin()),
+        &bin_bytes(&ltk_manager_assets::test_util::stale_bin()),
     );
 
     let files = ProjectFiles::read(tmp.path(), &Config::default(), None).unwrap();
@@ -548,7 +548,7 @@ walk over the tree an unpack writes. */
 
 mod archive {
     use super::*;
-    use crate::mods::test_support::{
+    use ltk_manager_assets::test_util::{
         STALE_BIN_IN_WAD, bin_bytes, healthy_bin, make_bin_fantome_zip,
         make_layer_wads_fantome_zip, make_packed_bin_fantome_zip, make_raw_bin_fantome_zip,
         resolver_naming, stale_bin,
@@ -560,7 +560,7 @@ mod archive {
 
     /// A resolver naming the fixture chunk, so the chunk is listed under
     /// [`BIN_IN_LAYER`] instead of under its hash.
-    fn naming_the_bin() -> crate::hashtables::WadPathResolver {
+    fn naming_the_bin() -> ltk_manager_assets::hashtables::WadPathResolver {
         resolver_naming(&[STALE_BIN_IN_WAD])
     }
 
@@ -768,7 +768,7 @@ mod archive {
     fn a_nameless_chunk_that_is_not_a_bin_is_left_unknown() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("opaque.fantome");
-        crate::mods::test_support::make_long_chunk_fantome_zip(&archive);
+        ltk_manager_assets::test_util::make_long_chunk_fantome_zip(&archive);
 
         let files = files_in(&archive, &resolver_naming(&[]));
 
@@ -823,12 +823,11 @@ mod archive {
     fn analyzing_an_archive_finds_what_its_unpacked_tree_would() {
         let tmp = tempfile::tempdir().unwrap();
         let mut config = Config::default();
-        crate::mods::test_support::point_at_installed_build(&mut config, tmp.path());
+        ltk_manager_assets::test_util::point_at_installed_build(&mut config, tmp.path());
 
         let project = tmp.path().join("project");
-        crate::mods::test_support::place_bin_project_mod(&project, "mod", &stale_bin());
-        let from_tree =
-            analyze(&project.join("mods").join("mod"), &config, None).expect("the tree analyzes");
+        ltk_manager_assets::test_util::place_bin_project(&project, "mod", &stale_bin());
+        let from_tree = analyze(&project, &config, None).expect("the tree analyzes");
 
         let archive = packed(tmp.path(), &stale_bin(), CompressionMethod::Stored);
         let from_archive =
@@ -877,7 +876,10 @@ mod archive {
     fn an_archive_lists_what_its_unpacked_tree_lists() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("bin-named.fantome");
-        crate::mods::test_support::make_bin_named_chunk_fantome_zip(&archive, RECOVERED_TEXTURE);
+        ltk_manager_assets::test_util::make_bin_named_chunk_fantome_zip(
+            &archive,
+            RECOVERED_TEXTURE,
+        );
 
         let tree = unpacked(&archive, &tmp.path().join("staging"));
         let from_tree = ProjectFiles::read(&tree, &Config::default(), None).unwrap();
@@ -894,7 +896,10 @@ mod archive {
     fn a_chunk_only_a_bin_names_is_listed_under_that_name() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("bin-named.fantome");
-        crate::mods::test_support::make_bin_named_chunk_fantome_zip(&archive, RECOVERED_TEXTURE);
+        ltk_manager_assets::test_util::make_bin_named_chunk_fantome_zip(
+            &archive,
+            RECOVERED_TEXTURE,
+        );
 
         let files = files_in(&archive, &ltk_wad::NoResolver);
 
@@ -912,7 +917,7 @@ mod archive {
     fn a_dot_file_in_an_archive_is_listed_as_the_tree_it_unpacks_to_lists_it() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("dotted.fantome");
-        crate::mods::test_support::make_dot_file_fantome_zip(&archive);
+        ltk_manager_assets::test_util::make_dot_file_fantome_zip(&archive);
 
         let tree = unpacked(&archive, &tmp.path().join("staging"));
         let from_tree = ProjectFiles::read(&tree, &Config::default(), None).unwrap();
@@ -935,7 +940,7 @@ mod archive {
     fn an_undeclarable_hashtable_fails_the_scan() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("missing-table.fantome");
-        crate::mods::test_support::make_missing_hashtable_fantome_zip(&archive);
+        ltk_manager_assets::test_util::make_missing_hashtable_fantome_zip(&archive);
 
         let refused = ProjectFiles::in_archive(
             &archive,
@@ -1042,11 +1047,11 @@ mod archive {
     fn a_head_of_a_chunk_whose_first_block_was_cut_short_reads_it_anyway() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("large-block.fantome");
-        let bytes = crate::mods::test_support::make_large_block_chunk_fantome_zip(&archive);
+        let bytes = ltk_manager_assets::test_util::make_large_block_chunk_fantome_zip(&archive);
 
         let files = files_in(
             &archive,
-            &resolver_naming(&[crate::mods::test_support::LARGE_BLOCK_CHUNK_PATH]),
+            &resolver_naming(&[ltk_manager_assets::test_util::LARGE_BLOCK_CHUNK_PATH]),
         );
         let handle = files.files().next().expect("the WAD holds one chunk");
 

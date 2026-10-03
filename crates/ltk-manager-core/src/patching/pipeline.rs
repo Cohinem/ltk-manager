@@ -16,10 +16,10 @@ use fs_err as fs;
 
 use ltk_telemetry::Telemetry;
 
-use crate::hashtables::{HashtableCache, LayeredHashDb, PathRef};
 use crate::mods::ModLibrary;
 use crate::overlay::WorkshopTestProject;
 use crate::workshop::ProjectDir;
+use ltk_manager_assets::hashtables::{HashtableCache, LayeredHashDb, PathRef};
 use ltk_manager_base::config::Config;
 use ltk_manager_runtime::diagnostics::game_log::{GameWindow, LeagueLogs};
 use ltk_manager_runtime::diagnostics::incident::{

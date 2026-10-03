@@ -15,8 +15,8 @@ use super::{
     DeclaredModuleChoice, DeclaredState, Declaring, GameCopy, HistoryStep, ReadOnly, Reshape,
     VariantSource,
 };
-use crate::preview::AssetRef;
 use crate::sandbox::SandboxRef;
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::AppResult;
 
 /// How many assets the store keeps open at once. ADR-0026, counted per ADR-0028.

@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 
 use super::properties::field_path;
 use super::{BinDocument, BinDocumentError, Declaring, PropertyKind, Step, hex, inlines, is_null};
-use crate::preview::AssetRef;
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::AppResult;
 use ltk_manager_base::utils::fs::atomic_write;
 

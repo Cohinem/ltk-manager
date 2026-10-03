@@ -8,9 +8,9 @@ use super::text_files::write_default_readme;
 use super::{
     ProjectDir, ProjectLocation, Workshop, WorkshopProject, find_config_file, is_valid_project_name,
 };
-use crate::hashtables::WadPathResolver;
 use fs_err as fs;
 use ltk_fantome::FantomeInfo;
+use ltk_manager_assets::hashtables::WadPathResolver;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_base::utils::fs::copy_dir_all;

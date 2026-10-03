@@ -81,7 +81,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     let checksum_mismatches = Arc::new(ChecksumMismatchState::default());
     // The library unpacks fantome archives, which needs the same chunk names
     // the browser resolves with, so both hold this one handle.
-    let wad_resolver = Arc::new(ltk_manager_core::hashtables::WadPathResolverState::default());
+    let wad_resolver = Arc::new(ltk_manager_assets::hashtables::WadPathResolverState::default());
 
     let mod_library = ModLibraryState(ModLibrary::new(
         Arc::clone(&events),
@@ -129,13 +129,13 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(linked_bins);
     app.manage(checksum_mismatches);
     app.manage(wad_reports);
-    app.manage(ltk_manager_core::strings::StringKeyIndexState::default());
-    app.manage(ltk_manager_core::game_index::GameIndexState::default());
+    app.manage(ltk_manager_assets::strings::StringKeyIndexState::default());
+    app.manage(ltk_manager_assets::game_index::GameIndexState::default());
     app.manage(wad_resolver);
-    app.manage(ltk_manager_core::game_index::SearchGeneration::default());
-    app.manage(ltk_manager_core::game_index::FindGeneration::default());
-    app.manage(ltk_manager_core::game_index::PathSearchGeneration::default());
-    app.manage(ltk_manager_core::game_wads::WadCache::default());
+    app.manage(ltk_manager_assets::game_index::SearchGeneration::default());
+    app.manage(ltk_manager_assets::game_index::FindGeneration::default());
+    app.manage(ltk_manager_assets::game_index::PathSearchGeneration::default());
+    app.manage(ltk_manager_assets::game_wads::WadCache::default());
     app.manage(ltk_manager_game::material::defs::ShaderDefsCache::default());
     app.manage(crate::services::objects::ObjectIndexState::default());
     app.manage(ltk_manager_core::object_index::ObjectSearchGeneration::default());
@@ -145,7 +145,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_core::bin_document::BinDocuments::default());
     let sandboxes = ltk_manager_core::sandbox::SandboxState::default();
     app.manage(sandboxes.clone());
-    app.manage(ltk_manager_core::hashtables::BinHashTablesState::default());
+    app.manage(ltk_manager_assets::hashtables::BinHashTablesState::default());
     app.manage(crate::services::game::ExtractState::default());
     app.manage(crate::services::objects::ReferenceWalkState::default());
     app.manage(mod_library);

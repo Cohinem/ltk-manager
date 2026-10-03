@@ -9,12 +9,12 @@ use ltk_meta::walk::{Node, Visit, Visitor};
 use parking_lot::Mutex;
 
 use crate::bin_walk::Declared;
-use crate::file_kind::WorkshopFileKind;
 use crate::problems::{FileHandle, ProjectFiles, Report, RuleId, Site};
+use ltk_manager_assets::file_kind::WorkshopFileKind;
 use ltk_manager_base::budget;
 
 use super::fan::Fan;
-use super::source::BinSource;
+use super::source;
 use super::{
     BinVisitor, Coverage, Fact, Finish, FinishBody, Head, ObjectRead, Pass, Reports, Sink, Store,
     Walk, Weight,
@@ -477,7 +477,7 @@ fn walk_bin<'p>(
     facts: &Demands,
 ) -> Walked {
     let started = Instant::now();
-    let mut source = BinSource::open_handle(&handle)?;
+    let mut bin = source::open_handle(&handle)?;
 
     let mut fan = Fan::new(
         subs.iter()
@@ -489,7 +489,7 @@ fn walk_bin<'p>(
             )
             .collect(),
     );
-    let walked = source.walk(&mut fan);
+    let walked = source::walk(&mut bin, &mut fan);
 
     tracing::trace!(
         "{}/{}: {} bytes walked in {:?}",

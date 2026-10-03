@@ -71,7 +71,7 @@ fn machine_allows_long_paths() -> bool {
 /// a suite that had to build a path that long to cross one would be measuring
 /// the filesystem rather than the guard.
 fn enforced_limit() -> Option<usize> {
-    #[cfg(test)]
+    #[cfg(any(test, feature = "test-util"))]
     if let Some(max) = test_limit::current() {
         return Some(max);
     }
@@ -80,8 +80,8 @@ fn enforced_limit() -> Option<usize> {
 }
 
 /// Holds every import on this thread to a limit the suite picks.
-#[cfg(test)]
-pub(crate) mod test_limit {
+#[cfg(any(test, feature = "test-util"))]
+pub mod test_limit {
     use std::cell::Cell;
 
     thread_local! {
@@ -92,7 +92,7 @@ pub(crate) mod test_limit {
     ///
     /// Thread-local rather than global because the suite runs its tests in
     /// parallel, and an import runs on the thread that asked for it.
-    pub(crate) fn of(max: usize) -> Guard {
+    pub fn of(max: usize) -> Guard {
         LIMIT.with(|limit| limit.set(Some(max)));
         Guard(())
     }
@@ -103,7 +103,7 @@ pub(crate) mod test_limit {
     /// directory is long enough to cross on one machine and not on another.
     /// Measuring from the directory the import writes into leaves `headroom`
     /// for the project's root files and refuses anything under `content/`.
-    pub(crate) fn just_past(target_dir: &std::path::Path, headroom: usize) -> Guard {
+    pub fn just_past(target_dir: &std::path::Path, headroom: usize) -> Guard {
         of(super::windows_len(target_dir) + headroom)
     }
 
@@ -112,7 +112,7 @@ pub(crate) mod test_limit {
     }
 
     /// Gives the thread back the machine's own answer when it drops.
-    pub(crate) struct Guard(());
+    pub struct Guard(());
 
     impl Drop for Guard {
         fn drop(&mut self) {
@@ -127,7 +127,7 @@ pub(crate) mod test_limit {
 /// refusal points at is the only thing separating advice that helps from advice
 /// that sends them to the wrong screen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ImportRoot {
+pub enum ImportRoot {
     /// `<storage>/mods/`, where the library installs and unpacks.
     ModStorage,
     /// The Creator Workshop's directory, which holds one folder per project.
@@ -154,7 +154,7 @@ impl ImportRoot {
 ///
 /// [`AppError::ValidationFailed`] naming the offending length and the setting
 /// to change, so the caller can show it verbatim.
-pub(crate) fn preflight_fantome_import(
+pub fn preflight_fantome_import(
     archive: &Path,
     target_dir: &Path,
     root: ImportRoot,
@@ -179,7 +179,7 @@ pub(crate) fn preflight_fantome_import(
 /// # Errors
 ///
 /// As [`preflight_fantome_import`], except that this one is exact.
-pub(crate) fn verify_unpacked(dir: &Path, root: ImportRoot) -> AppResult<()> {
+pub fn verify_unpacked(dir: &Path, root: ImportRoot) -> AppResult<()> {
     verify_staged(dir, dir, root)
 }
 
@@ -194,7 +194,7 @@ pub(crate) fn verify_unpacked(dir: &Path, root: ImportRoot) -> AppResult<()> {
 /// # Errors
 ///
 /// As [`verify_unpacked`].
-pub(crate) fn verify_staged(staged: &Path, destination: &Path, root: ImportRoot) -> AppResult<()> {
+pub fn verify_staged(staged: &Path, destination: &Path, root: ImportRoot) -> AppResult<()> {
     let Some(max) = enforced_limit() else {
         return Ok(());
     };
@@ -212,7 +212,7 @@ pub(crate) fn verify_staged(staged: &Path, destination: &Path, root: ImportRoot)
 ///
 /// As [`preflight_fantome_import`], except that a package names every chunk it
 /// holds, so what this measures is the length itself rather than a floor.
-pub(crate) fn preflight_modpkg_import<R: Read + Seek>(
+pub fn preflight_modpkg_import<R: Read + Seek>(
     modpkg: &Modpkg<R>,
     target_dir: &Path,
     root: ImportRoot,
@@ -252,7 +252,7 @@ fn refuse_if_too_long(longest: usize, max: usize, root: ImportRoot) -> AppResult
 /// # Errors
 ///
 /// Fails when the archive cannot be opened or its entry table cannot be read.
-pub(crate) fn longest_fantome_import_path(archive: &Path, target_dir: &Path) -> AppResult<usize> {
+pub fn longest_fantome_import_path(archive: &Path, target_dir: &Path) -> AppResult<usize> {
     let reader = open_fantome(archive)?;
 
     let prefix = windows_len(target_dir) + 1;

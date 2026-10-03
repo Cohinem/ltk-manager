@@ -3,12 +3,12 @@ use super::{
     CreateProjectArgs, FantomePeekResult, ImportFantomeArgs, ImportGitRepoArgs, ProjectDir,
     ProjectKey, ProjectMetadata, Workshop, WorkshopProject, is_valid_project_name,
 };
-use crate::hashtables::WadPathResolver;
-use crate::mod_archive::long_paths::{self, ImportRoot};
-use crate::mod_archive::unpacked_layer_name;
-use crate::mod_archive::{open_fantome, open_modpkg};
 use fs_err as fs;
 use ltk_fantome::BASE_LAYER;
+use ltk_manager_assets::hashtables::WadPathResolver;
+use ltk_manager_assets::mod_archive::long_paths::{self, ImportRoot};
+use ltk_manager_assets::mod_archive::unpacked_layer_name;
+use ltk_manager_assets::mod_archive::{open_fantome, open_modpkg};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
 use ltk_manager_base::events::{

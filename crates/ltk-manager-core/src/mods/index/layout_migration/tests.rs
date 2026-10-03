@@ -1,10 +1,11 @@
 use super::*;
 use crate::mods::index::document::load_library_index;
 use crate::mods::test_support::{
-    RecordingEventSink, make_full_fantome_zip, make_library_with_events, make_slugged_entry,
-    make_test_entry, make_test_library, mod_project_named, place_installed_mod, seed_library,
+    RecordingEventSink, make_library_with_events, make_slugged_entry, make_test_entry,
+    make_test_library, place_installed_mod, seed_library,
 };
 use assert_matches::assert_matches;
+use ltk_manager_assets::test_util::{make_full_fantome_zip, mod_project_named};
 use ltk_manager_base::events::ModStorage;
 use std::sync::Arc;
 
@@ -167,7 +168,7 @@ fn a_modpkg_keeps_its_archive_and_moves_it_beside_the_mod() {
 
     let archives = storage.path().archives_dir();
     fs::create_dir_all(&archives).unwrap();
-    crate::mods::test_support::make_modpkg(&archives.join("id-1.modpkg"), "packed-mod");
+    ltk_manager_assets::test_util::make_modpkg(&archives.join("id-1.modpkg"), "packed-mod");
     let packed_bytes = fs::read(archives.join("id-1.modpkg")).unwrap();
     let meta_dir = storage.path().mods_dir().join("id-1");
     fs::create_dir_all(&meta_dir).unwrap();
@@ -411,7 +412,7 @@ fn a_converted_fantome_keeps_the_layers_its_archive_declares() {
 
     let archives = storage.path().archives_dir();
     fs::create_dir_all(&archives).unwrap();
-    crate::mods::test_support::make_layered_fantome_zip(&archives.join("id-1.fantome"));
+    ltk_manager_assets::test_util::make_layered_fantome_zip(&archives.join("id-1.fantome"));
     let meta_dir = storage.path().mods_dir().join("id-1");
     fs::create_dir_all(&meta_dir).unwrap();
     fs::write(

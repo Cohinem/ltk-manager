@@ -55,8 +55,8 @@ pub use types::{
     ModLicense, Profile,
 };
 
-use crate::hashtables::WadPathResolverState;
 use crate::overlay::OverlayStorageExt;
+use ltk_manager_assets::hashtables::WadPathResolverState;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::events::EventSink;
 use parking_lot::Mutex;
@@ -301,7 +301,7 @@ impl ModLibrary {
     ///
     /// Absent tables are not an error — the resolver names nothing and the
     /// chunks keep their hex file names, which the overlay reads either way.
-    pub(crate) fn wad_resolver(&self) -> Arc<crate::hashtables::WadPathResolver> {
+    pub(crate) fn wad_resolver(&self) -> Arc<ltk_manager_assets::hashtables::WadPathResolver> {
         self.wad_resolver.get()
     }
 

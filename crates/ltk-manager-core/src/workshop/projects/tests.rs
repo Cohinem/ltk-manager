@@ -1,7 +1,7 @@
 use super::*;
-use crate::hashtables::{LayeredHashDb, WadPathResolver};
-use crate::mods::test_support::{make_bad_crc_fantome_zip, make_full_fantome_zip};
 use assert_matches::assert_matches;
+use ltk_manager_assets::hashtables::{LayeredHashDb, WadPathResolver};
+use ltk_manager_assets::test_util::{make_bad_crc_fantome_zip, make_full_fantome_zip};
 use ltk_manager_base::events::NullEventSink;
 use parking_lot::Mutex;
 use std::io::Write;
@@ -255,13 +255,14 @@ fn a_fantome_import_past_the_path_limit_is_refused_and_leaves_no_project() {
 fn a_resolved_chunk_past_the_limit_takes_the_project_with_it() {
     let tmp = tempfile::tempdir().unwrap();
     let archive = tmp.path().join("packed.fantome");
-    crate::mods::test_support::make_long_chunk_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_long_chunk_fantome_zip(&archive);
     let (workshop, config) = make_workshop(tmp.path());
 
     let project_dir = tmp.path().join("packed-mod");
     let predicted = long_paths::longest_fantome_import_path(&archive, &project_dir).unwrap();
-    let resolver =
-        crate::mods::test_support::resolver_naming(&[crate::mods::test_support::LONG_CHUNK_PATH]);
+    let resolver = ltk_manager_assets::test_util::resolver_naming(&[
+        ltk_manager_assets::test_util::LONG_CHUNK_PATH,
+    ]);
 
     let _limit = long_paths::test_limit::of(predicted + 20);
     let result =
@@ -288,14 +289,15 @@ fn make_modpkg_with_readme(path: &Path, name: &str) {
     fs::write(source.path().join("README.md"), b"how it works").unwrap();
     fs::write(
         source.path().join("mod.config.json"),
-        serde_json::to_string_pretty(&crate::mods::test_support::mod_project_named(name)).unwrap(),
+        serde_json::to_string_pretty(&ltk_manager_assets::test_util::mod_project_named(name))
+            .unwrap(),
     )
     .unwrap();
 
     let project_dir = camino::Utf8PathBuf::from_path_buf(source.path().to_path_buf()).unwrap();
     let writer = std::io::BufWriter::new(fs::File::create(path).unwrap());
     ltk_mod_project::ProjectPacker::new(
-        crate::mods::test_support::mod_project_named(name),
+        ltk_manager_assets::test_util::mod_project_named(name),
         project_dir,
     )
     .pack(ltk_mod_project::modpkg::ModpkgFormat::new(writer))
@@ -444,8 +446,8 @@ fn peek_sorts_wads_in_natural_order() {
 fn peek_lists_a_layers_wads_under_its_unpacked_name_after_the_base_wads() {
     let tmp = tempfile::tempdir().unwrap();
     let archive = tmp.path().join("layers.fantome");
-    let bin = crate::mods::test_support::stale_bin();
-    crate::mods::test_support::make_layer_wads_fantome_zip(&archive, &bin, &bin);
+    let bin = ltk_manager_assets::test_util::stale_bin();
+    ltk_manager_assets::test_util::make_layer_wads_fantome_zip(&archive, &bin, &bin);
     let (workshop, _) = make_workshop(tmp.path());
 
     let peeked = workshop

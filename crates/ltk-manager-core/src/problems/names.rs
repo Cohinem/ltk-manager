@@ -35,7 +35,7 @@ use ltk_hashtable::{Category, Hashtable, HashtableEntry, HashtableSet};
 use ltk_meta::path::FieldNames;
 use ltk_mod_project::ModProject;
 
-use crate::hashtables::{BinHashTables, HashtableCache};
+use ltk_manager_assets::hashtables::{BinHashTables, HashtableCache};
 use ltk_manager_base::utils::lazy_slot::LazySlot;
 
 /// The names a bin's hashes can be given, out of the shared mimir cache and

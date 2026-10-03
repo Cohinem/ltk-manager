@@ -275,13 +275,15 @@ fn reorder_layers_reassigns_priorities() {
 /// The key the `game` table would file this path under, asked of the table
 /// itself so a test cannot disagree with it about the algorithm.
 fn path_hash(path: &str) -> u64 {
-    crate::hashtables::Table::Game.key_config().hash(path)
+    ltk_manager_assets::hashtables::Table::Game
+        .key_config()
+        .hash(path)
 }
 
 /// A resolver holding no tables, for the cases where naming is not what
 /// is under test.
 fn no_names() -> WadPathResolver {
-    WadPathResolver::new(crate::hashtables::LayeredHashDb::new())
+    WadPathResolver::new(ltk_manager_assets::hashtables::LayeredHashDb::new())
 }
 
 fn build_test_wad(path: &std::path::Path, chunk_paths: &[&str]) {
@@ -309,7 +311,7 @@ fn extract_wad_into_dir_names_chunks_the_tables_know() {
     let src = src_dir.path().join("Aatrox.wad.client");
     build_test_wad(&src, &[path]);
 
-    let mut db = crate::hashtables::LayeredHashDb::new();
+    let mut db = ltk_manager_assets::hashtables::LayeredHashDb::new();
     db.insert(path_hash(path), path);
 
     let dst = tempfile::tempdir().unwrap();
@@ -330,7 +332,7 @@ fn extract_wad_into_dir_falls_back_to_hex_names() {
     build_test_wad(&src, &[path]);
 
     let dst = tempfile::tempdir().unwrap();
-    let empty = WadPathResolver::new(crate::hashtables::LayeredHashDb::new());
+    let empty = WadPathResolver::new(ltk_manager_assets::hashtables::LayeredHashDb::new());
     extract_wad_into_dir(&src, dst.path(), &empty).unwrap();
 
     let hex = format!("{:016x}", path_hash(path));

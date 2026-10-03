@@ -14,13 +14,13 @@
 //! out of it, and is tried again next launch — the work set is recomputed from
 //! the entries still without a slug.
 
-use crate::mod_archive::open_modpkg;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::metadata::{extract_metadata, fantome_layers, load_mod_project};
 use crate::mods::index::document::{archive_path, load_library_index, save_library_index};
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::slug::{ModSlug, TakenSlugs};
+use ltk_manager_assets::mod_archive::open_modpkg;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, IoContext, io_context};
 use ltk_manager_base::events::{BackendEvent, LayoutMigrationProgress};

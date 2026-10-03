@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::bin_document::PropertyKind;
 use crate::bin_document::hex;
-use crate::hashtables::MetaSchemaVersion;
+use ltk_manager_assets::hashtables::MetaSchemaVersion;
 use ltk_manager_base::game_build::GameBuild;
 use ltk_manager_base::hashing::HexBinHash;
 

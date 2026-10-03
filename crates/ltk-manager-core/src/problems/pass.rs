@@ -25,7 +25,7 @@ use ltk_meta::walk::RawValue;
 use ltk_meta::walk::{Node, Visit, Visitor};
 use parking_lot::Mutex;
 
-use crate::file_kind::WorkshopFileKind;
+use ltk_manager_assets::file_kind::WorkshopFileKind;
 
 use super::game::GameContent;
 use super::{

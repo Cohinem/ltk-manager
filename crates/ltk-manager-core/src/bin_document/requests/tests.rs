@@ -11,8 +11,8 @@ use ltk_meta::{Bin, BinObject};
 use super::*;
 use crate::bin_document::{BinDocumentError, ReadOnly};
 use crate::meta_schema::MetaSchema;
-use crate::preview::AssetRef;
 use crate::sandbox::SandboxRef;
+use ltk_manager_assets::preview::AssetRef;
 
 const OBJECT: &str = "Characters/Teemo/Record";
 const COMMON: &str = "DATA/Characters/Teemo/Teemo.bin";

@@ -1,5 +1,5 @@
 use super::*;
-use crate::mods::test_support::make_full_fantome_zip;
+use crate::test_util::make_full_fantome_zip;
 use fs_err as fs;
 use ltk_modpkg::Modpkg;
 
@@ -58,7 +58,7 @@ fn a_packed_wad_is_counted_with_a_chunk_name_it_does_not_hold_yet() {
 fn an_archive_holding_only_its_metadata_measures_nothing() {
     let dir = tempfile::tempdir().unwrap();
     let archive = dir.path().join("meta-only.fantome");
-    crate::mods::test_support::make_fantome_zip(&archive);
+    crate::test_util::make_fantome_zip(&archive);
 
     assert_eq!(
         longest_fantome_import_path(&archive, Path::new("/storage/mods/meta-only")).unwrap(),
@@ -221,7 +221,7 @@ fn a_path_is_measured_in_the_characters_windows_counts() {
 fn a_package_is_measured_at_the_paths_it_names() {
     let dir = tempfile::tempdir().unwrap();
     let package = dir.path().join("packed.modpkg");
-    crate::mods::test_support::make_modpkg(&package, "packed-mod");
+    crate::test_util::make_modpkg(&package, "packed-mod");
     let modpkg = Modpkg::mount_from_reader(fs::File::open(&package).unwrap()).unwrap();
 
     let target = Path::new("/workshop/packed-mod");

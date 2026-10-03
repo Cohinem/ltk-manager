@@ -23,9 +23,9 @@ use fs_err as fs;
 use hexshade::bundle::{ShaderToc, chunk_hash, permutation, read_toc};
 use hexshade::{Defines, Stage, TranslationCache};
 use ltk_hash::{Hash as _, WadHash};
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_core::bin_document::AssetLookup;
-use ltk_manager_core::preview::AssetRef;
 use ltk_manager_game::program::{
     ParticleDefine, ParticleShader, PassProgram, ProgramOptions, ProgramRead, read_particle_program,
 };

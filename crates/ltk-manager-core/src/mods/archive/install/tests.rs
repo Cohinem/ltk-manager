@@ -1,10 +1,10 @@
 use super::*;
 use crate::mods::test_support::{
-    make_named_fantome_zip, make_test_library, make_test_profile, make_versioned_fantome_zip,
-    place_installed_mod, place_mod_files,
+    make_test_library, make_test_profile, place_installed_mod, place_mod_files,
 };
 use crate::mods::types::LibraryFolder;
 use assert_matches::assert_matches;
+use ltk_manager_assets::test_util::{make_named_fantome_zip, make_versioned_fantome_zip};
 use ltk_manager_base::events::ModStorage;
 use ltk_wad::NoResolver;
 
@@ -15,7 +15,7 @@ fn context() -> InstallContext<'static> {
 }
 
 fn fantome_with_hashtable(path: &Path, content: &[u8]) {
-    crate::mods::test_support::make_missing_hashtable_fantome_zip(path);
+    ltk_manager_assets::test_util::make_missing_hashtable_fantome_zip(path);
 
     let file = fs::OpenOptions::new()
         .read(true)
@@ -139,7 +139,7 @@ fn a_staged_fantome_holds_its_metadata_and_its_archive() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_full_fantome_zip(&archive);
 
     let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
 
@@ -158,7 +158,7 @@ fn a_fantome_installs_despite_checksums_that_describe_nothing() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("bad-crc.fantome");
-    crate::mods::test_support::make_bad_crc_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_bad_crc_fantome_zip(&archive);
 
     let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
 
@@ -174,7 +174,7 @@ fn staging_embeds_unrecoverable_names_in_the_archive() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_full_fantome_zip(&archive);
 
     let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
 
@@ -197,7 +197,7 @@ fn staging_stores_a_fantomes_packed_wads() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_full_fantome_zip(&archive);
     let shipped_bytes = fs::read(&archive).unwrap();
 
     let staged = stage_mod_package(storage.path(), archive.to_str().unwrap(), &context()).unwrap();
@@ -227,12 +227,13 @@ fn a_mod_the_resolver_covers_keeps_its_archive_unrewritten() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_full_fantome_zip(&archive);
     let archive_utf8 = camino::Utf8PathBuf::from_path_buf(archive.clone()).unwrap();
     ltk_fantome::normalize_archive(&archive_utf8, &archive_utf8).unwrap();
 
-    let resolver =
-        crate::mods::test_support::resolver_naming(&["data/characters/aatrox/skins/skin01.bin"]);
+    let resolver = ltk_manager_assets::test_util::resolver_naming(&[
+        "data/characters/aatrox/skins/skin01.bin",
+    ]);
     let context = InstallContext {
         resolver: &resolver,
     };
@@ -291,7 +292,7 @@ fn harvested_names_land_in_the_unpacked_projects_hashes_directory() {
     let (library, config) = make_test_library(storage.path());
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_full_fantome_zip(&archive);
 
     let installed = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
@@ -320,7 +321,7 @@ fn a_packed_chunk_named_only_by_its_own_bin_unpacks_under_that_name() {
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("packed.fantome");
     let recovered_path = "assets/custom/recovered.tex";
-    crate::mods::test_support::make_bin_named_chunk_fantome_zip(&archive, recovered_path);
+    ltk_manager_assets::test_util::make_bin_named_chunk_fantome_zip(&archive, recovered_path);
 
     let installed = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
@@ -349,7 +350,7 @@ fn the_harvest_is_recorded_on_the_entry_and_the_installed_mod() {
     let (library, config) = make_test_library(storage.path());
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_full_fantome_zip(&archive);
 
     let installed = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
@@ -544,7 +545,7 @@ fn a_fantome_keeps_the_layers_its_metadata_declares() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("layered.fantome");
-    crate::mods::test_support::make_layered_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_layered_fantome_zip(&archive);
 
     let entry = install(storage.path(), &archive).unwrap();
     let project = load_mod_project(&entry.mod_dir(storage.path())).unwrap();
@@ -724,7 +725,7 @@ fn an_update_can_change_archive_format_without_leaving_the_old_archive() {
         .unwrap()
         .into_mod();
     let replacement = source.path().join("replacement.modpkg");
-    crate::mods::test_support::make_modpkg(&replacement, "Replacement");
+    ltk_manager_assets::test_util::make_modpkg(&replacement, "Replacement");
 
     let updated = library
         .update_mod_from_package(&config, &original.id, replacement.to_str().unwrap())
@@ -742,7 +743,7 @@ fn an_update_replaces_an_unpacked_mod_with_the_new_archive() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("original.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_full_fantome_zip(&archive);
     let (library, config) = make_test_library(storage.path());
     let original = library
         .install_mod_from_package(&config, archive.to_str().unwrap())
@@ -784,7 +785,7 @@ fn installing_an_archive_the_library_holds_reports_the_existing_mod() {
     let storage = tempfile::tempdir().unwrap();
     let source = tempfile::tempdir().unwrap();
     let archive = source.path().join("full.fantome");
-    crate::mods::test_support::make_full_fantome_zip(&archive);
+    ltk_manager_assets::test_util::make_full_fantome_zip(&archive);
     let (library, config) = make_test_library(storage.path());
     let first = library
         .install_mod_from_package(&config, archive.to_str().unwrap())

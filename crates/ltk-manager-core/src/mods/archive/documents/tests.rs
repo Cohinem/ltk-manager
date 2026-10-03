@@ -2,10 +2,10 @@ use super::*;
 use crate::mods::StorageLayout as _;
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::test_support::{
-    make_fantome_zip_with_documents, make_modpkg_with_documents, make_slugged_entry,
-    make_test_library, make_unpacked_entry, place_installed_mod, seed_library,
+    make_slugged_entry, make_test_library, make_unpacked_entry, place_installed_mod, seed_library,
 };
 use fs_err as fs;
+use ltk_manager_assets::test_util::{make_fantome_zip_with_documents, make_modpkg_with_documents};
 
 /// A library holding one mod at `slug`, with whatever archive `place` writes.
 fn library_holding(

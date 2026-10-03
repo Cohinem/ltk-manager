@@ -11,8 +11,8 @@ use ltk_meta::property::Kind;
 use ltk_meta::walk::{ChildSegment, Leaf, Node, NodeRef, TreeNode, TreeValue, Visit, Visitor};
 use ltk_meta::{Error, PropertyValueEnum};
 
-use crate::bin_source::BinSource;
 use crate::bin_walk::{Declared, write_key};
+use ltk_manager_assets::bin_source::BinSource;
 
 mod run;
 

@@ -6,13 +6,13 @@ use std::time::Instant;
 
 use ltk_hash::{BinHash, Hash as _};
 
+use ltk_manager_assets::game_index::GameIndex;
+use ltk_manager_assets::game_wads::GameArchives;
+use ltk_manager_assets::hashtables::CacheNames;
+use ltk_manager_assets::hashtables::{HashtableCache, WadPathResolver};
 use ltk_manager_base::budget::{files_at_once, Budget};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::game_build::GameBuild;
-use ltk_manager_core::game_index::GameIndex;
-use ltk_manager_core::game_wads::GameArchives;
-use ltk_manager_core::hashtables::CacheNames;
-use ltk_manager_core::hashtables::{HashtableCache, WadPathResolver};
 use ltk_manager_core::meta_schema;
 use ltk_manager_core::object_index::{FileTarget, ObjectIndex, WalkRequest, WalkTarget};
 

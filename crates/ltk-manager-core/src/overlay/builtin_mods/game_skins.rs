@@ -1,8 +1,8 @@
 //! The skin bins a set of the game's archives hold, mounted to read.
 
 use super::skin_bin::SkinBin;
-use crate::game_wads::{chunk_bytes, mount_wad};
 use fs_err as fs;
+use ltk_manager_assets::game_wads::{chunk_bytes, mount_wad};
 use ltk_manager_base::error::AppResult;
 use ltk_manager_base::utils::game::{GameDir, archive_stem};
 use ltk_wad::{PathResolver, Wad, WadHash};

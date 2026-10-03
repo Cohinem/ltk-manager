@@ -10,9 +10,9 @@ use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 
 use super::*;
-use crate::mods::test_support::{audio_bank, make_packed_chunk_fantome_zip, resolver_naming};
 use crate::problems::ProjectFiles;
 use crate::problems::game::FakeContent;
+use ltk_manager_assets::test_util::{audio_bank, make_packed_chunk_fantome_zip, resolver_naming};
 use ltk_manager_base::budget::Budget;
 use ltk_manager_base::config::Config;
 

@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use super::{BinDocumentId, DeclaredState, ReadOnly};
 use crate::meta_schema::KindShape;
 use crate::object_index::ObjectDeclaration;
-use crate::preview::AssetRef;
 use crate::sandbox::SandboxRef;
+use ltk_manager_assets::preview::AssetRef;
 
 /// How many rows one path of a projected read answers, the frontend's `PAGE_SIZE`.
 pub(super) const READ_PAGE: usize = 500;

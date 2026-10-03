@@ -386,7 +386,7 @@ impl Textures<'_> {
     }
 }
 
-fn texture(path: String, asset: ltk_manager_core::preview::AssetRef) -> UiTexture {
+fn texture(path: String, asset: ltk_manager_assets::preview::AssetRef) -> UiTexture {
     UiTexture {
         path,
         asset: Some(asset),

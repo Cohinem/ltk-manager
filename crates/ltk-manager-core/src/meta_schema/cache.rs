@@ -6,8 +6,8 @@ use fs_err as fs;
 use serde::{Deserialize, Serialize};
 
 use super::{MetaSchema, MetaSchemaError};
-use crate::hashtables::HashtableCache;
-use crate::hashtables::MetaSchemaVersion;
+use ltk_manager_assets::hashtables::HashtableCache;
+use ltk_manager_assets::hashtables::MetaSchemaVersion;
 use ltk_manager_base::game_build::GameBuild;
 use ltk_manager_base::utils::fs::atomic_write;
 
@@ -144,7 +144,7 @@ impl MetaSchemaCache {
     /// Installs nothing, like [`HashtableCache::check`]. Costs the body when it
     /// has moved, since the tag is the only exact signal the publisher gives.
     ///
-    /// [`HashtableCache::check`]: crate::hashtables::HashtableCache::check
+    /// [`HashtableCache::check`]: ltk_manager_assets::hashtables::HashtableCache::check
     ///
     /// # Errors
     ///

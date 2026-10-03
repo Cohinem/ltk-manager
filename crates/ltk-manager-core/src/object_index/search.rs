@@ -8,7 +8,7 @@ use ltk_hash::BinHash;
 use ltk_wad::hex_name;
 
 use crate::bin_document::hex;
-use crate::game_index::SEARCH_LIMIT;
+use ltk_manager_assets::game_index::SEARCH_LIMIT;
 use ltk_manager_base::matcher::{EXACT_SCORE, Query, Range, mask_covers};
 
 use super::{
@@ -140,7 +140,7 @@ impl ObjectIndex {
     /// with the last `/` segment of the object's path taking the name's band.
     ///
     /// `is_overtaken` is tested every few thousand rows, the contract
-    /// [`GameIndex::search`](crate::game_index::GameIndex::search) sets. An empty query
+    /// [`GameIndex::search`](ltk_manager_assets::game_index::GameIndex::search) sets. An empty query
     /// matches nothing, unless a class term narrowed it, and then every row of the class
     /// lists by path.
     pub fn search(&self, query: &str, is_overtaken: impl Fn() -> bool) -> ObjectSearchResult {

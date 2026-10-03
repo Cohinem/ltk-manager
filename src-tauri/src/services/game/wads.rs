@@ -3,8 +3,8 @@
 use crate::error::IpcResult;
 use crate::services::shared::off_thread;
 use crate::state::SettingsState;
-use ltk_manager_core::game_wads::{GameArchives, GameWadEntry, GameWadSummary, WadSource};
-use ltk_manager_core::hashtables::WadPathResolverState;
+use ltk_manager_assets::game_wads::{GameArchives, GameWadEntry, GameWadSummary, WadSource};
+use ltk_manager_assets::hashtables::WadPathResolverState;
 use tauri::{AppHandle, Manager};
 
 /// List the WAD archives of `source`, sorted by name.

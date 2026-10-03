@@ -16,7 +16,7 @@ use ltk_mod_project::{CONTENT_DIR_NAME, ModProject, ModProjectLayer};
 use ltk_wad::is_hex_chunk_path;
 use walkdir::WalkDir;
 
-use crate::preview::AssetRef;
+use ltk_manager_assets::preview::AssetRef;
 
 use super::layer;
 

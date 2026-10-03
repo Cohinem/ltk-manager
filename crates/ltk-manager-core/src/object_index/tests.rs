@@ -3,12 +3,12 @@
 
 use super::search::ClassTerm;
 use super::*;
-use crate::game_index::GameIndex;
-use crate::game_wads::GameArchives;
-use crate::hashtables::ObjectNames;
 use fs_err as fs;
 use ltk_hash::Hash as _;
 use ltk_hashdb::LayeredHashDb;
+use ltk_manager_assets::game_index::GameIndex;
+use ltk_manager_assets::game_wads::GameArchives;
+use ltk_manager_assets::hashtables::ObjectNames;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, BinOverride, PropertyPatch};
@@ -32,7 +32,9 @@ mod walk;
 type Chunk<'a> = (&'a str, Vec<u8>);
 /// The key the `game` table would file this path under.
 fn path_hash(path: &str) -> u64 {
-    crate::hashtables::Table::Game.key_config().hash(path)
+    ltk_manager_assets::hashtables::Table::Game
+        .key_config()
+        .hash(path)
 }
 /// A `PROP` declaring `objects`, each as `(object path, class name)`.
 fn prop(objects: &[(&str, &str)]) -> Vec<u8> {

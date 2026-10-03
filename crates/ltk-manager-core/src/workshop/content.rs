@@ -1,13 +1,13 @@
 use super::ignore_rules::project_relative;
 use super::layer;
 use super::{ProjectDir, Workshop};
-use crate::bin_source::{Declaration, for_each_declaration};
-use crate::file_kind::WorkshopFileKind;
-use crate::hashtables::{BinHashTables, HashtableCache};
 use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
 use ltk_file::LeagueFileKind;
 use ltk_hash::BinHash;
+use ltk_manager_assets::bin_source::{Declaration, for_each_declaration};
+use ltk_manager_assets::file_kind::WorkshopFileKind;
+use ltk_manager_assets::hashtables::{BinHashTables, HashtableCache};
 use ltk_manager_base::error::{AppResult, Utf8PathRefExt};
 use ltk_manager_base::hashing::HexBinHash;
 use ltk_mod_project::{ModIgnore, ModIgnoreMatch};

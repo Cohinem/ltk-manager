@@ -8,8 +8,8 @@ use std::time::Duration;
 use ltk_wad::WadHash;
 use serde::Serialize;
 
-use crate::preview::AssetRef;
 use crate::sandbox::layer_chunk_hash;
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::matcher::{Range, SearchHits};
 
 /// One row a search matched, with the runs its path marks.

@@ -17,7 +17,6 @@
 //! Exactly one of the two — the tree or the archive — is the mod at any
 //! moment, so neither direction needs the other's leftovers to exist.
 
-use crate::mod_archive::long_paths;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::STAGING_PREFIX;
@@ -25,6 +24,7 @@ use crate::mods::archive::metadata::{load_mod_project, read_installed_mod};
 use crate::mods::index::{LibraryIndex, LibraryModEntry, get_active_profile};
 use crate::mods::types::InstalledMod;
 use fs_err as fs;
+use ltk_manager_assets::mod_archive::long_paths;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, IoContext, Utf8PathExt};
 use ltk_manager_base::events::ModStorage;

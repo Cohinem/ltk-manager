@@ -17,9 +17,9 @@ use std::time::Instant;
 use fs_err as fs;
 use hexshade::TranslationCache;
 use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument};
-use ltk_manager_core::preview::AssetRef;
 use ltk_manager_game::material::SHADER_DEFS_PATH;
 use ltk_manager_game::program::{
     MaterialProgram, ProgramOptions, ProgramRead, Resolution, read_programs,

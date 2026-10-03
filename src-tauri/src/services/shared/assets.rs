@@ -1,8 +1,8 @@
 //! The bytes of an asset, read through the shared WAD cache under the current settings.
 
+use ltk_manager_assets::game_wads::WadCache;
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_core::bin_document::{AssetLookup, BinDocument};
-use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::preview::AssetRef;
 use tauri::{AppHandle, Manager};
 
 use crate::error::AppResult;

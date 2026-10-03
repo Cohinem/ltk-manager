@@ -2,11 +2,13 @@ use super::*;
 use crate::mods::index::ModArchiveFormat;
 use crate::mods::index::document::load_library_index;
 use crate::mods::test_support::{
-    RecordingEventSink, make_bad_crc_fantome_zip, make_full_fantome_zip, make_library_with_events,
-    make_modpkg, make_slugged_entry, make_test_library, make_unpacked_entry, mod_project_named,
-    place_unpacked_mod, seed_library,
+    RecordingEventSink, make_library_with_events, make_slugged_entry, make_test_library,
+    make_unpacked_entry, place_unpacked_mod, seed_library,
 };
 use assert_matches::assert_matches;
+use ltk_manager_assets::test_util::{
+    make_bad_crc_fantome_zip, make_full_fantome_zip, make_modpkg, mod_project_named,
+};
 use std::sync::Arc;
 
 /// A mod the layout migration moved: a metadata-only directory, the archive
@@ -120,7 +122,7 @@ fn unpacking_keeps_the_layers_the_archive_declares() {
         serde_json::to_string_pretty(&mod_project_named("layered-mod")).unwrap(),
     )
     .unwrap();
-    crate::mods::test_support::make_layered_fantome_zip(&mods_dir.join("layered-mod.fantome"));
+    ltk_manager_assets::test_util::make_layered_fantome_zip(&mods_dir.join("layered-mod.fantome"));
 
     seed_library(
         &library,

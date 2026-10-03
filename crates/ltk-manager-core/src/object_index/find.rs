@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use ltk_hash::BinHash;
 
 use crate::bin_document::hex;
-use crate::game_index::FIND_LIMIT;
+use ltk_manager_assets::game_index::FIND_LIMIT;
 use ltk_manager_base::matcher::{FindQuery, Range};
 
 use super::{ObjectFindHit, ObjectFindResult, ObjectIndex, STALE_CHECK_INTERVAL};
@@ -68,7 +68,7 @@ impl ObjectIndex {
     /// nothing matches.
     ///
     /// `is_overtaken` is tested every few thousand objects, the contract
-    /// [`GameIndex::search`](crate::game_index::GameIndex::search) sets.
+    /// [`GameIndex::search`](ltk_manager_assets::game_index::GameIndex::search) sets.
     #[must_use]
     pub fn find(
         &self,

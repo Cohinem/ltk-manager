@@ -10,7 +10,7 @@ use std::time::Instant;
 use ltk_hash::BinHash;
 use ltk_wad::WadHash;
 
-use crate::hashtables::ObjectNames;
+use ltk_manager_assets::hashtables::ObjectNames;
 use ltk_manager_base::matcher::letter_mask;
 
 use super::browse::compare_paths;

@@ -7,8 +7,8 @@ use ltk_fantome::FantomeReader;
 use ltk_mod_project::ModProject;
 use ltk_modpkg::Modpkg;
 
-use crate::mod_archive::{open_fantome, open_modpkg};
 use crate::mods::index::ModArchiveFormat;
+use ltk_manager_assets::mod_archive::{open_fantome, open_modpkg};
 use ltk_manager_base::error::{AppError, AppResult};
 
 /// A mod archive, opened by its format.

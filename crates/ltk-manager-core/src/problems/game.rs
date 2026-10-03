@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 
 use ltk_wad::WadHash;
 
-use crate::game_wads::{GameArchives, WadCache, mount_wad};
+use ltk_manager_assets::game_wads::{GameArchives, WadCache, mount_wad};
 use ltk_manager_base::config::Config;
 
 /// The chunks of the installed game.

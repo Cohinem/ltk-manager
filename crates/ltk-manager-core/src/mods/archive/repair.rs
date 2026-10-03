@@ -8,7 +8,6 @@
 //! unpacked into staging, fixed there, and repacked whole - ADR-0025.
 //! Replacing the archive, and keeping no copy of the original, is ADR-0005.
 
-use crate::mod_archive::open_fantome;
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
 use crate::mods::archive::install::STAGING_PREFIX;
@@ -19,6 +18,7 @@ use camino::Utf8Path;
 use delta::RepairEdit;
 use fs_err as fs;
 use ltk_fantome::DeltaReport;
+use ltk_manager_assets::mod_archive::open_fantome;
 use ltk_manager_base::budget::{self, Budget};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};

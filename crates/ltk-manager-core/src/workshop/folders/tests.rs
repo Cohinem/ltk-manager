@@ -1,6 +1,6 @@
 use super::*;
-use crate::hashtables::LayeredHashDb;
 use assert_matches::assert_matches;
+use ltk_manager_assets::hashtables::LayeredHashDb;
 use ltk_manager_base::events::NullEventSink;
 use std::sync::Arc;
 

@@ -454,7 +454,7 @@ pub(super) fn chunk(
     namer: &mut Namer<'_>,
     assets: &dyn AssetLookup,
     hash: WadHash,
-) -> (String, Option<ltk_manager_core::preview::AssetRef>) {
+) -> (String, Option<ltk_manager_assets::preview::AssetRef>) {
     match namer.chunk(hash) {
         Some(path) => {
             let asset = assets.locate(&path).or_else(|| assets.locate_chunk(hash));

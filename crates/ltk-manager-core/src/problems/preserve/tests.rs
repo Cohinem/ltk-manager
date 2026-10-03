@@ -35,7 +35,7 @@ fn project(hashtables: Vec<ModProjectHashtable>) -> tempfile::TempDir {
     let dir = tempfile::tempdir().expect("a temp dir");
     let config = ModProject {
         hashtables,
-        ..crate::mods::test_support::mod_project_named("smolder-x")
+        ..ltk_manager_assets::test_util::mod_project_named("smolder-x")
     };
     fs::write(
         dir.path().join("mod.config.json"),

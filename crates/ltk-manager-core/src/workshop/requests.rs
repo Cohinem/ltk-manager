@@ -7,7 +7,7 @@ use super::{
     CreateProjectArgs, ImportFantomeArgs, ImportGitRepoArgs, ProjectMetadata, Workshop,
     WorkshopProject,
 };
-use crate::hashtables::WadPathResolver;
+use ltk_manager_assets::hashtables::WadPathResolver;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::AppResult;
 

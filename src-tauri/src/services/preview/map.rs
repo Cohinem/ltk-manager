@@ -10,8 +10,8 @@ use std::collections::HashMap;
 use super::material::shader_defs;
 use crate::error::IpcResult;
 use crate::services::shared::off_thread;
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_core::bin_document::{BinDocumentId, BinDocuments};
-use ltk_manager_core::preview::AssetRef;
 use ltk_manager_core::sandbox::SandboxRef;
 use ltk_manager_game::map::{
     map_characters, map_outline, map_particles, map_variants, resolve_map, unresolved_map,

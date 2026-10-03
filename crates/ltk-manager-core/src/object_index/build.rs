@@ -12,9 +12,11 @@ use ltk_hash::BinHash;
 use ltk_wad::{ChunkDecoder, WadHash, hex_name};
 use rayon::prelude::*;
 
-use crate::bin_source::for_each_declaration;
-use crate::game_index::GameIndex;
-use crate::game_wads::{ArchiveFile, GameArchives, chunk_bytes, chunk_head, mount_wad};
+use ltk_manager_assets::bin_source::for_each_declaration;
+use ltk_manager_assets::game_index::GameIndex;
+use ltk_manager_assets::game_wads::{
+    ArchiveFile, GameArchives, chunk_bytes, chunk_head, mount_wad,
+};
 use ltk_manager_base::error::{AppError, AppResult};
 
 use super::{Declarations, DeclaringFile, Names, ObjectIndex, ObjectIndexStats, Row};

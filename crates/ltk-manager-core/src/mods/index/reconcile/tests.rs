@@ -1,10 +1,11 @@
 use super::*;
 use crate::mods::index::document::{load_library_index, save_library_index};
 use crate::mods::test_support::{
-    make_fantome_zip, make_slugged_entry, make_test_entry, make_test_profile, make_unpacked_entry,
-    mod_project_named, place_installed_mod, place_unpacked_mod,
+    make_slugged_entry, make_test_entry, make_test_profile, make_unpacked_entry,
+    place_installed_mod, place_unpacked_mod,
 };
 use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
+use ltk_manager_assets::test_util::{make_fantome_zip, mod_project_named};
 use ltk_wad::NoResolver;
 
 fn context() -> InstallContext<'static> {

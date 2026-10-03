@@ -9,8 +9,8 @@ use ltk_meta::property::values;
 use super::*;
 use crate::bin_document::{BinDocumentId, BinDocuments, HistoryStep, LeafValue, ReadOnly};
 use crate::meta_schema;
-use crate::preview::AssetRef;
 use crate::sandbox::{Opening, Sandbox, SandboxRef, layer_chunk_hash};
+use ltk_manager_assets::preview::AssetRef;
 
 pub(super) const SKIN: &str = "Characters/Teemo/Skins/Skin0";
 const CHUNK: &str = "data/characters/teemo/skins/skin0.bin";

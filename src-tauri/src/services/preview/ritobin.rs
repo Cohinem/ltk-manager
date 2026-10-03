@@ -1,11 +1,11 @@
 //! Opening an asset as ritobin text, in the VS Code the extension registered.
 //!
 //! The integration is a Windows Explorer verb, so both commands are a registry
-//! read away from answering. See [`ltk_manager_core::ritobin`].
+//! read away from answering. See [`ltk_manager_assets::ritobin`].
 
-use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::preview::AssetRef;
-use ltk_manager_core::ritobin::RitobinVerb;
+use ltk_manager_assets::game_wads::WadCache;
+use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_assets::ritobin::RitobinVerb;
 use tauri::{AppHandle, Manager};
 
 use crate::error::{AppError, IpcResult};

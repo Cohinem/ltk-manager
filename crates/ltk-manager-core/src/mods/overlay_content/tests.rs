@@ -1,12 +1,13 @@
 use super::*;
 use crate::mods::index::{LibraryIndex, ModArchiveFormat};
 use crate::mods::test_support::{
-    make_full_fantome_zip, make_slugged_entry, make_test_library, make_test_profile,
-    make_unpacked_entry, place_unpacked_mod,
+    make_slugged_entry, make_test_library, make_test_profile, make_unpacked_entry,
+    place_unpacked_mod,
 };
 use crate::mods::types::{LibraryFolder, ROOT_FOLDER_ID};
 use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
+use ltk_manager_assets::test_util::make_full_fantome_zip;
 use ltk_wad::{NoResolver, PathResolver, WadHash};
 use sha2::Digest as _;
 use std::collections::BTreeSet;
@@ -197,7 +198,7 @@ fn a_pre_migration_fantome_is_still_read_out_of_its_archive() {
     fs::create_dir_all(&meta_dir).unwrap();
     fs::write(
         meta_dir.join("mod.config.json"),
-        serde_json::to_string_pretty(&crate::mods::test_support::mod_project_named("legacy"))
+        serde_json::to_string_pretty(&ltk_manager_assets::test_util::mod_project_named("legacy"))
             .unwrap(),
     )
     .unwrap();

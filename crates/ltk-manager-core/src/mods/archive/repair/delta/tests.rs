@@ -150,10 +150,10 @@ fn a_removal_is_written_as_an_edit() {
 mod held {
     use super::*;
 
-    use crate::mods::test_support::{
+    use crate::problems::{FixRun, Preserved, ProjectFiles};
+    use ltk_manager_assets::test_util::{
         STALE_BIN_IN_WAD, make_packed_bin_fantome_zip, resolver_naming, stale_bin,
     };
-    use crate::problems::{FixRun, Preserved, ProjectFiles};
     use ltk_manager_base::budget::Budget;
     use ltk_manager_base::config::Config;
 

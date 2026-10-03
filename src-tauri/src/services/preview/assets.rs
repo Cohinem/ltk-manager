@@ -11,8 +11,8 @@ use crate::error::IpcResult;
 use crate::services::shared::off_thread;
 use crate::services::shared::read_asset;
 use crate::state::SettingsState;
-use ltk_manager_core::game_wads::WadCache;
-use ltk_manager_core::preview::{AssetInfo, AssetRef};
+use ltk_manager_assets::game_wads::WadCache;
+use ltk_manager_assets::preview::{AssetInfo, AssetRef};
 use tauri::{AppHandle, Manager};
 
 /// Report what a previewable asset holds, without decoding it.

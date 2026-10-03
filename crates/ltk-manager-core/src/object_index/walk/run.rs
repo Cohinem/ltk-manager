@@ -12,11 +12,11 @@ use walkdir::WalkDir;
 
 use crate::bin_document::{EntryKey, HashPath, Lens, RowNames, Wanted, hex};
 use crate::bin_walk::write_json_string;
-use crate::game_index::FIND_LIMIT;
-use crate::game_wads::{GameArchives, mount_wad};
 use crate::meta_schema::SchemaAt;
-use crate::preview::AssetRef;
 use crate::workshop::layer;
+use ltk_manager_assets::game_index::FIND_LIMIT;
+use ltk_manager_assets::game_wads::{GameArchives, mount_wad};
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::budget::Budget;
 use ltk_manager_base::error::AppResult;
 use ltk_manager_base::utils::natural_order::compare_names;

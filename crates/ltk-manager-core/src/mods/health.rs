@@ -11,11 +11,11 @@ pub mod sweep;
 #[cfg(debug_assertions)]
 pub mod timing;
 
-use crate::hashtables::HashtableCache;
 use crate::mods::ModLibrary;
 use crate::mods::health::sweep::{HealthSweepState, SweepScope};
 use crate::mods::index::LibraryModEntry;
 use crate::problems::{self, Counts, ProjectFiles, Run};
+use ltk_manager_assets::hashtables::HashtableCache;
 use ltk_manager_base::budget::Budget;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult};

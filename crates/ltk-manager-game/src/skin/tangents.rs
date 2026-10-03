@@ -3,8 +3,8 @@ use std::io::Cursor;
 use fs_err as fs;
 use ltk_mesh::SkinnedMesh;
 
+use ltk_manager_assets::preview::{AssetRef, PreviewError};
 use ltk_manager_base::error::{AppError, AppResult};
-use ltk_manager_core::preview::{AssetRef, PreviewError};
 
 /// Tangents baked into a skin's mesh in the same project layer.
 ///

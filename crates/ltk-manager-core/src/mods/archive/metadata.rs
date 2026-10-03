@@ -6,11 +6,11 @@
 //! not depend on the archive format, and the library view lists mods without
 //! mounting an archive.
 
-use crate::mod_archive::open_fantome;
 use crate::mods::archive::reader::ModArchive;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::types::{InstalledMod, ModLayer, ModLicense};
 use fs_err as fs;
+use ltk_manager_assets::mod_archive::open_fantome;
 use ltk_manager_base::error::{AppError, AppResult, IoContext};
 use ltk_mod_project::{ModProject, ModProjectLayer};
 use std::collections::HashMap;
@@ -338,8 +338,8 @@ mod tests {
     fn extracted_metadata_gives_an_undeclared_layer_directory_a_layer() {
         let tmp = tempfile::tempdir().unwrap();
         let archive = tmp.path().join("layers.fantome");
-        let bin = crate::mods::test_support::stale_bin();
-        crate::mods::test_support::make_layer_wads_fantome_zip(&archive, &bin, &bin);
+        let bin = ltk_manager_assets::test_util::stale_bin();
+        ltk_manager_assets::test_util::make_layer_wads_fantome_zip(&archive, &bin, &bin);
 
         extract_metadata(
             &archive,

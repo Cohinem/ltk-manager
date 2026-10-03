@@ -11,12 +11,12 @@ use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
 
 use super::{VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_core::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Locator, Namer, RowNames, chunk_asset, hex, link,
     object_at, owned,
 };
 use ltk_manager_core::bin_walk as walk;
-use ltk_manager_core::preview::AssetRef;
 
 use crate::linked::find_linked_materials;
 use crate::material::{MaterialPreview, linked_material};
