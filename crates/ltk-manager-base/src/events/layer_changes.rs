@@ -5,7 +5,7 @@ use std::path::{Component, Path};
 
 use serde::Serialize;
 
-/// One file of one project layer, as [`AssetRef::Layer`](crate::preview::AssetRef::Layer) names it.
+/// One file of one project layer, as a layer asset reference names it.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]

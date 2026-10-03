@@ -37,7 +37,7 @@ impl LauncherState {
     /// # Errors
     ///
     /// Only for a launcher that cannot be configured at all, which is a bug in
-    /// `ltk-manager-core` rather than a machine the user can fix.
+    /// `ltk-manager-runtime` rather than a machine the user can fix.
     pub fn new(app: &AppHandle, config: &Config) -> Result<Self, LauncherError> {
         let events: Arc<dyn EventSink> = Arc::new(TauriEventSink::new(app.clone()));
         Ok(Self(Arc::new(LeagueLauncher::new(config, events)?)))

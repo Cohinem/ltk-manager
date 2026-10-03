@@ -60,7 +60,7 @@ impl LeagueClientSettings {
     /// `None` when the key is absent or not a boolean. The injected DLL only
     /// verifies archives as the game loads them while this is off, so with it on
     /// every WAD is scanned up front regardless of
-    /// [`FULL_WAD_SCAN`](crate::patcher::host::hook_flags::FULL_WAD_SCAN).
+    /// the patcher host's `FULL_WAD_SCAN` hook flag.
     pub fn crash_reporting(&self) -> Option<bool> {
         self.document
             .get("install")?

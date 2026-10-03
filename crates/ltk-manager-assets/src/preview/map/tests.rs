@@ -398,7 +398,7 @@ fn the_second_uv_set_is_texcoord7() {
 /// Ignored because it reads a game install. Point it at one and run it by name:
 ///
 /// ```text
-/// LTK_LIVE_MAPGEO='<wad path>#<chunk hash in hex>' ///   cargo test -p ltk-manager-core the_bake -- --ignored --nocapture
+/// LTK_LIVE_MAPGEO='<wad path>#<chunk hash in hex>' ///   cargo test -p ltk-manager-assets the_bake -- --ignored --nocapture
 /// ```
 ///
 /// The file's own bounding box is what says whether the transform was read the right way

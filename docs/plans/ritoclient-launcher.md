@@ -14,20 +14,20 @@ scanning the process table on a five-second timer.
 
 ## 1. Where we are
 
-| Piece           | Where                                                     | Shape today                                                                               |
-| --------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Dependency      | `Cargo.toml:8`                                            | `ritoclient-api`, git rev `eb6bf7a` - the "scaffold" commit of 2026-07-28                 |
-| Seam            | `crates/ltk-manager-core/src/launcher.rs`                 | Three free functions and a `SinkObserver`. No type owns the launch                        |
-| Commands        | `src-tauri/src/commands/launcher.rs`                      | `launch_league`, `get_launch_availability`. `LaunchState` keeps one launch in flight      |
-| Error mapping   | `src-tauri/src/error.rs:252`                              | One `ErrorCode` per `LauncherError` variant, whole error as JSON context                  |
-| Events          | `crates/ltk-manager-core/src/events.rs:16`                | `LaunchProgress` / `LaunchStage` re-exported from the crate, emitted as `launch-progress` |
-| Process checks  | `crates/ltk-manager-core/src/diagnostics/processes.rs:93` | `processes::list_matching` over `RIOT_PROCESS_NAMES`                                      |
-| "Is League up?" | `src/modules/launcher/api/useLaunchAvailability.ts`       | `get_launch_availability` polled every 5 s, purely a process scan                         |
-| Play flow       | `src/modules/launcher/api/usePlay.ts`                     | Patcher, then launch. Ends at `finally { setStep("idle") }` the moment the POST returns   |
-| Status bar      | `src/modules/launcher/components/SessionBar.tsx`          | Steps for build / patcher / launch. Nothing after "League is starting."                   |
-| Bindings        | `src/lib/bindings/Launch*.ts`, `LauncherError.ts`         | Six files the crate claims to generate and does not - see section 6                       |
-| Docs            | `AGENTS.md`                                               | Crate table still lists `crates/ritoclient-api` as a workspace member                     |
-| Licenses        | `public/third-party-licenses.json`                        | Names `ritoclient-api` only                                                               |
+| Piece           | Where                                                        | Shape today                                                                               |
+| --------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Dependency      | `Cargo.toml:8`                                               | `ritoclient-api`, git rev `eb6bf7a` - the "scaffold" commit of 2026-07-28                 |
+| Seam            | `crates/ltk-manager-runtime/src/launcher.rs`                 | Three free functions and a `SinkObserver`. No type owns the launch                        |
+| Commands        | `src-tauri/src/commands/launcher.rs`                         | `launch_league`, `get_launch_availability`. `LaunchState` keeps one launch in flight      |
+| Error mapping   | `src-tauri/src/error.rs:252`                                 | One `ErrorCode` per `LauncherError` variant, whole error as JSON context                  |
+| Events          | `crates/ltk-manager-base/src/events.rs:16`                   | `LaunchProgress` / `LaunchStage` re-exported from the crate, emitted as `launch-progress` |
+| Process checks  | `crates/ltk-manager-runtime/src/diagnostics/processes.rs:93` | `processes::list_matching` over `RIOT_PROCESS_NAMES`                                      |
+| "Is League up?" | `src/modules/launcher/api/useLaunchAvailability.ts`          | `get_launch_availability` polled every 5 s, purely a process scan                         |
+| Play flow       | `src/modules/launcher/api/usePlay.ts`                        | Patcher, then launch. Ends at `finally { setStep("idle") }` the moment the POST returns   |
+| Status bar      | `src/modules/launcher/components/SessionBar.tsx`             | Steps for build / patcher / launch. Nothing after "League is starting."                   |
+| Bindings        | `src/lib/bindings/Launch*.ts`, `LauncherError.ts`            | Six files the crate claims to generate and does not - see section 6                       |
+| Docs            | `AGENTS.md`                                                  | Crate table still lists `crates/ritoclient-api` as a workspace member                     |
+| Licenses        | `public/third-party-licenses.json`                           | Names `ritoclient-api` only                                                               |
 
 ## 2. Why this is not a version bump
 
@@ -105,7 +105,7 @@ typecheck failure until it has a line. It needs one that does not read as a fail
 2. **Section 6 first, in the same commit.** The `ts` feature is gone upstream, so
    `crates/ltk-manager-core/Cargo.toml:12` and `src-tauri/Cargo.toml:30` do not build until the five
    remaining IPC types are manager-owned. This is no longer a separable cleanup.
-3. `crates/ltk-manager-core/src/launcher.rs`: rewrite the seam per section 4. Keep `LEAGUE_CLIENT_EXE`,
+3. `crates/ltk-manager-runtime/src/launcher.rs`: rewrite the seam per section 4. Keep `LEAGUE_CLIENT_EXE`,
    `league_target()` and `LaunchAvailability` exactly as they are - they exist because the crate names
    no products, and that has not changed.
 4. Hide-on-launch currently skips `AlreadyRunning`. It must skip `Adopted` too: neither route

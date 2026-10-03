@@ -1,17 +1,34 @@
 # Backend (Rust) - `src-tauri/src/`
 
 Conventions for the Rust side. Repo-wide guidance lives in the root `AGENTS.md`. This file also
-governs `crates/ltk-manager-core/`, whose `AGENTS.md` points here.
+governs the `crates/ltk-manager-*` crates, whose `AGENTS.md` files point here.
 
 ## Workspace Crates
 
-| Crate                     | Knows about                       | Depends on                  | License            |
-| ------------------------- | --------------------------------- | --------------------------- | ------------------ |
-| `crates/ltk-manager-core` | Manager domain logic, UI-agnostic | `ritoclient`                | `GPL-3.0-or-later` |
-| `crates/ltk-manager-game` | What League's own classes mean    | core, hexshade              | `GPL-3.0-or-later` |
-| `crates/hexshade`         | The game's shaders as GLSL        | `dxbc-spirv-sys`            | `GPL-3.0-or-later` |
-| `crates/atlas`            | The game's UI views, for Atlas    | core, game, hexshade        | `GPL-3.0-or-later` |
-| `src-tauri`               | Tauri commands, IPC, events       | core, game, hexshade, atlas | `GPL-3.0-or-later` |
+| Crate                         | Knows about                                             | Depends on                  | License             |
+| ----------------------------- | ------------------------------------------------------- | --------------------------- | ------------------- |
+| `crates/ltk-manager-base`     | Settings, `AppError`, events and shared helpers         | none of the workspace       | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-runtime`  | The patcher host, the launcher and the diagnostics      | base, `ritoclient`          | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-assets`   | Game archives, hash tables and asset previews           | base                        | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-workshop` | A mod project on disk                                   | base, assets                | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-bin`      | Bin documents, the object index and the meta schema     | base, assets, workshop      | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-problems` | The Problems rules and their repairs                    | base, assets, workshop, bin | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-library`  | The mod library and the overlay built from it           | problems and what it takes  | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-core`     | A patching session, install links and the release feeds | library, runtime            | `GPL-3.0-or-later`  |
+| `crates/ltk-manager-game`     | What League's own classes mean                          | bin, assets, base, hexshade | `GPL-3.0-or-later`  |
+| `crates/hexshade`             | The game's shaders as GLSL                              | `dxbc-spirv-sys`            | `GPL-3.0-or-later`  |
+| `crates/atlas`                | The game's UI views, for Atlas                          | game, bin, assets, hexshade | `GPL-3.0-or-later`  |
+| `src-tauri`                   | Tauri commands, IPC, events                             | every crate above           | `GPL-3.0-or-later`  |
+
+Dependencies point down this table and never up. A type two crates share lives in the lower one:
+`AppError`, `BackendEvent` and every event payload are in base, so no crate names another to
+report a failure or announce a change. A domain error stays in its own crate and converts to
+`AppError::Domain`, which holds it without naming its type, and the shell reads it back with
+`AppError::domain`.
+
+A fixture another crate's tests need is behind the owning crate's `test-util` feature, which
+that crate's `dev-dependencies` turn on. `ltk-manager-assets` holds the archive and bin builders
+in `test_util`.
 
 `ritoclient` is an external dependency rather than a workspace member, pinned to a git rev in the
 root `Cargo.toml` until it ships on crates.io. It is **Apache-2.0**, where this workspace is
@@ -22,17 +39,18 @@ is added or relicensed.
 `ShaderSource` trait, which the game crate implements over `AssetLookup`, and `dxbc-spirv-sys`
 is its FFI crate, named for the library it binds.
 
-`ltk-manager-game` sits above core. Core owns the open document, the names and where an asset
-lives, and the game crate owns the classes read out of them: the map, material, skin, VFX and
-spell reads. Core never calls it, so nothing core holds knows what a `MapContainer` is. The VFX
-template catalog stays in core, because a new object of a declared document starts from it. The
-game crate reads a bin through what `bin_document` exports for that (`struct_of`, `items`,
+`ltk-manager-game` sits above the bin crate. The bin crate owns the open document and the names,
+the assets crate where an asset lives, and the game crate the classes read out of them: the map,
+material, skin, VFX and spell reads. Neither calls it, so nothing they hold knows what a
+`MapContainer` is. The VFX template catalog stays in the bin crate, because a new object of a
+declared document starts from it. The game crate reads a bin through what `bin_document` exports
+for that (`struct_of`, `items`,
 `entries`, `struct_entries`, `optional`, `leaf`, `link`, `text`, `boolean`, `float`, `unsigned`,
 `vector4` and the rest, `Namer`, `Locator`, `object_at`) and never through `ltk_meta` matches of
 its own. The two exceptions read the kind itself: the VFX resolve turns every kind into its tree,
 and the spell read reports a field of the wrong kind. A field or class hash is
 `hashing::named("…")` wherever its name is known. A type of it that crosses IPC derives under its
-own `ts` feature, which takes core's.
+own `ts` feature, which takes that of the crates below it.
 
 `atlas` sits above the game crate and holds the UI editor's backend: a view controller resolved
 into its scenes and elements, the sprite manifest, the UI programs and the sheet a mod packs. It
@@ -41,9 +59,10 @@ crate's `AssetChunks`.
 
 Dependencies point one way only. `ritoclient` takes plain arguments (`Option<&Path>`) and reports
 through its own `LaunchObserver` and `SessionObserver` traits - it must never learn about `Config`,
-`EventSink` or `AppError`. `core/src/launcher/` is the seam that adapts between them, and
-`launcher/types.rs` mirrors every launch shape that crosses IPC so an upstream rename is a compile
-error there rather than a frontend union that quietly disagrees.
+`EventSink` or `AppError`. `ltk-manager-runtime/src/launcher/` is the seam that adapts between
+them. `launcher/types.rs` and the launch payloads in base's `events` mirror every launch shape that
+crosses IPC, so an upstream rename is a compile error there rather than a frontend union that
+quietly disagrees.
 
 Read-only calls to the Riot Client return `Option`, never `Result`: every caller has a fallback,
 and "the client didn't answer" is not a failure worth showing a user. Only launching, closing and
@@ -83,8 +102,8 @@ or the `Path` method that reaches the same syscall, out.
 ## Tests
 
 Unit tests live in a file of their own. A module keeps `#[cfg(test)] mod tests;` as its last item
-and the suite moves next to it - `hashtables.rs` to `hashtables/tests.rs`, `problems/mod.rs` to
-`problems/tests.rs`. The module is still a child, so `use super::*` reaches the private items it
+and the suite moves next to it - `hashtables.rs` to `hashtables/tests.rs`, a crate's `lib.rs` to
+`tests.rs`. The module is still a child, so `use super::*` reaches the private items it
 always did.
 
 What this buys is a production file that is only production code, and a suite that can grow
@@ -93,12 +112,13 @@ thing they check, such as a round-trip beside the conversion it exercises.
 
 ## Patcher
 
-`patcher/` owns patcher lifecycle (start/stop/status) and thread management with an
-`Arc<AtomicBool>` stop flag. `patcher/injector.rs` spawns and supervises the external
-`cslol-host.exe` injection host over a stdin/stdout line protocol (`patcher/host.rs`). The
-overlay/prefix dir is sent via a `config prefix` command, **not** as an argv. The host internally
-drives `cslol-inj.exe`, and with `--elevate` (auto-enabled when League runs as admin) it bridges to
-a high-integrity worker via UAC.
+`ltk-manager-runtime/src/patcher/` owns the patcher lifecycle (start/stop/status) and its state,
+and `ltk-manager-core/src/patching/` the session thread with its `Arc<AtomicBool>` stop flag,
+because the thread builds the overlay from the library. `patcher/injector.rs` spawns and
+supervises the external `cslol-host.exe` injection host over a stdin/stdout line protocol
+(`patcher/host.rs`). The overlay/prefix dir is sent via a `config prefix` command, **not** as an
+argv. The host internally drives `cslol-inj.exe`, and with `--elevate` (auto-enabled when League
+runs as admin) it bridges to a high-integrity worker via UAC.
 
 ## State
 

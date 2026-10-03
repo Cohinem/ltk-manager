@@ -45,7 +45,7 @@ where
 /// Read `feed` from GitHub on a blocking thread, as an IPC answer.
 ///
 /// Beside [`off_thread`] rather than through it, because a GitHub read
-/// reports its own remedies rather than core's `AppError`.
+/// reports its own remedies rather than an `AppError`.
 pub(crate) async fn github_feed<T, F>(feed: GitHubFeed, read: F) -> IpcResult<T>
 where
     T: Send + 'static,

@@ -283,7 +283,7 @@ fn the_cache_sits_beside_the_hashtables() {
 /// Ignored by default because it reaches the network, and kept because it is
 /// the one part of this module the fakes above cannot speak for: the URL, the
 /// conditional header and the tag that comes back are only ever exercised here.
-/// Run it with `cargo test -p ltk-manager-core -- --ignored`.
+/// Run it with `cargo test -p ltk-manager-bin -- --ignored`.
 #[test]
 #[ignore = "reaches the LTK Meta Wiki"]
 fn the_publisher_serves_a_database_and_then_a_not_modified() {

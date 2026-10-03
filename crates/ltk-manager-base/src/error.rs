@@ -3,7 +3,7 @@
 //! [`AppError`] describes *what went wrong*, not how to report it. Rendering it
 //! for a consumer is the frontend's job: the Tauri shell maps it to an IPC
 //! response with a machine-readable code, and a CLI would map the same variants
-//! to exit codes and stderr. Keeping that mapping out of core is what lets both
+//! to exit codes and stderr. Keeping that mapping out of this crate is what lets both
 //! exist without one dictating the other's vocabulary.
 
 use camino::{Utf8Path, Utf8PathBuf};

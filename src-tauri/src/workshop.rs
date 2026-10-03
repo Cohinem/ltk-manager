@@ -1,6 +1,6 @@
 //! Tauri's view of the workshop service.
 //!
-//! The service itself lives in core. All that belongs here is the managed-state
+//! The service itself lives in `ltk-manager-workshop`. All that belongs here is the managed-state
 //! newtype Tauri needs for `.manage()` / `State<T>` extraction, the rebuild the watch on a
 //! project's Atlas sources runs, and a re-export so command handlers keep addressing
 //! everything as `crate::workshop::*`.

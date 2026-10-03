@@ -101,7 +101,7 @@ format byte 12 which is `ltk_texture::tex::Format::Bc3`, mipmapped, 349,564 byte
 image with a full mip chain, not a tile set. `2dlevelminimap_npe_1.tex` is the same size in BC1 at
 174,788 bytes. Map22's is 1024 by 1024 BC1.
 
-`crates/ltk-manager-core/src/preview/texture.rs` needs no change. `AssetRef::preview` routes
+`crates/ltk-manager-assets/src/preview/texture.rs` needs no change. `AssetRef::preview` routes
 `LeagueFileKind::Texture` into `texture::render`, which calls `Texture::from_reader` and decodes
 mip level 0 when no `min_width` is asked for. Decoding the shipped file with `ltk-tex-utils`, the
 same `ltk_texture` version, produces the 512 by 512 RGBA image every figure in section 2 was

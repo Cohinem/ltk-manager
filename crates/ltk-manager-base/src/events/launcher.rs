@@ -31,7 +31,7 @@ pub enum LaunchStage {
     /// The request failed. Terminal, and the error is reported separately.
     Error,
     /// A stage this build of the manager does not know, from a newer
-    /// [`ritoclient`]. Not terminal, because there is no way to tell whether it
+    /// `ritoclient`. Not terminal, because there is no way to tell whether it
     /// should be.
     Unknown,
 }

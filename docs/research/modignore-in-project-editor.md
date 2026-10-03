@@ -52,7 +52,7 @@ Six findings decide the rest:
   and [Ecosystem Integration](https://wiki.leaguetoolkit.dev/developers/ecosystem-integration/#if-you-build-a-creation-tool)
   pages, read with `curl` because the host answers `WebFetch` with `403`
 - `Cargo.toml` and `Cargo.lock` in this repository, for the pinned versions
-- `crates/ltk-manager-core/src/workshop/projects.rs`, `packing.rs`, `content.rs` and `mod.rs`,
+- `crates/ltk-manager-workshop/src/projects.rs`, `packing.rs`, `content.rs` and `mod.rs`,
   `overlay/mod.rs`, `problems/engine.rs`, `mods/archive/storage.rs` and `mods/archive/repair.rs`
 - `src/modules/workshop/components/ContentTreeContextMenu.tsx`, `ContentTree.tsx`,
   `ContentSidebar.tsx`, `NewProjectDialog.tsx` and `PackDialog.tsx`, and
@@ -200,7 +200,7 @@ through a crate default.
 
 ### 2.1 Project creation
 
-`Workshop::create_project` (`crates/ltk-manager-core/src/workshop/projects.rs:63-120`) creates
+`Workshop::create_project` (`crates/ltk-manager-workshop/src/projects.rs:63-120`) creates
 the directory and `content/base`, writes `mod.config.json` and a `README.md`, and nothing else.
 The chain to it is `NewProjectDialog.tsx:37,60` to `mutations.ts:60` to
 `api.createWorkshopProject` (`src/lib/tauri.ts:427`) to the `create_workshop_project` command
@@ -235,7 +235,7 @@ passes.
 ### 2.3 Test
 
 The overlay adds each workshop project as `ltk_overlay::FsModContent::new(path)`
-(`crates/ltk-manager-core/src/overlay/mod.rs:126-140`), so Test honours the same filter as
+(`crates/ltk-manager-library/src/overlay/mod.rs:126-140`), so Test honours the same filter as
 Pack, nested files included.
 
 ### 2.4 The tree hides what the packer ships

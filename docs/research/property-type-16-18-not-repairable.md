@@ -19,12 +19,12 @@ happening again, and it is left as a decision rather than a change.
 
 ## Sources
 
-- `crates/ltk-manager-core/src/problems/rules/bin_property_type/mod.rs` - the rule, `Lens::objection`
+- `crates/ltk-manager-problems/src/rules/bin_property_type/mod.rs` - the rule, `Lens::objection`
   and `derived`
-- `crates/ltk-manager-core/src/problems/rules/bin_property_type/table.rs` - `Conversion::between`
-- `crates/ltk-manager-core/src/meta_schema.rs` - `MetaSchema::describes` and `expected`
-- `crates/ltk-manager-core/src/meta_schema/cache.rs` - `MetaSchemaCache::load` and `refresh`
-- `crates/ltk-manager-core/src/mods/health/sweep.rs` - `fill_meta_schema`, the only automatic sync
+- `crates/ltk-manager-problems/src/rules/bin_property_type/table.rs` - `Conversion::between`
+- `crates/ltk-manager-bin/src/meta_schema.rs` - `MetaSchema::describes` and `expected`
+- `crates/ltk-manager-bin/src/meta_schema/cache.rs` - `MetaSchemaCache::load` and `refresh`
+- `crates/ltk-manager-library/src/mods/health/sweep.rs` - `fill_meta_schema`, the only automatic sync
 - `scripts/generate-meta-schema.mjs` and `.github/workflows/release-prepare.yml`
 - `rito-meta diff 16.17 16.18`, read on 2026-09-12
 - `https://raw.githubusercontent.com/LeagueToolkit/lol-meta-wiki/main/db/meta.db.json`, read the same day

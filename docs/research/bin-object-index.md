@@ -243,7 +243,7 @@ holds the index **Blocked** on a lazy read, line 629 says the read does not exis
 answered-questions table at line 2869 says `ltk_meta` blocks it because "Its read is eager, and
 242x the header scan". `BIN_EDITOR.md` line 636 lists `Bin::scan` as "Upstream, wanted by the
 object index". All four sentences were true on 2026-08-20. Section 3 shows the read at the
-pinned rev, and `crates/ltk-manager-core/src/problems/pass/source.rs:50` has mounted bins
+pinned rev, and `crates/ltk-manager-problems/src/pass/source.rs:50` has mounted bins
 through it since `3c7d61f` on 2026-09-03.
 
 ## 3. What the pinned `ltk_meta` gives the index
@@ -379,7 +379,7 @@ magic, which the pass does at `source.rs:39-45`.
 
 ### 4.1 The game index, and what it is not
 
-`GameIndex` (`crates/ltk-manager-core/src/game_index.rs:232-240`) is a directory arena, with
+`GameIndex` (`crates/ltk-manager-assets/src/game_index.rs:232-240`) is a directory arena, with
 `Dir` holding a `BTreeMap` of children, its files, a subtree file count and a `subtree_mask`
 (lines 243-256), and `File` holding the name, a `u64` path hash, size, an archive ordinal and a
 letter `mask` "which fills the padding this struct already had" (lines 259-267).
@@ -409,7 +409,7 @@ so it costs those seconds once per session." The disk cache and fingerprint in t
 `game_fingerprint` and rebuilds on a mismatch (`ltk_overlay-0.9.7/src/game_index.rs:142-190`),
 where the fingerprint is `xxh3_64` over every archive's path, length and modification time in
 seconds (lines 651-670). The manager keeps that file in the profile directory
-(`crates/ltk-manager-core/src/overlay/artifacts.rs:106`). The memory-mapped, per-archive-checksum
+(`crates/ltk-manager-library/src/overlay/artifacts.rs:106`). The memory-mapped, per-archive-checksum
 cache the design describes under "One cache, not two" exists in neither crate. Its one named
 precondition, that `ltk_wad` expose the header checksum `Wad::mount` used to skip
 (`PROJECT_EDITOR.md:2550-2553`), is met: `ltk_wad` 0.5.4 `src/lib.rs:457` has
@@ -563,7 +563,7 @@ them, with what each waits on. "Exists" means it is in the repository at `f89f50
 | Item                                                   | Exists | Where it would go, or where it is                                                     | Waits on                                                          |
 | ------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
 | A lazy bin read                                        | Yes    | `BinStream::entries`, published in `ltk_meta` 0.8.1 and at the pinned rev             | Nothing                                                           |
-| The project's own objects in the content scan (step 1) | No     | `crates/ltk-manager-core/src/workshop/`, which carries no object today                | Nothing                                                           |
+| The project's own objects in the content scan (step 1) | No     | `crates/ltk-manager-workshop/src/`, which carries no object today                     | Nothing                                                           |
 | The `@` scope over an open bin (step 1)                | No     | `sources.ts`, and a document that answers for its contents                            | The bin editor's `bin_open`                                       |
 | An object arena                                        | No     | A sibling of `GameIndex` in `crates/ltk-manager-core/src/`                            | Nothing                                                           |
 | The build over the install (step 3)                    | No     | `GameArchives` walk, `WadCache::read_chunk`, `BinStream::entries`, `Budget::map`      | Nothing                                                           |

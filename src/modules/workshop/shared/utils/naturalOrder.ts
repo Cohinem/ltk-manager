@@ -2,7 +2,7 @@
  * The name comparator every workshop file listing sorts by.
  *
  * Some listings sort here and some arrive sorted from the backend, so this
- * mirrors `compare_names` in `crates/ltk-manager-core/src/utils/natural_order.rs`.
+ * mirrors `compare_names` in `crates/ltk-manager-base/src/utils/natural_order.rs`.
  * Change one and the other's `naturalOrder.fixture.json` test fails.
  */
 

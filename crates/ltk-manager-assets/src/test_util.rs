@@ -128,7 +128,7 @@ pub fn make_versioned_fantome_zip(path: &Path, name: &str, author: &str, version
     );
 }
 
-pub fn write_fantome_info_zip(path: &Path, info: &ltk_fantome::FantomeInfo) {
+fn write_fantome_info_zip(path: &Path, info: &ltk_fantome::FantomeInfo) {
     let file = fs::File::create(path).unwrap();
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default();
@@ -294,6 +294,7 @@ pub fn make_layer_wads_fantome_zip(
     zip.finish().unwrap();
 }
 
+/// The metadata of a fantome named `name`.
 pub fn fantome_info(name: &str) -> ltk_fantome::FantomeInfo {
     ltk_fantome::FantomeInfo {
         name: name.to_string(),
@@ -390,7 +391,7 @@ pub fn make_large_block_chunk_fantome_zip(path: &Path) -> Vec<u8> {
 ///
 /// Each byte holds four bits of entropy. With that, zstd writes a compressed
 /// block instead of storing the bytes raw, and the block stays large.
-pub fn half_entropy_bytes(len: usize) -> Vec<u8> {
+fn half_entropy_bytes(len: usize) -> Vec<u8> {
     let mut state = 0x2545_f491_4f6c_dd1d_u64;
     (0..len)
         .map(|_| {
@@ -528,7 +529,7 @@ pub fn healthy_bin() -> ltk_meta::Bin {
     ))
 }
 
-pub fn bin_holding(value: impl Into<ltk_meta::PropertyValueEnum>) -> ltk_meta::Bin {
+fn bin_holding(value: impl Into<ltk_meta::PropertyValueEnum>) -> ltk_meta::Bin {
     ltk_meta::Bin::new(
         [ltk_meta::BinObject::builder(STALE_ENTRY, SKIN_CLASS)
             .property(ICON_AVATAR, value)

@@ -1,6 +1,6 @@
 //! How a domain error reaches the frontend.
 //!
-//! [`AppError`] itself lives in core and says only what went wrong. This module
+//! [`AppError`] itself lives in `ltk-manager-base` and says only what went wrong. This module
 //! owns the IPC representation of it: the [`AppErrorResponse`] payload, tagged
 //! on a stable `code` the frontend matches on and carrying the fields it
 //! translates over, and the [`IpcResult`] envelope every command returns. The
