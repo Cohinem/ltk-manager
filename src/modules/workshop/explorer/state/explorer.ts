@@ -11,7 +11,7 @@ interface ExplorerStore {
   /** Where each explorer is, by its id. Absent reads as the root. */
   locations: Record<string, string>;
   goTo: (explorerId: string, location: string) => void;
-  /** What each explorer's box reads, by its id. Absent reads the open directory. */
+  /** What each explorer's box reads, by its id. Absent reads what the explorer starts in. */
   scopes: Record<string, ExplorerScope>;
   setScope: (explorerId: string, scope: ExplorerScope) => void;
   /** What each explorer's box and menu hold, by its id. */
@@ -67,8 +67,9 @@ export function restoreLocation(explorerId: string, location: string): void {
 export const useExplorerLocation = (explorerId: string) =>
   useExplorerStore((s) => s.locations[explorerId] ?? "");
 export const useGoToLocation = () => useExplorerStore((s) => s.goTo);
-export const useExplorerScope = (explorerId: string) =>
-  useExplorerStore((s) => s.scopes[explorerId] ?? "here");
+/** What the box of `explorerId` reads, `initial` until the reader picks a scope. */
+export const useExplorerScope = (explorerId: string, initial: ExplorerScope = "here") =>
+  useExplorerStore((s) => s.scopes[explorerId] ?? initial);
 export const useSetExplorerScope = () => useExplorerStore((s) => s.setScope);
 export const useExplorerFilter = (explorerId: string) =>
   useExplorerStore((s) => s.filters[explorerId] ?? NO_FILTER);

@@ -13,7 +13,9 @@ export const gameKeys = {
   dirs: ["game-dir"] as const,
   sourceDirs: (source: WadSource) => [`${source}-dir`] as const,
   dir: (source: WadSource, path: string) => [`${source}-dir`, path] as const,
+  searches: ["game-search"] as const,
   search: (query: string) => ["game-search", query] as const,
+  pathSearches: ["game-paths"] as const,
   paths: (query: string, preference: SearchPreference) =>
     ["game-paths", query, preference.extensions, preference.archive] as const,
   objectSearches: ["object-search"] as const,
@@ -22,6 +24,7 @@ export const gameKeys = {
      refetches this answer with them. */
   declaredObjects: (objectHashes: readonly string[]) =>
     ["object-search", "declared", objectHashes] as const,
+  finds: (source: WadSource) => [`${source}-find`] as const,
   find: (source: WadSource, pattern: string, regex: boolean) =>
     [`${source}-find`, pattern, regex] as const,
 };
