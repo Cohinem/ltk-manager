@@ -15,16 +15,16 @@ export interface BeamFrame {
   readonly length: number;
   /** How many times taller than its width the beam is shown, 1 for a beam no longer than `LONGEST` widths. */
   readonly stretch: number;
-  /** The frame the camera holds whole, each way, in the shown units. */
+  /** The frame the camera fits, each way, in the shown units. */
   readonly halfWidth: number;
   readonly halfHeight: number;
 }
 
 /**
- * The first of `sources` holding a particle of the emitter at `index`, and null while none
- * does, which is the one system a beam's swatch shows.
+ * The first of `sources` with a particle of the emitter at `index`, and null while none has
+ * one, which is the one system a beam's swatch shows.
  */
-export function heldSource(sources: readonly Source[], index: number): Source | null {
+export function emittingSource(sources: readonly Source[], index: number): Source | null {
   for (const source of sources) {
     const { pool } = source;
     for (let at = 0; at < pool.count; at += 1) {

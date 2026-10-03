@@ -14,7 +14,7 @@ import { samplersOf, useVfxTextures } from "../../rendering/hooks/useVfxTextures
 import { drawnFor } from "../../rendering/utils/definitions";
 import { PARTICLE_LAYER } from "../../rendering/utils/frame";
 import { useBackdropColor } from "../state/previewBackdrop";
-import { beamFrame, heldSource, reachOf } from "../utils/beamSwatch";
+import { beamFrame, emittingSource, reachOf } from "../utils/beamSwatch";
 import { widestScale } from "../utils/trailSwatch";
 import { PREVIEW_MIP_WIDTH, ViewGuard } from "./EmitterPreview";
 import { type Mutable, stand, SWATCH_FOV } from "./TrailSwatch";
@@ -22,7 +22,7 @@ import { type Mutable, stand, SWATCH_FOV } from "./TrailSwatch";
 const UPRIGHT = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
 const NO_OFFSET: Point = [0, 0, 0];
 
-/** What the swatch's system holds while no system holds a particle of the emitter. */
+/** The swatch's pool while no system has a particle of the emitter. */
 const EMPTY = createPool(0);
 
 /* Before the beams' own frame callback reads the source, at the default of 0. */
@@ -34,9 +34,9 @@ type Triple = [number, number, number];
  * A beam emitter's beams laid flat across the box, the source on the left and the target on
  * the right, seen head on, for a node's preview.
  *
- * The particles are the run's own at the transport's cursor, from the first system holding
- * one, and the beams draw through the viewport's own `Beams`, so their texture, width,
- * colour, uv scroll, erosion and blend are the viewport's. The beam is as long as that
+ * The particles are the run's own at the transport's cursor, from the first system with one,
+ * and the beams draw through the viewport's own `Beams`, so their texture, width, colour, uv
+ * scroll, erosion and blend are the viewport's. The beam is as long as that
  * system's reach from its origin to its target, so the colour bound to its length and the
  * texture's repeats along it are the ones the viewport draws. A beam longer than `LONGEST`
  * widths is stood up taller rather than drawn shorter, so it reads as more than a line.
@@ -75,12 +75,12 @@ export function BeamSwatch({ emitter }: { emitter: EmitterModel }) {
 
   useFrame((state) => {
     const { driver } = run;
-    const held = heldSource(path === "" ? [driver] : driver.sources(path), emitter.index);
-    const frame = beamFrame(width, held === null ? 0 : reachOf(held));
+    const emitting = emittingSource(path === "" ? [driver] : driver.sources(path), emitter.index);
+    const frame = beamFrame(width, emitting === null ? 0 : reachOf(emitting));
 
-    source.pool = held?.pool ?? EMPTY;
-    source.time = held?.time ?? driver.time;
-    source.elapsed = held?.elapsed ?? driver.elapsed;
+    source.pool = emitting?.pool ?? EMPTY;
+    source.time = emitting?.time ?? driver.time;
+    source.elapsed = emitting?.elapsed ?? driver.elapsed;
     /* The engine's `x` runs right to left on screen, so the source stands at its plus end. */
     ends.source[0] = frame.length / 2;
     ends.target[0] = -frame.length / 2;

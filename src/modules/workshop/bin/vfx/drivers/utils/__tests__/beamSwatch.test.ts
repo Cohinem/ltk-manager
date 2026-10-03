@@ -4,7 +4,7 @@ import type { Point } from "../../../engine/model/rig";
 import { emitterOf, flat } from "../../../engine/simulation/__tests__/emitterFixture";
 import type { Source } from "../../../engine/simulation/particleRead";
 import { createPool, spawn } from "../../../engine/simulation/pool";
-import { beamFrame, heldSource, LONGEST, reachOf } from "../beamSwatch";
+import { beamFrame, emittingSource, LONGEST, reachOf } from "../beamSwatch";
 import { widestScale } from "../trailSwatch";
 
 const UPRIGHT = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
@@ -16,13 +16,13 @@ function sourceOf(emitters: readonly number[], origin: Point = [0, 0, 0], target
 }
 
 describe("beamSwatch", () => {
-  it("shows the first system holding a particle of the emitter", () => {
+  it("shows the first system with a particle of the emitter", () => {
     const empty = sourceOf([1, 3]);
-    const held = sourceOf([3, 2]);
+    const emitting = sourceOf([3, 2]);
     const later = sourceOf([2]);
 
-    expect(heldSource([empty, held, later], 2)).toBe(held);
-    expect(heldSource([empty, held], 4)).toBeNull();
+    expect(emittingSource([empty, emitting, later], 2)).toBe(emitting);
+    expect(emittingSource([empty, emitting], 4)).toBeNull();
   });
 
   it("reaches from the system's origin to its target", () => {

@@ -129,7 +129,7 @@ interface LifeBar {
  * following one would show a quad that jumps to the next every few frames. A trail draws as
  * a flat `TrailSwatch` instead, and a beam, often a thin line far longer than the box, as a
  * flat `BeamSwatch` laid across it. A mesh draws its surface as a quad does, and through
- * `EmitterLive` while the strip's mesh switch is on. The bar of each holds the emitter's own
+ * `EmitterLive` while the strip's mesh switch is on. The bar of each shows the emitter's own
  * life.
  */
 export function EmitterSurface({
