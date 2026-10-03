@@ -5,7 +5,6 @@
 use super::{LEGACY_VERDICTS_FILENAME, ModHealth, ModHealthVerdict, Refused, VerdictFile};
 use crate::mods::ModLibrary;
 use crate::mods::index::LibraryModEntry;
-use crate::problems::BinNames;
 use fs_err as fs;
 use ltk_manager_assets::hashtables::HashtableCache;
 use ltk_manager_base::budget::{self, Budget};
@@ -14,6 +13,7 @@ use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_base::events::{BackendEvent, HealthSweepProgress};
 use ltk_manager_base::events::{HealthCheckBasis, HealthSweepReport};
 use ltk_manager_bin::meta_schema::cache::{MetaSchemaCache, PublishedDb};
+use ltk_manager_problems::BinNames;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::path::Path;

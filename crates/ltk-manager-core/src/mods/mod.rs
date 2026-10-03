@@ -76,7 +76,8 @@ pub const WATCHER_SUPPRESS_SECS: i64 = 10;
 /// The [`Config`](ltk_manager_base::config::Config) is passed per-call since it
 /// can change at runtime.
 /// The one game index a library holds, and the install it was built over.
-type GameContentCache = Arc<Mutex<Option<(GameStamp, Arc<crate::problems::InstalledContent>)>>>;
+type GameContentCache =
+    Arc<Mutex<Option<(GameStamp, Arc<ltk_manager_problems::InstalledContent>)>>>;
 
 /// What an installed-game index was read from, and what makes it stale.
 ///
@@ -311,7 +312,10 @@ impl ModLibrary {
     /// rule asking about the install say so rather than guess. The index behind
     /// it is built the first time a rule actually asks, so a library of mods
     /// that ask nothing pays nothing.
-    pub fn game_content(&self, config: &Config) -> Option<Arc<dyn crate::problems::GameContent>> {
+    pub fn game_content(
+        &self,
+        config: &Config,
+    ) -> Option<Arc<dyn ltk_manager_problems::GameContent>> {
         let stamp = GameStamp {
             league: config.league_path.clone()?,
             build: ltk_manager_base::game_build::GameBuild::installed(config),
@@ -321,11 +325,11 @@ impl ModLibrary {
         if held.as_ref().is_none_or(|(at, _)| at != &stamp) {
             *held = Some((
                 stamp,
-                Arc::new(crate::problems::InstalledContent::resolve(config)?),
+                Arc::new(ltk_manager_problems::InstalledContent::resolve(config)?),
             ));
         }
         held.as_ref()
-            .map(|(_, content)| Arc::clone(content) as Arc<dyn crate::problems::GameContent>)
+            .map(|(_, content)| Arc::clone(content) as Arc<dyn ltk_manager_problems::GameContent>)
     }
 
     /// Build the installed game's index now, so no check waits on it.

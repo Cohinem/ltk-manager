@@ -3146,6 +3146,7 @@ dependencies = [
  "ltk-manager-bin",
  "ltk-manager-core",
  "ltk-manager-game",
+ "ltk-manager-problems",
  "ltk-manager-runtime",
  "ltk-manager-workshop",
  "ltk-telemetry",
@@ -3328,6 +3329,7 @@ dependencies = [
  "ltk-manager-assets",
  "ltk-manager-base",
  "ltk-manager-bin",
+ "ltk-manager-problems",
  "ltk-manager-runtime",
  "ltk-manager-workshop",
  "ltk-meta-docs",
@@ -3405,6 +3407,41 @@ dependencies = [
  "tempfile",
  "tracing",
  "xxhash-rust",
+]
+
+[[package]]
+name = "ltk-manager-problems"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "camino",
+ "chrono",
+ "fs-err",
+ "image",
+ "image_dds",
+ "indexmap 2.14.0",
+ "ltk-manager-assets",
+ "ltk-manager-base",
+ "ltk-manager-bin",
+ "ltk-manager-workshop",
+ "ltk_fantome",
+ "ltk_file",
+ "ltk_hash",
+ "ltk_hashdb",
+ "ltk_hashtable",
+ "ltk_meta",
+ "ltk_mod_project",
+ "ltk_texture",
+ "ltk_wad",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "specta",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tracing",
+ "walkdir",
+ "zip 2.4.2",
 ]
 
 [[package]]

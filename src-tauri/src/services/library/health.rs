@@ -16,7 +16,7 @@ use ltk_manager_base::events::HealthSweepReport;
 use ltk_manager_core::mods::{
     HealthCheckReadiness, HealthSweepState, LibraryRepairReport, SweepScope,
 };
-use ltk_manager_core::problems::FixReport;
+use ltk_manager_problems::FixReport;
 use std::collections::BTreeMap;
 use tauri::{AppHandle, Manager, State};
 

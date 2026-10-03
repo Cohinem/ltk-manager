@@ -77,10 +77,10 @@ fn a_removed_bank_is_gone_from_the_repaired_archive() {
         .iter()
         .find(|file| file.path.ends_with("ashe_sfx_events.bnk"))
         .expect("the bank is in the report");
-    assert_eq!(removed.change, crate::problems::FileChange::Removed);
+    assert_eq!(removed.change, ltk_manager_problems::FileChange::Removed);
 
     let archive = storage.path().mods_dir().join("silent-mod.fantome");
-    let left = crate::problems::ProjectFiles::in_archive(
+    let left = ltk_manager_problems::ProjectFiles::in_archive(
         &archive,
         &config,
         ltk_manager_base::budget::Budget::repair(),

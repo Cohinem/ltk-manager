@@ -10,8 +10,8 @@ use crate::mods::ModLibraryState;
 use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 use ltk_manager_assets::hashtables::WadPathResolverState;
-use ltk_manager_core::problems;
-use ltk_manager_core::problems::{FixReport, ProblemId, ProblemsState};
+use ltk_manager_problems as problems;
+use ltk_manager_problems::{FixReport, ProblemId, ProblemsState};
 use std::path::Path;
 use tauri::{AppHandle, Manager};
 

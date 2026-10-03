@@ -11,5 +11,4 @@ pub mod mods;
 pub mod news;
 pub mod overlay;
 pub mod patching;
-pub mod problems;
 pub mod releases;

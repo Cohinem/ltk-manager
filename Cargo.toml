@@ -6,6 +6,7 @@ members = [
     "crates/dxbc-spirv-sys",
     "crates/ltk-declarations",
     "crates/ltk-manager-core",
+    "crates/ltk-manager-problems",
     "crates/ltk-manager-bin",
     "crates/ltk-manager-workshop",
     "crates/ltk-manager-assets",
@@ -43,6 +44,9 @@ opt-level = 1
 [profile.dev.package.ltk-manager-bin]
 opt-level = 1
 
+[profile.dev.package.ltk-manager-problems]
+opt-level = 1
+
 # The class reads walk the same generic, instantiated in this crate.
 [profile.dev.package.ltk-manager-game]
 opt-level = 1
@@ -66,6 +70,7 @@ atlas = { path = "crates/atlas" }
 hexshade = { path = "crates/hexshade" }
 ltk-declarations = { path = "crates/ltk-declarations" }
 ltk-manager-core = { path = "crates/ltk-manager-core" }
+ltk-manager-problems = { path = "crates/ltk-manager-problems" }
 ltk-manager-bin = { path = "crates/ltk-manager-bin" }
 ltk-manager-workshop = { path = "crates/ltk-manager-workshop" }
 ltk-manager-assets = { path = "crates/ltk-manager-assets" }

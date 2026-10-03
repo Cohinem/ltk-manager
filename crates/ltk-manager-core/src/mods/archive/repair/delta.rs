@@ -5,7 +5,6 @@
 //! raw-copies the rest. Packing the staged project again would re-encode every
 //! chunk the mod holds.
 
-use crate::problems::{FileChange, FileOutcome, FixReport, HeldWrites, KeptTable};
 use camino::Utf8Path;
 use fs_err as fs;
 use ltk_fantome::{
@@ -14,6 +13,7 @@ use ltk_fantome::{
 };
 use ltk_hashtable::Category;
 use ltk_manager_base::error::{AppError, AppResult, Utf8PathRefExt};
+use ltk_manager_problems::{FileChange, FileOutcome, FixReport, HeldWrites, KeptTable};
 use ltk_mod_project::{HASHES_DIR_NAME, ModProject, ModProjectLayer};
 use ltk_wad::{WadHash, chunk_hash_of};
 use std::path::{Path, PathBuf};
@@ -38,7 +38,7 @@ pub(super) struct RepairEdit(ArchiveDelta<'static>);
 impl RepairEdit {
     /// Read what `report` applied out of the repaired tree at `staging`.
     ///
-    /// [`FixRun::write`](crate::problems::FixRun::write) keeps none of the bytes
+    /// [`FixRun::write`](ltk_manager_problems::FixRun::write) keeps none of the bytes
     /// it writes, so every fixed file is read back here. That is a few KB per
     /// file, where a repack reads everything the mod holds. `archive` is read
     /// for the metadata a kept name has to be declared in, and is not written

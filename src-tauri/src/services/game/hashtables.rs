@@ -17,7 +17,7 @@ use ltk_manager_bin::meta_schema::{
     cache::{MetaSchemaCache, PublishedDb},
 };
 use ltk_manager_core::mods::{HealthSweepState, SweepScope};
-use ltk_manager_core::problems::BinNames;
+use ltk_manager_problems::BinNames;
 use tauri::{AppHandle, Manager};
 
 /// User agent sent with hashtable release downloads.

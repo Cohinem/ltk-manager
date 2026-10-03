@@ -123,18 +123,18 @@ fn a_table_declared_elsewhere_maps_nowhere() {
 /// read for it, since the staged tree no longer holds the file.
 #[test]
 fn a_removal_is_written_as_an_edit() {
-    let report = crate::problems::FixReport {
+    let report = ltk_manager_problems::FixReport {
         applied: 1,
         skipped: 0,
         names_kept: 0,
         tables: Vec::new(),
         remaining: Vec::new(),
-        files: vec![crate::problems::FileOutcome {
+        files: vec![ltk_manager_problems::FileOutcome {
             layer: "base".to_owned(),
             path: "Aatrox.wad.client/data/skin0.bin".to_owned(),
             applied: 1,
             skipped: 0,
-            change: crate::problems::FileChange::Removed,
+            change: ltk_manager_problems::FileChange::Removed,
         }],
         failed: Vec::new(),
     };
@@ -150,12 +150,12 @@ fn a_removal_is_written_as_an_edit() {
 mod held {
     use super::*;
 
-    use crate::problems::{FixRun, Preserved, ProjectFiles};
     use ltk_manager_assets::test_util::{
         STALE_BIN_IN_WAD, make_packed_bin_fantome_zip, resolver_naming, stale_bin,
     };
     use ltk_manager_base::budget::Budget;
     use ltk_manager_base::config::Config;
+    use ltk_manager_problems::{FixRun, Preserved, ProjectFiles};
 
     const CHUNK: &str = "Aatrox.wad.client/data/skin0.bin";
     const ICON: &str = "ASSETS/Characters/Smolder/HUD/Smolder_Circle.dds";
@@ -279,24 +279,24 @@ mod held {
     /// bug, and the edit returns an error for it.
     #[test]
     fn a_written_file_the_run_does_not_hold_is_refused() {
-        let report = crate::problems::FixReport {
+        let report = ltk_manager_problems::FixReport {
             applied: 1,
             skipped: 0,
             names_kept: 0,
             tables: Vec::new(),
             remaining: Vec::new(),
-            files: vec![crate::problems::FileOutcome {
+            files: vec![ltk_manager_problems::FileOutcome {
                 layer: "base".to_owned(),
                 path: CHUNK.to_owned(),
                 applied: 1,
                 skipped: 0,
-                change: crate::problems::FileChange::Written,
+                change: ltk_manager_problems::FileChange::Written,
             }],
             failed: Vec::new(),
         };
 
         let edit = RepairEdit::held(
-            &crate::problems::HeldWrites::default(),
+            &ltk_manager_problems::HeldWrites::default(),
             camino::Utf8Path::new("mod.fantome"),
             &report,
         );

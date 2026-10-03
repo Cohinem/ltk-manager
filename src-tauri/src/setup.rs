@@ -141,7 +141,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_bin::object_index::ObjectSearchGeneration::default());
     app.manage(ltk_manager_bin::object_index::ObjectFindGeneration::default());
     app.manage(ltk_manager_bin::object_index::ObjectReferenceGeneration::default());
-    app.manage(ltk_manager_core::problems::ProblemsState::default());
+    app.manage(ltk_manager_problems::ProblemsState::default());
     app.manage(ltk_manager_bin::bin_document::BinDocuments::default());
     let sandboxes = ltk_manager_bin::sandbox::SandboxState::default();
     app.manage(sandboxes.clone());
