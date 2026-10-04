@@ -640,6 +640,32 @@ export type Category =
 /**  Mod library state checks (index integrity). */
 "library";
 
+/**  `DynamicsChainProperties`, each parameter a value scaled by a curve along the tree. */
+export type ChainProperties = {
+	/**  `UseRodPhysics`. */
+	useRodPhysics: boolean,
+	/**  `Damping`. */
+	damping: ScaledCurve,
+	/**  `AnimPoseAttraction`. */
+	attraction: ScaledCurve,
+	/**  `JointRadius`. */
+	radius: ScaledCurve,
+	/**  `Envelope`. */
+	envelope: ScaledCurve,
+	/**  `LimitAngle`, in degrees. */
+	limitAngle: ScaledCurve,
+	/**  `Stretch`. */
+	stretch: ScaledCurve,
+	/**  `RodBendStiffness`. */
+	rodBend: ScaledCurve,
+	/**  `RodTwistStiffness`. */
+	rodTwist: ScaledCurve,
+	/**  `RodStretchStiffness`. */
+	rodStretch: ScaledCurve,
+	/**  `RodShearStiffness`. */
+	rodShear: ScaledCurve,
+};
+
 /**  One champion the install ships. */
 export type Champion = {
 	/**  The folder its paths name it by, such as `MonkeyKing`. */
@@ -844,6 +870,40 @@ export type ClipHeader = {
 	fps: number | null,
 	/**  Seconds one pass of the clip lasts. */
 	duration: number | null,
+};
+
+/**  A capsule between two joints, each end in the bind pose's model space with its own radius. */
+export type ColliderCapsule = {
+	/**  The name of the joint the first end rides. */
+	jointA: string,
+	/**  The first end. */
+	endA: [(number | null), (number | null), (number | null)],
+	/**  The radius at the first end. */
+	radiusA: number | null,
+	/**  The name of the joint the second end rides. */
+	jointB: string,
+	/**  The second end. */
+	endB: [(number | null), (number | null), (number | null)],
+	/**  The radius at the second end. */
+	radiusB: number | null,
+};
+
+/**  The shapes of one collider file. */
+export type ColliderShapes = {
+	/**  The spheres, in file order. */
+	spheres: ColliderSphere[],
+	/**  The capsules, in file order. */
+	capsules: ColliderCapsule[],
+};
+
+/**  A sphere on one joint, its centre in the bind pose's model space. */
+export type ColliderSphere = {
+	/**  The name of the joint the sphere rides. */
+	joint: string,
+	/**  The centre. */
+	centre: [(number | null), (number | null), (number | null)],
+	/**  The radius. */
+	radius: number | null,
 };
 
 /**
@@ -1166,6 +1226,16 @@ export type CslolModInfo = {
 	author: string,
 	version: string,
 	description: string,
+};
+
+/**  One `CurveFloat`, its three lists as the file holds them. */
+export type CurveKeys = {
+	/**  `times`. */
+	times: (number | null)[],
+	/**  `values`, which a cubic span takes four of. */
+	values: (number | null)[],
+	/**  `InterpModes`, one per span. */
+	modes: number[],
 };
 
 /**  One layer's declarations manifest, read for an outline. */
@@ -1794,6 +1864,38 @@ mask: KeyRef | null;
 blendIn: number | null; 
 /**  `mBlendOutTime`, seconds it eases out over. */
 blendOut: number | null } | 
+/**  `DynamicsChainBlendEventData`: every dynamics chain leaves its default state over the span. */
+{ kind: "dynamicsChainBlend"; 
+/**  `BlendFromDefaultDuration`, seconds the change takes at the start frame. */
+blendFromDefault: number | null; 
+/**  `BlendToDefaultDuration`, seconds the change back takes at the end frame. */
+blendToDefault: number | null } | 
+/**  `SpringPhysicsEventData`: a spring is turned off over the span. */
+{ kind: "springPhysics"; 
+/**  `SpringToAffect`, the spring's `name`, and none for every spring of the skin. */
+spring: HashRef | null; 
+/**  `BlendOutTime`, seconds. */
+blendOut: number | null } | 
+/**
+ *  `JointOrientationEventData`: every joint orientation leaves its default state over
+ *  the span, or follows another source over it.
+ */
+{ kind: "jointOrientation"; 
+/**
+ *  `BlendData.BlendFromDefaultDuration`, seconds the change takes at the start frame,
+ *  and none for an event with no blend, which changes no weight.
+ */
+blendFromDefault: number | null; 
+/**  `BlendData.BlendToDefaultDuration`, seconds the change back takes at the end frame. */
+blendToDefault: number | null; 
+/**  The event names a source of its own, which the modifier follows over the span. */
+overridesSource: boolean } | 
+/**  `LockRootOrientationEventData`: a joint keeps facing where it did while the unit turns. */
+{ kind: "lockRootOrientation"; 
+/**  `JointName`, the joint held, and none for an event naming no joint. */
+joint: HashRef | null; 
+/**  `BlendOutTime`, seconds the joint takes to follow the unit again. */
+blendOut: number | null } | 
 /**  Any other kind, which the viewport draws nothing for. */
 { kind: "other" };
 
@@ -1882,6 +1984,16 @@ export type ExportSummary = {
 	skipped: string[],
 	/**  What the export wrote, for a surface that offers to reveal it. */
 	destination: string,
+};
+
+/**  One `ExtraJointChainData`: a second chain turned by the angles of the first. */
+export type ExtraJointChain = {
+	/**  `StartingJointName`, the joint nearest the root. */
+	start: HashRef | null,
+	/**  `EndingJointName`. */
+	end: HashRef | null,
+	/**  `RightBias`, how much of each angle's size is taken off it, most at the start. */
+	rightBias: number | null,
 };
 
 /**  One kind of file an extract wrote, and how many. */
@@ -2438,6 +2550,11 @@ export type GraphClip = {
 	interruptionGroups: string[],
 	/**  `mFlags`. */
 	flags: number,
+	/**
+	 *  The clip fires the events of its own `mEventDataMap` while it plays other clips: a
+	 *  sequencer clip, and a parametric clip whose own-events flag is set.
+	 */
+	ownEvents: boolean,
 };
 
 /**
@@ -3277,6 +3394,36 @@ export type IntegrationStatus = {
 	handlerPath: string | null,
 	/**  Last operation observed in this application process. */
 	operation: IntegrationOperation | null,
+};
+
+/**  One `DynamicsJointTreeData`: a root joint and the joints under it left unsimulated. */
+export type JointTree = {
+	/**  The hash path of the tree under the skin object. */
+	path: string,
+	/**  `RootJointName`, and none for a tree naming no joint. */
+	root: HashRef | null,
+	/**  `ExcludeJointNames`. */
+	excluded: HashRef[],
+};
+
+/**  One `DynamicsJointTreeGroupData`: the trees sharing one set of parameters. */
+export type JointTreeGroup = {
+	/**  The hash path of the group under the skin object. */
+	path: string,
+	/**  `JointTrees`. */
+	trees: JointTree[],
+	/**  `ChainProperties`. */
+	properties: ChainProperties,
+	/**  Every curve is read over the longest branch of the group rather than of each tree. */
+	sharedCurveLength: boolean,
+	/**  `GenerateLateralLinks`. */
+	lateralLinks: boolean,
+	/**  `LateralLinkMaterial`, the compliance preset of the lateral links. */
+	lateralLinkMaterial: number,
+	/**  A segment's rest length is measured off the animated pose every step. */
+	restLengthFromPose: boolean,
+	/**  A joint with no simulated child collides with no radius. */
+	tipsWithoutRadius: boolean,
 };
 
 /**  A key one clip names into a map of the graph. */
@@ -5070,6 +5217,145 @@ export type PlatformSupport = {
 	hotkeysAvailable: boolean,
 };
 
+/**  One entry of `rigPoseModifierData`, of any kind of `BaseRigPoseModifierData`. */
+export type PoseModifier = 
+/**  `SpringPhysicsRigPoseModifierData`: one joint lags the unit's movement or turning. */
+{ kind: "spring"; 
+/**  The hash path of the modifier under the skin object. */
+path: string; 
+/**  `name`, which a spring event names the spring by. */
+name: HashRef | null; 
+/**  `Joint`, the joint moved. */
+joint: HashRef | null; 
+/**  `Mass`. */
+mass: number | null; 
+/**  `SpringStiffness`. */
+stiffness: number | null; 
+/**  `Damping`. */
+damping: number | null; 
+/**  `DoTranslation`. */
+doTranslation: boolean; 
+/**  `DoRotation`. */
+doRotation: boolean; 
+/**  `maxDistance`, and zero for no limit. */
+maxDistance: number | null; 
+/**  `maxAngle`, and zero for no limit. */
+maxAngle: number | null; 
+/**  `Invert`. */
+invert: boolean; 
+/**  `DefaultOn`. */
+defaultOn: boolean } | 
+/**  `DynamicsChainRigPoseModifierData`: trees of joints simulated as particles. */
+{ kind: "dynamicsChain"; 
+/**  The hash path of the modifier under the skin object. */
+path: string; 
+/**  `DefaultOn`. */
+defaultOn: boolean; 
+/**  `GlobalEnvelope`, multiplied into every joint's envelope. */
+globalEnvelope: number | null; 
+/**  `PhysicsSimLocalSettings.GravityScale`. */
+gravityScale: number | null; 
+/**  `PhysicsSimLocalSettings.GravityOverride`, and none for the game's own gravity. */
+gravityOverride: [(number | null), (number | null), (number | null)] | null; 
+/**  The file the collision shapes are read from, and none for a chain naming none. */
+colliderFile: NamedAsset | null; 
+/**  `JointTreeGroups`. */
+groups: JointTreeGroup[] } | 
+/**  `ConformToPathRigPoseModifierData`: a chain of joints turns to trail the unit. */
+{ kind: "conformToPath"; 
+/**  The hash path of the modifier under the skin object. */
+path: string; 
+/**  `mStartingJointName`, the joint of the chain nearest the root. */
+start: HashRef | null; 
+/**  `mEndingJointName`, the joint the chain runs down to. */
+end: HashRef | null; 
+/**  `mDefaultMaskName`, the mask that weighs each joint's turn, and none for none. */
+defaultMask: HashRef | null; 
+/**  `mMaxBoneAngle`, the most one joint turns, in degrees. */
+maxBoneAngle: number | null; 
+/**  `mDampingValue`. */
+damping: number | null; 
+/**  `mFrequency`. */
+frequency: number | null; 
+/**  `mVelMultiplier`, how much of the unit's velocity a joint's aim is carried by. */
+velMultiplier: number | null; 
+/**  `OnlyActivateInTurns`. */
+onlyInTurns: boolean; 
+/**  `ActivationAngle`, the bend of the unit's path that counts as a turn, in degrees. */
+activationAngle: number | null; 
+/**  `ActivationDistance`, how near a turn a joint turns whole. */
+activationDistance: number | null; 
+/**  `BlendDistance`, how far from a turn a joint stops turning. */
+blendDistance: number | null; 
+/**  `ExtraJointChains`. */
+extraChains: ExtraJointChain[] } | 
+/**  `JointOrientationRigPoseModifierData`: joints turn to a direction a driver gives. */
+{ kind: "jointOrientation"; 
+/**  The hash path of the modifier under the skin object. */
+path: string; 
+/**  `Joints`, the joints turned, in list order. */
+joints: HashRef[]; 
+/**  The class of `OrientationSource` as the tables name it, and none for a null pointer. */
+source: string | null; 
+/**  `orientationType`: 0 the source is a direction, 1 a place each joint turns toward. */
+orientationType: number; 
+/**  `PlaneConstraint`: the normal of the plane a joint turns in, 0 z, 1 y, 2 x. */
+planeConstraint: number; 
+/**  The axis the plane tilts about: 0 none, 1 x, 2 y, 3 z. */
+tiltAxis: number; 
+/**  The axis of the joint pointed along the direction: 0 none, 1 x, 2 y, 3 z. */
+aimAxis: number; 
+/**  The aim axis is the negative one. */
+aimNegated: boolean; 
+/**  The joint is turned half way round its normal first, and its tilt runs the other way. */
+flipped: boolean; 
+/**  The most a joint turns in its plane, in degrees. */
+maxAngle: number | null; 
+/**  `DefaultOn`. */
+defaultOn: boolean } | 
+/**
+ *  `LockRootOrientationRigPoseModifierData`: a joint keeps its facing while the unit
+ *  turns, for as long as a `LockRootOrientationEventData` of a clip runs.
+ */
+{ kind: "lockRootOrientation"; 
+/**  The hash path of the modifier under the skin object. */
+path: string } | 
+/**
+ *  `JointSnapRigPoseModifilerData`: a joint stands on another, for as long as a
+ *  `JointSnapEventData` of a clip runs.
+ */
+{ kind: "jointSnap"; 
+/**  The hash path of the modifier under the skin object. */
+path: string } | 
+/**
+ *  `SyncedAnimationRigPoseModifierData`: the unit moves to the place it shares with the
+ *  other units of a `SyncedAnimationEventData`.
+ */
+{ kind: "syncedAnimation"; 
+/**  The hash path of the modifier under the skin object. */
+path: string } | 
+/**
+ *  `VertexAnimationRigPoseModifierData`: a spring on the unit's movement, whose change
+ *  the pose carries to the mesh rather than to a joint.
+ */
+{ kind: "vertexAnimation"; 
+/**  The hash path of the modifier under the skin object. */
+path: string; 
+/**  `mMaxSpeed`. */
+maxSpeed: number | null; 
+/**  `mStiffness`. */
+stiffness: number | null; 
+/**  `mMass`. */
+mass: number | null; 
+/**  `mDamping`. */
+damping: number | null } | 
+/**  Any other kind, which the viewport simulates nothing for. */
+{ kind: "other"; 
+/**  The hash path of the modifier under the skin object. */
+path: string; 
+/**  The modifier's class as the tables name it, and its hash where none does. */
+class: string };
+
 /**  One finding, at one site, from one rule. */
 export type Problem = Problem_Serialize | Problem_Deserialize;
 
@@ -5764,6 +6050,16 @@ project: string;
 /**  The layer's name. */
 layer: string };
 
+/**  One `CurveScaledFloat`. */
+export type ScaledCurve = {
+	/**  `value`, and the parameter's own default where the struct sets none. */
+	value: number | null,
+	/**  `UseCurve`. */
+	useCurve: boolean,
+	/**  `Curve`, and none for a null pointer. */
+	curve: CurveKeys | null,
+};
+
 /**  Which scan the DLL ran, as it decided from the flags and the command line. */
 export type ScanMode = "eager" | "lazy";
 
@@ -6324,6 +6620,10 @@ export type SkinModel = {
 	 *  [`search_linked_systems`] adds those its linked files declare.
 	 */
 	effectSystems: EffectSystem[],
+	/**  `skinMeshProperties.rigPoseModifierData`, in the order the skin lists them. */
+	poseModifiers: PoseModifier[],
+	/**  `skinMeshProperties.SocketDefinitions`, in the order the skin lists them. */
+	sockets: Socket[],
 };
 
 /**  Why a property edit does not apply, as `ltk_game_data` names it. */
@@ -6334,6 +6634,41 @@ export type SkippedArchive = {
 	wad: string,
 	why: string,
 };
+
+/**  One entry of `SocketDefinitions`, of any kind of `SocketDefinitionBase`. */
+export type Socket = 
+/**  `SocketDefinitionSingleJoint`: a point riding one joint. */
+{ kind: "singleJoint"; 
+/**  The hash path of the socket under the skin object. */
+path: string; 
+/**  `name`, which a lookup by bone name finds the socket under. */
+name: string; 
+/**  `ParentJoint`, and none for a socket naming no joint. */
+parent: HashRef | null; 
+/**  `PositionOffset`, in the axes of the bind pose. */
+position: [(number | null), (number | null), (number | null)]; 
+/**  `RotationOffset`, Euler degrees. */
+rotation: [(number | null), (number | null), (number | null)]; 
+/**  `FreezePositionX`, `Y` and `Z`. */
+freezePosition: [boolean, boolean, boolean]; 
+/**  `FreezeRotationX`, `Y` and `Z`. */
+freezeRotation: [boolean, boolean, boolean] } | 
+/**  `SocketDefinitionWorld`: a point riding the character's root. */
+{ kind: "world"; 
+/**  The hash path of the socket under the skin object. */
+path: string; 
+/**  `name`. */
+name: string; 
+/**  `PositionOffset`. */
+position: [(number | null), (number | null), (number | null)] } | 
+/**  Any other kind, which the viewport resolves nowhere. */
+{ kind: "other"; 
+/**  The hash path of the socket under the skin object. */
+path: string; 
+/**  `name`. */
+name: string; 
+/**  The socket's class as the tables name it, and its hash where none does. */
+class: string };
 
 /**  The install's named spells for one character, without a search result cap. */
 export type SpellCatalog = {

@@ -62,7 +62,8 @@ pub use types::{
 
 use names::own_first;
 pub(crate) use names::{Named, Wanted};
-pub(crate) use path::{EntryKey, HashPath};
+pub(crate) use path::EntryKey;
+pub use path::HashPath;
 use path::{
     Node, Step, Trace, as_list, as_struct, descend, descend_from, dot, inlines, is_null, key_text,
     parse_steps,

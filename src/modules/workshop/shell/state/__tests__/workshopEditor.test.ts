@@ -1605,8 +1605,8 @@ describe("workshopEditor store", () => {
       expect(panesOf(A, "skin")).toEqual([
         ["preview"],
         ["clips", "spells"],
-        ["material"],
-        ["inspector"],
+        ["material", "skeleton"],
+        ["inspector", "physics"],
       ]);
     });
 
@@ -1691,7 +1691,8 @@ describe("workshopEditor store", () => {
       expect(panesOf(A, "skin")).toEqual([
         ["preview", "inspector"],
         ["clips", "spells"],
-        ["material"],
+        ["material", "skeleton"],
+        ["physics"],
       ]);
       expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
     });
@@ -1705,8 +1706,8 @@ describe("workshopEditor store", () => {
       expect(panesOf(A, "skin")).toEqual([
         ["preview"],
         ["clips", "spells"],
-        ["material"],
-        ["inspector"],
+        ["material", "skeleton"],
+        ["inspector", "physics"],
       ]);
       expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"]]);
     });

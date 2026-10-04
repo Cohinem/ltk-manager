@@ -66,6 +66,8 @@ function skin(): SkinModel {
     animationGraph: null,
     idleEffects: [],
     effectSystems: [],
+    poseModifiers: [],
+    sockets: [],
   };
 }
 

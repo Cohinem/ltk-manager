@@ -20,6 +20,7 @@ function clip(name: string, hash: string, className = "AtomicClipData"): GraphCl
     parameters: [],
     interruptionGroups: [],
     flags: 0,
+    ownEvents: false,
   };
 }
 

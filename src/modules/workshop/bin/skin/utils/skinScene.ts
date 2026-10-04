@@ -10,6 +10,7 @@ import type {
   VfxSystem,
 } from "@/lib/tauri";
 import {
+  isSocketed,
   jointAnchor,
   type Pose,
   programPasses,
@@ -274,7 +275,13 @@ export function jointSlot(pose: Pose, ref: HashRef | null): number {
   if (ref === null) return -1;
   const named = pose.jointNamed(ref.name);
   if (named >= 0) return named;
-  return pose.skeleton.joints.findIndex((joint) => nameHash(joint.name) === ref.hash);
+
+  const joint = pose.skeleton.joints.findIndex((each) => nameHash(each.name) === ref.hash);
+  if (joint >= 0 || !isSocketed(pose)) return joint;
+
+  /* A joint wins over a socket of its name, so a socket is looked for last. */
+  const socket = pose.sockets.findIndex((each) => nameHash(each.name) === ref.hash);
+  return socket < 0 ? -1 : pose.socketSlot(socket);
 }
 
 /** `pose`'s joints by name without regard to case, each anchor built once, `shift` seconds late. */

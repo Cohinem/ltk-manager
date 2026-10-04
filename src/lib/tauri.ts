@@ -340,6 +340,7 @@ export const api = {
         options,
       ),
     bakeSkinTangents: preview.bakeSkinTangents,
+    saveSkinColliders: preview.saveSkinColliders,
     readMap: preview.readMap,
     readMapParticles: preview.readMapParticles,
     readMapCharacters: preview.readMapCharacters,

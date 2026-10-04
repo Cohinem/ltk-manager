@@ -18,7 +18,9 @@ export type ShellPaneId =
   | "graph"
   | "layers"
   | "variants"
-  | "sprites";
+  | "sprites"
+  | "skeleton"
+  | "physics";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -34,6 +36,8 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "layers",
   "variants",
   "sprites",
+  "skeleton",
+  "physics",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
@@ -42,7 +46,7 @@ export type ShellKind = "vfx" | "skin" | "map" | "material" | "atlas" | "font" |
 /** The panes each shell holds, in the order the Panes menu lists them. */
 export const SHELL_PANES = {
   vfx: ["preview", "timeline", "inspector", "curve", "emitters", "graph"],
-  skin: ["preview", "clips", "spells", "material", "inspector"],
+  skin: ["preview", "clips", "spells", "material", "skeleton", "inspector", "physics"],
   map: ["preview", "outliner", "inspector"],
   material: ["preview", "inspector"],
   atlas: ["preview", "layers", "variants", "sprites", "inspector"],
@@ -73,6 +77,8 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   layers: m.workshop_bin_pane_layers_label,
   variants: m.workshop_bin_pane_variants_label,
   sprites: m.workshop_bin_pane_sprites_label,
+  skeleton: m.workshop_bin_pane_skeleton_label,
+  physics: m.workshop_bin_pane_physics_label,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {
@@ -94,9 +100,9 @@ export type ShellArrangements = Readonly<Record<ShellKind, ShellArrangement>>;
  * The shares are flex-grow ratios rather than sizes, so a panel keeps its proportion at
  * any window width. The preview takes the largest single share in each, because what is
  * drawn is what the reader edits the numbers against. The particle system's is the
- * arrangement of "The shell" in docs/ux/BIN_EDITOR.md (ADR-0037), and the skin's is
- * "The clips pane" there, and the material's is "The material shell" there, which a font
- * shares. Atlas's is "Panes" in docs/plans/atlas-ui-editor.md.
+ * arrangement of "The shell" in docs/ux/BIN_EDITOR.md (ADR-0037), and the material's is
+ * "The material shell" there, which a font shares. The skin's is "The shell" in
+ * docs/ux/SKIN_EDITOR.md. Atlas's is "Panes" in docs/plans/atlas-ui-editor.md.
  */
 export function defaultShellLayout(kind: ShellKind): LayoutNode {
   if (kind === "atlas") {
@@ -174,8 +180,18 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
           id: "split-4",
           dir: "col",
           children: [
-            { kind: "leaf", id: "leaf-7", tabs: ["material"], activeTab: "material" },
-            { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+            {
+              kind: "leaf",
+              id: "leaf-7",
+              tabs: ["material", "skeleton"],
+              activeTab: "material",
+            },
+            {
+              kind: "leaf",
+              id: "leaf-3",
+              tabs: ["inspector", "physics"],
+              activeTab: "inspector",
+            },
           ],
         },
       ],
@@ -245,9 +261,15 @@ export function openShellPanes(tree: LayoutNode): ReadonlySet<ShellPaneId> {
  * A pane the shell does not hold drops rather than crashing the first render, and a
  * value that is no tree at all falls back to a single empty leaf, which draws the Panes
  * menu and nothing else. A skin tree saved before the clips pane existed gains it over
- * the inspector, per "The clips pane" in docs/ux/BIN_EDITOR.md, and one saved before the
- * material pane existed gains it as a tab behind the inspector. An Atlas tree saved before the
- * sprites pane existed gains it as a tab behind the variants.
+ * the inspector, per "The clips pane" in docs/ux/SKIN_EDITOR.md, and one saved before the
+ * material pane existed gains it as a tab behind the inspector, and one saved before the
+ * skeleton pane existed gains it as a tab behind the material. One saved before the
+ * physics pane existed gains it as a tab behind the inspector. An Atlas tree saved before
+ * the sprites pane existed gains it as a tab behind the variants.
+ *
+ * A tree that lacks one of those panes reads the same whether it was saved before the pane
+ * existed or the reader closed the pane, so a closed clips, material, skeleton, physics or
+ * sprites pane comes back when the tree is read again.
  */
 export function sanitizeShellLayout(kind: ShellKind, value: unknown): LayoutNode {
   const held = new Set<ShellPaneId>();
@@ -257,6 +279,8 @@ export function sanitizeShellLayout(kind: ShellKind, value: unknown): LayoutNode
 
   if (!held.has("clips")) tree = withClipsPane(tree);
   if (!held.has("material")) tree = withTabBeside(tree, "inspector", "material");
+  if (!held.has("skeleton")) tree = withTabBeside(tree, "material", "skeleton");
+  if (!held.has("physics")) tree = withTabBeside(tree, "inspector", "physics");
   return tree;
 }
 

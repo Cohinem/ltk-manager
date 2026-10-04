@@ -9,53 +9,14 @@ use atlas::{
     SheetTarget,
 };
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_bin::bin_document::{BinDocumentError, BinDocumentId, BinDocuments};
-use ltk_manager_bin::sandbox::{SandboxRef, SandboxState};
+use ltk_manager_bin::bin_document::{BinDocumentId, BinDocuments};
+use ltk_manager_bin::sandbox::SandboxState;
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 
-use crate::error::{AppError, AppResult, IpcResult};
+use crate::error::{AppError, IpcResult};
 use crate::services::game::index::game_file;
-use crate::services::shared::{off_thread, read_asset};
-
-/// Where an edit of the document `document` writes: the project it opens in, the layer it writes
-/// to, and its own asset.
-struct WriteTarget {
-    project: String,
-    layer: String,
-    asset: AssetRef,
-}
-
-impl WriteTarget {
-    /// The target of `document`.
-    ///
-    /// # Errors
-    ///
-    /// Fails when the document is closed, opens in no project or writes to no layer.
-    fn of(documents: &BinDocuments, document: BinDocumentId) -> AppResult<Self> {
-        let project = project_of(documents, document)?;
-        let asset = documents
-            .asset_of(document)
-            .ok_or(BinDocumentError::NotOpen(document))?;
-        let layer = layer_of(documents, document, &asset)?;
-
-        Ok(Self {
-            project,
-            layer,
-            asset,
-        })
-    }
-
-    /// The archive folder the document's own asset sits under.
-    ///
-    /// # Errors
-    ///
-    /// Fails for a document in no archive.
-    fn archive(&self) -> AppResult<String> {
-        archive_of(&self.asset)
-            .ok_or_else(|| AppError::ValidationFailed("The document is in no archive".to_owned()))
-    }
-}
+use crate::services::shared::{archive_of, off_thread, project_of, read_asset, WriteTarget};
 
 /// Import the PNG at `source` into the sheet `sheet` of the project `document` opens in, or put
 /// it in place of the sprite `replace`, per section 5 of docs/plans/atlas-ui-editor.md.
@@ -265,48 +226,4 @@ pub async fn atlas_export_sprite(
         Ok(())
     })
     .await
-}
-
-/// The layer an edit of the document `document` writes to: the one it declares into, else the
-/// layer its own file sits in.
-fn layer_of(
-    documents: &BinDocuments,
-    document: BinDocumentId,
-    asset: &AssetRef,
-) -> AppResult<String> {
-    match (documents.declared_state(document)?, asset) {
-        (Some(declared), _) => Ok(declared.layer),
-        (None, AssetRef::Layer { layer, .. }) => Ok(layer.clone()),
-        (None, _) => Err(AppError::ValidationFailed(
-            "The document writes to no layer".to_owned(),
-        )),
-    }
-}
-
-fn project_of(documents: &BinDocuments, document: BinDocumentId) -> AppResult<String> {
-    match documents.sandbox_of(document) {
-        Some(SandboxRef::Project { project } | SandboxRef::Layer { project, .. }) => Ok(project),
-        Some(SandboxRef::Game) => Err(AppError::ValidationFailed(
-            "The document opens in no project".to_owned(),
-        )),
-        None => Err(BinDocumentError::NotOpen(document).into()),
-    }
-}
-
-/// The archive folder a layer keeps an asset's archive under: a game chunk's archive file name,
-/// or the first folder of a layer file's path.
-fn archive_of(asset: &AssetRef) -> Option<String> {
-    match asset {
-        AssetRef::GameChunk { wad, .. } => {
-            wad.replace('\\', "/").rsplit('/').next().map(str::to_owned)
-        }
-        AssetRef::Layer { path, .. } => path
-            .replace('\\', "/")
-            .split('/')
-            .next()
-            .filter(|archive| archive.contains(".wad"))
-            .map(str::to_owned),
-        AssetRef::File { .. } => None,
-        AssetRef::LcuChunk { .. } => unreachable!("the bin store holds no client chunk"),
-    }
 }

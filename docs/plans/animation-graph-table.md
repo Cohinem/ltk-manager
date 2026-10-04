@@ -266,9 +266,9 @@ file is not located. Virtualization bounds the queries to the rows on screen.
 
 ### 6. The docs
 
-"The clips pane" under the skin paragraph of `docs/ux/BIN_EDITOR.md`, the `AnimationGraphData`
-row of "The layouts" reworded to the pane, and step 6 of the views track marked. Section 6.8 of
-the research note points at the spec.
+"The clips pane", which sits in `docs/ux/SKIN_EDITOR.md`, the `AnimationGraphData` row of "The
+layouts" in `docs/ux/BIN_EDITOR.md` reworded to the pane, and step 6 of the views track marked.
+Section 6.8 of the research note points at the spec.
 
 ### 7. The graph's own layout
 
@@ -286,8 +286,6 @@ for the five remaining fields. A row click sets `inspected` only.
 - A particle event's `scale`, `mIsLoop` and `mParticleEventDataPairList[].0x4fce52ba`,
   and a kill event stopping an effect: every cue runs once at the definition's own scale
 - Sound and the other event kinds, and a joint snap whose parent is itself snapped
-- A path for a conform to path event to bend the masked joints along, which needs the
-  preview's unit to move
 - Persisted tab, filter and unfolded state
 - A condition or a chance driving which child a composite plays, and a blend between the two
   pairs a parametric clip's value falls between

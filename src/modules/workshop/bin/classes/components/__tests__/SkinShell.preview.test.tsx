@@ -35,6 +35,10 @@ vi.mock("../../../skin/components/ClipsSection", () => ({
 }));
 vi.mock("../../../skin/components/ClipTable", () => ({ ClipTabs: () => null }));
 vi.mock("../../../material/components/MaterialPane", () => ({ MaterialPane: () => null }));
+vi.mock("../../../skin/components/SkeletonPane", () => ({ SkeletonPane: () => null }));
+vi.mock("../../../skin/components/PhysicsPane", () => ({
+  PhysicsPane: () => null,
+}));
 vi.mock("../ClassSections", () => ({ Sections: () => <button>Inspect character</button> }));
 vi.mock("../../../spells/components/SpellsPane", () => ({
   SpellsPane: ({

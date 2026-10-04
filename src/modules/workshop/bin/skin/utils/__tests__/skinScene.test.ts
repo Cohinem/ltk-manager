@@ -33,6 +33,8 @@ function skin(over: Partial<SkinModel> = {}): SkinModel {
     animationGraph: null,
     idleEffects: [],
     effectSystems: [],
+    poseModifiers: [],
+    sockets: [],
     ...over,
   };
 }
@@ -89,6 +91,7 @@ function clip(name: string, hash: string, atomic = true): GraphClip {
     parameters: [],
     interruptionGroups: [],
     flags: 0,
+    ownEvents: false,
   };
 }
 

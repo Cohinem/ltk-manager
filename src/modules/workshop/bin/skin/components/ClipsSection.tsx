@@ -59,7 +59,7 @@ function SkinClips({ view, entry }: { view: ViewContext; entry: string }) {
 /**
  * The Clips section of a stack: the tabs over the tables.
  *
- * "The clips pane" in docs/ux/BIN_EDITOR.md. A shell draws the same in a pane of its
+ * "The clips pane" in docs/ux/SKIN_EDITOR.md. A shell draws the same in a pane of its
  * own and leaves this section out.
  */
 export function ClipsSection({ section, view }: WidgetProps) {

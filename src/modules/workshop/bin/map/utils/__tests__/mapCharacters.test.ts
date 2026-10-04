@@ -79,6 +79,7 @@ function clip(name: string, hash: string): GraphClip {
     parameters: [],
     interruptionGroups: [],
     flags: 0,
+    ownEvents: false,
   };
 }
 
