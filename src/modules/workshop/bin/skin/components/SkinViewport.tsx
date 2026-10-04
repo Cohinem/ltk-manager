@@ -12,6 +12,7 @@ import {
 import { useFrame } from "@react-three/fiber";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Group } from "three";
 
 import { IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -22,6 +23,8 @@ import {
   Character,
   createPose,
   FitCamera,
+  JointHighlight,
+  LiveRoot,
   meshBounds,
   Placement,
   type PlacementMode,
@@ -29,6 +32,7 @@ import {
   type SceneClock,
   sequencePose,
   snappedPose,
+  SocketGizmo,
   useAssetTextures,
   useBackdropFlags,
   useBackdropMaps,
@@ -84,7 +88,10 @@ import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { passesOf } from "../../vfx/rendering/utils/passes";
 import { skinQueries } from "../api/skinQueries";
+import { useDynamicsEdit } from "../hooks/useDynamicsEdit";
 import { DocumentOpener, type GraphSource, useSkinGraphSource } from "../hooks/useGraphSource";
+import { useJointPick } from "../hooks/useJointPick";
+import { useSkinDynamics } from "../hooks/useSkinDynamics";
 import { useSkinKeys } from "../hooks/useSkinKeys";
 import { useSkinPrograms } from "../hooks/useSkinPrograms";
 import { overriddenHidden, SkinChoiceContext, useSkinChoice } from "../state/skinChoice";
@@ -110,10 +117,13 @@ import {
   systemModel,
   textureAssets,
 } from "../utils/skinScene";
+import { socketDragEdits } from "../utils/socketEdits";
 import { BakeTangentsButton } from "./BakeTangentsButton";
 import { ClipEffect } from "./ClipEffect";
 import { IdleEffect } from "./IdleEffect";
+import { PhysicsMenu } from "./PhysicsMenu";
 import { SkinEffectsMenu } from "./SkinEffectsMenu";
+import { SkinPhysicsOverlay } from "./SkinPhysicsOverlay";
 import { type PlayingStep, SkinTransport } from "./SkinTransport";
 
 /** `useFrame` runs the lowest priority first, so the clock moves before anything samples it. */
@@ -183,6 +193,8 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     use(SkinChoiceContext) ?? own;
   const { effects, setEffects, submesh, pickSubmesh, mask } = use(SkinChoiceContext) ?? own;
   const { parameter, setParameter, shown, setShown, resetShown } = use(SkinChoiceContext) ?? own;
+  const { simulatedRate, setSimulatedRate, muted } = use(SkinChoiceContext) ?? own;
+  const { joint, setJoint, socket: movedSocket, socketMode } = use(SkinChoiceContext) ?? own;
 
   const ground = usePreviewGround();
   const backdrop = usePreviewBackdrop();
@@ -277,10 +289,11 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
         playlist,
         stepPoses.map((step) => step.duration),
         clipModels.map((model) => model?.fps ?? null),
+        chosenClip,
       ),
-    [playlist, stepPoses, clipModels],
+    [playlist, stepPoses, clipModels, chosenClip],
   );
-  const pose = useMemo(() => {
+  const clipPose = useMemo(() => {
     if (sequenced === null) return null;
     const snaps = snapCues(timed).map((cue) => ({
       ...cue,
@@ -289,6 +302,29 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     }));
     return snappedPose(sequenced, snaps);
   }, [sequenced, timed]);
+  const scale = skin.scale ?? 1;
+  /* While the Move gizmo is on, the reader moves the unit, and the pose is simulated live. */
+  const dynamics = useSkinDynamics(skin, clipPose, {
+    timed,
+    masks: graph.data?.masks,
+    rate: simulatedRate,
+    muted,
+    live: move && !controlsHidden,
+    socket: movedSocket,
+    socketMode,
+  });
+  const { pose, handle } = dynamics;
+  const driveLive = dynamics.drive;
+  const sendDynamics = useDynamicsEdit(entry);
+  /* An object under the placed group, which the socket's gizmo reads the unit's place from. */
+  const unit = useRef<Group>(null);
+
+  const jointCount = pose?.skeleton.joints.length ?? 0;
+  const named = joint === null || pose === null ? -1 : pose.jointNamed(joint);
+  const selectedJoint = named < jointCount ? named : -1;
+  const picks = useJointPick(pose, selectedJoint, setJoint, pickSubmesh);
+  const simulates = dynamics.rig !== null;
+  const overlaid = simulates || skin.sockets.length > 0 || dynamics.shapes.length > 0;
   const duration = pose?.duration ?? 0;
   const steps = useMemo<PlayingStep[]>(
     () =>
@@ -349,7 +385,6 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const programsFor = useSkinPrograms(document, skin, shaders);
   const heldValue = useHeldValue();
   const colors = useSceneColors();
-  const scale = skin.scale ?? 1;
   /* Where the subject stands: what the creator dragged it to on this backdrop, else the
      backdrop's own middle, else the scene's origin. A placement made on another map is a
      point that map has and this one does not. */
@@ -398,9 +433,11 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
      clock stood at, which is what a change of frame asks of it. */
   const posed = useRef<Pose | null>(null);
   useEffect(() => {
-    if (posed.current !== null && pose !== null && posed.current !== pose) clock.restart();
-    posed.current = pose;
-  }, [clock, pose]);
+    if (posed.current !== null && clipPose !== null && posed.current !== clipPose) {
+      clock.restart();
+    }
+    posed.current = clipPose;
+  }, [clock, clipPose]);
 
   /* An effect that joins replays to the clock's time, so the clock folds into one pass
      of the clip first, which draws the same frame of the pose. */
@@ -477,6 +514,12 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               })
             }
           >
+            <group ref={unit} />
+            {driveLive !== null && (
+              <LiveRoot
+                onFrame={(seconds, position, yaw) => driveLive(clock.time, seconds, position, yaw)}
+              />
+            )}
             <Character
               mesh={mesh.data}
               pose={pose}
@@ -490,7 +533,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               selfIllumination={skin.selfIllumination ?? 0}
               highlighted={submesh}
               jointWeights={maskWeights}
-              onSubmeshPick={pickSubmesh}
+              onSubmeshPick={picks.pickSubmesh}
             >
               {effects &&
                 idle.map(({ effect }, at) => {
@@ -532,9 +575,46 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                 colors={colors}
                 jointWeights={maskWeights}
                 labels={jointNames ? labels : null}
+                onPick={picks.pickJoint}
+              />
+            )}
+            {overlaid && (
+              <SkinPhysicsOverlay
+                skin={skin}
+                muted={muted}
+                pose={pose}
+                clock={clock}
+                scale={scale}
+                colors={colors}
+                rig={dynamics.rig}
+                shapes={dynamics.shapes}
+              />
+            )}
+            {selectedJoint >= 0 && !controlsHidden && (
+              <JointHighlight
+                pose={pose}
+                clock={clock}
+                scale={scale}
+                colors={colors}
+                joint={selectedJoint}
               />
             )}
           </Placement>
+          {handle !== null && sendDynamics !== null && !controlsHidden && (
+            <SocketGizmo
+              pose={pose}
+              clock={clock}
+              scale={scale}
+              slot={handle.slot}
+              mode={handle.mode}
+              position={stood}
+              facing={facing}
+              anchor={unit}
+              onMove={(place) =>
+                sendDynamics(socketDragEdits(pose, skin.sockets, handle.path, place, handle.mode))
+              }
+            />
+          )}
         </PreviewViewport>
         {!controlsHidden && armature && jointNames && (
           <canvas
@@ -601,6 +681,12 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                 scale={scale}
               />
               <ArmatureMenu />
+              {overlaid && (
+                <PhysicsMenu
+                  rate={simulates ? simulatedRate : null}
+                  onRateChange={setSimulatedRate}
+                />
+              )}
               <ShadersToggle />
               <BakeTangentsButton
                 document={document}

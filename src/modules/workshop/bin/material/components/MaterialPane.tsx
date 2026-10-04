@@ -64,7 +64,7 @@ export interface MaterialPaneProps {
 /**
  * One material of the skin as editable tables, beside the character it draws.
  *
- * "The material pane" in docs/ux/BIN_EDITOR.md. The material follows the submesh picked
+ * "The material pane" in docs/ux/SKIN_EDITOR.md. The material follows the submesh picked
  * on the character, and the picker overrides it until the next pick. The edits go through
  * the view's own leaf edits, so the character redraws once one lands.
  */

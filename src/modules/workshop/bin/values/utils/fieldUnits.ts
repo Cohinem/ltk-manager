@@ -1,6 +1,7 @@
 import { m } from "@/i18n";
 
-import { nameHash } from "../../shared/utils/binHash";
+import { hashOf } from "../../shared/utils/binHash";
+import { FIELD } from "../../skin/utils/dynamicsFields";
 
 /** What a number a field holds is measured in. */
 export type FieldUnit = "seconds" | "degrees" | "distance" | "rate";
@@ -25,7 +26,17 @@ export const UNIT_FIELDS: Record<FieldUnit, readonly string[]> = {
     "particleLinger",
     "delay",
   ],
-  degrees: ["birthRotation0", "rotation0", "rotationOverride", "uvRotation"],
+  degrees: [
+    "birthRotation0",
+    "rotation0",
+    "rotationOverride",
+    "uvRotation",
+    "LimitAngle",
+    "maxAngle",
+    "mMaxBoneAngle",
+    "ActivationAngle",
+    FIELD.orientationMaxAngle,
+  ],
   distance: [
     "EmitterPosition",
     "translationOverride",
@@ -36,6 +47,10 @@ export const UNIT_FIELDS: Record<FieldUnit, readonly string[]> = {
     "scaleOverride",
     "FlexInstanceScale",
     "radius",
+    "JointRadius",
+    "maxDistance",
+    "ActivationDistance",
+    "BlendDistance",
     "height",
     "size",
   ],
@@ -70,7 +85,7 @@ export const UNIT_SUFFIX: Record<FieldUnit, () => string> = {
 
 const BY_FIELD: ReadonlyMap<string, FieldUnit> = new Map(
   Object.entries(UNIT_FIELDS).flatMap(([unit, fields]) =>
-    fields.map((field) => [nameHash(field), unit as FieldUnit] as const),
+    fields.map((field) => [hashOf(field), unit as FieldUnit] as const),
   ),
 );
 

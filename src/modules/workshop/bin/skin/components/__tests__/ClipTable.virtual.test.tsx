@@ -71,6 +71,7 @@ const clips: GraphClip[] = Array.from({ length: 5000 }, (_, index) => ({
   parameters: [],
   interruptionGroups: [],
   flags: 0,
+  ownEvents: false,
 }));
 
 function Harness() {

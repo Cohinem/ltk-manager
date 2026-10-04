@@ -24,7 +24,10 @@ import { ShellHeaderPortal, useShellHeaderHeld } from "../../shell/state/shellHe
 import type { ShellKind, ShellPaneId } from "../../shell/utils/shellPanes";
 import { ClipsHost } from "../../skin/components/ClipsSection";
 import { ClipTabs } from "../../skin/components/ClipTable";
+import { PhysicsPane } from "../../skin/components/PhysicsPane";
+import { SkeletonPane } from "../../skin/components/SkeletonPane";
 import { SkinPreview } from "../../skin/components/SkinPreview";
+import { SkinTintScope } from "../../skin/state/skinTint";
 import { SpellsPane } from "../../spells/components/SpellsPane";
 import type { AbilityRecipe } from "../../spells/utils/abilityRecipe";
 import { PreviewPane, RunKeys, TimelinePane, TimelineTransport, VfxRunProvider } from "../../vfx";
@@ -178,7 +181,7 @@ interface SkinShellProps extends ShellFrameProps {
 /**
  * The skin's panes: the character, its clips, and its sections beside them (ADR-0036).
  *
- * "The clips pane" in docs/ux/BIN_EDITOR.md. The Clips section is the pane's own, so
+ * "The clips pane" in docs/ux/SKIN_EDITOR.md. The Clips section is the pane's own, so
  * the inspector column leaves it out.
  */
 export function SkinShell({ placed, pages, view, entry, preview }: SkinShellProps) {
@@ -253,9 +256,17 @@ export function SkinShell({ placed, pages, view, entry, preview }: SkinShellProp
         onFocus: () => setPreviewOwner("skin"),
         body: <MaterialPane view={view} entry={entry} />,
       },
+      skeleton: {
+        onFocus: () => setPreviewOwner("skin"),
+        body: <SkeletonPane view={view} entry={entry} />,
+      },
       inspector: {
         onFocus: () => setPreviewOwner("skin"),
         body: <SectionColumn placed={others} pages={pages} view={view} />,
+      },
+      physics: {
+        onFocus: () => setPreviewOwner("skin"),
+        body: <PhysicsPane view={view} entry={entry} />,
       },
     }),
     [others, pages, view, entry, activeAbility, showSpell, preview],
@@ -267,7 +278,9 @@ export function SkinShell({ placed, pages, view, entry, preview }: SkinShellProp
         kind="skin"
         crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
       />
-      <ShellPaneTree kind="skin" content={content} />
+      <SkinTintScope>
+        <ShellPaneTree kind="skin" content={content} />
+      </SkinTintScope>
     </div>
   );
 }

@@ -228,6 +228,8 @@ export interface PlayheadProps {
   onSeek: (time: number) => void;
   /** Commit `time` once a drag is released or a key has moved the scrub. */
   onSeekCommit?: (time: number) => void;
+  /** Classes of the scrub, which a host with a crowded row gives a least length. */
+  scrubClassName?: string;
 }
 
 /**
@@ -236,14 +238,21 @@ export interface PlayheadProps {
  * A drag seeks on every pointer move, which the checkpoints of decision 2.46 in
  * docs/plans/vfx-particle-renderer.md make cheap.
  */
-export function Playhead({ time, span, scrub = true, onSeek, onSeekCommit }: PlayheadProps) {
+export function Playhead({
+  time,
+  span,
+  scrub = true,
+  onSeek,
+  onSeekCommit,
+  scrubClassName,
+}: PlayheadProps) {
   const shown = Math.min(time, span);
 
   return (
     <>
       {scrub && (
         <Slider
-          className="mx-2 min-w-0 flex-1"
+          className={twMerge("mx-2 min-w-0 flex-1", scrubClassName)}
           aria-label={m.workshop_bin_preview_scrub_label()}
           value={shown}
           min={0}
@@ -257,7 +266,7 @@ export function Playhead({ time, span, scrub = true, onSeek, onSeekCommit }: Pla
       <span
         role="timer"
         aria-label={m.workshop_bin_preview_readout_label()}
-        className="shrink-0 px-1 font-mono text-row text-code whitespace-nowrap text-surface-400 tabular-nums"
+        className="shrink-0 px-1 font-mono text-mono-row whitespace-nowrap text-surface-400 tabular-nums"
       >
         <Marked
           text={m.workshop_bin_preview_playhead_label({

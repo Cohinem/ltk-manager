@@ -1,4 +1,11 @@
-import { nameHash } from "../../shared/utils/binHash";
+import { hashOf } from "../../shared/utils/binHash";
+import {
+  FIELD,
+  LATERAL_LINK_MATERIAL,
+  ORIENTATION_AXIS,
+  ORIENTATION_PLANE,
+  ORIENTATION_TYPE,
+} from "../../skin/utils/dynamicsFields";
 import {
   ADDRESS_MODE,
   BLEND_MODE,
@@ -31,7 +38,8 @@ function bits(names: Readonly<Record<string, number>>): FieldEnum {
 }
 
 /**
- * The enum each field carries, by the name the class declares it under.
+ * The enum each field carries, by the name the class declares it under, or by its hash for
+ * a field no table names.
  *
  * "A value reads as what it means" in docs/ux/BIN_EDITOR.md. A hand table beside
  * `GROUP_FIELDS`, because the schema types these as integers and says no more. `mMode`
@@ -54,10 +62,15 @@ export const ENUM_FIELDS: Readonly<Record<string, FieldEnum>> = {
   mTrailMode: choice(TRAIL_MODE),
   mSmoothingMode: choice(TRAIL_SMOOTHING),
   miscRenderFlags: bits(MISC_RENDER_FLAG),
+  LateralLinkMaterial: choice(LATERAL_LINK_MATERIAL),
+  orientationType: choice(ORIENTATION_TYPE),
+  PlaneConstraint: choice(ORIENTATION_PLANE),
+  [FIELD.orientationTiltAxis]: choice(ORIENTATION_AXIS),
+  [FIELD.orientationAimAxis]: choice(ORIENTATION_AXIS),
 };
 
 const BY_FIELD: ReadonlyMap<string, FieldEnum> = new Map(
-  Object.entries(ENUM_FIELDS).map(([field, held]) => [nameHash(field), held] as const),
+  Object.entries(ENUM_FIELDS).map(([field, held]) => [hashOf(field), held] as const),
 );
 
 /** The enum the field `hash` carries, or null for a field no table covers. */

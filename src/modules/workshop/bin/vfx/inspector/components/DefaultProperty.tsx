@@ -6,6 +6,7 @@ import type { BinRow, ValueEdit } from "@/lib/tauri";
 
 import { CurveToggle, FieldRow } from "../../../classes/components/ClassCells";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
+import { FieldLabelsContext } from "../../../classes/state/fieldLabels";
 import { useCurveChain, useCurveDock } from "../../../curves/state/curveTarget";
 import { curveActivationEdits, curveDynamicsClass } from "../../../curves/utils/curveEdits";
 import { useBinRead } from "../../../documents/hooks/useBinRead";
@@ -48,6 +49,8 @@ export function DefaultProperty({
 }) {
   const edit = use(LeafEditContext);
   const document = use(RowDocumentContext);
+  /* The host's labels, so a default row reads as the host's authored rows do. */
+  const labels = use(FieldLabelsContext) ?? emitterLabel;
   const { aim } = useCurveDock();
   const chain = useCurveChain(field.name);
   const raw = parseDefault(field.defaultValue);
@@ -216,7 +219,7 @@ export function DefaultProperty({
             <LeafEditContext value={scoped}>
               <FieldRow
                 row={row}
-                label={emitterLabel(field.hash, field.name)}
+                label={labels(field.hash, field.name)}
                 tableLayout
                 width={width}
                 depth={depth}

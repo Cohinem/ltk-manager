@@ -882,6 +882,142 @@ fn a_clip_reads_its_events_by_kind() {
     );
 }
 
+/// A graph holding `clips` alone.
+fn graph_of(clips: Vec<(&str, PropertyValueEnum)>) -> AnimationGraph {
+    let object = BinObject::builder(h(GRAPH), h("AnimationGraphData"))
+        .property(CLIP_DATA_MAP, key_map(clips))
+        .build();
+    let document = document_of(vec![object]);
+
+    resolve_graph(&document, h(GRAPH), &Tables, &Placed).unwrap()
+}
+
+fn unnamed_hash(name: &str) -> Option<HashRef> {
+    Some(HashRef {
+        name: hex(h(name)),
+        hash: hex(h(name)),
+    })
+}
+
+#[test]
+fn a_clip_reads_the_events_that_drive_a_pose_modifier() {
+    let seconds = |value: f32| -> PropertyValueEnum { values::F32::new(value).into() };
+    let events = key_map(vec![
+        (
+            "Loosen",
+            pointer(
+                "DynamicsChainBlendEventData",
+                vec![
+                    (EVENT_BLEND_FROM_DEFAULT, seconds(0.1)),
+                    (EVENT_BLEND_TO_DEFAULT, seconds(0.3)),
+                ],
+            ),
+        ),
+        (
+            "Stiffen",
+            pointer(
+                "SpringPhysicsEventData",
+                vec![
+                    (EVENT_SPRING, hash_of("Pauldron")),
+                    (EVENT_BLEND_OUT_TIME, seconds(0.4)),
+                ],
+            ),
+        ),
+        ("StiffenAll", pointer("SpringPhysicsEventData", vec![])),
+        (
+            "Aim",
+            pointer(
+                "JointOrientationEventData",
+                vec![
+                    (
+                        EVENT_BLEND_DATA,
+                        embedded(
+                            "JointOrientationBlendData",
+                            vec![
+                                (EVENT_BLEND_FROM_DEFAULT, seconds(0.2)),
+                                (EVENT_BLEND_TO_DEFAULT, seconds(0.6)),
+                            ],
+                        )
+                        .into(),
+                    ),
+                    (EVENT_SOURCE_OVERRIDE, pointer("LaterVectorDriver", vec![])),
+                ],
+            ),
+        ),
+        ("Hold", pointer("JointOrientationEventData", vec![])),
+        (
+            "Brace",
+            pointer(
+                "LockRootOrientationEventData",
+                vec![(EVENT_JOINT_NAME, hash_of("Root"))],
+            ),
+        ),
+    ]);
+
+    let graph = graph_of(vec![(
+        "Sway",
+        pointer("AtomicClipData", vec![(EVENT_DATA_MAP, events)]),
+    )]);
+
+    let kinds: Vec<&EventKind> = clip(&graph, "Sway")
+        .events
+        .iter()
+        .map(|event| &event.kind)
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            &EventKind::DynamicsChainBlend {
+                blend_from_default: 0.1,
+                blend_to_default: 0.3,
+            },
+            &EventKind::SpringPhysics {
+                spring: unnamed_hash("Pauldron"),
+                blend_out: 0.4,
+            },
+            &EventKind::SpringPhysics {
+                spring: None,
+                blend_out: 0.0,
+            },
+            &EventKind::JointOrientation {
+                blend_from_default: Some(0.2),
+                blend_to_default: Some(0.6),
+                overrides_source: true,
+            },
+            &EventKind::JointOrientation {
+                blend_from_default: None,
+                blend_to_default: None,
+                overrides_source: false,
+            },
+            &EventKind::LockRootOrientation {
+                joint: unnamed_hash("Root"),
+                blend_out: 0.2,
+            },
+        ]
+    );
+}
+
+#[test]
+fn a_sequencer_and_a_flagged_parametric_clip_fire_their_own_events() {
+    let graph = graph_of(vec![
+        ("Atomic", pointer("AtomicClipData", vec![])),
+        ("Sequence", pointer("SequencerClipData", vec![])),
+        ("Blend", pointer("ParametricClipData", vec![])),
+        (
+            "Flagged",
+            pointer(
+                "ParametricClipData",
+                vec![(CLIP_OWN_EVENTS, values::Bool::new(true).into())],
+            ),
+        ),
+    ]);
+
+    let own: Vec<bool> = ["Atomic", "Sequence", "Blend", "Flagged"]
+        .map(|name| clip(&graph, name).own_events)
+        .to_vec();
+    assert_eq!(own, vec![false, true, false, true]);
+}
+
 #[test]
 fn a_skin_that_names_nothing_answers_the_defaults() {
     let bare = BinObject::builder(h(SKIN), h("SkinCharacterDataProperties")).build();

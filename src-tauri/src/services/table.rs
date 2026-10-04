@@ -173,6 +173,7 @@ services! {
         read_animation_graph,
         read_clip_header,
         bake_skin_tangents,
+        save_skin_colliders,
         // Spells and VFX
         read_spell,
         read_vfx_system,

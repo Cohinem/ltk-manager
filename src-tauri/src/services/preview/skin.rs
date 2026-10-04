@@ -1,17 +1,21 @@
 //! The skin preview's reads: one skin with its files and effects placed, one animation
 //! graph with its maps, and one clip's header.
 
+use std::path::Path;
+
 use super::material::shader_defs;
 use crate::error::IpcResult;
 use crate::services::shared::document_assets::{parse_entry, read_resolved, with_resolution};
-use crate::services::shared::off_thread;
 use crate::services::shared::{linked_assets, linked_reader, read_asset};
+use crate::services::shared::{off_thread, WriteTarget};
 use ltk_manager_assets::preview::{clip_header, AssetRef, ClipHeader};
 use ltk_manager_base::error::AppError;
 use ltk_manager_bin::bin_document::{BinDocumentError, BinDocumentId, BinDocuments};
+use ltk_manager_bin::sandbox::SandboxState;
 use ltk_manager_game::skin::{
-    bake_mesh_tangents, graph_at, resolve_skin, search_linked, search_linked_materials,
-    search_linked_systems, AnimationGraph, GraphRead, SkinModel,
+    bake_mesh_tangents, graph_at, resolve_skin, save_colliders, search_linked,
+    search_linked_materials, search_linked_systems, AnimationGraph, ColliderShapes, GraphRead,
+    SkinModel,
 };
 use tauri::{AppHandle, Manager};
 
@@ -42,6 +46,39 @@ pub async fn bake_skin_tangents(
         bake_mesh_tangents(&skin, &mesh)?;
 
         Ok(mesh)
+    })
+    .await
+}
+
+/// The collision shapes of a dynamics chain saved as the file at the game path `path`, in
+/// the layer the document `document` writes to and the archive folder of its skin.
+///
+/// Answers the saved file, which the project resolves `path` to from then on.
+///
+/// # Errors
+/// Fails when the document is closed, opens in no project or writes to no layer, for a skin
+/// in no archive, for a path that leaves its archive, and for a failed write.
+#[tauri::command]
+#[specta::specta]
+pub async fn save_skin_colliders(
+    document: BinDocumentId,
+    path: String,
+    shapes: ColliderShapes,
+    app_handle: AppHandle,
+) -> IpcResult<AssetRef> {
+    off_thread(move || {
+        let target = WriteTarget::of(&app_handle.state::<BinDocuments>(), document)?;
+        let archive = target.archive()?;
+        let WriteTarget { project, layer, .. } = target;
+
+        let saved = save_colliders(Path::new(&project), &layer, &archive, &path, &shapes)?;
+        app_handle.state::<SandboxState>().invalidate(&project);
+
+        Ok(AssetRef::Layer {
+            project,
+            layer,
+            path: saved,
+        })
     })
     .await
 }

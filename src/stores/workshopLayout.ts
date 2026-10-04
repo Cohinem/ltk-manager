@@ -68,6 +68,14 @@ interface PreviewDisplay {
   previewShaders: boolean;
   /** Each joint's name is written beside its dot. */
   previewJointNames: boolean;
+  /** A skin's dynamics and sockets are drawn over it, as far as the three below allow. */
+  previewPhysics: boolean;
+  /** The dynamics overlay draws the simulated joints, their radii, links and ground. */
+  previewSimulatedJoints: boolean;
+  /** The dynamics overlay draws the colliders. */
+  previewColliders: boolean;
+  /** The dynamics overlay draws each socket's axes. */
+  previewSockets: boolean;
   /** The camera a viewport opens on, "The viewer" in docs/ux/BIN_EDITOR.md. */
   previewCamera: CameraPreset;
   /** How a viewport draws its meshes, "The view mode menu" in docs/ux/BIN_EDITOR.md. */
@@ -270,6 +278,10 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewArmature: false,
   previewShaders: false,
   previewJointNames: false,
+  previewPhysics: true,
+  previewSimulatedJoints: true,
+  previewColliders: true,
+  previewSockets: true,
   previewCamera: "game",
   previewViewMode: "lit",
   previewWireOverlay: false,
@@ -496,6 +508,11 @@ export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStat
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);
 export const usePreviewShaders = () => useWorkshopLayoutStore((s) => s.previewShaders);
 export const usePreviewJointNames = () => useWorkshopLayoutStore((s) => s.previewJointNames);
+export const usePreviewPhysics = () => useWorkshopLayoutStore((s) => s.previewPhysics);
+export const usePreviewSimulatedJoints = () =>
+  useWorkshopLayoutStore((s) => s.previewSimulatedJoints);
+export const usePreviewColliders = () => useWorkshopLayoutStore((s) => s.previewColliders);
+export const usePreviewSockets = () => useWorkshopLayoutStore((s) => s.previewSockets);
 export const usePreviewCamera = () => useWorkshopLayoutStore((s) => s.previewCamera);
 export const usePreviewViewMode = () => useWorkshopLayoutStore((s) => s.previewViewMode);
 export const usePreviewWireOverlay = () => useWorkshopLayoutStore((s) => s.previewWireOverlay);

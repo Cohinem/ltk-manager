@@ -209,7 +209,7 @@ export function OverrideRows({ section, pages }: WidgetProps) {
  * points the character at its submesh under the pointer.
  *
  * The row and the character's submesh point at each other through the skin choice,
- * per "The skin's preview" in docs/ux/BIN_EDITOR.md.
+ * per "The preview" in docs/ux/SKIN_EDITOR.md.
  */
 function OverrideRow({
   element,

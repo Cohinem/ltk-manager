@@ -141,8 +141,21 @@ sentence ends with a full stop, like any other sentence.
 
 ## Commits and PRs
 
-One conventional-commit subject line. No body, no trailers, no `Co-Authored-By`. A PR is that same
-subject as its title and an empty body. Never commit or push unasked.
+One conventional-commit subject line. No body, no trailers, no `Co-Authored-By`. A PR takes that
+same subject as its title. Never commit or push unasked.
+
+**A PR body declares what the change is.** Terse statements of what the code does, grouped by
+area, as a list. No prose paragraphs, no account of how the work went, and no wording bound to a
+moment (`now`, `previously`, `no longer`, `new`) unless a reader has to act on the transition, as
+with a migration or a breaking change.
+
+```
+Bad   Previously a save could race, so this PR now writes through a temp file instead.
+Good  A collider save writes through a temporary file of its own.
+
+Bad   I reworked the Physics pane after the split layout turned out not to work.
+Good  The Physics pane shows the list or the picked item's fields, never both.
+```
 
 **A subject names the change, it does not describe it.** A plain verb and a domain noun phrase,
 roughly three to six words, in the codebase's own vocabulary. No contrastive clause, no mechanism,

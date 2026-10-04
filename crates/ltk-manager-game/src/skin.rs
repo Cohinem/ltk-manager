@@ -6,8 +6,15 @@
 //! handful of named fields rather than walking its subtree, because the resolver it links
 //! maps every system its file declares and a walk would inline all of them.
 
+mod colliders;
+mod dynamics;
 mod tangents;
 
+pub use colliders::{ColliderCapsule, ColliderShapes, ColliderSphere, save_colliders};
+pub use dynamics::{
+    ChainProperties, CurveKeys, ExtraJointChain, JointTree, JointTreeGroup, PoseModifier,
+    ScaledCurve, Socket,
+};
 pub use tangents::bake_mesh_tangents;
 
 use std::collections::{HashMap, HashSet};
@@ -113,6 +120,10 @@ const PAIR_VALUE: BinHash = named("mValue");
 const EVENT_START_FRAME: BinHash = named("mStartFrame");
 /// `BaseEventData.mEndFrame`.
 const EVENT_END_FRAME: BinHash = named("mEndFrame");
+const PARAMETRIC_CLIP: BinHash = named("ParametricClipData");
+const SEQUENCER_CLIP: BinHash = named("SequencerClipData");
+/// The flag of a parametric clip that turns its own events on, which no table names.
+const CLIP_OWN_EVENTS: BinHash = BinHash(0x69de_8fca);
 const SUBMESH_VISIBILITY_EVENT: BinHash = named("SubmeshVisibilityEventData");
 /// `SubmeshVisibilityEventData.mShowSubmeshList`.
 const EVENT_SHOW_SUBMESHES: BinHash = named("mShowSubmeshList");
@@ -147,6 +158,24 @@ const CONFORM_EVENT: BinHash = named("ConformToPathEventData");
 const EVENT_BLEND_IN: BinHash = named("mBlendInTime");
 /// `ConformToPathEventData.mBlendOutTime`.
 const EVENT_BLEND_OUT: BinHash = named("mBlendOutTime");
+const DYNAMICS_CHAIN_BLEND_EVENT: BinHash = named("DynamicsChainBlendEventData");
+/// `BlendFromDefaultDuration`, on a dynamics chain blend event and on a joint orientation's blend.
+const EVENT_BLEND_FROM_DEFAULT: BinHash = named("BlendFromDefaultDuration");
+/// `BlendToDefaultDuration`, on the same two.
+const EVENT_BLEND_TO_DEFAULT: BinHash = named("BlendToDefaultDuration");
+const SPRING_PHYSICS_EVENT: BinHash = named("SpringPhysicsEventData");
+/// `SpringPhysicsEventData.SpringToAffect`.
+const EVENT_SPRING: BinHash = named("SpringToAffect");
+/// `BlendOutTime`, on a spring event and on a lock root orientation event.
+const EVENT_BLEND_OUT_TIME: BinHash = named("BlendOutTime");
+const JOINT_ORIENTATION_EVENT: BinHash = named("JointOrientationEventData");
+/// `JointOrientationEventData.BlendData`.
+const EVENT_BLEND_DATA: BinHash = named("BlendData");
+/// The source a joint orientation event puts in place of the modifier's, which no table names.
+const EVENT_SOURCE_OVERRIDE: BinHash = BinHash(0x3e20_ae96);
+const LOCK_ROOT_ORIENTATION_EVENT: BinHash = named("LockRootOrientationEventData");
+/// `LockRootOrientationEventData.JointName`.
+const EVENT_JOINT_NAME: BinHash = named("JointName");
 
 /// Where a clip names the clips it plays: a `Hash` field, a list of them, or a list of
 /// pairs each naming one.
@@ -228,6 +257,10 @@ pub struct SkinModel {
     /// [`resolve_skin`] lists the systems the document itself declares, and
     /// [`search_linked_systems`] adds those its linked files declare.
     pub effect_systems: Vec<EffectSystem>,
+    /// `skinMeshProperties.rigPoseModifierData`, in the order the skin lists them.
+    pub pose_modifiers: Vec<PoseModifier>,
+    /// `skinMeshProperties.SocketDefinitions`, in the order the skin lists them.
+    pub sockets: Vec<Socket>,
 }
 
 /// One key of the skin's resolver, and the system it stands for.
@@ -325,6 +358,9 @@ pub struct GraphClip {
     pub interruption_groups: Vec<String>,
     /// `mFlags`.
     pub flags: u32,
+    /// The clip fires the events of its own `mEventDataMap` while it plays other clips: a
+    /// sequencer clip, and a parametric clip whose own-events flag is set.
+    pub own_events: bool,
 }
 
 /// One entry of `mEventDataMap`, of any kind of `BaseEventData`.
@@ -392,6 +428,42 @@ pub enum EventKind {
         /// `mBlendInTime`, seconds the conforming eases in over.
         blend_in: f32,
         /// `mBlendOutTime`, seconds it eases out over.
+        blend_out: f32,
+    },
+    /// `DynamicsChainBlendEventData`: every dynamics chain leaves its default state over the span.
+    #[serde(rename_all = "camelCase")]
+    DynamicsChainBlend {
+        /// `BlendFromDefaultDuration`, seconds the change takes at the start frame.
+        blend_from_default: f32,
+        /// `BlendToDefaultDuration`, seconds the change back takes at the end frame.
+        blend_to_default: f32,
+    },
+    /// `SpringPhysicsEventData`: a spring is turned off over the span.
+    #[serde(rename_all = "camelCase")]
+    SpringPhysics {
+        /// `SpringToAffect`, the spring's `name`, and none for every spring of the skin.
+        spring: Option<HashRef>,
+        /// `BlendOutTime`, seconds.
+        blend_out: f32,
+    },
+    /// `JointOrientationEventData`: every joint orientation leaves its default state over
+    /// the span, or follows another source over it.
+    #[serde(rename_all = "camelCase")]
+    JointOrientation {
+        /// `BlendData.BlendFromDefaultDuration`, seconds the change takes at the start frame,
+        /// and none for an event with no blend, which changes no weight.
+        blend_from_default: Option<f32>,
+        /// `BlendData.BlendToDefaultDuration`, seconds the change back takes at the end frame.
+        blend_to_default: Option<f32>,
+        /// The event names a source of its own, which the modifier follows over the span.
+        overrides_source: bool,
+    },
+    /// `LockRootOrientationEventData`: a joint keeps facing where it did while the unit turns.
+    #[serde(rename_all = "camelCase")]
+    LockRootOrientation {
+        /// `JointName`, the joint held, and none for an event naming no joint.
+        joint: Option<HashRef>,
+        /// `BlendOutTime`, seconds the joint takes to follow the unit again.
         blend_out: f32,
     },
     /// Any other kind, which the viewport draws nothing for.
@@ -547,6 +619,8 @@ pub fn resolve_skin(
                 source: None,
             })
             .collect(),
+        pose_modifiers: dynamics::pose_modifiers(mesh, &locator),
+        sockets: dynamics::sockets(mesh, &locator),
     })
 }
 
@@ -640,6 +714,11 @@ pub fn resolve_graph(
                 })
                 .collect(),
             flags: u32_of(fields.get(&FLAGS)),
+            own_events: match class {
+                PARAMETRIC_CLIP => boolean(fields.get(&CLIP_OWN_EVENTS)).unwrap_or(false),
+                SEQUENCER_CLIP => true,
+                _ => false,
+            },
         })
         .collect();
 
@@ -700,26 +779,13 @@ impl<'a> GraphKeys<'a> {
 
     /// A class as the tables name it, and its hex where none does.
     fn class(&self, hash: BinHash) -> String {
-        self.locator
-            .names
-            .class_name(hash)
-            .unwrap_or_else(|| hex(hash))
+        class_name(hash, &self.locator)
     }
 
-    /// A hash naming something outside the graph, such as a submesh or a joint.
-    fn hash_ref(&self, hash: BinHash) -> HashRef {
-        HashRef {
-            name: self.named(hash),
-            hash: hex(hash),
-        }
-    }
-
-    /// A `Hash` field naming something outside the graph, and none for a zero or absent one.
+    /// A `Hash` field naming something outside the graph, such as a submesh or a joint, and
+    /// none for a zero or absent one.
     fn hash_at(&self, value: Option<&PropertyValueEnum>) -> Option<HashRef> {
-        match leaf(value) {
-            Some(Leaf::Hash(hash)) if hash.0 != 0 => Some(self.hash_ref(hash)),
-            _ => None,
-        }
+        hash_at(value, &self.locator)
     }
 
     /// A key into `map`, marked for whether the map declares it.
@@ -744,6 +810,25 @@ impl<'a> GraphKeys<'a> {
             _ => None,
         }
     }
+}
+
+/// A `Hash` field as the tables name it, and none for a zero or absent one.
+fn hash_at(value: Option<&PropertyValueEnum>, locator: &Locator) -> Option<HashRef> {
+    match leaf(value) {
+        Some(Leaf::Hash(hash)) if hash.0 != 0 => Some(HashRef {
+            name: locator.names.value_name(hash).unwrap_or_else(|| hex(hash)),
+            hash: hex(hash),
+        }),
+        _ => None,
+    }
+}
+
+/// A class as the tables name it, and its hex where none does.
+fn class_name(class: BinHash, locator: &Locator) -> String {
+    locator
+        .names
+        .class_name(class)
+        .unwrap_or_else(|| hex(class))
 }
 
 /// The entries of a `Map<Hash, Struct>`, each as its key and its fields.
@@ -844,6 +929,29 @@ fn event_kind(class: BinHash, fields: &Fields, keys: &GraphKeys) -> EventKind {
             mask: keys.keyed(fields.get(&MASK_DATA_NAME), GraphMap::Masks),
             blend_in: float(fields.get(&EVENT_BLEND_IN)).unwrap_or(0.0),
             blend_out: float(fields.get(&EVENT_BLEND_OUT)).unwrap_or(0.0),
+        },
+        DYNAMICS_CHAIN_BLEND_EVENT => EventKind::DynamicsChainBlend {
+            blend_from_default: float(fields.get(&EVENT_BLEND_FROM_DEFAULT)).unwrap_or(0.0),
+            blend_to_default: float(fields.get(&EVENT_BLEND_TO_DEFAULT)).unwrap_or(0.0),
+        },
+        SPRING_PHYSICS_EVENT => EventKind::SpringPhysics {
+            spring: keys.hash_at(fields.get(&EVENT_SPRING)),
+            blend_out: float(fields.get(&EVENT_BLEND_OUT_TIME)).unwrap_or(0.0),
+        },
+        JOINT_ORIENTATION_EVENT => {
+            let blend = fields_of(fields.get(&EVENT_BLEND_DATA));
+            let seconds =
+                |field: BinHash| blend.map(|blend| float(blend.get(&field)).unwrap_or(0.0));
+
+            EventKind::JointOrientation {
+                blend_from_default: seconds(EVENT_BLEND_FROM_DEFAULT),
+                blend_to_default: seconds(EVENT_BLEND_TO_DEFAULT),
+                overrides_source: fields_of(fields.get(&EVENT_SOURCE_OVERRIDE)).is_some(),
+            }
+        }
+        LOCK_ROOT_ORIENTATION_EVENT => EventKind::LockRootOrientation {
+            joint: keys.hash_at(fields.get(&EVENT_JOINT_NAME)),
+            blend_out: float(fields.get(&EVENT_BLEND_OUT_TIME)).unwrap_or(0.2),
         },
         _ => EventKind::Other,
     }

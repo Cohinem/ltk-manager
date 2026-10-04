@@ -40,7 +40,7 @@ import { ClipContextMenu } from "./ClipContextMenu";
 import { ClipDetail } from "./ClipDetail";
 import { MapTable } from "./ClipMaps";
 
-/** The tabs in the order the control lists them, "The clips pane" in docs/ux/BIN_EDITOR.md. */
+/** The tabs in the order the control lists them, "The clips pane" in docs/ux/SKIN_EDITOR.md. */
 const TABS: readonly { value: ClipTab; label: () => string }[] = [
   { value: "clips", label: m.workshop_bin_clip_tab_clips_label },
   { value: "tracks", label: m.workshop_bin_clip_tab_tracks_label },
@@ -70,7 +70,7 @@ interface ClipsPaneProps {
 /**
  * The tab the reader picked over one graph: the clip table, or one of the sibling maps.
  *
- * "The clips pane" in docs/ux/BIN_EDITOR.md. The graph is read once through the query and
+ * "The clips pane" in docs/ux/SKIN_EDITOR.md. The graph is read once through the query and
  * every tab draws out of that one answer.
  */
 export function ClipsPane({ source, joints }: ClipsPaneProps) {
@@ -121,7 +121,7 @@ export function ClipTabs() {
  * One row per entry of `mClipDataMap`, sorted by name, with a column per thing a reader
  * scans for, and the clip's own fields under a row its caret unfolds.
  *
- * "The clips pane" in docs/ux/BIN_EDITOR.md. A click poses the preview where the clip
+ * "The clips pane" in docs/ux/SKIN_EDITOR.md. A click poses the preview where the clip
  * reaches a file. The rows are windowed and measured, so a graph of a thousand clips
  * costs the rows on screen and an unfolded row takes the height its fields need.
  */
