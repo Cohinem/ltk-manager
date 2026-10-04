@@ -93,18 +93,30 @@ export function clipFrameSeconds(
   return clip == null ? null : frameSeconds(clip, fps);
 }
 
-/** `playlist` placed on its pass: each step starts where the ones before it end. */
+/**
+ * `playlist` placed on its pass: each step starts where the ones before it end.
+ *
+ * `owner` is the clip the playlist was made from. Where it plays other clips and fires
+ * events of its own, it joins the steps over the whole pass, a frame of it lasting the
+ * pass over the frames its clips hold, which is how the game places a sequencer's and a
+ * parametric clip's own events.
+ */
 export function timedSteps(
   playlist: readonly GraphClip[],
   durations: readonly number[],
   rates: readonly (number | null)[],
+  owner: GraphClip | null = null,
 ): TimedStep[] {
   let start = 0;
-  return playlist.map((clip, at) => {
+  let frames = 0;
+  const steps = playlist.map((clip, at) => {
     const step = { clip, start, frame: frameSeconds(clip, rates[at] ?? null) };
     start += durations[at] ?? 0;
+    frames += (durations[at] ?? 0) / step.frame;
     return step;
   });
+  if (owner === null || !owner.ownEvents || playlist.includes(owner) || frames <= 0) return steps;
+  return [...steps, { clip: owner, start: 0, frame: start / frames }];
 }
 
 /** Seconds into the pass frame `frame` of `step` falls on. */

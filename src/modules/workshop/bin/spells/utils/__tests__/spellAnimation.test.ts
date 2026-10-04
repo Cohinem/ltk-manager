@@ -22,6 +22,7 @@ function clip(name: string, children: string[] = []): GraphClip {
     parameters: [],
     interruptionGroups: [],
     flags: 0,
+    ownEvents: false,
   };
 }
 

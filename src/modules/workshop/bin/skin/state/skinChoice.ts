@@ -1,6 +1,11 @@
 import { createContext, useCallback, useMemo, useState } from "react";
 
-import { createSceneClock, type SceneClock } from "@/modules/viewport";
+import {
+  createSceneClock,
+  DEFAULT_RATE,
+  type PlacementMode,
+  type SceneClock,
+} from "@/modules/viewport";
 
 /** Which map of the graph the clips pane lists. */
 export type ClipTab = "clips" | "tracks" | "masks" | "syncGroups";
@@ -65,6 +70,21 @@ export interface SkinChoice {
   /** The value a parametric clip plays at, and null before the reader sets one. */
   readonly parameter: number | null;
   readonly setParameter: (parameter: number | null) => void;
+  /** The steps a second the dynamics are baked at. */
+  readonly simulatedRate: number;
+  readonly setSimulatedRate: (rate: number) => void;
+  /** The pose modifiers the preview leaves out, by hash path, which writes nothing. */
+  readonly muted: ReadonlySet<string>;
+  readonly toggleMuted: (path: string) => void;
+  /** The joint a reader selected, by name, from the skeleton pane or the viewport. */
+  readonly joint: string | null;
+  readonly setJoint: (joint: string | null) => void;
+  /** The socket the viewport's gizmo stands on, by hash path, and null for none. */
+  readonly socket: string | null;
+  readonly setSocket: (socket: string | null) => void;
+  /** Whether the socket's gizmo moves it or turns it. */
+  readonly socketMode: PlacementMode;
+  readonly setSocketMode: (mode: PlacementMode) => void;
 }
 
 /** The rate a clip opens at, which is the speed the game plays it. */
@@ -121,6 +141,18 @@ export function useSkinChoice(): SkinChoice {
   }, []);
   const [mask, setMask] = useState<string | null>(null);
   const [parameter, setParameter] = useState<number | null>(null);
+  const [simulatedRate, setSimulatedRate] = useState<number>(DEFAULT_RATE);
+  const [muted, setMuted] = useState<ReadonlySet<string>>(() => new Set());
+  const toggleMuted = useCallback((path: string) => {
+    setMuted((held) => {
+      const next = new Set(held);
+      if (!next.delete(path)) next.add(path);
+      return next;
+    });
+  }, []);
+  const [joint, setJoint] = useState<string | null>(null);
+  const [socket, setSocket] = useState<string | null>(null);
+  const [socketMode, setSocketMode] = useState<PlacementMode>("translate");
 
   return useMemo(
     () => ({
@@ -153,6 +185,16 @@ export function useSkinChoice(): SkinChoice {
       setMask,
       parameter,
       setParameter,
+      simulatedRate,
+      setSimulatedRate,
+      muted,
+      toggleMuted,
+      joint,
+      setJoint,
+      socket,
+      setSocket,
+      socketMode,
+      setSocketMode,
     }),
     [
       clock,
@@ -175,6 +217,12 @@ export function useSkinChoice(): SkinChoice {
       expand,
       mask,
       parameter,
+      simulatedRate,
+      muted,
+      toggleMuted,
+      joint,
+      socket,
+      socketMode,
     ],
   );
 }

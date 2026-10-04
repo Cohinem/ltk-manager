@@ -41,6 +41,7 @@ function clip(name: string, events: ClipEvent[], tickDuration: number | null = 0
     parameters: [],
     interruptionGroups: [],
     flags: 0,
+    ownEvents: false,
   };
 }
 
@@ -78,6 +79,18 @@ describe("timedSteps", () => {
 
     expect(steps.map((step) => step.start)).toEqual([0, 1, 3]);
     expect(steps[1].frame).toBe(0.5);
+  });
+
+  it("places the events of a clip that plays the playlist over the whole pass", () => {
+    const owner = { ...clip("Spell", [event("Aim", SHOW_NOODLES, 0, 4)]), ownEvents: true };
+    const playlist = [clip("a", []), clip("b", [])];
+
+    const steps = timedSteps(playlist, [1, 2], [30, 30], owner);
+
+    /* Three seconds over the six frames its clips hold. */
+    expect(steps.at(-1)).toEqual({ clip: owner, start: 0, frame: 0.5 });
+    expect(timedSteps(playlist, [1, 2], [30, 30], { ...owner, ownEvents: false })).toHaveLength(2);
+    expect(timedSteps([owner], [1], [30], owner)).toHaveLength(1);
   });
 });
 

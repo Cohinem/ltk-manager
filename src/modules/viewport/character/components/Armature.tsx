@@ -1,9 +1,10 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   BufferAttribute,
   BufferGeometry,
   type Color,
+  type Group,
   LineBasicMaterial,
   LineSegments,
   Points,
@@ -15,10 +16,22 @@ import type { Pose } from "../../animation/evaluation/pose";
 import type { SceneClock } from "../../animation/state/clock";
 import type { SceneColors } from "../../scene/hooks/sceneColors";
 import { AXIS_SIGN } from "../../scene/utils/world";
-import { boneSegments, colorFloats, jointColors, weighedJoints } from "../utils/armatureModel";
+import { isClick, type ScreenPoint } from "../../shared/utils/click";
+import {
+  boneSegments,
+  colorFloats,
+  jointColors,
+  nearestJoint,
+  SCREEN_FLOATS,
+  weighedJoints,
+} from "../utils/armatureModel";
+import { OVER_EVERYTHING } from "../utils/overlayMaterial";
 
 /** A joint's dot, in pixels at any distance. */
 const JOINT_PX = 5;
+
+/** How near a joint's dot a click lands to pick the joint, in pixels. */
+const PICK_PX = 10;
 
 /** The bones and the joints draw over the character, whatever stands in front of them. */
 const OVER_THE_CHARACTER = 10;
@@ -49,13 +62,18 @@ export interface ArmatureProps {
    * to write none. The owner mounts it outside the fibre, since the fibre holds no DOM.
    */
   readonly labels?: HTMLCanvasElement | null;
+  /**
+   * Report the joint a click on the canvas lands on, by slot. It is called before the
+   * character reports the submesh under the same click.
+   */
+  readonly onPick?: (slot: number) => void;
 }
 
 /**
  * The skeleton over the character: a dot per joint and a line to its parent, posed at the
  * clock's time, drawn through whatever the mesh puts in front of them.
  *
- * "The clips pane" in docs/ux/BIN_EDITOR.md. The names are painted on one 2D canvas over
+ * "The clips pane" in docs/ux/SKIN_EDITOR.md. The names are painted on one 2D canvas over
  * the scene each frame, because a hundred DOM labels each moved by the fibre cost a frame
  * of layout apiece and a hundred `fillText` calls cost nothing a reader sees.
  */
@@ -66,6 +84,7 @@ export function Armature({
   colors,
   jointWeights = null,
   labels = null,
+  onPick,
 }: ArmatureProps) {
   const { skeleton, parents } = pose;
   const count = skeleton.joints.length;
@@ -88,13 +107,12 @@ export function Armature({
         vertexColors: true,
         size: JOINT_PX,
         sizeAttenuation: false,
-        depthTest: false,
-        toneMapped: false,
+        ...OVER_EVERYTHING,
       }),
     );
     const segments = new LineSegments(
       lines,
-      new LineBasicMaterial({ vertexColors: true, depthTest: false, toneMapped: false }),
+      new LineBasicMaterial({ vertexColors: true, ...OVER_EVERYTHING }),
     );
     for (const object of [segments, dots]) {
       object.frustumCulled = false;
@@ -136,6 +154,8 @@ export function Armature({
   );
   const worlds = useMemo(() => new Float32Array(count * 16), [count]);
   const projected = useMemo(() => new Vector3(), []);
+  const group = useRef<Group>(null);
+  useJointPick(drawn.joints, group, onPick);
 
   /* The labels canvas keeps the scene's size at the device's pixel density, and its font
      is what its own classes set, read once per size rather than per frame. */
@@ -202,11 +222,73 @@ export function Armature({
   });
 
   return (
-    <group scale={[AXIS_SIGN[0] * scale, AXIS_SIGN[1] * scale, AXIS_SIGN[2] * scale]}>
+    <group ref={group} scale={[AXIS_SIGN[0] * scale, AXIS_SIGN[1] * scale, AXIS_SIGN[2] * scale]}>
       <primitive object={drawn.segments} />
       <primitive object={drawn.dots} />
     </group>
   );
+}
+
+/**
+ * Report which joint a click on the canvas lands on.
+ *
+ * The joints are projected on the click alone, from the positions the last frame drew.
+ * The listeners capture, so a joint is reported before the character's own click is.
+ */
+function useJointPick(
+  joints: BufferGeometry,
+  group: RefObject<Group | null>,
+  onPick: ((slot: number) => void) | undefined,
+): void {
+  /* The element the fibre listens on, since a shared renderer's canvas is drawn into by
+     every viewport sharing it. */
+  const element = useThree(
+    (state) => (state.events.connected as HTMLElement | undefined) ?? state.gl.domElement,
+  );
+  const camera = useThree((state) => state.camera);
+  const controls = useThree((state) => state.controls) as { enabled?: boolean } | null;
+
+  useEffect(() => {
+    if (onPick === undefined) return;
+    const point = new Vector3();
+    let pressed: ScreenPoint | null = null;
+
+    const press = (event: PointerEvent) => {
+      pressed = event.button === 0 ? { x: event.clientX, y: event.clientY } : null;
+    };
+    const release = (event: PointerEvent) => {
+      const stood = group.current;
+      if (pressed === null || stood === null) return;
+      const clicked = isClick(pressed, { x: event.clientX, y: event.clientY });
+      pressed = null;
+      if (!clicked) return;
+
+      /* A transform gizmo turns the scene's controls off for as long as it holds the pointer. */
+      if (controls?.enabled === false) return;
+
+      const box = element.getBoundingClientRect();
+      const positions = joints.getAttribute("position").array;
+      const screen = new Float32Array((positions.length / 3) * SCREEN_FLOATS);
+      for (let slot = 0; slot * 3 < positions.length; slot += 1) {
+        point
+          .fromArray(positions, slot * 3)
+          .applyMatrix4(stood.matrixWorld)
+          .project(camera);
+        screen[slot * SCREEN_FLOATS] = ((point.x + 1) / 2) * box.width;
+        screen[slot * SCREEN_FLOATS + 1] = ((1 - point.y) / 2) * box.height;
+        screen[slot * SCREEN_FLOATS + 2] = point.z;
+      }
+      const slot = nearestJoint(screen, event.clientX - box.left, event.clientY - box.top, PICK_PX);
+      if (slot >= 0) onPick(slot);
+    };
+
+    element.addEventListener("pointerdown", press, true);
+    element.addEventListener("pointerup", release, true);
+    return () => {
+      element.removeEventListener("pointerdown", press, true);
+      element.removeEventListener("pointerup", release, true);
+    };
+  }, [element, camera, controls, joints, group, onPick]);
 }
 
 /** The mirrored axis of world.ts as a vector, which the names cross as the group does. */

@@ -1,11 +1,10 @@
-import { CaretRightIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
+import { FilmStripIcon, SlidersHorizontalIcon } from "@phosphor-icons/react";
 import { useEffect, useMemo, useState } from "react";
 
-import { Code, Select, Slider, Tooltip } from "@/components";
+import { Select, Slider, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { GraphClip } from "@/lib/tauri";
 import { type SceneClock, sequenceStep } from "@/modules/viewport";
-import { twMerge } from "@/utils";
 
 import { Playhead, Transport } from "../../vfx/playback/components/Transport";
 import { foldedTime } from "../utils/follow";
@@ -95,6 +94,7 @@ export function SkinTransport({
           <Playhead
             time={foldedTime(readout, duration)}
             span={duration}
+            scrubClassName="min-w-48"
             onSeek={(time) => {
               clock.seek(time);
               setReadout(time);
@@ -106,22 +106,18 @@ export function SkinTransport({
           setReadout(0);
         }}
       >
-        {/* The clip's own controls take a row of their own under a pane too narrow for
-            the scrub to keep a usable length beside them. */}
-        <span
-          data-ui="SkinTransport:clip"
-          className={twMerge(
-            "flex min-w-0 basis-full items-center gap-2",
-            "@4xl:ml-auto @4xl:basis-auto",
-          )}
-        >
+        <span data-ui="SkinTransport:clip" className="flex min-w-0 items-center gap-2">
           {clips.length > 0 && (
-            <ClipPicker clips={clips} value={clip} onValueChange={onClipChange} />
+            <ClipPicker
+              clips={clips}
+              value={clip}
+              playing={playingLeaf(steps, clip, readout)}
+              onValueChange={onClipChange}
+            />
           )}
           {parameter !== null && (
             <ParameterSlider parameter={parameter} onValueChange={onParameterChange} />
           )}
-          <Leaf steps={steps} clip={clip} time={readout} />
         </span>
       </Transport>
     </div>
@@ -132,28 +128,32 @@ interface ClipPickerProps {
   clips: readonly GraphClip[];
   /** A clip's hash, or `BIND_POSE`. */
   value: string;
+  /** The atomic clip playing under a composite one, by name, and null for none. */
+  playing: string | null;
   onValueChange: (value: string) => void;
 }
 
-/** Which clip of the graph poses the skin, or none. */
-function ClipPicker({ clips, value, onValueChange }: ClipPickerProps) {
+/** Which clip of the graph poses the skin, or none, with the clip playing now as its tooltip. */
+function ClipPicker({ clips, value, playing, onValueChange }: ClipPickerProps) {
   const nameOf = (held: string | null) => {
     if (held === BIND_POSE) return m.workshop_bin_mesh_preview_bind_label();
     const clip = clips.find((each) => each.hash === held);
     return clip === undefined ? "" : clip.name;
   };
 
-  return (
+  const picker = (
     <Select.Root
       value={value}
       onValueChange={(next) => {
         if (next !== null) onValueChange(next);
       }}
     >
+      {/* DS-VEIL */}
       <Select.Trigger
         aria-label={m.workshop_bin_mesh_preview_clip_label()}
-        className="h-7 w-44 shrink-0 gap-1 px-2 text-meta"
+        className="h-7 w-auto max-w-44 min-w-0 gap-1.5 border-transparent bg-transparent px-2 text-meta text-surface-100 hover:border-transparent hover:bg-surface-veil"
       >
+        <FilmStripIcon aria-hidden className="size-3.5 shrink-0 text-surface-400" />
         <Select.Value className="truncate">{nameOf}</Select.Value>
         <Select.Icon />
       </Select.Trigger>
@@ -166,6 +166,13 @@ function ClipPicker({ clips, value, onValueChange }: ClipPickerProps) {
         ))}
       </Select.Content>
     </Select.Root>
+  );
+  if (playing === null) return picker;
+
+  return (
+    <Tooltip content={m.workshop_bin_clip_playing_label({ name: playing })}>
+      <span className="flex min-w-0">{picker}</span>
+    </Tooltip>
   );
 }
 
@@ -219,14 +226,8 @@ function parameterLabel(value: number): string {
   return Number.isInteger(value) ? `${value}` : value.toFixed(PARAMETER_DECIMALS);
 }
 
-interface LeafProps {
-  steps: readonly PlayingStep[];
-  clip: string;
-  time: number;
-}
-
-/** The atomic clip playing under a composite one, and nothing where the picked clip is atomic. */
-function Leaf({ steps, clip, time }: LeafProps) {
+/** The atomic clip a composite one plays at `time`, by name, and null for an atomic pick. */
+function playingLeaf(steps: readonly PlayingStep[], clip: string, time: number): string | null {
   if (steps.length === 0) return null;
   const leaf =
     steps[
@@ -236,15 +237,5 @@ function Leaf({ steps, clip, time }: LeafProps) {
       )
     ];
   if (steps.length === 1 && leaf.hash === clip) return null;
-
-  return (
-    <span
-      className="flex min-w-0 items-center gap-1 text-meta"
-      aria-label={m.workshop_bin_clip_playing_label({ name: leaf.name })}
-    >
-      <CaretRightIcon weight="bold" className="size-3 shrink-0 text-surface-500" />
-      {/* DS-CODE-CHIP */}
-      <Code className="min-w-0 truncate text-surface-300">{leaf.name}</Code>
-    </span>
-  );
+  return leaf.name;
 }

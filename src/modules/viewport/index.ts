@@ -7,6 +7,8 @@ export {
   sequenceStep,
   snappedPose,
 } from "./animation/evaluation/pose";
+export { simulatedPose } from "./animation/evaluation/simulatedPose";
+export { isSocketed, socketedPose } from "./animation/evaluation/socketedPose";
 export { createSceneClock, type SceneClock } from "./animation/state/clock";
 export {
   BACKDROP_ROOT,
@@ -68,12 +70,56 @@ export {
 } from "./camera/utils/framing";
 export { Armature, type ArmatureProps } from "./character/components/Armature";
 export { Character, type CharacterProps } from "./character/components/Character";
+export { DynamicsOverlay, type DynamicsOverlayProps } from "./character/components/DynamicsOverlay";
+export { JointHighlight, type JointHighlightProps } from "./character/components/JointHighlight";
+export { LiveRoot, type LiveRootProps } from "./character/components/LiveRoot";
+export {
+  SocketGizmo,
+  type SocketGizmoProps,
+  type SocketPlace,
+} from "./character/components/SocketGizmo";
 export {
   type CharacterSkin,
   CharacterSkinContext,
   useCharacterSkin,
 } from "./character/state/characterSkin";
 export { type FallbackColors, type SubmeshBinding } from "./character/utils/submeshBinding";
+export {
+  type ColliderFile,
+  type FileCapsule,
+  type FileSphere,
+  placeColliders,
+} from "./dynamics/colliderFile";
+export { conformJoints } from "./dynamics/conform";
+export { scaledValue } from "./dynamics/curve";
+export { createLive } from "./dynamics/live";
+export {
+  CHAIN_PARAMETERS,
+  type ChainModel,
+  type ChainParameter,
+  type ChainProperties,
+  type Colliders,
+  type ConformModel,
+  type DynamicsModel,
+  hasDynamics,
+  NO_DYNAMICS,
+  type OrientationModel,
+  type ScaledCurve,
+  type SpringModel,
+} from "./dynamics/model";
+export { STANDING } from "./dynamics/motion";
+export { type SocketModel, socketOffsets } from "./dynamics/sockets";
+export {
+  buildDynamics,
+  createBake,
+  cuesMove,
+  DEFAULT_RATE,
+  DEFAULT_WARM_UP,
+  type DynamicsCues,
+  type DynamicsRig,
+  SIMULATED_RATES,
+} from "./dynamics/take";
+export { bindWorld } from "./dynamics/world";
 export { MaterialSubject, type MaterialSubjectProps } from "./hexshade/components/MaterialSubject";
 export { EngineEnvironment, type ParticleEmitter } from "./hexshade/engineEnvironment";
 export { glowMaterial } from "./hexshade/glowMaterial";

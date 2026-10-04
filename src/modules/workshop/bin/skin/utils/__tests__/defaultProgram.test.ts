@@ -59,6 +59,8 @@ function skin(over: Partial<SkinModel> = {}): SkinModel {
     animationGraph: null,
     idleEffects: [],
     effectSystems: [],
+    poseModifiers: [],
+    sockets: [],
     ...over,
   };
 }

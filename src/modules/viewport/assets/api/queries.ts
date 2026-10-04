@@ -1,8 +1,9 @@
 import { queryOptions, skipToken } from "@tanstack/react-query";
 
-import { previewBufferUrl, type PreviewForm } from "@/lib/previewUrl";
+import { previewBufferUrl, previewFileUrl, type PreviewForm } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
+import { readColliderFile } from "../../dynamics/colliderFile";
 import { readClipBuffer } from "../parsing/clipBuffer";
 import { readLightGridBuffer } from "../parsing/lightGridBuffer";
 import { readMapBuffer } from "../parsing/mapBuffer";
@@ -12,6 +13,13 @@ import { readSkeletonBuffer } from "../parsing/skeletonBuffer";
 /** The bytes of `asset`'s buffer of `form`, or the backend's own words for why not. */
 async function fetchBuffer(asset: AssetRef, form: PreviewForm): Promise<ArrayBuffer> {
   const answer = await fetch(previewBufferUrl(asset, form));
+  if (!answer.ok) throw new Error(await answer.text());
+  return answer.arrayBuffer();
+}
+
+/** The bytes of `asset` as the file holds them. */
+async function fetchFile(asset: AssetRef): Promise<ArrayBuffer> {
+  const answer = await fetch(previewFileUrl(asset));
   if (!answer.ok) throw new Error(await answer.text());
   return answer.arrayBuffer();
 }
@@ -63,6 +71,15 @@ export const viewportQueries = {
         asset === null
           ? skipToken
           : async () => readSkeletonBuffer(await fetchBuffer(asset, "skeleton")),
+      staleTime: Infinity,
+      structuralSharing: false,
+      retry: false,
+    }),
+  /* The collision shapes of a dynamics chain, which no preview form decodes. */
+  colliders: (asset: AssetRef | null) =>
+    queryOptions({
+      queryKey: ["viewport", "colliders", asset],
+      queryFn: asset === null ? skipToken : async () => readColliderFile(await fetchFile(asset)),
       staleTime: Infinity,
       structuralSharing: false,
       retry: false,

@@ -361,3 +361,53 @@ guess.
 
 **Translation cache** — `<app data>/shaders/v<PIPELINE_VERSION>/`, each translated blob keyed by
 its hash, so a permutation costs its translation once per machine.
+
+**Pose modifier** - one entry of a skin's `rigPoseModifierData`, which changes the pose after the
+animation has made it. The preview simulates five kinds: the spring, the dynamics chain, the
+conform, the joint orientation and the lock. A joint snap plays from the clip's events, and the
+preview lists a synced animation and a vertex animation without simulating them. See
+`docs/plans/pose-dynamics-preview.md`.
+
+**Dynamics chain** - the pose modifier that simulates trees of joints as particles under gravity
+and the unit's movement, pulled back toward the animated pose. A **tree** is a root joint and
+every joint under it, less the joints it excludes, and a **group** is the trees that share one
+set of parameters.
+_Avoid_: physics bone, jiggle bone
+
+**Spring** - the pose modifier that lags one joint behind the unit's movement or turning. Only
+the unit's own motion moves it.
+
+**Conform** - the pose modifier that turns a chain of joints, a tail, to trail the unit's
+movement, each joint about the up axis and by no more than its largest bone angle. An animation
+mask weighs each joint, and a clip's event swaps the mask.
+_Avoid_: tail physics, path follow
+
+**Joint orientation** - the pose modifier that turns joints to face a direction or a place its
+**source** gives, whatever the clip turned them to. The source is a driver the game evaluates
+against the live unit, and the preview stands a fixed place in for it.
+_Avoid_: look-at, aim constraint
+
+**Lock** - a lock root orientation: a joint kept facing where it did while the unit turns, for
+as long as a clip's event runs. The game makes the modifier from the event, so a skin lists
+none.
+
+**Collider** - a sphere or a capsule that rides one or two joints and that the joints of a
+dynamics chain are pushed out of. A chain's colliders are in a **collider file** the chain names
+by path, which the project holds beside the skeleton.
+_Avoid_: collision shape file, hitbox
+
+**Skin socket** - a named point of a skin that is not a joint, which a lookup by bone name finds
+where no joint has the name. Not the input socket of the VFX graph, which is where a driver
+node plugs in. See ADR-0063.
+
+**Baked pass** - one loop of a simulated pose, baked: the local transform of every simulated
+joint per frame, which the pose samples by time. A `Take` in code. Not the **pass** of a health
+check. See ADR-0062.
+_Avoid_: cache
+
+**Motion** - where the unit stands and faces at each time of a bake. It moves the simulation
+alone, and the character is drawn in place. The preview bakes every pass under a unit that stands
+still. Not a **carrier**, which places a particle system's origin.
+
+**Live simulation** - the pose modifiers stepped each frame under a unit the reader moves with
+the Move gizmo, which the pose reads in place of the baked pass while the gizmo is on.

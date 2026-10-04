@@ -2,9 +2,9 @@ import { Matrix4, Quaternion, Vector3 } from "three";
 
 import { clipDuration, type ClipModel, POSE_FLOATS } from "../../assets/parsing/clipBuffer";
 import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
+import { LOCAL_FLOATS } from "../../dynamics/world";
 
-/** The floats one joint's local transform takes: translation, rotation, scale. */
-export const LOCAL_FLOATS = 10;
+export { LOCAL_FLOATS };
 
 /** The floats one joint's transform in the skeleton's space takes, a column-major 4x4. */
 const WORLD_FLOATS = 16;
@@ -89,11 +89,15 @@ export function createPose(
 /**
  * A pose over `localsInto`, its worlds composed down the hierarchy and kept for the last
  * time asked, since every joint of one frame is asked in turn.
+ *
+ * `revision` counts what `localsInto` reads besides the time, so a pose whose source is
+ * swapped under it composes again at a time it has already answered.
  */
-function poseOf(
+export function poseOf(
   skeleton: SkeletonModel,
   duration: number,
   localsInto: (time: number, out: Float32Array) => Float32Array,
+  revision: () => number = () => 0,
 ): Pose {
   const count = skeleton.joints.length;
   const { order, parents } = hierarchyOf(skeleton);
@@ -106,6 +110,7 @@ function poseOf(
   const locals = new Float32Array(count * LOCAL_FLOATS);
   const worlds = new Float32Array(count * WORLD_FLOATS);
   let worldsAt = Number.NaN;
+  let worldsOf = revision();
   const local = new Matrix4();
   const parent = new Matrix4();
   const translation = new Vector3();
@@ -113,7 +118,7 @@ function poseOf(
   const scale = new Vector3();
 
   function worldsFor(time: number): void {
-    if (time === worldsAt) return;
+    if (time === worldsAt && revision() === worldsOf) return;
     localsInto(time, locals);
     for (const slot of order) {
       const at = slot * LOCAL_FLOATS;
@@ -126,6 +131,7 @@ function poseOf(
       local.toArray(worlds, slot * WORLD_FLOATS);
     }
     worldsAt = time;
+    worldsOf = revision();
   }
 
   return {

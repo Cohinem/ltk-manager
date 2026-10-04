@@ -95,7 +95,7 @@ interface MapTableProps {
 /**
  * The rows of one sibling map, each with the struct's own fields as columns.
  *
- * "The clips pane" in docs/ux/BIN_EDITOR.md. A mask row unfolds to the joints it weighs,
+ * "The clips pane" in docs/ux/SKIN_EDITOR.md. A mask row unfolds to the joints it weighs,
  * and a click on it weighs the mask on the character and shows the armature it reads on.
  */
 export function MapTable({ graph, tab, joints }: MapTableProps) {

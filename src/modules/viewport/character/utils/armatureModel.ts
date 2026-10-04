@@ -13,6 +13,49 @@ export function boneSegments(parents: ArrayLike<number>): readonly (readonly [nu
   return bones;
 }
 
+/** Whether each joint hangs under `slot`, which counts as under itself. */
+export function subtreeOf(parents: ArrayLike<number>, slot: number): boolean[] {
+  return Array.from({ length: parents.length }, (_, joint) => {
+    for (let at = joint; at >= 0; at = parents[at]) {
+      if (at === slot) return true;
+    }
+    return false;
+  });
+}
+
+/** The floats `nearestJoint` reads per joint: where it draws on the screen, and its depth. */
+export const SCREEN_FLOATS = 3;
+
+/**
+ * The joint drawn nearest the screen point `(x, y)` and within `reach` of it, and -1 for
+ * none. Of two joints equally near, the one nearer the camera is picked.
+ *
+ * `screen` holds each joint's x and y in pixels and its depth in clip space, where a depth
+ * past 1 is behind the camera or the far plane.
+ */
+export function nearestJoint(
+  screen: ArrayLike<number>,
+  x: number,
+  y: number,
+  reach: number,
+): number {
+  let picked = -1;
+  let nearest = reach;
+  let depth = Infinity;
+  for (let at = 0; at * SCREEN_FLOATS < screen.length; at += 1) {
+    const z = screen[at * SCREEN_FLOATS + 2];
+    if (z > 1) continue;
+
+    const away = Math.hypot(screen[at * SCREEN_FLOATS] - x, screen[at * SCREEN_FLOATS + 1] - y);
+    if (away < nearest || (away === nearest && z < depth)) {
+      picked = at;
+      nearest = away;
+      depth = z;
+    }
+  }
+  return picked;
+}
+
 /** What the armature paints a joint in: alike with no mask, and by weight under one. */
 export interface ArmaturePalette {
   /** Every joint where no mask is weighed. */

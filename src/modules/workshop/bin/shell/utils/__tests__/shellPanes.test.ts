@@ -46,8 +46,8 @@ describe("defaultShellLayout", () => {
     expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
       ["preview"],
       ["clips", "spells"],
-      ["material"],
-      ["inspector"],
+      ["material", "skeleton"],
+      ["inspector", "physics"],
     ]);
     expect(tree.kind === "split" && tree.layout).toEqual({ "split-6": 3, "split-4": 2 });
     const column = tree.kind === "split" ? tree.children[1] : tree;
@@ -147,7 +147,7 @@ describe("sanitizeShellLayout", () => {
     expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
       ["preview"],
       ["clips"],
-      ["inspector", "material"],
+      ["inspector", "material", "skeleton", "physics"],
     ]);
     expect(tree.kind === "split" && tree.layout).toEqual({ "leaf-2": 3, "leaf-3": 2 });
     const column = tree.kind === "split" ? tree.children[1] : tree;
@@ -157,7 +157,12 @@ describe("sanitizeShellLayout", () => {
       dir: "col",
       children: [
         { kind: "leaf", id: "leaf-4", tabs: ["clips"], activeTab: "clips" },
-        { kind: "leaf", id: "leaf-3", tabs: ["inspector", "material"], activeTab: "inspector" },
+        {
+          kind: "leaf",
+          id: "leaf-3",
+          tabs: ["inspector", "material", "skeleton", "physics"],
+          activeTab: "inspector",
+        },
       ],
     });
   });
@@ -195,7 +200,45 @@ describe("sanitizeShellLayout", () => {
 
     expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
       ["preview", "clips"],
-      ["inspector", "material"],
+      ["inspector", "material", "skeleton", "physics"],
+    ]);
+  });
+
+  it("opens a skin tree saved before the skeleton pane existed with it behind the material", () => {
+    const tree = sanitizeShellLayout("skin", {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview", "clips"], activeTab: "preview" },
+        { kind: "leaf", id: "leaf-7", tabs: ["material"], activeTab: "material" },
+        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+      ],
+    });
+
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["preview", "clips"],
+      ["material", "skeleton"],
+      ["inspector", "physics"],
+    ]);
+  });
+
+  it("opens a skin tree saved before the physics pane existed with it behind the inspector", () => {
+    const tree = sanitizeShellLayout("skin", {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview", "clips"], activeTab: "preview" },
+        { kind: "leaf", id: "leaf-7", tabs: ["material", "skeleton"], activeTab: "material" },
+        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+      ],
+    });
+
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["preview", "clips"],
+      ["material", "skeleton"],
+      ["inspector", "physics"],
     ]);
   });
 

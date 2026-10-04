@@ -121,11 +121,11 @@ impl fmt::Display for EntryKey {
 
 /// A hash path written one step at a time, in the grammar [`parse_steps`] reads.
 #[derive(Debug, Clone, Default)]
-pub(crate) struct HashPath(String);
+pub struct HashPath(String);
 
 impl HashPath {
     /// The path that the steps under the node at `path` extend.
-    pub(crate) fn under(path: &str) -> Self {
+    pub fn under(path: &str) -> Self {
         Self(path.to_owned())
     }
 
@@ -140,7 +140,7 @@ impl HashPath {
 
     /// The path one step further, into the property `field`.
     #[must_use]
-    pub(crate) fn field(mut self, field: BinHash) -> Self {
+    pub fn field(mut self, field: BinHash) -> Self {
         self.0.push_str(dot(&self.0));
         let _ = write!(self.0, "{:08x}", field.0);
         self
@@ -148,7 +148,7 @@ impl HashPath {
 
     /// The path one step further, into the element `[index]`.
     #[must_use]
-    pub(crate) fn index(mut self, index: usize) -> Self {
+    pub fn index(mut self, index: usize) -> Self {
         let _ = write!(self.0, "[{index}]");
         self
     }

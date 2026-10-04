@@ -50,7 +50,7 @@ interface ClipDetailProps {
  * One clip's fields under its unfolded row, as the generic field rows draw any struct,
  * under the clips it plays.
  *
- * "The clips pane" in docs/ux/BIN_EDITOR.md. The rows are read out of the document that
+ * "The clips pane" in docs/ux/SKIN_EDITOR.md. The rows are read out of the document that
  * declares the graph: the one the graph was asked through, or the linked file the read
  * found it in.
  */
