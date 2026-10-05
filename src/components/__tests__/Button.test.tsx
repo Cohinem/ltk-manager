@@ -68,4 +68,40 @@ describe("IconButton", () => {
     expect(await screen.findByText("Locked for now.")).toBeInTheDocument();
     expect(screen.queryByText("Settings")).not.toBeInTheDocument();
   });
+
+  it("hides at rest with reveal, and stays shown while loading", () => {
+    render(
+      <>
+        <IconButton icon={<GearIcon />} label="Idle" tooltip={false} reveal />
+        <IconButton icon={<GearIcon />} label="Busy" tooltip={false} reveal loading />
+      </>,
+    );
+
+    expect(screen.getByRole("button", { name: "Idle" })).toHaveClass("opacity-0");
+    expect(screen.getByRole("button", { name: "Busy" })).not.toHaveClass(
+      "opacity-0",
+      "data-[disabled]:opacity-0",
+    );
+  });
+
+  it("comes up dimmed rather than full when revealed while disabled", () => {
+    render(<IconButton icon={<GearIcon />} label="Edit" tooltip={false} reveal disabled />);
+
+    const button = screen.getByRole("button", { name: "Edit" });
+    expect(button).toHaveClass("data-[disabled]:opacity-0");
+    expect(button).not.toHaveClass("group-hover/reveal:opacity-100");
+  });
+
+  it("leaves a muted button's hover colours off while it is disabled", () => {
+    render(
+      <>
+        <IconButton icon={<GearIcon />} label="Live" tooltip={false} muted />
+        <IconButton icon={<GearIcon />} label="Off" tooltip={false} muted disabled />
+      </>,
+    );
+
+    expect(screen.getByRole("button", { name: "Live" })).toHaveClass("hover:text-surface-200");
+    expect(screen.getByRole("button", { name: "Off" })).toHaveClass("text-surface-400");
+    expect(screen.getByRole("button", { name: "Off" })).not.toHaveClass("hover:text-surface-200");
+  });
 });

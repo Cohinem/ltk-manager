@@ -441,11 +441,7 @@ function RowMenu({ canDelete, onEdit, onDelete, onOpenFolder }: RowMenuProps) {
     <Menu.Root>
       <Menu.Trigger
         render={
-          <IconButton
-            icon={<DotsThreeVerticalIcon />}
-            aria-label="Layer actions"
-            className="size-5"
-          />
+          <IconButton icon={<DotsThreeVerticalIcon />} aria-label="Layer actions" size="row" />
         }
       />
       <Menu.Content align="end" sideOffset={4}>

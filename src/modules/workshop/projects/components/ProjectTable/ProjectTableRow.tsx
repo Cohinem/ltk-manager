@@ -84,7 +84,7 @@ export const ProjectTableRow = memo(function ProjectTableRow({
         gridTemplateColumns: "var(--table-cols)",
       }}
       className={twMerge(
-        "group/row absolute inset-x-0 top-0 grid cursor-pointer items-stretch py-px text-row text-surface-400 select-none",
+        "group/row group/reveal absolute inset-x-0 top-0 grid cursor-pointer items-stretch py-px text-row text-surface-400 select-none",
         joinTop && "pt-0",
         joinBottom && "pb-0",
         tableRowFillClass(isCurrent, selected),

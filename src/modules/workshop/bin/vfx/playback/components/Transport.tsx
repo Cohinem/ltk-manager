@@ -155,7 +155,7 @@ function PlayButton({
     <IconButton
       variant="filled"
       aria-label={label}
-      icon={<Glyph weight="fill" className="size-4" />}
+      icon={<Glyph weight="fill" />}
       onClick={() => onPlayingChange(!playing)}
       tooltip={hint}
     />
@@ -181,7 +181,7 @@ function LoopToggle({
       aria-label={m.workshop_bin_preview_loop_label()}
       pressed={looping}
       disabled={disabled}
-      className="text-surface-400"
+      muted
       icon={<RepeatIcon />}
       onClick={() => onLoopingChange(!looping)}
       tooltip={hint}

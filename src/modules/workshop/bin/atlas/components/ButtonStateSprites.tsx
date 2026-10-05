@@ -76,7 +76,7 @@ function StateRow({ tree, state }: { tree: ViewTree; state: ButtonState }) {
         <IconButton
           aria-label={m.workshop_bin_atlas_button_state_replace_label({ state: name })}
           disabled={sprites.importing}
-          icon={<ImageSquareIcon className="size-3.5" />}
+          icon={<ImageSquareIcon />}
           onClick={() =>
             void sprites.run(
               [key],
@@ -91,7 +91,7 @@ function StateRow({ tree, state }: { tree: ViewTree; state: ButtonState }) {
         <IconButton
           aria-label={m.workshop_bin_atlas_button_state_export_label({ state: name })}
           disabled={exports.exporting}
-          icon={<ExportIcon className="size-3.5" />}
+          icon={<ExportIcon />}
           onClick={() => void exports.run(exported)}
           tooltip={m.workshop_bin_atlas_sprites_export_action()}
         />

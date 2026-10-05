@@ -1,4 +1,5 @@
-import { Terminal, Trash2, X } from "lucide-react";
+import { TrashIcon, XIcon } from "@phosphor-icons/react";
+import { Terminal } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
@@ -97,20 +98,8 @@ export function DevConsole() {
 
         <span className="ml-auto text-xs text-surface-500">{filteredEntries.length} entries</span>
 
-        <IconButton
-          size="sm"
-          icon={<Trash2 className="size-3.5" />}
-          onClick={clear}
-          className="text-surface-400 hover:text-surface-200"
-          label="Clear console"
-        />
-        <IconButton
-          size="sm"
-          icon={<X className="size-3.5" />}
-          onClick={toggle}
-          className="text-surface-400 hover:text-surface-200"
-          label="Close console"
-        />
+        <IconButton size="sm" icon={<TrashIcon />} onClick={clear} muted label="Clear console" />
+        <IconButton size="sm" icon={<XIcon />} onClick={toggle} muted label="Close console" />
       </div>
 
       {/* Log entries */}

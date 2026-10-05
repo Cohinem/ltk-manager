@@ -200,11 +200,7 @@ function ActionsCell({ view }: ProjectCellProps) {
 function MenuCell({ view }: ProjectCellProps) {
   return (
     <span {...stop} className="flex">
-      <ProjectKebab
-        project={view.project}
-        onEdit={view.onEdit}
-        className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
-      />
+      <ProjectKebab project={view.project} onEdit={view.onEdit} reveal />
     </span>
   );
 }

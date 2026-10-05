@@ -4,7 +4,6 @@ import { useRef } from "react";
 import { IconButton, SearchField } from "@/components";
 import { m } from "@/i18n";
 import { DocumentToolbar, ToolbarOverflow } from "@/modules/editor";
-import { twMerge } from "@/utils";
 
 import { GAME_EXPLORER_ID, GameIndexTree, useRefreshGameIndex } from "../../gameBrowser";
 import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
@@ -59,9 +58,7 @@ function RebuildAction() {
 
   return (
     <IconButton
-      icon={
-        <ArrowsClockwiseIcon className={twMerge("size-4", rebuild.isPending && "animate-spin")} />
-      }
+      icon={<ArrowsClockwiseIcon className={rebuild.isPending ? "animate-spin" : undefined} />}
       onClick={() => rebuild.mutate()}
       disabled={rebuild.isPending}
       aria-label={m.workshop_game_rebuild_action()}

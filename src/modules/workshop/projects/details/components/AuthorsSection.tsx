@@ -1,4 +1,5 @@
-import { Plus, Trash2, Users } from "lucide-react";
+import { TrashIcon } from "@phosphor-icons/react";
+import { Plus, Users } from "lucide-react";
 
 import { Button, FormField, IconButton, SectionCard } from "@/components";
 import type { AuthorProfile, WorkshopAuthor } from "@/lib/tauri";
@@ -52,11 +53,7 @@ export function AuthorsSection({
                 placeholder="e.g. 3D Artist"
                 className="w-48"
               />
-              <IconButton
-                icon={<Trash2 className="size-4" />}
-                size="md"
-                onClick={() => onRemove(index)}
-              />
+              <IconButton icon={<TrashIcon />} size="md" onClick={() => onRemove(index)} />
             </div>
           ))}
         </div>

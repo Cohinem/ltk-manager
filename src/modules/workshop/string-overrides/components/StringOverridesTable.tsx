@@ -189,7 +189,7 @@ interface OverrideRowProps {
 
 function OverrideRow({ entry, original, error, onUpdate, onPick, onRemove }: OverrideRowProps) {
   return (
-    <li className="group flex flex-col gap-0.5 border-b border-surface-700/40 px-3 py-2 last:border-b-0">
+    <li className="group/reveal flex flex-col gap-0.5 border-b border-surface-700/40 px-3 py-2 last:border-b-0">
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
           <KeyCell entry={entry} error={error} onUpdate={onUpdate} onPick={onPick} />
@@ -198,7 +198,8 @@ function OverrideRow({ entry, original, error, onUpdate, onPick, onRemove }: Ove
           icon={<TrashIcon />}
           onClick={() => onRemove(entry.id)}
           aria-label={`Delete the ${entry.key} override`}
-          className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          reveal
+          className="shrink-0"
           tooltip="Delete override"
         />
       </div>

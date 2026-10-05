@@ -1,4 +1,4 @@
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { CheckIcon, PencilSimpleIcon, TrashIcon, XIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button, Field, IconButton, useToast } from "@/components";
@@ -81,12 +81,12 @@ export function ProfileListItem({
         />
         <IconButton
           size="sm"
-          icon={<Check className="size-4" />}
+          icon={<CheckIcon />}
+          tone="accent"
           onClick={handleRename}
           disabled={!editName.trim() || renameProfile.isPending}
-          className="text-success-text hover:text-success-text"
         />
-        <IconButton size="sm" icon={<X className="size-4" />} onClick={cancelEditing} />
+        <IconButton size="sm" icon={<XIcon />} onClick={cancelEditing} />
       </div>
     );
   }
@@ -98,7 +98,9 @@ export function ProfileListItem({
         onClick={() => onSwitch(profile.id)}
         disabled={isSwitching || isActive}
         className="flex-1 justify-between"
-        right={isActive ? <Check className="size-4 text-accent-500" /> : undefined}
+        right={
+          isActive ? <CheckIcon weight="bold" className="size-4 text-accent-500" /> : undefined
+        }
       >
         {profile.name}
       </Button>
@@ -107,16 +109,18 @@ export function ProfileListItem({
         <>
           <IconButton
             size="sm"
-            icon={<Pencil className="size-3.5" />}
+            icon={<PencilSimpleIcon />}
+            muted
             onClick={startEditing}
             tooltip="Rename profile"
           />
           <IconButton
             size="sm"
-            icon={<Trash2 className="size-3.5" />}
+            icon={<TrashIcon />}
+            tone="danger"
+            muted
             onClick={() => onDeleteClick(profile)}
             disabled={isActive}
-            className="hover:text-danger-text"
             tooltip="Delete profile"
           />
         </>

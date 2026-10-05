@@ -307,7 +307,7 @@ function SpriteRowView({
       aria-selected={chosen}
       className={twMerge(
         /* DS-VEIL, DS-RADIUS */
-        "group/row flex h-full cursor-pointer items-center gap-2 rounded-sm px-1 hover:bg-surface-veil-soft",
+        "group/reveal flex h-full cursor-pointer items-center gap-2 rounded-sm px-1 hover:bg-surface-veil-soft",
         chosen && "bg-accent-500/15 hover:bg-accent-500/15",
         active && "ring-1 ring-accent-500/60 ring-inset",
       )}
@@ -335,8 +335,8 @@ function SpriteRowView({
           tabIndex={-1}
           aria-label={m.workshop_bin_atlas_sprites_export_action()}
           disabled={exporting}
-          className={twMerge(idle && "opacity-0 group-hover/row:opacity-100")}
-          icon={<ExportIcon className="size-3.5" />}
+          reveal={idle}
+          icon={<ExportIcon />}
           onClick={(event) => {
             event.stopPropagation();
             onExport();
@@ -351,8 +351,8 @@ function SpriteRowView({
           tabIndex={-1}
           aria-label={m.workshop_bin_atlas_sprites_replace_action()}
           disabled={sprites.importing}
-          className={twMerge(idle && "opacity-0 group-hover/row:opacity-100")}
-          icon={<ImageSquareIcon className="size-3.5" />}
+          reveal={idle}
+          icon={<ImageSquareIcon />}
           onClick={(event) => {
             event.stopPropagation();
             void sprites.run(

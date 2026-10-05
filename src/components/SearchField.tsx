@@ -86,14 +86,13 @@ export function SearchField({
         <span className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
           {value && (
             <IconButton
-              icon={<XIcon className="size-3" />}
-              variant="ghost"
+              icon={<XIcon />}
+              size="row"
               onClick={() => {
                 onChange("");
                 inputRef?.current?.focus();
               }}
               aria-label={clearLabel}
-              className="size-4"
             />
           )}
           {onRegexChange && (

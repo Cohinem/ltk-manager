@@ -1,5 +1,6 @@
+import { XIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertCircle, Plus, Regex as RegexIcon, Search, Trash2, X } from "lucide-react";
+import { AlertCircle, Plus, Regex as RegexIcon, Search, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { match, P } from "ts-pattern";
 
@@ -445,11 +446,7 @@ function BlocklistRow({
             <span className="shrink-0 text-xs text-surface-500">· no matches</span>
           )}
         </div>
-        <IconButton
-          icon={<X className="size-3.5" />}
-          onClick={onRemove}
-          aria-label={`Remove ${entry.value}`}
-        />
+        <IconButton icon={<XIcon />} onClick={onRemove} aria-label={`Remove ${entry.value}`} />
       </div>
       {canExpand && (
         <Disclosure.Panel

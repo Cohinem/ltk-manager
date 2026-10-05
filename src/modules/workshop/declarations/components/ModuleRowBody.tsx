@@ -8,7 +8,7 @@ import { twMerge } from "@/utils";
 
 import { TreeRowCount } from "../../shared/components/TreeRowParts";
 import { moduleTally, moduleTitle, type OutlineNode } from "../utils/outlineTree";
-import { ModuleNameInput, RowKebab, useOutlineRow } from "./OutlineRowParts";
+import { ModuleNameInput, RowKebab, SELECTED_ROW_ACTION, useOutlineRow } from "./OutlineRowParts";
 
 /** A module: its name, what it edits and the comment above it, then what it declares there. */
 export function ModuleBody({ node }: { node: Extract<OutlineNode, { type: "module" }> }) {
@@ -101,7 +101,9 @@ function RowButton({ label, icon, disabled, onPress }: RowButtonProps) {
         event.stopPropagation();
         onPress();
       }}
-      className="size-5 shrink-0 opacity-0 group-hover/row:opacity-100 group-aria-selected/row:opacity-100"
+      size="row"
+      reveal
+      className={SELECTED_ROW_ACTION}
       label={label}
     />
   );

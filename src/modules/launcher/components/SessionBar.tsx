@@ -179,12 +179,7 @@ function LineActions({
       <Button variant="ghost" size="xs" onClick={onAction} className="h-5">
         {label}
       </Button>
-      <IconButton
-        icon={<XIcon className="size-3" />}
-        onClick={onDismiss}
-        aria-label="Dismiss"
-        className="size-5"
-      />
+      <IconButton icon={<XIcon />} onClick={onDismiss} aria-label="Dismiss" size="row" />
     </div>
   );
 }

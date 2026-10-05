@@ -54,13 +54,7 @@ export function SplitToggle({
       <Menu.Root>
         <Tooltip content={menuLabel}>
           <Menu.Trigger
-            render={
-              <IconButton
-                className="w-5 text-surface-400"
-                aria-label={menuLabel}
-                icon={<CaretDownIcon className="size-3" />}
-              />
-            }
+            render={<IconButton narrow muted aria-label={menuLabel} icon={<CaretDownIcon />} />}
           />
         </Tooltip>
         {children}

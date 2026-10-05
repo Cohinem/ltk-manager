@@ -102,7 +102,7 @@ export const ModTableRow = memo(function ModTableRow({
         gridTemplateColumns: "var(--table-cols)",
       }}
       className={twMerge(
-        "group/row absolute inset-x-0 top-0 grid items-stretch py-px text-row text-surface-400 select-none",
+        "group/row group/reveal absolute inset-x-0 top-0 grid items-stretch py-px text-row text-surface-400 select-none",
         joinTop && "pt-0",
         joinBottom && "pb-0",
         tableRowFillClass(isCurrent, view.isSelected),

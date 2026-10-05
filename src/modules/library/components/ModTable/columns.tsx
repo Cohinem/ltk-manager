@@ -215,10 +215,7 @@ function LicenseCell({ view }: CellProps) {
 function MenuCell({ view }: CellProps) {
   return (
     <span {...stop} className="flex">
-      <ModCardMenu
-        view={view}
-        className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
-      />
+      <ModCardMenu view={view} reveal />
     </span>
   );
 }

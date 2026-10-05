@@ -36,13 +36,7 @@ export function PreviewPopover({
       <Tooltip content={label}>
         <Popover.Trigger
           render={
-            <IconButton
-              aria-label={label}
-              /* DS-VEIL, DS-RADIUS */ className={
-                customized ? "bg-accent-500/15 text-accent-300 hover:bg-accent-500/25" : undefined
-              }
-              icon={icon}
-            />
+            <IconButton aria-label={label} variant={customized ? "tonal" : "ghost"} icon={icon} />
           }
         />
       </Tooltip>

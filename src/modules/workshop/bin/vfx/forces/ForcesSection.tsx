@@ -207,21 +207,21 @@ function ForceGroup({
           <>
             <IconButton
               size="sm"
-              icon={<ArrowsOutCardinalIcon className="size-3.5" />}
+              icon={<ArrowsOutCardinalIcon />}
               aria-pressed={selected}
               onClick={() => preview.select(selected ? null : force.key)}
               label={m.workshop_bin_force_handle_action()}
             />
             <IconButton
               size="sm"
-              icon={<EyeSlashIcon className="size-3.5" />}
+              icon={<EyeSlashIcon />}
               pressed={preview.muted.has(force.key)}
               onClick={() => preview.mute(force.key)}
               label={m.workshop_bin_force_mute_action()}
             />
             <IconButton
               size="sm"
-              icon={<CrosshairIcon className="size-3.5" />}
+              icon={<CrosshairIcon />}
               pressed={preview.solo === force.key}
               onClick={() => preview.isolate(force.key)}
               label={m.workshop_bin_force_solo_action()}
@@ -232,7 +232,7 @@ function ForceGroup({
           <IconButton
             size="sm"
             disabled={busy}
-            icon={<TrashIcon className="size-3.5" />}
+            icon={<TrashIcon />}
             onClick={() => void remove()}
             label={m.workshop_bin_force_remove_action()}
           />

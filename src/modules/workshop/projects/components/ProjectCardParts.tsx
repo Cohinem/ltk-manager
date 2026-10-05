@@ -92,10 +92,12 @@ export function ProjectCardContextMenu({
 export function ProjectKebab({
   project,
   onEdit,
+  reveal,
   className,
 }: {
   project: WorkshopProject;
   onEdit: (project: WorkshopProject) => void;
+  reveal?: boolean;
   className?: string;
 }) {
   return (
@@ -103,9 +105,10 @@ export function ProjectKebab({
       <Menu.Trigger
         render={
           <IconButton
-            icon={<DotsThreeVerticalIcon weight="bold" className="size-4" />}
+            icon={<DotsThreeVerticalIcon />}
             size="md"
             aria-label={m.workshop_card_options_label({ name: project.displayName })}
+            reveal={reveal}
             className={className}
           />
         }

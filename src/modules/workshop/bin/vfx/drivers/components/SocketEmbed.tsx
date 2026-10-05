@@ -68,7 +68,8 @@ function EmbedButton({
       size="row"
       label={label}
       icon={<Glyph />}
-      className="nodrag shrink-0 text-surface-500 hover:text-surface-100"
+      muted
+      className="nodrag shrink-0"
       onClick={onPress}
     />
   );

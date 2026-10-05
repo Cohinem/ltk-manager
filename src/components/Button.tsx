@@ -229,6 +229,16 @@ export type IconButtonProps = Omit<ButtonBaseProps, "children" | "left" | "right
     tooltipSide?: TooltipProps["side"];
     /** A toggle's state, set as `aria-pressed` and shown as the accent fill. */
     pressed?: boolean;
+    /** Rests the glyph at `surface-400`, and gives it the tone's colour under the pointer. */
+    muted?: boolean;
+    /**
+     * Hides the button until its row is hovered or holds keyboard focus: DS-REVEAL.
+     *
+     * The row is the nearest ancestor carrying `group/reveal`.
+     */
+    reveal?: boolean;
+    /** Narrower than it is tall, for the caret half of a split button. */
+    narrow?: boolean;
   };
 
 const iconPixels: Record<IconButtonSize, number> = {
@@ -243,8 +253,34 @@ const iconPixels: Record<IconButtonSize, number> = {
    element pads the 20px box out to the 24px a target takes: DS-TARGET. */
 const rowClasses = "size-5 rounded-sm after:absolute after:-inset-0.5";
 
+const narrowClasses: Record<IconButtonSize, string> = {
+  row: "w-4",
+  xs: "w-5",
+  sm: "w-6",
+  md: "w-6",
+  lg: "w-8",
+};
+
 const pressedClasses =
-  "aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300 aria-pressed:hover:bg-accent-500/25";
+  "aria-pressed:border-accent-400/50 aria-pressed:bg-accent-500/15 aria-pressed:text-accent-300 aria-pressed:hover:bg-accent-500/25 aria-pressed:hover:text-accent-300";
+
+/* The soft veil under a dim glyph: DS-VEIL. */
+const mutedClasses: Record<ButtonTone, ButtonLookClasses> = {
+  neutral: {
+    rest: "text-surface-400",
+    live: "hover:bg-surface-veil-soft hover:text-surface-200 active:bg-surface-veil",
+  },
+  accent: { rest: "text-surface-400", live: "hover:text-accent-300" },
+  danger: { rest: "text-surface-400", live: "hover:text-danger-text" },
+};
+
+/* DS-REVEAL. A disabled button comes up to its dimmed strength rather than to full. */
+const revealClasses = {
+  enabled:
+    "opacity-0 group-hover/reveal:opacity-100 group-focus-visible/reveal:opacity-100 group-has-focus-visible/reveal:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100 aria-pressed:opacity-100 data-[popup-open]:opacity-100",
+  disabled:
+    "data-[disabled]:opacity-0 group-hover/reveal:data-[disabled]:opacity-50 group-focus-visible/reveal:data-[disabled]:opacity-50 group-has-focus-visible/reveal:data-[disabled]:opacity-50 focus-visible:data-[disabled]:opacity-50",
+};
 
 /**
  * A square button showing one icon, `ghost` and 24px unless told otherwise.
@@ -252,7 +288,7 @@ const pressedClasses =
  * The icon takes the bold weight and the size's pixel size from phosphor's `IconContext`, so a
  * call site passes the bare glyph. `label` is both the accessible name and the tooltip, and a
  * `disabledReason` takes the tooltip over while the button is disabled. `row` is the 20px size
- * for actions inside a tree or list row.
+ * for actions inside a tree or list row. A loading button stays shown whatever `reveal` says.
  */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
   (
@@ -265,12 +301,19 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
       tooltip,
       tooltipSide,
       pressed,
+      muted = false,
+      reveal = false,
+      narrow = false,
       className,
       "aria-label": ariaLabel,
       ...props
     },
     ref,
   ) => {
+    const isDisabled = props.disabled || props.loading;
+    const mutedLook = mutedClasses[tone ?? DEFAULT_TONE[variant]];
+    const revealLook = isDisabled ? revealClasses.disabled : revealClasses.enabled;
+
     const glyph = (
       <IconContext.Provider value={{ weight: "bold", size: iconPixels[size] }}>
         {icon}
@@ -287,7 +330,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
         aria-pressed={pressed}
         className={twMerge(
           size === "row" && rowClasses,
+          narrow && narrowClasses[size],
+          muted && mutedLook.rest,
+          muted && !isDisabled && mutedLook.live,
           pressed !== undefined && pressedClasses,
+          reveal && !props.loading && revealLook,
           className,
         )}
         {...props}

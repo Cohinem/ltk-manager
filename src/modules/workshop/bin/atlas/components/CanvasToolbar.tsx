@@ -161,7 +161,7 @@ export function CanvasToolbar() {
         <IconButton
           aria-label={clockLabel}
           aria-keyshortcuts={PREVIEW_KEYS.play}
-          icon={<Clock weight="bold" className="size-4" />}
+          icon={<Clock />}
           onClick={actions.togglePlaying}
           tooltip={<KeyHint label={clockLabel} shortcut={PREVIEW_KEYS.play} />}
         />

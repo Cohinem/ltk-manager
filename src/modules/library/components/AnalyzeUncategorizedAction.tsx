@@ -38,7 +38,7 @@ export function AnalyzeUncategorizedAction({ disabled }: AnalyzeUncategorizedAct
     <IconButton
       icon={
         <div className="relative">
-          <SparkleIcon weight="bold" className="size-4" />
+          <SparkleIcon />
           {uncategorized.length > 0 && (
             <span className="absolute -top-1 -right-1 size-2 rounded-full bg-accent-500" />
           )}

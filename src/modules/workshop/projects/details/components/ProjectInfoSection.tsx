@@ -1,4 +1,5 @@
-import { Check, ChevronDown, ChevronRight, Info, Pencil, X } from "lucide-react";
+import { CheckIcon, PencilSimpleIcon, XIcon } from "@phosphor-icons/react";
+import { ChevronDown, ChevronRight, Info } from "lucide-react";
 import { useState } from "react";
 
 import { IconButton, useToast } from "@/components";
@@ -83,14 +84,14 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                     />
                     <IconButton
                       size="sm"
-                      icon={<Check className="size-3.5" />}
+                      icon={<CheckIcon />}
                       onClick={handleSaveSlug}
                       loading={renameProject.isPending}
                       aria-label="Save slug"
                     />
                     <IconButton
                       size="sm"
-                      icon={<X className="size-3.5" />}
+                      icon={<XIcon />}
                       onClick={handleCancelSlug}
                       aria-label="Cancel editing"
                     />
@@ -100,7 +101,7 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                     <span className="font-mono text-surface-200">{project.name}</span>
                     <IconButton
                       size="sm"
-                      icon={<Pencil className="size-3" />}
+                      icon={<PencilSimpleIcon />}
                       onClick={() => {
                         setSlugValue(project.name);
                         setIsEditingSlug(true);

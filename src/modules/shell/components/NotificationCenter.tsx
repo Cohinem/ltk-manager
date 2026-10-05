@@ -1,5 +1,6 @@
+import { TrashIcon } from "@phosphor-icons/react";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, CircleAlert, CircleCheck, CircleX, Info, Trash2, X } from "lucide-react";
+import { Bell, CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
 import { EmptyState, IconButton, Popover, type ToastType } from "@/components";
@@ -86,9 +87,9 @@ export function NotificationCenter() {
           {notifications.length > 0 && (
             <IconButton
               size="sm"
-              icon={<Trash2 className="size-3.5" />}
+              icon={<TrashIcon />}
               onClick={dismissAll}
-              className="text-surface-400 hover:text-surface-200"
+              muted
               label={m.shell_notifications_clear_action()}
             />
           )}
