@@ -270,7 +270,7 @@ function OpenObject({
           )}
           {layout && (
             <SegmentedControl
-              size="xs"
+              size="sm"
               aria-label={m.workshop_bin_view_mode_label()}
               value={mode}
               onChange={setMode}

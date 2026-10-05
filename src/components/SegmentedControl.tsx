@@ -2,7 +2,15 @@ import { type ReactNode, useLayoutEffect, useRef, useState } from "react";
 
 import { twMerge } from "@/utils";
 
-import { Button } from "./Button";
+import { Button, type ButtonSize } from "./Button";
+import {
+  segmentChosen,
+  segmentRest,
+  type SegmentSize,
+  segmentThumb,
+  segmentTrack,
+  segmentTrackSize,
+} from "./segment";
 
 export interface SegmentedOption<T extends string> {
   value: T;
@@ -17,24 +25,22 @@ export interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void;
   /** A control for the whole group, seated in the track behind a divider. */
   action?: ReactNode;
-  /** The track's height, which is the height of the controls it sits beside. */
-  size?: "sm" | "xs";
+  /** The track's height, which is the height of the controls it sits beside: DS-SIZE. */
+  size?: SegmentSize;
   /** The group's accessible name, where the options alone do not say what is chosen. */
   "aria-label"?: string;
   className?: string;
 }
 
-const trackClass = {
-  sm: "h-8",
-  xs: "h-7",
-} as const satisfies Record<NonNullable<SegmentedControlProps<string>["size"]>, string>;
-
 /* The track sets the height rather than the segments, so the border sits inside the
-   box every other control in the row sits in. Segments take h-full to drop the size
-   class that would otherwise stop them stretching. */
-const segmentClass = "relative h-full rounded-sm text-surface-400 hover:text-surface-200";
+   box every other control in the row sits in. A segment is the button one step down,
+   and takes h-full to drop the size class that would otherwise stop it stretching. */
+const segmentButtonSize: Record<SegmentSize, ButtonSize> = {
+  sm: "xs",
+  md: "sm",
+};
 
-const activeSegmentClass = "text-accent-300 hover:bg-transparent hover:text-accent-300";
+const segmentClass = `relative h-full rounded-sm ${segmentRest}`;
 
 /** Where the thumb sits, in pixels from the track's padding edge. */
 interface ThumbBox {
@@ -45,6 +51,9 @@ interface ThumbBox {
 /**
  * A row of mutually exclusive choices sharing one inset track.
  *
+ * It sets a value. A choice that shows a panel of its own is a `Tabs` list, whose `pills`
+ * variant draws this same track.
+ *
  * The chosen option sits on a thumb that slides to the next choice. The thumb is measured
  * from the chosen segment, so labels of any width and the trailing `action` keep working, and
  * it draws nothing until a first measure places it.
@@ -54,7 +63,7 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   action,
-  size = "sm",
+  size = "md",
   "aria-label": ariaLabel,
   className,
 }: SegmentedControlProps<T>) {
@@ -96,13 +105,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       ref={trackRef}
-      className={twMerge(
-        "relative inline-flex items-stretch gap-0.5 rounded-md border border-surface-600 p-0.5",
-        /* DS-GROUND: an inset inside the card it sits on. */
-        "bg-surface-950/40",
-        trackClass[size],
-        className,
-      )}
+      className={twMerge(segmentTrack, segmentTrackSize[size], className)}
       role="group"
       aria-label={ariaLabel}
       data-ui="SegmentedControl"
@@ -110,11 +113,7 @@ export function SegmentedControl<T extends string>({
       {thumb && (
         <span
           aria-hidden
-          className={twMerge(
-            "pointer-events-none absolute inset-y-0.5 left-0 rounded-sm",
-            "bg-accent-500/15 shadow-xs ring-1 ring-accent-500/35 ring-inset",
-            placed && "transition-[transform,width] duration-200",
-          )}
+          className={twMerge(segmentThumb, placed && "transition-[transform,width] duration-200")}
           style={{ width: thumb.width, transform: `translateX(${thumb.left}px)` }}
         />
       )}
@@ -124,11 +123,11 @@ export function SegmentedControl<T extends string>({
           key={option.value}
           data-segment
           variant="ghost"
-          size={size}
+          size={segmentButtonSize[size]}
           aria-pressed={option.value === value}
           aria-label={option.name}
           onClick={() => onChange(option.value)}
-          className={twMerge(segmentClass, option.value === value && activeSegmentClass)}
+          className={twMerge(segmentClass, option.value === value && segmentChosen)}
         >
           {option.label}
         </Button>

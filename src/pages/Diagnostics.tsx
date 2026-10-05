@@ -67,7 +67,7 @@ export function Diagnostics() {
             Diagnostics
           </h1>
           <Separator orientation="vertical" className="mx-2 h-4" />
-          <Tabs.List className="border-b-0">
+          <Tabs.List divider={false}>
             <Tabs.Tab value="games">Games</Tabs.Tab>
             <Tabs.Tab value="system">System</Tabs.Tab>
           </Tabs.List>

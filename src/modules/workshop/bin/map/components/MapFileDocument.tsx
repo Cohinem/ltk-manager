@@ -39,7 +39,7 @@ export function MapFileDocument({ map, active, actions, objects }: MapFileDocume
 
   const viewSwitch = objects !== undefined && (
     <SegmentedControl
-      size="xs"
+      size="sm"
       aria-label={m.workshop_bin_map_file_view_label()}
       value={view}
       onChange={setView}

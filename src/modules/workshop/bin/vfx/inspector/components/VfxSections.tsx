@@ -105,7 +105,7 @@ export function EmitterModes() {
         </span>
       )}
       <SegmentedControl
-        size="xs"
+        size="sm"
         className="ml-auto font-sans"
         aria-label={m.workshop_bin_emitter_view_label()}
         value={mode}

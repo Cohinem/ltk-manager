@@ -191,7 +191,7 @@ function OcclusionSection({ occlusion, onChange }: OcclusionSectionProps) {
       <div className="flex items-center justify-between gap-2">
         <span className="text-xs text-surface-300">{samplesLabel}</span>
         <SegmentedControl
-          size="xs"
+          size="sm"
           aria-label={samplesLabel}
           options={SAMPLE_QUALITIES.map(({ quality, samples }) => ({
             value: String(quality),

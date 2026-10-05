@@ -41,7 +41,7 @@ export function ObjectsViewControls({
       )}
     >
       <SegmentedControl
-        size="xs"
+        size="sm"
         value={view}
         onChange={onViewChange}
         aria-label={m.workshop_objects_view_label()}

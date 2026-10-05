@@ -182,7 +182,7 @@ export function CurveToolbar({
       <span className="ml-auto flex items-center gap-3">
         {spread && <ChanceButton />}
         <SegmentedControl
-          size="xs"
+          size="sm"
           aria-label={m.workshop_bin_curve_tab_label()}
           value={tab}
           onChange={onTab}

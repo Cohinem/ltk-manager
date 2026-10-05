@@ -108,7 +108,7 @@ function DirectionField({ combo, editable, apply }: Omit<ComboSectionProps, "vie
 
   return (
     <SegmentedControl<Direction>
-      size="xs"
+      size="sm"
       aria-label={m.workshop_bin_atlas_combo_direction_label()}
       value={direction}
       onChange={(next) => {

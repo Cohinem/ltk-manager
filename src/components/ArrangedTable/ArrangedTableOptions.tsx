@@ -44,7 +44,7 @@ export function ArrangedTableOptions<Id extends string, Group extends string>({
     <>
       <FilterSection title={m.common_table_row_height_label()}>
         <SegmentedControl<RowDensity>
-          size="xs"
+          size="sm"
           options={densityOptions()}
           value={density}
           onChange={setDensity}

@@ -137,7 +137,7 @@ export function RigControl() {
 
         <SegmentedControl
           className="mt-3 w-full"
-          size="xs"
+          size="sm"
           aria-label={m.workshop_bin_preview_rig_motion_label()}
           value={carrier}
           onChange={(next: Carrier) => {
@@ -148,7 +148,7 @@ export function RigControl() {
 
         <SegmentedControl
           className="mt-2 w-full"
-          size="xs"
+          size="sm"
           aria-label={m.workshop_bin_preview_rig_playback_label()}
           value={playbackOf(rig.life)}
           onChange={(next: Playback) => change(withPlayback(rig, next))}
@@ -307,7 +307,7 @@ function MotionRows({
             {m.workshop_bin_preview_rig_orientation_label()}
           </span>
           <SegmentedControl
-            size="xs"
+            size="sm"
             aria-label={m.workshop_bin_preview_rig_orientation_label()}
             value={motion.orientation}
             onChange={(orientation: OrbitOrientation) => onMotionChange({ ...motion, orientation })}
