@@ -55,7 +55,7 @@ export function ProblemGroupRow({ group, expanded, onToggle }: GroupRowProps) {
 
   return (
     <div
-      className="group/row flex items-center gap-2 bg-surface-900/40 pr-2 pl-2 text-row transition-colors duration-100 hover:bg-surface-800/60"
+      className="group/reveal flex items-center gap-2 bg-surface-900/40 pr-2 pl-2 text-row transition-colors duration-100 hover:bg-surface-800/60"
       style={{ height: zoomed(GROUP_ROW_HEIGHT) }}
     >
       <Tooltip content={`${group.layer} · ${group.path}`} side="top" delay={TIP_DELAY}>
@@ -78,10 +78,11 @@ export function ProblemGroupRow({ group, expanded, onToggle }: GroupRowProps) {
 
       {fixable.length > 0 && (
         <IconButton
-          icon={<WrenchIcon className="size-3.5" />}
+          icon={<WrenchIcon />}
           loading={fix.isPending}
           onClick={handleFix}
-          className="size-5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+          size="row"
+          reveal
           label={`Fix every problem in ${group.fileName}`}
         />
       )}
@@ -120,7 +121,7 @@ export function ProblemObjectRow({ object, expanded, onToggle }: ObjectRowProps)
   return (
     <div
       /* DS-VEIL */
-      className="group/row flex items-center gap-2 pr-2 pl-4 text-row transition-colors duration-100 hover:bg-surface-veil"
+      className="group/reveal flex items-center gap-2 pr-2 pl-4 text-row transition-colors duration-100 hover:bg-surface-veil"
       style={{ height: zoomed(OBJECT_ROW_HEIGHT) }}
     >
       <Tooltip content={object.name} side="top" delay={TIP_DELAY}>
@@ -141,10 +142,11 @@ export function ProblemObjectRow({ object, expanded, onToggle }: ObjectRowProps)
 
       {fixable.length > 0 && (
         <IconButton
-          icon={<WrenchIcon className="size-3.5" />}
+          icon={<WrenchIcon />}
           loading={fix.isPending}
           onClick={handleFix}
-          className="size-5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+          size="row"
+          reveal
           label={`Fix every problem in ${object.name}`}
         />
       )}
@@ -191,7 +193,7 @@ export function ProblemRow({ problem }: { problem: Problem }) {
          rather than restyled, so its severity glyph keeps meaning what it
          means. Pointing at it brings it back to full. */
       className={twMerge(
-        "group/row flex items-center gap-2 pr-2 pl-6 text-row transition-[color,background-color,opacity] duration-100 hover:bg-surface-veil",
+        "group/reveal flex items-center gap-2 pr-2 pl-6 text-row transition-[color,background-color,opacity] duration-100 hover:bg-surface-veil",
         muted && "opacity-55 hover:opacity-100",
       )}
       style={{ height: zoomed(PROBLEM_ROW_HEIGHT) }}
@@ -217,11 +219,11 @@ export function ProblemRow({ problem }: { problem: Problem }) {
 
       {problem.fix && (
         <IconButton
-          icon={<WrenchIcon className="size-3.5" />}
+          icon={<WrenchIcon />}
           loading={fix.isPending}
           onClick={handleFix}
           aria-label="Fix this problem"
-          className="size-6 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+          reveal
           tooltip="Apply this repair"
           tooltipSide="left"
         />

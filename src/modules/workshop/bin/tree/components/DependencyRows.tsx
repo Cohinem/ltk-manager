@@ -80,7 +80,7 @@ export function DependenciesRow({ line, onToggle }: DependenciesRowProps) {
       aria-expanded={line.expanded}
       tabIndex={0}
       /* DS-VEIL, DS-RADIUS */
-      className="group/row flex min-h-6 cursor-pointer items-center gap-2 rounded-sm pr-2 text-mono-row outline-none hover:bg-surface-veil-soft focus-visible:bg-surface-veil"
+      className="group/row group/reveal flex min-h-6 cursor-pointer items-center gap-2 rounded-sm pr-2 text-mono-row outline-none hover:bg-surface-veil-soft focus-visible:bg-surface-veil"
       onClick={() => onToggle(line.key)}
       onKeyDown={keys}
     >
@@ -182,7 +182,7 @@ export function DependencyRow({ line }: DependencyRowProps) {
       draggable={reorders && !isEditing}
       className={twMerge(
         /* DS-VEIL, DS-RADIUS */
-        "group/row flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row outline-none hover:bg-surface-veil-soft focus-visible:bg-surface-veil",
+        "group/row group/reveal flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row outline-none hover:bg-surface-veil-soft focus-visible:bg-surface-veil",
         dropping && "bg-accent-500/15",
       )}
       onKeyDown={keys}

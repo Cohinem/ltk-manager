@@ -246,7 +246,7 @@ function RepairPress({ run }: { run: RepairRun }) {
               variant="filled"
               size="md"
               aria-label={m.library_health_repair_options_label()}
-              className="w-auto px-2"
+              narrow
               disabled={run.isRepairing}
             />
           }
@@ -301,11 +301,12 @@ function RepairProgress({ progress }: { progress: ModRepairProgress }) {
           {/* A mod already written stays written, so this stops the run rather
               than undoing it. What it did not reach keeps its own verdict. */}
           <IconButton
-            icon={<XIcon className="size-3.5" />}
+            icon={<XIcon />}
             onClick={() => cancel.mutate()}
             disabled={cancel.isPending}
             aria-label={m.library_health_repair_stop_label()}
-            className="-my-1 size-5 shrink-0"
+            size="row"
+            className="-my-1 shrink-0"
           />
         </div>
         <Progress.Track size="sm">

@@ -92,7 +92,7 @@ export function PlaceableInspector({
         )}
         <IconButton
           className="ml-auto"
-          icon={<ArrowSquareOutIcon className="size-3.5" />}
+          icon={<ArrowSquareOutIcon />}
           onClick={showInChunk}
           label={m.workshop_bin_map_placeable_open_action()}
         />

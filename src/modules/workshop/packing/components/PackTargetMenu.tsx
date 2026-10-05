@@ -2,7 +2,6 @@ import { CaretDownIcon } from "@phosphor-icons/react";
 
 import { IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
-import { twMerge } from "@/utils";
 
 import { type PackTarget, usePackTarget, useSetPackTarget } from "../../state";
 
@@ -34,11 +33,12 @@ export function PackTargetMenu({ disabled, className }: PackTargetMenuProps) {
         render={
           <IconButton
             data-ui="PackTargetMenu"
-            icon={<CaretDownIcon className="size-3.5" />}
+            icon={<CaretDownIcon />}
             size="md"
             disabled={disabled}
             aria-label={m.workshop_pack_target_label()}
-            className={twMerge("w-auto px-1.5", className)}
+            narrow
+            className={className}
           />
         }
       />

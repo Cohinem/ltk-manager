@@ -91,7 +91,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
       aria-pressed={mod.enabled}
       aria-label={mod.displayName}
       className={twMerge(
-        "sculpted-card group relative flex h-full flex-col overflow-hidden rounded-xl border-2 shadow-concave transition-[translate,box-shadow,background-color,border-color,opacity,filter,--edge-lit-fill] duration-150 ease-out select-none",
+        "sculpted-card group group/reveal relative flex h-full flex-col overflow-hidden rounded-xl border-2 shadow-concave transition-[translate,box-shadow,background-color,border-color,opacity,filter,--edge-lit-fill] duration-150 ease-out select-none",
         "focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:outline-none",
         "hover:opacity-100 hover:saturate-100",
         dimClass,
@@ -153,13 +153,7 @@ export function ModCardGrid({ view }: { view: ModCardView }) {
         data-no-toggle
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Keyboard focus, not `group-focus-within`: clicking a card to toggle
-            it focuses the card, which left the kebab lit on every mod someone
-            had just switched on. */}
-        <ModCardMenu
-          view={view}
-          className="bg-scrim/50 opacity-0 backdrop-blur-sm group-hover:opacity-100 group-focus-visible:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
-        />
+        <ModCardMenu view={view} reveal className="bg-scrim/50 backdrop-blur-sm" />
       </div>
 
       <ModCardThumbnail

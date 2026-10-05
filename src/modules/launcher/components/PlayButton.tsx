@@ -100,10 +100,10 @@ function PendingRebuildPill() {
         <ArrowsClockwiseIcon weight="bold" className="size-3.5" />
         {m.patcher_rebuild_pending_label()}
         <IconButton
-          icon={<XIcon className="size-3" />}
+          icon={<XIcon />}
           onClick={clear}
           aria-label={m.patcher_rebuild_pending_clear_label()}
-          className="size-5"
+          size="row"
         />
       </span>
     </Tooltip>
@@ -319,11 +319,12 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
           <Menu.Trigger
             render={
               <IconButton
-                icon={<CaretDownIcon weight="bold" className="size-4" />}
+                icon={<CaretDownIcon />}
                 variant="tonal"
                 size="lg"
                 aria-label={m.library_launch_options_label()}
-                className={twMerge("w-auto px-2", blockHeight, RUNNING_SKIN)}
+                narrow
+                className={twMerge(blockHeight, RUNNING_SKIN)}
               />
             }
           />
@@ -377,12 +378,13 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
         <Menu.Trigger
           render={
             <IconButton
-              icon={<CaretDownIcon weight="bold" className="size-4" />}
+              icon={<CaretDownIcon />}
               variant="tonal"
               size="lg"
               disabled={busy}
               aria-label={m.library_launch_options_label()}
-              className={twMerge("w-auto px-2", blockHeight)}
+              narrow
+              className={blockHeight}
             />
           }
         />

@@ -59,6 +59,9 @@ export function Count({ value }: { value: number }) {
   return <TreeRowCount className="pl-2">{value.toLocaleString()}</TreeRowCount>;
 }
 
+/** Keeps a `reveal` action shown on the selected row, which the row's own keys act on. */
+export const SELECTED_ROW_ACTION = "shrink-0 group-aria-selected/row:opacity-100";
+
 /** The row's menu behind a kebab, the same list its context menu draws. DS-MENU-SCOPE. */
 export function RowKebab({ node, className }: { node: OutlineNode; className?: string }) {
   const { handlers } = useOutlineRow();
@@ -70,15 +73,13 @@ export function RowKebab({ node, className }: { node: OutlineNode; className?: s
       <Menu.Trigger
         render={
           <IconButton
-            icon={<DotsThreeVerticalIcon className="size-3.5" />}
+            icon={<DotsThreeVerticalIcon />}
             tabIndex={-1}
             aria-label={m.workshop_declarations_more_action()}
             onClick={(event) => event.stopPropagation()}
-            className={twMerge(
-              "size-5 shrink-0 opacity-0 group-hover/row:opacity-100 group-aria-selected/row:opacity-100",
-              open && "opacity-100",
-              className,
-            )}
+            size="row"
+            reveal
+            className={twMerge(SELECTED_ROW_ACTION, className)}
           />
         }
       />

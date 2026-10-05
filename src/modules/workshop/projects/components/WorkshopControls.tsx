@@ -120,13 +120,14 @@ export function WorkshopActions() {
           <Menu.Trigger
             render={
               <IconButton
-                icon={<CaretDownIcon className="size-3.5" />}
+                icon={<CaretDownIcon />}
                 variant="filled"
                 size="md"
                 loading={imports.pending || openFolder.pending}
                 aria-label={m.workshop_controls_more_label()}
                 /* A filled half carries no border to share, so the seam is the
-                   groove its own pressed state is drawn in. */ className="w-auto border-l border-accent-700 px-1"
+                   groove its own pressed state is drawn in. */ className="border-l border-accent-700"
+                narrow
               />
             }
           />

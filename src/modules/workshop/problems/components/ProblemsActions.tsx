@@ -1,7 +1,6 @@
 import { ArrowsClockwiseIcon, WrenchIcon } from "@phosphor-icons/react";
 
 import { IconButton } from "@/components";
-import { twMerge } from "@/utils";
 
 import { useFixProblems, useProjectProblems } from "../../api";
 import { useProjectContext } from "../../projects/state/ProjectContext";
@@ -32,15 +31,13 @@ export function ProblemsActions() {
           icon={<WrenchIcon />}
           loading={fix.isPending}
           onClick={handleFix}
-          className="size-6"
           label={fixTip(fixable.length)}
         />
       )}
 
       <IconButton
-        icon={<ArrowsClockwiseIcon className={twMerge("size-4", isFetching && "animate-spin")} />}
+        icon={<ArrowsClockwiseIcon className={isFetching ? "animate-spin" : undefined} />}
         onClick={() => void refetch()}
-        className="size-6"
         label="Check the project again"
       />
     </>

@@ -12,8 +12,6 @@ import { useFilteredProjects } from "../hooks/useFilteredProjects";
 import { useProjectSelectionActions } from "../hooks/useProjectSelectionActions";
 import { ProjectSelectionMenuItems } from "./ProjectCardMenuItems";
 
-const activeClass = "border-accent-500/40 bg-accent-500/15 text-accent-300 hover:bg-accent-500/20";
-
 /**
  * Selects every visible project on click, and holds the bulk actions on its caret.
  *
@@ -94,10 +92,9 @@ export function WorkshopSelectionButton() {
         variant="outline"
         size="md"
         disabled={testing || (filteredProjects.length === 0 && !hasSelection)}
-        aria-pressed={hasSelection}
+        pressed={hasSelection}
         aria-label={clearsOnClick ? "Clear selection" : "Select all projects"}
         onClick={handleToggleAll}
-        className={hasSelection ? activeClass : undefined}
         tooltip={
           <>
             {clearsOnClick ? "Clear selection" : "Select all"} <Kbd shortcut="Ctrl+A" />
@@ -111,11 +108,11 @@ export function WorkshopSelectionButton() {
           <Menu.Trigger
             render={
               <IconButton
-                icon={<CaretDownIcon className="size-3.5" />}
+                icon={<CaretDownIcon />}
                 variant="outline"
                 size="md"
                 aria-label="Bulk actions"
-                className="w-auto px-1"
+                narrow
               />
             }
           />

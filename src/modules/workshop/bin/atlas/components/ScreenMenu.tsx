@@ -101,7 +101,7 @@ export function ScreenMenu({ hud = true }: ScreenMenuProps) {
                 {m.workshop_bin_atlas_hud_value({ percent })}
               </span>
               <IconButton
-                icon={<ArrowCounterClockwiseIcon className="size-3.5" />}
+                icon={<ArrowCounterClockwiseIcon />}
                 disabled={scale === HUD_MAX}
                 onClick={() => setHud(HUD_MAX)}
                 label={m.workshop_bin_atlas_hud_reset_action()}

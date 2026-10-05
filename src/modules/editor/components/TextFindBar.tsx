@@ -57,21 +57,21 @@ export function TextFindBar({ find }: { find: TextFind }) {
       </Field.Root>
 
       <IconButton
-        icon={<CaretUpIcon className="size-3.5" />}
+        icon={<CaretUpIcon />}
         disabled={count === 0}
         onClick={find.previous}
         title={m.editor_find_previous_action()}
         aria-label={m.editor_find_previous_action()}
       />
       <IconButton
-        icon={<CaretDownIcon className="size-3.5" />}
+        icon={<CaretDownIcon />}
         disabled={count === 0}
         onClick={find.next}
         title={m.editor_find_next_action()}
         aria-label={m.editor_find_next_action()}
       />
       <IconButton
-        icon={<XIcon className="size-3.5" />}
+        icon={<XIcon />}
         onClick={find.close}
         title={m.editor_find_close_action()}
         aria-label={m.editor_find_close_action()}

@@ -1,6 +1,7 @@
+import { XIcon } from "@phosphor-icons/react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus } from "lucide-react";
 import { useRef, useState } from "react";
 import { z } from "zod";
 
@@ -151,7 +152,7 @@ export function NewProjectDialog() {
                   <IconButton
                     size="md"
                     variant="filled"
-                    icon={<X className="size-3.5" />}
+                    icon={<XIcon />}
                     className="absolute top-2 right-2 bg-surface-900/70 hover:bg-surface-900"
                     onClick={() => setSelectedThumbnailPath(null)}
                   />

@@ -156,7 +156,7 @@ export function FacetFilterPopover<F extends string>({
               size={triggerSize}
               icon={
                 <div className="relative">
-                  <FunnelIcon weight="bold" className="size-4" />
+                  <FunnelIcon />
                   {hasActive && (
                     <span className="absolute -top-1 -right-1 size-2 rounded-full bg-accent-500" />
                   )}

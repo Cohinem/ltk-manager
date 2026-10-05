@@ -105,7 +105,7 @@ export function ShapeInViewButton({ id }: { id: string }) {
       pressed={pressed}
       disabled={own === undefined}
       className="nodrag shrink-0"
-      icon={<CubeTransparentIcon className="size-3.5" />}
+      icon={<CubeTransparentIcon />}
       onClick={() => {
         if (own === undefined) return;
         if (pressed) {

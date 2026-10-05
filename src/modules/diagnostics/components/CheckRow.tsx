@@ -1,4 +1,5 @@
-import { Copy, ShieldUser } from "lucide-react";
+import { CopyIcon } from "@phosphor-icons/react";
+import { ShieldUser } from "lucide-react";
 
 import { Button, Disclosure, IconButton, Properties, Property, useToast } from "@/components";
 import { errorSummary } from "@/i18n";
@@ -93,7 +94,7 @@ export function CheckRow({ check }: { check: Check }) {
               </span>
               <div className="flex items-center gap-1">
                 <IconButton
-                  icon={<Copy className="size-3.5" />}
+                  icon={<CopyIcon />}
                   size="md"
                   onClick={copyCommand}
                   aria-label="Copy command"

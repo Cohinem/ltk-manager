@@ -43,7 +43,7 @@ export function AddMenu({ label, sections }: { label: string; sections: readonly
             aria-label={label}
             title={label}
             className="nodrag ml-auto shrink-0"
-            icon={<PlusIcon className="size-3.5" />}
+            icon={<PlusIcon />}
           />
         }
       />

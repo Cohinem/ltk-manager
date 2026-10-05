@@ -124,9 +124,9 @@ export function ContentSidebar({
             <ContentOptions />
           </SectionSettings>
           <IconButton
-            icon={<PlusIcon className="size-3.5" />}
+            icon={<PlusIcon />}
             onClick={() => setCreateOpen(true)}
-            className="size-5"
+            size="row"
             label="Add layer"
           />
         </>
@@ -229,13 +229,7 @@ function SectionSettings({ label, children }: SectionSettingsProps) {
     <Popover.Root>
       <Tooltip content={label}>
         <Popover.Trigger
-          render={
-            <IconButton
-              icon={<GearSixIcon className="size-3.5" />}
-              aria-label={label}
-              className="size-5"
-            />
-          }
+          render={<IconButton icon={<GearSixIcon />} aria-label={label} size="row" />}
         />
       </Tooltip>
       <Popover.Content

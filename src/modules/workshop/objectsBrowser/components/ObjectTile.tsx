@@ -100,7 +100,7 @@ function ObjectTileInner({
       aria-colindex={column + 1}
       data-ui="ObjectTile"
       data-tile-index={index}
-      className="group relative min-w-0"
+      className="group group/reveal relative min-w-0"
       style={{ width }}
       onContextMenu={() => onMenu(index)}
     >
@@ -239,11 +239,12 @@ function ExpandButton({ index, expanded, onExpand }: ExpandButtonProps) {
         const wasOpen = event.detail === 0 ? expanded : openAtPress.current;
         onExpand(wasOpen ? null : index);
       }}
+      reveal
       className={twMerge(
-        "pointer-events-auto rounded-sm bg-scrim text-surface-200 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-scrim hover:text-surface-50",
-        expanded && "text-accent-300 opacity-100",
+        "pointer-events-auto rounded-sm bg-scrim text-surface-200 hover:bg-scrim hover:text-surface-50",
+        expanded && "text-accent-300",
       )}
-      icon={<Glyph weight="bold" className="size-3.5" />}
+      icon={<Glyph />}
       tooltip={hint}
     />
   );
