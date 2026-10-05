@@ -71,11 +71,41 @@ function Task() {
   );
 }
 
+function Stack() {
+  const toast = useToast();
+
+  return (
+    <>
+      <Button
+        variant="outline"
+        onClick={() => {
+          for (const title of ["First", "Second", "Third", "Fourth", "Fifth"]) {
+            toast.info(title, "The oldest closes for the fifth.");
+          }
+        }}
+      >
+        Five timed
+      </Button>
+      <Button
+        variant="outline"
+        onClick={() => {
+          for (const title of ["First", "Second", "Third", "Fourth", "Fifth"]) {
+            toast.error(`${title} failure`, "The oldest goes to the notification center.");
+          }
+        }}
+      >
+        Five errors
+      </Button>
+    </>
+  );
+}
+
 const entry: GalleryEntry = {
   name: "Toast",
   family: "feedback",
   cases: [
-    { name: "Types", render: () => <Types /> },
+    { name: "Types. An error stays until it is dismissed", render: () => <Types /> },
+    { name: "Four at most", render: () => <Stack /> },
     { name: "Actions", render: () => <Actions /> },
     { name: "Task", render: () => <Task /> },
   ],

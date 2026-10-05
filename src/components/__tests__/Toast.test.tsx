@@ -3,9 +3,11 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type ToastTask, useToast } from "../Toast";
+import { useNotificationsStore } from "@/stores/notifications";
+
+import { type ToastData, type ToastTask, toastToEvict, useToast } from "../Toast";
 import { ToastProvider } from "../ToastProvider";
 
 /** Raises one toast on mount, which is how every caller reaches the manager. */
@@ -59,6 +61,129 @@ describe("ToastItem", () => {
     expect(line()).toBeInTheDocument();
 
     await waitFor(() => expect(line()).not.toBeInTheDocument(), { timeout: 3000 });
+  });
+});
+
+/** Raises whatever `raiseAll` raises, from one button under the provider. */
+async function raiseWith(raiseAll: (toast: ReturnType<typeof useToast>) => void) {
+  function Raiser() {
+    const toast = useToast();
+    return (
+      <button type="button" onClick={() => raiseAll(toast)}>
+        Raise
+      </button>
+    );
+  }
+  const user = userEvent.setup();
+  render(
+    <ToastProvider>
+      <Raiser />
+    </ToastProvider>,
+  );
+  await user.click(screen.getByRole("button", { name: "Raise" }));
+  return user;
+}
+
+const countdowns = () => document.querySelectorAll("[data-toast-countdown]");
+
+describe("the toast stack", () => {
+  beforeEach(() => useNotificationsStore.getState().dismissAll());
+
+  it("gives an error no countdown, so it stays until it is dismissed", async () => {
+    const user = await raiseWith((toast) => {
+      toast.error("Install failed");
+      toast.success("Mod installed");
+    });
+
+    expect(await screen.findByText("Install failed")).toBeInTheDocument();
+    expect(countdowns()).toHaveLength(1);
+
+    /* Base UI hides the close buttons from the accessibility tree until the stack is entered. */
+    const [dismissError] = screen.getAllByLabelText("Close").slice(-1);
+    await user.click(dismissError as HTMLElement);
+    await waitFor(() => expect(screen.queryByText("Install failed")).not.toBeInTheDocument());
+  });
+
+  it("holds every countdown while the pointer is on one toast", async () => {
+    const user = await raiseWith((toast) => {
+      toast.toast({ title: "First", timeout: 300 });
+      toast.toast({ title: "Second", timeout: 300 });
+    });
+
+    await user.hover(await screen.findByText("First"));
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    expect(screen.getByText("First")).toBeInTheDocument();
+    expect(screen.getByText("Second")).toBeInTheDocument();
+
+    await user.unhover(screen.getByText("First"));
+    await waitFor(() => expect(screen.queryByText("Second")).not.toBeInTheDocument(), {
+      timeout: 3000,
+    });
+    expect(screen.queryByText("First")).not.toBeInTheDocument();
+  });
+
+  it("closes the oldest timed toast for a fifth", async () => {
+    await raiseWith((toast) => {
+      toast.error("Kept error");
+      for (const title of ["One", "Two", "Three", "Four"]) {
+        toast.toast({ title, timeout: 60_000 });
+      }
+    });
+
+    await waitFor(() => expect(screen.queryByText("One")).not.toBeInTheDocument());
+    for (const title of ["Kept error", "Two", "Three", "Four"]) {
+      expect(screen.getByText(title)).toBeInTheDocument();
+    }
+    expect(useNotificationsStore.getState().notifications).toHaveLength(0);
+  });
+
+  it("closes the oldest error where all four stay, and records it", async () => {
+    await raiseWith((toast) => {
+      for (const title of ["First failure", "Second", "Third", "Fourth", "Fifth"]) {
+        toast.error(title, "The archive could not be read.");
+      }
+    });
+
+    await waitFor(() => expect(screen.queryByText("First failure")).not.toBeInTheDocument());
+    expect(screen.getByText("Fifth")).toBeInTheDocument();
+    expect(useNotificationsStore.getState().notifications).toEqual([
+      expect.objectContaining({
+        title: "First failure",
+        description: "The archive could not be read.",
+        type: "error",
+      }),
+    ]);
+  });
+});
+
+describe("toastToEvict", () => {
+  const live = (id: string, data: ToastData, ending = false) =>
+    ({ id, data, transitionStatus: ending ? "ending" : undefined }) as Parameters<
+      typeof toastToEvict
+    >[0][number];
+
+  it("names nothing while the toasts fit", () => {
+    expect(
+      toastToEvict([live("b", { timeout: 5000 }), live("a", { timeout: 5000 })], 2),
+    ).toBeNull();
+  });
+
+  it("does not count a toast that is already leaving", () => {
+    const toasts = [live("c", {}), live("b", {}, true), live("a", {})];
+
+    expect(toastToEvict(toasts, 2)).toBeNull();
+  });
+
+  it("never closes a running task for room", () => {
+    const toasts = [live("c", {}), live("b", { progress: 40 }), live("a", { progress: 10 })];
+
+    expect(toastToEvict(toasts, 2)).toBeNull();
+  });
+
+  it("prefers a timed toast to an older one that stays", () => {
+    const toasts = [live("c", {}), live("b", { timeout: 5000 }), live("a", {})];
+
+    expect(toastToEvict(toasts, 2)?.id).toBe("b");
   });
 });
 

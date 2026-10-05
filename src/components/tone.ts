@@ -1,3 +1,11 @@
+import {
+  CheckCircleIcon,
+  type Icon,
+  InfoIcon,
+  WarningIcon,
+  XCircleIcon,
+} from "@phosphor-icons/react";
+
 /**
  * The status a component reports: DS-TONE.
  *
@@ -13,4 +21,13 @@ export const statusText: Record<StatusTone, string> = {
   success: "text-success-text",
   warning: "text-warning-text",
   danger: "text-danger-text",
+};
+
+/** The tone's glyph, which a component draws at the duotone weight. */
+export const statusGlyph: Record<StatusTone, Icon> = {
+  neutral: InfoIcon,
+  info: InfoIcon,
+  success: CheckCircleIcon,
+  warning: WarningIcon,
+  danger: XCircleIcon,
 };
