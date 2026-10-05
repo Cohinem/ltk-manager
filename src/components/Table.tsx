@@ -11,7 +11,7 @@ export const TableRoot = forwardRef<HTMLTableElement, ComponentPropsWithoutRef<"
   ({ className, ...props }, ref) => (
     <table
       ref={ref}
-      className={twMerge("w-full border-separate border-spacing-0 text-sm", className)}
+      className={twMerge("w-full border-separate border-spacing-0 text-row", className)}
       {...props}
     />
   ),
@@ -44,7 +44,7 @@ export const TableHead = forwardRef<HTMLTableCellElement, ComponentPropsWithoutR
     <th
       ref={ref}
       className={twMerge(
-        "border-b border-surface-700 bg-surface-800 px-3 py-2 text-left align-middle text-xs font-medium text-surface-400",
+        "border-b border-surface-700 bg-surface-800 px-2.5 py-2 text-left align-middle text-xs font-medium text-surface-400",
         className,
       )}
       {...props}
@@ -58,7 +58,7 @@ export const TableCell = forwardRef<HTMLTableCellElement, ComponentPropsWithoutR
   ({ className, ...props }, ref) => (
     <td
       ref={ref}
-      className={twMerge("border-b border-surface-700/40 px-3 py-2 align-top", className)}
+      className={twMerge("border-b border-surface-700/40 px-2.5 py-2 align-top", className)}
       {...props}
     />
   ),
@@ -86,7 +86,7 @@ export const TableSortButton = forwardRef<HTMLButtonElement, TableSortButtonProp
         ref={ref}
         type="button"
         className={twMerge(
-          "inline-flex items-center gap-1 rounded-sm transition-colors hover:text-surface-200",
+          "group/sort inline-flex cursor-pointer items-center gap-1 rounded-sm transition-colors hover:text-surface-200",
           focusRing,
           direction && "text-surface-200",
           className,
@@ -96,7 +96,12 @@ export const TableSortButton = forwardRef<HTMLButtonElement, TableSortButtonProp
         {children}
         <Icon
           weight="bold"
-          className={twMerge("size-3.5", direction ? "text-accent-400" : "text-surface-500")}
+          className={twMerge(
+            "shrink-0",
+            direction && "size-3.5 text-accent-400",
+            !direction &&
+              "size-3 text-surface-500 opacity-0 transition-opacity group-hover/sort:opacity-100 group-focus-visible/sort:opacity-100",
+          )}
         />
       </button>
     );
@@ -104,7 +109,12 @@ export const TableSortButton = forwardRef<HTMLButtonElement, TableSortButtonProp
 );
 TableSortButton.displayName = "Table.SortButton";
 
-// Compound export
+/**
+ * The parts of a native table, for rows a reader compares down a column.
+ *
+ * `DataTable` adds sorting and a column model over these parts. A table whose reader arranges
+ * its columns, groups its rows and picks them is the arranged table.
+ */
 export const Table = {
   Root: TableRoot,
   Header: TableHeader,
