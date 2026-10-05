@@ -161,7 +161,7 @@ function MissileSetup({
           >
             <Select.Trigger
               aria-label={m.workshop_missile_effect_label()}
-              className="h-8 min-w-0 flex-1 gap-2 bg-surface-900 px-2 text-meta"
+              className="min-w-0 flex-1 bg-surface-900"
             >
               <Select.Value
                 className="min-w-0 truncate"

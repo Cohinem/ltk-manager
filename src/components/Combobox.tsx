@@ -1,10 +1,10 @@
 import { Combobox as BaseCombobox } from "@base-ui/react/combobox";
-import { Check, ChevronDown, X } from "lucide-react";
+import { CaretDownIcon, CheckIcon, XIcon } from "@phosphor-icons/react";
 import { forwardRef, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
-import { focusField } from "./focus";
+import { fieldFrame, type FieldSize, fieldSizeClasses } from "./fieldFrame";
 
 // Re-export the filter hook for consumers
 export const useComboboxFilter = BaseCombobox.useFilter;
@@ -29,25 +29,21 @@ export function ComboboxRoot<Value = string, Multiple extends boolean | undefine
 ComboboxRoot.displayName = "Combobox.Root";
 
 // Input
-export interface ComboboxInputProps extends Omit<BaseCombobox.Input.Props, "className"> {
-  className?: string;
+export interface ComboboxInputProps extends Omit<BaseCombobox.Input.Props, "className" | "size"> {
+  /** `md`, 32px, unless told otherwise. */
+  size?: FieldSize;
+  /** Marks an input standing outside a `Field.Root` invalid. */
   hasError?: boolean;
+  className?: string;
 }
 
 export const ComboboxInput = forwardRef<HTMLInputElement, ComboboxInputProps>(
-  ({ className, hasError, ...props }, ref) => {
+  ({ size = "md", className, hasError, ...props }, ref) => {
     return (
       <BaseCombobox.Input
         ref={ref}
-        className={twMerge(
-          "h-8 w-full rounded-md border px-4 py-1 text-sm transition-colors",
-          "bg-surface-700 text-surface-50 placeholder:text-surface-400",
-          "border-surface-500 hover:border-accent-hover",
-          focusField,
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          hasError && "border-danger focus:border-danger focus:ring-danger",
-          className,
-        )}
+        {...(hasError && { "aria-invalid": true })}
+        className={twMerge(fieldFrame, fieldSizeClasses[size], className)}
         {...props}
       />
     );
@@ -89,7 +85,7 @@ export const ComboboxIcon = forwardRef<HTMLDivElement, ComboboxIconProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseCombobox.Icon ref={ref} className={twMerge("text-surface-400", className)} {...props}>
-        <ChevronDown className="size-4" />
+        <CaretDownIcon weight="bold" className="size-3.5" />
       </BaseCombobox.Icon>
     );
   },
@@ -235,7 +231,7 @@ export const ComboboxItem = forwardRef<HTMLDivElement, ComboboxItemProps>(
         {...props}
       >
         <BaseCombobox.ItemIndicator className="inline-flex size-4 shrink-0 items-center justify-center">
-          <Check className="size-3.5" />
+          <CheckIcon weight="bold" className="size-3.5" />
         </BaseCombobox.ItemIndicator>
         {children}
       </BaseCombobox.Item>
@@ -283,7 +279,7 @@ export const ComboboxClear = forwardRef<HTMLButtonElement, ComboboxClearProps>(
         )}
         {...props}
       >
-        {children ?? <X className="size-4" />}
+        {children ?? <XIcon weight="bold" className="size-4" />}
       </BaseCombobox.Clear>
     );
   },
@@ -359,7 +355,7 @@ export const ComboboxChipRemove = forwardRef<HTMLButtonElement, ComboboxChipRemo
         )}
         {...props}
       >
-        {children ?? <X className="size-3" />}
+        {children ?? <XIcon weight="bold" className="size-3" />}
       </BaseCombobox.ChipRemove>
     );
   },
@@ -454,98 +450,9 @@ export const Combobox = {
   Status: ComboboxStatus,
 };
 
-// --- Simplified ComboboxField for common use cases ---
-
+/** One entry of a flat option list. */
 export interface ComboboxOption {
   value: string;
   label: string;
   disabled?: boolean;
 }
-
-export interface ComboboxFieldProps {
-  label?: string;
-  description?: string;
-  error?: string;
-  required?: boolean;
-  placeholder?: string;
-  options: ComboboxOption[];
-  value?: string;
-  defaultValue?: string;
-  onValueChange?: (value: string | null) => void;
-  disabled?: boolean;
-  name?: string;
-  className?: string;
-  inputClassName?: string;
-}
-
-export function ComboboxField({
-  label,
-  description,
-  error,
-  required,
-  placeholder,
-  options,
-  value,
-  defaultValue,
-  onValueChange,
-  disabled,
-  name,
-  className,
-  inputClassName,
-}: ComboboxFieldProps) {
-  const filter = useComboboxFilter();
-
-  const selectedOption = value != null ? options.find((o) => o.value === value) : undefined;
-  const defaultOption =
-    defaultValue != null ? options.find((o) => o.value === defaultValue) : undefined;
-
-  return (
-    <div className={twMerge("flex flex-col gap-1.5", className)}>
-      {label && (
-        <label className="text-sm font-medium text-surface-200">
-          {label}
-          {required && <span className="ml-1 text-required">*</span>}
-        </label>
-      )}
-      {description && <p className="text-xs text-surface-400">{description}</p>}
-      <ComboboxRoot<ComboboxOption>
-        value={selectedOption}
-        defaultValue={defaultOption}
-        onValueChange={(opt) => onValueChange?.(opt?.value ?? null)}
-        disabled={disabled}
-        name={name}
-        items={options}
-        filter={(item, query) => filter.contains(item, query, (o) => o.label)}
-        itemToStringLabel={(item) => item.label}
-        itemToStringValue={(item) => item.value}
-      >
-        <div className="relative">
-          <ComboboxInput
-            placeholder={placeholder}
-            hasError={!!error}
-            className={twMerge("pr-8", inputClassName)}
-          />
-          <ComboboxTrigger className="absolute top-0 right-0 flex h-full items-center pr-3">
-            <ComboboxIcon />
-          </ComboboxTrigger>
-        </div>
-        <ComboboxPortal>
-          <ComboboxPositioner>
-            <ComboboxPopup>
-              <ComboboxList>
-                {(item: ComboboxOption) => (
-                  <ComboboxItem key={item.value} value={item} disabled={item.disabled}>
-                    {item.label}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-              <ComboboxEmpty />
-            </ComboboxPopup>
-          </ComboboxPositioner>
-        </ComboboxPortal>
-      </ComboboxRoot>
-      {error && <p className="text-xs text-danger-text">{error}</p>}
-    </div>
-  );
-}
-ComboboxField.displayName = "ComboboxField";

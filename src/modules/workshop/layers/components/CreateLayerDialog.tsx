@@ -119,7 +119,7 @@ export function CreateLayerDialog({
                   onBlur={field.handleBlur}
                   hasError={field.state.meta.errors.length > 0}
                   placeholder="high-res-textures"
-                  className="font-mono text-sm text-surface-300"
+                  className="font-mono text-surface-300"
                 />
                 <Field.Description>
                   <span className="flex items-start gap-1.5 text-xs">

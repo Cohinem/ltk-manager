@@ -216,7 +216,7 @@ export function NewProjectDialog() {
                       onBlur={field.handleBlur}
                       hasError={field.state.meta.errors.length > 0}
                       placeholder="my-awesome-mod"
-                      className="text-sm text-surface-300"
+                      className="text-surface-300"
                     />
                     <Field.Description>
                       <span className="text-xs">

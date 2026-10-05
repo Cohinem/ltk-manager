@@ -5,7 +5,7 @@ import { type ReactNode } from "react";
 import { twMerge } from "@/utils";
 
 import { IconButton } from "./Button";
-import { FieldAffix, fieldAffixButtonClass } from "./FieldAffix";
+import { FieldAffix } from "./FieldAffix";
 import { Field } from "./FormField";
 
 /** What the browse button opens a picker for. */
@@ -28,7 +28,7 @@ interface PathFieldBaseProps {
   /** Heading on the native picker window. */
   dialogTitle?: string;
   description?: ReactNode;
-  /** Message below the field. */
+  /** Message below the field, which also marks the input invalid. */
   error?: ReactNode;
   validity?: PathValidity;
   display?: PathDisplay;
@@ -104,12 +104,11 @@ export function PathField({
 
   const hint = browseHint[pick];
   const shown = value && display === "name" ? basename(value) : (value ?? "");
-  const icon = browseIcon ?? <FolderOpenIcon weight="bold" className="size-5" />;
+  const icon = browseIcon ?? <FolderOpenIcon />;
   const canClear = !!onClear && !!value;
 
   return (
-    <Field.Root className={className}>
-      {label && <Field.Label>{label}</Field.Label>}
+    <Field.Root label={label} description={description} error={error} className={className}>
       <div className="flex items-center gap-2">
         <div className="relative flex min-w-0 flex-1 items-center">
           <Field.Control
@@ -127,28 +126,12 @@ export function PathField({
                 {validityIcon[validity]}
               </span>
             )}
-            {canClear && (
-              <IconButton
-                icon={<XIcon className="size-5" />}
-                size="sm"
-                onClick={onClear}
-                className={fieldAffixButtonClass}
-                label="Clear"
-              />
-            )}
-            <IconButton
-              icon={icon}
-              size="sm"
-              onClick={handleBrowse}
-              className={fieldAffixButtonClass}
-              label={hint}
-            />
+            {canClear && <IconButton icon={<XIcon />} size="lg" onClick={onClear} label="Clear" />}
+            <IconButton icon={icon} size="lg" onClick={handleBrowse} label={hint} />
           </FieldAffix>
         </div>
         {actions}
       </div>
-      {description && <Field.Description>{description}</Field.Description>}
-      {error && <p className="text-xs text-danger-text">{error}</p>}
     </Field.Root>
   );
 }

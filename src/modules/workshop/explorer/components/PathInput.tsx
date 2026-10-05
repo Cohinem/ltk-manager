@@ -102,7 +102,8 @@ export function PathInput({ location, useCompletions, onCommit, onCancel }: Path
           aria-label={m.workshop_explorer_location_label()}
           spellCheck={false}
           autoComplete="off"
-          className="h-7 w-full font-mono text-code"
+          size="sm"
+          className="font-mono text-code"
         />
       </Field.Root>
 

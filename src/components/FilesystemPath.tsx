@@ -49,7 +49,8 @@ export function FilesystemPath({
         aria-label={ariaLabel}
         title={displayedPath}
         spellCheck={false}
-        className="h-7 min-w-0 pr-9 pl-9 font-mono text-code select-text"
+        size="sm"
+        className="min-w-0 pr-9 pl-9 font-mono text-code select-text"
       />
       <span
         aria-hidden="true"
@@ -61,7 +62,6 @@ export function FilesystemPath({
         <IconButton
           icon={<FolderOpenIcon />}
           size="sm"
-          className="h-full rounded-none"
           onClick={() => revealPath(value)}
           label={m.common_path_open_action()}
         />

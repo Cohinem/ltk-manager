@@ -98,7 +98,8 @@ export function ClipTabs() {
     <div className="flex flex-wrap items-center gap-2">
       {tab === "clips" && (
         <Field.Control
-          className="h-6 w-40 px-2 font-sans text-meta"
+          size="xs"
+          className="w-40 font-sans"
           aria-label={m.workshop_bin_clip_filter_label()}
           placeholder={m.workshop_bin_clip_filter_placeholder()}
           value={filter}

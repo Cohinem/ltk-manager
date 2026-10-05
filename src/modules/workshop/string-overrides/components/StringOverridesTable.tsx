@@ -176,7 +176,7 @@ function ComposerRow({ seed, onCommit }: ComposerRowProps) {
    a field and a long one never scrolls inside itself. Enter commits, and
    Shift+Enter is the newline. The padding makes one text-sm line plus borders
    exactly min-h-8, because a textarea top-aligns whatever slack is left. */
-const GROWING_TEXTAREA = "field-sizing-content min-h-8 resize-none px-4 py-[5px]";
+const GROWING_TEXTAREA = "field-sizing-content min-h-8 resize-none py-[5px]";
 
 interface OverrideRowProps {
   entry: OverrideEntry;
@@ -339,7 +339,7 @@ function ValueCell({ entry, original, onUpdate }: ValueCellProps) {
   return (
     <>
       <TextareaField
-        textareaClassName={twMerge(GROWING_TEXTAREA, "px-2.5")}
+        textareaClassName={GROWING_TEXTAREA}
         rows={1}
         value={draft}
         autoFocus

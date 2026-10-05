@@ -249,7 +249,8 @@ function CharacterPicker({ document }: { document: BinDocumentId }) {
         <Combobox.Input
           aria-label={m.workshop_bin_atlas_tooltip_character_label()}
           placeholder={m.workshop_bin_atlas_tooltip_character_placeholder()}
-          className="h-7 pr-8 pl-7 text-meta"
+          size="sm"
+          className="pr-8 pl-7"
         />
         <Combobox.Trigger className="absolute top-0 right-0 flex h-full items-center pr-2.5">
           <Combobox.Icon />

@@ -77,11 +77,8 @@ export function SearchField({
           aria-label={label}
           autoComplete="off"
           spellCheck={false}
-          className={twMerge(
-            "h-6 pl-7 select-text",
-            textClassName,
-            onRegexChange ? "pr-14" : "pr-7",
-          )}
+          size="xs"
+          className={twMerge("pl-7 select-text", textClassName, onRegexChange ? "pr-14" : "pr-7")}
         />
         <span className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
           {value && (

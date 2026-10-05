@@ -8,8 +8,7 @@ const entry: GalleryEntry = {
     {
       name: "Cards",
       render: () => (
-        <RadioGroup.Root defaultValue="modpkg" className="w-full max-w-xl">
-          <RadioGroup.Label>Output format</RadioGroup.Label>
+        <RadioGroup.Root label="Output format" defaultValue="modpkg" className="w-full max-w-xl">
           <RadioGroup.Options>
             <RadioGroup.Card value="modpkg" title=".modpkg" description="Layers and metadata" />
             <RadioGroup.Card value="fantome" title=".fantome" description="Legacy format" />
@@ -21,7 +20,7 @@ const entry: GalleryEntry = {
     {
       name: "Items",
       render: () => (
-        <RadioGroup.Root defaultValue="system">
+        <RadioGroup.Root label="Theme" defaultValue="system">
           <RadioGroup.Options orientation="vertical">
             <RadioGroup.Item value="system" label="System" description="Follows the OS" />
             <RadioGroup.Item value="dark" label="Dark" />

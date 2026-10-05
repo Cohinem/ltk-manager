@@ -76,7 +76,8 @@ export function ProfileListItem({
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="h-7 flex-1 px-2 py-1 text-sm"
+          size="sm"
+          className="flex-1"
           placeholder="Profile name..."
         />
         <IconButton

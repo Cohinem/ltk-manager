@@ -49,7 +49,7 @@ export function ConditionBar({
           if (accent !== null) onConditionsChange({ ...conditions, accent });
         }}
       >
-        <Select.Trigger aria-label="Accent" className="h-7 w-40 gap-2 px-2.5">
+        <Select.Trigger aria-label="Accent" size="sm" className="w-40">
           <Select.Value prefix="Accent" />
           <Select.Icon />
         </Select.Trigger>

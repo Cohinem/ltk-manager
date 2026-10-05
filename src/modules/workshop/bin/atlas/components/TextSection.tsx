@@ -128,7 +128,8 @@ function FontPicker({ fonts, value, drawn, disabled, onPick }: FontPickerProps) 
         <Combobox.Input
           aria-label={m.workshop_bin_atlas_font_label()}
           placeholder={value === null && drawn !== null ? leafOfPath(drawn) : undefined}
-          className="h-7 pr-7 text-meta"
+          size="sm"
+          className="pr-7"
         />
         <Combobox.Trigger className="absolute top-0 right-0 flex h-full items-center pr-2">
           <Combobox.Icon />
@@ -211,7 +212,8 @@ function NewFontButton({ suggested, onCreate }: NewFontButtonProps) {
             }}
             autoComplete="off"
             spellCheck={false}
-            className="h-7 px-2 font-mono text-meta select-text"
+            size="sm"
+            className="font-mono select-text"
           />
         </Field.Root>
         <p className="text-meta text-surface-400">{m.workshop_bin_atlas_font_new_hint()}</p>

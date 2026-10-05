@@ -57,12 +57,10 @@ function sortOptions(): SortOption<SortField>[] {
 
 interface FilterPopoverProps {
   filterOptions: FilterOptions;
-  /** Merged onto the trigger, so the caller can seat it inside a field. */
-  className?: string;
 }
 
 /** How the library is sorted, and which mods it shows. */
-export function FilterPopover({ filterOptions, className }: FilterPopoverProps) {
+export function FilterPopover({ filterOptions }: FilterPopoverProps) {
   const hasActive = useHasActiveFilters();
 
   return (
@@ -72,7 +70,6 @@ export function FilterPopover({ filterOptions, className }: FilterPopoverProps) 
       sortOptions={sortOptions()}
       hasActive={hasActive}
       triggerLabel={m.library_filter_trigger_label()}
-      triggerClassName={className}
       triggerSize="md"
     />
   );

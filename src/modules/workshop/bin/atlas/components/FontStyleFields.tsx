@@ -63,7 +63,7 @@ export function FontStyleFields({
             if (face !== null && face !== font.typeData) apply([fontFaceEdit(font.entry, face)]);
           }}
         >
-          <Select.Trigger aria-label={label} className="h-7 min-w-0 flex-1 gap-1 px-2 text-meta">
+          <Select.Trigger aria-label={label} size="sm" className="min-w-0 flex-1 gap-1">
             <Select.Value className="truncate">
               {(entry: string) => faceLabel(faces.find((face) => face.entry === entry))}
             </Select.Value>

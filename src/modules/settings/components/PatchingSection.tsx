@@ -236,7 +236,7 @@ function KeepIncidentsField({ value, onCommit }: KeepIncidentsFieldProps) {
       onBlur={commit}
       onKeyDown={handleKeyDown}
       aria-label="Keep incidents"
-      className="w-20 px-2.5 text-right tabular-nums"
+      className="w-20 text-right tabular-nums"
     />
   );
 }
