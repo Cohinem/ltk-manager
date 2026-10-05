@@ -64,12 +64,12 @@ function MissingProjectCard({ folder }: { folder: OpenedProjectFolder }) {
         {m.workshop_folder_missing_label()}
       </p>
       <div className="mt-1 flex gap-2">
-        <Button variant="outline" size="xs" loading={relocate.isPending} onClick={handleLocate}>
+        <Button variant="outline" size="sm" loading={relocate.isPending} onClick={handleLocate}>
           {m.workshop_folder_locate_action()}
         </Button>
         <Button
           variant="ghost"
-          size="xs"
+          size="sm"
           loading={forget.isPending}
           onClick={() => forget.mutate(folder.path)}
         >

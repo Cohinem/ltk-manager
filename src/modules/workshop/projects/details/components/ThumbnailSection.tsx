@@ -70,7 +70,6 @@ export function ThumbnailSection({ project }: ThumbnailSectionProps) {
             render={
               <Button
                 variant="outline"
-                size="sm"
                 left={<Pencil className="size-3.5" />}
                 loading={setThumbnail.isPending || removeThumbnail.isPending}
               >
@@ -95,7 +94,6 @@ export function ThumbnailSection({ project }: ThumbnailSectionProps) {
       ) : (
         <Button
           variant="outline"
-          size="sm"
           left={<Image className="size-4" />}
           onClick={handleSetThumbnail}
           loading={setThumbnail.isPending}

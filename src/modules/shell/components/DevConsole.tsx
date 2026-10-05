@@ -98,14 +98,14 @@ export function DevConsole() {
         <span className="ml-auto text-xs text-surface-500">{filteredEntries.length} entries</span>
 
         <IconButton
-          compact={false}
+          size="sm"
           icon={<Trash2 className="size-3.5" />}
           onClick={clear}
           className="text-surface-400 hover:text-surface-200"
           label="Clear console"
         />
         <IconButton
-          compact={false}
+          size="sm"
           icon={<X className="size-3.5" />}
           onClick={toggle}
           className="text-surface-400 hover:text-surface-200"

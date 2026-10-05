@@ -134,7 +134,7 @@ export function ProjectCard({ project, onEdit, tabIndex }: ProjectCardProps) {
           </div>
         </div>
         <div onClick={(e) => e.stopPropagation()}>
-          <ProjectKebab project={project} onEdit={onEdit} compact />
+          <ProjectKebab project={project} onEdit={onEdit} />
         </div>
       </div>
     </ProjectCardContextMenu>

@@ -152,7 +152,6 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
           ) : (
             <Button
               variant="outline"
-              size="sm"
               left={<Keyboard className="size-3.5" />}
               onClick={() => startCapture()}
               loading={isPending}
@@ -163,9 +162,8 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
 
           {value && !isCapturing && (
             <IconButton
-              compact={false}
               variant="outline"
-              size="sm"
+              size="md"
               icon={<X className="size-3.5" />}
               onClick={handleClear}
               loading={isPending}

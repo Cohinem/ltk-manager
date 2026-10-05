@@ -26,7 +26,6 @@ export function ShowMenu() {
           <Button
             variant="ghost"
             size="xs"
-            compact
             left={<EyeIcon weight="bold" className="size-4" />}
             right={<CaretDownIcon weight="bold" className="size-3" />}
           >

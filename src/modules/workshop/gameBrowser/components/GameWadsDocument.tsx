@@ -175,7 +175,7 @@ function ArchiveList({ wads, filtered, onClearFilter }: ArchiveListProps) {
         title="No match"
         description="No archive of the install carries that name."
         action={
-          <Button variant="outline" size="xs" onClick={onClearFilter}>
+          <Button variant="outline" size="sm" onClick={onClearFilter}>
             Clear filter
           </Button>
         }

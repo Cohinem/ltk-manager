@@ -76,17 +76,11 @@ function Cover({ mod }: { mod: InstalledMod }) {
 function Actions({ mod, onEdit }: { mod: InstalledMod; onEdit: () => void }) {
   return (
     <Section className="flex items-center gap-1 px-2 py-1.5">
-      <Button
-        variant="ghost"
-        size="sm"
-        left={<PencilSimpleIcon className="size-4" />}
-        onClick={onEdit}
-      >
+      <Button variant="ghost" left={<PencilSimpleIcon className="size-4" />} onClick={onEdit}>
         {m.library_details_edit_action()}
       </Button>
       <Button
         variant="ghost"
-        size="sm"
         left={<FolderOpenIcon className="size-4" />}
         onClick={() => revealPath(mod.modDir)}
       >
@@ -197,7 +191,7 @@ function WadReport({ modId }: { modId: string }) {
     return (
       <div className="flex flex-col items-start gap-2">
         <p className="text-meta text-surface-400">{m.library_details_wads_failed_description()}</p>
-        <Button variant="outline" size="sm" loading={isPending} onClick={() => analyze(modId)}>
+        <Button variant="outline" loading={isPending} onClick={() => analyze(modId)}>
           <ArrowsClockwiseIcon className="size-4" weight="bold" />
           {m.library_details_wads_retry_action()}
         </Button>
@@ -241,7 +235,6 @@ function WadReport({ modId }: { modId: string }) {
 
       <Button
         variant="outline"
-        size="sm"
         loading={isPending}
         onClick={() => analyze(modId)}
         className="self-start"

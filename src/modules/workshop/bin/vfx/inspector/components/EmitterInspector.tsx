@@ -304,7 +304,7 @@ function ChildBanner({ child }: { child: ChildChoice }) {
         actions={
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             disabled={entry === null}
             onClick={() => entry !== null && wantOpen(entry, "default")}
           >

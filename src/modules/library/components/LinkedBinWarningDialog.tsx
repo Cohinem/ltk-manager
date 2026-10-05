@@ -123,7 +123,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
           </p>
         </Dialog.Body>
         <Dialog.Footer>
-          <Button variant="filled" onClick={onClose}>
+          <Button size="lg" variant="filled" onClick={onClose}>
             Close
           </Button>
         </Dialog.Footer>
@@ -169,9 +169,8 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
               <span className={OVERLINE}>{sectionLabel}</span>
               {isMulti && (
                 <Button
-                  variant="transparent"
+                  variant="ghost"
                   size="xs"
-                  compact
                   className="text-accent-400 hover:text-accent-300"
                   onClick={toggleAll}
                 >
@@ -255,10 +254,17 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
       </Dialog.Body>
 
       <Dialog.Footer className="justify-end">
-        <Button variant="ghost" className="text-surface-400" disabled={busy} onClick={onClose}>
+        <Button
+          size="lg"
+          variant="ghost"
+          className="text-surface-400"
+          disabled={busy}
+          onClick={onClose}
+        >
           Dismiss
         </Button>
         <Button
+          size="lg"
           variant="filled"
           loading={busy}
           disabled={selectedCount === 0}

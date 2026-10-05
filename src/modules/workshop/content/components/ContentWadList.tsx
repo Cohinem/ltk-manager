@@ -119,7 +119,7 @@ function WadsEmptyState({ layerName, layerDisplayName }: WadsEmptyStateProps) {
       action={
         <Button
           variant="outline"
-          size="xs"
+          size="sm"
           loading={wadImport.isPending}
           left={<PlusIcon weight="bold" className="size-4" />}
           onClick={wadImport.pickFiles}

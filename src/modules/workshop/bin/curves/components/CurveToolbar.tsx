@@ -121,7 +121,6 @@ export function CurveToolbar({
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={m.workshop_bin_random_remove_action()}
             onClick={onRemoveRandom}
             left={<XIcon weight="bold" />}
@@ -133,7 +132,7 @@ export function CurveToolbar({
         <Tooltip content={m.workshop_bin_random_add_hint()}>
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             onClick={onAddRandom}
             left={<DiceFiveIcon weight="bold" />}
           >
@@ -163,7 +162,6 @@ export function CurveToolbar({
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={m.workshop_bin_curve_add_key_action()}
             disabled={!editable}
             onClick={onAdd}
@@ -174,7 +172,6 @@ export function CurveToolbar({
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={m.workshop_bin_curve_delete_key_action()}
             disabled={!editable || selectedCount === 0}
             onClick={onRemove}
@@ -212,7 +209,6 @@ function LinkToggle({ linked, onToggle }: { linked: boolean; onToggle: () => voi
       <Button
         variant="ghost"
         size="xs"
-        compact
         aria-label={label}
         aria-pressed={linked}
         onClick={onToggle}

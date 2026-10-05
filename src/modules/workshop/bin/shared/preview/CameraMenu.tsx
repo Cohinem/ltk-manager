@@ -30,7 +30,6 @@ export function CameraMenu() {
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={m.workshop_bin_preview_camera_label()}
             left={<VideoCameraIcon weight="bold" className="size-4" />}
             right={<CaretDownIcon weight="bold" className="size-3" />}

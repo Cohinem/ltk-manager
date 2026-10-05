@@ -43,7 +43,7 @@ export function ObjectIndexFailedState({
       title={m.workshop_objects_index_failed_title()}
       description={errorSummary(error)}
       action={
-        <Button variant="outline" size="xs" onClick={onRetry}>
+        <Button variant="outline" size="sm" onClick={onRetry}>
           {m.workshop_objects_retry_action()}
         </Button>
       }

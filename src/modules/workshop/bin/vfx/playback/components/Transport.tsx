@@ -292,7 +292,7 @@ function StepButton({
 }) {
   return (
     <Tooltip content={label}>
-      <Button variant="ghost" size="xs" compact aria-label={label} onClick={onClick}>
+      <Button variant="ghost" size="xs" aria-label={label} onClick={onClick}>
         {children}
       </Button>
     </Tooltip>

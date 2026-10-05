@@ -77,14 +77,13 @@ export function DetailsDocument({ active }: EditorDocumentProps<ContentDocumentO
     <DocumentFrame data-ui="DetailsDocument">
       <DocumentToolbar active={active}>
         {hasChanges && (
-          <Button variant="ghost" size="xs" compact onClick={editor.discard}>
+          <Button variant="ghost" size="xs" onClick={editor.discard}>
             {m.workshop_details_discard_action()}
           </Button>
         )}
         <Button
           variant="filled"
           size="xs"
-          compact
           onClick={reportSave}
           disabled={!hasChanges || !editor.canSave}
           loading={editor.isSaving}
@@ -230,12 +229,7 @@ function ReadmeLink() {
   return (
     <p className="flex items-center gap-1.5 text-meta text-surface-400">
       <Marked text={m.workshop_readme_details_hint()}>{(clause) => <Code>{clause}</Code>}</Marked>
-      <Button
-        variant="ghost"
-        size="xs"
-        compact
-        onClick={() => openDocument(projectTextDocument("readme"))}
-      >
+      <Button variant="ghost" size="xs" onClick={() => openDocument(projectTextDocument("readme"))}>
         {m.workshop_readme_open_action()}
       </Button>
     </p>

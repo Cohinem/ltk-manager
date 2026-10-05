@@ -34,13 +34,7 @@ export function LayerPopover({ mod, disabled }: LayerPopoverProps) {
       <Popover.Root>
         <Popover.Trigger
           render={
-            <Button
-              variant="default"
-              size="xs"
-              compact
-              disabled={disabled}
-              left={<Layers className="size-3.5" />}
-            >
+            <Button size="xs" disabled={disabled} left={<Layers className="size-3.5" />}>
               {enabledCount}/{mod.layers.length}
             </Button>
           }

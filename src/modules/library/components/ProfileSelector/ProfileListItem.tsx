@@ -80,13 +80,13 @@ export function ProfileListItem({
           placeholder="Profile name..."
         />
         <IconButton
-          compact={false}
+          size="sm"
           icon={<Check className="size-4" />}
           onClick={handleRename}
           disabled={!editName.trim() || renameProfile.isPending}
           className="text-success-text hover:text-success-text"
         />
-        <IconButton compact={false} icon={<X className="size-4" />} onClick={cancelEditing} />
+        <IconButton size="sm" icon={<X className="size-4" />} onClick={cancelEditing} />
       </div>
     );
   }
@@ -95,7 +95,6 @@ export function ProfileListItem({
     <div className="flex items-center gap-1">
       <Button
         variant="ghost"
-        size="sm"
         onClick={() => onSwitch(profile.id)}
         disabled={isSwitching || isActive}
         className="flex-1 justify-between"
@@ -107,13 +106,13 @@ export function ProfileListItem({
       {!isDefaultProfile && (
         <>
           <IconButton
-            compact={false}
+            size="sm"
             icon={<Pencil className="size-3.5" />}
             onClick={startEditing}
             tooltip="Rename profile"
           />
           <IconButton
-            compact={false}
+            size="sm"
             icon={<Trash2 className="size-3.5" />}
             onClick={() => onDeleteClick(profile)}
             disabled={isActive}

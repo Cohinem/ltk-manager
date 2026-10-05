@@ -191,10 +191,10 @@ export function ProtocolInstallDialog() {
       <Dialog.Footer>
         {!isDone && untrustedDomain && (
           <>
-            <Button variant="ghost" onClick={handleClose} disabled={busy}>
+            <Button size="lg" variant="ghost" onClick={handleClose} disabled={busy}>
               {m.deep_link_untrusted_reject_action()}
             </Button>
-            <Button variant="filled" onClick={trustAndInstall} loading={busy}>
+            <Button size="lg" variant="filled" onClick={trustAndInstall} loading={busy}>
               <ShieldWarningIcon weight="bold" className="size-4" />
               {m.deep_link_untrusted_trust_action()}
             </Button>
@@ -202,17 +202,17 @@ export function ProtocolInstallDialog() {
         )}
         {!isDone && !untrustedDomain && (
           <>
-            <Button variant="ghost" onClick={handleClose} disabled={busy}>
+            <Button size="lg" variant="ghost" onClick={handleClose} disabled={busy}>
               {m.common_cancel_action()}
             </Button>
-            <Button variant="filled" onClick={runInstall} loading={busy}>
+            <Button size="lg" variant="filled" onClick={runInstall} loading={busy}>
               <DownloadSimpleIcon weight="bold" className="size-4" />
               {m.deep_link_install_action()}
             </Button>
           </>
         )}
         {isDone && (
-          <Button variant="filled" onClick={handleClose}>
+          <Button size="lg" variant="filled" onClick={handleClose}>
             {m.deep_link_install_done_action()}
           </Button>
         )}

@@ -128,7 +128,7 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
       {target && layerLabel && (
         <Button
           variant="ghost"
-          size="xs"
+          size="sm"
           left={<StackPlusIcon className="size-4" />}
           disabled={busy}
           onClick={() => run("copy", [target], name)}
@@ -140,7 +140,7 @@ function PreviewActions({ document }: Pick<PreviewProps, "document">) {
         <Tooltip content={m.workshop_preview_extract_to_label({ folder: lastFolder })}>
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             left={<DownloadSimpleIcon className="size-4" />}
             disabled={busy}
             onClick={() => run("quick", [target], name)}

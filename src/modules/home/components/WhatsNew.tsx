@@ -71,7 +71,7 @@ export function WhatsNew() {
                 </time>
               )}
               {head.pending && (
-                <Button variant="filled" size="xs" onClick={() => setDialogOpen(true)}>
+                <Button variant="filled" size="sm" onClick={() => setDialogOpen(true)}>
                   {m.home_release_update_action()}
                 </Button>
               )}
@@ -84,7 +84,6 @@ export function WhatsNew() {
 
       <Button
         variant="ghost"
-        size="sm"
         /* Puts the label, not the ghost fill, on the column edge. */
         className="-ml-3 self-start"
         aria-expanded={expanded}

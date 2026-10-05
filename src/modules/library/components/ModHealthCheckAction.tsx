@@ -20,10 +20,9 @@ export function ModHealthCheckAction({ disabled }: ModHealthCheckActionProps) {
 
   return (
     <IconButton
-      compact={false}
       icon={<HeartbeatIcon />}
       variant="outline"
-      size="sm"
+      size="md"
       loading={sweep.isPending}
       disabled={disabled || readiness !== "ready"}
       aria-label="Check every mod"

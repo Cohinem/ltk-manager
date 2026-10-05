@@ -76,7 +76,7 @@ export function ProjectTextDocument({
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Code className="shrink-0">{kind.fileName}</Code>
           {showsTemplate && (
-            <Button variant="ghost" size="xs" compact onClick={editor.insertTemplate}>
+            <Button variant="ghost" size="xs" onClick={editor.insertTemplate}>
               {m.workshop_text_template_action()}
             </Button>
           )}
@@ -217,10 +217,10 @@ function Conflict({ editor, fileName }: { editor: Editor; fileName: string }) {
       <p className="min-w-0 flex-1 text-meta text-warning-text">
         {m.workshop_text_conflict_description({ file: fileName })}
       </p>
-      <Button variant="ghost" size="xs" compact onClick={editor.reload}>
+      <Button variant="ghost" size="xs" onClick={editor.reload}>
         {m.workshop_text_reload_action()}
       </Button>
-      <Button variant="outline" size="xs" compact onClick={editor.keepMine}>
+      <Button variant="outline" size="xs" onClick={editor.keepMine}>
         {m.workshop_text_keep_mine_action()}
       </Button>
     </div>
@@ -235,11 +235,7 @@ function NoFile({ editor }: { editor: Editor }) {
         size="sm"
         title={m.workshop_readme_empty_title()}
         description={m.workshop_readme_empty_description()}
-        action={
-          <Button size="sm" onClick={editor.start}>
-            {m.workshop_readme_write_action()}
-          </Button>
-        }
+        action={<Button onClick={editor.start}>{m.workshop_readme_write_action()}</Button>}
       />
     </div>
   );

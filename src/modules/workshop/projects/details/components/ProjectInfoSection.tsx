@@ -82,14 +82,14 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                       className="w-48 rounded-md border border-surface-500 bg-surface-700 px-2 py-1 font-mono text-sm text-surface-200 focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none"
                     />
                     <IconButton
-                      compact={false}
+                      size="sm"
                       icon={<Check className="size-3.5" />}
                       onClick={handleSaveSlug}
                       loading={renameProject.isPending}
                       aria-label="Save slug"
                     />
                     <IconButton
-                      compact={false}
+                      size="sm"
                       icon={<X className="size-3.5" />}
                       onClick={handleCancelSlug}
                       aria-label="Cancel editing"
@@ -99,7 +99,7 @@ export function ProjectInfoSection({ project, onRenamed }: ProjectInfoSectionPro
                   <>
                     <span className="font-mono text-surface-200">{project.name}</span>
                     <IconButton
-                      compact={false}
+                      size="sm"
                       icon={<Pencil className="size-3" />}
                       onClick={() => {
                         setSlugValue(project.name);

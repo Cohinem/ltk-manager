@@ -152,7 +152,7 @@ export function CreateLayerDialog({
         </Dialog.Body>
 
         <Dialog.Footer>
-          <Button variant="ghost" onClick={handleClose}>
+          <Button size="lg" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
           <form.Subscribe
@@ -160,6 +160,7 @@ export function CreateLayerDialog({
           >
             {({ canSubmit, isValid }) => (
               <Button
+                size="lg"
                 variant="filled"
                 loading={isPending}
                 disabled={!canSubmit || !isValid}

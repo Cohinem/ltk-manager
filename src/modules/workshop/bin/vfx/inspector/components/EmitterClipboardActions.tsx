@@ -66,7 +66,5 @@ function Action({
   onPress: () => Promise<void>;
   children: ReactNode;
 }) {
-  return (
-    <IconButton compact={false} icon={children} onClick={() => void onPress()} label={label} />
-  );
+  return <IconButton size="sm" icon={children} onClick={() => void onPress()} label={label} />;
 }

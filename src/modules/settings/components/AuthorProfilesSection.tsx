@@ -148,7 +148,6 @@ export function AuthorProfilesSection() {
           <ProfileCount used={rows.length} />
           <Button
             variant="outline"
-            size="sm"
             left={<PlusIcon weight="bold" className="size-4" />}
             onClick={beginAdd}
             disabled={atLimit}
@@ -187,8 +186,7 @@ export function AuthorProfilesSection() {
             description="Add your author profile, and use it by default."
             action={
               <Button
-                variant="light"
-                size="sm"
+                variant="tonal"
                 left={<PlusIcon weight="bold" className="size-4" />}
                 onClick={beginAdd}
               >

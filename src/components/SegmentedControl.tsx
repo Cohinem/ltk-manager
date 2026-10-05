@@ -125,7 +125,6 @@ export function SegmentedControl<T extends string>({
           data-segment
           variant="ghost"
           size={size}
-          compact
           aria-pressed={option.value === value}
           aria-label={option.name}
           onClick={() => onChange(option.value)}

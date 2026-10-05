@@ -118,7 +118,7 @@ function HistoryFoot({
         <p className="max-w-xs text-center text-xs text-surface-400 select-text">
           {copy.description ?? copy.title}
         </p>
-        <Button variant="ghost" size="xs" compact onClick={onRetry}>
+        <Button variant="ghost" size="xs" onClick={onRetry}>
           {m.common_retry_action()}
         </Button>
       </div>

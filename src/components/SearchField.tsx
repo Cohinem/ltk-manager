@@ -87,7 +87,7 @@ export function SearchField({
           {value && (
             <IconButton
               icon={<XIcon className="size-3" />}
-              variant="transparent"
+              variant="ghost"
               onClick={() => {
                 onChange("");
                 inputRef?.current?.focus();

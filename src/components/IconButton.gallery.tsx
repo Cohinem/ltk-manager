@@ -34,15 +34,27 @@ const entry: GalleryEntry = {
         <>
           <IconButton icon={<GearIcon />} label="Ghost" />
           <IconButton icon={<GearIcon />} label="Outline" variant="outline" />
+          <IconButton icon={<GearIcon />} label="Tonal" variant="tonal" />
           <IconButton icon={<GearIcon />} label="Filled" variant="filled" />
-          <IconButton icon={<TrashIcon />} label="Danger" variant="danger" />
+          <IconButton icon={<TrashIcon />} label="Ghost danger" tone="danger" />
+          <IconButton icon={<TrashIcon />} label="Filled danger" variant="filled" tone="danger" />
         </>
       ),
     },
     { name: "Pressed", render: () => <PinToggle /> },
     {
       name: "Disabled",
-      render: () => <IconButton icon={<GearIcon />} label="Settings" disabled />,
+      render: () => (
+        <>
+          <IconButton icon={<GearIcon />} label="Settings" disabled />
+          <IconButton
+            icon={<GearIcon />}
+            label="Settings"
+            disabled
+            disabledReason="Settings are locked while patching."
+          />
+        </>
+      ),
     },
   ],
 };

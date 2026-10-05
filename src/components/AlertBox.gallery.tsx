@@ -28,7 +28,7 @@ const entry: GalleryEntry = {
             variant="warning"
             title="Two mods edit the same file"
             actions={
-              <Button size="xs" variant="outline">
+              <Button size="sm" variant="outline">
                 Review
               </Button>
             }

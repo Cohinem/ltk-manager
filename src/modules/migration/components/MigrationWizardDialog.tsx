@@ -48,18 +48,17 @@ export function MigrationWizardDialog({ open: isOpen, onClose }: MigrationWizard
 
       <Dialog.Footer>
         {wizard.step === "browse" && (
-          <Button variant="outline" size="sm" onClick={wizard.handleClose}>
+          <Button variant="outline" onClick={wizard.handleClose}>
             Cancel
           </Button>
         )}
         {wizard.step === "select" && (
           <>
-            <Button variant="outline" size="sm" onClick={() => wizard.setStep("browse")}>
+            <Button variant="outline" onClick={() => wizard.setStep("browse")}>
               Back
             </Button>
             <Button
               variant="filled"
-              size="sm"
               onClick={wizard.handleImport}
               disabled={wizard.selectedFolders.size === 0}
             >
@@ -69,7 +68,7 @@ export function MigrationWizardDialog({ open: isOpen, onClose }: MigrationWizard
           </>
         )}
         {wizard.step === "results" && (
-          <Button variant="filled" size="sm" onClick={wizard.handleClose}>
+          <Button variant="filled" onClick={wizard.handleClose}>
             Done
           </Button>
         )}
@@ -111,7 +110,7 @@ function BrowseStep({ onBrowse, isScanning, error }: BrowseStepProps) {
         <code className="rounded-sm bg-surface-700 px-1.5 py-0.5 text-surface-200">installed</code>{" "}
         folder with your mods.
       </p>
-      <Button variant="outline" size="sm" onClick={onBrowse} disabled={isScanning}>
+      <Button variant="outline" onClick={onBrowse} disabled={isScanning}>
         {isScanning && (
           <span className="flex items-center gap-2">
             <Loader2 className="size-4 animate-spin" />
@@ -163,10 +162,10 @@ function SelectStep({
           {search.trim() && ` \u00b7 Showing ${filteredMods.length} of ${mods.length}`}
         </p>
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={onSelectAll}>
+          <Button variant="ghost" onClick={onSelectAll}>
             All
           </Button>
-          <Button variant="ghost" size="sm" onClick={onSelectNone}>
+          <Button variant="ghost" onClick={onSelectNone}>
             None
           </Button>
         </div>

@@ -181,7 +181,7 @@ function LoadedMissile({ system, flight }: { system: SystemModel; flight: Flight
       />
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          size="xs"
+          size="sm"
           disabled={!ready || failed > 0}
           onClick={() => {
             if (time >= span) setTime(0);
@@ -192,7 +192,7 @@ function LoadedMissile({ system, flight }: { system: SystemModel; flight: Flight
           {!playing && m.workshop_missile_play_action()}
         </Button>
         <Button
-          size="xs"
+          size="sm"
           variant="ghost"
           disabled={!ready || failed > 0}
           onClick={() => {
@@ -204,7 +204,7 @@ function LoadedMissile({ system, flight }: { system: SystemModel; flight: Flight
         >
           {m.workshop_missile_replay_action()}
         </Button>
-        <Button size="xs" variant="ghost" onClick={() => setSpeed(speed === 1 ? 0.25 : 1)}>
+        <Button size="sm" variant="ghost" onClick={() => setSpeed(speed === 1 ? 0.25 : 1)}>
           {m.workshop_missile_speed_label({ speed })}
         </Button>
         <span className="text-meta text-surface-400">

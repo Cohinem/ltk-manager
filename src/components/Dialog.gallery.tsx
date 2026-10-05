@@ -43,10 +43,10 @@ function ShellDemo({ label, size, tone, description, closable, paragraphs = 1 }:
           ))}
         </Dialog.Body>
         <Dialog.Footer>
-          <Button variant="ghost" onClick={() => setOpen(false)}>
+          <Button size="lg" variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button variant="filled" onClick={() => setOpen(false)}>
+          <Button size="lg" variant="filled" onClick={() => setOpen(false)}>
             Create
           </Button>
         </Dialog.Footer>

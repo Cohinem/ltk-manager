@@ -34,7 +34,7 @@ export function ReadOnlyNote({
       {reason === null && mark}
       {reason !== null && <Tooltip content={readOnlyDescription(reason)}>{mark}</Tooltip>}
       {toProject !== null && (
-        <Button variant="ghost" size="xs" compact onClick={toProject.open}>
+        <Button variant="ghost" size="xs" onClick={toProject.open}>
           {m.workshop_bin_atlas_edit_in_project_action({ project: toProject.project })}
         </Button>
       )}

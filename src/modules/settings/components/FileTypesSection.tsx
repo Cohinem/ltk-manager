@@ -56,7 +56,6 @@ function FileTypeRow({ status, hidden }: { status: FileTypeStatus; hidden: boole
           )}
           {!opensWithManager && (
             <Button
-              compact
               size="sm"
               className="text-row"
               variant="outline"

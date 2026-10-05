@@ -126,8 +126,7 @@ export function LibraryToolbar({
             }
           >
             <Button
-              variant="light"
-              size="sm"
+              variant="tonal"
               onClick={actions.handleImportMods}
               loading={isInstalling}
               aria-label="Import mods"

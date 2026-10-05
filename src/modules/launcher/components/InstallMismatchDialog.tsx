@@ -96,10 +96,11 @@ function InstallMismatchContent({ mismatch }: { mismatch: DetectedInstallMismatc
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Button variant="ghost" onClick={keep} disabled={switchInstall.isPending}>
+        <Button size="lg" variant="ghost" onClick={keep} disabled={switchInstall.isPending}>
           {m.launcher_install_mismatch_keep_action({ configured })}
         </Button>
         <Button
+          size="lg"
           variant="filled"
           left={<ArrowsLeftRightIcon weight="bold" className="size-4" />}
           loading={switchInstall.isPending}

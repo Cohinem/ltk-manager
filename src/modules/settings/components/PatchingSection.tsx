@@ -165,7 +165,6 @@ export function PatchingSection() {
             control={
               <Button
                 variant="outline"
-                size="sm"
                 loading={isRebuilding}
                 disabled={isPatcherRunning}
                 left={<ArrowsClockwiseIcon weight="bold" className="size-4" />}

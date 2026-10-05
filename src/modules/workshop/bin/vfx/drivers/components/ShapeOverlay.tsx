@@ -99,7 +99,7 @@ export function ShapeInViewButton({ id }: { id: string }) {
 
   return (
     <IconButton
-      compact={false}
+      size="sm"
       aria-label={label}
       title={label}
       pressed={pressed}

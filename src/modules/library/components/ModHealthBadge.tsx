@@ -183,7 +183,7 @@ export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
           {alarm === "repairable" && (
             <Button
               variant="filled"
-              size="xs"
+              size="sm"
               loading={repair.isPending}
               onClick={() => repair.mutate(modId)}
             >

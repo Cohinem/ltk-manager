@@ -13,7 +13,7 @@ export function MigrationSection({ onImport }: MigrationSectionProps) {
         <p className="text-sm text-surface-400">
           If you previously used cslol-manager, you can import your installed mods into LTK Manager.
         </p>
-        <Button variant="outline" size="sm" onClick={onImport}>
+        <Button variant="outline" onClick={onImport}>
           <span className="flex items-center gap-2">
             <Download className="size-4" />
             Import Mods...

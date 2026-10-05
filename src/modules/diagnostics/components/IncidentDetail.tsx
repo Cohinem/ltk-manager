@@ -131,7 +131,7 @@ function OpenProjectButton({ projectPath }: { projectPath: string }) {
   return (
     <Button
       variant="outline"
-      size="xs"
+      size="sm"
       left={<ArrowSquareOutIcon weight="bold" className="size-3.5" />}
       onClick={async () => {
         const project = await api.getWorkshopProject(projectPath);
@@ -217,7 +217,6 @@ function IncidentActions({ incident }: { incident: Incident }) {
   const rebuildButton = (
     <Button
       variant="outline"
-      size="sm"
       disabled={patcherRunning}
       loading={rebuild.isPending}
       left={<ArrowsClockwiseIcon weight="bold" className="size-4" />}
@@ -231,7 +230,6 @@ function IncidentActions({ incident }: { incident: Incident }) {
     <div data-ui="IncidentDetail:actions" className="flex flex-wrap items-center gap-2 select-none">
       <Button
         variant="outline"
-        size="sm"
         disabled={!incident.game}
         loading={revealLog.isPending}
         left={<FileTextIcon weight="bold" className="size-4" />}
@@ -241,7 +239,6 @@ function IncidentActions({ incident }: { incident: Incident }) {
       </Button>
       <Button
         variant="outline"
-        size="sm"
         left={<ClipboardTextIcon weight="bold" className="size-4" />}
         onClick={copyReport}
       >
@@ -249,7 +246,6 @@ function IncidentActions({ incident }: { incident: Incident }) {
       </Button>
       <Button
         variant="outline"
-        size="sm"
         left={<HashIcon weight="bold" className="size-4" />}
         onClick={copyToken}
       >
@@ -264,7 +260,6 @@ function IncidentActions({ incident }: { incident: Incident }) {
       <span className="flex-1" />
       <Button
         variant="ghost"
-        size="sm"
         disabled={incident.dismissed}
         loading={dismiss.isPending}
         left={<XIcon weight="bold" className="size-4" />}

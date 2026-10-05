@@ -33,7 +33,7 @@ export function ImportProgressDialog({
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Button variant="filled" size="sm" onClick={onClose}>
+        <Button variant="filled" onClick={onClose}>
           {isComplete ? "Done" : "Dismiss"}
         </Button>
       </Dialog.Footer>

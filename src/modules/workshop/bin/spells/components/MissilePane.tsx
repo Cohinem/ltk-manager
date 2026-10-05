@@ -284,7 +284,7 @@ function Failure({ message, retry }: { message: string; retry: () => void }) {
   return (
     <div className="flex flex-col gap-2 p-2 text-meta">
       <p className="text-danger-text select-text">{message}</p>
-      <Button size="xs" onClick={retry}>
+      <Button size="sm" onClick={retry}>
         {m.workshop_objects_retry_action()}
       </Button>
     </div>

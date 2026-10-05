@@ -59,7 +59,6 @@ export function HandleMenu({
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={m.workshop_bin_handle_menu_label()}
             data-pressed={value !== null || undefined}
             className="data-pressed:bg-accent-500/15 data-pressed:text-accent-300"

@@ -24,7 +24,7 @@ export function BackdropButton({ className }: { className?: string }) {
 
   return (
     <IconButton
-      compact={false}
+      size="sm"
       className={twMerge("nodrag", className)}
       icon={<CircleHalfIcon />}
       onClick={cycle}

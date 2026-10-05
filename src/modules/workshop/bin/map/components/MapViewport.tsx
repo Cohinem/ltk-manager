@@ -213,7 +213,6 @@ function VariantMenu({ variants, chosen, onPick }: VariantMenuProps) {
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={m.workshop_bin_map_preview_skin_label()}
             right={<CaretDownIcon weight="bold" className="size-3" />}
           >

@@ -154,7 +154,6 @@ function ShapeMenu({
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={m.workshop_bin_material_shape_label()}
             left={<Shown weight="bold" className="size-4" />}
             right={<CaretDownIcon weight="bold" className="size-3" />}

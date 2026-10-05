@@ -125,14 +125,13 @@ export function LibraryTile({ onImportFromCslol }: LibraryTileProps) {
                   <div className="mt-3 flex gap-2">
                     <Button
                       variant="filled"
-                      size="sm"
                       className="flex-1"
                       left={<ExportIcon weight="bold" className="size-4" />}
                       onClick={() => void runExport()}
                     >
                       {m.home_library_export_confirm_action()}
                     </Button>
-                    <Button variant="outline" size="sm" onClick={() => setChooserOpen(false)}>
+                    <Button variant="outline" onClick={() => setChooserOpen(false)}>
                       {m.common_cancel_action()}
                     </Button>
                   </div>
@@ -191,15 +190,14 @@ export function LibraryTile({ onImportFromCslol }: LibraryTileProps) {
               onClick={dismissImport}
             />
           </div>
-          <Button variant="outline" size="sm" className="self-start" onClick={onImportFromCslol}>
+          <Button variant="outline" className="self-start" onClick={onImportFromCslol}>
             {m.home_library_import_action()}
           </Button>
         </div>
       )}
 
       <Button
-        variant="light"
-        size="sm"
+        variant="tonal"
         className="self-start"
         left={<CollectionIcon className="size-4" />}
         onClick={() => void navigate({ to: "/mods" })}

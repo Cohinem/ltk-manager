@@ -234,7 +234,6 @@ export function ExplorerOptions({ view, filter, onFilterChange }: ExplorerOption
             <Button
               variant="ghost"
               size="xs"
-              compact
               right={<DirectionIcon weight="bold" className="size-3.5" />}
               onClick={() => pickField(sort.field)}
               className="text-fine text-accent-300"
@@ -265,7 +264,6 @@ export function ExplorerOptions({ view, filter, onFilterChange }: ExplorerOption
                 <Button
                   variant="ghost"
                   size="xs"
-                  compact
                   onClick={() =>
                     onFilterChange({
                       ...filter,

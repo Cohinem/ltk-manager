@@ -217,7 +217,7 @@ function NewFontButton({ suggested, onCreate }: NewFontButtonProps) {
         <p className="text-meta text-surface-400">{m.workshop_bin_atlas_font_new_hint()}</p>
         <Button
           variant="filled"
-          size="xs"
+          size="sm"
           disabled={busy || name.trim() === ""}
           onClick={() => void submit()}
           className="self-end"

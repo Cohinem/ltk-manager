@@ -45,12 +45,7 @@ export function PrivacySection() {
           <p className="text-xs text-surface-400">{m.diagnostics_identity_hint()}</p>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              loading={resetSecret.isPending}
-              onClick={handleReset}
-            >
+            <Button variant="outline" loading={resetSecret.isPending} onClick={handleReset}>
               {m.diagnostics_reset_identity_action()}
             </Button>
             <ExternalLink href={PRIVACY_PAGE_URL} className="text-sm">

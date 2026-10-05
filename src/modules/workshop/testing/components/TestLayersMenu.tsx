@@ -32,7 +32,6 @@ export function TestLayersMenu({ project, className }: TestLayersMenuProps) {
       <Menu.Trigger
         render={
           <IconButton
-            compact={false}
             data-ui="TestLayersMenu"
             icon={
               <span className="flex items-center gap-1">
@@ -47,7 +46,7 @@ export function TestLayersMenu({ project, className }: TestLayersMenuProps) {
                 <CaretDownIcon weight="bold" className="size-3.5" />
               </span>
             }
-            size="sm"
+            size="md"
             aria-label={m.workshop_test_layers_label()}
             className={twMerge("w-auto px-1.5", className)}
           />

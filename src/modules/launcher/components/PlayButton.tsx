@@ -245,7 +245,9 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
   const stopping = usePatcherSessionStore((s) => s.stopping);
   const maybeShowHddWarning = useHddWarning();
 
-  const size = block ? "lg" : "md";
+  /* Home's block sits a step above the size scale, at 40px. */
+  const blockSize = block ? "h-10 px-5 text-base" : undefined;
+  const blockHeight = block ? "h-10" : undefined;
   const groupClass = block ? "w-full" : undefined;
 
   const isRunning = status?.running ?? false;
@@ -290,12 +292,12 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
         }
       >
         <Button
-          variant="duotone"
-          size={size}
+          variant="tonal"
+          size="lg"
           onClick={() => stopPatcher.mutate()}
           loading={stopping}
           disabled={disabled || stopping}
-          className={twMerge("grow font-bold tracking-wide uppercase", RUNNING_SKIN)}
+          className={twMerge("grow font-bold tracking-wide uppercase", blockSize, RUNNING_SKIN)}
           left={
             !stopping && (
               <span className="inline-flex size-3 rounded-full bg-success shadow-[0_0_5px_1px] shadow-success/50" />
@@ -317,12 +319,11 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
           <Menu.Trigger
             render={
               <IconButton
-                compact={false}
                 icon={<CaretDownIcon weight="bold" className="size-4" />}
-                variant="duotone"
-                size={size}
+                variant="tonal"
+                size="lg"
                 aria-label={m.library_launch_options_label()}
-                className={twMerge("w-auto px-2", RUNNING_SKIN)}
+                className={twMerge("w-auto px-2", blockHeight, RUNNING_SKIN)}
               />
             }
           />
@@ -354,13 +355,13 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
       }
     >
       <Button
-        variant="duotone"
-        size={size}
+        variant="tonal"
+        size="lg"
         onClick={() => ask(primaryAction)}
         loading={isBusy || isBuilding}
         disabled={busy || (patcherOnly && !hasModsToApply)}
         left={<PrimaryIcon patcherOnly={patcherOnly} />}
-        className="grow gap-3 font-bold tracking-wide uppercase"
+        className={twMerge("grow gap-3 font-bold tracking-wide uppercase", blockSize)}
       >
         {playLabel(step, isBuilding, patcherOnly)}
       </Button>
@@ -376,13 +377,12 @@ function LaunchControls({ ask, disabled, block }: LaunchControlsProps) {
         <Menu.Trigger
           render={
             <IconButton
-              compact={false}
               icon={<CaretDownIcon weight="bold" className="size-4" />}
-              variant="duotone"
-              size={size}
+              variant="tonal"
+              size="lg"
               disabled={busy}
               aria-label={m.library_launch_options_label()}
-              className="w-auto px-2"
+              className={twMerge("w-auto px-2", blockHeight)}
             />
           }
         />

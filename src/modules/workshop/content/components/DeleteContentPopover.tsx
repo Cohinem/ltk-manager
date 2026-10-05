@@ -83,12 +83,12 @@ export function DeleteContentPopover({
               </div>
 
               <div className="flex justify-end gap-2">
-                <Button size="sm" variant="ghost" onClick={onClose}>
+                <Button variant="ghost" onClick={onClose}>
                   Cancel
                 </Button>
                 <Button
-                  size="sm"
-                  variant="danger"
+                  variant="filled"
+                  tone="danger"
                   onClick={handleConfirm}
                   loading={deleteContent.isPending}
                 >

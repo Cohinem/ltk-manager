@@ -108,7 +108,7 @@ export function RecipeFields({
               {recipe.timingConflict.map((release, index) => (
                 <Button
                   key={index}
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={() => change({ release, timingConflict: undefined })}
                 >

@@ -66,7 +66,6 @@ export function GamesTab({ modAction }: { modAction?: ModAction }) {
           action={
             <Button
               variant="ghost"
-              size="sm"
               left={<TicketIcon weight="bold" className="size-4" />}
               onClick={() => setDecoderOpen(true)}
             >
@@ -97,7 +96,6 @@ export function GamesTab({ modAction }: { modAction?: ModAction }) {
               <Button
                 variant="ghost"
                 size="sm"
-                compact
                 aria-label={DISMISS_ALL_LABEL}
                 left={<ChecksIcon weight="bold" className="size-4" />}
                 disabled={nothingUndismissed || dismissAll.isPending}
@@ -108,7 +106,6 @@ export function GamesTab({ modAction }: { modAction?: ModAction }) {
               <Button
                 variant="ghost"
                 size="sm"
-                compact
                 aria-label={DECODE_LABEL}
                 left={<TicketIcon weight="bold" className="size-4" />}
                 onClick={() => setDecoderOpen(true)}

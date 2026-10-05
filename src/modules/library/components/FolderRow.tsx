@@ -32,7 +32,6 @@ export function FolderRow({ folder, mods, modDropLine, dndDisabled = true }: Fol
     <div>
       <FolderContextMenu folderId={folder.id} folderName={folder.name}>
         <Button
-          variant="default"
           onClick={() => toggleFolderExpanded(folder.id)}
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left"
         >

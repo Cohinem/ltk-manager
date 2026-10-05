@@ -220,7 +220,6 @@ export function PanesMenu({ kind, className }: { kind: ShellKind; className?: st
           <Button
             variant="ghost"
             size="xs"
-            compact
             className={twMerge("font-sans", className)}
             left={<ColumnsIcon weight="bold" className="size-4" />}
           >
