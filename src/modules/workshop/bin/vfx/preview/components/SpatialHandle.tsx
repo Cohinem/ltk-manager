@@ -23,7 +23,7 @@ import { worldOf } from "../../engine/simulation/integrate";
 import { frameOf } from "../../engine/simulation/particleRead";
 import { sampleCurveInto } from "../../engine/utils/sampleCurve";
 import { useVfxRun } from "../../playback/state/run";
-import { spawnFrameInto } from "../../rendering/utils/emitterShape";
+import { spawnFrameInto, spawnOriginInto } from "../../rendering/utils/emitterShape";
 import { type FlightPath, flightPath } from "../utils/flightPath";
 import {
   handleEdit,
@@ -186,14 +186,11 @@ export function SpatialHandle({ system, emitter, holder, kind, edit, onGrab }: P
 
       const frame = frameOf(driver, emitter);
       spawnFrameInto(emitter, world.basis, frame.orientation, basis);
-      placement.current = translationFrame(basis, frame.origin);
+      spawnOriginInto(emitter, world, frame.orientation, frame.origin, stands);
+      placement.current = translationFrame(basis, [stands[0], stands[1], stands[2]]);
       stands.fill(0);
       sampleCurveInto(emitter.emitterPosition, frame.phase, stands, 0);
-      base.current = [
-        stands[0] + emitter.translationOverride[0],
-        stands[1] + emitter.translationOverride[1],
-        stands[2] + emitter.translationOverride[2],
-      ];
+      base.current = [stands[0], stands[1], stands[2]];
 
       const at =
         mode === "scale" ? base.current : handlePoint(kind, emitter, base.current, seconds.current);

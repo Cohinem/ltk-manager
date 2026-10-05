@@ -2,7 +2,7 @@ import type { Texture } from "three";
 
 import type { MaterialPreview } from "@/lib/tauri";
 
-import { type BlendMode, UV_MODE, type UvMode } from "../../engine/model/enums";
+import { SOFT_TARGET, UV_MODE, type UvMode } from "../../engine/model/enums";
 import type {
   DistortionModel,
   EmitterModel,
@@ -226,10 +226,10 @@ export function sheenDefines(
  * A material that fades nothing binds no depth, so a draw landing in the depth pass cannot
  * sample the target it writes.
  */
-export function softUniforms(mode: BlendMode, soft: SoftModel | null) {
+export function softUniforms(soft: SoftModel | null) {
   return {
     softParams: { value: soft === null ? [0, 0, 0, 0] : [...softParams(soft)] },
-    softControl: { value: [...softControl(mode)] },
+    softControl: { value: [...softControl(soft?.target ?? SOFT_TARGET.both)] },
     sceneDepth: { value: soft === null ? null : SCENE_DEPTH },
     depthRange: { value: DEPTH_RANGE },
   };

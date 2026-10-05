@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { Point } from "../../../engine/model/rig";
 import { emitterOf, flat } from "../../../engine/simulation/__tests__/emitterFixture";
+import { NO_TRANSFORM } from "../../../engine/simulation/integrate";
 import type { Source } from "../../../engine/simulation/particleRead";
 import { createPool, spawn } from "../../../engine/simulation/pool";
 import { beamFrame, emittingSource, LONGEST, reachOf } from "../beamSwatch";
@@ -12,7 +13,15 @@ const UPRIGHT = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
 function sourceOf(emitters: readonly number[], origin: Point = [0, 0, 0], target = origin): Source {
   const pool = createPool(emitters.length);
   for (const emitter of emitters) spawn(pool, emitter, 0, 1, 0.5);
-  return { pool, time: 0, elapsed: 0, origin, target, orientation: UPRIGHT };
+  return {
+    pool,
+    time: 0,
+    elapsed: 0,
+    origin,
+    target,
+    orientation: UPRIGHT,
+    world: NO_TRANSFORM,
+  };
 }
 
 describe("beamSwatch", () => {

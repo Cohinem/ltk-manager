@@ -19,9 +19,15 @@ function systemOf(...emitters: EmitterModel[]): SystemModel {
     name: null,
     emitters,
     transform: null,
+    hudLayer: false,
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
   };
+}
+
+/** A `transform` that turns nothing and moves by `x` along the engine's X. */
+function movedBy(x: number): number[] {
+  return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, 0, 0, 1];
 }
 
 function drawnOf(emitter: EmitterModel, path = ""): DrawnEmitter {
@@ -56,6 +62,41 @@ describe("definitionBounds", () => {
     expect(bounds.max[0]).toBe(STANDING_REACH);
   });
 
+  it("stands translationOverride outside the emitter's own turn and scale", () => {
+    const boxed = emitterOf(0, {
+      translationOverride: [300, 0, 0],
+      rotationOverride: [0, 90, 0],
+      scaleOverride: [1, 1, 2],
+      shape: { kind: "box", size: [50, 10, 20], volume: true },
+    });
+
+    const bounds = definitionBounds(systemOf(boxed), [drawnOf(boxed)], STILL);
+
+    /* The box's Z half-extent of 20, doubled, is what the quarter turn lays along X. */
+    expect(bounds.min[0]).toBeCloseTo(-340, 3);
+  });
+
+  it("stands the transform's translation inside the emitter's frame, scaled by its override", () => {
+    const scaled = emitterOf(0, { scaleOverride: [2, 1, 1] });
+    const system = { ...systemOf(scaled), transform: movedBy(500) };
+
+    const bounds = definitionBounds(system, [drawnOf(scaled)], STILL);
+
+    /* The translation doubles to 1000, and the mark's arm of 8 doubles with it. */
+    expect(bounds.min[0]).toBe(-1016);
+    expect(bounds.max[0]).toBe(STANDING_REACH);
+  });
+
+  it("moves a HUD-layer system whole by its transform's translation, the champion with it", () => {
+    const scaled = emitterOf(0, { scaleOverride: [2, 1, 1] });
+    const system = { ...systemOf(scaled), transform: movedBy(500), hudLayer: true };
+
+    const bounds = definitionBounds(system, [drawnOf(scaled)], STILL);
+
+    expect(bounds.min[0]).toBe(-500 - STANDING_REACH);
+    expect(bounds.max[0]).toBe(-500 + STANDING_REACH);
+  });
+
   it("is the same box at any moment of the run", () => {
     const boxed = emitterOf(0, { shape: { kind: "sphere", radius: 400, volume: false } });
     const drawn = [drawnOf(boxed)];
@@ -86,5 +127,12 @@ describe("rigGround", () => {
 
   it("stands where a flying rig starts, on the ground and across the mirrored axis", () => {
     expect(rigGround(systemOf(), FLYING)).toEqual([600, 0, 0]);
+  });
+
+  it("stays under the rig for a transform's translation, which only a HUD-layer system stands by", () => {
+    const moved = { ...systemOf(), transform: movedBy(500) };
+
+    expect(rigGround(moved, STILL)).toEqual([0, 0, 0]);
+    expect(rigGround({ ...moved, hudLayer: true }, STILL)).toEqual([-500, 0, 0]);
   });
 });

@@ -9,6 +9,7 @@ import { QUAD_TYPE } from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
 import type { Point } from "../../engine/model/rig";
 import { constant } from "../../engine/parsing/readValue";
+import { NO_TRANSFORM } from "../../engine/simulation/integrate";
 import type { Source } from "../../engine/simulation/particleRead";
 import { createPool } from "../../engine/simulation/pool";
 import { useVfxRun } from "../../playback/state/run";
@@ -19,7 +20,7 @@ import {
   useVfxTextures,
 } from "../../rendering/hooks/useVfxTextures";
 import { drawnFor } from "../../rendering/utils/definitions";
-import { PARTICLE_LAYER } from "../../rendering/utils/frame";
+import { seeParticles } from "../../rendering/utils/frame";
 import { useBackdropColor } from "../state/previewBackdrop";
 import { SWATCH_POINTS, swatchInto, swatchMeasure, swatchWarmth } from "../utils/trailSwatch";
 import { PREVIEW_MIP_WIDTH, ViewGuard } from "./EmitterPreview";
@@ -65,6 +66,7 @@ export function TrailSwatch({ emitter, shown }: { emitter: EmitterModel; shown: 
       origin: ORIGIN,
       target: ORIGIN,
       orientation: UPRIGHT,
+      world: NO_TRANSFORM,
     }),
     [],
   );
@@ -85,11 +87,7 @@ export function TrailSwatch({ emitter, shown }: { emitter: EmitterModel; shown: 
     <>
       <color attach="background" args={[backdrop]} />
       <ViewGuard />
-      <PerspectiveCamera
-        makeDefault
-        fov={SWATCH_FOV}
-        onUpdate={(camera) => camera.layers.enable(PARTICLE_LAYER)}
-      />
+      <PerspectiveCamera makeDefault fov={SWATCH_FOV} onUpdate={(camera) => seeParticles(camera)} />
       {entry !== undefined && (
         <Trails
           emitter={flat}

@@ -119,11 +119,17 @@ export const IMPORTANCE = {
 
 export type Importance = (typeof IMPORTANCE)[keyof typeof IMPORTANCE];
 
-/** `VfxEmitterDefinitionData::ParticleLingerType`, what a finished emitter does with its particles. */
+/**
+ * `VfxEmitterDefinitionData::ParticleLingerType`, what a finished emitter does with its particles.
+ *
+ * The client names the first three. Every higher value changes no lifetime, which `none`
+ * stands for.
+ */
 export const LINGER_TYPE = {
   maxLifetimeAfterEmitterDies: 0,
   fixedLifetimeAfterEmitterDies: 1,
   fixedLifetimeAfterEmitterStops: 2,
+  none: 3,
 } as const;
 
 export type LingerType = (typeof LINGER_TYPE)[keyof typeof LINGER_TYPE];
@@ -169,3 +175,68 @@ export const INHERIT = {
 export const DRAG_MOTION = { stepped: 0, analytic: 1 } as const;
 
 export type DragMotion = (typeof DRAG_MOTION)[keyof typeof DRAG_MOTION];
+
+/**
+ * `VfxSystemDefinitionData.flags`, by bit.
+ *
+ * The names of `0x1` to `0x100` are the client's own. The last three describe what the bit
+ * does, since the client's names for them are not known.
+ */
+export const SYSTEM_FLAG = {
+  simulateWhileOffScreen: 0x1,
+  persistThruDeath: 0x2,
+  persistThruRevive: 0x4,
+  simulateOncePerFrame: 0x8,
+  soundsEndOnEmitterEnd: 0x10,
+  soundsPlayWhileOffScreen: 0x20,
+  simulateEveryFrame: 0x40,
+  keepOrientationAfterSpellCast: 0x80,
+  useCalculusForPhysics: 0x100,
+  hudLayerSizeFromUiElement: 0x200,
+  alphaFromAttachment: 0x400,
+  aggressiveImportanceCulling: 0x800,
+} as const;
+
+/** `VfxSystemDefinitionData.drawingLayer`. */
+export const DRAWING_LAYER = { world: 0, hud: 1 } as const;
+
+/**
+ * `renderPhaseOverride`, the phase an emitter is forced into, in the client's numbering.
+ *
+ * A frame draws `distortionNoCharacter`, `groundLayer`, `default`, `distortionAll`,
+ * `postDistortion` and `hudLayer` in that order. `automatic` leaves the choice to the
+ * emitter's other fields, and a value past it matches no phase.
+ */
+export const RENDER_PHASE = {
+  default: 0,
+  shadow: 1,
+  distortionNoCharacter: 2,
+  distortionAll: 3,
+  postDistortion: 4,
+  groundLayer: 5,
+  hudLayer: 6,
+  automatic: 7,
+} as const;
+
+export type RenderPhase = (typeof RENDER_PHASE)[keyof typeof RENDER_PHASE];
+
+/** `distortionMode`, the distortion phases an emitter draws in, by bit. */
+export const DISTORTION_MODE = { all: 0x1, noCharacter: 0x2 } as const;
+
+/** `VfxSoftParticleDefinitionData`'s unnamed byte `0x3bf176bc`, what the soft fade reaches. */
+export const SOFT_TARGET = { both: 0, colour: 1, alpha: 2 } as const;
+
+export type SoftTarget = (typeof SOFT_TARGET)[keyof typeof SOFT_TARGET];
+
+/** `colorblindVisibility`, the palette an emitter is instantiated under. A higher value never is. */
+export const COLORBLIND_VISIBILITY = { always: 0, normalOnly: 1, colorblindOnly: 2 } as const;
+
+/** `VfxEmitterFiltering.spectatorPolicy`. */
+export const SPECTATOR_POLICY = {
+  enableAlways: 0,
+  disableWhenSpectating: 1,
+  enableWhenSpectating: 2,
+} as const;
+
+/** `offsetLifeScalingSymmetryMode`, the axes `offsetLifetimeScaling` reads unsigned, by bit. */
+export const OFFSET_SYMMETRY = { x: 0x1, y: 0x2, z: 0x4 } as const;

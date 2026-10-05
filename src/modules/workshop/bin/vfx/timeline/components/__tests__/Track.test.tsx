@@ -43,14 +43,14 @@ function track(onBarEdit = vi.fn(async () => true), onSeek = vi.fn()) {
 }
 
 describe("a lane's track", () => {
-  it("snaps a dragged end to a tick, and writes the lifetime a free drag leaves", () => {
+  it("snaps a dragged end to a tick, and reads and writes the end time a free drag leaves", () => {
     const { lane, onBarEdit, onSeek } = track();
 
     fireEvent.pointerDown(lane, { button: 0, clientX: 30, pointerId: 1 });
     fireEvent.pointerMove(lane, { clientX: 45, pointerId: 1 });
-    expect(screen.getByRole("status")).toHaveTextContent("Emits 3.00 s");
+    expect(screen.getByRole("status")).toHaveTextContent("Ends at 4.00 s");
     fireEvent.pointerMove(lane, { clientX: 45, pointerId: 1, shiftKey: true });
-    expect(screen.getByRole("status")).toHaveTextContent("Emits 3.50 s");
+    expect(screen.getByRole("status")).toHaveTextContent("Ends at 4.50 s");
     fireEvent.pointerUp(lane, { clientX: 45, pointerId: 1 });
 
     expect(onBarEdit).toHaveBeenCalledWith("end", expect.objectContaining({ start: 1, end: 4.5 }));

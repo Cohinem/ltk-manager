@@ -13,7 +13,7 @@ import { HandDrawnContext } from "../../rendering/hooks/useParticlePrograms";
 import { useVfxMeshes } from "../../rendering/hooks/useVfxMeshes";
 import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { type DrawnEmitter, drawnFor } from "../../rendering/utils/definitions";
-import { bindFrameTargets, grabDepth, PARTICLE_LAYER } from "../../rendering/utils/frame";
+import { bindFrameTargets, grabDepth, seeParticles } from "../../rendering/utils/frame";
 import { definitionBounds } from "../../rendering/utils/systemBounds";
 import { useBackdropColor } from "../state/previewBackdrop";
 import { guardFrames } from "../utils/frameGuard";
@@ -174,7 +174,7 @@ const BEFORE_THE_VIEWS = 0.5;
 export function ViewGuard() {
   useFrame((state) => {
     /* Per frame, since the framing camera's `onUpdate` does not keep the layer it enables. */
-    state.camera.layers.enable(PARTICLE_LAYER);
+    seeParticles(state.camera);
     state.scene.visible = drawable(state.scene, state.camera);
   }, JUST_BEFORE_THE_VIEWS);
   return null;
@@ -273,7 +273,7 @@ export function FramedCamera({ framing }: { framing: Framing }) {
       far={framing.distance * 100}
       position={framing.position}
       onUpdate={(camera) => {
-        camera.layers.enable(PARTICLE_LAYER);
+        seeParticles(camera);
         camera.lookAt(...framing.target);
       }}
     />

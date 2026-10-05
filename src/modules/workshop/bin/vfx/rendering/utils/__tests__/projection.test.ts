@@ -35,7 +35,7 @@ function footprint(
   rotationZ = 0,
 ): Footprint {
   const out: Footprint = { halfWidth: 0, halfHeight: 0, turn: 0 };
-  footprintInto(emitter, pooled(rotationZ), 0, 0, new Float32Array(scale), basis, out);
+  footprintInto(emitter, pooled(rotationZ), 0, new Float32Array(scale), basis, out);
   return out;
 }
 
@@ -63,12 +63,26 @@ describe("footprintInto", () => {
     expect(held.turn).toBeCloseTo(-90 * DEGREE, 4);
   });
 
-  it("spans a simple particle's scale x by its scale y, turned by its rotation and roll", () => {
+  it("spans a simple particle's scale x by its scale y, turned by the angle it stands at alone", () => {
     const held = footprint(emitterOf(0, { legacySimple: SIMPLE }), [40, 30, 1], basisOf(90), 5);
 
     expect(held.halfWidth).toBe(40);
     expect(held.halfHeight).toBe(30);
-    expect(held.turn).toBeCloseTo(15 * DEGREE, 5);
+    /* The integrator already holds the legacy `rotation` in the angle, so none is added. */
+    expect(held.turn).toBeCloseTo(5 * DEGREE, 5);
+  });
+
+  it("reads a simple particle's turn off its own row of the pool", () => {
+    const pool = createPool(2);
+    spawn(pool, 0, 0, 1, 0);
+    spawn(pool, 0, 0, 1, 0);
+    pool.rotation.set([0, 0, 20, 70, 80, 90]);
+
+    const out: Footprint = { halfWidth: 0, halfHeight: 0, turn: 0 };
+    const simple = emitterOf(0, { legacySimple: SIMPLE });
+    footprintInto(simple, pool, 1, new Float32Array([1, 1, 1]), basisOf(0), out);
+
+    expect(out.turn).toBeCloseTo(90 * DEGREE, 5);
   });
 });
 

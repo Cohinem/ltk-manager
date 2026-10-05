@@ -14,7 +14,10 @@ import { passTwin } from "@/modules/viewport";
 import type { ParticleProgram } from "../hooks/useParticlePrograms";
 import { usePickTargets } from "../state/pick";
 import { useWire, type Wire, WIRE_ORDER } from "../state/wire";
-import { useDrawLayer } from "../utils/frame";
+import { PARTICLE_LAYER, useDrawLayer } from "../utils/frame";
+
+/** The layer an edge twin draws on, over every colour phase. */
+const TWIN_LAYERS = [PARTICLE_LAYER] as const;
 
 /** The solid and its edge twin one draw path mounts, and the wire mode they draw under. */
 export interface DrawPair<T extends Object3D> {
@@ -29,14 +32,14 @@ export interface DrawPair<T extends Object3D> {
  */
 export function useDrawPair<T extends Object3D>(
   material: ShaderMaterial,
-  distorting: boolean,
+  layers: readonly number[],
 ): DrawPair<T> {
   useEffect(() => () => material.dispose(), [material]);
   const solid = useRef<T>(null);
   const twin = useRef<T>(null);
-  useDrawLayer(distorting, solid);
+  useDrawLayer(layers, solid);
   const wire = useWire(material);
-  useDrawLayer(false, twin);
+  useDrawLayer(TWIN_LAYERS, twin);
 
   const targets = useMemo(() => [{ solid, twin, material }], [material]);
   usePickTargets(targets);

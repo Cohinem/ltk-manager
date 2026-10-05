@@ -12,6 +12,7 @@ import {
   type LingerType,
   type QuadType,
   type SimpleOrientation,
+  type SoftTarget,
   type StencilMode,
   type TrailMode,
   type TrailSmoothing,
@@ -34,8 +35,9 @@ export interface ValueCurve {
   /**
    * `probabilityTables`, one per channel that carries one, and empty for none.
    *
-   * A table is read at the particle's one birth chance and multiplied into its channel,
-   * which is how a constant of `1.0` under a table of `1` to `360` is a random angle.
+   * A table is read at a random number and multiplied into its channel, which is how a
+   * constant of `1.0` under a table of `1` to `360` is a random angle. Which number is
+   * the reader's: a birth vector draws one per channel, and the UV birth values share one.
    */
   readonly tables: readonly ProbabilityTable[];
 }
@@ -74,11 +76,17 @@ export interface UvLayer {
   readonly birthScrollRate: ValueCurve;
   /** `birthUvRotateRate`, degrees a second, the same way. */
   readonly birthRotateRate: ValueCurve;
-  /** `particleUVScrollRate`, an integrated value that accumulates per step. */
+  /**
+   * `particleUVScrollRate`, an integrated value: the scroll is the rate's integral over
+   * the particle's age, and one fixed offset for a value writing no `dynamics`.
+   */
   readonly scrollRate: ValueCurve;
-  /** `particleUVRotateRate`, degrees a second, accumulated the same way. */
+  /** `particleUVRotateRate`, degrees a second, integrated the same way. */
   readonly rotateRate: ValueCurve;
-  /** `emitterUvScrollRate`, which runs on the emitter's clock rather than a particle's. */
+  /**
+   * `emitterUvScrollRate`, which runs on the system's clock rather than a particle's and
+   * lands after the flips. The mult layer carries the base layer's, its own having no reader.
+   */
   readonly emitterScrollRate: readonly [number, number];
   /** `uvTransformCenter`, what the scale and the rotation turn about. */
   readonly center: readonly [number, number];
@@ -303,7 +311,7 @@ export interface ErosionModel {
 export interface DistortionModel {
   /** `distortion`, how far the warp carries, in screen widths. */
   readonly strength: number;
-  /** `distortionMode`, carried and unread: what it selects is not established. */
+  /** `distortionMode`, the bits of [`DISTORTION_MODE`], and zero turns the block off. */
   readonly mode: number;
   /**
    * `normalMapTexture`, whose `xy` is the direction, null for one the emitter does not
@@ -349,6 +357,8 @@ export interface SoftModel {
   /** `beginOut` and `deltaOut`, the same for the fade out as the gap grows. */
   readonly beginOut: number;
   readonly deltaOut: number;
+  /** The unnamed byte `0x3bf176bc`, of [`SOFT_TARGET`]: what the fade reaches. */
+  readonly target: SoftTarget;
 }
 
 /**
@@ -356,9 +366,10 @@ export interface SoftModel {
  *
  * An emitter of `simpleEmitterDefinitionData` draws one quad whose plane `orientation`
  * fixes, so its only free turn is the spin in that plane and one size covers both
- * extents, `scaleBias` supplying the anisotropy. `hasFixedOrbit`, `lockedToEmitter`,
- * `scaleUpFromOrigin` and `particleBind` are carried and not drawn: the shipped data
- * never authors the first three, and the bind's provider is not established.
+ * extents, `scaleBias` supplying the anisotropy. `hasFixedOrbit`, `lockedToEmitter` and
+ * `particleBind` are carried and not drawn: `particleBind` ramps how far a particle's
+ * height follows the terrain, which a flat preview ground leaves at nothing, and
+ * `lockedToEmitter` turns that ramp off.
  */
 export interface LegacySimpleModel {
   /**
@@ -372,9 +383,12 @@ export interface LegacySimpleModel {
   /** `birthRotation` and `birthRotationalVelocity`, degrees in the quad's plane, at birth. */
   readonly birthRotation: ValueCurve;
   readonly birthRotationalVelocity: ValueCurve;
-  /** `rotation`, degrees in the quad's plane, sampled against the age and added on. */
+  /**
+   * `rotation`, degrees in the quad's plane, sampled against the age. Under
+   * `isRotationEnabled` it is the particle's whole angle, and otherwise it is not read.
+   */
   readonly rotation: ValueCurve;
-  /** `lockedToEmitter`: the particle rides the emitter rather than the world. */
+  /** `lockedToEmitter`: the terrain ramp of `particleBind` is off. */
   readonly lockedToEmitter: boolean;
   readonly hasFixedOrbit: boolean;
   readonly fixedOrbitType: FixedOrbit;
@@ -382,8 +396,8 @@ export interface LegacySimpleModel {
   readonly orientation: SimpleOrientation;
   readonly particleBind: readonly [number, number];
   /**
-   * `uvScrollRate`, a pan of the whole layer in cells a second on the emitter's clock,
-   * which the reader lowers onto `emitterUvScrollRate`.
+   * `uvScrollRate`, a scroll in cells a second of each particle's own age, wrapped,
+   * which the reader lowers onto `birthUvScrollRate`.
    */
   readonly uvScrollRate: readonly [number, number];
   /** `scaleUpFromOrigin`: the quad grows from its base rather than about its centre. */
@@ -515,15 +529,40 @@ export interface OrbitalFieldModel {
 }
 
 /**
- * Why the engine would not instantiate an emitter at the preview's settings: Very High effects
- * quality culls the low-spec `importance`, and the default palette culls a colourblind-only one.
+ * Why the engine would not instantiate an emitter at the preview's settings.
+ *
+ * Very High effects quality culls the low-spec `importance`. The default palette culls a
+ * colourblind-only emitter, and `never` is a `colorblindVisibility` no palette shows. A
+ * preview is no spectator, and a HUD-layer system drops its simple emitters. `noRate` is an
+ * emitter that can never emit, which the engine drops as it prepares the definition.
  */
-export type EmitterCull = "importance" | "colorblind";
+export type EmitterCull =
+  | "importance"
+  | "colorblind"
+  | "never"
+  | "spectator"
+  | "hudLayer"
+  | "noRate";
 
-/** An emission cycle: the seconds one cycle lasts, and the seconds of each it emits for. */
+/**
+ * `period` and `timeActiveDuringPeriod`, each null where the emitter leaves it unset.
+ *
+ * Both count from the system's start rather than from `timeBeforeFirstEmission`. An
+ * emitter spawns while the system time modulo `length` is below `active`, an unset
+ * `length` being one cycle that never repeats and an unset `active` no gate at all.
+ */
 export interface EmissionPeriod {
-  readonly length: number;
-  readonly active: number;
+  readonly length: number | null;
+  readonly active: number | null;
+}
+
+/** `emissionMeshName`: a static mesh whose surface every particle is born on. */
+export interface EmissionMeshModel {
+  readonly mesh: NamedAsset;
+  /** `emissionMeshScale`, on the sampled point alone. */
+  readonly scale: number;
+  /** `useEmissionMeshNormalForBirth`: the birth velocity and acceleration take the face's normal. */
+  readonly useNormal: boolean;
 }
 
 /** One emitter of a system, as the renderer reads it. */
@@ -535,6 +574,8 @@ export interface EmitterModel {
   readonly index: number;
   /** The emitter came out of `simpleEmitterDefinitionData` rather than the complex list. */
   readonly simple: boolean;
+  /** The emitter's system is on the HUD layer, which draws it in the HUD's phase alone. */
+  readonly hudLayer: boolean;
   /** Its place in its own list, which is what the strip's own cards are keyed on. */
   readonly listIndex: number;
   readonly name: string;
@@ -543,28 +584,52 @@ export interface EmitterModel {
   /** The instantiation gate that removed the emitter from the preview, and null for none. */
   readonly culled: EmitterCull | null;
 
-  /** Particles per second, driven by the emitter's life. */
+  /**
+   * `ChanceToNotExist`: the share of runs the emitter is left out of, rolled once as the
+   * system spawns. Zero for a simple emitter, which skips the roll.
+   */
+  readonly chanceToNotExist: number;
+
+  /** Particles per second, sampled at the emitter's phase. */
   readonly rate: ValueCurve;
+  /**
+   * `rateByVelocityFunction`, which replaces `rate` by the system's speed times its first
+   * number plus its second, and null where both are zero.
+   */
+  readonly rateByVelocity: readonly [number, number] | null;
+  /** `MaximumRateByVelocity`, the most that function yields, 300 where unset. */
+  readonly maximumRateByVelocity: number;
   /** Seconds a particle lives, sampled at birth. */
   readonly particleLifetime: ValueCurve;
-  /** Seconds the emitter emits for, and null for one that never stops. */
+  /**
+   * `lifetime`, the system time emission ends at, and null for an emitter with no end.
+   *
+   * An end time rather than a duration: it counts from the system's start, so a delay
+   * shortens the emission. [`emissionEnd`] is what the simulation reads.
+   */
   readonly lifetime: number | null;
   readonly timeBeforeFirstEmission: number;
-  /** `period` and `timeActiveDuringPeriod`, and null for an emitter that emits throughout. */
+  /** `period` and `timeActiveDuringPeriod`, and null for an emitter writing neither. */
   readonly period: EmissionPeriod | null;
   /** `isSingleParticle`: the emitter's whole output is one burst at its start. */
   readonly singleParticle: boolean;
+  /** `HasVariableStartTime`: a first emission that counts to zero particles spawns none. */
+  readonly hasVariableStartTime: boolean;
+  /** The emitter writes `materialOverrideDefinitions`, which exempts it from two load-time rules. */
+  readonly overridesMaterials: boolean;
   /**
-   * `ParticlesShareRandomValue`: one birth chance serves the emitter's whole life.
+   * `ParticlesShareRandomValue`: one shared birth number serves the emitter's whole run.
    *
-   * The engine writes the value in its restart blocks alone, so every particle of one run
-   * reads the same probability table at the same place.
+   * It covers the UV birth tables, the random start frame and the birth-random colour
+   * lookup, and none of the birth vectors, `birthColor` or `particleLifetime`.
    */
   readonly sharedRandom: boolean;
 
-  /** Sampled once per particle, at birth. */
+  /** Sampled once per particle, at birth, in the emitter's own frame. */
   readonly birthVelocity: ValueCurve;
-  /** Sampled per step against the emitter's life. */
+  /** `birthAcceleration`, a constant acceleration each particle keeps from birth. */
+  readonly birthAcceleration: ValueCurve;
+  /** Sampled per step against the particle's age. */
   readonly acceleration: ValueCurve;
   readonly drag: ValueCurve;
   /**
@@ -577,32 +642,37 @@ export interface EmitterModel {
   /** `velocity`, added to every particle's own each step and never accumulated. */
   readonly velocity: ValueCurve;
   /**
-   * `worldAcceleration`, an offset the draw applies rather than a term the step integrates.
+   * `worldAcceleration`, an integrated value the draw applies as a world offset.
    *
-   * The world transform pass multiplies it by the particle's whole lifetime and by that
-   * lifetime squared, so what reaches the drawn position is fixed over the particle's life
-   * rather than accumulated over it.
+   * The curve integrated twice over the particle's age and scaled by its lifetime squared.
+   * A value writing no `dynamics` is not integrated, and stands as one fixed offset.
    */
   readonly worldAcceleration: ValueCurve;
-  /** How much of the emitter's own movement a particle carries with it, zero to one. */
+  /** How much of the system's movement a particle carries with it, sampled against its age. */
   readonly bindWeight: ValueCurve;
-  /** `EmitterPosition`, where the emitter stands off the system's origin, over its life. */
+  /** `EmitterPosition`, where births stand in the emitter's own frame, over its life. */
   readonly emitterPosition: ValueCurve;
   /**
-   * `IsEmitterSpace`: a particle is stored relative to the emitter and follows it.
-   *
-   * Clear bakes `EmitterPosition` in at birth and the particle lives in the system's
-   * space.
+   * `IsEmitterSpace`: a particle is born at the frame's origin and takes the current
+   * `EmitterPosition` every step, where clear bakes it in at birth.
    */
   readonly emitterSpace: boolean;
   /** Where about the emitter a particle is born, and which way its velocity is turned. */
   readonly shape: SpawnShape;
+  /** `emissionMeshName`, and null for an emitter naming none. */
+  readonly emissionMesh: EmissionMeshModel | null;
+  /**
+   * `offsetLifetimeScaling`, seconds a particle's lifetime gains per unit of its raw shape
+   * offset, and `offsetLifeScalingSymmetryMode`, the bits of [`OFFSET_SYMMETRY`].
+   */
+  readonly offsetLifetimeScaling: Point;
+  readonly offsetLifeSymmetry: number;
   /**
    * `rotationOverride` in euler degrees, `scaleOverride` and `translationOverride`: the
-   * emitter's own frame, which every birth is placed in.
+   * emitter's own frame, scale then rotation then translation.
    *
    * The spawn frame is that frame under the system's orientation, and a particle's world
-   * matrix is its own rotation on the frame it was born in.
+   * matrix is its own on the frame it was born in.
    */
   readonly rotationOverride: Point;
   readonly scaleOverride: Point;
@@ -610,17 +680,21 @@ export interface EmitterModel {
   /** `isLocalOrientation`: the system's orientation is part of the spawn frame. */
   readonly localOrientation: boolean;
   /**
-   * `particleIsLocalOrientation`, carried and not applied: the particle would follow the
-   * system's orientation as it turns rather than keep the one it was born under.
+   * `particleIsLocalOrientation`: the particle turns with the system's current orientation,
+   * and the frame it was born in gives its translation alone.
    */
   readonly particleLocalOrientation: boolean;
   /**
    * `isUniformScale`: the first component of the scale serves all three.
    *
-   * Authored on six in ten emitters and read by the scale pass. The reading is the name's,
-   * under which a `birthScale0` of `(20, 2, 2)` on a flare is a square.
+   * Quads and meshes read it. A ray, a trail and a beam do not.
    */
   readonly uniformScale: boolean;
+  /**
+   * `postRotateOrientationAxis` under `hasPostRotateOrientation`: euler degrees turned
+   * after the particle's own spin, and null where the flag is clear.
+   */
+  readonly postRotate: Point | null;
 
   /**
    * `particleLinger`, seconds a finished emitter's particles are given, before the cap
@@ -663,10 +737,10 @@ export interface EmitterModel {
   readonly colorTexture: NamedAsset | null;
 
   /**
-   * `rotation0`, an `IntegratedValueVector3` that accumulates rather than samples.
+   * `rotation0`, an integrated value: a spin rate in degrees per `1 / 60` second.
    *
-   * Degrees, authored per `1 / 60` second, which is why the integrator scales it by
-   * [`ROTATION_RATE`].
+   * The angle is the rate's integral over the particle's age times [`ROTATION_RATE`]. A
+   * value writing no `dynamics` is one fixed extra angle instead.
    */
   readonly rotation0: ValueCurve;
   /** Sampled once per particle, at birth. Euler degrees. */
@@ -685,20 +759,22 @@ export interface EmitterModel {
   /**
    * `LegacySimple`, whose scalars stand in for the scale and rotation fields where present.
    *
-   * `lockedToEmitter`, `uvScrollRate` and `scaleUpFromOrigin` are lowered onto the
-   * emitter's own fields by the reader, and the rest is read where the vector it replaces
-   * would be.
+   * `uvScrollRate` and `scaleUpFromOrigin` are lowered onto the emitter's own fields by
+   * the reader, and the rest is read where the vector it replaces would be.
    */
   readonly legacySimple: LegacySimpleModel | null;
   /** The quad grows from its base rather than about its centre. */
   readonly pivotUp: boolean;
   /** `isRotationEnabled`: the particle turns over its life rather than holding its birth angle. */
   readonly rotationEnabled: boolean;
-  /** `isDirectionOriented`: the quad's up is where the particle is travelling. */
+  /**
+   * `isDirectionOriented`: a camera quad lays its up along the travel, and an arbitrary
+   * quad or a mesh aims its own `+Z` along it.
+   */
   readonly directionOriented: boolean;
-  /** `directionVelocityScale`: how far a direction-oriented particle stretches per unit of speed. */
+  /** `directionVelocityScale`: how far one axis of a quad stretches per unit of speed, and zero for none. */
   readonly directionVelocityScale: number;
-  /** `directionVelocityMinScale`: the least stretch a direction-oriented particle takes. */
+  /** `directionVelocityMinScale`: the least stretch that axis takes. */
   readonly directionVelocityMinScale: number;
 
   /** Sampled per frame against the particle's age. */
@@ -709,6 +785,8 @@ export interface EmitterModel {
   readonly color: ValueCurve;
   /** Sampled once per particle, at birth. Four channels, 0 to 1. */
   readonly birthColor: ValueCurve;
+  /** `modulationFactor`, multiplied into every particle's colour ahead of the premultiply. */
+  readonly modulation: readonly [number, number, number, number];
 
   /**
    * Where the emitter's texture lives, null for one the emitter does not name, and an
@@ -735,7 +813,12 @@ export interface EmitterModel {
   readonly pass: number;
   /** `miscRenderFlags`, the bits of [`MISC_RENDER_FLAG`]. */
   readonly miscRenderFlags: number;
-  /** `isGroundLayer`: the emitter draws in the ground layer's display list, flat on the ground. */
+  /** `renderPhaseOverride`, of [`RENDER_PHASE`], which `automatic` leaves to the other fields. */
+  readonly renderPhaseOverride: number;
+  /**
+   * The emitter draws in the ground layer's phase, flat on the ground: `isGroundLayer` on
+   * an emitter left to the automatic choice, or `renderPhaseOverride` naming that phase.
+   */
   readonly groundLayer: boolean;
   /**
    * `alphaRef`, over 255, and zero for an emitter whose alpha test is compiled out.
@@ -784,6 +867,8 @@ export interface EmitterModel {
   readonly depthPushPull: number;
   /** `disableBackfaceCull`, inverted: a mesh's far faces are dropped unless it asks to keep them. */
   readonly backfaceCull: boolean;
+  /** The unnamed flag `0xd1ee8634`: the other winding counts as the front face. */
+  readonly flipWinding: boolean;
 }
 
 /** One particle system, as the viewport draws one. */
@@ -797,9 +882,12 @@ export interface SystemModel {
    * row-major, the basis in the first three rows and the translation in the last, and
    * null for none.
    *
-   * The outermost factor of every particle.
+   * The last factor of a complex particle's own matrix, inside the frame the particle was
+   * born in. A HUD-layer system takes its translation alone.
    */
   readonly transform: readonly number[] | null;
+  /** `drawingLayer` is the HUD's, which drops every simple emitter and the `transform`'s turn. */
+  readonly hudLayer: boolean;
   /** Whether the particles step through their drag or ease out by `kAnalyticDragMotion`. */
   readonly dragMotion: DragMotion;
   /** `buildUpTime`, the seconds a run simulates before it is first drawn. */

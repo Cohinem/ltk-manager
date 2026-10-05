@@ -8,26 +8,30 @@ import { curve, field } from "../engine/parsing/readValue";
 import type { DrawFrame } from "../engine/simulation/particleRead";
 import { sampleCurve } from "../engine/utils/sampleCurve";
 import { basisMatrix } from "../preview/utils/transformEdit";
-import { spawnFrameInto } from "../rendering/utils/emitterShape";
+import { spawnFrameInto, spawnOriginInto } from "../rendering/utils/emitterShape";
 import { type AuthoredForce, type ForceProperty, forceValue } from "./forceModel";
 
 const MIRROR = new Vector3(...AXIS_SIGN);
 /** The display length of a unit orbit axis, not an authored orbit radius. */
 export const ORBIT_GUIDE_RADIUS = 30;
 
-/** The field's next-step origin, without the emitter's translation override. */
-export function forceOrigin(emitter: EmitterModel, frame: DrawFrame, world: Float32Array): Vector3 {
-  const origin = new Vector3(...frame.origin);
-  if (emitter.emitterSpace) {
-    const basis = new Float32Array(9);
-    spawnFrameInto(emitter, world, frame.orientation, basis);
-    const offset = sampleCurve(emitter.emitterPosition, frame.phase);
-    origin.add(
-      new Vector3(offset[0] ?? 0, offset[1] ?? 0, offset[2] ?? 0).applyMatrix4(basisMatrix(basis)),
-    );
-  }
+/**
+ * Where the origin of the emitter's own frame stands in the viewport, which every field's
+ * `Position` is placed from and an orbital field turns about.
+ */
+export function forceOrigin(emitter: EmitterModel, frame: DrawFrame): Vector3 {
+  const origin = new Float32Array(3);
+  spawnOriginInto(emitter, frame.world, frame.orientation, frame.origin, origin);
 
-  return origin.multiply(MIRROR);
+  return new Vector3(origin[0], origin[1], origin[2]).multiply(MIRROR);
+}
+
+/** The emitter's own frame as the viewport sees it, which a field's `Position` is turned by. */
+export function forceFrame(emitter: EmitterModel, frame: DrawFrame): Matrix4 {
+  const basis = new Float32Array(9);
+  spawnFrameInto(emitter, frame.world.basis, frame.orientation, basis);
+
+  return new Matrix4().makeScale(...AXIS_SIGN).multiply(basisMatrix(basis));
 }
 
 /** A force property sampled at emitter time, independent of preview mute/solo. */
@@ -52,14 +56,18 @@ export function forceSample(force: AuthoredForce, name: string, phase: number): 
   );
 }
 
-/** Direction endpoints use the system orientation only when both local-space flags are on. */
+/**
+ * The frame a field's direction is drawn in: the emitter's own, `place`, with the system's
+ * orientation inside it only when both local-space flags are on.
+ */
 export function forceDirectionFrame(
   force: AuthoredForce,
   emitter: EmitterModel,
   frame: DrawFrame,
+  place: Matrix4,
 ): Matrix4 {
   const local = force.definition.properties.find((property) => property.name === "isLocalSpace");
-  const basis = new Matrix4().makeScale(...AXIS_SIGN);
+  const basis = place.clone();
   if (local !== undefined && forceValue(force, local).value === true && emitter.localOrientation) {
     basis.multiply(basisMatrix(frame.orientation));
   }
@@ -102,6 +110,7 @@ export function forceHandleValue(
   origin: Vector3,
   center: Vector3,
   direction: Matrix4,
+  place: Matrix4,
 ): number[] {
   if (name === "radius") {
     return [Math.max(0, point.x - center.x)];
@@ -109,7 +118,7 @@ export function forceHandleValue(
 
   const value = point.clone().sub(origin);
   if (name === "Position") {
-    value.multiply(MIRROR);
+    value.applyMatrix4(place.clone().invert());
   } else {
     value.applyMatrix4(direction.clone().invert());
   }

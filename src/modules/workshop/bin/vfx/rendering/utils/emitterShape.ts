@@ -9,6 +9,7 @@ import { AXIS_SIGN } from "@/modules/viewport";
 
 import type { EmitterModel, SpawnShape } from "../../engine/model/model";
 import type { Point } from "../../engine/model/rig";
+import type { World } from "../../engine/simulation/integrate";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
 import { multiplyInto, standingInto, turnInto } from "../../engine/utils/basis";
 import { sampleCurve } from "../../engine/utils/sampleCurve";
@@ -32,12 +33,11 @@ const OVERRIDE = new Float32Array(FRAME_SLOTS);
 const STOOD = new Float32Array(3);
 
 /**
- * The frame a birth of `emitter` is placed in, into `out`.
+ * The basis a point of `emitter`'s own frame is turned by on its way to the world, into `out`.
  *
- * The emitter's override stands under the system's orientation, which `isLocalOrientation`
- * switches in, and the definition's own transform outermost. The driver's orientation
- * carries that transform already, so an emitter standing outside the system's turn takes
- * the transform on its own.
+ * The definition's `transform` acts first, as the last factor of a particle's own matrix,
+ * then the emitter's override, its scale before its rotation, then the system's
+ * orientation, which `isLocalOrientation` switches in.
  */
 export function spawnFrameInto(
   emitter: EmitterModel,
@@ -45,14 +45,47 @@ export function spawnFrameInto(
   orientation: Float32Array,
   out: Float32Array,
 ): void {
+  overrideInto(emitter, OVERRIDE);
+  multiplyInto(OVERRIDE, transform, out);
+  if (emitter.localOrientation) multiplyInto(orientation, out, out);
+}
+
+/**
+ * Where the origin of `emitter`'s own frame stands for a system at `origin`, into `out`.
+ *
+ * `translationOverride` is turned by the system's orientation alone, never by the
+ * emitter's own scale or rotation, and the `transform`'s translation rides the frame.
+ */
+export function spawnOriginInto(
+  emitter: EmitterModel,
+  world: World,
+  orientation: Float32Array,
+  origin: Point,
+  out: Float32Array,
+): void {
+  out.set(emitter.translationOverride);
+  SHIFT.set(world.hud ? NOWHERE : world.offset);
+  turnInto(overrideInto(emitter, OVERRIDE), SHIFT, 0);
+  if (emitter.localOrientation) {
+    turnInto(orientation, out, 0);
+    turnInto(orientation, SHIFT, 0);
+  }
+  for (let axis = 0; axis < 3; axis += 1) out[axis] += origin[axis] + SHIFT[axis];
+}
+
+const SHIFT = new Float32Array(3);
+const NOWHERE: Point = [0, 0, 0];
+
+/** `rotationOverride` stood at and scaled by `scaleOverride`, into `out`. */
+function overrideInto(emitter: EmitterModel, out: Float32Array): Float32Array {
   STOOD.set(emitter.rotationOverride);
-  standingInto(STOOD, 0, 0, OVERRIDE);
+  standingInto(STOOD, 0, 0, out);
   for (let row = 0; row < 3; row += 1) {
     for (let column = 0; column < 3; column += 1) {
-      OVERRIDE[row * 3 + column] *= emitter.scaleOverride[column];
+      out[row * 3 + column] *= emitter.scaleOverride[column];
     }
   }
-  multiplyInto(emitter.localOrientation ? orientation : transform, OVERRIDE, out);
+  return out;
 }
 
 /** The point at `at` turned by `frame`, stood off `origin`, and mirrored into the viewport. */
@@ -71,9 +104,9 @@ export function placeInto(
 /**
  * The emitter's marks and its spawn shape written into `out`, in the emitter's own space.
  *
- * The origin is where `EmitterPosition` has the emitter, the offset is
- * `translationOverride` off it, and the shape is drawn about the offset, which is the
- * order a birth adds the three in. Returns the vertices written.
+ * The origin is the frame's own, where `translationOverride` has put it, the offset is
+ * where `EmitterPosition` stands off it, and the shape is drawn about the offset, which
+ * is the order a birth adds them in. Returns the vertices written.
  */
 export function wireframeInto(
   emitter: EmitterModel,
@@ -81,8 +114,8 @@ export function wireframeInto(
   t01: number,
   out: Float32Array,
 ): number {
-  const origin: Place = [stands[0], stands[1], stands[2]];
-  const offset = offsetBy(origin, emitter.translationOverride);
+  const origin: Place = [0, 0, 0];
+  const offset: Place = [stands[0], stands[1], stands[2]];
 
   let at = crossInto(out, 0, origin);
   at = segmentInto(out, at, origin, offset);

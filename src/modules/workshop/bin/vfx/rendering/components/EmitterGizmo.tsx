@@ -5,12 +5,19 @@ import type { BufferAttribute, BufferGeometry, Color } from "three";
 import { useSceneColors } from "@/modules/viewport";
 
 import type { EmitterModel, SystemModel } from "../../engine/model/model";
+import type { Point } from "../../engine/model/rig";
 import type { Driver } from "../../engine/simulation/driver";
 import { worldOf } from "../../engine/simulation/integrate";
 import { frameOf } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
 import { sampleCurveInto } from "../../engine/utils/sampleCurve";
-import { placeInto, SEGMENTS, spawnFrameInto, wireframeInto } from "../utils/emitterShape";
+import {
+  placeInto,
+  SEGMENTS,
+  spawnFrameInto,
+  spawnOriginInto,
+  wireframeInto,
+} from "../utils/emitterShape";
 
 export interface EmitterGizmoProps {
   readonly system: SystemModel;
@@ -41,9 +48,11 @@ export function EmitterGizmo({ system, driver, emitter, color }: EmitterGizmoPro
     STANDS.fill(0);
     sampleCurveInto(emitter.emitterPosition, frame.phase, STANDS, 0);
 
+    spawnOriginInto(emitter, world, frame.orientation, frame.origin, ORIGIN);
+    const origin: Point = [ORIGIN[0], ORIGIN[1], ORIGIN[2]];
     const vertices = wireframeInto(emitter, STANDS, frame.phase, positions);
     for (let vertex = 0; vertex < vertices; vertex += 1) {
-      placeInto(positions, vertex * 3, FRAME, frame.origin);
+      placeInto(positions, vertex * 3, FRAME, origin);
     }
 
     geometry.current?.setDrawRange(0, vertices);
@@ -65,3 +74,6 @@ const FRAME = new Float32Array(FRAME_SLOTS);
 
 /** Where `EmitterPosition` has the emitter this frame. */
 const STANDS = new Float32Array(3);
+
+/** Where the origin of the emitter's own frame stands this frame. */
+const ORIGIN = new Float32Array(3);

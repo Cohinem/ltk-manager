@@ -19,19 +19,56 @@ import {
   WebGLRenderTarget,
 } from "three";
 
+import type { EmitterModel } from "../../engine/model/model";
 import { drawBloom, releaseBloom } from "./bloom";
+import { drawPhases } from "./drawKind";
 
 /** The layer everything but a particle draws on: the stage, the grid and the character. */
 export const SCENE_LAYER = 0;
 
-/** The layer a distorting emitter draws on, which the colour pass leaves out. */
+/** The layer an emitter warping the frame between the two colour phases draws on. */
 export const DISTORTION_LAYER = 1;
 
-/** The layer an emitter drawing colour sits on, which the scene's depth pass leaves out. */
+/**
+ * The layer an emitter drawing colour after the late distortion sits on, the engine's
+ * post-distortion phase, which the scene's depth pass leaves out.
+ */
 export const PARTICLE_LAYER = 2;
 
 /** The layer a pass's glow copy draws on, which only the glow pass sees. */
 export const GLOW_LAYER = 3;
+
+/**
+ * The layer an emitter drawing colour before the late distortion sits on, the engine's
+ * default and ground-layer phases.
+ */
+export const UNDER_LAYER = 4;
+
+/** The layer an emitter warping the frame ahead of every particle draws on. */
+export const EARLY_DISTORTION_LAYER = 5;
+
+/** Let `camera` see every particle drawing colour, in either colour phase. */
+export function seeParticles(camera: Camera): void {
+  camera.layers.enable(PARTICLE_LAYER);
+  camera.layers.enable(UNDER_LAYER);
+}
+
+const OVER_LAYERS = [PARTICLE_LAYER] as const;
+const UNDER_LAYERS = [UNDER_LAYER] as const;
+const WARP_LAYERS = [
+  [],
+  [EARLY_DISTORTION_LAYER],
+  [DISTORTION_LAYER],
+  [EARLY_DISTORTION_LAYER, DISTORTION_LAYER],
+] as const;
+
+/** The layers the draws of `emitter` sit on, by the render phases it is in. */
+export function drawLayersOf(emitter: EmitterModel): readonly number[] {
+  const phases = drawPhases(emitter);
+  if (phases.colour === "under") return UNDER_LAYERS;
+  if (phases.colour === "over") return OVER_LAYERS;
+  return WARP_LAYERS[Number(phases.warpsEarly) + 2 * Number(phases.warpsLate)];
+}
 
 /**
  * The frame as it was before anything warped it, which a distorting fragment samples.
@@ -233,17 +270,59 @@ export function drawGlow(gl: WebGLRenderer, scene: Scene, camera: Camera): void 
   drawBloom(gl, depth.texture, VIEWPORT);
 }
 
+/** The objects of a scene on each distortion layer, which say which warp passes it needs. */
+interface Warping {
+  readonly early: Set<Object3D>;
+  readonly late: Set<Object3D>;
+}
+
+const WARPING = new WeakMap<Scene, Warping>();
+
+/** Put `object` on `layers`, and note for `scene` whether it warps the frame. */
+export function placeOnLayers(scene: Scene, object: Object3D, layers: readonly number[]): void {
+  object.layers.disableAll();
+  for (const layer of layers) object.layers.enable(layer);
+
+  let warping = WARPING.get(scene);
+  if (warping === undefined) {
+    warping = { early: new Set(), late: new Set() };
+    WARPING.set(scene, warping);
+  }
+  if (layers.includes(EARLY_DISTORTION_LAYER)) warping.early.add(object);
+  else warping.early.delete(object);
+  if (layers.includes(DISTORTION_LAYER)) warping.late.add(object);
+  else warping.late.delete(object);
+}
+
+/** Forget `object`, which no longer draws in `scene`. */
+export function leaveLayers(scene: Scene, object: Object3D): void {
+  const warping = WARPING.get(scene);
+  warping?.early.delete(object);
+  warping?.late.delete(object);
+}
+
+/** Which of the two warp passes `scene` holds an emitter for. */
+export function warpsOf(scene: Scene): { readonly early: boolean; readonly late: boolean } {
+  const warping = WARPING.get(scene);
+  return { early: (warping?.early.size ?? 0) > 0, late: (warping?.late.size ?? 0) > 0 };
+}
+
 /**
- * Put `held` on the layer its emitter's pass draws in.
+ * Put `held` on the layers its emitter's phases draw in.
  *
- * A distorting emitter draws the geometry it always draws, on the layer that is left out
- * of the colour pass and drawn again over the frame it warps.
+ * A distorting emitter draws the geometry it always draws, on a layer that is left out
+ * of the colour passes and drawn over the frame it warps.
  */
-export function useDrawLayer(distorting: boolean, held: RefObject<Object3D | null>): void {
+export function useDrawLayer(layers: readonly number[], held: RefObject<Object3D | null>): void {
+  const scene = useThree((state) => state.scene);
   /* An object ThreeJS rebuilds on its own arguments is a new one on the default layer,
      so the layer is claimed on every render rather than once on the flag, and before the
      frame that would draw it into the scene's depth pass. */
   useLayoutEffect(() => {
-    held.current?.layers.set(distorting ? DISTORTION_LAYER : PARTICLE_LAYER);
+    const object = held.current;
+    if (object === null) return;
+
+    placeOnLayers(scene, object, layers);
+    return () => leaveLayers(scene, object);
   });
 }

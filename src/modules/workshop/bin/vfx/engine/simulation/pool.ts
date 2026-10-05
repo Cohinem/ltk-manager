@@ -20,27 +20,50 @@ export interface Pool {
    * nothing about age. A trail strings an emitter's particles along by this instead.
    */
   readonly serial: Uint32Array;
+  /** The particle was born during the step being run, which the integrator moves by no time. */
+  readonly fresh: Uint8Array;
   readonly birthTime: Float32Array;
+  /** Seconds the particle lives, and infinity for one that never expires. */
   readonly lifetime: Float32Array;
-  readonly position: Float32Array;
-  readonly velocity: Float32Array;
   /**
-   * How fast the particle actually moved over the last step, three per particle.
+   * Where the integrator has the particle, in the frame it was born in: the emitter's own
+   * frame, before `EmitterPosition` under `IsEmitterSpace`, the orbit and the definition's
+   * `transform`.
+   */
+  readonly position: Float32Array;
+  /** The velocity the particle keeps between steps, in the frame it was born in. */
+  readonly velocity: Float32Array;
+  /** `birthAcceleration`, three per particle, in the frame it was born in. */
+  readonly birthAcceleration: Float32Array;
+  /**
+   * The translation of the particle's own matrix, still in the frame it was born in:
+   * `position` after `EmitterPosition`, the system's current orientation, the orbit and
+   * the definition's `transform`, each where the emitter asks for it.
+   */
+  readonly placed: Float32Array;
+  /** How fast `placed` moved over the last step, which a direction-oriented particle aims along. */
+  readonly drift: Float32Array;
+  /**
+   * The particle's velocity in the world over the last step, three per particle.
    *
-   * The frame displacement divided by `dt`, and zero for a particle born during the step.
-   * It is what a direction-oriented particle aims along and what a velocity colour lookup
-   * reads, and it carries the emitter's own drift and drag where the stored velocity does
-   * not.
+   * `drift` through the frame it was born in, plus its share of the system's own travel,
+   * and zero for a particle born during the step. A stretch and a velocity colour lookup
+   * read its length, and a direction-oriented camera quad lies along it.
    */
   readonly travel: Float32Array;
   readonly birthScale: Float32Array;
   /**
    * The basis the particle was born in, nine per particle, row-major in the engine's
-   * space: the emitter's overrides under the system's orientation, which the particle's
-   * own rotation stands on and its local terms are turned by.
+   * space: the emitter's overrides under the system's orientation at the birth.
    */
   readonly frame: Float32Array;
-  /** Euler degrees the quad stands at, seeded at birth and turned by the integrator. */
+  /** Where that frame's origin stood in the world at the birth, three per particle. */
+  readonly anchor: Float32Array;
+  /** The share of the system's travel `bindWeight` has given the particle so far, in the world. */
+  readonly bound: Float32Array;
+  /** `birthRotation0`, euler degrees, three per particle. */
+  readonly birthRotation: Float32Array;
+  /** Euler degrees the particle stands at, rebuilt each step off its birth values and its age. */
   readonly rotation: Float32Array;
   /** `birthRotationalVelocity0` and `birthRotationalAcceleration0`, degrees a second, three per particle. */
   readonly angularVelocity: Float32Array;
@@ -59,7 +82,10 @@ export interface Pool {
    */
   readonly orbital: Float32Array;
   readonly birthColor: Float32Array;
-  /** The particle's own `[0, 1)` draw, which the appearance of a shared random reads. */
+  /**
+   * The particle's shared birth number, a `[0, 1)` draw: what its UV birth tables were
+   * read at, where a random start frame opens and what a birth-random colour lookup reads.
+   */
   readonly roll: Float32Array;
   /** When the particle's emitter finished, and [`NOT_LINGERING`] while it has not. */
   readonly lingerFrom: Float32Array;
@@ -79,12 +105,7 @@ export interface Pool {
    * the path.
    */
   readonly odometer: Float32Array;
-  /**
-   * Each texture layer's own UV state, [`UV_SLOTS`] per layer and [`UV_LAYERS`] of them.
-   *
-   * The scroll and the rotation accumulate here rather than being read off the age,
-   * because both are driven by `IntegratedValue` rates that vary over a particle's life.
-   */
+  /** Each texture layer's own birth values, [`UV_SLOTS`] per layer and [`UV_LAYERS`] of them. */
   readonly uv: Float32Array;
 }
 
@@ -96,27 +117,22 @@ export const NOT_LINGERING = -1;
 
 /** Where one layer's own numbers sit, from `index * UV_LAYERS * UV_SLOTS + layer * UV_SLOTS`. */
 export const UV = {
-  /** The integrated scroll alone, which opens at zero. */
-  scrollX: 0,
-  scrollY: 1,
   /** `birthUVOffset`, where the birth ramp opens. */
-  birthOffsetX: 2,
-  birthOffsetY: 3,
+  birthOffsetX: 0,
+  birthOffsetY: 1,
   /** `birthUvScrollRate`, which the ramp climbs at over the particle's age. */
-  birthScrollX: 4,
-  birthScrollY: 5,
-  /** The integrated rotation alone, in degrees. */
-  rotate: 6,
+  birthScrollX: 2,
+  birthScrollY: 3,
   /** `birthUvRotateRate`, degrees a second over the particle's age. */
-  birthRotate: 7,
+  birthRotate: 4,
   /** How far into its run the book opened, in cells, which a random start draws. */
-  phase: 8,
+  phase: 5,
   /** Cells a second, which is the emitter's rate times the particle's own multiplier. */
-  frameRate: 9,
+  frameRate: 6,
 } as const;
 
 /** How many numbers one layer takes. */
-export const UV_SLOTS = 10;
+export const UV_SLOTS = 7;
 
 /** How many numbers a particle's frame takes, a 3x3. */
 export const FRAME_SLOTS = 9;
@@ -131,13 +147,20 @@ export function createPool(capacity: number): Pool {
     born: 0,
     emitter: new Int32Array(capacity),
     serial: new Uint32Array(capacity),
+    fresh: new Uint8Array(capacity),
     birthTime: new Float32Array(capacity),
     lifetime: new Float32Array(capacity),
     position: new Float32Array(capacity * 3),
     velocity: new Float32Array(capacity * 3),
+    birthAcceleration: new Float32Array(capacity * 3),
+    placed: new Float32Array(capacity * 3),
+    drift: new Float32Array(capacity * 3),
     travel: new Float32Array(capacity * 3),
     birthScale: new Float32Array(capacity * 3),
     frame: new Float32Array(capacity * FRAME_SLOTS),
+    anchor: new Float32Array(capacity * 3),
+    bound: new Float32Array(capacity * 3),
+    birthRotation: new Float32Array(capacity * 3),
     rotation: new Float32Array(capacity * 3),
     angularVelocity: new Float32Array(capacity * 3),
     angularAcceleration: new Float32Array(capacity * 3),
@@ -155,7 +178,7 @@ export function createPool(capacity: number): Pool {
 }
 
 /** One column of a pool: the same numbers for every particle, packed. */
-type Column = Int32Array | Uint32Array | Float32Array;
+type Column = Int32Array | Uint32Array | Uint8Array | Float32Array;
 
 /**
  * The live rows of a pool as a value, which a checkpoint holds and a restore writes back.
@@ -230,6 +253,7 @@ export function spawn(
   pool.emitter[at] = emitter;
   pool.serial[at] = pool.born;
   pool.born += 1;
+  pool.fresh[at] = 1;
   pool.birthTime[at] = birthTime;
   pool.lifetime[at] = lifetime;
   pool.roll[at] = roll;
@@ -237,6 +261,12 @@ export function spawn(
   pool.tiling.fill(0, at * 2, at * 2 + 2);
   pool.odometer[at] = 0;
   pool.position.fill(0, at * 3, at * 3 + 3);
+  pool.birthAcceleration.fill(0, at * 3, at * 3 + 3);
+  pool.placed.fill(0, at * 3, at * 3 + 3);
+  pool.drift.fill(0, at * 3, at * 3 + 3);
+  pool.anchor.fill(0, at * 3, at * 3 + 3);
+  pool.bound.fill(0, at * 3, at * 3 + 3);
+  pool.birthRotation.fill(0, at * 3, at * 3 + 3);
   pool.rotation.fill(0, at * 3, at * 3 + 3);
   pool.angularVelocity.fill(0, at * 3, at * 3 + 3);
   pool.angularAcceleration.fill(0, at * 3, at * 3 + 3);
@@ -268,6 +298,7 @@ export function retire(pool: Pool, index: number): void {
   if (index !== last) {
     pool.emitter[index] = pool.emitter[last];
     pool.serial[index] = pool.serial[last];
+    pool.fresh[index] = pool.fresh[last];
     pool.birthTime[index] = pool.birthTime[last];
     pool.lifetime[index] = pool.lifetime[last];
     pool.roll[index] = pool.roll[last];
@@ -276,6 +307,12 @@ export function retire(pool: Pool, index: number): void {
     pool.tiling.copyWithin(index * 2, last * 2, last * 2 + 2);
     pool.position.copyWithin(index * 3, last * 3, last * 3 + 3);
     pool.velocity.copyWithin(index * 3, last * 3, last * 3 + 3);
+    pool.birthAcceleration.copyWithin(index * 3, last * 3, last * 3 + 3);
+    pool.placed.copyWithin(index * 3, last * 3, last * 3 + 3);
+    pool.drift.copyWithin(index * 3, last * 3, last * 3 + 3);
+    pool.anchor.copyWithin(index * 3, last * 3, last * 3 + 3);
+    pool.bound.copyWithin(index * 3, last * 3, last * 3 + 3);
+    pool.birthRotation.copyWithin(index * 3, last * 3, last * 3 + 3);
     pool.travel.copyWithin(index * 3, last * 3, last * 3 + 3);
     pool.birthScale.copyWithin(index * 3, last * 3, last * 3 + 3);
     pool.frame.copyWithin(index * FRAME_SLOTS, last * FRAME_SLOTS, (last + 1) * FRAME_SLOTS);

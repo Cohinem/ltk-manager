@@ -14,19 +14,17 @@ import {
   drawnPlaceInto,
   erosionDrive,
   frameOf,
-  legacyRoll,
+  particleBasisInto,
   type Source,
-  standingFrameInto,
 } from "../../engine/simulation/particleRead";
-import { FRAME_SLOTS } from "../../engine/simulation/pool";
-import { multiplyInto, standingInto, turnInto } from "../../engine/utils/basis";
+import { turnInto } from "../../engine/utils/basis";
 import { sampleCurve } from "../../engine/utils/sampleCurve";
 import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
-import { distorts } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
+import { drawLayersOf } from "../utils/frame";
 import { ribbonMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import { RIBBON_DRAW } from "../utils/particleDraws";
@@ -76,9 +74,6 @@ const PARTICLE: BeamParticle = {
 
 /** Where one particle draws, in the engine's space, off which its local place is taken. */
 const PLACED = drawnPlace();
-
-/** The frame one particle stands its own turn on, which its emitter's flag picks. */
-const STOOD = new Float32Array(FRAME_SLOTS);
 
 /** The ramp and the soft fade a ribbon's shader compiles, and neither the rim nor the reflection. */
 const DRAWS: LayerDraws = { ramp: true, sheen: false, fade: true };
@@ -131,7 +126,7 @@ export function Beams({ emitter, sources, samplers, rank, hidden, document = nul
     [buffers],
   );
 
-  const pair = useDrawPair<Mesh | LineSegments>(material, distorts(emitter));
+  const pair = useDrawPair<Mesh | LineSegments>(material, drawLayersOf(emitter));
   const programs = useParticlePrograms(emitter, samplers, RIBBON_DRAW, buffers.geometry, document);
   useProgramDraw(pair.solid, programs, rank);
 
@@ -197,11 +192,8 @@ export function Beams({ emitter, sources, samplers, rank, hidden, document = nul
           DRAWN.color[channel] *= bound[channel] ?? 1;
         premultiplyInto(emitter, DRAWN.color);
 
-        standingInto(pool.rotation, at * 3, legacyRoll(pool, at, emitter, time), PARTICLE.turn);
-        standingFrameInto(pool, at, emitter, frame, STOOD);
-        multiplyInto(STOOD, PARTICLE.turn, PARTICLE.turn);
+        particleBasisInto(pool, at, emitter, frame, PARTICLE.turn);
         drawnPlaceInto(pool, at, frame, PLACED);
-        if (PLACED.orbited) multiplyInto(PLACED.turn, PARTICLE.turn, PARTICLE.turn);
         for (let axis = 0; axis < 3; axis += 1) {
           LOCAL[axis] = PLACED.place[axis] - origin[axis];
         }

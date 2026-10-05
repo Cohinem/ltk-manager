@@ -15,7 +15,7 @@ import { FRAME_SLOTS } from "../../engine/simulation/pool";
 import { sampleCurveInto } from "../../engine/utils/sampleCurve";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import { VfxRunContext } from "../../playback/state/run";
-import { spawnFrameInto } from "../../rendering/utils/emitterShape";
+import { spawnFrameInto, spawnOriginInto } from "../../rendering/utils/emitterShape";
 import { emitterOf } from "../utils/graphEmitter";
 import { bodyMatrixInto, shapeBody } from "../utils/shapeBody";
 import { spawnCloud } from "../utils/spawnCloud";
@@ -58,10 +58,9 @@ export function ShapeOverlay({
     spawnFrameInto(emitter, world.basis, frame.orientation, FRAME);
     STANDS.fill(0);
     sampleCurveInto(emitter.emitterPosition, frame.phase, STANDS, 0);
-    for (let axis = 0; axis < 3; axis += 1) {
-      OFFSET[axis] = STANDS[axis]! + emitter.translationOverride[axis]!;
-    }
-    bodyMatrixInto(FRAME, frame.origin, OFFSET, placed.matrix);
+    for (let axis = 0; axis < 3; axis += 1) OFFSET[axis] = STANDS[axis]!;
+    spawnOriginInto(emitter, world, frame.orientation, frame.origin, ORIGIN);
+    bodyMatrixInto(FRAME, [ORIGIN[0]!, ORIGIN[1]!, ORIGIN[2]!], OFFSET, placed.matrix);
     placed.matrixWorldNeedsUpdate = true;
   });
 
@@ -71,6 +70,9 @@ export function ShapeOverlay({
 
 /** The frame a birth is placed in, which `integrate.ts` calls the emitter's spawn frame. */
 const FRAME = new Float32Array(FRAME_SLOTS);
+
+/** Where the origin of the emitter's own frame stands this frame. */
+const ORIGIN = new Float32Array(3);
 
 /** Where `EmitterPosition` has the emitter this frame. */
 const STANDS = new Float32Array(3);
