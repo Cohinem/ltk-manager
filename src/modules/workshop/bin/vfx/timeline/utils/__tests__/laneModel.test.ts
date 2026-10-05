@@ -132,11 +132,25 @@ function system(...emitters: EmitterModel[]): SystemModel {
 }
 
 describe("laneBar", () => {
-  it("spans the emission window from the first emission to the end of the lifetime", () => {
+  it("spans the emission window from the first emission to the lifetime, an end time of its own", () => {
     const bar = laneBar(emitter({ timeBeforeFirstEmission: 0.5, lifetime: 2 }));
 
     expect(bar.start).toBe(0.5);
-    expect(bar.end).toBe(2.5);
+    expect(bar.end).toBe(2);
+  });
+
+  it("ends a bar at its start where the lifetime falls before the first emission", () => {
+    const bar = laneBar(emitter({ timeBeforeFirstEmission: 3, lifetime: 2 }));
+
+    expect(bar.start).toBe(3);
+    expect(bar.end).toBe(3);
+  });
+
+  it("carries the emitter's period as written, and none for an emitter writing neither half", () => {
+    const period = { length: 2, active: null };
+
+    expect(laneBar(emitter({ period })).period).toBe(period);
+    expect(laneBar(emitter()).period).toBeNull();
   });
 
   it("leaves an endless emitter with no end", () => {
@@ -170,6 +184,18 @@ describe("laneOrder", () => {
     );
 
     expect(ordered.map((each) => each.name)).toEqual(["ground", "early", "late"]);
+  });
+
+  it("lists a complex emitter before a simple one of the same pass", () => {
+    const ordered = laneOrder(
+      system(
+        emitter({ index: 0, name: "simple", simple: true }),
+        emitter({ index: 1, name: "complex" }),
+        emitter({ index: 2, name: "early simple", simple: true, pass: -1 }),
+      ),
+    );
+
+    expect(ordered.map((each) => each.name)).toEqual(["early simple", "complex", "simple"]);
   });
 });
 
@@ -286,7 +312,7 @@ describe("child lanes", () => {
   });
 });
 
-describe("bar edges", () => {
+describe("periodCycles", () => {
   const view = { from: 0, to: 10 };
   const bar = {
     start: 1,
@@ -297,13 +323,74 @@ describe("bar edges", () => {
     burst: false,
   };
 
-  it("opens a cycle every period until the bar ends", () => {
+  it("opens a cycle every period from the system's start, whatever the bar's own", () => {
+    const cycling = { ...bar, start: 0, end: 6, period: { length: 2, active: 0.5 } };
+
+    expect(periodCycles(cycling, view)).toEqual([
+      { from: 0, active: 0.5, until: 2 },
+      { from: 2, active: 2.5, until: 4 },
+      { from: 4, active: 4.5, until: 6 },
+    ]);
+    expect(periodCycles({ ...cycling, start: 2.25 }, view)).toEqual([
+      { from: 2.25, active: 2.5, until: 4 },
+      { from: 4, active: 4.5, until: 6 },
+    ]);
+  });
+
+  it("holds the cycle a delayed bar opens in to the bar, its emitting already over", () => {
     const cycling = { ...bar, end: 7, period: { length: 2, active: 0.5 } };
 
     expect(periodCycles(cycling, view)).toEqual([
-      { from: 1, active: 1.5 },
-      { from: 3, active: 3.5 },
-      { from: 5, active: 5.5 },
+      { from: 1, active: 1, until: 2 },
+      { from: 2, active: 2.5, until: 4 },
+      { from: 4, active: 4.5, until: 6 },
+      { from: 6, active: 6.5, until: 7 },
     ]);
+  });
+
+  it("clips the last cycle to the bar's end, its emitting with it", () => {
+    const cycling = { ...bar, start: 0, end: 4.25, period: { length: 2, active: 0.5 } };
+
+    expect(periodCycles(cycling, view).at(-1)).toEqual({ from: 4, active: 4.25, until: 4.25 });
+  });
+
+  it("runs an endless bar's cycles to the view's edge, from the cycle the view opens in", () => {
+    const endless = { ...bar, start: 0, end: null, period: { length: 2, active: 0.5 } };
+
+    expect(periodCycles(endless, { from: 4.5, to: 7 })).toEqual([
+      { from: 4, active: 4.5, until: 6 },
+      { from: 6, active: 6.5, until: 7 },
+    ]);
+  });
+
+  it("draws the one cycle of an emitter writing no period, emitting until the active time passes", () => {
+    const once = { ...bar, end: 7, period: { length: null, active: 3 } };
+
+    expect(periodCycles(once, view)).toEqual([{ from: 1, active: 3, until: 7 }]);
+  });
+
+  it("holds that one cycle's active time inside the bar, counted from the system's start", () => {
+    const early = { ...bar, end: 7, period: { length: null, active: 0.5 } };
+    const late = { ...bar, end: 7, period: { length: null, active: 9 } };
+
+    expect(periodCycles(early, view)).toEqual([{ from: 1, active: 1, until: 7 }]);
+    expect(periodCycles(late, view)).toEqual([{ from: 1, active: 7, until: 7 }]);
+  });
+
+  it("draws no cycle for an emitter writing no active time, which emits throughout", () => {
+    expect(periodCycles({ ...bar, period: { length: 2, active: null } }, view)).toEqual([]);
+    expect(periodCycles(bar, view)).toEqual([]);
+  });
+
+  it("draws no cycle for a period of no length", () => {
+    expect(periodCycles({ ...bar, period: { length: 0, active: 0.5 } }, view)).toEqual([]);
+    expect(periodCycles({ ...bar, period: { length: -1, active: 0.5 } }, view)).toEqual([]);
+  });
+
+  it("stops at the most cycles it is asked for", () => {
+    const fast = { ...bar, start: 0, end: 9, period: { length: 0.5, active: 0.25 } };
+
+    expect(periodCycles(fast, view, 3)).toHaveLength(3);
+    expect(periodCycles(fast, view)).toHaveLength(18);
   });
 });

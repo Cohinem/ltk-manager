@@ -5,13 +5,13 @@
  * integrated scroll on top, and the rotation the same way in degrees. The angle and the
  * two scales reach the shader rather than the 2x3 matrix itself, because the shader is
  * what builds a basis out of them either way. A flip is the layer's own and lands after
- * the transform, in the sampler's hands.
+ * the transform, in the sampler's hands, and the emitter's own scroll after the flip.
  */
 
 import { ADDRESS_MODE, type AddressMode } from "../../engine/model/enums";
 import type { EmitterModel, UvLayer } from "../../engine/model/model";
 import { type Pool, UV, uvAt } from "../../engine/simulation/pool";
-import { sampleCurve } from "../../engine/utils/sampleCurve";
+import { integratedInto, sampleCurve } from "../../engine/utils/sampleCurve";
 
 /** What one layer hands its sampler for one particle. */
 export interface UvDraw {
@@ -38,12 +38,17 @@ const RAMP_REACH = 1;
 
 const DEGREE = Math.PI / 180;
 
+/** Scratch one integrated rate is read into. */
+const INTEGRATED = new Float32Array(2);
+
 /**
  * One layer's transform for the particle at `index`, into `out`.
  *
- * `now` is the emitter's own clock rather than the particle's, because
- * `emitterUvScrollRate` is absolute time times rate with no accumulator behind it, and
- * `age` is the particle's, because its ramps and its book play on its own life.
+ * `age` is the particle's, because its ramps and its book play on its own life. The two
+ * integrated rates are their integrals over the age fraction times the lifetime, and a
+ * particle that never expires takes none. `now` is the system's own clock, which
+ * `emitterUvScrollRate` runs on: a quad adds it after the flips, and `emitterScroll` is
+ * false for a mesh, on which no reader of it is known.
  */
 export function uvTransformInto(
   pool: Pool,
@@ -54,26 +59,37 @@ export function uvTransformInto(
   age01: number,
   now: number,
   out: UvDraw,
+  emitterScroll = true,
 ): void {
   const slot = uvAt(index, which);
   const scale = sampleCurve(layer.scale, age01);
+  const lifetime = pool.lifetime[index];
+  const lived = Number.isFinite(lifetime) ? lifetime : 0;
 
+  INTEGRATED.fill(0);
+  integratedInto(layer.rotateRate, age01, 1, INTEGRATED, 0);
   const turned =
     (sampleCurve(layer.rotation, age01)[0] ?? 0) +
     age * pool.uv[slot + UV.birthRotate] +
-    pool.uv[slot + UV.rotate];
+    INTEGRATED[0] * lived;
   out.turn = turned * DEGREE;
   out.scaleU = scale[0] ?? 1;
   out.scaleV = scale[1] ?? 1;
 
+  INTEGRATED.fill(0);
+  integratedInto(layer.scrollRate, age01, 1, INTEGRATED, 0);
   const rampU = pool.uv[slot + UV.birthOffsetX] + age * pool.uv[slot + UV.birthScrollX];
   const rampV = pool.uv[slot + UV.birthOffsetY] + age * pool.uv[slot + UV.birthScrollY];
+  /* The shader mirrors the whole offset under a flip, so a term that lands after the flip
+     goes in reversed. */
+  const panU = emitterScroll ? layer.emitterScrollRate[0] * now * (layer.flipU ? -1 : 1) : 0;
+  const panV = emitterScroll ? layer.emitterScrollRate[1] * now * (layer.flipV ? -1 : 1) : 0;
   out.offsetU = periodic(
-    ramp(rampU, layer.scrollClamp) + pool.uv[slot + UV.scrollX] + layer.emitterScrollRate[0] * now,
+    ramp(rampU, layer.scrollClamp) + INTEGRATED[0] * lived + panU,
     layer.addressMode,
   );
   out.offsetV = periodic(
-    ramp(rampV, layer.scrollClamp) + pool.uv[slot + UV.scrollY] + layer.emitterScrollRate[1] * now,
+    ramp(rampV, layer.scrollClamp) + INTEGRATED[1] * lived + panV,
     layer.addressMode,
   );
 
@@ -82,9 +98,11 @@ export function uvTransformInto(
   const rows = Math.max(Math.round(book.divisions[1]), 1);
   const frames = Math.max(Math.round(book.frames), 1);
 
-  /* The run wraps before `startFrame` is added, so it cycles from that frame onward
-     rather than back to the grid's first cell. Past the grid the sampler wraps. */
-  const played = wrap(pool.uv[slot + UV.phase] + age * pool.uv[slot + UV.frameRate], frames);
+  /* A rate at or under zero plays nothing. The run wraps before `startFrame` is added, so
+     it cycles from that frame onward rather than back to the grid's first cell. Past the
+     grid the sampler wraps. */
+  const rate = pool.uv[slot + UV.frameRate];
+  const played = wrap(pool.uv[slot + UV.phase] + (rate > 0 ? age * rate : 0), frames);
   const cell = wrap(Math.trunc(book.start + played), columns * rows);
 
   out.cellU = (cell % columns) / columns;

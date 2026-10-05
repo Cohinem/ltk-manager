@@ -15,18 +15,17 @@ import {
   drawnPlaceInto,
   erosionDrive,
   frameOf,
-  legacyRoll,
+  particleBasisInto,
   type Source,
-  standingFrameInto,
 } from "../../engine/simulation/particleRead";
-import { FRAME_SLOTS } from "../../engine/simulation/pool";
-import { AXIS, axisInto, multiplyInto, standingInto } from "../../engine/utils/basis";
+import { AXIS, axisInto } from "../../engine/utils/basis";
 import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
-import { distorts, trailFacesTheCamera } from "../utils/drawKind";
+import { trailFacesTheCamera } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
+import { drawLayersOf } from "../utils/frame";
 import { ribbonMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import { RIBBON_DRAW } from "../utils/particleDraws";
@@ -54,7 +53,6 @@ const TRAIL_VERTICES = TRAIL_POINTS * 2 * 4;
 const DRAWN = { scale: new Float32Array(3), color: new Float32Array(4) };
 const UV_DRAWN = uvDraw();
 const BASIS = new Float32Array(9);
-const STOOD = new Float32Array(FRAME_SLOTS);
 const STRAND = strand(TRAIL_POINTS);
 const ORDER = new Int32Array(TRAIL_POINTS);
 const CURSOR: Cursor = { vertex: 0, index: 0 };
@@ -111,7 +109,7 @@ export function Trails({ emitter, sources, samplers, rank, hidden, document = nu
     [buffers],
   );
 
-  const pair = useDrawPair<Mesh | LineSegments>(material, distorts(emitter));
+  const pair = useDrawPair<Mesh | LineSegments>(material, drawLayersOf(emitter));
   const programs = useParticlePrograms(emitter, samplers, RIBBON_DRAW, buffers.geometry, document);
   useProgramDraw(pair.solid, programs, rank);
 
@@ -194,10 +192,7 @@ function strandInto(source: Source, emitter: EmitterModel, stamp: number): void 
     STRAND.odometer[slot] = pool.odometer[at];
     STRAND.erode[slot] = erosionDrive(pool, at, emitter, time);
 
-    standingInto(pool.rotation, at * 3, legacyRoll(pool, at, emitter, time), BASIS);
-    standingFrameInto(pool, at, emitter, frame, STOOD);
-    multiplyInto(STOOD, BASIS, BASIS);
-    if (PLACED.orbited) multiplyInto(PLACED.turn, BASIS, BASIS);
+    particleBasisInto(pool, at, emitter, frame, BASIS);
     axisInto(BASIS, AXIS.x, STRAND.side, slot * 3);
 
     const age = time - pool.birthTime[at];

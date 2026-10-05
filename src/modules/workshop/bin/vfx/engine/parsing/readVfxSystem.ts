@@ -1,15 +1,27 @@
 import type { MaterialPreview, VfxSystem, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
-import { COLOR_LOOKUP, DRAG_MOTION, IMPORTANCE, STENCIL_MODE } from "../model/enums";
+import {
+  COLOR_LOOKUP,
+  COLORBLIND_VISIBILITY,
+  DRAG_MOTION,
+  DRAWING_LAYER,
+  IMPORTANCE,
+  LINGER_TYPE,
+  RENDER_PHASE,
+  SPECTATOR_POLICY,
+  STENCIL_MODE,
+  SYSTEM_FLAG,
+} from "../model/enums";
 import type {
   ChildSetModel,
+  EmissionMeshModel,
   EmitterCull,
   EmitterModel,
   SystemModel,
   UvLayer,
 } from "../model/model";
-import { emissionPeriod, emptySystem } from "../model/systemModel";
+import { curveMaximum, emissionPeriod, emptySystem } from "../model/systemModel";
 import { readEmissionSurface } from "./readEmissionSurface";
 import {
   readBeam,
@@ -34,6 +46,8 @@ import {
 import {
   ALPHA_REF_SCALE,
   blendMode,
+  channelsOr,
+  constant,
   curve,
   DEFAULT,
   DEFAULT_ALPHA_REF,
@@ -61,22 +75,26 @@ const SYSTEM = {
   transform: nameHash("transform"),
   flags: nameHash("flags"),
   buildUpTime: nameHash("buildUpTime"),
+  drawingLayer: nameHash("drawingLayer"),
 } as const;
 
 /** `directionVelocityMinScale`'s schema default, which a bin writing `0` departs from. */
 const DIRECTION_MIN_SCALE_DEFAULT = 1;
 
-/** `flags`' schema default, which leaves `kAnalyticDragMotion` off. */
+/** `flags`' schema default, which leaves `UseCalculusForPhysics` off. */
 const FLAGS_DEFAULT = 0xd4;
-
-/** `kAnalyticDragMotion` in `flags`. */
-const ANALYTIC_DRAG_MOTION = 0x100;
 
 /** `importance`'s schema default. */
 const IMPORTANCE_DEFAULT = 1;
 
-/** `colorblindVisibility` for an emitter that exists only on the colourblind palette. */
-const COLORBLIND_ONLY = 2;
+/** `MaximumRateByVelocity` where the emitter leaves it unset. */
+const MAXIMUM_RATE_BY_VELOCITY = 300;
+
+/** `VfxEmitterFiltering.spectatorPolicy`, the one field of `Filtering` the preview gates on. */
+const SPECTATOR_POLICY_FIELD = nameHash("spectatorPolicy");
+
+/** The unnamed flag that reverses which winding is the front face. */
+const FLIP_WINDING = "0xd1ee8634";
 
 /** The two lists a system contains its emitters in, in the order the strip reads them. */
 const EMITTER_LISTS = [
@@ -90,7 +108,14 @@ const FIELD = {
   disabled: nameHash("disabled"),
   importance: nameHash("importance"),
   colorblindVisibility: nameHash("colorblindVisibility"),
+  chanceToNotExist: nameHash("ChanceToNotExist"),
+  filtering: nameHash("Filtering"),
   rate: nameHash("rate"),
+  flexRate: nameHash("flexRate"),
+  rateByVelocity: nameHash("rateByVelocityFunction"),
+  maximumRateByVelocity: nameHash("MaximumRateByVelocity"),
+  hasVariableStartTime: nameHash("HasVariableStartTime"),
+  materialOverrides: nameHash("materialOverrideDefinitions"),
   particleLifetime: nameHash("particleLifetime"),
   lifetime: nameHash("lifetime"),
   timeBeforeFirstEmission: nameHash("timeBeforeFirstEmission"),
@@ -99,6 +124,7 @@ const FIELD = {
   singleParticle: nameHash("isSingleParticle"),
   sharedRandom: nameHash("ParticlesShareRandomValue"),
   birthVelocity: nameHash("birthVelocity"),
+  birthAcceleration: nameHash("birthAcceleration"),
   acceleration: nameHash("acceleration"),
   drag: nameHash("drag"),
   birthDrag: nameHash("birthDrag"),
@@ -122,12 +148,19 @@ const FIELD = {
   emitterPosition: nameHash("EmitterPosition"),
   emitterSpace: nameHash("IsEmitterSpace"),
   spawnShape: nameHash("SpawnShape"),
+  emissionMesh: nameHash("emissionMeshName"),
+  emissionMeshScale: nameHash("emissionMeshScale"),
+  emissionMeshNormal: nameHash("useEmissionMeshNormalForBirth"),
+  offsetLifetimeScaling: nameHash("offsetLifetimeScaling"),
+  offsetLifeSymmetry: nameHash("offsetLifeScalingSymmetryMode"),
   rotationOverride: nameHash("rotationOverride"),
   scaleOverride: nameHash("scaleOverride"),
   translationOverride: nameHash("translationOverride"),
   localOrientation: nameHash("isLocalOrientation"),
   particleLocalOrientation: nameHash("particleIsLocalOrientation"),
   uniformScale: nameHash("isUniformScale"),
+  hasPostRotate: nameHash("hasPostRotateOrientation"),
+  postRotate: nameHash("postRotateOrientationAxis"),
   rotation0: nameHash("rotation0"),
   birthOrbitalVelocity: nameHash("birthOrbitalVelocity"),
   birthRotation0: nameHash("birthRotation0"),
@@ -141,6 +174,7 @@ const FIELD = {
   birthScale0: nameHash("birthScale0"),
   color: nameHash("Color"),
   birthColor: nameHash("birthColor"),
+  modulation: nameHash("modulationFactor"),
   texture: nameHash("texture"),
   blendMode: nameHash("blendMode"),
   primitive: nameHash("primitive"),
@@ -151,6 +185,7 @@ const FIELD = {
   textureMult: nameHash("textureMult"),
   pass: nameHash("pass"),
   miscRenderFlags: nameHash("miscRenderFlags"),
+  renderPhaseOverride: nameHash("renderPhaseOverride"),
   groundLayer: nameHash("isGroundLayer"),
   alphaRef: nameHash("alphaRef"),
   stencilMode: nameHash("stencilMode"),
@@ -202,6 +237,7 @@ function readSystem(
 ): SystemModel {
   if (root.type !== "struct") return emptySystem(entry);
 
+  const hudLayer = number(field(root, SYSTEM.drawingLayer)) === DRAWING_LAYER.hud;
   const emitters: EmitterModel[] = [];
   for (const list of EMITTER_LISTS) {
     const held = field(root, list.hash);
@@ -210,7 +246,9 @@ function readSystem(
        apart: one addresses the pool, and one joins a card to the emitter it drew. */
     held.items.forEach((item, listIndex) => {
       if (item.type !== "struct") return;
-      emitters.push(readEmitter(item, emitters.length, list.simple, listIndex, materials));
+      emitters.push(
+        readEmitter(item, emitters.length, list.simple, listIndex, materials, hudLayer),
+      );
     });
   }
 
@@ -220,7 +258,11 @@ function readSystem(
     name,
     emitters,
     transform: matrix(field(root, SYSTEM.transform)),
-    dragMotion: (flags & ANALYTIC_DRAG_MOTION) !== 0 ? DRAG_MOTION.analytic : DRAG_MOTION.stepped,
+    hudLayer,
+    dragMotion:
+      (flags & SYSTEM_FLAG.useCalculusForPhysics) !== 0
+        ? DRAG_MOTION.analytic
+        : DRAG_MOTION.stepped,
     buildUpTime: Math.max(number(field(root, SYSTEM.buildUpTime)) ?? 0, 0),
   };
 }
@@ -231,6 +273,7 @@ function readEmitter(
   simple: boolean,
   listIndex: number,
   materials: ReadonlyMap<string, MaterialPreview>,
+  hudLayer: boolean,
 ): EmitterModel {
   const custom = field(node, nameHash("CustomMaterial"));
   const material = field(custom, nameHash("Material"));
@@ -249,28 +292,41 @@ function readEmitter(
   const read = readLayer(node, LAYER.base, null);
   const mult = field(node, FIELD.textureMult);
   const multTexture = mult?.type === "struct" ? field(mult, MULT_TEXTURE) : null;
-  const legacySimple = readLegacySimple(field(node, FIELD.legacySimple));
+  const legacySimple = simple ? readLegacySimple(field(node, FIELD.legacySimple)) : null;
   const stencil = stencilMode(field(node, FIELD.stencilMode));
-  const culled = cullOf(node, simple);
+  /* `disabled` is the engine's first test, so no later gate is named for such an emitter. */
+  const off = flag(field(node, FIELD.disabled));
+  const culled = off ? null : cullOf(node, simple, hudLayer);
+  const byVelocity = pair(field(field(node, FIELD.rateByVelocity), CONSTANT));
+  const overrides = field(node, FIELD.materialOverrides);
+  const phase = number(field(node, FIELD.renderPhaseOverride)) ?? RENDER_PHASE.automatic;
 
   /* What the legacy block says about the whole emitter lowers onto the fields it
-     stands in for, so the integrator reads one place for either kind of emitter. */
+     stands in for, so the draw reads one place for either kind of emitter. Its scroll
+     runs on each particle's own age and wraps, which is the birth ramp. */
   const scrolls =
     legacySimple !== null &&
     (legacySimple.uvScrollRate[0] !== 0 || legacySimple.uvScrollRate[1] !== 0);
-  const uv: UvLayer = scrolls ? { ...read, emitterScrollRate: legacySimple.uvScrollRate } : read;
-  const locked = legacySimple?.lockedToEmitter === true;
+  const uv: UvLayer = scrolls
+    ? { ...read, birthScrollRate: constant(legacySimple.uvScrollRate), scrollClamp: false }
+    : read;
+  const multLayer = mult?.type === "struct" ? readLayer(mult, LAYER.mult, uv.book) : null;
 
   return {
     customMaterial,
     index,
     simple,
+    hudLayer,
     listIndex,
     name: text(field(node, FIELD.name)) ?? "",
-    disabled: flag(field(node, FIELD.disabled)) || culled !== null,
+    disabled: off || culled !== null,
     culled,
+    chanceToNotExist: simple ? 0 : (number(field(node, FIELD.chanceToNotExist)) ?? 0),
 
     rate: curve(field(node, FIELD.rate), DEFAULT.rate),
+    rateByVelocity: simple || (byVelocity[0] === 0 && byVelocity[1] === 0) ? null : byVelocity,
+    maximumRateByVelocity:
+      number(field(node, FIELD.maximumRateByVelocity)) ?? MAXIMUM_RATE_BY_VELOCITY,
     particleLifetime: curve(field(node, FIELD.particleLifetime), DEFAULT.particleLifetime),
     lifetime: number(field(node, FIELD.lifetime)),
     timeBeforeFirstEmission: number(field(node, FIELD.timeBeforeFirstEmission)) ?? 0,
@@ -279,30 +335,47 @@ function readEmitter(
       number(field(node, FIELD.timeActiveDuringPeriod)),
     ),
     singleParticle: flag(field(node, FIELD.singleParticle)),
+    hasVariableStartTime: !simple && flag(field(node, FIELD.hasVariableStartTime)),
+    overridesMaterials: overrides?.type === "container" && overrides.items.length > 0,
     sharedRandom: flag(field(node, FIELD.sharedRandom)),
 
+    /* A simple emitter moves its particles in a straight line off `birthVelocity` and
+       reads none of the over-life motion, the emitter's own frame or the emission mesh. */
     birthVelocity: curve(field(node, FIELD.birthVelocity), DEFAULT.zero3),
-    acceleration: curve(field(node, FIELD.acceleration), DEFAULT.zero3),
-    drag: curve(field(node, FIELD.drag), DEFAULT.zero3),
-    birthDrag: curve(field(node, FIELD.birthDrag), DEFAULT.zero3),
-    velocity: curve(field(node, FIELD.velocity), DEFAULT.zero3),
-    worldAcceleration: curve(field(node, FIELD.worldAcceleration), DEFAULT.zero3),
-    bindWeight: locked ? DEFAULT.one : curve(field(node, FIELD.bindWeight), DEFAULT.zero),
+    birthAcceleration: complex(simple, field(node, FIELD.birthAcceleration)),
+    acceleration: complex(simple, field(node, FIELD.acceleration)),
+    drag: complex(simple, field(node, FIELD.drag)),
+    birthDrag: complex(simple, field(node, FIELD.birthDrag)),
+    velocity: complex(simple, field(node, FIELD.velocity)),
+    worldAcceleration: complex(simple, field(node, FIELD.worldAcceleration)),
+    bindWeight: simple ? DEFAULT.zero : curve(field(node, FIELD.bindWeight), DEFAULT.zero),
     emitterPosition: curve(field(node, FIELD.emitterPosition), DEFAULT.zero3),
-    emitterSpace: locked || flag(field(node, FIELD.emitterSpace)),
+    emitterSpace: !simple && flag(field(node, FIELD.emitterSpace)),
     shape: readShape(field(node, FIELD.spawnShape)),
-    emissionSurface: readEmissionSurface(field(node, nameHash("emissionSurfaceDefinition"))),
-    rotationOverride: triple(field(node, FIELD.rotationOverride)),
-    scaleOverride: tripleOr(field(node, FIELD.scaleOverride), [1, 1, 1]),
-    translationOverride: triple(field(node, FIELD.translationOverride)),
+    emissionMesh: simple ? null : readEmissionMesh(node),
+    offsetLifetimeScaling: simple ? [0, 0, 0] : triple(field(node, FIELD.offsetLifetimeScaling)),
+    offsetLifeSymmetry: number(field(node, FIELD.offsetLifeSymmetry)) ?? 0,
+    emissionSurface: simple
+      ? null
+      : readEmissionSurface(field(node, nameHash("emissionSurfaceDefinition"))),
+    rotationOverride: simple ? [0, 0, 0] : triple(field(node, FIELD.rotationOverride)),
+    scaleOverride: simple ? [1, 1, 1] : tripleOr(field(node, FIELD.scaleOverride), [1, 1, 1]),
+    translationOverride: simple ? [0, 0, 0] : triple(field(node, FIELD.translationOverride)),
     localOrientation: flagOr(field(node, FIELD.localOrientation), true),
     particleLocalOrientation: flag(field(node, FIELD.particleLocalOrientation)),
     uniformScale: flag(field(node, FIELD.uniformScale)),
+    postRotate:
+      !simple && flag(field(node, FIELD.hasPostRotate))
+        ? triple(field(node, FIELD.postRotate))
+        : null,
 
     particleLinger: number(field(node, FIELD.particleLinger)) ?? 0,
     emitterLinger: number(field(node, FIELD.emitterLinger)) ?? 0,
-    lingerType: lingerType(field(node, FIELD.lingerType)),
-    linger: readLinger(field(node, FIELD.linger)),
+    /* A simple emitter reads neither: its linger is the max kind, with no replacement. */
+    lingerType: simple
+      ? LINGER_TYPE.maxLifetimeAfterEmitterDies
+      : lingerType(field(node, FIELD.lingerType)),
+    linger: simple ? null : readLinger(field(node, FIELD.linger)),
 
     palette: readPalette(field(node, FIELD.palette)),
     erosion: readErosion(field(node, FIELD.erosion)),
@@ -335,6 +408,7 @@ function readEmitter(
     birthScale0: curve(field(node, FIELD.birthScale0), DEFAULT.one3),
     color: curve(field(node, FIELD.color), DEFAULT.white),
     birthColor: curve(field(node, FIELD.birthColor), DEFAULT.white),
+    modulation: channelsOr(field(node, FIELD.modulation), [1, 1, 1, 1]),
 
     texture:
       customMaterial !== null && !customMaterial.missing
@@ -343,11 +417,16 @@ function readEmitter(
     uv,
     uvMode: uvMode(field(node, FIELD.uvMode)),
     multTexture: namedAsset(multTexture),
-    multUv: mult?.type === "struct" ? readLayer(mult, LAYER.mult, uv.book) : null,
+    /* `emitterUvScrollRateMult` has no reader, and the base layer's rate moves both. */
+    multUv: multLayer === null ? null : { ...multLayer, emitterScrollRate: uv.emitterScrollRate },
     blendMode: blendMode(field(node, FIELD.blendMode)),
     pass: number(field(node, FIELD.pass)) ?? 0,
     miscRenderFlags: number(field(node, FIELD.miscRenderFlags)) ?? 0,
-    groundLayer: flag(field(node, FIELD.groundLayer)),
+    renderPhaseOverride: phase,
+    groundLayer:
+      phase === RENDER_PHASE.automatic
+        ? !hudLayer && flag(field(node, FIELD.groundLayer))
+        : phase === RENDER_PHASE.groundLayer,
     alphaRef: (number(field(node, FIELD.alphaRef)) ?? DEFAULT_ALPHA_REF) / ALPHA_REF_SCALE,
     stencilMode: stencil,
     /* Read off a mode alone. */
@@ -366,6 +445,40 @@ function readEmitter(
     depthBias: pair(field(node, FIELD.depthBias)),
     depthPushPull: number(field(node, FIELD.depthPushPull)) ?? 0,
     backfaceCull: !flag(field(node, FIELD.disableBackfaceCull)),
+    flipWinding: flag(field(node, FLIP_WINDING)),
+  };
+}
+
+/**
+ * The emitter can never emit: a `rate` of zero, on an emitter that is no single burst and
+ * writes neither a `flexRate` nor a material override.
+ */
+function neverEmits(node: VfxValue & { type: "struct" }): boolean {
+  if (flag(field(node, FIELD.singleParticle))) return false;
+  if (field(node, FIELD.flexRate)?.type === "struct") return false;
+
+  const overrides = field(node, FIELD.materialOverrides);
+  if (overrides?.type === "container" && overrides.items.length > 0) return false;
+  return curveMaximum(curve(field(node, FIELD.rate), DEFAULT.rate)) === 0;
+}
+
+/** `constantValue`, which the velocity rate is read off. */
+const CONSTANT = nameHash("constantValue");
+
+/** A three-channel value a complex emitter reads, and zeroes for a simple one, which reads none. */
+function complex(simple: boolean, node: VfxValue | null) {
+  return simple ? DEFAULT.zero3 : curve(node, DEFAULT.zero3);
+}
+
+/** The static emission mesh an emitter names, and null for one naming none. */
+function readEmissionMesh(node: VfxValue & { type: "struct" }): EmissionMeshModel | null {
+  const mesh = namedAsset(field(node, FIELD.emissionMesh));
+  if (mesh === null) return null;
+
+  return {
+    mesh,
+    scale: number(field(node, FIELD.emissionMeshScale)) ?? 1,
+    useNormal: flagOr(field(node, FIELD.emissionMeshNormal), true),
   };
 }
 
@@ -416,16 +529,35 @@ function readChild(
 /**
  * The gate that keeps the emitter from being instantiated in the preview, and null for none.
  *
- * The preview draws at Very High effects quality on the default palette. A simple emitter
- * takes the importance gate alone (`VfxEmitter_Evaluation.md` section 3.2).
+ * The preview draws at Very High effects quality on the default palette, and is no
+ * spectator. A simple emitter skips the palette gate, and a HUD-layer system drops it.
+ * An emitter that can never emit is dropped as its definition is prepared. The keywords of
+ * `Filtering` are left ungated, since what supplies an instance's keywords is not
+ * established.
  */
-function cullOf(node: VfxValue & { type: "struct" }, simple: boolean): EmitterCull | null {
+function cullOf(
+  node: VfxValue & { type: "struct" },
+  simple: boolean,
+  hudLayer: boolean,
+): EmitterCull | null {
+  const policy = number(field(field(node, FIELD.filtering), SPECTATOR_POLICY_FIELD)) ?? 0;
+  if (
+    policy !== SPECTATOR_POLICY.enableAlways &&
+    policy !== SPECTATOR_POLICY.disableWhenSpectating
+  ) {
+    return "spectator";
+  }
+  if (simple && hudLayer) return "hudLayer";
+  if (neverEmits(node)) return "noRate";
+
   const importance = number(field(node, FIELD.importance)) ?? IMPORTANCE_DEFAULT;
   /* The preview draws at Very High, which culls the low-spec tier alone. */
   if (importance === IMPORTANCE.lowSpecOnly) return "importance";
+  if (simple) return null;
 
   const palette = number(field(node, FIELD.colorblindVisibility)) ?? 0;
-  if (!simple && palette === COLORBLIND_ONLY) return "colorblind";
+  if (palette === COLORBLIND_VISIBILITY.colorblindOnly) return "colorblind";
+  if (palette > COLORBLIND_VISIBILITY.colorblindOnly) return "never";
 
   return null;
 }

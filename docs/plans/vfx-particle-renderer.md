@@ -2270,6 +2270,113 @@ FeeneyPult and the laser turret, the stop wait on the Poro follower and the caul
 on camera quads, arbitrary quads and a mesh, and the ground layer on arbitrary quads, camera quads
 and meshes.
 
+### 2.52 A particle lives in its emitter's frame, and the timing counts from the system's start
+
+A static read of the 16.17 client, property by property, is written up on the meta wiki at
+<https://meta-wiki.leaguetoolkit.dev/classes/vfxemitterdefinitiondata> and
+<https://meta-wiki.leaguetoolkit.dev/classes/vfxsystemdefinitiondata>. Where it disagrees with an
+earlier decision here, the engine follows the read, and the earlier decision stands only for what
+the list below does not name. None of it was checked in game.
+
+**Storage.** A particle's position, velocity and acceleration are in the frame it was born in,
+`pool.position` and `pool.velocity`, and the world is reached at draw time. `pool.placed` is the
+particle's own matrix translation: the position, `EmitterPosition` under `IsEmitterSpace`, the
+system's current orientation under `particleIsLocalOrientation`, the orbit, then the definition's
+`transform`. `drawnPlaceInto` turns it by the birth frame and stands it on `pool.anchor`, where
+that frame's origin stood at the birth, with the `bindWeight` travel of `pool.bound` and the
+`worldAcceleration` offset on top. This replaces the world-space pool of 2.31 and gives four
+readings their place:
+
+- Drag acts on the emitter's own axes, so a non-uniform drag under a `rotationOverride` is exact.
+- The orbit of `birthOrbitalVelocity` turns a particle about the origin of its emitter's frame.
+- The definition's `transform` is the last factor of a particle's own matrix, inside the birth
+  frame. It no longer moves the rig's origin, which settles finding 3.10 of
+  docs/research/vfx-engine-audit.md. A HUD-layer system takes its translation alone.
+- `translationOverride` is turned by the system's orientation alone. `rotationOverride` and
+  `scaleOverride` do not reach it.
+
+**Timing.** Every time is the system's own, counted from its start.
+
+| Field                    | Reading                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------ |
+| `lifetime`               | An end time. A delay eats into the emission, and a negative value never emits              |
+| `period`                 | Cycles from the system's start. It gates nothing without `timeActiveDuringPeriod`          |
+| `timeActiveDuringPeriod` | Alone, it limits emission to the system's first seconds                                    |
+| emitter phase            | `(now - timeBeforeFirstEmission) / min(end, active, period)`, unclamped, zero for none set |
+| spawn count              | `trunc((now - max(cycle start, last spawn)) * rate)`, the last spawn moved to `now`        |
+
+A spawn does not carry the fraction the truncation drops, and the last spawn starts at zero, so a
+delayed emitter opens on a burst up to the cap of `rate * 0.33 + 1`. The births of one step are
+spread evenly over it, in birth time and along the system's travel, which settles finding 3.5. A
+complex `isSingleParticle` emitter writing no material overrides, whose `lifetime` is unset or
+over ten seconds past `particleLifetime`, takes `particleLifetime` for its end, so one delayed
+past that value never emits. `emissionEnd` in `systemModel.ts` is that rule. A stopped system
+keeps spawning until its age passes `emitterLinger`.
+
+**Draws.** A birth vector and `birthColor` draw once per channel. `particleLifetime` draws its
+own. The UV birth values, the random start frame and the birth-random colour lookup share one
+number, which `ParticlesShareRandomValue` makes the emitter's. A table on `rate` or on a value
+read over a particle's life is drawn again each step. This replaces the one chance of 2.6.
+
+**Motion.** `acceleration`, `velocity`, `drag` and `bindWeight` are read at the particle's own
+age, where they were read at the emitter's phase. `birthAcceleration` joins `acceleration`. The
+spin is the closed form of the birth angle, rate and acceleration, which settles finding 3.6.
+`UseCalculusForPhysics` eases by the birth drag alone.
+
+**Integrated values.** `rotation0`, `worldAcceleration`, `particleUVScrollRate` and
+`particleUVRotateRate` are read through `integratedInto`: the curve's running integral over the
+age, as a 64-entry table, times the lifetime. A value writing no `dynamics` is not integrated,
+and is one fixed amount for the whole life rather than a rate.
+
+**Gates.** `ChanceToNotExist` is rolled once per run. `colorblindVisibility` of 3 or more never
+spawns. `Filtering.spectatorPolicy` set to spectators only does not spawn in a preview. A
+HUD-layer system drops its simple emitters. The keywords of `Filtering` are not gated, since what
+supplies an instance's keywords is not established.
+
+**Simple emitters.** The list an emitter is in makes it simple, so `LegacySimple` defaults where
+it is unwritten and is ignored on a complex emitter. A simple emitter reads none of the over-life
+motion, the emitter's own frame, `Linger` or `particleLingerType`, and draws only a camera quad,
+an arbitrary quad, a mesh, a planar projection and an attached mesh.
+
+**Orientation and stretch.** `isDirectionOriented` aims the own `+Z` of an arbitrary quad, a mesh
+and an attached mesh along the travel, on top of the particle's spin. This replaces the look 2.51
+records for the arbitrary quad, which was judged by eye, and is the first thing to check against
+the game. `directionVelocityScale` is read whether or not the emitter is direction oriented,
+stretches a camera quad's up and an arbitrary quad's side, and reaches no mesh.
+`postRotateOrientationAxis` is euler degrees turned after the spin.
+
+**Render phases.** `drawPhases` in `drawKind.ts` is the engine's own choice of phase. An emitter
+left automatic draws by the sign of its `pass`: negative before the late distortion, and zero or
+more after it. A distortion block warps only with a non-zero `distortionMode`, bit 2 ahead of
+every particle and bit 1 between the two colour phases. `renderPhaseOverride` forces one phase.
+`Passes` draws the phases in that order, which replaces the single warp over every particle of
+2.25.
+
+**Other readings.**
+
+- `modulationFactor` multiplies every particle's colour.
+- `emitterUvScrollRate` lands after the flips and moves the mult layer too. No mesh reads it.
+- A flipbook rate at or under zero plays nothing.
+- The soft fade starts its fade out at `beginOut` itself, none for a value at or under zero, and
+  its unnamed byte picks what it reaches, in place of the blend mode of 2.43.
+- `emissionMeshName` is sampled by triangle area, with `emissionMeshScale` and
+  `useEmissionMeshNormalForBirth`.
+- `offsetLifetimeScaling` adds seconds per unit of the raw shape offset.
+- `rateByVelocityFunction` replaces `rate` by the system's speed.
+- The unnamed flag `0xd1ee8634` reverses a mesh's front face.
+
+**Not built.** The fixed 30 Hz step a system takes with `SimulateEveryFrame` clear, the flex
+values, `isFollowingTerrain`, the importance rate multiplier below Very High, the slice shaders of
+`sliceTechniqueRange`, the stencil modes and the shadow phase.
+
+**What to check on the screen.**
+
+- A direction-oriented arbitrary quad, against the game.
+- A delayed emitter with a rate, which now opens on a burst.
+- A system whose `transform` rotates, which now turns about its attachment point.
+- An emitter whose `rotation0` or `particleUVScrollRate` writes a constant and no curve, which no
+  longer spins or scrolls.
+
 ### T1 — subdivided textures and the UV transform
 
 `texDiv`, `numFrames`, `startFrame`, `frameRate`, `birthFrameRate`, `isRandomStartFrame` are one

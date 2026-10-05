@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { AssetRef, VfxSystem, VfxValue } from "@/lib/tauri";
 
-import { nameHash } from "../../../../shared/utils/binHash";
+import { hashOf, nameHash } from "../../../../shared/utils/binHash";
 import { materialPreview } from "../../../rendering/utils/__tests__/materialFixture";
 import {
   drawsAsMesh,
@@ -21,11 +21,14 @@ import {
   DRAG_MOTION,
   LINGER_TYPE,
   QUAD_TYPE,
+  RENDER_PHASE,
+  SOFT_TARGET,
   STENCIL_MODE,
   UV_MODE,
 } from "../../model/enums";
 import { readVfxSystem } from "../readVfxSystem";
 
+/** A struct of `fields`, each keyed by its name, or by its hash where the key is one. */
 function struct(classHash: string, fields: Record<string, VfxValue>): VfxValue {
   return {
     type: "struct",
@@ -33,7 +36,7 @@ function struct(classHash: string, fields: Record<string, VfxValue>): VfxValue {
     class: null,
     object: null,
     fields: Object.entries(fields).map(([name, value]) => ({
-      hash: nameHash(name),
+      hash: hashOf(name),
       name,
       value,
     })),
@@ -42,6 +45,10 @@ function struct(classHash: string, fields: Record<string, VfxValue>): VfxValue {
 
 function number(value: number): VfxValue {
   return { type: "number", value };
+}
+
+function bool(value: boolean): VfxValue {
+  return { type: "bool", value };
 }
 
 function vector(...values: number[]): VfxValue {
@@ -68,7 +75,11 @@ function keyed(times: number[], values: VfxValue[]): VfxValue {
   });
 }
 
-function system(emitters: VfxValue[], simple: VfxValue[] = []): VfxSystem {
+function system(
+  emitters: VfxValue[],
+  simple: VfxValue[] = [],
+  own: Record<string, VfxValue> = {},
+): VfxSystem {
   return {
     materials: [],
     entry: "0x12345678",
@@ -78,8 +89,14 @@ function system(emitters: VfxValue[], simple: VfxValue[] = []): VfxSystem {
     root: struct(nameHash("VfxSystemDefinitionData"), {
       complexEmitterDefinitionData: container(...emitters),
       simpleEmitterDefinitionData: container(...simple),
+      ...own,
     }),
   };
+}
+
+/** A system on the HUD layer, which is `drawingLayer` 1. */
+function hudSystem(emitters: VfxValue[], simple: VfxValue[] = []): VfxSystem {
+  return system(emitters, simple, { drawingLayer: number(1) });
 }
 
 function emitter(fields: Record<string, VfxValue>): VfxValue {
@@ -311,10 +328,55 @@ describe("readVfxSystem", () => {
       fixedOrbitType: 1,
       orientation: 0,
     });
-    expect(only.bindWeight.constant).toEqual([1]);
-    expect(only.emitterSpace).toBe(true);
-    expect(only.uv.emitterScrollRate).toEqual([0.5, 0]);
+    /* `lockedToEmitter` is carried and binds nothing, and the scroll is each particle's
+       own, on its age, wrapped. */
+    expect(only.bindWeight.constant).toEqual([0]);
+    expect(only.emitterSpace).toBe(false);
+    expect(only.uv.birthScrollRate.constant).toEqual([0.5, 0]);
+    expect(only.uv.scrollClamp).toBe(false);
+    expect(only.uv.emitterScrollRate).toEqual([0, 0]);
     expect(only.pivotUp).toBe(true);
+  });
+
+  it("lowers a legacy uvScrollRate over the emitter's own birth scroll and its clamp", () => {
+    const scrolling = (legacy: Record<string, VfxValue>) =>
+      emitter({
+        birthUvScrollRate: constantOf(vector(3, 4)),
+        uvScrollClamp: bool(true),
+        emitterUvScrollRate: vector(7, 8),
+        LegacySimple: struct(nameHash("VfxEmitterLegacySimple"), legacy),
+      });
+    const [lowered, still] = readVfxSystem(
+      system([], [scrolling({ uvScrollRate: vector(0, -2) }), scrolling({})]),
+    ).emitters;
+
+    expect(lowered.uv.birthScrollRate).toEqual({ constant: [0, -2], keys: [], tables: [] });
+    expect(lowered.uv.scrollClamp).toBe(false);
+    expect(lowered.uv.emitterScrollRate).toEqual([7, 8]);
+    /* A block writing no scroll leaves the emitter's own fields as they are. */
+    expect(still.uv.birthScrollRate.constant).toEqual([3, 4]);
+    expect(still.uv.scrollClamp).toBe(true);
+  });
+
+  it("reads a legacy block at every default for a simple emitter writing none", () => {
+    const [only] = readVfxSystem(system([], [emitter({})])).emitters;
+
+    expect(only.legacySimple).toEqual({
+      birthScale: { constant: [1], keys: [], tables: [] },
+      scaleBias: [1, 1],
+      scale: { constant: [1], keys: [], tables: [] },
+      birthRotation: { constant: [0], keys: [], tables: [] },
+      birthRotationalVelocity: { constant: [0], keys: [], tables: [] },
+      rotation: { constant: [0], keys: [], tables: [] },
+      lockedToEmitter: false,
+      hasFixedOrbit: false,
+      fixedOrbitType: 1,
+      orientation: 0,
+      particleBind: [0, 0],
+      uvScrollRate: [0, 0],
+      scaleUpFromOrigin: false,
+    });
+    expect(only.pivotUp).toBe(false);
   });
 
   it("carries no legacy block, and no lift, for a complex emitter", () => {
@@ -322,6 +384,104 @@ describe("readVfxSystem", () => {
 
     expect(only.legacySimple).toBeNull();
     expect(only.pivotUp).toBe(false);
+  });
+
+  it("carries none for a complex emitter writing one either, nor anything the block lowers", () => {
+    const [only] = readVfxSystem(
+      system([
+        emitter({
+          LegacySimple: struct(nameHash("VfxEmitterLegacySimple"), {
+            birthScale: constantOf(number(105)),
+            uvScrollRate: vector(0.5, 0),
+            scaleUpFromOrigin: bool(true),
+          }),
+        }),
+      ]),
+    ).emitters;
+
+    expect(only.simple).toBe(false);
+    expect(only.legacySimple).toBeNull();
+    expect(only.pivotUp).toBe(false);
+    expect(only.uv.birthScrollRate.constant).toEqual([0, 0]);
+  });
+
+  it("reads none of the complex emitter's motion, frame, emission or linger fields off a simple one", () => {
+    const written = {
+      birthAcceleration: constantOf(vector(1, 2, 3)),
+      acceleration: constantOf(vector(1, 2, 3)),
+      drag: constantOf(vector(1, 2, 3)),
+      birthDrag: constantOf(vector(1, 2, 3)),
+      velocity: constantOf(vector(1, 2, 3)),
+      worldAcceleration: constantOf(vector(1, 2, 3)),
+      bindWeight: constantOf(number(1)),
+      IsEmitterSpace: bool(true),
+      rotationOverride: vector(10, 20, 30),
+      scaleOverride: vector(2, 2, 2),
+      translationOverride: vector(5, 6, 7),
+      emissionMeshName: { type: "asset", path: "assets/ring.scb", asset: null },
+      emissionSurfaceDefinition: struct(nameHash("VfxEmissionSurfaceData"), {}),
+      offsetLifetimeScaling: vector(1, 1, 1),
+      hasPostRotateOrientation: bool(true),
+      postRotateOrientationAxis: vector(0, 90, 0),
+      Linger: struct(nameHash("VfxLingerDefinitionData"), {
+        UseLingerScale: bool(true),
+      }),
+      particleLingerType: number(2),
+      ChanceToNotExist: number(0.5),
+      HasVariableStartTime: bool(true),
+      rateByVelocityFunction: constantOf(vector(2, 5)),
+    } satisfies Record<string, VfxValue>;
+    const [complex, simple] = readVfxSystem(
+      system([emitter(written)], [emitter(written)]),
+    ).emitters;
+
+    expect(simple.simple).toBe(true);
+    for (const field of [
+      "birthAcceleration",
+      "acceleration",
+      "drag",
+      "birthDrag",
+      "velocity",
+      "worldAcceleration",
+    ] as const) {
+      expect(complex[field].constant).toEqual([1, 2, 3]);
+      expect(simple[field].constant).toEqual([0, 0, 0]);
+    }
+    expect([complex.bindWeight.constant, simple.bindWeight.constant]).toEqual([[1], [0]]);
+    expect([complex.emitterSpace, simple.emitterSpace]).toEqual([true, false]);
+    expect([complex.rotationOverride, simple.rotationOverride]).toEqual([
+      [10, 20, 30],
+      [0, 0, 0],
+    ]);
+    expect([complex.scaleOverride, simple.scaleOverride]).toEqual([
+      [2, 2, 2],
+      [1, 1, 1],
+    ]);
+    expect([complex.translationOverride, simple.translationOverride]).toEqual([
+      [5, 6, 7],
+      [0, 0, 0],
+    ]);
+    expect([complex.emissionMesh?.mesh.path, simple.emissionMesh]).toEqual([
+      "assets/ring.scb",
+      null,
+    ]);
+    expect([complex.emissionSurface === null, simple.emissionSurface === null]).toEqual([
+      false,
+      true,
+    ]);
+    expect([complex.offsetLifetimeScaling, simple.offsetLifetimeScaling]).toEqual([
+      [1, 1, 1],
+      [0, 0, 0],
+    ]);
+    expect([complex.postRotate, simple.postRotate]).toEqual([[0, 90, 0], null]);
+    expect([complex.linger === null, simple.linger]).toEqual([false, null]);
+    expect([complex.lingerType, simple.lingerType]).toEqual([
+      LINGER_TYPE.fixedLifetimeAfterEmitterStops,
+      LINGER_TYPE.maxLifetimeAfterEmitterDies,
+    ]);
+    expect([complex.chanceToNotExist, simple.chanceToNotExist]).toEqual([0.5, 0]);
+    expect([complex.hasVariableStartTime, simple.hasVariableStartTime]).toEqual([true, false]);
+    expect([complex.rateByVelocity, simple.rateByVelocity]).toEqual([[2, 5], null]);
   });
 
   it("reads the linger block toggle by toggle, a curve only where its toggle is on", () => {
@@ -348,6 +508,22 @@ describe("readVfxSystem", () => {
     /* On, and not authored, so it reads at the schema's white. */
     expect(only.linger?.color?.constant).toEqual([1, 1, 1, 1]);
     expect(only.linger?.velocity).toBeNull();
+  });
+
+  it("reads a linger type byte of three or more as the kind that changes no lifetime", () => {
+    const typed = (byte: number) => emitter({ particleLingerType: number(byte) });
+    const kinds = readVfxSystem(
+      system([typed(0), typed(1), typed(2), typed(3), typed(4), typed(200)]),
+    ).emitters.map((each) => each.lingerType);
+
+    expect(kinds).toEqual([
+      LINGER_TYPE.maxLifetimeAfterEmitterDies,
+      LINGER_TYPE.fixedLifetimeAfterEmitterDies,
+      LINGER_TYPE.fixedLifetimeAfterEmitterStops,
+      LINGER_TYPE.none,
+      LINGER_TYPE.none,
+      LINGER_TYPE.none,
+    ]);
   });
 
   it("reads the palette, and the colour ramp with its lookups, the palette's address mode defaulting to mirror", () => {
@@ -497,7 +673,7 @@ describe("readVfxSystem", () => {
     expect(none.reflection).toBeNull();
   });
 
-  it("reads the soft particle block, every field defaulting to zero", () => {
+  it("reads the soft particle block, every field defaulting to zero and the fade to both", () => {
     const [own, bare, none] = readVfxSystem(
       system([
         emitter({
@@ -512,9 +688,41 @@ describe("readVfxSystem", () => {
       ]),
     ).emitters;
 
-    expect(own.soft).toEqual({ beginIn: 20, deltaIn: 10, beginOut: 0, deltaOut: 30 });
-    expect(bare.soft).toEqual({ beginIn: 0, deltaIn: 0, beginOut: 0, deltaOut: 0 });
+    expect(own.soft).toEqual({
+      beginIn: 20,
+      deltaIn: 10,
+      beginOut: 0,
+      deltaOut: 30,
+      target: SOFT_TARGET.both,
+    });
+    expect(bare.soft).toEqual({
+      beginIn: 0,
+      deltaIn: 0,
+      beginOut: 0,
+      deltaOut: 0,
+      target: SOFT_TARGET.both,
+    });
     expect(none.soft).toBeNull();
+  });
+
+  it("reads what the soft fade reaches off the unnamed byte 0x3bf176bc", () => {
+    const soft = (target: number) =>
+      emitter({
+        softParticleParams: struct(nameHash("VfxSoftParticleDefinitionData"), {
+          "0x3bf176bc": number(target),
+        }),
+      });
+    const targets = readVfxSystem(system([soft(0), soft(1), soft(2), soft(9)])).emitters.map(
+      (each) => each.soft?.target,
+    );
+
+    expect(targets).toEqual([
+      SOFT_TARGET.both,
+      SOFT_TARGET.colour,
+      SOFT_TARGET.alpha,
+      /* A byte outside the three reads as both. */
+      SOFT_TARGET.both,
+    ]);
   });
 
   it("reads each spawn shape off the class SpawnShape holds", () => {
@@ -635,7 +843,7 @@ describe("readVfxSystem", () => {
     expect([authored, bare].map(isUndrawn)).toEqual([false, false]);
   });
 
-  it("reads where the emitter stands and which space its particles are stored in", () => {
+  it("reads where the emitter stands and whether its particles follow it past their birth", () => {
     const [only] = readVfxSystem(
       system([
         emitter({
@@ -739,6 +947,33 @@ describe("readVfxSystem", () => {
       { channel: 3, single: 0, keys: [] },
     ]);
     expect(only.rate.tables).toEqual([]);
+  });
+
+  it("reads no table at all off a list whose first slot is null", () => {
+    const table = struct(nameHash("VfxProbabilityTableData"), {
+      keyTimes: container(number(0), number(1)),
+      keyValues: container(number(0), number(1)),
+    });
+    const tabled = (...slots: VfxValue[]) =>
+      emitter({
+        birthVelocity: struct(nameHash("ValueVector3"), {
+          constantValue: vector(-400, 0, 0),
+          dynamics: struct(nameHash("VfxAnimatedVector3fVariableData"), {
+            probabilityTables: container(...slots),
+          }),
+        }),
+      });
+    const [headless, headed, empty] = readVfxSystem(
+      system([
+        tabled({ type: "null" }, table, table),
+        tabled(table, { type: "null" }, table),
+        tabled(),
+      ]),
+    ).emitters;
+
+    expect(headless.birthVelocity.tables).toEqual([]);
+    expect(headed.birthVelocity.tables.map((each) => each.channel)).toEqual([0, 2]);
+    expect(empty.birthVelocity.tables).toEqual([]);
   });
 
   it("pairs a curve's two lists into keys and drops the tail neither reaches", () => {
@@ -978,6 +1213,21 @@ describe("readVfxSystem", () => {
     expect(only.multUv?.book.randomStart).toBe(true);
     /* Its own grid, though, because `texDivMult` is a name the mult layer does carry. */
     expect(only.multUv?.book.divisions).toEqual([3, 2]);
+  });
+
+  it("gives the mult layer the base layer's emitterUvScrollRate, its own having no reader", () => {
+    const mult = struct(nameHash("VfxTextureMultDefinitionData"), {
+      emitterUvScrollRateMult: vector(9, 9),
+    });
+    const [scrolling, still] = readVfxSystem(
+      system([
+        emitter({ emitterUvScrollRate: vector(0.5, -0.5), textureMult: mult }),
+        emitter({ textureMult: mult }),
+      ]),
+    ).emitters;
+
+    expect(scrolling.multUv?.emitterScrollRate).toEqual([0.5, -0.5]);
+    expect(still.multUv?.emitterScrollRate).toEqual([0, 0]);
   });
 
   it("falls back to the default UV mode for a byte outside the enum", () => {
@@ -1291,6 +1541,278 @@ describe("the ground layer", () => {
     expect(standing.groundLayer).toBe(false);
     expect(ground.groundLayer).toBe(true);
   });
+
+  it("reads renderPhaseOverride, automatic where it is not written", () => {
+    const [bare, forced] = readVfxSystem(
+      system([emitter({}), emitter({ renderPhaseOverride: number(4) })]),
+    ).emitters;
+
+    expect(bare.renderPhaseOverride).toBe(RENDER_PHASE.automatic);
+    expect(forced.renderPhaseOverride).toBe(RENDER_PHASE.postDistortion);
+  });
+
+  it("takes the ground layer off a forced phase, whatever isGroundLayer says", () => {
+    const flagged = { isGroundLayer: bool(true) };
+    const [forcedIn, forcedOut, automatic] = readVfxSystem(
+      system([
+        emitter({ renderPhaseOverride: number(RENDER_PHASE.groundLayer) }),
+        emitter({ ...flagged, renderPhaseOverride: number(RENDER_PHASE.default) }),
+        emitter({ ...flagged, renderPhaseOverride: number(RENDER_PHASE.automatic) }),
+      ]),
+    ).emitters;
+
+    expect(forcedIn.groundLayer).toBe(true);
+    expect(forcedOut.groundLayer).toBe(false);
+    expect(automatic.groundLayer).toBe(true);
+  });
+
+  it("leaves a HUD-layer system's emitters off the ground layer unless a phase forces it", () => {
+    const [flagged, forced] = readVfxSystem(
+      hudSystem([
+        emitter({ isGroundLayer: bool(true) }),
+        emitter({ renderPhaseOverride: number(RENDER_PHASE.groundLayer) }),
+      ]),
+    ).emitters;
+
+    expect(flagged.groundLayer).toBe(false);
+    expect(forced.groundLayer).toBe(true);
+  });
+});
+
+describe("the drawing layer", () => {
+  it("reads drawingLayer 1 as the HUD layer, onto the system and every emitter of it", () => {
+    const hud = readVfxSystem(hudSystem([emitter({})], [emitter({})]));
+    const world = readVfxSystem(system([emitter({})], [], { drawingLayer: number(0) }));
+
+    expect(hud.hudLayer).toBe(true);
+    expect(hud.emitters.map((each) => each.hudLayer)).toEqual([true, true]);
+    expect(world.hudLayer).toBe(false);
+    expect(world.emitters[0].hudLayer).toBe(false);
+    expect(readVfxSystem(system([emitter({})])).hudLayer).toBe(false);
+  });
+
+  it("reads a child system's layer off the child, not off its parent", () => {
+    const child = struct(nameHash("VfxSystemDefinitionData"), {
+      complexEmitterDefinitionData: container(emitter({})),
+      drawingLayer: number(1),
+    });
+    const [only] = readVfxSystem(
+      system([
+        emitter({
+          childParticleSetDefinition: struct(nameHash("VfxChildParticleSetDefinitionData"), {
+            childrenIdentifiers: container(
+              struct(nameHash("VfxChildIdentifier"), { effect: child }),
+            ),
+          }),
+        }),
+      ]),
+    ).emitters;
+
+    expect(only.hudLayer).toBe(false);
+    expect(only.childSet?.children[0]?.hudLayer).toBe(true);
+    expect(only.childSet?.children[0]?.emitters[0].hudLayer).toBe(true);
+  });
+});
+
+describe("the emission timing", () => {
+  it("keeps lifetime as written, an end time that no delay and no single particle moves", () => {
+    const [delayed, burst, bare] = readVfxSystem(
+      system([
+        emitter({ lifetime: number(2.5), timeBeforeFirstEmission: number(4) }),
+        emitter({
+          lifetime: number(50),
+          isSingleParticle: bool(true),
+          particleLifetime: constantOf(number(2)),
+        }),
+        emitter({ isSingleParticle: bool(true) }),
+      ]),
+    ).emitters;
+
+    expect([delayed.lifetime, delayed.timeBeforeFirstEmission]).toEqual([2.5, 4]);
+    expect([burst.lifetime, burst.singleParticle]).toEqual([50, true]);
+    expect(bare.lifetime).toBeNull();
+  });
+
+  it("reads period and timeActiveDuringPeriod each as written, and neither as no period", () => {
+    const periods = readVfxSystem(
+      system([
+        emitter({}),
+        emitter({ period: number(2) }),
+        emitter({ timeActiveDuringPeriod: number(0.5) }),
+        emitter({ period: number(2), timeActiveDuringPeriod: number(0.5) }),
+        emitter({ period: number(0) }),
+      ]),
+    ).emitters.map((each) => each.period);
+
+    expect(periods).toEqual([
+      null,
+      { length: 2, active: null },
+      { length: null, active: 0.5 },
+      { length: 2, active: 0.5 },
+      { length: 0, active: null },
+    ]);
+  });
+
+  it("reads rateByVelocityFunction as its two numbers, and none where both are zero", () => {
+    const [written, zero, bare] = readVfxSystem(
+      system([
+        emitter({ rateByVelocityFunction: constantOf(vector(2, 5)) }),
+        emitter({ rateByVelocityFunction: constantOf(vector(0, 0)) }),
+        emitter({}),
+      ]),
+    ).emitters;
+
+    expect(written.rateByVelocity).toEqual([2, 5]);
+    expect(zero.rateByVelocity).toBeNull();
+    expect(bare.rateByVelocity).toBeNull();
+  });
+
+  it("reads a rateByVelocityFunction of one number set as a function", () => {
+    const [slope, floor] = readVfxSystem(
+      system([
+        emitter({ rateByVelocityFunction: constantOf(vector(2, 0)) }),
+        emitter({ rateByVelocityFunction: constantOf(vector(0, 5)) }),
+      ]),
+    ).emitters;
+
+    expect(slope.rateByVelocity).toEqual([2, 0]);
+    expect(floor.rateByVelocity).toEqual([0, 5]);
+  });
+
+  it("caps that function at MaximumRateByVelocity, 300 where it is not written", () => {
+    const [bare, written] = readVfxSystem(
+      system([emitter({}), emitter({ MaximumRateByVelocity: number(40) })]),
+    ).emitters;
+
+    expect(bare.maximumRateByVelocity).toBe(300);
+    expect(written.maximumRateByVelocity).toBe(40);
+  });
+
+  it("reads HasVariableStartTime and ChanceToNotExist, off and none where unwritten", () => {
+    const [bare, written] = readVfxSystem(
+      system([
+        emitter({}),
+        emitter({ HasVariableStartTime: bool(true), ChanceToNotExist: number(0.25) }),
+      ]),
+    ).emitters;
+
+    expect([bare.hasVariableStartTime, bare.chanceToNotExist]).toEqual([false, 0]);
+    expect([written.hasVariableStartTime, written.chanceToNotExist]).toEqual([true, 0.25]);
+  });
+
+  it("says an emitter overrides materials where its list of them holds one", () => {
+    const override = struct(nameHash("VfxMaterialOverrideDefinitionData"), {});
+    const [bare, empty, written] = readVfxSystem(
+      system([
+        emitter({}),
+        emitter({ materialOverrideDefinitions: container() }),
+        emitter({ materialOverrideDefinitions: container(override) }),
+      ]),
+    ).emitters;
+
+    expect([bare, empty, written].map((each) => each.overridesMaterials)).toEqual([
+      false,
+      false,
+      true,
+    ]);
+  });
+});
+
+describe("the birth", () => {
+  it("reads birthAcceleration, none where it is not written", () => {
+    const [bare, written] = readVfxSystem(
+      system([emitter({}), emitter({ birthAcceleration: constantOf(vector(0, -90, 5)) })]),
+    ).emitters;
+
+    expect(bare.birthAcceleration.constant).toEqual([0, 0, 0]);
+    expect(written.birthAcceleration.constant).toEqual([0, -90, 5]);
+  });
+
+  it("reads postRotateOrientationAxis behind hasPostRotateOrientation alone", () => {
+    const axis = { postRotateOrientationAxis: vector(0, 90, 0) };
+    const [flagged, unflagged, off, bareFlag] = readVfxSystem(
+      system([
+        emitter({ ...axis, hasPostRotateOrientation: bool(true) }),
+        emitter(axis),
+        emitter({ ...axis, hasPostRotateOrientation: bool(false) }),
+        emitter({ hasPostRotateOrientation: bool(true) }),
+      ]),
+    ).emitters;
+
+    expect(flagged.postRotate).toEqual([0, 90, 0]);
+    expect(unflagged.postRotate).toBeNull();
+    expect(off.postRotate).toBeNull();
+    expect(bareFlag.postRotate).toEqual([0, 0, 0]);
+  });
+
+  it("reads modulationFactor, one on every channel where it is not written", () => {
+    const [bare, written] = readVfxSystem(
+      system([emitter({}), emitter({ modulationFactor: vector(0.5, 1, 2, 0.25) })]),
+    ).emitters;
+
+    expect(bare.modulation).toEqual([1, 1, 1, 1]);
+    expect(written.modulation).toEqual([0.5, 1, 2, 0.25]);
+  });
+
+  it("reads emissionMeshName with its scale and its normal flag, at one and on by default", () => {
+    const ring: AssetRef = { kind: "gameChunk", wad: "Aatrox.wad.client", pathHash: "0f0e0d0c" };
+    const named = { emissionMeshName: { type: "asset", path: "assets/ring.scb", asset: ring } };
+    const [bare, written, none, empty] = readVfxSystem(
+      system([
+        emitter(named as Record<string, VfxValue>),
+        emitter({
+          ...(named as Record<string, VfxValue>),
+          emissionMeshScale: number(2.5),
+          useEmissionMeshNormalForBirth: bool(false),
+        }),
+        emitter({ emissionMeshScale: number(2.5) }),
+        emitter({ emissionMeshName: { type: "asset", path: "", asset: null } }),
+      ]),
+    ).emitters;
+
+    expect(bare.emissionMesh).toEqual({
+      mesh: { path: "assets/ring.scb", asset: ring },
+      scale: 1,
+      useNormal: true,
+    });
+    expect(written.emissionMesh).toEqual({
+      mesh: { path: "assets/ring.scb", asset: ring },
+      scale: 2.5,
+      useNormal: false,
+    });
+    expect(none.emissionMesh).toBeNull();
+    expect(empty.emissionMesh).toBeNull();
+  });
+
+  it("reads offsetLifetimeScaling and the axes its symmetry mode reads unsigned", () => {
+    const [bare, written] = readVfxSystem(
+      system([
+        emitter({}),
+        emitter({
+          offsetLifetimeScaling: vector(0.01, 0, -0.02),
+          offsetLifeScalingSymmetryMode: number(5),
+        }),
+      ]),
+    ).emitters;
+
+    expect([bare.offsetLifetimeScaling, bare.offsetLifeSymmetry]).toEqual([[0, 0, 0], 0]);
+    expect([written.offsetLifetimeScaling, written.offsetLifeSymmetry]).toEqual([
+      [0.01, 0, -0.02],
+      5,
+    ]);
+  });
+
+  it("reads the winding flag off the unnamed field 0xd1ee8634", () => {
+    const [bare, flipped, kept] = readVfxSystem(
+      system([
+        emitter({}),
+        emitter({ "0xd1ee8634": bool(true) }),
+        emitter({ "0xd1ee8634": bool(false) }),
+      ]),
+    ).emitters;
+
+    expect([bare, flipped, kept].map((each) => each.flipWinding)).toEqual([false, true, false]);
+  });
 });
 
 describe("the force fields", () => {
@@ -1350,9 +1872,18 @@ describe("the force fields", () => {
 });
 
 describe("the instantiation gates", () => {
+  /** An emitter with a rate, which the gate on an emitter that can never emit lets through. */
+  function emitting(fields: Record<string, VfxValue> = {}): VfxValue {
+    return emitter({ rate: constantOf(number(1)), ...fields });
+  }
+
   it("culls the low-spec importance, which Very High effects quality never spawns", () => {
     const [lowSpec, rich, plain] = readVfxSystem(
-      system([emitter({ importance: number(4) }), emitter({ importance: number(5) }), emitter({})]),
+      system([
+        emitting({ importance: number(4) }),
+        emitting({ importance: number(5) }),
+        emitting({}),
+      ]),
     ).emitters;
 
     expect([lowSpec.culled, lowSpec.disabled]).toEqual(["importance", true]);
@@ -1364,10 +1895,10 @@ describe("the instantiation gates", () => {
     const model = readVfxSystem(
       system(
         [
-          emitter({ colorblindVisibility: number(2) }),
-          emitter({ colorblindVisibility: number(1) }),
+          emitting({ colorblindVisibility: number(2) }),
+          emitting({ colorblindVisibility: number(1) }),
         ],
-        [emitter({ colorblindVisibility: number(2) })],
+        [emitting({ colorblindVisibility: number(2) })],
       ),
     );
     const [colorblind, normal, simple] = model.emitters;
@@ -1375,5 +1906,120 @@ describe("the instantiation gates", () => {
     expect(colorblind.culled).toBe("colorblind");
     expect(normal.culled).toBeNull();
     expect(simple.culled).toBeNull();
+  });
+
+  it("never instantiates a colorblindVisibility past the three, on the complex list alone", () => {
+    const [three, four, always, simple] = readVfxSystem(
+      system(
+        [
+          emitting({ colorblindVisibility: number(3) }),
+          emitting({ colorblindVisibility: number(4) }),
+          emitting({ colorblindVisibility: number(0) }),
+        ],
+        [emitting({ colorblindVisibility: number(3) })],
+      ),
+    ).emitters;
+
+    expect([three.culled, three.disabled]).toEqual(["never", true]);
+    expect([four.culled, four.disabled]).toEqual(["never", true]);
+    expect([always.culled, always.disabled]).toEqual([null, false]);
+    expect([simple.culled, simple.disabled]).toEqual([null, false]);
+  });
+
+  /** An emitter whose `Filtering` writes `policy`. */
+  function filtered(policy: number, own: Record<string, VfxValue> = {}): VfxValue {
+    return emitting({
+      ...own,
+      Filtering: struct(nameHash("VfxEmitterFiltering"), { spectatorPolicy: number(policy) }),
+    });
+  }
+
+  it("culls a spectatorPolicy that asks for a spectator, on either list", () => {
+    const [always, hidden, spectating, past, bare, simple] = readVfxSystem(
+      system(
+        [
+          filtered(0),
+          filtered(1),
+          filtered(2),
+          filtered(7),
+          emitting({ Filtering: struct(nameHash("VfxEmitterFiltering"), {}) }),
+        ],
+        [filtered(2)],
+      ),
+    ).emitters;
+
+    expect([always.culled, hidden.culled, bare.culled]).toEqual([null, null, null]);
+    expect([spectating.culled, spectating.disabled]).toEqual(["spectator", true]);
+    expect([past.culled, past.disabled]).toEqual(["spectator", true]);
+    expect([simple.culled, simple.disabled]).toEqual(["spectator", true]);
+  });
+
+  it("drops every simple emitter of a HUD-layer system, and none of its complex ones", () => {
+    const [complex, simple] = readVfxSystem(hudSystem([emitting({})], [emitting({})])).emitters;
+    const [, world] = readVfxSystem(system([emitting({})], [emitting({})])).emitters;
+
+    expect([complex.culled, complex.disabled]).toEqual([null, false]);
+    expect([simple.culled, simple.disabled]).toEqual(["hudLayer", true]);
+    expect([world.culled, world.disabled]).toEqual([null, false]);
+  });
+
+  it("names the first gate that removes an emitter: spectator, HUD layer, importance, palette", () => {
+    const lowSpec = { importance: number(4) };
+    const colorblind = { colorblindVisibility: number(2) };
+    const [spectator, importance, palette] = readVfxSystem(
+      system([
+        filtered(2, { ...lowSpec, ...colorblind }),
+        emitting({ ...lowSpec, ...colorblind }),
+        emitting(colorblind),
+      ]),
+    ).emitters;
+    const [, hudSpectator, hudLowSpec] = readVfxSystem(
+      hudSystem([emitting({})], [filtered(2, lowSpec), emitting(lowSpec)]),
+    ).emitters;
+
+    expect(spectator.culled).toBe("spectator");
+    expect(importance.culled).toBe("importance");
+    expect(palette.culled).toBe("colorblind");
+    expect(hudSpectator.culled).toBe("spectator");
+    expect(hudLowSpec.culled).toBe("hudLayer");
+  });
+
+  it("keeps an emitter's own disabled flag apart from the gate that names none", () => {
+    const [only] = readVfxSystem(system([emitting({ disabled: bool(true) })])).emitters;
+
+    expect([only.culled, only.disabled]).toEqual([null, true]);
+  });
+  it("drops an emitter that can never emit: no rate, no single burst, no flex rate, no override", () => {
+    const ramp = (peak: number) =>
+      struct(nameHash("ValueFloat"), {
+        constantValue: number(5),
+        dynamics: struct(nameHash("VfxAnimatedFloatVariableData"), {
+          times: container(number(0), number(1)),
+          values: container(number(0), number(peak)),
+        }),
+      });
+    const [none, zero, flat, climbing, burst, flexed, overriding, simple] = readVfxSystem(
+      system(
+        [
+          emitter({}),
+          emitter({ rate: constantOf(number(0)) }),
+          emitter({ rate: ramp(0) }),
+          emitter({ rate: ramp(3) }),
+          emitter({ isSingleParticle: bool(true) }),
+          emitter({ flexRate: struct(nameHash("FlexValueFloat"), {}) }),
+          emitter({ materialOverrideDefinitions: container(struct(nameHash("x"), {})) }),
+        ],
+        [emitter({})],
+      ),
+    ).emitters;
+
+    expect([none.culled, none.disabled]).toEqual(["noRate", true]);
+    expect([zero.culled, flat.culled, simple.culled]).toEqual(["noRate", "noRate", "noRate"]);
+    expect([climbing.culled, burst.culled, flexed.culled, overriding.culled]).toEqual([
+      null,
+      null,
+      null,
+      null,
+    ]);
   });
 });

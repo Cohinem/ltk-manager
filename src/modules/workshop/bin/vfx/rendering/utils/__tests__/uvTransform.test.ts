@@ -14,10 +14,15 @@ function layerOf(over: Partial<UvLayer> = {}, book: Partial<UvLayer["book"]> = {
   return { ...plain, ...over, book: { ...plain.book, ...book } };
 }
 
-/** A pool holding one particle born at zero, living a second. */
-function onePool(): Pool {
+/** A curve of `keys`, each a time and the channels it holds there. */
+function keyed(...keys: [number, ...number[]][]): ValueCurve {
+  return { constant: [], keys: keys.map(([time, ...values]) => ({ time, values })), tables: [] };
+}
+
+/** A pool holding one particle born at zero, living `lifetime` seconds. */
+function onePool(lifetime = 1): Pool {
   const pool = createPool(4);
-  spawn(pool, 0, 0, 1, 0.5);
+  spawn(pool, 0, 0, lifetime, 0.5);
   return pool;
 }
 
@@ -61,16 +66,88 @@ describe("uvTransformInto", () => {
     expect(out.offsetV).toBeCloseTo(1.75, 6);
   });
 
-  it("adds whatever the integrator has accumulated into the scroll and the turn", () => {
-    const pool = onePool();
-    pool.uv[uvAt(0, 0) + UV.scrollX] = 0.125;
-    pool.uv[uvAt(0, 0) + UV.rotate] = 60;
-
+  it("reverses the emitter's scroll on an axis the layer flips, and leaves the other", () => {
     const out = uvDraw();
-    uvTransformInto(pool, 0, layerOf({ rotation: flat(30) }), 0, 0, 0, 0, out);
+    const layer = layerOf({
+      emitterScrollRate: [0.25, -0.5],
+      flipU: true,
+      addressMode: ADDRESS_MODE.clamp,
+    });
 
-    expect(out.offsetU).toBe(0.125);
-    expect(out.turn).toBeCloseTo(Math.PI / 2, 6);
+    uvTransformInto(onePool(), 0, layer, 0, 0, 0, 4, out);
+    expect([out.offsetU, out.offsetV]).toEqual([-1, -2]);
+
+    uvTransformInto(onePool(), 0, { ...layer, flipU: false, flipV: true }, 0, 0, 0, 4, out);
+    expect([out.offsetU, out.offsetV]).toEqual([1, 2]);
+  });
+
+  it("adds no emitter scroll for a draw that asks for none, as a mesh does", () => {
+    const out = uvDraw();
+    const layer = layerOf({ emitterScrollRate: [0.25, -0.5], addressMode: ADDRESS_MODE.clamp });
+
+    uvTransformInto(onePool(), 0, layer, 0, 0, 0, 4, out, false);
+
+    expect([out.offsetU, out.offsetV]).toEqual([0, 0]);
+  });
+
+  it("scrolls by a keyed rate's integral over the age, times the lifetime", () => {
+    const out = uvDraw();
+    /* A rate climbing from zero to one, whose integral is half the age fraction squared. */
+    const layer = layerOf({
+      scrollRate: keyed([0, 0, 2], [1, 1, 2]),
+      addressMode: ADDRESS_MODE.clamp,
+    });
+    const pool = onePool(4);
+
+    uvTransformInto(pool, 0, layer, 0, 2, 0.5, 0, out);
+    expect(out.offsetU).toBeCloseTo(0.125 * 4, 3);
+    expect(out.offsetV).toBeCloseTo(1 * 4, 5);
+
+    uvTransformInto(pool, 0, layer, 0, 4, 1, 0, out);
+    expect(out.offsetU).toBeCloseTo(0.5 * 4, 5);
+    expect(out.offsetV).toBeCloseTo(2 * 4, 5);
+  });
+
+  it("turns by a keyed rotate rate's integral over the age, on top of uvRotation", () => {
+    const out = uvDraw();
+    const layer = layerOf({ rotation: flat(30), rotateRate: keyed([0, 60], [1, 60]) });
+
+    uvTransformInto(onePool(2), 0, layer, 0, 1, 0.5, 0, out);
+
+    expect(out.turn).toBeCloseTo(Math.PI / 2, 5);
+  });
+
+  it("takes a rate writing no keys as one fixed amount times the lifetime, whatever the age", () => {
+    const out = uvDraw();
+    const layer = layerOf({
+      scrollRate: flat(0.25, -0.5),
+      rotateRate: flat(45),
+      addressMode: ADDRESS_MODE.clamp,
+    });
+    const pool = onePool(2);
+
+    for (const [age, age01] of [
+      [0, 0],
+      [1, 0.5],
+      [2, 1],
+    ]) {
+      uvTransformInto(pool, 0, layer, 0, age, age01, 0, out);
+      expect([out.offsetU, out.offsetV]).toEqual([0.5, -1]);
+      expect(out.turn).toBeCloseTo(Math.PI / 2, 6);
+    }
+  });
+
+  it("takes no integrated scroll or turn for a particle that never expires", () => {
+    const out = uvDraw();
+    const layer = layerOf({
+      scrollRate: flat(0.25, -0.5),
+      rotateRate: flat(45),
+      addressMode: ADDRESS_MODE.clamp,
+    });
+
+    uvTransformInto(onePool(Infinity), 0, layer, 0, 3, 0, 0, out);
+
+    expect([out.offsetU, out.offsetV, out.turn]).toEqual([0, 0, 0]);
   });
 
   it("climbs the birth ramp over the age and wraps it into a cell", () => {
@@ -78,10 +155,10 @@ describe("uvTransformInto", () => {
     pool.uv[uvAt(0, 0) + UV.birthOffsetX] = 0.5;
     pool.uv[uvAt(0, 0) + UV.birthScrollX] = 2;
     pool.uv[uvAt(0, 0) + UV.birthRotate] = 45;
-    pool.uv[uvAt(0, 0) + UV.scrollX] = 3;
 
     const out = uvDraw();
-    uvTransformInto(pool, 0, layerOf({ addressMode: ADDRESS_MODE.clamp }), 0, 1, 1, 0, out);
+    const layer = layerOf({ scrollRate: flat(3, 0), addressMode: ADDRESS_MODE.clamp });
+    uvTransformInto(pool, 0, layer, 0, 1, 1, 0, out);
 
     /* The ramp of 2.5 wraps to 0.5 on its own, and the integrated 3 lands on top. */
     expect(out.offsetU).toBeCloseTo(3.5, 6);
@@ -93,10 +170,13 @@ describe("uvTransformInto", () => {
     pool.uv[uvAt(0, 0) + UV.birthOffsetX] = 0.5;
     pool.uv[uvAt(0, 0) + UV.birthScrollX] = 2;
     pool.uv[uvAt(0, 0) + UV.birthScrollY] = -4;
-    pool.uv[uvAt(0, 0) + UV.scrollX] = 3;
 
     const out = uvDraw();
-    const layer = layerOf({ scrollClamp: true, addressMode: ADDRESS_MODE.clamp });
+    const layer = layerOf({
+      scrollClamp: true,
+      scrollRate: flat(3, 0),
+      addressMode: ADDRESS_MODE.clamp,
+    });
     uvTransformInto(pool, 0, layer, 0, 1, 1, 0, out);
 
     expect(out.offsetU).toBeCloseTo(4, 6);
@@ -170,15 +250,29 @@ describe("uvTransformInto", () => {
     expect(out.cellU).toBe(0.75);
   });
 
+  it("plays no frame at a rate at or under zero, and holds the cell the book opened on", () => {
+    const pool = onePool();
+    pool.uv[uvAt(0, 0) + UV.phase] = 1;
+
+    const out = uvDraw();
+    const book = { divisions: [4, 1] as const, frames: 4 };
+
+    for (const rate of [0, -10]) {
+      pool.uv[uvAt(0, 0) + UV.frameRate] = rate;
+      uvTransformInto(pool, 0, layerOf({}, book), 0, 0.25, 0.25, 0, out);
+      expect(out.cellU).toBe(0.25);
+    }
+  });
+
   it("reads the second layer's own slots rather than the first's", () => {
     const pool = onePool();
-    pool.uv[uvAt(0, 0) + UV.scrollX] = 5;
-    pool.uv[uvAt(0, 1) + UV.scrollX] = 9;
+    pool.uv[uvAt(0, 0) + UV.birthOffsetX] = 0.25;
+    pool.uv[uvAt(0, 1) + UV.birthOffsetX] = 0.75;
 
     const out = uvDraw();
     uvTransformInto(pool, 0, layerOf({ addressMode: ADDRESS_MODE.clamp }), 1, 0, 0, 0, out);
 
-    expect(out.offsetU).toBe(9);
+    expect(out.offsetU).toBe(0.75);
   });
 });
 

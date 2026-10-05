@@ -4,6 +4,7 @@ import type { EmitterModel } from "../../../engine/model/model";
 import type { Point } from "../../../engine/model/rig";
 import { emitterOf } from "../../../engine/simulation/__tests__/emitterFixture";
 import type { Driver } from "../../../engine/simulation/driver";
+import { NO_TRANSFORM } from "../../../engine/simulation/integrate";
 import type { Source } from "../../../engine/simulation/particleRead";
 import { createPool, type Pool, spawn } from "../../../engine/simulation/pool";
 import { identityInto } from "../../../engine/utils/basis";
@@ -24,7 +25,15 @@ function poolOf(places: readonly Point[]): Pool {
 }
 
 function sourceOf(pool: Pool, origin: Point = [0, 0, 0]): Source {
-  return { pool, time: 0, elapsed: 0, origin, target: origin, orientation: UNTURNED };
+  return {
+    pool,
+    time: 0,
+    elapsed: 0,
+    origin,
+    target: origin,
+    orientation: UNTURNED,
+    world: NO_TRANSFORM,
+  };
 }
 
 /** A driver standing on one pool, with the child feeds a test gives it. */

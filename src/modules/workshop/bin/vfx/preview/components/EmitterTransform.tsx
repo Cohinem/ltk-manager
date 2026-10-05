@@ -11,9 +11,10 @@ import type { EmitterModel, SystemModel } from "../../engine/model/model";
 import type { Point } from "../../engine/model/rig";
 import { worldOf } from "../../engine/simulation/integrate";
 import { frameOf } from "../../engine/simulation/particleRead";
+import { identityInto, turnInto } from "../../engine/utils/basis";
 import { sampleCurveInto } from "../../engine/utils/sampleCurve";
 import { useVfxRun } from "../../playback/state/run";
-import { spawnFrameInto } from "../../rendering/utils/emitterShape";
+import { spawnFrameInto, spawnOriginInto } from "../../rendering/utils/emitterShape";
 import {
   engineRotation,
   rotationFrame,
@@ -22,6 +23,9 @@ import {
 } from "../utils/transformEdit";
 
 export type TransformMode = "translate" | "rotate";
+
+/** The orientation `translationOverride` is read in where the emitter stands outside the system's. */
+const UPRIGHT = identityInto(new Float32Array(9));
 
 interface Props {
   system: SystemModel;
@@ -45,6 +49,8 @@ export function EmitterTransform({ system, emitter, row, mode, edit, onGrab }: P
   const world = useMemo(() => worldOf(system), [system]);
   const basis = useMemo(() => new Float32Array(9), []);
   const offset = useMemo(() => new Float32Array(3), []);
+  const anchor = useMemo(() => new Float32Array(3), []);
+  const shift = useRef(new Vector3());
   const placement = useRef(new Matrix4());
   const rotation = useRef(new Matrix4());
   const available = useRef(false);
@@ -112,13 +118,27 @@ export function EmitterTransform({ system, emitter, row, mode, edit, onGrab }: P
       cameraEnabled.current = Boolean(controls.enabled);
     }
 
+    /* `translationOverride` is turned by the system's orientation alone, so that is the
+       frame a drag is read back in. Where the emitter stands past it, by its own frame,
+       the definition's transform and `EmitterPosition`, rides the handle unchanged. */
     const frame = frameOf(driver, emitter);
+    const turned = emitter.localOrientation ? frame.orientation : UPRIGHT;
     spawnFrameInto(emitter, world.basis, frame.orientation, basis);
-    placement.current = translationFrame(basis, frame.origin);
+    spawnOriginInto(emitter, world, frame.orientation, frame.origin, anchor);
+    placement.current = translationFrame(turned, frame.origin);
     offset.fill(0);
     sampleCurveInto(emitter.emitterPosition, frame.phase, offset, 0);
+    turnInto(basis, offset, 0);
+    const stands = new Vector3(
+      (anchor[0] + offset[0]) * AXIS_SIGN[0],
+      (anchor[1] + offset[1]) * AXIS_SIGN[1],
+      (anchor[2] + offset[2]) * AXIS_SIGN[2],
+    );
+    shift.current
+      .copy(stands)
+      .sub(new Vector3(...emitter.translationOverride).applyMatrix4(placement.current));
 
-    const parent = rotationFrame(emitter.localOrientation ? frame.orientation : world.basis);
+    const parent = rotationFrame(turned);
     available.current =
       mode === "translate" ? Math.abs(placement.current.determinant()) > 1e-8 : parent !== null;
     object.visible = available.current;
@@ -127,14 +147,11 @@ export function EmitterTransform({ system, emitter, row, mode, edit, onGrab }: P
     }
     setEnabled(available.current);
     if (mode === "translate") {
-      object.position
-        .set(...emitter.translationOverride)
-        .add(new Vector3(...offset))
-        .applyMatrix4(placement.current);
+      object.position.copy(stands);
       object.quaternion.identity();
     } else if (parent !== null) {
       rotation.current.copy(parent);
-      object.position.set(...frame.origin).multiply(new Vector3(...AXIS_SIGN));
+      object.position.set(anchor[0], anchor[1], anchor[2]).multiply(new Vector3(...AXIS_SIGN));
       object.quaternion.copy(viewportRotation(parent, emitter.rotationOverride));
     }
 
@@ -151,8 +168,8 @@ export function EmitterTransform({ system, emitter, row, mode, edit, onGrab }: P
     if (mode === "translate") {
       const position = object.position
         .clone()
-        .applyMatrix4(placement.current.clone().invert())
-        .sub(new Vector3(...offset));
+        .sub(shift.current)
+        .applyMatrix4(placement.current.clone().invert());
       value = [position.x, position.y, position.z];
     } else {
       value = engineRotation(rotation.current, object.quaternion);

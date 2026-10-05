@@ -1,38 +1,30 @@
-import { DRAG_MOTION, type DragMotion, LINGER_TYPE } from "../model/enums";
+import { DRAG_MOTION, LINGER_TYPE } from "../model/enums";
 import type { EmitterModel, SystemModel, ValueCurve } from "../model/model";
 import type { Point } from "../model/rig";
-import { lingerSeconds, ROTATION_RATE, stopWaitSeconds } from "../model/systemModel";
+import {
+  emissionEnd,
+  emitterPhase,
+  lingerSeconds,
+  ROTATION_RATE,
+  stopWaitSeconds,
+} from "../model/systemModel";
 import { analyticOffset } from "../utils/analyticDrag";
 import { identityInto, multiplyInto, standingInto, turnInto } from "../utils/basis";
 import type { Rng } from "../utils/Rng";
-import { sampleCurve } from "../utils/sampleCurve";
+import { flickerInto, integratedInto, sampleCurve, sampleCurveInto } from "../utils/sampleCurve";
 import type { SystemSurfaces } from "./emissionSurface";
 import { emit } from "./emit";
 import { applyFields, type NoiseClock, prepareFields, type SampledFields } from "./forceFields";
-import { age01, clamp01, life01, sampled, sampleScalar } from "./particleRead";
-import { FRAME_SLOTS, NOT_LINGERING, type Pool, retire, UV, UV_LAYERS, uvAt } from "./pool";
+import { age01, orbitInto, sampled, sampleScalar } from "./particleRead";
+import { FRAME_SLOTS, NOT_LINGERING, type Pool, retire } from "./pool";
 import type { Step } from "./stepper";
 
-/** How many slots one emitter takes in the step's motion scratch. */
-const MOTION_SLOTS = 13;
-
-/** Where `bindWeight` sits in an emitter's slots, past the acceleration and the drag. */
-const BIND_SLOT = 6;
-
-/** Where the step's change in `EmitterPosition` sits, three axes, past the bind weight. */
-const MOVED_SLOT = 7;
-
-/** Where the emitter's own `velocity` sits, three axes, past the movement. */
-const VELOCITY_SLOT = 10;
+/** The step under which the engine's closed-form drag moves nothing, in seconds. */
+const LEAST_ANALYTIC_STEP = 1e-6;
 
 /** Scratch the spawn frame's own override is stood and scaled in, once per step. */
 const OVERRIDE = new Float32Array(FRAME_SLOTS);
 const STOOD = new Float32Array(3);
-
-/** Scratch the local terms of one particle's step are turned in. */
-const ACCELERATION = new Float32Array(3);
-const DRIFT = new Float32Array(3);
-const SHIFT = new Float32Array(3);
 
 /**
  * Scratch one particle's step is carried in: the velocity it keeps, the velocity it moves
@@ -43,72 +35,92 @@ const MOVING = new Float32Array(3);
 const PUSHED = new Float32Array(3);
 const PLACE = new Float32Array(3);
 
-/** Scratch the offset an emitter-space emitter's fields ride is turned in, once per step. */
-const RIDDEN = new Float32Array(3);
+/** Scratch each value read over a particle's life is sampled into. */
+const OVER_LIFE = new Float32Array(3);
 
-/** The motion scratch of the step, grown to the widest system stepped. */
-let MOTION = new Float32Array(0);
+/** Scratch a particle's own matrix translation and its world velocity are built in. */
+const PLACED = new Float32Array(3);
+const ORBIT = new Float32Array(FRAME_SLOTS);
+const TRAVEL = new Float32Array(3);
+
+/** What every centre of a force field is placed from, the origin of the emitter's own frame. */
+const FRAME_ORIGIN: Point = [0, 0, 0];
 
 /** One step, and where the rig had the system's origin while it ran. */
 export interface SystemStep extends Step {
-  /** The emitters of this system that emit from a loaded surface, by index. */
+  /** The emitters of this system that emit from a loaded mesh or surface, by index. */
   readonly surfaces?: SystemSurfaces;
-  /** Where the origin stands at the end of the step, which is where a spawn lands. */
+  /** Where the system stands at the end of the step. */
   readonly origin: Point;
-  /** How far the origin travelled over the step. */
+  /** How far the system travelled over the step. */
   readonly moved: Point;
   /** The system's orientation this step: the rig's facing as a basis, in the engine's space. */
   readonly yaw: Float32Array;
-  /**
-   * The definition's own `transform`, its basis, the outermost factor of every particle.
-   * Already applied to `origin` and `moved`.
-   */
-  readonly world: Float32Array;
+  /** The definition's own `transform`, the last factor of every particle's own matrix. */
+  readonly world: World;
   /** The rig has soft-stopped the system, as the engine does. */
   readonly stopped: boolean;
-  /** The chance every birth reads its tables at in place of its own, while the reader pins one. */
+  /** The number every birth reads its tables at in place of its own, while the reader pins one. */
   readonly pinned?: number | null;
 }
 
-/** The definition's `transform` as a system applies it: a basis, and an offset after it. */
+/** The definition's `transform` as a particle takes it: a basis, and an offset after it. */
 export interface World {
   readonly basis: Float32Array;
   readonly offset: Point;
+  /**
+   * The system is on the HUD layer, which multiplies no `transform` into a particle and
+   * takes the translation as an offset of where the system stands.
+   */
+  readonly hud: boolean;
 }
+
+/** The transform of a system writing none, which a source standing alone reads. */
+export const NO_TRANSFORM: World = {
+  basis: identityInto(new Float32Array(FRAME_SLOTS)),
+  offset: [0, 0, 0],
+  hud: false,
+};
 
 /**
  * The system's `transform` as a basis and an offset.
  *
  * The file's rows are the basis and its last row the translation, so the basis here is
- * the upper block transposed. The identity and no offset for a system writing none.
+ * the upper block transposed. The identity and no offset for a system writing none, and
+ * the identity under its translation for one on the HUD layer.
  */
 export function worldOf(system: SystemModel): World {
   const basis = identityInto(new Float32Array(FRAME_SLOTS));
   const held = system.transform;
-  if (held === null) return { basis, offset: [0, 0, 0] };
+  if (held === null) return { basis, offset: [0, 0, 0], hud: system.hudLayer };
+
+  const offset: Point = [held[12], held[13], held[14]];
+  if (system.hudLayer) return { basis, offset, hud: true };
 
   for (let row = 0; row < 3; row += 1) {
     for (let column = 0; column < 3; column += 1) {
       basis[row * 3 + column] = held[column * 4 + row];
     }
   }
-  return { basis, offset: [held[12], held[13], held[14]] };
+  return { basis, offset, hud: false };
 }
 
 /** What an emitter carries between steps, which the particle pool has nowhere to hold. */
 export interface EmitterState {
-  /** Seconds since the emitter started. */
+  /** The system's own time, in seconds since it started, its build-up included. */
   age: number;
   /** The emitter has emitted at least once. */
   emitted: boolean;
-  /** The age the next batch is counted from, which starts at `timeBeforeFirstEmission`. */
-  since: number;
-  /** Where `EmitterPosition` stood at the last step, which an emitter-space particle follows. */
+  /** The system time of the last spawn, which the next count runs from, and zero before any. */
+  lastSpawn: number;
+  /** The roll of `ChanceToNotExist` left the emitter out of this run. */
+  readonly absent: boolean;
+  /** Where `EmitterPosition` stands this step, which a birth starts from. */
   position: [number, number, number];
-  /** When the emitter was first seen finished, and null while it runs. */
+  /** When the emitter's linger first acted, and null before it has. */
   finishedAt: number | null;
   /**
-   * The one chance a `ParticlesShareRandomValue` emitter reads every table at.
+   * The one shared number a `ParticlesShareRandomValue` emitter hands every particle.
    *
    * The engine writes it in its restart blocks alone, so it is drawn at the first
    * emission of a run and null until then.
@@ -121,26 +133,37 @@ export interface EmitterState {
   travelled: number;
   /** Where the last spawn was, which the next adds its distance from, and null before any. */
   spawnedAt: [number, number, number] | null;
-  /** The spawn frame of the current step, which [`frameInto`] rebuilds before a batch. */
+  /** The spawn frame's basis this step, which [`frameInto`] rebuilds before a batch. */
   readonly frame: Float32Array;
+  /** `translationOverride` under the system's orientation, which every birth's anchor takes. */
+  readonly offset: Float32Array;
   /** Each noise field's impulse clock, in the order the emitter's collection lists them. */
   readonly noise: NoiseClock[];
 }
 
-/** One state per emitter, at the system's start. */
-export function createEmitterStates(emitters: readonly EmitterModel[]): EmitterState[] {
+/**
+ * One state per emitter, at the system's start.
+ *
+ * `rng` rolls each complex emitter's `ChanceToNotExist`, which the engine does once as a
+ * system spawns. An emitter writing no chance draws nothing, and no stream leaves every
+ * emitter in.
+ */
+export function createEmitterStates(emitters: readonly EmitterModel[], rng?: Rng): EmitterState[] {
   return emitters.map((emitter) => {
-    const position = sampleCurve(emitter.emitterPosition, 0);
+    const position = sampleCurve(emitter.emitterPosition, emitterPhase(emitter, 0));
+    const chance = emitter.chanceToNotExist;
     return {
       age: 0,
       emitted: false,
-      since: emitter.timeBeforeFirstEmission,
+      lastSpawn: 0,
+      absent: chance > 0 && rng !== undefined && chance > rng.unitFloat(),
       position: [position[0] ?? 0, position[1] ?? 0, position[2] ?? 0],
       finishedAt: null,
       chance: null,
       travelled: 0,
       spawnedAt: null,
       frame: new Float32Array(FRAME_SLOTS),
+      offset: new Float32Array(3),
       noise: [],
     };
   });
@@ -153,16 +176,14 @@ export function copyEmitterStates(states: readonly EmitterState[]): EmitterState
     position: [...state.position],
     spawnedAt: state.spawnedAt === null ? null : [...state.spawnedAt],
     frame: state.frame.slice(),
+    offset: state.offset.slice(),
     noise: state.noise.map((clock) => ({ ...clock })),
   }));
 }
 
 /**
- * `Mtx44_FromEulerDegreesScale(rotationOverride, scaleOverride)` as a basis, into `out`.
- *
- * The euler stood at, each column scaled by its axis. Built per step rather than held on
- * the state, so an edit to either field reaches the next batch the definition is swapped
- * under, which decision 2.5 keeps the pool through.
+ * The emitter's own frame as a basis, into `out`: `rotationOverride` stood at, each
+ * column scaled by its axis of `scaleOverride`, so the scale acts first.
  */
 function overrideInto(emitter: EmitterModel, out: Float32Array): Float32Array {
   STOOD.set(emitter.rotationOverride);
@@ -178,23 +199,27 @@ function overrideInto(emitter: EmitterModel, out: Float32Array): Float32Array {
 /**
  * The spawn frame for this step, into the state.
  *
- * The override sits under the system's orientation, which `isLocalOrientation` switches
- * in, and the definition's own transform outermost.
+ * The emitter's own frame under the system's orientation, which `isLocalOrientation`
+ * switches in. `translationOverride` is neither scaled nor turned by that frame, and takes
+ * the orientation alone.
  */
 function frameInto(emitter: EmitterModel, state: EmitterState, step: SystemStep): void {
   overrideInto(emitter, OVERRIDE);
-  if (emitter.localOrientation) multiplyInto(step.yaw, OVERRIDE, state.frame);
-  else state.frame.set(OVERRIDE);
-  multiplyInto(step.world, state.frame, state.frame);
+  state.offset.set(emitter.translationOverride);
+  if (!emitter.localOrientation) {
+    state.frame.set(OVERRIDE);
+    return;
+  }
+
+  multiplyInto(step.yaw, OVERRIDE, state.frame);
+  turnInto(step.yaw, state.offset, 0);
 }
 
 /**
- * One step of a system: every live particle integrated, then the step's own spawns.
+ * One step of a system: each emitter's spawns, its linger, then every live particle moved.
  *
- * The engine forces `dt` to zero for a particle spawned during the step, which is why
- * the spawns land after the integration rather than before it, and is also what puts a
- * particle born this step at the origin the step ended on with no bind term of its own.
- * The linger policy runs first of all, as the engine does.
+ * The engine spawns before it updates, and moves a particle born during the step by no
+ * time at all, so a newborn stands where it was placed with its matrix built.
  */
 export function stepEmitters(
   pool: Pool,
@@ -204,26 +229,27 @@ export function stepEmitters(
   state: EmitterState[],
 ): void {
   const emitters = system.emitters;
-  for (const own of state) own.age += step.dt;
+  for (let index = 0; index < emitters.length; index += 1) {
+    const emitter = emitters[index];
+    const own = state[index];
+    own.age += step.dt;
+    frameInto(emitter, own, step);
 
+    const stood = sampled(emitter.emitterPosition, emitterPhase(emitter, own.age));
+    for (let axis = 0; axis < 3; axis += 1) own.position[axis] = stood[axis];
+  }
+
+  for (let index = 0; index < emitters.length; index += 1) {
+    emit(pool, emitters[index], index, state[index], step, rng, system.dragMotion);
+  }
   for (let index = 0; index < emitters.length; index += 1) {
     settle(pool, emitters[index], index, state[index], step);
   }
 
-  for (let index = 0; index < emitters.length; index += 1) {
-    frameInto(emitters[index], state[index], step);
-  }
   const crossed = emitters.some((emitter) => emitter.fields !== null)
     ? emitters.map((emitter, index) => fieldsOf(emitter, state[index], step))
     : NO_FIELDS;
-  const motion = emitterMotion(emitters, state, step.now);
-  integrate(pool, emitters, step, motion, crossed, system.dragMotion);
-
-  const settled = pool.count;
-  for (let index = 0; index < emitters.length; index += 1) {
-    emit(pool, emitters[index], index, state[index], step, rng, system.dragMotion);
-  }
-  if (crossed !== NO_FIELDS) kickNewborns(pool, settled, motion, crossed);
+  integrate(pool, system, state, step, crossed);
 }
 
 /** What a system none of whose emitters names a field collection reads for every one. */
@@ -232,11 +258,9 @@ const NO_FIELDS: readonly (SampledFields | null)[] = [];
 /**
  * `emitter`'s force fields as this step reads them, and null for an emitter crossing none.
  *
- * They stand on the origin the step starts from, which is the one a particle's position
- * before its move was placed against, and never on the emitter's own offset. Under
- * `IsEmitterSpace` the engine hands the fields a position its emitter's offset is not yet
- * back in, so every field there rides that offset, decision 2.45 of
- * docs/plans/vfx-particle-renderer.md.
+ * A field acts in the emitter's own frame, on the position the integrator holds, so its
+ * centre is its `Position` from that frame's origin and it never sees `EmitterPosition`
+ * under `IsEmitterSpace`. Its values are read at the emitter's phase.
  */
 function fieldsOf(
   emitter: EmitterModel,
@@ -244,53 +268,14 @@ function fieldsOf(
   step: SystemStep,
 ): SampledFields | null {
   if (emitter.fields === null) return null;
-  RIDDEN.fill(0);
-  if (emitter.emitterSpace) {
-    RIDDEN.set(state.position);
-    turnInto(state.frame, RIDDEN, 0);
-  }
-  const origin: Point = [
-    step.origin[0] - step.moved[0] + RIDDEN[0],
-    step.origin[1] - step.moved[1] + RIDDEN[1],
-    step.origin[2] - step.moved[2] + RIDDEN[2],
-  ];
+
   return prepareFields(
     emitter.fields,
-    life01(emitter, state),
+    emitterPhase(emitter, state.age),
     step.now,
-    { origin, orientation: emitter.localOrientation ? step.yaw : null },
+    { origin: FRAME_ORIGIN, orientation: emitter.localOrientation ? step.yaw : null },
     state.noise,
   );
-}
-
-/**
- * The fields' share of each particle's birth step, the ones from `from` on being this
- * step's newborns.
- *
- * The engine integrates a newborn at a `dt` of zero, so only what no `dt` scales reaches
- * it, the noise field's impulses and the orbital field's turn, and what they change stays
- * in its velocity.
- */
-function kickNewborns(
-  pool: Pool,
-  from: number,
-  motion: Float32Array,
-  fields: readonly (SampledFields | null)[],
-): void {
-  for (let at = from; at < pool.count; at += 1) {
-    const crossed = fields[pool.emitter[at]] ?? null;
-    if (crossed === null) continue;
-
-    const held = pool.emitter[at] * MOTION_SLOTS;
-    for (let axis = 0; axis < 3; axis += 1) DRIFT[axis] = motion[held + VELOCITY_SLOT + axis];
-    turnInto(pool.frame, DRIFT, 0, at * FRAME_SLOTS);
-    for (let axis = 0; axis < 3; axis += 1) {
-      KEPT[axis] = pool.velocity[at * 3 + axis];
-      MOVING[axis] = KEPT[axis] + DRIFT[axis];
-    }
-    pushInto(crossed, pool, at, 0);
-    pool.velocity.set(KEPT, at * 3);
-  }
 }
 
 /**
@@ -307,12 +292,14 @@ function pushInto(fields: SampledFields, pool: Pool, at: number, dt: number): vo
 /**
  * The linger policy for one emitter this step.
  *
- * A stopped system finishes an emitter once its age passes [`stopWaitSeconds`], whatever
- * the kind. Unstopped, `kFixedLifetimeAfterEmitterStops` alone finishes on the emitter's
- * own end of emission. On the first step an emitter is seen finished, its particles are
- * marked lingering and the fixed kinds rewrite each lifetime to the age plus the linger.
- * The max kind caps each lifetime at the linger instead, so an older particle is cut off
- * early.
+ * An emitter is finished once the system's time passes its end, or, under a stop, passes
+ * [`stopWaitSeconds`]. A complex single-particle emitter writing no material overrides is
+ * finished from the step after its burst. `kFixedLifetimeAfterEmitterStops` acts on a
+ * finished emitter stopped or not, and the two other kinds under a stop alone.
+ *
+ * The fixed kinds rewrite each live particle's lifetime once, to its age plus the linger.
+ * The max kind cuts each lifetime to the linger at most on every step, which is all a
+ * simple emitter does whatever its kind. A kind past the three changes nothing.
  */
 function settle(
   pool: Pool,
@@ -321,126 +308,80 @@ function settle(
   state: EmitterState,
   step: SystemStep,
 ): void {
-  const finished = step.stopped
-    ? state.age > stopWaitSeconds(emitter)
-    : emitter.lingerType === LINGER_TYPE.fixedLifetimeAfterEmitterStops &&
-      emitter.lifetime !== null &&
-      state.age > emitter.lifetime;
-  if (!finished) return;
+  const kind = emitter.simple ? LINGER_TYPE.maxLifetimeAfterEmitterDies : emitter.lingerType;
+  if (kind === LINGER_TYPE.none) return;
+  if (!step.stopped && kind !== LINGER_TYPE.fixedLifetimeAfterEmitterStops) return;
+  if (!finished(emitter, state, step)) return;
 
-  /* A finished emitter births nothing, so one pass settles every particle it will have. */
-  if (state.finishedAt !== null) return;
-  state.finishedAt = step.now;
+  const capped = kind === LINGER_TYPE.maxLifetimeAfterEmitterDies;
+  if (!capped && state.finishedAt !== null) return;
+  state.finishedAt ??= step.now;
 
   const seconds = lingerSeconds(emitter);
-  const capped = emitter.lingerType === LINGER_TYPE.maxLifetimeAfterEmitterDies;
   for (let at = 0; at < pool.count; at += 1) {
     if (pool.emitter[at] !== index) continue;
-    pool.lingerFrom[at] = step.now;
+    if (pool.lingerFrom[at] === NOT_LINGERING) pool.lingerFrom[at] = state.finishedAt;
     pool.lifetime[at] = capped
       ? Math.min(pool.lifetime[at], seconds)
       : step.now - pool.birthTime[at] + seconds;
   }
 }
 
-/**
- * Each emitter's acceleration, drag, velocity, bind weight and own movement for this step.
- *
- * The engine reads `bindWeight` per particle in its world transform pass. It is sampled
- * against the emitter's own life here, which is where `acceleration` and `drag` are
- * already read for the same reason. A finished emitter switches in its keyed linger
- * curves where it has them, read against the linger's own progress.
- *
- * The movement is how far `EmitterPosition` shifted since the last step, and it is zero
- * for an emitter whose particles are stored in the system's space. The engine re-adds
- * the whole position to an emitter-space particle every frame rather than storing it,
- * and adding the difference to a stored position lands in the same place.
- */
-function emitterMotion(
-  emitters: readonly EmitterModel[],
-  state: EmitterState[],
-  now: number,
-): Float32Array {
-  const width = emitters.length * MOTION_SLOTS;
-  if (MOTION.length < width) MOTION = new Float32Array(width);
-  const out = MOTION;
-
-  for (let index = 0; index < emitters.length; index += 1) {
-    const emitter = emitters[index];
-    const own = state[index];
-    const t01 = life01(emitter, own);
-    const at = index * MOTION_SLOTS;
-
-    const linger = own.finishedAt === null ? null : emitter.linger;
-    const seconds = lingerSeconds(emitter);
-    const l01 =
-      own.finishedAt === null || seconds <= 0 ? 1 : clamp01((now - own.finishedAt) / seconds);
-
-    axesInto(keyed(linger?.acceleration, emitter.acceleration, l01, t01), out, at);
-    axesInto(keyed(linger?.drag, emitter.drag, l01, t01), out, at + 3);
-    out[at + BIND_SLOT] = sampleScalar(emitter.bindWeight, t01);
-    axesInto(keyed(linger?.velocity, emitter.velocity, l01, t01), out, at + VELOCITY_SLOT);
-
-    const stood = sampled(emitter.emitterPosition, t01);
-    for (let axis = 0; axis < 3; axis += 1) {
-      const stoodAt = stood[axis];
-      out[at + MOVED_SLOT + axis] = emitter.emitterSpace ? stoodAt - own.position[axis] : 0;
-      own.position[axis] = stoodAt;
-    }
+/** The emitter counts as finished at this step, which is what its linger waits on. */
+function finished(emitter: EmitterModel, state: EmitterState, step: SystemStep): boolean {
+  if (!emitter.simple && emitter.singleParticle && !emitter.overridesMaterials && state.emitted) {
+    /* The burst's own step is not finished yet, which the stamp of the last spawn tells. */
+    if (state.lastSpawn < state.age) return true;
   }
+  if (step.stopped) return state.age > stopWaitSeconds(emitter);
 
-  return out;
+  const end = emissionEnd(emitter);
+  return end !== null && state.age > end;
 }
 
-/** The linger's own curve at `l01` where the emitter switches one in, else `plain` at `t01`. */
-function keyed(
-  held: ValueCurve | null | undefined,
-  plain: ValueCurve,
-  l01: number,
-  t01: number,
+/** `value` at `through`, or the linger's own in its place, into the over-life scratch. */
+function overLife(
+  value: ValueCurve,
+  linger: ValueCurve | null | undefined,
+  through: number,
+  serial: number,
+  now: number,
 ): Float32Array {
-  return held ? sampled(held, l01) : sampled(plain, t01);
+  const read = linger ?? value;
+  OVER_LIFE.fill(0);
+  sampleCurveInto(read, through, OVER_LIFE, 0);
+  flickerInto(read, serial, now, OVER_LIFE, 0);
+  return OVER_LIFE;
 }
 
 /**
  * Every live particle moved through one step, and the ones past their lifetime retired.
  *
- * The velocity, the drag clamp that cannot cross zero and the order of the two are the
- * engine's own. The damping coefficient is the sum of the definition's `drag` and the
- * particle's own `birthDrag`, per axis, so a birth drag is one term of the same pass.
- * There is no per-particle birth acceleration, so the acceleration is the definition's own
- * value alone. Drag acts on the emitter's own `velocity` as well as the particle's, and
- * only the particle's keeps the change, which is what leaves a dragged emitter drift
- * spending itself over the step rather than carrying on undamped.
+ * Positions, velocities and accelerations are in the frame a particle was born in. The
+ * stored velocity gains the birth acceleration plus `acceleration`. The step's velocity is
+ * that plus `velocity`, which is never stored. Drag, the birth drag plus `drag`, damps the
+ * step's velocity on each axis and cannot turn it round, and what it takes comes off the
+ * stored velocity too. Force fields act next, and what they change is kept. The position
+ * then moves by the step's velocity. Every value named without `birth` is read at the
+ * particle's own age, a lingering particle reading the linger's replacement where the
+ * emitter switches one in.
  *
- * `rotation0` turns the particle here rather than in the appearance pass, because an
- * integrated value accumulates over the steps taken and is not a function of the age it
- * is read at.
+ * Under `UseCalculusForPhysics` the closed form of `analyticDrag.ts` takes the stepped
+ * drag's place, off the birth drag alone, and the stored velocity is left as it is.
  *
- * `bindWeight` is the particle's share of the origin's own travel, added to where the
- * integrator put it, so a weight of zero leaves the particle in the world it was born in.
- * An emitter-space particle takes its emitter's own movement on top, in full.
- *
- * The acceleration, the drift and the emitter-space shift are the emitter's own and are
- * turned by the frame the particle was born in. The drag stays on the world's axes,
- * which is exact for a uniform drag alone.
- *
- * The emitter's force fields act on the step's velocity after the drag, and what they
- * change stays in the particle's own velocity.
- *
- * Under `kAnalyticDragMotion` the closed form of `analyticDrag.ts` takes the stepped
- * drag's place. What it eases each axis through over the step reaches the step's velocity
- * alone, so the acceleration, the drift and a field's kick go undamped.
+ * The spin is rebuilt from the age rather than stepped, and the particle's matrix
+ * translation after it: the position, `EmitterPosition` under `IsEmitterSpace`, the
+ * system's current orientation under `particleIsLocalOrientation`, the orbit, then the
+ * definition's `transform`. `bindWeight` adds its share of the system's travel in the world.
  */
 function integrate(
   pool: Pool,
-  emitters: readonly EmitterModel[],
+  system: SystemModel,
+  states: readonly EmitterState[],
   step: SystemStep,
-  motion: Float32Array,
   fields: readonly (SampledFields | null)[],
-  dragMotion: DragMotion,
 ): void {
-  const analytic = dragMotion === DRAG_MOTION.analytic;
+  const analytic = system.dragMotion === DRAG_MOTION.analytic;
   for (let at = pool.count - 1; at >= 0; at -= 1) {
     const age = step.now - pool.birthTime[at];
     if (age >= pool.lifetime[at]) {
@@ -448,118 +389,178 @@ function integrate(
       continue;
     }
 
-    const held = pool.emitter[at] * MOTION_SLOTS;
-    const frame = at * FRAME_SLOTS;
-    for (let axis = 0; axis < 3; axis += 1) {
-      ACCELERATION[axis] = motion[held + axis];
-      DRIFT[axis] = motion[held + VELOCITY_SLOT + axis];
-      SHIFT[axis] = motion[held + MOVED_SLOT + axis];
-    }
-    turnInto(pool.frame, ACCELERATION, 0, frame);
-    turnInto(pool.frame, DRIFT, 0, frame);
-    turnInto(pool.frame, SHIFT, 0, frame);
+    const index = pool.emitter[at];
+    const emitter = system.emitters[index];
+    if (emitter === undefined) continue;
 
-    const bind = motion[held + BIND_SLOT];
+    const dt = pool.fresh[at] === 1 ? 0 : step.dt;
+    const through = age01(pool, at, step.now);
+    const serial = pool.serial[at];
+    const linger = pool.lingerFrom[at] === NOT_LINGERING ? null : emitter.linger;
     const slot = at * 3;
+
+    const pushed = overLife(emitter.acceleration, linger?.acceleration, through, serial, step.now);
     for (let axis = 0; axis < 3; axis += 1) {
-      const drag = motion[held + 3 + axis] + pool.birthDrag[slot + axis];
-      let velocity = pool.velocity[slot + axis] + ACCELERATION[axis] * step.dt;
-      let drifted = velocity + DRIFT[axis];
+      KEPT[axis] =
+        pool.velocity[slot + axis] + (pool.birthAcceleration[slot + axis] + pushed[axis]) * dt;
+    }
+    const carried = overLife(emitter.velocity, linger?.velocity, through, serial, step.now);
+    for (let axis = 0; axis < 3; axis += 1) MOVING[axis] = KEPT[axis] + carried[axis];
 
-      /* A drag at or under zero has no terminal to ease toward, and `exp` of its growth
-         overflows, so it takes the stepped form. */
-      if (analytic && drag > 0) {
-        if (step.dt > 0) {
-          const offset = analyticOffset(pool.dragTerminal[slot + axis], drag, age);
-          drifted += (pool.dragOffset[slot + axis] - offset) / step.dt;
-          pool.dragOffset[slot + axis] = offset;
-        }
-      } else if (drag !== 0) {
-        let change = -drag * drifted * step.dt;
-        if ((change + drifted) * drifted < 0) change = -drifted;
-        drifted += change;
-        velocity += change;
-      }
-
-      KEPT[axis] = velocity;
-      MOVING[axis] = drifted;
+    const damped = overLife(emitter.drag, linger?.drag, through, serial, step.now);
+    for (let axis = 0; axis < 3; axis += 1) damped[axis] += pool.birthDrag[slot + axis];
+    if (damped[0] !== 0 || damped[1] !== 0 || damped[2] !== 0) {
+      if (analytic) easeInto(pool, slot, age, dt);
+      else dragInto(damped, dt);
     }
 
-    const crossed = fields[pool.emitter[at]] ?? null;
-    if (crossed !== null) pushInto(crossed, pool, at, step.dt);
+    const crossed = fields[index] ?? null;
+    if (crossed !== null) pushInto(crossed, pool, at, dt);
 
     for (let axis = 0; axis < 3; axis += 1) {
       pool.velocity[slot + axis] = KEPT[axis];
-      const moved = MOVING[axis] * step.dt + bind * step.moved[axis] + SHIFT[axis];
-      pool.position[slot + axis] += moved;
-      pool.travel[slot + axis] = step.dt > 0 ? moved / step.dt : 0;
+      pool.position[slot + axis] += MOVING[axis] * dt;
     }
 
-    turn(pool, at, emitters[pool.emitter[at]], step);
-    scroll(pool, at, emitters[pool.emitter[at]], step);
+    turn(pool, at, emitter, age, through);
+    place(pool, at, emitter, states[index], step, age, dt);
+    carry(pool, at, emitter, step, through, dt);
+    pool.fresh[at] = 0;
   }
 }
 
 /**
- * One particle's share of both layers' integrated UV scroll and rotation for this step.
- *
- * The two rates are `IntegratedValue` classes, so they accumulate over the steps taken
- * rather than being a function of the age they are read at, as `rotation0` does. They
- * carry none of its `60x`. The birth ramps are the age times a rate and are read off the
- * age at draw time instead, because the clamp of `uvScrollClamp` applies to the ramp
- * alone.
+ * The stepped drag over `MOVING`, `drag` a second on each axis, never past a stop, and
+ * what it takes off the step's velocity taken off the kept one as well.
  */
-function scroll(pool: Pool, at: number, emitter: EmitterModel | undefined, step: Step): void {
-  if (emitter === undefined) return;
-
-  const through = age01(pool, at, step.now);
-
-  for (let layer = 0; layer < UV_LAYERS; layer += 1) {
-    const held = layer === 0 ? emitter.uv : emitter.multUv;
-    if (held === null) continue;
-
-    const slot = uvAt(at, layer);
-    const spin = sampleScalar(held.rotateRate, through);
-    const rate = sampled(held.scrollRate, through);
-
-    pool.uv[slot + UV.scrollX] += rate[0] * step.dt;
-    pool.uv[slot + UV.scrollY] += rate[1] * step.dt;
-    pool.uv[slot + UV.rotate] += spin * step.dt;
-  }
-}
-
-/**
- * One particle's turn for this step, added to where it already stands.
- *
- * The birth angular velocity and acceleration turn every particle. `rotation0` joins them
- * only under `isRotationEnabled`, and a lingering particle takes `LingerRotation` in its
- * place where the emitter switches it in, at the same scale.
- */
-function turn(pool: Pool, at: number, emitter: EmitterModel | undefined, step: Step): void {
-  if (emitter === undefined) return;
-
-  const age = step.now - pool.birthTime[at];
+function dragInto(drag: Float32Array, dt: number): void {
   for (let axis = 0; axis < 3; axis += 1) {
-    const slot = at * 3 + axis;
-    pool.rotation[slot] +=
-      (pool.angularVelocity[slot] + pool.angularAcceleration[slot] * age) * step.dt;
+    const moving = MOVING[axis];
+    let change = -drag[axis] * moving * dt;
+    if ((moving + change) * moving < 0) change = -moving;
+    MOVING[axis] += change;
+    KEPT[axis] += change;
+  }
+}
+
+/**
+ * The closed-form drag's share of the step in `MOVING`: what each axis eased through
+ * since the last step, as a velocity. A step of no length eases nothing.
+ */
+function easeInto(pool: Pool, slot: number, age: number, dt: number): void {
+  if (Math.abs(dt) <= LEAST_ANALYTIC_STEP) return;
+
+  for (let axis = 0; axis < 3; axis += 1) {
+    /* An axis with no birth drag has nothing to ease to, and `exp` of a negative one overflows. */
+    const drag = pool.birthDrag[slot + axis];
+    if (!(drag > 0)) continue;
+
+    const offset = analyticOffset(pool.dragTerminal[slot + axis], drag, age);
+    MOVING[axis] += (pool.dragOffset[slot + axis] - offset) / dt;
+    pool.dragOffset[slot + axis] = offset;
+  }
+}
+
+/**
+ * The euler degrees one particle stands at, off its birth values and its age.
+ *
+ * The birth angle, the birth rate times the age and half the birth acceleration times the
+ * age squared turn every particle. `rotation0` joins them under `isRotationEnabled` on a
+ * particle that expires, as its integral over the age times [`ROTATION_RATE`], and a
+ * lingering particle reads `LingerRotation` in its place where the emitter switches it in.
+ *
+ * A simple emitter turns in its quad's plane alone: its birth angle and rate, or `rotation`
+ * in their place under `isRotationEnabled`.
+ */
+function turn(pool: Pool, at: number, emitter: EmitterModel, age: number, through: number): void {
+  const slot = at * 3;
+  for (let axis = 0; axis < 3; axis += 1) {
+    pool.rotation[slot + axis] =
+      pool.birthRotation[slot + axis] +
+      age * (pool.angularVelocity[slot + axis] + 0.5 * age * pool.angularAcceleration[slot + axis]);
   }
   if (!emitter.rotationEnabled) return;
 
-  const lingering = pool.lingerFrom[at] !== NOT_LINGERING;
-  const rate = sampled(
-    lingering && emitter.linger?.rotation ? emitter.linger.rotation : emitter.rotation0,
-    age01(pool, at, step.now),
-  );
+  const legacy = emitter.legacySimple;
+  if (legacy !== null) {
+    pool.rotation[slot + 2] = sampleScalar(legacy.rotation, through);
+    return;
+  }
 
+  const lifetime = pool.lifetime[at];
+  if (!Number.isFinite(lifetime)) return;
+
+  const lingering = pool.lingerFrom[at] !== NOT_LINGERING;
+  OVER_LIFE.fill(0);
+  if (lingering && emitter.linger?.rotation) {
+    sampleCurveInto(emitter.linger.rotation, through, OVER_LIFE, 0);
+  } else {
+    integratedInto(emitter.rotation0, through, 1, OVER_LIFE, 0);
+  }
   for (let axis = 0; axis < 3; axis += 1) {
-    pool.rotation[at * 3 + axis] += rate[axis] * ROTATION_RATE * step.dt;
+    pool.rotation[slot + axis] += OVER_LIFE[axis] * ROTATION_RATE * lifetime;
   }
 }
 
-/** A sample's three axes written into `out` from `at`. */
-function axesInto(axes: Float32Array, out: Float32Array, at: number): void {
-  out[at] = axes[0];
-  out[at + 1] = axes[1];
-  out[at + 2] = axes[2];
+/**
+ * One particle's matrix translation, into `placed`, and how fast it moved, into `drift`.
+ *
+ * The orbit turns the particle about the origin of the emitter's own frame, by
+ * `birthOrbitalVelocity` times the age in radians, after its translation is set, and the
+ * definition's `transform` is the last factor.
+ */
+function place(
+  pool: Pool,
+  at: number,
+  emitter: EmitterModel,
+  state: EmitterState,
+  step: SystemStep,
+  age: number,
+  dt: number,
+): void {
+  const slot = at * 3;
+  for (let axis = 0; axis < 3; axis += 1) {
+    PLACED[axis] = pool.position[slot + axis] + (emitter.emitterSpace ? state.position[axis] : 0);
+  }
+  if (emitter.particleLocalOrientation) turnInto(step.yaw, PLACED, 0);
+  if (orbitInto(pool, at, age, ORBIT)) turnInto(ORBIT, PLACED, 0);
+  if (!step.world.hud) {
+    turnInto(step.world.basis, PLACED, 0);
+    for (let axis = 0; axis < 3; axis += 1) PLACED[axis] += step.world.offset[axis];
+  }
+
+  for (let axis = 0; axis < 3; axis += 1) {
+    pool.drift[slot + axis] = dt > 0 ? (PLACED[axis] - pool.placed[slot + axis]) / dt : 0;
+    pool.placed[slot + axis] = PLACED[axis];
+  }
+}
+
+/**
+ * One particle's share of the system's travel, and its velocity in the world.
+ *
+ * `bindWeight`, read at the particle's age, adds that share of the step's travel to what
+ * the particle has been carried by so far. The world velocity is the matrix's own through
+ * the frame the particle was born in, which a particle of its own orientation skips, plus
+ * that share of the system's velocity.
+ */
+function carry(
+  pool: Pool,
+  at: number,
+  emitter: EmitterModel,
+  step: SystemStep,
+  through: number,
+  dt: number,
+): void {
+  const slot = at * 3;
+  for (let axis = 0; axis < 3; axis += 1) TRAVEL[axis] = pool.drift[slot + axis];
+  if (!emitter.particleLocalOrientation) turnInto(pool.frame, TRAVEL, 0, at * FRAME_SLOTS);
+
+  const weight = dt > 0 ? sampleScalar(emitter.bindWeight, through) : 0;
+  for (let axis = 0; axis < 3; axis += 1) {
+    if (weight > 0) {
+      pool.bound[slot + axis] += weight * step.moved[axis];
+      TRAVEL[axis] += (weight * step.moved[axis]) / dt;
+    }
+    pool.travel[slot + axis] = TRAVEL[axis];
+  }
 }

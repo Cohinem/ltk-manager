@@ -1,9 +1,7 @@
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Fragment, useEffect, useLayoutEffect, useMemo } from "react";
 import {
   DetachedBindMode,
-  DoubleSide,
-  FrontSide,
   type Material,
   Matrix4,
   type Mesh,
@@ -29,11 +27,11 @@ import { usePickTargets } from "../state/pick";
 import { useWireTwin, WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
-import { distorts } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
-import { DISTORTION_LAYER, PARTICLE_LAYER } from "../utils/frame";
+import { drawLayersOf, leaveLayers, PARTICLE_LAYER, placeOnLayers } from "../utils/frame";
 import { attachedMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
+import { meshSide } from "../utils/particleDraws";
 import { writePaletteScroll, writeSlotMembers } from "../utils/particleProgram";
 import { rangesDrawn } from "../utils/submeshes";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
@@ -116,7 +114,7 @@ export function AttachedMeshes({
         emitter.depthBias,
         layersOf(emitter, samplers, DRAWS),
         fragmentTests(emitter),
-        emitter.backfaceCull ? FrontSide : DoubleSide,
+        meshSide(emitter),
       );
       return { mesh: skinOf(skin, material, drawn), material, drawn };
     });
@@ -176,17 +174,23 @@ export function AttachedMeshes({
     };
   }, [slots, programs, rank]);
 
+  const scene = useThree((state) => state.scene);
   useLayoutEffect(() => {
+    const layers = drawLayersOf(emitter);
     for (const slot of slots) {
       slot.mesh.renderOrder = rank;
-      slot.mesh.layers.set(distorts(emitter) ? DISTORTION_LAYER : PARTICLE_LAYER);
+      placeOnLayers(scene, slot.mesh, layers);
     }
     for (const twin of twins) {
       if (twin === null) continue;
       twin.renderOrder = rank + WIRE_ORDER;
       twin.layers.set(PARTICLE_LAYER);
     }
-  }, [slots, twins, rank, emitter]);
+
+    return () => {
+      for (const slot of slots) leaveLayers(scene, slot.mesh);
+    };
+  }, [slots, twins, rank, emitter, scene]);
 
   useFrame((state) => {
     const stamp = renderStamp(state.gl);

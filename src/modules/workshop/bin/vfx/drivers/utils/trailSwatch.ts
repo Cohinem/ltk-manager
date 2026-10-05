@@ -1,8 +1,8 @@
 import type { EmitterModel } from "../../engine/model/model";
 import { bornSimple, bornUv } from "../../engine/simulation/emit";
 import { appearance, scalar } from "../../engine/simulation/particleRead";
-import { createPool, type Pool, spawn, UV, UV_LAYERS, uvAt } from "../../engine/simulation/pool";
-import { drawCurve, drawCurveInto, sampleCurve } from "../../engine/utils/sampleCurve";
+import { createPool, type Pool, spawn } from "../../engine/simulation/pool";
+import { drawCurve, drawCurveInto } from "../../engine/utils/sampleCurve";
 
 /** How many points a trail's swatch strings per particle life, which its smoothness follows. */
 const POINTS_PER_LIFE = 48;
@@ -121,15 +121,14 @@ export function swatchInto(
     pool.serial[at] = serial;
 
     const walked = birth * measure.speed;
-    pathInto(walked / measure.across, pool.position, at * 3);
-    pool.position[at * 3] *= measure.across;
-    pool.position[at * 3 + 1] *= measure.across;
+    pathInto(walked / measure.across, pool.placed, at * 3);
+    pool.placed[at * 3] *= measure.across;
+    pool.placed[at * 3 + 1] *= measure.across;
     pool.odometer[at] = walked;
 
     bornScale(pool, at, emitter, chance);
     drawCurveInto(emitter.birthColor, 0, chance, pool.birthColor, at * 4);
     bornUv(pool, at, emitter, 0, pool.roll[at], chance);
-    scrollInto(pool, at, emitter, age, life);
     if (emitter.trail !== null) {
       const tiling = drawCurve(emitter.trail.tiling, 0, chance);
       pool.tiling[at * 2] = tiling[0] ?? 0;
@@ -157,21 +156,6 @@ function bornScale(pool: Pool, at: number, emitter: EmitterModel, chance: number
     drawCurveInto(emitter.birthScale0, 0, chance, pool.birthScale, at * 3);
   } else {
     bornSimple(pool, at, emitter.legacySimple, 0, chance);
-  }
-}
-
-/** Both layers' integrated scroll over `age`, at the rate halfway through it. */
-function scrollInto(pool: Pool, at: number, emitter: EmitterModel, age: number, life: number) {
-  for (let layer = 0; layer < UV_LAYERS; layer += 1) {
-    const held = layer === 0 ? emitter.uv : emitter.multUv;
-    if (held === null) continue;
-
-    const middle = age / 2 / life;
-    const rate = sampleCurve(held.scrollRate, middle);
-    const slot = uvAt(at, layer);
-    pool.uv[slot + UV.scrollX] = (rate[0] ?? 0) * age;
-    pool.uv[slot + UV.scrollY] = (rate[1] ?? 0) * age;
-    pool.uv[slot + UV.rotate] = scalar(sampleCurve(held.rotateRate, middle)) * age;
   }
 }
 

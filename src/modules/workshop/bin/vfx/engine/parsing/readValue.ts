@@ -112,6 +112,8 @@ export function curve(node: VfxValue | null, fallback: ValueCurve): ValueCurve {
 function curveTables(dynamics: VfxValue): ProbabilityTable[] {
   const list = field(dynamics, VALUE.tables);
   if (list?.type !== "container") return [];
+  /* The engine tests the first channel's table alone, and skips every table without one. */
+  if (list.items[0]?.type !== "struct") return [];
 
   const out: ProbabilityTable[] = [];
   list.items.forEach((slot, channel) => {
@@ -314,9 +316,10 @@ export function blendMode(node: VfxValue | null): BlendMode {
   return enumByte(node, BLEND_MODE, BLEND_MODE.add);
 }
 
-/** The linger type the byte names, and the default for one outside the enum. */
+/** The linger type the byte names, and `none` for any value past the three the engine acts on. */
 export function lingerType(node: VfxValue | null): LingerType {
-  return enumByte(node, LINGER_TYPE, LINGER_TYPE.maxLifetimeAfterEmitterDies);
+  const held = number(node) ?? LINGER_TYPE.maxLifetimeAfterEmitterDies;
+  return enumByte(node, LINGER_TYPE, held > LINGER_TYPE.none ? LINGER_TYPE.none : 0);
 }
 
 /**

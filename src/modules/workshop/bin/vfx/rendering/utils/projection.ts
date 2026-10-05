@@ -8,7 +8,6 @@
  */
 
 import type { EmitterModel } from "../../engine/model/model";
-import { legacyRoll } from "../../engine/simulation/particleRead";
 import type { Pool } from "../../engine/simulation/pool";
 
 const DEGREE = Math.PI / 180;
@@ -35,7 +34,6 @@ export function footprintInto(
   emitter: EmitterModel,
   pool: Pool,
   index: number,
-  now: number,
   scale: Float32Array,
   basis: Float32Array,
   out: Footprint,
@@ -44,7 +42,7 @@ export function footprintInto(
 
   if (emitter.legacySimple !== null) {
     out.halfHeight = scale[1];
-    out.turn = (pool.rotation[index * 3 + 2] + legacyRoll(pool, index, emitter, now)) * DEGREE;
+    out.turn = pool.rotation[index * 3 + 2] * DEGREE;
     return;
   }
 

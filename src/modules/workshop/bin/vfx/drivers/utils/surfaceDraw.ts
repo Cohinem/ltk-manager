@@ -3,8 +3,8 @@ import type { EmitterModel } from "../../engine/model/model";
 import { lingerSeconds } from "../../engine/model/systemModel";
 import { bornSimple, bornUv } from "../../engine/simulation/emit";
 import { age01, appearance, erosionDrive, scalar } from "../../engine/simulation/particleRead";
-import { createPool, NOT_LINGERING, type Pool, UV, uvAt } from "../../engine/simulation/pool";
-import { drawCurve, drawCurveInto, sampleCurve } from "../../engine/utils/sampleCurve";
+import { createPool, NOT_LINGERING, type Pool } from "../../engine/simulation/pool";
+import { drawCurve, drawCurveInto } from "../../engine/utils/sampleCurve";
 import { colorLookupInto } from "../../rendering/utils/colorLookup";
 import { drawsAsBeam, drawsAsTrail } from "../../rendering/utils/drawKind";
 import { type UvDraw, uvDraw, uvTransformInto } from "../../rendering/utils/uvTransform";
@@ -46,9 +46,6 @@ export interface SurfaceCycle {
   readonly linger: number;
 }
 
-/** The steps an integrated rate is summed over, a preview's precision rather than a frame's. */
-const STEPS = 32;
-
 /** The life a particle is given where its own lifetime draws none. */
 const FALLBACK_LIFE = 1;
 
@@ -78,8 +75,7 @@ export function surfaceCycle(emitter: EmitterModel, chance: number): SurfaceCycl
  *
  * The particle is born at the emitter's start and draws every random value at `chance`,
  * as the engine's own birth does, and its colour, scale, ramp lookup and erosion drive are
- * the engine's reads. The integrated rates are summed over the age in even steps, where
- * the engine adds one per frame. `out.mult` is left as it was for an emitter with no mult
+ * the engine's reads. `out.mult` is left as it was for an emitter with no mult
  * layer.
  */
 export function surfaceAt(
@@ -94,28 +90,6 @@ export function surfaceAt(
   const lifetime = lingering ? cycle.life + cycle.linger : cycle.life;
   born(emitter, chance, lifetime);
   POOL.lingerFrom[0] = lingering ? cycle.life : NOT_LINGERING;
-
-  const layers = [emitter.uv, emitter.multUv] as const;
-  for (const [which, layer] of layers.entries()) {
-    if (layer === null) continue;
-
-    const dt = age / STEPS;
-    let scrollU = 0;
-    let scrollV = 0;
-    let rotate = 0;
-    for (let step = 0; step < STEPS; step += 1) {
-      const through = ((step + 0.5) * dt) / lifetime;
-      const rate = sampleCurve(layer.scrollRate, through);
-      scrollU += (rate[0] ?? 0) * dt;
-      scrollV += (rate[1] ?? 0) * dt;
-      rotate += scalar(sampleCurve(layer.rotateRate, through)) * dt;
-    }
-
-    const slot = uvAt(0, which);
-    POOL.uv[slot + UV.scrollX] = scrollU;
-    POOL.uv[slot + UV.scrollY] = scrollV;
-    POOL.uv[slot + UV.rotate] = rotate;
-  }
 
   particleInto(POOL, 0, emitter, age, out);
 }

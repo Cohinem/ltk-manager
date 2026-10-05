@@ -1,5 +1,4 @@
 import type { EmitterModel } from "../../engine/model/model";
-import type { Point } from "../../engine/model/rig";
 import { birth, sampleShape } from "../../engine/simulation/spawnShape";
 import { identityInto } from "../../engine/utils/basis";
 import { Rng } from "../../engine/utils/Rng";
@@ -29,7 +28,6 @@ const LEAST_REACH = 25;
 const SEED = 0x5eed;
 
 const IDENTITY = identityInto(new Float32Array(9));
-const ORIGIN: Point = [0, 0, 0];
 
 /**
  * The births of `emitter` spread evenly across its life, each placed by the engine's own
@@ -54,11 +52,11 @@ export function spawnCloud(emitter: EmitterModel, births = CLOUD_BIRTHS): SpawnC
     const chance = rng.unitFloat();
     sampleShape(emitter.shape, rng, t01, chance, drawn);
     for (let axis = 0; axis < 3; axis += 1) {
-      places[at * 3 + axis] = drawn.offset[axis] + emitter.translationOverride[axis];
+      places[at * 3 + axis] = drawn.offset[axis];
       localLow[axis] = Math.min(localLow[axis], drawn.offset[axis]);
       localHigh[axis] = Math.max(localHigh[axis], drawn.offset[axis]);
     }
-    placeInto(places, at * 3, frame, ORIGIN);
+    placeInto(places, at * 3, frame, emitter.translationOverride);
 
     for (let axis = 0; axis < 3; axis += 1) {
       low[axis] = Math.min(low[axis], places[at * 3 + axis]);

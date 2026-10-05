@@ -91,32 +91,36 @@ export function draggedBar(grip: BarGrip, held: LaneBar, time: number): LaneBar 
   }
 }
 
-/** The fields a drag of `grip` leaves `bar` writing, and the seconds each takes. */
+/**
+ * The fields a drag of `grip` leaves `bar` writing, and the seconds each takes.
+ *
+ * `lifetime` is where the bar ends on the system's clock, so a move writes it beside the
+ * start it carries, and a trim of the start alone leaves it as it was.
+ */
 export function barFields(
   grip: BarGrip,
   bar: LaneBar,
 ): readonly { readonly field: TimingField; readonly value: number }[] {
-  const lifetime = bar.end === null ? null : bar.end - bar.start;
   switch (grip) {
     case "move":
-      return [{ field: "timeBeforeFirstEmission", value: bar.start }];
-    case "start":
-      return lifetime === null
+      return bar.end === null
         ? [{ field: "timeBeforeFirstEmission", value: bar.start }]
         : [
             { field: "timeBeforeFirstEmission", value: bar.start },
-            { field: "lifetime", value: lifetime },
+            { field: "lifetime", value: bar.end },
           ];
+    case "start":
+      return [{ field: "timeBeforeFirstEmission", value: bar.start }];
     case "end":
-      return [{ field: "lifetime", value: lifetime ?? 0 }];
+      return [{ field: "lifetime", value: bar.end ?? bar.start }];
     default:
       return [{ field: "particleLinger", value: bar.linger }];
   }
 }
 
-/** The seconds a drag's readout shows: where the edge stands, or the span it sets. */
+/** The seconds a drag's readout shows: where the edge stands, or the linger it sets. */
 export function dragReadout(grip: BarGrip, bar: LaneBar): number {
-  if (grip === "end") return (bar.end ?? bar.start) - bar.start;
+  if (grip === "end") return bar.end ?? bar.start;
   if (grip === "linger") return bar.linger;
   return bar.start;
 }

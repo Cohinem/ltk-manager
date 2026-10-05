@@ -18,9 +18,10 @@ import {
   type SystemModel,
 } from "../../model/model";
 import type { Joints } from "../../model/rig";
-import { multiplyInto } from "../../utils/basis";
+import { multiplyInto, turnInto } from "../../utils/basis";
 import { createDriver, type Driver } from "../driver";
-import type { Pool } from "../pool";
+import { drawnPlace, drawnPlaceInto, frameOf } from "../particleRead";
+import { FRAME_SLOTS, type Pool } from "../pool";
 
 function constant(...values: number[]) {
   return { constant: values, keys: [], tables: [] };
@@ -36,6 +37,20 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     name: "smoke",
     disabled: false,
     culled: null,
+    hudLayer: false,
+    chanceToNotExist: 0,
+    rateByVelocity: null,
+    maximumRateByVelocity: 300,
+    hasVariableStartTime: false,
+    overridesMaterials: false,
+    birthAcceleration: { constant: [0, 0, 0], keys: [], tables: [] },
+    emissionMesh: null,
+    offsetLifetimeScaling: [0, 0, 0],
+    offsetLifeSymmetry: 0,
+    postRotate: null,
+    modulation: [1, 1, 1, 1],
+    renderPhaseOverride: 7,
+    flipWinding: false,
     rate: constant(20),
     particleLifetime: constant(1),
     lifetime: null,
@@ -122,19 +137,47 @@ function system(...emitters: EmitterModel[]): SystemModel {
     name: null,
     emitters,
     transform: null,
+    hudLayer: false,
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
   };
 }
 
-/** A pool as a value two runs are compared by, which is the live range and nothing past it. */
+/**
+ * A pool as a value two runs are compared by, which is the live range and nothing past it.
+ *
+ * A position is in the frame its particle was born in, so the anchor and the matrix
+ * translation are what say where in the world it stands.
+ */
 function snapshot(pool: Pool) {
   return {
     count: pool.count,
     position: [...pool.position.subarray(0, pool.count * 3)],
     velocity: [...pool.velocity.subarray(0, pool.count * 3)],
+    anchor: [...pool.anchor.subarray(0, pool.count * 3)],
+    placed: [...pool.placed.subarray(0, pool.count * 3)],
     birthTime: [...pool.birthTime.subarray(0, pool.count)],
   };
+}
+
+/** Where the particle at `at` of `driver`'s own pool draws, in the world, as `model` has it. */
+function placeOf(driver: Driver, model: SystemModel, at: number): number[] {
+  const out = drawnPlace();
+  const own = model.emitters[driver.pool.emitter[at]];
+  drawnPlaceInto(driver.pool, at, frameOf(driver, own), out);
+  return [...out.place];
+}
+
+/** A basis as its nine cells, a rounding error and a signed zero taken out. */
+function cells(basis: ArrayLike<number>): number[] {
+  return Array.from(basis, (cell) => Math.round(cell * 1e6) / 1e6 + 0);
+}
+
+/** The velocity the particle at `at` keeps, turned into the world by the frame it was born in. */
+function flightOf(pool: Pool, at: number): number[] {
+  const flight = pool.velocity.slice(at * 3, at * 3 + 3);
+  turnInto(pool.frame, flight, 0, at * FRAME_SLOTS);
+  return [...flight];
 }
 
 /** Every column of a pool over its live range, which is the whole of what a run produced. */
@@ -285,16 +328,21 @@ describe("createDriver", () => {
     const turned = { rotationOverride: [0, 90, 0] as [number, number, number] };
     const driver = run(system(emitter({ birthVelocity: constant(100, 0, 0), ...turned })), 3, 30);
 
+    /* The velocity is kept in the emitter's own frame, and the frame beside it turns it. */
     expect(driver.pool.count).toBeGreaterThan(0);
-    expect(driver.pool.velocity[2]).toBeCloseTo(-100, 3);
+    expect(driver.pool.velocity[0]).toBeCloseTo(100, 3);
+    expect(flightOf(driver.pool, 0)[2]).toBeCloseTo(-100, 3);
 
     driver.swap(system(emitter({ birthVelocity: constant(100, 0, 0) })));
     const born = driver.pool.count;
-    driver.advance(1 / 60);
+    /* A rate of 20 owes one particle every third frame, and nothing restarts the count. */
+    for (let at = 0; at < 3; at += 1) driver.advance(1 / 60);
 
-    expect(driver.pool.count).toBeGreaterThan(born);
-    expect(driver.pool.velocity[born * 3]).toBeCloseTo(100, 3);
-    expect(driver.pool.velocity[born * 3 + 2]).toBeCloseTo(0, 3);
+    expect(driver.pool.count).toBe(born + 1);
+    expect(flightOf(driver.pool, born)[0]).toBeCloseTo(100, 3);
+    expect(flightOf(driver.pool, born)[2]).toBeCloseTo(0, 3);
+    /* A particle born before the edit keeps the frame it was born in. */
+    expect(flightOf(driver.pool, 0)[2]).toBeCloseTo(-100, 3);
   });
 
   it("replays to the current phase when an edit adds or removes an emitter", () => {
@@ -416,12 +464,52 @@ describe("child sets", () => {
   });
 
   it("carries the child with the particle it rides", () => {
-    const driver = run(system(parent()), 3, 30);
+    const model = system(parent());
+    const driver = run(model, 3, 30);
     const [child] = driver.sources("0.0");
 
     expect(driver.pool.count).toBe(1);
-    expect(child.origin[1]).toBeCloseTo(driver.pool.position[1], 3);
+    expect(child.origin[1]).toBeCloseTo(placeOf(driver, model, 0)[1], 3);
     expect(child.origin[1]).toBeGreaterThan(40);
+  });
+
+  it("stands a child on its particle, and leaves the child's own transform to its particles", () => {
+    const moved: SystemModel = {
+      ...embers,
+      transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 500, 0, 0, 1],
+    };
+    const model = system(parent({ childSet: childSet({ children: [moved] }) }));
+    const driver = run(model, 3, 30);
+    const [child] = driver.sources("0.0");
+    const [x, y] = placeOf(driver, model, 0);
+
+    expect(child.origin[0]).toBeCloseTo(x, 3);
+    expect(child.origin[1]).toBeCloseTo(y, 3);
+    expect(child.pool.count).toBeGreaterThan(0);
+    expect(child.pool.placed[0]).toBeCloseTo(500, 3);
+  });
+
+  it("moves a HUD-layer child by its transform's translation, and its particles by none of it", () => {
+    const moved: SystemModel = {
+      ...embers,
+      hudLayer: true,
+      transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 500, 0, 0, 1],
+    };
+    const model = system(parent({ childSet: childSet({ children: [moved] }) }));
+    const driver = run(model, 3, 30);
+    const [child] = driver.sources("0.0");
+
+    expect(child.origin[0]).toBeCloseTo(placeOf(driver, model, 0)[0] + 500, 3);
+    expect(child.pool.count).toBeGreaterThan(0);
+    expect(child.pool.placed[0]).toBeCloseTo(0, 3);
+  });
+
+  it("spawns a child none of whose emitters exist this run, and reaps it with nothing drawn", () => {
+    const absent = system(emitter({ ...ember, chanceToNotExist: 1 }));
+    const driver = run(system(parent({ childSet: childSet({ children: [absent] }) })), 3, 30);
+
+    expect(driver.births()).toHaveLength(1);
+    expect(driver.sources("0.0")).toHaveLength(0);
   });
 
   it("stops a child where its particle died, and reaps it once it has played out", () => {
@@ -483,41 +571,36 @@ describe("child sets", () => {
   it("adds RelativeOffset turned by the particle, and on the world's axes under 0x1", () => {
     const turned = { birthRotation0: constant(0, 0, 90) };
     const offset = (mode: number) =>
-      run(
-        system(
-          parent({
-            ...turned,
-            childSet: childSet({ inheritance: { mode, offset: constant(10, 0, 0) } }),
-          }),
-        ),
-        3,
-        30,
+      system(
+        parent({
+          ...turned,
+          childSet: childSet({ inheritance: { mode, offset: constant(10, 0, 0) } }),
+        }),
       );
 
-    const local = offset(0);
-    const world = offset(0x1);
+    const local = run(offset(0), 3, 30);
+    const world = run(offset(0x1), 3, 30);
+    const localY = placeOf(local, offset(0), 0)[1];
+    const worldY = placeOf(world, offset(0x1), 0)[1];
 
     expect(local.sources("0.0")[0].origin[0]).toBeCloseTo(0, 3);
-    expect(local.sources("0.0")[0].origin[1]).toBeCloseTo(local.pool.position[1] + 10, 3);
+    expect(local.sources("0.0")[0].origin[1]).toBeCloseTo(localY + 10, 3);
     expect(world.sources("0.0")[0].origin[0]).toBeCloseTo(10, 3);
-    expect(world.sources("0.0")[0].origin[1]).toBeCloseTo(world.pool.position[1], 3);
+    expect(world.sources("0.0")[0].origin[1]).toBeCloseTo(worldY, 3);
   });
 
   it("turns RelativeOffset by the particle even where 0x2 drops its turn from the child", () => {
-    const driver = run(
-      system(
-        parent({
-          birthRotation0: constant(0, 0, 90),
-          childSet: childSet({ inheritance: { mode: 0x2, offset: constant(10, 0, 0) } }),
-        }),
-      ),
-      3,
-      30,
+    const model = system(
+      parent({
+        birthRotation0: constant(0, 0, 90),
+        childSet: childSet({ inheritance: { mode: 0x2, offset: constant(10, 0, 0) } }),
+      }),
     );
+    const driver = run(model, 3, 30);
     const [child] = driver.sources("0.0");
 
     expect(child.origin[0]).toBeCloseTo(0, 3);
-    expect(child.origin[1]).toBeCloseTo(driver.pool.position[1] + 10, 3);
+    expect(child.origin[1]).toBeCloseTo(placeOf(driver, model, 0)[1] + 10, 3);
   });
 
   it("carries an edit to the inheritance to a child already live", () => {
@@ -618,18 +701,14 @@ describe("child sets", () => {
 
     it("places a bone child at its joint, re-rooted at the particle's place and turn", () => {
       const turned = { birthRotation0: constant(0, 0, 90) };
-      const driver = boneRun(
-        system(
-          parent({ ...turned, childSet: childSet({ bones: ["R_Hand"], children: [embers] }) }),
-        ),
-        3,
-        30,
-        () => anchorAt(10, 0, 0),
+      const model = system(
+        parent({ ...turned, childSet: childSet({ bones: ["R_Hand"], children: [embers] }) }),
       );
+      const driver = boneRun(model, 3, 30, () => anchorAt(10, 0, 0));
 
       const [child] = driver.sources("0.0");
       expect(child.origin[0]).toBeCloseTo(0, 3);
-      expect(child.origin[1]).toBeCloseTo(driver.pool.position[1] + 10, 3);
+      expect(child.origin[1]).toBeCloseTo(placeOf(driver, model, 0)[1] + 10, 3);
     });
 
     it("turns a bone child by the particle's own turn times the joint's basis", () => {
@@ -711,17 +790,32 @@ describe("the rig", () => {
   /* An emitter that ends, so a run has a length the system's own span can be read off. */
   const brief = emitter({ lifetime: 0.5, particleLifetime: constant(0.25) });
 
-  /** How far along X the live particles reach, which is where the origin has been. */
+  /**
+   * How far along X the live particles were born, which is where the origin has been.
+   *
+   * A position is in its particle's own frame, so the anchor is what the rig's travel moves.
+   */
   function reach(pool: Pool): number {
     let most = 0;
-    for (let at = 0; at < pool.count; at += 1) most = Math.max(most, pool.position[at * 3]);
+    for (let at = 0; at < pool.count; at += 1) most = Math.max(most, pool.anchor[at * 3]);
     return most;
   }
 
-  it("leaves the origin at zero until a rig moves it", () => {
-    const driver = run(system(emitter()), 3, 60);
+  /** The least X a live particle was born at, which is the oldest birth still alive. */
+  function trail(pool: Pool): number {
+    let least = Infinity;
+    for (let at = 0; at < pool.count; at += 1) least = Math.min(least, pool.anchor[at * 3]);
+    return least;
+  }
 
+  it("leaves the origin at zero until a rig moves it", () => {
+    const model = system(emitter());
+    const driver = run(model, 3, 60);
+
+    expect(driver.pool.count).toBeGreaterThan(0);
     expect(reach(driver.pool)).toBe(0);
+    expect(placeOf(driver, model, 0)[0]).toBe(0);
+    expect(driver.origin).toEqual([0, 0, 0]);
   });
 
   it("births along the path once a flying rig is bound", () => {
@@ -734,7 +828,51 @@ describe("the rig", () => {
 
     for (let at = 0; at < 60; at += 1) driver.advance(1 / 60);
 
-    expect(reach(driver.pool)).toBeGreaterThan(50);
+    /* A second of flight at 100 a second, every particle anchored where it was born. */
+    expect(reach(driver.pool)).toBeGreaterThan(90);
+    expect(reach(driver.pool)).toBeLessThanOrEqual(100.001);
+    expect(trail(driver.pool)).toBeLessThan(20);
+  });
+
+  it("keeps a birth in the emitter's own frame, and stands it in the world on its anchor", () => {
+    const model = system(
+      emitter({ birthVelocity: constant(0, 0, 0), acceleration: constant(0, 0, 0) }),
+    );
+    const driver = driverFor(model, 3);
+    driver.steer({
+      motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
+      life: "once",
+      height: 0,
+    });
+    for (let at = 0; at < 30; at += 1) driver.advance(1 / 60);
+
+    expect(driver.pool.count).toBeGreaterThan(1);
+    for (let at = 0; at < driver.pool.count; at += 1) {
+      expect([...driver.pool.position.subarray(at * 3, at * 3 + 3)]).toEqual([0, 0, 0]);
+      expect(placeOf(driver, model, at)[0]).toBeCloseTo(driver.pool.anchor[at * 3], 4);
+    }
+    expect(trail(driver.pool)).toBeLessThan(reach(driver.pool));
+  });
+
+  it("spreads the births of one step along the travel of that step", () => {
+    const driver = driverFor(system(emitter({ rate: constant(600) })), 3);
+    driver.steer({
+      motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 600 },
+      life: "once",
+      height: 0,
+    });
+    for (let at = 0; at < 2; at += 1) driver.advance(1 / 60);
+
+    /* The second step travels from 10 to 20 and owes the particles of one frame at 600 a second. */
+    const born = [];
+    for (let at = 0; at < driver.pool.count; at += 1) {
+      if (driver.pool.birthTime[at] > 1.05 / 60) born.push(driver.pool.anchor[at * 3]);
+    }
+
+    expect(born.length).toBeGreaterThan(5);
+    expect(new Set(born.map((x) => x.toFixed(3))).size).toBe(born.length);
+    expect(Math.min(...born)).toBeGreaterThan(10);
+    expect(Math.max(...born)).toBeCloseTo(20, 3);
   });
 
   it("holds the phase when a parameter is tuned, so a drag does not pin the run", () => {
@@ -744,6 +882,7 @@ describe("the rig", () => {
     for (let at = 0; at < 60; at += 1) driver.advance(1 / 60);
 
     const flown = reach(driver.pool);
+    expect(flown).toBeGreaterThan(90);
     driver.steer({ motion: { ...flight, speed: 200 }, life: "once", height: 0 });
     for (let at = 0; at < 6; at += 1) driver.advance(1 / 60);
 
@@ -778,6 +917,20 @@ describe("the rig", () => {
 
     for (let at = 0; at < 30; at += 1) driver.advance(1 / 60);
     expect(driver.pool.count).toBe(0);
+  });
+
+  it("keeps a stopped emitter spawning until the system's age passes its emitterLinger", () => {
+    /* A linger as long as the life, so the cap a finished emitter takes cuts nothing short. */
+    const waiting = emitter({ rate: constant(60), emitterLinger: 0.75, particleLinger: 1 });
+    const driver = driverFor(system(waiting), 3);
+    driver.steer({ motion: { kind: "still" }, life: "once", height: 0, stopAt: 0.5 });
+    for (let at = 0; at < 60; at += 1) driver.advance(1 / 60);
+
+    const newest = Math.max(...driver.pool.birthTime.subarray(0, driver.pool.count));
+
+    expect(driver.pool.count).toBeGreaterThan(0);
+    expect(newest).toBeGreaterThan(0.7);
+    expect(newest).toBeLessThan(0.77);
   });
 
   it("stops a path rig where it lands, lets the linger play out, then flies again", () => {
@@ -816,10 +969,13 @@ describe("the rig", () => {
     });
     driver.advance(1 / 60);
 
+    /* The birth keeps its velocity as authored, and the frame it was born in turns it. */
     expect(driver.pool.count).toBeGreaterThan(0);
-    expect(driver.pool.velocity[0]).toBeCloseTo(100, 3);
-    expect(driver.pool.velocity[1]).toBeCloseTo(0, 3);
-    expect(driver.pool.velocity[2]).toBeCloseTo(0, 3);
+    expect([...driver.pool.velocity.subarray(0, 3)]).toEqual([0, 100, 0]);
+    const [x, y, z] = flightOf(driver.pool, 0);
+    expect(x).toBeCloseTo(100, 3);
+    expect(y).toBeCloseTo(0, 3);
+    expect(z).toBeCloseTo(0, 3);
 
     const lifted = driverFor(system(emitter({ birthVelocity: constant(0, 0, 100) })), 3);
     lifted.steer({
@@ -828,7 +984,29 @@ describe("the rig", () => {
       height: 0,
     });
     lifted.advance(1 / 60);
-    expect(lifted.pool.velocity[1]).toBeCloseTo(100, 3);
+    expect(flightOf(lifted.pool, 0)[1]).toBeCloseTo(100, 3);
+  });
+
+  it("moves a flying rig's particle in the world the way its frame turns its velocity", () => {
+    const model = system(
+      emitter({ birthVelocity: constant(0, 100, 0), acceleration: constant(0, 0, 0) }),
+    );
+    const driver = driverFor(model, 3);
+    driver.steer({
+      motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
+      life: "once",
+      height: 0,
+    });
+    driver.advance(1 / 60);
+    const born = placeOf(driver, model, 0);
+    for (let at = 0; at < 30; at += 1) driver.advance(1 / 60);
+
+    /* Half a second along its own Y, which the rig's flight lays along the world's X. */
+    const stood = placeOf(driver, model, 0);
+    expect(driver.pool.position[1]).toBeCloseTo(50, 2);
+    expect(stood[0] - born[0]).toBeCloseTo(50, 2);
+    expect(stood[1] - born[1]).toBeCloseTo(0, 3);
+    expect(driver.pool.travel[0]).toBeCloseTo(100, 2);
   });
 
   describe("on a bone", () => {
@@ -862,8 +1040,21 @@ describe("the rig", () => {
 
       expect([...driver.orientation]).toEqual([0, 0, 1, 0, 1, 0, -1, 0, 0]);
       expect(driver.pool.count).toBeGreaterThan(0);
-      expect(driver.pool.velocity[0]).toBeCloseTo(100, 3);
-      expect(driver.pool.velocity[2]).toBeCloseTo(0, 3);
+      expect(cells(driver.pool.frame.subarray(0, 9))).toEqual([0, 0, 1, 0, 1, 0, -1, 0, 0]);
+      expect(flightOf(driver.pool, 0)[0]).toBeCloseTo(100, 3);
+      expect(flightOf(driver.pool, 0)[2]).toBeCloseTo(0, 3);
+    });
+
+    it("leaves the system unturned for an emitter off isLocalOrientation", () => {
+      const model = system(
+        emitter({ birthVelocity: constant(0, 0, 100), localOrientation: false }),
+      );
+      const driver = driverFor(model, 3);
+      driver.steer(bone);
+      driver.advance(1 / 60);
+
+      expect(cells(driver.pool.frame.subarray(0, 9))).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+      expect(flightOf(driver.pool, 0)[2]).toBeCloseTo(100, 3);
     });
 
     it("puts a seek and the frames it replays in the same place", () => {
@@ -880,16 +1071,91 @@ describe("the rig", () => {
     });
   });
 
-  it("places everything under the definition's own transform, outermost", () => {
-    const model: SystemModel = {
-      ...system(emitter({ birthVelocity: constant(0, 0, 0) })),
-      transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 500, 0, 0, 1],
-    };
-    const driver = run(model, 3, 1);
+  describe("the definition's own transform", () => {
+    /* The file's rows: a quarter turn that sends X onto Z, under a translation of 500 on X. */
+    const TURNED_AND_MOVED = [0, 0, 1, 0, 0, 1, 0, 0, -1, 0, 0, 0, 500, 0, 0, 1];
 
-    expect(driver.pool.count).toBeGreaterThan(0);
-    expect(driver.pool.position[0]).toBeCloseTo(500, 3);
-    expect(driver.origin).toEqual([500, 0, 0]);
+    const standing = emitter({
+      birthVelocity: constant(0, 0, 0),
+      acceleration: constant(0, 0, 0),
+      emitterPosition: constant(10, 0, 0),
+    });
+
+    it("is the last factor of each particle's own matrix, and moves the origin nowhere", () => {
+      const model: SystemModel = { ...system(standing), transform: TURNED_AND_MOVED };
+      const driver = run(model, 3, 1);
+
+      expect(driver.pool.count).toBeGreaterThan(0);
+      expect(driver.origin).toEqual([0, 0, 0]);
+      expect([...driver.pool.anchor.subarray(0, 3)]).toEqual([0, 0, 0]);
+      expect([...driver.pool.position.subarray(0, 3)]).toEqual([10, 0, 0]);
+
+      const placed = [...driver.pool.placed.subarray(0, 3)];
+      expect(placed[0]).toBeCloseTo(500, 3);
+      expect(placed[1]).toBeCloseTo(0, 3);
+      expect(placed[2]).toBeCloseTo(10, 3);
+      expect(placeOf(driver, model, 0)[0]).toBeCloseTo(500, 3);
+      expect(placeOf(driver, model, 0)[2]).toBeCloseTo(10, 3);
+    });
+
+    it("turns no part of the rig's own orientation", () => {
+      const model: SystemModel = { ...system(standing), transform: TURNED_AND_MOVED };
+      const driver = run(model, 3, 1);
+
+      expect(cells(driver.orientation)).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+      expect(cells(driver.pool.frame.subarray(0, 9))).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+      expect(driver.world.hud).toBe(false);
+      expect(driver.world.offset).toEqual([500, 0, 0]);
+    });
+
+    it("stands inside the frame a particle was born in, so the frame turns its translation", () => {
+      const turned = emitter({ ...standing, rotationOverride: [0, 90, 0] });
+      const model: SystemModel = {
+        ...system(turned),
+        transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 500, 0, 0, 1],
+      };
+      const driver = run(model, 3, 1);
+      const [x, , z] = placeOf(driver, model, 0);
+
+      /* The frame's quarter turn about Y sends the matrix's 510 on X onto minus Z. */
+      expect(driver.pool.placed[0]).toBeCloseTo(510, 3);
+      expect(x).toBeCloseTo(0, 2);
+      expect(z).toBeCloseTo(-510, 2);
+    });
+
+    it("moves where a HUD-layer system stands by its translation, and turns nothing", () => {
+      const model: SystemModel = {
+        ...system({ ...standing, hudLayer: true }),
+        hudLayer: true,
+        transform: TURNED_AND_MOVED,
+      };
+      const driver = run(model, 3, 1);
+
+      expect(driver.pool.count).toBeGreaterThan(0);
+      expect(driver.world.hud).toBe(true);
+      expect(driver.origin).toEqual([500, 0, 0]);
+      expect([...driver.pool.anchor.subarray(0, 3)]).toEqual([500, 0, 0]);
+      expect([...driver.pool.placed.subarray(0, 3)]).toEqual([10, 0, 0]);
+      expect(placeOf(driver, model, 0)).toEqual([510, 0, 0]);
+    });
+
+    it("carries the HUD-layer translation along a rig's travel", () => {
+      const model: SystemModel = {
+        ...system({ ...standing, hudLayer: true }),
+        hudLayer: true,
+        transform: TURNED_AND_MOVED,
+      };
+      const driver = driverFor(model, 3);
+      driver.steer({
+        motion: { kind: "path", from: [0, 0, 0], to: [0, 0, 1000], speed: 100 },
+        life: "once",
+        height: 0,
+      });
+      for (let at = 0; at < 60; at += 1) driver.advance(1 / 60);
+
+      expect(driver.origin[0]).toBeCloseTo(500, 3);
+      expect(driver.origin[2]).toBeCloseTo(100, 3);
+    });
   });
 
   it("carries an orbit on a missile's frame, or on a unit's under that orientation", () => {
@@ -1018,6 +1284,88 @@ describe("the rig", () => {
 
     expect(played.pool.count).toBeGreaterThan(0);
     expect(snapshot(played.pool)).toEqual(snapshot(sought.pool));
+  });
+});
+
+describe("ChanceToNotExist", () => {
+  /* An emitter that plays out inside the second a still rig loops on. */
+  const brief = { lifetime: 0.5, particleLifetime: constant(0.25) };
+  const flaky = emitter({ ...brief, chanceToNotExist: 0.5 });
+  const SEEDS = Array.from({ length: 24 }, (_, at) => at + 1);
+
+  /** The emitter at `index` spawned something over the first ten frames of a run of `seed`. */
+  function exists(model: SystemModel, seed: number, index = 0): boolean {
+    const { pool } = run(model, seed, 10);
+    return [...pool.emitter.subarray(0, pool.count)].includes(index);
+  }
+
+  it("leaves the emitter out of some runs and in others, by the seed alone", () => {
+    const outcomes = SEEDS.map((seed) => exists(system(flaky), seed));
+
+    expect(outcomes).toContain(true);
+    expect(outcomes).toContain(false);
+    expect(SEEDS.map((seed) => exists(system(flaky), seed))).toEqual(outcomes);
+  });
+
+  it("never leaves out an emitter writing no chance, and always one whose chance is one", () => {
+    const certain = system(emitter(brief));
+    const never = system(emitter({ ...brief, chanceToNotExist: 1 }));
+
+    expect(SEEDS.map((seed) => exists(certain, seed))).not.toContain(false);
+    expect(SEEDS.map((seed) => exists(never, seed))).not.toContain(true);
+  });
+
+  it("leaves the system's other emitters in where it leaves one out", () => {
+    const pair = system(flaky, emitter({ ...brief, index: 1, listIndex: 1, name: "spark" }));
+    const split = SEEDS.filter((seed) => !exists(pair, seed, 0));
+
+    expect(split.length).toBeGreaterThan(0);
+    for (const seed of split) expect(exists(pair, seed, 1)).toBe(true);
+  });
+
+  it("rolls again each time a looping rig starts the run over", () => {
+    const driver = driverFor(system(flaky), 3);
+    driver.steer({ motion: { kind: "still" }, life: "loop", height: 0 });
+
+    /* Thirty passes of one second each, a pass counted as in where it drew a particle. */
+    const passes: boolean[] = [];
+    for (let pass = 0; pass < 30; pass += 1) {
+      let drew = false;
+      for (let frame = 0; frame < 60; frame += 1) {
+        driver.advance(1 / 60);
+        drew ||= driver.pool.count > 0;
+      }
+      passes.push(drew);
+    }
+
+    expect(passes).toContain(true);
+    expect(passes).toContain(false);
+  });
+
+  it("reaches by a seek the rolls a play made, pass for pass", () => {
+    const rig = { motion: { kind: "still" }, life: "loop", height: 0 } as const;
+    const played = driverFor(system(flaky), 3);
+    played.steer(rig);
+    const sought = driverFor(system(flaky), 3);
+    sought.steer(rig);
+
+    /* A quarter second into each pass, where an emitter that exists has particles alive. */
+    const stood: ReturnType<typeof snapshot>[] = [];
+    for (let frame = 0; frame < 15; frame += 1) played.advance(1 / 60);
+    for (let pass = 0; pass < 10; pass += 1) {
+      stood.push(snapshot(played.pool));
+      sought.seek(pass + 0.25);
+      expect(snapshot(sought.pool)).toEqual(stood[pass]);
+
+      for (let frame = 0; frame < 60; frame += 1) played.advance(1 / 60);
+    }
+
+    expect(stood.some((pass) => pass.count > 0)).toBe(true);
+    expect(stood.some((pass) => pass.count === 0)).toBe(true);
+
+    /* Back through a checkpoint, which holds the roll its pass made. */
+    sought.seek(3.25);
+    expect(snapshot(sought.pool)).toEqual(stood[3]);
   });
 });
 

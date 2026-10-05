@@ -4,17 +4,17 @@ import { type ComponentRef, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowHelper, Group, Matrix4, Vector3 } from "three";
 
 import { useDisposable } from "@/hooks";
-import { AXIS_SIGN, useSceneColors } from "@/modules/viewport";
+import { useSceneColors } from "@/modules/viewport";
 
 import type { LeafEdit } from "../../tree/hooks/useLeafEdit";
 import type { EmitterModel, SystemModel } from "../engine/model/model";
-import { worldOf } from "../engine/simulation/integrate";
 import { frameOf } from "../engine/simulation/particleRead";
 import { useVfxRun } from "../playback/state/run";
 import { commitForceValue, validForceValue } from "./forceEdits";
 import {
   ORBIT_GUIDE_RADIUS,
   forceDirectionFrame,
+  forceFrame,
   forceHandle,
   forceHandleValue,
   forceOrigin,
@@ -47,8 +47,8 @@ export function ForceGizmo({ system, emitter, force, handle, edit, onGrab }: Pro
     origin: new Vector3(),
     center: new Vector3(),
     direction: new Matrix4(),
+    place: new Matrix4(),
   });
-  const world = useMemo(() => worldOf(system), [system]);
   const property = forceHandle(force, handle);
   const [saving, setSaving] = useState(false);
   const [generation, setGeneration] = useState(0);
@@ -142,14 +142,15 @@ export function ForceGizmo({ system, emitter, force, handle, edit, onGrab }: Pro
     }
 
     const frame = frameOf(driver, emitter);
-    const origin = forceOrigin(emitter, frame, world.basis);
+    const origin = forceOrigin(emitter, frame);
+    const place = forceFrame(emitter, frame);
     const center = new Vector3()
       .fromArray(forceSample(force, "Position", frame.phase))
-      .multiply(new Vector3(...AXIS_SIGN))
+      .applyMatrix4(place)
       .add(origin);
-    const direction = forceDirectionFrame(force, emitter, frame);
+    const direction = forceDirectionFrame(force, emitter, frame, place);
     const radius = Math.max(0, forceSample(force, "radius", frame.phase)[0]);
-    placement.current = { origin, center, direction };
+    placement.current = { origin, center, direction, place };
 
     sphere.current?.position.copy(center);
     sphere.current?.scale.setScalar(radius);
@@ -190,8 +191,15 @@ export function ForceGizmo({ system, emitter, force, handle, edit, onGrab }: Pro
       return;
     }
 
-    const { origin, center, direction } = placement.current;
-    const value = forceHandleValue(property.name, object.position, origin, center, direction);
+    const { origin, center, direction, place } = placement.current;
+    const value = forceHandleValue(
+      property.name,
+      object.position,
+      origin,
+      center,
+      direction,
+      place,
+    );
     if (!validForceValue(property, value)) {
       return;
     }

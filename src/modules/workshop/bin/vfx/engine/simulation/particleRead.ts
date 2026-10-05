@@ -1,11 +1,13 @@
-import { LINGER_TYPE, QUAD_TYPE } from "../model/enums";
+import { QUAD_TYPE } from "../model/enums";
 import type { EmitterModel, ValueCurve } from "../model/model";
 import type { Point } from "../model/rig";
-import { lingerSeconds } from "../model/systemModel";
-import { multiplyInto, standingInto, turnInto } from "../utils/basis";
-import { sampleCurveInto } from "../utils/sampleCurve";
-import type { EmitterState } from "./integrate";
+import { emitterPhase, lingerSeconds } from "../model/systemModel";
+import { alongInto, multiplyInto, standingInto, turnInto } from "../utils/basis";
+import { flickerInto, integratedInto, sampleCurveInto } from "../utils/sampleCurve";
+import type { EmitterState, World } from "./integrate";
 import { FRAME_SLOTS, NOT_LINGERING, type Pool } from "./pool";
+
+export { emitterPhase };
 
 /** Scratch the orbit's own euler is built in, in the degrees a standing basis takes. */
 const ORBITED = new Float32Array(3);
@@ -30,16 +32,18 @@ const DEGREES_PER_RADIAN = 180 / Math.PI;
 
 /** What a draw path knows about the frame it is on, which its per-particle reads take. */
 export interface DrawFrame {
+  /** The emitter the frame is read for. */
+  readonly emitter: EmitterModel;
   /** The simulation's own clock, in seconds since the system started. */
   readonly now: number;
   /** Where the emitter stands in its own life, which its emitter-keyed curves are read at. */
   readonly phase: number;
-  /** Where the rig has the system's origin, which an orbit turns a particle about. */
+  /** Where the rig has the system. */
   readonly origin: Point;
-  /** How the rig turns the system now, which a particle of its own stands on. */
+  /** How the rig turns the system now, which a particle of its own orientation stands on. */
   readonly orientation: Float32Array;
-  /** `worldAcceleration` at the emitter's phase, sampled once for every particle drawn. */
-  readonly worldAcceleration: Float32Array;
+  /** The definition's own `transform`, the last factor of a particle's own matrix. */
+  readonly world: World;
 }
 
 /**
@@ -57,44 +61,52 @@ export interface Source {
   readonly origin: Point;
   /** Where the system aims, which a beam reaches for. */
   readonly target: Point;
+  /** The system's orientation now, without the definition's own `transform`. */
   readonly orientation: Float32Array;
+  /** The definition's own `transform`. */
+  readonly world: World;
 }
 
 /** What `source` stands at this moment, for a draw of `emitter`. */
 export function frameOf(source: Source, emitter: EmitterModel): DrawFrame {
-  const phase = emitterPhase(emitter, source.elapsed);
-  const worldAcceleration = new Float32Array(3);
-  sampleCurveInto(emitter.worldAcceleration, phase, worldAcceleration, 0);
   return {
+    emitter,
     now: source.time,
-    phase,
+    phase: emitterPhase(emitter, source.elapsed),
     origin: source.origin,
     orientation: source.orientation,
-    worldAcceleration,
+    world: source.world,
   };
 }
 
-/** Where one particle draws and how its orbit turned it, of which a draw path keeps one. */
+/** Where one particle draws, of which a draw path keeps one. */
 export interface DrawnPlace {
   /** The drawn position, in the engine's space. */
   readonly place: Float32Array;
-  /** The orbit's turn as a basis, which carries meaning only while `orbited`. */
-  readonly turn: Float32Array;
-  orbited: boolean;
 }
 
 /** The scratch [`drawnPlaceInto`] writes, one per draw path. */
 export function drawnPlace(): DrawnPlace {
-  return { place: new Float32Array(3), turn: new Float32Array(FRAME_SLOTS), orbited: false };
+  return { place: new Float32Array(3) };
 }
+
+/** The primitive kinds whose scale `isUniformScale` reaches: the quads and the meshes. */
+const UNIFORMLY_SCALED: ReadonlySet<number | null> = new Set([
+  QUAD_TYPE.cameraQuad,
+  QUAD_TYPE.cameraUnitQuad,
+  QUAD_TYPE.arbitraryQuad,
+  QUAD_TYPE.mesh,
+  QUAD_TYPE.attachedMesh,
+]);
 
 /**
  * The scale and colour a particle draws at, into the caller's own scratch.
  *
  * Each is the birth value times the curve rather than the curve alone, the two passes the
- * engine runs after the integrator. A lingering particle reads `LingerScale` and
- * `SeparateLingerColor` against the linger's own progress instead, where its emitter
- * switches them in.
+ * engine runs after the integrator, and the colour takes `modulationFactor` on top. A
+ * lingering particle reads `LingerScale` and `SeparateLingerColor` against the linger's own
+ * progress instead, where its emitter switches them in. A table on either curve is read at
+ * a fresh draw each step, so it flickers.
  */
 export function appearance(
   pool: Pool,
@@ -106,6 +118,7 @@ export function appearance(
   const through = age01(pool, index, now);
   const linger = pool.lingerFrom[index] === NOT_LINGERING ? null : emitter.linger;
   const l01 = linger === null ? 0 : linger01(pool, index, emitter, now);
+  const serial = pool.serial[index];
 
   /* Both factors stand at one before the curve, because `sampleCurveInto` writes only the
      channels the curve carries and the scratch is the caller's own across particles. */
@@ -115,16 +128,24 @@ export function appearance(
   if (linger?.scale) sampleCurveInto(linger.scale, l01, out.scale, 0);
   else if (emitter.legacySimple !== null) {
     out.scale.fill(sampleScalar(emitter.legacySimple.scale, through, 1), 0, 3);
-  } else sampleCurveInto(emitter.scale0, through, out.scale, 0);
+  } else {
+    sampleCurveInto(emitter.scale0, through, out.scale, 0);
+    flickerInto(emitter.scale0, serial, now, out.scale, 0);
+  }
   if (linger?.color) sampleCurveInto(linger.color, l01, out.color, 0);
-  else sampleCurveInto(emitter.color, through, out.color, 0);
+  else {
+    sampleCurveInto(emitter.color, through, out.color, 0);
+    flickerInto(emitter.color, serial, now, out.color, 0);
+  }
 
   for (let channel = 0; channel < 3; channel += 1) {
     out.scale[channel] *= pool.birthScale[index * 3 + channel];
   }
-  if (emitter.uniformScale) out.scale.fill(out.scale[0], 1, 3);
+  if (emitter.uniformScale && UNIFORMLY_SCALED.has(emitter.quadType)) {
+    out.scale.fill(out.scale[0], 1, 3);
+  }
   for (let channel = 0; channel < 4; channel += 1) {
-    out.color[channel] *= pool.birthColor[index * 4 + channel];
+    out.color[channel] *= pool.birthColor[index * 4 + channel] * emitter.modulation[channel];
   }
 }
 
@@ -132,57 +153,45 @@ export function appearance(
  * How far through its life the particle at `index` stands, zero to one.
  *
  * The engine's `age01`, which every curve keyed on a particle rather than on its emitter
- * is read at. A particle whose lifetime has been cut to zero reads at the end, which is
- * the engine's own guard.
+ * is read at. A particle that never expires stays at zero, and one whose lifetime has
+ * been cut to nothing reads at the end.
  */
 export function age01(pool: Pool, index: number, now: number): number {
   const lifetime = pool.lifetime[index];
   return lifetime > 0 ? clamp01((now - pool.birthTime[index]) / lifetime) : 1;
 }
 
+/** Scratch `worldAcceleration`'s offset is read into. */
+const PUSHED = new Float32Array(3);
+
 /**
- * Where the particle at `index` draws and how its orbit has turned it, into `out`.
+ * Where the particle at `index` draws, into `out`.
  *
- * Two channels the integrator never touches, applied in the engine's own order.
+ * The particle's own matrix translation, through the frame it was born in, on where that
+ * frame's origin stood at the birth. A particle of its own orientation takes the origin
+ * alone, its translation having been turned by the system already. The share of the
+ * system's travel `bindWeight` gave it is added in the world.
  *
- * `birthOrbitalVelocity` turns first. The angle is the rate times the age, in radians, and
- * the engine folds the turn into the world matrix after its translation row is set, so it
- * carries the particle around the system's origin as well as turning its basis. A caller
- * composes `out.turn` over the particle's own standing basis wherever `out.orbited` is
- * set.
- *
- * `worldAcceleration` is added on top, un-turned, because the transform pass adds it to
- * the translation row after the integrator has built the matrix. The engine puts
- * `a * lifetime` on the particle's world velocity and `a * lifetime * lifetime` here, so
- * the two terms do not compose and only the square is a position. The lifetime is the
- * pool's current one, which is what makes the linger's rewrite move the offset in a single
- * frame.
- *
- * The value is an `IntegratedValue`, so the evaluator returns the integral over
- * `[0, age01]` rather than a sample at it, and the offset ramps from zero to
- * `a * lifetime * lifetime` over the life instead of standing at it from birth. That is
- * the reading `rotation0` and the UV rates already accumulate under. Decisions 2.23, 2.24
- * and 2.27 of docs/plans/vfx-particle-renderer.md.
- *
- * `worldAcceleration` is read against the emitter's own life, as every other
- * emitter-level curve here is.
+ * `worldAcceleration` is added on top, un-turned: the curve integrated twice over the age,
+ * times the lifetime squared. The lifetime is the pool's current one, which is what makes
+ * the linger's rewrite move the offset in a single frame, and a particle that never
+ * expires takes none.
  */
 export function drawnPlaceInto(pool: Pool, index: number, frame: DrawFrame, out: DrawnPlace): void {
   const slot = index * 3;
-  for (let axis = 0; axis < 3; axis += 1) out.place[axis] = pool.position[slot + axis];
-
-  out.orbited = orbitInto(pool, index, frame.now, out.turn);
-  if (out.orbited) {
-    for (let axis = 0; axis < 3; axis += 1) out.place[axis] -= frame.origin[axis];
-    turnInto(out.turn, out.place, 0);
-    for (let axis = 0; axis < 3; axis += 1) out.place[axis] += frame.origin[axis];
+  const emitter = frame.emitter;
+  for (let axis = 0; axis < 3; axis += 1) out.place[axis] = pool.placed[slot + axis];
+  if (!emitter.particleLocalOrientation) turnInto(pool.frame, out.place, 0, index * FRAME_SLOTS);
+  for (let axis = 0; axis < 3; axis += 1) {
+    out.place[axis] += pool.anchor[slot + axis] + pool.bound[slot + axis];
   }
 
   const lifetime = pool.lifetime[index];
-  const reached = age01(pool, index, frame.now) * lifetime * lifetime;
-  for (let axis = 0; axis < 3; axis += 1) {
-    out.place[axis] += frame.worldAcceleration[axis] * reached;
-  }
+  if (!Number.isFinite(lifetime)) return;
+
+  PUSHED.fill(0);
+  integratedInto(emitter.worldAcceleration, age01(pool, index, frame.now), 2, PUSHED, 0);
+  for (let axis = 0; axis < 3; axis += 1) out.place[axis] += PUSHED[axis] * lifetime * lifetime;
 }
 
 /**
@@ -209,18 +218,54 @@ export function standingFrameInto(
   for (let slot = 0; slot < FRAME_SLOTS; slot += 1) out[slot] = pool.frame[at + slot];
 }
 
-/** How far from the world's up a travel may lean before its side is taken off x instead. */
-const UPRIGHT = 0.99999;
+/** Scratch one factor of a particle's basis is built in. */
+const FACTOR = new Float32Array(FRAME_SLOTS);
 
-/** Scratch the particle's standing frame is read into, under its own turn. */
-const BORN_FRAME = new Float32Array(FRAME_SLOTS);
+/** The primitive kinds `isDirectionOriented` aims by their own `+Z`. */
+const AIMED: ReadonlySet<number | null> = new Set([
+  QUAD_TYPE.arbitraryQuad,
+  QUAD_TYPE.mesh,
+  QUAD_TYPE.attachedMesh,
+]);
+
+/**
+ * The particle's own basis, without the frame it stands on, into `out`.
+ *
+ * The engine's order: the spin, `postRotateOrientationAxis`, the orbit, the definition's
+ * `transform`, then the travel. The orbit and the transform turn the basis as they turn the
+ * translation. `isDirectionOriented` then aims the particle's own `+Z` along the way its
+ * matrix moved over the last step, on an arbitrary quad, a mesh and an attached mesh, and
+ * a particle that did not move keeps its basis.
+ */
+export function ownBasisInto(
+  pool: Pool,
+  index: number,
+  emitter: EmitterModel,
+  frame: DrawFrame,
+  out: Float32Array,
+): void {
+  standingInto(pool.rotation, index * 3, 0, out);
+  if (emitter.postRotate !== null) {
+    ORBITED.set(emitter.postRotate);
+    multiplyInto(standingInto(ORBITED, 0, 0, FACTOR), out, out);
+  }
+  if (emitter.particleLocalOrientation) multiplyInto(frame.orientation, out, out);
+  if (orbitInto(pool, index, frame.now - pool.birthTime[index], FACTOR)) {
+    multiplyInto(FACTOR, out, out);
+  }
+  if (!frame.world.hud) multiplyInto(frame.world.basis, out, out);
+
+  if (!emitter.directionOriented || !AIMED.has(emitter.quadType)) return;
+  const slot = index * 3;
+  if (pool.drift[slot] === 0 && pool.drift[slot + 1] === 0 && pool.drift[slot + 2] === 0) return;
+  multiplyInto(alongInto(pool.drift, slot, FACTOR), out, out);
+}
 
 /**
  * The basis the particle at `index` stands on, in the engine's space, into `out`.
  *
- * `isDirectionOriented` faces the particle where it travels, the up along its velocity
- * and the side off whichever world axis the travel leans least toward. Every other
- * particle stands its own euler on the frame it was born in.
+ * Its own basis on the frame it was born in, which a particle of its own orientation
+ * skips, the system's orientation being part of its own basis already.
  */
 export function particleBasisInto(
   pool: Pool,
@@ -229,69 +274,68 @@ export function particleBasisInto(
   frame: DrawFrame,
   out: Float32Array,
 ): void {
-  const vx = pool.travel[index * 3];
-  const vy = pool.travel[index * 3 + 1];
-  const vz = pool.travel[index * 3 + 2];
-  const speed = Math.hypot(vx, vy, vz);
-  if (emitter.directionOriented && speed > 0) {
-    const ux = vx / speed;
-    const uy = vy / speed;
-    const uz = vz / speed;
-    const [ax, ay, az] = Math.abs(uy) < UPRIGHT ? [0, 1, 0] : [1, 0, 0];
-    let rx = ay * uz - az * uy;
-    let ry = az * ux - ax * uz;
-    let rz = ax * uy - ay * ux;
-    const reach = Math.hypot(rx, ry, rz);
-    rx /= reach;
-    ry /= reach;
-    rz /= reach;
-    out.set([rx, ux, ry * uz - rz * uy, ry, uy, rz * ux - rx * uz, rz, uz, rx * uy - ry * ux]);
-    return;
-  }
-
-  standingInto(pool.rotation, index * 3, legacyRoll(pool, index, emitter, frame.now), out);
-  standingFrameInto(pool, index, emitter, frame, BORN_FRAME);
-  multiplyInto(BORN_FRAME, out, out);
+  ownBasisInto(pool, index, emitter, frame, out);
+  if (!emitter.particleLocalOrientation) multiplyInto(pool.frame, out, out, index * FRAME_SLOTS);
 }
 
 /**
- * How far the particle at `index` stretches along its travel, and one where it faces none.
+ * The basis a direction-oriented camera quad reads its travel off, into `out`.
  *
- * `directionVelocityScale` per unit of speed, held at `directionVelocityMinScale` at the
- * least, on the kinds `isDirectionOriented` turns. A ray is not one of them. The formula
- * is the reading of decision 2.51 of docs/plans/vfx-particle-renderer.md.
+ * Such a quad stays facing the eye and lays its up along the particle's velocity in the
+ * world as the view sees it, so the basis carries that velocity as its `+Y` and nothing
+ * of the particle's own turn. A particle standing still keeps the world's up.
+ */
+export function travelBasisInto(pool: Pool, index: number, out: Float32Array): void {
+  const slot = index * 3;
+  const speed = Math.hypot(pool.travel[slot], pool.travel[slot + 1], pool.travel[slot + 2]);
+  out.set(UPRIGHT_BASIS);
+  if (speed === 0) return;
+
+  out[1] = pool.travel[slot] / speed;
+  out[4] = pool.travel[slot + 1] / speed;
+  out[7] = pool.travel[slot + 2] / speed;
+}
+
+const UPRIGHT_BASIS = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+
+/**
+ * How far one axis of the quad at `index` stretches with its speed, and one for none.
+ *
+ * `directionVelocityScale` per unit of the particle's speed in the world, held at
+ * `directionVelocityMinScale` at the least. A camera quad stretches its up and an
+ * arbitrary quad its side. The field is read whether or not the emitter is direction
+ * oriented, and zero turns it off. A ray, a mesh, a ribbon and a simple emitter read none.
  */
 export function stretchOf(pool: Pool, index: number, emitter: EmitterModel): number {
+  if (emitter.directionVelocityScale === 0 || emitter.legacySimple !== null) return 1;
   if (
-    !emitter.directionOriented ||
-    emitter.quadType === QUAD_TYPE.ray ||
-    emitter.legacySimple !== null
+    emitter.quadType !== QUAD_TYPE.cameraQuad &&
+    emitter.quadType !== QUAD_TYPE.cameraUnitQuad &&
+    emitter.quadType !== QUAD_TYPE.arbitraryQuad
   ) {
     return 1;
   }
+
   const speed = Math.hypot(
     pool.travel[index * 3],
     pool.travel[index * 3 + 1],
     pool.travel[index * 3 + 2],
   );
-  if (speed === 0) return 1;
   return Math.max(emitter.directionVelocityMinScale, speed * emitter.directionVelocityScale);
 }
 
 /**
- * The turn the particle at `index` has orbited by, into `out`, and false where it has none.
+ * The turn a particle `age` seconds old has orbited by, into `out`, and false where it has none.
  *
  * The angle is `birthOrbitalVelocity` times the age, in radians, which the standing basis
- * takes in degrees. The spin channel's `pi / 180` is the only one in the integrator and
- * it never reaches this one.
+ * takes in degrees.
  */
-export function orbitInto(pool: Pool, index: number, now: number, out: Float32Array): boolean {
+export function orbitInto(pool: Pool, index: number, age: number, out: Float32Array): boolean {
   const slot = index * 3;
   if (pool.orbital[slot] === 0 && pool.orbital[slot + 1] === 0 && pool.orbital[slot + 2] === 0) {
     return false;
   }
 
-  const age = now - pool.birthTime[index];
   for (let axis = 0; axis < 3; axis += 1) {
     ORBITED[axis] = pool.orbital[slot + axis] * age * DEGREES_PER_RADIAN;
   }
@@ -300,28 +344,15 @@ export function orbitInto(pool: Pool, index: number, now: number, out: Float32Ar
 }
 
 /**
- * The roll a simple emitter's `rotation` adds to the particle at `index`, in degrees.
- *
- * Sampled against the age rather than accumulated, because the block declares it a
- * `ValueFloat` where `rotation0` is an integrated one. Zero for every other emitter.
- */
-export function legacyRoll(pool: Pool, index: number, emitter: EmitterModel, now: number): number {
-  const legacy = emitter.legacySimple;
-  if (legacy === null) return 0;
-
-  return sampleScalar(legacy.rotation, age01(pool, index, now));
-}
-
-/**
  * The whole spin of the particle at `index` about its quad's normal, in degrees.
  *
  * A complex emitter's camera quad rolls by the first euler angle, which `birthRotation0.x`
- * seeds. A simple emitter spins by the third plus [`legacyRoll`], truncated to the whole
- * degrees its basis table indexes.
+ * seeds. A simple emitter spins by the third, truncated to the whole degrees its basis
+ * table indexes.
  */
-export function spinOf(pool: Pool, index: number, emitter: EmitterModel, now: number): number {
+export function spinOf(pool: Pool, index: number, emitter: EmitterModel): number {
   if (emitter.legacySimple === null) return pool.rotation[index * 3];
-  return wholeTurn(pool.rotation[index * 3 + 2] + legacyRoll(pool, index, emitter, now));
+  return wholeTurn(pool.rotation[index * 3 + 2]);
 }
 
 /** The degrees a basis table wraps an angle into. */
@@ -358,31 +389,15 @@ export function erosionDrive(
 /**
  * How far through its linger the particle at `index` stands, zero to one.
  *
- * The window is the linger's seconds for `kMaxLifetimeAfterEmitterDies`, and what is left
- * of the rewritten lifetime otherwise, which after the rewrite is the same number. A
- * particle whose emitter runs is at zero.
+ * The time since its emitter's linger started over `particleLinger`. A particle whose
+ * emitter runs is at zero.
  */
 export function linger01(pool: Pool, index: number, emitter: EmitterModel, now: number): number {
   const from = pool.lingerFrom[index];
   if (from === NOT_LINGERING) return 0;
 
-  const window =
-    emitter.lingerType === LINGER_TYPE.maxLifetimeAfterEmitterDies
-      ? lingerSeconds(emitter)
-      : pool.birthTime[index] + pool.lifetime[index] - from;
+  const window = lingerSeconds(emitter);
   return window > 0 ? clamp01((now - from) / window) : 1;
-}
-
-/**
- * Where an emitter `age` seconds old stands in its own life, which drives every
- * emitter-keyed curve.
- *
- * An emitter that never ends has no denominator, so its curves read at their start.
- */
-export function emitterPhase(emitter: EmitterModel, age: number): number {
-  const life = emitter.lifetime;
-  if (life === null || life <= 0) return 0;
-  return clamp01(age / life);
 }
 
 /** Where `state`'s emitter stands in its own life now. */

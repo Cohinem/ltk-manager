@@ -1,12 +1,15 @@
-import { BLEND_MODE, type BlendMode } from "../../engine/model/enums";
+import { SOFT_TARGET, type SoftTarget } from "../../engine/model/enums";
 import type { EmitterModel, SoftModel } from "../../engine/model/model";
 import { drawsFixedAlphaUv, drawsTheAttachment } from "./drawKind";
 
 /** Four lanes of a shader constant, in the order the shader reads them. */
 type Lanes = readonly [number, number, number, number];
 
-/** Where an in-fade of no width starts, far enough behind any scene that every gap is past it. */
-const NO_FADE_IN = -1e9;
+/** Where a fade out the emitter does not ask for starts, past any gap a scene leaves. */
+const NO_FADE_OUT = 1e8;
+
+/** The least width a fade runs over, which keeps its rate finite. */
+const LEAST_DELTA = 1e-8;
 
 /**
  * The soft fade an emitter's draw path runs, and null where its shader compiles none.
@@ -30,15 +33,16 @@ export function fades(emitter: EmitterModel): boolean {
 /**
  * `cSoftParticleParams`: where the fade in and the fade out start, then the rate of each.
  *
- * Decision 2.43 of docs/plans/vfx-particle-renderer.md.
+ * Both starts are gaps to the scene in their own right, `beginIn` and `beginOut`. A
+ * `beginOut` at or under zero asks for no fade out. Decision 2.43 of
+ * docs/plans/vfx-particle-renderer.md.
  */
 export function softParams(soft: SoftModel): Lanes {
-  const fadesIn = soft.deltaIn !== 0;
   return [
-    fadesIn ? soft.beginIn : NO_FADE_IN,
-    soft.beginIn + soft.deltaIn + soft.beginOut,
-    fadesIn ? 1 / soft.deltaIn : 1,
-    soft.deltaOut === 0 ? 0 : 1 / soft.deltaOut,
+    soft.beginIn,
+    soft.beginOut <= 0 ? NO_FADE_OUT : soft.beginOut,
+    1 / Math.max(soft.deltaIn, LEAST_DELTA),
+    1 / Math.max(soft.deltaOut, LEAST_DELTA),
   ];
 }
 
@@ -50,12 +54,11 @@ const FADES = {
 } as const satisfies Record<string, Lanes>;
 
 /**
- * `cSoftParticleControl` under `mode`: the fade reaches what the blend weighs the colour by.
- *
- * Decision 2.43 of docs/plans/vfx-particle-renderer.md.
+ * `cSoftParticleControl` for `target`: what the block's own byte says the fade reaches,
+ * the colour and the alpha unless it names one of them.
  */
-export function softControl(mode: BlendMode): Lanes {
-  if (mode === BLEND_MODE.alpha || mode === BLEND_MODE.alphaAdd) return FADES.alpha;
-  if (mode === BLEND_MODE.premultipliedAlpha) return FADES.both;
-  return FADES.colour;
+export function softControl(target: SoftTarget): Lanes {
+  if (target === SOFT_TARGET.alpha) return FADES.alpha;
+  if (target === SOFT_TARGET.colour) return FADES.colour;
+  return FADES.both;
 }

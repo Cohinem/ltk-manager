@@ -183,4 +183,115 @@ describe("sampleShape", () => {
     expect(offsetOf(shape, 5)).toEqual(offsetOf(shape, 5));
     expect(offsetOf(shape, 5)).not.toEqual(offsetOf(shape, 6));
   });
+
+  it("keeps the offset as the shape sampled it beside the turned one", () => {
+    const out = birth();
+
+    sampleShape({ kind: "sphere", radius: 50, volume: false }, new Rng(3), 0, null, out);
+    expect(out.turned).toBe(true);
+    expect(Array.from(out.raw)).toEqual([50, 0, 0]);
+    expect(length(Array.from(out.offset))).toBeCloseTo(50, 3);
+    expect(Array.from(out.offset)).not.toEqual([50, 0, 0]);
+
+    sampleShape(
+      {
+        kind: "legacy",
+        offset: flat(1, 0, 0),
+        translation: flat(1, 0, 0),
+        angles: [flat(180)],
+        axes: [[0, 1, 0]],
+      },
+      new Rng(3),
+      0,
+      null,
+      out,
+    );
+    expect(Array.from(out.raw)).toEqual([2, 0, 0]);
+    expect(out.offset[0]).toBeCloseTo(-2, 6);
+
+    sampleShape({ kind: "point", offset: [1, 2, 3] }, new Rng(3), 0, null, out);
+    expect(Array.from(out.raw)).toEqual([1, 2, 3]);
+  });
+
+  it("clears the turn a shape before it left in the scratch", () => {
+    const out = birth();
+    sampleShape({ kind: "sphere", radius: 50, volume: false }, new Rng(3), 0, null, out);
+
+    sampleShape({ kind: "point", offset: [1, 2, 3] }, new Rng(3), 0, null, out);
+
+    expect(out.turned).toBe(false);
+    expect(Array.from(out.turn)).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+  });
+
+  describe("a legacy shape's tables", () => {
+    /** A table running from nothing at a draw of zero to `most` at a draw of one. */
+    function upTo(channel: number, most = 1) {
+      return {
+        channel,
+        single: 1,
+        keys: [
+          { time: 0, values: [0] },
+          { time: 1, values: [most] },
+        ],
+      };
+    }
+
+    const spread: SpawnShape = {
+      kind: "legacy",
+      offset: { constant: [10, 10, 10], keys: [], tables: [upTo(0), upTo(1), upTo(2)] },
+      translation: flat(0, 0, 0),
+      angles: [],
+      axes: [],
+    };
+
+    const swept: SpawnShape = {
+      kind: "legacy",
+      offset: flat(0, 0, 0),
+      translation: flat(0, 0, 0),
+      angles: [{ constant: [1], keys: [], tables: [upTo(0, 360)] }],
+      axes: [[0, 0, 1]],
+    };
+
+    it("read each channel of the offset at a draw of its own", () => {
+      const out = birth();
+      sampleShape(spread, new Rng(7), 0, null, out);
+      const [x, y, z] = out.offset;
+
+      expect(new Set([x, y, z]).size).toBe(3);
+      for (const held of [x, y, z]) {
+        expect(held).toBeGreaterThanOrEqual(0);
+        expect(held).toBeLessThan(10);
+      }
+    });
+
+    it("read at the pin where the caller pins one, and leave the stream where a draw would", () => {
+      const pinned = new Rng(7);
+      const drawn = new Rng(7);
+      const out = birth();
+
+      sampleShape(spread, drawn, 0, null, out);
+      sampleShape(spread, pinned, 0, 0.5, out);
+
+      expect(Array.from(out.offset)).toEqual([5, 5, 5]);
+      expect(pinned.unitFloat()).toBe(drawn.unitFloat());
+    });
+
+    it("read an angle at a draw of its own, and at the pin", () => {
+      const turns = new Set<string>();
+      for (let seed = 1; seed < 12; seed += 1) {
+        const out = birth();
+        sampleShape(swept, new Rng(seed), 0, null, out);
+        turns.add(Array.from(out.turn, (cell) => cell.toFixed(3)).join(","));
+      }
+      expect(turns.size).toBeGreaterThan(8);
+
+      /* A quarter of the way up a table of 360 is a quarter turn. */
+      const out = birth();
+      sampleShape(swept, new Rng(1), 0, 0.25, out);
+      const velocity = new Float32Array([1, 0, 0]);
+      turnInto(out.turn, velocity, 0);
+      expect(velocity[0]).toBeCloseTo(0, 5);
+      expect(velocity[1]).toBeCloseTo(1, 5);
+    });
+  });
 });

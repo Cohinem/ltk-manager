@@ -22,10 +22,13 @@ import { describe, expect, it } from "vitest";
 import {
   BLEND_MODE,
   type BlendMode,
+  DISTORTION_MODE,
   MISC_RENDER_FLAG,
   QUAD_TYPE,
   type QuadType,
   SIMPLE_ORIENTATION,
+  SOFT_TARGET,
+  type SoftTarget,
   UV_MODE,
   type UvMode,
 } from "../../../engine/model/enums";
@@ -37,6 +40,7 @@ import {
   plainUvLayer,
   type ReflectionModel,
 } from "../../../engine/model/model";
+import { emitterOf as emitterFixture } from "../../../engine/simulation/__tests__/emitterFixture";
 import { mirrorInto, standingInto } from "../../../engine/utils/basis";
 import { geometryOf } from "../../hooks/useVfxMeshes";
 import type { EmitterSamplers } from "../../hooks/useVfxTextures";
@@ -142,7 +146,8 @@ describe("drawState", () => {
 
 describe("premultiplyInto", () => {
   const emitterOf = (blendMode: BlendMode, distortion: DistortionModel | null = null) =>
-    ({ blendMode, distortion }) as EmitterModel;
+    emitterFixture(0, { blendMode, distortion });
+  const warp = (mode: number): DistortionModel => ({ strength: 0.1, mode, map: null });
   const drawn = (emitter: EmitterModel) => {
     const color = Float32Array.of(0.5, 0.25, 1, 0.5);
     premultiplyInto(emitter, color);
@@ -162,7 +167,13 @@ describe("premultiplyInto", () => {
   });
 
   it("leaves the colour of a distorting emitter as it is, whose alpha is the warp's mask", () => {
-    expect(drawn(emitterOf(BLEND_MODE.add, {} as DistortionModel))).toEqual([0.5, 0.25, 1, 0.5]);
+    for (const mode of [DISTORTION_MODE.all, DISTORTION_MODE.noCharacter]) {
+      expect(drawn(emitterOf(BLEND_MODE.add, warp(mode)))).toEqual([0.5, 0.25, 1, 0.5]);
+    }
+  });
+
+  it("weighs the colour of an emitter whose distortion block is turned off, which draws colour", () => {
+    expect(drawn(emitterOf(BLEND_MODE.add, warp(0)))).toEqual([0.25, 0.125, 0.5, 1]);
   });
 });
 
@@ -284,18 +295,31 @@ describe("the rim and the reflection", () => {
 describe("the soft fade", () => {
   const faded: QuadLayers = {
     ...PLAIN_LAYERS,
-    soft: { beginIn: 20, deltaIn: 10, beginOut: 0, deltaOut: 0 },
+    soft: { beginIn: 20, deltaIn: 10, beginOut: 0, deltaOut: 0, target: SOFT_TARGET.alpha },
   };
 
-  it("reaches a quad, a mesh and a ribbon with its packed lanes and the blend's control", () => {
+  it("reaches a quad, a mesh and a ribbon with its packed lanes and its target's control", () => {
     for (const material of [
       quadMaterial(BLEND_MODE.alpha, null, FLAT, BILLBOARD, faded, PASSING),
       meshMaterial(BLEND_MODE.alpha, null, [0, 0], faded, PASSING, FrontSide),
       ribbonMaterial(BLEND_MODE.alpha, null, [0, 0], faded, PASSING),
     ]) {
       expect(material.defines).toHaveProperty("SOFT");
-      expect(material.uniforms.softParams.value).toEqual([20, 30, 0.1, 0]);
+      expect(material.uniforms.softParams.value).toEqual([20, 1e8, 0.1, 1e8]);
       expect(material.uniforms.softControl.value).toEqual([1, 0, 0, 1]);
+    }
+  });
+
+  it("takes its control from the block's target, whatever the emitter blends by", () => {
+    const control = (mode: BlendMode, target: SoftTarget) => {
+      const soft = { beginIn: 20, deltaIn: 10, beginOut: 0, deltaOut: 0, target };
+      const layers = { ...PLAIN_LAYERS, soft };
+      return quadMaterial(mode, null, FLAT, BILLBOARD, layers, PASSING).uniforms.softControl.value;
+    };
+
+    for (const mode of [BLEND_MODE.alpha, BLEND_MODE.add]) {
+      expect(control(mode, SOFT_TARGET.both)).toEqual([0, 1, 0, 1]);
+      expect(control(mode, SOFT_TARGET.colour)).toEqual([0, 1, 1, 0]);
     }
   });
 
@@ -545,7 +569,7 @@ describe("wireMaterial", () => {
   it("carries a fading quad's SOFT define onto its edge twin", () => {
     const faded: QuadLayers = {
       ...PLAIN_LAYERS,
-      soft: { beginIn: 20, deltaIn: 10, beginOut: 0, deltaOut: 0 },
+      soft: { beginIn: 20, deltaIn: 10, beginOut: 0, deltaOut: 0, target: SOFT_TARGET.both },
     };
     const solid = quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, faded, PASSING);
     const wire = wireMaterial(solid, new Color(1, 0, 0), 1);
@@ -693,7 +717,7 @@ describe("layersOf", () => {
       opacityGlancing: 0.2,
       map: null,
     } as ReflectionModel,
-    soft: { beginIn: 20, deltaIn: 10, beginOut: 0, deltaOut: 0 },
+    soft: { beginIn: 20, deltaIn: 10, beginOut: 0, deltaOut: 0, target: SOFT_TARGET.both },
     quadType: QUAD_TYPE.cameraQuad,
   } as EmitterModel;
 

@@ -139,7 +139,7 @@ export function quadMaterial(
     fragmentShader: FRAGMENT,
     uniforms: {
       ...layerUniforms(texture, layers, tests),
-      ...softUniforms(mode, layers.soft),
+      ...softUniforms(layers.soft),
       pushPull: { value: depth.pushPull },
       ...orientationUniforms(orientation),
     },
@@ -191,7 +191,7 @@ export function meshMaterial(
     uniforms: {
       ...layerUniforms(texture, { ...layers, colorTexture: null }, tests),
       ...sheenUniforms(layers.reflection, layers.reflectionTexture),
-      ...softUniforms(mode, layers.soft),
+      ...softUniforms(layers.soft),
     },
     defines: {
       ...layerDefines(texture, { ...layers, colorTexture: null }),
@@ -285,7 +285,7 @@ export function ribbonMaterial(
       ...colorUniforms(layers),
       ...erosionUniforms(layers.erosion, layers.erosionTexture),
       ...distortionUniforms(layers.distortion, layers.normalTexture),
-      ...softUniforms(mode, layers.soft),
+      ...softUniforms(layers.soft),
     },
     defines: {
       ...(texture !== null ? { HAS_MAP: "" } : {}),

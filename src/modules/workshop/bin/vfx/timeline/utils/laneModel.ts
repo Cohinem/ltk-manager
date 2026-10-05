@@ -6,15 +6,20 @@ import { compareDrawOrder } from "../../rendering/utils/drawKind";
 
 /** What one lane's bar spans, in seconds of the run's phase, "The timeline" in docs/ux/BIN_EDITOR.md. */
 export interface LaneBar {
-  /** Where the emission window opens. */
+  /** Where the emission window opens, `timeBeforeFirstEmission`. */
   readonly start: number;
-  /** Where the emission window closes, and null for an emitter that never stops. */
+  /**
+   * Where the emission window closes, and null for an emitter that never stops.
+   *
+   * `lifetime`, which is an end time on the system's clock and no duration, so a bar
+   * moved later without it emits for less. Never before `start`.
+   */
   readonly end: number | null;
   /** Seconds past the window the longest particle lives, the peak of `particleLifetime`. */
   readonly tail: number;
   /** Seconds past the tail the linger grants. */
   readonly linger: number;
-  /** The cycle the window repeats, and null for a window that emits throughout. */
+  /** `period` and `timeActiveDuringPeriod`, and null for an emitter writing neither. */
   readonly period: EmissionPeriod | null;
   /** The emitter's whole output is one burst at `start`. */
   readonly burst: boolean;
@@ -25,7 +30,7 @@ export function laneBar(emitter: EmitterModel): LaneBar {
   const start = emitter.timeBeforeFirstEmission;
   return {
     start,
-    end: emitter.lifetime === null ? null : start + emitter.lifetime,
+    end: emitter.lifetime === null ? null : Math.max(emitter.lifetime, start),
     tail: peak(emitter.particleLifetime),
     linger: lingerSeconds(emitter),
     period: emitter.period ?? null,
@@ -36,22 +41,46 @@ export function laneBar(emitter: EmitterModel): LaneBar {
 /** How many cycles one bar draws, past which the rest go undrawn. */
 const MOST_CYCLES = 400;
 
-/** The cycles of `bar`'s period inside `view`: where each opens and where its emitting stops. */
+/** One cycle of a bar's period: where it opens, where its emitting stops and where it closes. */
+export interface PeriodCycle {
+  readonly from: number;
+  readonly active: number;
+  readonly until: number;
+}
+
+/**
+ * The cycles of `bar`'s period inside `view`, each held inside the bar's own window.
+ *
+ * A cycle counts from the system's start rather than from the bar's, so the first one a
+ * delayed bar draws may open partway through. An emitter writing no
+ * `timeActiveDuringPeriod` emits throughout and draws none, and one writing no `period`
+ * has the one cycle that never repeats.
+ */
 export function periodCycles(
   bar: LaneBar,
   view: TimeWindow,
   most = MOST_CYCLES,
-): readonly { readonly from: number; readonly active: number }[] {
+): readonly PeriodCycle[] {
   const period = bar.period;
-  if (period === null) return [];
+  if (period === null || period.active === null) return [];
 
   const end = Math.min(bar.end ?? view.to, view.to);
-  const first = Math.max(Math.floor((view.from - bar.start) / period.length), 0);
-  const out: { from: number; active: number }[] = [];
+  const within = (time: number) => Math.min(Math.max(time, bar.start), end);
+  if (period.length === null) {
+    return [{ from: bar.start, active: within(period.active), until: end }];
+  }
+  if (!(period.length > 0)) return [];
+
+  const first = Math.max(Math.floor(Math.max(view.from, bar.start) / period.length), 0);
+  const out: PeriodCycle[] = [];
   for (let at = first; out.length < most; at += 1) {
-    const from = bar.start + at * period.length;
-    if (from >= end) break;
-    out.push({ from, active: Math.min(from + period.active, end) });
+    const opens = at * period.length;
+    if (opens >= end) break;
+    out.push({
+      from: within(opens),
+      active: within(opens + period.active),
+      until: within(opens + period.length),
+    });
   }
   return out;
 }

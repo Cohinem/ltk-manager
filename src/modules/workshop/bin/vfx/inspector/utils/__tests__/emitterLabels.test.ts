@@ -15,6 +15,13 @@ describe("emitter creator labels", () => {
     expect(emitterLabel(nameHash("pass"))).toBe("Render Order");
   });
 
+  it("labels lifetime as the time emission ends at, which is no duration", () => {
+    expect(emitterLabel(nameHash("lifetime"))).toBe("Emission End Time");
+    expect(matchesEmitterField("end time", nameHash("lifetime"), "lifetime", "Emission")).toBe(
+      true,
+    );
+  });
+
   it("formats nested schema names without inventing names for unresolved hashes", () => {
     expect(emitterLabel(nameHash("mCustomUVScale"), "mCustomUVScale")).toBe("Custom UV Scale");
     expect(emitterLabel(nameHash("someField"), "someField")).toBe("Some Field");

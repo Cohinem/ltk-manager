@@ -1,6 +1,6 @@
 import { OrthographicCamera } from "three";
 
-import { PARTICLE_LAYER } from "../../../vfx/rendering/utils/frame";
+import { seeParticles } from "../../../vfx/rendering/utils/frame";
 import type { Screen } from "../../engine/layout/solve";
 import { type HudLayer, hudPixelsPerUnit } from "../../engine/particles/hudLayer";
 
@@ -31,7 +31,7 @@ export function hudCamera(
   camera.near = -DEPTH;
   camera.far = DEPTH;
   camera.position.set(0, 0, 0);
-  camera.layers.enable(PARTICLE_LAYER);
+  seeParticles(camera);
   camera.updateProjectionMatrix();
   camera.updateMatrixWorld();
   return camera;

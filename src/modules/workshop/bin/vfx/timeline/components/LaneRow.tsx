@@ -200,5 +200,9 @@ export function laneLabel(emitter: EmitterModel): string {
 function offLabel(emitter: EmitterModel): string {
   if (emitter.culled === "importance") return m.workshop_bin_emitter_low_spec_label();
   if (emitter.culled === "colorblind") return m.workshop_bin_emitter_colorblind_only_label();
+  if (emitter.culled === "never") return m.workshop_bin_emitter_never_spawned_label();
+  if (emitter.culled === "spectator") return m.workshop_bin_emitter_spectator_only_label();
+  if (emitter.culled === "hudLayer") return m.workshop_bin_emitter_hud_layer_label();
+  if (emitter.culled === "noRate") return m.workshop_bin_emitter_no_rate_label();
   return m.workshop_bin_emitter_disabled_label();
 }

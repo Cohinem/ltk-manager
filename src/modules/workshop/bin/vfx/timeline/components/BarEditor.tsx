@@ -38,6 +38,7 @@ export function BarEditor({ emitter, row, at, onClose }: BarEditorProps) {
     void editProperty(holder, place.list, timingEdits(place.index, [{ field, value }]));
   const clear = (field: TimingName) =>
     void editProperty(holder, place.list, clearedEdits(place.index, field));
+  const cycle = emitter.period?.length ?? null;
 
   return (
     <Popover.Root
@@ -87,22 +88,22 @@ export function BarEditor({ emitter, row, at, onClose }: BarEditorProps) {
         <Checkbox
           size="sm"
           label={m.workshop_bin_timeline_repeats_action()}
-          checked={emitter.period !== null}
+          checked={cycle !== null}
           onCheckedChange={(repeats) => {
             if (repeats) write("period", seconds(1));
             else clear("period");
           }}
         />
-        {emitter.period !== null && (
+        {cycle !== null && (
           <>
             <Seconds
               label={label("period")}
-              value={emitter.period.length}
+              value={cycle}
               onCommit={(value) => write("period", seconds(value))}
             />
             <Seconds
               label={label("timeActiveDuringPeriod")}
-              value={emitter.period.active}
+              value={emitter.period?.active ?? cycle}
               onCommit={(value) => write("timeActiveDuringPeriod", seconds(value))}
             />
           </>
