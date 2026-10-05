@@ -8,7 +8,7 @@ import {
 } from "@phosphor-icons/react";
 import { formatDistanceToNow } from "date-fns";
 
-import { Button, IconButton, Popover, ShockedPoroDuotoneIcon, Tooltip } from "@/components";
+import { Badge, Button, IconButton, Popover, ShockedPoroDuotoneIcon, Tooltip } from "@/components";
 import { type ModHealthVerdict } from "@/lib/tauri";
 
 import {
@@ -149,11 +149,11 @@ export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
       <Tooltip content={tooltipContent}>
         <Popover.Trigger
           render={
-            <IconButton
-              size="sm"
-              icon={<PillIcon />}
+            <Badge
+              size="lg"
+              tone={tone.badge}
+              icon={<PillIcon weight="bold" className="size-4" />}
               aria-label={pillLabel(verdict, alarm)}
-              className={`h-6 gap-1 rounded-sm py-0.5 text-xs leading-tight font-medium ring-1 ring-inset ${tone.pill}`}
             />
           }
         />

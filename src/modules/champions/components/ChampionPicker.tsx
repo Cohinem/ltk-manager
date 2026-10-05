@@ -1,7 +1,7 @@
 import { PlusIcon } from "@phosphor-icons/react";
 import { useMemo, useRef, useState } from "react";
 
-import { CATEGORY_TONE, Combobox } from "@/components";
+import { badgeFill, Combobox } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -82,8 +82,8 @@ export function ChampionPicker({
                 key={option.key}
                 aria-label={option.label}
                 className={twMerge(
-                  "gap-1 rounded-full py-0.5 pr-1 pl-0.5 text-meta select-none",
-                  CATEGORY_TONE.champion,
+                  "gap-1 rounded-sm py-0.5 pr-1 pl-0.5 text-meta select-none",
+                  badgeFill.champion,
                 )}
               >
                 <ChampionPortrait champion={option.champion} className="size-4" />

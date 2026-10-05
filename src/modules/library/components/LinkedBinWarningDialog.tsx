@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import {
   AlertBox,
+  Badge,
   Button,
   Checkbox,
   Dialog,
@@ -198,9 +199,9 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
                             {displayNameFor(offender)}
                           </span>
                         </label>
-                        <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text tabular-nums">
+                        <Badge size="md" tone="warning" className="shrink-0 tabular-nums">
                           {count} missing
-                        </span>
+                        </Badge>
                         {count > 0 && (
                           <button
                             type="button"

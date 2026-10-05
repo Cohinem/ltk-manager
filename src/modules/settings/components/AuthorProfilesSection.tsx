@@ -10,6 +10,7 @@ import {
 import { useRef, useState } from "react";
 
 import {
+  Badge,
   Button,
   EmptyState,
   Field,
@@ -221,9 +222,9 @@ function ProfileRow({ profile, isDefault }: { profile: AuthorProfile; isDefault:
           {profile.name}
         </span>
         {isDefault && (
-          <span className="shrink-0 rounded-full bg-accent-500/15 px-2 py-0.5 text-fine font-medium tracking-wide text-accent-300 uppercase">
+          <Badge tone="accent" className="shrink-0 font-medium tracking-wide uppercase">
             Default
-          </span>
+          </Badge>
         )}
       </div>
       <RoleLine role={profile.role} />

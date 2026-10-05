@@ -4,25 +4,21 @@ import type { ReactNode } from "react";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { Badge, type BadgeSize, type BadgeTone } from "./Badge";
 import { focusRing } from "./focus";
 
 /** What a category pill names: a mod's tag, its champion or its map. */
 export type CategoryTone = "tag" | "champion" | "map";
 
-/** The fill and label of a category pill. A tag stays neutral, since it names no kind: DS-KIND-HUE. */
-export const CATEGORY_TONE: Record<CategoryTone, string> = {
-  tag: "bg-surface-700 text-surface-300",
-  champion: "bg-cat-champion/15 text-cat-champion-text",
-  map: "bg-cat-map/15 text-cat-map-text",
+/** A tag stays neutral, since it names no kind: DS-KIND-HUE. */
+export const CATEGORY_BADGE_TONE: Record<CategoryTone, BadgeTone> = {
+  tag: "neutral",
+  champion: "champion",
+  map: "map",
 };
 
-/** `sm` is the dense pill of a card, `md` the rounder one of a detail pane or a filter bar. */
-export type ChipSize = "sm" | "md";
-
-const SIZE_CLASSES: Record<ChipSize, string> = {
-  sm: "gap-0.5 rounded-sm px-1.5 py-0.5 text-fine leading-tight",
-  md: "gap-1 rounded-full px-2.5 py-0.5 text-meta",
-};
+/** `sm` is the dense pill of a card, `md` the one of a detail pane or a filter bar. */
+export type ChipSize = Extract<BadgeSize, "sm" | "md">;
 
 export interface ChipProps {
   readonly tone?: CategoryTone;
@@ -36,7 +32,7 @@ export interface ChipProps {
   readonly children: ReactNode;
 }
 
-/** A pill naming a category, optionally with a button that removes it. */
+/** A `Badge` naming a category, optionally with a button that removes it. */
 export function Chip({
   tone = "tag",
   size = "sm",
@@ -49,14 +45,11 @@ export function Chip({
   const label = removeLabel ?? (typeof children === "string" ? children : "");
 
   return (
-    <span
+    <Badge
+      tone={CATEGORY_BADGE_TONE[tone]}
+      size={size}
       aria-label={ariaLabel}
-      className={twMerge(
-        "inline-flex items-center",
-        SIZE_CLASSES[size],
-        CATEGORY_TONE[tone],
-        className,
-      )}
+      className={className}
     >
       {children}
       {onRemove && (
@@ -66,13 +59,13 @@ export function Chip({
           aria-label={m.common_chip_remove_action({ label })}
           /* DS-VEIL */
           className={twMerge(
-            "-mr-1 cursor-pointer rounded-full p-0.5 hover:bg-surface-veil",
+            "-mr-1 cursor-pointer rounded-sm p-0.5 hover:bg-surface-veil",
             focusRing,
           )}
         >
           <XIcon weight="bold" className="size-3" />
         </button>
       )}
-    </span>
+    </Badge>
   );
 }
