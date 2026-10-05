@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WorkshopRouteImport } from './routes/workshop'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ModsRouteImport } from './routes/mods'
+import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as DiagnosticsRouteImport } from './routes/diagnostics'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as WorkshopIndexRouteImport } from './routes/workshop/index'
@@ -31,6 +32,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ModsRoute = ModsRouteImport.update({
   id: '/mods',
   path: '/mods',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DiagnosticsRoute = DiagnosticsRouteImport.update({
@@ -62,6 +68,7 @@ const ModsFolderFolderIdRoute = ModsFolderFolderIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
+  '/gallery': typeof GalleryRoute
   '/mods': typeof ModsRoute
   '/settings': typeof SettingsRoute
   '/workshop': typeof WorkshopRouteWithChildren
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
+  '/gallery': typeof GalleryRoute
   '/mods': typeof ModsRoute
   '/settings': typeof SettingsRoute
   '/workshop/$projectId': typeof WorkshopProjectIdRoute
@@ -82,6 +90,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/diagnostics': typeof DiagnosticsRoute
+  '/gallery': typeof GalleryRoute
   '/mods': typeof ModsRoute
   '/settings': typeof SettingsRoute
   '/workshop': typeof WorkshopRouteWithChildren
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/diagnostics'
+    | '/gallery'
     | '/mods'
     | '/settings'
     | '/workshop'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/diagnostics'
+    | '/gallery'
     | '/mods'
     | '/settings'
     | '/workshop/$projectId'
@@ -113,6 +124,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/diagnostics'
+    | '/gallery'
     | '/mods'
     | '/settings'
     | '/workshop'
@@ -124,6 +136,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DiagnosticsRoute: typeof DiagnosticsRoute
+  GalleryRoute: typeof GalleryRoute
   ModsRoute: typeof ModsRoute
   SettingsRoute: typeof SettingsRoute
   WorkshopRoute: typeof WorkshopRouteWithChildren
@@ -151,6 +164,13 @@ declare module '@tanstack/react-router' {
       path: '/mods'
       fullPath: '/mods'
       preLoaderRoute: typeof ModsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/diagnostics': {
@@ -208,6 +228,7 @@ const WorkshopRouteWithChildren = WorkshopRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DiagnosticsRoute: DiagnosticsRoute,
+  GalleryRoute: GalleryRoute,
   ModsRoute: ModsRoute,
   SettingsRoute: SettingsRoute,
   WorkshopRoute: WorkshopRouteWithChildren,

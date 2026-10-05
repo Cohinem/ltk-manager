@@ -61,6 +61,34 @@ export function prefersDarkInk(hue: number): boolean {
   return contrastRatio(luminance, 0) > contrastRatio(luminance, 1);
 }
 
+/** Every property and attribute `applyAccent` writes on the root. */
+export const ACCENT_ROOT_KEYS = {
+  attributes: ["data-accent"],
+  properties: ["--accent-hue", "--surface-hue", "--ltk-on-accent"],
+} as const;
+
+/** Write the accent ramp for `hue` on `root`, or the brand ramp for `null`. */
+export function applyAccent(root: HTMLElement, hue: number | null): void {
+  if (hue === null) {
+    root.setAttribute("data-accent", LTK_PRESET);
+    root.style.removeProperty("--accent-hue");
+  } else {
+    root.setAttribute("data-accent", "hue");
+    root.style.setProperty("--accent-hue", String(hue));
+  }
+
+  const surfaceHue = (oklchHueFromHsl(hue ?? BRAND_HUE) + SURFACE_HUE_OFFSET) % 360;
+  root.style.setProperty("--surface-hue", surfaceHue.toFixed(1));
+
+  /* The brand ramp spells its own fill out, and that literal is dark in both
+     themes, so only a generated accent can reach the ink the other way. */
+  if (hue !== null && prefersDarkInk(hue)) {
+    root.style.setProperty("--ltk-on-accent", "var(--ltk-on-accent-dark)");
+  } else {
+    root.style.removeProperty("--ltk-on-accent");
+  }
+}
+
 /**
  * Hook to apply theme and accent color to the document.
  * Should be used at the app root level.
@@ -99,32 +127,13 @@ export function useTheme() {
   useEffect(() => {
     if (!accentColor) return;
 
-    const root = document.documentElement;
-
     // A custom hue always wins. Otherwise an unrecognised or absent preset
     // falls back to the brand, which is what a fresh install gets.
     const hue =
       accentColor.customHue ??
       (accentColor.preset ? ACCENT_PRESETS[accentColor.preset] : undefined);
 
-    if (hue == null) {
-      root.setAttribute("data-accent", LTK_PRESET);
-      root.style.removeProperty("--accent-hue");
-    } else {
-      root.setAttribute("data-accent", "hue");
-      root.style.setProperty("--accent-hue", String(hue));
-    }
-
-    const surfaceHue = (oklchHueFromHsl(hue ?? BRAND_HUE) + SURFACE_HUE_OFFSET) % 360;
-    root.style.setProperty("--surface-hue", surfaceHue.toFixed(1));
-
-    /* The brand ramp spells its own fill out, and that literal is dark in both
-       themes, so only a generated accent can reach the ink the other way. */
-    if (hue != null && prefersDarkInk(hue)) {
-      root.style.setProperty("--ltk-on-accent", "var(--ltk-on-accent-dark)");
-    } else {
-      root.style.removeProperty("--ltk-on-accent");
-    }
+    applyAccent(document.documentElement, hue ?? null);
   }, [accentColor]);
 
   useEffect(() => {

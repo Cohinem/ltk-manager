@@ -15,7 +15,14 @@ export { useSettingDefaults } from "./useSettingDefaults";
 export { useSettings } from "./useSettings";
 export { useSyncHashtables } from "./useSyncHashtables";
 export { useTelemetryIdentity } from "./useTelemetryIdentity";
-export { ACCENT_PRESETS, BRAND_HUE, LTK_PRESET, useTheme } from "./useTheme";
+export {
+  ACCENT_PRESETS,
+  ACCENT_ROOT_KEYS,
+  applyAccent,
+  BRAND_HUE,
+  LTK_PRESET,
+  useTheme,
+} from "./useTheme";
 export {
   type LicenseText,
   type ThirdPartyCrate,

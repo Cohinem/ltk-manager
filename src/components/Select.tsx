@@ -4,6 +4,8 @@ import { forwardRef, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusField } from "./focus";
+
 // Root
 export interface SelectRootProps extends BaseSelect.Root.Props<string> {
   children?: ReactNode;
@@ -30,7 +32,7 @@ export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
           "flex h-8 w-full items-center justify-between rounded-md border px-4 py-1 text-sm transition-colors",
           "bg-surface-700 text-surface-50",
           "border-surface-500 hover:border-accent-hover",
-          "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
+          focusField,
           "disabled:cursor-not-allowed disabled:opacity-50",
           "data-[placeholder]:text-surface-400",
           hasError && "border-danger focus:border-danger focus:ring-danger",
@@ -154,7 +156,7 @@ export const SelectPopup = forwardRef<HTMLDivElement, SelectPopupProps>(
           "rounded-lg border border-surface-600 py-1 shadow-xl outline-none",
           /* DS-GLASS */
           "bg-(--ltk-glass-panel-fill) backdrop-filter-(--ltk-glass-panel-blur)",
-          "transition-[opacity,transform] duration-150 ease-out",
+          "transition-[opacity,transform]",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
           className,

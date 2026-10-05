@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { twMerge } from "@/utils";
 
 import type { CategoryTone } from "./Chip";
+import { focusRing } from "./focus";
 
 /** What the pill labels. The hue is the category, so the tone is named for it. */
 export type AutoPillTone = CategoryTone;
@@ -51,6 +52,7 @@ export function AutoPill({
     "inline-flex items-center gap-0.5 rounded-md border border-dashed px-1.5 py-0.5 text-fine leading-tight",
     TONE_CLASSES[tone],
     onClick && "cursor-pointer transition-colors hover:bg-surface-700/40",
+    onClick && focusRing,
     className,
   );
 

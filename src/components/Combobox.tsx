@@ -4,6 +4,8 @@ import { forwardRef, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusField } from "./focus";
+
 // Re-export the filter hook for consumers
 export const useComboboxFilter = BaseCombobox.useFilter;
 
@@ -41,7 +43,7 @@ export const ComboboxInput = forwardRef<HTMLInputElement, ComboboxInputProps>(
           "h-8 w-full rounded-md border px-4 py-1 text-sm transition-colors",
           "bg-surface-700 text-surface-50 placeholder:text-surface-400",
           "border-surface-500 hover:border-accent-hover",
-          "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
+          focusField,
           "disabled:cursor-not-allowed disabled:opacity-50",
           hasError && "border-danger focus:border-danger focus:ring-danger",
           className,

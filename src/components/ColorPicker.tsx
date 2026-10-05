@@ -12,6 +12,7 @@ import {
   twMerge,
 } from "@/utils";
 
+import { focusRing } from "./focus";
 import { FieldControl } from "./FormField";
 
 /* The picker draws the colour space itself, which no theme token can replace. */
@@ -113,7 +114,10 @@ function ShadeSquare({ hsv, label, onChange }: ShadeSquareProps) {
       }}
       onKeyDown={nudge}
       /* DS-RADIUS, DS-VEIL */
-      className="relative h-36 w-full cursor-crosshair touch-none rounded-md border border-surface-veil-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-300"
+      className={twMerge(
+        "relative h-36 w-full cursor-crosshair touch-none rounded-md border border-surface-veil-strong",
+        focusRing,
+      )}
       style={{ backgroundColor: `hsl(${hsv.hue} 100% 50%)`, backgroundImage: SHADE }}
     >
       <span
@@ -152,7 +156,10 @@ function HueTrack({ hsv, onChange }: HueTrackProps) {
         />
         <BaseSlider.Thumb
           aria-label={m.common_color_picker_hue_label()}
-          className="absolute top-1/2 h-4 w-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-sm border-2 border-brand-on shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-300 data-dragging:cursor-grabbing"
+          className={twMerge(
+            "absolute top-1/2 h-4 w-2 -translate-x-1/2 -translate-y-1/2 cursor-pointer rounded-sm border-2 border-brand-on shadow-md data-dragging:cursor-grabbing",
+            focusRing,
+          )}
           style={{ backgroundColor: `hsl(${hsv.hue} 100% 50%)` }}
         />
       </BaseSlider.Control>

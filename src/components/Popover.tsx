@@ -3,6 +3,8 @@ import { forwardRef, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
+
 // Root
 export interface PopoverRootProps extends BasePopover.Root.Props {
   children?: ReactNode;
@@ -95,7 +97,7 @@ export const PopoverPopup = forwardRef<HTMLDivElement, PopoverPopupProps>(
         ref={ref}
         className={twMerge(
           "rounded-lg border border-surface-600 bg-surface-800 shadow-xl outline-none",
-          "transition-[opacity,transform] duration-200 ease-out",
+          "transition-[opacity,transform]",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
           className,
@@ -232,6 +234,7 @@ export const PopoverClose = forwardRef<HTMLButtonElement, PopoverCloseProps>(
         className={twMerge(
           "inline-flex cursor-pointer items-center justify-center rounded-md",
           "text-surface-200 transition-colors hover:bg-surface-700 active:bg-surface-800",
+          focusRing,
           className,
         )}
         {...props}

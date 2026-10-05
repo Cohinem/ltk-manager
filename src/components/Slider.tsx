@@ -2,6 +2,8 @@ import { Slider as BaseSlider } from "@base-ui/react/slider";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
+
 /** A mark along the slider. */
 interface Mark {
   value: number;
@@ -152,8 +154,9 @@ export function Slider({
           className={twMerge(
             "absolute top-1/2 -translate-x-1/2 -translate-y-1/2",
             isRuler
-              ? "h-4 w-1 rounded-full bg-transparent focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:outline-none"
-              : "h-4 w-2 rounded-sm bg-accent-400 ring-1 ring-accent-700 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-300 data-dragging:scale-y-125",
+              ? "h-4 w-1 rounded-full bg-transparent"
+              : "h-4 w-2 rounded-sm bg-accent-400 ring-1 ring-accent-700 transition data-dragging:scale-y-125",
+            focusRing,
             !isRuler && !disabled && "hover:bg-accent-300",
             !animated && "transition-none",
             disabled ? "cursor-not-allowed" : "cursor-pointer data-dragging:cursor-grabbing",

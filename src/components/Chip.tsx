@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
+
 /** What a category pill names: a mod's tag, its champion or its map. */
 export type CategoryTone = "tag" | "champion" | "map";
 
@@ -63,7 +65,10 @@ export function Chip({
           onClick={onRemove}
           aria-label={m.common_chip_remove_action({ label })}
           /* DS-VEIL */
-          className="-mr-1 cursor-pointer rounded-full p-0.5 hover:bg-surface-veil"
+          className={twMerge(
+            "-mr-1 cursor-pointer rounded-full p-0.5 hover:bg-surface-veil",
+            focusRing,
+          )}
         >
           <XIcon weight="bold" className="size-3" />
         </button>

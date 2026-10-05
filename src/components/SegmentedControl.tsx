@@ -113,7 +113,7 @@ export function SegmentedControl<T extends string>({
           className={twMerge(
             "pointer-events-none absolute inset-y-0.5 left-0 rounded-sm",
             "bg-accent-500/15 shadow-xs ring-1 ring-accent-500/35 ring-inset",
-            placed && "transition-[transform,width] duration-200 ease-out",
+            placed && "transition-[transform,width] duration-200",
           )}
           style={{ width: thumb.width, transform: `translateX(${thumb.left}px)` }}
         />

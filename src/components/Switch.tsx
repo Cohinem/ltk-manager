@@ -3,6 +3,7 @@ import { forwardRef, use } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
 import { InputDefaultContext } from "./InputDefaultContext";
 
 export interface SwitchProps extends Omit<BaseSwitch.Root.Props, "className"> {
@@ -21,7 +22,7 @@ export const Switch = forwardRef<HTMLSpanElement, SwitchProps>(({ className, ...
       className={twMerge(
         "relative inline-flex shrink-0 cursor-pointer rounded-md transition-colors",
         "bg-surface-700 data-[checked]:bg-accent-500",
-        "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
+        focusRing,
         "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
         trackClass,
         implicit &&

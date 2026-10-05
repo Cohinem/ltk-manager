@@ -4,6 +4,8 @@ import { forwardRef, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
+
 /**
  * RadioGroup - A group of mutually exclusive options.
  *
@@ -81,7 +83,7 @@ export const RadioGroupCard = forwardRef<HTMLButtonElement, RadioGroupCardProps>
           "flex-1 cursor-pointer rounded-lg border p-3 text-left transition-all",
           "border-surface-600 hover:border-surface-500",
           "data-[checked]:border-accent-500 data-[checked]:bg-accent-500/10",
-          "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-800 focus-visible:outline-none",
+          focusRing,
           "disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
@@ -122,7 +124,8 @@ export const RadioGroupItem = forwardRef<HTMLButtonElement, RadioGroupItemProps>
             "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors",
             "border-surface-600 bg-surface-800",
             "group-hover:border-surface-500",
-            "group-focus-visible:ring-2 group-focus-visible:ring-accent-500 group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface-900",
+            /* DS-FOCUS, drawn on the mark while the row holds the focus. */
+            "outline-accent-500 group-focus-visible:outline-2 group-focus-visible:outline-offset-2",
             "group-data-[checked]:border-accent-600 group-data-[checked]:bg-accent-600",
           )}
         >
