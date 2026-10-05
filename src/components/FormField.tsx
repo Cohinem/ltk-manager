@@ -3,6 +3,8 @@ import { forwardRef, type InputHTMLAttributes, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusField } from "./focus";
+
 // Field Root
 export interface FieldRootProps extends Omit<BaseField.Root.Props, "className"> {
   className?: string;
@@ -107,7 +109,7 @@ export const FieldControl = forwardRef<HTMLInputElement, FieldControlProps>(
           "h-8 w-full rounded-md border px-4 py-1 text-sm transition-colors",
           "bg-surface-700 text-surface-50 placeholder:text-surface-400",
           "border-surface-500 hover:border-accent-hover",
-          "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
+          focusField,
           "disabled:cursor-not-allowed disabled:opacity-50",
           hasError && "border-danger focus:border-danger focus:ring-danger",
           className,
@@ -207,7 +209,7 @@ export const TextareaField = forwardRef<HTMLTextAreaElement, TextareaFieldProps>
             "w-full rounded-md border px-4 py-2.5 text-sm transition-colors",
             "bg-surface-700 text-surface-50 placeholder:text-surface-400",
             "border-surface-500 hover:border-accent-hover",
-            "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
+            focusField,
             "disabled:cursor-not-allowed disabled:opacity-50",
             "min-h-[80px] resize-y",
             error && "border-danger focus:border-danger focus:ring-danger",

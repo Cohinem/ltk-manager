@@ -4,6 +4,7 @@ import { forwardRef, type ReactNode, use } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
 import { InputDefaultContext } from "./InputDefaultContext";
 
 export type CheckboxSize = "sm" | "md" | "lg";
@@ -69,7 +70,7 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
           sizeClasses[size],
           "border-surface-600 bg-surface-800",
           "hover:border-surface-500 hover:bg-surface-700",
-          "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
+          focusRing,
           "data-[checked]:border-accent-500 data-[checked]:bg-accent-500",
           "data-[checked]:hover:border-accent-400 data-[checked]:hover:bg-accent-400",
           "data-[indeterminate]:border-accent-500 data-[indeterminate]:bg-accent-500",

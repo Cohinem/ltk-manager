@@ -8,6 +8,7 @@ import { useNotificationsStore } from "@/stores/notifications";
 import { twMerge } from "@/utils";
 import { isAppError } from "@/utils/errors";
 
+import { focusRing } from "./focus";
 import { type ToastType } from "./toastType";
 
 export interface ToastAction {
@@ -216,10 +217,7 @@ function ToastTaskBar({ value }: { value: number }) {
 
   return (
     <div className="absolute right-0 bottom-0 left-0 h-1 overflow-hidden rounded-b-lg bg-surface-700">
-      <div
-        className="h-full bg-accent-500 transition-[width] duration-150"
-        style={{ width: `${clamped}%` }}
-      />
+      <div className="h-full bg-accent-500 transition-[width]" style={{ width: `${clamped}%` }} />
     </div>
   );
 }
@@ -275,7 +273,10 @@ export function ToastItem({ toast }: ToastItemProps) {
                     action.onClick();
                     toastManager.close(toast.id);
                   }}
-                  className="cursor-pointer text-sm font-medium text-accent-400 transition-colors hover:text-accent-300"
+                  className={twMerge(
+                    "cursor-pointer rounded-sm text-sm font-medium text-accent-400 transition-colors hover:text-accent-300",
+                    focusRing,
+                  )}
                 >
                   {action.label}
                 </button>
@@ -284,7 +285,10 @@ export function ToastItem({ toast }: ToastItemProps) {
           )}
         </div>
         <BaseToast.Close
-          className="shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
+          className={twMerge(
+            "shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200",
+            focusRing,
+          )}
           aria-label="Close"
         >
           <X className="size-4" />

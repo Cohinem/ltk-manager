@@ -4,6 +4,8 @@ import { forwardRef, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
+
 // Root
 export interface DialogRootProps extends BaseDialog.Root.Props {
   children?: ReactNode;
@@ -88,7 +90,7 @@ export const DialogOverlay = forwardRef<HTMLDivElement, DialogOverlayProps>(
         className={twMerge(
           "fixed top-1/2 left-1/2 z-50 w-full -translate-x-1/2 -translate-y-1/2",
           "rounded-xl border border-surface-600 bg-surface-800 shadow-2xl outline-none",
-          "transition-[opacity,transform] duration-200 ease-out",
+          "transition-[opacity,transform] duration-200",
           "data-starting-style:scale-95 data-starting-style:opacity-0",
           "data-ending-style:scale-95 data-ending-style:opacity-0",
           overlaySizeClasses[size],
@@ -135,7 +137,7 @@ export const DialogSheet = forwardRef<HTMLDivElement, DialogSheetProps>(
         ref={ref}
         className={twMerge(
           "fixed z-50 flex max-w-full flex-col bg-surface-800 shadow-2xl outline-none",
-          "transition-transform duration-200 ease-out",
+          "transition-transform duration-200",
           sheetSideClasses[side],
           className,
         )}
@@ -204,6 +206,7 @@ export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
           "inline-flex size-8 cursor-pointer items-center justify-center rounded-md",
           "text-surface-200 transition-colors hover:bg-danger/15 hover:text-danger-text",
           "active:bg-danger/25",
+          focusRing,
           className,
         )}
         aria-label="Close"

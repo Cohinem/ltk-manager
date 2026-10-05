@@ -4,6 +4,8 @@ import { forwardRef } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
+
 /**
  * A section whose panel a trigger shows and hides, on base-ui's Collapsible.
  *
@@ -21,7 +23,7 @@ export const DisclosureTrigger = forwardRef<HTMLButtonElement, DisclosureTrigger
   ({ className, ...props }, ref) => (
     <Collapsible.Trigger
       ref={ref}
-      className={twMerge("group/disclosure cursor-pointer text-left", className)}
+      className={twMerge("group/disclosure cursor-pointer text-left", focusRing, className)}
       {...props}
     />
   ),
@@ -39,7 +41,7 @@ export function DisclosureCaret({ className }: DisclosureCaretProps) {
       weight="bold"
       aria-hidden
       className={twMerge(
-        "size-3.5 shrink-0 text-surface-400 transition-transform duration-150 group-data-[panel-open]/disclosure:rotate-90",
+        "size-3.5 shrink-0 text-surface-400 transition-transform group-data-[panel-open]/disclosure:rotate-90",
         className,
       )}
     />

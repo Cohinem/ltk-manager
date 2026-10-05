@@ -82,7 +82,7 @@ export const MenuPopup = forwardRef<HTMLDivElement, MenuPopupProps>(
           "min-w-40 rounded-xl border border-surface-700 p-1 shadow-xl outline-none",
           /* DS-GLASS */
           "bg-(--ltk-glass-panel-fill) backdrop-filter-(--ltk-glass-panel-blur)",
-          "transition-[opacity,transform] duration-150 ease-out",
+          "transition-[opacity,transform]",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
           className,

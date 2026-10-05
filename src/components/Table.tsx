@@ -4,6 +4,8 @@ import { match } from "ts-pattern";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
+
 // Root
 export const TableRoot = forwardRef<HTMLTableElement, ComponentPropsWithoutRef<"table">>(
   ({ className, ...props }, ref) => (
@@ -85,7 +87,7 @@ export const TableSortButton = forwardRef<HTMLButtonElement, TableSortButtonProp
         type="button"
         className={twMerge(
           "inline-flex items-center gap-1 rounded-sm transition-colors hover:text-surface-200",
-          "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-1 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
+          focusRing,
           direction && "text-surface-200",
           className,
         )}

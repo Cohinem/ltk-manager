@@ -6,6 +6,7 @@ import { match } from "ts-pattern";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
 import { Tooltip, type TooltipProps } from "./Tooltip";
 
 export type ButtonVariant =
@@ -79,7 +80,7 @@ const variantClasses: Record<ButtonVariant, string> = {
 };
 
 const baseClasses =
-  "inline-flex items-center justify-center font-medium rounded-md transition-colors duration-150 cursor-pointer select-none focus-visible:outline-accent-500 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none";
+  "inline-flex items-center justify-center font-medium rounded-md transition-colors cursor-pointer select-none disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none";
 
 const spinnerSizeClasses: Record<ButtonSize, string> = {
   xs: "text-sm",
@@ -136,7 +137,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       .with([false, false], () => sizeClasses[size])
       .exhaustive();
 
-    const classes = twMerge(baseClasses, variantClasses[variant], sizeClass, className);
+    const classes = twMerge(baseClasses, focusRing, variantClasses[variant], sizeClass, className);
 
     const content = match([loading, isIconOnly] as const)
       .with([true, true], [true, false], () => (

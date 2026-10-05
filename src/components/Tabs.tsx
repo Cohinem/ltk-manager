@@ -4,6 +4,8 @@ import { match } from "ts-pattern";
 
 import { twMerge } from "@/utils";
 
+import { focusRingInset } from "./focus";
+
 export type TabsVariant = "default" | "pills" | "plain";
 
 // Root
@@ -56,7 +58,7 @@ export interface TabsTabProps extends Omit<BaseTabs.Tab.Props, "className"> {
 export const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
   ({ variant = "default", className, children, ...props }, ref) => {
     const baseClasses =
-      "relative inline-flex shrink-0 items-center whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 disabled:pointer-events-none disabled:opacity-50";
+      "relative inline-flex shrink-0 items-center whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50";
 
     const variantClasses = match(variant)
       .with(
@@ -76,7 +78,7 @@ export const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
     return (
       <BaseTabs.Tab
         ref={ref}
-        className={twMerge(baseClasses, variantClasses, className)}
+        className={twMerge(baseClasses, focusRingInset, variantClasses, className)}
         {...props}
       >
         {children}

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { twMerge } from "@/utils";
 
 import { Combobox, useComboboxFilter } from "./Combobox";
+import { focusField } from "./focus";
 
 export interface MultiSelectOption {
   value: string;
@@ -64,7 +65,7 @@ export function MultiSelect({
             "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors",
             "border-surface-500 bg-surface-700 text-surface-200",
             "hover:border-accent-hover",
-            "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
+            focusField,
             "disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}
@@ -83,7 +84,7 @@ export function MultiSelect({
             "flex min-h-[42px] w-full items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors",
             "border-surface-500 bg-surface-700 text-surface-200",
             "hover:border-accent-hover",
-            "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
+            focusField,
             "disabled:cursor-not-allowed disabled:opacity-50",
             className,
           )}

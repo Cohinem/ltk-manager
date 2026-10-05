@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
 import { Tooltip } from "./Tooltip";
 
 export type HintIconVariant = "info" | "warning";
@@ -59,7 +60,7 @@ export function HintIcon({
         aria-label={label}
         className={twMerge(
           "inline-flex shrink-0 cursor-help rounded-full transition-colors",
-          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500",
+          focusRing,
           variantStyles[variant],
           className,
         )}

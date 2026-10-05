@@ -4,6 +4,7 @@ import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { twMerge } from "@/utils";
 
 import { IconButton } from "./Button";
+import { focusRing } from "./focus";
 import { Field } from "./FormField";
 import { Tooltip } from "./Tooltip";
 
@@ -104,6 +105,7 @@ export function SearchField({
                 className={twMerge(
                   "flex h-4.5 cursor-pointer items-center rounded-sm px-1 font-mono text-fine text-surface-400 transition-colors",
                   /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100",
+                  focusRing,
                   regex &&
                     "bg-accent-500/20 text-accent-300 hover:bg-accent-500/30 hover:text-accent-300",
                 )}

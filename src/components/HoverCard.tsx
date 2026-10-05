@@ -39,7 +39,7 @@ export function HoverCard({ content, children, label, className }: HoverCardProp
             className={twMerge(
               /* DS-RADIUS, DS-GROUND */
               "rounded-lg border border-surface-600 bg-surface-800 p-3 text-meta shadow-xl outline-none select-none",
-              "transition-[opacity,transform] duration-200 ease-out",
+              "transition-[opacity,transform]",
               "data-starting-style:-translate-y-1 data-starting-style:opacity-0",
               "data-ending-style:-translate-y-1 data-ending-style:opacity-0",
               className,
