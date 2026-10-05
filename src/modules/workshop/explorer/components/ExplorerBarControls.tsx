@@ -140,7 +140,7 @@ export function ViewToggle({ view }: { view: ExplorerView }) {
 
   return (
     <SegmentedControl
-      size="xs"
+      size="sm"
       value={view}
       onChange={setView}
       aria-label={m.workshop_explorer_view_label()}
@@ -396,7 +396,7 @@ function TreeThumbnailOptions() {
       {thumbnails && (
         <FilterSection title={m.workshop_explorer_art_shape_label()}>
           <SegmentedControl<ExplorerArtShape>
-            size="xs"
+            size="sm"
             value={shape}
             onChange={setShape}
             aria-label={m.workshop_explorer_art_shape_label()}

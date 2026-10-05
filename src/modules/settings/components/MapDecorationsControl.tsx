@@ -54,7 +54,7 @@ export function MapDecorationsControl() {
             <MapTags maps={maps} />
           </span>
           <SegmentedControl
-            size="xs"
+            size="sm"
             aria-label={decorationLabel(mutator)}
             options={decorationOptions()}
             value={modeOf(modes, mutator)}

@@ -36,7 +36,7 @@ export function ConditionBar({
   return (
     <>
       <SegmentedControl
-        size="xs"
+        size="sm"
         aria-label="Theme"
         options={THEMES}
         value={conditions.theme}
@@ -76,7 +76,7 @@ export function ConditionBar({
       />
 
       <SegmentedControl
-        size="xs"
+        size="sm"
         aria-label="Ground"
         options={GROUNDS}
         value={ground}

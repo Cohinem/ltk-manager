@@ -52,8 +52,8 @@ const entry: GalleryEntry = {
       name: "Sizes",
       render: () => (
         <>
+          <Text size="md" />
           <Text size="sm" />
-          <Text size="xs" />
         </>
       ),
     },

@@ -79,7 +79,7 @@ function TooltipRow({ document }: { document: BinDocumentId }) {
       <CharacterPicker document={document} />
       {chosen !== null && (
         <SegmentedControl
-          size="xs"
+          size="sm"
           aria-label={m.workshop_bin_atlas_tooltip_ability_label()}
           value={chosen.id}
           onChange={setTooltipSample}

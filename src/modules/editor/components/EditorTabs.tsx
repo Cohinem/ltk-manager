@@ -336,7 +336,6 @@ const SortableTab = memo(function SortableTab({
   const body = (
     <>
       <Tabs.Tab
-        variant="plain"
         value={tab.id}
         /* The two announcing attributes rather than all of dnd-kit's: the rest
            carry a role and a tab stop, and the strip's roving focus already

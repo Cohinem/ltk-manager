@@ -36,9 +36,6 @@ import {
 
 const routeApi = getRouteApi("/settings");
 
-const tabClass =
-  "flex items-center gap-2.5 text-left text-base data-active:bg-accent-500/15 data-active:text-accent-300";
-
 const TABS: { value: SettingsTab; icon: ReactNode }[] = [
   { value: "general", icon: <GearIcon className="size-5 shrink-0" /> },
   { value: "library", icon: <BooksIcon className="size-5 shrink-0" /> },
@@ -77,14 +74,15 @@ export function Settings() {
       <Tabs.Root
         value={tab ?? DEFAULT_SETTINGS_TAB}
         onValueChange={selectTab}
+        orientation="vertical"
         className="flex min-h-0 flex-1 flex-row"
       >
         <Tabs.List
-          variant="pills"
-          className="w-52 shrink-0 flex-col items-stretch rounded-none border-r border-surface-700/50 bg-surface-800/40 p-3"
+          variant="rail"
+          className="w-52 shrink-0 border-r border-surface-700/50 bg-surface-800/40 p-3"
         >
           {TABS.map((item) => (
-            <Tabs.Tab key={item.value} variant="pills" value={item.value} className={tabClass}>
+            <Tabs.Tab key={item.value} value={item.value}>
               {item.icon}
               {SETTINGS_TAB_LABELS[item.value]}
             </Tabs.Tab>

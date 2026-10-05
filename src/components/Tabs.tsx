@@ -1,18 +1,35 @@
 import { Tabs as BaseTabs } from "@base-ui/react/tabs";
-import { type ComponentPropsWithoutRef, forwardRef, type ReactNode } from "react";
-import { match } from "ts-pattern";
+import {
+  type ComponentPropsWithoutRef,
+  createContext,
+  forwardRef,
+  type ReactNode,
+  useContext,
+} from "react";
 
 import { twMerge } from "@/utils";
 
 import { focusRingInset } from "./focus";
+import { segmentRest, segmentThumb, segmentTrack, segmentTrackSize } from "./segment";
 
-export type TabsVariant = "default" | "pills" | "plain";
+/**
+ * How a list and its tabs draw.
+ *
+ * - `default` underlines the open tab, for the panels of a page or a pane
+ * - `pills` is the `SegmentedControl` track, for a switch between a few small panels in a section
+ * - `rail` is a column of rows, for the sections of a page
+ * - `plain` draws nothing, for a strip whose tabs the call site draws
+ */
+export type TabsVariant = "default" | "pills" | "rail" | "plain";
+
+const VariantContext = createContext<TabsVariant>("default");
 
 // Root
 export interface TabsRootProps extends Omit<BaseTabs.Root.Props, "className"> {
   className?: string;
 }
 
+/** A `rail` takes `orientation="vertical"`, which moves the arrow keys to Up and Down. */
 export const TabsRoot = forwardRef<HTMLDivElement, TabsRootProps>(
   ({ className, ...props }, ref) => {
     return <BaseTabs.Root ref={ref} className={twMerge("flex flex-col", className)} {...props} />;
@@ -22,27 +39,47 @@ TabsRoot.displayName = "Tabs.Root";
 
 // List
 export interface TabsListProps extends Omit<ComponentPropsWithoutRef<"div">, "className"> {
+  /** Reaches the tabs inside the list too. */
   variant?: TabsVariant;
+  /** The hairline under a `default` list. Off where the row it sits in draws one. */
+  divider?: boolean;
   className?: string;
   children?: ReactNode;
 }
 
-export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
-  ({ variant = "default", className, children, ...props }, ref) => {
-    const variantClasses = match(variant)
-      .with("default", () => "border-b border-surface-700 gap-0 overflow-x-auto")
-      .with("pills", () => "bg-surface-800 rounded-lg p-1 gap-1")
-      .with("plain", () => "")
-      .exhaustive();
+const listClasses: Record<TabsVariant, string> = {
+  default: "gap-0 overflow-x-auto border-b border-surface-700",
+  pills: `${segmentTrack} ${segmentTrackSize.md} w-fit`,
+  rail: "flex-col items-stretch gap-1",
+  plain: "",
+};
 
+export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
+  ({ variant = "default", divider = true, className, children, ...props }, ref) => {
     return (
-      <BaseTabs.List
-        ref={ref}
-        className={twMerge("flex items-center", variantClasses, className)}
-        {...props}
-      >
-        {children}
-      </BaseTabs.List>
+      <VariantContext.Provider value={variant}>
+        <BaseTabs.List
+          ref={ref}
+          className={twMerge(
+            "flex items-center",
+            listClasses[variant],
+            variant === "default" && !divider && "border-b-0",
+            className,
+          )}
+          {...props}
+        >
+          {variant === "pills" && (
+            <BaseTabs.Indicator
+              className={twMerge(
+                segmentThumb,
+                "w-(--active-tab-width) translate-x-(--active-tab-left)",
+                "transition-[translate,width] duration-200",
+              )}
+            />
+          )}
+          {children}
+        </BaseTabs.List>
+      </VariantContext.Provider>
     );
   },
 );
@@ -50,35 +87,46 @@ TabsList.displayName = "Tabs.List";
 
 // Tab
 export interface TabsTabProps extends Omit<BaseTabs.Tab.Props, "className"> {
-  variant?: TabsVariant;
   className?: string;
   children?: ReactNode;
 }
 
-export const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
-  ({ variant = "default", className, children, ...props }, ref) => {
-    const baseClasses =
-      "relative inline-flex shrink-0 items-center whitespace-nowrap px-4 py-2 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50";
+/* A disabled tab stays focusable, so it carries `data-disabled` and never the attribute. */
+const tabBase =
+  "relative inline-flex shrink-0 cursor-pointer items-center font-medium whitespace-nowrap transition-colors data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
 
-    const variantClasses = match(variant)
-      .with(
-        "default",
-        () =>
-          "text-surface-400 hover:text-surface-200 data-[active]:text-accent-400 data-[active]:after:absolute data-[active]:after:inset-x-0 data-[active]:after:bottom-0 data-[active]:after:h-0.5 data-[active]:after:bg-accent-500",
-      )
-      .with(
-        "pills",
-        () =>
-          "rounded-md text-surface-400 hover:text-surface-200 data-[active]:bg-accent-500/10 data-[active]:text-accent-400",
-      )
-      /* Nothing of its own: the call site draws the whole tab. */
-      .with("plain", () => "")
-      .exhaustive();
+const tabClasses: Record<TabsVariant, string> = {
+  default: [
+    "px-4 py-2 text-sm text-surface-400 hover:text-surface-200 data-[active]:text-accent-400",
+    "data-[active]:after:absolute data-[active]:after:inset-x-0 data-[active]:after:bottom-0",
+    "data-[active]:after:h-0.5 data-[active]:after:bg-accent-500",
+  ].join(" "),
+  pills: [
+    "h-full justify-center rounded-sm px-2 text-xs",
+    segmentRest,
+    /* DS-VEIL */
+    "hover:bg-surface-veil data-[active]:text-accent-300",
+    "data-[active]:hover:bg-transparent data-[active]:hover:text-accent-300",
+  ].join(" "),
+  rail: [
+    "gap-2.5 rounded-md px-4 py-2 text-left text-base text-surface-400",
+    /* DS-VEIL */
+    "hover:bg-surface-veil hover:text-surface-200",
+    "data-[active]:bg-accent-500/15 data-[active]:text-accent-300",
+    "data-[active]:hover:bg-accent-500/15 data-[active]:hover:text-accent-300",
+  ].join(" "),
+  plain: "",
+};
+
+/** One tab, drawn in the variant of the `Tabs.List` it sits in. */
+export const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
+  ({ className, children, ...props }, ref) => {
+    const variant = useContext(VariantContext);
 
     return (
       <BaseTabs.Tab
         ref={ref}
-        className={twMerge(baseClasses, focusRingInset, variantClasses, className)}
+        className={twMerge(tabBase, focusRingInset, tabClasses[variant], className)}
         {...props}
       >
         {children}
@@ -109,32 +157,14 @@ export const TabsPanel = forwardRef<HTMLDivElement, TabsPanelProps>(
 );
 TabsPanel.displayName = "Tabs.Panel";
 
-// Indicator (optional animated indicator for default variant)
-export interface TabsIndicatorProps extends Omit<BaseTabs.Indicator.Props, "className"> {
-  className?: string;
-}
-
-export const TabsIndicator = forwardRef<HTMLSpanElement, TabsIndicatorProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <BaseTabs.Indicator
-        ref={ref}
-        className={twMerge(
-          "absolute bottom-0 h-0.5 bg-accent-500 transition-all duration-200",
-          className,
-        )}
-        {...props}
-      />
-    );
-  },
-);
-TabsIndicator.displayName = "Tabs.Indicator";
-
-// Compound export
+/**
+ * A row of tabs, each of which shows a panel of its own.
+ *
+ * A choice that sets a value and shows no panel is a `SegmentedControl`.
+ */
 export const Tabs = {
   Root: TabsRoot,
   List: TabsList,
   Tab: TabsTab,
   Panel: TabsPanel,
-  Indicator: TabsIndicator,
 };

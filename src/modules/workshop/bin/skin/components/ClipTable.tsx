@@ -107,7 +107,7 @@ export function ClipTabs() {
         />
       )}
       <SegmentedControl
-        size="xs"
+        size="sm"
         className="ml-auto font-sans"
         aria-label={m.workshop_bin_clip_tabs_label()}
         value={tab}
