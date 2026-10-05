@@ -1,6 +1,6 @@
 import { PackageX } from "lucide-react";
 
-import { Tooltip } from "@/components";
+import { Badge, Tooltip } from "@/components";
 import { useSettings } from "@/modules/settings";
 import { useLinkedBinGuardStore } from "@/stores";
 
@@ -42,15 +42,15 @@ export function MissingDepsBadge({ modId, enabled }: MissingDepsBadgeProps) {
 
   return (
     <Tooltip content={tooltipContent}>
-      <button
-        type="button"
+      <Badge
+        size="lg"
+        tone="warning"
+        icon={<PackageX className="size-3" />}
         onClick={openDialog}
         aria-label={`${count} missing ${count === 1 ? "dependency" : "dependencies"}, click to review`}
-        className="inline-flex h-6 cursor-pointer items-center gap-1 rounded-sm bg-warning/15 px-2 py-0.5 text-xs leading-tight font-medium text-warning-text ring-1 ring-warning/30 transition-colors ring-inset hover:bg-warning/25"
       >
-        <PackageX className="size-3" />
         {count}
-      </button>
+      </Badge>
     </Tooltip>
   );
 }

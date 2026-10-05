@@ -1,20 +1,11 @@
 import { SparkleIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
-import { twMerge } from "@/utils";
-
-import type { CategoryTone } from "./Chip";
-import { focusRing } from "./focus";
+import { Badge } from "./Badge";
+import { CATEGORY_BADGE_TONE, type CategoryTone } from "./Chip";
 
 /** What the pill labels. The hue is the category, so the tone is named for it. */
 export type AutoPillTone = CategoryTone;
-
-const TONE_CLASSES: Record<AutoPillTone, string> = {
-  /* Neutral, because a plain tag names no kind: DS-KIND-HUE. */
-  tag: "border-surface-400/50 bg-surface-500/10 text-surface-300",
-  champion: "border-cat-champion/60 bg-cat-champion/10 text-cat-champion-text",
-  map: "border-cat-map/60 bg-cat-map/10 text-cat-map-text",
-};
 
 interface AutoPillProps {
   label: string;
@@ -34,9 +25,9 @@ interface AutoPillProps {
 }
 
 /**
- * A dashed-outline pill marking an auto-detected (WAD-footprint-derived)
- * category. Static for display. Pass `onClick` to use it as a clickable
- * suggestion chip.
+ * A dashed `Badge` marking an auto-detected (WAD-footprint-derived) category.
+ *
+ * Static for display. Pass `onClick` to use it as a clickable suggestion.
  */
 export function AutoPill({
   label,
@@ -46,29 +37,16 @@ export function AutoPill({
   onClick,
   className,
 }: AutoPillProps) {
-  const mark = icon ?? <SparkleIcon weight="bold" className="size-2.5" />;
-
-  const classes = twMerge(
-    "inline-flex items-center gap-0.5 rounded-md border border-dashed px-1.5 py-0.5 text-fine leading-tight",
-    TONE_CLASSES[tone],
-    onClick && "cursor-pointer transition-colors hover:bg-surface-700/40",
-    onClick && focusRing,
-    className,
-  );
-
-  if (onClick) {
-    return (
-      <button type="button" onClick={onClick} aria-label={ariaLabel} className={classes}>
-        {mark}
-        {label}
-      </button>
-    );
-  }
-
   return (
-    <span aria-label={ariaLabel} className={classes}>
-      {mark}
+    <Badge
+      dashed
+      tone={CATEGORY_BADGE_TONE[tone]}
+      icon={icon ?? <SparkleIcon weight="bold" className="size-2.5" />}
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className={className}
+    >
       {label}
-    </span>
+    </Badge>
   );
 }

@@ -2,6 +2,7 @@ export * from "./Accordion";
 export * from "./AlertBox";
 export * from "./ArrangedTable";
 export * from "./AutoPill";
+export * from "./Badge";
 export * from "./Breadcrumb";
 export * from "./Button";
 export * from "./ButtonGroup";

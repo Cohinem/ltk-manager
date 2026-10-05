@@ -10,7 +10,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { lazy, type ReactNode, Suspense, useEffect } from "react";
 import { match } from "ts-pattern";
 
-import { Button, IconButton, ProgressBar, Spinner, Tooltip } from "@/components";
+import { Badge, Button, IconButton, ProgressBar, Spinner, Tooltip } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import type { Incident, VerdictKind } from "@/lib/tauri";
 import {
@@ -141,11 +141,9 @@ function TestingPill({ className }: { className?: string }) {
           const label = describeTestingProjects(names);
           if (!label) return null;
           return (
-            <span
-              className={`rounded-full bg-accent-500/10 px-2 py-0.5 text-xs font-medium text-accent-400 ${className ?? ""}`}
-            >
+            <Badge size="md" tone="accent" className={className}>
               {label}
-            </span>
+            </Badge>
           );
         }}
       </SessionProjectNames>

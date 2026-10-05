@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import {
   AlertBox,
+  Badge,
   Button,
   EmptyState,
   ProgressBar,
@@ -233,13 +234,10 @@ export function CacheSection() {
                   Updated {formatUpdatedAt(status.generatedAt!)}
                 </p>
                 {updates && !updates.upToDate && (
-                  <span
-                    className="rounded-full bg-info/10 px-2 py-0.5 text-xs text-info-text"
-                    title={behindLabels(updates).join(", ")}
-                  >
+                  <Badge size="md" tone="info" title={behindLabels(updates).join(", ")}>
                     {updateLabel(behindLabels(updates).length)}
                     {downloadSizeLabel(updates.downloadBytes)}
-                  </span>
+                  </Badge>
                 )}
                 {updates?.upToDate && <span className="text-xs text-surface-500">Up to date</span>}
               </div>
