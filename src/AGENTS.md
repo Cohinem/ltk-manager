@@ -84,6 +84,10 @@ A dialog draws through `Dialog.Shell`, which takes `open`, `onClose`, `title` an
 `Dialog.Footer` under the header. A dialog whose header is not a title and a close button builds
 its frame from the parts instead, which all stay exported.
 
+The popup is never taller than the window. Its header and footer keep their height and
+`Dialog.Body` scrolls. A form around the body and footer is a `Dialog.Form`, since a plain
+`<form>` there stops the body from scrolling on its own.
+
 One question with one destructive answer is a `ConfirmDialog`. A caller with nowhere to mount one
 asks through `useConfirm`, which draws on `ConfirmHost` above the router.
 
@@ -110,6 +114,13 @@ after the effect has already been cleaned up.
 ## Component Library (`src/components/`)
 
 **ALWAYS use reusable components from `@/components` instead of native HTML or raw base-ui imports.** Module code should never import from `@base-ui-components/react` directly - all base-ui primitives must be wrapped in `src/components/` first. See `src/components/index.ts` for what is already wrapped.
+
+A component with parts is one compound export, and a part is reached through it: `Dialog.Body`,
+`Select.Trigger`, `Tabs.List`. The parts are not exported on their own.
+
+Lint warns on a native `<button>` and on a DOM `title` outside `src/components`. A press is a
+`Button`, an `IconButton` or a pressable `Badge`, and a hint is a `Tooltip`. Convert one when the
+file is touched for something else.
 
 When adding a new base-ui component:
 

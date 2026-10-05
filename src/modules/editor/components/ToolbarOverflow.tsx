@@ -45,7 +45,7 @@ export function ToolbarOverflow({ children }: { children: ReactNode }) {
         sideOffset={8}
         data-ui="ToolbarOverflow"
         aria-label={m.editor_toolbar_more_action()}
-        className="flex items-center gap-2 bg-surface-900 p-2 select-none"
+        className="flex items-center gap-2 p-2 select-none"
       >
         <InOverflowContext value>{children}</InOverflowContext>
       </Popover.Content>

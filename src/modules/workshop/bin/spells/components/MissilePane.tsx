@@ -173,7 +173,7 @@ function MissileSetup({
             </Select.Trigger>
             <Select.Content>
               {items.map((item) => (
-                <Select.Item key={item.value} value={item.value} className="text-meta">
+                <Select.Item key={item.value} value={item.value}>
                   {item.label}
                 </Select.Item>
               ))}

@@ -148,7 +148,7 @@ export function ProblemsList({ query, collapseAllSignal = 0 }: ProblemsListProps
   if (error) {
     return (
       <div data-ui="ProblemsList" className="p-2">
-        <AlertBox variant="error" title={m.workshop_problems_failed_title()}>
+        <AlertBox tone="danger" title={m.workshop_problems_failed_title()}>
           {errorSummary(error)}
         </AlertBox>
       </div>
@@ -224,7 +224,6 @@ function ProblemsBody({ empty, partial, filteredOut, query, children }: Problems
   if (empty && partial) {
     return (
       <EmptyState
-        className="flex-1"
         icon={<CheckCircleIcon weight="duotone" className="size-10 text-surface-400" />}
         title={m.workshop_problems_partial_title()}
         description={m.workshop_problems_partial_description()}
@@ -235,7 +234,6 @@ function ProblemsBody({ empty, partial, filteredOut, query, children }: Problems
   if (empty) {
     return (
       <EmptyState
-        className="flex-1"
         icon={<CheckCircleIcon weight="duotone" className="size-10 text-success-text" />}
         title={m.workshop_problems_clean_title()}
         description={m.workshop_problems_clean_description()}
@@ -246,7 +244,6 @@ function ProblemsBody({ empty, partial, filteredOut, query, children }: Problems
   if (filteredOut) {
     return (
       <EmptyState
-        className="flex-1"
         title={m.workshop_problems_no_matches_title()}
         description={m.workshop_problems_no_matches_description({ query })}
       />

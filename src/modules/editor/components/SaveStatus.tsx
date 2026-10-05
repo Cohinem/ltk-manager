@@ -20,7 +20,7 @@ export interface SaveStatusProps {
  */
 export function SaveStatus({ state, blockedHint, failedReason, onRetry }: SaveStatusProps) {
   if (state === "pending" || state === "saving") {
-    return <Spinner size="xs" className="shrink-0" />;
+    return <Spinner size={12} className="shrink-0" />;
   }
 
   if (state === "blocked") {

@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { Kbd } from "@/components";
+import { Badge, Kbd } from "@/components";
 import { useClickOutside } from "@/hooks";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
@@ -417,8 +417,8 @@ function ProjectCount() {
 
 function Tag({ children }: { children: ReactNode }) {
   return (
-    <span className="shrink-0 rounded-full bg-surface-700 px-2 py-0.5 text-meta text-surface-400">
+    <Badge size="md" className="shrink-0">
       {children}
-    </span>
+    </Badge>
   );
 }

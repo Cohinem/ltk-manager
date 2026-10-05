@@ -41,7 +41,7 @@ export function ObjectsViewControls({
       )}
     >
       <SegmentedControl
-        size="xs"
+        size="sm"
         value={view}
         onChange={onViewChange}
         aria-label={m.workshop_objects_view_label()}
@@ -75,7 +75,7 @@ export function ObjectsViewControls({
           align="end"
           sideOffset={8}
           aria-label={m.workshop_explorer_view_options_label()}
-          className="w-64 divide-y divide-surface-veil-strong bg-surface-900 p-0 select-none"
+          className="w-64 divide-y divide-surface-700 p-0 select-none"
         >
           <FilterSection title={m.workshop_explorer_tile_size_label()}>
             <Slider

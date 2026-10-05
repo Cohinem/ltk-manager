@@ -15,10 +15,46 @@ interface ShellDemoProps {
   description?: ReactNode;
   closable?: boolean;
   paragraphs?: number;
+  /** Wraps the body and footer in a `Dialog.Form`. */
+  form?: boolean;
 }
 
-function ShellDemo({ label, size, tone, description, closable, paragraphs = 1 }: ShellDemoProps) {
+function ShellDemo({
+  label,
+  size,
+  tone,
+  description,
+  closable,
+  paragraphs = 1,
+  form = false,
+}: ShellDemoProps) {
   const [open, setOpen] = useState(false);
+
+  const content = (
+    <>
+      <Dialog.Body>
+        <FormField label="Name" placeholder="Fiora VFX" />
+        {Array.from({ length: paragraphs }, (_, index) => (
+          <p key={index} className="text-sm text-surface-400">
+            A project holds the layers a build packs into one mod archive.
+          </p>
+        ))}
+      </Dialog.Body>
+      <Dialog.Footer>
+        <Button size="lg" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+        <Button
+          size="lg"
+          variant="filled"
+          type={form ? "submit" : "button"}
+          onClick={() => setOpen(false)}
+        >
+          Create
+        </Button>
+      </Dialog.Footer>
+    </>
+  );
 
   return (
     <>
@@ -34,22 +70,8 @@ function ShellDemo({ label, size, tone, description, closable, paragraphs = 1 }:
         tone={tone}
         closable={closable}
       >
-        <Dialog.Body>
-          <FormField label="Name" placeholder="Fiora VFX" />
-          {Array.from({ length: paragraphs }, (_, index) => (
-            <p key={index} className="text-sm text-surface-400">
-              A project holds the layers a build packs into one mod archive.
-            </p>
-          ))}
-        </Dialog.Body>
-        <Dialog.Footer>
-          <Button size="lg" variant="ghost" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button size="lg" variant="filled" onClick={() => setOpen(false)}>
-            Create
-          </Button>
-        </Dialog.Footer>
+        {!form && content}
+        {form && <Dialog.Form onSubmit={(event) => event.preventDefault()}>{content}</Dialog.Form>}
       </Dialog.Shell>
     </>
   );
@@ -96,8 +118,13 @@ const entry: GalleryEntry = {
       ),
     },
     {
-      name: "Tall body",
-      render: () => <ShellDemo label="40 paragraphs" paragraphs={40} />,
+      name: "Tall body. The header and footer stay and the body scrolls",
+      render: () => (
+        <>
+          <ShellDemo label="40 paragraphs" paragraphs={40} />
+          <ShellDemo label="Inside a form" paragraphs={40} form />
+        </>
+      ),
     },
     {
       name: "ConfirmDialog",

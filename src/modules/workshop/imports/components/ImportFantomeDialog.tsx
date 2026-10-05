@@ -85,7 +85,7 @@ export function ImportFantomeDialog() {
       size="lg"
       closable={!isImporting}
     >
-      <form
+      <Dialog.Form
         onSubmit={(e) => {
           e.preventDefault();
           form.handleSubmit();
@@ -202,7 +202,7 @@ export function ImportFantomeDialog() {
             )}
           </form.Subscribe>
         </Dialog.Footer>
-      </form>
+      </Dialog.Form>
     </Dialog.Shell>
   );
 }

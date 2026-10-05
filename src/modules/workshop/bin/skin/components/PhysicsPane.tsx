@@ -116,7 +116,7 @@ function Lists() {
         className="flex shrink-0 items-center justify-between gap-2 border-b border-surface-700/50 px-2 py-1.5 select-none"
       >
         <SegmentedControl
-          size="xs"
+          size="sm"
           className="font-sans"
           aria-label={m.workshop_bin_physics_tabs_label()}
           value={tab}

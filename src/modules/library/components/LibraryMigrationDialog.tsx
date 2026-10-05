@@ -38,7 +38,7 @@ export function LibraryMigrationDialog() {
       initialFocus={panel}
       data-ui="LibraryMigrationDialog"
       aria-label="Mods the library upgrade could not move"
-      className="flex h-[70vh] max-w-[38.5rem] flex-col overflow-hidden"
+      className="h-[70vh] max-w-[38.5rem] overflow-hidden"
     >
       <header className="relative flex shrink-0 items-start gap-2.5 bg-linear-to-r from-warning/15 to-warning/0 px-3 py-2.5 select-none">
         <ShockedPoroDuotoneIcon className="size-10 shrink-0 text-warning-text" />
@@ -84,8 +84,8 @@ export function LibraryMigrationDialog() {
  */
 function FailureGroup({ error, failures }: { error: string; failures: FailedConversion[] }) {
   return (
-    <Accordion.Item variant="filled" value={error}>
-      <Accordion.Trigger variant="filled">
+    <Accordion.Item value={error}>
+      <Accordion.Trigger>
         <WarningCircleIcon
           weight="duotone"
           className="mt-0.5 size-4 shrink-0 self-start text-warning-text"
@@ -93,7 +93,7 @@ function FailureGroup({ error, failures }: { error: string; failures: FailedConv
         <span className="min-w-0 flex-1 text-sm font-medium text-warning-text">{error}</span>
         <Count>{failures.length}</Count>
       </Accordion.Trigger>
-      <Accordion.Panel variant="filled">
+      <Accordion.Panel>
         <ul className="flex flex-col py-1 select-none">
           {failures.map((failure) => (
             <li

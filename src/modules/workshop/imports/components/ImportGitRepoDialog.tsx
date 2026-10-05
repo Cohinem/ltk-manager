@@ -66,7 +66,7 @@ export function ImportGitRepoDialog() {
       size="lg"
       closable={!isImporting}
     >
-      <form
+      <Dialog.Form
         onSubmit={(e) => {
           e.preventDefault();
           form.handleSubmit();
@@ -138,7 +138,7 @@ export function ImportGitRepoDialog() {
             )}
           </form.Subscribe>
         </Dialog.Footer>
-      </form>
+      </Dialog.Form>
     </Dialog.Shell>
   );
 }

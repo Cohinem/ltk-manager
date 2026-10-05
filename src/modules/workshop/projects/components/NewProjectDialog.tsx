@@ -132,7 +132,7 @@ export function NewProjectDialog() {
       size="xl"
       className="max-w-2xl"
     >
-      <form
+      <Dialog.Form
         onSubmit={(e) => {
           e.preventDefault();
           form.handleSubmit();
@@ -303,7 +303,7 @@ export function NewProjectDialog() {
             )}
           </form.Subscribe>
         </Dialog.Footer>
-      </form>
+      </Dialog.Form>
     </Dialog.Shell>
   );
 }

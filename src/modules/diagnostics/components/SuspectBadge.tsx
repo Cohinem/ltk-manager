@@ -1,7 +1,7 @@
 import { WarningIcon } from "@phosphor-icons/react";
 import { useNavigate } from "@tanstack/react-router";
 
-import { IconButton } from "@/components";
+import { Badge, Tooltip } from "@/components";
 import { useIncidentLineStore } from "@/stores";
 
 import { useLatestIncident } from "../api";
@@ -48,17 +48,18 @@ export function SuspectBadge({ modId, projectPath, enabled = true }: SuspectBadg
   );
 
   return (
-    <IconButton
-      size="sm"
-      data-ui="SuspectBadge"
-      icon={<WarningIcon />}
-      onClick={(event) => {
-        event.stopPropagation();
-        navigate({ to: "/diagnostics", search: { tab: "games", incident: latest.id } });
-      }}
-      aria-label={`Suspected in "${latest.verdict.title}", click to review`}
-      /* `ModHealthBadge`'s pill in the warning tone, so the two stack as one row. */ className="h-6 rounded-sm bg-warning/15 text-warning-text ring-1 ring-warning/30 ring-inset hover:bg-warning/25"
-      tooltip={tooltipContent}
-    />
+    <Tooltip content={tooltipContent}>
+      <Badge
+        size="lg"
+        tone="warning"
+        data-ui="SuspectBadge"
+        icon={<WarningIcon weight="bold" className="size-4" />}
+        onClick={(event) => {
+          event.stopPropagation();
+          navigate({ to: "/diagnostics", search: { tab: "games", incident: latest.id } });
+        }}
+        aria-label={`Suspected in "${latest.verdict.title}", click to review`}
+      />
+    </Tooltip>
   );
 }

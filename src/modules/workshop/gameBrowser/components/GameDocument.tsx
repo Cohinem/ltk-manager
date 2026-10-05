@@ -166,7 +166,7 @@ function GameExplorerBar({ nav, typing, onTypingChange, boxRef }: GameExplorerBa
       view={view}
       filter={filter}
       onFilterChange={(next) => setFilter(explorerId, next)}
-      box={<SearchField boxRef={boxRef} />}
+      box={<GameSearchField boxRef={boxRef} />}
       selection={selection.summary}
       onClearSelection={selection.clear}
       actions={
@@ -280,7 +280,7 @@ function useIndexCompletions(directory: string): readonly string[] {
   return useMemo(() => data?.dirs.map((dir) => dir.path) ?? [], [data]);
 }
 
-interface SearchFieldProps {
+interface GameSearchFieldProps {
   boxRef: React.RefObject<HTMLInputElement | null>;
 }
 
@@ -290,7 +290,7 @@ interface SearchFieldProps {
  * Whole game runs the index's own find, which ranks across every archive. This
  * folder narrows the rows already on screen, which costs no read at all.
  */
-function SearchField({ boxRef }: SearchFieldProps) {
+function GameSearchField({ boxRef }: GameSearchFieldProps) {
   const explorerId = useExplorerId();
   const copy = sourceCopy(useWadSource());
   const scope = useIndexScope();
@@ -339,7 +339,7 @@ function SearchField({ boxRef }: SearchFieldProps) {
           <MatchCount result={data} />
         </Count>
       )}
-      {scope === "whole" && isFetching && <Spinner size="xs" className="shrink-0" />}
+      {scope === "whole" && isFetching && <Spinner size={12} className="shrink-0" />}
     </ExplorerSearchBox>
   );
 }

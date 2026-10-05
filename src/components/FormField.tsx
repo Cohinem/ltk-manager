@@ -37,7 +37,7 @@ export interface FieldRootProps extends Omit<BaseField.Root.Props, "className"> 
  * number fields. The label, description and error parts stay exported for a field laid out
  * another way.
  */
-export const FieldRoot = forwardRef<HTMLDivElement, FieldRootProps>(
+const FieldRoot = forwardRef<HTMLDivElement, FieldRootProps>(
   ({ label, description, error, required, invalid, className, children, ...props }, ref) => {
     const failed = hasMessage(error);
 
@@ -64,7 +64,7 @@ export interface FieldLabelProps extends Omit<BaseField.Label.Props, "className"
   children?: ReactNode;
 }
 
-export const FieldLabel = forwardRef<HTMLLabelElement, FieldLabelProps>(
+const FieldLabel = forwardRef<HTMLLabelElement, FieldLabelProps>(
   ({ className, required, children, ...props }, ref) => {
     return (
       <BaseField.Label
@@ -85,7 +85,7 @@ export interface FieldDescriptionProps extends Omit<BaseField.Description.Props,
   children?: ReactNode;
 }
 
-export const FieldDescription = forwardRef<HTMLParagraphElement, FieldDescriptionProps>(
+const FieldDescription = forwardRef<HTMLParagraphElement, FieldDescriptionProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseField.Description
@@ -108,7 +108,7 @@ export interface FieldErrorProps extends Omit<BaseField.Error.Props, "className"
 /* `match` defaults on because every call site here decides for itself whether to
    draw the message. Base UI otherwise reads the control's own `ValidityState`,
    which nothing in this app writes, so the error rendered nothing at all. */
-export const FieldError = forwardRef<HTMLParagraphElement, FieldErrorProps>(
+const FieldError = forwardRef<HTMLParagraphElement, FieldErrorProps>(
   ({ className, children, match = true, ...props }, ref) => {
     return (
       <BaseField.Error
@@ -141,7 +141,7 @@ export interface FieldControlProps extends Omit<
  * The `aria-invalid` key is left off a valid control, because a key passed here replaces the
  * one its `Field.Root` sets.
  */
-export const FieldControl = forwardRef<HTMLInputElement, FieldControlProps>(
+const FieldControl = forwardRef<HTMLInputElement, FieldControlProps>(
   ({ size = "md", className, hasError, ...props }, ref) => {
     return (
       <BaseField.Control
@@ -165,7 +165,7 @@ export interface FieldTextareaProps extends Omit<
 }
 
 /** A text input of several lines, which grows by its resize handle. */
-export const FieldTextarea = forwardRef<HTMLTextAreaElement, FieldTextareaProps>(
+const FieldTextarea = forwardRef<HTMLTextAreaElement, FieldTextareaProps>(
   ({ className, hasError, ...props }, ref) => {
     /* Base UI types the control as an input whatever `render` draws. */
     const control = { ref, ...props } as unknown as BaseField.Control.Props;

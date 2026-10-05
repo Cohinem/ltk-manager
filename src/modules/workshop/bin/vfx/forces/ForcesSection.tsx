@@ -247,7 +247,7 @@ function ForceGroup({
         <p className="text-meta text-surface-400">{m.workshop_bin_force_unsupported_hint()}</p>
       )}
       {force.supported && open && (
-        <Table.Root aria-label={force.definition.title()} className="table-fixed text-row">
+        <Table.Root aria-label={force.definition.title()} className="table-fixed">
           <colgroup>
             <col className="w-(--name-width)" />
             <col />

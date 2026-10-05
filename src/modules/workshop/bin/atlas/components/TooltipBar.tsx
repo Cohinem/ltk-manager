@@ -79,7 +79,7 @@ function TooltipRow({ document }: { document: BinDocumentId }) {
       <CharacterPicker document={document} />
       {chosen !== null && (
         <SegmentedControl
-          size="xs"
+          size="sm"
           aria-label={m.workshop_bin_atlas_tooltip_ability_label()}
           value={chosen.id}
           onChange={setTooltipSample}
@@ -93,7 +93,7 @@ function TooltipRow({ document }: { document: BinDocumentId }) {
       <LevelField />
       <RankField ranks={chosen?.ranks ?? FIRST_RANK} />
       <ShiftToggle />
-      {pending && <Spinner size="sm" className="size-3.5 shrink-0" />}
+      {pending && <Spinner size={14} className="shrink-0" />}
       {!pending && chosen === null && (
         <span className="min-w-0 truncate text-meta text-surface-400">
           {m.workshop_bin_atlas_tooltip_no_abilities_hint()}
@@ -125,8 +125,6 @@ function LevelField() {
         <StepperField
           className="w-16 text-meta"
           aria-label={m.workshop_bin_atlas_tooltip_level_label()}
-          increaseLabel={m.common_number_increase_action()}
-          decreaseLabel={m.common_number_decrease_action()}
           value={level}
           min={NO_CHARACTER_LEVEL}
           max={MAX_CHARACTER_LEVEL}
@@ -157,8 +155,6 @@ function RankField({ ranks }: { ranks: number }) {
         <StepperField
           className="w-14 text-meta"
           aria-label={m.workshop_bin_atlas_tooltip_rank_label()}
-          increaseLabel={m.common_number_increase_action()}
-          decreaseLabel={m.common_number_decrease_action()}
           value={Math.min(rank, ranks)}
           min={FIRST_RANK}
           max={ranks}

@@ -177,7 +177,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
     >
       {isLoading && (
         <div className="flex items-center gap-2 px-4 py-4 text-sm text-surface-400">
-          <Spinner size="sm" />
+          <Spinner size={16} />
           {m.workshop_content_scanning_label()}
         </div>
       )}

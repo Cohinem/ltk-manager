@@ -157,7 +157,7 @@ function TextureCard({ asset, path, layerTitle }: TextureCardProps) {
             className={twMerge("max-h-full max-w-full object-contain", !loaded && "invisible")}
           />
         )}
-        {!loaded && <Spinner size="sm" className="absolute" />}
+        {!loaded && <Spinner size={16} className="absolute" />}
       </div>
       <span className="truncate font-mono text-code text-surface-100 select-text">{path}</span>
       {texture && <TextureFacts texture={texture} asset={asset} layerTitle={layerTitle} />}

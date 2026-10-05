@@ -1,22 +1,32 @@
-import { AlertBox, type AlertBoxVariant } from "./AlertBox";
+import { AlertBox } from "./AlertBox";
 import { Button } from "./Button";
 import type { GalleryEntry } from "./galleryEntry";
+import type { StatusTone } from "./tone";
 
-const VARIANTS: AlertBoxVariant[] = ["neutral", "info", "success", "warning", "error"];
+const TONES: StatusTone[] = ["neutral", "info", "success", "warning", "danger"];
 
 const entry: GalleryEntry = {
   name: "AlertBox",
   family: "feedback",
   cases: [
     {
-      name: "Variants",
+      name: "Tones, with a title and a body",
       render: () => (
         <div className="flex w-full max-w-xl flex-col gap-2">
-          {VARIANTS.map((variant) => (
-            <AlertBox key={variant} variant={variant} title={variant}>
+          {TONES.map((tone) => (
+            <AlertBox key={tone} tone={tone} title={tone}>
               The patcher builds the overlay from the enabled mods.
             </AlertBox>
           ))}
+        </div>
+      ),
+    },
+    {
+      name: "A title alone, and a body alone",
+      render: () => (
+        <div className="flex w-full max-w-xl flex-col gap-2">
+          <AlertBox tone="success" title="The overlay is up to date" />
+          <AlertBox tone="neutral">Nothing is enabled in this profile.</AlertBox>
         </div>
       ),
     },
@@ -25,7 +35,7 @@ const entry: GalleryEntry = {
       render: () => (
         <div className="flex w-full max-w-xl flex-col gap-2">
           <AlertBox
-            variant="warning"
+            tone="warning"
             title="Two mods edit the same file"
             actions={
               <Button size="sm" variant="outline">
@@ -33,7 +43,7 @@ const entry: GalleryEntry = {
               </Button>
             }
           />
-          <AlertBox variant="info" title="A new build is ready" onDismiss={() => {}} />
+          <AlertBox tone="info" title="A new build is ready" onDismiss={() => {}} />
         </div>
       ),
     },
@@ -41,10 +51,10 @@ const entry: GalleryEntry = {
       name: "Pressable",
       render: () => (
         <div className="flex w-full max-w-xl flex-col gap-2">
-          <AlertBox variant="error" title="3 problems found" onClick={() => {}}>
+          <AlertBox tone="danger" title="3 problems found" onClick={() => {}}>
             Open the list
           </AlertBox>
-          <AlertBox variant="neutral" title="Checking the library" onClick={() => {}} disabled />
+          <AlertBox tone="neutral" title="Checking the library" onClick={() => {}} disabled />
         </div>
       ),
     },

@@ -58,14 +58,12 @@ export function ViewOptionsPopover({
           }
         />
       </Tooltip>
-      {/* A rung under the DS-GROUND default for floating UI, so it reads apart
-          from the surface-800 toolbar it drops out of. */}
       <Popover.Content
         side="bottom"
         align="end"
         sideOffset={8}
         aria-label={m.library_view_options_label()}
-        className="w-72 divide-y divide-surface-600/50 bg-surface-900 p-0 select-none"
+        className="w-72 divide-y divide-surface-700 p-0 select-none"
       >
         {viewMode === "grid" && <CardSize />}
         {viewMode === "table" && tableOptions}

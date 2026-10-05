@@ -17,12 +17,10 @@ const TONE = {
   red: {
     badge: "bg-danger/15 text-danger-text",
     wad: "bg-danger/10 text-danger-text",
-    close: "text-danger-text hover:bg-danger/15 hover:text-danger-text",
   },
   amber: {
     badge: "bg-warning/15 text-warning-text",
     wad: "bg-warning/10 text-warning-text",
-    close: "text-warning-text hover:bg-warning/15 hover:text-warning-text",
   },
 };
 
@@ -105,25 +103,28 @@ function WadScanFailedContent({
   };
 
   return (
-    <Dialog.Frame open onClose={onClose} size="md">
-      <Dialog.Header>
-        <Dialog.Title className="flex items-center gap-2.5">
+    <Dialog.Shell
+      open
+      onClose={onClose}
+      title={
+        <>
           <span
             className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${tone.badge}`}
           >
             <Icon className="size-4" />
           </span>
           {config.title}
-        </Dialog.Title>
-        <Dialog.Close className={tone.close} />
-      </Dialog.Header>
-
-      <Dialog.Body className="flex flex-col gap-4">
+        </>
+      }
+      titleClassName="flex items-center gap-2.5"
+      size="md"
+    >
+      <Dialog.Body>
         <p className="text-sm leading-relaxed text-surface-300">{config.lead}</p>
 
         {isLoading && (
           <div className="flex items-center gap-2 text-sm text-surface-400">
-            <Spinner size="sm" />
+            <Spinner size={16} />
             Identifying the responsible mods…
           </div>
         )}
@@ -167,7 +168,7 @@ function WadScanFailedContent({
           </p>
         )}
 
-        <AlertBox variant="warning" icon={<Wrench className="size-5" />} title={config.fix} />
+        <AlertBox tone="warning" icon={<Wrench className="size-5" />} title={config.fix} />
       </Dialog.Body>
 
       <Dialog.Footer>
@@ -190,6 +191,6 @@ function WadScanFailedContent({
           Ok, Stop Patcher
         </Button>
       </Dialog.Footer>
-    </Dialog.Frame>
+    </Dialog.Shell>
   );
 }

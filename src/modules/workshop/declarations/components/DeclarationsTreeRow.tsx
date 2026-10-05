@@ -31,7 +31,7 @@ import { clickIntent } from "../../state";
 import { type DropTarget, isDraggable, moduleOfRow } from "../utils/outlineDrop";
 import { entryTitle, isInGame, type OutlineNode, pathSegments } from "../utils/outlineTree";
 import { ModuleBody } from "./ModuleRowBody";
-import { Caret, Count, RowTag, SELECTED_ROW_ACTION, useOutlineRow } from "./OutlineRowParts";
+import { Caret, OutlineCount, RowTag, SELECTED_ROW_ACTION, useOutlineRow } from "./OutlineRowParts";
 import { ValueSummaryView } from "./ValueView";
 
 interface DeclarationsTreeRowProps {
@@ -203,7 +203,7 @@ function LayerBody({ node }: { node: Extract<OutlineNode, { type: "layer" }> }) 
           </span>
         </Tooltip>
       )}
-      {layer.error === null && <Count value={layer.modules.length} />}
+      {layer.error === null && <OutlineCount value={layer.modules.length} />}
     </>
   );
 }
@@ -232,7 +232,7 @@ function EntryBody({
       </span>
       {entry.knownName !== null && <Code className="shrink-0 select-text">{entry.name}</Code>}
       {entry.object !== null && <ObjectEditTag entry={entry} />}
-      <Count value={entry.keys.length} />
+      <OutlineCount value={entry.keys.length} />
       {shape.keys && isInGame(entry) && <GoToAction onGoTo={onGoTo} />}
     </>
   );

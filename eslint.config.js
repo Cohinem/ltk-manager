@@ -58,6 +58,20 @@ const RESTRICTED = [
   TAILWIND_MERGE,
 ];
 
+/* What a module draws through a wrapper in `src/components` and never by hand. */
+const NATIVE_CONTROLS = [
+  {
+    selector: "JSXOpeningElement[name.name='button']",
+    message: "Draw a press with `Button`, `IconButton` or a pressable `Badge` from `@/components`.",
+  },
+  {
+    /* An `iframe` is named by its `title`, so it keeps one. */
+    selector:
+      "JSXOpeningElement[name.type='JSXIdentifier'][name.name=/^(?!iframe$)[a-z]/] > JSXAttribute[name.name='title']",
+    message: "A DOM `title` never reaches the keyboard. Wrap the element in `Tooltip`.",
+  },
+];
+
 /**
  * The barrel rule, as seen from inside `owner`.
  *
@@ -217,6 +231,13 @@ export default tseslint.config(
       "no-restricted-imports": ["warn", { patterns: [barrelRule(owner), ...RESTRICTED] }],
     },
   })),
+  {
+    files: ["src/**/*.tsx"],
+    ignores: ["src/components/**", "src/**/*.test.tsx", "src/test/**", ...GENERATED],
+    rules: {
+      "no-restricted-syntax": ["warn", ...NATIVE_CONTROLS],
+    },
+  },
   {
     /* The wrappers are what the rule points every other file at, so they reach
        Base UI and each other freely. The merger is not one of those, and a

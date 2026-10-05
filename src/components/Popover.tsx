@@ -4,13 +4,14 @@ import { forwardRef, type ReactNode } from "react";
 import { twMerge } from "@/utils";
 
 import { focusRing } from "./focus";
+import { popupMotion, popupSurface } from "./popup";
 
 // Root
 export interface PopoverRootProps extends BasePopover.Root.Props {
   children?: ReactNode;
 }
 
-export const PopoverRoot = ({ children, ...props }: PopoverRootProps) => {
+const PopoverRoot = ({ children, ...props }: PopoverRootProps) => {
   return <BasePopover.Root {...props}>{children}</BasePopover.Root>;
 };
 PopoverRoot.displayName = "Popover.Root";
@@ -21,7 +22,7 @@ export interface PopoverTriggerProps extends Omit<BasePopover.Trigger.Props, "cl
   children?: ReactNode;
 }
 
-export const PopoverTrigger = forwardRef<HTMLButtonElement, PopoverTriggerProps>(
+const PopoverTrigger = forwardRef<HTMLButtonElement, PopoverTriggerProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BasePopover.Trigger ref={ref} className={className} {...props}>
@@ -37,7 +38,7 @@ export interface PopoverPortalProps extends BasePopover.Portal.Props {
   children?: ReactNode;
 }
 
-export const PopoverPortal = ({ children, ...props }: PopoverPortalProps) => {
+const PopoverPortal = ({ children, ...props }: PopoverPortalProps) => {
   return <BasePopover.Portal {...props}>{children}</BasePopover.Portal>;
 };
 PopoverPortal.displayName = "Popover.Portal";
@@ -47,7 +48,7 @@ export interface PopoverBackdropProps extends Omit<BasePopover.Backdrop.Props, "
   className?: string;
 }
 
-export const PopoverBackdrop = forwardRef<HTMLDivElement, PopoverBackdropProps>(
+const PopoverBackdrop = forwardRef<HTMLDivElement, PopoverBackdropProps>(
   ({ className, ...props }, ref) => {
     return (
       <BasePopover.Backdrop
@@ -66,7 +67,7 @@ export interface PopoverPositionerProps extends Omit<BasePopover.Positioner.Prop
   children?: ReactNode;
 }
 
-export const PopoverPositioner = forwardRef<HTMLDivElement, PopoverPositionerProps>(
+const PopoverPositioner = forwardRef<HTMLDivElement, PopoverPositionerProps>(
   ({ className, children, side = "bottom", align = "start", sideOffset = 4, ...props }, ref) => {
     return (
       <BasePopover.Positioner
@@ -90,18 +91,12 @@ export interface PopoverPopupProps extends Omit<BasePopover.Popup.Props, "classN
   children?: ReactNode;
 }
 
-export const PopoverPopup = forwardRef<HTMLDivElement, PopoverPopupProps>(
+const PopoverPopup = forwardRef<HTMLDivElement, PopoverPopupProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BasePopover.Popup
         ref={ref}
-        className={twMerge(
-          "rounded-lg border border-surface-600 bg-surface-800 shadow-xl outline-none",
-          "transition-[opacity,transform]",
-          "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
-          "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
-          className,
-        )}
+        className={twMerge(popupSurface, popupMotion, className)}
         {...props}
       >
         {children}
@@ -123,7 +118,7 @@ export interface PopoverContentProps
 }
 
 /** Portal, Positioner and Popup as one part, taking the positioning props itself. */
-export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
+const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
   (
     {
       side,
@@ -156,35 +151,13 @@ export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
 );
 PopoverContent.displayName = "Popover.Content";
 
-// Arrow
-export interface PopoverArrowProps extends Omit<BasePopover.Arrow.Props, "className"> {
-  className?: string;
-}
-
-export const PopoverArrow = forwardRef<HTMLDivElement, PopoverArrowProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <BasePopover.Arrow
-        ref={ref}
-        className={twMerge(
-          "fill-surface-800",
-          "[&>path:first-child]:stroke-surface-600",
-          className,
-        )}
-        {...props}
-      />
-    );
-  },
-);
-PopoverArrow.displayName = "Popover.Arrow";
-
 // Title
 export interface PopoverTitleProps extends Omit<BasePopover.Title.Props, "className"> {
   className?: string;
   children?: ReactNode;
 }
 
-export const PopoverTitle = forwardRef<HTMLHeadingElement, PopoverTitleProps>(
+const PopoverTitle = forwardRef<HTMLHeadingElement, PopoverTitleProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BasePopover.Title
@@ -205,7 +178,7 @@ export interface PopoverDescriptionProps extends Omit<BasePopover.Description.Pr
   children?: ReactNode;
 }
 
-export const PopoverDescription = forwardRef<HTMLParagraphElement, PopoverDescriptionProps>(
+const PopoverDescription = forwardRef<HTMLParagraphElement, PopoverDescriptionProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BasePopover.Description
@@ -226,14 +199,15 @@ export interface PopoverCloseProps extends Omit<BasePopover.Close.Props, "classN
   children?: ReactNode;
 }
 
-export const PopoverClose = forwardRef<HTMLButtonElement, PopoverCloseProps>(
+const PopoverClose = forwardRef<HTMLButtonElement, PopoverCloseProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BasePopover.Close
         ref={ref}
         className={twMerge(
           "inline-flex cursor-pointer items-center justify-center rounded-md",
-          "text-surface-200 transition-colors hover:bg-surface-700 active:bg-surface-800",
+          /* DS-VEIL */
+          "text-surface-200 transition-colors hover:bg-surface-veil active:bg-surface-veil-strong",
           focusRing,
           className,
         )}
@@ -246,7 +220,12 @@ export const PopoverClose = forwardRef<HTMLButtonElement, PopoverCloseProps>(
 );
 PopoverClose.displayName = "Popover.Close";
 
-// Compound export
+/**
+ * A floating panel anchored to its trigger, for content the reader acts in.
+ *
+ * A line that explains is a `Tooltip`, a card read on hover is a `HoverCard`, and a list of
+ * actions is a `Menu`.
+ */
 export const Popover = {
   Root: PopoverRoot,
   Trigger: PopoverTrigger,
@@ -255,7 +234,6 @@ export const Popover = {
   Positioner: PopoverPositioner,
   Popup: PopoverPopup,
   Content: PopoverContent,
-  Arrow: PopoverArrow,
   Title: PopoverTitle,
   Description: PopoverDescription,
   Close: PopoverClose,

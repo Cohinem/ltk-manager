@@ -164,14 +164,12 @@ export function FacetFilterPopover<F extends string>({
           }
         />
       </Tooltip>
-      {/* A rung under the DS-GROUND default for floating UI, so it reads apart
-          from the surface-800 toolbar it drops out of. */}
       <Popover.Content
         side="bottom"
         align="end"
         sideOffset={8}
         aria-label={m.common_filter_popup_label()}
-        className="w-[38rem] overflow-hidden bg-surface-900 p-0 select-none"
+        className="w-[38rem] overflow-hidden p-0 select-none"
       >
         <div className="max-h-[min(32rem,70vh)] divide-y divide-surface-600/50 overflow-y-auto">
           <FilterSection

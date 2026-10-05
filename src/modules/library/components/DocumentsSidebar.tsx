@@ -75,7 +75,7 @@ export function DocumentsSidebar({ mods, docked = false }: DocumentsSidebarProps
         className="min-h-0 flex-1"
       >
         <div className="flex shrink-0 items-center border-b border-surface-700 select-none">
-          <Tabs.List variant="plain" className="min-w-0 flex-1 overflow-x-auto scrollbar-sm">
+          <Tabs.List divider={false} className="min-w-0 flex-1 scrollbar-sm">
             <Tabs.Tab value="details">{m.library_documents_details_tab()}</Tabs.Tab>
             <Tabs.Tab value="readme">{m.library_documents_readme_tab()}</Tabs.Tab>
             <Tabs.Tab value="licenses">{m.library_documents_licenses_tab()}</Tabs.Tab>

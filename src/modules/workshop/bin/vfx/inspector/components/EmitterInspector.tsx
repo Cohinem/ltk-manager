@@ -293,7 +293,7 @@ function ChildBanner({ child }: { child: ChildChoice }) {
   return (
     <div className="shrink-0 px-1.5 pt-1.5 font-sans">
       <AlertBox
-        variant="neutral"
+        tone="neutral"
         data-ui="EmitterPanel:child-banner"
         title={
           <span className="flex min-w-0 items-center gap-1">

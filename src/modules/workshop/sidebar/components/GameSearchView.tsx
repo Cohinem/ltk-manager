@@ -69,7 +69,7 @@ function GameSearchBox({ onCommit }: { onCommit: () => void }) {
           <MatchCount result={data} />
         </Count>
       )}
-      {isFetching && <Spinner size="xs" className="shrink-0" />}
+      {isFetching && <Spinner size={12} className="shrink-0" />}
     </SearchField>
   );
 }

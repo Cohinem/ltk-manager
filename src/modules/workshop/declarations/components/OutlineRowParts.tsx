@@ -55,7 +55,7 @@ export function Caret({
   );
 }
 
-export function Count({ value }: { value: number }) {
+export function OutlineCount({ value }: { value: number }) {
   return <TreeRowCount className="pl-2">{value.toLocaleString()}</TreeRowCount>;
 }
 

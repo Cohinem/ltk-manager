@@ -8,6 +8,11 @@ export interface SkeletonProps {
   className?: string;
 }
 
+/**
+ * A placeholder in the shape of content that is on its way.
+ *
+ * A wait whose shape is not known is a `Spinner`, or a `LoadingState` for a whole view.
+ */
 export function Skeleton({
   width = "100%",
   height = "1rem",

@@ -71,7 +71,7 @@ export function DeclarationsDocument({
           disabled={view !== "outline"}
         />
         <SegmentedControl
-          size="xs"
+          size="sm"
           aria-label={m.workshop_declarations_view_label()}
           value={view}
           onChange={setChosen}

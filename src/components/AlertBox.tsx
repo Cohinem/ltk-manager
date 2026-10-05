@@ -1,16 +1,19 @@
-import { CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react";
+import { XIcon } from "@phosphor-icons/react";
 import { type ReactNode } from "react";
 
+import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { IconButton } from "./Button";
 import { focusRing } from "./focus";
-
-export type AlertBoxVariant = "neutral" | "info" | "success" | "warning" | "error";
+import { statusGlyph, type StatusTone, statusText } from "./tone";
 
 interface AlertBoxBase {
-  variant?: AlertBoxVariant;
+  /** `info` unless told otherwise. */
+  tone?: StatusTone;
   title?: ReactNode;
   children?: ReactNode;
+  /** In place of the tone's own glyph. Size it to 20px. */
   icon?: ReactNode;
   actions?: ReactNode;
   className?: string;
@@ -26,56 +29,38 @@ export type AlertBoxProps = AlertBoxBase &
     | { onClick: () => void; disabled?: boolean; onDismiss?: never }
   );
 
-/* The status token tinting its own border and fill, as the wiki's asides do.
-   The icon takes the -text variant: a base-amber glyph on a pale amber fill is
-   near-invisible in light mode. */
-const variantStyles: Record<AlertBoxVariant, { border: string; bg: string; icon: string }> = {
+/* The status token tinting its own edge and fill. `hover` is the wash a step up, so a
+   pressable box answers the pointer in its own hue. */
+const toneStyles: Record<StatusTone, { edge: string; fill: string; hover: string }> = {
   neutral: {
-    border: "border-surface-700/60",
-    bg: "bg-surface-800/40",
-    icon: "text-surface-400",
+    edge: "border-surface-700/60",
+    fill: "bg-surface-800/40",
+    hover: "hover:bg-surface-800/70",
   },
-  info: {
-    border: "border-info/30",
-    bg: "bg-info/8",
-    icon: "text-info-text",
-  },
-  success: {
-    border: "border-success/30",
-    bg: "bg-success/8",
-    icon: "text-success-text",
-  },
-  warning: {
-    border: "border-warning/30",
-    bg: "bg-warning/8",
-    icon: "text-warning-text",
-  },
-  error: {
-    border: "border-danger/30",
-    bg: "bg-danger/8",
-    icon: "text-danger-text",
-  },
+  info: { edge: "border-info/30", fill: "bg-info/8", hover: "hover:bg-info/12" },
+  success: { edge: "border-success/30", fill: "bg-success/8", hover: "hover:bg-success/12" },
+  warning: { edge: "border-warning/30", fill: "bg-warning/8", hover: "hover:bg-warning/12" },
+  danger: { edge: "border-danger/30", fill: "bg-danger/8", hover: "hover:bg-danger/12" },
 };
 
-/** The wash a step up, so a pressable box answers the pointer in its own hue. */
-const hoverStyles: Record<AlertBoxVariant, string> = {
-  neutral: "hover:bg-surface-800/70",
-  info: "hover:bg-info/12",
-  success: "hover:bg-success/12",
-  warning: "hover:bg-warning/12",
-  error: "hover:bg-danger/12",
+/** A warning or an error interrupts a screen reader, and the other tones wait their turn. */
+const toneRole: Record<StatusTone, "alert" | "status"> = {
+  neutral: "status",
+  info: "status",
+  success: "status",
+  warning: "alert",
+  danger: "alert",
 };
 
-const defaultIcons: Record<AlertBoxVariant, ReactNode> = {
-  neutral: <Info className="size-5" />,
-  info: <Info className="size-5" />,
-  success: <CircleCheck className="size-5" />,
-  warning: <CircleAlert className="size-5" />,
-  error: <CircleX className="size-5" />,
-};
-
+/**
+ * A boxed message about the state of what is on screen, in one of the five tones.
+ *
+ * It takes a `title`, a body as children, or both, and `actions` at its trailing edge.
+ * `onDismiss` adds a close button, and `onClick` makes the whole box one button. A box with
+ * both a title and a body aligns its glyph to the title's line.
+ */
 export function AlertBox({
-  variant = "info",
+  tone = "info",
   title,
   children,
   icon,
@@ -86,12 +71,15 @@ export function AlertBox({
   className,
   "data-ui": dataUi,
 }: AlertBoxProps) {
-  const styles = variantStyles[variant];
-  const resolvedIcon = icon ?? defaultIcons[variant];
+  const styles = toneStyles[tone];
+  const Glyph = statusGlyph[tone];
+  const stacked = Boolean(title) && Boolean(children);
 
   const body = (
     <>
-      <div className={twMerge("shrink-0", styles.icon)}>{resolvedIcon}</div>
+      <div className={twMerge("shrink-0", statusText[tone])}>
+        {icon ?? <Glyph weight="duotone" className="size-5" />}
+      </div>
       <div className="min-w-0 flex-1">
         {title && <p className="text-sm font-medium text-surface-100">{title}</p>}
         {children && <div className="text-sm text-surface-400">{children}</div>}
@@ -107,15 +95,13 @@ export function AlertBox({
         data-ui={dataUi}
         disabled={disabled}
         onClick={onClick}
-        /* Aligned to the top, so a title that wraps runs under itself and the
-           actions stay on the first line rather than centring against a block. */
         className={twMerge(
           "flex w-full cursor-pointer items-start gap-2 rounded-lg border px-2 py-2 text-left transition-colors",
-          styles.border,
-          styles.bg,
+          styles.edge,
+          styles.fill,
           focusRing,
-          "disabled:cursor-not-allowed disabled:opacity-70",
-          hoverStyles[variant],
+          "disabled:cursor-not-allowed disabled:opacity-50",
+          !disabled && styles.hover,
           className,
         )}
       >
@@ -126,28 +112,25 @@ export function AlertBox({
 
   return (
     <div
-      role="alert"
+      role={toneRole[tone]}
       data-ui={dataUi}
       className={twMerge(
-        "flex items-center gap-2 rounded-lg border px-2 py-2",
-        styles.border,
-        styles.bg,
+        "flex gap-2 rounded-lg border px-2 py-2",
+        stacked ? "items-start" : "items-center",
+        styles.edge,
+        styles.fill,
         className,
       )}
     >
       {body}
       {onDismiss && (
-        <button
-          type="button"
+        <IconButton
+          icon={<XIcon />}
+          label={m.common_dismiss_action()}
+          muted
           onClick={onDismiss}
-          className={twMerge(
-            "shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200",
-            focusRing,
-          )}
-          aria-label="Dismiss"
-        >
-          <X className="size-4" />
-        </button>
+          className="shrink-0"
+        />
       )}
     </div>
   );

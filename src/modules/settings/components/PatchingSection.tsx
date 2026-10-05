@@ -1,15 +1,7 @@
 import { ArrowsClockwiseIcon, ShieldWarningIcon, StackIcon } from "@phosphor-icons/react";
 import { type KeyboardEvent, useEffect, useState } from "react";
 
-import {
-  AlertBox,
-  Button,
-  FieldControl,
-  SectionCard,
-  Stack,
-  TftIcon,
-  useToast,
-} from "@/components";
+import { AlertBox, Button, SectionCard, Stack, TftIcon, useToast, Field } from "@/components";
 import { errorSummary } from "@/i18n";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
@@ -59,7 +51,7 @@ export function PatchingSection() {
           />
 
           {leagueRunsAsAdmin && (
-            <AlertBox variant="warning">
+            <AlertBox tone="warning">
               League runs as administrator, so the injector elevates automatically. Expect a UAC
               prompt even with this off.
             </AlertBox>
@@ -81,7 +73,7 @@ export function PatchingSection() {
           />
 
           {!settings.blockScriptsWad && (
-            <AlertBox variant="warning">
+            <AlertBox tone="warning">
               Modding allows running Lua scripts. Only install from sources you trust.
             </AlertBox>
           )}
@@ -101,7 +93,7 @@ export function PatchingSection() {
           />
 
           {!settings.enforceSkinhackScan && (
-            <AlertBox variant="warning">
+            <AlertBox tone="warning">
               Enforcement is off, so mods flagged as skinhacks will load.
             </AlertBox>
           )}
@@ -225,7 +217,7 @@ function KeepIncidentsField({ value, onCommit }: KeepIncidentsFieldProps) {
   }
 
   return (
-    <FieldControl
+    <Field.Control
       type="number"
       inputMode="numeric"
       min={MIN_KEPT_INCIDENTS}

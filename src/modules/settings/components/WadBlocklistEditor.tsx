@@ -73,11 +73,9 @@ export function WadBlocklistEditor() {
       </p>
 
       <Tabs.Root value={mode} onValueChange={(v) => setMode(v as Mode)}>
-        <Tabs.List variant="pills" className="w-fit">
-          <Tabs.Tab value="exact" variant="pills">
-            Exact filename
-          </Tabs.Tab>
-          <Tabs.Tab value="regex" variant="pills">
+        <Tabs.List variant="pills">
+          <Tabs.Tab value="exact">Exact filename</Tabs.Tab>
+          <Tabs.Tab value="regex">
             <RegexIcon className="mr-1.5 inline size-3.5" />
             Regex pattern
           </Tabs.Tab>

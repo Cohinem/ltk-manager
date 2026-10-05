@@ -140,7 +140,6 @@ function SortableStripTab({
         )}
       >
         <Tabs.Tab
-          variant="plain"
           value={pane.id}
           className="min-w-0 shrink cursor-pointer gap-1 px-1.5 py-0 font-sans text-xs font-medium tracking-wide uppercase"
         >

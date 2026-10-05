@@ -13,6 +13,11 @@ const joinClass =
   "[&>*:not(:nth-child(1_of_:not(span)))]:rounded-l-none " +
   "[&>*:not(:nth-last-child(1_of_:not(span)))]:rounded-r-none";
 
+/**
+ * Buttons joined into one control, for an action and the menu of its variants.
+ *
+ * Choices that exclude each other are a `SegmentedControl`.
+ */
 export function ButtonGroup({ children, className }: ButtonGroupProps) {
   return (
     <div role="group" className={twMerge("inline-flex", joinClass, className)}>

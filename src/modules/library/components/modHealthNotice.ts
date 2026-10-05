@@ -5,6 +5,7 @@
  * Per "How loud a finding is drawn" in docs/ux/MOD_HEALTH.md.
  */
 
+import type { BadgeTone } from "@/components";
 import { type ModHealthVerdict } from "@/lib/tauri";
 
 /**
@@ -39,13 +40,8 @@ export interface SweepTone {
   rule: string;
   /** The badge behind the glyph that names the finding. */
   chip: string;
-  /**
-   * The card badge's pill, which rings its tint rather than bordering it.
-   *
-   * A ring so the pill keeps its own height in a row of card chrome, where a
-   * border would spend a pixel of it.
-   */
-  pill: string;
+  /** The tone of the card's `Badge`. */
+  badge: BadgeTone;
   /**
    * The status bar cell, as the status hue's own `duotone` Button.
    *
@@ -66,7 +62,7 @@ const WARNING: SweepTone = {
   wash: "bg-linear-to-r from-warning/15 to-warning/0",
   rule: "bg-linear-to-r from-warning/50 to-warning/0",
   chip: "text-warning-text",
-  pill: "bg-warning/15 text-warning-text ring-warning/30 hover:bg-warning/25",
+  badge: "warning",
   cell: "bg-warning/15 text-warning-text hover:bg-warning/25 active:bg-warning/35 border border-warning/35",
   held: "bg-warning/35 hover:bg-warning/45",
 };
@@ -75,7 +71,7 @@ const DANGER: SweepTone = {
   wash: "bg-linear-to-r from-danger/15 to-danger/0",
   rule: "bg-linear-to-r from-danger/50 to-danger/0",
   chip: "text-danger-text",
-  pill: "bg-danger/15 text-danger-text ring-danger/30 hover:bg-danger/25",
+  badge: "danger",
   cell: "bg-danger/15 text-danger-text hover:bg-danger/25 active:bg-danger/35 border border-danger/35",
   held: "bg-danger/35 hover:bg-danger/45",
 };
@@ -91,7 +87,7 @@ const MUTED: SweepTone = {
   wash: "bg-linear-to-r from-surface-400/12 to-surface-400/0",
   rule: "bg-linear-to-r from-surface-400/40 to-surface-400/0",
   chip: "text-surface-400",
-  pill: "bg-surface-400/12 text-surface-300 ring-surface-400/25 hover:bg-surface-400/20",
+  badge: "neutral",
   cell: "bg-surface-400/12 text-surface-300 hover:bg-surface-400/20 active:bg-surface-400/30 border border-surface-400/25",
   held: "bg-surface-400/30 hover:bg-surface-400/40",
 };

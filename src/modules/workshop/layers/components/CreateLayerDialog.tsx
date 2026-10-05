@@ -57,7 +57,7 @@ export function CreateLayerDialog({
 
   return (
     <Dialog.Shell open={open} onClose={handleClose} title="New Layer" size="sm">
-      <form
+      <Dialog.Form
         onSubmit={(e) => {
           e.preventDefault();
           form.handleSubmit();
@@ -171,7 +171,7 @@ export function CreateLayerDialog({
             )}
           </form.Subscribe>
         </Dialog.Footer>
-      </form>
+      </Dialog.Form>
     </Dialog.Shell>
   );
 }

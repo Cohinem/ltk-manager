@@ -42,7 +42,7 @@ export function GamesTab({ modAction }: { modAction?: ModAction }) {
   if (incidents.isPending) {
     return (
       <div className="flex flex-1 items-center justify-center py-16">
-        <Spinner size="lg" />
+        <Spinner size={32} />
       </div>
     );
   }
@@ -50,7 +50,7 @@ export function GamesTab({ modAction }: { modAction?: ModAction }) {
   if (incidents.isError) {
     return (
       <div className="mx-auto w-full max-w-5xl p-6">
-        <AlertBox variant="error" title="Couldn't read the incidents">
+        <AlertBox tone="danger" title="Couldn't read the incidents">
           {errorSummary(incidents.error)}
         </AlertBox>
       </div>

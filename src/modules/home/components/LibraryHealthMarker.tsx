@@ -9,7 +9,7 @@ import {
   WrenchIcon,
 } from "@phosphor-icons/react";
 
-import { AlertBox, type AlertBoxVariant } from "@/components";
+import { AlertBox, type StatusTone } from "@/components";
 import { m } from "@/i18n";
 
 import { type LibraryHealth, type LibraryHealthState, useLibraryHealth } from "../api";
@@ -18,10 +18,10 @@ import { type LibraryHealth, type LibraryHealthState, useLibraryHealth } from ".
 const INSTALLED_GAME_BUILD: string | null = null;
 
 /* The hue is the severity's: DS-KIND-HUE. */
-const VARIANT: Record<LibraryHealthState, AlertBoxVariant> = {
+const TONE: Record<LibraryHealthState, StatusTone> = {
   unsynced: "neutral",
   syncing: "neutral",
-  broken: "error",
+  broken: "danger",
   repairable: "warning",
   stale: "warning",
   flagged: "neutral",
@@ -61,7 +61,7 @@ export function LibraryHealthMarker() {
     return (
       <AlertBox
         data-ui="LibraryHealthMarker"
-        variant={VARIANT[health.state]}
+        tone={TONE[health.state]}
         icon={glyph}
         title={m.home_library_health_title()}
         actions={<Reading health={health} />}
@@ -73,7 +73,7 @@ export function LibraryHealthMarker() {
   return (
     <AlertBox
       data-ui="LibraryHealthMarker"
-      variant={VARIANT[health.state]}
+      tone={TONE[health.state]}
       icon={glyph}
       title={m.home_library_health_title()}
       actions={<Reading health={health} />}

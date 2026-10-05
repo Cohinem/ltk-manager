@@ -1,17 +1,29 @@
 import { ContextMenu as BaseContextMenu } from "@base-ui/react/context-menu";
-import { CaretRightIcon } from "@phosphor-icons/react";
 import { forwardRef, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
-import { Kbd } from "./Kbd";
+import {
+  type MenuCheckboxItemProps,
+  type MenuGroupLabelProps,
+  type MenuGroupProps,
+  type MenuItemProps,
+  type MenuItemVariant,
+  type MenuRadioGroupProps,
+  type MenuRadioItemProps,
+  type MenuSeparatorProps,
+  type MenuSubmenuRootProps,
+  type MenuSubmenuTriggerProps,
+  Menu,
+} from "./Menu";
+import { popupMotion, popupSurface } from "./popup";
 
 // Root
 export interface ContextMenuRootProps extends BaseContextMenu.Root.Props {
   children?: ReactNode;
 }
 
-export const ContextMenuRoot = ({ children, ...props }: ContextMenuRootProps) => {
+const ContextMenuRoot = ({ children, ...props }: ContextMenuRootProps) => {
   return <BaseContextMenu.Root {...props}>{children}</BaseContextMenu.Root>;
 };
 ContextMenuRoot.displayName = "ContextMenu.Root";
@@ -22,7 +34,7 @@ export interface ContextMenuTriggerProps extends Omit<BaseContextMenu.Trigger.Pr
   children?: ReactNode;
 }
 
-export const ContextMenuTrigger = forwardRef<HTMLDivElement, ContextMenuTriggerProps>(
+const ContextMenuTrigger = forwardRef<HTMLDivElement, ContextMenuTriggerProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseContextMenu.Trigger ref={ref} className={className} {...props}>
@@ -38,7 +50,7 @@ export interface ContextMenuPortalProps extends BaseContextMenu.Portal.Props {
   children?: ReactNode;
 }
 
-export const ContextMenuPortal = ({ children, ...props }: ContextMenuPortalProps) => {
+const ContextMenuPortal = ({ children, ...props }: ContextMenuPortalProps) => {
   return <BaseContextMenu.Portal {...props}>{children}</BaseContextMenu.Portal>;
 };
 ContextMenuPortal.displayName = "ContextMenu.Portal";
@@ -52,7 +64,7 @@ export interface ContextMenuPositionerProps extends Omit<
   children?: ReactNode;
 }
 
-export const ContextMenuPositioner = forwardRef<HTMLDivElement, ContextMenuPositionerProps>(
+const ContextMenuPositioner = forwardRef<HTMLDivElement, ContextMenuPositionerProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseContextMenu.Positioner ref={ref} className={twMerge("z-50", className)} {...props}>
@@ -69,20 +81,12 @@ export interface ContextMenuPopupProps extends Omit<BaseContextMenu.Popup.Props,
   children?: ReactNode;
 }
 
-export const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps>(
+const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseContextMenu.Popup
         ref={ref}
-        className={twMerge(
-          "min-w-40 rounded-xl border border-surface-700 p-1 shadow-xl outline-none",
-          /* DS-GLASS */
-          "bg-(--ltk-glass-panel-fill) backdrop-filter-(--ltk-glass-panel-blur)",
-          "transition-[opacity,transform]",
-          "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
-          "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
-          className,
-        )}
+        className={twMerge("min-w-40 p-1", popupSurface, popupMotion, className)}
         {...props}
       >
         {children}
@@ -92,117 +96,34 @@ export const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps
 );
 ContextMenuPopup.displayName = "ContextMenu.Popup";
 
-// Item, styled the same as Menu.Item
-export type ContextMenuItemVariant = "default" | "danger";
+/*
+ * Base UI's context menu draws its rows with the menu's own parts, so the rows here are the
+ * `Menu` ones under the context menu's names. A row added to one is in the other.
+ */
+export type ContextMenuItemVariant = MenuItemVariant;
+export type ContextMenuItemProps = MenuItemProps;
+export type ContextMenuSeparatorProps = MenuSeparatorProps;
+export type ContextMenuSubmenuRootProps = MenuSubmenuRootProps;
+export type ContextMenuSubmenuTriggerProps = MenuSubmenuTriggerProps;
+export type ContextMenuRadioGroupProps = MenuRadioGroupProps;
+export type ContextMenuRadioItemProps = MenuRadioItemProps;
+export type ContextMenuCheckboxItemProps = MenuCheckboxItemProps;
+export type ContextMenuGroupProps = MenuGroupProps;
+export type ContextMenuGroupLabelProps = MenuGroupLabelProps;
 
-export interface ContextMenuItemProps extends Omit<BaseContextMenu.Item.Props, "className"> {
-  icon?: ReactNode;
-  shortcut?: string;
-  variant?: ContextMenuItemVariant;
-  className?: string;
-  children?: ReactNode;
-}
-
-const itemVariantClasses: Record<ContextMenuItemVariant, string> = {
-  default: "text-surface-200 data-[highlighted]:bg-surface-veil data-[highlighted]:text-surface-50",
-  /* The highlight is a fill because the label is already at its own shade: DS-TEXT. */
-  danger: "text-danger-text data-[highlighted]:bg-danger/15",
-};
-
-export const ContextMenuItem = forwardRef<HTMLDivElement, ContextMenuItemProps>(
-  ({ icon, shortcut, variant = "default", className, children, ...props }, ref) => {
-    return (
-      <BaseContextMenu.Item
-        ref={ref}
-        className={twMerge(
-          "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm outline-none select-none",
-          // Base UI stops a disabled item responding but leaves it looking
-          // identical to a live one, so it needs its own resting color.
-          "data-[disabled]:cursor-not-allowed data-[disabled]:text-surface-400",
-          itemVariantClasses[variant],
-          className,
-        )}
-        {...props}
-      >
-        {icon && <span className="size-4 shrink-0 opacity-70">{icon}</span>}
-        {/* A menu item is one line, so a long label loses its tail rather than
-            taking the popup's width past what the call site set. */}
-        <span className="min-w-0 flex-1 truncate">{children}</span>
-        {shortcut && <Kbd shortcut={shortcut} />}
-      </BaseContextMenu.Item>
-    );
-  },
-);
-ContextMenuItem.displayName = "ContextMenu.Item";
-
-// Separator
-export interface ContextMenuSeparatorProps extends Omit<
-  BaseContextMenu.Separator.Props,
-  "className"
-> {
-  className?: string;
-}
-
-export const ContextMenuSeparator = forwardRef<HTMLDivElement, ContextMenuSeparatorProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <BaseContextMenu.Separator
-        ref={ref}
-        className={twMerge("-mx-1 my-1 border-t border-surface-700", className)}
-        {...props}
-      />
-    );
-  },
-);
-ContextMenuSeparator.displayName = "ContextMenu.Separator";
-
-// SubmenuRoot
-export interface ContextMenuSubmenuRootProps extends BaseContextMenu.SubmenuRoot.Props {
-  children?: ReactNode;
-}
-
-export const ContextMenuSubmenuRoot = ({ children, ...props }: ContextMenuSubmenuRootProps) => {
-  return <BaseContextMenu.SubmenuRoot {...props}>{children}</BaseContextMenu.SubmenuRoot>;
-};
-ContextMenuSubmenuRoot.displayName = "ContextMenu.SubmenuRoot";
-
-// SubmenuTrigger, styled the same as Menu.SubmenuTrigger
-export interface ContextMenuSubmenuTriggerProps extends Omit<
-  BaseContextMenu.SubmenuTrigger.Props,
-  "className"
-> {
-  icon?: ReactNode;
-  className?: string;
-  children?: ReactNode;
-}
-
-export const ContextMenuSubmenuTrigger = forwardRef<HTMLDivElement, ContextMenuSubmenuTriggerProps>(
-  ({ icon, openOnHover = true, className, children, ...props }, ref) => {
-    return (
-      <BaseContextMenu.SubmenuTrigger
-        ref={ref}
-        openOnHover={openOnHover}
-        className={twMerge(
-          "flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm outline-none select-none",
-          "data-[disabled]:cursor-not-allowed data-[disabled]:text-surface-400",
-          itemVariantClasses.default,
-          "data-[popup-open]:bg-surface-veil data-[popup-open]:text-surface-50",
-          className,
-        )}
-        {...props}
-      >
-        {icon && <span className="size-4 shrink-0 opacity-70">{icon}</span>}
-        <span className="min-w-0 flex-1 truncate">{children}</span>
-        <CaretRightIcon className="size-3.5 shrink-0 opacity-70" weight="bold" />
-      </BaseContextMenu.SubmenuTrigger>
-    );
-  },
-);
-ContextMenuSubmenuTrigger.displayName = "ContextMenu.SubmenuTrigger";
+const ContextMenuItem = Menu.Item;
+const ContextMenuSeparator = Menu.Separator;
+const ContextMenuSubmenuRoot = Menu.SubmenuRoot;
+const ContextMenuSubmenuTrigger = Menu.SubmenuTrigger;
+const ContextMenuRadioGroup = Menu.RadioGroup;
+const ContextMenuRadioItem = Menu.RadioItem;
+const ContextMenuCheckboxItem = Menu.CheckboxItem;
+const ContextMenuGroup = Menu.Group;
+const ContextMenuGroupLabel = Menu.GroupLabel;
 
 // SubmenuPositioner
 /** `ContextMenuPositioner` aimed sideways, which is what a submenu changes about its popup. */
-export const ContextMenuSubmenuPositioner = forwardRef<HTMLDivElement, ContextMenuPositionerProps>(
+const ContextMenuSubmenuPositioner = forwardRef<HTMLDivElement, ContextMenuPositionerProps>(
   ({ side = "inline-end", align = "start", sideOffset = 4, ...props }, ref) => {
     return (
       <ContextMenuPositioner
@@ -229,7 +150,7 @@ export interface ContextMenuContentProps
 }
 
 /** Portal, Positioner and Popup as one part, taking the positioning props itself. */
-export const ContextMenuContent = forwardRef<HTMLDivElement, ContextMenuContentProps>(
+const ContextMenuContent = forwardRef<HTMLDivElement, ContextMenuContentProps>(
   (
     {
       side,
@@ -274,7 +195,7 @@ export interface ContextMenuSubmenuContentProps
 }
 
 /** The submenu's Portal, Positioner and Popup as one part, aimed sideways. */
-export const ContextMenuSubmenuContent = forwardRef<HTMLDivElement, ContextMenuSubmenuContentProps>(
+const ContextMenuSubmenuContent = forwardRef<HTMLDivElement, ContextMenuSubmenuContentProps>(
   (
     {
       side,
@@ -307,7 +228,12 @@ export const ContextMenuSubmenuContent = forwardRef<HTMLDivElement, ContextMenuS
 );
 ContextMenuSubmenuContent.displayName = "ContextMenu.SubmenuContent";
 
-// Compound export
+/**
+ * The menu a right click opens on its trigger.
+ *
+ * It lists what `Menu` lists, with the same rows: `Item`, `RadioGroup` and `RadioItem`,
+ * `CheckboxItem`, `Group` and `GroupLabel`, `Separator`, and a submenu.
+ */
 export const ContextMenu = {
   Root: ContextMenuRoot,
   Trigger: ContextMenuTrigger,
@@ -317,6 +243,11 @@ export const ContextMenu = {
   Content: ContextMenuContent,
   SubmenuContent: ContextMenuSubmenuContent,
   Item: ContextMenuItem,
+  RadioGroup: ContextMenuRadioGroup,
+  RadioItem: ContextMenuRadioItem,
+  CheckboxItem: ContextMenuCheckboxItem,
+  Group: ContextMenuGroup,
+  GroupLabel: ContextMenuGroupLabel,
   Separator: ContextMenuSeparator,
   SubmenuRoot: ContextMenuSubmenuRoot,
   SubmenuTrigger: ContextMenuSubmenuTrigger,

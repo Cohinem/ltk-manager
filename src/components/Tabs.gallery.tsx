@@ -1,17 +1,19 @@
 import type { GalleryEntry } from "./galleryEntry";
 import { Tabs, type TabsVariant } from "./Tabs";
 
-function Demo({ variant }: { variant: TabsVariant }) {
+function Demo({ variant, divider }: { variant: TabsVariant; divider?: boolean }) {
+  const vertical = variant === "rail";
+
   return (
-    <Tabs.Root defaultValue="games" className="w-96 gap-3">
-      <Tabs.List variant={variant}>
-        <Tabs.Tab variant={variant} value="games">
-          Games
-        </Tabs.Tab>
-        <Tabs.Tab variant={variant} value="system">
-          System
-        </Tabs.Tab>
-        <Tabs.Tab variant={variant} value="logs" disabled>
+    <Tabs.Root
+      defaultValue="games"
+      orientation={vertical ? "vertical" : "horizontal"}
+      className={vertical ? "w-96 flex-row gap-4" : "w-96 gap-3"}
+    >
+      <Tabs.List variant={variant} divider={divider} className={vertical ? "w-40" : undefined}>
+        <Tabs.Tab value="games">Games</Tabs.Tab>
+        <Tabs.Tab value="system">System</Tabs.Tab>
+        <Tabs.Tab value="logs" disabled>
           Logs
         </Tabs.Tab>
       </Tabs.List>
@@ -30,7 +32,12 @@ const entry: GalleryEntry = {
   family: "navigation",
   cases: [
     { name: "Default", render: () => <Demo variant="default" /> },
-    { name: "Pills", render: () => <Demo variant="pills" /> },
+    {
+      name: "Default without its hairline",
+      render: () => <Demo variant="default" divider={false} />,
+    },
+    { name: "Pills. The SegmentedControl track", render: () => <Demo variant="pills" /> },
+    { name: "Rail", render: () => <Demo variant="rail" /> },
   ],
 };
 

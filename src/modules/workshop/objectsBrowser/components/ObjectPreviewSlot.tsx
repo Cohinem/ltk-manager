@@ -131,7 +131,7 @@ export function ObjectPreviewSlot({ job, display, generation, onDismiss }: Objec
           initialFocus={false}
           finalFocus={false}
           aria-label={job?.node.name}
-          className="w-96 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-xl"
+          className="w-96 max-w-[calc(100vw-1.5rem)] overflow-hidden"
         >
           <div className="border-b border-surface-veil-strong px-3 py-2 text-row font-medium text-surface-100">
             {job?.node.name}

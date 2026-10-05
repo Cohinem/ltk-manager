@@ -16,7 +16,7 @@ export function StringOverridesHelpPopover() {
         align="end"
         sideOffset={8}
         positionerClassName="z-50"
-        className="w-96 space-y-2 rounded-xl border border-surface-600 bg-surface-800 p-4 text-sm text-surface-300 shadow-xl"
+        className="flex w-96 flex-col gap-2 p-4 text-sm text-surface-300"
       >
         <p className="font-medium text-surface-100">How overrides are applied</p>
         <p>

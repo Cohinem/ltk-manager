@@ -295,7 +295,7 @@ function Canvas({
 
       {!natural && (
         <div className="pointer-events-none absolute inset-0 grid place-items-center">
-          <Spinner size="md" />
+          <Spinner size={24} />
         </div>
       )}
     </div>

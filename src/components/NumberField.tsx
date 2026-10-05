@@ -32,8 +32,13 @@ interface NumberFieldProps {
   className?: string;
 }
 
-/* Reads as plain text until it is hovered or focused, so it can sit inline as a
-   readout rather than announcing itself as a form control. */
+/**
+ * A number that reads as plain text until it is hovered or focused, for a readout that sits
+ * inline and takes a typed value or a scrub.
+ *
+ * A number the reader nudges by a step is a `StepperField`, and one picked along a range is a
+ * `Slider`.
+ */
 export function NumberField({
   value,
   onValueChange,
@@ -78,9 +83,10 @@ export function NumberField({
         aria-label={ariaLabel}
         className={twMerge(
           "w-full rounded-sm border border-transparent bg-transparent px-1 py-0.5",
-          "text-right font-mono text-xs text-surface-300",
-          "enabled:hover:border-surface-600 enabled:hover:bg-surface-800 enabled:hover:text-surface-200",
-          "focus:border-accent-500 focus:bg-surface-800 focus:text-surface-100 focus:outline-none",
+          "text-right font-mono text-xs text-surface-300 tabular-nums transition-colors",
+          /* DS-HOVER, DS-VEIL */
+          "enabled:hover:border-accent-hover enabled:hover:bg-surface-veil-soft enabled:hover:text-surface-200",
+          "focus:border-accent-500 focus:bg-surface-veil-soft focus:text-surface-100 focus:outline-none",
           disabled && "cursor-not-allowed opacity-50",
           className,
         )}

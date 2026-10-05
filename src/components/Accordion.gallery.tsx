@@ -14,15 +14,15 @@ const TRAIL = [
 function Demo({ variant }: { variant: AccordionVariant }) {
   return (
     <Accordion.Root variant={variant} defaultValue={["library"]} className="w-96">
-      <Accordion.Item variant={variant} value="library">
-        <Accordion.Trigger variant={variant}>Library</Accordion.Trigger>
-        <Accordion.Panel variant={variant}>
+      <Accordion.Item value="library">
+        <Accordion.Trigger>Library</Accordion.Trigger>
+        <Accordion.Panel>
           <p className="px-3 py-2 text-sm text-surface-400">Options for your mod library</p>
         </Accordion.Panel>
       </Accordion.Item>
-      <Accordion.Item variant={variant} value="patcher">
-        <Accordion.Trigger variant={variant}>Patcher</Accordion.Trigger>
-        <Accordion.Panel variant={variant}>
+      <Accordion.Item value="patcher">
+        <Accordion.Trigger>Patcher</Accordion.Trigger>
+        <Accordion.Panel>
           <p className="px-3 py-2 text-sm text-surface-400">Options for the overlay</p>
         </Accordion.Panel>
       </Accordion.Item>
