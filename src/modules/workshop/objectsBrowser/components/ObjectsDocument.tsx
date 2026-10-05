@@ -251,7 +251,7 @@ function ObjectSearch({ onCommit, boxRef }: ObjectSearchProps) {
       inputRef={boxRef}
     >
       {counted && <Count>{countText(found)}</Count>}
-      {isFetching && <Spinner size="xs" className="shrink-0" />}
+      {isFetching && <Spinner size={12} className="shrink-0" />}
     </SearchField>
   );
 }

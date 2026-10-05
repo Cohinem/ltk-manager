@@ -339,7 +339,7 @@ function SearchField({ boxRef }: SearchFieldProps) {
           <MatchCount result={data} />
         </Count>
       )}
-      {scope === "whole" && isFetching && <Spinner size="xs" className="shrink-0" />}
+      {scope === "whole" && isFetching && <Spinner size={12} className="shrink-0" />}
     </ExplorerSearchBox>
   );
 }

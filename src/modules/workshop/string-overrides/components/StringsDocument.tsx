@@ -119,7 +119,7 @@ interface SaveStatusProps {
    states worth a word are the ones holding the author's edits back. */
 function SaveStatus({ state, onRetry }: SaveStatusProps) {
   if (state === "pending" || state === "saving") {
-    return <Spinner size="xs" className="shrink-0" />;
+    return <Spinner size={12} className="shrink-0" />;
   }
 
   if (state === "blocked") {

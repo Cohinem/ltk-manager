@@ -1,5 +1,5 @@
+import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { open } from "@tauri-apps/plugin-shell";
-import { ExternalLink as ExternalLinkIcon } from "lucide-react";
 import { type AnchorHTMLAttributes, forwardRef, type MouseEvent } from "react";
 
 import { twMerge } from "@/utils";
@@ -44,7 +44,7 @@ export const ExternalLink = forwardRef<HTMLAnchorElement, ExternalLinkProps>(
         {...props}
       >
         {children}
-        {!hideIcon && <ExternalLinkIcon className="size-3.5" />}
+        {!hideIcon && <ArrowSquareOutIcon weight="bold" className="size-3.5" />}
       </a>
     );
   },

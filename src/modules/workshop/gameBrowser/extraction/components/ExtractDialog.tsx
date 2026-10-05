@@ -157,7 +157,7 @@ interface SummaryProps {
 function Summary({ subject, files, bytes, archives, loading }: SummaryProps) {
   return (
     <div className="flex items-center gap-2 rounded-lg bg-surface-950/40 px-3 py-2 text-sm select-none">
-      {loading && <Spinner size="sm" className="size-3.5" />}
+      {loading && <Spinner size={14} />}
       {loading && <span className="text-surface-400">Counting…</span>}
       {!loading && (
         <span className="min-w-0 truncate text-surface-300">

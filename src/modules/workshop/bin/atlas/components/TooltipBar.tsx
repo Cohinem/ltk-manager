@@ -93,7 +93,7 @@ function TooltipRow({ document }: { document: BinDocumentId }) {
       <LevelField />
       <RankField ranks={chosen?.ranks ?? FIRST_RANK} />
       <ShiftToggle />
-      {pending && <Spinner size="sm" className="size-3.5 shrink-0" />}
+      {pending && <Spinner size={14} className="shrink-0" />}
       {!pending && chosen === null && (
         <span className="min-w-0 truncate text-meta text-surface-400">
           {m.workshop_bin_atlas_tooltip_no_abilities_hint()}

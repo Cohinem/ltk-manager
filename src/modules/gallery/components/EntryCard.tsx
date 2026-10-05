@@ -32,9 +32,7 @@ export function EntryCard({ entry, ground }: EntryCardProps) {
             <span className={OVERLINE}>{item.name}</span>
             <div className="flex flex-wrap items-center gap-3">
               <ErrorBoundary
-                fallback={() => (
-                  <AlertBox variant="error" title="This case threw while rendering" />
-                )}
+                fallback={() => <AlertBox tone="danger" title="This case threw while rendering" />}
               >
                 {createElement(item.render)}
               </ErrorBoundary>

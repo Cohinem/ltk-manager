@@ -133,14 +133,14 @@ function SystemTab() {
       </header>
 
       {diagnostics.isError && (
-        <AlertBox variant="error" title="Diagnostics failed to run">
+        <AlertBox tone="danger" title="Diagnostics failed to run">
           {diagnostics.error ? errorSummary(diagnostics.error) : "Unknown error"}
         </AlertBox>
       )}
 
       {!report && diagnostics.isFetching && (
         <div className="flex items-center justify-center rounded-xl border border-surface-700/50 bg-surface-900/50 py-16">
-          <Spinner size="lg" />
+          <Spinner size={32} />
         </div>
       )}
 

@@ -3,19 +3,14 @@ import { type ReactNode, useCallback, useRef } from "react";
 import { create } from "zustand";
 
 import { m } from "@/i18n";
-import { twMerge } from "@/utils";
 
+import { AlertBox } from "./AlertBox";
 import { Button } from "./Button";
 import { Dialog, type DialogOverlaySize } from "./Dialog";
+import type { StatusTone } from "./tone";
 
-/** How grave the answer is, as the callout's hue and the confirm button's fill. */
-export type ConfirmTone = "danger" | "warning";
-
-const toneClasses: Record<ConfirmTone, { callout: string; heading: string }> = {
-  /* DS-TEXT. */
-  danger: { callout: "border-danger/30 bg-danger/10", heading: "text-danger-text" },
-  warning: { callout: "border-warning/30 bg-warning/10", heading: "text-warning-text" },
-};
+/** How grave the answer is, as the callout's tone. */
+export type ConfirmTone = Extract<StatusTone, "danger" | "warning">;
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -44,7 +39,7 @@ export interface ConfirmDialogProps {
 /**
  * A dialog that asks one question and offers one destructive answer.
  *
- * With a `heading` the body is a toned callout, and without one it is the
+ * With a `heading` the body is an `AlertBox` in the dialog's tone, and without one it is the
  * `description` as plain prose. Anything more than that is its own dialog.
  */
 export function ConfirmDialog({
@@ -63,7 +58,7 @@ export function ConfirmDialog({
   size = "sm",
   children,
 }: ConfirmDialogProps) {
-  const { callout, heading: headingClass } = toneClasses[tone];
+  const hasBody = description !== undefined || children !== undefined;
 
   return (
     <Dialog.Shell open={open} onClose={onClose} title={title} size={size}>
@@ -76,18 +71,18 @@ export function ConfirmDialog({
         )}
 
         {heading !== undefined && (
-          <div className={twMerge("flex items-start gap-3 rounded-lg border p-4", callout)}>
-            <span className={twMerge("mt-0.5 shrink-0", headingClass)}>
-              {icon ?? <WarningIcon className="size-5" weight="bold" />}
-            </span>
-            <div className="min-w-0">
-              <h3 className={twMerge("font-medium", headingClass)}>{heading}</h3>
-              {description !== undefined && (
-                <p className="mt-1 text-sm text-surface-400">{description}</p>
-              )}
-              {children}
-            </div>
-          </div>
+          <AlertBox
+            tone={tone}
+            title={heading}
+            icon={icon ?? <WarningIcon weight="duotone" className="size-5" />}
+          >
+            {hasBody && (
+              <>
+                {description}
+                {children}
+              </>
+            )}
+          </AlertBox>
         )}
       </Dialog.Body>
 

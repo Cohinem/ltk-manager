@@ -311,7 +311,7 @@ function PaletteItemView({ item, id, active, setSize, onHover, onRun }: PaletteI
           {group.total !== undefined && !group.pending && (
             <span className="tabular-nums">{group.total}</span>
           )}
-          {group.pending && <Spinner size="xs" />}
+          {group.pending && <Spinner size={12} />}
         </span>
       </div>
     );

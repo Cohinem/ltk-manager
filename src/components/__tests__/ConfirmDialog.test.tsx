@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, render, renderHook, screen } from "@testing-library/react";
+import { act, render, renderHook, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { ConfirmDialog, ConfirmHost, useConfirm } from "../ConfirmDialog";
@@ -19,8 +19,9 @@ describe("ConfirmDialog", () => {
       />,
     );
 
-    expect(screen.getByRole("heading", { name: "Delete Fiora VFX?" })).toBeInTheDocument();
-    expect(screen.getByText("This cannot be undone.")).toBeInTheDocument();
+    const callout = within(screen.getByRole("alert"));
+    expect(callout.getByText("Delete Fiora VFX?")).toBeInTheDocument();
+    expect(callout.getByText("This cannot be undone.")).toBeInTheDocument();
   });
 
   it("draws the description as prose when there is no heading", () => {

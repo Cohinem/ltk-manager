@@ -30,7 +30,7 @@ export function DeclarationsOffNotice({ asset, file, subject }: DeclarationsOffN
   return (
     <AlertBox
       data-ui="DeclarationsOffNotice"
-      variant="neutral"
+      tone="neutral"
       icon={<LockSimpleIcon className="size-4" />}
       title={m.workshop_bin_declarations_off_title()}
       className="mx-2 mt-2 shrink-0 select-none"

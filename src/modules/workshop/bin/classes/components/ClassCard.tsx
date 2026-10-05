@@ -161,7 +161,7 @@ interface BasisProps {
 
 /** What the schema had to say, which is the patch it answered at or that it had no line. */
 function Basis({ pending, error, schema }: BasisProps) {
-  if (pending) return <Spinner size="sm" />;
+  if (pending) return <Spinner size={16} />;
   if (error)
     return <span className="min-w-0 truncate text-surface-400">{errorSummary(error)}</span>;
   if (schema === null) {

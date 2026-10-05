@@ -149,7 +149,7 @@ export function TreeLoadingRow({
     >
       {guides ? <GuideRails blocks={guides} /> : <IndentRails depth={depth} />}
       <CaretSlot />
-      <Spinner size="sm" className="size-3.5 shrink-0" />
+      <Spinner size={14} className="shrink-0" />
       <span className="text-surface-400">{label}</span>
     </div>
   );

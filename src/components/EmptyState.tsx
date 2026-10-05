@@ -13,7 +13,7 @@ export interface EmptyStateProps {
   description?: ReactNode;
   /** Buttons offering the way out, for a container that is empty rather than filtered. */
   action?: ReactNode;
-  /** `sm` for a panel or card, `md` for a whole page. Defaults to `md`. */
+  /** `xs` for a row or a narrow pane, `sm` for a panel or card, `md` for a whole page. */
   size?: EmptyStateSize;
   className?: string;
 }
@@ -34,7 +34,7 @@ const SIZES: Record<EmptyStateSize, { root: string; icon: string; title: string;
     body: "max-w-sm text-sm text-surface-400",
   },
   md: {
-    root: "h-64 gap-1",
+    root: "gap-1 py-10",
     icon: "mb-3 text-surface-600",
     title: "text-lg font-medium text-surface-300",
     body: "max-w-md text-surface-400",
@@ -47,7 +47,12 @@ const DEFAULT_ICON: Record<EmptyStateSize, ReactNode> = {
   md: <SearchEmptyPoroIcon className="size-20" />,
 };
 
-/** Nothing to show: a mark, what happened, and the way out if there is one. */
+/**
+ * Nothing to show: a mark, what happened, and the way out if there is one.
+ *
+ * It centres itself in the room a flex parent leaves it, and is as tall as its own content
+ * anywhere else.
+ */
 export function EmptyState({
   icon,
   title,
@@ -61,7 +66,7 @@ export function EmptyState({
   return (
     <div
       className={twMerge(
-        "flex flex-col items-center justify-center text-center",
+        "flex min-h-0 flex-1 flex-col items-center justify-center text-center",
         styles.root,
         className,
       )}
