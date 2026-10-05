@@ -1,15 +1,7 @@
 import { ArrowsClockwiseIcon, ShieldWarningIcon, StackIcon } from "@phosphor-icons/react";
 import { type KeyboardEvent, useEffect, useState } from "react";
 
-import {
-  AlertBox,
-  Button,
-  FieldControl,
-  SectionCard,
-  Stack,
-  TftIcon,
-  useToast,
-} from "@/components";
+import { AlertBox, Button, SectionCard, Stack, TftIcon, useToast, Field } from "@/components";
 import { errorSummary } from "@/i18n";
 import { usePatcherStatus, useRebuildOverlay } from "@/modules/patcher";
 import { useDetectLeagueRunAsAdmin } from "@/modules/settings/api";
@@ -225,7 +217,7 @@ function KeepIncidentsField({ value, onCommit }: KeepIncidentsFieldProps) {
   }
 
   return (
-    <FieldControl
+    <Field.Control
       type="number"
       inputMode="numeric"
       min={MIN_KEPT_INCIDENTS}

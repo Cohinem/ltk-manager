@@ -20,7 +20,7 @@ export interface RadioGroupRootProps extends Omit<RadioGroupProps, "className"> 
  * mark beside a label. `Options` lays them out. A group without a `label` takes `aria-label`,
  * or its name from the `Field.Root` it sits in.
  */
-export const RadioGroupRoot = forwardRef<HTMLDivElement, RadioGroupRootProps>(
+const RadioGroupRoot = forwardRef<HTMLDivElement, RadioGroupRootProps>(
   ({ label, className, children, ...props }, ref) => {
     const labelId = useId();
 
@@ -49,7 +49,7 @@ export interface RadioGroupOptionsProps {
   orientation?: "horizontal" | "vertical";
 }
 
-export function RadioGroupOptions({
+function RadioGroupOptions({
   className,
   children,
   orientation = "horizontal",
@@ -69,7 +69,7 @@ export interface RadioGroupCardProps extends Omit<Radio.Root.Props, "className" 
   className?: string;
 }
 
-export const RadioGroupCard = forwardRef<HTMLButtonElement, RadioGroupCardProps>(
+const RadioGroupCard = forwardRef<HTMLButtonElement, RadioGroupCardProps>(
   ({ title, description, badge, className, ...props }, ref) => {
     return (
       <Radio.Root
@@ -102,7 +102,7 @@ export interface RadioGroupItemProps extends Omit<Radio.Root.Props, "className" 
   className?: string;
 }
 
-export const RadioGroupItem = forwardRef<HTMLButtonElement, RadioGroupItemProps>(
+const RadioGroupItem = forwardRef<HTMLButtonElement, RadioGroupItemProps>(
   ({ label, description, className, ...props }, ref) => {
     return (
       <Radio.Root
@@ -141,6 +141,12 @@ export const RadioGroupItem = forwardRef<HTMLButtonElement, RadioGroupItemProps>
 );
 RadioGroupItem.displayName = "RadioGroup.Item";
 
+/**
+ * One choice from a few options that each take a line of their own.
+ *
+ * Options short enough to share a row are a `SegmentedControl`, and a longer list is a
+ * `Select`.
+ */
 export const RadioGroup = {
   Root: RadioGroupRoot,
   Options: RadioGroupOptions,

@@ -29,8 +29,8 @@ export function IntegrationPaths({
   if (populatedGroups.length === 0) return null;
   return (
     <Accordion.Root variant="filled" data-ui="IntegrationPaths" className="-mx-3">
-      <Accordion.Item variant="filled">
-        <Accordion.Trigger variant="filled" className="text-row font-medium text-surface-200">
+      <Accordion.Item>
+        <Accordion.Trigger className="text-row font-medium text-surface-200">
           <FolderOpenIcon weight="duotone" className="size-4 shrink-0 text-surface-400" />
           {m.settings_integrations_paths_label()}
           {externalPaths.length > 0 && (
@@ -39,7 +39,7 @@ export function IntegrationPaths({
             </span>
           )}
         </Accordion.Trigger>
-        <Accordion.Panel variant="filled">
+        <Accordion.Panel>
           <div className="flex min-w-0 flex-col gap-3 p-3">
             {populatedGroups.map((group) => (
               <div key={group.title} className="flex min-w-0 flex-col gap-2">

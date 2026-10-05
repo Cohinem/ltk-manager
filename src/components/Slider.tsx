@@ -48,6 +48,11 @@ function labelShift(index: number, count: number): string {
   return "-translate-x-1/2";
 }
 
+/**
+ * A number picked along a range, for a value the reader judges by eye.
+ *
+ * An exact number is a `StepperField` or a `NumberField`.
+ */
 export function Slider({
   value,
   onValueChange,

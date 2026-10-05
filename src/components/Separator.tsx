@@ -7,6 +7,9 @@ export interface SeparatorProps extends Omit<BaseSeparator.Props, "className"> {
   className?: string;
 }
 
+/**
+ * A hairline between two groups in a row or a column.
+ */
 export const Separator = forwardRef<HTMLDivElement, SeparatorProps>(
   ({ orientation = "horizontal", className, ...props }, ref) => {
     return (

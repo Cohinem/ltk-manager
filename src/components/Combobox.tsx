@@ -28,7 +28,7 @@ export interface ComboboxRootProps<
   children?: ReactNode;
 }
 
-export function ComboboxRoot<Value = string, Multiple extends boolean | undefined = false>({
+function ComboboxRoot<Value = string, Multiple extends boolean | undefined = false>({
   children,
   ...props
 }: ComboboxRootProps<Value, Multiple>) {
@@ -45,7 +45,7 @@ export interface ComboboxInputProps extends Omit<BaseCombobox.Input.Props, "clas
   className?: string;
 }
 
-export const ComboboxInput = forwardRef<HTMLInputElement, ComboboxInputProps>(
+const ComboboxInput = forwardRef<HTMLInputElement, ComboboxInputProps>(
   ({ size = "md", className, hasError, ...props }, ref) => {
     return (
       <BaseCombobox.Input
@@ -65,7 +65,7 @@ export interface ComboboxTriggerProps extends Omit<BaseCombobox.Trigger.Props, "
   children?: ReactNode;
 }
 
-export const ComboboxTrigger = forwardRef<HTMLButtonElement, ComboboxTriggerProps>(
+const ComboboxTrigger = forwardRef<HTMLButtonElement, ComboboxTriggerProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.Trigger
@@ -89,7 +89,7 @@ export interface ComboboxIconProps extends Omit<BaseCombobox.Icon.Props, "classN
   className?: string;
 }
 
-export const ComboboxIcon = forwardRef<HTMLDivElement, ComboboxIconProps>(
+const ComboboxIcon = forwardRef<HTMLDivElement, ComboboxIconProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseCombobox.Icon ref={ref} className={twMerge("text-surface-400", className)} {...props}>
@@ -105,7 +105,7 @@ export interface ComboboxPortalProps extends BaseCombobox.Portal.Props {
   children?: ReactNode;
 }
 
-export const ComboboxPortal = ({ children, ...props }: ComboboxPortalProps) => {
+const ComboboxPortal = ({ children, ...props }: ComboboxPortalProps) => {
   return <BaseCombobox.Portal {...props}>{children}</BaseCombobox.Portal>;
 };
 ComboboxPortal.displayName = "Combobox.Portal";
@@ -116,7 +116,7 @@ export interface ComboboxPositionerProps extends Omit<BaseCombobox.Positioner.Pr
   children?: ReactNode;
 }
 
-export const ComboboxPositioner = forwardRef<HTMLDivElement, ComboboxPositionerProps>(
+const ComboboxPositioner = forwardRef<HTMLDivElement, ComboboxPositionerProps>(
   ({ className, children, side = "bottom", sideOffset = 4, ...props }, ref) => {
     return (
       <BaseCombobox.Positioner
@@ -139,7 +139,7 @@ export interface ComboboxPopupProps extends Omit<BaseCombobox.Popup.Props, "clas
   children?: ReactNode;
 }
 
-export const ComboboxPopup = forwardRef<HTMLDivElement, ComboboxPopupProps>(
+const ComboboxPopup = forwardRef<HTMLDivElement, ComboboxPopupProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.Popup
@@ -171,7 +171,7 @@ export interface ComboboxContentProps
 }
 
 /** Portal, Positioner and Popup as one part, taking the positioning props itself. */
-export const ComboboxContent = forwardRef<HTMLDivElement, ComboboxContentProps>(
+const ComboboxContent = forwardRef<HTMLDivElement, ComboboxContentProps>(
   (
     {
       side,
@@ -209,7 +209,7 @@ export interface ComboboxListProps extends Omit<BaseCombobox.List.Props, "classN
   className?: string;
 }
 
-export const ComboboxList = forwardRef<HTMLDivElement, ComboboxListProps>(
+const ComboboxList = forwardRef<HTMLDivElement, ComboboxListProps>(
   ({ className, ...props }, ref) => {
     return <BaseCombobox.List ref={ref} className={className} {...props} />;
   },
@@ -222,7 +222,7 @@ export interface ComboboxItemProps extends Omit<BaseCombobox.Item.Props, "classN
   children?: ReactNode;
 }
 
-export const ComboboxItem = forwardRef<HTMLDivElement, ComboboxItemProps>(
+const ComboboxItem = forwardRef<HTMLDivElement, ComboboxItemProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.Item
@@ -246,7 +246,7 @@ export interface ComboboxEmptyProps extends Omit<BaseCombobox.Empty.Props, "clas
   children?: ReactNode;
 }
 
-export const ComboboxEmpty = forwardRef<HTMLDivElement, ComboboxEmptyProps>(
+const ComboboxEmpty = forwardRef<HTMLDivElement, ComboboxEmptyProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.Empty
@@ -268,7 +268,7 @@ export interface ComboboxClearProps extends Omit<BaseCombobox.Clear.Props, "clas
   children?: ReactNode;
 }
 
-export const ComboboxClear = forwardRef<HTMLButtonElement, ComboboxClearProps>(
+const ComboboxClear = forwardRef<HTMLButtonElement, ComboboxClearProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.Clear
@@ -290,7 +290,7 @@ ComboboxClear.displayName = "Combobox.Clear";
 export type ComboboxValueProps = BaseCombobox.Value.Props;
 
 /** The selected value, drawn by `children`, such as a multiple root's chips. Adds no DOM element. */
-export function ComboboxValue(props: ComboboxValueProps) {
+function ComboboxValue(props: ComboboxValueProps) {
   return <BaseCombobox.Value {...props} />;
 }
 ComboboxValue.displayName = "Combobox.Value";
@@ -300,7 +300,7 @@ export interface ComboboxChipsProps extends Omit<BaseCombobox.Chips.Props, "clas
   className?: string;
 }
 
-export const ComboboxChips = forwardRef<HTMLDivElement, ComboboxChipsProps>(
+const ComboboxChips = forwardRef<HTMLDivElement, ComboboxChipsProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseCombobox.Chips
@@ -319,7 +319,7 @@ export interface ComboboxChipProps extends Omit<BaseCombobox.Chip.Props, "classN
   children?: ReactNode;
 }
 
-export const ComboboxChip = forwardRef<HTMLDivElement, ComboboxChipProps>(
+const ComboboxChip = forwardRef<HTMLDivElement, ComboboxChipProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.Chip
@@ -343,7 +343,7 @@ export interface ComboboxChipRemoveProps extends Omit<BaseCombobox.ChipRemove.Pr
   children?: ReactNode;
 }
 
-export const ComboboxChipRemove = forwardRef<HTMLButtonElement, ComboboxChipRemoveProps>(
+const ComboboxChipRemove = forwardRef<HTMLButtonElement, ComboboxChipRemoveProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.ChipRemove
@@ -368,7 +368,7 @@ export interface ComboboxGroupProps extends Omit<BaseCombobox.Group.Props, "clas
   children?: ReactNode;
 }
 
-export const ComboboxGroup = forwardRef<HTMLDivElement, ComboboxGroupProps>(
+const ComboboxGroup = forwardRef<HTMLDivElement, ComboboxGroupProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.Group ref={ref} className={className} {...props}>
@@ -385,7 +385,7 @@ export interface ComboboxGroupLabelProps extends Omit<BaseCombobox.GroupLabel.Pr
   children?: ReactNode;
 }
 
-export const ComboboxGroupLabel = forwardRef<HTMLDivElement, ComboboxGroupLabelProps>(
+const ComboboxGroupLabel = forwardRef<HTMLDivElement, ComboboxGroupLabelProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.GroupLabel ref={ref} className={twMerge(popupGroupLabel, className)} {...props}>
@@ -400,7 +400,7 @@ ComboboxGroupLabel.displayName = "Combobox.GroupLabel";
 export type ComboboxCollectionProps = BaseCombobox.Collection.Props;
 
 /** Renders the `items` of one `Group`. Adds no DOM element. */
-export function ComboboxCollection(props: ComboboxCollectionProps) {
+function ComboboxCollection(props: ComboboxCollectionProps) {
   return <BaseCombobox.Collection {...props} />;
 }
 ComboboxCollection.displayName = "Combobox.Collection";
@@ -411,7 +411,7 @@ export interface ComboboxStatusProps extends Omit<BaseCombobox.Status.Props, "cl
   children?: ReactNode;
 }
 
-export const ComboboxStatus = forwardRef<HTMLDivElement, ComboboxStatusProps>(
+const ComboboxStatus = forwardRef<HTMLDivElement, ComboboxStatusProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseCombobox.Status ref={ref} className={twMerge("sr-only", className)} {...props}>
@@ -422,7 +422,12 @@ export const ComboboxStatus = forwardRef<HTMLDivElement, ComboboxStatusProps>(
 );
 ComboboxStatus.displayName = "Combobox.Status";
 
-// Compound export
+/**
+ * One choice from a list the reader narrows by typing.
+ *
+ * A list short enough to read at a glance is a `Select`, and several choices at once are a
+ * `MultiSelect`.
+ */
 export const Combobox = {
   Root: ComboboxRoot,
   Input: ComboboxInput,

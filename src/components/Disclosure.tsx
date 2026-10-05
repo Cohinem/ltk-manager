@@ -13,13 +13,13 @@ import { focusRing } from "./focus";
  * turns without the caller tracking the open state. The panel mounts only while open. Where
  * the caller does hold the state, `Root` takes `open` and `onOpenChange`.
  */
-export const DisclosureRoot = Collapsible.Root;
+const DisclosureRoot = Collapsible.Root;
 
 export interface DisclosureTriggerProps extends Omit<Collapsible.Trigger.Props, "className"> {
   className?: string;
 }
 
-export const DisclosureTrigger = forwardRef<HTMLButtonElement, DisclosureTriggerProps>(
+const DisclosureTrigger = forwardRef<HTMLButtonElement, DisclosureTriggerProps>(
   ({ className, ...props }, ref) => (
     <Collapsible.Trigger
       ref={ref}
@@ -35,7 +35,7 @@ export interface DisclosureCaretProps {
 }
 
 /** The trigger's caret, pointing at the label while shut and down while open. */
-export function DisclosureCaret({ className }: DisclosureCaretProps) {
+function DisclosureCaret({ className }: DisclosureCaretProps) {
   return (
     <CaretRightIcon
       weight="bold"
@@ -52,13 +52,18 @@ export interface DisclosurePanelProps extends Omit<Collapsible.Panel.Props, "cla
   className?: string;
 }
 
-export const DisclosurePanel = forwardRef<HTMLDivElement, DisclosurePanelProps>(
+const DisclosurePanel = forwardRef<HTMLDivElement, DisclosurePanelProps>(
   ({ className, ...props }, ref) => (
     <Collapsible.Panel ref={ref} className={className} {...props} />
   ),
 );
 DisclosurePanel.displayName = "Disclosure.Panel";
 
+/**
+ * One section that folds under its own trigger.
+ *
+ * A list of sections that fold as a set is an `Accordion`.
+ */
 export const Disclosure = {
   Root: DisclosureRoot,
   Trigger: DisclosureTrigger,

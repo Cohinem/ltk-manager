@@ -12,7 +12,7 @@ export interface DialogRootProps extends BaseDialog.Root.Props {
   children?: ReactNode;
 }
 
-export const DialogRoot = ({ children, ...props }: DialogRootProps) => {
+const DialogRoot = ({ children, ...props }: DialogRootProps) => {
   return <BaseDialog.Root {...props}>{children}</BaseDialog.Root>;
 };
 DialogRoot.displayName = "Dialog.Root";
@@ -23,7 +23,7 @@ export interface DialogTriggerProps extends Omit<BaseDialog.Trigger.Props, "clas
   children?: ReactNode;
 }
 
-export const DialogTrigger = forwardRef<HTMLButtonElement, DialogTriggerProps>(
+const DialogTrigger = forwardRef<HTMLButtonElement, DialogTriggerProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseDialog.Trigger ref={ref} className={className} {...props}>
@@ -39,7 +39,7 @@ export interface DialogPortalProps extends BaseDialog.Portal.Props {
   children?: ReactNode;
 }
 
-export const DialogPortal = ({ children, ...props }: DialogPortalProps) => {
+const DialogPortal = ({ children, ...props }: DialogPortalProps) => {
   return <BaseDialog.Portal {...props}>{children}</BaseDialog.Portal>;
 };
 DialogPortal.displayName = "Dialog.Portal";
@@ -49,7 +49,7 @@ export interface DialogBackdropProps extends Omit<BaseDialog.Backdrop.Props, "cl
   className?: string;
 }
 
-export const DialogBackdrop = forwardRef<HTMLDivElement, DialogBackdropProps>(
+const DialogBackdrop = forwardRef<HTMLDivElement, DialogBackdropProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseDialog.Backdrop
@@ -90,7 +90,7 @@ export interface DialogOverlayProps extends Omit<BaseDialog.Popup.Props, "classN
  * scrolls. An element between the popup and those parts has to carry the column on, which is what
  * `Dialog.Form` does. Without one the popup scrolls as a whole.
  */
-export const DialogOverlay = forwardRef<HTMLDivElement, DialogOverlayProps>(
+const DialogOverlay = forwardRef<HTMLDivElement, DialogOverlayProps>(
   ({ size = "md", className, children, ...props }, ref) => {
     return (
       <BaseDialog.Popup
@@ -139,7 +139,7 @@ export interface DialogSheetProps extends Omit<BaseDialog.Popup.Props, "classNam
  * about how much text a centred dialog should hold, which is a different
  * question.
  */
-export const DialogSheet = forwardRef<HTMLDivElement, DialogSheetProps>(
+const DialogSheet = forwardRef<HTMLDivElement, DialogSheetProps>(
   ({ side = "right", className, children, ...props }, ref) => {
     return (
       <BaseDialog.Popup
@@ -165,7 +165,7 @@ export interface DialogTitleProps extends Omit<BaseDialog.Title.Props, "classNam
   children?: ReactNode;
 }
 
-export const DialogTitle = forwardRef<HTMLHeadingElement, DialogTitleProps>(
+const DialogTitle = forwardRef<HTMLHeadingElement, DialogTitleProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseDialog.Title
@@ -186,7 +186,7 @@ export interface DialogDescriptionProps extends Omit<BaseDialog.Description.Prop
   children?: ReactNode;
 }
 
-export const DialogDescription = forwardRef<HTMLParagraphElement, DialogDescriptionProps>(
+const DialogDescription = forwardRef<HTMLParagraphElement, DialogDescriptionProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseDialog.Description
@@ -206,7 +206,7 @@ export interface DialogCloseProps extends Omit<BaseDialog.Close.Props, "classNam
   className?: string;
 }
 
-export const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
+const DialogClose = forwardRef<HTMLButtonElement, DialogCloseProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseDialog.Close
@@ -242,7 +242,7 @@ export interface DialogHeaderProps {
   children?: ReactNode;
 }
 
-export const DialogHeader = forwardRef<HTMLDivElement, DialogHeaderProps>(
+const DialogHeader = forwardRef<HTMLDivElement, DialogHeaderProps>(
   ({ tone = "default", className, children }, ref) => {
     return (
       <div
@@ -266,21 +266,19 @@ export interface DialogBodyProps {
   children?: ReactNode;
 }
 
-export const DialogBody = forwardRef<HTMLDivElement, DialogBodyProps>(
-  ({ className, children }, ref) => {
-    return (
-      <div
-        ref={ref}
-        className={twMerge(
-          "flex min-h-0 flex-auto flex-col gap-4 overflow-y-auto px-6 py-4",
-          className,
-        )}
-      >
-        {children}
-      </div>
-    );
-  },
-);
+const DialogBody = forwardRef<HTMLDivElement, DialogBodyProps>(({ className, children }, ref) => {
+  return (
+    <div
+      ref={ref}
+      className={twMerge(
+        "flex min-h-0 flex-auto flex-col gap-4 overflow-y-auto px-6 py-4",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+});
 DialogBody.displayName = "Dialog.Body";
 
 // Form (a form around the body and footer)
@@ -289,7 +287,7 @@ export interface DialogFormProps extends Omit<ComponentPropsWithoutRef<"form">, 
 }
 
 /** A form around a dialog's body and footer, which carries the popup's column on to them. */
-export const DialogForm = forwardRef<HTMLFormElement, DialogFormProps>(
+const DialogForm = forwardRef<HTMLFormElement, DialogFormProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <form ref={ref} className={twMerge("flex min-h-0 flex-auto flex-col", className)} {...props}>
@@ -306,7 +304,7 @@ export interface DialogFooterProps {
   children?: ReactNode;
 }
 
-export const DialogFooter = forwardRef<HTMLDivElement, DialogFooterProps>(
+const DialogFooter = forwardRef<HTMLDivElement, DialogFooterProps>(
   ({ className, children }, ref) => {
     return (
       <div
@@ -334,7 +332,7 @@ export interface DialogFrameProps extends Omit<BaseDialog.Popup.Props, "classNam
 }
 
 /** A dialog's frame from the backdrop to the popup, for content that draws its own header. */
-export const DialogFrame = forwardRef<HTMLDivElement, DialogFrameProps>(
+const DialogFrame = forwardRef<HTMLDivElement, DialogFrameProps>(
   ({ open, onClose, size, className, children, ...props }, ref) => {
     return (
       <DialogRoot
@@ -381,7 +379,7 @@ export interface DialogShellProps extends Omit<
  * dialog whose header is not a title and a close button builds its own frame
  * from the parts instead.
  */
-export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
+const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
   (
     {
       open,
@@ -426,7 +424,12 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
 );
 DialogShell.displayName = "Dialog.Shell";
 
-// Compound export
+/**
+ * A modal surface that holds the reader until they answer or dismiss it.
+ *
+ * One destructive question is a `ConfirmDialog`, and content that belongs beside its trigger
+ * is a `Popover`.
+ */
 export const Dialog = {
   Root: DialogRoot,
   Trigger: DialogTrigger,

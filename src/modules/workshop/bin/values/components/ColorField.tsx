@@ -131,8 +131,6 @@ export function ColorField({
                 aria-label={m.workshop_bin_color_channel_label({
                   channel: CHANNEL_NAMES[at] ?? String(at),
                 })}
-                increaseLabel={m.common_number_increase_action()}
-                decreaseLabel={m.common_number_decrease_action()}
                 step={CHANNEL_STEP}
                 decimals={CHANNEL_DECIMALS}
                 value={value}

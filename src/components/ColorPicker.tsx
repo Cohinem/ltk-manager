@@ -13,7 +13,7 @@ import {
 } from "@/utils";
 
 import { focusRing } from "./focus";
-import { FieldControl } from "./FormField";
+import { Field } from "./FormField";
 
 /* The picker draws the colour space itself, which no theme token can replace. */
 const HUE_RAMP =
@@ -186,7 +186,7 @@ function HexField({ value, label, onCommit }: HexFieldProps) {
   return (
     <div className="flex items-center justify-between gap-2">
       <span className="text-xs text-surface-300">{m.common_color_picker_hex_label()}</span>
-      <FieldControl
+      <Field.Control
         aria-label={m.common_color_picker_hex_field_label({ label })}
         value={draft ?? colorHex(value)}
         maxLength={7}

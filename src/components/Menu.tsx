@@ -22,7 +22,7 @@ export interface MenuRootProps extends BaseMenu.Root.Props {
   children?: ReactNode;
 }
 
-export const MenuRoot = ({ children, ...props }: MenuRootProps) => {
+const MenuRoot = ({ children, ...props }: MenuRootProps) => {
   return <BaseMenu.Root {...props}>{children}</BaseMenu.Root>;
 };
 MenuRoot.displayName = "Menu.Root";
@@ -33,7 +33,7 @@ export interface MenuTriggerProps extends Omit<BaseMenu.Trigger.Props, "classNam
   children?: ReactNode;
 }
 
-export const MenuTrigger = forwardRef<HTMLButtonElement, MenuTriggerProps>(
+const MenuTrigger = forwardRef<HTMLButtonElement, MenuTriggerProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseMenu.Trigger ref={ref} className={className} {...props}>
@@ -49,7 +49,7 @@ export interface MenuPortalProps extends BaseMenu.Portal.Props {
   children?: ReactNode;
 }
 
-export const MenuPortal = ({ children, ...props }: MenuPortalProps) => {
+const MenuPortal = ({ children, ...props }: MenuPortalProps) => {
   return <BaseMenu.Portal {...props}>{children}</BaseMenu.Portal>;
 };
 MenuPortal.displayName = "Menu.Portal";
@@ -60,7 +60,7 @@ export interface MenuPositionerProps extends Omit<BaseMenu.Positioner.Props, "cl
   children?: ReactNode;
 }
 
-export const MenuPositioner = forwardRef<HTMLDivElement, MenuPositionerProps>(
+const MenuPositioner = forwardRef<HTMLDivElement, MenuPositionerProps>(
   ({ className, children, side = "bottom", align = "end", sideOffset = 4, ...props }, ref) => {
     return (
       <BaseMenu.Positioner
@@ -84,7 +84,7 @@ export interface MenuPopupProps extends Omit<BaseMenu.Popup.Props, "className"> 
   children?: ReactNode;
 }
 
-export const MenuPopup = forwardRef<HTMLDivElement, MenuPopupProps>(
+const MenuPopup = forwardRef<HTMLDivElement, MenuPopupProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseMenu.Popup
@@ -115,7 +115,7 @@ const MenuItemIcon = ({ children }: { children: ReactNode }) => (
   <span className="size-4 shrink-0 opacity-70">{children}</span>
 );
 
-export const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
+const MenuItem = forwardRef<HTMLDivElement, MenuItemProps>(
   ({ icon, shortcut, variant = "default", className, children, ...props }, ref) => {
     return (
       <BaseMenu.Item
@@ -137,7 +137,7 @@ export interface MenuSubmenuRootProps extends BaseMenu.SubmenuRoot.Props {
   children?: ReactNode;
 }
 
-export const MenuSubmenuRoot = ({ children, ...props }: MenuSubmenuRootProps) => {
+const MenuSubmenuRoot = ({ children, ...props }: MenuSubmenuRootProps) => {
   return <BaseMenu.SubmenuRoot {...props}>{children}</BaseMenu.SubmenuRoot>;
 };
 MenuSubmenuRoot.displayName = "Menu.SubmenuRoot";
@@ -149,7 +149,7 @@ export interface MenuSubmenuTriggerProps extends Omit<BaseMenu.SubmenuTrigger.Pr
   children?: ReactNode;
 }
 
-export const MenuSubmenuTrigger = forwardRef<HTMLDivElement, MenuSubmenuTriggerProps>(
+const MenuSubmenuTrigger = forwardRef<HTMLDivElement, MenuSubmenuTriggerProps>(
   ({ icon, openOnHover = true, className, children, ...props }, ref) => {
     return (
       <BaseMenu.SubmenuTrigger
@@ -186,7 +186,7 @@ export interface MenuSubmenuPositionerProps extends Omit<BaseMenu.Positioner.Pro
  * [`MenuPositioner`] aimed sideways, which is the only thing a submenu changes
  * about where its popup lands.
  */
-export const MenuSubmenuPositioner = forwardRef<HTMLDivElement, MenuSubmenuPositionerProps>(
+const MenuSubmenuPositioner = forwardRef<HTMLDivElement, MenuSubmenuPositionerProps>(
   ({ side = "inline-end", align = "start", sideOffset = 4, ...props }, ref) => {
     return (
       <MenuPositioner ref={ref} side={side} align={align} sideOffset={sideOffset} {...props} />
@@ -201,7 +201,7 @@ export interface MenuRadioGroupProps extends Omit<BaseMenu.RadioGroup.Props, "cl
   children?: ReactNode;
 }
 
-export const MenuRadioGroup = ({ className, children, ...props }: MenuRadioGroupProps) => {
+const MenuRadioGroup = ({ className, children, ...props }: MenuRadioGroupProps) => {
   return (
     <BaseMenu.RadioGroup className={className} {...props}>
       {children}
@@ -222,7 +222,7 @@ export interface MenuRadioItemProps extends Omit<BaseMenu.RadioItem.Props, "clas
  * trailing check says whether it is the current one, so a row that carries both
  * answers two questions rather than overloading one slot.
  */
-export const MenuRadioItem = forwardRef<HTMLDivElement, MenuRadioItemProps>(
+const MenuRadioItem = forwardRef<HTMLDivElement, MenuRadioItemProps>(
   ({ icon, className, children, ...props }, ref) => {
     return (
       <BaseMenu.RadioItem
@@ -249,7 +249,7 @@ export interface MenuCheckboxItemProps extends Omit<BaseMenu.CheckboxItem.Props,
 }
 
 /** A switch in a popup, whose trailing check says whether it is on. */
-export const MenuCheckboxItem = forwardRef<HTMLDivElement, MenuCheckboxItemProps>(
+const MenuCheckboxItem = forwardRef<HTMLDivElement, MenuCheckboxItemProps>(
   ({ icon, className, children, ...props }, ref) => {
     return (
       <BaseMenu.CheckboxItem
@@ -273,7 +273,7 @@ export interface MenuSeparatorProps extends Omit<BaseMenu.Separator.Props, "clas
   className?: string;
 }
 
-export const MenuSeparator = forwardRef<HTMLDivElement, MenuSeparatorProps>(
+const MenuSeparator = forwardRef<HTMLDivElement, MenuSeparatorProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseMenu.Separator ref={ref} className={twMerge(popupSeparator, className)} {...props} />
@@ -288,7 +288,7 @@ export interface MenuGroupProps extends Omit<BaseMenu.Group.Props, "className"> 
   children?: ReactNode;
 }
 
-export const MenuGroup = forwardRef<HTMLDivElement, MenuGroupProps>(
+const MenuGroup = forwardRef<HTMLDivElement, MenuGroupProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseMenu.Group ref={ref} className={className} {...props}>
@@ -305,7 +305,7 @@ export interface MenuGroupLabelProps extends Omit<BaseMenu.GroupLabel.Props, "cl
   children?: ReactNode;
 }
 
-export const MenuGroupLabel = forwardRef<HTMLDivElement, MenuGroupLabelProps>(
+const MenuGroupLabel = forwardRef<HTMLDivElement, MenuGroupLabelProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseMenu.GroupLabel ref={ref} className={twMerge(popupGroupLabel, className)} {...props}>
@@ -328,7 +328,7 @@ export interface MenuContentProps
 }
 
 /** Portal, Positioner and Popup as one part, taking the positioning props itself. */
-export const MenuContent = forwardRef<HTMLDivElement, MenuContentProps>(
+const MenuContent = forwardRef<HTMLDivElement, MenuContentProps>(
   (
     {
       side,
@@ -373,7 +373,7 @@ export interface MenuSubmenuContentProps
 }
 
 /** The submenu's Portal, Positioner and Popup as one part, aimed sideways. */
-export const MenuSubmenuContent = forwardRef<HTMLDivElement, MenuSubmenuContentProps>(
+const MenuSubmenuContent = forwardRef<HTMLDivElement, MenuSubmenuContentProps>(
   (
     {
       side,
@@ -406,7 +406,12 @@ export const MenuSubmenuContent = forwardRef<HTMLDivElement, MenuSubmenuContentP
 );
 MenuSubmenuContent.displayName = "Menu.SubmenuContent";
 
-// Compound export
+/**
+ * A list of actions opened from a button.
+ *
+ * The same list on a right click is a `ContextMenu`, and a choice kept as a value is a
+ * `Select`.
+ */
 export const Menu = {
   Root: MenuRoot,
   Trigger: MenuTrigger,

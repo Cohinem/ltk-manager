@@ -1,6 +1,7 @@
 import { NumberField as BaseNumberField } from "@base-ui/react/number-field";
 import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
 
+import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { ChannelSash } from "./ChannelSash";
@@ -24,9 +25,9 @@ export interface StepperFieldProps {
   disabled?: boolean;
   /** The locale the value is read and drawn in, which decides the decimal separator. */
   locale?: Intl.LocalesArgument;
-  /** The arrows' own names, since base-ui's defaults are English. */
-  increaseLabel: string;
-  decreaseLabel: string;
+  /** The arrows' own names, where "Increase value" and "Decrease value" say too little. */
+  increaseLabel?: string;
+  decreaseLabel?: string;
   "aria-label"?: string;
   /** The component's channel, whose `ChannelSash` heads the field as `Readout`'s does. */
   channel?: number;
@@ -34,7 +35,11 @@ export interface StepperFieldProps {
   className?: string;
 }
 
-/** A number typed in, with a pair of arrows on its right that nudge it by a step. */
+/**
+ * A number typed in, with a pair of arrows on its right that nudge it by a step.
+ *
+ * A number that sits inline as a readout is a `NumberField`.
+ */
 export function StepperField({
   value,
   onValueChange,
@@ -47,8 +52,8 @@ export function StepperField({
   decimals,
   disabled,
   locale,
-  increaseLabel,
-  decreaseLabel,
+  increaseLabel = m.common_number_increase_action(),
+  decreaseLabel = m.common_number_decrease_action(),
   "aria-label": ariaLabel,
   channel,
   className,

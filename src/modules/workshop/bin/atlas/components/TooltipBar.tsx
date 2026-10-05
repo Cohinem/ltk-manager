@@ -125,8 +125,6 @@ function LevelField() {
         <StepperField
           className="w-16 text-meta"
           aria-label={m.workshop_bin_atlas_tooltip_level_label()}
-          increaseLabel={m.common_number_increase_action()}
-          decreaseLabel={m.common_number_decrease_action()}
           value={level}
           min={NO_CHARACTER_LEVEL}
           max={MAX_CHARACTER_LEVEL}
@@ -157,8 +155,6 @@ function RankField({ ranks }: { ranks: number }) {
         <StepperField
           className="w-14 text-meta"
           aria-label={m.workshop_bin_atlas_tooltip_rank_label()}
-          increaseLabel={m.common_number_increase_action()}
-          decreaseLabel={m.common_number_decrease_action()}
           value={Math.min(rank, ranks)}
           min={FIRST_RANK}
           max={ranks}
