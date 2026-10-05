@@ -5,7 +5,6 @@ import { use, useEffect, useMemo, useState } from "react";
 import { Combobox } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import type { BinRow } from "@/lib/tauri";
-import { twMerge } from "@/utils";
 
 import { binQueries } from "../../../documents/hooks/useBinDocument";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
@@ -99,10 +98,8 @@ export function AddPropertyBox({ holder, onAdded, onClose }: AddPropertyBoxProps
           disabled={pending}
           spellCheck={false}
           autoComplete="off"
-          className={twMerge(
-            "h-6 w-full pl-7 text-xs select-text",
-            refused !== null && "border-danger",
-          )}
+          size="xs"
+          className="pl-7 select-text"
           onKeyDown={(event) => {
             if (event.key !== "Escape") return;
 

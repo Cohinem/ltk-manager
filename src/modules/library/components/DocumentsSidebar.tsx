@@ -82,8 +82,7 @@ export function DocumentsSidebar({ mods, docked = false }: DocumentsSidebarProps
           </Tabs.List>
           {!docked && (
             <IconButton
-              compact={false}
-              size="sm"
+              size="md"
               icon={<XIcon />}
               onClick={close}
               className="mr-1 shrink-0"

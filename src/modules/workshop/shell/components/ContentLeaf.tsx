@@ -100,14 +100,14 @@ function NothingOpenState() {
 
   const action = (
     <>
-      <Button variant="outline" size="sm" onClick={() => openDocument(gameDocument())}>
+      <Button variant="outline" onClick={() => openDocument(gameDocument())}>
         Browse game index
       </Button>
-      <Button variant="outline" size="sm" onClick={() => openDocument(objectsDocument())}>
+      <Button variant="outline" onClick={() => openDocument(objectsDocument())}>
         {m.workshop_objects_browse_action()}
       </Button>
       {!sidebarOpen && (
-        <Button variant="outline" size="sm" onClick={() => setLayerPanelOpen(true)}>
+        <Button variant="outline" onClick={() => setLayerPanelOpen(true)}>
           Show sidebar
         </Button>
       )}

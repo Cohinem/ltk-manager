@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import type { Group } from "three";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { EmitterModel } from "../../engine/model/model";
 import { ForceGizmo } from "../ForceGizmo";
 import { forceOf, forceSystem, vector } from "./forceFixture";
 
@@ -19,6 +20,11 @@ const capture = vi.hoisted(() => ({
     time: 0.5,
     origin: [0, 0, 0],
     orientation: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+    world: {
+      basis: new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]),
+      offset: [0, 0, 0],
+      hud: false,
+    },
     swap: vi.fn(),
     seek: vi.fn(),
   },
@@ -50,9 +56,10 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-function mount() {
+function mount(over: Partial<EmitterModel> = {}) {
   const commit = vi.fn().mockResolvedValue(true);
-  const system = forceSystem();
+  const held = forceSystem();
+  const system = { ...held, emitters: [{ ...held.emitters[0], ...over }] };
   const force = forceOf("acceleration", { acceleration: vector(3, 4, 5) });
   const view = render(
     <ForceGizmo
@@ -99,6 +106,26 @@ describe("force drag transactions", () => {
 
     await act(async () => resolve(true));
     expect(capture.setPlaying).toHaveBeenLastCalledWith(true);
+  });
+
+  it("stands the handle off the origin of the emitter's own frame, in that frame", () => {
+    mount({ scaleOverride: [2, 1, 1], translationOverride: [10, 0, 0] });
+
+    const object = capture.props.object as Group;
+    /* `(3, 4, 5)` doubled along X, off the frame's origin at `(10, 0, 0)`, mirrored. */
+    expect(object.position.toArray()).toEqual([-16, 4, 5]);
+  });
+
+  it("reads a dragged endpoint back through the emitter's own frame", async () => {
+    const { commit } = mount({ scaleOverride: [2, 1, 1] });
+
+    move();
+    await act(async () => capture.props.onMouseUp?.());
+
+    expect(commit).toHaveBeenCalledWith(expect.anything(), {
+      ok: true,
+      leaf: { type: "vector", values: [6, 4, 5] },
+    });
   });
 
   it("cancels with Escape without writing a declaration", () => {

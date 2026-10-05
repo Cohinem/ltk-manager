@@ -182,12 +182,12 @@ export function ForceControl({
               <span className="flex w-5 shrink-0 items-center">
                 {hosted && handle && editable && !curve && (
                   <IconButton
-                    compact={false}
+                    size="sm"
                     disabled={
                       preview.muted.has(force.key) ||
                       (preview.solo !== null && preview.solo !== force.key)
                     }
-                    icon={<ArrowsOutCardinalIcon className="size-3.5" />}
+                    icon={<ArrowsOutCardinalIcon />}
                     aria-label={m.workshop_bin_force_handle_label({ property: property.label() })}
                     onClick={() => preview.select(force.key, property.name)}
                     tooltip={m.workshop_bin_force_handle_action()}

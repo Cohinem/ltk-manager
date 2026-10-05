@@ -1,4 +1,4 @@
-import { DoubleSide, FrontSide, Object3D, type Texture } from "three";
+import { BackSide, DoubleSide, FrontSide, Object3D, type Side, type Texture } from "three";
 
 import { AXIS_SIGN } from "@/modules/viewport";
 
@@ -23,8 +23,14 @@ ENGINE_WORLD.updateMatrixWorld();
 const BOTH_FACES = () => DoubleSide;
 const EMITTER_BIAS = (emitter: EmitterModel) => emitter.depthBias;
 
-/** The faces a mesh keeps: the front alone unless it asks for both. */
-const meshSide = (emitter: EmitterModel) => (emitter.backfaceCull ? FrontSide : DoubleSide);
+/**
+ * The faces a mesh keeps: the front alone unless it asks for both, and the other winding
+ * for the front where the emitter's unnamed flag reverses it.
+ */
+export function meshSide(emitter: EmitterModel): Side {
+  if (!emitter.backfaceCull) return DoubleSide;
+  return emitter.flipWinding ? BackSide : FrontSide;
+}
 
 /** An emitter's quads, spliced behind `QUAD_PRELUDE`. */
 export function quadDraw(orientation: QuadOrientation): ParticleDraw {

@@ -33,9 +33,10 @@ export function valueMode(mark: ValueMark | undefined): ValueMode {
 }
 
 /**
- * A random value as its two ends, one number per channel each. A particle rolls one chance
- * and lands on the line from `min` to `max`, so every channel moves together. Where `sign`
- * is set, the roll picks a side too, and the channel draws the ends or their negatives.
+ * A random value as its two ends, one number per channel each. A particle lands between
+ * `min` and `max` on each channel: a birth vector rolls each channel apart, and the UV birth
+ * values share one roll. Where `sign` is set, the channel's roll picks a side too, and the
+ * channel draws the ends or their negatives.
  */
 export interface RandomEnds {
   readonly min: readonly number[];

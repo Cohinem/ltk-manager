@@ -10,6 +10,7 @@ interface Order {
   blendMode?: BlendMode;
   miscRenderFlags?: number;
   groundLayer?: boolean;
+  simple?: boolean;
 }
 
 function keyed({
@@ -18,8 +19,9 @@ function keyed({
   blendMode = BLEND_MODE.add,
   miscRenderFlags = 0,
   groundLayer = false,
+  simple = false,
 }: Order) {
-  return { index, pass, blendMode, miscRenderFlags, groundLayer } as EmitterModel;
+  return { index, pass, blendMode, miscRenderFlags, groundLayer, simple } as EmitterModel;
 }
 
 describe("compareDrawOrder", () => {
@@ -46,6 +48,23 @@ describe("compareDrawOrder", () => {
 
     expect(compareDrawOrder(behind, ahead)).toBeLessThan(0);
     expect(compareDrawOrder(ahead, behind)).toBeGreaterThan(0);
+  });
+
+  it("draws a complex emitter before a simple one of the same pass, ahead of the blend rank", () => {
+    /* The simple list follows the complex one, so the index alone would agree. The blend
+       ranks and the indices here both say the opposite. */
+    const simple = keyed({ index: 0, simple: true, blendMode: BLEND_MODE.none });
+    const complex = keyed({ index: 1, blendMode: BLEND_MODE.targetAlpha });
+
+    expect(compareDrawOrder(complex, simple)).toBeLessThan(0);
+    expect(compareDrawOrder(simple, complex)).toBeGreaterThan(0);
+  });
+
+  it("orders a simple emitter of a lower pass before a complex one of a higher", () => {
+    const simple = keyed({ index: 1, simple: true, pass: -5 });
+    const complex = keyed({ index: 0, pass: 5 });
+
+    expect(compareDrawOrder(simple, complex)).toBeLessThan(0);
   });
 
   it("ranks the blend modes on a tied pass, NONE first and TARGETALPHA last", () => {

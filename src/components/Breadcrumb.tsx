@@ -4,6 +4,7 @@ import { type ReactNode } from "react";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
 import { Menu } from "./Menu";
 
 export interface BreadcrumbItem {
@@ -36,8 +37,9 @@ export interface BreadcrumbProps {
 const DEFAULT_MAX_VISIBLE = 4;
 
 const crumbClass =
-  "max-w-[14rem] truncate rounded-sm px-1 py-0.5 text-meta text-surface-300 outline-none " +
-  "hover:bg-surface-veil hover:text-surface-100 focus-visible:ring-1 focus-visible:ring-accent-500";
+  "max-w-[14rem] truncate rounded-sm px-1 py-0.5 text-meta text-surface-300 " +
+  "hover:bg-surface-veil hover:text-surface-100 " +
+  focusRing;
 
 const caretClass = "mx-0.5 size-3 shrink-0 text-surface-500";
 

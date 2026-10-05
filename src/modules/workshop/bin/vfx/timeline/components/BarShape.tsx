@@ -81,17 +81,17 @@ export function Bar({
 
 /** The cycles of a bar's period: a notch where each opens, and its pause darkened. */
 function PeriodCycles({ bar, view, width }: { bar: LaneBar; view: TimeWindow; width: number }) {
-  const period = bar.period;
-  if (period === null) return null;
-  if (xOf(view, width, period.length) - xOf(view, width, 0) < LEAST_CYCLE) return null;
+  const length = bar.period?.length ?? null;
+  if (length !== null && xOf(view, width, length) - xOf(view, width, 0) < LEAST_CYCLE) {
+    return null;
+  }
 
-  const end = bar.end ?? view.to;
   return (
     <>
       {periodCycles(bar, view).map((cycle) => {
         const from = xOf(view, width, cycle.from);
         const pause = xOf(view, width, cycle.active);
-        const next = xOf(view, width, Math.min(cycle.from + period.length, end));
+        const next = xOf(view, width, cycle.until);
         return (
           <span key={cycle.from} aria-hidden="true">
             {cycle.from > bar.start && (
@@ -151,13 +151,21 @@ function BarTimes({ bar }: { bar: LaneBar }) {
 }
 
 function PeriodLine({ bar }: { bar: LaneBar }) {
-  if (bar.period === null) return null;
+  const period = bar.period;
+  if (period === null) return null;
 
+  if (period.length === null) {
+    return (
+      <span className="text-surface-300">
+        {m.workshop_bin_timeline_bar_active_label({ active: (period.active ?? 0).toFixed(2) })}
+      </span>
+    );
+  }
   return (
     <span className="text-surface-300">
       {m.workshop_bin_timeline_bar_period_label({
-        length: bar.period.length.toFixed(2),
-        active: bar.period.active.toFixed(2),
+        length: period.length.toFixed(2),
+        active: (period.active ?? period.length).toFixed(2),
       })}
     </span>
   );

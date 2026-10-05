@@ -38,7 +38,6 @@ export function ProjectActions({ project }: ProjectActionsProps) {
       const button = (
         <Button
           variant="ghost"
-          size="sm"
           left={<PlayIcon weight="bold" className="size-4" />}
           onClick={actions.handleTestProject}
           className={testTint}
@@ -55,7 +54,6 @@ export function ProjectActions({ project }: ProjectActionsProps) {
       <Tooltip content={m.workshop_header_test_blocked_hint({ name: otherLabel })}>
         <Button
           variant="ghost"
-          size="sm"
           disabled
           left={<PlayIcon weight="bold" className="size-4" />}
           className={testTint}
@@ -68,7 +66,6 @@ export function ProjectActions({ project }: ProjectActionsProps) {
       <Tooltip content={m.workshop_header_test_patcher_hint()}>
         <Button
           variant="ghost"
-          size="sm"
           disabled
           left={<PlayIcon weight="bold" className="size-4" />}
           className={testTint}
@@ -87,7 +84,6 @@ export function ProjectActions({ project }: ProjectActionsProps) {
       <Tooltip content={packTargetHint(packTarget)}>
         <Button
           variant="ghost"
-          size="sm"
           left={<PackageIcon weight="bold" className="size-4" />}
           loading={actions.isPacking}
           onClick={actions.handlePack}
@@ -102,9 +98,8 @@ export function ProjectActions({ project }: ProjectActionsProps) {
         <Menu.Trigger
           render={
             <IconButton
-              compact={false}
               icon={<DotsThreeVerticalIcon />}
-              size="sm"
+              size="md"
               aria-label={m.workshop_header_actions_label()}
               className={neutralTint}
             />
@@ -159,9 +154,8 @@ function FailedTestTip({ incident }: { incident: Incident }) {
         <p className="truncate font-mono text-xs text-surface-200">{incident.verdict.subject}</p>
       )}
       <Button
-        variant="light"
+        variant="tonal"
         size="xs"
-        compact
         className="self-start"
         onClick={() =>
           navigate({ to: "/diagnostics", search: { tab: "games", incident: incident.id } })

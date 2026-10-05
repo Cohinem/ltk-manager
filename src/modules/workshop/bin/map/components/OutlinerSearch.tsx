@@ -101,7 +101,8 @@ export function OutlinerSearch({
         )}
         {filter.text !== "" && (
           <IconButton
-            icon={<XIcon className="size-3" />}
+            icon={<XIcon />}
+            size="row"
             onClick={() => onChange({ ...filter, text: "" })}
             aria-label={m.workshop_bin_map_outliner_search_clear_action()}
           />

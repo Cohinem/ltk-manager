@@ -162,9 +162,8 @@ function ComposerRow({ seed, onCommit }: ComposerRowProps) {
         placeholder="Replacement text"
       />
       <IconButton
-        compact={false}
         icon={<PlusIcon />}
-        size="sm"
+        size="md"
         disabled={!key.trim()}
         onClick={commit}
         label="Add override"
@@ -177,7 +176,7 @@ function ComposerRow({ seed, onCommit }: ComposerRowProps) {
    a field and a long one never scrolls inside itself. Enter commits, and
    Shift+Enter is the newline. The padding makes one text-sm line plus borders
    exactly min-h-8, because a textarea top-aligns whatever slack is left. */
-const GROWING_TEXTAREA = "field-sizing-content min-h-8 resize-none px-4 py-[5px]";
+const GROWING_TEXTAREA = "field-sizing-content min-h-8 resize-none py-[5px]";
 
 interface OverrideRowProps {
   entry: OverrideEntry;
@@ -190,7 +189,7 @@ interface OverrideRowProps {
 
 function OverrideRow({ entry, original, error, onUpdate, onPick, onRemove }: OverrideRowProps) {
   return (
-    <li className="group flex flex-col gap-0.5 border-b border-surface-700/40 px-3 py-2 last:border-b-0">
+    <li className="group/reveal flex flex-col gap-0.5 border-b border-surface-700/40 px-3 py-2 last:border-b-0">
       <div className="flex items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
           <KeyCell entry={entry} error={error} onUpdate={onUpdate} onPick={onPick} />
@@ -199,7 +198,8 @@ function OverrideRow({ entry, original, error, onUpdate, onPick, onRemove }: Ove
           icon={<TrashIcon />}
           onClick={() => onRemove(entry.id)}
           aria-label={`Delete the ${entry.key} override`}
-          className="shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+          reveal
+          className="shrink-0"
           tooltip="Delete override"
         />
       </div>
@@ -339,7 +339,7 @@ function ValueCell({ entry, original, onUpdate }: ValueCellProps) {
   return (
     <>
       <TextareaField
-        textareaClassName={twMerge(GROWING_TEXTAREA, "px-2.5")}
+        textareaClassName={GROWING_TEXTAREA}
         rows={1}
         value={draft}
         autoFocus

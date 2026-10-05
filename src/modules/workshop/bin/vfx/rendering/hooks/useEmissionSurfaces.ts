@@ -4,35 +4,52 @@ import { previewBufferUrl, type PreviewForm } from "@/lib/previewUrl";
 import type { NamedAsset } from "@/lib/tauri";
 import { createPose, readClipBuffer, readMeshBuffer, readSkeletonBuffer } from "@/modules/viewport";
 
-import type { EmissionSurfaceModel } from "../../engine/model/model";
+import type { EmissionMeshModel, EmissionSurfaceModel } from "../../engine/model/model";
 import type { Driver } from "../../engine/simulation/driver";
-import type { EmissionSampler, EmissionSurfaces } from "../../engine/simulation/emissionSurface";
+import type {
+  EmissionSampler,
+  EmissionSurfaces,
+  EmitterSurfaces,
+} from "../../engine/simulation/emissionSurface";
 import type { DrawnEmitter } from "../utils/definitions";
-import { meshSurface, skeletonSurface } from "../utils/emissionSurface";
+import { meshSurface, skeletonSurface, staticMeshSurface } from "../utils/emissionSurface";
 
-/** One drawn emitter's emission surface, and the signature its sampler is cached under. */
+/** What one sampler is built from: an emitter's emission mesh, or its emission surface. */
+type SurfaceSource =
+  | { readonly kind: "mesh"; readonly model: EmissionMeshModel }
+  | { readonly kind: "surface"; readonly model: EmissionSurfaceModel };
+
+/** One sampler a drawn emitter needs, and the signature it is cached under. */
 interface SurfaceRequest {
   readonly path: string;
   readonly index: number;
-  readonly model: EmissionSurfaceModel;
+  readonly source: SurfaceSource;
   readonly signature: string;
 }
 
 function surfaceRequests(drawn: readonly DrawnEmitter[]): SurfaceRequest[] {
   return drawn.flatMap(({ path, emitter }) => {
-    const model = emitter.emissionSurface;
-    if (model === null) return [];
-    return [{ path, index: emitter.index, model, signature: JSON.stringify(model) }];
+    const sources: SurfaceSource[] = [];
+    if (emitter.emissionMesh !== null) sources.push({ kind: "mesh", model: emitter.emissionMesh });
+    if (emitter.emissionSurface !== null) {
+      sources.push({ kind: "surface", model: emitter.emissionSurface });
+    }
+    return sources.map((source) => ({
+      path,
+      index: emitter.index,
+      source,
+      signature: JSON.stringify(source),
+    }));
   });
 }
 
 const NO_SURFACES: EmissionSurfaces = new Map();
 
 /**
- * Loaded emission surfaces installed before the driver replays its current time.
+ * Loaded emission meshes and surfaces installed before the driver replays its current time.
  *
- * The samplers are cached by what each surface is built from, so an edit that moves no
- * surface hands the driver the samplers it already has and costs no replay.
+ * The samplers are cached by what each is built from, so an edit that moves none hands the
+ * driver the samplers it already has and costs no replay.
  */
 export function useEmissionSurfaces(drawn: readonly DrawnEmitter[], driver: Driver | null): void {
   const wanted = useMemo(() => surfaceRequests(drawn), [drawn]);
@@ -56,8 +73,8 @@ export function useEmissionSurfaces(drawn: readonly DrawnEmitter[], driver: Driv
         if (!wantedSignatures.has(key)) samplers.delete(key);
       }
 
-      const surfaces = new Map<string, Map<number, EmissionSampler>>();
-      for (const { path, index, signature: surfaceKey } of requests) {
+      const surfaces = new Map<string, Map<number, EmitterSurfaces>>();
+      for (const { path, index, source, signature: surfaceKey } of requests) {
         const sampler = samplers.get(surfaceKey);
         if (sampler === undefined) continue;
 
@@ -66,14 +83,15 @@ export function useEmissionSurfaces(drawn: readonly DrawnEmitter[], driver: Driv
           system = new Map();
           surfaces.set(path, system);
         }
-        system.set(index, sampler);
+        const held = system.get(index) ?? { mesh: null, surface: null };
+        system.set(index, { ...held, [source.kind]: sampler });
       }
       driver.setSurfaces(surfaces.size === 0 ? NO_SURFACES : surfaces);
     };
 
-    const owed = new Map<string, EmissionSurfaceModel>();
-    for (const { model, signature: surfaceKey } of requests) {
-      if (!samplers.has(surfaceKey)) owed.set(surfaceKey, model);
+    const owed = new Map<string, SurfaceSource>();
+    for (const { source, signature: surfaceKey } of requests) {
+      if (!samplers.has(surfaceKey)) owed.set(surfaceKey, source);
     }
     if (owed.size === 0) {
       install();
@@ -82,8 +100,8 @@ export function useEmissionSurfaces(drawn: readonly DrawnEmitter[], driver: Driv
 
     void Promise.allSettled(
       [...owed].map(
-        async ([surfaceKey, model]) =>
-          [surfaceKey, await loadSurface(model, abort.signal)] as const,
+        async ([surfaceKey, source]) =>
+          [surfaceKey, await loadSource(source, abort.signal)] as const,
       ),
     ).then((results) => {
       if (abort.signal.aborted) return;
@@ -101,23 +119,33 @@ export function useEmissionSurfaces(drawn: readonly DrawnEmitter[], driver: Driv
   }, [signature, driver]);
 }
 
+async function bytesOf(asset: NamedAsset | null, form: PreviewForm, signal: AbortSignal) {
+  if (asset?.asset == null) return null;
+
+  const response = await fetch(previewBufferUrl(asset.asset, form), { signal });
+  if (!response.ok) throw new Error(`Emission surface ${form} load failed: ${response.status}`);
+
+  return response.arrayBuffer();
+}
+
+async function loadSource(
+  source: SurfaceSource,
+  signal: AbortSignal,
+): Promise<EmissionSampler | null> {
+  if (source.kind === "surface") return loadSurface(source.model, signal);
+
+  const mesh = await bytesOf(source.model.mesh, "geometry", signal);
+  return mesh === null ? null : staticMeshSurface(readMeshBuffer(mesh), source.model.scale);
+}
+
 async function loadSurface(
   model: EmissionSurfaceModel,
   signal: AbortSignal,
 ): Promise<EmissionSampler | null> {
-  async function bytes(asset: NamedAsset | null, form: PreviewForm) {
-    if (asset?.asset == null) return null;
-
-    const response = await fetch(previewBufferUrl(asset.asset, form), { signal });
-    if (!response.ok) throw new Error(`Emission surface ${form} load failed: ${response.status}`);
-
-    return response.arrayBuffer();
-  }
-
   const [mesh, skeleton, clip] = await Promise.all([
-    bytes(model.mesh, "geometry"),
-    bytes(model.skeleton, "skeleton"),
-    bytes(model.animation, "animation"),
+    bytesOf(model.mesh, "geometry", signal),
+    bytesOf(model.skeleton, "skeleton", signal),
+    bytesOf(model.animation, "animation", signal),
   ]);
 
   const pose =

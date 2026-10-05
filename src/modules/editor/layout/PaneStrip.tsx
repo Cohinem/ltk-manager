@@ -129,7 +129,7 @@ function SortableStripTab({
         onDoubleClick={() => onMaximize?.()}
         {...listeners}
         className={twMerge(
-          "group/pane relative flex h-5 max-w-56 shrink-0 touch-none items-center rounded-sm pr-0.5",
+          "group/reveal relative flex h-5 max-w-56 shrink-0 touch-none items-center rounded-sm pr-0.5",
           /* The open pane rises off the strip rather than marking itself with a
              rule: DS-GROUND. */
           active && "bg-surface-800 text-surface-100",
@@ -149,10 +149,11 @@ function SortableStripTab({
         </Tabs.Tab>
         {onClose && (
           <IconButton
-            icon={<XIcon className="size-3" />}
+            icon={<XIcon />}
+            size="row"
+            reveal
             onClick={() => onClose(pane.id)}
             aria-label={`Close ${pane.title}`}
-            className="size-4 opacity-0 group-hover/pane:opacity-100 focus-visible:opacity-100"
           />
         )}
       </div>

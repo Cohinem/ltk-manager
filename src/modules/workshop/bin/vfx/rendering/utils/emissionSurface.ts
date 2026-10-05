@@ -91,6 +91,64 @@ export function meshSurface(
   };
 }
 
+/** The total area under which the engine reads an emission mesh as having no surface. */
+const LEAST_AREA = 1e-5;
+
+/**
+ * Births on a static mesh, `emissionMeshName`: a triangle picked by its area, and a point
+ * of it at `scale` from the mesh's own origin.
+ *
+ * The point is the engine's own blend of two draws, which leans toward the third corner
+ * rather than covering the triangle evenly, and the normal is the triangle's geometric
+ * one. A mesh with no area samples nothing.
+ */
+export function staticMeshSurface(mesh: MeshGeometry, scale: number): EmissionSampler {
+  const indices = mesh.indices;
+  const triangleCount = Math.floor(indices.length / 3);
+  const reach = new Float64Array(triangleCount);
+  const corners = [new Vector3(), new Vector3(), new Vector3()];
+  const edge = new Vector3();
+  const normal = new Vector3();
+  const point = new Vector3();
+
+  function cornersOf(triangle: number): void {
+    for (let corner = 0; corner < 3; corner += 1) {
+      corners[corner].fromArray(mesh.positions, indices[triangle * 3 + corner] * 3);
+    }
+    normal.subVectors(corners[1], corners[0]).cross(edge.subVectors(corners[2], corners[0]));
+  }
+
+  let total = 0;
+  for (let triangle = 0; triangle < triangleCount; triangle += 1) {
+    cornersOf(triangle);
+    total += normal.length() / 2;
+    reach[triangle] = total;
+  }
+
+  return {
+    sample(_time, rng, out) {
+      if (total < LEAST_AREA) return false;
+
+      const pick = rng.unitFloat() * total;
+      let triangle = 0;
+      while (triangle < triangleCount - 1 && pick >= reach[triangle]) triangle += 1;
+      cornersOf(triangle);
+
+      const u = rng.unitFloat();
+      const v = rng.unitFloat();
+      point
+        .copy(corners[0])
+        .multiplyScalar((1 - u) * (1 - v))
+        .addScaledVector(corners[1], (1 - u) * v)
+        .addScaledVector(corners[2], u)
+        .multiplyScalar(scale);
+      point.toArray(out.position);
+      normal.normalize().toArray(out.normal);
+      return true;
+    },
+  };
+}
+
 /** Skeleton births weighted by the posed lengths of the selected bones. */
 export function skeletonSurface(model: EmissionSurfaceModel, pose: Pose): EmissionSampler {
   const mask = new Set(model.joints);

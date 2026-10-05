@@ -66,7 +66,6 @@ export function IgnoreRulesDocument({
             <Button
               variant="ghost"
               size="xs"
-              compact
               disabled={editor.isAdding}
               onClick={editor.addRecommended}
             >
@@ -225,7 +224,7 @@ function NoFile({ editor }: { editor: Editor }) {
           title={m.workshop_ignore_empty_title()}
           description={m.workshop_ignore_empty_description()}
           action={
-            <Button size="sm" disabled={editor.isAdding} onClick={editor.addRecommended}>
+            <Button disabled={editor.isAdding} onClick={editor.addRecommended}>
               {m.workshop_ignore_write_default_action()}
             </Button>
           }

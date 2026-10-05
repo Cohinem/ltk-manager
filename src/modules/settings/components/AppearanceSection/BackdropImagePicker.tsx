@@ -39,7 +39,7 @@ export function BackdropImagePicker() {
             onClear={() => update({ backdropImage: null })}
             placeholder="No image selected"
             dialogTitle="Select Background Image"
-            browseIcon={<ImageIcon weight="bold" className="size-5" />}
+            browseIcon={<ImageIcon />}
           />
         }
       />

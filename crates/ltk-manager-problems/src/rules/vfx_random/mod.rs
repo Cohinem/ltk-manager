@@ -2,7 +2,8 @@
 //! game re-rolls every frame, or cannot read.
 //!
 //! An animated value's `dynamics` holds `probabilityTables`, one table per
-//! channel, which a particle's birth reads at one roll.
+//! channel, which a particle's birth reads at a roll, one per channel of a birth
+//! vector.
 //!
 //! - The per-frame evaluate passes no roll, so a table on a per-frame value
 //!   draws afresh every frame and every channel. That is attested for

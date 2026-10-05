@@ -89,7 +89,6 @@ export function TrustedDomainsEditor() {
             />
             <Button
               variant="outline"
-              size="sm"
               left={<PlusIcon weight="bold" className="size-4" />}
               onClick={addDomain}
               disabled={!trimmed || alreadyTrusted}

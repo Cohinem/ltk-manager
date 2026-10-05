@@ -77,10 +77,10 @@ export function ContentWadList({ wads, layerName, layerDisplayName }: ContentWad
             {browsable && (
               <div className="absolute inset-y-0 right-1 flex items-center opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100">
                 <IconButton
-                  icon={<FileMagnifyingGlassIcon className="size-3.5" />}
+                  icon={<FileMagnifyingGlassIcon />}
                   onClick={() => browse(wad.name)}
                   aria-label={`Browse ${wad.name} in the game`}
-                  className="size-5"
+                  size="row"
                   tooltip="Browse game archive"
                 />
               </div>
@@ -119,7 +119,7 @@ function WadsEmptyState({ layerName, layerDisplayName }: WadsEmptyStateProps) {
       action={
         <Button
           variant="outline"
-          size="xs"
+          size="sm"
           loading={wadImport.isPending}
           left={<PlusIcon weight="bold" className="size-4" />}
           onClick={wadImport.pickFiles}

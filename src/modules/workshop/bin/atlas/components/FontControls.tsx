@@ -21,7 +21,8 @@ export function FontControls() {
           placeholder={m.workshop_bin_atlas_font_sample_label()}
           autoComplete="off"
           spellCheck={false}
-          className="h-7 px-2 text-meta select-text"
+          size="sm"
+          className="select-text"
         />
       </Field.Root>
     </div>

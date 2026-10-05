@@ -6,7 +6,7 @@ import { nameHash } from "../../shared/utils/binHash";
 import { type Followed, followedRow } from "../../vfx/drivers/utils/surfaceDraw";
 import type { EmitterModel, SystemModel } from "../../vfx/engine/model/model";
 import type { Driver } from "../../vfx/engine/simulation/driver";
-import { age01, emitterPhase } from "../../vfx/engine/simulation/particleRead";
+import { age01, clamp01, emitterPhase } from "../../vfx/engine/simulation/particleRead";
 import { VfxRunContext } from "../../vfx/playback/state/run";
 import { useRunReadout } from "../../vfx/playback/state/runReadout";
 import { drawnAtBirth } from "../utils/randomDraw";
@@ -53,7 +53,7 @@ export function usePlayheadRead(
   return useCallback(
     (driver: Driver) => {
       if (emitter === undefined) return null;
-      if (birth) return emitterPhase(emitter, driver.elapsed);
+      if (birth) return clamp01(emitterPhase(emitter, driver.elapsed));
 
       const particle = followedRow(driver.pool, emitter.index, followed.current);
       return particle < 0 ? null : age01(driver.pool, particle, driver.time);

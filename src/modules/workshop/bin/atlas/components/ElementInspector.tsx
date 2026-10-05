@@ -138,7 +138,7 @@ function ElementFields({
           </span>
           <IconButton
             className="ml-auto"
-            icon={<ArrowSquareOutIcon className="size-3.5" />}
+            icon={<ArrowSquareOutIcon />}
             onClick={openElement}
             label={m.workshop_bin_open_object_action()}
           />

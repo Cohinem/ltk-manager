@@ -128,7 +128,7 @@ export function EditorTabs({
       onValueChange={(value) => onActivate(String(value))}
       className={twMerge(
         /* DS-GROUND: the strip shares the editor's ground and separates with a hairline. */
-        "group/strip h-9 shrink-0 flex-row items-center border-b border-surface-700/50 select-none",
+        "group/reveal h-9 shrink-0 flex-row items-center border-b border-surface-700/50 select-none",
         className,
       )}
     >
@@ -204,15 +204,11 @@ function LockToggle({ locked, onToggle }: LockToggleProps) {
   return (
     <IconButton
       icon={<LockGlyph closed={locked} weight="bold" />}
-      title={label}
-      aria-label={label}
-      aria-pressed={locked}
+      label={label}
+      pressed={locked}
+      reveal
       onClick={() => onToggle(!locked)}
-      className={twMerge(
-        "mr-2 size-6 shrink-0 opacity-0 transition-opacity",
-        "group-hover/strip:opacity-100 focus-visible:opacity-100",
-        locked && "text-accent-400 opacity-100",
-      )}
+      className="mr-2 shrink-0"
     />
   );
 }

@@ -16,6 +16,7 @@ const MODULES = [
   "deep-link",
   "diagnostics",
   "editor",
+  "gallery",
   "home",
   "launcher",
   "library",
@@ -26,6 +27,9 @@ const MODULES = [
   "updater",
   "workshop",
 ];
+
+/** English that ships in no release build, so none of it is a message. */
+const DEV_ONLY = ["src/**/*.gallery.tsx", "src/modules/gallery/**"];
 
 const NOT_MODULE_SOURCE = ["src/**/*.test.{ts,tsx}", "src/test/**", ...GENERATED];
 
@@ -120,7 +124,7 @@ export default tseslint.config(
   },
   {
     files: ["src/**/*.{ts,tsx}"],
-    ignores: ["src/**/*.test.{ts,tsx}", "src/test/**", ...GENERATED],
+    ignores: ["src/**/*.test.{ts,tsx}", "src/test/**", ...DEV_ONLY, ...GENERATED],
     plugins: { i18next },
     languageOptions: {
       parserOptions: {

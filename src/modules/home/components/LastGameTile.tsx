@@ -34,7 +34,6 @@ export function LastGameTile() {
         </div>
         <Button
           variant="outline"
-          size="sm"
           className="self-start"
           onClick={() =>
             void navigate({

@@ -1,16 +1,25 @@
-import { BLEND_MODE, type BlendMode, QUAD_TYPE, UV_MODE } from "../../engine/model/enums";
+import {
+  BLEND_MODE,
+  type BlendMode,
+  DISTORTION_MODE,
+  QUAD_TYPE,
+  RENDER_PHASE,
+  UV_MODE,
+} from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
 
 /**
  * The emitters in the order the engine draws them, as a rank per emitter index.
  *
- * The engine's draw order: `pass` ascending, then the blend mode's rank, then
+ * The engine's draw order inside one render phase: `pass` ascending, a complex emitter
+ * before a simple one of the same `pass`, then the blend mode's rank, then
  * `miscRenderFlags` as a byte, then the emitter's own place. A position comparison sits
- * between the second and the third keys and compares the system's position, which every
+ * between the blend rank and the byte and compares the system's position, which every
  * emitter of one system shares.
  *
- * `isGroundLayer` puts an emitter in a display list of its own, and that list draws
- * before the default one.
+ * The ground layer's phase draws before the default one. The default phase holds the
+ * negative passes and the post-distortion phase the rest, so `pass` ascending is their
+ * order across the two as well.
  */
 export function drawRanks(emitters: readonly EmitterModel[]): ReadonlyMap<number, number> {
   const order = [...emitters].sort(compareDrawOrder);
@@ -31,6 +40,7 @@ export function compareDrawOrder(left: EmitterModel, right: EmitterModel): numbe
   return (
     Number(right.groundLayer) - Number(left.groundLayer) ||
     left.pass - right.pass ||
+    Number(left.simple) - Number(right.simple) ||
     blendRank(left.blendMode) - blendRank(right.blendMode) ||
     left.miscRenderFlags - right.miscRenderFlags ||
     left.index - right.index
@@ -44,6 +54,86 @@ function blendRank(mode: BlendMode): number {
   return BLEND_RANK[mode] ?? BLEND_RANK[BLEND_MODE.add];
 }
 
+/** Where in a frame an emitter draws: one colour phase, or the distortion phases. */
+export interface DrawPhases {
+  /**
+   * The colour phase: `under` draws before the late distortion, the engine's default and
+   * ground-layer phases, and `over` after it, its post-distortion and HUD phases.
+   */
+  readonly colour: "under" | "over" | null;
+  /** The emitter warps the frame before any particle draws, the no-character phase. */
+  readonly warpsEarly: boolean;
+  /** The emitter warps the frame between the two colour phases. */
+  readonly warpsLate: boolean;
+}
+
+const NO_PHASE: DrawPhases = { colour: null, warpsEarly: false, warpsLate: false };
+const UNDER: DrawPhases = { colour: "under", warpsEarly: false, warpsLate: false };
+const OVER: DrawPhases = { colour: "over", warpsEarly: false, warpsLate: false };
+
+/**
+ * The render phases `emitter` draws in.
+ *
+ * `renderPhaseOverride` forces one phase and drops every other rule, and a value naming
+ * no phase draws nowhere. Left automatic, a HUD-layer emitter draws in the HUD's phase
+ * alone, a ground-layer one in the ground's, and one with an active distortion block in
+ * the distortion phases alone. Every other emitter draws by the sign of its `pass`:
+ * negative before the late distortion, and zero or more after it. The shadow phase is
+ * not drawn, so an emitter forced into it draws nothing.
+ */
+export function drawPhases(emitter: EmitterModel): DrawPhases {
+  const custom = emitter.customMaterial != null && !emitter.customMaterial.missing;
+  const warps = emitter.distortion !== null && !custom;
+
+  switch (emitter.renderPhaseOverride) {
+    case RENDER_PHASE.automatic:
+      break;
+    case RENDER_PHASE.default:
+    case RENDER_PHASE.groundLayer:
+      return UNDER;
+    case RENDER_PHASE.postDistortion:
+      return OVER;
+    case RENDER_PHASE.hudLayer:
+      return emitter.hudLayer ? OVER : NO_PHASE;
+    case RENDER_PHASE.distortionNoCharacter:
+      return warps ? { colour: null, warpsEarly: true, warpsLate: false } : NO_PHASE;
+    case RENDER_PHASE.distortionAll:
+      return warps ? { colour: null, warpsEarly: false, warpsLate: true } : NO_PHASE;
+    default:
+      return NO_PHASE;
+  }
+
+  if (emitter.hudLayer) return OVER;
+  if (emitter.groundLayer) return UNDER;
+
+  const mode = emitter.distortion?.mode ?? 0;
+  if (warps && mode !== 0) {
+    return {
+      colour: null,
+      warpsEarly: (mode & DISTORTION_MODE.noCharacter) !== 0,
+      warpsLate: (mode & DISTORTION_MODE.all) !== 0,
+    };
+  }
+  return emitter.pass < 0 ? UNDER : OVER;
+}
+
+/** The primitive kinds a simple emitter draws. It simulates the rest and draws nothing. */
+const SIMPLE_DRAWN: ReadonlySet<number | null> = new Set([
+  QUAD_TYPE.cameraQuad,
+  QUAD_TYPE.arbitraryQuad,
+  QUAD_TYPE.mesh,
+  QUAD_TYPE.planarProjection,
+  QUAD_TYPE.attachedMesh,
+]);
+
+/** The emitter's list draws its primitive kind, and the emitter is in some render phase. */
+function reachesAPhase(emitter: EmitterModel): boolean {
+  if (emitter.simple && !SIMPLE_DRAWN.has(emitter.quadType)) return false;
+
+  const phases = drawPhases(emitter);
+  return phases.colour !== null || phases.warpsEarly || phases.warpsLate;
+}
+
 /**
  * The emitter draws as a quad.
  *
@@ -54,26 +144,25 @@ function blendRank(mode: BlendMode): number {
  */
 export function drawsAsQuad(emitter: EmitterModel): boolean {
   return (
-    emitter.quadType === QUAD_TYPE.cameraQuad ||
-    emitter.quadType === QUAD_TYPE.cameraUnitQuad ||
-    emitter.quadType === QUAD_TYPE.arbitraryQuad ||
-    emitter.quadType === QUAD_TYPE.ray
+    reachesAPhase(emitter) &&
+    (emitter.quadType === QUAD_TYPE.cameraQuad ||
+      emitter.quadType === QUAD_TYPE.cameraUnitQuad ||
+      emitter.quadType === QUAD_TYPE.arbitraryQuad ||
+      emitter.quadType === QUAD_TYPE.ray)
   );
 }
 
 /**
- * The emitter warps the screen behind it instead of drawing into the colour pass.
+ * The emitter warps the screen behind it instead of drawing into a colour phase.
  *
  * Its geometry is whichever kind it already is, so it draws through the same path with
- * the distortion material and on the distortion layer. Decision 2.25 of
+ * the distortion material and on the distortion layers. A block whose `distortionMode` is
+ * zero warps nothing, and its emitter draws as any other. Decision 2.25 of
  * docs/plans/vfx-particle-renderer.md.
  */
 export function distorts(emitter: EmitterModel): boolean {
-  if (emitter.customMaterial != null && !emitter.customMaterial.missing) {
-    return false;
-  }
-
-  return emitter.distortion !== null;
+  const phases = drawPhases(emitter);
+  return phases.warpsEarly || phases.warpsLate;
 }
 
 /** The quad faces the eye rather than standing on its own orientation. */
@@ -118,7 +207,7 @@ export function drawsFixedAlphaUv(emitter: EmitterModel): boolean {
 
 /** The emitter draws one ribbon through its live particles. */
 export function drawsAsTrail(emitter: EmitterModel): boolean {
-  return emitter.trail !== null;
+  return emitter.trail !== null && reachesAPhase(emitter);
 }
 
 /** The trail expands across the view rather than along each particle's own `+X`. */
@@ -133,7 +222,7 @@ export function trailFacesTheCamera(emitter: EmitterModel): boolean {
  * draws nothing here either.
  */
 export function drawsAsBeam(emitter: EmitterModel): boolean {
-  return emitter.beam !== null && emitter.mesh === null;
+  return emitter.beam !== null && emitter.mesh === null && reachesAPhase(emitter);
 }
 
 /**
@@ -144,7 +233,7 @@ export function drawsAsBeam(emitter: EmitterModel): boolean {
  * [`drawsTheAttachment`].
  */
 export function drawsAsMesh(emitter: EmitterModel): boolean {
-  return emitter.quadType === QUAD_TYPE.mesh && emitter.mesh !== null;
+  return emitter.quadType === QUAD_TYPE.mesh && emitter.mesh !== null && reachesAPhase(emitter);
 }
 
 /**
@@ -154,7 +243,7 @@ export function drawsAsMesh(emitter: EmitterModel): boolean {
  * palette per particle, so a name the definition carries is dead data.
  */
 export function drawsTheAttachment(emitter: EmitterModel): boolean {
-  return emitter.quadType === QUAD_TYPE.attachedMesh;
+  return emitter.quadType === QUAD_TYPE.attachedMesh && reachesAPhase(emitter);
 }
 
 /**
@@ -163,17 +252,19 @@ export function drawsTheAttachment(emitter: EmitterModel): boolean {
  * A projection never distorts: the engine gives kind 7 its own decal shaders on every pass.
  */
 export function drawsAsProjection(emitter: EmitterModel): boolean {
-  return emitter.quadType === QUAD_TYPE.planarProjection;
+  return emitter.quadType === QUAD_TYPE.planarProjection && reachesAPhase(emitter);
 }
 
 /**
  * The emitter names a primitive this build has no renderer for.
  *
  * A null `quadType` reaches here too, because a class with no kind matches none of the
- * predicates above.
+ * predicates above. An emitter the engine itself draws nowhere, by its render phase or as
+ * a simple emitter of a kind that list does not draw, is not one of them.
  */
 export function isUndrawn(emitter: EmitterModel): boolean {
   return (
+    reachesAPhase(emitter) &&
     !drawsAsQuad(emitter) &&
     !drawsAsMesh(emitter) &&
     !drawsAsTrail(emitter) &&

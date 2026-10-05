@@ -91,6 +91,7 @@ export function RenameProjectDialog() {
 
         <Dialog.Footer>
           <Button
+            size="lg"
             variant="ghost"
             type="button"
             onClick={closeDialog}
@@ -99,6 +100,7 @@ export function RenameProjectDialog() {
             Cancel
           </Button>
           <Button
+            size="lg"
             type="submit"
             disabled={error !== null || unchanged}
             loading={renameProject.isPending}

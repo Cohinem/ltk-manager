@@ -187,7 +187,15 @@ function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
  * is on the card's right click, so nothing here is reachable only by finding a
  * button that is not currently drawn.
  */
-export function ModCardMenu({ view, className }: { view: ModCardView; className?: string }) {
+export function ModCardMenu({
+  view,
+  reveal,
+  className,
+}: {
+  view: ModCardView;
+  reveal?: boolean;
+  className?: string;
+}) {
   return (
     <Menu.Root>
       <Menu.Trigger
@@ -196,6 +204,7 @@ export function ModCardMenu({ view, className }: { view: ModCardView; className?
             icon={<DotsThreeVerticalIcon />}
             size="sm"
             aria-label={m.library_mod_options_label({ name: view.mod.displayName })}
+            reveal={reveal}
             className={className}
           />
         }

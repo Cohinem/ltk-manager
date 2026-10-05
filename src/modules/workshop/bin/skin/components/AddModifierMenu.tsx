@@ -23,7 +23,7 @@ export function AddModifierMenu() {
       <Menu.Trigger
         disabled={send === null}
         render={
-          <Button variant="ghost" size="xs" compact left={<PlusIcon />}>
+          <Button variant="ghost" size="xs" left={<PlusIcon />}>
             {m.workshop_bin_physics_add_modifier_action()}
           </Button>
         }

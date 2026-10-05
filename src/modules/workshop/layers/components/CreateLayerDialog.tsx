@@ -119,7 +119,7 @@ export function CreateLayerDialog({
                   onBlur={field.handleBlur}
                   hasError={field.state.meta.errors.length > 0}
                   placeholder="high-res-textures"
-                  className="font-mono text-sm text-surface-300"
+                  className="font-mono text-surface-300"
                 />
                 <Field.Description>
                   <span className="flex items-start gap-1.5 text-xs">
@@ -152,7 +152,7 @@ export function CreateLayerDialog({
         </Dialog.Body>
 
         <Dialog.Footer>
-          <Button variant="ghost" onClick={handleClose}>
+          <Button size="lg" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
           <form.Subscribe
@@ -160,6 +160,7 @@ export function CreateLayerDialog({
           >
             {({ canSubmit, isValid }) => (
               <Button
+                size="lg"
                 variant="filled"
                 loading={isPending}
                 disabled={!canSubmit || !isValid}

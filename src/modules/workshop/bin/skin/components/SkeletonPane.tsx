@@ -355,7 +355,7 @@ function Row({
       data-ui={`SkeletonPane:${row.kind}`}
       /* DS-RADIUS, DS-VEIL */
       className={twMerge(
-        "group mx-1 flex h-5 shrink-0 items-center gap-1 rounded-sm pr-1 text-row outline-none",
+        "group/reveal mx-1 flex h-5 shrink-0 items-center gap-1 rounded-sm pr-1 text-row outline-none",
         joint && "cursor-pointer hover:bg-surface-veil",
         "focus-visible:ring-1 focus-visible:ring-accent-500",
         selected && "bg-accent-500/15 hover:bg-accent-500/25",

@@ -1,7 +1,7 @@
 import { fnv1a32 } from "../../../shared/utils/binHash";
 import type { ChildSetModel, EmitterModel, InheritanceModel, SystemModel } from "../model/model";
 import type { Anchor, Joints, Point } from "../model/rig";
-import { addressTheSame, systemSpan } from "../model/systemModel";
+import { addressTheSame, emissionEnded, systemSpan } from "../model/systemModel";
 import { Rng } from "../utils/Rng";
 import { drawCurve, sampleCurve } from "../utils/sampleCurve";
 import {
@@ -306,7 +306,7 @@ export function createChildren(lineage: Lineage, prefix: string, depth: number):
       slot,
       pool: takePool(lineage, capacity),
       capacity,
-      states: createEmitterStates(system.emitters),
+      states: createEmitterStates(system.emitters, rng),
       rng,
       bornAt: now,
       serial: carried ? serial : null,
@@ -611,7 +611,7 @@ function advance(child: Child, dt: number, now: number, lineage: Lineage): void 
       child.origin[2] - child.from[2],
     ],
     yaw: child.yaw,
-    world: child.world.basis,
+    world: child.world,
     stopped: child.stopped,
     pinned: lineage.pinned,
     surfaces: lineage.surfaces.get(child.path),
@@ -638,8 +638,9 @@ function playedOut(child: Child): boolean {
     const state = child.states[index];
     return (
       emitter.disabled ||
+      state.absent ||
       (emitter.singleParticle && state.emitted) ||
-      (emitter.lifetime !== null && state.age > emitter.lifetime)
+      emissionEnded(emitter, state.age)
     );
   });
 }

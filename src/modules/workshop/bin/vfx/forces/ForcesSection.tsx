@@ -97,9 +97,7 @@ export function ForcesSection({ search }: { search: string }) {
         {edit?.editProperty !== undefined && (
           <Menu.Root>
             <Menu.Trigger
-              render={
-                <Button variant="ghost" size="sm" disabled={busy || pending || error !== null} />
-              }
+              render={<Button variant="ghost" disabled={busy || pending || error !== null} />}
             >
               <PlusIcon weight="bold" className="size-3.5" />
               {m.workshop_bin_force_add_action()}
@@ -196,7 +194,6 @@ function ForceGroup({
       <header className="flex items-center gap-1 bg-surface-800/50 pr-1">
         <Button
           variant="ghost"
-          size="sm"
           className="min-w-0 flex-1 justify-start"
           aria-expanded={open}
           disabled={searching}
@@ -209,22 +206,22 @@ function ForceGroup({
         {hosted && force.supported && (
           <>
             <IconButton
-              compact={false}
-              icon={<ArrowsOutCardinalIcon className="size-3.5" />}
+              size="sm"
+              icon={<ArrowsOutCardinalIcon />}
               aria-pressed={selected}
               onClick={() => preview.select(selected ? null : force.key)}
               label={m.workshop_bin_force_handle_action()}
             />
             <IconButton
-              compact={false}
-              icon={<EyeSlashIcon className="size-3.5" />}
+              size="sm"
+              icon={<EyeSlashIcon />}
               pressed={preview.muted.has(force.key)}
               onClick={() => preview.mute(force.key)}
               label={m.workshop_bin_force_mute_action()}
             />
             <IconButton
-              compact={false}
-              icon={<CrosshairIcon className="size-3.5" />}
+              size="sm"
+              icon={<CrosshairIcon />}
               pressed={preview.solo === force.key}
               onClick={() => preview.isolate(force.key)}
               label={m.workshop_bin_force_solo_action()}
@@ -233,9 +230,9 @@ function ForceGroup({
         )}
         {edit?.removeItem !== undefined && (
           <IconButton
-            compact={false}
+            size="sm"
             disabled={busy}
-            icon={<TrashIcon className="size-3.5" />}
+            icon={<TrashIcon />}
             onClick={() => void remove()}
             label={m.workshop_bin_force_remove_action()}
           />

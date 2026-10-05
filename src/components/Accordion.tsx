@@ -5,6 +5,8 @@ import { match } from "ts-pattern";
 
 import { twMerge } from "@/utils";
 
+import { focusRingInset } from "./focus";
+
 /**
  * `band` divides items with a rule and adds no surface, the shape a settings
  * group takes (DS-SETTING-LEVEL). `filled` runs edge to edge and recesses its
@@ -84,7 +86,8 @@ export const AccordionTrigger = forwardRef<HTMLButtonElement, AccordionTriggerPr
           ref={ref}
           className={twMerge(
             "group/accordion flex w-full items-center gap-2 px-3 py-2 text-left select-none",
-            "hover:bg-surface-veil-soft focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none focus-visible:ring-inset",
+            "hover:bg-surface-veil-soft",
+            focusRingInset,
             variantClasses,
             className,
           )}
@@ -127,7 +130,7 @@ export const AccordionPanel = forwardRef<HTMLDivElement, AccordionPanelProps>(
       <BaseAccordion.Panel
         ref={ref}
         className={twMerge(
-          "h-[var(--accordion-panel-height)] overflow-hidden transition-[height] duration-150 ease-out",
+          "h-[var(--accordion-panel-height)] overflow-hidden transition-[height]",
           "data-[ending-style]:h-0 data-[starting-style]:h-0",
           variantClasses,
           className,

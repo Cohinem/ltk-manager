@@ -115,7 +115,8 @@ function IdentitySection({
         >
           <Select.Trigger
             aria-label={m.workshop_bin_atlas_scene_label()}
-            className="h-7 min-w-0 flex-1 gap-1 px-2 text-meta"
+            size="sm"
+            className="min-w-0 flex-1 gap-1"
           >
             <Select.Value className="truncate">{(key: string) => label(key)}</Select.Value>
             <Select.Icon />

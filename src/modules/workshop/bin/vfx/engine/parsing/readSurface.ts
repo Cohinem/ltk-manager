@@ -1,7 +1,7 @@
 import type { NamedAsset, VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
-import { ADDRESS_MODE, type AddressMode } from "../model/enums";
+import { ADDRESS_MODE, type AddressMode, SOFT_TARGET } from "../model/enums";
 import type {
   DistortionModel,
   ErosionModel,
@@ -185,12 +185,13 @@ const REFLECTION = {
   opacityGlancing: nameHash("reflectionOpacityGlancing"),
 } as const;
 
-/** `VfxSoftParticleDefinitionData`'s four named fields. */
+/** `VfxSoftParticleDefinitionData`'s four named fields, and the byte no name is known for. */
 const SOFT = {
   beginIn: nameHash("beginIn"),
   deltaIn: nameHash("deltaIn"),
   beginOut: nameHash("beginOut"),
   deltaOut: nameHash("deltaOut"),
+  target: "0x3bf176bc",
 } as const;
 
 /**
@@ -335,6 +336,7 @@ export function readSoft(node: VfxValue | null): SoftModel | null {
     deltaIn: number(field(node, SOFT.deltaIn)) ?? 0,
     beginOut: number(field(node, SOFT.beginOut)) ?? 0,
     deltaOut: number(field(node, SOFT.deltaOut)) ?? 0,
+    target: enumByte(field(node, SOFT.target), SOFT_TARGET, SOFT_TARGET.both),
   };
 }
 

@@ -115,10 +115,10 @@ export function BulkUninstallDialog() {
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Button variant="ghost" onClick={onClose} disabled={isPending}>
+        <Button size="lg" variant="ghost" onClick={onClose} disabled={isPending}>
           Cancel
         </Button>
-        <Button variant="danger" onClick={onConfirm} loading={isPending}>
+        <Button size="lg" variant="filled" tone="danger" onClick={onConfirm} loading={isPending}>
           Uninstall {count} mod{count === 1 ? "" : "s"}
         </Button>
       </Dialog.Footer>

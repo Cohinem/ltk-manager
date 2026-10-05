@@ -165,7 +165,7 @@ export function BinRowLine({
       className={twMerge(
         /* DS-VEIL, DS-RADIUS. No transition: a fade in and out under a pointer crossing
            a list of 24px rows reads as a flicker rather than as a highlight. */
-        "group/row flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row outline-none hover:bg-surface-veil-soft focus-visible:bg-surface-veil",
+        "group/row group/reveal flex min-h-6 items-center gap-2 rounded-sm pr-2 text-mono-row outline-none hover:bg-surface-veil-soft focus-visible:bg-surface-veil",
         expandable && "cursor-pointer",
         focused && "bg-accent-500/15",
       )}
@@ -213,21 +213,19 @@ interface RowActionProps {
 /** A hover action of an editable row, which leaves the row's own click alone. */
 export function RowAction({ label, icon: Glyph, onAct }: RowActionProps) {
   return (
-    <Tooltip content={label}>
-      <button
-        type="button"
-        aria-label={label}
-        data-row-action
-        /* DS-VEIL, DS-RADIUS */
-        className="flex size-5 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 opacity-0 group-hover/row:opacity-100 hover:bg-surface-veil hover:text-surface-200 focus-visible:opacity-100"
-        onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
-          event.stopPropagation();
-          onAct();
-        }}
-      >
-        <Glyph weight="bold" className="size-3.5" />
-      </button>
-    </Tooltip>
+    <IconButton
+      size="row"
+      label={label}
+      icon={<Glyph />}
+      muted
+      reveal
+      data-row-action
+      className="shrink-0"
+      onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
+        event.stopPropagation();
+        onAct();
+      }}
+    />
   );
 }
 
@@ -239,7 +237,9 @@ function OpenObjectAction({ onOpen }: { onOpen: (intent: OpenIntent) => void }) 
       size="row"
       label={label}
       icon={<ArrowSquareOutIcon />}
-      className="shrink-0 text-surface-400 opacity-0 group-hover/row:opacity-100 hover:text-surface-200 focus-visible:opacity-100"
+      muted
+      reveal
+      className="shrink-0"
       onClick={(event: ReactMouseEvent<HTMLButtonElement>) => {
         event.stopPropagation();
         onOpen(clickIntent(event));

@@ -172,6 +172,7 @@ function WadScanFailedContent({
 
       <Dialog.Footer>
         <Button
+          size="lg"
           variant="ghost"
           className="mr-auto whitespace-nowrap text-surface-400"
           left={<Copy className="size-4" />}
@@ -180,6 +181,7 @@ function WadScanFailedContent({
           Copy details
         </Button>
         <Button
+          size="lg"
           variant="filled"
           className="whitespace-nowrap"
           loading={stopPatcher.isPending}

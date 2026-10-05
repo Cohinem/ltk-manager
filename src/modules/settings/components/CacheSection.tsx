@@ -165,7 +165,6 @@ export function CacheSection() {
   const syncButton = (
     <Button
       variant="filled"
-      size="sm"
       loading={syncing}
       left={<DownloadSimpleIcon weight="bold" className="size-4" />}
       onClick={() => runSync(false)}
@@ -297,7 +296,6 @@ export function CacheSection() {
                 {syncButton}
                 <Button
                   variant="outline"
-                  size="sm"
                   disabled={syncing}
                   left={<ArrowsClockwiseIcon weight="bold" className="size-4" />}
                   onClick={() => runSync(true)}

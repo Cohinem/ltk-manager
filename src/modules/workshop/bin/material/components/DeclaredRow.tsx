@@ -67,7 +67,7 @@ export function DeclaredRowFrame<D>({
         <Table.Row
           data-ui="DeclaredRowFrame"
           data-row-key={element === null ? undefined : rowKey(element)}
-          className={twMerge("group/row", ROW_CLASS)}
+          className={twMerge("group/row group/reveal", ROW_CLASS)}
         >
           {children}
         </Table.Row>
@@ -183,7 +183,8 @@ function RowActions() {
         {refusal !== null && <RowMark text={refusal} tone="danger" />}
         {revert !== null && (
           <IconButton
-            icon={<ArrowCounterClockwiseIcon className="size-3" />}
+            icon={<ArrowCounterClockwiseIcon />}
+            size="row"
             onClick={revert}
             label={revertLabel}
           />
@@ -194,8 +195,9 @@ function RowActions() {
               render={
                 <IconButton
                   aria-label={m.workshop_bin_material_row_actions_label()}
-                  className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 data-[popup-open]:opacity-100"
-                  icon={<DotsThreeVerticalIcon className="size-3" />}
+                  size="row"
+                  reveal
+                  icon={<DotsThreeVerticalIcon />}
                 />
               }
             />

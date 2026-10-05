@@ -11,10 +11,16 @@ import type { SystemModel } from "../../engine/model/model";
 import { type Motion, originAt, type Point, type RigModel } from "../../engine/model/rig";
 import { type World, worldOf } from "../../engine/simulation/integrate";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
-import { turnInto } from "../../engine/utils/basis";
+import { identityInto } from "../../engine/utils/basis";
 import { sampleCurveInto } from "../../engine/utils/sampleCurve";
 import type { DrawnEmitter } from "./definitions";
-import { placeInto, SEGMENTS, spawnFrameInto, wireframeInto } from "./emitterShape";
+import {
+  placeInto,
+  SEGMENTS,
+  spawnFrameInto,
+  spawnOriginInto,
+  wireframeInto,
+} from "./emitterShape";
 
 /** How far a frame reaches about the rig, so a system of one point still fills a champion. */
 export const STANDING_REACH = CHAMPION_HEIGHT / 2;
@@ -27,7 +33,7 @@ const TURNED = new Float32Array(3);
 
 /** Where the rig stands the system's ground point as the run opens, in the viewport's space. */
 export function rigGround(system: SystemModel, rig: RigModel): Point {
-  return mirrored(placed(worldOf(system), originAt(rig.motion, 0)));
+  return mirrored(stood(worldOf(system), originAt(rig.motion, 0)));
 }
 
 /**
@@ -53,15 +59,17 @@ export function definitionBounds(
 
   const world = worldOf(system);
   for (const stop of stopsOf(rig.motion)) {
-    const [x, y, z] = mirrored(placed(world, lifted(stop, rig.height)));
+    const [x, y, z] = mirrored(stood(world, lifted(stop, rig.height)));
     grow([x - STANDING_REACH, y - STANDING_REACH, z - STANDING_REACH]);
     grow([x + STANDING_REACH, y + STANDING_REACH, z + STANDING_REACH]);
   }
 
-  const origin = placed(world, originAt(rig.motion, 0, rig.height));
+  const stands = stood(world, originAt(rig.motion, 0, rig.height));
   for (const { emitter, path } of drawn) {
     if (path !== "" || emitter.disabled) continue;
-    spawnFrameInto(emitter, world.basis, world.basis, FRAME);
+    spawnFrameInto(emitter, world.basis, UPRIGHT, FRAME);
+    spawnOriginInto(emitter, world, UPRIGHT, stands, TURNED);
+    const origin: Point = [TURNED[0], TURNED[1], TURNED[2]];
     STANDS.fill(0);
     sampleCurveInto(emitter.emitterPosition, 0, STANDS, 0);
     const vertices = wireframeInto(emitter, STANDS, 0, POSITIONS);
@@ -100,12 +108,17 @@ function lifted(point: Point, height: number): Point {
   return [point[0], point[1] + height, point[2]];
 }
 
-/** `point` through the system's own transform, as the driver places its origin. */
-function placed(world: World, point: Point): Point {
-  TURNED.set(point);
-  turnInto(world.basis, TURNED, 0);
-  return [TURNED[0] + world.offset[0], TURNED[1] + world.offset[1], TURNED[2] + world.offset[2]];
+/**
+ * Where a system the rig has at `point` stands, as the driver stands it: the point itself,
+ * and for a HUD-layer system the point moved by its `transform`'s translation.
+ */
+function stood(world: World, point: Point): Point {
+  if (!world.hud) return point;
+  return [point[0] + world.offset[0], point[1] + world.offset[1], point[2] + world.offset[2]];
 }
+
+/** The orientation of a system no rig has turned, which a box of its opening frame reads. */
+const UPRIGHT = identityInto(new Float32Array(FRAME_SLOTS));
 
 /** `point` in the viewport's space. A mirrored zero would be a negative zero, so it is not. */
 function mirrored(point: Point): Point {

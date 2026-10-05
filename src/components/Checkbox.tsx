@@ -4,6 +4,7 @@ import { forwardRef, type ReactNode, use } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
 import { InputDefaultContext } from "./InputDefaultContext";
 
 export type CheckboxSize = "sm" | "md" | "lg";
@@ -68,12 +69,15 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
           "group inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md border transition-colors",
           sizeClasses[size],
           "border-surface-600 bg-surface-800",
-          "hover:border-surface-500 hover:bg-surface-700",
-          "focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-900 focus-visible:outline-none",
+          /* DS-HOVER */
+          "hover:border-accent-hover hover:bg-surface-700",
+          focusRing,
           "data-[checked]:border-accent-500 data-[checked]:bg-accent-500",
           "data-[checked]:hover:border-accent-400 data-[checked]:hover:bg-accent-400",
           "data-[indeterminate]:border-accent-500 data-[indeterminate]:bg-accent-500",
-          "disabled:cursor-not-allowed disabled:opacity-50",
+          "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+          /* The label dims the whole line, so the box does not dim twice. */
+          label && "data-[disabled]:opacity-100",
           implicit &&
             "border-dashed bg-transparent data-[checked]:border-surface-400 data-[checked]:bg-transparent data-[checked]:hover:border-accent-hover data-[checked]:hover:bg-surface-veil",
           !label && className,

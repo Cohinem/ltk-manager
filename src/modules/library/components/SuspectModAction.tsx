@@ -23,7 +23,7 @@ export function SuspectModAction({ modId }: { modId: string }) {
 
   if (!mod.enabled) {
     return (
-      <Button variant="ghost" size="xs" disabled>
+      <Button variant="ghost" size="sm" disabled>
         {m.diagnostics_suspect_disabled_label()}
       </Button>
     );
@@ -32,7 +32,7 @@ export function SuspectModAction({ modId }: { modId: string }) {
   return (
     <Button
       variant="outline"
-      size="xs"
+      size="sm"
       loading={toggleMod.isPending}
       left={<ProhibitIcon weight="bold" className="size-3.5" />}
       onClick={() =>

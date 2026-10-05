@@ -46,7 +46,7 @@ export function withBar(emitter: EmitterModel, bar: LaneBar): EmitterModel {
   return {
     ...emitter,
     timeBeforeFirstEmission: bar.start,
-    lifetime: bar.end === null ? null : bar.end - bar.start,
+    lifetime: bar.end,
     particleLinger: bar.linger,
   };
 }

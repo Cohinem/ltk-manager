@@ -103,7 +103,7 @@ export function drawnOf(emitter: EmitterModel, zero: boolean): Drawn {
   const body = shapeBody(shape, cloud);
   const frame = new Float32Array(9);
   spawnFrameInto(emitter, IDENTITY, IDENTITY, frame);
-  const matrix = bodyMatrixInto(frame, ORIGIN, emitter.translationOverride, new Matrix4());
+  const matrix = bodyMatrixInto(frame, emitter.translationOverride, ORIGIN, new Matrix4());
 
   let box = new Box3(new Vector3(...cloud.low), new Vector3(...cloud.high));
   if (body !== null) {

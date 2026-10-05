@@ -1,14 +1,15 @@
+import { BackSide, DoubleSide, FrontSide } from "three";
 import { describe, expect, it } from "vitest";
 
 import type { UniformBlock } from "@/lib/tauri";
 import { EngineEnvironment } from "@/modules/viewport";
 
-import { QUAD_TYPE, UV_MODE } from "../../../engine/model/enums";
+import { DISTORTION_MODE, QUAD_TYPE, SOFT_TARGET, UV_MODE } from "../../../engine/model/enums";
 import type { EmitterModel } from "../../../engine/model/model";
 import { emitterOf, flat } from "../../../engine/simulation/__tests__/emitterFixture";
 import { NO_SAMPLERS } from "../../hooks/useVfxTextures";
 import { quadOrientation } from "../materials";
-import { quadDraw } from "../particleDraws";
+import { ATTACHED_DRAW, meshDraw, meshSide, quadDraw } from "../particleDraws";
 import {
   customParticleMaterial,
   drawsProgram,
@@ -57,7 +58,7 @@ describe("particleShaderOf", () => {
         erosion: EROSION,
         multUv: emitterOf(0).uv,
         palette: PALETTE,
-        soft: { beginIn: 0, deltaIn: 1, beginOut: 0, deltaOut: 0 },
+        soft: { beginIn: 0, deltaIn: 1, beginOut: 0, deltaOut: 0, target: SOFT_TARGET.both },
       }),
     );
 
@@ -100,7 +101,7 @@ describe("particleShaderOf", () => {
   });
 
   it("draws a distorting emitter through the distortion pair of its kind, on the alpha test alone", () => {
-    const distortion = { strength: 0.1 } as EmitterModel["distortion"];
+    const distortion = { strength: 0.1, mode: DISTORTION_MODE.all, map: null };
     const mesh = {} as EmitterModel["mesh"];
 
     expect(particleShaderOf(emitter({ distortion, alphaRef: 0.2, erosion: EROSION }))).toEqual({
@@ -116,15 +117,27 @@ describe("particleShaderOf", () => {
       defines: [],
     });
   });
+
+  it("draws an emitter whose distortion block is turned off through its colour pair", () => {
+    const distortion = { strength: 0.1, mode: 0, map: null };
+
+    expect(particleShaderOf(emitter({ distortion, alphaRef: 0.2, erosion: EROSION }))).toEqual({
+      shader: "quad",
+      defines: ["ALPHA_TEST", "ALPHA_EROSION"],
+    });
+  });
 });
 
 describe("drawsProgram", () => {
   const mesh = emitter({ quadType: QUAD_TYPE.mesh, mesh: {} as EmitterModel["mesh"] });
   const attached = emitter({ quadType: QUAD_TYPE.attachedMesh });
-  const warping = emitter({ distortion: {} as EmitterModel["distortion"] });
+  const warping = emitter({
+    distortion: { strength: 0.1, mode: DISTORTION_MODE.noCharacter, map: null },
+  });
 
   it("draws each pair on the path whose geometry feeds it", () => {
     expect(drawsProgram(emitter({}), particleShaderOf(emitter({})), "quad")).toBe(true);
+    expect(particleShaderOf(warping).shader).toBe("distortion");
     expect(drawsProgram(warping, particleShaderOf(warping), "quad")).toBe(true);
     expect(drawsProgram(mesh, particleShaderOf(mesh), "mesh")).toBe(true);
     expect(drawsProgram(attached, particleShaderOf(attached), "attached")).toBe(true);
@@ -176,6 +189,27 @@ describe("particleParams", () => {
     expect(params.get("kColorFactor")).toEqual([1, 1, 1, 1]);
   });
 
+  it("packs the soft fade's lanes and the control its target names", () => {
+    const soft = { beginIn: 20, deltaIn: 10, beginOut: 0, deltaOut: 0, target: SOFT_TARGET.colour };
+    const faded = emitter({ soft });
+    const layers = layersOf(faded, NO_SAMPLERS, { ramp: true, sheen: false, fade: true });
+
+    const params = new Map(particleParams(faded, layers).map((param) => [param.name, param.value]));
+
+    expect(params.get("cSoftParticleParams")).toEqual([20, 1e8, 0.1, 1e8]);
+    expect(params.get("cSoftParticleControl")).toEqual([0, 1, 1, 0]);
+  });
+
+  it("packs no soft lanes for an emitter fading nothing, under the control that fades both", () => {
+    const plain = emitter({});
+    const layers = layersOf(plain, NO_SAMPLERS, { ramp: true, sheen: false, fade: true });
+
+    const params = new Map(particleParams(plain, layers).map((param) => [param.name, param.value]));
+
+    expect(params.get("cSoftParticleParams")).toEqual([0, 0, 0, 0]);
+    expect(params.get("cSoftParticleControl")).toEqual([0, 1, 0, 1]);
+  });
+
   it("packs a distortion's power", () => {
     const warping = emitter({ distortion: { strength: 0.07 } as EmitterModel["distortion"] });
     const layers = layersOf(warping, NO_SAMPLERS, { ramp: true, sheen: true, fade: true });
@@ -185,6 +219,29 @@ describe("particleParams", () => {
     );
 
     expect(params.get("DistortionPower")?.[0]).toBeCloseTo(0.07);
+  });
+});
+
+describe("meshSide", () => {
+  it("keeps the front faces alone, and both where the emitter turns the cull off", () => {
+    expect(meshSide(emitter({ backfaceCull: true }))).toBe(FrontSide);
+    expect(meshSide(emitter({ backfaceCull: false }))).toBe(DoubleSide);
+  });
+
+  it("takes the other winding for the front where the emitter flips it", () => {
+    expect(meshSide(emitter({ backfaceCull: true, flipWinding: true }))).toBe(BackSide);
+  });
+
+  it("still keeps both faces of a flipped mesh that culls none", () => {
+    expect(meshSide(emitter({ backfaceCull: false, flipWinding: true }))).toBe(DoubleSide);
+  });
+
+  it("is the side a mesh and an attached mesh draw with, and no quad's", () => {
+    const flipped = emitter({ flipWinding: true });
+
+    expect(meshDraw(null).side(flipped)).toBe(BackSide);
+    expect(ATTACHED_DRAW.side(flipped)).toBe(BackSide);
+    expect(quadDraw(quadOrientation(flipped)).side(flipped)).toBe(DoubleSide);
   });
 });
 

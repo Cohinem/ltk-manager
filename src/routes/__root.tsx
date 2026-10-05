@@ -194,6 +194,10 @@ function RootLayout() {
     preventDefault: true,
   });
   useHotkeys("ctrl+,", () => navigate({ to: "/settings" }), { preventDefault: true });
+  useHotkeys("ctrl+shift+g", () => navigate({ to: "/gallery" }), {
+    preventDefault: true,
+    enabled: import.meta.env.DEV,
+  });
   // Redirect to settings if setup is required
   useEffect(() => {
     if (setupRequired && location.pathname !== "/settings") {

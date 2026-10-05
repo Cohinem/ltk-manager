@@ -40,7 +40,7 @@ export function NoticeBanners() {
 /** The one link a notice carries, opened in the browser. */
 function WhatToDo({ url }: { url: string }) {
   return (
-    <Button variant="outline" size="sm" onClick={() => void open(url)}>
+    <Button variant="outline" onClick={() => void open(url)}>
       {m.home_notice_link_action()}
     </Button>
   );

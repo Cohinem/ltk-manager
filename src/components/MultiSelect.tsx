@@ -1,9 +1,10 @@
-import { ChevronDown } from "lucide-react";
+import { CaretDownIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { twMerge } from "@/utils";
 
 import { Combobox, useComboboxFilter } from "./Combobox";
+import { fieldFrame, fieldSizeClasses } from "./fieldFrame";
 
 export interface MultiSelectOption {
   value: string;
@@ -61,11 +62,10 @@ export function MultiSelect({
       {variant === "compact" ? (
         <Combobox.Trigger
           className={twMerge(
-            "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm transition-colors",
-            "border-surface-500 bg-surface-700 text-surface-200",
-            "hover:border-accent-hover",
-            "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
-            "disabled:cursor-not-allowed disabled:opacity-50",
+            "inline-flex items-center gap-2",
+            fieldFrame,
+            fieldSizeClasses.md,
+            "w-auto text-surface-200",
             className,
           )}
         >
@@ -75,16 +75,15 @@ export function MultiSelect({
               {selected.size}
             </span>
           )}
-          <ChevronDown className="size-3.5 text-surface-400" />
+          <CaretDownIcon weight="bold" className="size-3.5 text-surface-400" />
         </Combobox.Trigger>
       ) : (
         <Combobox.Trigger
           className={twMerge(
-            "flex min-h-[42px] w-full items-center gap-1.5 rounded-md border px-3 py-2 text-sm transition-colors",
-            "border-surface-500 bg-surface-700 text-surface-200",
-            "hover:border-accent-hover",
-            "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
-            "disabled:cursor-not-allowed disabled:opacity-50",
+            "flex items-center gap-1.5",
+            fieldFrame,
+            /* Starts at the height of a `md` field, and grows with the chips it wraps. */
+            "min-h-8 px-2.5 py-1 text-sm text-surface-200",
             className,
           )}
         >
@@ -102,7 +101,7 @@ export function MultiSelect({
               <span className="text-surface-400">{label ?? "Select..."}</span>
             )}
           </span>
-          <ChevronDown className="size-3.5 shrink-0 text-surface-400" />
+          <CaretDownIcon weight="bold" className="size-3.5 shrink-0 text-surface-400" />
         </Combobox.Trigger>
       )}
       <Combobox.Content

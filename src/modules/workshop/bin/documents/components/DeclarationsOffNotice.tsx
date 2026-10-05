@@ -39,7 +39,7 @@ export function DeclarationsOffNotice({ asset, file, subject }: DeclarationsOffN
           {target && layerLabel && (
             <Button
               variant="ghost"
-              size="xs"
+              size="sm"
               left={<StackPlusIcon weight="bold" className="size-4" />}
               disabled={busy}
               onClick={() => run("copy", [target], subject)}
@@ -49,7 +49,7 @@ export function DeclarationsOffNotice({ asset, file, subject }: DeclarationsOffN
           )}
           <Button
             variant="outline"
-            size="xs"
+            size="sm"
             left={<SealCheckIcon weight="bold" className="size-4" />}
             onClick={() => setUseDeclarations(true)}
           >

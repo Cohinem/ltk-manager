@@ -994,9 +994,7 @@ function SubmeshMenu({ submeshes, hidden, overridden, onShow, onReset }: Submesh
           render={
             <IconButton
               aria-label={m.workshop_bin_preview_submeshes_label()}
-              /* DS-VEIL, DS-RADIUS */ className={
-                overridden ? "bg-accent-500/15 text-accent-300 hover:bg-accent-500/25" : undefined
-              }
+              variant={overridden ? "tonal" : "ghost"}
               icon={<StackIcon />}
             />
           }

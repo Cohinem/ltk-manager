@@ -249,10 +249,13 @@ const LEGACY_SIMPLE = {
   scaleUpFromOrigin: nameHash("scaleUpFromOrigin"),
 } as const;
 
-/** The simple emitter's scalar block, and null for an emitter carrying none. */
-export function readLegacySimple(node: VfxValue | null): LegacySimpleModel | null {
-  if (node?.type !== "struct") return null;
-
+/**
+ * A simple emitter's scalar block, at every default for an emitter carrying none.
+ *
+ * The list an emitter sits in is what makes it simple, so one writing no block still reads
+ * a block of defaults.
+ */
+export function readLegacySimple(node: VfxValue | null): LegacySimpleModel {
   return {
     birthScale: curve(field(node, LEGACY_SIMPLE.birthScale), DEFAULT.one),
     scaleBias: pairOr(field(node, LEGACY_SIMPLE.scaleBias), [1, 1]),

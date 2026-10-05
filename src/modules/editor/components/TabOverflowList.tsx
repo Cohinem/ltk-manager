@@ -46,7 +46,6 @@ export function TabOverflowList({
               right={<CaretDownIcon weight="bold" className="size-3" />}
               variant="ghost"
               size="xs"
-              compact
               aria-label={label}
               data-ui="TabOverflowList:trigger"
               className="mr-2 h-6 shrink-0 gap-0.5 px-1 text-meta text-surface-300"
@@ -92,7 +91,7 @@ interface TabRowProps {
 
 function TabRow({ tab, active, onActivate, onClose }: TabRowProps) {
   return (
-    <li className="group/row relative flex items-center">
+    <li className="group/row group/reveal relative flex items-center">
       <button
         type="button"
         onClick={() => onActivate(tab.id)}
@@ -117,10 +116,12 @@ function TabRow({ tab, active, onActivate, onClose }: TabRowProps) {
       </button>
 
       <IconButton
-        icon={<XIcon className="size-3" />}
+        icon={<XIcon />}
+        size="row"
+        reveal
         onClick={() => onClose(tab.id)}
         aria-label={m.editor_tab_close_label({ title: tab.title })}
-        className="absolute top-0 right-1 bottom-0 my-auto size-5 opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100"
+        className="absolute top-0 right-1 bottom-0 my-auto"
       />
     </li>
   );

@@ -18,7 +18,7 @@ export function GameWadsErrorState({ error }: { error: AppError }) {
         description="Point the manager at your League install to browse its archives."
         action={
           <Link to="/settings" search={{ focus: "general.leaguePath" }}>
-            <Button variant="outline" size="xs" left={<GearIcon className="size-4" />}>
+            <Button variant="outline" size="sm" left={<GearIcon className="size-4" />}>
               Open Settings
             </Button>
           </Link>

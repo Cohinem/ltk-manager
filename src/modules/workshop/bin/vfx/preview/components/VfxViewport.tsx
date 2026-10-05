@@ -433,7 +433,7 @@ function ViewportNotice({ text, detail, onRetry }: ViewportNoticeProps) {
         </span>
       )}
       {onRetry !== undefined && (
-        <Button variant="outline" size="xs" className="pointer-events-auto mt-1" onClick={onRetry}>
+        <Button variant="outline" size="sm" className="pointer-events-auto mt-1" onClick={onRetry}>
           {m.common_retry_action()}
         </Button>
       )}

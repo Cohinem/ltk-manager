@@ -30,7 +30,7 @@ export function SidebarViewMenu() {
             <IconButton
               icon={<DotsThreeVerticalIcon />}
               aria-label={m.workshop_sidebar_menu_label()}
-              className="size-5"
+              size="row"
             />
           }
         />

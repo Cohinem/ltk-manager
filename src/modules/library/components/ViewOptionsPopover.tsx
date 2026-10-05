@@ -52,7 +52,8 @@ export function ViewOptionsPopover({
               icon={<SlidersHorizontalIcon />}
               size="sm"
               aria-label={m.library_view_options_label()}
-              className="h-full w-auto rounded-none px-1"
+              narrow
+              className="h-full rounded-none"
             />
           }
         />

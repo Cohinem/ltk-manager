@@ -167,7 +167,6 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
           <div className="flex flex-wrap items-center gap-2">
             {!installed && (
               <Button
-                compact
                 size="sm"
                 className="text-row"
                 variant="filled"
@@ -179,7 +178,6 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
             )}
             {updateAvailable && (
               <Button
-                compact
                 size="sm"
                 className="text-row"
                 variant="filled"
@@ -191,7 +189,6 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
             )}
             {installed && (
               <Button
-                compact
                 size="sm"
                 className="text-row"
                 variant="outline"
@@ -219,7 +216,6 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
               <span>{m.settings_integrations_release_description()}</span>
               {!installed && (
                 <Button
-                  compact
                   size="sm"
                   variant="ghost"
                   disabled={release.isFetching}
@@ -247,7 +243,6 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
               )}
               {running && (operation.stage === "checking" || operation.stage === "downloading") && (
                 <Button
-                  compact
                   size="sm"
                   variant="ghost"
                   disabled={cancel.isPending}
@@ -285,7 +280,6 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
             <>
               {installed && status.menu === "enabled" && (
                 <Button
-                  compact
                   size="sm"
                   className="text-row"
                   variant="outline"
@@ -297,7 +291,6 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
               )}
               {installed && status.menu !== "enabled" && (
                 <Button
-                  compact
                   size="sm"
                   className="text-row"
                   variant="outline"

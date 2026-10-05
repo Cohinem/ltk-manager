@@ -1,14 +1,6 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo } from "react";
-import {
-  type Camera,
-  DoubleSide,
-  FrontSide,
-  type InstancedMesh,
-  Matrix4,
-  Quaternion,
-  Vector3,
-} from "three";
+import { type Camera, type InstancedMesh, Matrix4, Quaternion, Vector3 } from "three";
 
 import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
@@ -22,23 +14,22 @@ import {
   drawnPlaceInto,
   erosionDrive,
   frameOf,
+  particleBasisInto,
   type Source,
-  standingFrameInto,
-  stretchOf,
 } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS, type Pool } from "../../engine/simulation/pool";
-import { alongInto, mirrorInto, standingInto, unscaleInto } from "../../engine/utils/basis";
+import { mirrorInto, standingInto, unscaleInto } from "../../engine/utils/basis";
 import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { type MeshBuffers, MESHES_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
-import { distorts } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
+import { drawLayersOf } from "../utils/frame";
 import { meshMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
-import { meshDraw } from "../utils/particleDraws";
+import { meshDraw, meshSide } from "../utils/particleDraws";
 import { writePaletteScroll } from "../utils/particleProgram";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { layerOf, uvDraw, uvTransformInto } from "../utils/uvTransform";
@@ -59,17 +50,12 @@ const FRAME = new Float32Array(FRAME_SLOTS);
 const STANDING = new Float32Array(FRAME_SLOTS);
 const STOOD = new Float32Array(FRAME_SLOTS);
 const FRAME4 = new Matrix4();
-const BORN_TURN = new Quaternion();
 
 /** The scale the spawn frame carries in its columns, which stands beside the turn. */
 const FRAME_SCALE = new Float32Array(3);
 
 /** Where one particle draws, in the engine's space, before the mirror. */
 const PLACED = drawnPlace();
-
-/** The orbit's turn as the viewport sees it, which composes over a mesh's own. */
-const ORBIT = new Quaternion();
-const ORBIT_FRAME = new Float32Array(FRAME_SLOTS);
 
 /** The floats of `lookup` per instance: the ramp's two, then the erosion drive. */
 const LOOKUP_FLOATS = 3;
@@ -120,7 +106,7 @@ export function Meshes({
       emitter.depthBias,
       layersOf(emitter, samplers, DRAWS),
       fragmentTests(emitter),
-      emitter.backfaceCull ? FrontSide : DoubleSide,
+      meshSide(emitter),
     );
     if (buffers.pose) {
       material.defines.PARTICLE_SKINNING = 1;
@@ -129,7 +115,7 @@ export function Meshes({
     return material;
   }, [emitter, samplers, buffers.pose]);
 
-  const pair = useDrawPair<InstancedMesh>(material, distorts(emitter));
+  const pair = useDrawPair<InstancedMesh>(material, drawLayersOf(emitter));
   const bones = buffers.pose?.texture ?? null;
   const draw = useMemo(() => meshDraw(bones), [bones]);
   const programs = useParticlePrograms(emitter, samplers, draw, geometry, document);
@@ -182,7 +168,7 @@ export function Meshes({
         for (let layer = 0; layer < turns.length; layer += 1) {
           const over = layerOf(emitter, layer);
           if (over === null) continue;
-          uvTransformInto(pool, at, over, layer, age, through, time, UV_DRAWN);
+          uvTransformInto(pool, at, over, layer, age, through, time, UV_DRAWN, false);
           turns[layer].setXYZ(instance, UV_DRAWN.turn, UV_DRAWN.scaleU, UV_DRAWN.scaleV);
           shifts[layer].setXYZW(
             instance,
@@ -205,10 +191,6 @@ export function Meshes({
          spawn frame's own scale rides beside it, because `compose` takes the turn
          unscaled. */
         SPREAD.set(DRAWN.scale[0] * stood[0], DRAWN.scale[1] * stood[1], DRAWN.scale[2] * stood[2]);
-        if (PLACED.orbited) {
-          mirrorInto(PLACED.turn, 0, ORBIT_FRAME, 0);
-          TURN.premultiply(ORBIT.setFromRotationMatrix(matrixOf(ORBIT_FRAME)));
-        }
 
         held.setMatrixAt(instance, PLACE.compose(AT, TURN, SPREAD));
         tint.setXYZW(instance, DRAWN.color[0], DRAWN.color[1], DRAWN.color[2], DRAWN.color[3]);
@@ -253,13 +235,13 @@ export function Meshes({
 /**
  * The turn one particle's mesh takes, into `TURN`, returning the scale it stood on.
  *
- * All three rotation components reach a complex mesh, each about its own axis, and the
- * camera alignment each flag asks for comes on top of them. A direction-oriented mesh
- * aims its own `+Z` where it travels, and one that faces neither the eye nor its travel
- * stands on the frame it was born in.
+ * A mesh stands on the particle's whole basis: its spin, `postRotateOrientationAxis`, its
+ * orbit, the definition's `transform`, its travel where it is direction oriented, and the
+ * frame it was born in. The camera alignment each flag asks for takes the particle's own
+ * spin alone.
  *
- * The spawn frame is the one turn a scale reaches, and the returned scale is ones for the
- * two that discard it, but for the travel's own stretch along a direction-oriented `+Z`.
+ * The returned scale is what the basis carried in its columns, `scaleOverride` and the
+ * transform's own, and ones under a camera alignment, which discards them.
  */
 function face(
   pool: Pool,
@@ -269,31 +251,23 @@ function face(
   camera: Camera,
   placed: Vector3,
 ): Float32Array {
-  turnOf(standingInto(pool.rotation, at * 3, 0, STANDING), ROLL);
   FRAME_SCALE.fill(1);
-
-  if (emitter.directionOriented) {
-    /* The basis is built on the engine's own axes and mirrored whole, because a cross
-       product changes sign under the mirror where a basis does not. */
-    alongInto(pool.travel, at * 3, STANDING);
-    turnOf(STANDING, TURN);
-    FRAME_SCALE[2] = stretchOf(pool, at, emitter);
-    return FRAME_SCALE;
-  }
 
   const mesh = emitter.mesh;
   if (mesh !== null && (mesh.alignYaw || mesh.alignPitch) && aimed(placed, mesh, camera)) {
     /* The alignment composes over the particle's own turn, the flag that would discard it
        instead being identity for a particle whose orientation never changed. */
+    turnOf(standingInto(pool.rotation, at * 3, 0, STANDING), ROLL);
     TURN.multiply(ROLL);
     return FRAME_SCALE;
   }
 
-  TURN.copy(ROLL);
-  standingFrameInto(pool, at, emitter, frame, STOOD);
+  /* The basis is built on the engine's own axes and mirrored whole, because a cross
+     product changes sign under the mirror where a basis does not. */
+  particleBasisInto(pool, at, emitter, frame, STOOD);
   mirrorInto(STOOD, 0, FRAME, 0);
   unscaleInto(FRAME, 0, FRAME, 0, FRAME_SCALE);
-  TURN.premultiply(BORN_TURN.setFromRotationMatrix(matrixOf(FRAME)));
+  TURN.setFromRotationMatrix(matrixOf(FRAME));
   return FRAME_SCALE;
 }
 

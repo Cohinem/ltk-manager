@@ -1,5 +1,6 @@
+import { XIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { AlertCircle, Plus, Regex as RegexIcon, Search, Trash2, X } from "lucide-react";
+import { AlertCircle, Plus, Regex as RegexIcon, Search, Trash2 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import { match, P } from "ts-pattern";
 
@@ -126,7 +127,6 @@ export function WadBlocklistEditor() {
                 { value: "nameDesc", label: "Name Z→A" },
                 { value: "kind", label: "Kind" },
               ]}
-              triggerClassName="!py-1.5 !px-3 text-sm"
             />
           </div>
         </div>
@@ -170,17 +170,17 @@ export function WadBlocklistEditor() {
           {confirmingClear && (
             <div className="flex items-center gap-2">
               <span className="text-danger-text">Remove all {totalCount} entries?</span>
-              <Button size="xs" variant="ghost" onClick={() => setConfirmingClear(false)}>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmingClear(false)}>
                 Cancel
               </Button>
-              <Button size="xs" variant="danger" onClick={clearAll}>
+              <Button size="sm" variant="filled" tone="danger" onClick={clearAll}>
                 Clear all
               </Button>
             </div>
           )}
           {!confirmingClear && (
             <Button
-              size="xs"
+              size="sm"
               variant="ghost"
               onClick={() => setConfirmingClear(true)}
               className="text-surface-400 hover:text-danger-text"
@@ -258,7 +258,7 @@ function ExactAddRow({
             />
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={onSubmit} disabled={!draft.trim()}>
+        <Button variant="ghost" onClick={onSubmit} disabled={!draft.trim()}>
           <Plus className="size-4" />
           Add
         </Button>
@@ -364,11 +364,12 @@ function RegexAddRow({
           onChange={(e) => onDraftChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="e.g. ^map\d+\.en_us\.wad\.client$"
-          className={`flex-1 font-mono text-sm ${showError ? "!border-danger focus:!border-danger focus:!ring-danger" : ""}`}
+          hasError={showError}
+          className="flex-1 font-mono"
           autoComplete="off"
           spellCheck={false}
         />
-        <Button variant="ghost" size="sm" onClick={onSubmit} disabled={!canAdd}>
+        <Button variant="ghost" onClick={onSubmit} disabled={!canAdd}>
           <Plus className="size-4" />
           Add
         </Button>
@@ -445,11 +446,7 @@ function BlocklistRow({
             <span className="shrink-0 text-xs text-surface-500">· no matches</span>
           )}
         </div>
-        <IconButton
-          icon={<X className="size-3.5" />}
-          onClick={onRemove}
-          aria-label={`Remove ${entry.value}`}
-        />
+        <IconButton icon={<XIcon />} onClick={onRemove} aria-label={`Remove ${entry.value}`} />
       </div>
       {canExpand && (
         <Disclosure.Panel

@@ -1,4 +1,5 @@
-import { Check, Plus, X } from "lucide-react";
+import { CheckIcon, XIcon } from "@phosphor-icons/react";
+import { Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button, Field, IconButton, useToast } from "@/components";
@@ -49,7 +50,6 @@ export function ProfileCreateForm() {
     return (
       <Button
         variant="ghost"
-        size="sm"
         onClick={() => setIsCreating(true)}
         left={<Plus className="size-4" />}
         className="w-full justify-start"
@@ -67,18 +67,19 @@ export function ProfileCreateForm() {
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={handleKeyDown}
-        className="h-7 flex-1 px-2 py-1 text-sm"
+        size="sm"
+        className="flex-1"
         placeholder="Profile name..."
       />
       <IconButton
-        compact={false}
-        icon={<Check className="size-4" />}
+        size="sm"
+        icon={<CheckIcon />}
+        tone="accent"
         onClick={handleSubmit}
         disabled={!name.trim() || createProfile.isPending}
         loading={createProfile.isPending}
-        className="text-success-text hover:text-success-text"
       />
-      <IconButton compact={false} icon={<X className="size-4" />} onClick={handleCancel} />
+      <IconButton size="sm" icon={<XIcon />} onClick={handleCancel} />
     </div>
   );
 }

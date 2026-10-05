@@ -93,7 +93,6 @@ export function ChangesMenu() {
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={m.workshop_bin_change_menu_label()}
             title={m.workshop_bin_change_menu_label()}
             data-pressed={changedOnly || undefined}

@@ -93,14 +93,13 @@ export function ModHealthLaunchGuard({ children, className }: ModHealthLaunchGua
           <div className="mt-3 flex gap-2">
             <Button
               variant="filled"
-              size="sm"
               className="flex-1"
               onClick={showTheList}
               left={<WayOutIcon repairable={repairable} />}
             >
               {wayOut(repairable)}
             </Button>
-            <Button variant="outline" size="sm" onClick={launchAnyway}>
+            <Button variant="outline" onClick={launchAnyway}>
               Launch anyway
             </Button>
           </div>

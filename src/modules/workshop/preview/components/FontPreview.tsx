@@ -94,7 +94,7 @@ export function FontPreview({ asset, name }: FontPreviewProps) {
             onChange={(event) => setSample(event.target.value)}
             placeholder={m.workshop_preview_font_sample_placeholder()}
             aria-label={m.workshop_preview_font_sample_placeholder()}
-            className="h-7 text-xs"
+            size="sm"
           />
         </Field.Root>
       </div>

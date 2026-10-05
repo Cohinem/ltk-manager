@@ -1689,17 +1689,18 @@ capped at a third of the pane. Past the cap a name is cut in its middle, because
 emitters share a prefix and differ at the end.
 
 **A lane's bar is the emitter's timing.** A solid bar spans the emission window, from
-`timeBeforeFirstEmission` to the end of `lifetime`. An emitter with no `lifetime` runs to the edge
+`timeBeforeFirstEmission` to `lifetime`. Both are times on the system's clock, so `lifetime` is
+where the bar ends and not how long it is. An emitter with no `lifetime` runs to the edge
 under an arrow. A faded tail runs past the bar to the peak of `particleLifetime`, and a hatched
 tail runs on to the end of the linger. The live count stands at the lane's right edge, under a
 `live` caption on the ruler's row. With the Histogram switch on, a histogram over the bar draws
 the emitter's live particles per step, filled in as the run plays. The switch is off by default,
 and the bar's own timing reads clear.
 
-**A bar edits by dragging.** On an emitter's own lane, a drag on the bar moves it whole and
-writes `timeBeforeFirstEmission`. Its left edge trims the first emission and keeps the end, so it
-writes the start and `lifetime` together, its right edge writes `lifetime`, and the end of the
-hatch writes `particleLinger`. Every lane has all three edges, a burst's and a very short bar's
+**A bar edits by dragging.** On an emitter's own lane, a drag on the bar moves it whole, so it
+writes `timeBeforeFirstEmission` and `lifetime` together. Its left edge trims the first emission
+and keeps the end, so it writes `timeBeforeFirstEmission` alone, its right edge writes `lifetime`,
+and the end of the hatch writes `particleLinger`. Every lane has all three edges, a burst's and a very short bar's
 included, and the edge nearest the pointer wins, the end over the start on a tie. Handles show
 while the pointer is over the lane and the held one lights, the cursor says what a press takes,
 and the value reads beside the edge during the drag.
@@ -1718,9 +1719,11 @@ with the period and its active part, and the single burst switch. Each field com
 Emits until the system stops clears `lifetime`, which no drag can do.
 
 **Bursts and cycles are marked.** An `isSingleParticle` emitter's whole output is one burst,
-drawn as a diamond at its start, and its bar has no end edge. An emitter with a `period` draws a
-notch where each cycle opens and darkens the part of each cycle past `timeActiveDuringPeriod`,
-and the run emits in the lit parts alone.
+drawn as a diamond at its start, and its bar has no end edge. An emitter with a `period` and a
+`timeActiveDuringPeriod` draws a notch where each cycle opens and darkens the part of each cycle
+past the active time, and the run emits in the lit parts alone. A cycle counts from the system's
+start, so a delayed bar may open partway through one. A `timeActiveDuringPeriod` with no `period`
+darkens everything past the system's first seconds.
 
 **An emitter node carries the lane's eye and solo.** Hide in the preview and Solo sit on each
 emitter node's header and read and write the lanes' own sets, so a node hidden, or left out by
@@ -2316,10 +2319,11 @@ Initial Velocity   [- * ~]
        X [+-]     Y [+-]   Z [+-]
 ```
 
-- a particle rolls one chance and lands on the line from Min to Max, so the channels move
-  together, and the hint on Min and Max says so. It is the engine's own draw, not a box
-- random sign draws the ends or their negatives, the side picked by the same roll. A colour has
-  no sign
+- a particle lands between Min and Max on each channel, and the hint on Min and Max says how
+  the channels roll. A birth vector and `birthColor` roll each channel apart, so the draws fill
+  a box. The UV birth values share one roll, so theirs lie on the line from Min to Max
+- random sign draws the ends or their negatives, the side picked by the channel's own roll. A
+  colour has no sign
 - the randomizer owns the base: each channel's base is the end farther from 0, and its table
   multiplies it from Min over base to Max over base, so a channel whose base was 0 still draws
 - a value reads as Random where its curve holds one level and it carries tables. A curve that
@@ -2332,9 +2336,11 @@ Initial Velocity   [- * ~]
 ### The random spread
 
 `probabilityTables` is one nullable slot per channel, and a table is the chance against a factor:
-a particle's birth rolls one chance, reads every channel's table at it, and multiplies the sampled
-value by what it reads. One roll serves every channel and every birth value of the particle, so X
-and Y of one particle move together.
+a particle's birth rolls a chance, reads a table at it, and multiplies the sampled value by what
+it reads. A birth vector and `birthColor` roll once per channel, so X and Y of one particle move
+apart. `particleLifetime` rolls on its own. The UV birth values, the random start frame and the
+birth-random colour lookup share one roll per particle, which `ParticlesShareRandomValue` makes
+one per emitter.
 
 **The spread draws on the Graph rather than on a tab of its own.** A table plotted as a line reads
 as a curve over time, which it is not. What a modder asks is what the value draws, the curve times

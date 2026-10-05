@@ -4,6 +4,7 @@ import type { KeyboardEvent, ReactNode, RefObject } from "react";
 import { twMerge } from "@/utils";
 
 import { IconButton } from "./Button";
+import { focusRing } from "./focus";
 import { Field } from "./FormField";
 import { Tooltip } from "./Tooltip";
 
@@ -76,23 +77,19 @@ export function SearchField({
           aria-label={label}
           autoComplete="off"
           spellCheck={false}
-          className={twMerge(
-            "h-6 pl-7 select-text",
-            textClassName,
-            onRegexChange ? "pr-14" : "pr-7",
-          )}
+          size="xs"
+          className={twMerge("pl-7 select-text", textClassName, onRegexChange ? "pr-14" : "pr-7")}
         />
         <span className="absolute top-1/2 right-1 flex -translate-y-1/2 items-center gap-0.5">
           {value && (
             <IconButton
-              icon={<XIcon className="size-3" />}
-              variant="transparent"
+              icon={<XIcon />}
+              size="row"
               onClick={() => {
                 onChange("");
                 inputRef?.current?.focus();
               }}
               aria-label={clearLabel}
-              className="size-4"
             />
           )}
           {onRegexChange && (
@@ -104,6 +101,7 @@ export function SearchField({
                 className={twMerge(
                   "flex h-4.5 cursor-pointer items-center rounded-sm px-1 font-mono text-fine text-surface-400 transition-colors",
                   /* DS-VEIL */ "hover:bg-surface-veil hover:text-surface-100",
+                  focusRing,
                   regex &&
                     "bg-accent-500/20 text-accent-300 hover:bg-accent-500/30 hover:text-accent-300",
                 )}

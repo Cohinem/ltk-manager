@@ -63,7 +63,7 @@ export function TimelineTransport() {
         {markers !== null && (
           <IconButton
             aria-label={m.workshop_bin_timeline_marker_add_action()}
-            className="text-surface-400"
+            muted
             icon={<FlagIcon />}
             onClick={() => markers.add(driver.phase)}
             tooltip={m.workshop_bin_timeline_marker_add_hint()}
@@ -71,14 +71,14 @@ export function TimelineTransport() {
         )}
         <IconButton
           pressed={snap}
-          className="text-surface-400"
+          muted
           icon={<MagnetIcon />}
           onClick={() => setDisplay({ timelineSnap: !snap })}
           label={m.workshop_bin_timeline_snap_label()}
         />
         <IconButton
           pressed={histogram}
-          className="text-surface-400"
+          muted
           icon={<ChartBarIcon />}
           onClick={() => setDisplay({ timelineHistogram: !histogram })}
           label={m.workshop_bin_timeline_histogram_label()}

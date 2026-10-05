@@ -136,7 +136,7 @@ function SaveStatus({ state, onRetry }: SaveStatusProps) {
       <span className="flex shrink-0 items-center gap-1.5">
         {/* DS-TEXT */}
         <span className="text-meta text-danger-text select-none">Save failed</span>
-        <Button variant="ghost" size="xs" compact onClick={onRetry}>
+        <Button variant="ghost" size="xs" onClick={onRetry}>
           Retry
         </Button>
       </span>
@@ -162,7 +162,7 @@ function NoRows({ filter, onClearFilter }: NoRowsProps) {
         size="sm"
         title={`No overrides match "${term}"`}
         action={
-          <Button variant="ghost" size="sm" onClick={onClearFilter}>
+          <Button variant="ghost" onClick={onClearFilter}>
             Clear filter
           </Button>
         }

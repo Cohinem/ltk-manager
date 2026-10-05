@@ -12,8 +12,6 @@ import { useFilteredProjects } from "../hooks/useFilteredProjects";
 import { useProjectSelectionActions } from "../hooks/useProjectSelectionActions";
 import { ProjectSelectionMenuItems } from "./ProjectCardMenuItems";
 
-const activeClass = "border-accent-500/40 bg-accent-500/15 text-accent-300 hover:bg-accent-500/20";
-
 /**
  * Selects every visible project on click, and holds the bulk actions on its caret.
  *
@@ -61,7 +59,6 @@ export function WorkshopSelectionButton() {
       <Tooltip content={testTooltip}>
         <Button
           variant="ghost"
-          size="sm"
           left={<PlayIcon weight="bold" className="size-4" />}
           loading={actions.testPending}
           disabled={!actions.canTest}
@@ -78,7 +75,6 @@ export function WorkshopSelectionButton() {
       <Tooltip content="The mod library is testing - stop it there first">
         <Button
           variant="ghost"
-          size="sm"
           disabled
           left={<PlayIcon weight="bold" className="size-4" />}
           className={testTint}
@@ -92,15 +88,13 @@ export function WorkshopSelectionButton() {
   return (
     <ButtonGroup>
       <IconButton
-        compact={false}
         icon={<CheckSquareIcon />}
         variant="outline"
-        size="sm"
+        size="md"
         disabled={testing || (filteredProjects.length === 0 && !hasSelection)}
-        aria-pressed={hasSelection}
+        pressed={hasSelection}
         aria-label={clearsOnClick ? "Clear selection" : "Select all projects"}
         onClick={handleToggleAll}
-        className={hasSelection ? activeClass : undefined}
         tooltip={
           <>
             {clearsOnClick ? "Clear selection" : "Select all"} <Kbd shortcut="Ctrl+A" />
@@ -114,12 +108,11 @@ export function WorkshopSelectionButton() {
           <Menu.Trigger
             render={
               <IconButton
-                compact={false}
-                icon={<CaretDownIcon className="size-3.5" />}
+                icon={<CaretDownIcon />}
                 variant="outline"
-                size="sm"
+                size="md"
                 aria-label="Bulk actions"
-                className="w-auto px-1"
+                narrow
               />
             }
           />

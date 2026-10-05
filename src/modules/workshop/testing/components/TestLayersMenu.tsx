@@ -1,6 +1,6 @@
 import { CaretDownIcon } from "@phosphor-icons/react";
 
-import { IconButton, Menu } from "@/components";
+import { Button, Menu } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -31,26 +31,19 @@ export function TestLayersMenu({ project, className }: TestLayersMenuProps) {
     <Menu.Root>
       <Menu.Trigger
         render={
-          <IconButton
-            compact={false}
+          <Button
             data-ui="TestLayersMenu"
-            icon={
-              <span className="flex items-center gap-1">
-                {tested && (
-                  <span className="text-xs font-medium tabular-nums">
-                    {m.workshop_test_layers_count_label({
-                      tested: tested.length,
-                      total: layers.length,
-                    })}
-                  </span>
-                )}
-                <CaretDownIcon weight="bold" className="size-3.5" />
-              </span>
-            }
-            size="sm"
+            variant="ghost"
+            right={<CaretDownIcon weight="bold" className="size-3.5" />}
             aria-label={m.workshop_test_layers_label()}
-            className={twMerge("w-auto px-1.5", className)}
-          />
+            className={twMerge("w-auto gap-1 px-1.5 text-xs tabular-nums", className)}
+          >
+            {tested &&
+              m.workshop_test_layers_count_label({
+                tested: tested.length,
+                total: layers.length,
+              })}
+          </Button>
         }
       />
       <Menu.Content align="end" className="w-56">

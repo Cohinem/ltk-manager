@@ -37,7 +37,7 @@ export function SaveStatus({ state, blockedHint, failedReason, onRetry }: SaveSt
       <span className="flex shrink-0 items-center gap-1.5">
         {failedReason === undefined && failed}
         {failedReason !== undefined && <Tooltip content={failedReason}>{failed}</Tooltip>}
-        <Button variant="ghost" size="xs" compact onClick={onRetry}>
+        <Button variant="ghost" size="xs" onClick={onRetry}>
           {m.editor_save_retry_action()}
         </Button>
       </span>

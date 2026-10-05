@@ -115,7 +115,6 @@ function SystemTab() {
         <div className="flex shrink-0 items-center gap-2">
           <Button
             variant="ghost"
-            size="sm"
             onClick={copyReport}
             disabled={!report}
             left={<ClipboardTextIcon weight="bold" className="size-4" />}
@@ -124,7 +123,6 @@ function SystemTab() {
           </Button>
           <Button
             variant="filled"
-            size="sm"
             onClick={() => diagnostics.refetch()}
             loading={diagnostics.isFetching}
             left={<ArrowClockwiseIcon weight="bold" className="size-4" />}

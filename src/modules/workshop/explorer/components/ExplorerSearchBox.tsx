@@ -97,7 +97,8 @@ export function ExplorerSearchBox({
 
       {value.length > 0 && (
         <IconButton
-          icon={<XIcon className="size-3" />}
+          icon={<XIcon />}
+          size="row"
           onClick={() => onChange("")}
           aria-label={m.workshop_explorer_clear_box_action()}
         />

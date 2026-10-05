@@ -54,9 +54,8 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-6">
       <div className="pointer-events-auto flex max-w-full animate-slide-up flex-wrap items-center gap-1 rounded-xl border border-surface-700 bg-surface-800/95 p-1.5 shadow-glass backdrop-blur-md">
         <IconButton
-          compact={false}
           icon={<XIcon />}
-          size="sm"
+          size="md"
           onClick={actions.clear}
           aria-label={m.library_selection_clear_action()}
           tooltip={m.library_selection_clear_hint()}
@@ -77,7 +76,6 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
 
         <Button
           variant="ghost"
-          size="sm"
           onClick={actions.enable}
           disabled={!actions.canEnable}
           left={<ChecksIcon weight="bold" className="size-4" />}
@@ -87,7 +85,6 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
 
         <Button
           variant="ghost"
-          size="sm"
           onClick={actions.disable}
           disabled={!actions.canDisable}
           left={<ProhibitIcon weight="bold" className="size-4" />}
@@ -100,7 +97,6 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
             render={
               <Button
                 variant="ghost"
-                size="sm"
                 disabled={actions.count === 0}
                 left={<FoldersIcon weight="bold" className="size-4" />}
                 right={<CaretUpIcon weight="bold" className="size-3" />}
@@ -119,7 +115,6 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
         <Tooltip content={CHECK_HINTS[actions.checkReadiness]()}>
           <Button
             variant="outline"
-            size="sm"
             onClick={actions.checkHealth}
             loading={actions.checkPending}
             disabled={actions.count === 0 || actions.checkReadiness !== "ready"}
@@ -130,8 +125,8 @@ export function SelectionActionBar({ visibleMods }: SelectionActionBarProps) {
         </Tooltip>
 
         <Button
-          variant="danger"
-          size="sm"
+          variant="filled"
+          tone="danger"
           onClick={actions.uninstall}
           disabled={!actions.canUninstall}
           left={<TrashIcon weight="bold" className="size-4" />}

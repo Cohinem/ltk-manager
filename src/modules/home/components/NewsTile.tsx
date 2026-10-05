@@ -77,7 +77,7 @@ export function NewsTile() {
       data-ui="NewsTile"
       action={
         error !== null && (
-          <Button variant="ghost" size="xs" compact onClick={() => void refetch()}>
+          <Button variant="ghost" size="xs" onClick={() => void refetch()}>
             {m.common_retry_action()}
           </Button>
         )
@@ -133,7 +133,6 @@ function Community() {
     <div data-ui="NewsTile:community" className="grid grid-cols-2 gap-2">
       <Button
         variant="ghost"
-        size="sm"
         left={<DiscordLogoIcon weight="duotone" className="size-4" />}
         onClick={() => void open(DISCORD)}
       >
@@ -141,7 +140,6 @@ function Community() {
       </Button>
       <Button
         variant="ghost"
-        size="sm"
         left={<GithubLogoIcon weight="duotone" className="size-4" />}
         onClick={() => void open(REPOSITORY)}
       >

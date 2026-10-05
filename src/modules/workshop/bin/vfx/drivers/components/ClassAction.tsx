@@ -103,8 +103,9 @@ function ActionMenu({
           render={
             <IconButton
               aria-label={label}
-              className="nodrag ml-auto text-surface-400"
-              icon={<ArrowsLeftRightIcon className="size-3.5" />}
+              muted
+              className="nodrag ml-auto"
+              icon={<ArrowsLeftRightIcon />}
             />
           }
         />

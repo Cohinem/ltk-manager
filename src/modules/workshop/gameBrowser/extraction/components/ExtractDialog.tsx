@@ -128,10 +128,11 @@ export function ExtractDialog() {
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Button variant="ghost" onClick={close}>
+        <Button size="lg" variant="ghost" onClick={close}>
           Cancel
         </Button>
         <Button
+          size="lg"
           variant="filled"
           disabled={busy || !destination || plan.data?.files === 0}
           onClick={handleExtract}

@@ -41,11 +41,11 @@ export function FolderNameForm({
       />
       <div className="flex justify-end gap-2">
         {onCancel && (
-          <Button variant="ghost" size="sm" onClick={onCancel} type="button">
+          <Button variant="ghost" onClick={onCancel} type="button">
             Cancel
           </Button>
         )}
-        <Button type="submit" size="sm" disabled={!name.trim() || isPending}>
+        <Button type="submit" disabled={!name.trim() || isPending}>
           {submitLabel}
         </Button>
       </div>

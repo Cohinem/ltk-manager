@@ -8,6 +8,7 @@ export function emptySystem(entry: string | null): SystemModel {
     name: null,
     emitters: [],
     transform: null,
+    hudLayer: false,
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
   };
@@ -50,12 +51,15 @@ const DRAWN_ONLY: ReadonlySet<string> = new Set<keyof EmitterModel>([
   "distortion",
   "erosion",
   "groundLayer",
+  "hudLayer",
   "lookupOffsets",
   "lookupScales",
   "lookupX",
   "lookupY",
+  "flipWinding",
   "mesh",
   "miscRenderFlags",
+  "modulation",
   "multTexture",
   "palette",
   "pass",
@@ -65,6 +69,7 @@ const DRAWN_ONLY: ReadonlySet<string> = new Set<keyof EmitterModel>([
   "projection",
   "quadType",
   "reflection",
+  "renderPhaseOverride",
   "scale0",
   "soft",
   "stencilMode",
@@ -83,6 +88,7 @@ const DRAWN_ONLY: ReadonlySet<string> = new Set<keyof EmitterModel>([
 export function simulationEquals(current: SystemModel, next: SystemModel): boolean {
   if (
     current.dragMotion !== next.dragMotion ||
+    current.hudLayer !== next.hudLayer ||
     current.buildUpTime !== next.buildUpTime ||
     !deepEquals(current.transform, next.transform) ||
     !addressTheSame(current.emitters, next.emitters)
@@ -170,20 +176,43 @@ const SPAN_RANGE = { least: 1, most: 60 };
 /**
  * How long the system takes to play out, which is the window the scrub spans.
  *
- * An emitter with no `lifetime` emits for as long as the system is alive, so it
- * contributes a fixed window rather than an unbounded one.
+ * Each emitter reaches from the system's start to its last birth plus the longest life a
+ * particle of it takes. An emitter with no end emits for as long as the system is alive,
+ * and a particle that never expires lives as long, so each contributes a fixed window
+ * rather than an unbounded one.
  */
 export function systemSpan(system: SystemModel): number {
   let span = SPAN_RANGE.least;
   for (const emitter of system.emitters) {
     if (emitter.disabled) continue;
-    const emitting = emitter.lifetime ?? ENDLESS_SPAN;
-    span = Math.max(
-      span,
-      emitter.timeBeforeFirstEmission + emitting + peak(emitter.particleLifetime),
-    );
+    span = Math.max(span, lastBirth(emitter) + longestLife(emitter.particleLifetime));
   }
   return Math.min(span, SPAN_RANGE.most);
+}
+
+/** The system time the last particle of `emitter` is born at. */
+function lastBirth(emitter: EmitterModel): number {
+  const start = emitter.timeBeforeFirstEmission;
+  if (emitter.singleParticle) return start;
+
+  const end = emissionEnd(emitter);
+  const window = emitter.period?.length == null ? (emitter.period?.active ?? null) : null;
+  const open = end ?? start + ENDLESS_SPAN;
+  return Math.max(window === null ? open : Math.min(open, window), 0);
+}
+
+/** The longest a particle born off `lifetime` lives, its tables at their largest. */
+function longestLife(lifetime: ValueCurve): number {
+  const most = curveMaximum(lifetime);
+  if (most < 0) return ENDLESS_SPAN;
+
+  let factor = 1;
+  for (const table of lifetime.tables) {
+    if (table.channel !== 0) continue;
+    factor = table.keys.reduce((held, key) => Math.max(held, key.values[0] ?? 0), 0);
+    if (table.keys.length === 0) factor = table.single;
+  }
+  return most * Math.max(factor, 0);
 }
 
 /**
@@ -208,14 +237,42 @@ export function lingerTail(system: SystemModel, stoppedAt: number): number {
 const LINGER_GRACE = 10;
 
 /**
+ * The system time emission ends at as the engine holds it, and null for an emitter with no end.
+ *
+ * `lifetime` as written, but for one rewrite the engine makes as it prepares a definition:
+ * a complex `isSingleParticle` emitter writing no material overrides, whose `lifetime` is
+ * unset or over ten seconds past `particleLifetime`, takes `particleLifetime` for it. The
+ * time counts from the system's start, so such an emitter delayed past that value never
+ * emits. A negative end never emits either.
+ */
+export function emissionEnd(emitter: EmitterModel): number | null {
+  const held = emitter.lifetime;
+  if (emitter.simple || !emitter.singleParticle || emitter.overridesMaterials) return held;
+
+  const particle = curveMaximum(emitter.particleLifetime);
+  if (particle === NEVER_EXPIRES) return held;
+  return held === null || held > particle + LINGER_GRACE ? particle : held;
+}
+
+/** The `particleLifetime` the single-particle rewrite leaves `lifetime` alone at. */
+const NEVER_EXPIRES = -1;
+
+/** The emitter spawns nothing more at system time `now`, its end having passed. */
+export function emissionEnded(emitter: EmitterModel, now: number): boolean {
+  const end = emissionEnd(emitter);
+  return end !== null && now >= end;
+}
+
+/**
  * The system age past which a stopped emitter counts as finished, which is `emitterLinger` capped.
  *
- * A complex emitter caps at its own `lifetime` plus ten seconds, uncapped for one that never
+ * A complex emitter caps at its own end time plus ten seconds, uncapped for one that never
  * stops, and a simple one at ten. The age is the system's own and not the time since the
- * stop, so a stop issued past it grants no wait at all.
+ * stop, so a stop issued past it grants no wait at all, and one issued before it leaves the
+ * emitter spawning until then.
  */
 export function stopWaitSeconds(emitter: EmitterModel): number {
-  const lifetime = emitter.simple ? 0 : (emitter.lifetime ?? Infinity);
+  const lifetime = emitter.simple ? 0 : (emissionEnd(emitter) ?? Infinity);
   return Math.min(lifetime + LINGER_GRACE, Math.max(emitter.emitterLinger, 0));
 }
 
@@ -223,10 +280,10 @@ export function stopWaitSeconds(emitter: EmitterModel): number {
  * How long a finished emitter's particles are given, which is `particleLinger` capped.
  *
  * A complex emitter caps at the particle lifetime plus ten seconds and a simple one at
- * ten. The cap is also what an unset sentinel resolves to.
+ * ten, the lifetime being its constant or the largest key of its curve.
  */
 export function lingerSeconds(emitter: EmitterModel): number {
-  const lifetime = emitter.simple ? 0 : (emitter.particleLifetime.constant[0] ?? 0);
+  const lifetime = emitter.simple ? 0 : curveMaximum(emitter.particleLifetime);
   return Math.min(lifetime + LINGER_GRACE, Math.max(emitter.particleLinger, 0));
 }
 
@@ -238,6 +295,15 @@ export function peak(value: ValueCurve): number {
 }
 
 /**
+ * The one number the engine reads a scalar value as where it needs one: the largest key of
+ * its curve, and its constant where it has no curve.
+ */
+export function curveMaximum(value: ValueCurve): number {
+  if (value.keys.length === 0) return value.constant[0] ?? 0;
+  return value.keys.reduce((most, key) => Math.max(most, key.values[0] ?? 0), -Infinity);
+}
+
+/**
  * What `rotation0` is multiplied by, being authored per `1 / 60` second.
  *
  * `rotation0` alone. The UV rates are the same value classes and carry no scale, and
@@ -245,17 +311,47 @@ export function peak(value: ValueCurve): number {
  */
 export const ROTATION_RATE = 60;
 
-/** The cycle of `period` and `timeActiveDuringPeriod`, null where no cycle is set. */
+/** `period` and `timeActiveDuringPeriod` as read, and null for an emitter writing neither. */
 export function emissionPeriod(
   length: number | null,
   active: number | null,
 ): EmissionPeriod | null {
-  if (length === null || !(length > 0)) return null;
-  return { length, active: Math.min(Math.max(active ?? length, 0), length) };
+  return length === null && active === null ? null : { length, active };
 }
 
-/** The emitter emits `seconds` past its first emission, inside the active part of its cycle. */
-export function periodActive(period: EmissionPeriod | null, seconds: number): boolean {
-  if (period === null || seconds < 0) return true;
-  return seconds % period.length <= period.active;
+/**
+ * The emitter may spawn at system time `now`: the time into the current cycle is below
+ * `timeActiveDuringPeriod`.
+ *
+ * Both count from the system's start. A cycle of no length is no number, which the engine's
+ * compare fails, so such an emitter never spawns.
+ */
+export function periodActive(period: EmissionPeriod | null, now: number): boolean {
+  if (period === null || period.active === null) return true;
+
+  const into = period.length === null ? now : now % period.length;
+  return period.active > into;
+}
+
+/** The divisor under which the engine holds an emitter's phase at zero. */
+const LEAST_PHASE_SPAN = 1e-6;
+
+/**
+ * Where an emitter stands in its own life at system time `now`, which every value sampled
+ * on the emitter is read at.
+ *
+ * The time since `timeBeforeFirstEmission` over the least of the end time, `period` and
+ * `timeActiveDuringPeriod` the emitter writes. It is neither clamped nor wrapped, so it
+ * runs past one and does not restart each cycle, and it is zero for an emitter writing none
+ * of the three.
+ */
+export function emitterPhase(emitter: EmitterModel, now: number): number {
+  const span = Math.min(
+    emissionEnd(emitter) ?? Infinity,
+    emitter.period?.active ?? Infinity,
+    emitter.period?.length ?? Infinity,
+  );
+  if (span === Infinity || Math.abs(span) <= LEAST_PHASE_SPAN) return 0;
+
+  return (now - emitter.timeBeforeFirstEmission) / span;
 }

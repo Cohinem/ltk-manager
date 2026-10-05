@@ -54,12 +54,7 @@ function RecheckButton({ modId, repairing }: { modId: string; repairing: boolean
   return (
     <IconButton
       size="sm"
-      icon={
-        <ArrowsClockwiseIcon
-          weight="bold"
-          className={`size-4 ${check.isPending ? "animate-spin" : ""}`}
-        />
-      }
+      icon={<ArrowsClockwiseIcon className={check.isPending ? "animate-spin" : undefined} />}
       onClick={() => check.mutate(modId)}
       /* A verdict outlives the tables it was taken against, so this popover can
          open on a launch that has none. */ disabled={
@@ -156,7 +151,7 @@ export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
           render={
             <IconButton
               size="sm"
-              icon={<PillIcon className="size-4" weight="bold" />}
+              icon={<PillIcon />}
               aria-label={pillLabel(verdict, alarm)}
               className={`h-6 gap-1 rounded-sm py-0.5 text-xs leading-tight font-medium ring-1 ring-inset ${tone.pill}`}
             />
@@ -183,7 +178,7 @@ export function ModHealthBadge({ modId }: ModHealthBadgeProps) {
           {alarm === "repairable" && (
             <Button
               variant="filled"
-              size="xs"
+              size="sm"
               loading={repair.isPending}
               onClick={() => repair.mutate(modId)}
             >

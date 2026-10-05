@@ -12,12 +12,14 @@ import type { SpawnShape } from "../model/model";
 import type { Point } from "../model/rig";
 import { identityInto, multiplyInto, turnInto } from "../utils/basis";
 import type { Rng } from "../utils/Rng";
-import { drawCurve } from "../utils/sampleCurve";
+import { drawChannelsInto } from "../utils/sampleCurve";
 
 /** One birth's placement, into a caller's own scratch. */
 export interface Birth {
   /** Where the particle lands, off the emitter, already turned. */
   readonly offset: Float32Array;
+  /** The offset as the shape sampled it, before its turn, which `offsetLifetimeScaling` reads. */
+  readonly raw: Float32Array;
   /** The turn, a row-major 3x3, which `turned` says is anything but the identity. */
   readonly turn: Float32Array;
   turned: boolean;
@@ -25,7 +27,12 @@ export interface Birth {
 
 /** Scratch a caller reuses, so a spawn allocates nothing per particle. */
 export function birth(): Birth {
-  return { offset: new Float32Array(3), turn: identityInto(new Float32Array(9)), turned: false };
+  return {
+    offset: new Float32Array(3),
+    raw: new Float32Array(3),
+    turn: identityInto(new Float32Array(9)),
+    turned: false,
+  };
 }
 
 const DEGREE = Math.PI / 180;
@@ -39,33 +46,39 @@ const Z: Point = [0, 0, 1];
 /**
  * The offset and the turn one shape draws for one particle, in the shape's own order.
  *
- * `chance` is the particle's one birth draw, which a legacy shape's tables are read at.
+ * A legacy shape's tables each draw off the stream, one per channel of the offset and one
+ * per angle. `chance` stands in for every such draw where the caller pins one.
  */
 export function sampleShape(
   shape: SpawnShape,
   rng: Rng,
   t01: number,
-  chance: number,
+  chance: number | null,
   out: Birth,
 ): void {
   identityInto(out.turn);
   out.turned = false;
+  const draw = () => rng.unitFloat();
 
   switch (shape.kind) {
     case "point":
       out.offset.set(shape.offset);
+      out.raw.set(shape.offset);
       return;
 
     case "legacy": {
-      const offset = drawCurve(shape.offset, t01, chance);
-      const moved = drawCurve(shape.translation, t01, chance);
-      for (let axis = 0; axis < 3; axis += 1) {
-        out.offset[axis] = (offset[axis] ?? 0) + (moved[axis] ?? 0);
-      }
+      DRAWN.fill(0);
+      drawChannelsInto(shape.offset, t01, draw, chance, DRAWN, 0);
+      out.offset.set(DRAWN);
+      DRAWN.fill(0);
+      drawChannelsInto(shape.translation, t01, draw, chance, DRAWN, 0);
+      for (let axis = 0; axis < 3; axis += 1) out.offset[axis] += DRAWN[axis];
+
       const turns = Math.min(shape.angles.length, shape.axes.length);
       for (let each = 0; each < turns; each += 1) {
-        const degrees = drawCurve(shape.angles[each], t01, chance)[0] ?? 0;
-        spin(out, shape.axes[each], degrees * DEGREE);
+        DRAWN.fill(0);
+        drawChannelsInto(shape.angles[each], t01, draw, chance, DRAWN, 0);
+        spin(out, shape.axes[each], DRAWN[0] * DEGREE);
       }
       break;
     }
@@ -100,8 +113,12 @@ export function sampleShape(
     }
   }
 
+  out.raw.set(out.offset);
   if (out.turned) turnInto(out.turn, out.offset, 0);
 }
+
+/** Scratch one of a legacy shape's values is drawn into. */
+const DRAWN = new Float32Array(3);
 
 /** One more turn about `axis`, applied after every turn composed before it (row-vector order). */
 function spin(out: Birth, axis: Point, radians: number): void {

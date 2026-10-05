@@ -128,16 +128,10 @@ function Arrow({ direction, entry, onClick }: ArrowProps) {
 
   const button = (
     <IconButton
-      icon={
-        back ? (
-          <ArrowLeftIcon weight="bold" className="size-4" />
-        ) : (
-          <ArrowRightIcon weight="bold" className="size-4" />
-        )
-      }
+      icon={back ? <ArrowLeftIcon /> : <ArrowRightIcon />}
       size="sm"
       /* Narrower than it is tall: a square box puts 12px between two 16px
-         glyphs, and the height is what holds the arrows against the bar. */ className="w-6"
+         glyphs, and the height is what holds the arrows against the bar. */ narrow
       disabled={entry === null}
       onClick={onClick}
       aria-label={label}

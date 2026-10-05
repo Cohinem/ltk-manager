@@ -222,7 +222,6 @@ function MaterialPicker({
           <Button
             variant="ghost"
             size="xs"
-            compact
             className="min-w-0"
             aria-label={m.workshop_bin_material_pane_pick_label()}
             right={<CaretDownIcon weight="bold" className="size-3" />}
@@ -258,7 +257,6 @@ function ShadersHint() {
     <Button
       variant="ghost"
       size="xs"
-      compact
       className="ml-auto"
       left={<HexshadeIcon className="size-4" />}
       onClick={() => setDisplay({ previewShaders: true })}

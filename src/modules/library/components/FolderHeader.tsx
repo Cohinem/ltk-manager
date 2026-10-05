@@ -16,12 +16,7 @@ export function FolderHeader({ folder, mods }: FolderHeaderProps) {
   return (
     <div className="flex items-center gap-3">
       <Link to="/mods">
-        <IconButton
-          compact={false}
-          icon={<ArrowLeft />}
-          size="sm"
-          aria-label="Back to all folders"
-        />
+        <IconButton icon={<ArrowLeft />} size="md" aria-label="Back to all folders" />
       </Link>
       <FolderOpen className="size-5 text-accent-400" />
       <h2 className="text-lg font-semibold text-surface-100">{folder.name}</h2>

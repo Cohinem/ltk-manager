@@ -36,8 +36,6 @@ export function ProfileSelector() {
                 <Popover.Trigger
                   render={
                     <Button
-                      variant="default"
-                      size="sm"
                       /* Fixed, so switching to a longer-named profile doesn't
                          shove the rest of the toolbar sideways. */
                       className="group w-36 justify-between"

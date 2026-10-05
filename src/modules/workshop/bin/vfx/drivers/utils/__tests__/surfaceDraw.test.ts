@@ -50,10 +50,18 @@ describe("surfaceAt", () => {
     expect(out.base.offsetU).toBeCloseTo(0);
   });
 
-  it("sums an integrated scroll rate over the age", () => {
+  it("sums an integrated scroll rate's curve over the age", () => {
+    const held: ValueCurve = {
+      constant: [0, 0],
+      keys: [
+        { time: 0, values: [0.1, 0.05] },
+        { time: 1, values: [0.1, 0.05] },
+      ],
+      tables: [],
+    };
     const emitter = emitterOf(0, {
       particleLifetime: flat(4),
-      uv: { ...plainUvLayer(), scrollRate: flat(0.1, 0.05) },
+      uv: { ...plainUvLayer(), scrollRate: held },
     });
     const out = surfaceDraw();
 
@@ -61,6 +69,44 @@ describe("surfaceAt", () => {
 
     expect(out.base.offsetU).toBeCloseTo(0.3);
     expect(out.base.offsetV).toBeCloseTo(0.15);
+  });
+
+  it("adds an integrated scroll rate writing no curve as one offset, whatever the age", () => {
+    const emitter = emitterOf(0, {
+      particleLifetime: flat(4),
+      uv: { ...plainUvLayer(), scrollRate: flat(0.1, 0.05) },
+    });
+    const early = surfaceDraw();
+    const late = surfaceDraw();
+
+    surfaceAt(emitter, 1, surfaceCycle(emitter, 0.5), 0.5, early);
+    surfaceAt(emitter, 3, surfaceCycle(emitter, 0.5), 0.5, late);
+
+    /* The constant times the lifetime of four seconds, and no rate at all. */
+    expect([early.base.offsetU, early.base.offsetV]).toEqual([
+      late.base.offsetU,
+      late.base.offsetV,
+    ]);
+    expect(late.base.offsetU).toBeCloseTo(0.4);
+    expect(late.base.offsetV).toBeCloseTo(0.2);
+  });
+
+  it("scrolls by the emitter's own rate on the clock, the other way under a flip", () => {
+    const scrolling = { ...plainUvLayer(), emitterScrollRate: [0.1, 0.2] as const };
+    const emitter = emitterOf(0, {
+      particleLifetime: flat(4),
+      uv: scrolling,
+      multUv: { ...scrolling, flipU: true },
+    });
+    const out = surfaceDraw();
+
+    surfaceAt(emitter, 2, surfaceCycle(emitter, 0.5), 0.5, out);
+
+    expect(out.base.offsetU).toBeCloseTo(0.2);
+    expect(out.base.offsetV).toBeCloseTo(0.4);
+    /* Minus 0.2, wrapped into the cell. */
+    expect(out.mult.offsetU).toBeCloseTo(0.8);
+    expect(out.mult.offsetV).toBeCloseTo(0.4);
   });
 
   it("tints by the birth colour times the colour over life", () => {
@@ -73,6 +119,19 @@ describe("surfaceAt", () => {
     surfaceAt(emitter, 1, { life: 4, linger: 0 }, 0.5, out);
 
     expect([...out.color]).toEqual([0.5, 0.5, 1, 0.5]);
+  });
+
+  it("multiplies modulationFactor into the tint", () => {
+    const emitter = emitterOf(0, {
+      birthColor: flat(1, 0.5, 1, 1),
+      color: flat(0.5, 1, 1, 0.5),
+      modulation: [2, 1, 0.5, 0.5],
+    });
+    const out = surfaceDraw();
+
+    surfaceAt(emitter, 1, { life: 4, linger: 0 }, 0.5, out);
+
+    expect([...out.color]).toEqual([1, 0.5, 0.5, 0.25]);
   });
 
   it("scales by the birth scale times the scale over life", () => {
@@ -101,9 +160,10 @@ describe("surfaceAt", () => {
     expect(out.lookup[2]).toBeCloseTo(0.25);
   });
 
-  it("reads the linger's own curves once the life runs out", () => {
+  it("reads the linger's own curves once the life runs out, over particleLinger", () => {
     const emitter = emitterOf(0, {
       lingerType: LINGER_TYPE.fixedLifetimeAfterEmitterStops,
+      particleLinger: 2,
       color: flat(1, 1, 1, 1),
       linger: {
         rotation: null,

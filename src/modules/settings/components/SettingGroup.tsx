@@ -32,7 +32,6 @@ function SettingGroupReset() {
       <Button
         variant="ghost"
         size="xs"
-        compact
         aria-label={`Reset ${changed.length} changed settings in this group`}
         left={<ArrowCounterClockwiseIcon weight="bold" className="size-3.5" />}
         onClick={reset}

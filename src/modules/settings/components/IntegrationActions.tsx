@@ -15,7 +15,6 @@ export function IntegrationActions({ installed, disabled, onAction }: Integratio
     <div data-ui="IntegrationActions" className="flex flex-wrap items-center gap-2">
       {installed && (
         <Button
-          compact
           size="sm"
           className="text-row"
           variant="outline"
@@ -27,7 +26,6 @@ export function IntegrationActions({ installed, disabled, onAction }: Integratio
         </Button>
       )}
       <Button
-        compact
         size="sm"
         className="text-row"
         variant="outline"

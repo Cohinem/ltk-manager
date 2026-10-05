@@ -76,7 +76,6 @@ export function bearingInto(
   const mode = inheritance?.mode ?? 0;
   drawnPlaceInto(parent.pool, at, frame, PLACED);
   particleBasisInto(parent.pool, at, emitter, frame, TURNED);
-  if (PLACED.orbited) multiplyInto(PLACED.turn, TURNED, TURNED);
   unscaleInto(TURNED, 0, out.yaw, 0, SCALE);
   out.place.set(PLACED.place);
   if (inheritance === null) return;
@@ -88,7 +87,6 @@ export function bearingInto(
 
   if ((mode & INHERIT.ignoreLocalOnChild) === 0) return;
   standingFrameInto(parent.pool, at, emitter, frame, TURNED);
-  if (PLACED.orbited) multiplyInto(PLACED.turn, TURNED, TURNED);
   unscaleInto(TURNED, 0, out.yaw, 0, SCALE);
 }
 
@@ -110,14 +108,15 @@ function anchoredInto(bearing: Bearing, anchor: Anchor, now: number, out: Bearin
 
 /**
  * The child stood where `bearing` says, re-rooted onto its joint at `now` first where it
- * rides one, its own transform's offset on top and its basis outermost.
+ * rides one. Its own `transform` is a factor of its particles and no part of where it
+ * stands, but for a HUD-layer child, which takes the translation as an offset.
  */
 export function standAt(child: Child, bearing: Bearing, now: number): void {
   const rooted =
     child.anchor === null ? bearing : anchoredInto(bearing, child.anchor, now, ANCHORED);
   for (let axis = 0; axis < 3; axis += 1) {
-    child.origin[axis] = rooted.place[axis] + child.world.offset[axis];
+    child.origin[axis] = rooted.place[axis] + (child.world.hud ? child.world.offset[axis] : 0);
   }
   child.yaw.set(rooted.yaw);
-  multiplyInto(child.world.basis, child.yaw, child.orientation);
+  child.orientation.set(rooted.yaw);
 }

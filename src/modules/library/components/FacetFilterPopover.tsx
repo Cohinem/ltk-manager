@@ -82,10 +82,8 @@ export interface FacetFilterPopoverProps<F extends string> {
   /** A filter is set, which the trigger marks and the clear answers to. */
   hasActive: boolean;
   triggerLabel: string;
-  /** Merged onto the trigger, so the caller can seat it inside a field. */
-  triggerClassName?: string;
   /** The trigger's size, `xs` unless the caller seats it in a taller bar. */
-  triggerSize?: "xs" | "sm";
+  triggerSize?: "xs" | "md";
   onOpenChange?: (open: boolean) => void;
   /** Sections between the sort and the facet columns. */
   children?: ReactNode;
@@ -98,7 +96,6 @@ export function FacetFilterPopover<F extends string>({
   sortOptions,
   hasActive,
   triggerLabel,
-  triggerClassName,
   triggerSize = "xs",
   onOpenChange,
   children,
@@ -154,17 +151,15 @@ export function FacetFilterPopover<F extends string>({
           render={
             <IconButton
               size={triggerSize}
-              compact={triggerSize === "xs"}
               icon={
                 <div className="relative">
-                  <FunnelIcon weight="bold" className="size-4" />
+                  <FunnelIcon />
                   {hasActive && (
                     <span className="absolute -top-1 -right-1 size-2 rounded-full bg-accent-500" />
                   )}
                 </div>
               }
               aria-label={triggerLabel}
-              className={triggerClassName}
             />
           }
         />
@@ -256,9 +251,8 @@ export function FacetFilterPopover<F extends string>({
         {hasActive && (
           <div className="flex justify-end border-t border-surface-600/50 px-3 py-2">
             <Button
-              variant="transparent"
+              variant="ghost"
               size="sm"
-              compact
               onClick={clearFilters}
               left={<XIcon weight="bold" className="size-3.5" />}
               className="font-normal"
@@ -318,7 +312,6 @@ function SortDirectionToggle<F extends string>({ options, sort, onSort }: SortCo
     <Button
       variant="ghost"
       size="xs"
-      compact
       onClick={() => onSort({ field: sort.field, direction: reverse(sort.direction) })}
       right={icon}
       className="font-normal text-accent-300 hover:bg-accent-500/15 hover:text-accent-200"

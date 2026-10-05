@@ -15,8 +15,6 @@ interface SelectionButtonProps {
   disabled: boolean;
 }
 
-const activeClass = "border-accent-500/40 bg-accent-500/15 text-accent-300 hover:bg-accent-500/20";
-
 /**
  * Selects every visible mod on click, and holds the all-visible actions on its caret.
  *
@@ -56,15 +54,13 @@ export function SelectionButton({ actions, visibleMods, disabled }: SelectionBut
   return (
     <ButtonGroup>
       <IconButton
-        compact={false}
         icon={<CheckSquareIcon />}
         variant="outline"
-        size="sm"
+        size="md"
         disabled={disabled}
-        aria-pressed={hasSelection}
+        pressed={hasSelection}
         aria-label={clearsOnClick ? "Clear selection" : "Select all mods"}
         onClick={handleToggleAll}
-        className={hasSelection ? activeClass : undefined}
         tooltip={
           <>
             {clearsOnClick ? "Clear selection" : "Select all"} <Kbd shortcut="Ctrl+A" />
@@ -75,13 +71,12 @@ export function SelectionButton({ actions, visibleMods, disabled }: SelectionBut
         <Menu.Trigger
           render={
             <IconButton
-              compact={false}
-              icon={<CaretDownIcon className="size-3.5" />}
+              icon={<CaretDownIcon />}
               variant="outline"
-              size="sm"
+              size="md"
               disabled={disabled}
               aria-label="Bulk actions"
-              className="w-auto px-1"
+              narrow
             />
           }
         />

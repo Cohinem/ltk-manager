@@ -1,8 +1,11 @@
 import { Select as BaseSelect } from "@base-ui/react/select";
-import { Check, ChevronDown } from "lucide-react";
+import { CaretDownIcon, CheckIcon } from "@phosphor-icons/react";
 import { forwardRef, type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
+
+import { fieldFrame, type FieldSize, fieldSizeClasses } from "./fieldFrame";
+import { FieldRoot } from "./FormField";
 
 // Root
 export interface SelectRootProps extends BaseSelect.Root.Props<string> {
@@ -16,24 +19,25 @@ SelectRoot.displayName = "Select.Root";
 
 // Trigger
 export interface SelectTriggerProps extends Omit<BaseSelect.Trigger.Props, "className"> {
-  className?: string;
+  /** `md`, 32px, unless told otherwise. */
+  size?: FieldSize;
+  /** Marks a trigger standing outside a `Field.Root` invalid. */
   hasError?: boolean;
+  className?: string;
   children?: ReactNode;
 }
 
 export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
-  ({ className, hasError, children, ...props }, ref) => {
+  ({ size = "md", className, hasError, children, ...props }, ref) => {
     return (
       <BaseSelect.Trigger
         ref={ref}
+        {...(hasError && { "aria-invalid": true })}
         className={twMerge(
-          "flex h-8 w-full items-center justify-between rounded-md border px-4 py-1 text-sm transition-colors",
-          "bg-surface-700 text-surface-50",
-          "border-surface-500 hover:border-accent-hover",
-          "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
-          "disabled:cursor-not-allowed disabled:opacity-50",
+          "flex items-center justify-between gap-2",
+          fieldFrame,
+          fieldSizeClasses[size],
           "data-[placeholder]:text-surface-400",
-          hasError && "border-danger focus:border-danger focus:ring-danger",
           className,
         )}
         {...props}
@@ -87,7 +91,7 @@ export const SelectIcon = forwardRef<HTMLSpanElement, SelectIconProps>(
         )}
         {...props}
       >
-        <ChevronDown className="size-4" />
+        <CaretDownIcon weight="bold" className="size-3.5" />
       </BaseSelect.Icon>
     );
   },
@@ -154,7 +158,7 @@ export const SelectPopup = forwardRef<HTMLDivElement, SelectPopupProps>(
           "rounded-lg border border-surface-600 py-1 shadow-xl outline-none",
           /* DS-GLASS */
           "bg-(--ltk-glass-panel-fill) backdrop-filter-(--ltk-glass-panel-blur)",
-          "transition-[opacity,transform] duration-150 ease-out",
+          "transition-[opacity,transform]",
           "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
           "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
           className,
@@ -245,7 +249,7 @@ export const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
         {...props}
       >
         <BaseSelect.ItemIndicator className="inline-flex size-4 shrink-0 items-center justify-center">
-          <Check className="size-3.5" />
+          <CheckIcon weight="bold" className="size-3.5" />
         </BaseSelect.ItemIndicator>
         {description === undefined && text}
         {description !== undefined && (
@@ -332,7 +336,7 @@ export const Select = {
   GroupLabel: SelectGroupLabel,
 };
 
-// --- Simplified SelectField for common use cases ---
+/** A labelled select over a flat option list in one tag: `Field.Root` around the parts. */
 
 export interface SelectOption {
   value: string;
@@ -341,11 +345,10 @@ export interface SelectOption {
 }
 
 export interface SelectFieldProps {
-  label?: string;
-  description?: string;
-  error?: string;
+  label?: ReactNode;
+  description?: ReactNode;
+  error?: ReactNode;
   required?: boolean;
-  placeholder?: string;
   options: SelectOption[];
   value?: string;
   defaultValue?: string;
@@ -370,17 +373,14 @@ export function SelectField({
   className,
   triggerClassName,
 }: SelectFieldProps) {
-  // Field layout is imported from FormField module but kept inline here
-  // to avoid circular dependency with compound Field exports
   return (
-    <div className={twMerge("flex flex-col gap-1.5", className)}>
-      {label && (
-        <label className="text-sm font-medium text-surface-200">
-          {label}
-          {required && <span className="ml-1 text-required">*</span>}
-        </label>
-      )}
-      {description && <p className="text-xs text-surface-400">{description}</p>}
+    <FieldRoot
+      label={label}
+      description={description}
+      error={error}
+      required={required}
+      className={className}
+    >
       <SelectRoot
         value={value}
         defaultValue={defaultValue}
@@ -388,7 +388,7 @@ export function SelectField({
         disabled={disabled}
         name={name}
       >
-        <SelectTrigger hasError={!!error} className={triggerClassName}>
+        <SelectTrigger className={triggerClassName}>
           <SelectValue>
             {(current) =>
               options.find((o) => o.value === current)?.label ?? (current as string | null) ?? ""
@@ -404,8 +404,7 @@ export function SelectField({
           ))}
         </SelectContent>
       </SelectRoot>
-      {error && <p className="text-xs text-danger-text">{error}</p>}
-    </div>
+    </FieldRoot>
   );
 }
 SelectField.displayName = "SelectField";

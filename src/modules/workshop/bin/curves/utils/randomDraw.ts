@@ -356,8 +356,8 @@ export function spread(value: number, range: ValueRange): ValueRange {
 /**
  * A colour's stops as a particle rolling `chance` sees them, each channel times its table.
  *
- * One chance serves every channel, so a ramp at one chance is a particle the effect can
- * really draw, where each channel at its own least would not be.
+ * One chance serves every channel here, which is one of the ramps the effect can draw:
+ * `birthColor` rolls each channel apart, so a particle may also mix the channels' chances.
  */
 export function stopsAt(
   stops: readonly ColorStop[],

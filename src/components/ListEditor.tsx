@@ -23,8 +23,8 @@ interface LayoutStyles {
   item: string;
   content: string;
   editor: string;
-  /** How a non-pinned action rests, before hover or focus brings it to full strength. */
-  reveal: string;
+  /** Whether a non-pinned action hides until the entry is pointed at. */
+  reveal: boolean;
   actionSize: ButtonSize;
 }
 
@@ -36,7 +36,7 @@ const LAYOUTS: Record<ListEditorLayout, LayoutStyles> = {
     content: "min-w-0 flex-1",
     editor: "rounded-lg bg-surface-800 px-2 py-2",
     /* A row is wide enough that its controls at rest are noise, and hiding them costs no layout. */
-    reveal: "opacity-0",
+    reveal: true,
     actionSize: "sm",
   },
   wrap: {
@@ -46,7 +46,7 @@ const LAYOUTS: Record<ListEditorLayout, LayoutStyles> = {
     content: "min-w-0",
     editor: "rounded-md bg-surface-800 px-2 py-1",
     /* A chip is only as wide as its contents, so an action that appears on hover would reflow the wrap. */
-    reveal: "opacity-50",
+    reveal: false,
     actionSize: "xs",
   },
 };
@@ -195,7 +195,11 @@ function ListEditorEntry<T>({
 
   const entry = (
     <div
-      className={twMerge("group transition-colors", styles.item, onActivate && "cursor-pointer")}
+      className={twMerge(
+        "group group/reveal transition-colors",
+        styles.item,
+        onActivate && "cursor-pointer",
+      )}
       onClick={handleClick}
     >
       <EntryActions actions={leading} item={item} layout={layout} />
@@ -262,12 +266,9 @@ function EntryAction<T>({ action, item, layout }: EntryActionProps<T>) {
         icon={resolve(action.icon, item)}
         size={styles.actionSize}
         aria-label={label}
-        className={twMerge(
-          "transition-opacity",
-          !pinned &&
-            `${styles.reveal} group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100`,
-          action.variant === "danger" && "hover:text-danger-text",
-        )}
+        tone={action.variant === "danger" ? "danger" : "neutral"}
+        muted={!pinned}
+        reveal={!pinned && styles.reveal}
         onClick={(event) => {
           event.stopPropagation();
           action.onSelect(item);

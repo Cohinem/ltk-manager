@@ -113,10 +113,11 @@ export function UpdateChangelogDialog() {
             onCheckedChange={(val) => setSkipVersion(val === true)}
           />
           <div className="flex items-center gap-3">
-            <Button variant="ghost" onClick={() => setDialogOpen(false)}>
+            <Button size="lg" variant="ghost" onClick={() => setDialogOpen(false)}>
               {m.common_close_action()}
             </Button>
             <Button
+              size="lg"
               variant="filled"
               left={<DownloadIcon weight="bold" className="size-4" />}
               disabled={leagueRunning}

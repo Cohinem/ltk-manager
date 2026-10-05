@@ -1,4 +1,5 @@
-import { Plus, Trash2, Users } from "lucide-react";
+import { TrashIcon } from "@phosphor-icons/react";
+import { Plus, Users } from "lucide-react";
 
 import { Button, FormField, IconButton, SectionCard } from "@/components";
 import type { AuthorProfile, WorkshopAuthor } from "@/lib/tauri";
@@ -25,12 +26,7 @@ export function AuthorsSection({
       description="People who contributed to this mod."
       panelClassName="bg-surface-800"
       action={
-        <Button
-          variant="outline"
-          size="sm"
-          left={<Plus className="size-4" />}
-          onClick={() => onAdd()}
-        >
+        <Button variant="outline" left={<Plus className="size-4" />} onClick={() => onAdd()}>
           Add Author
         </Button>
       }
@@ -57,12 +53,7 @@ export function AuthorsSection({
                 placeholder="e.g. 3D Artist"
                 className="w-48"
               />
-              <IconButton
-                compact={false}
-                icon={<Trash2 className="size-4" />}
-                size="sm"
-                onClick={() => onRemove(index)}
-              />
+              <IconButton icon={<TrashIcon />} size="md" onClick={() => onRemove(index)} />
             </div>
           ))}
         </div>

@@ -46,7 +46,7 @@ export function SurfaceField({ element, tree, sheet }: SurfaceFieldProps) {
           if (surface !== undefined) void surfaces.apply([element.key], surface);
         }}
       >
-        <Select.Trigger aria-label={label} className="h-7 min-w-0 flex-1 gap-1 px-2 text-meta">
+        <Select.Trigger aria-label={label} size="sm" className="min-w-0 flex-1 gap-1">
           <Select.Value className="truncate">
             {(key: string) => key || m.workshop_bin_atlas_surface_pick_placeholder()}
           </Select.Value>

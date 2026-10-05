@@ -1,4 +1,4 @@
-import { Check, Pencil, Trash2, X } from "lucide-react";
+import { CheckIcon, PencilSimpleIcon, TrashIcon, XIcon } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 
 import { Button, Field, IconButton, useToast } from "@/components";
@@ -76,17 +76,18 @@ export function ProfileListItem({
           value={editName}
           onChange={(e) => setEditName(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="h-7 flex-1 px-2 py-1 text-sm"
+          size="sm"
+          className="flex-1"
           placeholder="Profile name..."
         />
         <IconButton
-          compact={false}
-          icon={<Check className="size-4" />}
+          size="sm"
+          icon={<CheckIcon />}
+          tone="accent"
           onClick={handleRename}
           disabled={!editName.trim() || renameProfile.isPending}
-          className="text-success-text hover:text-success-text"
         />
-        <IconButton compact={false} icon={<X className="size-4" />} onClick={cancelEditing} />
+        <IconButton size="sm" icon={<XIcon />} onClick={cancelEditing} />
       </div>
     );
   }
@@ -95,11 +96,12 @@ export function ProfileListItem({
     <div className="flex items-center gap-1">
       <Button
         variant="ghost"
-        size="sm"
         onClick={() => onSwitch(profile.id)}
         disabled={isSwitching || isActive}
         className="flex-1 justify-between"
-        right={isActive ? <Check className="size-4 text-accent-500" /> : undefined}
+        right={
+          isActive ? <CheckIcon weight="bold" className="size-4 text-accent-500" /> : undefined
+        }
       >
         {profile.name}
       </Button>
@@ -107,17 +109,19 @@ export function ProfileListItem({
       {!isDefaultProfile && (
         <>
           <IconButton
-            compact={false}
-            icon={<Pencil className="size-3.5" />}
+            size="sm"
+            icon={<PencilSimpleIcon />}
+            muted
             onClick={startEditing}
             tooltip="Rename profile"
           />
           <IconButton
-            compact={false}
-            icon={<Trash2 className="size-3.5" />}
+            size="sm"
+            icon={<TrashIcon />}
+            tone="danger"
+            muted
             onClick={() => onDeleteClick(profile)}
             disabled={isActive}
-            className="hover:text-danger-text"
             tooltip="Delete profile"
           />
         </>

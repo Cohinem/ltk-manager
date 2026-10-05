@@ -1,6 +1,9 @@
 import { Slider as BaseSlider } from "@base-ui/react/slider";
+import { useId } from "react";
 
 import { twMerge } from "@/utils";
+
+import { focusRing } from "./focus";
 
 /** A mark along the slider. */
 interface Mark {
@@ -25,8 +28,9 @@ interface SliderProps {
   step?: number;
   /** Marks to display along the slider. */
   marks?: Mark[];
-  /** The label to display above the slider. */
+  /** Drawn above the slider, and its accessible name. */
   label?: string;
+  /** The name of a slider drawn without a `label`. */
   "aria-label"?: string;
   /** The visual variant of the slider. */
   variant?: SliderVariant;
@@ -60,6 +64,7 @@ export function Slider({
   className,
 }: SliderProps) {
   const isRuler = variant === "ruler";
+  const labelId = useId();
 
   return (
     <BaseSlider.Root
@@ -78,7 +83,11 @@ export function Slider({
       disabled={disabled}
       className={twMerge("flex w-full flex-col", isRuler ? "gap-1.5" : "gap-2", className)}
     >
-      {label && <span className="text-sm font-medium text-surface-200">{label}</span>}
+      {label && (
+        <span id={labelId} className="text-sm font-medium text-surface-200">
+          {label}
+        </span>
+      )}
 
       <BaseSlider.Control className="relative flex h-4 w-full touch-none items-center">
         <BaseSlider.Track
@@ -148,12 +157,13 @@ export function Slider({
             Dragging grows it lengthways. A knob this narrow has too little width
             for a uniform scale to register. */}
         <BaseSlider.Thumb
-          aria-label={ariaLabel ?? label}
+          {...(label ? { "aria-labelledby": labelId } : { "aria-label": ariaLabel })}
           className={twMerge(
             "absolute top-1/2 -translate-x-1/2 -translate-y-1/2",
             isRuler
-              ? "h-4 w-1 rounded-full bg-transparent focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:outline-none"
-              : "h-4 w-2 rounded-sm bg-accent-400 ring-1 ring-accent-700 transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-300 data-dragging:scale-y-125",
+              ? "h-4 w-1 rounded-full bg-transparent"
+              : "h-4 w-2 rounded-sm bg-accent-400 ring-1 ring-accent-700 transition data-dragging:scale-y-125",
+            focusRing,
             !isRuler && !disabled && "hover:bg-accent-300",
             !animated && "transition-none",
             disabled ? "cursor-not-allowed" : "cursor-pointer data-dragging:cursor-grabbing",

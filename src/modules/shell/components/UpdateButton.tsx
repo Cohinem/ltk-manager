@@ -17,7 +17,6 @@ export function UpdateButton() {
     <Tooltip content={m.shell_update_available_label({ version: update.version })}>
       <Button
         variant="ghost"
-        size="sm"
         left={<Download className="size-4" />}
         onClick={() => setDialogOpen(true)}
         aria-label={m.shell_update_to_action({ version: update.version })}

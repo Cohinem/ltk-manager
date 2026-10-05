@@ -163,7 +163,6 @@ function RetryPreviews() {
   return (
     <Button
       size="xs"
-      compact
       variant="ghost"
       left={<ArrowClockwiseIcon weight="bold" className="size-3.5" />}
       onClick={() => retryPreviews()}
@@ -275,7 +274,7 @@ function SwitchOffHint() {
   return (
     <p className="flex shrink-0 items-center gap-2 border-b border-surface-700/50 px-3 py-1 text-xs text-surface-400 select-none">
       <span className="min-w-0 flex-1 truncate">{m.workshop_objects_index_off_label()}</span>
-      <Button variant="ghost" size="xs" onClick={() => setOn(true)}>
+      <Button variant="ghost" size="sm" onClick={() => setOn(true)}>
         {m.workshop_objects_keep_on_action()}
       </Button>
     </p>

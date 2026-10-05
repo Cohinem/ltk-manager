@@ -10,7 +10,7 @@ import { GROUND_ORDER } from "../drawKind";
 
 const SYSTEM_CLASS = nameHash("VfxSystemDefinitionData");
 
-/** An emitter read off an empty struct, so every field is the schema's default. */
+/** An emitter read off a struct writing a rate alone, so every other field is the schema's default. */
 function emitterAt(index: number, over: Partial<EmitterModel> = {}): EmitterModel {
   const [read] = readVfxSystem({
     materials: [],
@@ -35,7 +35,26 @@ function emitterAt(index: number, over: Partial<EmitterModel> = {}): EmitterMode
                 classHash: nameHash("VfxEmitterDefinitionData"),
                 class: null,
                 object: null,
-                fields: [],
+                /* A rate, since the engine drops an emitter that can never emit. */
+                fields: [
+                  {
+                    hash: nameHash("rate"),
+                    name: "rate",
+                    value: {
+                      type: "struct",
+                      classHash: nameHash("ValueFloat"),
+                      class: null,
+                      object: null,
+                      fields: [
+                        {
+                          hash: nameHash("constantValue"),
+                          name: "constantValue",
+                          value: { type: "number", value: 1 },
+                        },
+                      ],
+                    },
+                  },
+                ],
               },
             ],
           },
@@ -52,6 +71,7 @@ function system(...emitters: EmitterModel[]): SystemModel {
     name: null,
     emitters,
     transform: null,
+    hudLayer: false,
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
   };
@@ -91,6 +111,22 @@ describe("drawnEmitters", () => {
       { key: "0", rank: 2 },
       { key: "1", rank: GROUND_ORDER },
       { key: "2", rank: GROUND_ORDER + 1 },
+    ]);
+  });
+
+  it("ranks a complex emitter ahead of a simple one of the same pass, and a lower pass ahead of both", () => {
+    const drawn = drawnEmitters(
+      system(
+        emitterAt(0, { simple: true }),
+        emitterAt(1),
+        emitterAt(2, { simple: true, pass: -1 }),
+      ),
+    );
+
+    expect(drawn.map(({ key, rank }) => ({ key, rank }))).toEqual([
+      { key: "0", rank: 2 },
+      { key: "1", rank: 1 },
+      { key: "2", rank: 0 },
     ]);
   });
 

@@ -68,7 +68,7 @@ export function LibraryMigrationDialog() {
       </div>
 
       <div className="flex shrink-0 justify-end gap-2 px-3 pt-0 pb-2.5 select-none">
-        <Button variant="filled" size="sm" onClick={() => setDismissed(true)}>
+        <Button variant="filled" onClick={() => setDismissed(true)}>
           Done
         </Button>
       </div>

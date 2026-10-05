@@ -80,7 +80,7 @@ export function MeterSection({ element, meter, tree, view, editable, apply }: Me
           {m.workshop_bin_atlas_hud_value({ percent: Math.round(fill * PERCENT) })}
         </span>
         <IconButton
-          icon={<ArrowCounterClockwiseIcon className="size-3.5" />}
+          icon={<ArrowCounterClockwiseIcon />}
           disabled={own === undefined}
           onClick={() => setMeter(view, element.key, null)}
           label={m.workshop_bin_atlas_meter_fill_reset_action()}

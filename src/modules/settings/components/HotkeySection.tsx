@@ -1,4 +1,5 @@
-import { Keyboard, X } from "lucide-react";
+import { XIcon } from "@phosphor-icons/react";
+import { Keyboard } from "lucide-react";
 import { useState } from "react";
 
 import { Button, ButtonGroup, IconButton, SectionCard, useToast } from "@/components";
@@ -152,7 +153,6 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
           ) : (
             <Button
               variant="outline"
-              size="sm"
               left={<Keyboard className="size-3.5" />}
               onClick={() => startCapture()}
               loading={isPending}
@@ -163,10 +163,9 @@ function HotkeyRow({ setting, description, value, onSet }: HotkeyRowProps) {
 
           {value && !isCapturing && (
             <IconButton
-              compact={false}
               variant="outline"
-              size="sm"
-              icon={<X className="size-3.5" />}
+              size="md"
+              icon={<XIcon />}
               onClick={handleClear}
               loading={isPending}
             />

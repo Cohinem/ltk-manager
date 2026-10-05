@@ -176,15 +176,10 @@ function LineActions({
   return (
     <div className="ml-auto flex shrink-0 items-center gap-1">
       {children}
-      <Button variant="ghost" size="xs" compact onClick={onAction} className="h-5">
+      <Button variant="ghost" size="xs" onClick={onAction} className="h-5">
         {label}
       </Button>
-      <IconButton
-        icon={<XIcon className="size-3" />}
-        onClick={onDismiss}
-        aria-label="Dismiss"
-        className="size-5"
-      />
+      <IconButton icon={<XIcon />} onClick={onDismiss} aria-label="Dismiss" size="row" />
     </div>
   );
 }
@@ -245,7 +240,6 @@ function VerdictLine({ incident }: { incident: Incident }) {
           <Button
             variant="ghost"
             size="xs"
-            compact
             onClick={rebuild.run}
             loading={rebuild.pending}
             className="h-5"
@@ -308,13 +302,7 @@ function CancelLaunchButton() {
 
   return (
     <Tooltip content="Stop waiting for the Riot Client. A request it already took still starts a game.">
-      <Button
-        variant="ghost"
-        size="xs"
-        compact
-        onClick={() => cancelLaunch.mutate()}
-        disabled={cancelling}
-      >
+      <Button variant="ghost" size="xs" onClick={() => cancelLaunch.mutate()} disabled={cancelling}>
         {cancelLabel(cancelling)}
       </Button>
     </Tooltip>

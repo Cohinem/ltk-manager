@@ -3,6 +3,8 @@ import { type ReactNode } from "react";
 
 import { twMerge } from "@/utils";
 
+import { focusRing } from "./focus";
+
 export type AlertBoxVariant = "neutral" | "info" | "success" | "warning" | "error";
 
 interface AlertBoxBase {
@@ -108,10 +110,10 @@ export function AlertBox({
         /* Aligned to the top, so a title that wraps runs under itself and the
            actions stay on the first line rather than centring against a block. */
         className={twMerge(
-          "flex w-full cursor-pointer items-start gap-2 rounded-lg border px-2 py-2 text-left transition-colors duration-150",
+          "flex w-full cursor-pointer items-start gap-2 rounded-lg border px-2 py-2 text-left transition-colors",
           styles.border,
           styles.bg,
-          "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-500",
+          focusRing,
           "disabled:cursor-not-allowed disabled:opacity-70",
           hoverStyles[variant],
           className,
@@ -138,7 +140,10 @@ export function AlertBox({
         <button
           type="button"
           onClick={onDismiss}
-          className="shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200"
+          className={twMerge(
+            "shrink-0 rounded-md p-1 text-surface-400 transition-colors hover:bg-surface-700 hover:text-surface-200",
+            focusRing,
+          )}
           aria-label="Dismiss"
         >
           <X className="size-4" />

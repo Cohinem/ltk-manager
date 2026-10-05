@@ -78,7 +78,5 @@ function ActionToggle({
   onPress: () => void;
   children: ReactNode;
 }) {
-  return (
-    <IconButton compact={false} pressed={pressed} icon={children} onClick={onPress} label={label} />
-  );
+  return <IconButton size="sm" pressed={pressed} icon={children} onClick={onPress} label={label} />;
 }

@@ -63,7 +63,7 @@ export function JointActions(props: JointActionsProps) {
             icon={<DotsThreeIcon />}
             label={m.workshop_bin_skeleton_actions_label()}
             tooltip={false}
-            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 aria-expanded:opacity-100"
+            reveal
             onClick={(event) => event.stopPropagation()}
           />
         }

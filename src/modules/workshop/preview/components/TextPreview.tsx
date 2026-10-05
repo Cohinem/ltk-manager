@@ -135,7 +135,6 @@ export function TextPreview({ documentId, asset, name }: TextPreviewProps) {
             <Button
               variant="ghost"
               size="xs"
-              compact
               aria-pressed={formatOn}
               className={formatOn ? "text-accent-300" : undefined}
               onClick={() => setFormatOn(!formatOn)}
@@ -148,7 +147,6 @@ export function TextPreview({ documentId, asset, name }: TextPreviewProps) {
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-pressed={wrap}
             className={wrap ? "text-accent-300" : undefined}
             onClick={() => setWrap(!wrap)}

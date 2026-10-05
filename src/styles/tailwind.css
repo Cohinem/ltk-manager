@@ -166,6 +166,10 @@
   --z-index-toast: var(--z-toast);
   --z-index-notification: var(--z-notification);
 
+  /* Motion */
+  --default-transition-duration: var(--duration-003);
+  --default-transition-timing-function: var(--ease-out);
+
   /* Type */
   --text-row: var(--type-row);
   --text-row--line-height: var(--type-row-leading);

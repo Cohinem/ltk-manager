@@ -41,7 +41,7 @@ export function ContentStringsList({ layerName, overrides }: ContentStringsListP
         action={
           <Button
             variant="outline"
-            size="xs"
+            size="sm"
             left={<PlusIcon weight="bold" className="size-4" />}
             onClick={() => openDocument(stringsDocument(layerName, DEFAULT_LOCALE))}
           >
@@ -107,13 +107,7 @@ export function AddLocaleMenu({ layerName, overrides }: AddLocaleMenuProps) {
     <Menu.Root>
       <Tooltip content="Open a locale">
         <Menu.Trigger
-          render={
-            <IconButton
-              icon={<PlusIcon className="size-3.5" />}
-              aria-label="Open a locale"
-              className="size-5"
-            />
-          }
+          render={<IconButton icon={<PlusIcon />} aria-label="Open a locale" size="row" />}
         />
       </Tooltip>
       <Menu.Content align="end" sideOffset={4} className="max-h-80 overflow-y-auto">

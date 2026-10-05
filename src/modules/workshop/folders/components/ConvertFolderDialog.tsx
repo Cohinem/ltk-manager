@@ -118,10 +118,10 @@ export function ConvertFolderDialog() {
           </div>
 
           <RadioGroup.Root
+            label={m.workshop_folder_convert_placement_label()}
             value={placement}
             onValueChange={(value: unknown) => setPlacement(value as ConvertPlacement)}
           >
-            <RadioGroup.Label>{m.workshop_folder_convert_placement_label()}</RadioGroup.Label>
             <RadioGroup.Options orientation="vertical">
               <RadioGroup.Card
                 value="inPlace"
@@ -189,6 +189,7 @@ export function ConvertFolderDialog() {
 
         <Dialog.Footer>
           <Button
+            size="lg"
             variant="ghost"
             className="mr-auto whitespace-nowrap"
             left={<FolderOpenIcon weight="bold" className="size-4" />}
@@ -198,6 +199,7 @@ export function ConvertFolderDialog() {
             {m.workshop_folder_convert_other_action()}
           </Button>
           <Button
+            size="lg"
             variant="ghost"
             className="whitespace-nowrap"
             onClick={handleClose}
@@ -208,6 +210,7 @@ export function ConvertFolderDialog() {
           <form.Subscribe selector={(state) => state.canSubmit && state.isValid}>
             {(canSubmit) => (
               <Button
+                size="lg"
                 variant="filled"
                 type="submit"
                 className="whitespace-nowrap"

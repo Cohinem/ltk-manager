@@ -19,7 +19,7 @@ import { twMerge } from "@/utils";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import type { EmitterModel } from "../../engine/model/model";
-import { age01, emitterPhase } from "../../engine/simulation/particleRead";
+import { age01, clamp01, emitterPhase } from "../../engine/simulation/particleRead";
 import { NOT_LINGERING } from "../../engine/simulation/pool";
 import { type VfxRun, VfxRunContext } from "../../playback/state/run";
 import { NO_SAMPLERS, samplersOf, useVfxTextures } from "../../rendering/hooks/useVfxTextures";
@@ -397,7 +397,7 @@ function SurfaceScene({ emitter, looped, tiled, shown, magnified, bar, onFail }:
 function EmitterLife({ emitter, bar }: { emitter: EmitterModel; bar: LifeBar }) {
   const run = use(VfxRunContext);
   useFrame(() => {
-    showLife(bar, run === null ? 0 : emitterPhase(emitter, run.driver.elapsed), 1);
+    showLife(bar, run === null ? 0 : clamp01(emitterPhase(emitter, run.driver.elapsed)), 1);
   });
   return null;
 }

@@ -23,7 +23,13 @@ import {
   writeProgramMember,
 } from "@/modules/viewport";
 
-import { ADDRESS_MODE, type AddressMode, UV_MODE, type UvMode } from "../../engine/model/enums";
+import {
+  ADDRESS_MODE,
+  type AddressMode,
+  SOFT_TARGET,
+  UV_MODE,
+  type UvMode,
+} from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { drawState, fragmentTests } from "./blend";
@@ -228,7 +234,7 @@ export function particleParams(emitter: EmitterModel, layers: QuadLayers): PassP
     [PALETTE_SELECT]: [color.paletteRow.value, 0, 0, 0],
     cPaletteSrcMixerMain: color.paletteMix.value,
     cSoftParticleParams: soft === null ? [0, 0, 0, 0] : softParams(soft),
-    cSoftParticleControl: softControl(emitter.blendMode),
+    cSoftParticleControl: softControl(soft?.target ?? SOFT_TARGET.both),
     kColorFactor: [1, 1, 1, 1],
     vFresnel: sheen.fresnel.value,
     vReflection: sheen.reflection.value,

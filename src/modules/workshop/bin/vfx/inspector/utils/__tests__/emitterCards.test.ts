@@ -52,6 +52,7 @@ const SYSTEM: SystemModel = {
   name: "Particles/Burst_Child",
   emitters: [EMBER, SPARK_MODEL],
   transform: null,
+  hudLayer: false,
   dragMotion: 0,
   buildUpTime: 0,
 };

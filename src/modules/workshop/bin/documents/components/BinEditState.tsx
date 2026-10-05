@@ -56,7 +56,6 @@ function NewObjectAction() {
       <Button
         variant="ghost"
         size="xs"
-        compact
         left={<PlusIcon weight="bold" className="size-3" />}
         onClick={() => drafts.start({ kind: "class" })}
       >
@@ -99,7 +98,7 @@ function AutosaveStatus({ document, asset, onReload }: AutosaveStatusProps) {
             {m.workshop_bin_changed_on_disk_hint()}
           </span>
         </Tooltip>
-        <Button variant="ghost" size="xs" compact onClick={reload}>
+        <Button variant="ghost" size="xs" onClick={reload}>
           {m.workshop_bin_reload_action()}
         </Button>
       </span>

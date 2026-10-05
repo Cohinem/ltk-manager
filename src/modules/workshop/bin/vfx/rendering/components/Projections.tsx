@@ -14,13 +14,13 @@ import {
   type Source,
 } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
-import { multiplyInto } from "../../engine/utils/basis";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { fragmentTests } from "../utils/blend";
 import { projectionBuffers, QUADS_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
 import { drawsAsProjection } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
+import { drawLayersOf } from "../utils/frame";
 import { projectionMaterial } from "../utils/materials";
 import { type Footprint, footprintInto, modulateInto } from "../utils/projection";
 import { DrawPair, showPair, useDrawPair } from "./drawPair";
@@ -70,7 +70,7 @@ export function Projections({
 
   useEffect(() => () => buffers.geometry.dispose(), [buffers]);
 
-  const pair = useDrawPair<Mesh>(material, false);
+  const pair = useDrawPair<Mesh>(material, drawLayersOf(emitter));
   const drawn = !hidden && !emitter.disabled && drawsAsProjection(emitter);
 
   useFrame((state) => {
@@ -119,8 +119,7 @@ function write(
 
   drawnPlaceInto(pool, at, frame, PLACED);
   particleBasisInto(pool, at, emitter, frame, BASIS);
-  if (PLACED.orbited) multiplyInto(PLACED.turn, BASIS, BASIS);
-  footprintInto(emitter, pool, at, time, DRAWN.scale, BASIS, FOOTPRINT);
+  footprintInto(emitter, pool, at, DRAWN.scale, BASIS, FOOTPRINT);
   modulateInto(emitter, DRAWN.color, MODULATE);
   colorLookupInto(emitter, pool, at, age01(pool, at, time), LOOKUP, 0);
 

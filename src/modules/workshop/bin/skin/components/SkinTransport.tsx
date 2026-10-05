@@ -151,7 +151,8 @@ function ClipPicker({ clips, value, playing, onValueChange }: ClipPickerProps) {
       {/* DS-VEIL */}
       <Select.Trigger
         aria-label={m.workshop_bin_mesh_preview_clip_label()}
-        className="h-7 w-auto max-w-44 min-w-0 gap-1.5 border-transparent bg-transparent px-2 text-meta text-surface-100 hover:border-transparent hover:bg-surface-veil"
+        size="sm"
+        className="w-auto max-w-44 min-w-0 gap-1.5 border-transparent bg-transparent text-surface-100 hover:border-transparent hover:bg-surface-veil"
       >
         <FilmStripIcon aria-hidden className="size-3.5 shrink-0 text-surface-400" />
         <Select.Value className="truncate">{nameOf}</Select.Value>

@@ -1,6 +1,7 @@
+import { XIcon } from "@phosphor-icons/react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { ImagePlus, X } from "lucide-react";
+import { ImagePlus } from "lucide-react";
 import { useRef, useState } from "react";
 import { z } from "zod";
 
@@ -149,10 +150,9 @@ export function NewProjectDialog() {
                     className="absolute inset-0 size-full object-cover"
                   />
                   <IconButton
-                    compact={false}
-                    size="sm"
+                    size="md"
                     variant="filled"
-                    icon={<X className="size-3.5" />}
+                    icon={<XIcon />}
                     className="absolute top-2 right-2 bg-surface-900/70 hover:bg-surface-900"
                     onClick={() => setSelectedThumbnailPath(null)}
                   />
@@ -216,7 +216,7 @@ export function NewProjectDialog() {
                       onBlur={field.handleBlur}
                       hasError={field.state.meta.errors.length > 0}
                       placeholder="my-awesome-mod"
-                      className="text-sm text-surface-300"
+                      className="text-surface-300"
                     />
                     <Field.Description>
                       <span className="text-xs">
@@ -284,7 +284,7 @@ export function NewProjectDialog() {
         </Dialog.Body>
 
         <Dialog.Footer>
-          <Button variant="ghost" onClick={handleClose}>
+          <Button size="lg" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
           <form.Subscribe
@@ -292,6 +292,7 @@ export function NewProjectDialog() {
           >
             {({ canSubmit, isValid }) => (
               <Button
+                size="lg"
                 variant="filled"
                 loading={createProject.isPending}
                 disabled={!canSubmit || !isValid}

@@ -108,7 +108,7 @@ export function RecipeFields({
               {recipe.timingConflict.map((release, index) => (
                 <Button
                   key={index}
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   onClick={() => change({ release, timingConflict: undefined })}
                 >
@@ -239,7 +239,7 @@ function Choice({
           if (next !== null) onChange(next);
         }}
       >
-        <Select.Trigger aria-label={label} className="h-8 min-w-0 gap-2 px-2 text-meta">
+        <Select.Trigger aria-label={label} className="min-w-0">
           <Select.Value className="min-w-0 truncate" placeholder={label}>
             {items.find((item) => item.value === value)?.label ?? value}
           </Select.Value>

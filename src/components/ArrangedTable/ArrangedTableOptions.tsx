@@ -82,7 +82,7 @@ export function ArrangedTableOptions<Id extends string, Group extends string>({
       </FilterSection>
 
       <FilterSection>
-        <Button variant="ghost" size="xs" onClick={resetLayout}>
+        <Button variant="ghost" size="sm" onClick={resetLayout}>
           {m.common_table_reset_action()}
         </Button>
       </FilterSection>

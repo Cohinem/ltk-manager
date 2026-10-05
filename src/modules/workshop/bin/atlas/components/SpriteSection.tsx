@@ -65,7 +65,7 @@ export function SpriteSection({ element, tree }: SpriteSectionProps) {
             {sprites.available && (
               <Button
                 variant="outline"
-                size="xs"
+                size="sm"
                 disabled={sprites.importing}
                 left={<ImageSquareIcon weight="bold" className="size-3.5" />}
                 onClick={() =>
@@ -82,7 +82,7 @@ export function SpriteSection({ element, tree }: SpriteSectionProps) {
             {exported !== null && (
               <Button
                 variant="outline"
-                size="xs"
+                size="sm"
                 disabled={exports.exporting}
                 left={<ExportIcon weight="bold" className="size-3.5" />}
                 onClick={() => void exports.run(exported)}

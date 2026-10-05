@@ -13,7 +13,6 @@ import { m } from "@/i18n";
 import type { SearchHits, GameFindHit } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 import { useExplorerThumbnails, useExplorerTileSize, useExplorerView } from "@/stores";
-import { twMerge } from "@/utils";
 
 import {
   type ContentDocumentOf,
@@ -260,9 +259,7 @@ function RebuildAction() {
 
   return (
     <IconButton
-      icon={
-        <ArrowsClockwiseIcon className={twMerge("size-4", rebuild.isPending && "animate-spin")} />
-      }
+      icon={<ArrowsClockwiseIcon className={rebuild.isPending ? "animate-spin" : undefined} />}
       onClick={() => rebuild.mutate()}
       disabled={rebuild.isPending}
       aria-label={copy.rebuildAction}

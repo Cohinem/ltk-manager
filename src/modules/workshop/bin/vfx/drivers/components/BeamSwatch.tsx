@@ -6,13 +6,14 @@ import type { PerspectiveCamera as Camera, Group } from "three";
 import { BEAM_MODE } from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
 import type { Point } from "../../engine/model/rig";
+import { NO_TRANSFORM } from "../../engine/simulation/integrate";
 import type { Source } from "../../engine/simulation/particleRead";
 import { createPool } from "../../engine/simulation/pool";
 import { useVfxRun } from "../../playback/state/run";
 import { Beams } from "../../rendering/components/Beams";
 import { samplersOf, useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { drawnFor } from "../../rendering/utils/definitions";
-import { PARTICLE_LAYER } from "../../rendering/utils/frame";
+import { seeParticles } from "../../rendering/utils/frame";
 import { useBackdropColor } from "../state/previewBackdrop";
 import { beamFrame, emittingSource, reachOf } from "../utils/beamSwatch";
 import { widestScale } from "../utils/trailSwatch";
@@ -64,6 +65,7 @@ export function BeamSwatch({ emitter }: { emitter: EmitterModel }) {
       origin: ends.source,
       target: ends.target,
       orientation: UPRIGHT,
+      world: NO_TRANSFORM,
     }),
     [ends],
   );
@@ -92,11 +94,7 @@ export function BeamSwatch({ emitter }: { emitter: EmitterModel }) {
     <>
       <color attach="background" args={[backdrop]} />
       <ViewGuard />
-      <PerspectiveCamera
-        makeDefault
-        fov={SWATCH_FOV}
-        onUpdate={(camera) => camera.layers.enable(PARTICLE_LAYER)}
-      />
+      <PerspectiveCamera makeDefault fov={SWATCH_FOV} onUpdate={(camera) => seeParticles(camera)} />
       {entry !== undefined && (
         <group ref={stretched}>
           <Beams
