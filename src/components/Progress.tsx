@@ -101,6 +101,11 @@ export function ProgressBar({ size, ...props }: ProgressBarProps) {
   );
 }
 
+/**
+ * How far a task with a known end has come.
+ *
+ * A wait with no known end is a `Spinner`.
+ */
 export const Progress = {
   Root: ProgressRoot,
   Track: ProgressTrack,

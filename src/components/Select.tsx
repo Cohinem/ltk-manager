@@ -313,7 +313,12 @@ export const SelectGroupLabel = forwardRef<HTMLDivElement, SelectGroupLabelProps
 );
 SelectGroupLabel.displayName = "Select.GroupLabel";
 
-// Compound export
+/**
+ * One choice from a list short enough to read at a glance.
+ *
+ * A list the reader has to search is a `Combobox`, and two to four choices that fit a row
+ * are a `SegmentedControl`.
+ */
 export const Select = {
   Root: SelectRoot,
   Trigger: SelectTrigger,

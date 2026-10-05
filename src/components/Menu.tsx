@@ -406,7 +406,12 @@ export const MenuSubmenuContent = forwardRef<HTMLDivElement, MenuSubmenuContentP
 );
 MenuSubmenuContent.displayName = "Menu.SubmenuContent";
 
-// Compound export
+/**
+ * A list of actions opened from a button.
+ *
+ * The same list on a right click is a `ContextMenu`, and a choice kept as a value is a
+ * `Select`.
+ */
 export const Menu = {
   Root: MenuRoot,
   Trigger: MenuTrigger,

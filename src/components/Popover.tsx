@@ -220,7 +220,12 @@ export const PopoverClose = forwardRef<HTMLButtonElement, PopoverCloseProps>(
 );
 PopoverClose.displayName = "Popover.Close";
 
-// Compound export
+/**
+ * A floating panel anchored to its trigger, for content the reader acts in.
+ *
+ * A line that explains is a `Tooltip`, a card read on hover is a `HoverCard`, and a list of
+ * actions is a `Menu`.
+ */
 export const Popover = {
   Root: PopoverRoot,
   Trigger: PopoverTrigger,

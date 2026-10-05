@@ -422,7 +422,12 @@ export const ComboboxStatus = forwardRef<HTMLDivElement, ComboboxStatusProps>(
 );
 ComboboxStatus.displayName = "Combobox.Status";
 
-// Compound export
+/**
+ * One choice from a list the reader narrows by typing.
+ *
+ * A list short enough to read at a glance is a `Select`, and several choices at once are a
+ * `MultiSelect`.
+ */
 export const Combobox = {
   Root: ComboboxRoot,
   Input: ComboboxInput,

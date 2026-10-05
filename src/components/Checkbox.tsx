@@ -58,6 +58,11 @@ function CheckboxIcon({ size }: { size: CheckboxSize }) {
   );
 }
 
+/**
+ * A choice that is on or off, or one of several picked from a list.
+ *
+ * A setting that takes effect as it is flipped is a `Switch`.
+ */
 export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
   ({ size = "md", label, description, className, disabled, ...props }, ref) => {
     const implicit = use(InputDefaultContext);

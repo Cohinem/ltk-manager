@@ -12,6 +12,9 @@ const sizeClasses = {
   md: "px-1.5 py-0.5 text-xs min-w-[22px] gap-1",
 } as const;
 
+/**
+ * A key combination drawn as keycaps, split on the `+` in `shortcut`.
+ */
 export const Kbd = forwardRef<HTMLElement, KbdProps>(
   ({ shortcut, size = "sm", className, ...props }, ref) => {
     const keys = shortcut.split("+");

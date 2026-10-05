@@ -141,6 +141,12 @@ export const RadioGroupItem = forwardRef<HTMLButtonElement, RadioGroupItemProps>
 );
 RadioGroupItem.displayName = "RadioGroup.Item";
 
+/**
+ * One choice from a few options that each take a line of their own.
+ *
+ * Options short enough to share a row are a `SegmentedControl`, and a longer list is a
+ * `Select`.
+ */
 export const RadioGroup = {
   Root: RadioGroupRoot,
   Options: RadioGroupOptions,

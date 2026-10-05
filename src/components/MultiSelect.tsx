@@ -23,6 +23,11 @@ export interface MultiSelectProps {
   variant?: "compact" | "field";
 }
 
+/**
+ * Several choices from one list, ticked in a popup.
+ *
+ * One choice is a `Select`, or a `Combobox` where the list is long enough to search.
+ */
 export function MultiSelect({
   options,
   selected,

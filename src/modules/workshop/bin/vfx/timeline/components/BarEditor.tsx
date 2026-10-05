@@ -151,8 +151,6 @@ function Seconds({
         decimals={2}
         disabled={disabled}
         aria-label={text}
-        increaseLabel={m.common_number_increase_action()}
-        decreaseLabel={m.common_number_decrease_action()}
         className="w-24 shrink-0 text-meta"
       />
     </label>

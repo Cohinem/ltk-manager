@@ -426,7 +426,12 @@ export const DialogShell = forwardRef<HTMLDivElement, DialogShellProps>(
 );
 DialogShell.displayName = "Dialog.Shell";
 
-// Compound export
+/**
+ * A modal surface that holds the reader until they answer or dismiss it.
+ *
+ * One destructive question is a `ConfirmDialog`, and content that belongs beside its trigger
+ * is a `Popover`.
+ */
 export const Dialog = {
   Root: DialogRoot,
   Trigger: DialogTrigger,

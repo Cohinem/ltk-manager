@@ -59,6 +59,11 @@ export const DisclosurePanel = forwardRef<HTMLDivElement, DisclosurePanelProps>(
 );
 DisclosurePanel.displayName = "Disclosure.Panel";
 
+/**
+ * One section that folds under its own trigger.
+ *
+ * A list of sections that fold as a set is an `Accordion`.
+ */
 export const Disclosure = {
   Root: DisclosureRoot,
   Trigger: DisclosureTrigger,
