@@ -62,7 +62,7 @@ export function RenameProjectDialog() {
       title={`Rename ${project.displayName}`}
       size="sm"
     >
-      <form
+      <Dialog.Form
         onSubmit={(e) => {
           e.preventDefault();
           handleSubmit();
@@ -108,7 +108,7 @@ export function RenameProjectDialog() {
             Rename
           </Button>
         </Dialog.Footer>
-      </form>
+      </Dialog.Form>
     </Dialog.Shell>
   );
 }

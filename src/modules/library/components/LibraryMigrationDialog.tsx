@@ -38,7 +38,7 @@ export function LibraryMigrationDialog() {
       initialFocus={panel}
       data-ui="LibraryMigrationDialog"
       aria-label="Mods the library upgrade could not move"
-      className="flex h-[70vh] max-w-[38.5rem] flex-col overflow-hidden"
+      className="h-[70vh] max-w-[38.5rem] overflow-hidden"
     >
       <header className="relative flex shrink-0 items-start gap-2.5 bg-linear-to-r from-warning/15 to-warning/0 px-3 py-2.5 select-none">
         <ShockedPoroDuotoneIcon className="size-10 shrink-0 text-warning-text" />

@@ -100,7 +100,7 @@ export function ConvertFolderDialog() {
       size="xl"
       closable={!convert.isPending}
     >
-      <form
+      <Dialog.Form
         onSubmit={(event) => {
           event.preventDefault();
           form.handleSubmit();
@@ -224,7 +224,7 @@ export function ConvertFolderDialog() {
             )}
           </form.Subscribe>
         </Dialog.Footer>
-      </form>
+      </Dialog.Form>
     </Dialog.Shell>
   );
 }

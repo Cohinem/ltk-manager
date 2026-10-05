@@ -12,8 +12,10 @@ import { useListNav } from "@/hooks/useListNav";
 import { NO_OVERSCROLL } from "@/hooks/useOverscrollSpring";
 import { useRemeasure } from "@/hooks/useRemeasure";
 import { useZoomedPx } from "@/hooks/useZoomedPx";
+import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { Badge } from "./Badge";
 import { Skeleton } from "./Skeleton";
 import { Spinner } from "./Spinner";
 
@@ -135,7 +137,7 @@ export function CommandPalette({
   groups,
   onSelect,
   onClose,
-  emptyMessage = "No matches",
+  emptyMessage = m.common_palette_empty(),
   className,
 }: CommandPaletteProps) {
   const listId = "command-palette-list";
@@ -217,13 +219,9 @@ export function CommandPalette({
         <MagnifyingGlassIcon weight="bold" className="size-4 shrink-0 text-surface-400" />
 
         {scope !== undefined && (
-          <button
-            type="button"
-            onClick={onScopeRemove}
-            className="shrink-0 cursor-pointer rounded-sm bg-accent-500/20 px-1.5 py-0.5 text-meta text-accent-200 transition-colors hover:bg-accent-500/30"
-          >
+          <Badge tone="accent" size="md" onClick={onScopeRemove} className="shrink-0">
             {scope}
-          </button>
+          </Badge>
         )}
 
         <input
@@ -237,7 +235,7 @@ export function CommandPalette({
           aria-controls={listId}
           aria-activedescendant={activeRowId}
           aria-autocomplete="list"
-          aria-label={placeholder ?? "Search"}
+          aria-label={placeholder ?? m.common_palette_search_label()}
           autoComplete="off"
           spellCheck={false}
           className="min-w-0 flex-1 bg-transparent text-sm text-surface-50 select-text placeholder:text-surface-400 focus:outline-none"
@@ -255,7 +253,7 @@ export function CommandPalette({
           ref={scrollRef}
           id={listId}
           role="listbox"
-          aria-label="Results"
+          aria-label={m.common_palette_results_label()}
           className="min-h-0 flex-1 overflow-y-auto border-t border-surface-700 py-1"
           {...NO_OVERSCROLL}
         >
@@ -334,7 +332,7 @@ function PaletteItemView({ item, id, active, setSize, onHover, onRun }: PaletteI
   if (item.kind === "more") {
     return (
       <div className="flex h-full items-center pl-9 text-meta text-surface-500">
-        and {item.rest} more…
+        {m.common_palette_more_label({ count: item.rest })}
       </div>
     );
   }
