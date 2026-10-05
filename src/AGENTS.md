@@ -84,6 +84,10 @@ A dialog draws through `Dialog.Shell`, which takes `open`, `onClose`, `title` an
 `Dialog.Footer` under the header. A dialog whose header is not a title and a close button builds
 its frame from the parts instead, which all stay exported.
 
+The popup is never taller than the window. Its header and footer keep their height and
+`Dialog.Body` scrolls. A form around the body and footer is a `Dialog.Form`, since a plain
+`<form>` there stops the body from scrolling on its own.
+
 One question with one destructive answer is a `ConfirmDialog`. A caller with nowhere to mount one
 asks through `useConfirm`, which draws on `ConfirmHost` above the router.
 

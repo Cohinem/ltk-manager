@@ -52,7 +52,7 @@ export function EditLayerDialog({ open, layer, onClose, projectPath }: EditLayer
       title={`Edit Layer: ${layer.displayName}`}
       size="sm"
     >
-      <form
+      <Dialog.Form
         onSubmit={(e) => {
           e.preventDefault();
           form.handleSubmit();
@@ -89,7 +89,7 @@ export function EditLayerDialog({ open, layer, onClose, projectPath }: EditLayer
             )}
           </form.Subscribe>
         </Dialog.Footer>
-      </form>
+      </Dialog.Form>
     </Dialog.Shell>
   );
 }
