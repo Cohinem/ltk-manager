@@ -288,7 +288,6 @@ function NewModuleButton({ documentId, layerName }: { documentId: string; layerN
 
   return (
     <Button
-      size="sm"
       variant="outline"
       left={<PlusIcon weight="bold" className="size-3.5" />}
       onClick={() => {

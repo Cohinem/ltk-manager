@@ -143,8 +143,7 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
           {/* DS-INVARIANT: a control over cover art takes the scrim and `brand-on`. */}
           <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-scrim p-0.5 backdrop-blur-sm">
             <IconButton
-              compact={false}
-              size="sm"
+              size="md"
               icon={<ImageIcon />}
               onClick={handleSetThumbnail}
               className="text-brand-on"
@@ -152,8 +151,7 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
             />
             {staged && (
               <IconButton
-                compact={false}
-                size="sm"
+                size="md"
                 icon={<TrashIcon />}
                 onClick={() => {
                   setThumbnailPath(null);
@@ -209,7 +207,7 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
                   <SparkleIcon className="size-4 text-accent-400" />
                   {m.library_details_suggestions_label()}
                 </span>
-                <Button variant="outline" size="sm" onClick={applyAllSuggestions}>
+                <Button variant="outline" onClick={applyAllSuggestions}>
                   {m.library_details_suggestions_apply_action()}
                 </Button>
               </div>
@@ -255,10 +253,10 @@ export function DetailsEditForm({ mod, onDone }: DetailsEditFormProps) {
 
       {/* DS-REPORT-PANEL's confirm band, at the list's own padding. */}
       <div className="flex shrink-0 items-center justify-end gap-2 border-t border-surface-700 px-3 py-2.5">
-        <Button variant="ghost" size="sm" onClick={onDone} disabled={editMod.isPending}>
+        <Button variant="ghost" onClick={onDone} disabled={editMod.isPending}>
           {m.library_details_cancel_action()}
         </Button>
-        <Button variant="filled" size="sm" loading={editMod.isPending} onClick={handleSave}>
+        <Button variant="filled" loading={editMod.isPending} onClick={handleSave}>
           {m.library_details_save_action()}
         </Button>
       </div>

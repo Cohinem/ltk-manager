@@ -59,7 +59,7 @@ export function ReferencesDocument({
         {request !== null && (
           <Button
             variant="ghost"
-            size="xs"
+            size="sm"
             className="ml-auto"
             left={
               <ArrowsClockwiseIcon className={twMerge("size-4", isFetching && "animate-spin")} />
@@ -204,7 +204,7 @@ function WalkProgress({ walking }: { walking: boolean }) {
       </span>
       <Button
         variant="ghost"
-        size="xs"
+        size="sm"
         left={<XIcon weight="bold" className="size-4" />}
         onClick={() => void api.objects.cancelWalk()}
       >

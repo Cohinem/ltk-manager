@@ -64,7 +64,6 @@ export function FilesDocument({
               <Button
                 variant="ghost"
                 size="xs"
-                compact
                 loading={wadImport.isPending}
                 left={<PlusIcon weight="bold" className="size-4" />}
                 right={<CaretDownIcon weight="bold" className="size-3" />}

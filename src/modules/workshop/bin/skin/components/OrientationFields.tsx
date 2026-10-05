@@ -89,7 +89,7 @@ function Joints({ slot, path }: FieldProps) {
             <ValueSlot sans>
               {send !== null && offered !== null && (
                 <Button
-                  size="xs"
+                  size="sm"
                   variant="ghost"
                   left={<PlusIcon />}
                   onClick={() =>
@@ -178,7 +178,7 @@ function Source({ slot, path }: FieldProps) {
                 <Menu.Trigger
                   disabled={send === null}
                   render={
-                    <Button size="xs" variant="ghost" right={<CaretDownIcon />}>
+                    <Button size="sm" variant="ghost" right={<CaretDownIcon />}>
                       {set?.class ??
                         set?.classHash ??
                         m.workshop_bin_physics_orientation_source_empty()}

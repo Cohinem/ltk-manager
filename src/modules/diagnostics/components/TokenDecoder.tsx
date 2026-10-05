@@ -82,13 +82,7 @@ export function TokenDecoder({ open, onOpenChange }: TokenDecoderProps) {
               </p>
             )}
           </span>
-          <Button
-            variant="filled"
-            size="sm"
-            disabled={!trimmed}
-            loading={decode.isPending}
-            onClick={submit}
-          >
+          <Button variant="filled" disabled={!trimmed} loading={decode.isPending} onClick={submit}>
             Decode
           </Button>
         </div>

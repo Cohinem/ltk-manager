@@ -25,8 +25,7 @@ export function DocumentsToggle() {
 
   return (
     <IconButton
-      compact={false}
-      size="sm"
+      size="md"
       pressed={open}
       icon={<BookOpenTextIcon />}
       onClick={toggle}

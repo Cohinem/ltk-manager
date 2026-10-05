@@ -284,7 +284,7 @@ function ArchiveActions({ summary }: { summary: GameWadSummary | undefined }) {
       {layerLabel && (
         <Button
           variant="ghost"
-          size="xs"
+          size="sm"
           left={<StackPlusIcon className="size-4" />}
           disabled={busy}
           onClick={() => run("copy", targets, subject)}
@@ -295,7 +295,7 @@ function ArchiveActions({ summary }: { summary: GameWadSummary | undefined }) {
       {lastFolder && (
         <Button
           variant="ghost"
-          size="xs"
+          size="sm"
           left={<DownloadSimpleIcon className="size-4" />}
           disabled={busy}
           onClick={() => run("quick", targets, subject)}
@@ -305,7 +305,7 @@ function ArchiveActions({ summary }: { summary: GameWadSummary | undefined }) {
       )}
       <Button
         variant="ghost"
-        size="xs"
+        size="sm"
         left={<DownloadSimpleIcon className="size-4" />}
         onClick={() => run("dialog", targets, subject)}
       >

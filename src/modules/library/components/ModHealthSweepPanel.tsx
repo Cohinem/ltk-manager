@@ -178,7 +178,7 @@ function PanelActions({
   if (!fixable) {
     return (
       <PanelFoot>
-        <Button size="sm" variant="filled" onClick={onClose}>
+        <Button variant="filled" onClick={onClose}>
           {m.common_close_action()}
         </Button>
       </PanelFoot>
@@ -187,7 +187,7 @@ function PanelActions({
 
   return (
     <PanelFoot>
-      <Button size="sm" variant="ghost" onClick={onClose}>
+      <Button variant="ghost" onClick={onClose}>
         {m.common_close_action()}
       </Button>
       <RepairPress run={run} />
@@ -213,7 +213,7 @@ function RepairPress({ run }: { run: RepairRun }) {
      caret would only ask the reader to find that out. */
   if (enabled.length === all.length) {
     return (
-      <Button size="sm" variant="filled" loading={run.isRepairing} onClick={() => start(all)}>
+      <Button variant="filled" loading={run.isRepairing} onClick={() => start(all)}>
         <PlugsIcon className="size-4" weight="duotone" />
         {m.library_health_repair_action({ count: all.length })}
       </Button>
@@ -225,7 +225,7 @@ function RepairPress({ run }: { run: RepairRun }) {
      run that does anything behind a caret. */
   if (enabled.length === 0) {
     return (
-      <Button size="sm" variant="filled" loading={run.isRepairing} onClick={() => start(all)}>
+      <Button variant="filled" loading={run.isRepairing} onClick={() => start(all)}>
         <StackIcon className="size-4" weight="duotone" />
         {m.library_health_repair_all_action({ count: all.length })}
       </Button>
@@ -234,7 +234,7 @@ function RepairPress({ run }: { run: RepairRun }) {
 
   return (
     <ButtonGroup>
-      <Button size="sm" variant="filled" loading={run.isRepairing} onClick={() => start(enabled)}>
+      <Button variant="filled" loading={run.isRepairing} onClick={() => start(enabled)}>
         <PlugsIcon className="size-4" weight="duotone" />
         {m.library_health_repair_enabled_action({ count: enabled.length })}
       </Button>
@@ -242,10 +242,9 @@ function RepairPress({ run }: { run: RepairRun }) {
         <Menu.Trigger
           render={
             <IconButton
-              compact={false}
               icon={<CaretUpIcon />}
               variant="filled"
-              size="sm"
+              size="md"
               aria-label={m.library_health_repair_options_label()}
               className="w-auto px-2"
               disabled={run.isRepairing}
@@ -513,7 +512,6 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
           <Button
             variant="ghost"
             size="xs"
-            compact
             loading={repair.isPending}
             onClick={() => repair.mutate(verdict.modId)}
             aria-label={m.library_health_repair_mod_label({ name })}

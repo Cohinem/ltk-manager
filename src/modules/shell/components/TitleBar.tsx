@@ -282,15 +282,13 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
             <div className="flex h-full">
               <IconButton
-                compact={false}
                 icon={<MinusIcon className="size-3.5" />}
-                size="sm"
+                size="md"
                 onClick={handleMinimize}
                 aria-label={m.shell_window_minimize_action()}
                 className={windowControlClass}
               />
               <IconButton
-                compact={false}
                 icon={
                   isMaximized ? (
                     <OverlappingSquares className="size-3" />
@@ -298,7 +296,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                     <SquareIcon className="size-3" />
                   )
                 }
-                size="sm"
+                size="md"
                 onClick={handleMaximize}
                 aria-label={
                   isMaximized ? m.shell_window_restore_action() : m.shell_window_maximize_action()
@@ -306,9 +304,8 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
                 className={windowControlClass}
               />
               <IconButton
-                compact={false}
                 icon={<XIcon />}
-                size="sm"
+                size="md"
                 onClick={handleClose}
                 aria-label={m.shell_window_close_action()}
                 className={twMerge(

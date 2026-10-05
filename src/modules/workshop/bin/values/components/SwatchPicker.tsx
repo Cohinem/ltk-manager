@@ -43,7 +43,6 @@ export function SwatchPicker({
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={label}
             left={
               <Swatch

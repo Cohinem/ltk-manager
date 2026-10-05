@@ -115,7 +115,6 @@ export function ChanceButton({ className }: { className?: string }) {
             <Button
               variant="ghost"
               size="xs"
-              compact
               aria-label={m.workshop_bin_random_chance_label()}
               data-ui="ChanceButton"
               data-pinned={pinned !== null || undefined}

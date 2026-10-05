@@ -286,7 +286,7 @@ function OpenObject({
           {!narrow && (
             <Button
               variant="ghost"
-              size="xs"
+              size="sm"
               left={<FileIcon className="size-4" />}
               onClick={showFile}
             >
@@ -414,7 +414,7 @@ function HeaderMenu({ document, object, onShowInFile }: HeaderMenuProps) {
   return (
     <Menu.Root>
       <Menu.Trigger
-        render={<IconButton compact={false} icon={<DotsThreeVerticalIcon />} aria-label={label} />}
+        render={<IconButton size="sm" icon={<DotsThreeVerticalIcon />} aria-label={label} />}
       />
       <Menu.Content align="end" sideOffset={4} className="w-56">
         {onShowInFile && (

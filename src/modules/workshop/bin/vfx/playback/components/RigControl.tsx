@@ -94,7 +94,6 @@ export function RigControl() {
           <Button
             variant="ghost"
             size="xs"
-            compact
             left={<CarrierIcon weight="bold" className="size-4" />}
             right={<CaretDownIcon weight="bold" className="size-3" />}
             aria-label={m.workshop_bin_preview_rig_label()}
@@ -128,7 +127,6 @@ export function RigControl() {
             <Button
               variant="ghost"
               size="xs"
-              compact
               left={<ArrowCounterClockwiseIcon weight="bold" className="size-3.5" />}
               onClick={resetRig}
             >

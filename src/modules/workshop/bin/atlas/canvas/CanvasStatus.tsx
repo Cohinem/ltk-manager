@@ -94,7 +94,6 @@ export function CanvasStatus({ transform, selection, editing }: CanvasStatusProp
           <Button
             variant="ghost"
             size="xs"
-            compact
             className="min-w-12 tabular-nums"
             onClick={() => transform.zoomTo(1)}
           >
@@ -118,7 +117,6 @@ export function CanvasStatus({ transform, selection, editing }: CanvasStatusProp
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-pressed={transform.fitted}
             className={transform.fitted ? "text-accent-300" : undefined}
             onClick={transform.fit}

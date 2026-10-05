@@ -56,10 +56,9 @@ export function SelectionButton({ actions, visibleMods, disabled }: SelectionBut
   return (
     <ButtonGroup>
       <IconButton
-        compact={false}
         icon={<CheckSquareIcon />}
         variant="outline"
-        size="sm"
+        size="md"
         disabled={disabled}
         aria-pressed={hasSelection}
         aria-label={clearsOnClick ? "Clear selection" : "Select all mods"}
@@ -75,10 +74,9 @@ export function SelectionButton({ actions, visibleMods, disabled }: SelectionBut
         <Menu.Trigger
           render={
             <IconButton
-              compact={false}
               icon={<CaretDownIcon className="size-3.5" />}
               variant="outline"
-              size="sm"
+              size="md"
               disabled={disabled}
               aria-label="Bulk actions"
               className="w-auto px-1"

@@ -98,10 +98,10 @@ export function DiagnosticsNoticeDialog() {
         </div>
       </Dialog.Body>
       <Dialog.Footer>
-        <Button variant="ghost" onClick={turnOff} disabled={saveSettings.isPending}>
+        <Button size="lg" variant="ghost" onClick={turnOff} disabled={saveSettings.isPending}>
           {m.diagnostics_notice_turn_off_action()}
         </Button>
-        <Button onClick={acknowledge} loading={saveSettings.isPending}>
+        <Button size="lg" onClick={acknowledge} loading={saveSettings.isPending}>
           {m.diagnostics_notice_acknowledge_action()}
         </Button>
       </Dialog.Footer>

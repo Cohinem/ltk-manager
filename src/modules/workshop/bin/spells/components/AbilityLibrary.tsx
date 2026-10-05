@@ -49,7 +49,7 @@ export function AbilityLibrary({ character, source, onPreview, children }: Props
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="p-2">
-          <Button size="xs" variant="ghost" onClick={() => setSelected(null)}>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(null)}>
             {m.workshop_missile_back_action()}
           </Button>
         </div>
@@ -61,7 +61,7 @@ export function AbilityLibrary({ character, source, onPreview, children }: Props
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex items-center gap-2 border-b border-surface-700/50 p-2">
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             onClick={() => {
               setDraft(null);
@@ -83,14 +83,14 @@ export function AbilityLibrary({ character, source, onPreview, children }: Props
         />
         <div className="flex flex-wrap items-center gap-2 border-t border-surface-700/50 p-3">
           <Button
-            size="xs"
+            size="sm"
             disabled={!abilityRecipeSchema.safeParse(draft).success}
             onClick={() => onPreview(abilityRecipeSchema.parse(draft))}
           >
             {m.workshop_ability_preview_action()}
           </Button>
           <Button
-            size="xs"
+            size="sm"
             variant="outline"
             disabled={project === null || !abilityRecipeSchema.safeParse(draft).success}
             onClick={() => {
@@ -109,7 +109,7 @@ export function AbilityLibrary({ character, source, onPreview, children }: Props
           )}
           {recipes?.some((item) => item.id === draft.id) && (
             <Button
-              size="xs"
+              size="sm"
               variant="ghost"
               onClick={() => {
                 if (project !== null) remove(project.path, draft.id);
@@ -129,7 +129,7 @@ export function AbilityLibrary({ character, source, onPreview, children }: Props
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-meta font-medium text-surface-200">{m.workshop_ability_title()}</h3>
           <Button
-            size="xs"
+            size="sm"
             variant="outline"
             onClick={() => {
               setSaved(false);
@@ -159,7 +159,7 @@ export function AbilityLibrary({ character, source, onPreview, children }: Props
             <Button
               key={recipe.id}
               variant="ghost"
-              size="xs"
+              size="sm"
               className="justify-start"
               onClick={() => {
                 setDraft(recipe);

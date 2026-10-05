@@ -45,8 +45,7 @@ export function ModHealthStatusItem() {
   return (
     <Tooltip content={hint(alarm, shown)}>
       <Button
-        variant="duotone"
-        size="sm"
+        variant="tonal"
         onClick={toggle}
         aria-expanded={shown}
         /* Its own height, because the bar's is whatever the activity line needs -

@@ -182,7 +182,7 @@ export function ForceControl({
               <span className="flex w-5 shrink-0 items-center">
                 {hosted && handle && editable && !curve && (
                   <IconButton
-                    compact={false}
+                    size="sm"
                     disabled={
                       preview.muted.has(force.key) ||
                       (preview.solo !== null && preview.solo !== force.key)

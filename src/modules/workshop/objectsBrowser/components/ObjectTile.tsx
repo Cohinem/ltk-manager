@@ -182,7 +182,6 @@ function ObjectTileInner({
             <Button
               variant="ghost"
               size="xs"
-              compact
               onClick={() => onDescend(node.id)}
               aria-label={m.workshop_objects_children_action({ count: node.count })}
               className="pointer-events-auto h-5 gap-0.5 rounded-sm bg-scrim px-1 text-fine text-surface-200 tabular-nums hover:bg-scrim hover:text-surface-50"

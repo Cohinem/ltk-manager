@@ -85,7 +85,7 @@ export function NotificationCenter() {
           <Popover.Title>{m.shell_notifications_label()}</Popover.Title>
           {notifications.length > 0 && (
             <IconButton
-              compact={false}
+              size="sm"
               icon={<Trash2 className="size-3.5" />}
               onClick={dismissAll}
               className="text-surface-400 hover:text-surface-200"

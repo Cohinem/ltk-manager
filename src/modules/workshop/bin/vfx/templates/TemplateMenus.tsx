@@ -92,9 +92,7 @@ export function TemplateMenuButton({ place }: { place: TemplatePlace }) {
   return (
     <Menu.Root>
       <Tooltip content={label}>
-        <Menu.Trigger
-          render={<IconButton compact={false} aria-label={label} icon={<SparkleIcon />} />}
-        />
+        <Menu.Trigger render={<IconButton size="sm" aria-label={label} icon={<SparkleIcon />} />} />
       </Tooltip>
       <Menu.Content data-ui="TemplateMenuButton" className={POPUP}>
         <TemplateGroups emitters={emitters} systems={systems} onPick={land} />

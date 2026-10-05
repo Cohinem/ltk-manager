@@ -73,7 +73,7 @@ export function FilterPopover({ filterOptions, className }: FilterPopoverProps) 
       hasActive={hasActive}
       triggerLabel={m.library_filter_trigger_label()}
       triggerClassName={className}
-      triggerSize="sm"
+      triggerSize="md"
     />
   );
 }

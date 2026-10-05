@@ -41,7 +41,7 @@ export function ContentStringsList({ layerName, overrides }: ContentStringsListP
         action={
           <Button
             variant="outline"
-            size="xs"
+            size="sm"
             left={<PlusIcon weight="bold" className="size-4" />}
             onClick={() => openDocument(stringsDocument(layerName, DEFAULT_LOCALE))}
           >

@@ -161,23 +161,23 @@ export function BulkDeleteDialog() {
       <Dialog.Footer>
         {phase === "confirm" && (
           <>
-            <Button variant="ghost" onClick={handleClose}>
+            <Button size="lg" variant="ghost" onClick={handleClose}>
               Cancel
             </Button>
-            <Button variant="danger" onClick={handleDelete}>
+            <Button size="lg" variant="filled" tone="danger" onClick={handleDelete}>
               Delete {projects.length} {projects.length === 1 ? "Project" : "Projects"}
             </Button>
           </>
         )}
 
         {phase === "deleting" && (
-          <Button variant="ghost" onClick={handleCancel}>
+          <Button size="lg" variant="ghost" onClick={handleCancel}>
             Cancel
           </Button>
         )}
 
         {phase === "done" && (
-          <Button variant="ghost" onClick={handleClose}>
+          <Button size="lg" variant="ghost" onClick={handleClose}>
             Close
           </Button>
         )}

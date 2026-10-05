@@ -223,7 +223,7 @@ export function AbilityScene({
         />
         <div className="flex flex-wrap items-center gap-2">
           <Button
-            size="xs"
+            size="sm"
             disabled={!ready}
             onClick={() => {
               if (time >= span) seek(0);
@@ -234,7 +234,7 @@ export function AbilityScene({
             {!playing && m.workshop_ability_cast_action()}
           </Button>
           <Button
-            size="xs"
+            size="sm"
             variant="ghost"
             disabled={!ready}
             onClick={() => {
@@ -244,12 +244,12 @@ export function AbilityScene({
           >
             {m.workshop_missile_replay_action()}
           </Button>
-          <Button size="xs" variant="ghost" onClick={() => setSpeed(speed === 1 ? 0.25 : 1)}>
+          <Button size="sm" variant="ghost" onClick={() => setSpeed(speed === 1 ? 0.25 : 1)}>
             {m.workshop_missile_speed_label({ speed })}
           </Button>
           {recipe.guides !== undefined && (
             <Button
-              size="xs"
+              size="sm"
               variant="ghost"
               aria-pressed={showGuides}
               onClick={() => setShowGuides(!showGuides)}

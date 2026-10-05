@@ -92,10 +92,17 @@ export function ConfirmDialog({
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Button variant="ghost" onClick={onClose} disabled={pending}>
+        <Button size="lg" variant="ghost" onClick={onClose} disabled={pending}>
           {cancelLabel}
         </Button>
-        <Button variant="danger" onClick={onConfirm} loading={pending} disabled={confirmDisabled}>
+        <Button
+          size="lg"
+          variant="filled"
+          tone="danger"
+          onClick={onConfirm}
+          loading={pending}
+          disabled={confirmDisabled}
+        >
           {confirmLabel}
         </Button>
       </Dialog.Footer>

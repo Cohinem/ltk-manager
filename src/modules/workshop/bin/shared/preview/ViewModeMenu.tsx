@@ -46,7 +46,6 @@ export function ViewModeMenu() {
           <Button
             variant="ghost"
             size="xs"
-            compact
             aria-label={m.workshop_bin_preview_view_label()}
             left={<CubeTransparentIcon weight="bold" className="size-4" />}
             right={<CaretDownIcon weight="bold" className="size-3" />}

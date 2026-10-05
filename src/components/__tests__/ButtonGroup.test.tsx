@@ -12,23 +12,11 @@ import { ButtonGroup, IconButton, Menu } from "@/components";
 function renderGroup(open: boolean) {
   render(
     <ButtonGroup>
-      <IconButton
-        compact={false}
-        icon={<span>+</span>}
-        variant="filled"
-        size="sm"
-        aria-label="New project"
-      />
+      <IconButton icon={<span>+</span>} variant="filled" size="md" aria-label="New project" />
       <Menu.Root open={open}>
         <Menu.Trigger
           render={
-            <IconButton
-              compact={false}
-              icon={<span>v</span>}
-              variant="filled"
-              size="sm"
-              aria-label="Import"
-            />
+            <IconButton icon={<span>v</span>} variant="filled" size="md" aria-label="Import" />
           }
         />
         <Menu.Content>

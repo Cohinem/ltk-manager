@@ -119,11 +119,17 @@ export function AddFoldersDialog() {
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Button variant="ghost" onClick={handleClose} disabled={pending}>
+        <Button size="lg" variant="ghost" onClick={handleClose} disabled={pending}>
           {m.common_cancel_action()}
         </Button>
         {!report && (
-          <Button variant="filled" loading={pending} disabled={pending} onClick={handleConfirm}>
+          <Button
+            size="lg"
+            variant="filled"
+            loading={pending}
+            disabled={pending}
+            onClick={handleConfirm}
+          >
             {choice === "add"
               ? m.workshop_folder_parent_add_action({ count })
               : m.workshop_folder_parent_root_action()}

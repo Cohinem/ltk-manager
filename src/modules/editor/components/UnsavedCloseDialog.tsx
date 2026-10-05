@@ -42,14 +42,14 @@ export function UnsavedCloseDialog({
       </Dialog.Body>
 
       <Dialog.Footer>
-        <Button variant="ghost" onClick={() => onAnswer("cancel")} disabled={saving}>
+        <Button size="lg" variant="ghost" onClick={() => onAnswer("cancel")} disabled={saving}>
           {m.editor_unsaved_cancel_action()}
         </Button>
-        <Button variant="outline" onClick={() => onAnswer("discard")} disabled={saving}>
+        <Button size="lg" variant="outline" onClick={() => onAnswer("discard")} disabled={saving}>
           {discardLabel}
         </Button>
         {saveLabel !== undefined && (
-          <Button variant="filled" onClick={() => onAnswer("save")} loading={saving}>
+          <Button size="lg" variant="filled" onClick={() => onAnswer("save")} loading={saving}>
             {saveLabel}
           </Button>
         )}

@@ -67,7 +67,7 @@ function NoticeBody({ index, error, building, onBuild }: NoticeBodyProps) {
   return (
     <>
       <span>{m.workshop_bin_atlas_base_elsewhere_empty()}</span>
-      <Button variant="outline" size="xs" onClick={onBuild}>
+      <Button variant="outline" size="sm" onClick={onBuild}>
         {m.workshop_bin_build_index_action()}
       </Button>
     </>

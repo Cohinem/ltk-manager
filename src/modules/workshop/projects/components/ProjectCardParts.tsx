@@ -92,12 +92,10 @@ export function ProjectCardContextMenu({
 export function ProjectKebab({
   project,
   onEdit,
-  compact = false,
   className,
 }: {
   project: WorkshopProject;
   onEdit: (project: WorkshopProject) => void;
-  compact?: boolean;
   className?: string;
 }) {
   return (
@@ -106,8 +104,7 @@ export function ProjectKebab({
         render={
           <IconButton
             icon={<DotsThreeVerticalIcon weight="bold" className="size-4" />}
-            size={compact ? "md" : "sm"}
-            compact={compact}
+            size="md"
             aria-label={m.workshop_card_options_label({ name: project.displayName })}
             className={className}
           />

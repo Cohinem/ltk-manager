@@ -162,9 +162,8 @@ function ComposerRow({ seed, onCommit }: ComposerRowProps) {
         placeholder="Replacement text"
       />
       <IconButton
-        compact={false}
         icon={<PlusIcon />}
-        size="sm"
+        size="md"
         disabled={!key.trim()}
         onClick={commit}
         label="Add override"

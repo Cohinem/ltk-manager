@@ -142,12 +142,12 @@ export function ColorField({
           ))}
         </span>
         <span className="flex justify-end gap-2">
-          <Button variant="ghost" size="xs" onClick={() => setOpen(false)}>
+          <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
             {m.common_cancel_action()}
           </Button>
           <Button
             variant="filled"
-            size="xs"
+            size="sm"
             onClick={() => {
               onCommit(draft);
               setOpen(false);

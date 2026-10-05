@@ -104,10 +104,9 @@ export function WorkshopActions() {
 
       <ButtonGroup>
         <IconButton
-          compact={false}
           icon={<PlusIcon />}
           variant="filled"
-          size="sm"
+          size="md"
           onClick={openNewProjectDialog}
           aria-label={m.workshop_controls_new_project_label()}
           tooltip={
@@ -121,10 +120,9 @@ export function WorkshopActions() {
           <Menu.Trigger
             render={
               <IconButton
-                compact={false}
                 icon={<CaretDownIcon className="size-3.5" />}
                 variant="filled"
-                size="sm"
+                size="md"
                 loading={imports.pending || openFolder.pending}
                 aria-label={m.workshop_controls_more_label()}
                 /* A filled half carries no border to share, so the seam is the

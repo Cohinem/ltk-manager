@@ -33,10 +33,9 @@ export function PackTargetMenu({ disabled, className }: PackTargetMenuProps) {
       <Menu.Trigger
         render={
           <IconButton
-            compact={false}
             data-ui="PackTargetMenu"
             icon={<CaretDownIcon className="size-3.5" />}
-            size="sm"
+            size="md"
             disabled={disabled}
             aria-label={m.workshop_pack_target_label()}
             className={twMerge("w-auto px-1.5", className)}

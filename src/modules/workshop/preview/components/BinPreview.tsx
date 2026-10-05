@@ -88,7 +88,7 @@ function WayOut({ asset, name }: Pick<BinPreviewProps, "asset" | "name">) {
 
   return (
     <Button
-      size="xs"
+      size="sm"
       loading={open.isPending}
       left={<ArrowSquareOutIcon className="size-3.5" weight="bold" />}
       onClick={() => open.mutate({ asset, name })}

@@ -50,7 +50,6 @@ export function BakeTangentsButton({ document, entry, asset, mesh }: BakeTangent
       <Button
         variant="ghost"
         size="xs"
-        compact
         focusableWhenDisabled
         disabled={!available || bake.isPending}
         onClick={() => bake.mutate()}

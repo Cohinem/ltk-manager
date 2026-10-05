@@ -99,7 +99,6 @@ export function LeagueSection() {
               actions={
                 <Button
                   variant="outline"
-                  size="sm"
                   left={<CrosshairIcon weight="bold" className="size-4" />}
                   loading={autoDetect.isPending}
                   onClick={handleAutoDetect}

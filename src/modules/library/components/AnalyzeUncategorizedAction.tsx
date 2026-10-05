@@ -36,7 +36,6 @@ export function AnalyzeUncategorizedAction({ disabled }: AnalyzeUncategorizedAct
 
   return (
     <IconButton
-      compact={false}
       icon={
         <div className="relative">
           <SparkleIcon weight="bold" className="size-4" />
@@ -46,7 +45,7 @@ export function AnalyzeUncategorizedAction({ disabled }: AnalyzeUncategorizedAct
         </div>
       }
       variant="outline"
-      size="sm"
+      size="md"
       loading={analyze.isPending}
       disabled={disabled || uncategorized.length === 0}
       aria-label="Analyze uncategorized mods"

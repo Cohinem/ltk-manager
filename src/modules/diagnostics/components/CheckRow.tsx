@@ -93,16 +93,15 @@ export function CheckRow({ check }: { check: Check }) {
               </span>
               <div className="flex items-center gap-1">
                 <IconButton
-                  compact={false}
                   icon={<Copy className="size-3.5" />}
-                  size="sm"
+                  size="md"
                   onClick={copyCommand}
                   aria-label="Copy command"
                   tooltip="Copy to clipboard"
                 />
                 <Button
-                  variant="light"
-                  size="xs"
+                  variant="tonal"
+                  size="sm"
                   left={<ShieldUser className="size-3.5" />}
                   onClick={runAsAdmin}
                 >

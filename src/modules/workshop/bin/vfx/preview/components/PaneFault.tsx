@@ -9,7 +9,7 @@ export function PaneFault({ onRetry }: { onRetry: () => void }) {
       className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-2 text-center select-none"
     >
       <span className="text-meta text-surface-400">{m.workshop_bin_pane_fault_title()}</span>
-      <Button variant="ghost" size="xs" onClick={onRetry}>
+      <Button variant="ghost" size="sm" onClick={onRetry}>
         {m.workshop_bin_pane_fault_retry_action()}
       </Button>
     </div>

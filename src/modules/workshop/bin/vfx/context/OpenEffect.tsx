@@ -76,7 +76,7 @@ function OpenEffectAction({
   const action = m.workshop_bin_vfx_open_effect_action();
   return (
     <IconButton
-      compact={false}
+      size="sm"
       aria-label={action}
       icon={<ArrowSquareOutIcon />}
       onClick={(event) => openEffect(target, rig, label, clickIntent(event))}

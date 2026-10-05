@@ -170,17 +170,17 @@ export function WadBlocklistEditor() {
           {confirmingClear && (
             <div className="flex items-center gap-2">
               <span className="text-danger-text">Remove all {totalCount} entries?</span>
-              <Button size="xs" variant="ghost" onClick={() => setConfirmingClear(false)}>
+              <Button size="sm" variant="ghost" onClick={() => setConfirmingClear(false)}>
                 Cancel
               </Button>
-              <Button size="xs" variant="danger" onClick={clearAll}>
+              <Button size="sm" variant="filled" tone="danger" onClick={clearAll}>
                 Clear all
               </Button>
             </div>
           )}
           {!confirmingClear && (
             <Button
-              size="xs"
+              size="sm"
               variant="ghost"
               onClick={() => setConfirmingClear(true)}
               className="text-surface-400 hover:text-danger-text"
@@ -258,7 +258,7 @@ function ExactAddRow({
             />
           )}
         </div>
-        <Button variant="ghost" size="sm" onClick={onSubmit} disabled={!draft.trim()}>
+        <Button variant="ghost" onClick={onSubmit} disabled={!draft.trim()}>
           <Plus className="size-4" />
           Add
         </Button>
@@ -368,7 +368,7 @@ function RegexAddRow({
           autoComplete="off"
           spellCheck={false}
         />
-        <Button variant="ghost" size="sm" onClick={onSubmit} disabled={!canAdd}>
+        <Button variant="ghost" onClick={onSubmit} disabled={!canAdd}>
           <Plus className="size-4" />
           Add
         </Button>

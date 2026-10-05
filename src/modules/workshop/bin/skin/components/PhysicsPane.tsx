@@ -257,7 +257,7 @@ function AddSocketButton() {
   const slot = selected === null ? -1 : pose.jointNamed(selected);
   if (slot < 0 || send === null) {
     return (
-      <Button variant="ghost" size="xs" compact left={<PlusIcon />} disabled>
+      <Button variant="ghost" size="xs" left={<PlusIcon />} disabled>
         {m.workshop_bin_physics_add_socket_label()}
       </Button>
     );
@@ -269,7 +269,6 @@ function AddSocketButton() {
     <Button
       variant="ghost"
       size="xs"
-      compact
       left={<PlusIcon />}
       onClick={() =>
         send(addSocketEdits(skin, joint, socketName(joint, takenNames(pose, skin.sockets))))

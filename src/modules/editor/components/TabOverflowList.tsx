@@ -46,7 +46,6 @@ export function TabOverflowList({
               right={<CaretDownIcon weight="bold" className="size-3" />}
               variant="ghost"
               size="xs"
-              compact
               aria-label={label}
               data-ui="TabOverflowList:trigger"
               className="mr-2 h-6 shrink-0 gap-0.5 px-1 text-meta text-surface-300"

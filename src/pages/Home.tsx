@@ -75,8 +75,7 @@ export function Home() {
               }
             >
               <Button
-                variant="light"
-                size="sm"
+                variant="tonal"
                 onClick={actions.handleImportMods}
                 loading={installing}
                 aria-label={m.home_library_add_hint()}

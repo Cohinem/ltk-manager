@@ -149,8 +149,7 @@ export function NewProjectDialog() {
                     className="absolute inset-0 size-full object-cover"
                   />
                   <IconButton
-                    compact={false}
-                    size="sm"
+                    size="md"
                     variant="filled"
                     icon={<X className="size-3.5" />}
                     className="absolute top-2 right-2 bg-surface-900/70 hover:bg-surface-900"
@@ -284,7 +283,7 @@ export function NewProjectDialog() {
         </Dialog.Body>
 
         <Dialog.Footer>
-          <Button variant="ghost" onClick={handleClose}>
+          <Button size="lg" variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
           <form.Subscribe
@@ -292,6 +291,7 @@ export function NewProjectDialog() {
           >
             {({ canSubmit, isValid }) => (
               <Button
+                size="lg"
                 variant="filled"
                 loading={createProject.isPending}
                 disabled={!canSubmit || !isValid}
