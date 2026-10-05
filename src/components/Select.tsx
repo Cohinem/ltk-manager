@@ -5,7 +5,7 @@ import { forwardRef, type ReactNode } from "react";
 import { twMerge } from "@/utils";
 
 import { fieldFrame, type FieldSize, fieldSizeClasses } from "./fieldFrame";
-import { FieldRoot } from "./FormField";
+import { Field } from "./FormField";
 import {
   popupGroupLabel,
   popupItem,
@@ -22,7 +22,7 @@ export interface SelectRootProps extends BaseSelect.Root.Props<string> {
   children?: ReactNode;
 }
 
-export const SelectRoot = ({ children, ...props }: SelectRootProps) => {
+const SelectRoot = ({ children, ...props }: SelectRootProps) => {
   return <BaseSelect.Root<string> {...props}>{children}</BaseSelect.Root>;
 };
 SelectRoot.displayName = "Select.Root";
@@ -37,7 +37,7 @@ export interface SelectTriggerProps extends Omit<BaseSelect.Trigger.Props, "clas
   children?: ReactNode;
 }
 
-export const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
+const SelectTrigger = forwardRef<HTMLButtonElement, SelectTriggerProps>(
   ({ size = "md", className, hasError, children, ...props }, ref) => {
     return (
       <BaseSelect.Trigger
@@ -66,7 +66,7 @@ export interface SelectValueProps extends Omit<BaseSelect.Value.Props, "classNam
   children?: BaseSelect.Value.Props["children"];
 }
 
-export const SelectValue = ({ className, prefix, children, ...props }: SelectValueProps) => {
+const SelectValue = ({ className, prefix, children, ...props }: SelectValueProps) => {
   if (prefix) {
     return (
       <span className={className}>
@@ -89,23 +89,21 @@ export interface SelectIconProps extends Omit<BaseSelect.Icon.Props, "className"
   className?: string;
 }
 
-export const SelectIcon = forwardRef<HTMLSpanElement, SelectIconProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <BaseSelect.Icon
-        ref={ref}
-        className={twMerge(
-          "text-surface-400 transition-transform",
-          "data-[popup-open]:rotate-180",
-          className,
-        )}
-        {...props}
-      >
-        <CaretDownIcon weight="bold" className="size-3.5" />
-      </BaseSelect.Icon>
-    );
-  },
-);
+const SelectIcon = forwardRef<HTMLSpanElement, SelectIconProps>(({ className, ...props }, ref) => {
+  return (
+    <BaseSelect.Icon
+      ref={ref}
+      className={twMerge(
+        "text-surface-400 transition-transform",
+        "data-[popup-open]:rotate-180",
+        className,
+      )}
+      {...props}
+    >
+      <CaretDownIcon weight="bold" className="size-3.5" />
+    </BaseSelect.Icon>
+  );
+});
 SelectIcon.displayName = "Select.Icon";
 
 // Portal
@@ -113,7 +111,7 @@ export interface SelectPortalProps extends BaseSelect.Portal.Props {
   children?: ReactNode;
 }
 
-export const SelectPortal = ({ children, ...props }: SelectPortalProps) => {
+const SelectPortal = ({ children, ...props }: SelectPortalProps) => {
   return <BaseSelect.Portal {...props}>{children}</BaseSelect.Portal>;
 };
 SelectPortal.displayName = "Select.Portal";
@@ -124,7 +122,7 @@ export interface SelectPositionerProps extends Omit<BaseSelect.Positioner.Props,
   children?: ReactNode;
 }
 
-export const SelectPositioner = forwardRef<HTMLDivElement, SelectPositionerProps>(
+const SelectPositioner = forwardRef<HTMLDivElement, SelectPositionerProps>(
   (
     {
       className,
@@ -158,7 +156,7 @@ export interface SelectPopupProps extends Omit<BaseSelect.Popup.Props, "classNam
   children?: ReactNode;
 }
 
-export const SelectPopup = forwardRef<HTMLDivElement, SelectPopupProps>(
+const SelectPopup = forwardRef<HTMLDivElement, SelectPopupProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseSelect.Popup
@@ -196,7 +194,7 @@ export interface SelectContentProps
 }
 
 /** Portal, Positioner and Popup as one part, taking the positioning props itself. */
-export const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
+const SelectContent = forwardRef<HTMLDivElement, SelectContentProps>(
   (
     {
       side,
@@ -239,7 +237,7 @@ export interface SelectItemProps extends Omit<BaseSelect.Item.Props, "className"
   description?: ReactNode;
 }
 
-export const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
+const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
   ({ className, children, description, ...props }, ref) => {
     return (
       <BaseSelect.Item
@@ -270,7 +268,7 @@ export interface SelectSeparatorProps extends Omit<BaseSelect.Separator.Props, "
   className?: string;
 }
 
-export const SelectSeparator = forwardRef<HTMLDivElement, SelectSeparatorProps>(
+const SelectSeparator = forwardRef<HTMLDivElement, SelectSeparatorProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseSelect.Separator ref={ref} className={twMerge(popupSeparator, className)} {...props} />
@@ -285,7 +283,7 @@ export interface SelectGroupProps extends Omit<BaseSelect.Group.Props, "classNam
   children?: ReactNode;
 }
 
-export const SelectGroup = forwardRef<HTMLDivElement, SelectGroupProps>(
+const SelectGroup = forwardRef<HTMLDivElement, SelectGroupProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseSelect.Group ref={ref} className={className} {...props}>
@@ -302,7 +300,7 @@ export interface SelectGroupLabelProps extends Omit<BaseSelect.GroupLabel.Props,
   children?: ReactNode;
 }
 
-export const SelectGroupLabel = forwardRef<HTMLDivElement, SelectGroupLabelProps>(
+const SelectGroupLabel = forwardRef<HTMLDivElement, SelectGroupLabelProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseSelect.GroupLabel ref={ref} className={twMerge(popupGroupLabel, className)} {...props}>
@@ -372,7 +370,7 @@ export function SelectField({
   triggerClassName,
 }: SelectFieldProps) {
   return (
-    <FieldRoot
+    <Field.Root
       label={label}
       description={description}
       error={error}
@@ -402,7 +400,7 @@ export function SelectField({
           ))}
         </SelectContent>
       </SelectRoot>
-    </FieldRoot>
+    </Field.Root>
   );
 }
 SelectField.displayName = "SelectField";

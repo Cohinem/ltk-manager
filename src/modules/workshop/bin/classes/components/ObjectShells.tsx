@@ -51,7 +51,7 @@ export function PreviewShell({ kind, placed, pages, view, entry, preview }: Prev
         kind={kind}
         crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
       />
-      {kind === "element" && <ToolbarRow />}
+      {kind === "element" && <CanvasToolbarRow />}
       <ShellPaneTree kind={kind} content={content} />
     </div>
   );
@@ -89,7 +89,7 @@ export function AtlasShell({ placed, pages, view, entry, preview }: ObjectShellP
         kind="atlas"
         crumb={entry !== null && <ObjectPath path={view.objectName(entry)} />}
       />
-      <ToolbarRow />
+      <CanvasToolbarRow />
       <ShellPaneTree kind="atlas" content={content} />
     </div>
   );
@@ -155,7 +155,7 @@ function previewPane(kind: PreviewShellProps["kind"], preview: ReactNode) {
 }
 
 /** The canvas toolbar, in the tab's second header row, and on a row of the shell's own without it. */
-function ToolbarRow() {
+function CanvasToolbarRow() {
   return (
     <ShellHeaderPortal
       slot="toolbar"

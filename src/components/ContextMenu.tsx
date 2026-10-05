@@ -4,25 +4,17 @@ import { forwardRef, type ReactNode } from "react";
 import { twMerge } from "@/utils";
 
 import {
-  MenuCheckboxItem,
   type MenuCheckboxItemProps,
-  MenuGroup,
-  MenuGroupLabel,
   type MenuGroupLabelProps,
   type MenuGroupProps,
-  MenuItem,
   type MenuItemProps,
   type MenuItemVariant,
-  MenuRadioGroup,
   type MenuRadioGroupProps,
-  MenuRadioItem,
   type MenuRadioItemProps,
-  MenuSeparator,
   type MenuSeparatorProps,
-  MenuSubmenuRoot,
   type MenuSubmenuRootProps,
-  MenuSubmenuTrigger,
   type MenuSubmenuTriggerProps,
+  Menu,
 } from "./Menu";
 import { popupMotion, popupSurface } from "./popup";
 
@@ -31,7 +23,7 @@ export interface ContextMenuRootProps extends BaseContextMenu.Root.Props {
   children?: ReactNode;
 }
 
-export const ContextMenuRoot = ({ children, ...props }: ContextMenuRootProps) => {
+const ContextMenuRoot = ({ children, ...props }: ContextMenuRootProps) => {
   return <BaseContextMenu.Root {...props}>{children}</BaseContextMenu.Root>;
 };
 ContextMenuRoot.displayName = "ContextMenu.Root";
@@ -42,7 +34,7 @@ export interface ContextMenuTriggerProps extends Omit<BaseContextMenu.Trigger.Pr
   children?: ReactNode;
 }
 
-export const ContextMenuTrigger = forwardRef<HTMLDivElement, ContextMenuTriggerProps>(
+const ContextMenuTrigger = forwardRef<HTMLDivElement, ContextMenuTriggerProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseContextMenu.Trigger ref={ref} className={className} {...props}>
@@ -58,7 +50,7 @@ export interface ContextMenuPortalProps extends BaseContextMenu.Portal.Props {
   children?: ReactNode;
 }
 
-export const ContextMenuPortal = ({ children, ...props }: ContextMenuPortalProps) => {
+const ContextMenuPortal = ({ children, ...props }: ContextMenuPortalProps) => {
   return <BaseContextMenu.Portal {...props}>{children}</BaseContextMenu.Portal>;
 };
 ContextMenuPortal.displayName = "ContextMenu.Portal";
@@ -72,7 +64,7 @@ export interface ContextMenuPositionerProps extends Omit<
   children?: ReactNode;
 }
 
-export const ContextMenuPositioner = forwardRef<HTMLDivElement, ContextMenuPositionerProps>(
+const ContextMenuPositioner = forwardRef<HTMLDivElement, ContextMenuPositionerProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseContextMenu.Positioner ref={ref} className={twMerge("z-50", className)} {...props}>
@@ -89,7 +81,7 @@ export interface ContextMenuPopupProps extends Omit<BaseContextMenu.Popup.Props,
   children?: ReactNode;
 }
 
-export const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps>(
+const ContextMenuPopup = forwardRef<HTMLDivElement, ContextMenuPopupProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseContextMenu.Popup
@@ -119,19 +111,19 @@ export type ContextMenuCheckboxItemProps = MenuCheckboxItemProps;
 export type ContextMenuGroupProps = MenuGroupProps;
 export type ContextMenuGroupLabelProps = MenuGroupLabelProps;
 
-export const ContextMenuItem = MenuItem;
-export const ContextMenuSeparator = MenuSeparator;
-export const ContextMenuSubmenuRoot = MenuSubmenuRoot;
-export const ContextMenuSubmenuTrigger = MenuSubmenuTrigger;
-export const ContextMenuRadioGroup = MenuRadioGroup;
-export const ContextMenuRadioItem = MenuRadioItem;
-export const ContextMenuCheckboxItem = MenuCheckboxItem;
-export const ContextMenuGroup = MenuGroup;
-export const ContextMenuGroupLabel = MenuGroupLabel;
+const ContextMenuItem = Menu.Item;
+const ContextMenuSeparator = Menu.Separator;
+const ContextMenuSubmenuRoot = Menu.SubmenuRoot;
+const ContextMenuSubmenuTrigger = Menu.SubmenuTrigger;
+const ContextMenuRadioGroup = Menu.RadioGroup;
+const ContextMenuRadioItem = Menu.RadioItem;
+const ContextMenuCheckboxItem = Menu.CheckboxItem;
+const ContextMenuGroup = Menu.Group;
+const ContextMenuGroupLabel = Menu.GroupLabel;
 
 // SubmenuPositioner
 /** `ContextMenuPositioner` aimed sideways, which is what a submenu changes about its popup. */
-export const ContextMenuSubmenuPositioner = forwardRef<HTMLDivElement, ContextMenuPositionerProps>(
+const ContextMenuSubmenuPositioner = forwardRef<HTMLDivElement, ContextMenuPositionerProps>(
   ({ side = "inline-end", align = "start", sideOffset = 4, ...props }, ref) => {
     return (
       <ContextMenuPositioner
@@ -158,7 +150,7 @@ export interface ContextMenuContentProps
 }
 
 /** Portal, Positioner and Popup as one part, taking the positioning props itself. */
-export const ContextMenuContent = forwardRef<HTMLDivElement, ContextMenuContentProps>(
+const ContextMenuContent = forwardRef<HTMLDivElement, ContextMenuContentProps>(
   (
     {
       side,
@@ -203,7 +195,7 @@ export interface ContextMenuSubmenuContentProps
 }
 
 /** The submenu's Portal, Positioner and Popup as one part, aimed sideways. */
-export const ContextMenuSubmenuContent = forwardRef<HTMLDivElement, ContextMenuSubmenuContentProps>(
+const ContextMenuSubmenuContent = forwardRef<HTMLDivElement, ContextMenuSubmenuContentProps>(
   (
     {
       side,

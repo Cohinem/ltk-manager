@@ -124,29 +124,3 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
   },
 );
 Checkbox.displayName = "Checkbox";
-
-// Checkbox Group
-export interface CheckboxGroupProps {
-  children: ReactNode;
-  className?: string;
-  orientation?: "horizontal" | "vertical";
-}
-
-export function CheckboxGroup({
-  children,
-  className,
-  orientation = "vertical",
-}: CheckboxGroupProps) {
-  return (
-    <div
-      role="group"
-      className={twMerge(
-        "flex",
-        orientation === "vertical" ? "flex-col gap-3" : "flex-row flex-wrap gap-4",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}

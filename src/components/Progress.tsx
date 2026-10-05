@@ -20,7 +20,7 @@ export interface ProgressRootProps extends BaseProgress.Root.Props {
   valueLabel?: ReactNode;
 }
 
-export const ProgressRoot = ({ children, label, valueLabel, ...props }: ProgressRootProps) => {
+const ProgressRoot = ({ children, label, valueLabel, ...props }: ProgressRootProps) => {
   return (
     <BaseProgress.Root {...props}>
       {(label || valueLabel) && (
@@ -42,7 +42,7 @@ export interface ProgressTrackProps extends Omit<BaseProgress.Track.Props, "clas
   size?: ProgressSize;
 }
 
-export const ProgressTrack = forwardRef<HTMLDivElement, ProgressTrackProps>(
+const ProgressTrack = forwardRef<HTMLDivElement, ProgressTrackProps>(
   ({ size = "md", className, ...props }, ref) => {
     return (
       <BaseProgress.Track
@@ -65,7 +65,7 @@ export interface ProgressIndicatorProps extends Omit<BaseProgress.Indicator.Prop
   className?: string;
 }
 
-export const ProgressIndicator = forwardRef<HTMLDivElement, ProgressIndicatorProps>(
+const ProgressIndicator = forwardRef<HTMLDivElement, ProgressIndicatorProps>(
   ({ className, ...props }, ref) => {
     return (
       <BaseProgress.Indicator

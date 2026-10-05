@@ -30,11 +30,9 @@ export interface TabsRootProps extends Omit<BaseTabs.Root.Props, "className"> {
 }
 
 /** A `rail` takes `orientation="vertical"`, which moves the arrow keys to Up and Down. */
-export const TabsRoot = forwardRef<HTMLDivElement, TabsRootProps>(
-  ({ className, ...props }, ref) => {
-    return <BaseTabs.Root ref={ref} className={twMerge("flex flex-col", className)} {...props} />;
-  },
-);
+const TabsRoot = forwardRef<HTMLDivElement, TabsRootProps>(({ className, ...props }, ref) => {
+  return <BaseTabs.Root ref={ref} className={twMerge("flex flex-col", className)} {...props} />;
+});
 TabsRoot.displayName = "Tabs.Root";
 
 // List
@@ -54,7 +52,7 @@ const listClasses: Record<TabsVariant, string> = {
   plain: "",
 };
 
-export const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
+const TabsList = forwardRef<HTMLDivElement, TabsListProps>(
   ({ variant = "default", divider = true, className, children, ...props }, ref) => {
     return (
       <VariantContext.Provider value={variant}>
@@ -119,7 +117,7 @@ const tabClasses: Record<TabsVariant, string> = {
 };
 
 /** One tab, drawn in the variant of the `Tabs.List` it sits in. */
-export const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
+const TabsTab = forwardRef<HTMLButtonElement, TabsTabProps>(
   ({ className, children, ...props }, ref) => {
     const variant = useContext(VariantContext);
 
@@ -142,7 +140,7 @@ export interface TabsPanelProps extends Omit<BaseTabs.Panel.Props, "className"> 
   children?: ReactNode;
 }
 
-export const TabsPanel = forwardRef<HTMLDivElement, TabsPanelProps>(
+const TabsPanel = forwardRef<HTMLDivElement, TabsPanelProps>(
   ({ className, children, ...props }, ref) => {
     return (
       <BaseTabs.Panel

@@ -7,7 +7,7 @@ import { twMerge } from "@/utils";
 import { focusRing } from "./focus";
 
 // Root
-export const TableRoot = forwardRef<HTMLTableElement, ComponentPropsWithoutRef<"table">>(
+const TableRoot = forwardRef<HTMLTableElement, ComponentPropsWithoutRef<"table">>(
   ({ className, ...props }, ref) => (
     <table
       ref={ref}
@@ -19,19 +19,19 @@ export const TableRoot = forwardRef<HTMLTableElement, ComponentPropsWithoutRef<"
 TableRoot.displayName = "Table.Root";
 
 // Header
-export const TableHeader = forwardRef<HTMLTableSectionElement, ComponentPropsWithoutRef<"thead">>(
+const TableHeader = forwardRef<HTMLTableSectionElement, ComponentPropsWithoutRef<"thead">>(
   ({ className, ...props }, ref) => <thead ref={ref} className={className} {...props} />,
 );
 TableHeader.displayName = "Table.Header";
 
 // Body
-export const TableBody = forwardRef<HTMLTableSectionElement, ComponentPropsWithoutRef<"tbody">>(
+const TableBody = forwardRef<HTMLTableSectionElement, ComponentPropsWithoutRef<"tbody">>(
   ({ className, ...props }, ref) => <tbody ref={ref} className={className} {...props} />,
 );
 TableBody.displayName = "Table.Body";
 
 // Row
-export const TableRow = forwardRef<HTMLTableRowElement, ComponentPropsWithoutRef<"tr">>(
+const TableRow = forwardRef<HTMLTableRowElement, ComponentPropsWithoutRef<"tr">>(
   ({ className, ...props }, ref) => (
     <tr ref={ref} className={twMerge("group", className)} {...props} />
   ),
@@ -39,7 +39,7 @@ export const TableRow = forwardRef<HTMLTableRowElement, ComponentPropsWithoutRef
 TableRow.displayName = "Table.Row";
 
 // Head cell
-export const TableHead = forwardRef<HTMLTableCellElement, ComponentPropsWithoutRef<"th">>(
+const TableHead = forwardRef<HTMLTableCellElement, ComponentPropsWithoutRef<"th">>(
   ({ className, ...props }, ref) => (
     <th
       ref={ref}
@@ -54,7 +54,7 @@ export const TableHead = forwardRef<HTMLTableCellElement, ComponentPropsWithoutR
 TableHead.displayName = "Table.Head";
 
 // Body cell
-export const TableCell = forwardRef<HTMLTableCellElement, ComponentPropsWithoutRef<"td">>(
+const TableCell = forwardRef<HTMLTableCellElement, ComponentPropsWithoutRef<"td">>(
   ({ className, ...props }, ref) => (
     <td
       ref={ref}
@@ -74,7 +74,7 @@ export interface TableSortButtonProps extends ComponentPropsWithoutRef<"button">
   children: ReactNode;
 }
 
-export const TableSortButton = forwardRef<HTMLButtonElement, TableSortButtonProps>(
+const TableSortButton = forwardRef<HTMLButtonElement, TableSortButtonProps>(
   ({ direction, className, children, ...props }, ref) => {
     const Icon = match(direction)
       .with("asc", () => CaretUpIcon)

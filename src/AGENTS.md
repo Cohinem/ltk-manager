@@ -115,6 +115,13 @@ after the effect has already been cleaned up.
 
 **ALWAYS use reusable components from `@/components` instead of native HTML or raw base-ui imports.** Module code should never import from `@base-ui-components/react` directly - all base-ui primitives must be wrapped in `src/components/` first. See `src/components/index.ts` for what is already wrapped.
 
+A component with parts is one compound export, and a part is reached through it: `Dialog.Body`,
+`Select.Trigger`, `Tabs.List`. The parts are not exported on their own.
+
+Lint warns on a native `<button>` and on a DOM `title` outside `src/components`. A press is a
+`Button`, an `IconButton` or a pressable `Badge`, and a hint is a `Tooltip`. Convert one when the
+file is touched for something else.
+
 When adding a new base-ui component:
 
 1. Create wrapper in `src/components/NewComponent.tsx`
