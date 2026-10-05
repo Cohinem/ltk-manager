@@ -5,6 +5,14 @@ import { forwardRef, type ReactNode } from "react";
 import { twMerge } from "@/utils";
 
 import { fieldFrame, type FieldSize, fieldSizeClasses } from "./fieldFrame";
+import {
+  popupGroupLabel,
+  popupItem,
+  popupItemMark,
+  popupItemTone,
+  popupMotion,
+  popupSurface,
+} from "./popup";
 
 // Re-export the filter hook for consumers
 export const useComboboxFilter = BaseCombobox.useFilter;
@@ -137,12 +145,9 @@ export const ComboboxPopup = forwardRef<HTMLDivElement, ComboboxPopupProps>(
       <BaseCombobox.Popup
         ref={ref}
         className={twMerge(
-          "max-h-60 overflow-y-auto",
-          "rounded-lg border border-surface-600 py-1 shadow-xl outline-none",
-          /* DS-GLASS */
-          "bg-(--ltk-glass-panel-fill) backdrop-filter-(--ltk-glass-panel-blur)",
-          "animate-fade-in",
-          "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
+          "max-h-60 min-w-(--anchor-width) overflow-y-auto p-1",
+          popupSurface,
+          popupMotion,
           className,
         )}
         {...props}
@@ -222,18 +227,13 @@ export const ComboboxItem = forwardRef<HTMLDivElement, ComboboxItemProps>(
     return (
       <BaseCombobox.Item
         ref={ref}
-        className={twMerge(
-          "flex cursor-default items-center gap-2 px-3 py-1.5 text-sm outline-none select-none",
-          "text-surface-200 data-[highlighted]:bg-surface-600",
-          "data-[disabled]:opacity-50",
-          className,
-        )}
+        className={twMerge(popupItem, popupItemTone.default, className)}
         {...props}
       >
-        <BaseCombobox.ItemIndicator className="inline-flex size-4 shrink-0 items-center justify-center">
+        {children}
+        <BaseCombobox.ItemIndicator className={twMerge(popupItemMark, "ml-auto")}>
           <CheckIcon weight="bold" className="size-3.5" />
         </BaseCombobox.ItemIndicator>
-        {children}
       </BaseCombobox.Item>
     );
   },
@@ -252,7 +252,7 @@ export const ComboboxEmpty = forwardRef<HTMLDivElement, ComboboxEmptyProps>(
       <BaseCombobox.Empty
         ref={ref}
         /* The live region stays mounted while items show, so it must take no space then. */
-        className={twMerge("px-3 py-6 text-center text-sm text-surface-400 empty:p-0", className)}
+        className={twMerge("px-2 py-6 text-center text-sm text-surface-400 empty:p-0", className)}
         {...props}
       >
         {children ?? "No results found"}
@@ -388,11 +388,7 @@ export interface ComboboxGroupLabelProps extends Omit<BaseCombobox.GroupLabel.Pr
 export const ComboboxGroupLabel = forwardRef<HTMLDivElement, ComboboxGroupLabelProps>(
   ({ className, children, ...props }, ref) => {
     return (
-      <BaseCombobox.GroupLabel
-        ref={ref}
-        className={twMerge("px-3 py-1.5 text-xs font-medium text-surface-500", className)}
-        {...props}
-      >
+      <BaseCombobox.GroupLabel ref={ref} className={twMerge(popupGroupLabel, className)} {...props}>
         {children}
       </BaseCombobox.GroupLabel>
     );

@@ -4,6 +4,7 @@ import { forwardRef, type ReactNode } from "react";
 import { twMerge } from "@/utils";
 
 import { focusRing } from "./focus";
+import { popupMotion, popupSurface } from "./popup";
 
 // Root
 export interface PopoverRootProps extends BasePopover.Root.Props {
@@ -95,13 +96,7 @@ export const PopoverPopup = forwardRef<HTMLDivElement, PopoverPopupProps>(
     return (
       <BasePopover.Popup
         ref={ref}
-        className={twMerge(
-          "rounded-lg border border-surface-600 bg-surface-800 shadow-xl outline-none",
-          "transition-[opacity,transform]",
-          "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
-          "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
-          className,
-        )}
+        className={twMerge(popupSurface, popupMotion, className)}
         {...props}
       >
         {children}
@@ -155,28 +150,6 @@ export const PopoverContent = forwardRef<HTMLDivElement, PopoverContentProps>(
   },
 );
 PopoverContent.displayName = "Popover.Content";
-
-// Arrow
-export interface PopoverArrowProps extends Omit<BasePopover.Arrow.Props, "className"> {
-  className?: string;
-}
-
-export const PopoverArrow = forwardRef<HTMLDivElement, PopoverArrowProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <BasePopover.Arrow
-        ref={ref}
-        className={twMerge(
-          "fill-surface-800",
-          "[&>path:first-child]:stroke-surface-600",
-          className,
-        )}
-        {...props}
-      />
-    );
-  },
-);
-PopoverArrow.displayName = "Popover.Arrow";
 
 // Title
 export interface PopoverTitleProps extends Omit<BasePopover.Title.Props, "className"> {
@@ -233,7 +206,8 @@ export const PopoverClose = forwardRef<HTMLButtonElement, PopoverCloseProps>(
         ref={ref}
         className={twMerge(
           "inline-flex cursor-pointer items-center justify-center rounded-md",
-          "text-surface-200 transition-colors hover:bg-surface-700 active:bg-surface-800",
+          /* DS-VEIL */
+          "text-surface-200 transition-colors hover:bg-surface-veil active:bg-surface-veil-strong",
           focusRing,
           className,
         )}
@@ -255,7 +229,6 @@ export const Popover = {
   Positioner: PopoverPositioner,
   Popup: PopoverPopup,
   Content: PopoverContent,
-  Arrow: PopoverArrow,
   Title: PopoverTitle,
   Description: PopoverDescription,
   Close: PopoverClose,

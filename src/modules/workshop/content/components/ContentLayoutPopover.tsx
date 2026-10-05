@@ -43,7 +43,7 @@ export function ContentLayoutPopover() {
         align="end"
         sideOffset={8}
         aria-label="Layout options"
-        className="w-56 divide-y divide-surface-600/50 p-0 select-none"
+        className="w-56 divide-y divide-surface-700 p-0 select-none"
       >
         <FilterSection>
           <Checkbox

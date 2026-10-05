@@ -205,7 +205,7 @@ export function PathInput({
         align="start"
         sideOffset={2}
         data-ui="PathInput:list"
-        className="max-h-80 w-[max(var(--anchor-width),32rem)] max-w-[40rem] py-0.5"
+        className="max-h-80 w-[max(var(--anchor-width),32rem)] max-w-[40rem]"
         onMouseDown={keepFocus}
       >
         <Combobox.List>
@@ -219,7 +219,7 @@ export function PathInput({
                   <Combobox.Item
                     key={`${suggestion.source.kind}:${suggestion.path}`}
                     value={suggestion}
-                    className="px-2 py-1 font-mono text-mono-row"
+                    className="font-mono text-mono-row"
                   >
                     <SuggestionRow suggestion={suggestion} />
                   </Combobox.Item>

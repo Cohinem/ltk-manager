@@ -6,6 +6,16 @@ import { twMerge } from "@/utils";
 
 import { fieldFrame, type FieldSize, fieldSizeClasses } from "./fieldFrame";
 import { FieldRoot } from "./FormField";
+import {
+  popupGroupLabel,
+  popupItem,
+  popupItemLabel,
+  popupItemMark,
+  popupItemTone,
+  popupMotion,
+  popupSeparator,
+  popupSurface,
+} from "./popup";
 
 // Root
 export interface SelectRootProps extends BaseSelect.Root.Props<string> {
@@ -154,13 +164,9 @@ export const SelectPopup = forwardRef<HTMLDivElement, SelectPopupProps>(
       <BaseSelect.Popup
         ref={ref}
         className={twMerge(
-          "max-h-60 overflow-y-auto",
-          "rounded-lg border border-surface-600 py-1 shadow-xl outline-none",
-          /* DS-GLASS */
-          "bg-(--ltk-glass-panel-fill) backdrop-filter-(--ltk-glass-panel-blur)",
-          "transition-[opacity,transform]",
-          "data-[starting-style]:-translate-y-1 data-[starting-style]:opacity-0",
-          "data-[ending-style]:-translate-y-1 data-[ending-style]:opacity-0",
+          "max-h-60 min-w-(--anchor-width) overflow-y-auto p-1",
+          popupSurface,
+          popupMotion,
           className,
         )}
         {...props}
@@ -235,29 +241,24 @@ export interface SelectItemProps extends Omit<BaseSelect.Item.Props, "className"
 
 export const SelectItem = forwardRef<HTMLDivElement, SelectItemProps>(
   ({ className, children, description, ...props }, ref) => {
-    const text = <BaseSelect.ItemText>{children}</BaseSelect.ItemText>;
-
     return (
       <BaseSelect.Item
         ref={ref}
-        className={twMerge(
-          "flex cursor-default items-center gap-2 px-3 py-1.5 text-sm outline-none select-none",
-          "text-surface-200 data-[highlighted]:bg-surface-600",
-          "data-[disabled]:opacity-50",
-          className,
-        )}
+        className={twMerge(popupItem, popupItemTone.default, className)}
         {...props}
       >
-        <BaseSelect.ItemIndicator className="inline-flex size-4 shrink-0 items-center justify-center">
-          <CheckIcon weight="bold" className="size-3.5" />
-        </BaseSelect.ItemIndicator>
-        {description === undefined && text}
+        {description === undefined && (
+          <BaseSelect.ItemText className={popupItemLabel(children)}>{children}</BaseSelect.ItemText>
+        )}
         {description !== undefined && (
-          <span className="flex min-w-0 flex-col">
-            {text}
+          <span className="flex min-w-0 flex-1 flex-col">
+            <BaseSelect.ItemText className="truncate">{children}</BaseSelect.ItemText>
             <span className="text-xs text-surface-400">{description}</span>
           </span>
         )}
+        <BaseSelect.ItemIndicator className={popupItemMark}>
+          <CheckIcon weight="bold" className="size-3.5" />
+        </BaseSelect.ItemIndicator>
       </BaseSelect.Item>
     );
   },
@@ -272,11 +273,7 @@ export interface SelectSeparatorProps extends Omit<BaseSelect.Separator.Props, "
 export const SelectSeparator = forwardRef<HTMLDivElement, SelectSeparatorProps>(
   ({ className, ...props }, ref) => {
     return (
-      <BaseSelect.Separator
-        ref={ref}
-        className={twMerge("my-1 border-t border-surface-600", className)}
-        {...props}
-      />
+      <BaseSelect.Separator ref={ref} className={twMerge(popupSeparator, className)} {...props} />
     );
   },
 );
@@ -308,11 +305,7 @@ export interface SelectGroupLabelProps extends Omit<BaseSelect.GroupLabel.Props,
 export const SelectGroupLabel = forwardRef<HTMLDivElement, SelectGroupLabelProps>(
   ({ className, children, ...props }, ref) => {
     return (
-      <BaseSelect.GroupLabel
-        ref={ref}
-        className={twMerge("px-3 py-1.5 text-xs font-medium text-surface-500", className)}
-        {...props}
-      >
+      <BaseSelect.GroupLabel ref={ref} className={twMerge(popupGroupLabel, className)} {...props}>
         {children}
       </BaseSelect.GroupLabel>
     );

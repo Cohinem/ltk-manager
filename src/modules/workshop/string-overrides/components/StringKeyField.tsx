@@ -76,15 +76,11 @@ export function StringKeyField({
           side="bottom"
           sideOffset={4}
           positionerClassName="z-50"
-          className="max-h-72 w-[calc(var(--anchor-width)+8rem)] min-w-72 overflow-y-auto rounded-lg border border-surface-600 bg-surface-800 py-1 shadow-xl data-ending-style:opacity-0 data-starting-style:opacity-0"
+          className="max-h-72 w-[calc(var(--anchor-width)+8rem)] min-w-72"
         >
           <Combobox.List>
             {(suggestion: StringKeySuggestion) => (
-              <Combobox.Item
-                key={suggestion.key}
-                value={suggestion}
-                className="text-surface-300 data-highlighted:bg-surface-600"
-              >
+              <Combobox.Item key={suggestion.key} value={suggestion}>
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate font-mono text-xs text-surface-100">
                     {suggestion.key}
@@ -97,7 +93,7 @@ export function StringKeyField({
             )}
           </Combobox.List>
           <Combobox.Empty>
-            <p className="px-3 py-4 text-center text-sm text-surface-400">
+            <p className="py-4 text-center text-sm text-surface-400">
               {search.isPending && "Loading field names… (first load can take a moment)"}
               {search.isError && "Field name search is unavailable right now."}
               {search.isSuccess &&

@@ -68,15 +68,10 @@ export function JointPicker({ label, joints, value, onPick, disabled = false }: 
           event.currentTarget.select();
         }}
       />
-      <Combobox.Content
-        side="bottom"
-        align="start"
-        sideOffset={2}
-        className="max-h-64 min-w-64 py-0.5"
-      >
+      <Combobox.Content side="bottom" align="start" sideOffset={2} className="max-h-64 min-w-64">
         <Combobox.List>
           {(joint: string) => (
-            <Combobox.Item key={joint} value={joint} className="px-2 py-1 font-sans text-row">
+            <Combobox.Item key={joint} value={joint} className="font-sans text-row">
               {joint}
             </Combobox.Item>
           )}

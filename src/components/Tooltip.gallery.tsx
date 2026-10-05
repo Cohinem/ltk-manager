@@ -18,9 +18,9 @@ const entry: GalleryEntry = {
         )),
     },
     {
-      name: "No arrow, no delay",
+      name: "No delay",
       render: () => (
-        <Tooltip content="Shown at once" showArrow={false} delay={0}>
+        <Tooltip content="Shown at once" delay={0}>
           <Button variant="outline">Hover</Button>
         </Tooltip>
       ),

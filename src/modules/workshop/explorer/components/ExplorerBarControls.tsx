@@ -227,7 +227,7 @@ export function ExplorerOptions({ view, filter, onFilterChange }: ExplorerOption
         align="end"
         sideOffset={8}
         aria-label={m.workshop_explorer_view_options_label()}
-        className="w-64 divide-y divide-surface-600/50 bg-surface-900 p-0 select-none"
+        className="w-64 divide-y divide-surface-700 p-0 select-none"
       >
         <FilterSection
           title={m.workshop_explorer_sort_section_label()}

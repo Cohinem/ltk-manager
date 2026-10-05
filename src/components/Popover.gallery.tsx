@@ -28,12 +28,11 @@ const entry: GalleryEntry = {
       ),
     },
     {
-      name: "Arrow",
+      name: "Above its trigger",
       render: () => (
         <Popover.Root>
           <Popover.Trigger render={<Button variant="outline">Open above</Button>} />
-          <Popover.Content side="top" sideOffset={10} className="p-3">
-            <Popover.Arrow />
+          <Popover.Content side="top" className="p-3">
             <Popover.Description>Opens on the side with room.</Popover.Description>
           </Popover.Content>
         </Popover.Root>

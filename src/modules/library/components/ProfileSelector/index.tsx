@@ -56,7 +56,6 @@ export function ProfileSelector() {
               <Tooltip.Portal>
                 <Tooltip.Positioner side="bottom" sideOffset={8}>
                   <Tooltip.Popup className="max-w-[240px]">
-                    <Tooltip.Arrow />
                     <p className="text-xs leading-relaxed text-surface-300">
                       <span className="font-medium text-surface-100">Profiles</span> let you save
                       and switch between different sets of enabled mods. Create multiple profiles
