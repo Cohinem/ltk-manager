@@ -1,7 +1,7 @@
 import { Toast as BaseToast } from "@base-ui/react/toast";
 import type { ReactNode } from "react";
 
-import { ToastList, toastManager } from "./Toast";
+import { MAX_TOASTS, toastManager, ToastViewport } from "./Toast";
 
 interface ToastProviderProps {
   children: ReactNode;
@@ -9,15 +9,12 @@ interface ToastProviderProps {
 
 export function ToastProvider({ children }: ToastProviderProps) {
   return (
-    <BaseToast.Provider timeout={5000} toastManager={toastManager}>
+    /* One past the cap, so Base UI never marks a toast inert in the frame before the
+       viewport closes one for room. */
+    <BaseToast.Provider timeout={0} limit={MAX_TOASTS + 1} toastManager={toastManager}>
       {children}
       <BaseToast.Portal>
-        <BaseToast.Viewport
-          data-toast-viewport
-          className="fixed right-4 bottom-4 z-[9999] flex w-full max-w-[420px] flex-col gap-2"
-        >
-          <ToastList />
-        </BaseToast.Viewport>
+        <ToastViewport />
       </BaseToast.Portal>
     </BaseToast.Provider>
   );

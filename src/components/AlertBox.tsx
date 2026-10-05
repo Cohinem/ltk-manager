@@ -1,11 +1,4 @@
-import {
-  CheckCircleIcon,
-  type Icon,
-  InfoIcon,
-  WarningIcon,
-  XCircleIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+import { XIcon } from "@phosphor-icons/react";
 import { type ReactNode } from "react";
 
 import { m } from "@/i18n";
@@ -13,7 +6,7 @@ import { twMerge } from "@/utils";
 
 import { IconButton } from "./Button";
 import { focusRing } from "./focus";
-import { type StatusTone, statusText } from "./tone";
+import { statusGlyph, type StatusTone, statusText } from "./tone";
 
 interface AlertBoxBase {
   /** `info` unless told otherwise. */
@@ -50,14 +43,6 @@ const toneStyles: Record<StatusTone, { edge: string; fill: string; hover: string
   danger: { edge: "border-danger/30", fill: "bg-danger/8", hover: "hover:bg-danger/12" },
 };
 
-const toneGlyph: Record<StatusTone, Icon> = {
-  neutral: InfoIcon,
-  info: InfoIcon,
-  success: CheckCircleIcon,
-  warning: WarningIcon,
-  danger: XCircleIcon,
-};
-
 /** A warning or an error interrupts a screen reader, and the other tones wait their turn. */
 const toneRole: Record<StatusTone, "alert" | "status"> = {
   neutral: "status",
@@ -87,7 +72,7 @@ export function AlertBox({
   "data-ui": dataUi,
 }: AlertBoxProps) {
   const styles = toneStyles[tone];
-  const Glyph = toneGlyph[tone];
+  const Glyph = statusGlyph[tone];
   const stacked = Boolean(title) && Boolean(children);
 
   const body = (
