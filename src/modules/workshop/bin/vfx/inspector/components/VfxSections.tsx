@@ -92,7 +92,8 @@ export function EmitterModes() {
   return (
     <div className="flex items-center gap-2">
       <Field.Control
-        className="h-6 w-40 px-2 font-sans text-meta"
+        size="xs"
+        className="w-40 font-sans"
         aria-label={m.workshop_bin_emitter_filter_label()}
         placeholder={m.workshop_bin_emitter_filter_placeholder()}
         value={filter}

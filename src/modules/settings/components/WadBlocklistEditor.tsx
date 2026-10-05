@@ -127,7 +127,6 @@ export function WadBlocklistEditor() {
                 { value: "nameDesc", label: "Name Z→A" },
                 { value: "kind", label: "Kind" },
               ]}
-              triggerClassName="!py-1.5 !px-3 text-sm"
             />
           </div>
         </div>
@@ -365,7 +364,8 @@ function RegexAddRow({
           onChange={(e) => onDraftChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="e.g. ^map\d+\.en_us\.wad\.client$"
-          className={`flex-1 font-mono text-sm ${showError ? "!border-danger focus:!border-danger focus:!ring-danger" : ""}`}
+          hasError={showError}
+          className="flex-1 font-mono"
           autoComplete="off"
           spellCheck={false}
         />

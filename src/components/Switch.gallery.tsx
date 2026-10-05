@@ -16,6 +16,20 @@ const entry: GalleryEntry = {
         </>
       ),
     },
+    {
+      name: "Labelled",
+      render: () => (
+        <div className="flex flex-col gap-3">
+          <Switch label="Start with Windows" />
+          <Switch
+            defaultChecked
+            label="Close to the tray"
+            description="The patcher keeps running while the window is closed."
+          />
+          <Switch disabled label="Verify archives on mount" description="Needs a game folder." />
+        </div>
+      ),
+    },
   ],
 };
 

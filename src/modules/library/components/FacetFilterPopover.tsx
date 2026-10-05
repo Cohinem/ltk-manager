@@ -82,8 +82,6 @@ export interface FacetFilterPopoverProps<F extends string> {
   /** A filter is set, which the trigger marks and the clear answers to. */
   hasActive: boolean;
   triggerLabel: string;
-  /** Merged onto the trigger, so the caller can seat it inside a field. */
-  triggerClassName?: string;
   /** The trigger's size, `xs` unless the caller seats it in a taller bar. */
   triggerSize?: "xs" | "md";
   onOpenChange?: (open: boolean) => void;
@@ -98,7 +96,6 @@ export function FacetFilterPopover<F extends string>({
   sortOptions,
   hasActive,
   triggerLabel,
-  triggerClassName,
   triggerSize = "xs",
   onOpenChange,
   children,
@@ -163,7 +160,6 @@ export function FacetFilterPopover<F extends string>({
                 </div>
               }
               aria-label={triggerLabel}
-              className={triggerClassName}
             />
           }
         />

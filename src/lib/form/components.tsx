@@ -12,10 +12,8 @@ import {
   ComboboxTrigger,
   Field,
   FieldControl,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
   FieldRoot,
+  FieldTextarea,
   SelectIcon,
   SelectItem,
   type SelectOption,
@@ -29,13 +27,19 @@ import { twMerge } from "@/utils";
 
 import { useFieldContext, useFormContext } from "./form-context";
 
+/** The field's errors as one message, or nothing while it has none. */
+function errorOf(errors: unknown[]): string | undefined {
+  if (errors.length === 0) return undefined;
+  return errors.join(", ");
+}
+
 // Re-export Field compound component for composition
 export { Field };
 
 // TextField - Pre-bound text input field component
 export interface TextFieldProps extends Omit<
   InputHTMLAttributes<HTMLInputElement>,
-  "value" | "onChange" | "onBlur"
+  "value" | "onChange" | "onBlur" | "size"
 > {
   label?: string;
   description?: string;
@@ -53,12 +57,14 @@ export function TextField({
   ...props
 }: TextFieldProps) {
   const field = useFieldContext<string>();
-  const hasError = field.state.meta.errors.length > 0;
 
   return (
-    <FieldRoot>
-      {label && <FieldLabel required={required}>{label}</FieldLabel>}
-      {description && <FieldDescription>{description}</FieldDescription>}
+    <FieldRoot
+      label={label}
+      description={description}
+      required={required}
+      error={errorOf(field.state.meta.errors)}
+    >
       <FieldControl
         value={field.state.value}
         onChange={(e) => {
@@ -66,11 +72,9 @@ export function TextField({
           field.handleChange(value);
         }}
         onBlur={field.handleBlur}
-        hasError={hasError}
         className={inputClassName}
         {...props}
       />
-      {hasError && <FieldError>{field.state.meta.errors.join(", ")}</FieldError>}
     </FieldRoot>
   );
 }
@@ -94,29 +98,22 @@ export function TextareaField({
   ...props
 }: TextareaFieldProps) {
   const field = useFieldContext<string>();
-  const hasError = field.state.meta.errors.length > 0;
 
   return (
-    <FieldRoot className={className}>
-      {label && <FieldLabel required={required}>{label}</FieldLabel>}
-      {description && <FieldDescription>{description}</FieldDescription>}
-      <textarea
+    <FieldRoot
+      label={label}
+      description={description}
+      required={required}
+      error={errorOf(field.state.meta.errors)}
+      className={className}
+    >
+      <FieldTextarea
         value={field.state.value}
         onChange={(e) => field.handleChange(e.target.value)}
         onBlur={field.handleBlur}
-        className={twMerge(
-          "w-full rounded-lg border px-4 py-2.5 text-sm transition-colors",
-          "bg-surface-700 text-surface-50 placeholder:text-surface-400",
-          "border-surface-500 hover:border-accent-hover",
-          "focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          "min-h-[80px] resize-y",
-          hasError && "border-danger focus:border-danger focus:ring-danger",
-          textareaClassName,
-        )}
+        className={textareaClassName}
         {...props}
       />
-      {hasError && <FieldError>{field.state.meta.errors.join(", ")}</FieldError>}
     </FieldRoot>
   );
 }
@@ -143,18 +140,21 @@ export function SelectField({
   triggerClassName,
 }: SelectFieldProps) {
   const field = useFieldContext<string>();
-  const hasError = field.state.meta.errors.length > 0;
 
   return (
-    <FieldRoot className={className}>
-      {label && <FieldLabel required={required}>{label}</FieldLabel>}
-      {description && <FieldDescription>{description}</FieldDescription>}
+    <FieldRoot
+      label={label}
+      description={description}
+      required={required}
+      error={errorOf(field.state.meta.errors)}
+      className={className}
+    >
       <SelectRoot
         value={field.state.value}
         onValueChange={(value) => field.handleChange(value ?? "")}
         disabled={disabled}
       >
-        <SelectTrigger hasError={hasError} className={triggerClassName}>
+        <SelectTrigger className={triggerClassName}>
           <SelectValue />
           <SelectIcon />
         </SelectTrigger>
@@ -166,7 +166,6 @@ export function SelectField({
           ))}
         </SelectContent>
       </SelectRoot>
-      {hasError && <FieldError>{field.state.meta.errors.join(", ")}</FieldError>}
     </FieldRoot>
   );
 }
@@ -194,15 +193,18 @@ export function ComboboxField({
   inputClassName,
 }: ComboboxFieldProps) {
   const field = useFieldContext<string>();
-  const hasError = field.state.meta.errors.length > 0;
   const filter = useComboboxFilter();
 
   const selectedOption = options.find((o) => o.value === field.state.value);
 
   return (
-    <FieldRoot className={className}>
-      {label && <FieldLabel required={required}>{label}</FieldLabel>}
-      {description && <FieldDescription>{description}</FieldDescription>}
+    <FieldRoot
+      label={label}
+      description={description}
+      required={required}
+      error={errorOf(field.state.meta.errors)}
+      className={className}
+    >
       <ComboboxRoot<ComboboxOption>
         value={selectedOption}
         onValueChange={(opt) => field.handleChange(opt?.value ?? "")}
@@ -215,7 +217,6 @@ export function ComboboxField({
         <div className="relative">
           <ComboboxInput
             placeholder={placeholder}
-            hasError={hasError}
             className={twMerge("pr-8", inputClassName)}
             onBlur={field.handleBlur}
           />
@@ -234,7 +235,6 @@ export function ComboboxField({
           <ComboboxEmpty />
         </ComboboxContent>
       </ComboboxRoot>
-      {hasError && <FieldError>{field.state.meta.errors.join(", ")}</FieldError>}
     </FieldRoot>
   );
 }

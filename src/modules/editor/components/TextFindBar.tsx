@@ -46,7 +46,8 @@ export function TextFindBar({ find }: { find: TextFind }) {
           aria-label={m.editor_find_label()}
           autoComplete="off"
           spellCheck={false}
-          className="h-6 pr-20 pl-7 text-xs select-text"
+          size="xs"
+          className="pr-20 pl-7 select-text"
         />
         {/* Inside the field, because what a query found is the field's own
             answer to what was typed into it. */}

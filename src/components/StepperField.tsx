@@ -106,4 +106,4 @@ export function StepperField({
 
 /* DS-VEIL */
 const ARROW =
-  "flex flex-1 items-center justify-center px-1 text-surface-400 transition-colors hover:bg-surface-veil hover:text-surface-200 active:bg-surface-veil-strong disabled:opacity-40";
+  "flex flex-1 items-center justify-center px-1 text-surface-400 transition-colors hover:bg-surface-veil hover:text-surface-200 active:bg-surface-veil-strong disabled:opacity-50";

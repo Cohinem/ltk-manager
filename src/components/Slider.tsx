@@ -1,4 +1,5 @@
 import { Slider as BaseSlider } from "@base-ui/react/slider";
+import { useId } from "react";
 
 import { twMerge } from "@/utils";
 
@@ -27,8 +28,9 @@ interface SliderProps {
   step?: number;
   /** Marks to display along the slider. */
   marks?: Mark[];
-  /** The label to display above the slider. */
+  /** Drawn above the slider, and its accessible name. */
   label?: string;
+  /** The name of a slider drawn without a `label`. */
   "aria-label"?: string;
   /** The visual variant of the slider. */
   variant?: SliderVariant;
@@ -62,6 +64,7 @@ export function Slider({
   className,
 }: SliderProps) {
   const isRuler = variant === "ruler";
+  const labelId = useId();
 
   return (
     <BaseSlider.Root
@@ -80,7 +83,11 @@ export function Slider({
       disabled={disabled}
       className={twMerge("flex w-full flex-col", isRuler ? "gap-1.5" : "gap-2", className)}
     >
-      {label && <span className="text-sm font-medium text-surface-200">{label}</span>}
+      {label && (
+        <span id={labelId} className="text-sm font-medium text-surface-200">
+          {label}
+        </span>
+      )}
 
       <BaseSlider.Control className="relative flex h-4 w-full touch-none items-center">
         <BaseSlider.Track
@@ -150,7 +157,7 @@ export function Slider({
             Dragging grows it lengthways. A knob this narrow has too little width
             for a uniform scale to register. */}
         <BaseSlider.Thumb
-          aria-label={ariaLabel ?? label}
+          {...(label ? { "aria-labelledby": labelId } : { "aria-label": ariaLabel })}
           className={twMerge(
             "absolute top-1/2 -translate-x-1/2 -translate-y-1/2",
             isRuler

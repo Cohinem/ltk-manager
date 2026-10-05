@@ -45,7 +45,8 @@ export function MissileOptions({
                     <span>{label}</span>
                     <Field.Control
                       type="number"
-                      className="h-7 w-20 shrink-0 px-2 text-meta"
+                      size="sm"
+                      className="w-20 shrink-0"
                       value={Number.isFinite(anchors[index]) ? anchors[index] : ""}
                       onChange={(event) => {
                         const value = event.target.value === "" ? NaN : Number(event.target.value);

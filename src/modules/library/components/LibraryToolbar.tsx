@@ -11,7 +11,6 @@ import {
   Button,
   Field,
   FieldAffix,
-  fieldAffixButtonClass,
   Kbd,
   SegmentedControl,
   type SegmentedOption,
@@ -94,7 +93,7 @@ export function LibraryToolbar({
             className="pr-10 pl-9"
           />
           <FieldAffix>
-            <FilterPopover filterOptions={filterOptions} className={fieldAffixButtonClass} />
+            <FilterPopover filterOptions={filterOptions} />
           </FieldAffix>
         </div>
 

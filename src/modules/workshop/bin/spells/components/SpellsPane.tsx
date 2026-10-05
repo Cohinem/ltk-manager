@@ -110,7 +110,7 @@ function CharacterSpells({
           placeholder={m.workshop_spells_filter_placeholder()}
           value={filter}
           onChange={(event) => setFilter(event.target.value)}
-          className="h-7 px-2 text-meta"
+          size="sm"
         />
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-2 scrollbar-md">

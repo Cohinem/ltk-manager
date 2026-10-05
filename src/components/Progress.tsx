@@ -14,7 +14,7 @@ const trackSizeClasses: Record<ProgressSize, string> = {
 
 export interface ProgressRootProps extends BaseProgress.Root.Props {
   children?: ReactNode;
-  /** Text label displayed above the track on the left. */
+  /** Drawn above the track on the left, and the bar's accessible name. */
   label?: ReactNode;
   /** Secondary label displayed above the track on the right (e.g. "3 / 10"). */
   valueLabel?: ReactNode;
@@ -25,7 +25,7 @@ export const ProgressRoot = ({ children, label, valueLabel, ...props }: Progress
     <BaseProgress.Root {...props}>
       {(label || valueLabel) && (
         <div className="mb-2 flex justify-between text-sm text-surface-300">
-          {label && <span>{label}</span>}
+          {label && <BaseProgress.Label>{label}</BaseProgress.Label>}
           {valueLabel && <span>{valueLabel}</span>}
         </div>
       )}

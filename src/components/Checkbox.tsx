@@ -69,12 +69,15 @@ export const Checkbox = forwardRef<HTMLButtonElement, CheckboxProps>(
           "group inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md border transition-colors",
           sizeClasses[size],
           "border-surface-600 bg-surface-800",
-          "hover:border-surface-500 hover:bg-surface-700",
+          /* DS-HOVER */
+          "hover:border-accent-hover hover:bg-surface-700",
           focusRing,
           "data-[checked]:border-accent-500 data-[checked]:bg-accent-500",
           "data-[checked]:hover:border-accent-400 data-[checked]:hover:bg-accent-400",
           "data-[indeterminate]:border-accent-500 data-[indeterminate]:bg-accent-500",
-          "disabled:cursor-not-allowed disabled:opacity-50",
+          "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
+          /* The label dims the whole line, so the box does not dim twice. */
+          label && "data-[disabled]:opacity-100",
           implicit &&
             "border-dashed bg-transparent data-[checked]:border-surface-400 data-[checked]:bg-transparent data-[checked]:hover:border-accent-hover data-[checked]:hover:bg-surface-veil",
           !label && className,
