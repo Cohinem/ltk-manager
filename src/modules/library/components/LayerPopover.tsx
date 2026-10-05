@@ -40,7 +40,6 @@ export function LayerPopover({ mod, disabled }: LayerPopoverProps) {
           }
         />
         <Popover.Content side="bottom" align="start" sideOffset={6} className="w-64">
-          <Popover.Arrow />
           <div className="p-2">
             <div className="mb-1 flex items-center gap-2">
               <Layers className="size-4 shrink-0 text-surface-400" />

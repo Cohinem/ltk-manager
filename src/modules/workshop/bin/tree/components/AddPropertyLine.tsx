@@ -103,18 +103,13 @@ export function AddPropertyLine({ line, autoFocus }: AddPropertyLineProps) {
             }
           }}
         />
-        <Combobox.Content
-          side="bottom"
-          align="start"
-          sideOffset={2}
-          className="max-h-64 min-w-80 py-0.5"
-        >
+        <Combobox.Content side="bottom" align="start" sideOffset={2} className="max-h-64 min-w-80">
           <Combobox.List>
             {(suggestion: AddSuggestion) => (
               <Combobox.Item
                 key={suggestionKey(suggestion)}
                 value={suggestion}
-                className="gap-2 px-2 py-1 font-mono text-mono-row"
+                className="font-mono text-mono-row"
               >
                 <SuggestionText suggestion={suggestion} />
               </Combobox.Item>

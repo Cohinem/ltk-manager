@@ -237,7 +237,7 @@ function SectionSettings({ label, children }: SectionSettingsProps) {
         align="end"
         sideOffset={6}
         aria-label={label}
-        className="w-52 divide-y divide-surface-600/50 p-0 select-none"
+        className="w-52 divide-y divide-surface-700 p-0 select-none"
       >
         {children}
       </Popover.Content>

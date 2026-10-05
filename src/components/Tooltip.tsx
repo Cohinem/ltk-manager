@@ -83,48 +83,21 @@ export interface TooltipPopupProps extends Omit<BaseTooltip.Popup.Props, "classN
   children?: ReactNode;
 }
 
+/* Solid where a popup is glass: a line of text this small needs a ground that does not move
+   under it. DS-GROUND, DS-RADIUS. */
+const popupClasses =
+  "rounded-md border border-surface-700 bg-surface-800 px-2 py-1 text-xs text-surface-100 shadow-lg animate-fade-in data-[ending-style]:opacity-0 data-[starting-style]:opacity-0";
+
 export const TooltipPopup = forwardRef<HTMLDivElement, TooltipPopupProps>(
   ({ className, children, ...props }, ref) => {
     return (
-      <BaseTooltip.Popup
-        ref={ref}
-        className={twMerge(
-          "rounded-md bg-surface-800 px-3 py-1.5 text-sm text-surface-100 shadow-lg",
-          "border border-surface-700",
-          "animate-fade-in",
-          "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
-          className,
-        )}
-        {...props}
-      >
+      <BaseTooltip.Popup ref={ref} className={twMerge(popupClasses, className)} {...props}>
         {children}
       </BaseTooltip.Popup>
     );
   },
 );
 TooltipPopup.displayName = "Tooltip.Popup";
-
-// Arrow
-export interface TooltipArrowProps extends Omit<BaseTooltip.Arrow.Props, "className"> {
-  className?: string;
-}
-
-export const TooltipArrow = forwardRef<HTMLDivElement, TooltipArrowProps>(
-  ({ className, ...props }, ref) => {
-    return (
-      <BaseTooltip.Arrow
-        ref={ref}
-        className={twMerge(
-          "fill-surface-800",
-          "[&>path:first-child]:stroke-surface-700",
-          className,
-        )}
-        {...props}
-      />
-    );
-  },
-);
-TooltipArrow.displayName = "Tooltip.Arrow";
 
 // Compound export (primitives for advanced/custom tooltip layouts)
 export const TooltipPrimitives = {
@@ -134,7 +107,6 @@ export const TooltipPrimitives = {
   Portal: TooltipPortal,
   Positioner: TooltipPositioner,
   Popup: TooltipPopup,
-  Arrow: TooltipArrow,
 };
 
 export interface TooltipProps {
@@ -143,18 +115,22 @@ export interface TooltipProps {
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
   sideOffset?: number;
-  showArrow?: boolean;
   /** Hover delay in ms before opening. Base UI's own default is 600. */
   delay?: number;
 }
 
+/**
+ * A line that names or explains the element it wraps, shown on hover and on keyboard focus.
+ *
+ * `content` is short text or a small block of it. Anything a reader has to reach with the
+ * pointer, such as a link or a scrolling list, is a `HoverCard` or a `Popover`.
+ */
 export function Tooltip({
   content,
   children,
   side = "top",
   align = "center",
   sideOffset = 8,
-  showArrow = true,
   delay,
 }: TooltipProps) {
   return (
@@ -162,19 +138,7 @@ export function Tooltip({
       <BaseTooltip.Trigger delay={delay} render={children} />
       <BaseTooltip.Portal>
         <BaseTooltip.Positioner side={side} align={align} sideOffset={sideOffset} className="z-50">
-          <BaseTooltip.Popup
-            className={twMerge(
-              "rounded-md bg-surface-800 px-3 py-1.5 text-sm text-surface-100 shadow-lg",
-              "border border-surface-700",
-              "animate-fade-in",
-              "data-[ending-style]:opacity-0 data-[starting-style]:opacity-0",
-            )}
-          >
-            {showArrow && (
-              <BaseTooltip.Arrow className="fill-surface-800 [&>path:first-child]:stroke-surface-700" />
-            )}
-            {content}
-          </BaseTooltip.Popup>
+          <BaseTooltip.Popup className={popupClasses}>{content}</BaseTooltip.Popup>
         </BaseTooltip.Positioner>
       </BaseTooltip.Portal>
     </BaseTooltip.Root>

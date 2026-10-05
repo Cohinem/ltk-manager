@@ -109,19 +109,10 @@ export function AddPropertyBox({ holder, onAdded, onClose }: AddPropertyBoxProps
           }}
         />
       </div>
-      <Combobox.Content
-        side="bottom"
-        align="start"
-        sideOffset={2}
-        className="max-h-72 min-w-80 py-0.5"
-      >
+      <Combobox.Content side="bottom" align="start" sideOffset={2} className="max-h-72 min-w-80">
         <Combobox.List>
           {(suggestion: AddSuggestion) => (
-            <Combobox.Item
-              key={suggestionKey(suggestion)}
-              value={suggestion}
-              className="gap-2 px-2 py-1 text-row"
-            >
+            <Combobox.Item key={suggestionKey(suggestion)} value={suggestion} className="text-row">
               <SuggestionText suggestion={suggestion} />
             </Combobox.Item>
           )}
