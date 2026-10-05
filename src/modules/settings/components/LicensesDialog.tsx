@@ -46,12 +46,12 @@ function LicensesContent({ open }: { open: boolean }) {
   }, [manifest, query]);
 
   if (isLoading) {
-    return <LoadingState size="lg" />;
+    return <LoadingState size={32} />;
   }
 
   if (error || !manifest) {
     return (
-      <AlertBox variant="error" title="Failed to load licenses">
+      <AlertBox tone="danger" title="Failed to load licenses">
         {error?.message ?? "License manifest is missing from this build."}
       </AlertBox>
     );

@@ -151,7 +151,7 @@ export function CacheSection() {
             <Spinner />
           </div>
         )}
-        {error && <AlertBox variant="error">{errorSummary(error)}</AlertBox>}
+        {error && <AlertBox tone="danger">{errorSummary(error)}</AlertBox>}
       </SectionCard>
     );
   }
@@ -179,7 +179,7 @@ export function CacheSection() {
     <div className="flex min-w-0 flex-col gap-1.5">
       {!progress && (
         <div className="flex items-center gap-2 text-xs text-surface-400">
-          <Spinner size="sm" />
+          <Spinner size={16} />
           <span>Checking for updates…</span>
         </div>
       )}

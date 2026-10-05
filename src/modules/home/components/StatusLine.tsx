@@ -1,14 +1,14 @@
 import { CaretRightIcon, SpinnerGapIcon } from "@phosphor-icons/react";
 
-import { AlertBox, type AlertBoxVariant } from "@/components";
+import { AlertBox, type StatusTone } from "@/components";
 
 import { type HomeStatusAction, type HomeStatusTone, useHomeStatus } from "../api";
 
 /* The hue is the severity's: DS-KIND-HUE. */
-const VARIANT: Record<HomeStatusTone, AlertBoxVariant> = {
+const TONE: Record<HomeStatusTone, StatusTone> = {
   muted: "neutral",
   warning: "warning",
-  danger: "error",
+  danger: "danger",
 };
 
 /** What stands between the reader and Play, drawn under the button it qualifies. */
@@ -22,7 +22,7 @@ export function StatusLine() {
       <AlertBox
         data-ui="StatusLine"
         className="shrink-0"
-        variant={VARIANT[status.tone]}
+        tone={TONE[status.tone]}
         title={status.line}
       />
     );
@@ -32,7 +32,7 @@ export function StatusLine() {
     <AlertBox
       data-ui="StatusLine"
       className="shrink-0"
-      variant={VARIANT[status.tone]}
+      tone={TONE[status.tone]}
       title={status.line}
       disabled={status.action.pending}
       onClick={status.action.run}

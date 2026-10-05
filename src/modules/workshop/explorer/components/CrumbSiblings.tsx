@@ -53,7 +53,7 @@ function SiblingItems({ path, onNavigate, useChildDirs }: CrumbSiblingsProps) {
   if (dirs === null) {
     return (
       <div className="flex items-center justify-center p-2">
-        <Spinner size="sm" />
+        <Spinner size={16} />
       </div>
     );
   }

@@ -158,7 +158,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
 
         {isLoading && (
           <div className="flex items-center gap-2 text-sm text-surface-400">
-            <Spinner size="sm" />
+            <Spinner size={16} />
             Loading flagged mods…
           </div>
         )}
@@ -247,7 +247,7 @@ function LinkedBinWarningContent({ onClose }: { onClose: () => void }) {
         )}
 
         <AlertBox
-          variant="warning"
+          tone="warning"
           icon={<ShieldAlert className="size-5" />}
           title="Leaving these enabled may glitch or crash the game when they load."
         />

@@ -5,7 +5,7 @@ import { forwardRef, type ReactNode } from "react";
 import { twMerge } from "@/utils";
 
 import { focusRing } from "./focus";
-import { Spinner } from "./Spinner";
+import { Spinner, type SpinnerSize } from "./Spinner";
 import { Tooltip, type TooltipProps } from "./Tooltip";
 
 /** How much the button asks for attention, from a solid fill down to bare text. */
@@ -123,11 +123,11 @@ const lookClasses: Record<ButtonVariant, Partial<Record<ButtonTone, ButtonLookCl
 const baseClasses =
   "relative inline-flex items-center justify-center font-medium rounded-md transition-colors cursor-pointer select-none data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed";
 
-const spinnerClasses: Record<ButtonSize, string> = {
-  xs: "size-3.5",
-  sm: "size-3.5",
-  md: "size-4",
-  lg: "size-4",
+const spinnerSize: Record<ButtonSize, SpinnerSize> = {
+  xs: 14,
+  sm: 14,
+  md: 16,
+  lg: 16,
 };
 
 function IconSlot({ children }: { children: ReactNode }) {
@@ -189,7 +189,7 @@ const ButtonCore = forwardRef<HTMLButtonElement, ButtonProps>(
         {loading && <span className="invisible contents">{content}</span>}
         {loading && (
           <span className="absolute inset-0 flex animate-fade-in items-center justify-center">
-            <Spinner className={twMerge("text-current", spinnerClasses[size])} />
+            <Spinner size={spinnerSize[size]} className="text-current" />
           </span>
         )}
       </BaseButton>

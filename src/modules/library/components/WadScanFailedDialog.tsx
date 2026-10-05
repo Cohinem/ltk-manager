@@ -123,7 +123,7 @@ function WadScanFailedContent({
 
         {isLoading && (
           <div className="flex items-center gap-2 text-sm text-surface-400">
-            <Spinner size="sm" />
+            <Spinner size={16} />
             Identifying the responsible mods…
           </div>
         )}
@@ -167,7 +167,7 @@ function WadScanFailedContent({
           </p>
         )}
 
-        <AlertBox variant="warning" icon={<Wrench className="size-5" />} title={config.fix} />
+        <AlertBox tone="warning" icon={<Wrench className="size-5" />} title={config.fix} />
       </Dialog.Body>
 
       <Dialog.Footer>

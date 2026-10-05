@@ -38,7 +38,7 @@ export function UnsavedCloseDialog({
   return (
     <Dialog.Shell open={open} onClose={() => onAnswer("cancel")} title={title} size="sm">
       <Dialog.Body>
-        <AlertBox variant="warning">{description}</AlertBox>
+        <AlertBox tone="warning">{description}</AlertBox>
       </Dialog.Body>
 
       <Dialog.Footer>

@@ -59,7 +59,7 @@ export function PatchingSection() {
           />
 
           {leagueRunsAsAdmin && (
-            <AlertBox variant="warning">
+            <AlertBox tone="warning">
               League runs as administrator, so the injector elevates automatically. Expect a UAC
               prompt even with this off.
             </AlertBox>
@@ -81,7 +81,7 @@ export function PatchingSection() {
           />
 
           {!settings.blockScriptsWad && (
-            <AlertBox variant="warning">
+            <AlertBox tone="warning">
               Modding allows running Lua scripts. Only install from sources you trust.
             </AlertBox>
           )}
@@ -101,7 +101,7 @@ export function PatchingSection() {
           />
 
           {!settings.enforceSkinhackScan && (
-            <AlertBox variant="warning">
+            <AlertBox tone="warning">
               Enforcement is off, so mods flagged as skinhacks will load.
             </AlertBox>
           )}

@@ -125,7 +125,7 @@ function HistoryFoot({
     );
   }
 
-  if (isPending || isFetchingNextPage) return <Spinner size="sm" />;
+  if (isPending || isFetchingNextPage) return <Spinner size={16} />;
 
   if (!hasNextPage) {
     return <p className="text-xs text-surface-400">{m.updater_history_end_label()}</p>;

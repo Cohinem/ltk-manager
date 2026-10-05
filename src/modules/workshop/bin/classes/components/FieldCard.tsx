@@ -284,7 +284,7 @@ interface FooterProps {
 
 /** The schema's read state while it has none, and the link to the wiki's section. */
 function Footer({ classHash, fieldHash, pending, error, schema }: FooterProps) {
-  if (pending) return <Spinner size="sm" />;
+  if (pending) return <Spinner size={16} />;
   if (error) return <span className="text-surface-400">{errorSummary(error)}</span>;
   if (classHash === null || schema === undefined) return null;
   return <FieldWikiLink classHash={classHash} fieldHash={fieldHash} />;

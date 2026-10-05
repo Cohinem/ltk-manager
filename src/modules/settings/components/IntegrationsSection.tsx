@@ -138,7 +138,7 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
         )}
       >
         {!status.supported && (
-          <AlertBox variant="info">{m.settings_integrations_unsupported_description()}</AlertBox>
+          <AlertBox tone="info">{m.settings_integrations_unsupported_description()}</AlertBox>
         )}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1 text-row">
@@ -205,13 +205,13 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
           </div>
         </div>
         {status.needsRepair && (
-          <AlertBox variant="warning">{m.settings_integrations_repair_description()}</AlertBox>
+          <AlertBox tone="warning">{m.settings_integrations_repair_description()}</AlertBox>
         )}
         {status.pendingCleanup && (
-          <AlertBox variant="warning">{m.settings_integrations_cleanup_description()}</AlertBox>
+          <AlertBox tone="warning">{m.settings_integrations_cleanup_description()}</AlertBox>
         )}
         {release.error && (
-          <AlertBox variant="warning">
+          <AlertBox tone="warning">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span>{m.settings_integrations_release_description()}</span>
               {!installed && (
@@ -262,7 +262,7 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
           </div>
         )}
         {failure && (
-          <AlertBox variant="error">
+          <AlertBox tone="danger">
             <span className="select-text">{errorSummary(failure)}</span>
           </AlertBox>
         )}
@@ -339,7 +339,7 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
 export function IntegrationsSection() {
   const { data, error, isPending } = useIntegrations();
   if (isPending) return <Spinner />;
-  if (error) return <AlertBox variant="error">{errorSummary(error)}</AlertBox>;
+  if (error) return <AlertBox tone="danger">{errorSummary(error)}</AlertBox>;
   const busy =
     data?.some((status) => status.operation && !terminal.includes(status.operation.stage)) ?? false;
   return (

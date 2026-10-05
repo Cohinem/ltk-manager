@@ -1,17 +1,10 @@
 import { open } from "@tauri-apps/plugin-shell";
 
-import { AlertBox, type AlertBoxVariant, Button } from "@/components";
+import { AlertBox, Button } from "@/components";
 import { m } from "@/i18n";
-import type { NoticeSeverity } from "@/lib/tauri";
 
 import { useNotices } from "../api";
 import { useHomeStore } from "../state";
-
-const VARIANT: Record<NoticeSeverity, AlertBoxVariant> = {
-  info: "info",
-  warning: "warning",
-  danger: "error",
-};
 
 /** Every notice the project has published for this build that the reader has not closed, newest first. */
 export function NoticeBanners() {
@@ -27,7 +20,7 @@ export function NoticeBanners() {
       {shown.map((notice) => (
         <AlertBox
           key={notice.id}
-          variant={VARIANT[notice.severity]}
+          tone={notice.severity}
           title={<span className="select-text">{notice.title}</span>}
           onDismiss={() => dismissNotice(notice.id)}
           actions={notice.url !== null && <WhatToDo url={notice.url} />}

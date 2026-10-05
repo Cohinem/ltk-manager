@@ -70,17 +70,13 @@ export function UpdateChangelogDialog() {
 
       <Dialog.Body className="flex h-[65vh] flex-col gap-4 overflow-hidden">
         {error && (
-          <AlertBox
-            variant="error"
-            title={m.updater_install_failed_title()}
-            onDismiss={dismissError}
-          >
+          <AlertBox tone="danger" title={m.updater_install_failed_title()} onDismiss={dismissError}>
             {error}
           </AlertBox>
         )}
 
         {leagueRunning && !updating && (
-          <AlertBox variant="info">{m.updater_league_running_hint()}</AlertBox>
+          <AlertBox tone="info">{m.updater_league_running_hint()}</AlertBox>
         )}
 
         {downloaded && !updating && !skipped && (

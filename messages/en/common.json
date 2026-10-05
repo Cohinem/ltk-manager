@@ -13,6 +13,7 @@
   "common_crash_reload_action": "Reload",
   "common_crash_report_action": "Report a bug",
   "common_crash_title": "The manager hit a problem",
+  "common_dismiss_action": "Dismiss",
   "common_error_code_label": "Error code: {code}",
   "common_filter_champion_empty": "No champions found",
   "common_filter_champion_search_placeholder": "Search champions",

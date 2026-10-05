@@ -363,7 +363,7 @@ export function SessionBar() {
     .with({ kind: "itemsOnly" }, () => <Bar />)
     .with({ kind: "stopping" }, () => (
       <RestingLine>
-        <Spinner size="sm" className="size-3.5 shrink-0" />
+        <Spinner size={14} className="shrink-0" />
         <span className="font-medium text-surface-300">Stopping patcher</span>
         <span className="text-surface-500">Waiting for the injector to shut down...</span>
       </RestingLine>
