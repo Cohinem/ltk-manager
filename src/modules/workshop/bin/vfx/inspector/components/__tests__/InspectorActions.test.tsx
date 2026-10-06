@@ -24,6 +24,10 @@ vi.mock("../../../templates/TemplateMenus", () => ({
   TemplateSubmenu: () => null,
 }));
 
+vi.mock("../../../stencil/MaskSubmenu", () => ({
+  MaskSubmenu: () => null,
+}));
+
 vi.mock("../../state/emitterChoice", () => ({
   useEmitters: () => ({
     card: { key: "c0", row: { entry: "0x1", path: "list[0]", name: "Spark" }, groups: [] },

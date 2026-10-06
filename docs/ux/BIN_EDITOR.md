@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-06 | Author an emitter's stencil mask in a Stencil group                      |
 | 2026-10-05 | Author an emitter's emission mesh and surface in a Source group          |
 | 2026-10-04 | Move the skin shell, its preview and its panes to docs/ux/SKIN_EDITOR.md |
 | 2026-09-27 | Select an emitter by a click on its particles in the viewer              |
@@ -13,7 +14,6 @@
 | 2026-09-21 | Copy a whole object or struct as a declaration                           |
 | 2026-09-21 | Copy a row as a declaration, and declare a game-copy reference           |
 | 2026-09-21 | Draw what an apply reports on the row it names                           |
-| 2026-09-21 | Declare a game bin's container edits, and refuse what none says          |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1869,8 +1869,9 @@ The preview pane draws the run on the particle renderer of `docs/plans/vfx-parti
 Its controls sit at its top right: the Show menu, the view mode menu, the camera menu, Fit and the
 rig.
 
-**The Show menu** ticks Ground, Midlane, Gizmo and Stats, and stays open while they are set. Its
-trigger counts the ones on. Midlane draws on the ground alone, so it is off while Ground is.
+**The Show menu** ticks Ground, Midlane, Gizmo, Stencil masks and Stats, and stays open while they
+are set. Its trigger counts the ones on. Midlane draws on the ground alone, so it is off while
+Ground is. Stencil masks is off by default, per [the stencil](#the-stencil).
 
 **The view mode menu** draws the scene Lit, Unshaded, Untextured, or as its triangle edges alone
 (Wireframe). Below the modes, the Wireframe overlay tick draws the edges over a Lit or Untextured
@@ -1997,7 +1998,8 @@ simulation reads replays the run to its current phase under the new values, play
 The clock does not move. An edit of a value only the draw reads, such as a colour or a texture,
 needs no replay.
 
-**What persists.** Ground, Midlane, Gizmo, Stats, the view mode and its overlay, the camera preset, the
+**What persists.** Ground, Midlane, Gizmo, Stencil masks, Stats, the view mode and its overlay, the
+camera preset, the
 timeline's Histogram switch, the inspector's Defaults switch and the graph's minimap switch are
 display preferences, app-wide and persisted. The rig, the seed, the speed, mute and
 solo, the loop range, the pinned chance and the playhead belong to the run, kept per system for
@@ -2051,7 +2053,7 @@ of the two menus, since nine icons in a row left the reader to learn each by hov
 - **View** holds what the inspector shows: Defined only, Preview, under a Changes heading Marks
   and Changed only, and under Baseline what a change is measured from, Opened or Game. Its button is pressed while a filter hides rows.
 - **Emitter** holds what is done to the open emitter whole: Duplicate, Copy, Paste, Add from
-  template and Delete. A child lane's emitter draws no Emitter menu.
+  template, Mask and Delete. A child lane's emitter draws no Emitter menu.
 
 Defined only (`F`) draws
 only the properties the file defines and drops every field drawn at its schema default. The switch
@@ -2314,6 +2316,88 @@ the line shows Not emitting at the playhead.
 
 **What the preview does not model.** The spawn generator's offset and its rate factor, `flexRate`
 and `flexParticleLifetime`, and a linked mesh, which only a superward region links.
+
+### The stencil
+
+An emitter's `stencilMode`, `stencilRef` and `StencilReferenceId` are a group of their own, after
+Render. The rules below are the ones the meta wiki states for those fields on
+`VfxEmitterDefinitionData`. How the viewport draws them is decision 2.53 of
+docs/plans/vfx-particle-renderer.md.
+
+A mask is a reference value in the stencil buffer. One emitter writes it where it draws, and other
+emitters draw only inside or only outside what was written. Two emitters use the same mask when
+they have the same `stencilRef` modulo 64, or the same `StencilReferenceId`.
+
+```
+v STENCIL
+  (i) No emitter of this system writes this mask. ...
+    Stencil Mode            [Inside mask v] 2
+    Stencil Reference       [Mask 2 v]  Written by stencil_mask
+    Stencil Reference ID    [0x00000000]
+```
+
+**Stencil Mode is a choice of what the emitter does with its mask.** Each item has one line that
+says what it draws. The number the file has is shown beside the trigger.
+
+| Mode | Item               | The emitter                                              |
+| ---- | ------------------ | -------------------------------------------------------- |
+| `0`  | Off                | Draws with no stencil test                               |
+| `1`  | Write mask         | Draws everywhere and writes the mask where it draws      |
+| `2`  | Inside mask        | Draws only where the mask is written                     |
+| `3`  | Outside mask       | Draws only where the mask is not written                 |
+| `4`  | Write mask outside | Draws only outside the mask and adds what it draws to it |
+
+**Stencil Reference is a choice among the masks of the system.** The list has one item per mask an
+emitter of the system uses, with the emitters that write it on a second line. Numbered masks come
+first in ascending order, then masks named by a `StencilReferenceId`. New mask takes the lowest
+reference from 1 that no emitter uses. Reference 0 is not offered as a new mask, because the buffer
+is cleared to it.
+
+A pick of a numbered mask writes `stencilRef`, and clears a `StencilReferenceId` the emitter
+authors, since the id would replace the number. A pick of a named mask writes the id. Outside a
+run the row is the plain number field, because the list of masks is read from the run's system.
+
+**Stencil Reference ID stays a plain hash row.** It is the way to share a mask with another
+system or with a material pass.
+
+**Notes state what the game does with the fields.** They are lines at the top of the group, one
+per condition below.
+
+| Tone    | Condition                                                                  |
+| ------- | -------------------------------------------------------------------------- |
+| Warning | A simple emitter has a stencil mode, which the game does not read          |
+| Warning | A resolved custom material replaces the emitter's stencil fields           |
+| Warning | Every writer of the mask draws after this emitter                          |
+| Info    | A `StencilReferenceId` is set while the mode is off                        |
+| Info    | A `StencilReferenceId` and a `stencilRef` are both set                     |
+| Info    | The reference is past 63, so it is read modulo 64                          |
+| Info    | The emitter draws inside or outside a mask no emitter of the system writes |
+| Info    | The emitter writes a mask no emitter of the system tests                   |
+
+The draw order of the third row is the engine's: `pass` ascending, then the keys `drawRanks`
+compares. A test against reference 0 needs no writer and gets no note.
+
+**A mark on a lane and on a graph frame says which mask the emitter uses.** It is a glyph for the
+role and the mask's number or id, after the emitter's name. Its hover names the role and lists the
+emitters that write the mask and the emitters it masks. While the pointer is on a mark, every mark
+of the same mask takes the accent and their lanes take a fill. A child lane draws no mark.
+
+**The Emitter menu's Mask submenu does the common steps as one edit each.**
+
+- An item per mask of the system puts the emitter inside that mask. A mask the emitter writes is
+  not listed.
+- New mask from this emitter copies the emitter to the place after it as a mask writer and puts
+  the emitter inside the new mask. The copy is named after the emitter with `_mask` added. It has
+  the lowest free reference, a `pass` one below the emitter's, `AlphaAdd` and a constant black
+  `Color`, so it adds no colour. It has no child particle set. The copy has the emitter's shape,
+  so nothing is masked until the copy's shape is edited.
+- Turn stencil off sets the mode to Off. It is listed for an emitter with a mode.
+
+A simple emitter draws no submenu.
+
+**The preview shows a written mask as a tint.** The emitter and geometry node previews draw the
+mask of a writing emitter in the wire colour at 35% opacity, under the emitter's own colour. The
+viewport does the same while Stencil masks is ticked in the Show menu.
 
 ## The curve panel
 

@@ -11,6 +11,10 @@ import { CardSquare } from "../../inspector/components/VfxSections";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import type { EmitterCardData } from "../../inspector/utils/emitterTypes";
 import { useVfxRun } from "../../playback/state/run";
+import { useMaskHovered } from "../../stencil/maskHover";
+import { MaskMark } from "../../stencil/MaskMark";
+import { maskUse } from "../../stencil/maskModel";
+import { maskShort } from "../../stencil/maskText";
 import type { SnapKeys, TimeSnap } from "../hooks/useTimeSnap";
 import { liveCount } from "../utils/histogram";
 import {
@@ -89,6 +93,8 @@ export const LaneRow = memo(function LaneRow({
   const soloed = row.kind === "emitter" && run.soloed.has(emitter.index);
   const dimmed = emitter.disabled || muted || (run.soloed.size > 0 && !soloed);
   const editing = useBarEditing(emitter, row.kind === "emitter" ? card : undefined);
+  const mask = useMemo(() => (row.kind === "emitter" ? maskUse(row.emitter) : null), [row]);
+  const lit = useMaskHovered(mask?.key ?? null);
 
   return (
     <div
@@ -96,6 +102,7 @@ export const LaneRow = memo(function LaneRow({
       data-row-key={card?.key}
       className={twMerge(
         "flex h-6 items-center border-b border-surface-700/30 hover:bg-surface-veil-soft",
+        lit && "bg-surface-veil-soft",
         selected && "bg-accent-500/10",
       )}
     >
@@ -149,6 +156,7 @@ export const LaneRow = memo(function LaneRow({
             </span>
           )}
         </button>
+        {mask !== null && <MaskMark use={mask} />}
         {row.kind === "emitter" && (
           <SoloToggle lane={emitter.index} soloed={soloed} gestures={gestures} />
         )}
@@ -191,9 +199,23 @@ export const LaneRow = memo(function LaneRow({
 /** The characters a SIMPLE tag takes beside an index, in the head's mono face. */
 export const SIMPLE_TAG = 7;
 
-/** What a lane head's name and index take, as characters its width is fitted to. */
+/** The characters a mask mark's glyph and gap take beside its mask's short name. */
+const MASK_GLYPH = 3;
+
+/** The most characters of a mask's short name the mark draws before it cuts the name. */
+const MASK_NAME = 6;
+
+/** The characters the lane's mask mark takes, and none for an emitter using no mask. */
+function maskRoom(emitter: EmitterModel): number {
+  const mask = maskUse(emitter);
+  if (mask === null) return 0;
+  return MASK_GLYPH + Math.min(maskShort(mask.name).length, MASK_NAME);
+}
+
+/** What a lane head's name, index and marks take, as characters its width is fitted to. */
 export function laneLabel(emitter: EmitterModel): string {
-  return `${emitter.name} [${emitter.listIndex}]${" ".repeat(emitter.simple ? SIMPLE_TAG : 0)}`;
+  const room = (emitter.simple ? SIMPLE_TAG : 0) + maskRoom(emitter);
+  return `${emitter.name} [${emitter.listIndex}]${" ".repeat(room)}`;
 }
 
 /** Why the lane's emitter draws nothing: its `disabled` flag, or a gate the engine applies. */

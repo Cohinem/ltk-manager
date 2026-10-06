@@ -58,6 +58,7 @@ import {
   lingerType,
   matrix,
   namedAsset,
+  nameId,
   number,
   pair,
   pairOr,
@@ -190,6 +191,7 @@ const FIELD = {
   alphaRef: nameHash("alphaRef"),
   stencilMode: nameHash("stencilMode"),
   stencilRef: nameHash("stencilRef"),
+  stencilReferenceId: nameHash("StencilReferenceId"),
   legacySimple: nameHash("LegacySimple"),
   childSet: nameHash("childParticleSetDefinition"),
   fields: nameHash("fieldCollectionDefinition"),
@@ -293,7 +295,7 @@ function readEmitter(
   const mult = field(node, FIELD.textureMult);
   const multTexture = mult?.type === "struct" ? field(mult, MULT_TEXTURE) : null;
   const legacySimple = simple ? readLegacySimple(field(node, FIELD.legacySimple)) : null;
-  const stencil = stencilMode(field(node, FIELD.stencilMode));
+  const stencil = simple ? STENCIL_MODE.disabled : stencilMode(field(node, FIELD.stencilMode));
   /* `disabled` is the engine's first test, so no later gate is named for such an emitter. */
   const off = flag(field(node, FIELD.disabled));
   const culled = off ? null : cullOf(node, simple, hudLayer);
@@ -432,6 +434,8 @@ function readEmitter(
     /* Read off a mode alone. */
     stencilRef:
       stencil === STENCIL_MODE.disabled ? 0 : (number(field(node, FIELD.stencilRef)) ?? 0),
+    stencilReferenceId:
+      stencil === STENCIL_MODE.disabled ? null : nameId(field(node, FIELD.stencilReferenceId)),
     quadType: quadType(primitive),
     primitiveClass: primitive?.type === "struct" ? primitive.classHash : null,
     primitiveName: primitive?.type === "struct" ? primitive.class : null,

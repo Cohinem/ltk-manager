@@ -1072,6 +1072,34 @@ describe("readVfxSystem", () => {
     );
   });
 
+  it("reads the stencil reference id of a mode, and none for a zero hash or the disabled mode", () => {
+    const withId = (mode: number, hash: string) =>
+      emitter({
+        stencilMode: { type: "number", value: mode },
+        StencilReferenceId: { type: "hash", hash, name: null },
+      });
+
+    const [named, zero, off] = readVfxSystem(
+      system([withId(2, "0x0badf00d"), withId(2, "0x00000000"), withId(0, "0x0badf00d")]),
+    ).emitters;
+
+    expect(named.stencilReferenceId).toBe("0x0badf00d");
+    expect(zero.stencilReferenceId).toBeNull();
+    expect(off.stencilReferenceId).toBeNull();
+  });
+
+  it("reads no stencil mode off a simple emitter", () => {
+    const fields = {
+      stencilMode: { type: "number", value: 1 },
+      stencilRef: { type: "number", value: 7 },
+    } as const;
+
+    const [complex, simple] = readVfxSystem(system([emitter(fields)], [emitter(fields)])).emitters;
+
+    expect([complex.stencilMode, complex.stencilRef]).toEqual([STENCIL_MODE.writeMask, 7]);
+    expect([simple.stencilMode, simple.stencilRef]).toEqual([STENCIL_MODE.disabled, 0]);
+  });
+
   it("falls back to the default blend mode for a byte outside the enum", () => {
     const [held, past] = readVfxSystem(
       system([emitter({ blendMode: number(1) }), emitter({ blendMode: number(99) })]),

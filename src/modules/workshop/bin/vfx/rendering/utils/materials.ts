@@ -338,6 +338,29 @@ export function wireMaterial(
   });
 }
 
+/** How much of the backdrop a mask tint covers. */
+const MASK_TINT_OPACITY = 0.35;
+
+/**
+ * `solid` drawn as the flat `colour` over the texels its texture covers, over its uniforms.
+ *
+ * A view of one emitter draws a stencil mask with it, since a mask writer usually draws no
+ * visible colour of its own.
+ */
+export function maskMaterial(solid: ShaderMaterial, colour: Color): ShaderMaterial {
+  const { r, g, b } = colour.clone().convertLinearToSRGB();
+  return new ShaderMaterial({
+    vertexShader: solid.vertexShader,
+    fragmentShader: solid.fragmentShader,
+    uniforms: { ...solid.uniforms, pickId: { value: new Vector4(r, g, b, MASK_TINT_OPACITY) } },
+    defines: { ...solid.defines, PICK: "" },
+    side: solid.side,
+    depthTest: solid.depthTest,
+    depthWrite: false,
+    transparent: true,
+  });
+}
+
 /**
  * The material one emitter's planar projections draw with.
  *

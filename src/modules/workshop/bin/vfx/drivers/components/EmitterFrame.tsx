@@ -5,6 +5,9 @@ import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { rowKey } from "../../../tree/utils/binRows";
+import { COMPLEX_LIST, emitterPlace } from "../../clipboard/emitterCopy";
+import { MaskMark } from "../../stencil/MaskMark";
+import { useMaskUse } from "../../stencil/useStencil";
 import { FRAME_HEADER_HEIGHT, type PlacedFrame } from "../utils/driverLayout";
 import { itemHue } from "../utils/graphTones";
 import { itemTitle } from "../utils/nodeText";
@@ -37,6 +40,8 @@ export function FrameNodeView({ data }: NodeProps<FrameFlowNode>) {
   const title = itemTitle(frame.root);
   const entry = use(GraphActionsContext)?.entry ?? "";
   const key = entry === "" ? null : rowKey({ entry, path: frame.root.wire });
+  const place = emitterPlace(frame.root.wire);
+  const mask = useMaskUse(place?.list !== COMPLEX_LIST, place?.index ?? -1);
 
   return (
     <div
@@ -62,6 +67,7 @@ export function FrameNodeView({ data }: NodeProps<FrameFlowNode>) {
         <span className="shrink-0 text-meta text-surface-400">
           {m.workshop_bin_graph_frame_count_label({ count: frame.count })}
         </span>
+        {mask !== null && <MaskMark use={mask} className="pointer-events-auto" />}
         {key !== null && <NodeLayerMark rowKey={key} />}
       </div>
       <AbovePlate

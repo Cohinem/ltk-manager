@@ -13,7 +13,7 @@ import type { FileItem, InputItem, MasterItem, RenderItem } from "./graphItems";
 export type ComponentRole = "texture" | "geometry";
 
 /** The inspector groups a Texture node draws, the fields `VfxLegacyRenderComponent` gathers. */
-const RENDER_GROUPS: ReadonlySet<EmitterGroup> = new Set(["texture", "render"]);
+const RENDER_GROUPS: ReadonlySet<EmitterGroup> = new Set(["texture", "render", "stencil"]);
 
 /** The group a master node draws the Texture node's input under. */
 export const RENDER_GROUP: EmitterGroup = "texture";

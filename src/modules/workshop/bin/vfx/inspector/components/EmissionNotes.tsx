@@ -1,16 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { statusGlyph, statusText } from "@/components";
 import { m } from "@/i18n";
 import { viewportQueries } from "@/modules/viewport";
-import { twMerge } from "@/utils";
 
 import { useForces } from "../../forces/useForces";
 import { useHostSkin } from "../../preview/components/VfxHost";
 import { useEmitters } from "../state/emitterChoice";
 import { useEmitterModel } from "../state/emitterModel";
 import { type CheckGroup, type EmissionCheck, emissionChecks } from "../utils/emissionChecks";
+import { NoteList } from "./NoteList";
 
 const NO_CHECKS: readonly EmissionCheck[] = [];
 
@@ -52,34 +51,11 @@ export function useEmissionChecks(): readonly EmissionCheck[] {
  * "The emission source" in docs/ux/BIN_EDITOR.md.
  */
 export function EmissionNotes({ group }: { group: CheckGroup }) {
-  const checks = useEmissionChecks().filter((check) => check.group === group);
-  if (checks.length === 0) return null;
+  const notes = useEmissionChecks()
+    .filter((check) => check.group === group)
+    .map((check) => ({ id: check.id, tone: check.tone, text: checkText(check) }));
 
-  return (
-    <ul
-      data-ui="EmissionNotes"
-      className="flex flex-col gap-1 py-1 pr-1 pl-1.5 font-sans text-meta text-surface-300 select-none"
-    >
-      {checks.map((check) => {
-        const Glyph = statusGlyph[check.tone];
-
-        return (
-          <li
-            key={check.id}
-            role={check.tone === "warning" ? "alert" : "status"}
-            className="flex items-start gap-1.5"
-          >
-            {/* DS-TEXT */}
-            <Glyph
-              weight="duotone"
-              className={twMerge("mt-px size-3.5 shrink-0", statusText[check.tone])}
-            />
-            <span className="min-w-0">{checkText(check)}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
+  return <NoteList notes={notes} name="EmissionNotes" />;
 }
 
 /** `value` as text, with at most three decimals and no trailing zeroes. */

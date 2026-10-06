@@ -60,6 +60,8 @@ interface PreviewDisplay {
   previewAntiAliasing: AntiAliasing;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
+  /** Each emitter that writes a stencil mask draws the mask as a tint. */
+  previewMasks: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
   previewStats: boolean;
   /** A character's skeleton is drawn over it, a dot per joint and a line to its parent. */
@@ -276,6 +278,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   /* The game's own default, `DEFAULT_ANTI_ALIASING`, kept a literal so the store loads no renderer. */
   previewAntiAliasing: "fxaa",
   previewGizmo: true,
+  previewMasks: false,
   previewStats: false,
   previewArmature: false,
   previewShaders: false,
@@ -507,6 +510,7 @@ export const usePreviewAntiAliasing = () => useWorkshopLayoutStore((s) => s.prev
 export const usePreviewAmbientOcclusion = () =>
   useWorkshopLayoutStore((s) => s.previewAmbientOcclusion);
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
+export const usePreviewMasks = () => useWorkshopLayoutStore((s) => s.previewMasks);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);
 export const usePreviewShaders = () => useWorkshopLayoutStore((s) => s.previewShaders);

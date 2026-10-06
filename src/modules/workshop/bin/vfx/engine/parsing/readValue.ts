@@ -176,6 +176,12 @@ export function text(node: VfxValue | null): string | null {
   return node?.type === "string" ? node.value : null;
 }
 
+/** The value of a hash property. Null for a zero hash and for a field the object does not write. */
+export function nameId(node: VfxValue | null): string | null {
+  if (node?.type !== "hash" || Number.parseInt(node.hash, 16) === 0) return null;
+  return node.hash;
+}
+
 export function flag(node: VfxValue | null): boolean {
   return node?.type === "bool" && node.value;
 }
