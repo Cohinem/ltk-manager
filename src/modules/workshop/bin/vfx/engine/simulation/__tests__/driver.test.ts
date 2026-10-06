@@ -116,6 +116,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     quadType: QUAD_TYPE.cameraQuad,
     stencilMode: STENCIL_MODE.disabled,
     stencilRef: 0,
+    stencilReferenceId: null,
     primitiveClass: null,
     primitiveName: null,
     mesh: null,
@@ -322,6 +323,30 @@ describe("createDriver", () => {
 
     expect(snapshot(driver.pool)).toEqual(before);
     expect(driver.time).toBeGreaterThan(0);
+  });
+
+  it("reports whether a swap changes a field the simulation reads", () => {
+    const driver = run(system(emitter()), 3, 60);
+    const moved = { blendMode: 1, emitterPosition: constant(5, 0, 0) } as const;
+
+    expect(driver.swap(system(emitter({ blendMode: 1 })))).toBe(false);
+    expect(driver.swap(system(emitter(moved)))).toBe(true);
+    expect(driver.swap(system(emitter(moved)))).toBe(false);
+  });
+
+  it("returns the live particles to their first state when an edit is swapped back and replayed", () => {
+    const plain = run(system(emitter()), 3, 60);
+    plain.seek(plain.phase);
+
+    const undone = run(system(emitter()), 3, 60);
+    undone.swap(system(emitter({ emitterPosition: constant(5, 0, 0) })));
+    undone.seek(undone.phase);
+    const edited = snapshot(undone.pool);
+    undone.swap(system(emitter()));
+    undone.seek(undone.phase);
+
+    expect(edited).not.toEqual(snapshot(plain.pool));
+    expect(snapshot(undone.pool)).toEqual(snapshot(plain.pool));
   });
 
   it("carries an edit to the spawn frame and the first emission into the next batch", () => {
@@ -889,6 +914,38 @@ describe("the rig", () => {
     /* Pinning the run would put the next births back at the launch point, leaving the
        reach where the first second of flight had already carried it. */
     expect(reach(driver.pool)).toBeGreaterThan(flown);
+  });
+
+  it("moves what is alive onto the joint when the pose under a bone rig is replaced", () => {
+    const anchorAt = (x: number) => ({
+      originAt: (): [number, number, number] => [x, 0, 0],
+      basisInto: (_time: number, out: Float32Array) => {
+        out.set([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+        return out;
+      },
+    });
+    const driver = driverFor(system(emitter({ particleLifetime: constant(10) })), 3);
+    driver.steer({
+      motion: { kind: "bone", anchor: anchorAt(0), target: null },
+      life: "once",
+      height: 0,
+    });
+    for (let at = 0; at < 30; at += 1) driver.advance(1 / 60);
+
+    const alive = driver.pool.count;
+    const time = driver.time;
+    expect(alive).toBeGreaterThan(1);
+    expect(reach(driver.pool)).toBe(0);
+
+    driver.steer({
+      motion: { kind: "bone", anchor: anchorAt(100), target: null },
+      life: "once",
+      height: 0,
+    });
+
+    expect(driver.pool.count).toBe(alive);
+    expect(driver.time).toBeCloseTo(time, 6);
+    expect(trail(driver.pool)).toBe(100);
   });
 
   it("holds the phase across a tune that shortens a looping run", () => {

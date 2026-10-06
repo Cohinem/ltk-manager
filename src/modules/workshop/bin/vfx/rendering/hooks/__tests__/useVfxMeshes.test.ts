@@ -13,6 +13,7 @@ const CONE: MeshGeometry = {
   uvs: null,
   skinIndices: null,
   skinWeights: null,
+  colors: null,
   indices: new Uint32Array([0, 1, 2]),
   ranges: [],
 };
@@ -37,6 +38,22 @@ function drawnX(turn: Float32Array, geometry: ReturnType<typeof geometryOf>, at:
 }
 
 describe("geometryOf", () => {
+  it("hands the shaders the file's colour per vertex, and white for a file that holds none", () => {
+    const plain = geometryOf(CONE, MODEL).getAttribute("vertexColor");
+    const faded = geometryOf(
+      {
+        ...CONE,
+        colors: new Uint8Array([255, 255, 255, 0, 255, 255, 255, 191, 255, 255, 255, 255]),
+      },
+      MODEL,
+    ).getAttribute("vertexColor");
+
+    expect([plain.getX(0), plain.getY(0), plain.getZ(0), plain.getW(0)]).toEqual([1, 1, 1, 1]);
+    expect(faded.getW(0)).toBe(0);
+    expect(faded.getW(1)).toBeCloseTo(191 / 255, 6);
+    expect(faded.getW(2)).toBe(1);
+  });
+
   it("opens cone_add of Ahri_Base_R_mis_02 behind the missile it rides", () => {
     const geometry = geometryOf(CONE, MODEL);
 

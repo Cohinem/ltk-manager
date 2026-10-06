@@ -28,7 +28,7 @@ export function EmitterPreviewBox({
   return (
     <PreviewViewsContext value={views}>
       <div data-ui="EmitterPreviewBox" className={twMerge("relative", className)}>
-        <EmitterSurface simple={simple} listIndex={listIndex} fluid />
+        <EmitterSurface simple={simple} listIndex={listIndex} square />
         <EmitterPreviewLayer />
         {/* Over the preview layer at z-index 4. */}
         <BackdropButton className="absolute top-1 right-1 z-5" />

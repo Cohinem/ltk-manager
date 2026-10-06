@@ -7,9 +7,7 @@ import { twMerge } from "@/utils";
 
 import { FieldRow } from "../../../classes/components/ClassCells";
 import { RowDocumentContext } from "../../../tree/state/rowFold";
-import type { EmitterModel } from "../../engine/model/model";
-import { VfxRunContext } from "../../playback/state/run";
-import { useEmitters } from "../state/emitterChoice";
+import { useEmitterModel } from "../state/emitterModel";
 import type { DefaultField } from "../utils/emitterGroups";
 import { emitterLabel } from "../utils/emitterLabels";
 import {
@@ -95,18 +93,5 @@ export function PrimitiveProperty({
         />
       )}
     </>
-  );
-}
-
-/** The run's model of the emitter the inspector draws, where a run holds one. */
-function useEmitterModel(): EmitterModel | undefined {
-  const { card, child } = useEmitters();
-  const run = use(VfxRunContext);
-  if (child !== null) {
-    return child.emitter;
-  }
-
-  return run?.system?.emitters.find(
-    (emitter) => emitter.simple === card?.simple && emitter.listIndex === card?.index,
   );
 }

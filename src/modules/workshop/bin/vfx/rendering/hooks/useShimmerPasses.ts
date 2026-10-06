@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useMemo, useRef } from "react";
-import type { BufferGeometry, RawShaderMaterial } from "three";
+import { BufferAttribute, type BufferGeometry, type RawShaderMaterial } from "three";
 
 import type { BinDocumentId } from "@/lib/tauri";
 import { createProgramMaterial, EngineEnvironment, glowMaterial } from "@/modules/viewport";
@@ -76,7 +76,6 @@ const PROGRAM_ATTRIBUTES: readonly (readonly [string, string])[] = [
   ["a_POSITION", "position"],
   ["a_NORMAL", "normal"],
   ["a_TEXCOORD", "uv"],
-  ["a_COLOR", "color"],
 ];
 
 function nameForPrograms(geometry: BufferGeometry): void {
@@ -84,4 +83,18 @@ function nameForPrograms(geometry: BufferGeometry): void {
     const attribute = geometry.getAttribute(of);
     if (attribute !== undefined) geometry.setAttribute(name, attribute);
   }
+
+  const colors = geometry.getAttribute("vertexColor");
+  if (colors !== undefined) geometry.setAttribute("a_COLOR", engineOrder(colors.array));
+}
+
+/** A block of RGBA bytes as the BGRA a translated stage reads `a_COLOR` in. */
+function engineOrder(colors: ArrayLike<number>): BufferAttribute {
+  const swapped = Uint8Array.from(colors);
+  for (let at = 0; at + 3 < swapped.length; at += 4) {
+    swapped[at] = colors[at + 2];
+    swapped[at + 2] = colors[at];
+  }
+
+  return new BufferAttribute(swapped, 4, true);
 }

@@ -1,8 +1,10 @@
-import { useEffect, useMemo } from "react";
+import { type ReactNode, useEffect, useMemo } from "react";
+import type { Color } from "three";
 
 import type { BinDocumentId } from "@/lib/tauri";
 import { type Edges, jointAnchor, type Pose, useSceneColors } from "@/modules/viewport";
 
+import type { EmitterModel } from "../../engine/model/model";
 import type { Joints } from "../../engine/model/rig";
 import type { Driver } from "../../engine/simulation/driver";
 import type { Source } from "../../engine/simulation/particleRead";
@@ -10,6 +12,7 @@ import { useEmissionSurfaces } from "../hooks/useEmissionSurfaces";
 import type { EmitterMeshes } from "../hooks/useVfxMeshes";
 import { samplersOf, type VfxTextures } from "../hooks/useVfxTextures";
 import { type PickRegistry, type PickScope, PickScopeContext } from "../state/pick";
+import { MaskTintContext } from "../state/stencil";
 import { WireframeContext } from "../state/wire";
 import type { DrawnEmitter } from "../utils/definitions";
 import {
@@ -20,6 +23,8 @@ import {
   drawsAsTrail,
   drawsTheAttachment,
 } from "../utils/drawKind";
+import type { BoundUnit } from "../utils/emissionSurface";
+import { stencilOf, writesStencil } from "../utils/stencil";
 import { AttachedMeshes } from "./AttachedMeshes";
 import { Beams } from "./Beams";
 import { Meshes } from "./Meshes";
@@ -52,6 +57,13 @@ export interface VfxSystemProps {
   readonly drawOnly?: boolean;
   /** Where the drawn emitters register for a click to pick, and nowhere where unset. */
   readonly picks?: PickRegistry;
+  /** The unit the system is bound to. Its pose is used for the emission surfaces. */
+  readonly unit?: BoundUnit | null;
+  /**
+   * Tints the stencil mask of each emitter that writes one, for a view of one emitter alone.
+   * A mask writer usually draws no visible colour.
+   */
+  readonly masks?: boolean;
 }
 
 /**
@@ -71,8 +83,10 @@ export function VfxSystem({
   document = null,
   drawOnly = false,
   picks,
+  unit = null,
+  masks = false,
 }: VfxSystemProps) {
-  useEmissionSurfaces(drawn, drawOnly ? null : driver);
+  useEmissionSurfaces(drawn, drawOnly ? null : driver, unit);
   const joints = useMemo(() => {
     const lookups = new Map<string, Joints>();
     for (const [key, buffers] of meshes) {
@@ -103,13 +117,14 @@ export function VfxSystem({
     [drawn, picks],
   );
   const scopeOf = (definition: DrawnEmitter) => scopes.get(definition.key) ?? null;
+  const tintOf = ({ emitter }: DrawnEmitter) => (masks && writesMask(emitter) ? colour : null);
 
   return (
     <WireframeContext value={wire}>
       {drawn
         .filter((definition) => drawsAsQuad(definition.emitter))
         .map((definition) => (
-          <PickScopeContext key={definition.key} value={scopeOf(definition)}>
+          <EmitterScope key={definition.key} scope={scopeOf(definition)} tint={tintOf(definition)}>
             <Quads
               emitter={definition.emitter}
               sources={sourcesOf(definition)}
@@ -119,12 +134,12 @@ export function VfxSystem({
               room={room}
               document={document}
             />
-          </PickScopeContext>
+          </EmitterScope>
         ))}
       {drawn
         .filter((definition) => drawsAsProjection(definition.emitter))
         .map((definition) => (
-          <PickScopeContext key={definition.key} value={scopeOf(definition)}>
+          <EmitterScope key={definition.key} scope={scopeOf(definition)} tint={tintOf(definition)}>
             <Projections
               emitter={definition.emitter}
               sources={sourcesOf(definition)}
@@ -133,12 +148,12 @@ export function VfxSystem({
               hidden={hiddenOf(definition)}
               room={room}
             />
-          </PickScopeContext>
+          </EmitterScope>
         ))}
       {drawn
         .filter((definition) => drawsAsTrail(definition.emitter))
         .map((definition) => (
-          <PickScopeContext key={definition.key} value={scopeOf(definition)}>
+          <EmitterScope key={definition.key} scope={scopeOf(definition)} tint={tintOf(definition)}>
             <Trails
               emitter={definition.emitter}
               sources={sourcesOf(definition)}
@@ -147,12 +162,12 @@ export function VfxSystem({
               hidden={hiddenOf(definition)}
               document={document}
             />
-          </PickScopeContext>
+          </EmitterScope>
         ))}
       {drawn
         .filter((definition) => drawsAsBeam(definition.emitter))
         .map((definition) => (
-          <PickScopeContext key={definition.key} value={scopeOf(definition)}>
+          <EmitterScope key={definition.key} scope={scopeOf(definition)} tint={tintOf(definition)}>
             <Beams
               emitter={definition.emitter}
               sources={sourcesOf(definition)}
@@ -161,7 +176,7 @@ export function VfxSystem({
               hidden={hiddenOf(definition)}
               document={document}
             />
-          </PickScopeContext>
+          </EmitterScope>
         ))}
       {drawn
         .filter((definition) => drawsAsMesh(definition.emitter))
@@ -169,7 +184,11 @@ export function VfxSystem({
           const buffers = meshes.get(definition.key);
           if (buffers === undefined) return null;
           return (
-            <PickScopeContext key={definition.key} value={scopeOf(definition)}>
+            <EmitterScope
+              key={definition.key}
+              scope={scopeOf(definition)}
+              tint={tintOf(definition)}
+            >
               <Meshes
                 emitter={definition.emitter}
                 sources={sourcesOf(definition)}
@@ -179,13 +198,13 @@ export function VfxSystem({
                 hidden={hiddenOf(definition)}
                 document={document}
               />
-            </PickScopeContext>
+            </EmitterScope>
           );
         })}
       {drawn
         .filter((definition) => drawsTheAttachment(definition.emitter))
         .map((definition) => (
-          <PickScopeContext key={definition.key} value={scopeOf(definition)}>
+          <EmitterScope key={definition.key} scope={scopeOf(definition)} tint={tintOf(definition)}>
             <AttachedMeshes
               emitter={definition.emitter}
               sources={sourcesOf(definition)}
@@ -194,7 +213,7 @@ export function VfxSystem({
               hidden={hiddenOf(definition)}
               document={document}
             />
-          </PickScopeContext>
+          </EmitterScope>
         ))}
     </WireframeContext>
   );
@@ -202,6 +221,26 @@ export function VfxSystem({
 
 function noneHidden(): boolean {
   return false;
+}
+
+function writesMask(emitter: EmitterModel): boolean {
+  const stencil = stencilOf(emitter);
+  return stencil !== null && writesStencil(stencil);
+}
+
+interface EmitterScopeProps {
+  readonly scope: PickScope | null;
+  readonly tint: Color | null;
+  readonly children: ReactNode;
+}
+
+/** The pick scope and the mask tint one emitter's draw path reads. */
+function EmitterScope({ scope, tint, children }: EmitterScopeProps) {
+  return (
+    <PickScopeContext value={scope}>
+      <MaskTintContext value={tint}>{children}</MaskTintContext>
+    </PickScopeContext>
+  );
 }
 
 /* One lookup per pose, so a mesh landing leaves the other emitters' lookups identical and

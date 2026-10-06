@@ -16,10 +16,11 @@ import {
   HEADER_HEIGHT,
   layoutGraph,
   LINE_HEIGHT,
-  NODE_PREVIEW_SIZE,
+  previewHeight,
 } from "../driverLayout";
 import type { MasterItem, RenderItem, StructItem } from "../graphItems";
 import { systemGraph } from "../systemGraph";
+import type { MeasureText } from "../textWidth";
 
 const hex = (name: string) => nameHash(name).slice(2);
 
@@ -138,6 +139,39 @@ describe("classicEmitters", () => {
     expect(placed?.height).toBeGreaterThan(fieldLines(item) * LINE_HEIGHT);
   });
 
+  it("draws a Geometry node's preview shorter than a master node's of the same width", () => {
+    const { item } = master(system(SPARK));
+
+    expect(item.geometry).not.toBeNull();
+    expect(previewHeight(item.geometry!, 418)).toBe(200);
+    expect(previewHeight(item, 418)).toBe(300);
+  });
+
+  it("draws a master node's preview at 4:3 of the node's width, folded or open", () => {
+    const { item } = master(system(SPARK));
+    const tree = systemGraph(system(SPARK))!;
+    const open = layoutGraph(tree).items.find((each) => each.item.id === "c0")!;
+    const folded = layoutGraph(tree, new Set(["c0"])).items.find((each) => each.item.id === "c0")!;
+    const rows = fieldLines(item) * LINE_HEIGHT + 2 * FIELD_PADDING;
+
+    expect(previewHeight(item, 418)).toBe(300);
+    expect(folded.width).toBeLessThan(open.width);
+    expect(folded.height).toBe(HEADER_HEIGHT + 3 + previewHeight(item, folded.width) + 8);
+    expect(open.height).toBe(HEADER_HEIGHT + 3 + previewHeight(item, open.width) + 8 + rows);
+  });
+
+  it("measures a master node's name column from its field labels, within its bounds", () => {
+    const tree = systemGraph(system(SPARK))!;
+    const placed = (measure: MeasureText) =>
+      layoutGraph(tree, undefined, true, measure).items.find((each) => each.item.id === "c0");
+    const narrow = placed(() => 0);
+    const wide = placed((text) => text.length * 100);
+
+    expect(narrow?.nameWidth).toBe(160);
+    expect(wide?.nameWidth).toBe(272);
+    expect(wide!.width - narrow!.width).toBe(272 - 160);
+  });
+
   it("moves a Geometry node taller than its one input clear of the node above it", () => {
     const keyed = valueCurve("ValueVector3", vector(0, 0, 0), [
       [0, vector(0, 0, 0)],
@@ -188,7 +222,9 @@ describe("classicEmitters", () => {
     expect(item.groups.find((each) => each.group === "primitive")?.fields).toEqual([]);
     expect(fieldOf(item, "bindWeight")).toBeDefined();
     expect(tree.inputs.some((each) => each.tree.item.id === geometry.id)).toBe(true);
-    expect(placed?.height).toBe(HEADER_HEIGHT + 3 + NODE_PREVIEW_SIZE + 8 + rows);
+    expect(placed?.height).toBe(
+      HEADER_HEIGHT + 3 + previewHeight(geometry, placed!.width) + 8 + rows,
+    );
   });
 
   it("gathers the texture and render fields in a Texture node, and the primitive in Geometry", () => {

@@ -21,6 +21,7 @@ import { FRAME_SLOTS, type Pool } from "../../engine/simulation/pool";
 import { mirrorInto, standingInto, unscaleInto } from "../../engine/utils/basis";
 import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
+import { useDrawStencil } from "../state/stencil";
 import { WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { type MeshBuffers, MESHES_PER_EMITTER, written } from "../utils/buffers";
@@ -123,6 +124,7 @@ export function Meshes({
   useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled;
+  useDrawStencil(emitter, drawn, material, programs);
 
   useFrame((state) => {
     const held = pair.solid.current;

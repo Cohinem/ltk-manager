@@ -6,7 +6,7 @@ import type { RowReveal } from "../state/indexBrowser";
  * Land `reveal` on its row once the listing that holds it arrives.
  *
  * The row lands at its first appearance in `rows`, through `land`. An id no row carries
- * settles once no row is still loading. Either way `onRevealed` hears the token once.
+ * settles once no row is still loading. Either way `onRevealed` hears the token.
  */
 export function useTreeReveal<Row extends { node: { id: string; type: string } }>(
   rows: readonly Row[],
@@ -15,6 +15,15 @@ export function useTreeReveal<Row extends { node: { id: string; type: string } }
   onRevealed?: (token: number) => void,
 ): void {
   const revealed = useRef<number | null>(null);
+
+  /* StrictMode replays a mount. The replay stops the landing and scrolls the tree back to
+     its kept scroll, so the replayed effect lands again. */
+  useEffect(
+    () => () => {
+      revealed.current = null;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (reveal === null || revealed.current === reveal.token) return;

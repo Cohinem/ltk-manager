@@ -9,6 +9,7 @@ import {
   type AssetRef,
   type BinDocumentHandle,
   type DeclaredState,
+  type ObjectDeclaration,
   type SandboxRef,
 } from "@/lib/tauri";
 
@@ -20,10 +21,11 @@ import {
   previewDocument,
 } from "../../../documents/utils/contentDocument";
 import { LayerGlyph } from "../../../layers/components/LayerGlyph";
+import { assetKey } from "../../../preview/utils/assetRef";
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { sandboxKeys } from "../../../sandbox/api/keys";
 import { useRouteSandbox } from "../../../sandbox/state/SandboxContext";
-import { GAME_SANDBOX } from "../../../sandbox/utils/sandboxRef";
+import { GAME_SANDBOX, sameSandbox } from "../../../sandbox/utils/sandboxRef";
 import {
   useEditorDocument,
   useReplaceDocument,
@@ -35,6 +37,7 @@ import { useDeclareInto, useDeclaredState } from "../hooks/useDeclared";
 import type { ProjectSwitch } from "../state/projectSwitch";
 import { choiceLabel } from "../utils/declaredModule";
 import { DeclaredChoices } from "./DeclaredChoices";
+import { SandboxFiles, useDeclaringFiles } from "./SandboxFiles";
 import { SandboxRadioItem } from "./SandboxRadioItem";
 
 /** An asset tab, the kind of tab that can switch sandboxes. */
@@ -66,8 +69,10 @@ interface WriteTarget {
  * The `Sandbox (<name>)` button that leads a bin tab's header, and its options. ADR-0056.
  *
  * - The button names the sandbox, then the layer and module the next edit lands in.
- * - Read from: the project and the game. Picking one switches the tab in place. The game is
- *   disabled for a file the install has no copy of.
+ * - Read from: the project and the game. Picking one switches the tab in place, an object tab
+ *   to the file that sandbox resolves its object to. The game is disabled for a file or an
+ *   object the install has no copy of.
+ * - For an object several files declare, the files, which switch the tab in place.
  * - For a declared document, the layer edits write to and the module their new keys join,
  *   disabled with the reason above them while the document takes no edit.
  *
@@ -225,34 +230,55 @@ function SandboxChoice({ documentId, handle }: { documentId: string; handle: Bin
   const replace = useReplaceDocument();
   const asset = tab !== null && isAssetTab(tab) ? tab : null;
   const copy = useGameCopy(asset?.asset.kind === "gameChunk" ? asset.asset : handle.asset);
+  const object = asset?.kind === "object" ? asset : null;
+  const files = useDeclaringFiles(object?.objectHash ?? null, route);
+  const inGame = sandbox.kind === "game";
+  const gameless = copy.asset === null && files.inGame.length === 0;
 
   function switchTo(target: SandboxRef) {
     if (asset === null) return;
-    const next = switched(asset, target, route, copy);
+
+    /* The game keeps the tab on its own file where the install declares the object there. */
+    const own = assetKey(asset.asset);
+    const declared =
+      target.kind === "game"
+        ? (files.inGame.find((file) => assetKey(file.asset) === own) ?? files.inGame[0])
+        : files.inRoute[0];
+    const next = switched(asset, target, route, copy, declared);
     if (next !== null) replace(documentId, next);
   }
 
   return (
-    <Menu.Group>
-      <Menu.GroupLabel>{m.workshop_bin_sandbox_read_label()}</Menu.GroupLabel>
-      <Menu.RadioGroup
-        value={sandbox.kind === "game" ? GAME : PROJECT}
-        onValueChange={(value: string) => switchTo(value === GAME ? GAME_SANDBOX : route)}
-      >
-        {project !== null && (
-          <SandboxRadioItem value={PROJECT} disabled={asset === null}>
-            {project.displayName}
-          </SandboxRadioItem>
-        )}
-        <SandboxRadioItem
-          value={GAME}
-          disabled={asset === null || copy.asset === null}
-          note={copy.asset === null ? m.workshop_bin_sandbox_game_missing_hint() : undefined}
+    <>
+      <Menu.Group>
+        <Menu.GroupLabel>{m.workshop_bin_sandbox_read_label()}</Menu.GroupLabel>
+        <Menu.RadioGroup
+          value={inGame ? GAME : PROJECT}
+          onValueChange={(value: string) => switchTo(value === GAME ? GAME_SANDBOX : route)}
         >
-          {m.workshop_bin_sandbox_game_label()}
-        </SandboxRadioItem>
-      </Menu.RadioGroup>
-    </Menu.Group>
+          {project !== null && (
+            <SandboxRadioItem value={PROJECT} disabled={asset === null}>
+              {project.displayName}
+            </SandboxRadioItem>
+          )}
+          <SandboxRadioItem
+            value={GAME}
+            disabled={asset === null || gameless}
+            note={gameless ? m.workshop_bin_sandbox_game_missing_hint() : undefined}
+          >
+            {m.workshop_bin_sandbox_game_label()}
+          </SandboxRadioItem>
+        </Menu.RadioGroup>
+      </Menu.Group>
+      {object !== null && (
+        <SandboxFiles
+          files={inGame ? files.inGame : files.inRoute}
+          current={handle.asset}
+          unindexed={files.unindexed}
+          onPick={(file) => replace(documentId, declaredTab(object, file, object.sandbox))}
+        />
+      )}
+    </>
   );
 }
 
@@ -272,6 +298,8 @@ export function useProjectSwitch(
   const copy = useGameCopy(asset?.asset.kind === "gameChunk" ? asset.asset : handle.asset);
   const name = project?.displayName ?? null;
   const inGame = handle.sandbox.kind === "game";
+  const objectHash = asset?.kind === "object" && inGame ? asset.objectHash : null;
+  const declared = useDeclaringFiles(objectHash, route).inRoute[0];
 
   return useMemo(() => {
     if (name === null || asset === null || !inGame || route.kind === "game") return null;
@@ -279,11 +307,11 @@ export function useProjectSwitch(
     return {
       project: name,
       open: () => {
-        const next = switched(asset, route, route, copy);
+        const next = switched(asset, route, route, copy, declared);
         if (next !== null) replace(documentId, next);
       },
     };
-  }, [name, asset, inGame, route, copy, replace, documentId]);
+  }, [name, asset, inGame, route, copy, declared, replace, documentId]);
 }
 
 function isAssetTab(document: { kind: string }): document is AssetTab {
@@ -330,16 +358,34 @@ function useGameCopy(asset: AssetRef): GameCopy {
   };
 }
 
+/** The object tab of `tab`'s object as `file` declares it, held in `sandbox`. */
+function declaredTab(
+  tab: ContentDocumentOf<"object">,
+  file: ObjectDeclaration,
+  sandbox: SandboxRef | undefined,
+): AssetTab {
+  return objectDocument(file.asset, tab.objectHash, tab.objectPath, file.file, file.class, sandbox);
+}
+
 /**
- * The tab `tab` becomes in `target`, or null when it cannot switch. A game chunk keeps its
- * asset. A layer file switched to the game becomes the install's copy of its path.
+ * The tab `tab` becomes in `target`, or null when it cannot switch.
+ *
+ * An object tab becomes `declared`, the file `target` resolves its object to, which may sit
+ * at another path than the file the tab reads. Without one, and for a file tab, a game chunk
+ * keeps its asset, and a layer file switched to the game becomes the install's copy of its
+ * path.
  */
 function switched(
   tab: AssetTab,
   target: SandboxRef,
   route: SandboxRef,
   copy: GameCopy,
+  declared?: ObjectDeclaration,
 ): AssetTab | null {
+  if (tab.kind === "object" && declared !== undefined) {
+    return declaredTab(tab, declared, sameSandbox(target, route) ? undefined : target);
+  }
+
   if (target.kind !== "game" || tab.asset.kind === "gameChunk") {
     return inSandbox(tab, target, route);
   }

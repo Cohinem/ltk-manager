@@ -1,4 +1,4 @@
-import { type Ref, useEffect, useMemo, useRef } from "react";
+import { type Ref, use, useEffect, useMemo, useRef } from "react";
 
 import { twMerge } from "@/utils";
 
@@ -7,8 +7,10 @@ import { placeTime, type TimeSpan, timeSpan } from "../../../values/utils/valueR
 import type { Driver } from "../../engine/simulation/driver";
 import { keysAt } from "../../engine/utils/sampleCurve";
 import type { VfxRun } from "../../playback/state/run";
+import { hearAsMark } from "../utils/boardMotion";
 import { CURVE_BOX } from "../utils/curveShape";
 import type { ValueItem } from "../utils/graphItems";
+import { BoardMotionContext, OnScreenContext } from "./onScreen";
 import { useValuePlayhead } from "./valuePlayhead";
 import { useFarZoom } from "./ZoomDetail";
 
@@ -27,7 +29,9 @@ export type MarkedFace = "near" | "far";
  *
  * A curve gets a line at the playhead `useValuePlayhead` reads, with a dot on each channel as
  * the curve panel's playhead has, and a band gets the line alone. Both hide while no
- * particle lives to place them. Only the marker of the face the zoom shows follows the run.
+ * particle lives to place them. Only the marker of the face the zoom shows follows the run,
+ * and only while its node is in view. It holds still while the view is panned or zoomed, and
+ * a crowd of markers follows at `CROWDED_MS`, per `hearAsMark`.
  */
 export function CurveMarker({
   item,
@@ -40,9 +44,10 @@ export function CurveMarker({
 }) {
   const { run, read } = useValuePlayhead(item);
   const shown = useFarZoom() === (face === "far");
+  const onScreen = use(OnScreenContext);
   const plot = useMemo(() => plotOf(item.curve.keys, CURVE_BOX), [item.curve]);
   const span = useMemo(() => timeSpan(item.curve.keys.map((key) => key.time)), [item.curve]);
-  if (run === null || plot === null || !shown) return null;
+  if (run === null || plot === null || !shown || !onScreen) return null;
 
   if (shape === "band") return <PlayheadLine run={run} read={read} span={span} item={item} />;
   return <PlayheadLine run={run} read={read} span={plot} item={item} plot={plot} />;
@@ -61,10 +66,15 @@ function PlayheadLine({ run, read, span, item, plot }: PlayheadLineProps) {
   const line = useRef<HTMLSpanElement>(null);
   const dots = useRef<(HTMLSpanElement | null)[]>([]);
   const channels = plot?.lines.length ?? 0;
+  const motion = use(BoardMotionContext);
 
   useEffect(() => {
     let placed: boolean | null = null;
-    const place = () => {
+    const place = (first = false) => {
+      /* Each move repaints the board under the mark, so a view being moved keeps the frame.
+         A marker that just mounted is placed once all the same, or it would draw at zero. */
+      if (!first && motion?.moving === true) return;
+
       const t01 = read(run.driver);
       if (placed !== (t01 !== null)) {
         placed = t01 !== null;
@@ -82,9 +92,16 @@ function PlayheadLine({ run, read, span, item, plot }: PlayheadLineProps) {
         moveDot(dots.current[channel], left, percent(plotLevel(plot, 1, value)));
       });
     };
-    place();
-    return run.subscribe(place);
-  }, [run, read, span, item.curve.keys, plot]);
+    place(true);
+    const follow = () => place();
+    const unhear = hearAsMark(run.subscribe, follow);
+    const unwatch = motion?.subscribe(follow);
+
+    return () => {
+      unhear();
+      unwatch?.();
+    };
+  }, [run, read, span, item.curve.keys, plot, motion]);
 
   return (
     <>

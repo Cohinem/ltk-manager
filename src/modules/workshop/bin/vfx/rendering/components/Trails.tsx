@@ -21,6 +21,7 @@ import {
 import { AXIS, axisInto } from "../../engine/utils/basis";
 import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
+import { useDrawStencil } from "../state/stencil";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
 import { trailFacesTheCamera } from "../utils/drawKind";
@@ -114,6 +115,7 @@ export function Trails({ emitter, sources, samplers, rank, hidden, document = nu
   useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && trail !== null;
+  useDrawStencil(emitter, drawn, material, programs);
   const facesEye = trailFacesTheCamera(emitter);
 
   useFrame((state) => {

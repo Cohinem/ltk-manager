@@ -127,11 +127,13 @@ void pose(inout vec3 posedPosition, inout vec3 posedNormal) {
 
 /* `instanceMatrix` is three's own, written for an `InstancedMesh` by `setMatrixAt` and
    declared in its prefix under `USE_INSTANCING`. The tint is an attribute of the
-   emitter's own geometry rather than `instanceColor`, which three types as a `vec3`. */
+   emitter's own geometry rather than `instanceColor`, which three types as a `vec3`.
+   `vertexColor` is the mesh's own, which `mesh_vs` multiplies the tint by. */
 export const MESH_VERTEX = /* glsl */ `
 ${SHEEN_VERTEX}
 ${PARTICLE_POSE}
 attribute vec4 tint;
+attribute vec4 vertexColor;
 attribute vec3 lookup;
 attribute vec3 uvTurn;
 attribute vec4 uvShift;
@@ -149,7 +151,7 @@ varying float vErode;
 
 void main() {
   vUv = uv;
-  vColor = tint;
+  vColor = tint * vertexColor;
   vTurn = uvTurn;
   vShift = uvShift;
   vTurnMult = uvTurnMult;

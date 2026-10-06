@@ -9,8 +9,8 @@ import type { BinDocumentId, SheetSpec } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { MatchedText } from "../../../shared/components/MatchedText";
+import { instantScroll } from "../../../shared/utils/instantScroll";
 import { Notice } from "../../shared/preview/Notice";
-import { instantScroll } from "../../tree/hooks/useRowWindow";
 import { sheetSpriteAt } from "../engine/edit/spriteEdits";
 import {
   type SpriteRow,

@@ -12,6 +12,7 @@ function mesh(indices: number[], ranges: MeshRange[]): MeshGeometry {
     uvs: null,
     skinIndices: null,
     skinWeights: null,
+    colors: null,
     indices: Uint32Array.from(indices),
     ranges,
   };

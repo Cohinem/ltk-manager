@@ -32,8 +32,12 @@ import { FORCE_COLLECTION } from "../../forces/forceModel";
 import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
 import { useForces } from "../../forces/useForces";
 import { VfxRunContext } from "../../playback/state/run";
+import { STENCIL_FIELD } from "../../stencil/stencilEdits";
+import { StencilNotes } from "../../stencil/StencilNotes";
+import { StencilMaskProperty, StencilModeProperty } from "../../stencil/StencilProperty";
 import { useEmitters } from "../state/emitterChoice";
 import { useDefinedOnly, useInspectorPreview } from "../state/inspectorView";
+import { SURFACE_FIELD } from "../utils/emissionSource";
 import { emitterChain, emitterRows } from "../utils/emitterCards";
 import {
   type DefaultField,
@@ -58,8 +62,11 @@ import { PRIMITIVE_FIELD } from "../utils/primitives";
 import { rowHasDefault } from "../utils/propertyDefaults";
 import { AddPropertyBox, useAddedJump } from "./AddPropertyBox";
 import { DefaultProperty } from "./DefaultProperty";
+import { EmissionNotes } from "./EmissionNotes";
 import { InspectorActions } from "./InspectorActions";
 import { PrimitiveProperty } from "./PrimitiveProperty";
+import { RateReadout } from "./RateReadout";
+import { SurfaceProperty } from "./SurfaceProperty";
 
 /** The shared label column of the inspector's property tables. */
 const NAME_COLUMN = "w-(--name-width)";
@@ -368,6 +375,7 @@ function GroupSection({
 }: GroupSectionProps) {
   const { report, card, open: aimed, jumpRequest } = useEmitters();
   const { data: schema } = useClassSchema(owner);
+  const running = (use(VfxRunContext)?.system ?? null) !== null;
   const [fold, setFold] = useState<boolean | null>(null);
   const [navigation, setNavigation] = useState({ key: card?.key, request: jumpRequest });
   const root = useRef<HTMLElement | null>(null);
@@ -445,6 +453,11 @@ function GroupSection({
         <CaretRightIcon weight="bold" className={twMerge("size-3", open && "rotate-90")} />
         {title}
       </button>
+      {open && !searching && group === "emission" && <RateReadout />}
+      {open && !searching && (group === "emission" || group === "source") && (
+        <EmissionNotes group={group} />
+      )}
+      {open && !searching && group === "stencil" && <StencilNotes />}
       {open &&
         properties.map((property, at) => {
           const key = `${card?.key ?? owner}:${property.hash}`;
@@ -452,8 +465,47 @@ function GroupSection({
             return (
               <PrimitiveProperty
                 key={key}
-                field={primitiveField(property, schema?.fields)}
+                field={schemaField(property, schema?.fields)}
                 holder={card.row}
+                authored={"row" in property ? property.row : undefined}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          if (property.hash === SURFACE_FIELD && card !== undefined) {
+            return (
+              <SurfaceProperty
+                key={key}
+                field={schemaField(property, schema?.fields)}
+                holder={card.row}
+                authored={"row" in property ? property.row : undefined}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          if (property.hash === STENCIL_FIELD.mode && card !== undefined) {
+            return (
+              <StencilModeProperty
+                key={key}
+                field={schemaField(property, schema?.fields)}
+                emitterRow={card.row}
+                authored={"row" in property ? property.row : undefined}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          if (property.hash === STENCIL_FIELD.ref && card !== undefined && running) {
+            return (
+              <StencilMaskProperty
+                key={key}
+                field={schemaField(property, schema?.fields)}
+                emitterRow={card.row}
                 authored={"row" in property ? property.row : undefined}
                 width={NAME_COLUMN}
                 owner={owner}
@@ -523,7 +575,7 @@ function GroupSection({
 }
 
 /** The schema's reading of a property, and its bare name where the schema has none. */
-function primitiveField(
+function schemaField(
   property: InspectorProperty,
   fields: readonly FieldSchema[] | undefined,
 ): DefaultField {

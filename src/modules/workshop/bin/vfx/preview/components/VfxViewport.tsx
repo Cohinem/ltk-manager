@@ -1,6 +1,6 @@
 import { XIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components";
 import { errorSummary, m } from "@/i18n";
@@ -15,6 +15,7 @@ import {
 import {
   usePreviewGizmo,
   usePreviewGround,
+  usePreviewMasks,
   usePreviewMidlane,
   usePreviewStats,
   usePreviewViewMode,
@@ -25,8 +26,11 @@ import { CameraMenu } from "../../../shared/preview/CameraMenu";
 import { ShadersToggle } from "../../../shared/preview/PreviewToggle";
 import { PreviewViewport } from "../../../shared/preview/PreviewViewport";
 import { ViewModeMenu } from "../../../shared/preview/ViewModeMenu";
-import { FitButton, ViewportControls } from "../../../shared/preview/ViewportControls";
-import { nameHash } from "../../../shared/utils/binHash";
+import {
+  ControlDivider,
+  FitButton,
+  ViewportControls,
+} from "../../../shared/preview/ViewportControls";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import type { EmitterModel, SystemModel } from "../../engine/model/model";
 import type { RigModel } from "../../engine/model/rig";
@@ -45,14 +49,20 @@ import { VfxSystem } from "../../rendering/components/VfxSystem";
 import { useVfxMeshes } from "../../rendering/hooks/useVfxMeshes";
 import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { createPickRegistry } from "../../rendering/state/pick";
-import type { AssetLoad } from "../../rendering/utils/assetLoad";
 import { type DrawnEmitter, drawnEmitters } from "../../rendering/utils/definitions";
 import { distorts, drawsTheAttachment, isUndrawn } from "../../rendering/utils/drawKind";
 import { fades } from "../../rendering/utils/softParticle";
 import { definitionBounds, rigGround } from "../../rendering/utils/systemBounds";
 import { chosenEmitter } from "../../timeline/utils/selection";
+import { useWarmUp } from "../hooks/useWarmUp";
 import { createGrabLatch } from "../utils/grabLatch";
-import { handleBlock, type HandleKind } from "../utils/spatialHandles";
+import {
+  handleBlock,
+  type HandleKind,
+  isOverride,
+  OVERRIDE_FIELD,
+  overrideEdit,
+} from "../utils/spatialHandles";
 import { EmitterMarks } from "./EmitterMarks";
 import { EmitterTransform, type TransformMode } from "./EmitterTransform";
 import { HandleMenu } from "./HandleMenu";
@@ -96,6 +106,10 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const textures = useVfxTextures(drawn, reportTextures);
   const meshes = useVfxMeshes(drawn, reportMeshes);
   const host = useVfxHost();
+  const unit = useMemo(
+    () => (host.pose === null ? null : { pose: host.pose, offset: host.offset }),
+    [host.pose, host.offset],
+  );
   const queries = useQueryClient();
   const picks = useMemo(createPickRegistry, []);
   const latch = useMemo(createGrabLatch, []);
@@ -103,6 +117,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const ground = usePreviewGround();
   const midlane = usePreviewMidlane();
   const gizmo = usePreviewGizmo();
+  const masks = usePreviewMasks();
   const stats = usePreviewStats();
   const viewMode = usePreviewViewMode();
   const wireOverlay = usePreviewWireOverlay();
@@ -122,8 +137,24 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const transformMode: TransformMode | null =
     handle === "offset" ? "translate" : handle === "turn" ? "rotate" : null;
   const spatial = handle === null || handle === "offset" || handle === "turn" ? null : handle;
-  const translationRow = root?.fields(nameHash("translationOverride"));
-  const rotationRow = root?.fields(nameHash("rotationOverride"));
+  const translationRow = root?.fields(OVERRIDE_FIELD.offset);
+  const rotationRow = root?.fields(OVERRIDE_FIELD.turn);
+  /* A handle whose override the file does not hold writes it as it is chosen, so its item in
+     the menu is the way to start authoring it. */
+  const adds = (kind: HandleKind) =>
+    isOverride(kind) &&
+    (kind === "offset" ? translationRow : rotationRow) === undefined &&
+    root !== undefined &&
+    edit?.editProperty !== undefined;
+  const choose = async (kind: HandleKind | null) => {
+    forcePreview.select(null);
+    setHandle(kind);
+    if (kind === null || !isOverride(kind) || !adds(kind)) return;
+
+    const { field, edits } = overrideEdit(kind);
+    const written = await edit?.editProperty?.(root!.row, field, edits);
+    if (written !== true) setHandle((held) => (held === kind ? null : held));
+  };
   const transformRow = transformMode === "translate" ? translationRow : rotationRow;
   const selected = chosenEmitter(system, root);
   const feed = useMemo(createStatsFeed, []);
@@ -165,6 +196,8 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                   edges={edgesOf(viewMode, wireOverlay)}
                   document={document}
                   picks={picks}
+                  unit={unit}
+                  masks={masks}
                 />
               </VfxHost>
               <ViewportPick picks={picks} system={shown} latch={latch} />
@@ -174,6 +207,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                 driver={driver}
                 opened={child === null ? opened : null}
                 gizmo={gizmo}
+                handle={edit !== null && selectedForce === undefined ? spatial : null}
               />
               {edit !== null &&
                 selectedForce === undefined &&
@@ -236,24 +270,32 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
           <ViewportNotice text={m.workshop_bin_preview_emitters_empty()} />
         )}
 
-        <ViewportControls data-ui="VfxViewport:controls">
-          <ShowMenu />
-          <ShadersToggle />
-          <ViewModeMenu />
-          <CameraMenu />
+        <ViewportControls
+          data-ui="VfxViewport:controls"
+          className="max-w-[calc(100%-1rem)] flex-wrap justify-end"
+        >
+          <div className="flex shrink-0 items-center gap-0.5">
+            <ShowMenu />
+            <ShadersToggle />
+            <ViewModeMenu />
+          </div>
+          <ControlDivider />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <CameraMenu />
+            <FitButton label={m.workshop_bin_preview_fit_action()} onFit={requestFit} />
+          </div>
           {edit !== null && child === null && opened !== null && (
             <>
+              <ControlDivider />
               <HandleMenu
                 value={handle}
                 blocked={(kind) => handleHint(kind, opened, translationRow, rotationRow)}
-                onChange={(kind) => {
-                  forcePreview.select(null);
-                  setHandle(kind);
-                }}
+                adds={adds}
+                onChange={(kind) => void choose(kind)}
               />
             </>
           )}
-          <FitButton label={m.workshop_bin_preview_fit_action()} onFit={requestFit} />
+          <ControlDivider />
           <RigControl />
         </ViewportControls>
 
@@ -352,66 +394,6 @@ function Fit({ token, system, drawn, rig }: FitProps) {
   return null;
 }
 
-/** The longest a first load pauses the run at its start, so an asset that never lands still plays. */
-const WARM_UP_LIMIT_MS = 4000;
-
-/**
- * The run paused at its start while the first textures and meshes land.
- *
- * Answers the reports the two asset hooks take. A load an edit brings in comes after the
- * warm-up and pauses nothing, which decision 2.5 of docs/plans/vfx-particle-renderer.md keeps.
- */
-function useWarmUp(drawn: readonly DrawnEmitter[], setWarming: (warming: boolean) => void) {
-  const load = useRef({ drawn, textures: false, meshes: false, over: false });
-  load.current.drawn = drawn;
-
-  const settle = useCallback(() => {
-    const current = load.current;
-    if (current.over || !current.textures || !current.meshes) return;
-
-    current.over = true;
-    setWarming(false);
-  }, [setWarming]);
-
-  const reportTextures = useCallback(
-    ({ pending }: AssetLoad) => {
-      if (pending > 0 || load.current.drawn.length === 0) return;
-
-      load.current.textures = true;
-      settle();
-    },
-    [settle],
-  );
-
-  const reportMeshes = useCallback(
-    ({ pending }: AssetLoad) => {
-      if (pending > 0 || load.current.drawn.length === 0) return;
-
-      load.current.meshes = true;
-      settle();
-    },
-    [settle],
-  );
-
-  const loaded = drawn.length > 0;
-  useEffect(() => {
-    if (!loaded || load.current.over) return;
-
-    setWarming(true);
-    const limit = window.setTimeout(() => {
-      load.current.over = true;
-      setWarming(false);
-    }, WARM_UP_LIMIT_MS);
-
-    return () => {
-      window.clearTimeout(limit);
-      setWarming(false);
-    };
-  }, [loaded, setWarming]);
-
-  return { reportTextures, reportMeshes };
-}
-
 interface ViewportNoticeProps {
   readonly text: string;
   /** The reason under the line, such as a failed read's error. */
@@ -474,13 +456,15 @@ function handleHint(
   translationRow: BinRow | undefined,
   rotationRow: BinRow | undefined,
 ): string | null {
-  if (kind === "offset" || kind === "turn") {
+  if (isOverride(kind)) {
     const row = kind === "offset" ? translationRow : rotationRow;
-    return row?.value.type === "vector" ? null : m.workshop_bin_transform_missing_hint();
+    if (row === undefined || row.value.type === "vector") return null;
+    return m.workshop_bin_transform_missing_hint();
   }
 
   const block = handleBlock(kind, emitter);
   if (block === "animated") return m.workshop_bin_handle_animated_hint();
   if (block === "noShape") return m.workshop_bin_handle_no_shape_hint();
+  if (block === "noMesh") return m.workshop_bin_handle_no_mesh_hint();
   return null;
 }

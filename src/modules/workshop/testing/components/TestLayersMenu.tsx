@@ -34,6 +34,7 @@ export function TestLayersMenu({ project, className }: TestLayersMenuProps) {
           <Button
             data-ui="TestLayersMenu"
             variant="ghost"
+            size="sm"
             right={<CaretDownIcon weight="bold" className="size-3.5" />}
             aria-label={m.workshop_test_layers_label()}
             className={twMerge("w-auto gap-1 px-1.5 text-xs tabular-nums", className)}

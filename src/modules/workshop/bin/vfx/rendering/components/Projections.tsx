@@ -15,6 +15,7 @@ import {
 } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
+import { useDrawStencil } from "../state/stencil";
 import { fragmentTests } from "../utils/blend";
 import { projectionBuffers, QUADS_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
@@ -72,6 +73,7 @@ export function Projections({
 
   const pair = useDrawPair<Mesh>(material, drawLayersOf(emitter));
   const drawn = !hidden && !emitter.disabled && drawsAsProjection(emitter);
+  useDrawStencil(emitter, drawn, material);
 
   useFrame((state) => {
     if (!drawn) {

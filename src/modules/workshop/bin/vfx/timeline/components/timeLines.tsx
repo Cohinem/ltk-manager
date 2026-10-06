@@ -1,5 +1,7 @@
 import { type RefObject, useCallback, useLayoutEffect, useMemo, useRef } from "react";
 
+import { writeText } from "@/utils";
+
 import { useVfxRun } from "../../playback/state/run";
 import type { SnapKeys } from "../hooks/useTimeSnap";
 import { type TimeWindow, xOf } from "../utils/laneModel";
@@ -44,7 +46,7 @@ export function useTimeLine(): TimeLine {
     const label = chip.current;
     if (label === null || !shown) return;
 
-    label.textContent = time.toFixed(2);
+    writeText(label, time.toFixed(2));
     placeChip(label, x, width);
   }, []);
 

@@ -56,7 +56,10 @@ export interface ObjectRowNode {
   readonly objectHash: string;
   /** The path is a hash no table names. */
   readonly unnamed: boolean;
-  /** The install's declarations in archive order, then the project's layers'. */
+  /**
+   * The project's layers' declarations, then the install's in archive order, the order a
+   * project sandbox resolves the object in (ADR-0056). The row stands for the first.
+   */
   readonly declarations: readonly ObjectDeclaration[];
   /** The layers declaring the object, for the row's mark. */
   readonly layers: readonly LayerMark[];
@@ -197,7 +200,7 @@ export function objectListingNodes(
   return [...prefixes, ...objects];
 }
 
-/** The row of `entry`, its declarations joined with the layers', over `below`. */
+/** The row of `entry`, the layers' declarations ahead of its own, over `below`. */
 function objectNode(
   entry: ObjectNodeEntry,
   layers: LayerDeclarations,
@@ -213,7 +216,7 @@ function objectNode(
     name: entry.name,
     objectHash: entry.objectHash,
     unnamed: entry.path === entry.objectHash,
-    declarations: [...entry.declarations, ...fromLayers.map((declared) => declared.declaration)],
+    declarations: [...fromLayers.map((declared) => declared.declaration), ...entry.declarations],
     layers: fromLayers.map((declared) => declared.layer),
     count: entry.count,
     ranges,

@@ -255,6 +255,7 @@ function LiveScene({ drawn }: { drawn: readonly DrawnEmitter[] }) {
           meshes={meshes}
           document={document}
           drawOnly
+          masks
         />
       )}
     </>

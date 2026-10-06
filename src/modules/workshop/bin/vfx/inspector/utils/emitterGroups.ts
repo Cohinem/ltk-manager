@@ -7,6 +7,7 @@ import { fieldHash } from "../../../tree/utils/binRows";
 /** One component group of an emitter, in the order a card lists them. */
 export type EmitterGroup =
   | "emission"
+  | "source"
   | "birth"
   | "initialMotion"
   | "motion"
@@ -16,6 +17,7 @@ export type EmitterGroup =
   | "primitive"
   | "texture"
   | "render"
+  | "stencil"
   | "material"
   | "effects"
   | "other";
@@ -54,6 +56,20 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "HasVariableStartTime",
     "importance",
   ],
+  /* The terms of a birth position, in the order the engine adds them. */
+  source: [
+    "EmitterPosition",
+    "IsEmitterSpace",
+    "emissionMeshName",
+    "emissionMeshScale",
+    "useEmissionMeshNormalForBirth",
+    "emissionSurfaceDefinition",
+    "SpawnShape",
+    "shape",
+    "FlexShapeDefinition",
+    "offsetLifetimeScaling",
+    "offsetLifeScalingSymmetryMode",
+  ],
   birth: [
     "birthColor",
     "birthScale0",
@@ -78,11 +94,6 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
   ],
   motion: ["velocity", "acceleration", "worldAcceleration", "drag"],
   position: [
-    "EmitterPosition",
-    "SpawnShape",
-    "FlexShapeDefinition",
-    "shape",
-    "IsEmitterSpace",
     "isFollowingTerrain",
     "isGroundLayer",
     "useNavmeshMask",
@@ -91,8 +102,6 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "directionVelocityMinScale",
     "translationOverride",
     "flexOffset",
-    "offsetLifetimeScaling",
-    "offsetLifeScalingSymmetryMode",
     "rotation0",
     "rotationOverride",
     "isRotationEnabled",
@@ -101,10 +110,6 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "isDirectionOriented",
     "isLocalOrientation",
     "particleIsLocalOrientation",
-    "emissionMeshName",
-    "emissionMeshScale",
-    "emissionSurfaceDefinition",
-    "useEmissionMeshNormalForBirth",
   ],
   scale: [
     "scale0",
@@ -165,14 +170,12 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "DepthPushPull",
     "softParticleParams",
     "sliceTechniqueRange",
-    "stencilMode",
-    "stencilRef",
-    "StencilReferenceId",
     "miscRenderFlags",
     "meshRenderFlags",
     "SortEmittersByPos",
     "LegacySimple",
   ],
+  stencil: ["stencilMode", "stencilRef", "StencilReferenceId"],
   material: ["Material", "CustomMaterial", "materialOverrideDefinitions", "materialDrivers"],
   effects: ["Audio", "childParticleSetDefinition", "fieldCollectionDefinition"],
 };
@@ -180,6 +183,7 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
 /** The word a chip and the panel's heading carry. */
 export const GROUP_TITLE: Record<EmitterGroup, () => string> = {
   emission: m.workshop_bin_emitter_group_emission_label,
+  source: m.workshop_bin_emitter_group_source_label,
   birth: m.workshop_bin_emitter_group_birth_label,
   initialMotion: m.workshop_bin_emitter_group_initial_motion_label,
   motion: m.workshop_bin_emitter_group_motion_label,
@@ -189,6 +193,7 @@ export const GROUP_TITLE: Record<EmitterGroup, () => string> = {
   primitive: m.workshop_bin_emitter_group_primitive_label,
   texture: m.workshop_bin_emitter_group_texture_label,
   render: m.workshop_bin_emitter_group_render_label,
+  stencil: m.workshop_bin_emitter_group_stencil_label,
   material: m.workshop_bin_emitter_group_material_label,
   effects: m.workshop_bin_emitter_group_effects_label,
   other: m.workshop_bin_section_other_label,
@@ -197,6 +202,7 @@ export const GROUP_TITLE: Record<EmitterGroup, () => string> = {
 /** Every group in the order a card lists them, Other last. */
 export const GROUP_ORDER: readonly EmitterGroup[] = [
   "emission",
+  "source",
   "birth",
   "initialMotion",
   "motion",
@@ -206,6 +212,7 @@ export const GROUP_ORDER: readonly EmitterGroup[] = [
   "primitive",
   "texture",
   "render",
+  "stencil",
   "material",
   "effects",
   "other",

@@ -1,3 +1,5 @@
+import { writeText } from "@/utils";
+
 import type { Histogram } from "../../engine/simulation/driver";
 import { type TimeWindow, xOf } from "./laneModel";
 
@@ -11,8 +13,7 @@ export function liveCount(histogram: Histogram, emitter: number): number {
 export function writeCounts(root: HTMLElement | null, histogram: Histogram): void {
   if (root === null) return;
   for (const span of root.querySelectorAll<HTMLElement>("[data-count]")) {
-    const text = String(liveCount(histogram, Number(span.dataset.count)));
-    if (span.textContent !== text) span.textContent = text;
+    writeText(span, String(liveCount(histogram, Number(span.dataset.count))));
   }
 }
 

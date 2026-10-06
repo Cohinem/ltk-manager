@@ -9,7 +9,12 @@ import {
   splitLeaf,
 } from "@/modules/editor/layout";
 
-import { firstShellLeafId, type ShellKind } from "../../bin/shell/utils/shellPanes";
+import {
+  firstShellLeafId,
+  type ShellKind,
+  type ShellPaneId,
+} from "../../bin/shell/utils/shellPanes";
+import type { FloatingShellPanes } from "./projectEditor";
 import { reorderLeafTabs } from "./tabOrder";
 
 /** The map without `kind`, and the map itself where it holds no pane for one. */
@@ -22,6 +27,18 @@ export function withoutShellLeaf(
   const rest = { ...held };
   delete rest[kind];
   return rest;
+}
+
+/** The map without `paneId` floating over `kind`, and the map itself where it does not float. */
+export function withoutFloatingPane(
+  held: FloatingShellPanes,
+  kind: ShellKind,
+  paneId: ShellPaneId,
+): FloatingShellPanes {
+  const floating = held[kind];
+  if (floating === undefined || !floating.includes(paneId)) return held;
+
+  return { ...held, [kind]: floating.filter((each) => each !== paneId) };
 }
 
 /** `leafId` when the tree still holds it, and the first leaf when a prune took it. */

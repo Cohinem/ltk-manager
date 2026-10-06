@@ -633,6 +633,11 @@ directions, from points off the surface.
 **Fix.** Skip the turn when `useSurfaceNormalForBirthPhysics` is set. Skip the shape offset when
 the surface sample succeeds.
 
+**Outcome.** Not applied. The meta wiki's note on `useEmissionMeshNormalForBirth` states that the
+`SpawnShape` rotation runs after the normal and turns the result, and its page for
+`VfxEmissionSurfaceData` states that the surface point is added to the birth position. The code
+does both.
+
 ### 4.4 Smaller issues
 
 | Issue                                                   | Location                                                                                                               | Effect                                                                                | Fix                                                                                                      |
@@ -643,6 +648,15 @@ the surface sample succeeds.
 | `maxJointWeights` of 0 skins to the bind pose           | `rendering/utils/emissionSurface.ts:30-52`, `engine/parsing/readEmissionSurface.ts:29`                                 | A weight count of 0 gives the bind position                                           | Clamp to [1, 4], as the engine does                                                                      |
 | Gizmo turns local-space directions by the full frame    | `forces/forceGeometry.ts:56-72` against `engine/simulation/integrate.ts:260`                                           | On a rotated system, the arrow points away from the force actually applied            | Build the gizmo frame from the rig yaw alone                                                             |
 | Bone child sets never spawn on a host character         | `preview/components/VfxViewport.tsx:80`, `rendering/utils/definitions.ts:67`, `preview/components/VfxHost.tsx:163-188` | Attached meshes draw on the host, but `boneToSpawnAt` sets do not                     | Pass `posed = true` and a joint lookup off `host.pose` once the host is ready                            |
+
+Outcomes for the emission surface rows:
+
+- Flat face normal on mesh surfaces: fixed. A skinned mesh surface blends its skinned vertex
+  normals.
+- Skeleton surface: changed to the meta wiki's reading of `VfxEmissionSkeletonData`. A bone is
+  picked by its rest-pose length, the point is uniform along the bone in the current pose, and
+  the direction is random at right angles to the bone. The reading in this row was not applied.
+- `maxJointWeights` of 0: fixed. The reader clamps to 1 through 4.
 
 ## 5. Draw paths against the engine
 

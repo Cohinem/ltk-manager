@@ -13,8 +13,10 @@ export { ProjectGrid } from "../projects/components/ProjectGrid";
 export { ProjectTable } from "../projects/components/ProjectTable";
 export * from "../projects/components/RenameProjectDialog";
 export { WorkshopActiveFilterChips } from "../projects/components/WorkshopActiveFilterChips";
+export { WorkshopListFooter } from "../projects/components/WorkshopControls";
 export { WorkshopFilterPopover } from "../projects/components/WorkshopFilterPopover";
 export { WorkshopHeader } from "../projects/components/WorkshopHeader";
+export { WorkshopTestDock } from "../projects/components/WorkshopTestDock";
 export {
   appendAuthor,
   AuthorsSection,

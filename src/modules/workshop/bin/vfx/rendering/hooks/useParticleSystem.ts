@@ -11,7 +11,8 @@ import { useVfxTextures } from "./useVfxTextures";
  * A system run on a driver of its own, with the textures and meshes its drawn emitters read.
  *
  * The driver is made once per seed. A new system swaps into it and a new rig steers it, so
- * an edit keeps the run where it stood.
+ * an edit keeps the run's clock. A system that changes a field the simulation reads replays
+ * the run to its phase, so the particles alive follow the edit.
  */
 export function useParticleSystem(
   system: SystemModel,
@@ -24,7 +25,8 @@ export function useParticleSystem(
   const driver = useMemo(() => createDriver(seed), [seed]);
 
   useEffect(() => {
-    driver.swap(system);
+    const time = driver.phase;
+    if (driver.swap(system)) driver.seek(time);
   }, [driver, system]);
 
   useEffect(() => {

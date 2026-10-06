@@ -46,6 +46,8 @@ const OVERSCAN = 8;
 
 /** Space between the frame and the rows on each side, in pixels. */
 const GUTTER = 8;
+/* Room under the last row for the Test dock that floats over the table's bottom right corner. */
+const DOCK_CLEARANCE = 48;
 
 /** Space between the header and the first row, in pixels. */
 const ROWS_TOP = 4;
@@ -268,7 +270,13 @@ export function ProjectTable({ projects, onEdit }: ProjectTableProps) {
       style={columnStyle}
       className="group/table relative min-h-0 flex-1 overflow-auto outline-none scrollbar-md"
     >
-      <div style={{ width: totalWidth + 2 * GUTTER, minWidth: "100%", paddingBottom: GUTTER }}>
+      <div
+        style={{
+          width: totalWidth + 2 * GUTTER,
+          minWidth: "100%",
+          paddingBottom: GUTTER + DOCK_CLEARANCE,
+        }}
+      >
         <ArrangedTableHeader
           columns={headerColumns}
           store={useProjectTableStore}
@@ -336,7 +344,7 @@ export function ProjectTable({ projects, onEdit }: ProjectTableProps) {
 }
 
 /** A checkbox over a set of projects: every one of them, or none. Quiet while a session runs. */
-function PickAll({
+export function PickAll({
   paths,
   label,
   onPicked,

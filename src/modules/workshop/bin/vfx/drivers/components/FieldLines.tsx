@@ -45,7 +45,7 @@ export const NAME_COLUMN = "w-(--name-width)";
 /** `FIELD_PADDING` above and below a node's rows. */
 export const FIELD_PAD = "py-1";
 
-const FIELD_STYLE = { ...COLUMN_STYLE, "--name-width": "9rem" } as CSSProperties;
+const FIELD_STYLE = { ...COLUMN_STYLE, "--name-width": "10rem" } as CSSProperties;
 
 /* A struct is a node of its own, so no row of a node body opens in place. */
 const NO_FOLD: RowFold = { isOpen: () => false, toggle: () => undefined };

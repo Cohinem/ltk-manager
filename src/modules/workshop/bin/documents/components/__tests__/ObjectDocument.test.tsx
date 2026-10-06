@@ -62,7 +62,6 @@ vi.mock("../../hooks/useBinDocument", () => ({
   useObjectRoots: () => HANDLE.rows,
 }));
 
-vi.mock("../../../links/components/OtherDeclarations", () => ({ OtherDeclarations: () => null }));
 vi.mock("../../../tree/components/BinTree", () => ({ BinTree: () => null }));
 vi.mock("../../../curves/components/CurveSurface", () => ({
   CurveSurface: () => <div>curve surface</div>,

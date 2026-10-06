@@ -1,9 +1,15 @@
 import { horizontalListSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { XIcon } from "@phosphor-icons/react";
+import {
+  ArrowsInSimpleIcon,
+  ArrowSquareOutIcon,
+  ArrowsOutSimpleIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { type CSSProperties, type ReactNode } from "react";
 
-import { IconButton, Tabs } from "@/components";
+import { ContextMenu, IconButton, Tabs } from "@/components";
+import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { tabDroppableId } from "./dnd";
@@ -26,6 +32,10 @@ export interface PaneStripProps {
   onClose?: (id: string) => void;
   /** A double click on a tab, which fills the shell with this leaf. */
   onMaximize?: () => void;
+  /** This leaf fills the shell, so a tab's menu offers the way back. */
+  maximized?: boolean;
+  /** Takes a pane out of the strip into a floating frame. Absent leaves no way to float one. */
+  onFloat?: (id: string) => void;
   /** Drawn after the tabs, for a control the pane itself owns. */
   actions?: ReactNode;
   /** Whether the actions sit at the strip's right end or take the rest of the strip. */
@@ -39,6 +49,9 @@ export interface PaneStripProps {
  * The drag context lives above the whole tree rather than here, so a pane can
  * leave its own strip. Shorter than the document strip, because a pane title is
  * chrome over content the reader came for rather than the thing they chose.
+ *
+ * A right click on a tab offers what the host passed a handler for: Float, Maximize or
+ * Restore, and Close. The open pane's tab also carries Float as a button beside its Close.
  */
 export function PaneStrip({
   leafId,
@@ -47,6 +60,8 @@ export function PaneStrip({
   onActivate,
   onClose,
   onMaximize,
+  maximized = false,
+  onFloat,
   actions,
   actionsWidth = "end",
   className,
@@ -82,6 +97,8 @@ export function PaneStrip({
               caretBefore={caretIndex === index}
               onClose={onClose}
               onMaximize={onMaximize}
+              maximized={maximized}
+              onFloat={onFloat}
             />
           ))}
         </SortableContext>
@@ -100,6 +117,8 @@ interface SortableStripTabProps {
   caretBefore: boolean;
   onClose?: (id: string) => void;
   onMaximize?: () => void;
+  maximized: boolean;
+  onFloat?: (id: string) => void;
 }
 
 function SortableStripTab({
@@ -109,6 +128,8 @@ function SortableStripTab({
   caretBefore,
   onClose,
   onMaximize,
+  maximized,
+  onFloat,
 }: SortableStripTabProps) {
   const { setNodeRef, listeners, transform, transition, isDragging } = useSortable({
     id: tabDroppableId(leafId, pane.id),
@@ -119,43 +140,105 @@ function SortableStripTab({
     transition: [transition, "background-color 150ms, color 150ms"].filter(Boolean).join(", "),
   };
 
+  const tabProps = {
+    ref: setNodeRef,
+    style,
+    "data-ui": "PaneStrip:tab",
+    onDoubleClick: () => onMaximize?.(),
+    ...listeners,
+    className: twMerge(
+      "group/reveal relative flex h-5 max-w-56 shrink-0 touch-none items-center rounded-sm pr-0.5",
+      /* The open pane rises off the strip rather than marking itself with a
+         rule: DS-GROUND. */
+      active && "bg-surface-800 text-surface-100",
+      !active && "text-surface-400 hover:bg-surface-800/60 hover:text-surface-100",
+      /* The overlay ghost is the drag preview, so the tab itself only marks
+         the slot it left. */
+      isDragging && "opacity-40",
+    ),
+  };
+  const menued = onFloat !== undefined || onMaximize !== undefined || onClose !== undefined;
+
+  const body = (
+    <>
+      <Tabs.Tab
+        value={pane.id}
+        className="min-w-0 shrink cursor-pointer gap-1 px-1.5 py-0 font-sans text-xs font-medium tracking-wide uppercase"
+      >
+        {pane.icon}
+        <span className="truncate">{pane.title}</span>
+      </Tabs.Tab>
+      {/* On the open pane alone, so the other tabs keep their width. */}
+      {onFloat && active && (
+        <IconButton
+          icon={<ArrowSquareOutIcon />}
+          size="row"
+          reveal
+          onClick={() => onFloat(pane.id)}
+          label={m.editor_pane_float_label({ title: pane.title })}
+        />
+      )}
+      {onClose && (
+        <IconButton
+          icon={<XIcon />}
+          size="row"
+          reveal
+          onClick={() => onClose(pane.id)}
+          aria-label={`Close ${pane.title}`}
+        />
+      )}
+    </>
+  );
+
+  if (!menued) {
+    return (
+      <>
+        {caretBefore && <DropCaret />}
+        <div {...tabProps}>{body}</div>
+      </>
+    );
+  }
+
   return (
     <>
       {caretBefore && <DropCaret />}
-      <div
-        ref={setNodeRef}
-        style={style}
-        data-ui="PaneStrip:tab"
-        onDoubleClick={() => onMaximize?.()}
-        {...listeners}
-        className={twMerge(
-          "group/reveal relative flex h-5 max-w-56 shrink-0 touch-none items-center rounded-sm pr-0.5",
-          /* The open pane rises off the strip rather than marking itself with a
-             rule: DS-GROUND. */
-          active && "bg-surface-800 text-surface-100",
-          !active && "text-surface-400 hover:bg-surface-800/60 hover:text-surface-100",
-          /* The overlay ghost is the drag preview, so the tab itself only marks
-             the slot it left. */
-          isDragging && "opacity-40",
-        )}
-      >
-        <Tabs.Tab
-          value={pane.id}
-          className="min-w-0 shrink cursor-pointer gap-1 px-1.5 py-0 font-sans text-xs font-medium tracking-wide uppercase"
-        >
-          {pane.icon}
-          <span className="truncate">{pane.title}</span>
-        </Tabs.Tab>
-        {onClose && (
-          <IconButton
-            icon={<XIcon />}
-            size="row"
-            reveal
-            onClick={() => onClose(pane.id)}
-            aria-label={`Close ${pane.title}`}
-          />
-        )}
-      </div>
+      <ContextMenu.Root>
+        <ContextMenu.Trigger render={<div {...tabProps} />}>{body}</ContextMenu.Trigger>
+        <ContextMenu.Content className="w-44">
+          {onFloat && (
+            <ContextMenu.Item
+              icon={<ArrowSquareOutIcon className="size-4" />}
+              onClick={() => onFloat(pane.id)}
+            >
+              {m.editor_pane_float_action()}
+            </ContextMenu.Item>
+          )}
+          {onMaximize && !maximized && (
+            <ContextMenu.Item
+              icon={<ArrowsOutSimpleIcon className="size-4" />}
+              onClick={onMaximize}
+            >
+              {m.editor_pane_maximize_action()}
+            </ContextMenu.Item>
+          )}
+          {onMaximize && maximized && (
+            <ContextMenu.Item icon={<ArrowsInSimpleIcon className="size-4" />} onClick={onMaximize}>
+              {m.editor_pane_restore_action()}
+            </ContextMenu.Item>
+          )}
+          {onClose && (
+            <>
+              <ContextMenu.Separator />
+              <ContextMenu.Item
+                icon={<XIcon className="size-4" />}
+                onClick={() => onClose(pane.id)}
+              >
+                {m.editor_tab_close_action()}
+              </ContextMenu.Item>
+            </>
+          )}
+        </ContextMenu.Content>
+      </ContextMenu.Root>
     </>
   );
 }

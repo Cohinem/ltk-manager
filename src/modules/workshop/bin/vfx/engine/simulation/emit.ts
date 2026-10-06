@@ -129,15 +129,20 @@ export function emit(
     pool.lifetime[at] = lifetime;
 
     if (surfaces?.mesh?.sample(now, rng, SURFACE_BIRTH)) {
-      for (let axis = 0; axis < 3; axis += 1) BASE[axis] += SURFACE_BIRTH.position[axis];
+      const scale = emitter.emissionMesh?.scale ?? 1;
+      for (let axis = 0; axis < 3; axis += 1) BASE[axis] += SURFACE_BIRTH.position[axis] * scale;
       if (emitter.emissionMesh?.useNormal) {
         alongNormal(pool.velocity, slot);
         alongNormal(pool.birthAcceleration, slot);
       }
     }
     if (surfaces?.surface?.sample(now, rng, SURFACE_BIRTH)) {
-      for (let axis = 0; axis < 3; axis += 1) BASE[axis] += SURFACE_BIRTH.position[axis];
-      if (emitter.emissionSurface?.useNormal) alongNormal(pool.velocity, slot);
+      const scale = emitter.emissionSurface?.scale ?? 1;
+      for (let axis = 0; axis < 3; axis += 1) BASE[axis] += SURFACE_BIRTH.position[axis] * scale;
+      if (emitter.emissionSurface?.useNormal) {
+        alongNormal(pool.velocity, slot);
+        alongNormal(pool.birthAcceleration, slot);
+      }
     }
 
     /* The shape's turn is the last thing a birth takes, over the offset, the velocity and
@@ -184,18 +189,34 @@ function spawnCount(
   const cycleStart = length === null ? 0 : Math.trunc(state.age / length) * length;
   const since = Math.max(cycleStart, state.lastSpawn);
 
-  let count = Math.min(
-    Math.trunc((state.age - since) * rate) & COUNT_MASK,
-    (Math.trunc(rate * BURST_SHARE) + 1) & COUNT_MASK,
-  );
+  let count = Math.min(Math.trunc((state.age - since) * rate) & COUNT_MASK, burstCap(rate));
   if (!state.emitted) {
     if (count === 0 && !emitter.hasVariableStartTime) count = 1;
     if (emitter.singleParticle) count = Math.max(Math.trunc(rate) & COUNT_MASK, 1);
   }
 
+  return capped(emitter, count);
+}
+
+/** The engine's cap on one step's count: `rate` times `BURST_SHARE`, truncated, plus one. */
+function burstCap(rate: number): number {
+  return (Math.trunc(rate * BURST_SHARE) + 1) & COUNT_MASK;
+}
+
+/** `count` limited by a trail's `mMaxAddedPerFrame` and by `MOST_PER_STEP`. */
+function capped(emitter: EmitterModel, count: number): number {
   const most = emitter.trail?.maxAddedPerFrame ?? 0;
-  if (most > 0 && count >= most) count = most;
-  return Math.min(count, MOST_PER_STEP);
+  return Math.min(most > 0 && count >= most ? most : count, MOST_PER_STEP);
+}
+
+/** The largest count one step spawns at `rate`, after the first emission. */
+export function stepCap(rate: number): number {
+  return Math.min(burstCap(rate), MOST_PER_STEP);
+}
+
+/** The particle count of an `isSingleParticle` emitter's burst at `rate`. */
+export function burstCount(emitter: EmitterModel, rate: number): number {
+  return capped(emitter, Math.max(Math.trunc(rate) & COUNT_MASK, 1));
 }
 
 /**

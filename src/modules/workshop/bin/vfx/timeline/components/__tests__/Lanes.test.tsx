@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { BinRow } from "@/lib/tauri";
 import { useWorkshopLayoutStore } from "@/stores";
 
-import { BLEND_MODE, DRAG_MOTION, LINGER_TYPE } from "../../../engine/model/enums";
+import { BLEND_MODE, DRAG_MOTION, LINGER_TYPE, STENCIL_MODE } from "../../../engine/model/enums";
 import { type EmitterModel, POINT_SHAPE, type SystemModel } from "../../../engine/model/model";
 import { createDriver } from "../../../engine/simulation/driver";
 import { type EmitterChoice, EmitterChoiceContext } from "../../../inspector/state/emitterChoice";
@@ -46,6 +46,9 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     pass: 0,
     miscRenderFlags: 0,
     groundLayer: false,
+    stencilMode: STENCIL_MODE.disabled,
+    stencilRef: 0,
+    stencilReferenceId: null,
     childSet: null,
     fields: null,
     ...over,
@@ -435,6 +438,18 @@ describe("Lanes", () => {
     expect(last()?.from).toBeCloseTo(0.75);
     expect(last()?.to).toBeCloseTo(1.25);
     expect(run.seek).not.toHaveBeenCalled();
+  });
+
+  it("fits a continuous run to the time its last bar ends", () => {
+    /* The bars end at 1.5 seconds, so the window is 1.575 seconds over 315 pixels. */
+    const measured = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(315);
+    onTestFinished(() => measured.mockRestore());
+    const { run } = renderLanes(fakeRun({ playback: "continuous", span: 60 }));
+    const ruler = screen.getByRole("group", { name: "Timeline ruler" });
+
+    fireEvent.pointerDown(ruler, { button: 0, clientX: 100 });
+
+    expect(vi.mocked(run.seek).mock.lastCall?.[0]).toBeCloseTo(0.5);
   });
 
   it("draws the live-count histogram only while its switch is on", () => {

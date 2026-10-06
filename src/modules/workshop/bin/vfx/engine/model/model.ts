@@ -435,16 +435,21 @@ export interface MeshModel {
   readonly skinned: boolean;
 }
 
-/** A mesh or skeleton sampled at particle birth, in emitter space. */
+/**
+ * A mesh or skeleton sampled at particle birth, in emitter space.
+ *
+ * The pose comes from the unit the effect is bound to, so the model has no animation field.
+ */
 export interface EmissionSurfaceModel {
   readonly kind: "mesh" | "skeleton";
   readonly mesh: NamedAsset | null;
   readonly skeleton: NamedAsset | null;
-  readonly animation: NamedAsset | null;
   readonly submeshes: readonly string[];
   readonly joints: readonly string[];
   readonly scale: number;
+  /** `maxJointWeights`, from one to four. */
   readonly maxJointWeights: number;
+  /** The birth vectors take the sampled normal's direction. Always true for a skeleton. */
   readonly useNormal: boolean;
 }
 
@@ -834,17 +839,15 @@ export interface EmitterModel {
    * something it is not.
    */
   readonly quadType: QuadType | null;
-  /**
-   * `stencilMode`, which the preview reads and does not test against.
-   *
-   * 82% of the population compares against a stencil buffer, and a preview fills none, so
-   * a compare here answers off an all-zero buffer rather than off the engine's: `kEqual`
-   * discards the half of them that carry a reference and `kNotEqual` passes the rest for
-   * that same reason. Decision 2.27 of docs/plans/vfx-particle-renderer.md.
-   */
+  /** `stencilMode`. Disabled on a simple emitter, because the engine reads it on complex emitters only. */
   readonly stencilMode: StencilMode;
-  /** `stencilRef`, and zero for the disabled mode, which is the one that does not read it. */
+  /** `stencilRef`. Zero for the disabled mode, which does not read it. */
   readonly stencilRef: number;
+  /**
+   * `StencilReferenceId`, the name hash that replaces `stencilRef`. Null for a zero hash and
+   * for the disabled mode.
+   */
+  readonly stencilReferenceId: string | null;
   /** The primitive's class hash, for a kind T0 does not draw. */
   readonly primitiveClass: string | null;
   /** That class as the tables name it, which is what a message about it reads. */

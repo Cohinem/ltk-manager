@@ -51,6 +51,7 @@ import { blendState, drawState, fragmentTests, premultiplyInto, sortsBackToFront
 import { meshBuffers, MESHES_PER_EMITTER, quadBuffers } from "../buffers";
 import {
   attachedMaterial,
+  maskMaterial,
   meshMaterial,
   pickMaterial,
   quadMaterial,
@@ -482,6 +483,7 @@ describe("ARBITRARY_UV", () => {
         uvs: null,
         skinIndices: null,
         skinWeights: null,
+        colors: null,
         indices: new Uint32Array([0, 1, 2]),
         ranges: [],
       },
@@ -575,6 +577,28 @@ describe("wireMaterial", () => {
     const wire = wireMaterial(solid, new Color(1, 0, 0), 1);
 
     expect(wire.defines).toHaveProperty("SOFT");
+  });
+});
+
+describe("maskMaterial", () => {
+  it("draws the solid's shader and uniform objects as one flat colour, blended over the backdrop", () => {
+    const solid = quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING);
+    const mask = maskMaterial(solid, new Color(1, 0, 0));
+
+    expect(mask.vertexShader).toBe(solid.vertexShader);
+    expect(mask.uniforms.map).toBe(solid.uniforms.map);
+    expect(mask.defines).toHaveProperty("PICK");
+    expect(mask.uniforms.pickId.value.x).toBeCloseTo(1);
+    expect(mask.uniforms.pickId.value.w).toBe(0.35);
+    expect([mask.transparent, mask.depthWrite]).toEqual([true, false]);
+  });
+
+  it("leaves the solid unchanged", () => {
+    const solid = quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING);
+    maskMaterial(solid, new Color(1, 0, 0));
+
+    expect(solid.uniforms).not.toHaveProperty("pickId");
+    expect(solid.defines).not.toHaveProperty("PICK");
   });
 });
 

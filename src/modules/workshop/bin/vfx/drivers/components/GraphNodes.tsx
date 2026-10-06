@@ -49,7 +49,8 @@ import type {
 import { NodeBody } from "./DriverBody";
 import { EmitterToggle } from "./EmitterToggle";
 import { GraphActionsContext } from "./graphActions";
-import { NEAR_ONLY, NodeFrame } from "./NodeFrame";
+import { HiddenChip } from "./HiddenChip";
+import { NEAR_ONLY, NodeFrame, SHOWN_OVER_NODE } from "./NodeFrame";
 import { EmbedBackButton, EmbeddedDriver } from "./SocketEmbed";
 
 type PlacedOf<T> = Omit<PlacedItem, "item"> & { readonly item: T };
@@ -184,6 +185,7 @@ export function NodeHeader({
   inputs = 0,
   folds = inputs > 0,
   divided = true,
+  narrow = false,
   extra,
 }: {
   icon: Icon;
@@ -203,6 +205,8 @@ export function NodeHeader({
   folds?: boolean;
   /** Whether rows follow the header. A header-only node's frame edge is its divider. */
   divided?: boolean;
+  /** The header is as narrow as a folded emitter's, so its chip of hidden inputs is a count. */
+  narrow?: boolean;
   /** A control drawn before the reveal button, such as an emitter's toggle. */
   extra?: ReactNode;
 }) {
@@ -248,11 +252,7 @@ export function NodeHeader({
               {badge}
             </span>
           )}
-          {collapsed && inputs > 0 && (
-            <span className="shrink-0 rounded-sm bg-surface-veil px-1 text-meta text-surface-300">
-              {m.workshop_bin_graph_hidden_label({ count: inputs })}
-            </span>
-          )}
+          {collapsed && inputs > 0 && <HiddenChip count={inputs} narrow={narrow} />}
           {level === "inferred" && (
             <LevelMark
               label={m.workshop_bin_driver_inferred_label()}
@@ -294,7 +294,10 @@ export function RevealButton({ onReveal }: { onReveal: () => void }) {
         type="button"
         aria-label={label}
         /* DS-VEIL, DS-RADIUS */
-        className="nodrag flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 opacity-0 group-hover/node:opacity-100 hover:bg-surface-veil hover:text-surface-100 focus-visible:opacity-100"
+        className={twMerge(
+          "nodrag flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm text-surface-400 hover:bg-surface-veil hover:text-surface-100 focus-visible:opacity-100",
+          SHOWN_OVER_NODE,
+        )}
         onClick={onReveal}
       >
         <TreeStructureIcon weight="bold" className="size-3.5" />

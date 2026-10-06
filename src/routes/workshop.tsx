@@ -1,8 +1,8 @@
 import { createFileRoute, Outlet, useParams } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { Toolbar } from "@/components";
+import { ChromeGround, PageInset } from "@/components";
 import {
   ProjectProvider,
   RouteSandboxProvider,
@@ -14,7 +14,19 @@ import {
   WorkshopDialogs,
   WorkshopHeader,
 } from "@/modules/workshop";
-import { twMerge } from "@/utils";
+
+/** What both routes render into: the editor's own islands under a project, one inset panel over the grid. */
+function Fold({ project, children }: { project: boolean; children: ReactNode }) {
+  if (!project) {
+    return <PageInset data-ui="WorkshopShell:fold">{children}</PageInset>;
+  }
+
+  return (
+    <div data-ui="WorkshopShell:fold" className="min-h-0 flex-1 overflow-hidden">
+      {children}
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/workshop")({
   component: WorkshopLayout,
@@ -24,7 +36,7 @@ function WorkshopLayout() {
   return <WorkshopShell />;
 }
 
-/* The header sits above the outlet, so the route resolves the project rather
+/* The header is mounted above the outlet, so the route resolves the project rather
    than the page under it, and provides null where there is none. */
 function WorkshopShell() {
   const { projectId } = useParams({ strict: false });
@@ -49,22 +61,16 @@ function WorkshopShell() {
       <RouteSandboxProvider project={project?.path ?? null}>
         <div
           data-ui="WorkshopShell"
-          className={twMerge(
-            "flex h-full flex-col",
-            projectId !== undefined
-              ? /* DS-GROUND: the project's islands and the bar over them share the ground. */
-                "border border-b-0 border-surface-700/50 bg-surface-950"
-              : "bg-surface-900 shadow-pressed",
-          )}
+          /* DS-GROUND: the islands under either route and the frame around them share the ground. */
+          className="flex h-full flex-col bg-surface-950"
         >
-          <Toolbar className={twMerge(projectId === undefined && "bg-transparent pt-2")}>
-            <WorkshopHeader />
-            {!project && <WorkshopActiveFilterChips />}
-          </Toolbar>
+          <ChromeGround />
+          <WorkshopHeader />
+          {!project && <WorkshopActiveFilterChips />}
 
-          <div data-ui="WorkshopShell:fold" className={twMerge("min-h-0 flex-1 overflow-hidden")}>
+          <Fold project={projectId !== undefined}>
             <Outlet />
-          </div>
+          </Fold>
         </div>
 
         <WorkshopDialogs />

@@ -22,12 +22,14 @@ import { objectKeys } from "./keys";
 /** The object tree of the install, in the slot the index is in. */
 export const objectTreeQueries = {
   /* The install's for the session. A warm or a drop settling asks again, and an
-     answer the build has not given asks again each second. */
+     answer the build has not given asks again each second. A prefix the index does not hold
+     fails the same way every time, and a prefix only the project holds is one, so no retry. */
   dir: (prefix: string) =>
     queryOptions<IndexResponse<ObjectDirListing>, AppError>({
       queryKey: objectKeys.dir(prefix),
       queryFn: queryFnWithArgs(api.objects.dir, prefix),
       staleTime: Infinity,
+      retry: false,
       refetchInterval: (query) => pollUntilReady(query.state.data?.status),
     }),
 

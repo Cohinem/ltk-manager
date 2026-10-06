@@ -150,7 +150,7 @@ describe("buildObjectTree", () => {
     expect(asObject(asPrefix(tree[0]).children[1]).children).toEqual([]);
   });
 
-  it("joins the layers' declarations onto the node, marked by their titles, and lists no row for them", () => {
+  it("puts the layers' declarations ahead of the install's on the node, marked by their titles, and lists no row for them", () => {
     const shared = object("characters/shared", 1, [chunk("data/a.bin"), chunk("data/b.bin")]);
     const project: WorkshopProject = {
       path: "C:/mods/skin",
@@ -191,11 +191,11 @@ describe("buildObjectTree", () => {
 
     expect(node.layers).toEqual([{ name: "base", title: "Base" }]);
     expect(node.declarations.map((declaration) => declaration.file)).toEqual([
+      "data/shared.bin",
       "data/a.bin",
       "data/b.bin",
-      "data/shared.bin",
     ]);
-    expect(node.declarations[2]?.asset.kind).toBe("layer");
+    expect(node.declarations[0]?.asset.kind).toBe("layer");
     expect(node.children.map(nameOf)).toEqual(["child"]);
   });
 

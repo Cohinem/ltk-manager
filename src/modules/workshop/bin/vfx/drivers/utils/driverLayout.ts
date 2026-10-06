@@ -5,13 +5,20 @@ import { renderLines, socketLines, structLines } from "./entryLists";
 import type {
   GraphItem,
   GraphTree,
+  MasterField,
   MasterItem,
   RenderItem,
   StructItem,
   ValueItem,
 } from "./graphItems";
 import { MATERIAL_CLASSES } from "./materialNodes";
-import { naturalWidth, structNameWidth, structWidth, UNKNOWN_FIELD_LINES } from "./nodeWidth";
+import {
+  fieldNameWidth,
+  naturalWidth,
+  structNameWidth,
+  structWidth,
+  UNKNOWN_FIELD_LINES,
+} from "./nodeWidth";
 import { BLOCK_GAP, FRAME_HEADER_HEIGHT, FRAME_PADDING, frameSize, packBlocks } from "./packBlocks";
 import { componentOf, renderTexture } from "./renderSection";
 import { estimateText, type MeasureText } from "./textWidth";
@@ -25,7 +32,7 @@ export interface PlacedItem {
   readonly height: number;
   /** The id of the frame the item sits in, where it sits in one. */
   readonly frame?: string;
-  /** A struct node's name column in pixels, which its rows and its width share. */
+  /** A master, render or struct node's name column in pixels, which its rows and its width share. */
   readonly nameWidth?: number;
 }
 
@@ -69,21 +76,31 @@ export const HEADER_HEIGHT = 48;
 export const LINE_HEIGHT = 30;
 const BODY_PADDING = 10;
 
-/** A master node's live preview: a square, as wide as a folded node inside its 8px margins. */
-export const EMITTER_PREVIEW_SIZE = 300;
+/**
+ * How much wider than tall a node's preview is: an emitter's, which is what the node is for,
+ * and the shorter one of a node that feeds an emitter.
+ */
+const PREVIEW_ASPECT = { emitter: 4 / 3, input: 2 } as const;
 
-/** The preview's line of a master node, with the preview's 4px margin above and below. */
-const EMITTER_PREVIEW_HEIGHT = EMITTER_PREVIEW_SIZE + 8;
+/** The node's 1px side edges and the preview's 8px side margins, which the preview's width leaves out. */
+const PREVIEW_INSET = 18;
 
-/** A file node's or a spawn shape's preview square, and its line with 4px above and below. */
-export const NODE_PREVIEW_SIZE = 200;
-const NODE_PREVIEW_HEIGHT = NODE_PREVIEW_SIZE + 8;
+/** The height of the preview `item`'s node draws `width` wide, as wide as the node inside its margins. */
+export function previewHeight(item: GraphItem, width: number): number {
+  const aspect = item.type === "master" ? PREVIEW_ASPECT.emitter : PREVIEW_ASPECT.input;
+  return Math.round((width - PREVIEW_INSET) / aspect);
+}
+
+/** A preview's line of a node, with the preview's 4px margin above and below. */
+function previewLine(item: GraphItem, width: number): number {
+  return previewHeight(item, width) + 8;
+}
 
 /** A primitive node's sketch, at the sketch's own 16:9, and its line with 4px above and below. */
-export const PRIMITIVE_PREVIEW = { width: 208, height: 117 } as const;
+export const PRIMITIVE_PREVIEW = { width: 176, height: 99 } as const;
 const PRIMITIVE_PREVIEW_HEIGHT = PRIMITIVE_PREVIEW.height + 8;
 
-/** A file node: its preview square with room for the path under it. */
+/** A file node: wide enough for the path under its preview. */
 const FILE_NODE_WIDTH = 280;
 
 /** A struct node that draws its spawn shape in 3D over its rows: a `VfxShape*` struct. */
@@ -104,18 +121,18 @@ export function isMaterial(item: StructItem): boolean {
 }
 
 /**
- * The height of a component node's picture: a Texture node's texture, and zero where it has
- * none, or a Geometry node's view of its emitter.
+ * A component node that draws a picture: a Geometry node's view of its emitter, or a Texture
+ * node's texture where it has one.
  */
-export function renderPreviewHeight(item: RenderItem): number {
-  if (item.role === "geometry") return NODE_PREVIEW_HEIGHT;
-  return renderTexture(item) === null ? 0 : NODE_PREVIEW_HEIGHT;
+export function renderPreviewed(item: RenderItem): boolean {
+  return item.role === "geometry" || renderTexture(item) !== null;
 }
 
-/** The height of the preview a struct node draws over its rows, and zero where it draws none. */
-function structPreviewHeight(item: StructItem): number {
+/** The line of the preview a struct node draws over its rows, and zero where it draws none. */
+function structPreviewLine(item: StructItem, width: number): number {
   if (isPrimitive(item)) return PRIMITIVE_PREVIEW_HEIGHT;
-  if (shapePreviewed(item) || isMaterial(item) || item.picture !== null) return NODE_PREVIEW_HEIGHT;
+  if (shapePreviewed(item) || isMaterial(item) || item.picture !== null)
+    return previewLine(item, width);
   return 0;
 }
 
@@ -129,15 +146,20 @@ export const VALUE_HEADER_HEIGHT = 30;
 export const FIELD_PADDING = 4;
 
 /** The width of a node whose rows are the inspector's field rows: a name column and a value. */
-const FIELD_NODE_WIDTH = { master: 456, value: 320, component: 400 } as const;
+const FIELD_NODE_WIDTH = { value: 320, component: 400 } as const;
 
-/** A folded master node: its preview inside the 8px side margins. */
-const FOLDED_MASTER_WIDTH = EMITTER_PREVIEW_SIZE + 16;
+/** A master or render row beside its name column: a vector's components and its mode buttons. */
+const MASTER_VALUE_WIDTH = 312;
 
-export { FRAME_HEADER_HEIGHT, FRAME_PADDING } from "./packBlocks";
+/** A folded master node: its header's controls, over its preview. */
+const FOLDED_MASTER_WIDTH = 316;
+
+export { BLOCK_GAP, FRAME_HEADER_HEIGHT, FRAME_PADDING } from "./packBlocks";
 
 const COLUMN_GAP = 128;
-const ROW_GAP = 20;
+
+/** The space between two items of one column. */
+export const ROW_GAP = 20;
 
 const NONE_COLLAPSED: ReadonlySet<string> = new Set();
 
@@ -215,15 +237,15 @@ function layoutTree(
   const depths: number[] = [];
   const edges: LayoutEdge[] = [];
   const inputsOf = (tree: GraphTree) => (collapsed.has(tree.item.id) ? [] : tree.inputs);
-  /* Measured once per item, since a struct's size measures every row. */
-  const sizes = new Map<GraphTree, ReturnType<typeof sizeOf>>();
-  const sized = (tree: GraphTree) =>
-    sizes.get(tree) ??
-    sizes.set(tree, sizeOf(tree.item, collapsed.has(tree.item.id), measure)).get(tree)!;
+  /* Measured once per item, since a struct's width measures every row. */
+  const naturals = new Map<GraphTree, number>();
+  const natural = (tree: GraphTree) =>
+    naturals.get(tree) ??
+    naturals.set(tree, widthOf(tree.item, collapsed.has(tree.item.id), measure)).get(tree)!;
 
   const widths: number[] = [];
   const widen = (tree: GraphTree, depth: number) => {
-    widths[depth] = Math.max(widths[depth] ?? 0, sized(tree).width);
+    widths[depth] = Math.max(widths[depth] ?? 0, natural(tree));
     inputsOf(tree).forEach((input) => widen(input.tree, depth + 1));
   };
   widen(root, 0);
@@ -252,7 +274,7 @@ function layoutTree(
   /** Place `tree` in the column at `depth`. Returns the item's vertical middle. */
   function place(tree: GraphTree, depth: number): number {
     const width = widths[depth]!;
-    const { height } = sized(tree);
+    const height = heightOf(tree.item, collapsed.has(tree.item.id), width);
     const inputs = inputsOf(tree);
     const first = items.length;
 
@@ -273,7 +295,7 @@ function layoutTree(
 
     const x = rights[depth]! - width;
     const { item } = tree;
-    const nameWidth = item.type === "struct" ? structNameWidth(item, measure) : undefined;
+    const nameWidth = nameWidthOf(item, measure);
     items.push({
       item,
       x,
@@ -305,18 +327,34 @@ function edgeOf(tree: GraphTree, input: GraphTree["inputs"][number]): LayoutEdge
   };
 }
 
-/** A master or struct node's width: a master's own, and a struct's from its rows. */
+/** The fields a master node draws, across its groups. */
+function masterFields(item: MasterItem): MasterField[] {
+  return item.groups.flatMap((group) => group.fields);
+}
+
+/** The name column a node's rows share, and undefined for a node that measures none. */
+function nameWidthOf(item: GraphItem, measure: MeasureText): number | undefined {
+  if (item.type === "struct") return structNameWidth(item, measure);
+  if (item.type === "master") return fieldNameWidth(masterFields(item), measure);
+  if (item.type === "render") return fieldNameWidth(item.fields, measure);
+  return undefined;
+}
+
+/** A master, render or struct node's width: its name column beside its value column. */
 function fieldNodeWidth(
-  item: MasterItem | StructItem,
+  item: MasterItem | RenderItem | StructItem,
   folded: boolean,
   measure: MeasureText,
 ): number {
-  if (item.type === "master") return folded ? FOLDED_MASTER_WIDTH : FIELD_NODE_WIDTH.master;
-  return structWidth(item, measure);
+  if (item.type === "struct") return structWidth(item, measure);
+  if (item.type === "master" && folded) return FOLDED_MASTER_WIDTH;
+
+  const fields = item.type === "master" ? masterFields(item) : item.fields;
+  return fieldNameWidth(fields, measure) + MASTER_VALUE_WIDTH;
 }
 
 /**
- * The size an item draws at, its width measured from its text.
+ * The size an item draws at alone, its width measured from its text.
  *
  * The node components size themselves from the same numbers. An item with no ports and no
  * body draws its header alone.
@@ -326,71 +364,72 @@ export function sizeOf(
   folded = false,
   measure: MeasureText = estimateText,
 ): { width: number; height: number } {
+  const width = widthOf(item, folded, measure);
+  return { width, height: heightOf(item, folded, width) };
+}
+
+/** The width an item asks for, which its column may widen. */
+function widthOf(item: GraphItem, folded: boolean, measure: MeasureText): number {
+  switch (item.type) {
+    case "preview":
+      return PREVIEW_PORTS_WIDTH + PREVIEW_VIEWPORT.width;
+    case "file":
+      return FILE_NODE_WIDTH;
+    case "value":
+      return FIELD_NODE_WIDTH.value;
+    case "component":
+      return Math.max(naturalWidth(item, measure), FIELD_NODE_WIDTH.component);
+    case "master":
+    case "render":
+    case "struct":
+      return fieldNodeWidth(item, folded, measure);
+    default:
+      return naturalWidth(item, measure);
+  }
+}
+
+/** The height an item draws at in a column `width` wide, which its preview's height follows. */
+function heightOf(item: GraphItem, folded: boolean, width: number): number {
   if (item.type === "preview") {
     const ports = HEADER_HEIGHT + item.ports.length * LINE_HEIGHT + BODY_PADDING;
-    return {
-      width: PREVIEW_PORTS_WIDTH + PREVIEW_VIEWPORT.width,
-      height: Math.max(ports, HEADER_HEIGHT + PREVIEW_VIEWPORT.height + BODY_PADDING),
-    };
+    return Math.max(ports, HEADER_HEIGHT + PREVIEW_VIEWPORT.height + BODY_PADDING);
   }
 
   if (item.type === "file") {
-    return {
-      width: FILE_NODE_WIDTH,
-      height: HEADER_HEIGHT + FRAME_EDGES + NODE_PREVIEW_HEIGHT + LINE_HEIGHT + 2 * FIELD_PADDING,
-    };
+    return HEADER_HEIGHT + FRAME_EDGES + previewLine(item, width) + LINE_HEIGHT + 2 * FIELD_PADDING;
   }
 
   if (item.type === "value") {
-    return {
-      width: FIELD_NODE_WIDTH.value,
-      height:
-        VALUE_HEADER_HEIGHT + FRAME_EDGES + fieldLines(item) * LINE_HEIGHT + 2 * FIELD_PADDING,
-    };
+    return VALUE_HEADER_HEIGHT + FRAME_EDGES + fieldLines(item) * LINE_HEIGHT + 2 * FIELD_PADDING;
   }
 
   if (item.type === "render") {
-    return {
-      width: FIELD_NODE_WIDTH.master,
-      height:
-        HEADER_HEIGHT +
-        FRAME_EDGES +
-        renderPreviewHeight(item) +
-        fieldLines(item) * LINE_HEIGHT +
-        2 * FIELD_PADDING,
-    };
+    const preview = renderPreviewed(item) ? previewLine(item, width) : 0;
+    return (
+      HEADER_HEIGHT + FRAME_EDGES + preview + fieldLines(item) * LINE_HEIGHT + 2 * FIELD_PADDING
+    );
   }
 
   if (item.type === "component") {
     const body = item.lines.length === 0 ? 0 : item.lines.length * LINE_HEIGHT + 2 * FIELD_PADDING;
-    return {
-      width: Math.max(naturalWidth(item, measure), FIELD_NODE_WIDTH.component),
-      height: HEADER_HEIGHT + FRAME_EDGES + body,
-    };
+    return HEADER_HEIGHT + FRAME_EDGES + body;
   }
 
   if (item.type === "struct" && folded && isMaterial(item)) {
-    return {
-      width: fieldNodeWidth(item, folded, measure),
-      height: HEADER_HEIGHT + FRAME_EDGES + NODE_PREVIEW_HEIGHT,
-    };
+    return HEADER_HEIGHT + FRAME_EDGES + previewLine(item, width);
   }
 
   if (item.type === "master" || item.type === "struct") {
-    const preview = item.type === "master" ? EMITTER_PREVIEW_HEIGHT : structPreviewHeight(item);
-    return {
-      width: fieldNodeWidth(item, folded, measure),
-      height:
-        HEADER_HEIGHT +
-        FRAME_EDGES +
-        preview +
-        (folded && item.type === "master" ? 0 : fieldLines(item) * LINE_HEIGHT + 2 * FIELD_PADDING),
-    };
+    const preview =
+      item.type === "master" ? previewLine(item, width) : structPreviewLine(item, width);
+    const rows =
+      folded && item.type === "master" ? 0 : fieldLines(item) * LINE_HEIGHT + 2 * FIELD_PADDING;
+    return HEADER_HEIGHT + FRAME_EDGES + preview + rows;
   }
 
   const rows = item.ports.length + (item.type === "driver" ? bodyLines(item.node) : 0);
   const body = rows === 0 ? 0 : rows * LINE_HEIGHT + BODY_PADDING;
-  return { width: naturalWidth(item, measure), height: HEADER_HEIGHT + FRAME_EDGES + body };
+  return HEADER_HEIGHT + FRAME_EDGES + body;
 }
 
 /**

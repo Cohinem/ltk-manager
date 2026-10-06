@@ -1,15 +1,17 @@
-import { type CSSProperties, type ReactNode, use } from "react";
+import { type CSSProperties, type PointerEvent, type ReactNode, use } from "react";
 
 import { twMerge } from "@/utils";
 
 import { ChangeMark } from "../../../documents/components/ChangeMark";
 import { useChangedOnlyView } from "../../../documents/hooks/useChanges";
 import { rowKey } from "../../../tree/utils/binRows";
+import { previewHeight } from "../utils/driverLayout";
 import type { GraphItem } from "../utils/graphItems";
 import { itemHue } from "../utils/graphTones";
 import { itemTitle } from "../utils/nodeText";
 import { GraphActionsContext } from "./graphActions";
 import { NodeLayerMark } from "./NodeLayerMark";
+import { OnScreenContext, useOnScreen } from "./onScreen";
 import { type PlateFace, plateFace } from "./PlateFace";
 
 /**
@@ -19,6 +21,9 @@ import { type PlateFace, plateFace } from "./PlateFace";
  * colour or value, or else its title, at a fixed screen size. A node whose body is a picture,
  * `plate="above"`, keeps the picture and sets the title over its top edge instead. An emitter
  * in a frame draws no plate, since the frame's title names it.
+ *
+ * It tells its parts whether the node is in view, through `OnScreenContext`, so a part that
+ * follows the run stops while the node is out of view.
  */
 export function NodeFrame({
   item,
@@ -45,46 +50,79 @@ export function NodeFrame({
   children: ReactNode;
 }) {
   const hue = itemHue(item);
-  const style = { width, height, borderTopColor: hue, ...hueStyle(item) } as CSSProperties;
+  const style = {
+    width,
+    height,
+    borderTopColor: hue,
+    "--preview-height": `${previewHeight(item, width)}px`,
+    ...hueStyle(item),
+  } as CSSProperties;
   const entry = use(GraphActionsContext)?.entry ?? "";
   const key = item.wire === "" || entry === "" ? null : rowKey({ entry, path: item.wire });
   const only = useChangedOnlyView();
   const unchanged = only !== null && key !== null && !only.rows.has(key) && !only.within.has(key);
+  const [box, onScreen] = useOnScreen<HTMLDivElement>();
 
   return (
-    <div
-      data-ui="SystemGraph:node"
-      data-asset-drop={dropTarget || undefined}
-      style={style}
-      /* DS-GROUND, DS-RADIUS, DS-HOVER */
-      className={twMerge(
-        "group/node relative flex flex-col rounded-lg border border-t-2 border-surface-veil-strong bg-surface-800 text-row shadow-md transition-[border-color,box-shadow] hover:border-accent-hover",
-        selected && "border-accent-500 ring-2 ring-accent-500/40 hover:border-accent-500",
-        dim && "opacity-80",
-        unchanged && "opacity-30",
-        "data-asset-over:border-accent-400 data-asset-over:ring-2 data-asset-over:ring-accent-500/50",
-      )}
-    >
-      {children}
-      {key !== null && (
-        <ChangeMark
-          rowKey={key}
-          className="absolute -top-1 -right-1 z-10 size-2.5 ring-2 ring-surface-900"
-        />
-      )}
-      {key !== null && (
-        <NodeLayerMark
-          rowKey={key}
-          size="1rem"
-          className="absolute -top-2 -left-2 z-10 rounded-full bg-surface-800 p-0.5 ring-2 ring-surface-900"
-        />
-      )}
-      {plate === "inside" && (
-        <InsidePlate title={itemTitle(item)} face={plateFace(item)} hue={hue} height={height} />
-      )}
-      {plate === "above" && <AbovePlate title={itemTitle(item)} />}
-    </div>
+    <OnScreenContext value={onScreen}>
+      <div
+        ref={box}
+        data-ui="SystemGraph:node"
+        data-type-scale="board"
+        data-asset-drop={dropTarget || undefined}
+        style={style}
+        onPointerEnter={markOver}
+        onPointerLeave={clearOver}
+        /* DS-GROUND, DS-RADIUS, DS-HOVER */
+        className={twMerge(
+          "relative flex flex-col rounded-lg border border-t-2 border-surface-veil-strong bg-surface-800 text-row shadow-md transition-[border-color,box-shadow] hover:border-accent-hover",
+          selected && "border-accent-500 ring-2 ring-accent-500/40 hover:border-accent-500",
+          dim && "opacity-80",
+          unchanged && "opacity-30",
+          "data-asset-over:border-accent-400 data-asset-over:ring-2 data-asset-over:ring-accent-500/50",
+        )}
+      >
+        {children}
+        {key !== null && (
+          <ChangeMark
+            rowKey={key}
+            className="absolute -top-1 -right-1 z-10 size-2.5 ring-2 ring-surface-900"
+          />
+        )}
+        {key !== null && (
+          <NodeLayerMark
+            rowKey={key}
+            size="1rem"
+            className="absolute -top-2 -left-2 z-10 rounded-full bg-surface-800 p-0.5 ring-2 ring-surface-900"
+          />
+        )}
+        {plate === "inside" && (
+          <InsidePlate title={itemTitle(item)} face={plateFace(item)} hue={hue} height={height} />
+        )}
+        {plate === "above" && <AbovePlate title={itemTitle(item)} />}
+      </div>
+    </OnScreenContext>
   );
+}
+
+/**
+ * Classes that show a part of a node only while the pointer is over the node.
+ *
+ * They read `data-over`, which the frame writes on pointer enter and leave, and not the
+ * node's `:hover`. Chromium keeps one invalidation set for every selector that puts `:hover`
+ * on an ancestor, and Tailwind's `group-hover` rules, written `:is(:where(.group):hover *)`,
+ * make that set the whole subtree. A node whose parts depended on its `:hover` in any form
+ * was restyled whole on every move on or off it, several thousand elements for an expanded
+ * emitter. An attribute has an invalidation set of its own, which holds these parts alone.
+ */
+export const SHOWN_OVER_NODE = "opacity-0 in-data-[over]:opacity-100";
+
+function markOver(event: PointerEvent<HTMLElement>): void {
+  event.currentTarget.dataset.over = "";
+}
+
+function clearOver(event: PointerEvent<HTMLElement>): void {
+  delete event.currentTarget.dataset.over;
 }
 
 /** The hue a node of `item`'s type is drawn in, and its wash, as the variables its parts read. */

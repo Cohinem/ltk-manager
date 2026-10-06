@@ -5,6 +5,7 @@ import { m } from "@/i18n";
 import {
   usePreviewGizmo,
   usePreviewGround,
+  usePreviewMasks,
   usePreviewMidlane,
   usePreviewStats,
   useSetPreviewDisplay,
@@ -16,8 +17,9 @@ export function ShowMenu() {
   const midlane = usePreviewMidlane();
   const gizmo = usePreviewGizmo();
   const stats = usePreviewStats();
+  const masks = usePreviewMasks();
   const setDisplay = useSetPreviewDisplay();
-  const shown = [ground, ground && midlane, gizmo, stats].filter(Boolean).length;
+  const shown = [ground, ground && midlane, gizmo, masks, stats].filter(Boolean).length;
 
   return (
     <Menu.Root>
@@ -30,7 +32,7 @@ export function ShowMenu() {
             right={<CaretDownIcon weight="bold" className="size-3" />}
           >
             {m.workshop_bin_preview_show_label()}
-            <span className="ml-1 text-surface-400 tabular-nums">{shown}</span>
+            <span className="text-surface-400 tabular-nums">{shown}</span>
           </Button>
         }
       />
@@ -53,6 +55,12 @@ export function ShowMenu() {
           onCheckedChange={(checked) => setDisplay({ previewGizmo: checked })}
         >
           {m.workshop_bin_preview_gizmo_label()}
+        </Menu.CheckboxItem>
+        <Menu.CheckboxItem
+          checked={masks}
+          onCheckedChange={(checked) => setDisplay({ previewMasks: checked })}
+        >
+          {m.workshop_bin_preview_masks_label()}
         </Menu.CheckboxItem>
         <Menu.CheckboxItem
           checked={stats}

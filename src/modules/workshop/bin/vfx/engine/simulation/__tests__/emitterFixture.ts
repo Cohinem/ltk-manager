@@ -103,6 +103,7 @@ export function emitterOf(index: number, over: Partial<EmitterModel> = {}): Emit
     quadType: QUAD_TYPE.cameraQuad,
     stencilMode: STENCIL_MODE.disabled,
     stencilRef: 0,
+    stencilReferenceId: null,
     primitiveClass: null,
     primitiveName: null,
     mesh: null,

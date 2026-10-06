@@ -15,7 +15,6 @@ import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { drawnFor } from "../../rendering/utils/definitions";
 import { definitionBounds } from "../../rendering/utils/systemBounds";
 import { useBackdropColor } from "../state/previewBackdrop";
-import { NODE_PREVIEW_SIZE, renderPreviewHeight } from "../utils/driverLayout";
 import { emitterOf } from "../utils/graphEmitter";
 import type { RenderItem } from "../utils/graphItems";
 import { FramedCamera, framingOf, PREVIEW_MIP_WIDTH, ViewGuard } from "./EmitterPreview";
@@ -23,8 +22,6 @@ import { type Fit, FollowFraming } from "./FollowFraming";
 import { NODE_BOX } from "./NodePreviews";
 import { PreviewView } from "./PreviewView";
 import { drawnOf, SpawnFigure, zeroSized } from "./SpawnPreview";
-
-const BOX_STYLE = { width: NODE_PREVIEW_SIZE, height: NODE_PREVIEW_SIZE } as const;
 
 /** How fast the camera walks round the emitter, in radians a second. */
 const TURN = 0.4;
@@ -49,32 +46,26 @@ export function GeometryPreview({ item }: { item: RenderItem }) {
 
   return (
     <div
-      className="flex shrink-0 items-start justify-center px-2"
-      style={{ height: renderPreviewHeight(item) }}
+      ref={setBox}
+      title={m.workshop_bin_graph_geometry_controls_hint()}
+      className={twMerge(NODE_BOX, "nodrag nowheel cursor-grab active:cursor-grabbing")}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      onDoubleClick={() => setHanded(false)}
     >
-      <div
-        ref={setBox}
-        title={m.workshop_bin_graph_geometry_controls_hint()}
-        className={twMerge(NODE_BOX, "nodrag nowheel cursor-grab active:cursor-grabbing")}
-        style={BOX_STYLE}
-        onContextMenu={(event) => {
-          event.preventDefault();
-          event.stopPropagation();
-        }}
-        onDoubleClick={() => setHanded(false)}
-      >
-        <PreviewView className="size-full">
-          {emitter !== undefined && system !== null && box !== null && (
-            <GeometryScene
-              system={system}
-              emitter={emitter}
-              controls={box}
-              handed={handed}
-              onHand={() => setHanded(true)}
-            />
-          )}
-        </PreviewView>
-      </div>
+      <PreviewView className="size-full">
+        {emitter !== undefined && system !== null && box !== null && (
+          <GeometryScene
+            system={system}
+            emitter={emitter}
+            controls={box}
+            handed={handed}
+            onHand={() => setHanded(true)}
+          />
+        )}
+      </PreviewView>
     </div>
   );
 }
@@ -175,6 +166,7 @@ function GeometryScene({ system, emitter, controls, handed, onHand }: GeometrySc
           meshes={meshes}
           document={document}
           drawOnly
+          masks
         />
       )}
     </>

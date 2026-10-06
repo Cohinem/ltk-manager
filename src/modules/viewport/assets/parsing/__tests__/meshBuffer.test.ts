@@ -11,6 +11,7 @@ interface Held {
   uvs?: number[];
   skinIndices?: number[];
   skinWeights?: number[];
+  colors?: number[];
   indices: number[];
   ranges?: { name: string; startIndex: number; indexCount: number }[];
   version?: number;
@@ -31,6 +32,7 @@ function buffer(held: Held): ArrayBuffer {
     (held.uvs?.length ?? 0) * 4 +
     (held.skinIndices?.length ?? 0) +
     (held.skinWeights?.length ?? 0) * 4 +
+    (held.colors?.length ?? 0) +
     held.indices.length * 4 +
     names.reduce((sum, name) => sum + 12 + name.length, 0);
 
@@ -51,8 +53,8 @@ function buffer(held: Held): ArrayBuffer {
   };
 
   u32(held.magic ?? MAGIC);
-  u32(held.version ?? 2);
-  u32((held.normals ? 1 : 0) | (held.uvs ? 2 : 0) | (skinned ? 4 : 0));
+  u32(held.version ?? 3);
+  u32((held.normals ? 1 : 0) | (held.uvs ? 2 : 0) | (skinned ? 4 : 0) | (held.colors ? 8 : 0));
   u32(vertexCount);
   u32(held.indices.length);
   u32(ranges.length);
@@ -62,6 +64,7 @@ function buffer(held: Held): ArrayBuffer {
   for (const value of held.uvs ?? []) f32(value);
   for (const value of held.skinIndices ?? []) u8(value);
   for (const value of held.skinWeights ?? []) f32(value);
+  for (const value of held.colors ?? []) u8(value);
   for (const value of held.indices) u32(value);
 
   ranges.forEach((range, slot) => {
@@ -90,7 +93,28 @@ describe("readMeshBuffer", () => {
     expect(mesh.uvs).toBeNull();
     expect(mesh.skinIndices).toBeNull();
     expect(mesh.skinWeights).toBeNull();
+    expect(mesh.colors).toBeNull();
     expect(mesh.ranges).toEqual([]);
+  });
+
+  it("reads each vertex's colour under the colour flag, ahead of the indices", () => {
+    const mesh = readMeshBuffer(
+      buffer({
+        ...TRIANGLE,
+        uvs: [0, 0, 1, 0, 0, 1],
+        colors: [255, 255, 255, 0, 255, 128, 0, 191, 1, 2, 3, 255],
+      }),
+    );
+
+    expect([...(mesh.colors ?? [])]).toEqual([255, 255, 255, 0, 255, 128, 0, 191, 1, 2, 3, 255]);
+    expect([...mesh.indices]).toEqual([0, 1, 2]);
+  });
+
+  it("reads a version 2 buffer, which carries no colour block", () => {
+    const mesh = readMeshBuffer(buffer({ ...TRIANGLE, version: 2 }));
+
+    expect(mesh.colors).toBeNull();
+    expect([...mesh.indices]).toEqual([0, 1, 2]);
   });
 
   it("reads the normals and the uvs the flags say are there", () => {
@@ -168,7 +192,7 @@ describe("readMeshBuffer", () => {
   });
 
   it("refuses a version this build does not read", () => {
-    expect(() => readMeshBuffer(buffer({ ...TRIANGLE, version: 3 }))).toThrow(BufferError);
+    expect(() => readMeshBuffer(buffer({ ...TRIANGLE, version: 4 }))).toThrow(BufferError);
   });
 
   it("refuses a buffer shorter than its own header", () => {
