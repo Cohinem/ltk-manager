@@ -1,6 +1,6 @@
 import { XIcon } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components";
 import { errorSummary, m } from "@/i18n";
@@ -49,12 +49,12 @@ import { VfxSystem } from "../../rendering/components/VfxSystem";
 import { useVfxMeshes } from "../../rendering/hooks/useVfxMeshes";
 import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { createPickRegistry } from "../../rendering/state/pick";
-import type { AssetLoad } from "../../rendering/utils/assetLoad";
 import { type DrawnEmitter, drawnEmitters } from "../../rendering/utils/definitions";
 import { distorts, drawsTheAttachment, isUndrawn } from "../../rendering/utils/drawKind";
 import { fades } from "../../rendering/utils/softParticle";
 import { definitionBounds, rigGround } from "../../rendering/utils/systemBounds";
 import { chosenEmitter } from "../../timeline/utils/selection";
+import { useWarmUp } from "../hooks/useWarmUp";
 import { createGrabLatch } from "../utils/grabLatch";
 import {
   handleBlock,
@@ -392,66 +392,6 @@ function Fit({ token, system, drawn, rig }: FitProps) {
   }, [glide, snap, sees, restored, rig, system.entry, token]);
 
   return null;
-}
-
-/** The longest a first load pauses the run at its start, so an asset that never lands still plays. */
-const WARM_UP_LIMIT_MS = 4000;
-
-/**
- * The run paused at its start while the first textures and meshes land.
- *
- * Answers the reports the two asset hooks take. A load an edit brings in comes after the
- * warm-up and pauses nothing, which decision 2.5 of docs/plans/vfx-particle-renderer.md keeps.
- */
-function useWarmUp(drawn: readonly DrawnEmitter[], setWarming: (warming: boolean) => void) {
-  const load = useRef({ drawn, textures: false, meshes: false, over: false });
-  load.current.drawn = drawn;
-
-  const settle = useCallback(() => {
-    const current = load.current;
-    if (current.over || !current.textures || !current.meshes) return;
-
-    current.over = true;
-    setWarming(false);
-  }, [setWarming]);
-
-  const reportTextures = useCallback(
-    ({ pending }: AssetLoad) => {
-      if (pending > 0 || load.current.drawn.length === 0) return;
-
-      load.current.textures = true;
-      settle();
-    },
-    [settle],
-  );
-
-  const reportMeshes = useCallback(
-    ({ pending }: AssetLoad) => {
-      if (pending > 0 || load.current.drawn.length === 0) return;
-
-      load.current.meshes = true;
-      settle();
-    },
-    [settle],
-  );
-
-  const loaded = drawn.length > 0;
-  useEffect(() => {
-    if (!loaded || load.current.over) return;
-
-    setWarming(true);
-    const limit = window.setTimeout(() => {
-      load.current.over = true;
-      setWarming(false);
-    }, WARM_UP_LIMIT_MS);
-
-    return () => {
-      window.clearTimeout(limit);
-      setWarming(false);
-    };
-  }, [loaded, setWarming]);
-
-  return { reportTextures, reportMeshes };
 }
 
 interface ViewportNoticeProps {
