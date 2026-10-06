@@ -7,7 +7,7 @@ import {
   useRequestObjectsReveal,
   useSetObjectsSearchPattern,
 } from "../../state";
-import { ancestorPrefixes } from "../utils/objectTree";
+import { ancestorPrefixes, isObjectHash } from "../utils/objectTree";
 
 /**
  * Show the objects view, expand an object's path and focus its row.
@@ -23,10 +23,13 @@ export function useRevealInObjects(): (objectPath: string) => void {
 
   return useCallback(
     (objectPath) => {
+      /* A row's id spells a hash in lower case, whatever opened the tab spelled. */
+      const id = isObjectHash(objectPath) ? objectPath.toLowerCase() : objectPath;
+
       showView("objects");
       setPattern("");
-      expand(ancestorPrefixes(objectPath));
-      request(objectPath);
+      expand(ancestorPrefixes(id));
+      request(id);
     },
     [expand, showView, request, setPattern],
   );

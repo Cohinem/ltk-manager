@@ -21,7 +21,11 @@ export interface CurveTarget {
  */
 export interface CurveDock {
   readonly target: CurveTarget | null;
-  readonly aim: (target: CurveTarget) => void;
+  /**
+   * Aim the surface at `target`. A `quiet` aim, a follow's, floats no closed curve pane, so
+   * one the reader closed stays closed as they move from emitter to emitter.
+   */
+  readonly aim: (target: CurveTarget, quiet?: boolean) => void;
   /** Let go of the target, which leaves a dock that was open drawn with nothing in it. */
   readonly clear: () => void;
 }

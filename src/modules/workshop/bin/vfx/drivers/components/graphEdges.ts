@@ -1,4 +1,5 @@
 import { type BuiltInEdge, type InternalNode, useStore } from "@xyflow/react";
+import type { CSSProperties } from "react";
 
 import type { LayoutEdge } from "../utils/driverLayout";
 import { type EdgeEnds, edgeLanes, sameLanes } from "../utils/edgeLanes";
@@ -6,10 +7,8 @@ import { EDGE_TRANSITION, KIND_STROKE, NEUTRAL_STROKE } from "../utils/graphTone
 import type { GraphItem } from "../utils/systemGraph";
 import { OUTPUT_HANDLE } from "./GraphNodes";
 
-/** How one edge draws: lit on a focused path, faded off it, animated, and where it turns. */
+/** What an edge's own object carries: whether its wire animates, and where it turns. */
 export interface EdgeLook {
-  readonly lit: boolean;
-  readonly faded: boolean;
   readonly animated: boolean;
   readonly lane: number | undefined;
 }
@@ -45,32 +44,46 @@ export function useLanes(edges: readonly LayoutEdge[]): ReadonlyMap<string, numb
   }, sameLanes);
 }
 
-/* The edge last built from each layout edge, and the look it was built for. */
-const BUILT = new WeakMap<LayoutEdge, { key: string; edge: BuiltInEdge }>();
+/** The edges one canvas last built, by what each was built from. */
+export type EdgeCache = Map<string, BuiltInEdge>;
 
 /**
- * The canvas's edges, each the same object as last time where its look has not changed.
+ * The canvas's edges, each the same object as last time where nothing it is built from
+ * changed. `cache` is the canvas's own, and is left holding these edges alone.
  *
- * React Flow re-renders an edge whose object changes, so hovering a node redraws only the
- * edges it lights or fades.
+ * React Flow re-renders an edge whose object changes. A layout read again after an edit holds
+ * new edge objects for the same wires, so the cache keys on the wire and not on the object.
+ * The focus look is `edgeRule`'s, so a hover changes no edge.
  */
 export function keptEdges(
+  cache: EdgeCache,
   edges: readonly LayoutEdge[],
   look: (edge: LayoutEdge) => EdgeLook,
 ): BuiltInEdge[] {
-  return edges.map((edge) => {
+  const next: EdgeCache = new Map();
+  const kept = edges.map((edge) => {
     const drawn = look(edge);
-    const key = `${drawn.lit}|${drawn.faded}|${drawn.animated}|${drawn.lane}`;
-    const held = BUILT.get(edge);
-    if (held?.key === key) return held.edge;
-
-    const built = buildEdge(edge, drawn);
-    BUILT.set(edge, { key, edge: built });
+    const key = [
+      edge.id,
+      edge.source,
+      edge.target,
+      edge.port,
+      edge.kind,
+      drawn.animated,
+      drawn.lane,
+    ].join("|");
+    const built = cache.get(key) ?? buildEdge(edge, drawn);
+    next.set(key, built);
     return built;
   });
+
+  cache.clear();
+  for (const [key, built] of next) cache.set(key, built);
+
+  return kept;
 }
 
-function buildEdge(edge: LayoutEdge, { lit, faded, animated, lane }: EdgeLook): BuiltInEdge {
+function buildEdge(edge: LayoutEdge, { animated, lane }: EdgeLook): BuiltInEdge {
   return {
     id: edge.id,
     source: edge.source,
@@ -83,13 +96,40 @@ function buildEdge(edge: LayoutEdge, { lit, faded, animated, lane }: EdgeLook): 
     focusable: false,
     style: {
       stroke: edge.kind === null ? NEUTRAL_STROKE : KIND_STROKE[edge.kind],
-      strokeWidth: lit ? 2.5 : 1.5,
-      opacity: faded ? 0.2 : restingOpacity(edge),
-      transition: EDGE_TRANSITION,
       /* Screen pixels at every zoom, so a zoomed-out board keeps its wires. */
       vectorEffect: "non-scaling-stroke",
+      ...restingLook(edge),
     },
   };
+}
+
+/** The edges past which a focus changes the look at once, since a fade repaints every wire. */
+const FADES_UP_TO = 300;
+
+const FADED_EDGE_OPACITY = 0.2;
+
+/**
+ * A stylesheet drawing the wires of the canvas `scope`: each at rest, and under a focus the
+ * wires of `lit` thick and every other one faded. `count` is how many wires the canvas holds.
+ *
+ * The look is a rule rather than each edge's own style, so a hover or a pick re-renders no
+ * edge. A wire's width and opacity must stay out of its inline style, which would outrank this.
+ */
+export function edgeRule(scope: string, lit: ReadonlySet<string> | null, count: number): string {
+  const edge = `#${CSS.escape(scope)} .react-flow__edge`;
+  const path = ".react-flow__edge-path";
+  const eased = count <= FADES_UP_TO ? `transition:${EDGE_TRANSITION};` : "";
+  const rest = `${edge} ${path}{stroke-width:1.5px;opacity:var(--edge-rest,1);${eased}}`;
+  if (lit === null) return rest;
+
+  const kept = [...lit].map((id) => `[data-id="${CSS.escape(id)}"]`).join(",");
+  if (kept === "") return `${rest}${edge} ${path}{opacity:${FADED_EDGE_OPACITY}}`;
+
+  return (
+    rest +
+    `${edge}:not(${kept}) ${path}{opacity:${FADED_EDGE_OPACITY}}` +
+    `${edge}:is(${kept}) ${path}{stroke-width:2.5px}`
+  );
 }
 
 /**
@@ -123,9 +163,12 @@ function endsOf(lookup: ReadonlyMap<string, InternalNode>, edge: LayoutEdge): Ed
 /** Wires run in right angles, rounded at each turn, and leave a socket before they turn. */
 const STEP_PATH = { borderRadius: 8, offset: 16 } as const;
 
-/** An edge into the preview crosses the packed blocks, so it rests faint until lit. */
-function restingOpacity(edge: LayoutEdge): number {
-  return edge.target === PREVIEW_ID ? 0.35 : 1;
+/**
+ * The opacity an edge into the preview rests at, as the variable `edgeRule` reads. It crosses
+ * the packed blocks, so it rests faint until lit.
+ */
+function restingLook(edge: LayoutEdge): CSSProperties {
+  return edge.target === PREVIEW_ID ? ({ "--edge-rest": 0.35 } as CSSProperties) : {};
 }
 
 const PREVIEW_ID = "preview";

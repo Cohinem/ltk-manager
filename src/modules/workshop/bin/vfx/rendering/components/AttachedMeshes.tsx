@@ -25,6 +25,7 @@ import { type SlotProgram, useAttachedPrograms } from "../hooks/useParticleProgr
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { usePickTargets } from "../state/pick";
 import { useWireTwin, WIRE_ORDER } from "../state/wire";
+import { scaleAboutParent } from "../utils/attachedPlace";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
@@ -80,7 +81,8 @@ interface Slot {
  * One attached emitter's particles, each the skin of the character the system rides.
  *
  * Each particle draws the character's skin where the character stands, scaled by the
- * particle's own scale about the scene's origin, in its own colour, layers and erosion.
+ * particle's own scale about the origin of the group the character is in, in its own colour,
+ * layers and erosion.
  * A scene with no character draws none. Decisions 2.18 and 2.35 of
  * docs/plans/vfx-particle-renderer.md.
  *
@@ -247,10 +249,10 @@ export function AttachedMeshes({
             }
           }
 
-          mesh.scale.set(DRAWN.scale[0], DRAWN.scale[1], DRAWN.scale[2]);
+          scaleAboutParent(mesh, DRAWN.scale);
           mesh.visible = shaded;
           if (twin !== null) {
-            twin.scale.copy(mesh.scale);
+            scaleAboutParent(twin, DRAWN.scale);
             twin.visible = true;
           }
           used += 1;
@@ -280,7 +282,7 @@ export function AttachedMeshes({
  * The character's skin under `material`, bound to its skeleton, drawn where `drawn` holds.
  *
  * The bind is detached, so a vertex skinned by the character's bones lands where the
- * character stands and the mesh's own transform is the particle's scale on top of it.
+ * character stands, and the mesh's own matrix adds the particle's scale alone.
  */
 function skinOf(skin: CharacterSkin, material: Material, drawn: readonly boolean[]): SkinnedMesh {
   const mesh = new SkinnedMesh(
@@ -289,6 +291,8 @@ function skinOf(skin: CharacterSkin, material: Material, drawn: readonly boolean
   );
   mesh.bindMode = DetachedBindMode;
   mesh.bind(skin.skeleton, IDENTITY);
+  /* The frame writes the matrix itself, through `scaleAboutParent`. */
+  mesh.matrixAutoUpdate = false;
   mesh.frustumCulled = false;
   mesh.visible = false;
   return mesh;

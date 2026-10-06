@@ -1,7 +1,8 @@
 # ADR-0032: A curve draws in a dock under the object tab
 
 - **Status:** Accepted (2026-09-08), amended 2026-09-11: the target follows its field, and the
-  random spread draws on the graph in place of a Probability tab
+  random spread draws on the graph in place of a Probability tab. Amended 2026-10-06: a shell
+  whose curve pane is closed floats it on an aim
 - **Date:** 2026-09-08
 - **Crates:** none. A curve is four fields the projected read already answers, and Rust knows
   no value family
@@ -59,6 +60,11 @@ table's four value columns is 240 curves on one screen.
 
 **A value with no dynamics draws no mark, and its row menu offers no curve.** Adding one is a
 write that sets a null pointer to a class, which nothing in the editor does yet.
+
+**A shell whose curve pane is closed floats it on an aim** rather than reopening it into the
+tree. The floating frame is not the popover this decision rejects: it stays open until its own
+Close, so a click into another cell leaves it standing, and it draws the same surface on the same
+target. "A pane floats" in `docs/ux/BIN_EDITOR.md`.
 
 **There is one dock in the app.** A mark on a bin file tab's row opens the object tab with the
 dock already targeted, the way Show in properties switches the mode.

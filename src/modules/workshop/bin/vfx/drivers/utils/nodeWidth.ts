@@ -1,6 +1,7 @@
 import type { DriverNode } from "../../engine/drivers/node";
+import { emitterLabel } from "../../inspector/utils/emitterLabels";
 import { socketList } from "./entryLists";
-import type { GraphItem, StructItem } from "./graphItems";
+import type { GraphItem, MasterField, StructItem } from "./graphItems";
 import { fieldAlias, itemSubtitle, itemTitle, pathAlias } from "./nodeText";
 import { rowValueWidth, VALUE_WIDTH } from "./rowWidth";
 import { LABEL_TEXT, type MeasureText, META_TEXT, ROW_TEXT } from "./textWidth";
@@ -27,8 +28,8 @@ const KIND_LABEL_WIDTH = 36;
 const VALUE_LABEL_WIDTH = 64;
 const BODY_CHROME = 16;
 
-/** A struct node's name column, from the inspector's 9rem up, and its value column. */
-const STRUCT_NAME_WIDTH = { min: 144, max: 248 } as const;
+/** A struct node's name column, from a master's 10rem up, and its value column. */
+const STRUCT_NAME_WIDTH = { min: 160, max: 272 } as const;
 const STRUCT_VALUE_WIDTH = { min: 200, max: 300 } as const;
 
 /** A name's gutter and padding, and a class picker's caret and padding. */
@@ -67,6 +68,16 @@ export function structNameWidth(item: StructItem, measure: MeasureText): number 
   );
   const longest = Math.max(0, ...names);
   const natural = Math.ceil(longest) + NAME_CHROME;
+  return Math.min(STRUCT_NAME_WIDTH.max, Math.max(STRUCT_NAME_WIDTH.min, natural));
+}
+
+/**
+ * A master or component node's name column: as wide as the longest label its fields alias to,
+ * within a struct node's bounds.
+ */
+export function fieldNameWidth(fields: readonly MasterField[], measure: MeasureText): number {
+  const names = fields.map((field) => measure(emitterLabel(field.hash) ?? "", LABEL_TEXT));
+  const natural = Math.ceil(Math.max(0, ...names)) + NAME_CHROME;
   return Math.min(STRUCT_NAME_WIDTH.max, Math.max(STRUCT_NAME_WIDTH.min, natural));
 }
 

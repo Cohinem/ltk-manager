@@ -3,6 +3,7 @@ export * from "./layout";
 export * from "./state/documentFinds";
 export * from "./state/documentHistory";
 export * from "./state/documentSaves";
+export * from "./state/islands";
 export * from "./state/leafCloses";
 export * from "./tabTitles";
 export * from "./types";

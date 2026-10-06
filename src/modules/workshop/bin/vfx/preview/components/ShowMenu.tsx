@@ -30,7 +30,7 @@ export function ShowMenu() {
             right={<CaretDownIcon weight="bold" className="size-3" />}
           >
             {m.workshop_bin_preview_show_label()}
-            <span className="ml-1 text-surface-400 tabular-nums">{shown}</span>
+            <span className="text-surface-400 tabular-nums">{shown}</span>
           </Button>
         }
       />

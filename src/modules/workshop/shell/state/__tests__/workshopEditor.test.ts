@@ -1675,6 +1675,60 @@ describe("workshopEditor store", () => {
       expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
     });
 
+    it("floats a pane out of the tree, and gives its room to the panel beside it", () => {
+      store().floatShellPane(A, "vfx", "curve");
+
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"]]);
+      expect(editorOf(A).floatingShellPanes.vfx).toEqual(["curve"]);
+    });
+
+    it("floats a closed pane, and brings a floating one in front of the others", () => {
+      store().closeShellPane(A, "vfx", "leaf-5", "curve");
+      store().floatShellPane(A, "vfx", "curve");
+      store().floatShellPane(A, "vfx", "preview");
+
+      store().floatShellPane(A, "vfx", "curve");
+
+      expect(editorOf(A).floatingShellPanes.vfx).toEqual(["preview", "curve"]);
+    });
+
+    it("writes nothing for a floating pane already in front", () => {
+      store().floatShellPane(A, "vfx", "curve");
+      const before = editorOf(A);
+
+      store().floatShellPane(A, "vfx", "curve");
+
+      expect(editorOf(A)).toBe(before);
+    });
+
+    it("docks a floating pane into the panel the reader last touched", () => {
+      store().floatShellPane(A, "vfx", "curve");
+      store().activateShellPane(A, "vfx", "leaf-4", "inspector");
+
+      store().openShellPane(A, "vfx", "curve");
+
+      expect(panesOf(A)).toEqual([["preview"], ["inspector", "curve"], ["timeline"]]);
+      expect(editorOf(A).floatingShellPanes.vfx).toEqual([]);
+    });
+
+    it("closes a floating pane, which leaves it in neither the tree nor a frame", () => {
+      store().floatShellPane(A, "vfx", "curve");
+
+      store().closeFloatingShellPane(A, "vfx", "curve");
+
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"]]);
+      expect(editorOf(A).floatingShellPanes.vfx).toEqual([]);
+    });
+
+    it("puts a floating pane back where it started on a reset", () => {
+      store().floatShellPane(A, "vfx", "curve");
+
+      store().resetShellLayout(A, "vfx");
+
+      expect(panesOf(A)).toEqual([["preview"], ["inspector"], ["timeline"], ["curve"]]);
+      expect(editorOf(A).floatingShellPanes.vfx).toEqual([]);
+    });
+
     it("keeps one project's arrangement out of another's", () => {
       store().closeShellPane(A, "vfx", "leaf-5", "curve");
 

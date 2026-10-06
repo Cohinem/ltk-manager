@@ -12,6 +12,9 @@ export const TIMING = {
   period: nameHash("period"),
   timeActiveDuringPeriod: nameHash("timeActiveDuringPeriod"),
   isSingleParticle: nameHash("isSingleParticle"),
+  emitterLinger: nameHash("emitterLinger"),
+  particleLingerType: nameHash("particleLingerType"),
+  HasVariableStartTime: nameHash("HasVariableStartTime"),
 } as const;
 
 export type TimingName = keyof typeof TIMING;

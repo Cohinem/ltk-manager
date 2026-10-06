@@ -11,6 +11,8 @@ export interface JointPickerProps {
   readonly value: string | null;
   readonly onPick: (joint: string) => void;
   readonly disabled?: boolean;
+  /** The text shown while no joint is held. */
+  readonly placeholder?: string;
 }
 
 /* DS-HOVER, DS-RADIUS */
@@ -23,7 +25,14 @@ const LINE_INPUT =
  * It reads as the joint it holds. Typing narrows the skeleton's joints by name, and a
  * pick or a close puts the held joint's name back.
  */
-export function JointPicker({ label, joints, value, onPick, disabled = false }: JointPickerProps) {
+export function JointPicker({
+  label,
+  joints,
+  value,
+  onPick,
+  disabled = false,
+  placeholder,
+}: JointPickerProps) {
   /* What the reader typed, and null while the input shows the held joint. */
   const [typed, setTyped] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -60,6 +69,7 @@ export function JointPicker({ label, joints, value, onPick, disabled = false }: 
       <Combobox.Input
         aria-label={label}
         disabled={disabled}
+        placeholder={placeholder}
         spellCheck={false}
         autoComplete="off"
         className={LINE_INPUT}

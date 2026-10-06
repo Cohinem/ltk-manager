@@ -109,6 +109,8 @@ interface PreviewDisplay {
   timelineSnap: boolean;
   /** The inspector lists every field the class declares, the unauthored ones dimmed. */
   inspectorDefaults: boolean;
+  /** The particle graph draws its minimap while a part of the graph is outside the view. */
+  graphMinimap: boolean;
 }
 /** A preview display preference that is a switch. */
 type PreviewFlag = {
@@ -296,6 +298,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   timelineHistogram: false,
   timelineSnap: true,
   inspectorDefaults: false,
+  graphMinimap: true,
 };
 
 /* What the Project editor card shows. The rest of this store is geometry, which is
@@ -528,5 +531,6 @@ export const usePreviewMaterialOnShape = () =>
 export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timelineHistogram);
 export const useTimelineSnap = () => useWorkshopLayoutStore((s) => s.timelineSnap);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
+export const useGraphMinimap = () => useWorkshopLayoutStore((s) => s.graphMinimap);
 export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);
 export const usePreviewFlag = (flag: PreviewFlag) => useWorkshopLayoutStore((s) => s[flag]);

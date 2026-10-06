@@ -8,6 +8,7 @@ import {
   defaultShellArrangements,
   type ShellArrangements,
   type ShellKind,
+  type ShellPaneId,
 } from "../../bin/shell/utils/shellPanes";
 import type { AbilityRecipe } from "../../bin/spells/utils/abilityRecipe";
 import type { TimelineMarkers } from "../../bin/vfx/timeline/utils/markers";
@@ -96,7 +97,15 @@ export interface ProjectEditor {
   maximizedLeafId: string | null;
   /** The one panel filling each shell, absent for a shell drawing its whole tree. */
   maximizedShellLeaf: Readonly<Partial<Record<ShellKind, string>>>;
+  /**
+   * The panes each shell draws in a floating frame over its tree, front last. A pane is in
+   * the tree or here, never both, and one in neither is closed.
+   */
+  floatingShellPanes: FloatingShellPanes;
 }
+
+/** The floating panes of every shell that floats any. */
+export type FloatingShellPanes = Readonly<Partial<Record<ShellKind, readonly ShellPaneId[]>>>;
 
 /* Shared by every editor nothing has touched. Safe to share because every tree
    op copies before it writes. */
@@ -123,6 +132,7 @@ export const EMPTY_EDITOR: ProjectEditor = {
   shells: SHELL_ROOTS,
   maximizedLeafId: null,
   maximizedShellLeaf: {},
+  floatingShellPanes: {},
 };
 
 /** The collapsed-set of a layer nobody has shut a directory in. */

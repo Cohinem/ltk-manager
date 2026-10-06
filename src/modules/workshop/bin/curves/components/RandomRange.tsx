@@ -105,14 +105,14 @@ function RangeFields({ channel, family, unit, editor }: RangeLabelProps) {
       <Readout
         value={readout(range.least)}
         aria-label={m.workshop_bin_random_least_label({ channel: name })}
-        className="w-16 text-right"
+        className="w-16"
         onCommit={(text) => commit("least", text)}
       />
       <span className="text-surface-500">{RANGE_SEPARATOR}</span>
       <Readout
         value={readout(range.most)}
         aria-label={m.workshop_bin_random_most_label({ channel: name })}
-        className="w-16 text-right"
+        className="w-16"
         onCommit={(text) => commit("most", text)}
       />
       {suffix !== null && <span className="font-sans text-meta text-surface-400">{suffix}</span>}
@@ -173,12 +173,7 @@ export function RangeEnd({ channel, family, unit, editor, end }: RangeEndProps) 
   return (
     <span className="flex items-center gap-1 font-mono text-code">
       {sign !== null && <span className="text-surface-400">{sign}</span>}
-      <Readout
-        value={readout(range[end])}
-        aria-label={label}
-        className="w-16 text-right"
-        onCommit={commit}
-      />
+      <Readout value={readout(range[end])} aria-label={label} className="w-16" onCommit={commit} />
       {suffix !== null && <span className="font-sans text-meta text-surface-400">{suffix}</span>}
     </span>
   );

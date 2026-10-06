@@ -12,7 +12,6 @@ export {
   useBinDocument,
 } from "./documents/hooks/useBinDocument";
 export { FileChip, LinkChip, ObjectChip } from "./links/components/LinkChip";
-export { OtherDeclarations } from "./links/components/OtherDeclarations";
 export {
   LinkAssetContext,
   linkHashes,

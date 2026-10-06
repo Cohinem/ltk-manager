@@ -80,6 +80,11 @@ const LABELS: ReadonlyMap<string, () => string> = new Map(
     emissionSurfaceDefinition: m.workshop_bin_vfx_property_emission_surface_definition_label,
     useEmissionMeshNormalForBirth:
       m.workshop_bin_vfx_property_use_emission_mesh_normal_for_birth_label,
+    EmissionSurface: m.workshop_bin_vfx_property_emission_surface_label,
+    ParticleSpawnDataGenerator: m.workshop_bin_vfx_property_particle_spawn_data_generator_label,
+    useSurfaceNormalForBirthPhysics:
+      m.workshop_bin_vfx_property_use_surface_normal_for_birth_physics_label,
+    VfxGroupName: m.workshop_bin_vfx_property_vfx_group_name_label,
     scale0: m.workshop_bin_vfx_property_scale0_label,
     scaleOverride: m.workshop_bin_vfx_property_scale_override_label,
     FlexInstanceScale: m.workshop_bin_vfx_property_flex_instance_scale_label,

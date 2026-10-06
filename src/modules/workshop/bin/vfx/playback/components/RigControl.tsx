@@ -99,9 +99,7 @@ export function RigControl() {
             aria-label={m.workshop_bin_preview_rig_label()}
           >
             {CARRIER_LABEL[carrier]()}
-            <span className="ml-1.5 max-w-32 truncate text-surface-400">
-              {sourceTag(choice.source)}
-            </span>
+            <span className="max-w-32 truncate text-surface-400">{sourceTag(choice.source)}</span>
           </Button>
         }
       />

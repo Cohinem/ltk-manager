@@ -7,10 +7,10 @@ import { m } from "@/i18n";
 import { toggledIn } from "@/utils";
 
 import { steppedRow, useActiveRow } from "../../../shared/hooks/useActiveRow";
+import { instantScroll } from "../../../shared/utils/instantScroll";
 import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
 import { Notice } from "../../shared/preview/Notice";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
-import { instantScroll } from "../../tree/hooks/useRowWindow";
 import { mapQueries } from "../api/mapQueries";
 import { useMapScene } from "../state/mapScene";
 import {

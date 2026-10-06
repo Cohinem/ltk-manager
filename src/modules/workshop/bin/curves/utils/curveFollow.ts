@@ -57,6 +57,6 @@ export function useCurveFollow(card: EmitterCardData | undefined): void {
     held.current = next.held;
     if (next.target === target) return;
     if (next.target === null) clear();
-    else aim(next.target);
+    else aim(next.target, true);
   }, [card, target, aim, clear]);
 }

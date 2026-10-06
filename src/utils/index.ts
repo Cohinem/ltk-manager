@@ -10,3 +10,4 @@ export * from "./set";
 export * from "./slug";
 export * from "./twMerge";
 export * from "./virtualRows";
+export * from "./writeText";

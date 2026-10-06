@@ -418,6 +418,19 @@
   --ease-spring: cubic-bezier(0.34, 1.18, 0.64, 1);
 }
 
+/* The dense type tiers on a zoomable board. They are the aliases Tailwind reads,
+   which resolve on :root and so do not follow a --type-* set further down. */
+[data-type-scale="board"] {
+  --text-row: 0.875rem;
+  --text-row--line-height: 1.125rem;
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1rem;
+  --text-fine: 0.75rem;
+  --text-fine--line-height: 0.9375rem;
+  --text-mono-row: 0.9375rem;
+  --text-mono-row--line-height: 1.25rem;
+}
+
 /* The one axis a user may bend the radius scale on. 006 stays a pill either way. */
 [data-corners="sharp"] {
   --radius-001: 0px;

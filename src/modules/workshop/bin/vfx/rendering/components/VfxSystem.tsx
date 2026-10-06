@@ -20,6 +20,7 @@ import {
   drawsAsTrail,
   drawsTheAttachment,
 } from "../utils/drawKind";
+import type { BoundUnit } from "../utils/emissionSurface";
 import { AttachedMeshes } from "./AttachedMeshes";
 import { Beams } from "./Beams";
 import { Meshes } from "./Meshes";
@@ -52,6 +53,8 @@ export interface VfxSystemProps {
   readonly drawOnly?: boolean;
   /** Where the drawn emitters register for a click to pick, and nowhere where unset. */
   readonly picks?: PickRegistry;
+  /** The unit the system is bound to. Its pose is used for the emission surfaces. */
+  readonly unit?: BoundUnit | null;
 }
 
 /**
@@ -71,8 +74,9 @@ export function VfxSystem({
   document = null,
   drawOnly = false,
   picks,
+  unit = null,
 }: VfxSystemProps) {
-  useEmissionSurfaces(drawn, drawOnly ? null : driver);
+  useEmissionSurfaces(drawn, drawOnly ? null : driver, unit);
   const joints = useMemo(() => {
     const lookups = new Map<string, Joints>();
     for (const [key, buffers] of meshes) {

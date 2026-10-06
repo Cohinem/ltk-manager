@@ -1,8 +1,8 @@
-import { ArrowUUpLeftIcon, CaretDownIcon, GitDiffIcon } from "@phosphor-icons/react";
+import { ArrowUUpLeftIcon } from "@phosphor-icons/react";
 import { use } from "react";
 import { useShallow } from "zustand/react/shallow";
 
-import { Button, ContextMenu, Menu, Tooltip } from "@/components";
+import { ContextMenu, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { BinRow, ChangeBaseline, ChangeKind } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -79,37 +79,28 @@ export function RevertMenuItem({ row }: { row: BinRow }) {
 }
 
 /**
- * The change marks' menu: whether rows carry marks, whether changed rows alone show, and
- * what a change is measured from.
+ * The change marks' menu items under their two headings: whether rows carry marks and whether
+ * changed rows alone show, then what a change is measured from. The inspector's View menu
+ * holds them.
  */
-export function ChangesMenu() {
+export function ChangeMenuItems() {
   const { marks, toggleMarks, baseline, setBaseline, changedOnly, toggleChangedOnly } =
     useChangeViewStore(useShallow((state) => state));
 
   return (
-    <Menu.Root>
-      <Menu.Trigger
-        render={
-          <Button
-            variant="ghost"
-            size="xs"
-            aria-label={m.workshop_bin_change_menu_label()}
-            title={m.workshop_bin_change_menu_label()}
-            data-pressed={changedOnly || undefined}
-            className="data-pressed:bg-accent-500/15 data-pressed:text-accent-300"
-            left={<GitDiffIcon weight="bold" className="size-3.5" />}
-            right={<CaretDownIcon weight="bold" className="size-3" />}
-          />
-        }
-      />
-      <Menu.Content align="start" data-ui="ChangesMenu" className="w-60">
+    <>
+      <Menu.Group>
+        <Menu.GroupLabel>{m.workshop_bin_change_menu_label()}</Menu.GroupLabel>
         <Menu.CheckboxItem checked={marks} onCheckedChange={toggleMarks}>
           {m.workshop_bin_change_marks_action()}
         </Menu.CheckboxItem>
         <Menu.CheckboxItem checked={changedOnly} onCheckedChange={toggleChangedOnly}>
           {m.workshop_bin_change_only_action()}
         </Menu.CheckboxItem>
-        <Menu.Separator />
+      </Menu.Group>
+      <Menu.Separator />
+      <Menu.Group>
+        <Menu.GroupLabel>{m.workshop_bin_change_baseline_label()}</Menu.GroupLabel>
         <Menu.RadioGroup
           value={baseline}
           onValueChange={(value) => setBaseline(value as ChangeBaseline)}
@@ -117,7 +108,7 @@ export function ChangesMenu() {
           <Menu.RadioItem value="opened">{m.workshop_bin_change_opened_label()}</Menu.RadioItem>
           <Menu.RadioItem value="game">{m.workshop_bin_change_game_label()}</Menu.RadioItem>
         </Menu.RadioGroup>
-      </Menu.Content>
-    </Menu.Root>
+      </Menu.Group>
+    </>
   );
 }

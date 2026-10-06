@@ -274,9 +274,6 @@ function tileTitle(node: ObjectPrefixNode | ObjectRowNode): string {
 
   const [first] = node.declarations;
   if (first === undefined) return node.id;
-  if (node.declarations.length > 1) {
-    return `${node.id}\n${m.workshop_objects_files_label({ count: node.declarations.length })}`;
-  }
 
   return `${node.id}\n${first.file}`;
 }

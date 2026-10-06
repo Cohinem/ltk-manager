@@ -34,6 +34,7 @@ import { useForces } from "../../forces/useForces";
 import { VfxRunContext } from "../../playback/state/run";
 import { useEmitters } from "../state/emitterChoice";
 import { useDefinedOnly, useInspectorPreview } from "../state/inspectorView";
+import { SURFACE_FIELD } from "../utils/emissionSource";
 import { emitterChain, emitterRows } from "../utils/emitterCards";
 import {
   type DefaultField,
@@ -58,8 +59,11 @@ import { PRIMITIVE_FIELD } from "../utils/primitives";
 import { rowHasDefault } from "../utils/propertyDefaults";
 import { AddPropertyBox, useAddedJump } from "./AddPropertyBox";
 import { DefaultProperty } from "./DefaultProperty";
+import { EmissionNotes } from "./EmissionNotes";
 import { InspectorActions } from "./InspectorActions";
 import { PrimitiveProperty } from "./PrimitiveProperty";
+import { RateReadout } from "./RateReadout";
+import { SurfaceProperty } from "./SurfaceProperty";
 
 /** The shared label column of the inspector's property tables. */
 const NAME_COLUMN = "w-(--name-width)";
@@ -445,6 +449,10 @@ function GroupSection({
         <CaretRightIcon weight="bold" className={twMerge("size-3", open && "rotate-90")} />
         {title}
       </button>
+      {open && !searching && group === "emission" && <RateReadout />}
+      {open && !searching && (group === "emission" || group === "source") && (
+        <EmissionNotes group={group} />
+      )}
       {open &&
         properties.map((property, at) => {
           const key = `${card?.key ?? owner}:${property.hash}`;
@@ -452,7 +460,20 @@ function GroupSection({
             return (
               <PrimitiveProperty
                 key={key}
-                field={primitiveField(property, schema?.fields)}
+                field={schemaField(property, schema?.fields)}
+                holder={card.row}
+                authored={"row" in property ? property.row : undefined}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          if (property.hash === SURFACE_FIELD && card !== undefined) {
+            return (
+              <SurfaceProperty
+                key={key}
+                field={schemaField(property, schema?.fields)}
                 holder={card.row}
                 authored={"row" in property ? property.row : undefined}
                 width={NAME_COLUMN}
@@ -523,7 +544,7 @@ function GroupSection({
 }
 
 /** The schema's reading of a property, and its bare name where the schema has none. */
-function primitiveField(
+function schemaField(
   property: InspectorProperty,
   fields: readonly FieldSchema[] | undefined,
 ): DefaultField {

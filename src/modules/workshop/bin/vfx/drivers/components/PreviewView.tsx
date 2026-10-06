@@ -13,6 +13,7 @@ import {
 } from "react";
 import { type Camera, PerspectiveCamera, Scene } from "three";
 
+import { isIdle, setIdle } from "../utils/frameGuard";
 import {
   type PreviewEntry,
   type PreviewViewStore,
@@ -78,8 +79,9 @@ function ViewPortal({ view }: { view: PreviewEntry }) {
  * Draws the view's scene into its box, measured against the canvas on this frame. The canvas's
  * place is the size `FollowPlacement` measured before the draws, which the portal mirrors.
  *
- * A box off the canvas draws nothing, and one back on it draws again on the next frame, as
- * nothing is kept between frames.
+ * A box off the canvas draws nothing and marks its view idle, which stops the view's emitters
+ * writing their buffers. One back on it is marked live and draws from the next frame, once
+ * its buffers hold this moment's particles.
  */
 function ViewDraw({ box, children }: { box: RefObject<HTMLElement | null>; children: ReactNode }) {
   useFrame((state) => {
@@ -87,7 +89,9 @@ function ViewDraw({ box, children }: { box: RefObject<HTMLElement | null>; child
     if (element === null) return;
 
     const place = viewPlace(element.getBoundingClientRect(), state.size);
-    if (place !== null) drawView(state, place);
+    const stale = isIdle(state.scene);
+    setIdle(state.scene, place === null);
+    if (place !== null && !stale) drawView(state, place);
   }, DRAW_PRIORITY);
 
   return children;

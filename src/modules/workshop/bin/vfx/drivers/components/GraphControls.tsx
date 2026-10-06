@@ -4,6 +4,7 @@ import {
   CornersOutIcon,
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
+  MapTrifoldIcon,
   MonitorPlayIcon,
   RepeatIcon,
 } from "@phosphor-icons/react";
@@ -12,6 +13,7 @@ import type { ReactNode } from "react";
 
 import { IconButton } from "@/components";
 import { m } from "@/i18n";
+import { useGraphMinimap, useSetPreviewDisplay } from "@/stores";
 
 import { BackdropButton } from "./BackdropButton";
 
@@ -26,7 +28,7 @@ interface GraphControlsProps {
 
 /**
  * Zoom, fit, collapse or expand every node, the preview node's switch, the node surfaces'
- * loop and the previews' backdrop, in the canvas's top-right corner.
+ * loop, the minimap's switch and the previews' backdrop, in the canvas's top-right corner.
  */
 export function GraphControls({
   onFit,
@@ -37,6 +39,11 @@ export function GraphControls({
   onLoopedChange,
 }: GraphControlsProps) {
   const flow = useReactFlow();
+  const minimap = useGraphMinimap();
+  const setDisplay = useSetPreviewDisplay();
+  const minimapLabel = minimap
+    ? m.workshop_bin_graph_minimap_hide_action()
+    : m.workshop_bin_graph_minimap_show_action();
   const previewLabel = previewed
     ? m.workshop_bin_graph_preview_hide_action()
     : m.workshop_bin_graph_preview_show_action();
@@ -87,6 +94,13 @@ export function GraphControls({
         onPress={() => onLoopedChange(!looped)}
       >
         <RepeatIcon weight="bold" className="size-4" />
+      </ControlButton>
+      <ControlButton
+        label={minimapLabel}
+        pressed={minimap}
+        onPress={() => setDisplay({ graphMinimap: !minimap })}
+      >
+        <MapTrifoldIcon weight="bold" className="size-4" />
       </ControlButton>
       <BackdropButton />
     </Panel>

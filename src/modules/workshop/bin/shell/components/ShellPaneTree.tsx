@@ -1,5 +1,5 @@
 import { CheckIcon, ColumnsIcon } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { Button, Menu, RetainedContent } from "@/components";
@@ -15,6 +15,7 @@ import {
   PortalSlot,
   SplitLayout,
   TabDndProvider,
+  useIslands,
   usePortalHosts,
 } from "@/modules/editor";
 import { twMerge } from "@/utils";
@@ -22,7 +23,10 @@ import { twMerge } from "@/utils";
 import {
   useActivateShellPane,
   useApplyShellDrop,
+  useCloseFloatingShellPane,
   useCloseShellPane,
+  useFloatingShellPanes,
+  useFloatShellPane,
   useOpenShellPane,
   useOpenShellPanes,
   useResetShellLayout,
@@ -35,6 +39,7 @@ import {
   useToggleMaximizedShellLeaf,
 } from "../../../state";
 import { Notice } from "../../shared/preview/Notice";
+import type { Point } from "../utils/floatPlace";
 import {
   isShellPaneId,
   SHELL_PANE_TITLE,
@@ -43,6 +48,7 @@ import {
   type ShellPaneOf,
   shellPanesOf,
 } from "../utils/shellPanes";
+import { FloatingPane } from "./FloatingPane";
 
 /** The box one pane draws, so no pane invents a surface of its own. DS-GROUND. */
 const PANE =
@@ -76,6 +82,9 @@ interface ShellPaneTreeProps<K extends ShellKind> {
  * Each body renders here, into a portal host its panel adopts, rather than inside the
  * panel. Closing, maximizing or moving a pane rebuilds the panels, and a body mounted
  * in one would take the preview's WebGL context and every upload with it.
+ *
+ * A floating pane's frame adopts the same host, so a pane floats and docks with its body
+ * standing. "A pane floats" in docs/ux/BIN_EDITOR.md.
  */
 export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneTreeProps<K>) {
   const tree = useShellLayout(kind);
@@ -85,11 +94,28 @@ export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneT
   const restoreMaximized = useRestoreMaximizedShellLeaf(kind);
   const hostOf = usePortalHosts();
   const bodies: Partial<Record<ShellPaneId, ShellPane>> = content;
+  /* Tells the editor group's frame that the panes draw their own edges. */
+  useIslands();
+
+  const floating = useFloatingShellPanes(kind).filter((pane) => bodies[pane] !== undefined);
+  const openPane = useOpenShellPane(kind);
+  const floatPane = useFloatShellPane(kind);
+  const closeFloating = useCloseFloatingShellPane(kind);
+  const shell = useRef<HTMLDivElement>(null);
+  /* Where the reader last pressed, which a frame opened by that press floats beside. */
+  const pressed = useRef<Point | null>(null);
+  const notePress = (event: PointerEvent) => {
+    pressed.current = { x: event.clientX, y: event.clientY };
+  };
+  const [rests, setRests] = useState<Partial<Record<ShellPaneId, Point>>>({});
 
   return (
     <TabDndProvider tree={tree} onDrop={applyDrop} overlay={PaneGhost}>
-      {/* `data-islands` tells the frame the panes draw their own edges. */}
-      <div data-islands className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        ref={shell}
+        className="relative flex min-h-0 min-w-0 flex-1 flex-col"
+        onPointerDownCapture={notePress}
+      >
         <SplitLayout
           node={tree}
           seamVariant="gap"
@@ -100,16 +126,39 @@ export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneT
           maximizedLeafId={maximizedLeafId}
           onRestore={restoreMaximized}
         />
+        {floating.map((pane) => (
+          <FloatingPane
+            key={pane}
+            title={SHELL_PANE_TITLE[pane]()}
+            viewport={pane === "preview"}
+            actions={bodies[pane]?.actions}
+            bounds={shell}
+            pressed={pressed}
+            rest={rests[pane]}
+            onRest={(place) => setRests((held) => ({ ...held, [pane]: place }))}
+            onPress={() => floatPane(pane)}
+            onDock={() => openPane(pane)}
+            onClose={() => closeFloating(pane)}
+          >
+            <PortalSlot host={hostOf(pane)} />
+          </FloatingPane>
+        ))}
       </div>
       {/* After the tree, so a panel has adopted its host before a body's layout effects run. */}
-      {heldPanes(tree, maximizedLeafId).map(({ pane, shown }) => {
+      {[
+        ...heldPanes(tree, maximizedLeafId),
+        ...floating.map((pane) => ({ pane, shown: true })),
+      ].map(({ pane, shown }) => {
         const focus = () => bodies[pane]?.onFocus?.();
         return createPortal(
           <RetainedContent
             active={shown}
             defer
             className="absolute inset-0 flex min-h-0 min-w-0 flex-col"
-            onPointerDownCapture={focus}
+            onPointerDownCapture={(event) => {
+              notePress(event);
+              focus();
+            }}
             onFocusCapture={focus}
           >
             {bodies[pane]?.body}
@@ -156,6 +205,7 @@ function PaneLeaf<K extends ShellKind>({
   const active = useShellActivePane(kind, leaf.id);
   const activate = useActivateShellPane(kind);
   const close = useCloseShellPane(kind);
+  const float = useFloatShellPane(kind);
   const maximizedLeafId = useShellMaximizedLeaf(kind);
   const toggleMaximized = useToggleMaximizedShellLeaf(kind);
   /* A pane the tree holds is one the shell holds, which the sanitize on load keeps true. */
@@ -180,6 +230,8 @@ function PaneLeaf<K extends ShellKind>({
           }}
           onClose={(id) => isShellPaneId(id) && close(leaf.id, id)}
           onMaximize={() => toggleMaximized(leaf.id)}
+          maximized={maximizedLeafId === leaf.id}
+          onFloat={(id) => isShellPaneId(id) && float(id)}
           actions={active === null ? null : bodies[active]?.actions}
           actionsWidth={active === null ? undefined : bodies[active]?.actionsWidth}
         />
@@ -203,11 +255,15 @@ function PaneLeaf<K extends ShellKind>({
 export function PanesMenu({ kind, className }: { kind: ShellKind; className?: string }) {
   const tree = useShellLayout(kind);
   const open = useOpenShellPanes(kind);
+  const floating = useFloatingShellPanes(kind);
   const openPane = useOpenShellPane(kind);
   const closePane = useCloseShellPane(kind);
+  const closeFloating = useCloseFloatingShellPane(kind);
   const reset = useResetShellLayout(kind);
 
   function toggle(pane: ShellPaneId) {
+    if (floating.includes(pane)) return closeFloating(pane);
+
     const holder = leafHolding(tree, pane);
     if (holder === null) return openPane(pane);
     return closePane(holder.id, pane);
@@ -231,7 +287,11 @@ export function PanesMenu({ kind, className }: { kind: ShellKind; className?: st
         {shellPanesOf(kind).map((pane) => (
           <Menu.Item
             key={pane}
-            icon={open.has(pane) && <CheckIcon weight="bold" className="size-4" />}
+            icon={
+              (open.has(pane) || floating.includes(pane)) && (
+                <CheckIcon weight="bold" className="size-4" />
+              )
+            }
             onClick={() => toggle(pane)}
           >
             {SHELL_PANE_TITLE[pane]()}

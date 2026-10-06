@@ -6,6 +6,7 @@ import {
   flightTime,
   fliesAsMissile,
   landed,
+  type Motion,
   originAt,
   phaseAt,
   type Point,
@@ -213,9 +214,17 @@ export interface Driver extends Source {
   /** Read every birth's tables at `chance` from here on, and at its own draw again for null. */
   pin(chance: number | null): void;
   setSurfaces(surfaces: EmissionSurfaces): void;
+  /** The emission samplers currently installed, which the viewport's birth overlay samples. */
+  surfaces(): EmissionSurfaces;
   setMeshJoints(joints: ReadonlyMap<string, Joints>): void;
-  /** Draw the next appearance pass from `next`, keeping the particles already alive. */
-  swap(next: SystemModel): void;
+  /**
+   * Draw the next appearance pass from `next`, keeping the particles already alive.
+   *
+   * Returns true when `next` changes a field the simulation reads. The live particles were
+   * born under the previous definition, so an owner that shows the run seeks to its current
+   * phase after such a swap.
+   */
+  swap(next: SystemModel): boolean;
   /** Carry the system on `next`, restarting the run where the motion itself changed. */
   steer(next: RigModel): void;
   /**
@@ -502,6 +511,9 @@ export function createDriver(
       marks.clear();
       driver.seek(driver.phase);
     },
+    surfaces() {
+      return lineage.surfaces;
+    },
     setMeshJoints(joints) {
       if (jointsEquals(lineage.meshJoints, joints)) return;
 
@@ -533,19 +545,20 @@ export function createDriver(
       orientInto(phase);
       if (drawOnly) {
         children.repoint(next);
-        return;
+        return false;
       }
 
       marks.clear();
       relane();
       if (same) {
         children.repoint(next);
-        return;
+        return true;
       }
 
       /* The pool's `emitter` column no longer addresses the new list, so the run replays to
          the current phase, which keeps the clock, the lanes and the particles in one run. */
       driver.seek(phase);
+      return true;
     },
 
     /*
@@ -553,9 +566,13 @@ export function createDriver(
      * rather than dropping the effect part-way along a path it never travelled. Tuning
      * one holds the run, and only re-reads the origin, so a drag along a slider moves
      * what it is describing rather than pinning the run to its first frame.
+     *
+     * A bone on another anchor is the same joint under another pose. What is alive was born
+     * where the last pose had the joint, so the run replays to its phase on the new one.
      */
     steer(next) {
       const turned = next.motion.kind !== rig.motion.kind;
+      const posed = reposed(rig.motion, next.motion);
       rig = next;
       tail = lingerTail(system, flightTime(next.motion));
       lineage.joints = next.joints ?? null;
@@ -563,6 +580,11 @@ export function createDriver(
 
       if (turned) {
         rewind();
+        return;
+      }
+
+      if (posed) {
+        driver.seek(phaseAt(next, stepper.now, span, tail));
         return;
       }
       /* The phase moves with the rig, because a tune that shortens the run wraps it back
@@ -586,6 +608,13 @@ export function createDriver(
     },
   };
   return driver;
+}
+
+/** Both motions ride a bone and stand on different anchors, which is one joint under two poses. */
+function reposed(from: Motion, to: Motion): boolean {
+  if (from.kind !== "bone" || to.kind !== "bone") return false;
+
+  return from.anchor !== to.anchor || from.target !== to.target;
 }
 
 /**

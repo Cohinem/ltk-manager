@@ -7,6 +7,8 @@ import { m } from "@/i18n";
 
 import { useMeasuredWidth } from "../../explorer/components/ExplorerSurface";
 import { nameTypeFor } from "../../explorer/utils/tileName";
+import { instantScroll } from "../../shared/utils/instantScroll";
+import { revealInList } from "../../shared/utils/revealInList";
 import { type RowReveal, useSelectedObjectPath, useSelectObjectNode } from "../../state";
 import { useObjectPreviewKind } from "../hooks/useObjectPreviewKind";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
@@ -80,6 +82,8 @@ interface ObjectsGridProps {
 /**
  * Virtualized object tiles, with stills rendered by the document's preview pool.
  *
+ * A reveal jumps to its tile without the app's smooth scroll, selects it and focuses it.
+ *
  * Only visible rows request stills, and no request starts during a scroll. A hovered tile
  * plays in place. A tile's expand button, or Space on the hovered or focused tile, opens the
  * large popover, which also plays a particle system whose sample missed its burst. A keyboard
@@ -136,6 +140,7 @@ export function ObjectsGrid({
     getScrollElement: () => scroll.current,
     estimateSize: () => rowHeight,
     overscan: 1,
+    scrollToFn: instantScroll,
   });
 
   useEffect(() => {
@@ -148,32 +153,34 @@ export function ObjectsGrid({
   }, [aimed]);
 
   const rows = virtualizer.getVirtualItems();
-  const revealed = useRef<RowReveal | null>(null);
+  const revealed = useRef<number | null>(null);
   useEffect(() => {
-    if (reveal === null || revealed.current === reveal || !visible || width === 0) {
+    if (reveal === null || revealed.current === reveal.token || !visible || width === 0) {
       return;
     }
 
-    const index = items.findIndex((node) => node.id === reveal.id);
-    if (index < 0) {
-      revealed.current = reveal;
+    const settle = () => {
+      revealed.current = reveal.token;
       onRevealed?.(reveal.token);
+    };
+    const index = items.findIndex((node) => node.id === reveal.id);
+    const node = items[index];
+    if (node === undefined) {
+      settle();
       return;
     }
 
     setFocused(index);
-    virtualizer.scrollToIndex(Math.floor(index / columns), { align: "auto" });
-    const frame = requestAnimationFrame(() => {
-      const tile = scroll.current?.querySelector<HTMLElement>(`[data-object-index="${index}"]`);
-      if (tile) {
-        tile.focus();
-        revealed.current = reveal;
-        onRevealed?.(reveal.token);
-      }
-    });
+    selectNode(node);
 
-    return () => cancelAnimationFrame(frame);
-  }, [reveal, rows, items, columns, visible, width, virtualizer, onRevealed]);
+    return revealInList({
+      scroller: () => scroll.current,
+      find: () =>
+        scroll.current?.querySelector<HTMLElement>(`[data-object-index="${index}"]`) ?? null,
+      scrollTo: () => virtualizer.scrollToIndex(Math.floor(index / columns), { align: "center" }),
+      onSettled: settle,
+    });
+  }, [reveal, items, columns, visible, width, virtualizer, onRevealed, selectNode]);
 
   const kindOf = useObjectPreviewKind();
   const keyOf = (node: ObjectRowNode) => stillKey(objectPreviewKey(node), scope);

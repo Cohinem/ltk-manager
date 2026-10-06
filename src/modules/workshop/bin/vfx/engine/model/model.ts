@@ -435,16 +435,21 @@ export interface MeshModel {
   readonly skinned: boolean;
 }
 
-/** A mesh or skeleton sampled at particle birth, in emitter space. */
+/**
+ * A mesh or skeleton sampled at particle birth, in emitter space.
+ *
+ * The pose comes from the unit the effect is bound to, so the model has no animation field.
+ */
 export interface EmissionSurfaceModel {
   readonly kind: "mesh" | "skeleton";
   readonly mesh: NamedAsset | null;
   readonly skeleton: NamedAsset | null;
-  readonly animation: NamedAsset | null;
   readonly submeshes: readonly string[];
   readonly joints: readonly string[];
   readonly scale: number;
+  /** `maxJointWeights`, from one to four. */
   readonly maxJointWeights: number;
+  /** The birth vectors take the sampled normal's direction. Always true for a skeleton. */
   readonly useNormal: boolean;
 }
 

@@ -623,9 +623,9 @@ function RangeValue({ range, field }: { range: ValueRange; field: string | null 
   if (range.least === range.most) return <NumberValue text={String(range.least)} field={field} />;
   return (
     <span className="flex min-w-0 items-center gap-1">
-      <Readout value={String(range.least)} className={twMerge(COMPONENT_WIDTH, "text-right")} />
+      <Readout value={String(range.least)} className={COMPONENT_WIDTH} />
       <span className="shrink-0 text-surface-400 select-none">{RANGE_SEPARATOR}</span>
-      <Readout value={String(range.most)} className={twMerge(COMPONENT_WIDTH, "text-right")} />
+      <Readout value={String(range.most)} className={COMPONENT_WIDTH} />
       {unit !== null && <Unit unit={unit} />}
     </span>
   );
@@ -684,7 +684,7 @@ export function AxisCells({
           <ChannelSash channel={at} />
           <span
             aria-label={AXES[at]}
-            className="min-w-0 flex-1 truncate bg-surface-veil-soft px-1.5 py-0.5 text-right font-mono text-surface-200 tabular-nums select-text"
+            className="min-w-0 flex-1 truncate bg-surface-veil-soft px-1.5 py-0.5 font-mono text-surface-200 tabular-nums select-text"
           >
             {axisText(component, ranges?.[at])}
           </span>

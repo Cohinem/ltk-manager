@@ -158,8 +158,19 @@ the only place a reader learns the difference.
 - `sizeOf` computes each node's height from its content before anything draws, and its width
   from its text, 232 to 440px per column. The text is measured on a canvas in the sans face the
   reader picked, and measured again when they pick another (`utils/textWidth.ts`,
-  `components/sansFace.ts`). A struct node's name column, 144 to 248px, is measured the same
-  way and shares its CSS variable with the inspector's `FieldRow`.
+  `components/sansFace.ts`). The name column of a struct, emitter or component node, 160 to
+  272px, is measured the same way from its field labels and shares its CSS variable with the
+  inspector's `FieldRow`.
+- a node's text is one step above the panels' row tiers, 14px for a row and 13px for a subtitle
+  at 100% app zoom (`[data-type-scale="board"]` in `src/styles/global.css`). The board is read
+  zoomed out, where a fitted emitter frame draws at 0.6 to 0.8.
+- a preview is as wide as its node inside 8px margins, so no node leaves empty body beside its
+  picture, and its height follows the width of the node's column: 4:3 on an emitter, which is
+  what the node is for, and 2:1 on a node that feeds one, so a component, struct or file node
+  stays shorter than its emitter (`previewHeight` in `utils/driverLayout.ts`, which
+  `NodeFrame` hands its boxes as `--preview-height`). A picture keeps its own aspect inside
+  the box, over the backdrop. A primitive's sketch is the exception: a diagram at its own 176
+  by 99, centred.
 - a row whose read has not landed draws its name dimmed in the line it will fill (`NoteLine`)
 
 **Why.** The layout places every node once. A read that lands later fills a line that is
@@ -310,7 +321,8 @@ A handled chord stops at the canvas, because `Ctrl+D` also opens Diagnostics app
 ### Highlighting and folding
 
 - hovering a node lights every path through it, its inputs and what it feeds, and fades every
-  other edge to 20% (`chainThrough` in `utils/graphChain.ts`)
+  other edge to 20% (`chainThrough` in `utils/graphChain.ts`). The change eases over 120ms on a
+  board of up to 300 wires and is immediate on a larger one, where a fade repaints every wire.
 - one selected node fades the nodes off its paths to 40%. A group selected to move fades nothing,
   since the reader is arranging the board.
 - a fold keeps the node it was asked on still on screen while the layout moves around it
@@ -319,7 +331,8 @@ A handled chord stops at the canvas, because `Ctrl+D` also opens Diagnostics app
   everything that feeds it
 - the pane opens with emitters folded to their header and preview, materials folded to their
   header and shape, and a material's lists folded. A folded node counts its hidden inputs in a
-  chip. Expand all leaves the material lists folded.
+  chip, which on a folded emitter is the count alone, such as `+4`, with the full label as its
+  hint (`components/HiddenChip.tsx`). Expand all leaves the material lists folded.
 
 ### The graph is one of several linked panes
 
@@ -346,6 +359,18 @@ on, leave the view where it is (`useGraphFollowsChoice` in `components/viewportL
 - the preview node stands right of the board's top. It is off by default, and a control switches
   it on.
 - the minimap fills each node with its type's hue
+
+### The minimap
+
+The minimap sits in the canvas's bottom-right corner at 128 by 96 pixels.
+
+- It is drawn only while a part of the graph is outside the view. With every node in view it
+  shows nothing the canvas does not, so it is hidden and covers no node.
+- A switch in the canvas's controls turns it off. The switch is a display preference, app-wide
+  and persisted (`graphMinimap`).
+- A drag on it pans the view and the wheel zooms.
+
+The code is in `components/GraphMinimap.tsx` and `utils/minimapView.ts`.
 
 ## 6. Node previews
 
@@ -375,6 +400,17 @@ on, leave the view where it is (`useGraphFollowsChoice` in `components/viewportL
 preview whose draw throws is hidden alone and shows its error on its strip
 (`utils/frameGuard.ts`). The canvas stops drawing while the pane has no size, and the previews
 are off while the pane is hidden.
+
+**A playhead follows the run only where it is seen.** A value node's curve marker and its live
+value follow the run while their node is in or near the view, and stop while it is not. The
+markers hold still while the view is panned or zoomed and catch up 150ms after it rests, since
+each marker's move repaints the board under it. More than 48 markers in view follow the run
+every 50ms rather than on every frame.
+
+**A preview off the canvas does no work.** A preview whose box is outside the pane neither
+draws nor writes its emitters' buffers, so a board zoomed in on a few nodes pays for those
+nodes' previews alone. One that comes back draws from the frame after it does. A preview that
+runs a clock of its own, such as a looped surface, holds its place while it is off the canvas.
 
 ## 7. Tensions and gaps
 
