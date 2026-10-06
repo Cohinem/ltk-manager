@@ -9,6 +9,7 @@ export * from "./ButtonGroup";
 export * from "./ChannelSash";
 export * from "./Checkbox";
 export * from "./Chip";
+export * from "./ChromeSlot";
 export * from "./Code";
 export * from "./ColorPicker";
 export * from "./Combobox";

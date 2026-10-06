@@ -25,7 +25,7 @@ export function WorkshopActiveFilterChips() {
   if (!hasActive) return null;
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-4 pb-3">
+    <div className="flex flex-wrap items-center gap-2 px-4 pt-1 pb-3">
       {location !== "all" && (
         <Chip size="md" onRemove={() => setLocation("all")}>
           {location === "opened"

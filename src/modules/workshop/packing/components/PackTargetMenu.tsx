@@ -34,7 +34,7 @@ export function PackTargetMenu({ disabled, className }: PackTargetMenuProps) {
           <IconButton
             data-ui="PackTargetMenu"
             icon={<CaretDownIcon />}
-            size="md"
+            size="sm"
             disabled={disabled}
             aria-label={m.workshop_pack_target_label()}
             narrow

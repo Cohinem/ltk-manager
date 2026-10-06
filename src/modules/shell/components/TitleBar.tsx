@@ -11,6 +11,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { type ComponentType, useEffect, useRef, useState } from "react";
 
 import {
+  ChromeSlot,
   CollectionIcon,
   IconButton,
   LootIcon,
@@ -19,8 +20,9 @@ import {
   ScuttleIcon,
   Separator,
   Tooltip,
+  useChromeGrounded,
 } from "@/components";
-import { usePlatformSupport } from "@/hooks";
+import { usePlatformSupport, useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
 import { api, type AppInfo, type VerdictKind } from "@/lib/tauri";
 import { isInformational, useIncidents, useLatestIncident } from "@/modules/diagnostics";
@@ -31,6 +33,7 @@ import { twMerge } from "@/utils";
 import { AppMenu } from "./AppMenu";
 import { cellActive, cellBase, cellInactive, iconLiftClass } from "./cells";
 import { NotificationCenter } from "./NotificationCenter";
+import { type TitleBarFold, titleBarFold } from "./titleBarFold";
 import { UpdateButton } from "./UpdateButton";
 
 const navItems = [
@@ -57,6 +60,7 @@ function NavLink({
   icon: Icon,
   exact,
   dot = false,
+  folded,
 }: {
   to: string;
   label: string;
@@ -64,10 +68,13 @@ function NavLink({
   exact: boolean;
   /** The page holds something the reader has not seen, in the diagnostics dot's shape. */
   dot?: boolean;
+  /** Draw the icon alone, with the label as its tooltip. */
+  folded: boolean;
 }) {
-  return (
+  const link = (
     <Link
       to={to}
+      aria-label={label}
       activeOptions={{ exact }}
       activeProps={{ className: twMerge(tabBaseClass, tabActiveClass) }}
       inactiveProps={{ className: twMerge(tabBaseClass, tabInactiveClass) }}
@@ -84,11 +91,21 @@ function NavLink({
               />
             )}
           </span>
-          {label}
+          {!folded && label}
           {isActive && <ActiveIndicator />}
         </>
       )}
     </Link>
+  );
+
+  if (!folded) {
+    return link;
+  }
+
+  return (
+    <Tooltip content={label} side="bottom">
+      {link}
+    </Tooltip>
   );
 }
 
@@ -156,6 +173,9 @@ function TitleMark() {
   );
 }
 
+/* Equal shares on both sides, so what a page draws between them centres in the window. */
+const SIDE = "flex h-full min-w-max flex-1 basis-0 items-center";
+
 interface TitleBarProps {
   title?: string;
   appInfo?: AppInfo;
@@ -167,7 +187,14 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
   const latest = useLatestIncident();
   const { data: incidents } = useIncidents();
   const homeUnread = useHomeUnread();
+  const grounded = useChromeGrounded();
   const pendingIncidents = incidents?.filter((incident) => !incident.dismissed).length ?? 0;
+
+  const [fold, setFold] = useState<TitleBarFold>("full");
+  const measure = useResizeObserver<HTMLElement>((bar) => {
+    const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize);
+    setFold(titleBarFold(bar.clientWidth, rem));
+  });
 
   const version = appInfo?.version;
   const [isMaximized, setIsMaximized] = useState(false);
@@ -195,44 +222,63 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
   return (
     <header
+      ref={measure}
+      /* Stacked over `main`, which the popup of what a page draws in the middle drops across. */
       className={twMerge(
-        "title-bar flex h-9 shrink-0 items-center justify-between border-b border-surface-600 bg-surface-900 select-none",
+        "title-bar relative z-50 flex h-9 shrink-0 items-center border-b border-surface-600 bg-surface-900 select-none",
+        /* DS-GROUND */
+        grounded && "border-transparent bg-surface-950",
         isMacOS && "pl-20",
       )}
       data-tauri-drag-region
     >
       {/* Left: App icon, title, version, and navigation */}
-      <div className="flex h-full items-center" data-tauri-drag-region>
-        <div className="flex shrink-0 items-center gap-2 pr-4 pl-3" data-tauri-drag-region>
+      <div className={twMerge(SIDE, "justify-start")} data-tauri-drag-region>
+        <div
+          className={twMerge(
+            "flex shrink-0 items-center gap-2 pr-4 pl-3",
+            fold === "bare" && "pr-2",
+          )}
+          data-tauri-drag-region
+        >
           <TitleMark />
-          <div className="flex flex-col" data-tauri-drag-region>
-            <span
-              className="font-display text-sm leading-tight font-bold tracking-tight whitespace-nowrap text-accent-400"
-              data-tauri-drag-region
-            >
-              {title}
-            </span>
-            {version && (
+          {fold !== "bare" && (
+            <div className="flex flex-col" data-tauri-drag-region>
               <span
-                className="text-fine leading-none whitespace-nowrap text-surface-500"
+                className="font-display text-sm leading-tight font-bold tracking-tight whitespace-nowrap text-accent-400"
                 data-tauri-drag-region
               >
-                v{version}
+                {title}
               </span>
-            )}
-          </div>
+              {version && (
+                <span
+                  className="text-fine leading-none whitespace-nowrap text-surface-500"
+                  data-tauri-drag-region
+                >
+                  v{version}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Navigation tabs */}
         <nav className="flex h-full items-center">
           {navItems.map((item) => (
-            <NavLink key={item.to} {...item} dot={item.to === "/" && homeUnread} />
+            <NavLink
+              key={item.to}
+              {...item}
+              dot={item.to === "/" && homeUnread}
+              folded={fold !== "full"}
+            />
           ))}
         </nav>
       </div>
 
+      <ChromeSlot name="title" />
+
       {/* Right: the cells that report state, the app menu, and window controls */}
-      <div className="flex h-full items-center">
+      <div className={twMerge(SIDE, "justify-end")} data-tauri-drag-region>
         <div className="flex h-full items-center">
           <UpdateButton />
 

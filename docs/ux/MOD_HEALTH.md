@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-06 | A page's own actions follow the items in the status bar      |
 | 2026-09-12 | An unbidden panel is told from one the reader opened         |
 | 2026-09-07 | The panel names a selection, and select mode is retired      |
 | 2026-09-04 | The list ends in a line the informative findings fold under  |
@@ -14,7 +15,6 @@
 | 2026-09-02 | The announcement is spent on the findings, not on the launch |
 | 2026-09-02 | Severity decides the hue, and the verdict decides the words  |
 | 2026-09-01 | A rule's own severity comes from the build, not the store    |
-| 2026-09-01 | The count is a count, and the repair's reach is words beside |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -436,6 +436,10 @@ The launch ask is the exception that has to cross: its controls are in that same
 it supersedes itself as a session moves - idle, building, launching, in game, a verdict, a
 failure. The items to its right are ambient: they answer to nothing the session is doing, so they
 outlive every line that passes underneath them. Mod health is the first of them.
+
+A page's own actions follow the items, at the bar's end. The workshop draws its view controls and
+its actions there, per "Layout" in [Workshop](WORKSHOP.md), and the bar draws for them alone where
+it would otherwise draw nothing.
 
 **The item is a light cell, and its glyph is what carries it.** The bar's ground is the darkest
 surface in the app, so a wash that was lost over cover art reads plainly here, and it is the only
