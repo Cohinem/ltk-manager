@@ -1,3 +1,23 @@
+import {
+  AtomIcon,
+  BezierCurveIcon,
+  BoneIcon,
+  ChartBarHorizontalIcon,
+  DevicesIcon,
+  FilmStripIcon,
+  GraphIcon,
+  type Icon,
+  ImagesIcon,
+  LightningIcon,
+  MonitorIcon,
+  ShapesIcon,
+  SlidersHorizontalIcon,
+  SparkleIcon,
+  SphereIcon,
+  StackIcon,
+  TreeStructureIcon,
+} from "@phosphor-icons/react";
+
 import { m } from "@/i18n";
 /* The layout sub-barrel rather than the module barrel: the full barrel pulls
    the editor's components, whose imports circle back into workshop state. */
@@ -82,6 +102,26 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   sprites: m.workshop_bin_pane_sprites_label,
   skeleton: m.workshop_bin_pane_skeleton_label,
   physics: m.workshop_bin_pane_physics_label,
+};
+
+/** The glyph the Panes menu lists a pane by. */
+export const SHELL_PANE_ICON: Record<ShellPaneId, Icon> = {
+  emitters: SparkleIcon,
+  curve: BezierCurveIcon,
+  inspector: SlidersHorizontalIcon,
+  preview: MonitorIcon,
+  timeline: ChartBarHorizontalIcon,
+  clips: FilmStripIcon,
+  spells: LightningIcon,
+  outliner: TreeStructureIcon,
+  material: SphereIcon,
+  graph: GraphIcon,
+  components: ShapesIcon,
+  layers: StackIcon,
+  variants: DevicesIcon,
+  sprites: ImagesIcon,
+  skeleton: BoneIcon,
+  physics: AtomIcon,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {

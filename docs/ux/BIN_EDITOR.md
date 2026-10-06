@@ -1642,6 +1642,11 @@ and the rest of the tree waits behind it. A second double click, or Esc, restore
 Maximizing writes nothing to the arrangement. The editor grid maximizes a document panel the same
 way, per [the panel layout](PROJECT_EDITOR.md#maximizing-a-panel).
 
+**The open tab joins its pane.** A pane's strip has no surface of its own. The open pane's tab
+takes the fill and the edge of the pane under it and covers the pane's top edge, so the two read
+as one shape, and a tab behind it is its glyph and its title alone. Each tab leads with the glyph
+the Panes menu lists the pane by, and its title is written as the menu writes it.
+
 **A tab has a menu.** A right click on a pane's tab offers Float, Maximize or Restore, and Close,
 on the open tab and on one behind it alike (`PaneStrip` in `src/modules/editor/layout`).
 

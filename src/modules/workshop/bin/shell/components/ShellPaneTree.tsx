@@ -1,8 +1,8 @@
-import { CheckIcon, ColumnsIcon } from "@phosphor-icons/react";
+import { ArrowCounterClockwiseIcon, LayoutIcon } from "@phosphor-icons/react";
 import { type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { Button, Menu, RetainedContent } from "@/components";
+import { IconButton, Menu, RetainedContent, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import {
   type LayoutNode,
@@ -42,6 +42,7 @@ import { Notice } from "../../shared/preview/Notice";
 import type { Point } from "../utils/floatPlace";
 import {
   isShellPaneId,
+  SHELL_PANE_ICON,
   SHELL_PANE_TITLE,
   type ShellKind,
   type ShellPaneId,
@@ -50,9 +51,13 @@ import {
 } from "../utils/shellPanes";
 import { FloatingPane } from "./FloatingPane";
 
-/** The box one pane draws, so no pane invents a surface of its own. DS-GROUND. */
-const PANE =
-  "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-surface-700/50 bg-surface-900";
+/**
+ * The box one pane draws under its strip, so no pane invents a surface of its own. Its fill and
+ * edge are the open tab's in `PaneStrip`, and its corner is square under an open first tab, so
+ * the tab and the box read as one shape. DS-GROUND.
+ */
+const PANE_BODY =
+  "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-surface-700/50 bg-surface-900";
 
 /** What one pane draws: its body, and the controls its own strip carries. */
 export interface ShellPane {
@@ -184,11 +189,17 @@ function heldPanes(
   );
 }
 
+/** A pane's glyph at the size its tab draws it. */
+function PaneGlyph({ pane }: { pane: ShellPaneId }) {
+  const Glyph = SHELL_PANE_ICON[pane];
+  return <Glyph aria-hidden className="size-3.5 shrink-0" />;
+}
+
 /** The ghost under the pointer, which names the pane rather than redrawing it. */
 function PaneGhost(paneId: string) {
   if (!isShellPaneId(paneId)) return null;
   return (
-    <span className="rounded-sm bg-surface-800 px-2 py-0.5 font-sans text-xs font-medium tracking-wide text-surface-100 uppercase">
+    <span className="rounded-md border border-surface-700/50 bg-surface-900 px-2 py-1 font-sans text-xs font-medium text-surface-100">
       {SHELL_PANE_TITLE[paneId]()}
     </span>
   );
@@ -215,13 +226,17 @@ function PaneLeaf<K extends ShellKind>({
     <LeafDropZones leafId={leaf.id} tabs={panes} maximized={maximizedLeafId === leaf.id}>
       <div
         data-ui={`ShellPaneTree:${leaf.id}`}
-        className={PANE}
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
         onPointerDownCapture={() => active !== null && bodies[active]?.onFocus?.()}
         onFocusCapture={() => active !== null && bodies[active]?.onFocus?.()}
       >
         <PaneStrip
           leafId={leaf.id}
-          panes={panes.map((pane) => ({ id: pane, title: SHELL_PANE_TITLE[pane]() }))}
+          panes={panes.map((pane) => ({
+            id: pane,
+            title: SHELL_PANE_TITLE[pane](),
+            icon: <PaneGlyph pane={pane} />,
+          }))}
           activeId={active}
           onActivate={(id) => {
             if (!isShellPaneId(id)) return;
@@ -235,7 +250,12 @@ function PaneLeaf<K extends ShellKind>({
           actions={active === null ? null : bodies[active]?.actions}
           actionsWidth={active === null ? undefined : bodies[active]?.actionsWidth}
         />
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <div
+          className={twMerge(
+            PANE_BODY,
+            active !== null && active === panes[0] && "rounded-tl-none",
+          )}
+        >
           {panes.map((pane) => (
             <PortalSlot key={pane} host={hostOf(pane)} />
           ))}
@@ -247,7 +267,9 @@ function PaneLeaf<K extends ShellKind>({
 }
 
 /**
- * Which panes are open, and the way back to the arrangement they started in.
+ * Which panes are open, and the way back to the arrangement they started in: a button of the
+ * layout glyph alone, named by its tooltip, over a menu that lists each pane by its own glyph and
+ * checks the open ones.
  *
  * A pane reopens into the panel the reader last touched rather than where it
  * was closed, because the panel it was closed from is the one the prune took.
@@ -269,36 +291,46 @@ export function PanesMenu({ kind, className }: { kind: ShellKind; className?: st
     return closePane(holder.id, pane);
   }
 
+  const label = m.workshop_bin_panes_menu_label();
+
   return (
     <Menu.Root>
-      <Menu.Trigger
-        render={
-          <Button
-            variant="ghost"
-            size="xs"
-            className={twMerge("font-sans", className)}
-            left={<ColumnsIcon weight="bold" className="size-4" />}
-          >
-            {m.workshop_bin_panes_menu_label()}
-          </Button>
-        }
-      />
-      <Menu.Content align="end" className="w-48">
-        {shellPanesOf(kind).map((pane) => (
-          <Menu.Item
-            key={pane}
-            icon={
-              (open.has(pane) || floating.includes(pane)) && (
-                <CheckIcon weight="bold" className="size-4" />
-              )
-            }
-            onClick={() => toggle(pane)}
-          >
-            {SHELL_PANE_TITLE[pane]()}
-          </Menu.Item>
-        ))}
+      <Tooltip content={label}>
+        <Menu.Trigger
+          render={
+            <IconButton
+              variant="ghost"
+              size="xs"
+              aria-label={label}
+              tooltip={false}
+              className={className}
+              icon={<LayoutIcon weight="bold" />}
+            />
+          }
+        />
+      </Tooltip>
+      <Menu.Content align="end" className="w-52">
+        <Menu.Group>
+          <Menu.GroupLabel>{label}</Menu.GroupLabel>
+          {shellPanesOf(kind).map((pane) => {
+            const Glyph = SHELL_PANE_ICON[pane];
+            return (
+              <Menu.CheckboxItem
+                key={pane}
+                closeOnClick
+                checked={open.has(pane) || floating.includes(pane)}
+                icon={<Glyph className="size-4" />}
+                onCheckedChange={() => toggle(pane)}
+              >
+                {SHELL_PANE_TITLE[pane]()}
+              </Menu.CheckboxItem>
+            );
+          })}
+        </Menu.Group>
         <Menu.Separator />
-        <Menu.Item onClick={reset}>{m.workshop_bin_panes_reset_action()}</Menu.Item>
+        <Menu.Item icon={<ArrowCounterClockwiseIcon className="size-4" />} onClick={reset}>
+          {m.workshop_bin_panes_reset_action()}
+        </Menu.Item>
       </Menu.Content>
     </Menu.Root>
   );

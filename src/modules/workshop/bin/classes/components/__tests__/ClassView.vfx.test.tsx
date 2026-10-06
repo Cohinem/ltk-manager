@@ -492,8 +492,9 @@ async function showTable(user: ReturnType<typeof userEvent.setup>) {
 
 /** Reopen or close one pane from the menu the crumb row carries. */
 async function fromPanesMenu(user: UserEvent, name: string) {
+  const role = name === "Reset layout" ? "menuitem" : "menuitemcheckbox";
   await user.click(screen.getByRole("button", { name: "Panes" }));
-  await user.click(await screen.findByRole("menuitem", { name }));
+  await user.click(await screen.findByRole(role, { name }));
 }
 
 /** The lanes stand in for the strip in the shell, so a card case opens the Emitters pane first. */
