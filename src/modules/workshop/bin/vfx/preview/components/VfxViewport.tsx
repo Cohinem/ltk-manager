@@ -15,6 +15,7 @@ import {
 import {
   usePreviewGizmo,
   usePreviewGround,
+  usePreviewMasks,
   usePreviewMidlane,
   usePreviewStats,
   usePreviewViewMode,
@@ -116,6 +117,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const ground = usePreviewGround();
   const midlane = usePreviewMidlane();
   const gizmo = usePreviewGizmo();
+  const masks = usePreviewMasks();
   const stats = usePreviewStats();
   const viewMode = usePreviewViewMode();
   const wireOverlay = usePreviewWireOverlay();
@@ -195,6 +197,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                   document={document}
                   picks={picks}
                   unit={unit}
+                  masks={masks}
                 />
               </VfxHost>
               <ViewportPick picks={picks} system={shown} latch={latch} />

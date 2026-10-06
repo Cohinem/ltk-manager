@@ -24,6 +24,7 @@ import { FRAME_SLOTS } from "../../engine/simulation/pool";
 import { mirrorInto } from "../../engine/utils/basis";
 import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
+import { useDrawStencil } from "../state/stencil";
 import { fragmentTests, premultiplyInto, sortsBackToFront } from "../utils/blend";
 import { quadBuffers, QUADS_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
@@ -130,6 +131,7 @@ export function Quads({
   useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && drawsAsQuad(emitter);
+  useDrawStencil(emitter, drawn, material, programs);
   const sorted =
     emitter.customMaterial !== null && !emitter.customMaterial.missing
       ? emitter.customMaterial.renderState.blending !== "opaque"

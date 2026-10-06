@@ -18,12 +18,13 @@ let shared: WebGLRenderer | null = null;
 let holder: RendererLease | null = null;
 
 /**
- * A renderer on a drawing buffer with no alpha channel and no multisampling.
+ * A renderer on a drawing buffer with a stencil buffer, no alpha channel and no multisampling.
  *
  * ThreeJS asks the canvas for an alpha channel whatever its own `alpha` says, and a
  * compositor then shows the pane through wherever a blend left the alpha short of one.
  * The game draws its frame with one sample and smooths it afterwards, which
- * `AntiAliasingPass` does here.
+ * `AntiAliasingPass` does here. A particle emitter's `stencilMode` tests and writes the stencil
+ * buffer.
  */
 export function createOpaqueRenderer(
   canvas: HTMLCanvasElement,
@@ -32,7 +33,7 @@ export function createOpaqueRenderer(
   const context = canvas.getContext("webgl2", {
     alpha: false,
     antialias: false,
-    stencil: false,
+    stencil: true,
     powerPreference,
   });
   return new WebGLRenderer({ canvas, context: context ?? undefined });

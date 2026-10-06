@@ -12,6 +12,7 @@ import { m } from "@/i18n";
 
 import type { EmitterRef } from "../../clipboard/emitterCopy";
 import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
+import { MaskSubmenu } from "../../stencil/MaskSubmenu";
 import { TemplateSubmenu } from "../../templates/TemplateMenus";
 import { useEmitters } from "../state/emitterChoice";
 import { nameOf } from "../utils/emitterCards";
@@ -65,6 +66,7 @@ export function EmitterActionsMenu() {
           </Menu.Item>
         )}
         <TemplateSubmenu place={{ entry: emitter.entry, after: emitter }} />
+        <MaskSubmenu />
         {remove !== null && (
           <>
             <Menu.Separator />

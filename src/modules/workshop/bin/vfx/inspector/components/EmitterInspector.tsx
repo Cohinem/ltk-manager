@@ -32,6 +32,9 @@ import { FORCE_COLLECTION } from "../../forces/forceModel";
 import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
 import { useForces } from "../../forces/useForces";
 import { VfxRunContext } from "../../playback/state/run";
+import { STENCIL_FIELD } from "../../stencil/stencilEdits";
+import { StencilNotes } from "../../stencil/StencilNotes";
+import { StencilMaskProperty, StencilModeProperty } from "../../stencil/StencilProperty";
 import { useEmitters } from "../state/emitterChoice";
 import { useDefinedOnly, useInspectorPreview } from "../state/inspectorView";
 import { SURFACE_FIELD } from "../utils/emissionSource";
@@ -372,6 +375,7 @@ function GroupSection({
 }: GroupSectionProps) {
   const { report, card, open: aimed, jumpRequest } = useEmitters();
   const { data: schema } = useClassSchema(owner);
+  const running = (use(VfxRunContext)?.system ?? null) !== null;
   const [fold, setFold] = useState<boolean | null>(null);
   const [navigation, setNavigation] = useState({ key: card?.key, request: jumpRequest });
   const root = useRef<HTMLElement | null>(null);
@@ -453,6 +457,7 @@ function GroupSection({
       {open && !searching && (group === "emission" || group === "source") && (
         <EmissionNotes group={group} />
       )}
+      {open && !searching && group === "stencil" && <StencilNotes />}
       {open &&
         properties.map((property, at) => {
           const key = `${card?.key ?? owner}:${property.hash}`;
@@ -475,6 +480,32 @@ function GroupSection({
                 key={key}
                 field={schemaField(property, schema?.fields)}
                 holder={card.row}
+                authored={"row" in property ? property.row : undefined}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          if (property.hash === STENCIL_FIELD.mode && card !== undefined) {
+            return (
+              <StencilModeProperty
+                key={key}
+                field={schemaField(property, schema?.fields)}
+                emitterRow={card.row}
+                authored={"row" in property ? property.row : undefined}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          if (property.hash === STENCIL_FIELD.ref && card !== undefined && running) {
+            return (
+              <StencilMaskProperty
+                key={key}
+                field={schemaField(property, schema?.fields)}
+                emitterRow={card.row}
                 authored={"row" in property ? property.row : undefined}
                 width={NAME_COLUMN}
                 owner={owner}

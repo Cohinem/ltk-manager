@@ -166,6 +166,7 @@ function GeometryScene({ system, emitter, controls, handed, onHand }: GeometrySc
           meshes={meshes}
           document={document}
           drawOnly
+          masks
         />
       )}
     </>

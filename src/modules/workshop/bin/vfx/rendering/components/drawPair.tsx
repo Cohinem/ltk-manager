@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useMemo, useRef } from "react";
+import { type RefObject, use, useEffect, useMemo, useRef } from "react";
 import {
   type BufferGeometry,
   InstancedMesh,
@@ -9,12 +9,15 @@ import {
   type ShaderMaterial,
 } from "three";
 
+import { useDisposable } from "@/hooks";
 import { passTwin } from "@/modules/viewport";
 
 import type { ParticleProgram } from "../hooks/useParticlePrograms";
 import { usePickTargets } from "../state/pick";
+import { MaskTintContext } from "../state/stencil";
 import { useWire, type Wire, WIRE_ORDER } from "../state/wire";
 import { PARTICLE_LAYER, useDrawLayer } from "../utils/frame";
+import { maskMaterial } from "../utils/materials";
 
 /** The layer an edge twin draws on, over every colour phase. */
 const TWIN_LAYERS = [PARTICLE_LAYER] as const;
@@ -40,10 +43,45 @@ export function useDrawPair<T extends Object3D>(
   useDrawLayer(layers, solid);
   const wire = useWire(material);
   useDrawLayer(TWIN_LAYERS, twin);
+  useMaskTint(solid, material);
 
   const targets = useMemo(() => [{ solid, twin, material }], [material]);
   usePickTargets(targets);
   return { solid, twin, wire };
+}
+
+/** The draw order a mask tint takes against its solid, which puts it under the solid's colour. */
+const MASK_TINT_ORDER = -0.5;
+
+/** Draw the stencil mask of `solid` as a flat tint on a twin under it, where `MaskTintContext` sets one. */
+function useMaskTint(solid: RefObject<Object3D | null>, material: ShaderMaterial): void {
+  const tint = use(MaskTintContext);
+  const mask = useDisposable(
+    () => (tint === null ? null : maskMaterial(material, tint)),
+    [material, tint],
+  );
+
+  /* On every render, as `useDrawLayer` runs, because ThreeJS can replace the solid with a new
+     object whose layers and draw order the twin copies. */
+  useEffect(() => {
+    const mesh = solid.current;
+    if (!(mesh instanceof Mesh) || mask === null) return;
+
+    const twin = passTwin(mesh, MASK_TINT_ORDER);
+    twin.material = mask;
+    twin.layers.mask = mesh.layers.mask;
+    twin.onBeforeRender = () => {
+      if (!(twin instanceof InstancedMesh && mesh instanceof InstancedMesh)) return;
+
+      twin.count = mesh.count;
+      twin.instanceMatrix = mesh.instanceMatrix;
+    };
+    mesh.add(twin);
+
+    return () => {
+      mesh.remove(twin);
+    };
+  });
 }
 
 interface DrawPairProps {

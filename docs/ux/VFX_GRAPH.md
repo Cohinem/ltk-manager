@@ -356,6 +356,15 @@ on, leave the view where it is (`useGraphFollowsChoice` in `components/viewportL
   selection box can start inside it (`components/EmitterFrame.tsx`).
 - the frames pack onto a board of about 16 by 10, each taking the lowest free place, so a short
   block fills the space beside a tall one (`utils/packBlocks.ts`)
+- a dragged node or frame keeps its place through a new layout, until Reset layout. No two nodes
+  overlap after a layout. Inside a frame, a node that another node grew into or was placed on
+  moves down until it is 20 units under it, and the frame grows to contain it. Between frames, the
+  one too close to another moves right or down, whichever is shorter, until 120 units are
+  between them. A dragged frame keeps its place before an undragged one, and the higher of two
+  frames before the lower (`utils/pushApart.ts`, `withMoves` in `components/canvasNodes.ts`).
+- a drag itself can leave two nodes overlapping. They are moved apart at the next layout.
+- the dragged places and the fold state belong to one system. Opening another system in the pane
+  starts from that system's own layout.
 - the preview node stands right of the board's top. It is off by default, and a control switches
   it on.
 - the minimap fills each node with its type's hue

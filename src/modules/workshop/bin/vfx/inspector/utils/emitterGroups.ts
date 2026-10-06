@@ -17,6 +17,7 @@ export type EmitterGroup =
   | "primitive"
   | "texture"
   | "render"
+  | "stencil"
   | "material"
   | "effects"
   | "other";
@@ -169,14 +170,12 @@ export const GROUP_FIELDS: Record<Exclude<EmitterGroup, "other">, readonly strin
     "DepthPushPull",
     "softParticleParams",
     "sliceTechniqueRange",
-    "stencilMode",
-    "stencilRef",
-    "StencilReferenceId",
     "miscRenderFlags",
     "meshRenderFlags",
     "SortEmittersByPos",
     "LegacySimple",
   ],
+  stencil: ["stencilMode", "stencilRef", "StencilReferenceId"],
   material: ["Material", "CustomMaterial", "materialOverrideDefinitions", "materialDrivers"],
   effects: ["Audio", "childParticleSetDefinition", "fieldCollectionDefinition"],
 };
@@ -194,6 +193,7 @@ export const GROUP_TITLE: Record<EmitterGroup, () => string> = {
   primitive: m.workshop_bin_emitter_group_primitive_label,
   texture: m.workshop_bin_emitter_group_texture_label,
   render: m.workshop_bin_emitter_group_render_label,
+  stencil: m.workshop_bin_emitter_group_stencil_label,
   material: m.workshop_bin_emitter_group_material_label,
   effects: m.workshop_bin_emitter_group_effects_label,
   other: m.workshop_bin_section_other_label,
@@ -212,6 +212,7 @@ export const GROUP_ORDER: readonly EmitterGroup[] = [
   "primitive",
   "texture",
   "render",
+  "stencil",
   "material",
   "effects",
   "other",

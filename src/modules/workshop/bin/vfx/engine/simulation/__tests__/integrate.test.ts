@@ -177,6 +177,7 @@ function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
     quadType: QUAD_TYPE.cameraQuad,
     stencilMode: STENCIL_MODE.disabled,
     stencilRef: 0,
+    stencilReferenceId: null,
     primitiveClass: null,
     primitiveName: null,
     mesh: null,

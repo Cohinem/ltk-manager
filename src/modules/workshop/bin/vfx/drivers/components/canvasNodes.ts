@@ -1,6 +1,13 @@
 import type { XYPosition } from "@xyflow/react";
 
-import { FRAME_PADDING, type GraphLayout, type PlacedFrame } from "../utils/driverLayout";
+import {
+  BLOCK_GAP,
+  FRAME_PADDING,
+  type GraphLayout,
+  type PlacedFrame,
+  ROW_GAP,
+} from "../utils/driverLayout";
+import { type Box, pushedApart, pushedDown } from "../utils/pushApart";
 import { FRAME_HANDLE, FRAME_NODE, type FrameFlowNode } from "./EmitterFrame";
 import type { GraphFlowNode } from "./GraphNodes";
 
@@ -52,8 +59,13 @@ function frameNode(frame: PlacedFrame): FrameFlowNode {
 }
 
 /**
- * `nodes` with the reader's drags laid over them, and each frame grown to hold the nodes
- * dragged past its edge, as React Flow grows it during the drag.
+ * `nodes` with the reader's drags laid over them, and no two of them overlapping.
+ *
+ * A dragged node keeps its place through a new layout, so a node that grew or a frame that
+ * moved can land on it. The items of each frame are pushed down off each other, each frame
+ * grows to the items past its edge as React Flow grows it during a drag, and the frames are
+ * then pushed apart with a dragged frame keeping its place before an undragged one. Per "The
+ * board" in docs/ux/VFX_GRAPH.md.
  */
 export function withMoves(
   nodes: readonly CanvasNode[],
@@ -63,25 +75,70 @@ export function withMoves(
     const position = moved.get(node.id);
     return position === undefined ? node : { ...node, position };
   });
+  const framed = placed.some((node) => node.type === "frame");
+  const spaced = at(placed, itemPlaces(placed, framed));
 
   const reach = new Map<string, { width: number; height: number }>();
-  for (const node of placed) {
+  for (const node of spaced) {
     if (node.parentId === undefined) continue;
 
-    const held = reach.get(node.parentId) ?? { width: 0, height: 0 };
+    const frame = reach.get(node.parentId) ?? { width: 0, height: 0 };
     reach.set(node.parentId, {
-      width: Math.max(held.width, node.position.x + (node.width ?? 0) + FRAME_PADDING),
-      height: Math.max(held.height, node.position.y + (node.height ?? 0) + FRAME_PADDING),
+      width: Math.max(frame.width, node.position.x + (node.width ?? 0) + FRAME_PADDING),
+      height: Math.max(frame.height, node.position.y + (node.height ?? 0) + FRAME_PADDING),
     });
   }
+  const grown = spaced.map((node) => {
+    const frame = reach.get(node.id);
+    if (frame === undefined) return node;
 
-  return placed.map((node) => {
-    const held = reach.get(node.id);
-    if (held === undefined) return node;
-
-    const width = Math.max(node.width ?? 0, held.width);
-    const height = Math.max(node.height ?? 0, held.height);
+    const width = Math.max(node.width ?? 0, frame.width);
+    const height = Math.max(node.height ?? 0, frame.height);
     return width === node.width && height === node.height ? node : { ...node, width, height };
+  });
+  if (!framed) return grown;
+
+  const board = grown.filter((node) => node.parentId === undefined).map(boxOf);
+  return at(grown, pushedApart(board, BLOCK_GAP, new Set(moved.keys())));
+}
+
+function boxOf(node: CanvasNode): Box {
+  return {
+    id: node.id,
+    x: node.position.x,
+    y: node.position.y,
+    width: node.width ?? 0,
+    height: node.height ?? 0,
+  };
+}
+
+/**
+ * Where the items of each tree sit once none overlaps another of its tree: the items of each
+ * frame, or every node of a layout that has no frames.
+ */
+function itemPlaces(nodes: readonly CanvasNode[], framed: boolean): Box[] {
+  const trees = new Map<string | undefined, Box[]>();
+  for (const node of nodes) {
+    if (framed && node.parentId === undefined) continue;
+
+    const tree = trees.get(node.parentId);
+    if (tree === undefined) trees.set(node.parentId, [boxOf(node)]);
+    else tree.push(boxOf(node));
+  }
+
+  return [...trees.values()].flatMap((tree) => pushedDown(tree, ROW_GAP));
+}
+
+/** `nodes` with each node of `places` at its place there, and every other node as it is. */
+function at(nodes: readonly CanvasNode[], places: readonly Box[]): CanvasNode[] {
+  const byId = new Map(places.map((place) => [place.id, place]));
+
+  return nodes.map((node) => {
+    const place = byId.get(node.id);
+    if (place === undefined) return node;
+    if (place.x === node.position.x && place.y === node.position.y) return node;
+
+    return { ...node, position: { x: place.x, y: place.y } };
   });
 }
 

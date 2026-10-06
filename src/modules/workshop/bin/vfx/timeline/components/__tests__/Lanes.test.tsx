@@ -8,7 +8,7 @@ import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import type { BinRow } from "@/lib/tauri";
 import { useWorkshopLayoutStore } from "@/stores";
 
-import { BLEND_MODE, DRAG_MOTION, LINGER_TYPE } from "../../../engine/model/enums";
+import { BLEND_MODE, DRAG_MOTION, LINGER_TYPE, STENCIL_MODE } from "../../../engine/model/enums";
 import { type EmitterModel, POINT_SHAPE, type SystemModel } from "../../../engine/model/model";
 import { createDriver } from "../../../engine/simulation/driver";
 import { type EmitterChoice, EmitterChoiceContext } from "../../../inspector/state/emitterChoice";
@@ -46,6 +46,9 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     pass: 0,
     miscRenderFlags: 0,
     groundLayer: false,
+    stencilMode: STENCIL_MODE.disabled,
+    stencilRef: 0,
+    stencilReferenceId: null,
     childSet: null,
     fields: null,
     ...over,

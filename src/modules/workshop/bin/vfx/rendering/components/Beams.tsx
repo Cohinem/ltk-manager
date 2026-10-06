@@ -21,6 +21,7 @@ import { turnInto } from "../../engine/utils/basis";
 import { sampleCurve } from "../../engine/utils/sampleCurve";
 import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
+import { useDrawStencil } from "../state/stencil";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
@@ -131,6 +132,7 @@ export function Beams({ emitter, sources, samplers, rank, hidden, document = nul
   useProgramDraw(pair.solid, programs, rank);
 
   const drawn = !hidden && !emitter.disabled && beam !== null && emitter.mesh === null;
+  useDrawStencil(emitter, drawn, material, programs);
 
   useFrame((state) => {
     if (!drawn || beam === null) {

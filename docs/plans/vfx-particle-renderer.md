@@ -2375,7 +2375,7 @@ every particle and bit 1 between the two colour phases. `renderPhaseOverride` fo
 
 **Not built.** The fixed 30 Hz step a system takes with `SimulateEveryFrame` clear, the flex
 values, `isFollowingTerrain`, the importance rate multiplier below Very High, the slice shaders of
-`sliceTechniqueRange`, the stencil modes and the shadow phase.
+`sliceTechniqueRange` and the shadow phase. The stencil modes are built in 2.53.
 
 **What to check on the screen.**
 
@@ -2384,6 +2384,69 @@ values, `isFollowingTerrain`, the importance rate multiplier below Very High, th
 - A system whose `transform` rotates, which now turns about its attachment point.
 - An emitter whose `rotation0` or `particleUVScrollRate` writes a constant and no curve, which no
   longer spins or scrolls.
+
+### 2.53 An emitter tests against the stencil the scene's emitters write
+
+This replaces the `stencilMode` paragraphs of 2.27 and 2.28, which read the mode and drew every
+emitter untested. The reading is the meta wiki's `stencilMode`, `stencilRef` and
+`StencilReferenceId` on <https://meta-wiki.leaguetoolkit.dev/classes/vfxemitterdefinitiondata>.
+None of it was checked in game.
+
+**The drawing buffer has a stencil buffer.** `createOpaqueRenderer` asks for one. The first draw
+of a frame clears it, and the later phases of `Passes` draw without clearing, so a mask written in
+one phase is tested in the next.
+
+**Each mode is one compare and one write.** `stencilState` in `rendering/utils/stencil.ts` sets
+them on the ThreeJS material. The compare mask and the write mask are both `0x3f`, because the
+engine compares the low six bits.
+
+| mode                        | compare    | on pass              |
+| --------------------------- | ---------- | -------------------- |
+| `1` WriteMask               | always     | writes the reference |
+| `2` TestEqual               | `EQUAL`    | keeps the buffer     |
+| `3` TestNotEqual            | `NOTEQUAL` | keeps the buffer     |
+| `4` WriteMaskIfTestNotEqual | `NOTEQUAL` | writes the reference |
+
+A fragment that fails the depth test or the alpha test writes nothing.
+
+**A simple emitter and a custom material use no stencil state.** The engine reads the mode on
+complex emitters only, so the reader returns the disabled mode for a simple one. A resolved custom
+material replaces the emitter's stencil fields with the stencil state of its own passes, and the
+preview does not read that state.
+
+**A `StencilReferenceId` takes a value per scene.** The engine gives each distinct hash drawn in a
+frame a value counting down from 63, in draw order. The preview gives each distinct hash of a
+scene a value counting down from 63, in the order its emitter mounted. Two emitters with the same
+hash get the same value across systems. An authored `stencilRef` of 63 or just below it can match
+a different hash here than in the engine.
+
+**A tester that no texel can pass draws untested.** This is the one deliberate difference from the
+engine. The buffer is cleared to 0, and the emitters that draw in the scene write a known set of
+values. `canPass` in `rendering/utils/stencil.ts` checks each tester against them:
+
+- `TestEqual` is tested where its reference is written in the scene, or is 0. A reference of 0
+  draws outside every mask, which 2,479 emitters of the 16.19 install author.
+- `TestNotEqual` is tested where its reference is not 0, or the scene writes any value.
+- Mode `4` writes its own reference, so it is always tested.
+
+A tester that fails this check would be hidden everywhere in the engine. The preview assumes
+its writer is outside the scene and draws it whole. The cases:
+
+- An emitter previewed alone in the Graph pane or the inspector has no writer.
+- A muted writer, or one left out of a solo, counts as absent.
+- The mask is written by another system, or by a material pass of a character.
+
+**A written mask can draw as a tint.** A mask writer usually draws no visible colour, such as
+black under an additive blend, so its node preview in the Graph pane would be empty. `VfxSystem`
+takes `masks`. Under it, an emitter of mode `1` or `4` draws a twin beneath its colour in the
+scene's wire colour at 35% opacity, over the texels whose alpha passes the pick threshold. The
+emitter and geometry node previews always set it. The viewport sets it from the Show menu's
+Stencil masks item, which is off by default.
+
+**Not built.** The stencil fields of `StaticMaterialPassDef`, which a custom material's passes
+carry. The pick render and the wireframe twin ignore the stencil. ThreeJS draws every opaque
+object before every transparent one, so a tester with `blendMode` `NONE` draws before a blended
+writer of a lower `pass`.
 
 ### T1 — subdivided textures and the UV transform
 

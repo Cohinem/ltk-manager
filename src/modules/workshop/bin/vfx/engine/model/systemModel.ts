@@ -74,6 +74,7 @@ const DRAWN_ONLY: ReadonlySet<string> = new Set<keyof EmitterModel>([
   "soft",
   "stencilMode",
   "stencilRef",
+  "stencilReferenceId",
   "texture",
   "uniformScale",
   "uvMode",

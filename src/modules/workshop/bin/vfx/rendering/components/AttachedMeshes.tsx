@@ -24,6 +24,7 @@ import {
 import { type SlotProgram, useAttachedPrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { usePickTargets } from "../state/pick";
+import { useStencil } from "../state/stencil";
 import { useWireTwin, WIRE_ORDER } from "../state/wire";
 import { scaleAboutParent } from "../utils/attachedPlace";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
@@ -163,6 +164,11 @@ export function AttachedMeshes({
     slots.length,
     document,
   );
+  const stencilled = useMemo(
+    () => [...slots.map((slot) => slot.material), ...programs.flatMap((slot) => slot.materials)],
+    [slots, programs],
+  );
+  useStencil(emitter, !hidden && !emitter.disabled, stencilled);
   useEffect(() => {
     if (programs.length !== slots.length) return;
     const bound = slots.map((slot, at) => bindSlot(slot, programs[at]));
