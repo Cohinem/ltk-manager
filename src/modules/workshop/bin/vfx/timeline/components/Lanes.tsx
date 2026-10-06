@@ -23,7 +23,7 @@ import { useLiveCounts } from "../hooks/useLiveCounts";
 import { useTimelineMarkers } from "../hooks/useTimelineMarkers";
 import { type SnapKeys, type TimeSnap, useTimeSnap } from "../hooks/useTimeSnap";
 import type { LaneLayout } from "../utils/histogram";
-import { timeAt, type TimeWindow, xOf } from "../utils/laneModel";
+import { fitSpan, timeAt, type TimeWindow, xOf } from "../utils/laneModel";
 import { COUNT, LaneRow } from "./LaneRow";
 import { useLaneGestures, VisibilityHeader } from "./laneVisibility";
 import { MarkerLines, MarkerRuler } from "./Markers";
@@ -76,7 +76,7 @@ const ROW = 24;
  * head cell, over the names it narrows.
  */
 export function Lanes() {
-  const { system, span, loop, seek, setLoop, beginScrub, endScrub } = useVfxRun();
+  const { system, span, playback, loop, seek, setLoop, beginScrub, endScrub } = useVfxRun();
   const { cards, filter, setFilter } = useEmitters();
   const histogram = useTimelineHistogram();
   const select = useLaneSelect();
@@ -88,7 +88,8 @@ export function Lanes() {
   const body = useRef<HTMLDivElement>(null);
   const tracks = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
-  const { view, refit } = useLaneView(span, body, width);
+  const fit = useMemo(() => fitSpan(system, span, playback), [system, span, playback]);
+  const { view, refit } = useLaneView(span, fit, body, width);
 
   const { rows, every, listed, edges, expanded, expand } = useLaneRows(system, filter);
   const gestures = useLaneGestures(listed, every);

@@ -6,17 +6,22 @@ import { fitted, panned, timeAt, type TimeWindow, zoomed } from "../utils/laneMo
 const ZOOM_NOTCH = 1.2;
 const PAN_NOTCH = 0.1;
 
-/** The lanes' visible time window, fitted to `span` until a wheel gesture zooms or pans it. */
+/**
+ * The lanes' visible time window, which shows `fit` seconds until a wheel gesture zooms or pans it.
+ *
+ * A zoom or a pan can go as far as `span`, which is longer than `fit` for a continuous run.
+ */
 export function useLaneView(
   span: number,
+  fit: number,
   body: RefObject<HTMLDivElement | null>,
   width: number,
 ): { view: TimeWindow; refit: () => void } {
-  const [view, setWindow] = useState<TimeWindow>(() => fitted(span));
+  const [view, setWindow] = useState<TimeWindow>(() => fitted(fit));
   const touched = useRef(false);
   useEffect(() => {
-    if (!touched.current) setWindow(fitted(span));
-  }, [span]);
+    if (!touched.current) setWindow(fitted(fit));
+  }, [fit]);
 
   /* Ctrl and the wheel zoom about the pointer, Shift and the wheel pan, and a bare wheel is
      the pane's own scroll. A native listener, because React's is passive. */
@@ -44,7 +49,7 @@ export function useLaneView(
 
   const refit = () => {
     touched.current = false;
-    setWindow(fitted(span));
+    setWindow(fitted(fit));
   };
 
   return { view, refit };

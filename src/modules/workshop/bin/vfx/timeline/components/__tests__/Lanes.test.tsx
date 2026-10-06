@@ -440,6 +440,18 @@ describe("Lanes", () => {
     expect(run.seek).not.toHaveBeenCalled();
   });
 
+  it("fits a continuous run to the time its last bar ends", () => {
+    /* The bars end at 1.5 seconds, so the window is 1.575 seconds over 315 pixels. */
+    const measured = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(315);
+    onTestFinished(() => measured.mockRestore());
+    const { run } = renderLanes(fakeRun({ playback: "continuous", span: 60 }));
+    const ruler = screen.getByRole("group", { name: "Timeline ruler" });
+
+    fireEvent.pointerDown(ruler, { button: 0, clientX: 100 });
+
+    expect(vi.mocked(run.seek).mock.lastCall?.[0]).toBeCloseTo(0.5);
+  });
+
   it("draws the live-count histogram only while its switch is on", () => {
     useWorkshopLayoutStore.setState({ timelineHistogram: false });
     renderLanes();

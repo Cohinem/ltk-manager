@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-06 | Fit a Continuous run's timeline to the time its last bar ends            |
 | 2026-10-06 | Author an emitter's stencil mask in a Stencil group                      |
 | 2026-10-05 | Author an emitter's emission mesh and surface in a Source group          |
 | 2026-10-04 | Move the skin shell, its preview and its panes to docs/ux/SKIN_EDITOR.md |
@@ -13,7 +14,6 @@
 | 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects                |
 | 2026-09-21 | Copy a whole object or struct as a declaration                           |
 | 2026-09-21 | Copy a row as a declaration, and declare a game-copy reference           |
-| 2026-09-21 | Draw what an apply reports on the row it names                           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1787,8 +1787,16 @@ every lane again. Shift and a click sets every lane from the last one pressed to
 order the lanes are listed. Over the heads, an eye shows or hides every lane and an S clears every
 solo.
 
-**The ruler zooms and loops.** The timeline opens fitted to the run's span. Ctrl and the wheel zoom
-about the pointer, Shift and the wheel pan, and a double click on the ruler refits. A drag along
+**The ruler zooms and loops.** The timeline opens fitted to the run's span. A Continuous run is
+the exception, because its span is always at least 60 seconds. It opens on the latest time a bar
+ends, and at least one second:
+
+- an emitter with a `lifetime` ends at the end of its linger
+- an emitter with no `lifetime` counts as its start plus its longest particle lifetime
+- a `disabled` emitter is ignored
+
+Ctrl and the wheel zoom about the pointer, and zoom out as far as the run's span. Shift and the
+wheel pan, and a double click on the ruler refits. A drag along
 the ruler scrubs, and the playhead follows the pointer from the press. Shift and a drag along the
 ruler sets an in and an out, and the run loops between them. A drag on an edge of the band moves
 that edge, and a drag on the band moves the whole range. A double click inside the band, or its

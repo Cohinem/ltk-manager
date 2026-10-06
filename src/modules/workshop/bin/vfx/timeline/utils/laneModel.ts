@@ -1,5 +1,6 @@
 import type { LoopRange } from "../../../../state";
 import type { EmissionPeriod, EmitterModel, SystemModel } from "../../engine/model/model";
+import type { Playback } from "../../engine/model/rig";
 import { lingerSeconds, peak, systemSpan } from "../../engine/model/systemModel";
 import { type ChildBirth, childPath } from "../../engine/simulation/children";
 import { compareDrawOrder } from "../../rendering/utils/drawKind";
@@ -150,9 +151,43 @@ const LEAST_WINDOW = 0.25;
 /** How far past the run's span the window reaches, so an endless bar has an edge to run to. */
 const PAST_SPAN = 1.05;
 
-/** The window fitted to one run, which is what the timeline opens on. */
+/** The window that shows `span` seconds from zero, with a margin after them. */
 export function fitted(span: number): TimeWindow {
   return { from: 0, to: Math.max(span * PAST_SPAN, LEAST_WINDOW) };
+}
+
+/** The lowest value `lastBarEnd` returns, in seconds, which is also the shortest run span. */
+const LEAST_BAR_END = 1;
+
+/**
+ * The latest time a bar of `system` ends, in seconds, ignoring disabled emitters.
+ *
+ * An emitter with a `lifetime` ends at the end of its linger. An emitter without one has no
+ * end, so it counts as its start plus its longest particle lifetime.
+ */
+export function lastBarEnd(system: SystemModel): number {
+  let last = LEAST_BAR_END;
+  for (const emitter of system.emitters) {
+    if (emitter.disabled) continue;
+
+    const bar = laneBar(emitter);
+    const end = bar.end === null ? bar.start + bar.tail : bar.end + bar.tail + bar.linger;
+    last = Math.max(last, end);
+  }
+
+  return last;
+}
+
+/**
+ * How many seconds the timeline shows when it opens, per "The timeline" in docs/ux/BIN_EDITOR.md.
+ *
+ * The span of a continuous run is at least `CONTINUOUS_RUN`, however short its bars are, so a
+ * continuous run uses `lastBarEnd` instead. Every other run uses its span.
+ */
+export function fitSpan(system: SystemModel | null, span: number, playback: Playback): number {
+  if (system === null || playback !== "continuous") return span;
+
+  return Math.min(lastBarEnd(system), span);
 }
 
 /** `window` scaled by `factor` about `at`, held inside the run's reach. */

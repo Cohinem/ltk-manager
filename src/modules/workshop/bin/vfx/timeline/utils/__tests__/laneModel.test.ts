@@ -8,10 +8,12 @@ import {
   childBars,
   childLanes,
   draggedLoop,
+  fitSpan,
   fitted,
   gripAt,
   laneBar,
   laneOrder,
+  lastBarEnd,
   laneSpan,
   matchingLanes,
   minorTicks,
@@ -170,6 +172,62 @@ describe("laneBar", () => {
   it("lingers by the emitter's own linger, capped as the engine caps it", () => {
     expect(laneBar(emitter({ particleLinger: 3 })).linger).toBe(3);
     expect(laneBar(emitter({ particleLinger: 99, particleLifetime: constant(1) })).linger).toBe(11);
+  });
+});
+
+describe("lastBarEnd", () => {
+  it("returns the latest linger end of the emitters that have a lifetime", () => {
+    const brief = emitter({ lifetime: 1, particleLifetime: constant(0.5) });
+    const lingering = emitter({ lifetime: 2, particleLifetime: constant(1), particleLinger: 0.25 });
+
+    expect(lastBarEnd(system(brief, lingering))).toBe(3.25);
+  });
+
+  it("counts an emitter with no lifetime as its start plus its particle lifetime", () => {
+    const endless = emitter({
+      lifetime: null,
+      timeBeforeFirstEmission: 2,
+      particleLifetime: constant(1.5),
+      particleLinger: 4,
+    });
+
+    expect(lastBarEnd(system(emitter(), endless))).toBe(3.5);
+  });
+
+  it("ignores a disabled emitter", () => {
+    const long = emitter({ lifetime: 30, disabled: true });
+
+    expect(lastBarEnd(system(emitter(), long))).toBe(1.5);
+  });
+
+  it("returns one second for bars that end earlier, and for no emitters", () => {
+    const short = emitter({ lifetime: 0.1, particleLifetime: constant(0.1) });
+
+    expect(lastBarEnd(system(short))).toBe(1);
+    expect(lastBarEnd(system())).toBe(1);
+  });
+});
+
+describe("fitSpan", () => {
+  const MIXED = system(emitter(), emitter({ lifetime: null }));
+
+  it("returns the span for a run that plays once or replays", () => {
+    expect(fitSpan(MIXED, 6, "once")).toBe(6);
+    expect(fitSpan(MIXED, 6, "replay")).toBe(6);
+  });
+
+  it("returns the last bar end for a continuous run", () => {
+    expect(fitSpan(MIXED, 60, "continuous")).toBe(1.5);
+  });
+
+  it("returns the span for a continuous run whose bars end after it", () => {
+    const long = system(emitter({ lifetime: 100 }), emitter({ lifetime: null }));
+
+    expect(fitSpan(long, 60, "continuous")).toBe(60);
+  });
+
+  it("returns the span while no system is loaded", () => {
+    expect(fitSpan(null, 60, "continuous")).toBe(60);
   });
 });
 
