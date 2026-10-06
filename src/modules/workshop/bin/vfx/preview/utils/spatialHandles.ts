@@ -5,7 +5,14 @@ import type { EmitterModel, SpawnShape, ValueCurve } from "../../engine/model/mo
 import type { Point } from "../../engine/model/rig";
 
 /** The emitter values a viewport handle edits. `offset` and `turn` are the overrides. */
-export type HandleKind = "offset" | "turn" | "position" | "emit" | "size" | "velocity";
+export type HandleKind =
+  | "offset"
+  | "turn"
+  | "position"
+  | "emit"
+  | "size"
+  | "meshScale"
+  | "velocity";
 
 export const HANDLE_KINDS: readonly HandleKind[] = [
   "offset",
@@ -13,14 +20,39 @@ export const HANDLE_KINDS: readonly HandleKind[] = [
   "position",
   "emit",
   "size",
+  "meshScale",
   "velocity",
 ];
 
+/** The handles `EmitterTransform` draws, each an override of the emitter's own. */
+export type OverrideKind = "offset" | "turn";
+
 /** The handles `SpatialHandle` draws, every one but the overrides `EmitterTransform` draws. */
-export type SpatialKind = Exclude<HandleKind, "offset" | "turn">;
+export type SpatialKind = Exclude<HandleKind, OverrideKind>;
+
+/** The emitter property each override handle edits, as a `0x` hash. */
+export const OVERRIDE_FIELD: Record<OverrideKind, string> = {
+  offset: nameHash("translationOverride"),
+  turn: nameHash("rotationOverride"),
+};
+
+export function isOverride(kind: HandleKind): kind is OverrideKind {
+  return kind === "offset" || kind === "turn";
+}
+
+/**
+ * The edit that writes an override the file does not hold, at zero, which is what the engine
+ * reads without it, so the emitter draws the same and its handle has a value to move.
+ */
+export function overrideEdit(kind: OverrideKind): HandleEdit {
+  return {
+    field: OVERRIDE_FIELD[kind],
+    edits: [{ type: "setLeaf", path: "", value: { type: "vector", values: [0, 0, 0] } }],
+  };
+}
 
 /** Why a handle cannot edit an emitter, and null where it can. */
-export type HandleBlock = "animated" | "noShape" | null;
+export type HandleBlock = "animated" | "noShape" | "noMesh" | null;
 
 /** Whether `kind` edits `emitter`: a constant it can move, of a shape that has it. */
 export function handleBlock(kind: SpatialKind, emitter: EmitterModel): HandleBlock {
@@ -38,12 +70,36 @@ export function handleBlock(kind: SpatialKind, emitter: EmitterModel): HandleBlo
       return shape.kind === "box" || shape.kind === "sphere" || shape.kind === "cylinder"
         ? null
         : "noShape";
+    case "meshScale":
+      return scaledSource(emitter) === null ? "noMesh" : null;
   }
 }
 
-/** Whether the handle moves a point or scales a shape. */
+/**
+ * Which scale the mesh scale handle edits: `emissionMeshScale` where the emitter names an
+ * emission mesh, else the `meshScale` of a skinned mesh surface, and null for neither.
+ */
+export function scaledSource(emitter: EmitterModel): "mesh" | "surface" | null {
+  if (emitter.emissionMesh !== null) return "mesh";
+  return emitter.emissionSurface?.kind === "mesh" ? "surface" : null;
+}
+
+/** The part of the emitter's gizmo a handle edits: the spawn shape, the birth points, or neither. */
+export function handleMark(kind: SpatialKind): "shape" | "source" | null {
+  switch (kind) {
+    case "emit":
+    case "size":
+      return "shape";
+    case "meshScale":
+      return "source";
+    default:
+      return null;
+  }
+}
+
+/** Whether the handle moves a point or scales a shape or a mesh. */
 export function handleMode(kind: SpatialKind): "translate" | "scale" {
-  return kind === "size" ? "scale" : "translate";
+  return kind === "size" || kind === "meshScale" ? "scale" : "translate";
 }
 
 /**
@@ -91,6 +147,39 @@ export function pointValue(
   }
 }
 
+/**
+ * The value a scale handle of `kind` starts at, as its three axes. A mesh scale is one number
+ * on all three.
+ */
+export function handleScale(kind: SpatialKind, emitter: EmitterModel): Point {
+  if (kind !== "meshScale") return shapeScale(emitter.shape);
+
+  const scale =
+    scaledSource(emitter) === "mesh"
+      ? (emitter.emissionMesh?.scale ?? 1)
+      : (emitter.emissionSurface?.scale ?? 1);
+  return [scale, scale, scale];
+}
+
+/** The value a scale handle of `kind` writes at `scale`, from the scale it started at. */
+export function handleScaleValue(
+  kind: SpatialKind,
+  emitter: EmitterModel,
+  scale: Point,
+  start: Point,
+): Point {
+  if (kind !== "meshScale") return scaleValue(emitter.shape, scale, start);
+
+  return uniform(scale, start);
+}
+
+/** `scale` with the axis dragged furthest from `start` on all three. */
+function uniform(scale: Point, start: Point): Point {
+  const moved = (axis: number) => Math.abs(scale[axis] - start[axis]);
+  const axis = [0, 1, 2].reduce((best, each) => (moved(each) > moved(best) ? each : best), 0);
+  return [scale[axis], scale[axis], scale[axis]];
+}
+
 /** A shape's size as a scale handle's three axes: a half-extent, a radius, or both of a cylinder. */
 export function shapeScale(shape: SpawnShape): Point {
   switch (shape.kind) {
@@ -114,10 +203,8 @@ export function shapeScale(shape: SpawnShape): Point {
 export function scaleValue(shape: SpawnShape, scale: Point, start: Point): Point {
   const moved = (axis: number) => Math.abs(scale[axis] - start[axis]);
   switch (shape.kind) {
-    case "sphere": {
-      const axis = [0, 1, 2].reduce((best, each) => (moved(each) > moved(best) ? each : best), 0);
-      return [scale[axis], scale[axis], scale[axis]];
-    }
+    case "sphere":
+      return uniform(scale, start);
     case "cylinder": {
       const radius = moved(2) > moved(0) ? scale[2] : scale[0];
       return [radius, scale[1], radius];
@@ -143,6 +230,15 @@ export function withHandleValue(kind: SpatialKind, emitter: EmitterModel, value:
       return emitter;
     case "size":
       return { ...emitter, shape: sized(shape, value) };
+    case "meshScale": {
+      const { emissionMesh, emissionSurface } = emitter;
+      if (emissionMesh !== null) {
+        return { ...emitter, emissionMesh: { ...emissionMesh, scale: value[0] } };
+      }
+      if (emissionSurface === null) return emitter;
+
+      return { ...emitter, emissionSurface: { ...emissionSurface, scale: value[0] } };
+    }
   }
 }
 
@@ -163,6 +259,10 @@ const FIELD = {
   radius: nameHash("radius"),
   height: nameHash("height"),
   constant: nameHash("constantValue"),
+  meshScale: nameHash("emissionMeshScale"),
+  surface: nameHash("emissionSurfaceDefinition"),
+  surfacePart: nameHash("EmissionSurface"),
+  surfaceScale: nameHash("meshScale"),
 } as const;
 
 /** The edits that write the handle's value into the emitter's own bin. */
@@ -195,6 +295,21 @@ export function handleEdit(kind: SpatialKind, emitter: EmitterModel, value: Poin
         };
       }
       return { field: FIELD.shape, edits: fieldEdits(FIELD.radius, float(value[0])) };
+    case "meshScale": {
+      const scale = float(value[0]);
+      if (scaledSource(emitter) === "mesh") {
+        return { field: FIELD.meshScale, edits: [{ type: "setLeaf", path: "", value: scale }] };
+      }
+
+      const part = hex(FIELD.surfacePart);
+      return {
+        field: FIELD.surface,
+        edits: [
+          ensure(part, FIELD.surfaceScale),
+          { type: "setLeaf", path: `${part}.${hex(FIELD.surfaceScale)}`, value: scale },
+        ],
+      };
+    }
   }
 }
 

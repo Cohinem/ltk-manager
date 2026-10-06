@@ -155,7 +155,6 @@ export function Readout({
         "h-[var(--readout-height,auto)] min-w-0 bg-surface-veil-soft px-[var(--readout-padding-x,0.375rem)] py-0.5",
         "font-mono text-surface-200 tabular-nums select-text focus:outline-none",
         editable ? "cursor-text" : "cursor-default",
-        step !== undefined && "text-right",
         /* DS-VEIL, DS-HOVER, DS-RADIUS. The wrapper draws them for a labelled one. */
         !wrapped &&
           "rounded-sm border border-surface-veil transition-colors hover:border-accent-hover",
@@ -195,33 +194,36 @@ export function Readout({
       )}
       {field}
       {editable && step !== undefined && (
-        /* Keeps its room while hidden, so a column of fields does not shift under the pointer. */
-        <span className="flex shrink-0 flex-col border-l border-surface-veil opacity-0 group-focus-within/readout:opacity-100 group-hover/readout:opacity-100 group-hover/row:opacity-100">
-          {[1, -1].map((direction) => (
-            <button
-              key={direction}
-              type="button"
-              aria-label={
-                direction === 1
-                  ? m.common_number_increase_action()
-                  : m.common_number_decrease_action()
-              }
-              /* DS-VEIL */
-              className="flex h-[calc(var(--readout-height,1.5rem)/2)] w-[var(--readout-step-width,1rem)] items-center justify-center text-surface-400 hover:bg-surface-veil hover:text-surface-100"
-              onMouseDown={(event) => {
-                event.preventDefault();
-                input.current?.focus();
-              }}
-              onClick={(event) => {
-                event.stopPropagation();
-                input.current?.focus();
-                nudge(direction, event.ctrlKey || event.metaKey, event.shiftKey);
-              }}
-            >
-              {direction === 1 && <CaretUpIcon weight="bold" className="size-2.5" />}
-              {direction === -1 && <CaretDownIcon weight="bold" className="size-2.5" />}
-            </button>
-          ))}
+        /* Keeps its room and the field's fill while hidden, so a column of fields does not
+           shift under the pointer and the box reads as one. */
+        <span className={twMerge("flex shrink-0", !placeholder && "bg-surface-veil-soft")}>
+          <span className="flex flex-col border-l border-surface-veil opacity-0 group-focus-within/readout:opacity-100 group-hover/readout:opacity-100 group-hover/row:opacity-100">
+            {[1, -1].map((direction) => (
+              <button
+                key={direction}
+                type="button"
+                aria-label={
+                  direction === 1
+                    ? m.common_number_increase_action()
+                    : m.common_number_decrease_action()
+                }
+                /* DS-VEIL */
+                className="flex h-[calc(var(--readout-height,1.5rem)/2)] w-[var(--readout-step-width,1rem)] items-center justify-center text-surface-400 hover:bg-surface-veil hover:text-surface-100"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  input.current?.focus();
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  input.current?.focus();
+                  nudge(direction, event.ctrlKey || event.metaKey, event.shiftKey);
+                }}
+              >
+                {direction === 1 && <CaretUpIcon weight="bold" className="size-2.5" />}
+                {direction === -1 && <CaretDownIcon weight="bold" className="size-2.5" />}
+              </button>
+            ))}
+          </span>
         </span>
       )}
     </span>

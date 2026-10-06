@@ -26,7 +26,7 @@ interface ProjectActionsProps {
   project: WorkshopProject;
 }
 
-/** Test and pack, each with its caret, and the overflow menu, joined into one control in the project header. */
+/** Test and pack, each with its caret, and the overflow menu, joined into one control in the status row. */
 export function ProjectActions({ project }: ProjectActionsProps) {
   const testState = useWorkshopTestState(project);
   const actions = useProjectActions(project);
@@ -38,7 +38,8 @@ export function ProjectActions({ project }: ProjectActionsProps) {
       const button = (
         <Button
           variant="ghost"
-          left={<PlayIcon weight="bold" className="size-4" />}
+          size="sm"
+          left={<PlayIcon weight="bold" className="size-3.5" />}
           onClick={actions.handleTestProject}
           className={testTint}
         >
@@ -54,8 +55,9 @@ export function ProjectActions({ project }: ProjectActionsProps) {
       <Tooltip content={m.workshop_header_test_blocked_hint({ name: otherLabel })}>
         <Button
           variant="ghost"
+          size="sm"
           disabled
-          left={<PlayIcon weight="bold" className="size-4" />}
+          left={<PlayIcon weight="bold" className="size-3.5" />}
           className={testTint}
         >
           {m.workshop_header_test_action()}
@@ -66,8 +68,9 @@ export function ProjectActions({ project }: ProjectActionsProps) {
       <Tooltip content={m.workshop_header_test_patcher_hint()}>
         <Button
           variant="ghost"
+          size="sm"
           disabled
-          left={<PlayIcon weight="bold" className="size-4" />}
+          left={<PlayIcon weight="bold" className="size-3.5" />}
           className={testTint}
         >
           {m.workshop_header_test_action()}
@@ -84,7 +87,8 @@ export function ProjectActions({ project }: ProjectActionsProps) {
       <Tooltip content={packTargetHint(packTarget)}>
         <Button
           variant="ghost"
-          left={<PackageIcon weight="bold" className="size-4" />}
+          size="sm"
+          left={<PackageIcon weight="bold" className="size-3.5" />}
           loading={actions.isPacking}
           onClick={actions.handlePack}
           className={packTint}
@@ -99,7 +103,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
           render={
             <IconButton
               icon={<DotsThreeVerticalIcon />}
-              size="md"
+              size="sm"
               aria-label={m.workshop_header_actions_label()}
               className={neutralTint}
             />

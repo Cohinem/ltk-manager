@@ -3,20 +3,25 @@ import { useMemo } from "react";
 
 import { Breadcrumb, Count, EmptyState, IconButton, LoadingState } from "@/components";
 import { m } from "@/i18n";
+import type { ObjectDirListing } from "@/lib/tauri";
 
 import { GameWadsErrorState } from "../../gameBrowser/components/GameBrowserStates";
 import { useObjectsReveal, useSettleObjectsReveal } from "../../state";
 import { useObjectDir } from "../api/useObjectDir";
 import { useWarmOnAbsent } from "../api/useObjectIndex";
 import { useLayerDeclarations } from "../hooks/useLayerDeclarations";
+import { useProjectObjects } from "../hooks/useProjectObjects";
 import { ancestorPrefixes } from "../utils/objectTree";
 import { holdsOnlyUnnamed, objectListingNodes } from "../utils/objectTree";
+import { holdsProjectObjects, withProjectObjects } from "../utils/projectObjects";
 import {
   ObjectIndexBuildingState,
   ObjectIndexFailedState,
   ObjectIndexUnnamedHint,
 } from "./ObjectIndexStates";
 import { ObjectsGrid } from "./ObjectsGrid";
+
+const NO_LISTING: ObjectDirListing = { prefixes: [], objects: [] };
 
 interface ObjectsIndexGridProps {
   prefix: string;
@@ -43,9 +48,17 @@ export function ObjectsIndexGrid({
     reveal !== null && (ancestorPrefixes(reveal.id).at(-1) ?? "") === prefix ? reveal : null;
   const retry = useWarmOnAbsent(root.data?.status);
   const layers = useLayerDeclarations();
+  const projectObjects = useProjectObjects();
+  /* A prefix only the project holds fails to read from the index, and lists the project's alone. */
+  const projectOnly = root.isError && holdsProjectObjects(prefix, projectObjects);
+  const installed = root.data?.status === "ready" ? root.data.value : undefined;
+  const listing = installed ?? (projectOnly ? NO_LISTING : undefined);
   const nodes = useMemo(
-    () => (root.data?.status === "ready" ? objectListingNodes(root.data.value, layers) : []),
-    [root.data, layers],
+    () =>
+      listing === undefined
+        ? []
+        : objectListingNodes(withProjectObjects(prefix, listing, projectObjects), layers),
+    [listing, prefix, projectObjects, layers],
   );
   const segments = prefix.split("/").filter(Boolean);
   const crumbs = [
@@ -68,29 +81,27 @@ export function ObjectsIndexGrid({
           aria-label={m.workshop_explorer_location_label()}
           className="flex-1"
         />
-        {root.data?.status === "ready" && (
+        {listing !== undefined && (
           <Count>{m.workshop_objects_items_label({ count: nodes.length })}</Count>
         )}
       </div>
       {root.isPending && <LoadingState />}
-      {root.isError && <GameWadsErrorState error={root.error} />}
+      {root.isError && !projectOnly && <GameWadsErrorState error={root.error} />}
       {root.data?.status === "failed" && (
         <ObjectIndexFailedState error={root.data.error} onRetry={retry} />
       )}
       {(root.data?.status === "building" || root.data?.status === "absent") && (
         <ObjectIndexBuildingState />
       )}
-      {root.data?.status === "ready" && holdsOnlyUnnamed(root.data.value) && (
-        <ObjectIndexUnnamedHint />
-      )}
-      {root.data?.status === "ready" && nodes.length === 0 && (
+      {installed !== undefined && holdsOnlyUnnamed(installed) && <ObjectIndexUnnamedHint />}
+      {listing !== undefined && nodes.length === 0 && (
         <EmptyState
           size="sm"
           title={m.workshop_objects_none_title()}
           description={m.workshop_objects_none_description()}
         />
       )}
-      {root.data?.status === "ready" && (
+      {listing !== undefined && (
         <ObjectsGrid
           key={prefix}
           nodes={nodes}

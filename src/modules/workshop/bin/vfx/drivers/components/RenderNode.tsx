@@ -4,7 +4,7 @@ import { use, useMemo } from "react";
 
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
-import { renderPreviewHeight } from "../utils/driverLayout";
+import { renderPreviewed } from "../utils/driverLayout";
 import type { RenderItem } from "../utils/graphItems";
 import { itemSubtitle, itemTitle } from "../utils/nodeText";
 import { outputTop } from "../utils/outputSocket";
@@ -30,7 +30,7 @@ import { ShapeInViewButton } from "./ShapeOverlay";
  * and its header shows the shape in the viewport.
  */
 export function RenderNodeView({ data, selected }: NodeProps<RenderFlowNode>) {
-  const { item, width, height } = data.placed;
+  const { item, width, height, nameWidth } = data.placed;
 
   return (
     <NodeFrame
@@ -38,7 +38,7 @@ export function RenderNodeView({ data, selected }: NodeProps<RenderFlowNode>) {
       height={height}
       selected={selected}
       item={item}
-      plate={renderPreviewHeight(item) > 0 ? "none" : "inside"}
+      plate={renderPreviewed(item) ? "none" : "inside"}
     >
       <NodeHeader
         icon={item.role === "geometry" ? CubeIcon : ImageIcon}
@@ -59,14 +59,14 @@ export function RenderNodeView({ data, selected }: NodeProps<RenderFlowNode>) {
       {item.role === "geometry" && <GeometryPreview item={item} />}
       {item.role === "texture" && <RenderPreview item={item} />}
       <div className={FIELD_PAD}>
-        <RenderBody item={item} />
+        <RenderBody item={item} nameWidth={nameWidth} />
       </div>
       <Output kind={null} top={outputTop(item)} />
     </NodeFrame>
   );
 }
 
-function RenderBody({ item }: { item: RenderItem }) {
+function RenderBody({ item, nameWidth }: { item: RenderItem; nameWidth?: number }) {
   const actions = use(GraphActionsContext);
   const entry = actions?.entry ?? "";
   const rows = useRowsAt(item.wire, item.rowCount);
@@ -77,7 +77,7 @@ function RenderBody({ item }: { item: RenderItem }) {
 
   /* The rows are the emitter's, so the node keys its link checks apart from the master's. */
   return (
-    <FieldBody wire={item.id} rows={shown}>
+    <FieldBody wire={item.id} rows={shown} nameWidth={nameWidth}>
       {item.fields.map((field) => (
         <RenderLine
           key={field.hash}
@@ -87,6 +87,7 @@ function RenderBody({ item }: { item: RenderItem }) {
           schema={schema?.fields}
           owner={item.classHash}
           embedded={embedded}
+          nameWidth={nameWidth}
         />
       ))}
     </FieldBody>
@@ -98,7 +99,7 @@ function RenderBody({ item }: { item: RenderItem }) {
  * the node takes over, or the master's own line.
  */
 function RenderLine(props: MasterLineProps) {
-  const { field, row, embedded } = props;
+  const { field, row, embedded, nameWidth } = props;
   if (field.input?.type !== "struct" || !drawnInSection(field.hash, field.input)) {
     return <MasterLine {...props} />;
   }
@@ -107,7 +108,7 @@ function RenderLine(props: MasterLineProps) {
   return (
     <>
       <SectionLine title={label} action={<ClassAction item={field.input} />} />
-      <StructBody item={field.input} embedded={embedded} />
+      <StructBody item={field.input} nameWidth={nameWidth} embedded={embedded} />
     </>
   );
 }

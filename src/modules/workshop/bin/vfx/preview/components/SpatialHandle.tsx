@@ -24,14 +24,15 @@ import { frameOf } from "../../engine/simulation/particleRead";
 import { sampleCurveInto } from "../../engine/utils/sampleCurve";
 import { useVfxRun } from "../../playback/state/run";
 import { spawnFrameInto, spawnOriginInto } from "../../rendering/utils/emitterShape";
+import { setHandlePreview } from "../state/handlePreview";
 import { type FlightPath, flightPath } from "../utils/flightPath";
 import {
   handleEdit,
   handleMode,
   handlePoint,
+  handleScale,
+  handleScaleValue,
   pointValue,
-  scaleValue,
-  shapeScale,
   type SpatialKind,
   withHandleValue,
 } from "../utils/spatialHandles";
@@ -79,7 +80,7 @@ const STRAIGHT_OPACITY = 0.45;
 
 /**
  * A viewport handle on one of the emitter's spatial values: `EmitterPosition`, the spawn
- * shape's emit offset or size, or the birth velocity.
+ * shape's emit offset or size, the emission mesh's scale, or the birth velocity.
  *
  * It stands where the value puts the emitter, placed through the frame a birth is placed
  * through. A drag previews through the run and pauses it, Escape cancels, and the release
@@ -150,6 +151,9 @@ export function SpatialHandle({ system, emitter, holder, kind, edit, onGrab }: P
     if (held === null) return;
 
     drag.current = null;
+    setHandlePreview(
+      saved === undefined ? null : { system, emitter: withHandleValue(kind, emitter, saved) },
+    );
     transform.current?.reset();
     setGeneration((each) => each + 1);
     setSaving(false);
@@ -175,6 +179,7 @@ export function SpatialHandle({ system, emitter, holder, kind, edit, onGrab }: P
     return () => {
       window.removeEventListener("keydown", cancel, true);
       restoreRef.current();
+      setHandlePreview(null);
     };
   }, [system, emitter.index, kind]);
 
@@ -200,7 +205,7 @@ export function SpatialHandle({ system, emitter, holder, kind, edit, onGrab }: P
         object.quaternion.copy(
           parent === null ? new Quaternion() : viewportRotation(parent, NO_TURN),
         );
-        const [x, y, z] = shapeScale(emitter.shape);
+        const [x, y, z] = handleScale(kind, emitter);
         object.scale.set(visible(x), visible(y), visible(z));
       } else {
         object.quaternion.identity();
@@ -248,7 +253,7 @@ export function SpatialHandle({ system, emitter, holder, kind, edit, onGrab }: P
         Math.abs(object.scale.y),
         Math.abs(object.scale.z),
       ];
-      value = scaleValue(emitter.shape, scale, held.start);
+      value = handleScaleValue(kind, emitter, scale, held.start);
     } else {
       const local = object.position.clone().applyMatrix4(placement.current.clone().invert());
       value = pointValue(kind, emitter, [local.x, local.y, local.z], held.base, seconds.current);
@@ -257,9 +262,11 @@ export function SpatialHandle({ system, emitter, holder, kind, edit, onGrab }: P
 
     held.value = value;
     const next = edited(value);
+    const moved = withHandleValue(kind, emitter, value);
     driver.swap(next);
+    setHandlePreview({ system, emitter: moved });
     if (kind === "velocity") {
-      flight.current = flightPath(next, withHandleValue(kind, emitter, value), chance);
+      flight.current = flightPath(next, moved, chance);
     }
     driver.seek(held.time);
   }
@@ -310,7 +317,7 @@ export function SpatialHandle({ system, emitter, holder, kind, edit, onGrab }: P
         object={object}
         mode={mode}
         space={mode === "scale" ? "local" : "world"}
-        showZ={!(mode === "scale" && emitter.shape.kind === "cylinder")}
+        showZ={!(kind === "size" && emitter.shape.kind === "cylinder")}
         onMouseDown={() => {
           onGrab?.();
           drag.current = {

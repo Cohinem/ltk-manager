@@ -8,14 +8,11 @@ import { twMerge } from "@/utils";
 import type { EmitterModel, SpawnShape } from "../../engine/model/model";
 import { identityInto } from "../../engine/utils/basis";
 import { spawnFrameInto } from "../../rendering/utils/emitterShape";
-import { NODE_PREVIEW_SIZE } from "../utils/driverLayout";
 import { bodyMatrixInto, type ShapeBody, shapeBody } from "../utils/shapeBody";
 import { cloudReach, type SpawnCloud, spawnCloud } from "../utils/spawnCloud";
 import { NODE_BOX, Turntable } from "./NodePreviews";
 import { PreviewView } from "./PreviewView";
 import { SpawnBody } from "./SpawnBody";
-
-const BOX_STYLE = { width: NODE_PREVIEW_SIZE, height: NODE_PREVIEW_SIZE } as const;
 
 /** How far the axes reach, as a share of the cloud's reach. */
 const AXIS_SHARE = 0.3;
@@ -73,8 +70,8 @@ export function ShapePreview({ emitter }: { emitter: EmitterModel | undefined })
   const at = drawn === null ? null : placeOf(drawn.box);
 
   return (
-    <div className="relative my-1 shrink-0 self-center" style={BOX_STYLE}>
-      <PreviewView className={twMerge(NODE_BOX, "my-0 size-full")}>
+    <div className={twMerge(NODE_BOX, "relative")}>
+      <PreviewView className="absolute inset-0">
         {drawn !== null && <SpawnScene drawn={drawn} zero={zero} />}
       </PreviewView>
       {zero && (

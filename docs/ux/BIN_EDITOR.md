@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-05 | Author an emitter's emission mesh and surface in a Source group          |
 | 2026-10-04 | Move the skin shell, its preview and its panes to docs/ux/SKIN_EDITOR.md |
 | 2026-09-27 | Select an emitter by a click on its particles in the viewer              |
 | 2026-09-26 | Walk the rows by key, and keep a refused edit's text                     |
@@ -13,7 +14,6 @@
 | 2026-09-21 | Copy a row as a declaration, and declare a game-copy reference           |
 | 2026-09-21 | Draw what an apply reports on the row it names                           |
 | 2026-09-21 | Declare a game bin's container edits, and refuse what none says          |
-| 2026-09-21 | Declare a game bin's leaf edit into a project layer                      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -45,48 +45,50 @@ This table holds every major feature of the bin editor. A status word has one me
 - **Blocked** - the team agreed on the feature, and a change outside this repository has
   to land first
 
-| Feature               | Status      | Note                                                             |
-| --------------------- | ----------- | ---------------------------------------------------------------- |
-| VS Code handoff       | Available   | Opens the file as ritobin text in VS Code. `BinPreview.tsx`      |
-| Object list           | Available   | The objects of one file, collapsed, with their classes           |
-| Property rows         | Available   | Every leaf kind, drawn read-only                                 |
-| Container rows        | Available   | The eight complex kinds, expandable                              |
-| Hash names            | Available   | The four mimir bin tables, through `bin_tables()`                |
-| Property paths        | Available   | The game's path syntax, as the address and as Copy path          |
-| Open at object        | Available   | A `$` hit opens the declaring file scrolled to its object        |
-| Type tags             | Available   | Every row's kind after its name, in ritobin's words              |
-| Class cards           | Available   | A class or a field on hover, from the meta schema                |
-| Object tab            | Available   | One declaration as a document. ADR-0028                          |
-| Object links          | Available   | A chip that opens the object tab, resolved through the index     |
-| Hash links            | Available   | A `hash` the index declares, opening the same way                |
-| WAD chunk links       | Available   | A chip that opens the chunk in a preview tab                     |
-| Texture swatch        | Available   | A `file` link to a texture, at row height and on a hover card    |
-| Find all references   | Available   | A class's objects from the index, the rest from a walk           |
-| String links          | Available   | A string naming a chunk or an object, as the chip its kind draws |
-| Value rows            | Available   | Every family's constant, and a mark where a curve carries more   |
-| Class views           | Available   | A complete layout beside Properties, keyed on class. ADR-0030    |
-| Curve panel           | In progress | The dock, the graph and its channels. The tabs next. ADR-0032    |
-| Particle system shell | Available   | Panes under a crumb, arranged by the reader. ADR-0031, ADR-0034  |
-| Particle timeline     | Available   | Lanes under one playhead, on checkpoints. ADR-0037               |
-| Pane maximize         | Available   | A tab fills its split tree, and Esc restores it                  |
-| Inspector rows        | Available   | Every group, named values, units, a curve per animated row       |
-| Inspector bands       | Planned     | A rich value on its own band, the roll rail, and no group tabs   |
-| Primitive picker      | Available   | The primitive's class, its fields, and a sketch of what it draws |
-| In-document search    | Available   | The bar's `@` scope over the open rows                           |
-| Leaf editing          | Available   | The primitive widgets, and the patch that carries an edit        |
-| Path field            | Available   | Project and game files suggested in a `file` or path string edit |
-| Property editing      | Available   | Add and remove a property inline, at the schema's default        |
-| Container editing     | Available   | List items, map entries, options and pointers, inline            |
-| Row keys              | Available   | Arrows walk the rows, and `Enter` or `F2` opens a value          |
-| Autosave              | Available   | The strings editor's debounce, saved as a delta. ADR-0040        |
-| Undo                  | Available   | An inverse-patch stack per open tree, from anywhere in the group |
-| Schema-aware editing  | Proposed    | The meta dump, for a field's declared type and its subclasses    |
-| Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy        |
-| Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes              |
-| Patch bin records     | Available   | Grouped under the objects they target, read-only. ADR-0041       |
-| Declared game bin     | In progress | A row edit of a game bin lands as a declaration. ADR-0042        |
-| Declaration actions   | In progress | Copy a row as a declaration or a reference, and paste one        |
-| Patch authoring       | Proposed    | An edit written as a patch record rather than a rewrite          |
+| Feature               | Status      | Note                                                              |
+| --------------------- | ----------- | ----------------------------------------------------------------- |
+| VS Code handoff       | Available   | Opens the file as ritobin text in VS Code. `BinPreview.tsx`       |
+| Object list           | Available   | The objects of one file, collapsed, with their classes            |
+| Property rows         | Available   | Every leaf kind, drawn read-only                                  |
+| Container rows        | Available   | The eight complex kinds, expandable                               |
+| Hash names            | Available   | The four mimir bin tables, through `bin_tables()`                 |
+| Property paths        | Available   | The game's path syntax, as the address and as Copy path           |
+| Open at object        | Available   | A `$` hit opens the declaring file scrolled to its object         |
+| Type tags             | Available   | Every row's kind after its name, in ritobin's words               |
+| Class cards           | Available   | A class or a field on hover, from the meta schema                 |
+| Object tab            | Available   | One declaration as a document. ADR-0028                           |
+| Object links          | Available   | A chip that opens the object tab, resolved through the index      |
+| Hash links            | Available   | A `hash` the index declares, opening the same way                 |
+| WAD chunk links       | Available   | A chip that opens the chunk in a preview tab                      |
+| Texture swatch        | Available   | A `file` link to a texture, at row height and on a hover card     |
+| Find all references   | Available   | A class's objects from the index, the rest from a walk            |
+| String links          | Available   | A string naming a chunk or an object, as the chip its kind draws  |
+| Value rows            | Available   | Every family's constant, and a mark where a curve carries more    |
+| Class views           | Available   | A complete layout beside Properties, keyed on class. ADR-0030     |
+| Curve panel           | In progress | The dock, the graph and its channels. The tabs next. ADR-0032     |
+| Particle system shell | Available   | Panes under a crumb, arranged by the reader. ADR-0031, ADR-0034   |
+| Particle timeline     | Available   | Lanes under one playhead, on checkpoints. ADR-0037                |
+| Pane maximize         | Available   | A tab fills its split tree, and Esc restores it                   |
+| Floating panes        | Available   | A pane leaves the tree for a frame over the shell, and docks back |
+| Inspector rows        | Available   | Every group, named values, units, a curve per animated row        |
+| Inspector bands       | Planned     | A rich value on its own band, the roll rail, and no group tabs    |
+| Primitive picker      | Available   | The primitive's class, its fields, and a sketch of what it draws  |
+| Emission source       | Available   | Emission mesh and surface, typed, checked and drawn as births     |
+| In-document search    | Available   | The bar's `@` scope over the open rows                            |
+| Leaf editing          | Available   | The primitive widgets, and the patch that carries an edit         |
+| Path field            | Available   | Project and game files suggested in a `file` or path string edit  |
+| Property editing      | Available   | Add and remove a property inline, at the schema's default         |
+| Container editing     | Available   | List items, map entries, options and pointers, inline             |
+| Row keys              | Available   | Arrows walk the rows, and `Enter` or `F2` opens a value           |
+| Autosave              | Available   | The strings editor's debounce, saved as a delta. ADR-0040         |
+| Undo                  | Available   | An inverse-patch stack per open tree, from anywhere in the group  |
+| Schema-aware editing  | Proposed    | The meta dump, for a field's declared type and its subclasses     |
+| Copy into a layer     | Proposed    | The route from a read-only game chunk to an editable copy         |
+| Ritobin text view     | Proposed    | A read-only text pane, once `ltk_ritobin` publishes               |
+| Patch bin records     | Available   | Grouped under the objects they target, read-only. ADR-0041        |
+| Declared game bin     | In progress | A row edit of a game bin lands as a declaration. ADR-0042         |
+| Declaration actions   | In progress | Copy a row as a declaration or a reference, and paste one         |
+| Patch authoring       | Proposed    | An edit written as a patch record rather than a rewrite           |
 
 ## Scope
 
@@ -744,8 +746,10 @@ Reset to default puts a property back to its class default. It is one undo step.
 #### What changed
 
 Every row and node that differs from a baseline carries a dot, and the row menu offers the
-baseline's value back. Changes in the inspector's toolbar holds the switches: Mark changes, on
-by default, Changed only, and the baseline, the file as it was opened or the game's copy.
+baseline's value back. The inspector's View menu holds the switches: Marks, on by default,
+Changed only, and under Baseline the two a change is measured from, Opened for the file as it was
+opened and Game for the game's copy. The two names are the row menu's own, Revert to opened and
+Revert to game.
 
 ```
 Changes v                         Rate           [ 12.0 ] *     filled dot: changed
@@ -816,23 +820,21 @@ The object's properties, from depth zero. The header is the object, and no row r
 The facts sit at the trailing edge of the tab row, the [document chrome](PROJECT_EDITOR.md#document-chrome)
 rule of one row per leaf.
 
-| Fact               | Reads                                                                  |
-| ------------------ | ---------------------------------------------------------------------- |
-| Class              | The class the declaration carries, as a [card](#the-class-card)        |
-| Show in file       | Opens the declaring file's tab, scrolled to the object                 |
-| Other declarations | A popover from the index, one row per file, each opening its own tab   |
-| Mode               | The layout or Properties, where the class has a [layout](#class-views) |
-| Kebab              | The object's and the class's actions, per `DS-GLYPH-ROLE`              |
+| Fact         | Reads                                                                  |
+| ------------ | ---------------------------------------------------------------------- |
+| Class        | The class the declaration carries, as a [card](#the-class-card)        |
+| Show in file | Opens the declaring file's tab, scrolled to the object                 |
+| Mode         | The layout or Properties, where the class has a [layout](#class-views) |
+| Kebab        | The object's and the class's actions, per `DS-GLYPH-ROLE`              |
 
-With the index absent, the other declarations draw a dim "Build the object index" affordance.
-Where no other file declares the object, they draw nothing.
+The other files declaring the object are in the [Sandbox options](#the-sandbox), which lead
+the row.
 
 The row carries no property count. The tree under it is the count, one row per property, and a
 tally of what is already on screen is a fact the reader reads twice.
 
 **A narrow toolbar drops what a reader reaches another way.** The class, the mode and the kebab
-stay at every width. The other declarations go first, because the index is a question rather than
-an answer. Show in file folds into the kebab, where the object's other actions already are. What a toolbar never does is
+stay at every width. Show in file folds into the kebab, where the object's other actions already are. What a toolbar never does is
 wrap or scroll, because a second row costs the tree a row of content at the width that has the
 least of it, and a control that has scrolled out of a row is a control nobody finds.
 
@@ -1640,6 +1642,30 @@ and the rest of the tree waits behind it. A second double click, or Esc, restore
 Maximizing writes nothing to the arrangement. The editor grid maximizes a document panel the same
 way, per [the panel layout](PROJECT_EDITOR.md#maximizing-a-panel).
 
+**A tab has a menu.** A right click on a pane's tab offers Float, Maximize or Restore, and Close,
+on the open tab and on one behind it alike (`PaneStrip` in `src/modules/editor/layout`).
+
+**A pane floats.** The open pane's tab carries a Float button, shown with its Close, and every
+tab's menu carries Float. It takes the
+pane out of the tree into a frame over the shell, and the panel it left gives its room to the one
+beside it. The frame stays open until its own Close, moves by its header, sizes by its corner and
+stays inside the shell. Its Dock button puts the pane back in the panel the reader last touched.
+
+- a pane is in the tree, floating or closed, never two of them. The Panes menu ticks a floating
+  pane as it does an open one, and unticking it closes the frame.
+- a frame opens under the press that floated it, and over it where there is no room under, so the
+  row or tab that was pressed stays in view. One opened again opens where it was last left.
+- a press on a frame brings it in front of the others
+- the pane's body is not rebuilt when it floats or docks, so the preview keeps its WebGL context
+  and a curve keeps its selection
+- Reset layout docks every floating pane where it started
+- which panes float is the project's for the session. It is not written to `.ltk/editor.json`,
+  so a pane floating at exit is closed at the next start.
+
+**Why.** A pane in the tree takes a fixed share of the window whether or not the reader is using
+it, and sits where the tree puts it. A reader tuning one row wants the curve beside that row, and
+one arranging nodes wants the preview over the graph, for as long as that task lasts.
+
 ### The timeline
 
 The timeline is the particle shell's fifth pane, per ADR-0037. It reads the run the shell holds
@@ -1714,9 +1740,11 @@ and the value reads beside the edge during the drag.
   to nothing, so its bar has no linger edge
 
 **A double click opens the exact times.** A double click on the bar opens a popover with the
-start delay, the lifetime, Emits until the system stops, the particle linger, Repeats in cycles
-with the period and its active part, and the single burst switch. Each field commits on its own.
-Emits until the system stops clears `lifetime`, which no drag can do.
+start delay, the lifetime, Emits until the system stops, the emitter linger, the particle linger
+and its mode, Repeats in cycles with the period and its active part, the single burst switch and
+`HasVariableStartTime`. Each field commits on its own. Emits until the system stops clears
+`lifetime`, which no drag can do. A line under the emitter's name states how long the emitter
+emits for, because `lifetime` is an end time counted from the system's start and not a duration.
 
 **Bursts and cycles are marked.** An `isSingleParticle` emitter's whole output is one burst,
 drawn as a diamond at its start, and its bar has no end edge. An emitter with a `period` and a
@@ -1930,8 +1958,9 @@ skin's effect opens with the skin and the clip in the character picker, the char
 from the event's frame. The pill names the view as the rig's source, and `Ctrl` opens the tab
 beside.
 
-**The gizmo** draws the selected emitter's origin and its offset as lines, and its spawn shape as
-a body in faint faces under crisp edges. It is the one gizmo of the editor: the Geometry node's
+**The gizmo** draws the selected emitter's origin and its offset as lines, its spawn shape as
+a body in faint faces under crisp edges, and the births of its emission mesh and surface as
+points, per [the emission source](#the-emission-source). It is the one gizmo of the editor: the Geometry node's
 Show shape switch opens its emitter and turns the gizmo on, pressed while the gizmo shows that
 emitter. Hovering any node of an emitter in the Graph pane draws that emitter's gizmo in a near
 white over the run, and choosing an emitter anywhere, a pick in the viewport included, selects
@@ -1940,19 +1969,37 @@ its master node in the Graph pane and centers the view on it.
 **The handle menu** in the viewport's controls picks which of the open emitter's spatial values a
 drag edits: Offset (`translationOverride`), Turn (`rotationOverride`), Emitter position, the emit
 offset of a point or legacy shape, Shape size (a box's half-extents, a sphere's radius, a
-cylinder's radius and height), or Birth velocity. The velocity handle is the tip of a faint straight line, as far as the birth
+cylinder's radius and height), Emission mesh scale, or Birth velocity. The velocity handle is the tip of a faint straight line, as far as the birth
 velocity alone carries a particle over its life. Beside it runs the path the engine flies one
 particle along, acceleration, drag and forces included, with a dot at each tenth of its life, so
 the spacing reads as its speed. A value animated over the emitter's life is listed disabled, since its
-curve edits it, as is a size or an offset the shape does not have. A drag previews through the
+curve edits it, as is a size or an offset the shape does not have. Offset and Turn are never
+disabled for an override the file does not hold: choosing one writes the override at zero, which
+draws the emitter where it already is, and gives the handle a value to move. Such an item carries
+a plus, and one line under the list says what the plus means, so the menu states it once. A drag previews through the
 run and pauses it, Escape cancels it, and the release writes the value as one edit.
+
+The menu's button names the chosen handle, and reads Handle while none is chosen. A chosen
+handle draws the part of the gizmo it edits with the Gizmo switch off too: Shape size and the
+emit offset draw the spawn shape, and Emission mesh scale draws the birth points. The emitter's
+marks follow a drag, so the shape resizes under the handle.
+
+**The controls** over the viewport's top right corner are grouped by a rule: what is drawn
+(Show, the shaders switch, the view mode), the camera and Frame the system, the handle menu,
+and the rig. The bar wraps to a second line in a pane too narrow for one.
+
 **Stats** draws the live particles, the live child systems and the frame's milliseconds in the
 bottom right corner, on a plate that reads over any ground. The count is of simulated particles,
 a muted emitter's included.
 
+**An edit shows on the particles alive.** An edit, an undo or a redo that changes a value the
+simulation reads replays the run to its current phase under the new values, playing or paused.
+The clock does not move. An edit of a value only the draw reads, such as a colour or a texture,
+needs no replay.
+
 **What persists.** Ground, Midlane, Gizmo, Stats, the view mode and its overlay, the camera preset, the
-timeline's Histogram switch and the inspector's Defaults switch are display preferences, app-wide
-and persisted. The rig, the seed, the speed, mute and
+timeline's Histogram switch, the inspector's Defaults switch and the graph's minimap switch are
+display preferences, app-wide and persisted. The rig, the seed, the speed, mute and
 solo, the loop range, the pinned chance and the playhead belong to the run, kept per system for
 the session, per ADR-0037, so a file reopened finds them again. A run left at its end reopens at
 zero.
@@ -1996,18 +2043,28 @@ INSPECTOR  Orb [0] / Birth v          Chance 0.55
 |  a field the birth roll reaches   !  a field that rerolls every frame
 ```
 
-**An action bar leads the search row.** Its first switch, Show only defined properties (`F`), draws
+**An action bar leads the search row,** and it holds three controls: Add property, the View menu
+and the Emitter menu. Everything else the row once drew as a button of its own is an item of one
+of the two menus, since nine icons in a row left the reader to learn each by hovering it.
+
+- **Add property** is the one button, because it is the row's authoring action
+- **View** holds what the inspector shows: Defined only, Preview, under a Changes heading Marks
+  and Changed only, and under Baseline what a change is measured from, Opened or Game. Its button is pressed while a filter hides rows.
+- **Emitter** holds what is done to the open emitter whole: Duplicate, Copy, Paste, Add from
+  template and Delete. A child lane's emitter draws no Emitter menu.
+
+Defined only (`F`) draws
 only the properties the file defines and drops every field drawn at its schema default. The switch
 is remembered across emitters and sessions. With it on and nothing defined, the pane says so.
 
-Its second switch, Add property (`+`), puts an add box in place of the search. The box lists the
+Add property (`+`) puts an add box in place of the search. The box lists the
 fields the emitter's class declares and the emitter does not define, matched by label, name, hash
 or group as the search matches them, and takes `name: kind` for a field no table names. A pick adds
 the field at its schema default, unfolds its section and scrolls to it, and the box clears for the
 next one. `Escape` clears the box, and on an empty box returns to the search. This is the way to
 define a field while only defined properties are shown.
 
-Its third switch, Show emitter preview (`P`), draws the open emitter's graph node preview over
+Preview (`P`) draws the open emitter's graph node preview over
 the properties, as wide as the panel: the same particle surface, trail swatch or live draw, the
 same strip under it, played on the run's own playhead. The backdrop switch sits in its corner. The
 switch is on by default and remembered. A child lane's emitter draws no preview, because the run
@@ -2135,6 +2192,129 @@ An edit of `mMeshName` redraws it. A stand-in solid holds the place while the me
 no file resolves, which is where an attached mesh draws the unit it is attached to. The sketch
 paints a 2D canvas, so the inspector opens no second WebGL context beside the viewer.
 
+### The emission source
+
+The Source group of the inspector holds the fields a particle's birth position is built from.
+The engine adds four terms, and the group lists their fields in the order the engine adds them:
+
+1. `EmitterPosition`
+2. a point of the emission mesh, times `emissionMeshScale`
+3. a point of the emission surface, times its `meshScale`
+4. the spawn shape's offset
+
+The rules below are the ones the meta wiki states for `VfxEmitterDefinitionData`,
+`VfxEmissionSurfaceData` and the classes the surface holds.
+
+```
+v SOURCE
+    Emitter Position          [0   ][0   ][0   ]
+    Emission Mesh             [ASSETS/Effects/ring.scb ]
+    Emission Mesh Scale       [1   ]
+    Emit Along Mesh Normals   [x]
+    Emission Surface          VfxEmissionSurfaceData
+      Surface                 [Skinned Mesh v]  VfxEmissionMeshData  [Use host]
+        Mesh Name             [ASSETS/Characters/Ahri/ahri.skn ]
+        Skeleton Name         [ASSETS/Characters/Ahri/ahri.skl ]
+        Submeshes             [Body x] [Tail x] [Add submesh  ]
+        Max Joint Weights     [4   ]
+        Mesh Scale            [1   ]
+        Emit Along Surface Normals  [x]
+      Spawn Generator         [Not set v]
+    Spawn Shape               ...
+```
+
+**The surface has two parts, and each is a picker.** `EmissionSurface` and
+`ParticleSpawnDataGenerator` are independent pointers. Each row is a select over the classes the
+pointer can hold, with one line per class and the class card beside it.
+
+| Part            | Class                                      | Points come from                               |
+| --------------- | ------------------------------------------ | ---------------------------------------------- |
+| Surface         | `VfxEmissionMeshData`                      | Triangles of a skinned mesh, posed by the unit |
+| Surface         | `VfxEmissionSkeletonData`                  | Bones of the unit's skeleton                   |
+| Surface         | `VfxEmissionLinkedMeshData`                | A mesh the game links to the effect            |
+| Spawn Generator | `NavigationGridParticleSpawnDataGenerator` | Tagged cells of the navigation grid            |
+
+**A part that is absent from the file shows Not set.** The first pick writes the definition and
+the part as one edit. Not set clears the part and keeps the definition. A class that is not in
+the list is shown under its own name and stays listed while the file has it. A swap keeps the fields both
+classes declare with one type, as the primitive picker does.
+
+**Submeshes and joints are chips.** `Submeshes` and `JointMask` store name hashes. A chip shows the
+name the loaded mesh or skeleton has for the hash, and the hash where no file has loaded. The add
+field lists the names of the loaded file that the list does not hold yet. With no file loaded it
+takes a typed name. A chip whose hash matches nothing in the loaded file has a warning mark.
+The joint list offers only joints that have a parent, because a listed joint is the child end of
+its bone. An empty list shows Whole mesh or Every joint, which is what the engine does with it.
+
+**Use host writes the file paths.** With a character host chosen under the viewport, the Surface row
+of a skinned mesh or skeleton surface shows Use host. It writes the host skin's mesh and skeleton
+paths to `meshName` and `skeletonName` as one edit. The button is hidden once the surface names
+those files.
+
+**`AnimationName` is drawn only when the file has it.** A complex emitter does not read the
+field, so the row has a line that says so, and the field is not offered as a default.
+
+**The surface uses the host's pose.** The engine skins a mesh surface and measures a skeleton surface
+in the pose of the unit the effect is bound to. The preview uses the pose of the character host,
+matching joints by name. A joint the host lacks keeps its rest pose. The host choice is kept per
+open system for the session and is shared by the viewport and the inspector.
+
+**With no host the preview uses the rest pose.** In game a mesh or skeleton surface adds no point
+when the effect is bound to no unit. The preview differs so that a surface can be authored
+before a host is chosen, and a note in the group says so.
+
+**How each source is sampled.**
+
+| Source        | Pick                                   | Direction                                |
+| ------------- | -------------------------------------- | ---------------------------------------- |
+| Emission mesh | A triangle by area                     | The triangle's normal                    |
+| Skinned mesh  | A triangle by count, whatever its size | The vertex normals, skinned and blended  |
+| Skeleton      | A bone by its length in the rest pose  | A random direction at right angles to it |
+
+A direction replaces the direction of the birth velocity and the birth acceleration and keeps
+their lengths. The mesh's applies under `useEmissionMeshNormalForBirth`, the skinned mesh's under
+`useSurfaceNormalForBirthPhysics`, and the skeleton's always. Where the mesh and the surface both
+give one, the surface's is used. The spawn shape's rotation is applied after both.
+
+**The viewport shows birth positions.** With the gizmo on, the open emitter's emission mesh and
+surface draw as 320 points, taken at the playhead from the same samplers the simulation reads.
+Each point with a direction has a short line along it. The points follow the host's pose.
+The spawn shape's offset is not added, since the gizmo draws the shape itself.
+
+**The handle menu scales the mesh.** Emission mesh scale drags `emissionMeshScale`, or the
+`meshScale` of a skinned mesh surface on an emitter with no emission mesh. The handle scales all
+three axes together, by the axis dragged furthest.
+
+**Notes state what the game does with the emitter.** They are lines at the top of the Emission
+and Source groups, one per condition below. A warning is a state the game ignores or never emits
+from.
+
+| Group    | Tone    | Condition                                                                  |
+| -------- | ------- | -------------------------------------------------------------------------- |
+| Emission | Warning | The rate is zero and nothing else makes the emitter emit                   |
+| Emission | Warning | The end time is at or before the start delay                               |
+| Emission | Warning | A period has no active time                                                |
+| Emission | Info    | A single burst has a period                                                |
+| Emission | Info    | `rateByVelocityFunction` replaces `rate` and `flexRate`                    |
+| Source   | Warning | A simple emitter names an emission mesh or a surface                       |
+| Source   | Warning | A skinned mesh surface has an empty mesh or skeleton name                  |
+| Source   | Warning | A skeleton surface has an empty skeleton name                              |
+| Source   | Warning | No name of `Submeshes` is in the loaded mesh                               |
+| Source   | Warning | No joint of `JointMask` ends a bone of the loaded skeleton                 |
+| Source   | Info    | The definition sets neither part                                           |
+| Source   | Info    | The surface is a linked mesh                                               |
+| Source   | Info    | A spawn generator is set                                                   |
+| Source   | Info    | A mesh or skeleton surface is previewed with no host                       |
+| Source   | Info    | A direction is given and the birth velocity and acceleration are both zero |
+
+**A line at the top of the Emission group shows the rate at the playhead.** It shows the `rate` curve at
+the emitter's phase and the most one step spawns at that rate, which is the rate times 0.33 plus
+one, and at most 1000. A single burst shows its count and its time. Outside the emitter's window
+the line shows Not emitting at the playhead.
+
+**What the preview does not model.** The spawn generator's offset and its rate factor, `flexRate`
+and `flexParticleLifetime`, and a linked mesh, which only a superward region links.
+
 ## The curve panel
 
 A value family's `dynamics` is a column of keys: a `times` list, a `values` list of the family's
@@ -2200,10 +2380,14 @@ The caption is the label chain, with the wire path dimmed beside it. The chain i
 reader clicked, which the surface it was clicked on names: an emitter and its index in the panel,
 and the property path in the tree. The path is what a bug report needs. The caption leads the one
 toolbar row, which carries every control: the channel chips, the Random chip, the chance slider and
-the tabs. The caption truncates as the pane narrows.
+the tabs. The row never wraps: the caption truncates as the pane narrows, then the key count
+hides, then the Random chip keeps its icon alone.
 
-A shell holds the curve in its curve pane. Aiming a curve opens that pane where the reader closed
-it, and brings it to the front of its panel where another pane covers it.
+A shell holds the curve in its curve pane. Aiming a curve brings that pane to the front of its
+panel where another pane covers it. Where the reader closed the pane, aiming a curve floats it
+instead, per "A pane floats" under [how the panes are arranged](#how-the-panes-are-arranged), so
+the curve opens beside the row or node that asked for it and the tree does not move. A follow
+from emitter to emitter floats nothing, so a frame the reader closed stays closed.
 
 A value mode control aims the dock from its Curve segment, and so does Show curve on the row menu
 of a value that has dynamics. In an editable inspector, choosing Curve on a constant value creates
@@ -2479,7 +2663,14 @@ what a sandbox is and where this tab's edits go. The options contain:
 
 - **Read from**: the project and the game, which switch the tab in place. The game opens the
   install's copy of the same path, read-only, and is disabled for a file the install holds no
-  copy of, with that reason under it.
+  copy of, with that reason under it. An object tab switches by its object and not by its
+  path: it opens the file the picked sandbox resolves the object to, so the mod's declaration
+  and the game's are one switch apart when they sit in different files.
+- **Declared in**, on an object tab whose object several files of the sandbox declare: the
+  files, a layer's ahead of the install's, each with its layer or its archive under it. The
+  one the tab reads is checked, and picking another switches the tab to it in place. With no
+  object index built, the group offers the build instead, since the install's files are
+  unknown.
 - For a declared document, three rows that each name their current value and open their list
   in a submenu, so the options stay short however many layers and modules a project holds:
   - **Active layer**: the project's layers. Left out for a project of one layer.
@@ -2874,13 +3065,13 @@ An emitter of a system's `complexEmitterDefinitionData` or `simpleEmitterDefinit
 duplicated, copied, pasted and deleted whole, with every hash, class, link and nested struct
 under it.
 
-| Where                                     | Duplicate emitter | Copy emitter | Paste emitter                  | Delete emitter |
-| ----------------------------------------- | ----------------- | ------------ | ------------------------------ | -------------- |
-| The Graph menu on a master node           | Yes               | Yes          | After the node                 | Yes            |
-| The Graph menu on the canvas              |                   |              | At the end of the complex list |                |
-| The inspector's actions, on the open card | Yes               | Yes          | After the card                 | Yes            |
-| The Graph pane, one master node selected  | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it             | `Delete`       |
-| The Graph pane, no master node selected   |                   |              | `Ctrl+V`, at the end           |                |
+| Where                                          | Duplicate emitter | Copy emitter | Paste emitter                  | Delete emitter |
+| ---------------------------------------------- | ----------------- | ------------ | ------------------------------ | -------------- |
+| The Graph menu on a master node                | Yes               | Yes          | After the node                 | Yes            |
+| The Graph menu on the canvas                   |                   |              | At the end of the complex list |                |
+| The inspector's Emitter menu, on the open card | Yes               | Yes          | After the card                 | Yes            |
+| The Graph pane, one master node selected       | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it             | `Delete`       |
+| The Graph pane, no master node selected        |                   |              | `Ctrl+V`, at the end           |                |
 
 **A duplicate lands right after its source**, and a paste after the emitter it was asked on, in
 that emitter's list. Each, a delete included, is one `editProperty` edit of the list, so one undo step, and a
@@ -2906,7 +3097,7 @@ edit.
 
 A VFX template is a tuned emitter or system the editor ships, stored as a copied emitter is
 (ADR-0058). Add from template sits beside Paste emitter in the Graph menu on a master node and on
-the canvas, and in the inspector's actions on the open card. The quick add lists the emitter
+the canvas, and in the inspector's Emitter menu on the open card. The quick add lists the emitter
 templates too.
 
 **A template lands where a paste would**, after the emitter it was asked on, else at the end of
@@ -3208,7 +3399,7 @@ its own.
 3. **The object tab.** ADR-0028, with its three routes in: a `$` hit, an object block, an
    Objects browser row
 4. **Chips that open.** `link`, `file` and a declared `hash` as chips, the per-page check, the
-   resolution order, and the other declarations in the header
+   resolution order, and the other declarations in the Sandbox options
 5. **The Objects browser**, and Reveal in Objects. [Project editor](PROJECT_EDITOR.md#objects-browser)
 6. **The References document**, fed from the index. Find all references on a class
 7. **The texture swatch**, on the `?w=` parameter the explorer thumbnails share

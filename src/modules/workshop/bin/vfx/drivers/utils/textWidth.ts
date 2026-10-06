@@ -5,16 +5,16 @@ export interface TextStyle {
   readonly tracking: number;
 }
 
-/* The `--type-row` and `--type-meta` sizes, which the node components draw in. */
+/* The row and meta sizes of `[data-type-scale="board"]`, which the node components draw in. */
 
 /** A port's label, a class, or an item's key, in the row type. */
-export const ROW_TEXT: TextStyle = { size: 12, weight: "normal", tracking: 0 };
+export const ROW_TEXT: TextStyle = { size: 14, weight: "normal", tracking: 0 };
 
 /** A node's title, or a field name the inspector labels, in the row type's medium weight. */
-export const LABEL_TEXT: TextStyle = { size: 12, weight: "medium", tracking: 0 };
+export const LABEL_TEXT: TextStyle = { size: 14, weight: "medium", tracking: 0 };
 
 /** A node's subtitle, or a field of a class the registry does not read, in the meta type. */
-export const META_TEXT: TextStyle = { size: 11, weight: "normal", tracking: 0.01 };
+export const META_TEXT: TextStyle = { size: 13, weight: "normal", tracking: 0.01 };
 
 /** How wide a run of text draws, in pixels. */
 export type MeasureText = (text: string, style: TextStyle) => number;

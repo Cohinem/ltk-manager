@@ -4,7 +4,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react
 import { Spinner } from "@/components";
 import { useContentVisible } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
-import type { BinDocumentId } from "@/lib/tauri";
+import type { BinDocumentId, VfxSystem } from "@/lib/tauri";
 
 import { Notice } from "../../../shared/preview/Notice";
 import { vfxQueries } from "../../hooks/useVfxSystem";
@@ -45,14 +45,19 @@ export function GraphPane({
   onShowInProperties,
 }: GraphPaneProps) {
   const visible = useContentVisible();
-  const query = useQuery({ ...vfxQueries.system(document, entry), enabled: entry !== "" });
   const [pending, setPending] = useState<PendingFields>(NO_PENDING);
+  /* Read through `select`, whose answer the query shares structurally with its last one. An
+     item an edit left alone keeps its object across the re-read, so its node does not render
+     again. */
+  const select = useCallback((system: VfxSystem) => systemGraph(system.root, pending), [pending]);
+  const query = useQuery({
+    ...vfxQueries.system(document, entry),
+    enabled: entry !== "",
+    select,
+  });
   /* An item `embeds` sits in its socket until the reader pops it out to a node. */
   const [popped, setPopped] = useState<ReadonlySet<string>>(NONE);
-  const graph = useMemo(
-    () => (query.data === undefined ? null : systemGraph(query.data.root, pending)),
-    [query.data, pending],
-  );
+  const graph = query.data ?? null;
   const tree = useMemo(
     () => (graph === null ? null : embedSockets(graph, popped)),
     [graph, popped],

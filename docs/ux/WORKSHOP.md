@@ -4,6 +4,9 @@
 
 | Date       | Change                                                                    |
 | ---------- | ------------------------------------------------------------------------- |
+| 2026-10-06 | Fold the title bar's navigation to icons, then drop the wordmark          |
+| 2026-10-06 | Draw the title bar on the workshop's ground, and the grid in a page inset |
+| 2026-10-06 | Draw the bar in the title bar and the trailing slots in the status row    |
 | 2026-10-02 | Replace list mode with a table of arranged columns                        |
 | 2026-09-10 | Take the whole thumb-button gesture off the webview                       |
 | 2026-09-10 | Write an explorer's stops on its moves alone, never on its mount          |
@@ -11,9 +14,6 @@
 | 2026-09-10 | Record an explorer's directory as a stop of its own                       |
 | 2026-09-07 | Put one menu on the card's right click and its kebab, and add Rename      |
 | 2026-08-24 | Fold the one-shell implementation plan into this document                 |
-| 2026-08-24 | Give the grid a roving tab stop, and hand the keyboard to it from the bar |
-| 2026-08-24 | Bring the grid's trailing group down to the size of a project's           |
-| 2026-08-24 | Put one navigation stack under the shell, with the grid a stop on it      |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -22,17 +22,16 @@ under one chrome: the grid of every project, and the editor for the one that is 
 [project editor](PROJECT_EDITOR.md) describes is the second of those. This document describes
 the chrome over both, and the grid under it.
 
-The core design idea is that opening a project **refills the row rather than replacing it**. The
-two surfaces were two screens with two chromes once - a full-bleed toolbar over a grid on the
-ground, a header over a rounded fold - and navigating between them swapped every control on the
-row.
+The core design idea is that opening a project **refills the chrome rather than replacing it**.
+The two surfaces were two screens with two chromes once - a full-bleed toolbar over a grid on the
+ground, a header over a rounded fold - and navigating between them swapped every control.
 
 The rule the whole screen follows: **the bar searches what is in front of you, and a prefix
 reaches past it.**
 
 ## Goals
 
-- Opening a project changes what the row says, not what the row is
+- Opening a project changes what the chrome says, not what the chrome is
 - One box reaches every project, every file and every command
 - The keyboard reaches the grid the same way it reaches the editor
 - A user who never opens the palette loses no route
@@ -44,7 +43,7 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | Feature                   | Status    | Note                                                           |
 | ------------------------- | --------- | -------------------------------------------------------------- |
 | One header, both routes   | Available | Five slots, each reading the project context itself            |
-| One fold under it         | Available | Framed under a project, the ground under the grid              |
+| One fold under it         | Available | The editor's islands under a project, one inset over the grid  |
 | The bar, project-free     | Available | Names the surface, and searches what is in front of it         |
 | Filter mode               | Available | `Ctrl+F` over the grid. Writes the grid's own query            |
 | Palette mode              | Available | A click or `Ctrl+P`, on either surface                         |
@@ -95,21 +94,35 @@ and is not designed.
 
 ## Layout
 
-Both routes draw the same row over the same fold. The middle of the row is one element across
-the route change, and only the crumb inside it and the trailing slots differ.
+The workshop has no row of its own. Both routes draw the same chrome into the window's frame
+around the same fold: the history arrows and the bar in the middle of the title bar, and the
+trailing slots at the end of the status row. The bar is one element across the route change, and
+only the crumb inside it and the trailing slots differ.
 
 ```
 grid
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ ←  →   ⌕ Workshop                     15 projects ▽ Ctrl+P     ☑▾  ⊞≣⋮ │  ＋▾    │
+│ ◆ Home Mods Workshop   ← → ⌕ Workshop        15 projects ▽ Ctrl+P    🔔 ⚕ ⚙ ⋮ ─ □ ✕ │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                    the fold                                      │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│ ○ Patcher idle                                              ☑▾  ⊞≣⋮ │  ＋▾        │
 └──────────────────────────────────────────────────────────────────────────────────┘
 
 project
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ ←  →   ⌕ Workshop / Charizard Smolder X  v1.0.9  Ctrl+P     ⚠2  ⬓ │ Test  Pack ⋮ │
+│ ◆ Home Mods Workshop   ← → ⌕ Workshop / Charizard  v1.0.9 Ctrl+P   🔔 ⚕ ⚙ ⋮ ─ □ ✕ │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                                    the fold                                      │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│ ○ Patcher idle                                           ⚠2  ⬓  Test  Pack ⋮     │
 └──────────────────────────────────────────────────────────────────────────────────┘
-  history   the bar, one element across both routes           badge, view, actions
 ```
+
+The title bar and the status row are on screen on every page, so the chrome costs the fold no
+height. The arrows travel with the bar, on its leading edge. The trailing slots follow the
+session line and the ambient items the status row already holds, per "The status bar item and
+the drawer" in [Mod health](MOD_HEALTH.md).
 
 `▽` is the sort and filter popover, `☑▾` the selection button and its bulk actions, `⊞≣⋮` the
 view mode control with its view options, and `＋▾` New project with Open folder, the three
@@ -125,48 +138,48 @@ imports and the Recent group on its caret.
 | Actions      | New project, and the imports on a caret | Test, Pack, overflow       |
 
 Each slot reads the project context itself rather than taking it down the tree, so a route
-change refills the row instead of redrawing it.
+change refills the chrome instead of redrawing it.
 
-### The row balances on its two sides
+### The bar centres in the title bar
 
-The bar sits in the middle of the row rather than in the middle of what is left over beside it.
-Those are not the same thing - a badge and two buttons on one side do not weigh what two arrows
-weigh on the other - so both side groups take an equal share and the bar centres between them.
+The arrows and the bar sit in the middle of the title bar rather than in the middle of what is
+left over between its two sides. The navigation on the left and the cells on the right do not
+weigh the same, so both sides take an equal share and the bar centres between them.
 
-It has to be both halves at once. A capped bar hands its leftover space back to whichever side
-can still take it, so growing only the trailing side leaves the bar where it belongs and growing
-only the leading side carries the bar across the row behind the arrows. The leading side also
-takes `justify-end`, or a growing slot strands the arrows against the row's edge while the bar
-centres away from them. `min-w-max` keeps either side from squeezing a control, and wraps the row
-instead.
+The bar's width is a claim on the free space rather than a flex basis. Claimed first, behind a
+grow of 1 on each side, it reaches its cap wherever the title bar can spare it and hands width
+back to a side needing more than its share. `min-w-max` keeps either side from squeezing a cell,
+and the bar gives up its shortcut and then its tag as it narrows.
 
-The bar's own width is a claim on the free space rather than a flex basis. A row breaks its lines
-on the basis, so a 720px basis wrapped the workshop's controls to a second line before the bar had
-shrunk by a pixel. Claimed first, behind a grow of 1 on each side, the bar reaches its cap
-wherever the row can spare it and hands width back to a side needing more than its share. It wraps
-only under a floor where the box has stopped being worth typing into.
+**The title bar's left side folds to make room.** Under 72rem of title bar the navigation draws
+its icons alone, each with its name as a tooltip. Under 62rem the wordmark and the version go as
+well, and the app's mark stays. The steps are in rem, so they follow the zoom setting, and they
+are the same on every page, so the navigation does not change shape when a tab is pressed. They
+leave the bar's field about 21rem at the smallest window.
 
-**The grid's trailing group had to come down to a project's size before any of that read as
-centred.** It ran several times the width, so equal shares dropped the bar a long way left of the
-middle and further left again as the window narrowed. What it cost to fix:
+The bar is a field, 28px tall in the 36px title bar, and the one boxed element there. DS-SHAPE
+in the `design-system` skill lists it beside the cells.
 
-| Control          | Was           | Now                                                     |
-| ---------------- | ------------- | ------------------------------------------------------- |
-| Profile selector | 144px         | Gone. It is the mod library's, and nothing here read it |
-| Import and New   | ~142px        | ~50px, folded into one split button                     |
-| Sort and filter  | ~32px + a gap | On the bar's trailing edge, beside the count it moves   |
-| Selection        | ~110px        | ~32px until something is selected                       |
-| View mode        | ~110px        | Unchanged. A command cannot show a state                |
+### The trailing slots are 28px controls
 
-Roughly 600px down to roughly 310, against the 250 a project's trailing group runs.
+The status row is 36px tall on every page, and the workshop's controls must not change that. They
+draw at the 28px size, DS-SIZE, which leaves the row's own padding around them.
+
+Where the patcher cannot run and no mod is broken, the status row has nothing to say and draws
+nothing on other pages. Over the workshop it draws for the trailing slots alone.
 
 ### The fold
 
-Below the row, both routes render into the same box. Under a project it is a frame the editor and
-its side panels share, and it rounds against the ground: `rounded-t-xl`, a hairline border and
-`surface-900`, DS-GROUND. Over the grid there is no frame to share - the cards are the content
-and carry their own edges - so the fold is the ground itself and the row above it is the same
-surface rather than a lighter panel over one. The grid scrolls inside it.
+Between the title bar and the status row, both routes render onto the same ground,
+`surface-950`, DS-GROUND. Under a project the editor and its side panels are islands on it, each
+with its own edge. Over the grid the fold is one island: the page inset that Home and the mod
+library draw their content in, per "The inset region holds cards" in [Home](HOME.md). The grid
+scrolls inside it, and the filter chips draw on the ground over it.
+
+On both routes the title bar draws on that ground with no line under it, as the status row
+already does. The seams around the islands then run into the frame on all four sides, and the
+islands read as set into one surface. Every other page keeps the title bar one rung up with its
+hairline.
 
 ## The keys
 
@@ -394,12 +407,12 @@ and with the profile selector gone the workshop drew it nowhere else.
 ### Sort, filter and the count
 
 The sort and filter popover sits on the bar's trailing edge beside the count it moves, rather
-than in a slot of its own. The count, the chips under the row and the popover are one subject,
-and the row has no width to spend saying it in three places. It renders in `idle` and in `filter`
+than in a slot of its own. The count, the chips over the grid and the popover are one subject,
+and the bar has no width to spend saying it in three places. It renders in `idle` and in `filter`
 both, because a control that vanishes the moment someone types is missing when it is wanted.
 
 Sort is name or last modified, either direction. The filters are tags, champions and maps, and
-what is set draws as chips under the row while no project is open. A filter set on the grid and
+what is set draws as chips over the grid while no project is open. A filter set on the grid and
 then carried into a project draws its chips nowhere - a project header is not the grid's status
 line.
 
@@ -565,8 +578,14 @@ frame later - a deep link into a project would otherwise record a grid the user 
 
 ## How it is built
 
-The header renders above the outlet, so it cannot sit inside the provider the project route
+The header mounts above the outlet, so it cannot sit inside the provider the project route
 mounts. The layout route resolves the project instead and provides it, or provides null.
+
+The header draws through two portals. `ChromeSlot` in `src/components` is a place the frame
+offers, one in the title bar and one in the status row, and `ChromePortal` draws a page's
+children into it. A portal keeps the React tree, so the bar and the slots still read the project
+context of the route that mounted them. The palette's scrim stays in the route's own tree, where
+it is positioned against `main` and leaves the title bar uncovered.
 
 `ProjectContext` therefore has two readers:
 
@@ -596,6 +615,7 @@ selector over the whole document.
 | The shell        | `src/routes/workshop.tsx`                                       |
 | The grid route   | `src/routes/workshop/index.tsx`                                 |
 | The header       | `src/modules/workshop/projects/components/WorkshopHeader.tsx`   |
+| The frame slots  | `src/components/ChromeSlot.tsx`                                 |
 | The grid's slots | `src/modules/workshop/projects/components/WorkshopControls.tsx` |
 | The bar          | `src/modules/workshop/palette/components/WorkshopBar.tsx`       |
 | The mode         | `src/modules/workshop/palette/utils/barMode.ts`                 |

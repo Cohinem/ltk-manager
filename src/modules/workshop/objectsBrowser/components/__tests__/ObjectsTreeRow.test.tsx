@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ReactNode, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -160,33 +160,17 @@ describe("ObjectsTreeRow", () => {
     expect(onOpen).toHaveBeenLastCalledWith(expect.anything(), "permanent");
   });
 
-  it("reads several declarations as a file count and a layer's as its mark, and stays a leaf", () => {
+  it("names the one file the row opens where several declare the object, with the layer's mark", () => {
     renderRow(
-      objectNode({ declarations: [CHUNK, LAYER], layers: [{ name: "base", title: "Base" }] }),
+      objectNode({ declarations: [LAYER, CHUNK], layers: [{ name: "base", title: "Base" }] }),
     );
 
     const row = screen.getByRole("treeitem");
-    expect(row).toHaveTextContent("2 files");
+    expect(row).toHaveTextContent("skin0.bin");
+    expect(row).not.toHaveTextContent("2 files");
     expect(row).toHaveTextContent("Base");
     expect(row).not.toHaveAttribute("aria-expanded");
-  });
-
-  it("lists the declaring files from the count without opening the row", async () => {
-    const user = userEvent.setup();
-    const { onOpen } = renderRow(
-      objectNode({ declarations: [CHUNK, LAYER], layers: [{ name: "base", title: "Base" }] }),
-    );
-
-    await user.click(screen.getByRole("button", { name: "2 files" }));
-    const list = await screen.findByRole("dialog", { name: "2 files" });
-
-    expect(onOpen).not.toHaveBeenCalled();
-    const files = within(list).getAllByRole("button");
-    expect(files).toHaveLength(2);
-    expect(files[0]).toHaveTextContent("data/characters/aatrox/skins/skin0.bin");
-    expect(files[0]).toHaveTextContent("Aatrox");
-    expect(files[1]).toHaveTextContent("data/skin0.bin");
-    expect(files[1]).toHaveTextContent("Base");
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("toggles a prefix from anywhere on its row and shows its count", async () => {

@@ -144,7 +144,7 @@ function KeyCell({
       <Readout
         value={text}
         aria-label={label}
-        className="w-16 text-right"
+        className="w-16"
         onCommit={(typed) => {
           const value = Number(typed);
           if (typed.trim() !== "" && Number.isFinite(value)) onCommit(value);

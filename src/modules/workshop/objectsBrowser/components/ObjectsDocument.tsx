@@ -45,6 +45,7 @@ import { useObjectFind } from "../api/useObjectFind";
 import { useWarmOnAbsent } from "../api/useObjectIndex";
 import { useLayerDeclarations } from "../hooks/useLayerDeclarations";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
+import { useProjectObjects } from "../hooks/useProjectObjects";
 import { retryPreviews, useFailedInView } from "../state/previewStills";
 import {
   buildFindTree,
@@ -57,6 +58,7 @@ import {
   NO_LAYER_DECLARATIONS,
   type ObjectTreeNode,
 } from "../utils/objectTree";
+import { withProjectListings } from "../utils/projectObjects";
 import {
   ObjectIndexBuildingState,
   ObjectIndexFailedState,
@@ -295,12 +297,13 @@ function ObjectsIndexTree() {
   const expandedPaths = useMemo(() => [...expanded].sort(), [expanded]);
   const listings = useObjectDirs(expandedPaths);
 
+  const projectObjects = useProjectObjects();
   const tree = useMemo(() => {
     if (root.data?.status !== "ready") return [];
-    const all = new Map(listings);
-    all.set("", root.data.value);
+
+    const all = withProjectListings(root.data.value, listings, projectObjects);
     return buildObjectTree(all, (path) => expanded.has(path), layers);
-  }, [root.data, listings, expanded, layers]);
+  }, [root.data, listings, expanded, layers, projectObjects]);
 
   const isExpanded = useCallback((node: ObjectTreeNode) => expanded.has(node.id), [expanded]);
   /* Every open prefix is a listing to fetch, so a subtree toggle expands one level only. */

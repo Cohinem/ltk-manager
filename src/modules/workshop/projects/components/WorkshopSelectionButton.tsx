@@ -59,7 +59,8 @@ export function WorkshopSelectionButton() {
       <Tooltip content={testTooltip}>
         <Button
           variant="ghost"
-          left={<PlayIcon weight="bold" className="size-4" />}
+          size="sm"
+          left={<PlayIcon weight="bold" className="size-3.5" />}
           loading={actions.testPending}
           disabled={!actions.canTest}
           onClick={actions.test}
@@ -75,8 +76,9 @@ export function WorkshopSelectionButton() {
       <Tooltip content="The mod library is testing - stop it there first">
         <Button
           variant="ghost"
+          size="sm"
           disabled
-          left={<PlayIcon weight="bold" className="size-4" />}
+          left={<PlayIcon weight="bold" className="size-3.5" />}
           className={testTint}
         >
           Test
@@ -90,7 +92,7 @@ export function WorkshopSelectionButton() {
       <IconButton
         icon={<CheckSquareIcon />}
         variant="outline"
-        size="md"
+        size="sm"
         disabled={testing || (filteredProjects.length === 0 && !hasSelection)}
         pressed={hasSelection}
         aria-label={clearsOnClick ? "Clear selection" : "Select all projects"}
@@ -110,7 +112,7 @@ export function WorkshopSelectionButton() {
               <IconButton
                 icon={<CaretDownIcon />}
                 variant="outline"
-                size="md"
+                size="sm"
                 aria-label="Bulk actions"
                 narrow
               />

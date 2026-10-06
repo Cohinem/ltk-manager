@@ -35,7 +35,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it.each([false, true])("refreshes an edited system with playing=%s", (playing) => {
+it.each([false, true])("replays an edited system to its phase with playing=%s", (playing) => {
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => {});
   system = { ...initialSystem, emitters: [emitterOf(0, { rate: flat(5) })] };
@@ -67,14 +67,9 @@ it.each([false, true])("refreshes an edited system with playing=%s", (playing) =
   expect(run!.playing).toBe(playing);
   expect(driver.phase).toBeCloseTo(0.5);
 
-  if (playing) {
-    expect(seek).not.toHaveBeenCalled();
-    expect(driver.pool.count).toBe(count);
-  } else {
-    expect(seek).toHaveBeenCalledTimes(1);
-    expect(seek.mock.calls[0][0]).toBeCloseTo(0.5);
-    expect(driver.pool.count).toBeGreaterThan(count);
-  }
+  expect(seek).toHaveBeenCalledTimes(1);
+  expect(seek.mock.calls[0][0]).toBeCloseTo(0.5);
+  expect(driver.pool.count).toBeGreaterThan(count);
 });
 
 it("pauses a hidden document's simulation and resumes without catching up hidden time", () => {

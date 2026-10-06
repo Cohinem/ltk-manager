@@ -1,11 +1,12 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useZoomedPx } from "@/hooks";
 
 import { useBrowseTree, useReadOnlyTreeNav, useTreeReveal } from "../../hooks";
 import type { OpenIntent } from "../../palette/utils/types";
 import { VirtualTree } from "../../shared/components/VirtualTree";
+import { revealInList } from "../../shared/utils/revealInList";
 import { treeItemIndexOf } from "../../shared/utils/tree";
 import { type RowReveal, useSelectObjectNode } from "../../state";
 import { useRestPreview } from "../hooks/useRestPreview";
@@ -85,7 +86,7 @@ export function ObjectsTree({
   });
 
   const restPreview = useRestPreview(scrollRef);
-  const { focusedIndex, setFocusedIndex, moveFocus, handleKeyDown } = useReadOnlyTreeNav({
+  const { focusedIndex, setFocusedIndex, handleKeyDown } = useReadOnlyTreeNav({
     rows,
     isExpanded,
     onToggle,
@@ -103,7 +104,41 @@ export function ObjectsTree({
     if (row) selectNode(row.node);
   };
 
-  useTreeReveal(rows, reveal, moveFocus, onRevealed);
+  /* The reveal follows its node by id, since a listing that loads above it moves its index. */
+  const drawn = useRef({ rows, band: sticky.height });
+  drawn.current = { rows, band: sticky.height };
+  const landing = useRef<(() => void) | null>(null);
+  useEffect(() => () => landing.current?.(), []);
+
+  const landReveal = useCallback(
+    (index: number) => {
+      const node = drawn.current.rows[index]?.node;
+      if (node === undefined) return;
+
+      const indexNow = () => drawn.current.rows.findIndex((row) => row.node.id === node.id);
+
+      landing.current?.();
+      setFocusedIndex(index);
+      selectNode(node);
+      landing.current = revealInList({
+        scroller: () => scrollRef.current,
+        find: () =>
+          scrollRef.current?.querySelector<HTMLElement>(
+            `[data-tree-rows] [data-treeitem-index="${indexNow()}"]`,
+          ) ?? null,
+        scrollTo: () => {
+          const at = indexNow();
+          if (at < 0) return;
+
+          setFocusedIndex(at);
+          virtualizer.scrollToIndex(at, { align: "center" });
+        },
+        inset: () => drawn.current.band,
+      });
+    },
+    [scrollRef, selectNode, setFocusedIndex, virtualizer],
+  );
+  useTreeReveal(rows, reveal, landReveal, onRevealed);
 
   /* A pinned row answers a click by going to the row it stands for. Collapsing
      from up there would shut a prefix the user cannot see the extent of. */

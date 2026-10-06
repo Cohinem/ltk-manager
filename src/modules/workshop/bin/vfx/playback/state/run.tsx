@@ -233,9 +233,13 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       return;
     }
 
+    /* A change the simulation reads replays the run to its phase, playing or paused. The
+       particles alive were born under the last definition, and an undo or an edit made
+       while playing would otherwise show them until they die. */
     const time = driver.phase;
-    driver.swap(system);
-    if (!playingRef.current || previousForceProjection.current !== forces.project) {
+    const simulated = driver.swap(system);
+    const projected = previousForceProjection.current !== forces.project;
+    if (simulated || projected || !playingRef.current) {
       driver.seek(time);
     }
     previousForceProjection.current = forces.project;

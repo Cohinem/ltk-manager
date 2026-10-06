@@ -14,6 +14,7 @@ import type {
   DeclaredState,
   GameFileEntry,
   LayerOverride,
+  ObjectDeclaration,
   WorkshopProject,
 } from "@/lib/tauri";
 import { commandNames } from "@/test/commandNames";
@@ -112,6 +113,15 @@ const CHROMA_DECLARES: LayerOverride[] = ["0000000a", "0000000a", "0000000b"].ma
 
 let declared: DeclaredState | null;
 let installed: Record<string, GameFileEntry>;
+/** The files declaring `ENTRY` in each sandbox, and null for an index that does not answer. */
+let declarations: { game: ObjectDeclaration[]; project: ObjectDeclaration[] } | null;
+
+const layerDeclaration: ObjectDeclaration = {
+  asset: LAYER_FILE,
+  file: LAYER_FILE.kind === "layer" ? LAYER_FILE.path : "",
+  classHash: "0x00000001",
+  class: "VfxSystemDefinitionData",
+};
 
 function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(() => createTestQueryClient());
@@ -148,6 +158,7 @@ beforeEach(() => {
   useWorkshopEditorStore.setState({ byProject: { [PROJECT.path]: EMPTY_EDITOR } });
   declared = DECLARED;
   installed = {};
+  declarations = null;
   useWorkshopEditorStore.getState().selectModule(PROJECT.path, null);
   useWorkshopEditorStore.getState().selectLayer(PROJECT.path, "base");
   mockInvoke.mockReset();
@@ -164,6 +175,13 @@ beforeEach(() => {
     }
     if (command === commandNames.game.locateGameFiles)
       return Promise.resolve({ ok: true, value: installed });
+    if (command === commandNames.objects.declaredObjects && declarations !== null) {
+      const sandbox = args?.sandbox as { kind: string };
+      const files = sandbox.kind === "game" ? declarations.game : declarations.project;
+      const objects =
+        files.length === 0 ? {} : { [ENTRY]: { path: "Mods/Jade/Glow", declarations: files } };
+      return Promise.resolve({ ok: true, value: { index: { status: "ready" }, objects } });
+    }
     if (command === commandNames.bin.binOverrides)
       return Promise.resolve({ ok: true, value: CHROMA_DECLARES });
     if (command === commandNames.bin.binEdit && declared !== null) {
@@ -405,6 +423,74 @@ describe("the sandbox choice", () => {
       }),
     );
     expectDisabled(await screen.findByRole("menuitemradio", { name: "Game" }));
+  });
+
+  it("switches an object tab to the file the game declares the object in, at another path", async () => {
+    const elsewhere: ObjectDeclaration = {
+      asset: { kind: "gameChunk", wad: "Champions/Teemo.wad.client", pathHash: "00ef" },
+      file: "data/characters/teemo/teemo_multi.bin",
+      classHash: "0x00000001",
+      class: "VfxSystemDefinitionData",
+    };
+    declarations = { game: [elsewhere], project: [layerDeclaration, elsewhere] };
+    const user = userEvent.setup();
+    const tab = objectDocument(LAYER_FILE, ENTRY, "Characters/Teemo/Skins/Skin0", SKIN_PATH);
+    declared = null;
+    drawTab(tab, openBin({ asset: LAYER_FILE, declared: null }));
+
+    await openOptions(user);
+    const game = await screen.findByRole("menuitemradio", { name: "Game" });
+    await waitFor(() => expect(game).not.toHaveAttribute("aria-disabled", "true"));
+    await user.click(game);
+
+    expect(openTabs()).toEqual([
+      expect.objectContaining({
+        asset: elsewhere.asset,
+        file: elsewhere.file,
+        objectHash: ENTRY,
+        sandbox: { kind: "game" },
+      }),
+    ]);
+  });
+
+  it("lists the files declaring the object in the sandbox, and switches the tab to the one picked", async () => {
+    const elsewhere: ObjectDeclaration = {
+      asset: { kind: "gameChunk", wad: "Champions/Teemo.wad.client", pathHash: "00ef" },
+      file: "data/characters/teemo/teemo_multi.bin",
+      classHash: "0x00000001",
+      class: "VfxSystemDefinitionData",
+    };
+    declarations = { game: [elsewhere], project: [layerDeclaration, elsewhere] };
+    const user = userEvent.setup();
+    const tab = objectDocument(LAYER_FILE, ENTRY, "Characters/Teemo/Skins/Skin0", SKIN_PATH);
+    declared = null;
+    drawTab(tab, openBin({ asset: LAYER_FILE, declared: null }));
+
+    await openOptions(user);
+    const own = await screen.findByRole("menuitemradio", { name: "skin0.bin" });
+    expect(own).toHaveAttribute("aria-checked", "true");
+    expect(own).toHaveAccessibleDescription("Chroma");
+    const other = screen.getByRole("menuitemradio", { name: "teemo_multi.bin" });
+    expect(other).toHaveAccessibleDescription("Teemo");
+    await user.click(other);
+
+    expect(openTabs()).toEqual([
+      expect.objectContaining({ asset: elsewhere.asset, file: elsewhere.file }),
+    ]);
+    expect(openTabs()[0]).not.toHaveProperty("sandbox");
+  });
+
+  it("lists no files for an object one file declares", async () => {
+    declarations = { game: [], project: [layerDeclaration] };
+    const user = userEvent.setup();
+    const tab = objectDocument(LAYER_FILE, ENTRY, "Mods/Jade/Glow", SKIN_PATH);
+    declared = null;
+    drawTab(tab, openBin({ asset: LAYER_FILE, declared: null }));
+
+    await openOptions(user);
+
+    expect(await screen.findByRole("menuitemradio", { name: "Jade Teemo" })).toBeInTheDocument();
+    expect(screen.queryByText("Declared in")).not.toBeInTheDocument();
   });
 
   it("switches a game tab back to the project's sandbox", async () => {

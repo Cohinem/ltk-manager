@@ -4,6 +4,7 @@ import { RetainedContent } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
+import { IslandsContext } from "../state/islands";
 import { useLeafCloses } from "../state/leafCloses";
 import { NO_SHARED_TITLES } from "../tabTitles";
 import type { EditorDocumentBase, EditorDocumentDefinition, EditorRegistry } from "../types";
@@ -16,17 +17,17 @@ import { UnsavedCloseDialog } from "./UnsavedCloseDialog";
 /** The strip and the toolbar row, one island while the shown document is islands. */
 const HEADER = [
   "flex shrink-0 flex-col bg-surface-900",
-  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:mb-1.5",
-  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:overflow-hidden",
-  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:rounded-lg",
-  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:border",
-  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:border-surface-700/50",
+  "group-data-[islands-shown]/surface:mb-1.5",
+  "group-data-[islands-shown]/surface:overflow-hidden",
+  "group-data-[islands-shown]/surface:rounded-lg",
+  "group-data-[islands-shown]/surface:border",
+  "group-data-[islands-shown]/surface:border-surface-700/50",
 ].join(" ");
 
 /* The island's own border closes the row, so the row drops its hairline under it. */
 const TOOLBAR = [
   "flex shrink-0 items-center gap-2 border-b border-surface-700/50 px-2 py-1.5 empty:hidden",
-  "group-has-[[data-islands]:not([hidden]_[data-islands])]/surface:border-b-0",
+  "group-data-[islands-shown]/surface:border-b-0",
 ].join(" ");
 
 export interface EditorSurfaceProps<D extends EditorDocumentBase> {
@@ -83,8 +84,10 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
  * The row under the strip is a slot the active document fills through
  * {@link DocumentToolbar}, rather than chrome this surface is handed.
  *
- * A shown document holding `[data-islands]` draws its own framed panes, so the strip and the row
- * become one rounded island over the ground and the surface paints none of its own.
+ * A shown document that reports islands, through `useIslands`, draws its own framed panes. The
+ * strip and the row then become one rounded island over the ground, and the surface paints
+ * none of its own. The surface marks itself `data-islands-shown` for that, which a wrapper's
+ * `className` can read too.
  */
 export function EditorSurface<D extends EditorDocumentBase>({
   leafId,
@@ -111,6 +114,12 @@ export function EditorSurface<D extends EditorDocumentBase>({
   className,
 }: EditorSurfaceProps<D>) {
   const [toolbar, setToolbar] = useState<HTMLElement | null>(null);
+  /* How many shown documents report islands, which is one or none. */
+  const [islands, setIslands] = useState(0);
+  const reportIslands = useCallback(() => {
+    setIslands((count) => count + 1);
+    return () => setIslands((count) => count - 1);
+  }, []);
 
   /* The registry narrows to one kind per key, which a lookup by a union's own
      kind cannot express. The key comes off the document, so the two agree. */
@@ -175,10 +184,11 @@ export function EditorSurface<D extends EditorDocumentBase>({
   return (
     <div
       data-ui={`EditorSurface:${leafId}`}
+      data-islands-shown={islands > 0 || undefined}
       onPointerDownCapture={onFocus}
       className={twMerge(
         "group/surface flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-900",
-        "has-[[data-islands]:not([hidden]_[data-islands])]:bg-transparent",
+        "data-[islands-shown]:bg-transparent",
         className,
       )}
     >
@@ -210,24 +220,26 @@ export function EditorSurface<D extends EditorDocumentBase>({
         {documents.length === 0 && empty}
 
         <DocumentToolbarSlotContext value={toolbar}>
-          {documents.map((document) => {
-            const definition = definitionFor(document);
-            if (!definition) return null;
+          <IslandsContext value={reportIslands}>
+            {documents.map((document) => {
+              const definition = definitionFor(document);
+              if (!definition) return null;
 
-            const Editor = definition.component;
-            const active = document.id === activeId;
+              const Editor = definition.component;
+              const active = document.id === activeId;
 
-            return (
-              <RetainedContent
-                key={document.id}
-                data-ui={`EditorSurface:document:${document.kind}`}
-                active={active}
-                className="absolute inset-0 flex flex-col"
-              >
-                <Editor document={document} active={active} />
-              </RetainedContent>
-            );
-          })}
+              return (
+                <RetainedContent
+                  key={document.id}
+                  data-ui={`EditorSurface:document:${document.kind}`}
+                  active={active}
+                  className="absolute inset-0 flex flex-col"
+                >
+                  <Editor document={document} active={active} />
+                </RetainedContent>
+              );
+            })}
+          </IslandsContext>
         </DocumentToolbarSlotContext>
       </div>
 

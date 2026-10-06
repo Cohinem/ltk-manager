@@ -34,6 +34,7 @@ import { type Motion, originAt, type Point } from "../../model/rig";
 import { ROTATION_RATE } from "../../model/systemModel";
 import { AXIS, axisInto, identityInto, yawInto } from "../../utils/basis";
 import { Rng } from "../../utils/Rng";
+import type { EmissionSampler, SystemSurfaces } from "../emissionSurface";
 import {
   createEmitterStates,
   type EmitterState,
@@ -250,6 +251,8 @@ interface Staging {
   readonly hudLayer?: boolean;
   /** The stream `ChanceToNotExist` is rolled from, and none to leave every emitter in. */
   readonly chance?: Rng;
+  /** The emission samplers of each emitter, by emitter index. */
+  readonly surfaces?: SystemSurfaces;
 }
 
 const STILL: Motion = { kind: "still" };
@@ -265,6 +268,7 @@ function run(emitters: readonly EmitterModel[], dt = 0.25, staging: Staging = {}
     transform = null,
     hudLayer = false,
     chance,
+    surfaces,
   } = staging;
   const system: SystemModel = {
     entry: null,
@@ -300,6 +304,7 @@ function run(emitters: readonly EmitterModel[], dt = 0.25, staging: Staging = {}
             yaw,
             world,
             stopped: stopAt !== null && step.now >= stopAt,
+            surfaces,
           };
           stepEmitters(pool, system, placed, rng, state);
           origin = now;
@@ -1361,6 +1366,97 @@ describe("offsetLifetimeScaling", () => {
 
     expect(vec3(sim.pool.position, 0).map(rounded)).toEqual([0, 2, 0]);
     expect(sim.pool.lifetime[0]).toBe(12);
+  });
+});
+
+describe("an emission surface", () => {
+  /** A sampler that always returns the same point and normal. */
+  function fixed(position: Point, normal: Point): EmissionSampler {
+    return {
+      sample(_time, _rng, out) {
+        out.position.set(position);
+        out.normal.set(normal);
+        return true;
+      },
+    };
+  }
+
+  const surfaceModel = {
+    kind: "mesh",
+    mesh: null,
+    skeleton: null,
+    submeshes: [],
+    joints: [],
+    scale: 1,
+    maxJointWeights: 4,
+    useNormal: true,
+  } as const;
+
+  function born(over: Partial<EmitterModel>, surfaces: SystemSurfaces) {
+    const held = run(
+      [
+        emitterOf({
+          rate: flat(4),
+          birthVelocity: flat(0, 3, 0),
+          birthAcceleration: flat(0, 0, 2),
+          ...over,
+        }),
+      ],
+      0.25,
+      { surfaces },
+    );
+    held.step();
+
+    return held.pool;
+  }
+
+  it("adds the surface point and points the birth velocity and acceleration along its normal", () => {
+    const sampler = fixed([5, 0, 0], [1, 0, 0]);
+    const held = born(
+      { emissionSurface: surfaceModel },
+      new Map([[0, { mesh: null, surface: sampler }]]),
+    );
+
+    expect(vec3(held.position, 0)).toEqual([5, 0, 0]);
+    expect(vec3(held.velocity, 0)).toEqual([3, 0, 0]);
+    expect(vec3(held.birthAcceleration, 0)).toEqual([2, 0, 0]);
+  });
+
+  it("adds the surface point and keeps both birth vectors when the surface's normal switch is off", () => {
+    const sampler = fixed([5, 0, 0], [1, 0, 0]);
+    const held = born(
+      { emissionSurface: { ...surfaceModel, useNormal: false } },
+      new Map([[0, { mesh: null, surface: sampler }]]),
+    );
+
+    expect(vec3(held.position, 0)).toEqual([5, 0, 0]);
+    expect(vec3(held.velocity, 0)).toEqual([0, 3, 0]);
+    expect(vec3(held.birthAcceleration, 0)).toEqual([0, 0, 2]);
+  });
+
+  it("adds the mesh point and the surface point, and uses the surface normal when both give one", () => {
+    const held = born(
+      {
+        emissionMesh: { mesh: { path: "ring.scb", asset: null }, scale: 1, useNormal: true },
+        emissionSurface: surfaceModel,
+      },
+      new Map([[0, { mesh: fixed([0, 7, 0], [0, 0, 1]), surface: fixed([5, 0, 0], [1, 0, 0]) }]]),
+    );
+
+    expect(vec3(held.position, 0)).toEqual([5, 7, 0]);
+    expect(vec3(held.velocity, 0)).toEqual([3, 0, 0]);
+  });
+
+  it("multiplies each sampled point by its own scale", () => {
+    const held = born(
+      {
+        emissionMesh: { mesh: { path: "ring.scb", asset: null }, scale: 2, useNormal: false },
+        emissionSurface: { ...surfaceModel, scale: 3, useNormal: false },
+      },
+      new Map([[0, { mesh: fixed([0, 7, 0], [0, 0, 1]), surface: fixed([5, 0, 0], [1, 0, 0]) }]]),
+    );
+
+    expect(vec3(held.position, 0)).toEqual([15, 14, 0]);
   });
 });
 

@@ -12,7 +12,7 @@ import { runningTint, testTint } from "../../shared/utils/actionTints";
 /** The overlay is being built, which is the step with nothing to stop yet. */
 export function BuildingTestButton() {
   return (
-    <Button variant="ghost" loading disabled className={testTint}>
+    <Button variant="ghost" size="sm" loading disabled className={testTint}>
       {m.workshop_card_building_label()}
     </Button>
   );
@@ -26,6 +26,7 @@ export function StopTestButton() {
   return (
     <Button
       variant="ghost"
+      size="sm"
       onClick={() => stopPatcher.mutate()}
       loading={stopping}
       disabled={stopping}

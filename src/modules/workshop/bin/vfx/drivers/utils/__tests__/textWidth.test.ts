@@ -32,7 +32,7 @@ afterEach(() => {
 describe("textMeasure", () => {
   it("estimates where no canvas can measure", () => {
     expect(textMeasure(GEIST)).toBe(estimateText);
-    expect(estimateText("rate", ROW_TEXT)).toBeCloseTo(4 * 12 * 0.6);
+    expect(estimateText("rate", ROW_TEXT)).toBeCloseTo(4 * ROW_TEXT.size * 0.6);
   });
 
   it("estimates where the document applies no face", () => {
@@ -48,11 +48,11 @@ describe("textMeasure", () => {
 
     expect(measure("rate", ROW_TEXT)).toBe(20);
     expect(measure("rate", LABEL_TEXT)).toBe(20);
-    expect(measure("rate", META_TEXT)).toBeCloseTo(20 + 4 * 11 * 0.01);
+    expect(measure("rate", META_TEXT)).toBeCloseTo(20 + 4 * META_TEXT.size * 0.01);
     expect(fonts).toEqual([
-      `400 12px ${GEIST.face}`,
-      `500 12px ${GEIST.face}`,
-      `400 11px ${GEIST.face}`,
+      `400 ${ROW_TEXT.size}px ${GEIST.face}`,
+      `500 ${LABEL_TEXT.size}px ${GEIST.face}`,
+      `400 ${META_TEXT.size}px ${GEIST.face}`,
     ]);
   });
 

@@ -18,14 +18,11 @@ import {
   useEmbeddedMaterialPasses,
   useMaterialPasses,
 } from "../../rendering/hooks/useParticlePrograms";
-import { NODE_PREVIEW_SIZE } from "../utils/driverLayout";
 import type { MaterialRef } from "../utils/materialNodes";
 import { GraphActionsContext, NO_DOCUMENT } from "./graphActions";
 import { NODE_BOX, Turntable } from "./NodePreviews";
 import { PreviewView } from "./PreviewView";
 import { StripButton } from "./StripButton";
-
-const BOX_STYLE = { width: NODE_PREVIEW_SIZE, height: NODE_PREVIEW_SIZE } as const;
 
 const SHAPE_LABEL: Record<PreviewShape, () => string> = {
   sphere: m.workshop_bin_material_shape_sphere_label,
@@ -78,7 +75,7 @@ export function MaterialShape({ material }: { material: MaterialRef | undefined 
   const { program, passes, failed } = material?.type === "embedded" ? embeddedRead : linkedRead;
 
   return (
-    <div data-ui="MaterialShape" className={twMerge(NODE_BOX, "relative")} style={BOX_STYLE}>
+    <div data-ui="MaterialShape" className={twMerge(NODE_BOX, "relative")}>
       {program != null && (
         <PreviewView className="absolute inset-0">
           <Turntable sphere={FRAMED}>

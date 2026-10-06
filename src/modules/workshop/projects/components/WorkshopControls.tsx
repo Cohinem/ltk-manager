@@ -35,7 +35,7 @@ import {
 import { PROJECT_COLUMN_SPECS, PROJECT_GROUP_LABELS } from "./ProjectTable/columns";
 import { WorkshopSelectionButton } from "./WorkshopSelectionButton";
 
-/* What the header's slots hold while no project is open. Each is one slot, so a
+/* What the status row's slots hold while no project is open. Each is one slot, so a
    route change refills the row rather than redrawing it. */
 
 function viewOptions(): SegmentedOption<ViewMode>[] {
@@ -67,6 +67,7 @@ export function WorkshopViewControls() {
         options={viewOptions()}
         value={viewMode}
         onChange={setViewMode}
+        size="sm"
         action={
           <ViewOptionsPopover
             viewMode={viewMode}
@@ -106,7 +107,7 @@ export function WorkshopActions() {
         <IconButton
           icon={<PlusIcon />}
           variant="filled"
-          size="md"
+          size="sm"
           onClick={openNewProjectDialog}
           aria-label={m.workshop_controls_new_project_label()}
           tooltip={
@@ -122,7 +123,7 @@ export function WorkshopActions() {
               <IconButton
                 icon={<CaretDownIcon />}
                 variant="filled"
-                size="md"
+                size="sm"
                 loading={imports.pending || openFolder.pending}
                 aria-label={m.workshop_controls_more_label()}
                 /* A filled half carries no border to share, so the seam is the

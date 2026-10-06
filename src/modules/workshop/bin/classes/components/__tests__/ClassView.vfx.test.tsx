@@ -1094,7 +1094,7 @@ describe("ClassView over a particle system", () => {
     renderSystem();
 
     await screen.findAllByText("Glow");
-    for (const group of ["Emission", "Birth", "Position", "Texture", "Render", "Material"]) {
+    for (const group of ["Emission", "Source", "Birth", "Texture", "Render", "Material"]) {
       expect(screen.getAllByText(group).length).toBeGreaterThan(0);
     }
     expect(await screen.findByText("Scale")).toBeInTheDocument();
@@ -1112,7 +1112,7 @@ describe("ClassView over a particle system", () => {
     const user = userEvent.setup();
     await screen.findByText("Emission End Time");
 
-    await user.click(cardChip("Position"));
+    await user.click(cardChip("Source"));
 
     expect(await screen.findByText("Spawn Shape")).toBeInTheDocument();
     expect(screen.getByText("Emission End Time")).toBeInTheDocument();
@@ -1211,9 +1211,9 @@ describe("ClassView over a particle system", () => {
     await screen.findByText("Spawn Shape");
     scrolled.mockClear();
 
-    await user.click(cardChip("Position"));
+    await user.click(cardChip("Source"));
 
-    expect(scrolled.mock.contexts).toContain(section("Position").closest("section"));
+    expect(scrolled.mock.contexts).toContain(section("Source").closest("section"));
   });
 
   it("dims an emitter its own field disables", async () => {
@@ -1345,7 +1345,7 @@ describe("The shell frame", () => {
 
     await user.click(crumb().getByRole("button", { name: "Emission" }));
 
-    expect(await screen.findByRole("menuitem", { name: "Position" })).toBeInTheDocument();
+    expect(await screen.findByRole("menuitem", { name: "Source" })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: "Scale" })).not.toBeInTheDocument();
   });
 
@@ -1370,7 +1370,7 @@ describe("The shell frame", () => {
   it("holds the crumb's group segment still while the pane scrolls", async () => {
     renderSystem();
     await screen.findByText("Emission End Time");
-    const sections = ["Emission", "Birth", "Position"].map(
+    const sections = ["Emission", "Source", "Birth"].map(
       (title) => section(title).closest("section") as HTMLElement,
     );
     const pane = sections[0]?.parentElement as HTMLElement;
@@ -1391,7 +1391,7 @@ describe("The shell frame", () => {
     fireEvent.scroll(pane);
 
     expect(crumb().getByRole("button", { name: "Emission" })).toBeInTheDocument();
-    expect(crumb().queryByRole("button", { name: "Birth" })).not.toBeInTheDocument();
+    expect(crumb().queryByRole("button", { name: "Source" })).not.toBeInTheDocument();
   });
 
   it("aims the crumb at the emitter when a card names itself", async () => {
@@ -1499,7 +1499,7 @@ describe("The shell frame", () => {
     await screen.findByText("Glow [0] . rate");
 
     await user.click(crumb().getByRole("button", { name: "Emission" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Position" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Source" }));
 
     expect(await screen.findByText("VfxShapeSphere")).toBeInTheDocument();
     expect(await screen.findByText("Glow [0] . rate")).toBeInTheDocument();
@@ -1569,7 +1569,7 @@ describe("The shell frame", () => {
 
     await waitFor(() => expect(section("Render", false)).toBeInTheDocument());
     expect(section("Emission")).toBeInTheDocument();
-    expect(section("Position")).toBeInTheDocument();
+    expect(section("Source")).toBeInTheDocument();
     expect(screen.queryByText("Blend Mode")).not.toBeInTheDocument();
 
     await userEvent.click(section("Render", false));
@@ -1601,12 +1601,12 @@ describe("The shell frame", () => {
     renderSystem();
     const user = userEvent.setup();
     await screen.findByText("Emission End Time");
-    const toggle = screen.getByRole("button", { name: "Show only defined properties" });
     expect(await findSection("Scale", false)).toBeInTheDocument();
 
-    await user.click(toggle);
+    await user.click(screen.getByRole("button", { name: "View" }));
+    await user.click(await screen.findByRole("menuitemcheckbox", { name: "Defined only" }));
 
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "View" })).toHaveAttribute("data-pressed");
     expect(screen.queryByRole("button", { name: "Scale" })).not.toBeInTheDocument();
     expect(screen.getByText("Emission End Time")).toBeInTheDocument();
   });
@@ -1682,9 +1682,9 @@ describe("The shell frame", () => {
     const user = userEvent.setup();
     await showCards(user);
 
-    await user.click(cardChip("Position"));
+    await user.click(cardChip("Source"));
 
-    expect(await crumb().findByRole("button", { name: "Position" })).toBeInTheDocument();
+    expect(await crumb().findByRole("button", { name: "Source" })).toBeInTheDocument();
   });
 
   it("draws the panel under the strip once the pane is too narrow for a shell", async () => {
@@ -1702,7 +1702,7 @@ describe("The shell frame", () => {
     renderSystem();
     const user = userEvent.setup();
     await showCards(user);
-    await user.click(cardChip("Position"));
+    await user.click(cardChip("Source"));
     await screen.findByText("VfxShapeSphere");
 
     await resizeTo(NARROW);

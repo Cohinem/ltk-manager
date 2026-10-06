@@ -10,11 +10,11 @@ import { BufferReader } from "../utils/bufferReader";
 /** `LTKG`, the word a geometry buffer opens with. */
 const MAGIC = 0x474b544c;
 
-/** The layouts this build reads. Version 2 adds the skin block under its own flag. */
-const VERSIONS: readonly number[] = [1, 2];
+/** The layouts this build reads. Versions 2 and 3 add the skin and colour blocks, each under a flag. */
+const VERSIONS: readonly number[] = [1, 2, 3];
 
 /** What the flags word says the buffer carries past its positions. */
-const FLAG = { normals: 1, uvs: 2, skin: 4 } as const;
+const FLAG = { normals: 1, uvs: 2, skin: 4, colors: 8 } as const;
 
 /** One run of the index buffer, which is what a submesh filter names. */
 export interface MeshRange {
@@ -35,6 +35,8 @@ export interface MeshGeometry {
   readonly skinIndices: Uint8Array | null;
   /** Four weights per vertex, beside `skinIndices`. */
   readonly skinWeights: Float32Array | null;
+  /** Four bytes per vertex, RGBA, and null for a file that colours no vertex. */
+  readonly colors: Uint8Array | null;
   readonly indices: Uint32Array;
   /** The submeshes, in the order the file holds them. */
   readonly ranges: readonly MeshRange[];
@@ -81,6 +83,7 @@ export function readMeshBuffer(bytes: ArrayBuffer): MeshGeometry {
   const skinned = (flags & FLAG.skin) !== 0;
   const skinIndices = skinned ? reader.bytes(vertexCount * 4) : null;
   const skinWeights = skinned ? reader.floats(vertexCount * 4) : null;
+  const colors = (flags & FLAG.colors) !== 0 ? reader.bytes(vertexCount * 4) : null;
   const indices = reader.words(indexCount);
 
   const ranges: MeshRange[] = [];
@@ -88,5 +91,5 @@ export function readMeshBuffer(bytes: ArrayBuffer): MeshGeometry {
     ranges.push({ name: reader.text(), startIndex: reader.u32(), indexCount: reader.u32() });
   }
 
-  return { positions, normals, uvs, skinIndices, skinWeights, indices, ranges };
+  return { positions, normals, uvs, skinIndices, skinWeights, colors, indices, ranges };
 }

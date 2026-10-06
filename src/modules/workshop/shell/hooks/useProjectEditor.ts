@@ -794,6 +794,25 @@ export function useResetShellLayout(kind: ShellKind) {
   return useLeadAction("resetShellLayout", kind);
 }
 
+const NO_FLOATING: readonly ShellPaneId[] = [];
+
+/** The panes one shell draws in floating frames over its tree, front last. */
+export function useFloatingShellPanes(kind: ShellKind): readonly ShellPaneId[] {
+  const projectPath = useProjectPath();
+  return useWorkshopEditorStore(
+    (s) => (s.byProject[projectPath] ?? EMPTY_EDITOR).floatingShellPanes[kind] ?? NO_FLOATING,
+  );
+}
+
+/** Take a pane out of the tree into a floating frame, or bring a floating one to the front. */
+export function useFloatShellPane(kind: ShellKind) {
+  return useLeadAction("floatShellPane", kind);
+}
+
+export function useCloseFloatingShellPane(kind: ShellKind) {
+  return useLeadAction("closeFloatingShellPane", kind);
+}
+
 /**
  * The pane filling one shell, or null while its tree draws whole.
  *

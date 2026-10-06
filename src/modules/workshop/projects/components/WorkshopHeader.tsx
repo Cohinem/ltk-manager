@@ -1,8 +1,6 @@
-import { ToolbarRow } from "@/components";
-import { twMerge } from "@/utils";
+import { ChromePortal, Inline } from "@/components";
 
 import { ContentLayoutPopover } from "../../content/components/ContentLayoutPopover";
-import { NavigationArrows } from "../../palette/components/NavigationArrows";
 import { WorkshopBar } from "../../palette/components/WorkshopBar";
 import { ProblemsBadge } from "../../problems";
 import { useOptionalProjectContext } from "../state/ProjectContext";
@@ -10,55 +8,26 @@ import { ProjectActions } from "./ProjectActions";
 import { WorkshopActions, WorkshopViewControls } from "./WorkshopControls";
 
 /**
- * The one row over both workshop surfaces.
+ * The workshop's chrome over both of its surfaces: the bar in the title bar, and the badge,
+ * the view controls and the actions at the end of the status row.
  *
- * Opening a project refills the slots rather than swapping the chrome, so the
- * grid and the editor stop reflowing against each other.
+ * Per "Layout" in docs/ux/WORKSHOP.md. Opening a project refills the slots rather than
+ * swapping the chrome.
  */
 export function WorkshopHeader() {
   return (
-    <ToolbarRow data-ui="WorkshopHeader" className="py-1 select-none">
-      <HistorySlot />
-      <BarSlot />
-      <TrailingSlots />
-    </ToolbarRow>
+    <>
+      <WorkshopBar />
+
+      <ChromePortal slot="status">
+        <Inline gap={1} data-ui="WorkshopHeader:actions">
+          <BadgeSlot />
+          <ViewSlot />
+          <ActionSlot />
+        </Inline>
+      </ChromePortal>
+    </>
   );
-}
-
-/* Equal shares on both sides centre the bar in the row rather than in what is
-   left beside it, and both have to grow or one carries it across on its own. */
-const SIDE_SLOT = "min-w-max flex-1 basis-0";
-
-/*
- * One stack across the shell, so the arrows stand over the grid as well: a back
- * there is the route into whichever project the user just left.
- *
- * `justify-end` is what holds them against the bar as their side grows, which is
- * the layout every editor draws them in - the two travel with the box they move
- * rather than the arrows holding an edge the bar has left. `ToolbarRow` spends
- * one gap on every junction of the row, and this junction wants less.
- */
-function HistorySlot() {
-  return (
-    <div className={twMerge(SIDE_SLOT, "-mr-2 flex items-center justify-end")}>
-      <NavigationArrows />
-    </div>
-  );
-}
-
-/** The right of the row: the badge, the view controls and the actions. */
-function TrailingSlots() {
-  return (
-    <div className={twMerge(SIDE_SLOT, "flex items-center justify-end gap-1")}>
-      <BadgeSlot />
-      <ViewSlot />
-      <ActionSlot />
-    </div>
-  );
-}
-
-function BarSlot() {
-  return <WorkshopBar />;
 }
 
 function BadgeSlot() {

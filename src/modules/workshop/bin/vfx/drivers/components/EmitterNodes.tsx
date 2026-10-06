@@ -15,24 +15,18 @@ import { twMerge } from "@/utils";
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { DefaultProperty } from "../../inspector/components/DefaultProperty";
 import type { HeldClass } from "../../inspector/components/PrimitivePicker";
-import { defaultField, type EmitterGroup } from "../../inspector/utils/emitterGroups";
+import { defaultField } from "../../inspector/utils/emitterGroups";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
 import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
 import { VfxRunContext } from "../../playback/state/run";
 import { isMaterial, isPrimitive, shapePreviewed } from "../utils/driverLayout";
 import { listId } from "../utils/entryLists";
 import { emitterOf } from "../utils/graphEmitter";
-import type {
-  MasterField,
-  MasterItem,
-  RenderItem,
-  StructItem,
-  StructRow,
-} from "../utils/graphItems";
+import type { MasterField, MasterItem, StructItem, StructRow } from "../utils/graphItems";
 import { listAppend } from "../utils/nodeEdits";
 import { fieldAlias, groupTitle, inputSummary, itemSubtitle, itemTitle } from "../utils/nodeText";
 import { outputTop } from "../utils/outputSocket";
-import { componentOf, drawnInSection } from "../utils/renderSection";
+import { componentInput, componentOf, drawnInSection } from "../utils/renderSection";
 import { embeddedLists, embeddedValues, embedsList } from "../utils/socketEmbed";
 import { ClassAction } from "./ClassAction";
 import { EmitterRunToggles, useRunPresence } from "./EmitterRunToggles";
@@ -73,7 +67,7 @@ import { ValueLine } from "./ValueLine";
  * 2.9 of docs/plans/shimmer-driver-graph.md.
  */
 export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
-  const { item, width, height, frame } = data.placed;
+  const { item, width, height, frame, nameWidth } = data.placed;
   const folded = use(GraphActionsContext)?.collapsed.has(item.id) ?? false;
   const presence = useRunPresence(item.simple, item.listIndex);
   useCardFollowsPick(item);
@@ -97,6 +91,7 @@ export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
         wire={item.wire}
         inputs={item.ports.length}
         folds
+        narrow
         extra={
           <>
             <EmitterAdd item={item} />
@@ -108,7 +103,7 @@ export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
       <EmitterSurface simple={item.simple} listIndex={item.listIndex} />
       {!folded && (
         <div className={FIELD_PAD}>
-          <MasterBody item={item} />
+          <MasterBody item={item} nameWidth={nameWidth} />
         </div>
       )}
       <Output kind={null} side={Position.Top} />
@@ -116,7 +111,7 @@ export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
   );
 }
 
-function MasterBody({ item }: { item: MasterItem }) {
+function MasterBody({ item, nameWidth }: { item: MasterItem; nameWidth?: number }) {
   const actions = use(GraphActionsContext);
   const entry = actions?.entry ?? "";
   const rows = useRowsAt(item.wire, item.rowCount);
@@ -127,7 +122,7 @@ function MasterBody({ item }: { item: MasterItem }) {
   const shown = useMemo(() => (rows === null ? [] : [...rows.values()]), [rows]);
 
   return (
-    <FieldBody wire={item.wire} rows={shown}>
+    <FieldBody wire={item.wire} rows={shown} nameWidth={nameWidth}>
       {item.groups.map((group) => (
         <Fragment key={group.group}>
           <GroupLine
@@ -150,20 +145,13 @@ function MasterBody({ item }: { item: MasterItem }) {
               owner={item.classHash}
               embedded={embedded}
               lists={lists}
+              nameWidth={nameWidth}
             />
           ))}
         </Fragment>
       ))}
     </FieldBody>
   );
-}
-
-/** The component node a master group's input connects, and null for a group the master keeps. */
-function componentInput(item: MasterItem, group: EmitterGroup): RenderItem | null {
-  const role = componentOf(group);
-  if (role === "texture") return item.render;
-  if (role === "geometry") return item.geometry;
-  return null;
 }
 
 export interface MasterLineProps {
@@ -175,6 +163,8 @@ export interface MasterLineProps {
   embedded: ReadonlySet<string>;
   /** The lists embedded in the node's sockets, by port. */
   lists?: ReadonlyMap<string, StructItem>;
+  /** The node's name column in pixels, which a struct drawn inside the line shares. */
+  nameWidth?: number;
 }
 
 /** One field of a master or Texture node: an input, an unwritten field at its default, or its row. */
@@ -186,6 +176,7 @@ export function MasterLine({
   owner,
   embedded,
   lists,
+  nameWidth,
 }: MasterLineProps) {
   const declared = schema?.find((each) => each.hash === field.hash);
   const name = row?.name ?? declared?.name ?? field.hash;
@@ -204,7 +195,7 @@ export function MasterLine({
     return <FieldLine row={row} label={label} owner={owner} />;
   }
   const list = field.input === null ? undefined : lists?.get(field.input.id);
-  if (list !== undefined) return <EmbeddedList list={list} label={label} />;
+  if (list !== undefined) return <EmbeddedList list={list} label={label} nameWidth={nameWidth} />;
   if (field.input !== null) return <SocketLine input={field.input} label={label} />;
   if (field.pending && field.hash === PRIMITIVE_FIELD) {
     return <PrimitiveLine label={label} holder={holder} held={null} />;

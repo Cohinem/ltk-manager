@@ -8,7 +8,14 @@ const SURFACE = nameHash("EmissionSurface");
 const SKELETON = nameHash("VfxEmissionSkeletonData");
 const MESH = nameHash("VfxEmissionMeshData");
 
-/** Emission surfaces before and after the 15.22 class split. */
+/** The range the engine clamps `maxJointWeights` to. */
+const JOINT_WEIGHTS = { least: 1, most: 4 } as const;
+
+/**
+ * Reads an emission surface in the layout before or after the 15.22 class split.
+ *
+ * Returns null for a linked mesh, because only a superward region links one.
+ */
 export function readEmissionSurface(node: VfxValue | null): EmissionSurfaceModel | null {
   if (node?.type !== "struct") return null;
 
@@ -17,16 +24,17 @@ export function readEmissionSurface(node: VfxValue | null): EmissionSurfaceModel
   if (nested !== null && held.classHash !== SKELETON && held.classHash !== MESH) return null;
 
   const get = (name: string) => field(held, nameHash(name));
+  const skeleton = held.classHash === SKELETON;
+  const weights = Math.trunc(number(get("maxJointWeights")) ?? JOINT_WEIGHTS.most);
 
   return {
-    kind: held.classHash === SKELETON ? "skeleton" : "mesh",
+    kind: skeleton ? "skeleton" : "mesh",
     mesh: namedAsset(get("meshName")),
     skeleton: namedAsset(get("skeletonName")),
-    animation: namedAsset(get("AnimationName")),
     submeshes: hashes(get("Submeshes")),
     joints: hashes(get("JointMask")),
     scale: number(get("meshScale")) ?? 1,
-    maxJointWeights: Math.max(0, Math.min(4, Math.trunc(number(get("maxJointWeights")) ?? 4))),
-    useNormal: flagOr(get("useSurfaceNormalForBirthPhysics"), true),
+    maxJointWeights: Math.max(JOINT_WEIGHTS.least, Math.min(JOINT_WEIGHTS.most, weights)),
+    useNormal: skeleton || flagOr(get("useSurfaceNormalForBirthPhysics"), true),
   };
 }

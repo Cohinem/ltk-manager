@@ -41,6 +41,7 @@ export function FrameNodeView({ data }: NodeProps<FrameFlowNode>) {
   return (
     <div
       data-ui="EmitterFrame"
+      data-type-scale="board"
       /* DS-GROUND, DS-RADIUS */
       className="relative size-full rounded-xl border border-surface-veil bg-surface-900/30"
     >

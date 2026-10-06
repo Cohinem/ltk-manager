@@ -4,6 +4,7 @@ import { type Key, useEffect, useRef, useState } from "react";
 import { useRemeasure } from "@/hooks";
 
 import { keepScrollTop, keptScrollTop } from "../state/scrollTops";
+import { instantScroll } from "../utils/instantScroll";
 import type { DepthRow } from "../utils/stickyTree";
 import { useStickyTreeRows } from "./useStickyTreeRows";
 
@@ -22,7 +23,8 @@ interface UseBrowseTreeParams<Row extends DepthRow> {
 /**
  * The scroll element, pinned band and virtualizer of a read-only tree.
  *
- * Everything the tree scrolls to itself clears the pinned band rather than landing under it.
+ * Everything the tree scrolls to itself clears the pinned band rather than landing under it,
+ * and jumps there without the app's smooth scroll.
  * `items`, `totalSize` and `sticky` are in the shape `VirtualTree` takes. The window is read
  * here, since React Compiler memoizes a caller that reads it off the stable `virtualizer`.
  */
@@ -61,6 +63,7 @@ export function useBrowseTree<Row extends DepthRow>({
     getItemKey: (index) => keyOf(rows[index]!),
     initialOffset,
     scrollPaddingStart: height,
+    scrollToFn: instantScroll,
   });
   useRemeasure(virtualizer, rowHeight);
 

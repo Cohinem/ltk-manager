@@ -1,11 +1,10 @@
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
 
-import { MarkedText, Popover } from "@/components";
+import { MarkedText } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { ClassCard } from "../../bin/classes/components/ClassCard";
-import { DeclarationList } from "../../bin/links/components/DeclarationList";
 import { declaringFileContext } from "../../documents/utils/contentDocument";
 import { LayerGlyph } from "../../layers/components/LayerGlyph";
 import type { OpenIntent } from "../../palette/utils/types";
@@ -203,65 +202,22 @@ function classLabel(cls: string, classHash: string): string | null {
   return cls === classHash ? null : cls;
 }
 
-/** The declaring file's name, or a chip listing the files where several declare the node. */
+/**
+ * The name of the file the row opens: the declaration its sandbox resolves the object to.
+ *
+ * The other declaring files are in the object tab's Sandbox options, per "A node with several
+ * declarations" in docs/ux/PROJECT_EDITOR.md.
+ */
 export function ObjectSource({ node }: { node: ObjectRowNode }) {
   const first = node.declarations[0];
   if (!first) return null;
-  if (node.declarations.length > 1) return <FilesChip node={node} />;
+
   return <span title={declaringFileContext(first.asset, first.file)}>{fileName(first.file)}</span>;
 }
 
 /** The last segment of a declaring file's path, which is what tells two files apart in a row. */
 function fileName(file: string): string {
   return file.slice(Math.max(file.lastIndexOf("/"), file.lastIndexOf("\\")) + 1);
-}
-
-/** Hover for this long opens the list, the tooltip delay. A click does not wait. */
-const LIST_DELAY = 600;
-
-/**
- * `n files` as a control listing the declaring files, per "A node with several
- * declarations" in docs/ux/PROJECT_EDITOR.md. A click pins the list and leaves the row alone.
- */
-function FilesChip({ node }: { node: ObjectRowNode }) {
-  const label = m.workshop_objects_files_label({
-    count: node.declarations.length,
-  });
-  const layerTitle = (layer: string) =>
-    node.layers.find((mark) => mark.name === layer)?.title ?? layer;
-
-  return (
-    <Popover.Root>
-      <Popover.Trigger
-        openOnHover
-        delay={LIST_DELAY}
-        render={<button type="button" onClick={keepRowShut} onDoubleClick={keepRowShut} />}
-        /* DS-VEIL */
-        className="-mx-1 cursor-pointer rounded-sm px-1 hover:bg-surface-veil hover:text-surface-200"
-      >
-        {label}
-      </Popover.Trigger>
-      <Popover.Content
-        side="bottom"
-        align="end"
-        sideOffset={6}
-        aria-label={label}
-        className="w-96 p-1 select-none"
-      >
-        <DeclarationList
-          declarations={node.declarations}
-          objectHash={node.objectHash}
-          objectPath={node.path}
-          layerTitle={layerTitle}
-        />
-      </Popover.Content>
-    </Popover.Root>
-  );
-}
-
-/** A click on the chip is the chip's. The row under it neither opens nor pins. */
-function keepRowShut(event: ReactMouseEvent<HTMLButtonElement>) {
-  event.stopPropagation();
 }
 
 interface MoreRowProps extends ObjectsTreeRowProps {

@@ -1,3 +1,5 @@
+import { use } from "react";
+
 import { m } from "@/i18n";
 
 import { classFamily, colorCss } from "../../../values/utils/valueRows";
@@ -5,6 +7,7 @@ import { keysAt } from "../../engine/utils/sampleCurve";
 import { useRunReadout } from "../../playback/state/runReadout";
 import type { ValueItem } from "../utils/graphItems";
 import { formatValues } from "../utils/nodeText";
+import { OnScreenContext } from "./onScreen";
 import { useValuePlayhead } from "./valuePlayhead";
 import { useFarZoom } from "./ZoomDetail";
 
@@ -13,11 +16,13 @@ import { useFarZoom } from "./ZoomDetail";
  * anything else as its numbers, caught up with the run at the readout's pace.
  *
  * Nothing while no playhead reaches the value, and nothing for a value with no keys, whose
- * draw differs per particle. The far zoom hides the readout, so it hears no run there.
+ * draw differs per particle. The far zoom hides the readout, so it hears no run there, nor
+ * while its node is out of view.
  */
 export function LiveValue({ item }: { item: ValueItem }) {
   const { run, read } = useValuePlayhead(item);
-  const t01 = useRunReadout(useFarZoom() ? null : run, read);
+  const unseen = useFarZoom() || !use(OnScreenContext);
+  const t01 = useRunReadout(unseen ? null : run, read);
   if (t01 === null || item.curve.keys.length === 0) return null;
 
   const values = keysAt(item.curve.keys, t01);

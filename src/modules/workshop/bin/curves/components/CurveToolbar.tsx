@@ -48,7 +48,12 @@ interface CurveToolbarProps {
   linking: { linked: boolean; onToggle: () => void } | null;
 }
 
-/** Every control of the dock in one row: chips, the tables and their faults, the pin, the tabs. */
+/**
+ * Every control of the dock in one row: chips, the tables and their faults, the pin, the tabs.
+ *
+ * The row never wraps. The caption shrinks first, then the key count and the Random label hide
+ * at the container widths named on them.
+ */
 export function CurveToolbar({
   lead,
   family,
@@ -79,120 +84,125 @@ export function CurveToolbar({
   return (
     <div
       data-ui="CurveToolbar"
-      className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 px-1 select-none"
+      className="flex min-w-0 items-center gap-x-3 overflow-hidden px-1 select-none"
     >
       {lead !== undefined && (
-        <span className="flex min-w-0 flex-1 basis-32 items-baseline gap-2 leading-tight">
-          {lead}
-        </span>
+        <span className="flex min-w-0 flex-1 items-baseline gap-2 leading-tight">{lead}</span>
       )}
-      {chips.length > 0 && (
-        <span className="flex gap-0.5">
-          {chips.map((channel) => (
-            <button
-              key={channel}
-              type="button"
-              aria-pressed={!muted.has(channel)}
-              /* DS-RADIUS, DS-VEIL, DS-TEXT */
-              className={twMerge(
-                "cursor-pointer rounded-sm px-1.5 font-mono text-meta font-semibold hover:bg-surface-veil",
-                muted.has(channel) ? "text-surface-600" : chipOf(family, channel),
-              )}
-              onClick={() => onToggle(channel)}
-            >
-              {names[channel] ?? String(channel)}
-            </button>
-          ))}
-        </span>
-      )}
-      {draw !== null && (
-        <Tooltip content={m.workshop_bin_random_tables_hint()}>
-          <span
-            tabIndex={0}
-            className="flex cursor-help items-center gap-1 rounded-sm text-meta text-surface-300 outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
-          >
-            <DiceFiveIcon weight="bold" className="size-3.5" />
-            {m.workshop_bin_random_chip_label()}
+      <span
+        className={twMerge(
+          "flex shrink-0 items-center gap-x-3",
+          lead === undefined && "min-w-0 flex-1",
+        )}
+      >
+        {chips.length > 0 && (
+          <span className="flex gap-0.5">
+            {chips.map((channel) => (
+              <button
+                key={channel}
+                type="button"
+                aria-pressed={!muted.has(channel)}
+                /* DS-RADIUS, DS-VEIL, DS-TEXT */
+                className={twMerge(
+                  "cursor-pointer rounded-sm px-1.5 font-mono text-meta font-semibold hover:bg-surface-veil",
+                  muted.has(channel) ? "text-surface-600" : chipOf(family, channel),
+                )}
+                onClick={() => onToggle(channel)}
+              >
+                {names[channel] ?? String(channel)}
+              </button>
+            ))}
           </span>
-        </Tooltip>
-      )}
-      {draw !== null && onRemoveRandom !== null && (
-        <Tooltip content={m.workshop_bin_random_remove_hint()}>
-          <Button
-            variant="ghost"
-            size="xs"
-            aria-label={m.workshop_bin_random_remove_action()}
-            onClick={onRemoveRandom}
-            left={<XIcon weight="bold" />}
+        )}
+        {draw !== null && (
+          <Tooltip content={m.workshop_bin_random_tables_hint()}>
+            <span
+              tabIndex={0}
+              className="flex cursor-help items-center gap-1 rounded-sm text-meta text-surface-300 outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
+            >
+              <DiceFiveIcon weight="bold" className="size-3.5" />
+              <span className="@max-xl:hidden">{m.workshop_bin_random_chip_label()}</span>
+            </span>
+          </Tooltip>
+        )}
+        {draw !== null && onRemoveRandom !== null && (
+          <Tooltip content={m.workshop_bin_random_remove_hint()}>
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label={m.workshop_bin_random_remove_action()}
+              onClick={onRemoveRandom}
+              left={<XIcon weight="bold" />}
+            />
+          </Tooltip>
+        )}
+        {linking !== null && <LinkToggle {...linking} />}
+        {onAddRandom !== null && (
+          <Tooltip content={m.workshop_bin_random_add_hint()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAddRandom}
+              left={<DiceFiveIcon weight="bold" />}
+            >
+              {m.workshop_bin_random_add_action()}
+            </Button>
+          </Tooltip>
+        )}
+        {flickers && (
+          <Fault
+            tone="warning"
+            label={m.workshop_bin_random_flicker_label()}
+            hint={m.workshop_bin_random_flicker_hint()}
           />
-        </Tooltip>
-      )}
-      {linking !== null && <LinkToggle {...linking} />}
-      {onAddRandom !== null && (
-        <Tooltip content={m.workshop_bin_random_add_hint()}>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onAddRandom}
-            left={<DiceFiveIcon weight="bold" />}
-          >
-            {m.workshop_bin_random_add_action()}
-          </Button>
-        </Tooltip>
-      )}
-      {flickers && (
-        <Fault
-          tone="warning"
-          label={m.workshop_bin_random_flicker_label()}
-          hint={m.workshop_bin_random_flicker_hint()}
-        />
-      )}
-      {draw?.broken === true && (
-        <Fault
-          tone="danger"
-          label={m.workshop_bin_random_broken_label()}
-          hint={m.workshop_bin_random_broken_hint()}
-        />
-      )}
-      <span className="ml-auto flex items-center gap-1">
-        <span className="mr-1 text-meta text-surface-500">
-          {m.workshop_bin_curve_keys_label({ count: keyCount })}
+        )}
+        {draw?.broken === true && (
+          <Fault
+            tone="danger"
+            label={m.workshop_bin_random_broken_label()}
+            hint={m.workshop_bin_random_broken_hint()}
+          />
+        )}
+        <span className="ml-auto flex items-center gap-1">
+          <span className="mr-1 text-meta text-surface-500 @max-3xl:hidden">
+            {m.workshop_bin_curve_keys_label({ count: keyCount })}
+          </span>
+          <Tooltip content={m.workshop_bin_curve_add_key_action()}>
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label={m.workshop_bin_curve_add_key_action()}
+              disabled={!editable}
+              onClick={onAdd}
+              left={<PlusIcon weight="bold" />}
+            />
+          </Tooltip>
+          <Tooltip content={m.workshop_bin_curve_delete_key_action()}>
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label={m.workshop_bin_curve_delete_key_action()}
+              disabled={!editable || selectedCount === 0}
+              onClick={onRemove}
+              left={<TrashIcon weight="bold" />}
+            />
+          </Tooltip>
         </span>
-        <Tooltip content={m.workshop_bin_curve_add_key_action()}>
-          <Button
-            variant="ghost"
-            size="xs"
-            aria-label={m.workshop_bin_curve_add_key_action()}
-            disabled={!editable}
-            onClick={onAdd}
-            left={<PlusIcon weight="bold" />}
+        <span className="flex items-center gap-3">
+          {spread && <ChanceButton />}
+          <SegmentedControl
+            size="sm"
+            aria-label={m.workshop_bin_curve_tab_label()}
+            value={tab}
+            onChange={onTab}
+            options={[
+              { value: "graph", label: m.workshop_bin_curve_tab_graph_label() },
+              ...(tabled
+                ? [{ value: "table" as const, label: m.workshop_bin_curve_tab_table_label() }]
+                : []),
+            ]}
           />
-        </Tooltip>
-        <Tooltip content={m.workshop_bin_curve_delete_key_action()}>
-          <Button
-            variant="ghost"
-            size="xs"
-            aria-label={m.workshop_bin_curve_delete_key_action()}
-            disabled={!editable || selectedCount === 0}
-            onClick={onRemove}
-            left={<TrashIcon weight="bold" />}
-          />
-        </Tooltip>
-      </span>
-      <span className="ml-auto flex items-center gap-3">
-        {spread && <ChanceButton />}
-        <SegmentedControl
-          size="sm"
-          aria-label={m.workshop_bin_curve_tab_label()}
-          value={tab}
-          onChange={onTab}
-          options={[
-            { value: "graph", label: m.workshop_bin_curve_tab_graph_label() },
-            ...(tabled
-              ? [{ value: "table" as const, label: m.workshop_bin_curve_tab_table_label() }]
-              : []),
-          ]}
-        />
+        </span>
       </span>
     </div>
   );

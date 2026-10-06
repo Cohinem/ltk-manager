@@ -35,7 +35,7 @@ export function ContentLayoutPopover() {
     <Popover.Root>
       <Tooltip content="Layout">
         <Popover.Trigger
-          render={<IconButton icon={<SidebarSimpleIcon />} size="md" aria-label="Layout options" />}
+          render={<IconButton icon={<SidebarSimpleIcon />} size="sm" aria-label="Layout options" />}
         />
       </Tooltip>
       <Popover.Content

@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-10-06 | Draw the project header in the title bar and the status row           |
 | 2026-10-02 | Report each working file, only for a project with no ignore rules     |
 | 2026-09-27 | Redraw every preview of a layer file saved from another program       |
 | 2026-09-25 | Make modules, and drag modules, entries and keys to organize them     |
@@ -13,7 +14,6 @@
 | 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
 | 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen        |
 | 2026-09-18 | Command routes to every document, closes, maximize, and a strip list  |
-| 2026-09-18 | Answer the editor's keys, and find text inside a text document        |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -21,8 +21,8 @@ The project editor is the LTK Manager screen for work on one mod project. The co
 idea is an IDE for League mods. A user opens a project, reads its content, changes what the
 mod declares, and packs the result.
 
-The header row and the bar in it are drawn by the workshop shell over both of its routes, so
-what they mean outside a project is [Workshop](WORKSHOP.md). This document describes them from
+The project header and the bar in it are drawn by the workshop shell over both of its routes,
+so what they mean outside a project is [Workshop](WORKSHOP.md). This document describes them from
 inside one.
 
 ## Goals
@@ -248,7 +248,7 @@ The screen has four regions.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│ ← →  ⌕ Workshop / Charizard Smolder X  v1.0.0   ⬓ ▷ Test  ⬚ Pack    ⋮  │
+│ ◆ Home Mods Workshop  ← → ⌕ Workshop / Charizard Smolder X  v1.0.0  ─□✕ │
 ├───┬────────────┬──────────────────────────────────┬────────────────────┤
 │ ▤ │ EXPLORER   │ ⧉ charizard_circle.tex  ×    ⬓   │ base           446 │
 │ ⌕ ├────────────┼──────────────────────────────────┼────────────────────┤
@@ -260,12 +260,15 @@ The screen has four regions.
 │   │ ▾ STRINGS 1│                                  ├────────────────────┤
 │ ⓘ │  default 1 │                                  │ INSPECTOR          │
 │ ▦ │            │                                  │ 14.1 KB · DDS      │
-└───┴────────────┴──────────────────────────────────┴────────────────────┘
+├───┴────────────┴──────────────────────────────────┴────────────────────┤
+│ ○ Patcher idle                                   ⬓ ▷ Test  ⬚ Pack    ⋮ │
+└────────────────────────────────────────────────────────────────────────┘
  rail   primary            editor surface               secondary
 ```
 
 1. The project header names the project and holds the actions that apply to the whole
-   project.
+   project. It has no row of its own. The bar is in the title bar and the actions are at the
+   end of the status row, per "Layout" in [Workshop](WORKSHOP.md).
 2. The rail is the column of views down the outer edge. It answers the question "where do I
    look?"
 3. The primary side panel holds the view the rail selected. It answers the question "what
@@ -274,8 +277,8 @@ The screen has four regions.
 5. The secondary side panel holds the file tree of the selected layer, and the inspector
    for the selected file. It answers the question "which file?"
 
-Regions 2 to 5 together are the **content browser**. The project header is above the content
-browser and is not part of it. The code uses the same name for the same region.
+Regions 2 to 5 together are the **content browser**. The project header is in the window's
+frame around the content browser and is not part of it. The code uses the same name for the same region.
 
 A user can hide each side panel. The layout control in the project header sets which side
 each panel takes, and which panel shows. The rail takes the same side as the primary panel
@@ -3762,15 +3765,26 @@ preview work.
 
 ### A node with several declarations
 
-A node's children belong to the path and not to any one file. A node one file declares carries
-that file in its source cell. A node several files declare carries `n files` there, a chip that
-lists the declaring files on hover and pins on a click. Each file in the list opens its own tab,
-`Ctrl` beside. The node's row opens the first declaration in archive order, and its expansion
+A node's children belong to the path and not to any one file, and a node is one row however
+many files declare it. The row stands for the declaration the project's sandbox resolves the
+object to: a layer's where a layer declares it, else the install's first in archive order. Its
+source cell names that file, its click opens it, and its thumbnail draws it. Its expansion
 holds the path children alone.
 
-A layer's declaration is one of the listed files, marked by its layer name the way the palette
-marks a layer row. A node the install declares and a layer overrides carries the layer name on
-the node row. A node only the project declares has no row. The tree's nodes are the install's.
+A node a layer declares carries the layer name on the row, the way the palette marks a layer
+row, whether or not the install declares it too.
+
+The row lists no files. The game's copy and the mod's are a choice of sandbox, and the other
+files declaring the object are a choice inside one, so both are in the object tab's
+[Sandbox options](BIN_EDITOR.md#the-sandbox).
+
+**A node only the project declares** has a row of its own, in the tree and the grid, with the
+layer's file as its one declaration and the layer name on the row. It sits where its path puts
+it: beside the install's objects under a prefix the install has, under a prefix of its own
+where the install has none, and in the `?` group where no table names it. Prefix counts take
+it. A folded prefix opens up where one of the project's objects branches off inside it. The
+rows appear once the index has answered which of the project's objects the install declares.
+Search still answers for the install's objects alone.
 
 ### What a row opens
 
@@ -3805,7 +3819,13 @@ with the `class:` term the palette takes. Ranking stays the palette's.
 ### Reveal in Objects
 
 An object tab's menu and an object block's menu open the view, expand the object's path and
-focus its row.
+focus its row. An object only the project declares is revealed the same way, on the row
+[A node with several declarations](#a-node-with-several-declarations) gives it.
+
+The view jumps to the object and does not animate, whatever the scrolling setting, since a
+tree of several hundred thousand rows is too far to scroll through. An object already in view
+stays where it is, and one out of view lands in the middle. The object is selected as well as
+focused. The same holds for the grid, and for every move the keyboard makes in either.
 
 ### The References document
 
@@ -3828,7 +3848,7 @@ chunk hash and a `string` of its path in any case match, and a chunk no table na
 by a `file` value alone. It runs on demand. A band under the header draws the bins read
 and the references found, with a Cancel that stops the walk before its next bin, and a
 cancelled walk keeps what it found and marks the header partial. The declaring files of an
-object are no query of their own, because the object tab's `n files` chip lists them.
+object are no query of their own, because the object tab's Sandbox options list them.
 
 #### The walk, measured
 
@@ -3878,7 +3898,7 @@ that Visual Studio Code uses.
 | The shell       | The two side panels, and the editor grid between them    | The application |
 | The editor grid | A split tree of editor surfaces, each with its own strip | The project     |
 
-The title bar and the project header stay fixed above both. A fixed shell keeps one route
+The title bar and the status row hold the project header, and stay fixed around both. A fixed shell keeps one route
 to every project action. A user who breaks a layout still finds Test, Pack and the way
 back to the project list.
 

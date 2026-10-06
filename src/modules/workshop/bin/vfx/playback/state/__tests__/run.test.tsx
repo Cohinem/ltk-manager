@@ -26,8 +26,11 @@ const SYSTEM = readVfxSystem({
   },
 });
 
+/** The system the document read returns, which a test replaces to stand for an edit. */
+let authored = SYSTEM;
+
 vi.mock("../../../hooks/useVfxSystem", () => ({
-  useVfxSystem: () => ({ system: SYSTEM, error: null, pending: false }),
+  useVfxSystem: () => ({ system: authored, error: null, pending: false }),
 }));
 
 const ASSET: AssetRef = { kind: "layer", project: "C:/mods/ahri", layer: "base", path: "ahri.bin" };
@@ -49,6 +52,7 @@ afterEach(() => {
   queued.clear();
   vi.unstubAllGlobals();
   useVfxRunMemoryStore.setState({ runs: {} });
+  authored = SYSTEM;
 });
 
 function Capture() {
@@ -148,6 +152,46 @@ describe("VfxRunProvider", () => {
 
     expect(run.rig.source.kind).toBe("custom");
     expect(run.looping).toBe(false);
+  });
+
+  it("replays to the phase when an edit or an undo changes the simulation while playing", () => {
+    const view = mount();
+    frames(0, 4);
+    expect(run.playing).toBe(true);
+    const phase = run.driver.phase;
+    const seek = vi.spyOn(run.driver, "seek");
+
+    authored = { ...SYSTEM, buildUpTime: 1 };
+    view.rerender(
+      <VfxRunProvider document={1} asset={ASSET} entry="0x1">
+        <Capture />
+      </VfxRunProvider>,
+    );
+    expect(seek).toHaveBeenCalledWith(phase);
+
+    seek.mockClear();
+    authored = { ...SYSTEM };
+    view.rerender(
+      <VfxRunProvider document={1} asset={ASSET} entry="0x1">
+        <Capture />
+      </VfxRunProvider>,
+    );
+    expect(seek).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not replay while playing when a re-read changes nothing the simulation reads", () => {
+    const view = mount();
+    frames(0, 4);
+    const seek = vi.spyOn(run.driver, "seek");
+
+    authored = { ...SYSTEM };
+    view.rerender(
+      <VfxRunProvider document={1} asset={ASSET} entry="0x1">
+        <Capture />
+      </VfxRunProvider>,
+    );
+
+    expect(seek).not.toHaveBeenCalled();
   });
 
   it("pauses at the end of its span with the loop off, and plays from zero on Play", () => {

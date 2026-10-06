@@ -1,7 +1,7 @@
 import { SparkleIcon } from "@phosphor-icons/react";
 import { use } from "react";
 
-import { IconButton, Menu, Tooltip } from "@/components";
+import { Menu } from "@/components";
 import { m } from "@/i18n";
 import type { VfxTemplate, VfxTemplateKind } from "@/lib/tauri";
 
@@ -62,7 +62,10 @@ export function useTemplateChoices(
   }));
 }
 
-/** The Graph menu's Add from template submenu, which lands after `place.after` or last. */
+/**
+ * The Add from template submenu of the Graph menu and of the inspector's Emitter menu, which
+ * lands after `place.after` or last.
+ */
 export function TemplateSubmenu({ place }: { place: TemplatePlace }) {
   const emitters = useVfxTemplates("emitter");
   const systems = useVfxTemplates("system");
@@ -78,26 +81,6 @@ export function TemplateSubmenu({ place }: { place: TemplatePlace }) {
         <TemplateGroups emitters={emitters} systems={systems} onPick={land} />
       </Menu.SubmenuContent>
     </Menu.SubmenuRoot>
-  );
-}
-
-/** The inspector's Add from template button, whose menu lands after `place.after`. */
-export function TemplateMenuButton({ place }: { place: TemplatePlace }) {
-  const emitters = useVfxTemplates("emitter");
-  const systems = useVfxTemplates("system");
-  const land = useLand(place);
-  if (land === null || emitters.length + systems.length === 0) return null;
-
-  const label = m.workshop_bin_emitter_template_action();
-  return (
-    <Menu.Root>
-      <Tooltip content={label}>
-        <Menu.Trigger render={<IconButton size="sm" aria-label={label} icon={<SparkleIcon />} />} />
-      </Tooltip>
-      <Menu.Content data-ui="TemplateMenuButton" className={POPUP}>
-        <TemplateGroups emitters={emitters} systems={systems} onPick={land} />
-      </Menu.Content>
-    </Menu.Root>
   );
 }
 

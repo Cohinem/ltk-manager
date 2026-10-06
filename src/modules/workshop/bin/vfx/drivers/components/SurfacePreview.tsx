@@ -29,7 +29,6 @@ import { drawsAsBeam, drawsAsMesh, drawsAsTrail } from "../../rendering/utils/dr
 import { paletteScrollInto } from "../../rendering/utils/palette";
 import type { UvDraw } from "../../rendering/utils/uvTransform";
 import { useBackdropColor, useBackdropCss } from "../state/previewBackdrop";
-import { EMITTER_PREVIEW_SIZE, NODE_PREVIEW_SIZE } from "../utils/driverLayout";
 import { watchFailure } from "../utils/frameGuard";
 import { emitterOf } from "../utils/graphEmitter";
 import type { FileItem, StructItem } from "../utils/graphItems";
@@ -84,14 +83,14 @@ const MULT_CLASS = nameHash("VfxTextureMultDefinitionData");
 const MAGNIFY = 8;
 
 /** The texture width a surface asks for, twice the larger square for a sharp high-DPI draw. */
-const TEXTURE_WIDTH = NODE_PREVIEW_SIZE * 2;
+const TEXTURE_WIDTH = 512;
 
 /** The chance a random value is drawn at while the timeline pins none: the middle of its range. */
 const MIDDLE_CHANCE = 0.5;
 
 /* DS-GROUND, DS-RADIUS */
 const BOX =
-  "my-1 flex shrink-0 flex-col self-center overflow-hidden rounded-md border border-surface-veil bg-surface-950";
+  "mx-2 my-1 flex shrink-0 flex-col self-stretch overflow-hidden rounded-md border border-surface-veil bg-surface-950";
 
 /** The texture layers a surface shows: both multiplied, or one alone. */
 export type Shown = "both" | "base" | "mult";
@@ -135,18 +134,18 @@ interface LifeBar {
 export function EmitterSurface({
   simple,
   listIndex,
-  fluid = false,
+  square = false,
 }: {
   simple: boolean;
   listIndex: number;
-  /** The box fills its container's width and draws a square, rather than the node's fixed size. */
-  fluid?: boolean;
+  /** The box is a square as wide as its container, outside a node, which gives no height. */
+  square?: boolean;
 }) {
   const system = use(VfxRunContext)?.system ?? null;
   const emitter = system?.emitters.find(
     (each) => each.simple === simple && each.listIndex === listIndex,
   );
-  return <SurfaceBox emitter={emitter} size={fluid ? null : EMITTER_PREVIEW_SIZE} />;
+  return <SurfaceBox emitter={emitter} square={square} />;
 }
 
 /** A struct node's picture: its file, or for a class of `SURFACED` its emitter's surface. */
@@ -160,7 +159,6 @@ export function StructPicture({ item, picture }: { item: StructItem; picture: Fi
   return (
     <SurfaceBox
       emitter={emitter}
-      size={NODE_PREVIEW_SIZE}
       magnify={item.classHash === DISTORTION_CLASS}
       only={item.classHash === MULT_CLASS ? "mult" : undefined}
     />
@@ -169,18 +167,18 @@ export function StructPicture({ item, picture }: { item: StructItem; picture: Fi
 
 /** One texture layer of `emitter`'s surface alone, for the node that names that layer. */
 export function LayerSurface({ emitter, only }: { emitter: EmitterModel; only: "base" | "mult" }) {
-  return <SurfaceBox emitter={emitter} size={NODE_PREVIEW_SIZE} only={only} />;
+  return <SurfaceBox emitter={emitter} only={only} />;
 }
 
 function SurfaceBox({
   emitter,
-  size,
+  square = false,
   magnify = false,
   only,
 }: {
   emitter: EmitterModel | undefined;
-  /** The box's side in pixels, and null for a box as wide as its container, drawing a square. */
-  size: number | null;
+  /** A square as wide as its container, in place of a node's `--preview-height`. */
+  square?: boolean;
   /** Whether the warp opens magnified, which the Distortion node's own preview does. */
   magnify?: boolean;
   /** The one layer shown, with no switch, for a node that names that layer. */
@@ -202,12 +200,10 @@ function SurfaceBox({
 
   return (
     <div
-      className={twMerge(BOX, size === null && "my-0 w-full")}
-      style={size === null ? { background } : { width: size, height: size, background }}
+      className={twMerge(BOX, square ? "mx-0 my-0 w-full" : "h-(--preview-height)")}
+      style={{ background }}
     >
-      <PreviewView
-        className={twMerge("min-h-0 w-full", size === null ? "aspect-square" : "flex-1")}
-      >
+      <PreviewView className={twMerge("min-h-0 w-full", square ? "aspect-square" : "flex-1")}>
         {emitter !== undefined && live && (
           <>
             {drawsAsTrail(emitter) ? (

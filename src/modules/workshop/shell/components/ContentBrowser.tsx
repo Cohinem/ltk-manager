@@ -222,7 +222,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
     <div
       data-ui="ContentBrowser"
       /* DS-GROUND: the gaps between islands are the ground, as the gaps between panes are. */
-      className="relative flex h-full min-h-0 bg-surface-950 px-1.5 pb-1.5"
+      className="relative flex h-full min-h-0 bg-surface-950 p-1.5"
     >
       {/* Outside the Group the panel is a share of, because the rail answers for
           the project rather than for the panel and stays while that panel is hidden. */}

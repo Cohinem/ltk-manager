@@ -4,6 +4,7 @@ import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
+import { ChromePortal } from "@/components";
 import type { Incident, LaunchProgress, OverlayProgress, PatcherPhase } from "@/lib/tauri";
 import { usePatcherStatus } from "@/modules/patcher";
 import { useIncidentLineStore, usePatcherFailureStore, usePlaySessionStore } from "@/stores";
@@ -216,6 +217,41 @@ describe("SessionBar", () => {
     await waitFor(() => {
       expect(container.textContent).toBe("phase-probe");
     });
+  });
+
+  it("draws for a page's own actions where the patcher is unavailable", async () => {
+    mockPatcher("idle", false);
+    renderWithProviders(
+      <>
+        <PhaseProbe />
+        <SessionBar />
+        <ChromePortal slot="status">
+          <button type="button">Pack</button>
+        </ChromePortal>
+      </>,
+    );
+
+    await screen.findByTestId("phase-idle");
+    expect(await screen.findByRole("button", { name: "Pack" })).toBeInTheDocument();
+    expect(screen.queryByText("Patcher idle")).toBeNull();
+  });
+
+  it("draws a page's own actions after the session's line", async () => {
+    mockPatcher("idle");
+    renderWithProviders(
+      <>
+        <PhaseProbe />
+        <SessionBar />
+        <ChromePortal slot="status">
+          <button type="button">Pack</button>
+        </ChromePortal>
+      </>,
+    );
+
+    const line = await screen.findByText("Patcher idle");
+    const action = await screen.findByRole("button", { name: "Pack" });
+
+    expect(line.compareDocumentPosition(action) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows the build stage and its counts while the overlay is building", async () => {

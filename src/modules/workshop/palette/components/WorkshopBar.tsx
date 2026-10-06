@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { Badge, Kbd } from "@/components";
+import { Badge, ChromePortal, Kbd } from "@/components";
 import { useClickOutside } from "@/hooks";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
@@ -27,6 +27,7 @@ import { usePaletteRevealTarget } from "../state/paletteReveal";
 import { type BarIntent, barMode, barPlaceholder } from "../utils/barMode";
 import { prefixScope } from "../utils/sources";
 import type { PaletteSourceId } from "../utils/types";
+import { NavigationArrows } from "./NavigationArrows";
 import { ProjectPalette } from "./ProjectPalette";
 import { useOpenProject } from "./projectRows";
 import type { PaletteBranchProps } from "./ResultsPalette";
@@ -36,7 +37,8 @@ const BOX =
   "flex size-full items-center gap-1.5 rounded-md border bg-surface-900 pl-2.5 transition-colors";
 
 /**
- * The header's middle: where you are, and the route to everything in front of you.
+ * The workshop's bar, drawn in the title bar's middle behind the history arrows: where you
+ * are, and the route to everything in front of you.
  *
  * Per "The bar" in `docs/ux/WORKSHOP.md`.
  */
@@ -216,59 +218,58 @@ export function WorkshopBar() {
 
   return (
     <>
-      {/* Positioned against `main`, the one positioned ancestor above this, so
-          the scrim covers the editor and leaves the title bar alone. */}
+      {/* Drawn here rather than beside the box, so it is positioned against `main`,
+          covers the editor and leaves the title bar alone. */}
       {mode === "palette" && (
-        <div
-          role="presentation"
-          data-no-drag
-          className="absolute inset-0 z-40 bg-scrim"
-          onMouseDown={close}
-        />
+        <div role="presentation" className="absolute inset-0 z-40 bg-scrim" onMouseDown={close} />
       )}
 
       {project && <ProjectKeys />}
 
-      {/* The cap is what stops a window twice as wide handing over a search box
-          twice as wide, and the floor is where the box stops being one worth
-          typing into. Between them the width is a claim on the free space rather
-          than a basis, because a row breaks its lines on the basis: at 45rem the
-          workshop's controls wrapped to a second line before the bar had shrunk
-          by a pixel. Claimed first, behind a grow of 1 on each side, the bar
-          reaches its cap wherever the row can spare it and hands width back to a
-          side needing more than its share. */}
-      <div
-        ref={boxRef}
-        data-ui="WorkshopBar"
-        className="relative h-8 max-w-[45rem] min-w-[14rem] grow-[999] basis-0"
-      >
-        {mode === "idle" && (
-          <IdleBar
-            ref={triggerRef}
-            onOpen={() => openWith(null)}
-            onFilterOpenChange={setFilterOpen}
-          />
-        )}
+      <ChromePortal slot="title">
+        {/* The cap stops a wide window handing over a search box as wide. Under it the
+            width is a claim on the free space, taken ahead of the title bar's two
+            sides, which is what centres the row between them. */}
+        <div
+          data-ui="WorkshopBar:row"
+          className="flex h-full max-w-[48rem] min-w-0 grow-[999] basis-0 items-center gap-1 px-3"
+        >
+          <NavigationArrows />
 
-        {mode === "filter" && (
-          <FilterBox
-            ref={filterRef}
-            value={searchQuery}
-            placeholder={barPlaceholder(mode, false, scope)}
-            onChange={handleFilterChange}
-            onKeyDown={handleFilterKeyDown}
-            onFilterOpenChange={setFilterOpen}
-          />
-        )}
+          <div
+            ref={boxRef}
+            data-ui="WorkshopBar"
+            className="@container relative h-7 min-w-0 flex-1"
+          >
+            {mode === "idle" && (
+              <IdleBar
+                ref={triggerRef}
+                onOpen={() => openWith(null)}
+                onFilterOpenChange={setFilterOpen}
+              />
+            )}
 
-        {/* The toolbar above is a drag region, which takes an unmarked press
-            inside it as a window drag rather than as a scroll. */}
-        {mode === "palette" && (
-          <div data-no-drag className="absolute inset-x-0 top-0 z-50">
-            <PaletteBranch {...branch} />
+            {mode === "filter" && (
+              <FilterBox
+                ref={filterRef}
+                value={searchQuery}
+                placeholder={barPlaceholder(mode, false, scope)}
+                onChange={handleFilterChange}
+                onKeyDown={handleFilterKeyDown}
+                onFilterOpenChange={setFilterOpen}
+              />
+            )}
+
+            {/* The title bar is a drag region, which takes an unmarked press inside it
+                as a window drag rather than as a scroll. */}
+            {mode === "palette" && (
+              <div data-no-drag className="absolute inset-x-0 top-0 z-50">
+                <PaletteBranch {...branch} />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      </ChromePortal>
     </>
   );
 }
@@ -341,7 +342,7 @@ function IdleBar({ onOpen, onFilterOpenChange, ref }: IdleBarProps) {
 
       <BarTag />
       <BarFilter onOpenChange={onFilterOpenChange} />
-      <Kbd shortcut="Ctrl+P" className="shrink-0 opacity-60" />
+      <Kbd shortcut="Ctrl+P" className="shrink-0 opacity-60 @max-[20rem]:hidden" />
     </div>
   );
 }
@@ -417,7 +418,7 @@ function ProjectCount() {
 
 function Tag({ children }: { children: ReactNode }) {
   return (
-    <Badge size="md" className="shrink-0">
+    <Badge size="md" className="shrink-0 @max-[14rem]:hidden">
       {children}
     </Badge>
   );

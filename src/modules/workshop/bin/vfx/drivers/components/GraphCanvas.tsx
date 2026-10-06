@@ -3,7 +3,6 @@ import "@xyflow/react/dist/base.css";
 import {
   Background,
   BackgroundVariant,
-  MiniMap,
   type NodeChange,
   type NodeTypes,
   ReactFlow,
@@ -26,13 +25,13 @@ import {
 } from "react";
 
 import { ContextMenu } from "@/components";
-import { m } from "@/i18n";
 
 import { runEmitterKey } from "../../clipboard/emitterKeys";
 import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
+import { BoardMotion } from "../utils/boardMotion";
 import type { GraphLayout } from "../utils/driverLayout";
 import { chainThrough, reach } from "../utils/graphChain";
-import { CANVAS_TONE, itemHue } from "../utils/graphTones";
+import { CANVAS_TONE } from "../utils/graphTones";
 import { PreviewViewStore } from "../utils/previewViews";
 import type { GraphItem } from "../utils/systemGraph";
 import { CONNECTION_PROPS, useCanvasAdds } from "./canvasAdds";
@@ -53,10 +52,19 @@ import {
   SolePickContext,
 } from "./graphActions";
 import { GraphControls } from "./GraphControls";
-import { changesOverTime, fadeRule, keptEdges, useLanes } from "./graphEdges";
+import {
+  changesOverTime,
+  type EdgeCache,
+  edgeRule,
+  fadeRule,
+  keptEdges,
+  useLanes,
+} from "./graphEdges";
 import { GraphMenu } from "./GraphMenu";
+import { GraphMinimap } from "./GraphMinimap";
 import { DriverNodeView, EmitterNodeView, PreviewNodeView } from "./GraphNodes";
 import { runNodeKey, useNodeStructure } from "./nodeStructure";
+import { BoardMotionContext } from "./onScreen";
 import { PreviewViewsContext } from "./PreviewView";
 import { QuickAdd } from "./QuickAdd";
 import { RenderNodeView } from "./RenderNode";
@@ -104,11 +112,14 @@ interface GraphCanvasProps {
  */
 export function GraphCanvas(props: GraphCanvasProps) {
   const [views] = useState(() => new PreviewViewStore());
+  const [motion] = useState(() => new BoardMotion());
 
   return (
     <ReactFlowProvider>
       <PreviewViewsContext value={views}>
-        <Canvas {...props} />
+        <BoardMotionContext value={motion}>
+          <Canvas {...props} />
+        </BoardMotionContext>
       </PreviewViewsContext>
     </ReactFlowProvider>
   );
@@ -123,6 +134,9 @@ function Canvas({
 }: GraphCanvasProps) {
   const actions = use(GraphActionsContext);
   const flow = useReactFlow();
+  const motion = use(BoardMotionContext);
+  /* Stable, since React Flow writes a new handler into its store and wakes every subscriber. */
+  const onMove = useCallback(() => motion?.touch(), [motion]);
   const placedNodes = useMemo(() => layoutNodes(layout), [layout]);
   const [nodes, setNodes, onNodesChange] = useNodesState<CanvasNode>(placedNodes);
   /* Where the reader dragged nodes, which a fold's new layout keeps until Reset layout. */
@@ -241,18 +255,19 @@ function Canvas({
       new Set(layout.items.filter(({ item }) => changesOverTime(item)).map(({ item }) => item.id)),
     [layout],
   );
+  const [edgeCache] = useState<EdgeCache>(() => new Map());
   const edges = useMemo(
     () =>
-      keptEdges(layout.edges, (edge) => {
-        const lit = focusChain?.edges.has(edge.id) ?? false;
-        return {
-          lit,
-          faded: focusChain !== null && !lit,
-          animated: dynamic.has(edge.source),
-          lane: lanes.get(edge.id),
-        };
-      }),
-    [layout, focusChain, lanes, dynamic],
+      keptEdges(edgeCache, layout.edges, (edge) => ({
+        animated: dynamic.has(edge.source),
+        lane: lanes.get(edge.id),
+      })),
+    [edgeCache, layout, lanes, dynamic],
+  );
+  /* The focus is a rule over the edges, so a hover leaves `edges` and every edge as they are. */
+  const wires = useMemo(
+    () => edgeRule(scope, focusChain?.edges ?? null, layout.edges.length),
+    [scope, focusChain, layout],
   );
 
   const reportHover = useHoverReport();
@@ -338,6 +353,7 @@ function Canvas({
                     if (event.key === "Escape") selectAll(false);
                   }}
                 >
+                  <style>{wires}</style>
                   {fade !== null && <style>{fade}</style>}
                   <ReactFlow
                     id={scope}
@@ -354,6 +370,7 @@ function Canvas({
                     onNodeMouseLeave={onNodeMouseLeave}
                     onNodeDoubleClick={onNodeDoubleClick}
                     onNodeContextMenu={onNodeContextMenu}
+                    onMove={onMove}
                     {...CONNECTION_PROPS}
                     onConnectEnd={adds.onConnectEnd}
                     deleteKeyCode={null}
@@ -382,16 +399,7 @@ function Canvas({
                       looped={looped}
                       onLoopedChange={setLooped}
                     />
-                    <MiniMap
-                      pannable
-                      zoomable
-                      ariaLabel={m.workshop_bin_graph_minimap_label()}
-                      nodeColor={minimapColor}
-                      nodeBorderRadius={4}
-                      bgColor={CANVAS_TONE.minimap}
-                      maskColor={CANVAS_TONE.mask}
-                      className="overflow-hidden rounded-lg border border-surface-veil-strong"
-                    />
+                    <GraphMinimap />
                   </ReactFlow>
                   {adds.quick !== null && (
                     <QuickAdd at={adds.quick} masters={adds.masters} onClose={adds.close} />
@@ -415,10 +423,6 @@ function Canvas({
 }
 
 const PRO_OPTIONS = { hideAttribution: true } as const;
-
-function minimapColor(node: CanvasNode): string {
-  return node.type === "frame" ? "transparent" : itemHue(node.data.placed.item);
-}
 
 /** The buttons a drag on empty canvas pans with: the primary and the middle. */
 const PAN_BUTTONS = [0, 1];

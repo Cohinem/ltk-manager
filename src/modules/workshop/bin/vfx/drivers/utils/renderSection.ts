@@ -4,7 +4,7 @@ import {
   fieldGroup,
   TEXTURE_EFFECT_FIELDS,
 } from "../../inspector/utils/emitterGroups";
-import type { FileItem, InputItem, RenderItem } from "./graphItems";
+import type { FileItem, InputItem, MasterItem, RenderItem } from "./graphItems";
 
 /**
  * Which component node gathers a field of the emitter: the Texture node or the Geometry node.
@@ -72,6 +72,14 @@ export function masterGroup(hash: string): EmitterGroup {
 export function componentOf(group: EmitterGroup): ComponentRole | null {
   if (group === RENDER_GROUP) return "texture";
   if (group === GEOMETRY_GROUP) return "geometry";
+  return null;
+}
+
+/** The component node a master group's input connects, and null for a group the master keeps. */
+export function componentInput(item: MasterItem, group: EmitterGroup): RenderItem | null {
+  const role = componentOf(group);
+  if (role === "texture") return item.render;
+  if (role === "geometry") return item.geometry;
   return null;
 }
 

@@ -1,14 +1,10 @@
-import {
-  elementScroll,
-  useVirtualizer,
-  type VirtualItem,
-  type Virtualizer,
-} from "@tanstack/react-virtual";
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import { type RefObject, useCallback, useEffect, useMemo } from "react";
 
 import { useZoomedPx } from "@/hooks";
 import { measureRow } from "@/utils";
 
+import { instantScroll } from "../../../shared/utils/instantScroll";
 import { ROW_HEIGHT } from "../components/BinRow";
 import type { VisibleRow } from "../utils/binRows";
 
@@ -29,24 +25,6 @@ export interface RowWindow {
    * contains no such line.
    */
   readonly scrollToKey: (key: string, align?: "start" | "auto") => boolean;
-}
-
-/**
- * The virtualizer's element scroll, instant unless its caller asks for smooth.
- *
- * The app's `scroll-behavior: smooth` animates a plain `scrollTo`. A reveal re-aims on every
- * frame a row measures, and each re-aim restarts that animation.
- */
-export function instantScroll(
-  offset: number,
-  { adjustments, behavior }: { adjustments?: number; behavior?: ScrollBehavior },
-  instance: Virtualizer<HTMLDivElement, Element>,
-): void {
-  elementScroll(
-    offset,
-    { adjustments, behavior: behavior === "smooth" ? "smooth" : "instant" },
-    instance,
-  );
 }
 
 /**

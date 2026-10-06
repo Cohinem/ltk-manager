@@ -10,7 +10,16 @@ import { useNavigate } from "@tanstack/react-router";
 import { lazy, type ReactNode, Suspense, useEffect } from "react";
 import { match } from "ts-pattern";
 
-import { Badge, Button, IconButton, ProgressBar, Spinner, Tooltip } from "@/components";
+import {
+  Badge,
+  Button,
+  ChromeSlot,
+  IconButton,
+  ProgressBar,
+  Spinner,
+  Tooltip,
+  useChromeSlotFilled,
+} from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import type { Incident, VerdictKind } from "@/lib/tauri";
 import {
@@ -76,7 +85,8 @@ function BorderShimmer() {
 }
 
 /**
- * The bar itself: its chrome, and the two regions every state fills.
+ * The bar itself: its chrome, the two regions every state fills, and the slot a page
+ * draws its own actions in.
  *
  * Per "The status bar item" in docs/ux/MOD_HEALTH.md. The activity region is
  * whichever line has the news, and it supersedes itself as the session moves.
@@ -85,13 +95,14 @@ function BorderShimmer() {
  */
 function Bar({ working, children }: { working?: boolean; children?: ReactNode }) {
   return (
-    <div className="relative flex shrink-0 items-stretch bg-surface-950 px-2 py-1 select-none">
+    <div className="relative flex shrink-0 items-stretch gap-2 bg-surface-950 px-2 py-1 select-none">
       {working && (
         <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-accent-500" />
       )}
       {working && <BorderShimmer />}
       <div className="min-w-0 flex-1">{children}</div>
       <ModHealthStatusItem />
+      <ChromeSlot name="status" />
     </div>
   );
 }
@@ -334,6 +345,7 @@ export function SessionBar() {
   const clearFailure = usePatcherFailureStore((s) => s.clear);
   const { data: platform } = usePlatformSupport();
   const broken = useHealthVerdicts({ health: "broken" });
+  const pageActions = useChromeSlotFilled("status");
   const phase = patcherStatus?.phase ?? "idle";
 
   // A build that starts is the user trying again, and the start that failed
@@ -357,7 +369,10 @@ export function SessionBar() {
   });
 
   return match(view)
-    .with({ kind: "hidden" }, () => null)
+    .with({ kind: "hidden" }, () => {
+      if (!pageActions) return null;
+      return <Bar />;
+    })
     .with({ kind: "itemsOnly" }, () => <Bar />)
     .with({ kind: "stopping" }, () => (
       <RestingLine>

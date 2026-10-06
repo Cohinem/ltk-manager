@@ -5,6 +5,7 @@ import type { ComponentProps } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { nameHash } from "../../../bin/shared/utils/binHash";
+import { useObjectsBrowserStore } from "../../state/objectsBrowser";
 import {
   EMPTY_OUTCOME,
   FAILED_OUTCOME,
@@ -285,21 +286,28 @@ it("offers no expand button while thumbnails are off", () => {
   expect(screen.queryByRole("button", { name: "Large preview" })).toBeNull();
 });
 
-it("scrolls and focuses a revealed tile without opening it, including a repeated reveal", async () => {
-  state.width = 300;
+it("jumps to a tile not drawn yet, selects and focuses it without opening it, and answers a repeated reveal", async () => {
+  /* happy-dom lays nothing out, and a reveal waits for a view with a height. */
+  const box = new DOMRect(0, 0, 300, 400);
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(box);
   const settled = vi.fn();
-  const { rerender } = render(
-    grid({ thumbnails: false, reveal: { id: nodes[1]!.id, token: 1 }, onRevealed: settled }),
-  );
+  const reveal = (token: number) =>
+    grid({ thumbnails: false, reveal: { id: nodes[1]!.id, token }, onRevealed: settled });
+  const { rerender } = render(reveal(1));
+  await wait(40);
+  expect(state.virtualizer.scrollToIndex).toHaveBeenCalledWith(1, { align: "center" });
+  expect(settled).not.toHaveBeenCalled();
+
+  state.row = 1;
+  rerender(reveal(1));
   await wait(40);
   const tile = tileOf("Second effect");
   expect(tile).toHaveFocus();
+  expect(useObjectsBrowserStore.getState().selected?.path).toBe(nodes[1]!.id);
   expect(settled).toHaveBeenCalledWith(1);
   expect(state.open).not.toHaveBeenCalled();
 
-  rerender(
-    grid({ thumbnails: false, reveal: { id: nodes[1]!.id, token: 2 }, onRevealed: settled }),
-  );
+  rerender(reveal(2));
   await wait(40);
   expect(settled).toHaveBeenLastCalledWith(2);
   expect(tile).toHaveFocus();

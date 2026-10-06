@@ -16,23 +16,26 @@ import { PrimitivePreview } from "../../inspector/components/PrimitivePreview";
 import { VfxRunContext } from "../../playback/state/run";
 import { useMeshGeometry } from "../../rendering/hooks/useMeshGeometry";
 import { useBackdropColor } from "../state/previewBackdrop";
-import { NODE_PREVIEW_SIZE, PRIMITIVE_PREVIEW } from "../utils/driverLayout";
+import { PRIMITIVE_PREVIEW } from "../utils/driverLayout";
 import { emitterOf } from "../utils/graphEmitter";
 import type { FileItem } from "../utils/graphItems";
 import { PreviewView } from "./PreviewView";
 
-/** The texture width a node's picture asks for, twice its square for a sharp high-DPI draw. */
-const PICTURE_WIDTH = NODE_PREVIEW_SIZE * 2;
+/** The texture width a node's picture asks for. */
+const PICTURE_WIDTH = 512;
 
 const FOV = 35;
 
 /** How fast a 3D preview turns, in radians a second. */
 const SPIN = 0.4;
 
-/* DS-GROUND, DS-RADIUS */
+/**
+ * A node's preview box: as wide as the node inside its 8px margins, and as tall as
+ * `--preview-height`, which `NodeFrame` sets from the layout's `previewHeight`.
+ * DS-GROUND, DS-RADIUS.
+ */
 export const NODE_BOX =
-  "my-1 shrink-0 self-center overflow-hidden rounded-md border border-surface-veil bg-surface-950";
-const BOX_STYLE = { width: NODE_PREVIEW_SIZE, height: NODE_PREVIEW_SIZE } as const;
+  "mx-2 my-1 h-(--preview-height) shrink-0 self-stretch overflow-hidden rounded-md border border-surface-veil bg-surface-950";
 
 /** What a file node shows of its file: a texture's picture, a mesh turning, or a note. */
 export function FilePreview({ item }: { item: FileItem }) {
@@ -44,13 +47,13 @@ export function FilePreview({ item }: { item: FileItem }) {
 
 function Note({ text }: { text: string }) {
   return (
-    <div className={twMerge(NODE_BOX, "flex items-center justify-center p-4")} style={BOX_STYLE}>
+    <div className={twMerge(NODE_BOX, "flex items-center justify-center p-4")}>
       <span className="text-center text-meta text-surface-400">{text}</span>
     </div>
   );
 }
 
-/** A texture fitted into the square over the checkerboard, so an alpha reads as one. */
+/** A texture fitted into the box over the checkerboard, so an alpha reads as one. */
 function TexturePicture({ asset }: { asset: AssetRef }) {
   const url = usePreviewUrl(asset, PICTURE_WIDTH);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
@@ -61,10 +64,7 @@ function TexturePicture({ asset }: { asset: AssetRef }) {
   if (failedUrl === url) return <Note text={m.workshop_bin_graph_file_unpreviewed_label()} />;
 
   return (
-    <div
-      className={twMerge(NODE_BOX, CHECKERBOARD, "[background-size:16px_16px]")}
-      style={BOX_STYLE}
-    >
+    <div className={twMerge(NODE_BOX, CHECKERBOARD, "[background-size:16px_16px]")}>
       {slot.src !== undefined && (
         <img
           src={slot.src}
@@ -85,7 +85,7 @@ function TexturePicture({ asset }: { asset: AssetRef }) {
 /** A mesh file at rest, turning, drawn by the emitter previews' canvas. */
 function MeshPreview({ asset, path }: { asset: AssetRef; path: string }) {
   return (
-    <PreviewView className={NODE_BOX} style={BOX_STYLE}>
+    <PreviewView className={NODE_BOX}>
       <MeshScene asset={asset} path={path} />
     </PreviewView>
   );

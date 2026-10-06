@@ -39,6 +39,7 @@ export const MESH: MeshGeometry = {
   uvs: null,
   skinIndices: new Uint8Array(12),
   skinWeights: Float32Array.of(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0),
+  colors: null,
   indices: Uint32Array.of(0, 1, 2),
   ranges: [],
 };

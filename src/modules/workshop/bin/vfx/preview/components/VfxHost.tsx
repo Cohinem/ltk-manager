@@ -1,10 +1,10 @@
 import { useFrame } from "@react-three/fiber";
-import { queryOptions, useQueries, useQuery } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { queryOptions, skipToken, useQueries, useQuery } from "@tanstack/react-query";
+import { type ReactNode, use, useEffect, useMemo } from "react";
 
 import { Select } from "@/components";
 import { m } from "@/i18n";
-import { api, type AssetRef, type GraphClip } from "@/lib/tauri";
+import { api, type AssetRef, type BinRow, type GraphClip } from "@/lib/tauri";
 import {
   Character,
   createPose,
@@ -19,12 +19,57 @@ import { queryFnWithArgs } from "@/utils/query";
 import { nameHash } from "../../../shared/utils/binHash";
 import { skinQueries } from "../../../skin/api/skinQueries";
 import { bindingOf, playableClips, playlistOf, textureAssets } from "../../../skin/utils/skinScene";
-import { useVfxRun } from "../../playback/state/run";
+import { useVfxRun, VfxRunContext } from "../../playback/state/run";
 import { takeHandedHost, useHandedRigStore } from "../../playback/state/vfxRunMemory";
+import { chooseHost, hostKey, useHostChoice } from "../state/hostChoice";
 
 const NO_CLIPS: readonly GraphClip[] = [];
 const NO_TEXTURES: ReadonlyMap<string, AssetRef> = new Map();
 const SKIN = nameHash("SkinCharacterDataProperties");
+
+const NO_SKINS: readonly BinRow[] = [];
+
+/**
+ * The skins of the open document that can host a particle preview, and the chosen one.
+ *
+ * The viewport and the inspector both call it. Outside a run it returns no skin.
+ */
+export function useHostSkin() {
+  const run = use(VfxRunContext);
+  const document = run?.document ?? null;
+  const key = run === null ? "" : hostKey(run.document, run.entry);
+  const choice = useHostChoice(key);
+  const roots = useQuery(
+    queryOptions({
+      queryKey: ["bin-file-roots", document],
+      queryFn: document === null ? skipToken : queryFnWithArgs(api.bin.roots, document),
+      staleTime: Infinity,
+    }),
+  );
+  const skins = useMemo(
+    () =>
+      (roots.data ?? NO_SKINS).filter(
+        (row) => row.value.type === "struct" && row.value.classHash === SKIN,
+      ),
+    [roots.data],
+  );
+  const entry = skins.some((row) => row.entry === choice.skin) ? choice.skin : "";
+  const skin = useQuery({
+    ...skinQueries.skin(document ?? 0, entry),
+    enabled: document !== null && entry !== "",
+  });
+
+  return {
+    key,
+    skins,
+    selected: entry,
+    /** The chosen skin's name. Null for no character. */
+    name: skins.find((row) => row.entry === entry)?.name ?? null,
+    animation: choice.clip,
+    offset: choice.offset,
+    model: entry === "" ? undefined : skin.data,
+  };
+}
 
 /**
  * A skin and its selected clip, loaded from the open particle document.
@@ -34,9 +79,7 @@ const SKIN = nameHash("SkinCharacterDataProperties");
  */
 export function useVfxHost() {
   const { document, entry: system } = useVfxRun();
-  const [selected, setSelected] = useState("");
-  const [animation, setAnimation] = useState("");
-  const [offset, setOffset] = useState(0);
+  const { key, skins, selected: entry, animation, offset, model } = useHostSkin();
   const handed = useHandedRigStore((state) => state.hosts[system.toLowerCase()] ?? null);
   useEffect(() => {
     if (handed === null) return;
@@ -44,23 +87,8 @@ export function useVfxHost() {
     const taken = takeHandedHost(system);
     if (taken === null) return;
 
-    setSelected(taken.skin);
-    setAnimation(taken.clip);
-    setOffset(taken.offset);
-  }, [handed, system]);
-  const roots = useQuery(
-    queryOptions({
-      queryKey: ["bin-file-roots", document],
-      queryFn: queryFnWithArgs(api.bin.roots, document),
-      staleTime: Infinity,
-    }),
-  );
-  const skins = (roots.data ?? []).filter(
-    (row) => row.value.type === "struct" && row.value.classHash === SKIN,
-  );
-  const entry = skins.some((row) => row.entry === selected) ? selected : "";
-  const skin = useQuery({ ...skinQueries.skin(document, entry), enabled: entry !== "" });
-  const model = entry === "" ? undefined : skin.data;
+    chooseHost(key, { skin: taken.skin, clip: taken.clip, offset: taken.offset });
+  }, [handed, system, key]);
 
   const graph = useQuery(skinQueries.graph(document, model?.animationGraph ?? null));
   const clips = graph.data?.clips ?? NO_CLIPS;
@@ -93,13 +121,10 @@ export function useVfxHost() {
   return {
     skins,
     selected: entry,
-    setSelected: (next: string) => {
-      setSelected(next);
-      setOffset(0);
-    },
+    setSelected: (next: string) => chooseHost(key, { skin: next, offset: 0 }),
     offset,
     animation,
-    setAnimation,
+    setAnimation: (next: string) => chooseHost(key, { clip: next }),
     playable,
     model,
     mesh: mesh.data,

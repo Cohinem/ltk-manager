@@ -28,5 +28,5 @@ it("shares identities and declaration order across tree and grid without loading
   const grid = objectListingNodes(listing, layers);
   const tree = buildObjectTree(new Map([["", listing]]), () => false, layers);
   expect(grid).toEqual(tree);
-  expect(grid[1]).toMatchObject({ declarations: [first, override], count: 1, children: [] });
+  expect(grid[1]).toMatchObject({ declarations: [override, first], count: 1, children: [] });
 });

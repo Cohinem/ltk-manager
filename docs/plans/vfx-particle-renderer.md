@@ -108,6 +108,12 @@ new definition.
 This is the shape of the engine's own override table: a value is transformed in place at
 evaluation time, and the particle pool is not consulted.
 
+The driver's `swap` follows this rule and reports whether the new definition changes a field the
+simulation reads. The owner of a run that the reader watches, the shell's run and
+`useParticleSystem`, then seeks the driver to its current phase. The seek replays the seeded run
+under the new definition, so the particles alive match an edit, an undo or a redo at once,
+playing or paused. Without it they keep the previous birth values until they die.
+
 ### 2.6 The simulation is seeded
 
 One seeded xorshift per system. The engine's own unit-float generator is a xorshift64 returning
@@ -1529,8 +1535,10 @@ the attachment keeping the owner's place and turn and dropping the
 particle's. `AttachedMeshes` draws one `SkinnedMesh` a particle, up to eight an emitter, on the
 `Character`'s own geometry and skeleton through `useCharacterSkin`. Its bind is detached and the
 identity, so a skinned vertex lands where the character stands and the mesh's own transform is the
-particle's scale. The material is the mesh emitter's fragment pass with the per-particle values
-as uniforms.
+particle's scale. The bones' world matrices already hold every transform above the character, so
+the mesh's matrix undoes its parent's world matrix before the scale. A character moved by the skin
+preview's placement is then placed once, and the scale is about the placement's origin. The
+material is the mesh emitter's fragment pass with the per-particle values as uniforms.
 
 A census of the 174 champion WADs counts 65,274 attached emitters, and it settles the scale:
 
