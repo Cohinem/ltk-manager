@@ -1,4 +1,5 @@
 import {
+  ArrowsInLineVerticalIcon,
   CaretRightIcon,
   CodeBlockIcon,
   CopyIcon,
@@ -18,7 +19,6 @@ import {
 import { Group, Panel } from "react-resizable-panels";
 
 import {
-  Button,
   IconButton,
   Menu,
   RetainedContent,
@@ -29,12 +29,7 @@ import {
 import { useCopyToClipboard } from "@/hooks";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentHandle, BinDocumentId, BinObjectHeader } from "@/lib/tauri";
-import {
-  DocumentToolbar,
-  type EditorDocumentProps,
-  Seam,
-  useNarrowToolbar,
-} from "@/modules/editor";
+import { DocumentToolbar, type EditorDocumentProps, Seam } from "@/modules/editor";
 
 import type { ContentDocumentOf } from "../../../documents/utils/contentDocument";
 /* The leaf rather than the objects browser barrel, which pulls the document that routes here. */
@@ -47,8 +42,8 @@ import {
   objectReferences,
   useFindReferences,
 } from "../../../references/api/useFindReferences";
-import { CollapseAllButton } from "../../../shared/components/CollapseAllButton";
 import { DocumentFrame } from "../../../shared/components/DocumentFrame";
+import { COLLAPSE_ALL_SHORTCUT } from "../../../shared/utils/treeGestures";
 import {
   clickIntent,
   useCurveAimRequest,
@@ -162,7 +157,6 @@ function OpenObject({
   reopen,
 }: OpenObjectProps) {
   const showInFile = useShowInFile();
-  const narrow = useNarrowToolbar();
   const objectName = useCallback(() => object.name, [object.name]);
   const schema = useClassSchema(object.classHash).data;
   const bases = useMemo(() => schema?.bases.map((base) => base.hash) ?? [], [schema]);
@@ -288,20 +282,6 @@ function OpenObject({
               ]}
             />
           )}
-          {!narrow && (
-            <Button
-              variant="ghost"
-              size="sm"
-              left={<FileIcon className="size-4" />}
-              onClick={showFile}
-            >
-              {m.workshop_bin_show_in_file_action()}
-            </Button>
-          )}
-          <CollapseAllButton
-            onCollapse={() => setCollapseAllSignal((count) => count + 1)}
-            disabled={mode !== "properties"}
-          />
           <BinEditState
             document={handle.document}
             asset={asset}
@@ -312,7 +292,10 @@ function OpenObject({
           <HeaderMenu
             document={handle.document}
             object={object}
-            onShowInFile={narrow ? showFile : undefined}
+            onShowInFile={showFile}
+            onCollapseAll={
+              mode === "properties" ? () => setCollapseAllSignal((count) => count + 1) : undefined
+            }
           />
         </DocumentToolbar>
         {shelled && (
@@ -403,12 +386,13 @@ interface HeaderMenuProps {
   /** The open the object is read under. */
   document: BinDocumentId;
   object: BinObjectHeader;
-  /** Show in file, where the toolbar is too narrow to carry it as a button of its own. */
-  onShowInFile?: (event: ReactMouseEvent) => void;
+  onShowInFile: (event: ReactMouseEvent) => void;
+  /** Shut every folder of the properties tree, absent where the tab does not draw the tree. */
+  onCollapseAll?: () => void;
 }
 
 /** The header's actions, which no row underneath carries. `DS-MENU-SCOPE`, `DS-GLYPH-ROLE`. */
-function HeaderMenu({ document, object, onShowInFile }: HeaderMenuProps) {
+function HeaderMenu({ document, object, onShowInFile, onCollapseAll }: HeaderMenuProps) {
   const copy = useCopyToClipboard();
   const spelled = useRowDeclaration(document, object.entry, "");
   const copyDeclaration = useCopyDeclaration();
@@ -422,14 +406,18 @@ function HeaderMenu({ document, object, onShowInFile }: HeaderMenuProps) {
         render={<IconButton size="sm" icon={<DotsThreeVerticalIcon />} aria-label={label} />}
       />
       <Menu.Content align="end" sideOffset={4} className="w-56">
-        {onShowInFile && (
-          <>
-            <Menu.Item icon={<FileIcon className="size-4" />} onClick={onShowInFile}>
-              {m.workshop_bin_show_in_file_action()}
-            </Menu.Item>
-            <Menu.Separator />
-          </>
-        )}
+        <Menu.Item icon={<FileIcon className="size-4" />} onClick={onShowInFile}>
+          {m.workshop_bin_show_in_file_action()}
+        </Menu.Item>
+        <Menu.Item
+          icon={<ArrowsInLineVerticalIcon className="size-4" />}
+          shortcut={COLLAPSE_ALL_SHORTCUT}
+          disabled={onCollapseAll === undefined}
+          onClick={onCollapseAll}
+        >
+          {m.workshop_explorer_collapse_all_label()}
+        </Menu.Item>
+        <Menu.Separator />
         <Menu.Item
           icon={<MagnifyingGlassIcon className="size-4" />}
           onClick={() => findReferences(objectReferences(object.entry, object.name))}
