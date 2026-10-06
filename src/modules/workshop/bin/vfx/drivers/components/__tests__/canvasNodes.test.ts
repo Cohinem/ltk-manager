@@ -64,6 +64,49 @@ describe("withMoves", () => {
     });
     expect(grown.width).toBeGreaterThanOrEqual(child.position.x + 900 + (child.width ?? 0));
   });
+
+  it("returns a layout nothing was dragged in as it is", () => {
+    const nodes = layoutNodes(layout(6));
+
+    const next = withMoves(nodes, new Map());
+
+    next.forEach((node, index) => expect(node).toBe(nodes[index]));
+  });
+
+  it("moves an undragged frame away from a frame dragged onto it", () => {
+    const nodes = layoutNodes(layout(2));
+    const [first, second] = nodes.filter((node) => node.type === "frame");
+    const moved = new Map([[second!.id, { x: first!.position.x + 10, y: first!.position.y + 10 }]]);
+
+    const next = withMoves(nodes, moved);
+    const dragged = next.find((node) => node.id === second!.id)!;
+    const pushed = next.find((node) => node.id === first!.id)!;
+
+    expect(dragged.position).toEqual({ x: first!.position.x + 10, y: first!.position.y + 10 });
+    const clearX = pushed.position.x >= dragged.position.x + (dragged.width ?? 0);
+    const clearY = pushed.position.y >= dragged.position.y + (dragged.height ?? 0);
+    expect(clearX || clearY).toBe(true);
+  });
+
+  it("moves an item down off an item dragged over it, and grows the frame to contain it", () => {
+    const nodes = layoutNodes(layout(1));
+    const frame = nodes.find((node) => node.type === "frame")!;
+    const [upper, lower] = nodes
+      .filter((node) => node.parentId === frame.id)
+      .sort(
+        (left, right) => left.position.y - right.position.y || left.position.x - right.position.x,
+      );
+    const moved = new Map([[lower!.id, { x: upper!.position.x, y: upper!.position.y + 1 }]]);
+
+    const next = withMoves(nodes, moved);
+    const kept = next.find((node) => node.id === upper!.id)!;
+    const pushed = next.find((node) => node.id === lower!.id)!;
+    const grown = next.find((node) => node.id === frame.id)!;
+
+    expect(kept.position).toEqual(upper!.position);
+    expect(pushed.position.y).toBeGreaterThanOrEqual(kept.position.y + (kept.height ?? 0));
+    expect(grown.height).toBeGreaterThanOrEqual(pushed.position.y + (pushed.height ?? 0));
+  });
 });
 
 describe("keptEdges", () => {

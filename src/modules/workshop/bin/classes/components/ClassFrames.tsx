@@ -418,6 +418,7 @@ export function VfxShell({
       graph: {
         body: (
           <GraphPane
+            key={`${view.document}:${view.entry}`}
             document={view.document}
             entry={view.entry}
             viewport={graphViewport}

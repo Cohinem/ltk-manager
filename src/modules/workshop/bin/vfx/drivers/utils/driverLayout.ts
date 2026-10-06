@@ -154,10 +154,12 @@ const MASTER_VALUE_WIDTH = 312;
 /** A folded master node: its header's controls, over its preview. */
 const FOLDED_MASTER_WIDTH = 316;
 
-export { FRAME_HEADER_HEIGHT, FRAME_PADDING } from "./packBlocks";
+export { BLOCK_GAP, FRAME_HEADER_HEIGHT, FRAME_PADDING } from "./packBlocks";
 
 const COLUMN_GAP = 128;
-const ROW_GAP = 20;
+
+/** The space between two items of one column. */
+export const ROW_GAP = 20;
 
 const NONE_COLLAPSED: ReadonlySet<string> = new Set();
 
