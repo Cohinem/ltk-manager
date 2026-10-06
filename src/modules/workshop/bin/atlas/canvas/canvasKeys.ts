@@ -16,6 +16,7 @@ export const CANVAS_KEYS = {
   front: "Shift+]",
   back: "Shift+[",
   pan: "Space",
+  delete: "Del",
   clear: "Esc",
 } as const;
 
@@ -26,12 +27,14 @@ export interface KeyTargets {
   readonly nudge: (dx: number, dy: number) => void;
   /** Move the primary selection along its siblings' draw order. */
   readonly arrange: (step: LayerStep) => void;
+  /** Delete the selection. */
+  readonly remove: () => void;
 }
 
 /** Run the canvas's action for `key`, and answer whether it had one. */
 export function canvasKey(
   key: string,
-  { transform, selected, clear, nudge, arrange }: KeyTargets,
+  { transform, selected, clear, nudge, arrange, remove }: KeyTargets,
 ): boolean {
   switch (key) {
     case "f":
@@ -75,6 +78,10 @@ export function canvasKey(
       return true;
     case "{":
       arrange("back");
+      return true;
+    case "Delete":
+    case "Backspace":
+      remove();
       return true;
     case "Escape":
       clear();

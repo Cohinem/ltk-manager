@@ -75,6 +75,10 @@ function TabScope({ document, children }: { document: BinDocumentId; children: R
         send === undefined || landed === undefined
           ? Promise.resolve(null)
           : createObject(send, landed, name, origin, toast.error),
+      remove: (entries) =>
+        send === undefined || landed === undefined
+          ? Promise.resolve(false)
+          : removeObjects(send, landed, entries, toast.error),
     }),
     [document, send, landed, toast],
   );
@@ -155,6 +159,10 @@ function ControllerScope({
         active?.editable === true
           ? createObject(send, landed, name, origin, toast.error)
           : Promise.resolve(null),
+      remove: (entries) =>
+        active?.editable === true
+          ? removeObjects(send, landed, entries, toast.error)
+          : Promise.resolve(false),
     }),
     [scene, declared, drawn, active, base, send, landed, toast],
   );
@@ -274,4 +282,24 @@ async function createObject(
 
   landed(id);
   return result.value.kind === "object" ? result.value.entry : null;
+}
+
+async function removeObjects(
+  send: DocumentCall,
+  landed: (id: BinDocumentId) => void,
+  entries: readonly string[],
+  refuse: (title: string, description: string) => void,
+): Promise<boolean> {
+  for (const entry of entries) {
+    const { result, id } = await send((id) =>
+      api.bin.edit(id, { kind: "object", edit: { kind: "remove", entry } }),
+    );
+    if (!result.ok) {
+      refuse(m.workshop_bin_edit_refused_title(), errorSummary(result.error));
+      return false;
+    }
+
+    landed(id);
+  }
+  return true;
 }

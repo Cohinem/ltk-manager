@@ -7,6 +7,7 @@ const POSITION = nameHash("Position");
 const UI_RECT = nameHash("UIRect");
 const RECT_POSITION = nameHash("Position");
 const RECT_SIZE = nameHash("Size");
+const SOURCE = [nameHash("SourceResolutionWidth"), nameHash("SourceResolutionHeight")] as const;
 const ANCHORS = nameHash("Anchors");
 const ANCHOR = nameHash("Anchor");
 const ALIGN = [nameHash("AlignX"), nameHash("AlignY")] as const;
@@ -20,7 +21,9 @@ const ELEMENTS = nameHash("Elements");
 const LIST_DISPLAY_DIRECTION = nameHash("ListDisplayDirection");
 const START_PERCENTAGE = nameHash("StartPercentage");
 const FILL_DIRECTION = nameHash("FillDirection");
+const NAME = nameHash("name");
 
+const POSITION_RECT = "UiPositionRect";
 const ANCHOR_SINGLE = "AnchorSingle";
 const ANCHOR_HIERARCHY = "AnchorHierarchy";
 
@@ -99,6 +102,40 @@ export function anchorEdit(
   return { entry: key, holder: "", field: POSITION, edits };
 }
 
+/**
+ * The edit that gives the element `key`, which holds no `Position`, a rect of `size` at
+ * `position` in the `source` resolution, pinned to the point `anchor` of the screen.
+ */
+export function newRectEdit(
+  key: string,
+  position: Pair,
+  size: Pair,
+  source: Pair,
+  anchor: Pair,
+): PropertyEdit {
+  const rect = segment(UI_RECT);
+  const anchors = segment(ANCHORS);
+  const edits: ValueEdit[] = [
+    { type: "replacePointer", path: "", class: POSITION_RECT },
+    ...rectLeaf(RECT_POSITION, position),
+    ...rectLeaf(RECT_SIZE, size),
+  ];
+
+  for (const at of [0, 1] as const) {
+    edits.push(
+      { type: "ensureProperty", path: rect, field: SOURCE[at] },
+      { type: "setLeaf", path: `${rect}.${segment(SOURCE[at])}`, value: integer(source[at]) },
+    );
+  }
+
+  edits.push(
+    { type: "ensureProperty", path: "", field: ANCHORS },
+    { type: "replacePointer", path: anchors, class: ANCHOR_SINGLE },
+    ...anchorLeaf(ANCHOR, vector(anchor)),
+  );
+  return { entry: key, holder: "", field: POSITION, edits };
+}
+
 /** The edit that sets the switch `flag` of the element `key`'s rect. */
 export function rectFlagEdit(key: string, flag: RectFlag, value: boolean): PropertyEdit {
   const field = nameHash(flag);
@@ -151,6 +188,24 @@ export function sceneEdit(key: string, scene: string): PropertyEdit {
   return leafEdit(key, SCENE, { type: "objectLink", text: scene });
 }
 
+/** The edit that writes `name` as the element `key`'s `name`. */
+export function nameEdit(key: string, name: string): PropertyEdit {
+  return leafEdit(key, NAME, { type: "string", value: name });
+}
+
+/** The edit that lists the element `key` as item `index` of the group `group`'s `Elements`. */
+export function groupEdit(group: string, index: number, key: string): PropertyEdit {
+  return {
+    entry: group,
+    holder: "",
+    field: ELEMENTS,
+    edits: [
+      { type: "insertItem", path: "", item: { index, key: null, class: null } },
+      { type: "setLeaf", path: `[${index}]`, value: { type: "objectLink", text: key } },
+    ],
+  };
+}
+
 /** The edit that takes item `index` out of the group `group`'s `Elements`. */
 export function ungroupEdit(group: string, index: number): PropertyEdit {
   return {
@@ -158,6 +213,17 @@ export function ungroupEdit(group: string, index: number): PropertyEdit {
     holder: "",
     field: ELEMENTS,
     edits: [{ type: "removeItem", path: `[${index}]` }],
+  };
+}
+
+/** The edit that takes the items at `indices` out of the group `group`'s `Elements`. */
+export function unlistEdit(group: string, indices: readonly number[]): PropertyEdit {
+  const lastFirst = [...indices].sort((a, b) => b - a);
+  return {
+    entry: group,
+    holder: "",
+    field: ELEMENTS,
+    edits: lastFirst.map((index) => ({ type: "removeItem", path: `[${index}]` })),
   };
 }
 

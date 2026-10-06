@@ -1502,7 +1502,7 @@ describe("The shell frame", () => {
     await user.click(await screen.findByRole("menuitem", { name: "Source" }));
 
     expect(await screen.findByText("VfxShapeSphere")).toBeInTheDocument();
-    expect(await screen.findByText("Glow [0] . rate")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Glow [0] . rate")).toBeInTheDocument());
   });
 
   it("gives a row with dynamics both triggers, and a row without neither", async () => {

@@ -1,6 +1,7 @@
 export { AtlasCanvas, type AtlasCanvasProps } from "./canvas/AtlasCanvas";
 export { AtlasEditScope, type AtlasEditScopeProps } from "./components/AtlasEditScope";
 export { CanvasToolbar } from "./components/CanvasToolbar";
+export { ComponentsPane, type ComponentsPaneProps } from "./components/ComponentsPane";
 export { ElementInspector, type ElementInspectorProps } from "./components/ElementInspector";
 export { FontControls } from "./components/FontControls";
 export { FontPreview, type FontPreviewProps } from "./components/FontPreview";

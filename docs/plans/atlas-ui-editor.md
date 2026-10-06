@@ -132,6 +132,7 @@ What a design tool is expected to do, each mapped to the edit it writes:
 | drop into another scene        | `Scene`, and `Elements` of the old and new group       |
 | drop a sprite on an icon       | `TextureData`                                          |
 | duplicate, delete              | object create and remove through the declared document |
+| add from the components pane   | object create, then `name`, `Scene` and `Position`     |
 
 Snapping goes to the pixel grid of the frame, to sibling edges and centres, to the parent group
 and to the screen and safe zone edges. Hide and lock are view state and never written. Zoom, pan,
@@ -145,18 +146,46 @@ managed layout places moves only with its layout. A re-anchor from the inspector
 element where it is on the screen. The keys are the arrows to nudge by a source pixel, and the
 brackets to step the draw order.
 
+A component is placed, and the pane holds no list of destinations. A click on a tile of the
+components pane picks it up, and a drag out of the tile does the same for one gesture. The canvas
+then carries its ghost under a crosshair, and a press there, or the drag's release, puts it down
+centred on the pointer, in the scene heading the screen under it, or the nested scene whose box
+holds the point. A stacked board heads no scene, so there it takes the scene of the element under
+the pointer. A row of the layers pane takes it too: a scene's row into the scene, a group's into
+the group, and any other element's into its scene, centred on the screen. Escape, or a click on
+the tile again, lets go of it, and a drag released over neither pane is dropped. A double click
+on a tile adds one beside the selection without placing: inside a selected group, else in the
+selection's scene, else in the first root scene.
+
+The element is an object of the tile's class named `Mods/<mod>/<scene>/<kind>`, numbered from the
+second of its kind, created empty and filled in a second step. A kind that draws from a rect
+starts enabled, in the source resolution most rects of its scene use, pinned to the screen's
+centre, on the layer above its siblings. A group kind takes its name and scene alone. The new
+element is selected, so a group just added takes the next double click. Only a declared base
+document creates an object (ADR-0049), so the tiles are disabled over a drawn variant and in a
+file a layer ships whole.
+
+Delete, in an element's menu and on the Delete and Backspace keys of the canvas and the layers
+pane, removes the selection. A group goes with everything under it, as it moves with it. Each
+group that stays drops the removed elements from its `Elements` as one undo step, and each
+object's removal is a step of its own after it. An element the project created loses its
+creation, and a game element gains a `remove: true` (ADR-0049). A link to a removed element from
+anywhere but a group's `Elements`, such as a button's state list or its hit region, is left as
+the file has it. Delete shows only where an element can be added.
+
 ## 4 Panes
 
 `SHELL_PANES.atlas`, in the order the Panes menu lists them:
 
-| pane      | what it holds                                                                         |
-| --------- | ------------------------------------------------------------------------------------- |
-| canvas    | the view at a chosen screen size, with the frame, safe zone and handles               |
-| layers    | the scene and element tree, with visibility, lock, scene `Enabled` and layer order    |
-| inspector | the selection's scene, layer, anchor, rect and look, then every field the file writes |
-| sprites   | the view's manifest and pages, the sheets its elements use, and imported images       |
-| variants  | base and every variant slot, the drawn one's records by element, and which PC applies |
-| timeline  | scene transitions and `Sequence` actions (phase 5, reusing the timeline pane)         |
+| pane       | what it holds                                                                         |
+| ---------- | ------------------------------------------------------------------------------------- |
+| canvas     | the view at a chosen screen size, with the frame, safe zone and handles               |
+| components | every kind of element to add, as tiles under a search box, and where the next lands   |
+| layers     | the scene and element tree, with visibility, lock, scene `Enabled` and layer order    |
+| inspector  | the selection's scene, layer, anchor, rect and look, then every field the file writes |
+| sprites    | the view's manifest and pages, the sheets its elements use, and imported images       |
+| variants   | base and every variant slot, the drawn one's records by element, and which PC applies |
+| timeline   | scene transitions and `Sequence` actions (phase 5, reusing the timeline pane)         |
 
 The canvas header holds the screen presets (16:9 at three sizes, 16:10, 21:9, 4:3), a HUD scale
 slider from 0.66 to 1.0 as the client clamps it, and the safe zone toggle. The PC client never
@@ -173,6 +202,10 @@ frame into its scenes, and resets every choice, none of which reaches the file. 
 toggle (L) draws every scene on one screen instead. A frame
 is a screen of the chosen size, so an element's rect, the safe zone and the snap targets all read
 as they do on the client's screen.
+
+The components pane sits over the layers, variants and sprites tabs at the left of the canvas. Its
+kinds are grouped as Basic, Groups, Controls and Effects under headings that fold, and a search
+lists the matching kinds on one grid.
 
 The layers and sprites panes each carry a search box and take the keyboard the way the map
 outliner does, since a view such as the item shop holds two thousand elements. The inspector's

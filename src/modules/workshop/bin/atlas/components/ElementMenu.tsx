@@ -142,6 +142,7 @@ export function ElementMenu({
           )}
           <ContextMenu.Separator />
           <ElementEditItems
+            view={key}
             tree={tree}
             settings={settings}
             solved={solved}

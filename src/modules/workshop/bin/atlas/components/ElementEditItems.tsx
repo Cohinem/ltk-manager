@@ -13,6 +13,7 @@ import {
   RowsIcon,
   StackIcon,
   StackSimpleIcon,
+  TrashIcon,
 } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
@@ -25,9 +26,12 @@ import { layerEdits, type LayerStep, sceneMoveEdits } from "../engine/edit/targe
 import type { LayoutSettings, PixelRect } from "../engine/layout/solve";
 import { labelOf } from "../engine/model/layers";
 import { sceneOf, type ViewTree } from "../engine/model/tree";
+import { useDeleteElements } from "../hooks/useDeleteElements";
 import { useAtlasEdit } from "../state/atlasEdit";
 
 export interface ElementEditItemsProps {
+  /** The view the element is in, as `viewKey` names it. */
+  readonly view: string;
   readonly tree: ViewTree;
   readonly settings: LayoutSettings;
   readonly solved: ReadonlyMap<string, PixelRect> | null;
@@ -95,9 +99,11 @@ const ALIGNMENTS: readonly {
  * The edit actions of an element's menu, per "Interaction" in docs/plans/atlas-ui-editor.md:
  * its place in its siblings' draw order, the scene it draws in, and, with more than one element
  * selected, lining the selection up and spacing it evenly. Each is one undo step, and none shows
- * where the scene bin takes no edits.
+ * where the scene bin takes no edits. Delete, last, is `useDeleteElements`'s and shows where the
+ * scene bin removes an object.
  */
 export function ElementEditItems({
+  view,
   tree,
   settings,
   solved,
@@ -106,6 +112,7 @@ export function ElementEditItems({
   canvas,
 }: ElementEditItemsProps) {
   const edit = useAtlasEdit();
+  const deleter = useDeleteElements(view, tree);
   if (edit === null || !edit.editable) return null;
 
   const acting = selection.includes(target) ? selection : [target];
@@ -183,6 +190,16 @@ export function ElementEditItems({
             )}
           </ContextMenu.SubmenuContent>
         </ContextMenu.SubmenuRoot>
+      )}
+      {deleter.available && (
+        <ContextMenu.Item
+          icon={<TrashIcon />}
+          variant="danger"
+          shortcut="Del"
+          onClick={() => void deleter.run(acting)}
+        >
+          {m.workshop_bin_atlas_delete_action()}
+        </ContextMenu.Item>
       )}
     </>
   );
