@@ -42,10 +42,13 @@ import { sendOn, useDocumentCall } from "./useDocumentCall";
 /** The query root of a document's declared state, which every edit leaves stale. */
 export const DECLARED_ROOT = ["bin-declared"] as const;
 
-const declaredQuery = (document: BinDocumentId) =>
+const declaredQuery = (document: BinDocumentId | null) =>
   queryOptions<DeclaredState | null, AppError>({
     queryKey: [...DECLARED_ROOT, document],
-    queryFn: async () => unwrapForQuery((await sendOn(document, api.bin.declared)).result),
+    queryFn:
+      document === null
+        ? skipToken
+        : async () => unwrapForQuery((await sendOn(document, api.bin.declared)).result),
     staleTime: Infinity,
     retry: false,
   });
@@ -91,9 +94,9 @@ export function useCopyDeclaration(): (declaration: RowDeclaration) => void {
 
 /**
  * What a declared document says beside its rows, or null for a document that declares
- * nothing. "Game data declarations" in docs/ux/BIN_EDITOR.md.
+ * nothing and for none. "Game data declarations" in docs/ux/BIN_EDITOR.md.
  */
-export function useDeclaredState(document: BinDocumentId): DeclaredState | null {
+export function useDeclaredState(document: BinDocumentId | null): DeclaredState | null {
   return useQuery(declaredQuery(document)).data ?? null;
 }
 

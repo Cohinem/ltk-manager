@@ -60,12 +60,15 @@ export interface FrameOverlayProps {
   readonly handles: boolean;
   readonly marquee: PixelRect | null;
   readonly guides: readonly SnapGuide[];
+  /** Where the component being placed would draw. */
+  readonly ghost: PixelRect | null;
 }
 
 /**
  * The frames' outlines and names, a nested scene's boxed inside its frame, and the marks over them,
  * in pane pixels, so they stay one pixel wide at every zoom: the safe zone, the image placeholders, the hovered and selected rects, the
- * primary selection's handles, a marquee and the snap guides of a drag.
+ * primary selection's handles, a marquee, the snap guides of a drag and the ghost of a component
+ * being placed.
  */
 export function FrameOverlay({
   view,
@@ -78,6 +81,7 @@ export function FrameOverlay({
   handles,
   marquee,
   guides,
+  ghost,
 }: FrameOverlayProps) {
   const place = (rect: PixelRect) => ({
     x: view.x + rect.x * view.zoom + 0.5,
@@ -167,6 +171,13 @@ export function FrameOverlay({
           {...place(marquee)}
           className="fill-accent-500/10 stroke-accent-400"
           strokeDasharray="4 2"
+        />
+      )}
+      {ghost !== null && (
+        <rect
+          {...place(ghost)}
+          className="fill-accent-500/15 stroke-accent-300"
+          strokeDasharray="4 3"
         />
       )}
     </svg>

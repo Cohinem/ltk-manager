@@ -17,6 +17,11 @@ export interface AtlasEdit {
   readonly apply: (edits: readonly PropertyEdit[]) => Promise<boolean>;
   /** Declare the object `name` from `origin`, answering its entry, or null where it was refused. */
   readonly create: (name: string, origin: NewObject) => Promise<string | null>;
+  /**
+   * Declare the removal of each object of `entries`, one undo step apiece, answering whether all
+   * were removed. A refusal is a toast, and the objects after it stay.
+   */
+  readonly remove: (entries: readonly string[]) => Promise<boolean>;
 }
 
 /** The edits of the enclosing Atlas shell, null outside one. */

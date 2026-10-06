@@ -22,6 +22,7 @@ const CANVAS: readonly Shortcut[] = [
   [m.workshop_bin_atlas_front_action, CANVAS_KEYS.front],
   [m.workshop_bin_atlas_back_action, CANVAS_KEYS.back],
   [m.workshop_bin_atlas_pan_label, CANVAS_KEYS.pan],
+  [m.workshop_bin_atlas_delete_action, CANVAS_KEYS.delete],
   [m.workshop_bin_atlas_clear_selection_action, CANVAS_KEYS.clear],
 ];
 
