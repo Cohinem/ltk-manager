@@ -11,14 +11,13 @@ import {
 } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { Badge, ChromePortal, Kbd } from "@/components";
+import { Badge, ChromePortal } from "@/components";
 import { useClickOutside } from "@/hooks";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { useRevealGameSearch } from "../../gameBrowser";
 import { useRequestGridFocus } from "../../hooks";
-import { useWorkshopProjects } from "../../projects/api/useWorkshopProjects";
 import { WorkshopFilterPopover } from "../../projects/components/WorkshopFilterPopover";
 import { useFilteredProjects } from "../../projects/hooks/useFilteredProjects";
 import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
@@ -36,13 +35,20 @@ import { WorkshopPalette } from "./WorkshopPalette";
 const BOX =
   "flex size-full items-center gap-1.5 rounded-md border bg-surface-900 pl-2.5 transition-colors";
 
+interface WorkshopBarProps {
+  /** What the header draws at the end of the field, behind a divider. */
+  actions?: ReactNode;
+  /** What the header draws behind the field, across from the history arrows. */
+  trailing?: ReactNode;
+}
+
 /**
  * The workshop's bar, drawn in the title bar's middle behind the history arrows: where you
  * are, and the route to everything in front of you.
  *
  * Per "The bar" in `docs/ux/WORKSHOP.md`.
  */
-export function WorkshopBar() {
+export function WorkshopBar({ actions, trailing }: WorkshopBarProps) {
   const project = useOptionalProjectContext();
   const openProject = useOpenProject();
   const requestGridFocus = useRequestGridFocus();
@@ -246,6 +252,7 @@ export function WorkshopBar() {
                 ref={triggerRef}
                 onOpen={() => openWith(null)}
                 onFilterOpenChange={setFilterOpen}
+                actions={actions}
               />
             )}
 
@@ -257,6 +264,7 @@ export function WorkshopBar() {
                 onChange={handleFilterChange}
                 onKeyDown={handleFilterKeyDown}
                 onFilterOpenChange={setFilterOpen}
+                actions={actions}
               />
             )}
 
@@ -268,6 +276,8 @@ export function WorkshopBar() {
               </div>
             )}
           </div>
+
+          {trailing}
         </div>
       </ChromePortal>
     </>
@@ -297,12 +307,13 @@ function ProjectKeys() {
 interface IdleBarProps {
   onOpen: () => void;
   onFilterOpenChange: (open: boolean) => void;
+  actions: ReactNode;
   ref: Ref<HTMLButtonElement>;
 }
 
 /* The crumb sits beside the trigger rather than inside it, because a control
    that opens the palette cannot also hold a link to somewhere else. */
-function IdleBar({ onOpen, onFilterOpenChange, ref }: IdleBarProps) {
+function IdleBar({ onOpen, onFilterOpenChange, actions, ref }: IdleBarProps) {
   const project = useOptionalProjectContext();
 
   const name = project?.displayName ?? m.workshop_nav_label();
@@ -340,9 +351,9 @@ function IdleBar({ onOpen, onFilterOpenChange, ref }: IdleBarProps) {
         <span className="truncate text-sm font-medium text-surface-100">{name}</span>
       </button>
 
-      <BarTag />
+      <VersionTag />
       <BarFilter onOpenChange={onFilterOpenChange} />
-      <Kbd shortcut="Ctrl+P" className="shrink-0 opacity-60 @max-[20rem]:hidden" />
+      <BarActions>{actions}</BarActions>
     </div>
   );
 }
@@ -353,6 +364,7 @@ interface FilterBoxProps {
   onChange: (next: string) => void;
   onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
   onFilterOpenChange: (open: boolean) => void;
+  actions: ReactNode;
   ref: Ref<HTMLInputElement>;
 }
 
@@ -362,6 +374,7 @@ function FilterBox({
   onChange,
   onKeyDown,
   onFilterOpenChange,
+  actions,
   ref,
 }: FilterBoxProps) {
   return (
@@ -380,14 +393,14 @@ function FilterBox({
         className="min-w-0 flex-1 bg-transparent text-sm text-surface-50 select-text placeholder:text-surface-400 focus:outline-none"
       />
 
-      <BarTag />
+      <VersionTag />
       <BarFilter onOpenChange={onFilterOpenChange} />
+      <BarActions>{actions}</BarActions>
     </div>
   );
 }
 
-/* The sort and the filter of the grid the bar is drawn over, so they sit with
-   the count they move rather than in a slot of their own. A project has no grid
+/* The sort and the filter of the grid the bar is drawn over. A project has no grid
    under it to sort. */
 function BarFilter({ onOpenChange }: { onOpenChange: (open: boolean) => void }) {
   const project = useOptionalProjectContext();
@@ -396,30 +409,28 @@ function BarFilter({ onOpenChange }: { onOpenChange: (open: boolean) => void }) 
   return <WorkshopFilterPopover onOpenChange={onOpenChange} />;
 }
 
-/** The version under a project, and what the grid is showing over it. */
-function BarTag() {
+/* Empty where the route offers no action, which hides the divider with it. The buttons are
+   taller than the divider and overflow it. */
+function BarActions({ children }: { children: ReactNode }) {
+  return (
+    <div
+      data-ui="WorkshopBar:actions"
+      className="-mr-1 flex h-4 shrink-0 items-center border-l border-surface-600 pl-1 empty:hidden"
+    >
+      {children}
+    </div>
+  );
+}
+
+/** The version of the open project. The list's own count is in its footer. */
+function VersionTag() {
   const project = useOptionalProjectContext();
 
-  if (project) return <Tag>{m.workshop_bin_version_label({ version: project.version })}</Tag>;
-  return <ProjectCount />;
-}
+  if (!project) return null;
 
-function ProjectCount() {
-  const { data: projects } = useWorkshopProjects();
-  const filtered = useFilteredProjects();
-
-  const total = projects?.length ?? 0;
-  if (filtered.length !== total) {
-    return <Tag>{m.workshop_bar_count_filtered_label({ shown: filtered.length, total })}</Tag>;
-  }
-
-  return <Tag>{m.workshop_folder_parent_projects_label({ count: total })}</Tag>;
-}
-
-function Tag({ children }: { children: ReactNode }) {
   return (
     <Badge size="md" className="shrink-0 @max-[14rem]:hidden">
-      {children}
+      {m.workshop_bin_version_label({ version: project.version })}
     </Badge>
   );
 }

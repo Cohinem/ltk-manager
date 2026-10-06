@@ -140,7 +140,7 @@ function ProjectTestItem({
 /**
  * The commands a project selection carries, for whichever popup is asking.
  *
- * The selection button draws the same set. Per "Selection, and a running
+ * The list's footer draws the same set. Per "Selection, and a running
  * session" in `docs/ux/WORKSHOP.md`.
  */
 export function ProjectSelectionMenuItems() {

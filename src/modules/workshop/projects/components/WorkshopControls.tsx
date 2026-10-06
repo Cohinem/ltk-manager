@@ -11,13 +11,13 @@ import {
 
 import {
   ArrangedTableOptions,
+  Button,
   ButtonGroup,
   IconButton,
   Kbd,
   Menu,
   SegmentedControl,
   type SegmentedOption,
-  Separator,
 } from "@/components";
 import { m } from "@/i18n";
 import { ViewOptionsPopover } from "@/modules/library";
@@ -32,11 +32,11 @@ import {
   useWorkshopViewMode,
   type ViewMode,
 } from "../../state";
+import { useFilteredProjects, useProjectCountLabel } from "../hooks/useFilteredProjects";
+import { useProjectSelectionActions } from "../hooks/useProjectSelectionActions";
+import { ProjectSelectionMenuItems } from "./ProjectCardMenuItems";
+import { PickAll } from "./ProjectTable";
 import { PROJECT_COLUMN_SPECS, PROJECT_GROUP_LABELS } from "./ProjectTable/columns";
-import { WorkshopSelectionButton } from "./WorkshopSelectionButton";
-
-/* What the status row's slots hold while no project is open. Each is one slot, so a
-   route change refills the row rather than redrawing it. */
 
 function viewOptions(): SegmentedOption<ViewMode>[] {
   return [
@@ -53,21 +53,35 @@ function viewOptions(): SegmentedOption<ViewMode>[] {
   ];
 }
 
-/** The view slot without a project: which selection, which shape. */
-export function WorkshopViewControls() {
+/**
+ * The project list's footer: what it draws, what is picked, and the view it is drawn in.
+ *
+ * Per "The list's footer" in docs/ux/WORKSHOP.md.
+ */
+export function WorkshopListFooter() {
   const viewMode = useWorkshopViewMode();
   const setViewMode = useSetWorkshopViewMode();
+  const count = useProjectCountLabel();
 
   return (
-    <>
-      {/* Stays through a run: its Test is what ends the session it started. */}
-      <WorkshopSelectionButton />
+    <footer
+      data-ui="WorkshopListFooter"
+      aria-label={m.workshop_list_footer_label()}
+      className="flex h-9 shrink-0 items-center gap-2 border-t border-surface-700 pr-1 pl-4 select-none"
+    >
+      {/* The table's header holds the same checkbox. */}
+      {viewMode === "grid" && <PickAllShown />}
+
+      <span className="truncate text-meta text-surface-400 tabular-nums">{count}</span>
+      <SelectionMenu />
 
       <SegmentedControl
         options={viewOptions()}
         value={viewMode}
         onChange={setViewMode}
         size="sm"
+        aria-label={m.workshop_list_view_label()}
+        className="ml-auto shrink-0"
         action={
           <ViewOptionsPopover
             viewMode={viewMode}
@@ -81,91 +95,117 @@ export function WorkshopViewControls() {
           />
         }
       />
-    </>
+    </footer>
+  );
+}
+
+function PickAllShown() {
+  const shown = useFilteredProjects();
+
+  return (
+    <PickAll
+      paths={shown.map((project) => project.path)}
+      label={m.workshop_table_select_all_label()}
+    />
+  );
+}
+
+/** The picks, as the trigger of the commands they carry. */
+function SelectionMenu() {
+  const { count } = useProjectSelectionActions();
+
+  if (count === 0) return null;
+
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        render={
+          <Button
+            variant="tonal"
+            size="xs"
+            right={<CaretDownIcon weight="bold" className="size-3" />}
+          >
+            {m.workshop_card_selection_count_label({ count })}
+          </Button>
+        }
+      />
+      <Menu.Content side="top" align="start" className="w-56">
+        <ProjectSelectionMenuItems />
+      </Menu.Content>
+    </Menu.Root>
   );
 }
 
 /**
- * The action slot without a project, which is what puts one there.
+ * What puts a project in the workshop: New project, and the other ways in on its caret.
  *
  * One control rather than two. A project is either blank or something somebody
- * else packed, so the button takes the first and its caret holds the other
- * three - which is the shape the selection button beside it already uses. This
- * row carries a selection, a filter and a view control before it reaches the
- * actions, and every route in here carries its name in the palette.
+ * else packed, so the button takes the first and its caret holds the other three.
  */
-export function WorkshopActions() {
+export function NewProjectButton() {
   const openNewProjectDialog = useNewProjectDialog((s) => s.open);
   const imports = useProjectImports();
   const openFolder = useOpenFolder();
 
   return (
-    <>
-      <Separator orientation="vertical" />
+    <ButtonGroup>
+      <IconButton
+        icon={<PlusIcon />}
+        size="xs"
+        onClick={openNewProjectDialog}
+        aria-label={m.workshop_controls_new_project_label()}
+        tooltip={
+          <>
+            {m.workshop_controls_new_project_label()} <Kbd shortcut="Ctrl+N" />
+          </>
+        }
+      />
 
-      <ButtonGroup>
-        <IconButton
-          icon={<PlusIcon />}
-          variant="filled"
-          size="sm"
-          onClick={openNewProjectDialog}
-          aria-label={m.workshop_controls_new_project_label()}
-          tooltip={
-            <>
-              {m.workshop_controls_new_project_label()} <Kbd shortcut="Ctrl+N" />
-            </>
+      <Menu.Root>
+        <Menu.Trigger
+          render={
+            <IconButton
+              icon={<CaretDownIcon />}
+              size="xs"
+              loading={imports.pending || openFolder.pending}
+              aria-label={m.workshop_controls_more_label()}
+              narrow
+            />
           }
         />
-
-        <Menu.Root>
-          <Menu.Trigger
-            render={
-              <IconButton
-                icon={<CaretDownIcon />}
-                variant="filled"
-                size="sm"
-                loading={imports.pending || openFolder.pending}
-                aria-label={m.workshop_controls_more_label()}
-                /* A filled half carries no border to share, so the seam is the
-                   groove its own pressed state is drawn in. */ className="border-l border-accent-700"
-                narrow
-              />
-            }
-          />
-          <Menu.Content className="w-72">
+        <Menu.Content className="w-72">
+          <Menu.Item
+            icon={<FolderOpenIcon weight="bold" className="size-4" />}
+            shortcut="Ctrl+O"
+            onClick={openFolder.pick}
+          >
+            {m.workshop_folder_open_action()}
+          </Menu.Item>
+          <Menu.Separator />
+          <Menu.Group>
+            <Menu.GroupLabel>{m.workshop_controls_import_label()}</Menu.GroupLabel>
             <Menu.Item
-              icon={<FolderOpenIcon weight="bold" className="size-4" />}
-              shortcut="Ctrl+O"
-              onClick={openFolder.pick}
+              icon={<FileZipIcon weight="bold" className="size-4" />}
+              onClick={imports.fromFantome}
             >
-              {m.workshop_folder_open_action()}
+              {m.workshop_controls_from_fantome_action()}
             </Menu.Item>
-            <Menu.Separator />
-            <Menu.Group>
-              <Menu.GroupLabel>{m.workshop_controls_import_label()}</Menu.GroupLabel>
-              <Menu.Item
-                icon={<FileZipIcon weight="bold" className="size-4" />}
-                onClick={imports.fromFantome}
-              >
-                {m.workshop_controls_from_fantome_action()}
-              </Menu.Item>
-              <Menu.Item
-                icon={<PackageIcon weight="bold" className="size-4" />}
-                onClick={imports.fromModpkg}
-              >
-                {m.workshop_controls_from_modpkg_action()}
-              </Menu.Item>
-              <Menu.Item
-                icon={<GitBranchIcon weight="bold" className="size-4" />}
-                onClick={imports.fromGitRepo}
-              >
-                {m.workshop_controls_from_git_action()}
-              </Menu.Item>
-            </Menu.Group>
-            <RecentProjectMenuItems />
-          </Menu.Content>
-        </Menu.Root>
-      </ButtonGroup>
-    </>
+            <Menu.Item
+              icon={<PackageIcon weight="bold" className="size-4" />}
+              onClick={imports.fromModpkg}
+            >
+              {m.workshop_controls_from_modpkg_action()}
+            </Menu.Item>
+            <Menu.Item
+              icon={<GitBranchIcon weight="bold" className="size-4" />}
+              onClick={imports.fromGitRepo}
+            >
+              {m.workshop_controls_from_git_action()}
+            </Menu.Item>
+          </Menu.Group>
+          <RecentProjectMenuItems />
+        </Menu.Content>
+      </Menu.Root>
+    </ButtonGroup>
   );
 }
