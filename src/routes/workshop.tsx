@@ -14,7 +14,6 @@ import {
   WorkshopDialogs,
   WorkshopHeader,
 } from "@/modules/workshop";
-import { twMerge } from "@/utils";
 
 /** What both routes render into: the editor's own islands under a project, one inset panel over the grid. */
 function Fold({ project, children }: { project: boolean; children: ReactNode }) {
@@ -63,10 +62,7 @@ function WorkshopShell() {
         <div
           data-ui="WorkshopShell"
           /* DS-GROUND: the islands under either route and the frame around them share the ground. */
-          className={twMerge(
-            "flex h-full flex-col bg-surface-950",
-            projectId === undefined && "pt-2",
-          )}
+          className="flex h-full flex-col bg-surface-950"
         >
           <ChromeGround />
           <WorkshopHeader />

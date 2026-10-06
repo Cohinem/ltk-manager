@@ -42,17 +42,13 @@ const navItems = [
   { to: "/workshop", label: m.workshop_nav_label(), icon: LootIcon, exact: false },
 ] as const;
 
-const tabBaseClass = `relative flex h-full items-center gap-1.5 px-3 text-sm font-medium transition-colors hover:bg-surface-700 ${iconLiftClass}`;
-const tabActiveClass = "text-accent-400";
-const tabInactiveClass = "text-surface-400 hover:text-surface-200";
+/* The height of the field a page draws in the middle, so the row reads as one line of controls. */
+const tabBaseClass = `flex h-7 items-center gap-1.5 rounded-md px-2.5 text-sm font-medium transition-colors ${iconLiftClass}`;
+const tabActiveClass = cellActive;
+/* DS-VEIL */
+const tabInactiveClass = "text-surface-400 hover:bg-surface-veil hover:text-surface-200";
 
 const windowControlClass = "h-full w-10 rounded-none text-surface-400 hover:text-surface-200";
-
-function ActiveIndicator() {
-  return (
-    <span className="absolute right-0 bottom-0 left-0 h-0.5 bg-linear-to-r from-accent-500 to-accent-400" />
-  );
-}
 
 function NavLink({
   to,
@@ -79,22 +75,17 @@ function NavLink({
       activeProps={{ className: twMerge(tabBaseClass, tabActiveClass) }}
       inactiveProps={{ className: twMerge(tabBaseClass, tabInactiveClass) }}
     >
-      {({ isActive }) => (
-        <>
-          <span className="relative">
-            <Icon className="size-4" />
-            {dot && (
-              <span
-                aria-hidden
-                data-ui="TitleBar:unread"
-                className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-accent-400"
-              />
-            )}
-          </span>
-          {!folded && label}
-          {isActive && <ActiveIndicator />}
-        </>
-      )}
+      <span className="relative">
+        <Icon className="size-4" />
+        {dot && (
+          <span
+            aria-hidden
+            data-ui="TitleBar:unread"
+            className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-accent-400"
+          />
+        )}
+      </span>
+      {!folded && label}
     </Link>
   );
 
@@ -225,7 +216,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
       ref={measure}
       /* Stacked over `main`, which the popup of what a page draws in the middle drops across. */
       className={twMerge(
-        "title-bar relative z-50 flex h-9 shrink-0 items-center border-b border-surface-600 bg-surface-900 select-none",
+        "title-bar relative z-50 flex h-10 shrink-0 items-center border-b border-surface-600 bg-surface-900 select-none",
         /* DS-GROUND */
         grounded && "border-transparent bg-surface-950",
         isMacOS && "pl-20",
@@ -263,7 +254,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
         </div>
 
         {/* Navigation tabs */}
-        <nav className="flex h-full items-center">
+        <nav className="flex h-full items-center gap-0.5">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
@@ -279,7 +270,7 @@ export function TitleBar({ title = "LTK Manager", appInfo }: TitleBarProps) {
 
       {/* Right: the cells that report state, the app menu, and window controls */}
       <div className={twMerge(SIDE, "justify-end")} data-tauri-drag-region>
-        <div className="flex h-full items-center">
+        <div className="flex h-full items-center gap-0.5 px-1.5">
           <UpdateButton />
 
           <NotificationCenter />
