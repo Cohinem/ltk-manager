@@ -4,9 +4,11 @@
 
 | Date       | Change                                                                    |
 | ---------- | ------------------------------------------------------------------------- |
+| 2026-10-06 | Draw the view control and the picks in a footer under the list            |
 | 2026-10-06 | Fold the title bar's navigation to icons, then drop the wordmark          |
 | 2026-10-06 | Draw the title bar on the workshop's ground, and the grid in a page inset |
-| 2026-10-06 | Draw the bar in the title bar and the trailing slots in the status row    |
+| 2026-10-06 | Draw the list's Test in a dock over the list's bottom right corner        |
+| 2026-10-06 | Draw the bar in the title bar and the run actions in the status row       |
 | 2026-10-02 | Replace list mode with a table of arranged columns                        |
 | 2026-09-10 | Take the whole thumb-button gesture off the webview                       |
 | 2026-09-10 | Write an explorer's stops on its moves alone, never on its mount          |
@@ -52,7 +54,7 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | One navigation stack      | Available | Spans the shell, and the grid is a stop on it                  |
 | Grid keyboard             | Available | A roving stop, arrows that follow the wrap, `Enter` to open    |
 | The table                 | Available | Arranged columns, grouping and ranges, in place of list mode   |
-| Sort and filter           | Available | On the bar's trailing edge, beside the count it moves          |
+| Sort and filter           | Available | On the bar's trailing edge                                     |
 | Selection and bulk        | Available | Select all, then Test, Pack or Delete                          |
 | Test from the grid        | Available | The same state machine a project's own Test runs               |
 | Import a project          | Available | Fantome, Modpkg and a Git repository, on the split button      |
@@ -95,47 +97,59 @@ and is not designed.
 ## Layout
 
 The workshop has no row of its own. Both routes draw the same chrome into the window's frame
-around the same fold: the history arrows and the bar in the middle of the title bar, and the
-trailing slots at the end of the status row. The bar is one element across the route change, and
-only the crumb inside it and the trailing slots differ.
+around the same fold: the history arrows and the bar in the middle of the title bar, and a
+project's run actions at the end of the status row. The bar is one element across the route
+change, and only the crumb inside it and the slots in and around it differ.
 
 ```
 grid
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ ◆ Home Mods Workshop   ← → ⌕ Workshop        15 projects ▽ Ctrl+P    🔔 ⚕ ⚙ ⋮ ─ □ ✕ │
+│ ◆ Home Mods Workshop   ← → ⌕ Workshop                      ▽ │ ＋▾   🔔 ⚕ ⚙ ⋮ ─ □ ✕ │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                    the fold                                      │
+│                                                                        ┌────────┐ │
+│                                                                        │ ▷ Test │ │
+│                                                                        └────────┘ │
+│ 15 projects  2 selected ▾                                                  ⊞≣⋮   │
 ├──────────────────────────────────────────────────────────────────────────────────┤
-│ ○ Patcher idle                                              ☑▾  ⊞≣⋮ │  ＋▾        │
+│ ○ Patcher idle                                                                   │
 └──────────────────────────────────────────────────────────────────────────────────┘
 
 project
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│ ◆ Home Mods Workshop   ← → ⌕ Workshop / Charizard  v1.0.9 Ctrl+P   🔔 ⚕ ⚙ ⋮ ─ □ ✕ │
+│ ◆ Home Mods Workshop   ← → ⌕ Workshop / Charizard         v1.0.9 ⬓  🔔 ⚕ ⚙ ⋮ ─ □ ✕ │
 ├──────────────────────────────────────────────────────────────────────────────────┤
 │                                    the fold                                      │
 ├──────────────────────────────────────────────────────────────────────────────────┤
-│ ○ Patcher idle                                           ⚠2  ⬓  Test  Pack ⋮     │
+│ ○ Patcher idle                                              ⚠2  Test  Pack ⋮     │
 └──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 The title bar and the status row are on screen on every page, so the chrome costs the fold no
-height. The arrows travel with the bar, on its leading edge. The trailing slots follow the
+height. The arrows travel with the bar, on its leading edge. A project's run actions follow the
 session line and the ambient items the status row already holds, per "The status bar item and
 the drawer" in [Mod health](MOD_HEALTH.md).
 
-`▽` is the sort and filter popover, `☑▾` the selection button and its bulk actions, `⊞≣⋮` the
-view mode control with its view options, and `＋▾` New project with Open folder, the three
-imports and the Recent group on its caret.
+**The status row holds what runs the open project, and nothing of the list's.** Under a project
+Test and Pack act on the one thing the page is about, so they stand in the frame. Over the list
+everything acts on the picks, so it draws with the list: Test in a dock that floats over the
+list's bottom right corner, and the picks and the view in its footer, per "The list's footer".
+New project draws at the end of the bar's field, behind a divider, and the panel layout popover
+stands behind the bar.
+
+`▽` is the sort and filter popover, `＋▾` New project with Open folder, the three imports and
+the Recent group on its caret, `2 selected ▾` the picks and their bulk actions, `⊞≣⋮` the view
+mode control with its view options, and `⬓` the panel layout popover.
 
 | Slot         | Grid                                    | Project                    |
 | ------------ | --------------------------------------- | -------------------------- |
 | History      | Live, on the shell's stack              | Live, on the shell's stack |
 | Crumb        | `Workshop`                              | `Workshop / <name>`        |
-| Trailing tag | The project count                       | The version                |
+| Trailing tag | Nothing                                 | The version                |
+| In the field | New project, and the imports on a caret | Nothing                    |
+| Behind it    | Nothing                                 | The panel layout popover   |
 | Badge        | Nothing                                 | `ProblemsBadge`            |
-| View slot    | Selection, view mode, view options      | The panel layout popover   |
-| Actions      | New project, and the imports on a caret | Test, Pack, overflow       |
+| Run actions  | Nothing. Test floats over the list      | Test, Pack, overflow       |
 
 Each slot reads the project context itself rather than taking it down the tree, so a route
 change refills the chrome instead of redrawing it.
@@ -149,7 +163,7 @@ weigh the same, so both sides take an equal share and the bar centres between th
 The bar's width is a claim on the free space rather than a flex basis. Claimed first, behind a
 grow of 1 on each side, it reaches its cap wherever the title bar can spare it and hands width
 back to a side needing more than its share. `min-w-max` keeps either side from squeezing a cell,
-and the bar gives up its shortcut and then its tag as it narrows.
+and the bar gives up its tag as it narrows.
 
 **The title bar's left side folds to make room.** Under 72rem of title bar the navigation draws
 its icons alone, each with its name as a tooltip. Under 62rem the wordmark and the version go as
@@ -157,16 +171,24 @@ well, and the app's mark stays. The steps are in rem, so they follow the zoom se
 are the same on every page, so the navigation does not change shape when a tab is pressed. They
 leave the bar's field about 21rem at the smallest window.
 
-The bar is a field, 28px tall in the 36px title bar, and the one boxed element there. DS-SHAPE
-in the `design-system` skill lists it beside the cells.
+The bar is a field, 28px tall in the 40px title bar, and the one boxed element there. The title
+bar is that tall on every page, so the field has 6px over it. The fold starts at the title bar's
+bottom edge with no gap of its own, so the field has the same 6px under it.
 
-### The trailing slots are 28px controls
+**The row is one line of 28px controls.** The navigation and the cells on the right are as tall as
+the field and take its radius. The page that is current fills with the accent tint, on a
+navigation item and on a cell alike. The window controls stay the height of the title bar,
+against the window's edge. DS-SHAPE in the `design-system` skill lists the cells.
+
+### The run actions are 28px controls
 
 The status row is 36px tall on every page, and the workshop's controls must not change that. They
-draw at the 28px size, DS-SIZE, which leaves the row's own padding around them.
+draw at the 28px size, DS-SIZE, which leaves the row's own padding around them. The layout
+popover behind the bar is the same size, the height of the bar's field. New project is inside
+the field, so it draws at 24px, the size of the filter beside it.
 
 Where the patcher cannot run and no mod is broken, the status row has nothing to say and draws
-nothing on other pages. Over the workshop it draws for the trailing slots alone.
+nothing on other pages. Under a project it draws for the run actions alone.
 
 ### The fold
 
@@ -208,7 +230,7 @@ describes what it reaches inside a project. What follows is what it means across
 
 | Mode      | Entered by                                        | Draws                                           |
 | --------- | ------------------------------------------------- | ----------------------------------------------- |
-| `idle`    | Nothing typed, no focus                           | The crumb, the tag, the `Ctrl+P` hint           |
+| `idle`    | Nothing typed, no focus                           | The crumb, and the version under a project      |
 | `filter`  | `Ctrl+F`, over the grid only                      | An input in the bar. No scrim, no list under it |
 | `palette` | A click or `Ctrl+P`, either route. Or on a prefix | The palette under the bar, over a scrim         |
 
@@ -251,7 +273,7 @@ palette is searching. A prefix moves the rest of the line into the palette, and 
 scope hands it back - the borrow only happens where the filter took it.
 
 `Escape` clears the filter. A click away leaves it standing, because the grid behind the bar is
-still showing it and the idle tag reads `3 of 15` while it is.
+still showing it and the footer's count reads `3 of 15` while it is.
 
 ### What an empty box lists
 
@@ -339,7 +361,7 @@ Test, Pack, Rename, Open Location and Delete, on a card and on a table row alike
 right now carries a **Testing** pill that ends the run, and in the table its Test reads Stop Test.
 
 **A right click over the selection reads over the selection.** Test N, Pack N, Delete N and Clear
-selection, the same set the selection button's caret draws. A right click outside the selection
+selection, the same set the footer's count opens. A right click outside the selection
 selects that card alone first and opens the card's own menu, the rule every file manager obeys and
 the one the explorers follow in "Selection" of [Project editor](PROJECT_EDITOR.md). A selection of
 one is the exception: the card and the pick are the same target there, so the card's own menu
@@ -377,17 +399,19 @@ The focus ring is `accent-500` against the hover border's dimmed accent, DS-HOVE
 
 ### Selection, and a running session
 
-The selection button selects every visible project, and clears when they are all selected
-already. Its caret holds the three bulk actions.
+A project is picked on its card or its row, and `Ctrl+A` picks every drawn project. The select-all
+checkbox does the same and clears when they are all picked already. The table holds it in its
+header, and the footer holds it over the grid. The footer names the picks by their count, and
+pressing the count opens the bulk actions.
 
-Test stands on the button whether or not anything is selected - it is the action a user comes to
-the grid for - disabled until something is, and in the same green a project's own header gives
+Test stands in its dock whether or not anything is picked - it is the action a user comes
+to the grid for - disabled until something is, and in the same green a project's own header gives
 it, so one action reads the same from either surface. Pack and Delete are what a selection is
 for, so they arrive with one rather than standing disabled beside it.
 
 **The picks are spent as Test or Pack is pressed.** The run answers over the grid and there is nothing
 left to press again, and a menu that closes on the press would otherwise carry a completion
-callback down with it - the caret and a selected card's right click draw the same four commands
+callback down with it - the footer's count and a selected card's right click draw the same four commands
 from the same place, so neither can end up spending the picks when the other does not.
 
 The grid runs the same test state machine a project does. Named with no project its "other" is
@@ -396,9 +420,9 @@ project's does. A run the mod library started leaves both disabled, each pointin
 that owns it.
 
 **A session holds the files it was started over, and that set is not the user's to rewrite until
-it ends.** So select-all goes quiet while the patcher is up - the button and the `Ctrl+A` that
-doubles for it, both gated on the same state - while the selection group itself stays. Hiding it
-took away the one control that could end the session.
+it ends.** So select-all goes quiet while the patcher is up - the checkbox and the `Ctrl+A` that
+doubles for it, both gated on the same state - while Test stays in its dock, as the one control
+that ends the session. The dock draws while a session is up even where there is nothing to list.
 
 Test names the profile it runs over on its own tooltip. The overlay build prepends the workshop
 paths to the enabled mods of the active profile, so a project is tested on top of that profile,
@@ -406,25 +430,43 @@ and with the profile selector gone the workshop drew it nowhere else.
 
 ### Sort, filter and the count
 
-The sort and filter popover sits on the bar's trailing edge beside the count it moves, rather
-than in a slot of its own. The count, the chips over the grid and the popover are one subject,
-and the bar has no width to spend saying it in three places. It renders in `idle` and in `filter`
-both, because a control that vanishes the moment someone types is missing when it is wanted.
+The sort and filter popover sits on the bar's trailing edge, beside the query it narrows with. It
+renders in `idle` and in `filter` both, because a control that vanishes the moment someone types
+is missing when it is wanted.
 
 Sort is name or last modified, either direction. The filters are tags, champions and maps, and
 what is set draws as chips over the grid while no project is open. A filter set on the grid and
 then carried into a project draws its chips nowhere - a project header is not the grid's status
 line.
 
-The tag beside the query is the count: `15 projects` plain, `3 of 15` while anything is
-narrowing it. That is what makes a standing filter visible from `idle`.
+The count is in the list's footer: `15 projects` plain, `3 of 15` while anything is narrowing
+it. That is what makes a standing filter visible from `idle`. The bar draws no count and no
+shortcut hint, so its field holds the crumb and the filter alone.
 
 ### View mode and card size
 
-Grid against table is a `SegmentedControl` in the view slot, and it outlives a restart. The view
+Grid against table is a `SegmentedControl` in the list's footer, and it outlives a restart. The view
 options popover on its edge carries the card scale the mod library's grid uses too, and the
 table's row height, grouping and columns while the table is up. Card width is that scale times the
 app zoom, so the column count follows both.
+
+### The list's footer
+
+The island the list draws in ends in a footer row, 36px tall, under the grid and under the table.
+It holds what belongs to the list: the count, the picks and the view.
+
+The count reads `15 projects` plain and `3 of 15` while anything narrows the list. The picks
+follow it as `2 selected` once there are any, a button that opens their bulk actions. Over the
+grid the select-all checkbox leads the row. The table holds that checkbox in its header, so the
+footer does not draw a second one.
+
+The view mode control ends the row. The footer draws wherever there are projects to list, a
+search with no matches included, because the control is the way to the other view.
+
+**Test floats over the list, above the footer's trailing end.** The dock is a raised container
+holding the one button, 4px in from the corner, which is the inset the footer's view control
+keeps from the same edge. The list keeps room under its last row or card, so a scroll to the end
+clears what the dock covers.
 
 ## The table
 
@@ -610,23 +652,24 @@ the grid. The root's handler is the half to drop: a page that wants the key shou
 way the bar and the game search both do, through a store of its own rather than through a
 selector over the whole document.
 
-| Piece            | Where                                                           |
-| ---------------- | --------------------------------------------------------------- |
-| The shell        | `src/routes/workshop.tsx`                                       |
-| The grid route   | `src/routes/workshop/index.tsx`                                 |
-| The header       | `src/modules/workshop/projects/components/WorkshopHeader.tsx`   |
-| The frame slots  | `src/components/ChromeSlot.tsx`                                 |
-| The grid's slots | `src/modules/workshop/projects/components/WorkshopControls.tsx` |
-| The bar          | `src/modules/workshop/palette/components/WorkshopBar.tsx`       |
-| The mode         | `src/modules/workshop/palette/utils/barMode.ts`                 |
-| The sources      | `src/modules/workshop/palette/utils/sources.ts`                 |
-| Project rows     | `src/modules/workshop/palette/components/projectRows.tsx`       |
-| The grid         | `src/modules/workshop/projects/components/ProjectGrid.tsx`      |
-| Its keyboard     | `src/modules/workshop/projects/hooks/useProjectGridNav.ts`      |
-| The arrow walk   | `src/modules/workshop/shared/utils/gridNav.ts`                  |
-| The history      | `src/stores/workshopEditor.ts`                                  |
-| Its hooks        | `src/modules/workshop/shell/hooks/useShellHistory.ts`           |
-| The grid filter  | `src/modules/workshop/projects/hooks/useFilteredProjects.ts`    |
+| Piece             | Where                                                           |
+| ----------------- | --------------------------------------------------------------- |
+| The shell         | `src/routes/workshop.tsx`                                       |
+| The grid route    | `src/routes/workshop/index.tsx`                                 |
+| The header        | `src/modules/workshop/projects/components/WorkshopHeader.tsx`   |
+| The frame slots   | `src/components/ChromeSlot.tsx`                                 |
+| The list's Test   | `src/modules/workshop/projects/components/WorkshopTestDock.tsx` |
+| The list's footer | `src/modules/workshop/projects/components/WorkshopControls.tsx` |
+| The bar           | `src/modules/workshop/palette/components/WorkshopBar.tsx`       |
+| The mode          | `src/modules/workshop/palette/utils/barMode.ts`                 |
+| The sources       | `src/modules/workshop/palette/utils/sources.ts`                 |
+| Project rows      | `src/modules/workshop/palette/components/projectRows.tsx`       |
+| The grid          | `src/modules/workshop/projects/components/ProjectGrid.tsx`      |
+| Its keyboard      | `src/modules/workshop/projects/hooks/useProjectGridNav.ts`      |
+| The arrow walk    | `src/modules/workshop/shared/utils/gridNav.ts`                  |
+| The history       | `src/stores/workshopEditor.ts`                                  |
+| Its hooks         | `src/modules/workshop/shell/hooks/useShellHistory.ts`           |
+| The grid filter   | `src/modules/workshop/projects/hooks/useFilteredProjects.ts`    |
 
 ## Ideas for review
 
@@ -636,7 +679,7 @@ These are proposals. None is a decision.
 its own project, and two projects sit side by side in one split. It wants a tab model keyed by
 something other than one project, which is the whole of the work.
 
-**One selection model.** Bulk Test and Pack live on the grid's selection button, and a project's
+**One selection model.** Bulk Test and Pack live on the list's picks, and a project's
 Test and Pack live in its header. Merging them wants one model that answers "what is selected"
 for a grid of projects and for a tree of files at once.
 
@@ -661,4 +704,4 @@ None. Everything this document describes is decided, and what is deferred is nam
 | Is the Projects prefix `/` or `~`?              | `/` is primary, and `~` is an alias                 |
 | Does the grid keep a visible view-mode control? | Yes, and it gets no command                         |
 | Does a click over the grid open the filter?     | No. A click means the palette on either surface     |
-| Does the grid's filter survive a click away?    | Yes. The count tag is what says so                  |
+| Does the grid's filter survive a click away?    | Yes. The footer's count is what says so             |

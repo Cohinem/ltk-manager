@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 
+import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { useChampionRoster } from "@/modules/champions";
 
@@ -77,6 +78,19 @@ export function useFilteredProjects() {
     sort,
     roster,
   ]);
+}
+
+/** What the list is drawing: every project, or the matches out of them while something narrows it. */
+export function useProjectCountLabel(): string {
+  const { data: projects } = useWorkshopProjects();
+  const filtered = useFilteredProjects();
+  const total = projects?.length ?? 0;
+
+  if (filtered.length !== total) {
+    return m.workshop_bar_count_filtered_label({ shown: filtered.length, total });
+  }
+
+  return m.workshop_folder_parent_projects_label({ count: total });
 }
 
 /* A project never opened sorts by when it last changed, so it lands among the others. */

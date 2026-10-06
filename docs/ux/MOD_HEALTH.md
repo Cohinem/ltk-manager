@@ -437,8 +437,8 @@ it supersedes itself as a session moves - idle, building, launching, in game, a 
 failure. The items to its right are ambient: they answer to nothing the session is doing, so they
 outlive every line that passes underneath them. Mod health is the first of them.
 
-A page's own actions follow the items, at the bar's end. The workshop draws its view controls and
-its actions there, per "Layout" in [Workshop](WORKSHOP.md), and the bar draws for them alone where
+A page's own actions follow the items, at the bar's end. A workshop project draws its run actions
+there, per "Layout" in [Workshop](WORKSHOP.md), and the bar draws for them alone where
 it would otherwise draw nothing.
 
 **The item is a light cell, and its glyph is what carries it.** The bar's ground is the darkest

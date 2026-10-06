@@ -2381,6 +2381,21 @@
   "workshop_lcu_wads_action": "List the LCU WADs",
   "workshop_lcu_wads_label": "LCU WADs",
   "workshop_license_title": "License",
+  "workshop_list_default_profile_label": "Default",
+  "workshop_list_footer_label": "Project list",
+  "workshop_list_test_empty_hint": "Select projects to test them in game",
+  "workshop_list_test_hint": [
+    {
+      "declarations": ["input count", "input profile", "local countPlural = count: plural"],
+      "selectors": ["countPlural"],
+      "match": {
+        "countPlural=one": "Test {count} selected project over the {profile} profile",
+        "countPlural=other": "Test {count} selected projects over the {profile} profile"
+      }
+    }
+  ],
+  "workshop_list_test_library_hint": "The mod library is testing - stop it there first",
+  "workshop_list_view_label": "View",
   "workshop_missile_assets_failed_hint": "{count} effect assets could not be loaded. Choose another effect or reopen the preview to retry.",
   "workshop_missile_assets_loading_label": "Loading flight-effect assets…",
   "workshop_missile_back_action": "Spells",

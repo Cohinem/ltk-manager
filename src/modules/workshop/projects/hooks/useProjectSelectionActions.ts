@@ -24,7 +24,7 @@ export interface ProjectSelectionActions {
 /**
  * The four commands a project selection carries, bound to what is picked.
  *
- * The selection button and a selected card's right click both hang off this, so
+ * The list's footer and a selected card's right click both hang off this, so
  * the two ways into a bulk action cannot drift. Per "Selection, and a running
  * session" in `docs/ux/WORKSHOP.md`.
  */

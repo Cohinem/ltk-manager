@@ -248,7 +248,7 @@ The screen has four regions.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│ ◆ Home Mods Workshop  ← → ⌕ Workshop / Charizard Smolder X  v1.0.0  ─□✕ │
+│ ◆ Home Mods Workshop  ← → ⌕ Workshop / Charizard Smolder X v1.0.0 ⬓ ─□✕ │
 ├───┬────────────┬──────────────────────────────────┬────────────────────┤
 │ ▤ │ EXPLORER   │ ⧉ charizard_circle.tex  ×    ⬓   │ base           446 │
 │ ⌕ ├────────────┼──────────────────────────────────┼────────────────────┤
@@ -261,14 +261,14 @@ The screen has four regions.
 │ ⓘ │  default 1 │                                  │ INSPECTOR          │
 │ ▦ │            │                                  │ 14.1 KB · DDS      │
 ├───┴────────────┴──────────────────────────────────┴────────────────────┤
-│ ○ Patcher idle                                   ⬓ ▷ Test  ⬚ Pack    ⋮ │
+│ ○ Patcher idle                                     ▷ Test  ⬚ Pack    ⋮ │
 └────────────────────────────────────────────────────────────────────────┘
  rail   primary            editor surface               secondary
 ```
 
 1. The project header names the project and holds the actions that apply to the whole
-   project. It has no row of its own. The bar is in the title bar and the actions are at the
-   end of the status row, per "Layout" in [Workshop](WORKSHOP.md).
+   project. It has no row of its own. The bar is in the title bar with the layout popover behind
+   it, and the actions are at the end of the status row, per "Layout" in [Workshop](WORKSHOP.md).
 2. The rail is the column of views down the outer edge. It answers the question "where do I
    look?"
 3. The primary side panel holds the view the rail selected. It answers the question "what
@@ -3141,7 +3141,7 @@ keeps it.
 
 **The selection bar.** The count and the size at the right of the toolbar row, then one
 button that names the layer, **Copy into base**, with the other layers on its caret. This is
-the shape the workshop's selection button draws already, and it is the route a user finds
+the shape the workshop's list footer draws already, and it is the route a user finds
 once a selection exists and no menu is open. The scoped browser draws the toolbar row as
 soon as a selection exists, and [the explorer bar](#the-explorer-bar) gives it one for good.
 
