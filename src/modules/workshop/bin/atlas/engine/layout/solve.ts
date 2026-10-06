@@ -400,7 +400,7 @@ function depthOf(tree: ViewTree, key: string): number {
 }
 
 /** The near-edge and far-edge anchors. A single anchor holds both edges. */
-function anchorsOf(
+export function anchorsOf(
   anchor: ViewAnchor,
 ): readonly [readonly [number, number], readonly [number, number]] {
   switch (anchor.kind) {
@@ -425,7 +425,7 @@ export function sourceOf(rect: ViewRect, screen: Screen): [number, number] {
 }
 
 /** `Size` clamped to `MinSize` and `MaxSize`, in source pixels. */
-function clampedSize(rect: ViewRect): [number, number] {
+export function clampedSize(rect: ViewRect): [number, number] {
   return [0, 1].map((at) =>
     Math.min(Math.max(rect.size[at] ?? 0, rect.minSize[at] ?? 0), rect.maxSize[at] ?? Infinity),
   ) as [number, number];
@@ -481,7 +481,7 @@ function unionOf(rects: readonly (PixelRect | null)[]): PixelRect | null {
   return union === null ? null : toPixels(union);
 }
 
-function lerp(from: number, to: number, at: number): number {
+export function lerp(from: number, to: number, at: number): number {
   return from + (to - from) * at;
 }
 

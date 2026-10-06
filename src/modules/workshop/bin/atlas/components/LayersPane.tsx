@@ -12,11 +12,15 @@ import { instantScroll } from "../../../shared/utils/instantScroll";
 import { isCollapseAllKey } from "../../../shared/utils/treeGestures";
 import { Notice } from "../../shared/preview/Notice";
 import { ROW_HEIGHT } from "../../tree/components/BinRow";
+import { addTargetOf } from "../engine/edit/newElement";
+import { kindOf } from "../engine/model/elementKinds";
 import { foldsAbove, type LayerRow, layerMatches, layerRows } from "../engine/model/layers";
 import { iconThumb } from "../engine/model/sprites";
 import { sceneMembers } from "../engine/model/tree";
 import { variantPatched } from "../engine/model/variants";
+import { useAddElement } from "../hooks/useAddElement";
 import { useAtlasView } from "../hooks/useAtlasSources";
+import { useDeleteElements } from "../hooks/useDeleteElements";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
 import {
   useAtlasPreviewActions,
@@ -25,6 +29,7 @@ import {
   useViewPreview,
   viewKey,
 } from "../state/atlasPreview";
+import { usePlacing, usePlacingActions } from "../state/placing";
 import { ElementMenu } from "./ElementMenu";
 import { LayerRowView } from "./LayerRow";
 import { SceneMenu } from "./SceneMenu";
@@ -47,10 +52,14 @@ export interface LayersPaneProps {
  * The tree is one tab stop: Up and Down walk the rows, Right opens a fold or steps into it, Left
  * closes it or steps out to its parent, Enter or Space selects the row, a scene's row every element
  * in it and its scenes, F frames it, Ctrl+F returns
- * to the box, Ctrl+A selects every element the search finds, and Escape lets go. A click with
+ * to the box, Ctrl+A selects every element the search finds, Delete or Backspace deletes the
+ * selection, and Escape lets go. A click with
  * Ctrl, Shift or Cmd adds a row to the selection, a double click frames it, and a right click
  * selects it and opens its menu, a scene's being `SceneMenu`. A pick on the canvas unfolds the tree to its row. The rows are
  * virtual, since the item shop holds two thousand elements.
+ *
+ * While a component is being placed, a row takes it in place of the selection: a scene's row
+ * into the scene, a group's into the group, and any other element's into its scene.
  */
 export function LayersPane({ document, entry }: LayersPaneProps) {
   const { tree, error, pending } = useAtlasView(document, entry);
@@ -69,6 +78,10 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
     setHovered,
     requestFrame,
   } = useAtlasPreviewActions();
+  const placing = usePlacing(key);
+  const { stop: stopPlacing } = usePlacingActions();
+  const adder = useAddElement(key, tree);
+  const deleter = useDeleteElements(key, tree);
   const [menuElement, setMenuElement] = useState<string | null>(null);
   const [menuScene, setMenuScene] = useState<string | null>(null);
 
@@ -133,8 +146,22 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
     else setShut(flip);
   };
 
+  /** Put the component being placed into `row`, answering whether one was being placed. */
+  const putInto = (row: LayerRow) => {
+    if (tree === null || placing === null) return false;
+
+    const kind = kindOf(placing.kind);
+    const target =
+      row.type === "scene" ? { scene: row.key, group: null } : addTargetOf(tree, row.key);
+    stopPlacing();
+    if (kind !== undefined && target !== null) void adder.add(kind, target);
+    return true;
+  };
+
   const act = (row: LayerRow, additive = false) => {
     setActiveId(row.id);
+    if (putInto(row)) return;
+
     if (row.type === "scene") selectScene(row.key, additive);
     else if (additive) toggleSelected(key, row.key);
     else select(key, row.key);
@@ -184,6 +211,11 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
       return;
     }
     if (command || event.altKey) return;
+    if (event.key === "Delete" || event.key === "Backspace") {
+      event.preventDefault();
+      void deleter.run(selection);
+      return;
+    }
 
     const row = rows[active];
     if (row === undefined) return;
@@ -247,6 +279,9 @@ export function LayersPane({ document, entry }: LayersPaneProps) {
                   key={virtual.key}
                   className="absolute left-0 w-full"
                   style={{ top: virtual.start, height: virtual.size }}
+                  onPointerUp={() => {
+                    if (placing?.dragged === true) putInto(row);
+                  }}
                 >
                   <LayerRowView
                     domId={domId(virtual.index)}

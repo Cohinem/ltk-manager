@@ -65,11 +65,16 @@ describe("defaultShellArrangements", () => {
     expect(shells.material).toEqual({ layout: defaultShellLayout("material"), leafId: "leaf-2" });
   });
 
-  it("holds every pane of the Atlas shell once, the canvas between the layers and the inspector", () => {
+  it("holds every pane of the Atlas shell once, the components over the layers beside the canvas", () => {
     const tree = defaultShellLayout("atlas");
 
     expect([...openShellPanes(tree)].sort()).toEqual([...shellPanesOf("atlas")].sort());
-    expect(leaves(tree).map((leaf) => leaf.tabs[0])).toEqual(["layers", "preview", "inspector"]);
+    expect(leaves(tree).map((leaf) => leaf.tabs[0])).toEqual([
+      "components",
+      "layers",
+      "preview",
+      "inspector",
+    ]);
   });
 
   it("holds every pane of the material shell once, the preview beside the inspector", () => {
@@ -179,12 +184,30 @@ describe("sanitizeShellLayout", () => {
     });
 
     expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
-      ["layers", "variants", "sprites"],
+      ["layers", "variants", "sprites", "components"],
       ["preview"],
     ]);
     expect(sanitizeShellLayout("atlas", defaultShellLayout("atlas"))).toEqual(
       defaultShellLayout("atlas"),
     );
+  });
+
+  it("opens an Atlas tree saved before the components pane existed with it behind the layers", () => {
+    const tree = sanitizeShellLayout("atlas", {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      children: [
+        { kind: "leaf", id: "leaf-5", tabs: ["layers", "sprites"], activeTab: "sprites" },
+        { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+      ],
+    });
+
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["layers", "sprites", "components"],
+      ["preview"],
+    ]);
+    expect(leaves(tree)[0]?.activeTab).toBe("sprites");
   });
 
   it("opens a skin tree saved before the material pane existed with it behind the inspector", () => {

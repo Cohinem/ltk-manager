@@ -2,9 +2,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
@@ -20,7 +18,7 @@ import { boardCommands } from "../engine/commands/board";
 import { type PreviewState, visibleElements } from "../engine/commands/build";
 import { layerEdits } from "../engine/edit/targets";
 import { onBoard, toFrame } from "../engine/layout/board";
-import type { PixelRect, Screen } from "../engine/layout/solve";
+import type { Screen } from "../engine/layout/solve";
 import { labelOf } from "../engine/model/layers";
 import { withRoles } from "../engine/model/loadout";
 import { subtreeOf } from "../engine/model/tree";
@@ -28,6 +26,7 @@ import type { ViewFont, ViewStyleSheet } from "../engine/model/view";
 import { useAtlasLayout } from "../hooks/useAtlasLayout";
 import { useUiPrograms, useUiTextures } from "../hooks/useAtlasSources";
 import { useBoard } from "../hooks/useBoard";
+import { useDeleteElements } from "../hooks/useDeleteElements";
 import { useHiddenScenes } from "../hooks/useHiddenScenes";
 import { useLoadoutView } from "../hooks/useLoadoutView";
 import { useTextSource, useViewStrings } from "../hooks/useTextSource";
@@ -39,7 +38,6 @@ import type { FrameInputs, ParticleDraw } from "../rendering/utils/frameRenderer
 import { useAtlasEdit } from "../state/atlasEdit";
 import {
   useAtlasPreviewActions,
-  useFrameRequest,
   useFrameSettings,
   useHovered,
   useViewPreview,
@@ -53,10 +51,12 @@ import { FrameOverlay, frameNameAt } from "./FrameOverlay";
 import { previewKey } from "./previewKeys";
 import { useButtonPlay } from "./useButtonPlay";
 import { useCanvasEdit } from "./useCanvasEdit";
+import { useCanvasPlace } from "./useCanvasPlace";
 import { useComboPlay } from "./useComboPlay";
+import { useFraming } from "./useFraming";
 import { useHeldKeys } from "./useHeldKeys";
 import { useMeterPlay } from "./useMeterPlay";
-import { useViewTransform, type ViewTransformControl } from "./useViewTransform";
+import { useViewTransform } from "./useViewTransform";
 
 export interface AtlasCanvasProps {
   readonly document: BinDocumentId;
@@ -87,8 +87,10 @@ const NO_SCENES: ReadonlySet<string> = new Set();
  * resizing, the marquee and panning are `useCanvasEdit`'s. A right click picks the element under
  * the pointer and opens its menu. The keys are F to frame the selection, 0 to fit, 1 for 100%,
  * plus and minus to zoom, the arrows to nudge by a source pixel or ten with Shift, the brackets
- * to move the selection up and down its siblings' draw order, all the way with Shift, and Escape
- * to clear the selection. The marks over the frame are `FrameOverlay`'s.
+ * to move the selection up and down its siblings' draw order, all the way with Shift, Delete or
+ * Backspace to delete the selection, and Escape to clear it. The marks over the frame are `FrameOverlay`'s.
+ *
+ * While a component is being placed, `useCanvasPlace` takes the press and draws its ghost.
  */
 export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps) {
   const source = focus ? "scene" : "controller";
@@ -208,6 +210,15 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
     () => [...overlayFramesOf(board, screen), ...nestedFramesOf(board, tree, shown, order)],
     [board, screen, tree, shown, order],
   );
+  const place = useCanvasPlace({
+    view: key,
+    tree,
+    frames: overlayFrames,
+    settings,
+    hovered,
+    enabled: !focus && !interact,
+  });
+  const deleter = useDeleteElements(key, tree);
   const menu = useCanvasMenu({
     nameAt: (x, y) => frameNameAt(overlayFrames, transform.view, x, y)?.scene,
     pickAll: canvas.pickAll,
@@ -258,6 +269,8 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
     return [event.clientX - box.left, event.clientY - box.top] as const;
   };
 
+  const putDown = (x: number, y: number) => place.put(transform.toScreen(x, y), canvas.pick(x, y));
+
   const onKeyDown = (event: ReactKeyboardEvent) => {
     if (held.press(event)) return;
     if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -273,6 +286,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
       selected: selected === null ? null : (shown?.get(selected) ?? null),
       clear: () => select(key, null),
       nudge: (dx, dy) => canvas.nudge(dx * step, dy * step),
+      remove: () => void deleter.run(focus ? [] : selection),
       arrange: (layerStep) => {
         if (tree !== null && selected !== null && edit?.editable === true) {
           void edit.apply(layerEdits(tree, selected, layerStep));
@@ -309,14 +323,21 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
           aria-label={m.workshop_bin_atlas_canvas_label()}
           className="relative min-h-0 flex-1 overflow-hidden outline-none select-none focus-visible:ring-1 focus-visible:ring-accent-500/60 focus-visible:ring-inset"
           style={{
-            cursor: interactCursor(
-              interact,
-              play.pointing || buttons.pointing || meters.pointing,
-              canvas.cursor,
-            ),
+            cursor: place.active
+              ? "crosshair"
+              : interactCursor(
+                  interact,
+                  play.pointing || buttons.pointing || meters.pointing,
+                  canvas.cursor,
+                ),
           }}
           onContextMenuCapture={(event) => menu.aim(...pointAt(event))}
           onPointerDown={(event) => {
+            if (place.active && event.button === 0) {
+              putDown(...pointAt(event));
+              return;
+            }
+
             /* Interact mode plays the view with the primary button, and pans with the others. */
             if (interact && event.button === 0) {
               const [x, y] = pointAt(event);
@@ -331,6 +352,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
             const [x, y] = pointAt(event);
             const point = transform.toScreen(x, y);
             setPointer(board === null ? point : toFrame(board, screen, point));
+            if (place.active) place.carry(point);
             canvas.onPointerMove(event);
             if (interact) {
               play.move(x, y);
@@ -343,6 +365,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
             if (under !== hovered) setHovered(under);
           }}
           onPointerUp={(event) => {
+            if (place.dragged) putDown(...pointAt(event));
             buttons.up();
             meters.up();
             canvas.onPointerUp(event);
@@ -350,6 +373,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
           onPointerLeave={() => {
             setHovered(null);
             setPointer(null);
+            place.carry(null);
             play.leave();
             buttons.leave();
             meters.leave();
@@ -389,6 +413,7 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
             handles={!interact && canvas.handles}
             marquee={canvas.marquee}
             guides={canvas.guides}
+            ghost={place.ghost}
           />
         </ContextMenu.Trigger>
         <CanvasMenu document={document} entry={entry} source={source} target={menu.target} />
@@ -414,27 +439,4 @@ export function AtlasCanvas({ document, entry, focus = false }: AtlasCanvasProps
 function interactCursor(interact: boolean, pointing: boolean, editing: string): string {
   if (!interact) return editing;
   return pointing ? "pointer" : "default";
-}
-
-/** Frame the element a request for this view names, or fit the screen for a request naming none. */
-function useFraming(
-  key: string,
-  solved: ReadonlyMap<string, PixelRect> | null,
-  transform: ViewTransformControl,
-) {
-  const request = useFrameRequest();
-  const answered = useRef(request?.token ?? 0);
-
-  useEffect(() => {
-    if (request === null || request.view !== key || request.token === answered.current) return;
-
-    answered.current = request.token;
-    if (request.element === null) {
-      transform.fit();
-      return;
-    }
-
-    const rect = solved?.get(request.element);
-    if (rect !== undefined) transform.frame(rect);
-  }, [request, key, solved, transform]);
 }

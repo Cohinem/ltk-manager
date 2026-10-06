@@ -6,7 +6,7 @@ use fs_err as fs;
 use super::super::tests::{Game, SKIN, declared, h, manifest, project};
 use super::super::{DeclaredDiagnosticKind, ObjectSkip};
 use super::*;
-use crate::bin_document::{BinValue, LeafValue};
+use crate::bin_document::{BinValue, LeafValue, PropertyEdit};
 use ltk_manager_workshop::DeclaredSign;
 
 const COPY: &str = "Mods/jade-teemo/Skin0Copy";
@@ -433,4 +433,124 @@ fn a_copy_of_an_object_the_game_declares_nowhere_is_refused() {
 
     assert_matches!(outcome, Err(BinDocumentError::NodeNotFound { .. }));
     assert!(!has_manifest(dir.path(), "base"));
+}
+
+const IMAGE: &str = "Mods/jade-teemo/Hud/Image";
+
+/// What the Atlas components pane sends to fill the image it just created: `newElementEdits` in
+/// `src/modules/workshop/bin/atlas/engine/edit/newElement.ts`.
+fn image_fill(entry: &str) -> Vec<PropertyEdit> {
+    let field = |name: &str| hex(h(name));
+    let step = |name: &str| format!("{:08x}", *h(name));
+    let rect = step("UIRect");
+    let anchors = step("Anchors");
+    let leaf = |name: &str, value: serde_json::Value| {
+        serde_json::json!({
+            "entry": entry,
+            "holder": "",
+            "field": field(name),
+            "edits": [{ "type": "setLeaf", "path": "", "value": value }],
+        })
+    };
+    let rect_leaf = |name: &str, value: serde_json::Value| {
+        serde_json::json!([
+            { "type": "ensureProperty", "path": rect, "field": field(name) },
+            { "type": "setLeaf", "path": format!("{rect}.{}", step(name)), "value": value },
+        ])
+    };
+
+    let mut position = vec![
+        serde_json::json!({ "type": "replacePointer", "path": "", "class": "UiPositionRect" }),
+        serde_json::json!({ "type": "ensureProperty", "path": "", "field": field("UIRect") }),
+    ];
+    for staged in [
+        rect_leaf(
+            "Position",
+            serde_json::json!({ "type": "vector", "values": [736, 536] }),
+        ),
+        rect_leaf(
+            "Size",
+            serde_json::json!({ "type": "vector", "values": [128, 128] }),
+        ),
+        rect_leaf(
+            "SourceResolutionWidth",
+            serde_json::json!({ "type": "integer", "text": "1600" }),
+        ),
+        rect_leaf(
+            "SourceResolutionHeight",
+            serde_json::json!({ "type": "integer", "text": "1200" }),
+        ),
+        serde_json::json!([
+            { "type": "ensureProperty", "path": "", "field": field("Anchors") },
+            { "type": "replacePointer", "path": anchors, "class": "AnchorSingle" },
+            { "type": "ensureProperty", "path": anchors, "field": field("Anchor") },
+            {
+                "type": "setLeaf",
+                "path": format!("{anchors}.{}", step("Anchor")),
+                "value": { "type": "vector", "values": [0.5, 0.5] },
+            },
+        ]),
+    ] {
+        position.extend(staged.as_array().unwrap().iter().cloned());
+    }
+
+    serde_json::from_value(serde_json::json!([
+        leaf("name", serde_json::json!({ "type": "string", "value": IMAGE })),
+        leaf(
+            "Scene",
+            serde_json::json!({ "type": "objectLink", "text": "Mods/jade-teemo/Hud" }),
+        ),
+        leaf("Enabled", serde_json::json!({ "type": "bool", "value": true })),
+        leaf("Layer", serde_json::json!({ "type": "integer", "text": "3" })),
+        { "entry": entry, "holder": "", "field": field("Position"), "edits": position },
+    ]))
+    .unwrap()
+}
+
+#[test]
+fn a_constructed_ui_element_takes_its_scene_and_rect_as_one_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(project(dir.path()));
+    let schema = crate::meta_schema::shared(None);
+    let created = document
+        .create_object(
+            IMAGE,
+            &NewObject::Class {
+                class: "UiElementIconData".to_owned(),
+            },
+        )
+        .unwrap();
+
+    document
+        .edit_properties(image_fill(&hex(created)), schema.at(None))
+        .unwrap();
+
+    let image = document.object_at(created).unwrap();
+    assert_eq!(text_of(image, "name"), IMAGE);
+    assert_eq!(
+        image.properties.get(&h("Scene")),
+        Some(&values::ObjectLink::new(h("Mods/jade-teemo/Hud")).into())
+    );
+    let size = format!(
+        "{:08x}.{:08x}.{:08x}",
+        *h("Position"),
+        *h("UIRect"),
+        *h("Size")
+    );
+    assert_matches!(
+        document.property_value(created, &size),
+        Ok(PropertyValueEnum::Vector2(size)) if size.value.x == 128.0 && size.value.y == 128.0
+    );
+    let text = manifest(dir.path(), "base");
+    assert!(text.contains("class: UiElementIconData"), "{text}");
+    assert!(text.contains("UiPositionRect"), "{text}");
+    assert!(text.contains("AnchorSingle"), "{text}");
+
+    assert!(document.undo().unwrap());
+    assert_eq!(
+        document.object_at(created),
+        Some(&BinObject::new(created, h("UiElementIconData")))
+    );
+    assert!(document.undo().unwrap());
+    assert!(document.object_at(created).is_none());
 }

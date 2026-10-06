@@ -635,6 +635,63 @@ samp {
   --scrollbar-track: transparent;
 }
 
+/* The concave corner where a side of an open tab meets the top edge of the box under it. */
+@utility tab-foot-end {
+  --tab-foot-fill: var(--surface-900);
+  --tab-foot-edge: color-mix(in oklab, var(--surface-700) 50%, transparent);
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 100%;
+    width: var(--radius-003);
+    height: var(--radius-003);
+    pointer-events: none;
+    background:
+      radial-gradient(
+        circle at 100% 0,
+        transparent calc(var(--radius-003) - 1.25px),
+        var(--tab-foot-edge) calc(var(--radius-003) - 0.75px),
+        var(--tab-foot-edge) calc(var(--radius-003) - 0.25px),
+        transparent calc(var(--radius-003) + 0.25px)
+      ),
+      radial-gradient(
+        circle at 100% 0,
+        transparent calc(var(--radius-003) - 1.25px),
+        var(--tab-foot-fill) calc(var(--radius-003) - 0.75px)
+      );
+  }
+}
+
+@utility tab-foot-start {
+  --tab-foot-fill: var(--surface-900);
+  --tab-foot-edge: color-mix(in oklab, var(--surface-700) 50%, transparent);
+
+  &::before {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    right: 100%;
+    width: var(--radius-003);
+    height: var(--radius-003);
+    pointer-events: none;
+    background:
+      radial-gradient(
+        circle at 0 0,
+        transparent calc(var(--radius-003) - 1.25px),
+        var(--tab-foot-edge) calc(var(--radius-003) - 0.75px),
+        var(--tab-foot-edge) calc(var(--radius-003) - 0.25px),
+        transparent calc(var(--radius-003) + 0.25px)
+      ),
+      radial-gradient(
+        circle at 0 0,
+        transparent calc(var(--radius-003) - 1.25px),
+        var(--tab-foot-fill) calc(var(--radius-003) - 0.75px)
+      );
+  }
+}
+
 ::selection {
   background: color-mix(in oklab, var(--accent-500) 62%, transparent);
   color: var(--surface-50);

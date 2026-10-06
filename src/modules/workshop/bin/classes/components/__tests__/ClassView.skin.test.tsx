@@ -539,10 +539,10 @@ describe("ClassView over a skin in a pane wide enough for the shell", () => {
 
     await user.click(await screen.findByRole("button", { name: "Panes" }));
 
-    expect(await screen.findByRole("menuitem", { name: "Preview" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Clips" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Inspector" })).toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Curve" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("menuitemcheckbox", { name: "Preview" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemcheckbox", { name: "Clips" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemcheckbox", { name: "Inspector" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitemcheckbox", { name: "Curve" })).not.toBeInTheDocument();
   });
 
   it("keeps the one preview mounted as the pane falls to the stack and back", async () => {

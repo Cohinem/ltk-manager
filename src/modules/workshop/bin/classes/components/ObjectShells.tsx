@@ -6,6 +6,7 @@ import {
   AtlasEditScope,
   CanvasToolbar,
   ElementInspector,
+  ComponentsPane,
   FontControls,
   LayersPane,
   SpritesPane,
@@ -58,14 +59,15 @@ export function PreviewShell({ kind, placed, pages, view, entry, preview }: Prev
 }
 
 /**
- * The panes of a UI view under the canvas toolbar: the canvas, the layers tree and the selected
- * element's fields, or the controller's own sections while none is selected, per "Panes" in
- * docs/plans/atlas-ui-editor.md.
+ * The panes of a UI view under the canvas toolbar: the canvas, the kinds of element to add, the
+ * layers tree and the selected element's fields, or the controller's own sections while none is
+ * selected, per "Panes" in docs/plans/atlas-ui-editor.md.
  */
 export function AtlasShell({ placed, pages, view, entry, preview }: ObjectShellProps) {
   const content = useMemo<ShellPaneContent<"atlas">>(
     () => ({
       preview: { body: preview },
+      components: { body: <ComponentsPane document={view.document} entry={view.entry} /> },
       layers: { body: <LayersPane document={view.document} entry={view.entry} /> },
       variants: { body: <VariantsPane document={view.document} entry={view.entry} /> },
       sprites: { body: <SpritesPane document={view.document} entry={view.entry} /> },
