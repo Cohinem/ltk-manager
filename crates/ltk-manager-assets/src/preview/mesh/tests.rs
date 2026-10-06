@@ -6,7 +6,7 @@ use ltk_mesh::{
     RenderMeshSubmesh, SkinnedMesh, SkinnedMeshRange, SkinnedMeshVertexType, StaticMesh,
     StaticMeshFace,
 };
-use ltk_primitives::AABB;
+use ltk_primitives::{AABB, Color};
 
 use super::*;
 
@@ -20,6 +20,7 @@ struct Decoded {
     uvs: Option<Vec<f32>>,
     skin_indices: Option<Vec<u8>>,
     skin_weights: Option<Vec<f32>>,
+    colors: Option<Vec<u8>>,
     indices: Vec<u32>,
     submeshes: Vec<(String, u32, u32)>,
 }
@@ -73,6 +74,7 @@ fn decode(buffer: &[u8]) -> Decoded {
     let uvs = (flags & HAS_UVS != 0).then(|| reader.floats(vertex_count * 2));
     let skin_indices = (flags & HAS_SKIN != 0).then(|| reader.bytes(vertex_count * 4));
     let skin_weights = (flags & HAS_SKIN != 0).then(|| reader.floats(vertex_count * 4));
+    let colors = (flags & HAS_COLORS != 0).then(|| reader.bytes(vertex_count * 4));
     let indices = (0..index_count).map(|_| reader.word()).collect();
     let submeshes = (0..submesh_count)
         .map(|_| (reader.text(), reader.word(), reader.word()))
@@ -92,6 +94,7 @@ fn decode(buffer: &[u8]) -> Decoded {
         uvs,
         skin_indices,
         skin_weights,
+        colors,
         indices,
         submeshes,
     }
@@ -271,6 +274,7 @@ fn a_skinned_mesh_round_trips_through_the_buffer() {
             uvs: Some(vec![0.0, 0.0, 1.0, -1.0, 2.0, -2.0]),
             skin_indices: Some(vec![0; 12]),
             skin_weights: Some([1.0, 0.0, 0.0, 0.0].repeat(3)),
+            colors: None,
             indices: vec![0, 1, 2],
             submeshes: vec![("body".to_owned(), 0, 3)],
         }
@@ -383,10 +387,44 @@ fn a_static_mesh_has_uvs_and_no_normals() {
     );
     assert_eq!(decoded.normals, None);
     assert_eq!(decoded.skin_indices, None);
+    assert_eq!(decoded.colors, None);
     assert_eq!(decoded.positions.len(), 6 * 3, "one vertex per face corner");
     assert_eq!(decoded.uvs.as_ref().unwrap().len(), 6 * 2);
     assert_eq!(decoded.indices, vec![0, 1, 2, 3, 4, 5]);
     assert_eq!(decoded.submeshes, vec![("mat".to_owned(), 0, 6)]);
+}
+
+/// A `.scb` that colours its vertices hands each face corner its vertex's colour, which is
+/// what fades a particle mesh out toward its edge.
+#[test]
+fn a_static_mesh_carries_its_vertex_colours_per_corner() {
+    let mut bytes = Vec::new();
+    StaticMesh::with_vertex_colors(
+        "preview",
+        quad(),
+        vec![StaticMeshFace::new(
+            "mat",
+            [0, 2, 3],
+            [vec2(0.0, 0.0), vec2(1.0, 1.0), vec2(0.0, 1.0)],
+        )],
+        vec![
+            Color::new(255, 255, 255, 0),
+            Color::new(9, 9, 9, 9),
+            Color::new(255, 128, 0, 191),
+            Color::new(1, 2, 3, 255),
+        ],
+    )
+    .to_writer(&mut bytes)
+    .unwrap();
+
+    let decoded = decode(&render(&bytes).unwrap());
+
+    assert_eq!(decoded.flags, HAS_UVS | HAS_COLORS);
+    assert_eq!(
+        decoded.colors,
+        Some(vec![255, 255, 255, 0, 255, 128, 0, 191, 1, 2, 3, 255]),
+        "red, green, blue and alpha, in the order the faces name the vertices"
+    );
 }
 
 /// The faces a `.scb` interleaves by material come back grouped, because a submesh is

@@ -13,6 +13,8 @@ const BONE_ROWS = 3;
  * - `POSITION` and `NORMAL` are the posed vertex in the engine's space, and `mWorld` carries
  *   it into the world across the mirror and back, so the environment's clip transform takes
  *   the mirror once more.
+ * - `COLOR` is the mesh's own colour per vertex in the engine's BGRA order, which the stage
+ *   multiplies the tint by under `USE_VERTEX_COLORS`.
  * - `kColorFactor` is the tint, already premultiplied where the blend mode asks.
  * - `vParticleUVTransform` and its mult twin are each layer's transform placed in its cell,
  *   as `uvRowsInto` states it.
@@ -33,6 +35,7 @@ export const MESH_PRELUDE: VertexPrelude = {
 in vec3 position;
 in vec3 normal;
 in vec2 uv;
+in vec4 vertexColor;
 in mat4 instanceMatrix;
 in vec4 tint;
 in vec3 lookup;
@@ -90,6 +93,7 @@ void enginePrelude() {
   engine_POSITION = vec4(posedPosition * AXIS, 1.0);
   engine_NORMAL = vec4(posedNormal * AXIS, 0.0);
   engine_TEXCOORD = vec4(uv, 0.0, 0.0);
+  engine_COLOR = vertexColor.bgra;
   engine_BLENDWEIGHT = vec4(1.0, 0.0, 0.0, 0.0);
   engine_BLENDINDICES = vec4(0.0);
 
@@ -116,7 +120,7 @@ void enginePrelude() {
   engine_cAlphaErosionParams[0] = vec4(lookup.z, erosionBand);
 }
 `,
-  inputs: ["a_POSITION", "a_NORMAL", "a_TEXCOORD", "a_BLENDWEIGHT", "a_BLENDINDICES"],
+  inputs: ["a_POSITION", "a_NORMAL", "a_COLOR", "a_TEXCOORD", "a_BLENDWEIGHT", "a_BLENDINDICES"],
   members: {
     mWorld: 4,
     BONES: BONE_ROWS,

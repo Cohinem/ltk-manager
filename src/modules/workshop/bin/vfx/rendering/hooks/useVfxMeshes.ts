@@ -193,12 +193,15 @@ async function loadMesh(model: MeshModel, key: string): Promise<MeshBuffers> {
  * turn is the engine's conjugated across the mirrored axis of world.ts. So the vertices
  * cross that axis here and each face's winding turns back with them, decision 2.40 of
  * docs/plans/vfx-particle-renderer.md. A `.scb` carries no normals, so the geometry
- * computes its own where the file holds none.
+ * computes its own where the file holds none. `vertexColor` is the file's colour per vertex,
+ * and white for a file that holds none, since both mesh shaders multiply the tint by it.
  */
 export function geometryOf(mesh: MeshGeometry, model: MeshModel): BufferGeometry {
   const geometry = new BufferGeometry();
   geometry.setAttribute("position", new BufferAttribute(mirrored(mesh.positions), 3));
   if (mesh.uvs !== null) geometry.setAttribute("uv", new BufferAttribute(mesh.uvs, 2));
+  const colors = mesh.colors ?? new Uint8Array((mesh.positions.length / 3) * 4).fill(255);
+  geometry.setAttribute("vertexColor", new BufferAttribute(colors, 4, true));
   const indices = rewound(drawnIndices(mesh, model.submeshes, model.submeshesAlways));
   geometry.setIndex(new BufferAttribute(indices, 1));
 

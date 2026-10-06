@@ -52,6 +52,7 @@ function staticMesh(...triangles: number[][]): MeshGeometry {
     uvs: null,
     skinIndices: null,
     skinWeights: null,
+    colors: null,
     indices: Uint32Array.from({ length: positions.length / 3 }, (_, index) => index),
     ranges: [],
   };
@@ -131,6 +132,7 @@ describe("meshSurface", () => {
       ...staticMesh(sliver, wide),
       skinIndices: new Uint8Array(24),
       skinWeights: Float32Array.from({ length: 24 }, (_, at) => (at % 4 === 0 ? 1 : 0)),
+      colors: null,
     };
     const surface = meshSurface(MODEL, mesh, SKELETON, boundJoints(SKELETON, null));
     const out = birth();

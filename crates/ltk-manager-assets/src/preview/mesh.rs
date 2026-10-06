@@ -11,8 +11,9 @@
 //!
 //! ```text
 //! magic        u32   0x474B544C, `LTKG`
-//! version      u32   2
-//! flags        u32   bit 0 normals present, bit 1 uvs present, bit 2 skin present
+//! version      u32   3
+//! flags        u32   bit 0 normals present, bit 1 uvs present, bit 2 skin present,
+//!                    bit 3 colors present
 //! vertexCount  u32
 //! indexCount   u32
 //! submeshCount u32
@@ -21,6 +22,7 @@
 //! uvs          f32 * vertexCount * 2   only under bit 1
 //! skinIndices  u8  * vertexCount * 4   only under bit 2
 //! skinWeights  f32 * vertexCount * 4   only under bit 2
+//! colors       u8  * vertexCount * 4   only under bit 3, RGBA
 //! indices      u32 * indexCount
 //! submeshes    submeshCount * { nameLen u32, name utf8[nameLen], startIndex u32, indexCount u32 }
 //! ```
@@ -43,7 +45,7 @@ use super::{PreviewError, count_of};
 const MAGIC: u32 = 0x474B_544C;
 
 /// The layout this module writes.
-const VERSION: u32 = 2;
+const VERSION: u32 = 3;
 
 /// The `flags` bit under which a normal block follows the positions.
 const HAS_NORMALS: u32 = 1 << 0;
@@ -53,6 +55,9 @@ const HAS_UVS: u32 = 1 << 1;
 
 /// The `flags` bit under which the skin's index and weight blocks follow the UVs.
 const HAS_SKIN: u32 = 1 << 2;
+
+/// The `flags` bit under which a colour block follows the skin's.
+const HAS_COLORS: u32 = 1 << 3;
 
 /// The magic this build takes for a `.tmesh`, which no shipped file has attested yet.
 ///
@@ -102,6 +107,8 @@ struct Geometry {
     uvs: Option<Vec<f32>>,
     /// Each vertex's joint influences, for a format that carries them.
     skin: Option<Skin>,
+    /// Four per vertex, RGBA, for a file that colours its vertices.
+    colors: Option<Vec<u8>>,
     indices: Vec<u32>,
     submeshes: Vec<Submesh>,
 }
@@ -173,6 +180,7 @@ impl Geometry {
                 indices: (0..count).flat_map(|v| joints.get(v)).collect(),
                 weights: (0..count).flat_map(|v| weights.get(v).to_array()).collect(),
             }),
+            colors: None,
             indices,
             submeshes,
         })
@@ -184,7 +192,8 @@ impl Geometry {
     /// vertex, so the shared vertex list can carry neither. Grouping the corners by
     /// material is what leaves a submesh one contiguous run.
     ///
-    /// Neither format carries a normal.
+    /// Neither format carries a normal. A file that colours its vertices hands each corner
+    /// its vertex's colour, which the particle shaders multiply the tint by.
     fn of_static(mesh: &StaticMesh) -> Result<Self, PreviewError> {
         let mut by_material: IndexMap<&str, Vec<&StaticMeshFace>> = IndexMap::new();
         for face in mesh.faces() {
@@ -197,18 +206,26 @@ impl Geometry {
         let corners = mesh.faces().len() * 3;
         let mut positions = Vec::with_capacity(corners * 3);
         let mut uvs = Vec::with_capacity(corners * 2);
+        let tints = mesh.vertex_colors();
+        let mut colors = tints.map(|_| Vec::with_capacity(corners * 4));
         let mut submeshes = Vec::with_capacity(by_material.len());
 
         for (material, faces) in by_material {
             let start_index = count_of(positions.len() / 3)?;
             for face in faces {
                 for corner in 0..3 {
+                    let index = face.indices[corner] as usize;
                     let vertex = mesh
                         .vertices()
-                        .get(face.indices[corner] as usize)
+                        .get(index)
                         .ok_or(PreviewError::MeshOutOfBounds)?;
                     positions.extend(vertex.to_array());
                     uvs.extend(face.uvs[corner].to_array());
+
+                    if let (Some(colors), Some(tints)) = (colors.as_mut(), tints) {
+                        let tint = tints.get(index).ok_or(PreviewError::MeshOutOfBounds)?;
+                        colors.extend([tint.r, tint.g, tint.b, tint.a]);
+                    }
                 }
             }
             submeshes.push(Submesh {
@@ -224,6 +241,7 @@ impl Geometry {
             normals: None,
             uvs: Some(uvs),
             skin: None,
+            colors,
             submeshes,
         })
     }
@@ -286,6 +304,7 @@ impl Geometry {
             normals: normal.map(|block| (0..count).flat_map(|v| block.get(v).to_array()).collect()),
             uvs: uv.map(|block| (0..count).flat_map(|v| block.get(v).to_array()).collect()),
             skin: None,
+            colors: None,
             indices,
             submeshes,
         })
@@ -302,6 +321,9 @@ impl Geometry {
         }
         if self.skin.is_some() {
             flags |= HAS_SKIN;
+        }
+        if self.colors.is_some() {
+            flags |= HAS_COLORS;
         }
 
         let header = [
@@ -323,8 +345,9 @@ impl Geometry {
             .skin
             .as_ref()
             .map_or(0, |skin| skin.indices.len() + 4 * skin.weights.len());
+        let colors = self.colors.as_ref().map_or(0, Vec::len);
         let mut buffer =
-            Vec::with_capacity(4 * (header.len() + floats + self.indices.len()) + skin);
+            Vec::with_capacity(4 * (header.len() + floats + self.indices.len()) + skin + colors);
 
         for word in header {
             buffer.extend(word.to_le_bytes());
@@ -339,6 +362,9 @@ impl Geometry {
             for weight in &skin.weights {
                 buffer.extend(weight.to_le_bytes());
             }
+        }
+        if let Some(colors) = &self.colors {
+            buffer.extend(colors);
         }
         for index in &self.indices {
             buffer.extend(index.to_le_bytes());
