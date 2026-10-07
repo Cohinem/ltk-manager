@@ -111,6 +111,7 @@ describe("IntegrationsSection", () => {
   it.each([
     ["wadtools", "Wad Tools"],
     ["tex-toolz", "Tex Tools"],
+    ["ritobin-tools", "Ritobin Tools"],
   ] as const)("copies a deep link to the %s integration", async (tool, name) => {
     const user = userEvent.setup();
     show({ tool });

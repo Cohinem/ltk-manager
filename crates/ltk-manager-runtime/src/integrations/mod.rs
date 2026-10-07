@@ -24,7 +24,7 @@ static OPERATION: LazyLock<Mutex<Option<IntegrationOperation>>> =
     LazyLock::new(|| Mutex::new(None));
 static CANCEL: AtomicBool = AtomicBool::new(false);
 static MUTATING: Mutex<()> = Mutex::new(());
-const TOOLS: [Tool; 2] = [Tool::Wadtools, Tool::TexToolz];
+const TOOLS: [Tool; 3] = [Tool::Wadtools, Tool::TexToolz, Tool::RitobinTools];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Installation {
@@ -138,7 +138,7 @@ impl Integrations {
         Ok(())
     }
 
-    /// Local installation and registry observations for both tools.
+    /// Local installation and registry observations for every tool.
     ///
     /// # Errors
     /// Fails on unreadable ownership receipts or registry keys.
@@ -291,7 +291,7 @@ impl Integrations {
                 receipt.retired.push(install.clone());
                 self.save(tool, &receipt)?;
                 if let Some(previous) = &receipt.active {
-                    for name in ["wadtools.toml", "ltk-tex-utils.toml"] {
+                    for name in ["wadtools.toml", "ltk-tex-utils.toml", "ritobin-tools.toml"] {
                         let source = self.directory(tool, previous).join(name);
                         match fs::read(&source) {
                             Ok(bytes) => {
@@ -360,8 +360,12 @@ impl Integrations {
                 }
                 Ok(())
             })?;
-            if tool == Tool::Wadtools {
-                releases::extract_wad(&target, &temp.path().join(tool.executable()))?;
+            if tool.archived() {
+                releases::extract_executable(
+                    &target,
+                    tool.executable(),
+                    &temp.path().join(tool.executable()),
+                )?;
                 fs::remove_file(target)?;
             } else {
                 let name = if asset.name.ends_with(".exe") {
@@ -644,6 +648,7 @@ fn external_candidates(tool: Tool) -> Vec<String> {
         let relative = match tool {
             Tool::Wadtools => "wadtools/bin",
             Tool::TexToolz => "LeagueToolkit/ltk-tex-utils",
+            Tool::RitobinTools => "LeagueToolkit/ritobin-tools",
         };
         candidates.push(PathBuf::from(local).join(relative).join(tool.executable()));
     }

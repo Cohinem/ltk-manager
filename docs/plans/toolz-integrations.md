@@ -14,7 +14,8 @@ implementation found that `tex toolz shell install --classic` also removes its m
 which exceeds the requested classic-menu change. Manager leaves those packages intact. It snapshots
 only each tool's classic menu subtrees, journals the exact target before writing, and restores a
 backup only while the live tree matches recorded ownership. The adapter accepts the inspected minor
-release lines, wad toolz 0.5.x and tex toolz 0.3.x, until another contract is reviewed.
+release lines, wad toolz 0.5.x, tex toolz 0.3.x and ritobin-tools 0.2.x, until another contract is
+reviewed.
 
 Installations use UUID directories beneath `versions` with the release tag held in the receipt.
 That permits repair of the same release without overwriting a running executable. Receipts retain

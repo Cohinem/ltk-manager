@@ -124,7 +124,12 @@ fn an_archive_must_contain_exactly_one_executable() {
         .unwrap();
     zip.write_all(b"no executable").unwrap();
     zip.finish().unwrap();
-    assert!(releases::extract_wad(&archive_path, &temp.path().join("wadtools.exe")).is_err());
+    for tool in TOOLS.into_iter().filter(|tool| tool.archived()) {
+        let destination = temp.path().join(tool.executable());
+        assert!(
+            releases::extract_executable(&archive_path, tool.executable(), &destination).is_err()
+        );
+    }
 }
 
 #[test]
@@ -223,4 +228,55 @@ fn published_windows_releases_stage_and_verify_without_registering_anything() {
         verify_files(&integrations.directory(tool, &install), &install).unwrap();
         assert!(integrations.read(tool).unwrap().active.is_none());
     }
+}
+
+#[test]
+fn ritobin_release_requires_the_windows_archive() {
+    let asset = |name: &str| releases::Asset {
+        name: name.into(),
+        size: 10,
+        browser_download_url: format!(
+            "https://github.com/LeagueToolkit/ritobin-tools/releases/download/v0.2.0/{name}"
+        ),
+        digest: Some(format!("sha256:{}", "a".repeat(64))),
+    };
+    let mut release = releases::Release {
+        tag_name: "v0.2.0".into(),
+        prerelease: false,
+        draft: false,
+        assets: vec![asset("ritobin-tools-0.2.0-linux-x64.zip")],
+    };
+    assert!(releases::assets(Tool::RitobinTools, &release).is_err());
+
+    release
+        .assets
+        .push(asset("ritobin-tools-0.2.0-windows-x64.zip"));
+    let assets = releases::assets(Tool::RitobinTools, &release).unwrap();
+    assert_eq!(assets.len(), 1);
+    assert_eq!(assets[0].name, "ritobin-tools-0.2.0-windows-x64.zip");
+}
+
+#[test]
+fn extract_executable_writes_only_the_named_entry() {
+    let temp = tempfile::tempdir().unwrap();
+    let archive_path = temp.path().join("release.zip");
+    let mut zip = zip::ZipWriter::new(fs::File::create(&archive_path).unwrap());
+    for (name, bytes) in [
+        ("LICENSE", b"license".as_slice()),
+        ("README.md", b"readme"),
+        ("ritobin-tools.exe", b"binary"),
+    ] {
+        zip.start_file(name, zip::write::SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(bytes).unwrap();
+    }
+    zip.finish().unwrap();
+
+    let output = temp.path().join("output");
+    fs::create_dir(&output).unwrap();
+    let destination = output.join("ritobin-tools.exe");
+    releases::extract_executable(&archive_path, "ritobin-tools.exe", &destination).unwrap();
+
+    assert_eq!(fs::read(&destination).unwrap(), b"binary");
+    assert_eq!(fs::read_dir(&output).unwrap().count(), 1);
 }
