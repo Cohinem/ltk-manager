@@ -6925,7 +6925,9 @@ export type Tool =
 /**  WAD extraction and hashtable tools. */
 "wadtools" | 
 /**  Texture conversion and Explorer tools. */
-"tex-toolz";
+"tex-toolz" | 
+/**  Bin conversion, diff and patch tools. */
+"ritobin-tools";
 
 /**  One entry of `mTrackDataMap`. */
 export type Track = {

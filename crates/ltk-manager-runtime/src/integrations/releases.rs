@@ -62,6 +62,7 @@ pub(super) fn resolve(tool: Tool, tag: Option<&str>) -> Result<Release> {
     let minor = match tool {
         Tool::Wadtools => 5,
         Tool::TexToolz => 3,
+        Tool::RitobinTools => 2,
     };
     if version.major != 0 || version.minor != minor {
         return Err(contract(
@@ -105,6 +106,10 @@ pub(super) fn assets(tool: Tool, release: &Release) -> Result<Vec<&Asset>> {
             "ltk-tex-utils-windows.exe".into(),
             "ltk-tex-thumb-handler.dll".into(),
         ],
+        Tool::RitobinTools => vec![format!(
+            "ritobin-tools-{}-windows-x64.zip",
+            release.tag_name.trim_start_matches('v')
+        )],
     };
     names
         .iter()
@@ -188,7 +193,7 @@ pub(super) fn hash(path: &Path) -> Result<String> {
     Ok(format!("{:x}", hash.finalize()))
 }
 
-pub(super) fn extract_wad(zip: &Path, destination: &Path) -> Result<()> {
+pub(super) fn extract_executable(zip: &Path, executable: &str, destination: &Path) -> Result<()> {
     let file = fs::File::open(zip)?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| contract(&e.to_string()))?;
     let mut found = false;
@@ -199,7 +204,7 @@ pub(super) fn extract_wad(zip: &Path, destination: &Path) -> Result<()> {
         let name = entry
             .enclosed_name()
             .ok_or_else(|| contract("unsafe archive path"))?;
-        if name.file_name().is_some_and(|name| name == "wadtools.exe") {
+        if name.file_name().is_some_and(|name| name == executable) {
             if found
                 || entry.is_dir()
                 || entry.size() > MAX_ASSET
@@ -216,7 +221,7 @@ pub(super) fn extract_wad(zip: &Path, destination: &Path) -> Result<()> {
         }
     }
     if !found {
-        return Err(contract("archive has no wadtools.exe"));
+        return Err(contract("archive has no executable"));
     }
     Ok(())
 }

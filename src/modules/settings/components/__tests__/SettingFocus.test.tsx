@@ -52,6 +52,7 @@ describe("focus", () => {
   it.each([
     ["wadtools", "Wad Tools"],
     ["tex-toolz", "Tex Tools"],
+    ["ritobin-tools", "Ritobin Tools"],
   ] as const)("opens and focuses the %s integration", async (tool, title) => {
     search = { focus: `integrations.${tool}` };
     renderSettings(

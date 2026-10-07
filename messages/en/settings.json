@@ -115,6 +115,8 @@
   "settings_integrations_replace_description": "The context menus point to another installation or have changed. Replace them with this managed installation and keep a backup for removal?",
   "settings_integrations_replace_title": "Replace context menus",
   "settings_integrations_repository_action": "Repository",
+  "settings_integrations_ritobin_description": "Bin conversion and Explorer integration",
+  "settings_integrations_ritobin_title": "Ritobin Tools",
   "settings_integrations_tex_description": "Texture conversion and Explorer integration",
   "settings_integrations_tex_title": "Tex Tools",
   "settings_integrations_title": "Integrations",
