@@ -32,6 +32,15 @@ pub(super) fn roots(tool: Tool) -> Vec<String> {
             ],
             "ltktexutils",
         ),
+        Tool::RitobinTools => (
+            &[
+                r"SystemFileAssociations\.bin",
+                r"SystemFileAssociations\.rito",
+                r"SystemFileAssociations\.ritobin",
+                "Directory",
+            ],
+            "ritobin-tools",
+        ),
     };
     classes
         .iter()
@@ -77,6 +86,7 @@ pub(super) fn points_to(tool: Tool, snapshot: &Snapshot, executable: &str) -> bo
     let expected = match tool {
         Tool::Wadtools => 4,
         Tool::TexToolz => 6,
+        Tool::RitobinTools => 7,
     };
     snapshot.iter().all(Option::is_some)
         && commands.len() == expected
@@ -248,98 +258,237 @@ fn text(value: &str) -> Value {
     }
 }
 
+fn number(value: u32) -> Value {
+    Value {
+        kind: 4,
+        bytes: value.to_le_bytes().into(),
+    }
+}
+
+/// `ECF_SEPARATORBEFORE`, the `CommandFlags` bit that draws a separator above an entry.
+const SEPARATOR_BEFORE: u32 = 0x20;
+
+struct Verb {
+    key: &'static str,
+    label: &'static str,
+    args: &'static str,
+    separator_before: bool,
+}
+
+/// The submenu of one root, in the order of [`roots`].
+struct Menu {
+    top: bool,
+    applies_to: Option<&'static str>,
+    verbs: Vec<Verb>,
+}
+
+/// The classic menus that a tool's own `shell install` writes.
+struct Layout {
+    label: &'static str,
+    /// Whether the menu and each entry show the executable's icon.
+    icon: bool,
+    /// Whether each entry sets `MultiSelectModel`, which lifts Explorer's limit of 15 selected items.
+    multi_select: bool,
+    menus: Vec<Menu>,
+}
+
+fn verb(key: &'static str, label: &'static str, args: &'static str) -> Verb {
+    Verb {
+        key,
+        label,
+        args,
+        separator_before: false,
+    }
+}
+
+fn layout(tool: Tool) -> Layout {
+    match tool {
+        Tool::Wadtools => Layout {
+            label: "wad toolz",
+            icon: true,
+            multi_select: false,
+            menus: vec![
+                Menu {
+                    top: true,
+                    applies_to: Some("System.FileName:\"*.wad\" OR System.FileName:\"*.wad.*\""),
+                    verbs: vec![
+                        verb("extract", "Extract", "\"%1\""),
+                        verb(
+                            "ripcdragon",
+                            "Get CDragon Hashtable (.txt)",
+                            "--pause always paths -i \"%1\"",
+                        ),
+                        verb(
+                            "ripmimir",
+                            "Get Mimir Hashtable (.lhdb)",
+                            "--pause always paths -F lhdb -i \"%1\"",
+                        ),
+                    ],
+                },
+                Menu {
+                    top: true,
+                    applies_to: None,
+                    verbs: vec![verb("extractfolder", "Extract all WADs", "\"%1\"")],
+                },
+            ],
+        },
+        Tool::TexToolz => {
+            let to_tex = || Menu {
+                top: false,
+                applies_to: None,
+                verbs: vec![verb(
+                    "totex",
+                    "Convert to TEX",
+                    "--pause on-error encode \"%1\"",
+                )],
+            };
+
+            Layout {
+                label: "tex toolz",
+                icon: true,
+                multi_select: false,
+                menus: vec![
+                    Menu {
+                        top: true,
+                        applies_to: None,
+                        verbs: vec![
+                            verb(
+                                "topng",
+                                "Convert to PNG",
+                                "--pause on-error decode --format png \"%1\"",
+                            ),
+                            verb(
+                                "todds",
+                                "Convert to DDS",
+                                "--pause on-error decode --format dds \"%1\"",
+                            ),
+                        ],
+                    },
+                    to_tex(),
+                    to_tex(),
+                    Menu {
+                        top: false,
+                        applies_to: None,
+                        verbs: vec![
+                            verb(
+                                "alltopng",
+                                "Convert all .tex to PNG",
+                                "--pause always decode --format png \"%1\"",
+                            ),
+                            verb(
+                                "alltodds",
+                                "Convert all .tex to DDS",
+                                "--pause always decode --format dds \"%1\"",
+                            ),
+                        ],
+                    },
+                ],
+            }
+        }
+        Tool::RitobinTools => {
+            let sync = || Verb {
+                separator_before: true,
+                ..verb("sync", "Update hashtables", "--pause always hashes sync")
+            };
+            let to_bin = || Menu {
+                top: true,
+                applies_to: None,
+                verbs: vec![verb(
+                    "convert",
+                    "Convert to .bin",
+                    "--pause on-error convert --to bin \"%1\"",
+                )],
+            };
+
+            Layout {
+                label: "ritobin-tools",
+                icon: false,
+                multi_select: true,
+                menus: vec![
+                    Menu {
+                        top: false,
+                        applies_to: None,
+                        verbs: vec![
+                            verb(
+                                "convert",
+                                "Convert to .rito",
+                                "--pause on-error convert --to rito \"%1\"",
+                            ),
+                            sync(),
+                        ],
+                    },
+                    to_bin(),
+                    to_bin(),
+                    Menu {
+                        top: false,
+                        applies_to: None,
+                        verbs: vec![
+                            verb(
+                                "convert-bin",
+                                "Convert all .bin to .rito",
+                                "--pause always convert --recursive --to rito \"%1\"",
+                            ),
+                            verb(
+                                "convert-text",
+                                "Convert all .rito to .bin",
+                                "--pause always convert --recursive --to bin \"%1\"",
+                            ),
+                            sync(),
+                        ],
+                    },
+                ],
+            }
+        }
+    }
+}
+
 pub(super) fn menus(tool: Tool, executable: &str) -> Snapshot {
-    let definitions: Vec<Vec<(&str, &str, &str)>> = match tool {
-        Tool::Wadtools => vec![
-            vec![
-                ("extract", "Extract", "\"%1\""),
-                (
-                    "ripcdragon",
-                    "Get CDragon Hashtable (.txt)",
-                    "--pause always paths -i \"%1\"",
-                ),
-                (
-                    "ripmimir",
-                    "Get Mimir Hashtable (.lhdb)",
-                    "--pause always paths -F lhdb -i \"%1\"",
-                ),
-            ],
-            vec![("extractfolder", "Extract all WADs", "\"%1\"")],
-        ],
-        Tool::TexToolz => vec![
-            vec![
-                (
-                    "topng",
-                    "Convert to PNG",
-                    "--pause on-error decode --format png \"%1\"",
-                ),
-                (
-                    "todds",
-                    "Convert to DDS",
-                    "--pause on-error decode --format dds \"%1\"",
-                ),
-            ],
-            vec![("totex", "Convert to TEX", "--pause on-error encode \"%1\"")],
-            vec![("totex", "Convert to TEX", "--pause on-error encode \"%1\"")],
-            vec![
-                (
-                    "alltopng",
-                    "Convert all .tex to PNG",
-                    "--pause always decode --format png \"%1\"",
-                ),
-                (
-                    "alltodds",
-                    "Convert all .tex to DDS",
-                    "--pause always decode --format dds \"%1\"",
-                ),
-            ],
-        ],
-    };
-    definitions
+    let layout = layout(tool);
+    let icon = format!("\"{executable}\",0");
+
+    layout
+        .menus
         .into_iter()
-        .enumerate()
-        .map(|(index, verbs)| {
-            let name = match tool {
-                Tool::Wadtools => "wad toolz",
-                Tool::TexToolz => "tex toolz",
-            };
-            let icon = format!("\"{executable}\",0");
-            let mut tree = Tree {
-                values: BTreeMap::from([
-                    ("MUIVerb".into(), text(name)),
-                    ("Icon".into(), text(&icon)),
-                    ("SubCommands".into(), text("")),
-                ]),
-                children: BTreeMap::new(),
-            };
-            if tool == Tool::Wadtools || index == 0 {
+        .map(|menu| {
+            let mut tree = Tree::default();
+            tree.values.insert("MUIVerb".into(), text(layout.label));
+            tree.values.insert("SubCommands".into(), text(""));
+            if layout.icon {
+                tree.values.insert("Icon".into(), text(&icon));
+            }
+            if menu.top {
                 tree.values.insert("Position".into(), text("Top"));
             }
-            if tool == Tool::Wadtools && index == 0 {
-                tree.values.insert(
-                    "AppliesTo".into(),
-                    text("System.FileName:\"*.wad\" OR System.FileName:\"*.wad.*\""),
-                );
+            if let Some(filter) = menu.applies_to {
+                tree.values.insert("AppliesTo".into(), text(filter));
             }
+
             let mut shell = Tree::default();
-            for (key, label, args) in verbs {
-                let command = Tree {
-                    values: BTreeMap::from([(
-                        "".into(),
-                        text(&format!("\"{executable}\" {args}")),
-                    )]),
-                    children: BTreeMap::new(),
-                };
-                let verb = Tree {
-                    values: BTreeMap::from([
-                        ("".into(), text(label)),
-                        ("Icon".into(), text(&icon)),
-                    ]),
-                    children: BTreeMap::from([("command".into(), command)]),
-                };
-                shell.children.insert(key.into(), verb);
+            for entry in menu.verbs {
+                let mut command = Tree::default();
+                command
+                    .values
+                    .insert("".into(), text(&format!("\"{executable}\" {}", entry.args)));
+
+                let mut verb = Tree::default();
+                verb.values.insert("".into(), text(entry.label));
+                if layout.icon {
+                    verb.values.insert("Icon".into(), text(&icon));
+                }
+                if layout.multi_select {
+                    verb.values
+                        .insert("MultiSelectModel".into(), text("Player"));
+                }
+                if entry.separator_before {
+                    verb.values
+                        .insert("CommandFlags".into(), number(SEPARATOR_BEFORE));
+                }
+                verb.children.insert("command".into(), command);
+
+                shell.children.insert(entry.key.into(), verb);
             }
             tree.children.insert("shell".into(), shell);
+
             Some(tree)
         })
         .collect()

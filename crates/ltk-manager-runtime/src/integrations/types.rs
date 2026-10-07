@@ -9,6 +9,8 @@ pub enum Tool {
     Wadtools,
     /// Texture conversion and Explorer tools.
     TexToolz,
+    /// Bin conversion, diff and patch tools.
+    RitobinTools,
 }
 
 impl Tool {
@@ -16,18 +18,28 @@ impl Tool {
         match self {
             Self::Wadtools => "wadtools",
             Self::TexToolz => "tex-toolz",
+            Self::RitobinTools => "ritobin-tools",
         }
     }
     pub(super) fn repo(self) -> &'static str {
         match self {
             Self::Wadtools => "wadtools",
             Self::TexToolz => "ltk-tex-utils",
+            Self::RitobinTools => "ritobin-tools",
         }
     }
     pub(super) fn executable(self) -> &'static str {
         match self {
             Self::Wadtools => "wadtools.exe",
             Self::TexToolz => "ltk-tex-utils.exe",
+            Self::RitobinTools => "ritobin-tools.exe",
+        }
+    }
+    /// Whether the release ships the executable inside a zip archive.
+    pub(super) fn archived(self) -> bool {
+        match self {
+            Self::Wadtools | Self::RitobinTools => true,
+            Self::TexToolz => false,
         }
     }
 }

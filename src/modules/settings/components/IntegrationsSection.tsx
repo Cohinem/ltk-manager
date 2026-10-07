@@ -8,6 +8,7 @@ import {
   type IntegrationStage,
   type IntegrationStatus,
   type MenuStatus,
+  type Tool,
 } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
@@ -41,6 +42,15 @@ function stageLabel(stage: IntegrationStage): string {
   return labels[stage];
 }
 
+function toolTitle(tool: Tool): string {
+  const titles: Record<Tool, string> = {
+    wadtools: m.settings_integrations_wad_title(),
+    "tex-toolz": m.settings_integrations_tex_title(),
+    "ritobin-tools": m.settings_integrations_ritobin_title(),
+  };
+  return titles[tool];
+}
+
 function menuLabel(menu: MenuStatus): string {
   const labels: Record<MenuStatus, string> = {
     absent: m.settings_integrations_menu_absent_label(),
@@ -59,8 +69,7 @@ function IntegrationCard({ status, busy }: { status: IntegrationStatus; busy: bo
   const change = useChangeIntegration(tool);
   const cancel = useCancelIntegration();
   const confirm = useConfirm();
-  const name =
-    tool === "wadtools" ? m.settings_integrations_wad_title() : m.settings_integrations_tex_title();
+  const name = toolTitle(tool);
   const operation = status.operation;
   const running = operation && !terminal.includes(operation.stage);
   const installed = status.version !== null;

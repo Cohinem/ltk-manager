@@ -987,9 +987,9 @@ Closed on 2026-08-25:
 
 ## Integrations
 
-The Integrations tab follows Workshop. It opens with **Mod files**, then holds one section for
-**Wad Tools** and one for **Tex Tools**. Each tool section separates tool status from Windows
-Explorer.
+The Integrations tab follows Workshop. It opens with **Mod files**, then holds one section each
+for **Wad Tools**, **Tex Tools** and **Ritobin Tools**. Each tool section separates tool status from
+Windows Explorer.
 
 ### Mod files
 
@@ -1039,12 +1039,12 @@ removal actions available. Operations continue when the user leaves the tab, and
 the current stage. Only the download stage can be cancelled.
 
 Management is available on Windows x64. Unsupported platforms retain the sections and repository
-links with installation actions disabled. Group links use `integrations.wadtools.installation`,
-`integrations.wadtools.explorer`, `integrations.tex-toolz.installation` and
-`integrations.tex-toolz.explorer`.
+links with installation actions disabled. Group links are `integrations.<tool>.installation` and
+`integrations.<tool>.explorer`, where `<tool>` is `wadtools`, `tex-toolz` or `ritobin-tools`.
 
 Each tool card uses the standard cogwheel menu for Copy ID and Copy link, also available by
 right-clicking the card. The links open Integrations and focus the tool's whole card:
 
 - Wad Tools: `ltk://settings?focus=integrations.wadtools`
 - Tex Tools: `ltk://settings?focus=integrations.tex-toolz`
+- Ritobin Tools: `ltk://settings?focus=integrations.ritobin-tools`
