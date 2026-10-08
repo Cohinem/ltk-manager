@@ -215,7 +215,7 @@ export function MapOutliner({ collapseAllSignal = 0 }: MapOutlinerProps) {
         aria-label={m.workshop_bin_pane_outliner_label()}
         aria-activedescendant={activeDescendant}
         /* DS-SCROLLBAR */
-        className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5 font-mono text-mono-row outline-none scrollbar-md"
+        className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5 text-row outline-none scrollbar-md"
         onKeyDown={handleKeyDown}
       >
         <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>

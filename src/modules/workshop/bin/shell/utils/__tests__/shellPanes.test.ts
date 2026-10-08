@@ -77,6 +77,17 @@ describe("defaultShellArrangements", () => {
     ]);
   });
 
+  it("holds every pane of the map shell once, the visibility a tab behind the outliner", () => {
+    const tree = defaultShellLayout("map");
+
+    expect([...openShellPanes(tree)].sort()).toEqual([...shellPanesOf("map")].sort());
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["preview"],
+      ["outliner", "visibility"],
+      ["inspector"],
+    ]);
+  });
+
   it("holds every pane of the material shell once, the preview beside the inspector", () => {
     const tree = defaultShellLayout("material");
 
@@ -262,6 +273,46 @@ describe("sanitizeShellLayout", () => {
       ["preview", "clips"],
       ["material", "skeleton"],
       ["inspector", "physics"],
+    ]);
+  });
+
+  it("opens a map tree saved before the visibility pane existed with it behind the outliner", () => {
+    const tree = sanitizeShellLayout("map", {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+        { kind: "leaf", id: "leaf-5", tabs: ["outliner"], activeTab: "outliner" },
+        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+      ],
+    });
+
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["preview"],
+      ["outliner", "visibility"],
+      ["inspector"],
+    ]);
+  });
+
+  it("leaves a map tree that holds the visibility pane, or no outliner, as it is", () => {
+    const held = {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview", "visibility"], activeTab: "preview" },
+        { kind: "leaf", id: "leaf-5", tabs: ["outliner"], activeTab: "outliner" },
+      ],
+    };
+    const bare = { kind: "leaf", id: "leaf-1", tabs: ["preview"], activeTab: "preview" };
+
+    expect(leaves(sanitizeShellLayout("map", held)).map((leaf) => leaf.tabs)).toEqual([
+      ["preview", "visibility"],
+      ["outliner"],
+    ]);
+    expect(leaves(sanitizeShellLayout("map", bare)).map((leaf) => leaf.tabs)).toEqual([
+      ["preview"],
     ]);
   });
 

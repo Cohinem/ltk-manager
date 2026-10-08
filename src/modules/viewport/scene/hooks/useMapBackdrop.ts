@@ -6,6 +6,7 @@ import {
   api,
   type AssetRef,
   type BinDocumentId,
+  type MapController,
   type MapModel,
   type MapPath,
   type MaterialPreview,
@@ -17,12 +18,21 @@ import { BACKDROP_ROOT } from "../../assets/api/placements";
 import { viewportQueries } from "../../assets/api/queries";
 import type { LightGrid } from "../../assets/parsing/lightGridBuffer";
 import {
+  type ControllerUse,
+  controllerUses,
   type MapGeometry,
   type MapLayer,
   mapLayers,
   mapOrigin,
   openingFlags,
 } from "../../assets/parsing/mapBuffer";
+import {
+  type ControllerOverrides,
+  layerVisibility,
+  type MapVisibility,
+  mapVisibility,
+  withControllerState,
+} from "../../assets/utils/mapVisibility";
 import { programTextureAssets } from "../../hexshade/programTextures";
 import { useAssetTextures } from "../../shared/hooks/useAssetTextures";
 import { type AmbientOcclusion, ambientOcclusionOf } from "../utils/ambientOcclusion";
@@ -215,7 +225,14 @@ export const backdropQueries = {
       queryKey: [...BACKDROP_ROOT, "model", map, scope, paths],
       queryFn: async () => {
         if (map === null || paths === null)
-          return { materials: [], sun: null, postEffects: null, ssao: null, lightGrid: null };
+          return {
+            materials: [],
+            controllers: [],
+            sun: null,
+            postEffects: null,
+            ssao: null,
+            lightGrid: null,
+          };
         const answer = await api.bin.readMap(document, map, [...paths]);
         if (!answer.ok) throw answer.error;
         return answer.value;
@@ -269,8 +286,8 @@ export const backdropQueries = {
 /** A map backdrop's geometry and materials, and what it is doing while there is none. */
 export interface Backdrop {
   readonly geometry: MapGeometry | null;
-  /** The visibility flags the map opens on, and 0 while there is no geometry. */
-  readonly opening: number;
+  /** The map's opening flags and the state of its controllers under them. */
+  readonly visibility: MapVisibility;
   /** Where a subject stands on this map before anyone moves it, in the map's own space. */
   readonly origin: readonly [number, number, number] | null;
   /** One per entry of `geometry.materials`, and null where the map declares none. */
@@ -300,13 +317,16 @@ export interface Backdrop {
 const NO_MATERIALS: readonly (MaterialPreview | null)[] = [];
 const NO_PROGRAMS: readonly (MaterialProgram | null)[] = [];
 const NO_LAYERS: readonly MapLayer[] = [];
+const NO_CONTROLLERS: readonly MapController[] = [];
+const NO_OVERRIDES: ControllerOverrides = new Map();
+const NO_USES: ReadonlyMap<string, ControllerUse> = new Map();
 const NO_TEXTURES: ReadonlyMap<string, Texture> = new Map();
 const NO_ASSETS: ReadonlyMap<string, AssetRef> = new Map();
 
 /** What has no program: a map with the shaders off. */
 const EMPTY: Backdrop = {
   geometry: null,
-  opening: 0,
+  visibility: layerVisibility(0),
   origin: null,
   materials: NO_MATERIALS,
   textures: NO_TEXTURES,
@@ -419,6 +439,8 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     () => (geometry.data === undefined ? null : mapOrigin(geometry.data, opening)),
     [geometry.data, opening],
   );
+  const controllers = model.data?.controllers ?? NO_CONTROLLERS;
+  const visibility = useMemo(() => mapVisibility(controllers, opening), [controllers, opening]);
 
   if (source === null) return EMPTY;
   if ((given === undefined && located.isPending) || (asset !== null && geometry.isPending)) {
@@ -432,7 +454,7 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   }
   return {
     geometry: geometry.data ?? null,
-    opening,
+    visibility,
     origin,
     materials: materials ?? NO_MATERIALS,
     textures,
@@ -494,39 +516,113 @@ export function useBackdropPostEffects(source: BackdropSource | null): PostEffec
 
 /** The visibility flags a backdrop draws, and the layers its map offers to toggle. */
 export interface BackdropFlags {
-  /** Every layer a mesh of the map names, and none until the geometry lands. */
+  /** Every layer that changes which meshes are drawn. Empty until the geometry is loaded. */
   readonly layers: readonly MapLayer[];
   /** The active set as a mask, and 0 until the geometry lands. */
   readonly flags: number;
+  /** `flags` and the state of the map's controllers under them. A scene filters meshes and placeables by it. */
+  readonly visibility: MapVisibility;
   readonly setLayer: (index: number, on: boolean) => void;
+  /** The controllers that the map declares. Empty until the model is loaded. */
+  readonly controllers: readonly MapController[];
+  /** The meshes that reference each controller, keyed by controller path hash. */
+  readonly uses: ReadonlyMap<string, ControllerUse>;
+  /** The controller states that the reader set, keyed by controller path hash. */
+  readonly overrides: ControllerOverrides;
+  /** Set the state of one controller. The states of its children are computed from it. */
+  readonly setController: (hash: string, visible: boolean) => void;
+  /** Whether the flags differ from the opening flags or a controller has an override. */
+  readonly customized: boolean;
+  /** Return to the opening flags and remove every controller override. */
+  readonly reset: () => void;
 }
 
 /**
  * The visibility flags `source`'s backdrop draws, opening on the map's own and toggled after.
  *
  * A toggle is held against the geometry it was made on, so another map opens on its own
- * flags. The geometry is the one [`useMapBackdrop`] reads, so asking here fetches nothing.
+ * flags. The geometry and the model are the ones [`useMapBackdrop`] reads, so asking here
+ * fetches nothing.
  */
 export function useBackdropFlags(source: BackdropSource | null): BackdropFlags {
   const map = useBackdropGeometry(source).geometry.data;
-  const layers = useMemo(() => (map === undefined ? NO_LAYERS : mapLayers(map)), [map]);
+  const controllers = useBackdropModel(source, map).data?.controllers ?? NO_CONTROLLERS;
+  const layers = useMemo(
+    () => (map === undefined ? NO_LAYERS : mapLayers(map, controllers)),
+    [map, controllers],
+  );
+  const uses = useMemo(() => (map === undefined ? NO_USES : controllerUses(map)), [map]);
   const opening = useMemo(() => (map === undefined ? 0 : openingFlags(map)), [map]);
-  const [toggled, setToggled] = useState<{ map: MapGeometry; flags: number } | null>(null);
-  const flags = toggled !== null && toggled.map === map ? toggled.flags : opening;
+  const [toggled, setToggled] = useState<Toggled | null>(null);
+  const held = toggled !== null && toggled.map === map ? toggled : null;
+  const flags = held?.flags ?? opening;
+  const overrides = held?.overrides ?? NO_OVERRIDES;
 
   const setLayer = useCallback(
     (index: number, on: boolean) => {
       if (map === undefined) return;
-      setToggled((held) => {
-        const from = held !== null && held.map === map ? held.flags : opening;
+      setToggled((last) => {
+        const from = last !== null && last.map === map ? last : null;
+        const before = from?.flags ?? opening;
         const bit = 1 << index;
-        return { map, flags: on ? from | bit : from & ~bit };
+        return {
+          map,
+          flags: on ? before | bit : before & ~bit,
+          overrides: from?.overrides ?? NO_OVERRIDES,
+        };
       });
     },
     [map, opening],
   );
 
-  return { layers, flags, setLayer };
+  const setController = useCallback(
+    (hash: string, visible: boolean) => {
+      if (map === undefined) return;
+      setToggled((last) => {
+        const from = last !== null && last.map === map ? last : null;
+        const before = from?.flags ?? opening;
+        return {
+          map,
+          flags: before,
+          overrides: withControllerState(
+            controllers,
+            before,
+            from?.overrides ?? NO_OVERRIDES,
+            hash,
+            visible,
+          ),
+        };
+      });
+    },
+    [map, opening, controllers],
+  );
+
+  const reset = useCallback(() => setToggled(null), []);
+
+  const visibility = useMemo(
+    () => mapVisibility(controllers, flags, overrides),
+    [controllers, flags, overrides],
+  );
+
+  return {
+    layers,
+    flags,
+    visibility,
+    setLayer,
+    controllers,
+    uses,
+    overrides,
+    setController,
+    customized: flags !== opening || overrides.size > 0,
+    reset,
+  };
+}
+
+/** The flags and controller overrides that the reader set on one map. */
+interface Toggled {
+  readonly map: MapGeometry;
+  readonly flags: number;
+  readonly overrides: ControllerOverrides;
 }
 
 /**

@@ -1,27 +1,27 @@
 import { useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
+  Box3,
   BufferAttribute,
   BufferGeometry,
   Color,
   DoubleSide,
+  Frustum,
   type Material,
+  Matrix4,
   type Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
   type RawShaderMaterial,
   type Texture,
+  Vector3,
 } from "three";
 
 import { useDisposable } from "@/hooks";
 import type { MaterialPreview, MaterialProgram } from "@/lib/tauri";
 
-import {
-  drawnMeshes,
-  type MapChannel,
-  type MapGeometry,
-  MESH_FLAG,
-} from "../../assets/parsing/mapBuffer";
+import { type MapChannel, type MapGeometry, MESH_FLAG } from "../../assets/parsing/mapBuffer";
+import { type MapVisibility, meshVisible } from "../../assets/utils/mapVisibility";
 import { applyBinding, lit } from "../../character/utils/submeshBinding";
 import {
   EngineEnvironment,
@@ -33,6 +33,8 @@ import { programWith } from "../../hexshade/programTextures";
 import { recompileIfMoved, type SubmeshMaterial } from "../../shared/utils/renderState";
 import { createRetainedCache, useRetained } from "../../shared/utils/retainedCache";
 import { AXIS_SIGN, STAGE_ORDER } from "../../shared/utils/space";
+import { type DrawGroup, type MeshRun, runsInView } from "../utils/backdropRuns";
+import { KEEPS_GROUP_ORDER, type OrderedGroup } from "../utils/sharedRenderer";
 import type { SunLight } from "../utils/sunLight";
 import {
   createEdgeMaterial,
@@ -55,6 +57,9 @@ const INDICATOR_SHADER = /indicator/i;
 
 const NO_TEXTURES: ReadonlyMap<string, Texture> = new Map();
 
+/** The [`Surfaces.ofSubmesh`] value of a submesh that draws nothing. */
+const NO_SURFACE = -1;
+
 /* The buffers are 73 MiB on Summoner's Rift, so a viewport opening on a map another has
    drawn draws the buffers that one uploaded rather than uploading them again. */
 const GEOMETRIES = createRetainedCache<MapGeometry, BufferGeometry>((geometry) =>
@@ -73,20 +78,45 @@ interface Bound {
   readonly doubleSided: boolean;
 }
 
-/** One run of the index block and which of [`Drawn.bound`] draws it. */
-interface DrawGroup {
-  readonly startIndex: number;
-  readonly indexCount: number;
-  readonly material: number;
+/** The materials of every submesh of the map, drawn or not. */
+interface Surfaces {
+  readonly bound: readonly Bound[];
+  /** The index into `bound` for each submesh of the map. -1 if the submesh draws nothing. */
+  readonly ofSubmesh: Int32Array;
 }
 
-/** What the map draws, as the materials it draws with and the runs each one covers. */
+/** The meshes that the active visibility draws, each with its draw groups and its bounds. */
 interface Drawn {
-  readonly bound: readonly Bound[];
-  readonly groups: readonly DrawGroup[];
+  readonly runs: readonly MeshRun[];
   /** The mesh each group draws, by the group's first index. */
   readonly meshOf: ReadonlyMap<number, number>;
 }
+
+/** The groups that one backdrop last wrote into its geometry, and the view it wrote them for. */
+interface Written {
+  drawn: Drawn | null;
+  /** The clip transform of the geometry at the last write. */
+  readonly projection: Matrix4;
+  /** The value of the geometry's `userData.written` after the last write. */
+  token: object | null;
+  /** The runs in view at the last write, reused as the output of the next. */
+  readonly runs: MeshRun[];
+}
+
+/**
+ * How far past its bounds a mesh is still drawn, in engine units.
+ *
+ * A vertex shader that sways foliage moves vertices outside the bounds of the mesh.
+ */
+const CULL_MARGIN = 150;
+
+/** The flag under which the renderer keeps the order of the groups this component writes. */
+const ORDERED = { [KEEPS_GROUP_ORDER]: true };
+
+const PROJECTION = new Matrix4();
+const INVERSE = new Matrix4();
+const SEEN = new Frustum();
+const EYE = new Vector3();
 
 /** Whether a submesh drawing `slots` covers anything at all. */
 function covers(slots: MaterialPreview | null | undefined): boolean {
@@ -111,7 +141,7 @@ export function Backdrop({
   programTextures = NO_TEXTURES,
   lightmaps = NO_TEXTURES,
   light,
-  flags,
+  visibility,
   viewMode = "lit",
   edges = "none",
   edgeColour,
@@ -127,8 +157,8 @@ export function Backdrop({
   readonly lightmaps?: ReadonlyMap<string, Texture>;
   /** The sun the programs light by. */
   readonly light: SunLight;
-  /** The visibility flags drawn, as a mask. */
-  readonly flags: number;
+  /** The active flags and controller states that select the drawn meshes. */
+  readonly visibility: MapVisibility;
   readonly viewMode?: ViewMode;
   readonly edges?: Edges;
   /** What the triangle edges draw in, where any draw. */
@@ -148,11 +178,14 @@ export function Backdrop({
 
   /* Built without the textures, which arrive over seconds. A material's class and a
      group's material index are fixed by the map, so a texture landing rebinds one
-     material rather than rebuilding the array and re-walking 600 groups. */
-  const drawn = useMemo<Drawn>(() => {
+     material rather than rebuilding the array and re-walking 600 groups.
+
+     Built for every submesh and not only the drawn ones. A visibility change then
+     rewrites the groups and keeps the materials. Rebuilding the materials disposes the
+     old ones, which deletes their shader programs and compiles every program again. */
+  const surfaces = useMemo<Surfaces>(() => {
     const bound: Bound[] = [];
-    const groups: DrawGroup[] = [];
-    const meshOf = new Map<number, number>();
+    const ofSubmesh = new Int32Array(map.submeshes.length).fill(NO_SURFACE);
     const byKey = new Map<string, number>();
 
     const indexOf = (material: number, doubleSided: boolean): number => {
@@ -180,22 +213,44 @@ export function Backdrop({
       return bound.length - 1;
     };
 
-    for (const mesh of drawnMeshes(map, flags)) {
-      if (mesh.submeshCount === 0) continue;
+    for (const mesh of map.meshes) {
       const doubleSided = (mesh.flags & MESH_FLAG.cullDisabled) !== 0;
       for (let at = 0; at < mesh.submeshCount; at += 1) {
         const submesh = map.submeshes[mesh.firstSubmesh + at];
         if (submesh === undefined || !covers(slots[submesh.material])) continue;
+        ofSubmesh[mesh.firstSubmesh + at] = indexOf(submesh.material, doubleSided);
+      }
+    }
+    return { bound, ofSubmesh };
+  }, [map, slots, programs, environment, surface]);
+
+  const drawn = useMemo<Drawn>(() => {
+    const runs: MeshRun[] = [];
+    const meshOf = new Map<number, number>();
+
+    for (const [index, mesh] of map.meshes.entries()) {
+      if (!meshVisible(visibility, mesh.visibility, mesh.controller)) continue;
+
+      const groups: DrawGroup[] = [];
+      for (let at = 0; at < mesh.submeshCount; at += 1) {
+        const submesh = map.submeshes[mesh.firstSubmesh + at];
+        const material = surfaces.ofSubmesh[mesh.firstSubmesh + at] ?? NO_SURFACE;
+        if (submesh === undefined || material === NO_SURFACE) continue;
+
         groups.push({
           startIndex: submesh.startIndex,
           indexCount: submesh.indexCount,
-          material: indexOf(submesh.material, doubleSided),
+          material,
         });
-        meshOf.set(submesh.startIndex, map.meshes.indexOf(mesh));
+        meshOf.set(submesh.startIndex, index);
       }
+      if (groups.length === 0) continue;
+
+      const box = new Box3(new Vector3(...mesh.min), new Vector3(...mesh.max));
+      runs.push({ box: box.expandByScalar(CULL_MARGIN), groups, depth: 0 });
     }
-    return { bound, groups, meshOf };
-  }, [map, slots, programs, environment, flags, surface]);
+    return { runs, meshOf };
+  }, [map, surfaces, visibility]);
 
   /* The light maps of each mesh, looked up per draw by the group's first index. */
   const lightsOf = useMemo(() => {
@@ -219,7 +274,7 @@ export function Backdrop({
     return lights;
   }, [drawn, map, lightmaps]);
 
-  const bound = drawn.bound;
+  const bound = surfaces.bound;
   const materials = useMemo<Material[]>(() => bound.map((entry) => entry.material), [bound]);
 
   const edgeMaterial = useDisposable(
@@ -232,14 +287,50 @@ export function Backdrop({
     [edgeMaterial, bound],
   );
 
-  /* Written here rather than beside the array they index, because a render the fibre
-     throws away would leave the geometry pointing into an array the mesh never took, and
-     ThreeJS draws no group whose material index the array does not reach. */
-  useLayoutEffect(() => writeGroups(geometry, drawn), [geometry, drawn]);
-  /* Another viewport of the same map shares the geometry and may have written its own
-     groups, so they are claimed back before a frame draws. */
-  useFrame(() => {
-    if (geometry.userData.drawn !== drawn) writeGroups(geometry, drawn);
+  /* A translated program reads the frame's time, so a map drawn with one changes every frame. */
+  const animated = useMemo(() => bound.some((entry) => entry.program !== null), [bound]);
+  const written = useRef<Written>({
+    drawn: null,
+    projection: new Matrix4(),
+    token: null,
+    runs: [],
+  });
+
+  /* The groups are the meshes in view, nearest first, so they are written again when the
+     camera or the visibility changes. Another viewport of the same map shares the geometry
+     and may have written its own groups, which the token shows. Written in the frame
+     rather than in an effect, because a render the fibre throws away would leave the
+     geometry pointing into a material array the mesh never took. */
+  useFrame(({ camera, invalidate }) => {
+    const mesh = held.current;
+    if (mesh === null) return;
+
+    /* The controls moved the camera earlier in this frame, and ThreeJS updates its
+       matrices only as it renders. */
+    camera.updateMatrixWorld();
+    mesh.updateWorldMatrix(true, false);
+    PROJECTION.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse).multiply(
+      mesh.matrixWorld,
+    );
+
+    const last = written.current;
+    const stale =
+      last.drawn !== drawn ||
+      last.token !== geometry.userData.written ||
+      !last.projection.equals(PROJECTION);
+    if (stale) {
+      SEEN.setFromProjectionMatrix(PROJECTION);
+      EYE.setFromMatrixPosition(camera.matrixWorld).applyMatrix4(
+        INVERSE.copy(mesh.matrixWorld).invert(),
+      );
+      writeGroups(geometry, runsInView(drawn.runs, SEEN, EYE, last.runs));
+
+      last.drawn = drawn;
+      last.projection.copy(PROJECTION);
+      last.token = geometry.userData.written as object;
+    }
+
+    if (animated) invalidate();
   });
 
   /* What each material was last bound to, so a wave of arrivals rebinds the few that
@@ -287,7 +378,9 @@ export function Backdrop({
         material={materials}
         visible={drawsSolids(viewMode)}
         renderOrder={STAGE_ORDER}
+        /* The groups are culled per map mesh in the frame, so the whole is never culled. */
         frustumCulled={false}
+        userData={ORDERED}
         onBeforeRender={(renderer, _scene, camera, _geometry, material, group) => {
           if (held.current !== null) {
             environment.write(renderer, camera, held.current, clock.elapsedTime);
@@ -339,11 +432,36 @@ function mapGeometry(map: MapGeometry): BufferGeometry {
   return held;
 }
 
-/** Point `geometry`'s groups at the runs `drawn` draws, and mark it as drawn's. */
-function writeGroups(geometry: BufferGeometry, drawn: Drawn): void {
-  geometry.clearGroups();
-  for (const group of drawn.groups) {
-    geometry.addGroup(group.startIndex, group.indexCount, group.material);
+/**
+ * Point `geometry`'s groups at the draw groups of `runs`, in order, each with its place
+ * in the list, and mark the write with a new `userData.written` token.
+ *
+ * The group objects of the geometry are reused, so a write each frame allocates nothing
+ * once the list has reached its longest.
+ */
+function writeGroups(geometry: BufferGeometry, runs: readonly MeshRun[]): void {
+  const groups: OrderedGroup[] = geometry.groups;
+  let count = 0;
+
+  for (const run of runs) {
+    for (const group of run.groups) {
+      const slot = groups[count];
+      if (slot === undefined) {
+        groups.push({
+          start: group.startIndex,
+          count: group.indexCount,
+          materialIndex: group.material,
+          order: count,
+        });
+      } else {
+        slot.start = group.startIndex;
+        slot.count = group.indexCount;
+        slot.materialIndex = group.material;
+        slot.order = count;
+      }
+      count += 1;
+    }
   }
-  geometry.userData.drawn = drawn;
+  groups.length = count;
+  geometry.userData.written = {};
 }

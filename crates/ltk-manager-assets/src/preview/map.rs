@@ -14,7 +14,7 @@
 //!
 //! ```text
 //! magic         u32   0x4D4B544C, `LTKM`
-//! version       u32   2
+//! version       u32   3
 //! flags         u32   bit 0 uv1 present
 //! vertexCount   u32
 //! indexCount    u32
@@ -26,7 +26,8 @@
 //! uv1           f32 * vertexCount * 2   only under bit 0
 //! indices       u32 * indexCount        absolute into the flat vertex list
 //! meshes        meshCount * { min 3f32, max 3f32, visibility u8, quality u8,
-//!                             flags u8, reserved u8, firstSubmesh u32, submeshCount u32 }
+//!                             flags u8, reserved u8, firstSubmesh u32, submeshCount u32,
+//!                             controller u32 }
 //!                             flags: bit 0 backface culling disabled
 //!                                    bit 1 placed through a map region
 //! submeshes     submeshCount * { startIndex u32, indexCount u32, material u32 }
@@ -37,9 +38,11 @@
 //! ```
 //!
 //! A submesh's `material` indexes the string table, which holds each material once. A
-//! mesh's `visibility` is the layer mask the viewport filters on, and its `quality` is
-//! carried unread. Its bounds are computed from the baked vertices rather than taken from
-//! the file, which states them in a region's space for a region-anchored mesh.
+//! mesh's `controller` is the path hash of its visibility controller, which is an object of
+//! the map's `.materials.bin`. It is zero if the mesh has no controller. The game uses
+//! `visibility`, the layer mask, only for a mesh without a controller. `quality` is carried
+//! unread. The bounds are computed from the baked vertices rather than taken from the
+//! file, which states them in a region's space for a region-anchored mesh.
 //!
 //! A mesh's `lights` record names its baked and stationary light maps in the lightmaps
 //! table, `0xFFFFFFFF` for a channel the mesh carries none of, each with the scale and
@@ -60,7 +63,7 @@ use super::{PreviewError, count_of};
 const MAGIC: u32 = 0x4D4B_544C;
 
 /// The layout this module writes.
-const VERSION: u32 = 2;
+const VERSION: u32 = 3;
 
 /// The `flags` bit under which a `uv1` block follows the `uv0` block.
 ///
@@ -87,7 +90,7 @@ const UV1_ELEMENT: ElementName = ElementName::Texcoord7;
 const DEFAULT_NORMAL: Vec3 = Vec3::Y;
 
 /// Bytes one mesh record occupies, which is what keeps the table's records aligned.
-const MESH_RECORD: usize = 36;
+const MESH_RECORD: usize = 40;
 
 /// Bytes one submesh record occupies.
 const SUBMESH_RECORD: usize = 12;
@@ -158,6 +161,8 @@ struct Mesh {
     flags: u8,
     first_submesh: u32,
     submesh_count: u32,
+    /// The path hash of the visibility controller. Zero if the mesh has no controller.
+    controller: u32,
 }
 
 /// One run of the index block, drawn with one material.
@@ -306,6 +311,7 @@ impl Map {
             flags,
             first_submesh,
             submesh_count: count_of(self.submeshes.len())? - first_submesh,
+            controller: mesh.visibility_controller_path_hash(),
         });
         let baked = self.channel(mesh.baked_light())?;
         let stationary = self.channel(mesh.stationary_light())?;
@@ -378,6 +384,7 @@ impl Map {
             buffer.extend([mesh.visibility, mesh.quality, mesh.flags, 0]);
             buffer.extend(mesh.first_submesh.to_le_bytes());
             buffer.extend(mesh.submesh_count.to_le_bytes());
+            buffer.extend(mesh.controller.to_le_bytes());
         }
         for submesh in &self.submeshes {
             buffer.extend(submesh.start_index.to_le_bytes());

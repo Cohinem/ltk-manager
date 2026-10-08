@@ -1,6 +1,7 @@
 import type { RootState } from "@react-three/fiber";
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
+import type { MapVisibility } from "../../assets/utils/mapVisibility";
 import { SceneCamera } from "../../camera/components/SceneCamera";
 import { CameraPresetContext } from "../../camera/state/presetContext";
 import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
@@ -22,6 +23,7 @@ import { edgesOf, type ViewMode } from "../utils/viewMode";
 import { OUTPUT_COLOR_SPACE, TONE_MAPPING } from "../utils/world";
 import { AntiAliasingPass } from "./AntiAliasingPass";
 import { Backdrop } from "./Backdrop";
+import { FrameOnCommit } from "./Frames";
 import { HostCanvas, useCanvasHost } from "./HostCanvas";
 import { PostEffectsPass } from "./PostEffectsPass";
 import { Sky } from "./Sky";
@@ -40,6 +42,14 @@ export interface ViewportProps {
   readonly renderer?: RendererUse;
   /** A fixed pixel ratio for small preview surfaces. */
   readonly dpr?: number;
+  /**
+   * When the scene draws a frame while it runs. `always` draws every frame. `demand` draws
+   * a frame when one is requested: after a commit of this component, when the camera
+   * moves, when the fibre changes a scene object, and when a frame callback calls
+   * `invalidate`. Content that changes every frame has to request its own frames under
+   * `demand`, as `KeepFrames` does.
+   */
+  readonly frameloop?: "always" | "demand";
   /** The orientation control is drawn over the scene. */
   readonly gizmo?: boolean;
   /** The ground and its grid are drawn. */
@@ -53,8 +63,8 @@ export interface ViewportProps {
    * nor its grid is drawn while one is up.
    */
   readonly backdrop?: BackdropSource | null;
-  /** The visibility flags the backdrop draws, as a mask, and the map's own opening ones absent. */
-  readonly backdropFlags?: number;
+  /** The visibility that selects the backdrop's meshes. Defaults to the map's opening visibility. */
+  readonly backdropVisibility?: MapVisibility;
   /** The sky cube map is drawn behind the backdrop, and the flat colour when off. */
   readonly backdropSky?: boolean;
   /** The sun control's fields over the backdrop's own sun, or `DEFAULT_SUN` without one. */
@@ -100,11 +110,12 @@ export function Viewport({
   active = true,
   renderer = "own",
   dpr,
+  frameloop = "always",
   gizmo = true,
   stage,
   textured,
   backdrop = null,
-  backdropFlags,
+  backdropVisibility,
   backdropSky = true,
   sun = null,
   postEffects = null,
@@ -133,12 +144,13 @@ export function Viewport({
   const { running } = host;
   const [started, setStarted] = useState(false);
   const root = useRef<RootState | null>(null);
-  const runningNow = useRef(running);
+  const loop: Loop = running ? frameloop : "never";
+  const loopNow = useRef(loop);
   // Canvas skips configuration at zero size, so hidden panes stop the root directly.
   useLayoutEffect(() => {
-    runningNow.current = running;
-    if (root.current !== null) setRunning(root.current, running);
-  }, [running]);
+    loopNow.current = loop;
+    if (root.current !== null) setLoop(root.current, loop);
+  }, [loop]);
   useEffect(() => {
     if (running) setStarted(true);
   }, [running]);
@@ -167,7 +179,7 @@ export function Viewport({
         <HostCanvas
           host={host}
           dpr={dpr}
-          frameloop={running ? "always" : "never"}
+          frameloop={loop}
           camera={{
             position: [...CAMERA.position],
             near: CAMERA.near,
@@ -176,13 +188,14 @@ export function Viewport({
           }}
           onCreated={(state) => {
             root.current = state;
-            setRunning(state, runningNow.current);
+            setLoop(state, loopNow.current);
             const { gl } = state;
             gl.outputColorSpace = OUTPUT_COLOR_SPACE;
             gl.toneMapping = TONE_MAPPING;
           }}
         >
           <color attach="background" args={[colors[clearColor]]} />
+          <FrameOnCommit />
           <SceneCamera
             preset={camera}
             colors={colors}
@@ -203,7 +216,7 @@ export function Viewport({
                 programTextures={map.programTextures}
                 lightmaps={map.lightmaps}
                 light={light}
-                flags={backdropFlags ?? map.opening}
+                visibility={backdropVisibility ?? map.visibility}
                 viewMode={viewMode}
                 edges={edges}
                 edgeColour={colors.wire}
@@ -225,10 +238,12 @@ export function Viewport({
   );
 }
 
-function setRunning(root: RootState, running: boolean): void {
+type Loop = "always" | "demand" | "never";
+
+function setLoop(root: RootState, loop: Loop): void {
   const state = root.get();
-  const mode = running ? "always" : "never";
-  if (state.frameloop !== mode) state.setFrameloop(mode);
+  if (state.frameloop !== loop) state.setFrameloop(loop);
   // A queued automatic frame in manual mode treats the RAF timestamp as seconds.
-  if (!running) state.internal.frames = 0;
+  if (loop === "never") state.internal.frames = 0;
+  else state.invalidate();
 }

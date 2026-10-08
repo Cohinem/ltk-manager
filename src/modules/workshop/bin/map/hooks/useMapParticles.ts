@@ -9,7 +9,7 @@ import type {
   MapPath,
   VfxSystem,
 } from "@/lib/tauri";
-import { useBackdropMaterials } from "@/modules/viewport";
+import { type MapVisibility, useBackdropMaterials } from "@/modules/viewport";
 
 import { systemModel } from "../../skin/utils/skinScene";
 import type { SystemModel } from "../../vfx/engine/model/model";
@@ -51,7 +51,7 @@ const NONE_HIDDEN: ReadonlySet<string> = new Set();
 export interface PlayedOptions {
   /** What an outliner hid, by chunk or by placeable. */
   readonly hidden?: ReadonlySet<string>;
-  /** Play what a script or a visibility controller turns on too. */
+  /** Also play a particle that starts disabled or whose controller is not visible. */
   readonly events?: boolean;
   /** The placeables the reader picked, by `itemId`, which play whatever turns them on. */
   readonly picked?: ReadonlySet<string>;
@@ -67,22 +67,22 @@ function modelsOf(results: UseQueryResult<VfxSystem, AppError>[]): (SystemModel 
  *
  * A map declares its particles and the systems they play in that one file, so every read
  * here is against `document`. Each system joins as its read lands, and a null `document`
- * reads nothing. What the visibility `flags` leave off, and what an outliner hid by chunk or
- * by placeable, is left out, and so is an event unless `events` plays them.
+ * reads nothing. A particle is left out if `visibility` does not draw it, if an outliner
+ * hid its chunk or the particle itself, or if it is an event and `events` is off.
  */
 export function useMapParticles(
   document: BinDocumentId | null,
-  flags: number,
+  visibility: MapVisibility,
   { hidden = NONE_HIDDEN, events = false, picked = NONE_HIDDEN }: PlayedOptions = {},
 ): readonly MapParticleGroup[] {
   const placed = useQuery(mapQueries.particles(document));
 
   const played = useMemo(() => {
-    const shown = playedParticles(placed.data ?? [], flags, events, picked).filter(
+    const shown = playedParticles(placed.data ?? [], visibility, events, picked).filter(
       (particle) => !isHidden(hidden, particle.chunk, particle.key),
     );
     return [...particlesBySystem(shown)];
-  }, [placed.data, flags, hidden, events, picked]);
+  }, [placed.data, visibility, hidden, events, picked]);
   const models = useQueries({
     queries: document === null ? [] : played.map(([entry]) => vfxQueries.system(document, entry)),
     combine: modelsOf,

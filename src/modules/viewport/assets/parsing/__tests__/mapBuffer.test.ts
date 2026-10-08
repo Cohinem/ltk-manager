@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import type { MapController } from "@/lib/tauri";
+
 import { BufferError } from "../../utils/bufferReader";
+import { layerVisibility, mapVisibility } from "../../utils/mapVisibility";
 import {
+  controllerUses,
   drawnMeshes,
   type MapGeometry,
   mapLayers,
@@ -18,6 +22,7 @@ interface Written {
   flags?: number;
   firstSubmesh: number;
   submeshCount: number;
+  controller?: number;
   bakedLight?: WrittenChannel;
   stationaryLight?: WrittenChannel;
 }
@@ -55,7 +60,7 @@ function write({
     28 +
     vertices * (3 + 3 + 2 + (uv1 ? 2 : 0)) * 4 +
     indices * 4 +
-    meshes.length * 36 +
+    meshes.length * 40 +
     submeshes.length * 12 +
     meshes.length * 40 +
     8 +
@@ -75,7 +80,7 @@ function write({
   };
 
   u32(0x4d4b544c);
-  u32(2);
+  u32(3);
   u32(uv1 ? 1 : 0);
   u32(vertices);
   u32(indices);
@@ -98,6 +103,7 @@ function write({
     at += 4;
     u32(mesh.firstSubmesh);
     u32(mesh.submeshCount);
+    u32(mesh.controller ?? 0);
   }
   for (const submesh of submeshes) {
     u32(submesh.startIndex);
@@ -146,7 +152,7 @@ describe("readMapBuffer", () => {
 
   it("refuses a version this build does not read", () => {
     const bytes = write();
-    new DataView(bytes).setUint32(4, 3, true);
+    new DataView(bytes).setUint32(4, 2, true);
 
     expect(() => readMapBuffer(bytes)).toThrow(BufferError);
   });
@@ -206,6 +212,17 @@ describe("readMapBuffer", () => {
     });
   });
 
+  it("reads a mesh's controller hash as a hex string, and null for zero", () => {
+    const map = simple({
+      meshes: [
+        { visibility: 1, firstSubmesh: 0, submeshCount: 1, controller: 0x0c210e40 },
+        { visibility: 1, firstSubmesh: 0, submeshCount: 1 },
+      ],
+    });
+
+    expect(map.meshes.map((mesh) => mesh.controller)).toEqual(["0x0c210e40", null]);
+  });
+
   it("reads a mesh's bounds", () => {
     const map = simple();
 
@@ -244,21 +261,96 @@ describe("drawnMeshes", () => {
     ],
   });
 
+  const drawn = (flags: number) =>
+    drawnMeshes(map, layerVisibility(flags)).map((mesh) => mesh.firstSubmesh);
+
   it("keeps the meshes whose mask shares a bit with the flags", () => {
-    expect(drawnMeshes(map, 0b0000_0001).map((mesh) => mesh.firstSubmesh)).toEqual([0, 2]);
-    expect(drawnMeshes(map, 0b0000_1000).map((mesh) => mesh.firstSubmesh)).toEqual([1, 2]);
+    expect(drawn(0b0000_0001)).toEqual([0, 2]);
+    expect(drawn(0b0000_1000)).toEqual([1, 2]);
   });
 
   it("draws only the mesh present in every layer where no other one is", () => {
-    expect(drawnMeshes(map, 0b1000_0000).map((mesh) => mesh.firstSubmesh)).toEqual([2]);
+    expect(drawn(0b1000_0000)).toEqual([2]);
   });
 
   it("stacks the variants of two layers turned on together", () => {
-    expect(drawnMeshes(map, 0b0000_1001).map((mesh) => mesh.firstSubmesh)).toEqual([0, 1, 2]);
+    expect(drawn(0b0000_1001)).toEqual([0, 1, 2]);
   });
 
-  it("draws nothing with every flag off", () => {
-    expect(drawnMeshes(map, 0)).toEqual([]);
+  it("draws a mesh at mask 255 when no flag is active", () => {
+    expect(drawn(0)).toEqual([2]);
+  });
+});
+
+describe("drawnMeshes under controllers", () => {
+  const OCEAN = 0x3c5b24f7;
+  const BASE = 0x5e652742;
+  /* The dragon pit of Summoner's Rift: the base pit at mask 1 and its Ocean variant at
+     mask 255, at the same position. */
+  const map = simple({
+    meshes: [
+      { visibility: 0b0000_0001, firstSubmesh: 0, submeshCount: 1, controller: BASE },
+      { visibility: 0b1111_1111, firstSubmesh: 1, submeshCount: 1, controller: OCEAN },
+      { visibility: 0b0000_0001, firstSubmesh: 2, submeshCount: 1 },
+    ],
+    submeshes: [
+      { startIndex: 0, indexCount: 3, material: 0 },
+      { startIndex: 0, indexCount: 3, material: 0 },
+      { startIndex: 0, indexCount: 3, material: 0 },
+    ],
+  });
+  const controllers: MapController[] = [
+    {
+      hash: "0x3c5b24f7",
+      name: null,
+      rule: { kind: "named", defaultVisible: false, terrain: 8, stage: 0 },
+    },
+    {
+      hash: "0x5e652742",
+      name: null,
+      rule: { kind: "child", parents: ["0x3c5b24f7"], mode: "none" },
+    },
+  ];
+  const drawn = (flags: number) =>
+    drawnMeshes(map, mapVisibility(controllers, flags)).map((mesh) => mesh.firstSubmesh);
+
+  it("draws one of two stacked variants when the other is at mask 255", () => {
+    expect(drawn(0b0000_0001)).toEqual([0, 2]);
+  });
+
+  it("ignores the mask of a mesh whose controller is declared", () => {
+    expect(drawn(0)).toEqual([0]);
+    expect(drawn(0b0000_1000)).toEqual([1]);
+  });
+
+  it("uses the mask of a mesh whose controller is not declared", () => {
+    expect(drawnMeshes(map, layerVisibility(1)).map((mesh) => mesh.firstSubmesh)).toEqual([
+      0, 1, 2,
+    ]);
+  });
+});
+
+describe("controllerUses", () => {
+  it("counts the meshes of each controller and returns each of their materials once", () => {
+    const map = simple({
+      meshes: [
+        { visibility: 1, firstSubmesh: 0, submeshCount: 1, controller: 0x3c5b24f7 },
+        { visibility: 1, firstSubmesh: 1, submeshCount: 1, controller: 0x3c5b24f7 },
+        { visibility: 1, firstSubmesh: 0, submeshCount: 1, controller: 0x3c5b24f7 },
+        { visibility: 1, firstSubmesh: 1, submeshCount: 0, controller: 0x5e652742 },
+        { visibility: 1, firstSubmesh: 0, submeshCount: 1 },
+      ],
+      submeshes: [
+        { startIndex: 0, indexCount: 3, material: 1 },
+        { startIndex: 0, indexCount: 3, material: 0 },
+      ],
+      materials: ["Maps/Materials/Base", "Maps/Materials/Ocean"],
+    });
+
+    expect([...controllerUses(map)]).toEqual([
+      ["0x3c5b24f7", { meshes: 3, materials: ["Maps/Materials/Ocean", "Maps/Materials/Base"] }],
+      ["0x5e652742", { meshes: 1, materials: [] }],
+    ]);
   });
 });
 
@@ -294,6 +386,34 @@ describe("mapLayers", () => {
 
   it("lists nothing for a map whose meshes are on no layer", () => {
     expect(mapLayers(layered([{ visibility: 0, triangles: 4 }]))).toEqual([]);
+  });
+
+  it("does not list a layer that only a mesh at mask 255 is drawn under", () => {
+    const map = layered([
+      { visibility: 0b1111_1111, triangles: 8 },
+      { visibility: 0b0000_0010, triangles: 3 },
+    ]);
+
+    expect(mapLayers(map)).toEqual([{ index: 1, triangles: 11 }]);
+  });
+
+  it("lists the layer of a terrain controller, ignoring the mask of its mesh", () => {
+    const map = simple({
+      meshes: [
+        { visibility: 0b1111_1111, firstSubmesh: 0, submeshCount: 1, controller: 0x3c5b24f7 },
+      ],
+      submeshes: [{ startIndex: 0, indexCount: 6, material: 0 }],
+    });
+    const controllers: MapController[] = [
+      {
+        hash: "0x3c5b24f7",
+        name: null,
+        rule: { kind: "named", defaultVisible: false, terrain: 8, stage: 0 },
+      },
+    ];
+
+    expect(mapLayers(map)).toEqual([]);
+    expect(mapLayers(map, controllers)).toEqual([{ index: 3, triangles: 2 }]);
   });
 });
 
@@ -356,6 +476,7 @@ describe("mapOrigin", () => {
           min: [0, 0, 0],
           max: [0, 0, 0],
           visibility: 1,
+          controller: null,
           quality: 31,
           flags: 0,
           firstSubmesh: 0,

@@ -34,6 +34,7 @@ fn an_unresolved_map_answers_one_material_per_path_asked_for_and_no_lighting_or_
 
     assert_eq!(unresolved_map(&paths).materials.len(), 3);
     assert!(unresolved_map(&paths).materials.iter().all(Option::is_none));
+    assert!(unresolved_map(&paths).controllers.is_empty());
     assert!(unresolved_map(&paths).sun.is_none());
     assert!(unresolved_map(&paths).post_effects.is_none());
     assert!(unresolved_map(&paths).ssao.is_none());

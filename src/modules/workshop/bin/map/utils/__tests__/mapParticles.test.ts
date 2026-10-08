@@ -1,4 +1,5 @@
-import type { MapParticle } from "@/lib/tauri";
+import type { MapController, MapParticle } from "@/lib/tauri";
+import { layerVisibility, mapVisibility } from "@/modules/viewport";
 
 import { particleAnchor, particlesBySystem, particleSeed, playedParticles } from "../mapParticles";
 
@@ -32,14 +33,17 @@ describe("playedParticles", () => {
     const far = particle({ name: "Far", at: [14000, 50, 900] });
     const mountain = particle({ name: "Mountain", at: [7000, 50, 7000], visibility: 4 });
 
-    expect(playedParticles([near, far, mountain], 0b0000_0001)).toEqual([near, far]);
+    expect(playedParticles([near, far, mountain], layerVisibility(1))).toEqual([near, far]);
   });
 
   it("plays another layer's particle once its flag is on", () => {
     const near = particle({ name: "Near" });
     const mountain = particle({ name: "Mountain", visibility: 4 });
 
-    expect(playedParticles([near, mountain], 0b0000_0101)).toEqual([near, mountain]);
+    expect(playedParticles([near, mountain], layerVisibility(0b0000_0101))).toEqual([
+      near,
+      mountain,
+    ]);
   });
 
   it("leaves out what an event the backdrop is not in turns on", () => {
@@ -49,14 +53,36 @@ describe("playedParticles", () => {
       particle({ name: "Trophy", controller: "0x8f1ab207" }),
     ];
 
-    expect(playedParticles(events, 0b0000_0001)).toEqual([]);
+    expect(playedParticles(events, layerVisibility(1))).toEqual([]);
+  });
+
+  it("plays a particle whose controller is visible and ignores its mask", () => {
+    const controllers: MapController[] = [
+      {
+        hash: "0x3c5b24f7",
+        name: null,
+        rule: { kind: "named", defaultVisible: false, terrain: 8, stage: 0 },
+      },
+      {
+        hash: "0x5e652742",
+        name: null,
+        rule: { kind: "child", parents: ["0x3c5b24f7"], mode: "none" },
+      },
+      { hash: "0x8f1ab207", name: null, rule: { kind: "mutator", name: "MSITrophy" } },
+    ];
+    const base = particle({ name: "Base", visibility: 4, controller: "0x5e652742" });
+    const ocean = particle({ name: "Ocean", controller: "0x3c5b24f7" });
+    const trophy = particle({ name: "Trophy", controller: "0x8f1ab207" });
+
+    expect(playedParticles([base, ocean, trophy], mapVisibility(controllers, 1))).toEqual([base]);
+    expect(playedParticles([base, ocean, trophy], mapVisibility(controllers, 8))).toEqual([ocean]);
   });
 
   it("plays an event the reader picked, whatever turns it on", () => {
     const trophy = particle({ name: "Trophy", key: "0x00000007", controller: "0x8f1ab207" });
     const picked = new Set(["0x0000000c/0x00000007"]);
 
-    expect(playedParticles([trophy], 0b0000_0001, false, picked)).toEqual([trophy]);
+    expect(playedParticles([trophy], layerVisibility(1), false, picked)).toEqual([trophy]);
   });
 
   it("plays what a script or a controller turns on once events play, and never a transition", () => {
@@ -66,7 +92,7 @@ describe("playedParticles", () => {
       particle({ name: "Trophy", controller: "0x8f1ab207" }),
     ];
 
-    expect(playedParticles(events, 0b0000_0001, true).map((each) => each.name)).toEqual([
+    expect(playedParticles(events, layerVisibility(1), true).map((each) => each.name)).toEqual([
       "Scripted",
       "Trophy",
     ]);

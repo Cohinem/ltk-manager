@@ -79,9 +79,7 @@ export function PlaceableInspector({
   return (
     <section data-ui="PlaceableInspector" className="flex flex-col gap-1.5">
       <header className="flex min-w-0 items-center gap-2 px-1">
-        <span className="min-w-0 truncate font-mono text-row text-surface-100 select-text">
-          {item.name}
-        </span>
+        <span className="min-w-0 truncate text-row text-surface-100 select-text">{item.name}</span>
         <span className="min-w-0 shrink truncate text-meta text-surface-400">
           {chunkLabel(chunk)}
         </span>

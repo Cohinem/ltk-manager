@@ -75,6 +75,11 @@ export interface CharacterProps {
   readonly jointWeights?: ArrayLike<number> | null;
   /** A click on the viewport, with the submesh it landed on and null where it missed them all. */
   readonly onSubmeshPick?: (submesh: string | null) => void;
+  /**
+   * A flag that stops the per-frame posing while it is true. For a character that its
+   * owner has culled, which is not drawn and so needs no pose.
+   */
+  readonly asleep?: { readonly current: boolean };
   /** What the character wears, which reaches its skin through `useCharacterSkin`. */
   readonly children?: ReactNode;
 }
@@ -121,6 +126,7 @@ export function Character({
   highlighted = null,
   jointWeights = null,
   onSubmeshPick,
+  asleep,
   children,
 }: CharacterProps) {
   const { skeleton, parents } = pose;
@@ -264,6 +270,8 @@ export function Character({
   const locals = useMemo(() => new Float32Array(rig.bones.length * LOCAL_FLOATS), [rig]);
   const centre = useMemo(() => new Vector3(), []);
   useFrame(() => {
+    if (asleep?.current === true) return;
+
     /* The game lights a character by the cell under the centre of its bounds. */
     centre.copy(drawn.centre).applyMatrix4(skinned.matrixWorld);
     lightFrom(lightGrid, centre.x, centre.z, ambient);
