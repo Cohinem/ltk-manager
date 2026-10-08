@@ -1,6 +1,8 @@
 # ADR-0045: A map backdrop draws the visibility flags the reader toggles
 
-- **Status:** Accepted (2026-09-21)
+- **Status:** Accepted (2026-09-21). Amended by
+  [ADR-0064](0064-a-map-backdrop-draws-what-the-visibility-controllers-show.md), which uses the
+  visibility controller of a mesh instead of its mask when the mesh has one
 - **Date:** 2026-09-21
 - **Crates:** none. The rule is frontend, in `src/modules/viewport/assets/parsing/mapBuffer.ts`
 - **Related:** Supersedes the layer sentence of

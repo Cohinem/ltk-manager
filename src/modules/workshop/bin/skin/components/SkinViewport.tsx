@@ -65,7 +65,7 @@ import {
 import { assetKey } from "../../../preview/utils/assetRef";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
 import { sandboxProject } from "../../../sandbox/utils/sandboxRef";
-import { BackdropLayerMenu } from "../../map/components/BackdropLayerMenu";
+import { BackdropVisibilityControl } from "../../map/components/BackdropVisibilityControl";
 import { MapCharacters } from "../../map/components/MapCharacters";
 import { MapParticles } from "../../map/components/MapParticles";
 import { PostEffectsControl } from "../../map/components/PostEffectsControl";
@@ -209,11 +209,8 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const backdropParticles = usePreviewBackdropParticles();
   const backdropStructures = usePreviewBackdropStructures();
   const backdropSky = usePreviewBackdropSky();
-  const {
-    layers: backdropLayers,
-    flags: backdropFlags,
-    setLayer: setBackdropLayer,
-  } = useBackdropFlags(backdropSource);
+  const backdropFlags = useBackdropFlags(backdropSource);
+  const backdropVisibility = backdropFlags.visibility;
   const midlane = usePreviewMidlane();
   const armature = usePreviewArmature();
   const jointNames = usePreviewJointNames();
@@ -396,9 +393,11 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   /* One open file answers both what the map plays and what it stands. */
   const mapFile = useMapMaterialsFile(backdropParticles || backdropStructures ? backdrop : null);
   const backdropEvents = usePreviewBackdropEvents();
-  const mapParticles = useMapParticles(backdropParticles ? mapFile.document : null, backdropFlags, {
-    events: backdropEvents,
-  });
+  const mapParticles = useMapParticles(
+    backdropParticles ? mapFile.document : null,
+    backdropVisibility,
+    { events: backdropEvents },
+  );
   const bounds = useMemo(
     () => (mesh.data === undefined ? null : meshBounds(mesh.data, skin.hidden, scale)),
     [mesh.data, skin.hidden, scale],
@@ -481,7 +480,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           stage={ground}
           textured={midlane}
           backdrop={backdropSource}
-          backdropFlags={backdropFlags}
+          backdropVisibility={backdropVisibility}
           backdropSky={backdropSky}
           sun={backdrop === null ? null : sun}
           postEffects={backdrop === null ? null : postEffects}
@@ -499,7 +498,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           <Passes warps={warps} softens={softens} />
           <MapParticles groups={mapParticles} />
           {backdropStructures && (
-            <MapCharacters document={mapFile.document} flags={backdropFlags} />
+            <MapCharacters document={mapFile.document} visibility={backdropVisibility} />
           )}
           <Placement
             enabled={move && !controlsHidden}
@@ -631,11 +630,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               <BackdropToggle />
               {backdrop !== null && (
                 <>
-                  <BackdropLayerMenu
-                    layers={backdropLayers}
-                    flags={backdropFlags}
-                    onLayerChange={setBackdropLayer}
-                  />
+                  <BackdropVisibilityControl backdrop={backdropFlags} />
                   <SunControl source={backdropSource} />
                   <PostEffectsControl source={backdropSource} />
                 </>

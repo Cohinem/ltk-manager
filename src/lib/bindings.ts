@@ -3866,6 +3866,55 @@ export type MapChunkItem = {
 	controller: string | null,
 };
 
+/**  One visibility controller of a map. */
+export type MapController = {
+	/**
+	 *  The path hash of the controller object, as `0x` and eight hex digits. A mesh and a
+	 *  placeable reference the controller by this hash.
+	 */
+	hash: string,
+	/**
+	 *  The name of the controller: the string of its `name` hash, or else the path of its
+	 *  object. `None` if no hash table has either.
+	 */
+	name: string | null,
+	rule: MapControllerRule,
+};
+
+/**  The visibility rule of a controller. */
+export type MapControllerRule = 
+/**
+ *  A controller whose state the server sets by name. The initial state is
+ *  `default_visible`.
+ */
+{ kind: "named"; defaultVisible: boolean; 
+/**
+ *  The layer bits of the elemental terrain that uses the controller. Zero if the
+ *  controller is not a terrain controller.
+ */
+terrain: number; 
+/**
+ *  The stage bits of the Baron pit stage that uses the controller. Zero if the
+ *  controller is not a stage controller.
+ */
+stage: number } | 
+/**
+ *  A controller whose state is computed from the states of `parents` according to
+ *  `mode`.
+ */
+{ kind: "child"; 
+/**  The path hash of each parent, as `0x` and eight hex digits. */
+parents: string[]; mode: MapParentMode } | 
+/**  A controller that is visible while a layer in `mask` is active. */
+{ kind: "layer"; mask: number } | 
+/**  A controller that is visible in a game that applies the mutator `name`. */
+{ kind: "mutator"; name: string } | 
+/**
+ *  A controller whose state cannot be read from a file: a logic driver, a provider, or
+ *  a child with a `ParentMode` value that the game never shows.
+ */
+{ kind: "driven" };
+
 /**  A map decoration a mutator switches, which the map decorations mod can force off or on. */
 export type MapDecoration = {
 	/**  The mutator whose key switches the decoration, which the setting stores. */
@@ -3930,13 +3979,21 @@ export type MapItemKind =
 /**  Any other class. */
 "other";
 
-/**  One map's materials, one per path asked for and in that order, and its lighting and screen effects. */
+/**
+ *  One map's materials, one per path asked for and in that order, its visibility controllers, and
+ *  its lighting and screen effects.
+ */
 export type MapModel = {
 	/**
 	 *  Null where the map's own bin declares no object at that path, which a backdrop
 	 *  draws flat rather than not at all.
 	 */
 	materials: (MaterialPreview | null)[],
+	/**
+	 *  Every visibility controller that the map's `.materials.bin` declares. A mesh of the
+	 *  `LTKM` buffer and a placeable reference a controller by its path hash.
+	 */
+	controllers: MapController[],
 	/**  Null where the map's container states no sun, which a backdrop lights with a default. */
 	sun: MapSun | null,
 	/**  Null where the map's container states no post effects, which no shipped map does. */
@@ -3949,6 +4006,17 @@ export type MapModel = {
 	 */
 	lightGrid: AssetRef | null,
 };
+
+/**  The number of visible parents that makes a child controller visible. */
+export type MapParentMode = 
+/**  All parents. A child with no parents is visible. */
+"all" | 
+/**  At least one parent. */
+"any" | 
+/**  Exactly one parent. */
+"one" | 
+/**  No parent. A child with no parents is visible. */
+"none";
 
 /**  One particle system a map stands in its scene. */
 export type MapParticle = {

@@ -45,6 +45,7 @@ struct DecodedMesh {
     flags: u8,
     first_submesh: u32,
     submesh_count: u32,
+    controller: u32,
 }
 
 /// A position in a map buffer, for the decoder to walk.
@@ -126,6 +127,7 @@ fn decode(buffer: &[u8]) -> (Decoded, Vec<usize>) {
                 flags: mesh_flags,
                 first_submesh: reader.word(),
                 submesh_count: reader.word(),
+                controller: reader.word(),
             }
         })
         .collect();
@@ -209,6 +211,7 @@ fn one_mesh(vertices: usize, materials: &[&str]) -> Map {
         flags: MESH_CULL_DISABLED,
         first_submesh: 0,
         submesh_count: materials.len() as u32,
+        controller: 0x3c5b_24f7,
     });
     map.lights.push(Light {
         baked: Channel {
@@ -335,6 +338,7 @@ fn a_mesh_record_carries_its_bounds_and_the_fields_a_viewport_filters_on() {
             flags: MESH_CULL_DISABLED,
             first_submesh: 0,
             submesh_count: 2,
+            controller: 0x3c5b_24f7,
         }]
     );
 }

@@ -1,13 +1,15 @@
 import { useFrame } from "@react-three/fiber";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { useCallback, useMemo } from "react";
-import { Matrix4 } from "three";
+import { type ReactNode, useCallback, useMemo, useRef } from "react";
+import { Box3, Frustum, type Group, Matrix4, Sphere } from "three";
 
 import type { AnimationGraph, AssetRef, BinDocumentId, MapCharacter, SkinModel } from "@/lib/tauri";
 import {
+  AXIS_SIGN,
   Character,
   createPose,
   createSceneClock,
+  type MapVisibility,
   type MeshGeometry,
   type SceneClock,
   type SceneColors,
@@ -40,14 +42,25 @@ import {
 import { isHidden } from "../utils/mapOutline";
 import { placeableKey } from "../utils/placeables";
 
-/** `useFrame` runs the lowest priority first, so the clock moves before a pose samples it. */
+/**
+ * `useFrame` runs the lowest priority first, so the clock moves and the frustum is this
+ * frame's before a character is tested against it and posed.
+ */
 const BEFORE_THE_POSES = -1;
+
+/**
+ * How far a pose is taken to carry a vertex from where the bind pose has it, as a multiple
+ * of the bind pose's radius. A mesh states the bounds of its bind pose alone.
+ */
+const POSE_SLACK = 2;
+
+const PROJECTION = new Matrix4();
 
 export interface MapCharactersProps {
   /** The map's open `.materials.bin`, and null until the scene holds it. */
   readonly document: BinDocumentId | null;
-  /** The visibility flags the backdrop draws, as a mask. */
-  readonly flags: number;
+  /** The backdrop's active flags and controller states. */
+  readonly visibility: MapVisibility;
   /** The chunks and placeables an outliner hid, which a backdrop has none of. */
   readonly hidden?: ReadonlySet<string>;
 }
@@ -61,10 +74,13 @@ const NONE_HIDDEN: ReadonlySet<string> = new Set();
  * map's, and drawn at every place the map stands it. They run on a clock of their own
  * rather than the scene's, since a map's banners wave on through a clip that restarts.
  */
-export function MapCharacters({ document, flags, hidden = NONE_HIDDEN }: MapCharactersProps) {
+export function MapCharacters({ document, visibility, hidden = NONE_HIDDEN }: MapCharactersProps) {
   const sandbox = useSandbox();
   const placed = useQuery(mapQueries.characters(document));
-  const stood = useMemo(() => stoodCharacters(placed.data ?? [], flags), [placed.data, flags]);
+  const stood = useMemo(
+    () => stoodCharacters(placed.data ?? [], visibility),
+    [placed.data, visibility],
+  );
   const skins = useMemo(
     () => [
       ...charactersBySkin(
@@ -75,7 +91,16 @@ export function MapCharacters({ document, flags, hidden = NONE_HIDDEN }: MapChar
   );
   const colors = useSceneColors();
   const clock = useMemo(createSceneClock, []);
-  useFrame((_, delta) => clock.advance(delta), BEFORE_THE_POSES);
+  const seen = useMemo(() => new Frustum(), []);
+  useFrame(({ camera }, delta) => {
+    clock.advance(delta);
+
+    /* The controls moved the camera earlier in this frame, and ThreeJS updates its
+       matrices only as it renders. */
+    camera.updateMatrixWorld();
+    PROJECTION.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    seen.setFromProjectionMatrix(PROJECTION);
+  }, BEFORE_THE_POSES);
 
   /* Every skin the map stands rather than the shown ones. The lookup is keyed on this
      list, so hiding one chunk would otherwise re-key it and drop every structure until
@@ -96,6 +121,7 @@ export function MapCharacters({ document, flags, hidden = NONE_HIDDEN }: MapChar
         skin={skin}
         characters={characters}
         clock={clock}
+        seen={seen}
         colors={colors}
         asset={asset}
       />
@@ -108,6 +134,8 @@ interface SkinProps {
   readonly skin: string;
   readonly characters: readonly MapCharacter[];
   readonly clock: SceneClock;
+  /** What the camera sees this frame, in the scene's space. */
+  readonly seen: Frustum;
   readonly colors: SceneColors;
 }
 
@@ -136,7 +164,7 @@ interface PlacedSkinProps extends SkinProps {
   readonly graph: AnimationGraph | null;
 }
 
-function PlacedSkin({ document, model, graph, characters, clock, colors }: PlacedSkinProps) {
+function PlacedSkin({ document, model, graph, characters, clock, seen, colors }: PlacedSkinProps) {
   const mesh = useQuery(viewportQueries.mesh(model.mesh?.asset ?? null));
   const bones = useQuery(viewportQueries.skeleton(model.skeleton?.asset ?? null));
   const assets = useMemo(() => textureAssets(model), [model]);
@@ -161,6 +189,7 @@ function PlacedSkin({ document, model, graph, characters, clock, colors }: Place
       bindingOf={binding}
       programsOf={programs}
       clock={clock}
+      seen={seen}
       colors={colors}
     />
   ));
@@ -177,6 +206,7 @@ interface PosedCharactersProps {
   readonly bindingOf: (submesh: string) => SubmeshBinding;
   readonly programsOf: (submesh: string) => readonly SubmeshProgram[];
   readonly clock: SceneClock;
+  readonly seen: Frustum;
   readonly colors: SceneColors;
 }
 
@@ -191,6 +221,7 @@ function PosedCharacters({
   bindingOf: binding,
   programsOf: programs,
   clock,
+  seen,
   colors,
 }: PosedCharactersProps) {
   const playlist = useMemo(() => {
@@ -217,19 +248,82 @@ function PosedCharacters({
     [characters],
   );
 
-  return characters.map((character, at) => (
-    <group key={placeableKey(character)} matrix={matrices[at]} matrixAutoUpdate={false}>
-      <Character
-        mesh={mesh}
-        pose={pose}
-        clock={clock}
-        bindingOf={binding}
-        programsOf={programs}
-        colors={colors}
-        hidden={model.hidden}
-        scale={model.scale ?? 1}
-        selfIllumination={model.selfIllumination ?? 0}
-      />
+  const scale = model.scale ?? 1;
+  const { positions } = mesh;
+  const reach = useMemo(() => poseReach(positions, scale), [positions, scale]);
+
+  return characters.map((character, at) => {
+    const matrix = matrices[at];
+    if (matrix === undefined) return null;
+
+    return (
+      <PlacedCharacter key={placeableKey(character)} matrix={matrix} reach={reach} seen={seen}>
+        {(asleep) => (
+          <Character
+            mesh={mesh}
+            pose={pose}
+            clock={clock}
+            bindingOf={binding}
+            programsOf={programs}
+            colors={colors}
+            hidden={model.hidden}
+            scale={scale}
+            selfIllumination={model.selfIllumination ?? 0}
+            asleep={asleep}
+          />
+        )}
+      </PlacedCharacter>
+    );
+  });
+}
+
+/**
+ * The sphere that holds every pose of a mesh with the bind `positions` drawn at `scale`, in
+ * the space of the group a character is placed under.
+ */
+function poseReach(positions: Float32Array, scale: number): Sphere {
+  const sphere = new Box3().setFromArray(positions).getBoundingSphere(new Sphere());
+  sphere.center.set(
+    sphere.center.x * AXIS_SIGN[0] * scale,
+    sphere.center.y * AXIS_SIGN[1] * scale,
+    sphere.center.z * AXIS_SIGN[2] * scale,
+  );
+  sphere.radius *= Math.abs(scale) * POSE_SLACK;
+  return sphere;
+}
+
+interface PlacedCharacterProps {
+  /** Where the map stands the character, in the scene's space. */
+  readonly matrix: Matrix4;
+  /** The sphere that holds every pose of the character, before `matrix` places it. */
+  readonly reach: Sphere;
+  readonly seen: Frustum;
+  /** The character, given the flag that is true while the camera does not see it. */
+  readonly children: (asleep: { readonly current: boolean }) => ReactNode;
+}
+
+/**
+ * One character where the map stands it, drawn and posed only while the camera sees it.
+ *
+ * A character out of view is hidden, so ThreeJS skips its draw and its skeleton, and its
+ * pose is not sampled. One in view changes every frame, so it keeps an on-demand viewport
+ * drawing.
+ */
+function PlacedCharacter({ matrix, reach, seen, children }: PlacedCharacterProps) {
+  const group = useRef<Group>(null);
+  const asleep = useRef(false);
+  const placed = useMemo(() => reach.clone().applyMatrix4(matrix), [reach, matrix]);
+
+  useFrame(({ invalidate }) => {
+    const held = seen.intersectsSphere(placed);
+    asleep.current = !held;
+    if (group.current !== null) group.current.visible = held;
+    if (held) invalidate();
+  });
+
+  return (
+    <group ref={group} matrix={matrix} matrixAutoUpdate={false}>
+      {children(asleep)}
     </group>
-  ));
+  );
 }

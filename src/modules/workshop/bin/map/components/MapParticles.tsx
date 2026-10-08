@@ -3,7 +3,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Frustum, Matrix4, Sphere, Vector3 } from "three";
 
 import type { BinDocumentId, MapParticle } from "@/lib/tauri";
-import { AXIS_SIGN } from "@/modules/viewport";
+import { AXIS_SIGN, KeepFrames } from "@/modules/viewport";
 
 import type { SystemModel } from "../../vfx/engine/model/model";
 import { capacityOf } from "../../vfx/engine/simulation/childPool";
@@ -92,6 +92,8 @@ function SystemPlacements({ group }: { readonly group: MapParticleGroup }) {
       {shimmer.length > 0 && (
         <PlacedMeshes particle={particle} document={group.document} meshes={shimmer} />
       )}
+      {/* A shimmer mesh moves with the frame's time and is not culled. */}
+      {shimmer.length > 0 && <KeepFrames />}
     </Fragment>
   ));
 }
@@ -157,10 +159,14 @@ function PlacedSystem({ particle, system, drawn, textures, meshes }: PlacedSyste
     driver.steer(rig);
   }, [driver, rig]);
 
-  useFrame((_, delta) => {
+  useFrame(({ invalidate }, delta) => {
     const held = SEEN.intersectsSphere(reach);
     if (held !== seen) setSeen(held);
-    if (held) driver.advance(Math.min(delta, LONGEST_STEP));
+    if (!held) return;
+
+    driver.advance(Math.min(delta, LONGEST_STEP));
+    /* A system in view moves every frame, so it keeps an on-demand viewport drawing. */
+    invalidate();
   });
 
   return (

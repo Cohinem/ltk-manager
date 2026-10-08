@@ -21,6 +21,8 @@ const SANDBOX_READS: readonly (readonly string[])[] = [
   MAP_FILES_ROOT,
   MAP_FILES_NEAR_ROOT,
   [...BACKDROP_ROOT, "lightmaps"],
+  /* A map's materials and visibility controllers, which a saved `.materials.bin` changes. */
+  [...BACKDROP_ROOT, "model"],
 ];
 
 /**
