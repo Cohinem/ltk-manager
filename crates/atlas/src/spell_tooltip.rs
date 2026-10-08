@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use ltk_hash::BinHash;
+use ltk_hash::{BinHash, HashValue};
 use ltk_manager_bin::bin_document::{
     Fields, entries, fields_of, items, leaf, string_map, struct_of, text,
 };
@@ -657,7 +657,9 @@ impl Values<'_> {
         let depth = depth.checked_sub(1)?;
         let (_, found) = entries(self.data.get(&CALCULATIONS))
             .iter()
-            .find(|(name, _)| matches!(leaf(Some(name)), Some(Leaf::Hash(hash)) if hash == key))?;
+            .find(|(name, _)| {
+                matches!(leaf(Some(name)), Some(Leaf::Hash(hash)) if hash == HashValue::from(key))
+            })?;
         let (class, fields) = struct_of(Some(found))?;
 
         match class {

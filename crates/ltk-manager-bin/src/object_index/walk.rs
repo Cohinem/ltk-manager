@@ -53,9 +53,11 @@ impl WalkTarget {
     fn links(&self, leaf: Leaf<'_>) -> bool {
         match self {
             Self::Embedded(_) => false,
-            Self::Linked(target) => {
-                matches!(leaf, Leaf::Hash(hash) | Leaf::Link(hash) if hash == *target)
-            }
+            Self::Linked(target) => match leaf {
+                Leaf::Hash(hash) => hash.try_as_bin_hash() == Some(*target),
+                Leaf::Link(hash) => hash == *target,
+                _ => false,
+            },
             Self::File(file) => file.is_named_by(leaf),
         }
     }
@@ -90,7 +92,7 @@ impl FileTarget {
     fn is_named_by(&self, leaf: Leaf<'_>) -> bool {
         match (leaf, &self.path) {
             (Leaf::File(chunk), _) => chunk == self.chunk,
-            (Leaf::Hash(hash), Some((_, named))) => hash == *named,
+            (Leaf::Hash(hash), Some((_, named))) => hash.try_as_bin_hash() == Some(*named),
             (Leaf::String(text), Some((path, _))) => text.eq_ignore_ascii_case(path),
             _ => false,
         }
@@ -191,7 +193,7 @@ enum Step<V> {
     Key(V, usize),
 }
 
-/// What tells two keys of one map apart: the hash a hash key holds, else its hash path text.
+/// What tells two keys of one map apart: the hash a 4-byte hash key holds, else its hash path text.
 #[derive(PartialEq, Eq, Hash)]
 enum KeyId {
     Hash(BinHash),
@@ -309,9 +311,14 @@ impl<'h, 'a, V: Declared<'a>> Scan<'h, V> {
                 continue;
             };
             let leaf = key.as_leaf()?;
-            let id = match leaf {
-                Some(Leaf::Hash(hash) | Leaf::Link(hash)) => KeyId::Hash(hash),
-                other => {
+            let narrow = match leaf {
+                Some(Leaf::Hash(hash)) => hash.try_as_bin_hash(),
+                Some(Leaf::Link(hash)) => Some(hash),
+                _ => None,
+            };
+            let id = match (narrow, leaf) {
+                (Some(hash), _) => KeyId::Hash(hash),
+                (None, other) => {
                     let mut text = String::new();
                     write_key(&mut text, other);
                     KeyId::Text(text)
@@ -367,7 +374,7 @@ fn hit_step<'a, V: TreeValue<'a>>(step: &Step<V>) -> HitStep {
             let mut text = String::new();
             write_key(&mut text, leaf);
             let hash = match leaf {
-                Some(Leaf::Hash(hash)) => Some(hash),
+                Some(Leaf::Hash(hash)) => hash.try_as_bin_hash(),
                 _ => None,
             };
             HitStep::Key {

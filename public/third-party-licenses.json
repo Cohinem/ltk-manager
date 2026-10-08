@@ -2390,14 +2390,14 @@
     },
     {
       "name": "ltk_anim",
-      "version": "0.3.10",
+      "version": "0.3.11",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_fantome",
-      "version": "0.15.1",
+      "version": "0.15.3",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2405,14 +2405,14 @@
     },
     {
       "name": "ltk_file",
-      "version": "0.2.11",
+      "version": "0.2.12",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_game_data",
-      "version": "0.8.0",
+      "version": "0.9.1",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2420,7 +2420,7 @@
     },
     {
       "name": "ltk_game_index",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2428,7 +2428,7 @@
     },
     {
       "name": "ltk_hash",
-      "version": "0.4.0",
+      "version": "0.5.0",
       "licenses": [
         44
       ]
@@ -2443,7 +2443,7 @@
     },
     {
       "name": "ltk_hashtable",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2451,28 +2451,28 @@
     },
     {
       "name": "ltk_io_ext",
-      "version": "0.4.7",
+      "version": "0.4.8",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_mapgeo",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_mesh",
-      "version": "0.5.3",
+      "version": "0.5.4",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_meta",
-      "version": "0.8.6",
+      "version": "0.9.0",
       "licenses": [
         44
       ]
@@ -2495,7 +2495,7 @@
     },
     {
       "name": "ltk_mod_project",
-      "version": "0.16.2",
+      "version": "0.16.4",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2503,7 +2503,7 @@
     },
     {
       "name": "ltk_modpkg",
-      "version": "0.12.9",
+      "version": "0.12.11",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2511,7 +2511,7 @@
     },
     {
       "name": "ltk_overlay",
-      "version": "0.16.2",
+      "version": "0.16.4",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
         44
@@ -2519,35 +2519,35 @@
     },
     {
       "name": "ltk_primitives",
-      "version": "0.3.6",
+      "version": "0.3.7",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_rst",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_shader",
-      "version": "0.3.8",
+      "version": "0.3.10",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_texture",
-      "version": "0.6.4",
+      "version": "0.6.5",
       "licenses": [
         44
       ]
     },
     {
       "name": "ltk_wad",
-      "version": "0.5.8",
+      "version": "0.5.9",
       "licenses": [
         44
       ]

@@ -80,7 +80,7 @@ use crate::{
     Rule, RuleId, RuleMeta, Sink, TypeMismatch, Walk,
 };
 use ltk_manager_base::game_build::GameBuild;
-use ltk_manager_bin::bin_document::{PropertyKind, hex, owned};
+use ltk_manager_bin::bin_document::{PropertyKind, hash_hex, owned};
 use ltk_manager_bin::bin_walk::{Address, Declared, FieldNames};
 use ltk_manager_bin::meta_schema::{self, MetaSchema};
 
@@ -825,7 +825,11 @@ fn rehash(value: &mut PropertyValueEnum, names: &BinNames) -> bool {
     let PropertyValueEnum::Hash(hash) = value else {
         return false;
     };
-    let Some(path) = names.path_value(hash.value) else {
+    let path = hash
+        .value
+        .try_as_bin_hash()
+        .and_then(|hash| names.path_value(hash));
+    let Some(path) = path else {
         return false;
     };
     *value = link(&path).into();
@@ -1272,7 +1276,7 @@ fn link(path: &str) -> values::WadChunkLink {
 fn subscript(key: &PropertyValueEnum) -> String {
     match key {
         PropertyValueEnum::String(text) => text.value.clone(),
-        PropertyValueEnum::Hash(hash) => hex(hash.value),
+        PropertyValueEnum::Hash(hash) => hash_hex(hash.value),
         PropertyValueEnum::WadChunkLink(hash) => format!("0x{:016x}", hash.value.0),
         PropertyValueEnum::U8(v) => v.value.to_string(),
         PropertyValueEnum::U32(v) => v.value.to_string(),
@@ -1367,7 +1371,7 @@ fn note(
 /// a map names the first unresolved one and says how many more went unnamed.
 fn unresolved(value: &PropertyValueEnum, names: &BinNames) -> String {
     match value {
-        PropertyValueEnum::Hash(hash) => hex(hash.value),
+        PropertyValueEnum::Hash(hash) => hash_hex(hash.value),
         PropertyValueEnum::Map(map) => {
             let missing: Vec<&PropertyValueEnum> = map
                 .entries()
@@ -1390,7 +1394,7 @@ fn key_path(key: &PropertyValueEnum, names: &BinNames) -> Option<String> {
     let PropertyValueEnum::Hash(hash) = key else {
         return None;
     };
-    names.path_value(hash.value)
+    names.path_value(hash.value.try_as_bin_hash()?)
 }
 
 /// The paths a `rehash` or `hash_key` repair would write from, or `None`
@@ -1406,7 +1410,7 @@ fn resolved_paths(
 ) -> Option<Vec<String>> {
     match (migration.conversion, value) {
         (Conversion::Rehash, PropertyValueEnum::Hash(hash)) => {
-            Some(vec![names.path_value(hash.value)?])
+            Some(vec![names.path_value(hash.value.try_as_bin_hash()?)?])
         }
         (Conversion::HashKey | Conversion::HashKeyValue, PropertyValueEnum::Map(map)) => map
             .entries()

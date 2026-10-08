@@ -23,7 +23,9 @@ pub(crate) fn resolver_entries(resolver: &BinObject) -> impl Iterator<Item = (Bi
         .iter()
         .filter_map(
             |(key, value)| match (owned(key.as_leaf()), owned(value.as_leaf())) {
-                (Some(Leaf::Hash(key)), Some(Leaf::Link(target))) => Some((key, target)),
+                (Some(Leaf::Hash(key)), Some(Leaf::Link(target))) => {
+                    Some((key.try_as_bin_hash()?, target))
+                }
                 _ => None,
             },
         )

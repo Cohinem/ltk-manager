@@ -111,10 +111,13 @@ fn characters_named<'a>(paths: impl Iterator<Item = &'a str>) -> Vec<String> {
 
 /// The object `value` names, by link or by hash, and none for a null one.
 fn object(value: Option<&PropertyValueEnum>) -> Option<BinHash> {
-    match leaf(value)? {
-        Leaf::Link(hash) | Leaf::Hash(hash) if hash.0 != 0 => Some(hash),
-        _ => None,
-    }
+    let hash = match leaf(value)? {
+        Leaf::Link(hash) => hash,
+        Leaf::Hash(hash) => hash.try_as_bin_hash()?,
+        _ => return None,
+    };
+
+    (hash.0 != 0).then_some(hash)
 }
 
 #[cfg(test)]
