@@ -27,8 +27,8 @@ use serde::Serialize;
 
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_bin::bin_document::{
-    AssetLookup, BinDocument, BinDocumentError, Fields, Locator, RowNames, fields_of, hex, items,
-    leaf, link, object_at, text,
+    AssetLookup, BinDocument, BinDocumentError, Fields, Locator, RowNames, fields_of, hash_hex,
+    hex, items, leaf, link, object_at, text,
 };
 pub use ltk_manager_bin::bin_document::{NamedAsset, boolean, float, struct_entries};
 
@@ -709,7 +709,7 @@ pub fn resolve_graph(
             interruption_groups: items(fields.get(&INTERRUPTION_GROUPS))
                 .iter()
                 .filter_map(|item| match leaf(Some(item)) {
-                    Some(Leaf::Hash(hash)) => Some(named(hash)),
+                    Some(Leaf::Hash(hash)) => hash.try_as_bin_hash().map(named),
                     _ => None,
                 })
                 .collect(),
@@ -806,7 +806,10 @@ impl<'a> GraphKeys<'a> {
     /// A `Hash` field keying into `map`, and none for a zero or absent one.
     fn keyed(&self, value: Option<&PropertyValueEnum>, map: GraphMap) -> Option<KeyRef> {
         match leaf(value) {
-            Some(Leaf::Hash(hash)) if hash.0 != 0 => Some(self.key_ref(hash, map)),
+            Some(Leaf::Hash(hash)) => hash
+                .try_as_bin_hash()
+                .filter(|hash| hash.0 != 0)
+                .map(|hash| self.key_ref(hash, map)),
             _ => None,
         }
     }
@@ -815,10 +818,14 @@ impl<'a> GraphKeys<'a> {
 /// A `Hash` field as the tables name it, and none for a zero or absent one.
 fn hash_at(value: Option<&PropertyValueEnum>, locator: &Locator) -> Option<HashRef> {
     match leaf(value) {
-        Some(Leaf::Hash(hash)) if hash.0 != 0 => Some(HashRef {
-            name: locator.names.value_name(hash).unwrap_or_else(|| hex(hash)),
-            hash: hex(hash),
-        }),
+        Some(Leaf::Hash(hash)) => {
+            let hash = hash.try_as_bin_hash().filter(|hash| hash.0 != 0)?;
+
+            Some(HashRef {
+                name: locator.names.value_name(hash).unwrap_or_else(|| hex(hash)),
+                hash: hex(hash),
+            })
+        }
         _ => None,
     }
 }
@@ -841,7 +848,7 @@ fn map_entries(value: Option<&PropertyValueEnum>) -> impl Iterator<Item = (BinHa
 /// The clips `fields` names as children, through every field of [`CHILD_FIELDS`] it holds.
 fn children_of(fields: &Fields) -> impl Iterator<Item = BinHash> + '_ {
     let hash_of = |value: Option<&PropertyValueEnum>| match leaf(value) {
-        Some(Leaf::Hash(hash)) if hash.0 != 0 => Some(hash),
+        Some(Leaf::Hash(hash)) => hash.try_as_bin_hash().filter(|hash| hash.0 != 0),
         _ => None,
     };
     CHILD_FIELDS.iter().flat_map(move |children| {
@@ -870,7 +877,8 @@ fn parameters_of(fields: &Fields) -> Vec<f32> {
         .filter_map(|item| {
             let pair = fields_of(Some(item))?;
             match leaf(pair.get(&PAIR_CLIP)) {
-                Some(Leaf::Hash(hash)) if hash.0 != 0 => {}
+                Some(Leaf::Hash(hash))
+                    if hash.try_as_bin_hash().is_some_and(|hash| hash.0 != 0) => {}
                 _ => return None,
             }
             Some(match leaf(pair.get(&PAIR_VALUE)) {
@@ -896,9 +904,9 @@ fn event_kind(class: BinHash, fields: &Fields, keys: &GraphKeys) -> EventKind {
             hide: hash_refs(fields.get(&EVENT_HIDE_SUBMESHES)),
         },
         PARTICLE_EVENT => EventKind::Particle {
-            effect_key: hex(match leaf(fields.get(&EVENT_EFFECT_KEY)) {
+            effect_key: hash_hex(match leaf(fields.get(&EVENT_EFFECT_KEY)) {
                 Some(Leaf::Hash(key)) => key,
-                _ => BinHash(0),
+                _ => BinHash(0).into(),
             }),
             effect_name: text(fields.get(&EVENT_EFFECT_NAME))
                 .unwrap_or_default()
@@ -1143,7 +1151,7 @@ fn idle_effects(
         .filter_map(|item| {
             let fields = fields_of(Some(item))?;
             let key = match leaf(fields.get(&EFFECT_KEY)) {
-                Some(Leaf::Hash(key)) => key,
+                Some(Leaf::Hash(key)) => key.try_as_bin_hash().unwrap_or(BinHash(0)),
                 _ => BinHash(0),
             };
             Some(IdleEffect {

@@ -427,8 +427,10 @@ fn clone_as(object: &BinObject, source: &EntryName, name: &EntryName) -> BinObje
     let spelled = !source.is_hash() && !name.is_hash();
     for value in copy.properties.values_mut() {
         match value {
-            PropertyValueEnum::Hash(hash) if hash.value == source.object_hash() => {
-                hash.value = name.object_hash();
+            PropertyValueEnum::Hash(hash)
+                if hash.value.try_as_bin_hash() == Some(source.object_hash()) =>
+            {
+                hash.value = name.object_hash().into();
             }
             PropertyValueEnum::String(text)
                 if spelled && text.value.eq_ignore_ascii_case(source.as_str()) =>

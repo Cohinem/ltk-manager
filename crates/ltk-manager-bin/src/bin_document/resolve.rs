@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 
 use indexmap::IndexMap;
-use ltk_hash::{BinHash, WadHash};
+use ltk_hash::{BinHash, HashValue, WadHash};
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
 use serde::Serialize;
@@ -33,6 +33,11 @@ pub struct NamedAsset {
 #[must_use]
 pub fn hex(hash: BinHash) -> String {
     format!("0x{:08x}", hash.0)
+}
+
+/// `0x` and the hex digits of a `hash` value: eight for a 4-byte hash, sixteen for an 8-byte one.
+pub fn hash_hex(hash: HashValue) -> String {
+    format!("0x{hash}")
 }
 
 /// A tree read over the owned tree, which never fails.
@@ -171,7 +176,7 @@ pub fn entries(value: Option<&PropertyValueEnum>) -> &[(PropertyValueEnum, Prope
 
 /// The entries of a `Map<Hash, Struct>`, each as its key, its class and its fields.
 ///
-/// An entry keyed by anything but a hash, or holding no struct, is passed over.
+/// An entry keyed by anything but a 4-byte hash, or holding no struct, is passed over.
 pub fn struct_entries(
     value: Option<&PropertyValueEnum>,
 ) -> impl Iterator<Item = (BinHash, BinHash, &Fields)> {
@@ -179,6 +184,7 @@ pub fn struct_entries(
         let Some(Leaf::Hash(hash)) = leaf(Some(key)) else {
             return None;
         };
+        let hash = hash.try_as_bin_hash()?;
         let (class, fields) = struct_of(Some(value))?;
 
         Some((hash, class, fields))

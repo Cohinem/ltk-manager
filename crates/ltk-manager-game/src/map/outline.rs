@@ -14,7 +14,9 @@ use super::characters::skin_of;
 use super::component::MAP_CONTAINER;
 use super::particles::PARTICLE;
 use super::placeable::{NAME, Placed, controller, placeables, transform, visibility};
-use ltk_manager_bin::bin_document::{BinDocument, Namer, RowNames, entries, hex, leaf, link};
+use ltk_manager_bin::bin_document::{
+    BinDocument, Namer, RowNames, entries, hash_hex, hex, leaf, link,
+};
 
 /// `MapContainer.chunks`, a `Map<Hash, Link<MapPlaceableContainer>>`.
 const CHUNKS: BinHash = named("chunks");
@@ -106,7 +108,10 @@ fn item(placed: &Placed<'_>, namer: &mut Namer<'_>) -> MapChunkItem {
         key: hex(placed.key),
         name: match leaf(fields.get(&NAME)) {
             Some(Leaf::String(text)) => text.to_owned(),
-            Some(Leaf::Hash(hash)) => namer.value(hash).unwrap_or_else(|| hex(hash)),
+            Some(Leaf::Hash(hash)) => hash
+                .try_as_bin_hash()
+                .and_then(|hash| namer.value(hash))
+                .unwrap_or_else(|| hash_hex(hash)),
             _ => hex(placed.key),
         },
         class: namer
@@ -138,7 +143,7 @@ fn listed_keys(materials: &BinDocument) -> HashMap<BinHash, BinHash> {
         .filter(|object| object.class_hash == MAP_CONTAINER)
         .flat_map(|container| entries(container.properties.get(&CHUNKS)))
         .filter_map(|(key, chunk)| match leaf(Some(key)) {
-            Some(Leaf::Hash(key)) => Some((link(Some(chunk))?, key)),
+            Some(Leaf::Hash(key)) => Some((link(Some(chunk))?, key.try_as_bin_hash()?)),
             _ => None,
         })
         .collect()

@@ -77,23 +77,23 @@ ltk-manager-workshop = { path = "crates/ltk-manager-workshop" }
 ltk-meta-docs = { path = "crates/ltk-meta-docs" }
 ltk-telemetry = { path = "crates/ltk-telemetry" }
 
-ltk_file = { version = "0.2.11", features = ["serde"] }
-ltk_hash = { version = "0.4.0", features = ["serde"] }
-ltk_meta = { version = "0.8.6", features = ["serde"] }
+ltk_file = { version = "0.2.12", features = ["serde"] }
+ltk_hash = { version = "0.5.0", features = ["serde"] }
+ltk_meta = { version = "0.9.0", features = ["serde"] }
 
-ltk_fantome = "0.15.0"
-ltk_game_data = "0.8.0"
-ltk_mod_project = { version = "0.16.1", features = ["modpkg", "fantome"] }
-ltk_hashtable = "0.2.0"
-ltk_modpkg = "0.12.8"
-ltk_overlay = "0.16.2"
-ltk_wad = "0.5.8"
+ltk_fantome = "0.15.3"
+ltk_game_data = "0.9.1"
+ltk_mod_project = { version = "0.16.4", features = ["modpkg", "fantome"] }
+ltk_hashtable = "0.2.2"
+ltk_modpkg = "0.12.11"
+ltk_overlay = "0.16.4"
+ltk_wad = "0.5.9"
 
-ltk_anim = "0.3.10"
-ltk_mapgeo = "0.3.2"
-ltk_mesh = { version = "0.5.3", features = ["tangent-baking"] }
-ltk_rst = "0.2.1"
-ltk_texture = { version = "0.6.4", features = ["intel-tex"] }
+ltk_anim = "0.3.11"
+ltk_mapgeo = "0.3.3"
+ltk_mesh = { version = "0.5.4", features = ["tangent-baking"] }
+ltk_rst = "0.2.2"
+ltk_texture = { version = "0.6.5", features = ["intel-tex"] }
 
 brex = "0.2"
 camino = "1.2"
@@ -148,5 +148,5 @@ sha2 = "0.10"
 
 assert_matches = "1.5"
 filetime = "0.2"
-ltk_primitives = "0.3.6"
+ltk_primitives = "0.3.7"
 winreg = "0.55"

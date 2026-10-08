@@ -8,7 +8,7 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 
-use super::{BinValue, as_struct, hex, inlines, is_null, owned};
+use super::{BinValue, as_struct, hash_hex, hex, inlines, is_null, owned};
 use crate::meta_schema::SchemaAt;
 use ltk_manager_assets::hashtables::CacheNames;
 use ltk_manager_workshop::LayerChunks;
@@ -199,7 +199,7 @@ impl Wanted {
     /// The hashes a row's value column names.
     pub(crate) fn value(&mut self, value: &PropertyValueEnum) {
         match value {
-            PropertyValueEnum::Hash(hash) => self.values.push(hash.value),
+            PropertyValueEnum::Hash(hash) => self.values.extend(hash.value.try_as_bin_hash()),
             PropertyValueEnum::ObjectLink(link) => self.entries.push(link.value),
             PropertyValueEnum::WadChunkLink(link) => self.chunks.push(link.value),
             PropertyValueEnum::Optional(optional) => {
@@ -218,7 +218,7 @@ impl Wanted {
     /// The hash a map key names.
     pub(crate) fn key(&mut self, key: &PropertyValueEnum) {
         if let PropertyValueEnum::Hash(hash) = key {
-            self.values.push(hash.value);
+            self.values.extend(hash.value.try_as_bin_hash());
         }
     }
 
@@ -354,8 +354,10 @@ impl Named {
                 value: text.to_owned(),
             },
             Some(Leaf::Hash(hash)) => BinValue::Hash {
-                hash: hex(hash),
-                name: self.values.get(&hash).cloned(),
+                hash: hash_hex(hash),
+                name: hash
+                    .try_as_bin_hash()
+                    .and_then(|hash| self.values.get(&hash).cloned()),
             },
             Some(Leaf::File(hash)) => BinValue::WadChunkLink {
                 hash: format!("{hash:016x}"),

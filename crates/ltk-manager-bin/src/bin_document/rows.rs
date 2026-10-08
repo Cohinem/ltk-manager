@@ -8,8 +8,8 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 
 use super::{
-    DeclaredKind, EntryKey, HashPath, Named, Node, RowNode, Trace, as_list, dot, hex, inlines,
-    key_text, owned,
+    DeclaredKind, EntryKey, HashPath, Named, Node, RowNode, Trace, as_list, dot, hash_hex, hex,
+    inlines, key_text, owned,
 };
 use crate::bin_walk as walk;
 use crate::meta_schema::TypeSpec;
@@ -139,18 +139,24 @@ pub(super) fn elements(items: &[PropertyValueEnum]) -> Vec<Child<'_>> {
 
 /// The text inside `{}` for a person, and whether it is a hash no table names.
 ///
-/// A named `Hash` key is its string as a JSON literal. An unnamed one is `0x` and eight
-/// hex digits. Every other kind reads as it does in the hash path.
+/// A named `Hash` key is its string as a JSON literal. An unnamed one is `0x` and its hex
+/// digits. Every other kind reads as it does in the hash path.
 pub(super) fn key_label(key: &PropertyValueEnum, named: &Named) -> (String, bool) {
     match owned(key.as_leaf()) {
-        Some(Leaf::Hash(hash)) => match named.values.get(&hash) {
-            Some(name) => {
-                let mut out = String::new();
-                walk::write_json_string(&mut out, name);
-                (out, false)
+        Some(Leaf::Hash(hash)) => {
+            let name = hash
+                .try_as_bin_hash()
+                .and_then(|hash| named.values.get(&hash));
+
+            match name {
+                Some(name) => {
+                    let mut out = String::new();
+                    walk::write_json_string(&mut out, name);
+                    (out, false)
+                }
+                None => (hash_hex(hash), true),
             }
-            None => (hex(hash), true),
-        },
+        }
         leaf => {
             let mut out = String::new();
             walk::write_key(&mut out, leaf);

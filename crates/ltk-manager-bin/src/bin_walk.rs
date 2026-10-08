@@ -198,14 +198,14 @@ impl Address {
         self.named.push('{');
         match leaf {
             Some(Leaf::Hash(hash)) => {
-                let _ = write!(self.hashes, "{hash:08x}");
-                match names.hash(hash) {
+                let _ = write!(self.hashes, "{hash}");
+                match hash.try_as_bin_hash().and_then(|hash| names.hash(hash)) {
                     Some(name) => {
                         write_json_string(&mut self.named, &name);
                         self.resolved = true;
                     }
                     None => {
-                        let _ = write!(self.named, "{hash:08x}");
+                        let _ = write!(self.named, "{hash}");
                     }
                 }
             }
@@ -248,7 +248,8 @@ pub fn write_key(out: &mut String, leaf: Option<Leaf<'_>>) {
             write_json_string(out, s);
             Ok(())
         }
-        Some(Leaf::Hash(h) | Leaf::Link(h)) => write!(out, "{h:08x}"),
+        Some(Leaf::Hash(h)) => write!(out, "{h}"),
+        Some(Leaf::Link(h)) => write!(out, "{h:08x}"),
         Some(Leaf::File(h)) => write!(out, "{h:016x}"),
         Some(_) => out.write_str("?"),
     };

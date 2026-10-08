@@ -4,7 +4,9 @@ use ltk_hash::BinHash;
 use ltk_manager_base::hashing::named;
 use ltk_meta::walk::Leaf;
 
-use ltk_manager_bin::bin_document::{BinDocument, Fields, hex, leaf, link, struct_entries};
+use ltk_manager_bin::bin_document::{
+    BinDocument, Fields, hash_hex, hex, leaf, link, struct_entries,
+};
 
 pub(super) const PLACEABLE_CONTAINER: BinHash = named("MapPlaceableContainer");
 /// `MapPlaceableContainer.items`, a `Map<Hash, Pointer<MapPlaceableBase>>`.
@@ -53,7 +55,7 @@ pub(super) fn placeables(materials: &BinDocument) -> impl Iterator<Item = Placed
 pub(super) fn name(fields: &Fields) -> String {
     match leaf(fields.get(&NAME)) {
         Some(Leaf::String(text)) => text.to_owned(),
-        Some(Leaf::Hash(hash)) => hex(hash),
+        Some(Leaf::Hash(hash)) => hash_hex(hash),
         _ => String::new(),
     }
 }

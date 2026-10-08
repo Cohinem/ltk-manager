@@ -304,6 +304,54 @@ fn a_hash_takes_a_name_or_its_hex() {
 }
 
 #[test]
+fn an_eight_byte_hash_takes_sixteen_hex_digits_and_keeps_its_width() {
+    let wide = values::Hash::new(HashValue::wide(0x1122_3344_5566_7788));
+    let object = BinObject::builder(edited(), h("Record"))
+        .property(h("material"), wide)
+        .build();
+    let bin = Bin::new([object], ["common.bin"]);
+    let mut document = BinDocument::parse(bytes_of(&bin)).unwrap();
+    let path = field("material");
+    let set = |document: &mut BinDocument, text: &str| {
+        document.set_leaf(
+            edited(),
+            &path,
+            LeafValue::Hash {
+                text: text.to_owned(),
+            },
+        )
+    };
+
+    assert_eq!(
+        set(&mut document, "0x00000000000000ff").unwrap(),
+        LeafValue::Hash {
+            text: "0x1122334455667788".to_owned()
+        }
+    );
+
+    for text in ["Aatrox_Mat", "0x000000ff"] {
+        assert!(
+            matches!(
+                set(&mut document, text),
+                Err(BinDocumentError::EditRejected {
+                    rejection: EditRejection::MalformedHash,
+                    ..
+                })
+            ),
+            "{text} writes no 8-byte hash"
+        );
+    }
+
+    assert_eq!(
+        set(&mut document, "0x0000000000000000").unwrap(),
+        LeafValue::Hash {
+            text: "0x00000000000000ff".to_owned()
+        },
+        "a refused edit leaves the value"
+    );
+}
+
+#[test]
 fn a_value_that_does_not_fit_is_refused_and_leaves_the_tree() {
     let mut document = document();
     let refused = |document: &mut BinDocument, path: String, value: LeafValue| match document

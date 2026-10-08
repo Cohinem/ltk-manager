@@ -13,8 +13,8 @@ use ltk_meta::{BinObject, PropertyValueEnum};
 use super::{VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_bin::bin_document::{
-    AssetLookup, BinDocument, BinDocumentError, Locator, Namer, RowNames, chunk_asset, hex, link,
-    object_at, owned,
+    AssetLookup, BinDocument, BinDocumentError, Locator, Namer, RowNames, chunk_asset, hash_hex,
+    hex, link, object_at, owned,
 };
 use ltk_manager_bin::bin_walk as walk;
 
@@ -247,6 +247,7 @@ impl<'a> Walk<'a> {
         if class == CHILD_IDENTIFIER
             && field == EFFECT_KEY
             && let Some(Leaf::Hash(key)) = owned(value.as_leaf())
+            && let Some(key) = key.try_as_bin_hash()
             && let Some(&target) = self.resources.get(&key)
             && self.document.object_at(target).is_some()
         {
@@ -342,8 +343,10 @@ impl<'a> Walk<'a> {
                 value: text.to_owned(),
             },
             Some(Leaf::Hash(hash)) => VfxValue::Hash {
-                hash: hex(hash),
-                name: self.namer.value(hash),
+                hash: hash_hex(hash),
+                name: hash
+                    .try_as_bin_hash()
+                    .and_then(|hash| self.namer.value(hash)),
             },
             Some(Leaf::File(hash)) => self.chunk(hash),
             Some(Leaf::Link(hash)) => self.link(hash, depth)?,
@@ -388,7 +391,10 @@ impl<'a> Walk<'a> {
     /// A map key as the text the consumer keys by.
     fn key(&mut self, key: &PropertyValueEnum) -> String {
         match owned(key.as_leaf()) {
-            Some(Leaf::Hash(hash)) => self.namer.value(hash).unwrap_or_else(|| hex(hash)),
+            Some(Leaf::Hash(hash)) => hash
+                .try_as_bin_hash()
+                .and_then(|hash| self.namer.value(hash))
+                .unwrap_or_else(|| hash_hex(hash)),
             leaf => {
                 let mut text = String::new();
                 walk::write_key(&mut text, leaf);
