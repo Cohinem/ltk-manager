@@ -19,6 +19,7 @@ export {
 export { viewportQueries } from "./assets/api/queries";
 export { clipDuration, type ClipModel, readClipBuffer } from "./assets/parsing/clipBuffer";
 export {
+  type ControllerUse,
   drawnMeshes,
   type MapGeometry,
   type MapLayer,
@@ -36,6 +37,13 @@ export {
   type SkeletonModel,
 } from "./assets/parsing/skeletonBuffer";
 export { BufferError } from "./assets/utils/bufferReader";
+export {
+  layerVisibility,
+  layerVisible,
+  type MapVisibility,
+  mapVisibility,
+  placeableVisible,
+} from "./assets/utils/mapVisibility";
 export {
   FitCamera,
   type FitCameraProps,
@@ -154,6 +162,7 @@ export {
 export { spliceVertexProgram, type VertexPrelude } from "./hexshade/vertexPrelude";
 export { Backdrop } from "./scene/components/Backdrop";
 export { FlatViewport, type FlatViewportProps } from "./scene/components/FlatViewport";
+export { FrameOnCommit, KeepFrames } from "./scene/components/Frames";
 export { type Placed, Placement, type PlacementMode } from "./scene/components/Placement";
 export { Stage } from "./scene/components/Stage";
 export { Viewport, type ViewportProps } from "./scene/components/Viewport";

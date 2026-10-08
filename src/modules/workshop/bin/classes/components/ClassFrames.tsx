@@ -11,6 +11,7 @@ import { CurveSurface } from "../../curves/components/CurveSurface";
 import { LinkAssetContext } from "../../links/hooks/useLinkTargets";
 import { MapOutliner } from "../../map/components/MapOutliner";
 import { MapPreview } from "../../map/components/MapPreview";
+import { MapVisibilityPane } from "../../map/components/MapVisibilityPane";
 import { PlaceableInspector } from "../../map/components/PlaceableInspector";
 import { MaterialPane } from "../../material/components/MaterialPane";
 import { MaterialPreview } from "../../material/components/MaterialPreview";
@@ -291,16 +292,19 @@ interface MapShellProps extends ShellFrameProps {
 }
 
 /**
- * The panes of a map class: the drawn map, its chunk graph, and the sections of the object.
+ * The panes of a map class: the drawn map, its chunk graph, its layers and visibility
+ * controllers, and the sections of the object.
  *
- * The preview, the outliner and the inspector share the `MapSceneHost` the view mounts above
- * them, and the inspector heads its sections with the placeable picked last.
+ * The preview, the outliner, the visibility pane and the inspector share the `MapSceneHost`
+ * the view mounts above them, and the inspector heads its sections with the placeable picked
+ * last.
  */
 export function MapShell({ placed, pages, view, entry, preview }: MapShellProps) {
   const content = useMemo<ShellPaneContent<"map">>(
     () => ({
       preview: { body: preview },
       outliner: { body: <MapOutliner /> },
+      visibility: { body: <MapVisibilityPane /> },
       inspector: {
         body: (
           /* DS-SCROLLBAR */

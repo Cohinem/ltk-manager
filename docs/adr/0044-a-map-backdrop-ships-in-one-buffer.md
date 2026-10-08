@@ -1,7 +1,9 @@
 # ADR-0044: A map backdrop ships in one buffer
 
 - **Status:** Accepted (2026-09-20). The layer sentence is superseded by
-  [ADR-0045](0045-a-map-backdrop-draws-the-visibility-flags-the-reader-toggles.md)
+  [ADR-0045](0045-a-map-backdrop-draws-the-visibility-flags-the-reader-toggles.md).
+  [ADR-0064](0064-a-map-backdrop-draws-what-the-visibility-controllers-show.md) adds a field to
+  the mesh record
 - **Date:** 2026-09-20
 - **Crates:** `ltk-manager-core`, in `preview/map`
 - **Related:** [ADR-0035](0035-a-skinned-preview-is-a-skinned-mesh-posed-by-a-baked-clip.md), whose

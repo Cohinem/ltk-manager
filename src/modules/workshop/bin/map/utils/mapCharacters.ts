@@ -1,5 +1,5 @@
 import type { GraphClip, MapCharacter } from "@/lib/tauri";
-import { AXIS_SIGN } from "@/modules/viewport";
+import { AXIS_SIGN, type MapVisibility, placeableVisible } from "@/modules/viewport";
 
 import { openingClip, playableClips } from "../../skin/utils/skinScene";
 
@@ -11,20 +11,19 @@ const DATA_PREFIX = "data/";
 const BIN_SUFFIX = ".bin";
 
 /**
- * The characters of `characters` a backdrop stands under `flags`: structures and level props.
+ * The characters of `characters` that a backdrop draws under `visibility`: structures and
+ * level props.
  *
  * A camp's monsters are left out, because the map places every one it could ever spawn,
- * seven dragons to a pit. So is whatever a visibility controller turns on, which is an
- * event the backdrop is not in.
+ * seven dragons to a pit. A character whose controller is not visible is left out too.
  */
 export function stoodCharacters(
   characters: readonly MapCharacter[],
-  flags: number,
+  visibility: MapVisibility,
 ): MapCharacter[] {
   return characters.filter(
     (character) =>
-      (character.visibility & flags) !== 0 &&
-      character.controller === null &&
+      placeableVisible(visibility, character.visibility, character.controller) &&
       character.team !== NEUTRAL_TEAM,
   );
 }

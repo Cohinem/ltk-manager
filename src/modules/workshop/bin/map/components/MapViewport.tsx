@@ -10,7 +10,7 @@ import { useMemo, useRef, useState } from "react";
 import { Button, IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
 import type { AssetRef, BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
-import { type Bounds, FitCamera, useBackdropFlags, useSceneColors } from "@/modules/viewport";
+import { type Bounds, FitCamera, FrameOnCommit, useSceneColors } from "@/modules/viewport";
 import {
   usePreviewAmbientOcclusion,
   usePreviewBackdropEvents,
@@ -35,7 +35,6 @@ import { passesOf } from "../../vfx/rendering/utils/passes";
 import { useMapParticles } from "../hooks/useMapParticles";
 import { useMapScene } from "../state/mapScene";
 import { variantLabel } from "../utils/mapVariants";
-import { BackdropLayerMenu } from "./BackdropLayerMenu";
 import { BoxSelect } from "./BoxSelect";
 import { MapCharacters } from "./MapCharacters";
 import { MapFocus } from "./MapFocus";
@@ -92,7 +91,7 @@ interface MapSceneProps {
 }
 
 function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
-  const { pick, materials, hidden, focus, selected } = useMapScene();
+  const { pick, materials, hidden, focus, selected, backdrop } = useMapScene();
   const box = useRef<HTMLDivElement>(null);
   const picking = usePlaceablePicking();
   const colors = useSceneColors();
@@ -109,11 +108,11 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const postEffects = usePreviewPostEffects();
   const ambientOcclusion = usePreviewAmbientOcclusion();
   const setDisplay = useSetPreviewDisplay();
-  const { layers, flags, setLayer } = useBackdropFlags(source);
+  const { visibility } = backdrop;
 
   const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
   const events = usePreviewBackdropEvents();
-  const played = useMapParticles(particles ? materials : null, flags, {
+  const played = useMapParticles(particles ? materials : null, visibility, {
     hidden,
     events,
     picked: selected,
@@ -127,20 +126,26 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
       <div ref={box} data-ui="MapViewport" className="relative min-h-0 flex-1">
         <PreviewViewport
           renderer="shared"
+          /* A still map with nothing animated in view draws no frames. The backdrop, the
+             particles and the characters each request frames while they change. */
+          frameloop="demand"
           stage={false}
           textured={false}
           backdrop={source}
-          backdropFlags={flags}
+          backdropVisibility={visibility}
           backdropSky={sky}
           sun={sun}
           postEffects={postEffects}
           ambientOcclusion={ambientOcclusion}
           onBackdropOrigin={setOrigin}
         >
+          <FrameOnCommit />
           {origin !== null && <FitCamera bounds={MAP_FRAME} ground={origin} token={fitToken} />}
           <Passes warps={warps} softens={softens} />
           <MapParticles groups={played} />
-          {structures && <MapCharacters document={materials} flags={flags} hidden={hidden} />}
+          {structures && (
+            <MapCharacters document={materials} visibility={visibility} hidden={hidden} />
+          )}
           <MapFocus focus={focus} colors={colors} />
           {picking.shown && (
             <MapMarkers
@@ -186,7 +191,6 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
           />
           <ShadersToggle />
           <PlaceableButtons picking={picking} />
-          <BackdropLayerMenu layers={layers} flags={flags} onLayerChange={setLayer} />
           <SunControl source={source} />
           <PostEffectsControl source={source} />
           <ViewModeMenu />

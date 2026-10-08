@@ -1169,10 +1169,23 @@ The file tab keeps its blocks. A layout is the object tab's, per ADR-0028.
 
 ### A map's files
 
-A `Map`, a `MapSkin` and a `MapContainer` open in a shell of three panes: the drawn map, an
-outliner of its chunks, and the object's sections. The outliner lists each
+A `Map`, a `MapSkin` and a `MapContainer` open in a shell of four panes: the drawn map, an
+outliner of its chunks, its visibility, and the object's sections. The outliner lists each
 `MapPlaceableContainer` of the map's `.materials.bin` and what it holds. A row sends the camera
 to where its placeable stands, and an eye hides a chunk or one placeable from the scene.
+
+The Visibility pane is a tab behind the outliner. It lists the layers of the map and the
+visibility controllers that its `.materials.bin` declares. A layer has a checkbox that changes
+the active flags of the preview. A controller that depends on no other controller has a checkbox
+that sets its state. These controllers are grouped as Terrain, Stage, Mutator and Other. A
+terrain is titled by its layer, a stage by its stage and a mutator by its name, each followed by
+the controller's name, or its path hash if no hash table has the name.
+
+A controller that depends on other controllers has no checkbox, because its state is computed.
+It is listed under each controller it depends on, with a plus if it is shown while that
+controller is shown and a minus if it is hidden, and an eye for its current state. A row opens
+the controller object in its own tab, and the reset returns the map to its own defaults. The
+rules are ADR-0064.
 
 A search box over the outliner keeps the placeables whose name or class holds its text, and every
 placeable of a chunk whose own name does. A chip per kind the map holds keeps only that kind.
@@ -1194,7 +1207,8 @@ own fields, read in the `.materials.bin`, with a button that opens its chunk's t
 A `.mapgeo` and a `.materials.bin` open on the same map, because the map is what a reader of
 either file came for. The path says which map it is, since both files are the map's entry path
 under `data/`. A `.materials.bin` keeps its blocks behind a Map and Objects switch in the
-toolbar, and a `.mapgeo` has no objects to switch to. A file no hash table names has no path to
+toolbar, and a `.mapgeo` has no objects to switch to. The panel beside the map switches between
+the outliner and the visibility. A file no hash table names has no path to
 read, so it opens as the blocks it always did.
 
 Everything the scene reads is looked for in the project first and the install second: the

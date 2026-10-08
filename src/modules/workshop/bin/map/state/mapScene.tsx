@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createContext, type ReactNode, use, useCallback, useMemo, useState } from "react";
 
 import type { AssetRef, BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
+import { type BackdropFlags, type BackdropSource, useBackdropFlags } from "@/modules/viewport";
 
 import { assetKey } from "../../../preview/utils/assetRef";
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
@@ -64,6 +65,11 @@ export interface MapSceneState {
   /** The viewport marks every placeable the outliner lists. */
   readonly markers: boolean;
   readonly setMarkers: (markers: boolean) => void;
+  /**
+   * The layers and the visibility controllers of the chosen variant, with the states that
+   * the reader set. The preview draws by it and the Visibility pane edits it.
+   */
+  readonly backdrop: BackdropFlags;
 }
 
 const MapSceneContext = createContext<MapSceneState | null>(null);
@@ -120,6 +126,19 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
   const materialsFile = files?.materials ?? null;
   const [opened, setOpened] = useState<BinDocumentId | null>(null);
 
+  /* The same map, document and geometry that the viewport draws its backdrop from, so the
+     two share one read of the geometry and one of the model. Null until the viewport
+     would draw, which is when the document that resolves the materials is known. */
+  const resolver = object?.document ?? opened;
+  const geometryFile = files?.geometry ?? null;
+  const backdropSource = useMemo<BackdropSource | null>(() => {
+    if (chosen === null || geometryFile === null) return null;
+    if (materialsFile !== null && resolver === null) return null;
+
+    return { map: chosen.map, document: resolver, geometry: geometryFile };
+  }, [chosen, geometryFile, materialsFile, resolver]);
+  const backdrop = useBackdropFlags(backdropSource);
+
   const [hidden, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
   const setHidden = useCallback((ids: string | readonly string[], hide: boolean) => {
     setHiddenIds((held) => {
@@ -169,6 +188,7 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       select,
       markers,
       setMarkers,
+      backdrop,
     }),
     [
       listed,
@@ -186,6 +206,7 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       lead,
       select,
       markers,
+      backdrop,
     ],
   );
 

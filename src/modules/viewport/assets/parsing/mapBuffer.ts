@@ -7,13 +7,21 @@
  * doubles what the tab holds.
  */
 
+import type { MapController } from "@/lib/tauri";
+
 import { BufferReader } from "../utils/bufferReader";
+import {
+  layerVisibility,
+  type MapVisibility,
+  mapVisibility,
+  meshVisible,
+} from "../utils/mapVisibility";
 
 /** `LTKM`, the word a map buffer opens with. */
 const MAGIC = 0x4d4b544c;
 
 /** The layouts this build reads. */
-const VERSIONS: readonly number[] = [2];
+const VERSIONS: readonly number[] = [3];
 
 /** The lightmap index of a channel a mesh carries no texture for. */
 const NO_TEXTURE = 0xffffffff;
@@ -39,8 +47,13 @@ export interface MapMesh {
   /** World-space bounds of this mesh's own baked vertices. */
   readonly min: readonly [number, number, number];
   readonly max: readonly [number, number, number];
-  /** The layer mask, one bit per visibility layer. */
+  /** The layer mask, one bit per visibility layer. It is used only if `controller` is null. */
   readonly visibility: number;
+  /**
+   * The path hash of the mesh's visibility controller, as `0x` and eight hex digits. The
+   * controller is an object of the map's `.materials.bin`. Null if the mesh has none.
+   */
+  readonly controller: string | null;
   /** Carried and unread: every Summoner's Rift mesh is at every quality. */
   readonly quality: number;
   /** [`MESH_FLAG`] bits. */
@@ -93,44 +106,53 @@ export interface MapGeometry {
 /** How many visibility layers a mask names, one bit each. */
 const LAYER_COUNT = 8;
 
-/** One visibility layer some mesh of a map names, and what turning it on draws. */
+/** One visibility layer that changes which meshes of a map are drawn. */
 export interface MapLayer {
   /** The layer's bit in a mask. */
   readonly index: number;
-  /** Every triangle of the meshes whose mask carries the layer, shared ones included. */
+  /** The number of triangles drawn when this layer is the only active one. */
   readonly triangles: number;
 }
 
-/**
- * The meshes an active set of visibility `flags` draws: those whose mask shares a bit with it.
- *
- * `flags` is a mask like a mesh's own, so two variants on at once stack, as they would in
- * the engine.
- */
-export function drawnMeshes(map: MapGeometry, flags: number): MapMesh[] {
-  return map.meshes.filter((mesh) => (mesh.visibility & flags) !== 0);
+const NO_CONTROLLERS: readonly MapController[] = [];
+
+/** The meshes of `map` drawn under `visibility`, per ADR-0064. */
+export function drawnMeshes(map: MapGeometry, visibility: MapVisibility): MapMesh[] {
+  return map.meshes.filter((mesh) => meshVisible(visibility, mesh.visibility, mesh.controller));
 }
 
-/** Every visibility layer a mesh of `map` names, in bit order. */
-export function mapLayers(map: MapGeometry): MapLayer[] {
-  const triangles = new Array<number>(LAYER_COUNT).fill(0);
-  let named = 0;
-  for (const mesh of map.meshes) {
-    named |= mesh.visibility;
-    const drawn = meshTriangles(map, mesh);
-    for (let index = 0; index < LAYER_COUNT; index += 1) {
-      if ((mesh.visibility & (1 << index)) !== 0) triangles[index] += drawn;
-    }
+/**
+ * Every visibility layer that changes which meshes of `map` are drawn, in bit order.
+ *
+ * `controllers` are the controllers that the map declares. If the list is empty, each
+ * mesh is tested by its layer mask, which is how the map is drawn until its model is
+ * loaded.
+ */
+export function mapLayers(
+  map: MapGeometry,
+  controllers: readonly MapController[] = NO_CONTROLLERS,
+): MapLayer[] {
+  const unlayered = new Set(drawnMeshes(map, mapVisibility(controllers, 0)));
+  const layers: MapLayer[] = [];
+
+  for (let index = 0; index < LAYER_COUNT; index += 1) {
+    const drawn = drawnMeshes(map, mapVisibility(controllers, 1 << index));
+    const changes = drawn.length !== unlayered.size || drawn.some((mesh) => !unlayered.has(mesh));
+    if (!changes) continue;
+
+    layers.push({
+      index,
+      triangles: drawn.reduce((sum, mesh) => sum + meshTriangles(map, mesh), 0),
+    });
   }
-  return triangles.flatMap((count, index) =>
-    (named & (1 << index)) === 0 ? [] : [{ index, triangles: count }],
-  );
+  return layers;
 }
 
 /**
  * The flags a map opens on: layer 0 while it draws half the map, else the fullest layer.
  *
- * Per ADR-0045. Zero for a map with no mesh on any layer.
+ * Per ADR-0045. The layer masks alone are used, so the result does not change when the
+ * map's controllers are loaded. Zero if no layer changes which meshes are drawn.
  */
 export function openingFlags(map: MapGeometry): number {
   const layers = mapLayers(map);
@@ -142,6 +164,44 @@ export function openingFlags(map: MapGeometry): number {
     null,
   );
   return fullest === null ? 0 : 1 << fullest.index;
+}
+
+/** `hash` as `0x` and eight hex digits, the format of `MapParticle.controller`. Null for zero. */
+function controllerOf(hash: number): string | null {
+  return hash === 0 ? null : `0x${hash.toString(16).padStart(8, "0")}`;
+}
+
+/** The meshes of a map that reference one controller. */
+export interface ControllerUse {
+  /** The number of meshes that reference the controller. */
+  readonly meshes: number;
+  /** The material path of the first submesh of each such mesh, each path once, in mesh order. */
+  readonly materials: readonly string[];
+}
+
+/** The meshes of `map` that reference each controller, keyed by controller path hash. */
+export function controllerUses(map: MapGeometry): Map<string, ControllerUse> {
+  const counted = new Map<string, { meshes: number; materials: Set<string> }>();
+
+  for (const mesh of map.meshes) {
+    if (mesh.controller === null) continue;
+
+    const held = counted.get(mesh.controller) ?? { meshes: 0, materials: new Set<string>() };
+    held.meshes += 1;
+
+    const first = mesh.submeshCount === 0 ? undefined : map.submeshes[mesh.firstSubmesh];
+    const material = first === undefined ? undefined : map.materials[first.material];
+    if (material !== undefined) held.materials.add(material);
+
+    counted.set(mesh.controller, held);
+  }
+
+  return new Map(
+    [...counted].map(([hash, { meshes, materials }]) => [
+      hash,
+      { meshes, materials: [...materials] },
+    ]),
+  );
 }
 
 /** How many triangles `mesh`'s submeshes draw. */
@@ -178,8 +238,8 @@ const GROUND_RADIUS = 400;
  * entirely. A median follows where the geometry is dense instead.
  *
  * The height is the median of the points standing within [`GROUND_RADIUS`] of that spot,
- * so neither a canopy above nor the skirt hanging under the terrain moves it. Null where
- * the flags draw nothing.
+ * so neither a canopy above nor the skirt hanging under the terrain moves it. The layer
+ * masks alone are used, as in [`openingFlags`]. Null if no mesh is drawn under `flags`.
  */
 export function mapOrigin(map: MapGeometry, flags: number): [number, number, number] | null {
   const points = drawnPoints(map, flags);
@@ -213,7 +273,7 @@ function median(values: Float64Array): number {
 /** Every [`SAMPLE_STRIDE`]th vertex of what `flags` draw, as flat triples. */
 function drawnPoints(map: MapGeometry, flags: number): number[] {
   const points: number[] = [];
-  for (const mesh of drawnMeshes(map, flags)) {
+  for (const mesh of drawnMeshes(map, layerVisibility(flags))) {
     for (let at = 0; at < mesh.submeshCount; at += 1) {
       const run = map.submeshes[mesh.firstSubmesh + at];
       if (run === undefined) continue;
@@ -267,6 +327,7 @@ export function readMapBuffer(bytes: ArrayBuffer): MapGeometry {
       flags: (packed >>> 16) & 0xff,
       firstSubmesh: reader.u32(),
       submeshCount: reader.u32(),
+      controller: controllerOf(reader.u32()),
     });
   }
 

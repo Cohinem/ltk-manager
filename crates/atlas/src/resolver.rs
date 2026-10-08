@@ -623,10 +623,13 @@ pub(super) fn repeats(controller: &Fields) -> Vec<UiRepeat> {
 /// The object `value` names, by a link or by a bare hash, and none for zero. A combo box and a
 /// button state name their elements either way.
 pub(super) fn object(value: Option<&PropertyValueEnum>) -> Option<BinHash> {
-    match leaf(value)? {
-        Leaf::Link(hash) | Leaf::Hash(hash) if hash.0 != 0 => Some(hash),
-        _ => None,
-    }
+    let hash = match leaf(value)? {
+        Leaf::Link(hash) => hash,
+        Leaf::Hash(hash) => hash.try_as_bin_hash()?,
+        _ => return None,
+    };
+
+    (hash.0 != 0).then_some(hash)
 }
 
 /// What a `UiElementGroupButtonData` holds beyond its states.

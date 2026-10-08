@@ -18,6 +18,7 @@ const renderer = {
   setFrameloop: (mode: string) => {
     renderer.frameloop = mode;
   },
+  invalidate: vi.fn(),
 };
 const mounted = vi.fn();
 const disposed = vi.fn();
@@ -111,4 +112,29 @@ it("retains an idle preview renderer without spending frames between jobs", () =
   rerender(view(true));
   expect(mounted).toHaveBeenCalledTimes(1);
   expect(disposed).not.toHaveBeenCalled();
+});
+
+it("draws on demand where asked, requests a frame as it starts and stops while hidden", () => {
+  const client = createTestQueryClient();
+  const view = (active: boolean) => (
+    <QueryClientProvider client={client}>
+      <Viewport active={active} frameloop="demand" stage={false} textured={false} camera="orbit">
+        {null}
+      </Viewport>
+    </QueryClientProvider>
+  );
+  const { rerender } = render(view(true));
+  act(() => measure({ clientWidth: 800, clientHeight: 600 }));
+
+  expect(screen.getByTestId("canvas")).toHaveTextContent("demand");
+  expect(renderer.invalidate).toHaveBeenCalled();
+
+  renderer.invalidate.mockClear();
+  rerender(view(false));
+  expect(screen.getByTestId("canvas")).toHaveTextContent("never");
+  expect(renderer.invalidate).not.toHaveBeenCalled();
+
+  rerender(view(true));
+  expect(screen.getByTestId("canvas")).toHaveTextContent("demand");
+  expect(renderer.invalidate).toHaveBeenCalled();
 });

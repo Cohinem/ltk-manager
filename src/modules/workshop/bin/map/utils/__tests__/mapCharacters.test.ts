@@ -1,4 +1,5 @@
 import type { GraphClip, MapCharacter } from "@/lib/tauri";
+import { layerVisibility, mapVisibility } from "@/modules/viewport";
 
 import {
   charactersByAnimation,
@@ -31,23 +32,39 @@ describe("stoodCharacters", () => {
     const order = character({ name: "Order" });
     const chaos = character({ name: "Chaos", team: 200 });
 
-    expect(stoodCharacters([order, chaos], 0b0000_0001)).toEqual([order, chaos]);
+    expect(stoodCharacters([order, chaos], layerVisibility(1))).toEqual([order, chaos]);
   });
 
-  it("leaves out a camp's monsters, another layer's and what a controller turns on", () => {
+  it("leaves out a camp's monsters, another layer's and a character whose controller is not visible", () => {
     const left = [
       character({ name: "Dragon", team: 300 }),
       character({ name: "Mountain", visibility: 4 }),
       character({ name: "Banner", controller: "0x76c50391" }),
     ];
 
-    expect(stoodCharacters(left, 0b0000_0001)).toEqual([]);
+    expect(stoodCharacters(left, layerVisibility(1))).toEqual([]);
+  });
+
+  it("draws a character whose controller is visible and ignores its mask", () => {
+    const banner = character({ name: "Banner", visibility: 4, controller: "0xf4968631" });
+    const visibility = mapVisibility(
+      [
+        {
+          hash: "0xf4968631",
+          name: null,
+          rule: { kind: "named", defaultVisible: true, terrain: 0, stage: 0 },
+        },
+      ],
+      1,
+    );
+
+    expect(stoodCharacters([banner], visibility)).toEqual([banner]);
   });
 
   it("stands another layer's character once its flag is on", () => {
     const mountain = character({ name: "Mountain", visibility: 4 });
 
-    expect(stoodCharacters([mountain], 0b0000_0100)).toEqual([mountain]);
+    expect(stoodCharacters([mountain], layerVisibility(0b0000_0100))).toEqual([mountain]);
   });
 });
 

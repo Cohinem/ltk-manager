@@ -9,13 +9,15 @@ use std::str::FromStr;
 
 use fs_err as fs;
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use ltk_hash::{BinHash, Hash as _, WadHash};
+use ltk_hash::{BinHash, Hash as _, HashValue, HashWidth, WadHash};
 use ltk_meta::property::{Kind, ValueMut, values};
 use ltk_meta::{BinDelta, BinFile, BinObject, BinStream, PropertyValueEnum};
 use serde::{Deserialize, Serialize};
 
 use super::properties::field_path;
-use super::{BinDocument, BinDocumentError, Declaring, PropertyKind, Step, hex, inlines, is_null};
+use super::{
+    BinDocument, BinDocumentError, Declaring, PropertyKind, Step, hash_hex, hex, inlines, is_null,
+};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::AppResult;
 use ltk_manager_base::utils::fs::atomic_write;
@@ -745,9 +747,13 @@ pub(super) fn set(leaf: ValueMut<'_>, value: LeafValue) -> Result<LeafValue, Edi
         (ValueMut::String(leaf), V::String { value }) => Ok(V::String {
             value: mem::replace(&mut leaf.value, value),
         }),
-        (ValueMut::Hash(leaf), V::Hash { text }) => Ok(V::Hash {
-            text: hex(mem::replace(&mut leaf.value, bin_hash(&text)?)),
-        }),
+        (ValueMut::Hash(leaf), V::Hash { text }) => {
+            let next = hash_value(&text, leaf.value.width())?;
+
+            Ok(V::Hash {
+                text: hash_hex(mem::replace(&mut leaf.value, next)),
+            })
+        }
         (ValueMut::ObjectLink(leaf), V::ObjectLink { text }) => Ok(V::ObjectLink {
             text: hex(mem::replace(&mut leaf.value, bin_hash(&text)?)),
         }),
@@ -814,6 +820,24 @@ pub(super) fn bin_hash(text: &str) -> Result<BinHash, EditRejection> {
         return Err(EditRejection::MalformedHash);
     }
     Ok(BinHash::hash_str(text))
+}
+
+/// The `hash` value `text` writes at `width`.
+///
+/// A 4-byte hash reads as [`bin_hash`] does. An 8-byte hash is `0x` and sixteen hex digits,
+/// because a bin does not hold the hash function of an 8-byte hash.
+fn hash_value(text: &str, width: HashWidth) -> Result<HashValue, EditRejection> {
+    match width {
+        HashWidth::W4 => bin_hash(text).map(HashValue::from),
+        HashWidth::W8 => {
+            let digits = text
+                .trim()
+                .strip_prefix("0x")
+                .ok_or(EditRejection::MalformedHash)?;
+
+            hex_digits(digits, 16).map(HashValue::wide)
+        }
+    }
 }
 
 /// The hash sixteen hex digits write, or the hash of a chunk path.

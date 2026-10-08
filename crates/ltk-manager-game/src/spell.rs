@@ -6,7 +6,7 @@ use serde::Serialize;
 
 use ltk_manager_base::hashing::named;
 use ltk_manager_bin::bin_document::{
-    BinDocument, BinDocumentError, Fields, fields_of, hex, leaf, object_at,
+    BinDocument, BinDocumentError, Fields, fields_of, hash_hex, hex, leaf, object_at,
 };
 
 mod catalog;
@@ -165,7 +165,7 @@ pub fn read_spell(
         preview.effect_key = match spell.get(&h("mMissileEffectKey")) {
             None => None,
             Some(value) => match leaf(Some(value)) {
-                Some(Leaf::Hash(key)) if key.0 != 0 => Some(hex(key)),
+                Some(Leaf::Hash(key)) if key.as_u64() != 0 => Some(hash_hex(key)),
                 Some(Leaf::Hash(_)) => None,
                 _ => {
                     read.issue("mSpell.mMissileEffectKey", SpellIssueKind::Invalid);
@@ -221,7 +221,7 @@ impl Read {
     fn hash(&mut self, fields: &Fields, name: &str, parent: &str) -> Option<String> {
         let value = fields.get(&h(name))?;
         match leaf(Some(value)) {
-            Some(Leaf::Hash(key)) if key.0 != 0 => Some(hex(key)),
+            Some(Leaf::Hash(key)) if key.as_u64() != 0 => Some(hash_hex(key)),
             Some(Leaf::Hash(_)) => None,
             _ => {
                 self.issue(&format!("{parent}.{name}"), SpellIssueKind::Invalid);

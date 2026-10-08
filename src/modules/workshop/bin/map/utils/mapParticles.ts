@@ -1,4 +1,5 @@
 import type { MapParticle } from "@/lib/tauri";
+import { layerVisible, type MapVisibility, placeableVisible } from "@/modules/viewport";
 
 import { fnv1a32 } from "../../shared/utils/binHash";
 import type { Anchor, Point, RigModel } from "../../vfx/engine/model/rig";
@@ -8,26 +9,32 @@ import { itemId } from "./mapOutline";
 const TRANSLATION = 12;
 
 /**
- * The particles of `particles` a backdrop plays under the visibility `flags`, a mask.
+ * The particles of `particles` that a backdrop plays under `visibility`.
  *
- * A transitional particle is the game's one-shot as the map changes, so none plays. One a
- * script or a visibility controller turns on is an event, which plays only with `events` or
- * where the reader picked it, which `picked` holds by `itemId`.
+ * A transitional particle never plays, because the game plays it once when the map
+ * changes. A particle that starts disabled, or whose controller is not visible, is an
+ * event. An event plays only if its layer mask is drawn under the active flags and either
+ * `events` is on or `picked` contains its `itemId`.
  */
 export function playedParticles(
   particles: readonly MapParticle[],
-  flags: number,
+  visibility: MapVisibility,
   events = false,
   picked: ReadonlySet<string> = NONE_PICKED,
 ): MapParticle[] {
-  return particles.filter(
-    (particle) =>
-      (particle.visibility & flags) !== 0 &&
-      !particle.transitional &&
-      (events ||
-        picked.has(itemId(particle.chunk, particle.key)) ||
-        (!particle.startDisabled && particle.controller === null)),
-  );
+  return particles.filter((particle) => {
+    if (particle.transitional) return false;
+
+    const visible =
+      !particle.startDisabled &&
+      placeableVisible(visibility, particle.visibility, particle.controller);
+    if (visible) return true;
+
+    return (
+      layerVisible(particle.visibility, visibility.flags) &&
+      (events || picked.has(itemId(particle.chunk, particle.key)))
+    );
+  });
 }
 
 const NONE_PICKED: ReadonlySet<string> = new Set();

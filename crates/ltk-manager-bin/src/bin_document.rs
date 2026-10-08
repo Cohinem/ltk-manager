@@ -51,8 +51,8 @@ pub use document::BinDocument;
 pub use names::{ProjectNames, RowNames};
 pub use resolve::{
     AssetLookup, Fields, Locator, NamedAsset, Namer, boolean, chunk_asset, entries, fields_of,
-    float, hex, items, leaf, link, object_at, optional, owned, string_map, struct_entries,
-    struct_of, text, unsigned, vector2, vector3, vector4,
+    float, hash_hex, hex, items, leaf, link, object_at, optional, owned, string_map,
+    struct_entries, struct_of, text, unsigned, vector2, vector3, vector4,
 };
 pub use store::{BinDocuments, CAPACITY, DocumentRead};
 pub use types::{

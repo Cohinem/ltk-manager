@@ -1,5 +1,6 @@
-//! What a map gives a preview: the materials its submeshes name, the particles and
-//! characters it stands, and which map an object of a map's own classes draws.
+//! What a map gives a preview: the materials its submeshes name, the visibility
+//! controllers it declares, the particles and characters it stands, and which map an
+//! object of a map's own classes draws.
 //!
 //! A map's geometry rides the `ltk-asset` scheme as one `LTKM` buffer and never crosses
 //! IPC, so this module answers only the other half, which is the `StaticMaterialDef`
@@ -18,6 +19,7 @@ use crate::material::{MaterialPreview, resolve_material};
 
 mod characters;
 mod component;
+mod controllers;
 #[cfg(test)]
 mod fixtures;
 mod lighting;
@@ -30,6 +32,7 @@ mod sun;
 mod variants;
 
 pub use characters::{MapCharacter, map_characters};
+pub use controllers::{MapController, MapControllerRule, MapParentMode, map_controllers};
 pub use lighting::light_grid_path;
 pub use outline::{MapChunk, MapChunkItem, MapItemKind, map_outline};
 pub use particles::{MapParticle, map_particles};
@@ -109,7 +112,8 @@ pub struct MapFiles {
     pub materials: Option<AssetRef>,
 }
 
-/// One map's materials, one per path asked for and in that order, and its lighting and screen effects.
+/// One map's materials, one per path asked for and in that order, its visibility controllers, and
+/// its lighting and screen effects.
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
@@ -117,6 +121,9 @@ pub struct MapModel {
     /// Null where the map's own bin declares no object at that path, which a backdrop
     /// draws flat rather than not at all.
     pub materials: Vec<Option<MaterialPreview>>,
+    /// Every visibility controller that the map's `.materials.bin` declares. A mesh of the
+    /// `LTKM` buffer and a placeable reference a controller by its path hash.
+    pub controllers: Vec<MapController>,
     /// Null where the map's container states no sun, which a backdrop lights with a default.
     pub sun: Option<MapSun>,
     /// Null where the map's container states no post effects, which no shipped map does.
@@ -128,8 +135,8 @@ pub struct MapModel {
     pub light_grid: Option<AssetRef>,
 }
 
-/// The materials `paths` name and the lighting and screen effects of `map`, read out of its own
-/// `.materials.bin`.
+/// The materials `paths` name, the visibility controllers and the lighting and screen effects of
+/// `map`, read out of its own `.materials.bin`.
 ///
 /// `paths` are the entry paths an `LTKM` buffer's string table carries, so the two sides
 /// join on the string itself and neither hashes on the other's behalf. `shaders` is
@@ -151,6 +158,7 @@ pub fn resolve_map(
                 resolve_material(materials, BinHash::hash_str(path), names, assets, shaders).ok()
             })
             .collect(),
+        controllers: map_controllers(materials, names),
         sun: map_sun(materials, map),
         post_effects: map_post_effects(materials, map),
         ssao: map_ssao(materials, map),
@@ -158,11 +166,13 @@ pub fn resolve_map(
     }
 }
 
-/// A map with every material unresolved and no lighting or screen effects, drawn flat.
+/// A map with every material unresolved and no controllers, lighting or screen effects, drawn
+/// flat.
 #[must_use]
 pub fn unresolved_map(paths: &[String]) -> MapModel {
     MapModel {
         materials: paths.iter().map(|_| None).collect(),
+        controllers: Vec::new(),
         sun: None,
         post_effects: None,
         ssao: None,

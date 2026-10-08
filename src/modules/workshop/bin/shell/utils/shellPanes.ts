@@ -8,6 +8,7 @@ import {
   GraphIcon,
   type Icon,
   ImagesIcon,
+  IntersectThreeIcon,
   LightningIcon,
   MonitorIcon,
   ShapesIcon,
@@ -41,7 +42,8 @@ export type ShellPaneId =
   | "variants"
   | "sprites"
   | "skeleton"
-  | "physics";
+  | "physics"
+  | "visibility";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -60,6 +62,7 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "sprites",
   "skeleton",
   "physics",
+  "visibility",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
@@ -69,7 +72,7 @@ export type ShellKind = "vfx" | "skin" | "map" | "material" | "atlas" | "font" |
 export const SHELL_PANES = {
   vfx: ["preview", "timeline", "inspector", "curve", "emitters", "graph"],
   skin: ["preview", "clips", "spells", "material", "skeleton", "inspector", "physics"],
-  map: ["preview", "outliner", "inspector"],
+  map: ["preview", "outliner", "visibility", "inspector"],
   material: ["preview", "inspector"],
   atlas: ["preview", "components", "layers", "variants", "sprites", "inspector"],
   font: ["preview", "inspector"],
@@ -102,6 +105,7 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   sprites: m.workshop_bin_pane_sprites_label,
   skeleton: m.workshop_bin_pane_skeleton_label,
   physics: m.workshop_bin_pane_physics_label,
+  visibility: m.workshop_bin_pane_visibility_label,
 };
 
 /** The glyph the Panes menu lists a pane by. */
@@ -122,6 +126,7 @@ export const SHELL_PANE_ICON: Record<ShellPaneId, Icon> = {
   sprites: ImagesIcon,
   skeleton: BoneIcon,
   physics: AtomIcon,
+  visibility: IntersectThreeIcon,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {
@@ -202,7 +207,12 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
           id: "split-4",
           dir: "col",
           children: [
-            { kind: "leaf", id: "leaf-5", tabs: ["outliner"], activeTab: "outliner" },
+            {
+              kind: "leaf",
+              id: "leaf-5",
+              tabs: ["outliner", "visibility"],
+              activeTab: "outliner",
+            },
             { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
           ],
         },
@@ -318,11 +328,12 @@ export function openShellPanes(tree: LayoutNode): ReadonlySet<ShellPaneId> {
  * skeleton pane existed gains it as a tab behind the material. One saved before the
  * physics pane existed gains it as a tab behind the inspector. An Atlas tree saved before
  * the sprites pane existed gains it as a tab behind the variants, and one saved before the
- * components pane existed gains it as a tab behind the layers.
+ * components pane existed gains it as a tab behind the layers. A map tree saved before the
+ * visibility pane existed gains it as a tab behind the outliner.
  *
  * A tree that lacks one of those panes reads the same whether it was saved before the pane
  * existed or the reader closed the pane, so a closed clips, material, skeleton, physics,
- * sprites or components pane comes back when the tree is read again.
+ * sprites, components or visibility pane comes back when the tree is read again.
  */
 export function sanitizeShellLayout(kind: ShellKind, value: unknown): LayoutNode {
   const held = new Set<ShellPaneId>();
@@ -330,6 +341,10 @@ export function sanitizeShellLayout(kind: ShellKind, value: unknown): LayoutNode
   if (kind === "atlas") {
     if (!held.has("sprites")) tree = withTabBeside(tree, "variants", "sprites");
     if (!held.has("components")) tree = withTabBeside(tree, "layers", "components");
+    return tree;
+  }
+  if (kind === "map") {
+    if (!held.has("visibility")) tree = withTabBeside(tree, "outliner", "visibility");
     return tree;
   }
   if (kind !== "skin") return tree;
