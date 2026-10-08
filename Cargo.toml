@@ -81,12 +81,12 @@ ltk_file = { version = "0.2.12", features = ["serde"] }
 ltk_hash = { version = "0.5.0", features = ["serde"] }
 ltk_meta = { version = "0.9.0", features = ["serde"] }
 
-ltk_fantome = "0.15.3"
-ltk_game_data = "0.9.1"
-ltk_mod_project = { version = "0.16.4", features = ["modpkg", "fantome"] }
+ltk_fantome = "0.15.4"
+ltk_game_data = "0.9.2"
+ltk_mod_project = { version = "0.16.5", features = ["modpkg", "fantome"] }
 ltk_hashtable = "0.2.2"
-ltk_modpkg = "0.12.11"
-ltk_overlay = "0.16.4"
+ltk_modpkg = "0.12.12"
+ltk_overlay = "0.16.5"
 ltk_wad = "0.5.9"
 
 ltk_anim = "0.3.11"
