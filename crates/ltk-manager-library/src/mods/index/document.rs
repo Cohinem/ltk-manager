@@ -89,6 +89,41 @@ impl ModLibrary {
         Ok(reconciled)
     }
 
+    /// Sets aside an index that a newer app version wrote, and rebuilds the
+    /// library from the mods on disk.
+    ///
+    /// The index moves to `library.v{version}.json.bak`. The profiles and the
+    /// folders are only in that file, and every mod is adopted under a new id:
+    /// ADR-0002. Does nothing if the index loads.
+    ///
+    /// # Errors
+    ///
+    /// Fails with [`AppError::Io`] if the index cannot be read or moved.
+    pub fn rebuild_newer_index(&self, config: &Config) -> AppResult<()> {
+        let storage_dir = self.storage_dir(config)?;
+
+        {
+            let _lock = self.index_lock.lock();
+
+            let file_version = match load_library_index(&storage_dir) {
+                Err(AppError::SchemaVersionTooNew { file_version, .. }) => file_version,
+                loaded => return loaded.map(|_| ()),
+            };
+
+            let backup = LibraryIndex::backup_path(&storage_dir, file_version);
+            fs::rename(library_index_path(&storage_dir), &backup)?;
+            tracing::warn!(
+                "Set aside the version {} library index as {}",
+                file_version,
+                backup.display()
+            );
+        }
+
+        self.reconcile_index(config)?;
+
+        Ok(())
+    }
+
     /// Read-only index access: acquire lock, load index, run closure.
     pub(crate) fn with_index<T>(
         &self,

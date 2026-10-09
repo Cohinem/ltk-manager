@@ -21,6 +21,21 @@ pub fn get_layout_migration_state(
     result.into()
 }
 
+/// Set aside a library index that a newer app version wrote, and rebuild the library from disk.
+#[tauri::command]
+#[specta::specta]
+pub async fn rebuild_newer_library_index(app_handle: AppHandle) -> IpcResult<()> {
+    let config = app_handle.state::<SettingsState>().config();
+    let library = app_handle.state::<ModLibraryState>().0.clone();
+
+    off_thread(move || {
+        let rebuilt = library.rebuild_newer_index(&config);
+        app_handle.state::<PatcherState>().refresh_overlay();
+        rebuilt
+    })
+    .await
+}
+
 /// Scan a cslol-manager directory for importable mods.
 #[tauri::command]
 #[specta::specta]

@@ -1,7 +1,7 @@
 use fs_err as fs;
 use ltk_manager_base::error::{AppError, AppResult};
 use serde_json::Value;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::{LibraryIndex, library_index_path};
 use crate::mods::types::ROOT_FOLDER_ID;
@@ -65,11 +65,16 @@ impl LibraryIndex {
         value.get("version").and_then(|v| v.as_u64()).unwrap_or(0) as u32
     }
 
+    /// The backup of a version `version` index, `library.v{version}.json.bak`.
+    pub(super) fn backup_path(storage_dir: &Path, version: u32) -> PathBuf {
+        storage_dir.join(format!("library.v{}.json.bak", version))
+    }
+
     /// Back up the library index file before migrating from the given version.
     /// Copies `library.json` to `library.v{from_version}.json.bak`.
     fn backup(storage_dir: &Path, from_version: u32) -> AppResult<()> {
         let src = library_index_path(storage_dir);
-        let dst = storage_dir.join(format!("library.v{}.json.bak", from_version));
+        let dst = Self::backup_path(storage_dir, from_version);
         fs::copy(&src, &dst)?;
         tracing::info!(
             "Backed up library index (v{}) to {}",

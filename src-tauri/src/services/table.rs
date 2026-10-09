@@ -134,6 +134,7 @@ services! {
         get_mod_health_verdicts,
         // Migration
         get_layout_migration_state,
+        rebuild_newer_library_index,
         scan_cslol_mods,
         import_cslol_mods,
         // Native (fork-only)
