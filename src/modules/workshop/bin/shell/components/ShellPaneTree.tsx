@@ -18,7 +18,6 @@ import {
   useIslands,
   usePortalHosts,
 } from "@/modules/editor";
-import { twMerge } from "@/utils";
 
 import {
   useActivateShellPane,
@@ -53,11 +52,11 @@ import { FloatingPane } from "./FloatingPane";
 
 /**
  * The box one pane draws under its strip, so no pane invents a surface of its own. Its fill and
- * edge are the open tab's in `PaneStrip`, and its corner is square under an open first tab, so
- * the tab and the box read as one shape. DS-GROUND.
+ * edge are the open tab's in `PaneStrip`, and the strip draws its top edge, so the tab and the
+ * box read as one shape. DS-GROUND.
  */
 const PANE_BODY =
-  "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-surface-700/50 bg-surface-900";
+  "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-b-lg border border-t-0 border-surface-700/50 bg-surface-900";
 
 /** What one pane draws: its body, and the controls its own strip carries. */
 export interface ShellPane {
@@ -250,12 +249,7 @@ function PaneLeaf<K extends ShellKind>({
           actions={active === null ? null : bodies[active]?.actions}
           actionsWidth={active === null ? undefined : bodies[active]?.actionsWidth}
         />
-        <div
-          className={twMerge(
-            PANE_BODY,
-            active !== null && active === panes[0] && "rounded-tl-none",
-          )}
-        >
+        <div className={PANE_BODY}>
           {panes.map((pane) => (
             <PortalSlot key={pane} host={hostOf(pane)} />
           ))}

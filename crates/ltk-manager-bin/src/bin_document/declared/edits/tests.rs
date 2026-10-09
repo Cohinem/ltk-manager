@@ -798,7 +798,7 @@ fn declared_at(dir: &std::path::Path, more: &[&'static str], build: GameBuild) -
 fn add_each_offered(build: GameBuild) -> Vec<(String, Result<Vec<String>, BinDocumentError>)> {
     let at = schema();
     let offered = declared(tempfile::tempdir().unwrap().path())
-        .addable_fields(h(SKIN), "", at.at(Some(BUILD)))
+        .addable_fields(h(SKIN), "", at.at(Some(build)))
         .unwrap();
 
     offered
@@ -823,7 +823,7 @@ fn add_each_offered(build: GameBuild) -> Vec<(String, Result<Vec<String>, BinDoc
                     crate::bin_document::NewProperty::Declared {
                         field: offer.hash.clone(),
                     },
-                    at.at(Some(BUILD)),
+                    at.at(Some(build)),
                 )
                 .map(|()| body(dir.path(), SKIN));
             if outcome.is_ok() {

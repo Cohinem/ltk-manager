@@ -4,6 +4,8 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-10-09 | Give a tab's title its width before the context takes any             |
+| 2026-10-09 | Join the open tab to the row under it, on a filled tab rail           |
 | 2026-10-06 | Draw the project header in the title bar and the status row           |
 | 2026-10-02 | Report each working file, only for a project with no ignore rules     |
 | 2026-09-27 | Redraw every preview of a layer file saved from another program       |
@@ -12,8 +14,6 @@
 | 2026-09-24 | Read a layer's game data manifest as an outline                       |
 | 2026-09-20 | Reveal a file tab in the browser its file came from                   |
 | 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
-| 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen        |
-| 2026-09-18 | Command routes to every document, closes, maximize, and a strip list  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -2486,6 +2486,14 @@ None of them blocks another, and the first is the only one that reaches the back
 The tab row works like the tab row in Visual Studio Code and has the same purpose. A tab is
 one open document. The active document fills the surface below the row.
 
+The row is a rail in `surface-800`. A tab is as tall as the rail, and the first tab starts at the
+rail's leading edge. The open document's tab takes the fill and the edge of the row under the
+rail and covers the rail's bottom edge, so the tab and that row read as one shape, the way
+[a pane's tab joins its pane](BIN_EDITOR.md#how-the-panes-are-arranged). A tab behind it is its
+glyph, its title and its context alone. In the focused group the open tab carries a straight
+accent bar along its top edge. The scrollbar of a full row lies under the rail, in the fill of
+the row under it.
+
 - Every open document stays mounted. A scroll position and a half typed edit survive a trip
   to another tab
 - A document with unsaved edits shows a dot in place of its close button
@@ -2609,6 +2617,18 @@ A control that answers for the whole view stays out of the tab row, because a ta
 leaf means one copy of it per leaf. The layout control sits in the project header and the
 route to the game index sits in the primary panel's project row, so each has one copy
 whatever the grid holds.
+
+### Title and context width
+
+A tab is at most 256px wide. The title and the context share that width, and the title takes
+its width first.
+
+- The title draws whole while the tab has room for it
+- The context takes the width that the title leaves, and elides at its end
+- A title wider than the tab elides at its end, and the context then has no width
+
+The title is the name that a user reads to find a tab, so a long context never shortens it.
+A row of the [tab list](#a-full-strip-lists-its-tabs) divides its width by the same rule.
 
 ### Tab titles across layers
 

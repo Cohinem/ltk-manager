@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-09 | Draw a pane's strip as a filled rail, with tabs as tall as the rail      |
 | 2026-10-06 | Fit a Continuous run's timeline to the time its last bar ends            |
 | 2026-10-06 | Author an emitter's stencil mask in a Stencil group                      |
 | 2026-10-05 | Author an emitter's emission mesh and surface in a Source group          |
@@ -13,7 +14,6 @@
 | 2026-09-24 | Pick an emitter's primitive, and sketch what it draws                    |
 | 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects                |
 | 2026-09-21 | Copy a whole object or struct as a declaration                           |
-| 2026-09-21 | Copy a row as a declaration, and declare a game-copy reference           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1657,9 +1657,10 @@ and the rest of the tree waits behind it. A second double click, or Esc, restore
 Maximizing writes nothing to the arrangement. The editor grid maximizes a document panel the same
 way, per [the panel layout](PROJECT_EDITOR.md#maximizing-a-panel).
 
-**The open tab joins its pane.** A pane's strip has no surface of its own. The open pane's tab
-takes the fill and the edge of the pane under it and covers the pane's top edge, so the two read
-as one shape, and a tab behind it is its glyph and its title alone. Each tab leads with the glyph
+**The open tab joins its pane.** A pane's strip is a rail in `surface-800`, and a tab is as tall
+as the rail. The open pane's tab takes the fill and the edge of the pane under it and covers the
+rail's bottom edge, so the two read as one shape, and a tab behind it is its glyph and its title
+alone. Each tab leads with the glyph
 the Panes menu lists the pane by, and its title is written as the menu writes it.
 
 **A tab has a menu.** A right click on a pane's tab offers Float, Maximize or Restore, and Close,
