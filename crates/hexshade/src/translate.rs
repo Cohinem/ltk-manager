@@ -102,6 +102,7 @@ pub fn translate(dxbc: &[u8], stage: Stage) -> Result<Translated, TranslateError
     let mut options = CompilerOptions::default();
     options.version = GlslVersion::Glsl300Es;
     options.vulkan_semantics = false;
+    options.support_nonzero_base_instance = false;
     options.es_default_float_precision_highp = true;
     options.es_default_int_precision_highp = true;
     options.common.relax_nan_checks = true;

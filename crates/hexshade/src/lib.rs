@@ -37,7 +37,7 @@ pub use crate::spirv::SpirvError;
 pub use crate::translate::{TranslateError, Translated, translate};
 
 /// Bumped with any change to the patches, so a disk cache keyed on it refills.
-pub const PIPELINE_VERSION: u32 = 3;
+pub const PIPELINE_VERSION: u32 = 4;
 
 /// Which stage a blob is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
