@@ -44,6 +44,7 @@ export { useMoveModsToFolder } from "./useMoveModsToFolder";
 export { useOpenedFilesListener } from "./useOpenedFilesListener";
 export { useOpenedModFiles } from "./useOpenedModFiles";
 export { useOverlayProgress } from "./useOverlayProgress";
+export { useRebuildNewerIndex } from "./useRebuildNewerIndex";
 export { useRenameProfile } from "./useRenameProfile";
 export { useReorderMods } from "./useReorderMods";
 export { useRootModDnd } from "./useRootModDnd";

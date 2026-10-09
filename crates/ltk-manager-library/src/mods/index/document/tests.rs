@@ -1,7 +1,7 @@
 use super::*;
 use crate::mods::test_support::{
-    make_slugged_entry, make_test_entry, make_unpacked_entry, place_installed_mod, place_mod_files,
-    place_unpacked_mod,
+    make_slugged_entry, make_test_entry, make_test_library, make_unpacked_entry,
+    place_installed_mod, place_mod_files, place_unpacked_mod, seed_library,
 };
 
 #[test]
@@ -230,4 +230,67 @@ fn a_legacy_entry_is_present_while_its_uuid_layout_is() {
 
     fs::remove_file(entry.archive_path(storage.path())).unwrap();
     assert!(!entry.is_present(storage.path()));
+}
+
+fn write_newer_index(storage_dir: &Path) -> String {
+    let newer = serde_json::json!({
+        "version": schema_migration::CURRENT_VERSION + 1,
+        "mods": [],
+        "profiles": [],
+        "activeProfileId": "p1"
+    })
+    .to_string();
+    fs::write(library_index_path(storage_dir), &newer).unwrap();
+
+    newer
+}
+
+#[test]
+fn rebuild_newer_index_moves_newer_index_to_backup() {
+    let dir = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(dir.path());
+    let newer = write_newer_index(dir.path());
+
+    library.rebuild_newer_index(&config).unwrap();
+
+    let backup = LibraryIndex::backup_path(dir.path(), schema_migration::CURRENT_VERSION + 1);
+    assert_eq!(fs::read_to_string(backup).unwrap(), newer);
+    assert!(load_library_index(dir.path()).is_ok());
+}
+
+#[test]
+fn rebuild_newer_index_adopts_mods_on_disk() {
+    let dir = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(dir.path());
+    library.record_layout_migration(LayoutMigrationState::Idle);
+    write_newer_index(dir.path());
+    place_unpacked_mod(dir.path(), "some-mod", false);
+
+    library.rebuild_newer_index(&config).unwrap();
+
+    let index = load_library_index(dir.path()).unwrap();
+    assert_eq!(index.version, schema_migration::CURRENT_VERSION);
+    assert_eq!(index.mods.len(), 1);
+    assert_eq!(index.mods[0].slug.as_ref().unwrap().as_str(), "some-mod");
+    assert_eq!(index.profiles.len(), 1);
+}
+
+#[test]
+fn rebuild_newer_index_keeps_index_that_loads() {
+    let dir = tempfile::tempdir().unwrap();
+    let (library, config) = make_test_library(dir.path());
+    library.record_layout_migration(LayoutMigrationState::Idle);
+    place_unpacked_mod(dir.path(), "some-mod", false);
+    seed_library(
+        &library,
+        &config,
+        vec![make_unpacked_entry("id-1", "some-mod")],
+    );
+
+    library.rebuild_newer_index(&config).unwrap();
+
+    let index = load_library_index(dir.path()).unwrap();
+    assert_eq!(index.mods[0].id, "id-1");
+    assert_eq!(index.profiles[0].id, "p1");
+    assert!(!LibraryIndex::backup_path(dir.path(), schema_migration::CURRENT_VERSION).exists());
 }
