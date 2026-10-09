@@ -1,11 +1,12 @@
 //! The word patches between dxbc-spirv's output and SPIRV-Cross's GLSL ES 3.00 backend.
 //!
 //! dxbc-spirv writes a Vulkan module: `PhysicalStorageBuffer64` addressing, coarse and fine
-//! derivatives, `Component` and `NoContraction` decorations, and `OpDemoteToHelperInvocation`
-//! for `discard`. SPIRV-Cross refuses or mistranslates each of those for ESSL, so they are
-//! rewritten here on the words. Register-named variables (`cb1`, `t3`, `s0`) take their
-//! `RDEF` names, and the interface takes `a_` and `v_` prefixes so a vertex output and a
-//! fragment input link by name and never collide with the other direction.
+//! derivatives, `Component` and `NoContraction` decorations, `OpDemoteToHelperInvocation`
+//! for `discard`, and the `BaseVertex` and `BaseInstance` draw parameters. SPIRV-Cross
+//! refuses or mistranslates each of those for ESSL, so they are rewritten here on the
+//! words. Register-named variables (`cb1`, `t3`, `s0`) take their `RDEF` names, and the
+//! interface takes `a_` and `v_` prefixes so a vertex output and a fragment input link by
+//! name and never collide with the other direction.
 
 use std::collections::{HashMap, HashSet};
 
@@ -16,21 +17,29 @@ use crate::dxbc::{Reflection, ResourceKind};
 
 const OP_NAME: u32 = 5;
 const OP_MEMORY_MODEL: u32 = 14;
+const OP_ENTRY_POINT: u32 = 15;
 const OP_CAPABILITY: u32 = 17;
 const OP_TYPE_POINTER: u32 = 32;
+const OP_CONSTANT_NULL: u32 = 46;
 const OP_VARIABLE: u32 = 59;
+const OP_LOAD: u32 = 61;
 const OP_DECORATE: u32 = 71;
+const OP_COPY_OBJECT: u32 = 83;
 const OP_LABEL: u32 = 248;
 const OP_KILL: u32 = 252;
 const OP_DEMOTE_TO_HELPER_INVOCATION: u32 = 5380;
 
 const CAPABILITY_DERIVATIVE_CONTROL: u32 = 51;
+const CAPABILITY_DRAW_PARAMETERS: u32 = 4427;
 const CAPABILITY_PHYSICAL_STORAGE_BUFFER_ADDRESSES: u32 = 5347;
 const CAPABILITY_DEMOTE_TO_HELPER_INVOCATION: u32 = 5379;
 
 const DECORATION_BUILT_IN: u32 = 11;
 const DECORATION_COMPONENT: u32 = 31;
 const DECORATION_NO_CONTRACTION: u32 = 42;
+
+const BUILT_IN_BASE_VERTEX: u32 = 4424;
+const BUILT_IN_BASE_INSTANCE: u32 = 4425;
 
 const ADDRESSING_LOGICAL: u32 = 0;
 const STORAGE_INPUT: u32 = 1;
@@ -108,6 +117,7 @@ pub fn patch(words: &[u32], reflection: &Reflection, stage: Stage) -> Result<Pat
     let mut pointee_of: HashMap<u32, u32> = HashMap::new();
     let mut variables: HashMap<u32, (u32, u32)> = HashMap::new();
     let mut builtins: HashSet<u32> = HashSet::new();
+    let mut draw_bases: HashSet<u32> = HashSet::new();
     for &(at, op, count) in &instructions {
         let inst = &words[at..at + count];
         match op {
@@ -122,10 +132,27 @@ pub fn patch(words: &[u32], reflection: &Reflection, stage: Stage) -> Result<Pat
             }
             OP_DECORATE if count >= 3 && inst[2] == DECORATION_BUILT_IN => {
                 builtins.insert(inst[1]);
+
+                if matches!(
+                    inst.get(3),
+                    Some(&(BUILT_IN_BASE_VERTEX | BUILT_IN_BASE_INSTANCE))
+                ) {
+                    draw_bases.insert(inst[1]);
+                }
             }
             _ => {}
         }
     }
+
+    /* WebGL2 draws with no base vertex and no base instance, so each base variable is
+    replaced by a zero constant of its value type under the same id. */
+    let zero_types: HashMap<u32, u32> = draw_bases
+        .iter()
+        .filter_map(|id| {
+            let (pointer_type, _) = variables.get(id)?;
+            Some((*id, *pointee_of.get(pointer_type)?))
+        })
+        .collect();
 
     let mut new_names: HashMap<u32, String> = HashMap::new();
     for (&id, name) in &names_by_id {
@@ -177,6 +204,7 @@ pub fn patch(words: &[u32], reflection: &Reflection, stage: Stage) -> Result<Pat
                 if matches!(
                     inst[1],
                     CAPABILITY_DERIVATIVE_CONTROL
+                        | CAPABILITY_DRAW_PARAMETERS
                         | CAPABILITY_PHYSICAL_STORAGE_BUFFER_ADDRESSES
                         | CAPABILITY_DEMOTE_TO_HELPER_INVOCATION
                 ) =>
@@ -187,6 +215,32 @@ pub fn patch(words: &[u32], reflection: &Reflection, stage: Stage) -> Result<Pat
                 if count >= 3
                     && matches!(inst[2], DECORATION_COMPONENT | DECORATION_NO_CONTRACTION) =>
             {
+                continue;
+            }
+            OP_DECORATE | OP_NAME if count >= 2 && zero_types.contains_key(&inst[1]) => {
+                continue;
+            }
+            OP_ENTRY_POINT if count >= 4 && !zero_types.is_empty() => {
+                let interface = interface_at(inst);
+                let kept = inst[interface..]
+                    .iter()
+                    .filter(|id| !zero_types.contains_key(id));
+
+                let start = out.len();
+                out.extend_from_slice(&inst[..interface]);
+                out.extend(kept);
+                out[start] = (((out.len() - start) as u32) << 16) | OP_ENTRY_POINT;
+                continue;
+            }
+            OP_VARIABLE if count >= 3 && zero_types.contains_key(&inst[2]) => {
+                out.push((3 << 16) | OP_CONSTANT_NULL);
+                out.push(zero_types[&inst[2]]);
+                out.push(inst[2]);
+                continue;
+            }
+            OP_LOAD if count >= 4 && zero_types.contains_key(&inst[3]) => {
+                out.push((4 << 16) | OP_COPY_OBJECT);
+                out.extend_from_slice(&inst[1..4]);
                 continue;
             }
             OP_DEMOTE_TO_HELPER_INVOCATION => {
@@ -245,6 +299,15 @@ fn instructions(words: &[u32]) -> Result<Vec<(usize, u32, usize)>, SpirvError> {
         at += count;
     }
     Ok(out)
+}
+
+/// The offset of the interface ids in an `OpEntryPoint`, which follow its name.
+fn interface_at(inst: &[u32]) -> usize {
+    let name_words = inst[3..]
+        .iter()
+        .position(|word| word.to_le_bytes().contains(&0))
+        .map_or(inst.len() - 3, |last| last + 1);
+    3 + name_words
 }
 
 /// The register index of a name like `cb3` under `prefix`.
