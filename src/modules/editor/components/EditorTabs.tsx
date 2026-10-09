@@ -35,6 +35,7 @@ import { STRIP_TAB, STRIP_TAB_BEHIND, STRIP_TAB_OPEN } from "../layout/stripTab"
 import { useForeignCaretIndex } from "../layout/useForeignCaretIndex";
 import { anyClosable } from "../useCloseQueue";
 import { useTabOverflow } from "../useTabOverflow";
+import { TabLabel } from "./TabLabel";
 import { TabOverflowList } from "./TabOverflowList";
 
 export interface EditorTab {
@@ -372,10 +373,7 @@ const SortableTab = memo(function SortableTab({
         className="min-w-0 shrink cursor-pointer gap-1.5 self-stretch py-0 pr-1 pl-2 text-xs"
       >
         {tab.icon && <TabGlyph>{tab.icon}</TabGlyph>}
-        <span className={twMerge("truncate", tab.preview && "italic")}>{tab.title}</span>
-        {tab.context && (
-          <span className="shrink-[3] truncate text-meta text-surface-400">{tab.context}</span>
-        )}
+        <TabLabel title={tab.title} context={tab.context} preview={tab.preview} />
       </Tabs.Tab>
 
       <TrailingButton pinned={pinned} tab={tab} onClose={onClose} onTogglePin={onTogglePin} />
