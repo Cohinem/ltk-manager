@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-10-09 | Give a tab's title its width before the context takes any             |
 | 2026-10-09 | Join the open tab to the row under it, on a filled tab rail           |
 | 2026-10-06 | Draw the project header in the title bar and the status row           |
 | 2026-10-02 | Report each working file, only for a project with no ignore rules     |
@@ -13,7 +14,6 @@
 | 2026-09-24 | Read a layer's game data manifest as an outline                       |
 | 2026-09-20 | Reveal a file tab in the browser its file came from                   |
 | 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
-| 2026-09-18 | One replaceable tab per group, a placed tab kept, and a reopen        |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -2617,6 +2617,18 @@ A control that answers for the whole view stays out of the tab row, because a ta
 leaf means one copy of it per leaf. The layout control sits in the project header and the
 route to the game index sits in the primary panel's project row, so each has one copy
 whatever the grid holds.
+
+### Title and context width
+
+A tab is at most 256px wide. The title and the context share that width, and the title takes
+its width first.
+
+- The title draws whole while the tab has room for it
+- The context takes the width that the title leaves, and elides at its end
+- A title wider than the tab elides at its end, and the context then has no width
+
+The title is the name that a user reads to find a tab, so a long context never shortens it.
+A row of the [tab list](#a-full-strip-lists-its-tabs) divides its width by the same rule.
 
 ### Tab titles across layers
 

@@ -6,6 +6,7 @@ import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import type { EditorTab } from "./EditorTabs";
+import { TabLabel } from "./TabLabel";
 
 export interface TabOverflowListProps {
   tabs: readonly EditorTab[];
@@ -103,10 +104,7 @@ function TabRow({ tab, active, onActivate, onClose }: TabRowProps) {
         )}
       >
         {tab.icon && <span className="flex shrink-0 [&_svg]:h-4 [&_svg]:w-4">{tab.icon}</span>}
-        <span className={twMerge("truncate", tab.preview && "italic")}>{tab.title}</span>
-        {tab.context && (
-          <span className="shrink-[3] truncate text-meta text-surface-400">{tab.context}</span>
-        )}
+        <TabLabel title={tab.title} context={tab.context} preview={tab.preview} />
         {tab.dirty === true && (
           <span
             aria-hidden="true"
