@@ -31,6 +31,7 @@ import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { tabDroppableId } from "../layout/dnd";
+import { STRIP_TAB, STRIP_TAB_BEHIND, STRIP_TAB_OPEN } from "../layout/stripTab";
 import { useForeignCaretIndex } from "../layout/useForeignCaretIndex";
 import { anyClosable } from "../useCloseQueue";
 import { useTabOverflow } from "../useTabOverflow";
@@ -79,13 +80,18 @@ export interface EditorTabsProps {
   onToggleLock?: (locked: boolean) => void;
   /** A double click on a kept tab, which fills the grid with this leaf. */
   onMaximize?: () => void;
-  /** The strip belongs to the focused leaf, whose active tab carries the accent rail. */
+  /** The strip belongs to the focused leaf, whose active tab carries the accent on its top edge. */
   focused?: boolean;
   className?: string;
 }
 
 /**
  * The strip of open documents: title, dirty dot, close.
+ *
+ * A rail over a scroll lane. The open document's tab takes the fill and the edge of the row
+ * under the strip and covers the rail's bottom edge, as a pane's tab does in `PaneStrip`. The
+ * lane's scrollbar track lies under the rail in that row's fill, so the row under the strip
+ * takes no top inset of its own.
  *
  * The drag context lives above the whole grid rather than here, so a tab can
  * leave its own strip. This component keeps only the `SortableContext` that
@@ -127,22 +133,29 @@ export function EditorTabs({
       value={activeId}
       onValueChange={(value) => onActivate(String(value))}
       className={twMerge(
-        /* DS-GROUND: the strip shares the editor's ground and separates with a hairline. */
-        "group/reveal h-9 shrink-0 flex-row items-center border-b border-surface-700/50 select-none",
+        "group/reveal relative isolate shrink-0 flex-row items-start bg-surface-900 select-none",
         className,
       )}
     >
-      {/* The strip's inset belongs to the scroll container rather than around
-          it, so its track runs the full width and ends against the panel's own
-          edge instead of stopping short of it. `scroll` rather than `auto`
-          because a track that comes and goes takes its 6px out of this box
-          each time, which walks the tabs up and down as tabs are opened. */}
+      {/* DS-GROUND */}
+      <div
+        aria-hidden="true"
+        data-ui="EditorTabs:rail"
+        className="absolute inset-x-0 top-0 -z-10 h-9 border-b border-surface-700/50 bg-surface-800"
+      />
+
+      {/* The lane sets no height, so it is a tab tall, which is the rail's
+          height, and its scrollbar track lies under the rail. `scroll` rather
+          than `auto`, because a track that comes and goes moves the row under
+          the strip. The end inset belongs to the lane rather than around it,
+          so the track runs the strip's full width. */}
       <Tabs.List
         ref={listRef}
         variant="plain"
-        className="h-full min-w-0 flex-1 items-end gap-1.5 overflow-x-scroll px-2 scrollbar-sm"
+        className="min-w-0 flex-1 items-end gap-1.5 overflow-x-scroll overflow-y-hidden pr-2 scrollbar-sm"
         {...NO_OVERSCROLL}
       >
+        {tabs.length === 0 && <span aria-hidden="true" className="h-9" />}
         <SortableContext items={sortableIds} strategy={horizontalListSortingStrategy}>
           {tabs.map((tab, index) => (
             <SortableTab
@@ -150,6 +163,7 @@ export function EditorTabs({
               leafId={leafId}
               tab={tab}
               active={tab.id === activeId}
+              first={index === 0}
               focused={focused === true}
               caretBefore={caretIndex === index}
               splittable={onSplit !== undefined && tabs.length > 1}
@@ -175,18 +189,20 @@ export function EditorTabs({
         </SortableContext>
         {caretIndex === tabs.length && <DropCaret />}
       </Tabs.List>
-      {/* Outside the scroll lane, which a full strip leaves no room in. */}
-      <TabOverflowList
-        tabs={tabs}
-        activeId={activeId}
-        offscreen={offscreen}
-        onActivate={onActivate}
-        onClose={onClose}
-      />
-      {/* Only over a strip with tabs, where a lock has something to hold. */}
-      {onToggleLock && tabs.length > 0 && (
-        <LockToggle locked={locked === true} onToggle={onToggleLock} />
-      )}
+      <div className="flex h-9 shrink-0 items-center">
+        {/* Outside the scroll lane, which a full strip leaves no room in. */}
+        <TabOverflowList
+          tabs={tabs}
+          activeId={activeId}
+          offscreen={offscreen}
+          onActivate={onActivate}
+          onClose={onClose}
+        />
+        {/* Only over a strip with tabs, where a lock has something to hold. */}
+        {onToggleLock && tabs.length > 0 && (
+          <LockToggle locked={locked === true} onToggle={onToggleLock} />
+        )}
+      </div>
     </Tabs.Root>
   );
 }
@@ -250,13 +266,20 @@ function useActiveTabInView(ref: RefObject<HTMLDivElement | null>, activeId: str
 }
 
 function DropCaret() {
-  return <span aria-hidden="true" className="h-7 w-0.5 shrink-0 rounded-full bg-accent-500" />;
+  return (
+    <span
+      aria-hidden="true"
+      className="h-6 w-0.5 shrink-0 self-center rounded-full bg-accent-500"
+    />
+  );
 }
 
 interface SortableTabProps {
   leafId: string;
   tab: EditorTab;
   active: boolean;
+  /** The tab stands at the strip's own corner, so its near side runs straight into the row's. */
+  first: boolean;
   focused: boolean;
   caretBefore: boolean;
   splittable: boolean;
@@ -284,6 +307,7 @@ const SortableTab = memo(function SortableTab({
   leafId,
   tab,
   active,
+  first,
   focused,
   caretBefore,
   splittable,
@@ -345,7 +369,7 @@ const SortableTab = memo(function SortableTab({
         aria-describedby={attributes["aria-describedby"]}
         /* `shrink` beats the base tab's `shrink-0`, without which the strip's
            max width clips the label rather than eliding it. */
-        className="min-w-0 shrink cursor-pointer gap-1.5 py-0.5 pr-1 pl-0.5 text-xs"
+        className="min-w-0 shrink cursor-pointer gap-1.5 self-stretch py-0 pr-1 pl-2 text-xs"
       >
         {tab.icon && <TabGlyph>{tab.icon}</TabGlyph>}
         <span className={twMerge("truncate", tab.preview && "italic")}>{tab.title}</span>
@@ -356,8 +380,17 @@ const SortableTab = memo(function SortableTab({
 
       <TrailingButton pinned={pinned} tab={tab} onClose={onClose} onTogglePin={onTogglePin} />
 
+      {/* A straight bar, which the tab's own corners clip. */}
       {active && focused && (
-        <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-accent-500" />
+        <span
+          aria-hidden="true"
+          className={twMerge(
+            "pointer-events-none absolute -top-px -right-px bottom-0 -left-px overflow-hidden rounded-t-xl",
+            first && "left-0 rounded-tl-none",
+          )}
+        >
+          <span className="absolute inset-x-0 top-0 h-0.5 bg-accent-500" />
+        </span>
       )}
     </>
   );
@@ -373,19 +406,13 @@ const SortableTab = memo(function SortableTab({
     onDoubleClick: handleDoubleClick,
     ...listeners,
     className: twMerge(
-      /* Hidden overflow clips the focus rail to the pill's rounded corners, so
-         edge to edge means the silhouette's edges rather than past them. The
-         bottom pad is the rail's own room, which it otherwise takes out of
-         the gap under the label.
-
-         The height is what the strip has left to give: 36px less the scroll
-         lane's 6px is 30, so a 24px tab bottom-aligns with the same 6px above
-         it as the lane leaves below. */
-      "group/tab relative flex h-6 max-w-56 shrink-0 touch-none items-center overflow-hidden rounded-md pr-1 pb-0.5",
-      /* The open document rises off the strip rather than marking
-         itself with a rule: DS-GROUND. */
-      active && "bg-surface-800 text-surface-100",
-      !active && "text-surface-300 hover:bg-surface-800/60 hover:text-surface-100",
+      STRIP_TAB,
+      "group/tab h-9 max-w-64 pr-1",
+      first && "rounded-tl-none border-l-0",
+      active && STRIP_TAB_OPEN,
+      active && !first && "tab-foot-start",
+      !active && STRIP_TAB_BEHIND,
+      !active && "text-surface-300",
       /* The overlay ghost is the drag preview, so the tab itself only marks
          the slot it left. */
       isDragging && "opacity-40",
@@ -501,7 +528,7 @@ const SortableTab = memo(function SortableTab({
    rather than a border on the tab, so the gap stays even on both sides of it
    and a tab dragged past it never carries the rule along. */
 function PinnedDivider() {
-  return <span aria-hidden="true" className="h-5 w-px shrink-0 bg-surface-700" />;
+  return <span aria-hidden="true" className="h-5 w-px shrink-0 self-center bg-surface-600" />;
 }
 
 interface TrailingButtonProps {
@@ -519,12 +546,10 @@ interface TrailingButtonProps {
  * than the one that loses it. Closing a pinned tab stays in the menu.
  */
 function TrailingButton({ tab, pinned, onClose, onTogglePin }: TrailingButtonProps) {
-  /* Out of flow, so revealing it never resizes the strip. The fill arrives with
-     it, to mask the label it now covers. */
+  /* Hidden rather than absent, so revealing it never resizes the tab. */
   const className = twMerge(
-    "absolute top-0 right-1 bottom-0.5 z-10 my-auto size-5 opacity-0 transition-opacity",
-    "group-hover/tab:bg-surface-800 group-hover/tab:opacity-100 hover:bg-surface-700",
-    "focus-visible:opacity-100",
+    "shrink-0 opacity-0 transition-opacity",
+    "group-hover/tab:opacity-100 focus-visible:opacity-100",
     (tab.dirty === true || pinned) && "opacity-100",
   );
 
@@ -532,6 +557,7 @@ function TrailingButton({ tab, pinned, onClose, onTogglePin }: TrailingButtonPro
     return (
       <IconButton
         icon={<PushPinIcon weight="fill" className="size-3" />}
+        size="row"
         onClick={() => onTogglePin(tab.id, false)}
         title={m.editor_tab_unpin_label({ title: tab.title })}
         aria-label={m.editor_tab_unpin_label({ title: tab.title })}
@@ -543,6 +569,7 @@ function TrailingButton({ tab, pinned, onClose, onTogglePin }: TrailingButtonPro
   return (
     <IconButton
       icon={<CloseGlyph dirty={tab.dirty} />}
+      size="row"
       onClick={() => onClose(tab.id)}
       aria-label={m.editor_tab_close_label({ title: tab.title })}
       className={className}
