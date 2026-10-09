@@ -13,6 +13,7 @@ import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { tabDroppableId } from "./dnd";
+import { STRIP_TAB, STRIP_TAB_BEHIND, STRIP_TAB_OPEN } from "./stripTab";
 import { useForeignCaretIndex } from "./useForeignCaretIndex";
 
 /** One item of a strip: what the tab says, and what the tree holds it under. */
@@ -47,11 +48,11 @@ export interface PaneStripProps {
  * The strip of panes over one leaf: a tab per pane, its glyph ahead of its title, and the grip
  * that moves it.
  *
- * The strip draws no surface of its own. The open pane's tab takes the fill and the edge of the
- * box under the strip and covers that box's top edge, and each side of it that stands clear of
- * the box's corner curves out into that edge, so the two read as one shape. The box is the
- * host's to draw in the same fill and edge, its corner square under an open first tab. A tab
- * behind the open one is its title alone.
+ * The strip is a rail, which draws the top edge of the box under it. The open pane's tab takes
+ * the fill and the edge of that box and covers the rail's bottom edge, and each side of it that
+ * stands clear of the rail's corner curves out into that edge, so the two read as one shape.
+ * The box is the host's to draw in the same fill and edge, with no top edge and square top
+ * corners. A tab behind the open one is its title alone.
  *
  * The drag context lives above the whole tree rather than here, so a pane can
  * leave its own strip. Shorter than the document strip, because a pane title is
@@ -84,7 +85,11 @@ export function PaneStrip({
     <Tabs.Root
       value={activeId}
       onValueChange={(value) => onActivate(String(value))}
-      className={twMerge("h-7 shrink-0 flex-row items-end gap-1 pr-1 select-none", className)}
+      className={twMerge(
+        /* DS-GROUND */
+        "h-7 shrink-0 flex-row items-end gap-1 rounded-t-xl border-b border-surface-700/50 bg-surface-800 pr-1 select-none",
+        className,
+      )}
     >
       <Tabs.List
         variant="plain"
@@ -118,7 +123,7 @@ interface SortableStripTabProps {
   leafId: string;
   pane: StripPane;
   active: boolean;
-  /** The tab stands at the box's own corner, so its near side runs straight into the box's. */
+  /** The tab stands at the rail's own corner, so its near side runs straight into the box's. */
   first: boolean;
   caretBefore: boolean;
   onClose?: (id: string) => void;
@@ -154,14 +159,14 @@ function SortableStripTab({
     onDoubleClick: () => onMaximize?.(),
     ...listeners,
     className: twMerge(
-      /* The bottom margin lays the tab over the top edge of the box under the strip. */
-      "group/reveal relative -mb-px flex h-6 max-w-56 shrink-0 touch-none items-center rounded-t-lg border border-b-0 pr-0.5",
-      /* DS-GROUND */
-      active && "tab-foot-end z-10 border-surface-700/50 bg-surface-900 text-surface-100",
+      STRIP_TAB,
+      /* The bottom margin lays the tab over the rail's bottom edge. Stretched rather than
+         given a height, because a display scale draws that edge thinner than the margin. */
+      "group/reveal -mb-px max-w-56 self-stretch pr-0.5",
+      active && STRIP_TAB_OPEN,
       active && !first && "tab-foot-start",
-      /* DS-VEIL */
-      !active &&
-        "border-transparent text-surface-400 hover:bg-surface-veil-soft hover:text-surface-100",
+      !active && STRIP_TAB_BEHIND,
+      !active && "text-surface-400",
       /* The overlay ghost is the drag preview, so the tab itself only marks
          the slot it left. */
       isDragging && "opacity-40",

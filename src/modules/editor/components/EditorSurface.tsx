@@ -20,13 +20,15 @@ const HEADER = [
   "group-data-[islands-shown]/surface:mb-1.5",
   "group-data-[islands-shown]/surface:overflow-hidden",
   "group-data-[islands-shown]/surface:rounded-lg",
+  "group-data-[islands-shown]/surface:rounded-t-xl",
   "group-data-[islands-shown]/surface:border",
   "group-data-[islands-shown]/surface:border-surface-700/50",
 ].join(" ");
 
-/* The island's own border closes the row, so the row drops its hairline under it. */
+/* The strip's scrollbar track is the row's top inset. The island's own border closes the row,
+   so the row drops its hairline under it. */
 const TOOLBAR = [
-  "flex shrink-0 items-center gap-2 border-b border-surface-700/50 px-2 py-1.5 empty:hidden",
+  "flex shrink-0 items-center gap-2 border-b border-surface-700/50 px-2 pb-1.5 empty:hidden",
   "group-data-[islands-shown]/surface:border-b-0",
 ].join(" ");
 
@@ -64,7 +66,7 @@ export interface EditorSurfaceProps<D extends EditorDocumentBase> {
   onFindElsewhere?: () => void;
   /** Puts the newest closed tab back, which `Ctrl+Shift+T` asks the focused group for. */
   onReopenClosed?: () => void;
-  /** This leaf holds the layout's focus, so its active tab carries the accent rail. */
+  /** This leaf holds the layout's focus, so its active tab carries the accent on its top edge. */
   focused?: boolean;
   /** Shown while nothing is open. */
   empty?: ReactNode;
