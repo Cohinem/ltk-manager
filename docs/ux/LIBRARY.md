@@ -4,6 +4,7 @@
 
 | Date       | Change                                                    |
 | ---------- | --------------------------------------------------------- |
+| 2026-10-09 | A library index that a newer version wrote can be rebuilt |
 | 2026-10-02 | Table load order by drag, and Move to folder              |
 | 2026-10-02 | The table view, its dock, grouping and row picking        |
 | 2026-10-02 | A second shift-click moves the range from the same anchor |
@@ -13,7 +14,6 @@
 | 2026-09-12 | The documents panel is a drawer over the grid, not a pane |
 | 2026-09-12 | The licenses tab follows the open mod, like the other two |
 | 2026-09-12 | A right click reads a card and no longer picks it         |
-| 2026-09-12 | The details tab, which folds the three mod dialogs in     |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -67,6 +67,7 @@ The status words are the ones [Problems](PROJECT_PROBLEMS.md#feature-status) def
 | Skinhack blocklist     | Available | Retiring into a Problems rule over the project manifest       |
 | Marquee selection      | Proposed  | Competes with drag-to-reorder for the same press              |
 | Folder moves on a pick | Available | Move to folder, on the bar and on a mod's menu                |
+| Rebuild library        | Available | On the page for an index that a newer version wrote           |
 
 ## How a mod is picked
 
@@ -238,6 +239,21 @@ How the result reaches the reader:
 A mod is matched to an archive it already holds by the archive it was installed or last updated
 from. A mod installed before the check existed has no record of that archive, so its stored archive
 stands in, and it matches only when the import left that archive unchanged.
+
+## A library that a newer version wrote
+
+`library.json` carries a schema version. When that version is higher than the app reads, the page
+shows the error in place of the mods, with a `Rebuild library` button. The app does not read the
+file, because a save would write it back at the lower version and drop what the newer version
+added.
+
+`Rebuild library` asks for confirmation, then:
+
+- Moves `library.json` to `library.v<version>.json.bak` in the storage folder
+- Adopts every mod under `mods/` into a new index, as ADR-0002 describes for a lost index
+
+The rebuilt library has one default profile, no folders and no enabled mods. The reader who has a
+newer app version installs it instead, and the dialog says so.
 
 ## The documents panel
 

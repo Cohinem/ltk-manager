@@ -147,6 +147,7 @@ export const api = {
   scanCslolMods: library.scanCslolMods,
   importCslolMods: library.importCslolMods,
   getLayoutMigrationState: library.getLayoutMigrationState,
+  rebuildNewerLibraryIndex: library.rebuildNewerLibraryIndex,
 
   // Inspector
 
