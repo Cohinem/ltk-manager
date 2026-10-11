@@ -105,7 +105,7 @@ export function RunKeys({ children }: { children: ReactNode }) {
 }
 
 /** A key the focused control uses, which the run leaves to it. */
-function ignoredKey(event: KeyboardEvent): boolean {
+export function ignoredKey(event: KeyboardEvent): boolean {
   const target = event.target;
   if (!(target instanceof Element)) return false;
   if (target.closest(EDITABLE) !== null || target.closest(KEYED_CONTROLS) !== null) return true;

@@ -7,14 +7,19 @@ import {
   PlayIcon,
   RepeatIcon,
 } from "@phosphor-icons/react";
-import type { ReactNode } from "react";
+import { type ReactNode, useLayoutEffect, useRef } from "react";
 
-import { Button, IconButton, Separator, Slider, StepperField, Tooltip } from "@/components";
+import { Button, IconButton, Separator, StepperField, Tooltip } from "@/components";
 import { m, Marked } from "@/i18n";
-import { twMerge } from "@/utils";
+import { twMerge, writeText } from "@/utils";
 
-/** How finely the scrub divides the window it spans, in seconds. */
-const SCRUB_STEP = 1 / 60;
+import { Scrub } from "./Scrub";
+
+/** The digits the time is drawn to. */
+const TIME_DECIMALS = 2;
+
+/** How often the scrub's value is written for assistive technology, in milliseconds. */
+const ANNOUNCE_MS = 250;
 
 /** The rates the speed spans, slow enough to read one frame and never backwards. */
 const SLOWEST = 0.05;
@@ -61,8 +66,7 @@ export interface TransportProps {
   /**
    * The scrub and the time, which follow the host's clock.
    *
-   * A [`Playhead`] the host renders off its own readout, so a tick of the clock re-renders
-   * it alone and never the row around it.
+   * A [`Playhead`] the host hands its clock, which no tick of that clock re-renders.
    */
   playhead: ReactNode;
   /** What a host carries after the transport's controls, placed by the host. */
@@ -218,8 +222,8 @@ function SpeedField({ speed, onSpeedChange }: Pick<TransportProps, "speed" | "on
 }
 
 export interface PlayheadProps {
-  /** Where the run stands, in seconds. */
-  time: number;
+  /** Where the run stands, in seconds, read every frame. */
+  read: () => number;
   /** The window the scrub spans, and none to hold the scrub still. */
   span: number;
   /** The row carries a scrub, which a host drawing a ruler of its own leaves out. */
@@ -235,32 +239,58 @@ export interface PlayheadProps {
 /**
  * The scrub and the time readout, which are the transport's two readers of the clock.
  *
- * A drag seeks on every pointer move, which the checkpoints of decision 2.46 in
- * docs/plans/vfx-particle-renderer.md make cheap.
+ * Both follow the clock every frame through writes to the DOM outside React's render, as
+ * the timeline's playhead does. A drag seeks on every pointer move, which the checkpoints
+ * of decision 2.46 in docs/plans/vfx-particle-renderer.md make cheap.
  */
 export function Playhead({
-  time,
+  read,
   span,
   scrub = true,
   onSeek,
   onSeekCommit,
   scrubClassName,
 }: PlayheadProps) {
-  const shown = Math.min(time, span);
+  const rail = useRef<HTMLDivElement>(null);
+  const now = useRef<HTMLSpanElement>(null);
+  const announcedAt = useRef(0);
+
+  /* No dependencies, so the frame after a render writes over whatever that render drew. */
+  useLayoutEffect(() => {
+    let frame = 0;
+    let painted = Number.NaN;
+
+    const paint = () => {
+      frame = requestAnimationFrame(paint);
+      const time = Math.min(read(), span);
+      const text = time.toFixed(TIME_DECIMALS);
+      const stamp = performance.now();
+      if (stamp - announcedAt.current >= ANNOUNCE_MS) {
+        announcedAt.current = stamp;
+        rail.current?.setAttribute("aria-valuenow", text);
+      }
+      if (time === painted) return;
+
+      painted = time;
+      rail.current?.style.setProperty("--scrub", `${span > 0 ? time / span : 0}`);
+      if (now.current !== null) writeText(now.current, text);
+    };
+    paint();
+
+    return () => cancelAnimationFrame(frame);
+  });
 
   return (
     <>
       {scrub && (
-        <Slider
+        <Scrub
+          ref={rail}
           className={twMerge("mx-2 min-w-0 flex-1", scrubClassName)}
-          aria-label={m.workshop_bin_preview_scrub_label()}
-          value={shown}
-          min={0}
-          max={Math.max(span, SCRUB_STEP)}
-          step={SCRUB_STEP}
-          disabled={span <= 0}
-          onValueChange={onSeek}
-          onValueCommitted={onSeekCommit}
+          label={m.workshop_bin_preview_scrub_label()}
+          read={read}
+          span={span}
+          onSeek={onSeek}
+          onSeekCommit={onSeekCommit}
         />
       )}
       <span
@@ -270,11 +300,15 @@ export function Playhead({
       >
         <Marked
           text={m.workshop_bin_preview_playhead_label({
-            time: shown.toFixed(2),
-            span: span.toFixed(2),
+            time: (0).toFixed(TIME_DECIMALS),
+            span: span.toFixed(TIME_DECIMALS),
           })}
         >
-          {(now) => <span className="font-medium text-surface-100">{now}</span>}
+          {(time) => (
+            <span ref={now} className="font-medium text-surface-100">
+              {time}
+            </span>
+          )}
         </Marked>
       </span>
     </>

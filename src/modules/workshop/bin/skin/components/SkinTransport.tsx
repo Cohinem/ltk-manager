@@ -10,8 +10,11 @@ import { Playhead, Transport } from "../../vfx/playback/components/Transport";
 import { foldedTime } from "../utils/follow";
 import { BIND_POSE, nearestValue } from "../utils/skinScene";
 
-/** How often the readout catches up with the clock, in milliseconds. */
+/** How often the bar reads the clock for the atomic clip that plays, in milliseconds. */
 const READOUT_MS = 100;
+
+/** How far short of the clip's end a scrub stops, where the clock folds back to zero. */
+const END_MARGIN = 1e-3;
 
 /** One atomic clip of what the chosen clip plays, and how long its pass lasts. */
 export interface PlayingStep {
@@ -21,7 +24,7 @@ export interface PlayingStep {
 }
 
 export interface SkinTransportProps {
-  /** The scene's clock, which the scrub sets and the readout follows. */
+  /** The scene's clock, which the scrub sets and the playhead follows. */
   clock: SceneClock;
   /** Seconds one pass of the clip lasts, and zero for the bind pose. */
   duration: number;
@@ -38,6 +41,8 @@ export interface SkinTransportProps {
   parameter: Parameter | null;
   onParameterChange: (value: number) => void;
   onPlayingChange: (playing: boolean) => void;
+  /** A drag on the scrub holds the clock, and lets it run once released. */
+  onScrubbingChange: (scrubbing: boolean) => void;
   onSpeedChange: (speed: number) => void;
   onClipChange: (clip: string) => void;
 }
@@ -59,8 +64,8 @@ const PARAMETER_DECIMALS = 1;
 /**
  * The transport under the skin, with the clip it poses and the atomic clip that plays.
  *
- * The readout is this bar's own state, so catching it up with the clock redraws the bar
- * and not the scene above it.
+ * The playhead reads the clock itself every frame. The bar's own readout of it only names
+ * the atomic clip, so catching it up redraws the bar and not the scene above it.
  */
 export function SkinTransport({
   clock,
@@ -73,6 +78,7 @@ export function SkinTransport({
   parameter,
   onParameterChange,
   onPlayingChange,
+  onScrubbingChange,
   onSpeedChange,
   onClipChange,
 }: SkinTransportProps) {
@@ -92,19 +98,17 @@ export function SkinTransport({
         onSpeedChange={onSpeedChange}
         playhead={
           <Playhead
-            time={foldedTime(readout, duration)}
+            read={() => foldedTime(clock.time, duration)}
             span={duration}
             scrubClassName="min-w-48"
             onSeek={(time) => {
-              clock.seek(time);
-              setReadout(time);
+              onScrubbingChange(true);
+              clock.seek(Math.min(time, duration - END_MARGIN));
             }}
+            onSeekCommit={() => onScrubbingChange(false)}
           />
         }
-        onRestart={() => {
-          clock.restart();
-          setReadout(0);
-        }}
+        onRestart={() => clock.restart()}
       >
         <span data-ui="SkinTransport:clip" className="flex min-w-0 items-center gap-2">
           {clips.length > 0 && (
