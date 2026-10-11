@@ -1890,7 +1890,8 @@ option keeps Space.
 
 **The preview carries a mini transport while no timeline shows**: play, a scrub, the time, the
 Loop toggle and the chance pin, with the timeline closed or the preview maximized. A stack holds no timeline pane. Its preview carries
-the mini transport, and its Emitters section keeps the strip.
+the mini transport, and its Emitters section keeps the strip. Its scrub is a rail filled up to the
+playhead, which is a line over it, and both it and the time follow the clock every frame.
 
 ### The viewer
 

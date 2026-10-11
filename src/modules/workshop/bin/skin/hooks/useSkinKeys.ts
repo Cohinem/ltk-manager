@@ -3,6 +3,7 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import type { SceneClock } from "@/modules/viewport";
 
+import { ignoredKey } from "../../vfx/playback/components/RunKeys";
 import { speedDetent } from "../../vfx/playback/components/Transport";
 import { FRAME } from "../../vfx/playback/state/run";
 
@@ -50,7 +51,7 @@ export function useSkinKeys(keys: SkinKeys): RefObject<HTMLDivElement | null> {
   return useHotkeys<HTMLDivElement>(
     Object.keys(KEYS).join(", "),
     (_, handler) => KEYS[handler.hotkey]?.(keys),
-    { preventDefault: true },
+    { preventDefault: true, ignoreEventWhen: ignoredKey },
     [keys],
   );
 }

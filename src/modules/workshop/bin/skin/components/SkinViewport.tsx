@@ -224,6 +224,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
   const ambientOcclusion = usePreviewAmbientOcclusion();
   const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
   const [controlsHidden, setControlsHidden] = useState(false);
+  const [scrubbing, setScrubbing] = useState(false);
   const setDisplay = useSetPreviewDisplay();
 
   useEffect(() => {
@@ -487,7 +488,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           ambientOcclusion={backdrop === null ? null : ambientOcclusion}
           onBackdropOrigin={setOrigin}
         >
-          <Clock clock={clock} playing={playing} speed={speed} />
+          <Clock clock={clock} playing={playing && !scrubbing} speed={speed} />
           <VisibilityCues
             timeline={timeline}
             clock={clock}
@@ -726,6 +727,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
           parameter={values === null || at === null ? null : { values, value: at }}
           onParameterChange={setParameter}
           onPlayingChange={setPlaying}
+          onScrubbingChange={setScrubbing}
           onSpeedChange={setSpeed}
           onClipChange={setPicked}
         />

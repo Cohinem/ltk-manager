@@ -55,6 +55,11 @@ as wide as the clip's name, up to a cap, and draws without a box. The scrub take
 rest leaves and keeps a least length. Only under a pane too narrow to hold both do the clip's
 controls drop to a second row.
 
+**The scrub follows the clock every frame.** It is a rail filled up to the playhead, which is a
+line over it, and the time beside it reads the same frame. A press on the rail seeks there. A
+drag holds the clock, and a playing clip plays on from where the drag lets go. A drag stops just
+short of the clip's end, which is the start of its next pass.
+
 **The backdrop menu stands the skin on a map.** It lists None and the install's maps by folder,
 and four switches under them: Particles, Event effects, Structures and props, and Sky. Particles
 plays the map's placed systems. Event effects adds the systems an event shows, such as the Hall
