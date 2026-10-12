@@ -1,10 +1,10 @@
-import { Fragment, type ReactNode, useId } from "react";
+import { Fragment, type ReactNode, useId, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { Group, Panel, Separator } from "react-resizable-panels";
+import { Group, Panel, Separator, usePanelRef } from "react-resizable-panels";
 
 import { isOverlayOpen, twMerge } from "@/utils";
 
-import { findLeaf, type LayoutNode, type LeafNode } from "./tree";
+import { findLeaf, type LayoutNode, type LeafNode, leaves } from "./tree";
 
 export interface SplitLayoutProps {
   node: LayoutNode;
@@ -18,6 +18,14 @@ export interface SplitLayoutProps {
   maximizedLeafId?: string | null;
   /** The restore Esc runs while a leaf is maximized. */
   onRestore?: () => void;
+  /**
+   * The size in px a collapsed panel keeps, per "Collapsing a panel" in
+   * `docs/ux/PROJECT_EDITOR.md`: its strip's height in a column, and its rail's width in a row.
+   * Absent leaves no panel collapsible.
+   */
+  collapsedSize?: number;
+  /** Draws a leaf of a panel collapsed in a row, which is a rail of its tabs. */
+  renderCollapsedLeaf?: (leaf: LeafNode) => ReactNode;
 }
 
 /**
@@ -30,6 +38,9 @@ export interface SplitLayoutProps {
  * A maximized leaf draws alone and the rest of the tree waits behind it. The id
  * is read against the tree rather than written into it, and an id the tree does
  * not hold draws the whole tree.
+ *
+ * A panel collapses to `collapsedSize` when its seam is dragged past its minimum. In a column
+ * it keeps its strip, and in a row `renderCollapsedLeaf` draws a rail over it.
  */
 export function SplitLayout({
   node,
@@ -38,11 +49,15 @@ export function SplitLayout({
   seamVariant = "divider",
   maximizedLeafId,
   onRestore,
+  collapsedSize,
+  renderCollapsedLeaf,
 }: SplitLayoutProps) {
   /* react-resizable-panels registers group ids application-wide, while retained
      documents and topology remounts can draw copies of the same saved tree. */
   const instanceId = useId();
   const maximized = maximizedLeafId ? findLeaf(node, maximizedLeafId) : null;
+  /* A click's resize is not a user interaction to the library, and the tree has to store it. */
+  const expanding = useRef(false);
 
   /* A dialog or a menu over the tree owns Escape while it is open, where the key means
      "close this". */
@@ -58,6 +73,14 @@ export function SplitLayout({
   const topology = node.children.map((child) => child.id).join();
   const resizeScope = `${instanceId}-${topology}`;
   const resizeId = (nodeId: string) => `${resizeScope}-${nodeId}`;
+  /* A strip is a row, so a panel collapsed in a column keeps its own and needs no rail. */
+  const railOf = (child: LayoutNode) => {
+    if (node.dir === "col" || !renderCollapsedLeaf) return undefined;
+
+    return leaves(child).map((leaf) => (
+      <Fragment key={leaf.id}>{renderCollapsedLeaf(leaf)}</Fragment>
+    ));
+  };
   const defaultLayout = node.layout
     ? Object.fromEntries(
         Object.entries(node.layout).map(([nodeId, size]) => [resizeId(nodeId), size]),
@@ -71,7 +94,8 @@ export function SplitLayout({
       orientation={orientation}
       defaultLayout={defaultLayout}
       onLayoutChanged={(layout, meta) => {
-        if (!meta.isUserInteraction) return;
+        if (!meta.isUserInteraction && !expanding.current) return;
+        expanding.current = false;
 
         const treeLayout = Object.fromEntries(
           node.children.flatMap((child) => {
@@ -87,7 +111,16 @@ export function SplitLayout({
       {node.children.map((child, index) => (
         <Fragment key={child.id}>
           {index > 0 && <Seam orientation={orientation} variant={seamVariant} />}
-          <Panel id={resizeId(child.id)} minSize={120} className="flex size-full flex-col">
+          <SplitPanel
+            id={resizeId(child.id)}
+            collapsible={collapsedSize !== undefined}
+            collapsedSize={collapsedSize}
+            expandedSize={`${100 / node.children.length}%`}
+            onExpand={() => {
+              expanding.current = true;
+            }}
+            rail={railOf(child)}
+          >
             {child.kind === "leaf" && renderLeaf(child)}
             {child.kind === "split" && (
               <SplitLayout
@@ -95,12 +128,69 @@ export function SplitLayout({
                 onLayoutChanged={onLayoutChanged}
                 renderLeaf={renderLeaf}
                 seamVariant={seamVariant}
+                collapsedSize={collapsedSize}
+                renderCollapsedLeaf={renderCollapsedLeaf}
               />
             )}
-          </Panel>
+          </SplitPanel>
         </Fragment>
       ))}
     </Group>
+  );
+}
+
+interface SplitPanelProps {
+  id: string;
+  collapsible: boolean;
+  collapsedSize?: number;
+  /** The share a click gives a collapsed panel. */
+  expandedSize: string;
+  /** Runs before a click expands the panel. */
+  onExpand: () => void;
+  /** Drawn over the panel's content while the panel is collapsed. */
+  rail?: ReactNode;
+  children: ReactNode;
+}
+
+/** One child of a split. A collapsed one expands on a click in the strip or the rail it kept. */
+function SplitPanel({
+  id,
+  collapsible,
+  collapsedSize,
+  expandedSize,
+  onExpand,
+  rail,
+  children,
+}: SplitPanelProps) {
+  const panel = usePanelRef();
+  const [collapsed, setCollapsed] = useState(false);
+  const railed = collapsed && rail !== undefined;
+
+  return (
+    <Panel
+      id={id}
+      panelRef={panel}
+      minSize={120}
+      collapsible={collapsible}
+      collapsedSize={collapsedSize}
+      onResize={() => setCollapsed(panel.current?.isCollapsed() ?? false)}
+      onClick={() => {
+        if (!panel.current?.isCollapsed()) return;
+
+        onExpand();
+        /* `expand` restores only a size an imperative `collapse` left, and a drag leaves none. */
+        panel.current.resize(expandedSize);
+      }}
+      className="relative flex size-full flex-col"
+      /* A collapsed panel is smaller than its content, which the library's `auto` would scroll. */
+      style={{ overflow: "hidden" }}
+    >
+      {/* Hidden rather than unmounted, so a document under the rail keeps its state. */}
+      <div className={twMerge("flex min-h-0 min-w-0 flex-1 flex-col", railed && "invisible")}>
+        {children}
+      </div>
+      {railed && <div className="absolute inset-0 flex flex-col gap-1.5">{rail}</div>}
+    </Panel>
   );
 }
 

@@ -4,5 +4,6 @@ export * from "./PaneStrip";
 export * from "./PortalHosts";
 export * from "./SplitLayout";
 export * from "./TabDndProvider";
+export * from "./TabRail";
 export * from "./tree";
 export * from "./useForeignCaretIndex";

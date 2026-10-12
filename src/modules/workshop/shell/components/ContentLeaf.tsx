@@ -1,9 +1,14 @@
 import { Button, EmptyState } from "@/components";
 import { m } from "@/i18n";
-import { EditorSurface, LeafDropZones, type LeafNode } from "@/modules/editor";
+import { EditorSurface, LeafDropZones, type LeafNode, TabGlyph, TabRail } from "@/modules/editor";
 import { useLayerPanelOpen, useSetLayerPanelOpen } from "@/stores";
 
-import { gameDocument, objectsDocument, useContentEditors } from "../../documents";
+import {
+  documentDefinition,
+  gameDocument,
+  objectsDocument,
+  useContentEditors,
+} from "../../documents";
 import { useRevealRowSearch } from "../../palette";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import {
@@ -87,6 +92,34 @@ export function ContentLeaf({ leaf }: ContentLeafProps) {
         />
       </LeafDropZones>
     </LeafProvider>
+  );
+}
+
+/** One editor group collapsed in a row: its documents as a rail of their glyphs. */
+export function ContentLeafRail({ leaf }: ContentLeafProps) {
+  const documents = useLeafTabs(leaf.id);
+  const editors = useContentEditors();
+  const activateDocument = useActivateDocument();
+
+  const tabs = documents.flatMap((document) => {
+    const definition = documentDefinition(editors, document);
+    if (!definition) return [];
+
+    return [
+      {
+        id: document.id,
+        title: definition.label(document).title,
+        icon: <TabGlyph>{definition.icon(document)}</TabGlyph>,
+      },
+    ];
+  });
+
+  return (
+    <TabRail
+      tabs={tabs}
+      activeId={leaf.activeTab}
+      onActivate={(id) => activateDocument(leaf.id, id)}
+    />
   );
 }
 
