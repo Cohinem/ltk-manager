@@ -144,6 +144,7 @@ export {
   applyPassState,
   bindProgramTexture,
   bindProgramTextures,
+  borderProgramTexture,
   createInlinedProgramMaterial,
   createProgramMaterial,
   type ReadyProgram,

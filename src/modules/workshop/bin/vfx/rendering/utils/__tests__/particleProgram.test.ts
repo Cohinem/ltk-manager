@@ -25,6 +25,7 @@ import { NO_SAMPLERS } from "../../hooks/useVfxTextures";
 import { quadOrientation } from "../materials";
 import { ATTACHED_DRAW, meshDraw, meshSide, quadDraw } from "../particleDraws";
 import {
+  borderedTextures,
   customParticleMaterial,
   drawsProgram,
   particleParams,
@@ -267,6 +268,26 @@ describe("particleTextures", () => {
 
     expect(textures?.get("PARTICLE_COLOR_TEXTURE")).toBe(cached);
     expect(textures?.get("NORMAL_MAP")?.wrapS).toBe(MirroredRepeatWrapping);
+  });
+
+  it("names each texture a border address mode samples, the normal map with the base", () => {
+    const border = ADDRESS_MODE.border;
+    const erosion = { ...EROSION, map: ASSET, addressMode: border };
+    const plain = emitterOf(0).uv;
+
+    expect(borderedTextures(emitter({}))).toEqual([]);
+    expect(borderedTextures(emitter({ uv: { ...plain, addressMode: border } }))).toEqual([
+      "TEXTURE",
+      "NORMAL_MAP",
+    ]);
+    expect(
+      borderedTextures(
+        emitter({
+          multUv: { ...plain, addressMode: border },
+          erosion: erosion as EmitterModel["erosion"],
+        }),
+      ),
+    ).toEqual(["TEXTUREMULT", "sAlphaErosionTexture"]);
   });
 
   it("disposes a copy with the cached texture it shares an image with", () => {
