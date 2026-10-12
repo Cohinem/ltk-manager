@@ -77,6 +77,7 @@ const DOCUMENT_READS = [
   ["bin-changes"],
   DECLARATIONS_OUTLINE_ROOT,
   ["vfx-system"],
+  ["vfx-child-targets"],
   ["ui-view"],
   ["ui-font"],
   ["ui-scene-view"],

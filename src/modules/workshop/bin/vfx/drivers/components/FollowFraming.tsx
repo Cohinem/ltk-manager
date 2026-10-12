@@ -4,6 +4,7 @@ import { type PerspectiveCamera, Sphere, Vector3 } from "three";
 
 import { AXIS_SIGN } from "@/modules/viewport";
 
+import type { EmitterModel } from "../../engine/model/model";
 import {
   appearance,
   drawnPlace,
@@ -96,7 +97,9 @@ export function FollowFraming({
 
   useFrame((state, delta) => {
     angle.current += delta * turn;
-    const measured = measure(read, drawn, meshes, fit.least);
+    /* A preview that runs a source of its own spawns no children. */
+    const children = source === undefined ? driver.sources : noChildren;
+    const measured = measure(read, children, drawn, meshes, fit.least);
     if (anchor !== undefined && measured !== null) widenAround(measured, anchor(ANCHOR));
     let now = held.current;
     if (now === null) {
@@ -123,37 +126,37 @@ function widenAround(measured: Held, anchor: Vector3): void {
   measured.target.copy(anchor);
 }
 
-/** The sphere holding the live particles of `drawn`'s own emitters, and null while none lives. */
+const NO_SOURCES: readonly Source[] = [];
+
+function noChildren(): readonly Source[] {
+  return NO_SOURCES;
+}
+
+/**
+ * The sphere around the live particles of `drawn`, and null while none lives. An emitter of
+ * the opened system is read off `source`, and a child's off each live source `children`
+ * answers for its path.
+ */
 function measure(
   source: Source,
+  children: (path: string) => readonly Source[],
   drawn: readonly DrawnEmitter[],
   meshes: EmitterMeshes,
   least: number,
 ): Held | null {
-  const pool = source.pool;
   LOW.set(Infinity, Infinity, Infinity);
   HIGH.set(-Infinity, -Infinity, -Infinity);
 
   let found = false;
   for (const { emitter, path, key } of drawn) {
-    if (path !== "") continue;
-
     const reach = meshReach(meshes, key);
-    const frame = frameOf(source, emitter);
-    for (let at = 0; at < pool.count; at += 1) {
-      if (pool.emitter[at] !== emitter.index) continue;
+    if (path === "") {
+      found = widen(source, emitter, reach) || found;
+      continue;
+    }
 
-      drawnPlaceInto(pool, at, frame, PLACED);
-      appearance(pool, at, emitter, frame.now, DRAWN);
-      const size =
-        Math.max(Math.abs(DRAWN.scale[0]), Math.abs(DRAWN.scale[1]), Math.abs(DRAWN.scale[2])) *
-        reach;
-      for (let axis = 0; axis < 3; axis += 1) {
-        const value = PLACED.place[axis] * AXIS_SIGN[axis];
-        LOW.setComponent(axis, Math.min(LOW.getComponent(axis), value - size));
-        HIGH.setComponent(axis, Math.max(HIGH.getComponent(axis), value + size));
-      }
-      found = true;
+    for (const child of children(path)) {
+      found = widen(child, emitter, reach) || found;
     }
   }
   if (!found) return null;
@@ -161,6 +164,30 @@ function measure(
   MEASURED.target.copy(LOW).add(HIGH).multiplyScalar(0.5);
   MEASURED.radius = Math.max(HIGH.distanceTo(LOW) / 2, least);
   return MEASURED;
+}
+
+/** Grow `LOW` and `HIGH` to contain `emitter`'s live particles of `source`. False where none lives. */
+function widen(source: Source, emitter: EmitterModel, reach: number): boolean {
+  const pool = source.pool;
+  const frame = frameOf(source, emitter);
+
+  let found = false;
+  for (let at = 0; at < pool.count; at += 1) {
+    if (pool.emitter[at] !== emitter.index) continue;
+
+    drawnPlaceInto(pool, at, frame, PLACED);
+    appearance(pool, at, emitter, frame.now, DRAWN);
+    const size =
+      Math.max(Math.abs(DRAWN.scale[0]), Math.abs(DRAWN.scale[1]), Math.abs(DRAWN.scale[2])) *
+      reach;
+    for (let axis = 0; axis < 3; axis += 1) {
+      const value = PLACED.place[axis] * AXIS_SIGN[axis];
+      LOW.setComponent(axis, Math.min(LOW.getComponent(axis), value - size));
+      HIGH.setComponent(axis, Math.max(HIGH.getComponent(axis), value + size));
+    }
+    found = true;
+  }
+  return found;
 }
 
 /** How far the mesh of the emitter drawn as `key` reaches from its pivot, and 1 for no mesh. */

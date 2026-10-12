@@ -418,3 +418,181 @@ fn a_system_template_lands_its_emitters_named_apart_in_one_undo_step() {
     assert!(document.undo().unwrap());
     assert_eq!(names(&document, SYSTEM), ["Sparks"]);
 }
+
+/// Applies `edits` under `childParticleSetDefinition` of the system's first complex emitter.
+fn edit_children(
+    document: &mut BinDocument,
+    edits: Vec<ValueEdit>,
+) -> Result<(), BinDocumentError> {
+    document.edit_property(
+        h(SYSTEM),
+        &format!("{}[0]", hashed("complexEmitterDefinitionData")),
+        &format!("0x{}", hashed("childParticleSetDefinition")),
+        edits,
+        schema().at(Some(BUILD)),
+    )
+}
+
+/// Returns the edits that append the child at `index`, which names its system through `field`.
+fn add_child(index: usize, field: &str, value: LeafValue) -> Vec<ValueEdit> {
+    let children = hashed("childrenIdentifiers");
+    vec![
+        ValueEdit::EnsurePointer {
+            path: String::new(),
+            class: "VfxChildParticleSetDefinitionData".to_owned(),
+        },
+        ValueEdit::EnsureProperty {
+            path: String::new(),
+            field: format!("0x{children}"),
+        },
+        ValueEdit::InsertItem {
+            path: children.clone(),
+            item: crate::bin_document::NewItem {
+                index: None,
+                key: None,
+                class: Some("VfxChildIdentifier".to_owned()),
+            },
+        },
+        ValueEdit::EnsureProperty {
+            path: format!("{children}[{index}]"),
+            field: format!("0x{}", hashed(field)),
+        },
+        ValueEdit::SetLeaf {
+            path: format!("{children}[{index}].{}", hashed(field)),
+            value,
+        },
+    ]
+}
+
+/// Returns the edits that move item 1 of the list `list` to its front.
+fn move_to_front(list: &str) -> [ValueEdit; 2] {
+    [
+        ValueEdit::CopyItem {
+            from: format!("{list}[1]"),
+            path: list.to_owned(),
+            index: Some(0),
+            unique: None,
+        },
+        ValueEdit::RemoveItem {
+            path: format!("{list}[2]"),
+        },
+    ]
+}
+
+/// Returns the fields of each child identifier of the first complex emitter, and its bones.
+fn child_set(document: &BinDocument) -> (Vec<Vec<BinHash>>, Vec<String>) {
+    let PropertyValueEnum::Struct(emitter) =
+        &list(document, SYSTEM, "complexEmitterDefinitionData")[0]
+    else {
+        panic!("an emitter is a pointer");
+    };
+    let PropertyValueEnum::Struct(set) = &emitter.properties[&h("childParticleSetDefinition")]
+    else {
+        panic!("the child set is a pointer");
+    };
+    let items = |field: &str| match set.properties.get(&h(field)) {
+        Some(PropertyValueEnum::Container(items)) => items.items().to_vec(),
+        Some(other) => panic!("{field} is no list: {other:?}"),
+        None => Vec::new(),
+    };
+
+    let children = items("childrenIdentifiers")
+        .iter()
+        .map(|item| match item {
+            PropertyValueEnum::Embedded(values::Embedded(inner)) => {
+                inner.properties.keys().copied().collect()
+            }
+            other => panic!("a child identifier is an embed: {other:?}"),
+        })
+        .collect();
+    let bones = items("boneToSpawnAt")
+        .iter()
+        .map(|item| match item {
+            PropertyValueEnum::String(text) => text.value.clone(),
+            other => panic!("a bone is a string: {other:?}"),
+        })
+        .collect();
+    (children, bones)
+}
+
+#[test]
+fn a_child_set_takes_a_link_a_key_bones_a_move_and_a_removal() {
+    let mut document = document(&["Flash"], &[]);
+    let children = hashed("childrenIdentifiers");
+    let bones = hashed("boneToSpawnAt");
+    let link = LeafValue::ObjectLink {
+        text: format!("0x{}", hashed(OTHER)),
+    };
+    let key = LeafValue::Hash {
+        text: "Teemo_R_Key".to_owned(),
+    };
+    let bone = crate::bin_document::NewItem {
+        index: None,
+        key: None,
+        class: None,
+    };
+
+    edit_children(&mut document, add_child(0, "effect", link)).unwrap();
+    edit_children(&mut document, add_child(1, "effectKey", key)).unwrap();
+    edit_children(
+        &mut document,
+        vec![
+            ValueEdit::EnsureProperty {
+                path: String::new(),
+                field: format!("0x{bones}"),
+            },
+            ValueEdit::InsertItem {
+                path: bones.clone(),
+                item: bone.clone(),
+            },
+            ValueEdit::InsertItem {
+                path: bones.clone(),
+                item: bone,
+            },
+            ValueEdit::SetLeaf {
+                path: format!("{bones}[1]"),
+                value: LeafValue::String {
+                    value: "Head".to_owned(),
+                },
+            },
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        child_set(&document),
+        (
+            vec![vec![h("effect")], vec![h("effectKey")]],
+            vec![String::new(), "Head".to_owned()]
+        )
+    );
+
+    let moved = [move_to_front(&children), move_to_front(&bones)].concat();
+    edit_children(&mut document, moved).unwrap();
+    assert_eq!(
+        child_set(&document),
+        (
+            vec![vec![h("effectKey")], vec![h("effect")]],
+            vec!["Head".to_owned(), String::new()]
+        )
+    );
+
+    edit_children(
+        &mut document,
+        vec![
+            ValueEdit::RemoveItem {
+                path: format!("{children}[0]"),
+            },
+            ValueEdit::RemoveItem {
+                path: format!("{bones}[0]"),
+            },
+        ],
+    )
+    .unwrap();
+    assert_eq!(
+        child_set(&document),
+        (vec![vec![h("effect")]], vec![String::new()])
+    );
+
+    assert!(document.undo().unwrap());
+    assert_eq!(child_set(&document).0.len(), 2);
+}

@@ -199,12 +199,13 @@ export function GraphPane({
   );
 }
 
-/** The masters and the materials of a tree, which open folded. */
+/** The masters, the child systems and the materials of a tree, which open folded. */
 function foldedFirst(tree: GraphTree): Set<string> {
   const out = new Set<string>();
   const visit = (node: GraphTree) => {
     const { item } = node;
-    if (item.type === "master" || (item.type === "struct" && isMaterial(item))) out.add(item.id);
+    const material = item.type === "struct" && isMaterial(item);
+    if (item.type === "master" || item.type === "system" || material) out.add(item.id);
     node.inputs.forEach((input) => visit(input.tree));
   };
   visit(tree);
@@ -217,6 +218,7 @@ const FOLDING: ReadonlySet<GraphItem["type"]> = new Set([
   "component",
   "master",
   "struct",
+  "children",
 ]);
 
 /** Every item id of a type in `FOLDING` with inputs, or only those of `type`. */

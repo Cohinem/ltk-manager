@@ -1,5 +1,15 @@
 import type { EmitterModel, SystemModel } from "../../engine/model/model";
 
+/** The id of the Children node under the master node `master`. */
+export function childrenIdOf(master: string): string {
+  return `${master}/children`;
+}
+
+/** The id of the node of the child system at `index` of the set under the master node `master`. */
+export function childSystemIdOf(master: string, index: number): string {
+  return `${childrenIdOf(master)}[${index}]`;
+}
+
 /**
  * The emitter a node feeds directly, from its id: a master's id and one field of it.
  *

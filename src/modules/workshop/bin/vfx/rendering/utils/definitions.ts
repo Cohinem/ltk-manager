@@ -18,6 +18,47 @@ export interface DrawnEmitter {
   readonly rank: number;
 }
 
+/** What a run leaves out of its draw: the opened system's emitters by pool index, children by path. */
+export interface DrawVisibility {
+  readonly muted: ReadonlySet<number>;
+  readonly soloed: ReadonlySet<number>;
+  readonly mutedChildren: ReadonlySet<string>;
+  readonly soloedChildren: ReadonlySet<string>;
+}
+
+/** Whether any emitter or child of `run` is soloed. */
+export function anySolo(run: DrawVisibility): boolean {
+  return run.soloed.size > 0 || run.soloedChildren.size > 0;
+}
+
+/** Whether `path` is one of the child `paths` or a child under one. */
+export function underChild(paths: ReadonlySet<string>, path: string): boolean {
+  if (path === "") return false;
+
+  for (const each of paths) {
+    if (path === each || path.startsWith(childPrefix(each))) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether `run` leaves `definition` out of the draw.
+ *
+ * A muted emitter hides its children, and a muted child hides the children under it. With
+ * any solo set, a definition draws only under a soloed emitter or a soloed child.
+ */
+export function hiddenIn(
+  definition: Pick<DrawnEmitter, "root" | "path">,
+  run: DrawVisibility,
+): boolean {
+  if (run.muted.has(definition.root) || underChild(run.mutedChildren, definition.path)) {
+    return true;
+  }
+  if (!anySolo(run)) return false;
+
+  return !run.soloed.has(definition.root) && !underChild(run.soloedChildren, definition.path);
+}
+
 /** `rank` as the draw order, which a ground-layer emitter takes under the character. */
 function orderOf(emitter: EmitterModel, rank: number): number {
   return emitter.groundLayer ? GROUND_ORDER + rank : rank;
@@ -51,14 +92,24 @@ export function drawnEmitters(system: SystemModel, posed = false): DrawnEmitter[
 /* The unposed list of each system, which every node preview filters for its own emitter. */
 const DRAWN = new WeakMap<SystemModel, readonly DrawnEmitter[]>();
 
-/** The entries of `drawnEmitters(system)` that draw `emitter`. */
-export function drawnFor(system: SystemModel, emitter: EmitterModel): DrawnEmitter[] {
+function drawnOf(system: SystemModel): readonly DrawnEmitter[] {
   let drawn = DRAWN.get(system);
   if (drawn === undefined) {
     drawn = drawnEmitters(system);
     DRAWN.set(system, drawn);
   }
-  return drawn.filter((each) => each.emitter === emitter);
+  return drawn;
+}
+
+/** The entries of `drawnEmitters(system)` that draw `emitter`. */
+export function drawnFor(system: SystemModel, emitter: EmitterModel): DrawnEmitter[] {
+  return drawnOf(system).filter((each) => each.emitter === emitter);
+}
+
+/** The entries of `drawnEmitters(system)` of the child at `path` and of every child under it. */
+export function drawnUnder(system: SystemModel, path: string): DrawnEmitter[] {
+  const paths = new Set([path]);
+  return drawnOf(system).filter((each) => underChild(paths, each.path));
 }
 
 function collect(

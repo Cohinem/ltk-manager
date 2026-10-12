@@ -12,6 +12,8 @@ import type { ComponentLine, GraphItem, GraphTree, LeafTarget } from "./graphIte
 import { holdsMaterial } from "./materialNodes";
 
 export type {
+  ChildrenItem,
+  ChildSystemItem,
   ComponentItem,
   ComponentLine,
   DriverItem,

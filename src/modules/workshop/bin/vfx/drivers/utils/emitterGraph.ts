@@ -2,13 +2,17 @@ import type { VfxValue } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { classFamily } from "../../../values/utils/valueRows";
+import { authoredChildSet, CHILD_SET, CHILD_SET_ROWS } from "../../children/childModel";
 import type { DriverKind } from "../../engine/drivers/node";
 import type { ValueCurve } from "../../engine/model/model";
 import { curve, field, flag, text } from "../../engine/parsing/readValue";
 import { FORCE_DEFINITIONS } from "../../forces/forceModel";
 import { type EmitterGroup, GROUP_ORDER } from "../../inspector/utils/emitterGroups";
+import { childrenIdOf, childSystemIdOf } from "./graphEmitter";
 import type {
+  ChildSystemItem,
   FileKind,
+  GraphItem,
   GraphPort,
   GraphTree,
   InputItem,
@@ -109,6 +113,13 @@ function masterTree(emitter: VfxValue, at: MasterPlace, pending: readonly string
     if (forces.length > 0) {
       inputs.set(hash, forces);
       put(hash, { hash, input: null, pending: false, forces: forces.map(forceOf) });
+      continue;
+    }
+
+    if (hash === CHILD_SET && value.type === "struct") {
+      const children = childrenTree(emitter, value, at);
+      inputs.set(hash, children);
+      put(hash, { hash, input: fedBy(children), pending: false });
       continue;
     }
 
@@ -230,6 +241,60 @@ function forceTrees(value: VfxValue, at: InputPlace): GraphTree[] {
 
 function forceOf(tree: GraphTree): StructItem {
   return tree.item as StructItem;
+}
+
+/**
+ * The Children node of an emitter's child set, fed by a node per child system and by the
+ * keyed values and structs of its own fields. The identifier list and the bone list draw
+ * as the node's child lines, so neither gets a node.
+ */
+function childrenTree(
+  emitter: VfxValue,
+  node: Extract<VfxValue, { type: "struct" }>,
+  at: MasterPlace,
+): GraphTree {
+  const set = authoredChildSet(emitter, at.wire);
+  const id = childrenIdOf(at.id);
+  const own = CHILD_SET_ROWS.map((hash) => {
+    const { name, value } = node.fields.find((each) => each.hash === hash) ?? {};
+    if (value === undefined) return { hash, tree: null, pending: true };
+
+    const place = {
+      id: `${id}/${name ?? hash}`,
+      holder: set.hashPath,
+      holderRows: set.fields,
+      field: hash,
+    };
+    return { hash, tree: inputOf(value, place, name ?? hash, 1), pending: false };
+  });
+  const systems = set.children.map((child): ChildSystemItem => ({
+    type: "system",
+    id: childSystemIdOf(at.id, child.index),
+    wire: child.hashPath,
+    child,
+    set,
+    emitterPath: at.wire,
+    parent: { simple: at.simple, listIndex: at.index },
+    ports: [],
+  }));
+  const fed = [
+    ...own.flatMap(({ tree }) => (tree === null ? [] : [tree])),
+    ...systems.map((item) => ({ item, inputs: [] })),
+  ];
+
+  return {
+    item: {
+      type: "children",
+      id,
+      wire: set.hashPath,
+      emitterPath: at.wire,
+      set,
+      fields: own.map(({ hash, tree, pending }) => ({ hash, input: fedBy(tree), pending })),
+      systems,
+      ports: fed.map(portOf),
+    },
+    inputs: fed.map((tree) => ({ port: tree.item.id, tree })),
+  };
 }
 
 export interface InputPlace {
@@ -462,15 +527,19 @@ function structTree(at: StructPlace, rows: readonly StructPlaceRow[]): GraphTree
 /** The port an input tree feeds its holder through, labelled as the holder's row reads. */
 function portOf(tree: GraphTree): GraphPort {
   const { item } = tree;
-  const label =
-    item.type === "struct" || item.type === "value" || item.type === "file" ? item.label : item.id;
+  let label = item.id;
+  if (item.type === "struct" || item.type === "value" || item.type === "file") label = item.label;
+  if (item.type === "system") label = item.child.label;
+
   return { id: item.id, label, kind: item.type === "value" ? item.kind : null };
 }
 
-/** The struct or curve item at the root of an input tree, and null for no input. */
+const FEEDS: ReadonlySet<GraphItem["type"]> = new Set(["struct", "value", "file", "children"]);
+
+/** The struct, curve, file or Children item at the root of an input tree, and null for no input. */
 function fedBy(tree: GraphTree | null): InputItem | null {
   const item = tree?.item;
-  return item?.type === "struct" || item?.type === "value" || item?.type === "file" ? item : null;
+  return item !== undefined && FEEDS.has(item.type) ? (item as InputItem) : null;
 }
 
 /** How a row's `value` draws on its line. */

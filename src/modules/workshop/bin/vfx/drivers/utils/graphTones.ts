@@ -64,11 +64,13 @@ export function itemHue(item: GraphItem): string {
     case "preview":
     case "emitter":
     case "master":
+    case "system":
       return ROLE_HUE.emitter;
     case "render":
       return item.role === "geometry" ? ROLE_HUE.geometry : ROLE_HUE.component;
     case "component":
     case "struct":
+    case "children":
       return ROLE_HUE.component;
     case "file":
       return ROLE_HUE.file;
