@@ -276,6 +276,29 @@ describe("workshopEditor store", () => {
       expect(previewOf(A, other)).toBe(second.id);
       expect(editorOf(A).documents[first.id]).toBeUndefined();
     });
+
+    it("keeps the ephemeral tab when the open was made in it, and makes it permanent", () => {
+      const first = preview("first.tex");
+      store().openPreview(A, first);
+      const second = preview("second.tex");
+
+      store().openPreview(A, second, undefined, first.id);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual([first.id, second.id]);
+      expect(previewOf(A, ROOT_LEAF)).toBe(second.id);
+    });
+
+    it("replaces the ephemeral tab when the open was made in another tab of the group", () => {
+      const first = preview("first.tex");
+      store().openPreview(A, first);
+      const second = preview("second.tex");
+      store().openPreview(A, second, undefined, first.id);
+      const third = preview("third.tex");
+
+      store().openPreview(A, third, undefined, first.id);
+
+      expect(tabsOf(A, ROOT_LEAF)).toEqual([first.id, third.id]);
+    });
   });
 
   describe("where a preview opens", () => {
@@ -1548,6 +1571,51 @@ describe("workshopEditor store", () => {
       store().closeDocument(A, ROOT_LEAF, "files:base");
 
       expect(historyOf()).toEqual({ stops: [`${A}/details`, `${A}/game`], at: 1 });
+    });
+
+    it("leaves one stop when a close puts two stops of one document side by side", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      store().openDocument(A, detailsDocument());
+
+      store().closeDocument(A, ROOT_LEAF, "files:base");
+
+      expect(historyOf()).toEqual({ stops: [`${A}/details`], at: 0 });
+    });
+
+    it("keeps the stop of the document a preview was opened from", () => {
+      const from = previewDocument({ kind: "layer", project: A, layer: "base", path: "a.bin" });
+      const to = previewDocument({ kind: "layer", project: A, layer: "base", path: "b.bin" });
+      store().openPreview(A, from);
+
+      store().openPreview(A, to, undefined, from.id);
+      store().navigateHistory(-1);
+
+      expect(historyOf()).toEqual({ stops: [`${A}/${from.id}`, `${A}/${to.id}`], at: 0 });
+      expect(activeTabOf(A, ROOT_LEAF)).toBe(from.id);
+    });
+
+    it("moves the stops of a replaced tab to the document that took its place", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+
+      store().replaceDocument(A, "details", gameDocument());
+
+      expect(historyOf()).toEqual({ stops: [`${A}/game`, `${A}/files:base`], at: 1 });
+      expect(store().navigateHistory(-1)).toMatchObject({ documentId: "game" });
+    });
+
+    it("steps over a stop whose tab is gone", () => {
+      store().openDocument(A, detailsDocument());
+      store().openDocument(A, filesDocument("base"));
+      const [first, last] = store().history;
+      useWorkshopEditorStore.setState({
+        history: [first, { kind: "document", project: A, documentId: "gone" }, last],
+        historyIndex: 2,
+      });
+
+      expect(store().navigateHistory(-1)).toMatchObject({ documentId: "details" });
+      expect(historyOf().at).toBe(0);
     });
 
     it("keeps another project's same-named stop when a close prunes one", () => {

@@ -21,6 +21,7 @@ import { type ContentDocument, documentLayerName } from "../../documents/utils/c
 import { openGroup } from "./documentPlacement";
 import type { EditorGet, EditorSet } from "./editorRoot";
 import { replacedDocument } from "./layerRename";
+import { renameStops } from "./navigationStack";
 import { withoutPreviewDocument, withPreview } from "./previewTabs";
 import { EMPTY_EDITOR } from "./projectEditor";
 import {
@@ -42,8 +43,19 @@ export interface DocumentActions {
   hydrateProject: (projectPath: string, state: PersistedProjectEditor) => void;
   /** Opens into `leafId`, falling back to the focused leaf. A document already open activates where it is. */
   openDocument: (projectPath: string, document: ContentDocument, leafId?: string) => void;
-  /** Opens as the ephemeral tab, replacing the one its own group holds. */
-  openPreview: (projectPath: string, document: ContentDocument, leafId?: string) => void;
+  /**
+   * Opens as the ephemeral tab, replacing the one its own group holds.
+   *
+   * `from` is the document the open was made in. It is never the tab replaced, and it
+   * becomes permanent when it was the ephemeral tab. "Preview tabs" in
+   * `docs/ux/PROJECT_EDITOR.md`.
+   */
+  openPreview: (
+    projectPath: string,
+    document: ContentDocument,
+    leafId?: string,
+    from?: string,
+  ) => void;
   /** Makes a document permanent, which is what a double click asks for. */
   promoteDocument: (projectPath: string, id: string) => void;
   /** Pins or unpins one document, which moves it to the divider of its own strip. */
@@ -160,7 +172,7 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
         );
       }),
 
-    openPreview: (projectPath, document, leafId) =>
+    openPreview: (projectPath, document, leafId, from) =>
       setProject(set, projectPath, (editor) => {
         /* Already on screen: activate it and leave its role alone, so
            asking for the same file twice does not churn the tree. */
@@ -183,8 +195,11 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
            through a tree in one group leave another group alone.
 
            A lock makes that group's preview tab permanent: the replacement
-           cannot land there, so the tab it would have taken stays put. */
-        if (replaced !== undefined && target && acceptsOpen(target)) {
+           cannot land there, so the tab it would have taken stays put.
+
+           `from` keeps its tab, or its stop is forgotten and a back cannot
+           return to the document a link was followed in. */
+        if (replaced !== undefined && replaced !== from && target && acceptsOpen(target)) {
           const layout = replaceTab(group.layout, group.leafId, replaced, document.id);
           if (layout !== group.layout) {
             delete documents[replaced];
@@ -349,7 +364,17 @@ export function createDocumentActions(set: EditorSet, get: EditorGet): DocumentA
         if (holder) actions.closeDocument(projectPath, holder.id, from);
         return;
       }
-      setProject(set, projectPath, (held) => replacedDocument(held, from, document));
+
+      set((state) => {
+        const replaced = updateProject(state, projectPath, (current) =>
+          replacedDocument(current, from, document),
+        );
+        if (replaced === null) return state;
+
+        /* The tab keeps its place under a new id, so its stops move to that id. */
+        const id = (stop: string) => (stop === from ? document.id : stop);
+        return { ...replaced, history: renameStops(state.history, projectPath, id) };
+      });
     },
 
     reorderDocuments: (projectPath, leafId, ids) =>

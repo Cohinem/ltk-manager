@@ -1,6 +1,7 @@
 import { type SelectedModule, sameSelectedModule } from "../../bin/documents/state/editorFile";
 import type { EditorSet } from "./editorRoot";
 import { renamedDocument, renamedLayer } from "./layerRename";
+import { renameStops } from "./navigationStack";
 import { NO_COLLAPSED_DIRS } from "./projectEditor";
 import { setProject } from "./projectUpdate";
 
@@ -32,11 +33,7 @@ export function createLayerActions(set: EditorSet): LayerActions {
         const id = (held: string) => renamed.ids.get(held) ?? held;
         return {
           byProject: { ...state.byProject, [projectPath]: renamed.editor },
-          history: state.history.map((entry) =>
-            entry.kind === "document" && entry.project === projectPath
-              ? { ...entry, documentId: id(entry.documentId) }
-              : entry,
-          ),
+          history: renameStops(state.history, projectPath, id),
           closed: state.closed.map((tab) =>
             tab.project === projectPath
               ? { ...tab, document: renamedDocument(tab.document, from, to) }
