@@ -104,7 +104,10 @@ function clipRows() {
     .filter((each) => each.getAttribute("role") === "button");
 }
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.clearAllMocks();
+});
 
 describe("clip virtualization", () => {
   it("opens the animation of the right-clicked clip without changing the playing clip", async () => {
@@ -146,6 +149,9 @@ describe("clip virtualization", () => {
     expect(screen.queryByText("Clip4999")).not.toBeInTheDocument();
     expect(draw.mock.calls.length).toBeLessThan(40);
     draw.mockClear();
+    /* The virtualizer ends a scroll on a timer that outlives the file, and its update throws
+       once the environment is torn down. */
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     act(() => {
       scroller.scrollTop = ROW_HEIGHT;
       fireEvent.scroll(scroller);
