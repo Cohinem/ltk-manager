@@ -20,6 +20,7 @@ import {
 import type { OpenIntent } from "../../palette/utils/types";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import { useRouteSandbox, useSandbox } from "../../sandbox/state/SandboxContext";
+import { useOptionalLeafId } from "../state/LeafContext";
 import {
   type CurveAimRequest,
   EMPTY_EDITOR,
@@ -294,20 +295,27 @@ export function useOpenDocument() {
  *
  * What a single click on a row calls while the preview setting is on.
  * {@link useOpenDocumentTab} picks between this and a permanent open.
+ *
+ * An open made inside an editor group names that group's active document as its origin,
+ * which the store never replaces. Every link chip, row action and browser row opens through
+ * here, so each one leaves a stop the navigation history can return to.
  */
 export function useOpenPreview() {
   const projectPath = useProjectPath();
   const opened = useOpenedInSandbox();
+  const leafId = useOptionalLeafId();
   return useCallback(
     (requested: ContentDocument) => {
       const document = opened(requested);
       const store = useWorkshopEditorStore.getState();
-      store.openPreview(projectPath, document);
+      const editor = store.byProject[projectPath];
+      const from = leafId !== null && editor ? findLeaf(editor.layout, leafId)?.activeTab : null;
+      store.openPreview(projectPath, document, undefined, from ?? undefined);
 
       const layerName = documentLayerName(document);
       if (layerName) store.selectLayer(projectPath, layerName);
     },
-    [projectPath, opened],
+    [projectPath, opened, leafId],
   );
 }
 

@@ -6,6 +6,7 @@ import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { VfxRunContext } from "../../playback/state/run";
+import { anySolo } from "../../rendering/utils/definitions";
 
 /** A header button's box: DS-VEIL, DS-RADIUS. */
 const BUTTON =
@@ -34,7 +35,7 @@ export function useRunPresence(simple: boolean, listIndex: number): RunPresence 
     index: emitter.index,
     muted,
     soloed,
-    hidden: muted || (run.soloed.size > 0 && !soloed),
+    hidden: muted || (anySolo(run) && !soloed),
   };
 }
 
@@ -47,7 +48,26 @@ export function EmitterRunToggles({ presence }: { presence: RunPresence | null }
   const run = use(VfxRunContext);
   if (run === null || presence === null) return null;
 
-  const visibility = presence.muted
+  return (
+    <RunToggles
+      muted={presence.muted}
+      soloed={presence.soloed}
+      onMute={() => run.toggleMuted(presence.index)}
+      onSolo={() => run.toggleSoloed(presence.index)}
+    />
+  );
+}
+
+interface RunTogglesProps {
+  muted: boolean;
+  soloed: boolean;
+  onMute: () => void;
+  onSolo: () => void;
+}
+
+/** The eye and the solo button of a node header, for an emitter or a child system. */
+export function RunToggles({ muted, soloed, onMute, onSolo }: RunTogglesProps) {
+  const visibility = muted
     ? m.workshop_bin_graph_show_action()
     : m.workshop_bin_graph_hide_action();
 
@@ -57,25 +77,25 @@ export function EmitterRunToggles({ presence }: { presence: RunPresence | null }
         <button
           type="button"
           aria-label={visibility}
-          aria-pressed={!presence.muted}
-          className={twMerge(BUTTON, presence.muted && "text-surface-500")}
-          onClick={() => run.toggleMuted(presence.index)}
+          aria-pressed={!muted}
+          className={twMerge(BUTTON, muted && "text-surface-500")}
+          onClick={onMute}
         >
-          {presence.muted && <EyeClosedIcon weight="bold" className="size-3.5" />}
-          {!presence.muted && <EyeIcon weight="bold" className="size-3.5" />}
+          {muted && <EyeClosedIcon weight="bold" className="size-3.5" />}
+          {!muted && <EyeIcon weight="bold" className="size-3.5" />}
         </button>
       </Tooltip>
       <Tooltip content={m.workshop_bin_preview_solo_label()}>
         <button
           type="button"
           aria-label={m.workshop_bin_preview_solo_label()}
-          aria-pressed={presence.soloed}
+          aria-pressed={soloed}
           className={twMerge(
             BUTTON,
             "font-sans text-meta font-semibold text-surface-400",
-            presence.soloed && "bg-accent-500/30 text-accent-200",
+            soloed && "bg-accent-500/30 text-accent-200",
           )}
-          onClick={() => run.toggleSoloed(presence.index)}
+          onClick={onSolo}
         >
           {m.workshop_bin_preview_solo_glyph_label()}
         </button>

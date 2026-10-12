@@ -1,6 +1,7 @@
 //! Unit tests for the system walk: what a link answers, where a name field lands, how a
 //! leaf reads, and what the caps refuse.
 
+use std::collections::HashMap;
 use std::io::Cursor;
 
 use ltk_hash::Hash as _;
@@ -814,4 +815,26 @@ fn a_key_the_first_resolver_maps_to_nothing_stays_a_hash() {
         matches!(suppressed, VfxValue::Hash { .. }),
         "{suppressed:?}"
     );
+}
+
+#[test]
+fn child_targets_lists_the_documents_systems_then_each_undeclared_resolver_target_once() {
+    let objects = vec![
+        keyed("Spark_Key"),
+        child(),
+        resolver(
+            "Vfx/Scope",
+            &[
+                ("Spark_Key", h(KEYED)),
+                ("Far_Key", h("Vfx/Nowhere")),
+                ("Other_Key", h("Vfx/Nowhere")),
+                ("Child_Key", h(CHILD)),
+                ("Null_Key", BinHash(0)),
+            ],
+        ),
+    ];
+    let targets = child_targets(&document_of(objects), &named());
+
+    let entries: Vec<_> = targets.iter().map(|each| each.entry.clone()).collect();
+    assert_eq!(entries, [hex(h(KEYED)), hex(h("Vfx/Nowhere"))]);
 }

@@ -1,9 +1,7 @@
 //! The walk: one object's property subtree into a [`VfxValue`], with every link chased
 //! and every asset name located.
 
-use std::collections::HashMap;
-
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use ltk_hash::{BinHash, WadHash};
 use ltk_manager_base::hashing::named;
 use ltk_meta::property::values;
@@ -82,6 +80,9 @@ const CHILD_IDENTIFIER: BinHash = named("VfxChildIdentifier");
 /// `ResourceResolver`, the scope a skin's effect keys resolve in.
 const RESOURCE_RESOLVER: BinHash = named("ResourceResolver");
 
+/// `VfxSystemDefinitionData`, the class a child identifier names.
+const SYSTEM_DEFINITION: BinHash = named("VfxSystemDefinitionData");
+
 /// One system's whole property subtree, with every reference resolved.
 ///
 /// A `Link` naming another object of the same document is inlined as that object's
@@ -128,6 +129,32 @@ pub fn resolve_system(
     })
 }
 
+/// Returns the systems that a child identifier of `document` can link.
+///
+/// Lists every `VfxSystemDefinitionData` of the document in document order. After them, lists
+/// each object that a `ResourceResolver` of the document maps a key to and the document does
+/// not declare, once, in resolver order. Skips a key mapped to a null link.
+pub fn child_targets(document: &BinDocument, names: &dyn RowNames) -> Vec<VfxObject> {
+    let declared = document.entries().filter(|entry| {
+        document
+            .object_at(*entry)
+            .is_some_and(|object| object.class_hash == SYSTEM_DEFINITION)
+    });
+    let mapped = resources(document)
+        .into_values()
+        .filter(|target| target.0 != 0 && document.object_at(*target).is_none());
+    let targets: IndexSet<BinHash> = declared.chain(mapped).collect();
+
+    let mut namer = Namer::new(names);
+    targets
+        .into_iter()
+        .map(|entry| VfxObject {
+            entry: hex(entry),
+            name: namer.entry(entry),
+        })
+        .collect()
+}
+
 /// The custom materials of `system` its own bin does not declare, looked for in `linked`
 /// and in what each file links.
 ///
@@ -154,7 +181,7 @@ struct Walk<'a> {
     assets: &'a dyn AssetLookup,
     shaders: Option<&'a BinDocument>,
     /// Every effect key the document's resolvers map, to the object its link names.
-    resources: HashMap<BinHash, BinHash>,
+    resources: IndexMap<BinHash, BinHash>,
     /// The objects the walk is inside, which a link back into answers as a link.
     open: Vec<BinHash>,
     values: usize,
@@ -421,8 +448,8 @@ impl<'a> Walk<'a> {
 /// The first resolver holding a key wins, in the order the document holds them. The walk
 /// cannot know which resolver a system's skin links, so every resolver of the document
 /// counts.
-fn resources(document: &BinDocument) -> HashMap<BinHash, BinHash> {
-    let mut resources = HashMap::new();
+fn resources(document: &BinDocument) -> IndexMap<BinHash, BinHash> {
+    let mut resources = IndexMap::new();
     for entry in document.entries() {
         let Some(object) = document
             .object_at(entry)

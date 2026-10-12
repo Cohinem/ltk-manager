@@ -131,6 +131,8 @@ function choice(over: Partial<EmitterChoice> = {}): EmitterChoice {
     chooseCard: vi.fn(),
     chooseGroup: vi.fn(),
     chooseChild: vi.fn(),
+    revealed: null,
+    revealRows: vi.fn(),
     mode: "cards",
     setMode: vi.fn(),
     marked: [],

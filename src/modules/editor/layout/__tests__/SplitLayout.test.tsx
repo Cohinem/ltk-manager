@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SplitLayout } from "../SplitLayout";
 import type { LayoutNode, LeafNode } from "../tree";
@@ -101,5 +101,125 @@ describe("SplitLayout", () => {
     await userEvent.keyboard("{Escape}");
 
     expect(restore).not.toHaveBeenCalled();
+  });
+});
+
+describe("SplitLayout collapse", () => {
+  const layout = { "leaf-1": 5, "leaf-2": 95 };
+  const column: LayoutNode = { ...TREE, dir: "col", layout };
+
+  const observed = new Map<ResizeObserverCallback, Set<Element>>();
+
+  class FiringResizeObserver {
+    callback: ResizeObserverCallback;
+
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback;
+      observed.set(callback, new Set());
+    }
+
+    observe(target: Element) {
+      observed.get(this.callback)?.add(target);
+    }
+
+    unobserve(target: Element) {
+      observed.get(this.callback)?.delete(target);
+    }
+
+    disconnect() {
+      observed.delete(this.callback);
+    }
+  }
+
+  /* The library reports a panel's resize from a ResizeObserver, which happy-dom never fires. */
+  function fireResizes() {
+    act(() => {
+      for (const [callback, targets] of observed) {
+        const entries = [...targets].map((target) => ({
+          target,
+          borderBoxSize: [{ inlineSize: 300, blockSize: 300 }],
+        }));
+
+        callback(entries as unknown as ResizeObserverEntry[], {} as ResizeObserver);
+      }
+    });
+  }
+
+  /* The library sizes a group by its panels' offsets, which happy-dom reports as zero. */
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(300);
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(300);
+    vi.stubGlobal("ResizeObserver", FiringResizeObserver);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    observed.clear();
+  });
+
+  function drawCollapsed(node: LayoutNode) {
+    const onLayoutChanged = vi.fn();
+
+    render(
+      <SplitLayout
+        node={node}
+        onLayoutChanged={onLayoutChanged}
+        renderLeaf={renderLeaf}
+        collapsedSize={30}
+        renderCollapsedLeaf={(leaf) => <div data-testid={`rail-${leaf.id}`} />}
+      />,
+    );
+
+    return onLayoutChanged;
+  }
+
+  it("draws a rail over a leaf collapsed in a row, and keeps the leaf mounted", () => {
+    drawCollapsed({ ...TREE, layout });
+    fireResizes();
+
+    expect(screen.getByTestId("rail-leaf-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("rail-leaf-2")).not.toBeInTheDocument();
+    expect(screen.getByTestId("body-leaf-1")).toBeInTheDocument();
+  });
+
+  it("draws no rail over a leaf collapsed in a column, which keeps its strip", () => {
+    drawCollapsed(column);
+    fireResizes();
+
+    expect(screen.queryByTestId("rail-leaf-1")).not.toBeInTheDocument();
+  });
+
+  it("expands a leaf collapsed in a row on a click in its rail, and stores it", async () => {
+    const onLayoutChanged = drawCollapsed({ ...TREE, layout });
+    fireResizes();
+
+    await userEvent.click(screen.getByTestId("rail-leaf-1"));
+    fireResizes();
+
+    expect(onLayoutChanged).toHaveBeenCalledWith("split-1", { "leaf-1": 50, "leaf-2": 50 });
+    expect(screen.queryByTestId("rail-leaf-1")).not.toBeInTheDocument();
+  });
+
+  it("expands a collapsed leaf of a column to an even share on a click, and stores it", async () => {
+    const onLayoutChanged = drawCollapsed(column);
+
+    await userEvent.click(screen.getByTestId("body-leaf-1"));
+
+    expect(onLayoutChanged).toHaveBeenCalledWith("split-1", { "leaf-1": 50, "leaf-2": 50 });
+  });
+
+  it("expands a collapsed split of a column on a click in one of its leaves", async () => {
+    const onLayoutChanged = drawCollapsed({
+      kind: "split",
+      id: "split-9",
+      dir: "col",
+      layout: { "split-1": 5, "leaf-3": 95 },
+      children: [TREE, { kind: "leaf", id: "leaf-3", tabs: ["outline"], activeTab: "outline" }],
+    });
+
+    await userEvent.click(screen.getByTestId("body-leaf-1"));
+
+    expect(onLayoutChanged).toHaveBeenCalledWith("split-9", { "split-1": 50, "leaf-3": 50 });
   });
 });

@@ -78,6 +78,11 @@ export function ForcesSection({ search }: { search: string }) {
   return (
     <section
       data-ui="ForcesSection"
+      data-reveal-key={
+        card === undefined
+          ? undefined
+          : `${card.row.entry}:${card.row.path}.${FORCE_COLLECTION.slice(2)}`
+      }
       className="flex flex-col border-t border-surface-700/40 py-1 font-sans text-row"
     >
       <header className="flex items-center justify-between gap-2 px-1.5">
@@ -186,6 +191,7 @@ function ForceGroup({
   return (
     <div
       data-ui="ForcesSection:force"
+      data-reveal-key={`${force.row.entry}:${force.row.path}`}
       className={twMerge(
         "flex flex-col border-t border-surface-700/40",
         selected && "bg-accent-500/5",

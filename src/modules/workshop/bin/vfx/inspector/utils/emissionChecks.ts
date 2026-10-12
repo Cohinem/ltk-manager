@@ -57,7 +57,7 @@ export interface CheckContext {
   readonly simple: boolean;
   /** The run's model of the emitter. Undefined outside a run. */
   readonly emitter: EmitterModel | undefined;
-  /** A character host is chosen for the preview. */
+  /** The preview has a character host. */
   readonly bound: boolean;
   /** The submesh names of the surface's mesh. Null until the mesh has loaded. */
   readonly submeshes: readonly string[] | null;

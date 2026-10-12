@@ -18,8 +18,9 @@ import {
   DocumentSandboxProvider,
   RouteSandboxProvider,
 } from "../../../sandbox/state/SandboxContext";
+import { LeafProvider } from "../../state/LeafContext";
 import { useWorkshopEditorStore } from "../../state/workshopEditor";
-import { useOpenDocument, useRecentDocumentIds } from "../useProjectEditor";
+import { useOpenDocument, useOpenPreview, useRecentDocumentIds } from "../useProjectEditor";
 
 const MINE: WorkshopProject = {
   path: "X:/mods/mine",
@@ -137,5 +138,49 @@ describe("useOpenDocument in a sandbox", () => {
 
     expect(opened()).toEqual([expect.objectContaining({ id: "preview:layer:base:a.bin" })]);
     expect(opened()[0]).not.toHaveProperty("sandbox");
+  });
+});
+
+describe("useOpenPreview inside an editor group", () => {
+  const FIRST: AssetRef = { kind: "layer", project: MINE.path, layer: "base", path: "a.bin" };
+  const SECOND: AssetRef = { kind: "layer", project: MINE.path, layer: "base", path: "b.bin" };
+
+  beforeEach(() => {
+    useWorkshopEditorStore.setState({ byProject: {}, history: [], historyIndex: -1 });
+  });
+
+  function openIn(leafId: string | null) {
+    return renderHook(() => useOpenPreview(), {
+      wrapper: ({ children }: { children: ReactNode }) => (
+        <ProjectProvider project={MINE}>
+          <RouteSandboxProvider project={MINE.path}>
+            {leafId !== null && <LeafProvider leafId={leafId}>{children}</LeafProvider>}
+            {leafId === null && children}
+          </RouteSandboxProvider>
+        </ProjectProvider>
+      ),
+    }).result.current;
+  }
+
+  function openIds() {
+    return Object.keys(store().byProject[MINE.path]?.documents ?? {});
+  }
+
+  it("keeps the group's active document, so a back returns to it", () => {
+    store().openPreview(MINE.path, previewDocument(FIRST));
+    const leafId = store().byProject[MINE.path].activeLeafId;
+
+    openIn(leafId)(previewDocument(SECOND));
+
+    expect(openIds()).toEqual(["preview:layer:base:a.bin", "preview:layer:base:b.bin"]);
+    expect(store().navigateHistory(-1)).toMatchObject({ documentId: "preview:layer:base:a.bin" });
+  });
+
+  it("replaces the ephemeral tab for an open made outside any group", () => {
+    store().openPreview(MINE.path, previewDocument(FIRST));
+
+    openIn(null)(previewDocument(SECOND));
+
+    expect(openIds()).toEqual(["preview:layer:base:b.bin"]);
   });
 });

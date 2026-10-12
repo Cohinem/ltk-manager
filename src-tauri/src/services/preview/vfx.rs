@@ -13,7 +13,9 @@ use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_bin::bin_document::BinDocumentId;
 use ltk_manager_bin::meta_schema::SchemaNames;
 use ltk_manager_bin::vfx::{vfx_templates as catalog, VfxTemplate};
-use ltk_manager_game::vfx::{resolve_system, search_linked_materials, VfxSystem};
+use ltk_manager_game::vfx::{
+    child_targets, resolve_system, search_linked_materials, VfxObject, VfxSystem,
+};
 use tauri::AppHandle;
 
 /// One particle system of an open document, with every reference resolved.
@@ -47,6 +49,21 @@ pub async fn read_vfx_system(
                 &mut read,
             );
             Ok(system)
+        })
+    })
+    .await
+}
+
+/// The systems that a child particle set of an open document can link.
+#[tauri::command]
+#[specta::specta]
+pub async fn vfx_child_targets(
+    document: BinDocumentId,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<VfxObject>> {
+    off_thread(move || {
+        read_resolved(&app_handle, document, |open, names, _| {
+            Ok(child_targets(open, names))
         })
     })
     .await

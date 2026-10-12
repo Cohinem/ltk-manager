@@ -3,6 +3,8 @@ import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
 import { valueLines } from "./curveShape";
 import { renderLines, socketLines, structLines } from "./entryLists";
 import type {
+  ChildrenItem,
+  ChildSystemItem,
   GraphItem,
   GraphTree,
   MasterField,
@@ -336,8 +338,27 @@ function masterFields(item: MasterItem): MasterField[] {
 function nameWidthOf(item: GraphItem, measure: MeasureText): number | undefined {
   if (item.type === "struct") return structNameWidth(item, measure);
   if (item.type === "master") return fieldNameWidth(masterFields(item), measure);
-  if (item.type === "render") return fieldNameWidth(item.fields, measure);
+  if (item.type === "render" || item.type === "children") {
+    return fieldNameWidth(item.fields, measure);
+  }
   return undefined;
+}
+
+/** A child system node: wide enough for its preview and an emitter's name. */
+const SYSTEM_NODE_WIDTH = 280;
+
+/**
+ * The lines a Children node draws: each of its own fields with the list a socket embeds, a
+ * line per child and the Add child line.
+ */
+export function childrenLines(item: ChildrenItem): number {
+  const fields = item.fields.reduce((sum, field) => sum + 1 + socketLines(item, field.input), 0);
+  return fields + item.systems.length + 1;
+}
+
+/** The lines a child system node draws under its preview: a line per emitter, and one for none. */
+export function systemLines(item: ChildSystemItem): number {
+  return Math.max(item.child.emitters.length, 1);
 }
 
 /** A master, render or struct node's width: its name column beside its value column. */
@@ -383,6 +404,10 @@ function widthOf(item: GraphItem, folded: boolean, measure: MeasureText): number
     case "render":
     case "struct":
       return fieldNodeWidth(item, folded, measure);
+    case "children":
+      return fieldNameWidth(item.fields, measure) + MASTER_VALUE_WIDTH;
+    case "system":
+      return Math.max(naturalWidth(item, measure), SYSTEM_NODE_WIDTH);
     default:
       return naturalWidth(item, measure);
   }
@@ -413,6 +438,16 @@ function heightOf(item: GraphItem, folded: boolean, width: number): number {
   if (item.type === "component") {
     const body = item.lines.length === 0 ? 0 : item.lines.length * LINE_HEIGHT + 2 * FIELD_PADDING;
     return HEADER_HEIGHT + FRAME_EDGES + body;
+  }
+
+  if (item.type === "children") {
+    return HEADER_HEIGHT + FRAME_EDGES + childrenLines(item) * LINE_HEIGHT + 2 * FIELD_PADDING;
+  }
+
+  if (item.type === "system") {
+    const preview = item.child.system === null ? 0 : previewLine(item, width);
+    const rows = folded ? 0 : systemLines(item) * LINE_HEIGHT + 2 * FIELD_PADDING;
+    return HEADER_HEIGHT + FRAME_EDGES + preview + rows;
   }
 
   if (item.type === "struct" && folded && isMaterial(item)) {

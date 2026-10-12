@@ -219,6 +219,11 @@ labels. See `docs/agents/triage-labels.md`.
 Single-context, with one `CONTEXT.md` and one `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
 
+### Worktrees
+
+A fresh worktree has no `node_modules` and no submodule checkout. Before a check, a commit, a
+build or an app launch in one, see `docs/agents/worktrees.md`.
+
 ### CodeGraph
 
 In a checkout indexed by CodeGraph (`.codegraph/` at the repo root), the index reads the code but

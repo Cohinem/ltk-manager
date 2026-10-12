@@ -49,7 +49,7 @@ import { VfxSystem } from "../../rendering/components/VfxSystem";
 import { useVfxMeshes } from "../../rendering/hooks/useVfxMeshes";
 import { useVfxTextures } from "../../rendering/hooks/useVfxTextures";
 import { createPickRegistry } from "../../rendering/state/pick";
-import { type DrawnEmitter, drawnEmitters } from "../../rendering/utils/definitions";
+import { type DrawnEmitter, drawnEmitters, hiddenIn } from "../../rendering/utils/definitions";
 import { distorts, drawsTheAttachment, isUndrawn } from "../../rendering/utils/drawKind";
 import { fades } from "../../rendering/utils/softParticle";
 import { definitionBounds, rigGround } from "../../rendering/utils/systemBounds";
@@ -69,7 +69,7 @@ import { HandleMenu } from "./HandleMenu";
 import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
 import { SpatialHandle } from "./SpatialHandle";
-import { useVfxHost, VfxHost, VfxHostControls } from "./VfxHost";
+import { useVfxHost, VfxHost } from "./VfxHost";
 import { ViewportPick } from "./ViewportPick";
 
 export interface VfxViewportProps {
@@ -94,6 +94,8 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
     rig,
     muted,
     soloed,
+    mutedChildren,
+    soloedChildren,
     fitRequest,
     requestFit,
     pinned,
@@ -166,7 +168,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const softens = useMemo(() => drawn.some((definition) => fades(definition.emitter)), [drawn]);
 
   const hiddenOf = (definition: DrawnEmitter) =>
-    muted.has(definition.root) || (soloed.size > 0 && !soloed.has(definition.root));
+    hiddenIn(definition, { muted, soloed, mutedChildren, soloedChildren });
 
   /* The viewport stays mounted while a system reads, fails or draws nothing, so the camera,
      the ground and the renderer carry from one system to the next. */
@@ -340,7 +342,6 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
         {stats && <Stats feed={feed} />}
       </div>
 
-      <VfxHostControls host={host} />
       {transport === "mini" && (
         <RunTransport variant="mini" className="border-t border-surface-700/50" />
       )}

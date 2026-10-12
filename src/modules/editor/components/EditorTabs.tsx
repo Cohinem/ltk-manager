@@ -56,6 +56,9 @@ export interface EditorTab {
   menu?: ReactNode;
 }
 
+/** The rail's `h-9` in px at 100% zoom, which is the height a collapsed panel keeps. */
+export const EDITOR_TABS_HEIGHT = 40.5;
+
 export interface EditorTabsProps {
   /** The leaf this strip belongs to, which scopes its sortable ids across strips. */
   leafId: string;

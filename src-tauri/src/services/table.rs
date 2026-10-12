@@ -180,6 +180,7 @@ services! {
         // Spells and VFX
         read_spell,
         read_vfx_system,
+        vfx_child_targets,
         vfx_templates,
     }
     settings("settings") {

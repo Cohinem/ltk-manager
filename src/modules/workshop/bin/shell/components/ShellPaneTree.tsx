@@ -3,6 +3,7 @@ import { type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { IconButton, Menu, RetainedContent, Tooltip } from "@/components";
+import { useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import {
   type LayoutNode,
@@ -10,11 +11,13 @@ import {
   leafHolding,
   type LeafNode,
   leaves,
+  PANE_STRIP_HEIGHT,
   PaneStrip,
   type PortalHost,
   PortalSlot,
   SplitLayout,
   TabDndProvider,
+  TabRail,
   useIslands,
   usePortalHosts,
 } from "@/modules/editor";
@@ -97,6 +100,7 @@ export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneT
   const maximizedLeafId = useShellMaximizedLeaf(kind);
   const restoreMaximized = useRestoreMaximizedShellLeaf(kind);
   const hostOf = usePortalHosts();
+  const zoomed = useZoomedPx();
   const bodies: Partial<Record<ShellPaneId, ShellPane>> = content;
   /* Tells the editor group's frame that the panes draw their own edges. */
   useIslands();
@@ -129,6 +133,8 @@ export function ShellPaneTree<K extends ShellKind>({ kind, content }: ShellPaneT
           )}
           maximizedLeafId={maximizedLeafId}
           onRestore={restoreMaximized}
+          collapsedSize={zoomed(PANE_STRIP_HEIGHT)}
+          renderCollapsedLeaf={(leaf) => <PaneLeafRail kind={kind} leaf={leaf} />}
         />
         {floating.map((pane) => (
           <FloatingPane
@@ -257,6 +263,25 @@ function PaneLeaf<K extends ShellKind>({
         </div>
       </div>
     </LeafDropZones>
+  );
+}
+
+/** One panel collapsed in a row: its panes as a rail of their glyphs. */
+function PaneLeafRail({ kind, leaf }: { kind: ShellKind; leaf: LeafNode }) {
+  const panes = useShellPanes(kind, leaf.id);
+  const active = useShellActivePane(kind, leaf.id);
+  const activate = useActivateShellPane(kind);
+
+  return (
+    <TabRail
+      tabs={panes.map((pane) => ({
+        id: pane,
+        title: SHELL_PANE_TITLE[pane](),
+        icon: <PaneGlyph pane={pane} />,
+      }))}
+      activeId={active}
+      onActivate={(id) => isShellPaneId(id) && activate(leaf.id, id)}
+    />
   );
 }
 

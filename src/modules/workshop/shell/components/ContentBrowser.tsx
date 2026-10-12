@@ -3,10 +3,12 @@ import { createPortal } from "react-dom";
 import { Group, Panel } from "react-resizable-panels";
 
 import { Spinner } from "@/components";
+import { useZoomedPx } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
 import type { LayerContent, WorkshopProject } from "@/lib/tauri";
 import {
   type DropOutcome,
+  EDITOR_TABS_HEIGHT,
   type LeafNode,
   PortalSlot,
   Seam,
@@ -20,6 +22,7 @@ import {
   useLayerPanelOpen,
   useLayerPanelSide,
   useSetBrowserSplit,
+  useSetLayerPanelOpen,
 } from "@/stores";
 
 import { useAddFilesToLayer, useLayerFileDrop, useProjectContentTree } from "../../api";
@@ -46,7 +49,7 @@ import {
   useSetSplitLayout,
   useSplitWithDocument,
 } from "../../state";
-import { ContentLeaf } from "./ContentLeaf";
+import { ContentLeaf, ContentLeafRail } from "./ContentLeaf";
 import { UnsavedQuitGuard } from "./UnsavedQuitGuard";
 
 interface ContentBrowserProps {
@@ -61,6 +64,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const layerPanelOpen = useLayerPanelOpen();
   const browserSplit = useBrowserSplit();
   const setBrowserSplit = useSetBrowserSplit();
+  const setLayerPanelOpen = useSetLayerPanelOpen();
 
   const documents = useOpenDocuments();
   const openDocument = useOpenDocument();
@@ -73,6 +77,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   const maximizedLeafId = useMaximizedLeafId();
   const restoreMaximized = useRestoreMaximizedLeaf();
   const hostOf = usePortalHosts();
+  const zoomed = useZoomedPx();
 
   const contentLayers = useMemo<readonly LayerContent[]>(() => data?.layers ?? [], [data]);
 
@@ -142,6 +147,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
   );
 
   const renderLeaf = useCallback((leaf: LeafNode) => <ContentLeaf leaf={leaf} />, []);
+  const renderCollapsedLeaf = useCallback((leaf: LeafNode) => <ContentLeafRail leaf={leaf} />, []);
   const renderGhost = useCallback(
     (documentId: string) => <TabDragGhost documentId={documentId} />,
     [],
@@ -155,6 +161,7 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
       defaultSize={224}
       minSize={180}
       maxSize="40%"
+      collapsible
       className="flex h-full min-h-0 w-full min-w-0 flex-col"
     >
       <SidebarPanel
@@ -196,6 +203,9 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
           renderLeaf={renderLeaf}
           maximizedLeafId={maximizedLeafId}
           onRestore={restoreMaximized}
+          /* The 2 is the top and bottom edge of the frame `ContentLeaf` draws around the strip. */
+          collapsedSize={zoomed(EDITOR_TABS_HEIGHT) + 2}
+          renderCollapsedLeaf={renderCollapsedLeaf}
         />
       </TabDndProvider>
     </div>
@@ -236,7 +246,15 @@ export function ContentBrowser({ project }: ContentBrowserProps) {
           orientation="horizontal"
           defaultLayout={browserSplit ?? undefined}
           onLayoutChanged={(split, meta) => {
-            if (meta.isUserInteraction) setBrowserSplit(split);
+            if (!meta.isUserInteraction) return;
+
+            /* A collapsed sidebar hides, and the stored split keeps the width it reopens at. */
+            if (split.sidebar === 0) {
+              setLayerPanelOpen(false);
+              return;
+            }
+
+            setBrowserSplit(split);
           }}
           className="min-h-0 min-w-0 flex-1"
         >

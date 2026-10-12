@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-12 | Collapse a panel to its strip or to a rail of its panes' icons           |
 | 2026-10-09 | Draw a pane's strip as a filled rail, with tabs as tall as the rail      |
 | 2026-10-06 | Fit a Continuous run's timeline to the time its last bar ends            |
 | 2026-10-06 | Author an emitter's stencil mask in a Stencil group                      |
@@ -13,7 +14,6 @@
 | 2026-09-26 | Walk the rows by key, and keep a refused edit's text                     |
 | 2026-09-24 | Pick an emitter's primitive, and sketch what it draws                    |
 | 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects                |
-| 2026-09-21 | Copy a whole object or struct as a declaration                           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1616,7 +1616,9 @@ with no field to hover.
 The picture above is where the panes start, not where they stay. A pane is a tab of the same split
 tree the project editor runs its document panels on, per ADR-0034, so the gestures are the ones a
 reader already knows from the tabs: drag a pane's tab onto another panel's edge to split it, onto
-the panel itself to share that panel's strip, and drag a seam to resize.
+the panel itself to share that panel's strip, and drag a seam to resize. A seam dragged past a
+panel's minimum collapses that panel, to its strip in a column and to a rail of its panes' icons in a row, per
+[Collapsing a panel](PROJECT_EDITOR.md#collapsing-a-panel).
 
 ```
 one reader's arrangement: the strip takes the window,
@@ -2278,8 +2280,8 @@ takes a typed name. A chip whose hash matches nothing in the loaded file has a w
 The joint list offers only joints that have a parent, because a listed joint is the child end of
 its bone. An empty list shows Whole mesh or Every joint, which is what the engine does with it.
 
-**Use host writes the file paths.** With a character host chosen under the viewport, the Surface row
-of a skinned mesh or skeleton surface shows Use host. It writes the host skin's mesh and skeleton
+**Use host writes the file paths.** In a run with a character host, the Surface row of a skinned
+mesh or skeleton surface shows Use host. It writes the host skin's mesh and skeleton
 paths to `meshName` and `skeletonName` as one edit. The button is hidden once the surface names
 those files.
 
@@ -2288,12 +2290,14 @@ field, so the row has a line that says so, and the field is not offered as a def
 
 **The surface uses the host's pose.** The engine skins a mesh surface and measures a skeleton surface
 in the pose of the unit the effect is bound to. The preview uses the pose of the character host,
-matching joints by name. A joint the host lacks keeps its rest pose. The host choice is kept per
-open system for the session and is shared by the viewport and the inspector.
+matching joints by name. A joint the host lacks keeps its rest pose. The host is the skin the
+system was opened from, with that skin's clip and the frame of the event. The viewport has no
+control that chooses one, so a system opened any other way has no host. The host is kept per open
+system for the session and is shared by the viewport and the inspector.
 
 **With no host the preview uses the rest pose.** In game a mesh or skeleton surface adds no point
 when the effect is bound to no unit. The preview differs so that a surface can be authored
-before a host is chosen, and a note in the group says so.
+without a host, and a note in the group says so.
 
 **How each source is sampled.**
 
@@ -2428,6 +2432,88 @@ A simple emitter draws no submenu.
 **The preview shows a written mask as a tint.** The emitter and geometry node previews draw the
 mask of a writing emitter in the wire colour at 35% opacity, under the emitter's own colour. The
 viewport does the same while Stencil masks is ticked in the Show menu.
+
+### Child particles
+
+An emitter's `childParticleSetDefinition` is a section of its own after Forces, and no group
+repeats its row. The section edits the systems that each particle of the emitter spawns. What the
+run does with a set is decision 2.33 of docs/plans/vfx-particle-renderer.md, and bones are 2.35.
+
+```
+v CHILD PARTICLES
+    [0] Sparks_Child             picked   [Bone      ] [open][^][v][x]
+    [1] Smoke_Child                       [Bone      ] [open][^][v][x]
+    [2] 0x9b0300f3      ! unresolved      [Bone      ]       [^][v][x]
+    [+ Add child                                                     ]
+    Spawn on death          [x]
+    Child index             [0          ]
+    Inheritance             Not set
+```
+
+The section is folded on an emitter with no child, and opens to the Add child picker.
+
+**The set has no mode field.** The engine reads two lists that are parallel by index,
+`childrenIdentifiers` and `boneToSpawnAt`, and branches on whether the bone list is empty.
+
+| `boneToSpawnAt` | Each particle spawns                                            |
+| --------------- | --------------------------------------------------------------- |
+| Empty           | One child, the one `childrenProbability` indexes                |
+| Not empty       | Every child, child `i` at bone `i`, and none if it is too short |
+
+**Bone is a child's entry of `boneToSpawnAt`.** Each child row has the field, empty for a child
+with no bone. The first bone written adds an empty bone for every other child, so the list is as
+long as the children. A child with an empty bone in such a set spawns nothing, since the skeleton
+has no joint of that name. Clearing the last bone removes the list. The bone resolves on the
+emitter's own skinned mesh where its primitive has one, and otherwise on the unit the effect is
+bound to.
+
+**A child row names the system and its place in the list.** The name is the last segment of the
+system's path. Open system opens the system in its own tab, and Move up, Move down and Remove
+change `childrenIdentifiers`. A move or a removal takes the child's bone with it, so the two lists
+stay parallel. Each is one edit.
+
+**Add child is a combobox with two sections,** in the shape of
+[a path field](#a-path-field)'s list.
+
+```
+ [+ Add child                                        ]
+ EFFECTS
+   * Sparks_Child    Characters/Ahri/Skins/Skin0/Particles/
+   * Smoke_Child     Characters/Ahri/Skins/Skin0/Particles/
+ NEW EFFECT
+   + Blank
+   + Explosion
+```
+
+- Effects lists every system of the file by its name, with its folder dimmed after it, and
+  after them each system that a `ResourceResolver` of the file maps a key to and the file does
+  not declare. A pick writes the `effect` link.
+- New effect lists Blank and each system template. A pick creates the object and then adds it
+  as a child, which is two undo steps. The object is named after the emitter's system with
+  `_Child` added, and a number where that name is taken.
+
+Typing narrows both sections to the entries that contain each word. A pick adds the child and
+clears the field. The emitter's own system is not listed, because a system that links itself is
+a cycle the run ends as no child. The picker writes no `effectKey`. A child that names its
+system by key reads and edits as any other.
+
+**Child index is `childrenProbability`.** The value is an index into the children,
+`trunc(max(0, value)) % count`, and not a weight. It is read at zero for a birth spawn and at the
+particle's lifetime in seconds for a death spawn. A constant value marks the child row it selects.
+The row stays an ordinary value row, so a curve or a random range is edited in the curve panel.
+The row is dimmed and takes no edit while the set does not read it: a set that writes a bone, or
+one with a single child.
+
+**One line warns of a set with fewer bones than children,** which spawns nothing.
+
+**A child the preview cannot load is marked unresolved.** The row shows the link or the key as
+the file writes it. The run spawns nothing for it, and it keeps its place in the list, since
+Child index reads the list as authored.
+
+**A child is hidden and soloed on its node in the Graph pane.** The two switches are per child
+system and leave the file alone, as an emitter's are. A hidden child hides the children under it.
+A soloed child draws without the emitter that carries it. The child's lanes dim while it is
+hidden. The sets last for the session and are not kept with the run's memory.
 
 ## The curve panel
 
@@ -3240,6 +3326,8 @@ place as well as its fields. Each gesture is one edit, so one undo step.
 | Duplicate, or `Ctrl+D` on one node selected          | A copy of a list item, right after it                     |
 | Remove item or Remove force, or `Delete` on one node | A list or map item leaves its list                        |
 | Reset to default, or `Delete` on one field's node    | The field leaves its holder, which then reads the default |
+| Add child, on a Children node or an emitter node     | A child by link or key, or a new system and its link      |
+| Remove child, or `Delete` on a child system node     | The child's identifier and its bone leave the set         |
 
 **Add field is a plus on a header.** Each group heading of an emitter node lists the group's
 unwritten fields, and the emitter's own header lists those of the groups it writes nothing of,

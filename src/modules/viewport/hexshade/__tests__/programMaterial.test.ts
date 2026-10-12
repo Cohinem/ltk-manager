@@ -20,6 +20,7 @@ import { EngineEnvironment } from "../engineEnvironment";
 import {
   applyPassState,
   blocksAsUniforms,
+  borderProgramTexture,
   createProgramMaterial,
   globalsData,
   sideOf,
@@ -370,6 +371,40 @@ describe("createProgramMaterial with the back buffer copy", () => {
     expect(material.fragmentShader).toContain(
       "textureLod(SAMPLER_BACK_BUFFER_COPY_SharedTexture, vec2(at.x, 1.0 - at.y), lod)",
     );
+  });
+});
+
+describe("borderProgramTexture", () => {
+  function sampling() {
+    const pixel = stageOf(
+      [],
+      "uniform highp sampler2D TEXTURE_TX;\nlayout(location = 0) out vec4 SV_Target;",
+      "    SV_Target = texture(TEXTURE_TX, vec2(1.5, 0.5));",
+    );
+    pixel.sidecar.textures.push({
+      name: "TEXTURE__TX",
+      dimension: "texture2d",
+      samplers: [{ sampler: "TEXTURE__SMP", glslName: "TEXTURE_TX" }],
+    });
+    const vertex = stageOf([], "", "    gl_Position = vec4(0.0);");
+    return createProgramMaterial(programOf(vertex, pixel), new EngineEnvironment("uniform"));
+  }
+
+  it("reads the texture as transparent black outside it, by the bytecode's name", () => {
+    const material = sampling();
+    const before = material.fragmentShader;
+
+    borderProgramTexture(material, "TEXTUREMULT");
+    expect(material.fragmentShader).toBe(before);
+
+    borderProgramTexture(material, "TEXTURE");
+    const { fragmentShader } = material;
+    expect(fragmentShader).toContain("SV_Target = hexshade_bordered_TEXTURE_TX(vec2(1.5, 0.5));");
+    expect(fragmentShader).toContain("vec4 texel = texture(TEXTURE_TX, at);");
+    expect(fragmentShader).toContain("return clamp(at, 0.0, 1.0) == at ? texel : vec4(0.0);");
+
+    borderProgramTexture(material, "TEXTURE");
+    expect(material.fragmentShader).toBe(fragmentShader);
   });
 });
 

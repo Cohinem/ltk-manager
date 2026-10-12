@@ -1,20 +1,36 @@
-import { BackSide, DoubleSide, FrontSide } from "three";
+import {
+  BackSide,
+  ClampToEdgeWrapping,
+  DoubleSide,
+  FrontSide,
+  MirroredRepeatWrapping,
+  RepeatWrapping,
+  Texture,
+} from "three";
 import { describe, expect, it } from "vitest";
 
 import type { UniformBlock } from "@/lib/tauri";
 import { EngineEnvironment } from "@/modules/viewport";
 
-import { DISTORTION_MODE, QUAD_TYPE, SOFT_TARGET, UV_MODE } from "../../../engine/model/enums";
+import {
+  ADDRESS_MODE,
+  DISTORTION_MODE,
+  QUAD_TYPE,
+  SOFT_TARGET,
+  UV_MODE,
+} from "../../../engine/model/enums";
 import type { EmitterModel } from "../../../engine/model/model";
 import { emitterOf, flat } from "../../../engine/simulation/__tests__/emitterFixture";
 import { NO_SAMPLERS } from "../../hooks/useVfxTextures";
 import { quadOrientation } from "../materials";
 import { ATTACHED_DRAW, meshDraw, meshSide, quadDraw } from "../particleDraws";
 import {
+  borderedTextures,
   customParticleMaterial,
   drawsProgram,
   particleParams,
   particleShaderOf,
+  particleTextures,
 } from "../particleProgram";
 import { layersOf } from "../uniforms";
 
@@ -219,6 +235,72 @@ describe("particleParams", () => {
     );
 
     expect(params.get("DistortionPower")?.[0]).toBeCloseTo(0.07);
+  });
+});
+
+describe("particleTextures", () => {
+  it("samples one file at each slot's address mode without changing the cached texture", () => {
+    const cached = new Texture();
+    const erosion = { ...EROSION, map: ASSET, addressMode: ADDRESS_MODE.mirror };
+    const erosive = emitter({ erosion: erosion as EmitterModel["erosion"] });
+
+    const textures = particleTextures(erosive, { ...NO_SAMPLERS, base: cached, erosion: cached });
+
+    expect(cached.wrapS).toBe(ClampToEdgeWrapping);
+    expect(textures?.get("TEXTURE")?.wrapS).toBe(RepeatWrapping);
+    expect(textures?.get("TEXTURE")?.source).toBe(cached.source);
+    expect(textures?.get("sAlphaErosionTexture")?.wrapT).toBe(MirroredRepeatWrapping);
+    expect(particleTextures(erosive, { ...NO_SAMPLERS, base: cached })?.get("TEXTURE")).toBe(
+      textures?.get("TEXTURE"),
+    );
+  });
+
+  it("clamps the colour ramp and samples the normal map at the base layer's mode", () => {
+    const cached = new Texture();
+    const mirrored = emitter({ uv: { ...emitterOf(0).uv, addressMode: ADDRESS_MODE.mirror } });
+
+    const textures = particleTextures(mirrored, {
+      ...NO_SAMPLERS,
+      base: cached,
+      color: cached,
+      normal: cached,
+    });
+
+    expect(textures?.get("PARTICLE_COLOR_TEXTURE")).toBe(cached);
+    expect(textures?.get("NORMAL_MAP")?.wrapS).toBe(MirroredRepeatWrapping);
+  });
+
+  it("names each texture a border address mode samples, the normal map with the base", () => {
+    const border = ADDRESS_MODE.border;
+    const erosion = { ...EROSION, map: ASSET, addressMode: border };
+    const plain = emitterOf(0).uv;
+
+    expect(borderedTextures(emitter({}))).toEqual([]);
+    expect(borderedTextures(emitter({ uv: { ...plain, addressMode: border } }))).toEqual([
+      "TEXTURE",
+      "NORMAL_MAP",
+    ]);
+    expect(
+      borderedTextures(
+        emitter({
+          multUv: { ...plain, addressMode: border },
+          erosion: erosion as EmitterModel["erosion"],
+        }),
+      ),
+    ).toEqual(["TEXTUREMULT", "sAlphaErosionTexture"]);
+  });
+
+  it("disposes a copy with the cached texture it shares an image with", () => {
+    const cached = new Texture();
+    const copy = particleTextures(emitter({}), { ...NO_SAMPLERS, base: cached })?.get("TEXTURE");
+    let disposed = false;
+    copy?.addEventListener("dispose", () => {
+      disposed = true;
+    });
+
+    cached.dispose();
+
+    expect(disposed).toBe(true);
   });
 });
 

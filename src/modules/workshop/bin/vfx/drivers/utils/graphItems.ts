@@ -1,5 +1,6 @@
 import type { AssetRef } from "@/lib/tauri";
 
+import type { AuthoredChild, AuthoredChildSet } from "../../children/childModel";
 import type { DriverDiagnostic } from "../../engine/drivers/diagnostics";
 import type { DriverKind, DriverNode } from "../../engine/drivers/node";
 import type { ValueCurve } from "../../engine/model/model";
@@ -254,8 +255,34 @@ export interface FileItem extends ItemBase {
   readonly kind: FileKind;
 }
 
+/**
+ * The Children node of an emitter: its child set's own fields, and an input per child system.
+ * Its row is the set. "Child systems" in docs/ux/VFX_GRAPH.md.
+ */
+export interface ChildrenItem extends ItemBase {
+  readonly type: "children";
+  /** The hash path of the set's emitter. */
+  readonly emitterPath: string;
+  readonly set: AuthoredChildSet;
+  /** The set's own fields in `CHILD_SET_ROWS` order, written or not. */
+  readonly fields: readonly MasterField[];
+  /** The child system nodes, parallel to `set.children`. */
+  readonly systems: readonly ChildSystemItem[];
+}
+
+/** One child system of a set, listed by its emitters. Its row is its `VfxChildIdentifier`. */
+export interface ChildSystemItem extends ItemBase {
+  readonly type: "system";
+  readonly child: AuthoredChild;
+  readonly set: AuthoredChildSet;
+  /** The hash path of the emitter whose particles carry the child. */
+  readonly emitterPath: string;
+  /** That emitter by its list and place, which the run's child path is read off. */
+  readonly parent: { readonly simple: boolean; readonly listIndex: number };
+}
+
 /** A node that feeds a field of a master or struct node. */
-export type InputItem = StructItem | ValueItem | FileItem | RenderItem;
+export type InputItem = StructItem | ValueItem | FileItem | RenderItem | ChildrenItem;
 
 export type GraphItem =
   | PreviewItem
@@ -266,7 +293,9 @@ export type GraphItem =
   | StructItem
   | ValueItem
   | FileItem
-  | RenderItem;
+  | RenderItem
+  | ChildrenItem
+  | ChildSystemItem;
 
 /** One item and the items that feed its ports, in port order. */
 export interface GraphTree {

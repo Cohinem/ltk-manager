@@ -604,6 +604,13 @@ ahead of them - the file preview a back had just stepped off - and stand its own
 place. Only a move writes: descending, going up, a crumb, a typed path.
 
 Closing a tab drops its directories with it, because they were only ever stops in that tab.
+Where the drop leaves two stops of one tab adjacent, the second goes too, so no arrow press
+lands on the tab it started on.
+
+A tab whose document id changes keeps its stops under the new id. A layer rename and a sandbox
+switch both change the id and leave the tab in place.
+
+An arrow steps over a stop whose tab is gone and lands on the next stop behind it.
 
 A walk that lands in another project routes to it, so the store returns the stop it reached
 rather than leaving a caller to re-read an index the next walk can race.

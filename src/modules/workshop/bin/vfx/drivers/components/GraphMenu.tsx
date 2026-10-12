@@ -105,6 +105,7 @@ const FOLDING: ReadonlySet<GraphItem["type"]> = new Set([
   "component",
   "master",
   "struct",
+  "children",
 ]);
 
 function ItemActions({ item, onFrame }: { item: GraphItem; onFrame: (id: string) => void }) {
@@ -112,7 +113,10 @@ function ItemActions({ item, onFrame }: { item: GraphItem; onFrame: (id: string)
   const copy = useCopyToClipboard();
 
   const reveal = item.wire === "" ? null : (actions?.reveal ?? null);
-  const folds = item.type === "master" || (FOLDING.has(item.type) && item.ports.length > 0);
+  const folds =
+    item.type === "master" ||
+    item.type === "system" ||
+    (FOLDING.has(item.type) && item.ports.length > 0);
   const collapsed = actions?.collapsed.has(item.id) ?? false;
   const toggleLabel = collapsed
     ? m.workshop_bin_graph_expand_action()
@@ -178,6 +182,7 @@ function StructureItems({ item }: { item: GraphItem }) {
   const resets = nodeRemoval(item)?.type === "property";
   let removeLabel = m.workshop_bin_remove_item_action();
   if (isForce(item)) removeLabel = m.workshop_bin_force_remove_action();
+  if (item.type === "system") removeLabel = m.workshop_bin_child_remove_action();
   if (resets) removeLabel = m.workshop_bin_reset_default_action();
   const removeIcon = resets ? <ArrowCounterClockwiseIcon /> : <TrashIcon />;
 

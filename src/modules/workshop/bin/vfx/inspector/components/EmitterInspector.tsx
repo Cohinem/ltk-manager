@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { AlertBox, Button, Code, OVERLINE, SearchField } from "@/components";
+import { useReducedMotion } from "@/hooks";
 import { m, Marked } from "@/i18n";
 import type { BinRow, FieldSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -27,6 +28,9 @@ import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import { RowDocumentContext, type RowFold, RowFoldContext } from "../../../tree/state/rowFold";
 import { fieldHash, rowKey } from "../../../tree/utils/binRows";
 import { ValueMarksContext } from "../../../values/hooks/useValueMarks";
+import { CHILD_SET } from "../../children/childModel";
+import { childrenMatch, ChildrenSection } from "../../children/ChildrenSection";
+import { useChildren } from "../../children/useChildren";
 import { EmitterPreviewBox } from "../../drivers/components/EmitterPreviewBox";
 import { FORCE_COLLECTION } from "../../forces/forceModel";
 import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
@@ -55,6 +59,7 @@ import { emitterLabel, filterEmitterGroups } from "../utils/emitterLabels";
 import {
   type ChildChoice,
   type EmitterCardData,
+  type RowReveal,
   SECTION_FOLDED,
   SECTION_SHOWN,
 } from "../utils/emitterTypes";
@@ -113,12 +118,13 @@ interface EmitterFieldsProps {
  * panel inside it draws no surface of its own.
  */
 export function EmitterFields({ className, actions }: EmitterFieldsProps) {
-  const { card, child, open, target, jumpRequest, openRows, toggleRow } = useEmitters();
+  const { card, child, open, target, jumpRequest, openRows, toggleRow, revealed } = useEmitters();
   const owner = cardClass(card);
   const { data } = useClassSchema(owner);
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const forces = useForces();
+  const children = useChildren();
   const definedOnly = useDefinedOnly();
   const changedOnly = useChangedOnlyView();
   const preview = useInspectorPreview();
@@ -128,10 +134,11 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
 
   const groups = useMemo(() => {
     const source = target === "system" ? NO_GROUPED : (card?.groups ?? NO_GROUPED);
+    /* The Forces and Child particles sections draw these two, so no group repeats them. */
     const held = forces.visible
       ? source.map((group) => ({
           ...group,
-          rows: group.rows.filter((row) => fieldHash(row.path) !== FORCE_COLLECTION),
+          rows: group.rows.filter((row) => !OWN_SECTION.has(fieldHash(row.path))),
         }))
       : source;
     if (changedOnly !== null) {
@@ -147,6 +154,7 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     const authored = new Set(held.flatMap((each) => each.rows).map((row) => fieldHash(row.path)));
     if (forces.visible) {
       authored.add(FORCE_COLLECTION);
+      authored.add(CHILD_SET);
     }
 
     return inspectorGroups(held, unauthoredFields(data.fields, authored));
@@ -156,7 +164,8 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
   const holder = addable && target !== "system" ? card?.row : undefined;
   const hasMatches =
     filtered.some((group) => group.rows.length > 0 || group.defaults.length > 0) ||
-    (forces.visible && forces.forces.some((force) => forceMatches(force, search)));
+    (forces.visible && forces.forces.some((force) => forceMatches(force, search))) ||
+    (children.visible && children.set !== null && childrenMatch(children.set, search));
   /* Held by the path under the emitter, so a shape opened on one emitter is open on the next. */
   const fold = useMemo<RowFold | null>(() => {
     if (card === undefined) return null;
@@ -177,6 +186,9 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     if (aimed === null || cardKey === undefined) return;
     roots.current.get(aimed)?.scrollIntoView?.({ block: "start" });
   }, [aimed, cardKey, jumpRequest]);
+  useRowReveal(scroller, revealed, () =>
+    aimed === null ? null : roots.current.get(aimed)?.firstElementChild,
+  );
 
   return (
     <div data-ui="EmitterPanel" className={twMerge("flex min-h-0 flex-col", className)}>
@@ -240,6 +252,7 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
                   />
                 ))}
                 <ForcesSection search={search} />
+                <ChildrenSection search={search} />
                 {search.trim() !== "" && !hasMatches && (
                   <p role="status" className="px-2 py-4 text-meta text-surface-400">
                     {m.workshop_bin_inspector_matches_empty()}
@@ -273,6 +286,68 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
   );
 }
 
+/** How long after an ask a row that appears is still scrolled to, in milliseconds. */
+const REVEAL_WINDOW = 1500;
+
+/** How long a revealed row keeps its accent wash, in milliseconds. */
+const REVEAL_FLASH = 1500;
+
+/**
+ * Scroll `scroller` to the first row of `revealed` that it draws, by the `data-row-key` or
+ * `data-reveal-key` of the row, and flash it. A reveal of no row flashes `groupHeader`.
+ *
+ * The rows of an emitter that was just opened land after their read, so the search runs on
+ * each render until a row is found or `REVEAL_WINDOW` has passed.
+ */
+function useRowReveal(
+  scroller: RefObject<HTMLElement | null>,
+  revealed: RowReveal | null,
+  groupHeader: () => Element | null | undefined,
+) {
+  const answered = useRef(0);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    const root = scroller.current;
+    if (revealed === null || root === null || revealed.request === answered.current) return;
+    if (performance.now() - revealed.at > REVEAL_WINDOW) return;
+
+    const grouped = revealed.keys.length === 0;
+    const row = grouped ? groupHeader() : revealedRow(root, revealed.keys);
+    if (row === null || row === undefined) return;
+
+    answered.current = revealed.request;
+    /* A group is already at the top of the scroller, by the aim. */
+    if (!grouped) row.scrollIntoView?.({ block: "center" });
+    flash(row, reducedMotion);
+  });
+}
+
+function revealedRow(root: HTMLElement, keys: readonly string[]): Element | null {
+  for (const key of keys) {
+    const escaped = CSS.escape(key);
+    const row = root.querySelector(`[data-row-key="${escaped}"], [data-reveal-key="${escaped}"]`);
+    if (row !== null) return row;
+  }
+
+  return null;
+}
+
+/** Wash `target` in the accent, then fade the wash out. With `still`, the wash ends unfaded. */
+function flash(target: Element, still: boolean) {
+  /* DS-TOKEN */
+  const accent = getComputedStyle(target).getPropertyValue("--accent-500");
+  const wash = `color-mix(in srgb, ${accent} 30%, transparent)`;
+
+  target.animate?.(
+    [
+      { backgroundColor: wash, offset: 0 },
+      { backgroundColor: wash, offset: 0.4 },
+    ],
+    { duration: REVEAL_FLASH, easing: still ? "steps(1, end)" : "linear" },
+  );
+}
+
 /**
  * The row over the groups, which a host carrying the actions on a strip of its own draws none of.
  *
@@ -289,6 +364,7 @@ function PanelHeader({ actions }: { actions?: ReactNode }) {
   );
 }
 
+const OWN_SECTION: ReadonlySet<string> = new Set([FORCE_COLLECTION, CHILD_SET]);
 const NO_DEFAULTS: readonly DefaultField[] = [];
 const NO_GROUPED: readonly GroupedRows[] = [];
 
