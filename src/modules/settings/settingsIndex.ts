@@ -131,11 +131,6 @@ const INDEX = [
   },
   { id: "patching.blockScriptsWad", key: "blockScriptsWad", title: "Block Scripts.wad.client" },
   {
-    id: "patching.linkedBinCheckEnabled",
-    key: "linkedBinCheckEnabled",
-    title: "Warn about missing dependencies",
-  },
-  {
     id: "patching.enforceSkinhackScan",
     key: "enforceSkinhackScan",
     title: "Enforce anti-skinhack scan",

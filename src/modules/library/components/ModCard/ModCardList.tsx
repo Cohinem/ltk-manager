@@ -6,7 +6,6 @@ import { SuspectBadge } from "@/modules/diagnostics";
 import { twMerge } from "@/utils";
 
 import { LayerPopover } from "../LayerPopover";
-import { MissingDepsBadge } from "../MissingDepsBadge";
 import { ModHealthBadge } from "../ModHealthBadge";
 import {
   ModCardContextMenu,
@@ -115,9 +114,6 @@ export function ModCardList({ view }: { view: ModCardView }) {
           </p>
           <ModPills mod={mod} max={3} />
           {isMultiLayer && <LayerPopover mod={mod} disabled={view.disabled} />}
-          <span data-no-toggle onClick={(e) => e.stopPropagation()}>
-            <MissingDepsBadge modId={mod.id} enabled={mod.enabled} />
-          </span>
         </div>
       </div>
 

@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-12 | A missing linked object is a rule, in place of the badge     |
 | 2026-10-06 | A page's own actions follow the items in the status bar      |
 | 2026-09-12 | An unbidden panel is told from one the reader opened         |
 | 2026-09-07 | The panel names a selection, and select mode is retired      |
@@ -13,8 +14,6 @@
 | 2026-09-02 | A pick no longer withholds the panel from a press            |
 | 2026-09-02 | The library is checked by hand, over all of it or a pick     |
 | 2026-09-02 | The announcement is spent on the findings, not on the launch |
-| 2026-09-02 | Severity decides the hue, and the verdict decides the words  |
-| 2026-09-01 | A rule's own severity comes from the build, not the store    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -59,7 +58,8 @@ This table holds every major feature of Mod health. A status word has one meanin
 | The launch ask        | Available | Play confirms under itself when a broken mod is enabled                                |
 | Verdict pruning       | Available | A sweep forgets the verdicts of mods the library dropped                               |
 | The full findings     | Planned   | Behind a disclosure, for the user who wants the detail                                 |
-| One health surface    | Proposed  | The skinhack and missing-deps warnings join the badge                                  |
+| Missing linked object | Available | `bin/object-link` replaces the missing-dependency badge, toast and dialog              |
+| One health surface    | Proposed  | The skinhack warning joins the badge                                                   |
 
 ## The verdict
 
@@ -118,10 +118,12 @@ rule changes, so a remembered severity would stand until Riot shipped a patch.
 | Severity           | The running build, where the rule declares one |
 | Counts, type pairs | The run that found them                        |
 
-One rule declares none. `bin/property-type` costs a mod a crash on an install that has taken the
+Two rules declare none. `bin/property-type` costs a mod a crash on an install that has taken the
 change and a warning on one that has not, so what a finding costs is a question about the machine
-and only the run that read it can answer. The severity a brief keeps is there for that rule, and
-for a rule this build no longer ships, which has nobody left to answer for it.
+and only the run that read it can answer. `bin/object-link` reports a link in a resource map at
+`Info` and every other link at `Warning`, so the severity depends on the property that contains
+the link. The severity a brief keeps is there for those rules, and for a rule this build no
+longer ships, which has nobody left to answer for it.
 
 ### The basis
 
@@ -301,8 +303,7 @@ row.
 
 ## The badge
 
-The badge sits on the mod card beside the missing-dependency badge, and it
-draws only when something is wrong. A healthy mod shows nothing, and so does a mod never
+The badge sits on the mod card, and it draws only when something is wrong. A healthy mod shows nothing, and so does a mod never
 checked - a badge on every card would bury the few that matter.
 
 It is one mod's [rung](#how-loud-a-finding-is-drawn), drawn as a pill.

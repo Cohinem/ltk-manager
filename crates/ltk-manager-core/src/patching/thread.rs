@@ -165,17 +165,12 @@ impl PatcherThread {
 
     fn run(self) {
         let mut force_rebuild = self.force_rebuild;
-        let mut first_build = true;
 
         loop {
-            let Some((overlay_prefix, offender_count)) = self.build_overlay(force_rebuild) else {
+            let Some(overlay_prefix) = self.build_overlay(force_rebuild) else {
                 return;
             };
-            if first_build {
-                self.check_linked_bins(offender_count);
-            }
             force_rebuild = false;
-            first_build = false;
 
             if self.run_session(overlay_prefix) == SessionEnd::Stopped {
                 break;
@@ -187,10 +182,9 @@ impl PatcherThread {
         tracing::info!("Patcher thread exiting");
     }
 
-    /// Build the overlay and return its prefix path with the count of mods
-    /// missing linked bins, or `None` on failure or an early stop (state
-    /// already reset).
-    fn build_overlay(&self, force_rebuild: bool) -> Option<(String, usize)> {
+    /// Build the overlay and return its prefix path, or `None` on failure or
+    /// an early stop (state already reset).
+    fn build_overlay(&self, force_rebuild: bool) -> Option<String> {
         self.refresh.clear();
 
         let stop_flag = Arc::clone(&self.stop_flag);
@@ -225,7 +219,6 @@ impl PatcherThread {
         } = build;
         // Refreshes the library badges. Advisory, so it happens even if we are
         // about to bail on a stop request - the data is already correct.
-        let offender_count = outcome.linked_bin_offenders.len();
         self.library.record_overlay_build(outcome);
 
         if self.stop_flag.load(Ordering::SeqCst) {
@@ -235,21 +228,9 @@ impl PatcherThread {
         }
 
         tracing::info!("Using overlay root: {}", overlay_root.display());
-        Some((
-            session::normalize_overlay_prefix(&overlay_root.display().to_string()),
-            offender_count,
+        Some(session::normalize_overlay_prefix(
+            &overlay_root.display().to_string(),
         ))
-    }
-
-    fn check_linked_bins(&self, offender_count: usize) {
-        // TODO: move the linked-bin check into the workshop - we can check
-        // for the missing linked bins when a given mod project is opened by
-        // iterating over all linked bins in the mod, overlaying their paths,
-        // and checking if they exist. This would allow us to show the user
-        // the missing linked bins before they even start the patcher.
-        if self.config.linked_bin_check_enabled && offender_count > 0 {
-            self.events.linked_bin_warning(offender_count as u32);
-        }
     }
 
     /// Run one injection session via the core orchestration, blocking until the

@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-10-12 | Mod safety drops `Warn about missing dependencies`                      |
 | 2026-10-02 | Integrations adds Mod files, which opens `.fantome` and `.modpkg` files |
 | 2026-09-14 | Integrations adds managed tool installations and classic Explorer menus |
 | 2026-09-06 | The gear returns to the title bar. A menu cannot mark a page current    |
@@ -13,7 +14,6 @@
 | 2026-09-03 | Two id spaces: a domain setting id, and a UI path naming a place        |
 | 2026-08-25 | Phase 4c shipped. The routed deep link, and the link in the gear's menu |
 | 2026-08-25 | Phase 4b shipped. The index, the public id, the palette and the copy    |
-| 2026-08-25 | Phase 4a shipped. The gutter gear, the modified bar and three resets    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -176,8 +176,7 @@ label sits over a block either way.
   | MOD SAFETY                              (r) |  <- resets the group, once two rows differ
   | Block Scripts.wad.client  (r)           ( ) |
   |  ! Modding allows running Lua scripts.      |  <- an alert belongs to the row that raised it
-  | Warn about missing dependencies  (r)    ( ) |
-  | Enforce anti-skinhack scan              (O) |
+  | Enforce anti-skinhack scan  (r)         ( ) |
   | ------------------------------------------- |
   | INCIDENTS                                   |
   | Allow reading game logs                 (O) |
@@ -853,12 +852,12 @@ and the two-column `SettingsGrid` leaves the tab, because both remaining cards a
 
 Card `Patching`:
 
-| Group         | Rows                                                                                  |
-| ------------- | ------------------------------------------------------------------------------------- |
-| Injector      | Patch TFT files, Run injector elevated, Verbose patcher logging                       |
-| Mod safety    | Block Scripts.wad.client, Warn about missing dependencies, Enforce anti-skinhack scan |
-| Game archives | Scan every WAD up front, Disable crash reporting                                      |
-| Incidents     | Allow reading game logs, Keep incidents                                               |
+| Group         | Rows                                                            |
+| ------------- | --------------------------------------------------------------- |
+| Injector      | Patch TFT files, Run injector elevated, Verbose patcher logging |
+| Mod safety    | Block Scripts.wad.client, Enforce anti-skinhack scan            |
+| Game archives | Scan every WAD up front, Disable crash reporting                |
+| Incidents     | Allow reading game logs, Keep incidents                         |
 
 `Game archives` is a real facet and not a leftover. The two rows are coupled - archives are
 verified on demand only while Riot's crash reporting is off - and the group is where that coupling

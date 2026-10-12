@@ -384,8 +384,6 @@ macro_rules! declare_events {
 declare_events! {
     /// An overlay build advanced. Emitted per file, so sinks must be cheap.
     OverlayProgress(OverlayProgress) => "overlay-progress",
-    /// The set of mods with unresolved linked-bin dependencies changed.
-    LinkedBinsUpdated => "linked-bins-updated",
     /// The set of chunks whose containers claimed wrong checksums changed.
     ChecksumMismatchesUpdated => "checksum-mismatches-updated",
     /// Per-mod WAD analysis results changed.

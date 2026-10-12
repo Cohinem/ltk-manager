@@ -16,7 +16,6 @@ vi.mock("@/modules/diagnostics", () => ({
 vi.mock("../../ModHealthBadge", () => ({
   ModHealthBadge: () => <button type="button">health</button>,
 }));
-vi.mock("../../MissingDepsBadge", () => ({ MissingDepsBadge: () => null }));
 vi.mock("../../LayerPopover", () => ({ LayerPopover: () => null }));
 vi.mock("../ModCardParts", () => ({
   ModCardContextMenu: ({ card, children }: { card: ReactElement; children: ReactNode }) =>

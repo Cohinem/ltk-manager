@@ -2,10 +2,7 @@
 //! found wrong with the mods it read.
 
 use crate::error::{AppError, AppResult, IpcResult};
-use crate::mods::{
-    ChecksumMismatchInfo, ChecksumMismatchState, LinkedBinOffenderInfo, LinkedBinState,
-    ModLibraryState,
-};
+use crate::mods::{ChecksumMismatchInfo, ChecksumMismatchState, ModLibraryState};
 use crate::patcher::host::HOOK_DLL_NAME;
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::TauriPatcherEvents;
@@ -353,52 +350,10 @@ fn get_patcher_status_inner(state: &State<PatcherState>) -> PatcherStatus {
     })
 }
 
-/// Linked-bin offenders found in the most recent overlay build, keyed by mod id.
-///
-/// These are recorded as a byproduct of `start_patcher`'s single overlay build (and
-/// any hot-reload), so this is a cheap read with no IO - it never builds the overlay
-/// itself. Display names are resolved from the library index; mods absent from the
-/// latest build (e.g. since-disabled) simply don't appear. Missing linked bins are
-/// non-fatal at injection, so this is advisory: the frontend surfaces it as per-mod
-/// badges and a reachable warning dialog.
-#[tauri::command]
-#[specta::specta]
-pub fn get_linked_bin_offenders(
-    linked_bins: State<Arc<LinkedBinState>>,
-    library: State<ModLibraryState>,
-    settings: State<SettingsState>,
-) -> IpcResult<HashMap<String, LinkedBinOffenderInfo>> {
-    let result: AppResult<HashMap<String, LinkedBinOffenderInfo>> = (|| {
-        let offenders = linked_bins.get_all();
-        if offenders.is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        let config_snapshot = settings.config();
-        let display_names: HashMap<String, String> = library
-            .0
-            .get_installed_mods(&config_snapshot)?
-            .into_iter()
-            .map(|m| (m.id, m.display_name))
-            .collect();
-
-        Ok(offenders
-            .into_iter()
-            .map(|mut offender| {
-                if let Some(name) = display_names.get(&offender.mod_id) {
-                    offender.display_name = name.clone();
-                }
-                (offender.mod_id.clone(), offender)
-            })
-            .collect())
-    })();
-    result.into()
-}
-
 /// Checksum mismatches found in the most recent overlay build, keyed by mod id.
 ///
-/// Recorded as a byproduct of the same build that records linked-bin offenders,
-/// so this is a cheap read with no IO. A mismatch marks a badly-packed mod: its
+/// Recorded as a byproduct of `start_patcher`'s overlay build and of any
+/// hot-reload, so this is a cheap read with no IO. A mismatch marks a badly-packed mod: its
 /// container claimed a checksum its own bytes do not have. Never fatal - the
 /// overlay carries the recomputed value, so this is advisory, surfaced per-mod
 /// in mod details.

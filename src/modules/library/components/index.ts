@@ -26,8 +26,6 @@ export * from "./LibraryDialogs";
 export * from "./LibraryMigrationDialog";
 export * from "./LibraryStates";
 export * from "./LibraryToolbar";
-export * from "./LinkedBinWarningDialog";
-export * from "./MissingDepsBadge";
 export * from "./ModCard";
 export * from "./ModHealthBadge";
 export * from "./ModHealthCheckAction";

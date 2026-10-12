@@ -3,7 +3,7 @@
 //!
 //! [`ModLibrary`] is the entry point. It holds no mod data, which lives in
 //! `library.json` on disk. It holds the shared handles (event sink, WAD report
-//! cache, linked-bin state) and serializes access to that file. The modules:
+//! cache, checksum mismatches) and serializes access to that file. The modules:
 //!
 //! | Module             | Concern                                           |
 //! | ------------------ | ------------------------------------------------- |
@@ -37,7 +37,6 @@ pub(crate) mod test_support;
 
 pub use analysis::categorize::{ChampionRoster, DerivedCategorization, champion_display_name};
 pub use analysis::checksum_mismatches::{ChecksumMismatchInfo, ChecksumMismatchState};
-pub use analysis::linked_bins::{LinkedBinOffenderInfo, LinkedBinState};
 pub use analysis::wad_reports::{ModWadReport, WadReportState};
 pub use archive::documents::ModDocument;
 pub use archive::export::{ExportScope, ExportShape, ExportSummary, with_zip_extension};
@@ -101,14 +100,11 @@ pub struct ModLibrary {
     /// crate's version, which does not move when the app ships a release.
     /// [`overlay`](crate::overlay) keys its once-per-release cache flush on it.
     app_version: String,
-    /// Offenders from the latest overlay build. Owned directly rather than
-    /// fetched via `try_state`, which removes both the startup ordering
+    /// Checksum mismatches from the latest overlay build. Owned directly rather
+    /// than fetched via `try_state`, which removes both the startup ordering
     /// constraint and the silent no-op when the state wasn't registered.
-    linked_bins: Arc<LinkedBinState>,
-    /// Checksum mismatches from the latest overlay build. Owned for the same
-    /// reason as `linked_bins`.
     checksum_mismatches: Arc<ChecksumMismatchState>,
-    /// Per-mod WAD analysis cache. Owned for the same reason as `linked_bins`.
+    /// Per-mod WAD analysis cache. Owned for the same reason as `checksum_mismatches`.
     wad_reports: Arc<WadReportState>,
     /// Names for the chunks of a packed WAD, so an imported fantome lands under
     /// real paths instead of hex. Best-effort: with no tables it names nothing.
@@ -155,7 +151,6 @@ impl Clone for ModLibrary {
             events: Arc::clone(&self.events),
             default_storage_dir: self.default_storage_dir.clone(),
             app_version: self.app_version.clone(),
-            linked_bins: Arc::clone(&self.linked_bins),
             checksum_mismatches: Arc::clone(&self.checksum_mismatches),
             wad_reports: Arc::clone(&self.wad_reports),
             wad_resolver: Arc::clone(&self.wad_resolver),
@@ -177,7 +172,6 @@ impl ModLibrary {
         events: Arc<dyn EventSink>,
         default_storage_dir: Option<PathBuf>,
         app_version: impl Into<String>,
-        linked_bins: Arc<LinkedBinState>,
         checksum_mismatches: Arc<ChecksumMismatchState>,
         wad_reports: Arc<WadReportState>,
         wad_resolver: Arc<WadPathResolverState>,
@@ -186,7 +180,6 @@ impl ModLibrary {
             events,
             default_storage_dir,
             app_version: app_version.into(),
-            linked_bins,
             checksum_mismatches,
             wad_reports,
             wad_resolver,
@@ -282,11 +275,6 @@ impl ModLibrary {
     /// Version of the host application, as supplied to [`ModLibrary::new`].
     pub fn app_version(&self) -> &str {
         &self.app_version
-    }
-
-    /// Offenders recorded by the most recent overlay build.
-    pub(crate) fn linked_bins(&self) -> &Arc<LinkedBinState> {
-        &self.linked_bins
     }
 
     pub(crate) fn checksum_mismatches(&self) -> &Arc<ChecksumMismatchState> {

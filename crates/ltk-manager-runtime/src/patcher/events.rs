@@ -22,11 +22,6 @@ pub trait PatcherEvents: Send + Sync {
     /// mods were applied and the session auto-stops.
     fn wad_scan_failed(&self, failures: Vec<WadScanFailure>);
 
-    /// The overlay build found `count` enabled mods with unresolved linked
-    /// dependencies. Advisory only: missing linked bins are non-fatal at
-    /// injection, so the session carries on.
-    fn linked_bin_warning(&self, count: u32);
-
     /// The DLL attached to a game. `pid` is the game's when a `dll` line named
     /// it, which says nothing yet about whether the overlay went live.
     fn game_attached(&self, pid: Option<u64>);

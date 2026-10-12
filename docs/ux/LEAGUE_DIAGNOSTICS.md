@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                |
 | ---------- | --------------------------------------------------------------------- |
+| 2026-10-12 | Missing dependency warning removed. Mod health reports missing links  |
 | 2026-09-25 | Shader compilation failure, from the log's uncoded shader records     |
 | 2026-09-07 | Forward slashes on every path the mismatch dialog and verdict write   |
 | 2026-09-07 | Suspect badge as an icon button, stacked beside the health badge      |
@@ -13,7 +14,6 @@
 | 2026-09-06 | Name the archive and the problem on the wad mount verdict             |
 | 2026-09-06 | A short redirected game with no log is an incident, not a clean game  |
 | 2026-09-06 | Hints cross IPC as codes, and the catalog owns every sentence         |
-| 2026-09-06 | Keep an error's continuation lines on the sighting and in the excerpt |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -48,7 +48,6 @@ This table holds every major feature of League diagnostics. A status word has on
 | ---------------------------- | ----------- | ------------------------------------------------------------ |
 | System checks                | Available   | Sixteen checks in six categories, on the Diagnostics page    |
 | Rejected archive dialog      | Available   | Classifies the scan status and names the mods                |
-| Missing dependency warning   | Available   | The badge, the toast with its Review action, and the dialog  |
 | Start failure toast          | Available   | One toast for every `patcher-error`. Library page only       |
 | Session ending               | In progress | The client's reason and exit code, on `ritoclient-launcher`  |
 | Stop the patcher on game end | In progress | The same branch. Off by default                              |
@@ -124,8 +123,6 @@ names them so the rest of the document can say what changes.
 | ------------------------- | ---------------------------------------- | -------------------------------------------------------- |
 | The Diagnostics page      | `/diagnostics`, an icon in the title bar | Sixteen system checks, a Copy report, a Re-run           |
 | `WadScanFailedDialog`     | Global, on `patcher-wad-scan-failed`     | Which archive the scan rejected, and which mods write it |
-| `LinkedBinWarningDialog`  | Global, behind the toast's Review action | Which mods reference a file the game no longer ships     |
-| `MissingDepsBadge`        | The mod card                             | A count of missing dependencies                          |
 | The `Patcher Error` toast | The Library page, on `patcher-error`     | The backend's message, for seven seconds                 |
 | The session bar           | Global, at the bottom of the window      | The build, the start, the launch, and `In game`          |
 | The ending toast          | The `ritoclient-launcher` branch         | `League closed unexpectedly`, with the client's reason   |
@@ -866,11 +863,11 @@ because the overlay merged them and the log cannot tell them apart.
 question here: the mimir `Game` table maps the hash to a path when CommunityDragon knows
 one, in one binary search and no string data.
 
-| The table says                           | The path is                            | Suspects                                          |
-| ---------------------------------------- | -------------------------------------- | ------------------------------------------------- |
-| A path, and the install ships it         | A game file a mod's archive lost       | The mods that write that archive                  |
-| A path, and the install does not ship it | A file an old patch had                | The mods referencing it, per the dependency check |
-| Nothing                                  | A path a mod invented and did not ship | The mods whose archives were redirected           |
+| The table says                           | The path is                            | Suspects                                |
+| ---------------------------------------- | -------------------------------------- | --------------------------------------- |
+| A path, and the install ships it         | A game file a mod's archive lost       | The mods that write that archive        |
+| A path, and the install does not ship it | A file an old patch had                | The mods whose archives were redirected |
+| Nothing                                  | A path a mod invented and did not ship | The mods whose archives were redirected |
 
 The last row is the common one, and it is the one the manager answers worst today. A mod's
 `.bin` references a texture the mod forgot to ship, and nothing names the texture. The DLL's
@@ -1056,8 +1053,7 @@ The line replaces the idle resting line and nothing else. A build or a start tha
 takes the bar back, because the bar's job is the present, and the incident waits on the
 Games tab. The next game's `injected` dismisses the line on its own.
 
-The toast gains a `Details` action, which is the shape `useSurfaceLinkedBinWarning` already
-uses for `Review`, and passes `notify: true` so the notification center keeps it. Today no
+The toast gains a `Details` action, and passes `notify: true` so the notification center keeps it. Today no
 patcher or launch toast passes it, and a seven-second toast is the only record of a failure.
 
 Whenever the verdict's hints include `rebuild-overlay`, the toast and the line offer
@@ -1091,8 +1087,8 @@ aside. The registry writes forward slashes, and a setting holds what the picker 
 Every path the dialog and the wrong-install verdict write is spelled with forward slashes,
 whichever its source held, so one install never reads two ways on one surface.
 
-The frontend raises one dialog through the dialog queue (ADR-0022), between the WAD scan
-failure and the linked-bin warning. It names the install the game runs from and the install
+The frontend raises one dialog through the dialog queue (ADR-0022), after the WAD scan
+failure. It names the install the game runs from and the install
 the manager is set up for, each as its path, and says that mods built from one crash the
 other. `Keep <configured>` dismisses it for the patcher session, and it does not return until
 the next start. `Switch to this install` saves the League path to the session's install
