@@ -13,6 +13,7 @@ import type { ParticleDefine, ParticleShader, PassParam, PassProgram } from "@/l
 import {
   blackCube,
   blackTexel,
+  borderProgramTexture,
   createProgramMaterial,
   type EngineEnvironment,
   type ReadyProgram,
@@ -160,23 +161,40 @@ export function particleTextures(
   if (samplers.base === null) return null;
   if (emitter.palette !== null && samplers.palette === null) return null;
 
-  const base = emitter.uv.addressMode;
+  const modes = addressModes(emitter);
   const erosion =
     emitter.erosion === null || emitter.erosion.map === null
       ? whiteTexel()
-      : (addressed(samplers.erosion, emitter.erosion.addressMode) ?? blackTexel());
-  const textures: Record<string, Texture> = {
-    TEXTURE: addressed(samplers.base, base),
-    TEXTUREMULT:
-      addressed(samplers.mult, emitter.multUv?.addressMode ?? ADDRESS_MODE.wrap) ?? whiteTexel(),
-    PARTICLE_COLOR_TEXTURE: addressed(samplers.color, ADDRESS_MODE.clamp) ?? whiteTexel(),
-    sPalettesTexture:
-      addressed(samplers.palette, emitter.palette?.addressMode ?? ADDRESS_MODE.mirror) ??
-      whiteTexel(),
+      : (addressed(samplers.erosion, modes.sAlphaErosionTexture) ?? blackTexel());
+  const textures: Record<keyof typeof modes, Texture> = {
+    TEXTURE: addressed(samplers.base, modes.TEXTURE),
+    TEXTUREMULT: addressed(samplers.mult, modes.TEXTUREMULT) ?? whiteTexel(),
+    PARTICLE_COLOR_TEXTURE: addressed(samplers.color, modes.PARTICLE_COLOR_TEXTURE) ?? whiteTexel(),
+    sPalettesTexture: addressed(samplers.palette, modes.sPalettesTexture) ?? whiteTexel(),
     sAlphaErosionTexture: erosion,
-    NORMAL_MAP: addressed(samplers.normal, base) ?? blackTexel(),
+    NORMAL_MAP: addressed(samplers.normal, modes.NORMAL_MAP) ?? blackTexel(),
   };
   return new Map(Object.entries(textures));
+}
+
+/** The address mode each engine texture of `emitter` samples at, by the bytecode's name. */
+function addressModes(emitter: EmitterModel) {
+  const base = emitter.uv.addressMode;
+  return {
+    TEXTURE: base,
+    TEXTUREMULT: emitter.multUv?.addressMode ?? ADDRESS_MODE.wrap,
+    PARTICLE_COLOR_TEXTURE: ADDRESS_MODE.clamp,
+    sPalettesTexture: emitter.palette?.addressMode ?? ADDRESS_MODE.mirror,
+    sAlphaErosionTexture: emitter.erosion?.addressMode ?? ADDRESS_MODE.clamp,
+    NORMAL_MAP: base,
+  } satisfies Record<string, AddressMode>;
+}
+
+/** The engine textures `emitter` samples under a border address mode, by the bytecode's name. */
+export function borderedTextures(emitter: EmitterModel): string[] {
+  return Object.entries(addressModes(emitter))
+    .filter(([, mode]) => mode === ADDRESS_MODE.border)
+    .map(([name]) => name);
 }
 
 /** The copies of a cached texture, one per wrap other than the texture's own. */
@@ -188,8 +206,11 @@ const ADDRESSED = new WeakMap<Texture, Map<Wrapping, Texture>>();
  *
  * The texture cache shares one texture across every emitter and slot naming its file, so a
  * mode other than the texture's own samples a copy that shares its image. The copy is
- * disposed when the cached texture is disposed. Only the address changes, since a filter asking for mipmaps would leave a texture loaded
- * without them incomplete. Border has no GL mode and clamps to the edge.
+ * disposed when the cached texture is disposed. Only the address changes, since a filter
+ * asking for mipmaps would leave a texture loaded without them incomplete.
+ *
+ * Border has no GL mode. It clamps to the edge here, and `borderProgramTexture` makes the
+ * pixel stage read transparent black outside the texture.
  */
 function addressed(texture: Texture, mode: AddressMode): Texture;
 function addressed(texture: Texture | null, mode: AddressMode): Texture | null;
@@ -337,6 +358,7 @@ export function particleProgramMaterial(
     environment,
     draw.prelude,
   );
+  for (const name of borderedTextures(emitter)) borderProgramTexture(material, name);
 
   const bound: Record<string, Texture | null> = {
     [SCENE_DEPTH_SAMPLER]: depth,
