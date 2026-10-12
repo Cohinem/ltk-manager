@@ -4,7 +4,6 @@ import { Separator } from "@/components";
 
 import { ChanceButton } from "../../../curves/components/ChancePin";
 import { useVfxRun } from "../state/run";
-import { useRunClock } from "../state/runReadout";
 import { Playhead, Transport } from "./Transport";
 
 export interface RunTransportProps {
@@ -20,8 +19,8 @@ export interface RunTransportProps {
 /**
  * The shell's run on a transport, wherever a pane draws one (ADR-0037).
  *
- * The row reads the run's state, and the playhead alone reads its clock, so a tick
- * re-renders the scrub and the readout and nothing beside them.
+ * The row reads the run's state, and the playhead alone reads its clock, which no tick
+ * re-renders.
  */
 export function RunTransport({ variant, scrub = true, children, className }: RunTransportProps) {
   const { playing, speed, looping, playback, setPlaying, setSpeed, setLooping, step, restart } =
@@ -56,12 +55,11 @@ export function RunTransport({ variant, scrub = true, children, className }: Run
 
 /** The run's playhead, which is what hears the clock. A drag on the scrub pauses the clock. */
 function RunPlayhead({ scrub }: { scrub: boolean }) {
-  const { span, seek, beginScrub, endScrub } = useVfxRun();
-  const time = useRunClock();
+  const { driver, span, seek, beginScrub, endScrub } = useVfxRun();
 
   return (
     <Playhead
-      time={time}
+      read={() => driver.phase}
       span={span}
       scrub={scrub}
       onSeek={(to) => {

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -12,19 +12,21 @@ const readout = () => screen.getByRole("timer", { name: "Playhead time" });
 
 describe("RunTransport", () => {
   it("draws the run's playhead off the clock, and its controls off the run", async () => {
-    const { run, tick } = fakeRun();
+    const { run } = fakeRun();
     render(
       <VfxRunContext value={run}>
         <RunTransport />
       </VfxRunContext>,
     );
 
+    const scrub = screen.getByRole("slider", { name: "Playhead" });
     expect(readout()).toHaveTextContent("0.00 / 2.00 s");
-    expect(screen.getByRole("slider", { name: "Playhead" })).toBeInTheDocument();
+    expect(scrub).toHaveAttribute("aria-valuenow", "0.00");
 
     run.driver.advance(0.5);
-    await act(async () => tick());
-    expect(readout()).toHaveTextContent("0.50 / 2.00 s");
+    await waitFor(() => expect(readout()).toHaveTextContent("0.50 / 2.00 s"));
+    await waitFor(() => expect(scrub).toHaveAttribute("aria-valuenow", "0.50"));
+    expect(scrub.style.getPropertyValue("--scrub")).toBe("0.25");
 
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
     expect(run.setPlaying).toHaveBeenCalledWith(true);

@@ -1,7 +1,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 
 import type { Driver } from "../../engine/simulation/driver";
-import { useVfxRun, type VfxRun } from "./run";
+import type { VfxRun } from "./run";
 
 /** How often a readout of the clock catches up with it, in milliseconds. */
 const READOUT_MS = 100;
@@ -10,17 +10,13 @@ const READOUT_MS = 100;
 const READOUT_STEP = 0.01;
 
 /**
- * Where the run stands, in seconds of its phase, caught up with every `READOUT_MS`.
+ * Where `run` stands, in seconds of its phase, caught up with every `READOUT_MS`, and null
+ * outside a run.
  *
  * The clock moves every frame and a readout is React state, so the two are kept apart:
  * a listener hears the clock at the readout's own rate, with one trailing call so a seek
  * that lands between two ticks still reaches it.
  */
-export function useRunClock(): number {
-  return useClockOf(useVfxRun()) ?? 0;
-}
-
-/** `useRunClock` for a caller that may sit outside a run, which hears nothing and reads null. */
 export function useClockOf(run: VfxRun | null): number | null {
   return useRunReadout(run, readPhase);
 }
@@ -30,7 +26,7 @@ function readPhase(driver: Driver): number {
 }
 
 /**
- * `read` of the run's driver, caught up with every `READOUT_MS` as `useRunClock` is, and
+ * `read` of the run's driver, caught up with every `READOUT_MS` as `useClockOf` is, and
  * null outside a run or where `read` finds nothing.
  */
 export function useRunReadout(
