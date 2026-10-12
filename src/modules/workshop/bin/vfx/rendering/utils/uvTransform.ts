@@ -109,10 +109,15 @@ export function uvTransformInto(
   out.cellV = Math.floor(cell / columns) / rows;
 }
 
-/** The birth ramp held within reach when the layer clamps, and wrapped into a cell otherwise. */
+/**
+ * The birth ramp held within reach when the layer clamps, and its fraction otherwise.
+ *
+ * The fraction keeps the ramp's sign, as the engine's `modff` returns it. Under clamp, border
+ * and mirror, a negative offset samples differently from the same offset plus one cell.
+ */
 function ramp(value: number, clamped: boolean): number {
   if (clamped) return Math.min(Math.max(value, -RAMP_REACH), RAMP_REACH);
-  return value - Math.floor(value);
+  return value % 1;
 }
 
 /** `value` brought inside `[0, span)`, which a negative one still lands in. */

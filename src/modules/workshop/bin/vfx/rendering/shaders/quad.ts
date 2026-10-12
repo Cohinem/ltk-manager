@@ -265,7 +265,8 @@ float eroding(vec2 at) { return 1.0; }
  * what shapes the warp and how much of it the fragment carries. `distortion` is how far,
  * in screen widths, with the horizontal half scaled by the aspect so a round warp stays
  * round, and the screen's edge pulls in the edge itself. A map the install does not ship
- * warps nothing rather than the whole quad. Decision 2.25 of
+ * warps nothing rather than the whole quad. The map samples under the base layer's address
+ * mode, which is the mode the engine binds `NORMAL_MAP` with. Decision 2.25 of
  * docs/plans/vfx-particle-renderer.md.
  *
  * `onScreen` places the fragment on the target from `viewportOrigin`, which a draw into only
@@ -287,7 +288,7 @@ uniform sampler2D frame;
 vec4 warped(vec2 at, float mask) {
   vec4 held =
 #ifdef HAS_NORMAL
-    texture2D(mapNormal, at);
+    fetch(mapNormal, at, vec4(0.0), vec2(1.0), address);
 #else
     vec4(0.5, 0.5, 1.0, 0.0);
 #endif
