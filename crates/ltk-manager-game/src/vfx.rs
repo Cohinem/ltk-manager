@@ -7,7 +7,7 @@
 
 mod resolve;
 
-pub use resolve::{MAX_DEPTH, MAX_NODES, resolve_system, search_linked_materials};
+pub use resolve::{MAX_DEPTH, MAX_NODES, child_targets, resolve_system, search_linked_materials};
 
 use serde::Serialize;
 
@@ -95,6 +95,30 @@ pub struct VfxObject {
     pub entry: String,
     /// The object's path. Absent where no table names it.
     pub name: Option<String>,
+}
+
+/// The systems and effect keys of one document that a child identifier can name.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct VfxChildTargets {
+    /// Every `VfxSystemDefinitionData` of the document, in document order.
+    pub systems: Vec<VfxObject>,
+    /// Every effect key a `ResourceResolver` of the document maps, in resolver order.
+    pub effect_keys: Vec<VfxEffectKey>,
+}
+
+/// One effect key a `ResourceResolver` maps.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct VfxEffectKey {
+    /// The key's hash, `0x` and eight hex digits.
+    pub key: String,
+    /// The key's text. Absent where no table names it.
+    pub name: Option<String>,
+    /// The object of the document the key maps to. Absent for a key mapped outside it.
+    pub system: Option<VfxObject>,
 }
 
 /// One property of a resolved struct.

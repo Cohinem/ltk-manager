@@ -36,6 +36,7 @@ import { PreviewViewStore } from "../utils/previewViews";
 import type { GraphItem } from "../utils/systemGraph";
 import { CONNECTION_PROPS, useCanvasAdds } from "./canvasAdds";
 import { type CanvasNode, canvasPosition, layoutNodes, withMoves } from "./canvasNodes";
+import { ChildrenNodeView, ChildSystemNodeView } from "./ChildNodes";
 import { ComponentNodeView } from "./ComponentNode";
 import { FrameNodeView } from "./EmitterFrame";
 import { MasterNodeView, StructNodeView } from "./EmitterNodes";
@@ -82,6 +83,8 @@ const NODE_TYPES: NodeTypes = {
   value: ValueNodeView,
   file: FileNodeView,
   render: RenderNodeView,
+  children: ChildrenNodeView,
+  system: ChildSystemNodeView,
   frame: FrameNodeView,
 };
 

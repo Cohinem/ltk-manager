@@ -1,6 +1,7 @@
 import { m } from "@/i18n";
 
 import { nameHash } from "../../../shared/utils/binHash";
+import { CHILD_SET_CLASS, systemLeaf } from "../../children/childModel";
 import type { DriverNode } from "../../engine/drivers/node";
 import { driverClass } from "../../engine/drivers/registry";
 import type { ValueCurve } from "../../engine/model/model";
@@ -59,6 +60,10 @@ export function itemTitle(item: GraphItem): string {
       return m.workshop_bin_driver_random_label();
     case "driver":
       return driverTitle(item.node);
+    case "children":
+      return m.workshop_bin_children_title();
+    case "system":
+      return systemLeaf(item.child.label);
   }
 }
 
@@ -66,6 +71,7 @@ export function itemTitle(item: GraphItem): string {
 export function itemSubtitle(item: GraphItem): string {
   if (item.type === "driver" && item.node.type === "unknown") return "";
   if (item.type === "file") return item.path;
+  if (item.type === "system") return item.child.label;
 
   const held = itemClass(item);
   return held === null ? "" : (held.name ?? held.hash);
@@ -76,6 +82,9 @@ export function inputSummary(input: InputItem): string {
   if (input.type === "value") return valueSummary(input);
   if (input.type === "file") return fileName(input.path);
   if (input.type === "render") return renderSummary(input);
+  if (input.type === "children") {
+    return m.workshop_bin_items_label({ count: input.systems.length });
+  }
 
   switch (input.shape) {
     case "struct":
@@ -117,7 +126,10 @@ export function itemClass(item: GraphItem): ItemClass | null {
     case "preview":
     case "file":
     case "render":
+    case "system":
       return null;
+    case "children":
+      return { name: CHILD_SET_CLASS, hash: nameHash(CHILD_SET_CLASS) };
     case "emitter":
       return { name: EMITTER_CLASS, hash: nameHash(EMITTER_CLASS) };
     case "component":

@@ -35,6 +35,8 @@ import { itemSubtitle, itemTitle, pathAlias } from "../utils/nodeText";
 import { outputTop } from "../utils/outputSocket";
 import { embeds } from "../utils/socketEmbed";
 import type {
+  ChildrenItem,
+  ChildSystemItem,
   ComponentItem,
   DriverItem,
   EmitterItem,
@@ -64,6 +66,8 @@ export type StructFlowNode = Node<{ placed: PlacedOf<StructItem> }, "struct">;
 export type ValueFlowNode = Node<{ placed: PlacedOf<ValueItem> }, "value">;
 export type FileFlowNode = Node<{ placed: PlacedOf<FileItem> }, "file">;
 export type RenderFlowNode = Node<{ placed: PlacedOf<RenderItem> }, "render">;
+export type ChildrenFlowNode = Node<{ placed: PlacedOf<ChildrenItem> }, "children">;
+export type ChildSystemFlowNode = Node<{ placed: PlacedOf<ChildSystemItem> }, "system">;
 export type GraphFlowNode =
   | PreviewFlowNode
   | EmitterFlowNode
@@ -73,7 +77,9 @@ export type GraphFlowNode =
   | StructFlowNode
   | ValueFlowNode
   | FileFlowNode
-  | RenderFlowNode;
+  | RenderFlowNode
+  | ChildrenFlowNode
+  | ChildSystemFlowNode;
 
 /** The handle id every node but the preview outputs through. */
 export const OUTPUT_HANDLE = "out";

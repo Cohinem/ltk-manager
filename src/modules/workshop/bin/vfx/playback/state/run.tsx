@@ -90,6 +90,10 @@ export interface VfxRun {
   readonly muted: ReadonlySet<number>;
   /** Emitters of the opened system that alone draw while any is in the set, by pool index. */
   readonly soloed: ReadonlySet<number>;
+  /** Child definitions that draw nothing, by child path, each with every child under it. */
+  readonly mutedChildren: ReadonlySet<string>;
+  /** Child definitions that alone draw while any solo is set, by child path. */
+  readonly soloedChildren: ReadonlySet<string>;
   readonly loop: LoopRange | null;
   /** The chance every birth reads its tables at, null for a run left to its own draws. */
   readonly pinned: number | null;
@@ -118,6 +122,8 @@ export interface VfxRun {
   readonly reroll: () => void;
   readonly toggleMuted: (emitter: number) => void;
   readonly toggleSoloed: (emitter: number) => void;
+  readonly toggleChildMuted: (path: string) => void;
+  readonly toggleChildSoloed: (path: string) => void;
   /** Rewrite the muted set from the one held, which a stroke across the lanes does per lane. */
   readonly setMuted: (update: (held: ReadonlySet<number>) => ReadonlySet<number>) => void;
   readonly setSoloed: (update: (held: ReadonlySet<number>) => ReadonlySet<number>) => void;
@@ -201,6 +207,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
   );
   const [muted, setMuted] = useState<ReadonlySet<number>>(() => new Set(kept?.muted));
   const [soloed, setSoloed] = useState<ReadonlySet<number>>(() => new Set(kept?.soloed));
+  const [mutedChildren, setMutedChildren] = useState<ReadonlySet<string>>(NO_CHILDREN);
+  const [soloedChildren, setSoloedChildren] = useState<ReadonlySet<string>>(NO_CHILDREN);
   const [loop, setLoop] = useState<LoopRange | null>(kept?.loop ?? null);
   const [fitRequest, setFitRequest] = useState(0);
   const [pinned, setPinned] = useState<number | null>(kept?.pinned ?? null);
@@ -424,6 +432,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       looping,
       muted,
       soloed,
+      mutedChildren,
+      soloedChildren,
       loop,
       pinned,
       span,
@@ -442,6 +452,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       reroll: () => setSeed((current) => current + 1),
       toggleMuted: (emitter) => setMuted((current) => toggledIn(current, emitter)),
       toggleSoloed: (emitter) => setSoloed((current) => toggledIn(current, emitter)),
+      toggleChildMuted: (path) => setMutedChildren((current) => toggledIn(current, path)),
+      toggleChildSoloed: (path) => setSoloedChildren((current) => toggledIn(current, path)),
       setMuted,
       setSoloed,
       setLoop: (range) => setLoop(boundedLoop(range, span)),
@@ -471,6 +483,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       looping,
       muted,
       soloed,
+      mutedChildren,
+      soloedChildren,
       loop,
       pinned,
       span,
@@ -497,6 +511,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 }
 
 const AUTO_SOURCE = { kind: "auto" } as const;
+
+const NO_CHILDREN: ReadonlySet<string> = new Set();
 
 const CUSTOM_SOURCE = { kind: "custom" } as const;
 

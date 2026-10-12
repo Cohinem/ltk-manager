@@ -4,6 +4,7 @@ import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import type { GraphItem, StructItem } from "../utils/graphItems";
 import { holderRow } from "../utils/holderRow";
 import {
+  childRemoval,
   listAppend,
   nodeDuplicate,
   nodeRemoval,
@@ -41,7 +42,7 @@ export function useNodeStructure(): NodeStructure {
     };
 
     return {
-      remove: (item) => drop(nodeRemoval(item)),
+      remove: (item) => send(childRemoval(item)) ?? drop(nodeRemoval(item)),
       duplicate: (item) => send(nodeDuplicate(item)),
       append: (item) => send(listAppend(item)),
     };

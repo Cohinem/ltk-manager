@@ -85,6 +85,8 @@ when the reader edits it as one unit. Deep nesting in the file does not add node
 | A keyed or random `Value*`                        | A value node, embedded in its socket until popped out                         | `valueTree`, `utils/socketEmbed.ts`    |
 | A shimmer driver                                  | A node per driver, a constant or a flat curve embedded in its socket          | `driverTree` in `utils/systemGraph.ts` |
 | A file path under a struct                        | Its holder's row, with the file's picture on the holder node                  | `structTree`, `picture`                |
+| The child set                                     | One Children node, the identifier and bone lists drawn as its child lines     | `childrenTree`                         |
+| A child system                                    | A node on its line of the Children node, resolved or not                      | `childrenTree`                         |
 
 ### Small values draw inside the socket they feed
 
@@ -101,6 +103,50 @@ embeds it back. Both are view state.
 **Why.** A node and an edge for a single number take more room than the number does. The reader
 can still give the value a node when they want to look at it as one.
 
+### Child systems
+
+An emitter's `childParticleSetDefinition` draws as one Children node on the Effects group, and
+each `VfxChildIdentifier` of the set draws as a child system node that feeds it. The fields and
+the edits are the inspector's, per "Child particles" in docs/ux/BIN_EDITOR.md.
+
+```
++--------------+     +----------------+     +-----------+
+| Sparks_Child |---->| CHILD PARTICLES|---->| Orb [3]   |
+| [preview]    |     | Spawn          |     |           |
+| Spark   [0]  |     | Spawn on death |     | Effects o |
+| Glow    [1]  |     | Picked child   |     +-----------+
++--------------+     | Inheritance    |
++--------------+     | [0] Sparks   o |
+| Smoke_Child  |---->| [1] Smoke    o |
++--------------+     | Add child      |
+                     +----------------+
+```
+
+- the Children node lists the spawn mode, the set's three own fields whether the file writes them
+  or not, a line per child and the Add child line (`components/ChildNodes.tsx`). An unwritten
+  field draws at its default and an edit writes it, as a pending field of an emitter does.
+- a child line has the socket its system node feeds, the child's place and name, its bone in a
+  bone set, and Move up, Move down and Remove
+- a child system node is titled with the last segment of the system's path over the whole path.
+  It lists the system's emitters and edits none of them. Its header opens the system in its own
+  tab, which is where the child's emitters are edited.
+- a click on an emitter of a child system node selects that emitter into the inspector under the
+  child banner, as its timeline lane does. An emitter that carries children of its own shows their
+  count in a chip. The board draws one level of children, as the timeline does.
+- a child the bin does not resolve keeps its node, titled with its link or key under an
+  `unresolved` chip, with no preview and no emitters
+- the node's header has the child's Hide in the preview and Solo, and a node the run leaves out is
+  dimmed
+- `Delete` on a child system node removes the child and its bone. `Delete` on the Children node
+  resets the whole set.
+- an emitter that writes no set offers Child Particles in its Effects menu, which draws the Add
+  child line on the emitter node. The first child writes the set.
+
+**Why.** Read as any other struct, the set is a struct node, a list node and an identifier node,
+and the resolved system is a leaf, which is three nodes and no child. The pane and every node's
+path are bound to the opened system's entry, so a child's emitters are read-only here and are
+edited in the child's own tab.
+
 ## 3. Visual language
 
 ### Hue tells node types apart
@@ -112,9 +158,9 @@ and the header title name the type.
   `socket-float`, `socket-vec2`, `socket-vec3` and `socket-vec4`, a scale minted for the graph
   (DS-KIND-HUE, `src/styles/global.css`). The hue is on the sockets, the edges, the header glyph,
   the kind label, the header wash, a single-channel curve line and the minimap.
-- nodes carrying no value kind use one hue per node type: the accent for emitters and the
-  preview, `bin-class` for components, structs and the Texture node, `graph-geometry` for the
-  Geometry node, `doc-layer` for files
+- nodes carrying no value kind use one hue per node type: the accent for emitters, child systems
+  and the preview, `bin-class` for components, structs, the Texture node and the Children node,
+  `graph-geometry` for the Geometry node, `doc-layer` for files
   (`itemHue` in `utils/graphTones.ts`)
 - a vector draws its channels in `channel-1` to `channel-4`, the curve panel's X red, Y green and
   Z blue, so a curve reads the same on a node and in the dock
@@ -329,8 +375,8 @@ A handled chord stops at the canvas, because `Ctrl+D` also opens Diagnostics app
   (`anchor` in `components/GraphCanvas.tsx`)
 - Collapse others folds every other node of the same type, and Frame fits the view to a node and
   everything that feeds it
-- the pane opens with emitters folded to their header and preview, materials folded to their
-  header and shape, and a material's lists folded. A folded node counts its hidden inputs in a
+- the pane opens with emitters and child systems folded to their header and preview, materials
+  folded to their header and shape, and a material's lists folded. A folded node counts its hidden inputs in a
   chip, which on a folded emitter is the count alone, such as `+4`, with the full label as its
   hint (`components/HiddenChip.tsx`). Expand all leaves the material lists folded.
 
@@ -344,6 +390,9 @@ A handled chord stops at the canvas, because `Ctrl+D` also opens Diagnostics app
 | Geometry node's Show shape switch                      | The viewport's one gizmo turns on for that emitter                         |
 | Mute and solo on a master node                         | The same switches as the timeline lanes                                    |
 | Choose an emitter in the viewport, timeline or outline | The graph selects its master node and centres it                           |
+| Click an emitter of a child system node                | The inspector opens that emitter under the child banner                    |
+| Choose a child lane in the timeline                    | The graph selects its child system node, where the board draws one         |
+| Hide and solo on a child system node                   | The viewport leaves the child out, and its lanes dim                       |
 | Turn on the preview node                               | The viewport moves into the graph, and the Preview pane says where it went |
 
 The graph only follows a choice made elsewhere. A choice it made itself, and the one it opened
@@ -398,6 +447,10 @@ The code is in `components/GraphMinimap.tsx` and `utils/minimapView.ts`.
   at scattered places change how far it stands and never where it looks. A drag
   orbits, a right drag pans and the wheel zooms, which stops the turning until a double click
   gives the view back (`components/GeometryPreview.tsx`).
+- a child system node draws every live instance of its child in the run, and of the children
+  under it, through the viewport's renderer at the run's time. The camera follows the live
+  particles. Nothing draws until a particle of the parent has spawned one
+  (`ChildPreview` in `components/ChildNodes.tsx`).
 - a material draws on a sphere, and a switch turns it to a cube, a plane or a cylinder
 - where a preview departs from the game on purpose, a control says so: the distortion strip's
   switch draws the warp eight times stronger, because a particle filling the box covers far more

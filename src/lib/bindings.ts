@@ -7799,6 +7799,24 @@ export type Verdict_Serialize = {
 	hints: Hint[],
 };
 
+/**  The systems and effect keys of one document that a child identifier can name. */
+export type VfxChildTargets = {
+	/**  Every `VfxSystemDefinitionData` of the document, in document order. */
+	systems: VfxObject[],
+	/**  Every effect key a `ResourceResolver` of the document maps, in resolver order. */
+	effectKeys: VfxEffectKey[],
+};
+
+/**  One effect key a `ResourceResolver` maps. */
+export type VfxEffectKey = {
+	/**  The key's hash, `0x` and eight hex digits. */
+	key: string,
+	/**  The key's text. Absent where no table names it. */
+	name: string | null,
+	/**  The object of the document the key maps to. Absent for a key mapped outside it. */
+	system: VfxObject | null,
+};
+
 /**  One property of a resolved struct. */
 export type VfxField = {
 	/**  `0x` and eight hex digits. */

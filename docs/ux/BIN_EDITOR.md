@@ -2429,6 +2429,68 @@ A simple emitter draws no submenu.
 mask of a writing emitter in the wire colour at 35% opacity, under the emitter's own colour. The
 viewport does the same while Stencil masks is ticked in the Show menu.
 
+### Child particles
+
+An emitter's `childParticleSetDefinition` is a section of its own after Forces, and no group
+repeats its row. The section edits the systems that each particle of the emitter spawns. What the
+run does with a set is decision 2.33 of docs/plans/vfx-particle-renderer.md, and bones are 2.35.
+
+```
+v CHILD PARTICLES
+    Spawn                   [ Pick one | One per bone ]
+    [0] Sparks_Child                      picked      [open][^][v][x]
+    [1] Smoke_Child                                   [open][^][v][x]
+    [2] 0x9b0300f3          ! unresolved                    [^][v][x]
+    Add child               [ Add child                              ]
+    Spawn on death          [x]
+    Picked child            [0          ]
+    Inheritance             Not set
+```
+
+The section is folded on an emitter with no child. It opens to one line that says so and to the
+Add child picker.
+
+**Spawn is the set's mode.** A set with no `boneToSpawnAt` spawns one child, the one
+`childrenProbability` picks. A set that names bones spawns every child, child `i` at bone `i`.
+One per bone writes an empty bone for each child, and Pick one removes `boneToSpawnAt`. In a bone
+set each child row has a bone field. The field is a picker over the joints of the host character,
+and a text field in a run with no host.
+
+**A child row names the system and its place in the list.** The name is the last segment of the
+system's path. Open system opens the system in its own tab, and Move up, Move down and Remove
+change `childrenIdentifiers`. A move or a removal takes the child's bone with it, so the two lists
+stay parallel. Each is one edit.
+
+**Add child is one picker over three sources.** It lists every `VfxSystemDefinitionData` of the
+bin as `Link`, every effect key a `ResourceResolver` of the bin maps as `Key`, and `New system`
+with Blank and each system template. A link writes `effect`, and a key writes `effectKey`. The
+opened system is not listed, because a system that links itself is a cycle the run ends as no
+child. New system creates the object and then adds it as a child, which is two undo steps. The new
+object is named after the emitter's system with `_Child` added, and a number where
+that name is taken.
+
+**Picked child is `childrenProbability`.** The value is an index into the children,
+`max(0, value) % count`, and not a weight. A constant value marks the child row it picks. The row
+stays an ordinary value row, so a curve or a random range is edited in the curve panel.
+
+**Notes say when a field is not read.**
+
+| Tone    | Condition                                                   |
+| ------- | ----------------------------------------------------------- |
+| Warning | A bone set has fewer bones than children, so it spawns none |
+| Info    | The set is a bone set, so Picked child is not read          |
+| Info    | The set has one child, so Picked child is not read          |
+
+**A child the bin cannot resolve is marked unresolved.** The link names an object of another bin,
+or no resolver of this bin maps the key. The row shows the link or the key as the file writes it.
+The run spawns nothing for it, and it keeps its place in the list, since Picked child indexes the
+list as authored.
+
+**A child is hidden and soloed on its node in the Graph pane.** The two switches are per child
+system and leave the file alone, as an emitter's are. A hidden child hides the children under it.
+A soloed child draws without the emitter that carries it. The child's lanes dim while it is
+hidden. The sets last for the session and are not kept with the run's memory.
+
 ## The curve panel
 
 A value family's `dynamics` is a column of keys: a `times` list, a `values` list of the family's
@@ -3240,6 +3302,8 @@ place as well as its fields. Each gesture is one edit, so one undo step.
 | Duplicate, or `Ctrl+D` on one node selected          | A copy of a list item, right after it                     |
 | Remove item or Remove force, or `Delete` on one node | A list or map item leaves its list                        |
 | Reset to default, or `Delete` on one field's node    | The field leaves its holder, which then reads the default |
+| Add child, on a Children node or an emitter node     | A child by link or key, or a new system and its link      |
+| Remove child, or `Delete` on a child system node     | The child's identifier and its bone leave the set         |
 
 **Add field is a plus on a header.** Each group heading of an emitter node lists the group's
 unwritten fields, and the emitter's own header lists those of the groups it writes nothing of,

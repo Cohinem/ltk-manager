@@ -1,5 +1,7 @@
 import type { ValueEdit } from "@/lib/tauri";
 
+import { removeChildEdits } from "../../children/childEdits";
+import { CHILD_SET } from "../../children/childModel";
 import type { GraphItem, StructItem } from "./graphItems";
 import { FORCE_FIELD } from "./renderSection";
 
@@ -32,10 +34,26 @@ export function isForce(item: GraphItem): boolean {
   return item.type === "struct" && FORCE_ITEM.test(item.wire);
 }
 
+/** The node types whose Delete removes the value at the node's own path. */
+const REMOVABLE: ReadonlySet<GraphItem["type"]> = new Set(["struct", "value", "file", "children"]);
+
+/**
+ * The edit a child system node's Delete sends: its identifier out of the set, and its bone
+ * with it. Null for any other node.
+ */
+export function childRemoval(item: GraphItem): PropertyEdit | null {
+  if (item.type !== "system") return null;
+
+  return {
+    holder: item.emitterPath,
+    field: CHILD_SET,
+    edits: removeChildEdits(item.set, item.child.index),
+  };
+}
+
 /** The removal a node's Delete sends, or null where the node has no value to remove. */
 export function nodeRemoval(item: GraphItem): NodeRemoval | null {
-  if (item.type !== "struct" && item.type !== "value" && item.type !== "file") return null;
-  if (item.wire === "") return null;
+  if (!REMOVABLE.has(item.type) || item.wire === "") return null;
 
   const last = item.wire.at(-1);
   return { type: last === "]" || last === "}" ? "item" : "property", path: item.wire };

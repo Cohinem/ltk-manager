@@ -27,6 +27,9 @@ import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import { RowDocumentContext, type RowFold, RowFoldContext } from "../../../tree/state/rowFold";
 import { fieldHash, rowKey } from "../../../tree/utils/binRows";
 import { ValueMarksContext } from "../../../values/hooks/useValueMarks";
+import { CHILD_SET } from "../../children/childModel";
+import { childrenMatch, ChildrenSection } from "../../children/ChildrenSection";
+import { useChildren } from "../../children/useChildren";
 import { EmitterPreviewBox } from "../../drivers/components/EmitterPreviewBox";
 import { FORCE_COLLECTION } from "../../forces/forceModel";
 import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
@@ -119,6 +122,7 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const forces = useForces();
+  const children = useChildren();
   const definedOnly = useDefinedOnly();
   const changedOnly = useChangedOnlyView();
   const preview = useInspectorPreview();
@@ -128,10 +132,11 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
 
   const groups = useMemo(() => {
     const source = target === "system" ? NO_GROUPED : (card?.groups ?? NO_GROUPED);
+    /* The Forces and Child particles sections draw these two, so no group repeats them. */
     const held = forces.visible
       ? source.map((group) => ({
           ...group,
-          rows: group.rows.filter((row) => fieldHash(row.path) !== FORCE_COLLECTION),
+          rows: group.rows.filter((row) => !OWN_SECTION.has(fieldHash(row.path))),
         }))
       : source;
     if (changedOnly !== null) {
@@ -147,6 +152,7 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     const authored = new Set(held.flatMap((each) => each.rows).map((row) => fieldHash(row.path)));
     if (forces.visible) {
       authored.add(FORCE_COLLECTION);
+      authored.add(CHILD_SET);
     }
 
     return inspectorGroups(held, unauthoredFields(data.fields, authored));
@@ -156,7 +162,8 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
   const holder = addable && target !== "system" ? card?.row : undefined;
   const hasMatches =
     filtered.some((group) => group.rows.length > 0 || group.defaults.length > 0) ||
-    (forces.visible && forces.forces.some((force) => forceMatches(force, search)));
+    (forces.visible && forces.forces.some((force) => forceMatches(force, search))) ||
+    (children.visible && children.set !== null && childrenMatch(children.set, search));
   /* Held by the path under the emitter, so a shape opened on one emitter is open on the next. */
   const fold = useMemo<RowFold | null>(() => {
     if (card === undefined) return null;
@@ -240,6 +247,7 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
                   />
                 ))}
                 <ForcesSection search={search} />
+                <ChildrenSection search={search} />
                 {search.trim() !== "" && !hasMatches && (
                   <p role="status" className="px-2 py-4 text-meta text-surface-400">
                     {m.workshop_bin_inspector_matches_empty()}
@@ -289,6 +297,7 @@ function PanelHeader({ actions }: { actions?: ReactNode }) {
   );
 }
 
+const OWN_SECTION: ReadonlySet<string> = new Set([FORCE_COLLECTION, CHILD_SET]);
 const NO_DEFAULTS: readonly DefaultField[] = [];
 const NO_GROUPED: readonly GroupedRows[] = [];
 

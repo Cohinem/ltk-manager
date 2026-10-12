@@ -11,6 +11,7 @@ import { CardSquare } from "../../inspector/components/VfxSections";
 import { useEmitters } from "../../inspector/state/emitterChoice";
 import type { EmitterCardData } from "../../inspector/utils/emitterTypes";
 import { useVfxRun } from "../../playback/state/run";
+import { anySolo, hiddenIn } from "../../rendering/utils/definitions";
 import { useMaskHovered } from "../../stencil/maskHover";
 import { MaskMark } from "../../stencil/MaskMark";
 import { maskUse } from "../../stencil/maskModel";
@@ -91,7 +92,11 @@ export const LaneRow = memo(function LaneRow({
       : child !== null && child.path === row.lane.path && child.emitter.index === emitter.index;
   const muted = row.kind === "emitter" && run.muted.has(emitter.index);
   const soloed = row.kind === "emitter" && run.soloed.has(emitter.index);
-  const dimmed = emitter.disabled || muted || (run.soloed.size > 0 && !soloed);
+  const hidden =
+    row.kind === "emitter"
+      ? muted || (anySolo(run) && !soloed)
+      : hiddenIn({ root: row.parent.index, path: row.lane.path }, run);
+  const dimmed = emitter.disabled || hidden;
   const editing = useBarEditing(emitter, row.kind === "emitter" ? card : undefined);
   const mask = useMemo(() => (row.kind === "emitter" ? maskUse(row.emitter) : null), [row]);
   const lit = useMaskHovered(mask?.key ?? null);
