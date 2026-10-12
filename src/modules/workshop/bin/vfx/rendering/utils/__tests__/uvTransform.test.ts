@@ -165,6 +165,18 @@ describe("uvTransformInto", () => {
     expect(out.turn).toBeCloseTo(Math.PI / 4, 6);
   });
 
+  it("keeps the sign of a negative birth ramp when it wraps", () => {
+    const pool = onePool();
+    pool.uv[uvAt(0, 0) + UV.birthOffsetX] = -0.6;
+    pool.uv[uvAt(0, 0) + UV.birthOffsetY] = -1.25;
+
+    const out = uvDraw();
+    uvTransformInto(pool, 0, layerOf({ addressMode: ADDRESS_MODE.clamp }), 0, 0, 0, 0, out);
+
+    expect(out.offsetU).toBeCloseTo(-0.6, 6);
+    expect(out.offsetV).toBeCloseTo(-0.25, 6);
+  });
+
   it("holds the ramp at one cell out under uvScrollClamp and leaves the rest alone", () => {
     const pool = onePool();
     pool.uv[uvAt(0, 0) + UV.birthOffsetX] = 0.5;

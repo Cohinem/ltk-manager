@@ -372,8 +372,8 @@ uv      = clampOrWrap(birthUVOffset + age * birthUvScrollRate)
 degrees = uvRotation + age * birthUvRotateRate + curve(particleUVRotateRate, age01) * lifetime
 ```
 
-`uvScrollClamp` clamps the ramp to `[-1, 1]` and otherwise it wraps. The integrated term is never
-clamped. Emitter UV scroll is `now * emitterUvScrollRate`, absolute time times rate, with no
+`uvScrollClamp` clamps the ramp to `[-1, 1]`. Otherwise the ramp wraps to its fraction through
+`modff`, which keeps the sign, so `-0.6` stays `-0.6`. The integrated term is never clamped. Emitter UV scroll is `now * emitterUvScrollRate`, absolute time times rate, with no
 accumulator.
 
 **Probability tables are birth multipliers.** A curve's `dynamics.probabilityTables` holds one
