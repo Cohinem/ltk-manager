@@ -23,6 +23,9 @@ export interface StripPane {
   icon?: ReactNode;
 }
 
+/** The strip's `h-7` in px at 100% zoom, which is the height a collapsed panel keeps. */
+export const PANE_STRIP_HEIGHT = 31.5;
+
 export interface PaneStripProps {
   /** The leaf this strip belongs to, which scopes its sortable ids across strips. */
   leafId: string;

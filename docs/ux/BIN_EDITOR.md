@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-12 | Collapse a panel to its strip or to a rail of its panes' icons           |
 | 2026-10-09 | Draw a pane's strip as a filled rail, with tabs as tall as the rail      |
 | 2026-10-06 | Fit a Continuous run's timeline to the time its last bar ends            |
 | 2026-10-06 | Author an emitter's stencil mask in a Stencil group                      |
@@ -13,7 +14,6 @@
 | 2026-09-26 | Walk the rows by key, and keep a refused edit's text                     |
 | 2026-09-24 | Pick an emitter's primitive, and sketch what it draws                    |
 | 2026-09-24 | Edit a bin's dependencies as rows pinned over its objects                |
-| 2026-09-21 | Copy a whole object or struct as a declaration                           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -1616,7 +1616,9 @@ with no field to hover.
 The picture above is where the panes start, not where they stay. A pane is a tab of the same split
 tree the project editor runs its document panels on, per ADR-0034, so the gestures are the ones a
 reader already knows from the tabs: drag a pane's tab onto another panel's edge to split it, onto
-the panel itself to share that panel's strip, and drag a seam to resize.
+the panel itself to share that panel's strip, and drag a seam to resize. A seam dragged past a
+panel's minimum collapses that panel, to its strip in a column and to a rail of its panes' icons in a row, per
+[Collapsing a panel](PROJECT_EDITOR.md#collapsing-a-panel).
 
 ```
 one reader's arrangement: the strip takes the window,

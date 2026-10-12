@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                |
-| ---------- | --------------------------------------------------------------------- |
-| 2026-10-09 | Give a tab's title its width before the context takes any             |
-| 2026-10-09 | Join the open tab to the row under it, on a filled tab rail           |
-| 2026-10-06 | Draw the project header in the title bar and the status row           |
-| 2026-10-02 | Report each working file, only for a project with no ignore rules     |
-| 2026-09-27 | Redraw every preview of a layer file saved from another program       |
-| 2026-09-25 | Make modules, and drag modules, entries and keys to organize them     |
-| 2026-09-25 | Read a manifest as one line per key, and act on its modules in place  |
-| 2026-09-24 | Read a layer's game data manifest as an outline                       |
-| 2026-09-20 | Reveal a file tab in the browser its file came from                   |
-| 2026-09-18 | A click previews, a double click keeps it, and a preview opens beside |
+| Date       | Change                                                               |
+| ---------- | -------------------------------------------------------------------- |
+| 2026-10-12 | Collapse a panel to its strip or to a rail of its tabs' icons        |
+| 2026-10-09 | Give a tab's title its width before the context takes any            |
+| 2026-10-09 | Join the open tab to the row under it, on a filled tab rail          |
+| 2026-10-06 | Draw the project header in the title bar and the status row          |
+| 2026-10-02 | Report each working file, only for a project with no ignore rules    |
+| 2026-09-27 | Redraw every preview of a layer file saved from another program      |
+| 2026-09-25 | Make modules, and drag modules, entries and keys to organize them    |
+| 2026-09-25 | Read a manifest as one line per key, and act on its modules in place |
+| 2026-09-24 | Read a layer's game data manifest as an outline                      |
+| 2026-09-20 | Reveal a file tab in the browser its file came from                  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -106,6 +106,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Source control section | Planned     | Git history for the declarative data                                     |
 | Panel split layout     | Available   | A split tree, on `react-resizable-panels` seams                          |
 | Panel maximize         | Available   | A kept tab's double click fills the grid, and Esc restores it            |
+| Panel collapse         | Available   | A seam dragged past a panel's minimum collapses it, the side panel too   |
 | Per-project layout     | In progress | `.ltk/editor.json` is in, versioned. An in-app pass remains              |
 | Project bar            | Available   | Takes the header's middle, from the project name title                   |
 | Command palette        | Available   | The project, the game and the bin objects of both halves                 |
@@ -1207,7 +1208,8 @@ at a time. This is the shape Visual Studio Code uses, and most users know it alr
 | Source control | Version control for the declarative data. Under construction |
 
 The showing view's icon carries an accent mark on the window's own edge. Pressing that icon
-hides the panel, and pressing any icon while the panel is hidden reopens it on that view.
+hides the panel, and pressing any icon while the panel is hidden reopens it on that view. A drag
+of the panel's seam past its minimum width hides it too.
 The rail itself never hides, so the routes into a project are on screen whatever the editor
 grid holds. ADR-0038 is why the rail sits outside the panel it drives.
 
@@ -3984,6 +3986,7 @@ tokens.
 | ------------------ | ------------------------------------------------------ |
 | A split node       | `Group`, and `orientation` comes from `dir`            |
 | A child of a split | `Panel`, with an `id` and a `minSize`                  |
+| A collapsed child  | The same `Panel`, `collapsible` to a `collapsedSize`   |
 | A seam             | `Separator`, which carries `role="separator"` and keys |
 | `layout`           | `defaultLayout` in, and `onLayoutChanged` out          |
 
@@ -4122,6 +4125,40 @@ nothing inside the panel takes the key. A double click on a replaceable tab keep
 Maximizing writes nothing to the tree, and a restart opens the arranged grid. A maximized panel
 takes no drop on its edges. The shells of the bin editor maximize a pane by the same gesture, per
 [How the panes are arranged](BIN_EDITOR.md#how-the-panes-are-arranged).
+
+### Collapsing a panel
+
+A seam dragged past a panel's minimum size collapses that panel, and the panels beside it get the
+freed room. What a collapsed panel keeps depends on the split it is in.
+
+| The panel is in | What a collapsed panel keeps                               |
+| --------------- | ---------------------------------------------------------- |
+| A column        | Its tab strip, at the strip's own height                   |
+| A row           | A rail as wide as the strip is tall, with an icon to a tab |
+
+A rail draws no title. Each icon names its tab in a tooltip, and the open tab's icon is the bright
+one.
+
+A split inside a split collapses the same way. A row of panels collapsed in a column keeps the
+strip of each of its panels, and a column of panels collapsed in a row keeps a rail for each.
+
+| Gesture                                            | What a collapsed panel does                   |
+| -------------------------------------------------- | --------------------------------------------- |
+| A drag of its seam back                            | Expands to the size the drag gives it         |
+| `Enter` on the seam after it                       | Expands, and a second `Enter` collapses it    |
+| A click in the strip or the rail it kept           | Expands to an even share of the split         |
+| A click on an icon of its rail                     | Expands with that tab open                    |
+| A tab opened, activated or dropped without a click | Stays collapsed, and its strip or rail has it |
+
+`Enter` toggles the panel before the seam. The last panel of a split has no seam after it, so it
+expands by the drag or the click.
+
+The collapse is a share like any other, so `layout` holds it and a project opens with the panel
+collapsed the way it was left. The strip's height and the rail's width follow the zoom setting.
+The shells of the bin editor collapse a pane by the same gesture.
+
+The primary side panel collapses too. A seam dragged past its minimum width hides it, which is
+the hide the rail runs, per [The rail](#the-rail). The panel reopens at the width it had before.
 
 ### Two libraries that do not fit
 
