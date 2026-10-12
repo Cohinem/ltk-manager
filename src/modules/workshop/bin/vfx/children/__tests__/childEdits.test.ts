@@ -2,13 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { list } from "../../engine/drivers/__tests__/driverFixture";
-import {
-  addChildEdits,
-  boneEdits,
-  boneModeEdits,
-  moveChildEdits,
-  removeChildEdits,
-} from "../childEdits";
+import { addChildEdits, boneEdits, moveChildEdits, removeChildEdits } from "../childEdits";
 import { authored, childSet, hex, identifier, SMOKE, SPARKS, text } from "./childFixture";
 
 const CHILDREN = hex("childrenIdentifiers");
@@ -32,7 +26,7 @@ const boned = authored(childSet(TWO, { boneToSpawnAt: list(text("Head"), text("R
 
 describe("addChildEdits", () => {
   it("writes the set, the list and a linked identifier on an emitter with no set", () => {
-    expect(addChildEdits(authored(null), { naming: "link", entry: "0x00000011" })).toEqual([
+    expect(addChildEdits(authored(null), "0x00000011")).toEqual([
       SET_POINTER,
       { type: "ensureProperty", path: "", field: nameHash("childrenIdentifiers") },
       {
@@ -49,21 +43,21 @@ describe("addChildEdits", () => {
     ]);
   });
 
-  it("writes an effect key on the identifier after the set's existing children", () => {
-    const edits = addChildEdits(picked, { naming: "key", key: "0x000000bb" });
+  it("writes the link on the identifier after the set's existing children", () => {
+    const edits = addChildEdits(picked, "0x000000bb");
 
     expect(edits.slice(3)).toEqual([
-      { type: "ensureProperty", path: `${CHILDREN}[2]`, field: nameHash("effectKey") },
+      { type: "ensureProperty", path: `${CHILDREN}[2]`, field: nameHash("effect") },
       {
         type: "setLeaf",
-        path: `${CHILDREN}[2].${hex("effectKey")}`,
-        value: { type: "hash", text: "0x000000bb" },
+        path: `${CHILDREN}[2].${hex("effect")}`,
+        value: { type: "objectLink", text: "0x000000bb" },
       },
     ]);
   });
 
   it("adds an empty bone for the child of a bone set", () => {
-    const edits = addChildEdits(boned, { naming: "link", entry: "0x00000011" });
+    const edits = addChildEdits(boned, "0x00000011");
 
     expect(edits.slice(5)).toEqual([BONE_LIST, NEW_BONE]);
   });
@@ -105,16 +99,6 @@ describe("moveChildEdits", () => {
   });
 });
 
-describe("boneModeEdits", () => {
-  it("writes an empty bone for every child of the set", () => {
-    expect(boneModeEdits(picked)).toEqual([SET_POINTER, BONE_LIST, NEW_BONE, NEW_BONE]);
-  });
-
-  it("writes one bone for a set with no child, so the set reads as a bone set", () => {
-    expect(boneModeEdits(authored(null))).toEqual([SET_POINTER, BONE_LIST, NEW_BONE]);
-  });
-});
-
 describe("boneEdits", () => {
   it("sets the bone of a child the list already reaches", () => {
     expect(boneEdits(boned, 1, "Weapon")).toEqual([
@@ -123,13 +107,36 @@ describe("boneEdits", () => {
     ]);
   });
 
-  it("grows the list with empty bones up to the child", () => {
-    const short = authored(childSet(TWO, { boneToSpawnAt: list(text("Head")) }));
-
-    expect(boneEdits(short, 1, "Root")).toEqual([
+  it("writes the list with an empty bone for every child on the first bone of a set", () => {
+    expect(boneEdits(picked, 0, "Head")).toEqual([
       BONE_LIST,
       NEW_BONE,
-      { type: "setLeaf", path: `${BONES}[1]`, value: { type: "string", value: "Root" } },
+      NEW_BONE,
+      { type: "setLeaf", path: `${BONES}[0]`, value: { type: "string", value: "Head" } },
     ]);
+  });
+
+  it("grows a list shorter than the children to their count", () => {
+    const short = authored(childSet(TWO, { boneToSpawnAt: list(text("Head")) }));
+
+    expect(boneEdits(short, 0, "Weapon")).toEqual([
+      BONE_LIST,
+      NEW_BONE,
+      { type: "setLeaf", path: `${BONES}[0]`, value: { type: "string", value: "Weapon" } },
+    ]);
+  });
+
+  it("clears one bone while another child still has one", () => {
+    expect(boneEdits(boned, 0, "")).toEqual([
+      BONE_LIST,
+      { type: "setLeaf", path: `${BONES}[0]`, value: { type: "string", value: "" } },
+    ]);
+  });
+
+  it("answers no edit where the write leaves every bone empty", () => {
+    const one = authored(childSet(TWO, { boneToSpawnAt: list(text("Head"), text("")) }));
+
+    expect(boneEdits(one, 0, "")).toBeNull();
+    expect(boneEdits(picked, 1, "")).toBeNull();
   });
 });

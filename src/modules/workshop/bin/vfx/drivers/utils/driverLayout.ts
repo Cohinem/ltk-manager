@@ -348,12 +348,12 @@ function nameWidthOf(item: GraphItem, measure: MeasureText): number | undefined 
 const SYSTEM_NODE_WIDTH = 280;
 
 /**
- * The lines a Children node draws: its spawn mode, each of its own fields with the list a
- * socket embeds, a line per child and the Add child line.
+ * The lines a Children node draws: each of its own fields with the list a socket embeds, a
+ * line per child and the Add child line.
  */
 export function childrenLines(item: ChildrenItem): number {
   const fields = item.fields.reduce((sum, field) => sum + 1 + socketLines(item, field.input), 0);
-  return 1 + fields + item.systems.length + 1;
+  return fields + item.systems.length + 1;
 }
 
 /** The lines a child system node draws under its preview: a line per emitter, and one for none. */

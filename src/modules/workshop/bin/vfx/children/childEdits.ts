@@ -7,11 +7,6 @@ import {
   CHILD_SET_CLASS,
 } from "./childModel";
 
-/** What a new `VfxChildIdentifier` names: a system by its entry, or an effect key by its hash. */
-export type ChildTarget =
-  | { readonly naming: "link"; readonly entry: string }
-  | { readonly naming: "key"; readonly key: string };
-
 const CHILDREN = CHILD_FIELD.children.slice(2);
 const BONES = CHILD_FIELD.bones.slice(2);
 
@@ -23,15 +18,15 @@ const NEW_BONE: ValueEdit = {
 };
 
 /**
- * The edits under `childParticleSetDefinition` that append a child naming `target`.
+ * The edits under `childParticleSetDefinition` that append a child linking the system `entry`.
  *
- * They write the set where the emitter has none, and a bone set takes an empty bone for the
- * child, so `boneToSpawnAt` stays as long as the children.
+ * They write the set where the emitter has none, and a set that writes bones takes an empty
+ * bone for the child, so `boneToSpawnAt` stays as long as the children.
  */
-export function addChildEdits(set: AuthoredChildSet, target: ChildTarget): ValueEdit[] {
+export function addChildEdits(set: AuthoredChildSet, entry: string): ValueEdit[] {
   const index = set.children.length;
   const item = `${CHILDREN}[${index}]`;
-  const field = target.naming === "link" ? CHILD_FIELD.effect : CHILD_FIELD.effectKey;
+  const field = CHILD_FIELD.effect;
   const edits: ValueEdit[] = [
     SET_POINTER,
     { type: "ensureProperty", path: "", field: CHILD_FIELD.children },
@@ -44,14 +39,11 @@ export function addChildEdits(set: AuthoredChildSet, target: ChildTarget): Value
     {
       type: "setLeaf",
       path: `${item}.${field.slice(2)}`,
-      value:
-        target.naming === "link"
-          ? { type: "objectLink", text: target.entry }
-          : { type: "hash", text: target.key },
+      value: { type: "objectLink", text: entry },
     },
   ];
 
-  if (set.mode === "bones") edits.push(...bonesUpTo(set, index + 1));
+  if (set.bones.length > 0) edits.push(...bonesUpTo(set, index + 1));
   return edits;
 }
 
@@ -83,15 +75,19 @@ function moveEdits(list: string, from: number, to: number): ValueEdit[] {
   ];
 }
 
-/** The edits that turn the set into a bone set: an empty bone for every child without one. */
-export function boneModeEdits(set: AuthoredChildSet): ValueEdit[] {
-  return [SET_POINTER, ...bonesUpTo(set, Math.max(set.children.length, 1))];
-}
+/**
+ * The edits that write `bone` as the bone of the child at `index`, with an empty bone for every
+ * child the list does not reach, since a list shorter than the children spawns nothing.
+ *
+ * Null where the write leaves every bone empty. The caller then removes `boneToSpawnAt`, because
+ * a list of empty bones still spawns every child at a bone and finds none.
+ */
+export function boneEdits(set: AuthoredChildSet, index: number, bone: string): ValueEdit[] | null {
+  const others = set.bones.filter((_, at) => at !== index);
+  if (bone === "" && others.every((each) => each === "")) return null;
 
-/** The edits that write `bone` as the bone of the child at `index`. */
-export function boneEdits(set: AuthoredChildSet, index: number, bone: string): ValueEdit[] {
   return [
-    ...bonesUpTo(set, index + 1),
+    ...bonesUpTo(set, Math.max(index + 1, set.children.length)),
     { type: "setLeaf", path: `${BONES}[${index}]`, value: { type: "string", value: bone } },
   ];
 }

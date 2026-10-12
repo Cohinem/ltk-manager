@@ -37,9 +37,6 @@ const EMITTER_NAME = nameHash("emitterName");
 
 const FLAT: ValueCurve = { constant: [0], keys: [], tables: [] };
 
-/** How a set spawns: one child the probability picks, or every child at its own bone. */
-export type SpawnMode = "pick" | "bones";
-
 /** How a `VfxChildIdentifier` names its system: the `effect` link, or the `effectKey` hash. */
 export type ChildNaming = "link" | "key";
 
@@ -78,13 +75,16 @@ export interface AuthoredChildSet {
   /** How many fields the set writes, which a read of its rows asks for. */
   readonly fields: number;
   readonly children: readonly AuthoredChild[];
+  /**
+   * `boneToSpawnAt`, parallel to the children. With no bone a particle spawns the one child
+   * `childrenProbability` indexes, and with any it spawns every child at its own bone.
+   */
   readonly bones: readonly string[];
-  readonly mode: SpawnMode;
   /** `childrenProbability` is read: several children and no bones. */
   readonly probabilityRead: boolean;
-  /** The child a constant probability picks, and null for a keyed, random or unread one. */
+  /** The child a constant `childrenProbability` indexes, and null for a keyed, random or unread one. */
   readonly picked: number | null;
-  /** A bone set with fewer bones than children, which spawns none. */
+  /** The set writes bones, and fewer than it has children, so it spawns none. */
   readonly starved: boolean;
 }
 
@@ -109,8 +109,7 @@ export function authoredChildSet(emitter: VfxValue | null, emitterPath: string):
     ),
   );
 
-  const mode: SpawnMode = bones.length > 0 ? "bones" : "pick";
-  const probabilityRead = mode === "pick" && children.length > 1;
+  const probabilityRead = bones.length === 0 && children.length > 1;
   const probability = curve(field(set, CHILD_FIELD.probability), FLAT);
   const constant = probability.keys.length === 0 && probability.tables.length === 0;
 
@@ -120,10 +119,9 @@ export function authoredChildSet(emitter: VfxValue | null, emitterPath: string):
     fields: set?.type === "struct" ? set.fields.length : 0,
     children,
     bones,
-    mode,
     probabilityRead,
     picked: probabilityRead && constant ? pickedIndex(probability, children.length) : null,
-    starved: mode === "bones" && bones.length < children.length,
+    starved: bones.length > 0 && bones.length < children.length,
   };
 }
 

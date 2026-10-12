@@ -2,8 +2,6 @@ import { useFrame } from "@react-three/fiber";
 import { queryOptions, skipToken, useQueries, useQuery } from "@tanstack/react-query";
 import { type ReactNode, use, useEffect, useMemo } from "react";
 
-import { Select } from "@/components";
-import { m } from "@/i18n";
 import { api, type AssetRef, type BinRow, type GraphClip } from "@/lib/tauri";
 import {
   Character,
@@ -30,7 +28,7 @@ const SKIN = nameHash("SkinCharacterDataProperties");
 const NO_SKINS: readonly BinRow[] = [];
 
 /**
- * The skins of the open document that can host a particle preview, and the chosen one.
+ * The skins of the open document that can host a particle preview, and the run's host.
  *
  * The viewport and the inspector both call it. Outside a run it returns no skin.
  */
@@ -72,14 +70,14 @@ export function useHostSkin() {
 }
 
 /**
- * A skin and its selected clip, loaded from the open particle document.
+ * The run's host skin and its clip, loaded from the open particle document.
  *
- * A skin the system was opened from hands its own skin, clip and the event's frame, which
- * the preview takes in place of the reader's choice.
+ * A skin the system was opened from hands its own skin, clip and the event's frame. A run
+ * opened any other way has no host.
  */
 export function useVfxHost() {
   const { document, entry: system } = useVfxRun();
-  const { key, skins, selected: entry, animation, offset, model } = useHostSkin();
+  const { key, animation, offset, model } = useHostSkin();
   const handed = useHandedRigStore((state) => state.hosts[system.toLowerCase()] ?? null);
   useEffect(() => {
     if (handed === null) return;
@@ -119,13 +117,7 @@ export function useVfxHost() {
   const textures = useAssetTextures(assets);
 
   return {
-    skins,
-    selected: entry,
-    setSelected: (next: string) => chooseHost(key, { skin: next, offset: 0 }),
     offset,
-    animation,
-    setAnimation: (next: string) => chooseHost(key, { clip: next }),
-    playable,
     model,
     mesh: mesh.data,
     pose,
@@ -135,73 +127,6 @@ export function useVfxHost() {
 }
 
 type Host = ReturnType<typeof useVfxHost>;
-
-/** Character and clip selectors for the particle preview. */
-export function VfxHostControls({ host }: { readonly host: Host }) {
-  if (host.skins.length === 0) return null;
-
-  const skins = [
-    { value: "", label: m.workshop_bin_vfx_host_none_label() },
-    ...host.skins.map((row) => ({ value: row.entry, label: row.name })),
-  ];
-  const clips = [
-    { value: "", label: m.workshop_bin_vfx_host_bind_label() },
-    ...host.playable.map((clip) => ({ value: clip.hash, label: clip.name })),
-  ];
-
-  return (
-    <div
-      data-ui="VfxHostControls"
-      className="flex items-center gap-2 border-t border-surface-700/50 p-1.5 text-meta"
-    >
-      <HostSelect
-        items={skins}
-        value={host.selected}
-        onChange={(value) => {
-          host.setSelected(value);
-          host.setAnimation("");
-        }}
-        label={m.workshop_bin_vfx_host_label()}
-      />
-      {host.selected !== "" && (
-        <HostSelect
-          items={clips}
-          value={host.animation}
-          onChange={host.setAnimation}
-          label={m.workshop_bin_vfx_host_animation_label()}
-        />
-      )}
-    </div>
-  );
-}
-
-function HostSelect({
-  items,
-  value,
-  onChange,
-  label,
-}: {
-  readonly items: readonly { value: string; label: string }[];
-  readonly value: string;
-  readonly onChange: (value: string) => void;
-  readonly label: string;
-}) {
-  return (
-    <Select.Root items={items} value={value} onValueChange={(next) => onChange(next ?? "")}>
-      <Select.Trigger aria-label={label}>
-        <Select.Value />
-        <Select.Icon />
-      </Select.Trigger>
-      <Select.Content>
-        {items.map((item) => (
-          <Select.Item key={item.value} value={item.value}>
-            {item.label}
-          </Select.Item>
-        ))}
-      </Select.Content>
-    </Select.Root>
-  );
-}
 
 /** The host shares the particle run's clock and provides the attached mesh draw context. */
 export function VfxHost({ host, children }: { readonly host: Host; readonly children: ReactNode }) {

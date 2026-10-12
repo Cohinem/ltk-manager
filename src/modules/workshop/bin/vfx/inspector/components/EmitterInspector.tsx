@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { AlertBox, Button, Code, OVERLINE, SearchField } from "@/components";
+import { useReducedMotion } from "@/hooks";
 import { m, Marked } from "@/i18n";
 import type { BinRow, FieldSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
@@ -58,6 +59,7 @@ import { emitterLabel, filterEmitterGroups } from "../utils/emitterLabels";
 import {
   type ChildChoice,
   type EmitterCardData,
+  type RowReveal,
   SECTION_FOLDED,
   SECTION_SHOWN,
 } from "../utils/emitterTypes";
@@ -116,7 +118,7 @@ interface EmitterFieldsProps {
  * panel inside it draws no surface of its own.
  */
 export function EmitterFields({ className, actions }: EmitterFieldsProps) {
-  const { card, child, open, target, jumpRequest, openRows, toggleRow } = useEmitters();
+  const { card, child, open, target, jumpRequest, openRows, toggleRow, revealed } = useEmitters();
   const owner = cardClass(card);
   const { data } = useClassSchema(owner);
   const [search, setSearch] = useState("");
@@ -184,6 +186,9 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
     if (aimed === null || cardKey === undefined) return;
     roots.current.get(aimed)?.scrollIntoView?.({ block: "start" });
   }, [aimed, cardKey, jumpRequest]);
+  useRowReveal(scroller, revealed, () =>
+    aimed === null ? null : roots.current.get(aimed)?.firstElementChild,
+  );
 
   return (
     <div data-ui="EmitterPanel" className={twMerge("flex min-h-0 flex-col", className)}>
@@ -278,6 +283,68 @@ export function EmitterFields({ className, actions }: EmitterFieldsProps) {
         </ChildChecks>
       </div>
     </div>
+  );
+}
+
+/** How long after an ask a row that appears is still scrolled to, in milliseconds. */
+const REVEAL_WINDOW = 1500;
+
+/** How long a revealed row keeps its accent wash, in milliseconds. */
+const REVEAL_FLASH = 1500;
+
+/**
+ * Scroll `scroller` to the first row of `revealed` that it draws, by the `data-row-key` or
+ * `data-reveal-key` of the row, and flash it. A reveal of no row flashes `groupHeader`.
+ *
+ * The rows of an emitter that was just opened land after their read, so the search runs on
+ * each render until a row is found or `REVEAL_WINDOW` has passed.
+ */
+function useRowReveal(
+  scroller: RefObject<HTMLElement | null>,
+  revealed: RowReveal | null,
+  groupHeader: () => Element | null | undefined,
+) {
+  const answered = useRef(0);
+  const reducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    const root = scroller.current;
+    if (revealed === null || root === null || revealed.request === answered.current) return;
+    if (performance.now() - revealed.at > REVEAL_WINDOW) return;
+
+    const grouped = revealed.keys.length === 0;
+    const row = grouped ? groupHeader() : revealedRow(root, revealed.keys);
+    if (row === null || row === undefined) return;
+
+    answered.current = revealed.request;
+    /* A group is already at the top of the scroller, by the aim. */
+    if (!grouped) row.scrollIntoView?.({ block: "center" });
+    flash(row, reducedMotion);
+  });
+}
+
+function revealedRow(root: HTMLElement, keys: readonly string[]): Element | null {
+  for (const key of keys) {
+    const escaped = CSS.escape(key);
+    const row = root.querySelector(`[data-row-key="${escaped}"], [data-reveal-key="${escaped}"]`);
+    if (row !== null) return row;
+  }
+
+  return null;
+}
+
+/** Wash `target` in the accent, then fade the wash out. With `still`, the wash ends unfaded. */
+function flash(target: Element, still: boolean) {
+  /* DS-TOKEN */
+  const accent = getComputedStyle(target).getPropertyValue("--accent-500");
+  const wash = `color-mix(in srgb, ${accent} 30%, transparent)`;
+
+  target.animate?.(
+    [
+      { backgroundColor: wash, offset: 0 },
+      { backgroundColor: wash, offset: 0.4 },
+    ],
+    { duration: REVEAL_FLASH, easing: still ? "steps(1, end)" : "linear" },
   );
 }
 

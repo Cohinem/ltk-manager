@@ -14,7 +14,7 @@ use ltk_manager_bin::bin_document::BinDocumentId;
 use ltk_manager_bin::meta_schema::SchemaNames;
 use ltk_manager_bin::vfx::{vfx_templates as catalog, VfxTemplate};
 use ltk_manager_game::vfx::{
-    child_targets, resolve_system, search_linked_materials, VfxChildTargets, VfxSystem,
+    child_targets, resolve_system, search_linked_materials, VfxObject, VfxSystem,
 };
 use tauri::AppHandle;
 
@@ -54,13 +54,13 @@ pub async fn read_vfx_system(
     .await
 }
 
-/// The systems and effect keys of an open document that a child particle set can name.
+/// The systems that a child particle set of an open document can link.
 #[tauri::command]
 #[specta::specta]
 pub async fn vfx_child_targets(
     document: BinDocumentId,
     app_handle: AppHandle,
-) -> IpcResult<VfxChildTargets> {
+) -> IpcResult<Vec<VfxObject>> {
     off_thread(move || {
         read_resolved(&app_handle, document, |open, names, _| {
             Ok(child_targets(open, names))

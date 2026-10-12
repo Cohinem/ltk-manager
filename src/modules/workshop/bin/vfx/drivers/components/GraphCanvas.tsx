@@ -66,6 +66,7 @@ import { GraphMinimap } from "./GraphMinimap";
 import { DriverNodeView, EmitterNodeView, PreviewNodeView } from "./GraphNodes";
 import { runNodeKey, useNodeStructure } from "./nodeStructure";
 import { BoardMotionContext } from "./onScreen";
+import { useInspectorFollowsPick } from "./paneSync";
 import { PreviewViewsContext } from "./PreviewView";
 import { QuickAdd } from "./QuickAdd";
 import { RenderNodeView } from "./RenderNode";
@@ -248,6 +249,8 @@ function Canvas({
     layout,
     picked: soleId,
   });
+
+  useInspectorFollowsPick(pickedItem, adds.masters);
 
   const selectAll = (selected: boolean) =>
     setNodes((each) => each.map((node) => (node.type === "frame" ? node : { ...node, selected })));

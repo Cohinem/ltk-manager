@@ -22,8 +22,8 @@ interface Selectable {
  * Select and center the master node of the emitter chosen elsewhere: a viewport pick, a
  * timeline lane or the outline. A child lane selects its child system's node.
  *
- * A choice the graph made itself, by selecting that node, leaves the view where it is, and so
- * does the choice the graph opens on.
+ * A choice the graph made itself, by selecting that node or a node under it, leaves the view
+ * where it is, and so does the choice the graph opens on.
  */
 export function useGraphFollowsChoice<Node extends Selectable>(
   nodes: readonly Node[],
@@ -48,6 +48,12 @@ export function useGraphFollowsChoice<Node extends Selectable>(
     const target = wanted;
     const node = latest.current.find((each) => each.id === target);
     if (node === undefined || node.selected === true) return;
+
+    /* A node picked under the emitter opened its card, which is the graph's own choice. */
+    const own = latest.current.some(
+      (each) => each.selected === true && each.id.startsWith(`${target}/`),
+    );
+    if (own) return;
 
     setNodes((each) =>
       each.map((held) =>

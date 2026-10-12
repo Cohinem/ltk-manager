@@ -1,11 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { use, useMemo } from "react";
 
-import { m } from "@/i18n";
-import type { VfxChildTargets, VfxSystem } from "@/lib/tauri";
+import type { VfxObject, VfxSystem } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import { ChildAddPicker } from "../../children/ChildControls";
+import { ChildAddPicker } from "../../children/ChildAddPicker";
 import { type AuthoredChildSet, authoredChildSet } from "../../children/childModel";
 import { type ChildActions, childQueries, useChildActions } from "../../children/useChildren";
 import { vfxQueries } from "../../hooks/useVfxSystem";
@@ -38,7 +37,7 @@ export function useGraphChildActions(emitterPath: string, set: AuthoredChildSet)
 
 interface ChildAddLineProps {
   actions: ChildActions;
-  targets: VfxChildTargets | undefined;
+  targets: readonly VfxObject[] | undefined;
   /** The opened system's entry, which a child cannot link. */
   entry: string;
 }
@@ -46,13 +45,8 @@ interface ChildAddLineProps {
 /** The line that adds a child: a system by link, an effect key, or a new system. */
 export function ChildAddLine({ actions, targets, entry }: ChildAddLineProps) {
   return (
-    <Line>
-      <span className={twMerge(CHILD_LINE_LABEL, "text-surface-400")}>
-        {m.workshop_bin_child_add_action()}
-      </span>
-      <div className="min-w-0 flex-1 border-l border-surface-700/40 pl-1">
-        <ChildAddPicker actions={actions} targets={targets} holder={entry} />
-      </div>
+    <Line className="pr-2 pl-5.5">
+      <ChildAddPicker actions={actions} systems={targets} holder={entry} />
     </Line>
   );
 }

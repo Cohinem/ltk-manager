@@ -21,7 +21,7 @@ describe("authoredChildSet", () => {
       hashPath: SET,
       authored: false,
       children: [],
-      mode: "pick",
+      bones: [],
       probabilityRead: false,
       picked: null,
       starved: false,
@@ -105,7 +105,12 @@ describe("authoredChildSet", () => {
       }),
     );
 
-    expect(set).toMatchObject({ mode: "bones", probabilityRead: false, starved: false });
+    expect(set).toMatchObject({
+      bones: ["Head", "Root"],
+      probabilityRead: false,
+      picked: null,
+      starved: false,
+    });
     expect(set.children.map((child) => child.bone)).toEqual(["Head", "Root"]);
   });
 

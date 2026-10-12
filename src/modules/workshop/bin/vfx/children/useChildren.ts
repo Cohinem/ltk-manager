@@ -8,9 +8,8 @@ import {
   type BinRow,
   type NewObject,
   type ValueEdit,
-  type VfxChildTargets,
+  type VfxObject,
 } from "@/lib/tauri";
-import { viewportQueries } from "@/modules/viewport";
 import { queryFnWithArgs } from "@/utils/query";
 
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
@@ -21,24 +20,10 @@ import { field } from "../engine/parsing/readValue";
 import { vfxQueries } from "../hooks/useVfxSystem";
 import { useEmitters } from "../inspector/state/emitterChoice";
 import { VfxRunContext } from "../playback/state/run";
-import { useHostSkin } from "../preview/components/VfxHost";
 import type { SystemStart } from "../templates/SystemTemplatePicker";
 import { freeName } from "../templates/templateEdits";
-import {
-  addChildEdits,
-  boneEdits,
-  boneModeEdits,
-  type ChildTarget,
-  moveChildEdits,
-  removeChildEdits,
-} from "./childEdits";
-import {
-  type AuthoredChildSet,
-  authoredChildSet,
-  CHILD_FIELD,
-  CHILD_SET,
-  type SpawnMode,
-} from "./childModel";
+import { addChildEdits, boneEdits, moveChildEdits, removeChildEdits } from "./childEdits";
+import { type AuthoredChildSet, authoredChildSet, CHILD_FIELD, CHILD_SET } from "./childModel";
 
 const SYSTEM_CLASS = nameHash("VfxSystemDefinitionData");
 
@@ -46,9 +31,9 @@ const SYSTEM_CLASS = nameHash("VfxSystemDefinitionData");
 const NO_MOD = "mod";
 
 export const childQueries = {
-  /** The systems and effect keys of an open document, read again after every edit. */
+  /** The systems a child of an open document can link, read again after every edit. */
   targets: (document: BinDocumentId) =>
-    queryOptions<VfxChildTargets, AppError>({
+    queryOptions<VfxObject[], AppError>({
       queryKey: ["vfx-child-targets", document],
       queryFn: queryFnWithArgs(api.bin.vfxChildTargets, document),
       staleTime: Infinity,
@@ -85,10 +70,11 @@ export function useChildren() {
 
 /** The edits of one emitter's child set, each null where the document takes no edit. */
 export interface ChildActions {
-  readonly add: ((target: ChildTarget) => Promise<boolean>) | null;
+  /** Add a child that links the system `entry`. */
+  readonly add: ((entry: string) => Promise<boolean>) | null;
   readonly remove: ((index: number) => Promise<boolean>) | null;
   readonly move: ((from: number, to: number) => Promise<boolean>) | null;
-  readonly setMode: ((mode: SpawnMode) => Promise<boolean>) | null;
+  /** Write the bone of the child at `index`. An empty bone that leaves none removes the list. */
   readonly setBone: ((index: number, bone: string) => Promise<boolean>) | null;
   /** Create a system from `start` under a name free in the document, and add it as a child. */
   readonly create: ((start: SystemStart) => Promise<boolean>) | null;
@@ -98,7 +84,6 @@ const NO_ACTIONS: ChildActions = {
   add: null,
   remove: null,
   move: null,
-  setMode: null,
   setBone: null,
   create: null,
 };
@@ -107,13 +92,14 @@ const NO_ACTIONS: ChildActions = {
  * The edits of the child set `set` of the emitter at `holder`, each one undo step.
  *
  * Creating a system is two steps, the object and then the child that links it. `systemName` is
- * the path of the emitter's system, which a new system's name starts from.
+ * the path of the emitter's system, which a new system's name starts from, and `systems`
+ * are the systems whose names it must differ from.
  */
 export function useChildActions(
   holder: BinRow | null,
   set: AuthoredChildSet | null,
   systemName: string | null,
-  targets: VfxChildTargets | undefined,
+  systems: readonly VfxObject[] | undefined,
 ): ChildActions {
   const edit = use(LeafEditContext);
   const project = useOptionalProjectContext();
@@ -127,22 +113,22 @@ export function useChildActions(
     const { removeProperty, send: call, landed } = edit ?? {};
 
     return {
-      add: (target) => send(addChildEdits(set, target)),
+      add: (entry) => send(addChildEdits(set, entry)),
       remove: (index) => send(removeChildEdits(set, index)),
       move: (from, to) => send(moveChildEdits(set, from, to)),
-      setBone: (index, bone) => send(boneEdits(set, index, bone)),
-      setMode: (mode) => {
-        if (mode === "bones") return send(boneModeEdits(set));
-        if (removeProperty === undefined) return Promise.resolve(false);
+      setBone: (index, bone) => {
+        const edits = boneEdits(set, index, bone);
+        if (edits !== null) return send(edits);
+        if (removeProperty === undefined || set.bones.length === 0) return Promise.resolve(false);
 
         const bones = `${set.hashPath}.${CHILD_FIELD.bones.slice(2)}`;
         return removeProperty(holderRow(holder.entry, bones));
       },
       create:
-        call === undefined || targets === undefined
+        call === undefined || systems === undefined
           ? null
           : async (start) => {
-              const taken = new Set(targets.systems.flatMap((each) => each.name ?? []));
+              const taken = new Set(systems.flatMap((each) => each.name ?? []));
               const name = freeName(taken, `${systemName ?? `${folder}Vfx`}_Child`);
               const origin: NewObject =
                 start.kind === "template"
@@ -155,20 +141,8 @@ export function useChildActions(
               if (!result.ok || result.value.kind !== "object") return false;
 
               landed?.(id);
-              return send(addChildEdits(set, { naming: "link", entry: result.value.entry }));
+              return send(addChildEdits(set, result.value.entry));
             },
     };
-  }, [edit, holder, set, systemName, targets, folder]);
-}
-
-const NO_JOINTS: readonly string[] = [];
-
-/** The joints of the character the run is hosted on, by name, and none for a run with no host. */
-export function useHostJoints(): readonly string[] {
-  const { model } = useHostSkin();
-  const skeleton = useQuery(viewportQueries.skeleton(model?.skeleton?.asset ?? null));
-  return useMemo(
-    () => skeleton.data?.joints.map((joint) => joint.name) ?? NO_JOINTS,
-    [skeleton.data],
-  );
+  }, [edit, holder, set, systemName, systems, folder]);
 }
