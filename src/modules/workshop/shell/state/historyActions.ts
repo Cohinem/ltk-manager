@@ -92,33 +92,38 @@ export function createHistoryActions(set: EditorSet, get: EditorGet): HistoryAct
 
     navigateHistory: (delta) => {
       const state = get();
-      const at = state.historyIndex + delta;
-      const entry = state.history[at];
-      if (!entry) return null;
+      const step = Math.sign(delta);
+      if (step === 0) return null;
 
-      if (entry.kind === "list") {
-        set({ historyIndex: at });
+      for (let at = state.historyIndex + delta; state.history[at]; at += step) {
+        const entry = state.history[at];
+        if (entry.kind === "list") {
+          set({ historyIndex: at });
+          return entry;
+        }
+
+        /* A stop whose tab is gone is skipped rather than repaired. Returning
+           null for it would leave the arrow enabled and every stop past it
+           unreachable. */
+        const editor = state.byProject[entry.project];
+        const holder = editor ? leafHolding(editor.layout, entry.documentId) : null;
+        if (!editor || !holder) continue;
+
+        set({
+          byProject: {
+            ...state.byProject,
+            [entry.project]: {
+              ...editor,
+              layout: setActiveTab(editor.layout, holder.id, entry.documentId),
+              activeLeafId: holder.id,
+            },
+          },
+          historyIndex: at,
+        });
         return entry;
       }
 
-      /* A stop whose tab is gone is skipped rather than repaired: `dropStops`
-         clears a close, and what is left is a project the shell has forgotten. */
-      const editor = state.byProject[entry.project];
-      const holder = editor ? leafHolding(editor.layout, entry.documentId) : null;
-      if (!editor || !holder) return null;
-
-      set({
-        byProject: {
-          ...state.byProject,
-          [entry.project]: {
-            ...editor,
-            layout: setActiveTab(editor.layout, holder.id, entry.documentId),
-            activeLeafId: holder.id,
-          },
-        },
-        historyIndex: at,
-      });
-      return entry;
+      return null;
     },
   };
 }

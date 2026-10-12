@@ -15,3 +15,8 @@ export function useLeafId(): string {
   }
   return leafId;
 }
+
+/** The leaf the calling component is mounted inside, or null outside any leaf. */
+export function useOptionalLeafId(): string | null {
+  return use(LeafContext);
+}

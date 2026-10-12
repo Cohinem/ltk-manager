@@ -118,12 +118,28 @@ export function dropStops(
   const history: HistoryEntry[] = [];
   let index = stack.historyIndex;
   stack.history.forEach((entry, at) => {
-    if (!gone(entry)) {
-      history.push(entry);
+    /* A drop can leave two stops of one tab adjacent, and a walk between them
+       changes nothing on screen. The second one is dropped with it. */
+    if (gone(entry) || sameStop(history[history.length - 1], entry)) {
+      if (at <= stack.historyIndex) index -= 1;
       return;
     }
-    if (at <= stack.historyIndex) index -= 1;
+
+    history.push(entry);
   });
 
   return { history, historyIndex: Math.max(-1, Math.min(index, history.length - 1)) };
+}
+
+/** The stops with each document id of `project` passed through `id`, for tabs whose id changed. */
+export function renameStops(
+  history: readonly HistoryEntry[],
+  project: string,
+  id: (documentId: string) => string,
+): HistoryEntry[] {
+  return history.map((entry) =>
+    entry.kind === "document" && entry.project === project
+      ? { ...entry, documentId: id(entry.documentId) }
+      : entry,
+  );
 }

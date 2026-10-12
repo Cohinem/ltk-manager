@@ -2854,6 +2854,13 @@ replaces that group's tab and leaves every other group standing, so a split hold
 replaceable tabs as it holds groups. A reader comparing a texture in one group against a tree
 in another keeps the texture.
 
+**An open made inside a document keeps that document.** A link chip, a row's open action or a
+browser row clicked in the replaceable tab makes that tab permanent, and the target takes a
+fresh replaceable tab beside it. Replacing the tab would drop its stop from
+[the navigation history](#the-navigation-history), and a back could not return to the document
+the link was followed in. This is what Visual Studio Code does for a code navigation out of a
+preview editor. An open from the sidebar or the palette replaces the tab as before.
+
 A gesture that places a tab keeps it. A drag into another group and a split with the tab both
 say the document is worth keeping, so both make it permanent. A reorder inside one strip
 leaves the role alone, because the tab did not go anywhere. A group that gives up its
