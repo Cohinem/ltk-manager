@@ -69,7 +69,7 @@ import { HandleMenu } from "./HandleMenu";
 import type { PreviewTransport } from "./PreviewPane";
 import { ShowMenu } from "./ShowMenu";
 import { SpatialHandle } from "./SpatialHandle";
-import { useVfxHost, VfxHost, VfxHostControls } from "./VfxHost";
+import { useVfxHost, VfxHost } from "./VfxHost";
 import { ViewportPick } from "./ViewportPick";
 
 export interface VfxViewportProps {
@@ -342,7 +342,6 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
         {stats && <Stats feed={feed} />}
       </div>
 
-      <VfxHostControls host={host} />
       {transport === "mini" && (
         <RunTransport variant="mini" className="border-t border-surface-700/50" />
       )}

@@ -1,6 +1,6 @@
 import { GitBranchIcon, ShootingStarIcon, SparkleIcon } from "@phosphor-icons/react";
 import { Handle, type NodeProps, Position } from "@xyflow/react";
-import { use, useMemo } from "react";
+import { type ReactNode, use, useMemo } from "react";
 
 import { Button, Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -8,15 +8,20 @@ import { twMerge } from "@/utils";
 
 import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { nameHash } from "../../../shared/utils/binHash";
+import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import {
   BoneField,
   ChildMarks,
   ChildRowActions,
   OpenChildButton,
-  SpawnModeSwitch,
   useChildPresence,
 } from "../../children/ChildControls";
-import { type ChildEmitter, CHILD_SET_CLASS, systemLeaf } from "../../children/childModel";
+import {
+  CHILD_FIELD,
+  type ChildEmitter,
+  CHILD_SET_CLASS,
+  systemLeaf,
+} from "../../children/childModel";
 import type { ChildActions } from "../../children/useChildren";
 import type { SystemModel } from "../../engine/model/model";
 import { childPath } from "../../engine/simulation/children";
@@ -58,8 +63,8 @@ const SET_CLASS = nameHash(CHILD_SET_CLASS);
 const LINE_VALUE = "flex min-w-0 flex-1 items-center gap-1 border-l border-surface-700/40 pl-2";
 
 /**
- * An emitter's child set: the spawn mode, the set's own fields, a line per child with the
- * socket its system node feeds, and the picker that adds one. "Child systems" in
+ * An emitter's child set: the set's own fields, a line per child with the socket its system
+ * node feeds and its bone, and the picker that adds one. "Child systems" in
  * docs/ux/VFX_GRAPH.md.
  */
 export function ChildrenNodeView({ data, selected }: NodeProps<ChildrenFlowNode>) {
@@ -108,30 +113,42 @@ function ChildrenBody({ item, nameWidth }: { item: ChildrenItem; nameWidth?: num
 
   return (
     <FieldBody wire={item.wire} rows={shown} nameWidth={nameWidth}>
-      <Line>
-        <span className={CHILD_LINE_LABEL}>{m.workshop_bin_child_mode_label()}</span>
-        <div className={LINE_VALUE}>
-          <SpawnModeSwitch set={item.set} actions={actions} />
-        </div>
-      </Line>
       {item.fields.map((field) => (
-        <MasterLine
+        <SetLine
           key={field.hash}
-          field={field}
-          row={rows?.get(`${item.wire}.${field.hash.slice(2)}`)}
-          holder={setRow}
-          schema={schema?.fields}
-          owner={SET_CLASS}
-          embedded={embedded}
-          lists={lists}
-          nameWidth={nameWidth}
-        />
+          unread={field.hash === CHILD_FIELD.probability && !item.set.probabilityRead}
+        >
+          <MasterLine
+            field={field}
+            row={rows?.get(`${item.wire}.${field.hash.slice(2)}`)}
+            holder={setRow}
+            schema={schema?.fields}
+            owner={SET_CLASS}
+            embedded={embedded}
+            lists={lists}
+            nameWidth={nameWidth}
+          />
+        </SetLine>
       ))}
       {item.systems.map((system) => (
         <ChildLine key={system.id} system={system} actions={actions} />
       ))}
       <ChildAddLine actions={actions} targets={targets} entry={entry} />
     </FieldBody>
+  );
+}
+
+/**
+ * One of the set's own fields. A field the set does not read is drawn dimmed and takes no edit:
+ * `childrenProbability` of a set that writes a bone, or of one with a single child.
+ */
+function SetLine({ unread, children }: { unread: boolean; children: ReactNode }) {
+  if (!unread) return children;
+
+  return (
+    <div aria-disabled className="opacity-50">
+      <LeafEditContext value={null}>{children}</LeafEditContext>
+    </div>
   );
 }
 
@@ -156,7 +173,7 @@ function ChildLine({ system, actions }: { system: ChildSystemItem; actions: Chil
       <div className={LINE_VALUE}>
         <ChildMarks set={set} child={child} />
         <span className="min-w-0 flex-1">
-          {set.mode === "bones" && <BoneField child={child} actions={actions} />}
+          <BoneField child={child} actions={actions} />
         </span>
         <ChildRowActions child={child} count={set.children.length} actions={actions} />
       </div>

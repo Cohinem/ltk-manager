@@ -1,24 +1,27 @@
 import { CaretRightIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
-import { type ReactNode, use, useMemo, useState } from "react";
+import { use, useMemo, useState } from "react";
 
 import { OVERLINE } from "@/components";
 import { m } from "@/i18n";
 import type { BinDocumentId, BinRow, FieldSchema } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
+import { FieldRow } from "../../classes/components/ClassCells";
 import { nameHash } from "../../shared/utils/binHash";
+import { BinEditContext } from "../../tree/hooks/useBinEdit";
+import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext } from "../../tree/state/rowFold";
-import { type SpecialField, StructFields } from "../inspector/components/StructFields";
-import { VfxRunContext } from "../playback/state/run";
+import { DefaultProperty } from "../inspector/components/DefaultProperty";
 import {
-  BoneField,
-  ChildAddPicker,
-  ChildMarks,
-  ChildRowActions,
-  OpenChildButton,
-  SpawnModeSwitch,
-} from "./ChildControls";
+  type FieldSlot,
+  type SpecialField,
+  StructFields,
+} from "../inspector/components/StructFields";
+import { defaultField } from "../inspector/utils/emitterGroups";
+import { VfxRunContext } from "../playback/state/run";
+import { ChildAddPicker } from "./ChildAddPicker";
+import { BoneField, ChildMarks, ChildRowActions, OpenChildButton } from "./ChildControls";
 import {
   type AuthoredChild,
   type AuthoredChildSet,
@@ -35,7 +38,7 @@ const SET_CLASS = nameHash(CHILD_SET_CLASS);
 /** The set's rows the section draws itself, which the struct's own fields leave out. */
 const OWN_ROWS: ReadonlySet<string> = new Set([CHILD_FIELD.children, CHILD_FIELD.bones]);
 
-/** The set's fields with Spawn on death, Picked child and Inheritance first. */
+/** The set's fields with Spawn on death, Child index and Inheritance first. */
 function arrange(classHash: string, fields: readonly FieldSchema[]): readonly FieldSchema[] {
   if (classHash !== SET_CLASS) return fields;
 
@@ -46,13 +49,23 @@ function arrange(classHash: string, fields: readonly FieldSchema[]): readonly Fi
   return [...fields].sort((left, right) => rank(left) - rank(right));
 }
 
-const special: SpecialField = (slot) => (OWN_ROWS.has(slot.field.hash) ? null : undefined);
+/**
+ * The fields of the set the section draws its own way: nothing for the two lists its child rows
+ * draw, and `childrenProbability` read-only while `unread`.
+ */
+function specialFields(unread: boolean): SpecialField {
+  return function special(slot) {
+    if (OWN_ROWS.has(slot.field.hash)) return null;
+    if (unread && slot.field.hash === CHILD_FIELD.probability) return <UnreadIndex slot={slot} />;
+
+    return undefined;
+  };
+}
 
 /** Whether the section matches every term of `query`: its title, its controls or a child's name. */
 export function childrenMatch(set: AuthoredChildSet, query: string): boolean {
   const text = [
     m.workshop_bin_children_title(),
-    m.workshop_bin_child_mode_label(),
     m.workshop_bin_child_bone_label(),
     "childParticleSetDefinition",
     ...set.children.map((child) => child.label),
@@ -68,8 +81,8 @@ export function childrenMatch(set: AuthoredChildSet, query: string): boolean {
 }
 
 /**
- * The systems the open emitter's particles spawn: the spawn mode, each child with its bone and
- * its actions, the picker that adds one, and the set's own fields.
+ * The systems the open emitter's particles spawn: each child with its bone and its actions, the
+ * picker that adds one, and the set's own fields.
  *
  * "Child particles" in docs/ux/BIN_EDITOR.md.
  */
@@ -99,6 +112,8 @@ export function ChildrenSection({ search }: { search: string }) {
       value: { type: "struct", classHash: SET_CLASS, class: CHILD_SET_CLASS, len: set.fields },
     };
   }, [card, set]);
+  const unread = set?.probabilityRead !== true;
+  const special = useMemo(() => specialFields(unread), [unread]);
 
   if (!visible || set === null || card === undefined) return null;
   if (searching && !childrenMatch(set, search)) return null;
@@ -108,6 +123,7 @@ export function ChildrenSection({ search }: { search: string }) {
   return (
     <section
       data-ui="ChildrenSection"
+      data-reveal-key={`${card.row.entry}:${set.hashPath}`}
       className="flex flex-col gap-0.5 border-t border-surface-700/40 py-1 font-sans text-row"
     >
       <button
@@ -126,20 +142,25 @@ export function ChildrenSection({ search }: { search: string }) {
       {open && set.children.length === 0 && (
         <p className="px-1.5 text-meta text-surface-400">{m.workshop_bin_children_empty()}</p>
       )}
-      {open && set.authored && (
-        <Row label={m.workshop_bin_child_mode_label()}>
-          <SpawnModeSwitch set={set} actions={actions} />
-        </Row>
+      {open && set.starved && (
+        <p role="alert" className="px-1.5 pl-5.5 text-meta text-warning-text">
+          {m.workshop_bin_child_starved_hint()}
+        </p>
       )}
-      {open && <ChildNotes set={set} />}
       {open &&
         set.children.map((child) => (
-          <ChildRow key={child.index} set={set} child={child} actions={actions} />
+          <ChildRow
+            key={child.index}
+            entry={card.row.entry}
+            set={set}
+            child={child}
+            actions={actions}
+          />
         ))}
       {open && actions.add !== null && (
-        <Row label={m.workshop_bin_child_add_action()}>
-          <ChildAddPicker actions={actions} targets={targets} holder={card.row.entry} />
-        </Row>
+        <div className="flex min-h-6 items-center px-1.5 pl-5.5">
+          <ChildAddPicker actions={actions} systems={targets} holder={card.row.entry} />
+        </div>
       )}
       {open && document !== null && setRow !== null && (
         <StructFields
@@ -156,50 +177,49 @@ export function ChildrenSection({ search }: { search: string }) {
   );
 }
 
-/** One line of the section: a name in the inspector's name column, and a control beside it. */
-function Row({ label, children }: { label: string; children: ReactNode }) {
+/**
+ * `childrenProbability` of a set that does not read it, drawn dimmed and taking no edit: a set
+ * that writes a bone, or one with a single child.
+ */
+function UnreadIndex({ slot }: { slot: FieldSlot }) {
+  const { field, child, holder, owner, width, depth } = slot;
+
   return (
-    <div className="flex min-h-6 items-center px-1.5">
-      <span className={twMerge(NAME_COLUMN, "shrink-0 truncate pl-4 text-surface-300")}>
-        {label}
-      </span>
-      <div className="flex min-w-0 flex-1 items-center border-l border-surface-700/40 pl-2">
-        {children}
-      </div>
+    <div data-ui="ChildrenSection:unread-index" aria-disabled className="opacity-50">
+      <LeafEditContext value={null}>
+        <BinEditContext value={null}>
+          {child !== undefined && (
+            <FieldRow row={child} tableLayout width={width} depth={depth} owner={owner} />
+          )}
+          {child === undefined && (
+            <DefaultProperty
+              field={defaultField(field)}
+              holder={holder}
+              width={width}
+              owner={owner}
+              depth={depth}
+            />
+          )}
+        </BinEditContext>
+      </LeafEditContext>
     </div>
   );
 }
 
-const NOTE = "px-1.5 pl-5.5 text-meta text-surface-400";
-
-/** What the set's mode leaves unread or unspawned, one line each. */
-export function ChildNotes({ set }: { set: AuthoredChildSet }) {
-  const single = set.mode === "pick" && set.children.length === 1;
-
-  return (
-    <>
-      {set.starved && (
-        <p role="alert" className={twMerge(NOTE, "text-warning-text")}>
-          {m.workshop_bin_child_starved_hint()}
-        </p>
-      )}
-      {set.mode === "bones" && <p className={NOTE}>{m.workshop_bin_child_mode_bones_hint()}</p>}
-      {single && <p className={NOTE}>{m.workshop_bin_child_single_hint()}</p>}
-    </>
-  );
-}
-
 interface ChildRowProps {
+  /** The entry of the emitter's system, which keys the row for a reveal. */
+  entry: string;
   set: AuthoredChildSet;
   child: AuthoredChild;
   actions: ChildActions;
 }
 
-/** One child: its place and system, its marks, its bone in a bone set, and its actions. */
-function ChildRow({ set, child, actions }: ChildRowProps) {
+/** One child: its place and system, its marks, its bone and its actions. */
+function ChildRow({ entry, set, child, actions }: ChildRowProps) {
   return (
     <div
       data-ui="ChildrenSection:child"
+      data-reveal-key={`${entry}:${child.hashPath}`}
       className="flex min-h-6 items-center gap-1 px-1.5 pl-5.5 hover:bg-surface-veil"
     >
       <span className="shrink-0 text-meta text-surface-500">[{child.index}]</span>
@@ -212,11 +232,9 @@ function ChildRow({ set, child, actions }: ChildRowProps) {
         {systemLeaf(child.label)}
       </span>
       <ChildMarks set={set} child={child} />
-      {set.mode === "bones" && (
-        <span className="w-32 shrink-0">
-          <BoneField child={child} actions={actions} />
-        </span>
-      )}
+      <span className="w-28 shrink-0">
+        <BoneField child={child} actions={actions} />
+      </span>
       <OpenChildButton child={child} />
       <ChildRowActions child={child} count={set.children.length} actions={actions} />
     </div>

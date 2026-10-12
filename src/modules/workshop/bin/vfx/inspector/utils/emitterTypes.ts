@@ -20,6 +20,21 @@ export interface ChildChoice {
   readonly emitter: EmitterModel;
 }
 
+/**
+ * A request to scroll the inspector to a row, which the Graph pane sends for the node picked.
+ *
+ * The inspector draws a nested row only while its struct is open, so the keys run from the
+ * row asked for to the emitter's field that contains it.
+ */
+export interface RowReveal {
+  /** Row keys, most specific first. */
+  readonly keys: readonly string[];
+  /** Counts the asks, so asking for the same rows twice scrolls twice. */
+  readonly request: number;
+  /** `performance.now()` at the ask, past which a row that appears late is not scrolled to. */
+  readonly at: number;
+}
+
 /** One emitter of one of the two lists, with the groups its own fields fall into. */
 export interface EmitterCardData {
   readonly row: BinRow;

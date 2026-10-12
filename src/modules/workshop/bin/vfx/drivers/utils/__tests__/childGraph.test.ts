@@ -149,11 +149,11 @@ describe("layout of a child set", () => {
     boneToSpawnAt: list(text("Head"), text("Root")),
   });
 
-  it("sizes a Children node by its mode line, its three fields, its children and its add line", () => {
+  it("sizes a Children node by its three fields, its children and its add line", () => {
     const { item } = children(set);
 
-    expect(childrenLines(item)).toBe(1 + 3 + 2 + 1);
-    expect(sizeOf(item).height).toBe(HEADER_HEIGHT + 3 + 7 * LINE_HEIGHT + 2 * FIELD_PADDING);
+    expect(childrenLines(item)).toBe(3 + 2 + 1);
+    expect(sizeOf(item).height).toBe(HEADER_HEIGHT + 3 + 6 * LINE_HEIGHT + 2 * FIELD_PADDING);
   });
 
   it("folds a system node to its header and preview, and an unreached one to its header", () => {

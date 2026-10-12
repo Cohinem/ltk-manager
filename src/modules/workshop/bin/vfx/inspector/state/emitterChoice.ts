@@ -22,6 +22,7 @@ import {
   type EmitterCardData,
   type EmitterMode,
   type InspectorTarget,
+  type RowReveal,
   SECTION_SHOWN,
   type SectionRead,
 } from "../utils/emitterTypes";
@@ -71,6 +72,10 @@ export interface EmitterChoice {
   readonly chooseGroup: (chosen: Chosen) => void;
   /** Select a child lane, which draws the child's emitter and opens its parent's card. */
   readonly chooseChild: (child: ChildChoice) => void;
+  /** The rows last asked for, and null before any ask. */
+  readonly revealed: RowReveal | null;
+  /** Scroll the inspector to the first of the row keys `keys` that it draws. */
+  readonly revealRows: (keys: readonly string[]) => void;
   readonly mode: EmitterMode;
   readonly setMode: (mode: EmitterMode) => void;
   /** The squares colours and the rows the inspector draws, the only families it marks. */
@@ -109,6 +114,8 @@ const NO_EMITTERS: EmitterChoice = {
   chooseCard: () => {},
   chooseGroup: () => {},
   chooseChild: () => {},
+  revealed: null,
+  revealRows: () => {},
   mode: "cards",
   setMode: () => {},
   marked: NO_MARKED,
@@ -217,6 +224,11 @@ export function useEmitterChoice(
     [cards],
   );
 
+  const [revealed, setRevealed] = useState<RowReveal | null>(null);
+  const revealRows = useCallback((keys: readonly string[]) => {
+    setRevealed((last) => ({ keys, request: (last?.request ?? 0) + 1, at: performance.now() }));
+  }, []);
+
   const [sections, setSections] = useState(NO_SECTIONS);
   const report = useCallback((group: EmitterGroup, read: SectionRead) => {
     setSections((held) => {
@@ -278,6 +290,8 @@ export function useEmitterChoice(
       chooseCard,
       chooseGroup,
       chooseChild,
+      revealed,
+      revealRows,
       mode,
       setMode,
       marked,
@@ -303,6 +317,8 @@ export function useEmitterChoice(
       chooseCard,
       chooseGroup,
       chooseChild,
+      revealed,
+      revealRows,
       mode,
       marked,
       spark,

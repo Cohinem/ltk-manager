@@ -13,7 +13,7 @@ import { forceOf, vector } from "./forceFixture";
 const fixture = vi.hoisted(() => ({ forces: [] as AuthoredForce[], build: 8175716 }));
 vi.mock("../useForces", () => ({
   useForces: () => ({
-    card: { row: fixture.forces[0]?.row },
+    card: { row: fixture.forces[0]?.row ?? { entry: "0x12345678", path: "868eb76a[0]" } },
     forces: fixture.forces,
     visible: true,
     hosted: true,

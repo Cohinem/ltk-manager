@@ -1,14 +1,14 @@
 //! The walk: one object's property subtree into a [`VfxValue`], with every link chased
 //! and every asset name located.
 
-use indexmap::IndexMap;
+use indexmap::{IndexMap, IndexSet};
 use ltk_hash::{BinHash, WadHash};
 use ltk_manager_base::hashing::named;
 use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
 
-use super::{VfxChildTargets, VfxEffectKey, VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
+use super::{VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Locator, Namer, RowNames, chunk_asset, hash_hex,
@@ -129,47 +129,30 @@ pub fn resolve_system(
     })
 }
 
-/// Returns the systems and the effect keys of `document` that a child identifier can name.
+/// Returns the systems that a child identifier of `document` can link.
 ///
-/// A key maps to the target of the first resolver that maps it, which is the rule
-/// [`resolve_system`] inlines by.
-pub fn child_targets(document: &BinDocument, names: &dyn RowNames) -> VfxChildTargets {
+/// Lists every `VfxSystemDefinitionData` of the document in document order. After them, lists
+/// each object that a `ResourceResolver` of the document maps a key to and the document does
+/// not declare, once, in resolver order. Skips a key mapped to a null link.
+pub fn child_targets(document: &BinDocument, names: &dyn RowNames) -> Vec<VfxObject> {
+    let declared = document.entries().filter(|entry| {
+        document
+            .object_at(*entry)
+            .is_some_and(|object| object.class_hash == SYSTEM_DEFINITION)
+    });
+    let mapped = resources(document)
+        .into_values()
+        .filter(|target| target.0 != 0 && document.object_at(*target).is_none());
+    let targets: IndexSet<BinHash> = declared.chain(mapped).collect();
+
     let mut namer = Namer::new(names);
-    let mut object = |entry: BinHash| VfxObject {
-        entry: hex(entry),
-        name: namer.entry(entry),
-    };
-
-    let systems = document
-        .entries()
-        .filter(|entry| {
-            document
-                .object_at(*entry)
-                .is_some_and(|object| object.class_hash == SYSTEM_DEFINITION)
-        })
-        .map(&mut object)
-        .collect();
-    let mapped: Vec<_> = resources(document)
+    targets
         .into_iter()
-        .map(|(key, target)| {
-            let system = document.object_at(target).map(|_| object(target));
-            (key, system)
+        .map(|entry| VfxObject {
+            entry: hex(entry),
+            name: namer.entry(entry),
         })
-        .collect();
-
-    let effect_keys = mapped
-        .into_iter()
-        .map(|(key, system)| VfxEffectKey {
-            key: hex(key),
-            name: namer.value(key),
-            system,
-        })
-        .collect();
-
-    VfxChildTargets {
-        systems,
-        effect_keys,
-    }
+        .collect()
 }
 
 /// The custom materials of `system` its own bin does not declare, looked for in `linked`

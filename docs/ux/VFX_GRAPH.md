@@ -112,28 +112,28 @@ the edits are the inspector's, per "Child particles" in docs/ux/BIN_EDITOR.md.
 ```
 +--------------+     +----------------+     +-----------+
 | Sparks_Child |---->| CHILD PARTICLES|---->| Orb [3]   |
-| [preview]    |     | Spawn          |     |           |
-| Spark   [0]  |     | Spawn on death |     | Effects o |
-| Glow    [1]  |     | Picked child   |     +-----------+
-+--------------+     | Inheritance    |
+| [preview]    |     | Spawn on death |     |           |
+| Spark   [0]  |     | Child index    |     | Effects o |
+| Glow    [1]  |     | Inheritance    |     +-----------+
 +--------------+     | [0] Sparks   o |
-| Smoke_Child  |---->| [1] Smoke    o |
-+--------------+     | Add child      |
-                     +----------------+
++--------------+     | [1] Smoke    o |
+| Smoke_Child  |---->| Add child      |
++--------------+     +----------------+
 ```
 
-- the Children node lists the spawn mode, the set's three own fields whether the file writes them
-  or not, a line per child and the Add child line (`components/ChildNodes.tsx`). An unwritten
-  field draws at its default and an edit writes it, as a pending field of an emitter does.
-- a child line has the socket its system node feeds, the child's place and name, its bone in a
-  bone set, and Move up, Move down and Remove
+- the Children node lists the set's three own fields whether the file writes them or not, a line
+  per child and the Add child line (`components/ChildNodes.tsx`). An unwritten field draws at
+  its default and an edit writes it, as a pending field of an emitter does. Child index is
+  dimmed and takes no edit while the set does not read it.
+- a child line has the socket its system node feeds, the child's place and name, its bone, and
+  Move up, Move down and Remove
 - a child system node is titled with the last segment of the system's path over the whole path.
   It lists the system's emitters and edits none of them. Its header opens the system in its own
   tab, which is where the child's emitters are edited.
 - a click on an emitter of a child system node selects that emitter into the inspector under the
   child banner, as its timeline lane does. An emitter that carries children of its own shows their
   count in a chip. The board draws one level of children, as the timeline does.
-- a child the bin does not resolve keeps its node, titled with its link or key under an
+- a child the preview cannot load keeps its node, titled with its link or key under an
   `unresolved` chip, with no preview and no emitters
 - the node's header has the child's Hide in the preview and Solo, and a node the run leaves out is
   dimmed
@@ -382,21 +382,34 @@ A handled chord stops at the canvas, because `Ctrl+D` also opens Diagnostics app
 
 ### The graph is one of several linked panes
 
-| In the graph                                           | Elsewhere                                                                  |
-| ------------------------------------------------------ | -------------------------------------------------------------------------- |
-| Pick a master node alone                               | The inspector and the outline open its emitter                             |
-| Pick a value node alone                                | The curve dock aims at its row                                             |
-| Hover any node of an emitter                           | The viewport draws that emitter's gizmo                                    |
-| Geometry node's Show shape switch                      | The viewport's one gizmo turns on for that emitter                         |
-| Mute and solo on a master node                         | The same switches as the timeline lanes                                    |
-| Choose an emitter in the viewport, timeline or outline | The graph selects its master node and centres it                           |
-| Click an emitter of a child system node                | The inspector opens that emitter under the child banner                    |
-| Choose a child lane in the timeline                    | The graph selects its child system node, where the board draws one         |
-| Hide and solo on a child system node                   | The viewport leaves the child out, and its lanes dim                       |
-| Turn on the preview node                               | The viewport moves into the graph, and the Preview pane says where it went |
+| In the graph                                           | Elsewhere                                                                         |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Pick a master node alone                               | The inspector and the outline open its emitter                                    |
+| Pick any other node of an emitter alone                | The inspector opens that emitter, unfolds the node's group and scrolls to its row |
+| Pick a value node alone                                | The curve dock aims at its row                                                    |
+| Hover any node of an emitter                           | The viewport draws that emitter's gizmo                                           |
+| Geometry node's Show shape switch                      | The viewport's one gizmo turns on for that emitter                                |
+| Mute and solo on a master node                         | The same switches as the timeline lanes                                           |
+| Choose an emitter in the viewport, timeline or outline | The graph selects its master node and centres it                                  |
+| Click an emitter of a child system node                | The inspector opens that emitter under the child banner                           |
+| Choose a child lane in the timeline                    | The graph selects its child system node, where the board draws one                |
+| Hide and solo on a child system node                   | The viewport leaves the child out, and its lanes dim                              |
+| Turn on the preview node                               | The viewport moves into the graph, and the Preview pane says where it went        |
 
 The graph only follows a choice made elsewhere. A choice it made itself, and the one it opened
 on, leave the view where it is (`useGraphFollowsChoice` in `components/viewportLink.ts`).
+
+**The inspector shows the node picked.** A node under an emitter is drawn for a row of that
+emitter, so picking it alone opens the emitter's card, unfolds the inspector group of the field
+the node is under, and scrolls to the node's row (`inspectorAim` in `utils/inspectorAim.ts`).
+The inspector draws a nested row only while its struct is open, so the scroll falls back to the
+emitter's field that contains the node. A force and a child land on their rows of the Forces
+and Child particles sections. A Texture or Geometry node gathers several rows, so it scrolls to
+its group. The emitter's own node stays selected on the board.
+
+The row lands in the middle of the inspector, away from the sticky group header, and flashes: it takes an accent wash that fades out over a second and a half. A
+Texture or Geometry node flashes the header of its group. With reduce motion on, the wash ends
+without a fade.
 
 ### The board
 
