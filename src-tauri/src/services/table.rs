@@ -198,7 +198,6 @@ services! {
         stop_patcher,
         rebuild_overlay,
         get_patcher_status,
-        get_linked_bin_offenders,
         get_checksum_mismatches,
     }
     launcher("launcher") {

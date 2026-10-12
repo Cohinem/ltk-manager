@@ -931,8 +931,6 @@ export type Config_Deserialize = {
 	patchTft?: boolean,
 	/**  Whether to block mods from patching Scripts.wad.client. Default: true. */
 	blockScriptsWad?: boolean,
-	/**  Whether to run the linked-bin dependency check before starting the patcher. Default: true. */
-	linkedBinCheckEnabled?: boolean,
 	/**  Additional WAD files to exclude from overlay building. */
 	wadBlocklist?: WadBlocklistEntry[],
 	/**
@@ -1043,8 +1041,6 @@ export type Config_Serialize = {
 	patchTft: boolean,
 	/**  Whether to block mods from patching Scripts.wad.client. Default: true. */
 	blockScriptsWad: boolean,
-	/**  Whether to run the linked-bin dependency check before starting the patcher. Default: true. */
-	linkedBinCheckEnabled: boolean,
 	/**  Additional WAD files to exclude from overlay building. */
 	wadBlocklist: WadBlocklistEntry[],
 	/**
@@ -3780,40 +3776,6 @@ export type LinkChange =
 "added" | 
 /**  A `-links` item of a dependency of the game's list the applied one lacks. */
 "removed";
-
-/**
- *  One library mod whose property-bins reference linked dependencies no archive
- *  the game mounts can answer.
- * 
- *  The lookup is across every mounted archive rather than inside the one the
- *  declaring bin came from, so what the check tests is presence anywhere in the
- *  built overlay bar the archives the user blocked.
- */
-export type LinkedBinOffenderInfo = {
-	/**  Library mod id (matches `InstalledMod.id` on the frontend). */
-	modId: string,
-	/**  Mod display name — a fallback for the UI when it can't resolve the id. */
-	displayName: string,
-	/**
-	 *  WAD targets (e.g. `Ahri.wad.client`) in this mod that contain the unresolved
-	 *  bins. May be empty when the offending bin came from a RAW override.
-	 */
-	wads: string[],
-	/**  The missing linked bin paths, deduped. */
-	missingLinks: string[],
-};
-
-/**
- *  Payload for the `linked-bins-warning` event, emitted after a patcher start whose
- *  single overlay build found enabled mods with unresolved linked dependencies (only
- *  when `linked_bin_check_enabled`). Injection is non-fatal, so this never blocks the
- *  start - it drives a non-blocking toast. The per-mod badges and the reachable
- *  `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
- */
-export type LinkedBinWarningPayload = {
-	/**  Number of enabled mods flagged in the latest build. */
-	count: number,
-};
 
 /**  One character a map stands in its scene. */
 export type MapCharacter = {

@@ -340,7 +340,6 @@ mod tests {
         assert!(settings.kill_league_hotkey.is_none());
         assert!(settings.kill_league_stops_patcher);
         assert!(settings.config.block_scripts_wad);
-        assert!(settings.config.linked_bin_check_enabled);
         assert!(settings.config.wad_blocklist.is_empty());
         assert!(settings.config.auto_categorization_enabled);
         assert!(settings.show_mod_tags);

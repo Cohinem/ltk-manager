@@ -6,7 +6,6 @@
 
 use crate::mods::ModLibrary;
 use crate::mods::StorageLayout as _;
-use crate::mods::analysis::linked_bins::LinkedBinState;
 use crate::mods::analysis::wad_reports::WadReportState;
 use crate::mods::index::{LibraryModEntry, ModArchiveFormat};
 use crate::mods::slug::ModSlug;
@@ -88,7 +87,6 @@ fn make_library_with(
         events,
         Some(storage_dir.to_path_buf()),
         app_version,
-        Arc::new(LinkedBinState::default()),
         Arc::new(crate::mods::ChecksumMismatchState::default()),
         Arc::new(WadReportState::new(Some(storage_dir))),
         Arc::new(WadPathResolverState::preloaded(resolver)),

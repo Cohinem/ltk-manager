@@ -40,18 +40,6 @@ pub struct WadScanFailedPayload {
     pub failures: Vec<WadScanFailureInfo>,
 }
 
-/// Payload for the `linked-bins-warning` event, emitted after a patcher start whose
-/// single overlay build found enabled mods with unresolved linked dependencies (only
-/// when `linked_bin_check_enabled`). Injection is non-fatal, so this never blocks the
-/// start - it drives a non-blocking toast. The per-mod badges and the reachable
-/// `LinkedBinWarningDialog` carry the detail (fetched via `get_linked_bin_offenders`).
-#[derive(Debug, Clone, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-pub struct LinkedBinWarningPayload {
-    /// Number of enabled mods flagged in the latest build.
-    pub count: u32,
-}
-
 /// Payload for the `patcher-game-attached` event: the DLL is in the game,
 /// which says nothing yet about whether the overlay went live.
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -113,12 +101,6 @@ impl PatcherEvents for TauriPatcherEvents {
                 .collect(),
         };
         let _ = self.app_handle.emit("patcher-wad-scan-failed", payload);
-    }
-
-    fn linked_bin_warning(&self, count: u32) {
-        let _ = self
-            .app_handle
-            .emit("linked-bins-warning", LinkedBinWarningPayload { count });
     }
 
     fn game_attached(&self, pid: Option<u64>) {

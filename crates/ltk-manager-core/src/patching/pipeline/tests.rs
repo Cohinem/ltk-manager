@@ -10,7 +10,7 @@ use super::*;
 use ltk_manager_assets::hashtables::WadPathResolverState;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::AppError;
-use ltk_manager_library::mods::{ChecksumMismatchState, LinkedBinState, WadReportState};
+use ltk_manager_library::mods::{ChecksumMismatchState, WadReportState};
 use ltk_manager_runtime::diagnostics::incident::{Ending, GameRecord, LaunchKind, OverlayOutcome};
 use ltk_manager_runtime::patcher::SessionOrigin;
 use ltk_manager_runtime::patcher::injector::WadScanFailure;
@@ -24,7 +24,6 @@ impl PatcherEvents for SilentEvents {
     fn phase_changed(&self, _phase: PatcherPhase) {}
     fn error(&self, _error: AppError) {}
     fn wad_scan_failed(&self, _failures: Vec<WadScanFailure>) {}
-    fn linked_bin_warning(&self, _count: u32) {}
     fn game_attached(&self, _pid: Option<u64>) {}
     fn game_overlay(&self, _outcome: OverlayOutcome) {}
     fn game_exited(&self) {}
@@ -67,7 +66,6 @@ impl Harness {
             Arc::new(ltk_manager_base::events::NullEventSink),
             Some(storage.path().to_path_buf()),
             "1.17.0",
-            Arc::new(LinkedBinState::default()),
             Arc::new(ChecksumMismatchState::default()),
             Arc::new(WadReportState::new(Some(storage.path()))),
             Arc::new(WadPathResolverState::default()),

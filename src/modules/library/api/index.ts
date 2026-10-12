@@ -33,7 +33,6 @@ export { useLibraryHotkeys } from "./useLibraryHotkeys";
 export { useLibraryViewMode, type ViewMode } from "./useLibraryViewMode";
 export { useLibraryWatcher } from "./useLibraryWatcher";
 export { type LingeringSlot, useLingeringSlot } from "./useLingeringSlot";
-export { useLinkedBinOffender, useLinkedBinOffenders } from "./useLinkedBinOffenders";
 export { useModChecksumMismatches } from "./useModChecksumMismatches";
 export { useModFileDrop } from "./useModFileDrop";
 export { useModStorageToast } from "./useModStorageToast";

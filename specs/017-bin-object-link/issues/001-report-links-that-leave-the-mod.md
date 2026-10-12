@@ -2,7 +2,7 @@
 
 **Spec**: `017-bin-object-link`  
 **Labels**: `area: backend`, `ready-for-agent`, `priority: high`  
-**Status**: Open  
+**Status**: Closed, see "As built" in the spec  
 **Blocked by**: nothing
 
 ## Context

@@ -32,13 +32,6 @@ pub struct OverlayBuildInputs {
 
 /// What a build found, for the caller to persist or report as it sees fit.
 pub struct OverlayBuildOutcome {
-    /// Mods whose property-bins reference linked dependencies that don't resolve
-    /// against the overlay WADs they land in.
-    ///
-    /// This is a property of the *build*, not of any one mod: another enabled mod
-    /// can supply the missing dependency, so the same mod can be an offender in
-    /// one build and clean in the next.
-    pub linked_bin_offenders: Vec<ltk_overlay::LinkedBinOffender>,
     /// Per-mod WAD footprints, a byproduct of the same pass.
     pub mod_wad_reports: Vec<ltk_overlay::ModWadReport>,
     /// Chunks whose container claimed a checksum its own bytes do not have.
@@ -93,7 +86,6 @@ pub fn build_overlay(
     let result = builder.build()?;
 
     Ok(OverlayBuildOutcome {
-        linked_bin_offenders: builder.take_linked_bin_offenders(),
         mod_wad_reports: builder.take_mod_wad_reports(),
         checksum_mismatches: result.checksum_mismatches,
         game_data_diagnostics: result.game_data_diagnostics,

@@ -23,9 +23,7 @@ fn builder() -> Builder<Wry> {
     };
     use ltk_manager_runtime::diagnostics::incident::Incident;
 
-    use crate::patcher::thread::{
-        GameAttachedPayload, GameOverlayPayload, LinkedBinWarningPayload, WadScanFailedPayload,
-    };
+    use crate::patcher::thread::{GameAttachedPayload, GameOverlayPayload, WadScanFailedPayload};
     use ltk_manager_base::events::ProtocolInstallProgress;
     use ltk_manager_core::deep_link::{DeepLinkInstallRequest, DeepLinkSettingsRequest};
 
@@ -60,7 +58,6 @@ fn builder() -> Builder<Wry> {
         .typ::<ProtocolInstallProgress>()
         .typ::<GameAttachedPayload>()
         .typ::<GameOverlayPayload>()
-        .typ::<LinkedBinWarningPayload>()
         .typ::<WadScanFailedPayload>()
         .dangerously_cast_bigints_to_number()
 }

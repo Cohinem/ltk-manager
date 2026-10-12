@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-12 | `bin/object-link` reports a link to an undefined object      |
 | 2026-10-02 | Check only packed files, and report packed working files     |
 | 2026-09-30 | Name each unchecked file once, with its reason               |
 | 2026-09-17 | Open a bin finding at the node it names                      |
@@ -57,6 +58,7 @@ This table holds every major feature of Problems. A status word has one meaning.
 | Texture size rule    | Available | `tex/block-alignment`. The one confirmed crash, and it repairs         |
 | Audio bank rule      | Available | `audio/bank-version`. A bank the game drops without a word             |
 | Working file rule    | Available | `project/working-file`. A packed source file, with no ignore rules     |
+| Object link rule     | Available | `bin/object-link`. A link to an object no mod or game bin defines      |
 | Repair by removal    | Available | A fix may delete a file, where something still answers for it          |
 | The fix preview      | Available | The before value and the after value, for each problem                 |
 | Preserved names      | Available | A fix writes what it hashes into the mod's own `hashes/`               |
@@ -117,18 +119,18 @@ editor has used it since the panel was first proposed. The code follows the docu
 
 ## What exists today
 
-The manager runs three checks. Each has its own type, its own surface and its own life, and
-none of them can say where a problem is in a way a user can click.
+The manager ran three checks before this feature. Each had its own type, its own surface and its
+own life, and none of them could say where a problem is in a way a user can click. The linked bin
+check is removed, and `bin/object-link` reports a missing linked object in its place.
 
 | Check              | Produces                | Surface                | Location |
 | ------------------ | ----------------------- | ---------------------- | -------- |
 | `validate_project` | Two `Vec<String>`       | A dialog before a pack | None     |
-| Linked bin check   | `LinkedBinOffenderInfo` | A warning in Library   | A mod id |
 | WAD report         | `ModWadReport`, on disk | The mod's own page     | A mod    |
 
 A string is not a finding. `"Invalid version format: 1.0 (expected semver like 1.0.0)"` says
 what is wrong and nothing about what to do or where to go. This feature is the shape those
-three should have had, and moving them onto it is what proves the shape is generic.
+checks should have had, and moving them onto it is what proves the shape is generic.
 
 ## The model
 

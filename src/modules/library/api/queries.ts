@@ -10,7 +10,6 @@ import {
   type InstalledMod,
   type LayoutMigrationState,
   type LibraryFolder,
-  type LinkedBinOffenderInfo,
   type ModDocument,
   type ModHealthVerdict,
   type ModWadReport,
@@ -78,13 +77,6 @@ export const modQueries = {
     queryOptions<Record<string, ModWadReport>, AppError>({
       queryKey: libraryKeys.wadReports(),
       queryFn: queryFn(api.getAllModWadReports),
-      staleTime: REPORT_STALE_MS,
-    }),
-
-  linkedBinOffenders: () =>
-    queryOptions<Record<string, LinkedBinOffenderInfo>, AppError>({
-      queryKey: libraryKeys.linkedBinOffenders(),
-      queryFn: queryFn(api.getLinkedBinOffenders),
       staleTime: REPORT_STALE_MS,
     }),
 

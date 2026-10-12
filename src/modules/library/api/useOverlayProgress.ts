@@ -31,16 +31,6 @@ export function useOverlayProgress() {
     };
   }, [queryClient]);
 
-  // Refresh the linked-bin offender badges when a build records a fresh snapshot.
-  useEffect(() => {
-    const unlisten = listen("linked-bins-updated", () => {
-      queryClient.invalidateQueries({ queryKey: libraryKeys.linkedBinOffenders() });
-    });
-    return () => {
-      unlisten.then((fn) => fn()).catch(() => {});
-    };
-  }, [queryClient]);
-
   // Same for the checksum-mismatch advisories in mod details.
   useEffect(() => {
     const unlisten = listen("checksum-mismatches-updated", () => {

@@ -144,6 +144,14 @@ impl ObjectIndex {
             .any(|at| self.declared.rows[*at as usize].class == class)
     }
 
+    /// Returns the chunk of each declaration of `object`, in archive order.
+    pub fn declaring_chunks(&self, object: BinHash) -> impl Iterator<Item = WadHash> + '_ {
+        self.declared
+            .rows_of(object)
+            .iter()
+            .map(|at| self.declared.rows[*at as usize].file)
+    }
+
     /// Every object a table names, with its path, in path order.
     pub fn named_objects(&self) -> impl Iterator<Item = (BinHash, &str)> + '_ {
         self.names

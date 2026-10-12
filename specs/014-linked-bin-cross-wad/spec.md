@@ -2,7 +2,7 @@
 
 **Feature Branch**: `014-linked-bin-cross-wad`
 **Created**: 2026-08-30
-**Status**: Draft
+**Status**: Superseded. The check is removed, and `bin/object-link` of spec 017 replaces it
 **Input**: A missing-dependency warning raised against a mod whose named dependency is present in the installed game. Investigated in `docs/plans/mod-autofixer-gaps.md`.
 
 ## Problem Statement

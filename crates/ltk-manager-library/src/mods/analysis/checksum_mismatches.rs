@@ -4,7 +4,7 @@
 //! not have - the mark of a badly-packed mod, worth re-exporting. Per upstream
 //! ADR-0001 it is never a build failure: the overlay carries the checksum
 //! recomputed while the bytes were copied, so the content reaches the game
-//! intact either way. Like [`crate::mods::LinkedBinState`] this is in-memory
+//! intact either way. This is in-memory
 //! only and replaced wholesale on every build, because only chunks a build
 //! actually passed through are observed - a WAD reused from a previous build
 //! reports nothing.

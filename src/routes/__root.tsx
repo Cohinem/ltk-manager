@@ -4,12 +4,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 
 import { Spinner } from "@/components";
-import {
-  useOverscrollSpring,
-  useReducedMotion,
-  useSurfaceLinkedBinWarning,
-  useZoomHotkeys,
-} from "@/hooks";
+import { useOverscrollSpring, useReducedMotion, useZoomHotkeys } from "@/hooks";
 import {
   loadMonoFace,
   loadSansFace,
@@ -29,7 +24,6 @@ import {
 } from "@/modules/launcher";
 import {
   LibraryMigrationDialog,
-  LinkedBinWarningDialog,
   ModHealthSweepListener,
   useLibraryWatcher,
   useModStorageToast,
@@ -98,7 +92,6 @@ function RootLayout() {
   useLibraryWatcher();
   useModStorageToast();
   useAutoStartPatcher();
-  useSurfaceLinkedBinWarning();
   useClearTestingProjectsOnIdle();
   useClearStoppingOnIdle();
   useIncidentListeners();
@@ -243,7 +236,6 @@ function RootLayout() {
       <ModHealthSweepListener />
       <WadScanFailedDialog />
       <InstallMismatchDialog />
-      <LinkedBinWarningDialog />
       <DiagnosticsNoticeDialog />
       <Suspense fallback={null}>
         <ProtocolInstallDialogLazy />

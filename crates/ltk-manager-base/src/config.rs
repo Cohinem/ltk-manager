@@ -77,9 +77,6 @@ pub struct Config {
     /// Whether to block mods from patching Scripts.wad.client. Default: true.
     #[serde(default = "default_true")]
     pub block_scripts_wad: bool,
-    /// Whether to run the linked-bin dependency check before starting the patcher. Default: true.
-    #[serde(default = "default_true")]
-    pub linked_bin_check_enabled: bool,
     /// Additional WAD files to exclude from overlay building.
     #[serde(
         default = "default_wad_blocklist",
@@ -236,7 +233,6 @@ impl Default for Config {
             workshop_path: None,
             patch_tft: false,
             block_scripts_wad: true,
-            linked_bin_check_enabled: true,
             wad_blocklist: default_wad_blocklist(),
             elevate_injector: false,
             auto_categorization_enabled: true,
@@ -266,7 +262,6 @@ mod tests {
         assert!(config.workshop_path.is_none());
         assert!(!config.patch_tft);
         assert!(config.block_scripts_wad);
-        assert!(config.linked_bin_check_enabled);
         assert!(config.wad_blocklist.is_empty());
         assert!(!config.elevate_injector);
         assert!(config.auto_categorization_enabled);

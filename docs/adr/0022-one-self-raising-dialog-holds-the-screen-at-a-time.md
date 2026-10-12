@@ -48,14 +48,13 @@ that clears its own state hands the screen to the next claim without knowing one
 
 The order, most urgent first, is what the reader loses by acting uninformed:
 
-| Dialog               | Why here                                               |
-| -------------------- | ------------------------------------------------------ |
-| `protocol-install`   | the reader asked for this one, from outside the app    |
-| `wad-scan-failed`    | the patcher stopped and no mods loaded                 |
-| `linked-bin-warning` | enabled mods may crash the game                        |
-| `library-migration`  | a report, and the move is retried next launch          |
-| `mod-health`         | findings, and the status bar keeps a way back to them  |
-| `update`             | least urgent, and the title bar keeps a way back to it |
+| Dialog              | Why here                                               |
+| ------------------- | ------------------------------------------------------ |
+| `protocol-install`  | the reader asked for this one, from outside the app    |
+| `wad-scan-failed`   | the patcher stopped and no mods loaded                 |
+| `library-migration` | a report, and the move is retried next launch          |
+| `mod-health`        | findings, and the status bar keeps a way back to them  |
+| `update`            | least urgent, and the title bar keeps a way back to it |
 
 Only self-raising surfaces queue. A dialog the reader opened by pressing something opens, because
 deferring it would read as a broken control. The distinction holds without a rule: a modal
