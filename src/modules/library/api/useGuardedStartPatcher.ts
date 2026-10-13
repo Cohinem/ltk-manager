@@ -12,12 +12,6 @@ import { useInstalledMods } from "./queries";
 /**
  * Shared start path for both the manual and auto-start flows. It force-disables any
  * enabled skinhack mods (which would crash the game), then starts the patcher.
- *
- * Linked-bin dependency issues are no longer gated here: missing linked bins are
- * non-fatal at injection, so the single overlay build inside `start_patcher` records
- * any offenders as a byproduct. They surface afterwards as per-mod badges and a
- * one-time warning toast (see `useSurfaceLinkedBinWarning`) — no pre-flight build,
- * no blocking dialog before the patch.
  */
 export function useGuardedStartPatcher() {
   const startPatcher = useStartPatcher();

@@ -11,10 +11,16 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::OnceLock;
 
+use ltk_hash::BinHash;
+use ltk_hashdb::LayeredHashDb;
 use ltk_wad::WadHash;
 
+use ltk_manager_assets::game_index::GameIndex;
 use ltk_manager_assets::game_wads::{GameArchives, WadCache, mount_wad};
+use ltk_manager_assets::hashtables::HashtableCache;
+use ltk_manager_base::budget::files_at_once;
 use ltk_manager_base::config::Config;
+use ltk_manager_bin::object_index::ObjectIndex;
 
 /// The chunks of the installed game.
 ///
@@ -40,6 +46,15 @@ pub trait GameContent: std::fmt::Debug + Send + Sync {
     /// as one sentence a panel can draw.
     fn read(&self, path: WadHash) -> Result<Option<Vec<u8>>, String>;
 
+    /// Returns the installed chunks that declare the bin object `object`.
+    ///
+    /// Returns `None` if the bin objects of the install cannot be indexed. The
+    /// default implementation returns `None`.
+    fn declaring_chunks(&self, object: BinHash) -> Option<Vec<WadHash>> {
+        let _ = object;
+        None
+    }
+
     /// Build whatever the content keeps lazily, ahead of the first ask.
     ///
     /// The default builds nothing. Content that builds an index keeps it for
@@ -54,6 +69,8 @@ pub trait GameContent: std::fmt::Debug + Send + Sync {
 pub struct InstalledContent {
     archives: GameArchives,
     chunks: OnceLock<ChunkIndex>,
+    /// The bin objects of the install, or `None` if the build failed.
+    objects: OnceLock<Option<ObjectIndex>>,
     mounts: WadCache,
 }
 
@@ -95,6 +112,7 @@ impl InstalledContent {
         Self {
             archives,
             chunks: OnceLock::new(),
+            objects: OnceLock::new(),
             mounts: WadCache::default(),
         }
     }
@@ -162,6 +180,48 @@ impl InstalledContent {
             .map(|chunk| (chunk.path_hash, chunk.uncompressed_size as u64))
             .collect())
     }
+
+    /// Returns the bin object index of the install, and builds it on the first call.
+    ///
+    /// Returns `None` if no hashtable is synced or if the build fails. The failure
+    /// is logged once, and later calls return `None` without a new build.
+    fn objects(&self) -> Option<&ObjectIndex> {
+        self.objects
+            .get_or_init(|| {
+                let cache = HashtableCache::shared()
+                    .inspect_err(|e| {
+                        tracing::warn!(
+                            "Could not open the hashtable cache, so bin objects are not indexed: {e}"
+                        );
+                    })
+                    .ok()?;
+                if cache.generation().is_none() {
+                    tracing::warn!(
+                        "Bin objects are not indexed because no hashtable is synced. Sync the hashtables in Settings."
+                    );
+                    return None;
+                }
+
+                index_objects(&self.archives, &cache.wad_tables())
+                    .inspect_err(|e| {
+                        tracing::warn!("Could not index the installed game's bin objects: {e}");
+                    })
+                    .ok()
+            })
+            .as_ref()
+    }
+}
+
+/// Builds the index of the bin objects that the bins of `archives` declare.
+///
+/// `tables` resolves chunk hashes to paths. The build reads the first bytes of
+/// every chunk whose hash `tables` does not resolve, so an empty `tables`
+/// causes a prefix read of every chunk of the install.
+///
+/// Fails if the archives cannot be listed or if the build fails.
+fn index_objects(archives: &GameArchives, tables: &LayeredHashDb) -> Result<ObjectIndex, String> {
+    let game = GameIndex::build(archives, tables).map_err(|e| e.to_string())?;
+    ObjectIndex::build(&game, archives, files_at_once(), &|| false).map_err(|e| e.to_string())
 }
 
 impl GameContent for InstalledContent {
@@ -171,6 +231,10 @@ impl GameContent for InstalledContent {
 
     fn size(&self, path: WadHash) -> Option<u64> {
         self.index().entries.get(&path).map(|chunk| chunk.size)
+    }
+
+    fn declaring_chunks(&self, object: BinHash) -> Option<Vec<WadHash>> {
+        Some(self.objects()?.declaring_chunks(object).collect())
     }
 
     fn warm(&self) {
@@ -203,7 +267,11 @@ impl GameContent for InstalledContent {
 /// cannot depend on a League install.
 #[cfg(test)]
 #[derive(Debug, Default)]
-pub(crate) struct FakeContent(HashMap<WadHash, Vec<u8>>);
+pub(crate) struct FakeContent {
+    chunks: HashMap<WadHash, Vec<u8>>,
+    /// The chunks that declare each bin object, or `None` for an install that indexes nothing.
+    objects: Option<HashMap<BinHash, Vec<WadHash>>>,
+}
 
 #[cfg(test)]
 impl FakeContent {
@@ -222,30 +290,59 @@ impl FakeContent {
         Self::of(std::iter::empty())
     }
 
+    /// Returns an install that contains `bins`, each as `(chunk path, bytes)`, with its bin
+    /// objects indexed.
+    pub(crate) fn with_bins(bins: &[(&str, &[u8])]) -> std::sync::Arc<dyn GameContent> {
+        use ltk_hash::Hash as _;
+        let mut objects: HashMap<BinHash, Vec<WadHash>> = HashMap::new();
+        let mut chunks = HashMap::new();
+
+        for (path, bytes) in bins {
+            let chunk = WadHash::hash_str(path);
+            ltk_manager_assets::bin_source::for_each_declaration(
+                std::io::Cursor::new(bytes),
+                |declared| objects.entry(declared.object).or_default().push(chunk),
+            )
+            .expect("a fixture bin reads");
+            chunks.insert(chunk, bytes.to_vec());
+        }
+
+        std::sync::Arc::new(Self {
+            chunks,
+            objects: Some(objects),
+        })
+    }
+
     fn of<'e>(
         entries: impl Iterator<Item = (&'e str, &'e [u8])>,
     ) -> std::sync::Arc<dyn GameContent> {
         use ltk_hash::Hash as _;
-        std::sync::Arc::new(Self(
-            entries
+        std::sync::Arc::new(Self {
+            chunks: entries
                 .map(|(path, bytes)| (WadHash::hash_str(path), bytes.to_vec()))
                 .collect(),
-        ))
+            objects: None,
+        })
     }
 }
 
 #[cfg(test)]
 impl GameContent for FakeContent {
     fn contains(&self, path: WadHash) -> bool {
-        self.0.contains_key(&path)
+        self.chunks.contains_key(&path)
     }
 
     fn size(&self, path: WadHash) -> Option<u64> {
-        self.0.get(&path).map(|bytes| bytes.len() as u64)
+        self.chunks.get(&path).map(|bytes| bytes.len() as u64)
     }
 
     fn read(&self, path: WadHash) -> Result<Option<Vec<u8>>, String> {
-        Ok(self.0.get(&path).cloned())
+        Ok(self.chunks.get(&path).cloned())
+    }
+
+    fn declaring_chunks(&self, object: BinHash) -> Option<Vec<WadHash>> {
+        let objects = self.objects.as_ref()?;
+        Some(objects.get(&object).cloned().unwrap_or_default())
     }
 }
 

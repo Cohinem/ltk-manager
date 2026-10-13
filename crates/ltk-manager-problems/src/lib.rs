@@ -661,7 +661,8 @@ pub struct RuleMeta {
     /// The severity every problem this rule reports carries.
     ///
     /// `None` where each finding answers for itself, because what it costs
-    /// depends on the machine the check ran on rather than on the rule.
+    /// depends on the machine the check ran on, or on the property the finding
+    /// is at, rather than on the rule.
     ///
     /// **A severity given here is this build's word, as much as the title is.**
     /// That is what lets a remembered verdict take it from the running build

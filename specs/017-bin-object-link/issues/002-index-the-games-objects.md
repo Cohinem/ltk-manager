@@ -2,7 +2,7 @@
 
 **Spec**: `017-bin-object-link`  
 **Labels**: `area: backend`, `priority: low`  
-**Status**: Blocked  
+**Status**: Closed, see "As built" in the spec  
 **Blocked by**: a released `ltk_meta` carrying the bin streaming reader, and the manager's pin
 moving to it
 

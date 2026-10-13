@@ -79,13 +79,6 @@ export function PatchingSection() {
           )}
 
           <SettingRow
-            setting="linkedBinCheckEnabled"
-            description="Flags enabled mods that reference files removed from the game."
-            hint="Shown as a badge on each affected mod, plus a one-time warning when you start the patcher."
-            control={<SettingSwitch setting="linkedBinCheckEnabled" />}
-          />
-
-          <SettingRow
             setting="enforceSkinhackScan"
             description="Scans modded files for skinhacks and aborts patching if any are found."
             hint="Temporary. It goes away once third-party mod managers have adapted to the new anti-skinhack requirements."

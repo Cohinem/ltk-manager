@@ -156,7 +156,6 @@ export const api = {
   stopPatcher: patcher.stopPatcher,
   rebuildOverlay: patcher.rebuildOverlay,
   getPatcherStatus: patcher.getPatcherStatus,
-  getLinkedBinOffenders: patcher.getLinkedBinOffenders,
   getChecksumMismatches: patcher.getChecksumMismatches,
 
   // Launcher

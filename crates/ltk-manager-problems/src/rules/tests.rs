@@ -7,8 +7,9 @@ use crate::ProblemSeverity;
 /// The severity each rule answers with, and who answers.
 ///
 /// A stored verdict takes a declared severity from the running build, so this
-/// is the list of what the badge draws - and one rule cannot be on it, because
-/// what a type mismatch costs is a question about the machine.
+/// is the list of what the badge draws. Two rules declare none. The cost of a
+/// type mismatch depends on the machine, and the cost of a missing linked
+/// object depends on the property that contains the link.
 #[test]
 fn each_rule_declares_who_answers_for_its_severity() {
     let declared: Vec<(String, Option<ProblemSeverity>)> = all()
@@ -33,6 +34,7 @@ fn each_rule_declares_who_answers_for_its_severity() {
                 "bin/resolver-key-loss".to_owned(),
                 Some(ProblemSeverity::Info)
             ),
+            ("bin/object-link".to_owned(), None),
             (
                 "project/working-file".to_owned(),
                 Some(ProblemSeverity::Warning)

@@ -2,9 +2,23 @@
 
 **Feature Branch**: `017-bin-object-link`
 **Created**: 2026-09-01
-**Status**: Draft
+**Status**: Implemented, with the differences listed under "As built"
 **Input**: A mod reported as crashing the game on a specific in-game event, whose bin passed every
 rule the checker had. Investigated alongside the `bin/property-type` schema work.
+
+## As built
+
+The rule shipped on 2026-10-12 with the game object index of issue 002, so it differs from the
+text below in these points:
+
+- The rule reports a link only if neither the mod nor the installed game defines its target. A
+  target that only a replaced game chunk defines counts as undefined.
+- The rule skips a link to a target that the game defines nowhere if the game's own copy of the
+  chunk, or the game chunk that declares the containing object, contains the same link.
+- A link in the `resourceMap` of a `ResourceResolver` is reported at `Info`. Every other link
+  is reported at `Warning`.
+- The rule is dormant without an install.
+- A map cannot have a link as its key in `ltk_meta`, so the rule reads map values only.
 
 ## Problem Statement
 

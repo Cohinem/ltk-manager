@@ -53,10 +53,10 @@ use ltk_manager_bin::bin_walk::Declared;
 pub const ID: RuleId = RuleId("bin/resolver-key-loss");
 
 /// `ResourceResolver`, the class holding the map a spell script resolves through.
-const RESOURCE_RESOLVER: BinHash = named("ResourceResolver");
+pub(super) const RESOURCE_RESOLVER: BinHash = named("ResourceResolver");
 
 /// `resourceMap` on that class, which is the map itself.
-const RESOURCE_MAP: BinHash = named("resourceMap");
+pub(super) const RESOURCE_MAP: BinHash = named("resourceMap");
 
 /// How many keys a resolver has to have lost before it is worth reporting.
 ///

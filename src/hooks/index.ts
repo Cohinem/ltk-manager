@@ -12,6 +12,5 @@ export { useReducedMotion } from "./useReducedMotion";
 export { useRemeasure } from "./useRemeasure";
 export { beginReorderHold, scrollerOf, useReorderTransition } from "./useReorderTransition";
 export { useResizeObserver } from "./useResizeObserver";
-export { useSurfaceLinkedBinWarning } from "./useSurfaceLinkedBinWarning";
 export { useZoomedPx } from "./useZoomedPx";
 export { useZoomHotkeys } from "./useZoomHotkeys";

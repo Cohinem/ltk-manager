@@ -17,7 +17,6 @@ import { twMerge } from "@/utils";
 
 import type { RowDensity, SortField, TableColumnId, TableGroupBy } from "../../state";
 import { LayerPopover } from "../LayerPopover";
-import { MissingDepsBadge } from "../MissingDepsBadge";
 import { ModCardMenu, ModCardToggle, ModPills } from "../ModCard/ModCardParts";
 import type { ModCardView } from "../ModCard/useModCardController";
 import { ModHealthBadge } from "../ModHealthBadge";
@@ -172,7 +171,6 @@ function HealthCell({ view }: CellProps) {
     <span {...stop} className="flex items-center gap-1 empty:hidden">
       <ModHealthBadge modId={view.mod.id} />
       <SuspectBadge modId={view.mod.id} enabled={view.mod.enabled} />
-      <MissingDepsBadge modId={view.mod.id} enabled={view.mod.enabled} />
     </span>
   );
 }

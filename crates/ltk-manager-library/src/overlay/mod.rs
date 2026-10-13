@@ -229,9 +229,6 @@ impl ModLibrary {
     /// returning, so the frontend can see the build finish before these land.
     /// The dedicated events are how it learns the caches are ready to query.
     pub fn record_overlay_build(&self, outcome: OverlayBuildOutcome) {
-        self.linked_bins().record(outcome.linked_bin_offenders);
-        self.events().emit(BackendEvent::LinkedBinsUpdated);
-
         self.checksum_mismatches()
             .record(outcome.checksum_mismatches);
         self.events().emit(BackendEvent::ChecksumMismatchesUpdated);

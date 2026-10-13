@@ -26,3 +26,37 @@ fn warming_an_install_with_no_archives_still_answers() {
     assert!(content.chunks.get().is_some());
     assert_eq!(content.read(WadHash(1)), Ok(None));
 }
+
+#[test]
+fn index_objects_returns_declaring_chunk() {
+    use ltk_hash::Hash as _;
+    use ltk_manager_assets::test_util::{bin_bytes, place_game_wad};
+    use ltk_meta::{Bin, BinObject};
+
+    const SKIN_BIN: &str = "data/characters/aatrox/skins/skin0.bin";
+    let skin = BinHash::hash_str("Characters/Aatrox/Skins/Skin0");
+    let bin = Bin::new(
+        [BinObject::new(
+            skin,
+            BinHash::hash_str("SkinCharacterDataProperties"),
+        )],
+        std::iter::empty::<&str>(),
+    );
+    let root = tempfile::tempdir().expect("a temp dir");
+    place_game_wad(
+        root.path(),
+        "Aatrox.wad.client",
+        &[(SKIN_BIN, &bin_bytes(&bin))],
+    );
+    let archives = GameArchives::at(&root.path().join("league").join("Game"));
+    let mut tables = LayeredHashDb::new();
+    tables.insert(WadHash::hash_str(SKIN_BIN).0, SKIN_BIN);
+
+    let objects = index_objects(&archives, &tables).expect("an index");
+
+    assert_eq!(
+        objects.declaring_chunks(skin).collect::<Vec<_>>(),
+        [WadHash::hash_str(SKIN_BIN)]
+    );
+    assert_eq!(objects.declaring_chunks(BinHash(1)).count(), 0);
+}

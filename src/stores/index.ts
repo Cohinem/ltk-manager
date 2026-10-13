@@ -4,7 +4,6 @@ export * from "./dialogQueue";
 export * from "./display";
 export * from "./incidentLine";
 export * from "./installMismatch";
-export * from "./linkedBinGuard";
 export * from "./modHealthDrawer";
 export * from "./notifications";
 export * from "./patcherFailure";

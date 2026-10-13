@@ -128,7 +128,6 @@ mod tests {
             None,
             "0.0.0",
             Arc::default(),
-            Arc::default(),
             Arc::new(ltk_manager_library::mods::WadReportState::new(None)),
             Arc::default(),
         ))

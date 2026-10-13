@@ -5,10 +5,6 @@ use super::*;
 #[test]
 fn event_names_are_stable() {
     assert_eq!(
-        BackendEvent::LinkedBinsUpdated.name(),
-        "linked-bins-updated"
-    );
-    assert_eq!(
         BackendEvent::WadReportsUpdated.name(),
         "wad-reports-updated"
     );
@@ -168,7 +164,7 @@ fn overlay_stages_serialize_to_their_wire_names() {
 #[test]
 fn null_sink_accepts_events() {
     let sink = NullEventSink;
-    sink.emit(BackendEvent::LinkedBinsUpdated);
+    sink.emit(BackendEvent::WadReportsUpdated);
 }
 
 #[test]
