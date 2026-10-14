@@ -95,6 +95,7 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   reloadModsHotkey: optional("None", plain),
 
   autoCategorizationEnabled: onOff,
+  autoHealthCheckEnabled: onOff,
   promoteEnabledMods: onOff,
   watcherEnabled: onOff,
 

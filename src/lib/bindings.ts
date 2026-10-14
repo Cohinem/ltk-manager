@@ -949,6 +949,12 @@ export type Config_Deserialize = {
 	 *  the user sets themselves are used. Default: true.
 	 */
 	autoCategorizationEnabled?: boolean,
+	/**
+	 *  Whether the library sweep checks mod health at startup, after a hashtable
+	 *  sync and after an install. A check the user starts runs either way.
+	 *  Default: true.
+	 */
+	autoHealthCheckEnabled?: boolean,
 	/**  Enabling a mod moves it to the front of its folder. Off by default. */
 	promoteEnabledMods?: boolean,
 	/**
@@ -1059,6 +1065,12 @@ export type Config_Serialize = {
 	 *  the user sets themselves are used. Default: true.
 	 */
 	autoCategorizationEnabled: boolean,
+	/**
+	 *  Whether the library sweep checks mod health at startup, after a hashtable
+	 *  sync and after an install. A check the user starts runs either way.
+	 *  Default: true.
+	 */
+	autoHealthCheckEnabled: boolean,
 	/**  Enabling a mod moves it to the front of its folder. Off by default. */
 	promoteEnabledMods: boolean,
 	/**

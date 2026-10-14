@@ -3,11 +3,13 @@
 //! A packed WAD is read chunk by chunk from the archive, and a WAD stored as a
 //! directory of entries is read entry by entry. Nothing is written to disk.
 //!
-//! Each read opens the archive again instead of sharing one handle. Bins are
-//! read on a pool - see [`Budget::map`](ltk_manager_base::budget::Budget::map) - and a
-//! zip entry borrows its archive mutably, so a shared handle would serialize the
-//! pool. Reopening a stored entry reads the archive's entry table and the WAD's,
-//! which is a few kilobytes.
+//! Bins are read on a pool - see [`Budget::map`](ltk_manager_base::budget::Budget::map) -
+//! and a zip entry borrows its archive mutably. Each loose-entry read therefore
+//! clones the archive, which shares the entry table parsed by the scan and reads
+//! the file at explicit offsets through [`SharedFile`]. Parsing the entry table
+//! again per read costs about 80 ms for an archive of 16 000 entries.
+//!
+//! Each packed-WAD read opens the archive again and mounts the WAD.
 //!
 //! A deflated entry is the exception, and the reason [`ArchiveFiles`] holds
 //! bytes. Deflate has no random access, so reading one chunk inflates the whole
@@ -51,6 +53,10 @@ pub(super) struct ArchiveFiles {
     /// lower-cased name. A stored WAD is read from the archive and is not held
     /// here.
     inflated: HashMap<String, Arc<[u8]>>,
+    /// The zip index of each loose entry of the layer, keyed by lower-cased path.
+    entries: HashMap<String, usize>,
+    /// The archive with its entry table parsed, cloned for each loose-entry read.
+    zip: ZipArchive<SharedFile>,
 }
 
 /// What one scan of an archive found.
@@ -72,6 +78,8 @@ struct LayerEntries {
     layer: String,
     files: Vec<ProjectFile>,
     packed: Vec<PackedWad>,
+    /// The zip index of each loose entry, keyed by lower-cased path.
+    entries: HashMap<String, usize>,
 }
 
 /// One packed WAD entry, and whether it can be read where it lies.
@@ -96,7 +104,8 @@ impl ArchiveFiles {
     /// read. A WAD that cannot be mounted is logged and skipped, and the rest
     /// are still scanned.
     pub(super) fn scan(archive: &Path, resolver: &dyn PathResolver) -> AppResult<ArchiveScan> {
-        let entries = Self::layer_entries(archive)?;
+        let zip = open_zip(archive)?;
+        let entries = Self::layer_entries(zip.clone())?;
         let mut reader = open_fantome(archive)?;
 
         // Read before the WADs and propagated as an error. The mod's own tables
@@ -118,6 +127,7 @@ impl ArchiveFiles {
             layer,
             mut files,
             packed,
+            entries,
         } in entries
         {
             let mut inflated = HashMap::new();
@@ -141,6 +151,8 @@ impl ArchiveFiles {
                 archive: archive.to_path_buf(),
                 layer,
                 inflated,
+                entries,
+                zip: zip.clone(),
             };
             layers.push(LayerFiles::in_archive(&name, files, source));
         }
@@ -193,9 +205,7 @@ impl ArchiveFiles {
     /// The base layer is always listed, even when empty. A file's kind comes
     /// from its extension in the entry table, without decompression. An entry
     /// with no extension has only its head inflated, to read its magic.
-    fn layer_entries(archive: &Path) -> AppResult<Vec<LayerEntries>> {
-        let mut zip = open_zip(archive)?;
-
+    fn layer_entries(mut zip: ZipArchive<SharedFile>) -> AppResult<Vec<LayerEntries>> {
         let mut layers = vec![LayerEntries {
             layer: BASE_LAYER.to_owned(),
             ..LayerEntries::default()
@@ -219,6 +229,11 @@ impl ArchiveFiles {
             }
             if let Some((layer, path)) = layer_path(&name) {
                 let at = position_of(&mut layers, layer);
+                layers[at]
+                    .entries
+                    .entry(path.to_ascii_lowercase())
+                    .or_insert(index);
+
                 let files = &mut layers[at].files;
                 if !has_extension(&path) {
                     nameless.push((index, at, files.len()));
@@ -307,24 +322,15 @@ impl ArchiveFiles {
         chunk_of(&mut wad, wad_name, hash, limit)
     }
 
-    /// One loose entry of the layer, located through [`layer_path`] as the scan
-    /// located it.
-    ///
-    /// Matching through [`layer_path`] instead of rebuilding the prefix finds
-    /// the entry whatever casing and prefix the archive uses.
+    /// One loose entry of the layer, at the zip index the scan recorded for it.
     fn read_entry(&self, path: &str, limit: Option<usize>) -> AppResult<Vec<u8>> {
-        let mut zip = open_zip(&self.archive)?;
-        let name = zip
-            .file_names()
-            .find(|name| {
-                layer_path(name).is_some_and(|(layer, at)| {
-                    layer.eq_ignore_ascii_case(&self.layer) && at.eq_ignore_ascii_case(path)
-                })
-            })
-            .map(str::to_owned)
+        let index = *self
+            .entries
+            .get(&path.to_ascii_lowercase())
             .ok_or_else(|| AppError::Fantome(format!("{path} is no longer in the archive")))?;
 
-        let entry = zip.by_name(&name)?;
+        let mut zip = self.zip.clone();
+        let entry = zip.by_index(index)?;
         let mut bytes = Vec::new();
         match limit {
             Some(limit) => std::io::Read::read_to_end(
@@ -339,8 +345,56 @@ impl ArchiveFiles {
     }
 }
 
-fn open_zip(archive: &Path) -> AppResult<ZipArchive<fs::File>> {
-    ZipArchive::new(fs::File::open(archive)?).map_err(|e| AppError::Fantome(e.to_string()))
+fn open_zip(archive: &Path) -> AppResult<ZipArchive<SharedFile>> {
+    let file = fs::File::open(archive)?;
+    let len = file.metadata()?.len();
+    let shared = SharedFile {
+        file: Arc::new(file),
+        position: 0,
+        len,
+    };
+    ZipArchive::new(shared).map_err(|e| AppError::Fantome(e.to_string()))
+}
+
+/// An open file that each clone reads at its own position.
+///
+/// Reads use positional I/O, so clones on different threads do not move each
+/// other's position.
+#[derive(Debug, Clone)]
+struct SharedFile {
+    file: Arc<fs::File>,
+    position: u64,
+    len: u64,
+}
+
+impl std::io::Read for SharedFile {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        #[cfg(windows)]
+        let read = std::os::windows::fs::FileExt::seek_read(self.file.file(), buf, self.position)?;
+        #[cfg(unix)]
+        let read = std::os::unix::fs::FileExt::read_at(self.file.file(), buf, self.position)?;
+
+        self.position += read as u64;
+        Ok(read)
+    }
+}
+
+impl std::io::Seek for SharedFile {
+    fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
+        let (base, offset) = match pos {
+            std::io::SeekFrom::Start(at) => (at, 0),
+            std::io::SeekFrom::End(offset) => (self.len, offset),
+            std::io::SeekFrom::Current(offset) => (self.position, offset),
+        };
+
+        self.position = base.checked_add_signed(offset).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "seek before the start of the archive",
+            )
+        })?;
+        Ok(self.position)
+    }
 }
 
 /// A WAD over `source`, with its own error mapped onto the app's.

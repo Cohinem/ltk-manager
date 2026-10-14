@@ -133,6 +133,8 @@
   "settings_library_categorization_description": "Champions, maps and tags get read from each mod's files.",
   "settings_library_categorization_hint": "They are offered as suggested categories and as library filters. Turn this off to rely only on the categories you set yourself.",
   "settings_library_description": "Options for your mod library",
+  "settings_library_health_check_description": "Mods get checked for problems at startup, after a hashtable sync and after an install.",
+  "settings_library_health_check_hint": "Turn this off to check mods only when you start a check yourself.",
   "settings_library_installing_title": "Installing",
   "settings_library_priority_title": "Priority",
   "settings_library_promotion_description": "Enabled mods move to the front of their folder in Priority sorting.",
