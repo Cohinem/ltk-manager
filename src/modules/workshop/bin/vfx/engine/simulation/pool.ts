@@ -20,6 +20,11 @@ export interface Pool {
    * nothing about age. A trail strings an emitter's particles along by this instead.
    */
   readonly serial: Uint32Array;
+  /**
+   * Number of particles the particle's emitter spawned before it in this run. The engine
+   * keeps this count in a u16, so it wraps at 65,536.
+   */
+  readonly ordinal: Uint32Array;
   /** The particle was born during the step being run, which the integrator moves by no time. */
   readonly fresh: Uint8Array;
   readonly birthTime: Float32Array;
@@ -147,6 +152,7 @@ export function createPool(capacity: number): Pool {
     born: 0,
     emitter: new Int32Array(capacity),
     serial: new Uint32Array(capacity),
+    ordinal: new Uint32Array(capacity),
     fresh: new Uint8Array(capacity),
     birthTime: new Float32Array(capacity),
     lifetime: new Float32Array(capacity),
@@ -253,6 +259,7 @@ export function spawn(
   pool.emitter[at] = emitter;
   pool.serial[at] = pool.born;
   pool.born += 1;
+  pool.ordinal[at] = 0;
   pool.fresh[at] = 1;
   pool.birthTime[at] = birthTime;
   pool.lifetime[at] = lifetime;
@@ -298,6 +305,7 @@ export function retire(pool: Pool, index: number): void {
   if (index !== last) {
     pool.emitter[index] = pool.emitter[last];
     pool.serial[index] = pool.serial[last];
+    pool.ordinal[index] = pool.ordinal[last];
     pool.fresh[index] = pool.fresh[last];
     pool.birthTime[index] = pool.birthTime[last];
     pool.lifetime[index] = pool.lifetime[last];

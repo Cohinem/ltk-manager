@@ -774,12 +774,18 @@ describe("layersOf", () => {
 
   describe("under LOCK_ALPHA", () => {
     const erosion = {} as ErosionModel;
+    /* A beam that names a mesh draws as a mesh, so a ribbon beam carries none. */
+    const meshOf = (quadType: QuadType) => (quadType === QUAD_TYPE.beam ? null : EMITTER.mesh);
     const layersFor = (quadType: QuadType, uvMode: UvMode) =>
-      layersOf({ ...EMITTER, erosion, quadType, uvMode } as EmitterModel, SAMPLERS, {
-        ramp: true,
-        sheen: false,
-        fade: true,
-      });
+      layersOf(
+        { ...EMITTER, erosion, quadType, uvMode, mesh: meshOf(quadType) } as EmitterModel,
+        SAMPLERS,
+        {
+          ramp: true,
+          sheen: false,
+          fade: true,
+        },
+      );
 
     it("erodes no quad or ribbon, and draws its ramp instead", () => {
       for (const kind of [

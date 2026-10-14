@@ -1,4 +1,4 @@
-import { DRAG_MOTION, type DragMotion, OFFSET_SYMMETRY } from "../model/enums";
+import { DRAG_MOTION, type DragMotion, OFFSET_SYMMETRY, QUAD_TYPE } from "../model/enums";
 import type { EmitterModel, LegacySimpleModel, UvLayer } from "../model/model";
 import { emissionEnded, emitterPhase, periodActive, stopWaitSeconds } from "../model/systemModel";
 import { analyticTerminal } from "../utils/analyticDrag";
@@ -86,6 +86,9 @@ export function emit(
     const share = (born + 1) / count;
     const at = spawn(pool, index, step.now - step.dt * (1 - share), 0, shared);
     if (at === null) break;
+
+    pool.ordinal[at] = state.spawned;
+    state.spawned = (state.spawned + 1) & COUNT_MASK;
 
     const slot = at * 3;
     let lifetime = drawnLifetime(emitter, phase, rng, pinned);
@@ -175,7 +178,7 @@ export function emit(
  *
  * A first emission that counts to zero is raised to one unless `HasVariableStartTime` is
  * set, and `isSingleParticle` makes it the rate itself, truncated and at least one. A
- * trail's `mMaxAddedPerFrame` caps the count last of all.
+ * trail's `mMaxAddedPerFrame` caps the count, and a segment beam's `mSegments` caps it last.
  */
 function spawnCount(
   emitter: EmitterModel,
@@ -195,7 +198,22 @@ function spawnCount(
     if (emitter.singleParticle) count = Math.max(Math.trunc(rate) & COUNT_MASK, 1);
   }
 
-  return capped(emitter, count);
+  return segmentsLeft(emitter, state, capped(emitter, count));
+}
+
+/**
+ * Returns `count` limited to the ribs that a segment beam has left of `mSegments`.
+ *
+ * Returns `count` unchanged for any other kind and for `mSegments` at or below zero. Matches
+ * `VfxCameraSegmentBeam_ClampSpawnCountToSegments` at Very High quality.
+ */
+function segmentsLeft(emitter: EmitterModel, state: EmitterState, count: number): number {
+  if (emitter.quadType !== QUAD_TYPE.cameraSegmentBeam) return count;
+
+  const segments = Math.trunc(emitter.beam?.segments ?? 0);
+  if (segments <= 0) return count;
+
+  return Math.min(count, Math.max(segments - state.spawned, 0));
 }
 
 /** The engine's cap on one step's count: `rate` times `BURST_SHARE`, truncated, plus one. */

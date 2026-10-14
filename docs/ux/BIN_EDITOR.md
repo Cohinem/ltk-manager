@@ -2017,6 +2017,17 @@ handle draws the part of the gizmo it edits with the Gizmo switch off too: Shape
 emit offset draw the spawn shape, and Emission mesh scale draws the birth points. The emitter's
 marks follow a drag, so the shape resizes under the handle.
 
+**The target gizmo** moves the system's target. Target handle in the rig popover turns it on
+for a still rig and a flight, and it stands on the target while no handle is chosen. A drag moves
+the target of the still rig, or the point the flight lands on, for the whole system. On a still rig
+of a system whose emitters mark the far end of a beam, a drag sets only the direction, and the
+target stays on the ground at that reach, as the game keeps a fixed-range beam at the end of its
+range. A still rig
+faces its target, so the beams and every emitter that the system's orientation turns follow the
+drag while the run plays, and the camera does not reframe. The drag changes the rig to a custom
+one, and Reset to auto returns the target the system picks. The rig's target is a preview
+setting, so a drag writes nothing to the file.
+
 **The controls** over the viewport's top right corner are grouped by a rule: what is drawn
 (Show, the shaders switch, the view mode), the camera and Frame the system, the handle menu,
 and the rig. The bar wraps to a second line in a pane too narrow for one.

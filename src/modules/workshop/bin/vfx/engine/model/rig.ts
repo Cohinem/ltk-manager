@@ -57,7 +57,11 @@ export type Joints = (name: string) => Anchor | null;
  * poses the anchor.
  */
 export type Motion =
-  | { readonly kind: "still" }
+  | {
+      readonly kind: "still";
+      /** Where the beam target stands, before the rig's height, and `TARGET_REACH` along `FORWARD` where unset. */
+      readonly target?: Point;
+    }
   | { readonly kind: "path"; readonly from: Point; readonly to: Point; readonly speed: number }
   | {
       readonly kind: "orbit";
@@ -260,23 +264,32 @@ function pathAt(motion: Motion, time: number): Point {
  * Where the system aims `time` seconds into a run, which is what a beam reaches for.
  *
  * A path aims where it lands, an orbit aims at what it circles, and a bone at its target
- * joint. A still rig, and a bone with no target, aim a fixed reach ahead so a beam has a
- * length to draw.
+ * joint. A still rig aims at its `target` if it has one. Otherwise a still rig, and a bone
+ * with no target, aim `TARGET_REACH` along [`facingAt`], so a beam has a length and runs
+ * along the system's local `+Z`.
  */
 export function targetAt(motion: Motion, time: number, height = 0): Point {
   switch (motion.kind) {
     case "still":
-      return lifted([TARGET_REACH, 0, 0], height);
+      return lifted(motion.target ?? ahead(ORIGIN, FORWARD), height);
     case "path":
       return lifted(motion.to, height);
     case "orbit":
       return lifted(ORIGIN, height);
     case "bone": {
       if (motion.target !== null) return lifted(motion.target.originAt(time), height);
-      const [x, y, z] = motion.anchor.originAt(time);
-      return lifted([x + TARGET_REACH, y, z], height);
+      return lifted(ahead(motion.anchor.originAt(time), facingAt(motion, time)), height);
     }
   }
+}
+
+/** Returns the point `TARGET_REACH` from `from` along the unit vector `facing`. */
+function ahead(from: Point, facing: Point): Point {
+  return [
+    from[0] + facing[0] * TARGET_REACH,
+    from[1] + facing[1] * TARGET_REACH,
+    from[2] + facing[2] * TARGET_REACH,
+  ];
 }
 
 /**
@@ -284,12 +297,12 @@ export function targetAt(motion: Motion, time: number, height = 0): Point {
  *
  * A path faces where it is going and an orbit its own tangent, the way the engine yaws a
  * missile toward its target and a unit toward its travel. A bone faces along its joint's
- * own `+Z`, and a still rig faces [`FORWARD`].
+ * own `+Z`. A still rig faces its `target`, and [`FORWARD`] if it has none.
  */
 export function facingAt(motion: Motion, time: number): Point {
   switch (motion.kind) {
     case "still":
-      return FORWARD;
+      return motion.target === undefined ? FORWARD : flat(motion.target);
     case "path":
       return flat(displacement(motion.from, motion.to));
     case "orbit": {
@@ -304,6 +317,36 @@ export function facingAt(motion: Motion, time: number): Point {
 }
 
 const ANCHOR_BASIS = new Float32Array(9);
+
+/** Returns whether `motion` has a target that the target handle moves: a still rig or a flight. */
+export function retargetable(motion: Motion): boolean {
+  return motion.kind === "still" || motion.kind === "path";
+}
+
+/** Returns `motion` aimed at `target`, or null if `motion` is not [`retargetable`]. */
+export function retargeted(motion: Motion, target: Point): Motion | null {
+  switch (motion.kind) {
+    case "still":
+      return { kind: "still", target };
+    case "path":
+      return { ...motion, to: target };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Returns the ground point `reach` from the world origin in the direction of `point`.
+ *
+ * Uses the direction of `point` in the ground plane and drops its height. Returns null if
+ * `point` lies on the up axis through the origin.
+ */
+export function aimedAt(point: Point, reach: number): Point | null {
+  const length = Math.hypot(point[0], point[2]);
+  if (length === 0) return null;
+
+  return [(point[0] / length) * reach, 0, (point[2] / length) * reach];
+}
 
 /** The motion carries its system on a missile's frame, as Flight and a missile-oriented orbit do. */
 export function fliesAsMissile(motion: Motion): boolean {

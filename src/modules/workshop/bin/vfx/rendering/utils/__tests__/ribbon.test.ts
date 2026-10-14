@@ -10,11 +10,13 @@ import {
   ribbonBuffers,
   type RibbonLayer,
   type RibbonLayers,
+  type SegmentBuild,
   type Strand,
   strand,
   type TrailBuild,
   UV_STRIDE,
   writeBeam,
+  writeSegmentBeam,
   writeTrail,
 } from "../ribbon";
 
@@ -491,6 +493,126 @@ describe("writeBeam", () => {
   it("refuses a quad the arrays cannot hold", () => {
     const at = cursor();
     writeBeam(ENDS, particleOf(), PLAIN_LAYERS, arrays(2), at);
+
+    expect(at).toEqual({ vertex: 0, index: 0 });
+  });
+});
+
+/** `count` ribs four units wide at the system position, white, with no tiling or UV offset. */
+function ribs(count: number): Strand {
+  const held = strand(count);
+  held.count = count;
+  for (let at = 0; at < count; at += 1) {
+    held.width[at] = 4;
+    held.color.fill(1, at * 4, at * 4 + 4);
+    held.uv.set(PLAIN_UV, at * UV_STRIDE);
+  }
+  return held;
+}
+
+function segmentBuild(ordinal: number[], over: Partial<SegmentBuild> = {}): SegmentBuild {
+  return {
+    ...ENDS,
+    eye: [0, 0, 100],
+    reach: 0,
+    segments: 3,
+    ordinal: new Uint32Array(ordinal),
+    layers: PLAIN_LAYERS,
+    ...over,
+  };
+}
+
+describe("writeSegmentBeam", () => {
+  it("places each rib at its ordinal's share of the beam, across the beam and the view", () => {
+    const out = arrays(6);
+    const at = cursor();
+
+    writeSegmentBeam(ribs(3), segmentBuild([2, 1, 0]), out, at);
+
+    expect(at).toEqual({ vertex: 6, index: 12 });
+    expect([0, 1, 2, 3, 4, 5].map((each) => vertex(out, each))).toEqual([
+      [-100, 2, 0],
+      [-100, -2, 0],
+      [-50, 2, 0],
+      [-50, -2, 0],
+      [0, 2, 0],
+      [0, -2, 0],
+    ]);
+    expect(Array.from(out.index)).toEqual([2, 0, 1, 2, 1, 3, 4, 2, 3, 4, 3, 5]);
+  });
+
+  it("adds the particle position to the rib centre", () => {
+    const held = ribs(1);
+    held.position.set([0, 10, 0]);
+    const out = arrays(2);
+
+    writeSegmentBeam(held, segmentBuild([1]), out, cursor());
+
+    expect(vertex(out, 0)).toEqual([-50, 12, 0]);
+  });
+
+  it("skips a rib whose ordinal is at least segments", () => {
+    const out = arrays(6);
+    const at = cursor();
+
+    writeSegmentBeam(ribs(3), segmentBuild([3, 1, 0]), out, at);
+
+    expect(at).toEqual({ vertex: 4, index: 6 });
+    expect(vertex(out, 0)).toEqual([-50, 2, 0]);
+  });
+
+  it("joins no rib to a previous rib with a lower ordinal", () => {
+    const at = cursor();
+
+    writeSegmentBeam(ribs(2), segmentBuild([0, 1]), arrays(4), at);
+
+    expect(at).toEqual({ vertex: 4, index: 0 });
+  });
+
+  it("spans u across the width and keeps v at zero if reach is zero", () => {
+    const out = arrays(4);
+
+    writeSegmentBeam(ribs(2), segmentBuild([2, 0]), out, cursor());
+
+    expect(uvs(out, 4)).toEqual([0, 0, 1, 0, 0, 0, 1, 0]);
+  });
+
+  it("runs v along the reach divided by the first tiling channel", () => {
+    const held = ribs(2);
+    held.tiling.set([50, 0, 50, 0]);
+    const out = arrays(4);
+
+    writeSegmentBeam(held, segmentBuild([2, 0], { reach: 100 }), out, cursor());
+
+    expect(uvs(out, 4)).toEqual([0, 2, 1, 2, 0, 0, 1, 0]);
+  });
+
+  it("adds the UV offset and ignores the UV rotation and scale", () => {
+    const held = ribs(1);
+    held.uv.set([1, 3, 3, 0.25, 0.5, 0, 0]);
+    const out = arrays(2);
+
+    writeSegmentBeam(held, segmentBuild([0]), out, cursor());
+
+    expect(uvs(out, 2)).toEqual([0.25, 0.5, 1.25, 0.5]);
+  });
+
+  it("writes zero erosion and the colour lookup to the mult UV", () => {
+    const held = ribs(1);
+    held.lookup.set([0.5, 0.125]);
+    held.erode.fill(1);
+    const out = arrays(2);
+
+    writeSegmentBeam(held, segmentBuild([0], { layers: TWO_LAYERS }), out, cursor());
+
+    expect(Array.from(out.erode)).toEqual([0, 0]);
+    expect(Array.from(out.multUv)).toEqual([0.5, 0.125, 0.5, 0.125]);
+  });
+
+  it("writes nothing if the arrays have no room for every rib", () => {
+    const at = cursor();
+
+    writeSegmentBeam(ribs(3), segmentBuild([2, 1, 0]), arrays(4), at);
 
     expect(at).toEqual({ vertex: 0, index: 0 });
   });

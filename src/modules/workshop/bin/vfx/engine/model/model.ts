@@ -207,11 +207,18 @@ export interface ProjectionModel {
 export interface BeamModel {
   /** `mMode`, of [`BEAM_MODE`]. */
   readonly mode: BeamMode;
-  /** `mTrailMode`, of [`TRAIL_MODE`], which nothing in the engine reads. */
+  /**
+   * `mTrailMode`, of [`TRAIL_MODE`]. Only `VfxPrimitiveCameraSegmentBeam` reads it. If the
+   * value is not `DEFAULT`, the segment beam's `v` runs along the beam length.
+   */
   readonly trailMode: TrailMode;
-  /** `mSegments`, which only `VfxPrimitiveCameraSegmentBeam` reads, as ribs the particles stand in for. */
+  /** `mSegments`: the number of ribs in a `VfxPrimitiveCameraSegmentBeam`, one particle each. */
   readonly segments: number;
-  /** `mBirthTilingSize`: `x` is the units one repeat spans across the width, and `y` along the length. */
+  /**
+   * `mBirthTilingSize`, in units per texture repeat. On `VfxPrimitiveBeam`, `x` is across the
+   * width and `y` is along the length. On `VfxPrimitiveCameraSegmentBeam`, `x` is along the
+   * length and `y` is across the width.
+   */
   readonly tiling: ValueCurve;
   /** `mAnimatedColorWithDistance`, sampled at the beam's length in engine units. */
   readonly colorByDistance: ValueCurve;

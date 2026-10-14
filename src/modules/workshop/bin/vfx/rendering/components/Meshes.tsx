@@ -1,11 +1,18 @@
 import { useFrame } from "@react-three/fiber";
 import { useMemo } from "react";
-import { type Camera, type InstancedMesh, Matrix4, Quaternion, Vector3 } from "three";
+import {
+  type BufferGeometry,
+  type Camera,
+  type InstancedMesh,
+  Matrix4,
+  Quaternion,
+  Vector3,
+} from "three";
 
 import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
 
-import type { EmitterModel, MeshModel } from "../../engine/model/model";
+import type { BeamModel, EmitterModel, MeshModel } from "../../engine/model/model";
 import {
   age01,
   appearance,
@@ -18,7 +25,7 @@ import {
   type Source,
 } from "../../engine/simulation/particleRead";
 import { FRAME_SLOTS, type Pool } from "../../engine/simulation/pool";
-import { mirrorInto, standingInto, unscaleInto } from "../../engine/utils/basis";
+import { beamInto, mirrorInto, standingInto, unscaleInto } from "../../engine/utils/basis";
 import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { useDrawStencil } from "../state/stencil";
@@ -32,6 +39,7 @@ import { meshMaterial } from "../utils/materials";
 import { sourcesScrollInto } from "../utils/palette";
 import { meshDraw, meshSide } from "../utils/particleDraws";
 import { writePaletteScroll } from "../utils/particleProgram";
+import { beamEndsInto, beamTint } from "../utils/ribbon";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { layerOf, uvDraw, uvTransformInto } from "../utils/uvTransform";
 import { showPair, useDrawPair, useProgramDraw } from "./drawPair";
@@ -57,6 +65,17 @@ const FRAME_SCALE = new Float32Array(3);
 
 /** Where one particle draws, in the engine's space, before the mirror. */
 const PLACED = drawnPlace();
+
+/** Scratch for one source's beam mesh placement. */
+const BEAM_FROM: [number, number, number] = [0, 0, 0];
+const BEAM_TO: [number, number, number] = [0, 0, 0];
+const BEAM_AXIS = new Float32Array(3);
+const BEAM_BASIS = new Float32Array(FRAME_SLOTS);
+const BEAM_AT = new Vector3();
+const BEAM_TURN = new Quaternion();
+
+/** Squared beam length at or below which the engine skips a beam mesh. */
+const BEAM_SHORTEST = 1e-9;
 
 /** The floats of `lookup` per instance: the ramp's two, then the erosion drive. */
 const LOOKUP_FLOATS = 3;
@@ -84,7 +103,9 @@ export interface MeshesProps {
  * A mesh takes a whole transform where a quad takes a centre and a size, so this builds
  * one matrix per particle rather than writing three arrays, and hands the fragment the
  * same two layer transforms a quad does. `AlignYawToCamera` and `AlignPitchToCamera`
- * turn that matrix toward the eye on the axis each names.
+ * turn that matrix toward the eye on the axis each names. A `VfxPrimitiveBeam` instance
+ * ignores the particle's position and rotation and is stretched between the beam's ends
+ * (see `stretchInto`).
  *
  * With the game's shaders on, the instances draw through each translated pass of the
  * emitter's custom material, or through the `mesh` or `distortion_mesh` pair, once they are
@@ -100,6 +121,8 @@ export function Meshes({
   document = null,
 }: MeshesProps) {
   const { geometry, tint, lookup } = buffers;
+  const beam = emitter.beam;
+  const depth = useMemo(() => depthOf(geometry), [geometry]);
   const material = useMemo(() => {
     const material = meshMaterial(
       emitter.blendMode,
@@ -155,11 +178,20 @@ export function Meshes({
       const pool = source.pool;
       const frame = frameOf(source, emitter);
       const time = frame.now;
+      const stretch = beam === null ? 0 : stretchInto(source, beam, depth);
+      if (beam !== null && stretch === 0) continue;
+
+      const bound = beam === null ? null : beamTint(source, beam);
       const buckets = bucketsOf(pool, stamp);
       const [first, last] = bucketRange(buckets, emitter.index);
       for (let listed = first; listed < last && instance < MESHES_PER_EMITTER; listed += 1) {
         const at = buckets.order[listed];
         appearance(pool, at, emitter, time, DRAWN);
+        if (bound !== null) {
+          for (let channel = 0; channel < 4; channel += 1) {
+            DRAWN.color[channel] *= bound[channel] ?? 1;
+          }
+        }
         premultiplyInto(emitter, DRAWN.color);
 
         const age = time - pool.birthTime[at];
@@ -179,6 +211,14 @@ export function Meshes({
             UV_DRAWN.cellU,
             UV_DRAWN.cellV,
           );
+        }
+
+        if (beam !== null) {
+          SPREAD.set(DRAWN.scale[0], DRAWN.scale[1], stretch);
+          held.setMatrixAt(instance, PLACE.compose(BEAM_AT, BEAM_TURN, SPREAD));
+          tint.setXYZW(instance, DRAWN.color[0], DRAWN.color[1], DRAWN.color[2], DRAWN.color[3]);
+          instance += 1;
+          continue;
         }
 
         drawnPlaceInto(pool, at, frame, PLACED);
@@ -324,6 +364,39 @@ function aimed(placed: Vector3, mesh: MeshModel, camera: Camera): boolean {
   }
   TURN.setFromRotationMatrix(FRAME4.makeBasis(ASIDE, LIFT, FACING));
   return true;
+}
+
+/**
+ * Writes the placement of a beam mesh for `source` into `BEAM_AT` and `BEAM_TURN`, and
+ * returns its scale along local `+Z`.
+ *
+ * Matches the kind-6 branch of `VfxComplexEmitter_DrawParticles`. The mesh is centred on the
+ * midpoint of the beam's ends, its local `+Z` points from the target to the source, and its
+ * `+Z` scale is the beam length divided by the mesh's `+Z` extent `depth`. Returns zero if the
+ * squared beam length is at most `BEAM_SHORTEST` or if `depth` is not positive.
+ */
+function stretchInto(source: Source, beam: BeamModel, depth: number): number {
+  beamEndsInto(source, beam, BEAM_FROM, BEAM_TO);
+  for (let axis = 0; axis < 3; axis += 1) BEAM_AXIS[axis] = BEAM_FROM[axis] - BEAM_TO[axis];
+
+  const squared = BEAM_AXIS[0] ** 2 + BEAM_AXIS[1] ** 2 + BEAM_AXIS[2] ** 2;
+  if (squared <= BEAM_SHORTEST || depth <= 0) return 0;
+
+  BEAM_AT.set(
+    ((BEAM_FROM[0] + BEAM_TO[0]) / 2) * AXIS_SIGN[0],
+    ((BEAM_FROM[1] + BEAM_TO[1]) / 2) * AXIS_SIGN[1],
+    ((BEAM_FROM[2] + BEAM_TO[2]) / 2) * AXIS_SIGN[2],
+  );
+  turnOf(beamInto(BEAM_AXIS, BEAM_BASIS), BEAM_TURN);
+  return Math.sqrt(squared) / depth;
+}
+
+/** Returns the `+Z` extent of the bounding box of `geometry`. */
+function depthOf(geometry: BufferGeometry): number {
+  if (geometry.boundingBox === null) geometry.computeBoundingBox();
+
+  const box = geometry.boundingBox;
+  return box === null ? 0 : box.max.z - box.min.z;
 }
 
 /** One engine-space basis as the viewport's own turn, into `out`. */

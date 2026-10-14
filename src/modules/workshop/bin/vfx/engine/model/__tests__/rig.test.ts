@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { FORWARD } from "@/modules/viewport";
 
 import {
+  aimedAt,
   type Anchor,
   carrierOf,
   CONTINUOUS_RUN,
@@ -16,6 +17,8 @@ import {
   originAt,
   phaseAt,
   playbackOf,
+  retargetable,
+  retargeted,
   runLength,
   runSpan,
   targetAt,
@@ -81,11 +84,18 @@ describe("a bone", () => {
     expect(targetAt({ ...BONE, target }, 1)).toEqual([0, 0, 50]);
   });
 
-  it("aims a fixed reach ahead of its anchor without a target", () => {
-    const [x, y, z] = targetAt(BONE, 1);
+  it("returns a point along the anchor's facing if the bone has no target", () => {
+    const turned: Anchor = {
+      ...WALKER,
+      basisInto: (_time, out) => {
+        out.set([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+        return out;
+      },
+    };
+    const [x, y, z] = targetAt({ ...BONE, anchor: turned }, 1);
 
-    expect(x).toBeGreaterThan(10);
-    expect([y, z]).toEqual([5, 0]);
+    expect([x, y]).toEqual([10, 5]);
+    expect(z).toBeGreaterThan(0);
   });
 
   it("runs for the system's own span, as a still rig does", () => {
@@ -106,11 +116,20 @@ describe("targetAt", () => {
     );
   });
 
-  it("aims a still rig a fixed reach ahead, so a beam has a length", () => {
+  it("returns a facing toward the still rig's target", () => {
+    expect(rounded(facingAt({ kind: "still", target: [30, 9, 40] }, 0))).toEqual([0.6, 0, 0.8]);
+  });
+
+  it("returns the still rig's target lifted by the rig height if the rig has one", () => {
+    expect(targetAt({ kind: "still", target: [1, 2, 3] }, 0, 5)).toEqual([1, 7, 3]);
+  });
+
+  it("returns a point along FORWARD for a still rig", () => {
     const [x, y, z] = targetAt({ kind: "still" }, 0);
 
-    expect(x).toBeGreaterThan(0);
-    expect([y, z]).toEqual([0, 0]);
+    expect(z).toBeGreaterThan(0);
+    expect([x, y]).toEqual([0, 0]);
+    expect(facingAt({ kind: "still" }, 0)).toEqual(FORWARD);
   });
 });
 
@@ -305,5 +324,33 @@ describe("withCarrier", () => {
     const joints = () => WALKER;
 
     expect(withCarrier({ ...GROUND_RIG, joints }, "flight").joints).toBe(joints);
+  });
+});
+
+describe("retargeted", () => {
+  it("returns a still rig with the target", () => {
+    expect(retargeted({ kind: "still" }, [1, 2, 3])).toEqual({ kind: "still", target: [1, 2, 3] });
+  });
+
+  it("returns a flight that lands on the target", () => {
+    expect(retargeted(SLOW, [0, 0, 50])).toEqual({ ...SLOW, to: [0, 0, 50] });
+  });
+
+  it("returns null for an orbit and a bone", () => {
+    const orbit: Motion = { kind: "orbit", radius: 10, period: 1, orientation: "missile" };
+
+    expect(retargeted(orbit, [1, 2, 3])).toBeNull();
+    expect(retargeted(BONE, [1, 2, 3])).toBeNull();
+    expect([orbit, BONE].map(retargetable)).toEqual([false, false]);
+  });
+});
+
+describe("aimedAt", () => {
+  it("returns the ground point at the reach in the direction of the point", () => {
+    expect(aimedAt([30, 50, 40], 1000)).toEqual([600, 0, 800]);
+  });
+
+  it("returns null if the point lies on the up axis", () => {
+    expect(aimedAt([0, 50, 0], 1000)).toBeNull();
   });
 });

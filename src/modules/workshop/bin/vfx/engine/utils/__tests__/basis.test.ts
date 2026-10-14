@@ -4,6 +4,7 @@ import {
   alongInto,
   AXIS,
   axisInto,
+  beamInto,
   flightInto,
   mirrorInto,
   multiplyInto,
@@ -86,6 +87,42 @@ describe("alongInto", () => {
     expect(rounded(alongInto(new Float32Array([0, 0, 0]), 0, new Float32Array(9)))).toEqual([
       1, 0, 0, 0, 1, 0, 0, 0, 1,
     ]);
+  });
+});
+
+describe("beamInto", () => {
+  function axesOf(direction: number[]): number[][] {
+    const basis = beamInto(direction, new Float32Array(9));
+    return [AXIS.x, AXIS.y, AXIS.z].map((axis) => {
+      const out = new Float32Array(3);
+      axisInto(basis, axis, out, 0);
+      return rounded(out);
+    });
+  }
+
+  it("points local z along the direction with x as world up crossed with z", () => {
+    expect(axesOf([3, 0, 0])).toEqual([
+      [0, 0, -1],
+      [0, 1, 0],
+      [1, 0, 0],
+    ]);
+  });
+
+  it("uses world x as the up vector if the direction is vertical", () => {
+    expect(axesOf([0, 2, 0])).toEqual([
+      [0, 0, 1],
+      [1, 0, 0],
+      [0, 1, 0],
+    ]);
+    expect(axesOf([0, -2, 0])).toEqual([
+      [0, 0, -1],
+      [1, 0, 0],
+      [0, -1, 0],
+    ]);
+  });
+
+  it("writes the identity if the direction has zero length", () => {
+    expect(rounded(beamInto([0, 0, 0], new Float32Array(9)))).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
   });
 });
 
