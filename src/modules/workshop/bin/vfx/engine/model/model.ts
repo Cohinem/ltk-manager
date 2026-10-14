@@ -828,7 +828,7 @@ export interface EmitterModel {
   /** `renderPhaseOverride`, of [`RENDER_PHASE`], which `automatic` leaves to the other fields. */
   readonly renderPhaseOverride: number;
   /**
-   * The emitter draws in the ground layer's phase, flat on the ground: `isGroundLayer` on
+   * The emitter draws in the ground layer's phase, at its own position: `isGroundLayer` on
    * an emitter left to the automatic choice, or `renderPhaseOverride` naming that phase.
    */
   readonly groundLayer: boolean;

@@ -72,7 +72,7 @@ export function particleShaderOf(emitter: EmitterModel): ParticlePair {
 
   if (emitter.erosion !== null) defines.push("ALPHA_EROSION");
   if (emitter.multUv !== null) defines.push("MULT_PASS");
-  if (emitter.palette !== null) defines.push("PALETTIZE_TEXTURES");
+  if (drawsPalette(emitter.palette)) defines.push("PALETTIZE_TEXTURES");
   if (emitter.soft !== null) defines.push("SOFT_PARTICLES");
   if (emitter.reflection !== null) defines.push("REFLECTIVE");
 
@@ -115,8 +115,7 @@ const PATH_PAIRS: Readonly<Record<ParticlePath, readonly ParticleShader[]>> = {
 /**
  * The emitter's particles can draw on `path` through the translated `pair`.
  *
- * A custom material draws through the programs it names. A palette without rows or a texture has
- * no engine texture to replace it.
+ * A custom material draws through the programs it names.
  */
 export function drawsProgram(
   emitter: EmitterModel,
@@ -124,9 +123,7 @@ export function drawsProgram(
   path: ParticlePath,
 ): boolean {
   if (!PATH_PAIRS[path].includes(pair.shader)) return false;
-  if (emitter.customMaterial != null && !emitter.customMaterial.missing) return false;
-
-  return emitter.palette === null || drawsPalette(emitter.palette);
+  return emitter.customMaterial == null || emitter.customMaterial.missing;
 }
 
 /**
@@ -159,7 +156,7 @@ export function particleTextures(
   samplers: EmitterSamplers,
 ): ReadonlyMap<string, Texture> | null {
   if (samplers.base === null) return null;
-  if (emitter.palette !== null && samplers.palette === null) return null;
+  if (drawsPalette(emitter.palette) && samplers.palette === null) return null;
 
   const modes = addressModes(emitter);
   const erosion =

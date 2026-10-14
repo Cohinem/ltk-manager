@@ -161,15 +161,19 @@ describe("drawsProgram", () => {
     expect(drawsProgram(emitter({}), particleShaderOf(emitter({})), "mesh")).toBe(false);
   });
 
-  it("leaves a custom material and a palette without rows to the hand-written draw", () => {
+  it("leaves a custom material to the hand-written draw", () => {
     const custom = emitter({
       customMaterial: { missing: false } as EmitterModel["customMaterial"],
     });
+
+    expect(drawsProgram(custom, particleShaderOf(custom), "quad")).toBe(false);
+  });
+
+  it("drops PALETTIZE_TEXTURES if the palette has no rows", () => {
     const rowless = emitter({ palette: { ...PALETTE, count: 0 } as EmitterModel["palette"] });
 
-    for (const each of [custom, rowless]) {
-      expect(drawsProgram(each, particleShaderOf(each), "quad")).toBe(false);
-    }
+    expect(particleShaderOf(rowless)).toEqual({ shader: "quad", defines: [] });
+    expect(drawsProgram(rowless, particleShaderOf(rowless), "quad")).toBe(true);
   });
 
   it("leaves a quad whose uv mode takes another file to the hand-written quad", () => {

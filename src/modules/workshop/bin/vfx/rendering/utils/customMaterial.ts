@@ -35,10 +35,16 @@ const FACTORS: Record<RenderState["srcFactor"], BlendingSrcFactor & BlendingDstF
 
 const ADDRESS: Record<Wrap, number> = { repeat: 0, clamp: 1, mirror: 2, border: 3 };
 
-/** The shared static material approximation on a particle's existing vertex program. */
+/**
+ * Returns `material` with the static material approximation of `preview` on its vertex program.
+ *
+ * Returns `material` unchanged if `preview` is missing. A `ground` material is never
+ * transparent, so it draws before the character.
+ */
 export function customMaterial(
   material: ShaderMaterial,
   preview: MaterialPreview | null | undefined,
+  ground: boolean,
 ): ShaderMaterial {
   if (preview == null || preview.missing) {
     return material;
@@ -66,7 +72,7 @@ export function customMaterial(
   material.blendEquation = AddEquation;
   material.blendSrcAlpha = null;
   material.blendDstAlpha = null;
-  material.transparent = state.blending !== "opaque" && !("GROUND_LAYER" in material.defines);
+  material.transparent = state.blending !== "opaque" && !ground;
   material.depthTest = state.depthTest;
   material.depthWrite = state.depthWrite;
   material.side = state.doubleSided ? DoubleSide : state.inverted ? BackSide : FrontSide;

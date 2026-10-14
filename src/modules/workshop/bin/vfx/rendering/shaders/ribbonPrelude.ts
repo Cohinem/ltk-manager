@@ -1,7 +1,5 @@
 import type { VertexPrelude } from "@/modules/viewport";
 
-import { GROUND } from "./quad";
-
 /**
  * The vertex the engine's CPU builds for one ribbon vertex, out of the attributes of
  * `ribbonBuffers`, which the translated `quad_vs` and `distortion_vs` read as they read a
@@ -25,10 +23,8 @@ uniform mat4 modelMatrix;
 uniform vec2 cellSize;
 uniform vec2 cellSizeMult;
 
-${GROUND}
-
 void enginePrelude() {
-  engine_POSITION = grounded(modelMatrix * vec4(position, 1.0));
+  engine_POSITION = modelMatrix * vec4(position, 1.0);
   engine_COLOR = tint.bgra;
   engine_TEXCOORD = vec4(cell + uv * cellSize, 0.0, erode);
 #ifdef MULT_LAYER

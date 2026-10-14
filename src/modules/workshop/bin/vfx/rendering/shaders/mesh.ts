@@ -1,7 +1,5 @@
 import { AXIS_SIGN } from "@/modules/viewport";
 
-import { GROUND } from "./quad";
-
 /**
  * The rim and the reflection `mesh_vs` hands the pixel pass, off the surface's facing.
  *
@@ -9,7 +7,6 @@ import { GROUND } from "./quad";
  * engine's space. Decision 2.42 of docs/plans/vfx-particle-renderer.md.
  */
 const SHEEN_VERTEX = /* glsl */ `
-${GROUND}
 const vec3 AXIS = vec3(${AXIS_SIGN.join(", ")});
 
 /* The least facing a power is taken of, which keeps a negative exponent finite edge on. */
@@ -74,7 +71,7 @@ void main() {
   #include <skinnormal_vertex>
   #include <begin_vertex>
   #include <skinning_vertex>
-  vec4 world = grounded(modelMatrix * vec4(transformed, 1.0));
+  vec4 world = modelMatrix * vec4(transformed, 1.0);
   facingTerms(world.xyz, mat3(modelMatrix) * objectNormal);
   gl_Position = projectionMatrix * viewMatrix * world;
 }
@@ -161,7 +158,7 @@ void main() {
   vec3 posedPosition = position;
   vec3 posedNormal = normal;
   pose(posedPosition, posedNormal);
-  vec4 world = grounded(modelMatrix * instanceMatrix * vec4(posedPosition, 1.0));
+  vec4 world = modelMatrix * instanceMatrix * vec4(posedPosition, 1.0);
   // The world matrix turns the normal as it turns the vertex, which is what mesh_vs does.
   facingTerms(world.xyz, mat3(modelMatrix) * mat3(instanceMatrix) * posedNormal);
   gl_Position = projectionMatrix * viewMatrix * world;

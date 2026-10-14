@@ -23,6 +23,7 @@ import { drawsAsProjection } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { drawLayersOf } from "../utils/frame";
 import { projectionMaterial } from "../utils/materials";
+import { sourcesScrollInto } from "../utils/palette";
 import { type Footprint, footprintInto, modulateInto } from "../utils/projection";
 import { DrawPair, showPair, useDrawPair } from "./drawPair";
 
@@ -65,7 +66,14 @@ export function Projections({
 }: ProjectionsProps) {
   const buffers = useMemo(() => projectionBuffers(room), [room]);
   const material = useMemo(
-    () => projectionMaterial(emitter, samplers.base, samplers.color, fragmentTests(emitter)),
+    () =>
+      projectionMaterial(
+        emitter,
+        samplers.base,
+        samplers.color,
+        samplers.palette,
+        fragmentTests(emitter),
+      ),
     [emitter, samplers],
   );
 
@@ -81,6 +89,8 @@ export function Projections({
       showPair(pair, false);
       return;
     }
+
+    sourcesScrollInto(emitter, sources, material.uniforms.paletteScroll.value as number[]);
 
     const stamp = renderStamp(state.gl);
     let held = 0;

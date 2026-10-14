@@ -126,7 +126,7 @@ test over the pool follow from that. `Math.random()` appears nowhere in the simu
 ### 2.7 The ground is a textured plane
 
 A plane at champion scale, textured with a ground texture taken from a real map, plus a grid and
-an axis gizmo. Its height is what `isFollowingTerrain` and `isGroundLayer` read.
+an axis gizmo. Its height is what `isFollowingTerrain` reads.
 
 No host model. `.skn`, `.skl` and `.anm` belong to T6.
 
@@ -1990,8 +1990,7 @@ and 103). The flag is render-pass classification alone: the
 emitter goes to `Render_Ground_Layer`, one of the engine's seven display lists, and `pass` orders
 emitters inside a list only.
 `compareDrawOrder` draws the ground layer first. That the list draws before the default one is the
-reading. The `ground_layer` technique that flattens these emitters onto the
-terrain is not built.
+reading. The list draws its emitters where they are, decision 2.51.
 
 The list also draws before a character. ThreeJS draws every transparent object after every
 opaque one, so a ground-layer ring under Kha'Zix's recall painted over his legs. A ground-layer
@@ -2253,13 +2252,11 @@ roll. How it takes them is the reading: `DIRECTED` in the quad vertex shader lay
 travel as the view sees it and the side square to it in the view's plane. A direction-oriented
 camera quad drew as a plain billboard before this, so the stretch had nothing to lie along.
 
-**A ground-layer emitter is laid on the ground straight down.** `isGroundLayer` classifies the
-render pass alone, and the flattening lives in a `ground_layer` technique no reading covers. The
-user's pick was a vertical projection. `GROUND_LAYER` stands every vertex of a quad, a mesh, an
-attached mesh and a ribbon on `GROUND_LEVEL`. Of 2,549 ground-layer emitters over 60 bins, 1,346 are
-arbitrary quads, 529 meshes and 482 camera quads. A flat quad and a mesh draw alike under a top-down
-render and a vertical projection. A camera quad is where the two part: a top-down render would lay
-it flat, where this projects its eye-facing plane.
+**A ground-layer emitter draws where it is.** `isGroundLayer` classifies the render pass alone.
+In 16.17.8057408 the pass table gives `ground_layer` no define, where `shadow` adds `SHADOW` and
+the distortion passes `DISTORTION`, and the shader selection picks the same `QUAD`, `MESH` and
+`PARTICLE` files and defines for it as for `normal`. No vertex is flattened. A first build laid
+every vertex on `GROUND_LEVEL`, which drew a ground-layer camera quad flat that the game stands up.
 
 **`isFollowingTerrain` is not built.** The engine adds `(terrain height now - height at spawn) *
 (1 - bindWeight)` to the drawn `Y`. The preview's ground is flat, so the term is zero everywhere.
@@ -2752,10 +2749,12 @@ war, with no vertex colour and none of the emitter's uv transform, cell or flipb
 `colorModulate` is read by no draw.
 
 `Projections.tsx` draws the footprint itself as one quad at `GROUND_LEVEL`, because the
-preview's ground is flat, with `OVERLAY` as its depth offset where the emitter writes none. Four
-things are left out: the fog of war, the `MULT_PASS`, `ALPHA_EROSION` and `PALETTIZE_TEXTURES`
-permutations, terrain, and what a wrapping texture draws past the footprint over a whole map
-triangle. The decal has no game-shader route.
+preview's ground is flat, with `OVERLAY` as its depth offset where the emitter writes none.
+`PALETTIZE_TEXTURES` of `UNLIT_DECAL_PS` is the particle palette: `u` is the texel under
+`cPaletteSrcMixerMain` plus the `u` scroll, `v` the row plus the `v` scroll, and the palette
+replaces the colour and keeps the alpha. `projectionMaterial` draws it. Four things are left out:
+the fog of war, the `MULT_PASS` permutation, terrain, and what a wrapping texture draws past the
+footprint over a whole map triangle. The decal has no game-shader route.
 
 ### T9 — child particle sets
 
