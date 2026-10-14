@@ -105,12 +105,17 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
     setWarming,
     document,
   } = useVfxRun();
-  const drawn = useMemo(() => (system === null ? [] : drawnEmitters(system)), [system]);
+  const host = useVfxHost();
+  const posed = host.joints !== null || rig.rig.joints != null;
+  const drawn = useMemo(
+    () => (system === null ? [] : drawnEmitters(system, posed)),
+    [system, posed],
+  );
   const framed = useFramedRig(rig.rig);
   const { reportTextures, reportMeshes } = useWarmUp(drawn, setWarming);
   const textures = useVfxTextures(drawn, reportTextures);
   const meshes = useVfxMeshes(drawn, reportMeshes);
-  const host = useVfxHost();
+  useEffect(() => driver.setHostJoints(host.joints), [driver, host.joints]);
   const unit = useMemo(
     () => (host.pose === null ? null : { pose: host.pose, offset: host.offset }),
     [host.pose, host.offset],

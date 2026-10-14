@@ -285,7 +285,7 @@ export function jointSlot(pose: Pose, ref: HashRef | null): number {
 }
 
 /** `pose`'s joints by name without regard to case, each anchor built once, `shift` seconds late. */
-function jointsOf(pose: Pose, scale: number, shift = 0): Joints {
+export function jointsOf(pose: Pose, scale: number, shift = 0): Joints {
   const cache = new Map<string, Anchor | null>();
   return (name) => {
     const key = name.toLowerCase();

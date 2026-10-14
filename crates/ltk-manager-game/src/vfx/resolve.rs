@@ -8,6 +8,10 @@ use ltk_meta::property::values;
 use ltk_meta::walk::{Leaf, TreeValue as _};
 use ltk_meta::{BinObject, PropertyValueEnum};
 
+mod children;
+
+pub use children::search_linked_children;
+
 use super::{VfxField, VfxMapEntry, VfxObject, VfxSystem, VfxValue};
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_bin::bin_document::{
