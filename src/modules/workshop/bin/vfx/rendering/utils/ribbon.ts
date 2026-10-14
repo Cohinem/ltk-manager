@@ -11,9 +11,11 @@ import { BufferAttribute, BufferGeometry, DynamicDrawUsage } from "three";
 import { AXIS_SIGN } from "@/modules/viewport";
 
 import { TRAIL_SMOOTHING } from "../../engine/model/enums";
-import type { UvLayer } from "../../engine/model/model";
+import type { BeamModel, UvLayer } from "../../engine/model/model";
 import type { Point } from "../../engine/model/rig";
+import type { Source } from "../../engine/simulation/particleRead";
 import { turnInto } from "../../engine/utils/basis";
+import { sampleCurve } from "../../engine/utils/sampleCurve";
 import { written } from "./buffers";
 import type { UvDraw } from "./uvTransform";
 
@@ -378,6 +380,51 @@ export interface BeamEnds {
   readonly eye: Point | null;
 }
 
+/** Scratch vector for a rotated beam offset. */
+const OFFSET = new Float32Array(3);
+
+/**
+ * Writes the two ends of `beam` for `source` into `from` and `to`, in engine space.
+ *
+ * `from` is the system position plus `mLocalSpaceSourceOffset`, and `to` is the system
+ * target plus `mLocalSpaceTargetOffset`. Both offsets are rotated by the system orientation
+ * first (`VfxRibbon_ShapesAndPrimitives.md` section 3.2).
+ */
+export function beamEndsInto(
+  source: Source,
+  beam: BeamModel,
+  from: [number, number, number],
+  to: [number, number, number],
+): void {
+  OFFSET.set(beam.sourceOffset);
+  turnInto(source.orientation, OFFSET, 0);
+  for (let axis = 0; axis < 3; axis += 1) from[axis] = source.origin[axis] + OFFSET[axis];
+
+  OFFSET.set(beam.targetOffset);
+  turnInto(source.orientation, OFFSET, 0);
+  for (let axis = 0; axis < 3; axis += 1) to[axis] = source.target[axis] + OFFSET[axis];
+}
+
+/**
+ * Returns the RGBA factor that `beam` multiplies into the colour of each particle of `source`.
+ *
+ * If `mIsColorBindedWithDistance` is set, samples `mAnimatedColorWithDistance` at the distance
+ * between the system position and its target, without the offsets. Otherwise returns white.
+ */
+export function beamTint(source: Source, beam: BeamModel): readonly number[] {
+  if (!beam.colorBoundToDistance) return UNBOUND;
+
+  return sampleCurve(beam.colorByDistance, anchorDistance(source));
+}
+
+const UNBOUND: readonly number[] = [1, 1, 1, 1];
+
+/** Returns the distance between the system position of `source` and its target. */
+export function anchorDistance(source: Source): number {
+  const { origin, target } = source;
+  return Math.hypot(target[0] - origin[0], target[1] - origin[1], target[2] - origin[2]);
+}
+
 /** What one particle brings to the beam it draws. */
 export interface BeamParticle {
   /** `scale0`: the width across, the share trimmed from the source, and the share from the target. */
@@ -555,6 +602,134 @@ function cornerInto(
   out.lookup[vertex * 2] = particle.lookup[0];
   out.lookup[vertex * 2 + 1] = particle.lookup[1];
   out.erode[vertex] = particle.erode;
+}
+
+/** Inputs for one source's `VfxPrimitiveCameraSegmentBeam` strip. */
+export interface SegmentBuild {
+  /** System position plus `mLocalSpaceSourceOffset`, in engine space. */
+  readonly source: Point;
+  /** System target plus `mLocalSpaceTargetOffset`, in engine space. */
+  readonly target: Point;
+  /** Camera position, in engine space. */
+  readonly eye: Point;
+  /**
+   * Distance from the system position to its target without the offsets, which scales `v`.
+   * Zero if `mTrailMode` is `DEFAULT`.
+   */
+  readonly reach: number;
+  /** `mSegments`: the number of ribs in the beam. */
+  readonly segments: number;
+  /** Spawn ordinal of each rib's particle within its emitter, one per rib. */
+  readonly ordinal: Uint32Array;
+  readonly layers: RibbonLayers;
+}
+
+/** Scratch UV transform for one rib: no rotation or scale, the particle's offset and cell. */
+const RIB_UV = new Float32Array(UV_STRIDE);
+
+/**
+ * Writes one source's segment beam from `cursor` and advances the cursor.
+ *
+ * `held` holds one rib per particle, newest first, and each `position` is the particle's
+ * position relative to the system. A rib's centre is `lerp(source, target, ordinal /
+ * (segments - 1))` plus that position, so the beam bends when its particles move. A rib is
+ * `scale0.x` wide, perpendicular to the beam and to the view direction. Skips a rib whose
+ * ordinal is at least `segments`. Joins a rib to the previous rib if its ordinal is lower.
+ * Writes nothing if the arrays have no room for every rib.
+ *
+ * `u` spans the width divided by `mBirthTilingSize.y`, and `v` is the rib's distance along
+ * `reach` divided by `mBirthTilingSize.x`. Both add the particle's UV offset and ignore its
+ * rotation and scale. Writes an erosion drive of zero, and writes the colour lookup pair to
+ * the mult layer's UV (`VfxForceFields_AndRibbonColour.md` section 5.3).
+ */
+export function writeSegmentBeam(
+  held: Strand,
+  build: SegmentBuild,
+  out: RibbonArrays,
+  cursor: Cursor,
+): void {
+  const ribs = held.count;
+  if ((cursor.vertex + ribs * 2) * 3 > out.position.length) return;
+  if (cursor.index + Math.max(ribs - 1, 0) * 6 > out.index.length) return;
+
+  for (let axis = 0; axis < 3; axis += 1) {
+    DELTA[axis] = build.target[axis] - build.source[axis];
+    TO_EYE[axis] = build.eye[axis] - build.source[axis];
+  }
+  cross(DELTA, TO_EYE, WIDE);
+  if (!unit(WIDE)) sideOf(TO_EYE, WIDE);
+
+  const last = build.segments - 1;
+  let emitted = 0;
+  let previous = 0;
+  for (let at = 0; at < ribs; at += 1) {
+    const ordinal = build.ordinal[at];
+    if (ordinal >= build.segments) continue;
+
+    const share = last > 0 ? ordinal / last : 0;
+    for (let axis = 0; axis < 3; axis += 1) {
+      CORNER[axis] = build.source[axis] + DELTA[axis] * share + held.position[at * 3 + axis];
+    }
+
+    const width = held.width[at];
+    const tilingAlong = held.tiling[at * 2];
+    const tilingAcross = held.tiling[at * 2 + 1];
+    const v = tilingAlong > 0 ? (build.reach * share) / tilingAlong : 0;
+    const span = tilingAcross > 0 ? width / tilingAcross : tilingAcross === 0 ? 1 : -tilingAcross;
+
+    const vertex = cursor.vertex + emitted * 2;
+    ribInto(out, vertex, -width / 2, 0.5 - span / 2, v, held, at, build.layers);
+    ribInto(out, vertex + 1, width / 2, 0.5 + span / 2, v, held, at, build.layers);
+
+    if (emitted > 0 && ordinal < previous) {
+      out.index[cursor.index] = vertex;
+      out.index[cursor.index + 1] = vertex - 2;
+      out.index[cursor.index + 2] = vertex - 1;
+      out.index[cursor.index + 3] = vertex;
+      out.index[cursor.index + 4] = vertex - 1;
+      out.index[cursor.index + 5] = vertex + 1;
+      cursor.index += 6;
+    }
+
+    emitted += 1;
+    previous = ordinal;
+  }
+
+  cursor.vertex += emitted * 2;
+}
+
+/** Writes one rib vertex at `CORNER + WIDE * along`, mirrored into viewport space, with its UVs and tint. */
+function ribInto(
+  out: RibbonArrays,
+  vertex: number,
+  along: number,
+  u: number,
+  v: number,
+  held: Strand,
+  at: number,
+  layers: RibbonLayers,
+): void {
+  for (let axis = 0; axis < 3; axis += 1) {
+    out.position[vertex * 3 + axis] = (CORNER[axis] + WIDE[axis] * along) * AXIS_SIGN[axis];
+  }
+
+  const from = at * UV_STRIDE;
+  RIB_UV.set([0, 1, 1], 0);
+  RIB_UV.set(held.uv.subarray(from + 3, from + UV_STRIDE), 3);
+  uvInto(out, vertex, u, v, RIB_UV, 0, layers.base);
+  if (layers.mult !== null) {
+    out.multUv[vertex * 2] = held.lookup[at * 2];
+    out.multUv[vertex * 2 + 1] = held.lookup[at * 2 + 1];
+    out.multCell[vertex * 2] = 0;
+    out.multCell[vertex * 2 + 1] = 0;
+  }
+
+  for (let channel = 0; channel < 4; channel += 1) {
+    out.tint[vertex * 4 + channel] = held.color[at * 4 + channel];
+  }
+  out.lookup[vertex * 2] = held.lookup[at * 2];
+  out.lookup[vertex * 2 + 1] = held.lookup[at * 2 + 1];
+  out.erode[vertex] = 0;
 }
 
 /** The two components of one vertex's pair swapped in place. */

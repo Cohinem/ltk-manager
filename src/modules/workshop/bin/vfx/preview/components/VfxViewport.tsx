@@ -14,6 +14,7 @@ import {
 } from "@/modules/viewport";
 import {
   usePreviewGizmo,
+  usePreviewTargetHandle,
   usePreviewGround,
   usePreviewMasks,
   usePreviewMidlane,
@@ -33,7 +34,7 @@ import {
 } from "../../../shared/preview/ViewportControls";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
 import type { EmitterModel, SystemModel } from "../../engine/model/model";
-import type { RigModel } from "../../engine/model/rig";
+import { type Motion, retargetable, type RigModel } from "../../engine/model/rig";
 import { ForceGizmo } from "../../forces/ForceGizmo";
 import { useForcePreview } from "../../forces/forcePreview";
 import { useForces } from "../../forces/useForces";
@@ -67,6 +68,7 @@ import { EmitterMarks } from "./EmitterMarks";
 import { EmitterTransform, type TransformMode } from "./EmitterTransform";
 import { HandleMenu } from "./HandleMenu";
 import type { PreviewTransport } from "./PreviewPane";
+import { RigTarget } from "./RigTarget";
 import { ShowMenu } from "./ShowMenu";
 import { SpatialHandle } from "./SpatialHandle";
 import { useVfxHost, VfxHost } from "./VfxHost";
@@ -104,6 +106,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
     document,
   } = useVfxRun();
   const drawn = useMemo(() => (system === null ? [] : drawnEmitters(system)), [system]);
+  const framed = useFramedRig(rig.rig);
   const { reportTextures, reportMeshes } = useWarmUp(drawn, setWarming);
   const textures = useVfxTextures(drawn, reportTextures);
   const meshes = useVfxMeshes(drawn, reportMeshes);
@@ -119,6 +122,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
   const ground = usePreviewGround();
   const midlane = usePreviewMidlane();
   const gizmo = usePreviewGizmo();
+  const targetHandle = usePreviewTargetHandle();
   const masks = usePreviewMasks();
   const stats = usePreviewStats();
   const viewMode = usePreviewViewMode();
@@ -203,7 +207,7 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                 />
               </VfxHost>
               <ViewportPick picks={picks} system={shown} latch={latch} />
-              <Fit token={fitRequest} system={shown} drawn={drawn} rig={rig.rig} />
+              <Fit token={fitRequest} system={shown} drawn={drawn} rig={framed} />
               <EmitterMarks
                 system={shown}
                 driver={driver}
@@ -255,6 +259,10 @@ export default function VfxViewport({ transport }: VfxViewportProps) {
                   onGrab={latch.grab}
                 />
               )}
+              {targetHandle &&
+                retargetable(rig.rig.motion) &&
+                handle === null &&
+                selectedForce === undefined && <RigTarget onGrab={latch.grab} />}
               {stats && <StatsProbe driver={driver} drawn={drawn} feed={feed} />}
             </>
           )}
@@ -393,6 +401,36 @@ function Fit({ token, system, drawn, rig }: FitProps) {
   }, [glide, snap, sees, restored, rig, system.entry, token]);
 
   return null;
+}
+
+/**
+ * Returns the rig the camera frames, which keeps its identity while only the still rig's
+ * beam target changes, so a target drag does not reframe the camera.
+ */
+function useFramedRig(rig: RigModel): RigModel {
+  const [framed, setFramed] = useState(rig);
+  if (framed !== rig && !onlyTargetMoved(framed, rig)) setFramed(rig);
+
+  return framed;
+}
+
+/** Returns whether `next` differs from `held` only in the target that `RigTarget` moves. */
+function onlyTargetMoved(held: RigModel, next: RigModel): boolean {
+  return (
+    sameButTarget(held.motion, next.motion) &&
+    held.life === next.life &&
+    held.height === next.height &&
+    held.stopAt === next.stopAt &&
+    held.joints === next.joints
+  );
+}
+
+/** Returns whether two motions are the same still rig or flight, apart from the target. */
+function sameButTarget(held: Motion, next: Motion): boolean {
+  if (held.kind === "still" && next.kind === "still") return true;
+  if (held.kind !== "path" || next.kind !== "path") return false;
+
+  return held.from === next.from && held.speed === next.speed;
 }
 
 interface ViewportNoticeProps {

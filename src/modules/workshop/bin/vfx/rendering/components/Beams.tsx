@@ -5,11 +5,12 @@ import type { LineSegments, Mesh } from "three";
 import type { BinDocumentId } from "@/lib/tauri";
 import { AXIS_SIGN } from "@/modules/viewport";
 
-import { BEAM_MODE, QUAD_TYPE } from "../../engine/model/enums";
+import { BEAM_MODE, QUAD_TYPE, TRAIL_MODE } from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
 import {
   age01,
   appearance,
+  type DrawFrame,
   drawnPlace,
   drawnPlaceInto,
   erosionDrive,
@@ -17,8 +18,6 @@ import {
   particleBasisInto,
   type Source,
 } from "../../engine/simulation/particleRead";
-import { turnInto } from "../../engine/utils/basis";
-import { sampleCurve } from "../../engine/utils/sampleCurve";
 import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { useDrawStencil } from "../state/stencil";
@@ -31,14 +30,19 @@ import { sourcesScrollInto } from "../utils/palette";
 import { RIBBON_DRAW } from "../utils/particleDraws";
 import { writePaletteScroll } from "../utils/particleProgram";
 import {
+  anchorDistance,
   type BeamEnds,
+  beamEndsInto,
   type BeamParticle,
+  beamTint,
   commitRibbon,
   type Cursor,
   packUv,
   ribbonBuffers,
+  strand,
   UV_STRIDE,
   writeBeam,
+  writeSegmentBeam,
 } from "../utils/ribbon";
 import { type LayerDraws, layersOf } from "../utils/uniforms";
 import { uvDraw, uvTransformInto } from "../utils/uvTransform";
@@ -47,8 +51,8 @@ import { DrawPair, showPair, useDrawPair, useProgramDraw } from "./drawPair";
 /** How many beams one emitter draws across every source, which caps its share of the pools. */
 const BEAMS_PER_EMITTER = 256;
 
-/** What a beam's colour is multiplied by when its length binds none. */
-const UNBOUND: readonly number[] = [1, 1, 1, 1];
+/** Maximum ribs in one source's segment beam, two vertices each, which fills the same buffers. */
+const RIBS_PER_SOURCE = BEAMS_PER_EMITTER * 2;
 
 /** Scratch the frame reuses, so a draw allocates nothing per particle. */
 const DRAWN = { scale: new Float32Array(3), color: new Float32Array(4) };
@@ -57,8 +61,12 @@ const CURSOR: Cursor = { vertex: 0, index: 0 };
 const EYE: [number, number, number] = [0, 0, 0];
 const SOURCE: [number, number, number] = [0, 0, 0];
 const TARGET: [number, number, number] = [0, 0, 0];
-const OFFSET = new Float32Array(3);
 const LOCAL: [number, number, number] = [0, 0, 0];
+
+/** Scratch for one source's segment beam: the ribs, newest first, and their pool indices. */
+const STRAND = strand(RIBS_PER_SOURCE);
+const ORDINAL = new Uint32Array(RIBS_PER_SOURCE);
+const ORDER = new Uint32Array(RIBS_PER_SOURCE);
 const PARTICLE: BeamParticle = {
   scale: DRAWN.scale,
   color: DRAWN.color,
@@ -92,14 +100,13 @@ export interface BeamsProps {
 }
 
 /**
- * One emitter's particles, each the one quad a beam is from the system to its target.
+ * One emitter's beam particles, drawn as ribbon geometry between the system and its target.
  *
- * Both ends are the system's, the rig's origin plus `mLocalSpaceSourceOffset` and its
- * target plus `mLocalSpaceTargetOffset`, so every particle draws the same segment and
- * brings its own colour, `scale0` and uv. `mIsColorBindedWithDistance` multiplies in
- * `mAnimatedColorWithDistance` at the beam's raw length. The segment beam draws the same
- * quad, and its ribs are not built. Its erosion drive stands at zero, which its builder
- * writes in place of the particle's.
+ * A `VfxPrimitiveBeam` particle draws one quad between the beam's ends, so every particle
+ * draws the same segment with its own colour, `scale0` and UV. A `VfxPrimitiveCameraSegmentBeam`
+ * particle draws one rib of a strip, at the share of the beam that its spawn ordinal gives
+ * (see `writeSegmentBeam`). `mIsColorBindedWithDistance` multiplies `mAnimatedColorWithDistance`
+ * into both kinds.
  *
  * With the game's shaders on, the beams draw through the translated `quad` or `distortion`
  * pair once it is ready, and through the hand-written material until then.
@@ -159,28 +166,34 @@ export function Beams({ emitter, sources, samplers, rank, hidden, document = nul
     for (const source of sources) {
       const pool = source.pool;
       const origin = source.origin;
-      const target = source.target;
       const frame = frameOf(source, emitter);
-      /* The offsets are local to the system, so they turn with it before landing on the
-         ends (`VfxRibbon_ShapesAndPrimitives.md` section 3.2). */
-      OFFSET.set(beam.sourceOffset);
-      turnInto(source.orientation, OFFSET, 0);
-      for (let axis = 0; axis < 3; axis += 1) SOURCE[axis] = origin[axis] + OFFSET[axis];
-      OFFSET.set(beam.targetOffset);
-      turnInto(source.orientation, OFFSET, 0);
-      for (let axis = 0; axis < 3; axis += 1) TARGET[axis] = target[axis] + OFFSET[axis];
+      beamEndsInto(source, beam, SOURCE, TARGET);
+      const bound = beamTint(source, beam);
+
+      if (segmented) {
+        ribsInto(source, emitter, frame, bound, stamp);
+        writeSegmentBeam(
+          STRAND,
+          {
+            source: SOURCE,
+            target: TARGET,
+            eye: EYE,
+            reach: beam.trailMode === TRAIL_MODE.default ? 0 : anchorDistance(source),
+            segments: Math.trunc(beam.segments),
+            ordinal: ORDINAL,
+            layers,
+          },
+          buffers.arrays,
+          CURSOR,
+        );
+        continue;
+      }
+
       const ends: BeamEnds = {
         source: SOURCE,
         target: TARGET,
         eye: beam.mode === BEAM_MODE.arbitrary ? null : EYE,
       };
-
-      const length = Math.hypot(
-        target[0] - origin[0],
-        target[1] - origin[1],
-        target[2] - origin[2],
-      );
-      const bound = beam.colorBoundToDistance ? sampleCurve(beam.colorByDistance, length) : UNBOUND;
 
       const buckets = bucketsOf(pool, stamp);
       const [first, last] = bucketRange(buckets, emitter.index);
@@ -210,7 +223,7 @@ export function Beams({ emitter, sources, samplers, rank, hidden, document = nul
           packUv(UV_DRAWN, PARTICLE.multUv, 0);
         }
         colorLookupInto(emitter, pool, at, through, PARTICLE.lookup, 0);
-        PARTICLE.erode = segmented ? 0 : erosionDrive(pool, at, emitter, time);
+        PARTICLE.erode = erosionDrive(pool, at, emitter, time);
 
         writeBeam(ends, PARTICLE, layers, buffers.arrays, CURSOR);
       }
@@ -228,4 +241,54 @@ export function Beams({ emitter, sources, samplers, rank, hidden, document = nul
       edges={buffers.edgeGeometry}
     />
   );
+}
+
+/**
+ * Writes the ribs of `emitter` for `source` into `STRAND` and `ORDINAL`, newest first.
+ *
+ * Each rib holds the particle's position relative to the system, its `scale0.x`, its colour
+ * multiplied by `bound`, its tiling, its base UV transform and its colour lookup.
+ */
+function ribsInto(
+  source: Source,
+  emitter: EmitterModel,
+  frame: DrawFrame,
+  bound: readonly number[],
+  stamp: number,
+): void {
+  const pool = source.pool;
+  const time = frame.now;
+
+  let held = 0;
+  const buckets = bucketsOf(pool, stamp);
+  const [first, last] = bucketRange(buckets, emitter.index);
+  for (let listed = first; listed < last && held < RIBS_PER_SOURCE; listed += 1) {
+    ORDER[held] = buckets.order[listed];
+    held += 1;
+  }
+  ORDER.subarray(0, held).sort((left, right) => pool.serial[right] - pool.serial[left]);
+
+  STRAND.count = held;
+  for (let slot = 0; slot < held; slot += 1) {
+    const at = ORDER[slot];
+    ORDINAL[slot] = pool.ordinal[at];
+
+    appearance(pool, at, emitter, time, DRAWN);
+    for (let channel = 0; channel < 4; channel += 1) DRAWN.color[channel] *= bound[channel] ?? 1;
+    premultiplyInto(emitter, DRAWN.color);
+    STRAND.color.set(DRAWN.color, slot * 4);
+    STRAND.width[slot] = DRAWN.scale[0];
+    STRAND.tiling.set(pool.tiling.subarray(at * 2, at * 2 + 2), slot * 2);
+
+    drawnPlaceInto(pool, at, frame, PLACED);
+    for (let axis = 0; axis < 3; axis += 1) {
+      STRAND.position[slot * 3 + axis] = PLACED.place[axis] - source.origin[axis];
+    }
+
+    const age = time - pool.birthTime[at];
+    const through = age01(pool, at, time);
+    uvTransformInto(pool, at, emitter.uv, 0, age, through, time, UV_DRAWN);
+    packUv(UV_DRAWN, STRAND.uv, slot * UV_STRIDE);
+    colorLookupInto(emitter, pool, at, through, STRAND.lookup, slot * 2);
+  }
 }

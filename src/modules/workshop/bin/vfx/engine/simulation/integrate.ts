@@ -111,6 +111,8 @@ export interface EmitterState {
   age: number;
   /** The emitter has emitted at least once. */
   emitted: boolean;
+  /** Number of particles the emitter spawned in this run, wrapped at 65,536 like the engine's u16. */
+  spawned: number;
   /** The system time of the last spawn, which the next count runs from, and zero before any. */
   lastSpawn: number;
   /** The roll of `ChanceToNotExist` left the emitter out of this run. */
@@ -155,6 +157,7 @@ export function createEmitterStates(emitters: readonly EmitterModel[], rng?: Rng
     return {
       age: 0,
       emitted: false,
+      spawned: 0,
       lastSpawn: 0,
       absent: chance > 0 && rng !== undefined && chance > rng.unitFloat(),
       position: [position[0] ?? 0, position[1] ?? 0, position[2] ?? 0],

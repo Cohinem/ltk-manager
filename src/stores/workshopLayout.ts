@@ -60,6 +60,8 @@ interface PreviewDisplay {
   previewAntiAliasing: AntiAliasing;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
+  /** The VFX viewport draws a gizmo that moves the rig's target. */
+  previewTargetHandle: boolean;
   /** Each emitter that writes a stencil mask draws the mask as a tint. */
   previewMasks: boolean;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
@@ -278,6 +280,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   /* The game's own default, `DEFAULT_ANTI_ALIASING`, kept a literal so the store loads no renderer. */
   previewAntiAliasing: "fxaa",
   previewGizmo: true,
+  previewTargetHandle: false,
   previewMasks: false,
   previewStats: false,
   previewArmature: false,
@@ -510,6 +513,7 @@ export const usePreviewAntiAliasing = () => useWorkshopLayoutStore((s) => s.prev
 export const usePreviewAmbientOcclusion = () =>
   useWorkshopLayoutStore((s) => s.previewAmbientOcclusion);
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
+export const usePreviewTargetHandle = () => useWorkshopLayoutStore((s) => s.previewTargetHandle);
 export const usePreviewMasks = () => useWorkshopLayoutStore((s) => s.previewMasks);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);

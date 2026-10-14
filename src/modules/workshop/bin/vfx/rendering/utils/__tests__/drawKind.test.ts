@@ -269,8 +269,8 @@ describe("the draw path of a kind", () => {
     expect(pathsOf(kindOf(QUAD_TYPE.mesh, { distortion }))).toEqual(["mesh"]);
   });
 
-  it("draws no ribbon for a beam that names a mesh", () => {
-    expect(pathsOf(kindOf(QUAD_TYPE.beam, { mesh: PARTS.mesh }))).toEqual([]);
+  it("draws a beam that names a mesh on the mesh path only", () => {
+    expect(pathsOf(kindOf(QUAD_TYPE.beam, { mesh: PARTS.mesh }))).toEqual(["mesh"]);
   });
 });
 

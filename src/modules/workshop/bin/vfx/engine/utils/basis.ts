@@ -100,6 +100,50 @@ export function alongInto(direction: Float32Array, at: number, out: Float32Array
 /** How near the world's up a direction comes before its cross stops being a direction. */
 const DEGENERATE = 1e-5;
 
+/**
+ * Writes the row-major 3x3 basis of a beam mesh into `out`, with local `+Z` along `direction`.
+ *
+ * Matches the engine's right-handed look-at between the beam's ends. Local `+X` is the up
+ * vector crossed with `direction`, and local `+Y` completes the frame. The up vector is world
+ * `+Y`. If the squared cross product of `direction` and world `+Y` is at most `BEAM_UPRIGHT`,
+ * the up vector is world `+X`. Writes the identity if `direction` has zero length.
+ */
+export function beamInto(direction: ArrayLike<number>, out: Float32Array): Float32Array {
+  const length = Math.hypot(direction[0], direction[1], direction[2]);
+  if (length === 0) return identityInto(out);
+
+  const zx = direction[0] / length;
+  const zy = direction[1] / length;
+  const zz = direction[2] / length;
+
+  let xx = zz;
+  let xy = 0;
+  let xz = -zx;
+  if (xx * xx + xz * xz <= BEAM_UPRIGHT) {
+    xx = 0;
+    xy = -zz;
+    xz = zy;
+  }
+  const across = Math.hypot(xx, xy, xz);
+  xx /= across;
+  xy /= across;
+  xz /= across;
+
+  out[0] = xx;
+  out[1] = zy * xz - zz * xy;
+  out[2] = zx;
+  out[3] = xy;
+  out[4] = zz * xx - zx * xz;
+  out[5] = zy;
+  out[6] = xz;
+  out[7] = zx * xy - zy * xx;
+  out[8] = zz;
+  return out;
+}
+
+/** Squared cross product length at or below which a beam look-at uses world `+X` as its up vector. */
+const BEAM_UPRIGHT = 1e-9;
+
 /** The unit vector a basis sends `axis` to, written to `out` from `at`. */
 export function axisInto(basis: Float32Array, axis: number, out: Float32Array, at: number): void {
   out[at] = basis[axis];

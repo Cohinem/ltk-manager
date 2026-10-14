@@ -1441,6 +1441,7 @@
   "workshop_bin_preview_rig_speed_label": "Speed",
   "workshop_bin_preview_rig_stop_after_label": "Stop after",
   "workshop_bin_preview_rig_stop_label": "Stop the system mid-run",
+  "workshop_bin_preview_rig_target_label": "Target handle",
   "workshop_bin_preview_rig_units_label": "{value} u",
   "workshop_bin_preview_scrub_label": "Playhead",
   "workshop_bin_preview_seed_label": "Seed",

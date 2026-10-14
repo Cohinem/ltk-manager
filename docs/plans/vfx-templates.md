@@ -81,7 +81,9 @@ In order, the first that answers:
    clip.
 2. **A template's rig**, for a system a template made.
 3. **The system alone.** Continuous if any emitter has no `lifetime`, else Replay. Orbit if any
-   emitter draws a trail, else Ground.
+   emitter draws a trail, else Ground. A Ground rig of a system with a beam aims at the farthest
+   constant `EmitterPosition` on the system's `+Z` axis, at least one champion height away, so
+   the beam reaches the emitters that the system places at its far end.
 
 A reverse lookup through Find all references is not part of this plan.
 

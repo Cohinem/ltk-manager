@@ -533,8 +533,8 @@ spawn-shape table. What each changed:
 | `mMode` on a beam            | `DEFAULT` faces the eye. `ARBITRARY`, the only value authored, is `cross(L, +Y)` run through the particle's local matrix as a point and left unnormalised, so a near-vertical beam collapses and the particle's position leaks into the width                                                                                                                                    | `writeBeam`, both paths, the leak included                                                                       |
 | `scale0` on a beam           | `x` the width. `y` and `z` trim the quad in from the source and the target as shares of the length. UV: `width / tiling.x` across, the full length `/ tiling.y` along, a component at or below zero spanning one                                                                                                                                                                 | `writeBeam`                                                                                                      |
 | `mIsColorBindedWithDistance` | `mAnimatedColorWithDistance` sampled at the raw distance between the two anchors in engine units, one colour for the whole beam, only under the flag. Not a position along the beam                                                                                                                                                                                              | `Beams.tsx`                                                                                                      |
-| `mSegments`                  | Inert on `VfxPrimitiveBeam`, which draws one quad per particle. Only the camera segment beam reads it, as ribs the particles stand in for                                                                                                                                                                                                                                        | Read and not applied. The segment beam draws as the plain beam, and its ribs are not built                       |
-| `mMesh` on a beam            | Suppresses the ribbon, and the mesh draw dispatch excludes the kind, so nothing draws (inferred)                                                                                                                                                                                                                                                                                 | `drawsAsBeam` refuses an emitter whose beam names a mesh                                                         |
+| `mSegments`                  | Inert on `VfxPrimitiveBeam`, which draws one quad per particle. Only the camera segment beam reads it, as ribs the particles stand in for                                                                                                                                                                                                                                        | `writeSegmentBeam` strings one rib per particle at its spawn ordinal's share of the beam                         |
+| `mMesh` on a beam            | Suppresses the ribbon. `VfxComplexEmitter_DrawParticles` stretches the mesh between the ends                                                                                                                                                                                                                                                                                     | `drawsAsMesh` takes the emitter, and `Meshes` places it with `stretchInto`                                       |
 | `mTrailMode`                 | No consumer                                                                                                                                                                                                                                                                                                                                                                      | Read and not applied                                                                                             |
 | Shape ranges                 | `Size` is half-extents, `-1..+1` per axis, and so is a cylinder's radius. A cylinder's `height` is one-sided, `0..height` up from the emitter. A volume cylinder's radial draw is `-1..+1` too                                                                                                                                                                                   | `sampleShape`, the cylinder case                                                                                 |
 | Shape angles                 | Cylinder about `+Y` by a full turn. Sphere about `+Y` then `+Z`, both full, on a vector along `+X`, `+Y` applied first as the row-vector product does, so the first is the polar angle and the second the azimuth, and the shell piles up at the poles on `±Z`. Box by quarter turns in the same order, skipped under `flags & 1`. Every distribution is naive and is reproduced | As built, kept                                                                                                   |
@@ -2063,9 +2063,9 @@ texture there and reads the ramp at the same place. The lane and the predicate a
 That `uvMatrix1` runs over the same `(u, v)` the base uv takes is the reading.
 
 **The camera segment beam freezes its erosion.** `VfxPrimitiveCameraSegmentBeam_FillBuffers`
-writes `0.0` in place of the erosion drive, so `Beams` does too for kind 9. Its other quirk, the
-lookup pair decomposed as a mult uv, is not built: the segment beam draws as a plain beam, and none
-of the 12 of 2.38 that carry a ramp carries a mult layer.
+writes `0.0` in place of the erosion drive, so `writeSegmentBeam` does too. It also writes the
+colour lookup pair to the mult layer's uv, and `writeSegmentBeam` does the same. None of the 12 of
+2.38 that carry a ramp carries a mult layer.
 
 **Readings that stay open:**
 
@@ -2624,7 +2624,11 @@ own builder, per section 2.12.
   to its target plus `mLocalSpaceTargetOffset`, `scale0.x` wide, trimmed by `scale0.y` and `.z`.
   `ARBITRARY` lies across the world's up through the particle's own matrix, unnormalised.
   `mIsColorBindedWithDistance` multiplies in `mAnimatedColorWithDistance` at the raw length. A beam
-  naming a mesh draws nothing. The segment beam draws the same quad, and its ribs are not built.
+  that names a mesh draws the mesh at the midpoint of the ends, with local `+Z` from the target to
+  the source and scaled by the beam length over the mesh's `+Z` extent. A segment beam draws one rib
+  per particle at `ordinal / (mSegments - 1)` of the way along the beam plus the particle's own
+  position. `u` spans the width over `mBirthTilingSize.y`, and if `mTrailMode` is not `DEFAULT`,
+  `v` runs along the raw length over `.x`. The emitter spawns at most `mSegments` particles.
 - **The rig has, aims and faces the system.** A path aims where it lands, an orbit at what it
   circles, and a still rig a fixed reach ahead so a beam has a length. That is `targetAt` beside
   `originAt`, and `Driver.origin` beside `Driver.target`. A path faces where it is going and an
