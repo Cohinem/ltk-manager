@@ -1,7 +1,6 @@
-import { COLOR, ERODE, FETCH, GROUND, PICK, SOFT, WARP, WIRE } from "./quad";
+import { COLOR, ERODE, FETCH, PICK, SOFT, WARP, WIRE } from "./quad";
 
 export const RIBBON_VERTEX = /* glsl */ `
-${GROUND}
 attribute vec2 alphaUv;
 attribute vec2 cell;
 attribute vec4 tint;
@@ -28,7 +27,7 @@ void main() {
   vErode = erode;
   vMultUv = multUv;
   vMultCell = multCell;
-  gl_Position = projectionMatrix * viewMatrix * grounded(modelMatrix * vec4(position, 1.0));
+  gl_Position = projectionMatrix * viewMatrix * modelMatrix * vec4(position, 1.0);
 }
 `;
 

@@ -1,22 +1,4 @@
-import { GROUND_LEVEL } from "@/modules/viewport";
-
 import { SHEEN } from "../utils/uniforms";
-
-/**
- * A world position stood on the ground under `GROUND_LAYER`, and left where it is elsewhere.
- *
- * Straight down, which is the reading of decision 2.51 of docs/plans/vfx-particle-renderer.md.
- */
-export const GROUND = /* glsl */ `
-const float GROUND_LEVEL = ${GROUND_LEVEL.toFixed(1)};
-
-vec4 grounded(vec4 world) {
-#ifdef GROUND_LAYER
-  world.y = GROUND_LEVEL;
-#endif
-  return world;
-}
-`;
 
 /**
  * An arbitrary quad's uv off its corner, each row the weights of `(corner.x, corner.y, 1)`.
@@ -42,8 +24,6 @@ type Weights = readonly [number, number, number];
 export const QUAD_CORNER = /* glsl */ `
 const vec3 ARBITRARY_U = vec3(${ARBITRARY_UV[0].join(", ")});
 const vec3 ARBITRARY_V = vec3(${ARBITRARY_UV[1].join(", ")});
-
-${GROUND}
 
 vec2 cornerUv() {
 #if PLANE >= 1 || defined(BILLBOARD) || defined(RAY)
@@ -82,7 +62,7 @@ vec4 cornerWorld() {
     vec3 spunV = v * c + cross(w, v) * s;
     vec3 offset = spunU * (at.y * size.y) + spunV * (at.x * size.x);
     offset.x = -offset.x;
-    return grounded(modelMatrix * vec4(center + offset, 1.0));
+    return modelMatrix * vec4(center + offset, 1.0);
   }
 #endif
 
@@ -105,12 +85,8 @@ vec4 cornerWorld() {
 #endif
     vec3 eyeRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
     vec3 eyeUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
-#ifdef GROUND_LAYER
-    return grounded(modelMatrix * vec4(center + eyeRight * offset.x + eyeUp * offset.y, 1.0));
-#else
     vec4 origin = modelMatrix * vec4(center, 1.0);
     return vec4(origin.xyz + eyeRight * offset.x + eyeUp * offset.y, 1.0);
-#endif
   }
 #endif
 
@@ -129,12 +105,12 @@ vec4 cornerWorld() {
     vec3 world = center
       + axis * (size.z + (corner.y + 0.5) * size.y)
       + across * (corner.x * size.x);
-    return grounded(modelMatrix * vec4(world, 1.0));
+    return modelMatrix * vec4(world, 1.0);
   }
 #endif
 
   vec3 world = center + basis[0] * (at.x * size.x) + basis[1] * (at.y * size.y);
-  return grounded(modelMatrix * vec4(world, 1.0));
+  return modelMatrix * vec4(world, 1.0);
 }
 `;
 

@@ -76,10 +76,7 @@ export function meshDraw(bones: Texture | null): ParticleDraw {
     bias: EMITTER_BIAS,
     feed: (material, emitter) => {
       const erosion = erosionUniforms(emitter.erosion, null);
-      material.defines = {
-        ...(emitter.groundLayer ? { GROUND_LAYER: "" } : {}),
-        ...(bones !== null ? { PARTICLE_SKINNING: "" } : {}),
-      };
+      material.defines = bones !== null ? { PARTICLE_SKINNING: "" } : {};
       Object.assign(material.uniforms, {
         particleBones: { value: bones },
         ...layerUniforms(emitter),
@@ -116,10 +113,7 @@ function layerUniforms(emitter: EmitterModel) {
   };
 }
 
-/** `GROUND_LAYER` and `MULT_LAYER`, the mult layer being no distortion pair's. */
+/** `MULT_LAYER`, which no distortion pair compiles. */
 function layerDefines(emitter: EmitterModel) {
-  return {
-    ...(emitter.groundLayer ? { GROUND_LAYER: "" } : {}),
-    ...(emitter.multUv !== null && !distorts(emitter) ? { MULT_LAYER: "" } : {}),
-  };
+  return emitter.multUv !== null && !distorts(emitter) ? { MULT_LAYER: "" } : {};
 }

@@ -21,7 +21,7 @@ describe("customMaterial", () => {
       uniforms: { map: { value: null } },
     });
 
-    const result = customMaterial(material, materialPreview());
+    const result = customMaterial(material, materialPreview(), false);
 
     expect(result).toBe(material);
     expect(result.vertexShader).toBe("particle vertices");
@@ -37,11 +37,17 @@ describe("customMaterial", () => {
     expect(result.defines.CUSTOM_TEXTURE).toBe(0);
   });
 
+  it("draws opaque if the emitter is in the ground layer", () => {
+    const material = new ShaderMaterial({ uniforms: { map: { value: null } } });
+
+    expect(customMaterial(material, materialPreview(), true).transparent).toBe(false);
+  });
+
   it("preserves the particle shader for an absent or unresolved material", () => {
     for (const preview of [null, materialPreview({ missing: true })]) {
       const material = new ShaderMaterial({ fragmentShader: "particle fragment" });
 
-      customMaterial(material, preview);
+      customMaterial(material, preview, false);
 
       expect(material.fragmentShader).toBe("particle fragment");
     }
