@@ -218,6 +218,11 @@ export interface Driver extends Source {
   surfaces(): EmissionSurfaces;
   setMeshJoints(joints: ReadonlyMap<string, Joints>): void;
   /**
+   * Binds the joints of a host character, which a bone child set spawns on when the rig
+   * carries no joints of its own. `null` unbinds them.
+   */
+  setHostJoints(joints: Joints | null): void;
+  /**
    * Draw the next appearance pass from `next`, keeping the particles already alive.
    *
    * Returns true when `next` changes a field the simulation reads. The live particles were
@@ -276,6 +281,7 @@ export function createDriver(
   let states: EmitterState[] = [];
   const yaw = new Float32Array(FRAME_SLOTS);
   const lineage = createLineage(seed);
+  let hostJoints: Joints | null = null;
   lineage.joints = rig.joints ?? null;
   const children = createChildren(lineage, "", 0);
   const lanes = createLanes();
@@ -521,6 +527,16 @@ export function createDriver(
       marks.clear();
       driver.seek(driver.phase);
     },
+    setHostJoints(joints) {
+      if (hostJoints === joints) return;
+
+      hostJoints = joints;
+      if (rig.joints != null) return;
+
+      lineage.joints = joints;
+      marks.clear();
+      driver.seek(driver.phase);
+    },
 
     /*
      * Decision 2.5: an edit replaces the definition the emitters point at and the
@@ -575,7 +591,7 @@ export function createDriver(
       const posed = reposed(rig.motion, next.motion);
       rig = next;
       tail = lingerTail(system, flightTime(next.motion));
-      lineage.joints = next.joints ?? null;
+      lineage.joints = next.joints ?? hostJoints;
       marks.clear();
 
       if (turned) {

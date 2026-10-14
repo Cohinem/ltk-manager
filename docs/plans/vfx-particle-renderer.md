@@ -1471,16 +1471,29 @@ first one's phase.
 child at the definition it holds under the same path, and drops one whose own shape changed, the
 rule decision 2.5 keeps one level up.
 
-**Not inherited and not built.** Colour, velocity and the seed are not inherited, attested from
-the creation path. **What is inherited and is not built** is the parent system's material
-overrides, its palette and quality index and its skin and texture handle: a preview system
-carries none of the first three, and the handle is a character's. Camera-facing
+**Not inherited.** Colour, velocity and the seed are not inherited, attested from the creation
+path. In 16.17.8057408 `VfxManager_createInstanceFromRef` copies onto the child's proxy the
+parent system's scale, a colour multiplier that defaults to white, a time scale that defaults to
+1, and the skin's texture handle. It does not set the material override flag, so a child does not
+take its parent's material overrides on that path. The preview sets none of these on the opened
+system, so a child already runs on the same defaults, and an attached mesh of a child draws on the
+same host character as its parent's. Camera-facing
 sizes do not take a system's scale, which holds for a root transform's scale too, 2.31. A
 definition inlined at two places is two definitions whose textures load twice. The resolver takes
 the first `ResourceResolver` of the document holding a key, where the engine's own "newest wins"
 is the order resolvers were added to a live scope, which a bin does not record. Only a
 `VfxChildIdentifier`'s `effectKey` is resolved, since other classes write the field and nothing
 reads theirs as a child. None of this has been judged on the screen.
+
+**A child whose system is in another bin is read from that bin.** A census of the 57,675 shipped
+`VfxChildIdentifier`s on 2026-10-14 found 25,811 that name a system of their own bin. 18,610 name a
+system in a bin that their bin links, through its own resolver or an `effect` link. 12,735 sit in a
+multi-skin particle bin, whose key resolves only through the `ResourceResolver` of the skin that
+the system's path names, `data/characters/<name>/skins/<skin>.bin`. About 500 resolve nowhere.
+`search_linked_children` in `crates/ltk-manager-game/src/vfx/resolve/children.rs` reads the
+linked bins and that skin bin, breadth first and capped as the material search is, when a child
+is left unresolved, and inlines each system it finds. A child already open above its identifier
+stays a link.
 
 ### 2.34 A beam scrolls along its length, and a locked alpha holds the whole texture
 

@@ -16,7 +16,13 @@ import { queryFnWithArgs } from "@/utils/query";
 
 import { nameHash } from "../../../shared/utils/binHash";
 import { skinQueries } from "../../../skin/api/skinQueries";
-import { bindingOf, playableClips, playlistOf, textureAssets } from "../../../skin/utils/skinScene";
+import {
+  bindingOf,
+  jointsOf,
+  playableClips,
+  playlistOf,
+  textureAssets,
+} from "../../../skin/utils/skinScene";
 import { useVfxRun, VfxRunContext } from "../../playback/state/run";
 import { takeHandedHost, useHandedRigStore } from "../../playback/state/vfxRunMemory";
 import { chooseHost, hostKey, useHostChoice } from "../state/hostChoice";
@@ -73,7 +79,8 @@ export function useHostSkin() {
  * The run's host skin and its clip, loaded from the open particle document.
  *
  * A skin the system was opened from hands its own skin, clip and the event's frame. A run
- * opened any other way has no host.
+ * opened any other way has no host. `joints` are the posed character's, sampled on the host's
+ * clock, and null until the pose loads.
  */
 export function useVfxHost() {
   const { document, entry: system } = useVfxRun();
@@ -113,6 +120,11 @@ export function useVfxHost() {
       loaded.map((clip) => createPose(held, clip ?? null)),
     );
   }, [skeleton.data, loaded]);
+  const scale = model?.scale ?? 1;
+  const joints = useMemo(
+    () => (pose === null ? null : jointsOf(pose, scale, offset)),
+    [pose, scale, offset],
+  );
   const assets = useMemo(() => (model === undefined ? NO_TEXTURES : textureAssets(model)), [model]);
   const textures = useAssetTextures(assets);
 
@@ -121,6 +133,7 @@ export function useVfxHost() {
     model,
     mesh: mesh.data,
     pose,
+    joints,
     textures,
     ready: model !== undefined && mesh.data !== undefined && pose !== null,
   };
