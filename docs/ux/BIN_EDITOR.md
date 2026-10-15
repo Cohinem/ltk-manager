@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-15 | Scale a system in the Adjust popover, beside the hue turn                |
 | 2026-10-15 | Recolor a system by turning the hue of every tint                        |
 | 2026-10-12 | Collapse a panel to its strip or to a rail of its panes' icons           |
 | 2026-10-09 | Draw a pane's strip as a filled rail, with tabs as tall as the rail      |
@@ -3392,15 +3393,17 @@ and the rig pill names the template as its source.
 at once and the project gains no file. The plan and the list of templates are
 `docs/plans/vfx-templates.md`.
 
-### Recoloring a system
+### Adjusting a system
 
-Recolor sits beside the Panes menu of an editable particle shell. Its popover holds a hue slider
-from -180 to 180 degrees and Apply.
+Adjust sits beside the Panes menu of an editable particle shell. Its popover holds a hue slider
+from -180 to 180 degrees, a scale slider from 0.25× to 4×, a reset and Apply.
 
-**The preview follows the slider before anything is written.** Apply writes the turn as one
-grouped edit, so one undo step, and closing the popover without Apply drops the turn.
+**The preview follows the sliders before anything is written.** Apply writes both adjustments as
+one grouped edit, so one undo step, and closing the popover without Apply drops them. A value that
+an adjustment leaves equal takes no edit. The adjustments change the system's own emitters, so a
+child system keeps its values.
 
-**The turn changes the tints of the system's own emitters:**
+**The hue turn changes the tints:**
 
 - `color` and `birthColor`, their constant and every key
 - `colorModulate` of a projection, `mAnimatedColorWithDistance` of a beam and
@@ -3408,8 +3411,21 @@ grouped edit, so one undo step, and closing the popover without Apply drops the 
 - `fresnelColor` and `reflectionFresnelColor` of a reflection
 
 The turn keeps each color's brightest channel and its alpha, and a gray takes no edit.
-`erosionMapChannelMixer` and `palleteSrcMixColor` are channel weights and stay. A child system is
-another object, so it keeps its colors. Textures are not recolored.
+`erosionMapChannelMixer` and `palleteSrcMixColor` are channel weights and stay. Textures are not
+recolored.
+
+**The scale multiplies the lengths:**
+
+- the particle's size: `birthScale0`, or `scale0` on an emitter that sets no `birthScale0`,
+  because the size is their product
+- `EmitterPosition`, `translationOverride` and `emissionMeshScale`
+- `birthVelocity`, `velocity`, `birthAcceleration`, `acceleration` and `worldAcceleration`
+- the spawn shape's `Size`, `radius`, `height` and `emitOffset`
+- a trail's or a beam's `mBirthTilingSize` and `mCutoff`, and a beam's source and target offsets
+- a field's `Position`, `radius`, `acceleration` and `velocityDelta`
+- a linger's keyed velocity and acceleration, a projection's `mYRange`, and `visibilityRadius`
+
+Drag, rotation, orbital velocity and every time stay.
 
 ### Editing a node's structure in the Graph pane
 

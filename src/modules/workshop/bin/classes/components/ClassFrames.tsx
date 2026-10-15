@@ -32,11 +32,11 @@ import { SkinTintScope } from "../../skin/state/skinTint";
 import { SpellsPane } from "../../spells/components/SpellsPane";
 import type { AbilityRecipe } from "../../spells/utils/abilityRecipe";
 import { PreviewPane, RunKeys, TimelinePane, TimelineTransport, VfxRunProvider } from "../../vfx";
+import { AdjustButton } from "../../vfx/adjust/AdjustButton";
 import { GraphPane, PreviewInGraph } from "../../vfx/drivers/components/GraphPane";
 import { EmitterFields } from "../../vfx/inspector/components/EmitterInspector";
 import { EmitterModes, Emitters } from "../../vfx/inspector/components/VfxSections";
 import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
-import { RecolorButton } from "../../vfx/recolor/RecolorButton";
 import type { PlacedSection } from "../utils/classLayouts";
 import type { LayoutPages, ViewContext } from "./ClassCells";
 import { Sections } from "./ClassSections";
@@ -451,7 +451,7 @@ export function VfxShell({
 
   return (
     <div data-ui="ClassView:shell" className="flex min-h-0 flex-1 flex-col gap-2">
-      <ShellHeader kind="vfx" crumb={<ShellCrumb system={system} />} actions={<RecolorButton />} />
+      <ShellHeader kind="vfx" crumb={<ShellCrumb system={system} />} actions={<AdjustButton />} />
       <ShellPaneTree kind="vfx" content={content} />
     </div>
   );
