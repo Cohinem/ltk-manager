@@ -2614,6 +2614,19 @@ paints that as a run of the end colour and a plot draws its line to the edge of 
 hold is a shape rather than an absence. Every surface that draws a curve shares this window: the
 row strip, the emitter card's square, the sparkline and the dock.
 
+### The time marks
+
+**The playhead is a flag.** Where the run's playhead reaches a curve, the plot draws its line with a
+glow, a dot where each drawn channel crosses it, and a chip on the time axis that reads its time.
+A colour ramp draws the line over its band and the chip under it. The chip has the timeline's
+flag width and colour, so the two read as one playhead. The line, the dots and the chip follow
+the clock every frame, as the timeline's flag does. A birth value reads at its emitter's life
+ratio, and a per-particle value at the life ratio of the particle the run follows. Where no
+particle lives, or the value is not in the opened system, the plot draws no playhead.
+
+**The pointer has its own mark.** A dashed line follows the pointer over the plot, with a grey chip
+on the time axis that reads its time, on every curve, random or not.
+
 ### The dock
 
 The curve draws in a dock under the object tab, collapsed until a mark targets it and open from
@@ -2841,10 +2854,8 @@ table and is one undo step:
 
 **A value that animates keeps its time plot, with a density edge.** A random channel carries a band
 from the curve at its least factor to the curve at its most, and a split carries two. A column on
-the plot's right edge shares the value axis and draws the density at one time: the cursor's, else
-the playhead's, drawn as a vertical line. A birth value samples at the emitter's life ratio, so
-its playhead is known. A per-particle curve samples at the life ratio of the particle the run
-follows, the one the emitter's surface shows, and rests at 0 while none lives. A readout row per channel
+the plot's right edge shares the value axis and draws the density at one time: the pointer's, else
+the playhead's, per [the time marks](#the-time-marks), and 0 while neither reaches the curve. A readout row per channel
 under the plot reads that time: range, unit, shape, pin value and a keys button.
 
 ```

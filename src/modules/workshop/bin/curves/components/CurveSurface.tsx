@@ -117,7 +117,7 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
   const [muted, setMuted] = useState<ReadonlySet<number>>(() => new Set());
   const [selected, setSelected] = useState<readonly number[]>([]);
   const edit = use(LeafEditContext);
-  const playhead = useCurvePlayhead(row);
+  const { playhead, live } = useCurvePlayhead(row);
   const keys = mark?.keys ?? NO_KEYS;
   const family = mark?.family ?? "scalar";
   const draw = useMemo(() => randomDraw(mark), [mark]);
@@ -270,6 +270,7 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
               unit={unit}
               muted={muted}
               playhead={playhead}
+              live={live}
               selected={selectedSet}
               editable={editable}
               onSelect={select}

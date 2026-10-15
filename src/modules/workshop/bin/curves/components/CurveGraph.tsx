@@ -18,6 +18,7 @@ import type { CurveKey, ValueFamily } from "../../values/utils/valueRows";
 import { placeTime } from "../../values/utils/valueRows";
 import { keysAt } from "../../vfx/engine/utils/sampleCurve";
 import { VfxRunContext } from "../../vfx/playback/state/run";
+import type { LivePlayhead } from "../hooks/curvePlayhead";
 import { useRandomEdit } from "../state/randomEdit";
 import { channelName, strokeOf } from "../utils/curveChannels";
 import {
@@ -43,6 +44,7 @@ import {
 } from "../utils/randomDraw";
 import { GradientPlot } from "./GradientPlot";
 import { DrawReadout, RandomLanes } from "./RandomLanes";
+import { PlayheadChip, PlayheadMark, PointerChip } from "./TimeMarks";
 
 /** How much room over and under the keys the value axis keeps, as a share of their span. */
 const MARGIN = 0.12;
@@ -72,8 +74,13 @@ interface CurveGraphProps {
   unit?: FieldUnit | null;
   /** The channels the toolbar's chips turned off. */
   muted?: ReadonlySet<number>;
-  /** Where the run stands in the curve's own time, null where no playhead reaches it. */
+  /**
+   * Where the run stands in the curve's own time, at the readout pace, which the density edge
+   * and the readouts take. Null where no playhead reaches it.
+   */
   playhead?: number | null;
+  /** The playhead the time marks follow every frame, null where none reaches the curve. */
+  live?: LivePlayhead | null;
   /** The keys picked by the graph, table and exact-value editor. */
   selected?: ReadonlySet<number>;
   /** Whether point dragging and double-click insertion are available. */
@@ -98,6 +105,7 @@ export function CurveGraph({
   unit = null,
   muted = NO_MUTED,
   playhead = null,
+  live = null,
   selected = NO_SELECTION,
   editable = false,
   onSelect,
@@ -111,6 +119,7 @@ export function CurveGraph({
       <GradientPlot
         keys={keys}
         draw={shown}
+        live={live}
         selected={selected}
         editable={editable}
         onSelect={onSelect}
@@ -129,6 +138,7 @@ export function CurveGraph({
       unit={unit}
       muted={muted}
       playhead={playhead}
+      live={live}
       family={family}
       selected={selected}
       editable={editable}
@@ -147,6 +157,7 @@ interface ChannelPlotProps {
   unit: FieldUnit | null;
   muted: ReadonlySet<number>;
   playhead: number | null;
+  live: LivePlayhead | null;
   family: ValueFamily;
   selected: ReadonlySet<number>;
   editable: boolean;
@@ -199,6 +210,7 @@ function ChannelPlot({
   unit,
   muted,
   playhead,
+  live,
   family,
   selected,
   editable,
@@ -262,8 +274,6 @@ function ChannelPlot({
     if (marquee?.pointerId === event.pointerId) {
       setMarquee({ ...marquee, current: canvasPoint(event) });
     }
-
-    if (draw === null) return;
 
     const box = event.currentTarget.getBoundingClientRect();
     const share = Math.min(Math.max((event.clientX - box.left) / box.width, 0), 1);
@@ -484,17 +494,25 @@ function ChannelPlot({
                   ))}
                 </g>
               ))}
-              {draw !== null && (
+              {hover !== null && (
                 <line
-                  x1={timeX(plot, size.width, time)}
-                  x2={timeX(plot, size.width, time)}
+                  x1={timeX(plot, size.width, hover)}
+                  x2={timeX(plot, size.width, hover)}
                   y1={0}
                   y2={size.height}
-                  className={hover === null ? "stroke-accent-400" : "stroke-surface-300"}
+                  className="stroke-surface-400"
                   strokeWidth={1}
-                  strokeDasharray={hover === null ? undefined : "3 3"}
+                  strokeDasharray="3 3"
                 />
               )}
+              <PlayheadMark
+                live={live}
+                plot={plot}
+                size={size}
+                family={family}
+                keys={ordered}
+                channels={drawn}
+              />
             </svg>
           )}
           {marquee !== null && <SelectionBox marquee={marquee} />}
@@ -513,6 +531,10 @@ function ChannelPlot({
         <span className={`shrink-0 ${AXIS}`} />
         <span className="relative h-3.5 min-w-0 flex-1 text-meta leading-none text-surface-500 select-none">
           {plot !== null && <TimeTicks plot={plot} />}
+          {plot !== null && hover !== null && (
+            <PointerChip share={placeTime(hover, plot)} time={hover} />
+          )}
+          {plot !== null && <PlayheadChip live={live} span={plot} />}
         </span>
         {draw !== null && (
           <span
