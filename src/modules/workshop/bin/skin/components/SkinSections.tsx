@@ -1,13 +1,11 @@
-import { ArrowRightIcon } from "@phosphor-icons/react";
 import { createContext, type ReactNode, use, useEffect, useRef, useState } from "react";
 
 import type { DataTableColumn } from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, BinDocumentId, BinRow } from "@/lib/tauri";
+import type { BinRow } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import {
-  AlsoCheck,
   Cell,
   childOf,
   elementsOf,
@@ -22,22 +20,11 @@ import {
   TextureTile,
   type WidgetProps,
 } from "../../classes/components/ClassCells";
-import { CENSORED_IMAGE, EFFECT, MESH } from "../../classes/utils/classLayouts";
-import { useBinDocument } from "../../documents/hooks/useBinDocument";
-import { useBinRead } from "../../documents/hooks/useBinRead";
+import { CENSORED_IMAGE, MESH } from "../../classes/utils/classLayouts";
 import { ObjectChip } from "../../links/components/LinkChip";
-import { useLinkTargets } from "../../links/hooks/useLinkTargets";
-import { declaredElsewhere } from "../../links/utils/linkDecision";
 import { FoldCaret } from "../../shared/components/FoldCaret";
 import { nameHash } from "../../shared/utils/binHash";
-import {
-  childCount,
-  entryKeyHash,
-  fieldHash,
-  objectKey,
-  PAGE_SIZE,
-  rowKey,
-} from "../../tree/utils/binRows";
+import { fieldHash, rowKey } from "../../tree/utils/binRows";
 import { RowValue } from "../../values/components/RowValue";
 import { sameSubmesh, SkinChoiceContext } from "../state/skinChoice";
 
@@ -254,204 +241,5 @@ function OverrideRow({
       </OverrideFold>
       {fold?.open && <FieldRows rows={rest} owner={structClass(element)} depth={1} />}
     </div>
-  );
-}
-
-/**
- * The idle effects, each joined to the system its key names through the resolver.
- *
- * "The skin view" in docs/research/bin-editor-higher-order-views.md. The resolver is a
- * link, so its object is read through this file's own handle where the file declares
- * it, and through a second one where another file does.
- */
-export function EffectTable({ section, pages, view }: WidgetProps) {
-  const effects = elementsOf(
-    section.rows.filter((row) => fieldHash(row.path) !== EFFECT.resolver),
-    pages,
-  );
-  const resolver = section.rows.find((row) => fieldHash(row.path) === EFFECT.resolver);
-  const elsewhere = useResolverAsset(resolver, view.asset);
-  const entry = resolver?.value.type === "objectLink" ? resolver.value.hash : null;
-
-  if (elsewhere !== null && entry !== null) {
-    return <ForeignResolver asset={elsewhere} entry={entry} effects={effects} pages={pages} />;
-  }
-  return <Resolved document={view.document} entry={entry} effects={effects} pages={pages} />;
-}
-
-/** The asset declaring the resolver, where another file declares it. Null where this one does. */
-function useResolverAsset(resolver: BinRow | undefined, asset: AssetRef): AssetRef | null {
-  const targets = useLinkTargets();
-  if (resolver?.value.type !== "objectLink") return null;
-  return declaredElsewhere(resolver.value.hash, targets, asset);
-}
-
-interface ResolvedProps {
-  document: BinDocumentId;
-  /** The resolver's object hash, or null where the skin names none. */
-  entry: string | null;
-  effects: readonly BinRow[];
-  pages: LayoutPages;
-}
-
-/** The effects drawn against a resolver held open as `document`. */
-function Resolved({ document, entry, effects, pages }: ResolvedProps) {
-  const { rows, key } = useResourceMap(document, entry);
-  const resources = new Map<string, BinRow>();
-  for (const row of rows) {
-    const hash = entryKeyHash(row);
-    if (hash !== null) resources.set(hash, row);
-  }
-
-  const table = <EffectRows effects={effects} pages={pages} resources={resources} />;
-  if (key === null) return table;
-  return (
-    <AlsoCheck document={document} group={{ key, rows }}>
-      {table}
-    </AlsoCheck>
-  );
-}
-
-interface ForeignResolverProps {
-  asset: AssetRef;
-  entry: string;
-  effects: readonly BinRow[];
-  pages: LayoutPages;
-}
-
-/** The resolver another file declares, held open beside the skin's own document. */
-function ForeignResolver({ asset, entry, effects, pages }: ForeignResolverProps) {
-  const { state } = useBinDocument(asset, entry);
-  if (state.status !== "open") {
-    return <EffectRows effects={effects} pages={pages} resources={NO_RESOURCES} />;
-  }
-  return (
-    <Resolved document={state.handle.document} entry={entry} effects={effects} pages={pages} />
-  );
-}
-
-const NO_RESOURCES: ReadonlyMap<string, BinRow> = new Map();
-
-/**
- * The entries of the resolver's `resourceMap`, and the key they were checked under.
- *
- * The object's own rows come first, because the map's row carries how many entries
- * reading it costs. A resolver the skin names none of answers nothing.
- */
-function useResourceMap(
-  document: BinDocumentId,
-  entry: string | null,
-): { rows: readonly BinRow[]; key: string | null } {
-  /* The object's properties are one page, which is what reading its root costs. */
-  const root = entry === null ? null : objectKey(entry);
-  const roots = useBinRead(document, root === null ? [] : [{ key: root, rows: PAGE_SIZE }]);
-
-  const map =
-    root === null
-      ? undefined
-      : roots.get(root)?.rows.find((row) => fieldHash(row.path) === EFFECT.resourceMap);
-  const key = map === undefined ? null : rowKey(map);
-  const entries = useBinRead(
-    document,
-    map === undefined ? [] : [{ key: rowKey(map), rows: childCount(map) }],
-  );
-
-  return { rows: key === null ? [] : (entries.get(key)?.rows ?? []), key };
-}
-
-/**
- * The system an effect names, as a chip reading its last segment.
- *
- * An effect is keyed by `effectKey`, or by the hash of its `effectName` where it carries
- * no key. A name the map does not answer for draws as its text, and a key as its hash.
- * Every effect of a skin shares the folder its systems sit in, so the chip reads the name.
- */
-function Resource({
-  effect,
-  name,
-  resources,
-}: {
-  effect: BinRow | undefined;
-  name: BinRow | undefined;
-  resources: ReadonlyMap<string, BinRow>;
-}) {
-  const named = textOf(name);
-  const hash =
-    effect?.value.type === "hash"
-      ? effect.value.hash
-      : named === undefined
-        ? null
-        : nameHash(named);
-  const system = hash === null ? undefined : resources.get(hash);
-  if (system?.value.type === "objectLink") {
-    return (
-      <ObjectChip hash={system.value.hash} name={system.value.name} kind="link" reading="name" />
-    );
-  }
-  if (system !== undefined) return <RowValue row={system} />;
-  if (effect !== undefined) return <RowValue row={effect} />;
-  if (named !== undefined) return <span className="truncate select-text">{named}</span>;
-  return null;
-}
-
-interface EffectRowsContextValue {
-  pages: LayoutPages;
-  resources: ReadonlyMap<string, BinRow>;
-}
-const EffectRowsContext = createContext<EffectRowsContextValue | null>(null);
-
-const EFFECT_COLUMNS: DataTableColumn<BinRow>[] = [
-  { id: "effect", cell: EffectCell },
-  { id: "bone", cell: BoneCell },
-  { id: "target", cell: TargetCell },
-];
-
-/** A row per effect: the system it resolves to, the bone it sits on, and the bone it aims at. */
-function EffectRows({
-  effects,
-  pages,
-  resources,
-}: EffectRowsContextValue & { effects: readonly BinRow[] }) {
-  return (
-    <EffectRowsContext value={{ pages, resources }}>
-      <TableRows rows={effects} columns={EFFECT_COLUMNS} />
-    </EffectRowsContext>
-  );
-}
-
-function EffectCell({ row }: { row: { id: string } }) {
-  const context = use(EffectRowsContext);
-  if (context === null) return null;
-  const fields = fieldsOf(context.pages.get(row.id));
-  const key = fields(EFFECT.key);
-  const name = fields(EFFECT.name);
-  return (
-    <Cell row={key ?? name} className="flex min-w-0 flex-1 items-center gap-2">
-      <Resource effect={key} name={name} resources={context.resources} />
-    </Cell>
-  );
-}
-
-function BoneCell({ row }: { row: { id: string } }) {
-  const context = use(EffectRowsContext);
-  if (context === null) return null;
-  return (
-    <TextCell
-      row={fieldsOf(context.pages.get(row.id))(EFFECT.bone)}
-      className="w-32 shrink-0 text-surface-400"
-    />
-  );
-}
-
-function TargetCell({ row }: { row: { id: string } }) {
-  const context = use(EffectRowsContext);
-  if (context === null) return null;
-  const target = fieldsOf(context.pages.get(row.id))(EFFECT.targetBone);
-  if (!textOf(target)) return null;
-  return (
-    <span className="flex w-32 shrink-0 items-center gap-1 text-surface-400">
-      <ArrowRightIcon aria-hidden className="size-3 shrink-0" />
-      <TextCell row={target} className="min-w-0" />
-    </span>
   );
 }

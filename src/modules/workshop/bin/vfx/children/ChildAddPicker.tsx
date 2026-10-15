@@ -21,11 +21,14 @@ import {
 import type { ChildActions } from "./useChildren";
 
 interface ChildAddPickerProps {
-  actions: ChildActions;
+  /** The edits a pick makes. A null `create` leaves the new effect section out. */
+  actions: Pick<ChildActions, "add" | "create">;
   /** The systems a child can link, and none until they are read. */
   systems: readonly VfxObject[] | null | undefined;
   /** The emitter's system, which a child cannot link without a cycle. */
   holder: string;
+  /** The input's placeholder and accessible name, which defaults to Add child. */
+  label?: string;
 }
 
 /**
@@ -35,11 +38,19 @@ interface ChildAddPickerProps {
  *
  * "Child particles" in docs/ux/BIN_EDITOR.md.
  */
-export function ChildAddPicker({ actions, systems, holder }: ChildAddPickerProps) {
+export function ChildAddPicker({
+  actions,
+  systems,
+  holder,
+  label = m.workshop_bin_child_add_action(),
+}: ChildAddPickerProps) {
   const templates = useVfxTemplates("system");
   const [text, setText] = useState("");
   const [open, setOpen] = useState(false);
+  const creates = actions.create !== null;
   const items = useMemo(() => {
+    if (!creates) return addItems(systems, [], holder);
+
     const starts: NamedStart[] = [
       { start: { kind: "blank" }, label: m.workshop_bin_new_object_blank_label() },
       ...templates.map((template) => ({
@@ -48,9 +59,8 @@ export function ChildAddPicker({ actions, systems, holder }: ChildAddPickerProps
       })),
     ];
     return addItems(systems, starts, holder);
-  }, [systems, templates, holder]);
+  }, [systems, templates, holder, creates]);
   const groups = useMemo(() => addGroups(items, text), [items, text]);
-  const label = m.workshop_bin_child_add_action();
 
   const pick = (item: AddItem | null) => {
     if (item === null) return;
