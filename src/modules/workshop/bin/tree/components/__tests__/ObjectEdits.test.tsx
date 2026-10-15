@@ -145,6 +145,8 @@ beforeEach(() => {
     const object = sentEdit(command, args, "object");
     if (object?.edit.kind === "create") return landed({ kind: "object", entry: "0x0badf00d" });
     if (object !== null) return landed();
+    /* A landed object edit queues the save of its file. */
+    if (command === commandNames.bin.binSave) return landed();
     if (command === commandNames.preview.vfxTemplates)
       return Promise.resolve({ ok: true, value: [MISSILE] });
     if (

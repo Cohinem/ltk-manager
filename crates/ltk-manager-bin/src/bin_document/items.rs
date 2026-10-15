@@ -525,7 +525,10 @@ fn landing(edit: &Edit) -> &str {
         | Edit::ReplaceProperty { path, .. }
         | Edit::RemoveProperty { path, .. } => path,
         Edit::InsertItem { holder, .. } | Edit::InsertProperty { holder, .. } => holder,
-        Edit::Dependencies { .. } | Edit::Group { .. } => "",
+        Edit::Dependencies { .. }
+        | Edit::InsertObject { .. }
+        | Edit::RemoveObject { .. }
+        | Edit::Group { .. } => "",
     }
 }
 

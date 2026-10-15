@@ -1118,7 +1118,7 @@
   "workshop_bin_new_object_blank_description": "An empty system with no emitter",
   "workshop_bin_new_object_blank_label": "Blank",
   "workshop_bin_new_object_class_label": "Class of the new object",
-  "workshop_bin_new_object_hint": "Declare a new object of a class in this layer",
+  "workshop_bin_new_object_hint": "Add an object of a class",
   "workshop_bin_new_object_name_label": "Name of the new object",
   "workshop_bin_new_object_template_label": "Start from",
   "workshop_bin_no_viewer_description": "Open it as ritobin text in VS Code instead",
