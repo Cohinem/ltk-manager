@@ -25,8 +25,8 @@ permissions:
   actions: write
 
 jobs:
-  frontend-check:
-    name: Frontend Check
+  frontend-lint:
+    name: Frontend Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -36,8 +36,37 @@ jobs:
         with: { node-version: "22" }
       - uses: pnpm/action-setup@v4
       - run: pnpm install --frozen-lockfile
-      - run: pnpm check
+      - run: pnpm check:static
 
+  frontend-test:
+    name: Frontend Test (${{ matrix.shard }}/3)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: pnpm/action-setup@v4
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run test --shard=${{ matrix.shard }}/3
+
+  # The ruleset requires `Frontend Check` by name. A job whose dependency failed
+  # is skipped, and a skipped required check passes, so the gate runs always.
+  frontend-check:
+    name: Frontend Check
+    needs: [frontend-lint, frontend-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: test "${{ needs.frontend-lint.result }}" = success && test "${{ needs.frontend-test.result }}" = success
+
+  # `src-tauri/build.rs` writes a placeholder `dist/` when none exists, so the
+  # Rust jobs do not build the frontend.
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -52,10 +81,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: actions/setup-node@v4
-        with: { node-version: "22" }
-      - uses: pnpm/action-setup@v4
-      - run: pnpm install --frozen-lockfile && pnpm build
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -76,10 +101,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
-      - uses: actions/setup-node@v4
-        with: { node-version: "22" }
-      - uses: pnpm/action-setup@v4
-      - run: pnpm install --frozen-lockfile && pnpm build
       - uses: dtolnay/rust-toolchain@stable
         with: { components: clippy }
       - uses: Swatinem/rust-cache@v2
