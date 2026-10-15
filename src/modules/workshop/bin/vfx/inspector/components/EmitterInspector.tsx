@@ -71,6 +71,7 @@ import { rowHasDefault } from "../utils/propertyDefaults";
 import { AddPropertyBox, useAddedJump } from "./AddPropertyBox";
 import { DefaultProperty } from "./DefaultProperty";
 import { EmissionNotes } from "./EmissionNotes";
+import { FlipbookView } from "./FlipbookView";
 import { InspectorActions } from "./InspectorActions";
 import { PrimitiveProperty } from "./PrimitiveProperty";
 import { RateReadout } from "./RateReadout";
@@ -540,6 +541,7 @@ function GroupSection({
         <EmissionNotes group={group} />
       )}
       {open && !searching && group === "stencil" && <StencilNotes />}
+      {open && !searching && group === "texture" && <FlipbookView />}
       {open &&
         properties.map((property, at) => {
           const key = `${card?.key ?? owner}:${property.hash}`;
