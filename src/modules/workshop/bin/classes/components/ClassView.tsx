@@ -29,7 +29,7 @@ import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { LeafEditContext, type Reopen, useLeafEdit } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext } from "../../tree/state/rowFold";
 import { createRowRegistry, RowRegistryContext } from "../../tree/state/rowRegistry";
-import { rowKey, type RowLine } from "../../tree/utils/binRows";
+import { fieldHash, rowKey, type RowLine } from "../../tree/utils/binRows";
 import { useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
 import { preloadVfxViewport } from "../../vfx";
 import {
@@ -37,7 +37,10 @@ import {
   useEmitterChoice,
   useEmitterMarks,
 } from "../../vfx/inspector/state/emitterChoice";
+import { useDefinedOnly } from "../../vfx/inspector/state/inspectorView";
 import { emitterRows } from "../../vfx/inspector/utils/emitterCards";
+import { type DefaultField, unauthoredFields } from "../../vfx/inspector/utils/emitterGroups";
+import { useClassSchema } from "../hooks/useClassSchema";
 import { cellLine, cellRows, useLayoutRead } from "../hooks/useLayoutRead";
 import { type ClassLayout, frameOf, type LayoutFrame, placeRows } from "../utils/classLayouts";
 import type { ViewContext } from "./ClassCells";
@@ -109,7 +112,8 @@ export function ClassView({
   const declared = useDeclaredRows(document, editable);
   const overridden = useOverriddenRows(document);
   const changed = useChangedRows(document);
-  const placed = useMemo(() => placeRows(roots, layout), [roots, layout]);
+  const defaults = useLayoutDefaults(roots, classHash, layout, changed?.only === true);
+  const placed = useMemo(() => placeRows(roots, layout, defaults), [roots, layout, defaults]);
   const pages = useLayoutRead(document, placed);
 
   /* Null until the pane has been measured, so a preview mounts once in the frame it
@@ -351,4 +355,27 @@ export function ClassView({
       </DeclaredRowsContext>
     </ChangedRowsContext>
   );
+}
+
+const NO_DEFAULTS: readonly DefaultField[] = [];
+
+/**
+ * Returns the fields of `classHash` that `roots` does not author, if `layout` lists defaults.
+ *
+ * Returns none while the schema loads, and none if the reader shows only defined fields or
+ * `changedOnly` is true.
+ */
+function useLayoutDefaults(
+  roots: readonly BinRow[],
+  classHash: string,
+  layout: ClassLayout,
+  changedOnly: boolean,
+): readonly DefaultField[] {
+  const { data } = useClassSchema(layout.defaults === true ? classHash : null);
+  const definedOnly = useDefinedOnly();
+
+  return useMemo(() => {
+    if (data == null || definedOnly || changedOnly) return NO_DEFAULTS;
+    return unauthoredFields(data.fields, new Set(roots.map((row) => fieldHash(row.path))));
+  }, [data, definedOnly, changedOnly, roots]);
 }

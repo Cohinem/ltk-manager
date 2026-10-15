@@ -198,6 +198,17 @@ describe("placeRows", () => {
     expect(placed.at(-1)?.rows).toEqual([]);
   });
 
+  it("places each default in the field section that names it, and the rest in Other", () => {
+    const fallback = (name: string) => ({ hash: nameHash(name), name, declared: null });
+    const defaults = ["flags", "complexEmitterDefinitionData", "transform"].map(fallback);
+
+    const placed = placeRows([field("particleName")], vfxLayout, defaults);
+
+    expect(placed[0]?.defaults.map((each) => each.name)).toEqual(["flags"]);
+    expect(placed[1]?.defaults).toEqual([]);
+    expect(placed.at(-1)?.defaults.map((each) => each.name)).toEqual(["transform"]);
+  });
+
   it("names a widget only where the layout does, and none for Other", () => {
     const placed = placeRows(roots, materialLayout);
 

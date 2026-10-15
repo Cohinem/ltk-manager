@@ -5,6 +5,7 @@ import type { ReadRequest } from "../../documents/hooks/useBinRead";
 import { nameHash } from "../../shared/utils/binHash";
 import { type ShellKind, shellPanesOf } from "../../shell/utils/shellPanes";
 import { childCount, fieldHash, rowKey } from "../../tree/utils/binRows";
+import type { DefaultField } from "../../vfx/inspector/utils/emitterGroups";
 
 /**
  * How a section draws the fields it names.
@@ -64,6 +65,8 @@ export interface ClassLayout {
    */
   readonly shell?: ShellKind;
   readonly sections: readonly LayoutSection[];
+  /** The layout lists the fields the object does not author, each at its default. */
+  readonly defaults?: boolean;
 }
 
 /** The frame `layout` draws in, which is the stack unless it names a shell. */
@@ -168,6 +171,7 @@ export const skinLayout: ClassLayout = {
 export const vfxLayout: ClassLayout = {
   title: m.workshop_bin_layout_vfx_label,
   shell: "vfx",
+  defaults: true,
   sections: [
     {
       title: m.workshop_bin_section_identity_label,
@@ -389,6 +393,8 @@ export interface PlacedSection {
   readonly rows: readonly BinRow[];
   /** The fields under the placed row that `fields` draws, in the order it draws them. */
   readonly under: readonly string[];
+  /** The fields the object does not author that the section draws at their defaults. */
+  readonly defaults: readonly DefaultField[];
   /** The last section, which holds what no other named. */
   readonly other: boolean;
 }
@@ -398,20 +404,36 @@ export interface PlacedSection {
  *
  * "A layout is complete" in docs/ux/BIN_EDITOR.md. Other is the field rows of what is
  * left, so a field the game adds in a patch is on screen the day the schema changes,
- * and a field the layout names and the object lacks draws nothing.
+ * and a field the layout names and the object lacks draws nothing unless it is in `defaults`.
+ *
+ * Each of `defaults` goes to the section of field rows that names it, or to Other if no
+ * section names it. A default that a widget's section names is skipped, because the
+ * widget draws that field.
  */
-export function placeRows(roots: readonly BinRow[], layout: ClassLayout): PlacedSection[] {
+export function placeRows(
+  roots: readonly BinRow[],
+  layout: ClassLayout,
+  defaults: readonly DefaultField[] = [],
+): PlacedSection[] {
   const byField = new Map(roots.map((row) => [fieldHash(row.path), row]));
+  const defaultByField = new Map(defaults.map((field) => [field.hash, field]));
   const taken = new Set<string>();
   const placed: PlacedSection[] = [];
 
   for (const section of layout.sections) {
     const rows: BinRow[] = [];
+    const sectionDefaults: DefaultField[] = [];
     for (const hash of sectionFields(section)) {
-      const row = byField.get(hash);
-      if (row === undefined) continue;
-      rows.push(row);
       taken.add(hash);
+
+      const row = byField.get(hash);
+      if (row !== undefined) {
+        rows.push(row);
+        continue;
+      }
+
+      const field = defaultByField.get(hash);
+      if (field !== undefined && section.as === undefined) sectionDefaults.push(field);
     }
     placed.push({
       id: `${section.as ?? "cells"}:${section.fields.join(",")}`,
@@ -419,6 +441,7 @@ export function placeRows(roots: readonly BinRow[], layout: ClassLayout): Placed
       widget: section.as,
       rows,
       under: section.under ?? [],
+      defaults: sectionDefaults,
       other: false,
     });
   }
@@ -429,6 +452,7 @@ export function placeRows(roots: readonly BinRow[], layout: ClassLayout): Placed
     widget: undefined,
     rows: roots.filter((row) => !taken.has(fieldHash(row.path))),
     under: [],
+    defaults: defaults.filter((field) => !taken.has(field.hash)),
     other: true,
   });
   return placed;
@@ -447,7 +471,7 @@ export function sectionCount(
   const lists = (rows: readonly BinRow[]) =>
     rows.reduce((sum, row) => sum + (isList(row) ? childCount(row) : 0), 0);
 
-  if (section.other) return section.rows.length;
+  if (section.other) return section.rows.length + section.defaults.length;
   switch (section.widget) {
     case "rows":
     case "emitters":

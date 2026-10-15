@@ -418,13 +418,15 @@ export function FieldRow({
             <AxisCells values={axes} />
           )}
           {valueSlot === undefined && family === null && axes !== null && editable && (
-            <RowValue row={row} />
+            <RowValue row={row} owner={owner} />
           )}
           {valueSlot === undefined &&
             family === null &&
             axes === null &&
             row.node === "element" && <ElementClass value={row.value} />}
-          {valueSlot === undefined && family === null && axes === null && <RowValue row={row} />}
+          {valueSlot === undefined && family === null && axes === null && (
+            <RowValue row={row} owner={owner} />
+          )}
           {valueAction}
           <ChangeMark rowKey={rowKey(row)} />
           <DeclaredRowState rowKey={rowKey(row)} />

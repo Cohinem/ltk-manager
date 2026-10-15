@@ -76,11 +76,14 @@ const RANGE_SEPARATOR = "..";
 export function RowValue({
   row,
   field = ownField(row),
+  owner = null,
   color = false,
   className,
 }: {
   row: BinRow;
   field?: string | null;
+  /** The class the field is read on, which a field name meaning one thing per class keys its enum on. */
+  owner?: string | null;
   /** The row is a colour whatever its name, such as a colour value's constant. */
   color?: boolean;
   /** Overrides the cell's own classes, such as the width it takes in its line. */
@@ -100,6 +103,7 @@ export function RowValue({
           field,
           invalid: refusal !== undefined,
           object: objectName(row.entry),
+          owner,
           autoFocus: focused,
           onEnter: () => treeEdit?.enter(key),
           color,
@@ -133,6 +137,7 @@ export function RowValue({
         node={row.node}
         rowKey={rowKey(row)}
         field={field}
+        owner={owner}
         object={objectName(row.entry)}
       />
     </span>
@@ -155,6 +160,8 @@ interface LeafDrawing {
   invalid: boolean;
   /** The path of the object the row sits in. */
   object: string;
+  /** The class the field is read on, or null where the cell does not know it. */
+  owner: string | null;
   /** Focus the field as it draws, for a value just added. */
   autoFocus: boolean;
   /** A bare `Enter` left the field. */
@@ -170,7 +177,7 @@ interface LeafDrawing {
  * the caller falls back to the read-only value on null.
  */
 function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode | null {
-  const { field, invalid, object, autoFocus, onEnter, color } = drawn;
+  const { field, invalid, object, owner, autoFocus, onEnter, color } = drawn;
   const { value } = row;
   switch (value.type) {
     case "bool":
@@ -182,7 +189,7 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
         />
       );
     case "integer": {
-      const held = field === null ? null : fieldEnum(field);
+      const held = field === null ? null : fieldEnum(field, owner);
       if (held !== null && !held.flags) {
         return (
           <EnumSelect
@@ -204,7 +211,7 @@ function leafField(row: BinRow, edit: LeafEdit, drawn: LeafDrawing): ReactNode |
           />
         );
       }
-      const reading = enumReading(field, value.text);
+      const reading = enumReading(field, value.text, owner);
       return (
         <span className="flex min-w-0 items-center gap-1.5">
           <NumberValue
@@ -511,18 +518,20 @@ interface ValueProps {
   rowKey: string;
   /** The field the value sits under, which its enum and its unit are keyed on. */
   field: string | null;
+  /** The class the field is read on, which a class-scoped enum is keyed on. */
+  owner: string | null;
   /** The path of the object the row sits in, which a link's path reads under. */
   object: string;
 }
 
-function Value({ value, node, rowKey: key, field, object }: ValueProps) {
+function Value({ value, node, rowKey: key, field, owner, object }: ValueProps) {
   switch (value.type) {
     case "none":
       return <Dim>{m.workshop_bin_none_label()}</Dim>;
     case "bool":
       return <Checkbox size="sm" checked={value.value} readOnly tabIndex={-1} />;
     case "integer":
-      return <IntegerValue text={value.text} field={field} />;
+      return <IntegerValue text={value.text} field={field} owner={owner} />;
     case "float":
       return <NumberValue text={String(value.value)} field={field} />;
     case "vector":
@@ -567,8 +576,16 @@ function Value({ value, node, rowKey: key, field, object }: ValueProps) {
 }
 
 /** An integer, drawn as the engine's own word for it wherever a table holds one. */
-function IntegerValue({ text, field }: { text: string; field: string | null }) {
-  const reading = enumReading(field, text);
+function IntegerValue({
+  text,
+  field,
+  owner,
+}: {
+  text: string;
+  field: string | null;
+  owner: string | null;
+}) {
+  const reading = enumReading(field, text, owner);
   if (reading === null) return <NumberValue text={text} field={field} />;
   return <EnumValue reading={reading} raw={text} />;
 }
