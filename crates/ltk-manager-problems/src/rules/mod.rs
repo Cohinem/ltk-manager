@@ -8,6 +8,7 @@ pub mod audio_bank_version;
 pub mod bin_object_link;
 pub mod bin_property_type;
 pub mod bin_resolver_key_loss;
+pub mod bin_texture_file;
 pub mod tex_block_alignment;
 pub mod vfx_random;
 pub mod working_file;
@@ -27,6 +28,7 @@ pub fn all() -> Vec<Box<dyn Rule>> {
         Box::new(tex_block_alignment::TexBlockAlignment::new()),
         Box::new(bin_resolver_key_loss::BinResolverKeyLoss::new()),
         Box::new(bin_object_link::BinObjectLink::new()),
+        Box::new(bin_texture_file::BinTextureFile::new()),
         Box::new(working_file::WorkingFile::new()),
     ]
 }

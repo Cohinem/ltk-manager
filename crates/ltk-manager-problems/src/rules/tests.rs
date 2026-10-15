@@ -35,6 +35,7 @@ fn each_rule_declares_who_answers_for_its_severity() {
                 Some(ProblemSeverity::Info)
             ),
             ("bin/object-link".to_owned(), None),
+            ("bin/texture-file".to_owned(), Some(ProblemSeverity::Fatal)),
             (
                 "project/working-file".to_owned(),
                 Some(ProblemSeverity::Warning)

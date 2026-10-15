@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-15 | `bin/texture-file` reports a non-image texture file          |
 | 2026-10-12 | `bin/object-link` reports a link to an undefined object      |
 | 2026-10-02 | Check only packed files, and report packed working files     |
 | 2026-09-30 | Name each unchecked file once, with its reason               |
@@ -14,7 +15,6 @@
 | 2026-08-28 | Preserve the names a fix hashes, and drop the restore point  |
 | 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md        |
 | 2026-08-24 | Draw the forward-looking lints by default, dimmed            |
-| 2026-08-24 | Give the forward-looking switch a row, and drop the notice   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -55,10 +55,11 @@ This table holds every major feature of Problems. A status word has one meaning.
 | Bin retype rule      | Available | `bin/property-type`. The first rule, and the urgent one                |
 | The meta schema      | Available | The wiki database. Judges the installed build, and ships a snapshot    |
 | The migration tables | Available | 395 rows, `include_str!` into the core crate. What a later build wants |
-| Texture size rule    | Available | `tex/block-alignment`. The one confirmed crash, and it repairs         |
+| Texture size rule    | Available | `tex/block-alignment`. A confirmed crash, and it repairs               |
 | Audio bank rule      | Available | `audio/bank-version`. A bank the game drops without a word             |
 | Working file rule    | Available | `project/working-file`. A packed source file, with no ignore rules     |
 | Object link rule     | Available | `bin/object-link`. A link to an object no mod or game bin defines      |
+| Texture file rule    | Available | `bin/texture-file`. A texture property that names a non-image file     |
 | Repair by removal    | Available | A fix may delete a file, where something still answers for it          |
 | The fix preview      | Available | The before value and the after value, for each problem                 |
 | Preserved names      | Available | A fix writes what it hashes into the mod's own `hashes/`               |
