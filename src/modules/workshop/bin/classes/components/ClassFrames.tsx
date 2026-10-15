@@ -36,6 +36,7 @@ import { GraphPane, PreviewInGraph } from "../../vfx/drivers/components/GraphPan
 import { EmitterFields } from "../../vfx/inspector/components/EmitterInspector";
 import { EmitterModes, Emitters } from "../../vfx/inspector/components/VfxSections";
 import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
+import { RecolorButton } from "../../vfx/recolor/RecolorButton";
 import type { PlacedSection } from "../utils/classLayouts";
 import type { LayoutPages, ViewContext } from "./ClassCells";
 import { Sections } from "./ClassSections";
@@ -348,7 +349,16 @@ export function ObjectPath({ path }: { path: string }) {
  * "One row holds the object tab's header and the crumb", "The shell" in
  * docs/ux/BIN_EDITOR.md.
  */
-export function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNode }) {
+export function ShellHeader({
+  kind,
+  crumb,
+  actions,
+}: {
+  kind: ShellKind;
+  crumb?: ReactNode;
+  /** The shell's own actions, drawn before the Panes menu. */
+  actions?: ReactNode;
+}) {
   const held = useShellHeaderHeld();
 
   if (held) {
@@ -356,6 +366,7 @@ export function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNod
       <>
         <ShellHeaderPortal slot="crumb">{crumb}</ShellHeaderPortal>
         <ShellHeaderPortal slot="panes">
+          {actions}
           <PanesMenu kind={kind} />
         </ShellHeaderPortal>
       </>
@@ -365,7 +376,10 @@ export function ShellHeader({ kind, crumb }: { kind: ShellKind; crumb?: ReactNod
   return (
     <div className="flex items-center gap-2">
       {crumb}
-      <PanesMenu kind={kind} className="ml-auto" />
+      <div className="ml-auto flex items-center gap-0.5">
+        {actions}
+        <PanesMenu kind={kind} />
+      </div>
     </div>
   );
 }
@@ -437,7 +451,7 @@ export function VfxShell({
 
   return (
     <div data-ui="ClassView:shell" className="flex min-h-0 flex-1 flex-col gap-2">
-      <ShellHeader kind="vfx" crumb={<ShellCrumb system={system} />} />
+      <ShellHeader kind="vfx" crumb={<ShellCrumb system={system} />} actions={<RecolorButton />} />
       <ShellPaneTree kind="vfx" content={content} />
     </div>
   );

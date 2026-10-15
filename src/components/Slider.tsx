@@ -38,6 +38,8 @@ interface SliderProps {
   disabled?: boolean;
   /** Whether value changes ease into place, disabled for playback clocks. */
   animated?: boolean;
+  /** A CSS background that the track draws in place of the fill, such as a hue wheel. */
+  track?: string;
   /** Additional class names to apply to the slider. */
   className?: string;
 }
@@ -66,6 +68,7 @@ export function Slider({
   variant = "default",
   disabled,
   animated = true,
+  track,
   className,
 }: SliderProps) {
   const isRuler = variant === "ruler";
@@ -99,15 +102,19 @@ export function Slider({
           className={twMerge(
             "relative w-full overflow-hidden rounded-full bg-surface-700",
             isRuler ? "h-1" : "h-1.5",
+            track !== undefined && "h-2.5",
             disabled && "opacity-50",
           )}
+          style={track === undefined ? undefined : { background: track }}
         >
-          <BaseSlider.Indicator
-            className={twMerge(
-              "absolute h-full rounded-full bg-accent-500",
-              animated && "transition-[width] duration-300 ease-[var(--ease-spring)]",
-            )}
-          />
+          {track === undefined && (
+            <BaseSlider.Indicator
+              className={twMerge(
+                "absolute h-full rounded-full bg-accent-500",
+                animated && "transition-[width] duration-300 ease-[var(--ease-spring)]",
+              )}
+            />
+          )}
         </BaseSlider.Track>
 
         {/* Outside the rail, so clipping the fill's overshoot leaves them alone. */}
@@ -170,6 +177,7 @@ export function Slider({
               : "h-4 w-2 rounded-sm bg-accent-400 ring-1 ring-accent-700 transition data-dragging:scale-y-125",
             focusRing,
             !isRuler && !disabled && "hover:bg-accent-300",
+            track !== undefined && "h-5 bg-surface-100 ring-surface-950 hover:bg-surface-50",
             !animated && "transition-none",
             disabled ? "cursor-not-allowed" : "cursor-pointer data-dragging:cursor-grabbing",
           )}

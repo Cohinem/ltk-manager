@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-15 | Recolor a system by turning the hue of every tint                        |
 | 2026-10-12 | Collapse a panel to its strip or to a rail of its panes' icons           |
 | 2026-10-09 | Draw a pane's strip as a filled rail, with tabs as tall as the rail      |
 | 2026-10-06 | Fit a Continuous run's timeline to the time its last bar ends            |
@@ -3390,6 +3391,25 @@ and the rig pill names the template as its source.
 **A template names only assets the game ships**, under `assets/shared/particles/`, so it draws
 at once and the project gains no file. The plan and the list of templates are
 `docs/plans/vfx-templates.md`.
+
+### Recoloring a system
+
+Recolor sits beside the Panes menu of an editable particle shell. Its popover holds a hue slider
+from -180 to 180 degrees and Apply.
+
+**The preview follows the slider before anything is written.** Apply writes the turn as one
+grouped edit, so one undo step, and closing the popover without Apply drops the turn.
+
+**The turn changes the tints of the system's own emitters:**
+
+- `color` and `birthColor`, their constant and every key
+- `colorModulate` of a projection, `mAnimatedColorWithDistance` of a beam and
+  `SeparateLingerColor` of a linger
+- `fresnelColor` and `reflectionFresnelColor` of a reflection
+
+The turn keeps each color's brightest channel and its alpha, and a gray takes no edit.
+`erosionMapChannelMixer` and `palleteSrcMixColor` are channel weights and stay. A child system is
+another object, so it keeps its colors. Textures are not recolored.
 
 ### Editing a node's structure in the Graph pane
 

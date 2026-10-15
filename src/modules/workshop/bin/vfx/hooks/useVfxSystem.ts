@@ -13,6 +13,7 @@ import { queryFnWithArgs } from "@/utils/query";
 
 import type { SystemModel } from "../engine/model/model";
 import { readVfxSystem } from "../engine/parsing/readVfxSystem";
+import { recoloredRoot } from "../recolor/recolorModel";
 
 export const vfxKeys = {
   /**
@@ -62,15 +63,18 @@ export interface VfxSystemRead {
   readonly pending: boolean;
 }
 
-/** One `VfxSystemDefinitionData` as the renderer's model. */
-export function useVfxSystem(document: BinDocumentId, entry: string): VfxSystemRead {
+/** Returns one `VfxSystemDefinitionData` as the renderer's model, its tints turned by `hue` degrees. */
+export function useVfxSystem(document: BinDocumentId, entry: string, hue = 0): VfxSystemRead {
   const query = useQuery(vfxQueries.system(document, entry));
   const quality = usePreviewEffectsQuality();
 
-  const system = useMemo(
-    () => (query.data === undefined ? null : readVfxSystem(query.data, quality)),
-    [query.data, quality],
-  );
+  const system = useMemo(() => {
+    if (query.data === undefined) return null;
+
+    const read =
+      hue === 0 ? query.data : { ...query.data, root: recoloredRoot(query.data.root, hue) };
+    return readVfxSystem(read, quality);
+  }, [query.data, quality, hue]);
 
   return { system, error: query.error, pending: query.isPending };
 }
