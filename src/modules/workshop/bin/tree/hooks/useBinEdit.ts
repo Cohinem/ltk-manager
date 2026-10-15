@@ -13,6 +13,7 @@ import {
   type DependencyEdit as WireDependencyEdit,
   type EditOutcome,
   type NewItem,
+  type ObjectEdit,
 } from "@/lib/tauri";
 import { map, type Result } from "@/utils/result";
 
@@ -108,6 +109,8 @@ export interface DependencyEdit {
 export interface BinEdit {
   /** The edits of the header's dependency list. */
   dependencies: DependencyEdit;
+  /** Send the object edit `edit`, and queue the save where it landed. */
+  object: (edit: ObjectEdit) => Promise<Result<EditOutcome>>;
   /** Send what the reader typed to the leaf `row` draws, or mark the row where it cannot be sent. */
   commit: (row: BinRow, typed: TypedLeaf) => Promise<boolean>;
   /** Why the backend refused the last edit a row sent, by row key. */
@@ -478,6 +481,15 @@ export function useBinEditor(
     };
   }, [call, landed]);
 
+  const object = useCallback(
+    async (edit: ObjectEdit) => {
+      const { result, id } = await call((id) => api.bin.edit(id, { kind: "object", edit }));
+      if (result.ok) landed(id);
+      return result;
+    },
+    [call, landed],
+  );
+
   const enter = useCallback(
     (at: string) => {
       const pending = returns.current;
@@ -493,6 +505,7 @@ export function useBinEditor(
       editable
         ? {
             dependencies,
+            object,
             commit,
             refused,
             add,
@@ -507,6 +520,19 @@ export function useBinEditor(
             settleFocus: focus.settle,
           }
         : null,
-    [editable, dependencies, commit, refused, add, insert, run, setKey, dismiss, enter, focus],
+    [
+      editable,
+      dependencies,
+      object,
+      commit,
+      refused,
+      add,
+      insert,
+      run,
+      setKey,
+      dismiss,
+      enter,
+      focus,
+    ],
   );
 }

@@ -78,6 +78,10 @@ pub(super) enum Edit {
         path: String,
         value: values::Struct,
     },
+    /// Put `object` into the file at `index` of its objects.
+    InsertObject { object: BinObject, index: usize },
+    /// Take the object `entry` out of the file.
+    RemoveObject { entry: BinHash },
     /// Set the header's dependency list to `paths`.
     Dependencies { paths: Vec<String> },
     /// Apply `edits` in order, as one step.
@@ -171,6 +175,8 @@ impl Reshape {
             | Edit::InsertProperty { .. }
             | Edit::SetPointer { .. }
             | Edit::Dependencies { .. }
+            | Edit::InsertObject { .. }
+            | Edit::RemoveObject { .. }
             | Edit::Group { .. } => Self::InPlace,
         }
     }
@@ -543,6 +549,8 @@ impl BinDocument {
             Edit::SetKey { entry, path, key } => self.swap_key(entry, &path, key),
             Edit::SetPointer { entry, path, value } => self.swap_pointer(entry, &path, value),
             Edit::Dependencies { paths } => self.swap_dependencies(paths),
+            Edit::InsertObject { object, index } => self.put_object(object, index),
+            Edit::RemoveObject { entry } => self.take_object(entry),
             Edit::Group { edits } => {
                 let mut inverses = Vec::with_capacity(edits.len());
                 for edit in edits {
@@ -618,8 +626,20 @@ impl BinDocument {
             BinStream::<_>::mount(Cursor::new(self.base.as_slice())).map_err(unwritable)?;
         let mut out = Vec::with_capacity(self.base.len());
         let mut delta = BinDelta::new();
-        for object in self.touched.iter().filter_map(|hash| bin.objects.get(hash)) {
-            delta.replace(object.clone());
+        for hash in &self.touched {
+            let based = stream.object(*hash).map_err(unwritable)?.is_some();
+            match (bin.objects.get(hash), based) {
+                (Some(object), true) => {
+                    delta.replace(object.clone());
+                }
+                (Some(object), false) => {
+                    delta.append(object.clone());
+                }
+                (None, true) => {
+                    delta.remove(*hash);
+                }
+                (None, false) => {}
+            }
         }
         if self.dependencies_touched {
             delta.set_dependencies(bin.dependencies.iter().cloned());

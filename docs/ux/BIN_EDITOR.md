@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-15 | Create, duplicate and remove objects in a bin the project holds          |
 | 2026-10-15 | Declare an added or deleted emitter of a game bin without the whole list |
 | 2026-10-15 | Scale a system in the Adjust popover, beside the hue turn                |
 | 2026-10-15 | Recolor a system by turning the hue of every tint                        |
@@ -3066,6 +3067,11 @@ or closes the line. A template writes its whole value in the object's `set`, its
 `particleName` the name's last segment and its `particlePath` the name, as one undo step, and
 the system opens on the template's rig. A name the chunk holds
 already is refused on the line under the name, which stays open.
+
+A bin the project holds takes the same actions without Restore object. Each is an edit of
+the file itself and one undo step: a duplicate copies the object and rewrites the hash fields
+that hold its own path, and the save appends a new object after the file's others. A copy of
+an object from another chunk needs the game, so only a declared document makes one.
 
 Removing an object the layer created drops its creation, so no `remove: true` is written
 for it. An object the layer removes keeps its row, struck through with a `removed` mark: it

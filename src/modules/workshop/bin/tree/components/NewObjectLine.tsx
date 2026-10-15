@@ -3,13 +3,12 @@ import { use, useEffect, useMemo, useRef, useState } from "react";
 
 import { Combobox } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import { type AppError, api, type BinDocumentId, type NewObject } from "@/lib/tauri";
+import type { AppError, BinDocumentId, NewObject } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { useOptionalProjectContext } from "../../../projects/state/ProjectContext";
 import { handRig } from "../../../state";
 import { binQueries } from "../../documents/hooks/useBinDocument";
-import { useDocumentCall } from "../../documents/hooks/useDocumentCall";
 import {
   isSystemClass,
   type SystemStart,
@@ -17,7 +16,7 @@ import {
 } from "../../vfx/templates/SystemTemplatePicker";
 import { templateRig } from "../../vfx/templates/templateRig";
 import { templateLabel } from "../../vfx/templates/templateText";
-import { useInvalidateBinReads } from "../hooks/useBinEdit";
+import { BinEditContext } from "../hooks/useBinEdit";
 import { NewObjectContext, type ObjectDraft } from "../state/newObject";
 import { type ClassSuggestion, classLabel, classSuggestions, classWire } from "../utils/addItem";
 import type { AddLine } from "../utils/binRows";
@@ -42,20 +41,19 @@ interface PickedClass {
 }
 
 /**
- * The line after a declared file's objects where a new object is named. ADR-0049.
+ * The line after a file's objects where a new object is named. ADR-0049.
  *
  * A copy goes straight to its name. A new object of a class picks the class first, from the
  * classes the file holds and then every class the schema knows, and a particle system then
  * picks Blank or a system template (ADR-0058). The name starts as
  * `Mods/<mod>/<source, template or class>`, the prefix the game-data reference suggests, with
- * the caret at its end. Enter declares it, Escape steps back, and a refusal stays on the line
+ * the caret at its end. Enter creates it, Escape steps back, and a refusal stays on the line
  * under the name. "Game data declarations" in docs/ux/BIN_EDITOR.md.
  */
 export function NewObjectLine({ line, draft }: NewObjectLineProps) {
   const drafts = use(NewObjectContext);
   const project = useOptionalProjectContext();
-  const invalidate = useInvalidateBinReads();
-  const call = useDocumentCall(line.document);
+  const edit = use(BinEditContext);
   const [picked, setPicked] = useState<PickedClass | null>(null);
   const [start, setStart] = useState<SystemStart | null>(null);
   const [pending, setPending] = useState(false);
@@ -67,12 +65,10 @@ export function NewObjectLine({ line, draft }: NewObjectLineProps) {
   const suggested = `${folder}${suggestedLeaf(draft, picked, start)}`;
 
   async function create(name: string) {
-    if (origin === null || pending) return;
+    if (origin === null || pending || edit === null) return;
     setPending(true);
     setError(null);
-    const { result } = await call((id) =>
-      api.bin.edit(id, { kind: "object", edit: { kind: "create", name, origin } }),
-    );
+    const result = await edit.object({ kind: "create", name, origin });
     setPending(false);
     if (!result.ok) {
       setError(result.error);
@@ -88,7 +84,6 @@ export function NewObjectLine({ line, draft }: NewObjectLineProps) {
         rig: templateRig(start.template.rig),
       });
     }
-    invalidate();
     drafts?.close();
   }
 

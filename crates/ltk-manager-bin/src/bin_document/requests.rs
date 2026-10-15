@@ -89,7 +89,7 @@ pub enum BinEdit {
         reference: String,
         merge: bool,
     },
-    /// Create, remove or restore an object of a declared document. ADR-0049.
+    /// Create, remove or restore an object. A declared document declares the edit (ADR-0049).
     Object { edit: ObjectEdit },
     /// Edit the header's dependency list. ADR-0050.
     Dependency { edit: DependencyEdit },
@@ -98,7 +98,8 @@ pub enum BinEdit {
     ModuleAction { layer: String, action: ModuleAction },
 }
 
-/// An object edit of a declared document. ADR-0049.
+/// An object edit. A declared document declares it (ADR-0049), and any other document takes it
+/// as an undoable edit.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(
     tag = "kind",
@@ -107,12 +108,12 @@ pub enum BinEdit {
 )]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum ObjectEdit {
-    /// Declare a new object named `name`, answering [`EditOutcome::Object`].
+    /// Add a new object named `name`, answering [`EditOutcome::Object`].
     /// [`BinDocument::create_object`].
     Create { name: String, origin: NewObject },
-    /// Declare the removal of `entry`. [`BinDocument::remove_object`].
+    /// Remove `entry`. [`BinDocument::remove_object`].
     Remove { entry: String },
-    /// Take back the removal of `entry`. [`BinDocument::restore_object`].
+    /// Take back a declared removal of `entry`. [`BinDocument::restore_object`].
     Restore { entry: String },
 }
 

@@ -29,6 +29,7 @@ use self::diagnostics::Raised;
 pub use self::diagnostics::{DeclaredDiagnostic, DeclaredDiagnosticKind, ObjectSkip, SkipReason};
 pub use self::links::{DeclaredLinkMark, LinkChange};
 pub use self::objects::{DeclaredObjectMark, NewObject, ObjectChange};
+pub(super) use self::objects::{clone_as, own_named};
 pub use self::project::ProjectDeclarations;
 use super::edit::UNDO_DEPTH;
 use super::{
@@ -1243,7 +1244,7 @@ fn declaring(error: AppError) -> BinDocumentError {
     BinDocumentError::Declaring(Box::new(error))
 }
 
-fn not_declared() -> BinDocumentError {
+pub(super) fn not_declared() -> BinDocumentError {
     declaring(AppError::Other(
         "The document declares into no project".to_owned(),
     ))
