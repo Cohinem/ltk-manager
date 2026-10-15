@@ -17,14 +17,13 @@ The rig is decision 2.9 of `docs/plans/vfx-particle-renderer.md`: a `Motion` (`s
 `orbit`, `bone`) and a `RigLife` (`once`, `loop`), offered as the presets Still, Burst, Missile and
 Trail (`RIG_PRESETS` in `src/modules/workshop/bin/vfx/engine/model/rig.ts`).
 
-| Problem                                                        | Where                                                                                         |
-| -------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| Every preset stands at `STAND_HEIGHT`, 100 units               | `rig.ts`. The skin, ability, spell flight and map previews all build their rigs at height 0   |
-| A ground-layer emitter ignores that lift                       | `GROUND_LAYER` in `rendering/shaders/quad.ts` and `meshPrelude.ts` sets `y` to `GROUND_LEVEL` |
-| Picking a preset discards the height and the stop              | `RigControl.tsx` sets `RIG_PRESETS[preset]` whole                                             |
-| Still and Burst differ only in `life`, which Loop also changes | `rig.ts`, `playback/state/run.tsx`                                                            |
-| Every system opens on Burst                                    | `OPENING_RIG` in `rig.ts`, read by `VfxRunProvider`                                           |
-| The lift and the path turn with the system's own `transform`   | `place` in `engine/simulation/driver.ts`, `placed` in `rendering/utils/systemBounds.ts`       |
+| Problem                                                        | Where                                                                                       |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Every preset stands at `STAND_HEIGHT`, 100 units               | `rig.ts`. The skin, ability, spell flight and map previews all build their rigs at height 0 |
+| Picking a preset discards the height and the stop              | `RigControl.tsx` sets `RIG_PRESETS[preset]` whole                                           |
+| Still and Burst differ only in `life`, which Loop also changes | `rig.ts`, `playback/state/run.tsx`                                                          |
+| Every system opens on Burst                                    | `OPENING_RIG` in `rig.ts`, read by `VfxRunProvider`                                         |
+| The lift and the path turn with the system's own `transform`   | `place` in `engine/simulation/driver.ts`, `placed` in `rendering/utils/systemBounds.ts`     |
 
 The last row is not settled. Decision 2.9 says the game keeps the attachment on the system
 instance, which suggests the attachment applies outside the definition's transform, where the
@@ -81,7 +80,9 @@ In order, the first that answers:
    clip.
 2. **A template's rig**, for a system a template made.
 3. **The system alone.** Continuous if any emitter has no `lifetime`, else Replay. Orbit if any
-   emitter draws a trail, else Ground.
+   emitter draws a trail, else Ground. A Ground rig of a system with a beam aims at the farthest
+   constant `EmitterPosition` on the system's `+Z` axis, at least one champion height away, so
+   the beam reaches the emitters that the system places at its far end.
 
 A reverse lookup through Find all references is not part of this plan.
 

@@ -759,6 +759,38 @@ describe("child sets", () => {
       expect([...turnedDriver.sources("0.0")[0].orientation]).toEqual([...expected]);
     });
 
+    it("spawns bone children on host joints if the rig carries none", () => {
+      const model = system(
+        parent({ childSet: childSet({ bones: ["R_Hand"], children: [embers] }) }),
+      );
+      const driver = driverFor(model, 3);
+      driver.setHostJoints(() => anchorAt(0, 0, 0));
+      for (let at = 0; at < 30; at += 1) driver.advance(1 / 60);
+
+      expect(driver.sources("0.0")).toHaveLength(1);
+
+      driver.setHostJoints(null);
+      expect(driver.sources("0.0")).toHaveLength(0);
+    });
+
+    it("spawns bone children on the rig's joints over the host's", () => {
+      const model = system(
+        parent({ childSet: childSet({ bones: ["R_Hand"], children: [embers] }) }),
+      );
+      const driver = driverFor(model, 3);
+      driver.setHostJoints(() => anchorAt(500, 0, 0));
+      const onRig = boneRun(model, 3, 30, () => anchorAt(10, 0, 0));
+      driver.steer({
+        motion: { kind: "still" },
+        life: "once",
+        height: 0,
+        joints: () => anchorAt(10, 0, 0),
+      });
+      for (let at = 0; at < 30; at += 1) driver.advance(1 / 60);
+
+      expect(driver.sources("0.0")[0].origin).toEqual(onRig.sources("0.0")[0].origin);
+    });
+
     it("spawns none where a bone set names fewer bones than children", () => {
       const driver = boneRun(
         system(parent({ childSet: childSet({ bones: ["R_Hand"], children: [embers, embers] }) })),

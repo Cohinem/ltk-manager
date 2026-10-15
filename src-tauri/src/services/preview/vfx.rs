@@ -14,16 +14,17 @@ use ltk_manager_bin::bin_document::BinDocumentId;
 use ltk_manager_bin::meta_schema::SchemaNames;
 use ltk_manager_bin::vfx::{vfx_templates as catalog, VfxTemplate};
 use ltk_manager_game::vfx::{
-    child_targets, resolve_system, search_linked_materials, VfxObject, VfxSystem,
+    child_targets, resolve_system, search_linked_children, search_linked_materials, VfxObject,
+    VfxSystem,
 };
 use tauri::AppHandle;
 
 /// One particle system of an open document, with every reference resolved.
 ///
 /// `entry` is the object's hash as `0x` and eight hex digits. A class or field the hash
-/// tables leave unnamed takes the meta schema's name. A custom material the document does
-/// not declare is looked for through the files it links, and a linked file that cannot be
-/// read is passed over.
+/// tables leave unnamed takes the meta schema's name. A child system or a custom material
+/// that the document does not declare is looked for through the files it links, and a
+/// linked file that cannot be read is passed over.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_vfx_system(
@@ -40,6 +41,15 @@ pub async fn read_vfx_system(
             let names = SchemaNames::new(names, &schema);
             let mut system = resolve_system(open, entry, &names, assets, shaders.as_deref())?;
             let linked: Vec<AssetRef> = linked_assets(open, assets);
+            search_linked_children(
+                &mut system,
+                open,
+                linked.clone(),
+                &names,
+                assets,
+                shaders.as_deref(),
+                &mut read,
+            );
             search_linked_materials(
                 &mut system,
                 linked,

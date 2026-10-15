@@ -68,6 +68,11 @@ const INDEX = [
     title: "Automatically categorize mods",
   },
   {
+    id: "library.autoHealthCheckEnabled",
+    key: "autoHealthCheckEnabled",
+    title: "Automatically check mods",
+  },
+  {
     id: "library.promoteEnabledMods",
     key: "promoteEnabledMods",
     title: m.settings_library_promotion_title(),

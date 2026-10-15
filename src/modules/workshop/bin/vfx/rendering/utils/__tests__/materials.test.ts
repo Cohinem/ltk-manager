@@ -54,6 +54,7 @@ import {
   maskMaterial,
   meshMaterial,
   pickMaterial,
+  projectionMaterial,
   quadMaterial,
   type QuadOrientation,
   ribbonMaterial,
@@ -452,6 +453,16 @@ describe("ribbonMaterial", () => {
       PASSING,
     );
     expect(unloaded.defines).not.toHaveProperty("HAS_PALETTE");
+
+    const decal = projectionMaterial(
+      emitterFixture(0, { palette }),
+      null,
+      null,
+      new Texture(),
+      PASSING,
+    );
+    expect(decal.defines).toHaveProperty("HAS_PALETTE");
+    expect(decal.uniforms.paletteRow.value).toBe(0.375);
   });
 });
 
@@ -683,7 +694,7 @@ describe("quadMaterial defines", () => {
     ).not.toHaveProperty("DIRECTED");
   });
 
-  it("lays a ground-layer emitter on the ground on every draw path", () => {
+  it("draws a ground-layer emitter opaque and in place on every draw path", () => {
     const ground = { ...PLAIN_LAYERS, ground: true };
 
     for (const material of [
@@ -692,11 +703,12 @@ describe("quadMaterial defines", () => {
       attachedMaterial(BLEND_MODE.add, null, [0, 0], ground, PASSING, FrontSide),
       ribbonMaterial(BLEND_MODE.add, null, [0, 0], ground, PASSING),
     ]) {
-      expect(material.defines).toHaveProperty("GROUND_LAYER");
+      expect(material.transparent).toBe(false);
+      expect(material.defines).not.toHaveProperty("GROUND_LAYER");
     }
     expect(
-      quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING).defines,
-    ).not.toHaveProperty("GROUND_LAYER");
+      quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING).transparent,
+    ).toBe(true);
   });
 
   it("carries HAS_MAP once its texture has arrived", () => {
@@ -774,12 +786,18 @@ describe("layersOf", () => {
 
   describe("under LOCK_ALPHA", () => {
     const erosion = {} as ErosionModel;
+    /* A beam that names a mesh draws as a mesh, so a ribbon beam carries none. */
+    const meshOf = (quadType: QuadType) => (quadType === QUAD_TYPE.beam ? null : EMITTER.mesh);
     const layersFor = (quadType: QuadType, uvMode: UvMode) =>
-      layersOf({ ...EMITTER, erosion, quadType, uvMode } as EmitterModel, SAMPLERS, {
-        ramp: true,
-        sheen: false,
-        fade: true,
-      });
+      layersOf(
+        { ...EMITTER, erosion, quadType, uvMode, mesh: meshOf(quadType) } as EmitterModel,
+        SAMPLERS,
+        {
+          ramp: true,
+          sheen: false,
+          fade: true,
+        },
+      );
 
     it("erodes no quad or ribbon, and draws its ramp instead", () => {
       for (const kind of [

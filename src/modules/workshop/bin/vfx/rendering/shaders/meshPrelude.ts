@@ -1,7 +1,7 @@
 import { AXIS_SIGN, type VertexPrelude } from "@/modules/viewport";
 
 import { PARTICLE_POSE } from "./mesh";
-import { GROUND, LAYER_UV } from "./quad";
+import { LAYER_UV } from "./quad";
 
 /** The registers of one bone in `BONES`, a `float4x3` stated row by row. */
 const BONE_ROWS = 3;
@@ -21,9 +21,8 @@ const BONE_ROWS = 3;
  * - `COLOR_LOOKUP_UV` and the drive in `cAlphaErosionParams.x` are the pixel stage's, and
  *   the rest of that register is `erosionBand`.
  *
- * The engine binds these once a draw, and a draw is one particle. `GROUND_LAYER` flattens the
- * vertex in the world under an identity `mWorld`, so the normal keeps its height as the
- * hand-written mesh keeps it. `PARTICLE_SKINNING` is `PARTICLE_POSE`'s.
+ * The engine binds these once a draw, and a draw is one particle. `PARTICLE_SKINNING` is
+ * `PARTICLE_POSE`'s.
  *
  * A skinned mesh material's stage places a vertex by its bones alone, and the engine's bones
  * carry the particle's world. The prelude binds the vertex unposed wholly to bone 0, whose
@@ -55,7 +54,6 @@ uniform vec3 erosionBand;
 
 const vec3 AXIS = vec3(${AXIS_SIGN.join(", ")});
 
-${GROUND}
 ${PARTICLE_POSE}
 ${LAYER_UV}
 
@@ -83,7 +81,7 @@ void enginePrelude() {
 
   vec3 posedPosition = position;
   vec3 posedNormal = normal;
-#if defined(READS_a_BLENDINDICES) && !defined(GROUND_LAYER)
+#ifdef READS_a_BLENDINDICES
   mat4 bone = world * mirror * blendedPose() * mirror;
   world = mat4(1.0);
 #else
@@ -96,13 +94,6 @@ void enginePrelude() {
   engine_COLOR = vertexColor.bgra;
   engine_BLENDWEIGHT = vec4(1.0, 0.0, 0.0, 0.0);
   engine_BLENDINDICES = vec4(0.0);
-
-#ifdef GROUND_LAYER
-  engine_POSITION = world * engine_POSITION;
-  engine_POSITION.y = GROUND_LEVEL * AXIS.y;
-  engine_NORMAL = vec4(mat3(world) * engine_NORMAL.xyz, 0.0);
-  world = mat4(1.0);
-#endif
 
   vec4 rows[4];
   rowsOf(world, engine_mWorld);

@@ -126,7 +126,7 @@ test over the pool follow from that. `Math.random()` appears nowhere in the simu
 ### 2.7 The ground is a textured plane
 
 A plane at champion scale, textured with a ground texture taken from a real map, plus a grid and
-an axis gizmo. Its height is what `isFollowingTerrain` and `isGroundLayer` read.
+an axis gizmo. Its height is what `isFollowingTerrain` reads.
 
 No host model. `.skn`, `.skl` and `.anm` belong to T6.
 
@@ -533,8 +533,8 @@ spawn-shape table. What each changed:
 | `mMode` on a beam            | `DEFAULT` faces the eye. `ARBITRARY`, the only value authored, is `cross(L, +Y)` run through the particle's local matrix as a point and left unnormalised, so a near-vertical beam collapses and the particle's position leaks into the width                                                                                                                                    | `writeBeam`, both paths, the leak included                                                                       |
 | `scale0` on a beam           | `x` the width. `y` and `z` trim the quad in from the source and the target as shares of the length. UV: `width / tiling.x` across, the full length `/ tiling.y` along, a component at or below zero spanning one                                                                                                                                                                 | `writeBeam`                                                                                                      |
 | `mIsColorBindedWithDistance` | `mAnimatedColorWithDistance` sampled at the raw distance between the two anchors in engine units, one colour for the whole beam, only under the flag. Not a position along the beam                                                                                                                                                                                              | `Beams.tsx`                                                                                                      |
-| `mSegments`                  | Inert on `VfxPrimitiveBeam`, which draws one quad per particle. Only the camera segment beam reads it, as ribs the particles stand in for                                                                                                                                                                                                                                        | Read and not applied. The segment beam draws as the plain beam, and its ribs are not built                       |
-| `mMesh` on a beam            | Suppresses the ribbon, and the mesh draw dispatch excludes the kind, so nothing draws (inferred)                                                                                                                                                                                                                                                                                 | `drawsAsBeam` refuses an emitter whose beam names a mesh                                                         |
+| `mSegments`                  | Inert on `VfxPrimitiveBeam`, which draws one quad per particle. Only the camera segment beam reads it, as ribs the particles stand in for                                                                                                                                                                                                                                        | `writeSegmentBeam` strings one rib per particle at its spawn ordinal's share of the beam                         |
+| `mMesh` on a beam            | Suppresses the ribbon. `VfxComplexEmitter_DrawParticles` stretches the mesh between the ends                                                                                                                                                                                                                                                                                     | `drawsAsMesh` takes the emitter, and `Meshes` places it with `stretchInto`                                       |
 | `mTrailMode`                 | No consumer                                                                                                                                                                                                                                                                                                                                                                      | Read and not applied                                                                                             |
 | Shape ranges                 | `Size` is half-extents, `-1..+1` per axis, and so is a cylinder's radius. A cylinder's `height` is one-sided, `0..height` up from the emitter. A volume cylinder's radial draw is `-1..+1` too                                                                                                                                                                                   | `sampleShape`, the cylinder case                                                                                 |
 | Shape angles                 | Cylinder about `+Y` by a full turn. Sphere about `+Y` then `+Z`, both full, on a vector along `+X`, `+Y` applied first as the row-vector product does, so the first is the polar angle and the second the azimuth, and the shell piles up at the poles on `±Z`. Box by quarter turns in the same order, skipped under `flags & 1`. Every distribution is naive and is reproduced | As built, kept                                                                                                   |
@@ -1471,16 +1471,29 @@ first one's phase.
 child at the definition it holds under the same path, and drops one whose own shape changed, the
 rule decision 2.5 keeps one level up.
 
-**Not inherited and not built.** Colour, velocity and the seed are not inherited, attested from
-the creation path. **What is inherited and is not built** is the parent system's material
-overrides, its palette and quality index and its skin and texture handle: a preview system
-carries none of the first three, and the handle is a character's. Camera-facing
+**Not inherited.** Colour, velocity and the seed are not inherited, attested from the creation
+path. In 16.17.8057408 `VfxManager_createInstanceFromRef` copies onto the child's proxy the
+parent system's scale, a colour multiplier that defaults to white, a time scale that defaults to
+1, and the skin's texture handle. It does not set the material override flag, so a child does not
+take its parent's material overrides on that path. The preview sets none of these on the opened
+system, so a child already runs on the same defaults, and an attached mesh of a child draws on the
+same host character as its parent's. Camera-facing
 sizes do not take a system's scale, which holds for a root transform's scale too, 2.31. A
 definition inlined at two places is two definitions whose textures load twice. The resolver takes
 the first `ResourceResolver` of the document holding a key, where the engine's own "newest wins"
 is the order resolvers were added to a live scope, which a bin does not record. Only a
 `VfxChildIdentifier`'s `effectKey` is resolved, since other classes write the field and nothing
 reads theirs as a child. None of this has been judged on the screen.
+
+**A child whose system is in another bin is read from that bin.** A census of the 57,675 shipped
+`VfxChildIdentifier`s on 2026-10-14 found 25,811 that name a system of their own bin. 18,610 name a
+system in a bin that their bin links, through its own resolver or an `effect` link. 12,735 sit in a
+multi-skin particle bin, whose key resolves only through the `ResourceResolver` of the skin that
+the system's path names, `data/characters/<name>/skins/<skin>.bin`. About 500 resolve nowhere.
+`search_linked_children` in `crates/ltk-manager-game/src/vfx/resolve/children.rs` reads the
+linked bins and that skin bin, breadth first and capped as the material search is, when a child
+is left unresolved, and inlines each system it finds. A child already open above its identifier
+stays a link.
 
 ### 2.34 A beam scrolls along its length, and a locked alpha holds the whole texture
 
@@ -1990,8 +2003,7 @@ and 103). The flag is render-pass classification alone: the
 emitter goes to `Render_Ground_Layer`, one of the engine's seven display lists, and `pass` orders
 emitters inside a list only.
 `compareDrawOrder` draws the ground layer first. That the list draws before the default one is the
-reading. The `ground_layer` technique that flattens these emitters onto the
-terrain is not built.
+reading. The list draws its emitters where they are, decision 2.51.
 
 The list also draws before a character. ThreeJS draws every transparent object after every
 opaque one, so a ground-layer ring under Kha'Zix's recall painted over his legs. A ground-layer
@@ -2063,9 +2075,9 @@ texture there and reads the ramp at the same place. The lane and the predicate a
 That `uvMatrix1` runs over the same `(u, v)` the base uv takes is the reading.
 
 **The camera segment beam freezes its erosion.** `VfxPrimitiveCameraSegmentBeam_FillBuffers`
-writes `0.0` in place of the erosion drive, so `Beams` does too for kind 9. Its other quirk, the
-lookup pair decomposed as a mult uv, is not built: the segment beam draws as a plain beam, and none
-of the 12 of 2.38 that carry a ramp carries a mult layer.
+writes `0.0` in place of the erosion drive, so `writeSegmentBeam` does too. It also writes the
+colour lookup pair to the mult layer's uv, and `writeSegmentBeam` does the same. None of the 12 of
+2.38 that carry a ramp carries a mult layer.
 
 **Readings that stay open:**
 
@@ -2253,13 +2265,11 @@ roll. How it takes them is the reading: `DIRECTED` in the quad vertex shader lay
 travel as the view sees it and the side square to it in the view's plane. A direction-oriented
 camera quad drew as a plain billboard before this, so the stretch had nothing to lie along.
 
-**A ground-layer emitter is laid on the ground straight down.** `isGroundLayer` classifies the
-render pass alone, and the flattening lives in a `ground_layer` technique no reading covers. The
-user's pick was a vertical projection. `GROUND_LAYER` stands every vertex of a quad, a mesh, an
-attached mesh and a ribbon on `GROUND_LEVEL`. Of 2,549 ground-layer emitters over 60 bins, 1,346 are
-arbitrary quads, 529 meshes and 482 camera quads. A flat quad and a mesh draw alike under a top-down
-render and a vertical projection. A camera quad is where the two part: a top-down render would lay
-it flat, where this projects its eye-facing plane.
+**A ground-layer emitter draws where it is.** `isGroundLayer` classifies the render pass alone.
+In 16.17.8057408 the pass table gives `ground_layer` no define, where `shadow` adds `SHADOW` and
+the distortion passes `DISTORTION`, and the shader selection picks the same `QUAD`, `MESH` and
+`PARTICLE` files and defines for it as for `normal`. No vertex is flattened. A first build laid
+every vertex on `GROUND_LEVEL`, which drew a ground-layer camera quad flat that the game stands up.
 
 **`isFollowingTerrain` is not built.** The engine adds `(terrain height now - height at spawn) *
 (1 - bindWeight)` to the drawn `Y`. The preview's ground is flat, so the term is zero everywhere.
@@ -2624,7 +2634,11 @@ own builder, per section 2.12.
   to its target plus `mLocalSpaceTargetOffset`, `scale0.x` wide, trimmed by `scale0.y` and `.z`.
   `ARBITRARY` lies across the world's up through the particle's own matrix, unnormalised.
   `mIsColorBindedWithDistance` multiplies in `mAnimatedColorWithDistance` at the raw length. A beam
-  naming a mesh draws nothing. The segment beam draws the same quad, and its ribs are not built.
+  that names a mesh draws the mesh at the midpoint of the ends, with local `+Z` from the target to
+  the source and scaled by the beam length over the mesh's `+Z` extent. A segment beam draws one rib
+  per particle at `ordinal / (mSegments - 1)` of the way along the beam plus the particle's own
+  position. `u` spans the width over `mBirthTilingSize.y`, and if `mTrailMode` is not `DEFAULT`,
+  `v` runs along the raw length over `.x`. The emitter spawns at most `mSegments` particles.
 - **The rig has, aims and faces the system.** A path aims where it lands, an orbit at what it
   circles, and a still rig a fixed reach ahead so a beam has a length. That is `targetAt` beside
   `originAt`, and `Driver.origin` beside `Driver.target`. A path faces where it is going and an
@@ -2748,10 +2762,12 @@ war, with no vertex colour and none of the emitter's uv transform, cell or flipb
 `colorModulate` is read by no draw.
 
 `Projections.tsx` draws the footprint itself as one quad at `GROUND_LEVEL`, because the
-preview's ground is flat, with `OVERLAY` as its depth offset where the emitter writes none. Four
-things are left out: the fog of war, the `MULT_PASS`, `ALPHA_EROSION` and `PALETTIZE_TEXTURES`
-permutations, terrain, and what a wrapping texture draws past the footprint over a whole map
-triangle. The decal has no game-shader route.
+preview's ground is flat, with `OVERLAY` as its depth offset where the emitter writes none.
+`PALETTIZE_TEXTURES` of `UNLIT_DECAL_PS` is the particle palette: `u` is the texel under
+`cPaletteSrcMixerMain` plus the `u` scroll, `v` the row plus the `v` scroll, and the palette
+replaces the colour and keeps the alpha. `projectionMaterial` draws it. Four things are left out:
+the fog of war, the `MULT_PASS` permutation, terrain, and what a wrapping texture draws past the
+footprint over a whole map triangle. The decal has no game-shader route.
 
 ### T9 — child particle sets
 

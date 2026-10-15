@@ -18,6 +18,7 @@ import {
   UV_MODE,
 } from "../../model/enums";
 import {
+  type BeamModel,
   type EmitterModel,
   type ErosionModel,
   type FieldsModel,
@@ -2299,6 +2300,41 @@ describe("erosionDrive", () => {
 
     sim.step(2);
     expect(erosionDrive(sim.pool, 0, lingering, 0.75)).toBe(0.75);
+  });
+});
+
+describe("a segment beam's births", () => {
+  const beam: BeamModel = {
+    mode: 0,
+    trailMode: TRAIL_MODE.default,
+    segments: 5,
+    tiling: flat(0, 0, 0),
+    colorByDistance: flat(1, 1, 1, 1),
+    colorBoundToDistance: false,
+    sourceOffset: [0, 0, 0],
+    targetOffset: [0, 0, 0],
+  };
+
+  it("spawns no more particles than mSegments over the run", () => {
+    const segmented = emitterOf({ quadType: QUAD_TYPE.cameraSegmentBeam, rate: flat(40), beam });
+    const sim = run([segmented]);
+    sim.step(3);
+
+    expect(sim.pool.count).toBe(5);
+    expect(Array.from(sim.pool.ordinal.subarray(0, 5))).toEqual([0, 1, 2, 3, 4]);
+  });
+
+  it("spawns without a cap if mSegments is zero", () => {
+    const sim = run([
+      emitterOf({
+        quadType: QUAD_TYPE.cameraSegmentBeam,
+        rate: flat(40),
+        beam: { ...beam, segments: 0 },
+      }),
+    ]);
+    sim.step(3);
+
+    expect(sim.pool.count).toBeGreaterThan(5);
   });
 });
 

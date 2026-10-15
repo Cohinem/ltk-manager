@@ -152,7 +152,7 @@ impl ModLibrary {
         let due = scope.take(&entries, &kept, &basis);
         let (total, skipped) = (due.len(), checkable - due.len());
 
-        if total == 0 {
+        if total == 0 || (!scope.pressed() && !config.auto_health_check_enabled) {
             let report = self.health_report(&storage_dir, basis, 0, skipped);
             return Ok(self.report_sweep(scope, HealthSweepState::Idle, report));
         }

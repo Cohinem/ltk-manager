@@ -1,6 +1,6 @@
 import { AXIS_SIGN, GROUND_LEVEL } from "@/modules/viewport";
 
-import { FETCH, PICK, WIRE } from "./quad";
+import { COLOR, FETCH, PICK, WIRE } from "./quad";
 
 /**
  * A planar projection's footprint laid on the ground, after `UNLIT_DECAL_VS`.
@@ -46,8 +46,8 @@ void main() {
 `;
 
 /**
- * `UNLIT_DECAL_PS`: the texel times the ramp at `COLOR_UV` times `MODULATE_COLOR`, its alpha
- * faded by height.
+ * `UNLIT_DECAL_PS`: the texel, under the palette, times the ramp at `COLOR_UV` times
+ * `MODULATE_COLOR`, its alpha faded by height.
  *
  * The fog of war is the one term left out, the preview having none.
  */
@@ -56,7 +56,6 @@ ${WIRE}
 ${PICK}
 uniform sampler2D map;
 uniform int address;
-uniform sampler2D mapRamp;
 uniform float alphaRef;
 
 varying vec2 vUv;
@@ -65,6 +64,7 @@ varying vec2 vLookup;
 varying float vFade;
 
 ${FETCH}
+${COLOR}
 
 void main() {
 #ifdef WIREFRAME
@@ -80,10 +80,7 @@ void main() {
   gl_FragColor = pickId;
   return;
 #endif
-#ifdef HAS_RAMP
-  texel *= texture2D(mapRamp, vLookup);
-#endif
-  vec4 lit = texel * vColor;
+  vec4 lit = colored(texel, vLookup) * vColor;
   lit.a *= max(vFade, 0.0);
   if (lit.a < alphaRef) discard;
   gl_FragColor = lit;

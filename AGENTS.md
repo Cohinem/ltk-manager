@@ -15,13 +15,60 @@ Guidance is scoped by directory:
 
 ## Writing
 
-Use direct, literal language in replies, documentation, comments, UI copy, issues and PRs.
-Mannered prose uses metaphor, decorative phrasing or rhetorical contrast where a direct statement
-would explain the same thing. Remove it before sending a reply or saving prose.
+These rules apply to all text in the repository and to replies: doc comments, inline comments,
+test names, UI copy, log and error messages, docs, issues, commit messages and PR descriptions.
+UI copy also follows "UI Copy" in `src/AGENTS.md`. The rules come from the
+[ritobin-tools guide](https://github.com/LeagueToolkit/ritobin-tools/blob/main/AGENTS.md).
 
-Name the action, fact or condition. Use familiar words and short paragraphs. Keep technical terms
-when they are precise. Delete phrases that add emphasis without information. For example, write
-"adjust the setting" instead of "turn the dial", and "remains relevant" instead of "earns its keep".
+Use direct, literal language. State the action, the fact or the condition. Do not use metaphor,
+personification, decorative phrasing or rhetorical contrast. Write the first draft this way, and
+do not copy a figurative style from nearby code. When the user marks one sentence as an example of
+a violation, fix every instance in the change, not only the quoted line.
+
+### Sentences
+
+- Put the subject first and the verb next. Write one fact per sentence.
+- Name the real actor: "the function returns", "the loader fails", "the edit is skipped". Do not
+  give actions to things that do not act. A table does not "name" a hash, a module does not
+  "reach" a bin, and a diagnostic does not "say" something.
+- State a condition with "if" or "when" and an explicit subject: "Returns `None` if no archive
+  contains the chunk."
+- State an outcome with a standard verb: returns, fails, skips, reads, writes, resolves, falls
+  back to, defaults to.
+- Use the established technical term: index, cache, resolve, fallback, missing, stale, lower,
+  validate. Do not describe around a term that exists.
+- Keep "that" and "which" in relative clauses. Write "the first archive that contains the chunk",
+  not "the first archive holding it" or "an entry no chunk declares".
+- End a sentence with a specific predicate. Do not end with "is a problem", "says nothing",
+  "names nothing" or "is as it was". Say what the code does in that case.
+- Do not use literary or idiomatic phrases: "for want of", "came to", "the one that remains",
+  "as the game has it".
+- Delete phrases that add emphasis without information.
+
+| Do not write                                                                             | Write                                                                                                         |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| The chunks `module` edits, each with its edits. An entry no chunk declares is a problem. | Lowers the `module` representation into a deterministic program.                                              |
+| Opens the table of game paths of `store`. A cache without it names nothing.              | Opens the `game` table of `store`. If the table is not installed, returns a `WadPaths` that resolves no hash. |
+| The game's copy of `chunk`: the one in the first archive that holds it.                  | Reads `chunk` from the first archive that contains it.                                                        |
+| Logs what an application came to.                                                        | Logs a summary of `outcome`.                                                                                  |
+| No edit applied to X. It is as the game has it.                                          | No edit was applied to X. It is unchanged.                                                                    |
+| Whether a property edit was skipped for want of a type.                                  | `true` if any property edit was skipped with the `untypable` reason.                                          |
+
+### Messages
+
+A log or error message says what happened and to which object, then what the user can do. Help
+text for a value says what the value is, then its default.
+
+### Characters and punctuation
+
+- Do not use em dashes or en dashes. Use a hyphen with a space on each side, or restructure the
+  sentence. A numeric range uses a bare hyphen (`1-5`).
+- Do not use the section sign. Write "section 6".
+- Do not splice two sentences with a semicolon, in comments, doc comments or markdown. Use a full
+  stop when the halves are two facts, or a comma plus `and`, `so` or `but` when the second half
+  follows from the first.
+- A bulleted list of fragments takes no terminal punctuation. A bullet that is a complete
+  sentence ends with a full stop.
 
 ## Task execution
 
@@ -91,8 +138,8 @@ prose is what is wrong.
 
 Use clear names, small components and functions, and named constants to make the code understandable without explanatory comments.
 
-- **One rich doc per unit** - document the exported component, hook or function with a single structured doc comment: what it is, its parts, non-obvious behaviour, accessibility, gotchas. Reference, not a story.
-- **Inline comments are the exception** - only for what the code cannot say: a hidden constraint, a workaround and its cause, a magic value. One or two lines.
+- **One rich doc per unit** - document the exported component, hook or function with a single structured doc comment: what it does, its parts, non-obvious behaviour, accessibility, gotchas. Reference, not a story.
+- **Inline comments are the exception** - only for the reason behind the code or a fact the code depends on: a hidden constraint, a workaround and its cause, a magic value. One or two lines, with the identifiers they refer to in backticks.
 - **Never** narrate history ("used to", "the old X"), argue design or product decisions at length, retell the change, or restate the code. That belongs in the commit or PR.
 - If comments outweigh the code around them, cut them.
 
@@ -107,37 +154,30 @@ header or a module's exported entry point, never on a statement, and only where 
 It identifies the source of the removed prose. Use a repository-root path so moving the code
 does not change the reference.
 
-**A doc's first line names the thing, it does not narrate it.** One line, a noun phrase or a single
-declarative sentence, saying what the symbol _is_ - the same shape a commit subject takes, on the
-codebase's own vocabulary. No `Returns`, no `This function`, no restating the signature, and no
-walk through the body:
+**Doc comments.**
+
+- Function or hook: the first sentence starts with a third-person present-tense verb and says
+  what it does: "Returns", "Reads", "Lowers". Each condition, fallback and failure follows as its
+  own sentence: "Returns `None` if ...", "Fails if ...".
+- Type, field, constant or React component: a noun phrase that names what it is. Add a sentence
+  only for a constraint, a unit or an invariant that the name does not show.
+- Module: the first sentence says what the module does or provides.
+- Do not restate the signature, and do not describe how the code changed over time.
+- Write in the third person and the present tense, never `we` or `you`. Drop `note that`,
+  `simply`, `just` and `basically`.
 
 ```
 Bad   /** This function takes the verdicts and builds a string out of them. */
-Good  /** What is wrong with a library, as one string two runs compare by. */
+Good  /** Joins the verdicts of a library into one string that two runs compare. */
 
-Bad   /** Called by the sweep's effect to decide whether it should announce. */
-Good  /** Claim the unprompted announcement `key` is owed, if it is owed one. */
+Bad   /** The game's copy of `chunk`: the one in the first archive that holds it. */
+Good  /** Reads `chunk` from the first archive that contains it. */
 ```
 
-Third person and the present tense throughout, on the domain's nouns rather than the
-implementation's - `the reader`, `a mod`, `the run` - and never `we` or `you`. Drop `note that`,
-`simply`, `just` and `basically`: a sentence that survives deleting them never needed them.
-
-**No semicolons splicing sentences,** in comments, doc comments, or markdown. They read as
-compressed notes rather than prose. Use a full stop when the halves are two thoughts, or a comma
-plus `and` / `so` / `but` when the second half follows from the first:
-
-```
-Bad   Dark is the default; light is [data-theme="light"] on <html>.
-Good  Dark is the default. Light is [data-theme="light"] on <html>.
-
-Bad   Wallpaper costs the muted rungs contrast; lift them.
-Good  Wallpaper costs the muted rungs contrast, so lift them.
-```
-
-A bulleted list of fragments takes no terminal punctuation at all. A bullet that is a complete
-sentence ends with a full stop, like any other sentence.
+**Test names.** Name a Rust test `subject_behavior` or `subject_behavior_condition` in snake
+case, using identifiers from the code: `chunk_reads_from_first_archive_containing_it`. In Vitest,
+`describe` names the subject identifier and `it` states the behavior, then the condition:
+`it("returns null if no archive contains the chunk")`.
 
 ## Commits and PRs
 
@@ -191,8 +231,8 @@ domain word - `Texture size the format cannot hold` is worse than `Block-unalign
 for that reason alone.
 
 Two things keep their own shape. An **ADR title** is a declarative sentence, because the title is
-the decision - `A repair rewrites the archive in place`. A **test name** stays narrative, because
-it is read one at a time and is the only sentence saying what the case is.
+the decision - `A repair rewrites the archive in place`. A **test name** follows "Test names"
+under "Code Style".
 
 A rule's `description` is a sentence by contract - one for a reader who has not met the state. It
 is the title that is a noun phrase.

@@ -393,7 +393,6 @@ many child-set strands, some trails vanish.
 | Issue                                                   | Location                                                                | Effect                                                                      | Fix                                                                                 |
 | ------------------------------------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | MIN blend soft fade goes to black                       | `rendering/utils/softParticle.ts:57-61`                                 | A MIN particle is darkest where it should fade out                          | Mix toward white, `mix(1.0, rgb, fade)`                                             |
-| Ground layer flattened to y = 0                         | `rendering/shaders/quad.ts:10-19`                                       | On map terrain, ground effects sink under the ground or float above it      | Lay them at the system's ground height, or the terrain's                            |
 | Fit bounds leave out the beam target                    | `rendering/utils/systemBounds.ts:55-72`, `engine/model/rig.ts:85,171`   | A beam system opens with most of the beam off screen                        | Grow the bounds by `targetAt(rig.motion, 0)` when an emitter draws as a beam        |
 | No mipmaps on particle textures (plausible)             | `rendering/hooks/useVfxTextures.ts:113`                                 | Minified sprites, noise and erosion maps shimmer in wide views              | Load the file's own mips through `?as=mips`, then use `textureGrad` for the uv fold |
 | Distortion unit is screen heights, the doc says widths  | `rendering/shaders/quad.ts:275` against `quad.ts:253-255` and plan 2.25 | Warps are 0.56 times the documented strength at 16:9                        | Correct the doc, or scale by width over height                                      |
@@ -640,14 +639,13 @@ does both.
 
 ### 4.4 Smaller issues
 
-| Issue                                                   | Location                                                                                                               | Effect                                                                                | Fix                                                                                                      |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| Newborns gated against the start-of-step field origin   | `engine/simulation/integrate.ts:240-263,273-293`                                                                       | On a moving rig, the orbital and radius gates for newborns are one step of travel off | Offset the centres by `step.moved` in `kickNewborns`                                                     |
-| Flat face normal on mesh surfaces                       | `rendering/utils/emissionSurface.ts:83-87`                                                                             | Births on a smooth mesh fan out in facet directions                                   | Blend the skinned vertex normals by the barycentric weights (`VfxMesh_EmittersAndSurfaces.md` section 9) |
-| Skeleton surface spreads births along bones (plausible) | `rendering/utils/emissionSurface.ts:108-139`                                                                           | Births fill lines along the bones, weighted by posed length                           | Weight by bind local translation and emit at the joints (`TmeshGmesh_ParticleEmitterMesh.md`)            |
-| `maxJointWeights` of 0 skins to the bind pose           | `rendering/utils/emissionSurface.ts:30-52`, `engine/parsing/readEmissionSurface.ts:29`                                 | A weight count of 0 gives the bind position                                           | Clamp to [1, 4], as the engine does                                                                      |
-| Gizmo turns local-space directions by the full frame    | `forces/forceGeometry.ts:56-72` against `engine/simulation/integrate.ts:260`                                           | On a rotated system, the arrow points away from the force actually applied            | Build the gizmo frame from the rig yaw alone                                                             |
-| Bone child sets never spawn on a host character         | `preview/components/VfxViewport.tsx:80`, `rendering/utils/definitions.ts:67`, `preview/components/VfxHost.tsx:163-188` | Attached meshes draw on the host, but `boneToSpawnAt` sets do not                     | Pass `posed = true` and a joint lookup off `host.pose` once the host is ready                            |
+| Issue                                                   | Location                                                                               | Effect                                                                                | Fix                                                                                                      |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Newborns gated against the start-of-step field origin   | `engine/simulation/integrate.ts:240-263,273-293`                                       | On a moving rig, the orbital and radius gates for newborns are one step of travel off | Offset the centres by `step.moved` in `kickNewborns`                                                     |
+| Flat face normal on mesh surfaces                       | `rendering/utils/emissionSurface.ts:83-87`                                             | Births on a smooth mesh fan out in facet directions                                   | Blend the skinned vertex normals by the barycentric weights (`VfxMesh_EmittersAndSurfaces.md` section 9) |
+| Skeleton surface spreads births along bones (plausible) | `rendering/utils/emissionSurface.ts:108-139`                                           | Births fill lines along the bones, weighted by posed length                           | Weight by bind local translation and emit at the joints (`TmeshGmesh_ParticleEmitterMesh.md`)            |
+| `maxJointWeights` of 0 skins to the bind pose           | `rendering/utils/emissionSurface.ts:30-52`, `engine/parsing/readEmissionSurface.ts:29` | A weight count of 0 gives the bind position                                           | Clamp to [1, 4], as the engine does                                                                      |
+| Gizmo turns local-space directions by the full frame    | `forces/forceGeometry.ts:56-72` against `engine/simulation/integrate.ts:260`           | On a rotated system, the arrow points away from the force actually applied            | Build the gizmo frame from the rig yaw alone                                                             |
 
 Outcomes for the emission surface rows:
 
@@ -781,11 +779,6 @@ Two related parser gaps:
 - **Null first probability table.** A table set whose slot 0 is null still multiplies the other
   channels (`engine/parsing/readValue.ts:112-139`). `VfxPalette_ErosionAndProbability.md`
   section 5.1 skips the whole block in that case.
-- **Dependency bins not searched.** `crates/ltk-manager-bin/src/vfx/resolve.rs:334-351` inlines
-  only `document.object_at`, so a child system linked from a dependency bin never resolves. The
-  engine resolves `effect` and `effectKey` across loaded bins
-  (`ResourceResolvers_VfxEffectKeys.md` section 4.3). The child set draws nothing and gives no
-  notice.
 
 ## 7. Performance
 

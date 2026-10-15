@@ -98,6 +98,11 @@ pub struct Config {
     /// the user sets themselves are used. Default: true.
     #[serde(default = "default_true")]
     pub auto_categorization_enabled: bool,
+    /// Whether the library sweep checks mod health at startup, after a hashtable
+    /// sync and after an install. A check the user starts runs either way.
+    /// Default: true.
+    #[serde(default = "default_true")]
+    pub auto_health_check_enabled: bool,
     /// Enabling a mod moves it to the front of its folder. Off by default.
     #[serde(default)]
     pub promote_enabled_mods: bool,
@@ -236,6 +241,7 @@ impl Default for Config {
             wad_blocklist: default_wad_blocklist(),
             elevate_injector: false,
             auto_categorization_enabled: true,
+            auto_health_check_enabled: true,
             promote_enabled_mods: false,
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,

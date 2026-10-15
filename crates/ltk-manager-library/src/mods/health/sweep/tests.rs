@@ -241,6 +241,32 @@ fn a_pressed_sweep_takes_every_mod_again() {
     assert_eq!(report.skipped, 0);
 }
 
+/// Story: the user turned automatic checks off, so startup checks nothing and
+/// a check they start still runs.
+#[test]
+fn an_automatic_sweep_checks_nothing_when_automatic_checks_are_off() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, mut config) = make_test_library(storage.path());
+    point_at_installed_build(&mut config, storage.path());
+    config.auto_health_check_enabled = false;
+    place_bin_project_mod(storage.path(), "stale-mod", &stale_bin());
+    seed_library(
+        &library,
+        &config,
+        vec![project_entry("id-stale", "stale-mod")],
+    );
+
+    let automatic = library.sweep_mod_health(&config, &SweepScope::Due).unwrap();
+
+    assert_eq!(automatic.checked, 0);
+    assert!(library.mod_health_verdicts(&config).unwrap().is_empty());
+    assert_matches!(library.health_sweep_state(), HealthSweepState::Idle);
+
+    let pressed = library.sweep_mod_health(&config, &SweepScope::All).unwrap();
+
+    assert_eq!(pressed.checked, 1);
+}
+
 /// Story: the user selects the one mod they just reinstalled and checks it,
 /// which must not spend the machine on the other two hundred.
 #[test]

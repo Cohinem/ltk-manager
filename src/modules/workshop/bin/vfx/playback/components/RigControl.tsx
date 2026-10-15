@@ -12,6 +12,7 @@ import {
 import { Button, IconButton, OVERLINE, Popover, SegmentedControl, Switch } from "@/components";
 import { m } from "@/i18n";
 import { CHAMPION_HEIGHT } from "@/modules/viewport";
+import { usePreviewTargetHandle, useSetPreviewDisplay } from "@/stores";
 
 import { SliderRow } from "../../../shared/preview/SliderRow";
 import {
@@ -26,6 +27,7 @@ import {
   type Playback,
   playbackOf,
   PLAYBACKS,
+  retargetable,
   type RigModel,
   type RigSource,
   withCarrier,
@@ -168,6 +170,8 @@ export function RigControl() {
 
           <MotionRows motion={rig.motion} onMotionChange={(motion) => change({ ...rig, motion })} />
 
+          {retargetable(rig.motion) && <TargetHandleRow />}
+
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs text-surface-300">
               {m.workshop_bin_preview_rig_stop_label()}
@@ -231,6 +235,23 @@ function carrierOptions(current: Carrier) {
   if (current === "bone") carriers.push("bone");
 
   return carriers.map((carrier) => ({ value: carrier, label: CARRIER_LABEL[carrier]() }));
+}
+
+/** Switch for the viewport gizmo that moves the rig's target. */
+function TargetHandleRow() {
+  const shown = usePreviewTargetHandle();
+  const setDisplay = useSetPreviewDisplay();
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-xs text-surface-300">{m.workshop_bin_preview_rig_target_label()}</span>
+      <Switch
+        aria-label={m.workshop_bin_preview_rig_target_label()}
+        checked={shown}
+        onCheckedChange={(next) => setDisplay({ previewTargetHandle: next })}
+      />
+    </div>
+  );
 }
 
 /** The stream every draw of the run comes out of, and the button that takes another. */

@@ -101,7 +101,7 @@ quad draws with the hand-written material until Hexshade patches that input.
 | `ALPHA_EROSION`                                          | an erosion definition is present, with or without a texture name                     | attested                            |
 | `MULT_PASS`                                              | the mult layer (`textureMult`) is present                                            | attested site, condition to confirm |
 | `SEPARATE_ALPHA_UV`, `SCREEN_SPACE_UV`, `LOCAL_SPACE_UV` | from `uvMode`, on the mesh path. The quad path uses a separate file per mode instead | attested                            |
-| `PALETTIZE_TEXTURES`                                     | a palette definition is present                                                      | inferred                            |
+| `PALETTIZE_TEXTURES`                                     | a palette definition with `paletteCount` above 0 and a loaded texture                | attested                            |
 | `SOFT_PARTICLES`                                         | a `VfxSoftParticleDefinitionData` is present                                         | inferred                            |
 | `REFLECTIVE`                                             | a `VfxReflectionDefinitionData` is present                                           | inferred                            |
 | `USE_VERTEX_COLORS`                                      | the mesh path only                                                                   | inferred                            |

@@ -201,7 +201,8 @@ export function drawsFixedAlphaUv(emitter: EmitterModel): boolean {
   return (
     emitter.uvMode === UV_MODE.lockAlpha &&
     emitter.quadType !== QUAD_TYPE.mesh &&
-    emitter.quadType !== QUAD_TYPE.attachedMesh
+    emitter.quadType !== QUAD_TYPE.attachedMesh &&
+    !stretchesAMesh(emitter)
   );
 }
 
@@ -216,24 +217,33 @@ export function trailFacesTheCamera(emitter: EmitterModel): boolean {
 }
 
 /**
- * The emitter draws a quad per particle from the system to its target.
+ * Returns whether the emitter draws beam ribbon geometry between the system and its target.
  *
- * A beam that names a mesh has its ribbon suppressed and reaches no mesh draw, so it
- * draws nothing here either.
+ * Returns false for a `VfxPrimitiveBeam` that names a mesh, because the mesh replaces the
+ * ribbon (see [`drawsAsMesh`]).
  */
 export function drawsAsBeam(emitter: EmitterModel): boolean {
   return emitter.beam !== null && emitter.mesh === null && reachesAPhase(emitter);
 }
 
 /**
- * The emitter draws a mesh, which needs geometry before it draws anything.
+ * Returns whether the emitter draws the mesh that its definition names.
  *
- * The plain kind alone draws what its definition names. The attached kind draws the
- * owner's own skinned mesh instead and never reads the three name fields, which is
- * [`drawsTheAttachment`].
+ * Returns true for `VfxPrimitiveMesh` and for a `VfxPrimitiveBeam` with `mMesh`, which the
+ * engine stretches between the beam's ends. The attached kind draws the owner's skinned
+ * mesh instead, which is [`drawsTheAttachment`].
  */
 export function drawsAsMesh(emitter: EmitterModel): boolean {
-  return emitter.quadType === QUAD_TYPE.mesh && emitter.mesh !== null && reachesAPhase(emitter);
+  return (
+    (emitter.quadType === QUAD_TYPE.mesh || stretchesAMesh(emitter)) &&
+    emitter.mesh !== null &&
+    reachesAPhase(emitter)
+  );
+}
+
+/** Returns whether the emitter is a `VfxPrimitiveBeam` that names a mesh. */
+export function stretchesAMesh(emitter: EmitterModel): boolean {
+  return emitter.quadType === QUAD_TYPE.beam && emitter.beam !== null && emitter.mesh !== null;
 }
 
 /**

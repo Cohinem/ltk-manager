@@ -47,6 +47,13 @@ export function LibrarySection() {
         />
 
         <SettingRow
+          setting="autoHealthCheckEnabled"
+          description={m.settings_library_health_check_description()}
+          hint={m.settings_library_health_check_hint()}
+          control={<SettingSwitch setting="autoHealthCheckEnabled" />}
+        />
+
+        <SettingRow
           setting="watcherEnabled"
           badge={<ExperimentalChip />}
           description={m.settings_library_watcher_description()}
