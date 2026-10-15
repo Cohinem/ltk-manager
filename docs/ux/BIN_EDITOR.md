@@ -2097,7 +2097,7 @@ INSPECTOR  Orb [0] / Birth v          Chance 0.55
    | birthVelocity         [x -200..0][y 0..5][z 0]     2 channels
    ! birthColor            [#### gradient ####]          A 0.1 .. 1
  v POSITION
-   > SpawnShape            VfxShapeLegacy
+     SpawnShape            [Legacy v]  VfxShapeLegacy
    | EmitterPosition       [x 0 ][y 0..20][z 0 ]          Y uniform
      isGroundLayer         [x]
  v SCALE
@@ -2285,7 +2285,9 @@ v SOURCE
         Mesh Scale            [1   ]
         Emit Along Surface Normals  [x]
       Spawn Generator         [Not set v]
-    Spawn Shape               ...
+    Spawn Shape               [Sphere v]  VfxShapeSphere  [cube]
+      Radius                  [40  ] units
+      Flags                   [FillVolume v] 1
 ```
 
 **The surface has two parts, and each is a picker.** `EmissionSurface` and
@@ -2381,6 +2383,38 @@ the line shows Not emitting at the playhead.
 
 **What the preview does not model.** The spawn generator's offset and its rate factor, `flexRate`
 and `flexParticleLifetime`, and a linked mesh, which only a superward region links.
+
+### The spawn shape
+
+`SpawnShape` sets where a particle is born about the emitter. Its row is a select over the classes
+deriving from `IVfxShape`, with one line per class and the class card beside it.
+
+| Item     | Class                   | Fields                                                 | Particles are born on                  |
+| -------- | ----------------------- | ------------------------------------------------------ | -------------------------------------- |
+| Not set  | none                    | none                                                   | The emitter's origin                   |
+| Point    | `VfxShapePointDoNotUse` | `emitOffset`                                           | One fixed offset                       |
+| Legacy   | `VfxShapeLegacy`        | `emitOffset`, `emitRotationAngles`, `emitRotationAxes` | An offset that can be random or curved |
+| Box      | `VfxShapeBox`           | `Size`, `flags`                                        | The faces of the box                   |
+| Sphere   | `VfxShapeSphere`        | `radius`, `flags`                                      | The surface of the sphere              |
+| Cylinder | `VfxShapeCylinder`      | `radius`, `height`, `flags`                            | The wall of the cylinder               |
+
+**`flags` of a box, sphere or cylinder reads its one bit, FillVolume.** With the bit set, particles
+are born inside the shape. The schema gives `flags` no default, so a shape that leaves it out shows
+0, which is the value the engine reads.
+
+**A legacy shape's rotations are one list.** `emitRotationAngles` and `emitRotationAxes` are
+parallel lists, and angle `i` turns about axis `i`. Emit Rotations draws an Axis row and an Angle
+row per rotation. Add rotation appends a turn of 0 about +Y, and the remove button on an angle
+removes the rotation from both lists. Each change is one edit. An angle is a `ValueFloat`, so it
+can be random or follow a curve like any other value row.
+
+**A pick follows the primitive picker's rules.** Not set clears the pointer, a class the list does
+not carry is shown under its own name, a swap keeps the fields both classes declare with one type,
+and every field the class declares is drawn under the row. `VfxShape`, the class before the split,
+is listed only while the file holds it.
+
+**Show shape in preview turns the viewport's gizmo on and off.** The gizmo draws the open emitter's shape, and
+the handle menu's Shape size and emit offset handles edit it, per [the viewer](#the-viewer).
 
 ### The stencil
 

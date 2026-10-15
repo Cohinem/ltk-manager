@@ -16,6 +16,7 @@ import { useClassSchema } from "../../../classes/hooks/useClassSchema";
 import { CHILD_SET } from "../../children/childModel";
 import { DefaultProperty } from "../../inspector/components/DefaultProperty";
 import type { HeldClass } from "../../inspector/components/PrimitivePicker";
+import { SHAPE_FIELD } from "../../inspector/utils/emissionSource";
 import { defaultField } from "../../inspector/utils/emitterGroups";
 import { emitterLabel } from "../../inspector/utils/emitterLabels";
 import { PRIMITIVE_FIELD } from "../../inspector/utils/primitives";
@@ -56,6 +57,7 @@ import { EMBED_TONE, hueStyle, NodeFrame } from "./NodeFrame";
 import { PrimitiveSketch } from "./NodePreviews";
 import { useCardFollowsPick } from "./paneSync";
 import { ShapeInViewButton } from "./ShapeOverlay";
+import { ShapeLine } from "./ShapeSection";
 import { EmbedBackButton, PopOutButton } from "./SocketEmbed";
 import { ShapePreview } from "./SpawnPreview";
 import { AddItemLine } from "./StructureLines";
@@ -202,6 +204,8 @@ export function MasterLine({
   if (field.pending && field.hash === PRIMITIVE_FIELD) {
     return <PrimitiveLine label={label} holder={holder} held={null} />;
   }
+  if (field.pending && field.hash === SHAPE_FIELD)
+    return <ShapeLine label={label} holder={holder} />;
   if (field.pending && declared?.declared?.kind === "pointer") {
     return (
       <ClassLine

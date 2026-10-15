@@ -227,6 +227,23 @@ describe("classicEmitters", () => {
     );
   });
 
+  it("draws a spawn shape's fields in the Geometry node and feeds no node from it", () => {
+    const angle = valueCurve("ValueFloat", number(90), [
+      [0, number(0)],
+      [1, number(90)],
+    ]);
+    const shape = struct("VfxShapeLegacy", {
+      emitRotationAngles: list(angle, angle),
+      emitRotationAxes: list(vector(0, 1, 0), vector(1, 0, 0)),
+    });
+    const { item } = master(system(struct("VfxEmitterDefinitionData", { SpawnShape: shape })));
+    const geometry = item.geometry as RenderItem;
+
+    expect(geometry.ports).toEqual([]);
+    /* The heading, emitOffset, the rotations' header, and an axis and an angle per rotation. */
+    expect(fieldLines(geometry)).toBe(1 + 1 + 1 + 2 * 2);
+  });
+
   it("gathers the texture and render fields in a Texture node, and the primitive in Geometry", () => {
     const emitter = struct("VfxEmitterDefinitionData", {
       blendMode: number(4),

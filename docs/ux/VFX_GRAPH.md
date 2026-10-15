@@ -81,12 +81,22 @@ when the reader edits it as one unit. Deep nesting in the file does not add node
 | A material, or a struct holding one               | A node even where linked, folded to a shape preview, its lists drawn as lines | `utils/materialNodes.ts`               |
 | The texture and render fields                     | One Texture node, with erosion, distortion and `textureMult` as sections      | `utils/renderSection.ts`               |
 | The spawn shape, the primitive, their orientation | One Geometry node, the orientation rows over Spawn and Primitive sections     | `utils/renderSection.ts`               |
+| A spawn shape of a listed class                   | The inspector's spawn shape rows in the Geometry node, which feed no node     | `components/ShapeSection.tsx`          |
 | The force collection                              | A node per force, straight on the emitter rather than through the lists       | `forceTrees`                           |
 | A keyed or random `Value*`                        | A value node, embedded in its socket until popped out                         | `valueTree`, `utils/socketEmbed.ts`    |
 | A shimmer driver                                  | A node per driver, a constant or a flat curve embedded in its socket          | `driverTree` in `utils/systemGraph.ts` |
 | A file path under a struct                        | Its holder's row, with the file's picture on the holder node                  | `structTree`, `picture`                |
 | The child set                                     | One Children node, the identifier and bone lists drawn as its child lines     | `childrenTree`                         |
 | A child system                                    | A node on its line of the Children node, resolved or not                      | `childrenTree`                         |
+
+### The spawn shape draws the inspector's rows
+
+A Geometry node draws a `SpawnShape` of a class in `SHAPE_LAYOUT` with the rows of
+[the spawn shape](BIN_EDITOR.md#the-spawn-shape), one line each. Every field of the class is
+listed, a field the file leaves out at its default, and the rotation lists as one list. The
+heading's class menu lists the shape classes and Not set. A keyed offset or angle draws as its
+row's plate and gets no value node, so the node and the inspector edit the shape the same way. An
+emitter with no shape gets a line with the inspector's select once Add field adds `SpawnShape`.
 
 ### Small values draw inside the socket they feed
 
