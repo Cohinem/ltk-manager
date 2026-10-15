@@ -39,6 +39,7 @@ import {
   useForcePreviewState,
 } from "../../forces/forcePreview";
 import { useVfxSystem } from "../../hooks/useVfxSystem";
+import { type RecolorPreview, RecolorPreviewContext } from "../../recolor/recolorPreview";
 import { useAutoRig } from "./autoRigState";
 import { useEmitterFlags } from "./emitterFlags";
 
@@ -186,7 +187,9 @@ export interface VfxRunProviderProps {
  * it and starts the run over.
  */
 export function VfxRunProvider({ document, asset, entry, children }: VfxRunProviderProps) {
-  const { system: authoredSystem, error, pending } = useVfxSystem(document, entry);
+  const [hue, setHue] = useState(0);
+  const recolor = useMemo<RecolorPreview>(() => ({ hue, setHue }), [hue]);
+  const { system: authoredSystem, error, pending } = useVfxSystem(document, entry, hue);
   const forces = useForcePreviewState();
   const { project: projectForces, clear: clearForces } = forces;
   const system = useMemo(
@@ -545,7 +548,9 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 
   return (
     <ForcePreviewProvider value={forces}>
-      <VfxRunContext value={run}>{children}</VfxRunContext>
+      <RecolorPreviewContext value={recolor}>
+        <VfxRunContext value={run}>{children}</VfxRunContext>
+      </RecolorPreviewContext>
     </ForcePreviewProvider>
   );
 }

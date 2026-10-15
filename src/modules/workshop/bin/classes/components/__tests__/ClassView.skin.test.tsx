@@ -9,6 +9,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { ToastProvider } from "@/components";
 import type { AssetRef, BinRow, BinRows, BinValue, WorkshopProject } from "@/lib/tauri";
 import { useWorkshopLayoutStore } from "@/stores";
+import { landed, sentEdit } from "@/test/binEdit";
 import { commandNames } from "@/test/commandNames";
 import { mockInvoke } from "@/test/mocks/tauri";
 import { createTestQueryClient } from "@/test/utils";
@@ -25,6 +26,8 @@ const RESOLVER = "0x11223344";
 const SYSTEM = "0x99887766";
 const EFFECT_KEY = "0xaabbccdd";
 const SYSTEM_PATH = "Particles/Smolder_Base_Idle";
+const SPARK = "0x44332211";
+const SPARK_PATH = "Characters/Smolder/Skins/Skin0/Particles/Smolder_Spark";
 const GLOW_PATH = "Characters/Smolder/Skins/Skin0/Materials/Smolder_Body_Glow";
 
 const ASSET: AssetRef = {
@@ -265,10 +268,11 @@ function Providers({ children }: { children: ReactNode }) {
   );
 }
 
-function renderSkin() {
+function renderSkin(editable = false) {
   render(
     <ClassView
       document={7}
+      editable={editable}
       asset={ASSET}
       roots={ROOTS}
       classHash={SKIN}
@@ -306,6 +310,16 @@ beforeEach(() => {
         ),
       });
     }
+    if (command === commandNames.preview.vfxChildTargets) {
+      return Promise.resolve({
+        ok: true,
+        value: [
+          { entry: SYSTEM, name: SYSTEM_PATH },
+          { entry: SPARK, name: SPARK_PATH },
+        ],
+      });
+    }
+    if (command === commandNames.bin.binEdit) return landed();
     if (command === commandNames.objects.declaredObjects) {
       const hashes = (args?.objectHashes ?? []) as string[];
       const objects = Object.fromEntries(
@@ -502,6 +516,70 @@ describe("ClassView over a skin", () => {
     expect(mockInvoke.mock.calls.some(([command]) => command === commandNames.bin.binOpen)).toBe(
       false,
     );
+  });
+});
+
+describe("ClassView over an editable skin", () => {
+  /** The edit that the last `bin_edit` of `kind` carried. */
+  function lastEdit<K extends "editProperties" | "removeItem">(kind: K) {
+    const sent = mockInvoke.mock.calls
+      .map(([command, args]) => sentEdit(command, args as Record<string, unknown>, kind))
+      .filter((edit) => edit !== null);
+    return sent.at(-1);
+  }
+
+  async function pick(name: RegExp) {
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("combobox", { name: "Add effect" }));
+    const list = await screen.findByRole("listbox");
+    await user.click(await within(list).findByRole("option", { name }));
+  }
+
+  it("adds an effect and a resolver key for a system that the resolver does not map", async () => {
+    renderSkin(true);
+    await screen.findByRole("button", { name: SYSTEM_PATH });
+
+    await pick(/Smolder_Spark/);
+
+    await vi.waitFor(() => expect(lastEdit("editProperties")).toBeDefined());
+    const edit = lastEdit("editProperties");
+    expect(edit?.edits.map((each) => each.entry)).toEqual([RESOLVER, ENTRY]);
+    expect(edit?.edits[0].edits[0]).toMatchObject({ item: { key: "Smolder_Spark" } });
+    expect(edit?.edits[1].edits[0]).toMatchObject({ item: { index: 2 } });
+  });
+
+  it("adds an effect under the key that maps its system", async () => {
+    renderSkin(true);
+    await screen.findByRole("button", { name: SYSTEM_PATH });
+
+    await pick(/Smolder_Base_Idle/);
+
+    await vi.waitFor(() => expect(lastEdit("editProperties")).toBeDefined());
+    const edit = lastEdit("editProperties");
+    expect(edit?.edits.map((each) => each.entry)).toEqual([ENTRY]);
+    expect(edit?.edits[0].edits).toContainEqual({
+      type: "setLeaf",
+      path: `[2].${at("effectKey")}`,
+      value: { type: "hash", text: EFFECT_KEY },
+    });
+  });
+
+  it("removes an effect from the skin's list", async () => {
+    renderSkin(true);
+    const user = userEvent.setup();
+
+    const [remove] = await screen.findAllByRole("button", { name: "Remove effect" });
+    await user.click(remove);
+
+    await vi.waitFor(() => expect(lastEdit("removeItem")).toMatchObject({ path: EFFECT }));
+  });
+
+  it("offers no effect edit while the view is read-only", async () => {
+    renderSkin();
+
+    await screen.findByRole("button", { name: SYSTEM_PATH });
+    expect(screen.queryByRole("combobox", { name: "Add effect" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove effect" })).toBeNull();
   });
 });
 
