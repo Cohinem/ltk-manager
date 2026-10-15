@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
 import type { Champion } from "@/lib/tauri";
-import { useSettings } from "@/modules/settings";
+import { useSettings } from "@/modules/settings/api";
 
 import { type ChampionRoster, championRoster } from "../utils/roster";
 import { championQueries } from "./queries";

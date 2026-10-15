@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { m } from "@/i18n";
 import { api, type AppError, type HealthSweepReport } from "@/lib/tauri";
 import { useModHealthDrawerStore } from "@/stores";

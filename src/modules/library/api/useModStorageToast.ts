@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 
-import { type ToastTask, useToast } from "@/components";
+import { type ToastTask, useToast } from "@/components/Toast";
 import {
   type InstalledMod,
   type ModStorage,

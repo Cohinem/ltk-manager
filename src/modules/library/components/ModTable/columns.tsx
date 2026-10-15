@@ -1,5 +1,6 @@
 import { ShieldWarningIcon } from "@phosphor-icons/react";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns/format";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { type ComponentType, use } from "react";
 
 import {

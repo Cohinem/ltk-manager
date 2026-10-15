@@ -31,7 +31,7 @@ vi.mock("@/modules/library/api", () => ({
   useCheckModHealth: () => ({ mutate: checkOne, isPending: false }),
 }));
 
-vi.mock("@/modules/settings", () => ({
+vi.mock("@/modules/settings/api", () => ({
   useSettings: () => ({ data: { showModTags: true } }),
 }));
 

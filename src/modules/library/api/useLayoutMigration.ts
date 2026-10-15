@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
-import { type ToastTask, useToast } from "@/components";
+import { type ToastTask, useToast } from "@/components/Toast";
 import type { LayoutMigrationProgress, LayoutMigrationReport } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 

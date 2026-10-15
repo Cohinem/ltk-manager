@@ -2,7 +2,7 @@ import { useMemo } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
 import { computeEffectiveCategories, type EffectiveCategories } from "@/modules/library/utils";
-import { useSettings } from "@/modules/settings";
+import { useSettings } from "@/modules/settings/api";
 
 import { useAllModWadReports } from "./useModWadReport";
 

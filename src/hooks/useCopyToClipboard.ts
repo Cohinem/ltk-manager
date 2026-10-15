@@ -1,4 +1,4 @@
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 
 /** Longest value a toast shows whole. */
 const VALUE_LIMIT = 72;

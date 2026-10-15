@@ -16,7 +16,7 @@ import { useLayoutMigration } from "../useLayoutMigration";
 const task = { report: vi.fn(), close: vi.fn() };
 const toast = { toast: vi.fn(), success: vi.fn(), error: vi.fn(), task: vi.fn(() => task) };
 
-vi.mock("@/components", () => ({ useToast: () => toast }));
+vi.mock("@/components/Toast", () => ({ useToast: () => toast }));
 
 function failure(overrides?: Partial<FailedConversion>): FailedConversion {
   return {

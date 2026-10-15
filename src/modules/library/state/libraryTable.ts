@@ -4,11 +4,11 @@ import { useShallow } from "zustand/react/shallow";
 
 import {
   mergeTableLayout,
-  type RowDensity,
   TABLE_LAYOUT_KEYS,
   type TableLayoutState,
   tableLayoutSlice,
-} from "@/components";
+} from "@/components/ArrangedTable/layout";
+import type { RowDensity } from "@/components/ArrangedTable/types";
 import { keepUnversioned, localJsonStorage } from "@/stores/storage";
 
 /** A column the library table can draw, in its default order. */

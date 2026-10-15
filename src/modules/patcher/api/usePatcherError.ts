@@ -1,6 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { describeError, errorSummary, injectionStageTitle, m } from "@/i18n";
 import type { AppError } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";

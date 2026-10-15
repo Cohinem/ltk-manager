@@ -6,7 +6,7 @@ import {
   useAnalyzeUncategorizedMods,
   useInstalledMods,
 } from "@/modules/library/api";
-import { useSettings } from "@/modules/settings";
+import { useSettings } from "@/modules/settings/api";
 
 interface AnalyzeUncategorizedActionProps {
   /** Disable while the patcher is active or the library is still loading. */

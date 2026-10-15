@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 
 import { Button } from "@/components";
 import { m } from "@/i18n";

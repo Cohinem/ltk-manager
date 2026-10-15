@@ -17,7 +17,7 @@ import { useModStorageToast } from "../useModStorageToast";
 const task = { report: vi.fn(), close: vi.fn() };
 const toast = { toast: vi.fn(), success: vi.fn(), error: vi.fn(), task: vi.fn(() => task) };
 
-vi.mock("@/components", () => ({ useToast: () => toast }));
+vi.mock("@/components/Toast", () => ({ useToast: () => toast }));
 
 function mount(mods: InstalledMod[] = [createMockInstalledMod()]) {
   const queryClient = createTestQueryClient();

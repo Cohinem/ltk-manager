@@ -1,5 +1,5 @@
 import { TrashIcon } from "@phosphor-icons/react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { Bell, CircleAlert, CircleCheck, CircleX, Info, X } from "lucide-react";
 import { useEffect, useRef } from "react";
 
