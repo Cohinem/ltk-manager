@@ -3,6 +3,7 @@ import {
   CaretRightIcon,
   CodeBlockIcon,
   CopyIcon,
+  CopySimpleIcon,
   DotsThreeVerticalIcon,
   FileIcon,
   HashIcon,
@@ -76,6 +77,7 @@ import { useCopyDeclaration, useRowDeclaration } from "../hooks/useDeclared";
 import { ProjectSwitchContext } from "../state/projectSwitch";
 import { BinEditState } from "./BinEditState";
 import { DeclarationsOffNotice } from "./DeclarationsOffNotice";
+import { DuplicateObjectDialog } from "./DuplicateObjectDialog";
 import { SandboxOptions, useProjectSwitch } from "./SandboxOptions";
 
 /** The shells whose layout takes edits in place. The map's is a reader's view alone. */
@@ -183,6 +185,7 @@ function OpenObject({
   const [target, setTarget] = useState<CurveTarget | null>(null);
   /* Apart from the target, so a follow that lets go of it leaves the dock open. */
   const [aimed, setAimed] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   /* A shell with a curve pane holds the curve there (ADR-0031), so the dock is what every
      other frame and Properties get, and no tab draws the surface twice. */
   const paned = frame === "shell" && layout !== undefined && shellHoldsCurve(layout);
@@ -293,11 +296,20 @@ function OpenObject({
             document={handle.document}
             object={object}
             onShowInFile={showFile}
+            onDuplicate={handle.readOnly === null ? () => setDuplicating(true) : undefined}
             onCollapseAll={
               mode === "properties" ? () => setCollapseAllSignal((count) => count + 1) : undefined
             }
           />
         </DocumentToolbar>
+        <DuplicateObjectDialog
+          open={duplicating}
+          onClose={() => setDuplicating(false)}
+          document={handle.document}
+          asset={asset}
+          file={file}
+          object={object}
+        />
         {shelled && (
           <ShellHeaderSlot
             name="toolbar"
@@ -389,10 +401,18 @@ interface HeaderMenuProps {
   onShowInFile: (event: ReactMouseEvent) => void;
   /** Shut every folder of the properties tree, absent where the tab does not draw the tree. */
   onCollapseAll?: () => void;
+  /** Open Duplicate as new object, absent where the document takes no edit. */
+  onDuplicate?: () => void;
 }
 
 /** The header's actions, which no row underneath carries. `DS-MENU-SCOPE`, `DS-GLYPH-ROLE`. */
-function HeaderMenu({ document, object, onShowInFile, onCollapseAll }: HeaderMenuProps) {
+function HeaderMenu({
+  document,
+  object,
+  onShowInFile,
+  onCollapseAll,
+  onDuplicate,
+}: HeaderMenuProps) {
   const copy = useCopyToClipboard();
   const spelled = useRowDeclaration(document, object.entry, "");
   const copyDeclaration = useCopyDeclaration();
@@ -431,6 +451,11 @@ function HeaderMenu({ document, object, onShowInFile, onCollapseAll }: HeaderMen
           {m.workshop_references_find_class_action()}
         </Menu.Item>
         <Menu.Separator />
+        {onDuplicate !== undefined && (
+          <Menu.Item icon={<CopySimpleIcon className="size-4" />} onClick={onDuplicate}>
+            {m.workshop_bin_duplicate_object_action()}
+          </Menu.Item>
+        )}
         <Menu.Item
           icon={<PathIcon className="size-4" />}
           onClick={() => void copy(object.name, m.workshop_bin_path_label())}

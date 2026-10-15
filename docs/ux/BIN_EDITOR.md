@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-15 | Duplicate an object as a new one from its own tab                        |
 | 2026-10-15 | Create, duplicate and remove objects in a bin the project holds          |
 | 2026-10-15 | Declare an added or deleted emitter of a game bin without the whole list |
 | 2026-10-15 | Scale a system in the Adjust popover, beside the hue turn                |
@@ -847,6 +848,12 @@ scrolled to the object, and Collapse all, which shuts every folder of the proper
 disabled while the tab draws a layout. It carries Find all references, Copy class name and Copy class
 hash for the class, and Copy path and Copy hash for the object.
 Its click builds the index.
+
+In a document that takes edits, the kebab also carries Duplicate as new object. A dialog asks
+for the name, which starts as `Mods/<mod>/<the object's last segment>`. The copy lands in the same
+file as one undo step, as the file tab's own Duplicate as new object lands, and opens in its own
+tab. A name the file holds is refused under the field, and the dialog stays open. This is how a
+shipped particle system becomes a variant of the modder's own while the game's stays as it is.
 
 ### How it opens
 
