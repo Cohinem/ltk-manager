@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-15 | Draw the sprite sheet in the Texture group, and pick its frames on it    |
 | 2026-10-15 | Duplicate an object as a new one from its own tab                        |
 | 2026-10-15 | Create, duplicate and remove objects in a bin the project holds          |
 | 2026-10-15 | Declare an added or deleted emitter of a game bin without the whole list |
@@ -2426,6 +2427,23 @@ is listed only while the file holds it.
 
 **Show shape in preview turns the viewport's gizmo on and off.** The gizmo draws the open emitter's shape, and
 the handle menu's Shape size and emit offset handles edit it, per [the viewer](#the-viewer).
+
+### The sprite sheet
+
+The Texture group opens on the sprite sheet where the emitter's `texDiv` cuts its texture into more
+than one cell. The texture draws under its grid, and each cell of the run carries its place in
+play order, from `startFrame` for `numFrames` cells, wrapping past the grid's last cell. A cell
+the run does not play is dimmed.
+
+The cell that a particle born at the emitter's start draws at the playhead is outlined, at
+`frameRate` times the constant of `birthFrameRate`, so the sheet steps with the preview. An
+emitter with `isRandomStartFrame` outlines none, because each particle opens on a cell of its
+own. A line under the sheet gives the frame count, the rate, and how many runs a particle's
+lifetime plays, which is the number to read when a run cuts off or repeats.
+
+In a document that takes edits, a click on a cell writes it as `startFrame`, and a shift-click
+writes `numFrames` so the run ends on that cell. The rows under the sheet stay the way to type
+the same numbers.
 
 ### The stencil
 
