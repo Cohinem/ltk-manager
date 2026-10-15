@@ -430,12 +430,12 @@ function onlyTargetMoved(held: RigModel, next: RigModel): boolean {
   );
 }
 
-/** Returns whether two motions are the same still rig or flight, apart from the target. */
+/** Returns whether two motions are the same still rig or missile, apart from the target. */
 function sameButTarget(held: Motion, next: Motion): boolean {
   if (held.kind === "still" && next.kind === "still") return true;
-  if (held.kind !== "path" || next.kind !== "path") return false;
+  if (held.kind !== "missile" || next.kind !== "missile") return false;
 
-  return held.from === next.from && held.speed === next.speed;
+  return held.from === next.from && held.flight === next.flight;
 }
 
 interface ViewportNoticeProps {

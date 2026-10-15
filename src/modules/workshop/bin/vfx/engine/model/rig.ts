@@ -8,6 +8,15 @@
 // eslint-disable-next-line no-restricted-imports -- the chunk the comment above names
 import { CHAMPION_HEIGHT, FORWARD } from "@/modules/viewport/shared/utils/space";
 
+import {
+  type FlightTrack,
+  flightTrack,
+  type MissileFlight,
+  type MissileMovementKind,
+  trackDirectionAt,
+  trackPositionAt,
+} from "./missile";
+
 /** A motion and the lifecycle over it, which is what drives one system's origin. */
 export interface RigModel {
   readonly motion: Motion;
@@ -62,12 +71,13 @@ export type Motion =
       /** Where the beam target stands, before the rig's height, and `TARGET_REACH` along `FORWARD` where unset. */
       readonly target?: Point;
     }
-  | { readonly kind: "path"; readonly from: Point; readonly to: Point; readonly speed: number }
   | {
-      readonly kind: "orbit";
-      readonly radius: number;
-      readonly period: number;
-      readonly orientation: OrbitOrientation;
+      readonly kind: "missile";
+      /** Where the missile launches, on the ground. The rig's height lifts it. */
+      readonly from: Point;
+      /** Where it aims, on the ground: the target point, or the centre a circle turns about. */
+      readonly to: Point;
+      readonly flight: MissileFlight;
     }
   | {
       readonly kind: "bone";
@@ -89,58 +99,64 @@ export const CONTINUOUS_RUN = 60;
 /** The world's own origin, where a system that nothing moves stands. */
 const ORIGIN: Point = [0, 0, 0];
 
-/** How far a flying rig travels, in engine units. */
-const FLIGHT_RANGE = CHAMPION_HEIGHT * 6;
+/** How far a missile rig travels, and how far from its centre a circling one turns, in engine units. */
+export const FLIGHT_RANGE = CHAMPION_HEIGHT * 6;
 
-/** How fast it travels, in engine units a second. */
-const FLIGHT_SPEED = CHAMPION_HEIGHT * 8;
+/** How fast a missile rig flies, in engine units a second: the median `mSpeed` of shipped missiles. */
+export const FLIGHT_SPEED = 1800;
 
-/** How high a moving rig carries its system, where a missile or a swung weapon flies. */
+/** How high a missile rig launches its system, where a cast leaves the caster's hand. */
 export const FLIGHT_HEIGHT = CHAMPION_HEIGHT / 2;
-
-/** How wide an orbiting rig circles, and how long one revolution takes in seconds. */
-const ORBIT = { radius: CHAMPION_HEIGHT * 1.5, period: 3 } as const;
 
 /** How far ahead a rig that flies nowhere aims, in engine units. */
 const TARGET_REACH = CHAMPION_HEIGHT * 3;
 
 /**
- * A path of `distance` units across the origin at flight height, travelled at `speed`.
+ * A missile motion over `distance` units, laid out for `flight`'s movement.
  *
- * The path is centred rather than starting at the origin, so an effect that is only
- * itself in flight is on screen for the whole run.
+ * A straight or curved flight crosses the origin, so an effect that is only itself in flight
+ * is on screen for the whole run. A circle turns about the origin at `distance`.
  */
-export function flightPath(distance: number, speed: number): Motion {
-  return {
-    kind: "path",
-    from: [-distance / 2, 0, 0],
-    to: [distance / 2, 0, 0],
-    speed,
-  };
+export function missileMotion(flight: MissileFlight, distance = FLIGHT_RANGE): Motion {
+  if (circles(flight.movement.kind)) {
+    return { kind: "missile", from: [distance, 0, 0], to: [0, 0, 0], flight };
+  }
+
+  return { kind: "missile", from: [-distance / 2, 0, 0], to: [distance / 2, 0, 0], flight };
 }
 
-/**
- * The frame an orbit carries its system on: a missile's, travelling along its local `Y` as
- * Flight does, or a unit's look-at, travelling along its local `Z` as Ground faces.
- */
-export type OrbitOrientation = "missile" | "unit";
+/** Returns true if a movement of `kind` turns about its target rather than flying to it. */
+export function circles(kind: MissileMovementKind): boolean {
+  return kind === "circle" || kind === "syncCircle";
+}
 
-export const ORBIT_ORIENTATIONS: readonly OrbitOrientation[] = ["missile", "unit"];
+/** The flight a missile rig starts on: a straight line at `FLIGHT_SPEED`, pitched along its travel. */
+export const FIRST_FLIGHT: MissileFlight = {
+  movement: { kind: "fixedSpeed", speed: FLIGHT_SPEED },
+  height: null,
+  facing: "matchVelocity",
+  endAtLaunchHeight: true,
+  targetOffset: 0,
+};
 
 /** What carries a system, the half of a rig that places its origin. ADR-0057. */
-export type Carrier = "ground" | "bone" | "flight" | "orbit";
+export type Carrier = "ground" | "bone" | "missile";
 
 /** When a run starts over, the other half of a rig. */
 export type Playback = "once" | "replay" | "continuous";
 
 /** The carriers an author picks between. Bone comes only from a skin, which holds its joints. */
-export const PICKED_CARRIERS: readonly Exclude<Carrier, "bone">[] = ["ground", "flight", "orbit"];
+export const PICKED_CARRIERS: readonly Exclude<Carrier, "bone">[] = ["ground", "missile"];
 
 export const PLAYBACKS: readonly Playback[] = ["once", "replay", "continuous"];
 
 /** Where a rig came from, which the pill names. */
 export type RigSource =
-  | { readonly kind: "auto" }
+  | {
+      readonly kind: "auto";
+      /** The spell whose missile the system flies, and none for a rig picked from the system alone. */
+      readonly spell?: string | null;
+    }
   | { readonly kind: "template"; readonly name: string }
   | { readonly kind: "context"; readonly label: string }
   | { readonly kind: "custom" };
@@ -162,10 +178,8 @@ export function carrierOf(motion: Motion): Carrier {
   switch (motion.kind) {
     case "still":
       return "ground";
-    case "path":
-      return "flight";
-    case "orbit":
-      return "orbit";
+    case "missile":
+      return "missile";
     case "bone":
       return "bone";
   }
@@ -181,18 +195,8 @@ function carried(carrier: Exclude<Carrier, "bone">): Pick<RigModel, "motion" | "
   switch (carrier) {
     case "ground":
       return { motion: { kind: "still" }, height: 0 };
-    case "flight":
-      return { motion: flightPath(FLIGHT_RANGE, FLIGHT_SPEED), height: FLIGHT_HEIGHT };
-    case "orbit":
-      return {
-        motion: {
-          kind: "orbit",
-          radius: ORBIT.radius,
-          period: ORBIT.period,
-          orientation: "missile",
-        },
-        height: FLIGHT_HEIGHT,
-      };
+    case "missile":
+      return { motion: missileMotion(FIRST_FLIGHT), height: FLIGHT_HEIGHT };
   }
 }
 
@@ -224,9 +228,43 @@ export function withPlayback(rig: RigModel, playback: Playback): RigModel {
   return { ...rig, life: playback === "replay" ? "loop" : playback };
 }
 
-/** Where the origin stands `time` seconds into a run, `height` off the ground. */
+/**
+ * Where the origin stands `time` seconds into a run, `height` off the ground.
+ *
+ * A missile launches at `height` and its flight sets every height after that.
+ */
 export function originAt(motion: Motion, time: number, height = 0): Point {
+  if (motion.kind === "missile") return trackPositionAt(trackOf(motion, height), time);
   return lifted(pathAt(motion, time), height);
+}
+
+const TRACKS = new WeakMap<Motion, Map<number, FlightTrack>>();
+
+/** Returns the simulated flight of `motion` launched at `height`, made once per motion and height. */
+export function trackOf(motion: MissileMotion, height: number): FlightTrack {
+  let byHeight = TRACKS.get(motion);
+  if (byHeight === undefined) {
+    byHeight = new Map();
+    TRACKS.set(motion, byHeight);
+  }
+
+  let track = byHeight.get(height);
+  if (track === undefined) {
+    const { flight, from, to } = motion;
+    track = flightTrack({ flight, from, to, launchHeight: height });
+    byHeight.set(height, track);
+  }
+  return track;
+}
+
+/** A missile motion. */
+export type MissileMotion = Extract<Motion, { kind: "missile" }>;
+
+/** Returns where `motion`'s missile aims, at the height its flight resolves the target to. */
+function missileTarget(motion: MissileMotion, height: number): Point {
+  const { flight, to } = motion;
+  const ground = flight.endAtLaunchHeight ? height : 0;
+  return [to[0], ground + to[1] + flight.targetOffset, to[2]];
 }
 
 /** `point` raised by `height` on the up axis. */
@@ -237,23 +275,8 @@ function lifted(point: Point, height: number): Point {
 function pathAt(motion: Motion, time: number): Point {
   switch (motion.kind) {
     case "still":
+    case "missile":
       return ORIGIN;
-
-    case "path": {
-      const flight = distance(motion.from, motion.to);
-      const held = flight > 0 && motion.speed > 0 ? (time * motion.speed) / flight : 1;
-      const at = Math.min(Math.max(held, 0), 1);
-      return [
-        motion.from[0] + (motion.to[0] - motion.from[0]) * at,
-        motion.from[1] + (motion.to[1] - motion.from[1]) * at,
-        motion.from[2] + (motion.to[2] - motion.from[2]) * at,
-      ];
-    }
-
-    case "orbit": {
-      const turn = motion.period > 0 ? (time / motion.period) * Math.PI * 2 : 0;
-      return [Math.cos(turn) * motion.radius, 0, Math.sin(turn) * motion.radius];
-    }
 
     case "bone":
       return motion.anchor.originAt(time);
@@ -263,7 +286,7 @@ function pathAt(motion: Motion, time: number): Point {
 /**
  * Where the system aims `time` seconds into a run, which is what a beam reaches for.
  *
- * A path aims where it lands, an orbit aims at what it circles, and a bone at its target
+ * A missile aims at its target, which a circling one turns about, and a bone at its target
  * joint. A still rig aims at its `target` if it has one. Otherwise a still rig, and a bone
  * with no target, aim `TARGET_REACH` along [`facingAt`], so a beam has a length and runs
  * along the system's local `+Z`.
@@ -272,10 +295,8 @@ export function targetAt(motion: Motion, time: number, height = 0): Point {
   switch (motion.kind) {
     case "still":
       return lifted(motion.target ?? ahead(ORIGIN, FORWARD), height);
-    case "path":
-      return lifted(motion.to, height);
-    case "orbit":
-      return lifted(ORIGIN, height);
+    case "missile":
+      return missileTarget(motion, height);
     case "bone": {
       if (motion.target !== null) return lifted(motion.target.originAt(time), height);
       return lifted(ahead(motion.anchor.originAt(time), facingAt(motion, time)), height);
@@ -295,20 +316,15 @@ function ahead(from: Point, facing: Point): Point {
 /**
  * Which way the system faces `time` seconds into a run, a unit vector in the ground plane.
  *
- * A path faces where it is going and an orbit its own tangent, the way the engine yaws a
- * missile toward its target and a unit toward its travel. A bone faces along its joint's
- * own `+Z`. A still rig faces its `target`, and [`FORWARD`] if it has none.
+ * A missile faces along its travel, as the engine turns a missile's system. A bone faces
+ * along its joint's own `+Z`. A still rig faces its `target`, and [`FORWARD`] if it has none.
  */
-export function facingAt(motion: Motion, time: number): Point {
+export function facingAt(motion: Motion, time: number, height = 0): Point {
   switch (motion.kind) {
     case "still":
       return motion.target === undefined ? FORWARD : flat(motion.target);
-    case "path":
-      return flat(displacement(motion.from, motion.to));
-    case "orbit": {
-      const turn = motion.period > 0 ? (time / motion.period) * Math.PI * 2 : 0;
-      return flat([-Math.sin(turn), 0, Math.cos(turn)]);
-    }
+    case "missile":
+      return flat(missileDirectionAt(motion, time, height));
     case "bone": {
       const basis = motion.anchor.basisInto(time, ANCHOR_BASIS);
       return flat([basis[2], basis[5], basis[8]]);
@@ -318,9 +334,14 @@ export function facingAt(motion: Motion, time: number): Point {
 
 const ANCHOR_BASIS = new Float32Array(9);
 
-/** Returns whether `motion` has a target that the target handle moves: a still rig or a flight. */
+/** Returns the unit direction `motion`'s missile travels `time` seconds into its flight, pitch included. */
+export function missileDirectionAt(motion: MissileMotion, time: number, height: number): Point {
+  return trackDirectionAt(trackOf(motion, height), time);
+}
+
+/** Returns whether `motion` has a target that the target handle moves: a still rig or a missile. */
 export function retargetable(motion: Motion): boolean {
-  return motion.kind === "still" || motion.kind === "path";
+  return motion.kind === "still" || motion.kind === "missile";
 }
 
 /** Returns `motion` aimed at `target`, or null if `motion` is not [`retargetable`]. */
@@ -328,8 +349,8 @@ export function retargeted(motion: Motion, target: Point): Motion | null {
   switch (motion.kind) {
     case "still":
       return { kind: "still", target };
-    case "path":
-      return { ...motion, to: target };
+    case "missile":
+      return { ...motion, to: [target[0], 0, target[2]] };
     default:
       return null;
   }
@@ -348,9 +369,9 @@ export function aimedAt(point: Point, reach: number): Point | null {
   return [(point[0] / length) * reach, 0, (point[2] / length) * reach];
 }
 
-/** The motion carries its system on a missile's frame, as Flight and a missile-oriented orbit do. */
+/** The motion carries its system on a missile's frame. */
 export function fliesAsMissile(motion: Motion): boolean {
-  return motion.kind === "path" || (motion.kind === "orbit" && motion.orientation === "missile");
+  return motion.kind === "missile";
 }
 
 /** `direction` laid flat as a unit vector, and [`FORWARD`] for one with no reach in the plane. */
@@ -371,26 +392,25 @@ function flat(direction: Point): Point {
 export function phaseAt(rig: RigModel, time: number, span: number, tail = 0): number {
   if (rig.life !== "loop") return time;
 
-  const length = runLength(rig.motion, span, tail);
+  const length = runLength(rig.motion, span, tail, rig.height);
   return length > 0 ? time % length : time;
 }
 
 /**
  * How long one run lasts, which is when a looping rig starts over and what a scrub spans.
  *
- * A path ends on arrival plus `tail`, because a missile's system is stopped where the
+ * A missile ends on arrival plus `tail`, because a missile's system is stopped where the
  * missile lands and its particles play out for their linger. A bone on a clip runs one pass of
  * the clip, so a replay lands on the frame it fired on. Every other motion runs for
- * as long as the system itself takes to play out, and so does a path that arrives the
- * moment it sets off, which would otherwise be a run of no length that a looping rig
- * restarts on every step.
+ * as long as the system itself takes to play out, and so does a missile that never arrives,
+ * or that arrives the moment it sets off and would otherwise be a run of no length that a
+ * looping rig restarts on every step.
  */
-export function runLength(motion: Motion, span: number, tail = 0): number {
-  if (motion.kind === "path") {
-    const flight = flightTime(motion);
+export function runLength(motion: Motion, span: number, tail = 0, height = 0): number {
+  if (motion.kind === "missile") {
+    const flight = flightTime(motion, height);
     return flight > 0 ? flight + tail : span;
   }
-  if (motion.kind === "orbit") return Math.max(motion.period, span);
   if (motion.kind === "bone" && motion.period != null && motion.period > 0) return motion.period;
 
   return span;
@@ -401,19 +421,19 @@ export function runLength(motion: Motion, span: number, tail = 0): number {
  * run the whole of [`CONTINUOUS_RUN`], since it never starts over.
  */
 export function runSpan(rig: RigModel, span: number, tail = 0): number {
-  const length = runLength(rig.motion, span, tail);
+  const length = runLength(rig.motion, span, tail, rig.height);
   return rig.life === "continuous" ? Math.max(length, CONTINUOUS_RUN) : length;
 }
 
-/** How long a path takes to fly, and zero for one that never moves. */
-export function flightTime(motion: Motion): number {
-  if (motion.kind !== "path" || motion.speed <= 0) return 0;
-  return distance(motion.from, motion.to) / motion.speed;
+/** How long a missile takes to arrive, and zero for a motion that never arrives. */
+export function flightTime(motion: Motion, height = 0): number {
+  if (motion.kind !== "missile") return 0;
+  return trackOf(motion, height).arrival ?? 0;
 }
 
-/** The path has arrived `time` seconds into its run, which is where the engine stops a missile. */
-export function landed(motion: Motion, time: number): boolean {
-  const flight = flightTime(motion);
+/** The missile has arrived `time` seconds into its run, which is where the engine stops it. */
+export function landed(motion: Motion, time: number, height = 0): boolean {
+  const flight = flightTime(motion, height);
   return flight > 0 && time >= flight;
 }
 

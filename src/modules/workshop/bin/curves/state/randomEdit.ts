@@ -1,52 +1,53 @@
-import { createContext, use, useMemo } from "react";
+import { createContext, use, useMemo, useState } from "react";
 
 import type { BinRow } from "@/lib/tauri";
 
 import type { LeafEdit } from "../../tree/hooks/useLeafEdit";
 import { CURVE_DYNAMICS } from "../utils/curveEdits";
-import { type ChannelDraw, type RandomDraw, sameDraw } from "../utils/randomDraw";
+import { type ChannelDraw, drawGroups, type RandomDraw } from "../utils/randomDraw";
 import { tableEdits, type TableKey } from "../utils/randomEdits";
 
 /** What a lane or a readout row writes its channel's table through. */
 export interface RandomEdit {
-  /** Write `keys` over the table of `channel` and of every channel it reaches. */
+  /** Writes `keys` over the table of `channel`, and over the tables of its group if `linked`. */
   readonly write: (channel: ChannelDraw, keys: readonly TableKey[]) => void;
-  /** The channels an edit of `channel` writes: itself, and those linked to it. */
-  readonly reach: (channel: ChannelDraw) => readonly number[];
+  /** `true` if the channels that draw one table share one row and one edit. */
+  readonly linked: boolean;
+  readonly setLinked: (linked: boolean) => void;
 }
 
 export const RandomEditContext = createContext<RandomEdit | null>(null);
 
-/** The table editor of the reading, and null where the value cannot be written. */
+/** Returns the table editor of the reading, or null if the value cannot be written. */
 export function useRandomEdit(): RandomEdit | null {
   return use(RandomEditContext);
 }
 
 /**
- * The editor for `draw` on `row`, and null where nothing may be written or the set is one
- * the game cannot read. Under `linked`, channels drawing one table over one base move
- * together, which is how a uniform scale stays uniform.
+ * Returns the editor for `draw` on `row`. Channels start linked, so an edit of a uniform scale
+ * keeps it uniform.
+ *
+ * Returns null if nothing may be written or the game cannot read the tables.
  */
 export function useRandomEditor(
   edit: LeafEdit | null,
   row: BinRow,
   draw: RandomDraw | null,
-  linked: boolean,
 ): RandomEdit | null {
+  const [linked, setLinked] = useState(true);
+
   return useMemo(() => {
     const editProperty = edit?.editProperty;
     if (editProperty === undefined || draw === null || draw.broken) return null;
 
-    const reached = (channel: ChannelDraw) =>
-      draw.channels.filter(
-        (each) =>
-          each.channel === channel.channel ||
-          (linked && each.table !== null && sameDraw(each, channel)),
-      );
+    const groups = drawGroups(draw);
+    const written = (channel: ChannelDraw) =>
+      linked ? (groups.find((group) => group.includes(channel)) ?? [channel]) : [channel];
     return {
-      reach: (channel) => reached(channel).map((each) => each.channel),
+      linked,
+      setLinked,
       write: (channel, keys) => {
-        const edits = reached(channel).map((each) =>
+        const edits = written(channel).map((each) =>
           tableEdits(each.channel, each.table?.keys.length ?? 0, keys),
         );
         if (edits.some((each) => each === null)) return;

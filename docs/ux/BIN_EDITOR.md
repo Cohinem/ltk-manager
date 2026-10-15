@@ -1969,25 +1969,31 @@ face stands the camera on its axis, picking Side, Top or Front. Picked again whi
 already stands there, it turns the camera to the axis's other end, on Orbit.
 
 **The rig pill** names the carrier beside an icon of its motion, and where the rig came from:
-Auto, Custom, a template's name or the context it was opened from (ADR-0057). Its popover says the
-same in a line, with Reset to auto beside it for a rig that is not the system's own. Under it are
-the carrier (Ground, Flight and Orbit, and Bone while a skin's joint carries the run), the
-playback (Once, Replay and Continuous), the height, the motion's sliders and an orbit's
-Orientation, the stop, and the seed
-with its reroll.
+Auto, the spell whose missile the system is, Custom, a template's name or the context it was opened
+from (ADR-0057, ADR-0065). Its popover says the same in a line, with Reset to auto beside it for a
+rig that is not the system's own. Under it are the carrier (Ground and Missile, and Bone while a
+skin's joint carries the run), the playback (Once, Replay and Continuous), the height, the
+missile's fields, the stop, the flex channels, and the seed with its reroll.
 
-**The system picks its own rig.** A system with an emitter that has no `lifetime` plays
-Continuous, and any other Replays. A system with a trail Orbits, and any other stands on the
-Ground. Ground stands at zero, and Flight and Orbit fly at half a champion's height. A switch of
+**A Missile rig names the spec it stands for.** Its menu picks the movement class, the class's own
+fields follow it, then the distance, the height solver and its fields, the vertical facing,
+Land at launch height (`mUseHeightOffsetAtEnd`) and the target height offset. A circle turns
+about the origin at the distance, and every other movement crosses it. The height is the launch
+height, and the flight sets every height after it.
+
+**The system picks its own rig.** A system that a spell of its character fires as its missile flies
+that spell's missile and Replays, and the pill names the spell. Otherwise a system with a trail
+flies a straight missile and Replays, a system with an emitter that has no `lifetime` plays
+Continuous on the Ground, and any other Replays on the Ground. Ground stands at zero, and a missile
+launches at half a champion's height. A switch of
 carrier keeps the playback, the stop and a height the author tuned. An edit that changes the rig
 the system picks takes effect when the run next starts over, never under the author. A
 Continuous run lasts the minute a seek reaches and never starts over, so a stop shows the
 linger.
 
-**Orbit flies as a missile unless told otherwise.** A missile's effect is authored travelling
-along its own `Y`, so Orbit carries the system on the frame Flight does and the trail lies along
-the circle. Its Orientation picks Unit for a system a champion carries, such as a dash, which
-travels along its own `Z` as it does on the Ground.
+**A missile faces along its travel.** A missile's effect is authored travelling along its own
+`Y`, so the system's local `Y` follows the 3D travel and its local `Z` points up, and the vertical
+facing decides whether the travel pitches.
 
 **Open effect carries the rig a view built.** The spell's Missile pane opens its projectile
 effect on the spell's own flight, and its hit effect on the ground. The skin preview's Open
@@ -2067,6 +2073,12 @@ emitter's crumb segment and a card's name open the emitter, and a card's chip an
 menu scroll to a group and leave the rest drawn, so a reader holding Birth against Scale keeps
 both. A section reads its curves as it scrolls into view, and a folded section reads none. The read
 is bounded by what is on screen, per [what a layout reads](#what-a-layout-reads).
+
+**A keyed or randomised value draws as its socket does.** The row of a value that has keys or a
+probability table takes the row the emitter node draws in that value's socket, in the value's hue:
+its curve, colour band or key summary as a strip that opens it in the curve pane, then its mode
+toggle. A child system's values draw as plain rows, because the run's graph holds the opened
+system alone.
 
 ```
 INSPECTOR  Orb [0] / Birth v          Chance 0.55
@@ -2762,7 +2774,7 @@ Z  0  fixed                  |  -----------|-----------
 
 - one lane per channel, on its own scale with round ticks and 0 marked where it falls inside, so
   Y at 10 gets the width X at 55 does
-- one row per channel, read left to right: the channel, the range's least, the lane, the range's
+- one row per channel or group of channels, read left to right: the names, the range's least, the lane, the range's
   most with the unit, and the shape switch. A pane too narrow to give the lane room takes each channel on
   two lines, the fields and then the lane across the whole width, a fixed channel's included, so
   every row keeps one shape
@@ -2786,9 +2798,10 @@ table and is one undo step:
 - three icons under the label switch the shape, their names on hover: fixed, uniform and split.
   A fixed channel opens a quarter either side of its factor, and a split takes the sizes of the
   range it came from. A custom table keeps its keys and names itself beside them
-- channels drawing one table over one base are linked, marked with a link icon, and an edit of
-  one writes each, so a uniform scale stays uniform. The toolbar's link button edits each channel
-  alone
+- channels that draw one table over one base share one row, named by every channel, such as
+  `XYZ`. An edit of the row writes each channel, so a uniform scale stays uniform. The row's
+  unlink button gives each channel its own row until the value closes, and the first of those
+  rows carries the button that joins them again
 - a set of fixed tables still draws its lanes, so every channel offers its shapes
 - a curve writing no tables gets **Add random** on the toolbar, a fixed table per channel
 

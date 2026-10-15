@@ -32,7 +32,6 @@ import { embeddedLists, embeddedValues, embedsList } from "../utils/socketEmbed"
 import { PendingChildrenLine } from "./ChildLines";
 import { ClassAction } from "./ClassAction";
 import { EmitterRunToggles, useRunPresence } from "./EmitterRunToggles";
-import { EmitterToggle } from "./EmitterToggle";
 import {
   ClassLine,
   EntryLines,
@@ -98,7 +97,6 @@ export function MasterNodeView({ data, selected }: NodeProps<MasterFlowNode>) {
           <>
             <EmitterAdd item={item} />
             <EmitterRunToggles presence={presence} />
-            <EmitterToggle wire={item.wire} disabled={item.disabled} />
           </>
         }
       />

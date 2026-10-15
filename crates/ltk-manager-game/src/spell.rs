@@ -10,8 +10,10 @@ use ltk_manager_bin::bin_document::{
 };
 
 mod catalog;
+mod missiles;
 
 pub use catalog::{CharacterSpell, SpellCatalog, character_spells};
+pub use missiles::{MissileSpell, missile_spells};
 
 /// A field the isolated preview cannot evaluate.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -35,19 +37,127 @@ pub enum SpellIssueKind {
     Unsupported,
 }
 
-/// The movement class and its written speed or duration.
+/// The movement class and its written fields, each absent where the spell omits it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum MissileMovement {
-    /// Constant speed in engine units per second.
+    /// `FixedSpeedMovement`: constant speed in engine units per second.
     FixedSpeed { speed: Option<f32> },
-    /// A fixed travel duration in seconds.
+    /// `FixedTimeMovement`: a fixed travel duration in seconds.
     FixedTime { duration: Option<f32> },
+    /// `AcceleratingMovement`: a speed that changes by `acceleration` within its clamps.
+    #[serde(rename_all = "camelCase")]
+    Accelerating {
+        initial_speed: Option<f32>,
+        acceleration: Option<f32>,
+        min_speed: Option<f32>,
+        max_speed: Option<f32>,
+    },
+    /// `DecelToLocationMovement`: the accelerating fields, braking to stop on the target.
+    #[serde(rename_all = "camelCase")]
+    DecelToLocation {
+        initial_speed: Option<f32>,
+        acceleration: Option<f32>,
+        min_speed: Option<f32>,
+        max_speed: Option<f32>,
+    },
+    /// `FixedSpeedSplineMovement`: a Hermite curve travelled at a constant speed.
+    FixedSpeedSpline {
+        speed: Option<f32>,
+        spline: Option<MissileSpline>,
+    },
+    /// `FixedTimeSplineMovement`: a Hermite curve travelled in a fixed duration.
+    FixedTimeSpline {
+        duration: Option<f32>,
+        spline: Option<MissileSpline>,
+    },
+    /// `PhysicsMovement`: a launch speed that drag slows for `lifetime` seconds.
+    #[serde(rename_all = "camelCase")]
+    Physics {
+        initial_speed: Option<f32>,
+        drag: Option<f32>,
+        lifetime: Option<f32>,
+    },
+    /// `CircleMovement`: a circle about the target that turns and widens.
+    #[serde(rename_all = "camelCase")]
+    Circle {
+        angular_velocity: Option<f32>,
+        linear_velocity: Option<f32>,
+        radial_velocity: Option<f32>,
+        lifetime: Option<f32>,
+    },
+    /// `SyncCircleMovement`: a circle whose angle follows the time since the cast.
+    #[serde(rename_all = "camelCase")]
+    SyncCircle {
+        angular_velocity: Option<f32>,
+        lifetime: Option<f32>,
+        axis: Option<u8>,
+    },
     /// A class whose trajectory is not implemented.
     Unsupported { class_hash: String },
     /// No movement component was written.
     Missing,
+}
+
+/// A spline movement's `HermiteSplineInfo`, with omitted values kept absent.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct MissileSpline {
+    /// `mStartPositionOffset`, in the frame that faces the target.
+    pub start_offset: Option<[f32; 3]>,
+    /// `mControlPoint1`, the start tangent as a share of the travel distance.
+    pub control1: Option<[f32; 3]>,
+    /// `mControlPoint2`, the end tangent as a share of the travel distance.
+    pub control2: Option<[f32; 3]>,
+    /// `mUseMissilePositionAsOrigin`.
+    pub from_missile: Option<bool>,
+}
+
+/// The missile's `heightSolver`, which replaces the height that the movement gives.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum MissileHeight {
+    /// `BlendedLinearHeightSolver`.
+    BlendedLinear,
+    /// `GravityHeightSolver`: an arc under `gravity` in units per second squared.
+    Gravity { gravity: Option<f32> },
+    /// `FollowTerrainHeightSolver`: a height above the ground.
+    #[serde(rename_all = "camelCase")]
+    FollowTerrain {
+        height_offset: Option<f32>,
+        max_slope: Option<f32>,
+    },
+    /// `SinusoidalHeightSolver`: a wave over the straight line.
+    #[serde(rename_all = "camelCase")]
+    Sinusoidal {
+        amplitude: Option<f32>,
+        periods: Option<f32>,
+        vertical_offset: Option<f32>,
+        phase: Option<f32>,
+    },
+    /// `CurveTheDifferenceHeightSolver`.
+    #[serde(rename_all = "camelCase")]
+    CurveTheDifference {
+        initial_target_height_offset: Option<f32>,
+    },
+    /// A class whose height is not implemented.
+    Unsupported { class_hash: String },
+}
+
+/// The missile's `verticalFacing`, which sets how it pitches.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum MissileFacing {
+    /// `VeritcalFacingMatchVelocity`: the missile pitches along its travel.
+    MatchVelocity,
+    /// `VerticalFacingFaceTarget`: the missile pitches toward its target.
+    FaceTarget,
+    /// A class whose facing is not implemented.
+    Unsupported { class_hash: String },
 }
 
 /// A missile's written placement inputs, with omitted values kept absent.
@@ -67,6 +177,12 @@ pub struct MissileSpec {
     pub target_height: Option<f32>,
     /// The initial target-height offset.
     pub initial_target_height: Option<f32>,
+    /// `mUseHeightOffsetAtEnd`.
+    pub height_offset_at_end: Option<bool>,
+    /// The height solver, absent where the spec writes none.
+    pub height: Option<MissileHeight>,
+    /// The vertical facing, absent where the spec writes none.
+    pub facing: Option<MissileFacing>,
 }
 
 /// The spell's missile and flight-effect references before skin resolution.
@@ -314,6 +430,32 @@ impl Read {
         }
     }
 
+    fn vector(&mut self, fields: &Fields, name: &str, parent: &str) -> Option<[f32; 3]> {
+        match fields.get(&h(name)) {
+            None => None,
+            Some(value) => match leaf(Some(value)) {
+                Some(Leaf::Vector3(value)) if value.is_finite() => Some(value.to_array()),
+                _ => {
+                    self.issue(&format!("{parent}.{name}"), SpellIssueKind::Invalid);
+                    None
+                }
+            },
+        }
+    }
+
+    fn byte(&mut self, fields: &Fields, name: &str, parent: &str) -> Option<u8> {
+        match fields.get(&h(name)) {
+            None => None,
+            Some(value) => match leaf(Some(value)) {
+                Some(Leaf::U8(value)) => Some(value),
+                _ => {
+                    self.issue(&format!("{parent}.{name}"), SpellIssueKind::Invalid);
+                    None
+                }
+            },
+        }
+    }
+
     fn missile(&mut self, fields: &Fields) -> MissileSpec {
         const ROOT: &str = "mSpell.mMissileSpec";
         const MOVEMENT: &str = "mSpell.mMissileSpec.movementComponent";
@@ -321,8 +463,6 @@ impl Read {
             fields,
             ROOT,
             &[
-                "heightSolver",
-                "verticalFacing",
                 "behaviors",
                 "missileGroupSpawners",
                 "visibilityComponent",
@@ -337,34 +477,25 @@ impl Read {
             target_bone: None,
             target_height: None,
             initial_target_height: None,
+            height_offset_at_end: None,
+            height: self.height(fields),
+            facing: self.facing(fields),
         };
         if let Some((class, fields)) = movement {
-            spec.movement = if class == h("FixedSpeedMovement") {
-                MissileMovement::FixedSpeed {
-                    speed: self.number(fields, "mSpeed", MOVEMENT),
-                }
-            } else if class == h("FixedTimeMovement") {
-                MissileMovement::FixedTime {
-                    duration: self.number(fields, "mTravelTime", MOVEMENT),
-                }
-            } else {
-                MissileMovement::Unsupported {
-                    class_hash: hex(class),
-                }
-            };
+            spec.movement = self.movement(class, fields);
             spec.start_delay = self.number(fields, "mStartDelay", MOVEMENT);
             spec.start_bone = self.string(fields, "mStartBoneName", MOVEMENT);
             spec.target_bone = self.string(fields, "mTargetBoneName", MOVEMENT);
             spec.target_height = self.number(fields, "mTargetHeightAugment", MOVEMENT);
             spec.initial_target_height =
                 self.number(fields, "mOffsetInitialTargetHeight", MOVEMENT);
+            spec.height_offset_at_end = self.boolean(fields, "mUseHeightOffsetAtEnd", MOVEMENT);
             self.unhandled(
                 fields,
                 MOVEMENT,
                 &[
                     "mStartBoneSkinOverrides",
                     "mTracksTarget",
-                    "mUseHeightOffsetAtEnd",
                     "mVisualsTrackHiddenTargets",
                     "AddBonusAttackRangeToCastRange",
                     "mInferDirectionFromFacingIfNeeded",
@@ -374,6 +505,132 @@ impl Read {
             );
         }
         spec
+    }
+
+    fn movement(&mut self, class: BinHash, fields: &Fields) -> MissileMovement {
+        const MOVEMENT: &str = "mSpell.mMissileSpec.movementComponent";
+        let mut number = |name| self.number(fields, name, MOVEMENT);
+
+        if class == h("FixedSpeedMovement") {
+            MissileMovement::FixedSpeed {
+                speed: number("mSpeed"),
+            }
+        } else if class == h("FixedTimeMovement") {
+            MissileMovement::FixedTime {
+                duration: number("mTravelTime"),
+            }
+        } else if class == h("AcceleratingMovement") {
+            MissileMovement::Accelerating {
+                initial_speed: number("mInitialSpeed"),
+                acceleration: number("mAcceleration"),
+                min_speed: number("mMinSpeed"),
+                max_speed: number("mMaxSpeed"),
+            }
+        } else if class == h("DecelToLocationMovement") {
+            MissileMovement::DecelToLocation {
+                initial_speed: number("mInitialSpeed"),
+                acceleration: number("mAcceleration"),
+                min_speed: number("mMinSpeed"),
+                max_speed: number("mMaxSpeed"),
+            }
+        } else if class == h("FixedSpeedSplineMovement") {
+            let speed = number("mSpeed");
+            MissileMovement::FixedSpeedSpline {
+                speed,
+                spline: self.spline(fields),
+            }
+        } else if class == h("FixedTimeSplineMovement") {
+            let duration = number("mTravelTime");
+            MissileMovement::FixedTimeSpline {
+                duration,
+                spline: self.spline(fields),
+            }
+        } else if class == h("PhysicsMovement") {
+            MissileMovement::Physics {
+                initial_speed: number("mInitialSpeed"),
+                drag: number("mDrag"),
+                lifetime: number("mLifetime"),
+            }
+        } else if class == h("CircleMovement") {
+            MissileMovement::Circle {
+                angular_velocity: number("mAngularVelocity"),
+                linear_velocity: number("mLinearVelocity"),
+                radial_velocity: number("mRadialVelocity"),
+                lifetime: number("mLifetime"),
+            }
+        } else if class == h("SyncCircleMovement") {
+            let (angular_velocity, lifetime) = (number("mAngularVelocity"), number("mLifetime"));
+            MissileMovement::SyncCircle {
+                angular_velocity,
+                lifetime,
+                axis: self.byte(fields, "mAxisOfRotation", MOVEMENT),
+            }
+        } else {
+            MissileMovement::Unsupported {
+                class_hash: hex(class),
+            }
+        }
+    }
+
+    fn spline(&mut self, fields: &Fields) -> Option<MissileSpline> {
+        const SPLINE: &str = "mSpell.mMissileSpec.movementComponent.mSplineInfo";
+        let (_, info) = self.pointer(fields, "mSplineInfo", SPLINE, Some("HermiteSplineInfo"))?;
+
+        Some(MissileSpline {
+            start_offset: self.vector(info, "mStartPositionOffset", SPLINE),
+            control1: self.vector(info, "mControlPoint1", SPLINE),
+            control2: self.vector(info, "mControlPoint2", SPLINE),
+            from_missile: self.boolean(info, "mUseMissilePositionAsOrigin", SPLINE),
+        })
+    }
+
+    fn height(&mut self, fields: &Fields) -> Option<MissileHeight> {
+        const HEIGHT: &str = "mSpell.mMissileSpec.heightSolver";
+        let (class, fields) = self.pointer(fields, "heightSolver", HEIGHT, None)?;
+        let mut number = |name| self.number(fields, name, HEIGHT);
+
+        Some(if class == h("BlendedLinearHeightSolver") {
+            MissileHeight::BlendedLinear
+        } else if class == h("GravityHeightSolver") {
+            MissileHeight::Gravity {
+                gravity: number("mGravity"),
+            }
+        } else if class == h("FollowTerrainHeightSolver") {
+            MissileHeight::FollowTerrain {
+                height_offset: number("mHeightOffset"),
+                max_slope: number("mMaxSlope"),
+            }
+        } else if class == h("SinusoidalHeightSolver") {
+            MissileHeight::Sinusoidal {
+                amplitude: number("mAmplitude"),
+                periods: number("mNumberOfPeriods"),
+                vertical_offset: number("mVerticalOffset"),
+                phase: number("PhaseShift"),
+            }
+        } else if class == h("CurveTheDifferenceHeightSolver") {
+            MissileHeight::CurveTheDifference {
+                initial_target_height_offset: number("mInitialTargetHeightOffset"),
+            }
+        } else {
+            MissileHeight::Unsupported {
+                class_hash: hex(class),
+            }
+        })
+    }
+
+    fn facing(&mut self, fields: &Fields) -> Option<MissileFacing> {
+        const FACING: &str = "mSpell.mMissileSpec.verticalFacing";
+        let (class, _) = self.pointer(fields, "verticalFacing", FACING, None)?;
+
+        Some(if class == h("VeritcalFacingMatchVelocity") {
+            MissileFacing::MatchVelocity
+        } else if class == h("VerticalFacingFaceTarget") {
+            MissileFacing::FaceTarget
+        } else {
+            MissileFacing::Unsupported {
+                class_hash: hex(class),
+            }
+        })
     }
 }
 

@@ -62,9 +62,6 @@ export function CurveKeyEditor({
         <span className="shrink-0 font-medium text-surface-300">
           {m.workshop_bin_curve_selected_count_label({ count: selected.length })}
         </span>
-        <span className="truncate text-surface-500">
-          {m.workshop_bin_curve_multi_selection_hint()}
-        </span>
         {hint}
       </div>
     );
@@ -125,7 +122,7 @@ export function CurveKeyEditor({
     <div data-ui="CurveKeyEditor" className={STRIP}>
       <KeyField
         label={m.workshop_bin_curve_time_short_label()}
-        hint={`${m.workshop_bin_curve_lifetime_label()}: ${m.workshop_bin_curve_lifetime_hint()}`}
+        hint={m.workshop_bin_curve_lifetime_label()}
       >
         <StepperField
           className={FIELD}
@@ -186,8 +183,8 @@ export function CurveKeyEditor({
   );
 }
 
-/** The canvas's gestures, behind a mark at the strip's end rather than a line under the plot. */
-function GestureHint() {
+/** The plot's gestures, behind a mark rather than a line under the plot. */
+export function GestureHint() {
   return (
     <Tooltip content={m.workshop_bin_curve_graph_edit_hint()}>
       <span

@@ -167,7 +167,20 @@ describe("flightInto", () => {
   it("trades the forward yaw's y and z and turns x about, and flies forward with no reach", () => {
     const forward = [-1, 0, 0, 0, 0, 1, 0, 1, 0];
     expect(rounded(flightInto([0, 0, 1], new Float32Array(9)))).toEqual(forward);
-    expect(rounded(flightInto([0, 1, 0], new Float32Array(9)))).toEqual(forward);
+    expect(rounded(flightInto([0, 0, 0], new Float32Array(9)))).toEqual(forward);
+  });
+
+  it("returns the identity if the direction points straight up", () => {
+    expect(rounded(flightInto([0, 2, 0], new Float32Array(9)))).toEqual([
+      1, 0, 0, 0, 1, 0, 0, 0, 1,
+    ]);
+  });
+
+  it("pitches local Y along a climbing direction and keeps local X level", () => {
+    const [xx, yx, , xy, yy, , xz, yz] = rounded(flightInto([0, 1, 1], new Float32Array(9)));
+
+    expect([xx, xy, xz]).toEqual([-1, 0, 0]);
+    expect([yx, yy, yz].map((value) => Math.round(value * 1000) / 1000)).toEqual([0, 0.707, 0.707]);
   });
 });
 

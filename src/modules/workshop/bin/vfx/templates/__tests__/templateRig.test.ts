@@ -15,8 +15,21 @@ describe("templateRig", () => {
   it("flies a flight template at the speed it was tuned on", () => {
     const rig = templateRig({ carrier: "flight", playback: "replay", speed: 1200 });
 
-    expect(rig.motion).toMatchObject({ kind: "path", speed: 1200 });
+    expect(rig.motion).toMatchObject({
+      kind: "missile",
+      flight: { movement: { kind: "fixedSpeed", speed: 1200 } },
+    });
     expect(rig.height).toBe(FLIGHT_HEIGHT);
     expect(rig.life).toBe("loop");
+  });
+
+  it("turns an orbit template on a circle about the origin", () => {
+    const rig = templateRig({ carrier: "orbit", playback: "replay", speed: null });
+
+    expect(rig.motion).toMatchObject({
+      kind: "missile",
+      to: [0, 0, 0],
+      flight: { movement: { kind: "circle", lifetime: 0 } },
+    });
   });
 });

@@ -217,11 +217,52 @@ export function sameDraw(a: ChannelDraw, b: ChannelDraw): boolean {
   });
 }
 
-/** Two channels of `draw` hold one table over one base, so an edit can move them together. */
-export function linkable(draw: RandomDraw): boolean {
-  return draw.channels.some((a) =>
-    draw.channels.some((b) => a !== b && a.table !== null && sameDraw(a, b)),
-  );
+/** Returns the channels of `draw` in groups, where the channels of a group draw one table over one base. */
+export function drawGroups(draw: RandomDraw): ChannelDraw[][] {
+  const groups: ChannelDraw[][] = [];
+  for (const channel of draw.channels) {
+    const group = groups.find((each) => sameDraw(each[0] ?? channel, channel));
+    if (group === undefined) {
+      groups.push([channel]);
+    } else {
+      group.push(channel);
+    }
+  }
+  return groups;
+}
+
+/** One row of the random reading: the channels that it reads and writes. */
+export interface DrawRow {
+  /** The channel that the row reads. */
+  readonly channel: ChannelDraw;
+  /** Every shown channel of the row, `channel` first. */
+  readonly channels: readonly ChannelDraw[];
+  /** The channels that draw the same table as the row, if the row holds the link toggle. Else empty. */
+  readonly shared: readonly number[];
+}
+
+/**
+ * Returns the rows of `draw` without the `muted` channels.
+ *
+ * If `linked`, the channels of a group share one row. Otherwise each channel has a row, and the
+ * first row of a group holds the link toggle.
+ */
+export function drawRows(draw: RandomDraw, linked: boolean, muted: ReadonlySet<number>): DrawRow[] {
+  const rows: DrawRow[] = [];
+  for (const group of drawGroups(draw)) {
+    const shown = group.filter((each) => !muted.has(each.channel));
+    const shared = group.length > 1 ? group.map((each) => each.channel) : [];
+    const [first] = shown;
+    if (linked) {
+      if (first !== undefined) rows.push({ channel: first, channels: shown, shared });
+      continue;
+    }
+
+    shown.forEach((channel, at) =>
+      rows.push({ channel, channels: [channel], shared: at === 0 ? shared : [] }),
+    );
+  }
+  return rows.sort((a, b) => a.channel.channel - b.channel.channel);
 }
 
 /** The span a channel's draws land in: its results where the base holds still, else its factors. */

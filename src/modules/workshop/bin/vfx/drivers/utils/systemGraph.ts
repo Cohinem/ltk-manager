@@ -8,7 +8,7 @@ import { readDriver } from "../../engine/drivers/readDriver";
 import { driverClass, graphRootKind } from "../../engine/drivers/registry";
 import { field, flag, text } from "../../engine/parsing/readValue";
 import { classicEmitters, hex, materialTree, NO_PENDING, type PendingFields } from "./emitterGraph";
-import type { ComponentLine, GraphItem, GraphTree, LeafTarget } from "./graphItems";
+import type { ComponentLine, GraphItem, GraphTree, LeafTarget, ValueItem } from "./graphItems";
 import { holdsMaterial } from "./materialNodes";
 
 export type {
@@ -365,4 +365,16 @@ function materialClass(value: Extract<VfxValue, { type: "struct" }>): string {
   const inner = value.fields.find(({ value: held }) => held.type === "struct")?.value;
   const held = inner?.type === "struct" && value.fields.length === 1 ? inner : value;
   return held.class ?? held.classHash;
+}
+
+/** Returns every value item of `tree`, by the hash path of the row it stands for. */
+export function valueItemsByPath(tree: GraphTree | null): ReadonlyMap<string, ValueItem> {
+  const found = new Map<string, ValueItem>();
+  const visit = (node: GraphTree) => {
+    if (node.item.type === "value") found.set(node.item.wire, node.item);
+    for (const input of node.inputs) visit(input.tree);
+  };
+
+  if (tree !== null) visit(tree);
+  return found;
 }

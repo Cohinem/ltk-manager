@@ -1,4 +1,4 @@
-import { LINGER_TYPE } from "../../engine/model/enums";
+import { LINGER_TYPE, QUAD_TYPE } from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
 import { lingerSeconds } from "../../engine/model/systemModel";
 import { bornSimple, bornUv } from "../../engine/simulation/emit";
@@ -163,6 +163,20 @@ function born(emitter: EmitterModel, chance: number, lifetime: number): void {
  *
  * The box is `width` by `height`, and a quad with no extent on either axis fits as a square.
  */
+/**
+ * Returns the width and the height of `emitter`'s texture on its particle, from the particle's
+ * `scale`.
+ *
+ * A camera quad lays the texture's `u` along its `x` and its `v` along its `y`. An arbitrary
+ * quad turns it a quarter, `u` along its `y` and `v` along its `x` (`ARBITRARY_UV`), so the
+ * texture stands upright only with the two sides swapped.
+ */
+export function surfaceSides(emitter: EmitterModel, scale: Float32Array): [number, number] {
+  const across = scale[0] ?? 0;
+  const up = scale[1] ?? 0;
+  return emitter.quadType === QUAD_TYPE.arbitraryQuad ? [up, across] : [across, up];
+}
+
 export function fitInto(
   across: number,
   up: number,

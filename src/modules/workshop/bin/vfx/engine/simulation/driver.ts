@@ -4,8 +4,8 @@ import {
   facingAt,
   FIRST_RIG,
   flightTime,
-  fliesAsMissile,
   landed,
+  missileDirectionAt,
   type Motion,
   originAt,
   phaseAt,
@@ -214,6 +214,13 @@ export interface Driver extends Source {
    */
   seek(time: number): void;
   restart(): void;
+  /**
+   * Starts the run over at zero on `seed`.
+   *
+   * The driver stays the same object, so the components that draw from it keep their props
+   * and nothing remounts.
+   */
+  reseed(seed: number): void;
   /** Read every birth's tables at `chance` from here on, and at its own draw again for null. */
   pin(chance: number | null): void;
   setSurfaces(surfaces: EmissionSurfaces): void;
@@ -275,16 +282,17 @@ export interface DriverOptions {
  * where the rig has the system: it is a factor of each particle's own matrix.
  */
 export function createDriver(
-  seed: number,
+  firstSeed: number,
   { capacity = POOL_CAP, seekable = true }: DriverOptions = {},
 ): Driver {
+  let seed = firstSeed;
   const lineage = createLineage(seed);
   const pool = createPool(capacity, lineage.flex);
   let stepper: Stepper = stepperFor(DEFAULT_STEPPING);
   let system = emptySystem(null);
   let rig: RigModel = FIRST_RIG.rig;
   let span = systemSpan(system);
-  let tail = lingerTail(system, flightTime(rig.motion));
+  let tail = lingerTail(system, flightTime(rig.motion, rig.height));
   let world = worldOf(system);
   let rng = new Rng(seed);
   let states: EmitterState[] = [];
@@ -325,7 +333,8 @@ export function createDriver(
         moved: displacement(origin, now),
         yaw,
         world,
-        stopped: (rig.stopAt != null && reached >= rig.stopAt) || landed(rig.motion, reached),
+        stopped:
+          (rig.stopAt != null && reached >= rig.stopAt) || landed(rig.motion, reached, rig.height),
         pinned: lineage.pinned,
         surfaces: lineage.surfaces.get(""),
       };
@@ -402,15 +411,16 @@ export function createDriver(
   /**
    * The rig's own turn at `reached`, into the yaw.
    *
-   * A path, and a missile-oriented orbit, stand in for a missile's own game object,
-   * whose travel is its local `Y`, where a unit's system is the look-at yaw of question 11.
+   * A missile stands in for a missile's own game object, whose travel is its local `Y`,
+   * where a unit's system is the look-at yaw of question 11.
    * A bone takes its joint's whole turn, as a system attached to a bone does.
    */
   function orientInto(reached: number): void {
     const motion = rig.motion;
     if (motion.kind === "bone") motion.anchor.basisInto(reached, yaw);
-    else if (fliesAsMissile(motion)) flightInto(facingAt(motion, reached), yaw);
-    else yawInto(facingAt(motion, reached), yaw);
+    else if (motion.kind === "missile") {
+      flightInto(missileDirectionAt(motion, reached, rig.height), yaw);
+    } else yawInto(facingAt(motion, reached), yaw);
   }
 
   /**
@@ -512,6 +522,14 @@ export function createDriver(
       lanes.reach(phaseAt(rig, stepper.now, span, tail));
     },
     restart: rewind,
+    reseed(next) {
+      if (next === seed) return;
+
+      seed = next;
+      lineage.seed = next;
+      marks.clear();
+      rewind();
+    },
 
     /* A checkpoint holds births drawn under the last pin, so a seek replays from the new one. */
     pin(chance) {
@@ -574,7 +592,7 @@ export function createDriver(
       }
       system = next;
       span = systemSpan(next);
-      tail = lingerTail(next, flightTime(rig.motion));
+      tail = lingerTail(next, flightTime(rig.motion, rig.height));
       world = worldOf(next);
       /* The span is the run a still rig loops on, so the phase moves with an edit for the
          same reason it moves with a tune. */
@@ -611,7 +629,7 @@ export function createDriver(
       const turned = next.motion.kind !== rig.motion.kind;
       const posed = reposed(rig.motion, next.motion);
       rig = next;
-      tail = lingerTail(system, flightTime(next.motion));
+      tail = lingerTail(system, flightTime(next.motion, next.height));
       lineage.joints = next.joints ?? hostJoints;
       marks.clear();
 

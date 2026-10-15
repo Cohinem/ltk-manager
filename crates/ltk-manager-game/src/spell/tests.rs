@@ -99,7 +99,7 @@ fn fixed_time_and_explicit_zero_remain_distinct_from_missing_values() {
 #[test]
 fn unknown_movements_are_not_straight_paths_and_non_finite_inputs_are_diagnosed() {
     let read = read(missile(
-        "PhysicsMovement",
+        "WallFollowMovement",
         vec![("mStartDelay", values::F32::new(f32::NAN).into())],
     ));
     assert!(matches!(
@@ -108,6 +108,93 @@ fn unknown_movements_are_not_straight_paths_and_non_finite_inputs_are_diagnosed(
     ));
     assert_eq!(read.issues[0].kind, SpellIssueKind::Invalid);
     assert!(read.issues[0].path.ends_with("mStartDelay"));
+}
+
+#[test]
+fn missile_reads_accelerating_fields_and_keeps_omitted_clamps_absent() {
+    let read = read(missile(
+        "AcceleratingMovement",
+        vec![
+            ("mInitialSpeed", values::F32::new(500.0).into()),
+            ("mAcceleration", values::F32::new(3000.0).into()),
+            ("mMaxSpeed", values::F32::new(2500.0).into()),
+        ],
+    ));
+    assert_eq!(
+        read.missile.unwrap().movement,
+        MissileMovement::Accelerating {
+            initial_speed: Some(500.0),
+            acceleration: Some(3000.0),
+            min_speed: None,
+            max_speed: Some(2500.0),
+        }
+    );
+    assert!(read.issues.is_empty());
+}
+
+#[test]
+fn missile_reads_spline_control_points() {
+    let read = read(missile(
+        "FixedTimeSplineMovement",
+        vec![
+            ("mTravelTime", values::F32::new(0.8).into()),
+            (
+                "mSplineInfo",
+                pointer(
+                    "HermiteSplineInfo",
+                    vec![(
+                        "mControlPoint1",
+                        values::Vector3::new(glam::Vec3::new(-1.0, 0.5, 0.0)).into(),
+                    )],
+                ),
+            ),
+        ],
+    ));
+    assert_eq!(
+        read.missile.unwrap().movement,
+        MissileMovement::FixedTimeSpline {
+            duration: Some(0.8),
+            spline: Some(MissileSpline {
+                start_offset: None,
+                control1: Some([-1.0, 0.5, 0.0]),
+                control2: None,
+                from_missile: None,
+            }),
+        }
+    );
+}
+
+#[test]
+fn missile_reads_height_solver_and_vertical_facing() {
+    let read = read(vec![(
+        "mMissileSpec",
+        pointer(
+            "MissileSpecification",
+            vec![
+                ("movementComponent", pointer("FixedSpeedMovement", vec![])),
+                (
+                    "heightSolver",
+                    pointer(
+                        "GravityHeightSolver",
+                        vec![("mGravity", values::F32::new(5000.0).into())],
+                    ),
+                ),
+                (
+                    "verticalFacing",
+                    pointer("VerticalFacingFaceTarget", vec![]),
+                ),
+            ],
+        ),
+    )]);
+    let missile = read.missile.unwrap();
+    assert_eq!(
+        missile.height,
+        Some(MissileHeight::Gravity {
+            gravity: Some(5000.0)
+        })
+    );
+    assert_eq!(missile.facing, Some(MissileFacing::FaceTarget));
+    assert!(read.issues.is_empty());
 }
 
 #[test]

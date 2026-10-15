@@ -29,6 +29,7 @@ import { axisText } from "../utils/curvePlot";
 import { CURVE_TIME_STEP, snapCurveValue } from "../utils/curveSnapping";
 import { drawsFlat, type RandomDraw, stopsAt } from "../utils/randomDraw";
 import type { CurveSelectionMode } from "./CurveGraph";
+import { GestureHint } from "./CurveKeyEditor";
 import { DrawReadout } from "./RandomLanes";
 
 /** The chances an animated random colour's ramp is drawn at: the two ends of the roll. */
@@ -174,8 +175,8 @@ export function GradientPlot({
       )}
       {rolled && <DrawReadout draw={draw} unit={null} muted={NO_MUTED} levels={[]} />}
       {editable && stops.length > 0 && (
-        <span className="text-meta leading-none text-surface-500 select-none">
-          {m.workshop_bin_curve_edit_hint()}
+        <span className="flex justify-end">
+          <GestureHint />
         </span>
       )}
     </div>

@@ -34,6 +34,7 @@ import { emitterOf } from "../utils/graphEmitter";
 import type { FileItem, StructItem } from "../utils/graphItems";
 import {
   drawnLive,
+  surfaceSides,
   fitInto,
   type Followed,
   followedRow,
@@ -361,7 +362,8 @@ function SurfaceScene({ emitter, looped, tiled, shown, magnified, bar, onFail }:
     const uniforms = material.uniforms;
     uniforms.viewport.value.set(VIEW.z, VIEW.w);
     uniforms.viewportOrigin.value.set(VIEW.x, VIEW.y);
-    fitInto(draw.scale[0], draw.scale[1], VIEW.z, VIEW.w, uniforms.extent.value);
+    const [across, up] = surfaceSides(emitter, draw.scale);
+    fitInto(across, up, VIEW.z, VIEW.w, uniforms.extent.value);
   };
 
   return (

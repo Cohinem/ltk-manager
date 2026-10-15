@@ -32,6 +32,9 @@ import { CHILD_SET } from "../../children/childModel";
 import { childrenMatch, ChildrenSection } from "../../children/ChildrenSection";
 import { useChildren } from "../../children/useChildren";
 import { EmitterPreviewBox } from "../../drivers/components/EmitterPreviewBox";
+import { EMBED_TONE, hueStyle } from "../../drivers/components/NodeFrame";
+import { ValueRow } from "../../drivers/components/ValueRow";
+import { useValueItems } from "../../drivers/hooks/useValueItems";
 import { FORCE_COLLECTION } from "../../forces/forceModel";
 import { ForcesSection, forceMatches } from "../../forces/ForcesSection";
 import { useForces } from "../../forces/useForces";
@@ -451,7 +454,9 @@ function GroupSection({
 }: GroupSectionProps) {
   const { report, card, open: aimed, jumpRequest } = useEmitters();
   const { data: schema } = useClassSchema(owner);
-  const running = (use(VfxRunContext)?.system ?? null) !== null;
+  const run = use(VfxRunContext);
+  const running = (run?.system ?? null) !== null;
+  const valueItems = useValueItems();
   const [fold, setFold] = useState<boolean | null>(null);
   const [navigation, setNavigation] = useState({ key: card?.key, request: jumpRequest });
   const root = useRef<HTMLElement | null>(null);
@@ -631,6 +636,23 @@ function GroupSection({
                 width={NAME_COLUMN}
                 owner={owner}
               />
+            );
+          }
+
+          /* A child system's rows are another object's, which the run's graph does not hold. */
+          const item = row.entry === run?.entry ? valueItems.get(row.path) : undefined;
+          if (item !== undefined) {
+            return (
+              <div key={key} className={EMBED_TONE} style={hueStyle(item)}>
+                <ValueRow
+                  item={item}
+                  row={row}
+                  label={emitterLabel(fieldHash(row.path), row.name) ?? row.name}
+                  owner={owner}
+                  width={NAME_COLUMN}
+                  rail={rail}
+                />
+              </div>
             );
           }
 

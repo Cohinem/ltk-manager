@@ -1,8 +1,17 @@
+import type { MissileSpell } from "@/lib/tauri";
 // eslint-disable-next-line no-restricted-imports -- the chunk rig.ts names
 import { CHAMPION_HEIGHT } from "@/modules/viewport/shared/utils/space";
 
+import { flightOf } from "./missileSpec";
 import type { EmitterModel, SystemModel } from "./model";
-import { GROUND_RIG, type RigModel, withCarrier, withPlayback } from "./rig";
+import {
+  FLIGHT_HEIGHT,
+  GROUND_RIG,
+  missileMotion,
+  type RigModel,
+  withCarrier,
+  withPlayback,
+} from "./rig";
 
 /** Shortest beam reach that `beamReach` takes from an emitter position, in engine units. */
 const SHORTEST_REACH = CHAMPION_HEIGHT;
@@ -10,24 +19,42 @@ const SHORTEST_REACH = CHAMPION_HEIGHT;
 /** Largest share of its `+Z` distance that an emitter position may lie off the `+Z` axis. */
 const AXIS_TOLERANCE = 0.01;
 
+/** The rig a system picks for itself, and the spell whose missile it flies, if any. */
+export interface AutoRig {
+  readonly rig: RigModel;
+  /** The name of the spell that fires the system as its missile, and null for none. */
+  readonly spell: string | null;
+}
+
 /**
- * The rig a system picks for itself when nothing opened it in a context.
+ * Returns the rig a system picks for itself when nothing opened it in a context.
  *
- * Continuous where an emitter has no `lifetime`, since the game never ends that system, and
- * Replay otherwise. Orbit where an emitter draws a trail, so the ribbon has travel to follow,
- * and Ground otherwise. A Ground rig of a system with a beam aims at [`beamReach`] when the
- * system has one. "The rig picks itself" in docs/plans/vfx-templates.md.
+ * The first of `spells` whose movement can be simulated flies the system on that spell's
+ * missile, replayed. Otherwise a system with a trail flies a straight missile, so the ribbon
+ * has travel to follow, and any other system stands on the ground. A ground rig of a system
+ * with a beam aims at [`beamReach`] when the system has one. A system that is not a missile is
+ * continuous where an emitter has no `lifetime`, since the game never ends that system, and
+ * replayed otherwise. "The rig picks itself" in docs/plans/vfx-templates.md.
  */
-export function autoRig(system: SystemModel | null): RigModel {
+export function autoRig(system: SystemModel | null, spells: readonly MissileSpell[] = []): AutoRig {
+  for (const spell of spells) {
+    const flight = flightOf(spell.missile);
+    if (flight === null) continue;
+
+    const rig: RigModel = { motion: missileMotion(flight), life: "loop", height: FLIGHT_HEIGHT };
+    return { rig, spell: spell.name };
+  }
+
   const shown = system?.emitters.filter((emitter) => !emitter.disabled) ?? [];
   const endless = shown.some((emitter) => emitter.lifetime === null);
   const trailed = shown.some((emitter) => emitter.trail !== null);
 
-  const carried = withCarrier(GROUND_RIG, trailed ? "orbit" : "ground");
+  const carried = withCarrier(GROUND_RIG, trailed ? "missile" : "ground");
   const reach = carried.motion.kind === "still" ? beamReach(shown) : null;
   const aimed: RigModel =
     reach === null ? carried : { ...carried, motion: { kind: "still", target: [0, 0, reach] } };
-  return withPlayback(aimed, endless ? "continuous" : "replay");
+  const playback = endless && !trailed ? "continuous" : "replay";
+  return { rig: withPlayback(aimed, playback), spell: null };
 }
 
 /**
@@ -54,7 +81,7 @@ export function beamReach(emitters: readonly EmitterModel[]): number | null {
 }
 
 /** What two automatic rigs differ by, so an edit that changes neither keeps the rig in hand. */
-export function autoRigKey(rig: RigModel): string {
+export function autoRigKey({ rig, spell }: AutoRig): string {
   const target = rig.motion.kind === "still" ? (rig.motion.target?.join(",") ?? "") : "";
-  return `${rig.motion.kind}:${rig.life}:${target}`;
+  return `${rig.motion.kind}:${rig.life}:${target}:${spell ?? ""}`;
 }

@@ -40,6 +40,7 @@ import {
 } from "../../forces/forcePreview";
 import { useVfxSystem } from "../../hooks/useVfxSystem";
 import { useAutoRig } from "./autoRigState";
+import { useEmitterFlags } from "./emitterFlags";
 
 /** The seed a run opens on, so two readers of one effect see the same run. */
 const FIRST_SEED = 1337;
@@ -86,7 +87,10 @@ export interface VfxRun {
   readonly playback: Playback;
   /** The run starts over at its end, which is the rig's Replay. */
   readonly looping: boolean;
-  /** Emitters of the opened system that draw nothing, by pool index. */
+  /**
+   * Emitters of the opened system that draw nothing, by pool index: those that set `disabled`
+   * in an editable document, and those hidden in the preview of a read-only one.
+   */
   readonly muted: ReadonlySet<number>;
   /** Emitters of the opened system that alone draw while any is in the set, by pool index. */
   readonly soloed: ReadonlySet<number>;
@@ -126,7 +130,10 @@ export interface VfxRun {
   readonly toggleSoloed: (emitter: number) => void;
   readonly toggleChildMuted: (path: string) => void;
   readonly toggleChildSoloed: (path: string) => void;
-  /** Rewrite the muted set from the one held, which a stroke across the lanes does per lane. */
+  /**
+   * Rewrite the muted set from the one held, which a stroke across the lanes does per lane. In
+   * an editable document it writes the changed emitters' `disabled` flags as one edit.
+   */
   readonly setMuted: (update: (held: ReadonlySet<number>) => ReadonlySet<number>) => void;
   readonly setSoloed: (update: (held: ReadonlySet<number>) => ReadonlySet<number>) => void;
   readonly setLoop: (loop: LoopRange | null) => void;
@@ -175,8 +182,8 @@ export interface VfxRunProviderProps {
  * The run of one system, kept per system for the session (ADR-0037).
  *
  * The driver outlives the snapshot, so a re-read swaps the definition against the pool
- * the simulation already has rather than starting the effect over (2.5). A reroll is
- * the one thing that builds a new one, because the seed is the run.
+ * the simulation already has rather than starting the effect over (2.5). A reroll reseeds
+ * it and starts the run over.
  */
 export function VfxRunProvider({ document, asset, entry, children }: VfxRunProviderProps) {
   const { system: authoredSystem, error, pending } = useVfxSystem(document, entry);
@@ -203,12 +210,23 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
   const [seed, setSeed] = useState(kept?.seed ?? FIRST_SEED);
   const [speed, setSpeed] = useState(kept?.speed ?? FIRST_SPEED);
   const [chosen, setChosen] = useState<RigChoice | null>(kept?.rig ?? null);
-  const auto = useAutoRig(system);
+  const auto = useAutoRig(system, document, entry);
   const rig = useMemo<RigChoice>(
-    () => chosen ?? { source: AUTO_SOURCE, rig: auto.rig },
-    [chosen, auto.rig],
+    () => chosen ?? { source: { kind: "auto", spell: auto.spell }, rig: auto.rig },
+    [chosen, auto.rig, auto.spell],
   );
-  const [muted, setMuted] = useState<ReadonlySet<number>>(() => new Set(kept?.muted));
+  /* An editable document hides an emitter through its own `disabled` flag, so the eye and the
+     file say the same. A read-only one hides it in the preview alone. */
+  const flags = useEmitterFlags(system, entry);
+  const [localMuted, setLocalMuted] = useState<ReadonlySet<number>>(() => new Set(kept?.muted));
+  const muted = flags.writable ? flags.disabled : localMuted;
+  const heldFlags = useRef(flags);
+  heldFlags.current = flags;
+  const setMuted = useCallback((update: (held: ReadonlySet<number>) => ReadonlySet<number>) => {
+    const held = heldFlags.current;
+    if (held.writable) held.write(update(held.disabled));
+    else setLocalMuted(update);
+  }, []);
   const [soloed, setSoloed] = useState<ReadonlySet<number>>(() => new Set(kept?.soloed));
   const [mutedChildren, setMutedChildren] = useState<ReadonlySet<string>>(NO_CHILDREN);
   const [soloedChildren, setSoloedChildren] = useState<ReadonlySet<string>>(NO_CHILDREN);
@@ -219,12 +237,18 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
   const looping = rig.rig.life === "loop";
   const playback = playbackOf(rig.rig.life);
 
-  const driver = useMemo(() => createDriver(seed), [seed]);
+  /* One driver for the run's life. A reroll reseeds it, because a new driver changes the
+     props of every component that draws from it. */
+  const [driver] = useState(() => createDriver(seed));
   const span = useMemo(
     () =>
       system === null
         ? 1
-        : runSpan(rig.rig, systemSpan(system), lingerTail(system, flightTime(rig.rig.motion))),
+        : runSpan(
+            rig.rig,
+            systemSpan(system),
+            lingerTail(system, flightTime(rig.rig.motion, rig.rig.height)),
+          ),
     [system, rig],
   );
 
@@ -271,6 +295,11 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     if (unlooped && driver.phase > phase + END_SLACK) driver.seek(phase);
     notify();
   }, [driver, rig, notify]);
+
+  useEffect(() => {
+    driver.reseed(seed);
+    notify();
+  }, [driver, seed, notify]);
 
   useEffect(() => {
     driver.pin(pinned);
@@ -335,7 +364,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     null!,
   );
   latest.current = {
-    memory: { seed, rig: chosen, speed, muted: [...muted], soloed: [...soloed], loop, pinned },
+    memory: { seed, rig: chosen, speed, muted: [...localMuted], soloed: [...soloed], loop, pinned },
     driver,
     span,
   };
@@ -520,8 +549,6 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     </ForcePreviewProvider>
   );
 }
-
-const AUTO_SOURCE = { kind: "auto" } as const;
 
 const NO_CHILDREN: ReadonlySet<string> = new Set();
 

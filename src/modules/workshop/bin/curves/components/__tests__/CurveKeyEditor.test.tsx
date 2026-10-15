@@ -134,9 +134,6 @@ describe("CurveKeyEditor", () => {
     );
 
     expect(screen.getByText("2 selected")).toBeInTheDocument();
-    expect(
-      screen.getByText("Delete the selection together, or click one key to edit it."),
-    ).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 });

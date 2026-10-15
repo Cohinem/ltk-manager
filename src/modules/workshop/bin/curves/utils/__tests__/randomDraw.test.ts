@@ -7,6 +7,7 @@ import {
   type ChannelDraw,
   drawGap,
   drawnAtBirth,
+  drawRows,
   drawsFlat,
   drawSpan,
   drawsSpread,
@@ -381,5 +382,43 @@ describe("neverRolled and rerollsEveryFrame", () => {
     expect(rerollsEveryFrame(nameHash("Color"))).toBe(true);
     expect(rerollsEveryFrame(nameHash("birthColor"))).toBe(false);
     expect(rerollsEveryFrame(null)).toBe(false);
+  });
+});
+
+describe("drawRows", () => {
+  const uniform = (channel: number) =>
+    table(channel, [
+      [0, 0.8],
+      [1, 1.2],
+    ]);
+  const draw = randomDraw(vector([2, 2, 1], [uniform(0), uniform(1), IDENTITY(2)]));
+  const rows = (linked: boolean, muted: number[] = []) =>
+    draw === null
+      ? null
+      : drawRows(draw, linked, new Set(muted)).map((row) => ({
+          channels: row.channels.map((each) => each.channel),
+          shared: row.shared,
+        }));
+
+  it("joins channels that draw one table over one base into one row if linked", () => {
+    expect(rows(true)).toEqual([
+      { channels: [0, 1], shared: [0, 1] },
+      { channels: [2], shared: [] },
+    ]);
+  });
+
+  it("gives each channel a row and the toggle to the first of its group if not linked", () => {
+    expect(rows(false)).toEqual([
+      { channels: [0], shared: [0, 1] },
+      { channels: [1], shared: [] },
+      { channels: [2], shared: [] },
+    ]);
+  });
+
+  it("leaves out muted channels but keeps their place in the group", () => {
+    expect(rows(true, [0])).toEqual([
+      { channels: [1], shared: [0, 1] },
+      { channels: [2], shared: [] },
+    ]);
   });
 });
