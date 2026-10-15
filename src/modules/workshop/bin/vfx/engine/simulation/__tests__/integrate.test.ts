@@ -31,7 +31,7 @@ import {
   type UvLayer,
   type ValueCurve,
 } from "../../model/model";
-import { type Motion, originAt, type Point } from "../../model/rig";
+import { FIRST_FLIGHT, type Motion, originAt, type Point } from "../../model/rig";
 import { ROTATION_RATE } from "../../model/systemModel";
 import { AXIS, axisInto, identityInto, yawInto } from "../../utils/basis";
 import { Rng } from "../../utils/Rng";
@@ -263,6 +263,16 @@ interface Staging {
 }
 
 const STILL: Motion = { kind: "still" };
+
+/** A level, straight missile from the origin to `to` at `speed` units a second. */
+function straight(to: Point, speed: number): Motion {
+  return {
+    kind: "missile",
+    from: [0, 0, 0],
+    to,
+    flight: { ...FIRST_FLIGHT, movement: { kind: "fixedSpeed", speed } },
+  };
+}
 
 function run(emitters: readonly EmitterModel[], dt = 0.25, staging: Staging = {}): Run {
   const {
@@ -777,7 +787,7 @@ describe("the spawn count", () => {
 
   describe("under rateByVelocityFunction", () => {
     /* A hundred units a second along X, so a quarter-second step travels twenty-five. */
-    const flight: Motion = { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 };
+    const flight: Motion = straight([1000, 0, 0], 100);
 
     it("spawns by the system's speed in rate's place", () => {
       const sim = run([emitterOf({ rate: flat(400), rateByVelocity: [0.1, 0] })], 0.25, {
@@ -911,7 +921,7 @@ describe("the emission window", () => {
 
 describe("the births of one step", () => {
   /* A hundred units a second along X, so a quarter-second step travels twenty-five. */
-  const flight: Motion = { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 };
+  const flight: Motion = straight([1000, 0, 0], 100);
 
   it("spreads them evenly over the step, in birth time and along the system's travel", () => {
     const sim = run([emitterOf({ rate: flat(16), birthVelocity: flat(0, 3, 0) })], 0.25, {
@@ -969,7 +979,7 @@ describe("the values read over a particle's life", () => {
   });
 
   it("reads bindWeight at the particle's age", () => {
-    const flight: Motion = { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 };
+    const flight: Motion = straight([1000, 0, 0], 100);
     const sim = run([emitterOf({ ...brief, bindWeight: keyed([0, 1], [1, 0]) })], 0.25, {
       motion: flight,
     });
@@ -1727,7 +1737,7 @@ describe("the direction stretch", () => {
   });
 
   it("counts the travel a bound particle is carried by as its speed", () => {
-    const flight: Motion = { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 };
+    const flight: Motion = straight([1000, 0, 0], 100);
     const sim = run([emitterOf({ bindWeight: flat(1), directionVelocityScale: 0.05 })], 0.25, {
       motion: flight,
     });
@@ -2102,7 +2112,12 @@ describe("birthOrbitalVelocity", () => {
   });
 
   it("orbits about the rig's origin rather than the world's", () => {
-    const parked: Motion = { kind: "path", from: [10, 0, 0], to: [10, 0, 0], speed: 0 };
+    const parked: Motion = {
+      kind: "missile",
+      from: [10, 0, 0],
+      to: [10, 0, 0],
+      flight: { ...FIRST_FLIGHT, movement: { kind: "fixedSpeed", speed: 0 } },
+    };
     const sim = run([emitterOf(orbiting)], 1, { motion: parked });
     sim.step(2);
 
@@ -2361,7 +2376,7 @@ describe("a trail's births", () => {
   });
 
   it("stamps each particle with how far the spawn point had travelled at its birth", () => {
-    const flight: Motion = { kind: "path", from: [0, 0, 0], to: [100, 0, 0], speed: 100 };
+    const flight: Motion = straight([100, 0, 0], 100);
     const sim = run([emitterOf({ rate: flat(4), trail })], 0.25, { motion: flight });
     sim.step(3);
 
@@ -2432,7 +2447,7 @@ describe("EmitterPosition", () => {
 
 describe("the rig's origin", () => {
   /* A hundred units a second along X, so a quarter-second step travels twenty-five. */
-  const FLIGHT: Motion = { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 };
+  const FLIGHT: Motion = straight([1000, 0, 0], 100);
 
   /** Where each live particle draws on the axis the flight travels, in order. */
   function alongFlight(sim: Run): number[] {

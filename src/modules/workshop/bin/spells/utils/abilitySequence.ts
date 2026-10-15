@@ -1,7 +1,7 @@
 import { jointAnchor, type Pose } from "@/modules/viewport";
 
 import type { SystemModel } from "../../vfx/engine/model/model";
-import { distance, type Anchor, type RigModel } from "../../vfx/engine/model/rig";
+import type { Anchor, RigModel } from "../../vfx/engine/model/rig";
 import { createDriver } from "../../vfx/engine/simulation/driver";
 import { launchOf, arrivalOf, type AbilityRecipe } from "./abilityRecipe";
 import { FLIGHT_STEP, flightSampler } from "./flight";
@@ -59,7 +59,6 @@ export function abilitySteps(recipe: AbilityRecipe, pose: Pose, scale: number): 
   const arrival = arrivalOf(recipe);
   if (recipe.projectileEffect !== null) {
     const from = anchor.originAt(launchOf(recipe));
-    const length = distance(from, recipe.target);
     result.push({
       id: "projectile",
       key: recipe.projectileEffect,
@@ -68,12 +67,18 @@ export function abilitySteps(recipe: AbilityRecipe, pose: Pose, scale: number): 
       seed: 7331,
       rig: {
         motion: {
-          kind: "path",
-          from,
-          to: recipe.target,
-          speed: length === 0 ? 1 : length / recipe.flightDuration,
+          kind: "missile",
+          from: [from[0], 0, from[2]],
+          to: [recipe.target[0], 0, recipe.target[2]],
+          flight: {
+            movement: { kind: "fixedTime", travelTime: recipe.flightDuration },
+            height: null,
+            facing: "matchVelocity",
+            endAtLaunchHeight: false,
+            targetOffset: recipe.target[1],
+          },
         },
-        height: 0,
+        height: from[1],
         life: "once",
         stopAt: recipe.flightDuration,
       },

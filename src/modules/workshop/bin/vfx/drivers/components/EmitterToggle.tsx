@@ -13,8 +13,9 @@ import { GraphActionsContext } from "./graphActions";
 const DISABLED = nameHash("disabled");
 
 /**
- * An emitter's `disabled` flag as a button on its node's header, written as the inspector's
- * own edit, so it is one undo step. A view that edits nothing draws none.
+ * A shimmer emitter's `disabled` flag as a button on its node's header, written as the
+ * inspector's own edit, so it is one undo step. A view that edits nothing draws none. A particle
+ * emitter's node writes the flag through its eye.
  */
 export function EmitterToggle({ wire, disabled }: { wire: string; disabled: boolean }) {
   const actions = use(GraphActionsContext);

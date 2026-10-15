@@ -19,7 +19,7 @@ import { NEAR_ONLY, NodeFrame } from "./NodeFrame";
 import { useCurveFollowsPick } from "./paneSync";
 import { MarkedCurve } from "./PlateFace";
 import { EmbedBackButton } from "./SocketEmbed";
-import { CURVE_WELL } from "./ValueLine";
+import { CURVE_WELL } from "./ValueRow";
 
 /**
  * A keyed or randomised value: its kind, summary and value at the playhead over its curve, or

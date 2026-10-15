@@ -202,8 +202,11 @@ export function yawInto(direction: Point, out: Float32Array): Float32Array {
 }
 
 /**
- * The basis a missile flies on, into `out`: local `Y` along `direction` laid flat, local
- * `Z` up and local `X` to its left.
+ * The basis a missile flies on, into `out`: local `Y` along `direction`, local `X` level and
+ * to its left, and local `Z` square to both, which is up for level flight.
+ *
+ * `VfxProxy_SetOrientationFromDirection` of the 16.17 client builds the same rows, so a
+ * missile pitches with its travel. Section 2.56 of docs/plans/vfx-particle-renderer.md.
  *
  * A missile-attached system takes the game object's own matrix rather than one the VFX
  * code builds, so the rig stands in for that object and has to carry its convention.
@@ -215,10 +218,22 @@ export function yawInto(direction: Point, out: Float32Array): Float32Array {
  * is down. A direction with no reach in the plane flies forward.
  */
 export function flightInto(direction: Point, out: Float32Array): Float32Array {
-  const length = Math.hypot(direction[0], direction[2]);
-  const x = length === 0 ? 0 : direction[0] / length;
-  const z = length === 0 ? 1 : direction[2] / length;
-  out.set([-z, x, 0, 0, 0, 1, x, z, 0]);
+  const across = Math.hypot(direction[0], direction[2]);
+  const length = Math.hypot(across, direction[1]);
+  if (length === 0) {
+    out.set([-1, 0, 0, 0, 0, 1, 0, 1, 0]);
+    return out;
+  }
+  if (across === 0 && direction[1] > 0) {
+    out.set([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    return out;
+  }
+
+  /* Local X is level, so a missile flying straight up keeps the last facing's left. */
+  const [dx, dy, dz] = [direction[0] / length, direction[1] / length, direction[2] / length];
+  const [lx, lz] = across === 0 ? [-1, 0] : [-direction[2] / across, direction[0] / across];
+  const [ux, uy, uz] = [-dy * lz, lz * dx - lx * dz, lx * dy];
+  out.set([lx, dx, ux, 0, dy, uy, lz, dz, uz]);
   return out;
 }
 

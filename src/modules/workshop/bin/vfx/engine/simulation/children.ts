@@ -100,7 +100,8 @@ export interface Lineage {
   /** The flex channels every pool of the lineage shares. */
   readonly flex: Float32Array;
   surfaces: EmissionSurfaces;
-  readonly seed: number;
+  /** The run's seed, which `Driver.reseed` replaces. */
+  seed: number;
   /** The live children of each definition path, which the draw of that definition reads. */
   readonly feeds: Map<string, Source[]>;
   /** Pools a reaped child left, by capacity, which the next child of that size takes. */

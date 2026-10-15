@@ -1,7 +1,8 @@
 import type { MissileSpec } from "@/lib/tauri";
 
+import { flightOf } from "../../vfx/engine/model/missileSpec";
 import type { SystemModel } from "../../vfx/engine/model/model";
-import { distance, type Point, type RigModel } from "../../vfx/engine/model/rig";
+import { flightTime, type Motion, type Point, type RigModel } from "../../vfx/engine/model/rig";
 import { createDriver, type Driver } from "../../vfx/engine/simulation/driver";
 
 export const FLIGHT_STEP = 1 / 60;
@@ -36,35 +37,51 @@ export interface Flight {
   readonly duration: number;
 }
 
-/** A straight, level flight between explicit preview anchors, using the written movement rate. */
+/**
+ * The missile of `spec` flown from `from` toward `to`, launched at the height of `from`.
+ *
+ * Returns null if the movement cannot be simulated or writes no positive speed or travel time,
+ * if a point is not finite or out of reach, or if the flight with its delay outlasts
+ * `MAX_FLIGHT_SECONDS` or never arrives. A missing speed is refused rather than defaulted.
+ */
 export function compileFlight(spec: MissileSpec, from: Point, to: Point): Flight | null {
   const delay = spec.startDelay ?? 0;
-  if (![...from, ...to, delay].every(Number.isFinite) || delay < 0 || from[1] !== to[1])
-    return null;
+  if (![...from, ...to, delay].every(Number.isFinite) || delay < 0) return null;
   if ([...from, ...to].some((value) => Math.abs(value) > 100_000)) return null;
-  const length = distance(from, to);
-  let duration: number;
-  const movement = spec.movement;
-  if (movement.kind === "fixedSpeed") {
-    if (movement.speed === null || !Number.isFinite(movement.speed) || movement.speed <= 0)
-      return null;
-    duration = length / movement.speed;
-  } else if (movement.kind === "fixedTime") {
-    if (movement.duration === null || !Number.isFinite(movement.duration) || movement.duration <= 0)
-      return null;
-    duration = movement.duration;
-  } else return null;
-  if (!Number.isFinite(duration) || duration + delay > MAX_FLIGHT_SECONDS) return null;
+  if (!writesPace(spec.movement)) return null;
+
+  const flight = flightOf(spec);
+  if (flight === null) return null;
+
+  const motion: Motion = {
+    kind: "missile",
+    from: [from[0], 0, from[2]],
+    to: [to[0], 0, to[2]],
+    flight,
+  };
+  const duration = flightTime(motion, from[1]);
+  if (duration <= 0 || duration + delay > MAX_FLIGHT_SECONDS) return null;
+
   return {
     delay,
     duration,
-    rig: {
-      motion: { kind: "path", from, to, speed: length === 0 ? 1 : length / duration },
-      height: 0,
-      life: "once",
-      stopAt: duration,
-    },
+    rig: { motion, height: from[1], life: "once", stopAt: duration },
   };
+}
+
+/** Returns true if `movement` writes the positive speed or travel time that it flies by. */
+function writesPace(movement: MissileSpec["movement"]): boolean {
+  const positive = (value: number | null) => value !== null && Number.isFinite(value) && value > 0;
+  switch (movement.kind) {
+    case "fixedSpeed":
+    case "fixedSpeedSpline":
+      return positive(movement.speed);
+    case "fixedTime":
+    case "fixedTimeSpline":
+      return positive(movement.duration);
+    default:
+      return true;
+  }
 }
 
 /** A fixed-step clock shared by continuous playback and backwards seeking. */

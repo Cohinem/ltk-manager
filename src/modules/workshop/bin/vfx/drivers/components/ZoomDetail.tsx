@@ -1,13 +1,38 @@
-import { type ReactFlowState, useStore } from "@xyflow/react";
-import { useLayoutEffect } from "react";
+import { type ReactFlowState, useStore, useStoreApi } from "@xyflow/react";
+import {
+  createContext,
+  type ReactNode,
+  use,
+  useCallback,
+  useLayoutEffect,
+  useSyncExternalStore,
+} from "react";
 
 /** The zoom under which a node's rows give way to its plate. */
 export const FAR_ZOOM = 0.6;
 
-/** Whether the canvas is zoomed out past `FAR_ZOOM`, which re-renders only as the zoom crosses it. */
-export function useFarZoom(): boolean {
-  return useStore(isFar);
+/** The graph canvas's React Flow store, and null outside the canvas. */
+const FlowStoreContext = createContext<ReturnType<typeof useStoreApi> | null>(null);
+
+/** Hands the canvas's React Flow store to `useFarZoom`, under the `ReactFlowProvider`. */
+export function FlowStore({ children }: { children: ReactNode }) {
+  return <FlowStoreContext value={useStoreApi()}>{children}</FlowStoreContext>;
 }
+
+/**
+ * Returns whether the canvas is zoomed out past `FAR_ZOOM`, which re-renders only as the zoom
+ * crosses it. Returns false outside the canvas, such as in the inspector.
+ */
+export function useFarZoom(): boolean {
+  const store = use(FlowStoreContext);
+  const subscribe = useCallback(
+    (listener: () => void) => store?.subscribe(listener) ?? noUnsubscribe,
+    [store],
+  );
+  return useSyncExternalStore(subscribe, () => (store === null ? false : isFar(store.getState())));
+}
+
+function noUnsubscribe(): void {}
 
 function isFar(state: ReactFlowState): boolean {
   return state.transform[2] < FAR_ZOOM;

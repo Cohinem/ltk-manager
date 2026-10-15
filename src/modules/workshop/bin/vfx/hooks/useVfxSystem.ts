@@ -1,7 +1,13 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { api, type AppError, type BinDocumentId, type VfxSystem } from "@/lib/tauri";
+import {
+  api,
+  type AppError,
+  type BinDocumentId,
+  type MissileSpell,
+  type VfxSystem,
+} from "@/lib/tauri";
 import { usePreviewEffectsQuality } from "@/stores";
 import { queryFnWithArgs } from "@/utils/query";
 
@@ -19,6 +25,9 @@ export const vfxKeys = {
   system: (document: BinDocumentId, entry: string) => ["vfx-system", document, entry] as const,
   /** Every system read out of one open document, which a retry of a failed read refetches. */
   document: (document: BinDocumentId) => ["vfx-system", document] as const,
+  /** The spells that fire one system as their missile, which no edit of the system changes. */
+  missileSpells: (document: BinDocumentId, entry: string) =>
+    ["vfx-missile-spells", document, entry] as const,
 };
 
 export const vfxQueries = {
@@ -33,6 +42,14 @@ export const vfxQueries = {
     queryOptions<VfxSystem, AppError>({
       queryKey: vfxKeys.system(document, entry),
       queryFn: queryFnWithArgs(api.bin.readVfxSystem, document, entry),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** The spells that fire the system as their missile, read from its character's bin. */
+  missileSpells: (document: BinDocumentId, entry: string) =>
+    queryOptions<MissileSpell[], AppError>({
+      queryKey: vfxKeys.missileSpells(document, entry),
+      queryFn: queryFnWithArgs(api.bin.vfxMissileSpells, document, entry),
       staleTime: Infinity,
       retry: false,
     }),

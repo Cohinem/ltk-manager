@@ -43,7 +43,6 @@ function toolbar(over: Partial<Parameters<typeof CurveToolbar>[0]> = {}) {
       tabled
       onTab={() => {}}
       onAddRandom={null}
-      linking={null}
       keyCount={2}
       selectedCount={1}
       editable

@@ -17,11 +17,28 @@ import {
   POINT_SHAPE,
   type SystemModel,
 } from "../../model/model";
-import type { Joints } from "../../model/rig";
+import {
+  FIRST_FLIGHT,
+  flightTime,
+  type Joints,
+  missileMotion,
+  type Motion,
+  type Point,
+} from "../../model/rig";
 import { multiplyInto, turnInto } from "../../utils/basis";
 import { createDriver, type Driver } from "../driver";
 import { drawnPlace, drawnPlaceInto, frameOf } from "../particleRead";
 import { FRAME_SLOTS, type Pool } from "../pool";
+
+/** A level, straight missile from the origin to `to` at `speed` units a second. */
+function straight(to: Point, speed: number): Motion {
+  return {
+    kind: "missile",
+    from: [0, 0, 0],
+    to,
+    flight: { ...FIRST_FLIGHT, movement: { kind: "fixedSpeed", speed } },
+  };
+}
 
 function constant(...values: number[]) {
   return { constant: values, keys: [], tables: [] };
@@ -318,6 +335,28 @@ describe("createDriver", () => {
 
     expect(driver.pool.count).toBe(0);
     expect(driver.time).toBe(0);
+  });
+
+  it("starts the run over on a reseed, as a new driver of that seed runs it", () => {
+    const model = system(emitter());
+    const reseeded = run(model, 3, 60);
+
+    reseeded.reseed(9);
+    expect(reseeded.pool.count).toBe(0);
+    expect(reseeded.time).toBe(0);
+
+    for (let at = 0; at < 60; at += 1) reseeded.advance(1 / 60);
+    expect(snapshot(reseeded.pool)).toEqual(snapshot(run(model, 9, 60).pool));
+  });
+
+  it("keeps the run on a reseed to the seed it already has", () => {
+    const driver = run(system(emitter()), 3, 60);
+    const time = driver.time;
+
+    driver.reseed(3);
+
+    expect(driver.time).toBe(time);
+    expect(driver.pool.count).toBeGreaterThan(0);
   });
 
   it("keeps the live particles when an edit swaps the definition", () => {
@@ -884,7 +923,7 @@ describe("the rig", () => {
   it("births along the path once a flying rig is bound", () => {
     const driver = driverFor(system(emitter()), 3);
     driver.steer({
-      motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
+      motion: straight([1000, 0, 0], 100),
       life: "once",
       height: 0,
     });
@@ -903,7 +942,7 @@ describe("the rig", () => {
     );
     const driver = driverFor(model, 3);
     driver.steer({
-      motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
+      motion: straight([1000, 0, 0], 100),
       life: "once",
       height: 0,
     });
@@ -920,7 +959,7 @@ describe("the rig", () => {
   it("spreads the births of one step along the travel of that step", () => {
     const driver = driverFor(system(emitter({ rate: constant(600) })), 3);
     driver.steer({
-      motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 600 },
+      motion: straight([1000, 0, 0], 600),
       life: "once",
       height: 0,
     });
@@ -939,14 +978,14 @@ describe("the rig", () => {
   });
 
   it("holds the phase when a parameter is tuned, so a drag does not pin the run", () => {
-    const flight = { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 } as const;
+    const flight = straight([1000, 0, 0], 100);
     const driver = driverFor(system(emitter()), 3);
     driver.steer({ motion: flight, life: "once", height: 0 });
     for (let at = 0; at < 60; at += 1) driver.advance(1 / 60);
 
     const flown = reach(driver.pool);
     expect(flown).toBeGreaterThan(90);
-    driver.steer({ motion: { ...flight, speed: 200 }, life: "once", height: 0 });
+    driver.steer({ motion: straight([1000, 0, 0], 200), life: "once", height: 0 });
     for (let at = 0; at < 6; at += 1) driver.advance(1 / 60);
 
     /* Pinning the run would put the next births back at the launch point, leaving the
@@ -988,7 +1027,7 @@ describe("the rig", () => {
 
   it("holds the phase across a tune that shortens a looping run", () => {
     /* A `once` rig's phase is the clock, so only a looping one can wrap. */
-    const flight = { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 } as const;
+    const flight = straight([1000, 0, 0], 100);
     const driver = driverFor(system(emitter()), 3);
     driver.steer({ motion: flight, life: "loop", height: 0 });
     for (let at = 0; at < 360; at += 1) driver.advance(1 / 60);
@@ -996,7 +1035,7 @@ describe("the rig", () => {
     const alive = driver.pool.count;
     expect(alive).toBeGreaterThan(1);
 
-    driver.steer({ motion: { ...flight, speed: 200 }, life: "loop", height: 0 });
+    driver.steer({ motion: straight([1000, 0, 0], 200), life: "loop", height: 0 });
     driver.advance(1 / 60);
 
     expect(driver.pool.count).toBeGreaterThanOrEqual(alive);
@@ -1028,19 +1067,17 @@ describe("the rig", () => {
     expect(newest).toBeLessThan(0.77);
   });
 
-  it("stops a path rig where it lands, lets the linger play out, then flies again", () => {
+  it("stops a missile rig where it lands, lets the linger play out, then flies again", () => {
+    const motion = straight([100, 0, 0], 100);
+    const length = flightTime(motion) + 0.5;
     const driver = driverFor(system(emitter({ rate: constant(60), particleLinger: 0.5 })), 3);
-    driver.steer({
-      motion: { kind: "path", from: [0, 0, 0], to: [100, 0, 0], speed: 100 },
-      life: "loop",
-      height: 0,
-    });
+    driver.steer({ motion, life: "loop", height: 0 });
 
     for (let at = 0; at < 30; at += 1) driver.advance(1 / 60);
     expect(driver.pool.count).toBeGreaterThan(0);
     expect(driver.elapsed).toBeCloseTo(0.5, 3);
 
-    /* Landed at one second, so the linger caps every lifetime at half a second: the
+    /* Landed about one second in, so the linger caps every lifetime at half a second: the
        pool thins as the earlier births run out, and nothing new is born. */
     for (let at = 0; at < 42; at += 1) driver.advance(1 / 60);
     expect(driver.origin[0]).toBeCloseTo(100, 3);
@@ -1049,16 +1086,16 @@ describe("the rig", () => {
     for (let at = 0; at < 12; at += 1) driver.advance(1 / 60);
     expect(driver.pool.count).toBeLessThan(lingering);
 
-    /* The run is the flight plus the linger, so the next flight starts at 1.5 seconds. */
+    /* The run is the flight plus the linger, so the next flight starts at `length`. */
     for (let at = 0; at < 10; at += 1) driver.advance(1 / 60);
-    expect(driver.elapsed).toBeCloseTo(94 / 60 - 1.5, 3);
-    expect(driver.origin[0]).toBeCloseTo((94 / 60 - 1.5) * 100, 2);
+    expect(driver.elapsed).toBeCloseTo(94 / 60 - length, 3);
+    expect(driver.origin[0]).toBeCloseTo((94 / 60 - length) * 100, 2);
   });
 
-  it("flies a path rig on its Y, so a birth along Y flies with it and Z points up", () => {
+  it("flies a missile rig on its Y, so a birth along Y flies with it and Z points up", () => {
     const driver = driverFor(system(emitter({ birthVelocity: constant(0, 100, 0) })), 3);
     driver.steer({
-      motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
+      motion: straight([1000, 0, 0], 100),
       life: "once",
       height: 0,
     });
@@ -1074,7 +1111,7 @@ describe("the rig", () => {
 
     const lifted = driverFor(system(emitter({ birthVelocity: constant(0, 0, 100) })), 3);
     lifted.steer({
-      motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
+      motion: straight([1000, 0, 0], 100),
       life: "once",
       height: 0,
     });
@@ -1088,7 +1125,7 @@ describe("the rig", () => {
     );
     const driver = driverFor(model, 3);
     driver.steer({
-      motion: { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 },
+      motion: straight([1000, 0, 0], 100),
       life: "once",
       height: 0,
     });
@@ -1242,7 +1279,7 @@ describe("the rig", () => {
       };
       const driver = driverFor(model, 3);
       driver.steer({
-        motion: { kind: "path", from: [0, 0, 0], to: [0, 0, 1000], speed: 100 },
+        motion: straight([0, 0, 1000], 100),
         life: "once",
         height: 0,
       });
@@ -1253,20 +1290,25 @@ describe("the rig", () => {
     });
   });
 
-  it("carries an orbit on a missile's frame, or on a unit's under that orientation", () => {
-    const orbiting = (orientation: "missile" | "unit") => {
-      const driver = run(system(emitter()), 3, 0);
-      driver.steer({
-        motion: { kind: "orbit", radius: 100, period: 60, orientation },
-        life: "once",
-        height: 0,
-      });
-      driver.advance(1 / 60);
-      return [...driver.orientation].map((cell) => Math.round(cell * 100) / 100 + 0);
-    };
+  it("carries a circling missile on a missile's frame", () => {
+    const circle = {
+      kind: "circle",
+      angularVelocity: (Math.PI * 2) / 60,
+      linearVelocity: 0,
+      radialVelocity: 0,
+      lifetime: 0,
+    } as const;
+    const driver = run(system(emitter()), 3, 0);
+    driver.steer({
+      motion: missileMotion({ ...FIRST_FLIGHT, movement: circle }, 100),
+      life: "once",
+      height: 0,
+    });
+    driver.advance(1 / 60);
 
-    expect(orbiting("missile")).toEqual([-1, 0, 0, 0, 0, 1, 0, 1, 0]);
-    expect(orbiting("unit")).toEqual([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    expect([...driver.orientation].map((cell) => Math.round(cell * 100) / 100 + 0)).toEqual([
+      -1, 0, 0, 0, 0, 1, 0, 1, 0,
+    ]);
   });
 
   it("puts the run back to its start when the motion itself changes", () => {
@@ -1274,7 +1316,7 @@ describe("the rig", () => {
     expect(driver.pool.count).toBeGreaterThan(0);
 
     driver.steer({
-      motion: { kind: "orbit", radius: 100, period: 2, orientation: "missile" },
+      motion: straight([1000, 0, 0], 100),
       life: "once",
       height: 0,
     });
@@ -1579,8 +1621,8 @@ describe("checkpoints", () => {
   });
 
   it("drops the checkpoints when the rig is tuned", () => {
-    const flight = { kind: "path", from: [0, 0, 0], to: [1000, 0, 0], speed: 100 } as const;
-    const quick = { motion: { ...flight, speed: 400 }, life: "once", height: 0 } as const;
+    const flight = straight([1000, 0, 0], 100);
+    const quick = { motion: straight([1000, 0, 0], 400), life: "once", height: 0 } as const;
     const model = system(emitter());
 
     const steered = driverFor(model, 7);

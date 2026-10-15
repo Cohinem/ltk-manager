@@ -6,7 +6,6 @@ import {
   type Icon,
   MapPinSimpleIcon,
   RocketLaunchIcon,
-  SpiralIcon,
 } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
@@ -27,11 +26,7 @@ import { SliderRow } from "../../../shared/preview/SliderRow";
 import {
   type Carrier,
   carrierOf,
-  distance,
-  flightPath,
   type Motion,
-  ORBIT_ORIENTATIONS,
-  type OrbitOrientation,
   PICKED_CARRIERS,
   type Playback,
   playbackOf,
@@ -44,13 +39,10 @@ import {
 } from "../../engine/model/rig";
 import { flexChannelsOf } from "../../engine/model/systemModel";
 import { useVfxRun } from "../state/run";
+import { MissileRows } from "./MissileRows";
 
 /** What each slider spans, in the engine's own units and seconds. */
 const RANGE = {
-  distance: { least: CHAMPION_HEIGHT, most: CHAMPION_HEIGHT * 20, step: CHAMPION_HEIGHT / 4 },
-  speed: { least: CHAMPION_HEIGHT / 2, most: CHAMPION_HEIGHT * 25, step: CHAMPION_HEIGHT / 4 },
-  radius: { least: CHAMPION_HEIGHT / 4, most: CHAMPION_HEIGHT * 8, step: CHAMPION_HEIGHT / 8 },
-  period: { least: 0.25, most: 12, step: 0.25 },
   stop: { least: 0.25, most: 30, step: 0.25 },
   height: { least: 0, most: CHAMPION_HEIGHT * 3, step: CHAMPION_HEIGHT / 20 },
 } as const;
@@ -61,21 +53,14 @@ const FIRST_STOP = 2;
 const CARRIER_LABEL: Record<Carrier, () => string> = {
   ground: m.workshop_bin_preview_rig_ground_label,
   bone: m.workshop_bin_preview_rig_bone_label,
-  flight: m.workshop_bin_preview_rig_flight_label,
-  orbit: m.workshop_bin_preview_rig_orbit_label,
+  missile: m.workshop_bin_preview_rig_missile_label,
 };
 
-/** A glyph of each carrier's motion: a place held, a joint, a flight, a circuit. */
+/** A glyph of each carrier's motion: a place held, a joint, a flight. */
 const CARRIER_ICON: Record<Carrier, Icon> = {
   ground: MapPinSimpleIcon,
   bone: BoneIcon,
-  flight: RocketLaunchIcon,
-  orbit: SpiralIcon,
-};
-
-const ORIENTATION_LABEL: Record<OrbitOrientation, () => string> = {
-  missile: m.workshop_bin_preview_rig_orientation_missile,
-  unit: m.workshop_bin_preview_rig_orientation_unit,
+  missile: RocketLaunchIcon,
 };
 
 const PLAYBACK_LABEL: Record<Playback, () => string> = {
@@ -122,7 +107,8 @@ export function RigControl() {
         sideOffset={8}
         data-ui="RigControl"
         aria-label={m.workshop_bin_preview_rig_label()}
-        className="w-72 p-3 select-none"
+        /* DS-SCROLLBAR */
+        className="max-h-[min(40rem,85vh)] w-80 overflow-y-auto p-3 scrollbar-md select-none"
       >
         <Popover.Title className={OVERLINE}>{m.workshop_bin_preview_rig_label()}</Popover.Title>
         <Popover.Description className="mt-0.5 text-meta text-surface-400">
@@ -216,7 +202,7 @@ export function RigControl() {
 function sourceTag(source: RigSource): string {
   switch (source.kind) {
     case "auto":
-      return m.workshop_bin_preview_rig_auto_label();
+      return source.spell ?? m.workshop_bin_preview_rig_auto_label();
     case "custom":
       return m.workshop_bin_preview_rig_custom_label();
     case "template":
@@ -230,7 +216,9 @@ function sourceTag(source: RigSource): string {
 function sourceLine(source: RigSource): string {
   switch (source.kind) {
     case "auto":
-      return m.workshop_bin_preview_rig_source_auto_description();
+      return source.spell == null
+        ? m.workshop_bin_preview_rig_source_auto_description()
+        : m.workshop_bin_preview_rig_source_spell_description({ spell: source.spell });
     case "custom":
       return m.workshop_bin_preview_rig_source_custom_description();
     case "template":
@@ -308,7 +296,7 @@ function SeedRow() {
   );
 }
 
-/** The sliders the motion in hand carries, and none for one with no parameters. */
+/** The controls the motion in hand carries, and none for one with no parameters. */
 function MotionRows({
   motion,
   onMotionChange,
@@ -316,64 +304,6 @@ function MotionRows({
   motion: Motion;
   onMotionChange: (next: Motion) => void;
 }) {
-  if (motion.kind === "path") {
-    const flown = distance(motion.from, motion.to);
-
-    return (
-      <>
-        <SliderRow
-          label={m.workshop_bin_preview_rig_distance_label()}
-          reading={m.workshop_bin_preview_rig_units_label({ value: Math.round(flown) })}
-          value={flown}
-          range={RANGE.distance}
-          onValueChange={(distance) => onMotionChange(flightPath(distance, motion.speed))}
-        />
-        <SliderRow
-          label={m.workshop_bin_preview_rig_speed_label()}
-          reading={m.workshop_bin_preview_rig_rate_label({ value: Math.round(motion.speed) })}
-          value={motion.speed}
-          range={RANGE.speed}
-          onValueChange={(speed) => onMotionChange({ ...motion, speed })}
-        />
-      </>
-    );
-  }
-
-  if (motion.kind === "orbit") {
-    return (
-      <>
-        <SliderRow
-          label={m.workshop_bin_preview_rig_radius_label()}
-          reading={m.workshop_bin_preview_rig_units_label({ value: Math.round(motion.radius) })}
-          value={motion.radius}
-          range={RANGE.radius}
-          onValueChange={(radius) => onMotionChange({ ...motion, radius })}
-        />
-        <SliderRow
-          label={m.workshop_bin_preview_rig_period_label()}
-          reading={m.workshop_bin_preview_time_label({ seconds: motion.period.toFixed(2) })}
-          value={motion.period}
-          range={RANGE.period}
-          onValueChange={(period) => onMotionChange({ ...motion, period })}
-        />
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-surface-300">
-            {m.workshop_bin_preview_rig_orientation_label()}
-          </span>
-          <SegmentedControl
-            size="sm"
-            aria-label={m.workshop_bin_preview_rig_orientation_label()}
-            value={motion.orientation}
-            onChange={(orientation: OrbitOrientation) => onMotionChange({ ...motion, orientation })}
-            options={ORBIT_ORIENTATIONS.map((each) => ({
-              value: each,
-              label: ORIENTATION_LABEL[each](),
-            }))}
-          />
-        </div>
-      </>
-    );
-  }
-
-  return null;
+  if (motion.kind !== "missile") return null;
+  return <MissileRows motion={motion} onMotionChange={onMotionChange} />;
 }

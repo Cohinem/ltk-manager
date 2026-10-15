@@ -59,7 +59,7 @@ every skin and spell asking for it shares.
 
 | Part     | Values                                                                                          |
 | -------- | ----------------------------------------------------------------------------------------------- |
-| Carrier  | Ground (still, height 0), Bone (a joint of a character), Flight (a path at a speed), Orbit      |
+| Carrier  | Ground (still, height 0), Bone (a joint of a character), Missile (a spell's movement, ADR-0065) |
 | Playback | Once, Replay (starts over after its run), Continuous (never restarts, Stop at shows the linger) |
 | Source   | Automatic, from a template, from a context such as a skin or a spell, or Custom                 |
 
@@ -79,12 +79,15 @@ In order, the first that answers:
    cue's time in each loop of the clip. An idle effect runs Continuous under the looping idle
    clip.
 2. **A template's rig**, for a system a template made.
-3. **The system alone.** Continuous if any emitter has no `lifetime`, else Replay. Orbit if any
-   emitter draws a trail, else Ground. A Ground rig of a system with a beam aims at the farthest
+3. **The spell that fires it.** A spell of the system's character whose missile effect key the
+   skin's resolver maps to the system gives its missile, replayed (ADR-0065).
+4. **The system alone.** A straight missile, replayed, if any emitter draws a trail. Otherwise
+   Ground, Continuous if any emitter has no `lifetime`, else Replay. A Ground rig of a system with a beam aims at the farthest
    constant `EmitterPosition` on the system's `+Z` axis, at least one champion height away, so
    the beam reaches the emitters that the system places at its far end.
 
-A reverse lookup through Find all references is not part of this plan.
+The spell lookup of step 3 reads the skin's resolver and the character's bin, not Find all
+references.
 
 ### 2.3 What is remembered
 

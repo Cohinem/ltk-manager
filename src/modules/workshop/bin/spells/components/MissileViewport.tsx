@@ -10,6 +10,7 @@ import { usePreviewAntiAliasing, usePreviewCamera } from "@/stores";
 
 import { Notice } from "../../shared/preview/Notice";
 import type { SystemModel } from "../../vfx/engine/model/model";
+import { originAt, targetAt } from "../../vfx/engine/model/rig";
 import { createDriver } from "../../vfx/engine/simulation/driver";
 import { useVfxSystem } from "../../vfx/hooks/useVfxSystem";
 import { Passes } from "../../vfx/rendering/components/Passes";
@@ -254,11 +255,11 @@ function Fit({ system, flight }: { system: SystemModel; flight: Flight }) {
 }
 
 function Anchors({ flight }: { flight: Flight }) {
-  const motion = flight.rig.motion;
-  if (motion.kind !== "path") return null;
+  const { motion, height } = flight.rig;
+  if (motion.kind !== "missile") return null;
   return (
     <>
-      {[motion.from, motion.to].map((point, index) => (
+      {[originAt(motion, 0, height), targetAt(motion, 0, height)].map((point, index) => (
         <mesh key={index} position={[point[0] * AXIS_SIGN[0], point[1], point[2]]}>
           <sphereGeometry args={[10, 12, 8]} />
           <meshNormalMaterial wireframe />

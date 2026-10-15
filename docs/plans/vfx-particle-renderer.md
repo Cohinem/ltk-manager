@@ -2524,6 +2524,54 @@ into its sun term, and a non-PBR character reads none.
 **Not built.** The characters' own shadows, a character or the map backdrop receiving one, the
 depth bias that `MapSunProperties` sets, and percentage-closer filtering.
 
+### 2.56 A missile rig flies the client's movement
+
+The reading is the 16.17.8057408 client. ADR-0065 records the decision, and `engine/model/missile.ts`
+holds the simulation. `H` is a vector's horizontal length.
+
+**The target.** A target on the launch point moves 5 units ahead. Its height is the ground's, or
+the launch height under `mUseHeightOffsetAtEnd`, plus `mOffsetInitialTargetHeight`.
+`mProjectTargetToCastRange` needs a cast range and is not applied.
+
+**Each tick** runs the movement's step, then the height solver replaces the height, then the
+vertical facing replaces the velocity's height. A step that passes the target lands on it.
+
+| Movement                  | Step                                                                                   |
+| ------------------------- | -------------------------------------------------------------------------------------- |
+| `FixedSpeedMovement`      | velocity toward the target with `H = mSpeed`, a straight 3D line                       |
+| `FixedTimeMovement`       | the speed that covers what is left in the time that is left, arriving at `mTravelTime` |
+| `AcceleratingMovement`    | `v dt + a dt^2 / 2` along the travel, the speed held in `mMinSpeed`..`mMaxSpeed`       |
+| `DecelToLocationMovement` | accelerating until the braking distance reaches the target, then braking to stop on it |
+| The spline movements      | a cubic Hermite curve in the frame facing the target, tangents scaled by the distance  |
+| `PhysicsMovement`         | `start + dir v0 k (1 - e^(-t/k))`, `k = 1 / mDrag`, level, ending at `mLifetime`       |
+| `CircleMovement`          | turns about the target at the launch distance, the radius growing by `mRadialVelocity` |
+| `SyncCircleMovement`      | the angle from the time since launch, in the plane `mAxisOfRotation` names             |
+
+`FixedTimeSplineMovement` advances the curve's parameter by `dt / mTravelTime`.
+`FixedSpeedSplineMovement` advances it by horizontal arc length, measured in steps of 1/128. A
+movement that writes no `mSpeed` flies at 1800, the median of shipped missiles, where the client
+takes the speed from the spawn packet.
+
+| Height solver                    | Height at travel fraction `t`                                         |
+| -------------------------------- | --------------------------------------------------------------------- |
+| `BlendedLinearHeightSolver`      | `lerp(start, target, t^0.75)`, 4 above the ground where it goes below |
+| `GravityHeightSolver`            | an arc under `mGravity`, rising `g T^2 / 8` above the line at its top |
+| `FollowTerrainHeightSolver`      | `ground + mHeightOffset`, changing by at most `mMaxSlope` per unit    |
+| `SinusoidalHeightSolver`         | a sine of `mNumberOfPeriods` and `mAmplitude` over the straight line  |
+| `CurveTheDifferenceHeightSolver` | a quadratic Bezier through `mInitialTargetHeightOffset`               |
+
+`VeritcalFacingMatchVelocity` pitches the travel with the height's change.
+`VerticalFacingFaceTarget` pitches it toward the target. With neither, the travel keeps the slope
+the movement gave it.
+
+**The frame.** The system's local `Y` lies along the 3D travel, local `X` is level and to its
+left, and local `Z` is square to both. This corrects
+`VfxDrawPaths_QuadsMeshesAndState.md` section 7.2, which found no missile basis in the client.
+
+**Not built.** The yaw smoothing of `MissileEffectMaxTurnSpeedDegreesPerSecond`, a tracked target
+unit and its bone, the cast range projection, the behaviors (`ReturnToCaster` and the rest),
+`WallFollowMovement`, `TrackMouseMovement`, `ParametricMovement` and `SelectorMovement`.
+
 ### T1 — subdivided textures and the UV transform
 
 `texDiv`, `numFrames`, `startFrame`, `frameRate`, `birthFrameRate`, `isRandomStartFrame` are one

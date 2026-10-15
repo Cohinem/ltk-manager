@@ -21,7 +21,7 @@ describe("ChancePin", () => {
       </VfxRunContext>,
     );
 
-    expect(screen.getByText("Each spawn draws its own")).toBeInTheDocument();
+    expect(screen.getByText("Per spawn")).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("switch", { name: "Pin the chance" }));
 

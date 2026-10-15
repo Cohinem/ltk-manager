@@ -40,9 +40,10 @@ export function useRunPresence(simple: boolean, listIndex: number): RunPresence 
 }
 
 /**
- * An emitter's preview visibility and solo on its node's header, the timeline lanes' own.
+ * An emitter's visibility and solo on its node's header, the timeline lanes' own.
  *
- * Both change what the preview draws and leave the file alone.
+ * In an editable document the eye writes the emitter's `disabled` flag, and in a read-only one
+ * it hides the emitter in the preview. Solo changes what the preview draws alone.
  */
 export function EmitterRunToggles({ presence }: { presence: RunPresence | null }) {
   const run = use(VfxRunContext);

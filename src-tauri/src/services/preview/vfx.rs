@@ -13,6 +13,7 @@ use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_bin::bin_document::BinDocumentId;
 use ltk_manager_bin::meta_schema::SchemaNames;
 use ltk_manager_bin::vfx::{vfx_templates as catalog, VfxTemplate};
+use ltk_manager_game::spell::{missile_spells, MissileSpell};
 use ltk_manager_game::vfx::{
     child_targets, resolve_system, search_linked_children, search_linked_materials, VfxObject,
     VfxSystem,
@@ -59,6 +60,31 @@ pub async fn read_vfx_system(
                 &mut read,
             );
             Ok(system)
+        })
+    })
+    .await
+}
+
+/// The spells that fire one particle system of an open document as their missile.
+///
+/// `entry` is the system's hash as `0x` and eight hex digits. The spells are read from the
+/// bin of the character that the system's path names. Returns none for a system that no
+/// table names or whose path names no character.
+#[tauri::command]
+#[specta::specta]
+pub async fn vfx_missile_spells(
+    document: BinDocumentId,
+    entry: String,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<MissileSpell>> {
+    off_thread(move || {
+        let entry = parse_entry(&entry)?;
+        read_resolved(&app_handle, document, |open, names, assets| {
+            let Some(path) = names.entry_name(entry) else {
+                return Ok(Vec::new());
+            };
+            let mut read = linked_reader(&app_handle);
+            Ok(missile_spells(open, entry, &path, names, assets, &mut read))
         })
     })
     .await

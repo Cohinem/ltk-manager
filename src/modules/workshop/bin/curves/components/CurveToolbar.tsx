@@ -1,12 +1,4 @@
-import {
-  DiceFiveIcon,
-  LinkBreakIcon,
-  LinkSimpleIcon,
-  PlusIcon,
-  TrashIcon,
-  WarningCircleIcon,
-  XIcon,
-} from "@phosphor-icons/react";
+import { DiceFiveIcon, PlusIcon, TrashIcon, WarningCircleIcon, XIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import { Button, SegmentedControl, Tooltip } from "@/components";
@@ -44,8 +36,6 @@ interface CurveToolbarProps {
   onAddRandom: (() => void) | null;
   /** Clear every table slot, so the curve draws one value again. Null where it has none to clear. */
   onRemoveRandom?: (() => void) | null;
-  /** Whether channels drawing one table edit together. Null where none share one. */
-  linking: { linked: boolean; onToggle: () => void } | null;
 }
 
 /**
@@ -72,7 +62,6 @@ export function CurveToolbar({
   onRemove,
   onAddRandom,
   onRemoveRandom = null,
-  linking,
 }: CurveToolbarProps) {
   const names = CHANNELS[family];
   const chips =
@@ -115,18 +104,13 @@ export function CurveToolbar({
           </span>
         )}
         {draw !== null && (
-          <Tooltip content={m.workshop_bin_random_tables_hint()}>
-            <span
-              tabIndex={0}
-              className="flex cursor-help items-center gap-1 rounded-sm text-meta text-surface-300 outline-none focus-visible:ring-1 focus-visible:ring-accent-500"
-            >
-              <DiceFiveIcon weight="bold" className="size-3.5" />
-              <span className="@max-xl:hidden">{m.workshop_bin_random_chip_label()}</span>
-            </span>
-          </Tooltip>
+          <span className="flex items-center gap-1 rounded-sm text-meta text-surface-300">
+            <DiceFiveIcon weight="bold" className="size-3.5" />
+            <span className="@max-xl:hidden">{m.workshop_bin_random_chip_label()}</span>
+          </span>
         )}
         {draw !== null && onRemoveRandom !== null && (
-          <Tooltip content={m.workshop_bin_random_remove_hint()}>
+          <Tooltip content={m.workshop_bin_random_remove_action()}>
             <Button
               variant="ghost"
               size="xs"
@@ -136,26 +120,17 @@ export function CurveToolbar({
             />
           </Tooltip>
         )}
-        {linking !== null && <LinkToggle {...linking} />}
         {onAddRandom !== null && (
-          <Tooltip content={m.workshop_bin_random_add_hint()}>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onAddRandom}
-              left={<DiceFiveIcon weight="bold" />}
-            >
-              {m.workshop_bin_random_add_action()}
-            </Button>
-          </Tooltip>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onAddRandom}
+            left={<DiceFiveIcon weight="bold" />}
+          >
+            {m.workshop_bin_random_add_action()}
+          </Button>
         )}
-        {flickers && (
-          <Fault
-            tone="warning"
-            label={m.workshop_bin_random_flicker_label()}
-            hint={m.workshop_bin_random_flicker_hint()}
-          />
-        )}
+        {flickers && <Fault tone="warning" label={m.workshop_bin_random_flicker_label()} />}
         {draw?.broken === true && (
           <Fault
             tone="danger"
@@ -208,41 +183,30 @@ export function CurveToolbar({
   );
 }
 
-/** Whether an edit of one channel also writes the channels drawing its table. */
-function LinkToggle({ linked, onToggle }: { linked: boolean; onToggle: () => void }) {
-  const label = linked
-    ? m.workshop_bin_random_unlink_action()
-    : m.workshop_bin_random_link_action();
-
-  return (
-    <Tooltip content={label}>
-      <Button
-        variant="ghost"
-        size="xs"
-        aria-label={label}
-        aria-pressed={linked}
-        onClick={onToggle}
-        left={linked ? <LinkSimpleIcon weight="bold" /> : <LinkBreakIcon weight="bold" />}
-      />
-    </Tooltip>
-  );
-}
-
 /** A fault of the tables, its word in the row and its reason on hover. */
-function Fault({ tone, label, hint }: { tone: "warning" | "danger"; label: string; hint: string }) {
-  return (
-    <Tooltip content={hint}>
-      <span
-        tabIndex={0}
-        /* DS-TEXT */
-        className={twMerge(
-          "flex cursor-help items-center gap-1 text-meta outline-none focus-visible:ring-1 focus-visible:ring-accent-500",
-          tone === "warning" ? "text-warning-text" : "text-danger-text",
-        )}
-      >
-        <WarningCircleIcon weight="bold" className="size-3.5 shrink-0" />
-        {label}
-      </span>
-    </Tooltip>
+function Fault({
+  tone,
+  label,
+  hint,
+}: {
+  tone: "warning" | "danger";
+  label: string;
+  hint?: string;
+}) {
+  const mark = (
+    <span
+      tabIndex={hint === undefined ? undefined : 0}
+      /* DS-TEXT */
+      className={twMerge(
+        "flex items-center gap-1 text-meta outline-none focus-visible:ring-1 focus-visible:ring-accent-500",
+        hint !== undefined && "cursor-help",
+        tone === "warning" ? "text-warning-text" : "text-danger-text",
+      )}
+    >
+      <WarningCircleIcon weight="bold" className="size-3.5 shrink-0" />
+      {label}
+    </span>
   );
+  if (hint === undefined) return mark;
+  return <Tooltip content={hint}>{mark}</Tooltip>;
 }

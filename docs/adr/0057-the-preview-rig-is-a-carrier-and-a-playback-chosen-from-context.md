@@ -3,7 +3,9 @@
 - **Status:** Accepted (2026-09-29)
 - **Date:** 2026-09-29
 - **Related:** Replaces the presets of decision 2.9 in `docs/plans/vfx-particle-renderer.md`.
-  `docs/plans/vfx-templates.md` sections 2.1 to 2.3. ADR-0037 (the run is the shell's).
+  `docs/plans/vfx-templates.md` sections 2.1 to 2.3. ADR-0037 (the run is the shell's). Amended by
+  [ADR-0065](0065-a-missile-rig-flies-the-spells-own-movement.md), which replaces Flight and Orbit
+  with a Missile carrier and picks a system's missile from the spell that fires it.
 
 ## Context and problem statement
 
