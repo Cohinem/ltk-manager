@@ -57,7 +57,18 @@ export async function sendDynamics(
       ? [{ kind: "editProperty", entry, holder: "", field: MESH_PROPERTIES, edits }]
       : calls.map((call) => editOf(entry, call));
 
-  for (const one of sent) {
+  return sendEach(edit, sent);
+}
+
+/**
+ * Sends `edits` in order and queues the save of each that lands. Returns the refusal of the
+ * first edit that the document refuses, and null if every edit landed.
+ */
+export async function sendEach(
+  edit: DynamicsSends,
+  edits: readonly BinEdit[],
+): Promise<AppError | null> {
+  for (const one of edits) {
     const { result, id } = await edit.send((id) => api.bin.edit(id, one));
     if (!result.ok) return result.error;
 
