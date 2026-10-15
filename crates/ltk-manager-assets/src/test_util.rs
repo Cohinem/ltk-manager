@@ -305,7 +305,6 @@ pub fn fantome_info(name: &str) -> ltk_fantome::FantomeInfo {
         tags: Vec::new(),
         champions: Vec::new(),
         maps: Vec::new(),
-        layers: HashMap::new(),
         ..Default::default()
     }
 }

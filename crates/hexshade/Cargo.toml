@@ -15,7 +15,7 @@ ts = ["dep:specta"]
 [dependencies]
 dxbc-spirv-sys = { path = "../dxbc-spirv-sys" }
 fs-err = { workspace = true }
-ltk_shader = "0.3.8"
+ltk_shader = "0.3.11"
 regex = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

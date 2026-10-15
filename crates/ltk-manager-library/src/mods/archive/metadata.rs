@@ -186,7 +186,6 @@ mod tests {
             tags: Vec::new(),
             champions: Vec::new(),
             maps: Vec::new(),
-            layers: HashMap::new(),
             ..Default::default()
         };
 

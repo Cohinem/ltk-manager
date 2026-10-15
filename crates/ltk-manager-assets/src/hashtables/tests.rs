@@ -3,7 +3,6 @@
 use super::*;
 use fs_err as fs;
 use ltk_manager_base::events::NullEventSink;
-use ltk_mimir_cache::{TableDiff, TableEntry};
 
 /// Keeps the sync progress it is handed, for the throttle tests.
 #[derive(Default)]
@@ -150,14 +149,6 @@ fn a_lock_that_names_nobody_still_says_someone_holds_it() {
     );
 }
 
-fn planned(table: Table, size_bytes: Option<u64>) -> PlannedTable {
-    PlannedTable {
-        table,
-        version: "2026-07-10".to_owned(),
-        size_bytes,
-    }
-}
-
 /// One event as a table opens, one per [`PROGRESS_STEP`] after that, and
 /// one as it lands however short its tail was.
 #[test]
@@ -165,7 +156,7 @@ fn sync_progress_is_throttled_but_always_reports_a_table_landing() {
     let events = RecordingSink::default();
     let progress = SyncProgress::new(&events);
 
-    progress.planned(&[planned(Table::Game, Some(PROGRESS_STEP + 7))]);
+    progress.plan([Some(PROGRESS_STEP + 7)].into_iter());
     progress.progressed(Table::Game, 0, None);
     progress.progressed(Table::Game, PROGRESS_STEP / 2, None);
     progress.progressed(Table::Game, PROGRESS_STEP, None);
@@ -188,11 +179,7 @@ fn a_second_table_continues_the_run_rather_than_restarting_it() {
     let events = RecordingSink::default();
     let progress = SyncProgress::new(&events);
 
-    progress.planned(&[
-        planned(Table::Game, Some(PROGRESS_STEP)),
-        planned(Table::Lcu, Some(PROGRESS_STEP)),
-        planned(Table::Rst, Some(PROGRESS_STEP)),
-    ]);
+    progress.plan([Some(PROGRESS_STEP); 3].into_iter());
     progress.progressed(Table::Game, PROGRESS_STEP, None);
     progress.downloaded(Table::Game);
     progress.progressed(Table::Lcu, 0, None);
@@ -221,10 +208,7 @@ fn a_release_without_sizes_leaves_the_run_untotalled() {
     let events = RecordingSink::default();
     let progress = SyncProgress::new(&events);
 
-    progress.planned(&[
-        planned(Table::Game, Some(PROGRESS_STEP)),
-        planned(Table::Lcu, None),
-    ]);
+    progress.plan([Some(PROGRESS_STEP), None].into_iter());
     progress.progressed(Table::Game, 0, None);
 
     let seen = events.taken();
@@ -235,24 +219,38 @@ fn a_release_without_sizes_leaves_the_run_untotalled() {
     assert_eq!(seen[0].total, 2, "the table count is known either way");
 }
 
-fn entry(version: &str) -> TableEntry {
-    serde_json::from_value(serde_json::json!({
-        "file": format!("t-{version}.lhdb"),
-        "sha256": "00",
+/// Returns a manifest entry for `table` at `version`, with `version` as its checksum.
+fn entry(table: &str, version: &str) -> serde_json::Value {
+    serde_json::json!({
+        "file": format!("{table}-{version}.lhdb"),
+        "sha256": version,
         "entries": 1,
         "key_width": 8,
         "version": version,
-    }))
-    .unwrap()
+    })
 }
 
-fn diff(table: Table, status: TableStatus, have: Option<&str>) -> TableDiff {
-    TableDiff {
-        table,
-        status,
-        remote: entry("2026-07-10"),
-        local: have.map(entry),
-    }
+/// Returns a manifest with `tables`.
+fn manifest(tables: serde_json::Value) -> String {
+    serde_json::json!({
+        "schema": 1,
+        "generated_at": "2026-07-10T00:00:00Z",
+        "tables": tables,
+    })
+    .to_string()
+}
+
+/// Returns an entry in a `.hashdb` format that this build cannot open.
+fn unsupported_entry(table: &str) -> serde_json::Value {
+    let mut entry = entry(table, "2026-07-10");
+    entry["format_version"] = (ltk_hashdb::FORMAT_VERSION + 1).into();
+    entry
+}
+
+/// Checks a cache at `dir` against a release that publishes `remote`.
+fn check_against(dir: &std::path::Path, remote: String) -> HashtableUpdateCheck {
+    let fetch = move |_: &str| Ok::<_, std::io::Error>(remote.clone().into_bytes());
+    HashStore::at(dir).check(&fetch).unwrap().into()
 }
 
 /// A table published in a format this build cannot open is behind in the
@@ -260,15 +258,26 @@ fn diff(table: Table, status: TableStatus, have: Option<&str>) -> TableDiff {
 /// apart from the updates the button promises.
 #[test]
 fn a_check_separates_what_a_sync_can_install_from_what_it_cannot() {
-    let check = HashtableUpdateCheck::from(CheckReport {
-        tables: vec![
-            diff(Table::Game, TableStatus::Stale, Some("2026-06-01")),
-            diff(Table::Lcu, TableStatus::Absent, None),
-            diff(Table::Rst, TableStatus::Current, Some("2026-07-10")),
-            diff(Table::BinTypes, TableStatus::Unsupported, None),
-        ],
-        unknown_tables: vec!["future".to_owned()],
-    });
+    let tmp = tempfile::tempdir().unwrap();
+    write_manifest(
+        tmp.path(),
+        &manifest(serde_json::json!({
+            "game": entry("game", "2026-06-01"),
+            "rst": entry("rst", "2026-07-10"),
+        })),
+    );
+    fs::write(tmp.path().join("rst-2026-07-10.lhdb"), [0u8; 3]).unwrap();
+
+    let check = check_against(
+        tmp.path(),
+        manifest(serde_json::json!({
+            "game": entry("game", "2026-07-10"),
+            "lcu": entry("lcu", "2026-07-10"),
+            "rst": entry("rst", "2026-07-10"),
+            "bintypes": unsupported_entry("bintypes"),
+            "future": entry("future", "2026-07-10"),
+        })),
+    );
 
     assert!(!check.up_to_date);
     assert_eq!(
@@ -291,13 +300,20 @@ fn a_check_separates_what_a_sync_can_install_from_what_it_cannot() {
 
 #[test]
 fn a_check_that_finds_nothing_to_install_reads_as_up_to_date() {
-    let check = HashtableUpdateCheck::from(CheckReport {
-        tables: vec![
-            diff(Table::Game, TableStatus::Current, Some("2026-07-10")),
-            diff(Table::BinTypes, TableStatus::Unsupported, None),
-        ],
-        unknown_tables: Vec::new(),
-    });
+    let tmp = tempfile::tempdir().unwrap();
+    write_manifest(
+        tmp.path(),
+        &manifest(serde_json::json!({ "game": entry("game", "2026-07-10") })),
+    );
+    fs::write(tmp.path().join("game-2026-07-10.lhdb"), [0u8; 3]).unwrap();
+
+    let check = check_against(
+        tmp.path(),
+        manifest(serde_json::json!({
+            "game": entry("game", "2026-07-10"),
+            "bintypes": unsupported_entry("bintypes"),
+        })),
+    );
 
     assert!(
         check.up_to_date,
@@ -314,7 +330,7 @@ fn a_run_with_nothing_to_download_reports_nothing() {
     let events = RecordingSink::default();
     let progress = SyncProgress::new(&events);
 
-    progress.planned(&[]);
+    progress.plan(std::iter::empty());
 
     assert!(events.taken().is_empty());
 }
