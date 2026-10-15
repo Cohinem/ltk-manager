@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-15 | Declare an added or deleted emitter of a game bin without the whole list |
 | 2026-10-15 | Scale a system in the Adjust popover, beside the hue turn                |
 | 2026-10-15 | Recolor a system by turning the hue of every tint                        |
 | 2026-10-12 | Collapse a panel to its strip or to a rail of its panes' icons           |
@@ -3040,6 +3041,10 @@ the value, the refusal names that layer, because the build keeps its value over 
 
 A map is compared by its entries in any order, because an addition lands at the end of one.
 
+An edit that rewrites a whole property, such as a duplicate emitter, declares the same keys
+where the list only gained items at its end or lost one item: `+list: [value, ...]` or
+`-list: [index]`. Any other change of the property sets it whole.
+
 An object is created and removed through an `objects` entry of a `target` module for the
 chunk (ADR-0049).
 
@@ -3353,8 +3358,10 @@ under it.
 | The Graph pane, no master node selected        |                   |              | `Ctrl+V`, at the end           |                |
 
 **A duplicate lands right after its source**, and a paste after the emitter it was asked on, in
-that emitter's list. Each, a delete included, is one `editProperty` edit of the list, so one undo step, and a
-declared document declares the list as any other list edit.
+that emitter's list. Each, a delete included, is one `editProperty` edit of the list, so one undo
+step. In a declared document a duplicate, a paste and a template land at the end of the list
+instead, so the declaration adds the emitter, and a delete removes it by index. The game's other
+emitters stay the game's, and a later patch of theirs still reaches the mod.
 
 **A copy is JSON text on the clipboard.** It carries `"format": "ltk-manager/bin-value"`, the
 class, and the value as `ltk_meta` serializes it, so a paste reads it back exactly in another

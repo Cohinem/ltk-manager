@@ -42,10 +42,11 @@ describe("emitter edits", () => {
     expect(emitterPlace("")).toBeNull();
   });
 
-  it("copies an emitter to the place after it under a unique name", () => {
-    expect(duplicateEdits(2)).toEqual([
+  it("copies an emitter to the place asked under a unique name, or to the end", () => {
+    expect(duplicateEdits(2, 3)).toEqual([
       { type: "copyItem", from: "[2]", path: "", index: 3, unique: NAME },
     ]);
+    expect(duplicateEdits(2, null)[0]).toMatchObject({ index: null });
   });
 
   it("lands a paste where asked, or at the end", () => {

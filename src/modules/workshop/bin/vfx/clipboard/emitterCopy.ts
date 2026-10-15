@@ -53,11 +53,9 @@ export function isEmitterCopy(text: string): boolean {
   return format === CLIPBOARD_FORMAT && classHash === EMITTER_CLASS;
 }
 
-/** The edit that copies the emitter at `index` of its list to the place after it. */
-export function duplicateEdits(index: number): ValueEdit[] {
-  return [
-    { type: "copyItem", from: `[${index}]`, path: "", index: index + 1, unique: EMITTER_NAME },
-  ];
+/** The edit that copies the emitter at `index` of its list to `at`, or to the end if `at` is null. */
+export function duplicateEdits(index: number, at: number | null): ValueEdit[] {
+  return [{ type: "copyItem", from: `[${index}]`, path: "", index: at, unique: EMITTER_NAME }];
 }
 
 /** The edit that removes the emitter at `index` of its list. */
