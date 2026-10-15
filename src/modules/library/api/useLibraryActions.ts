@@ -1,7 +1,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { errorSummary, getLocale, m } from "@/i18n";
 import { api, type BulkInstallResult, unwrap } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";

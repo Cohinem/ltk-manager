@@ -37,7 +37,7 @@ import {
 } from "@/modules/library/api";
 import { useLibrarySidebarStore, useLibraryTableStore } from "@/modules/library/state";
 import { getMapLabel, getTagLabel } from "@/modules/library/utils/labels";
-import { useSettings } from "@/modules/settings";
+import { useSettings } from "@/modules/settings/api";
 import { useModHealthDrawerStore } from "@/stores";
 import { twMerge } from "@/utils";
 

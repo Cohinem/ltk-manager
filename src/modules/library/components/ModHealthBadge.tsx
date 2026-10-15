@@ -6,7 +6,7 @@ import {
   WarningIcon,
   WrenchIcon,
 } from "@phosphor-icons/react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 
 import { Badge, Button, IconButton, Popover, ShockedPoroDuotoneIcon, Tooltip } from "@/components";
 import { type ModHealthVerdict } from "@/lib/tauri";

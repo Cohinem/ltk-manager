@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { match } from "ts-pattern";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { errorSummary, m } from "@/i18n";
 import { api, type AppError, type LibraryRepairReport, type ModRepairProgress } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";

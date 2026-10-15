@@ -22,7 +22,7 @@ vi.mock("@/modules/library/api", () => ({
   useCheckModHealth: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
-vi.mock("@/modules/settings", () => ({
+vi.mock("@/modules/settings/api", () => ({
   useSettings: () => ({ data: { showModTags: true } }),
 }));
 

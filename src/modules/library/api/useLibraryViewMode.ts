@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { useSettings, useUpdateSettings } from "@/modules/settings";
+import { useSettings, useUpdateSettings } from "@/modules/settings/api";
 
 export type ViewMode = "grid" | "table";
 

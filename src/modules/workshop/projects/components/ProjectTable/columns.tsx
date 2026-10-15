@@ -1,4 +1,5 @@
-import { format, formatDistanceToNowStrict } from "date-fns";
+import { format } from "date-fns/format";
+import { formatDistanceToNowStrict } from "date-fns/formatDistanceToNowStrict";
 import { type ComponentType, use } from "react";
 
 import {

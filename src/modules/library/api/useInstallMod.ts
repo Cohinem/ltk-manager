@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { m } from "@/i18n";
 import { api, type AppError, type InstalledMod, type InstallOutcome } from "@/lib/tauri";
 import { checkModForSkinhack } from "@/modules/library/utils/skinhackCheck";

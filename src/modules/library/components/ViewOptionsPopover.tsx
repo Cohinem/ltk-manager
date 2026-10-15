@@ -12,7 +12,7 @@ import {
 } from "@/components";
 import { m } from "@/i18n";
 import { useLibraryViewMode } from "@/modules/library/api";
-import { useSettings, useUpdateSettings } from "@/modules/settings";
+import { useSettings, useUpdateSettings } from "@/modules/settings/api";
 import { type CardScale, useCardScale, useSetCardScale, VALID_CARD_SCALES } from "@/stores";
 
 import { useLibraryTableStore } from "../state";

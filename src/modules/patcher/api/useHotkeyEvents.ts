@@ -1,4 +1,4 @@
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 
 /**

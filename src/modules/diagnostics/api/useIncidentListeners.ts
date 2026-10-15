@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { m } from "@/i18n";
 import type { Incident } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
-import { useRebuildOverlayAction } from "@/modules/patcher";
-import { useSettings } from "@/modules/settings";
+import { useRebuildOverlayAction } from "@/modules/patcher/api";
+import { useSettings } from "@/modules/settings/api";
 import { useIncidentLineStore, useInstallMismatchStore } from "@/stores";
 import { slashed } from "@/utils";
 

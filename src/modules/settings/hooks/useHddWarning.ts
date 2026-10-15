@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { api, isOk } from "@/lib/tauri";
 
 import { useSettings } from "../api/useSettings";
