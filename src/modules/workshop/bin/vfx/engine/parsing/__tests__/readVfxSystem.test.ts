@@ -26,6 +26,7 @@ import {
   STENCIL_MODE,
   UV_MODE,
 } from "../../model/enums";
+import { EFFECTS_QUALITY, type EffectsQuality } from "../../model/quality";
 import { readVfxSystem } from "../readVfxSystem";
 
 /** A struct of `fields`, each keyed by its name, or by its hash where the key is one. */
@@ -1579,6 +1580,15 @@ describe("the ground layer", () => {
     expect(forced.renderPhaseOverride).toBe(RENDER_PHASE.postDistortion);
   });
 
+  it("reads doesCastShadow, false where it is not written", () => {
+    const [bare, casting] = readVfxSystem(
+      system([emitter({}), emitter({ doesCastShadow: bool(true) })]),
+    ).emitters;
+
+    expect(bare.doesCastShadow).toBe(false);
+    expect(casting.doesCastShadow).toBe(true);
+  });
+
   it("takes the ground layer off a forced phase, whatever isGroundLayer says", () => {
     const flagged = { isGroundLayer: bool(true) };
     const [forcedIn, forcedOut, automatic] = readVfxSystem(
@@ -1917,6 +1927,43 @@ describe("the instantiation gates", () => {
     expect([lowSpec.culled, lowSpec.disabled]).toEqual(["importance", true]);
     expect([rich.culled, rich.disabled]).toEqual([null, false]);
     expect([plain.culled, plain.disabled]).toEqual([null, false]);
+  });
+
+  it("culls by the importance mask of the effects quality it reads at", () => {
+    const tiers = [0, 1, 2, 3, 4, 5].map((importance) =>
+      emitting({ importance: number(importance) }),
+    );
+    const culledAt = (quality: EffectsQuality) =>
+      readVfxSystem(system(tiers), quality).emitters.map((each) => each.culled === "importance");
+
+    expect(culledAt(EFFECTS_QUALITY.veryLow)).toEqual([true, true, false, false, false, true]);
+    expect(culledAt(EFFECTS_QUALITY.medium)).toEqual([true, true, false, false, false, false]);
+    expect(culledAt(EFFECTS_QUALITY.high)).toEqual([true, false, false, false, true, false]);
+  });
+
+  it("scales the rate of an importance by the effects quality and reads its step rate", () => {
+    const model = readVfxSystem(
+      system([emitting({ importance: number(2) })]),
+      EFFECTS_QUALITY.medium,
+    );
+
+    expect(model.emitters[0]?.rateScale).toBe(0.6);
+    expect(model.stepping).toEqual({ rate: 20, oncePerFrame: false, everyFrame: true });
+  });
+
+  it("reads an unwritten importance as 2, which no quality culls and Low scales", () => {
+    const [plain] = readVfxSystem(system([emitting()]), EFFECTS_QUALITY.low).emitters;
+
+    expect([plain?.culled, plain?.rateScale]).toEqual([null, 0.4]);
+  });
+
+  it("drops softParticleParams below Medium effects quality", () => {
+    const soft = emitting({
+      softParticleParams: struct(nameHash("VfxSoftParticleDefinitionData"), {}),
+    });
+
+    expect(readVfxSystem(system([soft]), EFFECTS_QUALITY.low).emitters[0]?.soft).toBeNull();
+    expect(readVfxSystem(system([soft]), EFFECTS_QUALITY.medium).emitters[0]?.soft).not.toBeNull();
   });
 
   it("culls a colourblind-only emitter off the complex list alone", () => {

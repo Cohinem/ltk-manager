@@ -60,6 +60,7 @@ import {
   usePreviewShaders,
   usePreviewSun,
   useSetPreviewDisplay,
+  usePreviewEffectsQuality,
 } from "@/stores";
 
 import { assetKey } from "../../../preview/utils/assetRef";
@@ -364,6 +365,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
       return next;
     });
   }, []);
+  const quality = usePreviewEffectsQuality();
   const cueModels = useQueries({
     queries: cues.map((cue) => {
       const handle = cue.source === null ? document : (opened.get(assetKey(cue.source)) ?? null);
@@ -371,7 +373,9 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
       return vfxQueries.system(handle, cue.system);
     }),
     combine: (results) =>
-      results.map((result) => (result.data === undefined ? null : systemModel(result.data))),
+      results.map((result) =>
+        result.data === undefined ? null : systemModel(result.data, quality),
+      ),
   });
 
   const assets = useMemo(() => textureAssets(skin), [skin]);
@@ -419,7 +423,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     queries: idle.map(({ system }) => vfxQueries.system(document, system)),
   });
   const models = systems.map((query) =>
-    query.data === undefined ? null : systemModel(query.data),
+    query.data === undefined ? null : systemModel(query.data, quality),
   );
   const worn = [...models, ...cueModels];
   const loaded = worn.map((model) => (model === null ? "-" : "+")).join("");

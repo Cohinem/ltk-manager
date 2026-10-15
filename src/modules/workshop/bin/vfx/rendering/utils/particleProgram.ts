@@ -115,7 +115,8 @@ const PATH_PAIRS: Readonly<Record<ParticlePath, readonly ParticleShader[]>> = {
 /**
  * The emitter's particles can draw on `path` through the translated `pair`.
  *
- * A custom material draws through the programs it names.
+ * A custom material draws through the programs it names. A slice draws through the
+ * hand-written material, since no slice pair is translated.
  */
 export function drawsProgram(
   emitter: EmitterModel,
@@ -123,6 +124,7 @@ export function drawsProgram(
   path: ParticlePath,
 ): boolean {
   if (!PATH_PAIRS[path].includes(pair.shader)) return false;
+  if (emitter.sliceRange > 0) return false;
   return emitter.customMaterial == null || emitter.customMaterial.missing;
 }
 

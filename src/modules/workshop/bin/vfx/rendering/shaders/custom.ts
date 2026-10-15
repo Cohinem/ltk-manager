@@ -1,9 +1,12 @@
-import { PICK, WIRE } from "./quad";
+import { PICK, SHADOW_ALPHA, WIRE } from "./quad";
 
 /** The shared material preview's base sampler, tint and opacity, without game shader graphs. */
 export const CUSTOM_FRAGMENT = /* glsl */ `
 ${WIRE}
 ${PICK}
+#ifdef SHADOW
+const float SHADOW_ALPHA = ${SHADOW_ALPHA.toFixed(3)};
+#endif
 uniform sampler2D map;
 uniform vec4 materialTint;
 uniform vec2 materialRepeat;
@@ -35,6 +38,11 @@ void main() {
 #ifdef PICK
   if (texel.a < PICK_ALPHA) discard;
   gl_FragColor = pickId;
+  return;
+#endif
+#ifdef SHADOW
+  if (texel.a * vColor.a < SHADOW_ALPHA) discard;
+  gl_FragColor = vec4(1.0);
   return;
 #endif
   vec4 color = texel * vColor * materialTint;

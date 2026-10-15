@@ -1,10 +1,12 @@
 import {
   type Color,
   DoubleSide,
+  Matrix4,
   NoBlending,
   ShaderMaterial,
   type Side,
   type Texture,
+  Vector3,
   Vector4,
 } from "three";
 
@@ -44,6 +46,9 @@ import {
   type QuadLayers,
   SHEEN,
   sheenDefines,
+  SLICE,
+  sliceDefines,
+  sliceUniforms,
   sheenUniforms,
   softDefines,
   softUniforms,
@@ -141,12 +146,14 @@ export function quadMaterial(
     uniforms: {
       ...layerUniforms(texture, layers, tests),
       ...softUniforms(layers.soft),
+      ...sliceUniforms(layers),
       pushPull: { value: depth.pushPull },
       ...orientationUniforms(orientation),
     },
     defines: {
       ...layerDefines(texture, layers),
       ...softDefines(layers.soft),
+      ...sliceDefines(layers, SLICE.quad),
       FALLOFF: "",
       ...orientationDefines(orientation),
     },
@@ -192,11 +199,13 @@ export function meshMaterial(
       ...layerUniforms(texture, { ...layers, colorTexture: null }, tests),
       ...sheenUniforms(layers.reflection, layers.reflectionTexture),
       ...softUniforms(layers.soft),
+      ...sliceUniforms(layers),
     },
     defines: {
       ...layerDefines(texture, { ...layers, colorTexture: null }),
       ...sheenDefines(layers.reflection, layers.reflectionTexture, SHEEN.drawn),
       ...softDefines(layers.soft),
+      ...sliceDefines(layers, SLICE.mesh),
       LOCK_ALPHA: layers.mode === UV_MODE.lockAlpha ? ALPHA_LOCK.unscrolled : ALPHA_LOCK.none,
     },
     side,
@@ -285,6 +294,7 @@ export function ribbonMaterial(
       ...erosionUniforms(layers.erosion, layers.erosionTexture),
       ...distortionUniforms(layers.distortion, layers.normalTexture),
       ...softUniforms(layers.soft),
+      ...sliceUniforms(layers),
     },
     defines: {
       ...(texture !== null ? { HAS_MAP: "" } : {}),
@@ -294,6 +304,7 @@ export function ribbonMaterial(
       ...erosionDefines(layers.erosion, layers.erosionTexture),
       ...distortionDefines(layers.distortion, layers.normalTexture),
       ...softDefines(layers.soft),
+      ...sliceDefines(layers, SLICE.quad),
     },
     side: DoubleSide,
     depthTest: tests.depthTest,
@@ -423,5 +434,33 @@ export function pickMaterial(solid: ShaderMaterial): ShaderMaterial {
     depthTest: true,
     depthWrite: true,
     blending: NoBlending,
+  });
+}
+
+/**
+ * `solid` drawn into the sun's shadow map, over its uniforms.
+ *
+ * The client's shadow pass writes depth alone, with blending off and the depth test and write
+ * on, and keeps the emitter's `depthBiasFactors`. `eyeView` and `eyePosition` are the scene
+ * camera's, which the pass writes before it draws.
+ */
+export function shadowMaterial(solid: ShaderMaterial): ShaderMaterial {
+  return new ShaderMaterial({
+    vertexShader: solid.vertexShader,
+    fragmentShader: solid.fragmentShader,
+    uniforms: {
+      ...solid.uniforms,
+      eyeView: { value: new Matrix4() },
+      eyePosition: { value: new Vector3() },
+    },
+    defines: { ...solid.defines, SHADOW: "" },
+    side: solid.side,
+    depthTest: true,
+    depthWrite: true,
+    colorWrite: false,
+    blending: NoBlending,
+    polygonOffset: solid.polygonOffset,
+    polygonOffsetFactor: solid.polygonOffsetFactor,
+    polygonOffsetUnits: solid.polygonOffsetUnits,
   });
 }

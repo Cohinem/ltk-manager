@@ -29,6 +29,9 @@ type SidebarViewId =
   | "game"
   | "source";
 
+/** An Effects Quality level of the client, 0 for Very Low to 4 for Very High. */
+type PreviewEffectsQuality = 0 | 1 | 2 | 3 | 4;
+
 /**
  * What a viewport draws around the run, and how the inspector lists a class.
  *
@@ -64,6 +67,11 @@ interface PreviewDisplay {
   previewTargetHandle: boolean;
   /** Each emitter that writes a stencil mask draws the mask as a tint. */
   previewMasks: boolean;
+  /**
+   * The client's Effects Quality every particle preview simulates, from 0 for Very Low to 4
+   * for Very High.
+   */
+  previewEffectsQuality: PreviewEffectsQuality;
   /** The live counts and the frame's milliseconds are drawn in the corner. */
   previewStats: boolean;
   /** A character's skeleton is drawn over it, a dot per joint and a line to its parent. */
@@ -282,6 +290,7 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   previewGizmo: true,
   previewTargetHandle: false,
   previewMasks: false,
+  previewEffectsQuality: 4,
   previewStats: false,
   previewArmature: false,
   previewShaders: false,
@@ -441,6 +450,7 @@ export type {
   ExplorerView,
   LayerPanelSide,
   PreviewDisplay,
+  PreviewEffectsQuality,
   PreviewFlag,
   ProjectEditorKey,
   SidebarViewId,
@@ -515,6 +525,8 @@ export const usePreviewAmbientOcclusion = () =>
 export const usePreviewGizmo = () => useWorkshopLayoutStore((s) => s.previewGizmo);
 export const usePreviewTargetHandle = () => useWorkshopLayoutStore((s) => s.previewTargetHandle);
 export const usePreviewMasks = () => useWorkshopLayoutStore((s) => s.previewMasks);
+export const usePreviewEffectsQuality = () =>
+  useWorkshopLayoutStore((s) => s.previewEffectsQuality);
 export const usePreviewStats = () => useWorkshopLayoutStore((s) => s.previewStats);
 export const usePreviewArmature = () => useWorkshopLayoutStore((s) => s.previewArmature);
 export const usePreviewShaders = () => useWorkshopLayoutStore((s) => s.previewShaders);

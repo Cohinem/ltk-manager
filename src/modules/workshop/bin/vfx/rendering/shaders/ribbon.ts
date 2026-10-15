@@ -1,4 +1,4 @@
-import { COLOR, ERODE, FETCH, PICK, SOFT, WARP, WIRE } from "./quad";
+import { CAST, COLOR, ERODE, FETCH, PICK, SOFT, WARP, WIRE } from "./quad";
 
 export const RIBBON_VERTEX = /* glsl */ `
 attribute vec2 alphaUv;
@@ -54,6 +54,7 @@ varying vec2 vMultCell;
 ${FETCH}
 ${COLOR}
 ${ERODE}
+${CAST}
 ${WARP}
 ${SOFT}
 
@@ -72,6 +73,16 @@ void main() {
 #ifdef PICK
   if (texel.a < PICK_ALPHA) discard;
   gl_FragColor = pickId;
+  return;
+#endif
+#ifdef SHADOW
+  cast(texel.a, vColor.a, vLookup, eroding(vCell + vUv * cellSize));
+  return;
+#endif
+#ifdef SLICE
+  vec4 slice = sliced(texel, vLookup, vColor);
+  if (slice.a < alphaRef) discard;
+  gl_FragColor = slice;
   return;
 #endif
 #ifdef RAMP_AT_MULT

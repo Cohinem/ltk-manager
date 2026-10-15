@@ -54,6 +54,7 @@ import {
   maskMaterial,
   meshMaterial,
   pickMaterial,
+  shadowMaterial,
   projectionMaterial,
   quadMaterial,
   type QuadOrientation,
@@ -227,6 +228,7 @@ const PLAIN_LAYERS: QuadLayers = {
   reflectionTexture: null,
   soft: null,
   ground: false,
+  slice: 0,
 };
 
 const PASSING = { alphaRef: 0, depthTest: true };
@@ -613,6 +615,29 @@ describe("maskMaterial", () => {
   });
 });
 
+describe("shadowMaterial", () => {
+  it("draws the solid's shaders and uniforms under SHADOW, writing depth alone", () => {
+    const solid = quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING);
+    const shadow = shadowMaterial(solid);
+
+    expect(shadow.vertexShader).toBe(solid.vertexShader);
+    expect(shadow.uniforms.map).toBe(solid.uniforms.map);
+    expect(shadow.defines).toHaveProperty("SHADOW");
+    expect(shadow.defines).toHaveProperty("BILLBOARD");
+    expect(shadow.uniforms).toHaveProperty("eyeView");
+    expect(shadow.uniforms).toHaveProperty("eyePosition");
+    expect(shadow.blending).toBe(NoBlending);
+    expect(shadow.colorWrite).toBe(false);
+    expect(shadow.depthWrite).toBe(true);
+  });
+
+  it("casts in every fragment pass a particle draws with", () => {
+    for (const fragment of [FRAGMENT, RIBBON_FRAGMENT, CUSTOM_FRAGMENT]) {
+      expect(fragment).toContain("#ifdef SHADOW");
+    }
+  });
+});
+
 describe("pickMaterial", () => {
   it("draws the solid's shader and uniform objects under PICK, with a pickId uniform", () => {
     const solid = quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING);
@@ -709,6 +734,23 @@ describe("quadMaterial defines", () => {
     expect(
       quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING).transparent,
     ).toBe(true);
+  });
+
+  it("compiles the quad slice on quads and ribbons and the mesh slice on meshes", () => {
+    const sliced = { ...PLAIN_LAYERS, slice: 0.2 };
+
+    expect(
+      quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, sliced, PASSING).defines,
+    ).toMatchObject({ SLICE: 1 });
+    expect(ribbonMaterial(BLEND_MODE.add, null, [0, 0], sliced, PASSING).defines).toMatchObject({
+      SLICE: 1,
+    });
+    expect(
+      meshMaterial(BLEND_MODE.add, null, [0, 0], sliced, PASSING, FrontSide).defines,
+    ).toMatchObject({ SLICE: 2 });
+    expect(
+      quadMaterial(BLEND_MODE.add, null, FLAT, BILLBOARD, PLAIN_LAYERS, PASSING).defines,
+    ).not.toHaveProperty("SLICE");
   });
 
   it("carries HAS_MAP once its texture has arrived", () => {

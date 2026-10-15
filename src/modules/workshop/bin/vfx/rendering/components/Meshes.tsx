@@ -33,6 +33,7 @@ import { WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { type MeshBuffers, MESHES_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
+import { castsShadow } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { drawLayersOf } from "../utils/frame";
 import { meshMaterial } from "../utils/materials";
@@ -139,7 +140,7 @@ export function Meshes({
     return material;
   }, [emitter, samplers, buffers.pose]);
 
-  const pair = useDrawPair<InstancedMesh>(material, drawLayersOf(emitter));
+  const pair = useDrawPair<InstancedMesh>(material, drawLayersOf(emitter), castsShadow(emitter));
   const bones = buffers.pose?.texture ?? null;
   const draw = useMemo(() => meshDraw(bones), [bones]);
   const programs = useParticlePrograms(emitter, samplers, draw, geometry, document);

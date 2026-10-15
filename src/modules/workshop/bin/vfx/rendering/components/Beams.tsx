@@ -23,6 +23,7 @@ import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { useDrawStencil } from "../state/stencil";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
+import { castsShadow } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { drawLayersOf } from "../utils/frame";
 import { ribbonMaterial } from "../utils/materials";
@@ -134,7 +135,11 @@ export function Beams({ emitter, sources, samplers, rank, hidden, document = nul
     [buffers],
   );
 
-  const pair = useDrawPair<Mesh | LineSegments>(material, drawLayersOf(emitter));
+  const pair = useDrawPair<Mesh | LineSegments>(
+    material,
+    drawLayersOf(emitter),
+    castsShadow(emitter),
+  );
   const programs = useParticlePrograms(emitter, samplers, RIBBON_DRAW, buffers.geometry, document);
   useProgramDraw(pair.solid, programs, rank);
 

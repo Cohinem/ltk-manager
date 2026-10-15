@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { OrthographicCamera, Scene } from "three";
 
 import type { AssetRef, BinDocumentId, VfxSystem as VfxSystemRead } from "@/lib/tauri";
+import { usePreviewEffectsQuality } from "@/stores";
 
 import { useSandbox } from "../../../../sandbox/state/SandboxContext";
 import { useBinDocument } from "../../../documents/hooks/useBinDocument";
@@ -132,7 +133,8 @@ function SystemRun({
   document: BinDocumentId;
   playing: boolean;
 }) {
-  const system = useMemo(() => readVfxSystem(read), [read]);
+  const quality = usePreviewEffectsQuality();
+  const system = useMemo(() => readVfxSystem(read, quality), [read, quality]);
   /* The HUD draws over no scene depth for a soft fade to read, so none fades. */
   const drawn = useMemo(
     () =>

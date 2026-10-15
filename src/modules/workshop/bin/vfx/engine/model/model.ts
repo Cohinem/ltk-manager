@@ -18,6 +18,7 @@ import {
   type TrailSmoothing,
   type UvMode,
 } from "./enums";
+import type { EffectsQuality } from "./quality";
 import type { Point } from "./rig";
 
 /**
@@ -543,7 +544,7 @@ export interface OrbitalFieldModel {
 /**
  * Why the engine would not instantiate an emitter at the preview's settings.
  *
- * Very High effects quality culls the low-spec `importance`. The default palette culls a
+ * The effects quality culls an `importance` by its mask. The default palette culls a
  * colourblind-only emitter, and `never` is a `colorblindVisibility` no palette shows. A
  * preview is no spectator, and a HUD-layer system drops its simple emitters. `noRate` is an
  * emitter that can never emit, which the engine drops as it prepares the definition.
@@ -611,6 +612,10 @@ export interface EmitterModel {
   readonly rateByVelocity: readonly [number, number] | null;
   /** `MaximumRateByVelocity`, the most that function yields, 300 where unset. */
   readonly maximumRateByVelocity: number;
+  /** The multiplier the effects quality applies to the spawn rate, by `importance`. */
+  readonly rateScale: number;
+  /** The effects quality the emitter was read at, which its draw paths also read. */
+  readonly effectsQuality: EffectsQuality;
   /** Seconds a particle lives, sampled at birth. */
   readonly particleLifetime: ValueCurve;
   /**
@@ -827,6 +832,8 @@ export interface EmitterModel {
   readonly miscRenderFlags: number;
   /** `renderPhaseOverride`, of [`RENDER_PHASE`], which `automatic` leaves to the other fields. */
   readonly renderPhaseOverride: number;
+  /** `doesCastShadow`, which puts an emitter left to the automatic choice in the shadow pass. */
+  readonly doesCastShadow: boolean;
   /**
    * The emitter draws in the ground layer's phase, at its own position: `isGroundLayer` on
    * an emitter left to the automatic choice, or `renderPhaseOverride` naming that phase.
@@ -838,6 +845,13 @@ export interface EmitterModel {
    * A fragment whose composited alpha is below it is discarded.
    */
   readonly alphaRef: number;
+  /**
+   * `sliceTechniqueRange`, the band the colour ramp's alpha keeps of the texture's red
+   * threshold under the slice shaders, and 0 for an emitter drawing no slice.
+   */
+  readonly sliceRange: number;
+  /** The emitter's flex fields, and null for an emitter writing none. */
+  readonly flex: FlexModel | null;
   /**
    * The primitive's kind, and `cameraQuad` for an emitter that names none.
    *
@@ -902,4 +916,67 @@ export interface SystemModel {
   readonly dragMotion: DragMotion;
   /** `buildUpTime`, the seconds a run simulates before it is first drawn. */
   readonly buildUpTime: number;
+  /** How the system turns frame time into simulation steps. */
+  readonly stepping: Stepping;
+}
+
+/**
+ * The system's timestep policy: the effects quality's fixed rate and the two `flags` that
+ * depart from it.
+ */
+export interface Stepping {
+  /** Steps a second, which the effects quality sets. */
+  readonly rate: number;
+  /** `SimulateOncePerFrame`: each frame is one step of whatever length it was. */
+  readonly oncePerFrame: boolean;
+  /** `SimulateEveryFrame`: a frame too short for a whole step still takes one of its own length. */
+  readonly everyFrame: boolean;
+}
+
+/**
+ * A `FlexValueFloat`, `FlexValueVector2` or `FlexValueVector3`: a value that a flex channel
+ * scales.
+ */
+export interface FlexValue {
+  /** `mFlexID`, the channel of the three a system carries, 0 to 2. */
+  readonly channel: number;
+  readonly value: ValueCurve;
+}
+
+/** A `FlexTypeFloat`: a number that a flex channel scales. */
+export interface FlexScale {
+  /** `mFlexID`, the channel of the three a system carries, 0 to 2. */
+  readonly channel: number;
+  readonly value: number;
+}
+
+/**
+ * The flex fields of one emitter, each null where the emitter writes none.
+ *
+ * A flex channel is a number gameplay sets on a live system. Each field combines its value
+ * with that channel as "Flex values" in docs/plans/vfx-particle-renderer.md records.
+ */
+export interface FlexModel {
+  /** `flexRate`. */
+  readonly rate: FlexValue | null;
+  /** `flexParticleLifetime`. */
+  readonly lifetime: FlexValue | null;
+  /** `flexBirthVelocity`. */
+  readonly velocity: FlexValue | null;
+  /** `flexBirthRotationalVelocity0`. */
+  readonly rotationalVelocity: FlexValue | null;
+  /** `flexBirthUVScrollRate`. */
+  readonly uvScroll: FlexValue | null;
+  /** `textureMult.flexBirthUVScrollRateMult`. */
+  readonly uvScrollMult: FlexValue | null;
+  /** `flexBirthUVOffset`. */
+  readonly uvOffset: FlexValue | null;
+  /** `flexScaleBirthScale`. */
+  readonly birthScale: FlexScale | null;
+  /** `FlexInstanceScale`. */
+  readonly instanceScale: FlexScale | null;
+  /** `FlexShapeDefinition.flexBirthTranslation`. */
+  readonly birthTranslation: FlexValue | null;
+  /** `FlexShapeDefinition.flexScaleEmitOffset`. */
+  readonly emitOffsetScale: FlexScale | null;
 }
