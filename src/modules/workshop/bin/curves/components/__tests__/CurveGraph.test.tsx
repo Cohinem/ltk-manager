@@ -5,6 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { CurveKey, ProbabilityTable, ValueMark } from "../../../values/utils/valueRows";
+import type { VfxRun } from "../../../vfx/playback/state/run";
+import type { LivePlayhead } from "../../hooks/curvePlayhead";
 import { randomDraw } from "../../utils/randomDraw";
 import { CurveGraph } from "../CurveGraph";
 
@@ -74,6 +76,27 @@ function randomX(keys: CurveKey[]): ValueMark {
   };
 }
 
+/** A playhead at `time` that the test moves through `tick`. */
+function livePlayhead(time: number) {
+  const listeners = new Set<() => void>();
+  const held = { time };
+  const live: LivePlayhead = {
+    run: {
+      driver: {},
+      subscribe: (listener: () => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    } as unknown as VfxRun,
+    read: () => held.time,
+  };
+  const tick = (next: number) => {
+    held.time = next;
+    listeners.forEach((listener) => listener());
+  };
+  return { live, tick };
+}
+
 function draw(keys: CurveKey[], family: "scalar" | "vector" | "color") {
   return render(<CurveGraph keys={keys} family={family} />).container;
 }
@@ -123,6 +146,51 @@ describe("CurveGraph", () => {
     expect(screen.getByText("births")).toBeInTheDocument();
     expect(screen.getAllByRole("img", { name: "How often each value is drawn" })).toHaveLength(1);
     expect(screen.getByText("uniform")).toBeInTheDocument();
+  });
+
+  it("marks the playhead with a chip reading its time and a dot per drawn channel", () => {
+    const { live } = livePlayhead(0.4);
+    const { container } = render(
+      <CurveGraph keys={VECTOR} family="vector" muted={new Set([1])} live={live} />,
+    );
+
+    const chip = container.querySelector('[data-ui="TimeChip:playhead"]');
+    expect(chip).toHaveTextContent("0.40");
+    expect(container.querySelectorAll('[data-ui="PlayheadMark"] circle')).toHaveLength(2);
+  });
+
+  it("moves the playhead on every tick of the clock without a render", () => {
+    const { live, tick } = livePlayhead(0);
+    const { container } = render(<CurveGraph keys={VECTOR} family="vector" live={live} />);
+    const mark = container.querySelector('[data-ui="PlayheadMark"]')!;
+
+    tick(0.5);
+
+    expect(mark.getAttribute("transform")).toBe(`translate(${SIDE / 2} 0)`);
+    expect(container.querySelector('[data-ui="TimeChip:playhead"]')).toHaveTextContent("0.50");
+  });
+
+  it("draws no playhead if no playhead reaches the curve", () => {
+    const { container } = render(<CurveGraph keys={VECTOR} family="vector" />);
+
+    expect(container.querySelector('[data-ui="PlayheadMark"]')).toBeNull();
+    expect(container.querySelector('[data-ui="TimeChip:playhead"]')).toBeNull();
+  });
+
+  it("marks the pointer's time on a curve with no random tables", () => {
+    const { container } = render(<CurveGraph keys={VECTOR} family="vector" />);
+    const canvas = container.querySelector('[data-ui="ChannelPlot:canvas"]')!;
+
+    fireEvent.pointerMove(canvas, { clientX: 25 });
+
+    expect(container.querySelector('[data-ui="TimeChip:pointer"]')).toHaveTextContent("0.25");
+  });
+
+  it("marks the playhead on a colour ramp", () => {
+    const { live } = livePlayhead(0.5);
+    const { container } = render(<CurveGraph keys={COLOR} family="color" live={live} />);
+
+    expect(container.querySelector('[data-ui="TimeChip:playhead"]')).toHaveTextContent("0.50");
   });
 
   it("names the unit by the top value tick, and ticks time at its quarters", () => {

@@ -7,7 +7,7 @@ import { type Followed, followedRow } from "../../vfx/drivers/utils/surfaceDraw"
 import type { EmitterModel, SystemModel } from "../../vfx/engine/model/model";
 import type { Driver } from "../../vfx/engine/simulation/driver";
 import { age01, clamp01, emitterPhase } from "../../vfx/engine/simulation/particleRead";
-import { VfxRunContext } from "../../vfx/playback/state/run";
+import { type VfxRun, VfxRunContext } from "../../vfx/playback/state/run";
 import { useRunReadout } from "../../vfx/playback/state/runReadout";
 import { drawnAtBirth } from "../utils/randomDraw";
 
@@ -20,19 +20,33 @@ const LISTS: ReadonlyMap<string, boolean> = new Map([
 /** A row path's emitter: its list's hash and its place in the list. */
 const EMITTER_PATH = /^([0-9a-f]{8})\[(\d+)\]/i;
 
+/** The run's playhead in a curve, which a mark reads every frame. */
+export interface LivePlayhead {
+  readonly run: VfxRun;
+  /** Where the playhead stands in the curve, per `usePlayheadRead`. */
+  readonly read: (driver: Driver) => number | null;
+}
+
 /**
- * Where the run's transport stands in `row`'s curve, or null where no playhead reaches it.
+ * Where the run's transport stands in `row`'s curve: `playhead` at the pace of
+ * `useRunReadout` for the readouts, and `live` for a mark that follows the clock every frame.
  *
- * A row of another object, such as a child lane's, is not in the opened system's model and
- * has none. `usePlayheadRead` says where the playhead stands in the rest.
+ * Both are null where no playhead reaches the curve. A row of another object, such as a child
+ * lane's, is not in the opened system's model and has none.
  */
-export function useCurvePlayhead(row: BinRow): number | null {
+export function useCurvePlayhead(row: BinRow): {
+  readonly playhead: number | null;
+  readonly live: LivePlayhead | null;
+} {
   const run = use(VfxRunContext);
   const system = run?.system ?? null;
   const emitter = useMemo(() => emitterAtRow(system, row), [system, row]);
   const read = usePlayheadRead(emitter, row.name);
+  const reached = emitter === undefined ? null : run;
+  const playhead = useRunReadout(reached, read);
+  const live = useMemo(() => (reached === null ? null : { run: reached, read }), [reached, read]);
 
-  return useRunReadout(emitter === undefined ? null : run, read);
+  return { playhead, live };
 }
 
 /**
