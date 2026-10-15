@@ -22,6 +22,8 @@ import {
   vfxRunKey,
   type VfxRunMemory,
 } from "../../../../state";
+import { NO_ADJUST, type SystemAdjust } from "../../adjust/adjustModel";
+import { type AdjustPreview, AdjustPreviewContext } from "../../adjust/adjustPreview";
 import type { SystemModel } from "../../engine/model/model";
 import {
   flightTime,
@@ -39,7 +41,6 @@ import {
   useForcePreviewState,
 } from "../../forces/forcePreview";
 import { useVfxSystem } from "../../hooks/useVfxSystem";
-import { type RecolorPreview, RecolorPreviewContext } from "../../recolor/recolorPreview";
 import { useAutoRig } from "./autoRigState";
 import { useEmitterFlags } from "./emitterFlags";
 
@@ -187,9 +188,9 @@ export interface VfxRunProviderProps {
  * it and starts the run over.
  */
 export function VfxRunProvider({ document, asset, entry, children }: VfxRunProviderProps) {
-  const [hue, setHue] = useState(0);
-  const recolor = useMemo<RecolorPreview>(() => ({ hue, setHue }), [hue]);
-  const { system: authoredSystem, error, pending } = useVfxSystem(document, entry, hue);
+  const [adjust, setAdjust] = useState<SystemAdjust>(NO_ADJUST);
+  const adjusting = useMemo<AdjustPreview>(() => ({ adjust, setAdjust }), [adjust]);
+  const { system: authoredSystem, error, pending } = useVfxSystem(document, entry, adjust);
   const forces = useForcePreviewState();
   const { project: projectForces, clear: clearForces } = forces;
   const system = useMemo(
@@ -548,9 +549,9 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 
   return (
     <ForcePreviewProvider value={forces}>
-      <RecolorPreviewContext value={recolor}>
+      <AdjustPreviewContext value={adjusting}>
         <VfxRunContext value={run}>{children}</VfxRunContext>
-      </RecolorPreviewContext>
+      </AdjustPreviewContext>
     </ForcePreviewProvider>
   );
 }
