@@ -23,10 +23,10 @@ function fill(pool: Pool, count: number): void {
 
 type Column = Int32Array | Uint32Array | Uint8Array | Float32Array;
 
-/** Every column of `pool` by name, which is each of its fields that is not a count. */
+/** Every column of `pool` by name, which is each of its fields that is not a count or the flex. */
 function columnsOf(pool: Pool): [string, Column][] {
   return Object.entries(pool).filter(
-    (entry): entry is [string, Column] => typeof entry[1] !== "number",
+    (entry): entry is [string, Column] => entry[0] !== "flex" && typeof entry[1] !== "number",
   );
 }
 
@@ -74,14 +74,14 @@ describe("createPool", () => {
     expect(pool.frame).toHaveLength(4 * FRAME_SLOTS);
   });
 
-  it("holds seven birth numbers for each of a particle's two layers", () => {
+  it("holds ten birth numbers for each of a particle's two layers", () => {
     const pool = createPool(4);
 
-    expect(UV_SLOTS).toBe(7);
-    expect(Object.values(UV).sort()).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(UV_SLOTS).toBe(10);
+    expect(Object.values(UV).sort((a, b) => a - b)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(pool.uv).toHaveLength(4 * UV_LAYERS * UV_SLOTS);
-    expect(uvAt(0, 1)).toBe(7);
-    expect(uvAt(3, 0)).toBe(42);
+    expect(uvAt(0, 1)).toBe(10);
+    expect(uvAt(3, 0)).toBe(60);
   });
 });
 

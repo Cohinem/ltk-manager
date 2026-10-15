@@ -37,6 +37,7 @@ export function DefaultProperty({
   rail,
   within,
   depth = 0,
+  tableLayout = true,
 }: {
   field: DefaultField;
   holder: BinRow;
@@ -46,6 +47,7 @@ export function DefaultProperty({
   rail?: ReactNode;
   within?: DefaultField;
   depth?: number;
+  tableLayout?: boolean;
 }) {
   const edit = use(LeafEditContext);
   const document = use(RowDocumentContext);
@@ -220,7 +222,7 @@ export function DefaultProperty({
               <FieldRow
                 row={row}
                 label={labels(field.hash, field.name)}
-                tableLayout
+                tableLayout={tableLayout}
                 width={width}
                 depth={depth}
                 owner={owner}

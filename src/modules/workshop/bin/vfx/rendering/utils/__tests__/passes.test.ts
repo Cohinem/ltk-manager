@@ -14,6 +14,7 @@ function systemOf(...emitters: EmitterModel[]): SystemModel {
     hudLayer: false,
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
+    stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
   };
 }
 

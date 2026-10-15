@@ -86,6 +86,8 @@ export interface TrailBuild {
   readonly wake: boolean;
   /** `mSmoothingMode`, which picks the traversal's direction and turns the filter and the miter on. */
   readonly smoothing: number;
+  /** How many particles either side of a point the box filter averages, from `smoothingReachAt`. */
+  readonly reach: number;
   /** `mCutoff`, the walked length past which no point is emitted, and zero for none. */
   readonly cutoff: number;
   readonly layers: RibbonLayers;
@@ -126,12 +128,6 @@ export interface Cursor {
   vertex: number;
   index: number;
 }
-
-/**
- * How many particles either side of a point the box filter averages, which is the
- * engine's own quality setting at its top rung.
- */
-const FILTER_REACH = 3;
 
 /** What a wake's `u` is brought back by, which keeps mirrored-repeat parity. */
 const WAKE_MODULUS = 2;
@@ -180,7 +176,7 @@ export function writeTrail(
     const at = start + seen * step;
     const first = seen === 0;
     /* The oldest particle is never filtered, and neither is the first of the walk. */
-    placed(held, at, smoothed && !first && at !== 0, POINT);
+    placed(held, at, smoothed && !first && at !== 0 ? build.reach : 0, POINT);
 
     if (!first) {
       walked += Math.hypot(POINT[0] - LAST[0], POINT[1] - LAST[1], POINT[2] - LAST[2]);
@@ -188,7 +184,7 @@ export function writeTrail(
     }
 
     if (first) {
-      placed(held, at + step, false, NEXT);
+      placed(held, at + step, 0, NEXT);
       for (let axis = 0; axis < 3; axis += 1) TANGENT[axis] = NEXT[axis] - POINT[axis];
     } else {
       for (let axis = 0; axis < 3; axis += 1) TANGENT[axis] = POINT[axis] - LAST[axis];
@@ -251,21 +247,21 @@ export function writeTrail(
 }
 
 /**
- * The point at `at`, box-filtered over its neighbours where the walk asks for it.
+ * The point at `at`, box-filtered over `reach` particles either side of it.
  *
- * The mean is over the particles [`FILTER_REACH`] either side in birth order, clipped to
- * the strand, and the divisor counts only what is in range.
+ * The mean is over the particles either side in birth order, clipped to the strand, and the
+ * divisor counts only what is in range. A `reach` of zero is the point itself.
  */
-function placed(held: Strand, at: number, filtered: boolean, out: Float32Array): void {
-  if (!filtered) {
+function placed(held: Strand, at: number, reach: number, out: Float32Array): void {
+  if (reach === 0) {
     out[0] = held.position[at * 3];
     out[1] = held.position[at * 3 + 1];
     out[2] = held.position[at * 3 + 2];
     return;
   }
 
-  const from = Math.max(at - FILTER_REACH, 0);
-  const to = Math.min(at + FILTER_REACH, held.count - 1);
+  const from = Math.max(at - reach, 0);
+  const to = Math.min(at + reach, held.count - 1);
   out.fill(0);
   for (let each = from; each <= to; each += 1) {
     out[0] += held.position[each * 3];

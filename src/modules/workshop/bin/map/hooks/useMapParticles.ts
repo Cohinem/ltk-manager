@@ -10,9 +10,11 @@ import type {
   VfxSystem,
 } from "@/lib/tauri";
 import { type MapVisibility, useBackdropMaterials } from "@/modules/viewport";
+import { usePreviewEffectsQuality } from "@/stores";
 
 import { systemModel } from "../../skin/utils/skinScene";
 import type { SystemModel } from "../../vfx/engine/model/model";
+import { EFFECTS_QUALITIES } from "../../vfx/engine/model/quality";
 import { vfxQueries } from "../../vfx/hooks/useVfxSystem";
 import { mapQueries } from "../api/mapQueries";
 import { isHidden } from "../utils/mapOutline";
@@ -57,10 +59,15 @@ export interface PlayedOptions {
   readonly picked?: ReadonlySet<string>;
 }
 
-/* Declared once, so the query client answers the same array for as long as no read moves. */
-function modelsOf(results: UseQueryResult<VfxSystem, AppError>[]): (SystemModel | null)[] {
-  return results.map((result) => (result.data === undefined ? null : systemModel(result.data)));
-}
+/* Declared once per quality, so the query client answers the same array for as long as no
+   read moves. */
+const MODELS_AT = EFFECTS_QUALITIES.map(
+  (quality) =>
+    (results: UseQueryResult<VfxSystem, AppError>[]): (SystemModel | null)[] =>
+      results.map((result) =>
+        result.data === undefined ? null : systemModel(result.data, quality),
+      ),
+);
 
 /**
  * The particle systems a map stands in its scene, read out of its open `.materials.bin`.
@@ -76,6 +83,7 @@ export function useMapParticles(
   { hidden = NONE_HIDDEN, events = false, picked = NONE_HIDDEN }: PlayedOptions = {},
 ): readonly MapParticleGroup[] {
   const placed = useQuery(mapQueries.particles(document));
+  const quality = usePreviewEffectsQuality();
 
   const played = useMemo(() => {
     const shown = playedParticles(placed.data ?? [], visibility, events, picked).filter(
@@ -85,7 +93,7 @@ export function useMapParticles(
   }, [placed.data, visibility, hidden, events, picked]);
   const models = useQueries({
     queries: document === null ? [] : played.map(([entry]) => vfxQueries.system(document, entry)),
-    combine: modelsOf,
+    combine: MODELS_AT[quality],
   });
 
   const groups = useMemo(

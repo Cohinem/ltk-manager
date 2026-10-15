@@ -103,10 +103,11 @@ function lensAt(camera: Camera, spot: PickSpot): Camera | null {
 
 /** Whether the target drew this frame. A hidden, culled or empty emitter draws nothing. */
 function isDrawing(entry: PickEntry): boolean {
-  return shown(entry.solid.current) || shown(entry.twin.current);
+  return isShown(entry.solid.current) || isShown(entry.twin.current);
 }
 
-function shown(object: Object3D | null): boolean {
+/** Returns true if `object` and every ancestor of it are visible. */
+export function isShown(object: Object3D | null): boolean {
   for (let at = object; at !== null; at = at.parent) {
     if (!at.visible) return false;
   }

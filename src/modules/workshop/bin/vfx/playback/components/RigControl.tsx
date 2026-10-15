@@ -8,8 +8,17 @@ import {
   RocketLaunchIcon,
   SpiralIcon,
 } from "@phosphor-icons/react";
+import { useMemo } from "react";
 
-import { Button, IconButton, OVERLINE, Popover, SegmentedControl, Switch } from "@/components";
+import {
+  Button,
+  IconButton,
+  NumberField,
+  OVERLINE,
+  Popover,
+  SegmentedControl,
+  Switch,
+} from "@/components";
 import { m } from "@/i18n";
 import { CHAMPION_HEIGHT } from "@/modules/viewport";
 import { usePreviewTargetHandle, useSetPreviewDisplay } from "@/stores";
@@ -33,6 +42,7 @@ import {
   withCarrier,
   withPlayback,
 } from "../../engine/model/rig";
+import { flexChannelsOf } from "../../engine/model/systemModel";
 import { useVfxRun } from "../state/run";
 
 /** What each slider spans, in the engine's own units and seconds. */
@@ -194,6 +204,7 @@ export function RigControl() {
             />
           )}
 
+          <FlexRows />
           <SeedRow />
         </div>
       </Popover.Content>
@@ -252,6 +263,30 @@ function TargetHandleRow() {
       />
     </div>
   );
+}
+
+/**
+ * A field per flex channel that the system reads, standing in for the value gameplay sets on
+ * a live system. A system that reads no channel shows none.
+ */
+function FlexRows() {
+  const { system, flex, setFlex } = useVfxRun();
+  const channels = useMemo(() => (system === null ? [] : flexChannelsOf(system)), [system]);
+
+  return channels.map((channel) => (
+    <div key={channel} className="flex items-center justify-between gap-2">
+      <span className="text-xs text-surface-300">
+        {m.workshop_bin_preview_rig_flex_label({ channel })}
+      </span>
+      <NumberField
+        aria-label={m.workshop_bin_preview_rig_flex_label({ channel })}
+        className="w-16 text-right"
+        value={flex[channel] ?? 0}
+        step={0.1}
+        onValueChange={(value) => setFlex(flex.map((held, at) => (at === channel ? value : held)))}
+      />
+    </div>
+  ));
 }
 
 /** The stream every draw of the run comes out of, and the button that takes another. */

@@ -6,7 +6,6 @@ import {
   COLORBLIND_VISIBILITY,
   DRAG_MOTION,
   DRAWING_LAYER,
-  IMPORTANCE,
   LINGER_TYPE,
   RENDER_PHASE,
   SPECTATOR_POLICY,
@@ -21,8 +20,17 @@ import type {
   SystemModel,
   UvLayer,
 } from "../model/model";
+import {
+  culledAt,
+  EFFECTS_QUALITY,
+  type EffectsQuality,
+  rateScaleAt,
+  softensAt,
+  stepRateAt,
+} from "../model/quality";
 import { curveMaximum, emissionPeriod, emptySystem } from "../model/systemModel";
 import { readEmissionSurface } from "./readEmissionSurface";
+import { readFlex } from "./readFlex";
 import {
   readBeam,
   readFields,
@@ -86,7 +94,7 @@ const DIRECTION_MIN_SCALE_DEFAULT = 1;
 const FLAGS_DEFAULT = 0xd4;
 
 /** `importance`'s schema default. */
-const IMPORTANCE_DEFAULT = 1;
+const IMPORTANCE_DEFAULT = 2;
 
 /** `MaximumRateByVelocity` where the emitter leaves it unset. */
 const MAXIMUM_RATE_BY_VELOCITY = 300;
@@ -188,7 +196,9 @@ const FIELD = {
   miscRenderFlags: nameHash("miscRenderFlags"),
   renderPhaseOverride: nameHash("renderPhaseOverride"),
   groundLayer: nameHash("isGroundLayer"),
+  castsShadow: nameHash("doesCastShadow"),
   alphaRef: nameHash("alphaRef"),
+  sliceRange: nameHash("sliceTechniqueRange"),
   stencilMode: nameHash("stencilMode"),
   stencilRef: nameHash("stencilRef"),
   stencilReferenceId: nameHash("StencilReferenceId"),
@@ -222,12 +232,16 @@ const INHERITANCE = { mode: nameHash("Mode"), offset: nameHash("RelativeOffset")
  *
  * Decision 2.1 of docs/plans/vfx-particle-renderer.md puts the mapping here, on the same
  * `nameHash` the editor's rows are keyed on. A field the object does not write takes the
- * schema's default rather than dropping the emitter.
+ * schema's default rather than dropping the emitter. `quality` is the effects quality the
+ * system is instantiated at, which culls emitters, scales their rates and sets the step rate.
  */
-export function readVfxSystem(system: VfxSystem): SystemModel {
+export function readVfxSystem(
+  system: VfxSystem,
+  quality: EffectsQuality = EFFECTS_QUALITY.veryHigh,
+): SystemModel {
   const materials = new Map(system.materials.map((material) => [material.hash, material]));
 
-  return readSystem(system.root, system.entry, system.name, materials);
+  return readSystem(system.root, system.entry, system.name, materials, quality);
 }
 
 /** One `VfxSystemDefinitionData` struct, which is a read's root or a child set inlined. */
@@ -236,6 +250,7 @@ function readSystem(
   entry: string | null,
   name: string | null,
   materials: ReadonlyMap<string, MaterialPreview>,
+  quality: EffectsQuality,
 ): SystemModel {
   if (root.type !== "struct") return emptySystem(entry);
 
@@ -249,7 +264,7 @@ function readSystem(
     held.items.forEach((item, listIndex) => {
       if (item.type !== "struct") return;
       emitters.push(
-        readEmitter(item, emitters.length, list.simple, listIndex, materials, hudLayer),
+        readEmitter(item, emitters.length, list.simple, listIndex, materials, hudLayer, quality),
       );
     });
   }
@@ -266,6 +281,11 @@ function readSystem(
         ? DRAG_MOTION.analytic
         : DRAG_MOTION.stepped,
     buildUpTime: Math.max(number(field(root, SYSTEM.buildUpTime)) ?? 0, 0),
+    stepping: {
+      rate: stepRateAt(quality),
+      oncePerFrame: (flags & SYSTEM_FLAG.simulateOncePerFrame) !== 0,
+      everyFrame: (flags & SYSTEM_FLAG.simulateEveryFrame) !== 0,
+    },
   };
 }
 
@@ -276,6 +296,7 @@ function readEmitter(
   listIndex: number,
   materials: ReadonlyMap<string, MaterialPreview>,
   hudLayer: boolean,
+  quality: EffectsQuality,
 ): EmitterModel {
   const custom = field(node, nameHash("CustomMaterial"));
   const material = field(custom, nameHash("Material"));
@@ -298,7 +319,8 @@ function readEmitter(
   const stencil = simple ? STENCIL_MODE.disabled : stencilMode(field(node, FIELD.stencilMode));
   /* `disabled` is the engine's first test, so no later gate is named for such an emitter. */
   const off = flag(field(node, FIELD.disabled));
-  const culled = off ? null : cullOf(node, simple, hudLayer);
+  const importance = number(field(node, FIELD.importance)) ?? IMPORTANCE_DEFAULT;
+  const culled = off ? null : cullOf(node, simple, hudLayer, culledAt(quality, importance));
   const byVelocity = pair(field(field(node, FIELD.rateByVelocity), CONSTANT));
   const overrides = field(node, FIELD.materialOverrides);
   const phase = number(field(node, FIELD.renderPhaseOverride)) ?? RENDER_PHASE.automatic;
@@ -329,6 +351,8 @@ function readEmitter(
     rateByVelocity: simple || (byVelocity[0] === 0 && byVelocity[1] === 0) ? null : byVelocity,
     maximumRateByVelocity:
       number(field(node, FIELD.maximumRateByVelocity)) ?? MAXIMUM_RATE_BY_VELOCITY,
+    rateScale: rateScaleAt(quality, importance),
+    effectsQuality: quality,
     particleLifetime: curve(field(node, FIELD.particleLifetime), DEFAULT.particleLifetime),
     lifetime: number(field(node, FIELD.lifetime)),
     timeBeforeFirstEmission: number(field(node, FIELD.timeBeforeFirstEmission)) ?? 0,
@@ -383,7 +407,7 @@ function readEmitter(
     erosion: readErosion(field(node, FIELD.erosion)),
     distortion: readDistortion(field(node, FIELD.distortion)),
     reflection: readReflection(field(node, FIELD.reflection)),
-    soft: readSoft(field(node, FIELD.soft)),
+    soft: softensAt(quality) ? readSoft(field(node, FIELD.soft)) : null,
     lookupX: enumByte(field(node, FIELD.lookupX), COLOR_LOOKUP, COLOR_LOOKUP.lifetime),
     lookupY: enumByte(field(node, FIELD.lookupY), COLOR_LOOKUP, COLOR_LOOKUP.constant),
     lookupOffsets: pairOr(field(node, FIELD.lookupOffsets), [0, 0]),
@@ -425,11 +449,14 @@ function readEmitter(
     pass: number(field(node, FIELD.pass)) ?? 0,
     miscRenderFlags: number(field(node, FIELD.miscRenderFlags)) ?? 0,
     renderPhaseOverride: phase,
+    doesCastShadow: flag(field(node, FIELD.castsShadow)),
     groundLayer:
       phase === RENDER_PHASE.automatic
         ? !hudLayer && flag(field(node, FIELD.groundLayer))
         : phase === RENDER_PHASE.groundLayer,
     alphaRef: (number(field(node, FIELD.alphaRef)) ?? DEFAULT_ALPHA_REF) / ALPHA_REF_SCALE,
+    sliceRange: Math.max(number(field(node, FIELD.sliceRange)) ?? 0, 0),
+    flex: readFlex(node),
     stencilMode: stencil,
     /* Read off a mode alone. */
     stencilRef:
@@ -443,7 +470,7 @@ function readEmitter(
     trail: readTrail(primitive),
     beam: readBeam(primitive),
     projection: readProjection(primitive),
-    childSet: readChildSet(field(node, FIELD.childSet), materials),
+    childSet: readChildSet(field(node, FIELD.childSet), materials, quality),
     fields: readFields(field(node, FIELD.fields)),
 
     depthBias: pair(field(node, FIELD.depthBias)),
@@ -495,6 +522,7 @@ function readEmissionMesh(node: VfxValue & { type: "struct" }): EmissionMeshMode
 function readChildSet(
   node: VfxValue | null,
   materials: ReadonlyMap<string, MaterialPreview>,
+  quality: EffectsQuality,
 ): ChildSetModel | null {
   if (node?.type !== "struct") return null;
   const listed = field(node, CHILD_SET.children);
@@ -502,7 +530,9 @@ function readChildSet(
 
   return {
     children:
-      listed?.type === "container" ? listed.items.map((child) => readChild(child, materials)) : [],
+      listed?.type === "container"
+        ? listed.items.map((child) => readChild(child, materials, quality))
+        : [],
     bones: texts(field(node, CHILD_SET.bones)),
     probability: curve(field(node, CHILD_SET.probability), DEFAULT.zero),
     onDeath: flag(field(node, CHILD_SET.onDeath)),
@@ -520,11 +550,18 @@ function readChildSet(
 function readChild(
   identifier: VfxValue,
   materials: ReadonlyMap<string, MaterialPreview>,
+  quality: EffectsQuality,
 ): SystemModel | null {
   for (const hash of CHILD_NAMES) {
     const held = field(identifier, hash);
     if (held?.type === "struct") {
-      return readSystem(held, held.object?.entry ?? null, held.object?.name ?? null, materials);
+      return readSystem(
+        held,
+        held.object?.entry ?? null,
+        held.object?.name ?? null,
+        materials,
+        quality,
+      );
     }
   }
   return null;
@@ -533,8 +570,9 @@ function readChild(
 /**
  * The gate that keeps the emitter from being instantiated in the preview, and null for none.
  *
- * The preview draws at Very High effects quality on the default palette, and is no
- * spectator. A simple emitter skips the palette gate, and a HUD-layer system drops it.
+ * `lowered` is true if the effects quality culls the emitter's `importance`. The preview
+ * draws on the default palette and is no spectator. A simple emitter skips the palette
+ * gate, and a HUD-layer system drops it.
  * An emitter that can never emit is dropped as its definition is prepared. The keywords of
  * `Filtering` are left ungated, since what supplies an instance's keywords is not
  * established.
@@ -543,6 +581,7 @@ function cullOf(
   node: VfxValue & { type: "struct" },
   simple: boolean,
   hudLayer: boolean,
+  lowered: boolean,
 ): EmitterCull | null {
   const policy = number(field(field(node, FIELD.filtering), SPECTATOR_POLICY_FIELD)) ?? 0;
   if (
@@ -554,9 +593,7 @@ function cullOf(
   if (simple && hudLayer) return "hudLayer";
   if (neverEmits(node)) return "noRate";
 
-  const importance = number(field(node, FIELD.importance)) ?? IMPORTANCE_DEFAULT;
-  /* The preview draws at Very High, which culls the low-spec tier alone. */
-  if (importance === IMPORTANCE.lowSpecOnly) return "importance";
+  if (lowered) return "importance";
   if (simple) return null;
 
   const palette = number(field(node, FIELD.colorblindVisibility)) ?? 0;

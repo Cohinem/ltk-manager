@@ -24,11 +24,13 @@ import {
 import { type SlotProgram, useAttachedPrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { usePickTargets } from "../state/pick";
+import { useShadowCasters } from "../state/shadow";
 import { useStencil } from "../state/stencil";
 import { useWireTwin, WIRE_ORDER } from "../state/wire";
 import { scaleAboutParent } from "../utils/attachedPlace";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
+import { castsShadow } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { drawLayersOf, leaveLayers, PARTICLE_LAYER, placeOnLayers } from "../utils/frame";
 import { attachedMaterial } from "../utils/materials";
@@ -156,6 +158,7 @@ export function AttachedMeshes({
     [slots, twins],
   );
   usePickTargets(targets);
+  useShadowCasters(targets, castsShadow(emitter));
 
   const programs = useAttachedPrograms(
     emitter,

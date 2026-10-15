@@ -1,9 +1,11 @@
 import { Grid } from "@react-three/drei";
+import { useThree } from "@react-three/fiber";
 import { useLayoutEffect, useMemo, useRef } from "react";
-import type { Mesh } from "three";
+import type { Mesh, WebGLProgramParametersWithUniforms } from "three";
 
 import type { SceneColors } from "../hooks/sceneColors";
 import { useGroundTexture } from "../hooks/useGroundTexture";
+import { SUN_SHADOW_RECEIVER, type SunShadowUniforms, sunShadowOf } from "../utils/sunShadow";
 import { CHAMPION_HEIGHT, GROUND_LEVEL, STAGE_ORDER, UNITS_PER_METRE } from "../utils/world";
 
 /** How far the ground reaches, which is what a champion-scale effect plays out over. */
@@ -48,6 +50,8 @@ export function Stage({
 }) {
   const midlane = useGroundTexture();
   const ground = textured ? midlane : null;
+  const scene = useThree((state) => state.scene);
+  const shadow = sunShadowOf(scene).uniforms;
 
   if (!shown) return null;
 
@@ -68,12 +72,33 @@ export function Stage({
           key={ground === null ? "flat" : "textured"}
           map={ground}
           color={ground === null ? colors.ground : LIT}
+          onBeforeCompile={(program) => receiveSunShadow(program, shadow)}
         />
       </mesh>
 
       <MetreGrid colors={colors} />
     </group>
   );
+}
+
+/** Adds the sun shadow of `shadow` to a `MeshBasicMaterial`'s program. */
+function receiveSunShadow(
+  program: WebGLProgramParametersWithUniforms,
+  shadow: SunShadowUniforms,
+): void {
+  Object.assign(program.uniforms, shadow);
+  program.vertexShader = program.vertexShader
+    .replace("void main() {", "varying vec3 vSunWorld;\nvoid main() {")
+    .replace(
+      "#include <project_vertex>",
+      "#include <project_vertex>\nvSunWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;",
+    );
+  program.fragmentShader = program.fragmentShader
+    .replace("void main() {", `${SUN_SHADOW_RECEIVER}\nvoid main() {`)
+    .replace(
+      "#include <opaque_fragment>",
+      "outgoingLight = sunShadowed(outgoingLight);\n#include <opaque_fragment>",
+    );
 }
 
 /** White, so a textured ground draws its own pixels rather than a tint of them. */

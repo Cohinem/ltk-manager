@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { m } from "@/i18n";
 import type { BinDocumentId, SkinModel } from "@/lib/tauri";
 import { createPose, viewportQueries } from "@/modules/viewport";
+import { usePreviewEffectsQuality } from "@/stores";
 
 import { Notice } from "../../shared/preview/Notice";
 import { skinQueries } from "../../skin/api/skinQueries";
@@ -81,6 +82,7 @@ function AbilityRead({
       ].map((key) => skin.effectSystems.filter((effect) => effect.key === key)),
     [recipe, skin.effectSystems],
   );
+  const quality = usePreviewEffectsQuality();
   const reads = useQueries({
     queries: effects.flatMap((matches) =>
       matches.length === 1 ? [abilityQueries.effect(document, matches[0])] : [],
@@ -101,9 +103,12 @@ function AbilityRead({
     if (recipe.bone !== "" && pose.jointNamed(recipe.bone) < 0) return null;
     return abilitySteps(recipe, pose, skin.scale ?? 1).map((step) => ({
       ...step,
-      system: systemModel(systems[effects.findIndex((matches) => matches[0].key === step.key)]!),
+      system: systemModel(
+        systems[effects.findIndex((matches) => matches[0].key === step.key)]!,
+        quality,
+      ),
     }));
-  }, [recipe, pose, skin.scale, effects, systems]);
+  }, [recipe, pose, skin.scale, effects, systems, quality]);
   const missing =
     (recipe.clip !== null && source.graph === null) ||
     skin.mesh?.asset == null ||

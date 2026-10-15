@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fixedRateStepper, MAX_STEPS, variableStepper } from "../stepper";
+import { fixedRateStepper, MAX_STEPS, stepperFor, variableStepper } from "../stepper";
 
 describe("variableStepper", () => {
   it("yields one step per frame, as long as the frame was", () => {
@@ -36,6 +36,20 @@ describe("variableStepper", () => {
   });
 });
 
+describe("stepperFor", () => {
+  it("takes one step per frame if oncePerFrame is set", () => {
+    const stepper = stepperFor({ rate: 30, oncePerFrame: true, everyFrame: false });
+
+    expect(stepper.advance(0.2)).toEqual([{ dt: 0.2, now: 0.2 }]);
+  });
+
+  it("takes whole steps at the quality's rate otherwise", () => {
+    const stepper = stepperFor({ rate: 15, oncePerFrame: false, everyFrame: false });
+
+    expect(stepper.advance(0.2).map((step) => step.dt)).toEqual([1 / 15, 1 / 15, 1 / 15]);
+  });
+});
+
 describe("fixedRateStepper", () => {
   it("spends a frame in whole steps of the authored period", () => {
     const stepper = fixedRateStepper(10);
@@ -68,6 +82,21 @@ describe("fixedRateStepper", () => {
     expect(steps.length).toBeLessThanOrEqual(MAX_STEPS);
     expect(steps[0]?.dt).toBeGreaterThan(1 / 60);
     expect(stepper.now).toBeGreaterThan(8);
+  });
+
+  it("halves the count as a float and truncates it once", () => {
+    const stepper = fixedRateStepper(30);
+    const steps = stepper.advance(25 / 30);
+
+    expect(steps).toHaveLength(12);
+    expect(steps[0]?.dt).toBeCloseTo(2 / 30);
+  });
+
+  it("runs one step of the banked time if everyFrame is set and a frame is short", () => {
+    const stepper = fixedRateStepper(30, 0, true);
+
+    expect(stepper.advance(1 / 60)).toEqual([{ dt: 1 / 60, now: 1 / 60 }]);
+    expect(fixedRateStepper(30).advance(1 / 60)).toEqual([]);
   });
 
   it("drains a backlog rather than dropping it", () => {

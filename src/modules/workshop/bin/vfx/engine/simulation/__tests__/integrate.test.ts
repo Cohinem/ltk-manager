@@ -103,6 +103,10 @@ function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
     chanceToNotExist: 0,
     rateByVelocity: null,
     maximumRateByVelocity: 300,
+    rateScale: 1,
+    effectsQuality: 4,
+    sliceRange: 0,
+    flex: null,
     hasVariableStartTime: false,
     overridesMaterials: false,
     birthAcceleration: { constant: [0, 0, 0], keys: [], tables: [] },
@@ -112,6 +116,7 @@ function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
     postRotate: null,
     modulation: [1, 1, 1, 1],
     renderPhaseOverride: 7,
+    doesCastShadow: false,
     flipWinding: false,
     rate: flat(0),
     particleLifetime: flat(100),
@@ -280,6 +285,7 @@ function run(emitters: readonly EmitterModel[], dt = 0.25, staging: Staging = {}
     hudLayer,
     dragMotion,
     buildUpTime: 0,
+    stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
   };
   const pool = createPool(capacity);
   const state = createEmitterStates(emitters, chance);

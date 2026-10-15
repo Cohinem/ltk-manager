@@ -13,11 +13,13 @@ import {
   MaterialSamplers,
   MaterialSwitches,
 } from "../../material/components/MaterialTables";
+import { objectRow } from "../../material/utils/entryEdits";
 import { nameHash } from "../../shared/utils/binHash";
 import { nameColumn } from "../../shared/utils/textCut";
 import { ClipsSection } from "../../skin/components/ClipsSection";
 import { EffectTable, IconRow, MeshCard, OverrideRows } from "../../skin/components/SkinSections";
 import { rowKey } from "../../tree/utils/binRows";
+import { DefaultProperty } from "../../vfx/inspector/components/DefaultProperty";
 import { Emitters } from "../../vfx/inspector/components/VfxSections";
 import { type PlacedSection, type SectionWidget, sectionCount } from "../utils/classLayouts";
 import {
@@ -25,6 +27,7 @@ import {
   FieldRows,
   fieldsIn,
   type LayoutPages,
+  NAME_COLUMN,
   SectionTree,
   type ViewContext,
   type WidgetProps,
@@ -86,8 +89,10 @@ function fieldRowNames(placed: readonly PlacedSection[], pages: LayoutPages): st
 
   for (const section of placed) {
     if (!FIELD_ROW_WIDGETS.has(section.widget)) continue;
-    if (section.widget === undefined) names.push(...section.rows.map((row) => row.name));
-    else under(section.rows);
+    if (section.widget === undefined) {
+      names.push(...section.rows.map((row) => row.name));
+      names.push(...section.defaults.map((field) => field.name));
+    } else under(section.rows);
   }
   return names;
 }
@@ -104,7 +109,7 @@ function Section({ section, pages, view }: SectionProps) {
   const open = useSectionOpen(id) ?? true;
   const toggle = useToggleSection();
   const title = section.title();
-  const empty = section.rows.length === 0;
+  const empty = section.rows.length === 0 && section.defaults.length === 0;
   const count = empty ? null : sectionCount(section, pages);
 
   return (
@@ -172,11 +177,36 @@ function SectionBody({ section, pages, view, title }: SectionProps & { title: st
   }
 
   if (section.widget === undefined) {
-    return <FieldRows rows={section.rows} owner={view.classHash} />;
+    return (
+      <>
+        {section.rows.length > 0 && <FieldRows rows={section.rows} owner={view.classHash} />}
+        {section.defaults.length > 0 && <DefaultRows section={section} view={view} />}
+      </>
+    );
   }
 
   const Widget = WIDGETS[section.widget];
   return <Widget section={section} pages={pages} view={view} />;
+}
+
+/** One row per field the object does not author, each at its default and editable in place. */
+function DefaultRows({ section, view }: { section: PlacedSection; view: ViewContext }) {
+  const holder = useMemo(() => objectRow(view.entry), [view.entry]);
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      {section.defaults.map((field) => (
+        <DefaultProperty
+          key={field.hash}
+          field={field}
+          holder={holder}
+          width={NAME_COLUMN}
+          owner={view.classHash}
+          tableLayout={false}
+        />
+      ))}
+    </div>
+  );
 }
 
 /** The fields the section names under the one row it placed, each on a line of its own. */

@@ -97,6 +97,8 @@ export interface VfxRun {
   readonly loop: LoopRange | null;
   /** The chance every birth reads its tables at, null for a run left to its own draws. */
   readonly pinned: number | null;
+  /** The three flex channels gameplay would set on the system, null for one left unset. */
+  readonly flex: readonly (number | null)[];
   /** Seconds one run lasts, which the playhead spans. */
   readonly span: number;
   /** The run opened where a kept tab left it rather than at zero. */
@@ -129,6 +131,7 @@ export interface VfxRun {
   readonly setSoloed: (update: (held: ReadonlySet<number>) => ReadonlySet<number>) => void;
   readonly setLoop: (loop: LoopRange | null) => void;
   readonly setPinned: (chance: number | null) => void;
+  readonly setFlex: (flex: readonly (number | null)[]) => void;
   /** Stand the run `time` seconds into its phase. */
   readonly seek: (time: number) => void;
   /** Pause, and move the run by whole frames. */
@@ -212,6 +215,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
   const [loop, setLoop] = useState<LoopRange | null>(kept?.loop ?? null);
   const [fitRequest, setFitRequest] = useState(0);
   const [pinned, setPinned] = useState<number | null>(kept?.pinned ?? null);
+  const [flex, setFlex] = useState<readonly (number | null)[]>(NO_FLEX);
   const looping = rig.rig.life === "loop";
   const playback = playbackOf(rig.rig.life);
 
@@ -271,6 +275,10 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
   useEffect(() => {
     driver.pin(pinned);
   }, [driver, pinned]);
+
+  useEffect(() => {
+    driver.setFlex(flex);
+  }, [driver, flex]);
 
   /* A kept run resumes where its tab left it, once the system it is a run of has landed.
      One left at or past its end opens at zero. */
@@ -436,6 +444,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       soloedChildren,
       loop,
       pinned,
+      flex,
       span,
       resumed: (kept?.playhead ?? 0) > 0,
       fitRequest,
@@ -458,6 +467,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       setSoloed,
       setLoop: (range) => setLoop(boundedLoop(range, span)),
       setPinned,
+      setFlex,
       seek,
       step,
       seekEnd,
@@ -487,6 +497,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       soloedChildren,
       loop,
       pinned,
+      flex,
       span,
       kept,
       fitRequest,
@@ -513,6 +524,9 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 const AUTO_SOURCE = { kind: "auto" } as const;
 
 const NO_CHILDREN: ReadonlySet<string> = new Set();
+
+/** Every flex channel unset, which is what a system nothing gameplay-driven sets reads. */
+const NO_FLEX: readonly (number | null)[] = [null, null, null];
 
 const CUSTOM_SOURCE = { kind: "custom" } as const;
 

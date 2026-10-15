@@ -41,6 +41,10 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     chanceToNotExist: 0,
     rateByVelocity: null,
     maximumRateByVelocity: 300,
+    rateScale: 1,
+    effectsQuality: 4,
+    sliceRange: 0,
+    flex: null,
     hasVariableStartTime: false,
     overridesMaterials: false,
     birthAcceleration: { constant: [0, 0, 0], keys: [], tables: [] },
@@ -50,6 +54,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     postRotate: null,
     modulation: [1, 1, 1, 1],
     renderPhaseOverride: 7,
+    doesCastShadow: false,
     flipWinding: false,
     rate: constant(20),
     particleLifetime: constant(1),
@@ -141,6 +146,7 @@ function system(...emitters: EmitterModel[]): SystemModel {
     hudLayer: false,
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
+    stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
   };
 }
 

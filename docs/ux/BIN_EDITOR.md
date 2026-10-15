@@ -1232,6 +1232,12 @@ does not name falls into a last section, Other, drawn as the field rows of those
 among them opening in place. So a field the game adds in a patch is on screen the day the schema
 changes, and a layout is a placement rather than a whitelist.
 
+A layout can also list the fields that the object does not author. The particle system's layout
+does this, because a system file authors only a few of its fields. Each of those fields draws at
+its schema default in the section of field rows that names it, or in Other, and an edit adds it to
+the object. A field that a widget's section names is left to the widget. The fields draw only
+while the inspector's Defaults switch is on, and Changed only hides them.
+
 **A layout draws one kind of row.** Every section of named fields, every list and Other draw
 `FieldRow`, the row [the inspector](#the-inspector) draws, and every one of them shares a name
 column measured over the names the layout draws. A nested row indents inside that column, so a
@@ -2127,7 +2133,9 @@ pane, and past the cap a name is cut in its middle, as a lane's is.
 **A value reads as what it means.** An enum reads its name, and a flags field reads its named bits,
 off the tables `model.ts` holds. An enum edits from a select of its names, and a flags field from a
 menu with a switch per named bit, which stays open for the next and keeps any bit no name covers.
-Both show the number the file holds beside them. A number carries its unit - `s`, `deg`, `units`, `/s` - and a
+Both show the number the file holds beside them. A field name that classes write with different
+meanings takes its table on one class alone: `flags` reads as the system flags on
+`VfxSystemDefinitionData` and as a plain number elsewhere. A number carries its unit - `s`, `deg`, `units`, `/s` - and a
 random range reads `min .. max`. Which unit a field carries is a table written by hand, as the
 groups are. A vector's axes are tinted x, y and z, in columns of one width down the pane. A path
 reads its file name whole and its folder dimmed, cut inside the folder where the column runs out.

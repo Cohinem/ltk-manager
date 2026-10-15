@@ -14,6 +14,7 @@ import { passTwin } from "@/modules/viewport";
 
 import type { ParticleProgram } from "../hooks/useParticlePrograms";
 import { usePickTargets } from "../state/pick";
+import { useShadowCasters } from "../state/shadow";
 import { MaskTintContext } from "../state/stencil";
 import { useWire, type Wire, WIRE_ORDER } from "../state/wire";
 import { PARTICLE_LAYER, useDrawLayer } from "../utils/frame";
@@ -30,12 +31,13 @@ export interface DrawPair<T extends Object3D> {
 }
 
 /**
- * Manage `material`'s lifetime, both objects' layers and their pick target, "The viewer" in
- * docs/ux/BIN_EDITOR.md.
+ * Manage `material`'s lifetime, both objects' layers, their pick target, and the solid's place
+ * in the shadow pass if `casts` is true, "The viewer" in docs/ux/BIN_EDITOR.md.
  */
 export function useDrawPair<T extends Object3D>(
   material: ShaderMaterial,
   layers: readonly number[],
+  casts = false,
 ): DrawPair<T> {
   useEffect(() => () => material.dispose(), [material]);
   const solid = useRef<T>(null);
@@ -44,6 +46,8 @@ export function useDrawPair<T extends Object3D>(
   const wire = useWire(material);
   useDrawLayer(TWIN_LAYERS, twin);
   useMaskTint(solid, material);
+  const casters = useMemo(() => [{ solid, material }], [material]);
+  useShadowCasters(casters, casts);
 
   const targets = useMemo(() => [{ solid, twin, material }], [material]);
   usePickTargets(targets);

@@ -206,6 +206,7 @@ export {
   type SunOverride,
   withSunOverride,
 } from "./scene/utils/sunLight";
+export { aimSunShadow, type SunShadow, sunShadowOf } from "./scene/utils/sunShadow";
 export {
   drawsSolids,
   EDGE_OVERLAY_OPACITY,

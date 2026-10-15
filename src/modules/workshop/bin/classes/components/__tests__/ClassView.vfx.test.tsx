@@ -314,6 +314,23 @@ const RESOLVED: VfxSystem = {
   }),
 };
 
+/** What the meta schema declares for the system, whose sections list the unauthored fields. */
+const SYSTEM_SCHEMA = {
+  name: "VfxSystemDefinitionData",
+  build: 1500,
+  patch: null,
+  fields: [
+    {
+      hash: nameHash("buildUpTime"),
+      name: "buildUpTime",
+      declared: { kind: "f32", key: null, value: null },
+      classHash: null,
+      defaultValue: "0.0",
+      revisions: [],
+    },
+  ],
+};
+
 /** What the meta schema declares for an emitter, which Defaults lists the unauthored of. */
 const SCHEMA = {
   name: "VfxEmitterDefinitionData",
@@ -467,7 +484,10 @@ beforeEach(() => {
       return Promise.resolve({ ok: true, value: paths.map((path) => pages[path] ?? page([])) });
     }
     if (command === commandNames.bin.classSchema)
-      return Promise.resolve({ ok: true, value: SCHEMA });
+      return Promise.resolve({
+        ok: true,
+        value: args?.classHash === SYSTEM ? SYSTEM_SCHEMA : SCHEMA,
+      });
     if (command === commandNames.preview.locateFilesNear)
       return Promise.resolve({ ok: true, value: {} });
     if (command === commandNames.objects.declaredObjects) {
@@ -765,7 +785,7 @@ describe("ClassView over a particle system", () => {
     let saved = false;
 
     mockInvoke.mockImplementation((command, args) => {
-      if (command === commandNames.bin.classSchema) {
+      if (command === commandNames.bin.classSchema && args?.classHash !== SYSTEM) {
         return Promise.resolve({
           ok: true,
           value: {
@@ -1327,6 +1347,16 @@ describe("The shell frame", () => {
     }
   });
 
+  it("draws an unauthored system field at its default in the section that names it", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("Emission End Time");
+
+    await user.click(crumb().getByRole("button", { name: "Smolder_Base_Idle" }));
+
+    expect(await screen.findByText("Build Up Time")).toBeInTheDocument();
+  });
+
   it("draws every group the emitter sets from the crumb's second segment", async () => {
     renderSystem();
     const user = userEvent.setup();
@@ -1543,7 +1573,7 @@ describe("The shell frame", () => {
   it("collapses authored constructor values while leaving changed and unknown sections open", async () => {
     const read = mockInvoke.getMockImplementation()!;
     mockInvoke.mockImplementation((command, args) => {
-      if (command === commandNames.bin.classSchema) {
+      if (command === commandNames.bin.classSchema && args?.classHash !== SYSTEM) {
         return Promise.resolve({
           ok: true,
           value: {

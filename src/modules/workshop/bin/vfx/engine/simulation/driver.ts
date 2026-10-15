@@ -17,9 +17,11 @@ import {
 } from "../model/rig";
 import {
   addressTheSame,
+  DEFAULT_STEPPING,
   emptySystem,
   lingerTail,
   simulationEquals,
+  steppingEquals,
   systemSpan,
 } from "../model/systemModel";
 import { flightInto, yawInto } from "../utils/basis";
@@ -47,6 +49,7 @@ import type { Source } from "./particleRead";
 import {
   copyRows,
   createPool,
+  FLEX_CHANNELS,
   FRAME_SLOTS,
   liveByteLength,
   type Pool,
@@ -54,7 +57,7 @@ import {
   rowsByteLength,
   writeRows,
 } from "./pool";
-import { type Stepper, variableStepper } from "./stepper";
+import { type Stepper, stepperFor } from "./stepper";
 
 /** How many particles one system's pool holds, whatever its emitters ask for. */
 const POOL_CAP = 32_768;
@@ -223,6 +226,11 @@ export interface Driver extends Source {
    */
   setHostJoints(joints: Joints | null): void;
   /**
+   * Sets the three flex channels that gameplay would set on the live system, null for a
+   * channel nothing sets, which reads 0. Replays the run to its phase on a change.
+   */
+  setFlex(channels: readonly (number | null)[]): void;
+  /**
    * Draw the next appearance pass from `next`, keeping the particles already alive.
    *
    * Returns true when `next` changes a field the simulation reads. The live particles were
@@ -257,8 +265,8 @@ export interface DriverOptions {
  *
  * A time is reached by advancing from zero rather than by moving a clock, so a scrub, a
  * screenshot and a snapshot over the pool all agree (decision 2.6 of
- * docs/plans/vfx-particle-renderer.md). The variable stepper is what the first tiers
- * run on, and the interface it satisfies is where a fixed-rate one drops in.
+ * docs/plans/vfx-particle-renderer.md). The system's `stepping` picks the stepper, so a
+ * frame becomes the steps the client's own accumulator would take.
  *
  * The rig is the driver's rather than the model's, per decision 2.9, and it holds
  * nothing about when it was bound: where a run stands is read off the clock, so the
@@ -270,8 +278,9 @@ export function createDriver(
   seed: number,
   { capacity = POOL_CAP, seekable = true }: DriverOptions = {},
 ): Driver {
-  const pool = createPool(capacity);
-  const stepper: Stepper = variableStepper();
+  const lineage = createLineage(seed);
+  const pool = createPool(capacity, lineage.flex);
+  let stepper: Stepper = stepperFor(DEFAULT_STEPPING);
   let system = emptySystem(null);
   let rig: RigModel = FIRST_RIG.rig;
   let span = systemSpan(system);
@@ -280,7 +289,6 @@ export function createDriver(
   let rng = new Rng(seed);
   let states: EmitterState[] = [];
   const yaw = new Float32Array(FRAME_SLOTS);
-  const lineage = createLineage(seed);
   let hostJoints: Joints | null = null;
   lineage.joints = rig.joints ?? null;
   const children = createChildren(lineage, "", 0);
@@ -324,6 +332,8 @@ export function createDriver(
 
       stepEmitters(pool, system, placed, rng, states);
       origin = now;
+      /* shortcut: a child steps on its parent's steps, where the client steps each child
+         system on its own `stepping`; upgrade if a child's flags are found to differ. */
       children.step(driver, system, step.dt, step.now);
       lanes.tally(pool, reached);
       keep(step.now);
@@ -520,6 +530,14 @@ export function createDriver(
     surfaces() {
       return lineage.surfaces;
     },
+    setFlex(channels) {
+      const next = Array.from({ length: FLEX_CHANNELS }, (_, at) => channels[at] ?? 0);
+      if (next.every((value, at) => lineage.flex[at] === value)) return;
+
+      lineage.flex.set(next);
+      marks.clear();
+      driver.seek(driver.phase);
+    },
     setMeshJoints(joints) {
       if (jointsEquals(lineage.meshJoints, joints)) return;
 
@@ -551,6 +569,9 @@ export function createDriver(
       /* An edit to what only the draw reads leaves every checkpoint as the new definition
          would have written it, so a seek after it restores one rather than replaying. */
       const drawOnly = same && simulationEquals(system, next);
+      if (!steppingEquals(system.stepping, next.stepping)) {
+        stepper = stepperFor(next.stepping, stepper.now);
+      }
       system = next;
       span = systemSpan(next);
       tail = lingerTail(next, flightTime(rig.motion));

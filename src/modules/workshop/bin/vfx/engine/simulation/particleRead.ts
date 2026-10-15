@@ -4,6 +4,7 @@ import type { Point } from "../model/rig";
 import { emitterPhase, lingerSeconds } from "../model/systemModel";
 import { alongInto, multiplyInto, standingInto, turnInto } from "../utils/basis";
 import { flickerInto, integratedInto, sampleCurveInto } from "../utils/sampleCurve";
+import { instanceScaleOf } from "./flex";
 import type { EmitterState, World } from "./integrate";
 import { FRAME_SLOTS, NOT_LINGERING, type Pool } from "./pool";
 
@@ -138,8 +139,10 @@ export function appearance(
     flickerInto(emitter.color, serial, now, out.color, 0);
   }
 
+  /* `FlexInstanceScale` reads its channel each frame, so a channel set mid-run scales the live particles. */
+  const instance = instanceScaleOf(pool.flex, emitter.flex?.instanceScale ?? null);
   for (let channel = 0; channel < 3; channel += 1) {
-    out.scale[channel] *= pool.birthScale[index * 3 + channel];
+    out.scale[channel] *= pool.birthScale[index * 3 + channel] * instance;
   }
   if (emitter.uniformScale && UNIFORMLY_SCALED.has(emitter.quadType)) {
     out.scale.fill(out.scale[0], 1, 3);

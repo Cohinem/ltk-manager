@@ -2383,9 +2383,9 @@ every particle and bit 1 between the two colour phases. `renderPhaseOverride` fo
 - `rateByVelocityFunction` replaces `rate` by the system's speed.
 - The unnamed flag `0xd1ee8634` reverses a mesh's front face.
 
-**Not built.** The fixed 30 Hz step a system takes with `SimulateEveryFrame` clear, the flex
-values, `isFollowingTerrain`, the importance rate multiplier below Very High, the slice shaders of
-`sliceTechniqueRange` and the shadow phase. The stencil modes are built in 2.53.
+**Not built.** `isFollowingTerrain`. The stencil modes are built in 2.53, and the fixed step, the
+importance rate multiplier, the flex values, the slice shaders and the shadow phase in 2.54 and
+2.55.
 
 **What to check on the screen.**
 
@@ -2457,6 +2457,72 @@ Stencil masks item, which is off by default.
 carry. The pick render and the wireframe twin ignore the stencil. ThreeJS draws every opaque
 object before every transparent one, so a tester with `blendMode` `NONE` draws before a blended
 writer of a lower `pass`.
+
+### 2.54 The preview simulates one effects quality
+
+The reading is the 16.17.8057408 client. The preview's View menu sets the quality, Very High by
+default, and `engine/model/quality.ts` holds the tables.
+
+| Quality   | Step rate | Rate multiplier by `importance` 0-5 | Importance not instantiated |
+| --------- | --------- | ----------------------------------- | --------------------------- |
+| Very Low  | 15 Hz     | 0.05, 0.1, 0.2, 1, 1, 1             | 0, 1, 5                     |
+| Low       | 15 Hz     | 0.1, 0.2, 0.4, 1, 1, 1              | 0, 1, 5                     |
+| Medium    | 20 Hz     | 0.2, 0.4, 0.6, 1, 1, 1              | 0, 1                        |
+| High      | 30 Hz     | 0.5, 1, 1, 1, 1, 1                  | 0, 4                        |
+| Very High | 30 Hz     | all 1                               | 4                           |
+
+- `importance` defaults to 2, the meta schema's default.
+- A system steps at the quality's rate and banks the remainder. A frame of more than 20 steps
+  halves the count as a float and doubles the step until it fits. A system with
+  `SimulateEveryFrame` takes one step of the banked time on a frame too short for a whole step.
+  A system with `oncePerFrame` takes one step per frame.
+- A trail averages 0, 1, 2, 3 and 3 particles either side of a point, by quality.
+- `SOFT_PARTICLES` compiles at Medium and above. The distortion passes draw at Medium and above.
+- The pass quad budgets and the aggressive-importance rule apply to Teamfight Tactics alone and
+  are not built.
+
+**Flex values.** A system's flex channels are gameplay inputs, and the rig sets them. A channel
+that no input sets reads 0, so a flex term changes nothing until the rig sets it. Every flex field
+names its channel by `mFlexID`, which defaults to 0. `engine/simulation/flex.ts` combines them.
+The scaling of a bound object's `FlexShape` is not built.
+
+**Slice.** An emitter that writes `sliceTechniqueRange` draws through the slice shaders. A quad
+draws `rgb = ramp.rgb * vertex.rgb * texel.g` and
+`a = clamp((1 - ((ramp.a - texel.r) / range)^2) * texel.a)`. A mesh draws the same without
+`texel.g`. 1,840 emitters write it. An attached mesh reads its ramp at `(0, 0)`.
+
+### 2.55 A shadow caster draws into the sun's shadow map
+
+The reading is the 16.17.8057408 client and the shipped shader bundles.
+
+**Which emitters cast.** An emitter left to the automatic phase casts if it sets
+`doesCastShadow`, and still draws its colour. An emitter forced into the shadow phase casts and
+draws nothing else, and no shipped emitter does that. Any other forced phase casts nothing. A
+distorting, ground-layer, HUD-layer or planar-projection emitter never casts. The pass is drawn at
+High effects quality and above, with shadows on. `castsShadow` in `rendering/utils/drawKind.ts`
+holds the rule. 7,776 emitters in 4,281 systems cast.
+
+**What the pass writes.** The client draws the characters and then the particles into one depth
+map from the sun. A particle draws through `SHADOW_QUAD`, `SHADOW_MESH` or `PARTICLE_SHADOW`,
+which multiply the texel's alpha, the vertex alpha, the ramp's alpha and the erosion, and discard
+a fragment below 0.025. Blending is off and the depth test and write are on. `alphaRef`,
+`blendMode` and `stencilMode` do not apply, and `depthBiasFactors` does. In the preview the
+`SHADOW` define of the particle shaders takes that path, and a quad keeps facing the scene camera,
+since the client builds its corners once on the CPU.
+
+**The map.** 2048 texels square, orthographic down `-sunDirection`, centred on the ground point
+that the scene camera looks at and snapped to the texel grid. The preview covers 3000 units, the
+default of `FreeCameraShadowExtentXz`, where the client covers the camera's ground footprint.
+`viewport/scene/utils/sunShadow.ts` holds it, and `drawShadows` in
+`rendering/utils/shadowPass.ts` draws it before the colour phases.
+
+**What receives it.** The environment reads one tap and draws
+`albedo * (SHADOW_COLOR + visible * SHADOW_COLOR_COMPLEMENT)`. The preview's stage ground does the
+same, with the sky's share of the light as `SHADOW_COLOR`. A PBR character reads one or five taps
+into its sun term, and a non-PBR character reads none.
+
+**Not built.** The characters' own shadows, a character or the map backdrop receiving one, the
+depth bias that `MapSunProperties` sets, and percentage-closer filtering.
 
 ### T1 — subdivided textures and the UV transform
 
