@@ -5,6 +5,7 @@ import {
   BEAM_MODE,
   FIXED_ORBIT,
   QUAD_TYPE,
+  SHAPE_FLAG,
   SIMPLE_ORIENTATION,
   type SimpleOrientation,
   TRAIL_MODE,
@@ -83,9 +84,6 @@ const SHAPE = {
   flags: nameHash("flags"),
 } as const;
 
-/** `VfxShapeVolume.flags`: the shape fills its inside rather than emitting from its surface. */
-const SHAPE_VOLUME = 0x1;
-
 /**
  * The shape a newborn is placed by, off whichever class `SpawnShape` holds.
  *
@@ -93,7 +91,7 @@ const SHAPE_VOLUME = 0x1;
  */
 export function readShape(node: VfxValue | null): SpawnShape {
   if (node?.type !== "struct") return POINT_SHAPE;
-  const volume = ((number(field(node, SHAPE.flags)) ?? 0) & SHAPE_VOLUME) !== 0;
+  const volume = ((number(field(node, SHAPE.flags)) ?? 0) & SHAPE_FLAG.fillVolume) !== 0;
 
   switch (node.classHash) {
     case SHAPE_CLASS.box:

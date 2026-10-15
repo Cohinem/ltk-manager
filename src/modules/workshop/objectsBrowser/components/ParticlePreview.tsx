@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { BinDocumentId } from "@/lib/tauri";
 import { FitCamera } from "@/modules/viewport";
+import { usePreviewEffectsQuality } from "@/stores";
 
 import type { SystemModel } from "../../bin/vfx/engine/model/model";
 import { FIRST_RIG } from "../../bin/vfx/engine/model/rig";
@@ -55,7 +56,11 @@ type ParticleReadProps = Omit<ParticleSceneProps, "system"> & { entry: string };
 /** The particle system `entry` declares in `document`, read and then previewed. */
 export function ParticleRead({ document, entry, ...scene }: ParticleReadProps) {
   const { data, isError } = useQuery({ ...vfxQueries.system(document, entry), gcTime: 0 });
-  const system = useMemo(() => (data === undefined ? null : readVfxSystem(data)), [data]);
+  const quality = usePreviewEffectsQuality();
+  const system = useMemo(
+    () => (data === undefined ? null : readVfxSystem(data, quality)),
+    [data, quality],
+  );
   if (isError) {
     return <PreviewSettled outcome={FAILED_OUTCOME} onOutcome={scene.onOutcome} />;
   }

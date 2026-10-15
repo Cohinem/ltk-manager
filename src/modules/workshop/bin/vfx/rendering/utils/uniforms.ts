@@ -83,6 +83,8 @@ export interface QuadLayers {
   readonly soft: SoftModel | null;
   /** `isGroundLayer`: the emitter draws in the ground layer, before the character. */
   readonly ground: boolean;
+  /** `sliceTechniqueRange`, and 0 for an emitter drawing no slice. */
+  readonly slice: number;
 }
 
 /** Which of the emitter's optional passes this draw path compiles. */
@@ -107,7 +109,8 @@ export function layersOf(
     mult: emitter.multUv,
     multTexture: samplers.mult,
     mode: emitter.uvMode,
-    colorTexture: draws.ramp ? samplers.color : null,
+    /* A slice reads the ramp on every path, a mesh's included. */
+    colorTexture: draws.ramp || emitter.sliceRange > 0 ? samplers.color : null,
     palette: emitter.palette,
     paletteTexture: samplers.palette,
     erosion: drawsFixedAlphaUv(emitter) ? null : emitter.erosion,
@@ -118,6 +121,7 @@ export function layersOf(
     reflectionTexture: draws.sheen ? samplers.reflection : null,
     soft: draws.fade ? fadeOf(emitter) : null,
     ground: emitter.groundLayer,
+    slice: emitter.sliceRange,
   };
 }
 
@@ -347,4 +351,23 @@ export function erosionDefines(erosion: ErosionModel | null, texture: Texture | 
     ...(erosion !== null ? { EROSION: "" } : {}),
     ...(erosion !== null && texture !== null ? { HAS_MAP_EROSION: "" } : {}),
   };
+}
+
+/** Which slice shader a draw path compiles: the quad's, which scales by the texel's green, or the mesh's. */
+export const SLICE = { quad: 1, mesh: 2 } as const;
+
+/** The slice shader's own uniforms: the band and the ramp it reads on every path. */
+export function sliceUniforms(layers: QuadLayers): Record<string, { value: unknown }> {
+  return layers.slice > 0
+    ? { sliceRange: { value: layers.slice }, mapRamp: { value: layers.colorTexture } }
+    : {};
+}
+
+/** `SLICE` as the path's kind where the emitter draws a slice, and `SLICE_RAMP` once its ramp arrived. */
+export function sliceDefines(
+  layers: QuadLayers,
+  kind: (typeof SLICE)[keyof typeof SLICE],
+): Defines {
+  if (layers.slice <= 0) return {};
+  return { SLICE: kind, ...(layers.colorTexture !== null ? { SLICE_RAMP: "" } : {}) };
 }

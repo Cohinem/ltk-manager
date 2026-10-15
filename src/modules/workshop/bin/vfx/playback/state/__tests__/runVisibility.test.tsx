@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup } from "@testing-library/react";
 import { useEffect } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { ContentVisibilityContext } from "@/hooks";
+import { renderWithProviders } from "@/test/utils";
 
 import { readVfxSystem } from "../../../engine/parsing/readVfxSystem";
 import { emitterOf, flat } from "../../../engine/simulation/__tests__/emitterFixture";
@@ -28,6 +29,9 @@ let system = initialSystem;
 
 vi.mock("../../../hooks/useVfxSystem", () => ({
   useVfxSystem: () => ({ system, error: null, pending: false }),
+  vfxQueries: {
+    missileSpells: () => ({ queryKey: ["vfx-missile-spells"], queryFn: () => [], initialData: [] }),
+  },
 }));
 afterEach(() => {
   cleanup();
@@ -51,7 +55,7 @@ it.each([false, true])("replays an edited system to its phase with playing=%s", 
       <Capture />
     </VfxRunProvider>
   );
-  const { rerender } = render(view());
+  const { rerender } = renderWithProviders(view());
   act(() => {
     run!.setPlaying(playing);
     run!.seek(0.5);
@@ -102,19 +106,19 @@ it("pauses a hidden document's simulation and resumes without catching up hidden
       </VfxRunProvider>
     </ContentVisibilityContext>
   );
-  const { rerender } = render(view(true));
+  const { rerender } = renderWithProviders(view(true));
   tick(0);
-  tick(50);
-  expect(run!.driver.phase).toBeCloseTo(0.05);
+  tick(100);
+  expect(run!.driver.phase).toBeCloseTo(0.1);
   const driver = run!.driver;
   rerender(view(false));
   expect(queued.size).toBe(0);
   tick(10000);
-  expect(driver.phase).toBeCloseTo(0.05);
+  expect(driver.phase).toBeCloseTo(0.1);
   rerender(view(true));
   tick(10000);
-  tick(10050);
+  tick(10100);
   expect(run!.driver).toBe(driver);
-  expect(driver.phase).toBeCloseTo(0.1);
+  expect(driver.phase).toBeCloseTo(0.2);
   expect(run!.playing).toBe(true);
 });

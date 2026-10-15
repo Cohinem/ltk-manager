@@ -15,6 +15,9 @@ const SPEC: MissileSpec = {
   targetBone: "r_hand",
   targetHeight: 100,
   initialTargetHeight: 100,
+  heightOffsetAtEnd: null,
+  height: null,
+  facing: null,
 };
 
 function struct(name: string, fields: Record<string, VfxValue>): VfxValue {
@@ -96,24 +99,32 @@ describe("missile flight", () => {
     const flight = compileFlight(SPEC, [0, 100, 0], [1000, 100, 0])!;
     expect(flight.duration).toBeCloseTo(0.2);
     expect(flight.delay).toBe(0);
-    expect(originAt(flight.rig.motion, 0.1)).toEqual([500, 100, 0]);
-    expect(originAt(flight.rig.motion, 1)).toEqual([1000, 100, 0]);
+    const at = (time: number) => originAt(flight.rig.motion, time, flight.rig.height);
+    expect(at(0.1)[0]).toBeCloseTo(500, 0);
+    expect(at(0.1)[1]).toBeCloseTo(100, 3);
+    expect(at(1)).toEqual([1000, 100, 0]);
     expect(flight.rig.stopAt).toBeCloseTo(0.2);
   });
 
   it("uses fixed time and preserves launch delay and a zero-distance endpoint", () => {
     const flight = compileFlight(
-      { ...SPEC, movement: { kind: "fixedTime", duration: 2 }, startDelay: 0.5 },
+      {
+        ...SPEC,
+        movement: { kind: "fixedTime", duration: 2 },
+        startDelay: 0.5,
+        initialTargetHeight: null,
+      },
       [0, 0, 0],
       [100, 0, 0],
     )!;
-    expect(flight.duration).toBe(2);
+    expect(flight.duration).toBeCloseTo(2, 2);
     expect(flight.delay).toBe(0.5);
-    expect(originAt(flight.rig.motion, 1)).toEqual([50, 0, 0]);
-    expect(compileFlight(SPEC, [0, 0, 0], [0, 0, 0])?.rig.stopAt).toBe(0);
+    expect(originAt(flight.rig.motion, 1, flight.rig.height)[0]).toBeCloseTo(50, 0);
+    /* A target on the launch point moves 5 units ahead, as the client moves it. */
+    expect(compileFlight(SPEC, [0, 0, 0], [0, 0, 0])?.rig.stopAt).toBeLessThan(0.01);
   });
 
-  it("rejects missing or invalid rates, unimplemented motion, unbounded runs and tilted paths", () => {
+  it("rejects missing or invalid rates, unimplemented motion and unbounded runs", () => {
     for (const speed of [null, 0, -1, NaN, Infinity, 0.001])
       expect(
         compileFlight(
@@ -125,7 +136,6 @@ describe("missile flight", () => {
     expect(
       compileFlight({ ...SPEC, movement: { kind: "missing" } }, [0, 0, 0], [1, 0, 0]),
     ).toBeNull();
-    expect(compileFlight(SPEC, [0, 1, 0], [1, 0, 0])).toBeNull();
     expect(compileFlight(SPEC, [NaN, 0, 0], [1, 0, 0])).toBeNull();
   });
 

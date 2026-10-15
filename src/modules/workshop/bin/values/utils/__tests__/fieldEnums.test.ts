@@ -29,6 +29,15 @@ describe("fieldEnum", () => {
   it("answers none for a field no table covers", () => {
     expect(fieldEnum(hash("lifetime"))).toBeNull();
   });
+
+  it("answers a class-scoped table on its class alone", () => {
+    const system = hash("VfxSystemDefinitionData");
+
+    expect(fieldEnum(hash("flags"), system)?.flags).toBe(true);
+    expect(fieldEnum(hash("flags"), system)?.names.simulateEveryFrame).toBe(0x40);
+    expect(fieldEnum(hash("flags"), hash("VfxEmitterDefinitionData"))).toBeNull();
+    expect(fieldEnum(hash("flags"))).toBeNull();
+  });
 });
 
 describe("enumReading", () => {
@@ -37,10 +46,19 @@ describe("enumReading", () => {
     expect(enumReading(hash("blendMode"), "4")).toBe("AlphaAdd");
     expect(enumReading(hash("stencilMode"), "2")).toBe("TestEqual");
     expect(enumReading(hash("importance"), "4")).toBe("LowSpecOnly");
+    expect(enumReading(hash("flags"), "196", hash("VfxSystemDefinitionData"))).toBe(
+      "PersistThruRevive, SimulateEveryFrame, KeepOrientationAfterSpellCast",
+    );
   });
 
   it("reads a flags field as every bit it sets", () => {
     expect(enumReading(hash("miscRenderFlags"), "5")).toBe("DisableZBuffer, DisableFow");
+  });
+
+  it("reads the flags of a volume shape as its fill bit", () => {
+    for (const shape of ["VfxShapeBox", "VfxShapeCylinder", "VfxShapeSphere"]) {
+      expect(enumReading(hash("flags"), "1", hash(shape)), shape).toBe("FillVolume");
+    }
   });
 
   it("reads a bit no table names as its own hex", () => {

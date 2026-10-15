@@ -28,7 +28,7 @@ import { useDrawStencil } from "../state/stencil";
 import { fragmentTests, premultiplyInto, sortsBackToFront } from "../utils/blend";
 import { quadBuffers, QUADS_PER_EMITTER, written } from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
-import { drawsAsQuad, facesTheCamera } from "../utils/drawKind";
+import { castsShadow, drawsAsQuad, facesTheCamera } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { drawLayersOf } from "../utils/frame";
 import { quadMaterial, quadOrientation } from "../utils/materials";
@@ -124,7 +124,7 @@ export function Quads({
 
   useEffect(() => () => buffers.geometry.dispose(), [buffers]);
 
-  const pair = useDrawPair<Mesh>(material, drawLayersOf(emitter));
+  const pair = useDrawPair<Mesh>(material, drawLayersOf(emitter), castsShadow(emitter));
   const draw = useMemo(() => quadDraw(orientation), [orientation]);
   const programs = useParticlePrograms(emitter, samplers, draw, buffers.geometry, document);
   const program = programs[0] ?? null;

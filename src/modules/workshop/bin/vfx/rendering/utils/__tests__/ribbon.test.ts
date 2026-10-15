@@ -70,6 +70,7 @@ const CAMERA: TrailBuild = {
   view: [0, 0, -1],
   wake: false,
   smoothing: TRAIL_SMOOTHING.off,
+  reach: 3,
   cutoff: 0,
   layers: PLAIN_LAYERS,
 };

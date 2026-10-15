@@ -30,3 +30,24 @@ pub(crate) fn resolver_entries(resolver: &BinObject) -> impl Iterator<Item = (Bi
             },
         )
 }
+
+/// Returns the skin bin of the system at `path`, and `None` for a path under no skin.
+///
+/// `Characters/Aatrox/Skins/Skin11/Particles/Aatrox_Skin11_Recall` names
+/// `data/characters/aatrox/skins/skin11.bin`.
+pub(crate) fn skin_bin(path: &str) -> Option<String> {
+    let mut parts = path.split('/');
+    let (root, character, skins, skin) =
+        (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
+    let under = root.eq_ignore_ascii_case("characters")
+        && skins.eq_ignore_ascii_case("skins")
+        && parts.next().is_some();
+
+    under.then(|| {
+        format!(
+            "data/characters/{}/skins/{}.bin",
+            character.to_lowercase(),
+            skin.to_lowercase()
+        )
+    })
+}

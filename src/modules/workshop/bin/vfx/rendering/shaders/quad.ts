@@ -20,8 +20,22 @@ type Weights = readonly [number, number, number];
  * Reads the instanced attributes of `quadBuffers`, `reach` and `pivot`, and three's
  * `modelMatrix`, `viewMatrix` and `cameraPosition`, which the stage including it declares.
  * The hand-written quad and the Hexshade quad prelude share it, so both place a corner alike.
+ *
+ * Under `SHADOW` the corner faces the scene's eye, `eyeView` and `eyePosition`, rather than
+ * the sun's camera that draws it, because the client builds a quad's corners once for the
+ * scene camera and draws the shadow pass from the same vertices.
  */
 export const QUAD_CORNER = /* glsl */ `
+#ifdef SHADOW
+uniform mat4 eyeView;
+uniform vec3 eyePosition;
+#define EYE_VIEW eyeView
+#define EYE_POSITION eyePosition
+#else
+#define EYE_VIEW viewMatrix
+#define EYE_POSITION cameraPosition
+#endif
+
 const vec3 ARBITRARY_U = vec3(${ARBITRARY_UV[0].join(", ")});
 const vec3 ARBITRARY_V = vec3(${ARBITRARY_UV[1].join(", ")});
 
@@ -73,7 +87,7 @@ vec4 cornerWorld() {
 #ifdef DIRECTED
     // The travel as the eye sees it is the quad's up, and the roll is ignored. Decision
     // 2.51 of docs/plans/vfx-particle-renderer.md.
-    vec2 up = (mat3(viewMatrix) * basisY).xy;
+    vec2 up = (mat3(EYE_VIEW) * basisY).xy;
     up = dot(up, up) > 0.0 ? normalize(up) : vec2(0.0, 1.0);
     vec2 offset = vec2(up.y, -up.x) * (at.x * size.x) + up * (at.y * size.y);
 #else
@@ -83,8 +97,8 @@ vec4 cornerWorld() {
     );
     vec2 offset = turned * size.xy;
 #endif
-    vec3 eyeRight = vec3(viewMatrix[0][0], viewMatrix[1][0], viewMatrix[2][0]);
-    vec3 eyeUp = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
+    vec3 eyeRight = vec3(EYE_VIEW[0][0], EYE_VIEW[1][0], EYE_VIEW[2][0]);
+    vec3 eyeUp = vec3(EYE_VIEW[0][1], EYE_VIEW[1][1], EYE_VIEW[2][1]);
     vec4 origin = modelMatrix * vec4(center, 1.0);
     return vec4(origin.xyz + eyeRight * offset.x + eyeUp * offset.y, 1.0);
   }
@@ -100,7 +114,7 @@ vec4 cornerWorld() {
     // mirrored space flips a cross product, so the engine's across is the negation of
     // this one.
     vec3 axis = basis[2];
-    vec3 aside = cross(axis, cameraPosition - center);
+    vec3 aside = cross(axis, EYE_POSITION - center);
     vec3 across = dot(aside, aside) > 0.0 ? -normalize(aside) : basis[0];
     vec3 world = center
       + axis * (size.z + (corner.y + 0.5) * size.y)
@@ -292,6 +306,29 @@ uniform vec4 paletteMix;
 uniform float paletteRow;
 uniform vec2 paletteScroll;
 
+#ifdef SLICE
+uniform float sliceRange;
+
+/*
+ * QUAD_PS_Slice and MESH_PS_Slice: the texel's red is a threshold that the ramp's alpha
+ * keeps a band of \`sliceRange\` around, and the texel's alpha scales the band. The quad's
+ * colour also takes the texel's green. Neither reads the vertex alpha.
+ */
+vec4 sliced(vec4 texel, vec2 lookup, vec4 color) {
+#ifdef SLICE_RAMP
+  vec4 ramp = texture2D(mapRamp, lookup);
+#else
+  vec4 ramp = vec4(1.0);
+#endif
+  float gap = (ramp.a - texel.r) / sliceRange;
+  vec3 rgb = ramp.rgb * color.rgb;
+#if SLICE == 1
+  rgb *= texel.g;
+#endif
+  return vec4(rgb, clamp((1.0 - gap * gap) * texel.a, 0.0, 1.0));
+}
+#endif
+
 vec4 colored(vec4 texel, vec2 lookup) {
 #ifdef HAS_PALETTE
   vec2 at = vec2(clamp(dot(texel, paletteMix), 0.0, 1.0), paletteRow) + paletteScroll;
@@ -390,6 +427,30 @@ uniform vec4 wireColor;
 #endif
 `;
 
+/** The least coverage the shadow pass keeps, the constant of `SHADOW_QUAD_PS` and its twins. */
+export const SHADOW_ALPHA = 0.025;
+
+/**
+ * The shadow pass's fragment, which `SHADOW_QUAD_PS`, `SHADOW_MESH_PS` and
+ * `PARTICLE_SHADOW_PS` share: the texel's alpha, the vertex alpha, the ramp's alpha and the
+ * erosion multiply, a fragment under `SHADOW_ALPHA` is discarded and the rest write depth.
+ * Neither `alphaRef` nor the blend mode applies.
+ */
+export const CAST = /* glsl */ `
+#ifdef SHADOW
+const float SHADOW_ALPHA = ${SHADOW_ALPHA.toFixed(3)};
+
+void cast(float texelAlpha, float vertexAlpha, vec2 lookup, float erosion) {
+  float covered = texelAlpha * vertexAlpha * erosion;
+#ifdef HAS_RAMP
+  covered *= texture2D(mapRamp, lookup).a;
+#endif
+  if (covered < SHADOW_ALPHA) discard;
+  gl_FragColor = vec4(1.0);
+}
+#endif
+`;
+
 /** The least base texel alpha a pick counts as drawn. A clear corner of a quad picks nothing. */
 export const PICK_ALPHA = 0.05;
 
@@ -457,6 +518,7 @@ ${LAYER_UV}
 ${FETCH}
 ${COLOR}
 ${ERODE}
+${CAST}
 ${WARP}
 ${SHEEN_FRAGMENT}
 ${SOFT}
@@ -488,6 +550,16 @@ void main() {
 #ifdef PICK
   if (texel.a < PICK_ALPHA) discard;
   gl_FragColor = pickId;
+  return;
+#endif
+#ifdef SHADOW
+  cast(texel.a, vColor.a, vLookup, eroding(vShift.zw + placed * cell));
+  return;
+#endif
+#ifdef SLICE
+  vec4 slice = sliced(texel, vLookup, vColor);
+  if (slice.a < alphaRef) discard;
+  gl_FragColor = slice;
   return;
 #endif
   float share = eroding(vShift.zw + placed * cell);

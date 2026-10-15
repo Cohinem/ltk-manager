@@ -7,8 +7,9 @@
 
 import { AXIS_SIGN, type Bounds, CHAMPION_HEIGHT } from "@/modules/viewport";
 
+import { LONGEST_FLIGHT } from "../../engine/model/missile";
 import type { SystemModel } from "../../engine/model/model";
-import { type Motion, originAt, type Point, type RigModel } from "../../engine/model/rig";
+import { flightTime, originAt, type Point, type RigModel } from "../../engine/model/rig";
 import { type World, worldOf } from "../../engine/simulation/integrate";
 import { FRAME_SLOTS } from "../../engine/simulation/pool";
 import { identityInto } from "../../engine/utils/basis";
@@ -58,8 +59,8 @@ export function definitionBounds(
   };
 
   const world = worldOf(system);
-  for (const stop of stopsOf(rig.motion)) {
-    const [x, y, z] = mirrored(stood(world, lifted(stop, rig.height)));
+  for (const stop of stopsOf(rig)) {
+    const [x, y, z] = mirrored(stood(world, stop));
     grow([x - STANDING_REACH, y - STANDING_REACH, z - STANDING_REACH]);
     grow([x + STANDING_REACH, y + STANDING_REACH, z + STANDING_REACH]);
   }
@@ -82,24 +83,23 @@ export function definitionBounds(
   return { min: [min[0], min[1], min[2]], max: [max[0], max[1], max[2]] };
 }
 
-/** Where a motion takes the origin over a run, in the engine's space: enough points to box it. */
-function stopsOf(motion: Motion): readonly Point[] {
+/** How many points along a missile's flight its box takes. */
+const FLIGHT_STOPS = 16;
+
+/** Where `rig` takes the origin over a run, in the engine's space: enough points to box it. */
+function stopsOf(rig: RigModel): readonly Point[] {
+  const { motion, height } = rig;
   switch (motion.kind) {
     case "still":
-      return [[0, 0, 0]];
-    case "path":
-      return [motion.from, motion.to];
-    case "orbit": {
-      const reach = motion.radius;
-      return [
-        [reach, 0, 0],
-        [-reach, 0, 0],
-        [0, 0, reach],
-        [0, 0, -reach],
-      ];
+      return [lifted([0, 0, 0], height)];
+    case "missile": {
+      const flight = flightTime(motion, height) || LONGEST_FLIGHT;
+      return Array.from({ length: FLIGHT_STOPS + 1 }, (_, at) =>
+        originAt(motion, (flight * at) / FLIGHT_STOPS, height),
+      );
     }
     case "bone":
-      return [motion.anchor.originAt(0)];
+      return [lifted(motion.anchor.originAt(0), height)];
   }
 }
 

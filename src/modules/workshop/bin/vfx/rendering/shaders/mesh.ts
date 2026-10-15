@@ -64,6 +64,8 @@ void main() {
   vShift = particleShift;
   vTurnMult = particleTurnMult;
   vShiftMult = particleShiftMult;
+  /* shortcut: an attached mesh's slice reads the ramp at its corner, where the client reads
+     the emitter's colour lookup; upgrade by binding the lookup beside \`particleErode\`. */
   vLookup = vec2(0.0);
   vErode = particleErode;
   #include <beginnormal_vertex>
@@ -153,7 +155,7 @@ void main() {
   vShift = uvShift;
   vTurnMult = uvTurnMult;
   vShiftMult = uvShiftMult;
-  vLookup = vec2(0.0);
+  vLookup = lookup.xy;
   vErode = lookup.z;
   vec3 posedPosition = position;
   vec3 posedNormal = normal;

@@ -1,11 +1,18 @@
 import { Vector2 } from "three";
 import { describe, expect, it } from "vitest";
 
-import { COLOR_LOOKUP, LINGER_TYPE } from "../../../engine/model/enums";
+import { COLOR_LOOKUP, LINGER_TYPE, QUAD_TYPE } from "../../../engine/model/enums";
 import { type ErosionModel, plainUvLayer, type ValueCurve } from "../../../engine/model/model";
 import { emitterOf, flat } from "../../../engine/simulation/__tests__/emitterFixture";
 import { createPool, type Pool } from "../../../engine/simulation/pool";
-import { fitInto, followedRow, surfaceAt, surfaceCycle, surfaceDraw } from "../surfaceDraw";
+import {
+  fitInto,
+  followedRow,
+  surfaceAt,
+  surfaceCycle,
+  surfaceDraw,
+  surfaceSides,
+} from "../surfaceDraw";
 
 /** A one-channel curve running from `from` at the start of the life to `to` at its end. */
 function ramp(from: number, to: number): ValueCurve {
@@ -214,6 +221,22 @@ describe("surfaceCycle", () => {
     });
 
     expect(surfaceCycle(emitter, 0.5)).toEqual({ life: 4, linger: 0 });
+  });
+});
+
+describe("surfaceSides", () => {
+  const scale = Float32Array.from([135, 70, 40]);
+
+  it("returns the scale's x and y as the width and the height for a camera quad", () => {
+    expect(surfaceSides(emitterOf(0, { quadType: QUAD_TYPE.cameraQuad }), scale)).toEqual([
+      135, 70,
+    ]);
+  });
+
+  it("returns the scale's y and x as the width and the height for an arbitrary quad", () => {
+    expect(surfaceSides(emitterOf(0, { quadType: QUAD_TYPE.arbitraryQuad }), scale)).toEqual([
+      70, 135,
+    ]);
   });
 });
 

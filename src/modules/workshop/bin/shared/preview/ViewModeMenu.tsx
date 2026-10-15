@@ -10,7 +10,9 @@ import {
   type ViewMode,
 } from "@/modules/viewport";
 import {
+  type PreviewEffectsQuality,
   usePreviewAntiAliasing,
+  usePreviewEffectsQuality,
   usePreviewViewMode,
   usePreviewWireOverlay,
   useSetPreviewDisplay,
@@ -23,6 +25,17 @@ const MODE_LABEL: Record<ViewMode, () => string> = {
   wireframe: m.workshop_bin_preview_view_wireframe_label,
 };
 
+/** Every Effects Quality level, lowest first, as the client's settings list them. */
+const QUALITIES: readonly PreviewEffectsQuality[] = [0, 1, 2, 3, 4];
+
+const QUALITY_LABEL: Record<PreviewEffectsQuality, () => string> = {
+  0: m.workshop_bin_preview_effects_quality_very_low_label,
+  1: m.workshop_bin_preview_effects_quality_low_label,
+  2: m.workshop_bin_preview_effects_quality_medium_label,
+  3: m.workshop_bin_preview_effects_quality_high_label,
+  4: m.workshop_bin_preview_effects_quality_very_high_label,
+};
+
 const ANTI_ALIASING_LABEL: Record<AntiAliasing, () => string> = {
   off: m.workshop_bin_preview_anti_aliasing_off_label,
   fxaa: m.workshop_bin_preview_anti_aliasing_fxaa_label,
@@ -30,13 +43,15 @@ const ANTI_ALIASING_LABEL: Record<AntiAliasing, () => string> = {
 };
 
 /**
- * The preview's view mode, the wireframe overlay a lit or untextured mode takes, and how
- * the frame's edges are smoothed.
+ * The preview's view mode, the wireframe overlay a lit or untextured mode takes, how the
+ * frame's edges are smoothed, and the client's Effects Quality that every particle preview
+ * simulates.
  */
 export function ViewModeMenu() {
   const mode = usePreviewViewMode();
   const overlay = usePreviewWireOverlay();
   const antiAliasing = usePreviewAntiAliasing();
+  const quality = usePreviewEffectsQuality();
   const setDisplay = useSetPreviewDisplay();
 
   return (
@@ -74,19 +89,40 @@ export function ViewModeMenu() {
           {m.workshop_bin_preview_view_wire_overlay_label()}
         </Menu.CheckboxItem>
         <Menu.Separator />
-        <Menu.Group>
-          <Menu.GroupLabel>{m.workshop_bin_preview_anti_aliasing_label()}</Menu.GroupLabel>
-          <Menu.RadioGroup
-            value={antiAliasing}
-            onValueChange={(each) => setDisplay({ previewAntiAliasing: each as AntiAliasing })}
-          >
-            {ANTI_ALIASING_MODES.map((each) => (
-              <Menu.RadioItem key={each} value={each}>
-                {ANTI_ALIASING_LABEL[each]()}
-              </Menu.RadioItem>
-            ))}
-          </Menu.RadioGroup>
-        </Menu.Group>
+        <Menu.SubmenuRoot>
+          <Menu.SubmenuTrigger>{m.workshop_bin_preview_anti_aliasing_label()}</Menu.SubmenuTrigger>
+          <Menu.SubmenuContent data-ui="ViewModeMenu:antiAliasing">
+            <Menu.RadioGroup
+              value={antiAliasing}
+              onValueChange={(each) => setDisplay({ previewAntiAliasing: each as AntiAliasing })}
+            >
+              {ANTI_ALIASING_MODES.map((each) => (
+                <Menu.RadioItem key={each} value={each}>
+                  {ANTI_ALIASING_LABEL[each]()}
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </Menu.SubmenuContent>
+        </Menu.SubmenuRoot>
+        <Menu.SubmenuRoot>
+          <Menu.SubmenuTrigger>
+            {m.workshop_bin_preview_effects_quality_label()}
+          </Menu.SubmenuTrigger>
+          <Menu.SubmenuContent data-ui="ViewModeMenu:effectsQuality">
+            <Menu.RadioGroup
+              value={quality}
+              onValueChange={(each) =>
+                setDisplay({ previewEffectsQuality: each as PreviewEffectsQuality })
+              }
+            >
+              {QUALITIES.map((each) => (
+                <Menu.RadioItem key={each} value={each}>
+                  {QUALITY_LABEL[each]()}
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </Menu.SubmenuContent>
+        </Menu.SubmenuRoot>
       </Menu.Content>
     </Menu.Root>
   );

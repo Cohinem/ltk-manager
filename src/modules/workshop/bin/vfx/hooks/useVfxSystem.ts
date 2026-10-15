@@ -1,7 +1,14 @@
 import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { api, type AppError, type BinDocumentId, type VfxSystem } from "@/lib/tauri";
+import {
+  api,
+  type AppError,
+  type BinDocumentId,
+  type MissileSpell,
+  type VfxSystem,
+} from "@/lib/tauri";
+import { usePreviewEffectsQuality } from "@/stores";
 import { queryFnWithArgs } from "@/utils/query";
 
 import type { SystemModel } from "../engine/model/model";
@@ -18,6 +25,9 @@ export const vfxKeys = {
   system: (document: BinDocumentId, entry: string) => ["vfx-system", document, entry] as const,
   /** Every system read out of one open document, which a retry of a failed read refetches. */
   document: (document: BinDocumentId) => ["vfx-system", document] as const,
+  /** The spells that fire one system as their missile, which no edit of the system changes. */
+  missileSpells: (document: BinDocumentId, entry: string) =>
+    ["vfx-missile-spells", document, entry] as const,
 };
 
 export const vfxQueries = {
@@ -35,6 +45,14 @@ export const vfxQueries = {
       staleTime: Infinity,
       retry: false,
     }),
+  /** The spells that fire the system as their missile, read from its character's bin. */
+  missileSpells: (document: BinDocumentId, entry: string) =>
+    queryOptions<MissileSpell[], AppError>({
+      queryKey: vfxKeys.missileSpells(document, entry),
+      queryFn: queryFnWithArgs(api.bin.vfxMissileSpells, document, entry),
+      staleTime: Infinity,
+      retry: false,
+    }),
 };
 
 /** What the viewport reads: the system, and whether the read has answered. */
@@ -47,10 +65,11 @@ export interface VfxSystemRead {
 /** One `VfxSystemDefinitionData` as the renderer's model. */
 export function useVfxSystem(document: BinDocumentId, entry: string): VfxSystemRead {
   const query = useQuery(vfxQueries.system(document, entry));
+  const quality = usePreviewEffectsQuality();
 
   const system = useMemo(
-    () => (query.data === undefined ? null : readVfxSystem(query.data)),
-    [query.data],
+    () => (query.data === undefined ? null : readVfxSystem(query.data, quality)),
+    [query.data, quality],
   );
 
   return { system, error: query.error, pending: query.isPending };

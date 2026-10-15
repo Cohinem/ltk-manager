@@ -5,10 +5,14 @@ import { analyticTerminal } from "../utils/analyticDrag";
 import { turnInto } from "../utils/basis";
 import type { Rng } from "../utils/Rng";
 import { drawChannelsInto, drawCurve, sampleCurve, tableValue } from "../utils/sampleCurve";
+import { addFlexInto, channelOf, flexScaleOf, flexTerm } from "./flex";
 import type { EmitterState, SystemStep } from "./integrate";
 import { scalar } from "./particleRead";
 import { FRAME_SLOTS, type Pool, spawn, UV, UV_LAYERS, uvAt } from "./pool";
 import { birth, sampleShape } from "./spawnShape";
+
+/** Scratch a particle's lifetime takes its flex terms in. */
+const LIFETIME = new Float32Array(1);
 
 /** The share of the rate one step may spend, which is the engine's own burst cap. */
 const BURST_SHARE = 0.33;
@@ -70,11 +74,12 @@ export function emit(
 
   const phase = emitterPhase(emitter, now);
   const pinned = step.pinned ?? null;
-  const count = spawnCount(emitter, state, step, phase, rng);
+  const count = spawnCount(emitter, state, step, phase, rng, pool.flex);
   if (count <= 0) return;
 
   travel(state, step);
   const tiling = emitter.trail?.tiling ?? emitter.beam?.tiling ?? null;
+  const flex = emitter.flex;
   const surfaces = step.surfaces?.get(index);
   const draw = () => rng.unitFloat();
   if (emitter.sharedRandom && state.chance === null) state.chance = rng.unitFloat();
@@ -92,6 +97,23 @@ export function emit(
 
     const slot = at * 3;
     let lifetime = drawnLifetime(emitter, phase, rng, pinned);
+    if (flex !== null && Number.isFinite(lifetime)) {
+      /* shortcut: a simple emitter takes the complex formula, where the client adds `ch * F~`
+         alone; the two differ only under a set channel. */
+      LIFETIME[0] = lifetime;
+      addFlexInto(
+        pool.flex,
+        flex.lifetime,
+        emitter.particleLifetime,
+        phase,
+        draw,
+        pinned,
+        LIFETIME,
+        0,
+        1,
+      );
+      lifetime = LIFETIME[0];
+    }
     pool.frame.set(state.frame, at * FRAME_SLOTS);
     for (let axis = 0; axis < 3; axis += 1) {
       pool.anchor[slot + axis] =
@@ -100,6 +122,19 @@ export function emit(
     }
 
     drawChannelsInto(emitter.birthVelocity, phase, draw, pinned, pool.velocity, slot);
+    if (flex !== null) {
+      addFlexInto(
+        pool.flex,
+        flex.velocity,
+        emitter.birthVelocity,
+        phase,
+        draw,
+        pinned,
+        pool.velocity,
+        slot,
+        3,
+      );
+    }
     drawChannelsInto(emitter.birthAcceleration, phase, draw, pinned, pool.birthAcceleration, slot);
     if (emitter.legacySimple === null) {
       drawChannelsInto(emitter.birthRotation0, phase, draw, pinned, pool.birthRotation, slot);
@@ -112,8 +147,25 @@ export function emit(
         slot,
       );
       drawChannelsInto(emitter.birthScale0, phase, draw, pinned, pool.birthScale, slot);
+      if (flex !== null) {
+        addFlexInto(
+          pool.flex,
+          flex.rotationalVelocity,
+          emitter.birthRotationalVelocity0,
+          phase,
+          draw,
+          pinned,
+          pool.angularVelocity,
+          slot,
+          3,
+        );
+      }
     } else {
       bornSimple(pool, at, emitter.legacySimple, phase, shared);
+    }
+    if (flex !== null) {
+      const scaled = flexScaleOf(pool.flex, flex.birthScale);
+      for (let axis = 0; axis < 3; axis += 1) pool.birthScale[slot + axis] *= scaled;
     }
     drawChannelsInto(
       emitter.birthRotationalAcceleration,
@@ -128,6 +180,16 @@ export function emit(
     drawChannelsInto(emitter.birthColor, phase, draw, pinned, pool.birthColor, at * 4);
 
     sampleShape(emitter.shape, rng, phase, pinned, BORN);
+    if (flex !== null) {
+      const scaled = flexScaleOf(pool.flex, flex.emitOffsetScale);
+      for (let axis = 0; axis < 3; axis += 1) BORN.offset[axis] *= scaled;
+      const translation = flex.birthTranslation;
+      const channel = channelOf(pool.flex, translation);
+      if (translation !== null && channel !== 0) {
+        const moved = sampleCurve(translation.value, phase);
+        for (let axis = 0; axis < 3; axis += 1) BASE[axis] += (moved[axis] ?? 0) * channel;
+      }
+    }
     lifetime = offsetLifetime(emitter, lifetime, BORN.raw);
     pool.lifetime[at] = lifetime;
 
@@ -186,8 +248,9 @@ function spawnCount(
   step: SystemStep,
   phase: number,
   rng: Rng,
+  flex: Float32Array,
 ): number {
-  const rate = rateOf(emitter, step, phase, rng);
+  const rate = rateOf(emitter, step, phase, rng, flex);
   const length = emitter.period?.length ?? null;
   const cycleStart = length === null ? 0 : Math.trunc(state.age / length) * length;
   const since = Math.max(cycleStart, state.lastSpawn);
@@ -242,16 +305,22 @@ export function burstCount(emitter: EmitterModel, rate: number): number {
  *
  * `rateByVelocityFunction` replaces `rate` where the emitter writes one, by the speed the
  * whole system moved at over the step. A table on `rate` is read at a fresh draw each
- * step. The preview runs at Very High effects quality, which scales no `importance`.
+ * step. Either rate is then multiplied by the effects quality's `rateScale`. `flexRate`
+ * adds to the plain rate, before the quality scale on a complex emitter and after it on a
+ * simple one.
  */
-function rateOf(emitter: EmitterModel, step: SystemStep, phase: number, rng: Rng): number {
+function rateOf(
+  emitter: EmitterModel,
+  step: SystemStep,
+  phase: number,
+  rng: Rng,
+  flex: Float32Array,
+): number {
   const byVelocity = emitter.rateByVelocity;
   if (byVelocity !== null) {
     const speed = step.dt > 0 ? Math.hypot(...step.moved) / step.dt : 0;
-    return Math.max(
-      Math.min(emitter.maximumRateByVelocity, speed * byVelocity[0] + byVelocity[1]),
-      0,
-    );
+    const rate = Math.min(emitter.maximumRateByVelocity, speed * byVelocity[0] + byVelocity[1]);
+    return Math.max(rate * emitter.rateScale, 0);
   }
 
   let rate = scalar(sampleCurve(emitter.rate, phase));
@@ -259,7 +328,9 @@ function rateOf(emitter: EmitterModel, step: SystemStep, phase: number, rng: Rng
     const drawn = rng.unitFloat();
     if (table.channel === 0) rate *= tableValue(table, step.pinned ?? drawn);
   }
-  return Math.max(rate, 0);
+  const flexed = flexTerm(flex, emitter.flex?.rate ?? null, phase);
+  if (emitter.simple) return Math.max(rate * emitter.rateScale + flexed, 0);
+  return Math.max((rate + flexed) * emitter.rateScale, 0);
 }
 
 /**
@@ -365,7 +436,9 @@ export function bornSimple(
  * Every table here is read at the particle's shared number, `chance`, and a random start
  * is that same number times the frame count, a fraction of a cell included, which `roll`
  * carries. The mult layer reads the base layer's book, so both layers open on the same
- * cell. A simple emitter plays its book at `frameRate` alone.
+ * cell. A simple emitter plays its book at `frameRate` alone. Each layer's flex scroll adds
+ * `ch * F~` to its scroll rate, and the base layer keeps its `flexBirthUVOffset` draw, which
+ * the channel scales into the offset each frame.
  */
 export function bornUv(
   pool: Pool,
@@ -385,8 +458,16 @@ export function bornUv(
 
     pool.uv[slot + UV.birthOffsetX] = offset[0] ?? 0;
     pool.uv[slot + UV.birthOffsetY] = offset[1] ?? 0;
-    pool.uv[slot + UV.birthScrollX] = rate[0] ?? 0;
-    pool.uv[slot + UV.birthScrollY] = rate[1] ?? 0;
+    const scroll = layer === 0 ? emitter.flex?.uvScroll : emitter.flex?.uvScrollMult;
+    const channel = channelOf(pool.flex, scroll ?? null);
+    const flexed = scroll == null || channel === 0 ? null : drawCurve(scroll.value, t01, chance);
+    pool.uv[slot + UV.birthScrollX] = (rate[0] ?? 0) + channel * (flexed?.[0] ?? 0);
+    pool.uv[slot + UV.birthScrollY] = (rate[1] ?? 0) + channel * (flexed?.[1] ?? 0);
+    const offsetFlex = layer === 0 ? (emitter.flex?.uvOffset ?? null) : null;
+    const drawnOffset = offsetFlex === null ? null : drawCurve(offsetFlex.value, t01, chance);
+    pool.uv[slot + UV.flexOffsetX] = drawnOffset?.[0] ?? 0;
+    pool.uv[slot + UV.flexOffsetY] = drawnOffset?.[1] ?? 0;
+    pool.uv[slot + UV.flexChannel] = offsetFlex?.channel ?? 0;
     pool.uv[slot + UV.birthRotate] = scalar(drawCurve(held.birthRotateRate, t01, chance));
 
     const book = held.book;

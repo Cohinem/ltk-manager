@@ -4,8 +4,8 @@ import {
   facingAt,
   FIRST_RIG,
   flightTime,
-  fliesAsMissile,
   landed,
+  missileDirectionAt,
   type Motion,
   originAt,
   phaseAt,
@@ -17,9 +17,11 @@ import {
 } from "../model/rig";
 import {
   addressTheSame,
+  DEFAULT_STEPPING,
   emptySystem,
   lingerTail,
   simulationEquals,
+  steppingEquals,
   systemSpan,
 } from "../model/systemModel";
 import { flightInto, yawInto } from "../utils/basis";
@@ -47,6 +49,7 @@ import type { Source } from "./particleRead";
 import {
   copyRows,
   createPool,
+  FLEX_CHANNELS,
   FRAME_SLOTS,
   liveByteLength,
   type Pool,
@@ -54,7 +57,7 @@ import {
   rowsByteLength,
   writeRows,
 } from "./pool";
-import { type Stepper, variableStepper } from "./stepper";
+import { type Stepper, stepperFor } from "./stepper";
 
 /** How many particles one system's pool holds, whatever its emitters ask for. */
 const POOL_CAP = 32_768;
@@ -211,6 +214,13 @@ export interface Driver extends Source {
    */
   seek(time: number): void;
   restart(): void;
+  /**
+   * Starts the run over at zero on `seed`.
+   *
+   * The driver stays the same object, so the components that draw from it keep their props
+   * and nothing remounts.
+   */
+  reseed(seed: number): void;
   /** Read every birth's tables at `chance` from here on, and at its own draw again for null. */
   pin(chance: number | null): void;
   setSurfaces(surfaces: EmissionSurfaces): void;
@@ -222,6 +232,11 @@ export interface Driver extends Source {
    * carries no joints of its own. `null` unbinds them.
    */
   setHostJoints(joints: Joints | null): void;
+  /**
+   * Sets the three flex channels that gameplay would set on the live system, null for a
+   * channel nothing sets, which reads 0. Replays the run to its phase on a change.
+   */
+  setFlex(channels: readonly (number | null)[]): void;
   /**
    * Draw the next appearance pass from `next`, keeping the particles already alive.
    *
@@ -257,8 +272,8 @@ export interface DriverOptions {
  *
  * A time is reached by advancing from zero rather than by moving a clock, so a scrub, a
  * screenshot and a snapshot over the pool all agree (decision 2.6 of
- * docs/plans/vfx-particle-renderer.md). The variable stepper is what the first tiers
- * run on, and the interface it satisfies is where a fixed-rate one drops in.
+ * docs/plans/vfx-particle-renderer.md). The system's `stepping` picks the stepper, so a
+ * frame becomes the steps the client's own accumulator would take.
  *
  * The rig is the driver's rather than the model's, per decision 2.9, and it holds
  * nothing about when it was bound: where a run stands is read off the clock, so the
@@ -267,20 +282,21 @@ export interface DriverOptions {
  * where the rig has the system: it is a factor of each particle's own matrix.
  */
 export function createDriver(
-  seed: number,
+  firstSeed: number,
   { capacity = POOL_CAP, seekable = true }: DriverOptions = {},
 ): Driver {
-  const pool = createPool(capacity);
-  const stepper: Stepper = variableStepper();
+  let seed = firstSeed;
+  const lineage = createLineage(seed);
+  const pool = createPool(capacity, lineage.flex);
+  let stepper: Stepper = stepperFor(DEFAULT_STEPPING);
   let system = emptySystem(null);
   let rig: RigModel = FIRST_RIG.rig;
   let span = systemSpan(system);
-  let tail = lingerTail(system, flightTime(rig.motion));
+  let tail = lingerTail(system, flightTime(rig.motion, rig.height));
   let world = worldOf(system);
   let rng = new Rng(seed);
   let states: EmitterState[] = [];
   const yaw = new Float32Array(FRAME_SLOTS);
-  const lineage = createLineage(seed);
   let hostJoints: Joints | null = null;
   lineage.joints = rig.joints ?? null;
   const children = createChildren(lineage, "", 0);
@@ -317,13 +333,16 @@ export function createDriver(
         moved: displacement(origin, now),
         yaw,
         world,
-        stopped: (rig.stopAt != null && reached >= rig.stopAt) || landed(rig.motion, reached),
+        stopped:
+          (rig.stopAt != null && reached >= rig.stopAt) || landed(rig.motion, reached, rig.height),
         pinned: lineage.pinned,
         surfaces: lineage.surfaces.get(""),
       };
 
       stepEmitters(pool, system, placed, rng, states);
       origin = now;
+      /* shortcut: a child steps on its parent's steps, where the client steps each child
+         system on its own `stepping`; upgrade if a child's flags are found to differ. */
       children.step(driver, system, step.dt, step.now);
       lanes.tally(pool, reached);
       keep(step.now);
@@ -392,15 +411,16 @@ export function createDriver(
   /**
    * The rig's own turn at `reached`, into the yaw.
    *
-   * A path, and a missile-oriented orbit, stand in for a missile's own game object,
-   * whose travel is its local `Y`, where a unit's system is the look-at yaw of question 11.
+   * A missile stands in for a missile's own game object, whose travel is its local `Y`,
+   * where a unit's system is the look-at yaw of question 11.
    * A bone takes its joint's whole turn, as a system attached to a bone does.
    */
   function orientInto(reached: number): void {
     const motion = rig.motion;
     if (motion.kind === "bone") motion.anchor.basisInto(reached, yaw);
-    else if (fliesAsMissile(motion)) flightInto(facingAt(motion, reached), yaw);
-    else yawInto(facingAt(motion, reached), yaw);
+    else if (motion.kind === "missile") {
+      flightInto(missileDirectionAt(motion, reached, rig.height), yaw);
+    } else yawInto(facingAt(motion, reached), yaw);
   }
 
   /**
@@ -502,6 +522,14 @@ export function createDriver(
       lanes.reach(phaseAt(rig, stepper.now, span, tail));
     },
     restart: rewind,
+    reseed(next) {
+      if (next === seed) return;
+
+      seed = next;
+      lineage.seed = next;
+      marks.clear();
+      rewind();
+    },
 
     /* A checkpoint holds births drawn under the last pin, so a seek replays from the new one. */
     pin(chance) {
@@ -519,6 +547,14 @@ export function createDriver(
     },
     surfaces() {
       return lineage.surfaces;
+    },
+    setFlex(channels) {
+      const next = Array.from({ length: FLEX_CHANNELS }, (_, at) => channels[at] ?? 0);
+      if (next.every((value, at) => lineage.flex[at] === value)) return;
+
+      lineage.flex.set(next);
+      marks.clear();
+      driver.seek(driver.phase);
     },
     setMeshJoints(joints) {
       if (jointsEquals(lineage.meshJoints, joints)) return;
@@ -551,9 +587,12 @@ export function createDriver(
       /* An edit to what only the draw reads leaves every checkpoint as the new definition
          would have written it, so a seek after it restores one rather than replaying. */
       const drawOnly = same && simulationEquals(system, next);
+      if (!steppingEquals(system.stepping, next.stepping)) {
+        stepper = stepperFor(next.stepping, stepper.now);
+      }
       system = next;
       span = systemSpan(next);
-      tail = lingerTail(next, flightTime(rig.motion));
+      tail = lingerTail(next, flightTime(rig.motion, rig.height));
       world = worldOf(next);
       /* The span is the run a still rig loops on, so the phase moves with an edit for the
          same reason it moves with a tune. */
@@ -590,7 +629,7 @@ export function createDriver(
       const turned = next.motion.kind !== rig.motion.kind;
       const posed = reposed(rig.motion, next.motion);
       rig = next;
-      tail = lingerTail(system, flightTime(next.motion));
+      tail = lingerTail(system, flightTime(next.motion, next.height));
       lineage.joints = next.joints ?? hostJoints;
       marks.clear();
 

@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
 
-import { act, cleanup, render } from "@testing-library/react";
+import { act, cleanup } from "@testing-library/react";
 import { useEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { AssetRef } from "@/lib/tauri";
+import { renderWithProviders } from "@/test/utils";
 
 import { readVfxSystem } from "../../../engine/parsing/readVfxSystem";
 import { useVfxRun, type VfxRun, VfxRunProvider } from "../run";
@@ -31,6 +32,9 @@ let authored = SYSTEM;
 
 vi.mock("../../../hooks/useVfxSystem", () => ({
   useVfxSystem: () => ({ system: authored, error: null, pending: false }),
+  vfxQueries: {
+    missileSpells: () => ({ queryKey: ["vfx-missile-spells"], queryFn: () => [], initialData: [] }),
+  },
 }));
 
 const ASSET: AssetRef = { kind: "layer", project: "C:/mods/ahri", layer: "base", path: "ahri.bin" };
@@ -65,7 +69,7 @@ function Capture() {
 
 /** A run of `SYSTEM` opened as `document` from `asset`. */
 function mount(document = 1, asset: AssetRef | null = ASSET) {
-  return render(
+  return renderWithProviders(
     <VfxRunProvider document={document} asset={asset} entry="0x1">
       <Capture />
     </VfxRunProvider>,

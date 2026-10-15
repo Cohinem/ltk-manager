@@ -1,5 +1,15 @@
 import { DRAG_MOTION } from "./enums";
-import type { ChildSetModel, EmissionPeriod, EmitterModel, SystemModel, ValueCurve } from "./model";
+import type {
+  ChildSetModel,
+  EmissionPeriod,
+  EmitterModel,
+  Stepping,
+  SystemModel,
+  ValueCurve,
+} from "./model";
+
+/** The stepping of a system at Very High effects quality under the schema's default `flags`. */
+export const DEFAULT_STEPPING: Stepping = { rate: 30, oncePerFrame: false, everyFrame: true };
 
 /** A system with nothing in it, which is what an unreadable object draws as. */
 export function emptySystem(entry: string | null): SystemModel {
@@ -11,7 +21,13 @@ export function emptySystem(entry: string | null): SystemModel {
     hudLayer: false,
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
+    stepping: DEFAULT_STEPPING,
   };
+}
+
+/** Returns true if `a` and `b` take the same steps out of the same frames. */
+export function steppingEquals(a: Stepping, b: Stepping): boolean {
+  return a.rate === b.rate && a.oncePerFrame === b.oncePerFrame && a.everyFrame === b.everyFrame;
 }
 
 /**
@@ -91,6 +107,7 @@ export function simulationEquals(current: SystemModel, next: SystemModel): boole
     current.dragMotion !== next.dragMotion ||
     current.hudLayer !== next.hudLayer ||
     current.buildUpTime !== next.buildUpTime ||
+    !steppingEquals(current.stepping, next.stepping) ||
     !deepEquals(current.transform, next.transform) ||
     !addressTheSame(current.emitters, next.emitters)
   ) {
@@ -356,3 +373,24 @@ export function emitterPhase(emitter: EmitterModel, now: number): number {
 
   return (now - emitter.timeBeforeFirstEmission) / span;
 }
+
+/** Returns the flex channels that `system`'s emitters and their children read, ascending. */
+export function flexChannelsOf(system: SystemModel): number[] {
+  const channels = new Set<number>();
+  const visit = (each: SystemModel, depth: number) => {
+    if (depth > FLEX_DEPTH) return;
+    for (const emitter of each.emitters) {
+      for (const value of Object.values(emitter.flex ?? {})) {
+        if (value !== null) channels.add(value.channel);
+      }
+      for (const child of emitter.childSet?.children ?? []) {
+        if (child !== null) visit(child, depth + 1);
+      }
+    }
+  };
+  visit(system, 0);
+  return [...channels].sort((a, b) => a - b);
+}
+
+/** How deep `flexChannelsOf` walks the child sets, past which a cycle would not end. */
+const FLEX_DEPTH = 8;

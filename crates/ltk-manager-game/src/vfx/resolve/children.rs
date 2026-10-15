@@ -13,7 +13,7 @@ use ltk_manager_bin::object_index::parse_hash;
 use super::{CHILD_IDENTIFIER, MAX_NODES, SYSTEM_DEFINITION, resolve_system, resources};
 use crate::linked::LINKED_CAP;
 use crate::material::MaterialPreview;
-use crate::resolver::EFFECT_KEY;
+use crate::resolver::{EFFECT_KEY, skin_bin};
 use crate::vfx::{VfxField, VfxSystem, VfxValue};
 
 /// `VfxChildIdentifier.effect`, the link to the child's system.
@@ -293,27 +293,6 @@ impl Search<'_> {
             self.bins.reach(linked);
         }
     }
-}
-
-/// Returns the skin bin of the system at `path`, and `None` for a path under no skin.
-///
-/// `Characters/Aatrox/Skins/Skin11/Particles/Aatrox_Skin11_Recall` names
-/// `data/characters/aatrox/skins/skin11.bin`.
-fn skin_bin(path: &str) -> Option<String> {
-    let mut parts = path.split('/');
-    let (root, character, skins, skin) =
-        (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
-    let under = root.eq_ignore_ascii_case("characters")
-        && skins.eq_ignore_ascii_case("skins")
-        && parts.next().is_some();
-
-    under.then(|| {
-        format!(
-            "data/characters/{}/skins/{}.bin",
-            character.to_lowercase(),
-            skin.to_lowercase()
-        )
-    })
 }
 
 /// Returns how many values `value` holds, itself included.

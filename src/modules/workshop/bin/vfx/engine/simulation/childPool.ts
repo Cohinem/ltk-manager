@@ -29,7 +29,7 @@ export function capacityOf(system: SystemModel): number {
 
 export function takePool(lineage: Lineage, capacity: number): Pool {
   const pool = lineage.spare.get(capacity)?.pop();
-  if (pool === undefined) return createPool(capacity);
+  if (pool === undefined) return createPool(capacity, lineage.flex);
   pool.count = 0;
   pool.born = 0;
   return pool;

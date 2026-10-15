@@ -2,19 +2,20 @@ import {
   ArrowsHorizontalIcon,
   type Icon,
   LineVerticalIcon,
+  LinkBreakIcon,
   LinkSimpleIcon,
   PlusMinusIcon,
 } from "@phosphor-icons/react";
 
-import { Readout, Tooltip } from "@/components";
+import { Button, Readout, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { type FieldUnit, UNIT_SUFFIX } from "../../values/utils/fieldUnits";
 import type { ValueFamily, ValueRange } from "../../values/utils/valueRows";
 import type { RandomEdit } from "../state/randomEdit";
-import { channelName, CHIP } from "../utils/curveChannels";
-import { type ChannelDraw, drawSpan, isRandom } from "../utils/randomDraw";
+import { channelName, chipOf } from "../utils/curveChannels";
+import { type ChannelDraw, drawSpan, type DrawRow, isRandom } from "../utils/randomDraw";
 import {
   fieldScale,
   type PickedShape,
@@ -27,48 +28,66 @@ import {
 import { drawnOver, readout, shapeText } from "../utils/randomText";
 
 interface RangeLabelProps {
-  channel: ChannelDraw;
+  row: DrawRow;
   family: ValueFamily;
   unit: FieldUnit | null;
   editor: RandomEdit;
 }
 
 /**
- * A channel's name, the range it draws in fields that write its table, and the shape it
+ * A row's channel names, the range it draws in fields that write its table, and the shape it
  * takes. "The random spread" in docs/ux/BIN_EDITOR.md.
  *
  * A range reads the result where the base holds still, and the factor where it moves or is
  * 0. A split edits its sizes, which both halves share.
  */
-export function RangeLabel({ channel, family, unit, editor }: RangeLabelProps) {
-  const reach = editor.reach(channel);
+export function RangeLabel({ row, family, unit, editor }: RangeLabelProps) {
   const named = family !== "scalar";
 
   return (
     <div data-ui="RandomRange" className="flex min-w-0 flex-col gap-0.5 leading-tight select-none">
       <span className="flex items-center gap-1.5">
-        {named && (
-          <span
-            /* DS-KIND-HUE, DS-TEXT */
-            className={twMerge(
-              "w-3 shrink-0 font-mono text-meta font-semibold",
-              CHIP[channel.channel] ?? CHIP[0],
-            )}
-          >
-            {channelName(family, channel.channel)}
-          </span>
-        )}
-        <RangeFields channel={channel} family={family} unit={unit} editor={editor} />
+        <ChannelNames channels={row.channels} family={family} />
+        <RangeFields channel={row.channel} family={family} unit={unit} editor={editor} />
       </span>
       <span className={twMerge("flex items-center gap-1.5", named && "pl-4.5")}>
-        <ShapePicker channel={channel} editor={editor} />
-        {reach.length > 1 && <LinkMark family={family} channels={reach} own={channel.channel} />}
+        <ShapePicker channel={row.channel} editor={editor} />
+        <LinkToggle row={row} family={family} editor={editor} />
       </span>
     </div>
   );
 }
 
-function RangeFields({ channel, family, unit, editor }: RangeLabelProps) {
+/** The names of a vector's or a colour's channels, each in its hue. Empty for a scalar. */
+export function ChannelNames({
+  channels,
+  family,
+}: {
+  channels: readonly ChannelDraw[];
+  family: ValueFamily;
+}) {
+  if (family === "scalar") return <span />;
+
+  return (
+    <span className="flex min-w-3 shrink-0 font-mono text-meta font-semibold select-none">
+      {channels.map((each) => (
+        /* DS-KIND-HUE, DS-TEXT */
+        <span key={each.channel} className={chipOf(family, each.channel)}>
+          {channelName(family, each.channel)}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+interface RangeFieldsProps {
+  channel: ChannelDraw;
+  family: ValueFamily;
+  unit: FieldUnit | null;
+  editor: RandomEdit;
+}
+
+function RangeFields({ channel, family, unit, editor }: RangeFieldsProps) {
   const scale = fieldScale(channel);
   const factorOnly = channel.results === null;
   const suffix = factorOnly || unit === null ? null : UNIT_SUFFIX[unit]();
@@ -198,27 +217,26 @@ function EndText({
 }
 
 /**
- * A lane's shape: the switch between fixed, uniform and split with the channels an edit also
- * writes, or the shape's word where the document takes no edit.
+ * A lane's shape: the switch between fixed, uniform and split with the row's link toggle, or
+ * the shape's word if the document takes no edit.
  */
 export function ShapeCell({
-  channel,
+  row,
   family,
   editor,
 }: {
-  channel: ChannelDraw;
+  row: DrawRow;
   family: ValueFamily;
   editor: RandomEdit | null;
 }) {
   if (editor === null) {
-    return <span className="text-meta text-surface-400 select-none">{shapeText(channel)}</span>;
+    return <span className="text-meta text-surface-400 select-none">{shapeText(row.channel)}</span>;
   }
 
-  const reach = editor.reach(channel);
   return (
     <span className="flex items-center gap-1.5">
-      <ShapePicker channel={channel} editor={editor} />
-      {reach.length > 1 && <LinkMark family={family} channels={reach} own={channel.channel} />}
+      <ShapePicker channel={row.channel} editor={editor} />
+      <LinkToggle row={row} family={family} editor={editor} />
     </span>
   );
 }
@@ -293,27 +311,35 @@ const SHAPE: Readonly<Record<PickedShape, { icon: Icon; word: () => string; hint
     },
   };
 
-/** The channels an edit of this one also writes, since they draw one table over one base. */
-function LinkMark({
+/**
+ * The button that splits a row of channels that draw one table into one row per channel, or
+ * joins them back into one row. Renders nothing if no other channel draws the row's table.
+ */
+function LinkToggle({
+  row,
   family,
-  channels,
-  own,
+  editor,
 }: {
+  row: DrawRow;
   family: ValueFamily;
-  channels: readonly number[];
-  own: number;
+  editor: RandomEdit;
 }) {
-  const others = channels
-    .filter((each) => each !== own)
-    .map((each) => channelName(family, each))
-    .join(" ");
-  const hint = m.workshop_bin_random_linked_hint({ channels: others });
+  if (row.shared.length < 2) return null;
+
+  const names = row.shared.map((each) => channelName(family, each)).join("");
+  const label = editor.linked
+    ? m.workshop_bin_random_unlink_action()
+    : m.workshop_bin_random_link_action({ channels: names });
 
   return (
-    <Tooltip content={hint}>
-      <span tabIndex={0} aria-label={hint} className="flex cursor-help text-surface-400">
-        <LinkSimpleIcon weight="bold" className="size-3" />
-      </span>
+    <Tooltip content={label}>
+      <Button
+        variant="ghost"
+        size="xs"
+        aria-label={label}
+        onClick={() => editor.setLinked(!editor.linked)}
+        left={editor.linked ? <LinkBreakIcon weight="bold" /> : <LinkSimpleIcon weight="bold" />}
+      />
     </Tooltip>
   );
 }

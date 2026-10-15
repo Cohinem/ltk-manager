@@ -240,3 +240,9 @@ export const SPECTATOR_POLICY = {
 
 /** `offsetLifeScalingSymmetryMode`, the axes `offsetLifetimeScaling` reads unsigned, by bit. */
 export const OFFSET_SYMMETRY = { x: 0x1, y: 0x2, z: 0x4 } as const;
+
+/**
+ * `VfxShapeVolume.flags`, by bit. The name describes what the bit does, since the client's name
+ * for it is not known.
+ */
+export const SHAPE_FLAG = { fillVolume: 0x1 } as const;

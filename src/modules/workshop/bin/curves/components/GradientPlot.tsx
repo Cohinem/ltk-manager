@@ -25,11 +25,14 @@ import {
 } from "../../values/utils/valueRows";
 import { keysAt } from "../../vfx/engine/utils/sampleCurve";
 import { VfxRunContext } from "../../vfx/playback/state/run";
+import type { LivePlayhead } from "../hooks/curvePlayhead";
 import { axisText } from "../utils/curvePlot";
 import { CURVE_TIME_STEP, snapCurveValue } from "../utils/curveSnapping";
 import { drawsFlat, type RandomDraw, stopsAt } from "../utils/randomDraw";
 import type { CurveSelectionMode } from "./CurveGraph";
+import { GestureHint } from "./CurveKeyEditor";
 import { DrawReadout } from "./RandomLanes";
+import { PlayheadChip, PlayheadRule } from "./TimeMarks";
 
 /** The chances an animated random colour's ramp is drawn at: the two ends of the roll. */
 const ENDS: readonly number[] = [0, 1];
@@ -72,6 +75,7 @@ const DRAG_SLOP = 3;
 export function GradientPlot({
   keys,
   draw = null,
+  live = null,
   selected = NO_SELECTION,
   editable = false,
   onSelect,
@@ -80,6 +84,8 @@ export function GradientPlot({
 }: {
   keys: readonly CurveKey[];
   draw?: RandomDraw | null;
+  /** The playhead the ramp's time marks follow every frame, null where none reaches the curve. */
+  live?: LivePlayhead | null;
   selected?: ReadonlySet<number>;
   editable?: boolean;
   onSelect?: (at: number, mode: CurveSelectionMode) => void;
@@ -145,7 +151,7 @@ export function GradientPlot({
   return (
     <div data-ui="GradientPlot" className="flex min-h-0 flex-1 flex-col gap-1">
       {/* The rail hangs off the band, so the two are one object with no gap between them. */}
-      <div className="flex shrink-0 flex-col gap-px">
+      <div className="relative flex shrink-0 flex-col gap-px">
         {!rolled && <Band stops={ordered} editable={editable} onDoubleClick={addStop} />}
         {rolled &&
           chances.map((chance, at) => (
@@ -165,17 +171,19 @@ export function GradientPlot({
           onMove={movable ? (at, time) => setMove({ at, time, committed: false }) : undefined}
           onPlace={(at, time) => void place(at, time)}
         />
+        {stops.length > 0 && <PlayheadRule live={live} span={span} />}
       </div>
       {stops.length > 0 && (
-        <span className="flex shrink-0 justify-between text-meta text-surface-500">
+        <span className="relative flex h-3.5 shrink-0 justify-between text-meta text-surface-500">
           <span>{axisText(span.first)}</span>
           <span>{axisText(span.last)}</span>
+          <PlayheadChip live={live} span={span} />
         </span>
       )}
       {rolled && <DrawReadout draw={draw} unit={null} muted={NO_MUTED} levels={[]} />}
       {editable && stops.length > 0 && (
-        <span className="text-meta leading-none text-surface-500 select-none">
-          {m.workshop_bin_curve_edit_hint()}
+        <span className="flex justify-end">
+          <GestureHint />
         </span>
       )}
     </div>

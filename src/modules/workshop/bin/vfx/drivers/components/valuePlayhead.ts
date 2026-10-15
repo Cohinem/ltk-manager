@@ -16,7 +16,8 @@ export interface ValuePlayhead {
 /** The run's playhead in a value node's curve, which the marker and the live readout follow. */
 export function useValuePlayhead(item: ValueItem): ValuePlayhead {
   const run = use(VfxRunContext);
-  const entry = use(GraphActionsContext)?.entry ?? "";
+  /* The graph names its system, and the inspector draws the run's own. */
+  const entry = use(GraphActionsContext)?.entry ?? run?.entry ?? "";
   const system = run?.system ?? null;
   const emitter = useMemo(
     () => emitterAtPath(system, entry, item.wire),

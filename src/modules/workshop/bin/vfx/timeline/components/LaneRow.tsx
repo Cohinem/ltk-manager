@@ -145,7 +145,8 @@ export const LaneRow = memo(function LaneRow({
           className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 truncate rounded-sm px-0.5 text-left hover:bg-surface-veil"
           onClick={() => onSelect(row)}
         >
-          {emitter.disabled && (
+          {/* A closed eye already shows a `disabled` flag, so the mark names a gate alone. */}
+          {emitter.disabled && !muted && (
             <EyeSlashIcon
               weight="bold"
               role="img"

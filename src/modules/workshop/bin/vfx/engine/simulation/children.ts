@@ -27,6 +27,7 @@ import {
 import { type DrawFrame, frameOf, type Source } from "./particleRead";
 import {
   copyRows,
+  FLEX_CHANNELS,
   FRAME_SLOTS,
   liveByteLength,
   type Pool,
@@ -96,8 +97,11 @@ const MOST_BIRTHS = 4096;
 /** What every child of one viewport's system shares: the lists a draw reads, the pools and the caps. */
 export interface Lineage {
   meshJoints: ReadonlyMap<string, Joints>;
+  /** The flex channels every pool of the lineage shares. */
+  readonly flex: Float32Array;
   surfaces: EmissionSurfaces;
-  readonly seed: number;
+  /** The run's seed, which `Driver.reseed` replaces. */
+  seed: number;
   /** The live children of each definition path, which the draw of that definition reads. */
   readonly feeds: Map<string, Source[]>;
   /** Pools a reaped child left, by capacity, which the next child of that size takes. */
@@ -127,6 +131,7 @@ export function createLineage(seed: number): Lineage {
     pinned: null,
     surfaces: new Map(),
     meshJoints: new Map(),
+    flex: new Float32Array(FLEX_CHANNELS),
   };
 }
 

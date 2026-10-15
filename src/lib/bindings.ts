@@ -4290,12 +4290,50 @@ export type MigrationProgress = {
 	currentFile: string,
 };
 
-/**  The movement class and its written speed or duration. */
+/**  The missile's `verticalFacing`, which sets how it pitches. */
+export type MissileFacing = 
+/**  `VeritcalFacingMatchVelocity`: the missile pitches along its travel. */
+{ kind: "matchVelocity" } | 
+/**  `VerticalFacingFaceTarget`: the missile pitches toward its target. */
+{ kind: "faceTarget" } | 
+/**  A class whose facing is not implemented. */
+{ kind: "unsupported"; class_hash: string };
+
+/**  The missile's `heightSolver`, which replaces the height that the movement gives. */
+export type MissileHeight = 
+/**  `BlendedLinearHeightSolver`. */
+{ kind: "blendedLinear" } | 
+/**  `GravityHeightSolver`: an arc under `gravity` in units per second squared. */
+{ kind: "gravity"; gravity: number | null } | 
+/**  `FollowTerrainHeightSolver`: a height above the ground. */
+{ kind: "followTerrain"; heightOffset: number | null; maxSlope: number | null } | 
+/**  `SinusoidalHeightSolver`: a wave over the straight line. */
+{ kind: "sinusoidal"; amplitude: number | null; periods: number | null; verticalOffset: number | null; phase: number | null } | 
+/**  `CurveTheDifferenceHeightSolver`. */
+{ kind: "curveTheDifference"; initialTargetHeightOffset: number | null } | 
+/**  A class whose height is not implemented. */
+{ kind: "unsupported"; class_hash: string };
+
+/**  The movement class and its written fields, each absent where the spell omits it. */
 export type MissileMovement = 
-/**  Constant speed in engine units per second. */
+/**  `FixedSpeedMovement`: constant speed in engine units per second. */
 { kind: "fixedSpeed"; speed: number | null } | 
-/**  A fixed travel duration in seconds. */
+/**  `FixedTimeMovement`: a fixed travel duration in seconds. */
 { kind: "fixedTime"; duration: number | null } | 
+/**  `AcceleratingMovement`: a speed that changes by `acceleration` within its clamps. */
+{ kind: "accelerating"; initialSpeed: number | null; acceleration: number | null; minSpeed: number | null; maxSpeed: number | null } | 
+/**  `DecelToLocationMovement`: the accelerating fields, braking to stop on the target. */
+{ kind: "decelToLocation"; initialSpeed: number | null; acceleration: number | null; minSpeed: number | null; maxSpeed: number | null } | 
+/**  `FixedSpeedSplineMovement`: a Hermite curve travelled at a constant speed. */
+{ kind: "fixedSpeedSpline"; speed: number | null; spline: MissileSpline | null } | 
+/**  `FixedTimeSplineMovement`: a Hermite curve travelled in a fixed duration. */
+{ kind: "fixedTimeSpline"; duration: number | null; spline: MissileSpline | null } | 
+/**  `PhysicsMovement`: a launch speed that drag slows for `lifetime` seconds. */
+{ kind: "physics"; initialSpeed: number | null; drag: number | null; lifetime: number | null } | 
+/**  `CircleMovement`: a circle about the target that turns and widens. */
+{ kind: "circle"; angularVelocity: number | null; linearVelocity: number | null; radialVelocity: number | null; lifetime: number | null } | 
+/**  `SyncCircleMovement`: a circle whose angle follows the time since the cast. */
+{ kind: "syncCircle"; angularVelocity: number | null; lifetime: number | null; axis: number | null } | 
 /**  A class whose trajectory is not implemented. */
 { kind: "unsupported"; class_hash: string } | 
 /**  No movement component was written. */
@@ -4315,6 +4353,36 @@ export type MissileSpec = {
 	targetHeight: number | null,
 	/**  The initial target-height offset. */
 	initialTargetHeight: number | null,
+	/**  `mUseHeightOffsetAtEnd`. */
+	heightOffsetAtEnd: boolean | null,
+	/**  The height solver, absent where the spec writes none. */
+	height: MissileHeight | null,
+	/**  The vertical facing, absent where the spec writes none. */
+	facing: MissileFacing | null,
+};
+
+/**  One spell that fires a system as its missile. */
+export type MissileSpell = {
+	/**  The spell object's hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The spell object's path, or its hash where no table names it. */
+	path: string,
+	/**  The path below `Characters/{character}/Spells`, or the whole path outside it. */
+	name: string,
+	/**  The spell's missile specification. */
+	missile: MissileSpec,
+};
+
+/**  A spline movement's `HermiteSplineInfo`, with omitted values kept absent. */
+export type MissileSpline = {
+	/**  `mStartPositionOffset`, in the frame that faces the target. */
+	startOffset: [(number | null), (number | null), (number | null)] | null,
+	/**  `mControlPoint1`, the start tangent as a share of the travel distance. */
+	control1: [(number | null), (number | null), (number | null)] | null,
+	/**  `mControlPoint2`, the end tangent as a share of the travel distance. */
+	control2: [(number | null), (number | null), (number | null)] | null,
+	/**  `mUseMissilePositionAsOrigin`. */
+	fromMissile: boolean | null,
 };
 
 /**

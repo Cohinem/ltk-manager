@@ -14,8 +14,10 @@ import {
   IMPORTANCE,
   LINGER_TYPE,
   MISC_RENDER_FLAG,
+  SHAPE_FLAG,
   SIMPLE_ORIENTATION,
   STENCIL_MODE,
+  SYSTEM_FLAG,
   TRAIL_MODE,
   TRAIL_SMOOTHING,
   UV_MODE,
@@ -69,13 +71,42 @@ export const ENUM_FIELDS: Readonly<Record<string, FieldEnum>> = {
   [FIELD.orientationAimAxis]: choice(ORIENTATION_AXIS),
 };
 
+/**
+ * The enum a field carries on one class alone, by the class's name and then the field's, for
+ * a field name that other classes write with another meaning.
+ */
+export const CLASS_ENUM_FIELDS: Readonly<Record<string, Readonly<Record<string, FieldEnum>>>> = {
+  VfxSystemDefinitionData: { flags: bits(SYSTEM_FLAG) },
+  VfxShapeBox: { flags: bits(SHAPE_FLAG) },
+  VfxShapeCylinder: { flags: bits(SHAPE_FLAG) },
+  VfxShapeSphere: { flags: bits(SHAPE_FLAG) },
+};
+
 const BY_FIELD: ReadonlyMap<string, FieldEnum> = new Map(
   Object.entries(ENUM_FIELDS).map(([field, held]) => [hashOf(field), held] as const),
 );
 
-/** The enum the field `hash` carries, or null for a field no table covers. */
-export function fieldEnum(hash: string): FieldEnum | null {
-  return BY_FIELD.get(hash) ?? null;
+const BY_CLASS: ReadonlyMap<string, ReadonlyMap<string, FieldEnum>> = new Map(
+  Object.entries(CLASS_ENUM_FIELDS).map(
+    ([owner, fields]) =>
+      [
+        hashOf(owner),
+        new Map(Object.entries(fields).map(([field, held]) => [hashOf(field), held] as const)),
+      ] as const,
+  ),
+);
+
+/**
+ * Returns the enum the field `hash` carries on the class `owner`, or null for a field no
+ * table covers.
+ *
+ * A table scoped to `owner` wins over the one the field name carries everywhere. Without an
+ * `owner`, only the field name is looked up.
+ */
+export function fieldEnum(hash: string, owner: string | null = null): FieldEnum | null {
+  return (
+    (owner === null ? undefined : BY_CLASS.get(owner)?.get(hash)) ?? BY_FIELD.get(hash) ?? null
+  );
 }
 
 /**
@@ -107,9 +138,13 @@ export function withFlag(value: number, bit: number, on: boolean): number {
 }
 
 /** What the integer `text` reads as under the field `hash`, and null where it reads as itself. */
-export function enumReading(hash: string | null, text: string): string | null {
+export function enumReading(
+  hash: string | null,
+  text: string,
+  owner: string | null = null,
+): string | null {
   if (hash === null) return null;
-  const held = fieldEnum(hash);
+  const held = fieldEnum(hash, owner);
   if (held === null) return null;
   const value = Number(text);
   if (!Number.isSafeInteger(value)) return null;

@@ -7,6 +7,7 @@ import { AXIS_SIGN } from "@/modules/viewport";
 
 import { TRAIL_MODE } from "../../engine/model/enums";
 import type { EmitterModel } from "../../engine/model/model";
+import { smoothingReachAt } from "../../engine/model/quality";
 import type { Point } from "../../engine/model/rig";
 import {
   age01,
@@ -24,7 +25,7 @@ import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { useDrawStencil } from "../state/stencil";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
 import { colorLookupInto } from "../utils/colorLookup";
-import { trailFacesTheCamera } from "../utils/drawKind";
+import { castsShadow, trailFacesTheCamera } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
 import { drawLayersOf } from "../utils/frame";
 import { ribbonMaterial } from "../utils/materials";
@@ -110,7 +111,11 @@ export function Trails({ emitter, sources, samplers, rank, hidden, document = nu
     [buffers],
   );
 
-  const pair = useDrawPair<Mesh | LineSegments>(material, drawLayersOf(emitter));
+  const pair = useDrawPair<Mesh | LineSegments>(
+    material,
+    drawLayersOf(emitter),
+    castsShadow(emitter),
+  );
   const programs = useParticlePrograms(emitter, samplers, RIBBON_DRAW, buffers.geometry, document);
   useProgramDraw(pair.solid, programs, rank);
 
@@ -144,6 +149,7 @@ export function Trails({ emitter, sources, samplers, rank, hidden, document = nu
           view: facesEye ? (VIEW as Point) : null,
           wake: trail.mode === TRAIL_MODE.wake,
           smoothing: trail.smoothing,
+          reach: smoothingReachAt(emitter.effectsQuality),
           cutoff: trail.cutoff,
           layers: { base: emitter.uv, mult: emitter.multUv },
         },

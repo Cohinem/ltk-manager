@@ -2,17 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import { FORWARD } from "@/modules/viewport";
 
+import type { MissileFlight } from "../missile";
 import {
   aimedAt,
   type Anchor,
   carrierOf,
   CONTINUOUS_RUN,
   facingAt,
+  FIRST_FLIGHT,
   FLIGHT_HEIGHT,
-  flightPath,
   fliesAsMissile,
   GROUND_RIG,
   landed,
+  missileMotion,
   type Motion,
   originAt,
   phaseAt,
@@ -26,8 +28,30 @@ import {
   withPlayback,
 } from "../rig";
 
-/** A path a hundred units long at one unit a second, so a second is one percent of it. */
-const SLOW: Motion = { kind: "path", from: [0, 0, 0], to: [100, 0, 0], speed: 1 };
+/** A level, straight flight at `speed` units a second. */
+function level(speed: number): MissileFlight {
+  return { ...FIRST_FLIGHT, movement: { kind: "fixedSpeed", speed } };
+}
+
+/** A flight that circles its centre once every `period` seconds, for `lifetime` or forever at 0. */
+function circling(period: number, lifetime = 0): MissileFlight {
+  return {
+    ...FIRST_FLIGHT,
+    movement: {
+      kind: "circle",
+      angularVelocity: (Math.PI * 2) / period,
+      linearVelocity: 0,
+      radialVelocity: 0,
+      lifetime,
+    },
+  };
+}
+
+/** A missile a hundred units long at ten units a second, so a second is a tenth of it. */
+const SLOW: Motion = { kind: "missile", from: [0, 0, 0], to: [100, 0, 0], flight: level(10) };
+
+/** A missile that circles the origin ten units out, once every four seconds. */
+const CIRCLE: Motion = missileMotion(circling(4), 10);
 
 /** An anchor walking ten units a second along `x`, turned a quarter about up. */
 const WALKER: Anchor = {
@@ -44,27 +68,35 @@ function rounded(point: readonly number[]): number[] {
   return point.map((value) => Math.round(value * 1e6) / 1e6 + 0);
 }
 
+/** Asserts that each axis of `point` matches `expected` to `digits` decimals, for a sampled track. */
+function expectNear(point: readonly number[], expected: readonly number[], digits = 1) {
+  expected.forEach((value, axis) => expect(point[axis]).toBeCloseTo(value, digits));
+}
+
 describe("facingAt", () => {
-  it("faces a still rig forward", () => {
+  it("returns FORWARD for a still rig", () => {
     expect(facingAt({ kind: "still" }, 3)).toEqual(FORWARD);
   });
 
-  it("faces a path where it is going, laid flat and unit long", () => {
-    const climb: Motion = { kind: "path", from: [0, 0, 0], to: [30, 50, 40], speed: 1 };
-    expect(rounded(facingAt(climb, 0))).toEqual([0.6, 0, 0.8]);
-    expect(rounded(facingAt(SLOW, 99))).toEqual([1, 0, 0]);
+  it("returns a missile's travel laid flat and unit long", () => {
+    const descent: Motion = {
+      kind: "missile",
+      from: [0, 0, 0],
+      to: [30, 0, 40],
+      flight: { ...level(10), endAtLaunchHeight: false },
+    };
+
+    expectNear(facingAt(descent, 0, 50), [0.6, 0, 0.8], 5);
+    expectNear(facingAt(SLOW, 9), [1, 0, 0], 5);
   });
 
-  it("faces forward on a path that only climbs", () => {
-    expect(facingAt({ kind: "path", from: [0, 0, 0], to: [0, 10, 0], speed: 1 }, 0)).toEqual(
-      FORWARD,
-    );
+  it("returns FORWARD if the missile's target stands on its launch point", () => {
+    expectNear(facingAt({ ...SLOW, to: [0, 0, 0] }, 0), FORWARD, 5);
   });
 
-  it("faces an orbit along its own tangent", () => {
-    const orbit: Motion = { kind: "orbit", radius: 10, period: 4, orientation: "missile" };
-    expect(rounded(facingAt(orbit, 0))).toEqual([0, 0, 1]);
-    expect(rounded(facingAt(orbit, 1))).toEqual([-1, 0, 0]);
+  it("returns a circling missile's tangent", () => {
+    expectNear(facingAt(CIRCLE, 0), [0, 0, 1]);
+    expectNear(facingAt(CIRCLE, 1), [-1, 0, 0]);
   });
 
   it("faces a bone along its joint's own +Z, laid flat", () => {
@@ -105,15 +137,22 @@ describe("a bone", () => {
 });
 
 describe("targetAt", () => {
-  it("aims a path where it lands, whatever the time", () => {
-    expect(targetAt(SLOW, 0)).toEqual([100, 0, 0]);
-    expect(targetAt(SLOW, 50)).toEqual([100, 0, 0]);
+  it("returns a missile's target at the launch height if the flight ends at it", () => {
+    expect(targetAt(SLOW, 0, 30)).toEqual([100, 30, 0]);
+    expect(targetAt(SLOW, 5, 30)).toEqual([100, 30, 0]);
   });
 
-  it("aims an orbit at what it circles", () => {
-    expect(targetAt({ kind: "orbit", radius: 10, period: 1, orientation: "missile" }, 0.3)).toEqual(
-      [0, 0, 0],
-    );
+  it("returns a missile's target at targetOffset if the flight ends on the ground", () => {
+    const grounded: Motion = {
+      ...SLOW,
+      flight: { ...level(10), endAtLaunchHeight: false, targetOffset: 20 },
+    };
+
+    expect(targetAt(grounded, 0, 30)).toEqual([100, 20, 0]);
+  });
+
+  it("returns the centre a circling missile turns about", () => {
+    expect(targetAt(CIRCLE, 0.3)).toEqual([0, 0, 0]);
   });
 
   it("returns a facing toward the still rig's target", () => {
@@ -139,68 +178,61 @@ describe("originAt", () => {
     expect(originAt({ kind: "still" }, 99)).toEqual([0, 0, 0]);
   });
 
-  it("walks a path at its own speed", () => {
+  it("moves a straight missile at its own speed", () => {
     expect(originAt(SLOW, 0)).toEqual([0, 0, 0]);
-    expect(originAt(SLOW, 25)).toEqual([25, 0, 0]);
-    expect(originAt(SLOW, 100)).toEqual([100, 0, 0]);
+    expectNear(originAt(SLOW, 2.5), [25, 0, 0]);
+    expectNear(originAt(SLOW, 10), [100, 0, 0]);
   });
 
-  it("holds a path at its end rather than overshooting it", () => {
+  it("holds a missile at its target rather than overshooting it", () => {
     expect(originAt(SLOW, 500)).toEqual([100, 0, 0]);
   });
 
-  it("holds a path at its start before the run began", () => {
+  it("holds a missile at its launch point before the run began", () => {
     expect(originAt(SLOW, -10)).toEqual([0, 0, 0]);
   });
 
-  it("lands a path with no speed at its end, so a still one is not a stuck one", () => {
-    expect(originAt({ ...SLOW, speed: 0 }, 0)).toEqual([100, 0, 0]);
+  it("launches a missile at the rig height and adds no height after launch", () => {
+    expect(originAt(SLOW, 0, 30)).toEqual([0, 30, 0]);
+    expectNear(originAt(SLOW, 5, 30), [50, 30, 0]);
+    expect(originAt(SLOW, 500, 30)).toEqual([100, 30, 0]);
   });
 
-  it("circles an orbit in the ground plane, once per period", () => {
-    const orbit: Motion = { kind: "orbit", radius: 10, period: 4, orientation: "missile" };
-
-    expect(originAt(orbit, 0)).toEqual([10, 0, 0]);
-
-    const quarter = originAt(orbit, 1);
-    expect(quarter[0]).toBeCloseTo(0, 10);
-    expect(quarter[1]).toBe(0);
-    expect(quarter[2]).toBeCloseTo(10, 10);
-
-    const whole = originAt(orbit, 4);
-    expect(whole[0]).toBeCloseTo(10, 10);
-    expect(whole[2]).toBeCloseTo(0, 10);
+  it("moves a circling missile in the ground plane, once per period", () => {
+    expect(originAt(CIRCLE, 0)).toEqual([10, 0, 0]);
+    expectNear(originAt(CIRCLE, 1), [0, 0, 10], 3);
+    expectNear(originAt(CIRCLE, 4), [10, 0, 0], 3);
   });
 });
 
-describe("flightPath", () => {
-  it("centres the path on the origin, so the whole run is on screen", () => {
-    const path = flightPath(200, 400);
-    if (path.kind !== "path") throw new Error("a flight is a path");
-
-    expect(path.from[0]).toBe(-100);
-    expect(path.to[0]).toBe(100);
-    expect(path.speed).toBe(400);
+describe("missileMotion", () => {
+  it("centres a straight flight on the origin along X, so the whole run is on screen", () => {
+    expect(missileMotion(level(400), 200)).toMatchObject({
+      kind: "missile",
+      from: [-100, 0, 0],
+      to: [100, 0, 0],
+    });
   });
 
-  it("lays the path on the ground plane, which the rig's own height then lifts", () => {
-    const path = flightPath(200, 400);
-    if (path.kind !== "path") throw new Error("a flight is a path");
+  it("lays the flight on the ground plane, which the rig's height lifts at launch", () => {
+    const motion = missileMotion(level(400), 200);
 
-    expect(path.from[1]).toBe(0);
-    expect(path.to[1]).toBe(0);
-    expect(originAt(path, 0, FLIGHT_HEIGHT)[1]).toBe(FLIGHT_HEIGHT);
+    expect(originAt(motion, 0, FLIGHT_HEIGHT)).toEqual([-100, FLIGHT_HEIGHT, 0]);
+  });
+
+  it("returns a circle that starts the distance out along X and turns about the origin", () => {
+    expect(CIRCLE).toMatchObject({ from: [10, 0, 0], to: [0, 0, 0] });
   });
 });
 
 describe("runLength", () => {
-  it("ends a path on arrival, plus the linger its particles play out for", () => {
-    expect(runLength(SLOW, 30)).toBe(100);
-    expect(runLength(SLOW, 30, 2.5)).toBe(102.5);
+  it("ends a missile on arrival, plus the linger its particles play out for", () => {
+    expect(runLength(SLOW, 30)).toBeCloseTo(10, 1);
+    expect(runLength(SLOW, 30, 2.5)).toBeCloseTo(12.5, 1);
   });
 
   it("is the scrub's whole window, one flight however long the system", () => {
-    expect(runLength(SLOW, 300)).toBe(100);
+    expect(runLength(SLOW, 300)).toBeCloseTo(10, 1);
     expect(runLength(GROUND_RIG.motion, 6)).toBe(6);
   });
 
@@ -213,21 +245,17 @@ describe("runLength", () => {
     expect(runLength({ kind: "still" }, 4.5)).toBe(4.5);
   });
 
-  it("gives an orbit whichever of its period and the span is longer", () => {
-    const slow: Motion = { kind: "orbit", radius: 1, period: 9, orientation: "missile" };
-
-    expect(runLength(slow, 2)).toBe(9);
-    expect(runLength(slow, 20)).toBe(20);
+  it("ends a circling missile when its lifetime runs out", () => {
+    expect(runLength(missileMotion(circling(9, 3), 10), 20)).toBeCloseTo(3, 1);
   });
 
-  it("falls back to the span for a path that never moves", () => {
-    expect(runLength({ ...SLOW, speed: 0 }, 7)).toBe(7);
+  it("returns the span for a circling missile that never arrives", () => {
+    expect(runLength(CIRCLE, 2)).toBe(2);
+    expect(runLength(CIRCLE, 20)).toBe(20);
   });
 
-  it("falls back to the span for a path with nowhere to go, rather than to no run at all", () => {
-    const stuck: Motion = { kind: "path", from: [5, 0, 0], to: [5, 0, 0], speed: 100 };
-
-    expect(runLength(stuck, 7)).toBe(7);
+  it("returns the span for a missile with no speed", () => {
+    expect(runLength({ ...SLOW, flight: level(0) }, 7)).toBe(7);
   });
 });
 
@@ -239,9 +267,8 @@ describe("phaseAt", () => {
   it("wraps a looping run on its own length rather than on when it was picked", () => {
     const rig = { motion: SLOW, life: "loop", height: 0 } as const;
 
-    expect(phaseAt(rig, 40, 4)).toBe(40);
-    expect(phaseAt(rig, 100, 4)).toBe(0);
-    expect(phaseAt(rig, 260, 4)).toBe(60);
+    expect(phaseAt(rig, 4, 4)).toBe(4);
+    expect(phaseAt(rig, 26, 4)).toBeCloseTo(6, 1);
   });
 
   it("wraps a still rig on the system's own span", () => {
@@ -251,16 +278,17 @@ describe("phaseAt", () => {
   it("wraps a looping flight past its linger tail", () => {
     const rig = { motion: SLOW, life: "loop", height: 0 } as const;
 
-    expect(phaseAt(rig, 101, 4, 2)).toBe(101);
-    expect(phaseAt(rig, 103, 4, 2)).toBe(1);
+    expect(phaseAt(rig, 11, 4, 2)).toBe(11);
+    expect(phaseAt(rig, 13, 4, 2)).toBeCloseTo(1, 1);
   });
 });
 
 describe("landed", () => {
-  it("is where a path has arrived, and never for a motion that flies nowhere", () => {
-    expect(landed(SLOW, 99)).toBe(false);
-    expect(landed(SLOW, 100)).toBe(true);
-    expect(landed({ ...SLOW, speed: 0 }, 1000)).toBe(false);
+  it("returns true once a missile has arrived, and never for a motion that never arrives", () => {
+    expect(landed(SLOW, 9)).toBe(false);
+    expect(landed(SLOW, 11)).toBe(true);
+    expect(landed({ ...SLOW, flight: level(0) }, 1000)).toBe(false);
+    expect(landed(CIRCLE, 1000)).toBe(false);
     expect(landed({ kind: "still" }, 1000)).toBe(false);
   });
 });
@@ -280,10 +308,8 @@ describe("runSpan", () => {
 describe("carrierOf and playbackOf", () => {
   it("names the half of a rig each motion and lifecycle is", () => {
     expect(carrierOf({ kind: "still" })).toBe("ground");
-    expect(carrierOf(SLOW)).toBe("flight");
-    expect(carrierOf({ kind: "orbit", radius: 1, period: 1, orientation: "missile" })).toBe(
-      "orbit",
-    );
+    expect(carrierOf(SLOW)).toBe("missile");
+    expect(carrierOf(CIRCLE)).toBe("missile");
     expect(carrierOf({ kind: "bone", anchor: WALKER, target: null })).toBe("bone");
     expect(playbackOf("loop")).toBe("replay");
     expect(playbackOf("once")).toBe("once");
@@ -292,29 +318,31 @@ describe("carrierOf and playbackOf", () => {
 });
 
 describe("fliesAsMissile", () => {
-  it("carries a flight and a missile-oriented orbit on a missile's frame, and nothing else", () => {
+  it("returns true only for a missile", () => {
     expect(fliesAsMissile(SLOW)).toBe(true);
-    expect(fliesAsMissile(withCarrier(GROUND_RIG, "orbit").motion)).toBe(true);
-    expect(fliesAsMissile({ kind: "orbit", radius: 1, period: 1, orientation: "unit" })).toBe(
-      false,
-    );
+    expect(fliesAsMissile(CIRCLE)).toBe(true);
+    expect(fliesAsMissile(withCarrier(GROUND_RIG, "missile").motion)).toBe(true);
     expect(fliesAsMissile({ kind: "still" })).toBe(false);
+    expect(fliesAsMissile(BONE)).toBe(false);
   });
 });
 
 describe("withCarrier", () => {
-  it("stands the ground on the ground and flies the rest at flight height", () => {
+  it("stands the ground on the ground and flies a missile at flight height", () => {
     expect(GROUND_RIG.height).toBe(0);
-    expect(withCarrier(GROUND_RIG, "flight").height).toBe(FLIGHT_HEIGHT);
-    expect(withCarrier(GROUND_RIG, "orbit").height).toBe(FLIGHT_HEIGHT);
-    expect(withCarrier(withCarrier(GROUND_RIG, "flight"), "ground").height).toBe(0);
+    expect(withCarrier(GROUND_RIG, "missile").height).toBe(FLIGHT_HEIGHT);
+    expect(withCarrier(withCarrier(GROUND_RIG, "missile"), "ground").height).toBe(0);
+  });
+
+  it("returns a straight missile on FIRST_FLIGHT for the missile carrier", () => {
+    expect(withCarrier(GROUND_RIG, "missile").motion).toEqual(missileMotion(FIRST_FLIGHT));
   });
 
   it("keeps the playback, the stop and a height the author tuned", () => {
     const tuned = { ...withPlayback(GROUND_RIG, "replay"), height: 40, stopAt: 3 };
-    const next = withCarrier(tuned, "orbit");
+    const next = withCarrier(tuned, "missile");
 
-    expect(next.motion.kind).toBe("orbit");
+    expect(next.motion.kind).toBe("missile");
     expect(next.height).toBe(40);
     expect(next.stopAt).toBe(3);
     expect(next.life).toBe("loop");
@@ -323,7 +351,7 @@ describe("withCarrier", () => {
   it("keeps the skeleton a child set spawns on", () => {
     const joints = () => WALKER;
 
-    expect(withCarrier({ ...GROUND_RIG, joints }, "flight").joints).toBe(joints);
+    expect(withCarrier({ ...GROUND_RIG, joints }, "missile").joints).toBe(joints);
   });
 });
 
@@ -332,16 +360,13 @@ describe("retargeted", () => {
     expect(retargeted({ kind: "still" }, [1, 2, 3])).toEqual({ kind: "still", target: [1, 2, 3] });
   });
 
-  it("returns a flight that lands on the target", () => {
-    expect(retargeted(SLOW, [0, 0, 50])).toEqual({ ...SLOW, to: [0, 0, 50] });
+  it("returns a missile that aims at the target's ground point", () => {
+    expect(retargeted(SLOW, [0, 7, 50])).toEqual({ ...SLOW, to: [0, 0, 50] });
   });
 
-  it("returns null for an orbit and a bone", () => {
-    const orbit: Motion = { kind: "orbit", radius: 10, period: 1, orientation: "missile" };
-
-    expect(retargeted(orbit, [1, 2, 3])).toBeNull();
+  it("returns null for a bone", () => {
     expect(retargeted(BONE, [1, 2, 3])).toBeNull();
-    expect([orbit, BONE].map(retargetable)).toEqual([false, false]);
+    expect([SLOW, CIRCLE, BONE].map(retargetable)).toEqual([true, true, false]);
   });
 });
 

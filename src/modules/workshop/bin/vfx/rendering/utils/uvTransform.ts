@@ -10,7 +10,7 @@
 
 import { ADDRESS_MODE, type AddressMode } from "../../engine/model/enums";
 import type { EmitterModel, UvLayer } from "../../engine/model/model";
-import { type Pool, UV, uvAt } from "../../engine/simulation/pool";
+import { flexChannel, type Pool, UV, uvAt } from "../../engine/simulation/pool";
 import { integratedInto, sampleCurve } from "../../engine/utils/sampleCurve";
 
 /** What one layer hands its sampler for one particle. */
@@ -78,8 +78,16 @@ export function uvTransformInto(
 
   INTEGRATED.fill(0);
   integratedInto(layer.scrollRate, age01, 1, INTEGRATED, 0);
-  const rampU = pool.uv[slot + UV.birthOffsetX] + age * pool.uv[slot + UV.birthScrollX];
-  const rampV = pool.uv[slot + UV.birthOffsetY] + age * pool.uv[slot + UV.birthScrollY];
+  /* `flexBirthUVOffset` reads its channel each frame, so a channel set mid-run moves it. */
+  const flexed = flexChannel(pool.flex, pool.uv[slot + UV.flexChannel]);
+  const rampU =
+    pool.uv[slot + UV.birthOffsetX] +
+    age * pool.uv[slot + UV.birthScrollX] +
+    flexed * pool.uv[slot + UV.flexOffsetX];
+  const rampV =
+    pool.uv[slot + UV.birthOffsetY] +
+    age * pool.uv[slot + UV.birthScrollY] +
+    flexed * pool.uv[slot + UV.flexOffsetY];
   /* The shader mirrors the whole offset under a flip, so a term that lands after the flip
      goes in reversed. */
   const panU = emitterScroll ? layer.emitterScrollRate[0] * now * (layer.flipU ? -1 : 1) : 0;

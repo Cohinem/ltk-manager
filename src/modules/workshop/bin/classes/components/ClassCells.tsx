@@ -418,13 +418,15 @@ export function FieldRow({
             <AxisCells values={axes} />
           )}
           {valueSlot === undefined && family === null && axes !== null && editable && (
-            <RowValue row={row} />
+            <RowValue row={row} owner={owner} />
           )}
           {valueSlot === undefined &&
             family === null &&
             axes === null &&
             row.node === "element" && <ElementClass value={row.value} />}
-          {valueSlot === undefined && family === null && axes === null && <RowValue row={row} />}
+          {valueSlot === undefined && family === null && axes === null && (
+            <RowValue row={row} owner={owner} />
+          )}
           {valueAction}
           <ChangeMark rowKey={rowKey(row)} />
           <DeclaredRowState rowKey={rowKey(row)} />
@@ -531,7 +533,10 @@ function FieldName({ row, label, width, depth, owner, caret }: FieldNameProps) {
       <span className={twMerge("flex min-w-0 shrink-0 items-center", width)}>
         {indent}
         {caret}
-        <CutText text={row.name} className="text-surface-200" />
+        <CutText
+          text={label ?? row.name}
+          className={twMerge("text-surface-200", label && "font-sans font-medium")}
+        />
       </span>
     );
   }

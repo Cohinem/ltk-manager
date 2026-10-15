@@ -112,6 +112,19 @@ export interface Pool {
   readonly odometer: Float32Array;
   /** Each texture layer's own birth values, [`UV_SLOTS`] per layer and [`UV_LAYERS`] of them. */
   readonly uv: Float32Array;
+  /**
+   * The three flex channels of the system the pool belongs to, which every pool of one
+   * driver shares. Not a column: a checkpoint does not copy it.
+   */
+  readonly flex: Float32Array;
+}
+
+/** How many flex channels a system carries. */
+export const FLEX_CHANNELS = 3;
+
+/** Returns the value of flex channel `channel` in `flex`, and 0 for a channel past the three. */
+export function flexChannel(flex: Float32Array, channel: number): number {
+  return channel >= 0 && channel < FLEX_CHANNELS ? (flex[channel] ?? 0) : 0;
 }
 
 /** How many layers a particle carries: its texture, and `textureMult` over it. */
@@ -134,10 +147,15 @@ export const UV = {
   phase: 5,
   /** Cells a second, which is the emitter's rate times the particle's own multiplier. */
   frameRate: 6,
+  /** `flexBirthUVOffset` drawn at birth, which a flex channel scales into the offset each frame. */
+  flexOffsetX: 7,
+  flexOffsetY: 8,
+  /** The flex channel that scales `flexOffsetX` and `flexOffsetY`. */
+  flexChannel: 9,
 } as const;
 
 /** How many numbers one layer takes. */
-export const UV_SLOTS = 7;
+export const UV_SLOTS = 10;
 
 /** How many numbers a particle's frame takes, a 3x3. */
 export const FRAME_SLOTS = 9;
@@ -145,7 +163,10 @@ export const FRAME_SLOTS = 9;
 const IDENTITY_FRAME = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
 /** A pool holding room for `capacity` particles and no live ones. */
-export function createPool(capacity: number): Pool {
+export function createPool(
+  capacity: number,
+  flex: Float32Array = new Float32Array(FLEX_CHANNELS),
+): Pool {
   return {
     capacity,
     count: 0,
@@ -180,6 +201,7 @@ export function createPool(capacity: number): Pool {
     tiling: new Float32Array(capacity * 2),
     odometer: new Float32Array(capacity),
     uv: new Float32Array(capacity * UV_LAYERS * UV_SLOTS),
+    flex,
   };
 }
 
@@ -198,9 +220,11 @@ export interface PoolRows {
   readonly columns: readonly Column[];
 }
 
-/** Every column of `pool`, which is each of its fields that is not a count. */
+/** Every column of `pool`, which is each of its fields that is not a count or the flex channels. */
 function columnsOf(pool: Pool): Column[] {
-  return Object.values(pool).filter((held): held is Column => typeof held !== "number");
+  return Object.entries(pool)
+    .filter(([key, held]) => key !== "flex" && typeof held !== "number")
+    .map(([, held]) => held as Column);
 }
 
 /** The live rows of `pool`, deep copied. */

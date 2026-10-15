@@ -281,6 +281,7 @@ export const api = {
     syncMetaDocs: bin.syncMetaDocs,
     readVfxSystem: preview.readVfxSystem,
     vfxChildTargets: preview.vfxChildTargets,
+    vfxMissileSpells: preview.vfxMissileSpells,
     vfxTemplates: preview.vfxTemplates,
     readUiView: atlas.readUiView,
     readUiSceneView: atlas.readUiSceneView,

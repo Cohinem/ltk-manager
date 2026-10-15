@@ -7,7 +7,7 @@ import type {
   StructRow,
 } from "./graphItems";
 import { listAppend } from "./nodeEdits";
-import { drawnInSection } from "./renderSection";
+import { drawnInSection, shapeSection, shapeSectionLines } from "./renderSection";
 
 /** The id a list a material holds folds under: its node's and its row's. */
 export function listId(item: StructItem, row: StructRow): string {
@@ -87,6 +87,8 @@ export function structLines(item: StructItem, owner: GraphItem = item): number {
 /** The lines a Texture node draws: a line per field, and an effect's heading and struct lines. */
 export function renderLines(item: RenderItem): number {
   return item.fields.reduce((sum, field) => {
+    const shape = shapeSection(field.hash, field.input);
+    if (shape !== null) return sum + 1 + shapeSectionLines(shape);
     const folded = field.input?.type === "struct" && drawnInSection(field.hash, field.input);
     return (
       sum + (folded && field.input?.type === "struct" ? 1 + structLines(field.input, item) : 1)

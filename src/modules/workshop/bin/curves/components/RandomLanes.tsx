@@ -7,11 +7,13 @@ import { type FieldUnit, UNIT_SUFFIX } from "../../values/utils/fieldUnits";
 import type { ValueFamily } from "../../values/utils/valueRows";
 import { VfxRunContext } from "../../vfx/playback/state/run";
 import { type RandomEdit, useRandomEdit } from "../state/randomEdit";
-import { channelName, chipOf, strokeOf } from "../utils/curveChannels";
+import { channelName, strokeOf } from "../utils/curveChannels";
 import { roundDomain } from "../utils/curvePlot";
 import {
   type ChannelDraw,
   drawGap,
+  type DrawRow,
+  drawRows,
   factorAt,
   isRandom,
   type RandomDraw,
@@ -22,7 +24,7 @@ import { drawnOver, readout, shapeText } from "../utils/randomText";
 import { LaneHandles } from "./LaneHandles";
 import { Density, Hatch, RangeBars, Ticks } from "./LaneMarks";
 import { KeysPopover } from "./RandomKeys";
-import { RangeEnd, RangeLabel, ShapeCell } from "./RandomRange";
+import { ChannelNames, RangeEnd, RangeLabel, ShapeCell } from "./RandomRange";
 
 /** The even shares of a lane's scale its density is drawn in. */
 const BINS = 64;
@@ -69,59 +71,41 @@ export function RandomLanes({ draw, unit, muted }: ReadingProps) {
       data-ui="RandomLanes"
       className={`grid min-h-0 flex-1 auto-rows-min ${LANE_COLUMNS} items-center gap-x-2 gap-y-2.5 overflow-x-hidden overflow-y-auto pt-1 @2xl:gap-y-1.5`}
     >
-      {draw.channels
-        .filter((channel) => !muted.has(channel.channel))
-        .map((channel) => {
-          const level = channel.base ?? 1;
-          const random = isRandom(channel.shape);
-          const ends = { channel, family: draw.family, unit, editor };
-          return (
-            <div
-              key={channel.channel}
-              data-ui="RandomLanes:row"
-              className="col-span-full grid grid-cols-subgrid items-center gap-y-1"
-            >
-              <ChannelChip channel={channel} family={draw.family} />
-              <RangeEnd {...ends} end="least" />
-              {random && (
-                <Lane
-                  channel={channel}
-                  family={draw.family}
-                  level={level}
-                  pinned={pinned}
-                  editor={editor}
-                />
-              )}
-              {!random && <StillLane channel={channel} family={draw.family} />}
-              <RangeEnd {...ends} end="most" />
-              <ShapeCell channel={channel} family={draw.family} editor={editor} />
-              <PinValue>
-                {random && pinned !== null && readout(level * factorAt(channel, pinned))}
-              </PinValue>
-              <span>
-                {keyed(channel, editor) && <KeysPopover channel={channel} family={draw.family} />}
-              </span>
-            </div>
-          );
-        })}
+      {drawRows(draw, editor?.linked ?? true, muted).map((row) => {
+        const { channel } = row;
+        const level = channel.base ?? 1;
+        const random = isRandom(channel.shape);
+        const ends = { channel, family: draw.family, unit, editor };
+        return (
+          <div
+            key={channel.channel}
+            data-ui="RandomLanes:row"
+            className="col-span-full grid grid-cols-subgrid items-center gap-y-1"
+          >
+            <ChannelNames channels={row.channels} family={draw.family} />
+            <RangeEnd {...ends} end="least" />
+            {random && (
+              <Lane
+                channel={channel}
+                family={draw.family}
+                level={level}
+                pinned={pinned}
+                editor={editor}
+              />
+            )}
+            {!random && <StillLane channel={channel} family={draw.family} />}
+            <RangeEnd {...ends} end="most" />
+            <ShapeCell row={row} family={draw.family} editor={editor} />
+            <PinValue>
+              {random && pinned !== null && readout(level * factorAt(channel, pinned))}
+            </PinValue>
+            <span>
+              {keyed(channel, editor) && <KeysPopover channel={channel} family={draw.family} />}
+            </span>
+          </div>
+        );
+      })}
     </div>
-  );
-}
-
-/** A vector's or a colour's channel name, and nothing for a scalar, whose row needs none. */
-function ChannelChip({ channel, family }: { channel: ChannelDraw; family: ValueFamily }) {
-  if (family === "scalar") return <span />;
-
-  return (
-    <span
-      /* DS-KIND-HUE, DS-TEXT */
-      className={twMerge(
-        "w-3 shrink-0 font-mono text-meta font-semibold select-none",
-        chipOf(family, channel.channel),
-      )}
-    >
-      {channelName(family, channel.channel)}
-    </span>
   );
 }
 
@@ -145,32 +129,31 @@ export function DrawReadout({
       data-ui="DrawReadout"
       className={`grid shrink-0 ${COLUMNS} items-center gap-x-3 border-t border-surface-700/50 pt-1`}
     >
-      {draw.channels
-        .filter((channel) => !muted.has(channel.channel))
-        .map((channel) => {
-          const level = levels[channel.channel] ?? null;
-          const random = isRandom(channel.shape);
-          return (
-            <Fragment key={channel.channel}>
-              {editor !== null && (
-                <RangeLabel channel={channel} family={draw.family} unit={unit} editor={editor} />
-              )}
-              {editor === null && (
-                <DrawLabel
-                  channel={channel}
-                  family={draw.family}
-                  unit={level === null ? null : unit}
-                  text={drawnOver(channel, level)}
-                />
-              )}
-              <span />
-              <PinValue>{random && pinned !== null && pinText(channel, level, pinned)}</PinValue>
-              <span>
-                {keyed(channel, editor) && <KeysPopover channel={channel} family={draw.family} />}
-              </span>
-            </Fragment>
-          );
-        })}
+      {drawRows(draw, editor?.linked ?? true, muted).map((row) => {
+        const { channel } = row;
+        const level = levels[channel.channel] ?? null;
+        const random = isRandom(channel.shape);
+        return (
+          <Fragment key={channel.channel}>
+            {editor !== null && (
+              <RangeLabel row={row} family={draw.family} unit={unit} editor={editor} />
+            )}
+            {editor === null && (
+              <DrawLabel
+                row={row}
+                family={draw.family}
+                unit={level === null ? null : unit}
+                text={drawnOver(channel, level)}
+              />
+            )}
+            <span />
+            <PinValue>{random && pinned !== null && pinText(channel, level, pinned)}</PinValue>
+            <span>
+              {keyed(channel, editor) && <KeysPopover channel={channel} family={draw.family} />}
+            </span>
+          </Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -188,39 +171,24 @@ function pinText(channel: ChannelDraw, level: number | null, pinned: number): st
 }
 
 interface DrawLabelProps {
-  channel: ChannelDraw;
+  row: DrawRow;
   family: ValueFamily;
   unit: FieldUnit | null;
   text: string;
-  /** The shape word on a line of its own, as a lane's label draws it. */
-  stacked?: boolean;
 }
 
-/** A channel's name, what it draws, and the word for its shape. */
-function DrawLabel({ channel, family, unit, text, stacked = false }: DrawLabelProps) {
+/** A row's channel names, what it draws, and the word for its shape. */
+function DrawLabel({ row, family, unit, text }: DrawLabelProps) {
+  const { channel } = row;
   const random = isRandom(channel.shape);
-  const named = family !== "scalar";
 
   return (
     <div
       data-ui="RandomLanes:label"
-      className={twMerge(
-        "flex min-w-0 leading-tight select-none",
-        stacked ? "flex-col" : "items-baseline gap-2",
-      )}
+      className="flex min-w-0 items-baseline gap-2 leading-tight select-none"
     >
       <span className="flex items-baseline gap-1.5">
-        {named && (
-          <span
-            /* DS-KIND-HUE, DS-TEXT */
-            className={twMerge(
-              "w-3 shrink-0 font-mono text-meta font-semibold",
-              chipOf(family, channel.channel),
-            )}
-          >
-            {channelName(family, channel.channel)}
-          </span>
-        )}
+        <ChannelNames channels={row.channels} family={family} />
         {text !== "" && (
           <span
             className={twMerge(
@@ -239,7 +207,6 @@ function DrawLabel({ channel, family, unit, text, stacked = false }: DrawLabelPr
         /* DS-TEXT */
         className={twMerge(
           "text-meta",
-          stacked && named && "pl-4.5",
           channel.shape === "broken" && "text-danger-text",
           channel.shape !== "broken" && random && "text-surface-400",
           channel.shape !== "broken" && !random && "text-surface-500",

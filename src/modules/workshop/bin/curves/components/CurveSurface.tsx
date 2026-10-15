@@ -27,7 +27,7 @@ import {
   removeCurveKeys,
   suggestedCurveKey,
 } from "../utils/curveEdits";
-import { linkable, randomDraw } from "../utils/randomDraw";
+import { randomDraw } from "../utils/randomDraw";
 import { addRandomEdits } from "../utils/randomEdits";
 import { unrandomizeEdits } from "../utils/randomizer";
 import { CurveGraph, type CurveSelectionMode } from "./CurveGraph";
@@ -117,17 +117,16 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
   const [muted, setMuted] = useState<ReadonlySet<number>>(() => new Set());
   const [selected, setSelected] = useState<readonly number[]>([]);
   const edit = use(LeafEditContext);
-  const playhead = useCurvePlayhead(row);
+  const { playhead, live } = useCurvePlayhead(row);
   const keys = mark?.keys ?? NO_KEYS;
   const family = mark?.family ?? "scalar";
   const draw = useMemo(() => randomDraw(mark), [mark]);
-  const [linked, setLinked] = useState(true);
   const field = ownField(row);
   const unit = fieldUnit(field);
   const editable = edit?.editProperty !== undefined && mark !== undefined;
   const selectedSet = useMemo(() => new Set(selected), [selected]);
   const primary = selected.at(-1) ?? 0;
-  const randomEditor = useRandomEditor(editable ? edit : null, row, draw, linked);
+  const randomEditor = useRandomEditor(editable ? edit : null, row, draw);
   const width = Math.max(
     keys[0]?.values.length ?? 0,
     draw?.channels.length ?? 0,
@@ -260,11 +259,6 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
             ? () => void removeRandom()
             : null
         }
-        linking={
-          randomEditor !== null && draw !== null && linkable(draw)
-            ? { linked, onToggle: () => setLinked((held) => !held) }
-            : null
-        }
       />
       <div className="flex min-h-0 flex-1 flex-col border-t border-surface-700/40">
         {shown === "graph" && (
@@ -276,6 +270,7 @@ function CurveReading({ row, chain, mark, tab, onTab, named }: CurveReadingProps
               unit={unit}
               muted={muted}
               playhead={playhead}
+              live={live}
               selected={selectedSet}
               editable={editable}
               onSelect={select}
@@ -363,7 +358,6 @@ function Untargeted() {
               </button>
             ))}
           </div>
-          <span className="text-surface-500">{m.workshop_bin_curve_pane_hint()}</span>
         </div>
       )}
     </div>

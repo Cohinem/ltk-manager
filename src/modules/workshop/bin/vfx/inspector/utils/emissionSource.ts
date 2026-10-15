@@ -105,3 +105,62 @@ export function addNameEdits(count: number, name: string): ValueEdit[] {
 export function removeNameEdits(index: number): ValueEdit[] {
   return [{ type: "removeItem", path: `[${index}]` }];
 }
+
+/** The emitter field that holds the spawn shape. */
+export const SHAPE_FIELD = nameHash("SpawnShape");
+
+/** The concrete classes deriving from `IVfxShape`, in picker order. */
+export const SHAPE_CLASSES: readonly SourceClass[] = [
+  sourceClass(
+    "VfxShapePointDoNotUse",
+    m.workshop_bin_vfx_shape_point_label,
+    m.workshop_bin_vfx_shape_point_description,
+  ),
+  sourceClass(
+    "VfxShapeLegacy",
+    m.workshop_bin_vfx_shape_legacy_label,
+    m.workshop_bin_vfx_shape_legacy_description,
+  ),
+  sourceClass(
+    "VfxShapeBox",
+    m.workshop_bin_vfx_shape_box_label,
+    m.workshop_bin_vfx_shape_box_description,
+  ),
+  sourceClass(
+    "VfxShapeSphere",
+    m.workshop_bin_vfx_shape_sphere_label,
+    m.workshop_bin_vfx_shape_sphere_description,
+  ),
+  sourceClass(
+    "VfxShapeCylinder",
+    m.workshop_bin_vfx_shape_cylinder_label,
+    m.workshop_bin_vfx_shape_cylinder_description,
+  ),
+];
+
+/** `emitRotationAngles`, the list a shape's rotation rows are drawn under. */
+const ROTATIONS = nameHash("emitRotationAngles");
+
+/**
+ * The fields each shape class draws, in order, by class hash. `emitRotationAngles` stands for
+ * both rotation lists, which draw as one list. Each entry matches the meta schema's fields for
+ * the class, so a graph node counts its lines without reading the schema.
+ */
+export const SHAPE_LAYOUT: ReadonlyMap<string, readonly string[]> = new Map(
+  (
+    [
+      ["VfxShapePointDoNotUse", ["emitOffset"]],
+      ["VfxShapeLegacy", ["emitOffset", "emitRotationAngles"]],
+      ["VfxShape", ["emitOffset", "birthTranslation", "emitRotationAngles"]],
+      ["VfxShapeBox", ["Size", "flags"]],
+      ["VfxShapeSphere", ["radius", "flags"]],
+      ["VfxShapeCylinder", ["radius", "height", "flags"]],
+    ] as const
+  ).map(([name, fields]) => [nameHash(name), fields.map((field) => nameHash(field))]),
+);
+
+/** The lines a held shape draws: one per field, and a header and two per rotation. */
+export function shapeLines(classHash: string, rotations: number): number {
+  const fields = SHAPE_LAYOUT.get(classHash) ?? [];
+  return fields.length + (fields.includes(ROTATIONS) ? 2 * rotations : 0);
+}

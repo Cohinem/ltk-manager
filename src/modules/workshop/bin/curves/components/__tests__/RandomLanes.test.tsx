@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ProbabilityTable, ValueMark } from "../../../values/utils/valueRows";
 import { type VfxRun, VfxRunContext } from "../../../vfx/playback/state/run";
+import { type RandomEdit, RandomEditContext } from "../../state/randomEdit";
 import { randomDraw } from "../../utils/randomDraw";
 import { RandomLanes } from "../RandomLanes";
 
@@ -29,6 +30,14 @@ const ANGLE = table(0, [
   [1, 360],
 ]);
 
+const ANGLE_Y = table(1, [
+  [0, 0],
+  [1, 360],
+]);
+
+/** A base with equal X and Y values, so the two channels group if they hold one table. */
+const SAME_BASE: ValueMark["constant"] = { type: "vector", values: [1, 1, 0] };
+
 const SPUN = rotation([ANGLE, table(1, []), table(2, [])]);
 
 function lanes(mark: ValueMark, muted: ReadonlySet<number> = new Set()) {
@@ -43,13 +52,15 @@ function pinnedAt(pinned: number | null, setPinned = vi.fn()) {
 }
 
 describe("RandomLanes", () => {
-  it("reads a uniform angle as its range bar on a lane, and the filler channels as fixed", () => {
+  it("reads a uniform angle as its range bar on a lane, and the filler channels as one fixed row", () => {
     render(lanes(SPUN));
 
     expect(screen.getByText("360")).toBeInTheDocument();
-    expect(screen.getAllByText("deg")).toHaveLength(3);
+    expect(screen.getAllByText("deg")).toHaveLength(2);
     expect(screen.getByText("uniform")).toBeInTheDocument();
-    expect(screen.getAllByText("fixed")).toHaveLength(2);
+    expect(screen.getByText("fixed")).toBeInTheDocument();
+    expect(screen.getByText("Y")).toBeInTheDocument();
+    expect(screen.getByText("Z")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "What X draws" })).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: "How often each value is drawn" })).toBeNull();
   });
@@ -92,5 +103,24 @@ describe("RandomLanes", () => {
     await userEvent.setup().click(screen.getByRole("group", { name: "What X draws" }));
 
     expect(setPinned).not.toHaveBeenCalled();
+  });
+
+  it("reads channels that draw one table as one row, and splits it on the link toggle", async () => {
+    const setLinked = vi.fn();
+    const editor: RandomEdit = { write: vi.fn(), linked: true, setLinked };
+    render(
+      <RandomEditContext value={editor}>
+        {lanes({ ...rotation([ANGLE, ANGLE_Y, table(2, [])]), constant: SAME_BASE })}
+      </RandomEditContext>,
+    );
+
+    expect(screen.getAllByRole("group", { name: /^What .+ draws$/ })).toHaveLength(1);
+    expect(screen.getByText("Y")).toBeInTheDocument();
+
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "Edit each channel separately" }));
+
+    expect(setLinked).toHaveBeenCalledWith(false);
   });
 });

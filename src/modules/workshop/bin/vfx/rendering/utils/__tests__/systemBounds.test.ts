@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DRAG_MOTION } from "../../../engine/model/enums";
 import type { EmitterModel, SystemModel } from "../../../engine/model/model";
-import { flightPath, type RigModel } from "../../../engine/model/rig";
+import { FIRST_FLIGHT, missileMotion, type RigModel } from "../../../engine/model/rig";
 import { emitterOf } from "../../../engine/simulation/__tests__/emitterFixture";
 import type { DrawnEmitter } from "../definitions";
 import { definitionBounds, rigGround, STANDING_REACH } from "../systemBounds";
@@ -10,8 +10,12 @@ import { definitionBounds, rigGround, STANDING_REACH } from "../systemBounds";
 /** A rig standing still, a champion's half height off the ground. */
 const STILL: RigModel = { motion: { kind: "still" }, life: "once", height: 100 };
 
-/** A rig flying 1200 units across the origin at that height. */
-const FLYING: RigModel = { motion: flightPath(1200, 800), life: "loop", height: 100 };
+/** A rig flying a level missile 1200 units across the origin at that height. */
+const FLYING: RigModel = {
+  motion: missileMotion({ ...FIRST_FLIGHT, movement: { kind: "fixedSpeed", speed: 800 } }, 1200),
+  life: "loop",
+  height: 100,
+};
 
 function systemOf(...emitters: EmitterModel[]): SystemModel {
   return {
@@ -22,6 +26,7 @@ function systemOf(...emitters: EmitterModel[]): SystemModel {
     hudLayer: false,
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
+    stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
   };
 }
 

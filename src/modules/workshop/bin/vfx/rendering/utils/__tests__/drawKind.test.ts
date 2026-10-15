@@ -10,6 +10,7 @@ import {
 import type { DistortionModel, EmitterModel } from "../../../engine/model/model";
 import { emitterOf } from "../../../engine/simulation/__tests__/emitterFixture";
 import {
+  castsShadow,
   compareDrawOrder,
   distorts,
   drawPhases,
@@ -85,6 +86,42 @@ describe("drawPhases, left automatic", () => {
     expect(phasesOf({ distortion, customMaterial: materialPreview({ missing: true }) })).toEqual(
       LATE,
     );
+  });
+});
+
+describe("castsShadow", () => {
+  const caster = (over: Partial<EmitterModel> = {}) =>
+    castsShadow(emitterOf(0, { doesCastShadow: true, ...over }));
+
+  it("casts an automatic emitter that sets doesCastShadow, and keeps its colour phase", () => {
+    expect(caster()).toBe(true);
+    expect(castsShadow(emitterOf(0, {}))).toBe(false);
+    expect(drawPhases(emitterOf(0, { doesCastShadow: true }))).toEqual(OVER);
+  });
+
+  it("casts an emitter forced into the shadow phase, and casts none forced elsewhere", () => {
+    expect(caster({ doesCastShadow: false, renderPhaseOverride: RENDER_PHASE.shadow })).toBe(true);
+    expect(caster({ renderPhaseOverride: RENDER_PHASE.default })).toBe(false);
+    expect(caster({ renderPhaseOverride: RENDER_PHASE.postDistortion })).toBe(false);
+  });
+
+  it("casts no distorting, ground-layer, HUD-layer or planar-projection emitter", () => {
+    expect(caster({ distortion: warp(DISTORTION_MODE.all) })).toBe(false);
+    expect(caster({ groundLayer: true })).toBe(false);
+    expect(caster({ hudLayer: true })).toBe(false);
+    expect(caster({ quadType: QUAD_TYPE.planarProjection })).toBe(false);
+  });
+
+  it("casts nothing below High effects quality", () => {
+    expect(caster({ effectsQuality: 3 })).toBe(true);
+    expect(caster({ effectsQuality: 2 })).toBe(false);
+  });
+
+  it("mounts an emitter forced into the shadow phase, which draws no colour", () => {
+    const shadowOnly = emitterOf(0, { renderPhaseOverride: RENDER_PHASE.shadow });
+
+    expect(drawPhases(shadowOnly)).toEqual(NOWHERE);
+    expect(drawsAsQuad(shadowOnly)).toBe(true);
   });
 });
 
@@ -254,12 +291,12 @@ describe("the draw path of a kind", () => {
 
   it("draws an emitter in no render phase on no path, and counts it as none unsupported", () => {
     for (const kind of Object.values(QUAD_TYPE)) {
-      const hidden = kindOf(kind, { renderPhaseOverride: RENDER_PHASE.shadow });
+      const hidden = kindOf(kind, { renderPhaseOverride: 9 });
 
       expect(pathsOf(hidden)).toEqual([]);
       expect(isUndrawn(hidden)).toBe(false);
     }
-    expect(isUndrawn(emitterOf(0, { quadType: null, renderPhaseOverride: 1 }))).toBe(false);
+    expect(isUndrawn(emitterOf(0, { quadType: null, renderPhaseOverride: 9 }))).toBe(false);
   });
 
   it("keeps a warping emitter on the path of its kind", () => {

@@ -23,10 +23,10 @@ describe("RunTransport", () => {
     expect(readout()).toHaveTextContent("0.00 / 2.00 s");
     expect(scrub).toHaveAttribute("aria-valuenow", "0.00");
 
-    run.driver.advance(0.5);
-    await waitFor(() => expect(readout()).toHaveTextContent("0.50 / 2.00 s"));
-    await waitFor(() => expect(scrub).toHaveAttribute("aria-valuenow", "0.50"));
-    expect(scrub.style.getPropertyValue("--scrub")).toBe("0.25");
+    run.driver.advance(0.4);
+    await waitFor(() => expect(readout()).toHaveTextContent("0.40 / 2.00 s"));
+    await waitFor(() => expect(scrub).toHaveAttribute("aria-valuenow", "0.40"));
+    expect(Number(scrub.style.getPropertyValue("--scrub"))).toBeCloseTo(0.2);
 
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
     expect(run.setPlaying).toHaveBeenCalledWith(true);

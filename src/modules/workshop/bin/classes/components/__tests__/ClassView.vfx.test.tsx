@@ -314,6 +314,28 @@ const RESOLVED: VfxSystem = {
   }),
 };
 
+/** What the meta schema declares for the system, whose sections list the unauthored fields. */
+const SYSTEM_SCHEMA = {
+  name: "VfxSystemDefinitionData",
+  build: 1500,
+  patch: null,
+  fields: [
+    {
+      hash: nameHash("buildUpTime"),
+      name: "buildUpTime",
+      declared: { kind: "f32", key: null, value: null },
+      classHash: null,
+      defaultValue: "0.0",
+      revisions: [],
+    },
+  ],
+};
+
+/** The spawn shape classes, whose schema declares no field in these tests. */
+const SHAPES: ReadonlySet<unknown> = new Set([nameHash("VfxShapeSphere"), nameHash("VfxShapeBox")]);
+
+const SHAPE_SCHEMA = { name: "VfxShapeSphere", build: 1500, patch: null, fields: [] };
+
 /** What the meta schema declares for an emitter, which Defaults lists the unauthored of. */
 const SCHEMA = {
   name: "VfxEmitterDefinitionData",
@@ -467,7 +489,15 @@ beforeEach(() => {
       return Promise.resolve({ ok: true, value: paths.map((path) => pages[path] ?? page([])) });
     }
     if (command === commandNames.bin.classSchema)
-      return Promise.resolve({ ok: true, value: SCHEMA });
+      return Promise.resolve({
+        ok: true,
+        value:
+          args?.classHash === SYSTEM
+            ? SYSTEM_SCHEMA
+            : SHAPES.has(args?.classHash)
+              ? SHAPE_SCHEMA
+              : SCHEMA,
+      });
     if (command === commandNames.preview.locateFilesNear)
       return Promise.resolve({ ok: true, value: {} });
     if (command === commandNames.objects.declaredObjects) {
@@ -765,7 +795,11 @@ describe("ClassView over a particle system", () => {
     let saved = false;
 
     mockInvoke.mockImplementation((command, args) => {
-      if (command === commandNames.bin.classSchema) {
+      if (
+        command === commandNames.bin.classSchema &&
+        args?.classHash !== SYSTEM &&
+        !SHAPES.has(args?.classHash)
+      ) {
         return Promise.resolve({
           ok: true,
           value: {
@@ -1327,6 +1361,16 @@ describe("The shell frame", () => {
     }
   });
 
+  it("draws an unauthored system field at its default in the section that names it", async () => {
+    renderSystem();
+    const user = userEvent.setup();
+    await screen.findByText("Emission End Time");
+
+    await user.click(crumb().getByRole("button", { name: "Smolder_Base_Idle" }));
+
+    expect(await screen.findByText("Build Up Time")).toBeInTheDocument();
+  });
+
   it("draws every group the emitter sets from the crumb's second segment", async () => {
     renderSystem();
     const user = userEvent.setup();
@@ -1459,13 +1503,12 @@ describe("The shell frame", () => {
     expect(await screen.findByText("Glow [0] . rate")).toBeInTheDocument();
   });
 
-  it("opens a struct row in place, and holds it open on the emitter selected next", async () => {
+  it("draws the spawn shape's fields under its picker for the selected emitter", async () => {
     renderSystem();
     const user = userEvent.setup();
     await showCards(user);
-    const shape = within(await fieldRow("SpawnShape"));
+    await fieldRow("SpawnShape");
 
-    await user.click(shape.getByRole("button", { name: "Show fields", expanded: false }));
     expect(await screen.findByText("Radius")).toBeInTheDocument();
 
     const [sparks] = await screen.findAllByRole("button", { name: /Sparks/ });
@@ -1475,12 +1518,11 @@ describe("The shell frame", () => {
     expect(screen.queryByText("Radius")).not.toBeInTheDocument();
   });
 
-  it("aims the menu at a row under an opened struct, and checks the links it holds", async () => {
+  it("aims the menu at a row under the spawn shape, and checks the links it holds", async () => {
     const onShowInProperties = renderSystem();
     const user = userEvent.setup();
     await showCards(user);
-    const shape = within(await fieldRow("SpawnShape"));
-    await user.click(shape.getByRole("button", { name: "Show fields", expanded: false }));
+    await fieldRow("SpawnShape");
     const radius = await screen.findByText("Radius");
 
     await waitFor(() => expect(declaredAsked()).toContain(NESTED_LINK));
@@ -1543,7 +1585,11 @@ describe("The shell frame", () => {
   it("collapses authored constructor values while leaving changed and unknown sections open", async () => {
     const read = mockInvoke.getMockImplementation()!;
     mockInvoke.mockImplementation((command, args) => {
-      if (command === commandNames.bin.classSchema) {
+      if (
+        command === commandNames.bin.classSchema &&
+        args?.classHash !== SYSTEM &&
+        !SHAPES.has(args?.classHash)
+      ) {
         return Promise.resolve({
           ok: true,
           value: {

@@ -72,7 +72,7 @@ import { QuickAdd } from "./QuickAdd";
 import { RenderNodeView } from "./RenderNode";
 import { ValueNodeView } from "./ValueNode";
 import { useGraphFollowsChoice, useHoverReport } from "./viewportLink";
-import { ZoomDetail } from "./ZoomDetail";
+import { FlowStore, ZoomDetail } from "./ZoomDetail";
 
 const NODE_TYPES: NodeTypes = {
   preview: PreviewNodeView,
@@ -120,11 +120,13 @@ export function GraphCanvas(props: GraphCanvasProps) {
 
   return (
     <ReactFlowProvider>
-      <PreviewViewsContext value={views}>
-        <BoardMotionContext value={motion}>
-          <Canvas {...props} />
-        </BoardMotionContext>
-      </PreviewViewsContext>
+      <FlowStore>
+        <PreviewViewsContext value={views}>
+          <BoardMotionContext value={motion}>
+            <Canvas {...props} />
+          </BoardMotionContext>
+        </PreviewViewsContext>
+      </FlowStore>
     </ReactFlowProvider>
   );
 }

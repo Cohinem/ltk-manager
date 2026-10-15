@@ -55,6 +55,7 @@ const SYSTEM: SystemModel = {
   hudLayer: false,
   dragMotion: 0,
   buildUpTime: 0,
+  stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
 };
 
 const CHILD: ChildChoice = { path: "3.0", parent: null, system: SYSTEM, emitter: SPARK_MODEL };

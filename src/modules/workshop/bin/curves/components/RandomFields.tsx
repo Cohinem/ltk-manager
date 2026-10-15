@@ -80,9 +80,7 @@ export function RandomFields({ row, mark }: { row: BinRow; mark: ValueMark }) {
       className="grid min-w-0 items-center gap-x-1 gap-y-0.5"
       style={{ gridTemplateColumns: `auto repeat(${ends.min.length}, minmax(0, 5rem))` }}
     >
-      <EndLabel hint={m.workshop_bin_random_ends_hint()}>
-        {m.workshop_bin_random_min_label()}
-      </EndLabel>
+      <EndLabel>{m.workshop_bin_random_min_label()}</EndLabel>
       {ends.min.map((value, channel) => (
         <Readout
           key={channel}
@@ -94,9 +92,7 @@ export function RandomFields({ row, mark }: { row: BinRow; mark: ValueMark }) {
           onCommit={randomizer === null ? undefined : (text) => set("min", channel, text)}
         />
       ))}
-      <EndLabel hint={m.workshop_bin_random_ends_hint()}>
-        {m.workshop_bin_random_max_label()}
-      </EndLabel>
+      <EndLabel>{m.workshop_bin_random_max_label()}</EndLabel>
       {ends.max.map((value, channel) => (
         <Readout
           key={channel}
@@ -135,10 +131,6 @@ export function RandomFields({ row, mark }: { row: BinRow; mark: ValueMark }) {
   );
 }
 
-function EndLabel({ hint, children }: { hint: string; children: ReactNode }) {
-  return (
-    <Tooltip content={hint}>
-      <span className="cursor-help pr-1 text-meta text-surface-400 select-none">{children}</span>
-    </Tooltip>
-  );
+function EndLabel({ children }: { children: ReactNode }) {
+  return <span className="pr-1 text-meta text-surface-400 select-none">{children}</span>;
 }
