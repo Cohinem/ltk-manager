@@ -1,10 +1,11 @@
 import { nameHash } from "../../../shared/utils/binHash";
+import { SHAPE_FIELD, SHAPE_LAYOUT, shapeLines } from "../../inspector/utils/emissionSource";
 import {
   type EmitterGroup,
   fieldGroup,
   TEXTURE_EFFECT_FIELDS,
 } from "../../inspector/utils/emitterGroups";
-import type { FileItem, InputItem, MasterItem, RenderItem } from "./graphItems";
+import type { FileItem, InputItem, MasterItem, RenderItem, StructItem } from "./graphItems";
 
 /**
  * Which component node gathers a field of the emitter: the Texture node or the Geometry node.
@@ -111,6 +112,29 @@ export function drawnInSection(hash: string, input: InputItem | null): boolean {
   if (hash === TEXTURE_FIELD) return input?.type === "file";
   if (GEOMETRY_SECTIONS.has(hash)) return input?.type === "struct";
   return TEXTURE_EFFECTS.has(hash) && input?.type === "struct";
+}
+
+/**
+ * The struct the Geometry node draws as the inspector's spawn shape rows: a `SpawnShape` of a
+ * class `SHAPE_LAYOUT` lists, and null for any other field. Such a section draws every field
+ * inline and feeds no node.
+ */
+export function shapeSection(hash: string, input: InputItem | null): StructItem | null {
+  if (hash !== SHAPE_FIELD || input?.type !== "struct") return null;
+  return SHAPE_LAYOUT.has(input.classHash ?? "") ? input : null;
+}
+
+const ROTATION_LISTS = [nameHash("emitRotationAngles"), nameHash("emitRotationAxes")];
+
+/** The lines a spawn shape section draws under its heading, per `shapeLines`. */
+export function shapeSectionLines(item: StructItem): number {
+  const rotations = Math.max(
+    ...ROTATION_LISTS.map((hash) => {
+      const input = item.rows.find((row) => row.key === hash)?.input;
+      return input?.type === "struct" ? input.rows.length : 0;
+    }),
+  );
+  return shapeLines(item.classHash ?? "", rotations);
 }
 
 /** The texture a Texture node draws, where the emitter writes one. */

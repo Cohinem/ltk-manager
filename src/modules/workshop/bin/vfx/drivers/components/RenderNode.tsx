@@ -8,7 +8,7 @@ import { renderPreviewed } from "../utils/driverLayout";
 import type { RenderItem } from "../utils/graphItems";
 import { itemSubtitle, itemTitle } from "../utils/nodeText";
 import { outputTop } from "../utils/outputSocket";
-import { drawnInSection } from "../utils/renderSection";
+import { drawnInSection, shapeSection } from "../utils/renderSection";
 import { embeddedValues } from "../utils/socketEmbed";
 import { ClassAction } from "./ClassAction";
 import { MasterLine, type MasterLineProps, StructBody } from "./EmitterNodes";
@@ -20,6 +20,7 @@ import { RenderAdd } from "./MasterAdd";
 import { NodeFrame } from "./NodeFrame";
 import { RenderPreview } from "./RenderPreview";
 import { ShapeInViewButton } from "./ShapeOverlay";
+import { ShapeSection } from "./ShapeSection";
 
 /**
  * A component node of an emitter's fields, and an input per struct or keyed value its rows hold.
@@ -95,11 +96,13 @@ function RenderBody({ item, nameWidth }: { item: RenderItem; nameWidth?: number 
 }
 
 /**
- * One field of a Texture node: an effect folded in as a section of its fields, whose inputs
- * the node takes over, or the master's own line.
+ * One field of a component node: the spawn shape's section, an effect folded in as a section
+ * of its fields, whose inputs the node takes over, or the master's own line.
  */
 function RenderLine(props: MasterLineProps) {
   const { field, row, embedded, nameWidth } = props;
+  const shape = shapeSection(field.hash, field.input);
+  if (shape !== null) return <ShapeSection item={shape} holder={props.holder} />;
   if (field.input?.type !== "struct" || !drawnInSection(field.hash, field.input)) {
     return <MasterLine {...props} />;
   }

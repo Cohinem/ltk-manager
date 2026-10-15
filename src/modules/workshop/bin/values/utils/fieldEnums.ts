@@ -14,6 +14,7 @@ import {
   IMPORTANCE,
   LINGER_TYPE,
   MISC_RENDER_FLAG,
+  SHAPE_FLAG,
   SIMPLE_ORIENTATION,
   STENCIL_MODE,
   SYSTEM_FLAG,
@@ -76,6 +77,9 @@ export const ENUM_FIELDS: Readonly<Record<string, FieldEnum>> = {
  */
 export const CLASS_ENUM_FIELDS: Readonly<Record<string, Readonly<Record<string, FieldEnum>>>> = {
   VfxSystemDefinitionData: { flags: bits(SYSTEM_FLAG) },
+  VfxShapeBox: { flags: bits(SHAPE_FLAG) },
+  VfxShapeCylinder: { flags: bits(SHAPE_FLAG) },
+  VfxShapeSphere: { flags: bits(SHAPE_FLAG) },
 };
 
 const BY_FIELD: ReadonlyMap<string, FieldEnum> = new Map(

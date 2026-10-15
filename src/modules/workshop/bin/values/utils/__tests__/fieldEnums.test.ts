@@ -55,6 +55,12 @@ describe("enumReading", () => {
     expect(enumReading(hash("miscRenderFlags"), "5")).toBe("DisableZBuffer, DisableFow");
   });
 
+  it("reads the flags of a volume shape as its fill bit", () => {
+    for (const shape of ["VfxShapeBox", "VfxShapeCylinder", "VfxShapeSphere"]) {
+      expect(enumReading(hash("flags"), "1", hash(shape)), shape).toBe("FillVolume");
+    }
+  });
+
   it("reads a bit no table names as its own hex", () => {
     expect(enumReading(hash("miscRenderFlags"), "9")).toBe("DisableZBuffer, 0x8");
   });

@@ -44,7 +44,7 @@ import { StencilNotes } from "../../stencil/StencilNotes";
 import { StencilMaskProperty, StencilModeProperty } from "../../stencil/StencilProperty";
 import { useEmitters } from "../state/emitterChoice";
 import { useDefinedOnly, useInspectorPreview } from "../state/inspectorView";
-import { SURFACE_FIELD } from "../utils/emissionSource";
+import { SHAPE_FIELD, SURFACE_FIELD } from "../utils/emissionSource";
 import { emitterChain, emitterRows } from "../utils/emitterCards";
 import {
   type DefaultField,
@@ -74,6 +74,7 @@ import { EmissionNotes } from "./EmissionNotes";
 import { InspectorActions } from "./InspectorActions";
 import { PrimitiveProperty } from "./PrimitiveProperty";
 import { RateReadout } from "./RateReadout";
+import { ShapeProperty } from "./ShapeProperty";
 import { SurfaceProperty } from "./SurfaceProperty";
 
 /** The shared label column of the inspector's property tables. */
@@ -558,6 +559,19 @@ function GroupSection({
           if (property.hash === SURFACE_FIELD && card !== undefined) {
             return (
               <SurfaceProperty
+                key={key}
+                field={schemaField(property, schema?.fields)}
+                holder={card.row}
+                authored={"row" in property ? property.row : undefined}
+                width={NAME_COLUMN}
+                owner={owner}
+              />
+            );
+          }
+
+          if (property.hash === SHAPE_FIELD && card !== undefined) {
+            return (
+              <ShapeProperty
                 key={key}
                 field={schemaField(property, schema?.fields)}
                 holder={card.row}

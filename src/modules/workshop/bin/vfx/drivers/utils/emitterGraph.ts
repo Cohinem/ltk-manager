@@ -34,6 +34,7 @@ import {
   FORCE_GROUP,
   masterGroup,
   renderRank,
+  shapeSection,
 } from "./renderSection";
 
 /** The two lists of classic emitters, with the prefix of their master ids. */
@@ -191,6 +192,7 @@ function renderTree(
     const input = inputs.get(each.hash);
     if (input === undefined) return [];
     if (!("item" in input)) return input;
+    if (shapeSection(each.hash, each.input) !== null) return [];
     if (drawnInSection(each.hash, each.input)) return input.inputs.map((held) => held.tree);
     return [input];
   });
