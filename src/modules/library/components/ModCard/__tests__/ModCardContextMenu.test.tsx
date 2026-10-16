@@ -19,7 +19,7 @@ vi.mock("@/modules/library/api", () => ({
     primaryDerivedChampion: null,
   }),
 }));
-vi.mock("@/modules/settings", () => ({ useSettings: () => ({ data: { showModTags: true } }) }));
+vi.mock("@/modules/settings/api", () => ({ useSettings: () => ({ data: { showModTags: true } }) }));
 vi.mock("@/stores", () => ({ useModHealthDrawerStore: () => vi.fn() }));
 
 /* Only the flags the menu reads are set, so the rest stays out of the way. */

@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
-import { type ToastTask, useToast } from "@/components";
+import { type ToastTask, useToast } from "@/components/Toast";
 import { m } from "@/i18n";
 import type { HealthSweepProgress, HealthSweepState } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";

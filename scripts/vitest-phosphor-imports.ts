@@ -5,17 +5,25 @@ import type { Plugin } from "vite";
 
 const BARREL_IMPORT = /import\s*\{([^}]*)\}\s*from\s*["']@phosphor-icons\/react["'];?/g;
 
+/** Modules under `dist/lib` of the non-icon exports that the app imports. */
+const LIB_MODULES: Record<string, string> = { IconContext: "context" };
+
 /**
- * Per-icon imports in place of the `@phosphor-icons/react` barrel, for Vitest only.
+ * Per-module imports in place of the `@phosphor-icons/react` barrel, for Vitest only.
  *
  * The barrel loads every icon module, several seconds per test file. A statement naming anything
- * other than an `*Icon` with a matching file stays on the barrel.
+ * other than an `*Icon` with a matching file or an entry of `LIB_MODULES` stays on the barrel.
  */
 export function phosphorIconImports(root: string): Plugin {
   const iconDir = path.join(root, "node_modules", "@phosphor-icons", "react", "dist", "csr");
 
   const deepImport = (specifier: string): string | undefined => {
     const [imported, local = imported] = specifier.split(/\s+as\s+/);
+
+    if (imported in LIB_MODULES) {
+      return `import { ${imported} as ${local} } from "@phosphor-icons/react/dist/lib/${LIB_MODULES[imported]}";`;
+    }
+
     const base = imported.endsWith("Icon") ? imported.slice(0, -"Icon".length) : "";
 
     if (!base || !existsSync(path.join(iconDir, `${base}.es.js`))) {

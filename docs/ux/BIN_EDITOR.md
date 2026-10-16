@@ -4,6 +4,11 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-15 | Draw the sprite sheet in the Texture group, and pick its frames on it    |
+| 2026-10-15 | Duplicate an object as a new one from its own tab                        |
+| 2026-10-15 | Create, duplicate and remove objects in a bin the project holds          |
+| 2026-10-15 | Declare an added or deleted emitter of a game bin without the whole list |
+| 2026-10-15 | Scale a system in the Adjust popover, beside the hue turn                |
 | 2026-10-15 | Recolor a system by turning the hue of every tint                        |
 | 2026-10-12 | Collapse a panel to its strip or to a rail of its panes' icons           |
 | 2026-10-09 | Draw a pane's strip as a filled rail, with tabs as tall as the rail      |
@@ -844,6 +849,12 @@ scrolled to the object, and Collapse all, which shuts every folder of the proper
 disabled while the tab draws a layout. It carries Find all references, Copy class name and Copy class
 hash for the class, and Copy path and Copy hash for the object.
 Its click builds the index.
+
+In a document that takes edits, the kebab also carries Duplicate as new object. A dialog asks
+for the name, which starts as `Mods/<mod>/<the object's last segment>`. The copy lands in the same
+file as one undo step, as the file tab's own Duplicate as new object lands, and opens in its own
+tab. A name the file holds is refused under the field, and the dialog stays open. This is how a
+shipped particle system becomes a variant of the modder's own while the game's stays as it is.
 
 ### How it opens
 
@@ -2417,6 +2428,23 @@ is listed only while the file holds it.
 **Show shape in preview turns the viewport's gizmo on and off.** The gizmo draws the open emitter's shape, and
 the handle menu's Shape size and emit offset handles edit it, per [the viewer](#the-viewer).
 
+### The sprite sheet
+
+The Texture group opens on the sprite sheet where the emitter's `texDiv` cuts its texture into more
+than one cell. The texture draws under its grid, and each cell of the run carries its place in
+play order, from `startFrame` for `numFrames` cells, wrapping past the grid's last cell. A cell
+the run does not play is dimmed.
+
+The cell that a particle born at the emitter's start draws at the playhead is outlined, at
+`frameRate` times the constant of `birthFrameRate`, so the sheet steps with the preview. An
+emitter with `isRandomStartFrame` outlines none, because each particle opens on a cell of its
+own. A line under the sheet gives the frame count, the rate, and how many runs a particle's
+lifetime plays, which is the number to read when a run cuts off or repeats.
+
+In a document that takes edits, a click on a cell writes it as `startFrame`, and a shift-click
+writes `numFrames` so the run ends on that cell. The rows under the sheet stay the way to type
+the same numbers.
+
 ### The stencil
 
 An emitter's `stencilMode`, `stencilRef` and `StencilReferenceId` are a group of their own, after
@@ -3039,6 +3067,10 @@ the value, the refusal names that layer, because the build keeps its value over 
 
 A map is compared by its entries in any order, because an addition lands at the end of one.
 
+An edit that rewrites a whole property, such as a duplicate emitter, declares the same keys
+where the list only gained items at its end or lost one item: `+list: [value, ...]` or
+`-list: [index]`. Any other change of the property sets it whole.
+
 An object is created and removed through an `objects` entry of a `target` module for the
 chunk (ADR-0049).
 
@@ -3060,6 +3092,11 @@ or closes the line. A template writes its whole value in the object's `set`, its
 `particleName` the name's last segment and its `particlePath` the name, as one undo step, and
 the system opens on the template's rig. A name the chunk holds
 already is refused on the line under the name, which stays open.
+
+A bin the project holds takes the same actions without Restore object. Each is an edit of
+the file itself and one undo step: a duplicate copies the object and rewrites the hash fields
+that hold its own path, and the save appends a new object after the file's others. A copy of
+an object from another chunk needs the game, so only a declared document makes one.
 
 Removing an object the layer created drops its creation, so no `remove: true` is written
 for it. An object the layer removes keeps its row, struck through with a `removed` mark: it
@@ -3352,8 +3389,10 @@ under it.
 | The Graph pane, no master node selected        |                   |              | `Ctrl+V`, at the end           |                |
 
 **A duplicate lands right after its source**, and a paste after the emitter it was asked on, in
-that emitter's list. Each, a delete included, is one `editProperty` edit of the list, so one undo step, and a
-declared document declares the list as any other list edit.
+that emitter's list. Each, a delete included, is one `editProperty` edit of the list, so one undo
+step. In a declared document a duplicate, a paste and a template land at the end of the list
+instead, so the declaration adds the emitter, and a delete removes it by index. The game's other
+emitters stay the game's, and a later patch of theirs still reaches the mod.
 
 **A copy is JSON text on the clipboard.** It carries `"format": "ltk-manager/bin-value"`, the
 class, and the value as `ltk_meta` serializes it, so a paste reads it back exactly in another
@@ -3392,15 +3431,17 @@ and the rig pill names the template as its source.
 at once and the project gains no file. The plan and the list of templates are
 `docs/plans/vfx-templates.md`.
 
-### Recoloring a system
+### Adjusting a system
 
-Recolor sits beside the Panes menu of an editable particle shell. Its popover holds a hue slider
-from -180 to 180 degrees and Apply.
+Adjust sits beside the Panes menu of an editable particle shell. Its popover holds a hue slider
+from -180 to 180 degrees, a scale slider from 0.25× to 4×, a reset and Apply.
 
-**The preview follows the slider before anything is written.** Apply writes the turn as one
-grouped edit, so one undo step, and closing the popover without Apply drops the turn.
+**The preview follows the sliders before anything is written.** Apply writes both adjustments as
+one grouped edit, so one undo step, and closing the popover without Apply drops them. A value that
+an adjustment leaves equal takes no edit. The adjustments change the system's own emitters, so a
+child system keeps its values.
 
-**The turn changes the tints of the system's own emitters:**
+**The hue turn changes the tints:**
 
 - `color` and `birthColor`, their constant and every key
 - `colorModulate` of a projection, `mAnimatedColorWithDistance` of a beam and
@@ -3408,8 +3449,21 @@ grouped edit, so one undo step, and closing the popover without Apply drops the 
 - `fresnelColor` and `reflectionFresnelColor` of a reflection
 
 The turn keeps each color's brightest channel and its alpha, and a gray takes no edit.
-`erosionMapChannelMixer` and `palleteSrcMixColor` are channel weights and stay. A child system is
-another object, so it keeps its colors. Textures are not recolored.
+`erosionMapChannelMixer` and `palleteSrcMixColor` are channel weights and stay. Textures are not
+recolored.
+
+**The scale multiplies the lengths:**
+
+- the particle's size: `birthScale0`, or `scale0` on an emitter that sets no `birthScale0`,
+  because the size is their product
+- `EmitterPosition`, `translationOverride` and `emissionMeshScale`
+- `birthVelocity`, `velocity`, `birthAcceleration`, `acceleration` and `worldAcceleration`
+- the spawn shape's `Size`, `radius`, `height` and `emitOffset`
+- a trail's or a beam's `mBirthTilingSize` and `mCutoff`, and a beam's source and target offsets
+- a field's `Position`, `radius`, `acceleration` and `velocityDelta`
+- a linger's keyed velocity and acceleration, a projection's `mYRange`, and `visibilityRadius`
+
+Drag, rotation, orbital velocity and every time stay.
 
 ### Editing a node's structure in the Graph pane
 

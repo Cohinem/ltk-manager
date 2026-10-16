@@ -395,7 +395,7 @@ export type BinEdit =
  *  row's list or map. [`BinDocument::declare_reference`].
  */
 { kind: "declareReference"; entry: string; path: string; reference: string; merge: boolean } | 
-/**  Create, remove or restore an object of a declared document. ADR-0049. */
+/**  Create, remove or restore an object. A declared document declares the edit (ADR-0049). */
 { kind: "object"; edit: ObjectEdit } | 
 /**  Edit the header's dependency list. ADR-0050. */
 { kind: "dependency"; edit: DependencyEdit } | 
@@ -4837,16 +4837,19 @@ export type ObjectDirListing = {
 	objects: ObjectNodeEntry[],
 };
 
-/**  An object edit of a declared document. ADR-0049. */
+/**
+ *  An object edit. A declared document declares it (ADR-0049), and any other document takes it
+ *  as an undoable edit.
+ */
 export type ObjectEdit = 
 /**
- *  Declare a new object named `name`, answering [`EditOutcome::Object`].
+ *  Add a new object named `name`, answering [`EditOutcome::Object`].
  *  [`BinDocument::create_object`].
  */
 { kind: "create"; name: string; origin: NewObject } | 
-/**  Declare the removal of `entry`. [`BinDocument::remove_object`]. */
+/**  Remove `entry`. [`BinDocument::remove_object`]. */
 { kind: "remove"; entry: string } | 
-/**  Take back the removal of `entry`. [`BinDocument::restore_object`]. */
+/**  Take back a declared removal of `entry`. [`BinDocument::restore_object`]. */
 { kind: "restore"; entry: string };
 
 /**  One object the full search matched, with the runs its path marks. */

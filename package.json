@@ -2,7 +2,7 @@
   "name": "ltk-manager-ui",
   "private": true,
   "license": "GPL-3.0-or-later",
-  "version": "1.27.2",
+  "version": "1.28.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -22,7 +22,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "check": "pnpm generate:messages && pnpm run --parallel \"/^(typecheck:tsgo|lint|lint:cycles|format:check)$/\" && pnpm run test",
+    "check": "pnpm check:static && pnpm run test",
+    "check:static": "pnpm generate:messages && pnpm run --parallel \"/^(typecheck:tsgo|lint|lint:cycles|format:check)$/\"",
     "prepare": "husky && git submodule update --init --recursive",
     "dev:logged": "node scripts/dev-logged.mjs",
     "generate:messages": "paraglide-js compile --project ./project.inlang",

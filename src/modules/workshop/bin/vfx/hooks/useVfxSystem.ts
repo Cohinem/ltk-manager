@@ -11,9 +11,9 @@ import {
 import { usePreviewEffectsQuality } from "@/stores";
 import { queryFnWithArgs } from "@/utils/query";
 
+import { adjustedRoot, isNoAdjust, NO_ADJUST, type SystemAdjust } from "../adjust/adjustModel";
 import type { SystemModel } from "../engine/model/model";
 import { readVfxSystem } from "../engine/parsing/readVfxSystem";
-import { recoloredRoot } from "../recolor/recolorModel";
 
 export const vfxKeys = {
   /**
@@ -63,18 +63,23 @@ export interface VfxSystemRead {
   readonly pending: boolean;
 }
 
-/** Returns one `VfxSystemDefinitionData` as the renderer's model, its tints turned by `hue` degrees. */
-export function useVfxSystem(document: BinDocumentId, entry: string, hue = 0): VfxSystemRead {
+/** Returns one `VfxSystemDefinitionData` as the renderer's model, with `adjust` applied. */
+export function useVfxSystem(
+  document: BinDocumentId,
+  entry: string,
+  adjust: SystemAdjust = NO_ADJUST,
+): VfxSystemRead {
   const query = useQuery(vfxQueries.system(document, entry));
   const quality = usePreviewEffectsQuality();
 
   const system = useMemo(() => {
     if (query.data === undefined) return null;
 
-    const read =
-      hue === 0 ? query.data : { ...query.data, root: recoloredRoot(query.data.root, hue) };
+    const read = isNoAdjust(adjust)
+      ? query.data
+      : { ...query.data, root: adjustedRoot(query.data.root, adjust) };
     return readVfxSystem(read, quality);
-  }, [query.data, quality, hue]);
+  }, [query.data, quality, adjust]);
 
   return { system, error: query.error, pending: query.isPending };
 }

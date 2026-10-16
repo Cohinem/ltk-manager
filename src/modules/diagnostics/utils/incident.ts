@@ -11,7 +11,7 @@ import type {
   ShaderFailure,
   VerdictKind,
 } from "@/lib/tauri";
-import { scanRejectionCause } from "@/modules/patcher";
+import { scanRejectionCause } from "@/modules/patcher/utils/scanStatus";
 
 const DAY_MS = 86_400_000;
 

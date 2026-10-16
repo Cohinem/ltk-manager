@@ -228,7 +228,7 @@ fn a_dependency_edit_reaches_the_list() {
 }
 
 #[test]
-fn an_object_edit_and_a_module_action_refuse_as_their_store_methods_do() {
+fn an_object_restore_and_a_module_action_refuse_as_their_store_methods_do() {
     let schema = schema();
     let (store, id) = open(layer());
 
@@ -236,13 +236,13 @@ fn an_object_edit_and_a_module_action_refuse_as_their_store_methods_do() {
         .apply(
             id,
             BinEdit::Object {
-                edit: ObjectEdit::Remove { entry: entry() },
+                edit: ObjectEdit::Restore { entry: entry() },
             },
             schema.at(None),
         )
         .unwrap_err();
     let direct = store
-        .edit(id, |open| open.remove_object(h(OBJECT)))
+        .edit(id, |open| open.restore_object(h(OBJECT)))
         .unwrap_err();
     assert_eq!(routed.to_string(), direct.to_string());
 

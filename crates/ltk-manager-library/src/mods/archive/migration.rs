@@ -189,7 +189,6 @@ fn read_cslol_info(path: &Path) -> AppResult<ltk_fantome::FantomeInfo> {
 mod tests {
     use super::*;
     use assert_matches::assert_matches;
-    use std::collections::HashMap;
 
     fn make_info_json_str(name: &str, author: &str) -> String {
         serde_json::to_string(&ltk_fantome::FantomeInfo {
@@ -201,7 +200,6 @@ mod tests {
             tags: Vec::new(),
             champions: Vec::new(),
             maps: Vec::new(),
-            layers: HashMap::new(),
             ..Default::default()
         })
         .unwrap()

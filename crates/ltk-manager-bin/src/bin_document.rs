@@ -20,6 +20,7 @@ mod edit;
 mod find;
 mod items;
 mod names;
+mod objects;
 mod path;
 mod properties;
 mod property_edit;

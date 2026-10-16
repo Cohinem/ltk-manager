@@ -1,7 +1,7 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
 import { api, type AppError, type HashtableSyncReport, type Settings } from "@/lib/tauri";
-import { dropPlacements } from "@/modules/viewport";
+import { dropPlacements } from "@/modules/viewport/assets/api/placements";
 import { mutationFn } from "@/utils/query";
 
 import { settingsKeys } from "./keys";

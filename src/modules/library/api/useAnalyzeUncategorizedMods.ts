@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { errorSummary } from "@/i18n";
 import { api, type AppError, type InstalledMod, type ModWadReport } from "@/lib/tauri";
 import { isOk } from "@/utils/result";

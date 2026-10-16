@@ -27,7 +27,7 @@ import {
   SummonersRiftIcon,
   TftIcon,
   WardIcon,
-} from "@/components";
+} from "@/components/icons";
 
 const ICON_CLASS = "size-4";
 

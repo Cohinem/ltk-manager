@@ -5,7 +5,7 @@ import {
   PencilSimpleIcon,
   SpinnerGapIcon,
 } from "@phosphor-icons/react";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns/formatDistanceToNow";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button, Chip, Disclosure, OVERLINE } from "@/components";

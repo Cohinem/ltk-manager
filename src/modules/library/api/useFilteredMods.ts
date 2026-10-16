@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 
 import type { InstalledMod } from "@/lib/tauri";
-import { useChampionRoster } from "@/modules/champions";
+import { useChampionRoster } from "@/modules/champions/api";
 import { type SortContext, sortMods } from "@/modules/library/utils";
 
 import {

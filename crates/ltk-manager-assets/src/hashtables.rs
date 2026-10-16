@@ -512,6 +512,7 @@ impl HashtableCache {
                     schema_installed: false,
                 })
             }
+            outcome => unreachable!("unhandled hashtable update outcome: {outcome:?}"),
         }
     }
 
@@ -748,15 +749,20 @@ impl<'a> SyncProgress<'a> {
             total_bytes: run.total_bytes,
         }
     }
+
+    /// Records the table count and total bytes of a run from the size of each planned table.
+    fn plan(&self, sizes: impl ExactSizeIterator<Item = Option<u64>>) {
+        let mut run = self.run();
+        run.tables = sizes.len() as u32;
+        // `Option` sums to `None` if any table is missing a size, which is what
+        // a release published before the field existed looks like.
+        run.total_bytes = sizes.sum();
+    }
 }
 
 impl UpdateObserver for SyncProgress<'_> {
     fn planned(&self, tables: &[PlannedTable]) {
-        let mut run = self.run();
-        run.tables = tables.len() as u32;
-        // `Option` sums to `None` if any table is missing a size, which is what
-        // a release published before the field existed looks like.
-        run.total_bytes = tables.iter().map(|table| table.size_bytes).sum();
+        self.plan(tables.iter().map(|table| table.size_bytes));
     }
 
     fn progressed(&self, table: Table, done: u64, _total: Option<u64>) {

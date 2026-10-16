@@ -1,6 +1,6 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
-import { beginReorderHold } from "@/hooks";
+import { beginReorderHold } from "@/hooks/useReorderTransition";
 import {
   api,
   type AppError,
@@ -10,7 +10,7 @@ import {
   type Settings,
 } from "@/lib/tauri";
 import { promoteToFolderFront } from "@/modules/library/utils";
-import { settingsKeys } from "@/modules/settings";
+import { settingsKeys } from "@/modules/settings/api";
 import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { libraryKeys } from "./keys";

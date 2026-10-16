@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { match } from "ts-pattern";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { errorSummary, m } from "@/i18n";
 import { api, type AppError, type FixReport } from "@/lib/tauri";
 import { unwrapForQuery } from "@/utils/query";

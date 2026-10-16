@@ -209,6 +209,63 @@ fn a_duplicated_emitter_declares_as_one_undoable_edit() {
 }
 
 #[test]
+fn an_emitter_copied_to_the_end_declares_an_addition() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(dir.path());
+
+    document
+        .edit_property(
+            h(SKIN),
+            "",
+            &field("complexEmitterDefinitionData"),
+            vec![ValueEdit::CopyItem {
+                from: "[1]".to_owned(),
+                path: String::new(),
+                index: Some(3),
+                unique: Some(field("emitterName")),
+            }],
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+
+    let written = body(dir.path(), SKIN).join(
+        "
+",
+    );
+    assert!(
+        written.contains("+complexEmitterDefinitionData:"),
+        "{written}"
+    );
+    assert!(written.contains("two_copy"), "{written}");
+    assert!(!written.contains("three"), "{written}");
+    let marks = document.declared_state().unwrap().marks;
+    assert!(marks.iter().all(|mark| !mark.whole), "{marks:?}");
+}
+
+#[test]
+fn an_emitter_removed_by_a_property_edit_declares_a_removal_by_index() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared(dir.path());
+
+    document
+        .edit_property(
+            h(SKIN),
+            "",
+            &field("complexEmitterDefinitionData"),
+            vec![ValueEdit::RemoveItem {
+                path: "[1]".to_owned(),
+            }],
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+
+    assert_eq!(
+        body(dir.path(), SKIN),
+        ["-complexEmitterDefinitionData: [1]"]
+    );
+}
+
+#[test]
 fn a_nested_property_batch_is_one_undoable_declaration() {
     let dir = tempfile::tempdir().unwrap();
     let mut document = declared_naming(dir.path(), FORCE_NAMES);

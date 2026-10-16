@@ -1,7 +1,7 @@
 import { useHotkeys } from "react-hotkeys-hook";
 
-import { usePatcherRunning, useStopPatcher } from "@/modules/patcher";
-import { useHddWarning } from "@/modules/settings";
+import { usePatcherRunning, useStopPatcher } from "@/modules/patcher/api";
+import { useHddWarning } from "@/modules/settings/hooks";
 
 import { useGuardedStartPatcher } from "./useGuardedStartPatcher";
 

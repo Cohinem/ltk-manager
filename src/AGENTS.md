@@ -25,20 +25,30 @@ return <Content />;
 
 ## Import Conventions
 
-**Always import from barrel exports, never from subdirectories.** This keeps import paths stable and encapsulates internal structure.
+**Import from barrel exports, never from subdirectories.** This keeps import paths stable and encapsulates internal structure.
 
-- **Global components:** import from `@/components`, not `@/components/Button`, `@/components/Toast`, etc.
-- **Modules:** import from `@/modules/{module}`, not `@/modules/{module}/components` or `@/modules/{module}/api`.
+- **Global components:** import from `@/components`, not `@/components/Button`, `@/components/Tabs`, etc.
+- **Modules:** import from `@/modules/{module}`, not `@/modules/{module}/components`.
+
+**A data-layer import uses the narrowest entry.** A file that needs only another module's hooks,
+queries, keys or utils imports from `@/modules/{module}/api`, or from the file that defines the
+name outside `api/`, such as `@/modules/settings/builtinMods`. A file outside `components/`
+imports `useToast` from `@/components/Toast`. A barrel loads every component behind it, so a hook
+that imports one makes each test of the hook load them.
 
 ```ts
 // Good
 import { Button, IconButton, useToast } from "@/components";
 import { ModCard, useInstalledMods } from "@/modules/library";
+import { useSettings } from "@/modules/settings/api";
+import { useToast } from "@/components/Toast"; // in api/, hooks/, state/ or utils/
 
 // Bad - reaches into internals
 import { Button } from "@/components/Button";
-import { useToast } from "@/components/Toast";
 import { ModCard } from "@/modules/library/components";
+
+// Bad - loads the settings components for one hook
+import { useSettings } from "@/modules/settings";
 ```
 
 **Import order belongs to `oxfmt`.** `sortImports` in `.oxfmtrc.json` puts builtins first, then
@@ -132,6 +142,7 @@ When adding a new base-ui component:
 
 - `zustand` - client-side state only. Never use it for server state - that is TanStack Query's job.
 - `framer-motion` - Layout animations for DnD (`AnimatePresence` on `DragDropOverlay` only). Tree-shake to ≤30KB gzipped.
+- `date-fns` - import each function from its subpath, `date-fns/format`. The package root loads every function.
 
 ## Icons
 
@@ -407,3 +418,29 @@ every scroll to instant.
 CSS `scroll-behavior: auto` is deliberately not offered as a third option. The property never
 reaches the wheel, which the browser animates either way, so it would read to a user as a
 setting that does nothing.
+
+## Tests
+
+**A test covers critical behavior only.** Write a unit test for:
+
+- Logic whose result a reader cannot check in the UI: simulation, parsing, binary layouts and
+  math, as in `vfx/engine`, `viewport/assets/parsing` and `viewport/dynamics`
+- Code that writes or transforms user data: document edits and saves, `editorFile`, the library
+  state
+- A pure transform with many edge cases: tree builders, row models, search and grouping
+
+Do not write a test for:
+
+- Classes, layout, spacing or colors
+- Focus, keyboard or ARIA behavior that a `@base-ui/react` primitive provides
+- A prop or a call that `tsgo` or the specta bindings already check
+- A case that the test of the underlying util already covers
+
+A component test covers logic in the component itself, such as a dialog that resolves its answer
+or a field that parses typed text. Do not render a flow across several components with IPC mocked.
+Extract the logic that the flow depends on and test it as a unit.
+
+**Keep a logic test free of mocks.** `vitest.config.ts` runs a file without `vi.mock`,
+`vi.spyOn`, fake timers, stubbed globals, `@/test/mocks` or a DOM environment in the `shared`
+project, which imports each module once per worker. Any of these moves the file to the `isolated`
+project, which imports every module again for each file.

@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 
-import { useToast } from "@/components";
+import { useToast } from "@/components/Toast";
 import { errorSummary, m } from "@/i18n";
 import { usePendingRebuildStore } from "@/stores";
 

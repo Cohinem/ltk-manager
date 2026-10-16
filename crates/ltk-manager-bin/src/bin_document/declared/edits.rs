@@ -23,6 +23,11 @@ use super::{DeclaredSign, RenderNames, TextEdit, declaring, entry_name, not_decl
 enum Change<'a> {
     /// The value at `path` is another value: a leaf, a pointer, or a property that was added.
     Value { path: &'a str },
+    /// The property at `path` holds another value, and held `old`.
+    Replaced {
+        path: &'a str,
+        old: &'a PropertyValueEnum,
+    },
     /// The item at `path` joined its list, map or option.
     Inserted { path: &'a str },
     /// An item left the list, map or option at `holder`.
@@ -182,7 +187,7 @@ impl BinDocument {
     /// The plans that express `change`, spelled with the game's names.
     fn plans(&self, entry: BinHash, change: &Change<'_>) -> Result<Plans, BinDocumentError> {
         let scope = match change {
-            Change::Value { path } => (*path).to_owned(),
+            Change::Value { path } | Change::Replaced { path, .. } => (*path).to_owned(),
             Change::Removed { holder, .. } => (*holder).to_owned(),
             Change::Inserted { path } | Change::Moved { path } | Change::Rekeyed { path, .. } => {
                 split_item(path).ok_or_else(|| undeclarable(entry, path))?.0
@@ -247,6 +252,15 @@ impl BinDocument {
                     .map(|text| edit(Operation::Set(text)));
                 let plans = match change {
                     Change::Value { .. } => (set.map(|set| vec![set]), None),
+                    /* A list that only gained items at its end or lost one keeps the game's
+                    other items, and any other change sets the whole value. */
+                    Change::Replaced { .. } => match key_operations(held, change, &names) {
+                        Some(operations) => (
+                            Some(operations.into_iter().map(&edit).collect()),
+                            set.map(|set| vec![set]),
+                        ),
+                        None => (set.map(|set| vec![set]), None),
+                    },
                     _ => (
                         key_operations(held, change, &names)
                             .map(|operations| operations.into_iter().map(&edit).collect()),
@@ -311,6 +325,41 @@ fn key_operations(
     };
 
     match (change, holder) {
+        (Change::Replaced { old, .. }, _) => {
+            let items = items?;
+            let was = match old {
+                V::Container(items) => items,
+                V::UnorderedContainer(values::UnorderedContainer(items)) => items,
+                _ => return None,
+            };
+            if items.item_kind() != was.item_kind() {
+                return None;
+            }
+
+            let (now, was) = (items.items(), was.items());
+            if now.len() > was.len() && now.starts_with(was) {
+                let added = values::Container::new(items.item_kind(), now[was.len()..].to_vec());
+                let added = Value::render(&added.ok()?.into(), names).ok()?;
+                return Some(vec![Operation::Add(text_of(&added)?)]);
+            }
+            if now.len() + 1 != was.len() {
+                return None;
+            }
+
+            let index = (0..now.len())
+                .find(|&at| now[at] != was[at])
+                .unwrap_or(now.len());
+            if now[index..] != was[index + 1..] {
+                return None;
+            }
+            let removed = match items.item_kind() {
+                Kind::Struct | Kind::Embedded => {
+                    Value::List(vec![Value::Integer(i128::try_from(index).ok()?)])
+                }
+                kind => item_of(kind, &was[index])?,
+            };
+            Some(vec![Operation::Remove(text_of(&removed)?)])
+        }
         (Change::Inserted { .. } | Change::Removed { .. }, V::Optional(_)) => set(),
         (Change::Inserted { path }, V::Map(map)) => {
             let (_, Step::Key(held)) = split_item(path)? else {
@@ -385,8 +434,10 @@ fn same_value(applied: &PropertyValueEnum, edited: &PropertyValueEnum) -> bool {
 /// What the edit `inverse` reverts did, and the object it did it to.
 fn change_of(inverse: &Edit) -> Result<(BinHash, Change<'_>), BinDocumentError> {
     Ok(match inverse {
+        Edit::ReplaceProperty { entry, path, value } => {
+            (*entry, Change::Replaced { path, old: value })
+        }
         Edit::Leaf { entry, path, .. }
-        | Edit::ReplaceProperty { entry, path, .. }
         | Edit::SetPointer { entry, path, .. }
         | Edit::RemoveProperty { entry, path } => (*entry, Change::Value { path }),
         Edit::RemoveItem { entry, path } => (*entry, Change::Inserted { path }),
@@ -409,9 +460,12 @@ fn change_of(inverse: &Edit) -> Result<(BinHash, Change<'_>), BinDocumentError> 
         Edit::SetKey { entry, path, key } => (*entry, Change::Rekeyed { path, old: key }),
         /* No declaration takes a property away. */
         Edit::InsertProperty { entry, holder, .. } => return Err(undeclarable(*entry, holder)),
-        /* A declared document takes a dependency edit as a link edit, and a group edit by
-        edit, never through here. */
-        Edit::Dependencies { .. } | Edit::Group { .. } => {
+        /* A declared document takes a dependency edit as a link edit, a group edit by edit,
+        and an object edit as an `objects` entry, never through here. */
+        Edit::Dependencies { .. }
+        | Edit::InsertObject { .. }
+        | Edit::RemoveObject { .. }
+        | Edit::Group { .. } => {
             return Err(BinDocumentError::EditRejected {
                 address: super::super::dependencies::ADDRESS.to_owned(),
                 rejection: EditRejection::Undeclarable,

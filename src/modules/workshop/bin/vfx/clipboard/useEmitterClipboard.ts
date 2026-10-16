@@ -6,6 +6,7 @@ import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
 import { api, type TemplateEmitter, type ValueEdit } from "@/lib/tauri";
 
+import { useDeclares } from "../../documents/hooks/useDeclared";
 import { useDocumentCall } from "../../documents/hooks/useDocumentCall";
 import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { RowDocumentContext } from "../../tree/state/rowFold";
@@ -30,8 +31,10 @@ let lastCopy: string | null = null;
  * Duplicate, copy, paste and delete of the open system's emitters, each edit one undo step.
  *
  * The clipboard text is the backend's copy of the emitter, so a paste lands in any system of
- * any open document. A refusal is a toast, as an object row's own edits report theirs.
- * "Duplicating, pasting and deleting an emitter" in docs/ux/BIN_EDITOR.md.
+ * any open document. A refusal is a toast, as an object row's own edits report theirs. In a
+ * declared document a new emitter lands at the end of its list, which a declaration adds to
+ * without setting the whole list. "Duplicating, pasting and deleting an emitter" in
+ * docs/ux/BIN_EDITOR.md.
  */
 export function useEmitterClipboard(): EmitterClipboard | null {
   const edit = use(LeafEditContext);
@@ -40,6 +43,7 @@ export function useEmitterClipboard(): EmitterClipboard | null {
   const toast = useToast();
   const writeClipboard = useCopyToClipboard();
   const system = use(VfxRunContext)?.system ?? null;
+  const declares = useDeclares();
 
   if (document === null) return null;
 
@@ -77,7 +81,8 @@ export function useEmitterClipboard(): EmitterClipboard | null {
     const place = emitterPlace(emitter.wire);
     if (place === null) return;
 
-    await apply(emitter.entry, place.list, duplicateEdits(place.index));
+    const at = declares ? null : place.index + 1;
+    await apply(emitter.entry, place.list, duplicateEdits(place.index, at));
   };
 
   const paste = async (entry: string, after: EmitterRef | null) => {
@@ -92,7 +97,7 @@ export function useEmitterClipboard(): EmitterClipboard | null {
 
     const place = after === null ? null : emitterPlace(after.wire);
     const list = place?.list ?? COMPLEX_LIST;
-    const index = place === null ? null : place.index + 1;
+    const index = place === null || declares ? null : place.index + 1;
     await apply(entry, list, pasteEdits(text, index));
   };
 
@@ -107,7 +112,7 @@ export function useEmitterClipboard(): EmitterClipboard | null {
     system === null
       ? null
       : async (entry: string, after: EmitterRef | null, emitters: readonly TemplateEmitter[]) => {
-          const place = after === null ? null : emitterPlace(after.wire);
+          const place = after === null || declares ? null : emitterPlace(after.wire);
           const list = place?.list ?? COMPLEX_LIST;
           const index = place === null ? complexEnd(system) : place.index + 1;
           const taken = new Set(system.emitters.map((emitter) => emitter.name));
