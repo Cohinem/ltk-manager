@@ -1,5 +1,7 @@
 import type { Problem, ProblemSeverity, RuleFailure, RuleId, RuleInfo, Site } from "@/lib/tauri";
 
+import { rowKey } from "../../bin/tree/utils/binRows";
+
 /**
  * How the panel orders severities, worst first.
  *
@@ -335,6 +337,52 @@ export function shownProblems(
 ): readonly Problem[] {
   if (forwardLooking) return problems;
   return problems.filter((problem) => !isMuted(problem, muted));
+}
+
+/** A run's problems by location. */
+export interface ProblemIndex {
+  /** Problems by `locationKey(layer, path)`, under the file and under each directory above it. */
+  readonly paths: ReadonlyMap<string, readonly Problem[]>;
+  /** Problems by `locationKey(layer, path, row)`, under the bin row and under its object row. */
+  readonly rows: ReadonlyMap<string, readonly Problem[]>;
+}
+
+/** Returns the key of a file or directory in `layer`, or of a bin row of that file if `row` is set. */
+export function locationKey(layer: string, path: string, row?: string): string {
+  const file = `${layer}${NUL}${path}`;
+  return row === undefined ? file : `${file}${NUL}${row}`;
+}
+
+/** Indexes `problems` by file, by every directory above the file, and by bin row. */
+export function indexProblems(problems: readonly Problem[]): ProblemIndex {
+  const paths = new Map<string, Problem[]>();
+  const rows = new Map<string, Problem[]>();
+
+  for (const problem of problems) {
+    const { layer, path, node } = problem.site;
+
+    append(paths, locationKey(layer, path), problem);
+    for (let cut = path.lastIndexOf("/"); cut > 0; cut = path.lastIndexOf("/", cut - 1)) {
+      append(paths, locationKey(layer, path.slice(0, cut)), problem);
+    }
+
+    if (!node) continue;
+    append(rows, locationKey(layer, path, rowKey(node)), problem);
+    if (node.path !== "") {
+      append(rows, locationKey(layer, path, rowKey({ entry: node.entry, path: "" })), problem);
+    }
+  }
+
+  return { paths, rows };
+}
+
+function append(map: Map<string, Problem[]>, key: string, problem: Problem) {
+  const list = map.get(key);
+  if (list) {
+    list.push(problem);
+  } else {
+    map.set(key, [problem]);
+  }
 }
 
 /** Tally a list of problems by severity, for the counts a header draws. */

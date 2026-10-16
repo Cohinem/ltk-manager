@@ -401,6 +401,10 @@ pub struct RuleInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub severity: Option<ProblemSeverity>,
+    /// The `ltk://` deep link that a panel offers beside this rule's findings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub link: Option<String>,
     /// Whether this project is one the rule speaks about yet.
     pub state: RuleState,
 }
@@ -705,8 +709,16 @@ pub trait Rule: Send + Sync {
             description: meta.description.to_owned(),
             unfixable: meta.unfixable.to_owned(),
             severity: meta.severity,
+            link: self.link().map(str::to_owned),
             state: RuleState::Active,
         }
+    }
+
+    /// Returns the `ltk://` deep link that a panel offers beside this rule's findings.
+    ///
+    /// The default implementation returns `None`.
+    fn link(&self) -> Option<&'static str> {
+        None
     }
 
     /// Why this rule waits for something `project` does not have yet.

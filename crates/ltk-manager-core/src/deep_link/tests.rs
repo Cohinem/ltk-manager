@@ -425,3 +425,16 @@ fn sniff_nonexistent_file_returns_none() {
     let path = std::env::temp_dir().join("test_sniff_nonexistent_file_that_does_not_exist.tmp");
     assert_eq!(sniff_extension_from_file(&path), None);
 }
+
+#[test]
+fn parse_deep_link_url_accepts_every_rule_link() {
+    for rule in ltk_manager_problems::rules::all() {
+        if let Some(link) = rule.link() {
+            assert!(
+                matches!(parse_deep_link_url(link), Ok(DeepLinkRequest::Settings(_))),
+                "{}: {link}",
+                rule.id()
+            );
+        }
+    }
+}
