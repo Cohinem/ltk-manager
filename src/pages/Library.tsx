@@ -9,7 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { PageInset } from "@/components";
+import { ChromeGround, PageInset } from "@/components";
 import { usePlatformSupport } from "@/hooks";
 import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
@@ -92,6 +92,7 @@ export function Library({ folderId }: LibraryProps = {}) {
 
   return (
     <div className="relative flex h-full flex-col">
+      <ChromeGround />
       <DragDropOverlay visible={isDragOver} />
       {!patcherAvailable && (
         <div className="px-4 pt-3">
