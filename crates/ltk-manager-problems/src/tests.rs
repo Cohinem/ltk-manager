@@ -215,6 +215,7 @@ fn active(id: RuleId) -> RuleInfo {
         description: "The declared type is not the one the game reads".to_owned(),
         unfixable: String::new(),
         severity: Some(ProblemSeverity::Fatal),
+        link: None,
         state: RuleState::Active,
     }
 }

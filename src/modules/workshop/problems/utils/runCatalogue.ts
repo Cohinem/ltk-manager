@@ -1,11 +1,19 @@
 import { useMemo } from "react";
 
-import type { Problem, RuleId, RuleInfo } from "@/lib/tauri";
+import type { Problem, RuleId, RuleInfo, Run } from "@/lib/tauri";
 import { useForwardLookingMeta } from "@/stores";
 
 import { useProjectProblems } from "../../api";
-import { useProjectContext } from "../../projects/state/ProjectContext";
-import { isMuted, mutedRules, objectNames, shownProblems } from "./problemGroups";
+import { useOptionalProjectContext, useProjectContext } from "../../projects/state/ProjectContext";
+import {
+  indexProblems,
+  isMuted,
+  locationKey,
+  mutedRules,
+  objectNames,
+  type ProblemIndex,
+  shownProblems,
+} from "./problemGroups";
 
 /**
  * What the run says one of its checks is.
@@ -109,4 +117,41 @@ export function useObjectNames(): ReadonlyMap<string, string> {
 export function useObjectName(entry: string | undefined): string | undefined {
   const names = useObjectNames();
   return entry === undefined ? undefined : names.get(entry);
+}
+
+const NO_PROBLEMS: readonly Problem[] = [];
+
+const indexes = new WeakMap<Run, ProblemIndex>();
+
+/** Returns the location index of `run`, built once for every row that reads it. */
+function indexOf(run: Run): ProblemIndex {
+  let index = indexes.get(run);
+  if (!index) {
+    index = indexProblems(run.problems);
+    indexes.set(run, index);
+  }
+  return index;
+}
+
+/**
+ * Returns the problems that the panel shows at one location of the open project.
+ *
+ * `path` is a file or directory relative to `layer`. If `row` is set, it is a bin row key from
+ * `rowKey`, and the result holds the problems at that row, and at every row under it for an
+ * object row. Returns an empty list outside a project and before the run answers.
+ */
+export function useProblemsAt(layer: string, path: string, row?: string): readonly Problem[] {
+  const project = useOptionalProjectContext();
+  const { data: run } = useProjectProblems(project?.path);
+  const forwardLooking = useForwardLookingMeta();
+
+  return useMemo(() => {
+    if (!run) return NO_PROBLEMS;
+
+    const index = indexOf(run);
+    const found = (row === undefined ? index.paths : index.rows).get(locationKey(layer, path, row));
+    if (!found) return NO_PROBLEMS;
+
+    return shownProblems(found, mutedRules(run.rules), forwardLooking);
+  }, [run, forwardLooking, layer, path, row]);
 }

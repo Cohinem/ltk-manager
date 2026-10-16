@@ -6057,6 +6057,8 @@ export type RuleInfo_Deserialize = {
 	 *  [`RuleMeta::severity`].
 	 */
 	severity?: ProblemSeverity | null,
+	/**  The `ltk://` deep link that a panel offers beside this rule's findings. */
+	link?: string | null,
 	/**  Whether this project is one the rule speaks about yet. */
 	state: RuleState,
 };
@@ -6081,6 +6083,8 @@ export type RuleInfo_Serialize = {
 	 *  [`RuleMeta::severity`].
 	 */
 	severity?: ProblemSeverity | null,
+	/**  The `ltk://` deep link that a panel offers beside this rule's findings. */
+	link?: string | null,
 	/**  Whether this project is one the rule speaks about yet. */
 	state: RuleState,
 };

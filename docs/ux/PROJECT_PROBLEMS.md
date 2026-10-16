@@ -4,6 +4,8 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-16 | A finding opens the setting that its rule links to           |
+| 2026-10-16 | `bin/base-skin-copy` reports a copy of the base skin bin     |
 | 2026-10-15 | `bin/texture-file` reports a non-image texture file          |
 | 2026-10-12 | `bin/object-link` reports a link to an undefined object      |
 | 2026-10-02 | Check only packed files, and report packed working files     |
@@ -12,9 +14,6 @@
 | 2026-09-05 | Point the lazy-read link at the reader that landed           |
 | 2026-09-01 | The meta schema judges, and a table speaks for later builds  |
 | 2026-08-30 | A bin is recognized by its content, and repaired at its hash |
-| 2026-08-28 | Preserve the names a fix hashes, and drop the restore point  |
-| 2026-08-28 | The library surface ships, and moves to MOD_HEALTH.md        |
-| 2026-08-24 | Draw the forward-looking lints by default, dimmed            |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -60,6 +59,7 @@ This table holds every major feature of Problems. A status word has one meaning.
 | Working file rule    | Available | `project/working-file`. A packed source file, with no ignore rules     |
 | Object link rule     | Available | `bin/object-link`. A link to an object no mod or game bin defines      |
 | Texture file rule    | Available | `bin/texture-file`. A texture property that names a non-image file     |
+| Base skin copy rule  | Available | `bin/base-skin-copy`. A skin bin that is a copy of the base skin       |
 | Repair by removal    | Available | A fix may delete a file, where something still answers for it          |
 | The fix preview      | Available | The before value and the after value, for each problem                 |
 | Preserved names      | Available | A fix writes what it hashes into the mod's own `hashes/`               |
@@ -69,6 +69,8 @@ This table holds every major feature of Problems. A status word has one meaning.
 | The count in the bar | Available | An error count beside Test, which opens the tab                        |
 | Forward-looking lint | Available | On by default, muted, and a switch in a row under the filter           |
 | Open at the property | Available | A click opens the bin scrolled to the node the finding names           |
+| Open the setting     | Available | A rule's `ltk://settings` link adds a settings button to its rows      |
+| Marks on rows        | Available | File, folder and bin rows draw the worst severity at them              |
 | Hash-name repair     | Proposed  | The 8 rows that need `binhashes` to name a hash                        |
 | Move the old checks  | Proposed  | The three checks below become rules and lose their shapes              |
 | Linked bin rule      | Proposed  | `bin/missing-link`, from the overlay build's offenders                 |

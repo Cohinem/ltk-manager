@@ -67,6 +67,7 @@ import {
   rowEdits,
   undeclarable,
 } from "../utils/rowEdits";
+import { RowProblemMark } from "./RowProblemMark";
 
 /**
  * One line at zoom 100, which is what sizes the virtualizer. A matrix opened in place grows past it.
@@ -422,6 +423,7 @@ function NameCell({ line, expandable, expanded, loading }: NameCellProps) {
       {objectChange && <ObjectChangeMark change={objectChange.change} layer={objectChange.layer} />}
       <ChangeMark rowKey={line.key} />
       <DeclaredDiagnosticsMark diagnostics={reported} />
+      <RowProblemMark rowKey={line.key} />
       {held && <ClassCard classHash={held.classHash} name={held.class} />}
       {!object && !element && <KindTag row={row} />}
     </span>
