@@ -170,8 +170,22 @@ export function shapeInto(
       return crossInto(out, at, offsetBy(middle, drawn));
     }
 
-    case "box":
-      return boxInto(out, at, middle, shape.size);
+    case "box": {
+      if (shape.volume) return boxInto(out, at, middle, shape.size);
+
+      let vertex = at;
+      for (const corners of surfaceBoxFaces(shape.size)) {
+        for (let corner = 0; corner < 4; corner += 1) {
+          vertex = segmentInto(
+            out,
+            vertex,
+            offsetBy(middle, corners[corner]!),
+            offsetBy(middle, corners[(corner + 1) % 4]!),
+          );
+        }
+      }
+      return vertex;
+    }
 
     case "cylinder": {
       const roof = offsetBy(middle, [0, shape.height, 0]);
@@ -236,6 +250,39 @@ function ringPoint(middle: Place, radius: number, normal: number, radians: numbe
   point[(normal + 1) % 3] += Math.cos(radians) * radius;
   point[(normal + 2) % 3] += Math.sin(radians) * radius;
   return point;
+}
+
+/**
+ * Returns the eight rectangles a surface box of half-extents `size` spawns on, as four corners
+ * each. `sampleShape` places a birth on the `+Z` face and turns it a whole number of quarter turns
+ * about `Y` and then about `Z`, so every rectangle stands `size[2]` from the middle.
+ */
+export function surfaceBoxFaces(size: Place): Place[][] {
+  const [x, y, z] = size;
+  return [-z, z].flatMap((at) => [
+    rectangle(2, at, [x, y, 0]),
+    rectangle(2, at, [y, x, 0]),
+    rectangle(0, at, [0, y, x]),
+    rectangle(1, at, [y, 0, x]),
+  ]);
+}
+
+/** The four corners in order of the rectangle at `at` on `axis`, of half-extents `halves`. */
+function rectangle(axis: number, at: number, halves: Place): Place[] {
+  const across = (axis + 1) % 3;
+  const along = (axis + 2) % 3;
+  return [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ].map(([first, second]) => {
+    const corner: [number, number, number] = [0, 0, 0];
+    corner[axis] = at;
+    corner[across] = first! * halves[across];
+    corner[along] = second! * halves[along];
+    return corner;
+  });
 }
 
 /** The twelve edges of a box of half-extents `size` about `middle`, and the vertex after it. */
