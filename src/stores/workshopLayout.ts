@@ -63,7 +63,7 @@ interface PreviewDisplay {
   previewAntiAliasing: AntiAliasing;
   /** The selected emitter's origin, offset and spawn shape are drawn as a wireframe. */
   previewGizmo: boolean;
-  /** The VFX viewport draws a gizmo that moves the rig's target. */
+  /** The VFX viewport draws a gizmo that moves the rig's target. Not persisted. */
   previewTargetHandle: boolean;
   /** Each emitter that writes a stencil mask draws the mask as a tint. */
   previewMasks: boolean;
@@ -388,7 +388,8 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 8,
+      version: 9,
+      partialize: ({ previewTargetHandle: _session, ...kept }) => kept,
       migrate: (persisted) => {
         const state = {
           ...keepUnversioned<
@@ -425,6 +426,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
           state.previewViewMode = "lit";
           state.previewWireOverlay = true;
         }
+        if (state.previewTargetHandle) state.previewTargetHandle = false;
         return state;
       },
     },

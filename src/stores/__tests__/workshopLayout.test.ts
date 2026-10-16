@@ -37,6 +37,17 @@ describe("workshopLayout", () => {
     expect(migrated).toEqual({ previewViewMode: "lit", previewWireOverlay: true });
   });
 
+  it("hides a persisted target handle and stops persisting it", async () => {
+    const { migrate, partialize } = useWorkshopLayoutStore.persist.getOptions();
+    const migrated = await migrate?.({ previewTargetHandle: true }, 8);
+    expect(migrated).toEqual({ previewTargetHandle: false });
+
+    useWorkshopLayoutStore.setState({ previewTargetHandle: true });
+    expect(partialize?.(useWorkshopLayoutStore.getState())).not.toHaveProperty(
+      "previewTargetHandle",
+    );
+  });
+
   beforeEach(() => {
     useWorkshopLayoutStore.setState({ previewOnClick: true });
     localStorage.clear();
