@@ -82,6 +82,19 @@ fn instanced_module() -> Vec<u32> {
     words
 }
 
+/// A pixel module with two level queries of image 20 in function 40, of result type 10 and
+/// result ids 30 and 31.
+fn level_query_module() -> Vec<u32> {
+    let mut words = vec![MAGIC, 0x0001_0500, 0, 50, 0];
+    words.extend(inst(OP_CAPABILITY, &[1]));
+    words.extend(inst(OP_FUNCTION, &[2, 40, 0, 3]));
+    words.extend(inst(OP_LABEL, &[41]));
+    words.extend(inst(OP_IMAGE_QUERY_LEVELS, &[10, 30, 20]));
+    words.extend(inst(OP_IMAGE_QUERY_LEVELS, &[10, 31, 20]));
+    words.extend(inst(OP_KILL, &[]));
+    words
+}
+
 fn reflection() -> Reflection {
     let resource = |name: &str, kind, bind| Resource {
         name: name.to_owned(),
@@ -114,6 +127,41 @@ fn ops(words: &[u32]) -> Vec<u32> {
         .into_iter()
         .map(|(_, op, _)| op)
         .collect()
+}
+
+#[test]
+fn patch_replaces_image_query_levels_with_one_constant_per_type() {
+    let patched = patch(&level_query_module(), &reflection(), Stage::Pixel).unwrap();
+
+    assert_eq!(patched.words[3], 51);
+    assert_eq!(
+        ops(&patched.words),
+        [
+            OP_CAPABILITY,
+            OP_CONSTANT,
+            OP_FUNCTION,
+            OP_LABEL,
+            OP_COPY_OBJECT,
+            OP_COPY_OBJECT,
+            OP_KILL
+        ]
+    );
+    let words = &patched.words;
+    assert!(
+        words
+            .windows(4)
+            .any(|w| w == [(4 << 16) | OP_CONSTANT, 10, 50, 1])
+    );
+    assert!(
+        words
+            .windows(4)
+            .any(|w| w == [(4 << 16) | OP_COPY_OBJECT, 10, 30, 50])
+    );
+    assert!(
+        words
+            .windows(4)
+            .any(|w| w == [(4 << 16) | OP_COPY_OBJECT, 10, 31, 50])
+    );
 }
 
 #[test]

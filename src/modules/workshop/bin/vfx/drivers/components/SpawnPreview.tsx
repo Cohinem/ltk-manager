@@ -44,8 +44,8 @@ export interface Drawn {
 
 /**
  * The spawn shape of `emitter` as an analytic figure, turning: a box, sphere or cylinder as its
- * body in faint faces under crisp edges, and a legacy shape as the box its births span, read
- * off `spawnCloud`. The caption gives the size on each axis. A point marks where it spawns
+ * body in faint faces under crisp edges, and a legacy shape as the volume its offset's box sweeps
+ * through its emit rotations. The caption gives the size on each axis. A point marks where it spawns
  * with a crosshair, the emitter's axes and a stem from them, and the caption gives the place.
  *
  * A shape of no size spawns every particle at one point, so it draws as a dim body of its kind
@@ -59,8 +59,9 @@ export function ShapePreview({ emitter }: { emitter: EmitterModel | undefined })
   );
   useEffect(
     () => () => {
-      drawn?.body?.faces.dispose();
+      drawn?.body?.faces?.dispose();
       drawn?.body?.edges.dispose();
+      drawn?.body?.sweep?.dispose();
       drawn?.body?.turns?.dispose();
     },
     [drawn],
@@ -104,8 +105,13 @@ export function drawnOf(emitter: EmitterModel, zero: boolean): Drawn {
 
   let box = new Box3(new Vector3(...cloud.low), new Vector3(...cloud.high));
   if (body !== null) {
-    body.faces.computeBoundingBox();
-    box = body.faces.boundingBox!.clone().applyMatrix4(matrix);
+    body.edges.computeBoundingBox();
+    box = body.edges.boundingBox!.clone();
+    if (body.sweep !== null) {
+      body.sweep.computeBoundingBox();
+      box.union(body.sweep.boundingBox!);
+    }
+    box.applyMatrix4(matrix);
   }
   return { cloud, body, matrix, box };
 }

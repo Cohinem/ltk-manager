@@ -10,7 +10,7 @@ use ltk_meta::property::Kind;
 use ltk_meta::{Bin, BinObject};
 
 use super::*;
-use crate::bin_document::ValueEdit;
+use crate::bin_document::{NewObject, ObjectCreation, PropertyEdit, ValueEdit};
 use crate::meta_schema::{self, MetaSchema};
 use ltk_manager_base::game_build::GameBuild;
 
@@ -595,4 +595,79 @@ fn a_child_set_takes_a_link_a_key_bones_a_move_and_a_removal() {
 
     assert!(document.undo().unwrap());
     assert_eq!(child_set(&document).0.len(), 2);
+}
+
+fn paste_into(
+    target: &mut BinDocument,
+    system: &str,
+    objects: &[ObjectCreation],
+    text: &str,
+) -> Result<(), BinDocumentError> {
+    target.create_and_edit(
+        objects,
+        vec![PropertyEdit {
+            entry: hex(h(system)),
+            holder: String::new(),
+            field: format!("0x{}", hashed("complexEmitterDefinitionData")),
+            edits: vec![ValueEdit::PasteItem {
+                path: String::new(),
+                index: None,
+                text: text.to_owned(),
+                unique: unique(),
+            }],
+        }],
+        schema().at(Some(BUILD)),
+    )
+}
+
+fn pasted_system(text: String) -> ObjectCreation {
+    ObjectCreation {
+        name: SYSTEM.to_owned(),
+        origin: NewObject::Paste { text },
+    }
+}
+
+#[test]
+fn create_and_edit_pastes_object_and_emitter_as_one_step() {
+    let source = document(&["Spark"], &[]);
+    let object = copy(&source, "");
+    let spark = copy(
+        &source,
+        &format!("{}[0]", hashed("complexEmitterDefinitionData")),
+    );
+    let mut target = BinDocument::parse(bin_bytes(OTHER, &["Ember"], &[])).unwrap();
+
+    paste_into(&mut target, OTHER, &[pasted_system(object)], &spark).unwrap();
+
+    assert_eq!(target.object_at(h(SYSTEM)), source.object_at(h(SYSTEM)));
+    assert_eq!(names(&target, OTHER), ["Ember", "Spark"]);
+    assert!(target.undo().unwrap());
+    assert!(target.object_at(h(SYSTEM)).is_none());
+    assert_eq!(names(&target, OTHER), ["Ember"]);
+}
+
+#[test]
+fn create_and_edit_takes_back_created_objects_on_refusal() {
+    let source = document(&["Spark"], &[]);
+    let object = copy(&source, "");
+    let mut target = BinDocument::parse(bin_bytes(OTHER, &["Ember"], &[])).unwrap();
+
+    let refused = paste_into(&mut target, OTHER, &[pasted_system(object)], "Spark");
+
+    assert_eq!(rejection(refused), EditRejection::NotACopy);
+    assert!(target.object_at(h(SYSTEM)).is_none());
+    assert!(!target.undo().unwrap());
+}
+
+#[test]
+fn create_object_refuses_paste_of_value_that_is_no_struct() {
+    let source = document(&["Spark"], &[]);
+    let text = copy(&source, &hashed("particleName"));
+    let mut target = BinDocument::parse(bin_bytes(OTHER, &[], &[])).unwrap();
+
+    let refused = target
+        .create_object(SYSTEM, &NewObject::Paste { text })
+        .map(|_| ());
+
+    assert_eq!(rejection(refused), EditRejection::InvalidShape);
 }

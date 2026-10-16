@@ -3,7 +3,7 @@ import { use, useCallback, useMemo, useRef } from "react";
 import type { BinRow } from "@/lib/tauri";
 
 import { nameHash } from "../../shared/utils/binHash";
-import { type Followed, followedRow } from "../../vfx/drivers/utils/surfaceDraw";
+import { type Followed, followedRow, following } from "../../vfx/drivers/utils/surfaceDraw";
 import type { EmitterModel, SystemModel } from "../../vfx/engine/model/model";
 import type { Driver } from "../../vfx/engine/simulation/driver";
 import { age01, clamp01, emitterPhase } from "../../vfx/engine/simulation/particleRead";
@@ -61,7 +61,7 @@ export function usePlayheadRead(
   emitter: EmitterModel | undefined,
   name: string,
 ): (driver: Driver) => number | null {
-  const followed = useRef<Followed>({ serial: -1 });
+  const followed = useRef<Followed>(following());
   const birth = drawnAtBirth(name);
 
   return useCallback(
@@ -69,7 +69,7 @@ export function usePlayheadRead(
       if (emitter === undefined) return null;
       if (birth) return clamp01(emitterPhase(emitter, driver.elapsed));
 
-      const particle = followedRow(driver.pool, emitter.index, followed.current);
+      const particle = followedRow(driver.pool, emitter.index, followed.current, driver.time);
       return particle < 0 ? null : age01(driver.pool, particle, driver.time);
     },
     [emitter, birth],

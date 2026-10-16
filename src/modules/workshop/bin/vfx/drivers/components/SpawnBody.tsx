@@ -11,6 +11,9 @@ const FACE_OPACITY = 0.08;
 /** The edges' opacity over the faces. */
 const EDGE_OPACITY = 0.85;
 
+/** The opacity of a legacy shape's secondary sweep rings. */
+const SWEEP_OPACITY = 0.2;
+
 /** The emit rotations' axes and arcs, drawn over the body in the wireframe's lighter accent. */
 const TURN_OPACITY = 0.9;
 
@@ -19,7 +22,7 @@ const STAND_IN = 0.4;
 
 /**
  * A spawn shape's body as an analytic figure: faint faces in the gizmo's colour under crisp
- * edges, and a legacy shape's emit rotations as axes and arcs over them, placed by `matrix`,
+ * edges, and a legacy shape's emit rotation axes over them, placed by `matrix`,
  * which the caller keeps current. The faces write no depth, so particles and the far side of
  * the body show through.
  */
@@ -44,18 +47,25 @@ export function SpawnBody({
 
   return (
     <group ref={ref} matrixAutoUpdate={false} matrix={matrix}>
-      <mesh geometry={body.faces} frustumCulled={false}>
-        <meshBasicMaterial
-          color={tone}
-          transparent
-          opacity={FACE_OPACITY * dim}
-          depthWrite={false}
-          side={DoubleSide}
-        />
-      </mesh>
+      {body.faces !== null && (
+        <mesh geometry={body.faces} frustumCulled={false}>
+          <meshBasicMaterial
+            color={tone}
+            transparent
+            opacity={FACE_OPACITY * dim}
+            depthWrite={false}
+            side={DoubleSide}
+          />
+        </mesh>
+      )}
       <lineSegments geometry={body.edges} frustumCulled={false}>
         <lineBasicMaterial color={tone} transparent opacity={EDGE_OPACITY * dim} />
       </lineSegments>
+      {body.sweep !== null && (
+        <lineSegments geometry={body.sweep} frustumCulled={false}>
+          <lineBasicMaterial color={tone} transparent opacity={SWEEP_OPACITY * dim} />
+        </lineSegments>
+      )}
       {body.turns !== null && (
         <lineSegments geometry={body.turns} frustumCulled={false}>
           <lineBasicMaterial color={colors.wire} transparent opacity={TURN_OPACITY} />

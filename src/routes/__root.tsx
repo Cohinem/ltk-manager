@@ -101,13 +101,15 @@ function RootLayout() {
   useOverscrollSpring();
   useZoomHotkeys();
 
-  /* Mounted for the rest of the session once the switch has been on, since the
-     lifecycle drops the index when it goes off and cannot do that unmounted. */
+  /* Mounted for the rest of the session once the Workshop has been open with the
+     switch on, since the lifecycle drops the index when the switch goes off and
+     cannot do that unmounted. */
   const searchObjects = useSearchObjects();
-  const [tracksObjectIndex, setTracksObjectIndex] = useState(searchObjects);
+  const inWorkshop = location.pathname.startsWith("/workshop");
+  const [tracksObjectIndex, setTracksObjectIndex] = useState(false);
   useEffect(() => {
-    if (searchObjects) setTracksObjectIndex(true);
-  }, [searchObjects]);
+    if (searchObjects && inWorkshop) setTracksObjectIndex(true);
+  }, [inWorkshop, searchObjects]);
 
   const updateAtLaunch = useUpdaterFoundAtLaunch();
 

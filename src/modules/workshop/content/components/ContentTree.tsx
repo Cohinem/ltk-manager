@@ -279,6 +279,7 @@ export function ContentTree({ layer }: ContentTreeProps) {
           if (pinned) {
             return (
               <TreeRow
+                layer={layerName}
                 node={row.node}
                 depth={row.depth}
                 isExpanded
@@ -296,6 +297,7 @@ export function ContentTree({ layer }: ContentTreeProps) {
 
           return (
             <TreeRow
+              layer={layerName}
               node={row.node}
               depth={row.depth}
               isExpanded={row.node.type === "dir" && !collapsed.has(row.node.path)}

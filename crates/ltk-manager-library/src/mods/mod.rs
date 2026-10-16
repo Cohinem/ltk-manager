@@ -320,6 +320,11 @@ impl ModLibrary {
             .map(|(_, content)| Arc::clone(content) as Arc<dyn ltk_manager_problems::GameContent>)
     }
 
+    /// Drops the installed game's index. The next rule that asks rebuilds it.
+    pub fn release_game_content(&self) {
+        *self.game_content.lock() = None;
+    }
+
     /// Build the installed game's index now, so no check waits on it.
     ///
     /// Every bin worker of every mod in a sweep blocks on the one build the

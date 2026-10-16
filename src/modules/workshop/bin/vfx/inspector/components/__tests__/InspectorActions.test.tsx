@@ -96,6 +96,8 @@ describe("InspectorActions", () => {
     expect(screen.getByRole("menuitem", { name: "Paste" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("menuitem", { name: "Delete" }));
 
-    expect(clipboard.remove).toHaveBeenCalledWith({ entry: "0x1", wire: "list[0]", name: "Spark" });
+    expect(clipboard.remove).toHaveBeenCalledWith([
+      { entry: "0x1", wire: "list[0]", name: "Spark" },
+    ]);
   });
 });

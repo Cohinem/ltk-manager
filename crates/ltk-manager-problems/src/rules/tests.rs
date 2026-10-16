@@ -37,6 +37,10 @@ fn each_rule_declares_who_answers_for_its_severity() {
             ("bin/object-link".to_owned(), None),
             ("bin/texture-file".to_owned(), Some(ProblemSeverity::Fatal)),
             (
+                "bin/base-skin-copy".to_owned(),
+                Some(ProblemSeverity::Warning)
+            ),
+            (
                 "project/working-file".to_owned(),
                 Some(ProblemSeverity::Warning)
             ),

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { api, type AppError, type SandboxRef } from "@/lib/tauri";
@@ -93,12 +94,17 @@ export function useDeclaredObjects(objectHashes: readonly string[]): ReadonlySet
 /**
  * Keep the object index in step with the Objects switch.
  *
- * Mounted once at the root: the index warms at startup while the switch is
- * on, warms when the switch is turned on, and drops when it is turned off. A
- * warm of an index that is built or building does nothing.
+ * Mounted once at the root: while the switch is on, the index warms when a
+ * Workshop page opens, and when the document becomes visible on a Workshop
+ * page, because sending the window to the tray drops the index. The index
+ * drops when the switch is turned off. A warm of an index that is built or
+ * building does nothing.
  */
 export function useObjectIndexLifecycle() {
   const searchObjects = useSearchObjects();
+  const inWorkshop = useLocation({
+    select: (location) => location.pathname.startsWith("/workshop"),
+  });
   const warm = useWarmObjectIndex();
   const drop = useDropObjectIndex();
   const warmMutate = warm.mutate;
@@ -110,7 +116,17 @@ export function useObjectIndexLifecycle() {
   useEffect(() => {
     const before = was.current;
     was.current = searchObjects;
-    if (searchObjects) warmMutate();
-    else if (before === true) dropMutate();
-  }, [dropMutate, searchObjects, warmMutate]);
+    if (searchObjects && inWorkshop) warmMutate();
+    else if (!searchObjects && before === true) dropMutate();
+  }, [dropMutate, inWorkshop, searchObjects, warmMutate]);
+
+  useEffect(() => {
+    if (!searchObjects || !inWorkshop) return;
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") warmMutate();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [inWorkshop, searchObjects, warmMutate]);
 }

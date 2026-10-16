@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                    |
-| ---------- | --------------------------------------------------------- |
-| 2026-10-09 | A library index that a newer version wrote can be rebuilt |
-| 2026-10-02 | Table load order by drag, and Move to folder              |
-| 2026-10-02 | The table view, its dock, grouping and row picking        |
-| 2026-10-02 | A second shift-click moves the range from the same anchor |
-| 2026-10-02 | Importing a mod the library holds                         |
-| 2026-10-02 | Opening a mod file from Explorer installs it              |
-| 2026-09-30 | A library edit reaches a running patcher between games    |
-| 2026-09-12 | The documents panel is a drawer over the grid, not a pane |
-| 2026-09-12 | The licenses tab follows the open mod, like the other two |
-| 2026-09-12 | A right click reads a card and no longer picks it         |
+| Date       | Change                                                      |
+| ---------- | ----------------------------------------------------------- |
+| 2026-10-16 | Draw the title bar on the page ground, as the workshop does |
+| 2026-10-09 | A library index that a newer version wrote can be rebuilt   |
+| 2026-10-02 | Table load order by drag, and Move to folder                |
+| 2026-10-02 | The table view, its dock, grouping and row picking          |
+| 2026-10-02 | A second shift-click moves the range from the same anchor   |
+| 2026-10-02 | Importing a mod the library holds                           |
+| 2026-10-02 | Opening a mod file from Explorer installs it                |
+| 2026-09-30 | A library edit reaches a running patcher between games      |
+| 2026-09-12 | The documents panel is a drawer over the grid, not a pane   |
+| 2026-09-12 | The licenses tab follows the open mod, like the other two   |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 

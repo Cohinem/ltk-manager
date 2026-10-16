@@ -1629,6 +1629,36 @@ The particle system's, the skin's and the material's layouts take edits in place
 Material pane with them. The map's layout and a read-only document draw the same values as text,
 with no field to hover.
 
+**A shader def opens in the material shell.** `CustomShaderDef` declares the same two panes, per
+ADR-0066. The inspector holds Identity, then Params, Textures and Switches as tables of the def's
+own entries, then Feature defines as a tree. Params lists each physical parameter and its default,
+Textures each texture, its default path and its shared sampler, and Switches each switch, its
+default and its runtime flag.
+
+**A default drags live on the preview.** A parameter's default scrubs as a material's
+parameter does, drawn on the preview while held and written on release. A row that the drawn
+permutation does not read carries an info note, and so does a compile-time switch that the shader's
+TOCs do not declare. A parameter that has a note, or that the preview material sets, edits as a
+plain vector, since a held value would not change the preview. The material's values carry no
+note, since a material sets most of a def's rows.
+
+**The preview draws the def through a material that uses it.** A def's defaults are placeholders
+that every material overrides, most textures `black.tex`, and the game's shader cache holds only
+the permutations that shipped materials select. So the preview draws the first `StaticMaterialDef`
+that links the def, found by the reference walk, on the shape. The walk reads the open project's
+layers before the install, so a material of the project comes first. The material's
+textures, parameters and macros apply over the open def, so an edit to the def is drawn
+once it is applied. Preview material in the toolbar lists every material that links the def,
+and Shader defaults draws the def alone. A def that no material links draws its defaults.
+
+**Defines picks the permutation the preview draws.** A submenu per define that the shader's
+TOCs declare, each value they declare, and Not set. A pick changes the preview alone, is held for
+the session and is never written to the def. The shape is bound to one bone for a skinned kind.
+
+**A define list that the cache does not hold draws the nearest compiled permutation.** The corner
+lists every define that the search set and removed. A def with no compiled permutation within three changes
+draws the error color, and the corner gives the reason.
+
 ### How the panes are arranged
 
 The picture above is where the panes start, not where they stay. A pane is a tab of the same split
@@ -3380,25 +3410,47 @@ An emitter of a system's `complexEmitterDefinitionData` or `simpleEmitterDefinit
 duplicated, copied, pasted and deleted whole, with every hash, class, link and nested struct
 under it.
 
-| Where                                          | Duplicate emitter | Copy emitter | Paste emitter                  | Delete emitter |
-| ---------------------------------------------- | ----------------- | ------------ | ------------------------------ | -------------- |
-| The Graph menu on a master node                | Yes               | Yes          | After the node                 | Yes            |
-| The Graph menu on the canvas                   |                   |              | At the end of the complex list |                |
-| The inspector's Emitter menu, on the open card | Yes               | Yes          | After the card                 | Yes            |
-| The Graph pane, one master node selected       | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it             | `Delete`       |
-| The Graph pane, no master node selected        |                   |              | `Ctrl+V`, at the end           |                |
+| Where                                          | Duplicate emitter | Copy emitter | Paste emitter           | Delete emitter |
+| ---------------------------------------------- | ----------------- | ------------ | ----------------------- | -------------- |
+| The Graph menu on a master node                | Yes               | Yes          | After the node          | Yes            |
+| The Graph menu on the canvas                   |                   |              | At the end of each list |                |
+| The inspector's Emitter menu, on the open card | Yes               | Yes          | After the card          | Yes            |
+| The Graph pane, one master node selected       | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it      | `Delete`       |
+| The Graph pane, several master nodes selected  | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, at the end    | `Delete`       |
+| The Graph pane, no master node selected        |                   |              | `Ctrl+V`, at the end    |                |
 
-**A duplicate lands right after its source**, and a paste after the emitter it was asked on, in
-that emitter's list. Each, a delete included, is one `editProperty` edit of the list, so one undo
-step. In a declared document a duplicate, a paste and a template land at the end of the list
+**Duplicate, copy and delete act on every selected emitter.** A shortcut, or a menu item on a
+node of the selection, acts on the emitters of all selected master nodes. A menu item on a node
+outside the selection acts on that node alone.
+
+**A duplicate lands right after its source.** A pasted emitter keeps the list it was copied from.
+The pasted emitters of the list of the emitter that the paste was asked on land after it, in
+order, and the others land at the end of their own list. A duplicate and a delete are one
+`editProperties` edit, and a paste is one `createAndEdit` edit, so each is one undo step. In a declared document a duplicate, a paste and a template land at the end of the list
 instead, so the declaration adds the emitter, and a delete removes it by index. The game's other
 emitters stay the game's, and a later patch of theirs still reaches the mod.
 
-**A copy is JSON text on the clipboard.** It carries `"format": "ltk-manager/bin-value"`, the
-class, and the value as `ltk_meta` serializes it, so a paste reads it back exactly in another
-system or another open document. Copy works on a read-only document, such as a game file, and a
-paste needs a document that takes edits. Where the webview refuses to read the clipboard, a
-paste takes the last copy made in the session.
+**A copy is JSON text on the clipboard.** It carries `"format": "ltk-manager/vfx-emitters"`, the
+entry of the source system, and for each emitter its list, its numbered mask and the backend's
+copy under `"format": "ltk-manager/bin-value"`. The backend copy holds the class and the value as
+`ltk_meta` serializes it, so a paste reads it back exactly in another system or another open
+document. A paste also takes a bare `ltk-manager/bin-value` copy of one emitter, which lands in
+the complex list. Copy works on a read-only document, such as a game file, and a paste needs a
+document that takes edits. Where the webview refuses to read the clipboard, a paste takes the
+last copy made in the session.
+
+**A copy carries the child systems that it links.** Each system that a copied emitter's
+`childrenIdentifiers` names by its `effect` link is copied whole when the source document holds
+it, and so is each system that those systems link in turn. A paste creates each carried system
+that the target document cannot link as a child, under its own name, in the same undo step. A
+child named by `effectKey` carries nothing, because the target document's own resolver maps the
+key.
+
+**A paste into another system keeps masks apart.** A pasted emitter on a numbered stencil mask
+that the target system already uses moves to the lowest free reference, and every pasted emitter
+on the same mask moves with it. A mask named by `StencilReferenceId` is kept, since the id is the
+way to share a mask between systems. A paste into the system that the copy came from keeps every
+mask.
 
 **The name is unique within the system.** An `emitterName` another emitter of the system's lists
 holds gains `_copy`, then `_copy2` and on, after any copy suffix it already carries: duplicating

@@ -9,7 +9,6 @@ import {
   SphereIcon,
   SquareIcon,
 } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { NoColorSpace } from "three";
 
@@ -40,8 +39,10 @@ import { PreviewViewport } from "../../shared/preview/PreviewViewport";
 import { useFitRequest } from "../../shared/preview/useFitRequest";
 import { ControlDivider, FitButton, ViewportControls } from "../../shared/preview/ViewportControls";
 import { Passes } from "../../vfx/rendering/components/Passes";
-import { materialQueries } from "../api/materialQueries";
+import { useMaterialProgram } from "../hooks/useMaterialProgram";
 import { useHeldValue } from "../state/heldValue";
+import { PermutationMenu } from "./PermutationMenu";
+import { ShaderMaterialMenu } from "./ShaderMaterialMenu";
 
 /** The shaders decode their own texels, so a program's textures upload as stored. */
 const RAW_TEXTURES = { colorSpace: NoColorSpace } as const;
@@ -67,6 +68,8 @@ const SHAPE_ICON: Record<PreviewShape, Icon> = {
 export interface MaterialViewportProps {
   document: BinDocumentId;
   entry: string | null;
+  /** `true` if `entry` is a `CustomShaderDef`, read with the preview material and defines. */
+  shader?: boolean;
 }
 
 /**
@@ -75,8 +78,12 @@ export interface MaterialViewportProps {
  *
  * The read is the open document's, so an edit reaches the preview once it lands.
  */
-export default function MaterialViewport({ document, entry }: MaterialViewportProps) {
-  const query = useQuery(materialQueries.program(document, entry));
+export default function MaterialViewport({
+  document,
+  entry,
+  shader = false,
+}: MaterialViewportProps) {
+  const query = useMaterialProgram(document, entry, shader);
   const program = query.data ?? null;
   const programs = useMemo(() => (program === null ? NO_PROGRAMS : [program]), [program]);
   const assets = useMemo(() => programTextureAssets(programs), [programs]);
@@ -115,6 +122,8 @@ export default function MaterialViewport({ document, entry }: MaterialViewportPr
       </PreviewViewport>
 
       <ViewportControls data-ui="MaterialViewport:controls">
+        {shader && entry !== null && <ShaderMaterialMenu document={document} entry={entry} />}
+        {shader && entry !== null && <PermutationMenu document={document} entry={entry} />}
         <ShapeMenu
           shape={shape}
           onPick={(picked) => setDisplay({ previewMaterialShape: picked })}

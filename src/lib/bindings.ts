@@ -364,6 +364,11 @@ export type BinEdit =
  *  [`BinDocument::edit_properties`].
  */
 { kind: "editProperties"; edits: PropertyEdit[] } | 
+/**
+ *  Create `objects`, then edit several properties, as one undoable change.
+ *  [`BinDocument::create_and_edit`].
+ */
+{ kind: "createAndEdit"; objects: ObjectCreation[]; edits: PropertyEdit[] } | 
 /**  Add a property to the end of the holder at `path`. [`BinDocument::add_property`]. */
 { kind: "addProperty"; entry: string; path: string; property: NewProperty } | 
 /**  Take the property at `path` out of its holder. [`BinDocument::remove_property`]. */
@@ -1268,6 +1273,14 @@ export type DeclarationsLoadError = {
 	span: LineSpan | null,
 };
 
+/**  One define a shader's TOCs declare, with every value they declare it with. */
+export type DeclaredDefine = {
+	/**  The define name. */
+	name: string,
+	/**  Every value that the TOCs declare for the name, sorted. */
+	values: string[],
+};
+
 /**  One diagnostic of the last apply, on the row it names. */
 export type DeclaredDiagnostic = {
 	/**
@@ -1609,6 +1622,8 @@ export type DefineSource =
 "switch" | 
 /**  `StaticMaterialPassDef.shaderMacros`. */
 "pass" | 
+/**  Picked in a shader def's preview, which writes nothing to the def. */
+"preview" | 
 /**  Set by the engine for the emitter that draws an engine particle shader. */
 "emitter";
 
@@ -4241,7 +4256,13 @@ export type MaterialWarning =
  *  A shader texture neither the material nor the def gives a path, so the engine's
  *  fallback texture is what draws.
  */
-{ kind: "noTexturePath"; name: string };
+{ kind: "noTexturePath"; name: string } | 
+/**
+ *  The define list selects no compiled permutation, so the shader def preview draws the
+ *  nearest compiled one. `set` holds each changed define as `NAME=VALUE`, and `unset` each
+ *  removed name.
+ */
+{ kind: "nearestPermutation"; set: string[]; unset: string[] };
 
 /**  Which typed view writes a member. */
 export type MemberScalar = "float" | "int" | "uint" | "bool";
@@ -4371,6 +4392,10 @@ export type MissileSpell = {
 	name: string,
 	/**  The spell's missile specification. */
 	missile: MissileSpec,
+	/**  The spell's rank-one cast range, in engine units. */
+	range: number | null,
+	/**  The spell's `missileSpeed`, in engine units per second. */
+	missileSpeed: number | null,
 };
 
 /**  A spline movement's `HermiteSplineInfo`, with omitted values kept absent. */
@@ -4703,7 +4728,14 @@ class: string } |
  */
 { type: "template"; 
 /**  The template's catalog id. */
-template: string };
+template: string } | 
+/**
+ *  An object that clipboard `text` carries as a struct value: `class` and a `set` of each
+ *  of its properties.
+ */
+{ type: "paste"; 
+/**  The clipboard text of a copied object. */
+text: string };
 
 /**  A property Add property writes: a field the schema declares, or one the reader shapes. */
 export type NewProperty = 
@@ -4811,6 +4843,12 @@ export type ObjectClassHit = {
 	class: string,
 	/**  How many declarations carry the class. */
 	rows: number,
+};
+
+/**  A new object of [`BinDocument::create_and_edit`]: its name and where it starts. */
+export type ObjectCreation = {
+	name: string,
+	origin: NewObject,
 };
 
 /**  One declaration of an object: the file that declares it and the class it carries. */
@@ -5469,6 +5507,14 @@ path: string;
 /**  The modifier's class as the tables name it, and its hash where none does. */
 class: string };
 
+/**  A `StaticMaterialDef` that a shader def's preview draws the def through. */
+export type PreviewMaterial = {
+	/**  The bin that declares the material. */
+	asset: AssetRef,
+	/**  The material's object hash, `0x` and eight hex digits, or its path. */
+	entry: string,
+};
+
 /**  One finding, at one site, from one rule. */
 export type Problem = Problem_Serialize | Problem_Deserialize;
 
@@ -6033,6 +6079,8 @@ export type RuleInfo_Deserialize = {
 	 *  [`RuleMeta::severity`].
 	 */
 	severity?: ProblemSeverity | null,
+	/**  The `ltk://` deep link that a panel offers beside this rule's findings. */
+	link?: string | null,
 	/**  Whether this project is one the rule speaks about yet. */
 	state: RuleState,
 };
@@ -6057,6 +6105,8 @@ export type RuleInfo_Serialize = {
 	 *  [`RuleMeta::severity`].
 	 */
 	severity?: ProblemSeverity | null,
+	/**  The `ltk://` deep link that a panel offers beside this rule's findings. */
+	link?: string | null,
 	/**  Whether this project is one the rule speaks about yet. */
 	state: RuleState,
 };
@@ -6624,6 +6674,17 @@ export type ShaderFailure = {
 	missingPipeline: string | null,
 };
 
+/**  A shader def's program, and the defines that select among its permutations. */
+export type ShaderProgram = {
+	/**  The program that the preview draws. */
+	program: MaterialProgram,
+	/**
+	 *  The defines that the shader's two TOCs declare, sorted by name. Empty if a TOC cannot
+	 *  be read.
+	 */
+	declared: DeclaredDefine[],
+};
+
 /**
  *  The parameters, textures and switches a `CustomShaderDef` declares, with its defaults.
  * 
@@ -6844,6 +6905,8 @@ export type SpellPreview = {
 	animationName: string | null,
 	/**  The missile specification, absent for spells without one. */
 	missile: MissileSpec | null,
+	/**  The written `missileSpeed`, in engine units per second. */
+	missileSpeed: number | null,
 	/**  A resource key, never a system-object identity. */
 	effectKey: string | null,
 	/**  The written fallback effect name, retained for inspection. */

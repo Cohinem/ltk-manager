@@ -39,6 +39,128 @@ fn toc_bytes() -> Vec<u8> {
     out
 }
 
+/// A `TOC3.0` that declares `defines` and holds no permutation.
+fn toc_declaring(defines: &[(&str, &str)]) -> Vec<u8> {
+    let mut out = Vec::new();
+    sized(&mut out, "TOC3.0");
+    let count = u32::try_from(defines.len()).unwrap();
+    for each in [0u32, count, 0, 0] {
+        out.extend(each.to_le_bytes());
+    }
+    sized(&mut out, "baseDefines");
+    for (name, value) in defines {
+        sized(&mut out, name);
+        sized(&mut out, value);
+    }
+    sized(&mut out, "shaders");
+    out
+}
+
+/// A `TOC3.0` that declares `defines` and holds one permutation per entry of `keys`. A key is
+/// the concatenation of the sorted `NAME=VALUE` pairs that the permutation selects.
+fn toc_holding(defines: &[(&str, &str)], keys: &[&str]) -> Vec<u8> {
+    let mut out = Vec::new();
+    sized(&mut out, "TOC3.0");
+    let count = |n: usize| u32::try_from(n).unwrap();
+    for each in [count(keys.len()), count(defines.len()), 0, 0] {
+        out.extend(each.to_le_bytes());
+    }
+    sized(&mut out, "baseDefines");
+    for (name, value) in defines {
+        sized(&mut out, name);
+        sized(&mut out, value);
+    }
+    sized(&mut out, "shaders");
+    for key in keys {
+        out.extend(xxh64(key.as_bytes(), 0).to_le_bytes());
+    }
+    for id in 0..keys.len() {
+        out.extend(count(id).to_le_bytes());
+    }
+    out
+}
+
+/// Both stage TOCs of `SHADER`, which declare `USE_RIM` 0 and 1 and `GLOW` 1 and hold the
+/// permutation `GLOW=1 USE_RIM=0`.
+fn rim_chunks() -> Chunks {
+    let declared = [("USE_RIM", "0"), ("USE_RIM", "1"), ("GLOW", "1")];
+    let mut chunks = Chunks::default();
+    for stage in [Stage::Vertex, Stage::Pixel] {
+        chunks.held.insert(
+            bundle::toc_path(SHADER, stage),
+            toc_holding(&declared, &["GLOW=1USE_RIM=0"]),
+        );
+    }
+    chunks
+}
+
+#[test]
+fn nearest_finds_the_permutation_fewest_changes_away() {
+    let mut chunks = rim_chunks();
+    let translations = TranslationCache::default();
+    let requested: Defines = [("USE_RIM", "1"), ("DISABLE_FOW", "1")]
+        .into_iter()
+        .collect();
+
+    let mut cache = ShaderCache::new(&mut chunks, &translations);
+    let shallow = cache
+        .nearest(ShaderPath::Generated(SHADER), &requested, &[], 1)
+        .unwrap();
+    let found = cache
+        .nearest(ShaderPath::Generated(SHADER), &requested, &[], 2)
+        .unwrap();
+
+    assert_eq!(shallow, None);
+    assert_eq!(
+        found.unwrap().to_entries(),
+        ["DISABLE_FOW=1", "GLOW=1", "USE_RIM=0"]
+    );
+}
+
+#[test]
+fn nearest_keeps_a_fixed_name() {
+    let mut chunks = rim_chunks();
+    let translations = TranslationCache::default();
+    let requested: Defines = [("USE_RIM", "1")].into_iter().collect();
+
+    let found = ShaderCache::new(&mut chunks, &translations)
+        .nearest(ShaderPath::Generated(SHADER), &requested, &["USE_RIM"], 3)
+        .unwrap();
+
+    assert_eq!(found, None);
+}
+
+#[test]
+fn declared_merges_both_stages_without_duplicates() {
+    let mut chunks = Chunks::default();
+    chunks.held.insert(
+        bundle::toc_path(SHADER, Stage::Vertex),
+        toc_declaring(&[("USE_RIM", "1"), ("NUM_BLEND_WEIGHTS", "4")]),
+    );
+    chunks.held.insert(
+        bundle::toc_path(SHADER, Stage::Pixel),
+        toc_declaring(&[("USE_RIM", "1"), ("USE_RIM", "0")]),
+    );
+    let translations = TranslationCache::default();
+
+    let declared = ShaderCache::new(&mut chunks, &translations)
+        .declared(ShaderPath::Generated(SHADER))
+        .unwrap();
+
+    let pairs: Vec<(&str, &str)> = declared
+        .iter()
+        .map(|(name, value)| (name.as_str(), value.as_str()))
+        .collect();
+    assert_eq!(
+        pairs,
+        [
+            ("NUM_BLEND_WEIGHTS", "4"),
+            ("USE_RIM", "0"),
+            ("USE_RIM", "1")
+        ]
+    );
+}
+
 #[test]
 fn a_missing_toc_names_the_chunk_path() {
     let mut chunks = Chunks::default();

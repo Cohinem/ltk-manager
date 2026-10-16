@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { ContentEntry, IgnoreMatch } from "@/lib/tauri";
+import { renderWithProviders as render } from "@/test/utils";
 
 import type { DirNode, FileNode } from "../../utils/contentTree";
 import { TreeRow } from "../ContentTreeRow";
@@ -16,6 +17,7 @@ function fileRow(node: FileNode) {
   return (
     <TreeRow
       node={node}
+      layer="base"
       depth={0}
       isExpanded={false}
       isSelected={false}
@@ -72,6 +74,7 @@ describe("TreeRow", () => {
     render(
       <TreeRow
         node={node}
+        layer="base"
         depth={0}
         isExpanded
         isSelected={false}

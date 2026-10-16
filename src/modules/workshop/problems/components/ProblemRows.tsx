@@ -1,9 +1,11 @@
-import { CaretRightIcon, WrenchIcon } from "@phosphor-icons/react";
+import { CaretRightIcon, GearIcon, WrenchIcon } from "@phosphor-icons/react";
 import type { ReactNode } from "react";
 
 import { Code, IconButton, SeverityGlyph, SeverityTally, Tooltip } from "@/components";
 import { useZoomedPx } from "@/hooks";
+import { m } from "@/i18n";
 import type { FixPreview, Problem } from "@/lib/tauri";
+import { useOpenDeepLink } from "@/modules/deep-link";
 import { twMerge } from "@/utils";
 
 import { useFixProblems } from "../../api";
@@ -166,6 +168,8 @@ export function ProblemRow({ problem }: { problem: Problem }) {
   const fix = useFixProblems();
   const zoomed = useZoomedPx();
   const muted = useMutedProblem(problem);
+  const link = useRuleInfo(problem.rule)?.link;
+  const openLink = useOpenDeepLink();
 
   function open() {
     const document = previewDocument({
@@ -216,6 +220,17 @@ export function ProblemRow({ problem }: { problem: Problem }) {
           </span>
         </button>
       </Tooltip>
+
+      {link && (
+        <IconButton
+          icon={<GearIcon />}
+          onClick={() => openLink(link)}
+          aria-label={m.workshop_problems_setting_action()}
+          reveal
+          tooltip={m.workshop_problems_setting_action()}
+          tooltipSide="left"
+        />
+      )}
 
       {problem.fix && (
         <IconButton

@@ -10,6 +10,7 @@ import type {
   MaterialSource,
   ParticleDefine,
   ParticleShader,
+  PreviewMaterial,
   ProgramOptions,
   SandboxRef,
   ProjectMetadata,
@@ -320,6 +321,13 @@ export const api = {
         entries.map((entry) => ({ kind: "object" as const, entry })),
         options,
       ),
+    readShaderProgram: (
+      document: BinDocumentId,
+      entry: string,
+      material: PreviewMaterial | null,
+      defines: readonly string[],
+      options: ProgramOptions,
+    ) => preview.readShaderProgram(document, entry, material, [...defines], options),
     readEmbeddedMaterialProgram: (
       source: MaterialSource,
       entry: string,

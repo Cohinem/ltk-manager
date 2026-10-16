@@ -502,12 +502,18 @@ impl BinDocument {
     }
 
     /// Run `edits`, each declaring itself, and fold what they wrote into one undo step. A
-    /// refusal takes back what the ones before it wrote.
+    /// refusal takes back what the ones before it wrote. If a group is already open, the
+    /// writes of `edits` are folded into that group's step.
     pub(super) fn declared_group(
         &mut self,
         edits: impl FnOnce(&mut Self) -> Result<(), BinDocumentError>,
     ) -> Result<(), BinDocumentError> {
-        self.declared.as_mut().ok_or_else(not_declared)?.group = Some(None);
+        let declared = self.declared.as_mut().ok_or_else(not_declared)?;
+        if declared.group.is_some() {
+            return edits(self);
+        }
+
+        declared.group = Some(None);
         let outcome = edits(self);
         let declared = self.declared.as_mut().ok_or_else(not_declared)?;
         let folded = declared.group.take().flatten();

@@ -5,6 +5,7 @@ use ltk_game_data::EntryName;
 use ltk_hash::BinHash;
 use ltk_meta::BinObject;
 
+use super::clipboard::copied_object;
 use super::declared::{NewObject, clone_as, not_declared, own_named};
 use super::edit::{Edit, bin_hash};
 use super::{BinDocument, BinDocumentError, EditRejection, hex};
@@ -25,6 +26,18 @@ impl BinDocument {
         name: &str,
         origin: &NewObject,
     ) -> Result<BinHash, BinDocumentError> {
+        let (entry, inverse) = self.put_owned_object(name, origin)?;
+        self.record(inverse)?;
+        Ok(entry)
+    }
+
+    /// Adds a new object named `name` from `origin`, as [`BinDocument::create_owned_object`]
+    /// does, and returns its path hash and the edit that reverts it. The edit is not recorded.
+    pub(super) fn put_owned_object(
+        &mut self,
+        name: &str,
+        origin: &NewObject,
+    ) -> Result<(BinHash, Edit), BinDocumentError> {
         let rejected = |rejection| BinDocumentError::EditRejected {
             address: name.to_owned(),
             rejection,
@@ -60,12 +73,16 @@ impl BinDocument {
                 object.properties = own_named(value, &name).into_iter().collect();
                 object
             }
+            NewObject::Paste { text } => {
+                let value = copied_object(text).map_err(rejected)?;
+                let mut object = BinObject::new(entry, value.class_hash);
+                object.properties = value.properties.into_iter().collect();
+                object
+            }
         };
 
         let index = self.file.objects().len();
-        let inverse = self.put_object(object, index)?;
-        self.record(inverse)?;
-        Ok(entry)
+        Ok((entry, self.put_object(object, index)?))
     }
 
     /// Take the object `entry` out of a document that writes its own bytes.

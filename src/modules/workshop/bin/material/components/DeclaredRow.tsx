@@ -2,11 +2,12 @@ import {
   ArrowCounterClockwiseIcon,
   DotsThreeVerticalIcon,
   EraserIcon,
+  InfoIcon,
   WarningCircleIcon,
 } from "@phosphor-icons/react";
 import { type ReactNode, use } from "react";
 
-import { type DataTableColumn, IconButton, Menu, Table } from "@/components";
+import { type DataTableColumn, HintIcon, IconButton, Menu, Table } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -135,6 +136,7 @@ function NameCell<D>({ row }: { row: DeclaredRow<D> }) {
       : fieldsOf(table?.pages.get(rowKey(row.element)))(table?.kind.nameField ?? "");
   const stray = table?.known === true && row.declared === null;
   const warning = table?.warnings.get(row.name);
+  const note = table?.notes.get(row.name);
 
   return (
     <DeclaredCell>
@@ -145,11 +147,20 @@ function NameCell<D>({ row }: { row: DeclaredRow<D> }) {
           className="pointer-events-none absolute inset-y-0.5 left-0 w-0.5 rounded-full bg-accent-500/50"
         />
       )}
-      <span className={twMerge(NAME, changed && "text-accent-300")} title={row.name}>
-        {nameRow === undefined && <span className="truncate select-text">{row.name}</span>}
-        {nameRow !== undefined && <TextCell row={nameRow} className="min-w-0" />}
+      <span className={twMerge(NAME, changed && "text-accent-300")}>
+        <span className="contents" title={row.name}>
+          {nameRow === undefined && <span className="truncate select-text">{row.name}</span>}
+          {nameRow !== undefined && <TextCell row={nameRow} className="min-w-0" />}
+        </span>
         {stray && <RowMark text={m.workshop_bin_material_undeclared_label()} />}
         {warning !== undefined && <RowMark text={warning} />}
+        {note !== undefined && (
+          <HintIcon
+            content={note}
+            label={note}
+            icon={<InfoIcon weight="duotone" className="size-3.5" />}
+          />
+        )}
       </span>
     </DeclaredCell>
   );

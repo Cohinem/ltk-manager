@@ -27,7 +27,10 @@ export type SectionWidget =
   | "material-params"
   | "material-samplers"
   | "material-switches"
-  | "material-macros";
+  | "material-macros"
+  | "shader-params"
+  | "shader-textures"
+  | "shader-switches";
 
 /** Which of a level's answered rows the level under it reads, by field name. */
 export type Select = "all" | readonly string[];
@@ -110,6 +113,33 @@ export const materialLayout: ClassLayout = {
       as: "material-macros",
     },
     { title: m.workshop_bin_section_techniques_label, fields: ["techniques"], as: "tree" },
+  ],
+};
+
+/**
+ * The layout of a `CustomShaderDef`, the material shell with its parameters, textures and
+ * switches as tables. "The material shell" in docs/ux/BIN_EDITOR.md.
+ */
+export const shaderLayout: ClassLayout = {
+  title: m.workshop_bin_layout_shader_label,
+  shell: "material",
+  sections: [
+    {
+      title: m.workshop_bin_section_identity_label,
+      fields: ["objectPath", "ShadingModel", "featureMask", "AdditionalUvSetMask"],
+    },
+    { title: m.workshop_bin_section_params_label, fields: ["parameters"], as: "shader-params" },
+    { title: m.workshop_bin_section_textures_label, fields: ["textures"], as: "shader-textures" },
+    {
+      title: m.workshop_bin_section_switches_label,
+      fields: ["staticSwitches"],
+      as: "shader-switches",
+    },
+    {
+      title: m.workshop_bin_section_feature_defines_label,
+      fields: ["featureDefines"],
+      as: "tree",
+    },
   ],
 };
 
@@ -338,6 +368,7 @@ export const fontLayout: ClassLayout = {
  */
 const LAYOUTS: ReadonlyMap<string, ClassLayout> = new Map([
   [nameHash("StaticMaterialDef"), materialLayout],
+  [nameHash("CustomShaderDef"), shaderLayout],
   [nameHash("SkinCharacterDataProperties"), skinLayout],
   [nameHash("TftSkinCharacterDataProperties"), skinLayout],
   [nameHash("VfxSystemDefinitionData"), vfxLayout],
@@ -478,6 +509,9 @@ export function sectionCount(
     case "material-params":
     case "material-samplers":
     case "material-switches":
+    case "shader-params":
+    case "shader-textures":
+    case "shader-switches":
       return lists(section.rows);
     case "material-macros":
       return section.rows.reduce((sum, row) => sum + childCount(row), 0);
@@ -528,6 +562,9 @@ const DESCENT: Record<SectionWidget, Descent> = {
   "material-switches": ["all", "all"],
   /* A macro is a map entry, which holds its value itself. */
   "material-macros": ["all"],
+  "shader-params": ["all", "all"],
+  "shader-textures": ["all", "all"],
+  "shader-switches": ["all", "all"],
 };
 
 /** How far under its own fields a section's widget reads. Nothing, without one. */

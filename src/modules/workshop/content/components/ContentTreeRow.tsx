@@ -8,6 +8,8 @@ import { twMerge } from "@/utils";
 import { formatBytes } from "@/utils";
 
 import { entryChunkPath } from "../../bin/links/hooks/useLinkTargets";
+import { ProblemMark } from "../../problems/components/ProblemMark";
+import { useProblemsAt } from "../../problems/utils/runCatalogue";
 import {
   FolderGlyph,
   IndentRails,
@@ -53,6 +55,8 @@ function ExcludedMark({ rule }: { rule: IgnoreMatch }) {
 
 interface TreeRowProps {
   node: ContentTreeNode;
+  /** The layer that holds the node. */
+  layer: string;
   depth: number;
   isExpanded: boolean;
   isSelected: boolean;
@@ -72,6 +76,7 @@ interface TreeRowProps {
 
 function TreeRowInner({
   node,
+  layer,
   depth,
   isExpanded,
   isSelected,
@@ -89,6 +94,7 @@ function TreeRowInner({
     return (
       <DirRow
         node={node}
+        layer={layer}
         depth={depth}
         isExpanded={isExpanded}
         isSelected={isSelected}
@@ -105,6 +111,7 @@ function TreeRowInner({
   return (
     <FileRow
       node={node}
+      layer={layer}
       depth={depth}
       isSelected={isSelected}
       onSelect={onSelect}
@@ -121,6 +128,7 @@ export const TreeRow = memo(TreeRowInner);
 
 interface DirRowProps {
   node: DirNode;
+  layer: string;
   depth: number;
   isExpanded: boolean;
   isSelected: boolean;
@@ -135,6 +143,7 @@ interface DirRowProps {
 
 function DirRow({
   node,
+  layer,
   depth,
   isExpanded,
   isSelected,
@@ -146,6 +155,8 @@ function DirRow({
   rowIndex,
   tabIndex,
 }: DirRowProps) {
+  const problems = useProblemsAt(layer, node.path);
+
   return (
     <button
       type="button"
@@ -181,6 +192,7 @@ function DirRow({
       <span className="truncate">{node.name}</span>
       {/* A folder keeps its count: what it holds is true whether or not it ships. */}
       <span className="ml-auto flex shrink-0 items-center gap-1.5">
+        <ProblemMark problems={problems} />
         <span className="text-fine text-surface-500 tabular-nums">{fileCount}</span>
         {node.ignoredBy && <ExcludedMark rule={node.ignoredBy} />}
       </span>
@@ -190,6 +202,7 @@ function DirRow({
 
 interface FileRowProps {
   node: FileNode;
+  layer: string;
   depth: number;
   isSelected: boolean;
   onSelect: (index: number) => void;
@@ -202,6 +215,7 @@ interface FileRowProps {
 
 function FileRow({
   node,
+  layer,
   depth,
   isSelected,
   onSelect,
@@ -214,6 +228,7 @@ function FileRow({
   const descriptor = describeFileKind(node.entry.kind);
   const Icon = descriptor.icon;
   const excluded = node.entry.ignoredBy;
+  const problems = useProblemsAt(layer, node.entry.relativePath);
 
   return (
     <div
@@ -260,7 +275,8 @@ function FileRow({
       </Tooltip>
       <span className="truncate">{node.name}</span>
       {/* A size is a fact about what ships, so a row that ships nothing gives the seat up. */}
-      <span className="ml-auto shrink-0">
+      <span className="ml-auto flex shrink-0 items-center gap-1.5">
+        <ProblemMark problems={problems} />
         {excluded && <ExcludedMark rule={excluded} />}
         {!excluded && (
           <span className="text-fine text-surface-400 tabular-nums">
