@@ -38,7 +38,7 @@ interface GraphMenuProps {
   onCollapseAll: (collapsed: boolean) => void;
   /** Put every node back where the layout placed it. */
   onResetLayout: () => void;
-  /** The emitters of the selected master nodes. Copy on one of these nodes copies all of them. */
+  /** The emitters of the selected master nodes. An emitter action on one of these nodes acts on all of them. */
   selected: readonly EmitterRef[];
 }
 

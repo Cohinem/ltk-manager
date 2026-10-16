@@ -82,6 +82,48 @@ export function pasteEdits(text: string, index: number | null): ValueEdit[] {
   return [{ type: "pasteItem", path: "", index, text, unique: EMITTER_NAME }];
 }
 
+/** Returns the indices of `emitters` by list, each list's indices in ascending order. */
+function indicesByList(emitters: readonly EmitterRef[]): Map<string, number[]> {
+  const lists = new Map<string, number[]>();
+  for (const emitter of emitters) {
+    const place = emitterPlace(emitter.wire);
+    if (place === null) continue;
+
+    lists.set(place.list, [...(lists.get(place.list) ?? []), place.index]);
+  }
+
+  for (const indices of lists.values()) indices.sort((left, right) => left - right);
+  return lists;
+}
+
+/**
+ * Returns the property edits that duplicate `emitters` of the system `entry`, one per emitter
+ * list. Each copy lands right after its source, or at the end of the list if `atEnd` is set.
+ */
+export function duplicateAllEdits(
+  entry: string,
+  emitters: readonly EmitterRef[],
+  atEnd: boolean,
+): PropertyEdit[] {
+  return [...indicesByList(emitters)].map(([field, indices]) => {
+    /* From the last index down, so a copy does not shift the sources before it. */
+    const edits = atEnd
+      ? indices.flatMap((index) => duplicateEdits(index, null))
+      : [...indices].reverse().flatMap((index) => duplicateEdits(index, index + 1));
+    return { entry, holder: "", field, edits };
+  });
+}
+
+/** Returns the property edits that remove `emitters` of the system `entry`, one per emitter list. */
+export function removeAllEdits(entry: string, emitters: readonly EmitterRef[]): PropertyEdit[] {
+  return [...indicesByList(emitters)].map(([field, indices]) => ({
+    entry,
+    holder: "",
+    field,
+    edits: [...indices].reverse().flatMap((index) => removeEdits(index)),
+  }));
+}
+
 /** One copied emitter. */
 export interface CopiedEmitter {
   /** The emitter list, `COMPLEX_LIST` or `SIMPLE_LIST`. */

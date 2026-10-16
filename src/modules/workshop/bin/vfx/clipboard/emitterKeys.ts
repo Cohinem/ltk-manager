@@ -15,16 +15,16 @@ export function selectedEmitters(nodes: readonly CanvasNode[], entry: string): E
 export interface EmitterClipboard {
   /** Copies `emitters` and the child systems that they link. */
   readonly copy: (emitters: readonly EmitterRef[]) => Promise<void>;
-  /** Null where the document takes no edit. */
-  readonly duplicate: ((emitter: EmitterRef) => Promise<void>) | null;
+  /** Duplicates `emitters` as one edit. Null where the document takes no edit. */
+  readonly duplicate: ((emitters: readonly EmitterRef[]) => Promise<void>) | null;
   /**
    * Lands the clipboard's emitters in the system `entry`: the emitters of `after`'s list after
    * it, and the others at the end of their own list. Null where the document takes no edit or no
    * system is read.
    */
   readonly paste: ((entry: string, after: EmitterRef | null) => Promise<void>) | null;
-  /** Null where the document takes no edit. */
-  readonly remove: ((emitter: EmitterRef) => Promise<void>) | null;
+  /** Removes `emitters` as one edit. Null where the document takes no edit. */
+  readonly remove: ((emitters: readonly EmitterRef[]) => Promise<void>) | null;
   /**
    * Land a template's emitters in the system `entry`, after `after` or else last, each named
    * apart from the system's, answering whether the edit landed. Null where the document takes
@@ -49,11 +49,11 @@ interface Chord {
 }
 
 /**
- * Run what Ctrl+D, Ctrl+C, Ctrl+V or Delete asks of the emitter `picked`, answering whether
+ * Run what Ctrl+D, Ctrl+C, Ctrl+V or Delete asks of the `selected` emitters, answering whether
  * one ran.
  *
- * Duplicate and delete need a picked emitter, copy takes the `selected` emitters, and a paste
- * lands after the picked emitter or at the end.
+ * Duplicate, copy and delete act on every selected emitter, and a paste lands after the emitter
+ * `picked` or at the end.
  */
 export function runEmitterKey(
   chord: Chord,
@@ -67,9 +67,9 @@ export function runEmitterKey(
   const { copy, duplicate, paste, remove } = clipboard;
   const bare = !(chord.ctrlKey || chord.metaKey || chord.shiftKey || chord.altKey);
   if (bare && chord.key === "Delete") {
-    if (picked === null || remove === null) return false;
+    if (selected.length === 0 || remove === null) return false;
 
-    void remove(picked);
+    void remove(selected);
     return true;
   }
 
@@ -77,8 +77,8 @@ export function runEmitterKey(
 
   switch (chord.key.toLowerCase()) {
     case "d":
-      if (picked === null || duplicate === null) return false;
-      void duplicate(picked);
+      if (selected.length === 0 || duplicate === null) return false;
+      void duplicate(selected);
       return true;
     case "c":
       if (selected.length === 0) return false;

@@ -78,14 +78,14 @@ describe("emitter keys", () => {
     land: vi.fn(() => Promise.resolve(true)),
   });
 
-  it("duplicates, copies and pastes the picked emitter", () => {
+  it("duplicates and copies the selected emitters and pastes after the picked one", () => {
     const actions = clipboard();
 
     expect(runEmitterKey(chord("d"), actions, picked.entry, picked, [picked])).toBe(true);
     expect(runEmitterKey(chord("C"), actions, picked.entry, picked, [picked])).toBe(true);
     expect(runEmitterKey(chord("v"), actions, picked.entry, picked, [picked])).toBe(true);
 
-    expect(actions.duplicate).toHaveBeenCalledWith(picked);
+    expect(actions.duplicate).toHaveBeenCalledWith([picked]);
     expect(actions.copy).toHaveBeenCalledWith([picked]);
     expect(actions.paste).toHaveBeenCalledWith(picked.entry, picked);
   });
@@ -99,7 +99,7 @@ describe("emitter keys", () => {
     expect(actions.copy).toHaveBeenCalledWith([picked, other]);
   });
 
-  it("pastes with no pick and leaves the other chords alone", () => {
+  it("pastes with no selection and leaves the other chords alone", () => {
     const actions = clipboard();
 
     expect(runEmitterKey(chord("d"), actions, picked.entry, null, [])).toBe(false);
@@ -111,7 +111,7 @@ describe("emitter keys", () => {
     expect(actions.duplicate).not.toHaveBeenCalled();
   });
 
-  it("deletes the picked emitter on a bare Delete, and nothing with none picked", () => {
+  it("deletes the selected emitters on a bare Delete, and nothing with none selected", () => {
     const actions = clipboard();
 
     expect(runEmitterKey(chord("Delete", false), actions, picked.entry, null, [])).toBe(false);
@@ -120,7 +120,7 @@ describe("emitter keys", () => {
       true,
     );
 
-    expect(actions.remove).toHaveBeenCalledExactlyOnceWith(picked);
+    expect(actions.remove).toHaveBeenCalledExactlyOnceWith([picked]);
   });
 
   it("offers copy alone on a document that takes no edit", () => {

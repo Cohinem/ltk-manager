@@ -5,12 +5,14 @@ import {
   CLIPBOARD_FORMAT,
   COMPLEX_LIST,
   type CopiedEmitter,
+  duplicateAllEdits,
   emitterCopiesText,
   EMITTERS_FORMAT,
   landingPropertyEdits,
   linkedSystems,
   readEmitterCopies,
   remappedMasks,
+  removeAllEdits,
   SIMPLE_LIST,
 } from "../emitterCopy";
 
@@ -52,6 +54,67 @@ function emitterText(...effects: number[]): string {
 function emitter(list: string, text: string, mask: number | null = null): CopiedEmitter {
   return { list, text, mask };
 }
+
+describe("duplicateAllEdits", () => {
+  const at = (list: string, index: number) => ({
+    entry: "0x00000001",
+    wire: `${list.slice(2)}[${index}]`,
+    name: "Spark",
+  });
+
+  it("copies each emitter after itself from the last index down, one edit per list", () => {
+    const emitters = [at(COMPLEX_LIST, 1), at(SIMPLE_LIST, 0), at(COMPLEX_LIST, 3)];
+
+    expect(duplicateAllEdits("0x00000001", emitters, false)).toEqual([
+      {
+        entry: "0x00000001",
+        holder: "",
+        field: COMPLEX_LIST,
+        edits: [
+          { type: "copyItem", from: "[3]", path: "", index: 4, unique: NAME },
+          { type: "copyItem", from: "[1]", path: "", index: 2, unique: NAME },
+        ],
+      },
+      {
+        entry: "0x00000001",
+        holder: "",
+        field: SIMPLE_LIST,
+        edits: [{ type: "copyItem", from: "[0]", path: "", index: 1, unique: NAME }],
+      },
+    ]);
+  });
+
+  it("copies to the end of the list in index order if atEnd is set", () => {
+    const edits = duplicateAllEdits("0x00000001", [at(COMPLEX_LIST, 3), at(COMPLEX_LIST, 1)], true);
+
+    expect(edits[0]?.edits).toEqual([
+      { type: "copyItem", from: "[1]", path: "", index: null, unique: NAME },
+      { type: "copyItem", from: "[3]", path: "", index: null, unique: NAME },
+    ]);
+  });
+});
+
+describe("removeAllEdits", () => {
+  it("removes the emitters of each list from the last index down", () => {
+    const emitters = [0, 2].map((index) => ({
+      entry: "0x00000001",
+      wire: `${COMPLEX_LIST.slice(2)}[${index}]`,
+      name: "Spark",
+    }));
+
+    expect(removeAllEdits("0x00000001", emitters)).toEqual([
+      {
+        entry: "0x00000001",
+        holder: "",
+        field: COMPLEX_LIST,
+        edits: [
+          { type: "removeItem", path: "[2]" },
+          { type: "removeItem", path: "[0]" },
+        ],
+      },
+    ]);
+  });
+});
 
 describe("readEmitterCopies", () => {
   it("reads a copy of one emitter as one complex emitter", () => {

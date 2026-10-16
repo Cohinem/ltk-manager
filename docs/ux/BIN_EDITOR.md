@@ -3416,18 +3416,17 @@ under it.
 | The Graph menu on the canvas                   |                   |              | At the end of each list |                |
 | The inspector's Emitter menu, on the open card | Yes               | Yes          | After the card          | Yes            |
 | The Graph pane, one master node selected       | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it      | `Delete`       |
-| The Graph pane, several master nodes selected  |                   | `Ctrl+C`     | `Ctrl+V`, at the end    |                |
+| The Graph pane, several master nodes selected  | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, at the end    | `Delete`       |
 | The Graph pane, no master node selected        |                   |              | `Ctrl+V`, at the end    |                |
 
-**Copy takes every selected emitter.** `Ctrl+C`, or Copy emitter on a node of the selection,
-copies the emitters of all selected master nodes in graph order. Copy emitter on a node outside
-the selection copies that node alone.
+**Duplicate, copy and delete act on every selected emitter.** A shortcut, or a menu item on a
+node of the selection, acts on the emitters of all selected master nodes. A menu item on a node
+outside the selection acts on that node alone.
 
 **A duplicate lands right after its source.** A pasted emitter keeps the list it was copied from.
 The pasted emitters of the list of the emitter that the paste was asked on land after it, in
 order, and the others land at the end of their own list. A duplicate and a delete are one
-`editProperty` edit of the list, and a paste is one `createAndEdit` edit, so each is one undo
-step. In a declared document a duplicate, a paste and a template land at the end of the list
+`editProperties` edit, and a paste is one `createAndEdit` edit, so each is one undo step. In a declared document a duplicate, a paste and a template land at the end of the list
 instead, so the declaration adds the emitter, and a delete removes it by index. The game's other
 emitters stay the game's, and a later patch of theirs still reaches the mod.
 

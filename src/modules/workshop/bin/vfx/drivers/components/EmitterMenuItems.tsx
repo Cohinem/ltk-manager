@@ -13,8 +13,8 @@ import { GraphActionsContext } from "./graphActions";
 /**
  * The emitter clipboard's items of the Graph menu: Duplicate, Copy and Delete on a master
  * node, and Paste emitter and Add from template on a master node or the canvas. A paste or a
- * template on a node lands after it. Copy on a node of the selection copies every emitter of
- * `selected`.
+ * template on a node lands after it. Duplicate, Copy and Delete on a node of the selection act
+ * on every emitter of `selected`.
  */
 export function EmitterMenuItems({
   item,
@@ -32,6 +32,7 @@ export function EmitterMenuItems({
   if (emitter === null && paste === null) return null;
 
   const inSelection = emitter !== null && selected.some((each) => each.wire === emitter.wire);
+  const targets = emitter === null ? [] : inSelection ? selected : [emitter];
 
   return (
     <>
@@ -40,17 +41,13 @@ export function EmitterMenuItems({
         <ContextMenu.Item
           icon={<CopySimpleIcon />}
           shortcut="Ctrl+D"
-          onClick={() => void duplicate(emitter)}
+          onClick={() => void duplicate(targets)}
         >
           {m.workshop_bin_emitter_duplicate_action()}
         </ContextMenu.Item>
       )}
       {emitter !== null && (
-        <ContextMenu.Item
-          icon={<CopyIcon />}
-          shortcut="Ctrl+C"
-          onClick={() => void copy(inSelection ? selected : [emitter])}
-        >
+        <ContextMenu.Item icon={<CopyIcon />} shortcut="Ctrl+C" onClick={() => void copy(targets)}>
           {m.workshop_bin_emitter_copy_action()}
         </ContextMenu.Item>
       )}
@@ -69,7 +66,7 @@ export function EmitterMenuItems({
           icon={<TrashIcon />}
           shortcut="Del"
           variant="danger"
-          onClick={() => void remove(emitter)}
+          onClick={() => void remove(targets)}
         >
           {m.workshop_bin_emitter_delete_action()}
         </ContextMenu.Item>

@@ -4,13 +4,7 @@ import { use } from "react";
 import { useToast } from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
-import {
-  api,
-  type BinEdit,
-  type ObjectCreation,
-  type TemplateEmitter,
-  type ValueEdit,
-} from "@/lib/tauri";
+import { api, type BinEdit, type ObjectCreation, type TemplateEmitter } from "@/lib/tauri";
 
 import { emitterAtPath } from "../../curves/hooks/curvePlayhead";
 import { useDeclares } from "../../documents/hooks/useDeclared";
@@ -25,7 +19,7 @@ import {
   COMPLEX_LIST,
   type CopiedEmitter,
   type CopiedSystem,
-  duplicateEdits,
+  duplicateAllEdits,
   emitterCopiesText,
   type EmitterRef,
   emitterPlace,
@@ -33,7 +27,7 @@ import {
   linkedSystems,
   readEmitterCopies,
   remappedMasks,
-  removeEdits,
+  removeAllEdits,
 } from "./emitterCopy";
 import type { EmitterClipboard } from "./emitterKeys";
 
@@ -140,22 +134,14 @@ export function useEmitterClipboard(): EmitterClipboard | null {
     return true;
   };
 
-  const applyList = (entry: string, list: string, edits: ValueEdit[]) =>
-    apply({ kind: "editProperty", entry, holder: "", field: list, edits });
-
-  const duplicate = async (emitter: EmitterRef) => {
-    const place = emitterPlace(emitter.wire);
-    if (place === null) return;
-
-    const at = declares ? null : place.index + 1;
-    await applyList(emitter.entry, place.list, duplicateEdits(place.index, at));
+  const duplicate = async (emitters: readonly EmitterRef[]) => {
+    const edits = duplicateAllEdits(emitters[0]?.entry ?? "", emitters, declares);
+    if (edits.length > 0) await apply({ kind: "editProperties", edits });
   };
 
-  const remove = async (emitter: EmitterRef) => {
-    const place = emitterPlace(emitter.wire);
-    if (place === null) return;
-
-    await applyList(emitter.entry, place.list, removeEdits(place.index));
+  const remove = async (emitters: readonly EmitterRef[]) => {
+    const edits = removeAllEdits(emitters[0]?.entry ?? "", emitters);
+    if (edits.length > 0) await apply({ kind: "editProperties", edits });
   };
 
   if (system === null) return { copy, duplicate, paste: null, remove, land: null };
@@ -197,7 +183,8 @@ export function useEmitterClipboard(): EmitterClipboard | null {
     const list = place?.list ?? COMPLEX_LIST;
     const index = place === null ? listEnd(system, COMPLEX_LIST) : place.index + 1;
     const taken = new Set(system.emitters.map((emitter) => emitter.name));
-    return applyList(entry, list, landingEdits(emitters, index, taken));
+    const edits = landingEdits(emitters, index, taken);
+    return apply({ kind: "editProperty", entry, holder: "", field: list, edits });
   };
 
   return { copy, duplicate, paste, remove, land };
