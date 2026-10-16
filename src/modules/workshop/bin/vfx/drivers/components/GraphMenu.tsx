@@ -19,6 +19,7 @@ import { m } from "@/i18n";
 
 import { ResetMenuItem } from "../../../classes/components/ResetMenuItem";
 import { RevertMenuItem } from "../../../documents/components/ChangeMark";
+import type { EmitterRef } from "../../clipboard/emitterCopy";
 import { isForce, nodeRemoval } from "../utils/nodeEdits";
 import { itemClass } from "../utils/nodeText";
 import type { GraphItem } from "../utils/systemGraph";
@@ -37,6 +38,8 @@ interface GraphMenuProps {
   onCollapseAll: (collapsed: boolean) => void;
   /** Put every node back where the layout placed it. */
   onResetLayout: () => void;
+  /** The emitters of the selected master nodes. Copy on one of these nodes copies all of them. */
+  selected: readonly EmitterRef[];
 }
 
 /**
@@ -55,12 +58,20 @@ export function GraphMenu(props: GraphMenuProps) {
   );
 }
 
-function MenuItems({ item, row, onFit, onFrame, onCollapseAll, onResetLayout }: GraphMenuProps) {
+function MenuItems({
+  item,
+  row,
+  onFit,
+  onFrame,
+  onCollapseAll,
+  onResetLayout,
+  selected,
+}: GraphMenuProps) {
   if (item !== null) {
     return (
       <>
         {row !== null && <RowActions row={row} />}
-        <ItemActions item={item} onFrame={onFrame} />
+        <ItemActions item={item} onFrame={onFrame} selected={selected} />
       </>
     );
   }
@@ -81,7 +92,7 @@ function MenuItems({ item, row, onFit, onFrame, onCollapseAll, onResetLayout }: 
       <ContextMenu.Item icon={<ArrowCounterClockwiseIcon />} onClick={onResetLayout}>
         {m.workshop_bin_graph_reset_layout_action()}
       </ContextMenu.Item>
-      <EmitterMenuItems item={null} />
+      <EmitterMenuItems item={null} selected={selected} />
     </>
   );
 }
@@ -108,7 +119,15 @@ const FOLDING: ReadonlySet<GraphItem["type"]> = new Set([
   "children",
 ]);
 
-function ItemActions({ item, onFrame }: { item: GraphItem; onFrame: (id: string) => void }) {
+function ItemActions({
+  item,
+  onFrame,
+  selected,
+}: {
+  item: GraphItem;
+  onFrame: (id: string) => void;
+  selected: readonly EmitterRef[];
+}) {
   const actions = use(GraphActionsContext);
   const copy = useCopyToClipboard();
 
@@ -146,7 +165,7 @@ function ItemActions({ item, onFrame }: { item: GraphItem; onFrame: (id: string)
           </ContextMenu.Item>
         </>
       )}
-      {item.type === "master" && <EmitterMenuItems item={item} />}
+      {item.type === "master" && <EmitterMenuItems item={item} selected={selected} />}
       {item.type !== "master" && <StructureItems item={item} />}
       {held !== null && (
         <>

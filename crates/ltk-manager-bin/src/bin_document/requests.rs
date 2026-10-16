@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     AddableFields, BinDocumentId, BinDocuments, ClassChoice, DeclaredState, LeafValue, NewItem,
-    NewObject, NewProperty, PropertyEdit, ValueEdit, hex,
+    NewObject, NewProperty, ObjectCreation, PropertyEdit, ValueEdit, hex,
 };
 use crate::meta_schema::SchemaAt;
 use crate::object_index::parse_hash;
@@ -43,6 +43,12 @@ pub enum BinEdit {
     /// Edit several properties, of one object or several, as one undoable change.
     /// [`BinDocument::edit_properties`].
     EditProperties { edits: Vec<PropertyEdit> },
+    /// Create `objects`, then edit several properties, as one undoable change.
+    /// [`BinDocument::create_and_edit`].
+    CreateAndEdit {
+        objects: Vec<ObjectCreation>,
+        edits: Vec<PropertyEdit>,
+    },
     /// Add a property to the end of the holder at `path`. [`BinDocument::add_property`].
     AddProperty {
         entry: String,
@@ -216,6 +222,14 @@ impl TypedTexts {
                     typed.property(&edit.field, &edit.edits);
                 }
             }
+            BinEdit::CreateAndEdit { objects, edits } => {
+                typed
+                    .hashes
+                    .extend(objects.iter().map(|object| object.name.clone()));
+                for edit in edits {
+                    typed.property(&edit.field, &edit.edits);
+                }
+            }
             BinEdit::AddProperty {
                 property: NewProperty::Custom { field, class, .. },
                 ..
@@ -316,6 +330,10 @@ impl BinDocuments {
             }
             BinEdit::EditProperties { edits } => {
                 self.edit(id, |open| open.edit_properties(edits, schema))?;
+                EditOutcome::Done
+            }
+            BinEdit::CreateAndEdit { objects, edits } => {
+                self.edit(id, |open| open.create_and_edit(&objects, edits, schema))?;
                 EditOutcome::Done
             }
             BinEdit::AddProperty {

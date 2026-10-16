@@ -364,6 +364,11 @@ export type BinEdit =
  *  [`BinDocument::edit_properties`].
  */
 { kind: "editProperties"; edits: PropertyEdit[] } | 
+/**
+ *  Create `objects`, then edit several properties, as one undoable change.
+ *  [`BinDocument::create_and_edit`].
+ */
+{ kind: "createAndEdit"; objects: ObjectCreation[]; edits: PropertyEdit[] } | 
 /**  Add a property to the end of the holder at `path`. [`BinDocument::add_property`]. */
 { kind: "addProperty"; entry: string; path: string; property: NewProperty } | 
 /**  Take the property at `path` out of its holder. [`BinDocument::remove_property`]. */
@@ -4719,7 +4724,14 @@ class: string } |
  */
 { type: "template"; 
 /**  The template's catalog id. */
-template: string };
+template: string } | 
+/**
+ *  An object that clipboard `text` carries as a struct value: `class` and a `set` of each
+ *  of its properties.
+ */
+{ type: "paste"; 
+/**  The clipboard text of a copied object. */
+text: string };
 
 /**  A property Add property writes: a field the schema declares, or one the reader shapes. */
 export type NewProperty = 
@@ -4827,6 +4839,12 @@ export type ObjectClassHit = {
 	class: string,
 	/**  How many declarations carry the class. */
 	rows: number,
+};
+
+/**  A new object of [`BinDocument::create_and_edit`]: its name and where it starts. */
+export type ObjectCreation = {
+	name: string,
+	origin: NewObject,
 };
 
 /**  One declaration of an object: the file that declares it and the class it carries. */

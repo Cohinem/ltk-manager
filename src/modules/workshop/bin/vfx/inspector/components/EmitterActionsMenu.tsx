@@ -54,7 +54,7 @@ export function EmitterActionsMenu() {
             {m.workshop_bin_inspector_emitter_duplicate_action()}
           </Menu.Item>
         )}
-        <Menu.Item icon={<CopyIcon />} onClick={() => void copy(emitter)}>
+        <Menu.Item icon={<CopyIcon />} onClick={() => void copy([emitter])}>
           {m.workshop_bin_inspector_emitter_copy_action()}
         </Menu.Item>
         {paste !== null && (

@@ -26,7 +26,7 @@ import {
 
 import { ContextMenu } from "@/components";
 
-import { runEmitterKey } from "../../clipboard/emitterKeys";
+import { runEmitterKey, selectedEmitters } from "../../clipboard/emitterKeys";
 import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
 import { BoardMotion } from "../utils/boardMotion";
 import type { GraphLayout } from "../utils/driverLayout";
@@ -239,10 +239,8 @@ function Canvas({
   const picked = soleId === null ? undefined : nodes.find((node) => node.id === soleId);
   const pickedItem =
     picked === undefined || picked.type === "frame" ? null : picked.data.placed.item;
-  const pickedEmitter =
-    pickedItem?.type === "master" && actions !== null
-      ? { entry: actions.entry, wire: pickedItem.wire, name: pickedItem.name }
-      : null;
+  const selection = actions === null ? [] : selectedEmitters(nodes, actions.entry);
+  const pickedEmitter = soleId === null ? null : (selection[0] ?? null);
 
   const box = useRef<HTMLDivElement>(null);
   const adds = useCanvasAdds({
@@ -339,7 +337,7 @@ function Canvas({
 
                     const entry = actions?.entry ?? "";
                     if (
-                      runEmitterKey(event, clipboard, entry, pickedEmitter) ||
+                      runEmitterKey(event, clipboard, entry, pickedEmitter, selection) ||
                       runNodeKey(event, structure, pickedItem)
                     ) {
                       /* Ctrl+D also opens Diagnostics app-wide, so a handled chord stops here. */
@@ -420,6 +418,7 @@ function Canvas({
                   onFrame={frame}
                   onCollapseAll={onCollapseAll}
                   onResetLayout={resetLayout}
+                  selected={selection}
                 />
               </ContextMenu.Root>
             </LoopedSurfacesContext>
