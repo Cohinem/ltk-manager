@@ -200,8 +200,8 @@ scrolls inside it, and the filter chips draw on the ground over it.
 
 On both routes the title bar draws on that ground with no line under it, as the status row
 already does. The seams around the islands then run into the frame on all four sides, and the
-islands read as set into one surface. Every other page keeps the title bar one rung up with its
-hairline.
+islands read as set into one surface. Home and the mod library draw the title bar on the ground in
+the same way. Every other page keeps the title bar one rung up with its hairline.
 
 ## The keys
 

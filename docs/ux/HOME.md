@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-10-16 | Draw the title bar on the page ground, as the workshop does             |
 | 2026-10-01 | Frame Home as the library is, and digest the release notes              |
 | 2026-09-15 | Pair Runeforge mods and guides above Recent changes                     |
 | 2026-09-06 | Open on gains Workshop, as a third choice and never a memory (#424)     |
@@ -13,7 +14,6 @@
 | 2026-09-03 | Draw Play as an accent edge over a wash rather than a solid fill        |
 | 2026-09-03 | Cap the page's width, and draw Play as the rail's own block             |
 | 2026-09-03 | Move Play to the head of the right rail, over the tiles it scrolls      |
-| 2026-09-03 | Say nothing when nothing holds. Drop the facts row the tile repeats     |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -91,6 +91,11 @@ the mod and project cards' frame - `rounded-xl`, a `surface-600` border, `shadow
 `text-sm` title - are laid out in two columns from 1024 pixels. What's new takes the wide column.
 Your library, Last game and News stack in the narrow one, and lead on a narrow window. The grid holds
 a maximum width and centres above it, as the mod grid centres its tracks.
+
+**The title bar draws on the page ground**, as it does in the workshop, per "The fold" in
+docs/ux/WORKSHOP.md. The title bar, the toolbar and the status row are one `surface-950` surface
+with no hairline between them, and the inset region is the one island on it. The mod library
+draws its title bar the same way.
 
 Home shows no artwork yet. The bundled Runeforge art is not ours to feature, and game art waits on
 #331, which decides where that data comes from.

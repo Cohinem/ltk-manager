@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import {
   Button,
+  ChromeGround,
   Inline,
   Kbd,
   PageInset,
@@ -56,6 +57,7 @@ export function Home() {
 
   return (
     <div data-ui="Home" className="relative flex h-full flex-col">
+      <ChromeGround />
       <DragDropOverlay visible={isDragOver} />
 
       <div className="flex flex-col gap-2 px-4 pt-3 empty:hidden">
