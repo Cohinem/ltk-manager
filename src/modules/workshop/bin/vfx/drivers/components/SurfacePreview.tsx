@@ -38,6 +38,7 @@ import {
   fitInto,
   type Followed,
   followedRow,
+  following,
   particleInto,
   surfaceAt,
   surfaceCycle,
@@ -314,7 +315,7 @@ function SurfaceScene({ emitter, looped, tiled, shown, magnified, bar, onFail }:
   const outline = useDisposable(() => outlineMaterial(material), [material]);
   const backdrop = useDisposable(backdropMaterial, []);
   const draw = useMemo(surfaceDraw, []);
-  const followed = useMemo<Followed>(() => ({ serial: -1 }), []);
+  const followed = useMemo<Followed>(following, []);
   const particle = useRef<Mesh>(null);
   const grid = useRef<Mesh>(null);
   const ground = useBackdropColor();
@@ -427,7 +428,7 @@ function followedParticle(
   bar: LifeBar,
 ) {
   const { pool, time } = run.driver;
-  const row = followedRow(pool, emitter.index, followed);
+  const row = followedRow(pool, emitter.index, followed, time);
   if (row < 0) {
     showLife(bar, 0, 1);
     return false;

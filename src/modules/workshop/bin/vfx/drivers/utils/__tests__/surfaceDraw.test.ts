@@ -8,6 +8,7 @@ import { createPool, type Pool } from "../../../engine/simulation/pool";
 import {
   fitInto,
   followedRow,
+  following,
   surfaceAt,
   surfaceCycle,
   surfaceDraw,
@@ -260,36 +261,59 @@ describe("fitInto", () => {
   });
 });
 
-/** A pool holding one particle per pair, each of emitter `[0]` with serial `[1]`. */
-function poolOf(...particles: readonly (readonly [number, number])[]): Pool {
+/**
+ * A pool holding one particle per tuple, each of emitter `[0]` with serial `[1]`, born at `[2]`
+ * or at 0.
+ */
+function poolOf(...particles: readonly (readonly [number, number, number?])[]): Pool {
   const pool = createPool(8);
   pool.count = particles.length;
-  particles.forEach(([emitter, serial], at) => {
+  particles.forEach(([emitter, serial, born = 0], at) => {
     pool.emitter[at] = emitter;
     pool.serial[at] = serial;
+    pool.birthTime[at] = born;
   });
   return pool;
 }
 
 describe("followedRow", () => {
   it("picks the emitter's newest particle when it follows none", () => {
-    const followed = { serial: -1 };
+    const followed = following();
 
-    expect(followedRow(poolOf([0, 1], [1, 5], [0, 3]), 0, followed)).toBe(2);
+    expect(followedRow(poolOf([0, 1], [1, 5], [0, 3]), 0, followed, 0)).toBe(2);
     expect(followed.serial).toBe(3);
   });
 
   it("keeps the followed particle while it lives, wherever its row moved", () => {
-    const followed = { serial: 1 };
+    const followed = { serial: 1, seen: 0 };
 
-    expect(followedRow(poolOf([0, 4], [0, 1]), 0, followed)).toBe(1);
-    expect(followed.serial).toBe(1);
+    expect(followedRow(poolOf([0, 4], [0, 1]), 0, followed, 1)).toBe(1);
+    expect(followed).toEqual({ serial: 1, seen: 1 });
   });
 
   it("follows none while the emitter has no particle", () => {
-    const followed = { serial: 2 };
+    const followed = { serial: 2, seen: 0 };
 
-    expect(followedRow(poolOf([1, 2]), 0, followed)).toBe(-1);
+    expect(followedRow(poolOf([1, 2]), 0, followed, 1)).toBe(-1);
     expect(followed.serial).toBe(-1);
+  });
+
+  it("skips a particle born before the followed one was last seen alive", () => {
+    const followed = { serial: 1, seen: 2 };
+    const pool = poolOf([0, 4, 1.5]);
+
+    expect(followedRow(pool, 0, followed, 2.1)).toBe(-1);
+    expect(followedRow(pool, 0, followed, 2.2)).toBe(-1);
+
+    const born = poolOf([0, 4, 1.5], [0, 5, 2.15]);
+    expect(followedRow(born, 0, followed, 2.2)).toBe(1);
+    expect(followed.serial).toBe(5);
+  });
+
+  it("picks any particle after the run time goes back", () => {
+    const followed = { serial: 1, seen: 2 };
+
+    expect(followedRow(poolOf([0, 4, 0.5]), 0, followed, 1)).toBe(0);
+    expect(followed.serial).toBe(4);
   });
 });
