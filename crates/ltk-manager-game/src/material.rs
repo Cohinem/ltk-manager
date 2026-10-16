@@ -449,6 +449,13 @@ pub enum MaterialWarning {
     /// A shader texture neither the material nor the def gives a path, so the engine's
     /// fallback texture is what draws.
     NoTexturePath { name: String },
+    /// The define list selects no compiled permutation, so the shader def preview draws the
+    /// nearest compiled one. `set` holds each changed define as `NAME=VALUE`, and `unset` each
+    /// removed name.
+    NearestPermutation {
+        set: Vec<String>,
+        unset: Vec<String>,
+    },
 }
 
 /// The material object at `entry`, as a preview draws it.
@@ -711,6 +718,11 @@ impl<'a> Reader<'a> {
             }
             return ShaderDef::default();
         };
+        self.shader_def_at(link)
+    }
+
+    /// Reads the `CustomShaderDef` at `link` from the opened shader defs.
+    fn shader_def_at(&mut self, link: BinHash) -> ShaderDef {
         let Some(shaders) = self.shaders else {
             self.warnings.push(MaterialWarning::NoShaderDefs);
             return ShaderDef {

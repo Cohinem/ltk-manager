@@ -88,6 +88,25 @@ impl MaterialKind {
             Some(_) => Self::Unknown,
         }
     }
+
+    /// Returns the kind that the namespace after `Shaders/` in `path` selects. Returns
+    /// [`Self::Unknown`] if the namespace is missing or not known.
+    fn of_shader_path(path: &str) -> Self {
+        let mut segments = path.split('/');
+        let family = match (segments.next(), segments.next()) {
+            (Some(root), Some(family)) if root.eq_ignore_ascii_case("shaders") => family,
+            _ => return Self::Unknown,
+        };
+
+        match family.to_ascii_lowercase().as_str() {
+            "staticmesh" => Self::StaticMesh,
+            "skinnedmesh" => Self::SkinnedMesh,
+            "particles" => Self::Particles,
+            "ui" => Self::Ui,
+            "postprocess" => Self::PostProcess,
+            _ => Self::Unknown,
+        }
+    }
 }
 
 /// One `StaticMaterialPassDef` with its shader's inputs filled in.
@@ -193,6 +212,8 @@ pub enum DefineSource {
     Switch,
     /// `StaticMaterialPassDef.shaderMacros`.
     Pass,
+    /// Picked in a shader def's preview, which writes nothing to the def.
+    Preview,
     /// Set by the engine for the emitter that draws an engine particle shader.
     Emitter,
 }
@@ -398,6 +419,43 @@ pub fn resolve_embedded_passes(
     Ok(Reader::new(BinHash::hash_str(&address), material, &locator, shaders).resolved())
 }
 
+/// Resolves the `CustomShaderDef` at `entry` as a material of one pass that sets nothing, so
+/// the pass reads the def's defaults.
+///
+/// `document` holds the def and is used as the shader defs, so an unsaved edit to the def is
+/// read. The kind is selected by the namespace of `objectPath`.
+///
+/// # Errors
+///
+/// Fails with [`BinDocumentError::NodeNotFound`] if `document` has no object at `entry`.
+pub fn resolve_shader_pass(
+    document: &BinDocument,
+    entry: BinHash,
+    names: &dyn RowNames,
+    assets: &dyn AssetLookup,
+) -> Result<ResolvedMaterial, BinDocumentError> {
+    object_at(document, entry)?;
+    let locator = Locator { names, assets };
+    let unset = Fields::new();
+    let mut reader = Reader::new(entry, &unset, &locator, Some(document));
+
+    let shader = reader.shader_def_at(entry);
+    let kind = shader
+        .path
+        .as_deref()
+        .map_or(MaterialKind::Unknown, MaterialKind::of_shader_path);
+    let pass = reader.pass_with(&unset, shader);
+
+    Ok(ResolvedMaterial {
+        hash: hex(entry),
+        name: names.entry_name(entry),
+        animated: false,
+        kind,
+        passes: vec![pass],
+        warnings: reader.warnings,
+    })
+}
+
 impl<'a> Reader<'a> {
     fn resolved(mut self) -> ResolvedMaterial {
         let passes = self
@@ -439,6 +497,11 @@ impl<'a> Reader<'a> {
 
     fn resolved_pass(&mut self, pass: &'a Fields) -> ResolvedPass {
         let shader = self.shader_def(Some(pass));
+        self.pass_with(pass, shader)
+    }
+
+    /// Resolves `pass` against `shader`, with the material's entries over the shader's defaults.
+    fn pass_with(&mut self, pass: &Fields, shader: ShaderDef) -> ResolvedPass {
         let switches = self.switches(&shader);
         let defines = self.defines(pass, &shader, &switches);
         let runtime_switches = shader

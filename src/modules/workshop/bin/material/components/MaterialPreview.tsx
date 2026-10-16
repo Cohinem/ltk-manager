@@ -23,10 +23,12 @@ export interface MaterialPreviewProps {
   document: BinDocumentId;
   /** What the document was read from, which the skin preview reads its assets near. */
   asset: AssetRef;
-  /** The `StaticMaterialDef` object the preview draws. */
+  /** The `StaticMaterialDef` or `CustomShaderDef` object that the preview draws. */
   entry: string | null;
   /** The backend no longer holds `document`, so the tab reopens it. */
   onNotOpen?: () => void;
+  /** `true` if `entry` is a `CustomShaderDef`, which draws on the shape since no skin draws it. */
+  shader?: boolean;
 }
 
 /**
@@ -35,9 +37,15 @@ export interface MaterialPreviewProps {
  *
  * A material no skin of the file draws with takes the shape, and no toggle.
  */
-export function MaterialPreview({ document, asset, entry, onNotOpen }: MaterialPreviewProps) {
-  const linking = useLinkingSkin(document, entry);
-  const onShape = usePreviewMaterialOnShape();
+export function MaterialPreview({
+  document,
+  asset,
+  entry,
+  onNotOpen,
+  shader = false,
+}: MaterialPreviewProps) {
+  const linking = useLinkingSkin(document, shader ? null : entry);
+  const onShape = usePreviewMaterialOnShape() || shader;
 
   return (
     <div
@@ -53,8 +61,9 @@ export function MaterialPreview({ document, asset, entry, onNotOpen }: MaterialP
         onNotOpen={onNotOpen}
         linking={linking}
         onShape={onShape}
+        shader={shader}
       />
-      <ProgramNotes document={document} entry={entry} />
+      <ProgramNotes document={document} entry={entry} shader={shader} />
 
       {linking.status === "skin" && (
         <div
@@ -81,6 +90,7 @@ function Subject({
   onNotOpen,
   linking,
   onShape,
+  shader,
 }: MaterialPreviewProps & { linking: LinkingSkin; onShape: boolean }) {
   if (!onShape && linking.status === "reading") {
     return <Notice text={m.workshop_bin_material_preview_loading_label()} />;
@@ -92,7 +102,7 @@ function Subject({
   }
   return (
     <Suspense fallback={<Notice text={m.workshop_bin_material_preview_loading_label()} />}>
-      <MaterialViewport document={document} entry={entry} />
+      <MaterialViewport document={document} entry={entry} shader={shader} />
     </Suspense>
   );
 }

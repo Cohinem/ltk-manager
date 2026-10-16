@@ -18,7 +18,7 @@ use ltk_manager_game::material::defs::ShaderDefsCache;
 use ltk_manager_game::material::SHADER_DEFS_PATH;
 use ltk_manager_game::program::{
     read_embedded_program, read_programs, MaterialProgram, ParticleDefine, ParticleShader,
-    PassProgram, ProgramOptions, Resolution,
+    PassProgram, ProgramOptions, Resolution, ShaderProgram,
 };
 use serde::Deserialize;
 use tauri::{AppHandle, Manager};
@@ -111,6 +111,68 @@ pub async fn read_material_programs(
                     ),
                 })
                 .collect()
+        })
+    })
+    .await
+}
+
+/// A `StaticMaterialDef` that a shader def's preview draws the def through.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[derive(specta::Type)]
+pub struct PreviewMaterial {
+    /// The bin that declares the material.
+    pub asset: AssetRef,
+    /// The material's object hash, `0x` and eight hex digits, or its path.
+    pub entry: String,
+}
+
+/// Reads the program of the `CustomShaderDef` at `entry` of the open `document`, with each
+/// `NAME=VALUE` of `defines` set over its define list, and the defines that its TOCs declare.
+///
+/// Without `material`, the def uses its own defaults. With it, the def is resolved through
+/// that material, with the open document as the shader defs. If the material bin cannot be
+/// read, the def falls back to its defaults. Returns null if the document has no object at
+/// `entry`. The defines apply to the preview and are not written to the def.
+///
+/// # Errors
+///
+/// Fails if no document is open under `document`.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_shader_program(
+    document: BinDocumentId,
+    entry: String,
+    material: Option<PreviewMaterial>,
+    defines: Vec<String>,
+    options: ProgramOptions,
+    app_handle: AppHandle,
+) -> IpcResult<Option<ShaderProgram>> {
+    off_thread(move || {
+        let translations = translations(&app_handle);
+        let source = MaterialSource::Document { document };
+        let material_bin = material.as_ref().and_then(|material| {
+            read_bin(&app_handle, &material.asset)
+                .inspect_err(|e| {
+                    tracing::warn!(
+                        ?material,
+                        "Failed to read the preview material, drawing the shader defaults: {e}"
+                    )
+                })
+                .ok()
+                .map(|bin| (bin, entry_hash(&material.entry)))
+        });
+
+        on_source(&app_handle, source, None, |resolution, read| {
+            ltk_manager_game::program::read_shader_program(
+                resolution,
+                entry_hash(&entry),
+                material_bin.as_ref().map(|(bin, at)| (bin, *at)),
+                &defines,
+                options,
+                &translations,
+                read,
+            )
         })
     })
     .await

@@ -1,4 +1,4 @@
-import { queryOptions, skipToken } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
 
 import {
   api,
@@ -6,6 +6,8 @@ import {
   type BinDocumentId,
   type BinRow,
   type MaterialProgram,
+  type PreviewMaterial,
+  type ShaderProgram,
 } from "@/lib/tauri";
 import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
@@ -29,6 +31,32 @@ export const materialQueries = {
               );
               return programs[0] ?? null;
             },
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /**
+   * The program of the shader def `entry` through `material`, or with its defaults if
+   * `material` is null, with `defines` set over it, and the defines that its TOCs declare. Null
+   * if the document has no object at `entry`.
+   */
+  shader: (
+    document: BinDocumentId,
+    entry: string | null,
+    material: PreviewMaterial | null,
+    defines: readonly string[],
+  ) =>
+    queryOptions<ShaderProgram | null, AppError>({
+      queryKey: ["material-program", document, entry, "shader", material, defines],
+      queryFn:
+        entry === null
+          ? skipToken
+          : async () =>
+              unwrapForQuery(
+                await api.bin.readShaderProgram(document, entry, material, defines, {
+                  lowQuality: false,
+                }),
+              ),
+      placeholderData: keepPreviousData,
       staleTime: Infinity,
       retry: false,
     }),

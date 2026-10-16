@@ -625,3 +625,58 @@ fn a_switch_with_an_absent_on_reads_as_on() {
         [define("GLOW_ON", "1", DefineSource::Switch)]
     );
 }
+
+#[test]
+fn resolve_shader_pass_reads_the_defaults_of_the_def() {
+    let defs = shaders();
+
+    let resolved = resolve_shader_pass(&defs, h(SHADER_PATH), &Tables, &Placed).unwrap();
+    let pass = only_pass(&resolved);
+
+    assert_eq!(resolved.kind, MaterialKind::SkinnedMesh);
+    assert_eq!(pass.shader.as_deref(), Some(SHADER_PATH));
+    assert_eq!(
+        pass.defines,
+        [define("FEATURE_BLOOM", "1", DefineSource::Feature)]
+    );
+    assert!(
+        pass.params
+            .iter()
+            .all(|param| param.source == ParamSource::ShaderDefault)
+    );
+    assert_eq!(pass.params[2].value, [0.75, 0.0, 0.0, 0.0]);
+    assert_eq!(pass.textures[1].source, TextureSource::ShaderDefault);
+    assert!(pass.schema.is_some());
+}
+
+#[test]
+fn resolve_shader_pass_fails_if_no_object_is_at_entry() {
+    let defs = shaders();
+
+    let missing = resolve_shader_pass(&defs, h("Shaders/SkinnedMesh/Missing"), &Tables, &Placed);
+
+    assert!(matches!(
+        missing,
+        Err(BinDocumentError::NodeNotFound { .. })
+    ));
+}
+
+#[test]
+fn of_shader_path_returns_the_kind_of_the_namespace() {
+    assert_eq!(
+        MaterialKind::of_shader_path("Shaders/StaticMesh/DefaultEnv_Flat"),
+        MaterialKind::StaticMesh
+    );
+    assert_eq!(
+        MaterialKind::of_shader_path("shaders/skinnedmesh/Diffuse_Bloom"),
+        MaterialKind::SkinnedMesh
+    );
+    assert_eq!(
+        MaterialKind::of_shader_path("Shaders/UI/Splash"),
+        MaterialKind::Ui
+    );
+    assert_eq!(
+        MaterialKind::of_shader_path("Unnamed"),
+        MaterialKind::Unknown
+    );
+}

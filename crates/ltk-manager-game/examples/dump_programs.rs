@@ -1,13 +1,15 @@
-//! Print every `StaticMaterialDef` of a bin inside a WAD with its shaders translated.
+//! Prints every `StaticMaterialDef` and `CustomShaderDef` of a bin inside a WAD with its shaders
+//! translated.
 //!
 //! ```text
-//! cargo run --release -p ltk-manager-game --example dump_programs -- <wad> <chunk path> <shaders wad> <shader cache wad> <cache dir> [--low]
+//! cargo run --release -p ltk-manager-game --example dump_programs -- <wad> <chunk path> <shaders wad> <shader cache wad> <cache dir> [--low] [--nearest]
 //! ```
 //!
 //! One JSON line per material, the [`MaterialProgram`] the viewport binds, with no names
 //! and only the shader cache's chunks located. `<shaders wad>` is `Global.wad.client`,
 //! `<shader cache wad>` is `ShaderCache.dx11.wad.client`, and `<cache dir>` is where the
-//! translations are kept between runs. A summary per pass goes to stderr.
+//! translations are kept between runs. A summary per pass goes to stderr. `--nearest` reads
+//! each entry as a shader def's preview does, through `read_shader_program`.
 
 use std::cell::RefCell;
 use std::io::BufReader;
@@ -22,7 +24,7 @@ use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_bin::bin_document::{AssetLookup, BinDocument};
 use ltk_manager_game::material::SHADER_DEFS_PATH;
 use ltk_manager_game::program::{
-    MaterialProgram, ProgramOptions, ProgramRead, Resolution, read_programs,
+    MaterialProgram, ProgramOptions, ProgramRead, Resolution, read_programs, read_shader_program,
 };
 use ltk_wad::Wad;
 
@@ -72,6 +74,7 @@ impl AssetLookup for ShaderCacheLookup {
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let low_quality = args.iter().any(|arg| arg == "--low");
+    let nearest = args.iter().any(|arg| arg == "--nearest");
     let plain: Vec<&String> = args.iter().filter(|arg| !arg.starts_with("--")).collect();
     let [wad_path, chunk_path, shaders_wad, cache_wad, cache_dir] = plain.as_slice() else {
         eprintln!(
@@ -90,28 +93,47 @@ fn main() {
     };
     let translations = TranslationCache::new(Some(Path::new(cache_dir)));
 
-    let material_class = BinHash::hash_str("StaticMaterialDef");
+    let classes = [
+        BinHash::hash_str("StaticMaterialDef"),
+        BinHash::hash_str("CustomShaderDef"),
+    ];
     let entries: Vec<BinHash> = document
         .entries()
         .filter(|entry| {
             document
                 .object_at(*entry)
-                .is_some_and(|object| object.class_hash == material_class)
+                .is_some_and(|object| classes.contains(&object.class_hash))
         })
         .collect();
     let started = Instant::now();
-    let programs = read_programs(
-        Resolution {
-            document: &document,
-            names: &(),
-            assets: &lookup,
-            shaders: Some(&shaders),
-        },
-        &entries,
-        ProgramOptions { low_quality },
-        &translations,
-        &mut |asset| lookup.read(asset),
-    );
+    let resolution = Resolution {
+        document: &document,
+        names: &(),
+        assets: &lookup,
+        shaders: Some(&shaders),
+    };
+    let options = ProgramOptions { low_quality };
+    let programs: Vec<Option<MaterialProgram>> = if nearest {
+        entries
+            .iter()
+            .map(|entry| {
+                read_shader_program(
+                    resolution,
+                    *entry,
+                    None,
+                    &[],
+                    options,
+                    &translations,
+                    &mut |asset| lookup.read(asset),
+                )
+                .map(|read| read.program)
+            })
+            .collect()
+    } else {
+        read_programs(resolution, &entries, options, &translations, &mut |asset| {
+            lookup.read(asset)
+        })
+    };
     let elapsed = started.elapsed();
 
     let mut ready = 0usize;

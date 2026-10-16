@@ -21,6 +21,8 @@ export interface TableState {
   readonly known: boolean;
   /** What the program read warns about a row, by the row's name. */
   readonly warnings: ReadonlyMap<string, string>;
+  /** The info notes of the rows, by row name. */
+  readonly notes: ReadonlyMap<string, string>;
 }
 
 export const TableContext = createContext<TableState | null>(null);

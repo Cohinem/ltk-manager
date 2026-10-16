@@ -1,9 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-
 import { m } from "@/i18n";
 import type { BinDocumentId, MaterialProgram, MaterialWarning } from "@/lib/tauri";
 
-import { materialQueries } from "../api/materialQueries";
+import { useMaterialProgram } from "../hooks/useMaterialProgram";
 import { warningText } from "../utils/materialWarnings";
 
 /** The warnings about the material as a whole. The rest mark their own row of the inspector. */
@@ -11,6 +9,7 @@ const MATERIAL_WARNINGS: ReadonlySet<MaterialWarning["kind"]> = new Set([
   "noShaderDefs",
   "noPass",
   "unresolvedShader",
+  "nearestPermutation",
 ]);
 
 interface Note {
@@ -54,19 +53,22 @@ function notesOf(program: MaterialProgram): Note[] {
 export function ProgramNotes({
   document,
   entry,
+  shader = false,
 }: {
   document: BinDocumentId;
   entry: string | null;
+  /** `true` if `entry` is a `CustomShaderDef`, read with the preview material and defines. */
+  shader?: boolean;
 }) {
-  const program = useQuery(materialQueries.program(document, entry)).data ?? null;
+  const program = useMaterialProgram(document, entry, shader).data ?? null;
   const notes = program === null ? [] : notesOf(program);
   if (notes.length === 0) return null;
 
   return (
     <ul
       data-ui="ProgramNotes"
-      /* DS-GLASS, DS-RADIUS */
-      className="absolute top-2 left-2 z-10 flex max-w-[60%] flex-col gap-0.5 rounded-md bg-scrim px-2 py-1 text-meta backdrop-blur-sm"
+      /* DS-GLASS, DS-RADIUS. `top-12` clears the `ViewportControls` row, which can span the width. */
+      className="absolute top-12 left-2 z-10 flex max-w-[60%] flex-col gap-0.5 rounded-md bg-scrim px-2 py-1 text-meta backdrop-blur-sm"
     >
       {notes.map((note, at) => (
         <li key={at} className="flex min-w-0 flex-col">
@@ -82,7 +84,7 @@ export function ProgramNotes({
           </span>
           {note.detail !== undefined && (
             <span
-              className="truncate font-mono text-code text-surface-400 select-text"
+              className="line-clamp-3 font-mono text-code break-all text-surface-400 select-text"
               title={note.detail}
             >
               {note.detail}

@@ -1629,6 +1629,36 @@ The particle system's, the skin's and the material's layouts take edits in place
 Material pane with them. The map's layout and a read-only document draw the same values as text,
 with no field to hover.
 
+**A shader def opens in the material shell.** `CustomShaderDef` declares the same two panes, per
+ADR-0066. The inspector holds Identity, then Params, Textures and Switches as tables of the def's
+own entries, then Feature defines as a tree. Params lists each physical parameter and its default,
+Textures each texture, its default path and its shared sampler, and Switches each switch, its
+default and its runtime flag.
+
+**A default drags live on the preview.** A parameter's default scrubs as a material's
+parameter does, drawn on the preview while held and written on release. A row that the drawn
+permutation does not read carries an info note, and so does a compile-time switch that the shader's
+TOCs do not declare. A parameter that has a note, or that the preview material sets, edits as a
+plain vector, since a held value would not change the preview. The material's values carry no
+note, since a material sets most of a def's rows.
+
+**The preview draws the def through a material that uses it.** A def's defaults are placeholders
+that every material overrides, most textures `black.tex`, and the game's shader cache holds only
+the permutations that shipped materials select. So the preview draws the first `StaticMaterialDef`
+that links the def, found by the reference walk, on the shape. The walk reads the open project's
+layers before the install, so a material of the project comes first. The material's
+textures, parameters and macros apply over the open def, so an edit to the def is drawn
+once it is applied. Preview material in the toolbar lists every material that links the def,
+and Shader defaults draws the def alone. A def that no material links draws its defaults.
+
+**Defines picks the permutation the preview draws.** A submenu per define that the shader's
+TOCs declare, each value they declare, and Not set. A pick changes the preview alone, is held for
+the session and is never written to the def. The shape is bound to one bone for a skinned kind.
+
+**A define list that the cache does not hold draws the nearest compiled permutation.** The corner
+lists every define that the search set and removed. A def with no compiled permutation within three changes
+draws the error color, and the corner gives the reason.
+
 ### How the panes are arranged
 
 The picture above is where the panes start, not where they stay. A pane is a tab of the same split

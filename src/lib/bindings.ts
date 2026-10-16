@@ -1268,6 +1268,14 @@ export type DeclarationsLoadError = {
 	span: LineSpan | null,
 };
 
+/**  One define a shader's TOCs declare, with every value they declare it with. */
+export type DeclaredDefine = {
+	/**  The define name. */
+	name: string,
+	/**  Every value that the TOCs declare for the name, sorted. */
+	values: string[],
+};
+
 /**  One diagnostic of the last apply, on the row it names. */
 export type DeclaredDiagnostic = {
 	/**
@@ -1609,6 +1617,8 @@ export type DefineSource =
 "switch" | 
 /**  `StaticMaterialPassDef.shaderMacros`. */
 "pass" | 
+/**  Picked in a shader def's preview, which writes nothing to the def. */
+"preview" | 
 /**  Set by the engine for the emitter that draws an engine particle shader. */
 "emitter";
 
@@ -4241,7 +4251,13 @@ export type MaterialWarning =
  *  A shader texture neither the material nor the def gives a path, so the engine's
  *  fallback texture is what draws.
  */
-{ kind: "noTexturePath"; name: string };
+{ kind: "noTexturePath"; name: string } | 
+/**
+ *  The define list selects no compiled permutation, so the shader def preview draws the
+ *  nearest compiled one. `set` holds each changed define as `NAME=VALUE`, and `unset` each
+ *  removed name.
+ */
+{ kind: "nearestPermutation"; set: string[]; unset: string[] };
 
 /**  Which typed view writes a member. */
 export type MemberScalar = "float" | "int" | "uint" | "bool";
@@ -5469,6 +5485,14 @@ path: string;
 /**  The modifier's class as the tables name it, and its hash where none does. */
 class: string };
 
+/**  A `StaticMaterialDef` that a shader def's preview draws the def through. */
+export type PreviewMaterial = {
+	/**  The bin that declares the material. */
+	asset: AssetRef,
+	/**  The material's object hash, `0x` and eight hex digits, or its path. */
+	entry: string,
+};
+
 /**  One finding, at one site, from one rule. */
 export type Problem = Problem_Serialize | Problem_Deserialize;
 
@@ -6614,6 +6638,17 @@ export type ShaderFailure = {
 	unnamedPrograms: boolean,
 	/**  The pipeline a material was drawn without, as League wrote it. */
 	missingPipeline: string | null,
+};
+
+/**  A shader def's program, and the defines that select among its permutations. */
+export type ShaderProgram = {
+	/**  The program that the preview draws. */
+	program: MaterialProgram,
+	/**
+	 *  The defines that the shader's two TOCs declare, sorted by name. Empty if a TOC cannot
+	 *  be read.
+	 */
+	declared: DeclaredDefine[],
 };
 
 /**

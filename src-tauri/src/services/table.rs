@@ -160,6 +160,7 @@ services! {
         open_asset_in_ritobin,
         // Programs
         read_material_programs,
+        read_shader_program,
         read_engine_program,
         // Maps
         read_map,
