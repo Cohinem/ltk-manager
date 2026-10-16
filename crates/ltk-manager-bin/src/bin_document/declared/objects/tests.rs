@@ -6,7 +6,7 @@ use fs_err as fs;
 use super::super::tests::{Game, SKIN, declared, h, manifest, project};
 use super::super::{DeclaredDiagnosticKind, ObjectSkip};
 use super::*;
-use crate::bin_document::{BinValue, LeafValue, PropertyEdit};
+use crate::bin_document::{BinValue, LeafValue, ObjectCreation, PropertyEdit};
 use ltk_manager_workshop::DeclaredSign;
 
 const COPY: &str = "Mods/jade-teemo/Skin0Copy";
@@ -416,6 +416,38 @@ fn a_copy_declares_an_object_another_chunk_holds_and_undoes_as_one_step() {
 
     assert!(document.undo().unwrap());
     assert!(document.object_at(created).is_none());
+    assert!(!document.undo().unwrap());
+}
+
+#[test]
+fn create_and_edit_declares_pasted_object_as_one_step() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut document = declared_beside_a_font(dir.path());
+    let font = values::Struct {
+        class_hash: h("GameFontDescription"),
+        properties: [(h("name"), values::String::from("Body").into())]
+            .into_iter()
+            .collect(),
+    };
+    let pasted = ObjectCreation {
+        name: COPY.to_owned(),
+        origin: NewObject::Paste {
+            text: crate::bin_document::clipboard_text(&font.clone().into(), None),
+        },
+    };
+    let schema = crate::meta_schema::shared(None);
+
+    document
+        .create_and_edit(&[pasted], Vec::new(), schema.at(None))
+        .unwrap();
+
+    assert_eq!(
+        document.object_at(h(COPY)).unwrap().properties,
+        font.properties
+    );
+    assert!(manifest(dir.path(), "base").contains("class: GameFontDescription"));
+    assert!(document.undo().unwrap());
+    assert!(document.object_at(h(COPY)).is_none());
     assert!(!document.undo().unwrap());
 }
 

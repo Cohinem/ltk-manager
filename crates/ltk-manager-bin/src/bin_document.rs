@@ -44,7 +44,7 @@ pub use edit::{EditRejection, HistoryStep, LeafValue, ReadOnly, Reshape, UNDO_DE
 pub use find::{BinFindHit, BinFindResult, FIND_ROWS};
 pub use items::{ClassChoice, NewItem};
 pub use properties::{AddableField, AddableFields, NewProperty};
-pub use property_edit::{PropertyEdit, ValueEdit};
+pub use property_edit::{ObjectCreation, PropertyEdit, ValueEdit};
 pub use records::TARGET_PATH;
 pub use requests::{BinEdit, ChoiceQuery, Choices, DependencyEdit, EditOutcome, ObjectEdit};
 

@@ -50,11 +50,11 @@ export function EmitterActionsMenu() {
       />
       <Menu.Content align="start" data-ui="EmitterActionsMenu" className="w-48">
         {duplicate !== null && (
-          <Menu.Item icon={<CopySimpleIcon />} onClick={() => void duplicate(emitter)}>
+          <Menu.Item icon={<CopySimpleIcon />} onClick={() => void duplicate([emitter])}>
             {m.workshop_bin_inspector_emitter_duplicate_action()}
           </Menu.Item>
         )}
-        <Menu.Item icon={<CopyIcon />} onClick={() => void copy(emitter)}>
+        <Menu.Item icon={<CopyIcon />} onClick={() => void copy([emitter])}>
           {m.workshop_bin_inspector_emitter_copy_action()}
         </Menu.Item>
         {paste !== null && (
@@ -70,7 +70,7 @@ export function EmitterActionsMenu() {
         {remove !== null && (
           <>
             <Menu.Separator />
-            <Menu.Item icon={<TrashIcon />} variant="danger" onClick={() => void remove(emitter)}>
+            <Menu.Item icon={<TrashIcon />} variant="danger" onClick={() => void remove([emitter])}>
               {m.workshop_bin_inspector_emitter_delete_action()}
             </Menu.Item>
           </>

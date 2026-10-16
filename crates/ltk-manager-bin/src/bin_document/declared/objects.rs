@@ -11,6 +11,7 @@ use ltk_meta::property::values;
 use ltk_meta::{BinObject, PropertyValueEnum};
 use serde::{Deserialize, Serialize};
 
+use super::super::clipboard::copied_object;
 use super::super::edit::{Edit, bin_hash};
 use super::super::properties::field_path;
 use super::super::{BinDocument, BinDocumentError, ClassChoice, EditRejection, hex};
@@ -49,6 +50,12 @@ pub enum NewObject {
     Template {
         /// The template's catalog id.
         template: String,
+    },
+    /// An object that clipboard `text` carries as a struct value: `class` and a `set` of each
+    /// of its properties.
+    Paste {
+        /// The clipboard text of a copied object.
+        text: String,
     },
 }
 
@@ -153,6 +160,13 @@ impl BinDocument {
                 let spelled = self.spelled(|names| class_name(value.class_hash, names))?;
                 let expected = BinObject::new(entry, value.class_hash);
                 filling = Some(own_named(value, &name));
+                (ObjectOperation::Construct(spelled), expected)
+            }
+            NewObject::Paste { text } => {
+                let value = copied_object(text).map_err(rejected)?;
+                let spelled = self.spelled(|names| class_name(value.class_hash, names))?;
+                let expected = BinObject::new(entry, value.class_hash);
+                filling = Some(value.properties.into_iter().collect());
                 (ObjectOperation::Construct(spelled), expected)
             }
         };

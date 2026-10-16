@@ -48,7 +48,7 @@ struct Copied {
 
 impl BinDocuments {
     /// The value at `path` under the object `entry` of the document under `id`, as
-    /// clipboard text.
+    /// clipboard text. An empty `path` copies the object itself.
     ///
     /// # Errors
     ///
@@ -70,7 +70,8 @@ impl BinDocuments {
 }
 
 impl BinDocument {
-    /// The value at `path` under `entry` as clipboard text.
+    /// Returns the value at `path` under `entry` as clipboard text. An empty `path` copies the
+    /// object as a struct value of its class.
     ///
     /// # Errors
     ///
@@ -81,7 +82,21 @@ impl BinDocument {
         path: &str,
         schema: SchemaAt<'_>,
     ) -> Result<String, BinDocumentError> {
-        let value = self.property_value(entry, path)?;
+        let whole;
+        let value = if path.is_empty() {
+            let object = self
+                .object_at(entry)
+                .ok_or_else(|| BinDocumentError::NodeNotFound {
+                    address: hex(entry),
+                })?;
+            whole = PropertyValueEnum::from(values::Struct {
+                class_hash: object.class_hash,
+                properties: object.properties.clone(),
+            });
+            &whole
+        } else {
+            self.property_value(entry, path)?
+        };
         let class = as_struct(value).and_then(|inner| schema.class_name(inner.class_hash));
 
         Ok(clipboard_text(value, class))
@@ -222,6 +237,15 @@ pub fn clipboard_text(value: &PropertyValueEnum, class: Option<&str>) -> String 
 /// The value clipboard `text` carries, and `None` for text that is no sound copy.
 pub fn clipboard_value(text: &str) -> Option<PropertyValueEnum> {
     parse_copied(text).ok()
+}
+
+/// Reads the struct value of an object that clipboard `text` carries. Fails with
+/// [`EditRejection::InvalidShape`] if the value is not a struct of a class.
+pub(super) fn copied_object(text: &str) -> Result<values::Struct, EditRejection> {
+    match parse_copied(text)? {
+        PropertyValueEnum::Struct(inner) if !is_null(&inner) => Ok(inner),
+        _ => Err(EditRejection::InvalidShape),
+    }
 }
 
 /// The value clipboard `text` carries, rebuilt through the checked constructors.
