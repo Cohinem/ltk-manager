@@ -13,17 +13,24 @@ import { AXIS_SIGN } from "@/modules/viewport";
 
 import type { SpawnShape, ValueCurve } from "../../engine/model/model";
 import type { Point } from "../../engine/model/rig";
+import { birth, sampleShape } from "../../engine/simulation/spawnShape";
+import { Rng } from "../../engine/utils/Rng";
 import { drawCurve } from "../../engine/utils/sampleCurve";
 import { SEGMENTS, shapeInto } from "../../rendering/utils/emitterShape";
 import type { SpawnCloud } from "./spawnCloud";
 
 /** A spawn shape drawn as a body in its own space: faint faces, and the edges over them. */
 export interface ShapeBody {
-  readonly faces: BufferGeometry;
+  /** Null for a legacy shape whose offset spans no box before its emit rotations. */
+  readonly faces: BufferGeometry | null;
   readonly edges: BufferGeometry;
-  /** A legacy shape's emit rotations: each axis as a line, and the arc its angle sweeps. */
+  /** A legacy shape's secondary sweep rings, drawn fainter than `edges`. */
+  readonly sweep: BufferGeometry | null;
+  /** A legacy shape's emit rotation axes, each as a line through the emitter. */
   readonly turns: BufferGeometry | null;
 }
+
+type Triple = readonly [number, number, number];
 
 /** The thickness a flat side is given, so a face of no depth still draws. */
 const FLAT = 1e-3;
@@ -33,8 +40,8 @@ const ROUND = 40;
 
 /**
  * The body a shape spawns on or in, in the shape's own space, and null for a shape that spawns
- * at one place. A box, a sphere or a cylinder draws itself, and a legacy shape, which has no
- * body, the box its births span.
+ * at one place. A box, a sphere or a cylinder draws itself. A legacy shape draws its offset's box
+ * and the surface its emit rotations sweep.
  */
 export function shapeBody(
   shape: SpawnShape,
@@ -52,7 +59,7 @@ export function shapeBody(
     case "sphere": {
       if (shape.radius <= 0) return null;
       const faces = new SphereGeometry(shape.radius, ROUND, ROUND / 2);
-      return { faces, edges: ringsOf(shape), turns: null };
+      return { faces, edges: ringsOf(shape), sweep: null, turns: null };
     }
 
     case "cylinder": {
@@ -60,85 +67,161 @@ export function shapeBody(
       const height = Math.max(shape.height, FLAT);
       const faces = new CylinderGeometry(shape.radius, shape.radius, height, ROUND);
       faces.translate(0, height / 2, 0);
-      return { faces, edges: ringsOf(shape), turns: null };
+      return { faces, edges: ringsOf(shape), sweep: null, turns: null };
     }
 
-    case "legacy": {
-      const { localLow: low, localHigh: high } = cloud;
-      const [x, y, z] = [0, 1, 2].map((axis) => high[axis]! - low[axis]!);
-      if (x < FLAT && y < FLAT && z < FLAT) return null;
-
-      const faces = new BoxGeometry(Math.max(x, FLAT), Math.max(y, FLAT), Math.max(z, FLAT));
-      faces.translate((high[0] + low[0]) / 2, (high[1] + low[1]) / 2, (high[2] + low[2]) / 2);
-      return { ...boxBody(faces), turns: turnsOf(shape, Math.max(x, y, z)) };
-    }
+    case "legacy":
+      return legacyBody(shape, cloud.localLow, cloud.localHigh);
   }
 }
 
 function boxBody(faces: BoxGeometry): ShapeBody {
-  return { faces, edges: new EdgesGeometry(faces), turns: null };
+  return { faces, edges: new EdgesGeometry(faces), sweep: null, turns: null };
 }
 
-/** How many steps an angle's arc is drawn in. */
-const ARC_STEPS = 32;
+type LegacyShape = Extract<SpawnShape, { kind: "legacy" }>;
 
-/** An axis line's half length and a degenerate arc's radius, as shares of the shape's span. */
-const AXIS_REACH = 0.7;
-const ARC_FALLBACK = 0.35;
+/** How many fixed angles each other turn is held at while one turn sweeps. */
+const SWEEP_RINGS = 6;
+
+/** An axis line's half length, as a share of the sweep's radius. */
+const AXIS_REACH = 1.25;
 
 /**
- * A legacy shape's emit rotations: each axis as a line through the emitter, and the arc its
- * offset's middle sweeps about it over the least to the most angle the curve draws, across the
- * life and the chance. Each turn is drawn on its own from the middle offset, not composed with
- * the turns before it. Null where no turn has an axis.
+ * A legacy shape's body: the box its offset spans before the emit rotations, and the surface the
+ * offset's far corner sweeps through them, with each turn's axis as a line. Null where the shape
+ * spawns at one place.
  */
-function turnsOf(
-  shape: Extract<SpawnShape, { kind: "legacy" }>,
-  span: number,
-): BufferGeometry | null {
-  const points: number[] = [];
-  const middle = new Vector3(...drawCurve(shape.offset, 0.5, 0.5).slice(0, 3)).add(
-    new Vector3(...drawCurve(shape.translation, 0.5, 0.5).slice(0, 3)),
+function legacyBody(shape: LegacyShape, low: Triple, high: Triple): ShapeBody | null {
+  const size = [0, 1, 2].map((axis) => high[axis]! - low[axis]!);
+  let faces: BufferGeometry | null = null;
+  const lines: number[] = [];
+  if (size.some((extent) => extent >= FLAT)) {
+    faces = new BoxGeometry(...size.map((extent) => Math.max(extent, FLAT)));
+    faces.translate((high[0] + low[0]) / 2, (high[1] + low[1]) / 2, (high[2] + low[2]) / 2);
+    lines.push(...new EdgesGeometry(faces).getAttribute("position").array);
+  }
+
+  const corner = farCorner(low, high);
+  const swept = sweepOf(shape, corner);
+  lines.push(...swept.main);
+  if (lines.length === 0) return null;
+
+  const reach = Math.max(Math.hypot(...corner), ...size, 1) * AXIS_REACH;
+  return {
+    faces,
+    edges: linesOf(lines),
+    sweep: swept.rest.length === 0 ? null : linesOf(swept.rest),
+    turns: axesOf(shape, reach),
+  };
+}
+
+/** A sweep's rings: one per turn with every other turn at its least angle, and the others. */
+interface Sweep {
+  readonly main: number[];
+  readonly rest: number[];
+}
+
+/** The corner of the box from `low` to `high` that stands farthest from the emitter. */
+function farCorner(low: Triple, high: Triple): Triple {
+  let far: Triple = [low[0], low[1], low[2]];
+  for (const x of [low[0], high[0]]) {
+    for (const y of [low[1], high[1]]) {
+      for (const z of [low[2], high[2]]) {
+        if (Math.hypot(x, y, z) > Math.hypot(...far)) far = [x, y, z];
+      }
+    }
+  }
+  return far;
+}
+
+/**
+ * The surface `corner` sweeps through a legacy shape's emit rotations, as line segments. Each
+ * turn sweeps the least to the most angle its curve draws while every other turn is held at
+ * `SWEEP_RINGS` angles across its own span. Each point is placed by `sampleShape`, so the turns
+ * compose in the engine's order. Both lists are empty if no turn sweeps an angle.
+ */
+function sweepOf(shape: LegacyShape, corner: Triple): Sweep {
+  const count = Math.min(shape.angles.length, shape.axes.length);
+  const spans = shape.angles.slice(0, count).map(angleSpan);
+  const sweeps = spans.map(
+    ([least, most], each) => most - least > 1e-3 && shape.axes[each]!.some((v) => v !== 0),
   );
+  /* shortcut: 3+ sweeping turns hold fewer rings each, upgrade to a hull if one ever needs it. */
+  const rings = sweeps.filter(Boolean).length > 2 ? 3 : SWEEP_RINGS;
+  const held = spans.map(([least, most], each) =>
+    sweeps[each] ? ringAngles(least, most, rings) : [least],
+  );
+
+  const angles = spans.map(([least]) => ({ constant: [least], keys: [], tables: [] }));
+  const posed: LegacyShape = {
+    kind: "legacy",
+    offset: { constant: corner, keys: [], tables: [] },
+    translation: { constant: [0, 0, 0], keys: [], tables: [] },
+    angles,
+    axes: shape.axes.slice(0, count),
+  };
+  const rng = new Rng(0);
+  const placed = birth();
+  const at = (degrees: readonly number[]): number[] => {
+    degrees.forEach((value, each) => (angles[each]!.constant[0] = value));
+    sampleShape(posed, rng, 0, null, placed);
+    return Array.from(placed.offset);
+  };
+
+  const swept: Sweep = { main: [], rest: [] };
+  for (let each = 0; each < count; each += 1) {
+    if (!sweeps[each]) continue;
+
+    const [least, most] = spans[each]!;
+    const others = held.map((values, other) => (other === each ? [least] : values));
+    product(others).forEach((pose, ring) => {
+      const points = ring === 0 ? swept.main : swept.rest;
+      for (let step = 0; step < ROUND; step += 1) {
+        for (const end of [step, step + 1]) {
+          pose[each] = least + ((most - least) * end) / ROUND;
+          points.push(...at(pose));
+        }
+      }
+    });
+  }
+  return swept;
+}
+
+/** `rings` angles across the least to the most, the most left out of a full turn. */
+function ringAngles(least: number, most: number, rings: number): number[] {
+  const closed = most - least >= 360 - 1e-3;
+  const steps = closed ? rings : rings - 1;
+  return Array.from({ length: rings }, (_, at) => least + ((most - least) * at) / steps);
+}
+
+/** Every pick of one value from each of `lists`. */
+function product(lists: readonly number[][]): number[][] {
+  return lists.reduce<number[][]>(
+    (picks, list) => picks.flatMap((pick) => list.map((value) => [...pick, value])),
+    [[]],
+  );
+}
+
+/** Each emit rotation's axis as a line through the emitter, `reach` either way. Null for none. */
+function axesOf(shape: LegacyShape, reach: number): BufferGeometry | null {
+  const points: number[] = [];
   const count = Math.min(shape.angles.length, shape.axes.length);
   for (let each = 0; each < count; each += 1) {
     const axis = new Vector3(...shape.axes[each]!);
     if (axis.lengthSq() === 0) continue;
-    axis.normalize();
 
-    const reach = Math.max(span, 1) * AXIS_REACH;
-    points.push(
-      ...axis.clone().multiplyScalar(-reach).toArray(),
-      ...axis.clone().multiplyScalar(reach).toArray(),
-    );
-
-    const [least, most] = angleSpan(shape.angles[each]!);
-    const pivot = axis.clone().multiplyScalar(middle.dot(axis));
-    let start = middle.clone().sub(pivot);
-    if (start.lengthSq() < 1e-6) {
-      start = perpendicular(axis).multiplyScalar(Math.max(span, 1) * ARC_FALLBACK);
-    }
-    for (let step = 0; step < ARC_STEPS; step += 1) {
-      for (const at of [step, step + 1]) {
-        const degrees = least + ((most - least) * at) / ARC_STEPS;
-        points.push(
-          ...start
-            .clone()
-            .applyAxisAngle(axis, degrees * DEGREE)
-            .add(pivot)
-            .toArray(),
-        );
-      }
-    }
+    axis.normalize().multiplyScalar(reach);
+    points.push(...axis.clone().negate().toArray(), ...axis.toArray());
   }
-  if (points.length === 0) return null;
-
-  const turns = new BufferGeometry();
-  turns.setAttribute("position", new BufferAttribute(new Float32Array(points), 3));
-  return turns;
+  return points.length === 0 ? null : linesOf(points);
 }
 
-const DEGREE = Math.PI / 180;
+function linesOf(points: readonly number[]): BufferGeometry {
+  const lines = new BufferGeometry();
+  lines.setAttribute("position", new BufferAttribute(new Float32Array(points), 3));
+  return lines;
+}
 
 /** The least and the most degrees `curve` draws across the life and the chance. */
 function angleSpan(curve: ValueCurve): [number, number] {
@@ -146,12 +229,6 @@ function angleSpan(curve: ValueCurve): [number, number] {
     [0, 1].map((chance) => drawCurve(curve, t01, chance)[0] ?? 0),
   );
   return [Math.min(...drawn), Math.max(...drawn)];
-}
-
-/** A unit vector at right angles to `axis`. */
-function perpendicular(axis: Vector3): Vector3 {
-  const other = Math.abs(axis.y) < 0.9 ? new Vector3(0, 1, 0) : new Vector3(1, 0, 0);
-  return other.cross(axis).normalize();
 }
 
 /** A round shape's rings, as the viewport's gizmo draws them. */

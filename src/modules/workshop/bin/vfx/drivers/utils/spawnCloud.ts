@@ -11,7 +11,7 @@ export interface SpawnCloud {
   /** The least and the greatest place on each axis. */
   readonly low: Triple;
   readonly high: Triple;
-  /** The least and the greatest offset the shape draws on each axis, before the spawn frame. */
+  /** The least and the greatest offset the shape draws on each axis, before its turn and the spawn frame. */
   readonly localLow: Triple;
   readonly localHigh: Triple;
 }
@@ -31,7 +31,7 @@ const IDENTITY = identityInto(new Float32Array(9));
 
 /**
  * The births of `emitter` spread evenly across its life, each placed by the engine's own
- * `sampleShape` and spawn frame as `emit` places one, at one seeded chance per birth.
+ * `sampleShape` and spawn frame as `emit` places one, each table at a seeded draw of its own.
  *
  * The emitter's position and the system's motion are left out, so the cloud is the shape
  * alone about its emitter.
@@ -49,12 +49,11 @@ export function spawnCloud(emitter: EmitterModel, births = CLOUD_BIRTHS): SpawnC
   const localHigh: [number, number, number] = [-Infinity, -Infinity, -Infinity];
   for (let at = 0; at < births; at += 1) {
     const t01 = (at + 0.5) / births;
-    const chance = rng.unitFloat();
-    sampleShape(emitter.shape, rng, t01, chance, drawn);
+    sampleShape(emitter.shape, rng, t01, null, drawn);
     for (let axis = 0; axis < 3; axis += 1) {
       places[at * 3 + axis] = drawn.offset[axis];
-      localLow[axis] = Math.min(localLow[axis], drawn.offset[axis]);
-      localHigh[axis] = Math.max(localHigh[axis], drawn.offset[axis]);
+      localLow[axis] = Math.min(localLow[axis], drawn.raw[axis]);
+      localHigh[axis] = Math.max(localHigh[axis], drawn.raw[axis]);
     }
     placeInto(places, at * 3, frame, emitter.translationOverride);
 
