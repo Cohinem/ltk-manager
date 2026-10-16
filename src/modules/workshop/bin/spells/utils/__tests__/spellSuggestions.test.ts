@@ -21,7 +21,6 @@ const spell = (patch: Partial<SpellPreview>): SpellPreview => ({
   castConeDistance: null,
   animationName: null,
   missile: null,
-  missileSpeed: null,
   effectKey: null,
   effectName: null,
   issues: [],

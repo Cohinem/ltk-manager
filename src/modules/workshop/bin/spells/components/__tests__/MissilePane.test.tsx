@@ -32,7 +32,6 @@ const PREVIEW: SpellPreview = {
   castConeAngle: null,
   castConeDistance: null,
   animationName: null,
-  missileSpeed: null,
   missile: {
     movement: { kind: "fixedSpeed", speed: 5000 },
     startDelay: null,

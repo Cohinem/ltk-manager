@@ -30,7 +30,7 @@ export interface AutoRig {
  * Returns the rig a system picks for itself when nothing opened it in a context.
  *
  * The first of `spells` whose movement can be simulated flies the system on that spell's
- * missile over its cast range, replayed. Otherwise a system with a trail flies a straight missile, so the ribbon
+ * missile, replayed. Otherwise a system with a trail flies a straight missile, so the ribbon
  * has travel to follow, and any other system stands on the ground. A ground rig of a system
  * with a beam aims at [`beamReach`] when the system has one. A system that is not a missile is
  * continuous where an emitter has no `lifetime`, since the game never ends that system, and
@@ -38,11 +38,10 @@ export interface AutoRig {
  */
 export function autoRig(system: SystemModel | null, spells: readonly MissileSpell[] = []): AutoRig {
   for (const spell of spells) {
-    const flight = flightOf(spell.missile, spell.missileSpeed ?? undefined);
+    const flight = flightOf(spell.missile);
     if (flight === null) continue;
 
-    const motion = missileMotion(flight, spell.range ?? undefined);
-    const rig: RigModel = { motion, life: "loop", height: FLIGHT_HEIGHT };
+    const rig: RigModel = { motion: missileMotion(flight), life: "loop", height: FLIGHT_HEIGHT };
     return { rig, spell: spell.name };
   }
 

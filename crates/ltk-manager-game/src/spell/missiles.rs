@@ -38,10 +38,6 @@ pub struct MissileSpell {
     pub name: String,
     /// The spell's missile specification.
     pub missile: MissileSpec,
-    /// The spell's rank-one cast range, in engine units.
-    pub range: Option<f32>,
-    /// The spell's `missileSpeed`, in engine units per second.
-    pub missile_speed: Option<f32>,
 }
 
 /// Returns the spells that fire `system` as their missile.
@@ -100,22 +96,18 @@ pub fn missile_spells(
             continue;
         }
 
-        let Ok(read) = read_spell(&spells, entry) else {
+        let Some(missile) = read_spell(&spells, entry)
+            .ok()
+            .and_then(|read| read.missile)
+        else {
             continue;
         };
-        let range = read.range();
-        let Some(missile) = read.missile else {
-            continue;
-        };
-
         let path = names.entry_name(entry).unwrap_or_else(|| hex(entry));
         found.push(MissileSpell {
             object_hash: hex(entry),
             name: spell_name(&path).to_owned(),
             path,
             missile,
-            range,
-            missile_speed: read.missile_speed,
         });
     }
     found

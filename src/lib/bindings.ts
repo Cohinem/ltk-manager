@@ -4392,10 +4392,6 @@ export type MissileSpell = {
 	name: string,
 	/**  The spell's missile specification. */
 	missile: MissileSpec,
-	/**  The spell's rank-one cast range, in engine units. */
-	range: number | null,
-	/**  The spell's `missileSpeed`, in engine units per second. */
-	missileSpeed: number | null,
 };
 
 /**  A spline movement's `HermiteSplineInfo`, with omitted values kept absent. */
@@ -6897,8 +6893,6 @@ export type SpellPreview = {
 	animationName: string | null,
 	/**  The missile specification, absent for spells without one. */
 	missile: MissileSpec | null,
-	/**  The written `missileSpeed`, in engine units per second. */
-	missileSpeed: number | null,
 	/**  A resource key, never a system-object identity. */
 	effectKey: string | null,
 	/**  The written fallback effect name, retained for inspection. */

@@ -293,21 +293,6 @@ fn cast_suggestions_keep_written_values_and_rank_zero() {
 }
 
 #[test]
-fn range_skips_a_display_override_without_a_rank_one_value() {
-    let spell = read(vec![
-        ("castRangeDisplayOverride", ranks(&[0.0; 7])),
-        (
-            "castRange",
-            ranks(&[0.0, 600.0, 600.0, 600.0, 600.0, 600.0, 600.0]),
-        ),
-        ("missileSpeed", values::F32::new(2000.0).into()),
-    ]);
-
-    assert_eq!(spell.range(), Some(600.0));
-    assert_eq!(spell.missile_speed, Some(2000.0));
-}
-
-#[test]
 fn malformed_suggestions_do_not_create_valid_defaults() {
     let spell = read(vec![
         ("spellCastTime", values::F32::new(f32::NAN).into()),
