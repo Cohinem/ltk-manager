@@ -44,8 +44,8 @@ export interface Drawn {
 
 /**
  * The spawn shape of `emitter` as an analytic figure, turning: a box, sphere or cylinder as its
- * body in faint faces under crisp edges, and a legacy shape as its offset's box and the surface
- * its emit rotations sweep. The caption gives the size on each axis. A point marks where it spawns
+ * body in faint faces under crisp edges, and a legacy shape as the volume its offset's box sweeps
+ * through its emit rotations. The caption gives the size on each axis. A point marks where it spawns
  * with a crosshair, the emitter's axes and a stem from them, and the caption gives the place.
  *
  * A shape of no size spawns every particle at one point, so it draws as a dim body of its kind
