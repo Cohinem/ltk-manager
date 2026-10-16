@@ -218,12 +218,32 @@ pub struct SpellPreview {
     pub animation_name: Option<String>,
     /// The missile specification, absent for spells without one.
     pub missile: Option<MissileSpec>,
+    /// The written `missileSpeed`, in engine units per second.
+    pub missile_speed: Option<f32>,
     /// A resource key, never a system-object identity.
     pub effect_key: Option<String>,
     /// The written fallback effect name, retained for inspection.
     pub effect_name: Option<String>,
     /// Fields requiring correction or an explicit preview approximation.
     pub issues: Vec<SpellIssue>,
+}
+
+impl SpellPreview {
+    /// Returns the rank-one cast range, in engine units.
+    ///
+    /// Reads `castRangeDisplayOverride`, then `castRangeValues`, then `castRange`, and returns the
+    /// first value that is positive and at most 100000. Returns `None` if no field has one.
+    #[must_use]
+    pub fn range(&self) -> Option<f32> {
+        [
+            &self.cast_range_display,
+            &self.cast_range_values,
+            &self.cast_range,
+        ]
+        .into_iter()
+        .filter_map(|ranks| ranks.as_ref()?.get(1).copied())
+        .find(|range| *range > 0.0 && *range <= 100_000.0)
+    }
 }
 
 /// The `SpellObject` field embedding the spell's `SpellDataResource`.
@@ -266,6 +286,7 @@ pub fn read_spell(
         preview.cast_radius_secondary = read.ranks(spell, "castRadiusSecondary", "mSpell");
         preview.cast_cone_angle = read.number(spell, "castConeAngle", "mSpell");
         preview.cast_cone_distance = read.number(spell, "castConeDistance", "mSpell");
+        preview.missile_speed = read.number(spell, "missileSpeed", "mSpell");
         if let Some(value) = spell.get(&h("castRangeValues")) {
             // The unnamed rank-value class declared by castRangeValues in the meta schema.
             if let PropertyValueEnum::Embedded(inner) = value
