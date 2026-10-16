@@ -10,12 +10,11 @@ import {
 import { Button, Menu } from "@/components";
 import { m } from "@/i18n";
 
-import type { EmitterRef } from "../../clipboard/emitterCopy";
 import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
 import { MaskSubmenu } from "../../stencil/MaskSubmenu";
 import { TemplateSubmenu } from "../../templates/TemplateMenus";
 import { useEmitters } from "../state/emitterChoice";
-import { nameOf } from "../utils/emitterCards";
+import { emitterRef } from "../utils/emitterName";
 
 /**
  * Duplicate, copy, paste, add from template and delete of the open card's emitter, as one
@@ -31,7 +30,7 @@ export function EmitterActionsMenu() {
   }
 
   const { copy, duplicate, paste, remove } = clipboard;
-  const emitter: EmitterRef = { entry: card.row.entry, wire: card.row.path, name: nameOf(card) };
+  const emitter = emitterRef(card);
 
   return (
     <Menu.Root>

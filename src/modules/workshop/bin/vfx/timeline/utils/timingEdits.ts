@@ -1,7 +1,9 @@
-import type { LeafValue, ValueEdit } from "@/lib/tauri";
+import type { LeafValue, PropertyEdit, ValueEdit } from "@/lib/tauri";
 
 import { nameHash } from "../../../shared/utils/binHash";
+import type { EmitterPlace } from "../../clipboard/emitterCopy";
 import type { EmitterModel } from "../../engine/model/model";
+import { barFields, type BarGrip } from "./barDrag";
 import type { LaneBar } from "./laneModel";
 
 /** The emitter fields the timeline writes, by name. */
@@ -33,6 +35,27 @@ export function timingEdits(
     { type: "ensureProperty", path: item, field: TIMING[field] },
     { type: "setLeaf", path: `${item}.${TIMING[field].slice(2)}`, value },
   ]);
+}
+
+/**
+ * Returns the edits that write the fields a drag of `grip` sets on each bar of `moved`, one per
+ * emitter list of the system `entry`, so the drag of several bars is one undo step.
+ */
+export function draggedEdits(
+  entry: string,
+  grip: BarGrip,
+  moved: readonly { readonly place: EmitterPlace; readonly bar: LaneBar }[],
+): PropertyEdit[] {
+  const lists = new Map<string, ValueEdit[]>();
+  for (const { place, bar } of moved) {
+    const values = barFields(grip, bar).map(({ field, value }) => ({
+      field,
+      value: seconds(value),
+    }));
+    lists.set(place.list, [...(lists.get(place.list) ?? []), ...timingEdits(place.index, values)]);
+  }
+
+  return [...lists].map(([field, edits]) => ({ entry, holder: "", field, edits }));
 }
 
 /** The edit that empties the optional `field` of the emitter at `index`, which then reads unset. */

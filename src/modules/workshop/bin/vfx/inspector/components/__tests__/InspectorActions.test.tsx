@@ -36,7 +36,13 @@ vi.mock("../../state/emitterChoice", () => ({
   }),
 }));
 
-vi.mock("../../utils/emitterCards", () => ({ nameOf: () => "Spark" }));
+vi.mock("../../utils/emitterName", () => ({
+  emitterRef: (card: { row: { entry: string; path: string } }) => ({
+    entry: card.row.entry,
+    wire: card.row.path,
+    name: "Spark",
+  }),
+}));
 
 beforeEach(() => {
   vi.clearAllMocks();

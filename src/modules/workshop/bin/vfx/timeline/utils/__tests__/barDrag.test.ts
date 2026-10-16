@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import type { EmitterModel } from "../../../engine/model/model";
-import { barFields, barGripAt, draggedBar, dragReadout, edgeTime, snapTime } from "../barDrag";
-import { withBar } from "../timingEdits";
+import {
+  barFields,
+  barGripAt,
+  draggedBar,
+  dragReadout,
+  edgeTime,
+  followedBar,
+  snapTime,
+} from "../barDrag";
+import { draggedEdits, TIMING, withBar } from "../timingEdits";
 
 const view = { from: 0, to: 10 };
 const bar = { start: 1, end: 3, tail: 1, linger: 1, period: null, burst: false };
@@ -45,6 +53,63 @@ describe("a dragged bar", () => {
     expect(draggedBar("end", bar, 0).end).toBeGreaterThan(bar.start);
     expect(draggedBar("linger", bar, 2).linger).toBe(0);
     expect(draggedBar("linger", bar, 6.5).linger).toBe(2.5);
+  });
+});
+
+describe("followedBar", () => {
+  const other = { ...bar, start: 4, end: 8, linger: 0.5 };
+
+  it("shifts another bar's start by what a move or a start trim shifted the dragged one", () => {
+    expect(followedBar("move", bar, draggedBar("move", bar, 2), other, true)).toMatchObject({
+      start: 5,
+      end: 9,
+    });
+    expect(followedBar("start", bar, draggedBar("start", bar, 2), other, true)).toMatchObject({
+      start: 5,
+      end: 8,
+    });
+  });
+
+  it("shifts another bar's end or linger by what the drag shifted the dragged one's", () => {
+    expect(followedBar("end", bar, draggedBar("end", bar, 4), other, true)?.end).toBe(9);
+    expect(followedBar("linger", bar, { ...bar, linger: 2 }, other, true)?.linger).toBe(1.5);
+  });
+
+  it("returns null for a bar that has no such edge", () => {
+    const endless = { ...other, end: null };
+
+    expect(followedBar("end", bar, draggedBar("end", bar, 4), endless, true)).toBeNull();
+    expect(followedBar("linger", bar, { ...bar, linger: 2 }, endless, true)).toBeNull();
+    expect(followedBar("linger", bar, { ...bar, linger: 2 }, other, false)).toBeNull();
+  });
+
+  it("moves no other bar on an end drag that started on an endless bar", () => {
+    const endless = { ...bar, end: null };
+
+    expect(followedBar("end", endless, { ...endless, end: 6 }, other, true)).toBeNull();
+  });
+});
+
+describe("draggedEdits", () => {
+  it("writes each moved bar under its own list, one edit per list", () => {
+    const edits = draggedEdits("0x1", "start", [
+      { place: { list: "0xaaaaaaaa", index: 0 }, bar: { ...bar, start: 2 } },
+      { place: { list: "0xbbbbbbbb", index: 1 }, bar: { ...bar, start: 3 } },
+      { place: { list: "0xaaaaaaaa", index: 4 }, bar: { ...bar, start: 5 } },
+    ]);
+
+    const leaf = (index: number, value: number) => [
+      { type: "ensureProperty", path: `[${index}]`, field: TIMING.timeBeforeFirstEmission },
+      {
+        type: "setLeaf",
+        path: `[${index}].${TIMING.timeBeforeFirstEmission.slice(2)}`,
+        value: { type: "float", value },
+      },
+    ];
+    expect(edits).toEqual([
+      { entry: "0x1", holder: "", field: "0xaaaaaaaa", edits: [...leaf(0, 2), ...leaf(4, 5)] },
+      { entry: "0x1", holder: "", field: "0xbbbbbbbb", edits: leaf(1, 3) },
+    ]);
   });
 });
 
