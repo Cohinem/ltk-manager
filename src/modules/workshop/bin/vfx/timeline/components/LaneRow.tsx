@@ -1,5 +1,5 @@
 import { ArrowElbowDownRightIcon, CaretRightIcon, EyeSlashIcon } from "@phosphor-icons/react";
-import { memo, useMemo } from "react";
+import { memo, type MouseEvent, useMemo } from "react";
 
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
@@ -25,10 +25,11 @@ import {
   laneBar,
   type TimeWindow,
 } from "../utils/laneModel";
+import type { LaneHow } from "../utils/selection";
 import { BarEditor } from "./BarEditor";
 import { type LaneGestures, SoloToggle, VisibleToggle } from "./laneVisibility";
 import { Track } from "./Track";
-import { useBarEditing } from "./useBarEditing";
+import { type FollowBars, useBarEditing } from "./useBarEditing";
 
 /** The room the live count takes at a lane's right edge, in pixels. */
 export const COUNT = 40;
@@ -50,10 +51,13 @@ interface LaneRowProps {
   spawned: number;
   expanded: boolean;
   onExpand: (emitter: number) => void;
-  onSelect: (row: Row) => void;
+  onSelect: (row: Row, how: LaneHow) => void;
   onSeek: (x: number, keys: SnapKeys) => void;
   /** How a dragged edge snaps. */
   snap: TimeSnap;
+  /** The bar this lane draws while a drag on another selected lane moves it. */
+  followed: LaneBar | undefined;
+  onFollow: FollowBars;
 }
 
 /**
@@ -75,20 +79,22 @@ export const LaneRow = memo(function LaneRow({
   onSelect,
   onSeek,
   snap,
+  followed,
+  onFollow,
 }: LaneRowProps) {
   const run = useVfxRun();
-  const { open, child } = useEmitters();
+  const { cards, selected: chosen, child } = useEmitters();
   const emitter = row.kind === "emitter" ? row.emitter : row.lane.emitter;
   const bars = useMemo<readonly LaneBar[]>(() => {
-    if (row.kind === "emitter") return [laneBar(row.emitter)];
+    if (row.kind === "emitter") return [followed ?? laneBar(row.emitter)];
     const { driver } = run;
     /* The list grows in place, so the count is what says a new bar is owed. */
     const births = driver.births().slice(0, spawned);
     return childBars(births, row.lane, driver.time - driver.phase);
-  }, [row, run, spawned]);
+  }, [row, run, spawned, followed]);
   const selected =
     row.kind === "emitter"
-      ? child === null && card !== undefined && open?.key === card.key
+      ? card !== undefined && chosen.has(card.key)
       : child !== null && child.path === row.lane.path && child.emitter.index === emitter.index;
   const muted = row.kind === "emitter" && run.muted.has(emitter.index);
   const soloed = row.kind === "emitter" && run.soloed.has(emitter.index);
@@ -97,7 +103,12 @@ export const LaneRow = memo(function LaneRow({
       ? muted || (anySolo(run) && !soloed)
       : hiddenIn({ root: row.parent.index, path: row.lane.path }, run);
   const dimmed = emitter.disabled || hidden;
-  const editing = useBarEditing(emitter, row.kind === "emitter" ? card : undefined);
+  const editing = useBarEditing(
+    emitter,
+    row.kind === "emitter" ? card : undefined,
+    { cards, selected: chosen },
+    onFollow,
+  );
   const mask = useMemo(() => (row.kind === "emitter" ? maskUse(row.emitter) : null), [row]);
   const lit = useMaskHovered(mask?.key ?? null);
 
@@ -143,7 +154,7 @@ export const LaneRow = memo(function LaneRow({
           type="button"
           aria-pressed={selected}
           className="flex min-w-0 flex-1 cursor-pointer items-center gap-1 truncate rounded-sm px-0.5 text-left hover:bg-surface-veil"
-          onClick={() => onSelect(row)}
+          onClick={(event) => onSelect(row, laneHow(event))}
         >
           {/* A closed eye already shows a `disabled` flag, so the mark names a gate alone. */}
           {emitter.disabled && !muted && (
@@ -201,6 +212,13 @@ export const LaneRow = memo(function LaneRow({
     </div>
   );
 });
+
+/** Returns how a click edits the selection: Shift selects a range and Ctrl or Command toggles. */
+function laneHow(event: MouseEvent): LaneHow {
+  if (event.shiftKey) return "range";
+  if (event.ctrlKey || event.metaKey) return "toggle";
+  return "only";
+}
 
 /** The characters a SIMPLE tag takes beside an index, in the head's mono face. */
 export const SIMPLE_TAG = 7;

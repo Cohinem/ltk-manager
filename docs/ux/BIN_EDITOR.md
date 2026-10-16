@@ -1809,6 +1809,9 @@ and the value reads beside the edge during the drag.
 - an endless bar's arrow drags too, which gives the emitter a `lifetime`
 - a child lane's bars stand for spawns and do not drag, and a simple emitter's linger is capped
   to nothing, so its bar has no linger edge
+- a drag on a bar of a selected lane changes every selected bar by the same seconds, and the
+  release writes all of them as one edit. A bar without the dragged edge stays as it is: an
+  endless bar on an end or a linger drag, and a simple emitter's bar on a linger drag
 
 **A double click opens the exact times.** A double click on the bar opens a popover with the
 start delay, the lifetime, Emits until the system stops, the emitter linger, the particle linger
@@ -1835,7 +1838,14 @@ the emitter whose particles carry them, collapsed, with their bars at the times 
 them.
 
 **A click does the one thing its target names.** The name selects the emitter, and the crumb, the
-inspector and the Emitters pane follow. The ruler and a lane's track seek, and a drag along either
+inspector and the Emitters pane follow. Ctrl or Command and a click on a name adds that lane to the
+selection or removes it, and Shift and a click selects every lane from the last one clicked to this
+one, in the order the lanes are listed. The selection never empties, and the inspector shows the
+lane clicked last. A child lane is always selected alone. A selection made anywhere else, in the
+strip, the Graph or a child lane, ends the timeline's selection. With focus in the lanes, `Ctrl+D`,
+`Ctrl+C` and `Delete` act on every selected emitter, per
+[Duplicating, pasting and deleting an emitter](#duplicating-pasting-and-deleting-an-emitter), and
+S and M solo or mute all of them. The ruler and a lane's track seek, and a drag along either
 scrubs. A child lane selects its
 emitter into the inspector, under a banner naming the child system and an Open system link to its
 own tab, and opens the card of the emitter carrying it. Dragging a bar's edge to write
@@ -1933,7 +1943,7 @@ option keeps Space.
 | L                       | Loop on or off                                     |
 | Alt+Up, Alt+Down        | The previous or next particle system of the folder |
 | F                       | Fit the camera                                     |
-| S, M                    | Solo or mute the selected emitter                  |
+| S, M                    | Solo or mute the selected emitters                 |
 | `[`, `]`                | The next speed detent down or up                   |
 | Ctrl+M                  | Add a marker at the playhead                       |
 | Esc                     | Restore a maximized pane                           |
@@ -3418,6 +3428,7 @@ under it.
 | The Graph pane, one master node selected       | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it      | `Delete`       |
 | The Graph pane, several master nodes selected  | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, at the end    | `Delete`       |
 | The Graph pane, no master node selected        |                   |              | `Ctrl+V`, at the end    |                |
+| The timeline, with focus in the lanes          | `Ctrl+D`          | `Ctrl+C`     | `Ctrl+V`, after it      | `Delete`       |
 
 **Duplicate, copy and delete act on every selected emitter.** A shortcut, or a menu item on a
 node of the selection, acts on the emitters of all selected master nodes. A menu item on a node

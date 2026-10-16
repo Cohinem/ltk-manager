@@ -92,6 +92,34 @@ export function draggedBar(grip: BarGrip, held: LaneBar, time: number): LaneBar 
 }
 
 /**
+ * Returns `other` changed by what a drag of `grip` did to `held`, which ended as `dragged`.
+ *
+ * A move and a start trim shift `other`'s start by the same seconds, an end drag its end, and
+ * a linger drag its linger. Returns null if `other` has no such edge: an endless bar for an
+ * end or a linger drag, or a bar whose linger the engine caps (`lingers` false). An end drag
+ * that started on an endless bar moves no other bar, since it has no length to shift by.
+ */
+export function followedBar(
+  grip: BarGrip,
+  held: LaneBar,
+  dragged: LaneBar,
+  other: LaneBar,
+  lingers: boolean,
+): LaneBar | null {
+  switch (grip) {
+    case "move":
+    case "start":
+      return draggedBar(grip, other, other.start + dragged.start - held.start);
+    case "end":
+      if (held.end === null || dragged.end === null || other.end === null) return null;
+      return draggedBar("end", other, other.end + dragged.end - held.end);
+    default:
+      if (!lingers || other.end === null) return null;
+      return { ...other, linger: Math.max(other.linger + dragged.linger - held.linger, 0) };
+  }
+}
+
+/**
  * The fields a drag of `grip` leaves `bar` writing, and the seconds each takes.
  *
  * `lifetime` is where the bar ends on the system's clock, so a move writes it beside the

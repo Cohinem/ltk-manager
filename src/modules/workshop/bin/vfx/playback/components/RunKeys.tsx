@@ -8,40 +8,18 @@ import {
   type TimelineMarkerList,
   useTimelineMarkers,
 } from "../../timeline/hooks/useTimelineMarkers";
-import { chosenEmitter } from "../../timeline/utils/selection";
+import { chosenEmitters, togglesAll } from "../../timeline/utils/selection";
 import { useVfxRun, type VfxRun } from "../state/run";
+import { ignoredKey } from "../utils/ignoredKey";
 import { speedDetent } from "./Transport";
 
 /** How many frames Shift and an arrow move, which is a tenth of a second. */
 const SHIFT_FRAMES = 6;
 
-/** Fields that take typing, where no run key acts. */
-const EDITABLE =
-  "input:not([type='range']), textarea, select, [role='textbox'], [role='searchbox'], [role='spinbutton'], [role='combobox']";
-
-/** Controls whose keys are the arrows and Space, which the run's keys leave alone. */
-const KEYED_CONTROLS =
-  "[role='tab'], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'], [role='radio']";
-
-/** A slider, which keeps the keys that move it and passes every other key to the run. */
-const SLIDER = "input[type='range'], [role='slider']";
-
-/** The keys a slider moves by. */
-const SLIDER_KEYS: ReadonlySet<string> = new Set([
-  "ArrowLeft",
-  "ArrowRight",
-  "ArrowUp",
-  "ArrowDown",
-  "Home",
-  "End",
-  "PageUp",
-  "PageDown",
-]);
-
 /** What each key does to the run, "The keys" in docs/ux/BIN_EDITOR.md. Esc is the pane tree's. */
 const KEYS: Record<
   string,
-  (run: VfxRun, selected: number | null, markers: TimelineMarkerList | null) => void
+  (run: VfxRun, selected: readonly number[], markers: TimelineMarkerList | null) => void
 > = {
   space: (run) => run.setPlaying(!run.playing),
   left: (run) => run.step(-1),
@@ -55,8 +33,8 @@ const KEYS: Record<
   end: (run) => run.seekEnd(),
   l: (run) => run.setLooping(!run.looping),
   f: (run) => run.requestFit(),
-  s: (run, selected) => selected !== null && run.toggleSoloed(selected),
-  m: (run, selected) => selected !== null && run.toggleMuted(selected),
+  s: (run, selected) => selected.length > 0 && run.setSoloed((held) => togglesAll(held, selected)),
+  m: (run, selected) => selected.length > 0 && run.setMuted((held) => togglesAll(held, selected)),
   bracketleft: (run) => run.setSpeed(speedDetent(run.speed, -1)),
   bracketright: (run) => run.setSpeed(speedDetent(run.speed, 1)),
   "ctrl+m": (run, _, markers) => markers?.add(run.driver.phase),
@@ -70,19 +48,25 @@ const KEYS: Record<
  */
 export function RunKeys({ children }: { children: ReactNode }) {
   const run = useVfxRun();
-  const { root } = useEmitters();
+  const { cards, root, selected } = useEmitters();
   const markers = useTimelineMarkers();
   const visible = useContentVisible();
 
   const ref = useHotkeys<HTMLDivElement>(
     Object.keys(KEYS).join(", "),
-    (_, handler) => KEYS[handler.hotkey]?.(run, chosenEmitter(run.system, root), markers),
+    (_, handler) => {
+      /* A selected child lane leaves the set empty, and its parent's open card stands for it. */
+      const places = cards.filter((card) => selected.has(card.key));
+      if (places.length === 0 && root !== undefined) places.push(root);
+
+      KEYS[handler.hotkey]?.(run, chosenEmitters(run.system, places), markers);
+    },
     {
       preventDefault: true,
       enableOnFormTags: true,
       ignoreEventWhen: ignoredKey,
     },
-    [run, root, markers],
+    [run, cards, root, selected, markers],
   );
 
   useEffect(() => {
@@ -102,15 +86,6 @@ export function RunKeys({ children }: { children: ReactNode }) {
       {children}
     </div>
   );
-}
-
-/** A key the focused control uses, which the run leaves to it. */
-export function ignoredKey(event: KeyboardEvent): boolean {
-  const target = event.target;
-  if (!(target instanceof Element)) return false;
-  if (target.closest(EDITABLE) !== null || target.closest(KEYED_CONTROLS) !== null) return true;
-
-  return target.closest(SLIDER) !== null && SLIDER_KEYS.has(event.key);
 }
 
 /**

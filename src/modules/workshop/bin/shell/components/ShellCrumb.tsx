@@ -6,8 +6,8 @@ import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
 import { useEmitters } from "../../vfx/inspector/state/emitterChoice";
-import { nameOf } from "../../vfx/inspector/utils/emitterCards";
 import { type EmitterGroup, GROUP_TITLE } from "../../vfx/inspector/utils/emitterGroups";
+import { nameOf } from "../../vfx/inspector/utils/emitterName";
 import type { EmitterCardData } from "../../vfx/inspector/utils/emitterTypes";
 
 /**

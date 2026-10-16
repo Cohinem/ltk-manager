@@ -3,9 +3,9 @@ import { useHotkeys } from "react-hotkeys-hook";
 
 import type { SceneClock } from "@/modules/viewport";
 
-import { ignoredKey } from "../../vfx/playback/components/RunKeys";
 import { speedDetent } from "../../vfx/playback/components/Transport";
 import { FRAME } from "../../vfx/playback/state/run";
+import { ignoredKey } from "../../vfx/playback/utils/ignoredKey";
 
 /** How many frames Shift and an arrow move, which is a tenth of a second. */
 const SHIFT_FRAMES = 6;

@@ -27,8 +27,8 @@ import {
   gradientCss,
 } from "../../../values/utils/valueRows";
 import { useEmitters } from "../state/emitterChoice";
-import { nameOf } from "../utils/emitterCards";
 import { CARD, type EmitterGroup, GROUP_TITLE } from "../utils/emitterGroups";
+import { nameOf } from "../utils/emitterName";
 import type { EmitterCardData } from "../utils/emitterTypes";
 import { EmitterPanel } from "./EmitterInspector";
 import { EmitterTable } from "./EmitterTable";
