@@ -1,4 +1,4 @@
-import { LockSimpleIcon, PlusIcon } from "@phosphor-icons/react";
+import { LockSimpleIcon, PlusIcon, SealCheckIcon } from "@phosphor-icons/react";
 import { use } from "react";
 
 import { Button, Tooltip, useToast } from "@/components";
@@ -7,7 +7,13 @@ import { api, type AssetRef, type BinDocumentId, type ReadOnly } from "@/lib/tau
 import { SaveStatus } from "@/modules/editor";
 
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
-import { binSaveKey, forgetBinSave, saveBinNow, useBinSave } from "../../../state";
+import {
+  binSaveKey,
+  forgetBinSave,
+  saveBinNow,
+  useBinSave,
+  useSetUseDeclarations,
+} from "../../../state";
 import { useInvalidateBinReads } from "../../tree/hooks/useBinEdit";
 import { NewObjectContext } from "../../tree/state/newObject";
 import { useDeclaredState } from "../hooks/useDeclared";
@@ -35,12 +41,30 @@ export function BinEditState({ document, asset, readOnly, onReload }: BinEditSta
         <DeclaredDiagnosticsMark
           diagnostics={declared.diagnostics.filter((diagnostic) => diagnostic.entry.length === 0)}
         />
-        {readOnly !== null && <ReadOnlyMark gate={readOnly} />}
+        {readOnly !== null && <DeclareEditsAction />}
       </span>
     );
   }
+  if (readOnly === "declarationsOff") return <DeclareEditsAction />;
   if (readOnly !== null) return <ReadOnlyMark gate={readOnly} />;
   return <AutosaveStatus document={document} asset={asset} onReload={onReload} />;
+}
+
+/** The toolbar's `Declare edits`, which turns game data declarations on for the project. */
+function DeclareEditsAction() {
+  const setUseDeclarations = useSetUseDeclarations();
+
+  return (
+    <Button
+      variant="outline"
+      size="xs"
+      className="shrink-0"
+      left={<SealCheckIcon weight="bold" className="size-3" />}
+      onClick={() => setUseDeclarations(true)}
+    >
+      {m.workshop_bin_declarations_declare_action()}
+    </Button>
+  );
 }
 
 /**

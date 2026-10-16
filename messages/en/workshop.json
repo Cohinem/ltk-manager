@@ -586,7 +586,6 @@
       }
     }
   ],
-  "workshop_bin_declarations_off_description": "The project's declarations apply, and this game bin takes no edit.",
   "workshop_bin_declarations_off_title": "Game data declarations are off",
   "workshop_bin_declarations_stop_action": "Stop using game data declarations",
   "workshop_bin_declarations_toggle_label": "Use game data declarations",

@@ -76,7 +76,6 @@ import { useBinTab } from "../hooks/useBinTab";
 import { useCopyDeclaration, useRowDeclaration } from "../hooks/useDeclared";
 import { ProjectSwitchContext } from "../state/projectSwitch";
 import { BinEditState } from "./BinEditState";
-import { DeclarationsOffNotice } from "./DeclarationsOffNotice";
 import { DuplicateObjectDialog } from "./DuplicateObjectDialog";
 import { SandboxOptions, useProjectSwitch } from "./SandboxOptions";
 
@@ -316,9 +315,6 @@ function OpenObject({
             onElement={registerSlot}
             className="shrink-0 gap-2 border-b border-surface-700/50 px-2 py-1 empty:hidden"
           />
-        )}
-        {handle.readOnly === "declarationsOff" && (
-          <DeclarationsOffNotice asset={asset} file={file} subject={objectPath} />
         )}
         <ShellHeaderContext value={slots}>
           <CurveDockContext value={dock}>
