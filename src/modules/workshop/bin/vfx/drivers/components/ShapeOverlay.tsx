@@ -43,8 +43,9 @@ export function ShapeOverlay({
   const group = useRef<Group>(null);
   useEffect(
     () => () => {
-      body?.faces.dispose();
+      body?.faces?.dispose();
       body?.edges.dispose();
+      body?.sweep?.dispose();
       body?.turns?.dispose();
     },
     [body],

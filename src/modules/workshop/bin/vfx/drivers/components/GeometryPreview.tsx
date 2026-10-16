@@ -103,8 +103,9 @@ function GeometryScene({ system, emitter, controls, handed, onHand }: GeometrySc
   const figure = useMemo(() => drawnOf(emitter, zero), [emitter, zero]);
   useEffect(
     () => () => {
-      figure.body?.faces.dispose();
+      figure.body?.faces?.dispose();
       figure.body?.edges.dispose();
+      figure.body?.sweep?.dispose();
       figure.body?.turns?.dispose();
     },
     [figure],

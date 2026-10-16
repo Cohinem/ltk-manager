@@ -17,6 +17,10 @@ import { spawnCloud } from "../spawnCloud";
 
 const IDENTITY = identityInto(new Float32Array(9));
 
+function key(time: number, value: number) {
+  return { time, values: [value] };
+}
+
 /** The distinct corners among `points`, rounded so a float's noise does not split one. */
 function corners(points: Vector3[]): string[] {
   return [
@@ -68,6 +72,43 @@ describe("shapeBody", () => {
     expect(corners(drawn)).toEqual(corners(gizmo));
   });
 
+  it("sweeps a legacy offset through its emit rotations onto a sphere", () => {
+    const full = { channel: 0, single: 0, keys: [key(0, 0), key(1, 360)] };
+    const emitter = emitterOf(0, {
+      shape: {
+        kind: "legacy",
+        offset: {
+          constant: [1, 0, 0],
+          keys: [],
+          tables: [{ channel: 0, single: 0, keys: [key(0, 20), key(1, 100)] }],
+        },
+        translation: { constant: [0, 0, 0], keys: [], tables: [] },
+        angles: [
+          { constant: [1], keys: [], tables: [full] },
+          { constant: [1], keys: [], tables: [full] },
+        ],
+        axes: [
+          [0, 1, 0],
+          [0, 0, 1],
+        ],
+      },
+    });
+
+    const body = shapeBody(emitter.shape, spawnCloud(emitter))!;
+    const edges = body.edges.getAttribute("position");
+    const lengths = Array.from({ length: edges.count }, (_, at) =>
+      new Vector3().fromBufferAttribute(edges, at).length(),
+    );
+    body.edges.computeBoundingBox();
+    const { min, max } = body.edges.boundingBox!;
+
+    expect(Math.max(...lengths)).toBeLessThan(100.5);
+    expect(min.toArray().every((value) => value < -95)).toBe(true);
+    expect(max.toArray().every((value) => value > 95)).toBe(true);
+    expect(body.turns?.getAttribute("position").count).toBe(4);
+    expect(body.sweep?.getAttribute("position").count).toBeGreaterThan(edges.count);
+  });
+
   it("draws a legacy shape's emit rotation as its axis and the arc its angle sweeps", () => {
     const turned = emitterOf(0, {
       shape: {
@@ -98,7 +139,9 @@ describe("shapeBody", () => {
     });
 
     const body = shapeBody(turned.shape, spawnCloud(turned));
-    expect(body?.turns?.getAttribute("position").count).toBeGreaterThan(2);
+    expect(body?.faces).toBeNull();
+    expect(body?.edges.getAttribute("position").count).toBeGreaterThan(2);
+    expect(body?.turns?.getAttribute("position").count).toBe(2);
     expect(shapeBody(still.shape, spawnCloud(still))?.turns ?? null).toBeNull();
   });
 });
