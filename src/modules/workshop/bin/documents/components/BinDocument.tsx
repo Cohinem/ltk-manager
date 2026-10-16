@@ -41,7 +41,6 @@ import { useBinDocument, useFileDependencies, useFileRoots } from "../hooks/useB
 import { useBinTab } from "../hooks/useBinTab";
 import { useDeclaredState } from "../hooks/useDeclared";
 import { BinEditState } from "./BinEditState";
-import { DeclarationsOffMenu } from "./DeclarationsOffMenu";
 import { SandboxOptions } from "./SandboxOptions";
 
 interface BinDocumentProps {
@@ -205,9 +204,6 @@ function OpenBin({ documentId, asset, name, file, handle, active, actions, reope
             readOnly={handle.readOnly}
             onReload={reopen}
           />
-          {handle.readOnly === "declarationsOff" && (
-            <DeclarationsOffMenu asset={asset} file={file} subject={name} />
-          )}
           {actions}
         </DocumentToolbar>
         <CurveDockContext value={dock}>

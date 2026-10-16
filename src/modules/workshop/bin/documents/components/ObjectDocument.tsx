@@ -76,7 +76,6 @@ import { useBinTab } from "../hooks/useBinTab";
 import { useCopyDeclaration, useRowDeclaration } from "../hooks/useDeclared";
 import { ProjectSwitchContext } from "../state/projectSwitch";
 import { BinEditState } from "./BinEditState";
-import { DeclarationsOffMenu } from "./DeclarationsOffMenu";
 import { DuplicateObjectDialog } from "./DuplicateObjectDialog";
 import { SandboxOptions, useProjectSwitch } from "./SandboxOptions";
 
@@ -291,9 +290,6 @@ function OpenObject({
             readOnly={handle.readOnly}
             onReload={reopen}
           />
-          {handle.readOnly === "declarationsOff" && (
-            <DeclarationsOffMenu asset={asset} file={file} subject={objectPath} />
-          )}
           {shelled && <ShellHeaderSlot name="panes" onElement={registerSlot} />}
           <HeaderMenu
             document={handle.document}
