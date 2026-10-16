@@ -50,7 +50,7 @@ import { AxisCells, ownField, RowValue, ValueMarkCell } from "../../values/compo
 import { useValueMark, useValueMarks, ValueMarksContext } from "../../values/hooks/useValueMarks";
 import { rowTag } from "../../values/utils/kindTag";
 import { markRanges, valueFamily, type ValueMark } from "../../values/utils/valueRows";
-import { FieldLabelsContext } from "../state/fieldLabels";
+import { FieldLabelsContext, RandomFieldsContext } from "../state/fieldLabels";
 import type { LayoutFrame, PlacedSection } from "../utils/classLayouts";
 import { ClassCard } from "./ClassCard";
 import { FieldCard } from "./FieldCard";
@@ -346,6 +346,7 @@ export function FieldRow({
   valueAction,
 }: FieldRowProps) {
   const labels = use(FieldLabelsContext);
+  const randomFields = use(RandomFieldsContext);
   const displayLabel = label ?? labels?.(ownField(row) ?? "", row.name);
   const family = valueFamily(row.value);
   const axes = row.value.type === "vector" ? row.value.values : null;
@@ -412,7 +413,7 @@ export function FieldRow({
         >
           {valueSlot}
           {valueSlot === undefined && family !== null && (
-            <ValueCell row={row} shaped railed={rail !== undefined} randomFields />
+            <ValueCell row={row} shaped railed={rail !== undefined} randomFields={randomFields} />
           )}
           {valueSlot === undefined && family === null && axes !== null && !editable && (
             <AxisCells values={axes} />

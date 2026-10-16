@@ -9,6 +9,7 @@ import type { BinRow, ClassChoice } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { AlsoCheck, FieldRow } from "../../../classes/components/ClassCells";
+import { RandomFieldsContext } from "../../../classes/state/fieldLabels";
 import { binQueries } from "../../../documents/hooks/useBinDocument";
 import { useBinRead } from "../../../documents/hooks/useBinRead";
 import { LeafEditContext } from "../../../tree/hooks/useLeafEdit";
@@ -166,7 +167,7 @@ export function Line({
       )}
       style={{ ...style, height: LINE_HEIGHT }}
     >
-      {children}
+      <RandomFieldsContext value={false}>{children}</RandomFieldsContext>
     </div>
   );
 }
