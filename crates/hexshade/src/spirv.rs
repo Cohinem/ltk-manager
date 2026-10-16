@@ -20,11 +20,14 @@ const OP_MEMORY_MODEL: u32 = 14;
 const OP_ENTRY_POINT: u32 = 15;
 const OP_CAPABILITY: u32 = 17;
 const OP_TYPE_POINTER: u32 = 32;
+const OP_CONSTANT: u32 = 43;
 const OP_CONSTANT_NULL: u32 = 46;
+const OP_FUNCTION: u32 = 54;
 const OP_VARIABLE: u32 = 59;
 const OP_LOAD: u32 = 61;
 const OP_DECORATE: u32 = 71;
 const OP_COPY_OBJECT: u32 = 83;
+const OP_IMAGE_QUERY_LEVELS: u32 = 106;
 const OP_LABEL: u32 = 248;
 const OP_KILL: u32 = 252;
 const OP_DEMOTE_TO_HELPER_INVOCATION: u32 = 5380;
@@ -154,6 +157,29 @@ pub fn patch(words: &[u32], reflection: &Reflection, stage: Stage) -> Result<Pat
         })
         .collect();
 
+    /* ESSL has no `textureQueryLevels`, so each level query is replaced with the constant 1.
+    The placeholder textures that the studio binds have one level. A texture with mips samples
+    its base level if the shader derives a mip from the level count. */
+    let mut bound = words[3];
+    let mut one_of: Vec<(u32, u32)> = Vec::new();
+    for &(at, op, count) in &instructions {
+        if op != OP_IMAGE_QUERY_LEVELS || count < 4 {
+            continue;
+        }
+
+        let result_type = words[at + 1];
+        if !one_of.iter().any(|(each, _)| *each == result_type) {
+            one_of.push((result_type, bound));
+            bound += 1;
+        }
+    }
+    let one = |result_type: u32| {
+        one_of
+            .iter()
+            .find(|(each, _)| *each == result_type)
+            .map(|(_, id)| *id)
+    };
+
     let mut new_names: HashMap<u32, String> = HashMap::new();
     for (&id, name) in &names_by_id {
         let Some(&(pointer_type, storage)) = variables.get(&id) else {
@@ -196,10 +222,25 @@ pub fn patch(words: &[u32], reflection: &Reflection, stage: Stage) -> Result<Pat
     }
 
     let mut out: Vec<u32> = words[..5].to_vec();
+    out[3] = bound;
     let mut renames = Vec::new();
+    let mut constants_placed = false;
     for &(at, op, count) in &instructions {
         let inst = &words[at..at + count];
+        if op == OP_FUNCTION && !constants_placed {
+            for &(result_type, id) in &one_of {
+                out.extend_from_slice(&[(4 << 16) | OP_CONSTANT, result_type, id, 1]);
+            }
+            constants_placed = true;
+        }
+
         match op {
+            OP_IMAGE_QUERY_LEVELS if count >= 4 => {
+                if let Some(id) = one(inst[1]) {
+                    out.extend_from_slice(&[(4 << 16) | OP_COPY_OBJECT, inst[1], inst[2], id]);
+                    continue;
+                }
+            }
             OP_CAPABILITY
                 if matches!(
                     inst[1],

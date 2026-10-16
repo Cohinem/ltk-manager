@@ -15,6 +15,7 @@ import { MapVisibilityPane } from "../../map/components/MapVisibilityPane";
 import { PlaceableInspector } from "../../map/components/PlaceableInspector";
 import { MaterialPane } from "../../material/components/MaterialPane";
 import { MaterialPreview } from "../../material/components/MaterialPreview";
+import { nameHash } from "../../shared/utils/binHash";
 import { ShellCrumb } from "../../shell/components/ShellCrumb";
 import {
   PanesMenu,
@@ -42,6 +43,8 @@ import type { LayoutPages, ViewContext } from "./ClassCells";
 import { Sections } from "./ClassSections";
 
 const AbilityPreview = lazy(() => import("../../spells/components/AbilityPreview"));
+
+const CUSTOM_SHADER_DEF = nameHash("CustomShaderDef");
 
 export interface FrameProps {
   placed: readonly PlacedSection[];
@@ -152,6 +155,7 @@ export function FramePreview({ kind, view, entry, drawable }: FramePreviewProps)
         asset={view.asset}
         entry={entry}
         onNotOpen={view.onNotOpen}
+        shader={view.classHash === CUSTOM_SHADER_DEF}
       />
     );
   }

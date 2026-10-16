@@ -17,6 +17,24 @@ impl Defines {
         }
     }
 
+    /// Returns the value of `name`. Returns `None` if the list does not set `name`.
+    #[must_use]
+    pub fn get(&self, name: &str) -> Option<&str> {
+        self.0.get(name).map(String::as_str)
+    }
+
+    /// Sets `name` to `value`. Removes `name` if `value` is `None`.
+    pub fn set(&mut self, name: &str, value: Option<&str>) {
+        match value {
+            Some(value) => {
+                self.0.insert(name.to_owned(), value.to_owned());
+            }
+            None => {
+                self.0.remove(name);
+            }
+        }
+    }
+
     /// Each `(name, value)`, ordered by name.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
         self.0

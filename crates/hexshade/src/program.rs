@@ -176,6 +176,96 @@ impl<'a> ShaderCache<'a> {
         })
     }
 
+    /// Returns every `NAME=VALUE` pair that the TOCs of `shader` declare, sorted and without
+    /// duplicates. These are the defines that select among its permutations.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a TOC is missing or unreadable.
+    pub fn declared(
+        &mut self,
+        shader: ShaderPath<'_>,
+    ) -> Result<Vec<(String, String)>, ProgramError> {
+        let mut declared = Vec::new();
+        for stage in [Stage::Vertex, Stage::Pixel] {
+            let toc = self.toc(&shader.toc_path(stage), stage)?;
+            declared.extend(
+                toc.base_defines
+                    .iter()
+                    .map(|define| (define.name.clone(), define.value.clone())),
+            );
+        }
+
+        declared.sort();
+        declared.dedup();
+        Ok(declared)
+    }
+
+    /// Returns the define list nearest `defines` that selects a permutation in both stages of
+    /// `shader`, or `None` if no list within `depth` changes does.
+    ///
+    /// A change sets a name that a TOC declares to another value that a TOC declares, or removes
+    /// the name. A name in `fixed` keeps its value. The list with the fewest changes is returned,
+    /// and ties resolve in the TOCs' declaration order. Returns `defines` unchanged if it
+    /// selects a permutation.
+    ///
+    /// # Errors
+    ///
+    /// Fails if a TOC is missing or unreadable.
+    pub fn nearest(
+        &mut self,
+        shader: ShaderPath<'_>,
+        defines: &Defines,
+        fixed: &[&str],
+        depth: usize,
+    ) -> Result<Option<Defines>, ProgramError> {
+        let vertex_path = shader.toc_path(Stage::Vertex);
+        let pixel_path = shader.toc_path(Stage::Pixel);
+        self.toc(&vertex_path, Stage::Vertex)?;
+        self.toc(&pixel_path, Stage::Pixel)?;
+        let (vertex, pixel) = (&self.tocs[&vertex_path], &self.tocs[&pixel_path]);
+        let selects = |list: &Defines| {
+            bundle::permutation(vertex, list).is_some()
+                && bundle::permutation(pixel, list).is_some()
+        };
+
+        if selects(defines) {
+            return Ok(Some(defines.clone()));
+        }
+
+        let mut values: Vec<(&str, Vec<&str>)> = Vec::new();
+        for define in vertex.base_defines.iter().chain(&pixel.base_defines) {
+            let (name, value) = (define.name.as_str(), define.value.as_str());
+            match values.iter_mut().find(|(each, _)| *each == name) {
+                Some((_, known)) if !known.contains(&value) => known.push(value),
+                Some(_) => {}
+                None => values.push((name, vec![value])),
+            }
+        }
+
+        let mut moves: Vec<(&str, Option<&str>)> = Vec::new();
+        for (name, declared) in &values {
+            if fixed.contains(name) {
+                continue;
+            }
+
+            let current = defines.get(name).filter(|value| declared.contains(value));
+            for value in declared.iter().map(|value| Some(*value)).chain([None]) {
+                if value != current {
+                    moves.push((name, value));
+                }
+            }
+        }
+
+        for changes in 1..=depth {
+            let mut picked = Vec::with_capacity(changes);
+            if let Some(found) = first_within(&moves, 0, changes, &mut picked, defines, &selects) {
+                return Ok(Some(found));
+            }
+        }
+        Ok(None)
+    }
+
     fn stage(
         &mut self,
         shader: ShaderPath<'_>,
@@ -259,6 +349,41 @@ impl<'a> ShaderCache<'a> {
             },
         })
     }
+}
+
+/// Returns the first define list that `selects` accepts, built by applying the moves in
+/// `picked` and `changes` more moves of `moves[from..]` to `base`. No two applied moves change
+/// the same name.
+fn first_within(
+    moves: &[(&str, Option<&str>)],
+    from: usize,
+    changes: usize,
+    picked: &mut Vec<usize>,
+    base: &Defines,
+    selects: &impl Fn(&Defines) -> bool,
+) -> Option<Defines> {
+    if changes == 0 {
+        let mut list = base.clone();
+        for &at in picked.iter() {
+            let (name, value) = moves[at];
+            list.set(name, value);
+        }
+        return selects(&list).then_some(list);
+    }
+
+    for at in from..moves.len() {
+        if picked.iter().any(|&each| moves[each].0 == moves[at].0) {
+            continue;
+        }
+
+        picked.push(at);
+        let found = first_within(moves, at + 1, changes - 1, picked, base, selects);
+        picked.pop();
+        if found.is_some() {
+            return found;
+        }
+    }
+    None
 }
 
 #[cfg(test)]

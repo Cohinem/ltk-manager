@@ -29,7 +29,7 @@ import {
   TABLE_CLASS,
 } from "./DeclaredRow";
 
-const NO_WARNINGS: ReadonlyMap<string, string> = new Map();
+const NO_MARKS: ReadonlyMap<string, string> = new Map();
 
 /**
  * One list as a table of the shader's declarations and the material's entries.
@@ -45,7 +45,8 @@ export function DeclaredTable<D extends { readonly name: string }>({
   declarations,
   names,
   columns,
-  warnings = NO_WARNINGS,
+  warnings = NO_MARKS,
+  notes = NO_MARKS,
 }: WidgetProps & {
   kind: ListKind;
   declarations: readonly D[] | null;
@@ -54,6 +55,8 @@ export function DeclaredTable<D extends { readonly name: string }>({
   /** The columns between the name and the actions. */
   columns: DataTableColumn<DeclaredRow<D>>[];
   warnings?: ReadonlyMap<string, string>;
+  /** The info notes of the rows, by row name. */
+  notes?: ReadonlyMap<string, string>;
 }) {
   const editable = use(LeafEditContext) !== null;
   const rows = declaredRows(
@@ -69,6 +72,7 @@ export function DeclaredTable<D extends { readonly name: string }>({
     count: list === undefined ? 0 : childCount(list),
     known: declarations !== null,
     warnings,
+    notes,
   };
 
   const all = useMemo(

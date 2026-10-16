@@ -30,5 +30,13 @@ export function warningText(warning: MaterialWarning): string {
       });
     case "noTexturePath":
       return m.workshop_bin_material_warning_no_texture_path_label({ name: warning.name });
+    case "nearestPermutation": {
+      const unset = warning.unset.map((name) =>
+        m.workshop_bin_material_warning_nearest_permutation_unset_label({ name }),
+      );
+      return m.workshop_bin_material_warning_nearest_permutation_label({
+        changes: [...warning.set, ...unset].join(", "),
+      });
+    }
   }
 }

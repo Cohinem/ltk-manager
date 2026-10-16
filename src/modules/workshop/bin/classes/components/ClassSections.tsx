@@ -13,6 +13,11 @@ import {
   MaterialSamplers,
   MaterialSwitches,
 } from "../../material/components/MaterialTables";
+import {
+  ShaderParams,
+  ShaderSwitches,
+  ShaderTextures,
+} from "../../material/components/ShaderTables";
 import { objectRow } from "../../material/utils/entryEdits";
 import { nameHash } from "../../shared/utils/binHash";
 import { nameColumn } from "../../shared/utils/textCut";
@@ -160,6 +165,9 @@ const WIDGETS: Record<Exclude<SectionWidget, "tree">, (props: WidgetProps) => Re
   "material-samplers": MaterialSamplers,
   "material-switches": MaterialSwitches,
   "material-macros": MaterialMacros,
+  "shader-params": ShaderParams,
+  "shader-textures": ShaderTextures,
+  "shader-switches": ShaderSwitches,
   emitters: Emitters,
   clips: ClipsSection,
 };

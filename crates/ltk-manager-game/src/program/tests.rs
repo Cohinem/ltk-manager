@@ -1,6 +1,7 @@
 use std::io::Cursor;
 
 use ltk_hash::Hash as _;
+use ltk_manager_bin::bin_document::hex;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject};
 
@@ -129,6 +130,156 @@ fn a_shader_cache_the_machine_lacks_fails_the_pass_without_a_guess() {
                 .to_owned(),
         }
     );
+}
+
+#[test]
+fn read_programs_resolves_a_shader_def_against_its_own_document() {
+    let (_, shaders) = material_and_shaders();
+    let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> {
+        panic!("no asset is located, so none is read: {asset:?}")
+    };
+
+    let programs = read_programs(
+        Resolution {
+            document: &shaders,
+            names: &(),
+            assets: &(),
+            shaders: None,
+        },
+        &[h(SHADER_PATH)],
+        ProgramOptions::default(),
+        &TranslationCache::default(),
+        &mut read,
+    );
+
+    let [Some(shader)] = programs.as_slice() else {
+        panic!("{programs:?}");
+    };
+    assert_eq!(shader.kind, MaterialKind::SkinnedMesh);
+    assert_eq!(shader.passes[0].pass.shader.as_deref(), Some(SHADER_PATH));
+    assert!(shader.warnings.is_empty(), "{:?}", shader.warnings);
+}
+
+#[test]
+fn with_preview_replaces_and_adds_defines_sorted_by_name() {
+    let mut defines = pass_with(&[("USE_RIM", "1"), ("FEATURE_BLOOM", "1")]).defines;
+
+    with_preview(
+        &mut defines,
+        &[
+            "USE_RIM=0".to_owned(),
+            "ADD_GLOW=1".to_owned(),
+            "skipped".to_owned(),
+        ],
+    );
+
+    let listed: Vec<(&str, &str, DefineSource)> = defines
+        .iter()
+        .map(|define| (define.name.as_str(), define.value.as_str(), define.source))
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("ADD_GLOW", "1", DefineSource::Preview),
+            ("FEATURE_BLOOM", "1", DefineSource::Pass),
+            ("USE_RIM", "0", DefineSource::Preview),
+        ]
+    );
+}
+
+#[test]
+fn changes_lists_the_set_and_removed_defines() {
+    let requested: Defines = [("USE_RIM", "1"), ("LOCK", "0"), ("DISABLE_FOW", "1")]
+        .into_iter()
+        .collect();
+    let found: Defines = [("USE_RIM", "0"), ("GLOW", "1"), ("DISABLE_FOW", "1")]
+        .into_iter()
+        .collect();
+
+    let warning = changes(&requested, &found);
+
+    assert_eq!(
+        warning,
+        MaterialWarning::NearestPermutation {
+            set: vec!["GLOW=1".to_owned(), "USE_RIM=0".to_owned()],
+            unset: vec!["LOCK".to_owned()],
+        }
+    );
+}
+
+#[test]
+fn grouped_lists_each_name_once_with_its_values() {
+    let pairs = [("A", "0"), ("A", "1"), ("B", "4")]
+        .map(|(name, value)| (name.to_owned(), value.to_owned()))
+        .to_vec();
+
+    let declared = grouped(pairs);
+
+    assert_eq!(
+        declared,
+        [
+            DeclaredDefine {
+                name: "A".to_owned(),
+                values: vec!["0".to_owned(), "1".to_owned()],
+            },
+            DeclaredDefine {
+                name: "B".to_owned(),
+                values: vec!["4".to_owned()],
+            },
+        ]
+    );
+}
+
+#[test]
+fn read_shader_program_resolves_a_material_of_another_bin_against_the_open_def() {
+    let (material, shaders) = material_and_shaders();
+    let mut read = |asset: &AssetRef| -> AppResult<Vec<u8>> {
+        panic!("no asset is located, so none is read: {asset:?}")
+    };
+
+    let program = read_shader_program(
+        Resolution {
+            document: &shaders,
+            names: &(),
+            assets: &(),
+            shaders: None,
+        },
+        h(SHADER_PATH),
+        Some((&material, h(MATERIAL))),
+        &["USE_RIM=1".to_owned()],
+        ProgramOptions::default(),
+        &TranslationCache::default(),
+        &mut read,
+    )
+    .unwrap();
+
+    let pass = &program.program.passes[0].pass;
+    assert_eq!(program.program.hash, hex(h(MATERIAL)));
+    assert_eq!(pass.shader.as_deref(), Some(SHADER_PATH));
+    assert_eq!(pass.defines[0].source, DefineSource::Preview);
+}
+
+#[test]
+fn read_shader_program_returns_none_if_no_object_is_at_entry() {
+    let (_, shaders) = material_and_shaders();
+    let mut read = |_: &AssetRef| -> AppResult<Vec<u8>> { unreachable!("no lookup") };
+
+    let program = read_shader_program(
+        Resolution {
+            document: &shaders,
+            names: &(),
+            assets: &(),
+            shaders: None,
+        },
+        h("Shaders/SkinnedMesh/Missing"),
+        None,
+        &[],
+        ProgramOptions::default(),
+        &TranslationCache::default(),
+        &mut read,
+    );
+
+    assert_eq!(program, None);
 }
 
 #[test]
