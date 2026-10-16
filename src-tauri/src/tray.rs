@@ -52,8 +52,10 @@ pub fn setup(app: &mut tauri::App) -> tauri::Result<()> {
     Ok(())
 }
 
-fn reveal(app: &AppHandle) {
+/// Shows, restores and focuses the main window and its webview.
+pub(crate) fn reveal(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
+        let _ = crate::services::desktop::shell::show_webview(&window);
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();

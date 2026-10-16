@@ -104,6 +104,9 @@ windows-sys = { workspace = true, features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
 ] }
+# Versions of wry's, so `PlatformWebview::controller` returns these types.
+webview2-com = "0.38"
+windows-core = "0.61"
 
 [dev-dependencies]
 assert_matches = { workspace = true }

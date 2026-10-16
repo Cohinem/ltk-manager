@@ -33,8 +33,8 @@ pub fn get_app_info() -> IpcResult<AppInfo> {
 ///
 /// The window is created hidden (`visible: false` in `tauri.conf.json`) to avoid a
 /// white flash while the WebView loads. The frontend calls this after it mounts.
-/// When the user has opted to start in the tray, the window stays hidden — the tray
-/// icon (or an available update, handled in the UI) reveals it later.
+/// When the user has opted to start in the tray, the window is sent to the tray instead. The
+/// tray icon, or an available update that the UI handles, reveals it later.
 #[tauri::command]
 #[specta::specta]
 pub async fn show_main_window(app: AppHandle) -> IpcResult<()> {
@@ -44,8 +44,10 @@ pub async fn show_main_window(app: AppHandle) -> IpcResult<()> {
         settings.start_in_tray || settings.start_in_tray_unless_update
     };
 
-    if !start_hidden {
-        if let Some(window) = app.get_webview_window("main") {
+    if let Some(window) = app.get_webview_window("main") {
+        if start_hidden {
+            let _ = super::shell::send_to_tray(&window);
+        } else {
             let _ = window.show();
             let _ = window.set_focus();
         }
