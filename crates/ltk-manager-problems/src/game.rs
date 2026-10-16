@@ -7,6 +7,7 @@
 //! patches, so they still name a path Riot removed. Trusting them here deletes
 //! a file whose backing is gone.
 
+#[cfg(test)]
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::OnceLock;
@@ -83,20 +84,32 @@ pub struct InstalledContent {
 struct ChunkIndex {
     /// Every archive the walk read, in walk order.
     names: Vec<String>,
-    /// Each chunk's entry, by hash.
+    /// Each chunk's entry, sorted by hash.
     ///
     /// A path in more than one archive keeps the last archive walked. Two
     /// copies that differ are a separate defect.
-    entries: HashMap<WadHash, ChunkEntry>,
+    entries: Vec<ChunkEntry>,
 }
 
 /// One chunk from an installed archive's table of contents.
 #[derive(Debug, Clone, Copy)]
 struct ChunkEntry {
+    hash: WadHash,
+    /// The decompressed size, which a table of contents records in 32 bits.
+    size: u32,
     /// The archive that contains the chunk, as an index into `ChunkIndex::names`.
-    archive: usize,
-    /// The decompressed size.
-    size: u64,
+    archive: u32,
+}
+
+impl ChunkIndex {
+    /// Returns the entry of the chunk `path`, or `None` if no archive contains it.
+    fn get(&self, path: WadHash) -> Option<&ChunkEntry> {
+        let at = self
+            .entries
+            .binary_search_by_key(&path.0, |entry| entry.hash.0)
+            .ok()?;
+        Some(&self.entries[at])
+    }
 }
 
 impl InstalledContent {
@@ -145,19 +158,32 @@ impl InstalledContent {
             for archive in &archives {
                 match self.chunks_in(&archive.name) {
                     Ok(chunks) => {
-                        let at = index.names.len();
+                        let at = index.names.len() as u32;
                         index.names.push(archive.name.clone());
-                        index.entries.extend(
-                            chunks
-                                .into_iter()
-                                .map(|(hash, size)| (hash, ChunkEntry { archive: at, size })),
-                        );
+                        index
+                            .entries
+                            .extend(chunks.into_iter().map(|(hash, size)| ChunkEntry {
+                                hash,
+                                size: u32::try_from(size).unwrap_or(u32::MAX),
+                                archive: at,
+                            }));
                     }
                     Err(e) => {
                         tracing::warn!("Skipping {}, which would not mount: {e}", archive.name)
                     }
                 }
             }
+
+            // The sort is stable, so the last archive walked is the later of two copies.
+            index.entries.sort_by_key(|entry| entry.hash.0);
+            index.entries.dedup_by(|later, kept| {
+                let same = later.hash == kept.hash;
+                if same {
+                    *kept = *later;
+                }
+                same
+            });
+            index.entries.shrink_to_fit();
 
             tracing::debug!(
                 "Indexed {} chunks across {} game archives in {:?}",
@@ -226,11 +252,11 @@ fn index_objects(archives: &GameArchives, tables: &LayeredHashDb) -> Result<Obje
 
 impl GameContent for InstalledContent {
     fn contains(&self, path: WadHash) -> bool {
-        self.index().entries.contains_key(&path)
+        self.index().get(path).is_some()
     }
 
     fn size(&self, path: WadHash) -> Option<u64> {
-        self.index().entries.get(&path).map(|chunk| chunk.size)
+        self.index().get(path).map(|chunk| u64::from(chunk.size))
     }
 
     fn declaring_chunks(&self, object: BinHash) -> Option<Vec<WadHash>> {
@@ -247,9 +273,8 @@ impl GameContent for InstalledContent {
     fn read(&self, path: WadHash) -> Result<Option<Vec<u8>>, String> {
         let index = self.index();
         let Some(name) = index
-            .entries
-            .get(&path)
-            .and_then(|chunk| index.names.get(chunk.archive))
+            .get(path)
+            .and_then(|chunk| index.names.get(chunk.archive as usize))
         else {
             return Ok(None);
         };

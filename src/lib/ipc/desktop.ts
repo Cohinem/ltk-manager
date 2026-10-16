@@ -14,8 +14,8 @@ export const commands = {
 	 * 
 	 *  The window is created hidden (`visible: false` in `tauri.conf.json`) to avoid a
 	 *  white flash while the WebView loads. The frontend calls this after it mounts.
-	 *  When the user has opted to start in the tray, the window stays hidden — the tray
-	 *  icon (or an available update, handled in the UI) reveals it later.
+	 *  When the user has opted to start in the tray, the window is sent to the tray instead. The
+	 *  tray icon, or an available update that the UI handles, reveals it later.
 	 */
 	showMainWindow: () => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:desktop|show_main_window"),
 	/**  Opens a file location in the system file explorer. */

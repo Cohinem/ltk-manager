@@ -124,7 +124,7 @@ pub fn open(app_handle: &tauri::AppHandle, paths: Vec<PathBuf>) {
                 return;
             };
 
-            super::raise_main_window(&app_handle);
+            crate::tray::reveal(&app_handle);
             let _ = app_handle.emit(FILES_OPENED, payload(batch));
             return;
         }
@@ -136,7 +136,7 @@ pub fn take_pending(app_handle: &tauri::AppHandle) -> FilesOpened {
     let state: tauri::State<'_, OpenedFilesState> = app_handle.state();
     let pending = state.0.lock().take_pending();
     if !pending.is_empty() {
-        super::raise_main_window(app_handle);
+        crate::tray::reveal(app_handle);
     }
 
     payload(pending)
