@@ -35,10 +35,11 @@ export function BinEditState({ document, asset, readOnly, onReload }: BinEditSta
         <DeclaredDiagnosticsMark
           diagnostics={declared.diagnostics.filter((diagnostic) => diagnostic.entry.length === 0)}
         />
-        {readOnly !== null && <ReadOnlyMark gate={readOnly} />}
       </span>
     );
   }
+  /* The toolbar draws `DeclarationsOffMenu` for this gate. */
+  if (readOnly === "declarationsOff") return null;
   if (readOnly !== null) return <ReadOnlyMark gate={readOnly} />;
   return <AutosaveStatus document={document} asset={asset} onReload={onReload} />;
 }

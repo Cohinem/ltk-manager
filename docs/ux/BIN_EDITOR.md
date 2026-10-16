@@ -3061,8 +3061,8 @@ chosen reads it as on when a layer already holds a `game_data.yaml`, `.yml`, `.t
 marks, so the view matches the build, and takes no edit. The Sandbox button shows a lock in
 place of the target, the layer and module choices are disabled under a line saying declarations
 are off, `+ Object` is gone, and the row menu drops the object edits,
-**Paste reference**, **Merge reference** and **Move to module**. A strip under the toolbar
-offers **Copy into layer** and **Declare edits**, which turns the setting on.
+**Paste reference**, **Merge reference** and **Move to module**. The toolbar's **Read-only**
+button opens a menu with **Declare edits**, which turns the setting on, and **Copy into layer**.
 
 An edit is on disk once it answers, so a declared document has no unsaved state and no save
 status. The entry is spelled by its name from the tables, else by its hash. An undo over a
