@@ -15,12 +15,7 @@ import type {
 } from "./missile";
 import type { Point } from "./rig";
 
-/**
- * The speed a missile flies at if its movement writes none.
- *
- * shortcut: the client then takes the speed from the spawn packet, which the server fills from
- * `SpellDataResource.missileSpeed`. Upgrade by reading `missileSpeed` beside the spec.
- */
+/** The speed a missile flies at if neither its movement nor its spell's `missileSpeed` writes one. */
 export const FALLBACK_SPEED = 1800;
 
 /** `HermiteSplineInfo`'s defaults for the two tangents. */
@@ -30,11 +25,12 @@ const SPLINE_END_TANGENT = [1, 0, 0] as const;
 /**
  * Returns the flight that `spec` describes, with the schema's defaults for omitted fields.
  *
- * Returns null if the movement class is missing or cannot be simulated. An unsupported height
- * solver or vertical facing is dropped.
+ * A movement that writes no speed flies at `fallback`, which a caller sets to the spell's
+ * `missileSpeed`, as the client does. Returns null if the movement class is missing or cannot be
+ * simulated. An unsupported height solver or vertical facing is dropped.
  */
-export function flightOf(spec: MissileSpec): MissileFlight | null {
-  const movement = movementOf(spec.movement);
+export function flightOf(spec: MissileSpec, fallback = FALLBACK_SPEED): MissileFlight | null {
+  const movement = movementOf(spec.movement, fallback);
   if (movement === null) return null;
 
   const atLaunch = spec.heightOffsetAtEnd ?? false;
@@ -47,10 +43,10 @@ export function flightOf(spec: MissileSpec): MissileFlight | null {
   };
 }
 
-function movementOf(movement: SpecMovement): MissileMovement | null {
+function movementOf(movement: SpecMovement, fallback: number): MissileMovement | null {
   switch (movement.kind) {
     case "fixedSpeed":
-      return { kind: "fixedSpeed", speed: speedOf(movement.speed) };
+      return { kind: "fixedSpeed", speed: speedOf(movement.speed, fallback) };
     case "fixedTime":
       return { kind: "fixedTime", travelTime: movement.duration ?? 0 };
     case "accelerating":
@@ -65,7 +61,7 @@ function movementOf(movement: SpecMovement): MissileMovement | null {
     case "fixedSpeedSpline":
       return {
         kind: "fixedSpeedSpline",
-        speed: speedOf(movement.speed),
+        speed: speedOf(movement.speed, fallback),
         spline: splineOf(movement.spline),
       };
     case "fixedTimeSpline":
@@ -102,8 +98,8 @@ function movementOf(movement: SpecMovement): MissileMovement | null {
   }
 }
 
-function speedOf(speed: number | null): number {
-  return speed !== null && speed > 0 ? speed : FALLBACK_SPEED;
+function speedOf(speed: number | null, fallback: number): number {
+  return speed !== null && speed > 0 ? speed : fallback;
 }
 
 function splineOf(spline: SpecSpline | null): MissileSpline {

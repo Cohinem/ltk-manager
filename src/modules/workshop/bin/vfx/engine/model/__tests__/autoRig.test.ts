@@ -23,11 +23,17 @@ function systemOf(...emitters: EmitterModel[]): SystemModel {
 }
 
 /** A spell named `name` whose missile moves by `movement`, every other field omitted. */
-function spellOf(name: string, movement: MissileMovement): MissileSpell {
+function spellOf(
+  name: string,
+  movement: MissileMovement,
+  written: Partial<Pick<MissileSpell, "range" | "missileSpeed">> = {},
+): MissileSpell {
   return {
     objectHash: "0x00000001",
     path: name,
     name,
+    range: written.range ?? null,
+    missileSpeed: written.missileSpeed ?? null,
     missile: {
       movement,
       startDelay: null,
@@ -92,6 +98,21 @@ describe("autoRig", () => {
     });
     expect(picked.spell).toBe("W/Missile");
     expect(autoRigKey(picked)).toBe("missile:loop::W/Missile");
+  });
+
+  it("flies a spell's missile over its cast range at its missileSpeed if the movement writes no speed", () => {
+    const spell = spellOf(
+      "Crit/Missile",
+      { kind: "fixedSpeed", speed: null },
+      { range: 600, missileSpeed: 2000 },
+    );
+    const { rig } = autoRig(systemOf(emitterOf(0, { lifetime: 1 })), [spell]);
+
+    expect(rig.motion).toMatchObject({
+      from: [-300, 0, 0],
+      to: [300, 0, 0],
+      flight: { movement: { kind: "fixedSpeed", speed: 2000 } },
+    });
   });
 
   it("returns the system's own rig if no spell's missile can be simulated", () => {
