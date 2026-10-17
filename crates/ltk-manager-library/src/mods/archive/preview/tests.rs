@@ -71,7 +71,7 @@ fn mod_content_dir_unpacks_archive_storage_mod_once() {
 
     assert!(copy.starts_with(cache.path()));
     assert!(copy.join("mod.config.json").is_file());
-    let wad = copy.join("content/base/Aatrox.wad.client");
+    let wad = copy.join("content/base/aatrox.wad.client");
     assert_eq!(files_under(&wad), vec![SKIN_BYTES.to_vec()]);
     assert_eq!(
         library
@@ -92,7 +92,7 @@ fn mod_content_dir_skips_archive_of_no_champion() {
         .unwrap();
 
     assert!(copy.join("mod.config.json").is_file());
-    assert!(!copy.join("content/base/Aatrox.wad.client").exists());
+    assert!(!copy.join("content/base/aatrox.wad.client").exists());
 }
 
 #[test]
