@@ -6724,6 +6724,16 @@ export type SheetSprite = {
 	slice: [number, number, number, number] | null,
 };
 
+/**  A skin bin that a layer ships, and the skin object in it. */
+export type ShippedSkin = {
+	/**  The project directory that the skin and its files are read from first. */
+	project: string,
+	/**  The layer file of `data/characters/<champion>/skins/skin<n>.bin`. */
+	asset: AssetRef,
+	/**  The `SkinCharacterDataProperties` object's hash, `0x` and eight hex digits. */
+	entry: string,
+};
+
 /**  What a translated stage binds. */
 export type Sidecar = {
 	blocks: UniformBlock[],

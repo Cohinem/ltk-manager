@@ -121,14 +121,12 @@ import {
 import { socketDragEdits } from "../utils/socketEdits";
 import { BakeTangentsButton } from "./BakeTangentsButton";
 import { ClipEffect } from "./ClipEffect";
+import { BEFORE_THE_SCENE, Clock } from "./Clock";
 import { IdleEffect } from "./IdleEffect";
 import { PhysicsMenu } from "./PhysicsMenu";
 import { SkinEffectsMenu } from "./SkinEffectsMenu";
 import { SkinPhysicsOverlay } from "./SkinPhysicsOverlay";
 import { type PlayingStep, SkinTransport } from "./SkinTransport";
-
-/** `useFrame` runs the lowest priority first, so the clock moves before anything samples it. */
-const BEFORE_THE_SCENE = -1;
 
 const NO_CLIPS: readonly GraphClip[] = [];
 
@@ -1027,14 +1025,6 @@ function SubmeshMenu({ submeshes, hidden, overridden, onShow, onReset }: Submesh
       </Menu.Content>
     </Menu.Root>
   );
-}
-
-/** The scene's clock, spending each frame's time before the scene is sampled. */
-function Clock({ clock, playing, speed }: { clock: SceneClock; playing: boolean; speed: number }) {
-  useFrame((_, delta) => {
-    if (playing) clock.advance(delta * speed);
-  }, BEFORE_THE_SCENE);
-  return null;
 }
 
 interface VisibilityCuesProps {

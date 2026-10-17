@@ -13,6 +13,7 @@ pub(super) mod export;
 pub(super) mod install;
 pub(super) mod metadata;
 pub(super) mod migration;
+pub(super) mod preview;
 pub(crate) mod reader;
 pub(super) mod repair;
 pub(super) mod storage;

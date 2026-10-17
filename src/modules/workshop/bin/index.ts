@@ -39,6 +39,7 @@ export {
   type LayerTitle,
   type LinkDecision,
 } from "./links/utils/linkDecision";
+export { ShippedSkinViewer } from "./skin/components/ShippedSkinViewer";
 export { BinTree, type TreeReveal } from "./tree/components/BinTree";
 export {
   canExpand,

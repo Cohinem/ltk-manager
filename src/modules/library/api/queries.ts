@@ -14,6 +14,7 @@ import {
   type ModHealthVerdict,
   type ModWadReport,
   type Profile,
+  type ShippedSkin,
 } from "@/lib/tauri";
 import { queryFn, queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
@@ -112,6 +113,13 @@ export const modQueries = {
       queryFn: queryFnWithArgs(api.getModLicenseText, modId),
       staleTime: Infinity,
       gcTime: Infinity,
+    }),
+
+  /* A packed mod's first ask unpacks a copy of its content. */
+  skin: (modId: string) =>
+    queryOptions<ShippedSkin | null, AppError>({
+      queryKey: libraryKeys.skin(modId),
+      queryFn: queryFnWithArgs(api.bin.locateModSkin, modId),
     }),
 } as const;
 
