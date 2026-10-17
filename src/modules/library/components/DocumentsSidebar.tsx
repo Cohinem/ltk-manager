@@ -1,8 +1,8 @@
 import { PushPinIcon, XIcon } from "@phosphor-icons/react";
 import { type QueryKey, useQueryClient } from "@tanstack/react-query";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { lazy, type ReactNode, Suspense, useEffect, useRef, useState } from "react";
 
-import { IconButton, Skeleton, Tabs } from "@/components";
+import { IconButton, Skeleton, Spinner, Tabs } from "@/components";
 import { m } from "@/i18n";
 import type { InstalledMod } from "@/lib/tauri";
 import { modQueries } from "@/modules/library/api";
@@ -15,6 +15,9 @@ import { DetailsTab } from "./DetailsTab";
 import { DocumentBody, DocumentGate } from "./DocumentBody";
 import { LicensesTab } from "./LicensesTab";
 import { ReadmeTab } from "./ReadmeTab";
+
+/** The model viewport, in a chunk of its own. */
+const ModelTab = lazy(() => import("./ModelTab"));
 
 /** How long the docked panel waits on one mod before reading its archive. */
 const REST_MS = 150;
@@ -79,6 +82,7 @@ export function DocumentsSidebar({ mods, docked = false }: DocumentsSidebarProps
             <Tabs.Tab value="details">{m.library_documents_details_tab()}</Tabs.Tab>
             <Tabs.Tab value="readme">{m.library_documents_readme_tab()}</Tabs.Tab>
             <Tabs.Tab value="licenses">{m.library_documents_licenses_tab()}</Tabs.Tab>
+            <Tabs.Tab value="model">{m.library_documents_model_tab()}</Tabs.Tab>
           </Tabs.List>
           {!docked && (
             <IconButton
@@ -135,6 +139,28 @@ export function DocumentsSidebar({ mods, docked = false }: DocumentsSidebarProps
                 queryKey={modQueries.licenseText(mod.id).queryKey}
               >
                 <LicensesTab mod={mod} />
+              </RestGate>
+            )}
+          </DocumentGate>
+        </Tabs.Panel>
+        <Tabs.Panel value="model" className="flex min-h-0 flex-1 flex-col">
+          <DocumentGate
+            mod={openMod}
+            missing={missing}
+            emptyTitle={m.library_model_none_open_title()}
+            emptyDescription={m.library_model_none_open_description()}
+          >
+            {(mod) => (
+              <RestGate active={docked} modId={mod.id} queryKey={modQueries.skin(mod.id).queryKey}>
+                <Suspense
+                  fallback={
+                    <DocumentBody>
+                      <Spinner />
+                    </DocumentBody>
+                  }
+                >
+                  <ModelTab mod={mod} />
+                </Suspense>
               </RestGate>
             )}
           </DocumentGate>

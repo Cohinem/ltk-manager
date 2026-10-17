@@ -311,6 +311,7 @@ export const api = {
     ) => atlas.atlasPatchSprite(document, page, [...uv], source),
     atlasSheet: atlas.atlasSheet,
     readSkin: preview.readSkin,
+    locateModSkin: preview.locateModSkin,
     readMaterialPrograms: (
       source: MaterialSource,
       entries: readonly string[],

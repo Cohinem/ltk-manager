@@ -8,6 +8,7 @@
 
 mod colliders;
 mod dynamics;
+mod shipped;
 mod tangents;
 
 pub use colliders::{ColliderCapsule, ColliderShapes, ColliderSphere, save_colliders};
@@ -15,6 +16,7 @@ pub use dynamics::{
     ChainProperties, CurveKeys, ExtraJointChain, JointTree, JointTreeGroup, PoseModifier,
     ScaledCurve, Socket,
 };
+pub use shipped::{ShippedSkin, shipped_skin};
 pub use tangents::bake_mesh_tangents;
 
 use std::collections::{HashMap, HashSet};

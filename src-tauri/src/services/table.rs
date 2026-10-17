@@ -172,6 +172,7 @@ services! {
         locate_files_near,
         // Skins
         read_skin,
+        locate_mod_skin,
         read_animation_graph,
         read_clip_header,
         bake_skin_tangents,
