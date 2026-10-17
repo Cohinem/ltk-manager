@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -5,7 +6,7 @@ import { paraglideVitePlugin } from "@inlang/paraglide-js";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackRouter } from "@tanstack/router-plugin/vite";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import svgr from "vite-plugin-svgr";
 
 import { releaseNotes } from "./scripts/vite-release-notes";
@@ -32,6 +33,13 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    fs: {
+      /* A worktree links `node_modules` to the main checkout, outside the workspace root. */
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        realpathSync(path.join(__dirname, "node_modules")),
+      ],
+    },
     watch: {
       // Ignore `src-tauri` and the Cargo build output.
       ignored: ["**/src-tauri/**", "**/target/**"],

@@ -34,8 +34,10 @@ interface TrackProps {
   onScrubEnd: () => void;
   /** Write the first bar as a drag left it, and undefined for a lane whose bars are read-only. */
   onBarEdit?: (grip: BarGrip, bar: LaneBar) => Promise<boolean>;
-  /** Run the preview on the bar a drag holds, and on the written one again with null. */
-  onBarPreview?: (bar: LaneBar | null) => void;
+  /**
+   * Run the preview on the bar a drag of `grip` holds, and on the written one again with null.
+   */
+  onBarPreview?: (bar: LaneBar | null, grip?: BarGrip) => void;
   /** Open the first bar's exact times, at a point on the screen. */
   onBarOpen?: (at: { readonly x: number; readonly y: number }) => void;
   /** The first bar offers its linger edge. */
@@ -156,7 +158,7 @@ export function Track({
     const { time, snapped } = snap(raw, event);
     const bar = draggedBar(held.grip, held.held, time);
     setDraft({ grip: held.grip, bar, snapped, moved: true });
-    onBarPreview?.(bar);
+    onBarPreview?.(bar, held.grip);
   };
 
   const letGo = (event: ReactPointerEvent<HTMLDivElement>) => {

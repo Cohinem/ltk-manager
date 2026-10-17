@@ -1,4 +1,5 @@
 import {
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   useCallback,
@@ -12,9 +13,13 @@ import { useResizeObserver } from "@/hooks";
 import { m } from "@/i18n";
 import { useTimelineHistogram } from "@/stores";
 
+import { runEmitterKey } from "../../clipboard/emitterKeys";
+import { useEmitterClipboard } from "../../clipboard/useEmitterClipboard";
 import type { EmitterModel } from "../../engine/model/model";
 import { useEmitters } from "../../inspector/state/emitterChoice";
+import { emitterRef } from "../../inspector/utils/emitterName";
 import { useVfxRun } from "../../playback/state/run";
+import { ignoredKey } from "../../playback/utils/ignoredKey";
 import { useLaneHead } from "../hooks/useLaneHead";
 import { useLaneRows } from "../hooks/useLaneRows";
 import { useLaneSelect } from "../hooks/useLaneSelect";
@@ -23,8 +28,9 @@ import { useLiveCounts } from "../hooks/useLiveCounts";
 import { useTimelineMarkers } from "../hooks/useTimelineMarkers";
 import { type SnapKeys, type TimeSnap, useTimeSnap } from "../hooks/useTimeSnap";
 import type { LaneLayout } from "../utils/histogram";
-import { fitSpan, timeAt, type TimeWindow, xOf } from "../utils/laneModel";
-import { COUNT, LaneRow } from "./LaneRow";
+import { fitSpan, type LaneBar, timeAt, type TimeWindow, xOf } from "../utils/laneModel";
+import { type LaneHow, pickLanes } from "../utils/selection";
+import { COUNT, LaneRow, type Row } from "./LaneRow";
 import { useLaneGestures, VisibilityHeader } from "./laneVisibility";
 import { MarkerLines, MarkerRuler } from "./Markers";
 import { PastRun, Ruler } from "./Ruler";
@@ -36,6 +42,7 @@ import {
   usePlayhead,
   useTimeLine,
 } from "./timeLines";
+import type { FollowBars } from "./useBarEditing";
 
 /**
  * The ruler with the open system's markers over it, or the ruler alone for a system that has
@@ -67,19 +74,33 @@ function RulerMarkers({
 /** One lane's height in pixels, which the histogram canvas is laid out by. */
 const ROW = 24;
 
+const NO_FOLLOW: ReadonlyMap<number, LaneBar> = new Map();
+
 /**
  * One lane per emitter under one playhead, "The timeline" in docs/ux/BIN_EDITOR.md.
  *
  * The bars and the heads are the DOM's, and the histogram is one canvas over the tracks. The
  * playhead, the pointer's line and the live counts are written to the DOM off the run's clock,
  * and a row re-renders only when its data changes. The name filter sits in the ruler row's
- * head cell, over the names it narrows.
+ * head cell, over the names it narrows. Ctrl and Shift on a lane name edit a selection of
+ * several lanes, which the clipboard keys, S and M, and a bar drag act on.
  */
 export function Lanes() {
   const { system, span, playback, loop, seek, setLoop, beginScrub, endScrub } = useVfxRun();
-  const { cards, filter, setFilter } = useEmitters();
+  const { cards, filter, setFilter, root, selected, pickCards } = useEmitters();
   const histogram = useTimelineHistogram();
   const select = useLaneSelect();
+  const clipboard = useEmitterClipboard();
+  const anchor = useRef<string | null>(null);
+
+  /* A landed drag reads the system again, whose new bars replace the followers' drafts. */
+  const [follow, setFollow] = useState<ReadonlyMap<number, LaneBar>>(NO_FOLLOW);
+  const [followedSystem, setFollowedSystem] = useState(system);
+  if (followedSystem !== system) {
+    setFollowedSystem(system);
+    setFollow(NO_FOLLOW);
+  }
+  const onFollow = useCallback<FollowBars>((bars) => setFollow(bars ?? NO_FOLLOW), []);
 
   const [width, setWidth] = useState(0);
   const measure = useResizeObserver<HTMLDivElement>((element) => setWidth(element.clientWidth));
@@ -98,6 +119,44 @@ export function Lanes() {
       cards.find((card) => card.simple === emitter.simple && card.index === emitter.listIndex),
     [cards],
   );
+  const laneKeys = useMemo(
+    () =>
+      rows.flatMap((row) => {
+        const key = row.kind === "emitter" ? cardOf(row.emitter)?.key : undefined;
+        return key === undefined ? [] : [key];
+      }),
+    [rows, cardOf],
+  );
+
+  /* A child lane belongs to another system, so it is always selected alone. */
+  const pick = useCallback(
+    (row: Row, how: LaneHow) => {
+      const key = row.kind === "emitter" ? cardOf(row.emitter)?.key : undefined;
+      if (key === undefined || how === "only") {
+        if (key !== undefined) anchor.current = key;
+        select(row);
+        return;
+      }
+
+      const next = pickLanes(laneKeys, selected, anchor.current, key, how);
+      anchor.current = next.anchor;
+      pickCards(next.keys, next.open);
+    },
+    [cardOf, select, laneKeys, selected, pickCards],
+  );
+
+  const runKey = (event: ReactKeyboardEvent) => {
+    if (ignoredKey(event.nativeEvent)) return;
+
+    const refs = cards.filter((card) => selected.has(card.key)).map(emitterRef);
+    const entry = cards[0]?.row.entry ?? "";
+    const open = root === undefined || !selected.has(root.key) ? null : emitterRef(root);
+    if (runEmitterKey(event, clipboard, entry, open, refs)) {
+      /* Ctrl+D also opens Diagnostics app-wide, so a handled chord stops here. */
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  };
 
   const layout = useMemo<LaneLayout>(
     () => ({
@@ -134,6 +193,7 @@ export function Lanes() {
       className="flex min-h-0 flex-1 flex-col"
       onPointerMove={hover}
       onPointerLeave={pointer.hide}
+      onKeyDown={runKey}
     >
       <div ref={measurePane} className="flex h-6 shrink-0 border-b border-surface-700/50">
         <div className="shrink-0 border-r border-surface-700/50" style={{ width: head }}>
@@ -200,9 +260,11 @@ export function Lanes() {
               spawned={row.kind === "child" ? spawned : 0}
               expanded={row.kind === "emitter" && expanded.has(row.emitter.index)}
               onExpand={expand}
-              onSelect={select}
+              onSelect={pick}
               onSeek={seekAt}
               snap={snap}
+              followed={row.kind === "emitter" ? follow.get(row.emitter.index) : undefined}
+              onFollow={onFollow}
             />
           ))}
           <div

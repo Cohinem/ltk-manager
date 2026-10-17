@@ -12,13 +12,13 @@ import { type VfxRun, VfxRunContext } from "../../state/run";
 import { RunKeys } from "../RunKeys";
 
 /** A strip with no emitter chosen, which is all the keys read of it. */
-const CHOICE = { root: undefined } as EmitterChoice;
+const CHOICE: Partial<EmitterChoice> = { cards: [], root: undefined, selected: new Set() };
 
 /** The keys over `run` around `children`, and the box they listen on. */
 function renderKeys(run: VfxRun, children?: ReactNode): HTMLElement {
   render(
     <VfxRunContext value={run}>
-      <EmitterChoiceContext value={CHOICE}>
+      <EmitterChoiceContext value={CHOICE as EmitterChoice}>
         <RunKeys>
           <p>ground</p>
           {children}

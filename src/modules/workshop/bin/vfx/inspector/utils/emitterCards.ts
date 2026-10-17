@@ -7,7 +7,8 @@ import type { PlacedSection } from "../../../classes/utils/classLayouts";
 import { type ReadRequest, useBinRead } from "../../../documents/hooks/useBinRead";
 import { nameHash } from "../../../shared/utils/binHash";
 import { childCount, fieldHash, rowKey } from "../../../tree/utils/binRows";
-import { CARD, type EmitterGroup, groupRows } from "./emitterGroups";
+import { type EmitterGroup, groupRows } from "./emitterGroups";
+import { nameOf } from "./emitterName";
 import type { ChildChoice, Chosen, EmitterCardData } from "./emitterTypes";
 
 /** The second list, whose cards are marked, since one strip holds both. */
@@ -128,12 +129,6 @@ export function openOf(chosen: Chosen | null, cards: readonly EmitterCardData[])
   const group = first?.groups[0];
   if (first === undefined || group === undefined) return null;
   return { key: first.key, group: group.group };
-}
-
-/** The emitter's own `emitterName`, else the name its element row carries. */
-export function nameOf(card: EmitterCardData): string {
-  const name = card.fields(CARD.name);
-  return name?.value.type === "string" ? name.value.value : card.row.name;
 }
 
 /** The emitter as a curve caption's chain opens on it: its name and its index. */

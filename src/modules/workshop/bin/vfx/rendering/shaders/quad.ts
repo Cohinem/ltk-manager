@@ -91,11 +91,12 @@ vec4 cornerWorld() {
     up = dot(up, up) > 0.0 ? normalize(up) : vec2(0.0, 1.0);
     vec2 offset = vec2(up.y, -up.x) * (at.x * size.x) + up * (at.y * size.y);
 #else
-    vec2 turned = vec2(
-      at.x * cos(roll) - at.y * sin(roll),
-      at.x * sin(roll) + at.y * cos(roll)
+    // The engine scales the corner before it rolls it, so a turned non-square quad keeps its shape.
+    vec2 sized = at * size.xy;
+    vec2 offset = vec2(
+      sized.x * cos(roll) - sized.y * sin(roll),
+      sized.x * sin(roll) + sized.y * cos(roll)
     );
-    vec2 offset = turned * size.xy;
 #endif
     vec3 eyeRight = vec3(EYE_VIEW[0][0], EYE_VIEW[1][0], EYE_VIEW[2][0]);
     vec3 eyeUp = vec3(EYE_VIEW[0][1], EYE_VIEW[1][1], EYE_VIEW[2][1]);
