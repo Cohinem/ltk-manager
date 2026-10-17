@@ -14,7 +14,4 @@ label strings used in this repo's issue tracker.
 When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label
 string from this table.
 
-`triage`, `needs-context` and `wontfix` already exist on the repo. `ready-for-agent` and
-`ready-for-human` do not, so the first `/triage` run that reaches those states creates them.
-
 Edit the right-hand column to match whatever vocabulary you actually use.

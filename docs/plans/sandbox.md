@@ -1,7 +1,7 @@
 # Sandbox - Implementation Plan
 
 > Status: **v1 built** (2026-09-28), stages 1, 2, 3 and 6. Decision: [ADR-0056](../adr/0056-an-editor-reads-and-writes-through-a-sandbox.md).
-> Glossary: **Sandbox** in `CONTEXT.md`.
+> Glossary: **Sandbox** in `GLOSSARY.md`.
 
 Every workshop editor reads its data and sends its edits through a sandbox: the installed game or
 a project's layers over the game. v1 is stages 1, 2, 3 and 6 on one branch, and the existing bin

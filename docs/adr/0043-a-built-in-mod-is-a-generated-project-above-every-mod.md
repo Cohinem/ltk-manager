@@ -3,7 +3,7 @@
 - **Status:** Accepted (2026-09-19)
 - **Date:** 2026-09-19
 - **Crates:** `ltk-manager-core`, in `overlay/builtin_mods`
-- **Related:** CONTEXT.md, **Built-in mod**. [ADR-0012](0012-the-overlay-merges-a-mod-over-the-games-copy.md),
+- **Related:** GLOSSARY.md, **Built-in mod**. [ADR-0012](0012-the-overlay-merges-a-mod-over-the-games-copy.md),
   the merge a built-in mod's chunks stay outside of.
   [ADR-0024](0024-a-setting-id-is-its-key-in-settings-json.md), whose flat file the
   `builtinMods` group departs from.

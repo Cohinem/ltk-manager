@@ -256,7 +256,7 @@ labels. See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Single-context, with one `CONTEXT.md` and one `docs/adr/` at the repo root. See
+Single-context, with one `GLOSSARY.md` and one `docs/adr/` at the repo root. See
 `docs/agents/domain.md`.
 
 ### Worktrees

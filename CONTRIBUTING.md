@@ -27,7 +27,7 @@ builds, the generated files, and the layout of the repository.
 
 ## How the project is organized
 
-- `CONTEXT.md` is the glossary. The words the codebase uses for its own concepts, and the ones it
+- `GLOSSARY.md` is the glossary. The words the codebase uses for its own concepts, and the ones it
   deliberately does not.
 - `docs/adr/` holds the decisions, one file each.
 - `docs/ux/` holds the product reasoning for each screen: what it is for, what it does today, and

@@ -55,7 +55,7 @@ irreversible — but until now what came back was the author's content minus one
 repaired texture it is a re-encode of the author's content, and no undo exists anywhere in the
 manager to recover the original.
 
-The vocabulary has to stop overclaiming. `CONTEXT.md` says a repair is lossless, and three module
+The vocabulary has to stop overclaiming. `GLOSSARY.md` says a repair is lossless, and three module
 comments say it too. The glossary is corrected with this decision, because a glossary that states a
 falsehood is worse than one that is silent. The code comments are left until the modules change,
 and they are wrong in the meantime.
