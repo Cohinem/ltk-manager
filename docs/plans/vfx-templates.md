@@ -138,7 +138,7 @@ back through Copy emitter. The generator goes once the files are saved from the 
 ### 2.7 Records
 
 An ADR for the rig model, and one for the template origin of a new object, which extends
-ADR-0049. `CONTEXT.md` gains VFX template, rig, carrier and playback.
+ADR-0049. `GLOSSARY.md` gains VFX template, rig, carrier and playback.
 
 ## 3. Phases
 

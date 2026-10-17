@@ -3,7 +3,7 @@
 Status: accepted (2026-08-30), and every rule it names has since been dropped - see
 [Since accepted](#since-accepted). The decision stands. Its examples do not.
 
-Settles the **mount error** entry in [CONTEXT.md](../../CONTEXT.md) and the rule names in
+Settles the **mount error** entry in [GLOSSARY.md](../../GLOSSARY.md) and the rule names in
 `specs/013-mod-defect-rules`.
 
 ## Context

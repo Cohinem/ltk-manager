@@ -51,4 +51,4 @@ manager's dependency moves - never a path dep.
 
 Once this lands, the verdict question ADR-0012 opened stops being hypothetical: a mod carrying only
 this defect plays correctly and its stored verdict still says `unrepairable`. `015-003` covers the
-badge, not the word. See **Compensated** in `CONTEXT.md`.
+badge, not the word. See **Compensated** in `GLOSSARY.md`.

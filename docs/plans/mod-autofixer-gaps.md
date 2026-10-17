@@ -45,7 +45,7 @@
 > `Spirit_Blossom_Rift_by_Moga_v16.16.2.26.0.fantome`. The tool lives outside both repos, and
 > neither repo was modified.
 
-Vocabulary is `CONTEXT.md`'s and `docs/ux/PROJECT_PROBLEMS.md`'s throughout: **rule**,
+Vocabulary is `GLOSSARY.md`'s and `docs/ux/PROJECT_PROBLEMS.md`'s throughout: **rule**,
 **problem**, **site**, **fix**, **run**, **dormant**, **verdict**, **basis**, **migration** for
 one row of the table, **check** and **repair** for the mod-health half.
 

@@ -5,7 +5,7 @@ codebase.
 
 ## Before exploring, read these
 
-- **`CONTEXT.md`** at the repo root.
+- **`GLOSSARY.md`** at the repo root.
 - **`docs/adr/`**: read ADRs that touch the area you're about to work in.
 
 If any of these files don't exist, **proceed silently**. Don't flag their absence, and don't suggest
@@ -20,7 +20,7 @@ both.
 
 ```
 /
-├── CONTEXT.md
+├── GLOSSARY.md
 ├── docs/adr/
 │   ├── 0001-....md
 │   └── 0002-....md
@@ -30,13 +30,13 @@ both.
 ```
 
 The per-directory `AGENTS.md` files (`src/`, `src/styles/`, `src-tauri/`, `crates/ltk-manager-*/`)
-carry coding conventions, not domain vocabulary. They are not a substitute for `CONTEXT.md` and they
+carry coding conventions, not domain vocabulary. They are not a substitute for `GLOSSARY.md` and they
 do not make this a multi-context repo.
 
 ## Use the glossary's vocabulary
 
 When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a
-test name), use the term as defined in `CONTEXT.md`. Don't drift to synonyms the glossary explicitly
+test name), use the term as defined in `GLOSSARY.md`. Don't drift to synonyms the glossary explicitly
 avoids.
 
 If the concept you need isn't in the glossary yet, that's a signal: either you're inventing language

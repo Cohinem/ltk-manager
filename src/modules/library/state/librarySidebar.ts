@@ -4,7 +4,7 @@ import { persist } from "zustand/middleware";
 import { keepUnversioned, localJsonStorage } from "@/stores/storage";
 
 /** Which of the panel's documents is showing. */
-export type DocumentsTab = "details" | "readme" | "licenses";
+export type DocumentsTab = "details" | "readme" | "licenses" | "model";
 
 /** Everything the panel is showing, as one value a guard can hold back. */
 interface SidebarView {

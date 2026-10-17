@@ -1068,7 +1068,7 @@ impl Because {
 }
 
 /// Why the game refused an archive it was mounting, in the game's own words.
-/// The four states are the mount errors CONTEXT.md lists.
+/// The four states are the mount errors GLOSSARY.md lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum MountProblem {
     Missing,

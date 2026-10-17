@@ -61,7 +61,7 @@ published and already pinned in `Cargo.toml`: `ltk_mod_project` 0.7.0 (`FantomeI
   run that will strand mods in the failed state. No `\\?\` writing in this scope.
 - Naming: _layout migration_ (this), _schema migration_ (library.json versions), and the cslol
   _import_ stay distinct terms, with no cslol renames in this PR. The private dir is **`.ltk/`**.
-- `docs/agents/domain.md` promises a root `CONTEXT.md` + `docs/adr/` that do not exist yet.
+- `docs/agents/domain.md` promises a root `GLOSSARY.md` + `docs/adr/` that do not exist yet.
   Create both in this PR (glossary + ADR 0001, see phase 10).
 
 ## Target on-disk layout
@@ -280,7 +280,7 @@ are untouched), save, and add to the report. After the loop: delete
 
 `get_mod_thumbnail_path`'s archive-extraction fallback reads `.ltk/archive.*` and tolerates its
 absence. Delete dead code. `cargo fmt` / `cargo clippy --all-targets` / `cargo doc --no-deps`
-clean, and regenerate ts bindings. Create the root `CONTEXT.md` (glossary: mod library, mod
+clean, and regenerate ts bindings. Create the root `GLOSSARY.md` (glossary: mod library, mod
 project, slug vs id, layout migration, schema migration, cslol import, drop folder, private dir,
 retained archive, quarantine, fault, storage mode) and
 `docs/adr/0001-fantome-unpacks-modpkg-stays-packed.md` (the trade-off: fantome archives are

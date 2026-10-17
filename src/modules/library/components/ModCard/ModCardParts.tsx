@@ -143,7 +143,7 @@ export function ModCardToggle({ view }: { view: ModCardView }) {
  * Where the mod's content is read from, as a choice between the two rather than
  * a button naming the one it is not.
  *
- * Per "Storage" in CONTEXT.md.
+ * Per "Storage" in GLOSSARY.md.
  */
 function ModCardStorageSubmenu({ view }: { view: ModCardView }) {
   return (

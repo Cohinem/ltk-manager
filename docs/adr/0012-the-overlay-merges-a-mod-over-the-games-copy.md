@@ -2,7 +2,7 @@
 
 Status: accepted (2026-08-31)
 
-Adds a **merge** entry to [CONTEXT.md](../../CONTEXT.md), and answers the question
+Adds a **merge** entry to [GLOSSARY.md](../../GLOSSARY.md), and answers the question
 `specs/015-game-as-parts-source` was written to hold.
 
 ## Context
@@ -76,7 +76,7 @@ The health vocabulary has a hole this decision opens and does not fill. A defect
 compensates for is never repaired, so the mod file carries it forever and a check that finds it
 cannot honestly call the mod `repairable` — the press that word promises does not exist, and would
 do nothing if it did. `healthy` is wrong too, because the mod really is defective and behaves
-differently under another manager. None of the three verdict words fits, and CONTEXT.md's **Check**
+differently under another manager. None of the three verdict words fits, and GLOSSARY.md's **Check**
 entry says a check is a claim about a mod rather than about a mod-plus-our-build. That needs
 deciding before the rule ships, and it is a smaller question than this one only because this one is
 settled first.
