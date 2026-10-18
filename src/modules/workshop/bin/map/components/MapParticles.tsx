@@ -117,8 +117,10 @@ const SystemPlacements = memo(function SystemPlacements({
   /* The particle capacity of one placement, and of all placements together for the shared draw. */
   const room = useMemo(() => capacityOf(group.system), [group.system]);
   const sharedRoom = Math.min(QUADS_PER_EMITTER, room * group.particles.length);
+
   /* A system of sounds alone draws nothing, and Summoner's Rift stands 131 of them. */
   if (drawn.length === 0 && shimmer.length === 0) return null;
+
   return (
     <>
       {drawn.length > 0 && (
@@ -190,8 +192,11 @@ function gatherSources(runs: PlacementRuns): void {
       if (!seen) continue;
 
       anySeen = true;
-      if (path === "") list.push(driver);
-      else list.push(...driver.sources(path));
+      if (path === "") {
+        list.push(driver);
+      } else {
+        list.push(...driver.sources(path));
+      }
     }
   }
   runs.shown.visible = anySeen;

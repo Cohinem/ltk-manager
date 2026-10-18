@@ -316,10 +316,10 @@ function PlacedCharacter({ matrix, reach, seen, children }: PlacedCharacterProps
   const placed = useMemo(() => reach.clone().applyMatrix4(matrix), [reach, matrix]);
 
   useFrame(({ invalidate }) => {
-    const held = seen.intersectsSphere(placed);
-    asleep.current = !held;
-    group.visible = held;
-    if (held) invalidate();
+    const inView = seen.intersectsSphere(placed);
+    asleep.current = !inView;
+    group.visible = inView;
+    if (inView) invalidate();
   });
 
   return (

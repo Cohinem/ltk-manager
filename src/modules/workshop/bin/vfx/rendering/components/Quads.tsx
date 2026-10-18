@@ -257,6 +257,7 @@ function write(
       rows[turn] = UV_DRAWN.turn;
       rows[turn + 1] = UV_DRAWN.scaleU;
       rows[turn + 2] = UV_DRAWN.scaleV;
+
       const shift = row + SHIFTS[layer];
       rows[shift] = UV_DRAWN.offsetU;
       rows[shift + 1] = UV_DRAWN.offsetV;
@@ -295,6 +296,6 @@ function write(
     }
   }
 
-  /* Uploads only the written rows, which skips most of the buffer for an emitter that draws few. */
+  /* Uploads only the written rows, which skips most of the buffer for a sparse emitter. */
   if (held > 0) rowsWritten(buffers.rows, held);
 }

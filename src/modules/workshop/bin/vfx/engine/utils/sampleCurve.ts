@@ -270,6 +270,7 @@ function bakedOf(value: ValueCurve, order: 1 | 2): Float32Array {
     baked = order === 1 ? bakeIntegral(value) : bakeSecondIntegral(value);
     cache.set(value, baked);
   }
+
   const at = RECENT_NEXT[slot];
   values[at] = value;
   RECENT_BAKED[slot][at] = baked;

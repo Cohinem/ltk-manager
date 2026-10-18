@@ -257,7 +257,7 @@ function EmitterScope({ scope, tint, children }: EmitterScopeProps) {
   );
 }
 
-/** Returns the joint lookup of each mesh emitter of `meshes` that carries a pose, by emitter key. */
+/** Returns the joint lookup of each posed mesh emitter in `meshes`, keyed by emitter key. */
 export function useMeshJoints(meshes: EmitterMeshes): ReadonlyMap<string, Joints> {
   return useMemo(() => {
     const lookups = new Map<string, Joints>();

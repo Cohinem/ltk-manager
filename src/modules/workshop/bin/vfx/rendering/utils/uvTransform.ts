@@ -41,7 +41,7 @@ const DEGREE = Math.PI / 180;
 /** Scratch one integrated rate is read into. */
 const INTEGRATED = new Float32Array(2);
 
-/* Scratch buffers that the scale and rotation curves are sampled into, so a particle allocates nothing. */
+/* Scratch buffers for the scale and rotation curves, so a particle allocates nothing. */
 const SCALE = new Float32Array(2);
 const ROTATION = new Float32Array(1);
 
@@ -66,11 +66,13 @@ export function uvTransformInto(
   emitterScroll = true,
 ): void {
   const slot = uvAt(index, which);
+
   /* A channel that the curve does not write defaults to a scale of 1 and a turn of 0. */
   SCALE.fill(1);
   sampleCurveInto(layer.scale, age01, SCALE, 0);
   ROTATION[0] = 0;
   sampleCurveInto(layer.rotation, age01, ROTATION, 0);
+
   const lifetime = pool.lifetime[index];
   const lived = Number.isFinite(lifetime) ? lifetime : 0;
 

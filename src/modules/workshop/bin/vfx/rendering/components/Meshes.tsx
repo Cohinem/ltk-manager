@@ -85,8 +85,7 @@ const BEAM_TURN = new Quaternion();
 /** Squared beam length at or below which the engine skips a beam mesh. */
 const BEAM_SHORTEST = 1e-9;
 
-/** The floats of `lookup` per instance: the ramp's two, then the erosion drive. */
-/** Where the lookup starts in an instance's row. */
+/** Where the lookup starts in an instance's row: the ramp's two floats, then the erosion drive. */
 const LOOKUP = MESH_LAYOUT.lookup[0];
 
 /** The rim, the reflection and the soft fade a mesh's shader compiles, and no ramp. */
@@ -206,6 +205,7 @@ export function Meshes({
         const age = time - pool.birthTime[at];
         buffers.pose?.write(instance, age);
         const through = age01(pool, at, time);
+
         const row = instance * MESH_STRIDE;
         colorLookupInto(emitter, pool, at, through, rows, row + LOOKUP);
         rows[row + LOOKUP + 2] = erosionDrive(pool, at, emitter, time);
