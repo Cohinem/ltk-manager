@@ -120,6 +120,11 @@ function targetsOf(gl: WebGLRenderer): FrameTargets {
       depthTexture: new DepthTexture(1, 1),
       type: HalfFloatType,
     });
+    /* The depth pass writes no colour. ThreeJS picks the tone mapping and the output colour
+       space of a program by its target, and these two make the depth pass pick the screen's,
+       so a material keeps one program rather than switching it twice a frame. */
+    Object.assign(depth, { isXRRenderTarget: true });
+    depth.texture.colorSpace = gl.outputColorSpace;
     targets = { frame, depth };
     TARGETS.set(gl, targets);
   }

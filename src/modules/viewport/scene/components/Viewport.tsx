@@ -2,6 +2,7 @@ import type { RootState } from "@react-three/fiber";
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import type { MapVisibility } from "../../assets/utils/mapVisibility";
+import type { GizmoCorner } from "../../camera/components/OrientationGizmo";
 import { SceneCamera } from "../../camera/components/SceneCamera";
 import { CameraPresetContext } from "../../camera/state/presetContext";
 import { CAMERA, type CameraPreset } from "../../camera/utils/cameraPresets";
@@ -52,6 +53,8 @@ export interface ViewportProps {
   readonly frameloop?: "always" | "demand";
   /** The orientation control is drawn over the scene. */
   readonly gizmo?: boolean;
+  /** The corner the orientation control sits in, top left by default. */
+  readonly gizmoCorner?: GizmoCorner;
   /** The ground and its grid are drawn. */
   readonly stage: boolean;
   /** The ground wears the midlane's texture rather than the flat token fill. */
@@ -112,6 +115,7 @@ export function Viewport({
   dpr,
   frameloop = "always",
   gizmo = true,
+  gizmoCorner,
   stage,
   textured,
   backdrop = null,
@@ -201,6 +205,7 @@ export function Viewport({
             colors={colors}
             onStand={onCameraStand}
             gizmo={gizmo}
+            gizmoCorner={gizmoCorner}
             memory={cameraMemory}
           />
           <Sun light={light} />

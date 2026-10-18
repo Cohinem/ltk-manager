@@ -84,30 +84,39 @@ function FramePasses({ warps, softens }: PassesProps) {
   const scene = useThree((state) => state.scene);
 
   useFrame((state) => {
-    const camera = state.camera;
-    const glows = glowing(scene);
-    const held = warpsOf(scene);
-    const late = warps && held.late;
-    const first = late ? UNDER_PHASE : BOTH_PHASES;
+    /* Every pass renders this scene, and nothing moves between them, so the matrices update
+       once rather than once per pass. */
+    scene.updateMatrixWorld();
+    const autoUpdate = scene.matrixWorldAutoUpdate;
+    scene.matrixWorldAutoUpdate = false;
+    try {
+      const camera = state.camera;
+      const glows = glowing(scene);
+      const held = warpsOf(scene);
+      const late = warps && held.late;
+      const first = late ? UNDER_PHASE : BOTH_PHASES;
 
-    drawShadows(gl, scene, camera);
-    bindFrameTargets(gl);
-    if (softens || glows) grabDepth(gl, scene, camera);
-    if (warps && held.early) {
-      camera.layers.set(SCENE_LAYER);
-      gl.render(scene, camera);
-      drawWarp(gl, scene, camera, EARLY_DISTORTION_LAYER);
-      drawOver(gl, scene, camera, first);
-    } else {
-      seeColour(camera, first);
-      gl.render(scene, camera);
+      drawShadows(gl, scene, camera);
+      bindFrameTargets(gl);
+      if (softens || glows) grabDepth(gl, scene, camera);
+      if (warps && held.early) {
+        camera.layers.set(SCENE_LAYER);
+        gl.render(scene, camera);
+        drawWarp(gl, scene, camera, EARLY_DISTORTION_LAYER);
+        drawOver(gl, scene, camera, first);
+      } else {
+        seeColour(camera, first);
+        gl.render(scene, camera);
+      }
+      if (late) {
+        drawWarp(gl, scene, camera, DISTORTION_LAYER);
+        drawOver(gl, scene, camera, OVER_PHASE);
+      }
+      if (glows) drawGlow(gl, scene, camera);
+      seeColour(camera, BOTH_PHASES);
+    } finally {
+      scene.matrixWorldAutoUpdate = autoUpdate;
     }
-    if (late) {
-      drawWarp(gl, scene, camera, DISTORTION_LAYER);
-      drawOver(gl, scene, camera, OVER_PHASE);
-    }
-    if (glows) drawGlow(gl, scene, camera);
-    seeColour(camera, BOTH_PHASES);
   }, AFTER_THE_EMITTERS);
 
   return null;

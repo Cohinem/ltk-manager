@@ -299,7 +299,7 @@ export const mapContainerLayout: ClassLayout = {
       title: m.workshop_bin_section_identity_label,
       fields: ["mapPath", "boundsMin", "boundsMax", "lowestWalkableHeight"],
     },
-    { title: m.workshop_bin_section_chunks_label, fields: ["chunks"], as: "rows" },
+    /* `chunks` has no section: the outliner lists the chunks with what each holds. */
     { title: m.workshop_bin_section_components_label, fields: ["components"], as: "tree" },
   ],
 };

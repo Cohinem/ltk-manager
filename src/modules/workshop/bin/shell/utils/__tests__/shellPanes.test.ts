@@ -77,14 +77,14 @@ describe("defaultShellArrangements", () => {
     ]);
   });
 
-  it("holds every pane of the map shell once, the visibility a tab behind the outliner", () => {
+  it("holds every pane of the map shell once, the visibility and lighting as tabs", () => {
     const tree = defaultShellLayout("map");
 
     expect([...openShellPanes(tree)].sort()).toEqual([...shellPanesOf("map")].sort());
     expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
       ["preview"],
       ["outliner", "visibility"],
-      ["inspector"],
+      ["inspector", "lighting"],
     ]);
   });
 
@@ -291,7 +291,26 @@ describe("sanitizeShellLayout", () => {
     expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
       ["preview"],
       ["outliner", "visibility"],
-      ["inspector"],
+      ["inspector", "lighting"],
+    ]);
+  });
+
+  it("opens a map tree saved before the lighting pane existed with it behind the inspector", () => {
+    const tree = sanitizeShellLayout("map", {
+      kind: "split",
+      id: "split-1",
+      dir: "row",
+      children: [
+        { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
+        { kind: "leaf", id: "leaf-5", tabs: ["outliner", "visibility"], activeTab: "outliner" },
+        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+      ],
+    });
+
+    expect(leaves(tree).map((leaf) => leaf.tabs)).toEqual([
+      ["preview"],
+      ["outliner", "visibility"],
+      ["inspector", "lighting"],
     ]);
   });
 

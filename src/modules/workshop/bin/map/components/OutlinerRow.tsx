@@ -1,17 +1,25 @@
 import {
+  BoundingBoxIcon,
   CaretRightIcon,
   CastleTurretIcon,
   CubeIcon,
   EyeIcon,
   EyeSlashIcon,
+  FolderSimpleIcon,
+  GlobeSimpleIcon,
   type Icon,
+  LightbulbIcon,
   LightningIcon,
   MapPinIcon,
+  PathIcon,
+  PolygonIcon,
   SelectionIcon,
+  ShuffleIcon,
   SparkleIcon,
   SpeakerHighIcon,
+  StackIcon,
 } from "@phosphor-icons/react";
-import type { MouseEvent } from "react";
+import type { DragEvent, MouseEvent } from "react";
 
 import { Tooltip } from "@/components";
 import { m } from "@/i18n";
@@ -19,7 +27,8 @@ import type { MapItemKind } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
 import { MatchedText } from "../../../shared/components/MatchedText";
-import { chunkLabel, isDrawn, type OutlineRow } from "../utils/mapOutline";
+import { chunkLabel, isDrawn } from "../utils/mapOutline";
+import type { SceneRow } from "../utils/sceneOutline";
 
 const KIND_ICON: Record<MapItemKind, Icon> = {
   particle: SparkleIcon,
@@ -27,17 +36,26 @@ const KIND_ICON: Record<MapItemKind, Icon> = {
   locator: MapPinIcon,
   group: SelectionIcon,
   audio: SpeakerHighIcon,
+  light: LightbulbIcon,
+  probe: GlobeSimpleIcon,
+  volume: BoundingBoxIcon,
+  path: PathIcon,
   other: CubeIcon,
 };
+
+/** How far each level of the tree steps in, in pixels at 100% zoom. */
+const INDENT = 12;
 
 interface OutlinerRowProps {
   /** The row's element id, which the tree names as its active descendant. */
   readonly domId: string;
-  readonly row: OutlineRow;
+  readonly row: SceneRow;
+  /** How deep the row sits, 1 for the top. */
+  readonly level: number;
   readonly hidden: boolean;
   /** The camera was last sent to this row. */
   readonly focused: boolean;
-  /** The placeable is in the selection the viewport and the outliner share. */
+  /** The object is in the selection the viewport and the outliner share. */
   readonly selected: boolean;
   /** The keyboard stands on this row. */
   readonly active: boolean;
@@ -45,80 +63,149 @@ interface OutlinerRowProps {
   readonly query: string;
   /** The filter narrows the tree, so a chunk counts what it keeps of what it holds. */
   readonly narrowed: boolean;
+  /** A drag over the row would drop onto it. */
+  readonly dropping: boolean;
+  /** The name a controller hash reads as. */
+  readonly controllerName: (hash: string) => string;
   readonly onActivate: (event: MouseEvent) => void;
   readonly onHide: () => void;
+  /** Starts a drag of the row's object, and absent for a row that does not move. */
+  readonly onDragStart?: (event: DragEvent) => void;
+  /** Takes a drop onto the row, and absent for a row that takes none. */
+  readonly onDrop?: (event: DragEvent) => void;
+  readonly onDragOver?: (event: DragEvent) => void;
+  readonly onDragLeave?: () => void;
 }
 
 /**
- * One row of the map outliner: a chunk with its caret and count, or a placeable with its
- * kind, class and the marker of an event that shows it. An eye hides what the scene draws.
+ * One row of the map outliner: a collection, a controller group, a mesh, a chunk or a
+ * placeable. A folding row has a caret and a count, an object its kind and an eye, and a
+ * placeable the marker of an event that shows it. A mesh or a placeable drags onto a group or
+ * a chunk to move under it.
  */
 export function OutlinerRow({
   domId,
   row,
+  level,
   hidden,
   focused,
   selected,
   active,
   query,
   narrowed,
+  dropping,
+  controllerName,
   onActivate,
   onHide,
+  onDragStart,
+  onDrop,
+  onDragOver,
+  onDragLeave,
 }: OutlinerRowProps) {
-  const chunk = row.type === "chunk";
-  const Glyph = row.type === "chunk" ? null : KIND_ICON[row.item.kind];
+  const folds = row.type === "section" || row.type === "group" || row.type === "chunk";
+  const open = folds && row.open;
+  const Glyph = glyphOf(row);
+  const text = labelOf(row, controllerName);
+  const eye =
+    row.type === "chunk" || row.type === "mesh" || (row.type === "item" && isDrawn(row.item));
 
   return (
     <div
       id={domId}
       role="treeitem"
-      aria-level={chunk ? 1 : 2}
-      aria-expanded={row.type === "chunk" ? row.open : undefined}
+      aria-level={level}
+      aria-expanded={folds ? open : undefined}
       aria-selected={selected}
+      draggable={onDragStart !== undefined}
       className={twMerge(
         /* DS-VEIL, DS-RADIUS */
         "group/row flex h-full cursor-pointer items-center gap-1.5 rounded-sm pr-1 hover:bg-surface-veil-soft",
-        !chunk && "pl-5",
+        row.type === "section" && "font-medium text-surface-200",
         selected && "bg-accent-500/15",
         focused && "text-accent-300",
         active && "ring-1 ring-accent-500/60 ring-inset",
+        dropping && "ring-1 ring-accent-400 ring-inset",
         hidden && "text-surface-500",
       )}
+      style={{ paddingLeft: (level - 1) * INDENT + (folds ? 0 : INDENT) }}
       onClick={onActivate}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
     >
-      {row.type === "chunk" && (
+      {folds && (
         <span className="flex h-4 w-3 shrink-0 items-center justify-center text-surface-400">
-          <CaretRightIcon weight="bold" className={twMerge("size-3", row.open && "rotate-90")} />
+          <CaretRightIcon weight="bold" className={twMerge("size-3", open && "rotate-90")} />
         </span>
       )}
       {Glyph !== null && <Glyph className="size-3.5 shrink-0 text-surface-400" />}
-      <span className="min-w-0 truncate">
-        <MatchedText
-          text={row.type === "chunk" ? chunkLabel(row.chunk) : row.item.name}
-          query={query}
-        />
+      <span className="min-w-0 shrink truncate">
+        <MatchedText text={text} query={query} />
       </span>
       {row.type === "item" && row.item.controller !== null && <EventMark />}
-      <span className="ml-auto shrink-0 truncate pl-2 text-meta text-surface-400">
-        {row.type === "chunk" && <ChunkCount row={row} narrowed={narrowed} />}
-        {row.type === "item" && <MatchedText text={row.item.class} query={query} />}
+      {/* The meta gives way before the name does. */}
+      <span className="ml-auto min-w-0 shrink-[4] truncate pl-2 text-meta text-surface-400">
+        <RowMeta row={row} narrowed={narrowed} query={query} />
       </span>
-      {(row.type === "chunk" || isDrawn(row.item)) && (
-        <EyeButton hidden={hidden} onClick={onHide} />
-      )}
+      {eye && <EyeButton hidden={hidden} onClick={onHide} />}
     </div>
   );
 }
 
-function ChunkCount({
-  row,
-  narrowed,
-}: {
-  row: Extract<OutlineRow, { type: "chunk" }>;
-  narrowed: boolean;
-}) {
-  if (!narrowed) return row.chunk.items.length;
-  return `${row.shown}/${row.chunk.items.length}`;
+function glyphOf(row: SceneRow): Icon | null {
+  switch (row.type) {
+    case "section":
+      return row.id === "section:meshes" ? PolygonIcon : StackIcon;
+    case "group":
+      return ShuffleIcon;
+    case "mesh":
+      return PolygonIcon;
+    case "chunk":
+      return FolderSimpleIcon;
+    case "item":
+      return KIND_ICON[row.item.kind];
+  }
+}
+
+function labelOf(row: SceneRow, controllerName: (hash: string) => string): string {
+  switch (row.type) {
+    case "section":
+      return row.id === "section:meshes"
+        ? m.workshop_bin_map_outliner_meshes_label()
+        : m.workshop_bin_map_markers_label();
+    case "group":
+      return row.controller === null
+        ? m.workshop_bin_map_mesh_no_controller_label()
+        : controllerName(row.controller);
+    case "mesh":
+      return m.workshop_bin_map_mesh_title({ index: row.mesh.index });
+    case "chunk":
+      return chunkLabel(row.chunk);
+    case "item":
+      return row.item.name;
+  }
+}
+
+function RowMeta({ row, narrowed, query }: { row: SceneRow; narrowed: boolean; query: string }) {
+  switch (row.type) {
+    case "section":
+      return row.count;
+    case "group":
+      return row.meshes.length;
+    case "mesh":
+      return <MatchedText text={lastSegment(row.mesh.materials[0] ?? "")} query={query} />;
+    case "chunk":
+      if (!narrowed) return row.chunk.items.length;
+      return `${row.shown}/${row.chunk.items.length}`;
+    case "item":
+      return <MatchedText text={row.item.class} query={query} />;
+  }
+}
+
+/** The last segment of a material's entry path, which tells most of a map's materials apart. */
+function lastSegment(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
 }
 
 /** The marker of a placeable an event shows, which the Event effects switch plays. */

@@ -3849,6 +3849,10 @@ export type MapChunkItem = {
 	kind: MapItemKind,
 	/**  Where it stands in the map's space. */
 	position: [(number | null), (number | null), (number | null)],
+	/**  Its `transform`, column major with the translation last. */
+	transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)],
+	/**  The extent the viewport draws, and `None` for a class that states none. */
+	shape: MapItemShape | null,
 	/**  The layer mask, one bit per visibility layer. */
 	visibility: number,
 	/**  The controller that shows and hides it, which no layer mask expresses. */
@@ -3939,6 +3943,14 @@ export type MapFiles = {
 	materials: AssetRef | null,
 };
 
+/**  One visibility flag of a map: the layer bit and the name the map gives it. */
+export type MapFlag = {
+	/**  The layer bit, 0 to 7. */
+	bit: number,
+	/**  `PublicName` of the flag definition. */
+	name: string,
+};
+
 /**  One fog of [`MapPostEffects`], ramping from nothing at `start` to its most at `end`. */
 export type MapFog = {
 	/**  The fog is drawn. */
@@ -3953,6 +3965,79 @@ export type MapFog = {
 	maxIntensity: number | null,
 };
 
+/**  An open `.mapgeo` after a change, and what the change did to the meshes a viewport draws. */
+export type MapGeometryChange = {
+	state: MapGeometryState,
+	deltas: MeshDelta[],
+};
+
+/**  One change to the meshes of an open `.mapgeo`, which is one undo step. */
+export type MapGeometryEdit = 
+/**  Sets the transform of each mesh and recomputes its bounding box. */
+{ kind: "transform"; meshes: MeshTransform[] } | 
+/**  Sets the visibility controller of each mesh, `0x` and eight hex digits, or none. */
+{ kind: "controller"; meshes: number[]; controller: string | null } | 
+/**
+ *  Sets the region entity of each mesh, `0x` and eight hex digits, or none, and
+ *  recomputes its bounding box.
+ */
+{ kind: "region"; meshes: number[]; region: string | null } | 
+/**  Sets the material of one submesh, as the entry path of a `StaticMaterialDef`. */
+{ kind: "material"; mesh: number; submesh: number; material: string } | 
+/**  Sets the visibility layer mask of each mesh. */
+{ kind: "visibility"; meshes: number[]; mask: number } | 
+/**  Sets the quality mask of each mesh. */
+{ kind: "quality"; meshes: number[]; mask: number } | 
+/**  Turns backface culling off or on for each mesh. */
+{ kind: "backfaceCulling"; meshes: number[]; disabled: boolean } | 
+/**  Appends a copy of each mesh. */
+{ kind: "duplicate"; meshes: number[] } | 
+/**  Removes each mesh and drops the buffers that no remaining mesh uses. */
+{ kind: "remove"; meshes: number[] } | 
+/**
+ *  Appends the meshes `meshes` of the model file at `source`, scaled by `scale` and
+ *  turned from `up` to the engine's axes, with `transform` as each mesh's transform.
+ */
+{ kind: "import"; source: string; meshes: number[]; scale: number | null; up: UpAxis; 
+/**  The entry path of the `StaticMaterialDef` of each material of the file, by index. */
+materials: string[]; 
+/**  The layer mask of every new mesh. */
+visibility: number; 
+/**  The controller of every new mesh, `0x` and eight hex digits, or none. */
+controller: string | null; 
+/**  Column major with the translation last. */
+transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)] };
+
+/**  What a mesh editor lists and inspects of one mesh. */
+export type MapGeometryMesh = {
+	index: number,
+	/**  Column major with the translation last. */
+	transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)],
+	min: [(number | null), (number | null), (number | null)],
+	max: [(number | null), (number | null), (number | null)],
+	/**  The layer mask, one bit per visibility layer. */
+	visibility: number,
+	/**  The controller's path hash as `0x` and eight hex digits, and none for no controller. */
+	controller: string | null,
+	/**  The region entity's path hash as `0x` and eight hex digits, and none for no region. */
+	region: string | null,
+	/**  The quality mask, one bit per quality level. */
+	quality: number,
+	backfaceCullingDisabled: boolean,
+	vertexCount: number,
+	/**  The material of each submesh, in submesh order. */
+	materials: string[],
+};
+
+/**  Where an open `.mapgeo` stands after a change. */
+export type MapGeometryState = {
+	id: number,
+	/**  Counts every change. */
+	revision: number,
+	/**  The document holds changes that no save wrote. */
+	dirty: boolean,
+};
+
 /**  What a placeable is to a scene, which is what an outliner marks its row with. */
 export type MapItemKind = 
 /**  A `MapParticle`, which plays a system. */
@@ -3965,8 +4050,31 @@ export type MapItemKind =
 "group" | 
 /**  A `MapAudio`. */
 "audio" | 
+/**  A dynamic or a static point light or spotlight. */
+"light" | 
+/**  A `MapCubemapProbe`. */
+"probe" | 
+/**  A `MapLightingVolume` or a `LightRegionEntityTemplate`. */
+"volume" | 
+/**  A `MapMotionPath`. */
+"path" | 
 /**  Any other class. */
 "other";
+
+/**  The extent a viewport draws around a placeable, in the map's space. */
+export type MapItemShape = 
+/**  The reach of a point light around its position. */
+{ type: "sphere"; radius: number | null } | 
+/**  The frustum of a spotlight, along the -Z axis of its transform. Angles are in degrees. */
+{ type: "frustum"; fov: number | null; aspect: number | null; near: number | null; far: number | null; orthographic: boolean; orthoHeight: number | null } | 
+/**  An axis-aligned box: a probe's region or a banner's box. */
+{ type: "box"; min: [(number | null), (number | null), (number | null)]; max: [(number | null), (number | null), (number | null)] } | 
+/**  The points of a motion path: its position, then the end of each segment. */
+{ type: "path"; points: ([(number | null), (number | null), (number | null)])[] } | 
+/**  A lighting volume: the cube from -0.5 to 0.5 on each axis under its transform. */
+{ type: "volume" } | 
+/**  The closed polygon of a light region, in the space of its transform. */
+{ type: "polygon"; points: ([(number | null), (number | null), (number | null)])[] };
 
 /**
  *  One map's materials, one per path asked for and in that order, its visibility controllers, and
@@ -3983,6 +4091,11 @@ export type MapModel = {
 	 *  `LTKM` buffer and a placeable reference a controller by its path hash.
 	 */
 	controllers: MapController[],
+	/**
+	 *  The visibility flags that the map's `Map` object names. Empty if nothing holds that
+	 *  object or it names none.
+	 */
+	flags: MapFlag[],
 	/**  Null where the map's container states no sun, which a backdrop lights with a default. */
 	sun: MapSun | null,
 	/**  Null where the map's container states no post effects, which no shipped map does. */
@@ -3994,6 +4107,16 @@ export type MapModel = {
 	 *  none or nothing holds it.
 	 */
 	lightGrid: AssetRef | null,
+};
+
+/**  One string field that names a placeable, addressed as a property edit addresses it. */
+export type MapNameReference = {
+	/**  The object that holds the field, as `0x` and eight hex digits. */
+	entry: string,
+	/**  The hash path of the struct that holds the field. Empty for a field of the object. */
+	holder: string,
+	/**  The field, as `0x` and eight hex digits. */
+	field: string,
 };
 
 /**  The number of visible parents that makes a child controller visible. */
@@ -4127,6 +4250,10 @@ export type MapVariant = {
 	skin: string | null,
 	/**  The map that skin draws. */
 	map: MapPath,
+	/**  The `MapSkin` object, and none for a map a container states itself. */
+	skinEntry: HexBinHash | null,
+	/**  The `Map` object of the same file that lists the skin, and none where no `Map` lists it. */
+	mapEntry: HexBinHash | null,
 };
 
 /**  One entry of `mMaskDataMap`. */
@@ -4138,6 +4265,19 @@ export type Mask = {
 	id: number,
 	/**  `mWeightList`, one weight per joint of the skeleton in the skeleton's order. */
 	weights: (number | null)[],
+};
+
+/**  A `StaticMaterialDef` that an import creates for one material of a model file. */
+export type MaterialImport = {
+	/**  The entry path, which is also the material's `name`. */
+	name: string,
+	template: MaterialTemplate,
+	/**  The model file. */
+	model: string,
+	/**  The material of the model file, by index. */
+	material: number,
+	/**  An image file that replaces the texture of the model's material. */
+	texture: string | null,
 };
 
 /**  `StaticMaterialDef.type`, the family a material's shader belongs to. */
@@ -4232,6 +4372,13 @@ export type MaterialTarget =
  */
 { kind: "embedded"; entry: string; path: string };
 
+/**  The stock static mesh shader that a created map material links. */
+export type MaterialTemplate = 
+/**  `Shaders/StaticMesh/DefaultEnv_Flat`. */
+"flat" | 
+/**  `Shaders/StaticMesh/DefaultEnv_Flat_AlphaTest`. */
+"flatAlphaTest";
+
 /**  Something the engine does silently that a preview says out loud. */
 export type MaterialWarning = 
 /**  The shader defs were not opened, so no default texture, parameter or switch is known. */
@@ -4284,6 +4431,28 @@ export type MenuStatus =
 "external" | 
 /**  Registrations changed or an operation was interrupted. */
 "changed";
+
+/**
+ *  One change to the meshes a viewport draws, in the order a change applies them.
+ * 
+ *  The indices of each delta are the ones the meshes hold once every delta before it applied.
+ */
+export type MeshDelta = 
+/**  The mesh at `mesh` now reads as `record`. `from` is the transform it was drawn with. */
+{ kind: "update"; mesh: number; from: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)]; record: MapGeometryMesh } | 
+/**  The mesh at `mesh` is gone, and the meshes after it moved down by one. */
+{ kind: "remove"; mesh: number } | 
+/**
+ *  A mesh landed at `mesh`, and the meshes from there on moved up by one. Its vertices
+ *  are read with [`MapGeometryDocument::preview_meshes`].
+ */
+{ kind: "insert"; mesh: number };
+
+/**  One mesh's transform, column major with the translation last. */
+export type MeshTransform = {
+	mesh: number,
+	transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)],
+};
 
 /**
  *  What one meta schema database is, as the cache card names it.
@@ -4645,6 +4814,37 @@ export type ModWadReport = {
 	 *  analysis (e.g. reinstall or "Analyze uncategorized").
 	 */
 	derived?: DerivedCategorization,
+};
+
+/**  One material of a model file, as the import dialog lists it. */
+export type ModelMaterialSummary = {
+	name: string,
+	/**  The texture file, and none for an embedded texture or no texture. */
+	texture: string | null,
+	/**  The texture is stored inside the model file. */
+	embedded: boolean,
+	/**  The material names a texture file that does not exist. */
+	missing: boolean,
+	alpha: boolean,
+};
+
+/**  One mesh of a model file, as the import dialog lists it. */
+export type ModelMeshSummary = {
+	name: string,
+	vertices: number,
+	triangles: number,
+	/**  The source materials that the mesh draws with, by index. */
+	materials: number[],
+};
+
+/**  What a model file holds, as the import dialog shows it. */
+export type ModelSummary = {
+	meshes: ModelMeshSummary[],
+	materials: ModelMaterialSummary[],
+	/**  Engine units per file unit, from the file's unit setting, else 1. */
+	scale: number | null,
+	up: UpAxis,
+	skipped: SkippedItems[],
 };
 
 /**
@@ -6819,6 +7019,17 @@ export type SkippedArchive = {
 	why: string,
 };
 
+/**  A count of content of one kind that the importer skipped. */
+export type SkippedItems = {
+	kind: SkippedKind,
+	count: number,
+};
+
+/**  A kind of content that the importer does not convert. */
+export type SkippedKind = "skin" | "blendShape" | "camera" | "light" | "animation" | 
+/**  Points and lines, which draw no triangle. */
+"line";
+
 /**  One entry of `SocketDefinitions`, of any kind of `SocketDefinitionBase`. */
 export type Socket = 
 /**  `SocketDefinitionSingleJoint`: a point riding one joint. */
@@ -7823,6 +8034,9 @@ export type UniformBlock = {
 	members: BlockMember[],
 };
 
+/**  The axis that points up in a model file. */
+export type UpAxis = "y" | "z";
+
 /**  Validation result for a project. */
 export type ValidationResult = {
 	valid: boolean,
@@ -7844,16 +8058,18 @@ export type ValueEdit =
 /**  Insert an item into a list, map or option. */
 { type: "insertItem"; path: string; item: NewItem } | 
 /**
- *  Insert a copy of the item at `from` into the list at `path`, at `index` or the end.
- *  `unique` names a string field whose text the copy makes unique among the object's
+ *  Insert a copy of the item at `from` into the list or map at `path`, at `index` or the
+ *  end. `unique` names a string field whose text the copy makes unique among the object's
  *  list items.
  */
-{ type: "copyItem"; from: string; path: string; index: number | null; unique: string | null } | 
+{ type: "copyItem"; from: string; path: string; index: number | null; unique: string | null; 
+/**  The copy's key where `path` is a map, spelled as [`NewItem::key`] spells one. */
+key?: string | null } | 
 /**
- *  Insert the value clipboard `text` carries into the list at `path`, at `index` or the
- *  end, with `unique` as for [`ValueEdit::CopyItem`].
+ *  Insert the value clipboard `text` carries into the list or map at `path`, at `index` or
+ *  the end, with `unique` and `key` as for [`ValueEdit::CopyItem`].
  */
-{ type: "pasteItem"; path: string; index: number | null; text: string; unique: string | null } | 
+{ type: "pasteItem"; path: string; index: number | null; text: string; unique: string | null; key?: string | null } | 
 /**  Remove an item from a list, map or option. */
 { type: "removeItem"; path: string } | 
 /**

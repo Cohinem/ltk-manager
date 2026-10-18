@@ -140,11 +140,23 @@ export function useVfxMeshes(
   return meshes;
 }
 
-async function buffer(asset: AssetRef, form: PreviewForm): Promise<ArrayBuffer> {
-  const answer = await fetch(previewBufferUrl(asset, form));
-  if (!answer.ok) throw new Error(`Mesh ${form} load failed: ${answer.status}`);
+/* The reads in flight by URL, so the systems of a map that load one mesh at once read it once.
+   A buffer is only viewed, never written, so its readers share it. */
+const reading = new Map<string, Promise<ArrayBuffer>>();
 
-  return answer.arrayBuffer();
+function buffer(asset: AssetRef, form: PreviewForm): Promise<ArrayBuffer> {
+  const url = previewBufferUrl(asset, form);
+  const held = reading.get(url);
+  if (held !== undefined) return held;
+
+  const read = fetch(url).then((answer) => {
+    if (!answer.ok) throw new Error(`Mesh ${form} load failed: ${answer.status}`);
+    return answer.arrayBuffer();
+  });
+  reading.set(url, read);
+  const settle = () => reading.delete(url);
+  read.then(settle, settle);
+  return read;
 }
 
 /** A stable definition-level variant, unchanged by seeks or asset reloads. */

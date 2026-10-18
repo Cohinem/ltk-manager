@@ -70,6 +70,22 @@ vi.mock("../../state/mapScene", async () => {
           setSelected(new Set(ids));
           setLead(ids[0] ?? null);
         },
+        backdrop: { controllers: [] },
+        geometry: null,
+        geometryDocument: null,
+        geometryEdited: null,
+        editable: false,
+        apply: vi.fn(),
+        editGeometry: vi.fn(),
+        stepHistory: vi.fn(),
+        stepsHistory: () => false,
+        saveGeometry: vi.fn(),
+        tool: "select",
+        setTool: vi.fn(),
+        setRenaming: vi.fn(),
+        target: null,
+        setTarget: vi.fn(),
+        dragged: null,
       };
     },
   };
@@ -89,6 +105,8 @@ function item(key: string, name: string, kind: MapChunkItem["kind"]): MapChunkIt
     class: kind === "particle" ? "MapParticle" : "MapLocator",
     kind,
     position: [1, 2, 3],
+    transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 1, 2, 3, 1],
+    shape: null,
     visibility: 255,
     controller: null,
   };
@@ -131,10 +149,11 @@ describe("MapOutliner", () => {
     expect(screen.getByText("1/2")).toBeDefined();
   });
 
-  it("keeps a kind alone from its chip", async () => {
+  it("leaves out a kind unticked in the filter menu", async () => {
     const user = renderOutliner();
 
-    await user.click(screen.getByRole("button", { name: /Locators/ }));
+    await user.click(screen.getByRole("button", { name: "What the outliner shows" }));
+    await user.click(await screen.findByRole("menuitemcheckbox", { name: /Particles/ }));
 
     const names = screen.getAllByRole("treeitem").map((row) => row.textContent);
     expect(names.some((name) => name?.includes("Spawn"))).toBe(true);

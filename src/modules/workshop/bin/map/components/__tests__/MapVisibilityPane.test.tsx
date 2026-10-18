@@ -10,7 +10,11 @@ import { backdropFlags } from "@/test/mapBackdrop";
 
 import { MapVisibilityPane } from "../MapVisibilityPane";
 
-const MATERIALS: AssetRef = { kind: "gameChunk", wad: "Map11.wad.client", pathHash: "00ff" };
+const MATERIALS: AssetRef = {
+  kind: "gameChunk",
+  wad: "Map11.wad.client",
+  pathHash: "00ff",
+};
 const openDocument = vi.fn();
 
 /* What the scene holds, which each case sets before it renders. */
@@ -23,8 +27,17 @@ vi.mock("../../state/mapScene", () => ({
   useMapScene: () => ({
     backdrop: scene.backdrop,
     materialsAsset: scene.materialsAsset,
-    chosen: { skin: null, map: "Maps/MapGeometry/Map11/Base_SRX" },
+    chosen: {
+      skin: null,
+      map: "Maps/MapGeometry/Map11/Base_SRX",
+      skinEntry: null,
+      mapEntry: null,
+    },
   }),
+}));
+
+vi.mock("../../hooks/useVisibilityAuthoring", () => ({
+  useVisibilityAuthoring: () => ({ editable: false, assign: vi.fn() }),
 }));
 
 vi.mock("../../../../state", () => ({
@@ -57,7 +70,9 @@ describe("MapVisibilityPane", () => {
 
   it("resets while a flag or a controller is customized, and not otherwise", async () => {
     const { unmount } = render(<MapVisibilityPane />);
-    const idle = screen.getByRole("button", { name: "Reset to the map's visibility" });
+    const idle = screen.getByRole("button", {
+      name: "Reset to the map's visibility",
+    });
     expect((idle as HTMLButtonElement).disabled).toBe(true);
     unmount();
 
@@ -71,7 +86,9 @@ describe("MapVisibilityPane", () => {
   it("opens the object of a controller in the map's materials file", async () => {
     render(<MapVisibilityPane />);
 
-    const [first] = screen.getAllByRole("button", { name: "Open the controller object" });
+    const [first] = screen.getAllByRole("button", {
+      name: "Open the controller object",
+    });
     if (first !== undefined) await userEvent.click(first);
 
     expect(openDocument).toHaveBeenCalledOnce();

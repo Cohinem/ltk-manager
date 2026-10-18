@@ -16,7 +16,7 @@ export {
   MAP_FILES_NEAR_ROOT,
   MAP_FILES_ROOT,
 } from "./assets/api/placements";
-export { viewportQueries } from "./assets/api/queries";
+export { type EditedGeometry, fetchEditedMap, viewportQueries } from "./assets/api/queries";
 export { clipDuration, type ClipModel, readClipBuffer } from "./assets/parsing/clipBuffer";
 export {
   type ControllerUse,
@@ -42,6 +42,7 @@ export {
   layerVisible,
   type MapVisibility,
   mapVisibility,
+  meshVisible,
   placeableVisible,
 } from "./assets/utils/mapVisibility";
 export {
@@ -50,7 +51,11 @@ export {
   useFitCamera,
   useSeesBounds,
 } from "./camera/components/FitCamera";
-export { type Look, OrientationGizmo } from "./camera/components/OrientationGizmo";
+export {
+  type GizmoCorner,
+  type Look,
+  OrientationGizmo,
+} from "./camera/components/OrientationGizmo";
 export { SceneCamera, type SceneCameraProps } from "./camera/components/SceneCamera";
 export { type CameraPose, lastCameraPose } from "./camera/state/cameraMemory";
 export { CameraPresetContext, useCameraPreset } from "./camera/state/presetContext";

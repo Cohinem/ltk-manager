@@ -18,9 +18,43 @@ export function ViewportControls({ className, ...props }: ComponentProps<"div">)
   );
 }
 
-/** A rule between two groups of a `ViewportControls` bar. */
-export function ControlDivider() {
-  return <span aria-hidden className="mx-0.5 h-4 w-px shrink-0 bg-surface-veil" />;
+/** The edge of a preview that a rail or a divider runs along. */
+export type ControlsSide = "top" | "left";
+
+export interface ViewportRailProps extends ComponentProps<"div"> {
+  /** `top` is a row across the preview's top edge, `left` a column down its left edge. */
+  readonly side: ControlsSide;
+}
+
+/**
+ * A rail of controls docked to one edge of a preview, outside the drawn frame, as the header
+ * and the toolbar of Blender and Maya are.
+ */
+export function ViewportRail({ side, className, ...props }: ViewportRailProps) {
+  return (
+    <div
+      {...props}
+      /* DS-GROUND. The descendant selector outranks each button's own size. */
+      className={twMerge(
+        "flex shrink-0 gap-0.5 border-surface-700/50 bg-surface-900 p-1 [&_button]:text-meta",
+        side === "top" ? "items-center border-b" : "flex-col items-center border-r",
+        className,
+      )}
+    />
+  );
+}
+
+/** A rule between two groups of controls on a bar or a rail along `side`. */
+export function ControlDivider({ side = "top" }: { side?: ControlsSide }) {
+  return (
+    <span
+      aria-hidden
+      className={twMerge(
+        "shrink-0 bg-surface-veil",
+        side === "top" ? "mx-0.5 h-4 w-px" : "my-0.5 h-px w-4",
+      )}
+    />
+  );
 }
 
 /** The button that frames the camera on the subject again. */

@@ -1,5 +1,5 @@
 import { useFrame } from "@react-three/fiber";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, memo, startTransition, useEffect, useMemo, useState } from "react";
 import { Frustum, Matrix4, Sphere, Vector3 } from "three";
 
 import type { BinDocumentId, MapParticle } from "@/lib/tauri";
@@ -15,7 +15,7 @@ import { useVfxTextures, type VfxTextures } from "../../vfx/rendering/hooks/useV
 import { type DrawnEmitter, drawnEmitters } from "../../vfx/rendering/utils/definitions";
 import type { ShimmerMesh } from "../../vfx/rendering/utils/shimmerMeshes";
 import type { MapParticleGroup } from "../hooks/useMapParticles";
-import { particleOrigin, particleRig, particleSeed } from "../utils/mapParticles";
+import { particleOrigin, particleRig, particleSeed, stepEnd } from "../utils/mapParticles";
 import { placeableKey } from "../utils/placeables";
 
 /**
@@ -63,15 +63,43 @@ export function MapParticles({ groups }: MapParticlesProps) {
     PROJECTION.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     SEEN.setFromProjectionMatrix(PROJECTION);
   }, BEFORE_THE_SYSTEMS);
+  const mounted = useStaggeredGroups(groups);
 
-  return groups.map((group) => <SystemPlacements key={group.entry} group={group} />);
+  return mounted.map((group) => <SystemPlacements key={group.entry} group={group} />);
+}
+
+/**
+ * Returns the first of `groups` that have joined the scene, which grow by about
+ * `PLACEMENTS_PER_FRAME` placements a frame until every group is in.
+ *
+ * Summoner's Rift places 453 systems, and mounting them in one commit blocks the frame for
+ * seconds, so the map and its textures wait behind them. A step is a transition, so a frame
+ * that the map needs comes first.
+ */
+function useStaggeredGroups(groups: readonly MapParticleGroup[]): readonly MapParticleGroup[] {
+  const [count, setCount] = useState(() => stepEnd(groups, 0));
+
+  useEffect(() => {
+    if (count >= groups.length) return;
+
+    const frame = requestAnimationFrame(() =>
+      startTransition(() => setCount((held) => stepEnd(groups, held))),
+    );
+    return () => cancelAnimationFrame(frame);
+  }, [count, groups]);
+
+  return count >= groups.length ? groups : groups.slice(0, count);
 }
 
 /**
  * One system's textures and meshes, loaded once for every place the map stands it, with
  * its shimmer emitters' particles in each place at the frame's time.
  */
-function SystemPlacements({ group }: { readonly group: MapParticleGroup }) {
+const SystemPlacements = memo(function SystemPlacements({
+  group,
+}: {
+  readonly group: MapParticleGroup;
+}) {
   const drawn = useMemo(() => drawnEmitters(group.system), [group.system]);
   const textures = useVfxTextures(drawn);
   const meshes = useVfxMeshes(drawn);
@@ -96,7 +124,7 @@ function SystemPlacements({ group }: { readonly group: MapParticleGroup }) {
       {shimmer.length > 0 && <KeepFrames />}
     </Fragment>
   ));
-}
+});
 
 /** The engine's mirror, which a placement's transform is conjugated by to stand in the scene. */
 const MIRROR = new Matrix4().makeScale(...AXIS_SIGN);
@@ -136,7 +164,11 @@ function PlacedSystem({ particle, system, drawn, textures, meshes }: PlacedSyste
      eight megabytes a driver, and no checkpoints, since nothing seeks a map's fire. */
   const room = useMemo(() => capacityOf(system), [system]);
   const driver = useMemo(
-    () => createDriver(particleSeed(particle.name), { capacity: room, seekable: false }),
+    () =>
+      createDriver(particleSeed(particle.name), {
+        capacity: room,
+        seekable: false,
+      }),
     [particle.name, room],
   );
   const rig = useMemo(() => particleRig(particle), [particle]);

@@ -245,13 +245,24 @@ export function integratedInto(
   }
 }
 
+/* The last table read, which an emitter's particles read one after another, so most reads
+   skip the map lookup. */
+let lastValue: ValueCurve | null = null;
+let lastOrder = 0;
+let lastBaked: Float32Array = new Float32Array(0);
+
 function bakedOf(value: ValueCurve, order: 1 | 2): Float32Array {
+  if (value === lastValue && order === lastOrder) return lastBaked;
+
   const cache = BAKED[order - 1];
   let baked = cache.get(value);
   if (baked === undefined) {
     baked = order === 1 ? bakeIntegral(value) : bakeSecondIntegral(value);
     cache.set(value, baked);
   }
+  lastValue = value;
+  lastOrder = order;
+  lastBaked = baked;
   return baked;
 }
 

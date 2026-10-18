@@ -16,6 +16,7 @@ import {
   SparkleIcon,
   SphereIcon,
   StackIcon,
+  SunIcon,
   TreeStructureIcon,
 } from "@phosphor-icons/react";
 
@@ -43,7 +44,8 @@ export type ShellPaneId =
   | "sprites"
   | "skeleton"
   | "physics"
-  | "visibility";
+  | "visibility"
+  | "lighting";
 
 export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "emitters",
@@ -63,6 +65,7 @@ export const SHELL_PANE_IDS: readonly ShellPaneId[] = [
   "skeleton",
   "physics",
   "visibility",
+  "lighting",
 ];
 
 /** Which shell a layout draws in, and so which panes its tree holds (ADR-0036). */
@@ -72,7 +75,7 @@ export type ShellKind = "vfx" | "skin" | "map" | "material" | "atlas" | "font" |
 export const SHELL_PANES = {
   vfx: ["preview", "timeline", "inspector", "curve", "emitters", "graph"],
   skin: ["preview", "clips", "spells", "material", "skeleton", "inspector", "physics"],
-  map: ["preview", "outliner", "visibility", "inspector"],
+  map: ["preview", "outliner", "visibility", "inspector", "lighting"],
   material: ["preview", "inspector"],
   atlas: ["preview", "components", "layers", "variants", "sprites", "inspector"],
   font: ["preview", "inspector"],
@@ -106,6 +109,7 @@ export const SHELL_PANE_TITLE: Record<ShellPaneId, () => string> = {
   skeleton: m.workshop_bin_pane_skeleton_label,
   physics: m.workshop_bin_pane_physics_label,
   visibility: m.workshop_bin_pane_visibility_label,
+  lighting: m.workshop_bin_pane_lighting_label,
 };
 
 /** The glyph the Panes menu lists a pane by. */
@@ -127,6 +131,7 @@ export const SHELL_PANE_ICON: Record<ShellPaneId, Icon> = {
   skeleton: BoneIcon,
   physics: AtomIcon,
   visibility: IntersectThreeIcon,
+  lighting: SunIcon,
 };
 
 export function isShellPaneId(value: unknown): value is ShellPaneId {
@@ -166,7 +171,12 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
           dir: "col",
           layout: { "leaf-6": 2, "leaf-5": 3 },
           children: [
-            { kind: "leaf", id: "leaf-6", tabs: ["components"], activeTab: "components" },
+            {
+              kind: "leaf",
+              id: "leaf-6",
+              tabs: ["components"],
+              activeTab: "components",
+            },
             {
               kind: "leaf",
               id: "leaf-5",
@@ -176,7 +186,12 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
           ],
         },
         { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
-        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+        {
+          kind: "leaf",
+          id: "leaf-3",
+          tabs: ["inspector"],
+          activeTab: "inspector",
+        },
       ],
     };
   }
@@ -189,7 +204,12 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
       layout: { "leaf-2": 3, "leaf-3": 2 },
       children: [
         { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
-        { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+        {
+          kind: "leaf",
+          id: "leaf-3",
+          tabs: ["inspector"],
+          activeTab: "inspector",
+        },
       ],
     };
   }
@@ -213,7 +233,12 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
               tabs: ["outliner", "visibility"],
               activeTab: "outliner",
             },
-            { kind: "leaf", id: "leaf-3", tabs: ["inspector"], activeTab: "inspector" },
+            {
+              kind: "leaf",
+              id: "leaf-3",
+              tabs: ["inspector", "lighting"],
+              activeTab: "inspector",
+            },
           ],
         },
       ],
@@ -233,8 +258,18 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
           dir: "col",
           layout: { "leaf-2": 3, "leaf-5": 1 },
           children: [
-            { kind: "leaf", id: "leaf-2", tabs: ["preview"], activeTab: "preview" },
-            { kind: "leaf", id: "leaf-5", tabs: ["clips", "spells"], activeTab: "clips" },
+            {
+              kind: "leaf",
+              id: "leaf-2",
+              tabs: ["preview"],
+              activeTab: "preview",
+            },
+            {
+              kind: "leaf",
+              id: "leaf-5",
+              tabs: ["clips", "spells"],
+              activeTab: "clips",
+            },
           ],
         },
         {
@@ -272,8 +307,18 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
         dir: "row",
         layout: { "leaf-3": 3, "leaf-4": 2 },
         children: [
-          { kind: "leaf", id: "leaf-3", tabs: ["preview"], activeTab: "preview" },
-          { kind: "leaf", id: "leaf-4", tabs: ["inspector"], activeTab: "inspector" },
+          {
+            kind: "leaf",
+            id: "leaf-3",
+            tabs: ["preview"],
+            activeTab: "preview",
+          },
+          {
+            kind: "leaf",
+            id: "leaf-4",
+            tabs: ["inspector"],
+            activeTab: "inspector",
+          },
         ],
       },
       {
@@ -282,7 +327,12 @@ export function defaultShellLayout(kind: ShellKind): LayoutNode {
         dir: "row",
         layout: { "leaf-7": 3, "leaf-5": 2 },
         children: [
-          { kind: "leaf", id: "leaf-7", tabs: ["timeline"], activeTab: "timeline" },
+          {
+            kind: "leaf",
+            id: "leaf-7",
+            tabs: ["timeline"],
+            activeTab: "timeline",
+          },
           { kind: "leaf", id: "leaf-5", tabs: ["curve"], activeTab: "curve" },
         ],
       },
@@ -329,11 +379,12 @@ export function openShellPanes(tree: LayoutNode): ReadonlySet<ShellPaneId> {
  * physics pane existed gains it as a tab behind the inspector. An Atlas tree saved before
  * the sprites pane existed gains it as a tab behind the variants, and one saved before the
  * components pane existed gains it as a tab behind the layers. A map tree saved before the
- * visibility pane existed gains it as a tab behind the outliner.
+ * visibility pane existed gains it as a tab behind the outliner, and one saved before the
+ * lighting pane existed gains it as a tab behind the inspector.
  *
  * A tree that lacks one of those panes reads the same whether it was saved before the pane
  * existed or the reader closed the pane, so a closed clips, material, skeleton, physics,
- * sprites, components or visibility pane comes back when the tree is read again.
+ * sprites, components, visibility or lighting pane comes back when the tree is read again.
  */
 export function sanitizeShellLayout(kind: ShellKind, value: unknown): LayoutNode {
   const held = new Set<ShellPaneId>();
@@ -345,6 +396,7 @@ export function sanitizeShellLayout(kind: ShellKind, value: unknown): LayoutNode
   }
   if (kind === "map") {
     if (!held.has("visibility")) tree = withTabBeside(tree, "outliner", "visibility");
+    if (!held.has("lighting")) tree = withTabBeside(tree, "inspector", "lighting");
     return tree;
   }
   if (kind !== "skin") return tree;
@@ -390,7 +442,10 @@ function withClipsPane(tree: LayoutNode): LayoutNode {
 function replaceNode(tree: LayoutNode, id: string, node: LayoutNode): LayoutNode {
   if (tree.id === id) return node;
   if (tree.kind === "leaf") return tree;
-  return { ...tree, children: tree.children.map((child) => replaceNode(child, id, node)) };
+  return {
+    ...tree,
+    children: tree.children.map((child) => replaceNode(child, id, node)),
+  };
 }
 
 /** One past the largest number any id of `tree` ends in, so a minted id is no id it holds. */
@@ -409,7 +464,10 @@ function readNode(
   held: Set<ShellPaneId>,
 ): LayoutNode | null {
   if (typeof value !== "object" || value === null) return null;
-  const node = value as Partial<LayoutNode> & { children?: unknown; layout?: unknown };
+  const node = value as Partial<LayoutNode> & {
+    children?: unknown;
+    layout?: unknown;
+  };
   if (typeof node.id !== "string" || node.id.includes(":")) return null;
 
   if (node.kind === "leaf") {
@@ -439,7 +497,13 @@ function readNode(
   if (children.length === 0) return null;
   if (children.length === 1) return children[0];
 
-  return { kind: "split", id: node.id, dir: node.dir, children, layout: readShares(node.layout) };
+  return {
+    kind: "split",
+    id: node.id,
+    dir: node.dir,
+    children,
+    layout: readShares(node.layout),
+  };
 }
 
 function readShares(value: unknown): Record<string, number> | undefined {

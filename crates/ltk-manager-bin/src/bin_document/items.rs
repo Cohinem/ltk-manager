@@ -338,6 +338,28 @@ impl BinDocument {
         Ok(())
     }
 
+    /// Parses `text` as a key of the map at `holder`.
+    ///
+    /// Fails with [`EditRejection::NotAList`] if `holder` is not a map, and with
+    /// [`EditRejection::KeyExists`] if the map holds the key already.
+    pub(super) fn free_key(
+        &self,
+        entry: BinHash,
+        holder: &str,
+        text: &str,
+    ) -> Result<PropertyValueEnum, BinDocumentError> {
+        let refuse = |rejection| rejected(entry, holder, rejection);
+        let Node::Value(PropertyValueEnum::Map(map)) = self.node(entry, holder)? else {
+            return Err(refuse(EditRejection::NotAList));
+        };
+        let key = key_value(map.key_kind(), text).map_err(refuse)?;
+        if holds_key(map, &key) {
+            return Err(refuse(EditRejection::KeyExists));
+        }
+
+        Ok(key)
+    }
+
     /// Put `value` into the holder at `holder`, answering the edit that takes it out.
     pub(super) fn put_item(
         &mut self,

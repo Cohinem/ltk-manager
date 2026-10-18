@@ -5,6 +5,7 @@ import { patcherKeys, startPatcherSpendingQueue } from "@/modules/patcher";
 import { usePatcherSessionStore } from "@/stores";
 import { unwrapForQuery } from "@/utils/query";
 
+import { writeBeforeTest } from "../state/beforeTest";
 import { testedLayers, useTestLayersStore } from "../state/testLayers";
 
 type TestedProject = Pick<WorkshopProject, "path" | "displayName" | "layers">;
@@ -31,6 +32,7 @@ export function useTestProjects() {
 
   return useMutation<null, AppError, TestProjectsArgs>({
     mutationFn: async ({ projects }) => {
+      await writeBeforeTest();
       const result = await startPatcherSpendingQueue({
         workshopProjects: projects.map((p) => p.path),
         workshopLayers: workshopLayers(projects),

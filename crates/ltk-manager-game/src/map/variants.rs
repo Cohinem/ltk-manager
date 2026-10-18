@@ -4,7 +4,7 @@
 //! skins. Each chain ends at a [`MapPath`], which is all a preview draws a map from.
 
 use ltk_hash::BinHash;
-use ltk_manager_base::hashing::named;
+use ltk_manager_base::hashing::{HexBinHash, named};
 use serde::Serialize;
 
 use super::MapPath;
@@ -31,6 +31,10 @@ pub struct MapVariant {
     pub skin: Option<String>,
     /// The map that skin draws.
     pub map: MapPath,
+    /// The `MapSkin` object, and none for a map a container states itself.
+    pub skin_entry: Option<HexBinHash>,
+    /// The `Map` object of the same file that lists the skin, and none where no `Map` lists it.
+    pub map_entry: Option<HexBinHash>,
 }
 
 /// The maps the object at `entry` draws, in the order it names them.
@@ -46,24 +50,50 @@ pub fn map_variants(document: &BinDocument, entry: BinHash) -> Vec<MapVariant> {
     };
     match object.class_hash {
         MAP_CONTAINER => stated(&object.properties, MAP_PATH)
-            .map(|map| MapVariant { skin: None, map })
+            .map(|map| MapVariant {
+                skin: None,
+                map,
+                skin_entry: None,
+                map_entry: None,
+            })
             .into_iter()
             .collect(),
-        MAP_SKIN => skin_variant(&object.properties).into_iter().collect(),
+        MAP_SKIN => skin_variant(entry, &object.properties, listing_map(document, entry))
+            .into_iter()
+            .collect(),
         MAP => items(object.properties.get(&MAP_SKINS))
             .iter()
-            .filter_map(|skin| document.object_at(link(Some(skin))?))
-            .filter(|skin| skin.class_hash == MAP_SKIN)
-            .filter_map(|skin| skin_variant(&skin.properties))
+            .filter_map(|skin| {
+                let skin_entry = link(Some(skin))?;
+                Some((skin_entry, document.object_at(skin_entry)?))
+            })
+            .filter(|(_, skin)| skin.class_hash == MAP_SKIN)
+            .filter_map(|(skin_entry, skin)| {
+                skin_variant(skin_entry, &skin.properties, Some(entry))
+            })
             .collect(),
         _ => Vec::new(),
     }
 }
 
-fn skin_variant(skin: &Fields) -> Option<MapVariant> {
+fn skin_variant(entry: BinHash, skin: &Fields, map_entry: Option<BinHash>) -> Option<MapVariant> {
     Some(MapVariant {
         skin: text(skin.get(&SKIN_NAME)).map(str::to_owned),
         map: stated(skin, CONTAINER_LINK)?,
+        skin_entry: Some(entry.into()),
+        map_entry: map_entry.map(HexBinHash::from),
+    })
+}
+
+/// Returns the first `Map` of `document` that lists the skin `skin`, and none if no `Map` lists it.
+fn listing_map(document: &BinDocument, skin: BinHash) -> Option<BinHash> {
+    document.entries().find(|&entry| {
+        document.object_at(entry).is_some_and(|object| {
+            object.class_hash == MAP
+                && items(object.properties.get(&MAP_SKINS))
+                    .iter()
+                    .any(|listed| link(Some(listed)) == Some(skin))
+        })
     })
 }
 

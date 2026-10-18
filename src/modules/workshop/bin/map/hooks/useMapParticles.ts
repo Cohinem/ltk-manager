@@ -59,6 +59,32 @@ export interface PlayedOptions {
   readonly picked?: ReadonlySet<string>;
 }
 
+/**
+ * Every group made, by its system and its particles. A system read that lands rebuilds the list,
+ * and the cache keeps each other group the same object, so its placements skip the render.
+ */
+const GROUPS = new WeakMap<SystemModel, WeakMap<readonly MapParticle[], MapParticleGroup>>();
+
+/** Returns the group of `system` at `particles`, the same object while its fields are the same. */
+function groupOf(
+  document: BinDocumentId,
+  entry: string,
+  system: SystemModel,
+  particles: readonly MapParticle[],
+): MapParticleGroup {
+  let byParticles = GROUPS.get(system);
+  if (byParticles === undefined) {
+    byParticles = new WeakMap();
+    GROUPS.set(system, byParticles);
+  }
+
+  const held = byParticles.get(particles);
+  if (held !== undefined && held.document === document && held.entry === entry) return held;
+  const made = { document, entry, system, particles };
+  byParticles.set(particles, made);
+  return made;
+}
+
 /* Declared once per quality, so the query client answers the same array for as long as no
    read moves. */
 const MODELS_AT = EFFECTS_QUALITIES.map(
@@ -100,7 +126,9 @@ export function useMapParticles(
     () =>
       played.flatMap(([entry, particles], at) => {
         const system = models[at];
-        return system == null || document === null ? [] : [{ document, entry, system, particles }];
+        return system == null || document === null
+          ? []
+          : [groupOf(document, entry, system, particles)];
       }),
     [played, models, document],
   );
