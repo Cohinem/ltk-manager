@@ -19,7 +19,7 @@ import {
 } from "../utils/cameraPresets";
 import { reachOfZoom, zoomOfReach } from "../utils/framing";
 import { lookAtShortest } from "../utils/lookAt";
-import { type Look, OrientationGizmo } from "./OrientationGizmo";
+import { type GizmoCorner, type Look, OrientationGizmo } from "./OrientationGizmo";
 
 /** Where a camera stands before anything has been framed in it. */
 const OPENING_REACH = CHAMPION_HEIGHT * 3;
@@ -40,6 +40,8 @@ const TARGET = new Vector3();
 export interface SceneCameraProps {
   /** The orientation control is drawn over the scene. */
   readonly gizmo?: boolean;
+  /** The corner the orientation control sits in. */
+  readonly gizmoCorner?: GizmoCorner;
   readonly preset: CameraPreset;
   readonly colors: SceneColors;
   /** The reader stood the camera off its preset: on Orbit by a drag, on a gizmo head's. */
@@ -71,7 +73,14 @@ interface RecordedPose {
  * Under a `memory` key the camera opens at the last pose recorded under that key and preset,
  * so the next effect opens in the view the reader left.
  */
-export function SceneCamera({ preset, colors, onStand, gizmo = true, memory }: SceneCameraProps) {
+export function SceneCamera({
+  preset,
+  colors,
+  onStand,
+  gizmo = true,
+  gizmoCorner,
+  memory,
+}: SceneCameraProps) {
   const size = useThree((state) => state.size);
   const set = useThree((state) => state.set);
   const get = useThree((state) => state.get);
@@ -207,7 +216,7 @@ export function SceneCamera({ preset, colors, onStand, gizmo = true, memory }: S
         }}
         onControlEnd={() => setDragging(null)}
       />
-      {gizmo && <OrientationGizmo colors={colors} onLook={onLook} />}
+      {gizmo && <OrientationGizmo colors={colors} onLook={onLook} corner={gizmoCorner} />}
     </>
   );
 }

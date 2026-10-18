@@ -51,6 +51,8 @@ export interface OutlineFilter {
   readonly text: string;
   /** The kinds kept, and every kind where empty. */
   readonly kinds: ReadonlySet<MapItemKind>;
+  /** The meshes of the `.mapgeo` are left out. */
+  readonly hideMeshes?: boolean;
 }
 
 export const NO_FILTER: OutlineFilter = { text: "", kinds: new Set() };
@@ -59,7 +61,32 @@ const NONE_SHUT: ReadonlySet<string> = new Set();
 
 /** Whether `filter` narrows anything. */
 export function filtering(filter: OutlineFilter): boolean {
-  return filter.text.trim() !== "" || filter.kinds.size > 0;
+  return filter.text.trim() !== "" || filter.kinds.size > 0 || filter.hideMeshes === true;
+}
+
+/** Whether `filter` lists placeables of `kind`. */
+export function showsKind(filter: OutlineFilter, kind: MapItemKind): boolean {
+  return filter.kinds.size === 0 || filter.kinds.has(kind);
+}
+
+/**
+ * `filter` with `kind` shown or left out, where `present` are the kinds the map holds.
+ *
+ * Leaving one kind out of the full list keeps every other present kind, and showing the last
+ * one left out lists every kind again.
+ */
+export function withKindShown(
+  filter: OutlineFilter,
+  kind: MapItemKind,
+  shown: boolean,
+  present: readonly MapItemKind[],
+): OutlineFilter {
+  const kept = new Set(filter.kinds.size === 0 ? present : filter.kinds);
+  if (shown) kept.add(kind);
+  else kept.delete(kind);
+
+  const every = present.every((each) => kept.has(each));
+  return { ...filter, kinds: every ? new Set() : kept };
 }
 
 /**

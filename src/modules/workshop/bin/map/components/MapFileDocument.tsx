@@ -101,8 +101,14 @@ function MapFileScene({ map, collapseAllSignal }: MapFileSceneProps) {
               value={side}
               onChange={setSide}
               options={[
-                { value: "outliner", label: m.workshop_bin_pane_outliner_label() },
-                { value: "visibility", label: m.workshop_bin_pane_visibility_label() },
+                {
+                  value: "outliner",
+                  label: m.workshop_bin_pane_outliner_label(),
+                },
+                {
+                  value: "visibility",
+                  label: m.workshop_bin_pane_visibility_label(),
+                },
               ]}
             />
           </div>

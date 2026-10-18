@@ -9,10 +9,11 @@ import { AtlasCanvas, FontPreview, TooltipBar } from "../../atlas";
 import { ChanceReadout } from "../../curves/components/ChancePin";
 import { CurveSurface } from "../../curves/components/CurveSurface";
 import { LinkAssetContext } from "../../links/hooks/useLinkTargets";
+import { LightingPane } from "../../map/components/LightingPane";
+import { MapInspector } from "../../map/components/MapInspector";
 import { MapOutliner } from "../../map/components/MapOutliner";
 import { MapPreview } from "../../map/components/MapPreview";
 import { MapVisibilityPane } from "../../map/components/MapVisibilityPane";
-import { PlaceableInspector } from "../../map/components/PlaceableInspector";
 import { MaterialPane } from "../../material/components/MaterialPane";
 import { MaterialPreview } from "../../material/components/MaterialPreview";
 import { nameHash } from "../../shared/utils/binHash";
@@ -32,6 +33,7 @@ import { SkinPreview } from "../../skin/components/SkinPreview";
 import { SkinTintScope } from "../../skin/state/skinTint";
 import { SpellsPane } from "../../spells/components/SpellsPane";
 import type { AbilityRecipe } from "../../spells/utils/abilityRecipe";
+import { LeafEditContext } from "../../tree/hooks/useLeafEdit";
 import { PreviewPane, RunKeys, TimelinePane, TimelineTransport, VfxRunProvider } from "../../vfx";
 import { AdjustButton } from "../../vfx/adjust/AdjustButton";
 import { GraphPane, PreviewInGraph } from "../../vfx/drivers/components/GraphPane";
@@ -174,7 +176,7 @@ export function FramePreview({ kind, view, entry, drawable }: FramePreviewProps)
 
 /** The run, over the mini transport unless the shell shows the timeline beside it. */
 function VfxPreview({ drawable, frame }: { drawable: boolean; frame: ViewContext["frame"] }) {
-  const timelineShown = useShellPaneShown("timeline");
+  const timelineShown = useShellPaneShown("vfx", "timeline");
   const transport = frame === "shell" && timelineShown ? "none" : "mini";
   return <PreviewPane drawable={drawable} transport={transport} />;
 }
@@ -217,7 +219,11 @@ export function SkinShell({ placed, pages, view, entry, preview }: SkinShellProp
               <RetainedContent active={showSpell} defer className="flex min-h-0 flex-1 flex-col">
                 <Suspense fallback={null}>
                   <AbilityPreview
-                    source={{ document: view.document, asset: view.asset, entry }}
+                    source={{
+                      document: view.document,
+                      asset: view.asset,
+                      entry,
+                    }}
                     recipe={activeAbility}
                   />
                 </Suspense>
@@ -300,11 +306,17 @@ interface MapShellProps extends ShellFrameProps {
  * The panes of a map class: the drawn map, its chunk graph, its layers and visibility
  * controllers, and the sections of the object.
  *
- * The preview, the outliner, the visibility pane and the inspector share the `MapSceneHost`
- * the view mounts above them, and the inspector heads its sections with the placeable picked
- * last.
+ * The preview, the outliner, the visibility pane, the inspector and the lighting pane share the
+ * `MapSceneHost` that the view mounts above them. The inspector shows the selection, or the map
+ * settings when nothing is selected.
  */
 export function MapShell({ placed, pages, view, entry, preview }: MapShellProps) {
+  const editable = use(LeafEditContext) !== null;
+  const lightingShown = useShellPaneShown("map", "lighting");
+  const tab = useMemo(
+    () => ({ document: view.document, asset: view.asset, editable }),
+    [view.document, view.asset, editable],
+  );
   const content = useMemo<ShellPaneContent<"map">>(
     () => ({
       preview: { body: preview },
@@ -312,15 +324,23 @@ export function MapShell({ placed, pages, view, entry, preview }: MapShellProps)
       visibility: { body: <MapVisibilityPane /> },
       inspector: {
         body: (
-          /* DS-SCROLLBAR */
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2 scrollbar-md">
-            <PlaceableInspector objectName={view.objectName} onNotOpen={view.onNotOpen} />
+          <MapInspector tab={tab} objectName={view.objectName} onNotOpen={view.onNotOpen}>
             <Sections placed={placed} pages={pages} view={view} />
-          </div>
+          </MapInspector>
+        ),
+      },
+      lighting: {
+        body: (
+          <LightingPane
+            tab={tab}
+            shown={lightingShown}
+            objectName={view.objectName}
+            onNotOpen={view.onNotOpen}
+          />
         ),
       },
     }),
-    [placed, pages, view, preview],
+    [placed, pages, view, preview, tab, lightingShown],
   );
 
   return (
@@ -462,14 +482,14 @@ export function VfxShell({
 }
 
 /**
- * The particle shell draws `pane` where a reader sees it: the front tab of its panel, and
- * that panel not behind a maximized one.
+ * Returns whether the `kind` shell draws `pane` where a reader sees it: the front tab of its
+ * panel, and that panel not behind a maximized one.
  *
  * What the preview's mini transport is keyed on, per "The timeline" in docs/ux/BIN_EDITOR.md.
  */
-function useShellPaneShown(pane: ShellPaneId): boolean {
-  const tree = useShellLayout("vfx");
-  const maximized = useShellMaximizedLeaf("vfx");
+function useShellPaneShown(kind: ShellKind, pane: ShellPaneId): boolean {
+  const tree = useShellLayout(kind);
+  const maximized = useShellMaximizedLeaf(kind);
   const leaf = leafHolding(tree, pane);
   if (leaf === null || leaf.activeTab !== pane) return false;
   return maximized === null || maximized === leaf.id;

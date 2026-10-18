@@ -12,7 +12,13 @@ import {
 } from "@/lib/tauri";
 
 import { useSandbox } from "../../../sandbox/state/SandboxContext";
-import { binSaveKey, clearRefusedBy, markRefused, queueForSave } from "../../../state";
+import {
+  announceBinEdit,
+  binSaveKey,
+  clearRefusedBy,
+  markRefused,
+  queueForSave,
+} from "../../../state";
 import {
   type DocumentCall,
   type Reopen,
@@ -102,6 +108,7 @@ export function useLeafEdit(
   const landed = useCallback(
     (id: BinDocumentId) => {
       queueForSave(key, id);
+      announceBinEdit(key);
       invalidate();
     },
     [invalidate, key],

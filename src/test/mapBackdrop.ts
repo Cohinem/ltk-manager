@@ -31,6 +31,7 @@ export function backdropFlags(over: Partial<BackdropFlags> = {}): BackdropFlags 
     visibility: mapVisibility(CONTROLLERS, 1, overrides),
     setLayer: vi.fn(),
     controllers: CONTROLLERS,
+    flagNames: new Map(),
     uses: new Map([
       [
         "0x3c5b24f7",

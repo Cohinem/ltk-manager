@@ -98,3 +98,26 @@ export function particleRig(particle: MapParticle): RigModel {
 export function particleSeed(name: string): number {
   return fnv1a32(name);
 }
+
+/** How many placements of particle systems join the scene in one frame. */
+export const PLACEMENTS_PER_FRAME = 24;
+
+/**
+ * Returns the end of the next step of `groups` from `from`: the groups after it whose placements
+ * fit in `PLACEMENTS_PER_FRAME`, and always at least one.
+ */
+export function stepEnd(
+  groups: readonly { readonly particles: readonly unknown[] }[],
+  from: number,
+): number {
+  let end = from;
+  let placements = 0;
+  while (end < groups.length) {
+    const next = groups[end]?.particles.length ?? 0;
+    if (end > from && placements + next > PLACEMENTS_PER_FRAME) break;
+
+    placements += next;
+    end += 1;
+  }
+  return end;
+}

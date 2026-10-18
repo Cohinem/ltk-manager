@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { type ColorSpace, ImageLoader, RepeatWrapping, Texture, type Wrapping } from "three";
+import {
+  type ColorSpace,
+  type CompressedPixelFormat,
+  CompressedTexture,
+  ImageLoader,
+  RepeatWrapping,
+  RGBA_S3TC_DXT1_Format,
+  RGBA_S3TC_DXT5_Format,
+  Texture,
+  type Wrapping,
+} from "three";
 
 import {
   assetVersion,
@@ -10,7 +20,7 @@ import {
 import { previewMipsUrl, previewUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
-import { readMipBuffer } from "../../assets/parsing/mipBuffer";
+import { type MipLevel, readMipBuffer } from "../../assets/parsing/mipBuffer";
 import { TEXTURE_COLOR_SPACE } from "../../scene/utils/world";
 import { createRetainedCache, useRetained } from "../utils/retainedCache";
 
@@ -98,7 +108,30 @@ interface TextureSet {
 /** The pixels of one file at one width, which any number of textures are built on. */
 type Pixels =
   | { readonly kind: "chain"; readonly levels: readonly ImageBitmap[] }
+  | {
+      readonly kind: "blocks";
+      readonly format: CompressedPixelFormat;
+      readonly levels: readonly MipLevel[];
+    }
   | { readonly kind: "image"; readonly image: HTMLImageElement };
+
+let blocksSupported: boolean | null = null;
+
+/**
+ * Returns whether this WebGL draws S3TC blocks in both linear and sRGB, which a chain needs
+ * to arrive as the file's own blocks. Asked of a throwaway context once.
+ */
+function takesBlocks(): boolean {
+  if (blocksSupported !== null) return blocksSupported;
+
+  const context = document.createElement("canvas").getContext("webgl2");
+  blocksSupported =
+    context !== null &&
+    context.getExtension("WEBGL_compressed_texture_s3tc") !== null &&
+    context.getExtension("WEBGL_compressed_texture_s3tc_srgb") !== null;
+  context?.getExtension("WEBGL_lose_context")?.loseContext();
+  return blocksSupported;
+}
 
 /** One file's decode, shared by every set asking for it at that width. */
 interface ImageLoad {
@@ -392,7 +425,7 @@ function readImage(
   });
   /* A PNG or a TGA has no chain to answer with, so it arrives as the image it is. */
   const pixels = mips
-    ? loadChain(versionedUrl(previewMipsUrl(asset, width), version)).catch(image)
+    ? loadChain(versionedUrl(previewMipsUrl(asset, width, takesBlocks()), version)).catch(image)
     : image();
 
   const load: ImageLoad = { pixels, landed: null, closed: false };
@@ -429,6 +462,18 @@ function textureOf(pixels: Pixels): Texture {
     texture.needsUpdate = true;
     return texture;
   }
+  if (pixels.kind === "blocks") {
+    const [top] = pixels.levels;
+    const texture = new CompressedTexture(
+      pixels.levels.map(({ width, height, data }) => ({ width, height, data })),
+      top?.width ?? 1,
+      top?.height ?? 1,
+      pixels.format,
+    );
+    texture.generateMipmaps = false;
+    texture.needsUpdate = true;
+    return texture;
+  }
 
   const texture = new Texture(pixels.levels[0]);
   if (pixels.levels.length > 1) {
@@ -444,10 +489,15 @@ function textureOf(pixels: Pixels): Texture {
 async function loadChain(url: string): Promise<Pixels> {
   const answer = await fetch(url);
   if (!answer.ok) throw new Error(await answer.text());
-  const levels = readMipBuffer(await answer.arrayBuffer());
+  const { encoding, levels } = readMipBuffer(await answer.arrayBuffer());
+  if (encoding !== "png") {
+    const format = encoding === "bc1" ? RGBA_S3TC_DXT1_Format : RGBA_S3TC_DXT5_Format;
+    return { kind: "blocks", format, levels };
+  }
+
   const bitmaps = await Promise.all(
-    levels.map(({ png }) =>
-      createImageBitmap(new Blob([png], { type: "image/png" }), {
+    levels.map(({ data }) =>
+      createImageBitmap(new Blob([data], { type: "image/png" }), {
         premultiplyAlpha: "none",
         colorSpaceConversion: "none",
       }),

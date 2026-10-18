@@ -22,21 +22,25 @@ mod component;
 mod controllers;
 #[cfg(test)]
 mod fixtures;
+mod flags;
 mod lighting;
 mod outline;
 mod particles;
 mod placeable;
 mod post_effects;
+mod references;
 mod ssao;
 mod sun;
 mod variants;
 
 pub use characters::{MapCharacter, map_characters};
 pub use controllers::{MapController, MapControllerRule, MapParentMode, map_controllers};
+pub use flags::{MapFlag, map_bin_path, map_flags};
 pub use lighting::light_grid_path;
-pub use outline::{MapChunk, MapChunkItem, MapItemKind, map_outline};
+pub use outline::{MapChunk, MapChunkItem, MapItemKind, MapItemShape, map_outline};
 pub use particles::{MapParticle, map_particles};
 pub use post_effects::{MapDepthOfField, MapFog, MapPostEffects, map_post_effects};
+pub use references::{MapNameReference, map_name_references};
 pub use ssao::{MapSsao, map_ssao};
 pub use sun::{MapSun, map_sun};
 pub use variants::{MapVariant, map_variants};
@@ -124,6 +128,9 @@ pub struct MapModel {
     /// Every visibility controller that the map's `.materials.bin` declares. A mesh of the
     /// `LTKM` buffer and a placeable reference a controller by its path hash.
     pub controllers: Vec<MapController>,
+    /// The visibility flags that the map's `Map` object names. Empty if nothing holds that
+    /// object or it names none.
+    pub flags: Vec<MapFlag>,
     /// Null where the map's container states no sun, which a backdrop lights with a default.
     pub sun: Option<MapSun>,
     /// Null where the map's container states no post effects, which no shipped map does.
@@ -159,6 +166,7 @@ pub fn resolve_map(
             })
             .collect(),
         controllers: map_controllers(materials, names),
+        flags: Vec::new(),
         sun: map_sun(materials, map),
         post_effects: map_post_effects(materials, map),
         ssao: map_ssao(materials, map),
@@ -173,6 +181,7 @@ pub fn unresolved_map(paths: &[String]) -> MapModel {
     MapModel {
         materials: paths.iter().map(|_| None).collect(),
         controllers: Vec::new(),
+        flags: Vec::new(),
         sun: None,
         post_effects: None,
         ssao: None,

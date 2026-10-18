@@ -11,11 +11,12 @@ use super::material::shader_defs;
 use crate::error::IpcResult;
 use crate::services::shared::off_thread;
 use ltk_manager_assets::preview::AssetRef;
-use ltk_manager_bin::bin_document::{BinDocumentId, BinDocuments};
+use ltk_manager_bin::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_bin::sandbox::SandboxRef;
 use ltk_manager_game::map::{
-    map_characters, map_outline, map_particles, map_variants, resolve_map, unresolved_map,
-    MapCharacter, MapChunk, MapFiles, MapModel, MapParticle, MapPath, MapVariant,
+    map_bin_path, map_characters, map_flags, map_name_references, map_outline, map_particles,
+    map_variants, resolve_map, unresolved_map, MapCharacter, MapChunk, MapFiles, MapModel,
+    MapNameReference, MapParticle, MapPath, MapVariant,
 };
 use tauri::{AppHandle, Manager};
 
@@ -45,18 +46,32 @@ pub async fn read_map(
             let Some(source) = assets.locate(&map.materials()) else {
                 return Ok(unresolved_map(&materials));
             };
-            let bin = read(&source)?;
+            /* An open `.materials.bin` answers with its unsaved edits, so a lighting or
+            controller edit draws before the save. */
+            let documents = app_handle.state::<BinDocuments>();
+            let open = document
+                .and_then(|id| documents.sandbox_of(id))
+                .and_then(|sandbox| documents.open_tree(&sandbox, &source));
+            let parsed;
+            let bin: &BinDocument = match &open {
+                Some(open) => open,
+                None => {
+                    parsed = read(&source)?;
+                    &parsed
+                }
+            };
             /* The shader defs only decide which slot a texture came from, so a map draws
             without them. */
             let shaders = shader_defs(&app_handle, assets);
-            Ok(resolve_map(
-                &bin,
-                &map,
-                &materials,
-                names,
-                assets,
-                shaders.as_deref(),
-            ))
+            let mut model = resolve_map(bin, &map, &materials, names, assets, shaders.as_deref());
+
+            /* The flag names only label the layers, so a map reads without them. */
+            let map_bin = map_bin_path(&map).and_then(|path| assets.locate(&path));
+            if let Some(Ok(map_bin)) = map_bin.map(|asset| read(&asset)) {
+                model.flags = map_flags(&map_bin);
+            }
+
+            Ok(model)
         })
     })
     .await
@@ -125,6 +140,21 @@ pub async fn read_map_outline(
         read_resolved(&app_handle, document, |open, names, _| {
             Ok(map_outline(open, names))
         })
+    })
+    .await
+}
+
+/// Every map action field of the open `.materials.bin` under `document` that names `name`.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_map_name_references(
+    document: BinDocumentId,
+    name: String,
+    app_handle: AppHandle,
+) -> IpcResult<Vec<MapNameReference>> {
+    off_thread(move || {
+        let open = app_handle.state::<BinDocuments>().document(document)?;
+        Ok(map_name_references(&open, &name))
     })
     .await
 }

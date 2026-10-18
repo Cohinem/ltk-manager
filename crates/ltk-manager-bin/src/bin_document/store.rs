@@ -526,6 +526,17 @@ impl BinDocuments {
         self.key_of(id).map(|key| key.asset)
     }
 
+    /// Reads the open tree of `asset` in `sandbox`, with its unsaved edits. Returns `None` if
+    /// the store holds no tree of `asset`. The ask leaves the tree's recency unchanged.
+    #[must_use]
+    pub fn open_tree(&self, sandbox: &SandboxRef, asset: &AssetRef) -> Option<DocumentRead> {
+        let key = TreeKey::new(sandbox, asset.clone()).ok()?;
+        let store = self.inner.lock();
+        let document = Arc::clone(&store.trees.peek(&key)?.document);
+        drop(store);
+        Some(document.read_arc())
+    }
+
     fn key_of(&self, id: BinDocumentId) -> Option<TreeKey> {
         let store = self.inner.lock();
         store

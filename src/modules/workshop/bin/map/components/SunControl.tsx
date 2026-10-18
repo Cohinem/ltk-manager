@@ -48,7 +48,9 @@ export function SunControl({ source }: SunControlProps) {
   const angles = sunAngles(light.direction);
   const change = (next: Partial<SunOverride>) => {
     const { direction, color, strength, sky, ground, ambient } = light;
-    setDisplay({ previewSun: { direction, color, strength, sky, ground, ambient, ...next } });
+    setDisplay({
+      previewSun: { direction, color, strength, sky, ground, ambient, ...next },
+    });
   };
 
   return (

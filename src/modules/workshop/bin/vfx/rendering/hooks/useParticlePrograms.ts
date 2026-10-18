@@ -78,7 +78,9 @@ export const particleQueries = {
               ? ({ kind: "document", document } as const)
               : null;
         if (hash === null || source === null) return null;
-        const read = await api.bin.readMaterialPrograms(source, [hash], { lowQuality: false });
+        const read = await api.bin.readMaterialPrograms(source, [hash], {
+          lowQuality: false,
+        });
         return unwrapForQuery(read)[0] ?? null;
       },
       staleTime: Infinity,
@@ -295,7 +297,10 @@ function useEngineRead(
 ): ReadyPass | null {
   const pair = useMemo(() => particleShaderOf(emitter), [emitter]);
   const drawn = enabled && drawsProgram(emitter, pair, path);
-  const read = useQuery({ ...particleQueries.program(document, pair), enabled: drawn }).data;
+  const read = useQuery({
+    ...particleQueries.program(document, pair),
+    enabled: drawn,
+  }).data;
 
   return useMemo(() => {
     if (!drawn || read === undefined || read.program.kind !== "ready") return null;
@@ -331,7 +336,11 @@ export function useMaterialPasses(
     ...particleQueries.material(document, hash, file),
     enabled: hash !== null,
   });
-  return { program: query.data, passes: usePassesOf(query.data), failed: query.error !== null };
+  return {
+    program: query.data,
+    passes: usePassesOf(query.data),
+    failed: query.error !== null,
+  };
 }
 
 /** `useMaterialPasses` for a material embedded in an object, and none for a null `at`. */
@@ -343,7 +352,11 @@ export function useEmbeddedMaterialPasses(
     ...particleQueries.embedded(document, at?.entry ?? "", at?.path ?? ""),
     enabled: at !== null,
   });
-  return { program: query.data, passes: usePassesOf(query.data), failed: query.error !== null };
+  return {
+    program: query.data,
+    passes: usePassesOf(query.data),
+    failed: query.error !== null,
+  };
 }
 
 /** The passes of `read` with its textures bound, once they load. */
@@ -365,6 +378,25 @@ function disposeAll(materials: readonly RawShaderMaterial[]): void {
 }
 
 /**
+ * Compiles the program of `material` through a clone that this function owns.
+ *
+ * `compileAsync` polls the program of the material that it compiles and throws once a dispose
+ * deletes it, which a mesh's unmount does at any time. The clone shares the program by its cache
+ * key, and it is disposed after `material` is disposed and the compile settles.
+ */
+function compile(
+  gl: WebGLRenderer,
+  material: RawShaderMaterial,
+  geometry: BufferGeometry,
+  camera: Camera,
+): Promise<unknown> {
+  const probe = material.clone();
+  const pending = gl.compileAsync(new Mesh(geometry, probe), camera);
+  material.addEventListener("dispose", () => void pending.finally(() => probe.dispose()));
+  return pending;
+}
+
+/**
  * Every one of `materials` has compiled against `geometry`.
  *
  * A translated pair links in tens of milliseconds, which would stall the frame that first
@@ -382,7 +414,7 @@ function useCompiled(
     if (materials.length === 0 || geometry === null) return;
     let live = true;
 
-    Promise.all(materials.map((material) => gl.compileAsync(new Mesh(geometry, material), camera)))
+    Promise.all(materials.map((material) => compile(gl, material, geometry, camera)))
       .then(() => {
         if (live) setCompiled(materials);
       })

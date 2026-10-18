@@ -1,4 +1,4 @@
-import { queryOptions, skipToken } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
 
 import {
   api,
@@ -8,6 +8,7 @@ import {
   type MapCharacter,
   type MapChunk,
   type MapFiles,
+  type MapGeometryMesh,
   type MapParticle,
   type MapPath,
   type MapVariant,
@@ -52,6 +53,33 @@ export const mapQueries = {
       queryFn: document === null ? skipToken : queryFnWithArgs(api.bin.readMapOutline, document),
       staleTime: Infinity,
       retry: false,
+    }),
+  /** The entry path of every `StaticMaterialDef` of the open `.materials.bin`, sorted. */
+  materialDefs: (document: BinDocumentId | null) =>
+    queryOptions<string[], AppError>({
+      queryKey: ["map-material-defs", document],
+      queryFn:
+        document === null
+          ? skipToken
+          : async () =>
+              unwrapForQuery(await api.bin.roots(document))
+                .flatMap((row) =>
+                  row.value.type === "struct" && row.value.class === "StaticMaterialDef"
+                    ? [row.name]
+                    : [],
+                )
+                .sort(),
+      staleTime: Infinity,
+      retry: false,
+    }),
+  /** Every mesh of the `.mapgeo` open for edits under `id`, at its `revision`. */
+  geometryMeshes: (id: number | null, revision: number) =>
+    queryOptions<MapGeometryMesh[], AppError>({
+      queryKey: ["map-geometry-meshes", id, revision],
+      queryFn: id === null ? skipToken : queryFnWithArgs(api.bin.mapGeometryMeshes, id),
+      staleTime: Infinity,
+      retry: false,
+      placeholderData: keepPreviousData,
     }),
   /** Where the two files of `map` live in `sandbox`, its layers checked first. */
   files: (sandbox: SandboxRef, map: MapPath | null) =>

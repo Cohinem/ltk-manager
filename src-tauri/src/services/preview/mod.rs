@@ -5,6 +5,8 @@
 
 mod assets;
 mod map;
+mod map_geometry;
+mod map_import;
 pub(crate) mod material;
 mod ritobin;
 mod skin;
@@ -13,6 +15,8 @@ mod vfx;
 
 pub use assets::*;
 pub use map::*;
+pub use map_geometry::*;
+pub use map_import::*;
 pub use material::*;
 pub use ritobin::*;
 pub use skin::*;

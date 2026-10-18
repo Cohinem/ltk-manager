@@ -230,6 +230,7 @@ export function Backdrop({
 
     for (const [index, mesh] of map.meshes.entries()) {
       if (!meshVisible(visibility, mesh.visibility, mesh.controller)) continue;
+      if (visibility.hiddenMeshes?.has(index) === true) continue;
 
       const groups: DrawGroup[] = [];
       for (let at = 0; at < mesh.submeshCount; at += 1) {

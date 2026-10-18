@@ -153,6 +153,7 @@ fn duplicate(document: &mut BinDocument, index: usize) -> Result<(), BinDocument
             path: String::new(),
             index: Some(index + 1),
             unique: unique(),
+            key: None,
         }],
         schema().at(Some(BUILD)),
     )
@@ -173,6 +174,7 @@ fn paste(
             index,
             text: text.to_owned(),
             unique: unique(),
+            key: None,
         }],
         schema().at(Some(BUILD)),
     )
@@ -397,6 +399,7 @@ fn a_system_template_lands_its_emitters_named_apart_in_one_undo_step() {
             index: Some(index),
             text: emitter.text.clone(),
             unique: None,
+            key: None,
         });
         edits.push(ValueEdit::SetLeaf {
             path: format!("[{index}].{}", hashed("emitterName")),
@@ -472,6 +475,7 @@ fn move_to_front(list: &str) -> [ValueEdit; 2] {
             path: list.to_owned(),
             index: Some(0),
             unique: None,
+            key: None,
         },
         ValueEdit::RemoveItem {
             path: format!("{list}[2]"),
@@ -614,6 +618,7 @@ fn paste_into(
                 index: None,
                 text: text.to_owned(),
                 unique: unique(),
+                key: None,
             }],
         }],
         schema().at(Some(BUILD)),
@@ -657,6 +662,119 @@ fn create_and_edit_takes_back_created_objects_on_refusal() {
     assert_eq!(rejection(refused), EditRejection::NotACopy);
     assert!(target.object_at(h(SYSTEM)).is_none());
     assert!(!target.undo().unwrap());
+}
+
+const CHUNK: &str = "Maps/MapGeometry/Map11/Base/Chunk";
+
+/// A chunk holding one `MapLocator` under the key of `Locator1`.
+fn chunk() -> BinDocument {
+    let locator = class(
+        "MapLocator",
+        vec![("name", values::String::from("Locator1").into())],
+    );
+    let items = values::Map::new(
+        Kind::Hash,
+        Kind::Struct,
+        vec![(values::Hash::new(h("Locator1")).into(), locator.into())],
+    )
+    .unwrap();
+    let object = BinObject::builder(h(CHUNK), h("MapPlaceableContainer"))
+        .property(h("items"), items)
+        .build();
+    let mut out = Cursor::new(Vec::new());
+    Bin::new([object], std::iter::empty::<&str>())
+        .to_writer(&mut out)
+        .unwrap();
+    BinDocument::parse(out.into_inner()).unwrap()
+}
+
+fn edit_items(document: &mut BinDocument, edit: ValueEdit) -> Result<(), BinDocumentError> {
+    document.edit_property(
+        h(CHUNK),
+        "",
+        &format!("0x{}", hashed("items")),
+        vec![edit],
+        schema().at(Some(BUILD)),
+    )
+}
+
+fn item_keys(document: &BinDocument) -> Vec<BinHash> {
+    match &document.object_at(h(CHUNK)).unwrap().properties[&h("items")] {
+        PropertyValueEnum::Map(map) => map
+            .entries()
+            .iter()
+            .map(|(key, _)| match key {
+                PropertyValueEnum::Hash(hash) => hash.value.try_as_bin_hash().unwrap(),
+                other => panic!("an item key is a hash: {other:?}"),
+            })
+            .collect(),
+        other => panic!("items is no map: {other:?}"),
+    }
+}
+
+#[test]
+fn copy_item_lands_map_entry_under_key() {
+    let mut document = chunk();
+
+    edit_items(
+        &mut document,
+        ValueEdit::CopyItem {
+            from: format!("{{{}}}", hashed("Locator1")),
+            path: String::new(),
+            index: None,
+            unique: None,
+            key: Some("Locator2".to_owned()),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(item_keys(&document), [h("Locator1"), h("Locator2")]);
+    assert!(document.undo().unwrap());
+    assert_eq!(item_keys(&document), [h("Locator1")]);
+}
+
+#[test]
+fn paste_item_lands_map_entry_under_key() {
+    let mut document = chunk();
+    let text = document
+        .copy_value(
+            h(CHUNK),
+            &format!("{}{{{}}}", hashed("items"), hashed("Locator1")),
+            schema().at(Some(BUILD)),
+        )
+        .unwrap();
+
+    edit_items(
+        &mut document,
+        ValueEdit::PasteItem {
+            path: String::new(),
+            index: Some(0),
+            text,
+            unique: None,
+            key: Some(format!("0x{}", hashed("Locator0"))),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(item_keys(&document), [h("Locator0"), h("Locator1")]);
+}
+
+#[test]
+fn copy_item_refuses_key_the_map_holds() {
+    let mut document = chunk();
+
+    let refused = edit_items(
+        &mut document,
+        ValueEdit::CopyItem {
+            from: format!("{{{}}}", hashed("Locator1")),
+            path: String::new(),
+            index: None,
+            unique: None,
+            key: Some("Locator1".to_owned()),
+        },
+    );
+
+    assert_eq!(rejection(refused), EditRejection::KeyExists);
 }
 
 #[test]
