@@ -201,6 +201,7 @@ export {
   NO_POST_EFFECTS,
   type PostEffects,
 } from "./scene/utils/postEffects";
+export { ShownGroup } from "./scene/utils/shownGroup";
 export {
   DEFAULT_SUN,
   type SunAngles,
