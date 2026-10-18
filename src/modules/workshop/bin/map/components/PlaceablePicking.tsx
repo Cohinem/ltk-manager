@@ -1,4 +1,4 @@
-import { MapPinIcon, SelectionPlusIcon } from "@phosphor-icons/react";
+import { SelectionPlusIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { type RefObject, useCallback, useMemo, useRef, useState } from "react";
 
@@ -9,6 +9,7 @@ import { mapQueries } from "../api/mapQueries";
 import { useMapScene } from "../state/mapScene";
 import { type PlacedItem, placedItems } from "../utils/mapOutline";
 import { inRect, nearest, type ScreenRect, type SelectMode } from "../utils/mapSelection";
+import { withDragged } from "../utils/placeableSpace";
 import type { MarkerProjector } from "./MapMarkers";
 
 /** A box no wider or taller than this is a click, in pixels. */
@@ -32,9 +33,10 @@ export interface PlaceablePicking {
  * under it, and a click on nothing clears the selection.
  */
 export function usePlaceablePicking(): PlaceablePicking {
-  const { materials, filter, select, markers } = useMapScene();
+  const { materials, filter, select, markers, dragged } = useMapScene();
   const outline = useQuery(mapQueries.outline(materials));
-  const items = useMemo(() => placedItems(outline.data ?? [], filter), [outline.data, filter]);
+  const listed = useMemo(() => placedItems(outline.data ?? [], filter), [outline.data, filter]);
+  const items = useMemo(() => withDragged(listed, dragged), [listed, dragged]);
   const [boxing, setBoxing] = useState(false);
   const projector = useRef<MarkerProjector | null>(null);
 
@@ -55,30 +57,24 @@ export function usePlaceablePicking(): PlaceablePicking {
     [items, select],
   );
 
-  return { items, shown: markers || boxing, boxing, setBoxing, projector, onBox };
+  return {
+    items,
+    shown: markers || boxing,
+    boxing,
+    setBoxing,
+    projector,
+    onBox,
+  };
 }
 
-/** The toolbar's switches for the markers and the box tool. */
-export function PlaceableButtons({ picking }: { picking: PlaceablePicking }) {
-  const { setMarkers } = useMapScene();
-
+/** The box select tool, which picks the placeables inside a dragged box. */
+export function BoxSelectButton({ picking }: { picking: PlaceablePicking }) {
   return (
-    <>
-      <IconButton
-        pressed={picking.shown}
-        icon={<MapPinIcon />}
-        onClick={() => {
-          setMarkers(!picking.shown);
-          if (picking.shown) picking.setBoxing(false);
-        }}
-        label={m.workshop_bin_map_markers_label()}
-      />
-      <IconButton
-        pressed={picking.boxing}
-        icon={<SelectionPlusIcon />}
-        onClick={() => picking.setBoxing(!picking.boxing)}
-        label={m.workshop_bin_map_box_select_label()}
-      />
-    </>
+    <IconButton
+      pressed={picking.boxing}
+      icon={<SelectionPlusIcon />}
+      onClick={() => picking.setBoxing(!picking.boxing)}
+      label={m.workshop_bin_map_box_select_label()}
+    />
   );
 }

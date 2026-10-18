@@ -31,6 +31,7 @@ use ltk_manager_base::error::{AppError, AppResult, DomainError, ErrorKind};
 /// Re-exported because [`PreviewError::Unsupported`] carries one.
 pub use animation::{ClipHeader, header as clip_header};
 pub use ltk_file::LeagueFileKind;
+pub use map::{encode_map, encode_map_meshes};
 pub use source::AssetRef;
 pub use texture::{TextureContainer, TextureInfo};
 pub use web::WebImage;
@@ -53,8 +54,11 @@ pub enum PreviewRequest {
     /// A cube map's six faces at full resolution, stacked top to bottom as one image.
     Cube,
     /// A texture's own mip chain from the smallest mipmap at least `min_width` wide down,
-    /// as one buffer.
-    Mips { min_width: Option<NonZeroU32> },
+    /// as one buffer. With `blocks`, a block-compressed texture answers its own blocks.
+    Mips {
+        min_width: Option<NonZeroU32>,
+        blocks: bool,
+    },
     /// A map's baked light grid, as one ambient buffer.
     LightGrid,
     /// An OpenType or TrueType font's own bytes.
@@ -247,8 +251,8 @@ impl AssetRef {
             PreviewRequest::Skeleton => return Ok(Preview::Buffer(skeleton::render(&bytes)?)),
             PreviewRequest::Animation => return Ok(Preview::Buffer(animation::render(&bytes)?)),
             PreviewRequest::Cube => return Ok(Preview::Image(texture::render_cube(&bytes)?)),
-            PreviewRequest::Mips { min_width } => {
-                return Ok(Preview::Buffer(mips::render(&bytes, min_width)?));
+            PreviewRequest::Mips { min_width, blocks } => {
+                return Ok(Preview::Buffer(mips::render(&bytes, min_width, blocks)?));
             }
             PreviewRequest::LightGrid => return Ok(Preview::Buffer(light_grid::render(&bytes)?)),
             PreviewRequest::Font => return Ok(Preview::Font(font::render(bytes)?)),

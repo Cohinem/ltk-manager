@@ -1,7 +1,7 @@
 import { useFrame } from "@react-three/fiber";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { type ReactNode, useCallback, useMemo, useRef } from "react";
-import { Box3, Frustum, type Group, Matrix4, Sphere } from "three";
+import { Box3, Frustum, Matrix4, Sphere } from "three";
 
 import type { AnimationGraph, AssetRef, BinDocumentId, MapCharacter, SkinModel } from "@/lib/tauri";
 import {
@@ -14,6 +14,7 @@ import {
   type SceneClock,
   type SceneColors,
   sequencePose,
+  ShownGroup,
   type SkeletonModel,
   type SubmeshBinding,
   type SubmeshProgram,
@@ -310,20 +311,20 @@ interface PlacedCharacterProps {
  * drawing.
  */
 function PlacedCharacter({ matrix, reach, seen, children }: PlacedCharacterProps) {
-  const group = useRef<Group>(null);
+  const group = useMemo(() => new ShownGroup(), []);
   const asleep = useRef(false);
   const placed = useMemo(() => reach.clone().applyMatrix4(matrix), [reach, matrix]);
 
   useFrame(({ invalidate }) => {
-    const held = seen.intersectsSphere(placed);
-    asleep.current = !held;
-    if (group.current !== null) group.current.visible = held;
-    if (held) invalidate();
+    const inView = seen.intersectsSphere(placed);
+    asleep.current = !inView;
+    group.visible = inView;
+    if (inView) invalidate();
   });
 
   return (
-    <group ref={group} matrix={matrix} matrixAutoUpdate={false}>
+    <primitive object={group} matrix={matrix} matrixAutoUpdate={false}>
       {children(asleep)}
-    </group>
+    </primitive>
   );
 }

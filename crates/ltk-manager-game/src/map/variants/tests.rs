@@ -44,6 +44,8 @@ fn a_container_answers_the_map_it_states() {
         vec![MapVariant {
             skin: None,
             map: MapPath::from(BASE_SRX),
+            skin_entry: None,
+            map_entry: None,
         }]
     );
 }
@@ -57,6 +59,8 @@ fn a_skin_answers_the_container_it_links_under_its_own_name() {
         vec![MapVariant {
             skin: Some("Default".to_owned()),
             map: MapPath::from(BASE_SRX),
+            skin_entry: Some(h(DEFAULT_SKIN).into()),
+            map_entry: None,
         }]
     );
 }
@@ -88,6 +92,20 @@ fn a_map_answers_each_drawable_skin_it_lists_in_its_order() {
 
     assert_eq!(variants.len(), 1);
     assert_eq!(variants[0].skin.as_deref(), Some("Default"));
+    assert_eq!(variants[0].skin_entry, Some(h(DEFAULT_SKIN).into()));
+    assert_eq!(variants[0].map_entry, Some(h(MAP_ENTRY).into()));
+}
+
+#[test]
+fn a_skin_answers_the_map_that_lists_it() {
+    let document = document_of(vec![
+        map_listing(&[DEFAULT_SKIN]),
+        skin(DEFAULT_SKIN, "Default", Some(BASE_SRX)),
+    ]);
+
+    let variants = map_variants(&document, h(DEFAULT_SKIN));
+
+    assert_eq!(variants[0].map_entry, Some(h(MAP_ENTRY).into()));
 }
 
 #[test]

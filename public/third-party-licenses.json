@@ -163,6 +163,11 @@
     {
       "id": "Apache-2.0",
       "name": "Apache License 2.0",
+      "text": "                              Apache License\n                        Version 2.0, January 2004\n                     http://www.apache.org/licenses/\n\nTERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n1. Definitions.\n\n   \"License\" shall mean the terms and conditions for use, reproduction,\n   and distribution as defined by Sections 1 through 9 of this document.\n\n   \"Licensor\" shall mean the copyright owner or entity authorized by\n   the copyright owner that is granting the License.\n\n   \"Legal Entity\" shall mean the union of the acting entity and all\n   other entities that control, are controlled by, or are under common\n   control with that entity. For the purposes of this definition,\n   \"control\" means (i) the power, direct or indirect, to cause the\n   direction or management of such entity, whether by contract or\n   otherwise, or (ii) ownership of fifty percent (50%) or more of the\n   outstanding shares, or (iii) beneficial ownership of such entity.\n\n   \"You\" (or \"Your\") shall mean an individual or Legal Entity\n   exercising permissions granted by this License.\n\n   \"Source\" form shall mean the preferred form for making modifications,\n   including but not limited to software source code, documentation\n   source, and configuration files.\n\n   \"Object\" form shall mean any form resulting from mechanical\n   transformation or translation of a Source form, including but\n   not limited to compiled object code, generated documentation,\n   and conversions to other media types.\n\n   \"Work\" shall mean the work of authorship, whether in Source or\n   Object form, made available under the License, as indicated by a\n   copyright notice that is included in or attached to the work\n   (an example is provided in the Appendix below).\n\n   \"Derivative Works\" shall mean any work, whether in Source or Object\n   form, that is based on (or derived from) the Work and for which the\n   editorial revisions, annotations, elaborations, or other modifications\n   represent, as a whole, an original work of authorship. For the purposes\n   of this License, Derivative Works shall not include works that remain\n   separable from, or merely link (or bind by name) to the interfaces of,\n   the Work and Derivative Works thereof.\n\n   \"Contribution\" shall mean any work of authorship, including\n   the original version of the Work and any modifications or additions\n   to that Work or Derivative Works thereof, that is intentionally\n   submitted to Licensor for inclusion in the Work by the copyright owner\n   or by an individual or Legal Entity authorized to submit on behalf of\n   the copyright owner. For the purposes of this definition, \"submitted\"\n   means any form of electronic, verbal, or written communication sent\n   to the Licensor or its representatives, including but not limited to\n   communication on electronic mailing lists, source code control systems,\n   and issue tracking systems that are managed by, or on behalf of, the\n   Licensor for the purpose of discussing and improving the Work, but\n   excluding communication that is conspicuously marked or otherwise\n   designated in writing by the copyright owner as \"Not a Contribution.\"\n\n   \"Contributor\" shall mean Licensor and any individual or Legal Entity\n   on behalf of whom a Contribution has been received by Licensor and\n   subsequently incorporated within the Work.\n\n2. Grant of Copyright License. Subject to the terms and conditions of\n   this License, each Contributor hereby grants to You a perpetual,\n   worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n   copyright license to reproduce, prepare Derivative Works of,\n   publicly display, publicly perform, sublicense, and distribute the\n   Work and such Derivative Works in Source or Object form.\n\n3. Grant of Patent License. Subject to the terms and conditions of\n   this License, each Contributor hereby grants to You a perpetual,\n   worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n   (except as stated in this section) patent license to make, have made,\n   use, offer to sell, sell, import, and otherwise transfer the Work,\n   where such license applies only to those patent claims licensable\n   by such Contributor that are necessarily infringed by their\n   Contribution(s) alone or by combination of their Contribution(s)\n   with the Work to which such Contribution(s) was submitted. If You\n   institute patent litigation against any entity (including a\n   cross-claim or counterclaim in a lawsuit) alleging that the Work\n   or a Contribution incorporated within the Work constitutes direct\n   or contributory patent infringement, then any patent licenses\n   granted to You under this License for that Work shall terminate\n   as of the date such litigation is filed.\n\n4. Redistribution. You may reproduce and distribute copies of the\n   Work or Derivative Works thereof in any medium, with or without\n   modifications, and in Source or Object form, provided that You\n   meet the following conditions:\n\n   (a) You must give any other recipients of the Work or\n       Derivative Works a copy of this License; and\n\n   (b) You must cause any modified files to carry prominent notices\n       stating that You changed the files; and\n\n   (c) You must retain, in the Source form of any Derivative Works\n       that You distribute, all copyright, patent, trademark, and\n       attribution notices from the Source form of the Work,\n       excluding those notices that do not pertain to any part of\n       the Derivative Works; and\n\n   (d) If the Work includes a \"NOTICE\" text file as part of its\n       distribution, then any Derivative Works that You distribute must\n       include a readable copy of the attribution notices contained\n       within such NOTICE file, excluding those notices that do not\n       pertain to any part of the Derivative Works, in at least one\n       of the following places: within a NOTICE text file distributed\n       as part of the Derivative Works; within the Source form or\n       documentation, if provided along with the Derivative Works; or,\n       within a display generated by the Derivative Works, if and\n       wherever such third-party notices normally appear. The contents\n       of the NOTICE file are for informational purposes only and\n       do not modify the License. You may add Your own attribution\n       notices within Derivative Works that You distribute, alongside\n       or as an addendum to the NOTICE text from the Work, provided\n       that such additional attribution notices cannot be construed\n       as modifying the License.\n\n   You may add Your own copyright statement to Your modifications and\n   may provide additional or different license terms and conditions\n   for use, reproduction, or distribution of Your modifications, or\n   for any such Derivative Works as a whole, provided Your use,\n   reproduction, and distribution of the Work otherwise complies with\n   the conditions stated in this License.\n\n5. Submission of Contributions. Unless You explicitly state otherwise,\n   any Contribution intentionally submitted for inclusion in the Work\n   by You to the Licensor shall be under the terms and conditions of\n   this License, without any additional terms or conditions.\n   Notwithstanding the above, nothing herein shall supersede or modify\n   the terms of any separate license agreement you may have executed\n   with Licensor regarding such Contributions.\n\n6. Trademarks. This License does not grant permission to use the trade\n   names, trademarks, service marks, or product names of the Licensor,\n   except as required for reasonable and customary use in describing the\n   origin of the Work and reproducing the content of the NOTICE file.\n\n7. Disclaimer of Warranty. Unless required by applicable law or\n   agreed to in writing, Licensor provides the Work (and each\n   Contributor provides its Contributions) on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n   implied, including, without limitation, any warranties or conditions\n   of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n   PARTICULAR PURPOSE. You are solely responsible for determining the\n   appropriateness of using or redistributing the Work and assume any\n   risks associated with Your exercise of permissions under this License.\n\n8. Limitation of Liability. In no event and under no legal theory,\n   whether in tort (including negligence), contract, or otherwise,\n   unless required by applicable law (such as deliberate and grossly\n   negligent acts) or agreed to in writing, shall any Contributor be\n   liable to You for damages, including any direct, indirect, special,\n   incidental, or consequential damages of any character arising as a\n   result of this License or out of the use or inability to use the\n   Work (including but not limited to damages for loss of goodwill,\n   work stoppage, computer failure or malfunction, or any and all\n   other commercial damages or losses), even if such Contributor\n   has been advised of the possibility of such damages.\n\n9. Accepting Warranty or Additional Liability. While redistributing\n   the Work or Derivative Works thereof, You may choose to offer,\n   and charge a fee for, acceptance of support, warranty, indemnity,\n   or other liability obligations and/or rights consistent with this\n   License. However, in accepting such obligations, You may act only\n   on Your own behalf and on Your sole responsibility, not on behalf\n   of any other Contributor, and only if You agree to indemnify,\n   defend, and hold each Contributor harmless for any liability\n   incurred by, or claims asserted against, such Contributor by reason\n   of your accepting any such warranty or additional liability.\n\nEND OF TERMS AND CONDITIONS\n\nAPPENDIX: How to apply the Apache License to your work.\n\n   To apply the Apache License to your work, attach the following\n   boilerplate notice, with the fields enclosed by brackets \"[]\"\n   replaced with your own identifying information. (Don't include\n   the brackets!)  The text should be enclosed in the appropriate\n   comment syntax for the file format. We also recommend that a\n   file or class name and description of purpose be included on the\n   same \"printed page\" as the copyright notice for easier\n   identification within third-party archives.\n\nCopyright [yyyy] [name of copyright owner]\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n\thttp://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.\n\n"
+    },
+    {
+      "id": "Apache-2.0",
+      "name": "Apache License 2.0",
       "text": "                              Apache License\n                        Version 2.0, January 2004\n                     http://www.apache.org/licenses/\n\nTERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION\n\n1. Definitions.\n\n   \"License\" shall mean the terms and conditions for use, reproduction,\n   and distribution as defined by Sections 1 through 9 of this document.\n\n   \"Licensor\" shall mean the copyright owner or entity authorized by\n   the copyright owner that is granting the License.\n\n   \"Legal Entity\" shall mean the union of the acting entity and all\n   other entities that control, are controlled by, or are under common\n   control with that entity. For the purposes of this definition,\n   \"control\" means (i) the power, direct or indirect, to cause the\n   direction or management of such entity, whether by contract or\n   otherwise, or (ii) ownership of fifty percent (50%) or more of the\n   outstanding shares, or (iii) beneficial ownership of such entity.\n\n   \"You\" (or \"Your\") shall mean an individual or Legal Entity\n   exercising permissions granted by this License.\n\n   \"Source\" form shall mean the preferred form for making modifications,\n   including but not limited to software source code, documentation\n   source, and configuration files.\n\n   \"Object\" form shall mean any form resulting from mechanical\n   transformation or translation of a Source form, including but\n   not limited to compiled object code, generated documentation,\n   and conversions to other media types.\n\n   \"Work\" shall mean the work of authorship, whether in Source or\n   Object form, made available under the License, as indicated by a\n   copyright notice that is included in or attached to the work\n   (an example is provided in the Appendix below).\n\n   \"Derivative Works\" shall mean any work, whether in Source or Object\n   form, that is based on (or derived from) the Work and for which the\n   editorial revisions, annotations, elaborations, or other modifications\n   represent, as a whole, an original work of authorship. For the purposes\n   of this License, Derivative Works shall not include works that remain\n   separable from, or merely link (or bind by name) to the interfaces of,\n   the Work and Derivative Works thereof.\n\n   \"Contribution\" shall mean any work of authorship, including\n   the original version of the Work and any modifications or additions\n   to that Work or Derivative Works thereof, that is intentionally\n   submitted to Licensor for inclusion in the Work by the copyright owner\n   or by an individual or Legal Entity authorized to submit on behalf of\n   the copyright owner. For the purposes of this definition, \"submitted\"\n   means any form of electronic, verbal, or written communication sent\n   to the Licensor or its representatives, including but not limited to\n   communication on electronic mailing lists, source code control systems,\n   and issue tracking systems that are managed by, or on behalf of, the\n   Licensor for the purpose of discussing and improving the Work, but\n   excluding communication that is conspicuously marked or otherwise\n   designated in writing by the copyright owner as \"Not a Contribution.\"\n\n   \"Contributor\" shall mean Licensor and any individual or Legal Entity\n   on behalf of whom a Contribution has been received by Licensor and\n   subsequently incorporated within the Work.\n\n2. Grant of Copyright License. Subject to the terms and conditions of\n   this License, each Contributor hereby grants to You a perpetual,\n   worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n   copyright license to reproduce, prepare Derivative Works of,\n   publicly display, publicly perform, sublicense, and distribute the\n   Work and such Derivative Works in Source or Object form.\n\n3. Grant of Patent License. Subject to the terms and conditions of\n   this License, each Contributor hereby grants to You a perpetual,\n   worldwide, non-exclusive, no-charge, royalty-free, irrevocable\n   (except as stated in this section) patent license to make, have made,\n   use, offer to sell, sell, import, and otherwise transfer the Work,\n   where such license applies only to those patent claims licensable\n   by such Contributor that are necessarily infringed by their\n   Contribution(s) alone or by combination of their Contribution(s)\n   with the Work to which such Contribution(s) was submitted. If You\n   institute patent litigation against any entity (including a\n   cross-claim or counterclaim in a lawsuit) alleging that the Work\n   or a Contribution incorporated within the Work constitutes direct\n   or contributory patent infringement, then any patent licenses\n   granted to You under this License for that Work shall terminate\n   as of the date such litigation is filed.\n\n4. Redistribution. You may reproduce and distribute copies of the\n   Work or Derivative Works thereof in any medium, with or without\n   modifications, and in Source or Object form, provided that You\n   meet the following conditions:\n\n   (a) You must give any other recipients of the Work or\n       Derivative Works a copy of this License; and\n\n   (b) You must cause any modified files to carry prominent notices\n       stating that You changed the files; and\n\n   (c) You must retain, in the Source form of any Derivative Works\n       that You distribute, all copyright, patent, trademark, and\n       attribution notices from the Source form of the Work,\n       excluding those notices that do not pertain to any part of\n       the Derivative Works; and\n\n   (d) If the Work includes a \"NOTICE\" text file as part of its\n       distribution, then any Derivative Works that You distribute must\n       include a readable copy of the attribution notices contained\n       within such NOTICE file, excluding those notices that do not\n       pertain to any part of the Derivative Works, in at least one\n       of the following places: within a NOTICE text file distributed\n       as part of the Derivative Works; within the Source form or\n       documentation, if provided along with the Derivative Works; or,\n       within a display generated by the Derivative Works, if and\n       wherever such third-party notices normally appear. The contents\n       of the NOTICE file are for informational purposes only and\n       do not modify the License. You may add Your own attribution\n       notices within Derivative Works that You distribute, alongside\n       or as an addendum to the NOTICE text from the Work, provided\n       that such additional attribution notices cannot be construed\n       as modifying the License.\n\n   You may add Your own copyright statement to Your modifications and\n   may provide additional or different license terms and conditions\n   for use, reproduction, or distribution of Your modifications, or\n   for any such Derivative Works as a whole, provided Your use,\n   reproduction, and distribution of the Work otherwise complies with\n   the conditions stated in this License.\n\n5. Submission of Contributions. Unless You explicitly state otherwise,\n   any Contribution intentionally submitted for inclusion in the Work\n   by You to the Licensor shall be under the terms and conditions of\n   this License, without any additional terms or conditions.\n   Notwithstanding the above, nothing herein shall supersede or modify\n   the terms of any separate license agreement you may have executed\n   with Licensor regarding such Contributions.\n\n6. Trademarks. This License does not grant permission to use the trade\n   names, trademarks, service marks, or product names of the Licensor,\n   except as required for reasonable and customary use in describing the\n   origin of the Work and reproducing the content of the NOTICE file.\n\n7. Disclaimer of Warranty. Unless required by applicable law or\n   agreed to in writing, Licensor provides the Work (and each\n   Contributor provides its Contributions) on an \"AS IS\" BASIS,\n   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or\n   implied, including, without limitation, any warranties or conditions\n   of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A\n   PARTICULAR PURPOSE. You are solely responsible for determining the\n   appropriateness of using or redistributing the Work and assume any\n   risks associated with Your exercise of permissions under this License.\n\n8. Limitation of Liability. In no event and under no legal theory,\n   whether in tort (including negligence), contract, or otherwise,\n   unless required by applicable law (such as deliberate and grossly\n   negligent acts) or agreed to in writing, shall any Contributor be\n   liable to You for damages, including any direct, indirect, special,\n   incidental, or consequential damages of any character arising as a\n   result of this License or out of the use or inability to use the\n   Work (including but not limited to damages for loss of goodwill,\n   work stoppage, computer failure or malfunction, or any and all\n   other commercial damages or losses), even if such Contributor\n   has been advised of the possibility of such damages.\n\n9. Accepting Warranty or Additional Liability. While redistributing\n   the Work or Derivative Works thereof, You may choose to offer,\n   and charge a fee for, acceptance of support, warranty, indemnity,\n   or other liability obligations and/or rights consistent with this\n   License. However, in accepting such obligations, You may act only\n   on Your own behalf and on Your sole responsibility, not on behalf\n   of any other Contributor, and only if You agree to indemnify,\n   defend, and hold each Contributor harmless for any liability\n   incurred by, or claims asserted against, such Contributor by reason\n   of your accepting any such warranty or additional liability.\n\nEND OF TERMS AND CONDITIONS\n\nAPPENDIX: How to apply the Apache License to your work.\n\n   To apply the Apache License to your work, attach the following\n   boilerplate notice, with the fields enclosed by brackets \"[]\"\n   replaced with your own identifying information. (Don't include\n   the brackets!)  The text should be enclosed in the appropriate\n   comment syntax for the file format. We also recommend that a\n   file or class name and description of purpose be included on the\n   same \"printed page\" as the copyright notice for easier\n   identification within third-party archives.\n\nCopyright [yyyy] [name of copyright owner]\n\nLicensed under the Apache License, Version 2.0 (the \"License\");\nyou may not use this file except in compliance with the License.\nYou may obtain a copy of the License at\n\n    http://www.apache.org/licenses/LICENSE-2.0\n\nUnless required by applicable law or agreed to in writing, software\ndistributed under the License is distributed on an \"AS IS\" BASIS,\nWITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\nSee the License for the specific language governing permissions and\nlimitations under the License.\n"
     },
     {
@@ -379,6 +384,11 @@
       "id": "MIT",
       "name": "MIT License",
       "text": "Copyright (c) 2015 steffengy\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n"
+    },
+    {
+      "id": "MIT",
+      "name": "MIT License",
+      "text": "Copyright (c) 2016 Caleb Meredith\n\nPermission is hereby granted, free of charge, to any person obtaining\na copy of this software and associated documentation files (the\n\"Software\"), to deal in the Software without restriction, including\nwithout limitation the rights to use, copy, modify, merge, publish,\ndistribute, sublicense, and/or sell copies of the Software, and to\npermit persons to whom the Software is furnished to do so, subject to\nthe following conditions:\n\nThe above copyright notice and this permission notice shall be included\nin all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND,\nEXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF\nMERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.\nIN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY\nCLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,\nTORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE\nSOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n"
     },
     {
       "id": "MIT",
@@ -713,6 +723,11 @@
     {
       "id": "MIT",
       "name": "MIT License",
+      "text": "© 2016 Bertram Truong\n© 2021 Kornel Lesiński\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE.\n"
+    },
+    {
+      "id": "MIT",
+      "name": "MIT License",
       "text": "© Kornel Lesiński\n\nPermission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.\n"
     },
     {
@@ -757,7 +772,7 @@
       "version": "0.11.4",
       "url": "https://github.com/whatisinternet/inflector",
       "licenses": [
-        49
+        50
       ]
     },
     {
@@ -765,7 +780,7 @@
       "version": "2.0.1",
       "url": "https://github.com/oyvindln/adler2",
       "licenses": [
-        37
+        38
       ]
     },
     {
@@ -773,7 +788,7 @@
       "version": "0.8.4",
       "url": "https://github.com/RustCrypto/block-ciphers",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -781,7 +796,7 @@
       "version": "1.1.4",
       "url": "https://github.com/BurntSushi/aho-corasick",
       "licenses": [
-        127
+        129
       ]
     },
     {
@@ -797,7 +812,7 @@
       "version": "0.6.4",
       "url": "https://github.com/sarah-ek/aligned-vec/",
       "licenses": [
-        114
+        116
       ]
     },
     {
@@ -805,7 +820,7 @@
       "version": "2.0.4",
       "url": "https://github.com/dropbox/rust-alloc-no-stdlib",
       "licenses": [
-        53
+        54
       ]
     },
     {
@@ -813,7 +828,7 @@
       "version": "0.2.4",
       "url": "https://github.com/dropbox/rust-alloc-no-stdlib",
       "licenses": [
-        57
+        58
       ]
     },
     {
@@ -821,7 +836,7 @@
       "version": "0.2.21",
       "url": "https://github.com/zakarumych/allocator-api2",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -845,7 +860,7 @@
       "version": "1.0.103",
       "url": "https://github.com/dtolnay/anyhow",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -853,7 +868,7 @@
       "version": "3.6.1",
       "url": "https://github.com/1Password/arboard",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -861,7 +876,7 @@
       "version": "0.3.4",
       "url": "https://github.com/lu-zero/arg_enum_proc_macro",
       "licenses": [
-        99
+        101
       ]
     },
     {
@@ -877,7 +892,7 @@
       "version": "0.5.1",
       "url": "https://github.com/andylokandy/arraydeque",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -901,7 +916,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -917,7 +932,7 @@
       "version": "0.5.0",
       "url": "https://github.com/zzzgydi/auto-launch.git",
       "licenses": [
-        115
+        117
       ]
     },
     {
@@ -925,7 +940,7 @@
       "version": "0.14.1",
       "url": "https://github.com/rust-av/av-scenechange",
       "licenses": [
-        106
+        108
       ]
     },
     {
@@ -933,7 +948,7 @@
       "version": "0.2.5",
       "url": "https://github.com/rust-av/av1-grain",
       "licenses": [
-        48
+        49
       ]
     },
     {
@@ -941,7 +956,15 @@
       "version": "0.8.9",
       "url": "https://github.com/kornelski/avif-serialize",
       "licenses": [
-        50
+        51
+      ]
+    },
+    {
+      "name": "base64",
+      "version": "0.13.1",
+      "url": "https://github.com/marshallpierce/rust-base64",
+      "licenses": [
+        31
       ]
     },
     {
@@ -957,7 +980,7 @@
       "version": "1.8.3",
       "url": "https://github.com/RustCrypto/formats",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -965,7 +988,7 @@
       "version": "0.1.2",
       "url": "https://github.com/ScanMountGoat/image_dds",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -973,8 +996,8 @@
       "version": "1.0.0",
       "url": "https://github.com/bevyengine/bevy_mikktspace",
       "licenses": [
-        44,
-        149
+        45,
+        152
       ]
     },
     {
@@ -982,7 +1005,7 @@
       "version": "0.14.2",
       "url": "https://github.com/jam1garner/binrw",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -990,7 +1013,7 @@
       "version": "0.14.2",
       "url": "https://github.com/jam1garner/binrw",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -998,7 +1021,7 @@
       "version": "0.8.0",
       "url": "https://github.com/contain-rs/bit-set",
       "licenses": [
-        32
+        33
       ]
     },
     {
@@ -1006,7 +1029,7 @@
       "version": "0.8.0",
       "url": "https://github.com/contain-rs/bit-vec",
       "licenses": [
-        32
+        33
       ]
     },
     {
@@ -1046,7 +1069,7 @@
       "version": "0.10.4",
       "url": "https://github.com/RustCrypto/utils",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -1062,8 +1085,8 @@
       "version": "8.0.4",
       "url": "https://github.com/dropbox/rust-brotli",
       "licenses": [
-        53,
-        68
+        54,
+        69
       ]
     },
     {
@@ -1071,7 +1094,7 @@
       "version": "5.0.3",
       "url": "https://github.com/dropbox/rust-brotli-decompressor",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -1095,7 +1118,7 @@
       "version": "1.25.1",
       "url": "https://github.com/Lokathor/bytemuck",
       "licenses": [
-        43
+        44
       ]
     },
     {
@@ -1103,7 +1126,7 @@
       "version": "1.12.0",
       "url": "https://github.com/Lokathor/bytemuck",
       "licenses": [
-        43
+        44
       ]
     },
     {
@@ -1111,7 +1134,7 @@
       "version": "1.5.0",
       "url": "https://github.com/BurntSushi/byteorder",
       "licenses": [
-        127
+        129
       ]
     },
     {
@@ -1119,7 +1142,7 @@
       "version": "0.1.0",
       "url": "https://github.com/image-rs/byteorder-lite",
       "licenses": [
-        127
+        129
       ]
     },
     {
@@ -1127,7 +1150,7 @@
       "version": "1.12.1",
       "url": "https://github.com/tokio-rs/bytes",
       "licenses": [
-        78
+        80
       ]
     },
     {
@@ -1159,7 +1182,7 @@
       "version": "0.1.9",
       "url": "https://github.com/rust-lang/cargo",
       "licenses": [
-        37
+        38
       ]
     },
     {
@@ -1167,7 +1190,7 @@
       "version": "0.19.2",
       "url": "https://github.com/oli-obk/cargo_metadata",
       "licenses": [
-        121
+        123
       ]
     },
     {
@@ -1175,7 +1198,7 @@
       "version": "0.7.3",
       "url": "https://github.com/mdsteele/rust-cfb",
       "licenses": [
-        97
+        99
       ]
     },
     {
@@ -1191,7 +1214,7 @@
       "version": "0.4.45",
       "url": "https://github.com/chronotope/chrono",
       "licenses": [
-        45
+        46
       ]
     },
     {
@@ -1199,7 +1222,7 @@
       "version": "0.4.4",
       "url": "https://github.com/RustCrypto/traits",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -1207,7 +1230,7 @@
       "version": "5.4.1",
       "url": "https://github.com/DoumanAsh/clipboard-win",
       "licenses": [
-        61
+        62
       ]
     },
     {
@@ -1215,7 +1238,7 @@
       "version": "1.1.0",
       "url": "https://github.com/image-rs/color_quant.git",
       "licenses": [
-        133
+        135
       ]
     },
     {
@@ -1223,7 +1246,7 @@
       "version": "0.9.6",
       "url": "https://github.com/RustCrypto/formats/tree/master/const-oid",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -1231,7 +1254,7 @@
       "version": "0.3.1",
       "url": "https://github.com/cesarb/constant_time_eq",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1255,7 +1278,7 @@
       "version": "0.2.17",
       "url": "https://github.com/RustCrypto/utils",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -1319,7 +1342,7 @@
       "version": "0.1.7",
       "url": "https://github.com/RustCrypto/traits",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -1327,7 +1350,7 @@
       "version": "0.36.0",
       "url": "https://github.com/servo/rust-cssparser",
       "licenses": [
-        144
+        147
       ]
     },
     {
@@ -1335,7 +1358,7 @@
       "version": "0.6.1",
       "url": "https://github.com/servo/rust-cssparser",
       "licenses": [
-        144
+        147
       ]
     },
     {
@@ -1343,7 +1366,7 @@
       "version": "0.8.0",
       "url": "https://github.com/mmastrac/rust-ctor",
       "licenses": [
-        42
+        43
       ]
     },
     {
@@ -1351,7 +1374,7 @@
       "version": "0.0.7",
       "url": "https://github.com/mmastrac/rust-ctor",
       "licenses": [
-        42
+        43
       ]
     },
     {
@@ -1359,7 +1382,7 @@
       "version": "0.23.0",
       "url": "https://github.com/TedDriggs/darling",
       "licenses": [
-        98
+        100
       ]
     },
     {
@@ -1367,7 +1390,7 @@
       "version": "0.23.0",
       "url": "https://github.com/TedDriggs/darling",
       "licenses": [
-        98
+        100
       ]
     },
     {
@@ -1375,7 +1398,7 @@
       "version": "0.23.0",
       "url": "https://github.com/TedDriggs/darling",
       "licenses": [
-        98
+        100
       ]
     },
     {
@@ -1383,7 +1406,7 @@
       "version": "0.5.2",
       "url": "https://github.com/SiegeEngine/ddsfile",
       "licenses": [
-        135
+        137
       ]
     },
     {
@@ -1391,7 +1414,7 @@
       "version": "0.1.12",
       "url": "https://github.com/anatawa12/deflate64-rs",
       "licenses": [
-        123
+        125
       ]
     },
     {
@@ -1399,7 +1422,7 @@
       "version": "0.7.10",
       "url": "https://github.com/RustCrypto/formats/tree/master/der",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -1415,7 +1438,7 @@
       "version": "2.1.1",
       "url": "https://github.com/JelteF/derive_more",
       "licenses": [
-        132
+        134
       ]
     },
     {
@@ -1423,7 +1446,7 @@
       "version": "2.1.1",
       "url": "https://github.com/JelteF/derive_more",
       "licenses": [
-        132
+        134
       ]
     },
     {
@@ -1431,7 +1454,7 @@
       "version": "1.6.2",
       "url": "https://github.com/kornelski/deunicode/",
       "licenses": [
-        52
+        53
       ]
     },
     {
@@ -1439,7 +1462,7 @@
       "version": "0.10.7",
       "url": "https://github.com/RustCrypto/traits",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -1447,7 +1470,7 @@
       "version": "5.0.1",
       "url": "https://github.com/soc/directories-rs",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1455,7 +1478,7 @@
       "version": "6.0.0",
       "url": "https://github.com/soc/dirs-rs",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1463,7 +1486,7 @@
       "version": "0.4.1",
       "url": "https://github.com/dirs-dev/dirs-sys-rs",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1471,7 +1494,7 @@
       "version": "0.5.0",
       "url": "https://github.com/dirs-dev/dirs-sys-rs",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1487,7 +1510,7 @@
       "version": "0.27.0",
       "url": "https://github.com/niklak/dom_query",
       "licenses": [
-        116
+        118
       ]
     },
     {
@@ -1495,8 +1518,8 @@
       "version": "0.1.2",
       "url": "https://github.com/rust-windowing/winit",
       "licenses": [
-        41,
-        118
+        42,
+        120
       ]
     },
     {
@@ -1504,7 +1527,7 @@
       "version": "1.0.11",
       "url": "https://github.com/dtolnay/dtoa",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1512,7 +1535,7 @@
       "version": "0.3.5",
       "url": "https://github.com/upsuper/dtoa-short",
       "licenses": [
-        143
+        146
       ]
     },
     {
@@ -1520,7 +1543,7 @@
       "version": "1.0.5",
       "url": "https://gitlab.com/kornelski/dunce",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1528,7 +1551,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -1536,7 +1559,7 @@
       "version": "1.0.20",
       "url": "https://github.com/dtolnay/dyn-clone",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1553,7 +1576,7 @@
       "url": "https://github.com/hsivonen/encoding_rs",
       "licenses": [
         4,
-        59
+        60
       ]
     },
     {
@@ -1569,7 +1592,7 @@
       "version": "0.2.2",
       "url": "https://gitlab.com/cardoe/enum-primitive-derive.git",
       "licenses": [
-        76
+        78
       ]
     },
     {
@@ -1577,7 +1600,7 @@
       "version": "0.3.13",
       "url": "https://gitlab.com/antonok/enum_dispatch",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1585,7 +1608,7 @@
       "version": "0.4.2",
       "url": "https://github.com/sarah-ek/equator/",
       "licenses": [
-        117
+        119
       ]
     },
     {
@@ -1593,7 +1616,7 @@
       "version": "0.4.2",
       "url": "https://github.com/sarah-ek/equator/",
       "licenses": [
-        117
+        119
       ]
     },
     {
@@ -1609,7 +1632,7 @@
       "version": "0.4.10",
       "url": "https://github.com/dtolnay/erased-serde",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1617,7 +1640,7 @@
       "version": "3.4.0",
       "url": "https://github.com/DoumanAsh/error-code",
       "licenses": [
-        60
+        61
       ]
     },
     {
@@ -1625,7 +1648,7 @@
       "version": "1.74.2",
       "url": "https://github.com/johannesvollmer/exrs",
       "licenses": [
-        57
+        58
       ]
     },
     {
@@ -1641,7 +1664,7 @@
       "version": "0.2.7",
       "url": "https://github.com/pdf-rs/fax",
       "licenses": [
-        90
+        92
       ]
     },
     {
@@ -1649,7 +1672,7 @@
       "version": "0.3.7",
       "url": "https://github.com/image-rs/fdeflate",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1681,7 +1704,7 @@
       "version": "0.2.0",
       "url": "https://github.com/orlp/foldhash",
       "licenses": [
-        148
+        151
       ]
     },
     {
@@ -1697,7 +1720,7 @@
       "version": "3.3.1",
       "url": "https://github.com/andrewhickman/fs-err",
       "licenses": [
-        38
+        39
       ]
     },
     {
@@ -1761,7 +1784,7 @@
       "version": "0.14.7",
       "url": "https://github.com/fizyk20/generic-array.git",
       "licenses": [
-        140
+        142
       ]
     },
     {
@@ -1769,7 +1792,7 @@
       "version": "0.2.17",
       "url": "https://github.com/rust-random/getrandom",
       "licenses": [
-        36
+        37
       ]
     },
     {
@@ -1777,7 +1800,7 @@
       "version": "0.3.4",
       "url": "https://github.com/rust-random/getrandom",
       "licenses": [
-        36
+        37
       ]
     },
     {
@@ -1785,7 +1808,7 @@
       "version": "0.4.3",
       "url": "https://github.com/rust-random/getrandom",
       "licenses": [
-        36
+        37
       ]
     },
     {
@@ -1825,7 +1848,31 @@
       "version": "0.4.19",
       "url": "https://github.com/BurntSushi/ripgrep/tree/master/crates/globset",
       "licenses": [
-        127
+        129
+      ]
+    },
+    {
+      "name": "gltf",
+      "version": "1.4.1",
+      "url": "https://github.com/gltf-rs/gltf",
+      "licenses": [
+        32
+      ]
+    },
+    {
+      "name": "gltf-derive",
+      "version": "1.4.1",
+      "url": "https://github.com/gltf-rs/gltf",
+      "licenses": [
+        32
+      ]
+    },
+    {
+      "name": "gltf-json",
+      "version": "1.4.1",
+      "url": "https://github.com/gltf-rs/gltf",
+      "licenses": [
+        32
       ]
     },
     {
@@ -1833,7 +1880,7 @@
       "version": "1.3.0",
       "url": "https://github.com/bourumir-wyngs/granit-parser",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1841,7 +1888,7 @@
       "version": "0.4.15",
       "url": "https://github.com/hyperium/h2",
       "licenses": [
-        77
+        79
       ]
     },
     {
@@ -1849,7 +1896,7 @@
       "version": "2.7.1",
       "url": "https://github.com/VoidStarKat/half-rs",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -1889,7 +1936,7 @@
       "version": "0.12.1",
       "url": "https://github.com/RustCrypto/MACs",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -1913,7 +1960,7 @@
       "version": "1.1.0",
       "url": "https://github.com/hyperium/http-body",
       "licenses": [
-        87
+        89
       ]
     },
     {
@@ -1921,7 +1968,7 @@
       "version": "0.1.4",
       "url": "https://github.com/hyperium/http-body",
       "licenses": [
-        87
+        89
       ]
     },
     {
@@ -1929,7 +1976,7 @@
       "version": "0.1.5",
       "url": "https://github.com/bancek/rust-http-range.git",
       "licenses": [
-        93
+        95
       ]
     },
     {
@@ -1945,7 +1992,7 @@
       "version": "1.10.1",
       "url": "https://github.com/hyperium/hyper",
       "licenses": [
-        71
+        72
       ]
     },
     {
@@ -1969,7 +2016,7 @@
       "version": "0.1.20",
       "url": "https://github.com/hyperium/hyper-util",
       "licenses": [
-        88
+        90
       ]
     },
     {
@@ -1977,7 +2024,7 @@
       "version": "0.5.0",
       "url": "https://github.com/mdsteele/rust-ico",
       "licenses": [
-        100
+        102
       ]
     },
     {
@@ -1985,7 +2032,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -1993,7 +2040,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -2001,7 +2048,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -2009,7 +2056,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -2017,7 +2064,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -2025,7 +2072,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -2033,7 +2080,7 @@
       "version": "2.2.0",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -2041,7 +2088,7 @@
       "version": "1.0.1",
       "url": "https://github.com/TedDriggs/ident_case",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2065,7 +2112,7 @@
       "version": "0.4.32",
       "url": "https://github.com/BurntSushi/ripgrep/tree/master/crates/ignore",
       "licenses": [
-        127
+        129
       ]
     },
     {
@@ -2073,7 +2120,7 @@
       "version": "0.25.10",
       "url": "https://github.com/image-rs/image",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2081,7 +2128,7 @@
       "version": "0.2.4",
       "url": "https://github.com/image-rs/image-webp",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2089,7 +2136,7 @@
       "version": "0.6.2",
       "url": "https://github.com/ScanMountGoat/image_dds",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -2113,7 +2160,15 @@
       "version": "0.19.0",
       "url": "https://github.com/bojand/infer",
       "licenses": [
-        102
+        104
+      ]
+    },
+    {
+      "name": "inflections",
+      "version": "1.1.1",
+      "url": "https://docs.rs/inflections",
+      "licenses": [
+        77
       ]
     },
     {
@@ -2121,7 +2176,7 @@
       "version": "0.1.4",
       "url": "https://github.com/RustCrypto/utils",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -2129,7 +2184,7 @@
       "version": "0.1.13",
       "url": "https://github.com/sebcrozet/instant",
       "licenses": [
-        55
+        56
       ]
     },
     {
@@ -2137,7 +2192,7 @@
       "version": "0.5.0",
       "url": "https://github.com/Traverse-Research/intel-tex-rs-2",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2153,7 +2208,7 @@
       "version": "2.0.4",
       "url": "https://github.com/Twinklebear/ispc-rs",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -2169,7 +2224,7 @@
       "version": "1.0.18",
       "url": "https://github.com/dtolnay/itoa",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2209,7 +2264,7 @@
       "version": "0.5.3",
       "url": "https://github.com/johannesvollmer/lebe",
       "licenses": [
-        56
+        57
       ]
     },
     {
@@ -2217,7 +2272,7 @@
       "version": "0.2.186",
       "url": "https://github.com/rust-lang/libc",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2225,7 +2280,7 @@
       "version": "0.2.16",
       "url": "https://github.com/rust-lang/compiler-builtins",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -2233,7 +2288,7 @@
       "version": "0.9.6",
       "url": "https://github.com/NoXF/libwebp-sys",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -2241,7 +2296,7 @@
       "version": "0.1.11",
       "url": "https://github.com/qnighy/libwebp-sys2-rs",
       "licenses": [
-        58
+        59
       ]
     },
     {
@@ -2249,7 +2304,7 @@
       "version": "0.8.2",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -2273,7 +2328,7 @@
       "version": "0.1.5",
       "url": "https://gitlab.com/kornelski/loop9.git",
       "licenses": [
-        142
+        145
       ]
     },
     {
@@ -2281,7 +2336,7 @@
       "version": "0.18.2",
       "url": "https://github.com/jeromefroe/lru-rs.git",
       "licenses": [
-        92
+        94
       ]
     },
     {
@@ -2289,7 +2344,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2297,7 +2352,7 @@
       "version": "1.28.1",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2305,7 +2360,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2313,7 +2368,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2321,7 +2376,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2329,7 +2384,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2337,7 +2392,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2345,7 +2400,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2353,7 +2408,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2361,7 +2416,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2369,7 +2424,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2377,7 +2432,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
@@ -2385,14 +2440,14 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/ltk-manager",
       "licenses": [
-        63
+        64
       ]
     },
     {
       "name": "ltk_anim",
       "version": "0.3.12",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2400,14 +2455,14 @@
       "version": "0.15.5",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_file",
       "version": "0.2.13",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2415,7 +2470,7 @@
       "version": "0.9.3",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2423,14 +2478,14 @@
       "version": "0.1.5",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_hash",
       "version": "0.5.1",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2438,7 +2493,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/mimir",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2446,35 +2501,35 @@
       "version": "0.2.2",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_io_ext",
       "version": "0.4.9",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_mapgeo",
-      "version": "0.3.4",
+      "version": "0.3.5",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_mesh",
       "version": "0.5.5",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_meta",
       "version": "0.9.1",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2482,7 +2537,7 @@
       "version": "0.1.0",
       "url": "https://github.com/LeagueToolkit/mimir",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2490,7 +2545,7 @@
       "version": "0.1.1",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2498,7 +2553,7 @@
       "version": "0.16.7",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2506,7 +2561,7 @@
       "version": "0.12.14",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2514,42 +2569,42 @@
       "version": "0.17.0",
       "url": "https://github.com/LeagueToolkit/league-mod",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_primitives",
       "version": "0.3.8",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_rst",
       "version": "0.2.3",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_shader",
       "version": "0.3.11",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_texture",
       "version": "0.6.6",
       "licenses": [
-        44
+        45
       ]
     },
     {
       "name": "ltk_wad",
       "version": "0.5.10",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2557,7 +2612,7 @@
       "version": "0.3.0",
       "url": "https://github.com/gendx/lzma-rs",
       "licenses": [
-        94
+        96
       ]
     },
     {
@@ -2581,7 +2636,7 @@
       "version": "0.2.0",
       "url": "https://github.com/hawkw/matchers",
       "licenses": [
-        83
+        85
       ]
     },
     {
@@ -2589,7 +2644,7 @@
       "version": "0.1.1",
       "url": "https://github.com/shssoichiro/maybe-rayon",
       "licenses": [
-        110
+        112
       ]
     },
     {
@@ -2597,7 +2652,7 @@
       "version": "2.8.3",
       "url": "https://github.com/BurntSushi/memchr",
       "licenses": [
-        127
+        129
       ]
     },
     {
@@ -2621,7 +2676,7 @@
       "version": "7.6.0",
       "url": "https://github.com/zkat/miette",
       "licenses": [
-        39
+        40
       ]
     },
     {
@@ -2637,7 +2692,7 @@
       "version": "0.2.5",
       "url": "https://github.com/jedisct1/rust-minisign-verify",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -2645,7 +2700,7 @@
       "version": "0.8.9",
       "url": "https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2653,7 +2708,7 @@
       "version": "1.2.2",
       "url": "https://github.com/tokio-rs/mio",
       "licenses": [
-        69
+        70
       ]
     },
     {
@@ -2685,7 +2740,7 @@
       "version": "1.0.6",
       "url": "https://github.com/mbrubeck/rust-debug-unreachable",
       "licenses": [
-        74
+        75
       ]
     },
     {
@@ -2709,7 +2764,7 @@
       "version": "8.0.0",
       "url": "https://github.com/rust-bakery/nom",
       "licenses": [
-        70
+        71
       ]
     },
     {
@@ -2717,7 +2772,7 @@
       "version": "0.3.0",
       "url": "https://github.com/lu-zero/noop_proc_macro",
       "licenses": [
-        105
+        107
       ]
     },
     {
@@ -2725,7 +2780,7 @@
       "version": "7.0.0",
       "url": "https://github.com/notify-rs/notify.git",
       "licenses": [
-        62
+        63
       ]
     },
     {
@@ -2757,7 +2812,7 @@
       "version": "0.50.3",
       "url": "https://github.com/nushell/nu-ansi-term",
       "licenses": [
-        139
+        141
       ]
     },
     {
@@ -2789,7 +2844,7 @@
       "version": "0.2.2",
       "url": "https://github.com/jhpratt/num-conv",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2845,7 +2900,7 @@
       "version": "0.7.6",
       "url": "https://github.com/illicitonion/num_enum",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2853,7 +2908,7 @@
       "version": "0.7.6",
       "url": "https://github.com/illicitonion/num_enum",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2869,7 +2924,7 @@
       "version": "5.4.0",
       "url": "https://github.com/Byron/open-rs",
       "licenses": [
-        137
+        139
       ]
     },
     {
@@ -2877,7 +2932,7 @@
       "version": "0.2.0",
       "url": "https://github.com/soc/option-ext.git",
       "licenses": [
-        145
+        148
       ]
     },
     {
@@ -2885,7 +2940,7 @@
       "version": "1.2.3",
       "url": "https://github.com/oconnor663/os_pipe.rs",
       "licenses": [
-        136
+        138
       ]
     },
     {
@@ -2893,7 +2948,7 @@
       "version": "3.5.0",
       "url": "https://github.com/jam1garner/owo-colors",
       "licenses": [
-        109
+        111
       ]
     },
     {
@@ -2917,7 +2972,7 @@
       "version": "1.0.15",
       "url": "https://github.com/dtolnay/paste",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2925,7 +2980,7 @@
       "version": "0.1.1",
       "url": "https://github.com/as1100k/pastey",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2933,7 +2988,7 @@
       "version": "0.12.2",
       "url": "https://github.com/RustCrypto/password-hashes/tree/master/pbkdf2",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -2941,7 +2996,7 @@
       "version": "0.7.0",
       "url": "https://github.com/RustCrypto/formats/tree/master/pem-rfc7468",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -2957,7 +3012,7 @@
       "version": "0.13.1",
       "url": "https://github.com/rust-phf/rust-phf",
       "licenses": [
-        126
+        128
       ]
     },
     {
@@ -2965,7 +3020,7 @@
       "version": "0.13.1",
       "url": "https://github.com/rust-phf/rust-phf",
       "licenses": [
-        126
+        128
       ]
     },
     {
@@ -2973,7 +3028,7 @@
       "version": "0.13.1",
       "url": "https://github.com/rust-phf/rust-phf",
       "licenses": [
-        126
+        128
       ]
     },
     {
@@ -2981,7 +3036,7 @@
       "version": "0.13.1",
       "url": "https://github.com/rust-phf/rust-phf",
       "licenses": [
-        126
+        128
       ]
     },
     {
@@ -2989,7 +3044,7 @@
       "version": "0.2.17",
       "url": "https://github.com/taiki-e/pin-project-lite",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -2997,7 +3052,7 @@
       "version": "0.7.5",
       "url": "https://github.com/RustCrypto/formats/tree/master/pkcs1",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -3005,7 +3060,7 @@
       "version": "0.10.2",
       "url": "https://github.com/RustCrypto/formats/tree/master/pkcs8",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -3013,7 +3068,7 @@
       "version": "1.10.0",
       "url": "https://github.com/ebarnard/rust-plist/",
       "licenses": [
-        72
+        73
       ]
     },
     {
@@ -3037,7 +3092,7 @@
       "version": "0.1.5",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -3061,7 +3116,7 @@
       "version": "0.1.1",
       "url": "https://github.com/emilio/precomputed-hash",
       "licenses": [
-        95
+        97
       ]
     },
     {
@@ -3069,7 +3124,7 @@
       "version": "3.5.0",
       "url": "https://github.com/bkchr/proc-macro-crate",
       "licenses": [
-        37
+        38
       ]
     },
     {
@@ -3077,7 +3132,7 @@
       "version": "1.0.106",
       "url": "https://github.com/dtolnay/proc-macro2",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3085,7 +3140,7 @@
       "version": "1.0.18",
       "url": "https://github.com/aclysma/profiling",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3093,7 +3148,7 @@
       "version": "1.0.18",
       "url": "https://github.com/aclysma/profiling",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3101,7 +3156,7 @@
       "version": "0.22.3",
       "url": "https://github.com/sarah-quinones/pulp/",
       "licenses": [
-        111
+        113
       ]
     },
     {
@@ -3109,7 +3164,7 @@
       "version": "0.1.1",
       "url": "https://github.com/sarah-quinones/pulp/",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -3125,7 +3180,7 @@
       "version": "0.4.1",
       "url": "https://github.com/aldanor/qoi-rust",
       "licenses": [
-        32
+        33
       ]
     },
     {
@@ -3141,7 +3196,7 @@
       "version": "0.41.0",
       "url": "https://github.com/tafia/quick-xml",
       "licenses": [
-        141
+        143
       ]
     },
     {
@@ -3149,7 +3204,7 @@
       "version": "1.0.46",
       "url": "https://github.com/dtolnay/quote",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3157,7 +3212,7 @@
       "version": "0.8.7",
       "url": "https://github.com/rust-random/rand",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3165,7 +3220,7 @@
       "version": "0.3.1",
       "url": "https://github.com/rust-random/rand",
       "licenses": [
-        36
+        37
       ]
     },
     {
@@ -3173,7 +3228,7 @@
       "version": "0.6.4",
       "url": "https://github.com/rust-random/rand",
       "licenses": [
-        35
+        36
       ]
     },
     {
@@ -3181,7 +3236,7 @@
       "version": "0.8.1",
       "url": "https://github.com/xiph/rav1e/",
       "licenses": [
-        47
+        48
       ]
     },
     {
@@ -3189,7 +3244,7 @@
       "version": "0.13.0",
       "url": "https://github.com/kornelski/cavif-rs",
       "licenses": [
-        51
+        52
       ]
     },
     {
@@ -3197,7 +3252,7 @@
       "version": "11.6.0",
       "url": "https://github.com/gz/rust-cpuid",
       "licenses": [
-        129
+        131
       ]
     },
     {
@@ -3205,7 +3260,7 @@
       "version": "0.6.2",
       "url": "https://github.com/rust-windowing/raw-window-handle",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3229,7 +3284,7 @@
       "version": "0.5.5",
       "url": "https://github.com/sarah-ek/reborrow/",
       "licenses": [
-        114
+        116
       ]
     },
     {
@@ -3277,7 +3332,7 @@
       "version": "0.16.0",
       "url": "https://github.com/PolyMeilex/rfd",
       "licenses": [
-        113
+        115
       ]
     },
     {
@@ -3285,7 +3340,7 @@
       "version": "0.8.53",
       "url": "https://github.com/kornelski/rust-rgb",
       "licenses": [
-        104
+        106
       ]
     },
     {
@@ -3294,7 +3349,7 @@
       "url": "https://github.com/briansmith/ring",
       "licenses": [
         31,
-        65
+        66
       ]
     },
     {
@@ -3302,7 +3357,7 @@
       "version": "0.1.0",
       "url": "https://github.com/Crauzer/ritoclient",
       "licenses": [
-        34
+        35
       ]
     },
     {
@@ -3310,7 +3365,7 @@
       "version": "0.1.0",
       "url": "https://github.com/Crauzer/ritoclient",
       "licenses": [
-        34
+        35
       ]
     },
     {
@@ -3318,7 +3373,7 @@
       "version": "0.1.0",
       "url": "https://github.com/Crauzer/ritoclient",
       "licenses": [
-        34
+        35
       ]
     },
     {
@@ -3326,7 +3381,7 @@
       "version": "0.8.15",
       "url": "https://github.com/3Hren/msgpack-rust",
       "licenses": [
-        96
+        98
       ]
     },
     {
@@ -3334,7 +3389,7 @@
       "version": "1.3.1",
       "url": "https://github.com/3Hren/msgpack-rust",
       "licenses": [
-        96
+        98
       ]
     },
     {
@@ -3366,7 +3421,7 @@
       "version": "2.1.3",
       "url": "https://github.com/rust-lang/rustc-hash",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3398,7 +3453,7 @@
       "version": "0.103.13",
       "url": "https://github.com/rustls/webpki",
       "licenses": [
-        66
+        67
       ]
     },
     {
@@ -3406,7 +3461,7 @@
       "version": "1.0.23",
       "url": "https://github.com/dtolnay/rustversion",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3414,7 +3469,7 @@
       "version": "1.0.23",
       "url": "https://github.com/dtolnay/ryu",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3422,7 +3477,7 @@
       "version": "1.0.6",
       "url": "https://github.com/BurntSushi/same-file",
       "licenses": [
-        134
+        136
       ]
     },
     {
@@ -3430,7 +3485,7 @@
       "version": "0.1.29",
       "url": "https://github.com/steffengy/schannel-rs",
       "licenses": [
-        75
+        76
       ]
     },
     {
@@ -3438,7 +3493,7 @@
       "version": "0.8.22",
       "url": "https://github.com/GREsau/schemars",
       "licenses": [
-        103
+        105
       ]
     },
     {
@@ -3446,7 +3501,7 @@
       "version": "0.8.22",
       "url": "https://github.com/GREsau/schemars",
       "licenses": [
-        103
+        105
       ]
     },
     {
@@ -3462,7 +3517,7 @@
       "version": "0.36.1",
       "url": "https://github.com/servo/stylo",
       "licenses": [
-        145
+        148
       ]
     },
     {
@@ -3470,7 +3525,7 @@
       "version": "1.0.28",
       "url": "https://github.com/dtolnay/semver",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3478,7 +3533,7 @@
       "version": "1.0.228",
       "url": "https://github.com/serde-rs/serde",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3486,7 +3541,7 @@
       "version": "1.3.0",
       "url": "https://github.com/bourumir-wyngs/serde-saphyr",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3494,7 +3549,7 @@
       "version": "0.1.9",
       "url": "https://github.com/dtolnay/serde-untagged",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3502,7 +3557,7 @@
       "version": "1.0.228",
       "url": "https://github.com/serde-rs/serde",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3510,7 +3565,7 @@
       "version": "1.0.228",
       "url": "https://github.com/serde-rs/serde",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3518,7 +3573,7 @@
       "version": "0.29.1",
       "url": "https://github.com/serde-rs/serde",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3526,7 +3581,7 @@
       "version": "1.0.150",
       "url": "https://github.com/serde-rs/json",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3534,7 +3589,7 @@
       "version": "0.1.20",
       "url": "https://github.com/dtolnay/serde-repr",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3558,7 +3613,7 @@
       "version": "0.7.1",
       "url": "https://github.com/nox/serde_urlencoded",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3582,7 +3637,7 @@
       "version": "0.10.0",
       "url": "https://github.com/acatton/serde-yaml-ng",
       "licenses": [
-        67
+        68
       ]
     },
     {
@@ -3614,7 +3669,7 @@
       "version": "0.10.7",
       "url": "https://github.com/RustCrypto/hashes",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -3622,7 +3677,7 @@
       "version": "0.10.9",
       "url": "https://github.com/RustCrypto/hashes",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -3630,7 +3685,7 @@
       "version": "0.1.7",
       "url": "https://github.com/hawkw/sharded-slab",
       "licenses": [
-        82
+        84
       ]
     },
     {
@@ -3638,7 +3693,7 @@
       "version": "1.1.1",
       "url": "https://github.com/oconnor663/shared_child.rs",
       "licenses": [
-        136
+        138
       ]
     },
     {
@@ -3646,7 +3701,7 @@
       "version": "2.2.0",
       "url": "https://github.com/RustCrypto/traits/tree/master/signature",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -3654,7 +3709,7 @@
       "version": "0.3.10",
       "url": "https://github.com/mcountryman/simd-adler32",
       "licenses": [
-        120
+        122
       ]
     },
     {
@@ -3662,7 +3717,7 @@
       "version": "0.1.0",
       "url": "https://github.com/lu-zero/simd_helpers",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -3670,7 +3725,7 @@
       "version": "1.0.3",
       "url": "https://github.com/jedisct1/rust-siphash",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3678,7 +3733,7 @@
       "version": "0.4.12",
       "url": "https://github.com/tokio-rs/slab",
       "licenses": [
-        81
+        83
       ]
     },
     {
@@ -3710,7 +3765,7 @@
       "version": "0.4.8",
       "url": "https://github.com/rust-windowing/softbuffer",
       "licenses": [
-        40
+        41
       ]
     },
     {
@@ -3718,7 +3773,7 @@
       "version": "2.0.0-rc.25",
       "url": "https://github.com/specta-rs/specta",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -3726,7 +3781,7 @@
       "version": "2.0.0-rc.25",
       "url": "https://github.com/specta-rs/specta",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -3734,7 +3789,7 @@
       "version": "0.0.12",
       "url": "https://github.com/specta-rs/specta",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -3742,7 +3797,7 @@
       "version": "0.0.12",
       "url": "https://github.com/specta-rs/specta",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -3750,7 +3805,7 @@
       "version": "0.0.12",
       "url": "https://github.com/specta-rs/specta",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -3758,7 +3813,7 @@
       "version": "0.9.9",
       "url": "https://github.com/mvdnes/spin-rs.git",
       "licenses": [
-        124
+        126
       ]
     },
     {
@@ -3766,7 +3821,7 @@
       "version": "0.4.0+sdk-1.4.341.0",
       "url": "https://github.com/gfx-rs/rspirv",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3782,7 +3837,7 @@
       "version": "0.7.1",
       "url": "https://github.com/SnowflakePowered/spirv-cross2",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3790,7 +3845,7 @@
       "version": "0.1.0",
       "url": "https://github.com/SnowflakePowered/spirv-cross2",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3798,7 +3853,7 @@
       "version": "0.7.3",
       "url": "https://github.com/RustCrypto/formats/tree/master/spki",
       "licenses": [
-        33
+        34
       ]
     },
     {
@@ -3822,7 +3877,7 @@
       "version": "0.11.1",
       "url": "https://github.com/rapidfuzz/strsim-rs",
       "licenses": [
-        128
+        130
       ]
     },
     {
@@ -3830,7 +3885,7 @@
       "version": "0.27.2",
       "url": "https://github.com/Peternator7/strum",
       "licenses": [
-        107
+        109
       ]
     },
     {
@@ -3838,7 +3893,7 @@
       "version": "0.27.2",
       "url": "https://github.com/Peternator7/strum",
       "licenses": [
-        107
+        109
       ]
     },
     {
@@ -3846,7 +3901,7 @@
       "version": "2.6.1",
       "url": "https://github.com/dalek-cryptography/subtle",
       "licenses": [
-        54
+        55
       ]
     },
     {
@@ -3870,7 +3925,7 @@
       "version": "2.0.119",
       "url": "https://github.com/dtolnay/syn",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3878,7 +3933,7 @@
       "version": "3.0.3",
       "url": "https://github.com/dtolnay/syn",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3886,7 +3941,7 @@
       "version": "1.0.2",
       "url": "https://github.com/Actyx/sync_wrapper",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3894,7 +3949,7 @@
       "version": "0.13.2",
       "url": "https://github.com/mystor/synstructure",
       "licenses": [
-        89
+        91
       ]
     },
     {
@@ -3902,7 +3957,7 @@
       "version": "0.32.1",
       "url": "https://github.com/GuillaumeGomez/sysinfo",
       "licenses": [
-        130
+        132
       ]
     },
     {
@@ -3910,7 +3965,7 @@
       "version": "0.35.3",
       "url": "https://github.com/tauri-apps/tao",
       "licenses": [
-        41
+        42
       ]
     },
     {
@@ -3926,7 +3981,7 @@
       "version": "2.11.5",
       "url": "https://github.com/tauri-apps/tauri",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3934,7 +3989,7 @@
       "version": "2.6.3",
       "url": "https://github.com/tauri-apps/tauri",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3942,7 +3997,7 @@
       "version": "2.6.3",
       "url": "https://github.com/tauri-apps/tauri",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3950,7 +4005,7 @@
       "version": "2.5.1",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3958,7 +4013,7 @@
       "version": "2.3.3",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3966,7 +4021,7 @@
       "version": "2.4.9",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3974,7 +4029,7 @@
       "version": "2.7.1",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3982,7 +4037,7 @@
       "version": "2.5.1",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3990,7 +4045,7 @@
       "version": "2.3.2",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -3998,7 +4053,7 @@
       "version": "2.3.1",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4006,7 +4061,7 @@
       "version": "2.3.5",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4014,7 +4069,7 @@
       "version": "2.4.3",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4022,7 +4077,7 @@
       "version": "2.10.1",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4030,7 +4085,7 @@
       "version": "2.4.1",
       "url": "https://github.com/tauri-apps/plugins-workspace",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4038,7 +4093,7 @@
       "version": "2.11.3",
       "url": "https://github.com/tauri-apps/tauri",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4046,7 +4101,7 @@
       "version": "2.11.4",
       "url": "https://github.com/tauri-apps/tauri",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4054,7 +4109,7 @@
       "version": "2.0.0-rc.25",
       "url": "https://github.com/specta-rs/tauri-specta",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -4062,7 +4117,7 @@
       "version": "2.9.3",
       "url": "https://github.com/tauri-apps/tauri",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4086,7 +4141,7 @@
       "version": "0.3.7",
       "url": "https://github.com/binary-banter/test-each-file",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -4094,7 +4149,7 @@
       "version": "2.0.2",
       "url": "https://github.com/jansol/texpresso",
       "licenses": [
-        91
+        93
       ]
     },
     {
@@ -4102,7 +4157,7 @@
       "version": "1.1.1",
       "url": "https://github.com/rust-analyzer/text-size",
       "licenses": [
-        38
+        39
       ]
     },
     {
@@ -4110,7 +4165,7 @@
       "version": "0.1.2",
       "url": "https://github.com/UniversalGameExtraction/texture2ddecoder",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4118,7 +4173,7 @@
       "version": "1.0.69",
       "url": "https://github.com/dtolnay/thiserror",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4126,7 +4181,7 @@
       "version": "2.0.18",
       "url": "https://github.com/dtolnay/thiserror",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4134,7 +4189,7 @@
       "version": "1.0.69",
       "url": "https://github.com/dtolnay/thiserror",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4142,7 +4197,7 @@
       "version": "2.0.18",
       "url": "https://github.com/dtolnay/thiserror",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4158,7 +4213,7 @@
       "version": "0.11.3",
       "url": "https://github.com/image-rs/image-tiff",
       "licenses": [
-        101
+        103
       ]
     },
     {
@@ -4166,7 +4221,7 @@
       "version": "0.3.53",
       "url": "https://github.com/time-rs/time",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4174,7 +4229,7 @@
       "version": "0.1.9",
       "url": "https://github.com/time-rs/time",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4182,7 +4237,7 @@
       "version": "0.2.31",
       "url": "https://github.com/time-rs/time",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4190,7 +4245,7 @@
       "version": "0.8.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -4198,7 +4253,7 @@
       "version": "1.52.3",
       "url": "https://github.com/tokio-rs/tokio",
       "licenses": [
-        119
+        121
       ]
     },
     {
@@ -4206,7 +4261,7 @@
       "version": "2.7.0",
       "url": "https://github.com/tokio-rs/tokio",
       "licenses": [
-        108
+        110
       ]
     },
     {
@@ -4214,7 +4269,7 @@
       "version": "0.3.1",
       "url": "https://github.com/tokio-rs/tls",
       "licenses": [
-        84
+        86
       ]
     },
     {
@@ -4230,7 +4285,7 @@
       "version": "0.7.18",
       "url": "https://github.com/tokio-rs/tokio",
       "licenses": [
-        119
+        121
       ]
     },
     {
@@ -4310,7 +4365,7 @@
       "version": "0.5.3",
       "url": "https://github.com/tower-rs/tower",
       "licenses": [
-        85
+        87
       ]
     },
     {
@@ -4318,7 +4373,7 @@
       "version": "0.6.11",
       "url": "https://github.com/tower-rs/tower-http",
       "licenses": [
-        86
+        88
       ]
     },
     {
@@ -4326,7 +4381,7 @@
       "version": "0.3.3",
       "url": "https://github.com/tower-rs/tower",
       "licenses": [
-        85
+        87
       ]
     },
     {
@@ -4334,7 +4389,7 @@
       "version": "0.3.3",
       "url": "https://github.com/tower-rs/tower",
       "licenses": [
-        85
+        87
       ]
     },
     {
@@ -4342,7 +4397,7 @@
       "version": "0.1.44",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        84
+        86
       ]
     },
     {
@@ -4350,7 +4405,7 @@
       "version": "0.2.5",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        84
+        86
       ]
     },
     {
@@ -4358,7 +4413,7 @@
       "version": "0.1.31",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        84
+        86
       ]
     },
     {
@@ -4366,7 +4421,7 @@
       "version": "0.1.36",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        84
+        86
       ]
     },
     {
@@ -4374,7 +4429,7 @@
       "version": "0.2.0",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        84
+        86
       ]
     },
     {
@@ -4382,7 +4437,7 @@
       "version": "0.3.23",
       "url": "https://github.com/tokio-rs/tracing",
       "licenses": [
-        84
+        86
       ]
     },
     {
@@ -4398,7 +4453,7 @@
       "version": "0.2.5",
       "url": "https://github.com/seanmonstar/try-lock",
       "licenses": [
-        80
+        82
       ]
     },
     {
@@ -4406,7 +4461,7 @@
       "version": "1.0.3",
       "url": "https://github.com/dtolnay/typeid",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4418,11 +4473,19 @@
       ]
     },
     {
+      "name": "ufbx",
+      "version": "0.11.5",
+      "url": "https://github.com/ufbx/ufbx-rust",
+      "licenses": [
+        120
+      ]
+    },
+    {
       "name": "unic-char-property",
       "version": "0.9.0",
       "url": "https://github.com/open-i18n/rust-unic/",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4430,7 +4493,7 @@
       "version": "0.9.0",
       "url": "https://github.com/open-i18n/rust-unic/",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4438,7 +4501,7 @@
       "version": "0.9.0",
       "url": "https://github.com/open-i18n/rust-unic/",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4446,7 +4509,7 @@
       "version": "0.9.0",
       "url": "https://github.com/open-i18n/rust-unic/",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4454,7 +4517,7 @@
       "version": "0.9.0",
       "url": "https://github.com/open-i18n/rust-unic/",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4462,8 +4525,8 @@
       "version": "1.0.24",
       "url": "https://github.com/dtolnay/unicode-ident",
       "licenses": [
-        44,
-        146
+        45,
+        149
       ]
     },
     {
@@ -4495,7 +4558,7 @@
       "version": "0.2.11",
       "url": "https://github.com/dtolnay/unsafe-libyaml",
       "licenses": [
-        121
+        123
       ]
     },
     {
@@ -4503,7 +4566,7 @@
       "version": "0.9.0",
       "url": "https://github.com/briansmith/untrusted",
       "licenses": [
-        64
+        65
       ]
     },
     {
@@ -4515,11 +4578,19 @@
       ]
     },
     {
+      "name": "urlencoding",
+      "version": "2.1.3",
+      "url": "https://github.com/kornelski/rust_urlencoding",
+      "licenses": [
+        144
+      ]
+    },
+    {
       "name": "urlpattern",
       "version": "0.3.0",
       "url": "https://github.com/denoland/rust-urlpattern",
       "licenses": [
-        112
+        114
       ]
     },
     {
@@ -4543,7 +4614,7 @@
       "version": "0.3.9",
       "url": "https://github.com/rust-av/v_frame",
       "licenses": [
-        46
+        47
       ]
     },
     {
@@ -4551,7 +4622,7 @@
       "version": "2.5.0",
       "url": "https://github.com/BurntSushi/walkdir",
       "licenses": [
-        127
+        129
       ]
     },
     {
@@ -4559,7 +4630,7 @@
       "version": "0.3.1",
       "url": "https://github.com/seanmonstar/want",
       "licenses": [
-        79
+        81
       ]
     },
     {
@@ -4591,7 +4662,7 @@
       "version": "0.38.2",
       "url": "https://github.com/wravery/webview2-rs",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -4599,7 +4670,7 @@
       "version": "0.8.1",
       "url": "https://github.com/wravery/webview2-rs",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -4607,7 +4678,7 @@
       "version": "0.38.2",
       "url": "https://github.com/wravery/webview2-rs",
       "licenses": [
-        118
+        120
       ]
     },
     {
@@ -4631,7 +4702,7 @@
       "version": "0.1.11",
       "url": "https://github.com/BurntSushi/winapi-util",
       "licenses": [
-        134
+        136
       ]
     },
     {
@@ -4911,7 +4982,7 @@
       "version": "0.7.15",
       "url": "https://github.com/winnow-rs/winnow",
       "licenses": [
-        122
+        124
       ]
     },
     {
@@ -4919,7 +4990,7 @@
       "version": "1.0.4",
       "url": "https://github.com/winnow-rs/winnow",
       "licenses": [
-        122
+        124
       ]
     },
     {
@@ -4927,7 +4998,7 @@
       "version": "0.10.1",
       "url": "https://github.com/gentoo90/winreg-rs",
       "licenses": [
-        73
+        74
       ]
     },
     {
@@ -4935,7 +5006,7 @@
       "version": "0.55.0",
       "url": "https://github.com/gentoo90/winreg-rs",
       "licenses": [
-        73
+        74
       ]
     },
     {
@@ -4943,7 +5014,7 @@
       "version": "0.6.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -4959,7 +5030,7 @@
       "version": "0.8.17",
       "url": "https://github.com/DoumanAsh/xxhash-rust",
       "licenses": [
-        60
+        61
       ]
     },
     {
@@ -4975,7 +5046,7 @@
       "version": "0.8.0",
       "url": "https://github.com/image-rs/y4m.git",
       "licenses": [
-        131
+        133
       ]
     },
     {
@@ -4983,7 +5054,7 @@
       "version": "0.3.2",
       "url": "https://github.com/jelmer/yaml-edit",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -4991,7 +5062,7 @@
       "version": "0.8.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -4999,7 +5070,7 @@
       "version": "0.8.2",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -5007,7 +5078,7 @@
       "version": "0.4.0",
       "url": "https://github.com/rorosen/zeekstd",
       "licenses": [
-        49
+        50
       ]
     },
     {
@@ -5031,7 +5102,7 @@
       "version": "0.1.8",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -5039,7 +5110,7 @@
       "version": "0.1.7",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -5063,7 +5134,7 @@
       "version": "0.2.4",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -5071,7 +5142,7 @@
       "version": "0.11.6",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -5079,7 +5150,7 @@
       "version": "0.11.3",
       "url": "https://github.com/unicode-org/icu4x",
       "licenses": [
-        147
+        150
       ]
     },
     {
@@ -5087,7 +5158,7 @@
       "version": "2.4.2",
       "url": "https://github.com/zip-rs/zip2.git",
       "licenses": [
-        125
+        127
       ]
     },
     {
@@ -5095,7 +5166,7 @@
       "version": "4.6.1",
       "url": "https://github.com/zip-rs/zip2.git",
       "licenses": [
-        125
+        127
       ]
     },
     {
@@ -5103,7 +5174,7 @@
       "version": "1.0.23",
       "url": "https://github.com/dtolnay/zmij",
       "licenses": [
-        121
+        123
       ]
     },
     {
@@ -5119,7 +5190,7 @@
       "version": "0.13.3",
       "url": "https://github.com/gyscos/zstd-rs",
       "licenses": [
-        138
+        140
       ]
     },
     {
@@ -5127,7 +5198,7 @@
       "version": "7.2.4",
       "url": "https://github.com/gyscos/zstd-rs",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -5135,7 +5206,7 @@
       "version": "2.0.16+zstd.1.5.7",
       "url": "https://github.com/gyscos/zstd-rs",
       "licenses": [
-        44
+        45
       ]
     },
     {
@@ -5150,7 +5221,7 @@
       "name": "zune-inflate",
       "version": "0.2.54",
       "licenses": [
-        44
+        45
       ]
     },
     {

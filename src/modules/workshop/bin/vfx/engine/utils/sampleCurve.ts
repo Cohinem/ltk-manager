@@ -245,13 +245,36 @@ export function integratedInto(
   }
 }
 
+/** The number of recent tables per order that `bakedOf` returns without the map lookup. */
+const RECENT = 8;
+
+/* The most recently read tables, by order. The particles of one emitter read the same few tables
+   in turn (velocity, acceleration, the scroll of each texture layer), so most reads hit here. */
+const RECENT_VALUES: (ValueCurve | null)[][] = [
+  new Array(RECENT).fill(null),
+  new Array(RECENT).fill(null),
+];
+const RECENT_BAKED: Float32Array[][] = [new Array(RECENT), new Array(RECENT)];
+const RECENT_NEXT = [0, 0];
+
 function bakedOf(value: ValueCurve, order: 1 | 2): Float32Array {
-  const cache = BAKED[order - 1];
+  const slot = order - 1;
+  const values = RECENT_VALUES[slot];
+  for (let at = 0; at < RECENT; at += 1) {
+    if (values[at] === value) return RECENT_BAKED[slot][at];
+  }
+
+  const cache = BAKED[slot];
   let baked = cache.get(value);
   if (baked === undefined) {
     baked = order === 1 ? bakeIntegral(value) : bakeSecondIntegral(value);
     cache.set(value, baked);
   }
+
+  const at = RECENT_NEXT[slot];
+  values[at] = value;
+  RECENT_BAKED[slot][at] = baked;
+  RECENT_NEXT[slot] = (at + 1) % RECENT;
   return baked;
 }
 

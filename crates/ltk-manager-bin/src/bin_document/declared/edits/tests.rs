@@ -190,6 +190,7 @@ fn a_duplicated_emitter_declares_as_one_undoable_edit() {
                 path: String::new(),
                 index: Some(2),
                 unique: Some(field("emitterName")),
+                key: None,
             }],
             schema().at(Some(BUILD)),
         )
@@ -223,6 +224,7 @@ fn an_emitter_copied_to_the_end_declares_an_addition() {
                 path: String::new(),
                 index: Some(3),
                 unique: Some(field("emitterName")),
+                key: None,
             }],
             schema().at(Some(BUILD)),
         )

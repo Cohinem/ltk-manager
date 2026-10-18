@@ -27,7 +27,7 @@ const CASTING = new Scene();
  * Draws the shadow casters of `scene` into its sun shadow map, as the client's pass 1.
  *
  * The map is centred on the ground that `eye` looks at. If no caster is drawing, the map is
- * left alone and its receivers read no shadow.
+ * left alone and its receivers read no shadow. The caller updates the scene's matrices first.
  *
  * shortcut: the client draws the characters into the same map first, and this pass draws the
  * particles alone. Upgrade when a character in the preview should cast a shadow.
@@ -39,7 +39,6 @@ export function drawShadows(gl: WebGLRenderer, scene: Scene, eye: Camera): void 
   if (casters.length === 0) return;
 
   aimSunShadow(shadow, eye);
-  scene.updateMatrixWorld();
   for (const caster of casters) {
     const twin = twinOf(caster, eye);
     if (twin !== null) CASTING.add(twin);

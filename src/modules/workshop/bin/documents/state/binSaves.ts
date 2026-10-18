@@ -82,6 +82,25 @@ export function onBinSaved(listener: (asset: string) => void): () => void {
   });
 }
 
+/** Who is told of each edit that lands on an asset, by the asset's save key. */
+const editListeners = new Map<string, Set<() => void>>();
+
+/** Tell `listener` of each edit a tree or a field lands on `asset`. Returns the unsubscribe. */
+export function onBinEdit(asset: string, listener: () => void): () => void {
+  const held = editListeners.get(asset) ?? new Set();
+  held.add(listener);
+  editListeners.set(asset, held);
+  return () => {
+    held.delete(listener);
+    if (held.size === 0) editListeners.delete(asset);
+  };
+}
+
+/** Tell the listeners of `asset` that an edit landed on it. An undo or a redo is no edit. */
+export function announceBinEdit(asset: string) {
+  for (const listener of editListeners.get(asset) ?? []) listener();
+}
+
 /** Queue a save of `asset` through `document` after a patch landed, restarting the wait. */
 export function queueForSave(asset: string, document: BinDocumentId) {
   const queued = saveQueue.get(asset);

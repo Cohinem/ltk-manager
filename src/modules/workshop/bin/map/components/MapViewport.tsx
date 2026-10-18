@@ -1,16 +1,15 @@
-import {
-  CaretDownIcon,
-  CastleTurretIcon,
-  CloudSunIcon,
-  ConfettiIcon,
-  SparkleIcon,
-} from "@phosphor-icons/react";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import { Button, IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
-import type { AssetRef, BinDocumentId, MapPath, MapVariant } from "@/lib/tauri";
-import { type Bounds, FitCamera, FrameOnCommit, useSceneColors } from "@/modules/viewport";
+import type { AssetRef, BinDocumentId, MapVariant } from "@/lib/tauri";
+import {
+  type Bounds,
+  FitCamera,
+  FrameOnCommit,
+  meshVisible,
+  useBackdropSun,
+  useSceneColors,
+} from "@/modules/viewport";
 import {
   usePreviewAmbientOcclusion,
   usePreviewBackdropEvents,
@@ -20,29 +19,38 @@ import {
   usePreviewPostEffects,
   usePreviewShaders,
   usePreviewSun,
-  useSetPreviewDisplay,
 } from "@/stores";
 
-import { CameraMenu } from "../../shared/preview/CameraMenu";
 import { Notice } from "../../shared/preview/Notice";
-import { PreviewToggle, ShadersToggle } from "../../shared/preview/PreviewToggle";
 import { PreviewViewport } from "../../shared/preview/PreviewViewport";
 import { useFitRequest } from "../../shared/preview/useFitRequest";
-import { ViewModeMenu } from "../../shared/preview/ViewModeMenu";
-import { FitButton, ViewportControls } from "../../shared/preview/ViewportControls";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { passesOf } from "../../vfx/rendering/utils/passes";
+import { useGeometryMeshes } from "../hooks/useGeometryMeshes";
+import { useMapEditKeys } from "../hooks/useMapEditKeys";
 import { useMapParticles } from "../hooks/useMapParticles";
-import { useMapScene } from "../state/mapScene";
-import { variantLabel } from "../utils/mapVariants";
+import { useMeshImport } from "../hooks/useMeshImport";
+import { usePlaceableActions } from "../hooks/usePlaceableActions";
+import { useSunEdit } from "../hooks/useSunEdit";
+import { useViewportEdits } from "../hooks/useViewportEdits";
+import { isGizmoTool, useMapScene } from "../state/mapScene";
+import { meshIndexOf } from "../utils/meshSelection";
+import { withDragged } from "../utils/placeableSpace";
 import { BoxSelect } from "./BoxSelect";
+import { CanvasClick } from "./CanvasClick";
+import { GroundProbe, type GroundProbeFn } from "./GroundProbe";
+import { ImportMeshDialog } from "./ImportMeshDialog";
 import { MapCharacters } from "./MapCharacters";
 import { MapFocus } from "./MapFocus";
 import { MapMarkers } from "./MapMarkers";
 import { MapParticles } from "./MapParticles";
-import { PlaceableButtons, usePlaceablePicking } from "./PlaceablePicking";
-import { PostEffectsControl } from "./PostEffectsControl";
-import { SunControl } from "./SunControl";
+import { ToolRail, TopRail } from "./MapToolbar";
+import { MeshHighlight } from "./MeshHighlight";
+import { PlaceableGizmo } from "./PlaceableGizmo";
+import { usePlaceablePicking } from "./PlaceablePicking";
+import { PlaceableShapes } from "./PlaceableShapes";
+import { RenamePlaceableDialog } from "./RenamePlaceableDialog";
+import { SunHandle } from "./SunHandle";
 
 /**
  * What a free camera frames of a map, around where the middle of the map stands.
@@ -91,15 +99,45 @@ interface MapSceneProps {
 }
 
 function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
-  const { pick, materials, hidden, focus, selected, backdrop } = useMapScene();
+  const { pick, materials, hidden, focus, selected, backdrop, editable, tool } = useMapScene();
+  const { renaming, setRenaming, dragged, geometryEdited, geometryOpening } = useMapScene();
+  const { space, snap, sunHandle } = useMapScene();
   const box = useRef<HTMLDivElement>(null);
   const picking = usePlaceablePicking();
+  const actions = usePlaceableActions();
+  const meshes = useGeometryMeshes();
+  const { visibility } = backdrop;
+  const drawnVisibility = useMemo(() => {
+    const hiddenMeshes = new Set<number>();
+    for (const id of hidden) {
+      const index = meshIndexOf(id);
+      if (index !== null) hiddenMeshes.add(index);
+    }
+    return hiddenMeshes.size === 0 ? visibility : { ...visibility, hiddenMeshes };
+  }, [visibility, hidden]);
+  /* What a click can pick: the meshes the backdrop draws under the shown state. */
+  const shownMesh = useCallback(
+    (index: number) => {
+      const mesh = meshes.drawn?.meshes[index];
+      if (mesh === undefined || drawnVisibility.hiddenMeshes?.has(index) === true) return false;
+      return meshVisible(drawnVisibility, mesh.visibility, mesh.controller);
+    },
+    [meshes.drawn, drawnVisibility],
+  );
+  const edits = useViewportEdits(actions, meshes, picking, shownMesh);
+  const probe = useRef<GroundProbeFn | null>(null);
+  const importer = useMeshImport(box, probe);
+  const onKeyDown = useMapEditKeys(actions, meshes, edits.drop);
   const colors = useSceneColors();
   const shaders = usePreviewShaders();
   const source = useMemo(
-    () => ({ map: chosen.map, document, geometry, shaders }),
-    [chosen.map, document, geometry, shaders],
+    () =>
+      geometryOpening
+        ? null
+        : { map: chosen.map, document, geometry, shaders, edited: geometryEdited },
+    [chosen.map, document, geometry, shaders, geometryEdited, geometryOpening],
   );
+  const clicks = !picking.boxing && (tool !== "place" || editable);
 
   const particles = usePreviewBackdropParticles();
   const structures = usePreviewBackdropStructures();
@@ -107,10 +145,10 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const sun = usePreviewSun();
   const postEffects = usePreviewPostEffects();
   const ambientOcclusion = usePreviewAmbientOcclusion();
-  const setDisplay = useSetPreviewDisplay();
-  const { visibility } = backdrop;
 
   const [origin, setOrigin] = useState<readonly [number, number, number] | null>(null);
+  const mapSun = useBackdropSun(source);
+  const sunEdit = useSunEdit();
   const events = usePreviewBackdropEvents();
   const played = useMapParticles(particles ? materials : null, visibility, {
     hidden,
@@ -123,121 +161,114 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
 
   return (
     <>
-      <div ref={box} data-ui="MapViewport" className="relative min-h-0 flex-1">
-        <PreviewViewport
-          renderer="shared"
-          /* A still map with nothing animated in view draws no frames. The backdrop, the
+      <div
+        data-ui="MapViewport"
+        className="flex min-h-0 flex-1 flex-col outline-none"
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+      >
+        <TopRail
+          picking={picking}
+          source={source}
+          variants={variants}
+          chosen={chosen}
+          onPick={pick}
+          onAddMesh={() => void importer.pick()}
+          onFrame={refit}
+        />
+        <div className="flex min-h-0 flex-1">
+          <ToolRail picking={picking} />
+          <div ref={box} data-ui="MapViewport:canvas" className="relative min-h-0 min-w-0 flex-1">
+            <PreviewViewport
+              gizmoCorner="bottom-right"
+              renderer="shared"
+              /* A still map with nothing animated in view draws no frames. The backdrop, the
              particles and the characters each request frames while they change. */
-          frameloop="demand"
-          stage={false}
-          textured={false}
-          backdrop={source}
-          backdropVisibility={visibility}
-          backdropSky={sky}
-          sun={sun}
-          postEffects={postEffects}
-          ambientOcclusion={ambientOcclusion}
-          onBackdropOrigin={setOrigin}
-        >
-          <FrameOnCommit />
-          {origin !== null && <FitCamera bounds={MAP_FRAME} ground={origin} token={fitToken} />}
-          <Passes warps={warps} softens={softens} />
-          <MapParticles groups={played} />
-          {structures && (
-            <MapCharacters document={materials} visibility={visibility} hidden={hidden} />
-          )}
-          <MapFocus focus={focus} colors={colors} />
-          {picking.shown && (
-            <MapMarkers
-              items={picking.items}
-              hidden={hidden}
-              selected={selected}
-              colors={colors}
-              projector={picking.projector}
-            />
-          )}
-        </PreviewViewport>
-        <BoxSelect target={box} active={picking.boxing} onBox={picking.onBox} />
-        {origin === null && (
-          <div className="pointer-events-none absolute inset-0 flex">
-            <Notice text={m.workshop_bin_map_preview_loading_label()} />
+              frameloop="demand"
+              stage={false}
+              textured={false}
+              backdrop={source}
+              backdropVisibility={drawnVisibility}
+              backdropSky={sky}
+              sun={editable ? null : sun}
+              postEffects={editable ? null : postEffects}
+              ambientOcclusion={ambientOcclusion}
+              onBackdropOrigin={setOrigin}
+            >
+              <FrameOnCommit />
+              {origin !== null && <FitCamera bounds={MAP_FRAME} ground={origin} token={fitToken} />}
+              <Passes warps={warps} softens={softens} />
+              <MapParticles groups={played} />
+              {structures && (
+                <MapCharacters document={materials} visibility={visibility} hidden={hidden} />
+              )}
+              <MapFocus focus={focus} colors={colors} />
+              {picking.shown && (
+                <MapMarkers
+                  items={picking.items}
+                  hidden={hidden}
+                  selected={selected}
+                  colors={colors}
+                  projector={picking.projector}
+                />
+              )}
+              <PlaceableShapes
+                items={picking.shown ? picking.items : withDragged(actions.selection, dragged)}
+                hidden={hidden}
+                selected={selected}
+                colors={colors}
+              />
+              <MeshHighlight
+                map={meshes.drawn}
+                meshes={meshes.selection}
+                dragged={dragged}
+                colors={colors}
+              />
+              {sunHandle && sunEdit !== null && origin !== null && mapSun !== null && (
+                <SunHandle
+                  origin={origin}
+                  direction={mapSun.direction}
+                  color={colors.gizmo}
+                  onCommit={sunEdit}
+                />
+              )}
+              {editable && isGizmoTool(tool) && (
+                <PlaceableGizmo
+                  items={edits.gizmoItems}
+                  tool={tool}
+                  space={space}
+                  snap={snap}
+                  onCommit={edits.commit}
+                  onDrag={edits.drag}
+                />
+              )}
+              {clicks && <CanvasClick onClick={edits.click} />}
+              <GroundProbe probe={probe} drawn={meshes.drawn} shown={shownMesh} />
+            </PreviewViewport>
+            {importer.request !== null && (
+              <ImportMeshDialog
+                key={importer.request.path}
+                importer={importer}
+                request={importer.request}
+              />
+            )}
+            {renaming && actions.lead !== null && (
+              <RenamePlaceableDialog
+                key={actions.lead.id}
+                placed={actions.lead}
+                actions={actions}
+                onClose={() => setRenaming(false)}
+              />
+            )}
+            <BoxSelect target={box} active={picking.boxing} onBox={picking.onBox} />
+            {origin === null && (
+              <div className="pointer-events-none absolute inset-0 flex">
+                <Notice text={m.workshop_bin_map_preview_loading_label()} />
+              </div>
+            )}
           </div>
-        )}
-
-        <ViewportControls data-ui="MapViewport:controls">
-          {variants.length > 1 && <VariantMenu variants={variants} chosen={chosen} onPick={pick} />}
-          <PreviewToggle
-            flag="previewBackdropParticles"
-            label={m.workshop_bin_preview_backdrop_particles_label()}
-            icon={<SparkleIcon />}
-          />
-          <IconButton
-            pressed={particles && events}
-            icon={<ConfettiIcon />}
-            onClick={() =>
-              setDisplay({ previewBackdropParticles: true, previewBackdropEvents: !events })
-            }
-            label={m.workshop_bin_preview_backdrop_events_label()}
-          />
-          <PreviewToggle
-            flag="previewBackdropStructures"
-            label={m.workshop_bin_preview_backdrop_structures_label()}
-            icon={<CastleTurretIcon />}
-          />
-          <PreviewToggle
-            flag="previewBackdropSky"
-            label={m.workshop_bin_preview_backdrop_sky_label()}
-            icon={<CloudSunIcon />}
-          />
-          <ShadersToggle />
-          <PlaceableButtons picking={picking} />
-          <SunControl source={source} />
-          <PostEffectsControl source={source} />
-          <ViewModeMenu />
-          <CameraMenu />
-          <FitButton label={m.workshop_bin_mesh_preview_fit_action()} onFit={refit} />
-        </ViewportControls>
+        </div>
       </div>
     </>
-  );
-}
-
-interface VariantMenuProps {
-  readonly variants: readonly MapVariant[];
-  readonly chosen: MapVariant;
-  readonly onPick: (map: MapPath) => void;
-}
-
-/** Which skin of a map the preview draws, named on a pill over a menu of them all. */
-function VariantMenu({ variants, chosen, onPick }: VariantMenuProps) {
-  return (
-    <Menu.Root>
-      <Menu.Trigger
-        render={
-          <Button
-            variant="ghost"
-            size="xs"
-            aria-label={m.workshop_bin_map_preview_skin_label()}
-            right={<CaretDownIcon weight="bold" className="size-3" />}
-          >
-            {variantLabel(chosen)}
-          </Button>
-        }
-      />
-      {/* A map lists up to 37 skins, more than a menu shows without scrolling. */}
-      <Menu.Content
-        align="end"
-        data-ui="MapSkinMenu"
-        className="max-h-96 w-56 overflow-y-auto scrollbar-md"
-      >
-        <Menu.RadioGroup value={chosen.map} onValueChange={(map) => onPick(map as MapPath)}>
-          {variants.map((variant) => (
-            <Menu.RadioItem key={`${variant.skin}:${variant.map}`} value={variant.map}>
-              {variantLabel(variant)}
-            </Menu.RadioItem>
-          ))}
-        </Menu.RadioGroup>
-      </Menu.Content>
-    </Menu.Root>
   );
 }

@@ -1228,6 +1228,8 @@ geometry, the materials, their textures and the skins of what the map stands. A 
 named by the hex of its chunk hash answers the path that hashes to it, which is how the game
 itself reaches it.
 
+The editing tools of the map shell are specified in docs/ux/MAP_EDITOR.md.
+
 ### The order of a file's objects
 
 A file's objects are listed by class and then by name, digits by their value and without regard

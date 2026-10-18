@@ -31,7 +31,14 @@ import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { useDrawStencil } from "../state/stencil";
 import { WIRE_ORDER } from "../state/wire";
 import { fragmentTests, premultiplyInto } from "../utils/blend";
-import { type MeshBuffers, MESHES_PER_EMITTER, written } from "../utils/buffers";
+import {
+  MESH_LAYOUT,
+  MESH_STRIDE,
+  type MeshBuffers,
+  MESHES_PER_EMITTER,
+  rowsWritten,
+  written,
+} from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
 import { castsShadow } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
@@ -78,8 +85,8 @@ const BEAM_TURN = new Quaternion();
 /** Squared beam length at or below which the engine skips a beam mesh. */
 const BEAM_SHORTEST = 1e-9;
 
-/** The floats of `lookup` per instance: the ramp's two, then the erosion drive. */
-const LOOKUP_FLOATS = 3;
+/** Where the lookup starts in an instance's row: the ramp's two floats, then the erosion drive. */
+const LOOKUP = MESH_LAYOUT.lookup[0];
 
 /** The rim, the reflection and the soft fade a mesh's shader compiles, and no ramp. */
 const DRAWS: LayerDraws = { ramp: false, sheen: true, fade: true };
@@ -121,7 +128,7 @@ export function Meshes({
   hidden,
   document = null,
 }: MeshesProps) {
-  const { geometry, tint, lookup } = buffers;
+  const { geometry, tint } = buffers;
   const beam = emitter.beam;
   const depth = useMemo(() => depthOf(geometry), [geometry]);
   const material = useMemo(() => {
@@ -170,7 +177,7 @@ export function Meshes({
     sourcesScrollInto(emitter, sources, scroll);
     for (const each of programs) writePaletteScroll(each.material, scroll);
     const turns = [buffers.uvTurn, buffers.uvTurnMult];
-    const lookups = lookup.array as Float32Array;
+    const rows = buffers.rows.array as Float32Array;
     const shifts = [buffers.uvShift, buffers.uvShiftMult];
 
     const stamp = renderStamp(state.gl);
@@ -198,8 +205,10 @@ export function Meshes({
         const age = time - pool.birthTime[at];
         buffers.pose?.write(instance, age);
         const through = age01(pool, at, time);
-        colorLookupInto(emitter, pool, at, through, lookups, instance * LOOKUP_FLOATS);
-        lookups[instance * LOOKUP_FLOATS + 2] = erosionDrive(pool, at, emitter, time);
+
+        const row = instance * MESH_STRIDE;
+        colorLookupInto(emitter, pool, at, through, rows, row + LOOKUP);
+        rows[row + LOOKUP + 2] = erosionDrive(pool, at, emitter, time);
         for (let layer = 0; layer < turns.length; layer += 1) {
           const over = layerOf(emitter, layer);
           if (over === null) continue;
@@ -246,9 +255,8 @@ export function Meshes({
     showPair(pair, instance > 0);
     if (instance === 0) return;
     buffers.pose?.commit(instance);
-    for (const attribute of [buffers.instanceMatrix, tint, lookup, ...turns, ...shifts]) {
-      written(attribute, instance);
-    }
+    written(buffers.instanceMatrix, instance);
+    rowsWritten(buffers.rows, instance);
   });
 
   return (

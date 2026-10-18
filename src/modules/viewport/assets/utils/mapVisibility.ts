@@ -17,6 +17,8 @@ export interface MapVisibility {
   readonly flags: number;
   /** The state of each declared controller, keyed by path hash as `0x` and eight hex digits. */
   readonly controllers: ReadonlyMap<string, boolean>;
+  /** The meshes a reader hid, by index, which no flag or controller shows. */
+  readonly hiddenMeshes?: ReadonlySet<number>;
 }
 
 const NO_CONTROLLERS: ReadonlyMap<string, boolean> = new Map();

@@ -19,6 +19,7 @@ use tauri::http::{header, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager};
 
 use crate::error::AppError;
+use crate::services::preview::{MapGeometryDocuments, MapGeometryId};
 use crate::state::SettingsState;
 
 /// The scheme a preview URL carries.
@@ -41,6 +42,13 @@ const GEOMETRY_FORM: &str = "geometry";
 /// The [`FORM_PARAMETER`] value asking a map for its every mesh in one buffer.
 const MAP_FORM: &str = "map";
 
+/// The parameter that asks for a map's buffer from the `.mapgeo` open under that id, with its
+/// edits, in place of the file's.
+const GEOMETRY_DOCUMENT_PARAMETER: &str = "geometry";
+
+/// The parameter that narrows an open `.mapgeo`'s buffer to the meshes it lists.
+const MESHES_PARAMETER: &str = "meshes";
+
 /// The [`FORM_PARAMETER`] value asking a skeleton for its joint buffer.
 const SKELETON_FORM: &str = "skeleton";
 
@@ -52,6 +60,8 @@ const CUBE_FORM: &str = "cube";
 
 /// The [`FORM_PARAMETER`] value asking a texture for its own mip chain in one buffer.
 const MIPS_FORM: &str = "mips";
+/// Asks a mip chain for the texture's own BC1 or BC3 blocks, which the client uploads as they are.
+const BLOCKS_PARAMETER: &str = "bc";
 
 /// The [`FORM_PARAMETER`] value asking a light grid for its ambient buffer.
 const LIGHT_GRID_FORM: &str = "lightgrid";
@@ -102,6 +112,13 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
         Err(message) => return message_response(StatusCode::BAD_REQUEST, &message),
     };
 
+    if let (PreviewRequest::Map, Some(id)) = (
+        &wanted,
+        parameter(request.uri().query(), GEOMETRY_DOCUMENT_PARAMETER),
+    ) {
+        return edited_map(app, id, parameter(request.uri().query(), MESHES_PARAMETER));
+    }
+
     let config = app.state::<SettingsState>().config();
 
     match asset.preview(wanted, &config, &app.state::<WadCache>()) {
@@ -113,6 +130,34 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
             tracing::debug!("No preview for {asset:?}: {e}");
             message_response(status_for(&e), &e.to_string())
         }
+    }
+}
+
+/// Answers the map buffer of the `.mapgeo` open under the id `id`, with its edits.
+///
+/// `meshes`, a comma list of mesh indices, narrows the buffer to those meshes in that order.
+fn edited_map(app: &AppHandle, id: &str, meshes: Option<&str>) -> Response<Vec<u8>> {
+    let Ok(id) = id.parse::<MapGeometryId>() else {
+        return message_response(StatusCode::BAD_REQUEST, "Not a map geometry id");
+    };
+    let documents = app.state::<MapGeometryDocuments>();
+
+    let answer = match meshes {
+        None => documents.preview(id),
+        Some(list) => {
+            let Ok(indices) = list
+                .split(',')
+                .map(str::parse::<usize>)
+                .collect::<Result<Vec<_>, _>>()
+            else {
+                return message_response(StatusCode::BAD_REQUEST, "Not a list of mesh indices");
+            };
+            documents.preview_meshes(id, &indices)
+        }
+    };
+    match answer {
+        Ok(bytes) => buffer_response(bytes),
+        Err(e) => message_response(StatusCode::NOT_FOUND, &e.to_string()),
     }
 }
 
@@ -140,6 +185,7 @@ fn requested(query: Option<&str>) -> Result<PreviewRequest, String> {
         Some(CUBE_FORM) => Ok(PreviewRequest::Cube),
         Some(MIPS_FORM) => Ok(PreviewRequest::Mips {
             min_width: requested_width(query)?,
+            blocks: parameter(query, BLOCKS_PARAMETER) == Some("1"),
         }),
         Some(LIGHT_GRID_FORM) => Ok(PreviewRequest::LightGrid),
         Some(FONT_FORM) => Ok(PreviewRequest::Font),
@@ -375,12 +421,16 @@ mod tests {
         assert_eq!(
             requested(Some("as=mips&w=64")),
             Ok(PreviewRequest::Mips {
-                min_width: NonZeroU32::new(64)
+                min_width: NonZeroU32::new(64),
+                blocks: false,
             })
         );
         assert_eq!(
-            requested(Some("as=mips")),
-            Ok(PreviewRequest::Mips { min_width: None })
+            requested(Some("as=mips&bc=1")),
+            Ok(PreviewRequest::Mips {
+                min_width: None,
+                blocks: true,
+            })
         );
         assert!(requested(Some("as=mips&w=0")).is_err());
     }

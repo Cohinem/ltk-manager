@@ -89,7 +89,7 @@ ltk_overlay = "0.17.0"
 ltk_wad = "0.5.10"
 
 ltk_anim = "0.3.12"
-ltk_mapgeo = "0.3.4"
+ltk_mapgeo = "0.3.5"
 ltk_mesh = { version = "0.5.5", features = ["tangent-baking"] }
 ltk_rst = "0.2.3"
 ltk_texture = { version = "0.6.6", features = ["intel-tex"] }
@@ -102,6 +102,8 @@ fs-err = "3"
 # The vector types `ltk_mesh` hands geometry back as, pinned to the version
 # every league-toolkit crate builds against.
 glam = "0.27"
+# Model files the map editor imports meshes from.
+gltf = { version = "1.4.1", default-features = false, features = ["import", "utils", "names"] }
 image = "0.25.2"
 image_dds = { version = "0.6", default-features = false, features = ["ddsfile", "image"] }
 indexmap = { version = "2", features = ["serde"] }
@@ -131,6 +133,8 @@ tempfile = "3"
 thiserror = "2"
 xxhash-rust = { version = "0.8", features = ["xxh64"] }
 tracing = "0.1"
+# FBX and OBJ reads for the map editor's mesh import. A C library that its build script compiles.
+ufbx = "0.11.5"
 uuid = { version = "1", features = ["v4"] }
 walkdir = "2.5"
 webp = "0.3"

@@ -112,7 +112,30 @@ const NO_TEXTURE: u32 = u32::MAX;
 /// where the map holds more of something than one buffer counts.
 pub fn render(bytes: &[u8]) -> Result<Vec<u8>, PreviewError> {
     let asset = EnvironmentAsset::from_reader(&mut Cursor::new(bytes))?;
-    Map::of(&asset)?.encode()
+    encode_map(&asset)
+}
+
+/// Encodes a parsed map into the buffer a viewport uploads.
+///
+/// # Errors
+///
+/// Fails for the reasons [`render`] documents, past the read.
+pub fn encode_map(asset: &EnvironmentAsset) -> Result<Vec<u8>, PreviewError> {
+    Map::of(asset)?.encode()
+}
+
+/// Encodes the meshes of `asset` at `meshes`, in that order, as a buffer of the whole map's
+/// layout. A viewport appends it to the buffer it holds for the map.
+///
+/// # Errors
+///
+/// Fails for the reasons [`render`] documents. An index past the meshes is skipped.
+pub fn encode_map_meshes(
+    asset: &EnvironmentAsset,
+    meshes: &[usize],
+) -> Result<Vec<u8>, PreviewError> {
+    let chosen = meshes.iter().filter_map(|&at| asset.meshes().get(at));
+    Map::of_meshes(asset, chosen)?.encode()
 }
 
 /// One map's geometry, in the blocks the buffer holds it in.
@@ -179,14 +202,27 @@ impl Map {
     ///
     /// Fails for the reasons [`render`] documents.
     fn of(asset: &EnvironmentAsset) -> Result<Self, PreviewError> {
-        let vertices: usize = asset
-            .meshes()
-            .iter()
+        Self::of_meshes(asset, asset.meshes().iter())
+    }
+
+    /// The meshes of `asset` that `meshes` yields, in that order, laid out as the whole map's
+    /// buffer lays them out.
+    ///
+    /// # Errors
+    ///
+    /// Fails for the reasons [`render`] documents.
+    fn of_meshes<'a>(
+        asset: &'a EnvironmentAsset,
+        meshes: impl Iterator<Item = &'a EnvironmentMesh> + Clone,
+    ) -> Result<Self, PreviewError> {
+        let vertices: usize = meshes
+            .clone()
             .map(|mesh| mesh.vertex_count() as usize)
             .sum();
         /* Whole-buffer rather than per-mesh, because one flat block cannot be ragged.
         Summoner's Rift carries no lightmap channel at all and Map12 carries it on all
-        but twelve meshes, so the cost lands per map rather than per mesh either way. */
+        but twelve meshes, so the cost lands per map rather than per mesh either way. Read
+        over the whole asset, so a part of the map has the layout of the whole. */
         let lightmapped = asset
             .meshes()
             .iter()
@@ -198,14 +234,14 @@ impl Map {
             uv0: Vec::with_capacity(vertices * 2),
             uv1: lightmapped.then(|| Vec::with_capacity(vertices * 2)),
             indices: Vec::new(),
-            meshes: Vec::with_capacity(asset.mesh_count()),
+            meshes: Vec::new(),
             submeshes: Vec::new(),
-            lights: Vec::with_capacity(asset.mesh_count()),
+            lights: Vec::new(),
             materials: IndexSet::new(),
             lightmaps: IndexSet::new(),
         };
 
-        for mesh in asset.meshes() {
+        for mesh in meshes {
             map.push(asset, mesh)?;
         }
         Ok(map)

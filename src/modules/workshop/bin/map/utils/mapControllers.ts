@@ -13,6 +13,14 @@ export function layerNumbers(mask: number): number[] {
   return numbers;
 }
 
+/**
+ * Returns the name of the layer bit `index`: the `PublicName` that `names` holds for it, or
+ * else its 1-based number.
+ */
+export function layerName(names: ReadonlyMap<number, string>, index: number): string {
+  return names.get(index) ?? m.workshop_bin_preview_backdrop_layer_label({ number: index + 1 });
+}
+
 /** The display text of a controller: its name, or its path hash if it has no name. */
 export function controllerLabel(controller: MapController): string {
   return controller.name ?? controller.hash;
@@ -45,7 +53,9 @@ export function ruleTitle(rule: MapControllerRule): string | null {
 }
 
 function layersLabel(mask: number): string {
-  return m.workshop_bin_preview_backdrop_layer_label({ number: layerNumbers(mask).join(", ") });
+  return m.workshop_bin_preview_backdrop_layer_label({
+    number: layerNumbers(mask).join(", "),
+  });
 }
 
 /** The kinds that a list groups its independent controllers by, in listed order. */

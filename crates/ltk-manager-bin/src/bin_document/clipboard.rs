@@ -27,6 +27,17 @@ pub const CLIPBOARD_FORMAT: &str = "ltk-manager/bin-value";
 /// The version of the clipboard text's shape.
 const CLIPBOARD_VERSION: u32 = 1;
 
+/// Where a copied or pasted item lands in its holder.
+#[derive(Debug, Clone, Copy, Default)]
+pub(super) struct Landing<'a> {
+    /// The position in the holder, or `None` for the end.
+    pub index: Option<usize>,
+    /// The entry's key where the holder is a map, spelled as [`super::NewItem::key`] spells one.
+    pub key: Option<&'a str>,
+    /// A string field of the item whose text [`BinDocument::unique_name`] makes unique.
+    pub unique: Option<BinHash>,
+}
+
 /// What a name made unique ends in, before its counter.
 const COPY_SUFFIX: &str = "_copy";
 
@@ -102,23 +113,21 @@ impl BinDocument {
         Ok(clipboard_text(value, class))
     }
 
-    /// Put a copy of the item at `from` into the list at `holder`, answering the copy's path.
-    ///
-    /// `unique` is a string field of the copy whose text [`BinDocument::unique_name`] makes
-    /// unique. Both stacks are left alone, so the caller records the edit.
+    /// Put a copy of the item at `from` into the list or map at `holder`, answering the copy's
+    /// path. Both stacks are left alone, so the caller records the edit.
     pub(super) fn copy_item(
         &mut self,
         entry: BinHash,
         from: &str,
         holder: &str,
-        index: Option<usize>,
-        unique: Option<BinHash>,
+        landing: Landing<'_>,
     ) -> Result<String, BinDocumentError> {
         let value = self.property_value(entry, from)?.clone();
-        self.land_item(entry, holder, index, value, unique)
+        self.land_item(entry, holder, landing, value)
     }
 
-    /// Put the value clipboard `text` carries into the list at `holder`, answering its path.
+    /// Put the value clipboard `text` carries into the list or map at `holder`, answering its
+    /// path.
     ///
     /// A struct value lands only where the holder takes its class: a class an item holds,
     /// the one `schema` declares for the holder, or one deriving from it. Both stacks are
@@ -127,9 +136,8 @@ impl BinDocument {
         &mut self,
         entry: BinHash,
         holder: &str,
-        index: Option<usize>,
+        landing: Landing<'_>,
         text: &str,
-        unique: Option<BinHash>,
         schema: SchemaAt<'_>,
     ) -> Result<String, BinDocumentError> {
         let refuse = |rejection| BinDocumentError::EditRejected {
@@ -141,22 +149,26 @@ impl BinDocument {
             return Err(refuse(EditRejection::ForeignClass));
         }
 
-        self.land_item(entry, holder, index, value, unique)
+        self.land_item(entry, holder, landing, value)
     }
 
     fn land_item(
         &mut self,
         entry: BinHash,
         holder: &str,
-        index: Option<usize>,
+        landing: Landing<'_>,
         value: PropertyValueEnum,
-        unique: Option<BinHash>,
     ) -> Result<String, BinDocumentError> {
-        let Edit::RemoveItem { path, .. } = self.put_item(entry, holder, index, None, value)?
+        let key = landing
+            .key
+            .map(|text| self.free_key(entry, holder, text))
+            .transpose()?;
+        let Edit::RemoveItem { path, .. } =
+            self.put_item(entry, holder, landing.index, key, value)?
         else {
             unreachable!("an insert is reverted by a removal");
         };
-        if let Some(field) = unique {
+        if let Some(field) = landing.unique {
             self.unique_name(entry, &path, field)?;
         }
 

@@ -82,6 +82,128 @@ fn a_chunk_answers_what_it_holds_under_the_path_it_is_declared_at() {
 }
 
 #[test]
+fn map_outline_reads_shapes_of_lights_probes_and_paths() {
+    let region = values::Struct {
+        class_hash: h("MapCubemapRegion"),
+        properties: [
+            (MIN, values::Vector3::new(vec3(-1.0, -2.0, -3.0)).into()),
+            (MAX, values::Vector3::new(vec3(1.0, 2.0, 3.0)).into()),
+        ]
+        .into_iter()
+        .collect(),
+    };
+    let segment = values::Struct {
+        class_hash: h("MapPathLineSegment"),
+        properties: [(
+            END_POSITION,
+            values::Vector3::new(vec3(5.0, 0.0, 5.0)).into(),
+        )]
+        .into_iter()
+        .collect(),
+    };
+    let segments = values::Container::new(Kind::Struct, vec![segment.into()]).unwrap();
+    let document = document_of(vec![container(
+        PLANTS,
+        vec![
+            (
+                "Bulb",
+                placeable(
+                    "MapDynamicPointLight",
+                    vec![(RADIUS, values::F32::new(300.0).into())],
+                ),
+            ),
+            (
+                "Spot",
+                placeable(
+                    "MapDynamicSpotlight",
+                    vec![(FAR.0, values::F32::new(800.0).into())],
+                ),
+            ),
+            (
+                "Probe",
+                placeable("MapCubemapProbe", vec![(CUBEMAP_REGION, region.into())]),
+            ),
+            (
+                "Path",
+                placeable("MapMotionPath", vec![(SEGMENTS, segments.into())]),
+            ),
+        ],
+    )]);
+
+    let items = &map_outline(&document, &Tables)[0].items;
+
+    assert_eq!(items[0].kind, MapItemKind::Light);
+    assert_eq!(items[0].shape, Some(MapItemShape::Sphere { radius: 300.0 }));
+    assert_eq!(
+        items[1].shape,
+        Some(MapItemShape::Frustum {
+            fov: 60.0,
+            aspect: 1.0,
+            near: 10.0,
+            far: 800.0,
+            orthographic: false,
+            ortho_height: 200.0,
+        })
+    );
+    assert_eq!(items[2].kind, MapItemKind::Probe);
+    assert_eq!(
+        items[2].shape,
+        Some(MapItemShape::Box {
+            min: [-1.0, -2.0, -3.0],
+            max: [1.0, 2.0, 3.0],
+        })
+    );
+    assert_eq!(items[3].kind, MapItemKind::Path);
+    assert_eq!(
+        items[3].shape,
+        Some(MapItemShape::Path {
+            points: vec![[0.0, 0.0, 0.0], [5.0, 0.0, 5.0]],
+        })
+    );
+    assert_eq!(items[3].transform, Mat4::IDENTITY.to_cols_array());
+}
+
+#[test]
+fn map_outline_reads_shapes_of_lighting_volumes_and_light_regions() {
+    let points = values::Container::new(
+        Kind::Vector3,
+        vec![
+            values::Vector3::new(vec3(-1.0, 0.0, -1.0)).into(),
+            values::Vector3::new(vec3(1.0, 0.0, -1.0)).into(),
+            values::Vector3::new(vec3(0.0, 0.0, 1.0)).into(),
+        ],
+    )
+    .unwrap();
+    let region = values::Struct {
+        class_hash: h("LightRegion"),
+        properties: [(POLYGON, points.into())].into_iter().collect(),
+    };
+    let document = document_of(vec![container(
+        PLANTS,
+        vec![
+            ("Volume", placeable("MapLightingVolume", vec![])),
+            (
+                "Region",
+                placeable(
+                    "LightRegionEntityTemplate",
+                    vec![(LIGHT_REGION_FIELD, values::Embedded(region).into())],
+                ),
+            ),
+        ],
+    )]);
+
+    let items = &map_outline(&document, &Tables)[0].items;
+
+    assert_eq!(items[0].shape, Some(MapItemShape::Volume));
+    assert_eq!(
+        items[1].shape,
+        Some(MapItemShape::Polygon {
+            points: vec![[-1.0, 0.0, -1.0], [1.0, 0.0, -1.0], [0.0, 0.0, 1.0]],
+        })
+    );
+}
+
+#[test]
 fn a_chunk_no_table_names_reads_as_the_key_its_container_lists_it_under() {
     let listing = values::Map::new(
         Kind::Hash,

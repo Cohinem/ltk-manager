@@ -32,11 +32,28 @@ import { Projections } from "./Projections";
 import { Quads } from "./Quads";
 import { Trails } from "./Trails";
 
-export interface VfxSystemProps {
+/**
+ * Where the emitters' particles come from: one simulation, or every source of each emitter
+ * path, for a draw of several runs of one system at once.
+ */
+type VfxFeed =
+  | {
+      /** The simulation whose pools the emitters draw. */
+      readonly driver: Driver;
+      readonly sourcesOf?: undefined;
+    }
+  | {
+      readonly driver?: undefined;
+      /**
+       * Every source that the emitters at `path` draw from, read every frame. The caller owns
+       * the simulations, their mesh joints and their emission surfaces.
+       */
+      readonly sourcesOf: (path: string) => readonly Source[];
+    };
+
+export type VfxSystemProps = VfxFeed & {
   /** Every emitter of the system and its children, from `drawnEmitters`. */
   readonly drawn: readonly DrawnEmitter[];
-  /** The simulation whose pools the emitters draw. */
-  readonly driver: Driver;
   readonly textures: VfxTextures;
   readonly meshes: EmitterMeshes;
   /** An emitter the draw leaves out, such as every one but the emitter soloed. */
@@ -64,7 +81,7 @@ export interface VfxSystemProps {
    * A mask writer usually draws no visible colour.
    */
   readonly masks?: boolean;
-}
+};
 
 /**
  * One particle system's emitters drawn from its driver's pools, inside any scene.
@@ -75,6 +92,7 @@ export interface VfxSystemProps {
 export function VfxSystem({
   drawn,
   driver,
+  sourcesOf: feed,
   textures,
   meshes,
   hiddenOf = noneHidden,
@@ -86,24 +104,20 @@ export function VfxSystem({
   unit = null,
   masks = false,
 }: VfxSystemProps) {
-  useEmissionSurfaces(drawn, drawOnly ? null : driver, unit);
-  const joints = useMemo(() => {
-    const lookups = new Map<string, Joints>();
-    for (const [key, buffers] of meshes) {
-      const pose = buffers.pose?.source;
-      if (pose !== undefined) lookups.set(key, jointsOf(pose));
-    }
-
-    return lookups;
-  }, [meshes]);
+  const owned = drawOnly || driver === undefined ? null : driver;
+  useEmissionSurfaces(drawn, owned, unit);
+  const joints = useMeshJoints(meshes);
 
   useEffect(() => {
-    if (!drawOnly) driver.setMeshJoints(joints);
-  }, [driver, joints, drawOnly]);
+    owned?.setMeshJoints(joints);
+  }, [owned, joints]);
 
-  const rootSources = useMemo(() => [driver], [driver]);
-  const sourcesOf = (definition: DrawnEmitter): readonly Source[] =>
-    definition.path === "" ? rootSources : driver.sources(definition.path);
+  const rootSources = useMemo(() => (driver === undefined ? [] : [driver]), [driver]);
+  const sourcesOf = (definition: DrawnEmitter): readonly Source[] => {
+    if (feed !== undefined) return feed(definition.path);
+    if (driver === undefined || definition.path === "") return rootSources;
+    return driver.sources(definition.path);
+  };
   const { wire: colour } = useSceneColors();
   const wire = useMemo(() => ({ edges, colour }), [edges, colour]);
   const scopes = useMemo(
@@ -241,6 +255,19 @@ function EmitterScope({ scope, tint, children }: EmitterScopeProps) {
       <MaskTintContext value={tint}>{children}</MaskTintContext>
     </PickScopeContext>
   );
+}
+
+/** Returns the joint lookup of each posed mesh emitter in `meshes`, keyed by emitter key. */
+export function useMeshJoints(meshes: EmitterMeshes): ReadonlyMap<string, Joints> {
+  return useMemo(() => {
+    const lookups = new Map<string, Joints>();
+    for (const [key, buffers] of meshes) {
+      const pose = buffers.pose?.source;
+      if (pose !== undefined) lookups.set(key, jointsOf(pose));
+    }
+
+    return lookups;
+  }, [meshes]);
 }
 
 /* One lookup per pose, so a mesh landing leaves the other emitters' lookups identical and

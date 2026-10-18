@@ -7,6 +7,7 @@ use ltk_hash::BinHash;
 use ltk_meta::{Bin, BinFile, PropertyValueEnum};
 use serde::{Deserialize, Serialize};
 
+use super::clipboard::Landing;
 use super::edit::Edit;
 use super::properties::{field_path, with_holder};
 use super::typed_names::TypedNames;
@@ -61,22 +62,29 @@ pub enum ValueEdit {
     ReplacePointer { path: String, class: Option<String> },
     /// Insert an item into a list, map or option.
     InsertItem { path: String, item: NewItem },
-    /// Insert a copy of the item at `from` into the list at `path`, at `index` or the end.
-    /// `unique` names a string field whose text the copy makes unique among the object's
+    /// Insert a copy of the item at `from` into the list or map at `path`, at `index` or the
+    /// end. `unique` names a string field whose text the copy makes unique among the object's
     /// list items.
     CopyItem {
         from: String,
         path: String,
         index: Option<usize>,
         unique: Option<String>,
+        /// The copy's key where `path` is a map, spelled as [`NewItem::key`] spells one.
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", specta(optional))]
+        key: Option<String>,
     },
-    /// Insert the value clipboard `text` carries into the list at `path`, at `index` or the
-    /// end, with `unique` as for [`ValueEdit::CopyItem`].
+    /// Insert the value clipboard `text` carries into the list or map at `path`, at `index` or
+    /// the end, with `unique` and `key` as for [`ValueEdit::CopyItem`].
     PasteItem {
         path: String,
         index: Option<usize>,
         text: String,
         unique: Option<String>,
+        #[serde(default)]
+        #[cfg_attr(feature = "ts", specta(optional))]
+        key: Option<String>,
     },
     /// Remove an item from a list, map or option.
     RemoveItem { path: String },
@@ -254,20 +262,30 @@ impl BinDocument {
                     path,
                     index,
                     unique,
+                    key,
                 } => {
                     let path = relative_path(&scope, &path);
-                    let unique = unique_field(entry, &path, unique.as_deref())?;
-                    staged.copy_item(entry, &relative_path(&scope, &from), &path, index, unique)?;
+                    let landing = Landing {
+                        index,
+                        key: key.as_deref(),
+                        unique: unique_field(entry, &path, unique.as_deref())?,
+                    };
+                    staged.copy_item(entry, &relative_path(&scope, &from), &path, landing)?;
                 }
                 ValueEdit::PasteItem {
                     path,
                     index,
                     text,
                     unique,
+                    key,
                 } => {
                     let path = relative_path(&scope, &path);
-                    let unique = unique_field(entry, &path, unique.as_deref())?;
-                    staged.paste_item(entry, &path, index, &text, unique, schema)?;
+                    let landing = Landing {
+                        index,
+                        key: key.as_deref(),
+                        unique: unique_field(entry, &path, unique.as_deref())?,
+                    };
+                    staged.paste_item(entry, &path, landing, &text, schema)?;
                 }
                 ValueEdit::RemoveItem { path } => {
                     staged.remove_item(entry, &relative_path(&scope, &path))?;

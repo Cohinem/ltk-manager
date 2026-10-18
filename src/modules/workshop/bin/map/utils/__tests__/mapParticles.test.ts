@@ -1,7 +1,33 @@
 import type { MapController, MapParticle } from "@/lib/tauri";
 import { layerVisibility, mapVisibility } from "@/modules/viewport";
 
-import { particleAnchor, particlesBySystem, particleSeed, playedParticles } from "../mapParticles";
+import {
+  PLACEMENTS_PER_FRAME,
+  particleAnchor,
+  particlesBySystem,
+  particleSeed,
+  playedParticles,
+  stepEnd,
+} from "../mapParticles";
+
+describe("stepEnd", () => {
+  const of = (...counts: number[]) => counts.map((count) => ({ particles: new Array(count) }));
+
+  it("takes groups until their placements pass the budget", () => {
+    const groups = of(10, 10, 10, 10);
+
+    expect(stepEnd(groups, 0)).toBe(2);
+    expect(stepEnd(groups, 2)).toBe(4);
+  });
+
+  it("takes one group that alone passes the budget", () => {
+    expect(stepEnd(of(PLACEMENTS_PER_FRAME + 5, 1), 0)).toBe(1);
+  });
+
+  it("returns the length once every group is in", () => {
+    expect(stepEnd(of(1, 1), 2)).toBe(2);
+  });
+});
 
 const IDENTITY = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 

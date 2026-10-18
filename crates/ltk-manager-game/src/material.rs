@@ -12,6 +12,7 @@ use std::sync::LazyLock;
 
 pub mod defs;
 pub mod pass;
+pub mod template;
 
 use indexmap::IndexMap;
 use ltk_hash::{BinHash, Hash as _};

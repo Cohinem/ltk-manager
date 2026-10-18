@@ -5,9 +5,9 @@ import {
   MinusIcon,
   PlusIcon,
 } from "@phosphor-icons/react";
-import { type MouseEvent, type ReactNode, useMemo } from "react";
+import { type DragEvent, type MouseEvent, type ReactNode, useMemo, useState } from "react";
 
-import { Checkbox, Count, IconButton, OVERLINE, Stack, Tooltip } from "@/components";
+import { Checkbox, ContextMenu, Count, IconButton, OVERLINE, Stack, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { MapController } from "@/lib/tauri";
 import type { BackdropFlags, ControllerUse } from "@/modules/viewport";
@@ -19,9 +19,11 @@ import {
   controllerLabel,
   controllerSections,
   groupLabel,
+  layerName,
   materialName,
   ruleTitle,
 } from "../utils/mapControllers";
+import { OUTLINER_DRAG_TYPE } from "../utils/sceneOutline";
 
 /** The most material names the tooltip of a mesh count lists. */
 const MATERIALS_LISTED = 8;
@@ -34,6 +36,16 @@ export interface BackdropVisibilityListProps {
    * tab to open the map's `.materials.bin` in.
    */
   readonly onOpenController?: (hash: string, event: MouseEvent) => void;
+  /** The row menus and the drop target of a list that edits the map. Absent for a list that only reads. */
+  readonly authoring?: VisibilityListAuthoring;
+}
+
+/** The row menus of a visibility list, and the drop of the outliner's selection on a controller. */
+export interface VisibilityListAuthoring {
+  readonly controllerMenu: (controller: MapController) => ReactNode;
+  readonly layerMenu: (index: number) => ReactNode;
+  /** Assigns the controller `hash` to the dropped selection, and null while the map takes no edits. */
+  readonly onDrop: ((hash: string) => void) | null;
 }
 
 /** What every controller row reads, passed down the nested rows as one value. */
@@ -43,6 +55,7 @@ interface RowContext {
   readonly uses: ReadonlyMap<string, ControllerUse>;
   readonly onChange: (hash: string, visible: boolean) => void;
   readonly onOpen?: (hash: string, event: MouseEvent) => void;
+  readonly authoring?: VisibilityListAuthoring;
 }
 
 /**
@@ -57,6 +70,7 @@ interface RowContext {
 export function BackdropVisibilityList({
   backdrop,
   onOpenController,
+  authoring,
 }: BackdropVisibilityListProps) {
   const { layers, flags, setLayer, controllers, visibility, uses, overrides, setController } =
     backdrop;
@@ -68,8 +82,9 @@ export function BackdropVisibilityList({
       uses,
       onChange: setController,
       onOpen: onOpenController,
+      authoring,
     }),
-    [visibility.controllers, overrides, uses, setController, onOpenController],
+    [visibility.controllers, overrides, uses, setController, onOpenController, authoring],
   );
 
   return (
@@ -79,23 +94,28 @@ export function BackdropVisibilityList({
           <Empty text={m.workshop_bin_preview_backdrop_layers_empty_label()} />
         )}
         {layers.map((layer) => {
-          const label = m.workshop_bin_preview_backdrop_layer_label({ number: layer.index + 1 });
+          const label = layerName(backdrop.flagNames, layer.index);
           return (
-            <Row key={layer.index}>
-              <Checkbox
-                size="sm"
-                aria-label={label}
-                checked={(flags & (1 << layer.index)) !== 0}
-                onCheckedChange={(checked) => setLayer(layer.index, checked)}
-              />
-              <span className="min-w-0 flex-1 truncate text-surface-100">{label}</span>
-              <Count>
-                {m.workshop_bin_preview_backdrop_layer_triangles_label({
-                  count: layer.triangles,
-                  formatted: layer.triangles.toLocaleString(),
-                })}
-              </Count>
-            </Row>
+            <Authored
+              key={layer.index}
+              menu={authoring === undefined ? null : authoring.layerMenu(layer.index)}
+            >
+              <Row>
+                <Checkbox
+                  size="sm"
+                  aria-label={label}
+                  checked={(flags & (1 << layer.index)) !== 0}
+                  onCheckedChange={(checked) => setLayer(layer.index, checked)}
+                />
+                <span className="min-w-0 flex-1 truncate text-surface-100">{label}</span>
+                <Count>
+                  {m.workshop_bin_preview_backdrop_layer_triangles_label({
+                    count: layer.triangles,
+                    formatted: layer.triangles.toLocaleString(),
+                  })}
+                </Count>
+              </Row>
+            </Authored>
           );
         })}
       </Section>
@@ -124,6 +144,61 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       <div className="-mx-1.5 flex flex-col">{children}</div>
     </Stack>
   );
+}
+
+interface AuthoredProps {
+  /** The row's context menu, and null for a row with none. */
+  readonly menu: ReactNode;
+  /** Takes a drop of the outliner's selection. Absent or null for a row that takes none. */
+  readonly onDrop?: (() => void) | null;
+  readonly children: ReactNode;
+}
+
+/** A row with its context menu and its drop target, or the row alone if it has no menu. */
+function Authored({ menu, onDrop, children }: AuthoredProps) {
+  const [over, setOver] = useState(false);
+  if (menu === null) return children;
+
+  const takes = (event: DragEvent) =>
+    onDrop != null && event.dataTransfer.types.includes(OUTLINER_DRAG_TYPE);
+
+  return (
+    <ContextMenu.Root>
+      <ContextMenu.Trigger
+        className={twMerge("rounded-lg", over && "ring-1 ring-accent-400 ring-inset")}
+        onDragOver={(event) => {
+          if (!takes(event)) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(event) => {
+          if (!takes(event)) return;
+          event.preventDefault();
+          setOver(false);
+          onDrop?.();
+        }}
+      >
+        {children}
+      </ContextMenu.Trigger>
+      {menu}
+    </ContextMenu.Root>
+  );
+}
+
+/** Returns the menu and the drop of the row of `controller`. */
+function controllerAuthoring(
+  controller: MapController,
+  { authoring }: RowContext,
+): Omit<AuthoredProps, "children"> {
+  if (authoring === undefined) return { menu: null };
+
+  const { onDrop } = authoring;
+  return {
+    menu: authoring.controllerMenu(controller),
+    onDrop: onDrop === null ? null : () => onDrop(controller.hash),
+  };
 }
 
 function Empty({ text }: { text: string }) {
@@ -155,29 +230,31 @@ function EntryRows({ entry, context }: { entry: ControllerEntry; context: RowCon
 
   return (
     <>
-      <Row action={<OpenAction controller={controller} onOpen={context.onOpen} />}>
-        <Checkbox
-          size="sm"
-          aria-label={title === null ? label : `${title} ${label}`}
-          checked={context.states.get(controller.hash) === true}
-          onCheckedChange={(visible) => context.onChange(controller.hash, visible)}
-        />
-        {title !== null && (
-          <span className={twMerge("shrink-0 text-surface-100", overridden && "text-accent-300")}>
-            {title}
-          </span>
-        )}
-        <span
-          className={twMerge(
-            "min-w-0 flex-1 truncate tabular-nums",
-            title === null ? "text-surface-100" : "text-surface-400",
-            title === null && overridden && "text-accent-300",
+      <Authored {...controllerAuthoring(controller, context)}>
+        <Row action={<OpenAction controller={controller} onOpen={context.onOpen} />}>
+          <Checkbox
+            size="sm"
+            aria-label={title === null ? label : `${title} ${label}`}
+            checked={context.states.get(controller.hash) === true}
+            onCheckedChange={(visible) => context.onChange(controller.hash, visible)}
+          />
+          {title !== null && (
+            <span className={twMerge("shrink-0 text-surface-100", overridden && "text-accent-300")}>
+              {title}
+            </span>
           )}
-        >
-          {label}
-        </span>
-        <MeshCount use={context.uses.get(controller.hash)} />
-      </Row>
+          <span
+            className={twMerge(
+              "min-w-0 flex-1 truncate tabular-nums",
+              title === null ? "text-surface-100" : "text-surface-400",
+              title === null && overridden && "text-accent-300",
+            )}
+          >
+            {label}
+          </span>
+          <MeshCount use={context.uses.get(controller.hash)} />
+        </Row>
+      </Authored>
       <Dependents dependents={dependents} parent={title ?? label} context={context} first />
     </>
   );
@@ -238,27 +315,29 @@ function DependentRows({ dependent, parent, context }: DependentRowsProps) {
 
   return (
     <>
-      {/* DS-VEIL, DS-POPUP, DS-REVEAL */}
-      <div
-        className={twMerge(
-          "group/reveal flex h-6 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-1 text-meta hover:bg-surface-veil-soft",
-          shown ? "text-surface-200" : "text-surface-500",
-        )}
-      >
-        <Tooltip content={hint}>
-          <span aria-label={hint} className="flex shrink-0 text-surface-400">
-            <Mark weight="bold" className="size-3" />
-          </span>
-        </Tooltip>
-        <span className="min-w-0 flex-1 truncate tabular-nums">{label}</span>
-        <MeshCount use={context.uses.get(controller.hash)} />
-        <Tooltip content={state}>
-          <span aria-label={state} className="flex shrink-0">
-            <Eye weight="bold" className="size-3.5" />
-          </span>
-        </Tooltip>
-        <OpenAction controller={controller} onOpen={context.onOpen} />
-      </div>
+      <Authored {...controllerAuthoring(controller, context)}>
+        {/* DS-VEIL, DS-POPUP, DS-REVEAL */}
+        <div
+          className={twMerge(
+            "group/reveal flex h-6 shrink-0 items-center gap-1.5 rounded-lg pr-1.5 pl-1 text-meta hover:bg-surface-veil-soft",
+            shown ? "text-surface-200" : "text-surface-500",
+          )}
+        >
+          <Tooltip content={hint}>
+            <span aria-label={hint} className="flex shrink-0 text-surface-400">
+              <Mark weight="bold" className="size-3" />
+            </span>
+          </Tooltip>
+          <span className="min-w-0 flex-1 truncate tabular-nums">{label}</span>
+          <MeshCount use={context.uses.get(controller.hash)} />
+          <Tooltip content={state}>
+            <span aria-label={state} className="flex shrink-0">
+              <Eye weight="bold" className="size-3.5" />
+            </span>
+          </Tooltip>
+          <OpenAction controller={controller} onOpen={context.onOpen} />
+        </div>
+      </Authored>
       <Dependents dependents={dependents} parent={label} context={context} />
     </>
   );
@@ -294,7 +373,9 @@ function Names({ names, more = 0 }: { names: readonly string[]; more?: number })
       ))}
       {more > 0 && (
         <span className="text-surface-400">
-          {m.workshop_bin_preview_backdrop_controller_materials_more_label({ count: more })}
+          {m.workshop_bin_preview_backdrop_controller_materials_more_label({
+            count: more,
+          })}
         </span>
       )}
     </span>
@@ -322,7 +403,9 @@ function MeshCount({ use }: { use: ControllerUse | undefined }) {
     >
       <span className="shrink-0">
         <Count>
-          {m.workshop_bin_preview_backdrop_controller_meshes_label({ count: use.meshes })}
+          {m.workshop_bin_preview_backdrop_controller_meshes_label({
+            count: use.meshes,
+          })}
         </Count>
       </span>
     </Tooltip>

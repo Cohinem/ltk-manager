@@ -1,4 +1,4 @@
-import { queryOptions, skipToken } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
 
 import { previewBufferUrl, previewFileUrl, type PreviewForm } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
@@ -6,7 +6,7 @@ import type { AssetRef } from "@/lib/tauri";
 import { readColliderFile } from "../../dynamics/colliderFile";
 import { readClipBuffer } from "../parsing/clipBuffer";
 import { readLightGridBuffer } from "../parsing/lightGridBuffer";
-import { readMapBuffer } from "../parsing/mapBuffer";
+import { type MapGeometry, readMapBuffer } from "../parsing/mapBuffer";
 import { readMeshBuffer } from "../parsing/meshBuffer";
 import { readSkeletonBuffer } from "../parsing/skeletonBuffer";
 
@@ -15,6 +15,27 @@ async function fetchBuffer(asset: AssetRef, form: PreviewForm): Promise<ArrayBuf
   const answer = await fetch(previewBufferUrl(asset, form));
   if (!answer.ok) throw new Error(await answer.text());
   return answer.arrayBuffer();
+}
+
+/** A `.mapgeo` open for edits in the backend, and the count of its changes. */
+export interface EditedGeometry {
+  readonly document: number;
+}
+
+/**
+ * Reads the map buffer of the `.mapgeo` open for edits under `document`, or of its meshes at
+ * `meshes` alone, in that order. The map editor keeps the whole buffer up to date with the
+ * changes it makes and reads only the meshes an edit adds.
+ */
+export async function fetchEditedMap(
+  asset: AssetRef,
+  document: number,
+  meshes: readonly number[] | null,
+): Promise<MapGeometry> {
+  const narrowed = meshes === null ? "" : `&meshes=${meshes.join(",")}`;
+  const answer = await fetch(`${previewBufferUrl(asset, "map")}&geometry=${document}${narrowed}`);
+  if (!answer.ok) throw new Error(await answer.text());
+  return readMapBuffer(await answer.arrayBuffer());
 }
 
 /** The bytes of `asset` as the file holds them. */
@@ -52,6 +73,21 @@ export const viewportQueries = {
       staleTime: Infinity,
       structuralSharing: false,
       retry: false,
+    }),
+  /**
+   * The map buffer of the `.mapgeo` open for edits under `edited.document`, read once. The map
+   * editor sets each edit's result on this entry, from the deltas the edit answers.
+   */
+  editedMap: (asset: AssetRef | null, edited: EditedGeometry) =>
+    queryOptions({
+      queryKey: ["viewport", "map", asset, "edited", edited.document],
+      queryFn:
+        asset === null ? skipToken : async () => fetchEditedMap(asset, edited.document, null),
+      staleTime: Infinity,
+      gcTime: 0,
+      structuralSharing: false,
+      retry: false,
+      placeholderData: keepPreviousData,
     }),
   lightGrid: (asset: AssetRef | null) =>
     queryOptions({

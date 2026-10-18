@@ -108,6 +108,7 @@ export function DrawPair({ pair, geometry, material, rank, edges }: DrawPairProp
         visible={pair.wire.shaded}
         renderOrder={rank}
         frustumCulled={false}
+        matrixAutoUpdate={false}
       />
       {pair.wire.material !== null && edges === undefined && (
         <mesh
@@ -116,6 +117,7 @@ export function DrawPair({ pair, geometry, material, rank, edges }: DrawPairProp
           material={pair.wire.material}
           renderOrder={rank + WIRE_ORDER}
           frustumCulled={false}
+          matrixAutoUpdate={false}
         />
       )}
       {pair.wire.material !== null && edges !== undefined && (
@@ -125,6 +127,7 @@ export function DrawPair({ pair, geometry, material, rank, edges }: DrawPairProp
           material={pair.wire.material}
           renderOrder={rank + WIRE_ORDER}
           frustumCulled={false}
+          matrixAutoUpdate={false}
         />
       )}
     </>

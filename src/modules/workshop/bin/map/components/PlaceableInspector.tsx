@@ -1,4 +1,4 @@
-import { ArrowSquareOutIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, CopyIcon, PencilSimpleIcon, TrashIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { type MouseEvent, useMemo } from "react";
 
@@ -13,8 +13,11 @@ import { hashOf } from "../../shared/utils/binHash";
 import { BinTree } from "../../tree/components/BinTree";
 import { rowKey } from "../../tree/utils/binRows";
 import { mapQueries } from "../api/mapQueries";
+import { usePlaceableActions } from "../hooks/usePlaceableActions";
 import { useMapScene } from "../state/mapScene";
 import { chunkLabel, NO_FILTER, placeablePath, placedItems } from "../utils/mapOutline";
+import { movesToLead, placeableMoves } from "../utils/placeableSpace";
+import { TransformFields } from "./TransformFields";
 
 /** The document a read with no `.materials.bin` open asks for, which reads nothing. */
 const NO_DOCUMENT = 0 as BinDocumentId;
@@ -28,6 +31,9 @@ const TREE_ROWS = 16;
 /**
  * The placeable picked last in the outliner or the viewport, as its fields read in the map's
  * `.materials.bin`, with a button that opens its chunk's tab scrolled to it.
+ *
+ * When the `.materials.bin` takes edits, the fields edit in place and the header renames,
+ * duplicates and deletes. Duplicate and delete act on the whole selection.
  */
 export function PlaceableInspector({
   objectName,
@@ -36,7 +42,9 @@ export function PlaceableInspector({
   objectName: (entry: string) => string;
   onNotOpen: () => void;
 }) {
-  const { materials, materialsAsset, chosen, selected, lead } = useMapScene();
+  const { materials, materialsAsset, chosen, selected, lead, editable, setRenaming } =
+    useMapScene();
+  const actions = usePlaceableActions();
   const outline = useQuery(mapQueries.outline(materials));
   const placed = useMemo(
     () =>
@@ -48,7 +56,10 @@ export function PlaceableInspector({
   const holder =
     placed === null
       ? null
-      : rowKey({ entry: placed.chunk.entry, path: placeablePath(placed.item.key) });
+      : rowKey({
+          entry: placed.chunk.entry,
+          path: placeablePath(placed.item.key),
+        });
   const requests = useMemo(
     () => (holder === null ? [] : [{ key: holder, rows: PLACEABLE_ROWS }]),
     [holder],
@@ -88,13 +99,47 @@ export function PlaceableInspector({
             {m.workshop_bin_map_selection_count_label({ count: selected.size })}
           </span>
         )}
-        <IconButton
-          className="ml-auto"
-          icon={<ArrowSquareOutIcon />}
-          onClick={showInChunk}
-          label={m.workshop_bin_map_placeable_open_action()}
-        />
+        <span className="ml-auto flex shrink-0 items-center">
+          {editable && (
+            <>
+              <IconButton
+                icon={<PencilSimpleIcon />}
+                onClick={() => setRenaming(true)}
+                label={m.workshop_bin_map_rename_action()}
+              />
+              <IconButton
+                icon={<CopyIcon />}
+                onClick={() => void actions.duplicate()}
+                label={m.workshop_bin_map_duplicate_action()}
+              />
+              <IconButton
+                icon={<TrashIcon />}
+                onClick={() => void actions.remove()}
+                label={m.workshop_bin_map_delete_action()}
+              />
+            </>
+          )}
+          <IconButton
+            icon={<ArrowSquareOutIcon />}
+            onClick={showInChunk}
+            label={m.workshop_bin_map_placeable_open_action()}
+          />
+        </span>
       </header>
+      <div className="px-1">
+        <TransformFields
+          transform={item.transform}
+          disabled={!editable}
+          onCommit={(next) => {
+            const others = actions.selection.filter((each) => each.id !== placed.id);
+            const items = [placed, ...others].map(({ id, item: each }) => ({
+              id,
+              transform: each.transform,
+            }));
+            void actions.move(placeableMoves(movesToLead(items, next)));
+          }}
+        />
+      </div>
       {/* DS-GROUND, DS-RADIUS */}
       <div className="flex flex-col rounded-md border border-surface-700/50 bg-surface-900">
         <BinTree
@@ -107,6 +152,7 @@ export function PlaceableInspector({
           maxRows={TREE_ROWS}
           objectName={objectName}
           onNotOpen={onNotOpen}
+          editable={editable}
         />
       </div>
     </section>

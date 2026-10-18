@@ -12,6 +12,9 @@ const WIDTH_PARAMETER = "w";
 /** The query parameter naming the buffer the scheme answers in place of an image. */
 const FORM_PARAMETER = "as";
 
+/** Asks a mip chain for the texture's own BC1 or BC3 blocks, as `BLOCKS_PARAMETER` in `protocol.rs`. */
+const BLOCKS_PARAMETER = "bc";
+
 /**
  * A buffer the scheme answers, each in the layout the Rust module of its name documents
  * under `crates/ltk-manager-assets/src/preview/`.
@@ -54,9 +57,10 @@ export function previewBufferUrl(asset: AssetRef, form: PreviewForm): string {
  * The URL a texture's own mip chain arrives on, from the smallest mipmap at least
  * `minWidth` wide down, in the layout `crates/ltk-manager-assets/src/preview/mips.rs` documents.
  */
-export function previewMipsUrl(asset: AssetRef, minWidth?: number): string {
+export function previewMipsUrl(asset: AssetRef, minWidth?: number, blocks = false): string {
   const url = `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=mips`;
-  return minWidth === undefined ? url : `${url}&${WIDTH_PARAMETER}=${minWidth}`;
+  const sized = minWidth === undefined ? url : `${url}&${WIDTH_PARAMETER}=${minWidth}`;
+  return blocks ? `${sized}&${BLOCKS_PARAMETER}=1` : sized;
 }
 
 /**

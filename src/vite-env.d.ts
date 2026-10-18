@@ -12,6 +12,8 @@ declare module "virtual:release-notes" {
 interface ImportMetaEnv {
   /** Set to `1` in a dev run to seed the stand-in update - see `mockUpdate`. */
   readonly VITE_MOCK_UPDATE?: string;
+  /** Set to `1` in a dev run to keep React's performance tracks - see `reactPerformanceTracks`. */
+  readonly VITE_REACT_PERFORMANCE_TRACKS?: string;
 }
 
 /** Node's process global, read only for the VITEST env check in `src/lib/browserMock.ts`.

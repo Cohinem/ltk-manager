@@ -5,8 +5,11 @@ import { CanvasTexture, type Color, DoubleSide, SRGBColorSpace } from "three";
 
 import type { SceneColors } from "../../scene/hooks/sceneColors";
 
-/** Where the gizmo sits, in pixels off the pane's top left corner. */
+/** Where the gizmo sits, in pixels off the pane's corner. */
 const MARGIN: [number, number] = [64, 64];
+
+/** The corner of the pane that the gizmo sits in. */
+export type GizmoCorner = "top-left" | "bottom-right";
 
 /** An arm's length in pixels, which everything else is built against. */
 const SIZE = 48;
@@ -80,8 +83,9 @@ export interface OrientationGizmoProps {
   readonly sign?: Look;
   /** An arm's length in pixels. */
   readonly size?: number;
-  /** Where the gizmo sits, in pixels off the pane's top left corner. */
+  /** Where the gizmo sits, in pixels off `corner`. */
   readonly margin?: [number, number];
+  readonly corner?: GizmoCorner;
 }
 
 /**
@@ -99,6 +103,7 @@ export function OrientationGizmo({
   sign = UNSIGNED,
   size = SIZE,
   margin = MARGIN,
+  corner = "top-left",
 }: OrientationGizmoProps) {
   const axes = useMemo(
     () =>
@@ -118,7 +123,7 @@ export function OrientationGizmo({
   };
 
   return (
-    <GizmoHelper alignment="top-left" margin={margin} renderPriority={OVER_THE_FRAME}>
+    <GizmoHelper alignment={corner} margin={margin} renderPriority={OVER_THE_FRAME}>
       <group scale={size}>
         {/* Stood back by half a cube, so the corner turns about the cube's own middle. */}
         <group position={[-0.5 * sign[0], -0.5 * sign[1], -0.5 * sign[2]]}>

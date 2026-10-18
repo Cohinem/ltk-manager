@@ -6,8 +6,11 @@ import {
   isHidden,
   itemId,
   kindCounts,
+  NO_FILTER,
   outlineRows,
   placeablePath,
+  showsKind,
+  withKindShown,
 } from "../mapOutline";
 
 function item(overrides: Partial<MapChunkItem>): MapChunkItem {
@@ -17,6 +20,8 @@ function item(overrides: Partial<MapChunkItem>): MapChunkItem {
     class: "MapParticle",
     kind: "particle",
     position: [0, 0, 0],
+    transform: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    shape: null,
     visibility: 255,
     controller: null,
     ...overrides,
@@ -103,6 +108,24 @@ describe("kindCounts", () => {
       ["particle", 2],
       ["locator", 1],
     ]);
+  });
+});
+
+describe("withKindShown", () => {
+  const present = ["particle", "locator", "audio"] as const;
+
+  it("keeps every other present kind when one is left out of the full list", () => {
+    const next = withKindShown(NO_FILTER, "particle", false, present);
+
+    expect(showsKind(next, "particle")).toBe(false);
+    expect(showsKind(next, "locator")).toBe(true);
+    expect(showsKind(next, "audio")).toBe(true);
+  });
+
+  it("lists every kind again once the last one left out is shown", () => {
+    const hidden = withKindShown(NO_FILTER, "particle", false, present);
+
+    expect(withKindShown(hidden, "particle", true, present).kinds.size).toBe(0);
   });
 });
 

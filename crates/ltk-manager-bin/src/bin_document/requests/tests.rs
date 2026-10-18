@@ -51,6 +51,21 @@ fn schema() -> MetaSchema {
     MetaSchema::parse(json.as_bytes()).expect("the fixture is the published shape")
 }
 
+#[test]
+fn open_tree_reads_the_open_asset_and_none_for_another() {
+    let (store, _id) = open(layer());
+    let other = AssetRef::Layer {
+        project: "p".to_owned(),
+        layer: "base".to_owned(),
+        path: "b.bin".to_owned(),
+    };
+
+    let read = store.open_tree(&SandboxRef::Game, &layer());
+
+    assert!(read.is_some_and(|document| document.object_at(h(OBJECT)).is_some()));
+    assert!(store.open_tree(&SandboxRef::Game, &other).is_none());
+}
+
 /// A store holding the fixture over `asset`, and the id it answered.
 fn open(asset: AssetRef) -> (BinDocuments, BinDocumentId) {
     let store = BinDocuments::default();

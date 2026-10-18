@@ -1,20 +1,24 @@
-import { MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
+import { FunnelIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
 import type { KeyboardEvent, RefObject } from "react";
 
-import { Field, IconButton, TogglePill } from "@/components";
+import { Field, IconButton, Menu } from "@/components";
 import { m } from "@/i18n";
 import type { MapItemKind } from "@/lib/tauri";
 import { twMerge } from "@/utils";
 
-import type { OutlineFilter } from "../utils/mapOutline";
+import { type OutlineFilter, showsKind, withKindShown } from "../utils/mapOutline";
 
-/** The kinds in the order the chips list them. */
+/** The kinds in the order the filter menu lists them. */
 const KIND_ORDER: readonly MapItemKind[] = [
   "particle",
   "character",
   "locator",
   "group",
   "audio",
+  "light",
+  "probe",
+  "volume",
+  "path",
   "other",
 ];
 
@@ -24,15 +28,21 @@ const KIND_LABEL: Record<MapItemKind, () => string> = {
   locator: m.workshop_bin_map_outliner_kind_locator_label,
   group: m.workshop_bin_map_outliner_kind_group_label,
   audio: m.workshop_bin_map_outliner_kind_audio_label,
+  light: m.workshop_bin_map_outliner_kind_light_label,
+  probe: m.workshop_bin_map_outliner_kind_probe_label,
+  volume: m.workshop_bin_map_outliner_kind_volume_label,
+  path: m.workshop_bin_map_outliner_kind_path_label,
   other: m.workshop_bin_map_outliner_kind_other_label,
 };
 
 interface OutlinerSearchProps {
   filter: OutlineFilter;
   onChange: (filter: OutlineFilter) => void;
-  /** How many placeables the map holds of each kind, which names the chips it offers. */
+  /** How many placeables the map holds of each kind, which names the kinds the menu offers. */
   counts: ReadonlyMap<MapItemKind, number>;
-  /** How many placeables the filter keeps, shown while it narrows anything. */
+  /** How many meshes the outliner lists, and 0 where the map takes no edits. */
+  meshCount: number;
+  /** How many objects the filter keeps, shown while it narrows anything. */
   matches: number | null;
   inputRef: RefObject<HTMLInputElement | null>;
   /** Hand the keyboard to the tree, which a Down arrow in the box asks for. */
@@ -40,21 +50,21 @@ interface OutlinerSearchProps {
 }
 
 /**
- * The outliner's search box over a chip per kind the map holds.
+ * The outliner's search box, with a menu beside it that shows or hides meshes and each kind of
+ * placeable the map holds.
  *
- * The box matches a placeable's name or class, or a chunk's name. Escape clears it, and a
- * Down arrow moves into the tree. A chip keeps only its kind, and several chips keep each.
+ * The box matches a placeable's name or class, a chunk's name, or a mesh's material, controller
+ * or number. Escape clears it, and a Down arrow moves into the tree.
  */
 export function OutlinerSearch({
   filter,
   onChange,
   counts,
+  meshCount,
   matches,
   inputRef,
   onLeave,
 }: OutlinerSearchProps) {
-  const kinds = KIND_ORDER.filter((kind) => (counts.get(kind) ?? 0) > 0);
-
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Escape" && filter.text !== "") {
       event.preventDefault();
@@ -67,18 +77,12 @@ export function OutlinerSearch({
     }
   }
 
-  function toggleKind(kind: MapItemKind) {
-    const next = new Set(filter.kinds);
-    if (!next.delete(kind)) next.add(kind);
-    onChange({ ...filter, kinds: next });
-  }
-
   return (
-    <div data-ui="OutlinerSearch" className="flex shrink-0 flex-col gap-1.5 p-1.5 pb-1">
+    <div data-ui="OutlinerSearch" className="flex shrink-0 items-center gap-1 p-1.5 pb-1">
       <div
         /* DS-VEIL, DS-HOVER */
         className={twMerge(
-          "flex h-7 items-center gap-0.5 rounded-md border border-surface-veil-strong bg-surface-veil-soft pr-0.5 pl-2",
+          "flex h-7 min-w-0 flex-1 items-center gap-0.5 rounded-md border border-surface-veil-strong bg-surface-veil-soft pr-0.5 pl-2",
           "transition-colors focus-within:border-accent-500 hover:border-accent-hover",
         )}
       >
@@ -108,24 +112,76 @@ export function OutlinerSearch({
           />
         )}
       </div>
-      {kinds.length > 1 && (
-        <div
-          role="group"
-          aria-label={m.workshop_bin_map_outliner_kinds_label()}
-          className="flex flex-wrap gap-1"
-        >
-          {kinds.map((kind) => (
-            <TogglePill
-              key={kind}
-              size="xs"
-              label={KIND_LABEL[kind]()}
-              count={counts.get(kind)}
-              active={filter.kinds.has(kind)}
-              onClick={() => toggleKind(kind)}
-            />
-          ))}
-        </div>
-      )}
+      <KindMenu filter={filter} onChange={onChange} counts={counts} meshCount={meshCount} />
     </div>
+  );
+}
+
+/** What the outliner lists: meshes and each kind of placeable, each shown or hidden. */
+function KindMenu({
+  filter,
+  onChange,
+  counts,
+  meshCount,
+}: Pick<OutlinerSearchProps, "filter" | "onChange" | "counts" | "meshCount">) {
+  const present = KIND_ORDER.filter((kind) => (counts.get(kind) ?? 0) > 0);
+  const narrowed = filter.kinds.size > 0 || filter.hideMeshes === true;
+  const shownKinds = present.filter((kind) => showsKind(filter, kind));
+
+  return (
+    <Menu.Root>
+      <Menu.Trigger
+        render={
+          <IconButton
+            icon={<FunnelIcon />}
+            pressed={narrowed}
+            label={m.workshop_bin_map_outliner_kinds_label()}
+          />
+        }
+      />
+      <Menu.Content align="end" data-ui="OutlinerKindMenu" className="w-56">
+        {meshCount > 0 && (
+          <>
+            <Menu.CheckboxItem
+              checked={filter.hideMeshes !== true}
+              onCheckedChange={(shown) => onChange({ ...filter, hideMeshes: !shown })}
+            >
+              <KindLabel label={m.workshop_bin_map_outliner_meshes_label()} count={meshCount} />
+            </Menu.CheckboxItem>
+            <Menu.Separator />
+          </>
+        )}
+        {present.map((kind) => {
+          const shown = showsKind(filter, kind);
+          return (
+            <Menu.CheckboxItem
+              key={kind}
+              checked={shown}
+              /* The last kind shown stays, since an empty set of kinds lists every kind. */
+              disabled={shown && shownKinds.length === 1}
+              onCheckedChange={(next) => onChange(withKindShown(filter, kind, next, present))}
+            >
+              <KindLabel label={KIND_LABEL[kind]()} count={counts.get(kind) ?? 0} />
+            </Menu.CheckboxItem>
+          );
+        })}
+        <Menu.Separator />
+        <Menu.Item
+          disabled={!narrowed}
+          onClick={() => onChange({ ...filter, kinds: new Set(), hideMeshes: false })}
+        >
+          {m.workshop_bin_map_outliner_show_all_action()}
+        </Menu.Item>
+      </Menu.Content>
+    </Menu.Root>
+  );
+}
+
+function KindLabel({ label, count }: { label: string; count: number }) {
+  return (
+    <span className="flex w-full items-center gap-2">
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="shrink-0 text-meta text-surface-400 tabular-nums">{count}</span>
+    </span>
   );
 }
