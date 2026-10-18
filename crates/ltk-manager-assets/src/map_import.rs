@@ -369,8 +369,8 @@ fn to_engine(v: Vec3, up: UpAxis) -> Vec3 {
 fn computed_normals(mesh: &SourceMesh) -> Vec<Vec3> {
     let mut normals = vec![Vec3::ZERO; mesh.positions.len()];
     for part in &mesh.parts {
-        for triangle in part.indices.chunks_exact(3) {
-            let [a, b, c] = [0, 1, 2].map(|at| triangle[at] as usize);
+        for triangle in part.indices.as_chunks::<3>().0 {
+            let [a, b, c] = triangle.map(|vertex| vertex as usize);
             if [a, b, c].iter().any(|&vertex| vertex >= normals.len()) {
                 continue;
             }
@@ -453,7 +453,7 @@ pub fn lower(mesh: &SourceMesh, scale: f32, up: UpAxis) -> Vec<LoweredMesh> {
         }
         chunk.open_submesh(part.material);
 
-        for triangle in part.indices.chunks_exact(3) {
+        for triangle in part.indices.as_chunks::<3>().0 {
             if triangle
                 .iter()
                 .any(|&vertex| vertex as usize >= vertex_count)

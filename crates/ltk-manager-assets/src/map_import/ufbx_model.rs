@@ -225,7 +225,7 @@ fn read_mesh(node: &ufbx::Node, mesh: &ufbx::Mesh, fallback: usize) -> SourceMes
             .map_or(fallback, |&slot| materials(slot));
 
         let mut indices = Vec::with_capacity(count * 3);
-        for triangle in triangles[..count * 3].chunks_exact(3) {
+        for triangle in triangles[..count * 3].as_chunks::<3>().0 {
             let [a, b, c] = [0, 1, 2].map(|at| corner_vertex(&mut out, triangle[at] as usize));
             if mirrored {
                 indices.extend([a, c, b]);
