@@ -26,7 +26,14 @@ import { useParticlePrograms } from "../hooks/useParticlePrograms";
 import type { EmitterSamplers } from "../hooks/useVfxTextures";
 import { useDrawStencil } from "../state/stencil";
 import { fragmentTests, premultiplyInto, sortsBackToFront } from "../utils/blend";
-import { quadBuffers, QUADS_PER_EMITTER, written } from "../utils/buffers";
+import {
+  QUAD_LAYOUT,
+  QUAD_STRIDE,
+  type QuadBuffers,
+  quadBuffers,
+  QUADS_PER_EMITTER,
+  rowsWritten,
+} from "../utils/buffers";
 import { colorLookupInto } from "../utils/colorLookup";
 import { castsShadow, drawsAsQuad, facesTheCamera } from "../utils/drawKind";
 import { bucketRange, bucketsOf, renderStamp } from "../utils/emitterBuckets";
@@ -204,29 +211,30 @@ export function Quads({
   );
 }
 
-/** Each particle's centre, scale and colour, in the order the sort left them. */
+/* Each attribute's first float in a quad's row. */
+const CENTER = QUAD_LAYOUT.center[0];
+const SIZE = QUAD_LAYOUT.size[0];
+const COLOR = QUAD_LAYOUT.color[0];
+const ROLL = QUAD_LAYOUT.roll[0];
+const BASES = [QUAD_LAYOUT.basisX[0], QUAD_LAYOUT.basisY[0], QUAD_LAYOUT.basisZ[0]] as const;
+const TURNS = [QUAD_LAYOUT.uvTurn[0], QUAD_LAYOUT.uvTurnMult[0]] as const;
+const SHIFTS = [QUAD_LAYOUT.uvShift[0], QUAD_LAYOUT.uvShiftMult[0]] as const;
+const LOOKUP = QUAD_LAYOUT.lookup[0];
+
+/** Writes the row of each picked particle in sorted draw order. */
 function write(
   sources: readonly Source[],
   frames: readonly DrawFrame[],
   emitter: EmitterModel,
   picked: Picked,
   held: number,
-  buffers: ReturnType<typeof quadBuffers>,
+  buffers: QuadBuffers,
 ): void {
-  const centers = buffers.center.array as Float32Array;
-  const sizes = buffers.size.array as Float32Array;
-  const colors = buffers.color.array as Float32Array;
-  const rolls = buffers.roll.array as Float32Array;
-  const bases = [
-    buffers.basisX.array as Float32Array,
-    buffers.basisY.array as Float32Array,
-    buffers.basisZ.array as Float32Array,
-  ];
-  const turns = [buffers.uvTurn.array as Float32Array, buffers.uvTurnMult.array as Float32Array];
-  const shifts = [buffers.uvShift.array as Float32Array, buffers.uvShiftMult.array as Float32Array];
-  const lookups = buffers.lookup.array as Float32Array;
+  const rows = buffers.rows.array as Float32Array;
+  const camera = facesTheCamera(emitter);
 
   for (let instance = 0; instance < held; instance += 1) {
+    const row = instance * QUAD_STRIDE;
     const slot = picked.drawing[instance];
     const at = picked.order[slot];
     const pool = sources[picked.owner[slot]].pool;
@@ -237,70 +245,57 @@ function write(
 
     const age = time - pool.birthTime[at];
     const through = age01(pool, at, time);
-    colorLookupInto(emitter, pool, at, through, lookups, instance * 3);
-    lookups[instance * 3 + 2] = erosionDrive(pool, at, emitter, time);
+    colorLookupInto(emitter, pool, at, through, rows, row + LOOKUP);
+    rows[row + LOOKUP + 2] = erosionDrive(pool, at, emitter, time);
 
-    for (let layer = 0; layer < turns.length; layer += 1) {
+    for (let layer = 0; layer < TURNS.length; layer += 1) {
       const over = layerOf(emitter, layer);
       if (over === null) continue;
 
       uvTransformInto(pool, at, over, layer, age, through, time, UV_DRAWN);
-      turns[layer][instance * 3] = UV_DRAWN.turn;
-      turns[layer][instance * 3 + 1] = UV_DRAWN.scaleU;
-      turns[layer][instance * 3 + 2] = UV_DRAWN.scaleV;
-      shifts[layer][instance * 4] = UV_DRAWN.offsetU;
-      shifts[layer][instance * 4 + 1] = UV_DRAWN.offsetV;
-      shifts[layer][instance * 4 + 2] = UV_DRAWN.cellU;
-      shifts[layer][instance * 4 + 3] = UV_DRAWN.cellV;
+      const turn = row + TURNS[layer];
+      rows[turn] = UV_DRAWN.turn;
+      rows[turn + 1] = UV_DRAWN.scaleU;
+      rows[turn + 2] = UV_DRAWN.scaleV;
+
+      const shift = row + SHIFTS[layer];
+      rows[shift] = UV_DRAWN.offsetU;
+      rows[shift + 1] = UV_DRAWN.offsetV;
+      rows[shift + 2] = UV_DRAWN.cellU;
+      rows[shift + 3] = UV_DRAWN.cellV;
     }
 
     drawnPlaceInto(pool, at, frame, PLACED);
-    centers[instance * 3] = PLACED.place[0] * AXIS_SIGN[0];
-    centers[instance * 3 + 1] = PLACED.place[1] * AXIS_SIGN[1];
-    centers[instance * 3 + 2] = PLACED.place[2] * AXIS_SIGN[2];
+    rows[row + CENTER] = PLACED.place[0] * AXIS_SIGN[0];
+    rows[row + CENTER + 1] = PLACED.place[1] * AXIS_SIGN[1];
+    rows[row + CENTER + 2] = PLACED.place[2] * AXIS_SIGN[2];
 
     /* A camera quad stretches its up with its speed, and an arbitrary quad its side. */
     const stretch = stretchOf(pool, at, emitter);
-    const camera = facesTheCamera(emitter);
-    sizes[instance * 3] = DRAWN.scale[0] * (camera ? 1 : stretch);
-    sizes[instance * 3 + 1] = DRAWN.scale[1] * (camera ? stretch : 1);
-    sizes[instance * 3 + 2] = DRAWN.scale[2];
+    rows[row + SIZE] = DRAWN.scale[0] * (camera ? 1 : stretch);
+    rows[row + SIZE + 1] = DRAWN.scale[1] * (camera ? stretch : 1);
+    rows[row + SIZE + 2] = DRAWN.scale[2];
 
-    colors[instance * 4] = DRAWN.color[0];
-    colors[instance * 4 + 1] = DRAWN.color[1];
-    colors[instance * 4 + 2] = DRAWN.color[2];
-    colors[instance * 4 + 3] = DRAWN.color[3];
+    rows[row + COLOR] = DRAWN.color[0];
+    rows[row + COLOR + 1] = DRAWN.color[1];
+    rows[row + COLOR + 2] = DRAWN.color[2];
+    rows[row + COLOR + 3] = DRAWN.color[3];
 
     /* A roll is an angle rather than a position, so the mirrored axis reaches it as a
        reversed turn about the view axis. */
-    rolls[instance] = -spinOf(pool, at, emitter) * DEGREE;
+    rows[row + ROLL] = -spinOf(pool, at, emitter) * DEGREE;
 
     if (camera && emitter.directionOriented) travelBasisInto(pool, at, BASIS);
     else particleBasisInto(pool, at, emitter, frame, BASIS);
     mirrorInto(BASIS, 0, MIRRORED, 0);
     for (let column = 0; column < 3; column += 1) {
-      bases[column][instance * 3] = MIRRORED[column];
-      bases[column][instance * 3 + 1] = MIRRORED[3 + column];
-      bases[column][instance * 3 + 2] = MIRRORED[6 + column];
+      const basis = row + BASES[column];
+      rows[basis] = MIRRORED[column];
+      rows[basis + 1] = MIRRORED[3 + column];
+      rows[basis + 2] = MIRRORED[6 + column];
     }
   }
 
-  /* Only the instances written go up, which for an emitter drawing few is most of the cost. */
-  if (held === 0) return;
-  for (const attribute of [
-    buffers.center,
-    buffers.size,
-    buffers.color,
-    buffers.roll,
-    buffers.basisX,
-    buffers.basisY,
-    buffers.basisZ,
-    buffers.uvTurn,
-    buffers.uvShift,
-    buffers.uvTurnMult,
-    buffers.uvShiftMult,
-    buffers.lookup,
-  ]) {
-    written(attribute, held);
-  }
+  /* Uploads only the written rows, which skips most of the buffer for a sparse emitter. */
+  if (held > 0) rowsWritten(buffers.rows, held);
 }

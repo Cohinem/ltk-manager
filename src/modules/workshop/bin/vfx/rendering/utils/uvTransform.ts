@@ -11,7 +11,7 @@
 import { ADDRESS_MODE, type AddressMode } from "../../engine/model/enums";
 import type { EmitterModel, UvLayer } from "../../engine/model/model";
 import { flexChannel, type Pool, UV, uvAt } from "../../engine/simulation/pool";
-import { integratedInto, sampleCurve } from "../../engine/utils/sampleCurve";
+import { integratedInto, sampleCurveInto } from "../../engine/utils/sampleCurve";
 
 /** What one layer hands its sampler for one particle. */
 export interface UvDraw {
@@ -41,6 +41,10 @@ const DEGREE = Math.PI / 180;
 /** Scratch one integrated rate is read into. */
 const INTEGRATED = new Float32Array(2);
 
+/* Scratch buffers for the scale and rotation curves, so a particle allocates nothing. */
+const SCALE = new Float32Array(2);
+const ROTATION = new Float32Array(1);
+
 /**
  * One layer's transform for the particle at `index`, into `out`.
  *
@@ -62,19 +66,22 @@ export function uvTransformInto(
   emitterScroll = true,
 ): void {
   const slot = uvAt(index, which);
-  const scale = sampleCurve(layer.scale, age01);
+
+  /* A channel that the curve does not write defaults to a scale of 1 and a turn of 0. */
+  SCALE.fill(1);
+  sampleCurveInto(layer.scale, age01, SCALE, 0);
+  ROTATION[0] = 0;
+  sampleCurveInto(layer.rotation, age01, ROTATION, 0);
+
   const lifetime = pool.lifetime[index];
   const lived = Number.isFinite(lifetime) ? lifetime : 0;
 
   INTEGRATED.fill(0);
   integratedInto(layer.rotateRate, age01, 1, INTEGRATED, 0);
-  const turned =
-    (sampleCurve(layer.rotation, age01)[0] ?? 0) +
-    age * pool.uv[slot + UV.birthRotate] +
-    INTEGRATED[0] * lived;
+  const turned = ROTATION[0] + age * pool.uv[slot + UV.birthRotate] + INTEGRATED[0] * lived;
   out.turn = turned * DEGREE;
-  out.scaleU = scale[0] ?? 1;
-  out.scaleV = scale[1] ?? 1;
+  out.scaleU = SCALE[0];
+  out.scaleV = SCALE[1];
 
   INTEGRATED.fill(0);
   integratedInto(layer.scrollRate, age01, 1, INTEGRATED, 0);
