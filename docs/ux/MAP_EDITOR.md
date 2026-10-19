@@ -20,6 +20,7 @@ bins of the installed client.
 | Date       | Change                                                    |
 | ---------- | --------------------------------------------------------- |
 | 2026-10-19 | Record the import preview, export and reimport status     |
+| 2026-10-19 | New look from geometry keeps the skin's placeables        |
 | 2026-10-19 | Record the New project Map entry status                   |
 | 2026-10-18 | Split the viewport toolbar into a tool rail and a top bar |
 | 2026-10-18 | Record the mesh import status and the texture folder      |
@@ -197,7 +198,7 @@ starting points.
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
 | Edit the shipped map   | Nothing until the first edit                                                                                             | Small changes to a shipped map   |
 | New look from a skin   | A copy of one skin's container under `maps/mapgeometry/map<N>/<slug>`, and declarations that point the map's skins at it | A map skin                       |
-| New look from geometry | An empty container under the same path, the imported geometry, and the same declarations                                 | A port such as the Season 1 Rift |
+| New look from geometry | A copy of one skin's container with only its controller and region meshes, and the same declarations                     | A port such as the Season 1 Rift |
 
 The declarations that point the skins at the new container are `mMapContainerLink` edits on every
 `MapSkin` of the map, the same edits that the map-skins built-in mod writes (ADR-0052). The user
@@ -214,9 +215,10 @@ does not author LODs.
 
 **New look from geometry keeps the shipped state meshes.** The Season 1 port showed that replacing
 the whole `.mapgeo` removes every controller-swapped feature, such as the Baron pit and the
-elemental terrains. The starting point copies the meshes that have a controller or a region, 408
-and 13 on Summoner's Rift, into the new container. The user can delete them, and the Problems
-pane then reports each state that has no mesh.
+elemental terrains. The starting point copies the skin's container with its placeables and
+settings, and keeps only the meshes that have a controller or a region, 408 and 13 on Summoner's
+Rift. The user adds the new geometry with Add mesh. The user can delete the state meshes, and the
+Problems pane then reports each state that has no mesh.
 
 ## The shell
 
