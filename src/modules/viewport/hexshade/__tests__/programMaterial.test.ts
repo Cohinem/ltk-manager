@@ -408,6 +408,40 @@ describe("borderProgramTexture", () => {
   });
 });
 
+describe("createProgramMaterial with shared textures", () => {
+  it("binds the grass tint as opaque white and another shared texture as transparent black", () => {
+    const names = ["GRASS_TINT_MAP_SharedTexture", "FOG_SharedTexture"];
+    const pixel = stageOf(
+      [],
+      [
+        ...names.map((name) => `uniform highp sampler2D ${name};`),
+        "layout(location = 0) out vec4 SV_Target;",
+      ].join("\n"),
+      "    SV_Target = vec4(0.0);",
+    );
+    for (const name of names) {
+      pixel.sidecar.textures.push({
+        name,
+        dimension: "texture2d",
+        samplers: [{ sampler: "Clamp_No_Mip_SharedSampler", glslName: name }],
+      });
+    }
+    const vertex = stageOf([], "", "    gl_Position = vec4(0.0);");
+
+    const material = createProgramMaterial(
+      programOf(vertex, pixel),
+      new EngineEnvironment("uniform"),
+    );
+
+    const texel = (name: string) => {
+      const { image } = material.uniforms[name]?.value as Texture;
+      return [...(image as { data: Uint8Array }).data];
+    };
+    expect(texel("GRASS_TINT_MAP_SharedTexture")).toEqual([255, 255, 255, 255]);
+    expect(texel("FOG_SharedTexture")).toEqual([0, 0, 0, 0]);
+  });
+});
+
 describe("createProgramMaterial with a fetched buffer", () => {
   it("binds the buffer under its own name, off the unit a 2D sampler takes", () => {
     const vertex = stageOf(

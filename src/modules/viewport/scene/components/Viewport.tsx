@@ -221,6 +221,8 @@ export function Viewport({
                 programTextures={map.programTextures}
                 lightmaps={map.lightmaps}
                 light={light}
+                grassTint={map.grassTint}
+                bounds={map.bounds}
                 visibility={backdropVisibility ?? map.visibility}
                 viewMode={viewMode}
                 edges={edges}

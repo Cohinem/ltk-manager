@@ -3804,6 +3804,12 @@ export type LinkChange =
 /**  A `-links` item of a dependency of the game's list the applied one lacks. */
 "removed";
 
+/**  The world rectangle on X and Z that a map-wide texture covers, in engine units. */
+export type MapBounds = {
+	min: [(number | null), (number | null)],
+	max: [(number | null), (number | null)],
+};
+
 /**  One character a map stands in its scene. */
 export type MapCharacter = {
 	/**  The chunk that holds it, a `MapPlaceableContainer`, as `0x` and eight digits. */
@@ -4038,6 +4044,25 @@ export type MapGeometryState = {
 	dirty: boolean,
 };
 
+/**  The grass tint of one `MapAlternateAsset`, and the visibility flag that turns it on. */
+export type MapGrassAlternate = {
+	/**  The layer bit of the flag, 0 to 7. */
+	bit: number,
+	texture: AssetRef,
+};
+
+/**  The grass tint texture of one `MapSkin`. */
+export type MapGrassTint = {
+	/**  The `MapSkin`'s `name`. */
+	skin: string,
+	texture: AssetRef,
+	/**
+	 *  The skin's alternate tints, in file order. The first one whose flag is on replaces
+	 *  `texture`.
+	 */
+	alternates: MapGrassAlternate[],
+};
+
 /**  What a placeable is to a scene, which is what an outliner marks its row with. */
 export type MapItemKind = 
 /**  A `MapParticle`, which plays a system. */
@@ -4107,6 +4132,13 @@ export type MapModel = {
 	 *  none or nothing holds it.
 	 */
 	lightGrid: AssetRef | null,
+	/**
+	 *  The grass tint of each skin that links the map, in file order. Empty until the caller
+	 *  reads the map's own bin, where the skins live.
+	 */
+	grassTints: MapGrassTint[],
+	/**  Null where the map's container states no bounds. */
+	bounds: MapBounds | null,
 };
 
 /**  One string field that names a placeable, addressed as a property edit addresses it. */

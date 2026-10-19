@@ -14,11 +14,11 @@ use ltk_manager_bin::bin_document::{BinDocument, Fields, items, link, text};
 const MAP: BinHash = named("Map");
 /// `Map.mapSkins`, a list of links to the `MapSkin` objects of the same file.
 const MAP_SKINS: BinHash = named("mapSkins");
-const MAP_SKIN: BinHash = named("MapSkin");
+pub(super) const MAP_SKIN: BinHash = named("MapSkin");
 /// `MapSkin.name`.
-const SKIN_NAME: BinHash = named("name");
+pub(super) const SKIN_NAME: BinHash = named("name");
 /// `MapSkin.mMapContainerLink`, the entry path of a `MapContainer` in another file.
-const CONTAINER_LINK: BinHash = named("mMapContainerLink");
+pub(super) const CONTAINER_LINK: BinHash = named("mMapContainerLink");
 /// `MapContainer.mapPath`.
 const MAP_PATH: BinHash = named("mapPath");
 

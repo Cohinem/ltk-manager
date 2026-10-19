@@ -462,6 +462,7 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       document: resolver,
       geometry: geometryFile,
       edited: geometryEdited,
+      skin: chosen.skin,
     };
   }, [chosen, geometryFile, materialsFile, resolver, geometryOpening, geometryEdited]);
   const backdrop = useBackdropFlags(backdropSource);

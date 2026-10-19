@@ -11,15 +11,13 @@ pub(super) const MAP_CONTAINER: BinHash = named("MapContainer");
 /// `MapContainer.components`, a list of pointers to `MapComponent`.
 pub(super) const COMPONENTS: BinHash = named("components");
 
-/// The fields of the `class` component of `map`'s container, and none where it has none.
-///
-/// The container is the object at `map`'s entry path, else the file's first `MapContainer`.
-pub(super) fn map_component<'a>(
+/// Returns the fields of `map`'s container: the object at `map`'s entry path, else the file's
+/// first `MapContainer`. Returns `None` if the file declares no container.
+pub(super) fn container_fields<'a>(
     materials: &'a BinDocument,
     map: &MapPath,
-    class: BinHash,
 ) -> Option<&'a Fields> {
-    let container = materials
+    materials
         .object_at(BinHash::hash_str(map.as_str()))
         .filter(|object| object.class_hash == MAP_CONTAINER)
         .or_else(|| {
@@ -27,8 +25,18 @@ pub(super) fn map_component<'a>(
                 .entries()
                 .filter_map(|entry| materials.object_at(entry))
                 .find(|object| object.class_hash == MAP_CONTAINER)
-        })?;
-    items(container.properties.get(&COMPONENTS))
+        })
+        .map(|object| &object.properties)
+}
+
+/// The fields of the `class` component of `map`'s container, and none where it has none.
+pub(super) fn map_component<'a>(
+    materials: &'a BinDocument,
+    map: &MapPath,
+    class: BinHash,
+) -> Option<&'a Fields> {
+    let container = container_fields(materials, map)?;
+    items(container.get(&COMPONENTS))
         .iter()
         .filter_map(|component| struct_of(Some(component)))
         .find(|(found, _)| *found == class)

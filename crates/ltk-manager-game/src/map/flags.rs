@@ -5,13 +5,18 @@ use ltk_manager_base::hashing::named;
 use serde::Serialize;
 
 use super::MapPath;
-use ltk_manager_bin::bin_document::{BinDocument, fields_of, items, text, unsigned};
+use ltk_manager_bin::bin_document::{BinDocument, fields_of, items, leaf, text, unsigned};
+use ltk_meta::PropertyValueEnum;
+use ltk_meta::walk::Leaf;
 
 const MAP: BinHash = named("Map");
 /// `Map.VisibilityFlagDefines`, an embedded `MapVisibilityFlagDefinitions`.
 const FLAG_DEFINES: BinHash = named("VisibilityFlagDefines");
 /// `MapVisibilityFlagDefinitions.FlagDefinitions`, a list of `MapVisibilityFlagDefinition`.
 const FLAG_DEFINITIONS: BinHash = named("FlagDefinitions");
+/// `MapVisibilityFlagDefinition.name`, the hash that `MapAlternateAsset.mVisibilityFlagName`
+/// matches.
+const FLAG_NAME: BinHash = named("name");
 const PUBLIC_NAME: BinHash = named("PublicName");
 const BIT_INDEX: BinHash = named("BitIndex");
 
@@ -43,19 +48,7 @@ pub fn map_bin_path(map: &MapPath) -> Option<String> {
 /// definition that has no `PublicName` or a `BitIndex` above 7.
 #[must_use]
 pub fn map_flags(bin: &BinDocument) -> Vec<MapFlag> {
-    let Some(map) = bin
-        .entries()
-        .filter_map(|entry| bin.object_at(entry))
-        .find(|object| object.class_hash == MAP)
-    else {
-        return Vec::new();
-    };
-
-    let definitions = fields_of(map.properties.get(&FLAG_DEFINES))
-        .map(|defines| items(defines.get(&FLAG_DEFINITIONS)))
-        .unwrap_or_default();
-
-    definitions
+    flag_definitions(bin)
         .iter()
         .filter_map(|definition| {
             let fields = fields_of(Some(definition))?;
@@ -68,6 +61,34 @@ pub fn map_flags(bin: &BinDocument) -> Vec<MapFlag> {
             })
         })
         .collect()
+}
+
+/// Returns the layer bit of each flag definition of the first `Map` object of `bin`, by the
+/// definition's `name` hash. Skips a definition that has no `name` or a `BitIndex` above 7.
+pub(super) fn flag_bits(bin: &BinDocument) -> Vec<(BinHash, u8)> {
+    flag_definitions(bin)
+        .iter()
+        .filter_map(|definition| {
+            let fields = fields_of(Some(definition))?;
+            let Leaf::Hash(name) = leaf(fields.get(&FLAG_NAME))? else {
+                return None;
+            };
+            let name = name.try_as_bin_hash()?;
+            let bit = u8::try_from(unsigned(fields.get(&BIT_INDEX)).unwrap_or(0)).ok()?;
+
+            (bit < 8).then_some((name, bit))
+        })
+        .collect()
+}
+
+/// Returns the flag definitions of the first `Map` object of `bin`, and none if it has none.
+fn flag_definitions(bin: &BinDocument) -> &[PropertyValueEnum] {
+    bin.entries()
+        .filter_map(|entry| bin.object_at(entry))
+        .find(|object| object.class_hash == MAP)
+        .and_then(|map| fields_of(map.properties.get(&FLAG_DEFINES)))
+        .map(|defines| items(defines.get(&FLAG_DEFINITIONS)))
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
