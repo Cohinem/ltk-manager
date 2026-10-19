@@ -271,6 +271,8 @@ services! {
         get_workshop_projects,
         get_workshop_project,
         create_project,
+        list_map_starts,
+        create_map_project,
         edit_project,
         rename_workshop_project,
         delete_workshop_project,

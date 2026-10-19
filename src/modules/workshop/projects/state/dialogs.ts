@@ -7,4 +7,6 @@ export const useRenameProjectDialog = createDialogStore<WorkshopProject>();
 
 export const useNewProjectDialog = createDialogStore();
 
+export const useNewMapProjectDialog = createDialogStore();
+
 export const useBulkDeleteDialog = createDialogStore<WorkshopProject[]>();

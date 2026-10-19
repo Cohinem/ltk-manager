@@ -4134,7 +4134,7 @@ export type MapModel = {
 	lightGrid: AssetRef | null,
 	/**
 	 *  The grass tint of each skin that links the map, in file order. Empty until the caller
-	 *  reads the map's own bin, where the skins live.
+	 *  reads the map's own bin, which holds the skins.
 	 */
 	grassTints: MapGrassTint[],
 	/**  Null where the map's container states no bounds. */
@@ -4209,6 +4209,31 @@ export type MapPostEffects = {
 	depthOfField: MapDepthOfField,
 };
 
+/**  A created map project and the container that its map shell opens. */
+export type MapProject = {
+	project: WorkshopProject,
+	container: MapProjectContainer,
+};
+
+/**  The `MapContainer` object that a new map project opens. */
+export type MapProjectContainer = {
+	/**  The `.materials.bin` that declares the container. */
+	asset: AssetRef,
+	/**  The container's path hash, `0x` and eight hex digits. */
+	entry: string,
+	path: MapPath,
+	/**  The path of the `.materials.bin`. */
+	file: string,
+};
+
+/**  One `MapSkin` of a game map and the container that it links. */
+export type MapSkinContainer = {
+	/**  The `MapSkin`'s `name`. */
+	skin: string,
+	/**  `MapSkin.mMapContainerLink`. */
+	container: MapPath,
+};
+
 /**  Which map skin every game shows, whatever skin the server names. */
 export type MapSkinMode = 
 /**  The skin the server names. */
@@ -4240,6 +4265,25 @@ export type MapSsao = {
 	/**  `EdgeAwareBlur`, the blur keeps a nearer surface's occlusion off the one behind it. */
 	edgeAwareBlur: boolean,
 };
+
+/**  A game map that a map project can start on, and the skins that link a shipped container. */
+export type MapStart = {
+	/**  The map id, such as `Map11`. */
+	map: string,
+	skins: MapSkinContainer[],
+};
+
+/**  What a map project contains when it is created. */
+export type MapStartingPoint = 
+/**  Nothing until the first edit. */
+"shipped" | 
+/**  A copy of the skin's container, and declarations that link every skin to it. */
+"skin" | 
+/**
+ *  A copy of the skin's container with only the meshes that have a controller or a region,
+ *  and the same declarations.
+ */
+"geometry";
 
 /**
  *  A map's sun, sky and fog, as its `MapSunProperties` states them.

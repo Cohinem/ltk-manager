@@ -20,7 +20,7 @@ pub(super) const SKIN_NAME: BinHash = named("name");
 /// `MapSkin.mMapContainerLink`, the entry path of a `MapContainer` in another file.
 pub(super) const CONTAINER_LINK: BinHash = named("mMapContainerLink");
 /// `MapContainer.mapPath`.
-const MAP_PATH: BinHash = named("mapPath");
+pub(super) const MAP_PATH: BinHash = named("mapPath");
 
 /// One map an object draws, and the skin that names it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

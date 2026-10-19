@@ -4,6 +4,7 @@ import {
   FolderOpenIcon,
   GitBranchIcon,
   GridFourIcon,
+  MapTrifoldIcon,
   PackageIcon,
   PlusIcon,
   TableIcon,
@@ -26,6 +27,7 @@ import { RecentProjectMenuItems } from "../../folders/components/RecentProjectMe
 import { useOpenFolder } from "../../folders/hooks/useOpenFolder";
 import { useProjectImports } from "../../imports/hooks/useProjectImports";
 import {
+  useNewMapProjectDialog,
   useNewProjectDialog,
   useProjectTableStore,
   useSetWorkshopViewMode,
@@ -144,6 +146,7 @@ function SelectionMenu() {
  */
 export function NewProjectButton() {
   const openNewProjectDialog = useNewProjectDialog((s) => s.open);
+  const openNewMapProjectDialog = useNewMapProjectDialog((s) => s.open);
   const imports = useProjectImports();
   const openFolder = useOpenFolder();
 
@@ -180,6 +183,12 @@ export function NewProjectButton() {
             onClick={openFolder.pick}
           >
             {m.workshop_folder_open_action()}
+          </Menu.Item>
+          <Menu.Item
+            icon={<MapTrifoldIcon weight="bold" className="size-4" />}
+            onClick={openNewMapProjectDialog}
+          >
+            {m.workshop_controls_new_map_action()}
           </Menu.Item>
           <Menu.Separator />
           <Menu.Group>
