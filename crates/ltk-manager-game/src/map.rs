@@ -20,12 +20,12 @@ use crate::material::{MaterialPreview, resolve_material};
 mod characters;
 mod component;
 mod controllers;
+mod custom_skin;
 #[cfg(test)]
 mod fixtures;
 mod flags;
 mod grass;
 mod lighting;
-mod new_look;
 mod outline;
 mod particles;
 mod placeable;
@@ -37,13 +37,13 @@ mod variants;
 
 pub use characters::{MapCharacter, map_characters};
 pub use controllers::{MapController, MapControllerRule, MapParentMode, map_controllers};
+pub use custom_skin::{
+    MapSkinContainer, custom_skin_path, map_skin_containers, moved_container, shipping_bin_path,
+    skin_link_declarations, state_meshes,
+};
 pub use flags::{MapFlag, map_bin_path, map_flags};
 pub use grass::{MapBounds, MapGrassAlternate, MapGrassTint, map_bounds, map_grass_tints};
 pub use lighting::light_grid_path;
-pub use new_look::{
-    MapSkinContainer, map_skin_containers, moved_container, new_look_path, shipping_bin_path,
-    skin_link_declarations, state_meshes,
-};
 pub use outline::{MapChunk, MapChunkItem, MapItemKind, MapItemShape, map_outline};
 pub use particles::{MapParticle, map_particles};
 pub use post_effects::{MapDepthOfField, MapFog, MapPostEffects, map_post_effects};

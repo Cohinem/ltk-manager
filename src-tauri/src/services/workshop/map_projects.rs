@@ -1,5 +1,4 @@
-//! Map projects: a project that starts on a game map, per "Starting a map" in
-//! docs/ux/MAP_EDITOR.md.
+//! Creates map projects. Per "Starting a map" in docs/ux/MAP_EDITOR.md.
 
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::services::shared::document_assets::with_resolution;
@@ -14,8 +13,8 @@ use ltk_manager_base::hashing::HexBinHash;
 use ltk_manager_base::utils::fs::atomic_write;
 use ltk_manager_bin::bin_document::{AssetLookup, BinDocument};
 use ltk_manager_game::map::{
-    map_skin_containers, moved_container, new_look_path, shipping_bin_path, skin_link_declarations,
-    state_meshes, MapPath, MapSkinContainer,
+    custom_skin_path, map_skin_containers, moved_container, shipping_bin_path,
+    skin_link_declarations, state_meshes, MapPath, MapSkinContainer,
 };
 use ltk_manager_workshop::ProjectDir;
 use serde::{Deserialize, Serialize};
@@ -23,13 +22,13 @@ use std::path::Path;
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
 
-/// The game maps that a map project starts on: Summoner's Rift, Howling Abyss and Arena.
+/// The map ids that map projects support: Summoner's Rift, Howling Abyss and Arena.
 const MAPS: [&str; 3] = ["Map11", "Map12", "Map30"];
 
-/// The layer that a new project writes its map files and declarations into.
+/// The layer that receives the map files and declarations of a new project.
 const BASE_LAYER: &str = "base";
 
-/// A game map that a map project can start on, and the skins that link a shipped container.
+/// A supported map and its skins that link a shipped container.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 pub struct MapStart {
     /// The map id, such as `Map11`.
@@ -37,7 +36,7 @@ pub struct MapStart {
     pub skins: Vec<MapSkinContainer>,
 }
 
-/// What a map project contains when it is created.
+/// The initial content of a map project.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub enum MapStartingPoint {
@@ -69,9 +68,8 @@ pub struct MapProjectContainer {
     pub file: String,
 }
 
-/// Lists each game map that a map project starts on, with the skins whose container's
-/// `.materials.bin` and `.mapgeo` the install holds. Skips a map whose bin the install does not
-/// hold or read.
+/// Lists the supported maps with each skin whose `.materials.bin` and `.mapgeo` are installed.
+/// Skips a map whose bin is missing or fails to read.
 #[tauri::command]
 #[specta::specta]
 pub async fn list_map_starts(app_handle: AppHandle) -> IpcResult<Vec<MapStart>> {
@@ -83,7 +81,7 @@ pub async fn list_map_starts(app_handle: AppHandle) -> IpcResult<Vec<MapStart>> 
                     let bin = match map_bin(&app_handle, assets, map) {
                         Ok(bin) => bin,
                         Err(e) => {
-                            tracing::warn!("Map projects: skipped {map}: {e}");
+                            tracing::warn!("Skipped {map} in the map project list: {e}");
                             return None;
                         }
                     };
@@ -106,12 +104,12 @@ pub async fn list_map_starts(app_handle: AppHandle) -> IpcResult<Vec<MapStart>> 
     .await
 }
 
-/// Creates the project `args` on the game map `map`, from the container of the skin named
-/// `skin`, with the starting point `start`.
+/// Creates the project `args` on `map` from the container of `skin`, with the starting point
+/// `start`.
 ///
-/// A new look writes its container under `Maps/MapGeometry/<map>/<project name>` in the base
-/// layer, and declarations that link every skin of the map to it. Removes the project again if
-/// any of its files fails to write.
+/// A custom map skin writes its container to `Maps/MapGeometry/<map>/<project name>` in the base layer,
+/// with declarations that link every skin of the map to it. Deletes the project if a file fails
+/// to write.
 #[tauri::command]
 #[specta::specta]
 pub async fn create_map_project(
@@ -124,7 +122,7 @@ pub async fn create_map_project(
     off_thread(move || {
         if !MAPS.contains(&map.as_str()) {
             return Err(AppError::ValidationFailed(format!(
-                "{map} is not a map that a map project starts on"
+                "Map projects do not support {map}"
             )));
         }
 
@@ -141,7 +139,10 @@ pub async fn create_map_project(
             Ok(container) => Ok(MapProject { project, container }),
             Err(e) => {
                 if let Err(removal) = fs::remove_dir_all(&project.path) {
-                    tracing::warn!("Map projects: could not remove {}: {removal}", project.path);
+                    tracing::warn!(
+                        "Could not delete the map project {}: {removal}",
+                        project.path
+                    );
                 }
                 Err(e)
             }
@@ -150,7 +151,7 @@ pub async fn create_map_project(
     .await
 }
 
-/// Writes the files of a map project that starts as `start`, and returns its container.
+/// Writes the files of the starting point `start` into `project`, and returns its container.
 fn fill(
     app: &AppHandle,
     project: &WorkshopProject,
@@ -173,8 +174,8 @@ fn fill(
 
         let geometry = locate(assets, &from.geometry())?;
         let archive = archive_of(&materials)
-            .ok_or_else(|| AppError::Other(format!("{} is in no archive", from.materials())))?;
-        let to = new_look_path(map, slug);
+            .ok_or_else(|| AppError::Other(format!("{} is not in an archive", from.materials())))?;
+        let to = custom_skin_path(map, slug);
         let layer = Path::new(&project.path).join("content").join(BASE_LAYER);
 
         let mut geometry_bytes = read_asset(app, &geometry)?;

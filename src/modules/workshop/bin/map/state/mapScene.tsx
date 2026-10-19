@@ -173,7 +173,7 @@ export interface MapSceneState {
   /** The rename dialog is open on the lead placeable. */
   readonly renaming: boolean;
   readonly setRenaming: (renaming: boolean) => void;
-  /** The model file and the map mesh that the reimport dialog is open on, and null while closed. */
+  /** The request of the open reimport dialog. `null` while the dialog is closed. */
   readonly reimport: ReimportRequest | null;
   readonly setReimport: (request: ReimportRequest | null) => void;
   /** The chunks and placeables the reader hid, by chunk entry and by `itemId`. */

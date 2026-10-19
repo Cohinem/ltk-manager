@@ -146,8 +146,8 @@ export const commands = {
 	 *  Writes the meshes at `meshes` of the `.mapgeo` open under `id` to `path` as a binary glTF
 	 *  file. Writes every mesh if `meshes` is `None`.
 	 * 
-	 *  The materials resolve through `map`'s `.materials.bin`, placed against the project of
-	 *  `document`. A material whose base texture cannot be read is written without one.
+	 *  Resolves the materials through the `.materials.bin` of `map` in the project of `document`.
+	 *  Writes a material without a texture if its base texture fails to read.
 	 */
 	mapGeometryExport: (id: number, meshes: number[] | null, document: number | null, map: MapPath, path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:preview|map_geometry_export", { id, meshes, document, map, path }),
 	/**

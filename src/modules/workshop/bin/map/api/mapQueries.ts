@@ -105,7 +105,7 @@ export const mapQueries = {
       staleTime: Infinity,
       retry: false,
     }),
-  /** The meshes `meshes` of the model file at `path`, lowered as an import lowers them. */
+  /** The import preview of `meshes` of the model file at `path`. */
   importPreview: (path: string, meshes: readonly number[], scale: number, up: UpAxis) =>
     queryOptions<ModelPreview, Error>({
       queryKey: ["map-import-preview", path, meshes, scale, up],

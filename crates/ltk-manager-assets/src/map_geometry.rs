@@ -329,8 +329,7 @@ impl MapGeometryDocument {
             .collect()
     }
 
-    /// Returns the name and the vertex count of the mesh at `mesh`, which a reimport matches a
-    /// source mesh against.
+    /// Returns the name and the vertex count of the mesh at `mesh`.
     ///
     /// # Errors
     ///
@@ -836,8 +835,8 @@ impl MapGeometryDocument {
                             deltas.extend(more);
                         }
                         Err(error) => {
-                            /* Revert the steps this sequence applied, so a refusal changes
-                            nothing. */
+                            /* Reverts the applied steps so that a failed sequence leaves the
+                            map unchanged. */
                             for inverse in inverses.into_iter().rev() {
                                 self.apply(inverse)?;
                             }

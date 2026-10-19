@@ -49,7 +49,7 @@ const SKIPPED: Record<SkippedItems["kind"], (input: { count: number }) => string
 export interface ImportMeshDialogProps {
   readonly importer: MeshImport;
   readonly request: MeshImportRequest;
-  /** The shown map that the preview draws the meshes in, and null where the viewport draws none. */
+  /** The map that the preview draws behind the meshes. `null` if the viewport shows no map. */
   readonly backdrop: BackdropSource | null;
 }
 
@@ -283,7 +283,7 @@ export function ImportMeshDialog({ importer, request, backdrop: source }: Import
   );
 }
 
-/** One labeled field of the import and reimport dialogs. */
+/** Labeled field of the import and reimport dialogs. */
 export function ImportField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Stack gap={1}>

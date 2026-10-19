@@ -47,10 +47,7 @@ export function useMeshExport(): (meshes: readonly number[] | null) => Promise<v
   );
 }
 
-/**
- * Returns a function that asks for a model file and opens the reimport dialog on it for the
- * mesh `mesh` of the open `.mapgeo`.
- */
+/** Returns a function that picks a model file and opens the reimport dialog for `mesh`. */
 export function useMeshReimport(): (mesh: number) => Promise<void> {
   const { geometryDocument, chosen, setReimport } = useMapScene();
   const toast = useToast();

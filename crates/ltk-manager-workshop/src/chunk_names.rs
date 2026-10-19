@@ -281,12 +281,12 @@ fn read_table(project_dir: &Path, path: &str) -> Option<Hashtable> {
     }
 }
 
-/// Where a project's `binentries` table is written if its manifest declares none.
+/// The path of the `binentries` table that is created if the manifest declares none.
 const ENTRIES_TABLE: &str = "binentries.hashes.txt";
 
 impl ProjectDir {
-    /// Adds `names` to the project's `binentries` hash table, so that the object paths the
-    /// project adds resolve. Declares the table in the manifest if the manifest declares none.
+    /// Adds `names` to the project's `binentries` hash table. Declares the table in the manifest
+    /// if the manifest declares none.
     ///
     /// # Errors
     ///

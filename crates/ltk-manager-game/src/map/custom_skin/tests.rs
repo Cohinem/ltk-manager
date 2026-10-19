@@ -125,7 +125,7 @@ fn skin_link_declarations_links_every_skin_by_hash_without_names() {
     assert_eq!(
         text,
         format!(
-            "version: 1\nmodules:\n  - name: Map skins draw {CLASSIC}\n    target: \"data/maps/shipping/map11/map11.bin\"\n    \"{default}\":\n      mMapContainerLink: \"{CLASSIC}\"\n    \"{odyssey}\":\n      mMapContainerLink: \"{CLASSIC}\"\n"
+            "version: 1\nmodules:\n  - name: Link map skins to {CLASSIC}\n    target: \"data/maps/shipping/map11/map11.bin\"\n    \"{default}\":\n      mMapContainerLink: \"{CLASSIC}\"\n    \"{odyssey}\":\n      mMapContainerLink: \"{CLASSIC}\"\n"
         )
     );
 }

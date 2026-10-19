@@ -13,30 +13,29 @@ import { Passes } from "../../vfx/rendering/components/Passes";
 import { mapQueries } from "../api/mapQueries";
 import type { ModelPreview } from "../utils/meshImport";
 
-/** The marker beside the meshes, a champion's radius and height in engine units. */
+/** Radius and height of the champion-sized marker, in engine units. */
 const MARKER_RADIUS = 65;
 const MARKER_HEIGHT = 180;
 
-/** The factor that scales the framing radius around the meshes and the marker. */
+/** Scale factor of the camera framing radius. */
 const FRAME_MARGIN = 1.6;
 
 type Point = readonly [number, number, number];
 
 export interface ImportPreviewProps {
-  /** The shown map, and null where the viewport draws none. */
+  /** The map behind the meshes. `null` if the viewport shows no map. */
   readonly backdrop: BackdropSource | null;
   readonly path: string;
   readonly meshes: readonly number[];
   readonly scale: number;
   readonly up: UpAxis;
-  /** Where the meshes stand, and null for the file's origin. */
+  /** The placement position. `null` keeps the file's origin. */
   readonly at: Point | null;
 }
 
 /**
- * The checked meshes of the import drawn in the shown map at the chosen placement, with a
- * champion-sized marker beside them so that a wrong scale shows. Per "Adding meshes" in
- * docs/ux/MAP_EDITOR.md.
+ * Preview of the checked meshes at the chosen placement in the shown map, beside a
+ * champion-sized marker. Per "Adding meshes" in docs/ux/MAP_EDITOR.md.
  */
 export function ImportPreview({ backdrop, path, meshes, scale, up, at }: ImportPreviewProps) {
   const preview = useQuery(mapQueries.importPreview(path, meshes, scale, up)).data;
@@ -60,7 +59,7 @@ export function ImportPreview({ backdrop, path, meshes, scale, up, at }: ImportP
   );
 }
 
-/** The meshes as a fill and a wireframe at `at`, the marker beside them, and the view framed on both. */
+/** Translucent fill and wireframe of the meshes at `at`, and the marker. Frames the camera on both. */
 function ModelGhost({ preview, at }: { preview: ModelPreview; at: Point }) {
   const colors = useSceneColors();
   const controls = useThree((state) => state.controls) as CameraControlsImpl | null;

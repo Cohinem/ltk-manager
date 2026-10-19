@@ -50,8 +50,8 @@ const GEOMETRY_DOCUMENT_PARAMETER: &str = "geometry";
 /// The parameter that narrows an open `.mapgeo`'s buffer to the meshes it lists.
 const MESHES_PARAMETER: &str = "meshes";
 
-/// The [`FORM_PARAMETER`] value asking a model file for the meshes that an import adds, in the
-/// buffer that `map_import::preview_buffer` documents.
+/// The [`FORM_PARAMETER`] value that requests the import preview buffer of a model file. The
+/// layout is documented on `map_import::preview_buffer`.
 const MODEL_FORM: &str = "model";
 
 /// The parameters of [`MODEL_FORM`]: engine units per file unit, and `y` or `z` for the up axis.
@@ -177,7 +177,7 @@ fn edited_map(app: &AppHandle, id: &str, meshes: Option<&str>) -> Response<Vec<u
 /// Returns the preview buffer of the meshes in `query` of the model file `asset`.
 fn model_preview(asset: &AssetRef, query: Option<&str>) -> Response<Vec<u8>> {
     let AssetRef::File { path } = asset else {
-        return message_response(StatusCode::BAD_REQUEST, "Not a model file on disk");
+        return message_response(StatusCode::BAD_REQUEST, "The model is not a file on disk");
     };
     let Ok(meshes) = parameter(query, MESHES_PARAMETER)
         .unwrap_or_default()
@@ -186,13 +186,16 @@ fn model_preview(asset: &AssetRef, query: Option<&str>) -> Response<Vec<u8>> {
         .map(str::parse::<usize>)
         .collect::<Result<Vec<_>, _>>()
     else {
-        return message_response(StatusCode::BAD_REQUEST, "Not a list of mesh indices");
+        return message_response(
+            StatusCode::BAD_REQUEST,
+            "`meshes` is not a list of mesh indices",
+        );
     };
     let Ok(scale) = parameter(query, SCALE_PARAMETER)
         .unwrap_or("1")
         .parse::<f32>()
     else {
-        return message_response(StatusCode::BAD_REQUEST, "Not a scale");
+        return message_response(StatusCode::BAD_REQUEST, "`scale` is not a number");
     };
     let up = match parameter(query, UP_PARAMETER) {
         Some("z") => UpAxis::Z,

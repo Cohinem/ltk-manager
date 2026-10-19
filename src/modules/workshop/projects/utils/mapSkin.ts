@@ -1,6 +1,6 @@
 import type { MapStart } from "@/lib/tauri";
 
-/** The skin that a game map shows in an ordinary game. */
+/** Lowercased name of the default skin of a map. */
 const DEFAULT_SKIN = "default";
 
 /**

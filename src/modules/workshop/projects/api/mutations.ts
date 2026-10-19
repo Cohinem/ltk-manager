@@ -20,7 +20,7 @@ export interface CreateMapProjectVariables {
   args: CreateProjectArgs;
   /** The map id, such as `Map11`. */
   map: string;
-  /** The `name` of the skin whose container the project starts from. */
+  /** The `MapSkin.name` of the source skin. */
   skin: string;
   start: MapStartingPoint;
 }

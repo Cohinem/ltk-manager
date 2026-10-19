@@ -21,7 +21,7 @@ const mapProjectSchema = z.object({
   name: projectSlugSchema,
 });
 
-/** The display name of each game map that a map project starts on, by map id. */
+/** Display names of the supported maps, by map id. */
 const MAP_NAMES: Record<string, () => string> = {
   Map11: m.workshop_map_project_map_summoners_rift_label,
   Map12: m.workshop_map_project_map_howling_abyss_label,
@@ -50,11 +50,7 @@ const STARTS: readonly {
   },
 ];
 
-/**
- * The dialog that creates a map project and opens its map shell.
- *
- * Per "Starting a map" in docs/ux/MAP_EDITOR.md.
- */
+/** New map project dialog. Per "Starting a map" in docs/ux/MAP_EDITOR.md. */
 export function NewMapProjectDialog() {
   const { isOpen, close } = useDialog(useNewMapProjectDialog);
   const navigate = useNavigate();
@@ -255,7 +251,7 @@ interface MapChoiceProps {
   onSkin: (skin: string) => void;
 }
 
-/** The game map and the skin whose container a map project starts from. */
+/** Map and skin pickers. */
 function MapChoice({ maps, map, skin, loading, disabled, onMap, onSkin }: MapChoiceProps) {
   if (loading) {
     return (
@@ -319,7 +315,7 @@ function MapChoice({ maps, map, skin, loading, disabled, onMap, onSkin }: MapCho
   );
 }
 
-/** Returns the display name of the game map `id`, else the id itself. */
+/** Returns the display name of map `id`, or `id` if it has none. */
 function mapName(id: string): string {
   return MAP_NAMES[id]?.() ?? id;
 }

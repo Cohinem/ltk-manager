@@ -4287,14 +4287,14 @@ export type MapSsao = {
 	edgeAwareBlur: boolean,
 };
 
-/**  A game map that a map project can start on, and the skins that link a shipped container. */
+/**  A supported map and its skins that link a shipped container. */
 export type MapStart = {
 	/**  The map id, such as `Map11`. */
 	map: string,
 	skins: MapSkinContainer[],
 };
 
-/**  What a map project contains when it is created. */
+/**  The initial content of a map project. */
 export type MapStartingPoint = 
 /**  Nothing until the first edit. */
 "shipped" | 
@@ -4932,7 +4932,7 @@ export type ModelMeshSummary = {
 	triangles: number,
 	/**  The source materials that the mesh draws with, by index. */
 	materials: number[],
-	/**  The map mesh that the file was exported from, and none for a file from another tool. */
+	/**  The map mesh that the glTF mesh was exported from. `None` if the extras have none. */
 	exported: ExportedMesh | null,
 };
 

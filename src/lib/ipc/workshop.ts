@@ -10,18 +10,17 @@ export const commands = {
 	/**  Make a project out of `source` in the workshop folder, answering the project. */
 	createProject: (source: ProjectSource) => __TAURI_INVOKE<({ ok: true; value: WorkshopProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:workshop|create_project", { source }),
 	/**
-	 *  Lists each game map that a map project starts on, with the skins whose container's
-	 *  `.materials.bin` and `.mapgeo` the install holds. Skips a map whose bin the install does not
-	 *  hold or read.
+	 *  Lists the supported maps with each skin whose `.materials.bin` and `.mapgeo` are installed.
+	 *  Skips a map whose bin is missing or fails to read.
 	 */
 	listMapStarts: () => __TAURI_INVOKE<({ ok: true; value: MapStart[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:workshop|list_map_starts"),
 	/**
-	 *  Creates the project `args` on the game map `map`, from the container of the skin named
-	 *  `skin`, with the starting point `start`.
+	 *  Creates the project `args` on `map` from the container of `skin`, with the starting point
+	 *  `start`.
 	 * 
-	 *  A new look writes its container under `Maps/MapGeometry/<map>/<project name>` in the base
-	 *  layer, and declarations that link every skin of the map to it. Removes the project again if
-	 *  any of its files fails to write.
+	 *  A custom map skin writes its container to `Maps/MapGeometry/<map>/<project name>` in the base layer,
+	 *  with declarations that link every skin of the map to it. Deletes the project if a file fails
+	 *  to write.
 	 */
 	createMapProject: (args: CreateProjectArgs, map: string, skin: string, start: MapStartingPoint) => __TAURI_INVOKE<({ ok: true; value: MapProject }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:workshop|create_map_project", { args, map, skin, start }),
 	/**

@@ -1,5 +1,4 @@
-//! Builds the files of a map project that gives a game map a new look: the copied container, the
-//! declarations that link the map's skins to it, and the geometry that keeps the state meshes.
+//! Builds the container, the skin link declarations and the geometry of a custom map skin.
 
 use std::io::Cursor;
 
@@ -34,10 +33,10 @@ pub fn shipping_bin_path(map: &str) -> String {
     format!("data/maps/shipping/{id}/{id}.bin")
 }
 
-/// Returns the container path of the new look `slug` on the game map `map`, such as
+/// Returns the container path of the custom map skin `slug` on the game map `map`, such as
 /// `Maps/MapGeometry/Map11/classic` for `Map11` and `classic`.
 #[must_use]
-pub fn new_look_path(map: &str, slug: &str) -> MapPath {
+pub fn custom_skin_path(map: &str, slug: &str) -> MapPath {
     MapPath::from(format!("Maps/MapGeometry/{map}/{slug}"))
 }
 
@@ -58,17 +57,15 @@ pub fn map_skin_containers(map_bin: &BinDocument) -> Vec<MapSkinContainer> {
         .collect()
 }
 
-/// Returns `materials` with its container moved from `from` to `to`: the object keyed by `to`'s
-/// hash, and `mapPath` set to `to`.
-///
-/// The container is the object at `from`'s entry path, else the file's first `MapContainer`.
+/// Returns `materials` with its `MapContainer` re-keyed from `from` to `to` and `mapPath` set to
+/// `to`. Falls back to the first `MapContainer` if no container is at `from`.
 ///
 /// # Errors
 ///
-/// Fails if `materials` is not a bin or declares no `MapContainer`.
+/// Fails if `materials` is not a valid bin or contains no `MapContainer`.
 pub fn moved_container(materials: &[u8], from: &MapPath, to: &MapPath) -> AppResult<Vec<u8>> {
     let mut bin = Bin::from_reader(&mut Cursor::new(materials))
-        .map_err(|e| AppError::Other(format!("{from} does not read as a bin: {e}")))?;
+        .map_err(|e| AppError::Other(format!("{from} is not a valid bin: {e}")))?;
 
     let old = BinHash::hash_str(from.as_str());
     let key = Some(old)
@@ -79,7 +76,7 @@ pub fn moved_container(materials: &[u8], from: &MapPath, to: &MapPath) -> AppRes
                 .find(|object| is_container(object))
                 .map(|object| object.path_hash)
         })
-        .ok_or_else(|| AppError::Other(format!("{from} declares no MapContainer")))?;
+        .ok_or_else(|| AppError::Other(format!("{from} contains no MapContainer")))?;
 
     let new = BinHash::hash_str(to.as_str());
     bin.objects = std::mem::take(&mut bin.objects)
@@ -105,7 +102,7 @@ pub fn moved_container(materials: &[u8], from: &MapPath, to: &MapPath) -> AppRes
 /// Returns a `game_data.yaml` with one `target` module on `chunk`, the bin `map_bin`, that sets
 /// `mMapContainerLink` of every `MapSkin` to `to`.
 ///
-/// An entry is spelled by its path where `names` holds it, else by its hash.
+/// Writes each entry as its path if `names` resolves it, else as its hash.
 #[must_use]
 pub fn skin_link_declarations(
     map_bin: &BinDocument,
@@ -121,7 +118,7 @@ pub fn skin_link_declarations(
     names.for_each_entry(&hashes, &mut |at, name| entries[at] = name.to_owned());
 
     let mut text = format!(
-        "version: 1\nmodules:\n  - name: Map skins draw {to}\n    target: {}\n",
+        "version: 1\nmodules:\n  - name: Link map skins to {to}\n    target: {}\n",
         quoted(chunk)
     );
     for entry in entries {

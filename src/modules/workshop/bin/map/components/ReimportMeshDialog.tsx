@@ -15,8 +15,8 @@ export interface ReimportMeshDialogProps {
 }
 
 /**
- * The reimport dialog of one map mesh: the source mesh of the model file, preselected where one
- * matches, its scale and its up axis. Per "Adding meshes" in docs/ux/MAP_EDITOR.md.
+ * Reimport dialog for one map mesh, with the source mesh, scale and up axis. Preselects the
+ * matched source mesh. Per "Adding meshes" in docs/ux/MAP_EDITOR.md.
  */
 export function ReimportMeshDialog({ request }: ReimportMeshDialogProps) {
   const { importMeshes, select, setReimport } = useMapScene();

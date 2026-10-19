@@ -302,8 +302,8 @@ pub async fn map_geometry_reimport_inspect(
 /// Writes the meshes at `meshes` of the `.mapgeo` open under `id` to `path` as a binary glTF
 /// file. Writes every mesh if `meshes` is `None`.
 ///
-/// The materials resolve through `map`'s `.materials.bin`, placed against the project of
-/// `document`. A material whose base texture cannot be read is written without one.
+/// Resolves the materials through the `.materials.bin` of `map` in the project of `document`.
+/// Writes a material without a texture if its base texture fails to read.
 #[tauri::command]
 #[specta::specta]
 pub async fn map_geometry_export(

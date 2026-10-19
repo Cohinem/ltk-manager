@@ -33,7 +33,7 @@ export const projectDetailsQueries = {
       staleTime: Infinity,
     }),
 
-  /* The install's maps change only with a game update, so the answer is kept for the session. */
+  /* The installed maps change only with a game update. */
   mapStarts: () =>
     queryOptions<MapStart[], AppError>({
       queryKey: workshopKeys.mapStarts(),

@@ -136,12 +136,12 @@ export function isModelPath(path: string): boolean {
   return (MODEL_EXTENSIONS as readonly string[]).includes(extension);
 }
 
-/** A model file that the reimport dialog is open on, and the map mesh that it replaces. */
+/** Model file and target map mesh of a reimport. */
 export interface ReimportRequest {
   readonly mesh: number;
   readonly path: string;
   readonly summary: ModelSummary;
-  /** The mesh of the file that matches the map mesh, and null if the reader picks it. */
+  /** Index of the matched source mesh. `null` if no mesh matches. */
   readonly source: number | null;
 }
 
@@ -155,9 +155,9 @@ export function reimportEdit(
   return { kind: "reimport", mesh: request.mesh, source: request.path, sourceMesh, scale, up };
 }
 
-/** The meshes that an import adds, as the dialog's preview draws them. */
+/** Positions and indices of the import preview. */
 export interface ModelPreview {
-  /** Three per vertex, in the engine's space. */
+  /** Three floats per vertex, in engine space. */
   readonly positions: Float32Array;
   readonly indices: Uint32Array;
 }

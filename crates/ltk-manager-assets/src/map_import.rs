@@ -149,7 +149,7 @@ pub struct ExportedMesh {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct SourceMesh {
     pub name: String,
-    /// The map mesh that the file was exported from, and none for a file from another tool.
+    /// The map mesh that the glTF mesh was exported from. `None` if the extras have none.
     pub exported: Option<ExportedMesh>,
     pub positions: Vec<Vec3>,
     pub normals: Option<Vec<Vec3>>,
@@ -188,7 +188,7 @@ pub struct ModelMeshSummary {
     pub triangles: u32,
     /// The source materials that the mesh draws with, by index.
     pub materials: Vec<u32>,
-    /// The map mesh that the file was exported from, and none for a file from another tool.
+    /// The map mesh that the glTF mesh was exported from. `None` if the extras have none.
     pub exported: Option<ExportedMesh>,
 }
 
