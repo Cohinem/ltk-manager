@@ -5,6 +5,8 @@ import {
   api,
   type AppError,
   type CreateProjectArgs,
+  type MapProject,
+  type MapStartingPoint,
   type SaveProjectConfigArgs,
   type WorkshopProject,
 } from "@/lib/tauri";
@@ -13,6 +15,16 @@ import { mutationFn, unwrapForQuery } from "@/utils/query";
 import { workshopKeys } from "../../shared/api/keys";
 import { useWorkshopEditorStore } from "../../state";
 import { addProject, replaceProject } from "./cache";
+
+export interface CreateMapProjectVariables {
+  args: CreateProjectArgs;
+  /** The map id, such as `Map11`. */
+  map: string;
+  /** The `MapSkin.name` of the source skin. */
+  skin: string;
+  start: MapStartingPoint;
+}
+
 export interface RenameProjectVariables {
   projectPath: string;
   newName: string;
@@ -32,6 +44,14 @@ export const projectDetailsMutations = {
     mutationOptions<WorkshopProject, AppError, CreateProjectArgs>({
       mutationFn: mutationFn(api.createWorkshopProject),
       onSuccess: (created) => addProject(client, created),
+    }),
+
+  createMap: (client: QueryClient) =>
+    mutationOptions<MapProject, AppError, CreateMapProjectVariables>({
+      mutationFn: mutationFn(({ args, map, skin, start }: CreateMapProjectVariables) =>
+        api.createMapProject(args, map, skin, start),
+      ),
+      onSuccess: (created) => addProject(client, created.project),
     }),
 
   remove: (client: QueryClient) =>

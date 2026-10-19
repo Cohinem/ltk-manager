@@ -4,6 +4,7 @@ import { ImportFantomeDialog } from "../../imports/components/ImportFantomeDialo
 import { ImportGitRepoDialog } from "../../imports/components/ImportGitRepoDialog";
 import { BulkDeleteDialog } from "../../projects/components/BulkDeleteDialog";
 import { DeleteConfirmDialog } from "../../projects/components/DeleteConfirmDialog";
+import { NewMapProjectDialog } from "../../projects/components/NewMapProjectDialog";
 import { NewProjectDialog } from "../../projects/components/NewProjectDialog";
 import { RenameProjectDialog } from "../../projects/components/RenameProjectDialog";
 
@@ -19,6 +20,7 @@ export function WorkshopDialogs() {
   return (
     <>
       <NewProjectDialog />
+      <NewMapProjectDialog />
       <ConvertFolderDialog />
       <AddFoldersDialog />
       <ImportFantomeDialog />

@@ -364,6 +364,8 @@ export const api = {
     mapGeometryEdit: preview.mapGeometryEdit,
     mapGeometryStep: preview.mapGeometryStep,
     mapGeometrySave: preview.mapGeometrySave,
+    mapGeometryExport: preview.mapGeometryExport,
+    mapGeometryReimportInspect: preview.mapGeometryReimportInspect,
     mapImportInspect: preview.mapImportInspect,
     mapImportMaterials: preview.mapImportMaterials,
     locateFilesNear: (sandbox: SandboxRef, paths: readonly string[]) =>
@@ -467,6 +469,8 @@ export const api = {
   // Workshop
   getWorkshopProjects: workshop.getWorkshopProjects,
   createWorkshopProject: (args: CreateProjectArgs) => workshop.createProject({ kind: "new", args }),
+  listMapStarts: workshop.listMapStarts,
+  createMapProject: workshop.createMapProject,
   getWorkshopProject: workshop.getWorkshopProject,
   getProjectContentTree: workshop.getProjectContentTree,
   saveProjectConfig: ({ projectPath, ...metadata }: SaveProjectConfigArgs) =>

@@ -1,7 +1,7 @@
 import { queryOptions, skipToken } from "@tanstack/react-query";
 import { convertFileSrc } from "@tauri-apps/api/core";
 
-import { api, type AppError, type WorkshopProject } from "@/lib/tauri";
+import { api, type AppError, type MapStart, type WorkshopProject } from "@/lib/tauri";
 import { queryFn, queryFnWithArgs, unwrapForQuery } from "@/utils/query";
 
 import { workshopKeys } from "../../shared/api/keys";
@@ -30,6 +30,14 @@ export const projectDetailsQueries = {
             return path ? convertFileSrc(path) : "";
           }
         : skipToken,
+      staleTime: Infinity,
+    }),
+
+  /* The installed maps change only with a game update. */
+  mapStarts: () =>
+    queryOptions<MapStart[], AppError>({
+      queryKey: workshopKeys.mapStarts(),
+      queryFn: queryFn(api.listMapStarts),
       staleTime: Infinity,
     }),
 } as const;

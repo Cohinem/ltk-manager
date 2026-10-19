@@ -2009,6 +2009,19 @@ export type ExportSummary = {
 	destination: string,
 };
 
+/**  The map mesh that a mesh of an exported glTF file was written from, read from its extras. */
+export type ExportedMesh = {
+	/**  The index of the mesh in its `.mapgeo` at the export. */
+	mesh: number,
+	/**  The entry path of the map's `MapContainer`. */
+	container: string,
+	/**
+	 *  The vertex count of the mesh at the export. A reimport compares it to detect a stale
+	 *  index.
+	 */
+	vertices: number,
+};
+
 /**  One `ExtraJointChainData`: a second chain turned by the angles of the first. */
 export type ExtraJointChain = {
 	/**  `StartingJointName`, the joint nearest the root. */
@@ -4012,7 +4025,15 @@ visibility: number;
 /**  The controller of every new mesh, `0x` and eight hex digits, or none. */
 controller: string | null; 
 /**  Column major with the translation last. */
-transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)] };
+transform: [(number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null), (number | null)] } | 
+/**
+ *  Replaces the mesh at `mesh` with the mesh `source_mesh` of the model file at `source`,
+ *  scaled by `scale` and turned from `up` to the engine's axes. The new mesh keeps the
+ *  visibility, controller, region, flags, light channels and texture overrides of the old
+ *  one, and draws its submesh materials in source material order. Its transform is the
+ *  identity, because the importer applies the file's node transforms to the vertices.
+ */
+{ kind: "reimport"; mesh: number; source: string; sourceMesh: number; scale: number | null; up: UpAxis };
 
 /**  What a mesh editor lists and inspects of one mesh. */
 export type MapGeometryMesh = {
@@ -4134,7 +4155,7 @@ export type MapModel = {
 	lightGrid: AssetRef | null,
 	/**
 	 *  The grass tint of each skin that links the map, in file order. Empty until the caller
-	 *  reads the map's own bin, where the skins live.
+	 *  reads the map's own bin, which holds the skins.
 	 */
 	grassTints: MapGrassTint[],
 	/**  Null where the map's container states no bounds. */
@@ -4209,6 +4230,31 @@ export type MapPostEffects = {
 	depthOfField: MapDepthOfField,
 };
 
+/**  A created map project and the container that its map shell opens. */
+export type MapProject = {
+	project: WorkshopProject,
+	container: MapProjectContainer,
+};
+
+/**  The `MapContainer` object that a new map project opens. */
+export type MapProjectContainer = {
+	/**  The `.materials.bin` that declares the container. */
+	asset: AssetRef,
+	/**  The container's path hash, `0x` and eight hex digits. */
+	entry: string,
+	path: MapPath,
+	/**  The path of the `.materials.bin`. */
+	file: string,
+};
+
+/**  One `MapSkin` of a game map and the container that it links. */
+export type MapSkinContainer = {
+	/**  The `MapSkin`'s `name`. */
+	skin: string,
+	/**  `MapSkin.mMapContainerLink`. */
+	container: MapPath,
+};
+
 /**  Which map skin every game shows, whatever skin the server names. */
 export type MapSkinMode = 
 /**  The skin the server names. */
@@ -4240,6 +4286,25 @@ export type MapSsao = {
 	/**  `EdgeAwareBlur`, the blur keeps a nearer surface's occlusion off the one behind it. */
 	edgeAwareBlur: boolean,
 };
+
+/**  A supported map and its skins that link a shipped container. */
+export type MapStart = {
+	/**  The map id, such as `Map11`. */
+	map: string,
+	skins: MapSkinContainer[],
+};
+
+/**  The initial content of a map project. */
+export type MapStartingPoint = 
+/**  Nothing until the first edit. */
+"shipped" | 
+/**  A copy of the skin's container, and declarations that link every skin to it. */
+"skin" | 
+/**
+ *  A copy of the skin's container with only the meshes that have a controller or a region,
+ *  and the same declarations.
+ */
+"geometry";
 
 /**
  *  A map's sun, sky and fog, as its `MapSunProperties` states them.
@@ -4867,6 +4932,8 @@ export type ModelMeshSummary = {
 	triangles: number,
 	/**  The source materials that the mesh draws with, by index. */
 	materials: number[],
+	/**  The map mesh that the glTF mesh was exported from. `None` if the extras have none. */
+	exported: ExportedMesh | null,
 };
 
 /**  What a model file holds, as the import dialog shows it. */
@@ -6039,6 +6106,13 @@ export type ReferenceWalkProgress = {
 	total: number,
 	/**  References found so far, past any cap. */
 	hits: number,
+};
+
+/**  The summary of a model file and the index of the mesh that replaces a map mesh in a reimport. */
+export type ReimportInspection = {
+	summary: ModelSummary,
+	/**  The index of the matching mesh. `None` if no mesh matches and the user picks one. */
+	source: number | null,
 };
 
 /**  One published release, as the changelog reads it. */

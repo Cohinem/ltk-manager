@@ -45,6 +45,7 @@ import { shiftMeshIds } from "../utils/geometryDeltas";
 import { NO_FILTER, type OutlineFilter } from "../utils/mapOutline";
 import { type SelectMode, selectedBy } from "../utils/mapSelection";
 import { openingVariant } from "../utils/mapVariants";
+import type { ReimportRequest } from "../utils/meshImport";
 
 /**
  * What a press in the viewport does: pick, move, turn or scale the selection with a gizmo, or
@@ -172,6 +173,9 @@ export interface MapSceneState {
   /** The rename dialog is open on the lead placeable. */
   readonly renaming: boolean;
   readonly setRenaming: (renaming: boolean) => void;
+  /** The request of the open reimport dialog. `null` while the dialog is closed. */
+  readonly reimport: ReimportRequest | null;
+  readonly setReimport: (request: ReimportRequest | null) => void;
   /** The chunks and placeables the reader hid, by chunk entry and by `itemId`. */
   readonly hidden: ReadonlySet<string>;
   /** Hide or show one chunk or placeable, or several at once. */
@@ -428,6 +432,7 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
   const [placeClass, setPlaceClass] = useState("MapParticle");
   const [target, setTarget] = useState<string | null>(null);
   const [renaming, setRenaming] = useState(false);
+  const [reimport, setReimport] = useState<ReimportRequest | null>(null);
   const [sunHandle, setSunHandle] = useState(false);
   const [dragged, setDragged] = useState<DraggedTransforms | null>(null);
   const outline = useQuery(mapQueries.outline(materialsFile === null ? null : opened)).data;
@@ -520,6 +525,8 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       setDragged,
       renaming,
       setRenaming,
+      reimport,
+      setReimport,
       sunHandle,
       setSunHandle,
       geometryDocument: geometry.state,
@@ -561,6 +568,7 @@ function MapSceneProvider({ source, children }: Omit<MapSceneHostProps, "enabled
       target,
       dragged,
       renaming,
+      reimport,
       sunHandle,
       geometry.state,
       geometryEdited,

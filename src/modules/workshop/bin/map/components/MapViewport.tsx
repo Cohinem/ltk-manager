@@ -49,6 +49,7 @@ import { MeshHighlight } from "./MeshHighlight";
 import { PlaceableGizmo } from "./PlaceableGizmo";
 import { usePlaceablePicking } from "./PlaceablePicking";
 import { PlaceableShapes } from "./PlaceableShapes";
+import { ReimportMeshDialog } from "./ReimportMeshDialog";
 import { RenamePlaceableDialog } from "./RenamePlaceableDialog";
 import { SunHandle } from "./SunHandle";
 
@@ -100,7 +101,8 @@ interface MapSceneProps {
 
 function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
   const { pick, materials, hidden, focus, selected, backdrop, editable, tool } = useMapScene();
-  const { renaming, setRenaming, dragged, geometryEdited, geometryOpening } = useMapScene();
+  const { renaming, setRenaming, dragged, geometryEdited, geometryOpening, reimport } =
+    useMapScene();
   const { space, snap, sunHandle } = useMapScene();
   const box = useRef<HTMLDivElement>(null);
   const picking = usePlaceablePicking();
@@ -250,8 +252,10 @@ function MapScene({ document, geometry, variants, chosen }: MapSceneProps) {
                 key={importer.request.path}
                 importer={importer}
                 request={importer.request}
+                backdrop={source}
               />
             )}
+            {reimport !== null && <ReimportMeshDialog key={reimport.path} request={reimport} />}
             {renaming && actions.lead !== null && (
               <RenamePlaceableDialog
                 key={actions.lead.id}

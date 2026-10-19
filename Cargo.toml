@@ -103,7 +103,7 @@ fs-err = "3"
 # every league-toolkit crate builds against.
 glam = "0.27"
 # Model files the map editor imports meshes from.
-gltf = { version = "1.4.1", default-features = false, features = ["import", "utils", "names"] }
+gltf = { version = "1.4.1", default-features = false, features = ["import", "utils", "names", "extras"] }
 image = "0.25.2"
 image_dds = { version = "0.6", default-features = false, features = ["ddsfile", "image"] }
 indexmap = { version = "2", features = ["serde"] }

@@ -11,9 +11,16 @@ use image::{GrayAlphaImage, GrayImage, RgbImage, RgbaImage};
 use fs_err as fs;
 
 use super::{
-    ImportError, ModelFile, SkippedItems, SkippedKind, SourceMaterial, SourceMesh, SourcePart,
-    TextureSource, UpAxis,
+    EXPORTED_KEY, ExportedMesh, ImportError, ModelFile, SkippedItems, SkippedKind, SourceMaterial,
+    SourceMesh, SourcePart, TextureSource, UpAxis,
 };
+
+/// Returns the [`ExportedMesh`] in the extras of `mesh`. Returns `None` if the extras have no
+/// valid one.
+fn exported_of(mesh: &gltf::Mesh<'_>) -> Option<ExportedMesh> {
+    let extras: serde_json::Value = serde_json::from_str(mesh.extras().as_ref()?.get()).ok()?;
+    serde_json::from_value(extras.get(EXPORTED_KEY)?.clone()).ok()
+}
 
 /// A parsed glTF document and the bytes of its buffers.
 struct Opened {
@@ -155,6 +162,7 @@ fn read_mesh(
     let mirrored = world.determinant() < 0.0;
     let mut out = SourceMesh {
         name,
+        exported: exported_of(mesh),
         ..SourceMesh::default()
     };
     if mesh

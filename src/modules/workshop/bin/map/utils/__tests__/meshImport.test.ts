@@ -9,6 +9,8 @@ import {
   materialImports,
   newMaterialName,
   placementTransform,
+  readModelPreview,
+  reimportEdit,
 } from "../meshImport";
 
 const MAP = "Maps/MapGeometry/Map11/Base";
@@ -115,5 +117,39 @@ describe("isModelPath", () => {
   it("matches the importer's extensions in any case", () => {
     expect(isModelPath("C:/models/Rock.GLB")).toBe(true);
     expect(isModelPath("C:/models/rock.blend")).toBe(false);
+  });
+});
+
+describe("reimportEdit", () => {
+  it("replaces the request's mesh with the chosen source mesh", () => {
+    const request = { mesh: 12, path: "C:/models/rock.glb", summary: summary([]), source: null };
+
+    expect(reimportEdit(request, 2, 1, "y")).toEqual({
+      kind: "reimport",
+      mesh: 12,
+      source: "C:/models/rock.glb",
+      sourceMesh: 2,
+      scale: 1,
+      up: "y",
+    });
+  });
+});
+
+describe("readModelPreview", () => {
+  it("reads the positions and the indices after the counts", () => {
+    const words = new Uint32Array([1, 3, 0, 0, 0, 0, 0, 0]);
+    new Float32Array(words.buffer, 8, 3).set([1, 2, 3]);
+
+    const preview = readModelPreview(words.buffer.slice(0, 32));
+
+    expect([...preview.positions]).toEqual([1, 2, 3]);
+    expect([...preview.indices]).toEqual([0, 0, 0]);
+  });
+
+  it("returns empty arrays for a buffer shorter than its counts", () => {
+    const preview = readModelPreview(new Uint32Array([4, 6]).buffer);
+
+    expect(preview.positions).toHaveLength(0);
+    expect(preview.indices).toHaveLength(0);
   });
 });

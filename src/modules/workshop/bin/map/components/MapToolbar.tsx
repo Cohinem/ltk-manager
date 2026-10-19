@@ -5,6 +5,7 @@ import {
   CaretDownIcon,
   CubeFocusIcon,
   CursorIcon,
+  ExportIcon,
   EyeIcon,
   FilePlusIcon,
   FloppyDiskIcon,
@@ -30,6 +31,7 @@ import {
 import { CameraMenu } from "../../shared/preview/CameraMenu";
 import { ViewModeMenu } from "../../shared/preview/ViewModeMenu";
 import { ControlDivider, ViewportRail } from "../../shared/preview/ViewportControls";
+import { useMeshExport } from "../hooks/useMeshFiles";
 import { type MapTool, useMapScene } from "../state/mapScene";
 import { variantLabel } from "../utils/mapVariants";
 import { BoxSelectButton, type PlaceablePicking } from "./PlaceablePicking";
@@ -123,6 +125,7 @@ export function TopRail({
   onFrame,
 }: TopRailProps) {
   const { editable, tool, geometryDocument } = useMapScene();
+  const exportMeshes = useMeshExport();
 
   return (
     <ViewportRail side="top" data-ui="MapViewport:controls">
@@ -141,6 +144,15 @@ export function TopRail({
             onClick={onAddMesh}
           >
             {m.workshop_bin_map_import_short_label()}
+          </Button>
+          <Button
+            variant="ghost"
+            size="xs"
+            left={<ExportIcon weight="bold" />}
+            onClick={() => void exportMeshes(null)}
+            aria-label={m.workshop_bin_map_export_map_action()}
+          >
+            {m.workshop_bin_map_export_short_label()}
           </Button>
           <SaveGeometryButton dirty={geometryDocument.dirty} />
           <ControlDivider />

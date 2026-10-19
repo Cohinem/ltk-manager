@@ -19,6 +19,9 @@ bins of the installed client.
 
 | Date       | Change                                                    |
 | ---------- | --------------------------------------------------------- |
+| 2026-10-19 | Record the import preview, export and reimport status     |
+| 2026-10-19 | Custom map skin from geometry keeps the skin's placeables |
+| 2026-10-19 | Record the New project Map entry status                   |
 | 2026-10-18 | Split the viewport toolbar into a tool rail and a top bar |
 | 2026-10-18 | Record the mesh import status and the texture folder      |
 | 2026-10-18 | Record the Lighting pane, map settings and icons status   |
@@ -44,33 +47,35 @@ Each edit of this document adds a row at the top. The table keeps the last ten r
 
 The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status) defines.
 
-| Feature                                              | Status      | Note                                                                                                                                  |
-| ---------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Map shell, outliner, visibility, read-only inspector | Available   | BIN_EDITOR.md, "A map's files"                                                                                                        |
-| Placeable picking and box select                     | Available   | Screen-space icons only                                                                                                               |
-| Editable placeable inspector                         | In progress | Fields edit in place. Rename, duplicate and delete in the header                                                                      |
-| Placeable gizmo                                      | In progress | Move, rotate, scale, world or local axes (X), grid snap with Ctrl to invert, typed transform fields, End drops to the floor           |
-| Place, duplicate, delete and rename placeables       | In progress | All four work. The target chunk is picked in the place menu or the outliner                                                           |
-| Draw every placeable kind                            | In progress | An icon per kind, light reach and frustums, probe and banner boxes, paths, volume boxes, light region polygons                        |
-| Map settings                                         | In progress | The inspector with nothing selected: container, skin, audio, fog of war, minimap, flags and dependency sections. No dependency picker |
-| Lighting pane                                        | In progress | Every section of the table, with Add for a missing component and the sun direction handle. Edits draw before the save                 |
-| Lighting volumes and light regions                   | In progress | Listed and placed from the Lighting pane, drawn as a box and a polygon. The volume extent and the polygon points do not drag yet      |
-| Visibility authoring                                 | In progress | Drop to assign, row menus, New controller, child parents, layers named by flag                                                        |
-| Minimap render                                       | Planned     | Top-down render to a 512x512 `.tex`                                                                                                   |
-| Map texture painting                                 | Planned     | Grass tint, fog of war overlay, terrain paint                                                                                         |
-| Mesh picking                                         | In progress | A click picks a marker first, then the nearest shown mesh along the ray, tested by bounds first                                       |
-| Scene outliner                                       | In progress | Meshes and placeables, context menus, drag to reparent, per-object eyes                                                               |
-| Mesh transforms, materials, flags                    | In progress | Move, rotate, scale, layers, controller, region, materials, quality, culling, duplicate, delete. Edits arrive as mesh deltas          |
-| Save a `.mapgeo`                                     | In progress | Ctrl+S, the toolbar, before Test, on a quit that saves, and when the scene closes                                                     |
-| Lightmap bake                                        | Planned     | After mesh editing                                                                                                                    |
-| Add meshes from glTF, FBX, OBJ and NVR               | In progress | Add mesh in the toolbar and a dropped file open the dialog. No preview in the dialog and no Palette entry                             |
-| Export selection to glTF                             | Planned     | -                                                                                                                                     |
-| Cubemap probe bake                                   | Blocked     | Needs a DDS cubemap writer                                                                                                            |
-| Light grid bake                                      | Blocked     | Needs a `LightGrid.dat` v3 writer                                                                                                     |
-| Navigation guides                                    | Blocked     | No `.aimesh_ngrid` reader exists                                                                                                      |
-| Conformance checks                                   | Blocked     | Needs the navigation guides                                                                                                           |
-| Navgrid painting                                     | Proposed    | See Ideas for review                                                                                                                  |
-| Scatter brush                                        | Proposed    | Places props and particles over an area                                                                                               |
+| Feature                                              | Status      | Note                                                                                                                                                                                                                                                                     |
+| ---------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Map shell, outliner, visibility, read-only inspector | Available   | BIN_EDITOR.md, "A map's files"                                                                                                                                                                                                                                           |
+| Placeable picking and box select                     | Available   | Screen-space icons only                                                                                                                                                                                                                                                  |
+| Editable placeable inspector                         | In progress | Fields edit in place. Rename, duplicate and delete in the header                                                                                                                                                                                                         |
+| Placeable gizmo                                      | In progress | Move, rotate, scale, world or local axes (X), grid snap with Ctrl to invert, typed transform fields, End drops to the floor                                                                                                                                              |
+| Place, duplicate, delete and rename placeables       | In progress | All four work. The target chunk is picked in the place menu or the outliner                                                                                                                                                                                              |
+| Draw every placeable kind                            | In progress | An icon per kind, light reach and frustums, probe and banner boxes, paths, volume boxes, light region polygons                                                                                                                                                           |
+| Map settings                                         | In progress | The inspector with nothing selected: container, skin, audio, fog of war, minimap, flags and dependency sections. No dependency picker                                                                                                                                    |
+| Lighting pane                                        | In progress | Every section of the table, with Add for a missing component and the sun direction handle. Edits draw before the save                                                                                                                                                    |
+| Lighting volumes and light regions                   | In progress | Listed and placed from the Lighting pane, drawn as a box and a polygon. The volume extent and the polygon points do not drag yet                                                                                                                                         |
+| Visibility authoring                                 | In progress | Drop to assign, row menus, New controller, child parents, layers named by flag                                                                                                                                                                                           |
+| Minimap render                                       | Planned     | Top-down render to a 512x512 `.tex`                                                                                                                                                                                                                                      |
+| Map texture painting                                 | Planned     | Grass tint, fog of war overlay, terrain paint                                                                                                                                                                                                                            |
+| Mesh picking                                         | In progress | A click picks a marker first, then the nearest shown mesh along the ray, tested by bounds first                                                                                                                                                                          |
+| Scene outliner                                       | In progress | Meshes and placeables, context menus, drag to reparent, per-object eyes                                                                                                                                                                                                  |
+| Mesh transforms, materials, flags                    | In progress | Move, rotate, scale, layers, controller, region, materials, quality, culling, duplicate, delete. Edits arrive as mesh deltas                                                                                                                                             |
+| Save a `.mapgeo`                                     | In progress | Ctrl+S, the toolbar, before Test, on a quit that saves, and when the scene closes                                                                                                                                                                                        |
+| Lightmap bake                                        | Planned     | After mesh editing                                                                                                                                                                                                                                                       |
+| Add meshes from glTF, FBX, OBJ and NVR               | In progress | Add mesh in the toolbar and a dropped file open the dialog, which previews the meshes in the shown map. No Palette entry yet                                                                                                                                             |
+| Export selection to glTF                             | In progress | The outliner menu exports the selected meshes, and Export in the toolbar the whole map, as `.glb`                                                                                                                                                                        |
+| Reimport a mesh                                      | In progress | The outliner menu of one mesh. Matches by the glTF extras, then by mesh name, else the dialog asks                                                                                                                                                                       |
+| Map entry in New project                             | In progress | SR, ARAM and Arena, the three starting points and the skin to start from. Custom map skin from geometry copies the skin's container with only its controller and region meshes, and the geometry is added with Add mesh. No shipped container declares LOD files to copy |
+| Cubemap probe bake                                   | Blocked     | Needs a DDS cubemap writer                                                                                                                                                                                                                                               |
+| Light grid bake                                      | Blocked     | Needs a `LightGrid.dat` v3 writer                                                                                                                                                                                                                                        |
+| Navigation guides                                    | Blocked     | No `.aimesh_ngrid` reader exists                                                                                                                                                                                                                                         |
+| Conformance checks                                   | Blocked     | Needs the navigation guides                                                                                                                                                                                                                                              |
+| Navgrid painting                                     | Proposed    | See Ideas for review                                                                                                                                                                                                                                                     |
+| Scatter brush                                        | Proposed    | Places props and particles over an area                                                                                                                                                                                                                                  |
 
 ## Scope
 
@@ -103,9 +108,9 @@ no tool that moves or deletes it. If the client copy differs from the server cop
 a turret or a wall at a position that the match does not use. A cosmetic entity template with
 `IsReplicated` set is a guide, because the server sends its state.
 
-**The map id is fixed.** The server selects the map and its skin. A project authors a new look for
-an existing map id, either by editing a shipped container or by pointing the map's skins at a new
-container (see "Starting a map"). A project cannot add a new playable map.
+**The map id is fixed.** The server selects the map and its skin. A project authors a custom map skin
+for an existing map id, either by editing a shipped container or by pointing the map's skins at a
+new container (see "Starting a map"). A project cannot add a new playable map.
 
 **The add menus offer every class that the client reads.** This includes `MapLightingV2`,
 `MapSSAO` and `MapAntiAliasing`, which the meta wiki lists as read by their own subsystems. The
@@ -189,11 +194,11 @@ active layer, and the toolbar shows that the layer ships the file.
 The Workshop's New project menu gets a Map entry. It asks for the game map and for one of three
 starting points.
 
-| Starting point         | What the project contains                                                                                                | Use                              |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
-| Edit the shipped map   | Nothing until the first edit                                                                                             | Small changes to a shipped map   |
-| New look from a skin   | A copy of one skin's container under `maps/mapgeometry/map<N>/<slug>`, and declarations that point the map's skins at it | A map skin                       |
-| New look from geometry | An empty container under the same path, the imported geometry, and the same declarations                                 | A port such as the Season 1 Rift |
+| Starting point                | What the project contains                                                                                                | Use                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
+| Edit the shipped map          | Nothing until the first edit                                                                                             | Small changes to a shipped map   |
+| Custom map skin               | A copy of one skin's container under `maps/mapgeometry/map<N>/<slug>`, and declarations that point the map's skins at it | A map skin                       |
+| Custom map skin from geometry | A copy of one skin's container with only its controller and region meshes, and the same declarations                     | A port such as the Season 1 Rift |
 
 The declarations that point the skins at the new container are `mMapContainerLink` edits on every
 `MapSkin` of the map, the same edits that the map-skins built-in mod writes (ADR-0052). The user
@@ -208,11 +213,12 @@ starting point writes both from the same value, and a rename in the map settings
 geometry at matching quality levels. Copying a container copies its LOD `.mapgeo` files. The editor
 does not author LODs.
 
-**New look from geometry keeps the shipped state meshes.** The Season 1 port showed that replacing
+**Custom map skin from geometry keeps the shipped state meshes.** The Season 1 port showed that replacing
 the whole `.mapgeo` removes every controller-swapped feature, such as the Baron pit and the
-elemental terrains. The starting point copies the meshes that have a controller or a region, 408
-and 13 on Summoner's Rift, into the new container. The user can delete them, and the Problems
-pane then reports each state that has no mesh.
+elemental terrains. The starting point copies the skin's container with its placeables and
+settings, and keeps only the meshes that have a controller or a region, 408 and 13 on Summoner's
+Rift. The user adds the new geometry with Add mesh. The user can delete the state meshes, and the
+Problems pane then reports each state that has no mesh.
 
 ## The shell
 
@@ -496,13 +502,16 @@ controller and region with every face.
   is imported in its bind pose, and the dialog lists what was skipped.
 
 **Export** writes the selected meshes, or the whole map, to glTF with their materials and
-textures. The export embeds each mesh's index and container path in its glTF extras.
+textures. The export embeds each mesh's index, container path and vertex count in its glTF extras.
+Each mesh is a node with the mesh's transform.
 
 **Reimport** replaces the selected mesh with a mesh from a model file and keeps its visibility
 layers, controller, region, flags and lightmap fields. If the file contains several meshes, the
 importer matches them by the glTF extras, then by mesh name. If neither matches, the dialog asks
 the user to pick the source mesh. An index in the extras goes stale when a mesh with a lower index
-is deleted, so a stale match also falls back to the dialog.
+is deleted, so a match whose vertex count differs from the mesh's also falls back to the dialog.
+The new mesh draws the old mesh's materials in source material order. Its transform is the identity,
+because the importer applies the file's node transforms to the vertices.
 
 ## Materials
 
@@ -952,7 +961,7 @@ These are proposals. None is a decision.
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | Is the map editor a separate tool?                                 | No. It is the map shell with its tools enabled                                       |
 | Does the editor target a private server?                           | No. Riot's servers only                                                              |
-| Can a project add a new playable map?                              | No. The server selects the map. A project gives an existing map a new look           |
+| Can a project add a new playable map?                              | No. The server selects the map. A project makes a custom map skin                    |
 | Which maps does the first version cover?                           | Summoner's Rift, Howling Abyss and Arena. Not the TFT boards                         |
 | Are server-owned objects editable?                                 | No. They are guides. Cosmetic entity templates are editable unless replicated        |
 | Is "Map Mountain" a documented Riot tool?                          | No public source names it. Parity is measured against the data Riot's tooling writes |

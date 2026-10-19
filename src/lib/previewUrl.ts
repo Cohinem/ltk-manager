@@ -48,6 +48,21 @@ export function usePreviewUrl(asset: AssetRef, minWidth?: number): string {
   return versionedUrl(previewUrl(asset, minWidth), version);
 }
 
+/**
+ * Returns the URL of the import preview buffer of `meshes` of the model file at `path`. The
+ * buffer layout is the one that `preview_buffer` in `crates/ltk-manager-assets/src/map_import.rs`
+ * writes.
+ */
+export function modelPreviewUrl(
+  path: string,
+  meshes: readonly number[],
+  scale: number,
+  up: "y" | "z",
+): string {
+  const url = convertFileSrc(encodeToken({ kind: "file", path }), SCHEME);
+  return `${url}?${FORM_PARAMETER}=model&meshes=${meshes.join(",")}&scale=${scale}&up=${up}`;
+}
+
 /** The URL the scheme answers `asset`'s buffer of `form` on. */
 export function previewBufferUrl(asset: AssetRef, form: PreviewForm): string {
   return `${convertFileSrc(encodeToken(asset), SCHEME)}?${FORM_PARAMETER}=${form}`;

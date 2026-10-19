@@ -20,6 +20,7 @@ use crate::material::{MaterialPreview, resolve_material};
 mod characters;
 mod component;
 mod controllers;
+mod custom_skin;
 #[cfg(test)]
 mod fixtures;
 mod flags;
@@ -36,6 +37,10 @@ mod variants;
 
 pub use characters::{MapCharacter, map_characters};
 pub use controllers::{MapController, MapControllerRule, MapParentMode, map_controllers};
+pub use custom_skin::{
+    MapSkinContainer, custom_skin_path, map_skin_containers, moved_container, shipping_bin_path,
+    skin_link_declarations, state_meshes,
+};
 pub use flags::{MapFlag, map_bin_path, map_flags};
 pub use grass::{MapBounds, MapGrassAlternate, MapGrassTint, map_bounds, map_grass_tints};
 pub use lighting::light_grid_path;
