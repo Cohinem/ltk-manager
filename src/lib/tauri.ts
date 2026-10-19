@@ -364,6 +364,8 @@ export const api = {
     mapGeometryEdit: preview.mapGeometryEdit,
     mapGeometryStep: preview.mapGeometryStep,
     mapGeometrySave: preview.mapGeometrySave,
+    mapGeometryExport: preview.mapGeometryExport,
+    mapGeometryReimportInspect: preview.mapGeometryReimportInspect,
     mapImportInspect: preview.mapImportInspect,
     mapImportMaterials: preview.mapImportMaterials,
     locateFilesNear: (sandbox: SandboxRef, paths: readonly string[]) =>

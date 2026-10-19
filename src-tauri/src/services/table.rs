@@ -175,6 +175,8 @@ services! {
         map_geometry_edit,
         map_geometry_step,
         map_geometry_save,
+        map_geometry_export,
+        map_geometry_reimport_inspect,
         map_import_inspect,
         map_import_materials,
         locate_map_files,

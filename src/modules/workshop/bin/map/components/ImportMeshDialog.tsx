@@ -16,6 +16,7 @@ import {
 } from "@/components";
 import { m } from "@/i18n";
 import type { ModelMaterialSummary, SkippedItems, UpAxis } from "@/lib/tauri";
+import type { BackdropSource } from "@/modules/viewport";
 import { twMerge } from "@/utils";
 
 import { mapQueries } from "../api/mapQueries";
@@ -28,6 +29,7 @@ import {
   type Placement,
 } from "../utils/meshImport";
 import { ChoicePicker } from "./ChoicePicker";
+import { ImportPreview } from "./ImportPreview";
 
 /** How many visibility layers a mesh's mask holds, one bit each. */
 const LAYER_COUNT = 8;
@@ -47,6 +49,8 @@ const SKIPPED: Record<SkippedItems["kind"], (input: { count: number }) => string
 export interface ImportMeshDialogProps {
   readonly importer: MeshImport;
   readonly request: MeshImportRequest;
+  /** The shown map that the preview draws the meshes in, and null where the viewport draws none. */
+  readonly backdrop: BackdropSource | null;
 }
 
 /**
@@ -54,7 +58,7 @@ export interface ImportMeshDialogProps {
  * material with the template and texture of a created one, the visibility of the new meshes and
  * where they stand. Per "Adding meshes" in docs/ux/MAP_EDITOR.md.
  */
-export function ImportMeshDialog({ importer, request }: ImportMeshDialogProps) {
+export function ImportMeshDialog({ importer, request, backdrop: source }: ImportMeshDialogProps) {
   const { materials, chosen, backdrop } = useMapScene();
   const defs = useQuery(mapQueries.materialDefs(materials)).data;
   const { summary } = request;
@@ -101,10 +105,12 @@ export function ImportMeshDialog({ importer, request }: ImportMeshDialogProps) {
     meshes.size > 0 &&
     choices.every((choice, at) => !used.has(at) || choice.mode === "create" || choice.material);
 
+  const at = { origin: null, center: request.center, drop: request.drop }[placement];
+  const checked = useMemo(() => [...meshes].sort((a, b) => a - b), [meshes]);
+
   const submit = () => {
-    const at = { origin: null, center: request.center, drop: request.drop }[placement];
     void importer.run({
-      meshes: [...meshes].sort((a, b) => a - b),
+      meshes: checked,
       scale,
       up,
       materials: choices,
@@ -132,6 +138,17 @@ export function ImportMeshDialog({ importer, request }: ImportMeshDialogProps) {
       >
         <Dialog.Body>
           <Stack gap={4}>
+            <ImportField label={m.workshop_bin_map_import_preview_label()}>
+              <ImportPreview
+                backdrop={source}
+                path={request.path}
+                meshes={checked}
+                scale={scale}
+                up={up}
+                at={at}
+              />
+            </ImportField>
+
             <ImportField label={m.workshop_bin_map_import_meshes_label()}>
               <Stack gap={1}>
                 {summary.meshes.map((mesh, at) => (

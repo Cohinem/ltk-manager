@@ -247,3 +247,87 @@ fn lower_skips_triangles_past_the_vertices() {
 
     assert_eq!(lowered[0].indices.count(), 3);
 }
+
+fn summary_mesh(name: &str, exported: Option<(u32, u32)>) -> ModelMeshSummary {
+    ModelMeshSummary {
+        name: name.to_owned(),
+        vertices: 3,
+        triangles: 1,
+        materials: vec![0],
+        exported: exported.map(|(mesh, vertices)| ExportedMesh {
+            mesh,
+            container: "Maps/MapGeometry/Map11/Base_SRX".to_owned(),
+            vertices,
+        }),
+    }
+}
+
+const TARGET: ReimportTarget<'static> = ReimportTarget {
+    index: 12,
+    name: "MapGeo_Instance_12",
+    container: "Maps/MapGeometry/Map11/Base_SRX",
+    vertices: 300,
+};
+
+#[test]
+fn reimport_source_takes_the_only_mesh_of_a_file() {
+    assert_eq!(
+        reimport_source(&[summary_mesh("Rock", None)], TARGET),
+        Some(0)
+    );
+}
+
+#[test]
+fn reimport_source_matches_export_extras_before_the_name() {
+    let meshes = [
+        summary_mesh("MapGeo_Instance_12", None),
+        summary_mesh("Edited", Some((12, 300))),
+    ];
+
+    assert_eq!(reimport_source(&meshes, TARGET), Some(1));
+}
+
+#[test]
+fn reimport_source_returns_none_for_stale_extras() {
+    let meshes = [
+        summary_mesh("MapGeo_Instance_12", Some((12, 120))),
+        summary_mesh("Other", Some((13, 300))),
+    ];
+
+    assert_eq!(reimport_source(&meshes, TARGET), None);
+}
+
+#[test]
+fn reimport_source_falls_back_to_the_mesh_name() {
+    let named = [
+        summary_mesh("Rock", None),
+        summary_mesh("MapGeo_Instance_12", None),
+    ];
+    let unnamed = [summary_mesh("A", None), summary_mesh("B", None)];
+
+    assert_eq!(reimport_source(&named, TARGET), Some(1));
+    assert_eq!(reimport_source(&unnamed, TARGET), None);
+}
+
+#[test]
+fn preview_buffer_writes_lowered_positions_and_indices() {
+    let model = ModelFile {
+        meshes: vec![triangle(0), triangle(0)],
+        materials: Vec::new(),
+        scale: 2.0,
+        up: UpAxis::Y,
+        skipped: Vec::new(),
+    };
+
+    let bytes = preview_buffer(&model, &[1, 5], 2.0, UpAxis::Y);
+
+    let words: Vec<u32> = bytes
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .map(|word| u32::from_le_bytes(*word))
+        .collect();
+    assert_eq!(&words[..2], &[3, 3]);
+    assert_eq!(f32::from_bits(words[5]), -2.0);
+    assert_eq!(&words[11..], &[0, 1, 2]);
+}

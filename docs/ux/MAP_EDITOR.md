@@ -19,6 +19,7 @@ bins of the installed client.
 
 | Date       | Change                                                    |
 | ---------- | --------------------------------------------------------- |
+| 2026-10-19 | Record the import preview, export and reimport status     |
 | 2026-10-18 | Split the viewport toolbar into a tool rail and a top bar |
 | 2026-10-18 | Record the mesh import status and the texture folder      |
 | 2026-10-18 | Record the Lighting pane, map settings and icons status   |
@@ -63,8 +64,9 @@ The status words are the ones [Project editor](PROJECT_EDITOR.md#feature-status)
 | Mesh transforms, materials, flags                    | In progress | Move, rotate, scale, layers, controller, region, materials, quality, culling, duplicate, delete. Edits arrive as mesh deltas          |
 | Save a `.mapgeo`                                     | In progress | Ctrl+S, the toolbar, before Test, on a quit that saves, and when the scene closes                                                     |
 | Lightmap bake                                        | Planned     | After mesh editing                                                                                                                    |
-| Add meshes from glTF, FBX, OBJ and NVR               | In progress | Add mesh in the toolbar and a dropped file open the dialog. No preview in the dialog and no Palette entry                             |
-| Export selection to glTF                             | Planned     | -                                                                                                                                     |
+| Add meshes from glTF, FBX, OBJ and NVR               | In progress | Add mesh in the toolbar and a dropped file open the dialog, which previews the meshes in the shown map. No Palette entry yet          |
+| Export selection to glTF                             | In progress | The outliner menu exports the selected meshes, and Export in the toolbar the whole map, as `.glb`                                     |
+| Reimport a mesh                                      | In progress | The outliner menu of one mesh. Matches by the glTF extras, then by mesh name, else the dialog asks                                    |
 | Cubemap probe bake                                   | Blocked     | Needs a DDS cubemap writer                                                                                                            |
 | Light grid bake                                      | Blocked     | Needs a `LightGrid.dat` v3 writer                                                                                                     |
 | Navigation guides                                    | Blocked     | No `.aimesh_ngrid` reader exists                                                                                                      |
@@ -496,13 +498,16 @@ controller and region with every face.
   is imported in its bind pose, and the dialog lists what was skipped.
 
 **Export** writes the selected meshes, or the whole map, to glTF with their materials and
-textures. The export embeds each mesh's index and container path in its glTF extras.
+textures. The export embeds each mesh's index, container path and vertex count in its glTF extras.
+Each mesh is a node with the mesh's transform.
 
 **Reimport** replaces the selected mesh with a mesh from a model file and keeps its visibility
 layers, controller, region, flags and lightmap fields. If the file contains several meshes, the
 importer matches them by the glTF extras, then by mesh name. If neither matches, the dialog asks
 the user to pick the source mesh. An index in the extras goes stale when a mesh with a lower index
-is deleted, so a stale match also falls back to the dialog.
+is deleted, so a match whose vertex count differs from the mesh's also falls back to the dialog.
+The new mesh draws the old mesh's materials in source material order. Its transform is the identity,
+because the importer applies the file's node transforms to the vertices.
 
 ## Materials
 

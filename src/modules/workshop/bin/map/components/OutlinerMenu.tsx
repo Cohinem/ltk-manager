@@ -1,9 +1,11 @@
 import {
+  ArrowsClockwiseIcon,
   ArrowsInIcon,
   CopyIcon,
   CrosshairIcon,
   EyeIcon,
   EyeSlashIcon,
+  ExportIcon,
   FolderSimpleIcon,
   PencilSimpleIcon,
   SelectionAllIcon,
@@ -17,6 +19,7 @@ import { m } from "@/i18n";
 import type { MapChunk } from "@/lib/tauri";
 
 import type { MeshActions } from "../hooks/useMeshActions";
+import { useMeshExport, useMeshReimport } from "../hooks/useMeshFiles";
 import type { PlaceableActions } from "../hooks/usePlaceableActions";
 import { useMapScene } from "../state/mapScene";
 import { chunkLabel, itemId } from "../utils/mapOutline";
@@ -40,7 +43,9 @@ export interface OutlinerMenuProps {
 export function OutlinerMenu({ row, chunks, placeables, meshes, onFrame }: OutlinerMenuProps) {
   const { editable, selected, select, hidden, setHidden, setRenaming, target, setTarget } =
     useMapScene();
-  const { backdrop } = useMapScene();
+  const { backdrop, geometryDocument } = useMapScene();
+  const exportMeshes = useMeshExport();
+  const reimport = useMeshReimport();
   if (row === null || row.type === "section") return null;
 
   const ids = selected.has(row.id) ? [...selected] : [row.id];
@@ -132,6 +137,25 @@ export function OutlinerMenu({ row, chunks, placeables, meshes, onFrame }: Outli
       >
         {m.workshop_bin_map_delete_action()}
       </ContextMenu.Item>
+      {isMesh && (
+        <>
+          <ContextMenu.Separator />
+          <ContextMenu.Item
+            icon={<ExportIcon />}
+            disabled={geometryDocument === null}
+            onClick={() => void exportMeshes(meshIndices)}
+          >
+            {m.workshop_bin_map_export_action()}
+          </ContextMenu.Item>
+          <ContextMenu.Item
+            icon={<ArrowsClockwiseIcon />}
+            disabled={!editable || geometryDocument === null || meshIndices.length !== 1}
+            onClick={() => void reimport(meshIndices[0] ?? 0)}
+          >
+            {m.workshop_bin_map_reimport_action()}
+          </ContextMenu.Item>
+        </>
+      )}
       <ContextMenu.Separator />
       <ContextMenu.Item icon={<CrosshairIcon />} shortcut="F" onClick={() => onFrame(row)}>
         {m.workshop_bin_map_selection_frame_action()}

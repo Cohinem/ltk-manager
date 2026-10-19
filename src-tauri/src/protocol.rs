@@ -12,6 +12,7 @@ use std::panic::AssertUnwindSafe;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use ltk_manager_assets::game_wads::WadCache;
+use ltk_manager_assets::map_import::{preview_buffer, read_model, UpAxis};
 use ltk_manager_assets::preview::{
     AssetRef, Preview, PreviewError, PreviewFile, PreviewFont, PreviewImage, PreviewRequest,
 };
@@ -48,6 +49,14 @@ const GEOMETRY_DOCUMENT_PARAMETER: &str = "geometry";
 
 /// The parameter that narrows an open `.mapgeo`'s buffer to the meshes it lists.
 const MESHES_PARAMETER: &str = "meshes";
+
+/// The [`FORM_PARAMETER`] value asking a model file for the meshes that an import adds, in the
+/// buffer that `map_import::preview_buffer` documents.
+const MODEL_FORM: &str = "model";
+
+/// The parameters of [`MODEL_FORM`]: engine units per file unit, and `y` or `z` for the up axis.
+const SCALE_PARAMETER: &str = "scale";
+const UP_PARAMETER: &str = "up";
 
 /// The [`FORM_PARAMETER`] value asking a skeleton for its joint buffer.
 const SKELETON_FORM: &str = "skeleton";
@@ -107,6 +116,10 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
         Err(message) => return message_response(StatusCode::BAD_REQUEST, &message),
     };
 
+    if parameter(request.uri().query(), FORM_PARAMETER) == Some(MODEL_FORM) {
+        return model_preview(&asset, request.uri().query());
+    }
+
     let wanted = match requested(request.uri().query()) {
         Ok(wanted) => wanted,
         Err(message) => return message_response(StatusCode::BAD_REQUEST, &message),
@@ -157,6 +170,37 @@ fn edited_map(app: &AppHandle, id: &str, meshes: Option<&str>) -> Response<Vec<u
     };
     match answer {
         Ok(bytes) => buffer_response(bytes),
+        Err(e) => message_response(StatusCode::NOT_FOUND, &e.to_string()),
+    }
+}
+
+/// Answers the preview buffer of the meshes that `query` lists of the model file `asset`.
+fn model_preview(asset: &AssetRef, query: Option<&str>) -> Response<Vec<u8>> {
+    let AssetRef::File { path } = asset else {
+        return message_response(StatusCode::BAD_REQUEST, "Not a model file on disk");
+    };
+    let Ok(meshes) = parameter(query, MESHES_PARAMETER)
+        .unwrap_or_default()
+        .split(',')
+        .filter(|each| !each.is_empty())
+        .map(str::parse::<usize>)
+        .collect::<Result<Vec<_>, _>>()
+    else {
+        return message_response(StatusCode::BAD_REQUEST, "Not a list of mesh indices");
+    };
+    let Ok(scale) = parameter(query, SCALE_PARAMETER)
+        .unwrap_or("1")
+        .parse::<f32>()
+    else {
+        return message_response(StatusCode::BAD_REQUEST, "Not a scale");
+    };
+    let up = match parameter(query, UP_PARAMETER) {
+        Some("z") => UpAxis::Z,
+        _ => UpAxis::Y,
+    };
+
+    match read_model(std::path::Path::new(path)) {
+        Ok(model) => buffer_response(preview_buffer(&model, &meshes, scale, up)),
         Err(e) => message_response(StatusCode::NOT_FOUND, &e.to_string()),
     }
 }

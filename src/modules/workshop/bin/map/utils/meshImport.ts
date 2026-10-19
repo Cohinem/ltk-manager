@@ -135,3 +135,47 @@ export function isModelPath(path: string): boolean {
   const extension = path.slice(path.lastIndexOf(".") + 1).toLowerCase();
   return (MODEL_EXTENSIONS as readonly string[]).includes(extension);
 }
+
+/** A model file that the reimport dialog is open on, and the map mesh that it replaces. */
+export interface ReimportRequest {
+  readonly mesh: number;
+  readonly path: string;
+  readonly summary: ModelSummary;
+  /** The mesh of the file that matches the map mesh, and null if the reader picks it. */
+  readonly source: number | null;
+}
+
+/** Returns the `.mapgeo` edit that replaces the mesh of `request` with the file's `sourceMesh`. */
+export function reimportEdit(
+  request: ReimportRequest,
+  sourceMesh: number,
+  scale: number,
+  up: UpAxis,
+): MapGeometryEdit {
+  return { kind: "reimport", mesh: request.mesh, source: request.path, sourceMesh, scale, up };
+}
+
+/** The meshes that an import adds, as the dialog's preview draws them. */
+export interface ModelPreview {
+  /** Three per vertex, in the engine's space. */
+  readonly positions: Float32Array;
+  readonly indices: Uint32Array;
+}
+
+/**
+ * Reads the buffer that `preview_buffer` in `crates/ltk-manager-assets/src/map_import.rs`
+ * writes. Returns empty arrays for a buffer shorter than its counts.
+ */
+export function readModelPreview(buffer: ArrayBuffer): ModelPreview {
+  const header = new Uint32Array(buffer, 0, Math.min(2, buffer.byteLength >> 2));
+  const vertices = header[0] ?? 0;
+  const indices = header[1] ?? 0;
+  if (buffer.byteLength < 8 + 4 * (vertices * 3 + indices)) {
+    return { positions: new Float32Array(0), indices: new Uint32Array(0) };
+  }
+
+  return {
+    positions: new Float32Array(buffer, 8, vertices * 3),
+    indices: new Uint32Array(buffer, 8 + 12 * vertices, indices),
+  };
+}
