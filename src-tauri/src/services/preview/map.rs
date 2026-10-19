@@ -14,9 +14,9 @@ use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_bin::bin_document::{BinDocument, BinDocumentId, BinDocuments};
 use ltk_manager_bin::sandbox::SandboxRef;
 use ltk_manager_game::map::{
-    map_bin_path, map_characters, map_flags, map_name_references, map_outline, map_particles,
-    map_variants, resolve_map, unresolved_map, MapCharacter, MapChunk, MapFiles, MapModel,
-    MapNameReference, MapParticle, MapPath, MapVariant,
+    map_bin_path, map_characters, map_flags, map_grass_tints, map_name_references, map_outline,
+    map_particles, map_variants, resolve_map, unresolved_map, MapCharacter, MapChunk, MapFiles,
+    MapModel, MapNameReference, MapParticle, MapPath, MapVariant,
 };
 use tauri::{AppHandle, Manager};
 
@@ -65,10 +65,12 @@ pub async fn read_map(
             let shaders = shader_defs(&app_handle, assets);
             let mut model = resolve_map(bin, &map, &materials, names, assets, shaders.as_deref());
 
-            /* The flag names only label the layers, so a map reads without them. */
+            /* The flag names only label the layers and the grass tint only colors the brush,
+            so a map reads without them. */
             let map_bin = map_bin_path(&map).and_then(|path| assets.locate(&path));
             if let Some(Ok(map_bin)) = map_bin.map(|asset| read(&asset)) {
                 model.flags = map_flags(&map_bin);
+                model.grass_tints = map_grass_tints(&map_bin, &map, names, assets);
             }
 
             Ok(model)

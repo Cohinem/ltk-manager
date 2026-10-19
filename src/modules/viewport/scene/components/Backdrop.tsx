@@ -18,7 +18,7 @@ import {
 } from "three";
 
 import { useDisposable } from "@/hooks";
-import type { MaterialPreview, MaterialProgram } from "@/lib/tauri";
+import type { MapBounds, MaterialPreview, MaterialProgram } from "@/lib/tauri";
 
 import { type MapChannel, type MapGeometry, MESH_FLAG } from "../../assets/parsing/mapBuffer";
 import { type MapVisibility, meshVisible } from "../../assets/utils/mapVisibility";
@@ -34,6 +34,7 @@ import { recompileIfMoved, type SubmeshMaterial } from "../../shared/utils/rende
 import { createRetainedCache, useRetained } from "../../shared/utils/retainedCache";
 import { AXIS_SIGN, STAGE_ORDER } from "../../shared/utils/space";
 import { type DrawGroup, type MeshRun, runsInView } from "../utils/backdropRuns";
+import { type GrassTextures, grassTextureFor } from "../utils/grassTint";
 import { KEEPS_GROUP_ORDER, type OrderedGroup } from "../utils/sharedRenderer";
 import type { SunLight } from "../utils/sunLight";
 import {
@@ -141,6 +142,8 @@ export function Backdrop({
   programTextures = NO_TEXTURES,
   lightmaps = NO_TEXTURES,
   light,
+  grassTint = null,
+  bounds = null,
   visibility,
   viewMode = "lit",
   edges = "none",
@@ -157,6 +160,10 @@ export function Backdrop({
   readonly lightmaps?: ReadonlyMap<string, Texture>;
   /** The sun the programs light by. */
   readonly light: SunLight;
+  /** The grass tints that the brush programs multiply by, picked by the active flags. */
+  readonly grassTint?: GrassTextures | null;
+  /** The rectangle that `TERRAIN_XFORM` maps a map-wide texture onto. */
+  readonly bounds?: MapBounds | null;
   /** The active flags and controller states that select the drawn meshes. */
   readonly visibility: MapVisibility;
   readonly viewMode?: ViewMode;
@@ -172,7 +179,10 @@ export function Backdrop({
   const environment = useDisposable(() => new EngineEnvironment(), []);
   useEffect(() => {
     environment.light = light;
-  }, [environment, light]);
+    environment.grassTint =
+      grassTint === null ? null : grassTextureFor(grassTint, visibility.flags);
+    environment.terrain = bounds;
+  }, [environment, light, grassTint, visibility.flags, bounds]);
 
   const surface = surfaceOf(viewMode);
 

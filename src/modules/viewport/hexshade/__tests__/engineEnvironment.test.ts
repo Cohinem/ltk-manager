@@ -58,6 +58,25 @@ describe("EngineEnvironment", () => {
     expect(clipFor(new SkinnedMesh())).not.toEqual(clipFor(new Object3D()));
   });
 
+  it("writes every grass sphere far from the origin and leaves the velocities at zero", () => {
+    const environment = new EngineEnvironment();
+    const group = environment.group({
+      name: "GrassDisortVS",
+      glslName: "GrassDisortVS_vs",
+      size: 320,
+      members: [],
+    });
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+
+    environment.write(renderer, new PerspectiveCamera(), new Object3D(), 0);
+
+    const values = (group.uniforms[0] as Uniform).value as Float32Array;
+    for (let sphere = 0; sphere < 10; sphere += 1) {
+      expect(Math.hypot(...values.subarray(sphere * 4, sphere * 4 + 3))).toBeGreaterThan(1e5);
+    }
+    expect(values.subarray(40).every((value) => value === 0)).toBe(true);
+  });
+
   it("halves the clip transform's depth row into the D3D range", () => {
     const environment = new EngineEnvironment();
     const out = new Float32Array(16);
@@ -221,6 +240,18 @@ describe("EngineEnvironment under the uniform binding", () => {
     expect(material.uniformsNeedUpdate).toBe(true);
   });
 
+  it("keeps writing into a material built before dispose", () => {
+    const environment = new EngineEnvironment("uniform");
+    const material = programMaterial(environment, vertex, []);
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+
+    environment.dispose();
+    environment.write(renderer, new PerspectiveCamera(), new Object3D(), 3.5);
+
+    const frame = material.uniforms["PerFrameVertexCB_vs"]?.value as Float32Array | undefined;
+    expect(frame?.[20]).toBe(3.5);
+  });
+
   it("writes a particle's colour factor for the pixel stage, and one where no particle draws", () => {
     const pixel: UniformBlock = {
       name: "VFXDynamicPerParticleInstanceCBPS",
@@ -246,6 +277,32 @@ describe("EngineEnvironment under the uniform binding", () => {
     const tinted = new EngineEnvironment("uniform");
     tinted.particle = { colorFactor: [0.5, 0.25, 1, 0.75], depthPushPull: 0 };
     expect(factorOf(tinted)).toEqual([0.5, 0.25, 1, 0.75]);
+  });
+
+  it("writes TERRAIN_XFORM that maps the bounds onto the unit square", () => {
+    const pixel: UniformBlock = {
+      name: "PerFramePixelCB",
+      glslName: "PerFramePixelCB_ps",
+      size: 560,
+      members: [],
+    };
+    const environment = new EngineEnvironment("uniform");
+    environment.terrain = { min: [-10, 20], max: [90, 220] };
+    const material = programMaterial(
+      environment,
+      [],
+      [[pixel, declared(pixel.glslName, "vec4", 3)]],
+    );
+    const renderer = { info: { render: { frame: 1 } } } as unknown as WebGLRenderer;
+
+    environment.write(renderer, new PerspectiveCamera(), new Object3D(), 0);
+
+    const values = material.uniforms["PerFramePixelCB_ps"]?.value as Float32Array;
+    const [scaleX = 0, scaleZ = 0, offsetX = 0, offsetZ = 0] = values.subarray(8, 12);
+    expect(-10 * scaleX + offsetX).toBeCloseTo(0);
+    expect(90 * scaleX + offsetX).toBeCloseTo(1);
+    expect(20 * scaleZ + offsetZ).toBeCloseTo(0);
+    expect(220 * scaleZ + offsetZ).toBeCloseTo(1);
   });
 
   it("states a depth gap as the eye distance between two depths, in either projection", () => {

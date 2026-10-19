@@ -6,6 +6,7 @@ import {
   api,
   type AssetRef,
   type BinDocumentId,
+  type MapBounds,
   type MapController,
   type MapModel,
   type MapPath,
@@ -36,6 +37,12 @@ import {
 import { programTextureAssets } from "../../hexshade/programTextures";
 import { useAssetTextures } from "../../shared/hooks/useAssetTextures";
 import { type AmbientOcclusion, ambientOcclusionOf } from "../utils/ambientOcclusion";
+import {
+  type GrassTextures,
+  grassTextures,
+  grassTintAssets,
+  grassTintOf,
+} from "../utils/grassTint";
 import { type PostEffects, postEffectsOf } from "../utils/postEffects";
 import { type SunLight, sunLightOf } from "../utils/sunLight";
 
@@ -100,6 +107,8 @@ export interface BackdropSource {
   readonly edited?: EditedGeometry | null;
   /** The map's materials draw with the game's own shaders, translated. */
   readonly shaders?: boolean;
+  /** The `MapSkin` whose grass tint the brush draws with. Absent or null selects `Default`. */
+  readonly skin?: string | null;
 }
 
 /** The query arguments of an edited map that no source names, which never runs. */
@@ -238,6 +247,8 @@ export const backdropQueries = {
             postEffects: null,
             ssao: null,
             lightGrid: null,
+            grassTints: [],
+            bounds: null,
           };
         const answer = await api.bin.readMap(document, map, [...paths]);
         if (!answer.ok) throw answer.error;
@@ -314,6 +325,10 @@ export interface Backdrop {
   readonly ambientOcclusion: AmbientOcclusion | null;
   /** The ambient the map lights its characters with, and null where it bakes none. */
   readonly lightGrid: LightGrid | null;
+  /** The shown skin's grass tints, and null where no skin states one. */
+  readonly grassTint: GrassTextures | null;
+  /** The rectangle that a map-wide texture covers, and null where the container states none. */
+  readonly bounds: MapBounds | null;
   /** The bytes are on their way. One map is 73 to 93 MiB, so this is seconds. */
   readonly loading: boolean;
   /** Why there is nothing to draw, for the one line a disabled option carries. */
@@ -343,6 +358,8 @@ const EMPTY: Backdrop = {
   postEffects: null,
   ambientOcclusion: null,
   lightGrid: null,
+  grassTint: null,
+  bounds: null,
   loading: false,
   failure: null,
 };
@@ -386,6 +403,20 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
   );
 
   const lightGrid = useQuery(viewportQueries.lightGrid(model.data?.lightGrid ?? null)).data;
+
+  const tint = useMemo(
+    () => grassTintOf(model.data?.grassTints ?? [], source?.skin ?? null),
+    [model.data, source?.skin],
+  );
+  const tintAssets = useMemo(() => grassTintAssets(tint), [tint]);
+  const tintTextures = useAssetTextures(tintAssets, {
+    fullWidth: FULL_WIDTH,
+    concurrency: CONCURRENT,
+    mips: true,
+    colorSpace: NoColorSpace,
+    wrap: ClampToEdgeWrapping,
+  });
+  const grassTint = useMemo(() => grassTextures(tint, tintTextures), [tint, tintTextures]);
 
   const assets = useMemo(() => {
     const held = new Map<string, AssetRef>();
@@ -471,6 +502,8 @@ export function useMapBackdrop(source: BackdropSource | null): Backdrop {
     postEffects,
     ambientOcclusion,
     lightGrid: lightGrid ?? null,
+    grassTint,
+    bounds: model.data?.bounds ?? null,
     loading: false,
     failure: null,
   };
