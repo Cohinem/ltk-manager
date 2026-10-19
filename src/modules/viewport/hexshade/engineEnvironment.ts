@@ -17,7 +17,7 @@ import {
   type WebGLRenderer,
 } from "three";
 
-import type { UniformBlock } from "@/lib/tauri";
+import type { MapBounds, UniformBlock } from "@/lib/tauri";
 
 import {
   CUBE_FACES as GRID_FACES,
@@ -27,7 +27,7 @@ import {
 import { DEFAULT_SUN, type SunColor, type SunLight } from "../scene/utils/sunLight";
 import { AXIS_SIGN } from "../shared/utils/space";
 import { elementView, floatsOf } from "./blockViews";
-import { type InlinedBlock, programGlobals } from "./programMaterial";
+import { GRASS_TINTS, type InlinedBlock, programGlobals } from "./programMaterial";
 
 /**
  * How a program material reads the environment's buffers.
@@ -69,6 +69,10 @@ export class EngineEnvironment {
   selfIllumination = 0;
   /** The particle emitter the object draws, which a particle material's instance buffer reads. */
   particle: ParticleEmitter | null = null;
+  /** The map skin's grass tint, which a brush multiplies its color by. */
+  grassTint: Texture | null = null;
+  /** The rectangle that `TERRAIN_XFORM` maps a map-wide texture onto. */
+  terrain: MapBounds | null = null;
 
   private readonly buffers = new Map<string, BlockBuffer>();
   private readonly clip = new Matrix4();
@@ -150,6 +154,17 @@ export class EngineEnvironment {
         program.uniformsNeedUpdate = true;
       }
     }
+
+    const tint = this.grassTint;
+    if (tint === null) return;
+    for (const name of GRASS_TINTS) {
+      for (const sampler of globals.samplers.get(name) ?? []) {
+        const uniform = uniforms[sampler];
+        if (uniform === undefined || uniform.value === tint) continue;
+        uniform.value = tint;
+        program.uniformsNeedUpdate = true;
+      }
+    }
   }
 
   /** Every buffer written for `object` as `camera` sees it, once per frame. */
@@ -168,9 +183,12 @@ export class EngineEnvironment {
     }
   }
 
+  /**
+   * Releases the uniform groups. Keeps the buffers, because a material holds views of them, and
+   * a StrictMode remount disposes an environment that the component still uses.
+   */
   dispose(): void {
     for (const { group } of this.buffers.values()) group?.dispose();
-    this.buffers.clear();
   }
 
   /** The rows of the clip transform with a D3D depth range. */
@@ -191,6 +209,22 @@ export class EngineEnvironment {
 
   writeIdentity(out: Float32Array, at: number): void {
     writeRows(out, at, this.identity);
+  }
+
+  /**
+   * Writes `TERRAIN_XFORM`, the scale and offset that map world X and Z onto `terrain`. Skips
+   * a rectangle with a missing or empty extent.
+   */
+  writeTerrain(out: Float32Array, at: number): void {
+    const [minX, minZ] = this.terrain?.min ?? [null, null];
+    const [maxX, maxZ] = this.terrain?.max ?? [null, null];
+    if (minX === null || minZ === null || maxX === null || maxZ === null) return;
+    if (maxX <= minX || maxZ <= minZ) return;
+
+    const scaleX = 1 / (maxX - minX);
+    const scaleZ = 1 / (maxZ - minZ);
+    writeVector(out, at, scaleX, scaleZ, -minX * scaleX);
+    out[at + 3] = -minZ * scaleZ;
   }
 
   /** The environment's buffer for `block`, created on the block's first bind. */
@@ -369,6 +403,12 @@ function gridCube(grid: LightGrid, object: Object3D): readonly SunColor[] {
   ]);
 }
 
+/** The number of spheres in `GrassDistortSpheres`. */
+const GRASS_SPHERES = 10;
+
+/** A sphere position far outside every map, which pushes no brush. */
+const NO_GRASS_PUSH = 1e6;
+
 /** The colour factor of an object no particle draws, which leaves a fragment as it is. */
 const NEUTRAL_FACTOR = [1, 1, 1, 1] as const;
 
@@ -379,6 +419,7 @@ const WRITERS: Record<string, Writer> = {
     environment.writeClip(out, 0);
     environment.writeEye(out, 16);
     out[20] = time;
+    environment.writeTerrain(out, 24);
     environment.writeClip(out, 28);
     writeRows(out, 96, camera.matrixWorldInverse);
     writeRows(out, 112, camera.matrixWorld);
@@ -398,6 +439,7 @@ const WRITERS: Record<string, Writer> = {
     const complement = sun.map((channel, at) => Math.max(channel - (shadow[at] ?? 0), 0));
     environment.writeEye(out, 0);
     out[4] = time;
+    environment.writeTerrain(out, 8);
     writeVector(out, 12, shadow[0] ?? 0, shadow[1] ?? 0, shadow[2] ?? 0);
     out[15] = 1;
     writeVector(out, 16, complement[0] ?? 0, complement[1] ?? 0, complement[2] ?? 0);
@@ -460,6 +502,14 @@ const WRITERS: Record<string, Writer> = {
      particle draws at one rather than at the zero an unwritten buffer holds. */
   VFXDynamicPerParticleInstanceCBPS: (out, environment) => {
     out.set(environment.particle?.colorFactor ?? NEUTRAL_FACTOR, 0);
+  },
+  /* `GrassDistortSpheres` holds the characters that push brush aside. A sphere at the origin
+     coincides with the pivot of a brush vertex, which the map geometry does not carry, and the
+     push divides zero by zero. */
+  GrassDisortVS: (out) => {
+    for (let sphere = 0; sphere < GRASS_SPHERES; sphere += 1) {
+      writeVector(out, sphere * VEC4_FLOATS, NO_GRASS_PUSH, NO_GRASS_PUSH, NO_GRASS_PUSH);
+    }
   },
   BonesCB: (out, _environment, _camera, object) => {
     if (!isSkinned(object)) return;

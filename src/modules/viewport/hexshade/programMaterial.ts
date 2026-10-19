@@ -52,7 +52,7 @@ import type {
 
 import { type BlockElement, elementView, floatsOf } from "./blockViews";
 import type { EngineEnvironment } from "./engineEnvironment";
-import { BLACK, GREY, neutral } from "./neutralTextures";
+import { BLACK, GREY, neutral, WHITE } from "./neutralTextures";
 import {
   type MemberSlot,
   splicePixelProgram,
@@ -81,6 +81,12 @@ const MATERIAL_TEXTURE = "__TX";
 
 /** The suffix an engine-filled texture carries, which the environment binds neutral. */
 const SHARED_TEXTURE = "_SharedTexture";
+
+/** The shared textures that a brush reads its grass tint from, the base and the alternate. */
+export const GRASS_TINTS: readonly string[] = [
+  "GRASS_TINT_MAP_SharedTexture",
+  "GRASS_TINT_MAP_ALTERNATE_SharedTexture",
+];
 
 /** The engine's copy of the frame, which a distortion samples at a screen coordinate. */
 export const SCREEN_COPY = "SAMPLER_BACK_BUFFER_COPY_SharedTexture";
@@ -394,6 +400,9 @@ function textureFor(
   dimension: TextureDimension,
   { pass, textures }: SubmeshProgram,
 ): Texture {
+  /* White until `EngineEnvironment.draw` binds the map's tint, because a brush multiplies its
+     color by the tint. */
+  if (GRASS_TINTS.includes(name)) return neutral(dimension, WHITE);
   if (name.endsWith(SHARED_TEXTURE)) return neutral(dimension, BLACK);
   const own = name.endsWith(MATERIAL_TEXTURE) ? name.slice(0, -MATERIAL_TEXTURE.length) : name;
   const texture = textures.get(own);

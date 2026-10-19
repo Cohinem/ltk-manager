@@ -14,7 +14,8 @@ import type { TextureDimension } from "@/lib/tauri";
 /** An opaque mid-grey, drawn for a material texture nothing holds. */
 export const GREY: readonly [number, number, number, number] = [128, 128, 128, 255];
 
-const WHITE: readonly [number, number, number, number] = [255, 255, 255, 255];
+/** Opaque white, which leaves a color that it multiplies unchanged. */
+export const WHITE: readonly [number, number, number, number] = [255, 255, 255, 255];
 
 /** Transparent black, which a remap ramp of alpha zero leaves colour alone. */
 export const BLACK: readonly [number, number, number, number] = [0, 0, 0, 0];

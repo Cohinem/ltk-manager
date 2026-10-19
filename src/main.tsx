@@ -1,3 +1,4 @@
+import "./lib/beforeReact";
 import "./styles/tailwind.css";
 
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -10,12 +11,9 @@ import { ConfirmHost } from "./components/ConfirmDialog";
 import { ToastProvider } from "./components/ToastProvider";
 import { installGlobalErrorHandlers } from "./lib/crashReporting";
 import { queryClient } from "./lib/query";
-import { quietReactPerformanceTracks } from "./lib/reactPerformanceTracks";
 import { api } from "./lib/tauri";
 import { useTheme } from "./modules/settings";
 import { routeTree } from "./routeTree.gen";
-
-quietReactPerformanceTracks();
 
 const router = createRouter({ routeTree });
 

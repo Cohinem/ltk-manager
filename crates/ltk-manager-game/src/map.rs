@@ -23,6 +23,7 @@ mod controllers;
 #[cfg(test)]
 mod fixtures;
 mod flags;
+mod grass;
 mod lighting;
 mod outline;
 mod particles;
@@ -36,6 +37,7 @@ mod variants;
 pub use characters::{MapCharacter, map_characters};
 pub use controllers::{MapController, MapControllerRule, MapParentMode, map_controllers};
 pub use flags::{MapFlag, map_bin_path, map_flags};
+pub use grass::{MapBounds, MapGrassAlternate, MapGrassTint, map_bounds, map_grass_tints};
 pub use lighting::light_grid_path;
 pub use outline::{MapChunk, MapChunkItem, MapItemKind, MapItemShape, map_outline};
 pub use particles::{MapParticle, map_particles};
@@ -140,6 +142,11 @@ pub struct MapModel {
     /// The `LightGrid.dat` the map lights its characters with, and null where it bakes
     /// none or nothing holds it.
     pub light_grid: Option<AssetRef>,
+    /// The grass tint of each skin that links the map, in file order. Empty until the caller
+    /// reads the map's own bin, which holds the skins.
+    pub grass_tints: Vec<MapGrassTint>,
+    /// Null where the map's container states no bounds.
+    pub bounds: Option<MapBounds>,
 }
 
 /// The materials `paths` name, the visibility controllers and the lighting and screen effects of
@@ -171,6 +178,8 @@ pub fn resolve_map(
         post_effects: map_post_effects(materials, map),
         ssao: map_ssao(materials, map),
         light_grid: light_grid_path(materials, map).and_then(|path| assets.locate(path)),
+        grass_tints: Vec::new(),
+        bounds: map_bounds(materials, map),
     }
 }
 
@@ -186,6 +195,8 @@ pub fn unresolved_map(paths: &[String]) -> MapModel {
         post_effects: None,
         ssao: None,
         light_grid: None,
+        grass_tints: Vec::new(),
+        bounds: None,
     }
 }
 
