@@ -128,10 +128,28 @@ pub struct SourcePart {
     pub indices: Vec<u32>,
 }
 
+/// The extras key that the map export writes a mesh's [`ExportedMesh`] under.
+pub(crate) const EXPORTED_KEY: &str = "ltkManager";
+
+/// The map mesh that a mesh of an exported glTF file was written from, read from its extras.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct ExportedMesh {
+    /// The index of the mesh in its `.mapgeo` at the export.
+    pub mesh: u32,
+    /// The entry path of the map's `MapContainer`.
+    pub container: String,
+    /// The vertex count of the mesh at the export, which tells a stale index from a live one.
+    pub vertices: u32,
+}
+
 /// A mesh of a model file, with its node transforms applied, in the file's axes and units.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct SourceMesh {
     pub name: String,
+    /// The map mesh that the file was exported from, and none for a file from another tool.
+    pub exported: Option<ExportedMesh>,
     pub positions: Vec<Vec3>,
     pub normals: Option<Vec<Vec3>>,
     pub uv0: Option<Vec<Vec2>>,
@@ -169,6 +187,8 @@ pub struct ModelMeshSummary {
     pub triangles: u32,
     /// The source materials that the mesh draws with, by index.
     pub materials: Vec<u32>,
+    /// The map mesh that the file was exported from, and none for a file from another tool.
+    pub exported: Option<ExportedMesh>,
 }
 
 /// One material of a model file, as the import dialog lists it.
@@ -216,6 +236,7 @@ impl ModelFile {
                         vertices: mesh.positions.len() as u32,
                         triangles: mesh.triangle_count() as u32,
                         materials,
+                        exported: mesh.exported.clone(),
                     }
                 })
                 .collect(),
@@ -241,6 +262,82 @@ impl ModelFile {
             skipped: self.skipped.clone(),
         }
     }
+}
+
+/// The map mesh that a reimport replaces, as [`reimport_source`] compares it.
+#[derive(Debug, Clone, Copy)]
+pub struct ReimportTarget<'a> {
+    pub index: u32,
+    pub name: &'a str,
+    /// The entry path of the map's `MapContainer`.
+    pub container: &'a str,
+    pub vertices: u32,
+}
+
+/// Returns the mesh of a model file that replaces `target`.
+///
+/// The only mesh of a file matches. Otherwise the mesh whose export extras name `target` by
+/// container and index matches, and then the mesh named as `target`. Returns `None` if no mesh
+/// matches, or if the extras name `target`'s index with another vertex count, because a mesh
+/// with a lower index was removed after the export and the index now names another mesh.
+#[must_use]
+pub fn reimport_source(meshes: &[ModelMeshSummary], target: ReimportTarget<'_>) -> Option<u32> {
+    if meshes.len() == 1 {
+        return Some(0);
+    }
+
+    let exported = meshes.iter().position(|mesh| {
+        mesh.exported.as_ref().is_some_and(|exported| {
+            exported.container == target.container && exported.mesh == target.index
+        })
+    });
+    if let Some(at) = exported {
+        let vertices = meshes[at]
+            .exported
+            .as_ref()
+            .map(|exported| exported.vertices);
+        return (vertices == Some(target.vertices)).then_some(at as u32);
+    }
+
+    meshes
+        .iter()
+        .position(|mesh| mesh.name == target.name)
+        .map(|at| at as u32)
+}
+
+/// Lowers the meshes `meshes` of `model` with `scale` and `up` into the buffer that the import
+/// dialog's preview draws: the vertex count and index count as `u32`, then three `f32` per vertex
+/// in the engine's space, then the `u32` indices. Skips an index past the model's meshes.
+#[must_use]
+pub fn preview_buffer(model: &ModelFile, meshes: &[usize], scale: f32, up: UpAxis) -> Vec<u8> {
+    let mut positions: Vec<f32> = Vec::new();
+    let mut indices: Vec<u32> = Vec::new();
+    for mesh in meshes.iter().filter_map(|&at| model.meshes.get(at)) {
+        for lowered in lower(mesh, scale, up) {
+            let base = (positions.len() / 3) as u32;
+            let vertices = lowered
+                .vertices
+                .accessor::<Vec3>(ltk_mesh::mem::vertex::ElementName::Position)
+                .expect("a lowered mesh carries positions");
+            for vertex in 0..lowered.vertices.count() {
+                positions.extend(vertices.get(vertex).to_array());
+            }
+            indices.extend(
+                (0..lowered.indices.count()).map(|at| base + u32::from(lowered.indices.get(at))),
+            );
+        }
+    }
+
+    let mut bytes = Vec::with_capacity(8 + 4 * (positions.len() + indices.len()));
+    bytes.extend(((positions.len() / 3) as u32).to_le_bytes());
+    bytes.extend((indices.len() as u32).to_le_bytes());
+    for value in positions {
+        bytes.extend(value.to_le_bytes());
+    }
+    for index in indices {
+        bytes.extend(index.to_le_bytes());
+    }
+    bytes
 }
 
 /// The lowercased extension of `path`.

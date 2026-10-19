@@ -1,5 +1,6 @@
 import { keepPreviousData, queryOptions, skipToken } from "@tanstack/react-query";
 
+import { modelPreviewUrl } from "@/lib/previewUrl";
 import {
   api,
   type AppError,
@@ -13,9 +14,12 @@ import {
   type MapPath,
   type MapVariant,
   type SandboxRef,
+  type UpAxis,
 } from "@/lib/tauri";
 import { MAP_FILES_NEAR_ROOT, MAP_FILES_ROOT } from "@/modules/viewport";
 import { queryFnWithArgs, unwrapForQuery } from "@/utils/query";
+
+import { type ModelPreview, readModelPreview } from "../utils/meshImport";
 
 /** The reads a map's scene draws from, each keyed on the open document it asks. */
 export const mapQueries = {
@@ -100,5 +104,18 @@ export const mapQueries = {
         paths.length === 0 ? {} : unwrapForQuery(await api.bin.locateFilesNear(sandbox, paths)),
       staleTime: Infinity,
       retry: false,
+    }),
+  /** The meshes `meshes` of the model file at `path`, lowered as an import lowers them. */
+  importPreview: (path: string, meshes: readonly number[], scale: number, up: UpAxis) =>
+    queryOptions<ModelPreview, Error>({
+      queryKey: ["map-import-preview", path, meshes, scale, up],
+      queryFn: async () => {
+        const answer = await fetch(modelPreviewUrl(path, meshes, scale, up));
+        if (!answer.ok) throw new Error(await answer.text());
+        return readModelPreview(await answer.arrayBuffer());
+      },
+      staleTime: Infinity,
+      retry: false,
+      placeholderData: keepPreviousData,
     }),
 };

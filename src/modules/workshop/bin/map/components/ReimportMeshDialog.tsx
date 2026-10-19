@@ -1,0 +1,124 @@
+import { useState } from "react";
+
+import { Button, Dialog, Inline, SegmentedControl, Stack, StepperField } from "@/components";
+import { m } from "@/i18n";
+import type { UpAxis } from "@/lib/tauri";
+
+import { useMapScene } from "../state/mapScene";
+import { type ReimportRequest, reimportEdit } from "../utils/meshImport";
+import { meshId } from "../utils/meshSelection";
+import { ChoicePicker } from "./ChoicePicker";
+
+export interface ReimportMeshDialogProps {
+  readonly request: ReimportRequest;
+}
+
+/**
+ * The reimport dialog of one map mesh: the source mesh of the model file, preselected where one
+ * matches, its scale and its up axis. Per "Adding meshes" in docs/ux/MAP_EDITOR.md.
+ */
+export function ReimportMeshDialog({ request }: ReimportMeshDialogProps) {
+  const { importMeshes, select, setReimport } = useMapScene();
+  const { summary } = request;
+  const [source, setSource] = useState(request.source ?? 0);
+  const [scale, setScale] = useState(summary.scale ?? 1);
+  const [up, setUp] = useState<UpAxis>(summary.up);
+  const [busy, setBusy] = useState(false);
+
+  const close = () => {
+    if (!busy) setReimport(null);
+  };
+  const submit = async () => {
+    setBusy(true);
+    try {
+      const deltas = await importMeshes([], reimportEdit(request, source, scale, up));
+      if (deltas === null) return;
+
+      select(
+        deltas.flatMap((delta) => (delta.kind === "insert" ? [meshId(delta.mesh)] : [])),
+        "replace",
+      );
+      setReimport(null);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog.Shell
+      open
+      onClose={close}
+      title={m.workshop_bin_map_reimport_title()}
+      description={request.path}
+    >
+      <Dialog.Form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <Dialog.Body>
+          <Stack gap={4}>
+            {request.source === null && (
+              <span className="text-meta text-warning-text select-none">
+                {m.workshop_bin_map_reimport_unmatched_hint()}
+              </span>
+            )}
+            <Stack gap={1}>
+              <span className="text-meta text-surface-400 select-none">
+                {m.workshop_bin_map_reimport_source_label()}
+              </span>
+              <ChoicePicker
+                choices={summary.meshes.map((mesh, at) => ({
+                  value: String(at),
+                  label: mesh.name,
+                }))}
+                value={String(source)}
+                onPick={(picked) => setSource(Number(picked))}
+                label={m.workshop_bin_map_reimport_source_label()}
+                empty={m.workshop_bin_map_reimport_source_empty()}
+              />
+            </Stack>
+            <Inline gap={4}>
+              <Stack gap={1}>
+                <span className="text-meta text-surface-400 select-none">
+                  {m.workshop_bin_map_import_scale_label()}
+                </span>
+                <StepperField
+                  value={scale}
+                  onValueChange={setScale}
+                  min={0.0001}
+                  step={1}
+                  aria-label={m.workshop_bin_map_import_scale_label()}
+                  className="w-32"
+                />
+              </Stack>
+              <Stack gap={1}>
+                <span className="text-meta text-surface-400 select-none">
+                  {m.workshop_bin_map_import_up_label()}
+                </span>
+                <SegmentedControl<UpAxis>
+                  options={[
+                    { value: "y", label: m.workshop_bin_map_import_up_y_label() },
+                    { value: "z", label: m.workshop_bin_map_import_up_z_label() },
+                  ]}
+                  value={up}
+                  onChange={setUp}
+                  aria-label={m.workshop_bin_map_import_up_label()}
+                />
+              </Stack>
+            </Inline>
+          </Stack>
+        </Dialog.Body>
+        <Dialog.Footer>
+          <Button size="lg" variant="ghost" type="button" onClick={close} disabled={busy}>
+            {m.common_cancel_action()}
+          </Button>
+          <Button size="lg" type="submit" loading={busy}>
+            {m.workshop_bin_map_reimport_submit_action()}
+          </Button>
+        </Dialog.Footer>
+      </Dialog.Form>
+    </Dialog.Shell>
+  );
+}

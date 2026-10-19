@@ -6,6 +6,7 @@ pub mod game_extract;
 pub mod game_index;
 pub mod game_wads;
 pub mod hashtables;
+pub mod map_export;
 pub mod map_geometry;
 pub mod map_import;
 pub mod mod_archive;

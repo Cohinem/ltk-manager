@@ -14,7 +14,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use xxhash_rust::xxh64::xxh64;
 
-use crate::map_import::{ImportError, UpAxis, lower, read_model};
+use crate::map_export::{ExportError, ExportMesh, export_meshes};
+use crate::map_import::{ImportError, SourceMesh, UpAxis, lower, read_model};
 use crate::preview::{PreviewError, encode_map, encode_map_meshes};
 use ltk_manager_base::error::{AppError, DomainError, ErrorKind};
 
@@ -71,6 +72,10 @@ pub enum MapGeometryError {
     /// An import adds no triangle.
     #[error("The chosen meshes of the model file hold no triangles")]
     EmptyImport,
+
+    /// The meshes could not be exported.
+    #[error(transparent)]
+    Export(#[from] ExportError),
 }
 
 impl From<MapGeometryError> for AppError {
@@ -141,6 +146,18 @@ pub enum MapGeometryEdit {
         controller: Option<String>,
         /// Column major with the translation last.
         transform: [f32; 16],
+    },
+    /// Replaces the mesh at `mesh` with the mesh `source_mesh` of the model file at `source`,
+    /// scaled by `scale` and turned from `up` to the engine's axes. The new mesh keeps the
+    /// visibility, controller, region, flags, light channels and texture overrides of the old
+    /// one, and draws its submesh materials in source material order. Its transform is the
+    /// identity, because the importer applies the file's node transforms to the vertices.
+    Reimport {
+        mesh: u32,
+        source: String,
+        source_mesh: u32,
+        scale: f32,
+        up: UpAxis,
     },
 }
 
@@ -246,6 +263,8 @@ enum Step {
     Remove(Vec<usize>),
     /// Inserts the taken meshes back, lowest index first.
     Insert(Vec<Taken>),
+    /// Applies each step in order.
+    Sequence(Vec<Step>),
 }
 
 /// An open `.mapgeo`, its scene graph selection and its undo history.
@@ -308,6 +327,27 @@ impl MapGeometryDocument {
         (0..self.asset.mesh_count())
             .map(|at| self.describe(at))
             .collect()
+    }
+
+    /// Returns the name and the vertex count of the mesh at `mesh`, which a reimport matches a
+    /// source mesh against.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the map has no mesh `mesh`.
+    pub fn identity(&self, mesh: u32) -> Result<(String, u32), MapGeometryError> {
+        let held = &self.asset.meshes()[self.index(mesh)?];
+        Ok((held.name().to_owned(), held.vertex_count()))
+    }
+
+    /// Reads the meshes at `meshes`, or every mesh for none, for an export.
+    ///
+    /// # Errors
+    ///
+    /// Fails for the reasons [`export_meshes`] documents.
+    pub fn export(&self, meshes: Option<&[usize]>) -> Result<Vec<ExportMesh>, MapGeometryError> {
+        let every: Vec<usize> = (0..self.asset.mesh_count()).collect();
+        Ok(export_meshes(&self.asset, meshes.unwrap_or(&every))?)
     }
 
     /// Encodes the meshes as the buffer a viewport draws.
@@ -569,7 +609,106 @@ impl MapGeometryDocument {
                 }
                 Ok(Step::Insert(taken))
             }
+            MapGeometryEdit::Reimport {
+                mesh,
+                source,
+                source_mesh,
+                scale,
+                up,
+            } => {
+                let at = self.index(mesh)?;
+                let model = read_model(Path::new(&source))?;
+                let replacement = model
+                    .meshes
+                    .get(source_mesh as usize)
+                    .ok_or(MapGeometryError::NoSourceMesh(source_mesh))?;
+                self.reimport_step(at, replacement, scale, up)
+            }
         }
+    }
+
+    /// States the replacement of the mesh at `at` by `replacement` as one step.
+    fn reimport_step(
+        &self,
+        at: usize,
+        replacement: &SourceMesh,
+        scale: f32,
+        up: UpAxis,
+    ) -> Result<Step, MapGeometryError> {
+        let held = &self.asset.meshes()[at];
+        let materials: Vec<String> = MeshProps::of(held).materials;
+        let mut order: Vec<usize> = Vec::new();
+        for part in &replacement.parts {
+            if !order.contains(&part.material) {
+                order.push(part.material);
+            }
+        }
+        let material_of = |source: usize| {
+            let rank = order.iter().position(|&each| each == source).unwrap_or(0);
+            materials
+                .get(rank)
+                .or(materials.last())
+                .cloned()
+                .unwrap_or_default()
+        };
+
+        let mut taken = Vec::new();
+        for lowered in lower(replacement, scale, up) {
+            let submeshes = lowered
+                .submeshes
+                .iter()
+                .map(|submesh| {
+                    EnvironmentSubmesh::new(
+                        material_of(submesh.material),
+                        submesh.start_index as i32,
+                        submesh.index_count as i32,
+                        submesh.min_vertex as i32,
+                        submesh.max_vertex as i32,
+                    )
+                })
+                .collect();
+
+            let mut mesh = EnvironmentMesh::new(submeshes);
+            mesh.set_visibility(held.visibility());
+            mesh.set_visibility_controller_path_hash(held.visibility_controller_path_hash());
+            mesh.set_quality(held.quality());
+            mesh.set_disable_backface_culling(held.disable_backface_culling());
+            mesh.set_render_flags(held.render_flags());
+            mesh.set_layer_transition_behavior(held.layer_transition_behavior());
+            mesh.set_baked_light(held.baked_light().clone());
+            mesh.set_stationary_light(held.stationary_light().clone());
+            mesh.set_baked_paint(held.baked_paint().clone());
+            mesh.set_texture_overrides(held.texture_overrides().to_vec());
+            taken.push(Taken {
+                index: at + taken.len(),
+                mesh,
+                mask: FaceMask::all(lowered.indices.count() / 3),
+                vertex_buffers: vec![lowered.vertices],
+                index_buffer: lowered.indices,
+                transform: Mat4::IDENTITY,
+            });
+        }
+        if taken.is_empty() {
+            return Err(MapGeometryError::EmptyImport);
+        }
+
+        /* `ltk_mapgeo` sets a region through the asset, which recomputes the bounds, so the
+        region lands once the new meshes are in place. */
+        let region = held.region_path_hash();
+        let regions: Vec<(usize, MeshProps)> = taken
+            .iter()
+            .map(|each| {
+                let mut props = MeshProps::of(&each.mesh);
+                props.region = region;
+                (each.index, props)
+            })
+            .collect();
+
+        let mut steps = vec![Step::Remove(vec![at]), Step::Insert(taken)];
+        if region != 0 {
+            steps.push(Step::Restore(regions));
+        }
+        Ok(Step::Sequence(steps))
     }
 
     /// Applies `props` to the mesh at `at` through the setters. The transform and the region
@@ -686,6 +825,28 @@ impl MapGeometryDocument {
                     .collect();
                 indices.reverse();
                 Ok((Step::Remove(indices), deltas))
+            }
+            Step::Sequence(steps) => {
+                let mut inverses = Vec::with_capacity(steps.len());
+                let mut deltas = Vec::new();
+                for step in steps {
+                    match self.apply(step) {
+                        Ok((inverse, more)) => {
+                            inverses.push(inverse);
+                            deltas.extend(more);
+                        }
+                        Err(error) => {
+                            /* Revert the steps this sequence applied, so a refusal changes
+                            nothing. */
+                            for inverse in inverses.into_iter().rev() {
+                                self.apply(inverse)?;
+                            }
+                            return Err(error);
+                        }
+                    }
+                }
+                inverses.reverse();
+                Ok((Step::Sequence(inverses), deltas))
             }
         }
     }
