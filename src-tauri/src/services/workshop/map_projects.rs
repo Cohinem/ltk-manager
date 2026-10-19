@@ -17,6 +17,7 @@ use ltk_manager_game::map::{
     map_skin_containers, moved_container, new_look_path, shipping_bin_path, skin_link_declarations,
     state_meshes, MapPath, MapSkinContainer,
 };
+use ltk_manager_workshop::ProjectDir;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
@@ -190,6 +191,7 @@ fn fill(
             &layer.join("game_data.yaml"),
             skin_link_declarations(&bin, &shipping_bin_path(map), &to, names).as_bytes(),
         )?;
+        ProjectDir::open(&project.path)?.declare_entry_names(&[to.as_str()])?;
 
         let asset = AssetRef::Layer {
             project: project.path.clone(),

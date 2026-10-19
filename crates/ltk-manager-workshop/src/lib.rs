@@ -40,6 +40,7 @@ use indexmap::IndexMap;
 use ltk_manager_base::config::Config;
 use ltk_manager_base::error::{AppError, AppResult, DomainError, ErrorKind, Utf8PathRefExt};
 use ltk_manager_base::events::EventSink;
+use ltk_manager_base::utils::fs::atomic_write;
 use ltk_mod_project::{ModProject, ModProjectAuthor};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -184,7 +185,7 @@ impl ProjectDir {
     /// Write `config` back over the project's `mod.config.json`.
     pub(crate) fn write_config(&self, config: &ModProject) -> AppResult<()> {
         let contents = serde_json::to_string_pretty(config)?;
-        fs::write(self.0.join("mod.config.json"), contents)?;
+        atomic_write(&self.0.join("mod.config.json"), contents.as_bytes())?;
         Ok(())
     }
 
