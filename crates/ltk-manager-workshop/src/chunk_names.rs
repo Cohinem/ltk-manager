@@ -5,20 +5,24 @@
 //! and the tables its manifest declares list the chunk paths its archives no longer carry,
 //! the object paths of what its bins add, and the strings behind their `Hash` values.
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 use camino::Utf8Path;
 use fs_err as fs;
 use ltk_hash::{BinHash, Hash as _, WadHash};
 use ltk_hashtable::{Category, Hashtable};
-use ltk_mod_project::{CONTENT_DIR_NAME, ModProject, ModProjectLayer};
+use ltk_mod_project::{
+    CONTENT_DIR_NAME, HASHES_DIR_NAME, ModProject, ModProjectHashtable, ModProjectLayer,
+};
 use ltk_wad::is_hex_chunk_path;
 use walkdir::WalkDir;
 
 use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::utils::fs::atomic_write;
 
-use super::layer;
+use super::{ProjectDir, layer};
 
 /// The names one project holds: chunk paths by the hash a `file` value addresses them
 /// with, object paths by their entry hash, and the strings behind `Hash` values.
@@ -274,6 +278,66 @@ fn read_table(project_dir: &Path, path: &str) -> Option<Hashtable> {
             tracing::debug!("Project hash table {path} unreadable: {e}");
             None
         }
+    }
+}
+
+/// The path of the `binentries` table that is created if the manifest declares none.
+const ENTRIES_TABLE: &str = "binentries.hashes.txt";
+
+impl ProjectDir {
+    /// Adds `names` to the project's `binentries` hash table. Declares the table in the manifest
+    /// if the manifest declares none.
+    ///
+    /// # Errors
+    ///
+    /// Fails if the manifest does not load, a name is not a valid table name, or a file cannot
+    /// be written.
+    pub fn declare_entry_names(&self, names: &[&str]) -> AppResult<()> {
+        let mut config = self.config()?;
+        let declared = config
+            .hashtables
+            .iter()
+            .find(|table| table.category == Category::BinEntries)
+            .cloned();
+        let table = match &declared {
+            Some(table) => table.clone(),
+            None => {
+                let (algorithm, width) = Category::BinEntries.default_shape().ok_or_else(|| {
+                    AppError::Other("The binentries category has no key shape".to_owned())
+                })?;
+                ModProjectHashtable {
+                    path: format!("{HASHES_DIR_NAME}/{ENTRIES_TABLE}"),
+                    category: Category::BinEntries,
+                    algorithm,
+                    bits: width.bits(),
+                }
+            }
+        };
+
+        let existing = read_table(self.path(), &table.path);
+        let listed: BTreeSet<&str> = existing
+            .iter()
+            .flat_map(Hashtable::names)
+            .chain(names.iter().copied())
+            .collect();
+        let mut merged = Hashtable::from_names(listed).map_err(|e| {
+            AppError::Other(format!("Could not build the project's hash table: {e}"))
+        })?;
+        merged.sort();
+        let mut bytes = Vec::new();
+        merged.write_to(&mut bytes)?;
+
+        let path = self.path().join(&table.path);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        atomic_write(&path, &bytes)?;
+
+        if declared.is_none() {
+            config.hashtables.push(table);
+            self.write_config(&config)?;
+        }
+        Ok(())
     }
 }
 

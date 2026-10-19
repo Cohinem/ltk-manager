@@ -382,3 +382,50 @@ fn a_project_with_no_content_and_no_tables_names_nothing() {
 
     assert!(LayerChunks::scan(dir.path()).is_empty());
 }
+
+fn manifest_of(dir: &tempfile::TempDir) -> ModProject {
+    ModProject::load(Utf8Path::from_path(dir.path()).expect("utf8")).expect("config")
+}
+
+#[test]
+fn declare_entry_names_declares_a_binentries_table() {
+    let path = "Maps/MapGeometry/Map11/step6-skin-test";
+    let dir = declaring(&[], &[]);
+
+    ProjectDir::open(dir.path())
+        .expect("project")
+        .declare_entry_names(&[path])
+        .expect("declared");
+
+    assert_eq!(
+        LayerChunks::scan(dir.path()).entry(BinHash::hash_str(path)),
+        Some(path)
+    );
+    let tables = manifest_of(&dir).hashtables;
+    assert_eq!(tables.len(), 1);
+    assert_eq!(tables[0].category, Category::BinEntries);
+}
+
+#[test]
+fn declare_entry_names_merges_into_a_declared_table() {
+    let existing = "Maps/MapGeometry/Map11/Old";
+    let added = "Maps/MapGeometry/Map11/New";
+    let dir = declaring(
+        &[],
+        &[(
+            "binentries.hashes.txt",
+            "binentries",
+            &format!("{existing}\n"),
+        )],
+    );
+
+    ProjectDir::open(dir.path())
+        .expect("project")
+        .declare_entry_names(&[added])
+        .expect("declared");
+
+    let chunks = LayerChunks::scan(dir.path());
+    assert_eq!(chunks.entry(BinHash::hash_str(existing)), Some(existing));
+    assert_eq!(chunks.entry(BinHash::hash_str(added)), Some(added));
+    assert_eq!(manifest_of(&dir).hashtables.len(), 1);
+}

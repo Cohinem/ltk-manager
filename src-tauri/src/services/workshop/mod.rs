@@ -2,9 +2,11 @@
 //!
 //! Its state is managed in `setup`, beside the settings and the registry it is built from.
 
+mod map_projects;
 mod problems;
 mod projects;
 
+pub use map_projects::*;
 pub use problems::*;
 pub use projects::*;
 

@@ -1,26 +1,33 @@
 //! The map editor's open `.mapgeo` files: their meshes, edits, undo and save. "Meshes" and
 //! "Saving geometry" in docs/ux/MAP_EDITOR.md.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use fs_err as fs;
+use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_assets::game_wads::WadCache;
+use ltk_manager_assets::map_export::{write_glb, ExportMesh, ExportTexture};
 use ltk_manager_assets::map_geometry::{
     MapGeometryDocument, MapGeometryEdit, MapGeometryMesh, MeshDelta,
 };
-use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_assets::map_import::{read_model, reimport_source, ModelSummary, ReimportTarget};
+use ltk_manager_assets::preview::{AssetRef, Preview, PreviewRequest};
 use ltk_manager_base::utils::fs::atomic_write;
 use ltk_manager_bin::bin_document::{BinDocumentId, BinDocuments};
 use ltk_manager_bin::sandbox::SandboxState;
+use ltk_manager_game::map::MapPath;
+use ltk_manager_game::material::resolve_material;
 use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
+use super::material::shader_defs;
 use crate::error::{AppError, AppResult, IpcResult};
-use crate::services::shared::{archive_of, off_thread, WriteTarget};
+use crate::services::shared::document_assets::with_resolution;
+use crate::services::shared::{archive_of, off_thread, read_bin, WriteTarget};
 use crate::state::SettingsState;
 
 /// The id of an open `.mapgeo`. Ids are never reused.
@@ -253,6 +260,125 @@ pub async fn map_geometry_save(
         Ok(saved)
     })
     .await
+}
+
+/// The summary of a model file and the index of the mesh that replaces a map mesh in a reimport.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct ReimportInspection {
+    pub summary: ModelSummary,
+    /// The index of the matching mesh. `None` if no mesh matches and the user picks one.
+    pub source: Option<u32>,
+}
+
+/// Reads the model file at `path` and matches its meshes against the mesh at `mesh` of the
+/// `.mapgeo` open under `id`, whose container is `container`.
+#[tauri::command]
+#[specta::specta]
+pub async fn map_geometry_reimport_inspect(
+    id: MapGeometryId,
+    mesh: u32,
+    container: String,
+    path: String,
+    app_handle: AppHandle,
+) -> IpcResult<ReimportInspection> {
+    off_thread(move || {
+        let summary = read_model(Path::new(&path))?.summary();
+        let open = app_handle.state::<MapGeometryDocuments>().get(id)?;
+        let (name, vertices) = open.lock().document.identity(mesh)?;
+
+        let target = ReimportTarget {
+            index: mesh,
+            name: &name,
+            container: &container,
+            vertices,
+        };
+        let source = reimport_source(&summary.meshes, target);
+        Ok(ReimportInspection { summary, source })
+    })
+    .await
+}
+
+/// Writes the meshes at `meshes` of the `.mapgeo` open under `id` to `path` as a binary glTF
+/// file. Writes every mesh if `meshes` is `None`.
+///
+/// Resolves the materials through the `.materials.bin` of `map` in the project of `document`.
+/// Writes a material without a texture if its base texture fails to read.
+#[tauri::command]
+#[specta::specta]
+pub async fn map_geometry_export(
+    id: MapGeometryId,
+    meshes: Option<Vec<u32>>,
+    document: Option<BinDocumentId>,
+    map: MapPath,
+    path: String,
+    app_handle: AppHandle,
+) -> IpcResult<()> {
+    off_thread(move || {
+        let open = app_handle.state::<MapGeometryDocuments>().get(id)?;
+        let indices: Option<Vec<usize>> =
+            meshes.map(|meshes| meshes.into_iter().map(|mesh| mesh as usize).collect());
+        let exported = open.lock().document.export(indices.as_deref())?;
+
+        let textures = export_textures(&app_handle, document, &map, &exported)?;
+        let bytes = write_glb(&exported, map.as_str(), &textures)?;
+        write_file(Path::new(&path), &bytes)
+    })
+    .await
+}
+
+/// Reads the base color texture of each material that `meshes` draw with, as an image file.
+fn export_textures(
+    app_handle: &AppHandle,
+    document: Option<BinDocumentId>,
+    map: &MapPath,
+    meshes: &[ExportMesh],
+) -> AppResult<HashMap<String, ExportTexture>> {
+    let paths: HashSet<&str> = meshes
+        .iter()
+        .flat_map(|mesh| &mesh.parts)
+        .map(|part| part.material.as_str())
+        .collect();
+    let config = app_handle.state::<SettingsState>().config();
+    let wads = app_handle.state::<WadCache>();
+
+    with_resolution(app_handle, document, |names, assets| {
+        let Some(source) = assets.locate(&map.materials()) else {
+            return Ok(HashMap::new());
+        };
+        let bin = read_bin(app_handle, &source)?;
+        let shaders = shader_defs(app_handle, assets);
+
+        let mut textures = HashMap::new();
+        for path in paths {
+            let preview = resolve_material(
+                &bin,
+                BinHash::hash_str(path),
+                names,
+                assets,
+                shaders.as_deref(),
+            );
+            let asset = preview
+                .ok()
+                .and_then(|preview| preview.base)
+                .and_then(|base| base.texture.asset);
+            let image = asset.and_then(|asset| {
+                asset
+                    .preview(PreviewRequest::Image { min_width: None }, &config, &wads)
+                    .ok()
+            });
+            if let Some(Preview::Image(image)) = image {
+                textures.insert(
+                    path.to_owned(),
+                    ExportTexture {
+                        bytes: image.bytes,
+                        mime: image.mime.to_owned(),
+                    },
+                );
+            }
+        }
+        Ok(textures)
+    })
 }
 
 fn write_file(target: &Path, bytes: &[u8]) -> AppResult<()> {
