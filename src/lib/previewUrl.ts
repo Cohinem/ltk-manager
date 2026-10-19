@@ -49,9 +49,9 @@ export function usePreviewUrl(asset: AssetRef, minWidth?: number): string {
 }
 
 /**
- * The URL the scheme answers the import preview of the meshes `meshes` of the model file at
- * `path` on, in the layout `preview_buffer` in `crates/ltk-manager-assets/src/map_import.rs`
- * documents.
+ * Returns the URL of the import preview buffer of `meshes` of the model file at `path`. The
+ * buffer layout is the one that `preview_buffer` in `crates/ltk-manager-assets/src/map_import.rs`
+ * writes.
  */
 export function modelPreviewUrl(
   path: string,

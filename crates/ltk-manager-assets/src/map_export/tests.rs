@@ -55,8 +55,8 @@ fn write_glb_reads_back_through_the_importer_in_world_space() {
     let mut read: Vec<Vec3> = (0..lowered[0].vertices.count())
         .map(|at| positions.get(at))
         .collect();
-    /* The importer reads the shared attributes once per primitive, so a vertex of two
-    submeshes lands twice. */
+    /* The importer reads the shared attributes once per primitive, so a vertex that two
+    submeshes share appears twice. */
     read.sort_by(|a, b| a.to_array().partial_cmp(&b.to_array()).unwrap());
     read.dedup();
     let mut expected: Vec<Vec3> = quad(7, moved)

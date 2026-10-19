@@ -336,11 +336,11 @@ impl MapGeometryDocument {
     ///
     /// Fails if the map has no mesh `mesh`.
     pub fn identity(&self, mesh: u32) -> Result<(String, u32), MapGeometryError> {
-        let held = &self.asset.meshes()[self.index(mesh)?];
-        Ok((held.name().to_owned(), held.vertex_count()))
+        let existing = &self.asset.meshes()[self.index(mesh)?];
+        Ok((existing.name().to_owned(), existing.vertex_count()))
     }
 
-    /// Reads the meshes at `meshes`, or every mesh for none, for an export.
+    /// Reads the meshes at `meshes` for an export. Reads every mesh if `meshes` is `None`.
     ///
     /// # Errors
     ///
@@ -627,7 +627,7 @@ impl MapGeometryDocument {
         }
     }
 
-    /// States the replacement of the mesh at `at` by `replacement` as one step.
+    /// Returns the step that replaces the mesh at `at` with `replacement`.
     fn reimport_step(
         &self,
         at: usize,
@@ -635,8 +635,8 @@ impl MapGeometryDocument {
         scale: f32,
         up: UpAxis,
     ) -> Result<Step, MapGeometryError> {
-        let held = &self.asset.meshes()[at];
-        let materials: Vec<String> = MeshProps::of(held).materials;
+        let existing = &self.asset.meshes()[at];
+        let materials: Vec<String> = MeshProps::of(existing).materials;
         let mut order: Vec<usize> = Vec::new();
         for part in &replacement.parts {
             if !order.contains(&part.material) {
@@ -669,16 +669,16 @@ impl MapGeometryDocument {
                 .collect();
 
             let mut mesh = EnvironmentMesh::new(submeshes);
-            mesh.set_visibility(held.visibility());
-            mesh.set_visibility_controller_path_hash(held.visibility_controller_path_hash());
-            mesh.set_quality(held.quality());
-            mesh.set_disable_backface_culling(held.disable_backface_culling());
-            mesh.set_render_flags(held.render_flags());
-            mesh.set_layer_transition_behavior(held.layer_transition_behavior());
-            mesh.set_baked_light(held.baked_light().clone());
-            mesh.set_stationary_light(held.stationary_light().clone());
-            mesh.set_baked_paint(held.baked_paint().clone());
-            mesh.set_texture_overrides(held.texture_overrides().to_vec());
+            mesh.set_visibility(existing.visibility());
+            mesh.set_visibility_controller_path_hash(existing.visibility_controller_path_hash());
+            mesh.set_quality(existing.quality());
+            mesh.set_disable_backface_culling(existing.disable_backface_culling());
+            mesh.set_render_flags(existing.render_flags());
+            mesh.set_layer_transition_behavior(existing.layer_transition_behavior());
+            mesh.set_baked_light(existing.baked_light().clone());
+            mesh.set_stationary_light(existing.stationary_light().clone());
+            mesh.set_baked_paint(existing.baked_paint().clone());
+            mesh.set_texture_overrides(existing.texture_overrides().to_vec());
             taken.push(Taken {
                 index: at + taken.len(),
                 mesh,
@@ -693,8 +693,8 @@ impl MapGeometryDocument {
         }
 
         /* `ltk_mapgeo` sets a region through the asset, which recomputes the bounds, so the
-        region lands once the new meshes are in place. */
-        let region = held.region_path_hash();
+        region is set after the new meshes are inserted. */
+        let region = existing.region_path_hash();
         let regions: Vec<(usize, MeshProps)> = taken
             .iter()
             .map(|each| {

@@ -143,8 +143,8 @@ export const commands = {
 	 */
 	mapGeometrySave: (id: number, materials: BinDocumentId, path: string) => __TAURI_INVOKE<({ ok: true; value: AssetRef }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:preview|map_geometry_save", { id, materials, path }),
 	/**
-	 *  Writes the meshes at `meshes` of the `.mapgeo` open under `id`, or every mesh for none, to
-	 *  `path` as a binary glTF file.
+	 *  Writes the meshes at `meshes` of the `.mapgeo` open under `id` to `path` as a binary glTF
+	 *  file. Writes every mesh if `meshes` is `None`.
 	 * 
 	 *  The materials resolve through `map`'s `.materials.bin`, placed against the project of
 	 *  `document`. A material whose base texture cannot be read is written without one.

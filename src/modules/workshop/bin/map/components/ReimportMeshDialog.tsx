@@ -8,6 +8,7 @@ import { useMapScene } from "../state/mapScene";
 import { type ReimportRequest, reimportEdit } from "../utils/meshImport";
 import { meshId } from "../utils/meshSelection";
 import { ChoicePicker } from "./ChoicePicker";
+import { ImportField } from "./ImportMeshDialog";
 
 export interface ReimportMeshDialogProps {
   readonly request: ReimportRequest;
@@ -28,6 +29,7 @@ export function ReimportMeshDialog({ request }: ReimportMeshDialogProps) {
   const close = () => {
     if (!busy) setReimport(null);
   };
+
   const submit = async () => {
     setBusy(true);
     try {
@@ -64,10 +66,7 @@ export function ReimportMeshDialog({ request }: ReimportMeshDialogProps) {
                 {m.workshop_bin_map_reimport_unmatched_hint()}
               </span>
             )}
-            <Stack gap={1}>
-              <span className="text-meta text-surface-400 select-none">
-                {m.workshop_bin_map_reimport_source_label()}
-              </span>
+            <ImportField label={m.workshop_bin_map_reimport_source_label()}>
               <ChoicePicker
                 choices={summary.meshes.map((mesh, at) => ({
                   value: String(at),
@@ -78,12 +77,9 @@ export function ReimportMeshDialog({ request }: ReimportMeshDialogProps) {
                 label={m.workshop_bin_map_reimport_source_label()}
                 empty={m.workshop_bin_map_reimport_source_empty()}
               />
-            </Stack>
+            </ImportField>
             <Inline gap={4}>
-              <Stack gap={1}>
-                <span className="text-meta text-surface-400 select-none">
-                  {m.workshop_bin_map_import_scale_label()}
-                </span>
+              <ImportField label={m.workshop_bin_map_import_scale_label()}>
                 <StepperField
                   value={scale}
                   onValueChange={setScale}
@@ -92,11 +88,8 @@ export function ReimportMeshDialog({ request }: ReimportMeshDialogProps) {
                   aria-label={m.workshop_bin_map_import_scale_label()}
                   className="w-32"
                 />
-              </Stack>
-              <Stack gap={1}>
-                <span className="text-meta text-surface-400 select-none">
-                  {m.workshop_bin_map_import_up_label()}
-                </span>
+              </ImportField>
+              <ImportField label={m.workshop_bin_map_import_up_label()}>
                 <SegmentedControl<UpAxis>
                   options={[
                     { value: "y", label: m.workshop_bin_map_import_up_y_label() },
@@ -106,7 +99,7 @@ export function ReimportMeshDialog({ request }: ReimportMeshDialogProps) {
                   onChange={setUp}
                   aria-label={m.workshop_bin_map_import_up_label()}
                 />
-              </Stack>
+              </ImportField>
             </Inline>
           </Stack>
         </Dialog.Body>

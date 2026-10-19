@@ -17,7 +17,7 @@ export const commands = {
 	listMapStarts: () => __TAURI_INVOKE<({ ok: true; value: MapStart[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:workshop|list_map_starts"),
 	/**
 	 *  Creates the project `args` on the game map `map`, from the container of the skin named
-	 *  `skin`, as `start` says.
+	 *  `skin`, with the starting point `start`.
 	 * 
 	 *  A new look writes its container under `Maps/MapGeometry/<map>/<project name>` in the base
 	 *  layer, and declarations that link every skin of the map to it. Removes the project again if

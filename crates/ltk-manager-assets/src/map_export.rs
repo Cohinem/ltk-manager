@@ -8,7 +8,7 @@ use indexmap::IndexSet;
 use ltk_manager_base::error::{AppError, DomainError, ErrorKind};
 use ltk_mapgeo::{EnvironmentAsset, EnvironmentMesh};
 use ltk_mesh::mem::VertexBuffer;
-use ltk_mesh::mem::vertex::ElementName;
+use ltk_mesh::mem::vertex::{ElementName, Format};
 use serde_json::{Value, json};
 use thiserror::Error;
 
@@ -35,7 +35,7 @@ const MIRROR: Vec3 = Vec3::new(-1.0, 1.0, 1.0);
 /// Why a map could not be exported.
 #[derive(Debug, Error)]
 pub enum ExportError {
-    /// An export names a mesh that the map does not hold.
+    /// An export requests a mesh index past the map's meshes.
     #[error("The map has no mesh {0}")]
     NoMesh(usize),
 
@@ -57,6 +57,7 @@ impl From<ExportError> for AppError {
 /// An image file that a material's base color texture is written as.
 #[derive(Debug, Clone)]
 pub struct ExportTexture {
+    /// The encoded image.
     pub bytes: Vec<u8>,
     /// `image/png` or `image/jpeg`.
     pub mime: String,
@@ -67,17 +68,24 @@ pub struct ExportTexture {
 pub struct ExportPart {
     /// The entry path of the `StaticMaterialDef`.
     pub material: String,
+    /// The triangle indices into the mesh's vertices, three per triangle.
     pub indices: Vec<u16>,
 }
 
 /// One map mesh as the glTF writer takes it, in the engine's axes and in the mesh's own space.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExportMesh {
+    /// The index of the mesh in the `.mapgeo`.
     pub index: u32,
+    /// The name that the glTF mesh and node take.
     pub name: String,
+    /// The mesh transform.
     pub transform: Mat4,
+    /// The vertex positions.
     pub positions: Vec<Vec3>,
+    /// The vertex normals, and `None` if the mesh has none.
     pub normals: Option<Vec<Vec3>>,
+    /// The first UV set, `Texcoord0`, and `None` if the mesh has none.
     pub uv0: Option<Vec<Vec2>>,
     /// The lightmap UV, `Texcoord7`.
     pub uv1: Option<Vec<Vec2>>,
@@ -105,6 +113,17 @@ pub fn export_meshes(
         .collect()
 }
 
+/// Reads the first `count` values of `element` from `buffer`. Returns `None` if `buffer` is
+/// `None` or does not hold `element` in the format `T`.
+fn values<T: Format>(
+    buffer: Option<&VertexBuffer>,
+    element: ElementName,
+    count: usize,
+) -> Option<Vec<T::Item>> {
+    let accessor = buffer?.accessor::<T>(element)?;
+    Some((0..count).map(|vertex| accessor.get(vertex)).collect())
+}
+
 fn export_mesh(
     asset: &EnvironmentAsset,
     mesh: &EnvironmentMesh,
@@ -117,24 +136,8 @@ fn export_mesh(
             .filter_map(|&id| asset.vertex_buffer(id))
             .find(|buffer| buffer.elements().contains_key(&element))
     };
-    let vec3 = |element| {
-        read(element)
-            .and_then(|buffer| buffer.accessor::<Vec3>(element))
-            .map(|accessor| {
-                (0..count)
-                    .map(|vertex| accessor.get(vertex))
-                    .collect::<Vec<_>>()
-            })
-    };
-    let vec2 = |element| {
-        read(element)
-            .and_then(|buffer| buffer.accessor::<Vec2>(element))
-            .map(|accessor| {
-                (0..count)
-                    .map(|vertex| accessor.get(vertex))
-                    .collect::<Vec<_>>()
-            })
-    };
+    let vec3 = |element| values::<Vec3>(read(element), element, count);
+    let vec2 = |element| values::<Vec2>(read(element), element, count);
 
     let positions = vec3(ElementName::Position).ok_or(ExportError::Layout(at))?;
     /* `PrimaryColor` is packed blue first. */
@@ -185,7 +188,7 @@ fn export_mesh(
     })
 }
 
-/// The binary chunk and the JSON arrays that point into it, while [`write_glb`] fills them.
+/// The binary chunk, buffer views and accessors that [`write_glb`] builds.
 #[derive(Default)]
 struct Glb {
     bin: Vec<u8>,
@@ -249,8 +252,8 @@ impl Glb {
 ///
 /// Each mesh is one node with the mesh's transform, and one primitive per submesh. A material
 /// is written once per entry path, with its base color texture from `textures` where it has
-/// one. Each glTF mesh carries an [`ExportedMesh`] in its extras with `container`, which a
-/// reimport matches the map mesh by.
+/// one. Writes an [`ExportedMesh`] with `container` into the extras of each glTF mesh. A
+/// reimport matches map meshes against it.
 ///
 /// # Errors
 ///

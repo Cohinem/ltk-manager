@@ -140,7 +140,8 @@ pub struct ExportedMesh {
     pub mesh: u32,
     /// The entry path of the map's `MapContainer`.
     pub container: String,
-    /// The vertex count of the mesh at the export, which tells a stale index from a live one.
+    /// The vertex count of the mesh at the export. A reimport compares it to detect a stale
+    /// index.
     pub vertices: u32,
 }
 
@@ -276,10 +277,10 @@ pub struct ReimportTarget<'a> {
 
 /// Returns the mesh of a model file that replaces `target`.
 ///
-/// The only mesh of a file matches. Otherwise the mesh whose export extras name `target` by
-/// container and index matches, and then the mesh named as `target`. Returns `None` if no mesh
-/// matches, or if the extras name `target`'s index with another vertex count, because a mesh
-/// with a lower index was removed after the export and the index now names another mesh.
+/// Returns mesh 0 if the file has one mesh. Otherwise returns the mesh whose [`ExportedMesh`]
+/// has the container and index of `target`, then the mesh whose name equals `target.name`.
+/// Returns `None` if no mesh matches, or if the matching [`ExportedMesh`] has another vertex
+/// count, because its index is stale.
 #[must_use]
 pub fn reimport_source(meshes: &[ModelMeshSummary], target: ReimportTarget<'_>) -> Option<u32> {
     if meshes.len() == 1 {

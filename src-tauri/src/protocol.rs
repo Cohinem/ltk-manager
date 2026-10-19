@@ -174,7 +174,7 @@ fn edited_map(app: &AppHandle, id: &str, meshes: Option<&str>) -> Response<Vec<u
     }
 }
 
-/// Answers the preview buffer of the meshes that `query` lists of the model file `asset`.
+/// Returns the preview buffer of the meshes in `query` of the model file `asset`.
 fn model_preview(asset: &AssetRef, query: Option<&str>) -> Response<Vec<u8>> {
     let AssetRef::File { path } = asset else {
         return message_response(StatusCode::BAD_REQUEST, "Not a model file on disk");
@@ -201,7 +201,7 @@ fn model_preview(asset: &AssetRef, query: Option<&str>) -> Response<Vec<u8>> {
 
     match read_model(std::path::Path::new(path)) {
         Ok(model) => buffer_response(preview_buffer(&model, &meshes, scale, up)),
-        Err(e) => message_response(StatusCode::NOT_FOUND, &e.to_string()),
+        Err(e) => message_response(StatusCode::UNPROCESSABLE_ENTITY, &e.to_string()),
     }
 }
 

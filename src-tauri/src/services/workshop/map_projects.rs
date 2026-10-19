@@ -11,7 +11,8 @@ use ltk_hash::{BinHash, Hash as _};
 use ltk_manager_assets::hashtables::WadPathResolverState;
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::hashing::HexBinHash;
-use ltk_manager_bin::bin_document::{AssetLookup, BinDocument, RowNames};
+use ltk_manager_base::utils::fs::atomic_write;
+use ltk_manager_bin::bin_document::{AssetLookup, BinDocument};
 use ltk_manager_game::map::{
     map_skin_containers, moved_container, new_look_path, shipping_bin_path, skin_link_declarations,
     state_meshes, MapPath, MapSkinContainer,
@@ -81,7 +82,7 @@ pub async fn list_map_starts(app_handle: AppHandle) -> IpcResult<Vec<MapStart>> 
                     let bin = match map_bin(&app_handle, assets, map) {
                         Ok(bin) => bin,
                         Err(e) => {
-                            tracing::warn!("Map projects: passing over {map}: {e}");
+                            tracing::warn!("Map projects: skipped {map}: {e}");
                             return None;
                         }
                     };
@@ -105,7 +106,7 @@ pub async fn list_map_starts(app_handle: AppHandle) -> IpcResult<Vec<MapStart>> 
 }
 
 /// Creates the project `args` on the game map `map`, from the container of the skin named
-/// `skin`, as `start` says.
+/// `skin`, with the starting point `start`.
 ///
 /// A new look writes its container under `Maps/MapGeometry/<map>/<project name>` in the base
 /// layer, and declarations that link every skin of the map to it. Removes the project again if
@@ -139,7 +140,7 @@ pub async fn create_map_project(
             Ok(container) => Ok(MapProject { project, container }),
             Err(e) => {
                 if let Err(removal) = fs::remove_dir_all(&project.path) {
-                    tracing::warn!("Map projects: {} was left behind: {removal}", project.path);
+                    tracing::warn!("Map projects: could not remove {}: {removal}", project.path);
                 }
                 Err(e)
             }
@@ -187,7 +188,7 @@ fn fill(
         )?;
         write(
             &layer.join("game_data.yaml"),
-            declarations(&bin, map, &to, names).as_bytes(),
+            skin_link_declarations(&bin, &shipping_bin_path(map), &to, names).as_bytes(),
         )?;
 
         let asset = AssetRef::Layer {
@@ -203,14 +204,10 @@ fn map_bin(app: &AppHandle, assets: &dyn AssetLookup, map: &str) -> AppResult<Bi
     read_bin(app, &locate(assets, &shipping_bin_path(map))?)
 }
 
-fn declarations(bin: &BinDocument, map: &str, to: &MapPath, names: &dyn RowNames) -> String {
-    skin_link_declarations(bin, &shipping_bin_path(map), to, names)
-}
-
 fn locate(assets: &dyn AssetLookup, path: &str) -> AppResult<AssetRef> {
     assets
         .locate(path)
-        .ok_or_else(|| AppError::Other(format!("The install holds no {path}")))
+        .ok_or_else(|| AppError::Other(format!("The game install does not contain {path}")))
 }
 
 fn container_of(asset: AssetRef, path: MapPath) -> MapProjectContainer {
@@ -226,6 +223,6 @@ fn write(path: &Path, bytes: &[u8]) -> AppResult<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    fs::write(path, bytes)?;
+    atomic_write(path, bytes)?;
     Ok(())
 }

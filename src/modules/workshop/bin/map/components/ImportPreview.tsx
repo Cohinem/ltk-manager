@@ -17,7 +17,7 @@ import type { ModelPreview } from "../utils/meshImport";
 const MARKER_RADIUS = 65;
 const MARKER_HEIGHT = 180;
 
-/** The view leaves this much room around the meshes and the marker, as a share of their size. */
+/** The factor that scales the framing radius around the meshes and the marker. */
 const FRAME_MARGIN = 1.6;
 
 type Point = readonly [number, number, number];

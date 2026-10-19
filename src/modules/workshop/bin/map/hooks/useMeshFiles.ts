@@ -4,14 +4,15 @@ import { useCallback } from "react";
 import { useToast } from "@/components/Toast";
 import { errorSummary, m } from "@/i18n";
 import { api } from "@/lib/tauri";
+import { basename } from "@/utils/path";
 
 import { useMapScene } from "../state/mapScene";
 import { MODEL_EXTENSIONS } from "../utils/meshImport";
 
 /**
- * Returns a function that asks where to save, and writes the meshes `meshes` of the open
- * `.mapgeo`, or every mesh for null, there as a binary glTF file. Per "Adding meshes" in
- * docs/ux/MAP_EDITOR.md.
+ * Returns a function that opens a save dialog and writes `meshes` of the open `.mapgeo` to the
+ * chosen path as a binary glTF file. Writes every mesh if `meshes` is null. Per "Adding meshes"
+ * in docs/ux/MAP_EDITOR.md.
  */
 export function useMeshExport(): (meshes: readonly number[] | null) => Promise<void> {
   const { geometryDocument, materials, chosen } = useMapScene();
@@ -21,7 +22,7 @@ export function useMeshExport(): (meshes: readonly number[] | null) => Promise<v
     async (meshes: readonly number[] | null) => {
       if (geometryDocument === null || chosen === null) return;
 
-      const name = chosen.map.slice(chosen.map.lastIndexOf("/") + 1).toLowerCase();
+      const name = basename(chosen.map).toLowerCase();
       const destination = await save({
         title: m.workshop_bin_map_export_action(),
         defaultPath: `${name}.glb`,
@@ -36,8 +37,11 @@ export function useMeshExport(): (meshes: readonly number[] | null) => Promise<v
         chosen.map,
         destination,
       );
-      if (result.ok) toast.success(m.workshop_bin_map_export_done_title(), destination);
-      else toast.error(m.workshop_bin_map_export_failed_title(), errorSummary(result.error));
+      if (result.ok) {
+        toast.success(m.workshop_bin_map_export_done_title(), destination);
+      } else {
+        toast.error(m.workshop_bin_map_export_failed_title(), errorSummary(result.error));
+      }
     },
     [geometryDocument, materials, chosen, toast],
   );

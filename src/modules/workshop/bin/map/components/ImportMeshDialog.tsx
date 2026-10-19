@@ -283,7 +283,8 @@ export function ImportMeshDialog({ importer, request, backdrop: source }: Import
   );
 }
 
-function ImportField({ label, children }: { label: string; children: ReactNode }) {
+/** One labeled field of the import and reimport dialogs. */
+export function ImportField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Stack gap={1}>
       <span className="text-meta text-surface-400 select-none">{label}</span>

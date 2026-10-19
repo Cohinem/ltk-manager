@@ -2,7 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { z } from "zod";
 
-import { Button, Dialog, Field, RadioGroup, Select } from "@/components";
+import { Button, Dialog, Field, Grid, RadioGroup, Select, Stack } from "@/components";
 import { errorSummary, m } from "@/i18n";
 import { useAppForm } from "@/lib/form";
 import type { MapStart, MapStartingPoint } from "@/lib/tauri";
@@ -141,81 +141,85 @@ export function NewMapProjectDialog() {
           form.handleSubmit();
         }}
       >
-        <Dialog.Body className="flex flex-col gap-5">
-          <div className="flex flex-col gap-2">
-            <div className="grid grid-cols-2 items-start gap-3">
-              <form.AppField
-                name="displayName"
-                listeners={{
-                  onChange: ({ value }) => {
-                    if (!nameEdited.current) form.setFieldValue("name", toSlug(value));
-                  },
-                }}
-              >
-                {(field) => (
-                  <field.TextField
-                    label={m.workshop_map_project_display_name_label()}
-                    required
-                    autoFocus
+        <Dialog.Body>
+          <Stack gap={5}>
+            <Stack gap={2}>
+              <Grid columns={2} gap={3} align="start">
+                <form.AppField
+                  name="displayName"
+                  listeners={{
+                    onChange: ({ value }) => {
+                      if (!nameEdited.current) form.setFieldValue("name", toSlug(value));
+                    },
+                  }}
+                >
+                  {(field) => (
+                    <field.TextField
+                      label={m.workshop_map_project_display_name_label()}
+                      required
+                      autoFocus
+                      disabled={create.isPending}
+                    />
+                  )}
+                </form.AppField>
+
+                <form.AppField
+                  name="name"
+                  listeners={{
+                    onChange: () => {
+                      nameEdited.current = true;
+                    },
+                  }}
+                >
+                  {(field) => (
+                    <field.TextField
+                      label={m.workshop_map_project_name_label()}
+                      required
+                      disabled={create.isPending}
+                      transform={(value) => value.toLowerCase()}
+                      inputClassName="font-mono"
+                    />
+                  )}
+                </form.AppField>
+              </Grid>
+              <p className="text-meta text-surface-500 select-none">
+                {m.workshop_map_project_name_hint()}
+              </p>
+            </Stack>
+
+            <MapChoice
+              maps={maps}
+              map={map}
+              skin={skin}
+              loading={starts.isPending}
+              disabled={create.isPending}
+              onMap={(next) => {
+                setMapId(next);
+                setSkinName(null);
+              }}
+              onSkin={setSkinName}
+            />
+
+            <RadioGroup.Root
+              label={m.workshop_map_project_start_label()}
+              value={start}
+              onValueChange={(value: unknown) => setStart(value as MapStartingPoint)}
+            >
+              <RadioGroup.Options orientation="vertical">
+                {STARTS.map((each) => (
+                  <RadioGroup.Card
+                    key={each.value}
+                    value={each.value}
                     disabled={create.isPending}
+                    title={each.title()}
+                    description={each.description()}
                   />
-                )}
-              </form.AppField>
+                ))}
+              </RadioGroup.Options>
+            </RadioGroup.Root>
 
-              <form.AppField
-                name="name"
-                listeners={{
-                  onChange: () => {
-                    nameEdited.current = true;
-                  },
-                }}
-              >
-                {(field) => (
-                  <field.TextField
-                    label={m.workshop_map_project_name_label()}
-                    required
-                    disabled={create.isPending}
-                    transform={(value) => value.toLowerCase()}
-                    inputClassName="font-mono"
-                  />
-                )}
-              </form.AppField>
-            </div>
-            <p className="text-meta text-surface-500">{m.workshop_map_project_name_hint()}</p>
-          </div>
-
-          <MapChoice
-            maps={maps}
-            map={map}
-            skin={skin}
-            loading={starts.isPending}
-            disabled={create.isPending}
-            onMap={(next) => {
-              setMapId(next);
-              setSkinName(null);
-            }}
-            onSkin={setSkinName}
-          />
-
-          <RadioGroup.Root
-            label={m.workshop_map_project_start_label()}
-            value={start}
-            onValueChange={(value: unknown) => setStart(value as MapStartingPoint)}
-          >
-            <RadioGroup.Options orientation="vertical">
-              {STARTS.map((each) => (
-                <RadioGroup.Card
-                  key={each.value}
-                  value={each.value}
-                  disabled={create.isPending}
-                  title={each.title()}
-                  description={each.description()}
-                />
-              ))}
-            </RadioGroup.Options>
-          </RadioGroup.Root>
-
-          {error && <p className="text-sm text-danger-text select-text">{errorSummary(error)}</p>}
+            {error && <p className="text-sm text-danger-text select-text">{errorSummary(error)}</p>}
+          </Stack>
         </Dialog.Body>
 
         <Dialog.Footer>
@@ -254,14 +258,22 @@ interface MapChoiceProps {
 /** The game map and the skin whose container a map project starts from. */
 function MapChoice({ maps, map, skin, loading, disabled, onMap, onSkin }: MapChoiceProps) {
   if (loading) {
-    return <p className="text-sm text-surface-400">{m.workshop_map_project_loading_hint()}</p>;
+    return (
+      <p className="text-sm text-surface-400 select-none">
+        {m.workshop_map_project_loading_hint()}
+      </p>
+    );
   }
   if (map === null) {
-    return <p className="text-sm text-surface-400">{m.workshop_map_project_no_maps_hint()}</p>;
+    return (
+      <p className="text-sm text-surface-400 select-none">
+        {m.workshop_map_project_no_maps_hint()}
+      </p>
+    );
   }
 
   return (
-    <div className="grid grid-cols-2 items-start gap-3">
+    <Grid columns={2} gap={3} align="start">
       <Field.Root>
         <Field.Label>{m.workshop_map_project_map_label()}</Field.Label>
         <Select.Root
@@ -303,7 +315,7 @@ function MapChoice({ maps, map, skin, loading, disabled, onMap, onSkin }: MapCho
           </Select.Content>
         </Select.Root>
       </Field.Root>
-    </div>
+    </Grid>
   );
 }
 

@@ -15,7 +15,8 @@ use super::{
     SourceMesh, SourcePart, TextureSource, UpAxis,
 };
 
-/// Returns the [`ExportedMesh`] in the extras of `mesh`, and none if the extras hold no valid one.
+/// Returns the [`ExportedMesh`] in the extras of `mesh`. Returns `None` if the extras have no
+/// valid one.
 fn exported_of(mesh: &gltf::Mesh<'_>) -> Option<ExportedMesh> {
     let extras: serde_json::Value = serde_json::from_str(mesh.extras().as_ref()?.get()).ok()?;
     serde_json::from_value(extras.get(EXPORTED_KEY)?.clone()).ok()

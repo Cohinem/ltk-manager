@@ -262,12 +262,12 @@ pub async fn map_geometry_save(
     .await
 }
 
-/// What a model file holds, and the mesh of it that replaces a map mesh in a reimport.
+/// The summary of a model file and the index of the mesh that replaces a map mesh in a reimport.
 #[derive(Debug, Clone, Serialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ReimportInspection {
     pub summary: ModelSummary,
-    /// The matching mesh of the file, and none if the reader picks it in the dialog.
+    /// The index of the matching mesh. `None` if no mesh matches and the user picks one.
     pub source: Option<u32>,
 }
 
@@ -299,8 +299,8 @@ pub async fn map_geometry_reimport_inspect(
     .await
 }
 
-/// Writes the meshes at `meshes` of the `.mapgeo` open under `id`, or every mesh for none, to
-/// `path` as a binary glTF file.
+/// Writes the meshes at `meshes` of the `.mapgeo` open under `id` to `path` as a binary glTF
+/// file. Writes every mesh if `meshes` is `None`.
 ///
 /// The materials resolve through `map`'s `.materials.bin`, placed against the project of
 /// `document`. A material whose base texture cannot be read is written without one.

@@ -1195,7 +1195,6 @@
   "workshop_bin_map_preview_no_geometry_empty": "Nothing holds the geometry of this map",
   "workshop_bin_map_preview_skin_label": "Map skin",
   "workshop_bin_map_reimport_action": "Reimport from file",
-  "workshop_bin_map_reimport_failed_title": "Couldn't reimport the mesh",
   "workshop_bin_map_reimport_source_empty": "No mesh matches",
   "workshop_bin_map_reimport_source_label": "Source mesh",
   "workshop_bin_map_reimport_submit_action": "Reimport",
