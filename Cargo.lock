@@ -3509,6 +3509,7 @@ dependencies = [
  "fs-err",
  "ltk-manager-base",
  "ltk-telemetry",
+ "minisign-verify",
  "parking_lot",
  "regex",
  "reqwest 0.12.28",

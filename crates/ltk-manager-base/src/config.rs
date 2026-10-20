@@ -124,6 +124,10 @@ pub struct Config {
     /// takes effect on the next start. Default: false.
     #[serde(default)]
     pub verbose_patcher_logging: bool,
+    /// Whether the patcher runs builds from the beta delivery channel instead of
+    /// the stable channel. Default: false.
+    #[serde(default)]
+    pub beta_patcher: bool,
     /// Whether to set the `FULL_WAD_SCAN` hook flag, which scans every archive
     /// up front instead of the DLL's default of verifying each one as the game
     /// loads it. The overlay makes lazy scanning crash-prone, so the DLL only
@@ -246,6 +250,7 @@ impl Default for Config {
             enforce_skinhack_scan: true,
             apply_string_overrides_to_all_locales: false,
             verbose_patcher_logging: false,
+            beta_patcher: false,
             full_wad_scan: false,
             disable_crash_reporting: true,
             hide_riot_client_on_launch: true,
@@ -275,6 +280,7 @@ mod tests {
         assert!(config.enforce_skinhack_scan);
         assert!(!config.apply_string_overrides_to_all_locales);
         assert!(!config.verbose_patcher_logging);
+        assert!(!config.beta_patcher);
         assert!(!config.full_wad_scan);
         assert!(config.disable_crash_reporting);
         assert!(config.hide_riot_client_on_launch);

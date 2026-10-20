@@ -211,6 +211,9 @@ jobs:
           # Read by `option_env!` at compile time. A build without it reports no
           # diagnostics, so a fork releases without collecting anything.
           LTK_POSTHOG_API_KEY: ${{ secrets.LTK_POSTHOG_API_KEY }}
+          # Read by `option_env!` at compile time. A build without it runs the
+          # bundled patcher DLL only.
+          LTK_PATCHER_CLIENT_KEY: ${{ secrets.LTK_PATCHER_CLIENT_KEY }}
           # Read by `scripts/upload-source-maps.mjs`, between the frontend build
           # and the bundle. Absent, the maps are deleted rather than uploaded, so
           # a fork and the pull request workflow ship the same installer.

@@ -984,6 +984,11 @@ export type Config_Deserialize = {
 	 */
 	verbosePatcherLogging?: boolean,
 	/**
+	 *  Whether the patcher runs builds from the beta delivery channel instead of
+	 *  the stable channel. Default: false.
+	 */
+	betaPatcher?: boolean,
+	/**
 	 *  Whether to set the `FULL_WAD_SCAN` hook flag, which scans every archive
 	 *  up front instead of the DLL's default of verifying each one as the game
 	 *  loads it. The overlay makes lazy scanning crash-prone, so the DLL only
@@ -1099,6 +1104,11 @@ export type Config_Serialize = {
 	 *  takes effect on the next start. Default: false.
 	 */
 	verbosePatcherLogging: boolean,
+	/**
+	 *  Whether the patcher runs builds from the beta delivery channel instead of
+	 *  the stable channel. Default: false.
+	 */
+	betaPatcher: boolean,
 	/**
 	 *  Whether to set the `FULL_WAD_SCAN` hook flag, which scans every archive
 	 *  up front instead of the DLL's default of verifying each one as the game

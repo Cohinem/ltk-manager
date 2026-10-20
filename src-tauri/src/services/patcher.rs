@@ -3,17 +3,19 @@
 
 use crate::error::{AppError, AppResult, IpcResult};
 use crate::mods::{ChecksumMismatchInfo, ChecksumMismatchState, ModLibraryState};
-use crate::patcher::host::HOOK_DLL_NAME;
+use crate::patcher::host::{HOOK_DLL_NAME, HOST_EXE_NAME};
 use crate::patcher::injector::INJECTOR_EXE_NAME;
 use crate::patcher::thread::TauriPatcherEvents;
 use crate::patcher::{
-    PatcherError, PatcherEvents, PatcherHostState, PatcherPhase, PatcherSession, PatcherState,
-    PatcherThread, SessionParams, StoredPatcherConfig,
+    PatcherDeliveryState, PatcherError, PatcherEvents, PatcherHostState, PatcherPhase,
+    PatcherSession, PatcherState, PatcherThread, SessionParams, StoredPatcherConfig,
 };
 use crate::state::{IncidentStoreState, SettingsState};
+use ltk_manager_base::hashing::CONTENT_HASH_CHARS;
 use ltk_manager_base::utils::client_settings::LeagueClientSettings;
 use ltk_manager_base::utils::game::GameDir;
 use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
+use ltk_manager_runtime::patcher::delivery::{DeliveryError, Selection};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -235,10 +237,57 @@ pub(crate) fn start_patcher_inner(
     let dll_path = super::diagnostics::resolve_patcher_dll(app_handle)
         .or_else(|| injector_exe.parent().map(|dir| dir.join(HOOK_DLL_NAME)))
         .unwrap_or_else(|| PathBuf::from(HOOK_DLL_NAME));
+
+    let delivery = app_handle.state::<PatcherDeliveryState>();
+    delivery.sync_in_background(&config_snapshot);
+
+    let selection = match delivery.delivery() {
+        Some(client) => client
+            .select(
+                crate::patcher::delivery::channel(&config_snapshot),
+                &injector_exe,
+                &dll_path,
+                should_elevate,
+            )
+            .map_err(|error| {
+                match error {
+                DeliveryError::Withdrawn => AppError::Other(
+                    "The bundled patcher DLL was withdrawn and no replacement has been downloaded. \
+                     Connect to the internet, wait a minute and start the patcher again."
+                        .to_string(),
+                ),
+                other => AppError::Other(other.to_string()),
+            }
+            })?,
+        None => Selection::Bundled,
+    };
+
+    let (injector_exe, dll_path, expected_dll) = match selection {
+        Selection::Delivered {
+            dir,
+            version,
+            digest,
+        } => {
+            tracing::info!(%version, "Using the delivered patcher DLL");
+            (
+                dir.join(HOST_EXE_NAME),
+                dir.join(HOOK_DLL_NAME),
+                digest[..CONTENT_HASH_CHARS].to_string(),
+            )
+        }
+        Selection::Bundled => (
+            injector_exe,
+            dll_path,
+            option_env!("LTK_BUNDLED_DLL_HASH")
+                .unwrap_or_default()
+                .to_string(),
+        ),
+    };
+
     let patcher_binaries = PatcherBinaries::identify(
         &dll_path,
         &injector_exe,
-        option_env!("LTK_BUNDLED_DLL_HASH").unwrap_or_default(),
+        &expected_dll,
         option_env!("LTK_BUNDLED_HOST_HASH").unwrap_or_default(),
     );
 
