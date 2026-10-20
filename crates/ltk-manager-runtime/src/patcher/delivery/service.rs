@@ -1,8 +1,10 @@
 //! Sends requests to the public routes of the delivery service.
 
-use std::io::{Read, Write};
+use std::fmt::Write as _;
+use std::io::Write;
 use std::time::Duration;
 
+use ltk_manager_base::hashing::copy_verified;
 use reqwest::StatusCode;
 use reqwest::blocking::{Client, Response};
 use reqwest::header::{ETAG, IF_NONE_MATCH};
@@ -14,7 +16,8 @@ use super::manifest::{Envelope, Release};
 use super::{Channel, DeliveryError};
 
 /// Highest proof-of-work difficulty that the client attempts, in leading zero bits.
-const MAX_DIFFICULTY: u32 = 32;
+/// A solve at this difficulty takes a few seconds on one core.
+const MAX_DIFFICULTY: u32 = 24;
 
 /// The answer to an offer request.
 pub(super) enum Offer {
@@ -164,25 +167,14 @@ impl Service {
                 .send()?,
         )?;
 
-        let mut hash = Sha256::new();
-        let mut total = 0u64;
-        let mut buffer = [0u8; 64 * 1024];
-        loop {
-            let count = response.read(&mut buffer)?;
-            if count == 0 {
-                break;
-            }
-
-            total += count as u64;
-            if total > release.size {
-                return Err(DeliveryError::Integrity);
-            }
-
-            hash.update(&buffer[..count]);
-            destination.write_all(&buffer[..count])?;
-        }
-
-        if total != release.size || format!("{:x}", hash.finalize()) != release.digest {
+        let verified = copy_verified(
+            &mut response,
+            destination,
+            release.size,
+            &release.digest,
+            |_| Ok::<(), DeliveryError>(()),
+        )?;
+        if !verified {
             return Err(DeliveryError::Integrity);
         }
 
@@ -222,14 +214,18 @@ fn checked(response: Response) -> Result<Response, DeliveryError> {
 /// least `difficulty` leading zero bits.
 pub(super) fn solve(challenge: &str, difficulty: u32) -> String {
     let prefix = Sha256::new_with_prefix(challenge.as_bytes());
+    let mut nonce = String::new();
 
-    (0u64..)
-        .map(|n| format!("{n:x}"))
-        .find(|nonce| {
-            let digest = prefix.clone().chain_update(nonce.as_bytes()).finalize();
-            leading_zero_bits(&digest) >= difficulty
-        })
-        .expect("a u64 nonce space holds a solution for any difficulty up to MAX_DIFFICULTY")
+    for n in 0u64.. {
+        nonce.clear();
+        write!(nonce, "{n:x}").expect("a String write does not fail");
+        let digest = prefix.clone().chain_update(nonce.as_bytes()).finalize();
+        if leading_zero_bits(&digest) >= difficulty {
+            return nonce;
+        }
+    }
+
+    unreachable!("a u64 nonce space holds a solution for any difficulty up to MAX_DIFFICULTY")
 }
 
 /// Returns the number of leading zero bits of `digest`.

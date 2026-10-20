@@ -235,8 +235,9 @@ struct Request {
 
 /// Serves the public routes with canned answers and records each request.
 ///
-/// Accepts the token `t` only, answers the offer with `offer` and the ETag `"e"`, and
-/// answers `304` to an offer that sends that ETag.
+/// Accepts the token `t` only, refuses a registration with the client key `refused`,
+/// answers the offer with `offer` and the ETag `"e"`, and answers `304` to an offer that
+/// sends that ETag.
 fn serve(offer: Envelope) -> (String, Arc<Mutex<Vec<Request>>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
@@ -280,7 +281,8 @@ fn answer(stream: TcpStream, offer: &Envelope, log: &Mutex<Vec<Request>>) {
             _ => {}
         }
     }
-    reader.read_exact(&mut vec![0; length]).unwrap();
+    let mut body = vec![0; length];
+    reader.read_exact(&mut body).unwrap();
     log.lock().unwrap().push(request.clone());
 
     let authorized = request.authorization.as_deref() == Some("Bearer t");
@@ -290,6 +292,9 @@ fn answer(stream: TcpStream, offer: &Envelope, log: &Mutex<Vec<Request>>) {
             "",
             br#"{"challenge":"c","difficulty":4,"expires":"2026-10-20T00:00:00Z"}"#.to_vec(),
         ),
+        "/v1/installs" if body.windows(9).any(|w| w == b"\"refused\"") => {
+            ("401 Unauthorized", "", Vec::new())
+        }
         "/v1/installs" => ("200 OK", "", br#"{"token":"t"}"#.to_vec()),
         _ if !authorized => ("401 Unauthorized", "", Vec::new()),
         "/v1/offer" if request.if_none_match.as_deref() == Some("\"e\"") => {
@@ -382,6 +387,20 @@ fn sync_registers_again_if_token_is_refused() {
         ]
     );
     assert_eq!(setup.delivery.load().token.as_deref(), Some("t"));
+}
+
+#[test]
+fn sync_registers_once_if_client_key_is_refused() {
+    let mut setup = setup(None);
+    let (url, requests) = serve(FIXTURES.offered.clone());
+    setup.delivery.url = url;
+    setup.delivery.client_key = "refused".to_string();
+
+    assert_matches!(
+        setup.delivery.sync(Channel::Stable),
+        Err(DeliveryError::Unauthorized)
+    );
+    assert_eq!(paths(&requests), ["GET /v1/challenge", "POST /v1/installs"]);
 }
 
 #[test]

@@ -11,11 +11,10 @@ use crate::patcher::{
     PatcherSession, PatcherState, PatcherThread, SessionParams, StoredPatcherConfig,
 };
 use crate::state::{IncidentStoreState, SettingsState};
-use ltk_manager_base::hashing::CONTENT_HASH_CHARS;
 use ltk_manager_base::utils::client_settings::LeagueClientSettings;
 use ltk_manager_base::utils::game::GameDir;
 use ltk_manager_runtime::diagnostics::binary_id::PatcherBinaries;
-use ltk_manager_runtime::patcher::delivery::{DeliveryError, Selection};
+use ltk_manager_runtime::patcher::delivery::Selection;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -249,47 +248,30 @@ pub(crate) fn start_patcher_inner(
                 &dll_path,
                 should_elevate,
             )
-            .map_err(|error| {
-                match error {
-                DeliveryError::Withdrawn => AppError::Other(
-                    "The bundled patcher DLL was withdrawn and no replacement has been downloaded. \
-                     Connect to the internet, wait a minute and start the patcher again."
-                        .to_string(),
-                ),
-                other => AppError::Other(other.to_string()),
-            }
-            })?,
+            .map_err(|error| AppError::Other(error.to_string()))?,
         None => Selection::Bundled,
     };
 
-    let (injector_exe, dll_path, expected_dll) = match selection {
+    // A delivered DLL is not the bundle, so an incident identifies it by hash alone.
+    let (injector_exe, dll_path, expected_dll, expected_host) = match selection {
         Selection::Delivered {
             dir,
             version,
             digest,
         } => {
-            tracing::info!(%version, "Using the delivered patcher DLL");
-            (
-                dir.join(HOST_EXE_NAME),
-                dir.join(HOOK_DLL_NAME),
-                digest[..CONTENT_HASH_CHARS].to_string(),
-            )
+            tracing::info!(%version, %digest, "Using the delivered patcher DLL");
+            (dir.join(HOST_EXE_NAME), dir.join(HOOK_DLL_NAME), "", "")
         }
         Selection::Bundled => (
             injector_exe,
             dll_path,
-            option_env!("LTK_BUNDLED_DLL_HASH")
-                .unwrap_or_default()
-                .to_string(),
+            option_env!("LTK_BUNDLED_DLL_HASH").unwrap_or_default(),
+            option_env!("LTK_BUNDLED_HOST_HASH").unwrap_or_default(),
         ),
     };
 
-    let patcher_binaries = PatcherBinaries::identify(
-        &dll_path,
-        &injector_exe,
-        &expected_dll,
-        option_env!("LTK_BUNDLED_HOST_HASH").unwrap_or_default(),
-    );
+    let patcher_binaries =
+        PatcherBinaries::identify(&dll_path, &injector_exe, expected_dll, expected_host);
 
     let events: Arc<dyn PatcherEvents> =
         Arc::new(TauriPatcherEvents::new(app_handle.clone(), is_workshop));

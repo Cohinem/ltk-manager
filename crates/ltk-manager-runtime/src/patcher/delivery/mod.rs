@@ -11,17 +11,16 @@ mod manifest;
 mod service;
 
 use std::collections::{BTreeMap, HashSet};
-use std::io::Read;
 use std::path::{Path, PathBuf};
 
 use fs_err as fs;
 use semver::Version;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 use uuid::Uuid;
 
 use super::host::{HOOK_DLL_NAME, HOST_EXE_NAME};
+use ltk_manager_base::hashing::sha256_file;
 use ltk_manager_base::utils::fs::atomic_write;
 use service::{Offer, Service};
 
@@ -106,7 +105,10 @@ pub enum DeliveryError {
     #[error("the downloaded DLL does not match the size and digest of its release")]
     Integrity,
     /// A cached manifest revokes the bundled DLL, and no delivered DLL is usable.
-    #[error("the bundled patcher DLL was revoked and no replacement has been downloaded")]
+    #[error(
+        "the bundled patcher DLL was revoked and no replacement has been downloaded, so \
+         connect to the internet, wait a minute and start the patcher again"
+    )]
     Withdrawn,
     /// A read or write of the delivery state, a staged file or the download body failed.
     #[error(transparent)]
@@ -140,7 +142,8 @@ pub struct PatcherDelivery {
     pub public_key: String,
     /// Client key that this manager build registers with.
     pub client_key: String,
-    /// Version of this manager.
+    /// Version of this manager, without a pre-release suffix. A release range of a
+    /// manifest never matches a pre-release version.
     pub manager: Version,
     /// Host protocol of the bundled host. A release for another protocol is not used.
     pub protocol: u32,
@@ -179,13 +182,10 @@ impl PatcherDelivery {
             .as_ref()
             .and(state.channels.get(&channel))
             .and_then(|entry| entry.etag.clone());
-        let offer = match self.offer(&service, &mut state, channel, etag.as_deref()) {
-            Err(DeliveryError::Unauthorized) => {
-                state.token = None;
-                self.offer(&service, &mut state, channel, etag.as_deref())?
-            }
-            other => other?,
-        };
+        let manager = self.manager.to_string();
+        let offer = self.authorized(&service, &mut state, |token| {
+            service.offer(token, channel, &manager, etag.as_deref())
+        })?;
 
         let manifest = match offer {
             Offer::Incompatible => {
@@ -219,8 +219,9 @@ impl PatcherDelivery {
 
         let revoked = self.revoked(&state);
         if self.usable(&manifest, &revoked) && self.staged_dll(&manifest.release).is_none() {
-            let token = self.token(&service, &mut state)?;
-            self.download(&service, &token, &manifest.release)?;
+            self.authorized(&service, &mut state, |token| {
+                self.download(&service, token, &manifest.release)
+            })?;
             tracing::info!(%channel, version = %manifest.release.version, "Downloaded patcher DLL");
         }
 
@@ -230,10 +231,11 @@ impl PatcherDelivery {
     /// Selects the build that a session on `channel` runs.
     ///
     /// Returns [`Selection::Delivered`] if the cached manifest of `channel` is usable by
-    /// this manager, its DLL is staged, and the session is not `elevated`. Falls back to
-    /// [`Selection::Bundled`] if the host cannot be copied beside the DLL, and otherwise
-    /// returns [`Selection::Bundled`]. Fails with [`DeliveryError::Withdrawn`] if a cached
-    /// manifest revokes `bundled_dll` and no delivered DLL replaces it.
+    /// this manager, its DLL is staged, and the session is not `elevated`. Returns
+    /// [`Selection::Bundled`] if no cached manifest of `channel` is usable, if its DLL is
+    /// not staged, if the session is `elevated`, or if the host cannot be copied beside
+    /// the DLL. Fails with [`DeliveryError::Withdrawn`] if a cached manifest revokes
+    /// `bundled_dll` and no delivered DLL replaces it.
     pub fn select(
         &self,
         channel: Channel,
@@ -275,15 +277,27 @@ impl PatcherDelivery {
         Ok(Selection::Bundled)
     }
 
-    fn offer(
+    /// Sends `request` with the install token.
+    ///
+    /// Registers the install first if no token is stored. If the service refuses a
+    /// stored token, registers the install again and sends `request` once more.
+    fn authorized<T>(
         &self,
         service: &Service,
         state: &mut State,
-        channel: Channel,
-        etag: Option<&str>,
-    ) -> Result<Offer, DeliveryError> {
+        request: impl Fn(&str) -> Result<T, DeliveryError>,
+    ) -> Result<T, DeliveryError> {
+        let stored = state.token.is_some();
         let token = self.token(service, state)?;
-        service.offer(&token, channel, &self.manager.to_string(), etag)
+
+        match request(&token) {
+            Err(DeliveryError::Unauthorized) if stored => {
+                state.token = None;
+                let token = self.token(service, state)?;
+                request(&token)
+            }
+            other => other,
+        }
     }
 
     /// Returns the stored token.
@@ -423,21 +437,6 @@ fn stage_host(dir: &Path, bundled_host: &Path) -> std::io::Result<()> {
 
     fs::copy(bundled_host, &staged)?;
     Ok(())
-}
-
-fn sha256_file(path: &Path) -> std::io::Result<String> {
-    let mut file = fs::File::open(path)?;
-    let mut hash = Sha256::new();
-    let mut buffer = [0u8; 64 * 1024];
-    loop {
-        let count = file.read(&mut buffer)?;
-        if count == 0 {
-            break;
-        }
-        hash.update(&buffer[..count]);
-    }
-
-    Ok(format!("{:x}", hash.finalize()))
 }
 
 #[cfg(test)]

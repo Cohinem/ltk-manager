@@ -6,7 +6,7 @@ use std::sync::Arc;
 use ltk_manager_base::config::Config;
 use ltk_manager_runtime::patcher::delivery::{Channel, PatcherDelivery};
 use parking_lot::Mutex;
-use semver::Version;
+use semver::{Prerelease, Version};
 
 // shortcut: the staging service and its key, switch both when the production service exists.
 /// Base URL of the public delivery service.
@@ -41,8 +41,11 @@ impl PatcherDeliveryState {
                 url: DELIVERY_URL.to_string(),
                 public_key: MANIFEST_PUBLIC_KEY.to_string(),
                 client_key: client_key.to_string(),
-                manager: Version::parse(env!("CARGO_PKG_VERSION"))
-                    .expect("CARGO_PKG_VERSION is semver"),
+                manager: Version {
+                    pre: Prerelease::EMPTY,
+                    ..Version::parse(env!("CARGO_PKG_VERSION"))
+                        .expect("CARGO_PKG_VERSION is semver")
+                },
                 protocol: BUNDLED_HOST_PROTOCOL,
             })),
             _ => None,
@@ -62,7 +65,7 @@ impl PatcherDeliveryState {
         self.delivery.as_deref()
     }
 
-    /// Syncs the channel of `config` on a background thread, unless a sync is running.
+    /// Syncs the channel of `config` on a background thread, after any running sync.
     pub fn sync_in_background(&self, config: &Config) {
         let Some(delivery) = self.delivery.clone() else {
             return;
@@ -71,9 +74,8 @@ impl PatcherDeliveryState {
         let syncing = Arc::clone(&self.syncing);
         let channel = channel(config);
         std::thread::spawn(move || {
-            if let Some(_guard) = syncing.try_lock() {
-                sync(&delivery, channel);
-            }
+            let _guard = syncing.lock();
+            sync(&delivery, channel);
         });
     }
 }
