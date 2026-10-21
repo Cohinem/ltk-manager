@@ -10,8 +10,10 @@
 //! deleted here; it was superseded by the external host in `c0ecc27` and is
 //! recoverable from history if the native reimplementation ever wants it.
 
+pub mod delivery;
 pub mod thread;
 
+pub use delivery::PatcherDeliveryState;
 pub use ltk_manager_core::patching::{PatcherThread, SessionParams};
 pub use ltk_manager_runtime::patcher::{
     host, injector, session, PatcherError, PatcherEvents, PatcherPhase, PatcherSession,

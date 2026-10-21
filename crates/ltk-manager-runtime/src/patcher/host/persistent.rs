@@ -1,7 +1,7 @@
 //! The long-lived injection host, kept alive across patching sessions.
 
 use std::io::{BufRead, BufReader, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::thread::{self, JoinHandle};
 
@@ -26,6 +26,9 @@ pub struct PatcherHost {
     events: EventStream,
     reader_handle: Option<JoinHandle<()>>,
     stderr_handle: Option<JoinHandle<()>>,
+    /// The executable that the host was spawned from. A session for another
+    /// executable forces a respawn.
+    exe: PathBuf,
     /// Whether the host was spawned with `--elevate`. A change in the desired
     /// elevation mode forces a respawn (the flag is fixed at spawn time).
     elevated: bool,
@@ -53,6 +56,7 @@ impl PatcherHost {
             events: EventStream(Some(rx)),
             reader_handle: Some(reader_handle),
             stderr_handle,
+            exe: exe_path.to_path_buf(),
             elevated: elevate,
         })
     }
@@ -60,6 +64,11 @@ impl PatcherHost {
     /// Whether the host process is still running.
     pub fn is_alive(&mut self) -> bool {
         self.proc.is_alive()
+    }
+
+    /// Returns the executable that the host was spawned from.
+    pub fn exe(&self) -> &Path {
+        &self.exe
     }
 
     /// Whether the host was spawned with `--elevate`.

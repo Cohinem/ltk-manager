@@ -38,9 +38,13 @@ pub(crate) fn save_settings_inner(
     // Before the write, so a secret minted here reaches the file with everything
     // else rather than waiting for the next save.
     let (secret, _) = crate::telemetry::ensure_secret(&mut settings);
-    let (was_collecting, had_file_types) = {
+    let (was_collecting, had_file_types, had_beta_patcher) = {
         let current = state.0.lock();
-        (current.telemetry_enabled, current.register_file_types)
+        (
+            current.telemetry_enabled,
+            current.register_file_types,
+            current.config.beta_patcher,
+        )
     };
 
     // Sync OS autolaunch with the updated setting
@@ -55,6 +59,13 @@ pub(crate) fn save_settings_inner(
 
     if settings.register_file_types != had_file_types {
         super::integrations::apply_file_types(app_handle, settings.register_file_types);
+    }
+
+    // A selection reads only the cache, so a change of channel starts a background sync.
+    if settings.config.beta_patcher != had_beta_patcher {
+        app_handle
+            .state::<crate::patcher::PatcherDeliveryState>()
+            .sync_in_background(&settings.config);
     }
 
     // The launcher is built from the install root and re-reads the window

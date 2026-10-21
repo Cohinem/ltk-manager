@@ -172,6 +172,7 @@ label sits over a block either way.
   | Patch TFT files                         ( ) |  <- a row at its default
   | Run injector elevated  (r)              (O) |  <- (r) reverts a row that is off its default
   | Verbose patcher logging                 ( ) |
+  | Beta patcher                            ( ) |
   | ------------------------------------------- |  <- the rule belongs to the group below it
   | MOD SAFETY                              (r) |  <- resets the group, once two rows differ
   | Block Scripts.wad.client  (r)           ( ) |
@@ -852,12 +853,15 @@ and the two-column `SettingsGrid` leaves the tab, because both remaining cards a
 
 Card `Patching`:
 
-| Group         | Rows                                                            |
-| ------------- | --------------------------------------------------------------- |
-| Injector      | Patch TFT files, Run injector elevated, Verbose patcher logging |
-| Mod safety    | Block Scripts.wad.client, Enforce anti-skinhack scan            |
-| Game archives | Scan every WAD up front, Disable crash reporting                |
-| Incidents     | Allow reading game logs, Keep incidents                         |
+| Group         | Rows                                                                          |
+| ------------- | ----------------------------------------------------------------------------- |
+| Injector      | Patch TFT files, Run injector elevated, Verbose patcher logging, Beta patcher |
+| Mod safety    | Block Scripts.wad.client, Enforce anti-skinhack scan                          |
+| Game archives | Scan every WAD up front, Disable crash reporting                              |
+| Incidents     | Allow reading game logs, Keep incidents                                       |
+
+`Beta patcher` selects the beta delivery channel. A change starts a download in the background,
+and the patcher runs the downloaded build from the first start after the download completes.
 
 `Game archives` is a real facet and not a leftover. The two rows are coupled - archives are
 verified on demand only while Riot's crash reporting is off - and the group is where that coupling

@@ -58,7 +58,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "isolated",
-          include: [TEST_FILES],
+          include: [TEST_FILES, "scripts/**/*.test.mjs"],
           exclude: [...configDefaults.exclude, ...sharedFiles],
         },
       },

@@ -18,6 +18,7 @@ base64 = { workspace = true }
 chrono = { workspace = true }
 fs-err = { workspace = true }
 ltk-telemetry = { workspace = true }
+minisign-verify = { workspace = true }
 parking_lot = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }

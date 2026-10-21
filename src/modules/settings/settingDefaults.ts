@@ -109,6 +109,7 @@ const SETTING_FORMAT: Partial<Record<SettingKey, SettingFormat>> = {
   enforceSkinhackScan: onOff,
   fullWadScan: onOff,
   verbosePatcherLogging: onOff,
+  betaPatcher: onOff,
   readGameLog: onOff,
   disableCrashReporting: onOff,
   keepIncidents: plain,
