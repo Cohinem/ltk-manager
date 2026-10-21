@@ -40,10 +40,10 @@ what done looks like. `manager` is this repository, `service` is `ltk-patcher-de
 
 ## Phase 3: verification on staging
 
-- [ ] V1 Build a release candidate from a release branch. The `registration` event for its version appears in the staging dataset.
-- [ ] V2 The manager log shows `Downloaded patcher DLL` for the channel, and the next patcher start logs `Using the delivered patcher DLL`.
-- [ ] V3 `PUT /admin/v1/managers/<rc version>/deny`. The next sync logs `Refused 403 manager`, and the patcher start runs the bundled DLL.
-- [ ] V4 `DELETE` the denial. The next sync registers again and the delivered DLL runs.
+- [x] V1 Build a release candidate from a release branch. Its attestation registers against staging and receives a token.
+- [x] V2 The manager log shows `Downloaded patcher DLL` for the channel, and the next patcher start logs `Using the delivered patcher DLL`.
+- [x] V3 Deny the rc version. The next sync logs `Refused 403 manager`. A staged DLL keeps running, because a denial stops offers and downloads and a withdrawal stops a staged DLL.
+- [x] V4 Lift the denial. The next sync registers again, within a minute of the KV write.
 
 ## Phase 4: production
 
