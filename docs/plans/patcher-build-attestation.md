@@ -270,26 +270,26 @@ the events carry `commit`, which tells them apart. A denial by commit is not par
 
 ## Operations
 
-| Situation          | Action                                                                                                             |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
-| A release          | None. The workflow attests it.                                                                                     |
-| A bad release      | `PUT /admin/v1/managers/<version>/deny`. Its tokens fail within a minute.                                          |
-| A bad install      | `PUT /admin/v1/installs/<uuid>/deny`, unchanged.                                                                   |
-| Key rotation       | Add the new public key to the var, deploy, replace the secret, remove the old key later.                           |
-| Key compromise     | Rotation, then deny any version the attacker attested that was never released.                                     |
-| Production service | Its own key pair and `MANAGER_ATTESTATION_PUBLIC_KEYS`. The `shortcut:` constants in `delivery.rs` switch with it. |
+| Situation          | Action                                                                                                                                     |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| A release          | None. The workflow attests it.                                                                                                             |
+| A bad release      | `PUT /admin/v1/managers/<version>/deny`. Its tokens fail within a minute. To stop a staged DLL as well, withdraw its digest in a manifest. |
+| A bad install      | `PUT /admin/v1/installs/<uuid>/deny`, unchanged.                                                                                           |
+| Key rotation       | Add the new public key to the var, deploy, replace the secret, remove the old key later.                                                   |
+| Key compromise     | Rotation, then deny any version the attacker attested that was never released.                                                             |
+| Production service | Its own key pair and `MANAGER_ATTESTATION_PUBLIC_KEYS`. The `shortcut:` constants in `delivery.rs` switch with it.                         |
 
 ## Failure modes
 
-| Failure                                        | Result                                                                |
-| ---------------------------------------------- | --------------------------------------------------------------------- |
-| Secret missing on the upstream repository      | The release workflow fails at `Attest build`.                         |
-| Secret missing on a fork                       | The build has no delivery client.                                     |
-| Attestation does not match `CARGO_PKG_VERSION` | The build has no delivery client, with a warning in the log.          |
-| Signature does not verify                      | `403 attestation`. The sync logs it. Bundled DLL.                     |
-| Version denied                                 | `403 manager` on registration, offer and download. Bundled DLL.       |
-| Token from the key scheme                      | `401`. The client registers again with the attestation.               |
-| Public key var empty                           | Every registration fails `403 attestation`. The service fails closed. |
+| Failure                                        | Result                                                                                                                                |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Secret missing on the upstream repository      | The release workflow fails at `Attest build`.                                                                                         |
+| Secret missing on a fork                       | The build has no delivery client.                                                                                                     |
+| Attestation does not match `CARGO_PKG_VERSION` | The build has no delivery client, with a warning in the log.                                                                          |
+| Signature does not verify                      | `403 attestation`. The sync logs it. Bundled DLL.                                                                                     |
+| Version denied                                 | `403 manager` on registration, offer and download. No new download. A staged DLL keeps running until a manifest withdraws its digest. |
+| Token from the key scheme                      | `401`. The client registers again with the attestation.                                                                               |
+| Public key var empty                           | Every registration fails `403 attestation`. The service fails closed.                                                                 |
 
 ## Sequencing
 

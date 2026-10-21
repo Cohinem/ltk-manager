@@ -91,7 +91,8 @@ jobs:
           NOTES="docs/releases/$VERSION.md"
           mkdir -p docs/releases
           if [ ! -f "$NOTES" ]; then
-            printf '%s\n' "$GENERATED" > "$NOTES"
+            # Leading blank lines and a doubled trailing newline fail the format check.
+            printf '%s\n' "$(printf '%s\n' "$GENERATED" | sed '/./,$!d')" > "$NOTES"
           fi
 
           git config user.name "github-actions[bot]"
