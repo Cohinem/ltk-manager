@@ -13,6 +13,8 @@ mod service;
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
+use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use fs_err as fs;
 use semver::Version;
 use serde::{Deserialize, Serialize};
@@ -140,10 +142,11 @@ pub struct PatcherDelivery {
     pub url: String,
     /// Base64 minisign public key that every manifest must verify against.
     pub public_key: String,
-    /// Client key that this manager build registers with.
-    pub client_key: String,
-    /// Version of this manager, without a pre-release suffix. A release range of a
-    /// manifest never matches a pre-release version.
+    /// Build attestation that this manager build registers with, signed by the release
+    /// workflow over the release version and the commit.
+    pub attestation: String,
+    /// Release version of this manager, without a pre-release suffix. A release range of a
+    /// manifest never matches a pre-release version, on this side or on the service.
     pub manager: Version,
     /// Host protocol of the bundled host. A release for another protocol is not used.
     pub protocol: u32,
@@ -312,7 +315,7 @@ impl PatcherDelivery {
             .install
             .get_or_insert_with(|| Uuid::new_v4().to_string())
             .clone();
-        let token = service.register(&install, &self.manager.to_string(), &self.client_key)?;
+        let token = service.register(&install, &self.manager.to_string(), &self.attestation)?;
 
         state.token = Some(token.clone());
         self.save(state)?;
@@ -437,6 +440,23 @@ fn stage_host(dir: &Path, bundled_host: &Path) -> std::io::Result<()> {
 
     fs::copy(bundled_host, &staged)?;
     Ok(())
+}
+
+/// Returns the manager version that the statement of `attestation` names.
+///
+/// Returns `None` if the statement is not base64url JSON with a `manager` field. The
+/// signature is not checked, because only the service holds the key to do so.
+pub fn attested_manager(attestation: &str) -> Option<String> {
+    #[derive(Deserialize)]
+    struct Statement {
+        manager: String,
+    }
+
+    let statement = attestation.split('.').next()?;
+    let bytes = URL_SAFE_NO_PAD.decode(statement).ok()?;
+    serde_json::from_slice::<Statement>(&bytes)
+        .ok()
+        .map(|statement| statement.manager)
 }
 
 #[cfg(test)]

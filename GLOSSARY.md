@@ -425,3 +425,7 @@ See ADR-0067.
 
 **Withdrawn** - a build whose digest a manifest revokes. No session runs a withdrawn DLL, bundled
 or delivered.
+
+**Build attestation** - a statement of the manager's release version and commit, signed by the
+release workflow and baked into the build. The delivery service registers an install only with an
+attestation that verifies, and denies builds by their attested version.

@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use ltk_manager_base::config::Config;
-use ltk_manager_runtime::patcher::delivery::{Channel, PatcherDelivery};
+use ltk_manager_runtime::patcher::delivery::{attested_manager, Channel, PatcherDelivery};
 use parking_lot::Mutex;
 use semver::{Prerelease, Version};
 
@@ -14,10 +14,10 @@ const DELIVERY_URL: &str = "https://patcher-staging.leaguetoolkit.dev";
 /// Base64 minisign public key of the delivery manifests.
 const MANIFEST_PUBLIC_KEY: &str = "RWRHh5bl7JOIscd3lf1Sw2xqd5qcoSeau1GmXjBm7C4KA4YSB0DOf+Kx";
 
-/// Client key that the delivery service allowlists for this manager release.
+/// Build attestation that the release workflow signed for this manager version.
 ///
 /// Read by `option_env!` at compile time. A build without it runs the bundled DLL only.
-const CLIENT_KEY: Option<&str> = option_env!("LTK_PATCHER_CLIENT_KEY");
+const ATTESTATION: Option<&str> = option_env!("LTK_PATCHER_ATTESTATION");
 
 /// Host protocol of `resources/ltk_patcher_host.exe`. It must change together with the binary.
 const BUNDLED_HOST_PROTOCOL: u32 = 2;
@@ -33,21 +33,35 @@ impl PatcherDeliveryState {
     ///
     /// Removes the staged builds that no cached manifest offers, before any session can
     /// select one. Returns a state without a client if the target is not Windows, if the
-    /// build has no [`CLIENT_KEY`], or if `app_data_dir` is `None`.
+    /// build has no [`ATTESTATION`] or its attestation names another manager version, or
+    /// if `app_data_dir` is `None`.
     pub fn new(app_data_dir: Option<&Path>) -> Self {
-        let delivery = match (cfg!(windows), CLIENT_KEY, app_data_dir) {
-            (true, Some(client_key), Some(dir)) => Some(Arc::new(PatcherDelivery {
-                root: dir.join("patcher"),
-                url: DELIVERY_URL.to_string(),
-                public_key: MANIFEST_PUBLIC_KEY.to_string(),
-                client_key: client_key.to_string(),
-                manager: Version {
-                    pre: Prerelease::EMPTY,
-                    ..Version::parse(env!("CARGO_PKG_VERSION"))
-                        .expect("CARGO_PKG_VERSION is semver")
-                },
-                protocol: BUNDLED_HOST_PROTOCOL,
-            })),
+        let manager = Version {
+            pre: Prerelease::EMPTY,
+            ..Version::parse(env!("CARGO_PKG_VERSION")).expect("CARGO_PKG_VERSION is semver")
+        };
+        let release = manager.to_string();
+
+        let delivery = match (cfg!(windows), ATTESTATION, app_data_dir) {
+            (true, Some(attestation), Some(dir))
+                if attested_manager(attestation).as_deref() == Some(release.as_str()) =>
+            {
+                Some(Arc::new(PatcherDelivery {
+                    root: dir.join("patcher"),
+                    url: DELIVERY_URL.to_string(),
+                    public_key: MANIFEST_PUBLIC_KEY.to_string(),
+                    attestation: attestation.to_string(),
+                    manager,
+                    protocol: BUNDLED_HOST_PROTOCOL,
+                }))
+            }
+            (true, Some(_), Some(_)) => {
+                tracing::warn!(
+                    %release,
+                    "The build attestation does not name this manager version. Running the bundled patcher DLL only"
+                );
+                None
+            }
             _ => None,
         };
         if let Some(delivery) = &delivery {

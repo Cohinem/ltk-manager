@@ -54,7 +54,7 @@ impl Service {
         })
     }
 
-    /// Registers `install` with the client `key` and returns its bearer token.
+    /// Registers `install` with its build `attestation` and returns its bearer token.
     ///
     /// Solves the proof-of-work challenge of the service first. Fails if the challenge
     /// difficulty is above [`MAX_DIFFICULTY`].
@@ -62,7 +62,7 @@ impl Service {
         &self,
         install: &str,
         manager: &str,
-        key: &str,
+        attestation: &str,
     ) -> Result<String, DeliveryError> {
         #[derive(Deserialize)]
         struct Challenge {
@@ -93,7 +93,7 @@ impl Service {
                 .json(&json!({
                     "install": install,
                     "manager": manager,
-                    "key": key,
+                    "attestation": attestation,
                     "challenge": challenge.challenge,
                     "nonce": nonce,
                 }))

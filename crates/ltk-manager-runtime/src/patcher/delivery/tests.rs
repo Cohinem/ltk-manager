@@ -64,7 +64,7 @@ fn setup(cached: Option<&Envelope>) -> Setup {
         root: dir.path().join("delivery"),
         url: "http://127.0.0.1:9".to_string(),
         public_key: FIXTURES.public_key.clone(),
-        client_key: "test".to_string(),
+        attestation: "test".to_string(),
         manager: Version::new(1, 5, 0),
         protocol: 2,
     };
@@ -235,7 +235,7 @@ struct Request {
 
 /// Serves the public routes with canned answers and records each request.
 ///
-/// Accepts the token `t` only, refuses a registration with the client key `refused`,
+/// Accepts the token `t` only, refuses a registration with the attestation `refused`,
 /// answers the offer with `offer` and the ETag `"e"`, and answers `304` to an offer that
 /// sends that ETag.
 fn serve(offer: Envelope) -> (String, Arc<Mutex<Vec<Request>>>) {
@@ -293,7 +293,7 @@ fn answer(stream: TcpStream, offer: &Envelope, log: &Mutex<Vec<Request>>) {
             br#"{"challenge":"c","difficulty":4,"expires":"2026-10-20T00:00:00Z"}"#.to_vec(),
         ),
         "/v1/installs" if body.windows(9).any(|w| w == b"\"refused\"") => {
-            ("401 Unauthorized", "", Vec::new())
+            ("403 Forbidden", "", br#"{"reason":"attestation"}"#.to_vec())
         }
         "/v1/installs" => ("200 OK", "", br#"{"token":"t"}"#.to_vec()),
         _ if !authorized => ("401 Unauthorized", "", Vec::new()),
@@ -390,17 +390,29 @@ fn sync_registers_again_if_token_is_refused() {
 }
 
 #[test]
-fn sync_registers_once_if_client_key_is_refused() {
+fn sync_fails_if_attestation_is_refused() {
     let mut setup = setup(None);
     let (url, requests) = serve(FIXTURES.offered.clone());
     setup.delivery.url = url;
-    setup.delivery.client_key = "refused".to_string();
+    setup.delivery.attestation = "refused".to_string();
 
     assert_matches!(
         setup.delivery.sync(Channel::Stable),
-        Err(DeliveryError::Unauthorized)
+        Err(DeliveryError::Refused { status: 403, ref reason }) if reason == "attestation"
     );
     assert_eq!(paths(&requests), ["GET /v1/challenge", "POST /v1/installs"]);
+}
+
+#[test]
+fn attested_manager_reads_statement_version() {
+    let statement = URL_SAFE_NO_PAD.encode(br#"{"manager":"1.29.0","commit":"0"}"#);
+
+    assert_eq!(
+        attested_manager(&format!("{statement}.sig")).as_deref(),
+        Some("1.29.0")
+    );
+    assert_eq!(attested_manager("not base64url!.sig"), None);
+    assert_eq!(attested_manager(""), None);
 }
 
 #[test]
