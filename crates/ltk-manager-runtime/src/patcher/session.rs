@@ -163,6 +163,7 @@ fn ensure_host_started(
     ensure_started(
         &mut guard,
         |elevate| PatcherHost::spawn(exe_path, elevate),
+        exe_path,
         elevate,
         config,
     )
@@ -176,6 +177,7 @@ fn ensure_host_started(
 /// with a real `Child` in a test.
 trait SessionHost {
     fn is_alive(&mut self) -> bool;
+    fn exe(&self) -> &Path;
     fn elevated(&self) -> bool;
     fn drain_events(&mut self) -> bool;
     fn configure(&mut self, config: &HostConfig) -> Result<(), HostError>;
@@ -187,6 +189,10 @@ trait SessionHost {
 impl SessionHost for PatcherHost {
     fn is_alive(&mut self) -> bool {
         PatcherHost::is_alive(self)
+    }
+
+    fn exe(&self) -> &Path {
+        PatcherHost::exe(self)
     }
 
     fn elevated(&self) -> bool {
@@ -219,6 +225,7 @@ impl SessionHost for PatcherHost {
 fn ensure_started<H: SessionHost>(
     slot: &mut Option<H>,
     spawn: impl FnOnce(bool) -> Result<H, HostError>,
+    exe: &Path,
     elevate: bool,
     config: &HostConfig,
 ) -> Result<Receiver<HostLine>, HostError> {
@@ -227,7 +234,12 @@ fn ensure_started<H: SessionHost>(
     // another session even if the process is still alive.
     let needs_spawn = match slot.as_mut() {
         None => true,
-        Some(host) => !host.is_alive() || host.elevated() != elevate || !host.drain_events(),
+        Some(host) => {
+            !host.is_alive()
+                || host.exe() != exe
+                || host.elevated() != elevate
+                || !host.drain_events()
+        }
     };
     if needs_spawn {
         if let Some(mut old) = slot.take() {
@@ -263,10 +275,13 @@ mod tests {
     use super::*;
     use assert_matches::assert_matches;
     use std::cell::RefCell;
+    use std::path::PathBuf;
     use std::rc::Rc;
     use std::sync::mpsc;
 
     use crate::patcher::host::HostLogLevel;
+
+    const HOST_EXE: &str = "host.exe";
 
     /// Which handshake step a stub host should fail at.
     #[derive(Clone, Copy, PartialEq)]
@@ -283,6 +298,7 @@ mod tests {
     struct FakeHost {
         name: &'static str,
         alive: bool,
+        exe: PathBuf,
         elevated: bool,
         drain_ok: bool,
         fail_at: Option<FailAt>,
@@ -297,6 +313,7 @@ mod tests {
             Self {
                 name,
                 alive: true,
+                exe: PathBuf::from(HOST_EXE),
                 elevated: false,
                 drain_ok: true,
                 fail_at: None,
@@ -313,6 +330,10 @@ mod tests {
     impl SessionHost for FakeHost {
         fn is_alive(&mut self) -> bool {
             self.alive
+        }
+
+        fn exe(&self) -> &Path {
+            &self.exe
         }
 
         fn elevated(&self) -> bool {
@@ -361,9 +382,19 @@ mod tests {
         }
     }
 
-    /// Runs `ensure_started` against `slot`, recording whether a spawn happened.
+    /// Runs `ensure_started` for [`HOST_EXE`] against `slot`, recording whether a spawn
+    /// happened.
     fn start(
         slot: &mut Option<FakeHost>,
+        elevate: bool,
+        log: &Rc<RefCell<Vec<String>>>,
+    ) -> (Result<Receiver<HostLine>, HostError>, Vec<bool>) {
+        start_from(slot, Path::new(HOST_EXE), elevate, log)
+    }
+
+    fn start_from(
+        slot: &mut Option<FakeHost>,
+        exe: &Path,
         elevate: bool,
         log: &Rc<RefCell<Vec<String>>>,
     ) -> (Result<Receiver<HostLine>, HostError>, Vec<bool>) {
@@ -376,9 +407,11 @@ mod tests {
                 move |elevate| {
                     spawned.borrow_mut().push(elevate);
                     let mut host = FakeHost::new("fresh", &log);
+                    host.exe = exe.to_path_buf();
                     host.elevated = elevate;
                     Ok(host)
                 },
+                exe,
                 elevate,
                 &config(),
             )
@@ -441,6 +474,19 @@ mod tests {
         assert!(log.borrow().contains(&"unelevated:shutdown".to_string()));
     }
 
+    #[test]
+    fn ensure_started_respawns_when_exe_changes() {
+        let log = Rc::new(RefCell::new(Vec::new()));
+        let mut slot = Some(FakeHost::new("bundled", &log));
+
+        let (events, spawned) = start_from(&mut slot, Path::new("delivered.exe"), false, &log);
+
+        assert_eq!(spawned, [false]);
+        assert_eq!(stream_owner(&events.unwrap()), "fresh");
+        assert_eq!(slot.unwrap().exe, Path::new("delivered.exe"));
+        assert!(log.borrow().contains(&"bundled:shutdown".to_string()));
+    }
+
     /// A host can outlive its own stdout reader. The process still looks alive,
     /// but every line it emits is lost, so the session must not reuse it.
     #[test]
@@ -501,6 +547,7 @@ mod tests {
         let result = ensure_started(
             &mut slot,
             |_| Err(HostError::StdoutClosed),
+            Path::new(HOST_EXE),
             false,
             &config(),
         );

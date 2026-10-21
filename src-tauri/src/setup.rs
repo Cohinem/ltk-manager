@@ -5,7 +5,7 @@ use tauri_plugin_deep_link::DeepLinkExt;
 use crate::deep_link::DeepLinkState;
 use crate::events::TauriEventSink;
 use crate::mods::{ChecksumMismatchState, ModLibrary, ModLibraryState, WadReportState};
-use crate::patcher::{PatcherHostState, PatcherState};
+use crate::patcher::{PatcherDeliveryState, PatcherHostState, PatcherState};
 use crate::services::launcher::LauncherState;
 use crate::state::{IncidentStoreState, SettingsState};
 use crate::workshop::{ProjectRegistry, Workshop, WorkshopState};
@@ -110,12 +110,17 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
     let deep_link_state = DeepLinkState::new();
 
+    let patcher_delivery =
+        PatcherDeliveryState::new(crate::state::get_app_data_dir(&app_handle).as_deref());
+    patcher_delivery.sync_in_background(&settings.config);
+
     let launcher_state = LauncherState::new(&app_handle, &settings.config)?;
     let launcher = Arc::clone(launcher_state.launcher());
 
     app.manage(settings_state);
     app.manage(patcher_state);
     app.manage(PatcherHostState::default());
+    app.manage(patcher_delivery);
     app.manage(incident_store);
     let telemetry_state = Arc::new(crate::telemetry::TelemetryState::new(telemetry, remote));
     crate::telemetry::install(&telemetry_state);

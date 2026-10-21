@@ -411,3 +411,21 @@ still. Not a **carrier**, which places a particle system's origin.
 
 **Live simulation** - the pose modifiers stepped each frame under a unit the reader moves with
 the Move gizmo, which the pose reads in place of the baked pass while the gizmo is on.
+
+## The patcher
+
+**Delivery channel** - `stable` or `beta`, the stream of patcher builds that the delivery service
+offers to a range of manager versions. The **Beta patcher** setting selects `beta`.
+
+**Bundled DLL** - the patcher DLL that ships in the install directory with a manager release.
+
+**Delivered DLL** - a patcher DLL that a sync downloaded from the delivery service, staged with a
+copy of the bundled host in `<app data>/patcher/<digest>/`. An elevated session never runs one.
+See ADR-0067.
+
+**Withdrawn** - a build whose digest a manifest revokes. No session runs a withdrawn DLL, bundled
+or delivered.
+
+**Build attestation** - a statement of the manager's release version and commit, signed by the
+release workflow and baked into the build. The delivery service registers an install only with an
+attestation that verifies, and denies builds by their attested version.

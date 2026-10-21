@@ -2,6 +2,8 @@
 //! identifies content.
 
 use std::fmt;
+use std::io::{self, Read, Write};
+use std::path::Path;
 use std::str::FromStr;
 
 use ltk_hash::BinHash;
@@ -19,6 +21,57 @@ pub fn content_hash(bytes: &[u8]) -> String {
         hex.push_str(&format!("{byte:02x}"));
     }
     hex
+}
+
+/// Returns the SHA-256 of the file at `path`, as lowercase hex.
+pub fn sha256_file(path: &Path) -> io::Result<String> {
+    let mut file = fs_err::File::open(path)?;
+    let mut hash = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        hash.update(&buffer[..count]);
+    }
+
+    Ok(format!("{:x}", hash.finalize()))
+}
+
+/// Copies `source` into `destination` and checks the copy against `size` and the hex
+/// SHA-256 `digest`.
+///
+/// Calls `progress` with the bytes copied so far before each read. Stops reading and
+/// returns `Ok(false)` as soon as the source exceeds `size`. Returns `Ok(false)` if the
+/// copied bytes differ from `size` or `digest`.
+pub fn copy_verified<E: From<io::Error>>(
+    source: &mut impl Read,
+    destination: &mut impl Write,
+    size: u64,
+    digest: &str,
+    mut progress: impl FnMut(u64) -> Result<(), E>,
+) -> Result<bool, E> {
+    let mut hash = Sha256::new();
+    let mut copied = 0u64;
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        progress(copied)?;
+        let count = source.read(&mut buffer).map_err(E::from)?;
+        if count == 0 {
+            break;
+        }
+
+        copied += count as u64;
+        if copied > size {
+            return Ok(false);
+        }
+
+        hash.update(&buffer[..count]);
+        destination.write_all(&buffer[..count]).map_err(E::from)?;
+    }
+
+    Ok(copied == size && format!("{:x}", hash.finalize()).eq_ignore_ascii_case(digest))
 }
 
 /// The bin hash of a class or field `name`, which is FNV-1a over its lowercased ASCII.

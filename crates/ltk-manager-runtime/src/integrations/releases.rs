@@ -1,11 +1,11 @@
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
 use fs_err as fs;
+use ltk_manager_base::hashing::{copy_verified, sha256_file};
 use reqwest::blocking::Client;
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 
 use super::{IntegrationError, IntegrationRelease, Tool};
 
@@ -154,43 +154,22 @@ pub(super) fn download(
         .send()?
         .error_for_status()?;
     let mut file = fs::File::create(destination)?;
-    let mut hash = Sha256::new();
-    let mut downloaded = 0u64;
-    let mut buffer = [0u8; 64 * 1024];
-    loop {
-        progress(downloaded, asset.size)?;
-        let count = response.read(&mut buffer)?;
-        if count == 0 {
-            break;
-        }
-        downloaded += count as u64;
-        if downloaded > asset.size {
-            return Err(IntegrationError::Integrity);
-        }
-        hash.update(&buffer[..count]);
-        file.write_all(&buffer[..count])?;
-    }
+    let verified = copy_verified(
+        &mut response,
+        &mut file,
+        asset.size,
+        digest(asset)?,
+        |done| progress(done, asset.size),
+    )?;
     file.sync_all()?;
-    if downloaded != asset.size
-        || !format!("{:x}", hash.finalize()).eq_ignore_ascii_case(digest(asset)?)
-    {
+    if !verified {
         return Err(IntegrationError::Integrity);
     }
     Ok(())
 }
 
 pub(super) fn hash(path: &Path) -> Result<String> {
-    let mut file = fs::File::open(path)?;
-    let mut hash = Sha256::new();
-    let mut buffer = [0u8; 64 * 1024];
-    loop {
-        let count = file.read(&mut buffer)?;
-        if count == 0 {
-            break;
-        }
-        hash.update(&buffer[..count]);
-    }
-    Ok(format!("{:x}", hash.finalize()))
+    Ok(sha256_file(path)?)
 }
 
 pub(super) fn extract_executable(zip: &Path, executable: &str, destination: &Path) -> Result<()> {

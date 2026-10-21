@@ -108,6 +108,7 @@ image = "0.25.2"
 image_dds = { version = "0.6", default-features = false, features = ["ddsfile", "image"] }
 indexmap = { version = "2", features = ["serde"] }
 lru = "0.18"
+minisign-verify = "0.2"
 parking_lot = { version = "0.12", features = ["arc_lock"] }
 notify = { version = "7", default-features = false }
 notify-debouncer-mini = "0.5"

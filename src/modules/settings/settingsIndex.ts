@@ -134,6 +134,7 @@ const INDEX = [
     key: "verbosePatcherLogging",
     title: "Verbose patcher logging",
   },
+  { id: "patching.betaPatcher", key: "betaPatcher", title: "Beta patcher" },
   { id: "patching.blockScriptsWad", key: "blockScriptsWad", title: "Block Scripts.wad.client" },
   {
     id: "patching.enforceSkinhackScan",

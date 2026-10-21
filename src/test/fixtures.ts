@@ -44,6 +44,7 @@ export function createMockSettings(overrides?: Partial<Settings>): Settings {
     enforceSkinhackScan: true,
     applyStringOverridesToAllLocales: false,
     verbosePatcherLogging: false,
+    betaPatcher: false,
     fullWadScan: false,
     disableCrashReporting: true,
     hideRiotClientOnLaunch: true,
