@@ -2188,7 +2188,7 @@ fn the_16_18_both_halves_retypes_are_reported_repairable() {
     assert_eq!(problems[0].message, None, "no rebuild-the-mod sentence");
 }
 
-/* The 8-byte material name. Patch 16.22 stores `StaticMaterialDef.name` as
+/* The 8-byte material name. Patch 16.21 stores `StaticMaterialDef.name` as
 the 8-byte `Hash` of the path, XXH3 of it lowercased, where every build before
 wrote the path itself. The table holds two rows for the one property, because a
 mod authored under the old type holds either the path or its FNV1a hash. */
@@ -2196,12 +2196,12 @@ mod authored under the old type holds either the path or its FNV1a hash. */
 const STATIC_MATERIAL_DEF: BinHash = named("StaticMaterialDef");
 const NAME: BinHash = named("name");
 
-/// The build the 16.22 table is a claim about.
-const MATERIAL_TABLE: GameBuild = GameBuild::new(16, 22, 8_306_571);
+/// The build the 16.21 table is a claim about.
+const MATERIAL_TABLE: GameBuild = GameBuild::new(16, 21, 8_298_620);
 /// The live build before it, on which a material name is still a path.
-const BEFORE_MATERIAL_TABLE: GameBuild = GameBuild::new(16, 21, 8_298_620);
+const BEFORE_MATERIAL_TABLE: GameBuild = GameBuild::new(16, 20, 8_248_524);
 
-/// The `name` of a `StaticMaterialDef` in a 16.22 skin bin, and the path it is
+/// The `name` of a `StaticMaterialDef` in a 16.21 skin bin, and the path it is
 /// the hash of.
 const MATERIAL: &str = "Characters/Zac/Skins/Skin31/Materials/ult";
 const MATERIAL_WIDE: u64 = 0x5d07_ca0d_22ff_9588;
@@ -2219,7 +2219,7 @@ fn material_name_rows() -> (&'static Migration, &'static Migration) {
         .iter()
         .map(|table| table.migrations(STATIC_MATERIAL_DEF, NAME))
         .find(|rows| !rows.is_empty())
-        .expect("StaticMaterialDef:name is a 16.22 row");
+        .expect("StaticMaterialDef:name is a 16.21 row");
     let string = rows
         .iter()
         .find(|row| row.conversion == Conversion::HashXxh3)
@@ -2330,9 +2330,9 @@ fn a_material_name_already_wide_raises_nothing() {
 }
 
 /// An install between the two tables is active, because the 16.17 findings
-/// are live, and the 16.22 finding waits with its fix withheld.
+/// are live, and the 16.21 finding waits with its fix withheld.
 #[test]
-fn an_install_before_16_22_keeps_the_rule_active_and_withholds_the_fix() {
+fn an_install_before_16_21_keeps_the_rule_active_and_withholds_the_fix() {
     let (_tmp, files) = project_on(&material_bin(text(MATERIAL)), Some(BEFORE_MATERIAL_TABLE));
 
     assert_eq!(BinPropertyType::new().dormant(&files), None);
@@ -2429,7 +2429,7 @@ fn a_schema_objection_takes_the_table_row_that_reaches_its_type() {
     assert_eq!(objection.build, AFTER_RETYPE);
 }
 
-/// A database that reads the material name as a `Hash` from 16.22, in the
+/// A database that reads the material name as a `Hash` from 16.21, in the
 /// published shape, which the shipped snapshot does not reach yet.
 fn material_schema() -> meta_schema::MetaSchema {
     let json = format!(
@@ -2438,8 +2438,8 @@ fn material_schema() -> meta_schema::MetaSchema {
           "hashSource": {{ "fetchedAt": "2026-10-21T00:00:00Z" }},
           "latest": {wide},
           "versions": [
-            {{ "patch": "16.21", "build": {narrow} }},
-            {{ "patch": "16.22", "build": {wide} }}
+            {{ "patch": "16.20", "build": {narrow} }},
+            {{ "patch": "16.21", "build": {wide} }}
           ],
           "classes": {{
             "0xff9d3409": {{
@@ -2464,7 +2464,7 @@ fn material_schema() -> meta_schema::MetaSchema {
 
 /// The schema is width-blind, so a `Hash` it is content with is still read
 /// against the tables. On a database that reads the material name as a `Hash`,
-/// a 4-byte one is the 16.22 row's finding, a path takes the row that reaches
+/// a 4-byte one is the 16.21 row's finding, a path takes the row that reaches
 /// the schema's type, and the 8-byte one is what both want.
 #[test]
 fn a_hash_the_schema_cannot_size_is_still_read_against_the_tables() {
