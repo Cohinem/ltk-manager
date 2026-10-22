@@ -20,7 +20,7 @@ const MANIFEST_PUBLIC_KEY: &str = "RWRHh5bl7JOIscd3lf1Sw2xqd5qcoSeau1GmXjBm7C4KA
 const ATTESTATION: Option<&str> = option_env!("LTK_PATCHER_ATTESTATION");
 
 /// Host protocol of `resources/ltk_patcher_host.exe`. It must change together with the binary.
-const BUNDLED_HOST_PROTOCOL: u32 = 2;
+const BUNDLED_HOST_PROTOCOL: u32 = 3;
 
 /// Tauri-managed delivery client, and the lock that allows one sync at a time.
 pub struct PatcherDeliveryState {
