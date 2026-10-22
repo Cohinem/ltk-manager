@@ -58,8 +58,6 @@ export type AddableFields = {
  *  map holds, and every key is named by the tables or written as its hex.
  */
 export type AnimationGraph = {
-	/**  The linked file declaring the graph, and none where the open document does. */
-	source: AssetRef | null,
 	/**  `mClipDataMap`. */
 	clips: GraphClip[],
 	/**  `mTrackDataMap`. */
@@ -1817,8 +1815,8 @@ export type EffectSystem = {
 	key: string,
 	/**  The `VfxSystemDefinitionData` object, `0x` and eight hex digits. */
 	system: string,
-	/**  The linked file declaring the system, and none where the skin's own document does. */
-	source: AssetRef | null,
+	/**  The system's path, where a table names it. */
+	name: string | null,
 };
 
 /**  How the game ended, as far as anything said. */
@@ -3024,20 +3022,6 @@ export type HistoryStep =
 /**  The action a global hotkey triggers when pressed. */
 export type HotkeyAction = "reloadMods" | "killLeague";
 
-/**  One effect a skin wears for as long as the character stands. */
-export type IdleEffect = {
-	/**  `effectKey`, `0x` and eight hex digits. */
-	effectKey: string,
-	/**  The system the skin's resolver maps the key to, where this document declares it. */
-	system: string | null,
-	/**  `boneName`, the joint the effect rides. */
-	bone: string,
-	/**  `targetBoneName`, the joint it aims at, and empty for one that aims at none. */
-	targetBone: string,
-	/**  `Position`, the effect's offset from its joint. */
-	position: [(number | null), (number | null), (number | null)],
-};
-
 /**  The `.modignore` line that keeps an entry out of a package. */
 export type IgnoreMatch = {
 	/**  The pattern as written, its trailing `/` included. */
@@ -3440,6 +3424,25 @@ export type IntegrationStatus = {
 	handlerPath: string | null,
 	/**  Last operation observed in this application process. */
 	operation: IntegrationOperation | null,
+};
+
+/**
+ *  One effect a skin draws on a joint: an idle effect, or an effect of a persistent condition.
+ * 
+ *  `PersistentVfxData` declares no `Position`, so the effect of a condition has a zero offset.
+ */
+export type JointEffect = {
+	/**
+	 *  `effectKey`, `0x` and eight hex digits, or the hash of `effectName` if the effect has
+	 *  no key. [`SkinModel::effect_systems`] maps it to its system.
+	 */
+	effectKey: string,
+	/**  `boneName`, the joint the effect rides. */
+	bone: string,
+	/**  `targetBoneName`, the joint it aims at, and empty for one that aims at none. */
+	targetBone: string,
+	/**  `Position`, the effect's offset from its joint. */
+	position: [(number | null), (number | null), (number | null)],
 };
 
 /**  One `DynamicsJointTreeData`: a root joint and the joints under it left unsimulated. */
@@ -4404,12 +4407,10 @@ export type MaterialPreview = {
 	/**  The material's path, where a table names it. */
 	name: string | null,
 	/**
-	 *  The document declares no object under the link, so every slot is empty and the
-	 *  submesh draws as an error rather than as a guess.
+	 *  No bin the read reached declares an object under the link, so every slot is empty and
+	 *  the submesh draws as an error rather than as a guess.
 	 */
 	missing: boolean,
-	/**  The linked file declaring the material, and none where the document read does. */
-	source: AssetRef | null,
 	/**
 	 *  `dynamicMaterial` is set, so the slots are the static values of an animated
 	 *  material.
@@ -4454,15 +4455,15 @@ export type MaterialProgram = {
 	warnings: MaterialWarning[],
 };
 
-/**  Where the materials a program read names are declared. */
+/**
+ *  The bin a program read resolves its materials against.
+ * 
+ *  A material that the bin does not declare is read from the first bin of its lookup that
+ *  does, so a caller names a material by its hash alone.
+ */
 export type MaterialSource = 
 /**  An open document, such as a skin's bin. */
 { kind: "document"; document: BinDocumentId } | 
-/**
- *  A bin read for the call, such as a file a skin links, resolved against the
- *  project of `document` where one is open and against the install alone otherwise.
- */
-{ kind: "file"; asset: AssetRef; document: BinDocumentId | null } | 
 /**
  *  A map's `.materials.bin`, located as `read_map` locates it: in the project of
  *  `document` first, where one is open, and in the install second.
@@ -5669,6 +5670,21 @@ export type PendingUpdate = {
 	currentVersion: string,
 	/**  The release notes, in markdown. */
 	body: string | null,
+};
+
+/**
+ *  One entry of `PersistentEffectConditions`, which the engine applies while its conditions
+ *  are true.
+ * 
+ *  The conditions themselves are left out, because the preview does not evaluate them.
+ */
+export type PersistentCondition = {
+	/**  `PersistentVfxs`, in the order the entry lists them. */
+	effects: JointEffect[],
+	/**  `SubmeshesToShow`, each the hash of a submesh name, `0x` and eight hex digits. */
+	shown: string[],
+	/**  `SubmeshesToHide`, each the hash of a submesh name, `0x` and eight hex digits. */
+	hidden: string[],
 };
 
 export type PlatformSupport = {
@@ -7110,14 +7126,16 @@ export type SkinModel = {
 	/**  `skinAnimationProperties.animationGraphData`, `0x` and eight hex digits. */
 	animationGraph: string | null,
 	/**  `idleParticlesEffects`, in the order the skin lists them. */
-	idleEffects: IdleEffect[],
+	idleEffects: JointEffect[],
+	/**  `PersistentEffectConditions`, in the order the skin lists them. */
+	persistentConditions: PersistentCondition[],
 	/**
-	 *  Every effect key `mResourceResolver` maps to a system some file within reach declares.
+	 *  Every effect key `mResourceResolver` maps to a system that a bin the read reached
+	 *  declares, in key order.
 	 * 
 	 *  A particle event of the graph names a key of this map, and the graph is read from
 	 *  another file, so the map crosses with the skin for the viewport to look the key up.
-	 *  [`resolve_skin`] lists the systems the document itself declares, and
-	 *  [`search_linked_systems`] adds those its linked files declare.
+	 *  [`ObjectLookup::skin`] reads the resolver and its systems from the bins of the lookup.
 	 */
 	effectSystems: EffectSystem[],
 	/**  `skinMeshProperties.rigPoseModifierData`, in the order the skin lists them. */
