@@ -28,10 +28,10 @@ const TABLE_16_17: &str = include_str!("../../tables/binfile_migration_16.17.808
 const BUILD_16_17: GameBuild = GameBuild::new(16, 17, 8_087_655);
 
 /// The table of the 8-byte material name: `StaticMaterialDef.name` stored as an XXH3 `Hash`.
-const TABLE_16_22: &str = include_str!("../../tables/binfile_migration_16.22.8306571.jsonl");
+const TABLE_16_21: &str = include_str!("../../tables/binfile_migration_16.21.8298620.jsonl");
 
-/// The build `TABLE_16_22` is a claim about, which is the PBE build that first shipped it.
-const BUILD_16_22: GameBuild = GameBuild::new(16, 22, 8_306_571);
+/// The build `TABLE_16_21` is a claim about, which is the live 16.21 build that stores the hash.
+const BUILD_16_21: GameBuild = GameBuild::new(16, 21, 8_298_620);
 
 /// How a value crosses from the old type to the new one.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -456,7 +456,7 @@ fn token(written: &str) -> Option<(BinHash, Option<String>)> {
 static TABLES: LazyLock<Vec<MigrationTable>> = LazyLock::new(|| {
     let mut tables = vec![
         MigrationTable::parse(BUILD_16_17, TABLE_16_17),
-        MigrationTable::parse(BUILD_16_22, TABLE_16_22),
+        MigrationTable::parse(BUILD_16_21, TABLE_16_21),
     ];
     tables.sort_by_key(MigrationTable::build);
     tables
@@ -528,11 +528,11 @@ mod tests {
     fn the_manager_ships_the_tables_in_build_order() {
         assert_eq!(tables().len(), 2);
         assert_eq!(shipped().build(), GameBuild::new(16, 17, 8_087_655));
-        assert_eq!(tables()[1].build(), GameBuild::new(16, 22, 8_306_571));
+        assert_eq!(tables()[1].build(), GameBuild::new(16, 21, 8_298_620));
         assert!(tables().windows(2).all(|w| w[0].build() <= w[1].build()));
     }
 
-    /// The 16.22 table names one property twice, once for each old type, and a
+    /// The 16.21 table names one property twice, once for each old type, and a
     /// value of either width finds its own row.
     #[test]
     fn the_material_name_holds_a_row_for_each_old_type() {
