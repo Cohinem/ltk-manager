@@ -35,7 +35,7 @@
 //! rehashed under the new function. A hash no table resolves is the one
 //! finding this rule cannot repair.
 //!
-//! Patch 16.22 stores a material name, `StaticMaterialDef.name`, as an 8-byte
+//! Patch 16.21 stores a material name, `StaticMaterialDef.name`, as an 8-byte
 //! `Hash`, which is XXH3 of the lowercased path. The tag is the one a 4-byte
 //! `Hash` carries, so a row names the width beside the type, and the two old
 //! types each take a road of their own: a `String` is hashed, and a 4-byte

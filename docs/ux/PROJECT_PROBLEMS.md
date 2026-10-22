@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-22 | The material name table claims live patch 16.21              |
 | 2026-10-21 | `bin/property-type` rehashes a material name for patch 16.22 |
 | 2026-10-16 | A finding opens the setting that its rule links to           |
 | 2026-10-16 | `bin/base-skin-copy` reports a copy of the base skin bin     |
@@ -13,7 +14,6 @@
 | 2026-09-30 | Name each unchecked file once, with its reason               |
 | 2026-09-17 | Open a bin finding at the node it names                      |
 | 2026-09-05 | Point the lazy-read link at the reader that landed           |
-| 2026-09-01 | The meta schema judges, and a table speaks for later builds  |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 

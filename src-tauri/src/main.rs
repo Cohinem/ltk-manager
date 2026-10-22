@@ -16,6 +16,12 @@ pub mod patcher;
 mod protocol;
 mod services;
 mod setup;
+#[cfg(windows)]
+#[cfg_attr(
+    debug_assertions,
+    expect(dead_code, reason = "only a release build restarts")
+)]
+mod shell_relaunch;
 mod state;
 mod telemetry;
 mod tray;
@@ -46,6 +52,13 @@ fn main() {
     if let Some(ref p) = logging_guards.log_path {
         tracing::info!("Log directory: {}", p.display());
         logging::cleanup_old_logs(p, 7);
+    }
+
+    // Before the single-instance plugin, which the copy must be the first to take.
+    // A debug build is a child of `tauri dev` and stays one.
+    #[cfg(all(windows, not(debug_assertions)))]
+    if shell_relaunch::relaunch_if_needed() {
+        return;
     }
 
     let builder = tauri::Builder::default()

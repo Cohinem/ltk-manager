@@ -190,6 +190,8 @@ services! {
         read_clip_header,
         bake_skin_tangents,
         save_skin_colliders,
+        // Objects
+        locate_object,
         // Spells and VFX
         read_spell,
         read_vfx_system,
