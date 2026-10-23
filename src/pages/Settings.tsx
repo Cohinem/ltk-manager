@@ -18,6 +18,7 @@ import { MigrationPanel } from "@/modules/migration";
 import {
   AboutSection,
   AppearanceSection,
+  BackupSection,
   BuiltinModsSection,
   CacheSection,
   DiskUsageSection,
@@ -106,6 +107,7 @@ export function Settings() {
                   </div>
                 )}
                 <GeneralSection migration={<MigrationPanel />} />
+                <BackupSection />
               </ReadingColumn>
             </Tabs.Panel>
 

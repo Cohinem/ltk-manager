@@ -5,10 +5,11 @@ use super::launcher::LauncherState;
 use super::shared::{data_move, off_thread};
 use crate::data_location::{self, DataMoveError, DataMovePlan};
 use crate::data_usage::{self, DataArea, DataUsage};
-use crate::error::{AppResult, IpcResult};
+use crate::error::{AppErrorResponse, AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use crate::mods::ModLibraryState;
 use crate::patcher::PatcherState;
+use crate::settings_backup;
 use crate::state::{persist_settings, LaunchMode, Settings, SettingsState};
 use ltk_manager_base::config::Config;
 use ltk_manager_base::events::{BackendEvent, DataMoveProgress, DataMoveStage, EventSink as _};
@@ -135,6 +136,28 @@ pub async fn clear_data_area(area: DataArea, app_handle: AppHandle) -> IpcResult
         data_usage::clear(&app_handle, &config, &library, area)
     })
     .await
+}
+
+/// Writes the settings to a backup file at `path`.
+#[tauri::command]
+#[specta::specta]
+pub fn export_settings(path: PathBuf, state: State<SettingsState>) -> IpcResult<()> {
+    let settings = state.0.lock().clone();
+    settings_backup::export(&settings, &path)
+        .map_err(|error| AppErrorResponse::SettingsBackup { error })
+        .into()
+}
+
+/// Reads the backup at `path` over the current settings, and returns the result unsaved.
+///
+/// The caller saves the result through `save_settings`, which applies its side effects.
+#[tauri::command]
+#[specta::specta]
+pub fn read_settings_backup(path: PathBuf, state: State<SettingsState>) -> IpcResult<Settings> {
+    let current = state.0.lock().clone();
+    settings_backup::restore(&current, &path)
+        .map_err(|error| AppErrorResponse::SettingsBackup { error })
+        .into()
 }
 
 /// Plans a move of the data directory to `target`, or to the app data directory if `target` is `None`.

@@ -108,6 +108,8 @@ export const api = {
   moveData: settings.moveData,
   dataUsage: settings.dataUsage,
   clearDataArea: settings.clearDataArea,
+  exportSettings: settings.exportSettings,
+  readSettingsBackup: settings.readSettingsBackup,
 
   // Mods
   getInstalledMods: library.getInstalledMods,

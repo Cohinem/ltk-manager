@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                   |
 | ---------- | ------------------------------------------------------------------------ |
+| 2026-10-23 | General adds Backup, which exports and restores the settings             |
 | 2026-10-23 | The Cache tab opens with Disk usage, which clears the rebuildable caches |
 | 2026-10-23 | `Storage location` is `Data location`, and a change moves the data       |
 | 2026-10-12 | Mod safety drops `Warn about missing dependencies`                       |
@@ -13,7 +14,6 @@
 | 2026-09-04 | A blocked install domain is answered in the dialog, not in Settings      |
 | 2026-09-03 | `Open on` joins the Startup group, for the Home page in #391             |
 | 2026-09-03 | The id is the `settings.json` key, and a rename leaves a retired id      |
-| 2026-09-03 | Two id spaces: a domain setting id, and a UI path naming a place         |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -987,6 +987,27 @@ Closed on 2026-08-25:
   question waits with it. `SettingRow.hidden` is the answer's likely shape: a row that stays mounted
   and draws nothing is what lets a group know its own scope without a second list, and a collapsed
   group could keep its rows the same way
+
+## Backup
+
+The General tab ends with `Backup`, which holds `Export settings` and `Restore settings`.
+
+An export writes `ltk-manager-settings.json`, a versioned envelope around the settings. The
+diagnostics secret is left out, so a restore on another machine keeps that machine's identity. The
+UI state in the webview's storage, such as a library filter, is not a setting and is not exported.
+
+A restore reads the backup over the current settings and asks for confirmation with the count of
+settings it changes. A backup that matches the current settings raises a toast instead. These
+values stay as they are on this machine:
+
+- The data location, which ADR-0069 moves on its own
+- The diagnostics identity
+- The first-run, migration and notice flags
+- A League, workshop or backdrop path from the backup that does not exist on this machine
+
+The restore saves through the usual settings save, so autolaunch, the file types and the hotkeys
+apply at once. Its toast offers `Undo`, which writes back only the keys the restore changed. A key
+that this build does not know is ignored, and a backup from a newer version is refused.
 
 ## Disk usage
 

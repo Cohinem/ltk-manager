@@ -4,6 +4,7 @@ import type {
   AppError,
   DataMoveError,
   EditRejection,
+  SettingsBackupError,
   InjectionStage,
   IntegrationError,
   LauncherError,
@@ -29,6 +30,7 @@ export function describeError(error: AppError): ErrorCopy {
   return match(error)
     .with({ code: "INTEGRATION" }, (e) => integrationError(e.error))
     .with({ code: "DATA_MOVE" }, (e) => dataMoveError(e.error))
+    .with({ code: "SETTINGS_BACKUP" }, (e) => settingsBackupError(e.error))
     .with({ code: "IO" }, (e) => withDetail(m["error.IO.title"](), e.detail))
     .with({ code: "SERIALIZATION" }, (e) => withDetail(m["error.SERIALIZATION.title"](), e.detail))
     .with({ code: "MODPKG" }, (e) => withDetail(m["error.MODPKG.title"](), e.detail))
@@ -342,6 +344,19 @@ export function errorMessage(error: unknown): string {
   if (isAppError(error)) return errorSummary(error);
   if (error instanceof Error) return error.message;
   return m.common_unknown_error_label();
+}
+
+function settingsBackupError(error: SettingsBackupError): ErrorCopy {
+  return match(error)
+    .with({ kind: "notABackup" }, () => ({
+      title: m.settings_backup_error_not_a_backup_title(),
+    }))
+    .with({ kind: "newerVersion" }, () => ({
+      title: m.settings_backup_error_newer_version_title(),
+      description: m.settings_backup_error_newer_version_description(),
+    }))
+    .with({ kind: "io" }, (e) => withDetail(m.settings_backup_error_io_title(), e.detail))
+    .exhaustive();
 }
 
 function dataMoveError(error: DataMoveError): ErrorCopy {
