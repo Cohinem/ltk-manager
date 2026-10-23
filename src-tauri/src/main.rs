@@ -4,6 +4,7 @@
 )]
 
 mod data_location;
+mod data_usage;
 mod deep_link;
 mod error;
 mod events;
@@ -66,6 +67,7 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             deep_link::handle_argv(app, &argv, std::path::Path::new(&cwd));
         }))
+        .plugin(data_usage::plugin())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())

@@ -3,6 +3,7 @@ export { AppearanceSection } from "./AppearanceSection";
 export { BuiltinModsSection } from "./BuiltinModsSection";
 export { CacheSection } from "./CacheSection";
 export { DiagnosticsNoticeDialog } from "./DiagnosticsNoticeDialog";
+export { DiskUsageSection } from "./DiskUsageSection";
 export { GeneralSection } from "./GeneralSection";
 export { HotkeySection } from "./HotkeySection";
 export { IntegrationsSection } from "./IntegrationsSection";

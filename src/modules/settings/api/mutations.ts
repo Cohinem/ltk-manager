@@ -3,6 +3,7 @@ import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 import {
   api,
   type AppError,
+  type DataArea,
   type DataMovePlan,
   type HashtableSyncReport,
   type Settings,
@@ -42,6 +43,14 @@ export const settingsMutations = {
   planDataMove: () =>
     mutationOptions<DataMovePlan, AppError, string | null>({
       mutationFn: mutationFn(api.planDataMove),
+    }),
+
+  clearDataArea: (client: QueryClient) =>
+    mutationOptions<null, AppError, DataArea>({
+      mutationFn: mutationFn(api.clearDataArea),
+      onSettled: () => {
+        client.invalidateQueries({ queryKey: settingsKeys.dataUsage() });
+      },
     }),
 
   /** A move that succeeds restarts the app, so its answer never arrives. */

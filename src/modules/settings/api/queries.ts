@@ -4,6 +4,7 @@ import {
   api,
   type AppError,
   type AppInfo,
+  type DataUsage,
   type ForcibleMapSkin,
   type MapDecoration,
   type HashtableCacheStatus,
@@ -35,6 +36,14 @@ export const settingsQueries = {
       queryFn: queryFn(api.getDefaultSettings),
       staleTime: Infinity,
       gcTime: Infinity,
+    }),
+
+  /* Measured on each mount, because a build, an install or a clear moves the sizes. */
+  dataUsage: () =>
+    queryOptions<DataUsage, AppError>({
+      queryKey: settingsKeys.dataUsage(),
+      queryFn: queryFn(api.dataUsage),
+      staleTime: 0,
     }),
 
   setupRequired: () =>

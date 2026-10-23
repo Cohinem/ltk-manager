@@ -2,18 +2,18 @@
 
 ## Changes
 
-| Date       | Change                                                                  |
-| ---------- | ----------------------------------------------------------------------- |
-| 2026-10-23 | `Storage location` is `Data location`, and a change moves the data      |
-| 2026-10-12 | Mod safety drops `Warn about missing dependencies`                      |
-| 2026-10-02 | Integrations adds Mod files, which opens `.fantome` and `.modpkg` files |
-| 2026-09-14 | Integrations adds managed tool installations and classic Explorer menus |
-| 2026-09-06 | The gear returns to the title bar. A menu cannot mark a page current    |
-| 2026-09-04 | A blocked install domain is answered in the dialog, not in Settings     |
-| 2026-09-03 | `Open on` joins the Startup group, for the Home page in #391            |
-| 2026-09-03 | The id is the `settings.json` key, and a rename leaves a retired id     |
-| 2026-09-03 | Two id spaces: a domain setting id, and a UI path naming a place        |
-| 2026-08-25 | Phase 4c shipped. The routed deep link, and the link in the gear's menu |
+| Date       | Change                                                                   |
+| ---------- | ------------------------------------------------------------------------ |
+| 2026-10-23 | The Cache tab opens with Disk usage, which clears the rebuildable caches |
+| 2026-10-23 | `Storage location` is `Data location`, and a change moves the data       |
+| 2026-10-12 | Mod safety drops `Warn about missing dependencies`                       |
+| 2026-10-02 | Integrations adds Mod files, which opens `.fantome` and `.modpkg` files  |
+| 2026-09-14 | Integrations adds managed tool installations and classic Explorer menus  |
+| 2026-09-06 | The gear returns to the title bar. A menu cannot mark a page current     |
+| 2026-09-04 | A blocked install domain is answered in the dialog, not in Settings      |
+| 2026-09-03 | `Open on` joins the Startup group, for the Home page in #391             |
+| 2026-09-03 | The id is the `settings.json` key, and a rename leaves a retired id      |
+| 2026-09-03 | Two id spaces: a domain setting id, and a UI path naming a place         |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -987,6 +987,26 @@ Closed on 2026-08-25:
   question waits with it. `SettingRow.hidden` is the answer's likely shape: a row that stays mounted
   and draws nothing is what lets a group know its own scope without a second list, and a collapsed
   group could keep its rows the same way
+
+## Disk usage
+
+The Cache tab opens with `Disk usage`, above `Hashtables`. It names the data location and lists
+the size of each area under it, measured each time the tab opens.
+
+| Area               | What it holds                                         | Action                |
+| ------------------ | ----------------------------------------------------- | --------------------- |
+| Mods               | `mods/` and the legacy `archives/`                    | None                  |
+| Overlay builds     | Each profile's overlay, and the built-in mod projects | `Clear`, confirmed    |
+| Mod previews       | `mod-previews/`                                       | `Clear`               |
+| Translated shaders | `shaders/`                                            | `Clear`               |
+| Leftovers          | Overlay artifacts at the root of the data location    | `Clear`               |
+| Webview cache      | The WebView2 HTTP, code and GPU caches. Windows only  | `Clear on next start` |
+
+Every cleared area is rebuilt when the app needs it again. Overlay builds ask first, because the
+next patcher start rebuilds every WAD, and they and the leftovers refuse to clear while the patcher
+runs. The running webview holds its cache open, so the clear writes a marker and the next start
+removes the cache folders before the window opens. The webview's `Local Storage`, which holds the
+persisted UI state, is not a cache folder and stays.
 
 ## Integrations
 

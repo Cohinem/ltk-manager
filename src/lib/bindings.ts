@@ -192,6 +192,12 @@ export type AppInfo = {
 	arch: string,
 };
 
+/**  The bytes that one [`DataArea`] takes. */
+export type AreaUsage = {
+	area: DataArea,
+	bytes: number,
+};
+
 /**  What an asset holds, for a viewer that reports it beside the preview. */
 export type AssetInfo = 
 /**  A texture, in whichever container holds it. */
@@ -1261,6 +1267,21 @@ export type CurveKeys = {
 	modes: number[],
 };
 
+/**  A part of the manager's data on disk. */
+export type DataArea = 
+/**  The installed mods, which no clear removes. */
+"mods" | 
+/**  The overlay of each profile and the projects of the built-in mods. */
+"overlayBuilds" | 
+/**  The unpacked copies of packed mods that the previews read. */
+"modPreviews" | 
+/**  The translated shaders. */
+"shaders" | 
+/**  Overlay artifacts at the root of the data directory, which no build reads. */
+"leftovers" | 
+/**  The cache folders of the webview. Only on Windows. */
+"webviewCache";
+
 /**  One entry of the data directory that a move carries. */
 export type DataEntry = {
 	/**  The entry's name under the data directory. */
@@ -1319,6 +1340,15 @@ export type DataMoveStage =
 "moving" | 
 /**  The entries are in the new folder and the app restarts on the new location. */
 "restarting";
+
+/**  The disk usage of the manager's data. */
+export type DataUsage = {
+	/**  The data directory. */
+	location: string,
+	areas: AreaUsage[],
+	/**  `true` if the next start clears the webview cache. */
+	webviewClearPending: boolean,
+};
 
 /**  One layer's declarations manifest, read for an outline. */
 export type DeclarationsLayer = {

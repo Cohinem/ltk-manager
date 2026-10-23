@@ -106,6 +106,8 @@ export const api = {
   listMapDecorations: settings.listMapDecorations,
   planDataMove: settings.planDataMove,
   moveData: settings.moveData,
+  dataUsage: settings.dataUsage,
+  clearDataArea: settings.clearDataArea,
 
   // Mods
   getInstalledMods: library.getInstalledMods,
