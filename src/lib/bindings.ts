@@ -89,6 +89,8 @@ export type Announcement = {
 export type AppErrorResponse = 
 /**  An external tool installation failed. */
 { code: "INTEGRATION"; error: IntegrationError } | 
+/**  A move of the data directory was refused or failed. The variant says which. */
+{ code: "DATA_MOVE"; error: DataMoveError } | 
 /**  File system I/O failed. */
 { code: "IO"; detail: string } | 
 /**  JSON could not be read or written. */
@@ -1258,6 +1260,65 @@ export type CurveKeys = {
 	/**  `InterpModes`, one per span. */
 	modes: number[],
 };
+
+/**  One entry of the data directory that a move carries. */
+export type DataEntry = {
+	/**  The entry's name under the data directory. */
+	name: string,
+	/**  Bytes of the files under the entry. */
+	bytes: number,
+};
+
+/**  A reason that a data directory move is refused or failed. */
+export type DataMoveError = 
+/**  The new folder is the current data directory. */
+{ kind: "sameFolder" } | 
+/**  The new folder is inside an entry that the move carries. */
+{ kind: "insideData" } | 
+/**  Both folders hold data entries with these names. */
+{ kind: "occupied"; entries: string[] } | 
+/**  The patcher is running and holds files of the data directory. */
+{ kind: "patcherRunning" } | 
+/**  The volume of the new folder has less free space than the move needs. */
+{ kind: "noSpace"; needed: number; available: number } | 
+/**  A read, a write or a rename failed. */
+{ kind: "io"; detail: string };
+
+/**  What a move of the data directory does. */
+export type DataMoveKind = 
+/**  The entries of the current directory move into the new folder. */
+"move" | 
+/**  The new folder holds a library and the current directory holds none, so nothing moves. */
+"adopt";
+
+/**  A move of the data directory, planned before anything is written. */
+export type DataMovePlan = {
+	kind: DataMoveKind,
+	/**  The current data directory. */
+	from: string,
+	/**  The new data directory. */
+	to: string,
+	/**  The entries that move. Empty for [`DataMoveKind::Adopt`]. */
+	entries: DataEntry[],
+};
+
+/**  Progress of a move of the data directory to another folder. */
+export type DataMoveProgress = {
+	stage: DataMoveStage,
+	/**  Name of the entry being moved, under the data directory. */
+	currentEntry: string | null,
+	/**  Bytes moved so far. */
+	moved: number,
+	/**  Bytes that the whole move carries. */
+	total: number,
+};
+
+/**  Stage of a move of the data directory to another folder. */
+export type DataMoveStage = 
+/**  The entries are being renamed or copied into the new folder. */
+"moving" | 
+/**  The entries are in the new folder and the app restarts on the new location. */
+"restarting";
 
 /**  One layer's declarations manifest, read for an outline. */
 export type DeclarationsLayer = {
@@ -3434,7 +3495,7 @@ export type IntegrationStatus = {
 export type JointEffect = {
 	/**
 	 *  `effectKey`, `0x` and eight hex digits, or the hash of `effectName` if the effect has
-	 *  no key. [`SkinModel::effect_systems`] maps it to its system.
+	 *  no key. [`SkinModel::effect_systems`](super::SkinModel::effect_systems) maps it to its system.
 	 */
 	effectKey: string,
 	/**  `boneName`, the joint the effect rides. */

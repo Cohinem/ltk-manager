@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+mod data_location;
 mod deep_link;
 mod error;
 mod events;

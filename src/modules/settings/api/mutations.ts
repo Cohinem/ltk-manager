@@ -1,6 +1,12 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
-import { api, type AppError, type HashtableSyncReport, type Settings } from "@/lib/tauri";
+import {
+  api,
+  type AppError,
+  type DataMovePlan,
+  type HashtableSyncReport,
+  type Settings,
+} from "@/lib/tauri";
 import { dropPlacements } from "@/modules/viewport/assets/api/placements";
 import { mutationFn } from "@/utils/query";
 
@@ -30,6 +36,18 @@ export const settingsMutations = {
   autoDetectLeaguePath: () =>
     mutationOptions<string | null, AppError, void>({
       mutationFn: mutationFn(api.autoDetectLeaguePath),
+    }),
+
+  /** `null` plans a move to the app data directory. */
+  planDataMove: () =>
+    mutationOptions<DataMovePlan, AppError, string | null>({
+      mutationFn: mutationFn(api.planDataMove),
+    }),
+
+  /** A move that succeeds restarts the app, so its answer never arrives. */
+  moveData: () =>
+    mutationOptions<null, AppError, string | null>({
+      mutationFn: mutationFn(api.moveData),
     }),
 } as const;
 

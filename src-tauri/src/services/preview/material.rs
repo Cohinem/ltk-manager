@@ -1,11 +1,12 @@
 //! The shader pipeline's read: materials with the game's own shaders translated for the
 //! viewport.
 
+use crate::data_location::{data_dir, SHADERS};
 use crate::error::{AppResult, IpcResult};
 use crate::services::shared::document_assets::{read_resolved, with_resolution};
 use crate::services::shared::off_thread;
 use crate::services::shared::{asset_reader, linked_reader, read_asset, read_bin};
-use crate::state::get_app_data_dir;
+use crate::state::SettingsState;
 use std::sync::Arc;
 
 use hexshade::TranslationCache;
@@ -274,11 +275,12 @@ pub async fn read_engine_program(
     .await
 }
 
-/// The translations kept under the app's data directory, or none kept where it has none.
+/// The translations kept under the data directory, or none kept where it has none.
 pub(crate) fn translations(app_handle: &AppHandle) -> TranslationCache {
+    let config = app_handle.state::<SettingsState>().config();
     TranslationCache::new(
-        get_app_data_dir(app_handle)
-            .map(|dir| dir.join("shaders"))
+        data_dir(app_handle, &config)
+            .map(|dir| dir.join(SHADERS))
             .as_deref(),
     )
 }

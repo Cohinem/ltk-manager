@@ -208,6 +208,8 @@ services! {
         list_available_wads,
         list_forcible_map_skins,
         list_map_decorations,
+        plan_data_move,
+        move_data,
     }
     patcher("patcher") {
         start_patcher,
