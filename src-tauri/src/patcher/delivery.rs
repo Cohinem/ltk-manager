@@ -39,13 +39,13 @@ pub struct PatcherDeliveryState {
 }
 
 impl PatcherDeliveryState {
-    /// Builds the client with its state under `app_data_dir`.
+    /// Builds the client with its state under `data_dir`.
     ///
     /// Removes the staged builds that no cached manifest offers, before any session can
     /// select one. Returns a state without a client if the target is not Windows, if the
     /// build has no [`ATTESTATION`] or its attestation names another manager version, if
-    /// [`DELIVERY`] names no environment with a manifest key, or if `app_data_dir` is `None`.
-    pub fn new(app_data_dir: Option<&Path>) -> Self {
+    /// [`DELIVERY`] names no environment with a manifest key, or if `data_dir` is `None`.
+    pub fn new(data_dir: Option<&Path>) -> Self {
         let manager = Version {
             pre: Prerelease::EMPTY,
             ..Version::parse(env!("CARGO_PKG_VERSION")).expect("CARGO_PKG_VERSION is semver")
@@ -58,12 +58,12 @@ impl PatcherDeliveryState {
         }
         .filter(|(_, public_key)| !public_key.is_empty());
 
-        let delivery = match (cfg!(windows), ATTESTATION, service, app_data_dir) {
+        let delivery = match (cfg!(windows), ATTESTATION, service, data_dir) {
             (true, Some(attestation), Some((url, public_key)), Some(dir))
                 if attested_manager(attestation).as_deref() == Some(release.as_str()) =>
             {
                 Some(Arc::new(PatcherDelivery {
-                    root: dir.join("patcher"),
+                    root: dir.join(crate::data_location::PATCHER),
                     url: url.to_string(),
                     public_key: public_key.to_string(),
                     attestation: attestation.to_string(),

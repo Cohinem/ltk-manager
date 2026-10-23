@@ -4,6 +4,7 @@
 
 | Date       | Change                                                                  |
 | ---------- | ----------------------------------------------------------------------- |
+| 2026-10-23 | `Storage location` is `Data location`, and a change moves the data      |
 | 2026-10-12 | Mod safety drops `Warn about missing dependencies`                      |
 | 2026-10-02 | Integrations adds Mod files, which opens `.fantome` and `.modpkg` files |
 | 2026-09-14 | Integrations adds managed tool installations and classic Explorer menus |
@@ -13,7 +14,6 @@
 | 2026-09-03 | The id is the `settings.json` key, and a rename leaves a retired id     |
 | 2026-09-03 | Two id spaces: a domain setting id, and a UI path naming a place        |
 | 2026-08-25 | Phase 4c shipped. The routed deep link, and the link in the gear's menu |
-| 2026-08-25 | Phase 4b shipped. The index, the public id, the palette and the copy    |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -436,7 +436,7 @@ made during the toast's five seconds survives. A reset reaches its own scope, an
 A reset puts a choice back. It does not delete work, so these rows carry no marker, and no scope
 above them reaches them:
 
-- The League path, the mod storage path and the workshop path, which a reader found on disk
+- The League path, the data location and the workshop path, which a reader found on disk
 - The WAD blocklist and the trusted providers, which a reader built
 - The author profiles, which are content rather than configuration
 
@@ -894,7 +894,7 @@ separators do not carry.
 
 | Group       | Rows                                                      |
 | ----------- | --------------------------------------------------------- |
-| Storage     | Storage location                                          |
+| Storage     | Data location                                             |
 | Cataloguing | Automatically categorize mods, Watch for external changes |
 | Installing  | Trusted mod providers                                     |
 
@@ -1051,3 +1051,26 @@ right-clicking the card. The links open Integrations and focus the tool's whole 
 - Wad Tools: `ltk://settings?focus=integrations.wadtools`
 - Tex Tools: `ltk://settings?focus=integrations.tex-toolz`
 - Ritobin Tools: `ltk://settings?focus=integrations.ritobin-tools`
+
+## Data location
+
+`Data location` (`library.modStoragePath`) names the folder that holds the mod library, the
+overlay builds, the mod previews, the translated shaders, the patcher delivery state and the
+incidents. An empty value selects the app data directory. `settings.json`, the logs, the telemetry
+spool, the workshop project list and the window state stay in the app data directory, because the
+app reads them before it knows the location. ADR-0069 records the split.
+
+Picking a folder plans a move and opens a confirmation that names the size and the folder.
+Confirming moves the data, stores the location and restarts the app. The dialog shows the bytes
+moved and cannot close while the move runs. The clear button plans a move back to the app data
+directory.
+
+| The new folder                                       | The dialog                                         |
+| ---------------------------------------------------- | -------------------------------------------------- |
+| Holds no LTK Manager data                            | `Move {size} to {path}?`, `Move and restart`       |
+| Holds a library, and the current location holds none | `Use the library in {path}?`, `Switch and restart` |
+| Holds LTK Manager data, and so does the current one  | No dialog. A toast names the entries               |
+| Is inside a folder that the move carries             | No dialog. A toast asks for another folder         |
+
+A move refuses to start while the patcher runs, and refuses a drive with less free space than the
+data needs. A move that fails returns every moved entry to the current location and raises a toast.

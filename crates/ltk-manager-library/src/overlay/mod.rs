@@ -10,7 +10,7 @@ mod build;
 pub mod builtin_mods;
 mod resolve;
 
-pub(crate) use artifacts::OverlayStorageExt;
+pub(crate) use artifacts::{BUILD_VERSION_MARKER, OverlayStorageExt};
 pub use build::{OverlayBuildInputs, OverlayBuildOutcome, build_overlay};
 pub use builtin_mods::{ForcibleMapSkin, MapDecoration, forcible_map_skins, map_decorations};
 pub(crate) use resolve::{resolve_blocked_wads, resolve_string_override_mode};

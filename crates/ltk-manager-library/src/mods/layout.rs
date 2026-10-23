@@ -2,8 +2,30 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::mods::analysis::wad_reports::WAD_REPORTS_FILENAME;
+use crate::mods::health::{LEGACY_VERDICTS_FILENAME, MOD_HEALTH_VERDICTS_FILENAME};
+use crate::mods::index::document::INDEX_FILE;
+use crate::overlay::BUILD_VERSION_MARKER;
+use crate::overlay::builtin_mods::DIR as BUILTIN_DIR;
+
+/// Names of the entries that a library writes at the root of its storage directory.
+const ROOT_ENTRIES: [&str; 9] = [
+    INDEX_FILE,
+    "mods",
+    "archives",
+    "profiles",
+    BUILTIN_DIR,
+    WAD_REPORTS_FILENAME,
+    MOD_HEALTH_VERDICTS_FILENAME,
+    LEGACY_VERDICTS_FILENAME,
+    BUILD_VERSION_MARKER,
+];
+
 /// The folders of the mod storage directory, read on the directory's path.
 pub trait StorageLayout {
+    /// `library.json`, the library index.
+    fn index_file(&self) -> PathBuf;
+
     /// `mods/`, which holds each mod's directory and archive.
     fn mods_dir(&self) -> PathBuf;
 
@@ -20,6 +42,10 @@ pub trait StorageLayout {
 }
 
 impl StorageLayout for Path {
+    fn index_file(&self) -> PathBuf {
+        self.join(INDEX_FILE)
+    }
+
     fn mods_dir(&self) -> PathBuf {
         self.join("mods")
     }
@@ -32,3 +58,19 @@ impl StorageLayout for Path {
         self.join("profiles")
     }
 }
+
+/// Returns `true` if `name` is an entry that a library writes at the root of its storage directory.
+///
+/// The index backups `library.v<N>.json.bak` match too.
+pub fn is_library_entry(name: &str) -> bool {
+    if ROOT_ENTRIES.contains(&name) {
+        return true;
+    }
+
+    name.strip_prefix("library.v")
+        .and_then(|rest| rest.strip_suffix(".json.bak"))
+        .is_some_and(|version| !version.is_empty() && version.bytes().all(|b| b.is_ascii_digit()))
+}
+
+#[cfg(test)]
+mod tests;

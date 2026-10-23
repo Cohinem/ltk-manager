@@ -3,12 +3,13 @@
 
 use std::path::Path;
 
+use crate::data_location::{data_dir, MOD_PREVIEWS};
 use crate::error::IpcResult;
 use crate::mods::ModLibraryState;
 use crate::services::shared::document_assets::{parse_entry, read_lookup, read_resolved};
 use crate::services::shared::read_asset;
 use crate::services::shared::{off_thread, WriteTarget};
-use crate::state::{get_app_data_dir, SettingsState};
+use crate::state::SettingsState;
 use ltk_manager_assets::preview::{clip_header, AssetRef, ClipHeader};
 use ltk_manager_base::error::AppError;
 use ltk_manager_bin::bin_document::{BinDocumentError, BinDocumentId, BinDocuments};
@@ -19,9 +20,6 @@ use ltk_manager_game::skin::{
     SkinModel,
 };
 use tauri::{AppHandle, Manager};
-
-/// The directory under the app's data directory that holds the unpacked copies of packed mods.
-const MOD_PREVIEWS: &str = "mod-previews";
 
 /// Tangents saved into the viewed skin's project-layer mesh.
 ///
@@ -126,8 +124,8 @@ pub async fn locate_mod_skin(
     let library = app_handle.state::<ModLibraryState>().0.clone();
 
     off_thread(move || {
-        let cache = get_app_data_dir(&app_handle)
-            .ok_or_else(|| AppError::Other("The app data directory is unavailable".to_owned()))?
+        let cache = data_dir(&app_handle, &config)
+            .ok_or_else(|| AppError::Other("The data directory is unavailable".to_owned()))?
             .join(MOD_PREVIEWS);
 
         let project = library.mod_content_dir(&config, &mod_id, &cache)?;

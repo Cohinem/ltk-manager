@@ -60,7 +60,7 @@ const INDEX = [
   { id: "general.minimizeToTray", key: "minimizeToTray", title: "Minimize to system tray" },
   { id: "general.startInTray", key: "startInTray", title: "Start minimized to tray" },
 
-  { id: "library.modStoragePath", key: "modStoragePath", title: "Storage location" },
+  { id: "library.modStoragePath", key: "modStoragePath", title: "Data location" },
   {
     id: "library.autoCategorizationEnabled",
     key: "autoCategorizationEnabled",

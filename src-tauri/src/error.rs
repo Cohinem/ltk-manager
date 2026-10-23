@@ -34,6 +34,10 @@ pub enum AppErrorResponse {
     Integration {
         error: ltk_manager_runtime::integrations::IntegrationError,
     },
+    /// A move of the data directory was refused or failed. The variant says which.
+    DataMove {
+        error: crate::data_location::DataMoveError,
+    },
     /// File system I/O failed.
     Io { detail: String },
     /// JSON could not be read or written.

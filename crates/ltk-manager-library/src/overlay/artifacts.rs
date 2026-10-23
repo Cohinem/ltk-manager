@@ -12,7 +12,7 @@ use fs_err as fs;
 use std::path::Path;
 
 /// Name of the marker holding the app version that last built these overlays.
-const BUILD_VERSION_MARKER: &str = ".overlay-build-version";
+pub(crate) const BUILD_VERSION_MARKER: &str = ".overlay-build-version";
 
 /// Overlay-artifact lifecycle on a library's storage directory.
 pub(crate) trait OverlayStorageExt {
