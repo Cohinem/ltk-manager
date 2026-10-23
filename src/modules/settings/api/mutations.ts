@@ -39,15 +39,19 @@ export const settingsMutations = {
       mutationFn: mutationFn(api.autoDetectLeaguePath),
     }),
 
+  /* The three data writes below toast their own failure, which names the area or the folder. */
+
   /** `null` plans a move to the app data directory. */
   planDataMove: () =>
     mutationOptions<DataMovePlan, AppError, string | null>({
       mutationFn: mutationFn(api.planDataMove),
+      meta: { silentError: true },
     }),
 
   clearDataArea: (client: QueryClient) =>
     mutationOptions<null, AppError, DataArea>({
       mutationFn: mutationFn(api.clearDataArea),
+      meta: { silentError: true },
       onSettled: () => {
         client.invalidateQueries({ queryKey: settingsKeys.dataUsage() });
       },
@@ -57,6 +61,7 @@ export const settingsMutations = {
   moveData: () =>
     mutationOptions<null, AppError, string | null>({
       mutationFn: mutationFn(api.moveData),
+      meta: { silentError: true },
     }),
 } as const;
 
