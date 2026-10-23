@@ -104,6 +104,12 @@ export const api = {
   listAvailableWads: settings.listAvailableWads,
   listForcibleMapSkins: settings.listForcibleMapSkins,
   listMapDecorations: settings.listMapDecorations,
+  planDataMove: settings.planDataMove,
+  moveData: settings.moveData,
+  dataUsage: settings.dataUsage,
+  clearDataArea: settings.clearDataArea,
+  exportSettings: settings.exportSettings,
+  readSettingsBackup: settings.readSettingsBackup,
 
   // Mods
   getInstalledMods: library.getInstalledMods,

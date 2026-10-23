@@ -210,6 +210,12 @@ services! {
         list_available_wads,
         list_forcible_map_skins,
         list_map_decorations,
+        export_settings,
+        read_settings_backup,
+        plan_data_move,
+        move_data,
+        data_usage,
+        clear_data_area,
     }
     patcher("patcher") {
         start_patcher,
