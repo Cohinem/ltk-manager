@@ -2,8 +2,9 @@
 //! the lists the settings pages pick from.
 
 use super::launcher::LauncherState;
-use super::shared::data_move;
+use super::shared::{data_move, off_thread};
 use crate::data_location::{self, DataMoveError, DataMovePlan};
+use crate::data_usage::{self, DataArea, DataUsage};
 use crate::error::{AppResult, IpcResult};
 use crate::events::TauriEventSink;
 use crate::mods::ModLibraryState;
@@ -107,6 +108,34 @@ pub(crate) fn save_settings_inner(
 
 /// Shortest time between two progress events of a data directory move.
 const DATA_MOVE_PROGRESS_INTERVAL: Duration = Duration::from_millis(100);
+
+/// Measures the disk usage of the manager's data.
+#[tauri::command]
+#[specta::specta]
+pub async fn data_usage(app_handle: AppHandle) -> IpcResult<DataUsage> {
+    off_thread(move || {
+        let config = app_handle.state::<SettingsState>().config();
+        let library = app_handle.state::<ModLibraryState>().0.clone();
+        data_usage::usage(&app_handle, &config, &library)
+    })
+    .await
+}
+
+/// Clears `area` of the manager's data. The overlay areas wait for the patcher to stop.
+#[tauri::command]
+#[specta::specta]
+pub async fn clear_data_area(area: DataArea, app_handle: AppHandle) -> IpcResult<()> {
+    off_thread(move || {
+        if matches!(area, DataArea::OverlayBuilds | DataArea::Leftovers) {
+            app_handle.state::<PatcherState>().reject_if_running()?;
+        }
+
+        let config = app_handle.state::<SettingsState>().config();
+        let library = app_handle.state::<ModLibraryState>().0.clone();
+        data_usage::clear(&app_handle, &config, &library, area)
+    })
+    .await
+}
 
 /// Plans a move of the data directory to `target`, or to the app data directory if `target` is `None`.
 #[tauri::command]

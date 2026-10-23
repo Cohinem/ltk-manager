@@ -20,6 +20,7 @@ import {
   AppearanceSection,
   BuiltinModsSection,
   CacheSection,
+  DiskUsageSection,
   DEFAULT_SETTINGS_TAB,
   GeneralSection,
   HotkeySection,
@@ -140,6 +141,7 @@ export function Settings() {
 
             <Tabs.Panel value="cache">
               <ReadingColumn>
+                <DiskUsageSection />
                 <CacheSection />
               </ReadingColumn>
             </Tabs.Panel>

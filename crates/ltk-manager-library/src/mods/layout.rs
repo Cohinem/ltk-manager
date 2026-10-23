@@ -35,6 +35,9 @@ pub trait StorageLayout {
     /// `profiles/`, which holds each profile's directory.
     fn profiles_dir(&self) -> PathBuf;
 
+    /// `builtin/`, which holds the project of each built-in mod.
+    fn builtin_dir(&self) -> PathBuf;
+
     /// `profiles/<slug>`, one profile's directory.
     fn profile_dir(&self, slug: &str) -> PathBuf {
         self.profiles_dir().join(slug)
@@ -56,6 +59,10 @@ impl StorageLayout for Path {
 
     fn profiles_dir(&self) -> PathBuf {
         self.join("profiles")
+    }
+
+    fn builtin_dir(&self) -> PathBuf {
+        self.join(BUILTIN_DIR)
     }
 }
 

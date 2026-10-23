@@ -5,6 +5,7 @@ export { useAutoDetectLeaguePath } from "./useAutoDetectLeaguePath";
 export { useAvailableWads } from "./useAvailableWads";
 export { useCheckSetupRequired } from "./useCheckSetupRequired";
 export { useMoveData, usePlanDataMove } from "./useDataMove";
+export { useClearDataArea, useDataUsage } from "./useDataUsage";
 export { useDetectLeagueRunAsAdmin } from "./useDetectLeagueRunAsAdmin";
 export { useForcibleMapSkins } from "./useForcibleMapSkins";
 export { useHashtableCacheStatus } from "./useHashtableCacheStatus";

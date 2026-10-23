@@ -210,6 +210,8 @@ services! {
         list_map_decorations,
         plan_data_move,
         move_data,
+        data_usage,
+        clear_data_area,
     }
     patcher("patcher") {
         start_patcher,

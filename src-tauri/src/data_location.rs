@@ -281,7 +281,7 @@ fn same_volume(a: &Path, b: &Path) -> bool {
 }
 
 /// Returns the bytes of the files under `path`. An unreadable file counts as empty.
-fn size_of(path: &Path) -> u64 {
+pub(crate) fn size_of(path: &Path) -> u64 {
     walkdir::WalkDir::new(path)
         .follow_links(false)
         .into_iter()
