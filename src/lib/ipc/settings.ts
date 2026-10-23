@@ -44,6 +44,14 @@ export const commands = {
 	listForcibleMapSkins: () => __TAURI_INVOKE<({ ok: true; value: ForcibleMapSkin[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:settings|list_forcible_map_skins"),
 	/**  Every map decoration a mutator switches in the configured install. */
 	listMapDecorations: () => __TAURI_INVOKE<({ ok: true; value: MapDecoration[] }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:settings|list_map_decorations"),
+	/**  Writes the settings to a backup file at `path`. */
+	exportSettings: (path: string) => __TAURI_INVOKE<({ ok: true; value: null }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:settings|export_settings", { path }),
+	/**
+	 *  Reads the backup at `path` over the current settings, and returns the result unsaved.
+	 * 
+	 *  The caller saves the result through `save_settings`, which applies its side effects.
+	 */
+	readSettingsBackup: (path: string) => __TAURI_INVOKE<({ ok: true; value: Settings_Serialize }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:settings|read_settings_backup", { path }),
 	/**  Plans a move of the data directory to `target`, or to the app data directory if `target` is `None`. */
 	planDataMove: (target: string | null) => __TAURI_INVOKE<({ ok: true; value: DataMovePlan }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:settings|plan_data_move", { target }),
 	/**
@@ -61,4 +69,4 @@ export const commands = {
 };
 
 /* Constants */
-export const commandNames = {"autoDetectLeaguePath":"plugin:settings|auto_detect_league_path","checkSetupRequired":"plugin:settings|check_setup_required","clearDataArea":"plugin:settings|clear_data_area","dataUsage":"plugin:settings|data_usage","detectLeagueRunAsAdmin":"plugin:settings|detect_league_run_as_admin","getDefaultSettings":"plugin:settings|get_default_settings","getSettings":"plugin:settings|get_settings","listAvailableWads":"plugin:settings|list_available_wads","listForcibleMapSkins":"plugin:settings|list_forcible_map_skins","listMapDecorations":"plugin:settings|list_map_decorations","moveData":"plugin:settings|move_data","planDataMove":"plugin:settings|plan_data_move","saveSettings":"plugin:settings|save_settings","validateLeaguePath":"plugin:settings|validate_league_path"} as const;
+export const commandNames = {"autoDetectLeaguePath":"plugin:settings|auto_detect_league_path","checkSetupRequired":"plugin:settings|check_setup_required","clearDataArea":"plugin:settings|clear_data_area","dataUsage":"plugin:settings|data_usage","detectLeagueRunAsAdmin":"plugin:settings|detect_league_run_as_admin","exportSettings":"plugin:settings|export_settings","getDefaultSettings":"plugin:settings|get_default_settings","getSettings":"plugin:settings|get_settings","listAvailableWads":"plugin:settings|list_available_wads","listForcibleMapSkins":"plugin:settings|list_forcible_map_skins","listMapDecorations":"plugin:settings|list_map_decorations","moveData":"plugin:settings|move_data","planDataMove":"plugin:settings|plan_data_move","readSettingsBackup":"plugin:settings|read_settings_backup","saveSettings":"plugin:settings|save_settings","validateLeaguePath":"plugin:settings|validate_league_path"} as const;

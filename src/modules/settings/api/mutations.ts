@@ -1,5 +1,6 @@
 import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 
+import { m } from "@/i18n";
 import {
   api,
   type AppError,
@@ -31,6 +32,19 @@ export const settingsMutations = {
       onSuccess: () => {
         client.invalidateQueries({ queryKey: settingsKeys.setupRequired() });
       },
+    }),
+
+  exportSettings: () =>
+    mutationOptions<null, AppError, string>({
+      mutationFn: mutationFn(api.exportSettings),
+      meta: { errorTitle: m.settings_backup_export_failed_title() },
+    }),
+
+  /** Answers the backup read over the current settings, unsaved. */
+  readSettingsBackup: () =>
+    mutationOptions<Settings, AppError, string>({
+      mutationFn: mutationFn(api.readSettingsBackup),
+      meta: { errorTitle: m.settings_backup_read_failed_title() },
     }),
 
   /** Finding nothing answers `null` rather than rejecting. */

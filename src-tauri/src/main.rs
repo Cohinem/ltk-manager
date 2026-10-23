@@ -17,6 +17,7 @@ mod mods;
 pub mod patcher;
 mod protocol;
 mod services;
+mod settings_backup;
 mod setup;
 #[cfg(windows)]
 #[cfg_attr(

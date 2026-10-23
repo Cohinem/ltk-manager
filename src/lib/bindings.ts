@@ -89,6 +89,8 @@ export type Announcement = {
 export type AppErrorResponse = 
 /**  An external tool installation failed. */
 { code: "INTEGRATION"; error: IntegrationError } | 
+/**  A settings backup could not be written or read. The variant says which. */
+{ code: "SETTINGS_BACKUP"; error: SettingsBackupError } | 
 /**  A move of the data directory was refused or failed. The variant says which. */
 { code: "DATA_MOVE"; error: DataMoveError } | 
 /**  File system I/O failed. */
@@ -6868,6 +6870,15 @@ export type SessionStarted = {
  *  split is invisible to both the file on disk and the frontend.
  */
 export type Settings = Settings_Serialize | Settings_Deserialize;
+
+/**  A reason that a settings backup cannot be written or read. */
+export type SettingsBackupError = 
+/**  The file is not a settings backup. */
+{ kind: "notABackup" } | 
+/**  A newer version of the manager wrote the backup. */
+{ kind: "newerVersion"; version: number; supported: number } | 
+/**  The file cannot be read or written. */
+{ kind: "io"; detail: string };
 
 /**
  *  Application settings: UI/shell preferences plus the flattened core
