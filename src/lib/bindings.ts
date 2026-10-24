@@ -3625,9 +3625,8 @@ export type LaunchKind = "match" | "replay" | "spectator" | "pbe";
  *  build the overlay, start the patcher, then ask the Riot Client to start
  *  League. Both actions stay reachable from the button's menu either way.
  * 
- *  Classic is the default while the launcher is experimental: it is the
- *  behaviour every existing install already has, and it depends on nothing
- *  outside this app.
+ *  Classic is the default because it is the behaviour every existing install
+ *  already has, and it depends on nothing outside this app.
  */
 export type LaunchMode = "classic" | "modern";
 
