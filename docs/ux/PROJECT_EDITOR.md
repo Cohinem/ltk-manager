@@ -3886,21 +3886,23 @@ the header with a re-run control. Hits group by declaring file. A row of the ind
 object. A row of the walk is one place inside an object, its property path beside the object's
 name, and it opens the object tab expanded down to that row.
 
-| Query                             | Asked from                                  | Answered from       |
-| --------------------------------- | ------------------------------------------- | ------------------- |
-| Every object of a class           | An object row, an object tab's kebab        | The index           |
-| Every use of an embedded class    | An `embed` or `pointer` row                 | A walk of every bin |
-| Every object linking to an object | Find references on every menu an object has | The same walk       |
-| Every object naming a file        | A file row of the game tree or Content tree | The same walk       |
+| Query                             | Asked from                                  | Answered from      |
+| --------------------------------- | ------------------------------------------- | ------------------ |
+| Every object of a class           | An object row, an object tab's kebab        | The index          |
+| Every use of an embedded class    | An `embed` or `pointer` row                 | A walk of the bins |
+| Every object linking to an object | Find references on every menu an object has | The same walk      |
+| Every object naming a file        | A file row of the game tree or Content tree | The same walk      |
 
 The walk reads the project's layers first, then the install's declaring files in archive
-order, one job per archive on the bounded pool the problems pass uses. For an object, a `link`
-and a `hash` value match, map keys included. For a file, a `hash` of its path, a `file` of its
-chunk hash and a `string` of its path in any case match, and a chunk no table names is matched
-by a `file` value alone. It runs on demand. A band under the header draws the bins read
-and the references found, with a Cancel that stops the walk before its next bin, and a
-cancelled walk keeps what it found and marks the header partial. The declaring files of an
-object are no query of their own, because the object tab's Sandbox options list them.
+order, one job per archive on the bounded pool the problems pass uses. Once the term index is
+ready, the walk reads only the declaring files whose postings hold the target, and every
+declaring file before that. For an object, a `link` and a `hash` value match, map keys
+included. For a file, a `hash` of its path, a `file` of its chunk hash and a `string` of its
+path in any case match, and a chunk no table names is matched by a `file` value alone. It runs
+on demand. A band under the header draws the bins read and the references found, with a Cancel
+that stops the walk before its next bin, and a cancelled walk keeps what it found and marks
+the header partial. The declaring files of an object are no query of their own, because the
+object tab's Sandbox options list them.
 
 #### The walk, measured
 
@@ -3914,11 +3916,40 @@ install, on 8 workers, straight after the index build and so on a warm file cach
 | Uses of `VfxEmitterDefinitionData`     | 1,513ms, 1,820,309 references, 20,000 kept |
 | The walk, on a cold file cache         | Not measured                               |
 
-**The walk stays a walk.** A second index behind the Objects switch saves a second and a half
-per query, and it holds every link and every embedded class of the install, rebuilt on a game
-patch and on every layer save. A query is a menu item asked once, with its progress and its
-cancel on screen, so the second index is not built. The decision is open again if a cold file
-cache puts the walk past ten seconds.
+#### The term index
+
+The walk reads its files from the postings of `ltk_game_index::TermIndex`, which holds every
+term of every declaration of the install: its object, its classes, its fields, its `hash`,
+`link`, `file` and `string` values. The postings of a target name the declaring files that
+hold it.
+
+| Target                 | Postings read                                                     |
+| ---------------------- | ----------------------------------------------------------------- |
+| An embedded class      | `Embedded` of the class hash                                      |
+| An object              | `Link` and `Hash` of the object's path hash                       |
+| A named file           | `Wad` of the chunk hash, `Hash` of the path, `String` of the path |
+| A chunk no table names | `Wad` of the chunk hash                                           |
+
+The first reference walk of a session reads every declaring file, and then warms the term
+index on a thread of its own. The index loads from `game-index/terms.bin` under the app cache
+directory when the cached fingerprint matches the install, and is built and written there
+otherwise. The project's layers are read whole on every walk, because the index holds the
+install alone. Switching the Objects index off drops the term index too, and so does a
+rebuild of the game index.
+
+Read on 2026-10-24 from WSL over the live install on its Windows drive, on 16 workers, with
+the CommunityDragon game hash list in place of the mimir tables.
+
+| Measurement                            | Every declaring file | From the postings           |
+| -------------------------------------- | -------------------- | --------------------------- |
+| Incoming links of one character record | 6,087ms, 25 files    | 32ms, the same 25 files     |
+| Uses of `VfxEmitterDefinitionData`     | 6,514ms, 189 files   | 3,705ms, the same 189 files |
+| Objects naming one texture             | 5,684ms, 3 files     | 69ms, the same 3 files      |
+| The term index build, on 8 workers     | 12.5s                |                             |
+| The term index, loaded from its cache  | 0.35s, 288MB on disk |                             |
+
+The index is not built behind the Objects switch. A session that never asks for references
+pays nothing for it.
 
 Find all references sits on the menu of every row that carries a
 [class card](BIN_EDITOR.md#the-class-card), and on every menu an object has.

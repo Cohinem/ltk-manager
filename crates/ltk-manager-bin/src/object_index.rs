@@ -26,10 +26,12 @@ mod state;
 mod types;
 mod walk;
 
-pub use ltk_game_index::ObjectStats;
+pub use build::term_index;
+pub use ltk_game_index::{ObjectStats, TermIndex};
 pub use state::{
-    BuildTicket, ObjectFindGeneration, ObjectIndexSnapshot, ObjectIndexState,
-    ObjectReferenceGeneration, ObjectSearchGeneration,
+    BuildTicket, IndexSnapshot, IndexState, ObjectFindGeneration, ObjectIndexSnapshot,
+    ObjectIndexState, ObjectReferenceGeneration, ObjectSearchGeneration, TermIndexSnapshot,
+    TermIndexState,
 };
 pub use types::{
     DeclaredObject, ObjectClassHit, ObjectDeclaration, ObjectDirListing, ObjectFindHit,

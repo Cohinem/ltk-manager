@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::error::{AppError, AppResult, IpcResult};
-use crate::services::objects::index::ObjectIndexState;
+use crate::services::objects::index::clear_indexes;
 use crate::services::shared::off_thread;
 use crate::services::shared::overtaken;
 use crate::services::shared::read_asset;
@@ -209,7 +209,7 @@ pub async fn refresh_game_index(source: WadSource, app_handle: AppHandle) -> Ipc
     app_handle.state::<GameIndexState>().clear(source);
     app_handle.state::<WadCache>().clear();
     if source == WadSource::Game {
-        app_handle.state::<ObjectIndexState>().clear();
+        clear_indexes(&app_handle);
     }
     IpcResult::ok(())
 }

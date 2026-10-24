@@ -26,7 +26,7 @@ lru = { workspace = true }
 ltk-declarations = { workspace = true }
 ltk-meta-docs = { workspace = true }
 ltk_game_data = { workspace = true }
-ltk_game_index = { workspace = true, features = ["objects"] }
+ltk_game_index = { workspace = true, features = ["search"] }
 ltk_hash = { workspace = true }
 ltk_meta = { workspace = true }
 ltk_mimir_cache = { workspace = true }
