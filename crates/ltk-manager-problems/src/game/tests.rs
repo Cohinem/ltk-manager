@@ -74,7 +74,7 @@ fn index_objects_returns_declaring_chunk() {
     tables.insert(WadHash::hash_str(SKIN_BIN).0, SKIN_BIN);
 
     let chunks = archives.chunk_index(None).expect("a chunk index");
-    let objects = index_objects(&archives, &chunks, &tables).expect("an index");
+    let objects = index_objects(&chunks, &tables).expect("an index");
 
     assert_eq!(
         objects.declaring_chunks(skin).collect::<Vec<_>>(),

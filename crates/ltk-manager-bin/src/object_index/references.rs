@@ -21,7 +21,8 @@ fn unnamed_hit(hit: &ReferenceHit) -> bool {
 /// One reference query's rows as they are met, gathered under their declaring file.
 #[derive(Debug)]
 struct ReferenceScan {
-    /// The rows of each file, in the order the files were first met.
+    /// The rows of each file. The files sort into the order of the index's `files` at
+    /// [`finish`](Self::finish).
     groups: Vec<(WadHash, Vec<u32>)>,
     /// Where a file's rows sit in `groups`.
     at: HashMap<WadHash, usize>,
@@ -72,7 +73,9 @@ impl ReferenceScan {
     }
 
     /// The serialized groups, each resolved through `index`.
-    fn finish(self, index: &ObjectIndex) -> ReferenceResult {
+    fn finish(mut self, index: &ObjectIndex) -> ReferenceResult {
+        self.groups
+            .sort_by_key(|(file, _)| index.declared.by_file.get(file).copied());
         ReferenceResult {
             groups: self
                 .groups
@@ -108,7 +111,7 @@ impl ObjectIndex {
     #[must_use]
     pub fn class_object_count(&self, class: BinHash) -> usize {
         self.declared
-            .rows
+            .rows()
             .iter()
             .filter(|row| row.class == class)
             .count()
@@ -122,12 +125,12 @@ impl ObjectIndex {
         is_overtaken: impl Fn() -> bool,
     ) -> ReferenceResult {
         let mut scan = ReferenceScan::new(limit);
-        for (at, row) in self.declared.rows.iter().enumerate() {
+        for (at, row) in self.declared.rows().iter().enumerate() {
             if scan.tick(&is_overtaken) {
                 break;
             }
             if row.class == class {
-                scan.keep(row.file, at as u32);
+                scan.keep(row.chunk, at as u32);
             }
         }
         scan.finish(self)
@@ -140,7 +143,7 @@ impl ObjectIndex {
     /// Panics on an empty `rows`, which no scan builds: a group exists because a row
     /// landed in it.
     fn reference_group(&self, rows: &[u32]) -> ReferenceGroup {
-        let declaration = self.declaration(rows[0]);
+        let declaration = self.declaration(&self.declared.rows()[rows[0] as usize]);
         let mut objects: Vec<ReferenceHit> =
             rows.iter().map(|at| self.reference_hit(*at)).collect();
         objects.sort_by(|a, b| {
@@ -157,7 +160,7 @@ impl ObjectIndex {
 
     /// The row at `at` as one object of a group.
     fn reference_hit(&self, at: u32) -> ReferenceHit {
-        let row = &self.declared.rows[at as usize];
+        let row = &self.declared.rows()[at as usize];
         ReferenceHit {
             object_hash: hex(row.object),
             path: self.object_name(row.object),

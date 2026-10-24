@@ -2,13 +2,14 @@
 
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult};
 use crate::events::TauriEventSink;
-use crate::services::game::index::{built_game_index, find_query};
+use crate::services::game::index::find_query;
 use crate::services::shared::document_assets;
 use crate::services::shared::off_thread;
 use crate::services::shared::overtaken;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
-use ltk_manager_assets::game_wads::GameArchives;
+use ltk_manager_assets::game_index::GameIndexState;
+use ltk_manager_assets::game_wads::{ChunkPaths, GameArchives};
 use ltk_manager_assets::hashtables::CacheNames;
 use ltk_manager_assets::hashtables::{
     BinHashTablesState, HashtableCache, WadPathResolver, WadPathResolverState,
@@ -69,9 +70,9 @@ fn with_ready_index<T>(
 
 /// Build the object index, unless one is built or building.
 ///
-/// The game index is built first when it is not, because the object build is
-/// fed by it. The call returns once the build lands, and a build that fails
-/// leaves the failure in the state for a search to report.
+/// The build reads the chunk index of the game, from its cache when the cache
+/// matches the install. The call returns once the build lands, and a build that
+/// fails leaves the failure in the state for a search to report.
 #[tauri::command]
 #[specta::specta]
 pub async fn warm_object_index(app_handle: AppHandle) -> IpcResult<()> {
@@ -99,8 +100,10 @@ fn build(
     state: &ObjectIndexState,
     ticket: BuildTicket,
 ) -> AppResult<ObjectIndex> {
-    let (game, archives) = built_game_index(app, config)?;
-    let index = ObjectIndex::build(&game, &archives, files_at_once(), &|| {
+    let archives = GameArchives::resolve(config)?;
+    let chunks = app.state::<GameIndexState>().chunk_index(&archives)?;
+    let wad = app.state::<Arc<WadPathResolverState>>().get();
+    let index = ObjectIndex::build(&chunks, &ChunkPaths(wad.tables()), files_at_once(), &|| {
         !state.is_current(ticket)
     })?;
 
@@ -111,7 +114,6 @@ fn build(
             return Ok(index);
         }
     };
-    let wad = app.state::<Arc<WadPathResolverState>>().get();
     Ok(index.named(&CacheNames::new(&cache.bin_tables(), &wad)))
 }
 

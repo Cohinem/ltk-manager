@@ -25,11 +25,11 @@ impl ObjectIndex {
     /// tables.
     pub fn named(&self, names: &impl ObjectNames) -> Self {
         let started = Instant::now();
-        let rows = &self.declared.rows;
+        let rows = self.declared.rows();
 
-        let objects = &self.declared.objects;
+        let objects: Vec<BinHash> = self.declared.index.objects().collect();
         let mut named: Vec<NamedObject> = Vec::with_capacity(objects.len());
-        names.for_each_entry(objects, &mut |at, name| {
+        names.for_each_entry(&objects, &mut |at, name| {
             named.push(NamedObject {
                 hash: objects[at],
                 mask: letter_mask(name),
@@ -95,9 +95,8 @@ impl ObjectIndex {
     /// The objects no table names, by hash.
     pub fn unnamed_objects(&self) -> impl Iterator<Item = BinHash> + '_ {
         self.declared
-            .objects
-            .iter()
-            .copied()
+            .index
+            .objects()
             .filter(|object| !self.names.objects.contains_key(object))
     }
 }

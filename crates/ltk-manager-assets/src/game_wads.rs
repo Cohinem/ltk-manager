@@ -24,6 +24,21 @@ use ltk_manager_base::utils::path::resolve_within;
 /// The chunk table of every archive of one source, keyed by chunk hash.
 pub use ltk_game_index::GameIndex as ChunkIndex;
 
+/// Resolves the chunk paths of an index build through the WAD tables, without allocating a path.
+#[derive(Debug, Clone, Copy)]
+pub struct ChunkPaths<'a>(pub &'a LayeredHashDb);
+
+impl ltk_game_index::ResolveWadPath for ChunkPaths<'_> {
+    fn for_each_named(&self, hashes: &[WadHash], visit: &mut dyn FnMut(usize, &str)) {
+        let keys: Vec<u64> = hashes.iter().map(|hash| hash.0).collect();
+        self.0.for_each_batch(&keys, |index, _, path| {
+            if let Some(path) = path {
+                visit(index, path);
+            }
+        });
+    }
+}
+
 /// Which set of an install's archives a reader browses.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]

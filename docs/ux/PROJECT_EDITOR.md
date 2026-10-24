@@ -695,10 +695,12 @@ The `binentries` table of the [mimir cache](#hash-names) holds 421,835 object pa
 on disk, and the manager already opens that cache for the WAD path tables. A bin object path
 hashes to 32 bits, so the table answers hash to name and `hash_path` answers name to hash.
 
-The scan answers the other direction. It reads what each `.bin` declares and keeps
-`(object hash, class hash, file)`, and nothing else. The file is the declaring chunk's WAD
-path hash, which survives a rebuild of the game index and resolves to a name and an archive
-through it. 383,357 declarations at 16 bytes is 6.1MB.
+The scan answers the other direction. It is the object index of `ltk_game_index`, which
+reads what each `.bin` declares and keeps `(object hash, class hash, file, archive, kind)`,
+and nothing else. The file is the declaring chunk's WAD path hash, which survives a rebuild
+of the game index and resolves to a name through the hash tables. The archive is the copy
+the build read, and the kind tells a `PROP` from a `PTCH`. 383,357 declarations at 24 bytes
+is 9.2MB.
 
 The palette therefore matches a query against the table's strings and turns each survivor into
 a file through the index. The install declares 359,095 distinct objects and the table names
@@ -861,10 +863,15 @@ reconcile.
 | Resolving every hash to its name, at load | 399ms                                              |
 
 The build is decompression and nothing else. Every millisecond above belongs to zstd, so the
-work spreads across archives: one job per archive in ordinal order, each mounting its archive
+work spreads across archives: one job per archive in archive order, each mounting its archive
 itself rather than through the browser's cache, on the bounded pool of workers the problems
-pass uses, and the rows concatenated in archive order at the end. The game index build reads
-its archives one at a time today, and stays that way.
+pass uses, and the rows concatenated in archive order at the end. Within one archive the
+named `.bin` chunks come in chunk hash order, then the chunks with a bare name, then the
+unnamed. The build reads the chunk index of the game and not the tree, so the Objects switch
+warms without the browser's index.
+
+The manager lists the declaring files of one archive by path, the unnamed last, and the
+References document groups by file in that order.
 
 Three files of 42,306 fail to scan. A file that will not scan is skipped and logged, and it
 never fails the build, because a build that stops on one bad chunk in an install of a million

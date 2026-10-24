@@ -11,5 +11,5 @@ fn naming_again_keeps_the_rows_and_replaces_the_names() {
 
     let index = index.named(&TestNames::over(&["characters/aatrox"], &["Skin"]));
     assert_eq!(ranked(&index, "aatrox"), ["characters/aatrox"]);
-    assert_eq!(index.stats().rows, 1);
+    assert_eq!(index.stats().declarations, 1);
 }

@@ -16,8 +16,7 @@ use ltk_hash::BinHash;
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::WadHash;
 
-use ltk_manager_assets::game_index::GameIndex;
-use ltk_manager_assets::game_wads::{ChunkIndex, GameArchives, WadCache};
+use ltk_manager_assets::game_wads::{ChunkIndex, ChunkPaths, GameArchives, WadCache};
 use ltk_manager_assets::hashtables::HashtableCache;
 use ltk_manager_base::budget::files_at_once;
 use ltk_manager_base::config::Config;
@@ -151,7 +150,7 @@ impl InstalledContent {
                 }
 
                 let chunks = self.index()?;
-                index_objects(&self.archives, chunks, &cache.wad_tables())
+                index_objects(chunks, &cache.wad_tables())
                     .inspect_err(|e| {
                         tracing::warn!("Could not index the installed game's bin objects: {e}");
                     })
@@ -161,21 +160,16 @@ impl InstalledContent {
     }
 }
 
-/// Builds the index of the bin objects that the bins of `archives` declare.
+/// Builds the index of the bin objects that the bins of `chunks` declare.
 ///
-/// `chunks` is the chunk index of `archives`, and `tables` resolves chunk
-/// hashes to paths. The build reads the first bytes of every chunk whose hash
+/// `tables` resolves chunk hashes to paths. The build reads the first bytes of every chunk whose hash
 /// `tables` does not resolve, so an empty `tables` causes a prefix read of
 /// every chunk of the install.
 ///
 /// Fails if the build fails.
-fn index_objects(
-    archives: &GameArchives,
-    chunks: &ChunkIndex,
-    tables: &LayeredHashDb,
-) -> Result<ObjectIndex, String> {
-    let game = GameIndex::over(chunks, tables);
-    ObjectIndex::build(&game, archives, files_at_once(), &|| false).map_err(|e| e.to_string())
+fn index_objects(chunks: &ChunkIndex, tables: &LayeredHashDb) -> Result<ObjectIndex, String> {
+    ObjectIndex::build(chunks, &ChunkPaths(tables), files_at_once(), &|| false)
+        .map_err(|e| e.to_string())
 }
 
 impl GameContent for InstalledContent {
