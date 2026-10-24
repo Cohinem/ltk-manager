@@ -87,7 +87,7 @@ impl ObjectIndex {
         limit: usize,
         is_overtaken: impl Fn() -> bool,
     ) -> ObjectFindResult {
-        let unnamed = self.names.objects.is_empty() && !self.declared.rows.is_empty();
+        let unnamed = self.names.objects.is_empty() && !self.declared.rows().is_empty();
         let classes: Option<HashSet<BinHash>> =
             class.map(|term| self.classes_opened_by(term).into_iter().collect());
         if (query.is_none() && classes.is_none()) || classes.as_ref().is_some_and(HashSet::is_empty)
@@ -136,9 +136,9 @@ impl ObjectIndex {
     fn declares_as(&self, object: BinHash, classes: Option<&HashSet<BinHash>>) -> bool {
         classes.is_none_or(|classes| {
             self.declared
-                .rows_of(object)
-                .iter()
-                .any(|at| classes.contains(&self.declared.rows[*at as usize].class))
+                .index
+                .declarations(object)
+                .any(|(_, row)| classes.contains(&row.class))
         })
     }
 

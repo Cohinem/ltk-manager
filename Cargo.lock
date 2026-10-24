@@ -3344,8 +3344,8 @@ dependencies = [
  "ltk-manager-base",
  "ltk-manager-workshop",
  "ltk-meta-docs",
- "ltk_file",
  "ltk_game_data",
+ "ltk_game_index 0.2.0",
  "ltk_hash",
  "ltk_hashdb",
  "ltk_hashtable",
@@ -3355,7 +3355,6 @@ dependencies = [
  "ltk_modpkg",
  "ltk_wad",
  "parking_lot",
- "rayon",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -3700,7 +3699,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4213a14fac6cf9f4ee4609f22c7fe8476f144fb490e7499e4e782e43151f9e49"
 dependencies = [
  "camino",
+ "ltk_file",
  "ltk_hash",
+ "ltk_meta",
  "ltk_wad",
  "rayon",
  "rmp-serde",

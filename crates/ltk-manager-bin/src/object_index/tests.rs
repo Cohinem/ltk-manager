@@ -6,8 +6,7 @@ use super::*;
 use fs_err as fs;
 use ltk_hash::Hash as _;
 use ltk_hashdb::LayeredHashDb;
-use ltk_manager_assets::game_index::GameIndex;
-use ltk_manager_assets::game_wads::GameArchives;
+use ltk_manager_assets::game_wads::{ChunkPaths, GameArchives};
 use ltk_manager_assets::hashtables::ObjectNames;
 use ltk_meta::path::PropertyPath;
 use ltk_meta::property::values;
@@ -108,8 +107,9 @@ fn resolver_for(paths: &[&str]) -> LayeredHashDb {
 fn build(wads: &[(&str, &[Chunk<'_>])], workers: usize) -> (TempDir, ObjectIndex) {
     let tmp = game_with(wads);
     let archives = GameArchives::at(tmp.path());
-    let game = GameIndex::build(&archives, &resolver_for(&paths_of(wads))).unwrap();
-    let index = ObjectIndex::build(&game, &archives, workers, &|| false).unwrap();
+    let chunks = archives.chunk_index(None).unwrap();
+    let resolver = resolver_for(&paths_of(wads));
+    let index = ObjectIndex::build(&chunks, &ChunkPaths(&resolver), workers, &|| false).unwrap();
     (tmp, index)
 }
 /// Each row as `(object path, class name, declaring file)`, in row order.

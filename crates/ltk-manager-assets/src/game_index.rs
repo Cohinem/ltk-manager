@@ -1129,10 +1129,17 @@ impl GameIndexState {
         archives: &GameArchives,
         resolver: &LayeredHashDb,
     ) -> AppResult<Arc<GameIndex>> {
-        self.slot(archives.source()).get_or_try_init(|| {
-            let chunks = archives.chunk_index(self.chunk_cache.as_deref())?;
-            Ok(GameIndex::over(&chunks, resolver))
-        })
+        self.slot(archives.source())
+            .get_or_try_init(|| Ok(GameIndex::over(&self.chunk_index(archives)?, resolver)))
+    }
+
+    /// Returns the chunk index of `archives`, from the cache file of the state if it matches.
+    ///
+    /// # Errors
+    ///
+    /// Fails if [`GameArchives::chunk_index`] fails.
+    pub fn chunk_index(&self, archives: &GameArchives) -> AppResult<ChunkIndex> {
+        archives.chunk_index(self.chunk_cache.as_deref())
     }
 
     /// Drop the built index of one source, so its next read reads the install again.

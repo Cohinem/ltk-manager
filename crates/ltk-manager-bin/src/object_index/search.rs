@@ -4,6 +4,7 @@ use std::borrow::Cow;
 use std::cmp::Ordering;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
+use ltk_game_index::Declaration;
 use ltk_hash::BinHash;
 use ltk_wad::hex_name;
 
@@ -12,7 +13,7 @@ use ltk_manager_assets::game_index::SEARCH_LIMIT;
 use ltk_manager_base::matcher::{EXACT_SCORE, Query, Range, mask_covers};
 
 use super::{
-    ObjectClassHit, ObjectIndex, ObjectSearchHit, ObjectSearchResult, Row, STALE_CHECK_INTERVAL,
+    ObjectClassHit, ObjectIndex, ObjectSearchHit, ObjectSearchResult, STALE_CHECK_INTERVAL,
     parse_hash,
 };
 
@@ -144,7 +145,7 @@ impl ObjectIndex {
     /// matches nothing, unless a class term narrowed it, and then every row of the class
     /// lists by path.
     pub fn search(&self, query: &str, is_overtaken: impl Fn() -> bool) -> ObjectSearchResult {
-        let rows = &self.declared.rows;
+        let rows = self.declared.rows();
         let unnamed = self.names.objects.is_empty() && !rows.is_empty();
 
         let (class_term, query) = ClassTerm::split(query);
@@ -206,7 +207,7 @@ impl ObjectIndex {
             };
 
             total += 1;
-            let file = self.declared.file(row.file);
+            let file = self.declared.file(row.chunk);
             let hit = Hit {
                 band,
                 score,
@@ -251,8 +252,8 @@ impl ObjectIndex {
         classes: Option<&HashSet<BinHash>>,
         unnamed: bool,
     ) -> ObjectSearchResult {
-        let rows = &self.declared.rows;
-        let wanted = |row: &Row| {
+        let rows = self.declared.rows();
+        let wanted = |row: &Declaration| {
             row.object == hash && classes.is_none_or(|classes| classes.contains(&row.class))
         };
         let total = rows.iter().filter(|row| wanted(row)).count() as u32;
@@ -275,7 +276,7 @@ impl ObjectIndex {
 
     /// Every row of `classes`, by path, for a class term with nothing after it.
     fn listed(&self, classes: &HashSet<BinHash>, unnamed: bool) -> ObjectSearchResult {
-        let rows = &self.declared.rows;
+        let rows = self.declared.rows();
         let mut kept: Vec<(Cow<'_, str>, u32)> = rows
             .iter()
             .enumerate()
@@ -326,7 +327,7 @@ impl ObjectIndex {
     /// `classes` as completions, each with the rows it would narrow to.
     fn class_completions(&self, classes: &[BinHash], unnamed: bool) -> ObjectSearchResult {
         let mut counts: HashMap<BinHash, u32> = classes.iter().map(|class| (*class, 0)).collect();
-        for row in &self.declared.rows {
+        for row in self.declared.rows() {
             if let Some(count) = counts.get_mut(&row.class) {
                 *count += 1;
             }
@@ -351,9 +352,9 @@ impl ObjectIndex {
 
     /// The serialized shape of the row at `at`.
     fn hit(&self, at: usize, band: u8, score: f64, ranges: Vec<Range>) -> ObjectSearchHit {
-        let row = &self.declared.rows[at];
-        let (file, wad) = self.declared.file(row.file).map_or_else(
-            || (hex_name(row.file), ""),
+        let row = &self.declared.rows()[at];
+        let (file, wad) = self.declared.file(row.chunk).map_or_else(
+            || (hex_name(row.chunk), ""),
             |file| {
                 (
                     self.file_name(file),
@@ -367,7 +368,7 @@ impl ObjectIndex {
             path: self.object_name(row.object),
             ranges,
             class: self.class_name(row.class),
-            file_hash: hex_name(row.file),
+            file_hash: hex_name(row.chunk),
             file,
             wad: wad.to_owned(),
             band,

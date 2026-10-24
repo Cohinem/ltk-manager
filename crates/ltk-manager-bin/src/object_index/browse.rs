@@ -123,7 +123,7 @@ impl ObjectIndex {
         objects.sort_by(|a, b| compare_names(&a.name, &b.name));
 
         /* Last, and only at the root. The unnamed push no named path down. */
-        let unnamed = self.declared.objects.len() - self.names.objects.len();
+        let unnamed = self.declared.index.len() - self.names.objects.len();
         if prefix.is_empty() && unnamed > 0 {
             prefixes.push(ObjectPrefixEntry {
                 path: UNNAMED_PREFIX.to_owned(),

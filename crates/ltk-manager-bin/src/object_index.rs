@@ -9,6 +9,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use ltk_game_index::Declaration;
 use ltk_hash::BinHash;
 use ltk_wad::{WadHash, hex_name};
 
@@ -25,14 +26,15 @@ mod state;
 mod types;
 mod walk;
 
+pub use ltk_game_index::ObjectStats;
 pub use state::{
     BuildTicket, ObjectFindGeneration, ObjectIndexSnapshot, ObjectIndexState,
     ObjectReferenceGeneration, ObjectSearchGeneration,
 };
 pub use types::{
     DeclaredObject, ObjectClassHit, ObjectDeclaration, ObjectDirListing, ObjectFindHit,
-    ObjectFindResult, ObjectIndexStats, ObjectNodeEntry, ObjectPrefixEntry, ObjectSearchHit,
-    ObjectSearchResult, ReferenceGroup, ReferenceHit, ReferenceProperty, ReferenceResult,
+    ObjectFindResult, ObjectNodeEntry, ObjectPrefixEntry, ObjectSearchHit, ObjectSearchResult,
+    ReferenceGroup, ReferenceHit, ReferenceProperty, ReferenceResult,
 };
 pub use walk::{FileTarget, LayerBin, WalkRequest, WalkTarget, layer_bins};
 
@@ -44,42 +46,27 @@ use ltk_manager_base::generation::STALE_CHECK_INTERVAL;
 /// game ships.
 pub const UNNAMED_PREFIX: &str = "?";
 
-/// One declaration: an object, its class, and the chunk that declares it.
-///
-/// The chunk is its WAD path hash, which survives a rebuild of the game index.
-#[derive(Debug, Clone, Copy)]
-struct Row {
-    object: BinHash,
-    class: BinHash,
-    file: WadHash,
-}
-
-/// One bin chunk the build read, which a row's file hash resolves to.
+/// One bin chunk that declares an object, which a declaration's chunk resolves to.
 #[derive(Debug)]
 struct DeclaringFile {
     path_hash: WadHash,
-    /// The path the game index named it by, or `None` for a sniffed chunk.
+    /// The path the WAD tables named it by at the build, or `None` for a sniffed chunk.
     path: Option<Box<str>>,
     /// Index into [`Declarations::wads`].
     wad: u32,
 }
 
 /// What a build fills, and what a renaming shares untouched.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct Declarations {
-    /// In archive order, and in the game index's tree order within one, the
-    /// sniffed chunks after the named.
-    rows: Vec<Row>,
-    /// Every distinct object hash, sorted, for a lookup by hash.
-    objects: Box<[BinHash]>,
-    /// Every index into `rows`, sorted by object and then by row, for the rows of one hash.
-    by_object: Box<[u32]>,
+    /// Every declaration of the install, in the storage order of the crate's index.
+    index: ltk_game_index::ObjectIndex,
+    /// Every declaring chunk in archive order, by path within one archive, the unnamed last.
     files: Vec<DeclaringFile>,
     /// A declaring chunk's index in `files`, by its path hash.
     by_file: HashMap<WadHash, u32>,
-    /// Archive names, in the game index's order.
+    /// Archive names, in the chunk index's order.
     wads: Vec<String>,
-    stats: ObjectIndexStats,
 }
 
 /// One object a table names: its path, with its letters for the mask to reject on.
@@ -118,38 +105,38 @@ impl ObjectIndex {
     /// Every declaration of `object` in archive order, serialized.
     fn declarations_of(&self, object: BinHash) -> Vec<ObjectDeclaration> {
         self.declared
-            .rows_of(object)
-            .iter()
-            .map(|at| self.declaration(*at))
+            .index
+            .declarations(object)
+            .map(|(_, row)| self.declaration(row))
             .collect()
     }
 
     /// What the build measured.
-    pub fn stats(&self) -> ObjectIndexStats {
-        self.declared.stats
+    pub fn stats(&self) -> ObjectStats {
+        *self.declared.index.stats()
     }
 
     /// Whether any file of the install declares `object`.
     #[must_use]
     pub fn declares(&self, object: BinHash) -> bool {
-        self.declared.objects.binary_search(&object).is_ok()
+        self.declared.index.declares(object)
     }
 
     /// Whether any file of the install declares `object` as an instance of `class`.
     #[must_use]
     pub fn declares_class(&self, object: BinHash, class: BinHash) -> bool {
         self.declared
-            .rows_of(object)
-            .iter()
-            .any(|at| self.declared.rows[*at as usize].class == class)
+            .index
+            .declarations(object)
+            .any(|(_, row)| row.class == class)
     }
 
     /// Returns the chunk of each declaration of `object`, in archive order.
     pub fn declaring_chunks(&self, object: BinHash) -> impl Iterator<Item = WadHash> + '_ {
         self.declared
-            .rows_of(object)
-            .iter()
-            .map(|at| self.declared.rows[*at as usize].file)
+            .index
+            .declarations(object)
+            .map(|(_, row)| row.chunk)
     }
 
     /// Every object a table names, with its path, in path order.
@@ -173,11 +160,10 @@ impl ObjectIndex {
         })
     }
 
-    /// The row at `at` as a serialized declaration.
-    fn declaration(&self, at: u32) -> ObjectDeclaration {
-        let row = &self.declared.rows[at as usize];
-        let (file, wad) = self.declared.file(row.file).map_or_else(
-            || (hex_name(row.file), String::new()),
+    /// `row` as a serialized declaration.
+    fn declaration(&self, row: &Declaration) -> ObjectDeclaration {
+        let (file, wad) = self.declared.file(row.chunk).map_or_else(
+            || (hex_name(row.chunk), String::new()),
             |file| {
                 (
                     self.file_name(file),
@@ -188,7 +174,7 @@ impl ObjectIndex {
         ObjectDeclaration {
             asset: AssetRef::GameChunk {
                 wad,
-                path_hash: hex_name(row.file),
+                path_hash: hex_name(row.chunk),
             },
             file,
             class_hash: hex(row.class),
@@ -219,15 +205,15 @@ impl ObjectIndex {
             .map_or_else(|| hex_name(file.path_hash), str::to_owned)
     }
 
-    /// Every row as `(object, class, declaring file name)`, in row order.
+    /// Every row as `(object, class, declaring file name)`, file by file in the order of
+    /// `files`.
     #[cfg(test)]
     fn rows(&self) -> impl Iterator<Item = (BinHash, BinHash, String)> {
-        self.declared.rows.iter().map(|row| {
-            let file = self
-                .declared
-                .file(row.file)
-                .map_or_else(|| hex_name(row.file), |file| self.file_name(file));
-            (row.object, row.class, file)
+        self.declared.files.iter().flat_map(|file| {
+            self.declared
+                .index
+                .chunk_declarations(file.path_hash)
+                .map(|(_, row)| (row.object, row.class, self.file_name(file)))
         })
     }
 }
@@ -239,12 +225,9 @@ impl Declarations {
             .map(|&at| &self.files[at as usize])
     }
 
-    /// The indices of every row declaring `object`, in row order.
-    fn rows_of(&self, object: BinHash) -> &[u32] {
-        let key = |at: &u32| self.rows[*at as usize].object;
-        let start = self.by_object.partition_point(|at| key(at) < object);
-        let end = start + self.by_object[start..].partition_point(|at| key(at) == object);
-        &self.by_object[start..end]
+    /// Every declaration, in storage order. A declaration's position is its row.
+    fn rows(&self) -> &[Declaration] {
+        self.index.rows()
     }
 }
 
