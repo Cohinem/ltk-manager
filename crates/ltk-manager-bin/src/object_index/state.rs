@@ -5,8 +5,6 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering as AtomicOrdering};
 
-use ltk_game_index::TermIndex;
-
 use super::ObjectIndex;
 
 /// The newest object search asked for, on a line of its own.
@@ -50,9 +48,6 @@ pub enum IndexSnapshot<T, E> {
 /// What [`ObjectIndexState`] holds.
 pub type ObjectIndexSnapshot<E> = IndexSnapshot<ObjectIndex, E>;
 
-/// What [`TermIndexState`] holds.
-pub type TermIndexSnapshot<E> = IndexSnapshot<TermIndex, E>;
-
 #[derive(Debug)]
 enum Slot<T, E> {
     Absent,
@@ -75,9 +70,6 @@ pub struct IndexState<T, E> {
 
 /// The app-managed [`ObjectIndex`].
 pub type ObjectIndexState<E> = IndexState<ObjectIndex, E>;
-
-/// The app-managed [`TermIndex`], which the References document reads its postings from.
-pub type TermIndexState<E> = IndexState<TermIndex, E>;
 
 impl<T, E> Default for IndexState<T, E> {
     fn default() -> Self {
@@ -138,16 +130,6 @@ impl<T, E: Clone> IndexState<T, E> {
             Slot::Building(_) => IndexSnapshot::Building,
             Slot::Ready(index) => IndexSnapshot::Ready(Arc::clone(index)),
             Slot::Failed(error) => IndexSnapshot::Failed(error.clone()),
-        }
-    }
-
-    /// Replace a ready index with `rename` of it, and leave any other slot alone.
-    ///
-    /// For a hashtable sync, which changes the names and not the rows.
-    pub fn rename(&self, rename: impl FnOnce(&T) -> T) {
-        let mut slot = self.slot.lock();
-        if let Slot::Ready(index) = &*slot {
-            *slot = Slot::Ready(Arc::new(rename(index)));
         }
     }
 }

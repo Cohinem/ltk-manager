@@ -889,22 +889,34 @@ is not sniffed.
 
 ### Where it is kept
 
-In memory, for the session, and rebuilt from the archives the next time the application
-starts. Nothing is written to disk, and nothing will be on the figures above: the build costs
-under half a second on a warm file cache, runs off the thread that draws the window, and sits
-behind a switch that is off by default, so a cache would save less than keeping it correct
-across a game patch and a table sync would cost. The decision and the line it was taken on are
-in [the research note](../research/bin-object-index.md), section 10.
+The Objects switch builds a `GameSearch` of `ltk_game_index`: the term index of the install
+and the name sheets of the hash tables. Both are written to `game-index` under the app cache
+directory, `terms.bin` and `names.bin`, beside the chunk index's `chunks.bin`.
 
-Were one ever asked for, the object table is a section of the memory-mapped cache that
-[One cache, not two](#one-cache-not-two) describes, under the same archive checksums. A game
-patch rebuilds the archives it changed and no others, and a format version in the header
-forces a full rebuild when this manager writes the section differently.
+- The term index loads from its cache when the fingerprint of the install matches, and is
+  built from the archives and written otherwise
+- The name sheets load for every table whose mimir checksum matches the one the sheet was
+  cut under, and the tables that changed are cut again
+- A hashtable sync builds the index again: the term index loads from its cache and the
+  sheets of the synced tables are cut again
+- Switching Objects off drops the index, and so does a rebuild of the game index
 
-**The cache holds hashes and no names.** The mimir tables update on their own schedule, so a
-name written into the cache today is a name that can be wrong tomorrow. Resolving all 359,095
-hashes at load costs 200ms against a table that is already mapped, which is less than the
-cost of keeping a second copy correct.
+The index reads no query of the crate. The palette and the full search scan the `Entries`
+sheet with the shared matcher, and the browser lists the crate's object tree with single-child
+prefixes folded.
+
+Read on 2026-10-24 from WSL over the live install on its Windows drive, on 16 workers, with the
+CommunityDragon hash lists in place of the mimir tables.
+
+| Measurement                            | Value               |
+| -------------------------------------- | ------------------- |
+| The warm, with nothing cached          | 9.4s                |
+| The warm, from the caches              | 0.51s               |
+| Objects the `Entries` sheet names      | 383,916             |
+| The palette, `aatrox`                  | 14ms, 2,062 rows    |
+| The palette, `a`                       | 117ms, 398,545 rows |
+| The full search, `aatrox`              | 39ms, 2,048 objects |
+| The browser, the root and `Characters` | 0.15ms and 12ms     |
 
 ### The dependency graph
 
@@ -3894,15 +3906,15 @@ name, and it opens the object tab expanded down to that row.
 | Every object naming a file        | A file row of the game tree or Content tree | The same walk      |
 
 The walk reads the project's layers first, then the install's declaring files in archive
-order, one job per archive on the bounded pool the problems pass uses. Once the term index is
-ready, the walk reads only the declaring files whose postings hold the target, and every
-declaring file before that. For an object, a `link` and a `hash` value match, map keys
-included. For a file, a `hash` of its path, a `file` of its chunk hash and a `string` of its
-path in any case match, and a chunk no table names is matched by a `file` value alone. It runs
-on demand. A band under the header draws the bins read and the references found, with a Cancel
-that stops the walk before its next bin, and a cancelled walk keeps what it found and marks
-the header partial. The declaring files of an object are no query of their own, because the
-object tab's Sandbox options list them.
+order, one job per archive on the bounded pool the problems pass uses. Of the install, it
+reads only the declaring files whose postings in the term index hold the target. For an
+object, a `link` and a `hash` value match, map keys included. For a file, a `hash` of its
+path, a `file` of its chunk hash and a `string` of its path in any case match, and a chunk no
+table names is matched by a `file` value alone. It runs on demand. A band under the header
+draws the bins read and the references found, with a Cancel that stops the walk before its
+next bin, and a cancelled walk keeps what it found and marks the header partial. The declaring
+files of an object are no query of their own, because the object tab's Sandbox options list
+them.
 
 #### The walk, measured
 
@@ -3930,12 +3942,9 @@ hold it.
 | A named file           | `Wad` of the chunk hash, `Hash` of the path, `String` of the path |
 | A chunk no table names | `Wad` of the chunk hash                                           |
 
-The first reference walk of a session reads every declaring file, and then warms the term
-index on a thread of its own. The index loads from `game-index/terms.bin` under the app cache
-directory when the cached fingerprint matches the install, and is built and written there
-otherwise. The project's layers are read whole on every walk, because the index holds the
-install alone. Switching the Objects index off drops the term index too, and so does a
-rebuild of the game index.
+The walk reads the term index of the object index, which the Objects switch builds ("Where it
+is kept" above). The project's layers are read whole on every walk, because the index holds
+the install alone.
 
 Read on 2026-10-24 from WSL over the live install on its Windows drive, on 16 workers, with
 the CommunityDragon game hash list in place of the mimir tables.
@@ -3947,9 +3956,6 @@ the CommunityDragon game hash list in place of the mimir tables.
 | Objects naming one texture             | 5,684ms, 3 files     | 69ms, the same 3 files      |
 | The term index build, on 8 workers     | 12.5s                |                             |
 | The term index, loaded from its cache  | 0.35s, 288MB on disk |                             |
-
-The index is not built behind the Objects switch. A session that never asks for references
-pays nothing for it.
 
 Find all references sits on the menu of every row that carries a
 [class card](BIN_EDITOR.md#the-class-card), and on every menu an object has.

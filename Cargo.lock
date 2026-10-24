@@ -3482,6 +3482,7 @@ dependencies = [
  "ltk-manager-workshop",
  "ltk_fantome",
  "ltk_file",
+ "ltk_game_index 0.2.0",
  "ltk_hash",
  "ltk_hashdb",
  "ltk_hashtable",

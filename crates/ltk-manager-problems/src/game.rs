@@ -9,9 +9,11 @@
 
 #[cfg(test)]
 use std::collections::HashMap;
+use std::num::NonZeroUsize;
 use std::path::Path;
 use std::sync::OnceLock;
 
+use ltk_game_index::{BuildOptions, ObjectIndex};
 use ltk_hash::BinHash;
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::WadHash;
@@ -20,7 +22,6 @@ use ltk_manager_assets::game_wads::{ChunkIndex, ChunkPaths, GameArchives, WadCac
 use ltk_manager_assets::hashtables::HashtableCache;
 use ltk_manager_base::budget::files_at_once;
 use ltk_manager_base::config::Config;
-use ltk_manager_bin::object_index::ObjectIndex;
 
 /// The chunks of the installed game.
 ///
@@ -168,8 +169,11 @@ impl InstalledContent {
 ///
 /// Fails if the build fails.
 fn index_objects(chunks: &ChunkIndex, tables: &LayeredHashDb) -> Result<ObjectIndex, String> {
-    ObjectIndex::build(chunks, &ChunkPaths(tables), files_at_once(), &|| false)
-        .map_err(|e| e.to_string())
+    let paths = ChunkPaths(tables);
+    let mut options = BuildOptions::default();
+    options.resolver = Some(&paths);
+    options.workers = NonZeroUsize::new(files_at_once());
+    ObjectIndex::build_with(chunks, &options).map_err(|e| e.to_string())
 }
 
 impl GameContent for InstalledContent {
@@ -182,7 +186,12 @@ impl GameContent for InstalledContent {
     }
 
     fn declaring_chunks(&self, object: BinHash) -> Option<Vec<WadHash>> {
-        Some(self.objects()?.declaring_chunks(object).collect())
+        Some(
+            self.objects()?
+                .declarations(object)
+                .map(|(_, row)| row.chunk)
+                .collect(),
+        )
     }
 
     fn warm(&self) {

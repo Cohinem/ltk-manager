@@ -119,7 +119,9 @@ fn an_unnamed_chunk_is_sniffed_and_read_only_when_its_magic_is_a_bins() {
     let archives = GameArchives::at(tmp.path());
     let chunks = archives.chunk_index(None).unwrap();
     let resolver = resolver_for(&["data/named.bin"]);
-    let index = ObjectIndex::build(&chunks, &ChunkPaths(&resolver), 1, &|| false).unwrap();
+    let names = TestNames::over(&[], &[]).with_files(&["data/named.bin"]);
+    let index =
+        ObjectIndex::build(&chunks, &ChunkPaths(&resolver), &names, 1, &|| false, None).unwrap();
     let secret = WadHash::hash_str("data/secret.bin");
 
     assert_eq!(
@@ -155,11 +157,11 @@ fn a_sniffed_file_takes_the_name_a_later_table_gives_it() {
     let archives = GameArchives::at(tmp.path());
     let chunks = archives.chunk_index(None).unwrap();
     let resolver = resolver_for(&[]);
-    let index = ObjectIndex::build(&chunks, &ChunkPaths(&resolver), 1, &|| false).unwrap();
-
     let names =
         TestNames::over(&["characters/secret"], &["Character"]).with_files(&["data/secret.bin"]);
-    let index = index.named(&names);
+
+    let index =
+        ObjectIndex::build(&chunks, &ChunkPaths(&resolver), &names, 1, &|| false, None).unwrap();
 
     assert_eq!(ranked(&index, "secret"), ["characters/secret"]);
     let hit = &index.search("secret", || false).hits[0];
@@ -178,6 +180,6 @@ fn a_build_that_was_called_off_stops_rather_than_finishing() {
     let chunks = archives.chunk_index(None).unwrap();
     let resolver = resolver_for(&["data/a.bin"]);
 
-    let built = ObjectIndex::build(&chunks, &ChunkPaths(&resolver), 1, &|| true);
+    let built = ObjectIndex::build(&chunks, &ChunkPaths(&resolver), &NoNames, 1, &|| true, None);
     assert!(built.is_err());
 }
