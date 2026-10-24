@@ -12,6 +12,14 @@ pub fn get_app_data_dir(app_handle: &AppHandle) -> Option<PathBuf> {
     app_handle.path().app_data_dir().ok()
 }
 
+/// Returns the file that caches the game's chunk index, under the app cache directory.
+///
+/// Returns `None` if the app cache directory cannot be resolved.
+pub fn chunk_index_cache_path(app_handle: &AppHandle) -> Option<PathBuf> {
+    let dir = app_handle.path().app_cache_dir().ok()?;
+    Some(dir.join("game-index").join("chunks.bin"))
+}
+
 /// Get the path to the settings file.
 pub fn get_settings_file_path(app_handle: &AppHandle) -> Option<PathBuf> {
     get_app_data_dir(app_handle).map(|p| p.join("settings.json"))
