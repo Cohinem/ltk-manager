@@ -19,15 +19,10 @@ pub fn chunk_index_cache_path(app_handle: &AppHandle) -> Option<PathBuf> {
     game_index_cache_dir(app_handle).map(|dir| dir.join("chunks.bin"))
 }
 
-/// Returns the file that caches the game's term index, under the app cache directory.
+/// Returns the directory of the game's index caches, under the app cache directory.
 ///
 /// Returns `None` if the app cache directory cannot be resolved.
-pub fn term_index_cache_path(app_handle: &AppHandle) -> Option<PathBuf> {
-    game_index_cache_dir(app_handle).map(|dir| dir.join("terms.bin"))
-}
-
-/// Returns the directory of the game's index caches, under the app cache directory.
-fn game_index_cache_dir(app_handle: &AppHandle) -> Option<PathBuf> {
+pub fn game_index_cache_dir(app_handle: &AppHandle) -> Option<PathBuf> {
     let dir = app_handle.path().app_cache_dir().ok()?;
     Some(dir.join("game-index"))
 }

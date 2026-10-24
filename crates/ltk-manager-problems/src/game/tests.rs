@@ -77,8 +77,11 @@ fn index_objects_returns_declaring_chunk() {
     let objects = index_objects(&chunks, &tables).expect("an index");
 
     assert_eq!(
-        objects.declaring_chunks(skin).collect::<Vec<_>>(),
+        objects
+            .declarations(skin)
+            .map(|(_, row)| row.chunk)
+            .collect::<Vec<_>>(),
         [WadHash::hash_str(SKIN_BIN)]
     );
-    assert_eq!(objects.declaring_chunks(BinHash(1)).count(), 0);
+    assert_eq!(objects.declarations(BinHash(1)).count(), 0);
 }

@@ -108,8 +108,6 @@ pub struct WalkRequest<'a> {
     pub budget: &'a Budget,
     /// The most threads the walk reads on.
     pub workers: usize,
-    /// The install's declaring files the walk reads, by chunk. `None` reads every one.
-    pub chunks: Option<&'a HashSet<WadHash>>,
 }
 
 /// One job of the pool: a layer's bin, or every declaring file of one archive.
@@ -197,7 +195,8 @@ impl ObjectIndex {
         progress: impl Fn(ReferenceWalkProgress) + Sync,
     ) -> ReferenceResult {
         let started = Instant::now();
-        let units = self.units(request.layers, request.chunks);
+        let chunks = request.target.chunks_in(self.terms());
+        let units = self.units(request.layers, &chunks);
         let files: usize = units
             .iter()
             .map(|unit| match unit {
@@ -271,12 +270,8 @@ impl ObjectIndex {
 
     /// The layers one job each, then one job per archive for its declaring files in `chunks`.
     ///
-    /// `None` takes every declaring file. An archive with no file to read has no job.
-    fn units<'a>(
-        &self,
-        layers: &'a [LayerBin],
-        chunks: Option<&HashSet<WadHash>>,
-    ) -> Vec<Unit<'a>> {
+    /// An archive with no file to read has no job.
+    fn units<'a>(&self, layers: &'a [LayerBin], chunks: &HashSet<WadHash>) -> Vec<Unit<'a>> {
         let mut units: Vec<Unit<'a>> = layers.iter().map(Unit::Layer).collect();
         let files = &self.declared.files;
         let mut start = 0;
@@ -284,7 +279,7 @@ impl ObjectIndex {
             let wad = files[start].wad;
             let end = start + files[start..].partition_point(|file| file.wad == wad);
             let picked: Vec<usize> = (start..end)
-                .filter(|&at| chunks.is_none_or(|chunks| chunks.contains(&files[at].path_hash)))
+                .filter(|&at| chunks.contains(&files[at].path_hash))
                 .collect();
             if !picked.is_empty() {
                 units.push(Unit::Archive { wad, files: picked });
@@ -305,7 +300,7 @@ impl ObjectIndex {
                         wad: self.declared.wads[*wad as usize].clone(),
                         path_hash: hex_name(file.path_hash),
                     },
-                    self.file_name(file),
+                    self.file_name(file.path_hash),
                 )
             }
         }

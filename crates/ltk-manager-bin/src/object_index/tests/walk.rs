@@ -8,8 +8,6 @@ use ltk_meta::property::Kind;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use super::super::walk::{FileTarget, HitStep, WalkHit, scan_bin, spelled_property};
-use ltk_game_index::TermIndex;
-use ltk_manager_assets::game_wads::ChunkPaths;
 
 const SKIN: &str = "characters/aatrox/skins/skin0";
 const RESOURCES: &str = "characters/aatrox/skins/skin0/resources";
@@ -479,7 +477,6 @@ fn the_walk_groups_the_layers_first_and_then_the_install_in_archive_order() {
         archives: &fixture.archives,
         budget: &budget,
         workers: 2,
-        chunks: None,
     };
     let reports = AtomicU32::new(0);
 
@@ -521,8 +518,8 @@ fn the_walk_groups_the_layers_first_and_then_the_install_in_archive_order() {
     assert!(!result.cancelled && !result.superseded);
     assert_eq!(
         reports.load(Ordering::Relaxed),
-        4,
-        "one report per bin: the layer's and the install's three"
+        3,
+        "one report per bin: the layer's and the install's two that hold the link"
     );
 }
 
@@ -537,7 +534,6 @@ fn a_cancelled_walk_says_so_and_keeps_what_it_found() {
         archives: &fixture.archives,
         budget: &budget,
         workers: 1,
-        chunks: None,
     };
 
     let result = fixture
@@ -558,7 +554,6 @@ fn an_overtaken_walk_is_superseded_rather_than_cancelled() {
         archives: &fixture.archives,
         budget: &budget,
         workers: 1,
-        chunks: None,
     };
 
     let result = fixture
@@ -578,7 +573,6 @@ fn the_walk_caps_the_rows_and_counts_on_past_the_cap() {
         archives: &fixture.archives,
         budget: &budget,
         workers: 1,
-        chunks: None,
     };
 
     let result = fixture
@@ -660,29 +654,12 @@ fn a_project_with_no_content_holds_no_layer_bins() {
     assert!(layer_bins(tmp.path().to_str().unwrap()).unwrap().is_empty());
 }
 
-/// The term index over `wads`, with every chunk path of `wads` named.
-fn terms_of(archives: &GameArchives, wads: &[(&str, &[Chunk<'_>])]) -> TermIndex {
-    let chunks = archives.chunk_index(None).unwrap();
-    let resolver = resolver_for(&paths_of(wads));
-    let paths = ChunkPaths(&resolver);
-    let mut options = ltk_game_index::BuildOptions::default();
-    options.resolver = Some(&paths);
-    TermIndex::build_with(&chunks, &options).unwrap()
-}
-
 #[test]
 fn walk_reads_only_the_chunks_that_the_postings_name() {
-    let first: &[Chunk<'_>] = &[
-        ("data/a.bin", linking_bin("characters/a")),
-        ("data/none.bin", prop(&[("characters/none", "Skin")])),
-    ];
-    let second: &[Chunk<'_>] = &[("data/b.bin", linking_bin("characters/b"))];
-    let wads: &[(&str, &[Chunk<'_>])] = &[("A.wad.client", first), ("B.wad.client", second)];
     let fixture = fixture();
-    let terms = terms_of(&fixture.archives, wads);
     let target = WalkTarget::Linked(h(RESOURCES));
 
-    let chunks = target.chunks_in(&terms);
+    let chunks = target.chunks_in(fixture.index.terms());
     assert_eq!(
         chunks,
         [
@@ -700,7 +677,6 @@ fn walk_reads_only_the_chunks_that_the_postings_name() {
         archives: &fixture.archives,
         budget: &budget,
         workers: 1,
-        chunks: Some(&chunks),
     };
     let total = AtomicU32::new(0);
     let result = fixture.index.walk(
@@ -748,10 +724,9 @@ fn chunks_in_finds_a_file_named_by_a_string_in_another_case() {
         ("data/other.bin", prop(&[("characters/other", "Skin")])),
     ];
     let wads: &[(&str, &[Chunk<'_>])] = &[("Aatrox.wad.client", chunks)];
-    let game = game_with(wads);
-    let terms = terms_of(&GameArchives::at(game.path()), wads);
+    let (_game, index) = build(wads, 1);
 
-    let found = WalkTarget::File(FileTarget::named(texture)).chunks_in(&terms);
+    let found = WalkTarget::File(FileTarget::named(texture)).chunks_in(index.terms());
 
     assert_eq!(
         found,

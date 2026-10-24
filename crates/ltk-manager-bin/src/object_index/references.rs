@@ -110,11 +110,7 @@ impl ObjectIndex {
     /// How many objects of the install declare `class`.
     #[must_use]
     pub fn class_object_count(&self, class: BinHash) -> usize {
-        self.declared
-            .rows()
-            .iter()
-            .filter(|row| row.class == class)
-            .count()
+        self.rows().iter().filter(|row| row.class == class).count()
     }
 
     /// [`class_references`](Self::class_references) with the cap a test can afford to fill.
@@ -125,7 +121,7 @@ impl ObjectIndex {
         is_overtaken: impl Fn() -> bool,
     ) -> ReferenceResult {
         let mut scan = ReferenceScan::new(limit);
-        for (at, row) in self.declared.rows().iter().enumerate() {
+        for (at, row) in self.rows().iter().enumerate() {
             if scan.tick(&is_overtaken) {
                 break;
             }
@@ -143,7 +139,7 @@ impl ObjectIndex {
     /// Panics on an empty `rows`, which no scan builds: a group exists because a row
     /// landed in it.
     fn reference_group(&self, rows: &[u32]) -> ReferenceGroup {
-        let declaration = self.declaration(&self.declared.rows()[rows[0] as usize]);
+        let declaration = self.declaration(&self.rows()[rows[0] as usize]);
         let mut objects: Vec<ReferenceHit> =
             rows.iter().map(|at| self.reference_hit(*at)).collect();
         objects.sort_by(|a, b| {
@@ -160,7 +156,7 @@ impl ObjectIndex {
 
     /// The row at `at` as one object of a group.
     fn reference_hit(&self, at: u32) -> ReferenceHit {
-        let row = &self.declared.rows()[at as usize];
+        let row = &self.rows()[at as usize];
         ReferenceHit {
             object_hash: hex(row.object),
             path: self.object_name(row.object),

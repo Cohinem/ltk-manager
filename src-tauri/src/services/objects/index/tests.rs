@@ -37,15 +37,19 @@ fn measure_the_live_install() {
     let wad = WadPathResolver::discover();
     let chunks = archives.chunk_index(None).expect("the chunk index builds");
 
-    let index = ObjectIndex::build(&chunks, &ChunkPaths(wad.tables()), files_at_once(), &|| {
-        false
-    })
-    .expect("the object index builds");
     let cache = HashtableCache::shared().expect("a synced hashtable cache");
-    let bin = cache.bin_tables();
-    let named = index.named(&CacheNames::new(&bin, &wad));
 
-    let stats = named.stats();
+    let index = ObjectIndex::build(
+        &chunks,
+        &ChunkPaths(wad.tables()),
+        &cache.names(),
+        files_at_once(),
+        &|| false,
+        None,
+    )
+    .expect("the object index builds");
+
+    let stats = index.stats();
     assert!(stats.declarations > 0, "an install declares objects");
 }
 
@@ -65,11 +69,16 @@ fn measure_the_reference_walk() {
     let archives = GameArchives::resolve(&config).expect("an install under the path");
     let wad = WadPathResolver::discover();
     let chunks = archives.chunk_index(None).expect("the chunk index builds");
-    let index = ObjectIndex::build(&chunks, &ChunkPaths(wad.tables()), files_at_once(), &|| {
-        false
-    })
-    .expect("the object index builds");
     let cache = HashtableCache::shared().expect("a synced hashtable cache");
+    let index = ObjectIndex::build(
+        &chunks,
+        &ChunkPaths(wad.tables()),
+        &cache.names(),
+        files_at_once(),
+        &|| false,
+        None,
+    )
+    .expect("the object index builds");
     let bin = cache.bin_tables();
     let names = CacheNames::new(&bin, &wad);
     let build = GameBuild::installed(&config);
@@ -89,7 +98,6 @@ fn measure_the_reference_walk() {
             archives: &archives,
             budget: &budget,
             workers: files_at_once(),
-            chunks: None,
         };
         let started = Instant::now();
         let result = index.walk(&request, &names, Some(schema.at(build)), || false, |_| {});
