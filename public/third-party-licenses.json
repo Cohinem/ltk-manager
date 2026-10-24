@@ -2482,6 +2482,14 @@
       ]
     },
     {
+      "name": "ltk_game_index",
+      "version": "0.2.0",
+      "url": "https://github.com/LeagueToolkit/league-mod",
+      "licenses": [
+        45
+      ]
+    },
+    {
       "name": "ltk_hash",
       "version": "0.5.1",
       "licenses": [

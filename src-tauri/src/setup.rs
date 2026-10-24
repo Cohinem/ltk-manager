@@ -125,7 +125,11 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(checksum_mismatches);
     app.manage(wad_reports);
     app.manage(ltk_manager_assets::strings::StringKeyIndexState::default());
-    app.manage(ltk_manager_assets::game_index::GameIndexState::default());
+    app.manage(
+        crate::state::chunk_index_cache_path(&app_handle)
+            .map(ltk_manager_assets::game_index::GameIndexState::cached_at)
+            .unwrap_or_default(),
+    );
     app.manage(wad_resolver);
     app.manage(ltk_manager_assets::game_index::SearchGeneration::default());
     app.manage(ltk_manager_assets::game_index::FindGeneration::default());
