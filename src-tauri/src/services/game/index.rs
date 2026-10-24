@@ -197,7 +197,7 @@ pub(crate) fn find_query(pattern: &str, regex: bool) -> AppResult<Option<FindQue
     FindQuery::parse(pattern, syntax).map_err(|e| AppError::ValidationFailed(e.to_string()))
 }
 
-/// Drop the built index of `source`, so the next read walks the install again.
+/// Drop the built index of `source`, so the next read reads the install again.
 ///
 /// Unmounts the cached archives with it, and for the game drops the object
 /// index, which was fed by this one. Asking for a fresh index is the one signal

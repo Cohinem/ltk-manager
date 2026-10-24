@@ -3583,19 +3583,27 @@ pass removes the second download.
 
 The index holds the chunk table of every archive under `DATA/FINAL`, recursed. The game
 holds no archive outside that directory. The browser reads the index and never mounts an
-archive to draw a row. The overlay builder reads the same index, because the game gets one
-index and not two.
+archive to draw a row.
 
-The manager builds it in memory at the first read of a session. A live install measures
-456 archives and 939,329 chunks, and the build takes 1.3 seconds. A directory read from
-the built index takes 30 microseconds.
+The index has two layers:
+
+- The chunk index is `ltk_game_index::GameIndex`. It holds every chunk hash with its size
+  and every archive that contains it, and no path. The manager writes it to
+  `game-index/chunks.bin` under the app cache directory
+- The tree resolves every chunk hash through the hash tables and folds the paths into
+  directories. The manager builds it in memory at the first read of a session, from the
+  chunk index
+
+A live install measures 456 archives and 939,329 chunks, and the build takes 1.3 seconds.
+A directory read from the built index takes 30 microseconds.
 
 - The build starts at the first read, and not at application start
-- Nothing writes it to disk yet, so it costs those seconds once per session. The
-  memory-mapped cache below is what makes it survive a restart
-- A build reports no progress yet, and the browser holds a spinner while it runs
+- A build reports no progress, and the browser holds a spinner while it runs
 - A rebuild is a control in the browser, because the index is a snapshot of an install
-  that a patch can change under it
+  that a patch can change under it. It drops the tree, and the next read checks the cache
+  against the install
+- The League client's archives under `Plugins` get an index of their own, which no file
+  caches
 
 #### One tree
 
@@ -3616,9 +3624,16 @@ user opens it.
 Only a change of the game invalidates the index. The overlay keeps its own state file for
 the mod set and the mod content, and the index holds neither.
 
-A WAD header carries an xxh3 checksum of the data of the archive. The checksum sits in a
-fixed prefix of the file, so a validation pass reads a few hundred bytes for each archive
-and never touches a chunk table.
+The cache carries the fingerprint of the install: an XXH3 hash over the name, the size and
+the modification time of every archive under `DATA/FINAL`. A read compares it against the
+install, and a mismatch rebuilds the chunk index from every archive and rewrites the cache.
+A new set of hash tables keeps the cache and rebuilds the tree, because the chunk index
+holds no path.
+
+The one cache below replaces the fingerprint with a checksum for each archive. A WAD
+header carries an xxh3 checksum of the data of the archive. The checksum sits in a fixed
+prefix of the file, so a validation pass reads a few hundred bytes for each archive and
+never touches a chunk table.
 
 1. Read the header of every archive under `DATA/FINAL`.
 2. Compare each header checksum against the checksum in the cache.
@@ -3641,9 +3656,10 @@ the index treats a missing checksum as a rebuild.
 
 #### One cache, not two
 
-`ltk_overlay::GameIndex` reads the same chunk tables today and writes its own
-`game_index.bin`. Two caches over one set of bytes is one too many, so the memory-mapped
-cache replaces it. The overlay builder and the game browser then read one file.
+`ltk_overlay` builds the same `ltk_game_index::GameIndex` for each profile and writes it
+to its own `game_index.bin`. Two caches over one set of bytes is one too many, so the
+memory-mapped cache replaces it. The overlay builder and the game browser then read one
+file.
 
 | Axis         | `game_index.bin` today         | The one cache                  |
 | ------------ | ------------------------------ | ------------------------------ |

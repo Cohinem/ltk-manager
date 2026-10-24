@@ -3267,6 +3267,7 @@ dependencies = [
  "ltk_anim",
  "ltk_fantome",
  "ltk_file",
+ "ltk_game_index 0.2.0",
  "ltk_hash",
  "ltk_hashdb",
  "ltk_hashtable",
@@ -3693,6 +3694,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "ltk_game_index"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4213a14fac6cf9f4ee4609f22c7fe8476f144fb490e7499e4e782e43151f9e49"
+dependencies = [
+ "camino",
+ "ltk_hash",
+ "ltk_wad",
+ "rayon",
+ "rmp-serde",
+ "serde",
+ "thiserror 2.0.18",
+ "tracing",
+ "walkdir",
+ "xxhash-rust",
+]
+
+[[package]]
 name = "ltk_hash"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3883,7 +3902,7 @@ dependencies = [
  "ltk_fantome",
  "ltk_file",
  "ltk_game_data",
- "ltk_game_index",
+ "ltk_game_index 0.1.5",
  "ltk_meta",
  "ltk_mod_project",
  "ltk_modpkg",
