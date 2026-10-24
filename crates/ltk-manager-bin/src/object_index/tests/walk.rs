@@ -8,6 +8,8 @@ use ltk_meta::property::Kind;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use super::super::walk::{FileTarget, HitStep, WalkHit, scan_bin, spelled_property};
+use ltk_game_index::TermIndex;
+use ltk_manager_assets::game_wads::ChunkPaths;
 
 const SKIN: &str = "characters/aatrox/skins/skin0";
 const RESOURCES: &str = "characters/aatrox/skins/skin0/resources";
@@ -477,6 +479,7 @@ fn the_walk_groups_the_layers_first_and_then_the_install_in_archive_order() {
         archives: &fixture.archives,
         budget: &budget,
         workers: 2,
+        chunks: None,
     };
     let reports = AtomicU32::new(0);
 
@@ -534,6 +537,7 @@ fn a_cancelled_walk_says_so_and_keeps_what_it_found() {
         archives: &fixture.archives,
         budget: &budget,
         workers: 1,
+        chunks: None,
     };
 
     let result = fixture
@@ -554,6 +558,7 @@ fn an_overtaken_walk_is_superseded_rather_than_cancelled() {
         archives: &fixture.archives,
         budget: &budget,
         workers: 1,
+        chunks: None,
     };
 
     let result = fixture
@@ -573,6 +578,7 @@ fn the_walk_caps_the_rows_and_counts_on_past_the_cap() {
         archives: &fixture.archives,
         budget: &budget,
         workers: 1,
+        chunks: None,
     };
 
     let result = fixture
@@ -652,4 +658,103 @@ fn layer_bins_lists_every_bin_of_every_layer_and_nothing_else() {
 fn a_project_with_no_content_holds_no_layer_bins() {
     let tmp = tempfile::tempdir().unwrap();
     assert!(layer_bins(tmp.path().to_str().unwrap()).unwrap().is_empty());
+}
+
+/// The term index over `wads`, with every chunk path of `wads` named.
+fn terms_of(archives: &GameArchives, wads: &[(&str, &[Chunk<'_>])]) -> TermIndex {
+    let chunks = archives.chunk_index(None).unwrap();
+    let resolver = resolver_for(&paths_of(wads));
+    let paths = ChunkPaths(&resolver);
+    let mut options = ltk_game_index::BuildOptions::default();
+    options.resolver = Some(&paths);
+    TermIndex::build_with(&chunks, &options).unwrap()
+}
+
+#[test]
+fn walk_reads_only_the_chunks_that_the_postings_name() {
+    let first: &[Chunk<'_>] = &[
+        ("data/a.bin", linking_bin("characters/a")),
+        ("data/none.bin", prop(&[("characters/none", "Skin")])),
+    ];
+    let second: &[Chunk<'_>] = &[("data/b.bin", linking_bin("characters/b"))];
+    let wads: &[(&str, &[Chunk<'_>])] = &[("A.wad.client", first), ("B.wad.client", second)];
+    let fixture = fixture();
+    let terms = terms_of(&fixture.archives, wads);
+    let target = WalkTarget::Linked(h(RESOURCES));
+
+    let chunks = target.chunks_in(&terms);
+    assert_eq!(
+        chunks,
+        [
+            WadHash::hash_str("data/a.bin"),
+            WadHash::hash_str("data/b.bin")
+        ]
+        .into_iter()
+        .collect()
+    );
+
+    let budget = Budget::sweep();
+    let request = WalkRequest {
+        target,
+        layers: &[],
+        archives: &fixture.archives,
+        budget: &budget,
+        workers: 1,
+        chunks: Some(&chunks),
+    };
+    let total = AtomicU32::new(0);
+    let result = fixture.index.walk(
+        &request,
+        &names(),
+        None,
+        || false,
+        |progress| {
+            total.store(progress.total, Ordering::Relaxed);
+        },
+    );
+
+    let files: Vec<&str> = result
+        .groups
+        .iter()
+        .map(|group| group.file.as_str())
+        .collect();
+    assert_eq!(files, ["data/a.bin", "data/b.bin"]);
+    assert_eq!(
+        total.load(Ordering::Relaxed),
+        2,
+        "the bin with no link is not read"
+    );
+}
+
+#[test]
+fn chunks_in_finds_a_file_named_by_a_string_in_another_case() {
+    let texture = "assets/characters/aatrox/skins/base/aatrox_base_tx_cm.tex";
+    let bin = Bin::builder()
+        .object(
+            BinObject::builder(h(SKIN), h("Skin"))
+                .property(
+                    h("texture"),
+                    values::String::from(
+                        "ASSETS/Characters/Aatrox/Skins/Base/Aatrox_Base_TX_CM.tex",
+                    ),
+                )
+                .build(),
+        )
+        .build();
+    let mut bytes = Cursor::new(Vec::new());
+    bin.to_writer(&mut bytes).unwrap();
+    let chunks: &[Chunk<'_>] = &[
+        ("data/skin0.bin", bytes.into_inner()),
+        ("data/other.bin", prop(&[("characters/other", "Skin")])),
+    ];
+    let wads: &[(&str, &[Chunk<'_>])] = &[("Aatrox.wad.client", chunks)];
+    let game = game_with(wads);
+    let terms = terms_of(&GameArchives::at(game.path()), wads);
+
+    let found = WalkTarget::File(FileTarget::named(texture)).chunks_in(&terms);
+
+    assert_eq!(
+        found,
+        [WadHash::hash_str("data/skin0.bin")].into_iter().collect()
+    );
 }

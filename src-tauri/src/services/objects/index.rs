@@ -23,9 +23,9 @@ use ltk_manager_base::generation::line;
 use ltk_manager_base::hashing::HexBinHash;
 use ltk_manager_bin::bin_document::{BinDocumentId, BinDocuments, BinObjectHeader};
 use ltk_manager_bin::object_index::{
-    self, layer_bins, parse_hash, BuildTicket, DeclaredObject, FileTarget, ObjectDirListing,
-    ObjectFindResult, ObjectIndex, ObjectIndexSnapshot, ObjectSearchResult, ReferenceResult,
-    WalkRequest, WalkTarget,
+    self, layer_bins, parse_hash, term_index, BuildTicket, DeclaredObject, FileTarget,
+    IndexSnapshot, ObjectDirListing, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot,
+    ObjectSearchResult, ReferenceResult, TermIndex, WalkRequest, WalkTarget,
 };
 use ltk_manager_bin::sandbox::SandboxRef;
 use ltk_manager_game::spell::{self, SpellCatalog};
@@ -38,6 +38,15 @@ use tauri::{AppHandle, Manager};
 
 /// The managed object index, keeping a failed build as the error the frontend reads.
 pub type ObjectIndexState = object_index::ObjectIndexState<AppErrorResponse>;
+
+/// The managed term index, which a reference walk reads its postings from.
+pub type TermIndexState = object_index::TermIndexState<AppErrorResponse>;
+
+/// Drops the object index and the term index, and the result of any build still running.
+pub(crate) fn clear_indexes(app: &AppHandle) {
+    app.state::<ObjectIndexState>().clear();
+    app.state::<TermIndexState>().clear();
+}
 
 /// A response of the object index, given the slot the index is in.
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -117,11 +126,11 @@ fn build(
     Ok(index.named(&CacheNames::new(&cache.bin_tables(), &wad)))
 }
 
-/// Drop the object index, and the result of any build still running.
+/// Drop the object index and the term index, and the result of any build still running.
 #[tauri::command]
 #[specta::specta]
 pub async fn drop_object_index(app_handle: AppHandle) -> IpcResult<()> {
-    app_handle.state::<ObjectIndexState>().clear();
+    clear_indexes(&app_handle);
     IpcResult::ok(())
 }
 
@@ -408,6 +417,12 @@ fn walk(
     let names = CacheNames::new(&bin, &wad);
     let (schema, build) = crate::services::shared::installed::installed_schema(app);
 
+    let terms = match app.state::<TermIndexState>().snapshot() {
+        IndexSnapshot::Ready(terms) => Some(terms),
+        _ => None,
+    };
+    let chunks = terms.as_deref().map(|terms| target.chunks_in(terms));
+
     let events = TauriEventSink::new(app.clone());
     let last_report = Mutex::new(None::<Instant>);
     let request = WalkRequest {
@@ -416,6 +431,7 @@ fn walk(
         archives: &archives,
         budget: &budget,
         workers: files_at_once(),
+        chunks: chunks.as_ref(),
     };
     let result = index.walk(
         &request,
@@ -439,7 +455,61 @@ fn walk(
     if in_flight.as_ref().is_some_and(|walk| walk.is(&budget)) {
         *in_flight = None;
     }
+    drop(in_flight);
+
+    if terms.is_none() {
+        warm_term_index(app);
+    }
     Ok(result)
+}
+
+/// Build the term index on a thread of its own, unless one is built or building.
+///
+/// The index loads from its cache file when the cache matches the install. A walk
+/// that runs while the slot is not ready reads every declaring file.
+fn warm_term_index(app: &AppHandle) {
+    let Some(ticket) = app.state::<TermIndexState>().begin() else {
+        return;
+    };
+
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<TermIndexState>();
+        let built = build_term_index(&app, &state, ticket);
+        if let Err(e) = &built {
+            tracing::warn!("Could not build the term index: {e}");
+        }
+        state.finish(ticket, built.map_err(AppErrorResponse::from));
+    });
+}
+
+/// The term index over the install the settings name.
+fn build_term_index(
+    app: &AppHandle,
+    state: &TermIndexState,
+    ticket: BuildTicket,
+) -> AppResult<TermIndex> {
+    let config = app.state::<SettingsState>().config();
+    let archives = GameArchives::resolve(&config)?;
+    let chunks = app.state::<GameIndexState>().chunk_index(&archives)?;
+    let wad = app.state::<Arc<WadPathResolverState>>().get();
+    let cache = crate::state::term_index_cache_path(app);
+    let started = Instant::now();
+
+    let terms = term_index(
+        &chunks,
+        &ChunkPaths(wad.tables()),
+        files_at_once(),
+        &|| !state.is_current(ticket),
+        cache.as_deref(),
+    )?;
+
+    tracing::info!(
+        declarations = terms.objects().rows().len(),
+        elapsed_ms = started.elapsed().as_millis() as u64,
+        "Warmed the term index"
+    );
+    Ok(terms)
 }
 
 /// Call off the walk in flight, if there is one.

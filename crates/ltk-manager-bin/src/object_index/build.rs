@@ -3,13 +3,15 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
+use std::path::Path;
 use std::sync::Arc;
 
-use ltk_game_index::{BuildOptions, ObjectBuildError, ResolveWadPath};
+use camino::Utf8Path;
+use ltk_game_index::{BuildOptions, ObjectBuildError, ResolveWadPath, TermIndex};
 use ltk_wad::WadHash;
 
 use ltk_manager_assets::game_wads::ChunkIndex;
-use ltk_manager_base::error::{AppError, AppResult};
+use ltk_manager_base::error::{AppError, AppResult, Utf8PathRefExt as _};
 
 use super::browse::compare_paths;
 use super::{Declarations, DeclaringFile, Names, ObjectIndex};
@@ -73,6 +75,54 @@ impl ObjectIndex {
             }),
             names: Names::default(),
         })
+    }
+}
+
+/// Reads every bin chunk of `chunks` in full for its declarations and terms.
+///
+/// Reads the index from `cache` if the cached fingerprint matches `chunks`, and otherwise
+/// builds it and writes it to `cache`. Without `cache` the index is built and written
+/// nowhere. The read, the workers and `called_off` are those of [`ObjectIndex::build`].
+///
+/// # Errors
+///
+/// Fails when the build was called off, and if `cache` is not UTF-8.
+pub fn term_index(
+    chunks: &ChunkIndex,
+    paths: &dyn ResolveWadPath,
+    workers: usize,
+    called_off: &(impl Fn() -> bool + Sync),
+    cache: Option<&Path>,
+) -> AppResult<TermIndex> {
+    let options = build_options(paths, workers, called_off);
+    let built = match cache {
+        Some(cache) => {
+            let cache: &Utf8Path = cache.try_as_utf8("term index cache")?;
+            TermIndex::load_or_build_with(chunks, cache, &options)
+        }
+        None => TermIndex::build_with(chunks, &options),
+    };
+    built.map_err(|e| build_error("term index", e))
+}
+
+/// The options of one build over `paths` on `workers` threads, polling `called_off`.
+fn build_options<'a>(
+    paths: &'a dyn ResolveWadPath,
+    workers: usize,
+    called_off: &'a (dyn Fn() -> bool + Sync),
+) -> BuildOptions<'a> {
+    let mut options = BuildOptions::default();
+    options.resolver = Some(paths);
+    options.workers = NonZeroUsize::new(workers);
+    options.called_off = Some(called_off);
+    options
+}
+
+/// The app error of a build of `what` that did not finish.
+fn build_error(what: &str, error: ObjectBuildError) -> AppError {
+    match error {
+        ObjectBuildError::CalledOff => AppError::Other(format!("The {what} build was called off")),
+        other => AppError::Other(format!("Could not build the {what}: {other}")),
     }
 }
 

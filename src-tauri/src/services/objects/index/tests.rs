@@ -89,6 +89,7 @@ fn measure_the_reference_walk() {
             archives: &archives,
             budget: &budget,
             workers: files_at_once(),
+            chunks: None,
         };
         let started = Instant::now();
         let result = index.walk(&request, &names, Some(schema.at(build)), || false, |_| {});
