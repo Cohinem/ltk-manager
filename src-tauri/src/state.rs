@@ -362,7 +362,6 @@ mod tests {
         assert!(settings.config.wad_blocklist.is_empty());
         assert!(settings.config.auto_categorization_enabled);
         assert!(settings.show_mod_tags);
-        assert!(settings.config.enforce_skinhack_scan);
         assert!(!settings.config.apply_string_overrides_to_all_locales);
         assert!(!settings.config.verbose_patcher_logging);
         assert!(!settings.config.full_wad_scan);
@@ -472,7 +471,7 @@ mod tests {
         };
         let json = serde_json::to_value(&settings).unwrap();
         assert_eq!(json["leaguePath"], "/game");
-        assert_eq!(json["enforceSkinhackScan"], true);
+        assert_eq!(json["blockScriptsWad"], true);
         assert!(json.get("config").is_none());
     }
 

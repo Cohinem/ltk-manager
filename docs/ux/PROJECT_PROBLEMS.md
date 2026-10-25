@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-25 | `bin/skinhack` reports a base skin built from another skin   |
 | 2026-10-22 | The material name table claims live patch 16.21              |
 | 2026-10-21 | `bin/property-type` rehashes a material name for patch 16.22 |
 | 2026-10-16 | A finding opens the setting that its rule links to           |
@@ -13,7 +14,6 @@
 | 2026-10-02 | Check only packed files, and report packed working files     |
 | 2026-09-30 | Name each unchecked file once, with its reason               |
 | 2026-09-17 | Open a bin finding at the node it names                      |
-| 2026-09-05 | Point the lazy-read link at the reader that landed           |
 
 Each edit of this document adds a row at the top. The table keeps the last ten rows.
 
@@ -60,6 +60,7 @@ This table holds every major feature of Problems. A status word has one meaning.
 | Object link rule     | Available | `bin/object-link`. A link to an object no mod or game bin defines      |
 | Texture file rule    | Available | `bin/texture-file`. A texture property that names a non-image file     |
 | Base skin copy rule  | Available | `bin/base-skin-copy`. A skin bin that is a copy of the base skin       |
+| Skinhack rule        | Available | `bin/skinhack`. A base skin with another skin's mesh or name           |
 | Repair by removal    | Available | A fix may delete a file, where something still answers for it          |
 | The fix preview      | Available | The before value and the after value, for each problem                 |
 | Preserved names      | Available | A fix writes what it hashes into the mod's own `hashes/`               |

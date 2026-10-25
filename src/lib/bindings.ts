@@ -971,13 +971,6 @@ export type Config_Deserialize = {
 	/**  Enabling a mod moves it to the front of its folder. Off by default. */
 	promoteEnabledMods?: boolean,
 	/**
-	 *  Whether to enforce the anti-skinhack scan while patching. When on
-	 *  (default), a champion WAD that fails the scan aborts patching. When off,
-	 *  the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
-	 *  downgraded to warnings and flagged mods load anyway. Default: true.
-	 */
-	enforceSkinhackScan?: boolean,
-	/**
 	 *  Whether mods' string overrides are applied to every installed locale
 	 *  instead of only the locale the League client is configured to use.
 	 *  Default: false (current locale only).
@@ -1091,13 +1084,6 @@ export type Config_Serialize = {
 	autoHealthCheckEnabled: boolean,
 	/**  Enabling a mod moves it to the front of its folder. Off by default. */
 	promoteEnabledMods: boolean,
-	/**
-	 *  Whether to enforce the anti-skinhack scan while patching. When on
-	 *  (default), a champion WAD that fails the scan aborts patching. When off,
-	 *  the `CSLOL_HOOK_OPT_OUT_AH_V1` hook flag is set so failures are
-	 *  downgraded to warnings and flagged mods load anyway. Default: true.
-	 */
-	enforceSkinhackScan: boolean,
 	/**
 	 *  Whether mods' string overrides are applied to every installed locale
 	 *  instead of only the locale the League client is configured to use.
