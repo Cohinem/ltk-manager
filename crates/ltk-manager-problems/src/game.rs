@@ -7,7 +7,6 @@
 //! patches, so they still name a path Riot removed. Trusting them here deletes
 //! a file whose backing is gone.
 
-#[cfg(test)]
 use std::collections::HashMap;
 use std::num::NonZeroUsize;
 use std::path::Path;
@@ -17,6 +16,8 @@ use ltk_game_index::{BuildOptions, ObjectIndex};
 use ltk_hash::BinHash;
 use ltk_hashdb::LayeredHashDb;
 use ltk_wad::WadHash;
+use parking_lot::Mutex;
+use sha2::{Digest, Sha256};
 
 use ltk_manager_assets::game_wads::{ChunkIndex, ChunkPaths, GameArchives, WadCache};
 use ltk_manager_assets::hashtables::HashtableCache;
@@ -47,6 +48,18 @@ pub trait GameContent: std::fmt::Debug + Send + Sync {
     /// as one sentence a panel can draw.
     fn read(&self, path: WadHash) -> Result<Option<Vec<u8>>, String>;
 
+    /// Returns the SHA-256 of the chunk's decompressed bytes, or `None` where no archive
+    /// contains it.
+    ///
+    /// The default reads and hashes the chunk on every call.
+    ///
+    /// # Errors
+    ///
+    /// Fails where [`read`](Self::read) fails.
+    fn digest(&self, path: WadHash) -> Result<Option<[u8; 32]>, String> {
+        Ok(self.read(path)?.map(|bytes| Sha256::digest(&bytes).into()))
+    }
+
     /// Returns the installed chunks that declare the bin object `object`.
     ///
     /// Returns `None` if the bin objects of the install cannot be indexed. The
@@ -74,6 +87,9 @@ pub struct InstalledContent {
     /// The bin objects of the install, or `None` if the build failed.
     objects: OnceLock<Option<ObjectIndex>>,
     mounts: WadCache,
+    /// The SHA-256 of each chunk read through [`GameContent::digest`], keyed by the chunk
+    /// and its table-of-contents checksum.
+    digests: Mutex<HashMap<(WadHash, u64), [u8; 32]>>,
 }
 
 impl InstalledContent {
@@ -91,6 +107,7 @@ impl InstalledContent {
             chunks: OnceLock::new(),
             objects: OnceLock::new(),
             mounts: WadCache::default(),
+            digests: Mutex::default(),
         }
     }
 
@@ -217,6 +234,30 @@ impl GameContent for InstalledContent {
             )
             .map(Some)
             .map_err(|e| e.to_string())
+    }
+
+    /// Hashes the chunk once for each table-of-contents checksum, so a patch that changes
+    /// the chunk also changes the key.
+    fn digest(&self, path: WadHash) -> Result<Option<[u8; 32]>, String> {
+        let Some(checksum) = self
+            .index()
+            .and_then(|index| index.row(path))
+            .and_then(|row| row.copies().first())
+            .map(|copy| copy.checksum)
+        else {
+            return Ok(None);
+        };
+
+        if let Some(digest) = self.digests.lock().get(&(path, checksum)) {
+            return Ok(Some(*digest));
+        }
+
+        let Some(bytes) = self.read(path)? else {
+            return Ok(None);
+        };
+        let digest: [u8; 32] = Sha256::digest(&bytes).into();
+        self.digests.lock().insert((path, checksum), digest);
+        Ok(Some(digest))
     }
 }
 
