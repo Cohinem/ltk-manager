@@ -136,11 +136,6 @@ const INDEX = [
   },
   { id: "patching.betaPatcher", key: "betaPatcher", title: "Beta patcher" },
   { id: "patching.blockScriptsWad", key: "blockScriptsWad", title: "Block Scripts.wad.client" },
-  {
-    id: "patching.enforceSkinhackScan",
-    key: "enforceSkinhackScan",
-    title: "Enforce anti-skinhack scan",
-  },
   { id: "patching.fullWadScan", key: "fullWadScan", title: "Scan every WAD up front" },
   {
     id: "patching.disableCrashReporting",
