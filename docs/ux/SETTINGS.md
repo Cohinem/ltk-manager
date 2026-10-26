@@ -177,6 +177,7 @@ label sits over a block either way.
   | MOD SAFETY                              (r) |  <- resets the group, once two rows differ
   | Block Scripts.wad.client  (r)           ( ) |
   |  ! Modding allows running Lua scripts.      |  <- an alert belongs to the row that raised it
+  | Enforce anti-skinhack scan  (r)         ( ) |
   | ------------------------------------------- |
   | INCIDENTS                                   |
   | Allow reading game logs                 (O) |
@@ -855,7 +856,7 @@ Card `Patching`:
 | Group         | Rows                                                                          |
 | ------------- | ----------------------------------------------------------------------------- |
 | Injector      | Patch TFT files, Run injector elevated, Verbose patcher logging, Beta patcher |
-| Mod safety    | Block Scripts.wad.client                                                      |
+| Mod safety    | Block Scripts.wad.client, Enforce anti-skinhack scan                          |
 | Game archives | Scan every WAD up front, Disable crash reporting                              |
 | Incidents     | Allow reading game logs, Keep incidents                                       |
 
