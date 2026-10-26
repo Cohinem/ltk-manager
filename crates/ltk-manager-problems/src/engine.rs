@@ -69,6 +69,9 @@ pub struct ProjectFiles {
     names: Arc<BinNames>,
     budget: Budget,
     game: Option<Arc<dyn GameContent>>,
+    /// Whether the anti-skinhack scan is enforced for this run. The
+    /// `bin/skinhack` rule is dormant while it is off.
+    enforce_skinhack_scan: bool,
     /// Whether the tree holds a `.modignore` anywhere, the root or under
     /// `content/`. `false` for an archive, which holds none.
     has_ignore_rules: bool,
@@ -144,6 +147,7 @@ impl ProjectFiles {
             names: Arc::new(BinNames::open(project_root)),
             budget,
             game,
+            enforce_skinhack_scan: config.enforce_skinhack_scan,
             has_ignore_rules,
             workshop: false,
         })
@@ -189,6 +193,7 @@ impl ProjectFiles {
             names: Arc::new(BinNames::with_declared(scan.tables)),
             budget,
             game,
+            enforce_skinhack_scan: config.enforce_skinhack_scan,
             has_ignore_rules: false,
             workshop: false,
         })
@@ -219,6 +224,12 @@ impl ProjectFiles {
     #[must_use]
     pub fn game(&self) -> Option<&dyn GameContent> {
         self.game.as_deref()
+    }
+
+    /// Whether the anti-skinhack scan is enforced for this run.
+    #[must_use]
+    pub fn enforce_skinhack_scan(&self) -> bool {
+        self.enforce_skinhack_scan
     }
 
     /// Whether this is a workshop project with no `.modignore` anywhere.

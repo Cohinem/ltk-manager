@@ -15,8 +15,8 @@ use sha2::{Digest, Sha256};
 use crate::engine::parse_bin;
 use crate::game::GameContent;
 use crate::{
-    Applied, Detail, FileHandle, FixError, FixRun, ObjectRead, Pass, Problem, ProblemSeverity,
-    ProjectFiles, Rule, RuleId, RuleMeta, Site, Weight,
+    Applied, Detail, Dormancy, FileHandle, FixError, FixRun, ObjectRead, Pass, Problem,
+    ProblemSeverity, ProjectFiles, Rule, RuleId, RuleMeta, Site, Weight,
 };
 use ltk_manager_base::hashing::named;
 use ltk_manager_bin::bin_walk::Declared;
@@ -53,6 +53,15 @@ const META: RuleMeta = RuleMeta {
 impl Rule for BinSkinhack {
     fn meta(&self) -> &RuleMeta {
         &META
+    }
+
+    fn dormant(&self, project: &ProjectFiles) -> Option<Dormancy> {
+        (!project.enforce_skinhack_scan()).then(|| {
+            Dormancy::new(
+                "The anti-skinhack scan",
+                "Turn the anti-skinhack scan on in Settings → Patching to run this check.",
+            )
+        })
     }
 
     fn subscribe(&self, pass: &mut Pass<'_>) {

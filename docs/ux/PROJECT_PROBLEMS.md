@@ -4,6 +4,7 @@
 
 | Date       | Change                                                       |
 | ---------- | ------------------------------------------------------------ |
+| 2026-10-26 | `bin/skinhack` is off with the anti-skinhack scan            |
 | 2026-10-25 | `bin/skinhack` reports a base skin built from another skin   |
 | 2026-10-22 | The material name table claims live patch 16.21              |
 | 2026-10-21 | `bin/property-type` rehashes a material name for patch 16.22 |

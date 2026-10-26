@@ -8,6 +8,7 @@ use ltk_meta::property::values;
 use ltk_meta::{Bin, PropertyKind};
 
 use super::*;
+use crate::RuleState;
 use crate::game::FakeContent;
 use ltk_manager_base::config::Config;
 
@@ -103,6 +104,14 @@ fn tree(
     files: &[(String, Vec<u8>)],
     game: Option<Arc<dyn GameContent>>,
 ) -> (tempfile::TempDir, ProjectFiles) {
+    tree_with_config(files, game, &Config::default())
+}
+
+fn tree_with_config(
+    files: &[(String, Vec<u8>)],
+    game: Option<Arc<dyn GameContent>>,
+    config: &Config,
+) -> (tempfile::TempDir, ProjectFiles) {
     let tmp = tempfile::tempdir().unwrap();
     for (path, bytes) in files {
         let at = tmp
@@ -114,8 +123,25 @@ fn tree(
         fs::write(&at, bytes).unwrap();
     }
 
-    let files = ProjectFiles::read(tmp.path(), &Config::default(), game).unwrap();
+    let files = ProjectFiles::read(tmp.path(), config, game).unwrap();
     (tmp, files)
+}
+
+/// A base skin that points at skin 7's meshes, the fixture the first test
+/// below reports.
+fn flagged() -> (String, Vec<u8>) {
+    (
+        in_layer(SKIN0),
+        skin_bin(0, SKIN7_SKL, SKIN7_SKN, Vec::new()),
+    )
+}
+
+fn skinhack_state(run: &crate::Run) -> &RuleState {
+    &run.rules
+        .iter()
+        .find(|rule| rule.id == ID)
+        .expect("the run lists the skinhack rule")
+        .state
 }
 
 fn found_in(files: &ProjectFiles) -> Vec<Problem> {
@@ -154,6 +180,30 @@ fn base_skin_pointed_at_other_skin_meshes_is_reported() {
         messages(&problems),
         ["SkinMeshProperties.Skeleton is the mesh of skin 7"]
     );
+}
+
+#[test]
+fn base_skin_pointed_at_other_skin_meshes_is_reported_when_scan_is_on() {
+    let (_tmp, files) = tree(&[flagged()], Some(game()));
+
+    let run = files.checked();
+
+    assert_eq!(run.live_problems().filter(|p| p.rule == ID).count(), 1);
+    assert!(matches!(skinhack_state(&run), RuleState::Active));
+}
+
+#[test]
+fn base_skin_pointed_at_other_skin_meshes_is_dormant_when_scan_is_off() {
+    let config = Config {
+        enforce_skinhack_scan: false,
+        ..Default::default()
+    };
+    let (_tmp, files) = tree_with_config(&[flagged()], Some(game()), &config);
+
+    let run = files.checked();
+
+    assert_eq!(run.live_problems().filter(|p| p.rule == ID).count(), 0);
+    assert!(matches!(skinhack_state(&run), RuleState::Dormant { .. }));
 }
 
 #[test]
