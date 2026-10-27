@@ -1,4 +1,5 @@
 import {
+  CloudArrowUpIcon,
   CursorTextIcon,
   FolderOpenIcon,
   LinkBreakIcon,
@@ -14,6 +15,7 @@ import { Menu } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { useStopPatcher } from "@/modules/patcher";
+import { usePublishToRuneforge } from "@/modules/runeforge";
 import {
   type ProjectSelectionActions,
   useProjectActions,
@@ -23,6 +25,7 @@ import {
 import { usePatcherSessionStore } from "@/stores";
 
 import { useForgetProjectFolder } from "../../folders/api/projectFolders";
+import { packFormats, usePackTarget } from "../../state";
 
 interface ProjectCardMenuItemsProps {
   project: WorkshopProject;
@@ -40,6 +43,8 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
   const actions = useProjectActions(project);
   const testState = useWorkshopTestState(project);
   const forgetFolder = useForgetProjectFolder();
+  const packTarget = usePackTarget();
+  const publishToRuneforge = usePublishToRuneforge();
   const testing = testState.kind === "building-this" || testState.kind === "running-this";
 
   return (
@@ -57,6 +62,12 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
         onClick={actions.handlePack}
       >
         {m.workshop_pack_action()}
+      </Menu.Item>
+      <Menu.Item
+        icon={<CloudArrowUpIcon weight="bold" className="size-4" />}
+        onClick={() => publishToRuneforge(project, packFormats(packTarget)[0])}
+      >
+        {m.runeforge_publish_action()}
       </Menu.Item>
       <Menu.Item
         icon={<CursorTextIcon weight="bold" className="size-4" />}

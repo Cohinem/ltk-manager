@@ -1,4 +1,5 @@
 import {
+  CloudArrowUpIcon,
   DotsThreeVerticalIcon,
   FolderOpenIcon,
   PackageIcon,
@@ -12,11 +13,12 @@ import { Button, ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { Incident, WorkshopProject } from "@/lib/tauri";
 import { useLatestIncident } from "@/modules/diagnostics";
+import { usePublishToRuneforge } from "@/modules/runeforge";
 import { useIncidentLineStore } from "@/stores";
 
 import { packTargetHint, PackTargetMenu } from "../../packing/components/PackTargetMenu";
 import { neutralTint, packTint, testTint } from "../../shared/utils/actionTints";
-import { usePackTarget } from "../../state";
+import { packFormats, usePackTarget } from "../../state";
 import { useWorkshopTestState } from "../../testing/api/useWorkshopTestState";
 import { TestLayersMenu } from "../../testing/components/TestLayersMenu";
 import { BuildingTestButton, StopTestButton } from "../../testing/components/testSessionButtons";
@@ -32,6 +34,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
   const actions = useProjectActions(project);
   const failedTest = useFailedTest(project.path);
   const packTarget = usePackTarget();
+  const publishToRuneforge = usePublishToRuneforge();
 
   const testButton = match(testState)
     .with({ kind: "idle" }, () => {
@@ -115,6 +118,12 @@ export function ProjectActions({ project }: ProjectActionsProps) {
             onClick={actions.handleOpenLocation}
           >
             {m.workshop_header_open_location_action()}
+          </Menu.Item>
+          <Menu.Item
+            icon={<CloudArrowUpIcon className="size-4" />}
+            onClick={() => publishToRuneforge(project, packFormats(packTarget)[0])}
+          >
+            {m.runeforge_publish_action()}
           </Menu.Item>
           <Menu.Separator />
           <Menu.Item
