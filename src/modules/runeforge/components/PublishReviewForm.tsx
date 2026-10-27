@@ -7,6 +7,7 @@ import {
   Checkbox,
   Dialog,
   FormField,
+  Grid,
   Inline,
   SelectField,
   Stack,
@@ -16,6 +17,7 @@ import { describeError, errorSummary, m } from "@/i18n";
 import type { AppError, PostField, Prefill, PublishRequest, PublishReview } from "@/lib/tauri";
 
 import { runeforgeMutations, runeforgeQueries } from "../api";
+import { categoryLabel } from "../utils/categories";
 import {
   initialPublishForm,
   type PublishForm,
@@ -26,6 +28,9 @@ import { FindingList } from "./FindingList";
 
 /** The value of the target picker that stands for a new post. */
 const NEW_POST = "new";
+
+/** Two equal columns, for the fields that sit side by side. */
+const TWO_COLUMNS = "minmax(0, 1fr) minmax(0, 1fr)";
 
 /** The value of the game version picker that stands for none. */
 const NO_GAME_VERSION = "none";
@@ -58,7 +63,7 @@ export function PublishReviewForm({
 
   const isRelease = form.target.kind === "existing";
   const canPublish = status?.account?.scopes.includes("publish") ?? false;
-  const findings = [...review.review.findings, ...prefill.findings];
+  const findings = prefill.findings;
   const rejected = findings.some((finding) => finding.severity === "error");
   const takenBySubmit = submitError ? takenTag(submitError) : null;
   const suggestedTag = takenBySubmit ?? prefill.suggestedTag;
@@ -124,7 +129,7 @@ export function PublishReviewForm({
           />
 
           {!isRelease && (
-            <Stack gap={3}>
+            <Grid columns={TWO_COLUMNS} gap={3}>
               <FormField
                 label={m.runeforge_publish_name_label()}
                 value={form.name}
@@ -135,35 +140,50 @@ export function PublishReviewForm({
                 label={m.runeforge_publish_category_label()}
                 options={(context?.categories ?? [form.category]).map((category) => ({
                   value: category,
-                  label: category,
+                  label: categoryLabel(category),
                 }))}
                 value={form.category}
                 onValueChange={(category) => category && update({ category })}
                 disabled={submitting}
               />
-            </Stack>
+            </Grid>
           )}
 
-          <FormField
-            label={m.runeforge_publish_tag_label()}
-            value={form.tag}
-            onChange={(event) => update({ tag: event.target.value })}
-            error={takenBySubmit && submitError ? errorSummary(submitError) : undefined}
-            disabled={submitting || prefillFor.isPending}
-            inputClassName="font-mono"
-          />
-          {offerTag && (
-            <Inline gap={2}>
-              <Button
-                variant="tonal"
-                size="xs"
-                type="button"
-                onClick={() => update({ tag: suggestedTag })}
-              >
-                {m.runeforge_publish_tag_taken_action({ tag: suggestedTag })}
-              </Button>
-            </Inline>
-          )}
+          <Grid columns={TWO_COLUMNS} gap={3}>
+            <Stack gap={1.5}>
+              <FormField
+                label={m.runeforge_publish_tag_label()}
+                value={form.tag}
+                onChange={(event) => update({ tag: event.target.value })}
+                error={takenBySubmit && submitError ? errorSummary(submitError) : undefined}
+                disabled={submitting || prefillFor.isPending}
+                inputClassName="font-mono"
+              />
+              {offerTag && (
+                <Inline gap={2}>
+                  <Button
+                    variant="tonal"
+                    size="xs"
+                    type="button"
+                    onClick={() => update({ tag: suggestedTag })}
+                  >
+                    {m.runeforge_publish_tag_taken_action({ tag: suggestedTag })}
+                  </Button>
+                </Inline>
+              )}
+            </Stack>
+            <SelectField
+              label={m.runeforge_publish_game_version_label()}
+              options={gameVersionOptions}
+              value={form.gameVersionId ?? NO_GAME_VERSION}
+              onValueChange={(value) =>
+                update({
+                  gameVersionId: value === null || value === NO_GAME_VERSION ? null : value,
+                })
+              }
+              disabled={submitting}
+            />
+          </Grid>
 
           <TextareaField
             label={m.runeforge_publish_notes_label()}
@@ -171,16 +191,6 @@ export function PublishReviewForm({
             onChange={(event) => update({ notes: event.target.value })}
             rows={4}
             disabled={submitting || prefillFor.isPending}
-          />
-
-          <SelectField
-            label={m.runeforge_publish_game_version_label()}
-            options={gameVersionOptions}
-            value={form.gameVersionId ?? NO_GAME_VERSION}
-            onValueChange={(value) =>
-              update({ gameVersionId: value === null || value === NO_GAME_VERSION ? null : value })
-            }
-            disabled={submitting}
           />
 
           {isRelease && refreshable.length > 0 && (

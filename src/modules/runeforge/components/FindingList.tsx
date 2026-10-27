@@ -6,13 +6,12 @@ interface FindingListProps {
   findings: readonly Finding[];
 }
 
-/** The findings of an inspection or a scan, one row each, errors first. */
+/** The errors and warnings of an inspection or a scan, one row each, errors first. */
 export function FindingList({ label, findings }: FindingListProps) {
-  if (findings.length === 0) return null;
+  const reportable = findings.filter((finding) => finding.severity !== "info");
+  if (reportable.length === 0) return null;
 
-  const sorted = [...findings].sort(
-    (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity],
-  );
+  const sorted = reportable.sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 
   return (
     <Stack gap={1.5}>

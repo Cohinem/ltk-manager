@@ -56,7 +56,7 @@ function PublishFlow({ target, onClose }: { target: PublishTarget; onClose: () =
         open
         onClose={close}
         title={m.runeforge_publish_done_title({ name: project.displayName })}
-        size="md"
+        size="xl"
       >
         <PublishDone outcome={submit.data} onClose={close} />
       </Dialog.Shell>
@@ -70,7 +70,7 @@ function PublishFlow({ target, onClose }: { target: PublishTarget; onClose: () =
         onClose={close}
         title={m.runeforge_publish_review_title({ name: project.displayName })}
         description={review.fileName}
-        size="md"
+        size="xl"
         closable={!submit.isPending}
       >
         <PublishReviewForm
@@ -89,7 +89,7 @@ function PublishFlow({ target, onClose }: { target: PublishTarget; onClose: () =
       open
       onClose={close}
       title={m.runeforge_publish_preparing_title({ name: project.displayName })}
-      size="md"
+      size="xl"
     >
       {prepare.error && <PrepareFailed error={prepare.error} onRetry={retry} onClose={close} />}
       {!prepare.error && (
