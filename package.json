@@ -66,6 +66,9 @@
     "crates/ltk-manager-problems/**/*.rs": [
       "cargo fmt --manifest-path crates/ltk-manager-problems/Cargo.toml --"
     ],
+    "crates/ltk-manager-runeforge/**/*.rs": [
+      "cargo fmt --manifest-path crates/ltk-manager-runeforge/Cargo.toml --"
+    ],
     "crates/ltk-manager-runtime/**/*.rs": [
       "cargo fmt --manifest-path crates/ltk-manager-runtime/Cargo.toml --"
     ],
