@@ -1,5 +1,4 @@
 import {
-  CloudArrowUpIcon,
   CursorTextIcon,
   FolderOpenIcon,
   LinkBreakIcon,
@@ -11,7 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import { match } from "ts-pattern";
 
-import { Menu } from "@/components";
+import { Menu, RuneforgeIcon } from "@/components";
 import { m } from "@/i18n";
 import type { WorkshopProject } from "@/lib/tauri";
 import { useStopPatcher } from "@/modules/patcher";
@@ -64,7 +63,7 @@ export function ProjectCardMenuItems({ project, onEdit }: ProjectCardMenuItemsPr
         {m.workshop_pack_action()}
       </Menu.Item>
       <Menu.Item
-        icon={<CloudArrowUpIcon weight="bold" className="size-4" />}
+        icon={<RuneforgeIcon className="size-4" />}
         onClick={() => publishToRuneforge(project, packFormats(packTarget)[0])}
       >
         {m.runeforge_publish_action()}

@@ -1,5 +1,4 @@
 import {
-  CloudArrowUpIcon,
   DotsThreeVerticalIcon,
   FolderOpenIcon,
   PackageIcon,
@@ -9,7 +8,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { match } from "ts-pattern";
 
-import { Button, ButtonGroup, IconButton, Menu, Tooltip } from "@/components";
+import { Button, ButtonGroup, IconButton, Menu, RuneforgeIcon, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import type { Incident, WorkshopProject } from "@/lib/tauri";
 import { useLatestIncident } from "@/modules/diagnostics";
@@ -120,7 +119,7 @@ export function ProjectActions({ project }: ProjectActionsProps) {
             {m.workshop_header_open_location_action()}
           </Menu.Item>
           <Menu.Item
-            icon={<CloudArrowUpIcon className="size-4" />}
+            icon={<RuneforgeIcon className="size-4" />}
             onClick={() => publishToRuneforge(project, packFormats(packTarget)[0])}
           >
             {m.runeforge_publish_action()}
