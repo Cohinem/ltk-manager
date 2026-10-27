@@ -7053,7 +7053,10 @@ export type RuneforgeError =
 { kind: "CONFLICT" } | 
 /**  The package is over the 1 GiB limit. */
 { kind: "TOO_LARGE" } | 
-/**  The token spent its 120 requests a minute. `retry_after` is in seconds. */
+/**
+ *  The server refused the request because the token sent over 120 requests in a minute.
+ *  `retry_after` is in seconds.
+ */
 { kind: "RATE_LIMITED"; retryAfter: number | null } | 
 /**  The storage host refused the PUT of the package bytes with `status`. */
 { kind: "STORAGE"; status: number } | 

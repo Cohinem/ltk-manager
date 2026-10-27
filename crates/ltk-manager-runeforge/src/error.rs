@@ -57,10 +57,11 @@ pub enum RuneforgeError {
     Conflict,
 
     /// The package is over the 1 GiB limit.
-    #[error("the package is over the 1 GB limit")]
+    #[error("the package is over the 1 GiB limit")]
     TooLarge,
 
-    /// The token spent its 120 requests a minute. `retry_after` is in seconds.
+    /// The server refused the request because the token sent over 120 requests in a minute.
+    /// `retry_after` is in seconds.
     #[error("too many RuneForge requests")]
     RateLimited { retry_after: Option<u64> },
 

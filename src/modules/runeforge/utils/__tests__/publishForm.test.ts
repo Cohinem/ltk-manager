@@ -62,14 +62,14 @@ describe("initialPublishForm", () => {
     expect(form.category).toBe("skin");
   });
 
-  it("takes the suggested tag if the tag of the package is taken", () => {
+  it("keeps the tag of the package if the server suggests another", () => {
     const base = review();
     const form = initialPublishForm({
       ...base,
       review: { ...base.review, prefill: { ...base.review.prefill, suggestedTag: "v1.0.2" } },
     });
 
-    expect(form.tag).toBe("v1.0.2");
+    expect(form.tag).toBe("v1.0.1");
   });
 });
 

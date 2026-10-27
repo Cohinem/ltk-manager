@@ -17,7 +17,7 @@ export function FindingList({ label, findings }: FindingListProps) {
   return (
     <Stack gap={1.5}>
       <span className="text-meta font-medium text-surface-300 select-none">{label}</span>
-      <ul className="flex flex-col gap-1" data-ui="FindingList">
+      <Stack as="ul" gap={1}>
         {sorted.map((finding, index) => (
           <li key={`${finding.code}-${index}`}>
             <Inline gap={1.5} align="start">
@@ -33,7 +33,7 @@ export function FindingList({ label, findings }: FindingListProps) {
             </Inline>
           </li>
         ))}
-      </ul>
+      </Stack>
     </Stack>
   );
 }

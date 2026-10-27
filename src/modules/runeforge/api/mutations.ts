@@ -74,13 +74,15 @@ export const runeforgeMutations = {
       mutationFn: async ({ projectPath, request }) =>
         unwrapForQuery(await api.runeforge.submit(projectPath, request)),
       onSuccess: () => client.invalidateQueries({ queryKey: runeforgeKeys.ownedMods() }),
+      onSettled: () => client.invalidateQueries({ queryKey: runeforgeKeys.status() }),
       meta: { silentError: true },
     }),
 
-  publish: () =>
+  publish: (client: QueryClient) =>
     mutationOptions<PublishResult, AppError, { modId: string; answer: PublishAnswer }>({
       mutationFn: async ({ modId, answer }) =>
         unwrapForQuery(await api.runeforge.publish(modId, answer)),
+      onSettled: () => client.invalidateQueries({ queryKey: runeforgeKeys.status() }),
       meta: { silentError: true },
     }),
 } as const;

@@ -71,7 +71,7 @@ function AccountSummary({ account }: { account: ConnectedAccount }) {
       <Inline gap={1.5} align="center">
         <span className="text-meta text-surface-400">{m.runeforge_account_token_label()}</span>
         <span className="font-mono text-meta text-surface-300 select-text">
-          rf_{account.tokenPrefix}...
+          {m.runeforge_account_token_prefix_label({ prefix: account.tokenPrefix })}
         </span>
       </Inline>
       <Inline gap={1.5} align="center">
@@ -125,6 +125,10 @@ function ConnectForm({
   const connect = useMutation(runeforgeMutations.connect(client));
   const [token, setToken] = useState("");
 
+  const submitLabel = status.account
+    ? m.runeforge_reconnect_action()
+    : m.runeforge_connect_action();
+
   function submit() {
     if (!token.trim()) return;
     connect.mutate(token, {
@@ -161,7 +165,7 @@ function ConnectForm({
         </Field.Root>
         <Inline gap={2} justify="end">
           <Button type="submit" size="sm" disabled={!token.trim()} loading={connect.isPending}>
-            {status.account ? m.runeforge_reconnect_action() : m.runeforge_connect_action()}
+            {submitLabel}
           </Button>
         </Inline>
       </Stack>

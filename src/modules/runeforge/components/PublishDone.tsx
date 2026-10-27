@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
 import { AlertBox, Button, Dialog, ExternalLink, Inline, Stack } from "@/components";
@@ -96,7 +96,8 @@ interface RefusedChecklistProps {
 }
 
 function RefusedChecklist({ modId, checklist, reviewUrl, onResult }: RefusedChecklistProps) {
-  const publish = useMutation(runeforgeMutations.publish());
+  const client = useQueryClient();
+  const publish = useMutation(runeforgeMutations.publish(client));
   const asksAi = checklist.missing.includes("ai_disclosure");
 
   function answer(hasAiGeneratedPostContent: boolean) {
@@ -115,11 +116,11 @@ function RefusedChecklist({ modId, checklist, reviewUrl, onResult }: RefusedChec
   return (
     <AlertBox tone="warning" title={m.runeforge_publish_refused_title()}>
       <Stack gap={2}>
-        <ul className="flex list-disc flex-col gap-0.5 pl-4">
+        <Stack as="ul" gap={0.5}>
           {checklist.missing.map((requirement) => (
             <li key={requirement}>{requirementLabel(requirement)}</li>
           ))}
-        </ul>
+        </Stack>
         {checklist.path === "review" && (
           <span>{m.runeforge_publish_refused_review_description()}</span>
         )}
@@ -167,7 +168,7 @@ function ScanStatus({ modId, releaseId }: { modId: string; releaseId: string }) 
     <Stack gap={2}>
       <Inline gap={2} justify="between">
         <span className="text-row text-surface-200 select-none">
-          {m.runeforge_publish_scan_label()}: {healthLabel(status)}
+          {m.runeforge_publish_scan_status_label({ status: healthLabel(status) })}
         </span>
         <Button
           size="xs"

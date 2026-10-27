@@ -5,6 +5,9 @@ import { m } from "@/paraglide/messages";
 
 import type { ErrorCopy } from "./errors";
 
+/** The wait that a rate-limited answer without `Retry-After` names: the 60 s window of the limit. */
+const DEFAULT_RETRY_SECONDS = 60;
+
 /** The copy for a failed call to RuneForge, each kind with its remedy. */
 export function describeRuneforgeError(error: RuneforgeError): ErrorCopy {
   return match(error)
@@ -50,7 +53,9 @@ export function describeRuneforgeError(error: RuneforgeError): ErrorCopy {
     }))
     .with({ kind: "RATE_LIMITED" }, ({ retryAfter }) => ({
       title: m["error.RUNEFORGE.RATE_LIMITED.title"](),
-      description: m["error.RUNEFORGE.RATE_LIMITED.description"]({ seconds: retryAfter ?? 60 }),
+      description: m["error.RUNEFORGE.RATE_LIMITED.description"]({
+        seconds: retryAfter ?? DEFAULT_RETRY_SECONDS,
+      }),
     }))
     .with({ kind: "STORAGE" }, ({ status }) => ({
       title: m["error.RUNEFORGE.STORAGE.title"](),

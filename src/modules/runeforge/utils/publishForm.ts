@@ -28,7 +28,7 @@ export function initialPublishForm(review: PublishReview): PublishForm {
 
   return {
     target: target.kind === "new" ? { kind: "new" } : { kind: "existing", modId: target.modId },
-    tag: prefill.suggestedTag ?? prefill.release.tag,
+    tag: prefill.release.tag,
     notes: prefill.release.notes,
     gameVersionId: prefill.release.gameVersionId,
     refresh: [],

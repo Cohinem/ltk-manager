@@ -278,37 +278,41 @@ fn prepare(
     check_cancel(cancel)?;
     let created = runeforge.call(|client| client.create_upload(&packed.file_name, size))?;
     let upload_id = created.upload.id.clone();
-    let discard = |error: AppError| {
-        discard_quietly(&runeforge, &upload_id);
-        error
-    };
 
-    progress.emit(RuneforgePublishStage::Uploading, 0, size);
-    let mut upload_progress = progress.clone();
-    runeforge
-        .call(|client| {
+    /* Every failure after the create leaves an upload that no review reaches, so each one
+    deletes it. */
+    let uploaded = (|| -> AppResult<(UploadReview, Vec<OwnedModPost>, TargetChoice)> {
+        progress.emit(RuneforgePublishStage::Uploading, 0, size);
+        let mut upload_progress = progress.clone();
+        runeforge.call(|client| {
             client.put_package(
                 &created,
                 packed.output_path.as_ref(),
                 move |sent| upload_progress.throttled(RuneforgePublishStage::Uploading, sent, size),
                 Arc::clone(cancel),
             )
-        })
-        .map_err(discard)?;
+        })?;
 
-    check_cancel(cancel).map_err(discard)?;
-    progress.emit(RuneforgePublishStage::Inspecting, size, size);
-    let mut review = runeforge.call(|client| client.complete_upload(&upload_id))?;
-    let owned = runeforge.call(Client::owned_mods)?;
-    let choice = choose_target(stamp.as_deref(), &owned, &review.suggestions);
+        check_cancel(cancel)?;
+        progress.emit(RuneforgePublishStage::Inspecting, size, size);
+        let mut review = runeforge.call(|client| client.complete_upload(&upload_id))?;
+        let owned = runeforge.call(Client::owned_mods)?;
+        let choice = choose_target(stamp.as_deref(), &owned, &review.suggestions);
 
-    let target = match &choice.target {
-        Target::Stamped { mod_id } | Target::Suggested { mod_id, .. } => Some(mod_id.as_str()),
-        Target::New => None,
-    };
-    if target != review.suggestions.mod_id.as_deref() {
-        review.prefill = runeforge.call(|client| client.prefill(&upload_id, target))?;
-    }
+        let target = match &choice.target {
+            Target::Stamped { mod_id } | Target::Suggested { mod_id, .. } => Some(mod_id.as_str()),
+            Target::New => None,
+        };
+        if target != review.suggestions.mod_id.as_deref() {
+            review.prefill = runeforge.call(|client| client.prefill(&upload_id, target))?;
+        }
+
+        check_cancel(cancel)?;
+        Ok((review, owned, choice))
+    })();
+
+    let (review, owned, choice) =
+        uploaded.inspect_err(|_| discard_quietly(&runeforge, &upload_id))?;
 
     Ok(PublishReview {
         project_path: project_path.to_owned(),
@@ -399,7 +403,12 @@ fn write_stamp(app: &AppHandle, project_path: &str, base: &Url, mod_id: &str) ->
     match written {
         Ok(()) => StampResult::Written,
         Err(error) => {
-            tracing::warn!(error = %error, "Could not write the RuneForge stamp into the project");
+            tracing::warn!(
+                error = %error,
+                project_path,
+                mod_id,
+                "Could not write the RuneForge stamp into the project. The next publish asks for the target"
+            );
             StampResult::Failed {
                 detail: error.to_string(),
             }
@@ -410,7 +419,11 @@ fn write_stamp(app: &AppHandle, project_path: &str, base: &Url, mod_id: &str) ->
 /// Deletes an upload that a cancelled or failed prepare leaves behind, and logs a failure.
 fn discard_quietly(runeforge: &RuneforgeState, upload_id: &str) {
     if let Err(error) = runeforge.call(|client| client.discard_upload(upload_id)) {
-        tracing::warn!(error = %error, "Could not delete the RuneForge upload of a cancelled publish");
+        tracing::warn!(
+            error = %error,
+            upload_id,
+            "Could not delete the RuneForge upload of a cancelled or failed publish. It expires within a day"
+        );
     }
 }
 
@@ -427,9 +440,9 @@ fn claim(app: &AppHandle, project_path: &str) -> AppResult<Arc<AtomicBool>> {
     let runeforge = state(app);
     let mut prepares = runeforge.prepares.lock();
     if prepares.contains_key(project_path) {
-        return Err(AppError::InternalState(
-            "a publish of this project is already running".to_owned(),
-        ));
+        return Err(AppError::InternalState(format!(
+            "a publish of {project_path} is already running. Wait for it to end or cancel it"
+        )));
     }
 
     let cancel = Arc::new(AtomicBool::new(false));

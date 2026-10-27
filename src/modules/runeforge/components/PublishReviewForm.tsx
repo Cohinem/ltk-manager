@@ -60,7 +60,9 @@ export function PublishReviewForm({
   const canPublish = status?.account?.scopes.includes("publish") ?? false;
   const findings = [...review.review.findings, ...prefill.findings];
   const rejected = findings.some((finding) => finding.severity === "error");
-  const suggestedTag = submitError && takenTag(submitError);
+  const takenBySubmit = submitError ? takenTag(submitError) : null;
+  const suggestedTag = takenBySubmit ?? prefill.suggestedTag;
+  const offerTag = suggestedTag !== null && suggestedTag !== form.tag;
 
   function update(patch: Partial<PublishForm>) {
     setForm((current) => ({ ...current, ...patch }));
@@ -76,7 +78,7 @@ export function PublishReviewForm({
         onSuccess: (next) => {
           setPrefill(next);
           update({
-            tag: next.suggestedTag ?? next.release.tag,
+            tag: next.release.tag,
             notes: next.release.notes,
             gameVersionId: next.release.gameVersionId,
           });
@@ -146,11 +148,11 @@ export function PublishReviewForm({
             label={m.runeforge_publish_tag_label()}
             value={form.tag}
             onChange={(event) => update({ tag: event.target.value })}
-            error={suggestedTag ? errorSummary(submitError) : undefined}
+            error={takenBySubmit && submitError ? errorSummary(submitError) : undefined}
             disabled={submitting || prefillFor.isPending}
             inputClassName="font-mono"
           />
-          {suggestedTag && (
+          {offerTag && (
             <Inline gap={2}>
               <Button
                 variant="tonal"
@@ -225,7 +227,7 @@ export function PublishReviewForm({
             />
           )}
 
-          {submitError && !suggestedTag && (
+          {submitError && !takenBySubmit && (
             <AlertBox tone="danger" title={describeError(submitError).title}>
               {errorSummary(submitError)}
             </AlertBox>
