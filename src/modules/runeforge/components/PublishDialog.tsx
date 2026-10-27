@@ -3,13 +3,13 @@ import { useState } from "react";
 
 import { AlertBox, Button, Dialog, Stack } from "@/components";
 import { describeError, m } from "@/i18n";
-import { api, type AppError } from "@/lib/tauri";
+import { api, type AppError, type PublishRequest, type PublishReview } from "@/lib/tauri";
 import { useDialog } from "@/stores/createDialogStore";
 
 import { runeforgeMutations, runeforgeQueries, usePublishProgress } from "../api";
 import { type PublishTarget, usePublishDialog } from "../state";
 import { FindingList } from "./FindingList";
-import { PublishDone } from "./PublishDone";
+import { PublishDone, type PublishSummary } from "./PublishDone";
 import { PublishPreparing } from "./PublishPreparing";
 import { PublishReviewForm } from "./PublishReviewForm";
 
@@ -50,15 +50,16 @@ function PublishFlow({ target, onClose }: { target: PublishTarget; onClose: () =
     setAttempt((current) => current + 1);
   }
 
-  if (submit.data) {
+  if (submit.data && review && submit.variables) {
+    const summary = publishSummary(review, submit.variables.request);
     return (
       <Dialog.Shell
         open
         onClose={close}
-        title={m.runeforge_publish_done_title({ name: project.displayName })}
+        title={doneTitle(submit.variables.request, summary)}
         size="xl"
       >
-        <PublishDone outcome={submit.data} onClose={close} />
+        <PublishDone outcome={submit.data} summary={summary} onClose={close} />
       </Dialog.Shell>
     );
   }
@@ -142,4 +143,26 @@ function PrepareFailed({ error, onRetry, onClose }: PrepareFailedProps) {
       </Dialog.Footer>
     </>
   );
+}
+
+/** Returns the post name and the tag that `request` created. */
+function publishSummary(review: PublishReview, request: PublishRequest): PublishSummary {
+  if (request.kind === "release") {
+    const post = review.owned.find((owned) => owned.id === request.modId);
+    return {
+      postName: post?.name ?? review.review.prefill.post.name,
+      tag: request.release.tag ?? review.review.prefill.release.tag,
+    };
+  }
+
+  return {
+    postName: request.newMod.post?.name ?? review.review.prefill.post.name,
+    tag: request.newMod.release?.tag ?? review.review.prefill.release.tag,
+  };
+}
+
+function doneTitle(request: PublishRequest, summary: PublishSummary): string {
+  if (request.kind === "release")
+    return m.runeforge_publish_done_release_title({ tag: summary.tag });
+  return m.runeforge_publish_done_post_title({ name: summary.postName });
 }

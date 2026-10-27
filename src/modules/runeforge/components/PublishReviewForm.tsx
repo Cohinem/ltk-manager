@@ -14,7 +14,14 @@ import {
   TextareaField,
 } from "@/components";
 import { describeError, errorSummary, m } from "@/i18n";
-import type { AppError, PostField, Prefill, PublishRequest, PublishReview } from "@/lib/tauri";
+import type {
+  AppError,
+  Finding,
+  PostField,
+  Prefill,
+  PublishRequest,
+  PublishReview,
+} from "@/lib/tauri";
 
 import { runeforgeMutations, runeforgeQueries } from "../api";
 import { categoryLabel } from "../utils/categories";
@@ -63,7 +70,10 @@ export function PublishReviewForm({
 
   const isRelease = form.target.kind === "existing";
   const canPublish = status?.account?.scopes.includes("publish") ?? false;
-  const findings = prefill.findings;
+  const findings = [
+    ...prefill.findings,
+    ...review.warnings.map((message) => projectWarning(message)),
+  ];
   const rejected = findings.some((finding) => finding.severity === "error");
   const takenBySubmit = submitError ? takenTag(submitError) : null;
   const suggestedTag = takenBySubmit ?? prefill.suggestedTag;
@@ -119,9 +129,7 @@ export function PublishReviewForm({
         <Stack gap={4}>
           <SelectField
             label={m.runeforge_publish_target_label()}
-            description={
-              review.choice.foreignStamp ? m.runeforge_publish_foreign_stamp_hint() : undefined
-            }
+            description={targetHint(review, form)}
             options={targetOptions}
             value={form.target.kind === "existing" ? form.target.modId : NEW_POST}
             onValueChange={pickTarget}
@@ -157,7 +165,7 @@ export function PublishReviewForm({
                 onChange={(event) => update({ tag: event.target.value })}
                 error={takenBySubmit && submitError ? errorSummary(submitError) : undefined}
                 disabled={submitting || prefillFor.isPending}
-                inputClassName="font-mono"
+                description={form.tag === prefill.release.tag ? tagSourceHint(prefill) : undefined}
               />
               {offerTag && (
                 <Inline gap={2}>
@@ -231,6 +239,7 @@ export function PublishReviewForm({
             <Checkbox
               size="sm"
               label={m.runeforge_publish_now_label()}
+              description={m.runeforge_publish_now_description()}
               checked={form.publishNow}
               onCheckedChange={(publishNow) => update({ publishNow })}
               disabled={submitting}
@@ -243,19 +252,7 @@ export function PublishReviewForm({
             </AlertBox>
           )}
 
-          <FindingList label={m.runeforge_publish_findings_label()} findings={findings} />
-          {review.warnings.length > 0 && (
-            <Stack gap={1}>
-              <span className="text-meta font-medium text-surface-300 select-none">
-                {m.runeforge_publish_warnings_label()}
-              </span>
-              {review.warnings.map((warning) => (
-                <span key={warning} className="text-row text-surface-300 select-text">
-                  {warning}
-                </span>
-              ))}
-            </Stack>
-          )}
+          <FindingList label={m.runeforge_publish_checks_label()} findings={findings} />
         </Stack>
       </Dialog.Body>
 
@@ -269,7 +266,7 @@ export function PublishReviewForm({
           loading={submitting}
           disabled={rejected || prefillFor.isPending || !form.tag.trim()}
         >
-          {m.runeforge_publish_submit_action()}
+          {submitLabel(form)}
         </Button>
       </Dialog.Footer>
     </Dialog.Form>
@@ -304,4 +301,43 @@ function postFieldLabel(field: PostField): string {
     case "unknown":
       return field;
   }
+}
+
+/** Returns why the target picker selected its post, or `undefined` once the creator picked another. */
+function targetHint(review: PublishReview, form: PublishForm): string | undefined {
+  const { target, foreignStamp } = review.choice;
+  if (foreignStamp) return m.runeforge_publish_foreign_stamp_hint();
+
+  if (target.kind === "new") {
+    return form.target.kind === "new" ? m.runeforge_publish_target_new_hint() : undefined;
+  }
+  if (form.target.kind !== "existing" || form.target.modId !== target.modId) return undefined;
+
+  if (target.kind === "stamped") return m.runeforge_publish_target_stamped_hint();
+  if (target.matchedBy === "distributor") return m.runeforge_publish_target_stamped_hint();
+  return m.runeforge_publish_target_name_hint();
+}
+
+/** Returns where the prefilled tag came from. */
+function tagSourceHint(prefill: Prefill): string {
+  switch (prefill.sources.release.tag) {
+    case "package":
+      return m.runeforge_publish_tag_source_package_hint();
+    case "current-post":
+      return m.runeforge_publish_tag_source_post_hint();
+    case "default":
+      return m.runeforge_publish_tag_source_default_hint();
+  }
+}
+
+/** A project validation warning, as a row of the checks list. */
+function projectWarning(message: string): Finding {
+  return { severity: "warning", code: "project", message, path: null };
+}
+
+/** Returns the label of the submit button: what the press creates. */
+function submitLabel(form: PublishForm): string {
+  if (form.target.kind === "existing") return m.runeforge_publish_create_release_action();
+  if (form.publishNow) return m.runeforge_publish_create_public_action();
+  return m.runeforge_publish_create_draft_action();
 }

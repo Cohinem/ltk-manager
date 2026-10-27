@@ -1,7 +1,19 @@
+import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { open } from "@tauri-apps/plugin-shell";
 import { useState } from "react";
 
-import { AlertBox, Button, Dialog, ExternalLink, Inline, Stack } from "@/components";
+import {
+  AlertBox,
+  Badge,
+  type BadgeTone,
+  Button,
+  Dialog,
+  ExternalLink,
+  Grid,
+  Inline,
+  Stack,
+} from "@/components";
 import { describeError, errorSummary, m } from "@/i18n";
 import type {
   HealthStatus,
@@ -14,23 +26,45 @@ import type {
 import { runeforgeMutations, runeforgeQueries } from "../api";
 import { FindingList } from "./FindingList";
 
+/** A label column and a value column. */
+const LABEL_COLUMNS = "max-content minmax(0, 1fr)";
+
+/** What the done view names: the post and the tag of its release. */
+export interface PublishSummary {
+  postName: string;
+  tag: string;
+}
+
 interface PublishDoneProps {
   outcome: PublishOutcome;
+  summary: PublishSummary;
   onClose: () => void;
 }
 
 /**
- * The created post or release: a link to it, the publish result or the checklist that refused it,
- * the stamp result and the scan status of the package. The scan is read once and on "Check again".
+ * The created post or release: what was created, the publish result or the checklist that refused
+ * it, the stamp result and the scan status of the package. The scan is read once and on "Check
+ * again".
  */
-export function PublishDone({ outcome, onClose }: PublishDoneProps) {
+export function PublishDone({ outcome, summary, onClose }: PublishDoneProps) {
   const [publish, setPublish] = useState<PublishResult | null>(outcome.publish);
 
   return (
     <>
       <Dialog.Body>
-        <Stack gap={3}>
-          <ExternalLink href={outcome.modUrl}>{m.runeforge_publish_open_action()}</ExternalLink>
+        <Stack gap={4}>
+          <Grid columns={LABEL_COLUMNS} gap={2}>
+            <span className="text-meta text-surface-400 select-none">
+              {m.runeforge_publish_target_label()}
+            </span>
+            <span className="text-row font-medium text-surface-100 select-text">
+              {summary.postName}
+            </span>
+            <span className="text-meta text-surface-400 select-none">
+              {m.runeforge_publish_tag_label()}
+            </span>
+            <span className="text-row text-surface-200 select-text">{summary.tag}</span>
+          </Grid>
           <PublishStatus modId={outcome.modId} result={publish} onResult={setPublish} />
           {outcome.postUpdateError && (
             <AlertBox tone="warning">
@@ -44,8 +78,15 @@ export function PublishDone({ outcome, onClose }: PublishDoneProps) {
         </Stack>
       </Dialog.Body>
       <Dialog.Footer>
-        <Button size="lg" onClick={onClose}>
+        <Button size="lg" variant="ghost" onClick={onClose}>
           {m.runeforge_publish_close_action()}
+        </Button>
+        <Button
+          size="lg"
+          right={<ArrowSquareOutIcon weight="bold" className="size-4" />}
+          onClick={() => void open(outcome.modUrl)}
+        >
+          {m.runeforge_publish_open_action()}
         </Button>
       </Dialog.Footer>
     </>
@@ -167,9 +208,12 @@ function ScanStatus({ modId, releaseId }: { modId: string; releaseId: string }) 
   return (
     <Stack gap={2}>
       <Inline gap={2} justify="between">
-        <span className="text-row text-surface-200 select-none">
-          {m.runeforge_publish_scan_status_label({ status: healthLabel(status) })}
-        </span>
+        <Inline gap={2}>
+          <span className="text-meta text-surface-400 select-none">
+            {m.runeforge_publish_scan_label()}
+          </span>
+          <Badge tone={HEALTH_TONE[status]}>{healthLabel(status)}</Badge>
+        </Inline>
         <Button
           size="xs"
           variant="ghost"
@@ -189,6 +233,13 @@ function ScanStatus({ modId, releaseId }: { modId: string; releaseId: string }) 
     </Stack>
   );
 }
+
+const HEALTH_TONE: Record<HealthStatus, BadgeTone> = {
+  ok: "success",
+  warnings: "warning",
+  errors: "danger",
+  pending: "neutral",
+};
 
 function healthLabel(status: HealthStatus): string {
   switch (status) {

@@ -154,7 +154,7 @@ describe("PublishDialog", () => {
     const user = userEvent.setup();
 
     openDialog();
-    await user.click(await screen.findByRole("button", { name: "Publish" }));
+    await user.click(await screen.findByRole("button", { name: "Create release" }));
     await user.click(await screen.findByRole("button", { name: "Use v1.0.2" }));
 
     expect(screen.getByLabelText("Tag")).toHaveValue("v1.0.2");
@@ -169,7 +169,7 @@ describe("PublishDialog", () => {
     const user = userEvent.setup();
 
     openDialog();
-    await user.click(await screen.findByRole("button", { name: "Publish" }));
+    await user.click(await screen.findByRole("button", { name: "Create release" }));
 
     expect(await screen.findByText("Not published yet")).toBeInTheDocument();
     expect(screen.getByText("A thumbnail")).toBeInTheDocument();

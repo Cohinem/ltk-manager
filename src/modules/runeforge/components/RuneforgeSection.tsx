@@ -1,3 +1,4 @@
+import { CheckIcon, XIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -5,6 +6,7 @@ import {
   AlertBox,
   Badge,
   Button,
+  Code,
   ExternalLink,
   Field,
   Inline,
@@ -13,10 +15,10 @@ import {
   Stack,
 } from "@/components";
 import { errorSummary, m } from "@/i18n";
-import type { ConnectedAccount, RuneforgeStatus } from "@/lib/tauri";
+import type { ConnectedAccount, RuneforgeStatus, Scope } from "@/lib/tauri";
 
 import { runeforgeMutations, runeforgeQueries } from "../api";
-import { missingScopes } from "../utils/scopes";
+import { missingScopes, PUBLISHING_SCOPES } from "../utils/scopes";
 
 /**
  * The RuneForge connection in Settings: the account, its scopes, and Connect, Reconnect and
@@ -57,29 +59,29 @@ export function RuneforgeSection() {
 
 function AccountSummary({ account }: { account: ConnectedAccount }) {
   const missing = missingScopes(account.scopes);
+  const name = account.displayName || account.username || m.runeforge_account_fallback_label();
 
   return (
-    <Stack gap={2}>
-      <Inline gap={2} align="center">
-        <span className="font-medium text-surface-100 select-text">
-          {account.displayName || account.username || account.userId}
-        </span>
-        {account.username && (
-          <span className="text-meta text-surface-400 select-text">@{account.username}</span>
-        )}
-      </Inline>
-      <Inline gap={1.5} align="center">
-        <span className="text-meta text-surface-400">{m.runeforge_account_token_label()}</span>
-        <span className="font-mono text-meta text-surface-300 select-text">
-          {m.runeforge_account_token_prefix_label({ prefix: account.tokenPrefix })}
-        </span>
-      </Inline>
-      <Inline gap={1.5} align="center">
-        <span className="text-meta text-surface-400">{m.runeforge_account_scopes_label()}</span>
-        {account.scopes.map((scope) => (
-          <Badge key={scope} size="sm">
-            {scope}
-          </Badge>
+    <Stack gap={3}>
+      <Stack gap={1}>
+        <Inline gap={2}>
+          <span className="text-row font-medium text-surface-100 select-text">{name}</span>
+          {account.username && account.username !== name && (
+            <span className="text-meta text-surface-400 select-text">
+              {m.runeforge_account_username_label({ username: account.username })}
+            </span>
+          )}
+        </Inline>
+        <Inline gap={1.5}>
+          <span className="text-meta text-surface-400 select-none">
+            {m.runeforge_account_token_label()}
+          </span>
+          <Code>{m.runeforge_account_token_prefix_label({ prefix: account.tokenPrefix })}</Code>
+        </Inline>
+      </Stack>
+      <Inline gap={1.5}>
+        {PUBLISHING_SCOPES.map((scope) => (
+          <ScopeBadge key={scope} scope={scope} granted={account.scopes.includes(scope)} />
         ))}
       </Inline>
       {missing.length > 0 && (
@@ -91,6 +93,23 @@ function AccountSummary({ account }: { account: ConnectedAccount }) {
   );
 }
 
+/** A scope that publishing uses, marked by whether the token has it. */
+function ScopeBadge({ scope, granted }: { scope: Scope; granted: boolean }) {
+  if (granted) {
+    return (
+      <Badge tone="success" icon={<CheckIcon weight="bold" className="size-2.5" />}>
+        {scope}
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge dashed icon={<XIcon weight="bold" className="size-2.5" />}>
+      {scope}
+    </Badge>
+  );
+}
+
 function AccountActions({ replacing, onReplace }: { replacing: boolean; onReplace: () => void }) {
   const client = useQueryClient();
   const disconnect = useMutation(runeforgeMutations.disconnect(client));
@@ -99,7 +118,7 @@ function AccountActions({ replacing, onReplace }: { replacing: boolean; onReplac
     <Inline gap={2}>
       {!replacing && (
         <Button variant="ghost" size="sm" onClick={onReplace}>
-          {m.runeforge_reconnect_action()}
+          {m.runeforge_replace_token_action()}
         </Button>
       )}
       <Button
