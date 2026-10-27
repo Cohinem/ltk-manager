@@ -165,8 +165,12 @@ export function PublishReviewForm({
                 onChange={(event) => update({ tag: event.target.value })}
                 error={takenBySubmit && submitError ? errorSummary(submitError) : undefined}
                 disabled={submitting || prefillFor.isPending}
-                description={form.tag === prefill.release.tag ? tagSourceHint(prefill) : undefined}
               />
+              {form.tag === prefill.release.tag && (
+                <span className="text-meta text-surface-400 select-none">
+                  {tagSourceHint(prefill)}
+                </span>
+              )}
               {offerTag && (
                 <Inline gap={2}>
                   <Button

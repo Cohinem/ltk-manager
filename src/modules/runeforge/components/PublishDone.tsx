@@ -53,7 +53,7 @@ export function PublishDone({ outcome, summary, onClose }: PublishDoneProps) {
     <>
       <Dialog.Body>
         <Stack gap={4}>
-          <Grid columns={LABEL_COLUMNS} gap={2}>
+          <Grid columns={LABEL_COLUMNS} gap={2} align="baseline">
             <span className="text-meta text-surface-400 select-none">
               {m.runeforge_publish_target_label()}
             </span>
