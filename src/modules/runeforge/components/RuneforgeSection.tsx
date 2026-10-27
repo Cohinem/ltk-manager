@@ -1,4 +1,3 @@
-import { CloudArrowUpIcon } from "@phosphor-icons/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
@@ -9,6 +8,7 @@ import {
   ExternalLink,
   Field,
   Inline,
+  RuneforgeIcon,
   SectionCard,
   Stack,
 } from "@/components";
@@ -34,7 +34,7 @@ export function RuneforgeSection() {
     <SectionCard
       title={m.runeforge_section_title()}
       description={m.runeforge_section_description()}
-      icon={<CloudArrowUpIcon className="size-5" />}
+      icon={<RuneforgeIcon className="size-5" />}
     >
       <Stack gap={3}>
         {status.rejected && (

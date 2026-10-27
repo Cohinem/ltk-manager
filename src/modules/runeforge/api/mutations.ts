@@ -3,25 +3,17 @@ import { mutationOptions, type QueryClient } from "@tanstack/react-query";
 import {
   api,
   type AppError,
-  type PackFormat,
   type Prefill,
   type PublishAnswer,
   type PublishOutcome,
   type PublishRequest,
   type PublishResult,
-  type PublishReview,
   type RuneforgeStatus,
 } from "@/lib/tauri";
 import { settingsKeys } from "@/modules/settings/api";
 import { mutationFn, unwrapForQuery } from "@/utils/query";
 
 import { runeforgeKeys } from "./keys";
-
-/** The variables of a prepare: the project to pack and the format to pack it in. */
-export interface PrepareVariables {
-  projectPath: string;
-  format: PackFormat;
-}
 
 /** The variables of a submit: the project to stamp and what to create. */
 export interface SubmitVariables {
@@ -50,15 +42,6 @@ export const runeforgeMutations = {
     mutationOptions<RuneforgeStatus, AppError, void>({
       mutationFn: async () => unwrapForQuery(await api.runeforge.disconnect()),
       onSuccess: (status) => connectionChanged(client, status),
-    }),
-
-  /** A failed prepare is shown in the dialog, so it raises no toast. */
-  prepare: (client: QueryClient) =>
-    mutationOptions<PublishReview, AppError, PrepareVariables>({
-      mutationFn: async ({ projectPath, format }) =>
-        unwrapForQuery(await api.runeforge.prepare(projectPath, format)),
-      onSettled: () => client.invalidateQueries({ queryKey: runeforgeKeys.status() }),
-      meta: { silentError: true },
     }),
 
   prefill: () =>

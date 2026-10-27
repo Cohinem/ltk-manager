@@ -1,12 +1,12 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 
 import { AlertBox, Button, Dialog, Stack } from "@/components";
 import { describeError, m } from "@/i18n";
 import { api, type AppError } from "@/lib/tauri";
 import { useDialog } from "@/stores/createDialogStore";
 
-import { runeforgeMutations, usePublishProgress } from "../api";
+import { runeforgeMutations, runeforgeQueries, usePublishProgress } from "../api";
 import { type PublishTarget, usePublishDialog } from "../state";
 import { FindingList } from "./FindingList";
 import { PublishDone } from "./PublishDone";
@@ -29,17 +29,10 @@ export function PublishDialog() {
 function PublishFlow({ target, onClose }: { target: PublishTarget; onClose: () => void }) {
   const { project, format } = target;
   const client = useQueryClient();
-  const prepare = useMutation(runeforgeMutations.prepare(client));
+  const [attempt, setAttempt] = useState(0);
+  const prepare = useQuery(runeforgeQueries.prepare(client, project.path, format, attempt));
   const submit = useMutation(runeforgeMutations.submit(client));
   const progress = usePublishProgress(project.path);
-
-  const { mutate: startPrepare } = prepare;
-  const started = useRef(false);
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    startPrepare({ projectPath: project.path, format });
-  }, [startPrepare, project.path, format]);
 
   const review = prepare.data;
 
@@ -54,7 +47,7 @@ function PublishFlow({ target, onClose }: { target: PublishTarget; onClose: () =
 
   function retry() {
     submit.reset();
-    prepare.mutate({ projectPath: project.path, format });
+    setAttempt((current) => current + 1);
   }
 
   if (submit.data) {

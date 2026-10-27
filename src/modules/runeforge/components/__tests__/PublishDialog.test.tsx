@@ -2,6 +2,7 @@
 
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { PublishOutcome, PublishReview, WorkshopProject } from "@/lib/tauri";
@@ -99,8 +100,13 @@ function ok(value: unknown): () => Promise<Answer> {
   return () => Promise.resolve({ ok: true, value });
 }
 
+/* StrictMode as `main.tsx` mounts the app, so a dev build's double mount is what the tests run. */
 function openDialog() {
-  renderWithProviders(<PublishDialog />);
+  renderWithProviders(
+    <StrictMode>
+      <PublishDialog />
+    </StrictMode>,
+  );
   act(() => usePublishDialog.getState().open({ project: PROJECT, format: "modpkg" }));
 }
 
