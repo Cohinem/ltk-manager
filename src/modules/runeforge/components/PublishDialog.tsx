@@ -51,16 +51,12 @@ function PublishFlow({ target, onClose }: { target: PublishTarget; onClose: () =
   }
 
   if (submit.data && review && submit.variables) {
-    const summary = publishSummary(review, submit.variables.request);
     return (
-      <Dialog.Shell
-        open
+      <PublishDone
+        outcome={submit.data}
+        summary={publishSummary(review, submit.variables.request)}
         onClose={close}
-        title={doneTitle(submit.variables.request, summary)}
-        size="xl"
-      >
-        <PublishDone outcome={submit.data} summary={summary} onClose={close} />
-      </Dialog.Shell>
+      />
     );
   }
 
@@ -145,24 +141,24 @@ function PrepareFailed({ error, onRetry, onClose }: PrepareFailedProps) {
   );
 }
 
-/** Returns the post name and the tag that `request` created. */
+/** Returns the post, the tag and what `request` created. */
 function publishSummary(review: PublishReview, request: PublishRequest): PublishSummary {
+  const { prefill } = review.review;
+
   if (request.kind === "release") {
     const post = review.owned.find((owned) => owned.id === request.modId);
     return {
-      postName: post?.name ?? review.review.prefill.post.name,
-      tag: request.release.tag ?? review.review.prefill.release.tag,
+      postName: post?.name ?? prefill.post.name,
+      tag: request.release.tag ?? prefill.release.tag,
+      created: "release",
+      wasPublic: post?.isPublished ?? false,
     };
   }
 
   return {
-    postName: request.newMod.post?.name ?? review.review.prefill.post.name,
-    tag: request.newMod.release?.tag ?? review.review.prefill.release.tag,
+    postName: request.newMod.post?.name ?? prefill.post.name,
+    tag: request.newMod.release?.tag ?? prefill.release.tag,
+    created: "post",
+    wasPublic: false,
   };
-}
-
-function doneTitle(request: PublishRequest, summary: PublishSummary): string {
-  if (request.kind === "release")
-    return m.runeforge_publish_done_release_title({ tag: summary.tag });
-  return m.runeforge_publish_done_post_title({ name: summary.postName });
 }

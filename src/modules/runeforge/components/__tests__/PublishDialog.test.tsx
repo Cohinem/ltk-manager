@@ -171,9 +171,9 @@ describe("PublishDialog", () => {
     openDialog();
     await user.click(await screen.findByRole("button", { name: "Create release" }));
 
-    expect(await screen.findByText("Not published yet")).toBeInTheDocument();
+    expect(await screen.findByText("Before it goes public")).toBeInTheDocument();
     expect(screen.getByText("A thumbnail")).toBeInTheDocument();
-    expect(screen.getByText("Open the review checklist")).toBeInTheDocument();
+    expect(screen.getByText("Open post page")).toBeInTheDocument();
   });
 
   it("deletes the upload if the review is closed", async () => {
