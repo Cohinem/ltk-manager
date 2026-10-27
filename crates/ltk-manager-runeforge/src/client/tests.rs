@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use assert_matches::assert_matches;
 
 use super::*;
-use crate::wire::{PostField, PublishPath, PublishRequirement, Scope, Severity};
+use crate::wire::{FindingSeverity, PostField, PublishPath, PublishRequirement, Scope};
 
 const TOKEN: &str = "rf_abcdEFGH0123456789abcdefghijklmnopqrstuvwxyz0";
 
@@ -421,7 +421,7 @@ fn complete_upload_reads_review() {
 
     let review = server.client().complete_upload("upload-1").unwrap();
 
-    assert_eq!(review.findings[0].severity, Severity::Warning);
+    assert_eq!(review.findings[0].severity, FindingSeverity::Warning);
     assert_eq!(review.suggestions.mod_id.as_deref(), Some("mod-1"));
     assert_eq!(review.prefill.release.tag, "v1.0.0");
     assert_eq!(

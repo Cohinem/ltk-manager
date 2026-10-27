@@ -429,3 +429,46 @@ fn a_pattern_that_does_not_compile_fails_validation_with_its_line() {
         validation.errors
     );
 }
+
+fn runeforge_stamp() -> ltk_mod_project::ModProjectDistributor {
+    ltk_mod_project::ModProjectDistributor::new(
+        "runeforge".to_owned(),
+        "RuneForge".to_owned(),
+        "https://runeforge.dev".to_owned(),
+        "0b8a3a52-5f4e-4d6e-9a43-2f1c3f7d9e10".to_owned(),
+    )
+}
+
+#[test]
+fn write_distributor_adds_stamp_and_keeps_other_fields() {
+    let dir = tempfile::tempdir().unwrap();
+    make_valid_project(dir.path());
+    let project = ProjectDir::open(dir.path()).unwrap();
+    let before = project.config().unwrap();
+
+    project.write_distributor(runeforge_stamp()).unwrap();
+
+    let after = project.config().unwrap();
+    assert_eq!(after.distributor, Some(runeforge_stamp()));
+    assert_eq!(after.name, before.name);
+    assert_eq!(after.description, before.description);
+    assert_eq!(after.authors, before.authors);
+    assert_eq!(after.layers, before.layers);
+}
+
+#[test]
+fn pack_carries_written_distributor_into_modpkg_metadata() {
+    let dir = tempfile::tempdir().unwrap();
+    make_project(dir.path(), base_layer(), &["base/data/file.bin"])
+        .write_distributor(runeforge_stamp())
+        .unwrap();
+
+    let packed = pack(dir.path()).unwrap();
+
+    let file = fs::File::open(&packed.output_path).unwrap();
+    let mut modpkg = ltk_modpkg::Modpkg::mount_from_reader(file).unwrap();
+    let metadata = modpkg.load_metadata().unwrap();
+    let distributor = metadata.distributor().unwrap();
+    assert_eq!(distributor.site_id, "runeforge");
+    assert_eq!(distributor.mod_id, "0b8a3a52-5f4e-4d6e-9a43-2f1c3f7d9e10");
+}

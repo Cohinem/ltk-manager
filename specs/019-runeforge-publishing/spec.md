@@ -220,20 +220,20 @@ scannerVersion? }`.
 A new row in `src-tauri/src/services/table.rs` registers the service `runeforge`. Every command
 returns `IpcResult<T>`, and every network call runs through `off_thread`:
 
-| Command                                   | Does                                                                                                  |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `runeforge_connect(token)`                | Checks the token with `me`, stores it, returns the `Account`                                          |
-| `runeforge_disconnect()`                  | Deletes the credential and the account settings                                                       |
-| `runeforge_account()`                     | Returns the stored `Account`, or `None`                                                               |
-| `runeforge_owned_mods()`                  | Returns `me/mods` for the target picker                                                               |
-| `runeforge_context()`                     | Returns `publishing-context` for the game versions and the categories                                 |
-| `runeforge_prepare(project_path, format)` | Validates, packs, creates the upload, PUTs it, completes it, returns the `PublishReview`              |
-| `runeforge_cancel(project_path)`          | Cancels the prepare in flight for the project                                                         |
-| `runeforge_prefill(upload_id, mod_id)`    | Returns the prefill for another target                                                                |
-| `runeforge_submit(request)`               | Creates the post or the release, publishes when asked, writes the stamp, returns the `PublishOutcome` |
-| `runeforge_publish(mod_id, answer)`       | Publishes a post again, with the AI content answer when the checklist asks for one                    |
-| `runeforge_discard(upload_id)`            | Deletes an upload that the dialog closed without submitting                                           |
-| `runeforge_release(mod_id, release_id)`   | Returns the release with its artifacts and their `health`                                             |
+| Command                                   | Does                                                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `runeforge_connect(token)`                | Checks the token with `me`, stores it, returns the `Account`                                                        |
+| `runeforge_disconnect()`                  | Deletes the credential and the account settings                                                                     |
+| `runeforge_status()`                      | Returns the stored account, whether the server refused the token this session, and the site links. Sends no request |
+| `runeforge_owned_mods()`                  | Returns `me/mods` for the target picker                                                                             |
+| `runeforge_context()`                     | Returns `publishing-context` for the game versions and the categories                                               |
+| `runeforge_prepare(project_path, format)` | Validates, packs, creates the upload, PUTs it, completes it, returns the `PublishReview`                            |
+| `runeforge_cancel(project_path)`          | Cancels the prepare in flight for the project                                                                       |
+| `runeforge_prefill(upload_id, mod_id)`    | Returns the prefill for another target                                                                              |
+| `runeforge_submit(request)`               | Creates the post or the release, publishes when asked, writes the stamp, returns the `PublishOutcome`               |
+| `runeforge_publish(mod_id, answer)`       | Publishes a post again, with the AI content answer when the checklist asks for one                                  |
+| `runeforge_discard(upload_id)`            | Deletes an upload that the dialog closed without submitting                                                         |
+| `runeforge_release(mod_id, release_id)`   | Returns the release with its artifacts and their `health`                                                           |
 
 - `runeforge_prepare` holds an `InFlight` slot per project. Cancel aborts the pack or the PUT. If
   the upload exists, cancel also discards it.

@@ -5,8 +5,25 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Implements `Deserialize` for a string enum, reading a value outside `known` as `fallback`.
+///
+/// A derive with `#[serde(other)]` does the same, but specta refuses it on a string enum.
+macro_rules! lenient_deserialize {
+    ($type:ty, $fallback:expr, [$($known:expr),* $(,)?]) => {
+        impl<'de> Deserialize<'de> for $type {
+            fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+                let text = std::borrow::Cow::<str>::deserialize(deserializer)?;
+                Ok([$($known),*]
+                    .into_iter()
+                    .find(|known| serde_json::to_value(known).ok().as_ref().and_then(serde_json::Value::as_str) == Some(text.as_ref()))
+                    .unwrap_or($fallback))
+            }
+        }
+    };
+}
+
 /// What a token may do, as the token page lets the creator tick it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub enum Scope {
     /// Reads the posts of the account, the publishing context and a release.
@@ -22,9 +39,20 @@ pub enum Scope {
     #[serde(rename = "publish")]
     Publish,
     /// A scope that this build does not know.
-    #[serde(other)]
+    #[serde(rename = "unknown")]
     Unknown,
 }
+
+lenient_deserialize!(
+    Scope,
+    Scope::Unknown,
+    [
+        Scope::ModsRead,
+        Scope::ModsWrite,
+        Scope::ReleasesWrite,
+        Scope::Publish
+    ]
+);
 
 impl Scope {
     /// The scopes that publishing a new post from the app uses.
@@ -178,13 +206,12 @@ pub struct Upload {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 pub struct Finding {
     /// How serious the finding is.
-    pub severity: Severity,
+    pub severity: FindingSeverity,
     /// The stable code of the finding.
     pub code: String,
     /// The text that the server wrote for the finding.
     pub message: String,
     /// The path inside the package that the finding is about.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub path: Option<String>,
 }
 
@@ -192,7 +219,7 @@ pub struct Finding {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "lowercase")]
-pub enum Severity {
+pub enum FindingSeverity {
     /// The server refuses the package.
     Error,
     /// The package is accepted with a problem.
@@ -333,7 +360,7 @@ pub struct ChangedPostField {
 }
 
 /// A field of a mod post that a prefill proposes.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum PostField {
@@ -358,9 +385,25 @@ pub enum PostField {
     /// The features. A release never refreshes them.
     Features,
     /// A field that this build does not know.
-    #[serde(other)]
     Unknown,
 }
+
+lenient_deserialize!(
+    PostField,
+    PostField::Unknown,
+    [
+        PostField::Name,
+        PostField::ShortDescription,
+        PostField::Description,
+        PostField::Category,
+        PostField::License,
+        PostField::ThumbnailImageId,
+        PostField::ChampionIds,
+        PostField::MapIds,
+        PostField::Themes,
+        PostField::Features,
+    ]
+);
 
 impl PostField {
     /// Returns `true` if a release may refresh the field from its package.
@@ -545,7 +588,7 @@ pub enum PublishPath {
 }
 
 /// A requirement of publishing that a post does not meet yet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "snake_case")]
 pub enum PublishRequirement {
@@ -558,9 +601,19 @@ pub enum PublishRequirement {
     /// The AI content question has no answer.
     AiDisclosure,
     /// A requirement that this build does not know.
-    #[serde(other)]
     Unknown,
 }
+
+lenient_deserialize!(
+    PublishRequirement,
+    PublishRequirement::Unknown,
+    [
+        PublishRequirement::Thumbnail,
+        PublishRequirement::Release,
+        PublishRequirement::License,
+        PublishRequirement::AiDisclosure,
+    ]
+);
 
 /// `GET /api/v1/mods/:modId/releases/:releaseId`: the release and its artifacts.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -599,13 +652,13 @@ pub struct ReleaseArtifact {
 pub struct ArtifactHealth {
     /// `pending` until a scan finishes, then the worst severity among the findings.
     pub status: HealthStatus,
-    /// The findings of the scan.
+    /// The findings of the scan. A pending artifact may have none stored.
     #[serde(default)]
     pub findings: Vec<Finding>,
 }
 
 /// Where an artifact is with the deep scan.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub enum HealthStatus {
@@ -616,6 +669,15 @@ pub enum HealthStatus {
     /// The scan found errors.
     Errors,
     /// The scan has not finished. A status that this build does not know reads as pending.
-    #[serde(other)]
     Pending,
 }
+
+lenient_deserialize!(
+    HealthStatus,
+    HealthStatus::Pending,
+    [
+        HealthStatus::Ok,
+        HealthStatus::Warnings,
+        HealthStatus::Errors
+    ]
+);
