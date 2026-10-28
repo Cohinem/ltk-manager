@@ -28,6 +28,20 @@ export interface SubmeshBinding<T = Texture> {
   readonly base: T | null;
   /** The submesh's own skin texture, drawn where no material names a base. */
   readonly texture: T | null;
+  /** The maps that draw a submesh with no material physically based, and null for none. */
+  readonly pbr: PbrMaps<T> | null;
+}
+
+/**
+ * The `LIT_UBER` maps of a submesh with no material, read without colour decoding.
+ *
+ * "RoughnessMetallicAoTexture" at https://meta-wiki.leaguetoolkit.dev/classes/skinmeshdataproperties.
+ */
+export interface PbrMaps<T = Texture> {
+  /** `RoughnessMetallicAoTexture`: roughness in red, metalness in green, occlusion in blue. */
+  readonly rma: T;
+  /** `normalMapTexture`, and null for none or one not held. */
+  readonly normal: T | null;
 }
 
 /** The colours a bound submesh falls back on. */

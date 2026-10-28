@@ -7744,6 +7744,15 @@ export type SkinModel = {
 	texture: NamedAsset | null,
 	/**  `emissiveTexture`, the emissive mask of a submesh with no material. */
 	emissiveTexture: NamedAsset | null,
+	/**
+	 *  `RoughnessMetallicAoTexture`, which draws a submesh with no material physically based.
+	 * 
+	 *  The red channel is roughness, the green channel is metalness and the blue channel is
+	 *  ambient occlusion.
+	 */
+	roughnessMetallicAoTexture: NamedAsset | null,
+	/**  `normalMapTexture`, the tangent-space normal map of a submesh with no material. */
+	normalMapTexture: NamedAsset | null,
 	/**  The `Material` a submesh draws with where no override names its own. */
 	material: MaterialPreview | null,
 	/**  The submeshes a `materialOverride` gives a texture or a material of their own. */
@@ -7979,6 +7988,10 @@ export type SubmeshOverride = {
 	texture: NamedAsset | null,
 	/**  The override's `Material`, which wins over every texture. */
 	material: MaterialPreview | null,
+	/**  The override's `RoughnessMetallicAoTexture`, in place of the skin's own. */
+	roughnessMetallicAoTexture: NamedAsset | null,
+	/**  The override's `normalMapTexture`, in place of the skin's own. */
+	normalMapTexture: NamedAsset | null,
 };
 
 /**  How a suggested post was found. */

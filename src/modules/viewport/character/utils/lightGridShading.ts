@@ -1,4 +1,10 @@
-import { DoubleSide, MeshLambertMaterial, type WebGLProgramParametersWithUniforms } from "three";
+import {
+  DoubleSide,
+  MeshLambertMaterial,
+  MeshStandardMaterial,
+  type Texture,
+  type WebGLProgramParametersWithUniforms,
+} from "three";
 
 import { CUBE_FACES, type LightGrid, sceneCubeAt } from "../../assets/parsing/lightGridBuffer";
 
@@ -18,6 +24,9 @@ export interface LightGridUniforms {
 
 /** The key every patched material shares. All of them draw with one program. */
 const PROGRAM_KEY = "light-grid-2";
+
+/** The key every patched physically based material shares. */
+const PBR_PROGRAM_KEY = "light-grid-pbr-1";
 
 const VERTEX_DECLARATIONS = /* glsl */ `
 uniform vec3 lightGridCube[${CUBE_FACES}];
@@ -54,6 +63,53 @@ if ( lightGridOn > 0.5 ) {
   );
   outgoingLight = diffuseColor.rgb * sRGBTransferEOTF( vec4( gridLight, 1.0 ) ).rgb;
 }
+`;
+
+/* `RoughnessMetallicAoTexture` packs roughness in red, metalness in green and occlusion in
+   blue. Three reads an ORM map as occlusion, roughness and metalness, so one sample of
+   `roughnessMap` replaces both of three's reads, and `metalnessMap` stays unset. */
+const PBR_SURFACE = /* glsl */ `
+float roughnessFactor = roughness;
+float metalnessFactor = metalness;
+float rmaOcclusion = 1.0;
+#ifdef USE_ROUGHNESSMAP
+  vec4 rmaTexel = texture2D( roughnessMap, vRoughnessMapUv );
+  roughnessFactor *= rmaTexel.r;
+  metalnessFactor *= rmaTexel.g;
+  rmaOcclusion = rmaTexel.b;
+#endif
+`;
+
+/* `LIT_UBER` reads x and y of its normal map and rebuilds z, so a two-channel map draws. */
+const PBR_NORMAL = /* glsl */ `
+#ifdef USE_NORMALMAP_TANGENTSPACE
+  vec3 mapN = texture2D( normalMap, vNormalMapUv ).xyz * 2.0 - 1.0;
+  mapN.z = sqrt( saturate( 1.0 - dot( mapN.xy, mapN.xy ) ) );
+  normal = normalize( tbn * mapN );
+#endif
+`;
+
+/* The ambient light is the environment a metal reflects: the grid's light where a grid holds
+   one, else the hemisphere's. As image-based light it splits between diffuse and specular
+   by the Fresnel term, and a dielectric reads at the grid-lit Lambert's brightness. */
+const PBR_AMBIENT = /* glsl */ `
+if ( lightGridOn > 0.5 ) {
+  vec3 gridLight = clamp(
+    vLightGrid * lightGridScale.x + lightGridSelfIllumination * lightGridScale.y,
+    0.0,
+    1.0
+  );
+  irradiance = PI * sRGBTransferEOTF( vec4( gridLight, 1.0 ) ).rgb;
+}
+iblIrradiance += irradiance;
+radiance += irradiance * RECIPROCAL_PI;
+irradiance = vec3( 0.0 );
+`;
+
+/* `LIT_UBER` multiplies its image-based light alone by the occlusion channel. */
+const PBR_OCCLUSION = /* glsl */ `
+reflectedLight.indirectDiffuse *= rmaOcclusion;
+reflectedLight.indirectSpecular *= rmaOcclusion;
 `;
 
 /** Uniforms for one material, unlit by any grid until `lightFrom` fills them. */
@@ -100,6 +156,68 @@ export function gridLitMaterial(uniforms: LightGridUniforms): MeshLambertMateria
   const material = new MeshLambertMaterial({ side: DoubleSide, vertexColors: true });
   patchLightGrid(material, uniforms);
   return material;
+}
+
+/**
+ * A double-sided, vertex-coloured physically based character material, which reads a
+ * `RoughnessMetallicAoTexture` and a two-channel normal map as `LIT_UBER` does.
+ *
+ * The ambient light, from the grid in `uniforms` or else from the scene's hemisphere, is
+ * image-based light that the occlusion channel darkens. The scene's sun stays a direct
+ * light, as in the engine's physically based shading model.
+ */
+export function gridPbrMaterial(uniforms: LightGridUniforms): MeshStandardMaterial {
+  const material = new MeshStandardMaterial({
+    side: DoubleSide,
+    vertexColors: true,
+    roughness: 1,
+    metalness: 1,
+  });
+  material.onBeforeCompile = (shader: WebGLProgramParametersWithUniforms) => {
+    shader.uniforms.lightGridCube = uniforms.cube;
+    shader.uniforms.lightGridScale = uniforms.scale;
+    shader.uniforms.lightGridSelfIllumination = uniforms.selfIllumination;
+    shader.uniforms.lightGridOn = uniforms.on;
+    shader.vertexShader = inject(
+      shader.vertexShader,
+      "#include <defaultnormal_vertex>",
+      VERTEX_DECLARATIONS,
+      VERTEX_AMBIENT,
+    );
+    shader.fragmentShader = `${FRAGMENT_DECLARATIONS}
+${shader.fragmentShader
+  .replace("#include <roughnessmap_fragment>", PBR_SURFACE)
+  .replace("#include <metalnessmap_fragment>", "")
+  .replace("#include <normal_fragment_maps>", PBR_NORMAL)
+  .replace(
+    "#include <lights_fragment_end>",
+    `${PBR_AMBIENT}
+#include <lights_fragment_end>`,
+  )
+  .replace(
+    "#include <aomap_fragment>",
+    `#include <aomap_fragment>
+${PBR_OCCLUSION}`,
+  )}`;
+  };
+  material.customProgramCacheKey = () => PBR_PROGRAM_KEY;
+  return material;
+}
+
+/**
+ * Binds `rma` and `normal` to `material`, and flags the program stale where a map arrives or
+ * leaves, since that changes its defines.
+ */
+export function applyPbrMaps(
+  material: MeshStandardMaterial,
+  rma: Texture,
+  normal: Texture | null,
+): void {
+  const moved =
+    material.roughnessMap === null || (material.normalMap === null) !== (normal === null);
+  material.roughnessMap = rma;
+  material.normalMap = normal;
+  if (moved) material.needsUpdate = true;
 }
 
 /**

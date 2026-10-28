@@ -1,17 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import type { AssetRef, GraphClip, JointEffect, MaterialPreview, SkinModel } from "@/lib/tauri";
+import type {
+  AssetRef,
+  GraphClip,
+  JointEffect,
+  MaterialPreview,
+  SkinModel,
+  SubmeshOverride,
+} from "@/lib/tauri";
 import { createPose, jointAnchor, type JointModel, type SkeletonModel } from "@/modules/viewport";
 
 import {
   BIND_POSE,
   bindingOf,
+  drawsPbr,
   jointRig,
   nearestValue,
   openingClip,
   parameterValues,
   playableClips,
   playlistOf,
+  pbrTextureAssets,
   textureAssets,
 } from "../skinScene";
 
@@ -25,6 +34,8 @@ function skin(over: Partial<SkinModel> = {}): SkinModel {
     skeleton: null,
     texture: null,
     emissiveTexture: null,
+    roughnessMetallicAoTexture: null,
+    normalMapTexture: null,
     material: null,
     overrides: [],
     hidden: [],
@@ -217,8 +228,20 @@ describe("textureAssets and bindingOf", () => {
   const textured = skin({
     texture: { path: "base.tex", asset: chunk("01") },
     overrides: [
-      { submesh: "Wings", texture: { path: "wings.tex", asset: chunk("02") }, material: null },
-      { submesh: "Tail", texture: { path: "tail.tex", asset: null }, material: null },
+      {
+        submesh: "Wings",
+        texture: { path: "wings.tex", asset: chunk("02") },
+        material: null,
+        roughnessMetallicAoTexture: null,
+        normalMapTexture: null,
+      },
+      {
+        submesh: "Tail",
+        texture: { path: "tail.tex", asset: null },
+        material: null,
+        roughnessMetallicAoTexture: null,
+        normalMapTexture: null,
+      },
     ],
   });
 
@@ -238,6 +261,7 @@ describe("textureAssets and bindingOf", () => {
       material: null,
       base: null,
       texture: null,
+      pbr: null,
     });
   });
 
@@ -248,8 +272,20 @@ describe("textureAssets and bindingOf", () => {
       texture: { path: "base.tex", asset: chunk("01") },
       material: body,
       overrides: [
-        { submesh: "Wings", texture: null, material: wings },
-        { submesh: "Cape", texture: { path: "cape.tex", asset: chunk("02") }, material: null },
+        {
+          submesh: "Wings",
+          texture: null,
+          material: wings,
+          roughnessMetallicAoTexture: null,
+          normalMapTexture: null,
+        },
+        {
+          submesh: "Cape",
+          texture: { path: "cape.tex", asset: chunk("02") },
+          material: null,
+          roughnessMetallicAoTexture: null,
+          normalMapTexture: null,
+        },
       ],
     });
     const assets = textureAssets(bound);
@@ -259,11 +295,13 @@ describe("textureAssets and bindingOf", () => {
       material: body,
       base: chunk("10"),
       texture: chunk("01"),
+      pbr: null,
     });
     expect(bindingOf(bound, assets, "wings")).toEqual({
       material: wings,
       base: chunk("20"),
       texture: chunk("01"),
+      pbr: null,
     });
   });
 
@@ -271,7 +309,13 @@ describe("textureAssets and bindingOf", () => {
     const bound = skin({
       material: material("0x1", chunk("10")),
       overrides: [
-        { submesh: "Cape", texture: { path: "cape.tex", asset: chunk("02") }, material: null },
+        {
+          submesh: "Cape",
+          texture: { path: "cape.tex", asset: chunk("02") },
+          material: null,
+          roughnessMetallicAoTexture: null,
+          normalMapTexture: null,
+        },
       ],
     });
 
@@ -279,6 +323,7 @@ describe("textureAssets and bindingOf", () => {
       material: null,
       base: null,
       texture: chunk("02"),
+      pbr: null,
     });
   });
 
@@ -286,6 +331,74 @@ describe("textureAssets and bindingOf", () => {
     const bound = skin({ material: material("0x1", null) });
 
     expect(bindingOf(bound, textureAssets(bound), "Body").base).toBeNull();
+  });
+});
+
+describe("pbrTextureAssets and bindingOf", () => {
+  const override = (submesh: string, over: Partial<SubmeshOverride>): SubmeshOverride => ({
+    submesh,
+    texture: null,
+    material: null,
+    roughnessMetallicAoTexture: null,
+    normalMapTexture: null,
+    ...over,
+  });
+  const pbr = skin({
+    texture: { path: "body.tex", asset: chunk("01") },
+    roughnessMetallicAoTexture: { path: "body_rma.tex", asset: chunk("a1") },
+    normalMapTexture: { path: "body_nm.tex", asset: chunk("b1") },
+    overrides: [
+      override("Hat", { roughnessMetallicAoTexture: { path: "hat_rma.tex", asset: chunk("a2") } }),
+      override("Eyes", { material: material("0x1", null) }),
+    ],
+  });
+
+  it("keys the skin's maps and each override's", () => {
+    const maps = pbrTextureAssets(pbr);
+
+    expect([...maps.keys()]).toEqual(["rma", "normal", "rma:hat"]);
+  });
+
+  it("binds a submesh with no material to its override's maps, else the skin's", () => {
+    const maps = pbrTextureAssets(pbr);
+    const textures = textureAssets(pbr);
+
+    expect(bindingOf(pbr, textures, "Body", maps).pbr).toEqual({
+      rma: chunk("a1"),
+      normal: chunk("b1"),
+    });
+    expect(bindingOf(pbr, textures, "HAT", maps).pbr).toEqual({
+      rma: chunk("a2"),
+      normal: chunk("b1"),
+    });
+  });
+
+  it("binds no maps to a submesh a material draws", () => {
+    expect(bindingOf(pbr, textureAssets(pbr), "Eyes", pbrTextureAssets(pbr)).pbr).toBeNull();
+  });
+
+  it("binds no maps where no roughness map is held", () => {
+    const flat = skin({ normalMapTexture: { path: "body_nm.tex", asset: chunk("b1") } });
+
+    expect(bindingOf(flat, textureAssets(flat), "Body", pbrTextureAssets(flat)).pbr).toBeNull();
+  });
+});
+
+describe("drawsPbr", () => {
+  it("holds for a submesh with no material whose skin names a roughness map", () => {
+    const pbr = skin({ roughnessMetallicAoTexture: { path: "body_rma.tex", asset: null } });
+
+    expect(drawsPbr(pbr, "Body")).toBe(true);
+    expect(drawsPbr(skin(), "Body")).toBe(false);
+  });
+
+  it("does not hold for a submesh a material draws", () => {
+    const covered = skin({
+      roughnessMetallicAoTexture: { path: "body_rma.tex", asset: null },
+      material: material("0x1", null),
+    });
+
+    expect(drawsPbr(covered, "Body")).toBe(false);
   });
 });
 

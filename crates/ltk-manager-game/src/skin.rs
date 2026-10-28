@@ -53,6 +53,10 @@ const SKIN_SCALE: BinHash = named("skinScale");
 const SELF_ILLUMINATION: BinHash = named("selfIllumination");
 /// `SkinMeshDataProperties.emissiveTexture`.
 const EMISSIVE_TEXTURE: BinHash = named("emissiveTexture");
+/// `RoughnessMetallicAoTexture`, on the mesh properties and on each material override.
+const ROUGHNESS_METALLIC_AO_TEXTURE: BinHash = named("RoughnessMetallicAoTexture");
+/// `normalMapTexture`, on the mesh properties and on each material override.
+const NORMAL_MAP_TEXTURE: BinHash = named("normalMapTexture");
 /// `SkinMeshDataProperties.initialSubmeshToHide`.
 const HIDDEN_SUBMESHES: BinHash = named("initialSubmeshToHide");
 /// `SkinMeshDataProperties.materialOverride`.
@@ -233,6 +237,13 @@ pub struct SkinModel {
     pub texture: Option<NamedAsset>,
     /// `emissiveTexture`, the emissive mask of a submesh with no material.
     pub emissive_texture: Option<NamedAsset>,
+    /// `RoughnessMetallicAoTexture`, which draws a submesh with no material physically based.
+    ///
+    /// The red channel is roughness, the green channel is metalness and the blue channel is
+    /// ambient occlusion.
+    pub roughness_metallic_ao_texture: Option<NamedAsset>,
+    /// `normalMapTexture`, the tangent-space normal map of a submesh with no material.
+    pub normal_map_texture: Option<NamedAsset>,
     /// The `Material` a submesh draws with where no override names its own.
     pub material: Option<MaterialPreview>,
     /// The submeshes a `materialOverride` gives a texture or a material of their own.
@@ -273,6 +284,10 @@ pub struct SubmeshOverride {
     pub texture: Option<NamedAsset>,
     /// The override's `Material`, which wins over every texture.
     pub material: Option<MaterialPreview>,
+    /// The override's `RoughnessMetallicAoTexture`, in place of the skin's own.
+    pub roughness_metallic_ao_texture: Option<NamedAsset>,
+    /// The override's `normalMapTexture`, in place of the skin's own.
+    pub normal_map_texture: Option<NamedAsset>,
 }
 
 /// An animation graph, as a clip table and a viewport read it.
@@ -547,6 +562,8 @@ pub(crate) fn resolve_skin(
         skeleton: locator.asset(mesh_field(SKELETON)),
         texture: locator.asset(mesh_field(TEXTURE)),
         emissive_texture: locator.asset(mesh_field(EMISSIVE_TEXTURE)),
+        roughness_metallic_ao_texture: locator.asset(mesh_field(ROUGHNESS_METALLIC_AO_TEXTURE)),
+        normal_map_texture: locator.asset(mesh_field(NORMAL_MAP_TEXTURE)),
         material: material(mesh_field(MATERIAL)),
         overrides: items(mesh_field(MATERIAL_OVERRIDE))
             .iter()
@@ -554,14 +571,24 @@ pub(crate) fn resolve_skin(
                 let fields = fields_of(Some(item))?;
                 let texture = locator.asset(fields.get(&TEXTURE));
                 let material = material(fields.get(&MATERIAL));
-                /* An override naming neither draws as no override at all. */
-                if texture.is_none() && material.is_none() {
+                let roughness_metallic_ao_texture =
+                    locator.asset(fields.get(&ROUGHNESS_METALLIC_AO_TEXTURE));
+                let normal_map_texture = locator.asset(fields.get(&NORMAL_MAP_TEXTURE));
+                /* An override naming no texture and no material draws as no override at all. */
+                if texture.is_none()
+                    && material.is_none()
+                    && roughness_metallic_ao_texture.is_none()
+                    && normal_map_texture.is_none()
+                {
                     return None;
                 }
+
                 Some(SubmeshOverride {
                     submesh: text(fields.get(&SUBMESH))?.to_owned(),
                     texture,
                     material,
+                    roughness_metallic_ao_texture,
+                    normal_map_texture,
                 })
             })
             .collect(),
