@@ -4,7 +4,7 @@
 use std::io::Cursor;
 use std::sync::Arc;
 
-use ltk_game_data::{Edit, Selector, apply};
+use ltk_game_data::{Edit, ObjectEdit, Selector, Target, apply};
 use ltk_hash::BinHash;
 use ltk_mod_project::ModProjectLayer;
 use ltk_mod_project::game_data::{LayerDeclarations, load_layer};
@@ -58,6 +58,30 @@ impl ProjectDeclarations {
     /// The names of the layers, in build order.
     pub(super) fn layers(&self) -> impl Iterator<Item = &str> {
         self.layers.iter().map(|(name, _)| name.as_str())
+    }
+
+    /// Returns the target of each module that creates the object `entry`, in build order.
+    ///
+    /// An object that a project creates is in no chunk of the game, so the object index does
+    /// not find it, and a read looks for it in these targets.
+    #[must_use]
+    pub fn creating_targets(&self, entry: BinHash) -> Vec<&Target> {
+        self.layers
+            .iter()
+            .filter_map(|(_, loaded)| match &loaded.declarations {
+                Ok(Some(declarations)) => Some(declarations),
+                _ => None,
+            })
+            .flat_map(|declarations| &declarations.modules)
+            .filter_map(|module| match &module.selector {
+                Selector::Target { target, edits }
+                    if edits.iter().any(|edit| creates(edit, entry)) =>
+                {
+                    Some(target)
+                }
+                _ => None,
+            })
+            .collect()
     }
 
     /// The chunk `chunk_hash`, whose copy is `game`, with every layer's declarations applied.
@@ -166,6 +190,13 @@ impl ProjectDeclarations {
         }
         Ok(bytes)
     }
+}
+
+/// `true` if `edit` creates the object `entry`.
+fn creates(edit: &Edit, entry: BinHash) -> bool {
+    edit.objects
+        .iter()
+        .any(|(name, object)| name.object_hash() == entry && !matches!(object, ObjectEdit::Remove))
 }
 
 /// The objects a chunk declares, none where it does not mount as a bin.
