@@ -5,7 +5,7 @@ use crate::data_location::{data_dir, SHADERS};
 use crate::error::{AppResult, IpcResult};
 use crate::services::shared::document_assets::{read_resolved, sandbox_of, with_resolution};
 use crate::services::shared::off_thread;
-use crate::services::shared::{asset_reader, linked_reader, read_asset, read_bin};
+use crate::services::shared::{asset_reader, read_asset, read_bin, GameBins};
 use crate::state::SettingsState;
 use std::sync::Arc;
 
@@ -189,13 +189,9 @@ fn on_source<T>(
     let resolved = |bin: &BinDocument, names: &dyn RowNames, assets: &dyn AssetLookup| {
         let mut bytes = asset_reader(app_handle);
         let shaders = shader_defs(app_handle, assets);
-        let mut lookup = ObjectLookup::new(
-            bin,
-            names,
-            assets,
-            shaders.as_deref(),
-            linked_reader(app_handle, &sandbox),
-        );
+        let bins = GameBins::new(app_handle, &sandbox);
+        let mut lookup = ObjectLookup::new(bin, names, assets, shaders.as_deref(), bins.reader())
+            .declared_by(bins.declaring(assets));
         Ok(read(&mut lookup, &mut bytes))
     };
     let parsed = |asset: &AssetRef| -> AppResult<BinDocument> { read_bin(app_handle, asset) };

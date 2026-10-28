@@ -7,7 +7,7 @@ use crate::error::{AppError, AppResult};
 use crate::services::game::index::built_game_index;
 use crate::services::preview::material::shader_defs;
 use crate::services::shared::installed::installed_schema;
-use crate::services::shared::linked_reader;
+use crate::services::shared::GameBins;
 use crate::state::SettingsState;
 use ltk_hash::BinHash;
 use ltk_manager_assets::game_index::GameIndex;
@@ -80,8 +80,9 @@ pub(crate) fn read_lookup<T>(
     read_resolved(app, document, |open, names, assets| {
         let names = SchemaNames::new(names, &schema);
         let shaders = shader_defs(app, assets);
-        let linked = linked_reader(app, &sandbox);
-        let mut lookup = ObjectLookup::new(open, &names, assets, shaders.as_deref(), linked);
+        let bins = GameBins::new(app, &sandbox);
+        let mut lookup = ObjectLookup::new(open, &names, assets, shaders.as_deref(), bins.reader())
+            .declared_by(bins.declaring(assets));
         read(&mut lookup)
     })
 }

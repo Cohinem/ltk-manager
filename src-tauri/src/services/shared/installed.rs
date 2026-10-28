@@ -7,6 +7,7 @@ use super::read_asset;
 use crate::error::AppResult;
 use crate::services::objects::index::ObjectIndexState;
 use crate::state::SettingsState;
+use ltk_game_data::Target;
 use ltk_hash::BinHash;
 use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::game_build::GameBuild;
@@ -83,6 +84,15 @@ impl ProjectGame {
             installed: InstalledGame(app_handle.clone()),
             declarations,
         }
+    }
+
+    /// Returns the target of each module of the project that creates the object `entry`, in
+    /// build order, and none for the game sandbox.
+    pub(crate) fn creating_targets(&self, entry: BinHash) -> Vec<&Target> {
+        self.declarations
+            .as_ref()
+            .map(|declarations| declarations.creating_targets(entry))
+            .unwrap_or_default()
     }
 
     /// The file `asset`, a bin chunk of the game with the declarations that reach it applied.

@@ -92,6 +92,7 @@ import { DocumentOpener, type GraphSource, useSkinGraphSource } from "../hooks/u
 import { useJointPick } from "../hooks/useJointPick";
 import { useSkinDynamics } from "../hooks/useSkinDynamics";
 import { useSkinKeys } from "../hooks/useSkinKeys";
+import { useSkinOutlines } from "../hooks/useSkinOutlines";
 import { useSkinPrograms } from "../hooks/useSkinPrograms";
 import { useWornEffects } from "../hooks/useWornEffects";
 import { overriddenHidden, SkinChoiceContext, useSkinChoice } from "../state/skinChoice";
@@ -361,6 +362,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     [skin, textures, maps],
   );
   const programsFor = useSkinPrograms(document, skin, shaders);
+  const outlineFor = useSkinOutlines(document, skin, shaders);
   const heldValue = useHeldValue();
   const colors = useSceneColors();
   /* Where the subject stands: what the creator dragged it to on this backdrop, else the
@@ -488,6 +490,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
               clock={clock}
               bindingOf={bindingFor}
               programsOf={programsFor}
+              outlineOf={outlineFor}
               held={heldValue}
               colors={colors}
               hidden={hidden}

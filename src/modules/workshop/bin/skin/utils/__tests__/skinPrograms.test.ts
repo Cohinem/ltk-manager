@@ -80,6 +80,7 @@ function skin(): SkinModel {
     effectSystems: [],
     poseModifiers: [],
     sockets: [],
+    outlines: [],
   };
 }
 

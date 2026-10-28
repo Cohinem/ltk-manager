@@ -5,7 +5,10 @@ import type {
   GraphClip,
   JointEffect,
   MaterialPreview,
+  MaterialProgram,
+  OutlineMaterial,
   SkinModel,
+  SkinOutline,
   SubmeshOverride,
 } from "@/lib/tauri";
 import { createPose, jointAnchor, type JointModel, type SkeletonModel } from "@/modules/viewport";
@@ -17,10 +20,14 @@ import {
   jointRig,
   nearestValue,
   openingClip,
+  outlineMaskAssets,
+  outlineMaterialHashes,
   parameterValues,
   playableClips,
   playlistOf,
   dataTextureAssets,
+  skinOutlineOf,
+  submeshOutline,
   textureAssets,
 } from "../skinScene";
 
@@ -47,6 +54,7 @@ function skin(over: Partial<SkinModel> = {}): SkinModel {
     effectSystems: [],
     poseModifiers: [],
     sockets: [],
+    outlines: [],
     ...over,
   };
 }
@@ -469,5 +477,124 @@ describe("jointRig", () => {
     const rig = jointRig(pose, effect(), 1);
 
     expect(rig.joints?.("Weapon")).toBeNull();
+  });
+});
+
+const INK = "0xaaec01e5";
+const GREEN_INK = "0x120314ea";
+const WHITE = chunk("e4078d70e5b8ff89");
+
+function ink(hash: string): OutlineMaterial {
+  return {
+    hash,
+    name: null,
+    color: [0, 0, 0, 1],
+    width: 5,
+    cameraDistance: 4500,
+    depthOffset: -20,
+    alpha: 1,
+    mask: { path: "assets/shared/materials/white.tex", asset: WHITE },
+    maskChannels: [1, 0, 0, 0],
+  };
+}
+
+function outline(submeshes: string[], material: OutlineMaterial | null): SkinOutline {
+  return { category: "0xe1043940", submeshes, material };
+}
+
+const INKED = skin({
+  outlines: [
+    outline(["Karthus_Weapon"], null),
+    outline(["Karthus_Weapon", "Karthus"], ink(INK)),
+    outline(["Karthus_Body"], ink(INK)),
+    outline(["Cubes"], ink(GREEN_INK)),
+  ],
+});
+
+describe("skinOutlineOf", () => {
+  it("returns the first entry that names the submesh and has a material, without regard to case", () => {
+    expect(skinOutlineOf(INKED, "karthus_weapon")?.material?.hash).toBe(INK);
+    expect(skinOutlineOf(INKED, "Cubes")?.material?.hash).toBe(GREEN_INK);
+  });
+
+  it("returns null if no entry names the submesh", () => {
+    expect(skinOutlineOf(INKED, "Cape")).toBeNull();
+  });
+});
+
+describe("outlineMaterialHashes", () => {
+  it("names each outline material once", () => {
+    expect(outlineMaterialHashes(INKED)).toEqual([INK, GREEN_INK]);
+  });
+});
+
+describe("outlineMaskAssets", () => {
+  it("keys each held mask by its material's hash", () => {
+    expect([...outlineMaskAssets(INKED)]).toEqual([
+      [INK, WHITE],
+      [GREEN_INK, WHITE],
+    ]);
+  });
+});
+
+describe("submeshOutline", () => {
+  const stage = {
+    id: 1,
+    glsl: "#version 300 es\nvoid main() {}\n",
+    sidecar: { blocks: [], textures: [], attributes: [] },
+    cached: false,
+  };
+  const translated: MaterialProgram = {
+    hash: INK,
+    name: null,
+    animated: true,
+    kind: "skinnedMesh",
+    passes: [
+      {
+        pass: {
+          shader: "Shaders/SkinnedMesh/Jade_CharacterOutline",
+          defines: [],
+          runtimeSwitches: [],
+          textures: [],
+          params: [],
+          state: {
+            blendEnable: true,
+            srcColor: "srcAlpha",
+            dstColor: "oneMinusSrcAlpha",
+            srcAlpha: "srcAlpha",
+            dstAlpha: "oneMinusSrcAlpha",
+            cullEnable: false,
+            windingToCull: "ccw",
+            depthEnable: true,
+            depthCompareFunc: 3,
+            writeMask: 31,
+          },
+          schema: null,
+        },
+        program: { kind: "ready", defines: [], vertex: stage, pixel: stage },
+      },
+    ],
+    warnings: [],
+  };
+  const masks = new Map([[INK, "white"]]);
+
+  it("draws the translated pass of the outline material if one translated", () => {
+    const drawn = submeshOutline(INKED, [translated], new Map(), masks, "Karthus");
+
+    expect(drawn?.material.hash).toBe(INK);
+    expect(drawn?.mask).toBe("white");
+    expect(drawn?.program?.material).toBe(INK);
+  });
+
+  it("draws the stock outline if no pass of the material translated", () => {
+    const drawn = submeshOutline(INKED, [null], new Map(), masks, "Cubes");
+
+    expect(drawn?.material.hash).toBe(GREEN_INK);
+    expect(drawn?.mask).toBeNull();
+    expect(drawn?.program).toBeNull();
+  });
+
+  it("returns null for a submesh with no outline", () => {
+    expect(submeshOutline(INKED, [translated], new Map(), masks, "Cape")).toBeNull();
   });
 });

@@ -172,6 +172,7 @@ export function skin(over: Partial<SkinModel> = {}): SkinModel {
     effectSystems: [],
     poseModifiers: [],
     sockets: [],
+    outlines: [],
     ...over,
   };
 }

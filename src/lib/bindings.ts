@@ -5590,6 +5590,34 @@ export type OpenedProjectFolder = {
 export type OriginKind = "library" | "workshop";
 
 /**
+ *  An outline material, as a viewport draws the outline without the game's shader.
+ * 
+ *  The shader moves each vertex of the submesh `depth_offset` units toward the camera and
+ *  `width * distance / camera_distance` units along its normal, with culling off. A negative
+ *  offset puts the shell behind the submesh, so the shell shows at the silhouette alone.
+ */
+export type OutlineMaterial = {
+	/**  The material's path hash, `0x` and eight hex digits. */
+	hash: string,
+	/**  The material's path, where a table names it. */
+	name: string | null,
+	/**  `Outline_Color`. The shader does not read its alpha. */
+	color: [(number | null), (number | null), (number | null), (number | null)],
+	/**  `Outline_Width`, in world units at `camera_distance` from the camera. */
+	width: number | null,
+	/**  `Outline_CameraDistanceMod`, the camera distance at which the outline is `width` wide. */
+	cameraDistance: number | null,
+	/**  `Outline_CameraDepthOffset`, in world units toward the camera. */
+	depthOffset: number | null,
+	/**  `Outline_FinalAlphaMult`, which scales the masked alpha. */
+	alpha: number | null,
+	/**  `Outline_Mask`, and none if neither the material nor the shader names one. */
+	mask: NamedAsset | null,
+	/**  `Outline_Mask_ChannelMask`, the weight of each channel of the mask in the alpha. */
+	maskChannels: [(number | null), (number | null), (number | null), (number | null)],
+};
+
+/**
  *  Which way an overlay build failed, as the remedy a consumer picks between.
  * 
  *  Mirrors the categories of `ltk_overlay::Error`, which is not `Serialize`,
@@ -7782,6 +7810,21 @@ export type SkinModel = {
 	poseModifiers: PoseModifier[],
 	/**  `skinMeshProperties.SocketDefinitions`, in the order the skin lists them. */
 	sockets: Socket[],
+	/**  `skinMeshProperties.OutlineCategorySubmeshes`, in the order the skin lists them. */
+	outlines: SkinOutline[],
+};
+
+/**  One `OutlineCategorySubmeshes` entry: submeshes that the engine draws an outline around. */
+export type SkinOutline = {
+	/**  `category`, the `CharacterOutlineCategory`'s path hash, `0x` and eight hex digits. */
+	category: string,
+	/**  `Submeshes`, apart on spaces and commas. */
+	submeshes: string[],
+	/**
+	 *  `materialOverride`, else the category's `Material`. None if neither resolves, and the
+	 *  outline is not drawn.
+	 */
+	material: OutlineMaterial | null,
 };
 
 /**  Why a property edit does not apply, as `ltk_game_data` names it. */

@@ -96,6 +96,7 @@ export {
   CharacterSkinContext,
   useCharacterSkin,
 } from "./character/state/characterSkin";
+export { type SubmeshOutline } from "./character/utils/outlineMaterial";
 export {
   type FallbackColors,
   type PbrMaps,

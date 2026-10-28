@@ -10,6 +10,7 @@ import type {
   MaterialProgram,
   NamedAsset,
   SkinModel,
+  SkinOutline,
   SubmeshOverride,
   VfxSystem,
 } from "@/lib/tauri";
@@ -19,7 +20,9 @@ import {
   type PbrMaps,
   type Pose,
   programPasses,
+  programWith,
   type SubmeshBinding,
+  type SubmeshOutline,
   type SubmeshProgram,
 } from "@/modules/viewport";
 
@@ -259,6 +262,64 @@ export function programsOf<T>(
   const material = submeshMaterial(skin, submesh);
   if (material === null) return [];
   return programPasses(programs.find((each) => each?.hash === material.hash) ?? null, textures);
+}
+
+/**
+ * The first `OutlineCategorySubmeshes` entry that names `submesh` and has a material, matched
+ * without regard to case, and null for none.
+ */
+export function skinOutlineOf(skin: SkinModel, submesh: string): SkinOutline | null {
+  const key = submesh.toLowerCase();
+  return (
+    skin.outlines.find(
+      (outline) =>
+        outline.material !== null && outline.submeshes.some((name) => name.toLowerCase() === key),
+    ) ?? null
+  );
+}
+
+/** The hash of every outline material the skin draws with, each once. */
+export function outlineMaterialHashes(skin: SkinModel): string[] {
+  const hashes = new Set<string>();
+  for (const outline of skin.outlines) {
+    if (outline.material !== null) hashes.add(outline.material.hash);
+  }
+  return [...hashes];
+}
+
+/** Every outline mask this machine holds, keyed by its material's hash. */
+export function outlineMaskAssets(skin: SkinModel): Map<string, AssetRef> {
+  const assets = new Map<string, AssetRef>();
+  for (const outline of skin.outlines) {
+    const asset = outline.material?.mask?.asset;
+    if (outline.material !== null && asset) assets.set(outline.material.hash, asset);
+  }
+  return assets;
+}
+
+/**
+ * The outline `submesh` draws, and null for none.
+ *
+ * The outline takes the first translated pass of its material out of `programs`, and draws
+ * the stock outline where none translated. Its mask is the one `masks` holds under the
+ * material's hash, keyed by `outlineMaskAssets`.
+ */
+export function submeshOutline<T>(
+  skin: SkinModel,
+  programs: readonly (MaterialProgram | null)[],
+  textures: ReadonlyMap<string, T>,
+  masks: ReadonlyMap<string, T>,
+  submesh: string,
+): SubmeshOutline<T> | null {
+  const material = skinOutlineOf(skin, submesh)?.material ?? null;
+  if (material === null) return null;
+
+  const program = programs.find((each) => each?.hash === material.hash) ?? null;
+  return {
+    material,
+    mask: masks.get(material.hash) ?? null,
+    program: programWith(program, textures),
+  };
 }
 
 /** The material `submesh` draws with: its override's, else the skin's, and null for neither. */

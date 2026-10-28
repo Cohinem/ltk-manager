@@ -116,3 +116,39 @@ modules:
 
     assert_eq!(declarations.declared_asset(&layer, game_bin()), game_bin());
 }
+
+#[test]
+fn creating_targets_names_the_target_whose_source_creates_the_entry() {
+    const MAP: &str = "data/maps/shipping/map11/map11.bin";
+    const CATEGORY: &str = "Mods/inked/CharacterInking";
+    let dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(dir.path().join("content/base/game-data")).unwrap();
+    fs::write(
+        dir.path().join("content/base/game-data/inking.yaml"),
+        format!("version: 1\nobjects:\n  {CATEGORY}:\n    clone: {SKIN}\n"),
+    )
+    .unwrap();
+    let declarations = declarations(
+        dir.path(),
+        &format!(
+            "version: 1
+modules:
+  - target: {CHUNK}
+    objects:
+      Mods/inked/Other:
+        clone: {SKIN}
+  - target: {MAP}
+    source: game-data/inking.yaml
+"
+        ),
+    );
+
+    let targets: Vec<&str> = declarations
+        .creating_targets(h(CATEGORY))
+        .into_iter()
+        .map(Target::as_str)
+        .collect();
+
+    assert_eq!(targets, [MAP]);
+    assert!(declarations.creating_targets(h(SKIN)).is_empty());
+}

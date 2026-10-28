@@ -26,6 +26,7 @@ import { projectSandbox } from "../../../sandbox/utils/sandboxRef";
 import { Notice } from "../../shared/preview/Notice";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { skinQueries } from "../api/skinQueries";
+import { useSkinOutlines } from "../hooks/useSkinOutlines";
 import { useSkinPrograms } from "../hooks/useSkinPrograms";
 import { clipFrameSeconds } from "../utils/clipEvents";
 import {
@@ -148,6 +149,7 @@ function SkinStage({ document, skin }: { document: BinDocumentId; skin: SkinMode
     [skin, textures, maps],
   );
   const programsFor = useSkinPrograms(document, skin, true);
+  const outlineFor = useSkinOutlines(document, skin, true);
   const colors = useSceneColors();
   const bounds = useMemo(
     () => (mesh.data === undefined ? null : meshBounds(mesh.data, skin.hidden, scale)),
@@ -175,6 +177,7 @@ function SkinStage({ document, skin }: { document: BinDocumentId; skin: SkinMode
         clock={clock}
         bindingOf={bindingFor}
         programsOf={programsFor}
+        outlineOf={outlineFor}
         colors={colors}
         hidden={skin.hidden}
         scale={scale}

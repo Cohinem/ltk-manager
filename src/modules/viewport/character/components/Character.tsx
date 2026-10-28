@@ -27,7 +27,7 @@ import type { SceneClock } from "../../animation/state/clock";
 import { drawnRanges, type MeshGeometry, type MeshRange } from "../../assets/parsing/meshBuffer";
 import type { SkeletonModel } from "../../assets/parsing/skeletonBuffer";
 import { EngineEnvironment } from "../../hexshade/engineEnvironment";
-import { passTwins } from "../../hexshade/passTwin";
+import { passTwin, passTwins } from "../../hexshade/passTwin";
 import type { SubmeshProgram } from "../../hexshade/programMaterial";
 import { type HeldValue, ProgramMaterials } from "../../hexshade/programMaterials";
 import { useCharacterLight } from "../../scene/state/characterLightContext";
@@ -46,6 +46,7 @@ import {
   lightFrom,
   lightGridUniforms,
 } from "../utils/lightGridShading";
+import { OutlineMaterials, type SubmeshOutline } from "../utils/outlineMaterial";
 import {
   type FallbackColors,
   applyBinding,
@@ -67,6 +68,11 @@ export interface CharacterProps {
    * and none to draw it with the stock material `bindingOf` names.
    */
   readonly programsOf?: (submesh: string) => readonly SubmeshProgram[];
+  /**
+   * The outline drawn around a submesh, by its name, and null for none. An outline draws under
+   * the `material` surface alone.
+   */
+  readonly outlineOf?: (submesh: string) => SubmeshOutline | null;
   /** A value a material's control holds, drawn in place of its program's own until let go. */
   readonly held?: HeldValue | null;
   /** What a submesh no texture or no material reaches is drawn in. */
@@ -109,6 +115,9 @@ const HIDDEN = new MeshBasicMaterial({ visible: false });
 
 const NO_PASSES: readonly SubmeshProgram[] = [];
 
+/** The `renderOrder` the outline draws at over the character, past every pass twin. */
+const OUTLINE_LAYER = 16;
+
 /** Each input a translated vertex shader declares, and the stock attribute it is. */
 const PROGRAM_ATTRIBUTES: readonly (readonly [string, string])[] = [
   ["a_POSITION", "position"],
@@ -132,6 +141,7 @@ export function Character({
   clock,
   bindingOf,
   programsOf,
+  outlineOf,
   held = null,
   colors,
   hidden,
@@ -212,14 +222,25 @@ export function Character({
     };
   }, [skinned, twins]);
 
+  const outline = useMemo(() => passTwin(skinned, OUTLINE_LAYER), [skinned]);
+  useLayoutEffect(() => {
+    skinned.add(outline);
+    return () => {
+      skinned.remove(outline);
+    };
+  }, [skinned, outline]);
+
   const scrolling = useRef<readonly Scrolling[]>([]);
   const programs = useMemo(() => new ProgramMaterials(environment), [environment]);
+  const outlines = useMemo(() => new OutlineMaterials(), []);
   useLayoutEffect(() => programs.hold(held), [programs, held]);
   useLayoutEffect(() => {
-    scrolling.current = bind(skinned, twins, shaded, drawn.ranges, {
+    scrolling.current = bind(skinned, twins, outline, shaded, drawn.ranges, {
       bindingOf,
       programsOf,
+      outlineOf,
       programs,
+      outlines,
       colors,
       hidden,
       highlighted,
@@ -228,11 +249,14 @@ export function Character({
   }, [
     skinned,
     twins,
+    outline,
     shaded,
     drawn,
     bindingOf,
     programsOf,
+    outlineOf,
     programs,
+    outlines,
     colors,
     hidden,
     highlighted,
@@ -282,6 +306,7 @@ export function Character({
     },
     [programs, environment],
   );
+  useEffect(() => () => outlines.dispose(), [outlines]);
 
   const locals = useMemo(() => new Float32Array(rig.bones.length * LOCAL_FLOATS), [rig]);
   const centre = useMemo(() => new Vector3(), []);
@@ -357,8 +382,11 @@ function buildRig(skeleton: SkeletonModel, parents: Int32Array): Rig {
 interface Bind {
   readonly bindingOf: (submesh: string) => SubmeshBinding;
   readonly programsOf: ((submesh: string) => readonly SubmeshProgram[]) | undefined;
+  readonly outlineOf: ((submesh: string) => SubmeshOutline | null) | undefined;
   /** The program materials made so far, one per material and permutation. */
   readonly programs: ProgramMaterials;
+  /** The stock outline materials made so far, one per outline material. */
+  readonly outlines: OutlineMaterials;
   readonly colors: FallbackColors;
   readonly hidden: readonly string[];
   readonly highlighted: string | null;
@@ -389,13 +417,27 @@ interface Scrolling {
  * the twin of that layer. There is one material per pass for the program's life, with
  * whatever textures have arrived bound on every bind here. A program material neither
  * dims nor scrolls, since the shader owns its colour.
+ *
+ * A shown submesh with an outline draws it on `outline` under the `material` surface: its
+ * translated pass, else the stock outline material.
  */
 function bind(
   skinned: SkinnedMesh,
   twins: readonly Mesh[],
+  outline: Mesh,
   shaded: readonly ShadingModels[],
   ranges: readonly MeshRange[],
-  { bindingOf, programsOf, programs, colors, hidden, highlighted, surface }: Bind,
+  {
+    bindingOf,
+    programsOf,
+    outlineOf,
+    programs,
+    outlines,
+    colors,
+    hidden,
+    highlighted,
+    surface,
+  }: Bind,
 ): readonly Scrolling[] {
   const tangents = skinned.geometry.hasAttribute("tangent");
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
@@ -404,6 +446,22 @@ function bind(
   const bound = skinned.material as Material[];
   const layers: Material[][] = twins.map(() => ranges.map(() => HIDDEN));
   const used = new Set<RawShaderMaterial>();
+  const outlined = new Set<Material>();
+  outline.material = ranges.map((range) => {
+    const drawn = surface === "material" && !skip.has(range.name.toLowerCase());
+    const held = drawn ? (outlineOf?.(range.name) ?? null) : null;
+    if (held === null) return HIDDEN;
+
+    if (held.program !== null) {
+      const material = programs.acquire(held.program);
+      used.add(material);
+      return material;
+    }
+    const material = outlines.acquire(held);
+    outlined.add(material);
+    return material;
+  });
+
   ranges.forEach((range, at) => {
     const passes = surface === "material" ? (programsOf?.(range.name) ?? NO_PASSES) : NO_PASSES;
     const [first, ...later] = passes;
@@ -443,6 +501,7 @@ function bind(
     twin.material = layers[layer] ?? [];
   });
   programs.retain(used);
+  outlines.retain(outlined);
   return scrolling;
 }
 
