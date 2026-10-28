@@ -144,6 +144,9 @@ const RMA_TEXTURE = "rma";
 /** The key prefix of a `normalMapTexture`, alone for the skin's own. */
 const NORMAL_TEXTURE = "normal";
 
+/** The key of the skin's `emissiveTexture`, which no override names. */
+const EMISSIVE_TEXTURE = "emissive";
+
 function pbrKey(kind: string, submesh: string | null): string {
   return submesh === null ? kind : `${kind}:${submesh.toLowerCase()}`;
 }
@@ -154,20 +157,21 @@ function overrideOf(skin: SkinModel, submesh: string): SubmeshOverride | null {
   return skin.overrides.find((each) => each.submesh.toLowerCase() === key) ?? null;
 }
 
-/** How `pbrTextureAssets` load: as data, without colour decoding. */
-export const PBR_TEXTURES = { colorSpace: NoColorSpace } as const;
+/** How `dataTextureAssets` load: as data, without colour decoding. */
+export const DATA_TEXTURES = { colorSpace: NoColorSpace } as const;
 
 /**
- * Every `RoughnessMetallicAoTexture` and `normalMapTexture` the skin draws with and this
- * machine holds, keyed for `bindingOf`. They load without colour decoding.
+ * Every `RoughnessMetallicAoTexture`, `normalMapTexture` and `emissiveTexture` the skin draws
+ * with and this machine holds, keyed for `bindingOf`. They load without colour decoding.
  */
-export function pbrTextureAssets(skin: SkinModel): Map<string, AssetRef> {
+export function dataTextureAssets(skin: SkinModel): Map<string, AssetRef> {
   const assets = new Map<string, AssetRef>();
   const add = (kind: string, submesh: string | null, texture: NamedAsset | null) => {
     if (texture?.asset) assets.set(pbrKey(kind, submesh), texture.asset);
   };
   add(RMA_TEXTURE, null, skin.roughnessMetallicAoTexture);
   add(NORMAL_TEXTURE, null, skin.normalMapTexture);
+  add(EMISSIVE_TEXTURE, null, skin.emissiveTexture);
   for (const override of skin.overrides) {
     add(RMA_TEXTURE, override.submesh, override.roughnessMetallicAoTexture);
     add(NORMAL_TEXTURE, override.submesh, override.normalMapTexture);
@@ -212,8 +216,8 @@ export function textureAssets(skin: SkinModel): Map<string, AssetRef> {
  * What `submesh` draws with, first match winning: its override's material, else its
  * override's texture alone, else the skin's material, else the skin's texture.
  *
- * A submesh with no material takes the PBR maps of `maps`, keyed by `pbrTextureAssets`:
- * its override's, else the skin's.
+ * A submesh with no material takes the maps of `maps`, keyed by `dataTextureAssets`: its
+ * override's PBR maps, else the skin's, and the skin's emissive mask.
  */
 export function bindingOf<T>(
   skin: SkinModel,
@@ -228,6 +232,7 @@ export function bindingOf<T>(
     base: material === null ? null : (textures.get(materialKey(material)) ?? null),
     texture,
     pbr: material === null ? pbrMapsOf(maps, submesh) : null,
+    emissive: material === null ? (maps.get(EMISSIVE_TEXTURE) ?? null) : null,
   };
 }
 

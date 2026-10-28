@@ -30,6 +30,12 @@ export interface SubmeshBinding<T = Texture> {
   readonly texture: T | null;
   /** The maps that draw a submesh with no material physically based, and null for none. */
   readonly pbr: PbrMaps<T> | null;
+  /**
+   * The skin's `emissiveTexture` for a submesh with no material, read without colour
+   * decoding, and null for none, one not held or a submesh with a material. Its green channel
+   * blends the lit colour toward the unlit albedo.
+   */
+  readonly emissive: T | null;
 }
 
 /**

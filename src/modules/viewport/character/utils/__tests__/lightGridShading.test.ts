@@ -1,16 +1,29 @@
-import { ShaderLib, type WebGLProgramParametersWithUniforms, type WebGLRenderer } from "three";
+import {
+  type Material,
+  ShaderLib,
+  Texture,
+  type WebGLProgramParametersWithUniforms,
+  type WebGLRenderer,
+} from "three";
 import { describe, expect, it } from "vitest";
 
-import { gridPbrMaterial, lightGridUniforms } from "../lightGridShading";
+import { blackTexel } from "../../../hexshade/neutralTextures";
+import {
+  applyEmissiveMask,
+  gridLitMaterial,
+  gridPbrMaterial,
+  lightGridUniforms,
+} from "../lightGridShading";
 
-/** The standard material's own shaders after `material`'s patch, as three would compile them. */
+/** Three's own shaders of `kind` after `material`'s patch, as three would compile them. */
 function compiled(
-  material: ReturnType<typeof gridPbrMaterial>,
+  material: Material,
+  kind: "standard" | "lambert" = "standard",
 ): WebGLProgramParametersWithUniforms {
   const shader = {
     uniforms: {},
-    vertexShader: ShaderLib.standard.vertexShader,
-    fragmentShader: ShaderLib.standard.fragmentShader,
+    vertexShader: ShaderLib[kind].vertexShader,
+    fragmentShader: ShaderLib[kind].fragmentShader,
   } as unknown as WebGLProgramParametersWithUniforms;
   material.onBeforeCompile(shader, {} as WebGLRenderer);
   return shader;
@@ -51,5 +64,51 @@ describe("gridPbrMaterial", () => {
 
     expect(shader.uniforms.lightGridCube).toBe(uniforms.cube);
     expect(shader.uniforms.lightGridOn).toBe(uniforms.on);
+  });
+});
+
+describe("applyEmissiveMask", () => {
+  it("binds the mask a patched material samples, and a black texel for none", () => {
+    const material = gridPbrMaterial(lightGridUniforms());
+    const shader = compiled(material);
+    const mask = new Texture();
+
+    applyEmissiveMask(material, mask);
+    expect(shader.uniforms.lightGridEmissive.value).toBe(mask);
+
+    applyEmissiveMask(material, null);
+    expect(shader.uniforms.lightGridEmissive.value).toBe(blackTexel());
+  });
+
+  it("keeps a mask per material, apart from the uniforms the materials share", () => {
+    const uniforms = lightGridUniforms();
+    const lit = gridLitMaterial(uniforms);
+    const pbr = gridPbrMaterial(uniforms);
+    const mask = new Texture();
+
+    applyEmissiveMask(pbr, mask);
+
+    expect(compiled(pbr).uniforms.lightGridEmissive.value).toBe(mask);
+    expect(compiled(lit, "lambert").uniforms.lightGridEmissive.value).toBe(blackTexel());
+  });
+});
+
+describe("emissive mask", () => {
+  it("blends the physically based colour toward the albedo by the mask's green", () => {
+    const { fragmentShader } = compiled(gridPbrMaterial(lightGridUniforms()));
+
+    const blend = fragmentShader.indexOf(
+      "outgoingLight = mix( outgoingLight, diffuseColor.rgb, emissiveMask );",
+    );
+    expect(fragmentShader).toContain("emissiveMask = texture2D( lightGridEmissive, vMapUv ).g;");
+    expect(blend).toBeGreaterThan(fragmentShader.indexOf("#include <aomap_fragment>"));
+    expect(blend).toBeLessThan(fragmentShader.indexOf("#include <opaque_fragment>"));
+  });
+
+  it("replaces the grid light of the Lambert material by the mask, as LIT_UBER does", () => {
+    const { fragmentShader } = compiled(gridLitMaterial(lightGridUniforms()), "lambert");
+
+    expect(fragmentShader).toContain("vLightGrid * ( 1.0 - emissiveMask ) * lightGridScale.x");
+    expect(fragmentShader).toContain("+ emissiveMask");
   });
 });

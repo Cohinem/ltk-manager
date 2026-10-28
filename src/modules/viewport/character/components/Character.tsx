@@ -39,6 +39,7 @@ import { useEdgeTwin } from "../hooks/useEdgeTwin";
 import { type CharacterSkin, CharacterSkinContext } from "../state/characterSkin";
 import { tintFloats, vertexTints } from "../utils/jointTint";
 import {
+  applyEmissiveMask,
   applyPbrMaps,
   gridLitMaterial,
   gridPbrMaterial,
@@ -95,7 +96,13 @@ export interface CharacterProps {
 const DIMMED = 0.3;
 
 /** What a submesh binds to without its textures: the flat untextured colour, lit. */
-const UNTEXTURED: SubmeshBinding = { material: null, base: null, texture: null, pbr: null };
+const UNTEXTURED: SubmeshBinding = {
+  material: null,
+  base: null,
+  texture: null,
+  pbr: null,
+  emissive: null,
+};
 
 /** What a hidden submesh drawn by a translated program binds to, which draws nothing. */
 const HIDDEN = new MeshBasicMaterial({ visible: false });
@@ -421,10 +428,11 @@ function bind(
     bound[at] = material;
     material.visible = !skip.has(range.name.toLowerCase());
     const scroll = applyBinding(material, binding, colors);
-    const { pbr } = shaded[at];
+    const { lit: lambert, pbr } = shaded[at];
     if (material === pbr && binding.pbr !== null) {
       applyPbrMaps(pbr, binding.pbr.rma, tangents ? binding.pbr.normal : null);
     }
+    if (material === lambert || material === pbr) applyEmissiveMask(material, binding.emissive);
     if (scroll !== null && material.map !== null) scrolling.push({ map: material.map, scroll });
     if (picked !== null && range.name.toLowerCase() !== picked) {
       material.color.multiplyScalar(DIMMED);

@@ -209,7 +209,8 @@ export function Backdrop({
       const drawnWith: Bound["material"] =
         program !== null
           ? createProgramMaterial(program, environment)
-          : surface !== "unlit" && lit({ material: named, base: null, texture: null, pbr: null })
+          : surface !== "unlit" &&
+              lit({ material: named, base: null, texture: null, pbr: null, emissive: null })
             ? new MeshLambertMaterial()
             : new MeshBasicMaterial();
       bound.push({
@@ -362,7 +363,13 @@ export function Backdrop({
       applied.current[at] = base;
       applyBinding(
         entry.material,
-        { material: entry.slots, base, texture: null, pbr: null },
+        {
+          material: entry.slots,
+          base,
+          texture: null,
+          pbr: null,
+          emissive: null,
+        },
         colors,
       );
       if (entry.doubleSided && entry.material.side !== DoubleSide) {

@@ -20,7 +20,7 @@ import {
   parameterValues,
   playableClips,
   playlistOf,
-  pbrTextureAssets,
+  dataTextureAssets,
   textureAssets,
 } from "../skinScene";
 
@@ -262,6 +262,7 @@ describe("textureAssets and bindingOf", () => {
       base: null,
       texture: null,
       pbr: null,
+      emissive: null,
     });
   });
 
@@ -296,12 +297,14 @@ describe("textureAssets and bindingOf", () => {
       base: chunk("10"),
       texture: chunk("01"),
       pbr: null,
+      emissive: null,
     });
     expect(bindingOf(bound, assets, "wings")).toEqual({
       material: wings,
       base: chunk("20"),
       texture: chunk("01"),
       pbr: null,
+      emissive: null,
     });
   });
 
@@ -324,6 +327,7 @@ describe("textureAssets and bindingOf", () => {
       base: null,
       texture: chunk("02"),
       pbr: null,
+      emissive: null,
     });
   });
 
@@ -334,7 +338,7 @@ describe("textureAssets and bindingOf", () => {
   });
 });
 
-describe("pbrTextureAssets and bindingOf", () => {
+describe("dataTextureAssets and bindingOf", () => {
   const override = (submesh: string, over: Partial<SubmeshOverride>): SubmeshOverride => ({
     submesh,
     texture: null,
@@ -354,13 +358,13 @@ describe("pbrTextureAssets and bindingOf", () => {
   });
 
   it("keys the skin's maps and each override's", () => {
-    const maps = pbrTextureAssets(pbr);
+    const maps = dataTextureAssets(pbr);
 
     expect([...maps.keys()]).toEqual(["rma", "normal", "rma:hat"]);
   });
 
   it("binds a submesh with no material to its override's maps, else the skin's", () => {
-    const maps = pbrTextureAssets(pbr);
+    const maps = dataTextureAssets(pbr);
     const textures = textureAssets(pbr);
 
     expect(bindingOf(pbr, textures, "Body", maps).pbr).toEqual({
@@ -374,13 +378,27 @@ describe("pbrTextureAssets and bindingOf", () => {
   });
 
   it("binds no maps to a submesh a material draws", () => {
-    expect(bindingOf(pbr, textureAssets(pbr), "Eyes", pbrTextureAssets(pbr)).pbr).toBeNull();
+    expect(bindingOf(pbr, textureAssets(pbr), "Eyes", dataTextureAssets(pbr)).pbr).toBeNull();
   });
 
   it("binds no maps where no roughness map is held", () => {
     const flat = skin({ normalMapTexture: { path: "body_nm.tex", asset: chunk("b1") } });
 
-    expect(bindingOf(flat, textureAssets(flat), "Body", pbrTextureAssets(flat)).pbr).toBeNull();
+    expect(bindingOf(flat, textureAssets(flat), "Body", dataTextureAssets(flat)).pbr).toBeNull();
+  });
+
+  it("binds the skin's emissive mask to every submesh with no material, and none to the rest", () => {
+    const glowing = skin({
+      ...pbr,
+      emissiveTexture: { path: "body_em.tex", asset: chunk("c1") },
+    });
+    const maps = dataTextureAssets(glowing);
+    const textures = textureAssets(glowing);
+
+    expect(maps.get("emissive")).toEqual(chunk("c1"));
+    expect(bindingOf(glowing, textures, "Body", maps).emissive).toEqual(chunk("c1"));
+    expect(bindingOf(glowing, textures, "Hat", maps).emissive).toEqual(chunk("c1"));
+    expect(bindingOf(glowing, textures, "Eyes", maps).emissive).toBeNull();
   });
 });
 

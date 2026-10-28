@@ -1,5 +1,6 @@
 import {
   DoubleSide,
+  type Material,
   MeshLambertMaterial,
   MeshStandardMaterial,
   type Texture,
@@ -7,6 +8,7 @@ import {
 } from "three";
 
 import { CUBE_FACES, type LightGrid, sceneCubeAt } from "../../assets/parsing/lightGridBuffer";
+import { blackTexel } from "../../hexshade/neutralTextures";
 
 /**
  * The uniforms a lit character material reads its map's baked ambient from.
@@ -23,10 +25,10 @@ export interface LightGridUniforms {
 }
 
 /** The key every patched material shares. All of them draw with one program. */
-const PROGRAM_KEY = "light-grid-2";
+const PROGRAM_KEY = "light-grid-3";
 
 /** The key every patched physically based material shares. */
-const PBR_PROGRAM_KEY = "light-grid-pbr-1";
+const PBR_PROGRAM_KEY = "light-grid-pbr-2";
 
 const VERTEX_DECLARATIONS = /* glsl */ `
 uniform vec3 lightGridCube[${CUBE_FACES}];
@@ -48,22 +50,62 @@ const FRAGMENT_DECLARATIONS = /* glsl */ `
 uniform vec2 lightGridScale;
 uniform float lightGridSelfIllumination;
 uniform float lightGridOn;
+uniform sampler2D lightGridEmissive;
 varying vec3 vLightGrid;
 `;
 
-/* The game's light is `clamp(ambient * LIGHTGRID_SCALE.x + SELF_ILLUMINATION *
-   LIGHTGRID_SCALE.y)`, multiplied by a gamma albedo. The light is in gamma space here too,
-   and is converted to linear before it multiplies the linear albedo. */
-const FRAGMENT_LIGHT = /* glsl */ `
+/* `EMISSIVE_MAP`'s green channel, which `LIT_UBER` samples at the colour texture's uv. */
+const FRAGMENT_EMISSIVE = /* glsl */ `
+float emissiveMask = 0.0;
+#ifdef USE_MAP
+  emissiveMask = texture2D( lightGridEmissive, vMapUv ).g;
+#endif
+`;
+
+/* The game's light is `clamp(ambient * (1 - emissive) * LIGHTGRID_SCALE.x + emissive +
+   SELF_ILLUMINATION * LIGHTGRID_SCALE.y)`, multiplied by a gamma albedo. The light is in
+   gamma space here too, and is converted to linear before it multiplies the linear albedo.
+   Without a grid the emissive mask blends three's lit colour toward the albedo. */
+const FRAGMENT_LIGHT = /* glsl */ `${FRAGMENT_EMISSIVE}
 if ( lightGridOn > 0.5 ) {
   vec3 gridLight = clamp(
-    vLightGrid * lightGridScale.x + lightGridSelfIllumination * lightGridScale.y,
+    vLightGrid * ( 1.0 - emissiveMask ) * lightGridScale.x
+      + emissiveMask
+      + lightGridSelfIllumination * lightGridScale.y,
     0.0,
     1.0
   );
   outgoingLight = diffuseColor.rgb * sRGBTransferEOTF( vec4( gridLight, 1.0 ) ).rgb;
+} else {
+  outgoingLight = mix( outgoingLight, diffuseColor.rgb, emissiveMask );
 }
 `;
+
+/* The physically based light blends toward the unlit albedo by the emissive mask, which is
+   `LIT_UBER`'s base rule in linear space. Its PBR permutation samples no emissive map. */
+const PBR_EMISSIVE = /* glsl */ `${FRAGMENT_EMISSIVE}
+outgoingLight = mix( outgoingLight, diffuseColor.rgb, emissiveMask );
+`;
+
+/** Each patched material's emissive mask, which a binding sets apart from the shared uniforms. */
+const EMISSIVE_MASKS = new WeakMap<Material, { value: Texture }>();
+
+function emissiveMaskOf(material: Material): { value: Texture } {
+  const held = EMISSIVE_MASKS.get(material);
+  if (held !== undefined) return held;
+
+  const made = { value: blackTexel() };
+  EMISSIVE_MASKS.set(material, made);
+  return made;
+}
+
+/**
+ * Binds `mask`, an `emissiveTexture`, to a material that `gridLitMaterial` or
+ * `gridPbrMaterial` made. Null binds a black texel, which leaves the light unchanged.
+ */
+export function applyEmissiveMask(material: Material, mask: Texture | null): void {
+  emissiveMaskOf(material).value = mask ?? blackTexel();
+}
 
 /* `RoughnessMetallicAoTexture` packs roughness in red, metalness in green and occlusion in
    blue. Three reads an ORM map as occlusion, roughness and metalness, so one sample of
@@ -134,6 +176,7 @@ export function patchLightGrid(material: MeshLambertMaterial, uniforms: LightGri
     shader.uniforms.lightGridScale = uniforms.scale;
     shader.uniforms.lightGridSelfIllumination = uniforms.selfIllumination;
     shader.uniforms.lightGridOn = uniforms.on;
+    shader.uniforms.lightGridEmissive = emissiveMaskOf(material);
     shader.vertexShader = inject(
       shader.vertexShader,
       "#include <defaultnormal_vertex>",
@@ -178,27 +221,21 @@ export function gridPbrMaterial(uniforms: LightGridUniforms): MeshStandardMateri
     shader.uniforms.lightGridScale = uniforms.scale;
     shader.uniforms.lightGridSelfIllumination = uniforms.selfIllumination;
     shader.uniforms.lightGridOn = uniforms.on;
+    shader.uniforms.lightGridEmissive = emissiveMaskOf(material);
     shader.vertexShader = inject(
       shader.vertexShader,
       "#include <defaultnormal_vertex>",
       VERTEX_DECLARATIONS,
       VERTEX_AMBIENT,
     );
-    shader.fragmentShader = `${FRAGMENT_DECLARATIONS}
-${shader.fragmentShader
-  .replace("#include <roughnessmap_fragment>", PBR_SURFACE)
-  .replace("#include <metalnessmap_fragment>", "")
-  .replace("#include <normal_fragment_maps>", PBR_NORMAL)
-  .replace(
-    "#include <lights_fragment_end>",
-    `${PBR_AMBIENT}
-#include <lights_fragment_end>`,
-  )
-  .replace(
-    "#include <aomap_fragment>",
-    `#include <aomap_fragment>
-${PBR_OCCLUSION}`,
-  )}`;
+    const fragment = shader.fragmentShader
+      .replace("#include <roughnessmap_fragment>", PBR_SURFACE)
+      .replace("#include <metalnessmap_fragment>", "")
+      .replace("#include <normal_fragment_maps>", PBR_NORMAL)
+      .replace("#include <lights_fragment_end>", `${PBR_AMBIENT}#include <lights_fragment_end>`)
+      .replace("#include <aomap_fragment>", `#include <aomap_fragment>${PBR_OCCLUSION}`)
+      .replace("#include <opaque_fragment>", `${PBR_EMISSIVE}#include <opaque_fragment>`);
+    shader.fragmentShader = `${FRAGMENT_DECLARATIONS}${fragment}`;
   };
   material.customProgramCacheKey = () => PBR_PROGRAM_KEY;
   return material;
