@@ -39,6 +39,13 @@ pub(crate) fn sandbox(app: &AppHandle, reference: &SandboxRef) -> Arc<Sandbox> {
     app.state::<SandboxState>().get(reference)
 }
 
+/// The sandbox `document` is held in, and the game sandbox for none or a closed one.
+pub(crate) fn sandbox_of(app: &AppHandle, document: Option<BinDocumentId>) -> SandboxRef {
+    document
+        .and_then(|document| app.state::<BinDocuments>().sandbox_of(document))
+        .unwrap_or(SandboxRef::Game)
+}
+
 /// Run `read` over the open document `document`, with the names and the asset lookup it
 /// resolves against, and with the document store unlocked.
 ///
@@ -69,11 +76,12 @@ pub(crate) fn read_lookup<T>(
     read: impl FnOnce(&mut ObjectLookup<'_>) -> AppResult<T>,
 ) -> AppResult<T> {
     let (schema, _) = installed_schema(app);
+    let sandbox = sandbox_of(app, Some(document));
     read_resolved(app, document, |open, names, assets| {
         let names = SchemaNames::new(names, &schema);
         let shaders = shader_defs(app, assets);
-        let mut lookup =
-            ObjectLookup::new(open, &names, assets, shaders.as_deref(), linked_reader(app));
+        let linked = linked_reader(app, &sandbox);
+        let mut lookup = ObjectLookup::new(open, &names, assets, shaders.as_deref(), linked);
         read(&mut lookup)
     })
 }
@@ -89,9 +97,7 @@ pub(crate) fn with_resolution<T>(
     document: Option<BinDocumentId>,
     resolve: impl FnOnce(&dyn RowNames, &dyn AssetLookup) -> AppResult<T>,
 ) -> AppResult<T> {
-    let reference = document
-        .and_then(|document| app.state::<BinDocuments>().sandbox_of(document))
-        .unwrap_or(SandboxRef::Game);
+    let reference = sandbox_of(app, document);
     let index = game_index(app);
 
     with_names_in(app, &reference, |names| {

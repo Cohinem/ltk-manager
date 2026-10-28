@@ -3,7 +3,7 @@
 
 use crate::data_location::{data_dir, SHADERS};
 use crate::error::{AppResult, IpcResult};
-use crate::services::shared::document_assets::{read_resolved, with_resolution};
+use crate::services::shared::document_assets::{read_resolved, sandbox_of, with_resolution};
 use crate::services::shared::off_thread;
 use crate::services::shared::{asset_reader, linked_reader, read_asset, read_bin};
 use crate::state::SettingsState;
@@ -179,6 +179,13 @@ fn on_source<T>(
     absent: T,
     read: impl FnOnce(&mut ObjectLookup<'_>, &mut dyn FnMut(&AssetRef) -> AppResult<Vec<u8>>) -> T,
 ) -> AppResult<T> {
+    let sandbox = sandbox_of(
+        app_handle,
+        match &source {
+            MaterialSource::Document { document } => Some(*document),
+            MaterialSource::Map { document, .. } => *document,
+        },
+    );
     let resolved = |bin: &BinDocument, names: &dyn RowNames, assets: &dyn AssetLookup| {
         let mut bytes = asset_reader(app_handle);
         let shaders = shader_defs(app_handle, assets);
@@ -187,7 +194,7 @@ fn on_source<T>(
             names,
             assets,
             shaders.as_deref(),
-            linked_reader(app_handle),
+            linked_reader(app_handle, &sandbox),
         );
         Ok(read(&mut lookup, &mut bytes))
     };
