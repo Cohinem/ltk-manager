@@ -12,6 +12,7 @@ use ltk_mod_project::game_data::{LayerDeclarations, load_layer};
 use super::diagnostics::Raised;
 use super::{GameCopy, edits_on, read_entry};
 use crate::meta_schema::PatchSchema;
+use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::{AppError, AppResult, Utf8PathRefExt as _};
 use ltk_manager_workshop::ProjectDir;
 
@@ -86,6 +87,34 @@ impl ProjectDeclarations {
 
         self.apply_chunk(game, chunk_hash, &entries, &mut Vec::new())
             .map(Some)
+    }
+
+    /// Returns `bytes`, the file at `asset`, with every layer's declarations applied if `asset`
+    /// is a game bin chunk that a declaration reaches.
+    ///
+    /// Returns `bytes` unchanged for any other asset. If a declaration does not apply, logs a
+    /// warning and returns the game's copy, as the declared document raises it where it is
+    /// edited.
+    #[must_use]
+    pub fn declared_asset(&self, asset: &AssetRef, bytes: Vec<u8>) -> Vec<u8> {
+        let AssetRef::GameChunk { path_hash, .. } = asset else {
+            return bytes;
+        };
+        if !(bytes.starts_with(b"PROP") || bytes.starts_with(b"PTCH")) {
+            return bytes;
+        }
+        let Some(chunk_hash) = asset.chunk_hash() else {
+            return bytes;
+        };
+
+        match self.apply(&bytes, chunk_hash.0) {
+            Ok(Some(applied)) => applied,
+            Ok(None) => bytes,
+            Err(error) => {
+                tracing::warn!(%path_hash, %error, "A preview draws a chunk undeclared");
+                bytes
+            }
+        }
     }
 
     /// `game`, the chunk `chunk_hash` whose objects are `entries`, with every layer's

@@ -88,32 +88,10 @@ impl ProjectGame {
     /// The file `asset`, a bin chunk of the game with the declarations that reach it applied.
     pub(crate) fn read(&self, asset: &AssetRef) -> AppResult<Vec<u8>> {
         let bytes = self.installed.read(asset)?;
-        Ok(self.declared(asset, bytes))
-    }
-
-    /// A declaration that does not apply leaves the game's copy, as the declared document
-    /// raises it where it is edited.
-    fn declared(&self, asset: &AssetRef, bytes: Vec<u8>) -> Vec<u8> {
-        let (Some(declarations), AssetRef::GameChunk { path_hash, .. }) =
-            (&self.declarations, asset)
-        else {
-            return bytes;
-        };
-        if !(bytes.starts_with(b"PROP") || bytes.starts_with(b"PTCH")) {
-            return bytes;
-        }
-        let Some(chunk_hash) = asset.chunk_hash() else {
-            return bytes;
-        };
-
-        match declarations.apply(&bytes, chunk_hash.0) {
-            Ok(Some(applied)) => applied,
-            Ok(None) => bytes,
-            Err(error) => {
-                tracing::warn!(%path_hash, %error, "A preview draws a chunk undeclared");
-                bytes
-            }
-        }
+        Ok(match &self.declarations {
+            Some(declarations) => declarations.declared_asset(asset, bytes),
+            None => bytes,
+        })
     }
 }
 

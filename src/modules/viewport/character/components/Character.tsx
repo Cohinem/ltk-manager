@@ -11,6 +11,7 @@ import {
   type Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
+  type MeshStandardMaterial,
   type RawShaderMaterial,
   Raycaster,
   Skeleton,
@@ -37,7 +38,14 @@ import { isClick } from "../../shared/utils/click";
 import { useEdgeTwin } from "../hooks/useEdgeTwin";
 import { type CharacterSkin, CharacterSkinContext } from "../state/characterSkin";
 import { tintFloats, vertexTints } from "../utils/jointTint";
-import { gridLitMaterial, lightFrom, lightGridUniforms } from "../utils/lightGridShading";
+import {
+  applyEmissiveMask,
+  applyPbrMaps,
+  gridLitMaterial,
+  gridPbrMaterial,
+  lightFrom,
+  lightGridUniforms,
+} from "../utils/lightGridShading";
 import {
   type FallbackColors,
   applyBinding,
@@ -88,7 +96,13 @@ export interface CharacterProps {
 const DIMMED = 0.3;
 
 /** What a submesh binds to without its textures: the flat untextured colour, lit. */
-const UNTEXTURED: SubmeshBinding = { material: null, base: null, texture: null };
+const UNTEXTURED: SubmeshBinding = {
+  material: null,
+  base: null,
+  texture: null,
+  pbr: null,
+  emissive: null,
+};
 
 /** What a hidden submesh drawn by a translated program binds to, which draws nothing. */
 const HIDDEN = new MeshBasicMaterial({ visible: false });
@@ -141,6 +155,7 @@ export function Character({
     () =>
       drawn.ranges.map(() => ({
         lit: gridLitMaterial(ambient),
+        pbr: gridPbrMaterial(ambient),
         unlit: new MeshBasicMaterial({ side: DoubleSide, vertexColors: true }),
       })),
     [drawn, ambient],
@@ -253,6 +268,7 @@ export function Character({
     () => () => {
       for (const models of shaded) {
         models.lit.dispose();
+        models.pbr.dispose();
         models.unlit.dispose();
       }
     },
@@ -353,6 +369,8 @@ interface Bind {
 /** One material per shading model a submesh may draw under, kept for its lifetime. */
 interface ShadingModels {
   readonly lit: MeshLambertMaterial;
+  /** The lit model of a submesh with no material whose skin names a `RoughnessMetallicAoTexture`. */
+  readonly pbr: MeshStandardMaterial;
   readonly unlit: MeshBasicMaterial;
 }
 
@@ -379,6 +397,7 @@ function bind(
   ranges: readonly MeshRange[],
   { bindingOf, programsOf, programs, colors, hidden, highlighted, surface }: Bind,
 ): readonly Scrolling[] {
+  const tangents = skinned.geometry.hasAttribute("tangent");
   const skip = new Set(hidden.map((name) => name.toLowerCase()));
   const picked = highlighted?.toLowerCase() ?? null;
   const scrolling: Scrolling[] = [];
@@ -405,11 +424,15 @@ function bind(
       return;
     }
     const binding = surface === "untextured" ? UNTEXTURED : bindingOf(range.name);
-    const material: SubmeshMaterial =
-      surface !== "unlit" && lit(binding) ? shaded[at].lit : shaded[at].unlit;
+    const material = shadingModel(shaded[at], binding, surface);
     bound[at] = material;
     material.visible = !skip.has(range.name.toLowerCase());
     const scroll = applyBinding(material, binding, colors);
+    const { lit: lambert, pbr } = shaded[at];
+    if (material === pbr && binding.pbr !== null) {
+      applyPbrMaps(pbr, binding.pbr.rma, tangents ? binding.pbr.normal : null);
+    }
+    if (material === lambert || material === pbr) applyEmissiveMask(material, binding.emissive);
     if (scroll !== null && material.map !== null) scrolling.push({ map: material.map, scroll });
     if (picked !== null && range.name.toLowerCase() !== picked) {
       material.color.multiplyScalar(DIMMED);
@@ -421,6 +444,16 @@ function bind(
   });
   programs.retain(used);
   return scrolling;
+}
+
+/** The material `binding` draws with under `surface`, out of the submesh's shading models. */
+function shadingModel(
+  models: ShadingModels,
+  binding: SubmeshBinding,
+  surface: Surface,
+): SubmeshMaterial {
+  if (surface === "unlit" || !lit(binding)) return models.unlit;
+  return binding.material === null && binding.pbr !== null ? models.pbr : models.lit;
 }
 
 /**
@@ -501,6 +534,9 @@ function buildGeometry(mesh: MeshGeometry, rig: Rig): Drawn {
   if (mesh.normals !== null) geometry.setAttribute("normal", new BufferAttribute(mesh.normals, 3));
   /* A lit material with no normals draws black, so a mesh without them gets flat ones. */
   else geometry.computeVertexNormals();
+  if (mesh.tangents !== null && mesh.normals !== null) {
+    geometry.setAttribute("tangent", new BufferAttribute(mirroredTangents(mesh.tangents), 4));
+  }
   const joints = skinIndices(mesh, rig);
   geometry.setAttribute("skinIndex", new Uint16BufferAttribute(joints, 4));
   geometry.setAttribute(
@@ -554,6 +590,19 @@ function skinIndices(mesh: MeshGeometry, rig: Rig): Uint16Array {
     if (held[at] >= count) held[at] = 0;
   }
   return held;
+}
+
+/**
+ * `tangents` with each bitangent sign under the mirror the character draws at.
+ *
+ * Three builds the bitangent as `w * cross(normal, tangent)` after the model matrix, and a
+ * mirrored matrix reverses that cross product.
+ */
+function mirroredTangents(tangents: Float32Array): Float32Array {
+  const mirror = AXIS_SIGN[0] * AXIS_SIGN[1] * AXIS_SIGN[2];
+  const signed = Float32Array.from(tangents);
+  for (let at = 3; at < signed.length; at += 4) signed[at] *= mirror;
+  return signed;
 }
 
 /** Weights binding every vertex wholly to its first shader joint. */

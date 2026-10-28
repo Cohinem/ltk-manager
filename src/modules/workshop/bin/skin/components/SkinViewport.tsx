@@ -114,6 +114,8 @@ import {
   parameterValues,
   playableClips,
   playlistOf,
+  DATA_TEXTURES,
+  dataTextureAssets,
   textureAssets,
 } from "../utils/skinScene";
 import { socketDragEdits } from "../utils/socketEdits";
@@ -352,9 +354,11 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
 
   const assets = useMemo(() => textureAssets(skin), [skin]);
   const textures = useAssetTextures(assets);
+  const dataAssets = useMemo(() => dataTextureAssets(skin), [skin]);
+  const maps = useAssetTextures(dataAssets, DATA_TEXTURES);
   const bindingFor = useCallback(
-    (submesh: string) => bindingOf(skin, textures, submesh),
-    [skin, textures],
+    (submesh: string) => bindingOf(skin, textures, submesh, maps),
+    [skin, textures, maps],
   );
   const programsFor = useSkinPrograms(document, skin, shaders);
   const heldValue = useHeldValue();

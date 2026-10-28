@@ -1130,9 +1130,69 @@ fn a_skin_that_names_nothing_answers_the_defaults() {
     assert!((skin.scale - 1.0).abs() < f32::EPSILON);
     assert!(skin.self_illumination.abs() < f32::EPSILON);
     assert_eq!(skin.emissive_texture, None);
+    assert_eq!(skin.roughness_metallic_ao_texture, None);
+    assert_eq!(skin.normal_map_texture, None);
     assert!(skin.idle_effects.is_empty());
     assert!(skin.persistent_conditions.is_empty());
     assert_eq!(skin.animation_graph, None);
+}
+
+#[test]
+fn a_skin_reads_its_pbr_maps_and_an_overrides_own() {
+    const RMA: &str = "ASSETS/Characters/Ahri/Skins/Skin03/Body_RMA.tex";
+    const NORMAL: &str = "ASSETS/Characters/Ahri/Skins/Skin03/Body_NM.tex";
+    const HAT_RMA: &str = "ASSETS/Characters/Ahri/Skins/Skin03/Hat_RMA.tex";
+    let object = BinObject::builder(h(SKIN), h("SkinCharacterDataProperties"))
+        .property(
+            MESH_PROPERTIES,
+            embedded(
+                "SkinMeshDataProperties",
+                vec![
+                    (
+                        ROUGHNESS_METALLIC_AO_TEXTURE,
+                        values::String::from(RMA).into(),
+                    ),
+                    (NORMAL_MAP_TEXTURE, values::String::from(NORMAL).into()),
+                    (
+                        MATERIAL_OVERRIDE,
+                        values::Container::from(vec![embedded(
+                            "SkinMeshDataProperties_MaterialOverride",
+                            vec![
+                                (SUBMESH, values::String::from("Hat").into()),
+                                (
+                                    ROUGHNESS_METALLIC_AO_TEXTURE,
+                                    values::String::from(HAT_RMA).into(),
+                                ),
+                            ],
+                        )])
+                        .into(),
+                    ),
+                ],
+            ),
+        )
+        .build();
+    let document = document_of(vec![object]);
+
+    let skin = resolve_skin(&document, h(SKIN), &Tables, &Placed, None).unwrap();
+
+    let named = |path: &str| {
+        Some(NamedAsset {
+            path: path.to_owned(),
+            asset: file(path),
+        })
+    };
+    assert_eq!(skin.roughness_metallic_ao_texture, named(RMA));
+    assert_eq!(skin.normal_map_texture, named(NORMAL));
+    assert_eq!(
+        skin.overrides.len(),
+        1,
+        "an override that names only a map is an override"
+    );
+    let hat = &skin.overrides[0];
+    assert_eq!(hat.submesh, "Hat");
+    assert_eq!(hat.texture, None);
+    assert_eq!(hat.roughness_metallic_ao_texture, named(HAT_RMA));
+    assert_eq!(hat.normal_map_texture, None);
 }
 
 #[test]

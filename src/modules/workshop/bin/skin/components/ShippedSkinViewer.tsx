@@ -33,6 +33,8 @@ import {
   openingClip,
   playableClips,
   playlistOf,
+  DATA_TEXTURES,
+  dataTextureAssets,
   textureAssets,
 } from "../utils/skinScene";
 import { Clock } from "./Clock";
@@ -139,9 +141,11 @@ function SkinStage({ document, skin }: { document: BinDocumentId; skin: SkinMode
   const scale = skin.scale ?? 1;
   const assets = useMemo(() => textureAssets(skin), [skin]);
   const textures = useAssetTextures(assets);
+  const dataAssets = useMemo(() => dataTextureAssets(skin), [skin]);
+  const maps = useAssetTextures(dataAssets, DATA_TEXTURES);
   const bindingFor = useCallback(
-    (submesh: string) => bindingOf(skin, textures, submesh),
-    [skin, textures],
+    (submesh: string) => bindingOf(skin, textures, submesh, maps),
+    [skin, textures, maps],
   );
   const programsFor = useSkinPrograms(document, skin, true);
   const colors = useSceneColors();
