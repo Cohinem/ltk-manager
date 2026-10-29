@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { nameHash } from "../../../../shared/utils/binHash";
 import { DRAG_MOTION } from "../../../engine/model/enums";
 import type { ChildSetModel, EmitterModel, SystemModel } from "../../../engine/model/model";
+import { NO_SOUNDS } from "../../../engine/model/systemModel";
 import { readVfxSystem } from "../../../engine/parsing/readVfxSystem";
 import { MAX_CHILD_DEPTH } from "../../../engine/simulation/children";
 import { drawnEmitters } from "../definitions";
@@ -75,6 +76,8 @@ function system(...emitters: EmitterModel[]): SystemModel {
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
     stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
+    sounds: NO_SOUNDS,
+    soundsEndOnEmitterEnd: true,
   };
 }
 

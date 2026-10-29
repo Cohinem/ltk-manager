@@ -29,6 +29,7 @@ import { multiplyInto, turnInto } from "../../utils/basis";
 import { createDriver, type Driver } from "../driver";
 import { drawnPlace, drawnPlaceInto, frameOf } from "../particleRead";
 import { FRAME_SLOTS, type Pool } from "../pool";
+import { NO_SOUNDS } from "../../model/systemModel";
 
 /** A level, straight missile from the origin to `to` at `speed` units a second. */
 function straight(to: Point, speed: number): Motion {
@@ -147,6 +148,7 @@ function emitter(over: Partial<EmitterModel> = {}): EmitterModel {
     projection: null,
     childSet: null,
     fields: null,
+    audio: null,
     depthBias: [0, 0],
     depthPushPull: 0,
     backfaceCull: true,
@@ -164,6 +166,8 @@ function system(...emitters: EmitterModel[]): SystemModel {
     dragMotion: DRAG_MOTION.stepped,
     buildUpTime: 0,
     stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
+    sounds: NO_SOUNDS,
+    soundsEndOnEmitterEnd: true,
   };
 }
 

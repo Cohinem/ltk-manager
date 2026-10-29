@@ -15,6 +15,7 @@ import {
 import type {
   ChildSetModel,
   EmissionMeshModel,
+  EmitterAudioModel,
   EmitterCull,
   EmitterModel,
   SystemModel,
@@ -85,6 +86,16 @@ const SYSTEM = {
   flags: nameHash("flags"),
   buildUpTime: nameHash("buildUpTime"),
   drawingLayer: nameHash("drawingLayer"),
+  soundOnCreate: nameHash("soundOnCreateDefault"),
+  soundPersistent: nameHash("soundPersistentDefault"),
+  voiceOverOnCreate: nameHash("voiceOverOnCreateDefault"),
+  voiceOverPersistent: nameHash("voiceOverPersistentDefault"),
+} as const;
+
+/** `VfxEmitterAudio`'s two fields. */
+const AUDIO = {
+  soundOnCreate: nameHash("SoundOnCreate"),
+  soundPersistent: nameHash("SoundPersistent"),
 } as const;
 
 /** `directionVelocityMinScale`'s schema default, which a bin writing `0` departs from. */
@@ -204,6 +215,7 @@ const FIELD = {
   stencilReferenceId: nameHash("StencilReferenceId"),
   legacySimple: nameHash("LegacySimple"),
   childSet: nameHash("childParticleSetDefinition"),
+  audio: nameHash("Audio"),
   fields: nameHash("fieldCollectionDefinition"),
 } as const;
 
@@ -286,7 +298,29 @@ function readSystem(
       oncePerFrame: (flags & SYSTEM_FLAG.simulateOncePerFrame) !== 0,
       everyFrame: (flags & SYSTEM_FLAG.simulateEveryFrame) !== 0,
     },
+    sounds: {
+      soundOnCreate: soundName(field(root, SYSTEM.soundOnCreate)),
+      soundPersistent: soundName(field(root, SYSTEM.soundPersistent)),
+      voiceOverOnCreate: soundName(field(root, SYSTEM.voiceOverOnCreate)),
+      voiceOverPersistent: soundName(field(root, SYSTEM.voiceOverPersistent)),
+    },
+    soundsEndOnEmitterEnd: (flags & SYSTEM_FLAG.soundsEndOnEmitterEnd) !== 0,
   };
+}
+
+/** Reads a Wwise event name. Returns null for an empty string and for a field not written. */
+function soundName(node: VfxValue | null): string | null {
+  const name = text(node);
+  return name === null || name === "" ? null : name;
+}
+
+/** Reads an emitter's `Audio`. Returns null if it names no sound. */
+function readAudio(node: VfxValue | null): EmitterAudioModel | null {
+  const soundOnCreate = soundName(field(node, AUDIO.soundOnCreate));
+  const soundPersistent = soundName(field(node, AUDIO.soundPersistent));
+  if (soundOnCreate === null && soundPersistent === null) return null;
+
+  return { soundOnCreate, soundPersistent };
 }
 
 function readEmitter(
@@ -471,6 +505,7 @@ function readEmitter(
     beam: readBeam(primitive),
     projection: readProjection(primitive),
     childSet: readChildSet(field(node, FIELD.childSet), materials, quality),
+    audio: readAudio(field(node, FIELD.audio)),
     fields: readFields(field(node, FIELD.fields)),
 
     depthBias: pair(field(node, FIELD.depthBias)),
