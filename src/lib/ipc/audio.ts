@@ -35,7 +35,8 @@ export const commands = {
 	 * 
 	 *  The bank set is every `BankUnit` of the open document and one unit of `bank_paths`, then the
 	 *  bank units that the project's bins and the game's audio index register each missing name in.
-	 *  "Viewport sound" in `docs/ux/AUDIO.md`.
+	 *  A document without a `BankUnit` takes the units of the skin bins that the paths of its
+	 *  objects name, such as a VFX bin that a skin links. "Viewport sound" in `docs/ux/AUDIO.md`.
 	 */
 	resolveSounds: (document: BinDocumentId, names: string[], bankPaths: string[]) => __TAURI_INVOKE<({ ok: true; value: ResolvedSounds }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:audio|resolve_sounds", { document, names, bankPaths }),
 };
