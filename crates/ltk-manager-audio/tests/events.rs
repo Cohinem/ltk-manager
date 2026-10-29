@@ -193,6 +193,59 @@ fn event_bank_falls_back_to_sibling_media_bank() {
 }
 
 #[test]
+fn event_bank_finds_voice_over_unit_of_localized_bank_under_its_locale() {
+    let vo =
+        |locale: &str, file: &str| format!("assets/sounds/wwise2016/vo/{locale}/shared/{file}");
+    let mut builder = AudioIndex::builder();
+    builder.add_bin(
+        "data/maps/shipping/map22/map22.bin",
+        BinAudio {
+            units: vec![
+                BankUnit {
+                    name: "Map22_VO".to_owned(),
+                    bank_path: vec![
+                        vo("en_US", "map22_vo_events.bnk"),
+                        vo("en_US", "map22_vo_audio.bnk"),
+                    ],
+                    events: Vec::new(),
+                    voice_over: true,
+                }
+                .into(),
+            ],
+            ..BinAudio::default()
+        },
+    );
+    let index = builder.build();
+    let files =
+        FakeFiles::default().with_fixture(&vo("ko_KR", "map22_vo_audio.bnk"), "media_v145.bnk");
+
+    let bank = EventBank::open(
+        opened(
+            &vo("ko_kr", "map22_vo_events.bnk"),
+            fixture("events_v145.bnk"),
+        ),
+        &[&index],
+        &files,
+        None,
+        &FakeNames::default(),
+    );
+    let list = bank.events();
+
+    assert_eq!(list.origin, BankSetOrigin::Units);
+    let paths: Vec<&str> = list.files.iter().map(|file| file.path.as_str()).collect();
+    assert_eq!(
+        paths,
+        [
+            vo("ko_kr", "map22_vo_events.bnk"),
+            vo("ko_KR", "map22_vo_audio.bnk")
+        ]
+    );
+    assert!(
+        tree_sounds(&bank, BANKED_EVENT).contains(&(BANKED_SOURCE, Some(MediaContainer::Bank)))
+    );
+}
+
+#[test]
 fn event_bank_without_events_stem_opens_alone() {
     let path = format!("{DIR}/map22_sfx.bnk");
 

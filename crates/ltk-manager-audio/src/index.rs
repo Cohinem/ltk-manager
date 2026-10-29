@@ -61,7 +61,10 @@ impl AudioIndex {
     }
 
     /// Returns the bank units whose `bankPath` lists `path`, compared without ASCII case.
-    pub fn units_naming<'a>(&'a self, path: &'a str) -> impl Iterator<Item = &'a IndexedUnit> {
+    pub fn units_naming<'a>(
+        &'a self,
+        path: &str,
+    ) -> impl Iterator<Item = &'a IndexedUnit> + use<'a> {
         self.by_path
             .get(&path.to_ascii_lowercase())
             .into_iter()

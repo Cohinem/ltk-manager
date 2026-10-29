@@ -71,6 +71,23 @@ fn bins(references: &BankReferences, group: usize) -> Vec<&str> {
 }
 
 #[test]
+fn bank_references_find_units_of_localized_voice_over_bank() {
+    let game = index_of(&[("data/characters/ahri/skins/skin7.bin", vec![vo_unit(1)])]);
+    let localized = EVENTS.replace("en_US", "ko_KR");
+
+    let references = BankReferences::of(&localized, &[&game], &FakeNames::default());
+
+    assert_eq!(references.units.len(), 1);
+    let opened: Vec<&str> = references.units[0]
+        .files
+        .iter()
+        .filter(|file| file.opened)
+        .map(|file| file.path.as_str())
+        .collect();
+    assert_eq!(opened, [EVENTS]);
+}
+
+#[test]
 fn bank_references_group_identical_units() {
     let game = index_of(&[
         ("data/characters/ahri/skins/skin1.bin", vec![vo_unit(1)]),

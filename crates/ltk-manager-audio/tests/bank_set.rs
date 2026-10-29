@@ -120,6 +120,27 @@ fn open_falls_back_to_voice_over_path_as_written() {
 }
 
 #[test]
+fn open_falls_back_to_voice_over_path_as_written_on_localized_read_error() {
+    let localized = "ASSETS/Sounds/Wwise2016/VO/ko_KR/Shared/Map22_VO_audio.wpk";
+    let files = FakeFiles::default()
+        .failing(localized)
+        .with_fixture(VO_PACKAGE, "package.wpk");
+
+    let set = BankSet::open(&[unit(&[VO_PACKAGE], true)], &files, Some("ko_kr"));
+
+    assert_eq!(kinds(&set), [(VO_PACKAGE, "package")]);
+}
+
+#[test]
+fn open_keeps_failed_voice_over_file_if_path_as_written_fails_too() {
+    let files = FakeFiles::default().failing(VO_PACKAGE);
+
+    let set = BankSet::open(&[unit(&[VO_PACKAGE], true)], &files, Some("ko_kr"));
+
+    assert_eq!(kinds(&set), [(VO_PACKAGE, "failed")]);
+}
+
+#[test]
 fn open_reads_path_as_written_if_unit_is_not_voice_over() {
     let localized = "ASSETS/Sounds/Wwise2016/VO/ko_KR/Shared/Map22_VO_audio.wpk";
     let files = FakeFiles::default()

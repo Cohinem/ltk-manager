@@ -13,7 +13,9 @@ use ltk_wwise::hierarchy::{ObjectKind, StreamType};
 use ltk_wwise::{ObjectId, SourceId};
 use serde::Serialize;
 
-use crate::bank_set::{BANK_EVENTS, BankContent, BankSet, BankUnit, CONTEXTUAL_ACTION_DATA};
+use crate::bank_set::{
+    BANK_EVENTS, BankContent, BankSet, BankUnit, CONTEXTUAL_ACTION_DATA, localized, shipped,
+};
 use crate::bin_audio::{Audience, SiteStep};
 use crate::contextual::{ContextualMatch, contextual_names};
 use crate::files::{AudioFile, AudioFiles, ReadSeek};
@@ -309,21 +311,36 @@ fn media_location(set: &BankSet, site: MediaSite, source: SourceId) -> Option<Me
 }
 
 /// Returns the bank units of the set of the bank at `path`, and where they come from.
+///
+/// A unit names a voice-over bank by its `en_US` path. A bank at another locale also takes the
+/// units that name its `en_US` path, with their paths read under the locale of `path`.
 fn bank_units(path: &str, indexes: &[&AudioIndex]) -> (Vec<BankUnit>, BankSetOrigin) {
     let mut units = vec![BankUnit {
         bank_path: vec![path.to_owned()],
         ..BankUnit::default()
     }];
     let mut listed = HashSet::from([path.to_ascii_lowercase()]);
+    let shipped = shipped(path);
 
     for index in indexes {
-        for indexed in index.units_naming(path) {
+        let named = index.units_naming(path).map(|indexed| (indexed, None));
+        let localized_units = shipped.iter().flat_map(|(shipped, locale)| {
+            index
+                .units_naming(shipped)
+                .map(move |indexed| (indexed, Some(*locale)))
+        });
+
+        for (indexed, locale) in named.chain(localized_units) {
             let bank_path = indexed
                 .unit
                 .bank_path
                 .iter()
-                .filter(|listed_path| listed.insert(listed_path.to_ascii_lowercase()))
-                .cloned()
+                .map(|unit_path| {
+                    locale
+                        .and_then(|locale| localized(unit_path, locale))
+                        .unwrap_or_else(|| unit_path.clone())
+                })
+                .filter(|unit_path| listed.insert(unit_path.to_ascii_lowercase()))
                 .collect();
             units.push(BankUnit {
                 bank_path,

@@ -288,7 +288,10 @@ impl BankSet {
     }
 }
 
-/// Opens `path`, or `localized` first if it is given and a store holds it.
+/// Opens `path`, or `localized` first if it is given and a store contains it.
+///
+/// A read error of `localized` falls back to `path`, and a read error of `path` keeps the file
+/// as failed.
 fn open_file(files: &dyn AudioFiles, localized: Option<&str>, path: &str, unit: usize) -> BankFile {
     let file = |path: &str, asset, content| BankFile {
         path: path.to_owned(),
@@ -315,7 +318,8 @@ fn open_file(files: &dyn AudioFiles, localized: Option<&str>, path: &str, unit: 
                     };
                 }
                 Ok(None) => {}
-                Err(e) => return failed(candidate, None, e.to_string()),
+                Err(e) if candidate == path => return failed(candidate, None, e.to_string()),
+                Err(e) => tracing::debug!("Failed to read {candidate}, reading {path}: {e}"),
             },
             AudioFileKind::Bank => match files.read(candidate) {
                 Ok(Some(opened)) => {
@@ -325,7 +329,8 @@ fn open_file(files: &dyn AudioFiles, localized: Option<&str>, path: &str, unit: 
                     };
                 }
                 Ok(None) => {}
-                Err(e) => return failed(candidate, None, e.to_string()),
+                Err(e) if candidate == path => return failed(candidate, None, e.to_string()),
+                Err(e) => tracing::debug!("Failed to read {candidate}, reading {path}: {e}"),
             },
         }
     }
@@ -336,7 +341,7 @@ fn open_file(files: &dyn AudioFiles, localized: Option<&str>, path: &str, unit: 
 /// Returns `path` with each `en_US` segment replaced by `locale`, or `None` if nothing changes.
 ///
 /// `locale` is written as `ll_RR`, the spelling of the shipped paths.
-fn localized(path: &str, locale: &str) -> Option<String> {
+pub(crate) fn localized(path: &str, locale: &str) -> Option<String> {
     let (language, region) = locale.split_once('_')?;
     let locale = format!(
         "{}_{}",
@@ -361,6 +366,39 @@ fn localized(path: &str, locale: &str) -> Option<String> {
         .collect();
 
     changed.then(|| segments.join("/"))
+}
+
+/// Returns `path` with its locale segment replaced by `en_US`, and the segment it replaced.
+///
+/// A locale segment is two letters, an underscore and two letters, such as `ko_KR`. Returns
+/// `None` if `path` has no locale segment, or only `en_US`.
+pub(crate) fn shipped(path: &str) -> Option<(String, &str)> {
+    let locale = path.split('/').find(|segment| is_locale(segment))?;
+    if locale.eq_ignore_ascii_case(SHIPPED_LOCALE) {
+        return None;
+    }
+
+    let segments: Vec<&str> = path
+        .split('/')
+        .map(|segment| {
+            if segment == locale {
+                SHIPPED_LOCALE
+            } else {
+                segment
+            }
+        })
+        .collect();
+    Some((segments.join("/"), locale))
+}
+
+/// Returns `true` if `segment` is spelled as a locale: two letters, `_` and two letters.
+fn is_locale(segment: &str) -> bool {
+    let bytes = segment.as_bytes();
+    bytes.len() == 5
+        && bytes[2] == b'_'
+        && [0, 1, 3, 4]
+            .iter()
+            .all(|&at| bytes[at].is_ascii_alphabetic())
 }
 
 /// The locale segment that every shipped voice-over path spells.
