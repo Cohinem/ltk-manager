@@ -40,8 +40,8 @@ pub struct IndexedRules {
 ///
 /// The shell builds one over the installed game, once per game build, and one over the bins of
 /// an open project.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(from = "Stored", into = "Stored")]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(from = "Stored")]
 pub struct AudioIndex {
     units: Vec<IndexedUnit>,
     lists: Vec<IndexedList>,
@@ -134,12 +134,17 @@ impl AudioIndex {
     }
 
     /// Writes the index with the key `build`, the game build that it was read from.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `rmp_serde` fails to write the index. Every part of the index is a string, a
+    /// number or a sequence of them, so a failure is a bug.
     #[must_use]
     pub fn to_bytes(&self, build: &str) -> Vec<u8> {
-        let file = IndexFile {
+        let file = IndexFileRef {
             version: FILE_VERSION,
-            build: build.to_owned(),
-            index: self.clone(),
+            build,
+            index: self,
         };
         rmp_serde::to_vec(&file).expect("an audio index serializes")
     }
@@ -323,16 +328,24 @@ const DIDX_RECORD_LEN: usize = 12;
 /// read as missing.
 const FILE_VERSION: u32 = 2;
 
-/// The file that [`AudioIndex::to_bytes`] writes.
-#[derive(Serialize, Deserialize)]
+/// The file that [`AudioIndex::from_bytes`] reads.
+#[derive(Deserialize)]
 struct IndexFile {
     version: u32,
     build: String,
     index: AudioIndex,
 }
 
+/// The file that [`AudioIndex::to_bytes`] writes, with the fields of `IndexFile` borrowed.
+#[derive(Serialize)]
+struct IndexFileRef<'a> {
+    version: u32,
+    build: &'a str,
+    index: &'a AudioIndex,
+}
+
 /// The serialized form of an [`AudioIndex`]: the names as strings, the IDs as numbers.
-#[derive(Serialize, Deserialize)]
+#[derive(Deserialize)]
 struct Stored {
     units: Vec<IndexedUnit>,
     lists: Vec<IndexedList>,
@@ -341,23 +354,41 @@ struct Stored {
     sources: Vec<u32>,
 }
 
-impl From<AudioIndex> for Stored {
-    fn from(index: AudioIndex) -> Self {
+/// `Stored` with the parts borrowed from the index, in the same field order.
+#[derive(Serialize)]
+struct StoredRef<'a> {
+    units: &'a [IndexedUnit],
+    lists: &'a [IndexedList],
+    contextual: Vec<(u32, &'a IndexedRules)>,
+    names: Vec<&'a str>,
+    sources: Vec<u32>,
+}
+
+impl<'a> From<&'a AudioIndex> for StoredRef<'a> {
+    fn from(index: &'a AudioIndex) -> Self {
         let mut sources: Vec<u32> = index.sources.iter().map(|source| source.0).collect();
         sources.sort_unstable();
-        let mut contextual: Vec<(u32, IndexedRules)> = index.contextual.into_iter().collect();
+
+        let mut contextual: Vec<(u32, &IndexedRules)> = index
+            .contextual
+            .iter()
+            .map(|(object, rules)| (*object, rules))
+            .collect();
         contextual.sort_unstable_by_key(|(object, _)| *object);
+
         Self {
-            units: index.units,
-            lists: index.lists,
+            units: &index.units,
+            lists: &index.lists,
             contextual,
-            names: index
-                .names
-                .iter()
-                .map(|(_, name)| name.to_owned())
-                .collect(),
+            names: index.names.iter().map(|(_, name)| name).collect(),
             sources,
         }
+    }
+}
+
+impl Serialize for AudioIndex {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        StoredRef::from(self).serialize(serializer)
     }
 }
 
