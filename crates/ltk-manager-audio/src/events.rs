@@ -1,6 +1,9 @@
 //! The event bank viewer's model: the events of one opened bank, each with its play tree.
 //!
 //! "Event tree" in `docs/ux/AUDIO.md`.
+//!
+//! An ID crosses IPC as a `u32`, because the `ltk_wwise` ID types implement neither `Serialize`
+//! nor `specta::Type`, and a serde adapter splits a specta type into two phases.
 
 use std::collections::{HashMap, HashSet};
 use std::io;

@@ -1,6 +1,9 @@
 //! Event names resolved into play trees for a viewport: the sounds of a clip or an effect.
 //!
 //! "Viewport sound" in `docs/ux/AUDIO.md`.
+//!
+//! An ID crosses IPC as a `u32`, because the `ltk_wwise` ID types implement neither `Serialize`
+//! nor `specta::Type`, and a serde adapter splits a specta type into two phases.
 
 use std::collections::HashSet;
 

@@ -195,8 +195,14 @@ impl Rule for AudioBankVersion {
                     run.write(layer, path, &converted, 1, 0)?;
                     Ok(true)
                 }
-                Err(why) => {
-                    tracing::info!("Converting nothing at {layer}/{path}: {why}");
+                Err(Unconverted::Accepted) => {
+                    tracing::debug!(
+                        "Skipped the conversion of {layer}/{path}, because the client accepts the bank"
+                    );
+                    Ok(false)
+                }
+                Err(Unconverted::Refused(why)) => {
+                    tracing::info!("Skipped the conversion of {layer}/{path}: {why}");
                     Ok(false)
                 }
             }
@@ -208,14 +214,25 @@ impl Rule for AudioBankVersion {
 ///
 /// # Errors
 ///
-/// Fails if the bank does not read, if the client accepts it, or if [`converted`] fails.
-fn conversion_of(bytes: &[u8]) -> Result<Vec<u8>, String> {
-    let bank = Bank::from_reader(&mut Cursor::new(bytes)).map_err(|error| error.to_string())?;
+/// Fails with [`Unconverted::Accepted`] if the client accepts the bank, and with
+/// [`Unconverted::Refused`] if the bank does not read or if [`converted`] fails.
+fn conversion_of(bytes: &[u8]) -> Result<Vec<u8>, Unconverted> {
+    let bank = Bank::from_reader(&mut Cursor::new(bytes))
+        .map_err(|error| Unconverted::Refused(error.to_string()))?;
     if bank.header().version >= BankVersion::CURRENT || bank.check().is_ok() {
-        return Err(String::from("the client accepts the bank"));
+        return Err(Unconverted::Accepted);
     }
 
-    converted(&bank)
+    converted(&bank).map_err(Unconverted::Refused)
+}
+
+/// Why a bank on disk is not converted.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum Unconverted {
+    /// The client accepts the bank, so it needs no conversion.
+    Accepted,
+    /// The bank does not read, or the conversion fails, with the reason.
+    Refused(String),
 }
 
 /// What would answer for this bank once it is gone, or why nothing would.
