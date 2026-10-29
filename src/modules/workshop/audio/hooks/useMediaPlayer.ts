@@ -4,6 +4,9 @@ import { useAssetVersion, versionedUrl } from "@/lib/assetVersions";
 import { previewSoundUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
+/** The gain of every media the player plays, as an `HTMLMediaElement.volume` from 0 to 1. */
+export const PREVIEW_VOLUME = 0.2;
+
 /** The one player of an audio file document. */
 export interface MediaPlayer {
   /** The ref that the document's `<audio>` element takes. */
@@ -56,6 +59,7 @@ export function useMediaPlayer(asset: AssetRef): MediaPlayer {
       }
 
       audio.src = versionedUrl(previewSoundUrl(asset, source), version);
+      audio.volume = PREVIEW_VOLUME;
       setPlaying(source);
       /* A pause or a new source rejects the pending play with an `AbortError`. */
       void audio.play().catch((error: unknown) => {

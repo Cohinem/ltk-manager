@@ -67,6 +67,9 @@ pressing the playing row stops it. The player stops when the file changes on dis
 the document closes. The play state of the row is the pressed state of its button, and a live
 region announces the source ID that plays.
 
+The player plays every media at a volume of 0.2. The webview applies none of the game mixer gain,
+so shipped media at full volume is much louder than in a match.
+
 ### Keyboard
 
 The table is one tab stop. Focus selects the first row if no row is selected.
