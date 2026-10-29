@@ -70,6 +70,7 @@ impl Rule for BinBaseSkinCopy {
                         mismatch: None,
                         message: None,
                         fix: Some(FixPreview::note("Removed")),
+                        alternatives: Vec::new(),
                     },
                 );
             }

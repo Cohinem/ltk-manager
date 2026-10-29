@@ -17,6 +17,7 @@ use camino::Utf8Path;
 use delta::RepairEdit;
 use fs_err as fs;
 use ltk_fantome::DeltaReport;
+use ltk_hashtable::{Hashtable, HashtableEntry};
 use ltk_manager_assets::mod_archive::open_fantome;
 use ltk_manager_base::budget::{self, Budget};
 use ltk_manager_base::config::Config;
@@ -24,12 +25,14 @@ use ltk_manager_base::error::{AppError, AppResult, Utf8PathExt, Utf8PathRefExt};
 use ltk_manager_base::events::ModStorage;
 use ltk_manager_base::events::{BackendEvent, ModRepairProgress};
 use ltk_manager_base::utils::fs::replace_keeping_old;
-use ltk_manager_problems::{self as problems, FixReport, ProjectFiles};
+use ltk_manager_problems::{self as problems, FixReport, GameContent, HeldWrites, ProjectFiles};
 use ltk_mod_project::ProjectImporter;
 use ltk_mod_project::fantome::{FantomeFormat, FantomeImporter};
+use ltk_wad::PathResolver;
 use serde::Serialize;
 use std::io::BufWriter;
 use std::path::Path;
+use std::sync::Arc;
 use uuid::Uuid;
 
 mod delta;
@@ -82,7 +85,30 @@ impl ModLibrary {
         /* A budget of its own, and not the run's: one mod from a row can be
         pressed while the startup sweep is going, and taking the run's handle
         would leave the sweep's cancel reaching nothing. */
-        self.repair_mod_within(config, mod_id, &Budget::repair())
+        self.repair_mod_within(config, mod_id, Repair::Fixes, &Budget::repair())
+    }
+
+    /// Applies one alternative of one problem in one library mod.
+    ///
+    /// The alternative goes through the same fix run as [`repair_mod`](Self::repair_mod),
+    /// for both storages, and the verdict is recorded the same way. A problem that the
+    /// mod's fresh check does not report with the alternative is not applied.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`repair_mod`](Self::repair_mod).
+    pub fn repair_mod_alternative(
+        &self,
+        config: &Config,
+        mod_id: &str,
+        chosen: problems::ChosenAlternative<'_>,
+    ) -> AppResult<FixReport> {
+        self.repair_mod_within(
+            config,
+            mod_id,
+            Repair::Alternative(chosen),
+            &Budget::repair(),
+        )
     }
 
     /// [`repair_mod`](Self::repair_mod) under a caller's own budget.
@@ -95,6 +121,7 @@ impl ModLibrary {
         &self,
         config: &Config,
         mod_id: &str,
+        repair: Repair<'_>,
         budget: &Budget,
     ) -> AppResult<FixReport> {
         // The same precondition the check runs under, and for a stronger
@@ -122,9 +149,9 @@ impl ModLibrary {
                 let mod_dir = entry.mod_dir(&storage_dir);
                 let game = self.game_content(config);
                 let run = problems::analyze_within(&mod_dir, config, budget.clone(), game.clone())?;
-                let wanted = run.live_fixable();
+                let wanted = repair.wanted(&run);
                 let resolver = self.wad_resolver();
-                let report = problems::apply(
+                let report = repair.apply(
                     &mod_dir,
                     &run,
                     &wanted,
@@ -139,14 +166,15 @@ impl ModLibrary {
             }
             ModStorage::Archive => {
                 let archive = entry.convertible_archive(&storage_dir)?;
-                match self.repair_in_archive(config, &archive, budget)? {
+                match self.repair_in_archive(config, &archive, repair, budget)? {
                     Some(outcome) => outcome,
                     None => {
                         let staging = storage_dir
                             .mods_dir()
                             .join(format!("{STAGING_PREFIX}{}", Uuid::new_v4()));
                         fs::create_dir_all(&staging)?;
-                        let outcome = self.repair_in_staging(config, &staging, &archive, budget);
+                        let outcome =
+                            self.repair_in_staging(config, &staging, &archive, repair, budget);
                         let _ = fs::remove_dir_all(&staging);
                         outcome?
                     }
@@ -225,7 +253,7 @@ impl ModLibrary {
                 progress.begin(mod_id, |at| {
                     self.events().emit(BackendEvent::ModRepairProgress(at));
                 });
-                let repaired = self.repair_mod_within(config, mod_id, &budget);
+                let repaired = self.repair_mod_within(config, mod_id, Repair::Fixes, &budget);
                 progress.end(mod_id, |at| {
                     self.events().emit(BackendEvent::ModRepairProgress(at));
                 });
@@ -285,6 +313,7 @@ impl ModLibrary {
         &self,
         config: &Config,
         archive: &Path,
+        repair: Repair<'_>,
         budget: &Budget,
     ) -> AppResult<Option<(FixReport, problems::Run)>> {
         let game = self.game_content(config);
@@ -297,9 +326,9 @@ impl ModLibrary {
             game.clone(),
         )?;
         let run = project.checked();
-        let wanted = run.live_fixable();
+        let wanted = repair.wanted(&run);
         let declared = open_fantome(archive)?.read_hashtables()?;
-        let (report, held) = problems::apply_held(
+        let (report, held) = repair.apply_held(
             project,
             declared,
             &run,
@@ -342,14 +371,15 @@ impl ModLibrary {
         config: &Config,
         staging: &Path,
         archive: &Path,
+        repair: Repair<'_>,
         budget: &Budget,
     ) -> AppResult<(FixReport, problems::Run)> {
         let staging_utf8 = self.unpack_for_rules(staging, archive)?;
         let game = self.game_content(config);
         let run = problems::analyze_within(staging, config, budget.clone(), game.clone())?;
-        let wanted = run.live_fixable();
+        let wanted = repair.wanted(&run);
         let resolver = self.wad_resolver();
-        let report = problems::apply(
+        let report = repair.apply(
             staging,
             &run,
             &wanted,
@@ -386,6 +416,68 @@ impl ModLibrary {
             )
             .map_err(|e| AppError::Other(format!("Failed to import fantome archive: {e}")))?;
         Ok(staging_utf8)
+    }
+}
+
+/// What a repair of one mod applies.
+#[derive(Debug, Clone, Copy)]
+pub(in crate::mods) enum Repair<'a> {
+    /// Every live fix, as "Repair" and "Repair all" apply.
+    Fixes,
+    /// One alternative of one problem, which only its own press applies.
+    Alternative(problems::ChosenAlternative<'a>),
+}
+
+impl Repair<'_> {
+    /// Returns the problems of `run` that the repair names.
+    fn wanted(self, run: &problems::Run) -> Vec<problems::ProblemId> {
+        match self {
+            Self::Fixes => run.live_fixable(),
+            Self::Alternative(chosen) => vec![chosen.problem.clone()],
+        }
+    }
+
+    /// Applies the repair over the tree at `root`.
+    fn apply(
+        self,
+        root: &Path,
+        run: &problems::Run,
+        wanted: &[problems::ProblemId],
+        config: &Config,
+        exclusions: Option<&dyn PathResolver>,
+        game: Option<Arc<dyn GameContent>>,
+    ) -> AppResult<FixReport> {
+        match self {
+            Self::Fixes => problems::apply(root, run, wanted, config, exclusions, game),
+            Self::Alternative(chosen) => {
+                problems::apply_alternative(root, run, chosen, config, exclusions, game)
+            }
+        }
+    }
+
+    /// Applies the repair over the files a check read where they lie, holding every write.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the arguments of `problems::apply_held` and the repair itself"
+    )]
+    fn apply_held(
+        self,
+        project: ProjectFiles,
+        declared: Vec<(HashtableEntry, Hashtable)>,
+        run: &problems::Run,
+        wanted: &[problems::ProblemId],
+        config: &Config,
+        exclusions: Option<&dyn PathResolver>,
+        game: Option<Arc<dyn GameContent>>,
+    ) -> AppResult<(FixReport, HeldWrites)> {
+        match self {
+            Self::Fixes => {
+                problems::apply_held(project, declared, run, wanted, config, exclusions, game)
+            }
+            Self::Alternative(chosen) => problems::apply_alternative_held(
+                project, declared, run, chosen, config, exclusions, game,
+            ),
+        }
     }
 }
 

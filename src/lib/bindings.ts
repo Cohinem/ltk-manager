@@ -51,6 +51,9 @@ export type AddableFields = {
 	fields: AddableField[],
 };
 
+/**  The id of one alternative fix, unique among the alternatives of its rule. */
+export type AlternativeId = string;
+
 /**
  *  An animation graph, as a clip table and a viewport read it.
  * 
@@ -2440,6 +2443,46 @@ export type FindingSeverity =
 "warning" | 
 /**  A note without a problem. */
 "info";
+
+/**
+ *  A repair that a problem offers beside its fix, which only an explicit press applies.
+ * 
+ *  [`Run::live_fixable`] leaves every alternative out, so neither the repair of a mod nor
+ *  "Repair all" applies one. [`apply_alternative`] applies one alternative of one problem.
+ */
+export type FixAlternative = FixAlternative_Serialize | FixAlternative_Deserialize;
+
+/**
+ *  A repair that a problem offers beside its fix, which only an explicit press applies.
+ * 
+ *  [`Run::live_fixable`] leaves every alternative out, so neither the repair of a mod nor
+ *  "Repair all" applies one. [`apply_alternative`] applies one alternative of one problem.
+ */
+export type FixAlternative_Deserialize = {
+	id: AlternativeId,
+	/**  A few words naming the repair, in sentence case. */
+	title: string,
+	/**  `true` while the repair is not proven in a match. */
+	experimental: boolean,
+	/**  What the repair would change. */
+	fix: FixPreview_Deserialize,
+};
+
+/**
+ *  A repair that a problem offers beside its fix, which only an explicit press applies.
+ * 
+ *  [`Run::live_fixable`] leaves every alternative out, so neither the repair of a mod nor
+ *  "Repair all" applies one. [`apply_alternative`] applies one alternative of one problem.
+ */
+export type FixAlternative_Serialize = {
+	id: AlternativeId,
+	/**  A few words naming the repair, in sentence case. */
+	title: string,
+	/**  `true` while the repair is not proven in a match. */
+	experimental: boolean,
+	/**  What the repair would change. */
+	fix: FixPreview_Serialize,
+};
 
 /**
  *  What a repair would change, in the words a row draws.
@@ -5596,6 +5639,25 @@ export type ObjectSearchResult = {
 /**  Why an object edit does not apply, as `ltk_game_data` names it. */
 export type ObjectSkip = "objectExists" | "sourceMissing" | "unknownClass" | "removalUnmatched" | "unknown";
 
+/**  One alternative of one finding, which a press applies by the finding's id. */
+export type OfferedAlternative = OfferedAlternative_Serialize | OfferedAlternative_Deserialize;
+
+/**  One alternative of one finding, which a press applies by the finding's id. */
+export type OfferedAlternative_Deserialize = {
+	problem: ProblemId,
+	/**  The file name of the finding's site, which tells two findings of one rule apart. */
+	file: string,
+	alternative: FixAlternative_Deserialize,
+};
+
+/**  One alternative of one finding, which a press applies by the finding's id. */
+export type OfferedAlternative_Serialize = {
+	problem: ProblemId,
+	/**  The file name of the finding's site, which tells two findings of one rule apart. */
+	file: string,
+	alternative: FixAlternative_Serialize,
+};
+
 /**  The page the window opens on. */
 export type OpenOn = "home" | "mods" | "workshop";
 
@@ -6268,6 +6330,8 @@ export type Problem_Deserialize = {
 	message?: string | null,
 	/**  What a repair would change, drawn before it is applied. */
 	fix: FixPreview_Deserialize | null,
+	/**  The repairs offered beside `fix`, each applied only on its own press. */
+	alternatives?: FixAlternative_Deserialize[],
 };
 
 /**  One finding, at one site, from one rule. */
@@ -6283,6 +6347,8 @@ export type Problem_Serialize = {
 	message?: string | null,
 	/**  What a repair would change, drawn before it is applied. */
 	fix: FixPreview_Serialize | null,
+	/**  The repairs offered beside `fix`, each applied only on its own press. */
+	alternatives?: FixAlternative_Serialize[],
 };
 
 /**  A mod profile for organizing different mod configurations. */
@@ -6889,6 +6955,8 @@ export type RuleBrief_Deserialize = {
 	mismatches?: TypeMismatch[],
 	/**  Why the rest stay unrepaired, present only when some do. */
 	unfixable?: string | null,
+	/**  The alternatives the findings offer beside their fix, in finding order. */
+	alternatives?: OfferedAlternative_Deserialize[],
 };
 
 /**
@@ -6927,6 +6995,8 @@ export type RuleBrief_Serialize = {
 	mismatches?: TypeMismatch[],
 	/**  Why the rest stay unrepaired, present only when some do. */
 	unfixable?: string | null,
+	/**  The alternatives the findings offer beside their fix, in finding order. */
+	alternatives?: OfferedAlternative_Serialize[],
 };
 
 /**  A rule that could not finish, and why. */

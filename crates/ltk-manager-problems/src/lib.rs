@@ -37,7 +37,8 @@ pub use engine::{
     analyze_project, analyze_within,
 };
 pub use fix::{
-    FileChange, FileOutcome, FixError, FixReport, FixRun, HeldWrites, apply, apply_held,
+    ChosenAlternative, FileChange, FileOutcome, FixError, FixReport, FixRun, HeldWrites, apply,
+    apply_alternative, apply_alternative_held, apply_held,
 };
 pub use game::{GameContent, InstalledContent};
 pub use names::BinNames;
@@ -274,6 +275,48 @@ impl FixPreview {
     }
 }
 
+/// The id of one alternative fix, unique among the alternatives of its rule.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(transparent)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct AlternativeId(String);
+
+impl AlternativeId {
+    /// Returns the id `id`.
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    /// Returns the id as a string.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for AlternativeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// A repair that a problem offers beside its fix, which only an explicit press applies.
+///
+/// [`Run::live_fixable`] leaves every alternative out, so neither the repair of a mod nor
+/// "Repair all" applies one. [`apply_alternative`] applies one alternative of one problem.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct FixAlternative {
+    pub id: AlternativeId,
+    /// A few words naming the repair, in sentence case.
+    pub title: String,
+    /// `true` while the repair is not proven in a match.
+    pub experimental: bool,
+    /// What the repair would change.
+    pub fix: FixPreview,
+}
+
 /// What one problem says, as against where it is.
 ///
 /// An input to [`Report::problem`], which flattens it into the [`Problem`] it
@@ -290,15 +333,16 @@ pub struct Detail {
     pub message: Option<String>,
     /// What a repair would change. `None` where the rule has no repair.
     pub fix: Option<FixPreview>,
+    /// The repairs offered beside [`fix`](Self::fix), each applied only on its own press.
+    pub alternatives: Vec<FixAlternative>,
 }
 
 impl Detail {
     /// A problem that is nothing but its message.
     pub fn new(message: impl Into<String>) -> Self {
         Self {
-            mismatch: None,
             message: Some(message.into()),
-            fix: None,
+            ..Self::default()
         }
     }
 }
@@ -323,6 +367,10 @@ pub struct Problem {
     pub message: Option<String>,
     /// What a repair would change, drawn before it is applied.
     pub fix: Option<FixPreview>,
+    /// The repairs offered beside `fix`, each applied only on its own press.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub alternatives: Vec<FixAlternative>,
 }
 
 /// A rule that could not finish, and why.
@@ -357,6 +405,7 @@ impl Report {
             mismatch: detail.mismatch,
             message: detail.message,
             fix: detail.fix,
+            alternatives: detail.alternatives,
         });
     }
 
@@ -759,6 +808,24 @@ pub trait Rule: Send + Sync {
     /// Reports the first file it could not read or write. What the run had
     /// already written stays written, and a second run picks up the rest.
     fn fix(&self, problems: &[&Problem], run: &mut FixRun<'_>) -> Result<Applied, FixError>;
+
+    /// Applies the alternative `alternative` to `problems`, and records every write in `run`.
+    ///
+    /// The rule re-derives the change from the file on disk, as [`fix`](Self::fix) does. The
+    /// default implementation skips every problem, for a rule that offers no alternative.
+    ///
+    /// # Errors
+    ///
+    /// Reports the first file it could not read or write.
+    fn fix_alternative(
+        &self,
+        alternative: &AlternativeId,
+        problems: &[&Problem],
+        run: &mut FixRun<'_>,
+    ) -> Result<Applied, FixError> {
+        let _ = alternative;
+        Ok(run.skip_all(problems))
+    }
 }
 
 /// What one rule's fix changed.

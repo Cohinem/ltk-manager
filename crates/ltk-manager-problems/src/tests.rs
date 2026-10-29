@@ -239,7 +239,35 @@ fn problem_at(rule: RuleId, path: &str, fix: Option<FixPreview>) -> Problem {
         mismatch: None,
         message: None,
         fix,
+        alternatives: Vec::new(),
     }
+}
+
+/// An experimental alternative with the id `id`.
+fn alternative(id: &str) -> FixAlternative {
+    FixAlternative {
+        id: AlternativeId::new(id),
+        title: "Convert".to_owned(),
+        experimental: true,
+        fix: FixPreview::default(),
+    }
+}
+
+/// Story 3: neither "Repair" on a mod nor "Repair all" applies an alternative.
+#[test]
+fn live_fixable_leaves_out_a_problem_whose_only_repair_is_an_alternative() {
+    let rule = RuleId("audio/bank-version");
+    let both = Problem {
+        alternatives: vec![alternative("convert")],
+        ..problem_at(rule, "a", Some(FixPreview::default()))
+    };
+    let only_alternative = Problem {
+        alternatives: vec![alternative("convert")],
+        ..problem_at(rule, "b", None)
+    };
+    let run = run_of(vec![active(rule)], vec![both.clone(), only_alternative]);
+
+    assert_eq!(run.live_fixable(), vec![both.id]);
 }
 
 #[test]

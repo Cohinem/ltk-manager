@@ -91,6 +91,38 @@ pub struct RuleBrief {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub unfixable: Option<String>,
+    /// The alternatives the findings offer beside their fix, in finding order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[cfg_attr(feature = "ts", specta(optional))]
+    pub alternatives: Vec<OfferedAlternative>,
+}
+
+/// One alternative of one finding, which a press applies by the finding's id.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+pub struct OfferedAlternative {
+    pub problem: problems::ProblemId,
+    /// The file name of the finding's site, which tells two findings of one rule apart.
+    pub file: String,
+    pub alternative: problems::FixAlternative,
+}
+
+impl OfferedAlternative {
+    /// Returns every alternative that `problem` offers.
+    fn of(problem: &problems::Problem) -> impl Iterator<Item = Self> + '_ {
+        let file = problem
+            .site
+            .path
+            .rsplit('/')
+            .next()
+            .unwrap_or(&problem.site.path);
+        problem.alternatives.iter().map(move |alternative| Self {
+            problem: problem.id.clone(),
+            file: file.to_owned(),
+            alternative: alternative.clone(),
+        })
+    }
 }
 
 impl LibraryModEntry {
@@ -414,23 +446,27 @@ impl RuleBrief {
     /// the severity of a rule that declares one, which is as much this build's
     /// word as its title is, and which `observed` therefore only answers for a
     /// rule whose findings each decide their own.
-    fn worded(
-        info: &problems::RuleInfo,
-        observed: problems::ProblemSeverity,
-        count: u32,
-        fixable: u32,
-        mismatches: Vec<problems::TypeMismatch>,
-    ) -> Self {
+    fn worded(info: &problems::RuleInfo, observed: StoredRuleBrief) -> Self {
+        let StoredRuleBrief {
+            rule: _,
+            severity,
+            count,
+            fixable,
+            mismatches,
+            alternatives,
+        } = observed;
+
         Self {
             rule: info.id.to_string(),
             title: info.title.clone(),
             description: info.description.clone(),
-            severity: info.severity.unwrap_or(observed),
+            severity: info.severity.unwrap_or(severity),
             count,
             fixable,
             mismatches,
             unfixable: (fixable < count && !info.unfixable.is_empty())
                 .then(|| info.unfixable.clone()),
+            alternatives,
         }
     }
 }
@@ -440,24 +476,31 @@ fn rule_briefs(run: &Run) -> Vec<RuleBrief> {
     run.rules
         .iter()
         .filter_map(|rule| {
-            let mut count = 0u32;
-            let mut fixable = 0u32;
-            let mut mismatches = Vec::new();
-            /* The ladder runs worst-first, so the worst finding is the least. */
-            let mut severity = problems::ProblemSeverity::Info;
+            let mut observed = StoredRuleBrief {
+                rule: rule.id.to_string(),
+                /* The ladder runs worst-first, so the worst finding is the least. */
+                severity: problems::ProblemSeverity::Info,
+                count: 0,
+                fixable: 0,
+                mismatches: Vec::new(),
+                alternatives: Vec::new(),
+            };
             for problem in run.live_problems().filter(|p| p.rule == rule.id) {
-                count += 1;
-                severity = severity.min(problem.severity);
+                observed.count += 1;
+                observed.severity = observed.severity.min(problem.severity);
                 if problem.fix.is_some() {
-                    fixable += 1;
+                    observed.fixable += 1;
                 }
                 if let Some(mismatch) = &problem.mismatch
-                    && !mismatches.contains(mismatch)
+                    && !observed.mismatches.contains(mismatch)
                 {
-                    mismatches.push(mismatch.clone());
+                    observed.mismatches.push(mismatch.clone());
                 }
+                observed
+                    .alternatives
+                    .extend(OfferedAlternative::of(problem));
             }
-            (count > 0).then(|| RuleBrief::worded(rule, severity, count, fixable, mismatches))
+            (observed.count > 0).then(|| RuleBrief::worded(rule, observed))
         })
         .collect()
 }
@@ -547,6 +590,13 @@ struct StoredRuleBrief {
     fixable: u32,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     mismatches: Vec<problems::TypeMismatch>,
+    /// The alternatives the run's findings offered. A record without them reads as none.
+    ///
+    /// Kept whole, title and experimental flag included, because each belongs to one
+    /// finding. A release that changes them moves the `manager` of the basis, so the next
+    /// sweep checks the mod again.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    alternatives: Vec<OfferedAlternative>,
 }
 
 impl StoredVerdict {
@@ -566,6 +616,7 @@ impl StoredVerdict {
                     count: brief.count,
                     fixable: brief.fixable,
                     mismatches: brief.mismatches.clone(),
+                    alternatives: brief.alternatives.clone(),
                 })
                 .collect(),
             checked_at: verdict.checked_at.clone(),
@@ -583,13 +634,7 @@ impl StoredVerdict {
             .into_iter()
             .map(
                 |brief| match rules.iter().find(|info| info.id.to_string() == brief.rule) {
-                    Some(info) => RuleBrief::worded(
-                        info,
-                        brief.severity,
-                        brief.count,
-                        brief.fixable,
-                        brief.mismatches,
-                    ),
+                    Some(info) => RuleBrief::worded(info, brief),
                     None => RuleBrief {
                         title: brief.rule.clone(),
                         description: String::new(),
@@ -599,6 +644,7 @@ impl StoredVerdict {
                         fixable: brief.fixable,
                         mismatches: brief.mismatches,
                         unfixable: None,
+                        alternatives: brief.alternatives,
                     },
                 },
             )

@@ -14,7 +14,7 @@
 
 use fs_err as fs;
 use std::cell::OnceCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsStr;
 use std::io;
 use std::path::{Component, Path, PathBuf};
@@ -32,7 +32,8 @@ use super::game::GameContent;
 use super::pass::Fact;
 use super::preserve::{KeptTable, PreservedNames};
 use super::{
-    Applied, BinNames, NodeAddress, Problem, ProblemId, ProjectFiles, RuleId, Run, Site, rules,
+    AlternativeId, Applied, BinNames, NodeAddress, Problem, ProblemId, ProjectFiles, RuleId, Run,
+    Site, rules,
 };
 
 /// The directory a project keeps its layers under.
@@ -601,12 +602,81 @@ pub fn apply(
         config.clone(),
         game,
     );
-    let failed = fix_each(&mut fix_run, run, problems);
+    let failed = fix_each(&mut fix_run, run, Choice::Fixes(problems));
     let mut report = fix_run
         .finish()
         .map_err(|error| AppError::Other(error.to_string()))?;
     report.failed = failed;
     Ok(report)
+}
+
+/// One alternative of one problem, as a press names it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChosenAlternative<'a> {
+    pub problem: &'a ProblemId,
+    pub alternative: &'a AlternativeId,
+}
+
+/// Applies one alternative of one problem, as [`apply`] applies fixes.
+///
+/// A problem that `run` does not hold, that comes from a dormant rule, or that does not
+/// offer the alternative is not applied, and the report counts nothing.
+///
+/// # Errors
+///
+/// Reports a project that cannot be opened. A rule that fails is reported inside the
+/// [`FixReport`].
+pub fn apply_alternative(
+    project_root: &Path,
+    run: &Run,
+    chosen: ChosenAlternative<'_>,
+    config: &Config,
+    exclusions: Option<&dyn PathResolver>,
+    game: Option<Arc<dyn GameContent>>,
+) -> AppResult<FixReport> {
+    let mut fix_run = FixRun::open(
+        project_root,
+        migration_tables(),
+        exclusions,
+        config.clone(),
+        game,
+    );
+    let failed = fix_each(&mut fix_run, run, Choice::Alternative(chosen));
+    let mut report = fix_run
+        .finish()
+        .map_err(|error| AppError::Other(error.to_string()))?;
+    report.failed = failed;
+    Ok(report)
+}
+
+/// [`apply_alternative`] over the files a check read where they lie, with every write held
+/// for the edit that puts it back, as [`apply_held`] holds them.
+///
+/// # Errors
+///
+/// Reports a kept name the table grammar refuses. A rule that fails is reported inside the
+/// [`FixReport`].
+pub fn apply_alternative_held(
+    project: ProjectFiles,
+    declared: Vec<(HashtableEntry, Hashtable)>,
+    run: &Run,
+    chosen: ChosenAlternative<'_>,
+    config: &Config,
+    exclusions: Option<&dyn PathResolver>,
+    game: Option<Arc<dyn GameContent>>,
+) -> AppResult<(FixReport, HeldWrites)> {
+    let mut fix_run = FixRun::held(
+        project,
+        declared,
+        migration_tables(),
+        exclusions,
+        config.clone(),
+        game,
+    );
+    let failed = fix_each(&mut fix_run, run, Choice::Alternative(chosen));
+    let (mut report, held) = fix_run.finish_held()?;
+    report.failed = failed;
+    Ok((report, held))
 }
 
 /// [`apply`] over the files a check read where they lie, with every write held
@@ -636,7 +706,7 @@ pub fn apply_held(
         config.clone(),
         game,
     );
-    let failed = fix_each(&mut fix_run, run, problems);
+    let failed = fix_each(&mut fix_run, run, Choice::Fixes(problems));
     let (mut report, held) = fix_run.finish_held()?;
     report.failed = failed;
     Ok((report, held))
@@ -650,24 +720,63 @@ fn migration_tables() -> Vec<String> {
         .collect()
 }
 
-/// Run every rule's fix over its share of `problems`, and name the rules that
+/// What a fix run applies: the fixes of named problems, or one alternative.
+#[derive(Debug, Clone, Copy)]
+enum Choice<'a> {
+    Fixes(&'a [ProblemId]),
+    Alternative(ChosenAlternative<'a>),
+}
+
+/// Run every rule's fix over its share of the chosen problems, and name the rules that
 /// stopped.
-fn fix_each(fix_run: &mut FixRun<'_>, run: &Run, problems: &[ProblemId]) -> Vec<String> {
-    let chosen = run.by_rule(problems);
+fn fix_each(fix_run: &mut FixRun<'_>, run: &Run, choice: Choice<'_>) -> Vec<String> {
+    let chosen = match choice {
+        Choice::Fixes(problems) => run.by_rule(problems),
+        Choice::Alternative(alternative) => offering(run, alternative),
+    };
 
     let mut failed = Vec::new();
     for rule in rules::all() {
         let Some(problems) = chosen.get(&rule.id()) else {
             continue;
         };
+        let fixed = match choice {
+            Choice::Fixes(_) => rule.fix(problems, fix_run),
+            Choice::Alternative(alternative) => {
+                rule.fix_alternative(alternative.alternative, problems, fix_run)
+            }
+        };
         // A rule that stops does not take the others with it. What it had
         // already written stays written, and `FixReport::failed` is what tells
         // a caller its `remaining` does not cover the whole run.
-        if let Err(error) = rule.fix(problems, fix_run) {
+        if let Err(error) = fixed {
             failed.push(error.to_string());
         }
     }
     failed
+}
+
+/// Returns the chosen problem by its rule if a live rule reported it with the alternative.
+fn offering<'r>(run: &'r Run, chosen: ChosenAlternative<'_>) -> HashMap<RuleId, Vec<&'r Problem>> {
+    let offered = run.live_problems().find(|problem| {
+        problem.id == *chosen.problem
+            && problem
+                .alternatives
+                .iter()
+                .any(|alternative| alternative.id == *chosen.alternative)
+    });
+
+    match offered {
+        Some(problem) => HashMap::from([(problem.rule, vec![problem])]),
+        None => {
+            tracing::debug!(
+                "Ignoring alternative {} of {}, which this run does not offer",
+                chosen.alternative,
+                chosen.problem
+            );
+            HashMap::new()
+        }
+    }
 }
 
 /// One path segment as a plain name, or `None` for anything else.

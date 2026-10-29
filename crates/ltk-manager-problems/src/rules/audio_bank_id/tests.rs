@@ -11,8 +11,10 @@ use super::*;
 
 use crate::ProjectFiles;
 use ltk_manager_assets::test_util::{
-    BUILT_BANK_ID, audio_bank_with_id, make_packed_chunk_fantome_zip, resolver_naming,
+    BUILT_BANK_ID, audio_bank_bytes, make_packed_chunk_fantome_zip, resolver_naming,
 };
+use ltk_manager_audio::ltk_wwise::bank::{BankHeader, BankVersion, Section};
+use ltk_manager_audio::ltk_wwise::{Bank, BankId, MediaIndex, SourceId};
 use ltk_manager_base::budget::Budget;
 use ltk_manager_base::config::Config;
 
@@ -29,11 +31,21 @@ const WAD: &str = "Aatrox.wad.client";
 const SETT_BANK_ID: u32 = 0xE9B7_0B40;
 
 /// The version the measured specimens carry, which the rule says nothing about.
-const SPECIMEN_VERSION: u32 = 134;
+const SPECIMEN_VERSION: BankVersion = BankVersion::V134;
 
-/// A media bank at `id`, carrying the two chunks a media bank carries.
+/// A media bank at `version` and `id`, holding one media.
+fn media_bank(version: BankVersion, id: u32) -> Vec<u8> {
+    let mut media = MediaIndex::new();
+    media.insert(SourceId(1), vec![0; 64]);
+
+    let mut bank = Bank::new(BankHeader::new(version, BankId(id)));
+    bank.sections_mut().push(Section::Media(media));
+    audio_bank_bytes(&bank)
+}
+
+/// A media bank at `id`, at the version the specimens carry.
 fn bank(id: u32) -> Vec<u8> {
-    audio_bank_with_id(SPECIMEN_VERSION, id, &[(b"DIDX", 12), (b"DATA", 64)])
+    media_bank(SPECIMEN_VERSION, id)
 }
 
 fn found_in(files: &ProjectFiles) -> Vec<Problem> {
@@ -131,7 +143,7 @@ fn a_bank_carrying_an_id_reports_nothing() {
 #[test]
 fn the_version_alone_is_never_the_signal() {
     for version in [125u32, 132, 134, 145] {
-        let bytes = audio_bank_with_id(version, BUILT_BANK_ID, &[(b"DATA", 8)]);
+        let bytes = media_bank(BankVersion(version), BUILT_BANK_ID);
         let (_tmp, files) = tree(&bytes);
         assert!(found_in(&files).is_empty(), "version {version}");
     }
@@ -184,16 +196,17 @@ fn a_bank_header_shorter_than_the_id_reports_nothing() {
 /// carries `0xE9B70B40` at this path, and that is what the name alone gives.
 #[test]
 fn the_name_hashes_to_the_id_the_game_ships() {
-    assert_eq!(bank_id_of_name("sett_base_sfx_audio"), SETT_BANK_ID);
+    assert_eq!(bank_id_of_path("sett_base_sfx_audio.bnk"), SETT_BANK_ID);
 }
 
 /// The toolchain lowercases before hashing and strips the extension, so the
 /// spelling of the file name on disk never changes the id.
 #[test]
 fn case_and_extension_do_not_change_the_id() {
-    let stem = named_stem("Aatrox.wad.client/assets/SETT_Base_SFX_Audio.BNK")
-        .expect("a named chunk keeps its stem");
-    assert_eq!(bank_id_of_name(stem), SETT_BANK_ID);
+    assert_eq!(
+        bank_id_of_path("Aatrox.wad.client/assets/SETT_Base_SFX_Audio.BNK"),
+        SETT_BANK_ID
+    );
 }
 
 #[test]

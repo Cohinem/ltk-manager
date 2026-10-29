@@ -9,9 +9,11 @@ publish = false
 
 [dependencies]
 ltk-manager-assets = { workspace = true }
+ltk-manager-base = { workspace = true }
 
 lewton = { workspace = true }
 lru = { workspace = true }
+ltk_hash = { workspace = true }
 ltk_wwise = { workspace = true }
 parking_lot = { workspace = true }
 thiserror = { workspace = true }

@@ -16,7 +16,7 @@ mod sound;
 pub use ltk_wwise;
 pub use ltk_wwise::{ObjectId, SourceId};
 
-pub use bank_set::{BankContent, BankFile, BankSet, BankUnit};
+pub use bank_set::{BANK_PATH, BANK_UNIT, BankContent, BankFile, BankSet, BankUnit};
 pub use cache::SoundCache;
 pub use decode::{AudioFormat, DecodeError, DecodeFailure, Decoded, decode};
 pub use files::{AudioFile, AudioFiles, ReadSeek};

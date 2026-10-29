@@ -48,6 +48,7 @@ export type {
   Check_Serialize as Check,
   Config_Serialize as Config,
   DiagnosticReport_Serialize as DiagnosticReport,
+  FixAlternative_Serialize as FixAlternative,
   FixPreview_Serialize as FixPreview,
   HashtableUpdateCheck_Serialize as HashtableUpdateCheck,
   HealthCheckBasis_Serialize as HealthCheckBasis,
@@ -60,6 +61,7 @@ export type {
   ModLicense_Serialize as ModLicense,
   NodeAddress_Serialize as NodeAddress,
   ObjectInfo_Serialize as ObjectInfo,
+  OfferedAlternative_Serialize as OfferedAlternative,
   PatcherBinaries_Serialize as PatcherBinaries,
   Problem_Serialize as Problem,
   RuleBrief_Serialize as RuleBrief,
@@ -162,6 +164,7 @@ export const api = {
   /** Re-check `modIds`, or every mod in the library when none are named. */
   sweepModHealth: (modIds?: string[]) => library.sweepModHealth(modIds ?? null),
   repairMod: library.repairMod,
+  repairModAlternative: library.repairModAlternative,
   repairMods: library.repairMods,
   getModHealthVerdicts: library.getModHealthVerdicts,
   getHealthSweep: library.getHealthSweep,

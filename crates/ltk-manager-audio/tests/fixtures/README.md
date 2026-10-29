@@ -13,3 +13,6 @@ Shipped files of the retail 16.x client. The banks and the package are copied fr
 | `clipped_vorbis.wem` | `Ahri.wad.client`, source ID 127311        | Wwise Vorbis whose first packets clip at `i16` bounds |
 
 `media_v145.bnk` holds every data bank source of `events_v145.bnk`.
+
+`events_v134.bnk` is also `LEGACY_EVENT_BANK` in the `test_util` of `ltk-manager-assets`, which
+the tests of the audio Problems rules read.

@@ -4,7 +4,9 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::io::Cursor;
 
+use ltk_hash::BinHash;
 use ltk_manager_assets::preview::AssetRef;
+use ltk_manager_base::hashing::named;
 use ltk_wwise::hierarchy::Object;
 use ltk_wwise::package::{MountedEntry, PackageKey};
 use ltk_wwise::path::{AudioFileKind, AudioPath};
@@ -13,6 +15,12 @@ use ltk_wwise::{Bank, MountedPackage, ObjectId, SourceId};
 use crate::files::AudioFiles;
 use crate::names::EventNames;
 use crate::sound::package_key;
+
+/// The class hash of `BankUnit`, the bin class that names the files of one unit of audio.
+pub const BANK_UNIT: BinHash = named("BankUnit");
+
+/// The field hash of `bankPath` on [`BANK_UNIT`], the list of those files.
+pub const BANK_PATH: BinHash = named("bankPath");
 
 /// One `BankUnit` of a bin, as written.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]

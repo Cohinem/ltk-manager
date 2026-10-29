@@ -13,8 +13,8 @@ use crate::mods::test_support::{
 use fs_err as fs;
 use ltk_hash::{Hash as _, WadHash};
 use ltk_manager_assets::test_util::{
-    SILENT_BANK_IN_WAD, STALE_BIN_IN_WAD, STALE_ICON, healthy_bin, place_game_wad,
-    point_at_installed_build, resolver_naming, silent_audio_bank, stale_bin,
+    LEGACY_EVENT_BANK, SILENT_BANK_IN_WAD, STALE_BIN_IN_WAD, STALE_ICON, healthy_bin,
+    place_game_wad, point_at_installed_build, resolver_naming, silent_audio_bank, stale_bin,
 };
 use ltk_manager_base::events::ModStorage;
 use ltk_meta::PropertyValueEnum;
@@ -91,6 +91,94 @@ fn a_removed_bank_is_gone_from_the_repaired_archive() {
     let paths: Vec<String> = left.files().map(|file| file.path().to_owned()).collect();
 
     assert_eq!(paths, [format!("Aatrox.wad.client/{OTHER}")]);
+}
+
+/// The problem id of the `audio/bank-version` finding in the archived mod `slug`.
+fn bank_finding(storage: &Path, slug: &str) -> ltk_manager_problems::Problem {
+    let archive = storage.mods_dir().join(format!("{slug}.fantome"));
+    ltk_manager_problems::ProjectFiles::in_archive(
+        &archive,
+        &ltk_manager_base::config::Config::default(),
+        ltk_manager_base::budget::Budget::repair(),
+        &resolver_naming(&[SILENT_BANK_IN_WAD]),
+        None,
+    )
+    .unwrap()
+    .checked()
+    .problems
+    .into_iter()
+    .find(|problem| problem.rule.0 == "audio/bank-version")
+    .unwrap()
+}
+
+/// The bytes of the bank in the archived mod `slug`.
+fn archived_bank(storage: &Path, slug: &str) -> Vec<u8> {
+    let archive = storage.mods_dir().join(format!("{slug}.fantome"));
+    let files = ltk_manager_problems::ProjectFiles::in_archive(
+        &archive,
+        &ltk_manager_base::config::Config::default(),
+        ltk_manager_base::budget::Budget::repair(),
+        &resolver_naming(&[SILENT_BANK_IN_WAD]),
+        None,
+    )
+    .unwrap();
+    files
+        .files()
+        .find(|file| file.path().ends_with("ashe_sfx_events.bnk"))
+        .unwrap()
+        .bytes()
+        .unwrap()
+}
+
+/// Stories 3 and 11: "Repair" never converts a bank, and the conversion's own press
+/// converts it inside an archive-storage mod.
+#[test]
+fn an_alternative_converts_a_bank_that_a_repair_leaves_alone() {
+    let storage = tempfile::tempdir().unwrap();
+    let (library, config) = make_library_naming(storage.path(), &[SILENT_BANK_IN_WAD]);
+    place_packed_chunks_archived_fantome(
+        storage.path(),
+        "silent-mod",
+        &[(SILENT_BANK_IN_WAD, LEGACY_EVENT_BANK)],
+    );
+    seed_library(
+        &library,
+        &config,
+        vec![archived_entry("id-1", "silent-mod")],
+    );
+    let finding = bank_finding(storage.path(), "silent-mod");
+    let convert = &finding.alternatives[0].id;
+
+    assert_eq!(library.repair_mod(&config, "id-1").unwrap().applied, 0);
+    assert_eq!(
+        archived_bank(storage.path(), "silent-mod"),
+        LEGACY_EVENT_BANK
+    );
+
+    let report = library
+        .repair_mod_alternative(
+            &config,
+            "id-1",
+            ltk_manager_problems::ChosenAlternative {
+                problem: &finding.id,
+                alternative: convert,
+            },
+        )
+        .unwrap();
+
+    assert_eq!(report.applied, 1);
+    assert!(report.failed.is_empty(), "{:?}", report.failed);
+    let converted = archived_bank(storage.path(), "silent-mod");
+    assert_eq!(
+        u32::from_le_bytes(converted[8..12].try_into().unwrap()),
+        145
+    );
+    let verdict = library
+        .mod_health_verdicts(&config)
+        .unwrap()
+        .remove("id-1")
+        .unwrap();
+    assert_eq!(verdict.health, ModHealth::Healthy);
 }
 
 /// Story: the repair that deletes a bank edits the archive, as the repair that

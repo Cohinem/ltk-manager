@@ -672,12 +672,13 @@ pub fn place_game_wad(root: &Path, wad_name: &str, chunks: &[(&str, &[u8])]) {
 /// Where the silent-bank fixture sits inside its WAD.
 pub const SILENT_BANK_IN_WAD: &str = "assets/sounds/wwise2016/sfx/ashe_sfx_events.bnk";
 
-/// A Wwise bank at `version` holding `chunks`, each an id and a body length.
+/// The bytes `bank` writes.
 ///
-/// The bodies are zeroes, because the game's reader accepts or rejects a bank
-/// by its version and chunk ids, not by chunk contents.
-pub fn audio_bank(version: u32, chunks: &[(&[u8; 4], usize)]) -> Vec<u8> {
-    audio_bank_with_id(version, BUILT_BANK_ID, chunks)
+/// A fixture bank is built with `ltk_wwise`, so it cannot drift from the reader that judges it.
+pub fn audio_bank_bytes(bank: &ltk_wwise::Bank) -> Vec<u8> {
+    let mut out = Vec::new();
+    bank.to_writer(&mut out).unwrap();
+    out
 }
 
 /// The id a bank the Wwise toolchain built carries.
@@ -686,33 +687,25 @@ pub fn audio_bank(version: u32, chunks: &[(&[u8; 4], usize)]) -> Vec<u8> {
 /// not report, and the specific number has no meaning.
 pub const BUILT_BANK_ID: u32 = 0x3921_0873;
 
-/// [`audio_bank`] carrying an id of the caller's choosing, for a rule about the
-/// id rather than about the version.
-pub fn audio_bank_with_id(version: u32, id: u32, chunks: &[(&[u8; 4], usize)]) -> Vec<u8> {
-    let mut header = Vec::new();
-    header.extend_from_slice(&version.to_le_bytes());
-    header.extend_from_slice(&id.to_le_bytes());
-    header.extend_from_slice(&0u32.to_le_bytes());
-    header.extend_from_slice(&0u32.to_le_bytes());
+/// A version 134 event bank the client ships, with objects of kinds 2, 3, 4, 5, 7 and 14.
+///
+/// The `ltk-manager-audio` fixture `events_v134.bnk`. The client rejects it, and
+/// `Bank::upgrade` converts it.
+pub const LEGACY_EVENT_BANK: &[u8] =
+    include_bytes!("../../ltk-manager-audio/tests/fixtures/events_v134.bnk");
 
-    let mut out = Vec::new();
-    out.extend_from_slice(b"BKHD");
-    out.extend_from_slice(&(header.len() as u32).to_le_bytes());
-    out.extend_from_slice(&header);
-
-    for (id, length) in chunks {
-        out.extend_from_slice(*id);
-        out.extend_from_slice(&(*length as u32).to_le_bytes());
-        out.resize(out.len() + length, 0);
-    }
-    out
-}
-
-/// A bank the game drops without an error: an older format version with a
-/// `HIRC` chunk, which holds its events and which the reader accepts only at
-/// the current version.
+/// A bank the game drops without an error: a version 134 bank with a `HIRC`
+/// chunk, which the reader accepts only at the current version.
 pub fn silent_audio_bank() -> Vec<u8> {
-    audio_bank(134, &[(b"HIRC", 64)])
+    use ltk_wwise::bank::{BankHeader, BankVersion, Section};
+
+    let mut bank = ltk_wwise::Bank::new(BankHeader::new(
+        BankVersion::V134,
+        ltk_wwise::BankId(BUILT_BANK_ID),
+    ));
+    bank.sections_mut()
+        .push(Section::Hierarchy(ltk_wwise::Hierarchy::new()));
+    audio_bank_bytes(&bank)
 }
 
 /// Point the config at a game install on the build the shipped table names,

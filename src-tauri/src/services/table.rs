@@ -127,6 +127,7 @@ services! {
         check_mod_health,
         sweep_mod_health,
         repair_mod,
+        repair_mod_alternative,
         repair_mods,
         cancel_mod_health_run,
         get_health_check_readiness,

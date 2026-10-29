@@ -13,6 +13,7 @@ ts = ["dep:specta", "ltk-manager-assets/ts", "ltk-manager-base/ts", "ltk-manager
 
 [dependencies]
 ltk-manager-assets = { workspace = true }
+ltk-manager-audio = { workspace = true }
 ltk-manager-base = { workspace = true }
 ltk-manager-bin = { workspace = true }
 ltk-manager-workshop = { workspace = true }
