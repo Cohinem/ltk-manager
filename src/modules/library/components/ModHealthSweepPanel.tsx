@@ -655,6 +655,7 @@ function AlternativeLine({
           aria-label={m.library_health_alternative_label({ title: alternative.title, name })}
           className="ml-auto shrink-0"
         >
+          <PlugsIcon className="size-4" weight="duotone" />
           {alternative.title}
         </Button>
       </div>
