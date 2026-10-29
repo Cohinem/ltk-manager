@@ -1,6 +1,6 @@
 import type { SceneClock } from "@/modules/viewport";
 
-import type { Driver } from "../../vfx/engine/simulation/driver";
+import type { Driver, RunEvent } from "../../vfx/engine/simulation/driver";
 
 /** The last jump of the scene's clock a follower replayed to. */
 export interface Following {
@@ -42,13 +42,13 @@ export function followClock(
 }
 
 /**
- * Bring `driver` to where a cue firing `at` seconds into a pass of `duration` stands at
- * `clock`'s time, and answer whether the cue has fired this pass.
+ * Brings `driver` to where a cue firing `at` seconds into a pass of `duration` stands at
+ * `clock`'s time, and returns the events that the driver's forward play reported.
  *
- * The run's own time is the pass's time past the cue, so the pass starting over stands
- * the driver back before its first frame, and a clock that lands past the cue replays
- * to it as [`followClock`] replays a jump. A driver that has not fired is put back to
- * zero once and left there.
+ * Returns null if the cue has not fired this pass, which stands the driver back at zero once.
+ * The run's own time is the pass's time past the cue. A jump of the clock replays to it as
+ * [`followClock`] replays one and returns no event. Forward play across the cue, and a pass that
+ * wraps under a cue at zero, start the run over and step it, so the driver reports the start.
  */
 export function followCue(
   driver: Pick<Driver, "time" | "advance" | "seek" | "restart">,
@@ -56,20 +56,22 @@ export function followCue(
   followed: Following,
   at: number,
   duration: number,
-): boolean {
+): readonly RunEvent[] | null {
   const local = foldedTime(clock.time, duration) - at;
   if (local < 0) {
     if (driver.time > 0) driver.restart();
-    /* The next fire replays to its frame, so the first step is the seek's own and not the
-       whole wait spent in one. */
-    followed.generation = following().generation;
-    return false;
+    followed.generation = clock.generation;
+    return null;
   }
-  if (followed.generation !== clock.generation || local < driver.time) {
+
+  if (followed.generation !== clock.generation) {
     followed.generation = clock.generation;
     driver.seek(local);
-    return true;
+    return NO_EVENTS;
   }
-  driver.advance(local - driver.time);
-  return true;
+
+  if (local < driver.time) driver.restart();
+  return driver.advance(local - driver.time);
 }
+
+const NO_EVENTS: readonly RunEvent[] = [];
