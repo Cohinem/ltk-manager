@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createSceneClock } from "@/modules/viewport";
 
+import type { RunEvent } from "../../../vfx/engine/simulation/driver";
 import { foldedTime, followClock, followCue, following } from "../follow";
 
 /** A driver that records what it was asked to do, and moves its clock as a real one does. */
@@ -13,9 +14,10 @@ function recorder() {
     get time() {
       return time;
     },
-    advance(seconds: number) {
+    advance(seconds: number): readonly RunEvent[] {
       calls.push(`advance ${seconds}`);
       time += seconds;
+      return [];
     },
     seek(to: number) {
       calls.push(`seek ${to}`);
