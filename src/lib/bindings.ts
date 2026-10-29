@@ -9252,7 +9252,9 @@ export type WorkshopError =
  */
 export type WorkshopFileKind = "animation" | 
 /**  A layer's game data declarations manifest, which [`LeagueFileKind`] has no kind for. */
-"game_data" | "jpeg" | "light_grid" | "lua_obj" | "map_geometry" | "png" | "tga" | "preload" | "property_bin" | "property_bin_override" | "riot_string_table" | "simple_skin" | "skeleton" | "static_mesh_ascii" | "static_mesh_binary" | "svg" | "texture" | "texture_dds" | "unknown" | "world_geometry" | "wwise_bank" | "wwise_package";
+"game_data" | "jpeg" | "light_grid" | "lua_obj" | "map_geometry" | "png" | "tga" | "preload" | "property_bin" | "property_bin_override" | "riot_string_table" | "simple_skin" | "skeleton" | "static_mesh_ascii" | "static_mesh_binary" | "svg" | "texture" | "texture_dds" | "unknown" | "world_geometry" | "wwise_bank" | 
+/**  A WEM media file, which [`LeagueFileKind`] has no kind for. */
+"wwise_media" | "wwise_package";
 
 export type WorkshopLayer = {
 	name: string,

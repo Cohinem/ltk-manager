@@ -1,0 +1,23 @@
+[package]
+name = "ltk-manager-audio"
+version = "0.1.0"
+description = "Wwise banks, packages, the sound lookup and WEM decoding for LTK Manager"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/LeagueToolkit/ltk-manager"
+publish = false
+
+[dependencies]
+ltk-manager-assets = { workspace = true }
+
+lewton = { workspace = true }
+lru = { workspace = true }
+ltk_wwise = { workspace = true }
+parking_lot = { workspace = true }
+thiserror = { workspace = true }
+ww2ogg = { workspace = true }
+
+[dev-dependencies]
+fs-err = { workspace = true }
+insta = { workspace = true }
+ltk_wad = { workspace = true }

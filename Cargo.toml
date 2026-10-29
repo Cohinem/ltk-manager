@@ -6,6 +6,7 @@ members = [
     "crates/dxbc-spirv-sys",
     "crates/ltk-declarations",
     "crates/ltk-manager-assets",
+    "crates/ltk-manager-audio",
     "crates/ltk-manager-base",
     "crates/ltk-manager-bin",
     "crates/ltk-manager-core",
@@ -66,6 +67,7 @@ atlas = { path = "crates/atlas" }
 hexshade = { path = "crates/hexshade" }
 ltk-declarations = { path = "crates/ltk-declarations" }
 ltk-manager-assets = { path = "crates/ltk-manager-assets" }
+ltk-manager-audio = { path = "crates/ltk-manager-audio" }
 ltk-manager-base = { path = "crates/ltk-manager-base" }
 ltk-manager-bin = { path = "crates/ltk-manager-bin" }
 ltk-manager-core = { path = "crates/ltk-manager-core" }
@@ -91,6 +93,12 @@ ltk_hashtable = "0.2.2"
 ltk_modpkg = "0.12.15"
 ltk_overlay = "0.19.0"
 ltk_wad = "0.5.10"
+# The files a `BankUnit` names: banks, media banks and packages.
+ltk_wwise = "0.1.0"
+# Wwise Vorbis WEM media to Ogg Vorbis, with the aoTuV codebooks built in.
+ww2ogg = "0.1.0"
+# Ogg Vorbis decoding, which checks the stream that `ww2ogg` writes.
+lewton = "0.10.2"
 
 ltk_anim = "0.3.12"
 ltk_mapgeo = "0.3.5"
@@ -158,6 +166,7 @@ base64 = "0.22"
 sha2 = "0.10"
 
 assert_matches = "1.5"
+insta = "1.39"
 filetime = "0.2"
 ltk_primitives = "0.3.8"
 winreg = "0.55"

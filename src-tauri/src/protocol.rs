@@ -8,6 +8,7 @@
 use std::io;
 use std::num::NonZeroU32;
 use std::panic::AssertUnwindSafe;
+use std::sync::Arc;
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
@@ -19,7 +20,10 @@ use ltk_manager_assets::preview::{
 use tauri::http::{header, Request, Response, StatusCode};
 use tauri::{AppHandle, Manager};
 
+use ltk_manager_audio::{Decoded, SoundError, SourceId};
+
 use crate::error::AppError;
+use crate::services::audio::{decoded_sound, SoundFailure};
 use crate::services::preview::{MapGeometryDocuments, MapGeometryId};
 use crate::state::SettingsState;
 
@@ -81,6 +85,13 @@ const FONT_FORM: &str = "font";
 /// The [`FORM_PARAMETER`] value asking any file for its own bytes, to play or to read as text.
 const FILE_FORM: &str = "file";
 
+/// The [`FORM_PARAMETER`] value asking a package, a bank or a WEM for one media, decoded.
+const SOUND_FORM: &str = "sound";
+
+/// The parameter of [`SOUND_FORM`] that names the source ID of the media, in decimal. A WEM
+/// ignores it, and a request without it asks for source 0.
+const SOURCE_PARAMETER: &str = "source";
+
 /// What every response may do as a document, which is nothing.
 ///
 /// A response is an image, a buffer or a file's own bytes, and a game or client file is data
@@ -115,6 +126,15 @@ pub fn serve(app: &AppHandle, request: &Request<Vec<u8>>) -> Response<Vec<u8>> {
         Ok(asset) => asset,
         Err(message) => return message_response(StatusCode::BAD_REQUEST, &message),
     };
+
+    /* The decoder sits in the audio crate above the assets crate, so the form is answered
+    here like `MODEL_FORM` rather than through `PreviewRequest`. */
+    if parameter(request.uri().query(), FORM_PARAMETER) == Some(SOUND_FORM) {
+        return match requested_source(request.uri().query()) {
+            Ok(source) => sound_response(decoded_sound(app, &asset, source)),
+            Err(message) => message_response(StatusCode::BAD_REQUEST, &message),
+        };
+    }
 
     if parameter(request.uri().query(), FORM_PARAMETER) == Some(MODEL_FORM) {
         return model_preview(&asset, request.uri().query());
@@ -238,6 +258,34 @@ fn requested(query: Option<&str>) -> Result<PreviewRequest, String> {
         Some(FONT_FORM) => Ok(PreviewRequest::Font),
         Some(FILE_FORM) => Ok(PreviewRequest::File),
         Some(form) => Err(format!("Not a form: {FORM_PARAMETER}={form}")),
+    }
+}
+
+/// Returns the source ID that the `source` parameter of `query` names, or 0 if it has none.
+fn requested_source(query: Option<&str>) -> Result<SourceId, String> {
+    let Some(value) = parameter(query, SOURCE_PARAMETER) else {
+        return Ok(SourceId(0));
+    };
+
+    value
+        .parse::<u32>()
+        .map(SourceId)
+        .map_err(|_| format!("Not a source ID: {SOURCE_PARAMETER}={value}"))
+}
+
+/// Answers a decoded media, or the status of the reason it has none.
+fn sound_response(answer: Result<Arc<Decoded>, SoundFailure>) -> Response<Vec<u8>> {
+    match answer {
+        Ok(decoded) => build(StatusCode::OK, decoded.format.mime(), decoded.bytes.clone()),
+        Err(SoundFailure::Read(e)) => message_response(status_for(&e), &e.to_string()),
+        Err(SoundFailure::Sound(e)) => {
+            tracing::debug!("No sound: {e}");
+            let status = match e {
+                SoundError::NoMedia { .. } => StatusCode::NOT_FOUND,
+                _ => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            };
+            message_response(status, &e.to_string())
+        }
     }
 }
 
@@ -489,6 +537,70 @@ mod tests {
         assert!(requested(Some("as=")).is_err());
         assert!(requested(Some("as=mesh")).is_err());
         assert!(requested(Some("as=image")).is_err());
+    }
+
+    const PACKAGE: &[u8] =
+        include_bytes!("../../crates/ltk-manager-audio/tests/fixtures/package.wpk");
+
+    /// The source ID of the first entry of the package fixture, `380333190.wem`.
+    const PACKAGED: SourceId = SourceId(380_333_190);
+
+    fn package_sound(source: SourceId) -> Response<Vec<u8>> {
+        let asset = AssetRef::File {
+            path: "package.wpk".to_owned(),
+        };
+        let cache = ltk_manager_audio::SoundCache::default();
+
+        sound_response(crate::services::audio::cached_sound(
+            &cache,
+            &asset,
+            source,
+            || Ok(PACKAGE.to_vec()),
+        ))
+    }
+
+    #[test]
+    fn sound_form_answers_package_media_as_ogg() {
+        let response = package_sound(PACKAGED);
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(response.headers()[header::CONTENT_TYPE], "audio/ogg");
+        assert_eq!(&response.body()[..4], b"OggS");
+    }
+
+    #[test]
+    fn sound_form_answers_unknown_source_as_not_found() {
+        let response = package_sound(SourceId(12_345));
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn sound_form_answers_file_that_is_not_audio_as_unsupported() {
+        let asset = AssetRef::File {
+            path: "skin.bin".to_owned(),
+        };
+        let cache = ltk_manager_audio::SoundCache::default();
+
+        let response = sound_response(crate::services::audio::cached_sound(
+            &cache,
+            &asset,
+            PACKAGED,
+            || Ok(b"PROP".to_vec()),
+        ));
+
+        assert_eq!(response.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    #[test]
+    fn source_is_read_off_the_query_in_decimal() {
+        assert_eq!(
+            requested_source(Some("as=sound&source=380333190")),
+            Ok(PACKAGED)
+        );
+        assert_eq!(requested_source(Some("as=sound")), Ok(SourceId(0)));
+        assert!(requested_source(Some("as=sound&source=0x10")).is_err());
+        assert!(requested_source(Some("as=sound&source=-1")).is_err());
     }
 
     #[test]

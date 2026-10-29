@@ -327,7 +327,7 @@ impl AssetRef {
                     size_bytes: bytes.len() as u64,
                 },
                 None => AssetInfo::Unsupported {
-                    file_kind: kind.into(),
+                    file_kind: WorkshopFileKind::or_signature(kind.into(), &bytes),
                 },
             },
         })
@@ -547,6 +547,23 @@ mod tests {
             info,
             AssetInfo::Unsupported {
                 file_kind: WorkshopFileKind::Unknown
+            }
+        ));
+    }
+
+    #[test]
+    fn info_reads_nameless_riff_wave_as_wwise_media() {
+        let tmp = tempfile::tempdir().unwrap();
+        let asset = loose(&tmp, "0123456789abcdef", b"RIFF\x24\x00\x00\x00WAVEfmt ");
+
+        let info = asset
+            .info(&Config::default(), &WadCache::default())
+            .unwrap();
+
+        assert!(matches!(
+            info,
+            AssetInfo::Unsupported {
+                file_kind: WorkshopFileKind::WwiseMedia
             }
         ));
     }

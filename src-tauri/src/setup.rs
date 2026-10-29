@@ -145,6 +145,8 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_bin::bin_document::BinDocuments::default());
     let sandboxes = ltk_manager_bin::sandbox::SandboxState::default();
     app.manage(sandboxes.clone());
+    let sounds = ltk_manager_audio::SoundCache::default();
+    app.manage(sounds.clone());
     app.manage(ltk_manager_assets::hashtables::BinHashTablesState::default());
     app.manage(crate::services::game::ExtractState::default());
     app.manage(crate::services::runeforge::RuneforgeState::default());
@@ -154,7 +156,10 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(
         crate::workshop::LayerWatches::new(
             Arc::clone(&events),
-            Arc::new(move |project| sandboxes.invalidate(project)),
+            Arc::new(move |project| {
+                sandboxes.invalidate(project);
+                sounds.invalidate_project(project);
+            }),
         )
         .with_sources(
             atlas::SOURCES_DIR,

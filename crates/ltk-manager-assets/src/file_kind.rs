@@ -33,8 +33,41 @@ pub enum WorkshopFileKind {
     Unknown,
     WorldGeometry,
     WwiseBank,
+    /// A WEM media file, which [`LeagueFileKind`] has no kind for.
+    WwiseMedia,
     WwisePackage,
 }
+
+impl WorkshopFileKind {
+    /// Returns the kind that the file extension `extension` names, without the dot.
+    #[must_use]
+    pub fn from_extension(extension: &str) -> Self {
+        if extension.eq_ignore_ascii_case(WEM_EXTENSION) {
+            return Self::WwiseMedia;
+        }
+        LeagueFileKind::from_extension(extension).into()
+    }
+
+    /// Returns the kind of the file whose first bytes are `bytes` and whose name gives `named`.
+    ///
+    /// A file whose name gives [`WorkshopFileKind::Unknown`] is read from its signature, and a
+    /// RIFF `WAVE` file is a [`WorkshopFileKind::WwiseMedia`].
+    #[must_use]
+    pub fn or_signature(named: Self, bytes: &[u8]) -> Self {
+        if named == Self::Unknown && is_riff_wave(bytes) {
+            return Self::WwiseMedia;
+        }
+        named
+    }
+}
+
+/// Returns `true` if `bytes` start with a RIFF header of the form type `WAVE`.
+fn is_riff_wave(bytes: &[u8]) -> bool {
+    bytes.get(..4) == Some(b"RIFF") && bytes.get(8..12) == Some(b"WAVE")
+}
+
+/// The extension of a WEM media file.
+const WEM_EXTENSION: &str = "wem";
 
 impl From<LeagueFileKind> for WorkshopFileKind {
     fn from(value: LeagueFileKind) -> Self {
@@ -90,7 +123,11 @@ impl From<WorkshopFileKind> for LeagueFileKind {
             WorkshopFileKind::Unknown => Self::Unknown,
             WorkshopFileKind::WorldGeometry => Self::WorldGeometry,
             WorkshopFileKind::WwiseBank => Self::WwiseBank,
+            WorkshopFileKind::WwiseMedia => Self::Unknown,
             WorkshopFileKind::WwisePackage => Self::WwisePackage,
         }
     }
 }
+
+#[cfg(test)]
+mod tests;

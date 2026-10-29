@@ -3,7 +3,6 @@ use super::layer;
 use super::{ProjectDir, Workshop};
 use camino::{Utf8Path, Utf8PathBuf};
 use fs_err as fs;
-use ltk_file::LeagueFileKind;
 use ltk_hash::BinHash;
 use ltk_manager_assets::bin_source::{Declaration, for_each_declaration};
 use ltk_manager_assets::file_kind::WorkshopFileKind;
@@ -343,7 +342,7 @@ fn scan_layer(
         let kind = if ltk_game_data::MANIFEST_NAMES.contains(&relative_path.as_str()) {
             WorkshopFileKind::GameData
         } else {
-            WorkshopFileKind::from(LeagueFileKind::from_extension(extension))
+            WorkshopFileKind::from_extension(extension)
         };
 
         let declared = if kind == WorkshopFileKind::PropertyBin {

@@ -1,0 +1,321 @@
+---
+source: crates/ltk-manager-audio/tests/lookup.rs
+expression: trees
+---
+[
+    PlayTree {
+        event: ObjectId(
+            339038649,
+        ),
+        name: None,
+        actions: [
+            ActionNode {
+                id: ObjectId(
+                    538040822,
+                ),
+                class: Some(
+                    1024,
+                ),
+                target: Some(
+                    Random {
+                        id: ObjectId(
+                            414059032,
+                        ),
+                        children: [
+                            Sound {
+                                id: ObjectId(
+                                    77596317,
+                                ),
+                                source: SourceId(
+                                    6126505,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    103146397,
+                                ),
+                                source: SourceId(
+                                    486319399,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    129998241,
+                                ),
+                                source: SourceId(
+                                    686453154,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    556000103,
+                                ),
+                                source: SourceId(
+                                    879168912,
+                                ),
+                                stream: StreamType(
+                                    0,
+                                ),
+                                media: InBank {
+                                    file: 1,
+                                },
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    680561831,
+                                ),
+                                source: SourceId(
+                                    400805526,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    1022862894,
+                                ),
+                                source: SourceId(
+                                    872844278,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    1025001027,
+                                ),
+                                source: SourceId(
+                                    6102,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                        ],
+                    },
+                ),
+            },
+        ],
+    },
+    PlayTree {
+        event: ObjectId(
+            3553705574,
+        ),
+        name: None,
+        actions: [
+            ActionNode {
+                id: ObjectId(
+                    480304036,
+                ),
+                class: Some(
+                    1024,
+                ),
+                target: Some(
+                    Random {
+                        id: ObjectId(
+                            279797186,
+                        ),
+                        children: [
+                            Sound {
+                                id: ObjectId(
+                                    747636874,
+                                ),
+                                source: SourceId(
+                                    494898776,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                        ],
+                    },
+                ),
+            },
+        ],
+    },
+    PlayTree {
+        event: ObjectId(
+            3890987893,
+        ),
+        name: None,
+        actions: [
+            ActionNode {
+                id: ObjectId(
+                    152754888,
+                ),
+                class: Some(
+                    1024,
+                ),
+                target: Some(
+                    Random {
+                        id: ObjectId(
+                            737613085,
+                        ),
+                        children: [
+                            Sound {
+                                id: ObjectId(
+                                    640991999,
+                                ),
+                                source: SourceId(
+                                    1011279409,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                        ],
+                    },
+                ),
+            },
+            ActionNode {
+                id: ObjectId(
+                    518918670,
+                ),
+                class: Some(
+                    1024,
+                ),
+                target: Some(
+                    Random {
+                        id: ObjectId(
+                            621322984,
+                        ),
+                        children: [
+                            Sound {
+                                id: ObjectId(
+                                    189523814,
+                                ),
+                                source: SourceId(
+                                    349514972,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    226401844,
+                                ),
+                                source: SourceId(
+                                    307720992,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    442743689,
+                                ),
+                                source: SourceId(
+                                    112571979,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                        ],
+                    },
+                ),
+            },
+            ActionNode {
+                id: ObjectId(
+                    877463259,
+                ),
+                class: Some(
+                    1024,
+                ),
+                target: Some(
+                    Random {
+                        id: ObjectId(
+                            975528219,
+                        ),
+                        children: [
+                            Sound {
+                                id: ObjectId(
+                                    363853802,
+                                ),
+                                source: SourceId(
+                                    195911386,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    485914335,
+                                ),
+                                source: SourceId(
+                                    104734880,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    500952312,
+                                ),
+                                source: SourceId(
+                                    183398573,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    713579283,
+                                ),
+                                source: SourceId(
+                                    955065921,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                            Sound {
+                                id: ObjectId(
+                                    809160750,
+                                ),
+                                source: SourceId(
+                                    753477248,
+                                ),
+                                stream: StreamType(
+                                    2,
+                                ),
+                                media: Missing,
+                            },
+                        ],
+                    },
+                ),
+            },
+        ],
+    },
+]

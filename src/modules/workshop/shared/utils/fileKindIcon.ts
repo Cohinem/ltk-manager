@@ -67,6 +67,7 @@ function fileKindDescriptors(): FileKindDescriptors {
 
     // Audio
     wwise_bank: { icon: Volume2, label: "Wwise Bank", tintToken: STRUCTURE_TINT },
+    wwise_media: { icon: Volume2, label: "Wwise Media", tintToken: STRUCTURE_TINT },
     wwise_package: { icon: Volume2, label: "Wwise Package", tintToken: STRUCTURE_TINT },
 
     // Light data
