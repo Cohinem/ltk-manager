@@ -16,6 +16,7 @@ import { useMediaFocus } from "../state/mediaFocus";
 import { filterRows, type MediaSort, sortRows } from "../utils/mediaRows";
 import { EventsPanel } from "./EventsPanel";
 import { MediaTable } from "./MediaTable";
+import { MediaWaveform } from "./Waveform";
 
 interface AudioFileDocumentProps {
   readonly asset: AssetRef;
@@ -206,6 +207,9 @@ function MediaPanel({ asset, name }: AudioFileDocumentProps) {
           actions={actions}
         />
       </MediaBody>
+      {media.data !== undefined && media.data.length > 0 && (
+        <MediaWaveform player={player} rows={media.data} selected={selected} />
+      )}
       <span aria-live="polite" className="sr-only">
         {player.playing === null
           ? m.audio_stopped_label()

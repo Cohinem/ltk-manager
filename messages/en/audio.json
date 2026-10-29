@@ -6,6 +6,7 @@
   "audio_column_rate_label": "Rate",
   "audio_column_size_label": "Size",
   "audio_column_source_label": "Source ID",
+  "audio_column_waveform_label": "Waveform",
   "audio_container_bank_label": "Bank",
   "audio_container_media_label": "Media",
   "audio_container_package_label": "Package",
@@ -107,5 +108,12 @@
   "audio_viewport_volume_label": "Sound volume",
   "audio_viewport_volume_reading": "{percent}%",
   "audio_viewport_volume_reset_action": "Reset the volume",
-  "audio_viewport_volume_slider_label": "Volume"
+  "audio_viewport_volume_slider_label": "Volume",
+  "audio_waveform_empty": "No media selected",
+  "audio_waveform_failed_empty": "The waveform cannot be read",
+  "audio_waveform_label": "Playhead",
+  "audio_waveform_loading_label": "Reading the waveform",
+  "audio_waveform_pause_action": "Pause",
+  "audio_waveform_play_action": "Play",
+  "audio_waveform_time_label": "{time} / {duration}"
 }

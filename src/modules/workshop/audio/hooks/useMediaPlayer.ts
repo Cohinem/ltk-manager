@@ -4,6 +4,7 @@ import { useAssetVersion, versionedUrl } from "@/lib/assetVersions";
 import { previewSoundUrl } from "@/lib/previewUrl";
 import type { AssetRef } from "@/lib/tauri";
 
+import type { SoundChannel } from "../player/soundPlayer";
 import { PREVIEW_VOLUME, useChannelState, useSoundChannel } from "../player/useSoundChannel";
 
 /** The one player of an audio file document. */
@@ -14,6 +15,10 @@ export interface MediaPlayer {
   readonly failed: ReadonlySet<number>;
   /** Plays `source`, or stops it if it plays. */
   readonly toggle: (source: number) => void;
+  /** Returns the URL that `source` plays from, at the file's current version. */
+  readonly url: (source: number) => string;
+  /** The channel that plays the media, keyed by the decimal source ID. */
+  readonly channel: SoundChannel;
 }
 
 /**
@@ -35,6 +40,11 @@ export function useMediaPlayer(asset: AssetRef): MediaPlayer {
   }, [state.playing]);
   const failed = useMemo(() => new Set([...state.failed].map(Number)), [state.failed]);
 
+  const url = useCallback(
+    (source: number) => versionedUrl(previewSoundUrl(asset, source), version),
+    [asset, version],
+  );
+
   const toggle = useCallback(
     (source: number) => {
       const key = String(source);
@@ -42,10 +52,11 @@ export function useMediaPlayer(asset: AssetRef): MediaPlayer {
       channel.stopAll();
       if (was) return;
 
-      channel.play(key, [versionedUrl(previewSoundUrl(asset, source), version)]);
+      channel.resume();
+      channel.play(key, [url(source)]);
     },
-    [asset, channel, version],
+    [channel, url],
   );
 
-  return { playing, failed, toggle };
+  return { playing, failed, toggle, url, channel };
 }

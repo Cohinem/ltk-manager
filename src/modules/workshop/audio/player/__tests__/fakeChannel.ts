@@ -3,38 +3,58 @@ import type { ChannelState, SoundChannel } from "../soundPlayer";
 /** Every URL a fake channel was asked to play, in order, across every channel. */
 export const playedUrls: string[] = [];
 
+/** Returns a decode that never settles, so a waveform under test stays on its loading line. */
+export function decodeFakeMedia(): Promise<AudioBuffer> {
+  return new Promise(() => {});
+}
+
 /**
  * Returns a channel that plays nothing and records each URL in `playedUrls`.
  *
- * A key plays from `play` until `stop` or `stopAll`, as a voice that never ends does.
+ * A key plays from `play` until `stop` or `stopAll`, as a voice that never ends does. Its
+ * position is the `from` of its `play` or the seconds of its last `seek`, and time does not
+ * move it.
  */
 export function openFakeChannel(): SoundChannel {
-  let playing = new Set<string>();
-  let snapshot: ChannelState = { playing, failed: new Set() };
+  let positions = new Map<string, number>();
+  let paused = false;
+  let snapshot: ChannelState = { playing: new Set(), failed: new Set(), paused };
   const listeners = new Set<() => void>();
   const changed = () => {
-    snapshot = { playing, failed: snapshot.failed };
+    snapshot = { playing: new Set(positions.keys()), failed: snapshot.failed, paused };
     for (const listener of listeners) listener();
   };
 
   return {
-    play(key, urls) {
+    play(key, urls, _repeat, from = 0) {
       playedUrls.push(...urls);
-      playing = new Set(playing).add(key);
+      positions = new Map(positions).set(key, from);
       changed();
     },
+    seek(key, seconds) {
+      if (!positions.has(key)) return;
+      positions = new Map(positions).set(key, seconds);
+      changed();
+    },
+    position: (key) => positions.get(key) ?? null,
     stop(key) {
-      if (!playing.has(key)) return;
-      playing = new Set([...playing].filter((each) => each !== key));
+      if (!positions.has(key)) return;
+      positions = new Map([...positions].filter(([each]) => each !== key));
       changed();
     },
     stopAll() {
-      if (playing.size === 0) return;
-      playing = new Set();
+      if (positions.size === 0) return;
+      positions = new Map();
       changed();
     },
-    pause() {},
-    resume() {},
+    pause() {
+      paused = true;
+      changed();
+    },
+    resume() {
+      paused = false;
+      changed();
+    },
     setVolume() {},
     state: () => snapshot,
     subscribe(listener) {
