@@ -10,7 +10,7 @@ export const commands = {
 	 * 
 	 *  A file kind with no viewer comes back as [`AssetInfo::Unsupported`] rather
 	 *  than an error, because a modder clicking through a tree meets one constantly
-	 *  and the viewer draws it as a state.
+	 *  and the viewer draws it as a state. The audio service answers a Wwise file.
 	 */
 	readAssetInfo: (asset: AssetRef) => __TAURI_INVOKE<({ ok: true; value: AssetInfo }) & { error?: never } | ({ ok: false; error: AppErrorResponse }) & { value?: never }>("plugin:preview|read_asset_info", { asset }),
 	/**

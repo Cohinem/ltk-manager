@@ -6,6 +6,7 @@
 //! the second.
 
 mod animation;
+mod audio;
 mod font;
 mod light_grid;
 mod map;
@@ -30,6 +31,7 @@ use ltk_manager_base::error::{AppError, AppResult, DomainError, ErrorKind};
 
 /// Re-exported because [`PreviewError::Unsupported`] carries one.
 pub use animation::{ClipHeader, header as clip_header};
+pub use audio::{AudioContainer, AudioInfo, BankFacts};
 pub use ltk_file::LeagueFileKind;
 pub use map::{encode_map, encode_map_meshes};
 pub use source::AssetRef;
@@ -123,6 +125,8 @@ pub enum AssetInfo {
     /// the `<img>` reports.
     #[serde(rename_all = "camelCase")]
     Web { format: WebImage, size_bytes: u64 },
+    /// A Wwise package, bank or WEM, which the audio file document lists.
+    Audio(AudioInfo),
     /// Nothing here has a viewer.
     #[serde(rename_all = "camelCase")]
     Unsupported { file_kind: WorkshopFileKind },
@@ -296,11 +300,21 @@ impl AssetRef {
     ///
     /// Fails when the asset cannot be read, and when its header does not parse.
     pub fn info(&self, config: &Config, wads: &WadCache) -> AppResult<AssetInfo> {
-        let bytes = self.read(config, wads)?;
+        self.info_from(&self.read(config, wads)?)
+    }
 
-        Ok(match self.file_kind(&bytes) {
+    /// Reports what the asset holds from its bytes `bytes`, as [`info`](Self::info) does.
+    ///
+    /// No kind reports [`AssetInfo::Audio`] here. The shell answers a Wwise file before it
+    /// calls this.
+    ///
+    /// # Errors
+    ///
+    /// Fails when the header of the asset does not parse.
+    pub fn info_from(&self, bytes: &[u8]) -> AppResult<AssetInfo> {
+        Ok(match self.file_kind(bytes) {
             LeagueFileKind::Texture | LeagueFileKind::TextureDds => {
-                AssetInfo::Texture(texture::info(&bytes)?)
+                AssetInfo::Texture(texture::info(bytes)?)
             }
             kind @ (LeagueFileKind::Png | LeagueFileKind::Jpeg | LeagueFileKind::Tga) => {
                 /* A TGA has no magic to guess from, so the kind's format stands
@@ -310,7 +324,7 @@ impl AssetRef {
                     LeagueFileKind::Jpeg => image::ImageFormat::Jpeg,
                     _ => image::ImageFormat::Tga,
                 };
-                let (width, height) = image::ImageReader::with_format(Cursor::new(&bytes), format)
+                let (width, height) = image::ImageReader::with_format(Cursor::new(bytes), format)
                     .with_guessed_format()?
                     .into_dimensions()
                     .map_err(PreviewError::Image)?;
@@ -321,13 +335,13 @@ impl AssetRef {
                     file_kind: kind.into(),
                 }
             }
-            kind => match web_image(kind, &bytes) {
+            kind => match web_image(kind, bytes) {
                 Some(format) => AssetInfo::Web {
                     format,
                     size_bytes: bytes.len() as u64,
                 },
                 None => AssetInfo::Unsupported {
-                    file_kind: WorkshopFileKind::or_signature(kind.into(), &bytes),
+                    file_kind: WorkshopFileKind::or_signature(kind.into(), bytes),
                 },
             },
         })

@@ -3511,6 +3511,8 @@ dependencies = [
  "ltk_wad",
  "ltk_wwise",
  "parking_lot",
+ "serde",
+ "specta",
  "thiserror 2.0.18",
  "ww2ogg",
 ]

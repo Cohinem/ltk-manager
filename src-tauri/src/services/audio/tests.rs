@@ -2,6 +2,8 @@ use std::io::Read;
 
 use fs_err as fs;
 
+use ltk_manager_assets::preview::AssetInfo;
+
 use super::*;
 
 /// Locates `path` at the file `on_disk`, and nothing else.
@@ -45,4 +47,83 @@ fn sandbox_audio_files_read_located_file_with_its_asset() {
     assert_eq!(read.asset, AssetRef::File { path: on_disk });
     assert_eq!(contents, b"r3d2");
     assert!(files.read("sounds/b.wpk").unwrap().is_none());
+}
+
+const PACKAGE: &[u8] =
+    include_bytes!("../../../../crates/ltk-manager-audio/tests/fixtures/package.wpk");
+
+/// Writes `bytes` as the file `name` of `dir` and returns its reference.
+fn loose(dir: &tempfile::TempDir, name: &str, bytes: &[u8]) -> AssetRef {
+    let path = dir.path().join(name);
+    fs::write(&path, bytes).unwrap();
+    AssetRef::File {
+        path: path.to_string_lossy().into_owned(),
+    }
+}
+
+#[test]
+fn asset_info_reports_package_as_audio() {
+    let dir = tempfile::tempdir().unwrap();
+    let asset = loose(&dir, "map22_audio.wpk", PACKAGE);
+
+    let info = asset_info(&asset, &Config::default(), &WadCache::default()).unwrap();
+
+    assert!(
+        matches!(&info, AssetInfo::Audio(audio) if audio.media_count == 2),
+        "{info:?}"
+    );
+}
+
+#[test]
+fn asset_info_reports_other_file_through_assets_crate() {
+    let dir = tempfile::tempdir().unwrap();
+    let asset = loose(&dir, "data.bin", b"PROP\x00\x00\x00\x00");
+
+    let info = asset_info(&asset, &Config::default(), &WadCache::default()).unwrap();
+
+    assert!(matches!(info, AssetInfo::Unsupported { .. }), "{info:?}");
+}
+
+#[test]
+fn asset_media_lists_package_rows() {
+    let dir = tempfile::tempdir().unwrap();
+    let asset = loose(&dir, "map22_audio.wpk", PACKAGE);
+
+    let rows = asset_media(&asset, &Config::default(), &WadCache::default()).unwrap();
+
+    let sources: Vec<u32> = rows.iter().map(|row| row.source_id).collect();
+    assert_eq!(sources, [380_333_190, 470_358_536]);
+}
+
+#[test]
+fn asset_media_fails_for_file_that_is_not_audio() {
+    let dir = tempfile::tempdir().unwrap();
+    let asset = loose(&dir, "data.bin", b"PROP\x00\x00\x00\x00");
+
+    assert!(asset_media(&asset, &Config::default(), &WadCache::default()).is_err());
+}
+
+#[test]
+fn exported_media_writes_original_wem_or_decoded_ogg() {
+    let dir = tempfile::tempdir().unwrap();
+    let asset = loose(&dir, "map22_audio.wpk", PACKAGE);
+    let cache = SoundCache::default();
+    let config = Config::default();
+    let wads = WadCache::default();
+    let source = SourceId(470_358_536);
+
+    let original = exported_media(
+        &asset,
+        source,
+        MediaExport::Original,
+        &cache,
+        &config,
+        &wads,
+    );
+    let decoded = exported_media(&asset, source, MediaExport::Decoded, &cache, &config, &wads);
+
+    let original = original.unwrap();
+    assert_eq!(original.len(), 4446);
+    assert_eq!(&original[..4], b"RIFF");
+    assert_eq!(&decoded.unwrap()[..4], b"OggS");
 }

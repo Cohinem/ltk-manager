@@ -3,10 +3,12 @@ import type { ReactNode } from "react";
 
 import { Button, Tooltip } from "@/components";
 import { m } from "@/i18n";
+import type { WorkshopFileKind } from "@/lib/tauri";
 import { DocumentToolbar, type EditorDocumentProps } from "@/modules/editor";
 
 /* The leaves rather than the barrels, which pull the documents that circle back
    into this file. */
+import { AudioFileDocument } from "../../audio/components/AudioFileDocument";
 import { BinDocument } from "../../bin/documents/components/BinDocument";
 import { MapFileDocument } from "../../bin/map/components/MapFileDocument";
 import { mapPathOfFile } from "../../bin/map/utils/mapFile";
@@ -39,6 +41,7 @@ export function PreviewDocument({
   const sniffed = info.data?.kind === "unsupported" && isPropertyBin(info.data.fileKind);
 
   const bin = isPropertyBin(named) || sniffed;
+  const audio = AUDIO_KINDS.has(named) || info.data?.kind === "audio";
   const objects = (actions: ReactNode) => (
     <BinDocument
       documentId={document.id}
@@ -72,10 +75,20 @@ export function PreviewDocument({
       <DocumentToolbar active={active}>
         <PreviewActions document={document} />
       </DocumentToolbar>
-      <AssetViewer documentId={document.id} asset={document.asset} name={document.title} />
+      {audio && <AudioFileDocument asset={document.asset} name={document.title} />}
+      {!audio && (
+        <AssetViewer documentId={document.id} asset={document.asset} name={document.title} />
+      )}
     </>
   );
 }
+
+/** The file kinds that the audio file document opens. */
+const AUDIO_KINDS: ReadonlySet<WorkshopFileKind> = new Set([
+  "wwise_bank",
+  "wwise_package",
+  "wwise_media",
+]);
 
 interface AssetViewerProps {
   documentId: string;

@@ -6,6 +6,7 @@
     "core:default",
     "app-update:default",
     "atlas:default",
+    "audio:default",
     "bin:default",
     "game:default",
     "library:default",

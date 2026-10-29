@@ -21,6 +21,7 @@ import type {
 } from "@/lib/bindings";
 import { commands as appUpdate } from "@/lib/ipc/appUpdate";
 import { commands as atlas } from "@/lib/ipc/atlas";
+import { commands as audio } from "@/lib/ipc/audio";
 import { commands as bin } from "@/lib/ipc/bin";
 import { commands as desktop } from "@/lib/ipc/desktop";
 import { commands as diagnostics } from "@/lib/ipc/diagnostics";
@@ -262,6 +263,10 @@ export const api = {
   // Asset preview
   readAssetInfo: preview.readAssetInfo,
   saveAssetCopy: preview.saveAssetCopy,
+
+  // Audio files
+  readAudioMedia: audio.readAudioMedia,
+  exportAudioMedia: audio.exportAudioMedia,
 
   // Ritobin
   detectRitobinIntegration: preview.detectRitobinIntegration,

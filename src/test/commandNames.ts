@@ -1,5 +1,6 @@
 import { commandNames as appUpdate } from "@/lib/ipc/appUpdate";
 import { commandNames as atlas } from "@/lib/ipc/atlas";
+import { commandNames as audio } from "@/lib/ipc/audio";
 import { commandNames as bin } from "@/lib/ipc/bin";
 import { commandNames as desktop } from "@/lib/ipc/desktop";
 import { commandNames as diagnostics } from "@/lib/ipc/diagnostics";
@@ -25,6 +26,7 @@ import { commandNames as workshop } from "@/lib/ipc/workshop";
 export const commandNames = {
   appUpdate,
   atlas,
+  audio,
   bin,
   desktop,
   diagnostics,

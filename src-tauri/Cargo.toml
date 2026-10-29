@@ -32,7 +32,7 @@ tauri-plugin-clipboard-manager = "2"
 atlas = { path = "../crates/atlas", features = ["ts"] }
 hexshade = { workspace = true }
 ltk-manager-assets = { path = "../crates/ltk-manager-assets", features = ["ts"] }
-ltk-manager-audio = { workspace = true }
+ltk-manager-audio = { path = "../crates/ltk-manager-audio", features = ["ts"] }
 ltk-manager-base = { path = "../crates/ltk-manager-base", features = ["ts"] }
 ltk-manager-bin = { path = "../crates/ltk-manager-bin", features = ["ts"] }
 ltk-manager-core = { path = "../crates/ltk-manager-core", features = ["ts"] }
