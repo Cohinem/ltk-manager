@@ -350,9 +350,16 @@ export type AudioEventsResponse = {
 /**  The slot of the game's audio index, as a response reports it. */
 export type AudioIndexStatus = 
 /**  A build runs on a background thread. Names and bank units of the game are missing. */
-{ status: "building" } | { status: "ready" } | 
-/**  The last build failed. The next read after the game build changes retries it. */
-{ status: "failed"; message: string };
+{ status: "building" } | 
+/**  The index is built, and the names and bank units of the game are in the answer. */
+{ status: "ready" } | 
+/**
+ *  The last build failed. A read after the game build changes or after a refresh of the
+ *  game index retries it.
+ */
+{ status: "failed"; 
+/**  The error of the build. */
+message: string };
 
 /**  The header facts of a Wwise package, bank or WEM. */
 export type AudioInfo = {
