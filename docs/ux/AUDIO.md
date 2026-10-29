@@ -9,6 +9,8 @@ and of `ltk_wwise`.
 | Date       | Change                                          |
 | ---------- | ----------------------------------------------- |
 | 2026-10-29 | Add bank units and contextual event names       |
+| 2026-10-29 | Add the waveform column                         |
+| 2026-10-29 | Add the waveform                                |
 | 2026-10-29 | Add VFX sound                                   |
 | 2026-10-29 | Add viewport sound                              |
 | 2026-10-29 | Add the event tree                              |
@@ -89,6 +91,7 @@ index in ascending source ID order, and a WEM is one row of source ID 0.
 | Rate      | The sample rate in samples per second                                     |
 | Duration  | `m:ss.cc`, from the `data` size and the byte rate. An estimate for Vorbis |
 | Size      | The bytes the media takes in the file, in binary units                    |
+| Waveform  | The shape of the media, per "Waveform column"                             |
 
 Listing a file reads the `fmt ` chunk of each media and decodes no audio, so a package of
 thousands of media lists at once. The table is windowed.
@@ -244,6 +247,54 @@ object at the first rule that plays the event, and Show in bank unit, which open
 `events[i]` row of the first ranked unit that lists the event's name. An action's and an object's menu holds Copy object ID. A sound whose media is found also
 holds Show media, which opens the document of the file that holds the media, switches it to the
 Media tab and selects the row of the source ID.
+
+## Waveform
+
+The media table and the event tree each have a waveform strip under them: a play and pause
+button, the waveform of one media with its playhead, and the time as `m:ss.cc` of the playhead
+and of the media.
+
+| Panel  | The strip shows                                                                       |
+| ------ | ------------------------------------------------------------------------------------- |
+| Media  | The row that plays, else the selected row if it plays                                 |
+| Events | The first media of the press that plays, else the selected sound, else the last press |
+
+The strip plays through the channel of its panel, at the panel's volume, and adds no player of
+its own. The media decodes once, through the cache that playback reads, and the strip draws its
+peaks. A selection decodes after it holds for 150 ms, so a run of arrow keys decodes one media.
+
+- A click on the waveform moves the playhead there. A drag moves it where the drag ends.
+- A seek on a media that plays or holds keeps that state. A seek on a media that does not play
+  plays it from the playhead.
+- An event plays all of its media at once, and a seek moves each of them to the playhead. A media
+  shorter than the playhead ends.
+- Pause holds every voice of the panel, and Play resumes them. Play on a media that does not play
+  plays it from the start. A row of the table or the tree that is held shows as playing, and a
+  press on it stops it.
+- The playhead returns to the start when the media ends or stops.
+
+The waveform is one tab stop, a slider of the playhead.
+
+| Key        | Action                                          |
+| ---------- | ----------------------------------------------- |
+| Right, Up  | Move the playhead on a twentieth of the media   |
+| Left, Down | Move the playhead back a twentieth of the media |
+| Page Up    | Move the playhead on a quarter of the media     |
+| Page Down  | Move the playhead back a quarter of the media   |
+| Home, End  | Move the playhead to the start or the end       |
+| Space      | Play or pause                                   |
+
+### Waveform column
+
+Each row of the media table and of the event tree ends in a small waveform of its media. A row
+of the event tree draws the first media that a press on it plays, with the first child of each
+random container. An event row reads its event first. A row that plays no media draws none.
+
+- A row decodes when it scrolls into view, three rows at a time. A row that leaves the view
+  before its turn does not decode.
+- The column decodes outside the cache that playback reads, so it evicts nothing that plays.
+- The bars are scaled to the loudest bar of the media, so a quiet media still shows its shape.
+- The row that plays draws its waveform in the accent.
 
 ## Viewport sound
 

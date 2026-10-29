@@ -1,13 +1,15 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 
 import type { MediaLocation } from "@/lib/tauri";
 
+import type { SoundChannel } from "../player/soundPlayer";
 import {
   mediaUrl,
   PREVIEW_VOLUME,
   useChannelState,
   useSoundChannel,
 } from "../player/useSoundChannel";
+import type { WaveformSubject } from "../utils/waveformSync";
 
 /** The player of the event tree. */
 export interface EventPlayer {
@@ -15,9 +17,13 @@ export interface EventPlayer {
   readonly playing: string | null;
   /** The keys of the rows whose media failed to play. */
   readonly failed: ReadonlySet<string>;
+  /** The key and the media of the last play that had media, or `null` before one. */
+  readonly played: WaveformSubject | null;
   /** Plays `sounds` at once for the row `key`, and stops what played before. */
   readonly play: (key: string, sounds: readonly MediaLocation[]) => void;
   readonly stop: () => void;
+  /** The channel that plays the media, keyed by the row. */
+  readonly channel: SoundChannel;
 }
 
 /**
@@ -31,15 +37,20 @@ export function useEventPlayer(): EventPlayer {
   const channel = useSoundChannel(PREVIEW_VOLUME);
   const state = useChannelState(channel);
   const [playing = null] = state.playing;
+  const [played, setPlayed] = useState<WaveformSubject | null>(null);
 
   const stop = useCallback(() => channel.stopAll(), [channel]);
   const play = useCallback(
     (key: string, sounds: readonly MediaLocation[]) => {
+      const urls = sounds.map(mediaUrl);
       channel.stopAll();
-      channel.play(key, sounds.map(mediaUrl));
+      channel.resume();
+      channel.play(key, urls);
+
+      if (urls.length > 0) setPlayed({ key, urls });
     },
     [channel],
   );
 
-  return { playing, failed: state.failed, play, stop };
+  return { playing, failed: state.failed, played, play, stop, channel };
 }

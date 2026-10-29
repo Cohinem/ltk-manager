@@ -11,9 +11,14 @@ import { renderWithProviders } from "@/test/utils";
 import { playedUrls } from "../../player/__tests__/fakeChannel";
 import { AudioFileDocument } from "../AudioFileDocument";
 
-vi.mock("../../player/soundPlayer", async () => ({
-  openChannel: (await import("../../player/__tests__/fakeChannel")).openFakeChannel,
-}));
+vi.mock("../../player/soundPlayer", async () => {
+  const fake = await import("../../player/__tests__/fakeChannel");
+  return {
+    openChannel: fake.openFakeChannel,
+    decodeMedia: fake.decodeFakeMedia,
+    decodeUncachedMedia: fake.decodeFakeMedia,
+  };
+});
 
 vi.mock("@tanstack/react-virtual", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-virtual")>();

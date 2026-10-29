@@ -27,6 +27,7 @@ import {
   type MediaSortKey,
   nextSort,
 } from "../utils/mediaRows";
+import { MediaThumbnail } from "./WaveformThumbnail";
 
 interface MediaTableProps {
   /** The rows to draw, filtered and sorted. */
@@ -181,6 +182,9 @@ export function MediaTable({
             <span role="columnheader" className={COLUMN.size}>
               {header("size", m.audio_column_size_label())}
             </span>
+            <span role="columnheader" className={COLUMN.waveform}>
+              {m.audio_column_waveform_label()}
+            </span>
           </div>
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((item) => {
@@ -202,6 +206,7 @@ export function MediaTable({
                     selected={row.sourceId === selected}
                     playing={player.playing === row.sourceId}
                     failed={player.failed.has(row.sourceId)}
+                    url={player.url(row.sourceId)}
                     onSelect={() => onSelect(row.sourceId)}
                     onToggle={() => player.toggle(row.sourceId)}
                   />
@@ -225,6 +230,7 @@ const COLUMN = {
   rate: "w-14 shrink-0 text-right",
   duration: "w-20 shrink-0 text-right",
   size: "w-20 shrink-0 text-right",
+  waveform: "w-24 shrink-0",
 } as const;
 
 /** Returns the DOM id of the row of `source`, which the grid names as its active row. */
@@ -238,12 +244,23 @@ interface MediaLineProps {
   readonly selected: boolean;
   readonly playing: boolean;
   readonly failed: boolean;
+  /** The URL that the row plays from. */
+  readonly url: string;
   readonly onSelect: () => void;
   readonly onToggle: () => void;
 }
 
 /** One media across the columns, with the play button that starts and stops it. */
-function MediaLine({ row, index, selected, playing, failed, onSelect, onToggle }: MediaLineProps) {
+function MediaLine({
+  row,
+  index,
+  selected,
+  playing,
+  failed,
+  url,
+  onSelect,
+  onToggle,
+}: MediaLineProps) {
   const format = row.format;
   const source = String(row.sourceId);
 
@@ -289,6 +306,12 @@ function MediaLine({ row, index, selected, playing, failed, onSelect, onToggle }
       <Cell className={twMerge(COLUMN.size, "font-mono text-code")}>
         {formatBytes(row.sizeBytes)}
       </Cell>
+      <span role="gridcell" className={COLUMN.waveform}>
+        <MediaThumbnail
+          url={unplayableReason(row, failed) === null ? url : null}
+          playing={playing}
+        />
+      </span>
     </div>
   );
 }

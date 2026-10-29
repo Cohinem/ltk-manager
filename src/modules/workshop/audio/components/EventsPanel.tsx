@@ -28,6 +28,8 @@ import {
   type TreeState,
 } from "../utils/eventTree";
 import { EventTree, isPlayable } from "./EventTree";
+import { EventWaveform } from "./Waveform";
+import { EventRowThumbnail } from "./WaveformThumbnail";
 
 interface EventsPanelProps {
   readonly asset: AssetRef;
@@ -145,8 +147,17 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
           onPlay={(row) => void play(row)}
           onCopy={copyRow}
           menu={(row) => <EventMenu row={row} onCopy={copyRow} />}
+          thumbnail={(row) => (
+            <EventRowThumbnail
+              asset={asset}
+              version={version}
+              row={row}
+              playing={player.playing === row.key}
+            />
+          )}
         />
       )}
+      {listed.length > 0 && <EventWaveform player={player} rows={rows} selected={selected} />}
       <span aria-live="polite" className="sr-only">
         {announcement}
       </span>

@@ -39,6 +39,8 @@ interface EventTreeProps {
   readonly onCopy: (row: EventRow) => void;
   /** The context menu items of `row`. */
   readonly menu: (row: EventRow) => ReactNode;
+  /** The waveform column of `row`. */
+  readonly thumbnail: (row: EventRow) => ReactNode;
 }
 
 /** The height of a row in px at 100% zoom: `h-6` is six spacing units of 4.5px. */
@@ -67,6 +69,7 @@ export function EventTree({
   onPlay,
   onCopy,
   menu,
+  thumbnail,
 }: EventTreeProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const [menuRow, setMenuRow] = useState<EventRow | null>(null);
@@ -186,6 +189,7 @@ export function EventTree({
                   selected={row.key === selected}
                   playing={player.playing === row.key}
                   failed={player.failed.has(row.key)}
+                  thumbnail={thumbnail(row)}
                   onSelect={() => onSelect(row.key)}
                   onExpand={(open) => onExpand(row.key, open)}
                   onToggle={() => {
@@ -224,18 +228,20 @@ interface EventLineProps {
   readonly selected: boolean;
   readonly playing: boolean;
   readonly failed: boolean;
+  readonly thumbnail: ReactNode;
   readonly onSelect: () => void;
   readonly onExpand: (open: boolean) => void;
   readonly onToggle: () => void;
 }
 
-/** One row of the tree: the caret, the play button and what the row is. */
+/** One row of the tree: the caret, the play button, what the row is and its waveform. */
 function EventLine({
   row,
   open,
   selected,
   playing,
   failed,
+  thumbnail,
   onSelect,
   onExpand,
   onToggle,
@@ -292,6 +298,7 @@ function EventLine({
       {failed && (
         <span className="text-meta text-danger-text">{m.audio_event_play_failed_label()}</span>
       )}
+      <span className="ml-auto w-24 shrink-0 pl-3">{thumbnail}</span>
     </div>
   );
 }
