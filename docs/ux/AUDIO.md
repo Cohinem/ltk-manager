@@ -164,7 +164,8 @@ A press on a row plays what one press of the game plays from that row:
 An event plays the picks of all its Play actions at once. Action delays are zero until
 `ltk_wwise` decodes the property bundles. A press stops what the press before it started, so
 a second press on a random container plays another variation. A sound whose media is missing
-and an object that does not play give nothing to play and show no play button.
+and an object that does not play give nothing to play and show no play button. Every media
+plays at the volume of the media table's player.
 
 ### Keyboard
 

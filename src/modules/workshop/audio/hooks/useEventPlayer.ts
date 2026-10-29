@@ -3,6 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { previewSoundUrl } from "@/lib/previewUrl";
 import type { MediaLocation } from "@/lib/tauri";
 
+import { PREVIEW_VOLUME } from "./useMediaPlayer";
+
 /** The player of the event tree. */
 export interface EventPlayer {
   /** The key of the row that plays, or `null`. */
@@ -40,7 +42,11 @@ export function useEventPlayer(): EventPlayer {
       stop();
       if (sounds.length === 0) return;
 
-      const started = sounds.map((sound) => new Audio(previewSoundUrl(sound.asset, sound.source)));
+      const started = sounds.map((sound) => {
+        const element = new Audio(previewSoundUrl(sound.asset, sound.source));
+        element.volume = PREVIEW_VOLUME;
+        return element;
+      });
       elements.current = started;
       setPlaying(key);
 
