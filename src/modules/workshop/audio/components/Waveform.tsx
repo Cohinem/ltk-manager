@@ -170,9 +170,12 @@ function WaveformView({ channel, subject, waveform }: WaveformViewProps) {
   }, [wavesurfer, sync, waveform.duration]);
 
   useEffect(() => {
+    if (wavesurfer !== null && isReady) wavesurfer.setTime(sync.time());
+  }, [wavesurfer, isReady, sync]);
+
+  useEffect(() => {
     if (wavesurfer === null || !isReady) return;
 
-    wavesurfer.setTime(sync.time());
     let frame = 0;
     const draw = () => {
       const moved = sync.frame();
