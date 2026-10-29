@@ -29,6 +29,8 @@ export const abilityRecipeSchema = z
     flightDuration: seconds.positive(),
     impactEffect: reference.nullable(),
     impactDuration: seconds.positive(),
+    /** The spell's `AudioBankPaths`, which the preview loads beside the skin's bank units. */
+    audioBankPaths: z.array(z.string().max(512)).max(256).optional(),
     target: z.tuple([
       z.number().finite().min(-100000).max(100000),
       z.number().finite().min(-100000).max(100000),

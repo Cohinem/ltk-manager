@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                          |
 | ---------- | ----------------------------------------------- |
+| 2026-10-29 | Add ability sound                               |
 | 2026-10-29 | Add VFX sound                                   |
 | 2026-10-29 | Add viewport sound                              |
 | 2026-10-29 | Add the event tree                              |
@@ -276,3 +277,26 @@ clip's own sounds.
 
 The bank set is the one of "Resolution". A system opened from a skin bin resolves through that
 skin's bank units. A system in a bin without bank units resolves through the audio index.
+
+## Ability sound
+
+The ability preview plays the `SoundEventData` events of the cast clip and the sounds of each
+step's effect: cast, projectile and impact. It follows the speaker switch, the volume and the
+resolution of "Viewport sound". The switch sits in the preview's controls row.
+
+The bank set adds one unit to the skin's bank units: the spell's `AudioBankPaths`. A recipe made
+from a spell keeps those paths, and a recipe made by hand has none. A path with an `en_US` segment
+reads under the client's locale first. `SpellEventToAudioEventSuffix` is not read.
+
+### Firing
+
+| Source              | Effect                                                                    |
+| ------------------- | ------------------------------------------------------------------------- |
+| A cast clip event   | Fires when forward playback crosses its start frame, per "Viewport sound" |
+| A kill event        | The sound stops where the cast clip ends                                  |
+| A step's effect     | Fires on the step's own run, per "VFX sound", from the step's start       |
+| The end of the cast | Every sound plays to its end                                              |
+
+The cast clip plays once, so `mIsLoop` does not fire an event a second time. A seek, a scrub, Cast
+from the end and Replay fire nothing and stop every sound, and the next forward frame fires from
+the time it starts at. Pause holds every sound and play resumes them.

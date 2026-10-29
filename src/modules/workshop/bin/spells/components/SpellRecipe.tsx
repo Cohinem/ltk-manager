@@ -132,6 +132,7 @@ function ReadRecipe({
       flightDuration: flight?.duration || 0.5,
       impactEffect: hit?.key ?? null,
       impactDuration: 0.5,
+      audioBankPaths: preview.audioBankPaths,
       target,
     };
   }, [

@@ -3,7 +3,7 @@ import type { MissileSpec } from "@/lib/tauri";
 import { flightOf } from "../../vfx/engine/model/missileSpec";
 import type { SystemModel } from "../../vfx/engine/model/model";
 import { flightTime, type Motion, type Point, type RigModel } from "../../vfx/engine/model/rig";
-import { createDriver, type Driver } from "../../vfx/engine/simulation/driver";
+import { createDriver, type Driver, type RunEvent } from "../../vfx/engine/simulation/driver";
 
 export const FLIGHT_STEP = 1 / 60;
 export const MAX_FLIGHT_SECONDS = 30;
@@ -84,19 +84,26 @@ function writesPace(movement: MissileSpec["movement"]): boolean {
   }
 }
 
-/** A fixed-step clock shared by continuous playback and backwards seeking. */
+/**
+ * A fixed-step clock shared by continuous playback and backwards seeking.
+ *
+ * Each call returns the run events of the steps it advanced, a backwards seek's replay included.
+ */
 export function flightSampler(driver: Pick<Driver, "advance" | "restart">) {
   let reached = 0;
-  return (time: number) => {
-    if (!Number.isFinite(time)) return;
+  return (time: number): readonly RunEvent[] => {
+    if (!Number.isFinite(time)) return [];
     const wanted = Math.max(0, Math.round(Math.min(time, 60) / FLIGHT_STEP));
     if (wanted < reached) {
       driver.restart();
       reached = 0;
     }
+
+    const events: RunEvent[] = [];
     while (reached < wanted) {
-      driver.advance(FLIGHT_STEP);
+      events.push(...driver.advance(FLIGHT_STEP));
       reached += 1;
     }
+    return events;
   };
 }

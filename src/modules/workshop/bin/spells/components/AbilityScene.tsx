@@ -4,7 +4,7 @@ import type { Group } from "three";
 
 import { Button, Slider } from "@/components";
 import { m } from "@/i18n";
-import type { SkinModel } from "@/lib/tauri";
+import type { BinDocumentId, SkinModel } from "@/lib/tauri";
 import {
   AXIS_SIGN,
   Character,
@@ -25,6 +25,10 @@ import {
   usePreviewMidlane,
 } from "@/stores";
 
+import { useViewportSound } from "../../../audio/hooks/useViewportSound";
+import type { SoundCue } from "../../../audio/utils/soundCue";
+import type { SoundOutput } from "../../../audio/utils/soundFollower";
+import { SoundToggle } from "../../shared/preview/SoundToggle";
 import { bindingOf, textureAssets } from "../../skin/utils/skinScene";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { VfxSystem } from "../../vfx/rendering/components/VfxSystem";
@@ -36,6 +40,7 @@ import { distorts, isUndrawn } from "../../vfx/rendering/utils/drawKind";
 import { fades } from "../../vfx/rendering/utils/softParticle";
 import { type AbilityRecipe, arrivalOf } from "../utils/abilityRecipe";
 import { abilityInstance, measureAbility, type ResolvedStep } from "../utils/abilitySequence";
+import { abilitySoundCues, type CastClipSound, createAbilitySound } from "../utils/abilitySound";
 import { FLIGHT_STEP } from "../utils/flight";
 import { guideLines } from "../utils/guideLines";
 import { AbilityGuides } from "./AbilityGuides";
@@ -43,20 +48,27 @@ import { AbilityGuides } from "./AbilityGuides";
 const GROUND: [number, number, number] = [0, 0, 0];
 
 export function AbilityScene({
+  document,
   skin,
   mesh: geometry,
   pose,
   recipe,
   steps,
+  castCues,
 }: {
+  document: BinDocumentId;
   skin: SkinModel;
   mesh: MeshGeometry;
   pose: Pose;
   recipe: AbilityRecipe;
   steps: readonly ResolvedStep[];
+  /** The sound events of the cast clip, at their clip times. */
+  castCues: readonly SoundCue[];
 }) {
   const clock = useMemo(createSceneClock, []);
   const instances = useMemo(() => steps.map(abilityInstance), [steps]);
+  const cast = useMemo(() => ({ cues: castCues, end: pose.duration }), [castCues, pose.duration]);
+  const heard = useMemo(() => abilitySoundCues(castCues, steps), [castCues, steps]);
   const [showGuides, setShowGuides] = useState(false);
   const [time, setTime] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -109,6 +121,13 @@ export function AbilityScene({
   );
   const assetFailed = [...loads.values()].some((load) => load.failed > 0);
   const ready = measured && !loading && !assetFailed && !failed;
+  /* The channel keeps playing past the end, so a sound that outlasts the effects finishes. */
+  const sound = useViewportSound(
+    document,
+    heard,
+    (playing && ready) || time >= span,
+    recipe.audioBankPaths,
+  );
   const allDrawn = useMemo(
     () => steps.flatMap((step) => drawnEmitters(step.system, step.id === "cast")),
     [steps],
@@ -145,6 +164,13 @@ export function AbilityScene({
               span={span}
               publish={setTime}
               stop={() => setPlaying(false)}
+            />
+            <AbilityRun
+              instances={instances}
+              clock={clock}
+              ready={ready}
+              cast={cast}
+              output={sound.on ? sound.output : null}
             />
             {showGuides && <AbilityGuides recipe={recipe} />}
             <FitCamera bounds={bounds} ground={GROUND} token={0} />
@@ -257,6 +283,7 @@ export function AbilityScene({
               {m.workshop_ability_guides_label()}
             </Button>
           )}
+          <SoundToggle unresolved={sound.unresolved} />
           <span className="text-meta text-surface-300 tabular-nums">
             {time.toFixed(2)} / {span.toFixed(2)} s
           </span>
@@ -296,6 +323,43 @@ function AbilityClock({
   return null;
 }
 
+/**
+ * Samples every step's effect on the scene clock, and plays the ability's sound while `output`
+ * is set.
+ *
+ * Runs before the effects draw, so each one draws the frame it was sampled to.
+ */
+function AbilityRun({
+  instances,
+  clock,
+  ready,
+  cast,
+  output,
+}: {
+  instances: readonly ReturnType<typeof abilityInstance>[];
+  clock: SceneClock;
+  ready: boolean;
+  cast: CastClipSound;
+  output: SoundOutput | null;
+}) {
+  const sound = useMemo(
+    () => (output === null ? null : createAbilitySound(output, cast)),
+    [output, cast],
+  );
+  useEffect(() => () => sound?.stop(), [sound]);
+
+  useFrame(() => {
+    if (!ready) return;
+
+    const runs = instances.map((instance) => ({
+      step: instance.step,
+      events: instance.sample(clock.time),
+    }));
+    sound?.follow(clock, runs);
+  }, -1);
+  return null;
+}
+
 function SequenceEffect({
   instance,
   clock,
@@ -323,7 +387,6 @@ function SequenceEffect({
   }, [report, instance, textureLoad, meshLoad]);
   const group = useRef<Group>(null);
   useFrame(() => {
-    if (ready) instance.sample(clock.time);
     if (group.current !== null) group.current.visible = ready && clock.time >= instance.step.start;
   }, -1);
   return (
