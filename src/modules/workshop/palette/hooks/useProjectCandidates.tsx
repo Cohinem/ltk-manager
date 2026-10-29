@@ -2,7 +2,7 @@ import { TranslateIcon } from "@phosphor-icons/react";
 import { useMemo } from "react";
 
 import { m } from "@/i18n";
-import type { LayerContent } from "@/lib/tauri";
+import type { LayerContent, ModuleObject, WorkshopProject } from "@/lib/tauri";
 
 import { useProjectContentTree } from "../../content/api/useProjectContentTree";
 import {
@@ -16,6 +16,7 @@ import {
 } from "../../documents";
 import { useDeclaredObjects } from "../../gameBrowser";
 import { LayerGlyph } from "../../layers/components/LayerGlyph";
+import { useModuleObjects } from "../../objectsBrowser/hooks/useModuleObjects";
 import { useProjectContext } from "../../projects/state/ProjectContext";
 import { ObjectGlyph } from "../../shared/components/ObjectGlyph";
 import { describeFileKind } from "../../shared/utils/fileKindIcon";
@@ -120,7 +121,8 @@ function useFileCandidates(): readonly PaletteCandidate[] {
 }
 
 /**
- * The bin objects of every layer, matched here rather than by the backend.
+ * The bin objects of every layer, then the objects its game data declarations create, matched
+ * here rather than by the backend.
  *
  * The content scan carries them beside the files, so a keystroke costs a scan
  * of a few thousand rows and no trip over IPC. A row's `nameCut` marks the
@@ -134,11 +136,13 @@ function useProjectObjectCandidates(): readonly PaletteCandidate[] {
 
   const hashes = useMemo(() => (layers ? declaredHashes(layers) : []), [layers]);
   const overridden = useDeclaredObjects(hashes);
+  const modules = useModuleObjects();
 
   return useMemo(() => {
     if (!layers) return NONE;
 
-    return layers.flatMap((layer) => {
+    const created = modules.flatMap((object) => createdCandidate(object, project) ?? []);
+    const own = layers.flatMap((layer) => {
       const title = layerTitle(project, layer.name);
 
       return layer.entries.flatMap((entry) =>
@@ -179,7 +183,51 @@ function useProjectObjectCandidates(): readonly PaletteCandidate[] {
         }),
       );
     });
-  }, [layers, overridden, project]);
+
+    return [...own, ...created];
+  }, [layers, overridden, modules, project]);
+}
+
+/** The row of an object that a module creates, or null for a module that does not create one. */
+function createdCandidate(object: ModuleObject, project: WorkshopProject): PaletteCandidate | null {
+  if (object.action.kind !== "create") return null;
+
+  const { declaration } = object.action;
+  const { asset } = declaration;
+  const shared = {
+    objectHash: object.objectHash,
+    objectPath: object.path,
+    objectClass: declaration.class,
+  };
+  let target: PaletteCandidate["target"];
+  if (asset.kind === "layer") {
+    target = { kind: "layerObject", layerName: asset.layer, path: asset.path, ...shared };
+  } else if (asset.kind === "gameChunk") {
+    target = {
+      kind: "object",
+      wad: asset.wad,
+      pathHash: asset.pathHash,
+      path: declaration.file,
+      ...shared,
+    };
+  } else {
+    return null;
+  }
+
+  const cut = object.path.lastIndexOf("/");
+  return buildCandidate({
+    id: `created:${object.layer}:${object.module}:${object.objectHash}`,
+    source: "projectObjects",
+    name: object.path,
+    nameCut: cut < 0 ? undefined : cut + 1,
+    objectClass: { name: declaration.class, hash: declaration.classHash },
+    path: `${declaration.class} · ${declaration.file}`,
+    trailing: layerTitle(project, object.layer),
+    layerName: object.layer,
+    documentId: objectDocumentId(asset, object.objectHash),
+    icon: <ObjectGlyph objectClass={declaration.class} className="size-4 text-surface-400" />,
+    target,
+  });
 }
 
 /** Every distinct object hash the layers declare, sorted, as one stable key. */

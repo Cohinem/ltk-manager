@@ -7,6 +7,7 @@
 
 import type {
   ContentTree,
+  ModuleObjectAction,
   ObjectDeclaration,
   ObjectDirListing,
   ObjectFindHit,
@@ -26,6 +27,15 @@ export const UNNAMED_PREFIX = "?";
 export interface LayerMark {
   readonly name: string;
   readonly title: string;
+  /** The modules of the layer's game data declarations that create, remove or edit the object. */
+  readonly modules?: readonly ModuleMark[];
+}
+
+/** What one module of a layer's game data declarations does to an object, and its name. */
+export interface ModuleMark {
+  readonly action: ModuleObjectAction["kind"];
+  /** The module's name, or its position counted from 1 where the author gave none. */
+  readonly name: string;
 }
 
 export type ObjectTreeNode = ObjectPrefixNode | ObjectRowNode | ObjectLoadingNode | ObjectMoreNode;
@@ -63,6 +73,8 @@ export interface ObjectRowNode {
   readonly declarations: readonly ObjectDeclaration[];
   /** The layers declaring the object, for the row's mark. */
   readonly layers: readonly LayerMark[];
+  /** A module of the project's game data declarations removes the object. */
+  readonly removed?: boolean;
   /** Objects below the node. */
   readonly count: number;
   /** The runs a find marked on `path`. */
@@ -84,10 +96,16 @@ export interface ObjectMoreNode {
   readonly count: number;
 }
 
-/** One declaration a layer of the project holds, with the layer. */
+/**
+ * One declaration a layer of the project holds, with the layer.
+ *
+ * A module of the layer's game data declarations that edits or removes the object declares no
+ * file, so its `declaration` is null and its `module` says what it does.
+ */
 export interface LayerDeclaration {
-  readonly declaration: ObjectDeclaration;
+  readonly declaration: ObjectDeclaration | null;
   readonly layer: LayerMark;
+  readonly module?: ModuleMark;
 }
 
 /** The project's declarations by object hash. */
@@ -128,6 +146,24 @@ export function layerDeclarationsOf(
     }
   }
   return declared;
+}
+
+/** One mark per layer of `declared`, in order, each with the modules that act on the object. */
+export function layerMarks(declared: readonly LayerDeclaration[]): LayerMark[] {
+  const marks = new Map<string, { layer: LayerMark; modules: ModuleMark[] }>();
+  for (const { layer, module } of declared) {
+    let mark = marks.get(layer.name);
+    if (!mark) {
+      mark = { layer, modules: [] };
+      marks.set(layer.name, mark);
+    }
+
+    if (module) mark.modules.push(module);
+  }
+
+  return [...marks.values()].map(({ layer, modules }) =>
+    modules.length === 0 ? layer : { ...layer, modules },
+  );
 }
 
 /** Whether a row has children to open: every prefix, and an object with objects under it. */
@@ -208,6 +244,9 @@ function objectNode(
   ranges?: readonly MatchRange[],
 ): ObjectRowNode {
   const fromLayers = layers.get(entry.objectHash) ?? [];
+  const own = fromLayers.flatMap((declared) =>
+    declared.declaration ? [declared.declaration] : [],
+  );
 
   return {
     type: "object",
@@ -216,8 +255,9 @@ function objectNode(
     name: entry.name,
     objectHash: entry.objectHash,
     unnamed: entry.path === entry.objectHash,
-    declarations: [...fromLayers.map((declared) => declared.declaration), ...entry.declarations],
-    layers: fromLayers.map((declared) => declared.layer),
+    declarations: [...own, ...entry.declarations],
+    layers: layerMarks(fromLayers),
+    removed: fromLayers.some((declared) => declared.module?.action === "remove"),
     count: entry.count,
     ranges,
     children: below,

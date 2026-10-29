@@ -429,3 +429,32 @@ fn declare_entry_names_merges_into_a_declared_table() {
     assert_eq!(chunks.entry(BinHash::hash_str(added)), Some(added));
     assert_eq!(manifest_of(&dir).hashtables.len(), 1);
 }
+
+#[test]
+fn a_path_the_declarations_spell_names_its_object() {
+    let dir = layered(&["base/game_data.yaml"], &[("base", 0)]);
+    fs::write(
+        dir.path()
+            .join(CONTENT_DIR_NAME)
+            .join("base/game_data.yaml"),
+        "version: 1
+modules:
+  - target: data/characters/teemo/skins/skin0.bin
+    objects:
+      Mods/jade/Clone:
+        clone: Characters/Teemo/Skins/Skin0
+",
+    )
+    .expect("manifest");
+
+    let chunks = LayerChunks::scan(dir.path());
+
+    assert_eq!(
+        chunks.entry(BinHash::hash_str("Mods/jade/Clone")),
+        Some("Mods/jade/Clone")
+    );
+    assert_eq!(
+        chunks.entry(BinHash::hash_str("Characters/Teemo/Skins/Skin0")),
+        Some("Characters/Teemo/Skins/Skin0")
+    );
+}

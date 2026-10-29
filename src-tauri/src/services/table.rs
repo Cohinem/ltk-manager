@@ -149,6 +149,7 @@ services! {
         character_spells,
         class_object_count,
         declared_objects,
+        module_objects,
         find_references,
         cancel_reference_walk,
     }

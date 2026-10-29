@@ -40,6 +40,7 @@ it("starts with thumbnails enabled and keeps grid preferences through a reveal",
     tileSize: 160,
     location: "Characters",
     thumbnails: true,
+    declaredObjects: true,
   });
 });
 

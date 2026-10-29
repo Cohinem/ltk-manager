@@ -24,6 +24,10 @@ use ltk_manager_assets::preview::AssetRef;
 use ltk_manager_base::error::{AppError, AppResult};
 use ltk_manager_workshop::LayerChunks;
 
+mod module_objects;
+
+pub use module_objects::{ModuleObject, ModuleObjectAction};
+
 /// Which sandbox a document opens in, as it crosses IPC.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]

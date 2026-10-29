@@ -5148,6 +5148,30 @@ export type ModuleAction =
  */
 { kind: "dropKeys"; module: number; entry: string; path: string };
 
+/**  An object that one module of a layer's game data declarations creates, removes or edits. */
+export type ModuleObject = {
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path as the declaration spells it, else as a table names it, else its hash. */
+	path: string,
+	/**  The layer whose declarations hold the module. */
+	layer: string,
+	/**  The module's position in the layer's declarations. */
+	module: number,
+	/**  The module's name, if the author gave one. */
+	moduleName: string | null,
+	action: ModuleObjectAction,
+};
+
+/**  What one module of a layer's game data declarations does to an object. */
+export type ModuleObjectAction = 
+/**  The module creates the object in its target chunk, which `declaration` names. */
+{ kind: "create"; declaration: ObjectDeclaration } | 
+/**  The module removes the object from its target chunk. */
+{ kind: "remove" } | 
+/**  The module edits properties of the object. */
+{ kind: "edit" };
+
 /**  Which selector a module holds. */
 export type ModuleSelector = 
 /**  One chunk, named by `target`. */

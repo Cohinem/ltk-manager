@@ -1,6 +1,6 @@
 import { memo, type MouseEvent as ReactMouseEvent } from "react";
 
-import { MarkedText } from "@/components";
+import { MarkedText, Stack, Tooltip } from "@/components";
 import { m } from "@/i18n";
 import { twMerge } from "@/utils";
 
@@ -23,6 +23,8 @@ import { isSubtreeClick } from "../../shared/utils/treeGestures";
 import { clickIntent } from "../../state";
 import {
   expandable,
+  type LayerMark,
+  type ModuleMark,
   type ObjectMoreNode,
   type ObjectPrefixNode,
   type ObjectRowNode,
@@ -174,7 +176,13 @@ function ObjectRow({
       )}
       {!opens && <CaretSlot />}
       <ObjectGlyph objectClass={first?.class} className="size-3.5 shrink-0 text-surface-400" />
-      <span className={twMerge("min-w-0 truncate", node.unnamed && "text-surface-400")}>
+      <span
+        className={twMerge(
+          "min-w-0 truncate",
+          node.unnamed && "text-surface-400",
+          node.removed && "line-through",
+        )}
+      >
         <MarkedText text={node.name} ranges={rangesInName(node.path, node.ranges)} />
       </span>
       {first && (
@@ -188,13 +196,47 @@ function ObjectRow({
         </span>
       </span>
       {node.layers.map((layer) => (
-        <span key={layer.name} className="flex shrink-0 items-center gap-1 text-fine">
-          <LayerGlyph layerName={layer.name} className="size-3" />
-          <span className="text-surface-400">{layer.title}</span>
-        </span>
+        <LayerBadge key={layer.name} layer={layer} />
       ))}
     </div>
   );
+}
+
+/** A layer that declares the object, with what its modules do to it on hover. */
+function LayerBadge({ layer }: { layer: LayerMark }) {
+  const badge = (
+    <span className="flex shrink-0 items-center gap-1 text-fine">
+      <LayerGlyph layerName={layer.name} className="size-3" />
+      <span className="text-surface-400">{layer.title}</span>
+    </span>
+  );
+  if (!layer.modules) return badge;
+
+  return (
+    <Tooltip
+      content={
+        <Stack gap={1}>
+          {layer.modules.map((module, index) => (
+            <span key={index}>{moduleLabel(module)}</span>
+          ))}
+        </Stack>
+      }
+    >
+      {badge}
+    </Tooltip>
+  );
+}
+
+/** What one module does to the object, as the mark's tooltip lists it. */
+function moduleLabel(module: ModuleMark): string {
+  switch (module.action) {
+    case "create":
+      return m.workshop_objects_module_create_label({ module: module.name });
+    case "remove":
+      return m.workshop_objects_module_remove_label({ module: module.name });
+    case "edit":
+      return m.workshop_objects_module_edit_label({ module: module.name });
+  }
 }
 
 /** The class as the card takes it: the name, or null where the tables gave only the hash. */

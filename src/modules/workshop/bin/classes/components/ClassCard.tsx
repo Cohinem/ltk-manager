@@ -126,7 +126,7 @@ function Bases({ bases }: { bases: readonly ClassRef[] }) {
   );
 }
 
-/** The fields the class declares, and the objects of the install that declare it. */
+/** The fields the class declares, and the objects of the install and the project that declare it. */
 function Counts({ classHash, schema }: { classHash: string; schema: ClassSchema }) {
   const objects = useClassObjectCount(classHash);
 
