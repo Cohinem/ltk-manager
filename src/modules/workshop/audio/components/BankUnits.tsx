@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 
 import { Badge, Button, Disclosure, Inline, OVERLINE, Stack } from "@/components";
 import { m } from "@/i18n";
@@ -37,22 +38,24 @@ export function BankUnits({ asset }: BankUnitsProps) {
   const linked = useOptionalProjectContext() !== null;
 
   const data = references.data;
-  if (data === undefined) return null;
+  if (data === undefined) {
+    const line = references.error ? m.audio_units_failed_empty() : m.audio_units_loading_label();
+    return (
+      <Stack as="section" gap={2} data-ui="BankUnits">
+        <h3 className={twMerge(OVERLINE, "select-none")}>{m.audio_units_title()}</h3>
+        <UnitsNote>{line}</UnitsNote>
+      </Stack>
+    );
+  }
 
   const building = data.index.status === "building";
   const empty = data.units.length === 0 && data.lists.length === 0;
 
   return (
-    <section data-ui="BankUnits" className="flex flex-col gap-2 text-row">
+    <Stack as="section" gap={2} data-ui="BankUnits">
       <h3 className={twMerge(OVERLINE, "select-none")}>{m.audio_units_title()}</h3>
-      {building && (
-        <p className="text-meta text-surface-400 select-none">
-          {m.audio_units_index_building_description()}
-        </p>
-      )}
-      {empty && !building && (
-        <p className="text-meta text-surface-400 select-none">{m.audio_units_empty()}</p>
-      )}
+      {building && <UnitsNote>{m.audio_units_index_building_description()}</UnitsNote>}
+      {empty && !building && <UnitsNote>{m.audio_units_empty()}</UnitsNote>}
       {data.units.map((group) => (
         <UnitGroup key={groupKey(group)} group={group} linked={linked} />
       ))}
@@ -66,8 +69,13 @@ export function BankUnits({ asset }: BankUnitsProps) {
           ))}
         </Stack>
       )}
-    </section>
+    </Stack>
   );
+}
+
+/** A line of the section that the app wrote: its state while it reads, builds or finds nothing. */
+function UnitsNote({ children }: { children: ReactNode }) {
+  return <p className="text-meta text-surface-400 select-none">{children}</p>;
 }
 
 function groupKey(group: BankUnitGroup): string {
@@ -127,7 +135,7 @@ function UnitFile({ file, linked }: { file: SetFile; linked: boolean }) {
   }
   if (file.state.kind === "missing" || file.asset === null) {
     return (
-      <Badge size="sm" disabled>
+      <Badge size="sm" className="opacity-50">
         {m.audio_units_missing_file_label({ file: label })}
       </Badge>
     );

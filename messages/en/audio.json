@@ -56,7 +56,6 @@
   "audio_events_filtered_empty": "No event matches the filter",
   "audio_events_index_building_description": "Reading the game's bins for event names and bank units. The list updates when it finishes.",
   "audio_events_index_failed_title": "The game's audio index cannot be built",
-  "audio_events_loading_label": "Reading the events",
   "audio_events_siblings_description": "No bank unit names this bank, so its media is read from the _audio bank and package beside it.",
   "audio_events_total_label": [
     {
@@ -85,7 +84,6 @@
   "audio_media_empty": "This file holds no media",
   "audio_media_failed_empty": "The media table cannot be read",
   "audio_media_filtered_empty": "No source ID matches the filter",
-  "audio_media_loading_label": "Reading the media",
   "audio_node_layer_hint": "every child plays",
   "audio_node_layer_label": "Layer #{id}",
   "audio_node_missing_label": "Object #{id} missing",
@@ -124,6 +122,7 @@
   ],
   "audio_units_empty": "No bank unit names this file",
   "audio_units_event_bank_label": "Event bank",
+  "audio_units_failed_empty": "The bank units cannot be read",
   "audio_units_index_building_description": "The audio index of the game is building. The units of the game's bins appear when it is ready.",
   "audio_units_lists_label": [
     {
@@ -135,6 +134,7 @@
       }
     }
   ],
+  "audio_units_loading_label": "Reading the bank units",
   "audio_units_media_bank_label": "Media bank",
   "audio_units_missing_file_label": "{file}, missing",
   "audio_units_open_contextual_action": "Open contextual actions",

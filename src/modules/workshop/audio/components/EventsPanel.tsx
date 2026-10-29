@@ -1,7 +1,16 @@
 import { useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 
-import { AlertBox, Code, ContextMenu, EmptyState, SearchField } from "@/components";
+import {
+  AlertBox,
+  Code,
+  ContextMenu,
+  Count,
+  EmptyState,
+  LoadingState,
+  SearchField,
+  Stack,
+} from "@/components";
 import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
 import { useAssetVersion } from "@/lib/assetVersions";
@@ -27,6 +36,7 @@ import {
   sortEvents,
   type TreeState,
 } from "../utils/eventTree";
+import { AudioToolbar } from "./AudioToolbar";
 import { EventTree, isPlayable } from "./EventTree";
 import { EventWaveform } from "./Waveform";
 import { EventRowThumbnail } from "./WaveformThumbnail";
@@ -112,23 +122,19 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
   if (events.error) {
     return <EmptyState size="sm" title={m.audio_events_failed_empty()} />;
   }
-  if (events.data === undefined) {
-    return <EmptyState size="sm" title={m.audio_events_loading_label()} />;
-  }
+  if (events.data === undefined) return <LoadingState />;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-surface-700 px-2 py-1.5">
+    <Stack fill>
+      <AudioToolbar>
         <SearchField
           value={filter}
           onChange={setFilter}
           label={m.audio_events_filter_label()}
           clearLabel={m.audio_filter_clear_label()}
         />
-        <span className="text-meta text-surface-400 select-none">
-          {m.audio_events_total_label({ count: events.data.list.events.length })}
-        </span>
-      </div>
+        <Count>{m.audio_events_total_label({ count: events.data.list.events.length })}</Count>
+      </AudioToolbar>
       <SetNotices response={events.data} />
       {events.data.list.events.length === 0 && (
         <EmptyState size="sm" title={m.audio_events_empty()} />
@@ -161,7 +167,7 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
       <span aria-live="polite" className="sr-only">
         {announcement}
       </span>
-    </div>
+    </Stack>
   );
 }
 
@@ -176,13 +182,25 @@ function copiedText(row: EventRow): { text: string; label: string } | null {
   return null;
 }
 
+/** The padded band of notices between the filter and the event tree. */
+function NoticeBand({ children }: { children: ReactNode }) {
+  return (
+    <div data-ui="EventsPanel:notices" className="shrink-0 p-2">
+      <Stack gap={2}>{children}</Stack>
+    </div>
+  );
+}
+
 /** The notices about the bank set: the game's index, the fallback set and the missing files. */
 function SetNotices({ response }: { response: AudioEventsResponse }) {
   const { list, index } = response;
   const missing = list.files.filter((file, at) => at > 0 && file.state.kind === "missing");
+  const missingShown = list.origin === "units" && missing.length > 0;
+  const shown = index.status !== "ready" || list.origin !== "units" || missingShown;
+  if (!shown) return null;
 
   return (
-    <div className="flex flex-col gap-2 px-2 py-2 empty:hidden">
+    <NoticeBand>
       {index.status === "building" && (
         <AlertBox tone="info">{m.audio_events_index_building_description()}</AlertBox>
       )}
@@ -197,16 +215,18 @@ function SetNotices({ response }: { response: AudioEventsResponse }) {
       {list.origin === "alone" && (
         <AlertBox tone="info">{m.audio_events_alone_description()}</AlertBox>
       )}
-      {list.origin === "units" && missing.length > 0 && (
+      {missingShown && (
         <AlertBox tone="warning" title={m.audio_events_files_missing_title()}>
-          <span className="flex flex-col gap-0.5 select-text">
+          <Stack as="span" gap={0.5} align="start">
             {missing.map((file) => (
-              <Code key={file.path}>{file.path}</Code>
+              <Code key={file.path} className="select-text">
+                {file.path}
+              </Code>
             ))}
-          </span>
+          </Stack>
         </AlertBox>
       )}
-    </div>
+    </NoticeBand>
   );
 }
 
