@@ -5,7 +5,14 @@ import {
   SpeakerSlashIcon,
 } from "@phosphor-icons/react";
 
-import { ButtonGroup, IconButton, OVERLINE, Popover, Tooltip } from "@/components";
+import {
+  ButtonGroup,
+  IconButton,
+  type IconButtonSize,
+  OVERLINE,
+  Popover,
+  Tooltip,
+} from "@/components";
 import { m } from "@/i18n";
 import {
   PREVIEW_DISPLAY_DEFAULTS,
@@ -21,6 +28,8 @@ const VOLUME_RANGE: SliderRange = { least: 0, most: 1, step: 0.01 };
 export interface SoundToggleProps {
   /** The sound events of the view that resolved to no event. */
   readonly unresolved: number;
+  /** The size of the buttons beside it on its bar. `xs` unless set. */
+  readonly size?: Extract<IconButtonSize, "xs" | "sm">;
 }
 
 /**
@@ -30,18 +39,20 @@ export interface SoundToggleProps {
  * reads. The tooltip names the approximation and the events that did not resolve. Per
  * "Viewport sound" in docs/ux/AUDIO.md.
  */
-export function SoundToggle({ unresolved }: SoundToggleProps) {
+export function SoundToggle({ unresolved, size = "xs" }: SoundToggleProps) {
   const on = usePreviewSound();
   const volume = usePreviewSoundVolume();
   const setDisplay = useSetPreviewDisplay();
   const fresh = PREVIEW_DISPLAY_DEFAULTS.previewSoundVolume;
   const menuLabel = m.audio_viewport_volume_label();
+  const Speaker = on ? SpeakerHighIcon : SpeakerSlashIcon;
 
   return (
     <ButtonGroup className="overflow-hidden rounded-md bg-surface-veil">
       <IconButton
+        size={size}
         pressed={on}
-        icon={on ? <SpeakerHighIcon /> : <SpeakerSlashIcon />}
+        icon={<Speaker />}
         onClick={() => setDisplay({ previewSound: !on })}
         label={m.audio_viewport_sound_label()}
         tooltip={<SoundTip unresolved={unresolved} />}
@@ -49,7 +60,15 @@ export function SoundToggle({ unresolved }: SoundToggleProps) {
       <Popover.Root>
         <Tooltip content={menuLabel}>
           <Popover.Trigger
-            render={<IconButton narrow muted aria-label={menuLabel} icon={<CaretDownIcon />} />}
+            render={
+              <IconButton
+                size={size}
+                narrow
+                muted
+                aria-label={menuLabel}
+                icon={<CaretDownIcon />}
+              />
+            }
           />
         </Tooltip>
         <Popover.Content
@@ -58,7 +77,7 @@ export function SoundToggle({ unresolved }: SoundToggleProps) {
           sideOffset={8}
           data-ui="SoundToggle:volume"
           aria-label={menuLabel}
-          className="w-64 p-3 select-none"
+          className="w-72 p-3 select-none"
         >
           <div className="flex items-start justify-between gap-2">
             <div className="flex flex-col">

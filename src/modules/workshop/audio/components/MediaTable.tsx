@@ -9,7 +9,7 @@ import {
   useState,
 } from "react";
 
-import { ContextMenu, IconButton, Table, Tooltip } from "@/components";
+import { ContextMenu, IconButton, Table } from "@/components";
 import { NO_OVERSCROLL, useRemeasure, useResizeObserver, useZoomedPx } from "@/hooks";
 import { m } from "@/i18n";
 import type { MediaRow } from "@/lib/tauri";
@@ -28,6 +28,7 @@ import {
   nextSort,
 } from "../utils/mediaRows";
 import { movedIndex } from "../utils/rowKeys";
+import { AUDIO_LIST_GROUP, audioRowClasses } from "./audioRow";
 import { MediaThumbnail } from "./WaveformThumbnail";
 
 interface MediaTableProps {
@@ -121,7 +122,7 @@ export function MediaTable({
 
   const header = (key: MediaSortKey, label: string) => (
     <Table.SortButton
-      direction={sort?.key === key ? (sort.descending ? "desc" : "asc") : false}
+      direction={sortDirection(sort, key)}
       onClick={() => onSort(nextSort(sort, key))}
     >
       {label}
@@ -143,7 +144,10 @@ export function MediaTable({
           if (event.target === event.currentTarget && selectedIndex < 0) selectAt(0);
         }}
         data-ui="MediaTable"
-        className="min-h-0 flex-1 overflow-auto text-row scrollbar-md focus-visible:outline-none"
+        className={twMerge(
+          AUDIO_LIST_GROUP,
+          "min-h-0 flex-1 overflow-auto text-row scrollbar-md focus-visible:outline-none",
+        )}
         {...NO_OVERSCROLL}
       >
         <div className="min-w-max">
@@ -210,6 +214,9 @@ export function MediaTable({
   );
 }
 
+/** The text of a cell whose value the header of the media does not give. */
+const NO_VALUE = "-";
+
 /** The width of each column, shared by the header and the rows. */
 const COLUMN = {
   play: "w-5 shrink-0",
@@ -221,6 +228,12 @@ const COLUMN = {
   size: "w-20 shrink-0 text-right",
   waveform: "w-24 shrink-0",
 } as const;
+
+/** Returns the direction that the header of `key` shows, or `false` if the table sorts by another. */
+function sortDirection(sort: MediaSort | null, key: MediaSortKey): "asc" | "desc" | false {
+  if (sort?.key !== key) return false;
+  return sort.descending ? "desc" : "asc";
+}
 
 /** Returns the DOM id of the row of `source`, which the grid names as its active row. */
 function rowId(source: number): string {
@@ -252,6 +265,9 @@ function MediaLine({
 }: MediaLineProps) {
   const format = row.format;
   const source = String(row.sourceId);
+  const codec = format === null ? NO_VALUE : codecLabel(format.codec);
+  const duration =
+    format?.durationSeconds == null ? NO_VALUE : formatDuration(format.durationSeconds);
 
   return (
     <div
@@ -260,12 +276,7 @@ function MediaLine({
       aria-rowindex={index + 1}
       aria-selected={selected}
       data-ui="MediaTable:row"
-      /* DS-VEIL, DS-RADIUS */
-      className={twMerge(
-        "flex h-6 items-center gap-3 rounded-sm px-2 hover:bg-surface-veil-soft",
-        selected && "bg-accent-500/10",
-        playing && "bg-accent-500/15",
-      )}
+      className={twMerge(audioRowClasses({ selected, playing }), "gap-3 pl-2")}
       onClick={onSelect}
     >
       <span role="gridcell" className={COLUMN.play}>
@@ -282,16 +293,14 @@ function MediaLine({
       <Cell className={twMerge(COLUMN.source, "font-mono text-code text-surface-200 select-text")}>
         {source}
       </Cell>
-      <Cell className={COLUMN.codec}>{format === null ? "-" : codecLabel(format.codec)}</Cell>
+      <Cell className={COLUMN.codec}>{codec}</Cell>
       <Cell className={twMerge(COLUMN.channels, "font-mono text-code")}>
-        {format?.channels ?? "-"}
+        {format?.channels ?? NO_VALUE}
       </Cell>
       <Cell className={twMerge(COLUMN.rate, "font-mono text-code")}>
-        {format?.sampleRate ?? "-"}
+        {format?.sampleRate ?? NO_VALUE}
       </Cell>
-      <Cell className={twMerge(COLUMN.duration, "font-mono text-code")}>
-        {format?.durationSeconds == null ? "-" : formatDuration(format.durationSeconds)}
-      </Cell>
+      <Cell className={twMerge(COLUMN.duration, "font-mono text-code")}>{duration}</Cell>
       <Cell className={twMerge(COLUMN.size, "font-mono text-code")}>
         {formatBytes(row.sizeBytes)}
       </Cell>
@@ -325,28 +334,22 @@ function PlayButton({ row, playing, failed, onToggle }: PlayButtonProps) {
   const source = String(row.sourceId);
   const reason = unplayableReason(row, failed);
   const label = playing ? m.audio_stop_action({ source }) : m.audio_play_action({ source });
+  const Glyph = playing ? StopIcon : PlayIcon;
 
-  const button = (
+  return (
     <IconButton
       size="row"
       tabIndex={-1}
-      icon={playing ? <StopIcon weight="fill" /> : <PlayIcon weight="fill" />}
+      icon={<Glyph weight="fill" />}
       label={label}
-      tooltip={reason === null ? label : false}
       pressed={playing}
       disabled={reason !== null}
+      disabledReason={reason ?? undefined}
       onClick={(event) => {
         event.stopPropagation();
         onToggle();
       }}
     />
-  );
-
-  if (reason === null) return button;
-  return (
-    <Tooltip content={reason}>
-      <span className="inline-flex">{button}</span>
-    </Tooltip>
   );
 }
 

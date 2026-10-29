@@ -7,10 +7,13 @@ import {
   Code,
   EmptyState,
   IconButton,
+  Inline,
+  LoadingState,
   Menu,
   Properties,
   Property,
   SearchField,
+  Stack,
   Tabs,
 } from "@/components";
 import { m } from "@/i18n";
@@ -28,6 +31,7 @@ import { useMediaActions } from "../hooks/useMediaActions";
 import { useMediaPlayer } from "../hooks/useMediaPlayer";
 import { useMediaFocus } from "../state/mediaFocus";
 import { filterRows, type MediaSort, sortRows } from "../utils/mediaRows";
+import { AudioToolbar } from "./AudioToolbar";
 import { BankUnits } from "./BankUnits";
 import { EventsPanel } from "./EventsPanel";
 import { MediaTable } from "./MediaTable";
@@ -70,12 +74,12 @@ export function AudioFileDocument({ asset, name }: AudioFileDocumentProps) {
 
   return (
     <DocumentFrame data-ui="AudioFileDocument">
-      <div className="flex flex-col gap-3 border-b border-surface-700 px-4 py-3">
+      <AudioHead>
         <AudioHeadline asset={asset} name={name} audio={audio} />
         {audio !== null && <AudioNotices audio={audio} />}
         {audio?.bank && <BankFactRows bank={audio.bank} />}
         {audio !== null && audio.container !== "media" && <BankUnits asset={asset} />}
-      </div>
+      </AudioHead>
       {eventCount === null && <MediaPanel asset={asset} name={name} />}
       {eventCount !== null && (
         <Tabs.Root
@@ -105,28 +109,55 @@ interface AudioHeadlineProps {
   readonly audio: AudioInfo | null;
 }
 
+/** The head of the document over its tabs, ruled off from them. */
+function AudioHead({ children }: { children: ReactNode }) {
+  return (
+    <div
+      data-ui="AudioFileDocument:head"
+      className="shrink-0 border-b border-surface-700 px-4 py-3 text-row"
+    >
+      <Stack gap={3}>{children}</Stack>
+    </div>
+  );
+}
+
 /** The file name, its kind, its media count and its size on one line, then the file's menu. */
 function AudioHeadline({ asset, name, audio }: AudioHeadlineProps) {
   const project = useOptionalProjectContext();
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-row">
-      <span className="font-medium text-surface-100 select-text">{name}</span>
-      {audio !== null && (
-        <>
-          <span className="text-meta text-surface-400 select-none">
-            {CONTAINER_LABELS[audio.container]()}
-          </span>
-          <span className="text-meta text-surface-400 select-none">
-            {m.audio_media_count_label({ count: audio.mediaCount })}
-          </span>
-          <span className="font-mono text-meta text-code text-surface-400">
-            {formatBytes(audio.sizeBytes)}
-          </span>
-        </>
-      )}
+    <Inline gap={2} justify="between">
+      <Inline gap={2} rowGap={1} wrap align="baseline">
+        <span className="font-medium text-surface-100 select-text">{name}</span>
+        {audio !== null && <AudioFacts audio={audio} />}
+      </Inline>
       {project !== null && <AudioFileMenu asset={asset} />}
-    </div>
+    </Inline>
+  );
+}
+
+/** The kind, the media count and the size of a file, apart by middle dots. */
+function AudioFacts({ audio }: { audio: AudioInfo }) {
+  return (
+    <span className="text-meta text-surface-400 tabular-nums">
+      <Inline as="span" gap={2} align="baseline">
+        <span className="select-none">{CONTAINER_LABELS[audio.container]()}</span>
+        <FactDot />
+        <span className="select-none">
+          {m.audio_media_count_label({ count: audio.mediaCount })}
+        </span>
+        <FactDot />
+        <span>{formatBytes(audio.sizeBytes)}</span>
+      </Inline>
+    </span>
+  );
+}
+
+function FactDot() {
+  return (
+    <span aria-hidden className="select-none">
+      ·
+    </span>
   );
 }
 
@@ -139,28 +170,26 @@ function AudioFileMenu({ asset }: { asset: AssetRef }) {
   const path = references.data?.path ?? null;
 
   return (
-    <span className="ml-auto self-center">
-      <Menu.Root>
-        <Menu.Trigger
-          render={
-            <IconButton
-              size="sm"
-              icon={<DotsThreeVerticalIcon />}
-              aria-label={m.audio_file_actions_label()}
-            />
-          }
-        />
-        <Menu.Content align="end" sideOffset={4} className="w-56">
-          <Menu.Item
-            icon={<MagnifyingGlassIcon className="size-4" />}
-            disabled={path === null}
-            onClick={() => path !== null && findReferences(fileReferences(path))}
-          >
-            {m.audio_file_find_references_action()}
-          </Menu.Item>
-        </Menu.Content>
-      </Menu.Root>
-    </span>
+    <Menu.Root>
+      <Menu.Trigger
+        render={
+          <IconButton
+            size="sm"
+            icon={<DotsThreeVerticalIcon />}
+            aria-label={m.audio_file_actions_label()}
+          />
+        }
+      />
+      <Menu.Content align="end" sideOffset={4} className="w-56">
+        <Menu.Item
+          icon={<MagnifyingGlassIcon className="size-4" />}
+          disabled={path === null}
+          onClick={() => path !== null && findReferences(fileReferences(path))}
+        >
+          {m.audio_file_find_references_action()}
+        </Menu.Item>
+      </Menu.Content>
+    </Menu.Root>
   );
 }
 
@@ -240,17 +269,21 @@ function MediaPanel({ asset, name }: AudioFileDocumentProps) {
     () => sortRows(filterRows(media.data ?? [], filter), sort),
     [media.data, filter, sort],
   );
+  const announcement =
+    player.playing === null
+      ? m.audio_stopped_label()
+      : m.audio_playing_label({ source: String(player.playing) });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-surface-700 px-2 py-1.5">
+    <Stack fill>
+      <AudioToolbar>
         <SearchField
           value={filter}
           onChange={setFilter}
           label={m.audio_filter_label()}
           clearLabel={m.audio_filter_clear_label()}
         />
-      </div>
+      </AudioToolbar>
       <MediaBody
         media={media.data}
         failed={media.error !== null}
@@ -271,11 +304,9 @@ function MediaPanel({ asset, name }: AudioFileDocumentProps) {
         <MediaWaveform player={player} rows={media.data} selected={selected} />
       )}
       <span aria-live="polite" className="sr-only">
-        {player.playing === null
-          ? m.audio_stopped_label()
-          : m.audio_playing_label({ source: String(player.playing) })}
+        {announcement}
       </span>
-    </div>
+    </Stack>
   );
 }
 
@@ -290,7 +321,7 @@ interface MediaBodyProps {
 /** The table, or the state that stands in for it while it reads, fails or is empty. */
 function MediaBody({ media, failed, rows, filtered, children }: MediaBodyProps) {
   if (failed) return <EmptyState size="sm" title={m.audio_media_failed_empty()} />;
-  if (media === undefined) return <EmptyState size="sm" title={m.audio_media_loading_label()} />;
+  if (media === undefined) return <LoadingState />;
   if (media.length === 0) return <EmptyState size="sm" title={m.audio_media_empty()} />;
   if (rows.length === 0 && filtered) {
     return <EmptyState size="sm" title={m.audio_media_filtered_empty()} />;

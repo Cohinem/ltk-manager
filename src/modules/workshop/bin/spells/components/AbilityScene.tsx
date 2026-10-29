@@ -283,7 +283,7 @@ export function AbilityScene({
               {m.workshop_ability_guides_label()}
             </Button>
           )}
-          <SoundToggle unresolved={sound.unresolved} />
+          <SoundToggle unresolved={sound.unresolved} size="sm" />
           <span className="text-meta text-surface-300 tabular-nums">
             {time.toFixed(2)} / {span.toFixed(2)} s
           </span>
