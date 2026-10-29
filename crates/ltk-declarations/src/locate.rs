@@ -1,22 +1,24 @@
 //! Where a manifest declares a property of an entry.
 //!
 //! An entry body sits under an `entries` module, or beside the `target` key of
-//! a module whose chunk is the edited one, directly or in its `edits` list. A
+//! a module whose chunk is the edited one, directly or in its `edits` list. In
+//! a source document it sits in the root mapping or in its `edits` list. A
 //! key names a property by its full path, `skinMeshProperties.selfIllumination`,
 //! or by the part of it below an unsigned block key, `selfIllumination` under
 //! `skinMeshProperties:`. An object a `target` module creates takes its keys in
 //! the `set` of its `objects` entry.
 
 use ltk_game_data::{BinHash, EntryName, Sign, Target};
-use ltk_meta::path::{PropertyPath, Segment};
+use ltk_meta::path::{PropertyPath, Segment, Subscript};
 use rowan::ast::AstNode as _;
 use yaml_edit::{Document, Mapping, MappingEntry, Sequence, YamlNode};
 
-use crate::Refusal;
 use crate::syntax::{self, Node};
+use crate::{Edit, Refusal};
 
-/// The keys of a `target` module that are not entry names.
-const MODULE_KEYS: [&str; 10] = [
+/// The keys of a `target` module or of a source document that are not entry names.
+const MODULE_KEYS: [&str; 11] = [
+    "version",
     "name",
     "target",
     "objects",
@@ -37,6 +39,29 @@ pub(crate) struct Site<'a> {
     pub(crate) entry: BinHash,
     pub(crate) sign: Sign,
     pub(crate) segments: Vec<Segment<'a>>,
+    pub(crate) document: DocumentKind,
+}
+
+impl<'a> Site<'a> {
+    /// The site that `edit` writes, looked up in a document of the kind `document`.
+    pub(crate) fn of(edit: &'a Edit, document: DocumentKind) -> Self {
+        Self {
+            chunk_hash: edit.chunk_hash,
+            entry: edit.entry.object_hash(),
+            sign: edit.operation.sign(),
+            segments: edit.path.segments().collect(),
+            document,
+        }
+    }
+}
+
+/// The shape of the document a [`Site`] is looked up in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DocumentKind {
+    /// A manifest, whose bodies sit in its `modules`.
+    Manifest,
+    /// A source document that a `source` module names, whose bodies sit in its root mapping.
+    Source,
 }
 
 /// The `modules` list of a manifest and its entry in the root mapping.
@@ -69,6 +94,13 @@ pub(crate) fn module_mappings(doc: &Document) -> Vec<Mapping> {
 /// Within one binding body a creation's `set` applies before the entry edits.
 fn bodies(doc: &Document, site: &Site<'_>) -> Vec<Mapping> {
     let mut bodies = Vec::new();
+    if site.document == DocumentKind::Source {
+        for body in source_bodies(doc) {
+            binding_bodies(&body, site.entry, &mut bodies);
+        }
+        return bodies;
+    }
+
     for module in module_mappings(doc) {
         if let Some(entries) = module.get_mapping("entries") {
             bodies.extend(entry_bodies(&entries, site.entry, &[]));
@@ -76,16 +108,79 @@ fn bodies(doc: &Document, site: &Site<'_>) -> Vec<Mapping> {
         }
 
         for body in module_bodies(&module, site.chunk_hash) {
-            bodies.extend(
-                object_entries(&body, site.entry)
-                    .iter()
-                    .filter_map(creation)
-                    .filter_map(|object| object.get_mapping("set")),
-            );
-            bodies.extend(entry_bodies(&body, site.entry, &MODULE_KEYS));
+            binding_bodies(&body, site.entry, &mut bodies);
         }
     }
     bodies
+}
+
+/// Pushes the bodies of the binding body `body` that declare for `entry`: the `set` of each
+/// creation, then each entry body.
+fn binding_bodies(body: &Mapping, entry: BinHash, bodies: &mut Vec<Mapping>) {
+    bodies.extend(
+        object_entries(body, entry)
+            .iter()
+            .filter_map(creation)
+            .filter_map(|object| object.get_mapping("set")),
+    );
+    bodies.extend(entry_bodies(body, entry, &MODULE_KEYS));
+}
+
+/// The binding bodies of a source document: each item of its `edits`, else its root mapping.
+fn source_bodies(doc: &Document) -> Vec<Mapping> {
+    let Some(root) = doc.as_mapping() else {
+        return Vec::new();
+    };
+
+    match root.get_sequence("edits") {
+        Some(edits) => edits
+            .values()
+            .filter_map(|edit| edit.as_mapping().cloned())
+            .collect(),
+        None => vec![root],
+    }
+}
+
+/// The last `objects` entry of a source document that creates `entry`.
+pub(crate) fn last_source_creation(doc: &Document, entry: BinHash) -> Option<MappingEntry> {
+    source_bodies(doc)
+        .iter()
+        .flat_map(|body| object_entries(body, entry))
+        .rfind(|object| creation(object).is_some())
+}
+
+/// Returns the index of the last `target` module of the chunk `chunk_hash` that creates
+/// `entry`, and the source that module names if the creation is in a source document.
+///
+/// `source_creates` returns whether the source document a module names creates `entry`.
+pub(crate) fn last_creation(
+    doc: &Document,
+    chunk_hash: u64,
+    entry: BinHash,
+    mut source_creates: impl FnMut(&str) -> bool,
+) -> Option<(usize, Option<String>)> {
+    let mut found = None;
+    for (index, module) in module_mappings(doc).iter().enumerate() {
+        if !targets(module, chunk_hash) {
+            continue;
+        }
+
+        let source = module
+            .get("source")
+            .and_then(|source| source.as_scalar().map(yaml_edit::Scalar::as_string));
+        let creates = match &source {
+            Some(source) => source_creates(source),
+            None => module_bodies(module, chunk_hash).iter().any(|body| {
+                object_entries(body, entry)
+                    .iter()
+                    .any(|object| creation(object).is_some())
+            }),
+        };
+        if creates {
+            found = Some((index, source));
+        }
+    }
+    found
 }
 
 /// The binding bodies of a `target` module of the chunk `chunk_hash`: the module itself,
@@ -187,8 +282,57 @@ pub(crate) fn last_key(doc: &Document, site: &Site<'_>) -> Option<MappingEntry> 
     found.pop()
 }
 
+/// Returns the node inside a set value that `site` names, if the build applies that value
+/// after every key declaring `site`.
+///
+/// A set value holds `site` when its key names a prefix of the path: a list item by its
+/// index, a struct field by its name. Returns `None` for a site that is not a set.
+pub(crate) fn last_within(doc: &Document, site: &Site<'_>) -> Option<Node> {
+    if site.sign != Sign::Set {
+        return None;
+    }
+
+    let mut found = Vec::new();
+    for body in bodies(doc, site) {
+        declarations_in(&body, site.sign, &site.segments, true, &mut found);
+    }
+    match found.pop()? {
+        Found::Within(node) => Some(node),
+        Found::Key(_) => None,
+    }
+}
+
+/// A declaration of one path.
+enum Found {
+    /// A key whose path is the declared path.
+    Key(MappingEntry),
+    /// The node inside a set value that the declared path names.
+    Within(Node),
+}
+
 /// The keys under `mapping` declaring `segments` with `sign`, in order.
 fn keys_in(mapping: &Mapping, sign: Sign, segments: &[Segment<'_>], found: &mut Vec<MappingEntry>) {
+    let mut declared = Vec::new();
+    declarations_in(mapping, sign, segments, false, &mut declared);
+    found.extend(
+        declared
+            .into_iter()
+            .filter_map(|declaration| match declaration {
+                Found::Key(entry) => Some(entry),
+                Found::Within(_) => None,
+            }),
+    );
+}
+
+/// The declarations under `mapping` of `segments` with `sign`, in order. With `within`, a
+/// set value that holds `segments` is one too.
+fn declarations_in(
+    mapping: &Mapping,
+    sign: Sign,
+    segments: &[Segment<'_>],
+    within: bool,
+    found: &mut Vec<Found>,
+) {
     for entry in syntax::entries(mapping) {
         let Some(key) = syntax::key_string(&entry) else {
             continue;
@@ -198,18 +342,102 @@ fn keys_in(mapping: &Mapping, sign: Sign, segments: &[Segment<'_>], found: &mut 
             continue;
         };
         let key_segments: Vec<Segment<'_>> = path.segments().collect();
-        if !is_prefix(&key_segments, segments) {
-            continue;
-        }
-        if key_segments.len() == segments.len() {
-            if key_sign == sign {
-                found.push(entry);
+
+        if is_prefix(&key_segments, segments) {
+            if key_segments.len() == segments.len() {
+                if key_sign == sign {
+                    found.push(Found::Key(entry));
+                }
+                continue;
             }
-        } else if key_sign == Sign::Set
-            && let Some(block) = syntax::mapping_value(&entry)
-        {
-            keys_in(&block, sign, &segments[key_segments.len()..], found);
+            if key_sign != Sign::Set {
+                continue;
+            }
+            if let Some(block) = syntax::mapping_value(&entry) {
+                declarations_in(&block, sign, &segments[key_segments.len()..], within, found);
+                continue;
+            }
         }
+
+        if within
+            && key_sign == Sign::Set
+            && let Some(node) = node_within(&entry, &key_segments, segments)
+        {
+            found.push(Found::Within(node));
+        }
+    }
+}
+
+/// The node under the value of `entry`, a key of `key_segments`, that `segments` names.
+///
+/// The key's last segment matches by name, and a subscript `segments` gives it picks an item
+/// of the value. `None` where the key names no prefix of `segments`, or where a step reaches
+/// no item or no field.
+fn node_within(
+    entry: &MappingEntry,
+    key_segments: &[Segment<'_>],
+    segments: &[Segment<'_>],
+) -> Option<Node> {
+    let (last, outer) = key_segments.split_last()?;
+    if segments.len() <= outer.len() || !is_prefix(outer, segments) {
+        return None;
+    }
+    let at = &segments[outer.len()];
+    if last.name_hash() != at.name_hash() {
+        return None;
+    }
+
+    let mut value = entry.value_node()?;
+    let rest = &segments[outer.len() + 1..];
+    match (&last.subscript, &at.subscript) {
+        (None, Some(subscript)) => value = item(value, subscript)?,
+        (held, wanted) if held == wanted && !rest.is_empty() => {}
+        _ => return None,
+    }
+
+    for segment in rest {
+        let fields = untagged_mapping(value)?;
+        let field = syntax::entries(&fields).into_iter().find(|field| {
+            syntax::key_string(field).is_some_and(|key| names_field(&key, segment))
+        })?;
+        value = field.value_node()?;
+        if let Some(subscript) = &segment.subscript {
+            value = item(value, subscript)?;
+        }
+    }
+    Some(syntax::node(&value))
+}
+
+/// Whether the field key `key` names the field of `segment`, without a subscript.
+fn names_field(key: &str, segment: &Segment<'_>) -> bool {
+    PropertyPath::new(key).ok().is_some_and(|path| {
+        let mut segments = path.segments();
+        matches!(
+            (segments.next(), segments.next()),
+            (Some(field), None) if field.subscript.is_none() && field.name_hash() == segment.name_hash()
+        )
+    })
+}
+
+/// The item `subscript` picks from the list `value`. `None` for a map key subscript.
+fn item(value: YamlNode, subscript: &Subscript<'_>) -> Option<YamlNode> {
+    let Subscript::Index(index) = subscript else {
+        return None;
+    };
+    let list = match value {
+        YamlNode::Sequence(list) => list,
+        YamlNode::TaggedNode(tagged) => tagged.as_sequence()?,
+        _ => return None,
+    };
+    list.values().nth(usize::try_from(*index).ok()?)
+}
+
+/// The mapping of `value`, under its tag where it has one.
+fn untagged_mapping(value: YamlNode) -> Option<Mapping> {
+    match value {
+        YamlNode::Mapping(mapping) => Some(mapping),
+        YamlNode::TaggedNode(tagged) => tagged.as_mapping(),
+        _ => None,
     }
 }
 

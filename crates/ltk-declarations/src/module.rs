@@ -10,7 +10,7 @@ use yaml_edit::{Document, Mapping, MappingEntry};
 
 use crate::Refusal;
 use crate::document_text::DocumentText;
-use crate::locate::{self, Site};
+use crate::locate::{self, DocumentKind, Site};
 use crate::syntax::{self, Node};
 
 /// The signs a key of one path can carry, in the order a move writes them.
@@ -281,6 +281,7 @@ impl DocumentText {
                 entry,
                 sign: *sign,
                 segments: segments.to_vec(),
+                document: DocumentKind::Manifest,
             };
             text = text.insert_in_entries(&locate::entries_at(&doc, to)?, &site, spelled, value)?;
         }
