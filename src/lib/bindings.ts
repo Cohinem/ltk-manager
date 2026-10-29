@@ -430,17 +430,6 @@ export type BankSetOrigin =
 /**  No bank unit names the bank, and its name has no `_events` stem. The set holds it alone. */
 "alone";
 
-/**  One `BankUnit` of a bin, as written. */
-export type BankUnit = {
-	name: string,
-	/**  The `bankPath` list: event banks, media banks and packages. */
-	bankPath: string[],
-	/**  The `events` list: the event names that the unit registers. */
-	events: string[],
-	/**  The `voiceOver` flag. A voice-over path is read under the client's locale. */
-	voiceOver: boolean,
-};
-
 /**  The bank units with one name, one list of paths and one voice-over flag. */
 export type BankUnitGroup = {
 	name: string,
@@ -8273,8 +8262,6 @@ export type SkinModel = {
 	sockets: Socket[],
 	/**  `skinMeshProperties.OutlineCategorySubmeshes`, in the order the skin lists them. */
 	outlines: SkinOutline[],
-	/**  `skinAudioProperties.bankUnits`, in the order the skin lists them. */
-	audio: BankUnit[],
 };
 
 /**  One `OutlineCategorySubmeshes` entry: submeshes that the engine draws an outline around. */
