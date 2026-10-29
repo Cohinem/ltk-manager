@@ -37,6 +37,7 @@ function cue(key: string, at: number, flags: Partial<SoundCue> = {}): SoundCue {
     kill: false,
     loop: true,
     skipIfPastEnd: false,
+    repeat: "once",
     ...flags,
   };
 }
