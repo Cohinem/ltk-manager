@@ -19,7 +19,15 @@ function sound(id: number, source: number, found = true): EventNode {
 }
 
 function event(id: number, mediaCount: number): AudioEvent {
-  return { id, name: null, actionCount: 1, mediaCount, status: { kind: "resolved" } };
+  return {
+    id,
+    name: null,
+    actionCount: 1,
+    mediaCount,
+    status: { kind: "resolved" },
+    contexts: [],
+    listed: null,
+  };
 }
 
 const TREE: EventTree = {
