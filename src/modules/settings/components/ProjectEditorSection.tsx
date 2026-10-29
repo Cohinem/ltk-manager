@@ -1,6 +1,7 @@
 import { TabsIcon } from "@phosphor-icons/react";
 
-import { SectionCard, Separator, Switch } from "@/components";
+import { SectionCard, Separator, Slider, Switch } from "@/components";
+import { m } from "@/i18n";
 import {
   useForwardLookingMeta,
   useSearchGame,
@@ -9,9 +10,13 @@ import {
   useSetSearchGame,
   useSetSearchObjects,
   usePreviewOnClick,
+  usePreviewSound,
+  usePreviewSoundVolume,
+  useSetPreviewDisplay,
   useSetPreviewOnClick,
 } from "@/stores";
 
+import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
 import { SettingRows } from "./SettingRows";
 
@@ -66,6 +71,47 @@ export function ProjectEditorSection() {
           control={<Switch checked={forwardLookingMeta} onCheckedChange={setForwardLookingMeta} />}
         />
       </SettingRows>
+
+      <ViewportGroup />
     </SectionCard>
+  );
+}
+
+/** The viewport preferences that the toolbar of a viewport also sets. */
+function ViewportGroup() {
+  const sound = usePreviewSound();
+  const volume = usePreviewSoundVolume();
+  const setDisplay = useSetPreviewDisplay();
+
+  return (
+    <SettingGroup id="workshop.viewport" title={m.settings_viewport_title()}>
+      <SettingRow
+        setting="layout.previewSound"
+        description={m.settings_viewport_sound_description()}
+        hint={m.settings_viewport_sound_hint()}
+        control={
+          <Switch
+            checked={sound}
+            onCheckedChange={(previewSound) => setDisplay({ previewSound })}
+          />
+        }
+      />
+
+      <SettingRow
+        setting="layout.previewSoundVolume"
+        description={m.settings_viewport_sound_volume_description()}
+        control={
+          <Slider
+            aria-label={m.settings_viewport_sound_volume_title()}
+            className="w-40"
+            value={volume}
+            min={0}
+            max={1}
+            step={0.01}
+            onValueChange={(previewSoundVolume) => setDisplay({ previewSoundVolume })}
+          />
+        }
+      />
+    </SettingGroup>
   );
 }

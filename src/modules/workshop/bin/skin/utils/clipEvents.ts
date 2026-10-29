@@ -1,5 +1,6 @@
 import type { EffectSystem, GraphClip, HashRef } from "@/lib/tauri";
 
+import type { SoundCue } from "../../../audio/utils/soundCue";
 import { nameHash } from "../../shared/utils/binHash";
 
 /** The rate a clip's frames are read at where it sets no tick and its file has no rate. */
@@ -158,6 +159,28 @@ export function particleCues(
 }
 
 const NO_SPAWN = { bone: null, targetBone: null } as const;
+
+/** Every sound event of the pass that names a sound, in pass order. */
+export function soundCues(steps: readonly TimedStep[]): SoundCue[] {
+  const cues: SoundCue[] = [];
+  steps.forEach((step, index) => {
+    for (const event of step.clip.events) {
+      const { kind } = event;
+      if (kind.kind !== "sound" || kind.name === "") continue;
+
+      cues.push({
+        key: `${index}:${event.hash}`,
+        name: kind.name,
+        at: secondsOf(step, event.startFrame),
+        endAt: event.endFrame === null ? null : secondsOf(step, event.endFrame),
+        kill: kind.isKill,
+        loop: kind.isLoop,
+        skipIfPastEnd: kind.skipIfPastEnd,
+      });
+    }
+  });
+  return cues.sort((a, b) => a.at - b.at);
+}
 
 /**
  * The submeshes hidden over one pass, as a timeline from `base` at zero, one entry per

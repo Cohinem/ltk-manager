@@ -29,9 +29,11 @@ use ltk_meta::PropertyValueEnum;
 use ltk_meta::walk::Leaf;
 use serde::Serialize;
 
+pub use ltk_manager_audio::BankUnit;
+use ltk_manager_audio::{BANK_EVENTS, BANK_PATH, BANK_UNIT_NAME, BANK_VOICE_OVER};
 use ltk_manager_bin::bin_document::{
     AssetLookup, BinDocument, BinDocumentError, Fields, Locator, RowNames, fields_of, hash_hex,
-    hex, items, leaf, link, object_at, text,
+    hex, items, leaf, link, object_at, text, unsigned,
 };
 pub use ltk_manager_bin::bin_document::{NamedAsset, boolean, float, struct_entries};
 
@@ -156,6 +158,19 @@ const EVENT_SCALE: BinHash = named("scale");
 const EVENT_BONE: BinHash = named("mBoneName");
 /// `ParticleEventDataPair.mTargetBoneName`.
 const EVENT_TARGET_BONE: BinHash = named("mTargetBoneName");
+const SOUND_EVENT: BinHash = named("SoundEventData");
+/// `SoundEventData.mSoundName`, the Wwise event the sound plays.
+const EVENT_SOUND_NAME: BinHash = named("mSoundName");
+/// `SoundEventData.mSkipIfPastEndFrame`.
+const EVENT_SKIP_IF_PAST_END: BinHash = named("mSkipIfPastEndFrame");
+/// `SoundEventData.ConditionClipTransitionType`.
+const EVENT_CONDITION_TRANSITION: BinHash = named("ConditionClipTransitionType");
+/// The class default of `ConditionClipTransitionType`, which plays the sound from its start.
+const DEFAULT_CONDITION_TRANSITION: u8 = 1;
+/// `SkinCharacterDataProperties.skinAudioProperties`.
+const AUDIO_PROPERTIES: BinHash = named("skinAudioProperties");
+/// `SkinAudioProperties.bankUnits`.
+const BANK_UNITS: BinHash = named("bankUnits");
 const JOINT_SNAP_EVENT: BinHash = named("JointSnapEventData");
 /// `JointSnapEventData.mJointNameToOverride`.
 const EVENT_JOINT: BinHash = named("mJointNameToOverride");
@@ -282,6 +297,32 @@ pub struct SkinModel {
     pub sockets: Vec<Socket>,
     /// `skinMeshProperties.OutlineCategorySubmeshes`, in the order the skin lists them.
     pub outlines: Vec<SkinOutline>,
+    /// `skinAudioProperties.bankUnits`, in the order the skin lists them.
+    pub audio: Vec<BankUnit>,
+}
+
+/// The bank units of `skinAudioProperties` on `skin`, in list order.
+fn bank_units(skin: &Fields) -> Vec<BankUnit> {
+    let strings = |value: Option<&PropertyValueEnum>| -> Vec<String> {
+        items(value)
+            .iter()
+            .filter_map(|item| text(Some(item)).map(str::to_owned))
+            .collect()
+    };
+    let audio = fields_of(skin.get(&AUDIO_PROPERTIES));
+
+    items(audio.and_then(|audio| audio.get(&BANK_UNITS)))
+        .iter()
+        .filter_map(|item| fields_of(Some(item)))
+        .map(|unit| BankUnit {
+            name: text(unit.get(&BANK_UNIT_NAME))
+                .unwrap_or_default()
+                .to_owned(),
+            bank_path: strings(unit.get(&BANK_PATH)),
+            events: strings(unit.get(&BANK_EVENTS)),
+            voice_over: boolean(unit.get(&BANK_VOICE_OVER)).unwrap_or(false),
+        })
+        .collect()
 }
 
 /// One `OutlineCategorySubmeshes` entry: submeshes that the engine draws an outline around.
@@ -440,6 +481,23 @@ pub enum EventKind {
         is_kill: bool,
         /// `scale`, which the meta defaults to one.
         scale: f32,
+    },
+    /// `SoundEventData`: a Wwise event posted at the start frame.
+    ///
+    /// The end frame does not stop the sound. `mIsKillEvent` stops it when the clip stops,
+    /// and `mIsLoop` fires it again on each loop of the clip.
+    #[serde(rename_all = "camelCase")]
+    Sound {
+        /// `mSoundName`, the event name.
+        name: String,
+        /// `mIsLoop`, true by default.
+        is_loop: bool,
+        /// `mIsKillEvent`, true by default.
+        is_kill: bool,
+        /// `mSkipIfPastEndFrame`, false by default.
+        skip_if_past_end: bool,
+        /// `ConditionClipTransitionType`, from 0 to 3 and 1 by default.
+        condition_transition: u8,
     },
     /// `JointSnapEventData`: one joint stands where another does, from the start frame on.
     #[serde(rename_all = "camelCase")]
@@ -669,6 +727,7 @@ pub(crate) fn resolve_skin(
                 material: None,
             })
             .collect(),
+        audio: bank_units(skin),
     })
 }
 
@@ -968,6 +1027,17 @@ fn event_kind(class: BinHash, fields: &Fields, keys: &GraphKeys) -> EventKind {
             is_loop: boolean(fields.get(&EVENT_IS_LOOP)).unwrap_or(false),
             is_kill: boolean(fields.get(&EVENT_IS_KILL)).unwrap_or(false),
             scale: float(fields.get(&EVENT_SCALE)).unwrap_or(1.0),
+        },
+        SOUND_EVENT => EventKind::Sound {
+            name: text(fields.get(&EVENT_SOUND_NAME))
+                .unwrap_or_default()
+                .to_owned(),
+            is_loop: boolean(fields.get(&EVENT_IS_LOOP)).unwrap_or(true),
+            is_kill: boolean(fields.get(&EVENT_IS_KILL)).unwrap_or(true),
+            skip_if_past_end: boolean(fields.get(&EVENT_SKIP_IF_PAST_END)).unwrap_or(false),
+            condition_transition: unsigned(fields.get(&EVENT_CONDITION_TRANSITION))
+                .and_then(|value| u8::try_from(value).ok())
+                .unwrap_or(DEFAULT_CONDITION_TRANSITION),
         },
         JOINT_SNAP_EVENT => EventKind::JointSnap {
             joint: keys.hash_at(fields.get(&EVENT_JOINT)),

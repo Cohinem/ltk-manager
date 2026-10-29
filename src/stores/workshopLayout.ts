@@ -123,6 +123,10 @@ interface PreviewDisplay {
   inspectorDefaults: boolean;
   /** The particle graph draws its minimap while a part of the graph is outside the view. */
   graphMinimap: boolean;
+  /** A viewport plays the sound events of what it plays. */
+  previewSound: boolean;
+  /** The gain of every viewport's sound, from 0 to 1. */
+  previewSoundVolume: number;
 }
 /** A preview display preference that is a switch. */
 type PreviewFlag = {
@@ -314,6 +318,9 @@ const PREVIEW_DISPLAY_DEFAULTS: PreviewDisplay = {
   timelineSnap: true,
   inspectorDefaults: false,
   graphMinimap: true,
+  previewSound: false,
+  /* `PREVIEW_VOLUME` of the audio module, kept a literal so the store loads no player. */
+  previewSoundVolume: 0.2,
 };
 
 /* What the Project editor card shows. The rest of this store is geometry, which is
@@ -329,6 +336,17 @@ const PROJECT_EDITOR_DEFAULTS = {
 >;
 
 type ProjectEditorKey = keyof typeof PROJECT_EDITOR_DEFAULTS;
+
+/* The viewport preferences the settings page shows beside the Project editor card's. */
+const VIEWPORT_SETTING_DEFAULTS = {
+  previewSound: PREVIEW_DISPLAY_DEFAULTS.previewSound,
+  previewSoundVolume: PREVIEW_DISPLAY_DEFAULTS.previewSoundVolume,
+} satisfies Pick<PreviewDisplay, "previewSound" | "previewSoundVolume">;
+
+/** Every key of this store that the settings page addresses as `layout.<key>`. */
+const LAYOUT_SETTING_DEFAULTS = { ...PROJECT_EDITOR_DEFAULTS, ...VIEWPORT_SETTING_DEFAULTS };
+
+type LayoutSettingKey = keyof typeof LAYOUT_SETTING_DEFAULTS;
 
 export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
   persist(
@@ -388,7 +406,7 @@ export const useWorkshopLayoutStore = create<WorkshopLayoutStore>()(
     }),
     {
       name: "ltk-workshop-layout",
-      version: 9,
+      version: 10,
       partialize: ({ previewTargetHandle: _session, ...kept }) => kept,
       migrate: (persisted) => {
         const state = {
@@ -437,6 +455,7 @@ export {
   EXPLORER_ROW_HEIGHTS,
   EXPLORER_TILE_SIZES,
   EXPLORER_TREE_ROW_HEIGHTS,
+  LAYOUT_SETTING_DEFAULTS,
   PREVIEW_DISPLAY_DEFAULTS,
   PROJECT_EDITOR_DEFAULTS,
 };
@@ -451,6 +470,7 @@ export type {
   ExplorerTreeRowHeight,
   ExplorerView,
   LayerPanelSide,
+  LayoutSettingKey,
   PreviewDisplay,
   PreviewEffectsQuality,
   PreviewFlag,
@@ -554,5 +574,7 @@ export const useTimelineHistogram = () => useWorkshopLayoutStore((s) => s.timeli
 export const useTimelineSnap = () => useWorkshopLayoutStore((s) => s.timelineSnap);
 export const useInspectorDefaults = () => useWorkshopLayoutStore((s) => s.inspectorDefaults);
 export const useGraphMinimap = () => useWorkshopLayoutStore((s) => s.graphMinimap);
+export const usePreviewSound = () => useWorkshopLayoutStore((s) => s.previewSound);
+export const usePreviewSoundVolume = () => useWorkshopLayoutStore((s) => s.previewSoundVolume);
 export const useSetPreviewDisplay = () => useWorkshopLayoutStore((s) => s.setPreviewDisplay);
 export const usePreviewFlag = (flag: PreviewFlag) => useWorkshopLayoutStore((s) => s[flag]);

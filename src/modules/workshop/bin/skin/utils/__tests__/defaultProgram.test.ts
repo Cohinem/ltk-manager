@@ -76,6 +76,7 @@ function skin(over: Partial<SkinModel> = {}): SkinModel {
     poseModifiers: [],
     sockets: [],
     outlines: [],
+    audio: [],
     ...over,
   };
 }

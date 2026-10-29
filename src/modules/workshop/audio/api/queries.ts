@@ -1,12 +1,14 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, skipToken } from "@tanstack/react-query";
 
 import {
   api,
   type AppError,
   type AssetRef,
   type AudioEventsResponse,
+  type BinDocumentId,
   type EventTree,
   type MediaRow,
+  type ResolvedSounds,
   type SandboxRef,
 } from "@/lib/tauri";
 import { queryFnWithArgs } from "@/utils/query";
@@ -23,6 +25,9 @@ export const audioKeys = {
     [...audioKeys.all, "events", sandboxKey(sandbox), assetKey(asset), version] as const,
   event: (sandbox: SandboxRef, asset: AssetRef, version: number, event: number) =>
     [...audioKeys.events(sandbox, asset, version), event] as const,
+  sounds: () => [...audioKeys.all, "sounds"] as const,
+  soundsOf: (document: BinDocumentId, names: readonly string[]) =>
+    [...audioKeys.sounds(), document, names] as const,
 };
 
 /** The reads of an audio file document. */
@@ -50,5 +55,16 @@ export const audioQueries = {
       queryFn: queryFnWithArgs(api.readAudioEvent, sandbox, asset, event),
       staleTime: Infinity,
       retry: false,
+    }),
+  /* Asked once per view for every name its cues hold. A layer file write invalidates every
+     answer, and the answer polls while the game's audio index builds. */
+  sounds: (document: BinDocumentId, names: readonly string[]) =>
+    queryOptions<ResolvedSounds, AppError>({
+      queryKey: audioKeys.soundsOf(document, names),
+      queryFn:
+        names.length === 0 ? skipToken : queryFnWithArgs(api.resolveSounds, document, [...names]),
+      staleTime: Infinity,
+      retry: false,
+      refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
     }),
 } as const;

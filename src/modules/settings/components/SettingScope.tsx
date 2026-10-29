@@ -13,7 +13,7 @@ import { useToast } from "@/components";
 import type { BuiltinModSettings, Settings } from "@/lib/tauri";
 import {
   APPEARANCE_DEFAULTS,
-  PROJECT_EDITOR_DEFAULTS,
+  LAYOUT_SETTING_DEFAULTS,
   useDisplayStore,
   useWorkshopLayoutStore,
 } from "@/stores";
@@ -97,7 +97,7 @@ function withPairs(keys: readonly SettingKey[]): SettingKey[] {
 }
 
 function defaultValue(key: SettingKey, defaults: Settings): unknown {
-  return settingValue(key, defaults, APPEARANCE_DEFAULTS, PROJECT_EDITOR_DEFAULTS);
+  return settingValue(key, defaults, APPEARANCE_DEFAULTS, LAYOUT_SETTING_DEFAULTS);
 }
 
 /**

@@ -65,6 +65,8 @@ pub const EVENT_FIELDS: &[(BinHash, &[BinHash])] = &[
 
 /// One `BankUnit` of a bin, as written.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
 pub struct BankUnit {
     pub name: String,
     /// The `bankPath` list: event banks, media banks and packages.

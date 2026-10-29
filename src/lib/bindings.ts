@@ -374,6 +374,17 @@ export type BankSetOrigin =
 /**  No bank unit names the bank, and its name has no `_events` stem. The set holds it alone. */
 "alone";
 
+/**  One `BankUnit` of a bin, as written. */
+export type BankUnit = {
+	name: string,
+	/**  The `bankPath` list: event banks, media banks and packages. */
+	bankPath: string[],
+	/**  The `events` list: the event names that the unit registers. */
+	events: string[],
+	/**  The `voiceOver` flag. A voice-over path is read under the client's locale. */
+	voiceOver: boolean,
+};
+
 /**  The rule of section 10.2 that picked a base texture, in the order they are tried. */
 export type BaseRule = 
 /**  A static switch of the one shader that has such a switch names it. */
@@ -2098,6 +2109,23 @@ isLoop: boolean;
 isKill: boolean; 
 /**  `scale`, which the meta defaults to one. */
 scale: number | null } | 
+/**
+ *  `SoundEventData`: a Wwise event posted at the start frame.
+ * 
+ *  The end frame does not stop the sound. `mIsKillEvent` stops it when the clip stops,
+ *  and `mIsLoop` fires it again on each loop of the clip.
+ */
+{ kind: "sound"; 
+/**  `mSoundName`, the event name. */
+name: string; 
+/**  `mIsLoop`, true by default. */
+isLoop: boolean; 
+/**  `mIsKillEvent`, true by default. */
+isKill: boolean; 
+/**  `mSkipIfPastEndFrame`, false by default. */
+skipIfPastEnd: boolean; 
+/**  `ConditionClipTransitionType`, from 0 to 3 and 1 by default. */
+conditionTransition: number } | 
 /**  `JointSnapEventData`: one joint stands where another does, from the start frame on. */
 { kind: "jointSnap"; 
 /**  `mJointNameToOverride`, the joint moved, and none for an event naming no joint. */
@@ -7067,6 +7095,20 @@ export type ResolvedPass = {
 	schema: ShaderSchema | null,
 };
 
+/**  One event name and what it resolves to. */
+export type ResolvedSound = {
+	name: string,
+	resolution: SoundResolution,
+};
+
+/**  The sounds of a view, and the slot of the game's audio index that they were resolved with. */
+export type ResolvedSounds = {
+	/**  One entry per name asked for, in the same order. */
+	sounds: ResolvedSound[],
+	/**  Off `ready`, a name that only the game's bank units register reads as missing. */
+	index: AudioIndexStatus,
+};
+
 /**
  *  What a file was when it was read, so a save can tell it has not moved.
  * 
@@ -8118,6 +8160,8 @@ export type SkinModel = {
 	sockets: Socket[],
 	/**  `skinMeshProperties.OutlineCategorySubmeshes`, in the order the skin lists them. */
 	outlines: SkinOutline[],
+	/**  `skinAudioProperties.bankUnits`, in the order the skin lists them. */
+	audio: BankUnit[],
 };
 
 /**  One `OutlineCategorySubmeshes` entry: submeshes that the engine draws an outline around. */
@@ -8187,6 +8231,17 @@ path: string;
 name: string; 
 /**  The socket's class as the tables name it, and its hash where none does. */
 class: string };
+
+/**  What one event name resolves to. */
+export type SoundResolution = 
+/**  The play tree of the event. */
+{ status: "resolved"; tree: EventTree } | 
+/**  No bank of the set holds an event of the name. */
+{ status: "noEvent" } | 
+/**  An object of the tree cannot be decoded. */
+{ status: "decodeError"; object: number; 
+/**  The game path of the bank that holds the object. */
+bank: string; message: string };
 
 /**  Where the media of a sound is stored. */
 export type SoundStream = 

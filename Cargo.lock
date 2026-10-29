@@ -3632,6 +3632,7 @@ dependencies = [
  "hexshade",
  "indexmap 2.14.0",
  "ltk-manager-assets",
+ "ltk-manager-audio",
  "ltk-manager-base",
  "ltk-manager-bin",
  "ltk_hash",

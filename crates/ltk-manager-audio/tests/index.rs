@@ -124,6 +124,15 @@ fn bin_audio_reads_bank_units_as_written() {
 }
 
 #[test]
+fn bin_audio_of_objects_matches_read_of_their_bytes() {
+    let bin = Bin::from_reader(&mut Cursor::new(skin_bin())).expect("read bin");
+
+    let audio = BinAudio::of_objects(bin.objects.values()).unwrap();
+
+    assert_eq!(audio, BinAudio::read(&skin_bin()).unwrap());
+}
+
+#[test]
 fn audio_index_units_naming_path_match_without_case() {
     let index = index();
 

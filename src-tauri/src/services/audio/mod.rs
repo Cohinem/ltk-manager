@@ -6,10 +6,12 @@
 mod events;
 mod index;
 mod media;
+mod sounds;
 
 pub use events::*;
 pub use index::AudioIndexState;
 pub use media::*;
+pub use sounds::*;
 
 use std::io::{self, Cursor};
 use std::sync::Arc;

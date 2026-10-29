@@ -6,6 +6,7 @@ import { api, type LayerFilesChanged } from "@/lib/tauri";
 import { useTauriEvent } from "@/lib/useTauriEvent";
 import { BACKDROP_ROOT, MAP_FILES_NEAR_ROOT, MAP_FILES_ROOT } from "@/modules/viewport";
 
+import { audioKeys } from "../../audio/api/queries";
 import { OVERRIDES_ROOT } from "../../bin/documents/hooks/useOverrides";
 import { gameKeys } from "../../gameBrowser/api/keys";
 import { sandboxKeys } from "../../sandbox/api/keys";
@@ -23,6 +24,8 @@ const SANDBOX_READS: readonly (readonly string[])[] = [
   [...BACKDROP_ROOT, "lightmaps"],
   /* A map's materials and visibility controllers, which a saved `.materials.bin` changes. */
   [...BACKDROP_ROOT, "model"],
+  /* The sounds of a view, whose bank set a layer bank or a layer bin changes. */
+  audioKeys.sounds(),
 ];
 
 /**

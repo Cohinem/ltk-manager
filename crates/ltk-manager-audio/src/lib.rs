@@ -18,6 +18,7 @@ mod lookup;
 mod media;
 mod names;
 mod sound;
+mod sounds;
 
 /// Re-exported so a consumer names the `ltk_wwise` types of this crate's release.
 pub use ltk_wwise;
@@ -43,3 +44,4 @@ pub use lookup::{ActionNode, LookupError, MediaSite, PlayNode, PlayTree, SoundLo
 pub use media::{MediaError, MediaFormat, MediaRow, Playback, media_rows};
 pub use names::EventNames;
 pub use sound::{SoundError, media, sound};
+pub use sounds::{ResolvedSound, SoundResolution, resolve_sounds};

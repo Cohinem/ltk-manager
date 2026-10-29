@@ -157,7 +157,7 @@ function BankFactRows({ bank }: { bank: BankFacts }) {
   );
 }
 
-/** The filter, the table of media and the one `<audio>` element that plays them. */
+/** The filter, the table of media and the live region that names what plays. */
 function MediaPanel({ asset, name }: AudioFileDocumentProps) {
   const version = useAssetVersion(asset);
   const media = useQuery(audioQueries.media(asset, version));
@@ -206,7 +206,6 @@ function MediaPanel({ asset, name }: AudioFileDocumentProps) {
           actions={actions}
         />
       </MediaBody>
-      <audio ref={player.element} hidden onEnded={player.onEnded} onError={player.onError} />
       <span aria-live="polite" className="sr-only">
         {player.playing === null
           ? m.audio_stopped_label()

@@ -269,6 +269,7 @@ export const api = {
   exportAudioMedia: audio.exportAudioMedia,
   readAudioEvents: audio.readAudioEvents,
   readAudioEvent: audio.readAudioEvent,
+  resolveSounds: audio.resolveSounds,
 
   // Ritobin
   detectRitobinIntegration: preview.detectRitobinIntegration,

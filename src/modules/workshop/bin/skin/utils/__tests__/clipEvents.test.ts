@@ -8,6 +8,7 @@ import {
   hiddenAt,
   particleCues,
   snapCues,
+  soundCues,
   timedSteps,
   visibilityTimeline,
 } from "../clipEvents";
@@ -129,6 +130,69 @@ describe("particleCues", () => {
     const steps = timedSteps([clip("a", [bare])], [1], [30]);
 
     expect(particleCues(steps, systems)[0]).toMatchObject({ bone: null, target: null });
+  });
+});
+
+describe("soundCues", () => {
+  const STEP: EventKind = {
+    kind: "sound",
+    name: "Play_sfx_Ahri_Step",
+    isLoop: true,
+    isKill: true,
+    skipIfPastEnd: false,
+    conditionTransition: 1,
+  };
+
+  it("places a sound event on the pass in seconds, with its flags", () => {
+    const walk = clip("Walk", [event("Step", STEP, 12, 40)]);
+    const steps = timedSteps([clip("Run", []), walk], [2, 3], [30, 30]);
+
+    expect(soundCues(steps)).toEqual([
+      {
+        key: `1:${nameHash("Step")}`,
+        name: "Play_sfx_Ahri_Step",
+        at: 2 + 6,
+        endAt: 2 + 20,
+        kill: true,
+        loop: true,
+        skipIfPastEnd: false,
+      },
+    ]);
+  });
+
+  it("carries a one-time event, a lasting event and a skip past the end frame", () => {
+    const once = event("Once", { ...STEP, isLoop: false }, 0);
+    const lasting = event("Lasting", { ...STEP, isKill: false }, 2);
+    const skipped = event("Skipped", { ...STEP, skipIfPastEnd: true }, 4, 8);
+    const steps = timedSteps([clip("a", [once, lasting, skipped])], [10], [30]);
+
+    const cues = soundCues(steps);
+
+    expect(cues.map((cue) => [cue.at, cue.loop, cue.kill, cue.skipIfPastEnd, cue.endAt])).toEqual([
+      [0, false, true, false, null],
+      [1, true, false, false, null],
+      [2, true, true, true, 4],
+    ]);
+  });
+
+  it("places a sequencer's own events over the whole pass and skips an event naming no sound", () => {
+    const owner = {
+      ...clip("Combo", [event("Hit", STEP, 4), event("Silent", { ...STEP, name: "" }, 0)]),
+      ownEvents: true,
+    };
+    const steps = timedSteps([clip("a", []), clip("b", [])], [1, 2], [30, 30], owner);
+
+    expect(soundCues(steps).map((cue) => [cue.key, cue.at])).toEqual([[`2:${nameHash("Hit")}`, 2]]);
+  });
+
+  it("orders the cues by time across steps", () => {
+    const steps = timedSteps(
+      [clip("a", [event("Late", STEP, 6)]), clip("b", [event("Early", STEP, 0)])],
+      [1, 1],
+      [30, 30],
+    );
+
+    expect(soundCues(steps).map((cue) => cue.at)).toEqual([1, 3]);
   });
 });
 

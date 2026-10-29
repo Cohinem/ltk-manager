@@ -92,6 +92,16 @@ const INDEX = [
     key: "layout.forwardLookingMeta",
     title: "Lints for the coming patch",
   },
+  {
+    id: "workshop.previewSound",
+    key: "layout.previewSound",
+    title: m.settings_viewport_sound_title(),
+  },
+  {
+    id: "workshop.previewSoundVolume",
+    key: "layout.previewSoundVolume",
+    title: m.settings_viewport_sound_volume_title(),
+  },
 
   {
     id: "builtins.defaultWardSkins",
