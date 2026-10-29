@@ -240,12 +240,13 @@ fn paths_of(units: &[IndexedUnit]) -> HashMap<String, Vec<usize>> {
 ///
 /// A package reads its entry records. A bank reads the chunk headers up to its `DIDX` and the
 /// `DIDX` records, and seeks past every other chunk. Neither reads media bytes. A bank without
-/// a `DIDX` holds no media.
+/// a `DIDX` contains no media.
 ///
 /// # Errors
 ///
-/// Fails with [`ltk_wwise::Error::InvalidMagic`] if the file is neither, and with the read
-/// error of the package or the chunk headers.
+/// Fails with [`ltk_wwise::Error::InvalidMagic`] if the file is neither, with
+/// [`ltk_wwise::Error::ChunkOverrun`] if the `DIDX` chunk ends after the end of the bank, and
+/// with the read error of the package or the chunk headers.
 pub fn media_sources(mut source: impl Read + Seek) -> Result<Vec<SourceId>, ltk_wwise::Error> {
     let mut magic = [0; 4];
     source.read_exact(&mut magic)?;
@@ -284,6 +285,16 @@ fn bank_sources(mut source: impl Read + Seek) -> Result<Vec<SourceId>, ltk_wwise
             continue;
         }
 
+        /* The length comes from the file, so it is checked against the bytes after the header
+        before the buffer is allocated. */
+        let remaining = len.saturating_sub(at + CHUNK_HEADER_LEN);
+        if u64::from(body_len) > remaining {
+            return Err(ltk_wwise::Error::ChunkOverrun {
+                tag: *DIDX,
+                offset: at,
+            });
+        }
+
         let mut body = vec![0; body_len as usize];
         source.read_exact(&mut body)?;
         return Ok(body
@@ -301,6 +312,9 @@ fn bank_sources(mut source: impl Read + Seek) -> Result<Vec<SourceId>, ltk_wwise
 const PACKAGE_MAGIC: &[u8; 4] = b"r3d2";
 const BANK_MAGIC: &[u8; 4] = b"BKHD";
 const DIDX: &[u8; 4] = b"DIDX";
+
+/// The length of a chunk header: the tag and the `u32` length of the body.
+const CHUNK_HEADER_LEN: u64 = 8;
 
 /// The length of a `DIDX` record: the source ID, the offset and the size, each a `u32`.
 const DIDX_RECORD_LEN: usize = 12;

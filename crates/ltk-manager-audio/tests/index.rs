@@ -253,6 +253,23 @@ fn media_sources_reads_no_further_than_media_index() {
 }
 
 #[test]
+fn media_sources_fails_on_media_index_longer_than_bank() {
+    let mut bank = b"BKHD".to_vec();
+    bank.extend_from_slice(&4u32.to_le_bytes());
+    bank.extend_from_slice(&145u32.to_le_bytes());
+    bank.extend_from_slice(b"DIDX");
+    bank.extend_from_slice(&u32::MAX.to_le_bytes());
+    bank.extend_from_slice(&[0; 12]);
+
+    let error = media_sources(Cursor::new(bank)).unwrap_err();
+
+    assert!(
+        matches!(error, ltk_wwise::Error::ChunkOverrun { tag, .. } if tag == *b"DIDX"),
+        "{error}"
+    );
+}
+
+#[test]
 fn media_sources_of_event_bank_without_media_is_empty() {
     assert_eq!(
         media_sources(Cursor::new(fixture("events_v145.bnk"))).unwrap(),
