@@ -32,7 +32,7 @@ export interface EmitterSoundCues {
 /**
  * Returns the sound cues of `system`, keyed under the child path `path`.
  *
- * `path` is empty for the opened system. Every cue of one system has its own key, and the cues of
+ * `path` is empty for the opened system. Every cue of one system has a separate key, and the cues of
  * two child paths never share one.
  */
 export function vfxSoundCues(system: SystemModel, path = ""): VfxSoundCues {

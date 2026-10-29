@@ -23,7 +23,7 @@ export function shownSubject(
   return selected ?? played;
 }
 
-/** Whether the subject of a waveform plays, holds where it was paused, or does not play. */
+/** Whether the subject of a waveform plays, is paused, or does not play. */
 export type PlaybackStatus = "playing" | "paused" | "stopped";
 
 /** The link between a waveform view and the channel that plays its subject. */
@@ -37,7 +37,7 @@ export interface WaveformSync {
   seek(seconds: number): void;
   /** Seeks to `fraction` of the media, as a click on the view gives it. */
   seekFraction(fraction: number): void;
-  /** Holds the view's own playhead, which the drag moves, until `dragEnd`. */
+  /** Keeps the playhead of the view, which the drag moves, until `dragEnd`. */
   dragStart(): void;
   /** Ends a drag and seeks to `fraction` of the media. */
   dragEnd(fraction: number): void;

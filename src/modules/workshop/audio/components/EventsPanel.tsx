@@ -281,7 +281,7 @@ function EventSiteItems({ event }: { event: AudioEvent }) {
 }
 
 /**
- * Opens the document of the file that holds `media`, on its Media tab with the row selected.
+ * Opens the document of the file that contains `media`, on its Media tab with the row selected.
  *
  * Rendered only inside a project, which owns the editor tabs.
  */

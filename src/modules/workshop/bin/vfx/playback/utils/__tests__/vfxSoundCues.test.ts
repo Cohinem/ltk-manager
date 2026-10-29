@@ -35,7 +35,7 @@ describe("vfxSoundCues", () => {
     expect(cues.persistent.map((cue) => [cue.name, cue.repeat])).toEqual([["Play_vo_hum", "loop"]]);
   });
 
-  it("carries the emitter path and gives every cue of the system its own key", () => {
+  it("carries the emitter path and gives every cue of the system a separate key", () => {
     const system = sounding({
       sounds: { ...NO_SOUNDS, soundOnCreate: "Play_sfx_cast" },
       emitters: [

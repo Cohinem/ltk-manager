@@ -39,7 +39,7 @@ interface WaveformProps {
  * The waveform strip of an audio file document: a play and pause button, the waveform of the
  * subject's first media with its playhead, and the time.
  *
- * The strip plays nothing of its own. wavesurfer.js draws peaks that the shared player decoded,
+ * The strip plays no media itself. wavesurfer.js draws peaks that the shared player decoded,
  * and the playhead follows `channel`. A click or a drag on the waveform seeks the channel. The
  * waveform is a slider for the keyboard. Per "Waveform" in docs/ux/AUDIO.md.
  */

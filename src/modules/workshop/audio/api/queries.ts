@@ -73,7 +73,7 @@ export const audioQueries = {
       retry: false,
       refetchInterval: (query) => pollWhileBuilding(query.state.data?.index.status),
     }),
-  /* Asked once per view for every name its cues hold. A layer file write invalidates every
+  /* Asked once per view for every name its cues contain. A layer file write invalidates every
      answer, and the answer polls while the game's audio index builds. */
   sounds: (document: BinDocumentId, names: readonly string[], bankPaths: readonly string[] = []) =>
     queryOptions<ResolvedSounds, AppError>({

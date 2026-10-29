@@ -41,7 +41,7 @@ export function createSoundFollower(
   cues: readonly SoundCue[],
   duration: number,
 ): SoundFollower {
-  let held = cues;
+  let current = cues;
   let length = duration;
   let generation = UNSYNCED;
   let last = 0;
@@ -54,7 +54,7 @@ export function createSoundFollower(
   };
 
   const fire = (from: number, to: number, end: number) => {
-    for (const cue of held) {
+    for (const cue of current) {
       if (cue.at < from || cue.at >= to) continue;
       if (!cue.loop && pass > 0) continue;
       if (cue.skipIfPastEnd && cue.endAt !== null && end > cue.endAt) continue;
@@ -93,7 +93,7 @@ export function createSoundFollower(
     },
     setCues(cues, duration) {
       stopKills();
-      held = cues;
+      current = cues;
       length = duration;
     },
     stopKills,

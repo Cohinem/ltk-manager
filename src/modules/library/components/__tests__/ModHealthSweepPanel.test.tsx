@@ -337,8 +337,8 @@ describe("ModHealthSweepPanel", () => {
     ).toBeInTheDocument();
   });
 
-  /* Story: a conversion is offered on its finding and applied only by its own press. */
-  it("offers a finding's alternative as its own press with the experimental chip", async () => {
+  /* Story: a conversion is offered on its finding and applied only by a press of it. */
+  it("offers a finding's alternative as a separate press with the experimental chip", async () => {
     const user = userEvent.setup();
     const brief: RuleBrief = {
       rule: "audio/bank-version",

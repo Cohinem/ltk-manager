@@ -438,15 +438,15 @@ object, hierarchy and event. The manager adds the terms below, all of them in
 
 **Bank set** - the files that a list of `BankUnit`s names, opened through the sandbox in the order
 in which the client reads them. A `.wpk` path is mounted as a package and every other path is read
-as a bank. A file that no store holds, or that fails to read, stays in the set as a missing or a
+as a bank. A file that no store contains, or that fails to read, stays in the set as a missing or a
 failed file. A voice-over path is read under the client's locale first.
 
 **Sound lookup** - the walk that resolves an event of a bank set into its play tree. It visits each
-object once and takes the first bank of the set that holds an ID.
+object once and takes the first bank of the set that contains an ID.
 
 **Play tree** - what one event plays: its actions, and under each Play action the tree of sounds and
 containers. A node keeps its container kind, so a random container plays one child and a layer
-container plays every child. A sound names the file of the set that holds its media.
+container plays every child. A sound names the file of the set that contains its media.
 
 **Audio index** - the game-wide table of event names and source IDs, built once per game build. It
 names the events that no bank unit of a set lists.

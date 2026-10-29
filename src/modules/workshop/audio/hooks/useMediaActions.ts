@@ -59,7 +59,7 @@ export function useMediaActions(asset: AssetRef, name: string): MediaActions {
   };
 }
 
-/** The name a saved media opens on: its source ID, or the file's own name for a WEM. */
+/** The name a saved media opens on: its source ID, or the name of the file for a WEM. */
 function fileStem(row: MediaRow, name: string): string {
   if (row.sourceId !== 0) return String(row.sourceId);
   const dot = name.lastIndexOf(".");
