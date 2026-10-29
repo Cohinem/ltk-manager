@@ -2,7 +2,7 @@
 //!
 //! A rule names an event by a short name, such as `cast3D`. The client composes the Wwise name
 //! from the skin's `tagEventList`. The composition is observed in shipped data and not read from
-//! the client, so a match is an inference. "Event names" in `docs/ux/AUDIO.md`.
+//! the client, so a match is an inference. "Names" in `docs/ux/AUDIO.md`.
 
 use std::collections::HashSet;
 

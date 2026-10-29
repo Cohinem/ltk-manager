@@ -18,7 +18,15 @@ function sound(id: number, source: number, found = true): EventNode {
 }
 
 function event(id: number, name: string | null): AudioEvent {
-  return { id, name, actionCount: 1, mediaCount: 2, status: { kind: "resolved" } };
+  return {
+    id,
+    name,
+    actionCount: 1,
+    mediaCount: 2,
+    status: { kind: "resolved" },
+    contexts: [],
+    listed: null,
+  };
 }
 
 const RANDOM: EventNode = { kind: "random", id: 7, children: [sound(1, 11), sound(2, 12)] };

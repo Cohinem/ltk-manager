@@ -1,19 +1,34 @@
+import { DotsThreeVerticalIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
 
-import { AlertBox, Code, EmptyState, Properties, Property, SearchField, Tabs } from "@/components";
+import {
+  AlertBox,
+  Code,
+  EmptyState,
+  IconButton,
+  Menu,
+  Properties,
+  Property,
+  SearchField,
+  Tabs,
+} from "@/components";
 import { m } from "@/i18n";
 import { useAssetVersion } from "@/lib/assetVersions";
 import type { AssetRef, AudioContainer, AudioInfo, BankFacts, MediaRow } from "@/lib/tauri";
 import { formatBytes } from "@/utils/formatBytes";
 
 import { useAssetInfo } from "../../preview/api/useAssetInfo";
+import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
+import { fileReferences, useFindReferences } from "../../references/api/useFindReferences";
+import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { audioQueries } from "../api/queries";
 import { useMediaActions } from "../hooks/useMediaActions";
 import { useMediaPlayer } from "../hooks/useMediaPlayer";
 import { useMediaFocus } from "../state/mediaFocus";
 import { filterRows, type MediaSort, sortRows } from "../utils/mediaRows";
+import { BankUnits } from "./BankUnits";
 import { EventsPanel } from "./EventsPanel";
 import { MediaTable } from "./MediaTable";
 
@@ -33,9 +48,10 @@ const CONTAINER_LABELS: Record<AudioContainer, () => string> = {
  * A Wwise package, bank or WEM: its header facts, the reason the client rejects it, and the
  * table of its media.
  *
- * A bank with a hierarchy adds an Events tab with the event tree, which opens first in a bank
- * without media. A "Show media" request for the file switches to the Media tab. Per "The audio
- * file document" in docs/ux/AUDIO.md.
+ * A bank or a package lists the bank units that name it under its facts. A bank with a
+ * hierarchy adds an Events tab with the event tree, which opens first in a bank without media.
+ * A "Show media" request for the file switches to the Media tab. Per "The audio file document"
+ * in docs/ux/AUDIO.md.
  */
 export function AudioFileDocument({ asset, name }: AudioFileDocumentProps) {
   const info = useAssetInfo(asset);
@@ -54,9 +70,10 @@ export function AudioFileDocument({ asset, name }: AudioFileDocumentProps) {
   return (
     <DocumentFrame data-ui="AudioFileDocument">
       <div className="flex flex-col gap-3 border-b border-surface-700 px-4 py-3">
-        <AudioHeadline name={name} audio={audio} />
+        <AudioHeadline asset={asset} name={name} audio={audio} />
         {audio !== null && <AudioNotices audio={audio} />}
         {audio?.bank && <BankFactRows bank={audio.bank} />}
+        {audio !== null && audio.container !== "media" && <BankUnits asset={asset} />}
       </div>
       {eventCount === null && <MediaPanel asset={asset} name={name} />}
       {eventCount !== null && (
@@ -81,8 +98,16 @@ export function AudioFileDocument({ asset, name }: AudioFileDocumentProps) {
   );
 }
 
-/** The file name, its kind, its media count and its size, on one line. */
-function AudioHeadline({ name, audio }: { name: string; audio: AudioInfo | null }) {
+interface AudioHeadlineProps {
+  readonly asset: AssetRef;
+  readonly name: string;
+  readonly audio: AudioInfo | null;
+}
+
+/** The file name, its kind, its media count and its size on one line, then the file's menu. */
+function AudioHeadline({ asset, name, audio }: AudioHeadlineProps) {
+  const project = useOptionalProjectContext();
+
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-row">
       <span className="font-medium text-surface-100 select-text">{name}</span>
@@ -99,7 +124,42 @@ function AudioHeadline({ name, audio }: { name: string; audio: AudioInfo | null 
           </span>
         </>
       )}
+      {project !== null && <AudioFileMenu asset={asset} />}
     </div>
+  );
+}
+
+/** The kebab of the file: Find references on the game path that the bank units name it by. */
+function AudioFileMenu({ asset }: { asset: AssetRef }) {
+  const sandbox = useSandbox();
+  const version = useAssetVersion(asset);
+  const references = useQuery(audioQueries.references(sandbox, asset, version));
+  const findReferences = useFindReferences();
+  const path = references.data?.path ?? null;
+
+  return (
+    <span className="ml-auto self-center">
+      <Menu.Root>
+        <Menu.Trigger
+          render={
+            <IconButton
+              size="sm"
+              icon={<DotsThreeVerticalIcon />}
+              aria-label={m.audio_file_actions_label()}
+            />
+          }
+        />
+        <Menu.Content align="end" sideOffset={4} className="w-56">
+          <Menu.Item
+            icon={<MagnifyingGlassIcon className="size-4" />}
+            disabled={path === null}
+            onClick={() => path !== null && findReferences(fileReferences(path))}
+          >
+            {m.audio_file_find_references_action()}
+          </Menu.Item>
+        </Menu.Content>
+      </Menu.Root>
+    </span>
   );
 }
 

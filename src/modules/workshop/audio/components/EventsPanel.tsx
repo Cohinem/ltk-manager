@@ -5,7 +5,7 @@ import { AlertBox, Code, ContextMenu, EmptyState, SearchField } from "@/componen
 import { useCopyToClipboard } from "@/hooks";
 import { errorSummary, m } from "@/i18n";
 import { useAssetVersion } from "@/lib/assetVersions";
-import type { AssetRef, AudioEventsResponse, MediaLocation } from "@/lib/tauri";
+import type { AssetRef, AudioEvent, AudioEventsResponse, MediaLocation } from "@/lib/tauri";
 
 import { previewDocument } from "../../documents/utils/contentDocument";
 import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
@@ -13,6 +13,7 @@ import { useSandbox } from "../../sandbox/state/SandboxContext";
 import { useOpenDocumentAs } from "../../state";
 import { audioQueries } from "../api/queries";
 import { useEventPlayer } from "../hooks/useEventPlayer";
+import { useOpenSiteRow } from "../hooks/useOpenSiteRow";
 import { useFocusMedia } from "../state/mediaFocus";
 import {
   type EventRow,
@@ -216,6 +217,34 @@ function EventMenu({ row, onCopy }: { row: EventRow; onCopy: (row: EventRow) => 
         </ContextMenu.Item>
       )}
       {media !== null && project !== null && <ShowMediaItem media={media} />}
+      {row.kind === "event" && project !== null && <EventSiteItems event={row.event} />}
+    </>
+  );
+}
+
+/**
+ * Show contextual rule, which opens the first rule that plays `event`, and Show in bank unit,
+ * which opens the `events[i]` row of the unit that lists its name.
+ *
+ * Rendered only inside a project, which owns the editor tabs.
+ */
+function EventSiteItems({ event }: { event: AudioEvent }) {
+  const openRow = useOpenSiteRow();
+  const rule = event.contexts[0]?.row ?? null;
+  const listed = event.listed;
+
+  return (
+    <>
+      {rule !== null && rule.asset !== null && (
+        <ContextMenu.Item onClick={() => openRow(rule)}>
+          {m.audio_event_show_rule_action()}
+        </ContextMenu.Item>
+      )}
+      {listed !== null && listed.asset !== null && (
+        <ContextMenu.Item onClick={() => openRow(listed)}>
+          {m.audio_event_show_in_unit_action()}
+        </ContextMenu.Item>
+      )}
     </>
   );
 }

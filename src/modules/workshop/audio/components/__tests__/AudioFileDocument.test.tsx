@@ -72,6 +72,8 @@ function answer(command: string): unknown {
       return world.rows;
     case commandNames.audio.readAudioEvents:
       return { list: { events: [], files: [], origin: "units" }, index: { status: "ready" } };
+    case commandNames.audio.readBankReferences:
+      return { path: "ahri_base_vo_audio.wpk", units: [], lists: [], index: { status: "ready" } };
     default:
       return null;
   }
