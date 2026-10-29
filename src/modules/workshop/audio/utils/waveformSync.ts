@@ -67,7 +67,7 @@ export function createWaveformSync(
   const playFrom = (seconds: number) => {
     channel.stopAll();
     channel.resume();
-    channel.play(key, urls, seconds);
+    channel.play(key, urls, "once", seconds);
   };
 
   const sync: WaveformSync = {

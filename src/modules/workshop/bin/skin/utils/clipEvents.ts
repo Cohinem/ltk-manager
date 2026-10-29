@@ -176,6 +176,7 @@ export function soundCues(steps: readonly TimedStep[]): SoundCue[] {
         kill: kind.isKill,
         loop: kind.isLoop,
         skipIfPastEnd: kind.skipIfPastEnd,
+        repeat: "once",
       });
     }
   });

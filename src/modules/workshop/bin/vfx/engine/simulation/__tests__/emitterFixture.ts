@@ -117,6 +117,7 @@ export function emitterOf(index: number, over: Partial<EmitterModel> = {}): Emit
     projection: null,
     childSet: null,
     fields: null,
+    audio: null,
     depthBias: [0, 0],
     backfaceCull: true,
     depthPushPull: 0,

@@ -10,6 +10,7 @@ and of `ltk_wwise`.
 | ---------- | ----------------------------------------------- |
 | 2026-10-29 | Add the waveform column                         |
 | 2026-10-29 | Add the waveform                                |
+| 2026-10-29 | Add VFX sound                                   |
 | 2026-10-29 | Add viewport sound                              |
 | 2026-10-29 | Add the event tree                              |
 | 2026-10-29 | Add the audio file document and its media table |
@@ -289,3 +290,40 @@ container picked again on every firing.
 ### Voices
 
 A viewport plays at most 32 sounds at once. A new sound past the cap stops the oldest one.
+
+## VFX sound
+
+The VFX preview plays the sounds of the system it runs, and the skin viewport plays the sounds of
+each system that a clip's particle event spawns. Both follow the speaker switch, the volume and
+the resolution of "Viewport sound". The grid previews of the objects browser play no sound.
+
+A system names its sounds in `soundOnCreateDefault`, `soundPersistentDefault`,
+`voiceOverOnCreateDefault` and `voiceOverPersistentDefault`. An emitter names its own in `Audio`,
+a `VfxEmitterAudio` with `SoundOnCreate` and `SoundPersistent`. An empty name is no sound.
+
+### Firing
+
+A sound fires when forward playback reaches the moment it belongs to.
+
+| Moment                              | Effect                                                                        |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| The system starts                   | Every sound of the run stops. The system's on-create and persistent play      |
+| The rig stops the system            | Every persistent sound of the system and of its emitters stops                |
+| An emitter emits for the first time | The emitter's `SoundOnCreate` and `SoundPersistent` play                      |
+| An emitter's emission ends          | Its `SoundPersistent` stops if the system's flags set `soundsEndOnEmitterEnd` |
+| A child system is spawned           | The child system's on-create sounds play                                      |
+
+An on-create sound plays its media once. A persistent sound loops its media until it stops. An
+emitter that the `ChanceToNotExist` roll removes plays nothing. A restart, a replay of a looping
+rig and the restart of a run that ended each start the system again, so the on-create sounds play
+on every run.
+
+A seek, a scrub and a step fire nothing and stop every sound of the run. An edit of a sound field
+takes effect on the next firing.
+
+In the skin viewport, a clip effect's sounds play when forward playback crosses its particle
+event and stop when the pass leaves the event or a scrub moves the run. Pause holds them with the
+clip's own sounds.
+
+The bank set is the one of "Resolution". A system opened from a skin bin resolves through that
+skin's bank units. A system in a bin without bank units resolves through the audio index.

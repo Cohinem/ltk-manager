@@ -13,7 +13,7 @@ function setup(duration = 4) {
 describe("createWaveformSync", () => {
   it("returns the position of the subject on the first frame, then null until it moves", () => {
     const { channel, sync } = setup();
-    channel.play("7", ["sound-7"], 1.5);
+    channel.play("7", ["sound-7"], "once", 1.5);
 
     expect(sync.frame()).toBe(1.5);
     expect(sync.frame()).toBeNull();
@@ -24,7 +24,7 @@ describe("createWaveformSync", () => {
 
   it("returns the start while the subject does not play", () => {
     const { channel, sync } = setup();
-    channel.play("7", ["sound-7"], 3);
+    channel.play("7", ["sound-7"], "once", 3);
     channel.stop("7");
 
     expect(sync.time()).toBe(0);
@@ -95,7 +95,7 @@ describe("createWaveformSync", () => {
 
   it("returns no frame during a drag and seeks to the fraction where the drag ends", () => {
     const { channel, sync } = setup(4);
-    channel.play("7", ["sound-7"], 1);
+    channel.play("7", ["sound-7"], "once", 1);
     sync.frame();
 
     sync.dragStart();

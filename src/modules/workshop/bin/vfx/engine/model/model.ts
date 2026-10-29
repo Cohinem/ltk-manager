@@ -885,6 +885,8 @@ export interface EmitterModel {
   readonly childSet: ChildSetModel | null;
   /** `fieldCollectionDefinition`, and null for an emitter whose particles cross no field. */
   readonly fields: FieldsModel | null;
+  /** `Audio`, and null for an emitter that names no sound. */
+  readonly audio: EmitterAudioModel | null;
 
   /** `depthBiasFactors`, the pair the depth offset scales by. */
   readonly depthBias: readonly [number, number];
@@ -918,6 +920,29 @@ export interface SystemModel {
   readonly buildUpTime: number;
   /** How the system turns frame time into simulation steps. */
   readonly stepping: Stepping;
+  readonly sounds: SystemSoundsModel;
+  /** The `soundsEndOnEmitterEnd` bit of `flags`: an emitter's persistent sound stops at its end. */
+  readonly soundsEndOnEmitterEnd: boolean;
+}
+
+/** The Wwise events a system names, each null where its field is empty. */
+export interface SystemSoundsModel {
+  /** `soundOnCreateDefault`. */
+  readonly soundOnCreate: string | null;
+  /** `soundPersistentDefault`. */
+  readonly soundPersistent: string | null;
+  /** `voiceOverOnCreateDefault`. */
+  readonly voiceOverOnCreate: string | null;
+  /** `voiceOverPersistentDefault`. */
+  readonly voiceOverPersistent: string | null;
+}
+
+/** A `VfxEmitterAudio`: the Wwise events an emitter names, each null where its field is empty. */
+export interface EmitterAudioModel {
+  /** `SoundOnCreate`. */
+  readonly soundOnCreate: string | null;
+  /** `SoundPersistent`. */
+  readonly soundPersistent: string | null;
 }
 
 /**

@@ -1,3 +1,5 @@
+import type { MediaRepeat } from "../player/soundPlayer";
+
 /**
  * One sound event of a pass, as a viewport fires it: which event, when, and how it stops.
  *
@@ -18,4 +20,6 @@ export interface SoundCue {
   readonly loop: boolean;
   /** `mSkipIfPastEndFrame`: a crossing that lands past `endAt` fires nothing. */
   readonly skipIfPastEnd: boolean;
+  /** How the media plays: once to its end, or looped until its key stops. */
+  readonly repeat: MediaRepeat;
 }

@@ -26,7 +26,7 @@ export function openFakeChannel(): SoundChannel {
   };
 
   return {
-    play(key, urls, from = 0) {
+    play(key, urls, _repeat, from = 0) {
       playedUrls.push(...urls);
       positions = new Map(positions).set(key, from);
       changed();

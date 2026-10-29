@@ -87,6 +87,7 @@ import {
   SplitToggle,
   ViewportControls,
 } from "../../shared/preview/ViewportControls";
+import { runSoundCues } from "../../vfx/playback/utils/runSound";
 import { Passes } from "../../vfx/rendering/components/Passes";
 import { passesOf } from "../../vfx/rendering/utils/passes";
 import { skinQueries } from "../api/skinQueries";
@@ -357,7 +358,14 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
     conditions,
   );
   const sounds = useMemo(() => soundCues(timed), [timed]);
-  const sound = useViewportSound(document, sounds, playing && !scrubbing);
+  const heardSounds = useMemo(
+    () => [
+      ...sounds,
+      ...cueModels.flatMap((system) => (system === null ? [] : runSoundCues(system))),
+    ],
+    [sounds, cueModels],
+  );
+  const sound = useViewportSound(document, heardSounds, playing && !scrubbing);
 
   const assets = useMemo(() => textureAssets(skin), [skin]);
   const textures = useAssetTextures(assets);
@@ -537,6 +545,7 @@ function SkinScene({ skin, document, asset, source, entry }: SkinSceneProps) {
                       clock={clock}
                       scale={scale}
                       duration={duration}
+                      sound={sound.on ? sound.output : null}
                     />
                   );
                 })}

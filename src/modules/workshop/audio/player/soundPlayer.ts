@@ -18,6 +18,9 @@ export const VOICE_CAP = 32;
 /** The decoded media the cache keeps. The first one decoded goes first. */
 const BUFFER_CACHE_SIZE = 256;
 
+/** How a voice plays its media: once to its end, or looped until its key stops. */
+export type MediaRepeat = "once" | "loop";
+
 /** What one channel plays, for a surface that draws it. */
 export interface ChannelState {
   /** The keys that have a voice that plays or waits on its media. */
@@ -30,8 +33,12 @@ export interface ChannelState {
 
 /** The voices of one surface. */
 export interface SoundChannel {
-  /** Starts one voice per URL under `key`, all at once, `from` seconds into each media. */
-  play(key: string, urls: readonly string[], from?: number): void;
+  /**
+   * Starts one voice per URL under `key`, all at once, `from` seconds into each media.
+   *
+   * Each voice plays as `repeat` says.
+   */
+  play(key: string, urls: readonly string[], repeat?: MediaRepeat, from?: number): void;
   /** Moves every voice of `key` to `seconds` into its media. A voice shorter than that ends. */
   seek(key: string, seconds: number): void;
   /** Returns the seconds into its media of the first voice of `key`, or `null` without one. */
@@ -120,6 +127,7 @@ interface Voice {
   startedAt: number;
   /** Seconds into the media the source started at. */
   offset: number;
+  readonly repeat: MediaRepeat;
 }
 
 /** The timing of one voice, as `voiceTime` reads it. */
@@ -130,14 +138,22 @@ export interface VoiceTiming {
   readonly startedAt: number;
   /** `true` while a source plays the voice. */
   readonly running: boolean;
+  readonly repeat: MediaRepeat;
   /** The length of the media in seconds, or `null` before it decodes. */
   readonly duration: number | null;
 }
 
-/** Returns the seconds into its media that a voice plays at the context time `now`. */
+/**
+ * Returns the seconds into its media that a voice plays at the context time `now`.
+ *
+ * A looped voice wraps to the start of its media, and any other voice stops at its end.
+ */
 export function voiceTime(voice: VoiceTiming, now: number): number {
   const time = voice.running ? voice.offset + (now - voice.startedAt) : voice.offset;
-  return voice.duration === null ? time : Math.min(time, voice.duration);
+  if (voice.duration === null) return time;
+
+  if (voice.repeat === "loop" && voice.duration > 0) return time % voice.duration;
+  return Math.min(time, voice.duration);
 }
 
 const EMPTY: ChannelState = { playing: new Set(), failed: new Set(), paused: false };
@@ -188,7 +204,10 @@ export function openChannel(volume: number): SoundChannel {
   const start = (voice: Voice) => {
     const { context } = audioGraph();
     if (voice.buffer === null) return;
-    if (voice.offset >= voice.buffer.duration) {
+
+    const looped = voice.repeat === "loop";
+    const { duration } = voice.buffer;
+    if (!looped && voice.offset >= duration) {
       end(voice);
       changed();
       return;
@@ -196,6 +215,8 @@ export function openChannel(volume: number): SoundChannel {
 
     const source = context.createBufferSource();
     source.buffer = voice.buffer;
+    source.loop = looped;
+    if (looped && duration > 0) voice.offset %= duration;
     source.connect(output());
     source.onended = () => {
       end(voice);
@@ -207,7 +228,7 @@ export function openChannel(volume: number): SoundChannel {
   };
 
   return {
-    play(key, urls, from = 0) {
+    play(key, urls, repeat = "once", from = 0) {
       if (urls.length === 0) return;
 
       const { context } = audioGraph();
@@ -216,7 +237,7 @@ export function openChannel(volume: number): SoundChannel {
 
       const offset = Math.max(0, from);
       for (const url of urls) {
-        const voice: Voice = { key, buffer: null, source: null, startedAt: 0, offset };
+        const voice: Voice = { key, buffer: null, source: null, startedAt: 0, offset, repeat };
         voices.push(voice);
         while (voices.length > VOICE_CAP) end(voices[0]);
 
@@ -262,6 +283,7 @@ export function openChannel(volume: number): SoundChannel {
         offset: voice.offset,
         startedAt: voice.startedAt,
         running: voice.source !== null,
+        repeat: voice.repeat,
         duration: voice.buffer?.duration ?? null,
       };
       return voiceTime(timing, graph?.context.currentTime ?? 0);

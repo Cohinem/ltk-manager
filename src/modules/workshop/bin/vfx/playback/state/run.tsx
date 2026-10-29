@@ -13,6 +13,8 @@ import { useContentVisible } from "@/hooks";
 import type { AppError, AssetRef, BinDocumentId } from "@/lib/tauri";
 import { toggledIn } from "@/utils";
 
+import { useViewportSound } from "../../../../audio/hooks/useViewportSound";
+import type { SoundCue } from "../../../../audio/utils/soundCue";
 import {
   type LoopRange,
   rememberedVfxRun,
@@ -34,13 +36,14 @@ import {
   withPlayback,
 } from "../../engine/model/rig";
 import { lingerTail, systemSpan } from "../../engine/model/systemModel";
-import { createDriver, type Driver } from "../../engine/simulation/driver";
+import { createDriver, type Driver, type RunEvent } from "../../engine/simulation/driver";
 import {
   ForcePreviewProvider,
   forceTopology,
   useForcePreviewState,
 } from "../../forces/forcePreview";
 import { useVfxSystem } from "../../hooks/useVfxSystem";
+import { createRunSound, runSoundCues } from "../utils/runSound";
 import { useAutoRig } from "./autoRigState";
 import { useEmitterFlags } from "./emitterFlags";
 
@@ -109,6 +112,8 @@ export interface VfxRun {
   readonly span: number;
   /** The run opened where a kept tab left it rather than at zero. */
   readonly resumed: boolean;
+  /** The sound event names of the system that resolve to no event or to no media. */
+  readonly unresolvedSounds: number;
   /** Bumped per Fit asked of the camera, which the viewport answers. A second ask is a second fit. */
   readonly fitRequest: number;
   readonly requestFit: () => void;
@@ -256,6 +261,16 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     [system, rig],
   );
 
+  /* Per "VFX sound" in docs/ux/AUDIO.md. */
+  const soundCues = useMemo(() => (system === null ? NO_CUES : runSoundCues(system)), [system]);
+  const sound = useViewportSound(document, soundCues, playing && !scrubbing && !warming);
+  const [runSound] = useState(() => createRunSound(sound.output));
+  const hearing = useRef({ on: sound.on, system });
+  hearing.current = { on: sound.on, system };
+  useEffect(() => {
+    if (!sound.on) runSound.stop();
+  }, [sound.on, runSound]);
+
   const listeners = useRef(new Set<() => void>());
   const notify = useCallback(() => {
     for (const listener of listeners.current) listener();
@@ -338,6 +353,10 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 
     let last: number | null = null;
     let frame = 0;
+    const hear = (events: readonly RunEvent[]) => {
+      const { on, system: heard } = hearing.current;
+      if (on && heard !== null) runSound.hear(heard, events);
+    };
     const tick = (now: number) => {
       const dt = last === null ? 0 : Math.min((now - last) / 1000, MAX_FRAME);
       last = now;
@@ -346,9 +365,12 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
         const room = range === null && !loops ? length - driver.phase : Infinity;
         const spent = Math.min(dt * rate, room);
         const before = driver.phase;
-        if (spent > 0) driver.advance(spent);
+        if (spent > 0) hear(driver.advance(spent));
         if (driver.phase < before - END_SLACK) wrapped();
-        if (range !== null && driver.phase >= Math.min(range.to, length)) driver.seek(range.from);
+        if (range !== null && driver.phase >= Math.min(range.to, length)) {
+          runSound.stop();
+          driver.seek(range.from);
+        }
         notify();
 
         if (spent >= room) {
@@ -360,7 +382,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [driver, playing, loaded, notify, visible, warming, scrubbing]);
+  }, [driver, playing, loaded, notify, visible, warming, scrubbing, runSound]);
 
   /* Written on the way out rather than as it changes, off the values the last render
      read, so the store hears one memory per tab rather than one per frame. */
@@ -384,10 +406,11 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 
   const seek = useCallback(
     (time: number) => {
+      runSound.stop();
       driver.seek(Math.max(time, 0));
       notify();
     },
-    [driver, notify],
+    [driver, notify, runSound],
   );
   const takeAuto = auto.take;
   const restart = useCallback(() => {
@@ -406,13 +429,14 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     const { span: length, looping: loops } = pace.current;
     const end = loops ? Math.max(length - FRAME, 0) : length;
     setPlayingState(false);
+    runSound.stop();
 
     /* A seek lands on whole replay steps, so the last part of a frame is advanced. */
     driver.seek(end);
     const gap = end - driver.phase;
     if (gap > 0 && gap < FRAME) driver.advance(gap);
     notify();
-  }, [driver, notify]);
+  }, [driver, notify, runSound]);
 
   /* Paused at its end: no loop or range starts the run over. */
   const parked = useCallback(() => {
@@ -452,7 +476,10 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
     setChosen(null);
   }, [resetAuto]);
 
-  const beginScrub = useCallback(() => setScrubbing(true), []);
+  const beginScrub = useCallback(() => {
+    runSound.stop();
+    setScrubbing(true);
+  }, [runSound]);
   const endScrub = useCallback(() => setScrubbing(false), []);
 
   const run = useMemo<VfxRun>(
@@ -480,6 +507,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       flex,
       span,
       resumed: (kept?.playhead ?? 0) > 0,
+      unresolvedSounds: sound.unresolved,
       fitRequest,
       requestFit: () => setFitRequest((count) => count + 1),
       setPlaying,
@@ -533,6 +561,7 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
       flex,
       span,
       kept,
+      sound.unresolved,
       fitRequest,
       setPlaying,
       setRig,
@@ -557,6 +586,8 @@ export function VfxRunProvider({ document, asset, entry, children }: VfxRunProvi
 }
 
 const NO_CHILDREN: ReadonlySet<string> = new Set();
+
+const NO_CUES: readonly SoundCue[] = [];
 
 /** Every flex channel unset, which is what a system nothing gameplay-driven sets reads. */
 const NO_FLEX: readonly (number | null)[] = [null, null, null];
