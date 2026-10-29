@@ -170,16 +170,22 @@ fn load_or_build(app: &AppHandle, build: Option<GameBuild>) -> AppResult<AudioIn
 /// A bin that does not read is skipped and logged.
 pub(crate) fn project_audio_index(project: &str) -> AudioIndex {
     let bins = layer_bins(project).unwrap_or_else(|e| {
-        tracing::warn!(project, "The audio index of a project reads no bins: {e}");
+        tracing::warn!(
+            project,
+            "Failed to list the bins of the project's layers, so the audio index of the project \
+             has no bank units. Check that the project folder can be read: {e}"
+        );
         Vec::new()
     });
 
     let mut builder = AudioIndex::builder();
     for bin in bins {
-        match fs::read(&bin.path).map(|bytes| BinAudio::read(&bytes)) {
-            Ok(Ok(audio)) => builder.add_bin(chunk_path(&bin.file), audio),
-            Ok(Err(e)) => tracing::debug!(file = %bin.file, "The audio index skips a bin: {e}"),
-            Err(e) => tracing::debug!(file = %bin.file, "The audio index skips a bin: {e}"),
+        let audio = fs::read(&bin.path)
+            .map_err(|e| e.to_string())
+            .and_then(|bytes| BinAudio::read(&bytes).map_err(|e| e.to_string()));
+        match audio {
+            Ok(audio) => builder.add_bin(chunk_path(&bin.file), audio),
+            Err(e) => tracing::debug!(file = %bin.file, "Skipped a bin in the audio index: {e}"),
         }
     }
     builder.build()
