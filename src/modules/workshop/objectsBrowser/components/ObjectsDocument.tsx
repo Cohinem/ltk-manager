@@ -14,8 +14,10 @@ import { useSearchObjects, useSetSearchObjects } from "@/stores";
 import { twMerge } from "@/utils";
 import { hasErrorCode } from "@/utils/errors";
 
+import { useDeclarationsOn } from "../../bin/documents/hooks/useDeclared";
 import type { ContentDocumentOf } from "../../documents/utils/contentDocument";
 import { GameWadsErrorState } from "../../gameBrowser/components/GameBrowserStates";
+import { useOptionalProjectContext } from "../../projects/state/ProjectContext";
 import { readyValue } from "../../shared/api/indexQueries";
 import { CollapseAllButton } from "../../shared/components/CollapseAllButton";
 import { DocumentFrame } from "../../shared/components/DocumentFrame";
@@ -41,9 +43,9 @@ import {
   useToggleObjectPrefix,
 } from "../../state";
 import { useObjectDir, useObjectDirs } from "../api/useObjectDir";
-import { useObjectFind } from "../api/useObjectFind";
 import { useWarmOnAbsent } from "../api/useObjectIndex";
 import { useLayerDeclarations } from "../hooks/useLayerDeclarations";
+import { useObjectFindWithModules } from "../hooks/useObjectFindWithModules";
 import { useOpenObjectNode } from "../hooks/useOpenObjectNode";
 import { useProjectObjects } from "../hooks/useProjectObjects";
 import { retryPreviews, useFailedInView } from "../state/previewStills";
@@ -78,7 +80,8 @@ export function ObjectsDocument({
   const pattern = useObjectsSearchPattern();
   const bodyRef = useRef<HTMLDivElement>(null);
   const boxRef = useFindBox(document.id);
-  const { view, thumbnails, location, tileSize } = useObjectsDisplay();
+  const { view, thumbnails, location, tileSize, declaredObjects } = useObjectsDisplay();
+  const declaring = useDeclarationsOn(useOptionalProjectContext()?.path);
   const setDisplay = useSetObjectsDisplay();
   const setView = useSetObjectsView();
   const setPattern = useSetObjectsSearchPattern();
@@ -118,6 +121,9 @@ export function ObjectsDocument({
             onThumbnailsChange={(thumbnails) => setDisplay({ thumbnails })}
             size={tileSize}
             onSizeChange={(tileSize) => setDisplay({ tileSize })}
+            declaredObjects={declaredObjects}
+            onDeclaredObjectsChange={(declaredObjects) => setDisplay({ declaredObjects })}
+            declaring={declaring}
           />
         </ToolbarOverflow>
       </DocumentToolbar>
@@ -196,7 +202,7 @@ function CollapseObjectsButton({ disabled }: { disabled: boolean }) {
 function useFindBranches(): readonly string[] {
   const pattern = useObjectsSearchPattern();
   const regex = useObjectsSearchRegex();
-  const { data } = useObjectFind(pattern, regex);
+  const { data } = useObjectFindWithModules(pattern, regex);
 
   return useMemo(() => {
     if (data?.status !== "ready") {
@@ -235,7 +241,7 @@ function ObjectSearch({ onCommit, boxRef }: ObjectSearchProps) {
   const onPatternChange = useSetObjectsSearchPattern();
   const onRegexChange = useSetObjectsSearchRegex();
 
-  const { data, error, isFetching } = useObjectFind(pattern, regex);
+  const { data, error, isFetching } = useObjectFindWithModules(pattern, regex);
   const found = readyValue(data);
   const counted = pattern.length > 0 && found !== undefined && found.total > 0 && !error;
 
@@ -388,7 +394,7 @@ function FindResults({
 }) {
   const pattern = useObjectsSearchPattern();
   const regex = useObjectsSearchRegex();
-  const { data, error, isFetching } = useObjectFind(pattern, regex);
+  const { data, error, isFetching } = useObjectFindWithModules(pattern, regex);
   const open = useOpenObjectNode();
   const layers = useLayerDeclarations();
   const retry = useWarmOnAbsent(data?.status);

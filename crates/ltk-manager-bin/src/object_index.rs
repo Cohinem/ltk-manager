@@ -137,6 +137,16 @@ impl ObjectIndex {
             .any(|(_, row)| row.class == class)
     }
 
+    /// Returns the class of the first declaration of `object`, or `None` if the install does
+    /// not declare it.
+    #[must_use]
+    pub fn class_of(&self, object: BinHash) -> Option<BinHash> {
+        self.index()
+            .declarations(object)
+            .next()
+            .map(|(_, row)| row.class)
+    }
+
     /// Returns the chunk of each declaration of `object`, in archive order.
     pub fn declaring_chunks(&self, object: BinHash) -> impl Iterator<Item = WadHash> + '_ {
         self.index().declarations(object).map(|(_, row)| row.chunk)

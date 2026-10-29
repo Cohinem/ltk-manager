@@ -2,7 +2,7 @@
 
 use crate::error::{AppError, AppErrorResponse, AppResult, IpcResult};
 use crate::events::TauriEventSink;
-use crate::services::game::index::find_query;
+use crate::services::game::index::{built_game_index, find_query};
 use crate::services::shared::document_assets;
 use crate::services::shared::off_thread;
 use crate::services::shared::overtaken;
@@ -27,7 +27,7 @@ use ltk_manager_bin::object_index::{
     ObjectDirListing, ObjectFindResult, ObjectIndex, ObjectIndexSnapshot, ObjectSearchResult,
     ReferenceResult, WalkRequest, WalkTarget,
 };
-use ltk_manager_bin::sandbox::SandboxRef;
+use ltk_manager_bin::sandbox::{ModuleObject, SandboxRef};
 use ltk_manager_game::spell::{self, SpellCatalog};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -552,6 +552,38 @@ pub async fn declared_objects(
         Ok(DeclaredObjects {
             index: status,
             objects,
+        })
+    })
+    .await
+}
+
+/// Every object that a module of `project`'s game data declarations creates, removes or edits,
+/// in build order.
+///
+/// A clone of an install object takes its class from the index, so the answer follows the slot
+/// the index is in. "Declared objects" in `docs/ux/PROJECT_EDITOR.md`.
+#[tauri::command]
+#[specta::specta]
+pub async fn module_objects(
+    project: String,
+    app_handle: AppHandle,
+) -> IpcResult<IndexResponse<Vec<ModuleObject>>> {
+    off_thread(move || {
+        with_ready_index(&app_handle, |index| {
+            let reference = SandboxRef::Project { project };
+            let config = app_handle.state::<SettingsState>().config();
+            let (game, _) = built_game_index(&app_handle, &config)?;
+            let sandbox = document_assets::sandbox(&app_handle, &reference);
+            let assets = sandbox.assets(Some(&game));
+
+            let objects = document_assets::with_names_in(&app_handle, &reference, |names| {
+                sandbox.module_objects(names, &assets, &|object| index.class_of(object))
+            });
+            tracing::debug!(
+                objects = objects.len(),
+                "Listed the declared objects of a project"
+            );
+            Ok(objects)
         })
     })
     .await

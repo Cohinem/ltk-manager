@@ -22,10 +22,14 @@ export interface ProjectObject {
 
 export const NO_PROJECT_OBJECTS: readonly ProjectObject[] = [];
 
-/** Every object the layers of `tree` declare whose hash is not in `installed`, once each. */
+/**
+ * Every object the layers of `tree` declare, then every one of `created`, whose hash is not in
+ * `installed`, once each.
+ */
 export function projectOnlyObjects(
   tree: ContentTree | undefined,
   installed: ReadonlySet<string>,
+  created: readonly ProjectObject[] = [],
 ): ProjectObject[] {
   const own = new Map<string, ProjectObject>();
   for (const layer of tree?.layers ?? []) {
@@ -37,6 +41,12 @@ export function projectOnlyObjects(
         own.set(object.objectHash, { objectHash: object.objectHash, path });
       }
     }
+  }
+
+  for (const object of created) {
+    if (installed.has(object.objectHash) || own.has(object.objectHash)) continue;
+
+    own.set(object.objectHash, object);
   }
 
   return [...own.values()];

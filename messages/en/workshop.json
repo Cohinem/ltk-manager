@@ -2910,6 +2910,9 @@
       }
     }
   ],
+  "workshop_objects_declared_hint": "Objects that game data declarations create, remove or edit",
+  "workshop_objects_declared_label": "Declared objects",
+  "workshop_objects_declared_off_hint": "Needs Use game data declarations, which is off for this project",
   "workshop_objects_game_label": "Objects · game",
   "workshop_objects_index_failed_title": "The object index could not be built",
   "workshop_objects_index_off_label": "Built for this session only. The Objects switch in Settings is off.",
@@ -2937,6 +2940,9 @@
       }
     }
   ],
+  "workshop_objects_module_create_label": "Created in module {module}",
+  "workshop_objects_module_edit_label": "Edited in module {module}",
+  "workshop_objects_module_remove_label": "Removed in module {module}",
   "workshop_objects_more_label": "… {count} more",
   "workshop_objects_no_match_description": "No object of the install matches that pattern.",
   "workshop_objects_no_match_title": "No match",

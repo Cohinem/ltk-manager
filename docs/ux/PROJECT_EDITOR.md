@@ -112,6 +112,7 @@ This table holds every major feature of the editor. A status word has one meanin
 | Command palette        | Available   | The project, the game and the bin objects of both halves                 |
 | Bin object search      | Available   | `$` over both halves, with the `class:` filter and its completions       |
 | Project object index   | Available   | The layers' own bins, read with the content scan, matched in place       |
+| Declared objects       | Available   | What game data declarations create, remove or edit, behind a switch      |
 | Bin object index       | Available   | The install's half on `BinStream::entries`, unnamed chunks sniffed       |
 | Bin dependency graph   | Proposed    | Kept by the object scan. `#190` is its first reader                      |
 | Navigation history     | Available   | The `←` `→` arrows, over the tabs and an explorer's directories          |
@@ -3826,6 +3827,38 @@ ratio, up to two. Texture requests take 128-pixel mips with two loads per previe
 and particles use a 4,096-particle root pool without seek checkpoints. Full geometry is still
 required. A loading indicator marks active jobs. Hidden documents and background windows stop
 preview work.
+
+### Declared objects
+
+The game data declarations of a project create, remove and edit objects without a layer file.
+The browser lists them with the install's objects while the Declared objects switch is on. The
+switch is in the view options, in both views, and it is on by default. It is off and disabled
+while the project's "Use game data declarations" is off, because a created object then opens in a
+document that does not hold it.
+
+| What a module does                                  | The row                                                  |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| Creates an object, with `clone` or `class`          | A row at the path the module spells, in the target chunk |
+| Removes an object, with `remove: true`              | The install's row, with the name struck through          |
+| Edits an object, under `entries` or a target's keys | The install's row                                        |
+
+Each row carries the mark of the layer that holds the module, as a layer file's object does. The
+mark's tooltip lists each module by name, or by position when it has none, and what the module
+does to the object. A clone takes the class of its source: an earlier creation's, a layer file's,
+or the install's.
+
+A created object opens the declared document of its target chunk, and its still renders from that
+document. The search box, the `class:` term, the `$` source of the project bar and the object
+count of the class card include created objects. The frontend matches them, as it matches the
+objects of the layer files.
+
+The backend lists the modules' objects with `module_objects`, read again after each declared edit
+and when the window regains focus. The answer follows the slot the index is in, because a clone of
+an install object takes its class from the index. A creation whose source or target chunk does not
+resolve is not listed, because the build fails on it.
+
+Every object path that a declaration spells also names its hash in the project's sandbox, so a
+reference to a created object reads as its path in every document of the project.
 
 ### A node with several declarations
 
