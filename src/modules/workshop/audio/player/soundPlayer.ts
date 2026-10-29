@@ -18,6 +18,9 @@ export const VOICE_CAP = 32;
 /** The decoded media the cache keeps. The first one decoded goes first. */
 const BUFFER_CACHE_SIZE = 256;
 
+/** How a voice plays its media: once to its end, or looped until its key stops. */
+export type MediaRepeat = "once" | "loop";
+
 /** What one channel plays, for a surface that draws it. */
 export interface ChannelState {
   /** The keys that have a voice that plays or waits on its media. */
@@ -28,8 +31,8 @@ export interface ChannelState {
 
 /** The voices of one surface. */
 export interface SoundChannel {
-  /** Starts one voice per URL under `key`, all at once. */
-  play(key: string, urls: readonly string[]): void;
+  /** Starts one voice per URL under `key`, all at once, each played as `repeat` says. */
+  play(key: string, urls: readonly string[], repeat?: MediaRepeat): void;
   /** Stops every voice of `key`. */
   stop(key: string): void;
   /** Stops every voice of the channel. */
@@ -93,6 +96,7 @@ interface Voice {
   startedAt: number;
   /** Seconds into the media the source started at. */
   offset: number;
+  readonly repeat: MediaRepeat;
 }
 
 const EMPTY: ChannelState = { playing: new Set(), failed: new Set() };
@@ -143,7 +147,10 @@ export function openChannel(volume: number): SoundChannel {
   const start = (voice: Voice) => {
     const { context } = audioGraph();
     if (voice.buffer === null) return;
-    if (voice.offset >= voice.buffer.duration) {
+
+    const looped = voice.repeat === "loop";
+    const { duration } = voice.buffer;
+    if (!looped && voice.offset >= duration) {
       end(voice);
       changed();
       return;
@@ -151,6 +158,8 @@ export function openChannel(volume: number): SoundChannel {
 
     const source = context.createBufferSource();
     source.buffer = voice.buffer;
+    source.loop = looped;
+    if (looped && duration > 0) voice.offset %= duration;
     source.connect(output());
     source.onended = () => {
       end(voice);
@@ -162,7 +171,7 @@ export function openChannel(volume: number): SoundChannel {
   };
 
   return {
-    play(key, urls) {
+    play(key, urls, repeat = "once") {
       if (urls.length === 0) return;
 
       const { context } = audioGraph();
@@ -170,7 +179,7 @@ export function openChannel(volume: number): SoundChannel {
       void context.resume();
 
       for (const url of urls) {
-        const voice: Voice = { key, buffer: null, source: null, startedAt: 0, offset: 0 };
+        const voice: Voice = { key, buffer: null, source: null, startedAt: 0, offset: 0, repeat };
         voices.push(voice);
         while (voices.length > VOICE_CAP) end(voices[0]);
 

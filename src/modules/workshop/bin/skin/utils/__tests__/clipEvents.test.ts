@@ -156,6 +156,7 @@ describe("soundCues", () => {
         kill: true,
         loop: true,
         skipIfPastEnd: false,
+        repeat: "once",
       },
     ]);
   });

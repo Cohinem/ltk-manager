@@ -32,7 +32,7 @@ import {
   type ValueCurve,
 } from "../../model/model";
 import { FIRST_FLIGHT, type Motion, originAt, type Point } from "../../model/rig";
-import { ROTATION_RATE } from "../../model/systemModel";
+import { ROTATION_RATE, NO_SOUNDS } from "../../model/systemModel";
 import { AXIS, axisInto, identityInto, yawInto } from "../../utils/basis";
 import { Rng } from "../../utils/Rng";
 import type { EmissionSampler, SystemSurfaces } from "../emissionSurface";
@@ -192,6 +192,7 @@ function emitterOf(over: Partial<EmitterModel> = {}): EmitterModel {
     projection: null,
     childSet: null,
     fields: null,
+    audio: null,
     depthBias: [0, 0],
     depthPushPull: 0,
     backfaceCull: true,
@@ -296,6 +297,8 @@ function run(emitters: readonly EmitterModel[], dt = 0.25, staging: Staging = {}
     dragMotion,
     buildUpTime: 0,
     stepping: { rate: 30, oncePerFrame: false, everyFrame: true },
+    sounds: NO_SOUNDS,
+    soundsEndOnEmitterEnd: true,
   };
   const pool = createPool(capacity);
   const state = createEmitterStates(emitters, chance);

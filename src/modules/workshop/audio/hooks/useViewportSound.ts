@@ -52,7 +52,7 @@ export function useViewportSound(
     play(cue) {
       const tree = latest.current.get(cue.name);
       if (tree === undefined) return;
-      channel.play(cue.key, eventSounds(tree, Math.random).map(mediaUrl));
+      channel.play(cue.key, eventSounds(tree, Math.random).map(mediaUrl), cue.repeat);
     },
     stop: (key) => channel.stop(key),
   }));
