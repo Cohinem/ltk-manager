@@ -53,6 +53,6 @@ pub use info::audio_info;
 pub use lookup::{ActionNode, LookupError, MediaSite, PlayNode, PlayTree, SoundLookup};
 pub use media::{MediaError, MediaFormat, MediaRow, Playback, media_rows};
 pub use names::EventNames;
-pub use references::{BankDeclaration, BankReferences, BankUnitGroup, BinRow, RowPath, SiteNames};
+pub use references::{BankDeclaration, BankReferences, BankUnitGroup, RowPath, SiteNames, SiteRow};
 pub use sound::{SoundError, media, sound};
 pub use sounds::{ResolvedSound, SoundResolution, resolve_sounds};

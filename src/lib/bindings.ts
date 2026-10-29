@@ -280,6 +280,17 @@ export type Attribute = {
 	mask: number,
 };
 
+/**  Who hears the event that a contextual rule plays. */
+export type Audience = 
+/**  `mSelfEventName`: the champion that the skin is on. */
+"owner" | 
+/**  `mAllyEventName`. */
+"ally" | 
+/**  `mEnemyEventName`. */
+"enemy" | 
+/**  `mSpectatorEventName`. */
+"spectator";
+
 /**  The kind of Wwise file. */
 export type AudioContainer = 
 /**  A package (`.wpk`) of streamed media. */
@@ -298,6 +309,10 @@ export type AudioEvent = {
 	/**  The number of sounds under the event's Play actions. */
 	mediaCount: number,
 	status: EventStatus,
+	/**  The contextual rules that play the event. */
+	contexts: EventContext[],
+	/**  The `events[i]` row of the first ranked bank unit that lists the event's name. */
+	listed: SiteRow | null,
 };
 
 /**  The events of an opened event bank, and the files of its bank set. */
@@ -346,6 +361,14 @@ export type AuthorProfile = {
 	role: string | null,
 };
 
+/**  One bin that declares a bank unit. */
+export type BankDeclaration = {
+	/**  The `BankUnit` row. */
+	row: SiteRow,
+	/**  The `ContextualActionData` object that the holder links, if an index declares it. */
+	contextual: SiteRow | null,
+};
+
 /**  The `BKHD` header of a bank, and whether the client loads the bank. */
 export type BankFacts = {
 	version: number,
@@ -363,6 +386,16 @@ export type BankFacts = {
 	rejection: string | null,
 	/**  The number of events of the hierarchy, or `None` if the bank has no hierarchy. */
 	eventCount: number | null,
+};
+
+/**  The bank units and bank lists that name an audio file, and the slot of the game's index. */
+export type BankReferencesResponse = {
+	/**  The game path that the units name the file by. */
+	path: string,
+	units: BankUnitGroup[],
+	lists: SiteRow[],
+	/**  Off `ready`, the units and lists of the game are missing. */
+	index: AudioIndexStatus,
 };
 
 /**  Which files the bank set of an opened event bank holds beside the bank. */
@@ -383,6 +416,16 @@ export type BankUnit = {
 	events: string[],
 	/**  The `voiceOver` flag. A voice-over path is read under the client's locale. */
 	voiceOver: boolean,
+};
+
+/**  The bank units with one name, one list of paths and one voice-over flag. */
+export type BankUnitGroup = {
+	name: string,
+	voiceOver: boolean,
+	/**  The `bankPath` files, in the unit's order. The opened file is marked. */
+	files: SetFile[],
+	/**  The bins that declare the unit, ranked. */
+	declarations: BankDeclaration[],
 };
 
 /**  The rule of section 10.2 that picked a base texture, in the order they are tried. */
@@ -2085,6 +2128,23 @@ export type EventAction = {
 	 *  visited before.
 	 */
 	node: EventNode | null,
+};
+
+/**
+ *  One contextual rule that plays an event, matched by a composed name.
+ * 
+ *  The composition is observed in shipped data, so the match is an inference.
+ */
+export type EventContext = {
+	/**  The situation's name, such as `SpellCast`, or its hash if no table names it. */
+	situation: string,
+	/**  `mRuleName`, such as `Basic 1`. */
+	rule: string | null,
+	audience: Audience,
+	/**  `true` if another composition of the rule is an event of the bank too. */
+	ambiguous: boolean,
+	/**  The rule row of the `ContextualActionData` object. */
+	row: SiteRow,
 };
 
 /**  What a clip event does, for the kinds a viewport plays, and nothing for the rest. */
@@ -7154,6 +7214,14 @@ export type RowNode =
 /**  One patch record of a `PTCH`. */
 "record";
 
+/**  The row inside an object, in the two forms that a row carries. */
+export type RowPath = {
+	/**  The hash path, every field a hash (ADR-0027). */
+	path: string,
+	/**  The same path for a person, every hash that a table names spelled. */
+	label: string,
+};
+
 /**
  *  One rule's live findings, folded to what a mod user reads.
  * 
@@ -7752,6 +7820,8 @@ export type SetFile = {
 	/**  The layer file or game chunk that holds the file, or `None` if no store holds it. */
 	asset: AssetRef | null,
 	state: SetFileState,
+	/**  `true` for the file that the document opened. */
+	opened: boolean,
 };
 
 /**  Whether a file of a bank set was read. */
@@ -8083,6 +8153,24 @@ export type Sidecar = {
 
 /**  Where a problem is. */
 export type Site = Site_Serialize | Site_Deserialize;
+
+/**  An object of a bin, and optionally a row of it, with what an open of its tab reads. */
+export type SiteRow = {
+	/**  The bin, the project layer first. `None` if no layer and no archive holds it. */
+	asset: AssetRef | null,
+	/**  The game path of the bin. */
+	bin: string,
+	/**  The object's path hash, as `0x` and eight hex digits. */
+	objectHash: string,
+	/**  The object's path, or its hash if no table names it. */
+	object: string,
+	/**  The class hash, as `0x` and eight hex digits. */
+	classHash: string,
+	/**  The class's name, or its hash if no table names it. */
+	class: string,
+	/**  The row inside the object. `None` for the object itself. */
+	property: RowPath | null,
+};
 
 /**  Where a problem is. */
 export type Site_Deserialize = {

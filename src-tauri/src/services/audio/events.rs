@@ -13,9 +13,9 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager};
 
 use super::index::{chunk_path, game_audio_index, project_audio_index, AudioIndexStatus};
+use super::references::with_site_names;
 use super::{preview_error, with_audio_files};
 use crate::error::{AppResult, IpcResult};
-use crate::services::shared::document_assets::with_names_in;
 use crate::services::shared::off_thread;
 use crate::state::SettingsState;
 
@@ -92,20 +92,21 @@ fn with_event_bank<T>(
 ) -> AppResult<T> {
     let config = app.state::<SettingsState>().config();
     let contents = asset.read(&config, &app.state::<WadCache>())?;
-    let path = with_names_in(app, sandbox, |names| bank_path(asset, names));
     let project = sandbox.project().map(project_audio_index);
-
     let indexes: Vec<&AudioIndex> = project.iter().chain(game).collect();
-    let opened = OpenedBank {
-        path,
-        file: AudioFile {
-            asset: asset.clone(),
-            contents,
-        },
-    };
-    let bank = with_audio_files(app, sandbox, |files, locale| {
-        EventBank::open(opened, &indexes, files, locale)
-    })?;
+
+    let bank = with_site_names(app, sandbox, |names, rows| {
+        let opened = OpenedBank {
+            path: bank_path(asset, rows),
+            file: AudioFile {
+                asset: asset.clone(),
+                contents,
+            },
+        };
+        with_audio_files(app, sandbox, |files, locale| {
+            EventBank::open(opened, &indexes, files, locale, names)
+        })
+    })??;
     read(&bank)
 }
 

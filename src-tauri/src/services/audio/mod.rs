@@ -6,11 +6,13 @@
 mod events;
 mod index;
 mod media;
+mod references;
 mod sounds;
 
 pub use events::*;
 pub use index::AudioIndexState;
 pub use media::*;
+pub use references::*;
 pub use sounds::*;
 
 use std::io::{self, Cursor};

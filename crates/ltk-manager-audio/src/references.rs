@@ -13,7 +13,7 @@ use crate::bin_audio::{BankSite, SiteStep, hash_path, json_string};
 use crate::events::{SetFile, SetFileState};
 use crate::index::{AudioIndex, IndexedUnit};
 
-/// The names and the assets that turn a site of the audio index into a [`BinRow`].
+/// The names and the assets that turn a site of the audio index into a [`SiteRow`].
 ///
 /// The shell implements it over the sandbox and the hash tables.
 pub trait SiteNames {
@@ -33,7 +33,7 @@ pub trait SiteNames {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
-pub struct BinRow {
+pub struct SiteRow {
     /// The bin, the project layer first. `None` if no layer and no archive holds it.
     pub asset: Option<AssetRef>,
     /// The game path of the bin.
@@ -67,9 +67,9 @@ pub struct RowPath {
 #[serde(rename_all = "camelCase")]
 pub struct BankDeclaration {
     /// The `BankUnit` row.
-    pub row: BinRow,
+    pub row: SiteRow,
     /// The `ContextualActionData` object that the holder links, if an index declares it.
-    pub contextual: Option<BinRow>,
+    pub contextual: Option<SiteRow>,
 }
 
 /// The bank units with one name, one list of paths and one voice-over flag.
@@ -93,7 +93,7 @@ pub struct BankReferences {
     /// The groups, in the order of their first declaration.
     pub units: Vec<BankUnitGroup>,
     /// The `AudioBankPaths` and `BankPaths` rows that list the file.
-    pub lists: Vec<BinRow>,
+    pub lists: Vec<SiteRow>,
 }
 
 impl BankReferences {
@@ -158,7 +158,7 @@ impl BankReferences {
             .flat_map(|index| index.lists_naming(path))
             .map(|indexed| {
                 let site = &indexed.list.site;
-                bin_row(
+                site_row(
                     &indexed.bin,
                     site.object,
                     site.class,
@@ -253,11 +253,11 @@ pub(crate) fn unit_row(
     indexed: &IndexedUnit,
     extra: Option<&[SiteStep]>,
     names: &dyn SiteNames,
-) -> BinRow {
+) -> SiteRow {
     let site: &BankSite = &indexed.site;
     let mut steps = site.steps.clone();
     steps.extend_from_slice(extra.unwrap_or_default());
-    bin_row(&indexed.bin, site.object, site.class, Some(&steps), names)
+    site_row(&indexed.bin, site.object, site.class, Some(&steps), names)
 }
 
 /// Returns the row of the `ContextualActionData` object `object`, from the first index that
@@ -266,9 +266,9 @@ pub(crate) fn contextual_row(
     object: u32,
     indexes: &[&AudioIndex],
     names: &dyn SiteNames,
-) -> Option<BinRow> {
+) -> Option<SiteRow> {
     let rules = indexes.iter().find_map(|index| index.contextual(object))?;
-    Some(bin_row(
+    Some(site_row(
         &rules.bin,
         object,
         CONTEXTUAL_ACTION_DATA.0,
@@ -278,14 +278,14 @@ pub(crate) fn contextual_row(
 }
 
 /// Returns the row at `steps` of the object `object` of class `class` in the bin `bin`.
-pub(crate) fn bin_row(
+pub(crate) fn site_row(
     bin: &str,
     object: u32,
     class: u32,
     steps: Option<&[SiteStep]>,
     names: &dyn SiteNames,
-) -> BinRow {
-    BinRow {
+) -> SiteRow {
+    SiteRow {
         asset: names.locate(bin),
         bin: bin.to_owned(),
         object_hash: hex(object),

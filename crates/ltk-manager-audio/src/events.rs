@@ -17,7 +17,7 @@ use crate::files::{AudioFile, AudioFiles, ReadSeek};
 use crate::index::AudioIndex;
 use crate::lookup::{ActionNode, LookupError, MediaSite, PlayNode, PlayTree, SoundLookup};
 use crate::names::EventNames;
-use crate::references::{BinRow, SiteNames, bin_row, hex, ranked_units, unit_row};
+use crate::references::{SiteNames, SiteRow, hex, ranked_units, site_row, unit_row};
 
 /// The bank that a document opened, with the game path that the bank units name it by.
 #[derive(Debug, Clone)]
@@ -47,7 +47,7 @@ pub struct EventBank {
     names: EventNames,
     origin: BankSetOrigin,
     contexts: HashMap<ObjectId, Vec<EventContext>>,
-    listed: HashMap<ObjectId, BinRow>,
+    listed: HashMap<ObjectId, SiteRow>,
 }
 
 impl EventBank {
@@ -544,7 +544,7 @@ pub struct AudioEvent {
     /// The contextual rules that play the event.
     pub contexts: Vec<EventContext>,
     /// The `events[i]` row of the first ranked bank unit that lists the event's name.
-    pub listed: Option<BinRow>,
+    pub listed: Option<SiteRow>,
 }
 
 /// One contextual rule that plays an event, matched by a composed name.
@@ -562,7 +562,7 @@ pub struct EventContext {
     /// `true` if another composition of the rule is an event of the bank too.
     pub ambiguous: bool,
     /// The rule row of the `ContextualActionData` object.
-    pub row: BinRow,
+    pub row: SiteRow,
 }
 
 /// Returns the context of `found`, from the first index that declares its object.
@@ -583,7 +583,7 @@ fn context_of(
         rule: rule.name.clone(),
         audience: found.audience,
         ambiguous: found.ambiguous,
-        row: bin_row(
+        row: site_row(
             &rules.bin,
             found.object,
             CONTEXTUAL_ACTION_DATA.0,
