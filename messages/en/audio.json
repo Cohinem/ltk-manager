@@ -148,7 +148,7 @@
   "audio_viewport_sound_hint": "Plays an approximation of the game's mix, without buses, RTPCs, attenuation or 3D position.",
   "audio_viewport_sound_label": "Sound",
   "audio_viewport_unresolved_hint": "Sound events that resolve to no event: {count}",
-  "audio_viewport_volume_description": "The gain of every viewport's sound",
+  "audio_viewport_volume_description": "Applies to every viewport",
   "audio_viewport_volume_label": "Sound volume",
   "audio_viewport_volume_reading": "{percent}%",
   "audio_viewport_volume_reset_action": "Reset the volume",
