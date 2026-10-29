@@ -1,6 +1,6 @@
 import { TabsIcon } from "@phosphor-icons/react";
 
-import { SectionCard, Separator, Slider, Switch } from "@/components";
+import { Inline, SectionCard, Separator, Slider, Switch } from "@/components";
 import { m } from "@/i18n";
 import {
   useForwardLookingMeta,
@@ -98,20 +98,33 @@ function ViewportGroup() {
       />
 
       <SettingRow
+        kind="action"
         setting="layout.previewSoundVolume"
         description={m.settings_viewport_sound_volume_description()}
+        controlClassName="w-72 shrink"
         control={
-          <Slider
-            aria-label={m.settings_viewport_sound_volume_title()}
-            className="w-40"
-            value={volume}
-            min={0}
-            max={1}
-            step={0.01}
-            onValueChange={(previewSoundVolume) => setDisplay({ previewSoundVolume })}
-          />
+          <Inline gap={3}>
+            <Slider
+              aria-label={m.settings_viewport_sound_volume_title()}
+              value={volume}
+              min={0}
+              max={1}
+              step={0.01}
+              onValueChange={(previewSoundVolume) => setDisplay({ previewSoundVolume })}
+            />
+            <VolumeReading volume={volume} />
+          </Inline>
         }
       />
     </SettingGroup>
+  );
+}
+
+/** The volume as a percent, beside its slider. */
+function VolumeReading({ volume }: { volume: number }) {
+  return (
+    <span className="w-10 shrink-0 text-right font-mono text-xs text-surface-300 tabular-nums">
+      {m.settings_viewport_sound_volume_reading({ percent: Math.round(volume * 100) })}
+    </span>
   );
 }
