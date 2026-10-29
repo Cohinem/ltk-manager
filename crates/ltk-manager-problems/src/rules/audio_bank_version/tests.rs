@@ -12,7 +12,7 @@ use ltk_meta::{Bin, BinObject, PropertyValueEnum};
 use super::*;
 use crate::ProjectFiles;
 use crate::game::FakeContent;
-use crate::{ChosenAlternative, FixAlternative};
+use crate::{AlternativeCaveat, ChosenAlternative, FixAlternative};
 use ltk_manager_assets::test_util::{
     BUILT_BANK_ID, LEGACY_EVENT_BANK, audio_bank_bytes, make_packed_chunk_fantome_zip,
     resolver_naming,
@@ -554,17 +554,21 @@ fn a_legacy_event_bank_offers_removal_and_an_experimental_conversion() {
     assert!(conversion.experimental);
 }
 
-/// Story 7: the version 145 attenuation has a flag that the version 134 payload does not
-/// hold, and the conversion writes it as zero.
+/// Story 7: the version 145 attenuation has a flag that the version 134 payload has no value
+/// for, and the conversion writes it as zero.
 #[test]
-fn a_conversion_of_a_bank_holding_an_attenuation_states_the_lost_flag() {
+fn a_conversion_of_a_bank_containing_an_attenuation_states_the_lost_flag() {
     let (_tmp, files) = project_with(EVENTS_V134, &[], Some(FakeContent::empty()));
 
     let problems = found_in(&files);
 
     let conversion = conversion_of(&problems[0]).expect("conversion is offered");
-    let note = conversion.fix.note.as_deref().unwrap_or_default();
-    assert!(note.contains("attenuation"), "{note}");
+    assert_eq!(
+        conversion.caveats,
+        [AlternativeCaveat::AttenuationFlagZeroed]
+    );
+    assert_eq!(conversion.fix.before.as_deref(), Some("134"));
+    assert_eq!(conversion.fix.note, None);
 }
 
 #[test]
@@ -574,11 +578,10 @@ fn a_conversion_of_a_bank_without_an_attenuation_states_no_loss() {
     let problems = found_in(&files);
 
     let conversion = conversion_of(&problems[0]).expect("conversion is offered");
-    let note = conversion.fix.note.as_deref().unwrap_or_default();
-    assert!(!note.contains("attenuation"), "{note}");
+    assert!(conversion.caveats.is_empty(), "{:?}", conversion.caveats);
 }
 
-/// Story 6: a bank the conversion cannot handle says why.
+/// Story 6: the message of a bank that the conversion refuses states the reason.
 #[test]
 fn a_bank_holding_a_music_track_offers_removal_only_and_states_the_refusal() {
     let (_tmp, files) = project_with(&music_bank(), &[], Some(FakeContent::empty()));

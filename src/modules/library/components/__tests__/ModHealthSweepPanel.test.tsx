@@ -353,9 +353,8 @@ describe("ModHealthSweepPanel", () => {
           file: "ashe_sfx_events.bnk",
           alternative: {
             id: "convert",
-            title: "Convert to version 145",
             experimental: true,
-            fix: { note: "Rewritten at version 145.", before: "134", after: "145" },
+            fix: { before: "134", after: "145" },
           },
         },
       ],
@@ -371,7 +370,9 @@ describe("ModHealthSweepPanel", () => {
 
     expect(screen.getByText("ashe_sfx_events.bnk")).toBeInTheDocument();
     expect(screen.getByText("Experimental")).toBeInTheDocument();
-    expect(screen.getByText("Rewritten at version 145.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Rewritten at version 145. The events keep their IDs."),
+    ).toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", { name: "Convert to version 145 in Old Ashe Rework" }),

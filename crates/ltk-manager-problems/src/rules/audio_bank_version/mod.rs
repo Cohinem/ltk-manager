@@ -55,8 +55,8 @@ use std::io::Cursor;
 use crate::bank_units::BankUnits;
 use crate::game::GameContent;
 use crate::{
-    AlternativeId, Applied, Detail, FileHandle, FixAlternative, FixError, FixPreview, FixRun, Head,
-    Pass, Problem, ProblemSeverity, Rule, RuleId, RuleMeta, Site, Weight,
+    AlternativeCaveat, AlternativeId, Applied, Detail, FileHandle, FixAlternative, FixError,
+    FixPreview, FixRun, Head, Pass, Problem, ProblemSeverity, Rule, RuleId, RuleMeta, Site, Weight,
 };
 use ltk_manager_assets::file_kind::WorkshopFileKind;
 use ltk_manager_audio::ltk_wwise::bank::{BankVersion, Rejection};
@@ -390,22 +390,15 @@ impl Conversion {
     ///
     /// The lost attenuation flag is section 11 of `docs/design/wwise-audio.md` in `ltk_wwise`.
     fn alternative(self) -> FixAlternative {
-        let mut note = String::from("Rewritten at version 145. The events keep their IDs.");
-        if self.attenuation {
-            note.push_str(
-                " One attenuation flag of version 145 has no value in this bank and is written as zero.",
-            );
-        }
-
         FixAlternative {
             id: AlternativeId::new(CONVERT),
-            title: String::from("Convert to version 145"),
             experimental: CONVERSION_EXPERIMENTAL,
-            fix: FixPreview {
-                note: Some(note),
-                before: Some(self.version.to_string()),
-                after: Some(BankVersion::CURRENT.to_string()),
-            },
+            caveats: self
+                .attenuation
+                .then_some(AlternativeCaveat::AttenuationFlagZeroed)
+                .into_iter()
+                .collect(),
+            fix: FixPreview::value(self.version.to_string(), BankVersion::CURRENT.to_string()),
         }
     }
 }

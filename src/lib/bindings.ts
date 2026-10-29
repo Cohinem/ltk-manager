@@ -51,6 +51,14 @@ export type AddableFields = {
 	fields: AddableField[],
 };
 
+/**  A fact about one alternative fix, which the frontend words in the note of the repair. */
+export type AlternativeCaveat = 
+/**
+ *  The bank contains an Attenuation object, and the conversion writes the version 145 flag
+ *  that the bank has no value for as zero.
+ */
+"attenuationFlagZeroed";
+
 /**  The id of one alternative fix, unique among the alternatives of its rule. */
 export type AlternativeId = string;
 
@@ -2695,12 +2703,13 @@ export type FixAlternative = FixAlternative_Serialize | FixAlternative_Deseriali
  *  "Repair all" applies one. [`apply_alternative`] applies one alternative of one problem.
  */
 export type FixAlternative_Deserialize = {
+	/**  The id that the frontend keys the title and the note of the repair by, with the rule id. */
 	id: AlternativeId,
-	/**  A few words naming the repair, in sentence case. */
-	title: string,
 	/**  `true` while the repair is not proven in a match. */
 	experimental: boolean,
-	/**  What the repair would change. */
+	/**  The facts that the note of the repair states, beside the note that its id keys. */
+	caveats?: AlternativeCaveat[],
+	/**  The values that the repair would change. */
 	fix: FixPreview_Deserialize,
 };
 
@@ -2711,12 +2720,13 @@ export type FixAlternative_Deserialize = {
  *  "Repair all" applies one. [`apply_alternative`] applies one alternative of one problem.
  */
 export type FixAlternative_Serialize = {
+	/**  The id that the frontend keys the title and the note of the repair by, with the rule id. */
 	id: AlternativeId,
-	/**  A few words naming the repair, in sentence case. */
-	title: string,
 	/**  `true` while the repair is not proven in a match. */
 	experimental: boolean,
-	/**  What the repair would change. */
+	/**  The facts that the note of the repair states, beside the note that its id keys. */
+	caveats?: AlternativeCaveat[],
+	/**  The values that the repair would change. */
 	fix: FixPreview_Serialize,
 };
 
