@@ -23,6 +23,7 @@ export * from "./Disclosure";
 export * from "./EmptyState";
 export * from "./ErrorBoundary";
 export * from "./ErrorState";
+export * from "./ExperimentalChip";
 export * from "./ExternalLink";
 export * from "./FieldAffix";
 export * from "./FieldDiscardContext";

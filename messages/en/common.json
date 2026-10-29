@@ -15,6 +15,7 @@
   "common_crash_title": "The manager hit a problem",
   "common_dismiss_action": "Dismiss",
   "common_error_code_label": "Error code: {code}",
+  "common_experimental_label": "Experimental",
   "common_filter_champion_empty": "No champions found",
   "common_filter_champion_search_placeholder": "Search champions",
   "common_filter_clear_action": "Clear filters",

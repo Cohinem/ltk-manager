@@ -96,6 +96,10 @@
   "library_folder_new_title": "New Folder",
   "library_folder_rename_action": "Rename",
   "library_folder_rename_title": "Rename Folder",
+  "library_health_alternative_applied_title": "Applied the repair",
+  "library_health_alternative_failed_title": "Failed to apply the repair",
+  "library_health_alternative_label": "{title} in {name}",
+  "library_health_alternative_skipped_title": "Nothing changed, because the file no longer matches the finding",
   "library_health_all_repairable_description": "All of them can be repaired automatically, so *repairing is recommended*",
   "library_health_cancel_failed_title": "Couldn't stop the run",
   "library_health_check_clean_hint": [

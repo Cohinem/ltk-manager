@@ -4,7 +4,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { ModHealthVerdict, ModRepairProgress } from "@/lib/tauri";
+import type { ModHealthVerdict, ModRepairProgress, RuleBrief } from "@/lib/tauri";
 import type { HealthFilter } from "@/modules/library";
 import { useModHealthDrawerStore } from "@/stores";
 
@@ -14,6 +14,7 @@ import { type HealthLists, healthVerdicts, installedMod, verdict } from "./modHe
 const health = vi.fn<(filter: HealthFilter) => ModHealthVerdict[]>();
 const installedMods = vi.fn<() => { data: ReturnType<typeof installedMod>[] }>();
 const repairOne = vi.fn();
+const repairAlternative = vi.fn();
 const cancelRun = vi.fn();
 const onClose = vi.fn();
 
@@ -22,6 +23,7 @@ vi.mock("../../api", () => ({
   useHealthVerdicts: (filter: HealthFilter) => health(filter),
   useInstalledMods: () => installedMods(),
   useRepairMod: () => ({ mutate: repairOne, isPending: false }),
+  useRepairModAlternative: () => ({ mutate: repairAlternative, isPending: false }),
   useRepairMods: () => run,
   useCancelModHealthRun: () => ({ mutate: cancelRun, isPending: false }),
 }));
@@ -333,6 +335,54 @@ describe("ModHealthSweepPanel", () => {
     expect(
       await screen.findByText("Couldn't rehash because source string is unknown"),
     ).toBeInTheDocument();
+  });
+
+  /* Story: a conversion is offered on its finding and applied only by its own press. */
+  it("offers a finding's alternative as its own press with the experimental chip", async () => {
+    const user = userEvent.setup();
+    const brief: RuleBrief = {
+      rule: "audio/bank-version",
+      title: "Unsupported audio bank version",
+      description: "An audio bank at a version the game's reader drops",
+      severity: "warning",
+      count: 1,
+      fixable: 0,
+      alternatives: [
+        {
+          problem: "audio/bank-version@base:ashe_sfx_events.bnk",
+          file: "ashe_sfx_events.bnk",
+          alternative: {
+            id: "convert",
+            title: "Convert to version 145",
+            experimental: true,
+            fix: { note: "Rewritten at version 145.", before: "134", after: "145" },
+          },
+        },
+      ],
+    };
+    show({
+      repairable: [],
+      unrepairable: [
+        verdict("b", "unrepairable", { findings: 1, severity: "warning", rules: [brief] }),
+      ],
+    });
+
+    await user.click(screen.getByRole("button", { name: "Old Ashe Rework" }));
+
+    expect(screen.getByText("ashe_sfx_events.bnk")).toBeInTheDocument();
+    expect(screen.getByText("Experimental")).toBeInTheDocument();
+    expect(screen.getByText("Rewritten at version 145.")).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Convert to version 145 in Old Ashe Rework" }),
+    );
+
+    expect(repairAlternative).toHaveBeenCalledWith({
+      modId: "b",
+      problem: "audio/bank-version@base:ashe_sfx_events.bnk",
+      alternative: "convert",
+    });
+    expect(repairOne).not.toHaveBeenCalled();
   });
 
   it("shows a plain count on a rule no repair reaches", async () => {

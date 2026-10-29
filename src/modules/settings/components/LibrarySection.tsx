@@ -1,13 +1,12 @@
 import { BooksIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 
-import { PathField, SectionCard, useToast } from "@/components";
+import { ExperimentalChip, PathField, SectionCard, useToast } from "@/components";
 import { describeError, m } from "@/i18n";
 import type { DataMovePlan } from "@/lib/tauri";
 
 import { useLoadedSettings, usePlanDataMove } from "../api";
 import { DataMoveDialog } from "./DataMoveDialog";
-import { ExperimentalChip } from "./ExperimentalChip";
 import { SettingGroup } from "./SettingGroup";
 import { SettingRow } from "./SettingRow";
 import { SettingSwitch } from "./SettingSwitch";

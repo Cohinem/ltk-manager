@@ -13,6 +13,7 @@ import {
   Button,
   ButtonGroup,
   Code,
+  ExperimentalChip,
   IconButton,
   Menu,
   Progress,
@@ -27,6 +28,7 @@ import { m, Marked } from "@/i18n";
 import {
   type ModHealthVerdict,
   type ModRepairProgress,
+  type OfferedAlternative,
   type ProblemSeverity,
   type RuleBrief,
 } from "@/lib/tauri";
@@ -40,6 +42,7 @@ import {
   useInstalledMods,
   useModHealthVerdicts,
   useRepairMod,
+  useRepairModAlternative,
   useRepairMods,
 } from "../api";
 import {
@@ -534,7 +537,7 @@ function VerdictRow({ verdict }: { verdict: ModHealthVerdict }) {
           </span>
         )}
       </div>
-      {open && <RuleList verdict={verdict} />}
+      {open && <RuleList verdict={verdict} name={name} />}
     </li>
   );
 }
@@ -573,7 +576,7 @@ function RowMark({ enabled }: { enabled: boolean }) {
  * or a property path - that is the modder's half, and it lives in the Problems
  * panel.
  */
-function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
+function RuleList({ verdict, name }: { verdict: ModHealthVerdict; name: string }) {
   const fixable = verdict.health === "repairable";
 
   return (
@@ -605,9 +608,58 @@ function RuleList({ verdict }: { verdict: ModHealthVerdict }) {
           ) : (
             <p className="text-surface-500">{brief.description}</p>
           )}
+          {(brief.alternatives ?? []).map((offered) => (
+            <AlternativeLine
+              key={`${offered.problem}:${offered.alternative.id}`}
+              modId={verdict.modId}
+              name={name}
+              offered={offered}
+            />
+          ))}
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * One alternative of one finding, as a secondary press under its rule.
+ *
+ * "Repair" and "Repair all" never apply it, so the line is the only way to. The file
+ * name tells two findings of one rule apart, and the note says what the repair changes.
+ */
+function AlternativeLine({
+  modId,
+  name,
+  offered,
+}: {
+  modId: string;
+  name: string;
+  offered: OfferedAlternative;
+}) {
+  const repair = useRepairModAlternative();
+  const { alternative } = offered;
+
+  return (
+    <div data-ui="ModHealthSweepPanel:alternative" className="flex flex-col gap-0.5 pt-0.5">
+      <div className="flex items-center gap-1.5">
+        <Code className="min-w-0 truncate select-text">{offered.file}</Code>
+        {alternative.experimental && <ExperimentalChip />}
+        <Button
+          variant="ghost"
+          size="xs"
+          loading={repair.isPending}
+          onClick={() =>
+            repair.mutate({ modId, problem: offered.problem, alternative: alternative.id })
+          }
+          aria-label={m.library_health_alternative_label({ title: alternative.title, name })}
+          className="ml-auto shrink-0"
+        >
+          {alternative.title}
+        </Button>
+      </div>
+      {alternative.fix.note && <p className="text-surface-500">{alternative.fix.note}</p>}
+    </div>
   );
 }
 

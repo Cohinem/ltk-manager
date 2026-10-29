@@ -56,6 +56,7 @@ This table holds every major feature of Problems. A status word has one meaning.
 | The migration tables | Available | One file per build, `include_str!` into the core crate. 397 rows       |
 | Texture size rule    | Available | `tex/block-alignment`. A confirmed crash, and it repairs               |
 | Audio bank rule      | Available | `audio/bank-version`. A bank the game drops without a word             |
+| Bank conversion      | Available | An experimental alternative of `audio/bank-version`, from the library  |
 | Working file rule    | Available | `project/working-file`. A packed source file, with no ignore rules     |
 | Object link rule     | Available | `bin/object-link`. A link to an object no mod or game bin defines      |
 | Texture file rule    | Available | `bin/texture-file`. A texture property that names a non-image file     |
