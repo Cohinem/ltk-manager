@@ -5,7 +5,7 @@
 //! whatever it carries. An older version, down to a floor, loads only if it
 //! carries nothing beyond its media index and its media blob - so a legacy
 //! media bank loads, and a legacy bank carrying the objects that hold events
-//! and sounds does not. `ltk_wwise` holds that gate as `Bank::check`, and the
+//! and sounds does not. `ltk_wwise` implements that gate as `Bank::check`, and the
 //! rule reads every bank through it.
 //!
 //! A rejected bank is dropped **silently**. Nothing is written to the log and
@@ -287,7 +287,7 @@ impl Removed {
 
 /// Reads what the client refuses about one bank, or `None` for one it loads.
 ///
-/// `head` holds the bank's version. A bank below `BankVersion::CURRENT` is read
+/// `head` contains the bank's version. A bank below `BankVersion::CURRENT` is read
 /// whole, under the [`Weight::Whole`] the subscription declares.
 ///
 /// # Errors
@@ -364,7 +364,7 @@ fn converted(bank: &Bank) -> Result<Vec<u8>, String> {
     Ok(bytes)
 }
 
-/// Whether `bank` holds an Attenuation object, whose version 145 flag has no legacy value.
+/// Whether `bank` contains an Attenuation object, whose version 145 flag has no legacy value.
 fn holds_attenuation(bank: &Bank) -> bool {
     bank.hierarchy()
         .is_some_and(|hierarchy| hierarchy.of_kind(ObjectKind::ATTENUATION).next().is_some())
@@ -398,7 +398,7 @@ enum Rejected {
 struct Conversion {
     /// The version of the bank before the conversion.
     version: BankVersion,
-    /// Whether the bank holds an Attenuation object.
+    /// Whether the bank contains an Attenuation object.
     attenuation: bool,
 }
 
@@ -459,7 +459,7 @@ impl Rejected {
         }
     }
 
-    /// Returns why the reader refuses this bank: the rejection's own text, then its effect.
+    /// Returns why the reader refuses this bank: the text of the rejection, then its effect.
     fn sentence(&self) -> String {
         let rejection = match self {
             Self::Refused { rejection, .. } => rejection,

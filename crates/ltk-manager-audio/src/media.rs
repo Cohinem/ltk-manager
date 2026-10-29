@@ -19,6 +19,7 @@ pub struct MediaRow {
     pub size_bytes: u32,
     /// The `fmt ` and `data` facts, or `None` if the media is not a readable WEM.
     pub format: Option<MediaFormat>,
+    /// Whether the media decodes for playback, and why not.
     pub playback: Playback,
 }
 
@@ -29,9 +30,11 @@ pub struct MediaRow {
 pub struct MediaFormat {
     /// The `wFormatTag` of the media.
     pub codec: u16,
+    /// The number of channels.
     pub channels: u16,
     /// Samples per second.
     pub sample_rate: u32,
+    /// The `nAvgBytesPerSec` of the media, which the duration divides by.
     pub average_bytes_per_second: u32,
     /// The size of the `data` chunk in bytes.
     pub data_size: u32,

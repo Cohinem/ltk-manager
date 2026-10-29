@@ -50,7 +50,7 @@ const UNIT_PATH: BinHash = named("bankPath");
 /// The object the fixture hangs its audio properties on.
 const ENTRY: BinHash = BinHash(0x1234_5678);
 
-/// A bank at `version` holding `sections`.
+/// A bank at `version` containing `sections`.
 fn bank(version: BankVersion, sections: Vec<Section>) -> Vec<u8> {
     let mut bank = Bank::new(BankHeader::new(version, BankId(BUILT_BANK_ID)));
     *bank.sections_mut() = sections;
@@ -62,7 +62,7 @@ fn hierarchy() -> Section {
     Section::Hierarchy(Hierarchy::new())
 }
 
-/// A media index holding one media of `len` zero bytes.
+/// A media index containing one media of `len` zero bytes.
 fn media(len: usize) -> Section {
     let mut media = MediaIndex::new();
     media.insert(SourceId(1), vec![0; len]);
@@ -517,7 +517,7 @@ fn a_second_repair_over_a_removed_bank_skips_it() {
 
 const EVENTS_V134: &[u8] = LEGACY_EVENT_BANK;
 
-/// A version 134 event bank holding one music track, a kind `Bank::upgrade` refuses.
+/// A version 134 event bank containing one music track, a kind `Bank::upgrade` refuses.
 fn music_bank() -> Vec<u8> {
     let mut hierarchy = Hierarchy::new();
     hierarchy.push(
@@ -598,7 +598,7 @@ fn a_bank_holding_a_music_track_offers_removal_only_and_states_the_refusal() {
     assert!(message.contains("MusicTrack"), "{message}");
 }
 
-/// Story 5: a bank unit asks for the bank and the game does not hold its path, so removal
+/// Story 5: a bank unit asks for the bank and the game does not contain its path, so removal
 /// refuses and conversion is the only repair.
 #[test]
 fn conversion_is_the_only_repair_where_removal_refuses() {
@@ -710,9 +710,9 @@ fn a_bank_the_client_accepts_is_never_converted() {
     assert_eq!(bank_on_disk(&tmp), accepted);
 }
 
-/// Story 11: an archive-storage mod converts through the held run.
+/// Story 11: an archive-storage mod converts through the in-memory run.
 #[test]
-fn an_archive_converts_through_the_held_run() {
+fn an_archive_converts_through_the_in_memory_run() {
     let archive_dir = tempfile::tempdir().unwrap();
     let archive = archive_dir.path().join("events.fantome");
     make_packed_chunk_fantome_zip(&archive, "Events", BANK_IN_WAD, EVENTS_V134);
@@ -733,7 +733,7 @@ fn an_archive_converts_through_the_held_run() {
         .id
         .clone();
 
-    let (report, held) = crate::apply_alternative_held(
+    let (report, writes) = crate::apply_alternative_held(
         project,
         Vec::new(),
         &run,
@@ -748,7 +748,7 @@ fn an_archive_converts_through_the_held_run() {
     .unwrap();
 
     assert_eq!(report.applied, 1);
-    let converted = read_bank(held.bytes("base", BANK_IN_LAYER).unwrap());
+    let converted = read_bank(writes.bytes("base", BANK_IN_LAYER).unwrap());
     assert_eq!(converted.header().version, BankVersion::CURRENT);
     assert_eq!(converted.check(), Ok(()));
 }

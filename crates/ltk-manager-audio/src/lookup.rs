@@ -11,6 +11,7 @@ use crate::names::EventNames;
 /// What an event plays: its actions and the tree of objects under each Play action.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayTree {
+    /// The ID of the event.
     pub event: ObjectId,
     /// The name of the event, or `None` if no name of the lookup hashes to its ID.
     pub name: Option<String>,
@@ -21,10 +22,11 @@ pub struct PlayTree {
 /// One action of an event.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ActionNode {
+    /// The ID of the action.
     pub id: ObjectId,
     /// The class of the action, the high byte of its type: `0x0400` is Play.
     ///
-    /// `None` if no bank of the set holds the action.
+    /// `None` if no bank of the set contains the action.
     pub class: Option<u16>,
     /// The object that a Play action plays. `None` for an action of another class, and for a
     /// Play action whose target the lookup visited before.
@@ -65,7 +67,7 @@ pub enum PlayNode {
     },
     /// An object of a kind that the lookup does not play, such as a music object.
     Unsupported { id: ObjectId, kind: ObjectKind },
-    /// No bank of the set holds the ID.
+    /// No bank of the set contains the ID.
     Missing { id: ObjectId },
 }
 
@@ -85,16 +87,16 @@ impl PlayNode {
     }
 }
 
-/// The file of a [`BankSet`] that holds the media of a sound.
+/// The file of a [`BankSet`] that contains the media of a sound.
 ///
 /// `file` is an index into [`BankSet::files`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MediaSite {
-    /// The media index of a bank holds the media.
+    /// The media index of a bank contains the media.
     InBank { file: usize },
-    /// A package holds the media.
+    /// A package contains the media.
     InPackage { file: usize },
-    /// No file of the set holds the media.
+    /// No file of the set contains the media.
     Missing,
 }
 
@@ -102,9 +104,11 @@ pub enum MediaSite {
 #[derive(Debug, thiserror::Error)]
 #[error("object {object} of {bank} cannot be decoded: {error}")]
 pub struct LookupError {
+    /// The ID of the object that does not decode.
     pub object: ObjectId,
-    /// The game path of the bank that holds the object.
+    /// The game path of the bank that contains the object.
     pub bank: String,
+    /// The error of the decode.
     #[source]
     pub error: ltk_wwise::Error,
 }
@@ -191,7 +195,7 @@ impl<'a> SoundLookup<'a> {
                 .map_or(MediaSite::Missing, |file| MediaSite::InBank { file });
         }
 
-        /* A prefetched sound holds only its start in the bank, so the package copy plays. */
+        /* A prefetched sound contains only its start in the bank, so the package copy plays. */
         self.set
             .package_with_media(source)
             .map_or(MediaSite::Missing, |file| MediaSite::InPackage { file })

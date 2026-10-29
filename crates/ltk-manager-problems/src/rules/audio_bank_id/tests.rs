@@ -33,7 +33,7 @@ const SETT_BANK_ID: u32 = 0xE9B7_0B40;
 /// The version the measured specimens carry, which the rule says nothing about.
 const SPECIMEN_VERSION: BankVersion = BankVersion::V134;
 
-/// A media bank at `version` and `id`, holding one media.
+/// A media bank at `version` and `id`, containing one media.
 fn media_bank(version: BankVersion, id: u32) -> Vec<u8> {
     let mut media = MediaIndex::new();
     media.insert(SourceId(1), vec![0; 64]);

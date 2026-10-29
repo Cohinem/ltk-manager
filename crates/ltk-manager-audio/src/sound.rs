@@ -14,8 +14,8 @@ use crate::decode::{DecodeError, Decoded, decode};
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum SoundError {
-    /// The package or bank holds no media with the source ID.
-    #[error("the file holds no media {source_id}")]
+    /// The package or bank contains no media with the source ID.
+    #[error("the file contains no media {source_id}")]
     NoMedia { source_id: SourceId },
 
     /// The file is not a package, a bank or a WEM.
@@ -33,7 +33,7 @@ pub enum SoundError {
 
 /// Decodes the media `source_id` of the package, bank or WEM `file`.
 ///
-/// The kind of file is read from its magic. A WEM is its own media and ignores `source_id`. A
+/// The kind of file is read from its magic. A WEM file is one media and ignores `source_id`. A
 /// package is mounted, so only the entry records and the one media are read.
 ///
 /// # Errors
@@ -46,11 +46,11 @@ pub fn sound(file: &[u8], source_id: SourceId) -> Result<Decoded, SoundError> {
 
 /// Returns the WEM bytes of the media `source_id` of the package, bank or WEM `file`.
 ///
-/// The kind of file is read from its magic. A WEM is its own media and ignores `source_id`.
+/// The kind of file is read from its magic. A WEM file is one media and ignores `source_id`.
 ///
 /// # Errors
 ///
-/// - [`SoundError::NoMedia`] if a package or bank holds no media `source_id`.
+/// - [`SoundError::NoMedia`] if a package or bank contains no media `source_id`.
 /// - [`SoundError::NotAudio`] if `file` is not a package, a bank or a WEM.
 /// - [`SoundError::Read`] if the package or bank cannot be read.
 pub fn media(file: &[u8], source_id: SourceId) -> Result<Cow<'_, [u8]>, SoundError> {

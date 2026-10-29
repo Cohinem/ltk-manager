@@ -15,6 +15,7 @@ use crate::references::SiteNames;
 /// One event of a bank that a contextual rule plays.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ContextualMatch {
+    /// The ID of the event that the composed name hashes to.
     pub event: ObjectId,
     /// The composed name, such as `Play_vo_Ahri_AhriBasicAttack_cast3D`.
     pub name: String,
@@ -22,6 +23,7 @@ pub struct ContextualMatch {
     pub object: u32,
     /// The position of the rule in the object's rules, in the first index that declares it.
     pub rule: usize,
+    /// The audience whose short name composes the name.
     pub audience: Audience,
     /// `true` if another composition of the same rule and audience is an event of the bank too.
     pub ambiguous: bool,
@@ -81,14 +83,14 @@ pub fn contextual_names(
                 let ambiguous = matched.len() > 1;
 
                 for (event, name) in matched {
-                    let held = found.iter_mut().find(|held| {
-                        held.event == event
-                            && held.object == object
-                            && held.rule == position
-                            && held.audience == audience_name.audience
+                    let existing = found.iter_mut().find(|existing| {
+                        existing.event == event
+                            && existing.object == object
+                            && existing.rule == position
+                            && existing.audience == audience_name.audience
                     });
-                    match held {
-                        Some(held) => held.ambiguous |= ambiguous,
+                    match existing {
+                        Some(existing) => existing.ambiguous |= ambiguous,
                         None => found.push(ContextualMatch {
                             event,
                             name,

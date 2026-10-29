@@ -34,7 +34,7 @@ pub trait SiteNames {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct SiteRow {
-    /// The bin, the project layer first. `None` if no layer and no archive holds it.
+    /// The bin, the project layer first. `None` if no layer and no archive contains it.
     pub asset: Option<AssetRef>,
     /// The game path of the bin.
     pub bin: String,
@@ -77,7 +77,9 @@ pub struct BankDeclaration {
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct BankUnitGroup {
+    /// The `name` of the units.
     pub name: String,
+    /// The `voiceOver` flag of the units.
     pub voice_over: bool,
     /// The `bankPath` files, in the unit's order. The opened file is marked.
     pub files: Vec<SetFile>,
@@ -143,7 +145,7 @@ impl BankReferences {
                                     None => SetFileState::Missing,
                                 },
                                 asset,
-                                opened: file.eq_ignore_ascii_case(path),
+                                opened: opened(file),
                             }
                         })
                         .collect(),
@@ -263,7 +265,7 @@ fn skin_number(segment: &str) -> Option<u32> {
 
 const SKIN_PREFIX: &str = "skin";
 
-/// Returns the row of the bank unit `indexed`, with `extra` steps after the unit's own.
+/// Returns the row of the bank unit `indexed`, with `extra` steps after the steps of the unit.
 pub(crate) fn unit_row(
     indexed: &IndexedUnit,
     extra: Option<&[SiteStep]>,

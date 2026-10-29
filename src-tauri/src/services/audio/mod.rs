@@ -116,7 +116,7 @@ pub(crate) enum SoundFailure {
 /// # Errors
 ///
 /// Fails with [`SoundFailure::Read`] if `read` fails, and with [`SoundFailure::Sound`] if the
-/// asset holds no such media or the media cannot be decoded.
+/// asset contains no such media or the media cannot be decoded.
 pub(crate) fn cached_sound(
     cache: &SoundCache,
     asset: &AssetRef,

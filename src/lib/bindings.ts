@@ -310,12 +310,15 @@ export type AudioContainer =
 
 /**  One event of an event bank, without its tree. */
 export type AudioEvent = {
+	/**  The object ID of the event. */
 	id: number,
 	/**  The name that hashes to the ID, or `None` if no index names it. */
 	name: string | null,
+	/**  The number of actions of the event. */
 	actionCount: number,
 	/**  The number of sounds under the event's Play actions. */
 	mediaCount: number,
+	/**  Whether every object and media of the tree resolves. */
 	status: EventStatus,
 	/**  The contextual rules that play the event. */
 	contexts: EventContext[],
@@ -329,6 +332,7 @@ export type AudioEventList = {
 	events: AudioEvent[],
 	/**  The files of the bank set, the opened bank first. */
 	files: SetFile[],
+	/**  Where the files of the set beside the opened bank come from. */
 	origin: BankSetOrigin,
 };
 
@@ -342,6 +346,7 @@ export type AudioEventResponse = {
 
 /**  The events of an event bank, and the slot of the game's audio index that named them. */
 export type AudioEventsResponse = {
+	/**  The events of the bank and the files of its bank set. */
 	list: AudioEventList,
 	/**  Off `ready`, the names and bank units of the game are missing from the list. */
 	index: AudioIndexStatus,
@@ -363,6 +368,7 @@ message: string };
 
 /**  The header facts of a Wwise package, bank or WEM. */
 export type AudioInfo = {
+	/**  The kind of Wwise file. */
 	container: AudioContainer,
 	/**  The size of the file itself. */
 	sizeBytes: number,
@@ -394,7 +400,9 @@ export type BankDeclaration = {
 
 /**  The `BKHD` header of a bank, and whether the client loads the bank. */
 export type BankFacts = {
+	/**  The generator version of the bank. */
 	version: number,
+	/**  The `dwBankType` field of the header, zero below version 143. */
 	bankType: number,
 	/**  The `uAlignment` field as written. */
 	alignment: number,
@@ -415,24 +423,31 @@ export type BankFacts = {
 export type BankReferencesResponse = {
 	/**  The game path that the units name the file by. */
 	path: string,
+	/**  The bank units that name the file, grouped. */
 	units: BankUnitGroup[],
+	/**  The `AudioBankPaths` and `BankPaths` rows that list the file. */
 	lists: SiteRow[],
 	/**  Off `ready`, the units and lists of the game are missing. */
 	index: AudioIndexStatus,
 };
 
-/**  Which files the bank set of an opened event bank holds beside the bank. */
+/**  Which files the bank set of an opened event bank contains beside the bank. */
 export type BankSetOrigin = 
 /**  The files of every bank unit that names the bank. */
 "units" | 
-/**  No bank unit names the bank. The set holds the `_audio` bank and package beside it. */
+/**  No bank unit lists the bank. The set contains the `_audio` bank and package beside it. */
 "siblings" | 
-/**  No bank unit names the bank, and its name has no `_events` stem. The set holds it alone. */
+/**
+ *  No bank unit lists the bank, and its name has no `_events` stem. The set contains only
+ *  the bank.
+ */
 "alone";
 
 /**  The bank units with one name, one list of paths and one voice-over flag. */
 export type BankUnitGroup = {
+	/**  The `name` of the units. */
 	name: string,
+	/**  The `voiceOver` flag of the units. */
 	voiceOver: boolean,
 	/**  The `bankPath` files, in the unit's order. The opened file is marked. */
 	files: SetFile[],
@@ -2128,8 +2143,9 @@ export type ErrorKind = "IO" | "SERIALIZATION" | "MODPKG" | "LEAGUE_NOT_FOUND" |
 
 /**  One action of an event. */
 export type EventAction = {
+	/**  The object ID of the action. */
 	id: number,
-	/**  The class of the action, `0x0400` for Play. `None` if no bank holds the action. */
+	/**  The class of the action, `0x0400` for Play. `None` if no bank contains the action. */
 	class: number | null,
 	/**  The name of the class, or `0x` and four hex digits for a class without a name. */
 	label: string | null,
@@ -2152,6 +2168,7 @@ export type EventContext = {
 	situation: string,
 	/**  `mRuleName`, such as `Basic 1`. */
 	rule: string | null,
+	/**  The audience whose event name matched. */
 	audience: Audience,
 	/**  `true` if another composition of the rule is an event of the bank too. */
 	ambiguous: boolean,
@@ -2250,8 +2267,16 @@ blendOut: number | null } |
 { kind: "other" };
 
 /**  One object under a Play action. */
-export type EventNode = { kind: "sound"; id: number; source: number; stream: SoundStream; 
-/**  The file that holds the media, or `None` if no file of the set holds it. */
+export type EventNode = 
+/**  A sound: one media that plays. */
+{ kind: "sound"; 
+/**  The object ID of the sound. */
+id: number; 
+/**  The source ID of the media. */
+source: number; 
+/**  Where the media of the sound is stored. */
+stream: SoundStream; 
+/**  The file that contains the media, or `None` if no file of the set contains it. */
 media: MediaLocation | null } | 
 /**  A random or sequence container: one child plays. */
 { kind: "random"; id: number; children: EventNode[] } | 
@@ -2266,8 +2291,10 @@ media: MediaLocation | null } |
 /**  The object kind, the `HIRC` type byte. */
 objectKind: number; 
 /**  The kind's name, such as `MusicSegment`. */
-kindName: string; music: boolean } | 
-/**  No bank of the set holds the ID. */
+kindName: string; 
+/**  `true` for a music object. */
+music: boolean } | 
+/**  No bank of the set contains the ID. */
 { kind: "missing"; id: number };
 
 /**  One pair of a particle event: the joint the system rides, and the joint it aims at. */
@@ -2282,19 +2309,26 @@ export type EventSpawn = {
 export type EventStatus = 
 /**  Every object and every media resolves. */
 { kind: "resolved" } | 
-/**  A sound names a media that no file of the set holds. */
+/**  A sound names a media that no file of the set contains. */
 { kind: "mediaMissing" } | 
-/**  An action or a node names an object that no bank of the set holds. */
+/**  An action or a node names an object that no bank of the set contains. */
 { kind: "objectMissing" } | 
 /**  An object of the tree cannot be decoded. */
-{ kind: "decodeError"; object: number; 
-/**  The game path of the bank that holds the object. */
-bank: string; message: string };
+{ kind: "decodeError"; 
+/**  The ID of the object that does not decode. */
+object: number; 
+/**  The game path of the bank that contains the object. */
+bank: string; 
+/**  The error of the decode. */
+message: string };
 
 /**  The play tree of one event, as the event tree draws it. */
 export type EventTree = {
+	/**  The object ID of the event. */
 	event: number,
+	/**  The name that hashes to the ID, or `None` if no index names it. */
 	name: string | null,
+	/**  The actions of the event, in the order that the client runs them. */
 	actions: EventAction[],
 };
 
@@ -4979,23 +5013,29 @@ export type MaterialWarning =
  */
 { kind: "nearestPermutation"; set: string[]; unset: string[] };
 
-/**  The kind of file that holds a media. */
-export type MediaContainer = "bank" | "package";
+/**  The kind of file that contains a media. */
+export type MediaContainer = 
+/**  A media bank or an event bank, in its media index. */
+"bank" | 
+/**  A package, in one of its entries. */
+"package";
 
 /**  What a media export writes. */
 export type MediaExport = 
 /**  The decoded media: Ogg Vorbis for Vorbis, WAV for PCM. */
 "decoded" | 
-/**  The WEM bytes as the file holds them. */
+/**  The WEM bytes as the file contains them. */
 "original";
 
 /**  The format facts of one WEM media, from its `fmt ` and `data` chunk headers. */
 export type MediaFormat = {
 	/**  The `wFormatTag` of the media. */
 	codec: number,
+	/**  The number of channels. */
 	channels: number,
 	/**  Samples per second. */
 	sampleRate: number,
+	/**  The `nAvgBytesPerSec` of the media, which the duration divides by. */
 	averageBytesPerSecond: number,
 	/**  The size of the `data` chunk in bytes. */
 	dataSize: number,
@@ -5003,12 +5043,15 @@ export type MediaFormat = {
 	durationSeconds: number | null,
 };
 
-/**  The file that holds the media of a sound, and the source ID that a preview URL reads. */
+/**  The file that contains the media of a sound, and the source ID that a preview URL reads. */
 export type MediaLocation = {
+	/**  The layer file or game chunk that contains the media. */
 	asset: AssetRef,
 	/**  The game path of the file. */
 	path: string,
+	/**  The source ID of the media. */
 	source: number,
+	/**  The kind of file that contains the media. */
 	container: MediaContainer,
 };
 
@@ -5020,6 +5063,7 @@ export type MediaRow = {
 	sizeBytes: number,
 	/**  The `fmt ` and `data` facts, or `None` if the media is not a readable WEM. */
 	format: MediaFormat | null,
+	/**  Whether the media decodes for playback, and why not. */
 	playback: Playback,
 };
 
@@ -6633,7 +6677,7 @@ export type Problem_Deserialize = {
 	message?: string | null,
 	/**  What a repair would change, drawn before it is applied. */
 	fix: FixPreview_Deserialize | null,
-	/**  The repairs offered beside `fix`, each applied only on its own press. */
+	/**  The repairs offered beside `fix`, each applied only when it is pressed. */
 	alternatives?: FixAlternative_Deserialize[],
 };
 
@@ -6650,7 +6694,7 @@ export type Problem_Serialize = {
 	message?: string | null,
 	/**  What a repair would change, drawn before it is applied. */
 	fix: FixPreview_Serialize | null,
-	/**  The repairs offered beside `fix`, each applied only on its own press. */
+	/**  The repairs offered beside `fix`, each applied only when it is pressed. */
 	alternatives?: FixAlternative_Serialize[],
 };
 
@@ -7171,7 +7215,9 @@ export type ResolvedPass = {
 
 /**  One event name and what it resolves to. */
 export type ResolvedSound = {
+	/**  The event name, as asked for. */
 	name: string,
+	/**  What the name resolves to. */
 	resolution: SoundResolution,
 };
 
@@ -7830,16 +7876,24 @@ export type SessionStarted = {
 
 /**  One file of the bank set of an event bank. */
 export type SetFile = {
+	/**  The game path of the file, localized for a voice-over file that was read so. */
 	path: string,
-	/**  The layer file or game chunk that holds the file, or `None` if no store holds it. */
+	/**  The layer file or game chunk that contains the file, or `None` if no store contains it. */
 	asset: AssetRef | null,
+	/**  Whether the file was read. */
 	state: SetFileState,
 	/**  `true` for the file that the document opened. */
 	opened: boolean,
 };
 
 /**  Whether a file of a bank set was read. */
-export type SetFileState = { kind: "found" } | { kind: "missing" } | { kind: "failed"; message: string };
+export type SetFileState = 
+/**  The file was read as a bank or mounted as a package. */
+{ kind: "found" } | 
+/**  No layer and no game archive contains the path. */
+{ kind: "missing" } | 
+/**  The file does not read, with the error of the read. */
+{ kind: "failed"; message: string };
 
 /**
  *  Application settings: UI/shell preferences plus the flattened core
@@ -8170,7 +8224,7 @@ export type Site = Site_Serialize | Site_Deserialize;
 
 /**  An object of a bin, and optionally a row of it, with what an open of its tab reads. */
 export type SiteRow = {
-	/**  The bin, the project layer first. `None` if no layer and no archive holds it. */
+	/**  The bin, the project layer first. `None` if no layer and no archive contains it. */
 	asset: AssetRef | null,
 	/**  The game path of the bin. */
 	bin: string,
@@ -8336,12 +8390,16 @@ class: string };
 export type SoundResolution = 
 /**  The play tree of the event. */
 { status: "resolved"; tree: EventTree } | 
-/**  No bank of the set holds an event of the name. */
+/**  No bank of the set contains an event of the name. */
 { status: "noEvent" } | 
 /**  An object of the tree cannot be decoded. */
-{ status: "decodeError"; object: number; 
-/**  The game path of the bank that holds the object. */
-bank: string; message: string };
+{ status: "decodeError"; 
+/**  The ID of the object that does not decode. */
+object: number; 
+/**  The game path of the bank that contains the object. */
+bank: string; 
+/**  The error of the decode. */
+message: string };
 
 /**  Where the media of a sound is stored. */
 export type SoundStream = 

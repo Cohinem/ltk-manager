@@ -31,7 +31,7 @@ pub const BANK_EVENTS: BinHash = named("events");
 /// The field hash of `voiceOver` on [`BANK_UNIT`].
 pub const BANK_VOICE_OVER: BinHash = named("voiceOver");
 
-/// Each bin class whose string fields hold an event name, with the hashes of those fields.
+/// Each bin class whose string fields contain an event name, with the hashes of those fields.
 pub const EVENT_FIELDS: &[(BinHash, &[BinHash])] = &[
     (named("SoundEventData"), &[named("mSoundName")]),
     (
@@ -106,6 +106,7 @@ pub const BANK_LISTS: &[(BinHash, BinHash)] = &[
 #[cfg_attr(feature = "ts", derive(specta::Type))]
 #[serde(rename_all = "camelCase")]
 pub struct BankUnit {
+    /// The `name` of the unit, which the skin loader does not read.
     pub name: String,
     /// The `bankPath` list: event banks, media banks and packages.
     pub bank_path: Vec<String>,
@@ -139,27 +140,27 @@ impl BankFile {
         self.unit
     }
 
-    /// Returns the layer file or game chunk that holds the file, or `None` for a missing file.
+    /// Returns the layer file or game chunk that contains the file, or `None` for a missing file.
     #[must_use]
     pub fn asset(&self) -> Option<&AssetRef> {
         self.asset.as_ref()
     }
 
-    /// Returns what the file holds.
+    /// Returns what the file contains.
     #[must_use]
     pub fn content(&self) -> &BankContent {
         &self.content
     }
 }
 
-/// What one file of a [`BankSet`] holds.
+/// What one file of a [`BankSet`] contains.
 #[derive(Debug)]
 pub enum BankContent {
     /// An event bank or a media bank.
     Bank { bank: Bank },
     /// A package, mounted: the entry records. The media stay in the file.
     Package { entries: Vec<MountedEntry> },
-    /// No layer and no game archive holds the path.
+    /// No layer and no game archive contains the path.
     Missing,
     /// The file cannot be read. `message` is the error of the read.
     Failed { message: String },
@@ -190,7 +191,7 @@ impl BankSet {
     ///
     /// A `.wpk` path is mounted as a package, and every other path is read as a bank. A path of a
     /// voice-over unit is read under `locale` first, the client's locale such as `ko_kr`, and
-    /// falls back to the path as written. A file that no store holds or that fails to read is
+    /// falls back to the path as written. A file that no store contains or that fails to read is
     /// kept in the set, and the other files still open.
     #[must_use]
     pub fn open(units: &[BankUnit], files: &dyn AudioFiles, locale: Option<&str>) -> Self {
@@ -245,12 +246,12 @@ impl BankSet {
         Some((site.file, bank, object))
     }
 
-    /// Returns the index of the first file whose media index holds `source`.
+    /// Returns the index of the first file whose media index contains `source`.
     pub(crate) fn bank_with_media(&self, source: SourceId) -> Option<usize> {
         self.banked.get(&source).copied()
     }
 
-    /// Returns the index of the first package that holds the media `source`.
+    /// Returns the index of the first package that contains the media `source`.
     pub(crate) fn package_with_media(&self, source: SourceId) -> Option<usize> {
         self.packaged.get(&package_key(source)).copied()
     }

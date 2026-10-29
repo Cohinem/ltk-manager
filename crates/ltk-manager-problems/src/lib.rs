@@ -346,7 +346,7 @@ pub struct Detail {
     pub message: Option<String>,
     /// What a repair would change. `None` where the rule has no repair.
     pub fix: Option<FixPreview>,
-    /// The repairs offered beside [`fix`](Self::fix), each applied only on its own press.
+    /// The repairs offered beside [`fix`](Self::fix), each applied only when it is pressed.
     pub alternatives: Vec<FixAlternative>,
 }
 
@@ -380,7 +380,7 @@ pub struct Problem {
     pub message: Option<String>,
     /// What a repair would change, drawn before it is applied.
     pub fix: Option<FixPreview>,
-    /// The repairs offered beside `fix`, each applied only on its own press.
+    /// The repairs offered beside `fix`, each applied only when it is pressed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[cfg_attr(feature = "ts", specta(optional))]
     pub alternatives: Vec<FixAlternative>,

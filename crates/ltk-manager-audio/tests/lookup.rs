@@ -23,7 +23,7 @@ fn bytes_of(bank: &Bank) -> Vec<u8> {
     bytes
 }
 
-/// Returns a version 145 bank whose hierarchy holds `objects`.
+/// Returns a version 145 bank whose hierarchy contains `objects`.
 fn hierarchy_bank(objects: impl IntoIterator<Item = Object>) -> Bank {
     let mut hierarchy = Hierarchy::new();
     for object in objects {
@@ -69,7 +69,7 @@ fn stop(id: u32, target: u32) -> Object {
     payload.extend_from_slice(&0x0102u16.to_le_bytes());
     payload.extend_from_slice(&target.to_le_bytes());
     payload.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
-    Object::new(ObjectKind::ACTION, payload).expect("payload holds an ID")
+    Object::new(ObjectKind::ACTION, payload).expect("payload contains an ID")
 }
 
 fn sound(id: u32, source: u32, stream: StreamType) -> Object {
@@ -104,7 +104,7 @@ fn layer(id: u32, children: &[u32]) -> Object {
     let mut payload = mixer(id, children).into_payload();
     /* The layer count and the `continuous_validation` byte. */
     payload.extend_from_slice(&[0; 5]);
-    Object::new(ObjectKind::LAYER_CONTAINER, payload).expect("payload holds an ID")
+    Object::new(ObjectKind::LAYER_CONTAINER, payload).expect("payload contains an ID")
 }
 
 /// Returns a SwitchContainer: an actor-mixer payload with empty switch fields around the children.
@@ -115,12 +115,12 @@ fn switch(id: u32, children: &[u32]) -> Object {
     payload.splice(node_end..node_end, [0; 10]);
     /* The switch group count and the switch parameter count. */
     payload.extend_from_slice(&[0; 8]);
-    Object::new(ObjectKind::SWITCH_CONTAINER, payload).expect("payload holds an ID")
+    Object::new(ObjectKind::SWITCH_CONTAINER, payload).expect("payload contains an ID")
 }
 
 /// Returns an object of the kind `kind` that has no typed layout.
 fn untyped(kind: ObjectKind, id: u32) -> Object {
-    Object::new(kind, id.to_le_bytes().to_vec()).expect("payload holds an ID")
+    Object::new(kind, id.to_le_bytes().to_vec()).expect("payload contains an ID")
 }
 
 /// Returns a Sound whose payload ends after its ID.

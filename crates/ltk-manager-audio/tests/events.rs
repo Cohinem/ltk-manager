@@ -22,11 +22,11 @@ const PACKAGE: &str = "assets/sounds/wwise2016/sfx/shared/map22_sfx_audio.wpk";
 /// The events of `events_v145.bnk`, in file order.
 const FIXTURE_EVENTS: [u32; 3] = [339_038_649, 3_553_705_574, 3_890_987_893];
 
-/// The event of the fixture whose tree holds the one `DATA_BANK` sound, 879168912.
+/// The event of the fixture whose tree contains the one `DATA_BANK` sound, 879168912.
 const BANKED_EVENT: u32 = 339_038_649;
 const BANKED_SOURCE: u32 = 879_168_912;
 
-/// The streaming sources of `events_v145.bnk`, which no fixture package holds.
+/// The streaming sources of `events_v145.bnk`, which no fixture package contains.
 const STREAMED: [u32; 16] = [
     6_126_505,
     486_319_399,
@@ -46,7 +46,7 @@ const STREAMED: [u32; 16] = [
     753_477_248,
 ];
 
-/// A package that holds one placeholder media for each streaming source of the event fixture.
+/// A package that contains one placeholder media for each streaming source of the event fixture.
 fn streamed_package() -> Vec<u8> {
     let mut package = Package::new();
     for source in STREAMED {
@@ -293,7 +293,7 @@ fn stop(id: u32, target: u32) -> Object {
     payload.extend_from_slice(&0x0102u16.to_le_bytes());
     payload.extend_from_slice(&target.to_le_bytes());
     payload.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
-    Object::new(ObjectKind::ACTION, payload).expect("payload holds an ID")
+    Object::new(ObjectKind::ACTION, payload).expect("payload contains an ID")
 }
 
 #[test]

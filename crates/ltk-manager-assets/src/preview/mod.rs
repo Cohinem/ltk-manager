@@ -303,10 +303,10 @@ impl AssetRef {
         self.info_from(&self.read(config, wads)?)
     }
 
-    /// Reports what the asset holds from its bytes `bytes`, as [`info`](Self::info) does.
+    /// Reports what the asset contains from its bytes `bytes`, as [`info`](Self::info) does.
     ///
-    /// No kind reports [`AssetInfo::Audio`] here. The shell answers a Wwise file before it
-    /// calls this.
+    /// No kind reports [`AssetInfo::Audio`] here. The shell reads the info of a Wwise file itself
+    /// and does not call this for one.
     ///
     /// # Errors
     ///

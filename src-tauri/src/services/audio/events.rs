@@ -69,7 +69,7 @@ pub async fn read_audio_events(
 
 /// Resolve the event `event` of the event bank `asset` into its play tree.
 ///
-/// Fails with `VALIDATION_FAILED` if the bank holds no event `event`, and with a preview error
+/// Fails with `VALIDATION_FAILED` if the bank contains no event `event`, and with a preview error
 /// that names the object if an object of the tree cannot be decoded.
 #[tauri::command]
 #[specta::specta]

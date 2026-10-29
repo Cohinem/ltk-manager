@@ -15,8 +15,11 @@ use crate::names::EventNames;
 pub struct IndexedUnit {
     /// The game path of the bin.
     pub bin: String,
+    /// The unit as written.
     pub unit: BankUnit,
+    /// The row of the unit in its bin.
     pub site: BankSite,
+    /// The audio fields of the object that declares the unit.
     pub holder: HolderAudio,
 }
 
@@ -25,6 +28,7 @@ pub struct IndexedUnit {
 pub struct IndexedList {
     /// The game path of the bin.
     pub bin: String,
+    /// The list as written.
     pub list: BankList,
 }
 
@@ -33,6 +37,7 @@ pub struct IndexedList {
 pub struct IndexedRules {
     /// The game path of the bin.
     pub bin: String,
+    /// The rules of the object, in list order.
     pub rules: Vec<ContextualRule>,
 }
 
@@ -112,7 +117,7 @@ impl AudioIndex {
         self.names.get(id)
     }
 
-    /// Returns `true` if a package or a media bank of the index holds the media `source`.
+    /// Returns `true` if a package or a media bank of the index contains the media `source`.
     #[must_use]
     pub fn uses_source(&self, source: SourceId) -> bool {
         self.sources.contains(&source)
