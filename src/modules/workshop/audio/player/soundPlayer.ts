@@ -3,8 +3,8 @@
  *
  * A channel is the voices of one surface, a viewport or an audio file document, which play,
  * pause and stop together. Media arrive over the `sound` form of the `ltk-asset` scheme, decode
- * with `decodeAudioData` and stay in a cache by URL. The context is created on the first play,
- * so a surface that never plays builds no graph. Per "Viewport sound" in docs/ux/AUDIO.md.
+ * with `decodeAudioData` and stay in a cache by URL. The context is created on the first play or
+ * decode, so a surface that never plays builds no graph. Per "Viewport sound" in docs/ux/AUDIO.md.
  */
 
 /**
@@ -24,12 +24,18 @@ export interface ChannelState {
   readonly playing: ReadonlySet<string>;
   /** The keys whose media did not arrive or did not decode. */
   readonly failed: ReadonlySet<string>;
+  /** `true` between `pause` and `resume`. */
+  readonly paused: boolean;
 }
 
 /** The voices of one surface. */
 export interface SoundChannel {
-  /** Starts one voice per URL under `key`, all at once. */
-  play(key: string, urls: readonly string[]): void;
+  /** Starts one voice per URL under `key`, all at once, `from` seconds into each media. */
+  play(key: string, urls: readonly string[], from?: number): void;
+  /** Moves every voice of `key` to `seconds` into its media. A voice shorter than that ends. */
+  seek(key: string, seconds: number): void;
+  /** Returns the seconds into its media of the first voice of `key`, or `null` without one. */
+  position(key: string): number | null;
   /** Stops every voice of `key`. */
   stop(key: string): void;
   /** Stops every voice of the channel. */
@@ -64,6 +70,11 @@ function audioGraph(): Graph {
 
 const buffers = new Map<string, Promise<AudioBuffer>>();
 
+/** Returns the decoded media at `url`, from the cache that the channels play from. */
+export function decodeMedia(url: string): Promise<AudioBuffer> {
+  return decoded(audioGraph().context, url);
+}
+
 /** Returns the decoded media at `url`, from the cache or fetched once. */
 function decoded(context: AudioContext, url: string): Promise<AudioBuffer> {
   const cached = buffers.get(url);
@@ -95,7 +106,25 @@ interface Voice {
   offset: number;
 }
 
-const EMPTY: ChannelState = { playing: new Set(), failed: new Set() };
+/** The timing of one voice, as `voiceTime` reads it. */
+export interface VoiceTiming {
+  /** Seconds into the media that the voice started or was held at. */
+  readonly offset: number;
+  /** The context time the voice started at. */
+  readonly startedAt: number;
+  /** `true` while a source plays the voice. */
+  readonly running: boolean;
+  /** The length of the media in seconds, or `null` before it decodes. */
+  readonly duration: number | null;
+}
+
+/** Returns the seconds into its media that a voice plays at the context time `now`. */
+export function voiceTime(voice: VoiceTiming, now: number): number {
+  const time = voice.running ? voice.offset + (now - voice.startedAt) : voice.offset;
+  return voice.duration === null ? time : Math.min(time, voice.duration);
+}
+
+const EMPTY: ChannelState = { playing: new Set(), failed: new Set(), paused: false };
 
 /**
  * Returns a channel whose gain starts at `volume`.
@@ -112,7 +141,7 @@ export function openChannel(volume: number): SoundChannel {
   const listeners = new Set<() => void>();
 
   const changed = () => {
-    snapshot = { playing: new Set(voices.map((voice) => voice.key)), failed };
+    snapshot = { playing: new Set(voices.map((voice) => voice.key)), failed, paused };
     for (const listener of listeners) listener();
   };
 
@@ -162,15 +191,16 @@ export function openChannel(volume: number): SoundChannel {
   };
 
   return {
-    play(key, urls) {
+    play(key, urls, from = 0) {
       if (urls.length === 0) return;
 
       const { context } = audioGraph();
       output();
       void context.resume();
 
+      const offset = Math.max(0, from);
       for (const url of urls) {
-        const voice: Voice = { key, buffer: null, source: null, startedAt: 0, offset: 0 };
+        const voice: Voice = { key, buffer: null, source: null, startedAt: 0, offset };
         voices.push(voice);
         while (voices.length > VOICE_CAP) end(voices[0]);
 
@@ -197,6 +227,29 @@ export function openChannel(volume: number): SoundChannel {
       for (const voice of stopped) end(voice);
       changed();
     },
+    seek(key, seconds) {
+      const moved = voices.filter((voice) => voice.key === key);
+      if (moved.length === 0) return;
+
+      for (const voice of moved) {
+        halt(voice);
+        voice.offset = Math.max(0, seconds);
+        if (!paused) start(voice);
+      }
+      changed();
+    },
+    position(key) {
+      const voice = voices.find((each) => each.key === key);
+      if (voice === undefined) return null;
+
+      const timing: VoiceTiming = {
+        offset: voice.offset,
+        startedAt: voice.startedAt,
+        running: voice.source !== null,
+        duration: voice.buffer?.duration ?? null,
+      };
+      return voiceTime(timing, graph?.context.currentTime ?? 0);
+    },
     stopAll() {
       if (voices.length === 0) return;
 
@@ -208,12 +261,12 @@ export function openChannel(volume: number): SoundChannel {
       if (paused) return;
 
       paused = true;
-      if (graph === null) return;
       for (const voice of voices) {
-        if (voice.source === null) continue;
+        if (graph === null || voice.source === null) continue;
         voice.offset += graph.context.currentTime - voice.startedAt;
         halt(voice);
       }
+      changed();
     },
     resume() {
       if (!paused) return;
@@ -222,6 +275,7 @@ export function openChannel(volume: number): SoundChannel {
       for (const voice of [...voices]) {
         if (voice.source === null && voice.buffer !== null) start(voice);
       }
+      changed();
     },
     setVolume(next) {
       level = next;

@@ -107,5 +107,12 @@
   "audio_viewport_volume_label": "Sound volume",
   "audio_viewport_volume_reading": "{percent}%",
   "audio_viewport_volume_reset_action": "Reset the volume",
-  "audio_viewport_volume_slider_label": "Volume"
+  "audio_viewport_volume_slider_label": "Volume",
+  "audio_waveform_empty": "No media selected",
+  "audio_waveform_failed_empty": "The waveform cannot be read",
+  "audio_waveform_label": "Playhead",
+  "audio_waveform_loading_label": "Reading the waveform",
+  "audio_waveform_pause_action": "Pause",
+  "audio_waveform_play_action": "Play",
+  "audio_waveform_time_label": "{time} / {duration}"
 }

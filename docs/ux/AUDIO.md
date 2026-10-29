@@ -8,6 +8,7 @@ and of `ltk_wwise`.
 
 | Date       | Change                                          |
 | ---------- | ----------------------------------------------- |
+| 2026-10-29 | Add the waveform                                |
 | 2026-10-29 | Add viewport sound                              |
 | 2026-10-29 | Add the event tree                              |
 | 2026-10-29 | Add the audio file document and its media table |
@@ -191,6 +192,42 @@ An event's context menu holds Copy event name, which copies `#` and the ID for a
 event. An action's and an object's menu holds Copy object ID. A sound whose media is found also
 holds Show media, which opens the document of the file that holds the media, switches it to the
 Media tab and selects the row of the source ID.
+
+## Waveform
+
+The media table and the event tree each have a waveform strip under them: a play and pause
+button, the waveform of one media with its playhead, and the time as `m:ss.cc` of the playhead
+and of the media.
+
+| Panel  | The strip shows                                                                       |
+| ------ | ------------------------------------------------------------------------------------- |
+| Media  | The row that plays, else the selected row if it plays                                 |
+| Events | The first media of the press that plays, else the selected sound, else the last press |
+
+The strip plays through the channel of its panel, at the panel's volume, and adds no player of
+its own. The media decodes once, through the cache that playback reads, and the strip draws its
+peaks. A selection decodes after it holds for 150 ms, so a run of arrow keys decodes one media.
+
+- A click on the waveform moves the playhead there. A drag moves it where the drag ends.
+- A seek on a media that plays or holds keeps that state. A seek on a media that does not play
+  plays it from the playhead.
+- An event plays all of its media at once, and a seek moves each of them to the playhead. A media
+  shorter than the playhead ends.
+- Pause holds every voice of the panel, and Play resumes them. Play on a media that does not play
+  plays it from the start. A row of the table or the tree that is held shows as playing, and a
+  press on it stops it.
+- The playhead returns to the start when the media ends or stops.
+
+The waveform is one tab stop, a slider of the playhead.
+
+| Key        | Action                                          |
+| ---------- | ----------------------------------------------- |
+| Right, Up  | Move the playhead on a twentieth of the media   |
+| Left, Down | Move the playhead back a twentieth of the media |
+| Page Up    | Move the playhead on a quarter of the media     |
+| Page Down  | Move the playhead back a quarter of the media   |
+| Home, End  | Move the playhead to the start or the end       |
+| Space      | Play or pause                                   |
 
 ## Viewport sound
 

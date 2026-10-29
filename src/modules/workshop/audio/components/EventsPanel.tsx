@@ -27,6 +27,7 @@ import {
   type TreeState,
 } from "../utils/eventTree";
 import { EventTree, isPlayable } from "./EventTree";
+import { EventWaveform } from "./Waveform";
 
 interface EventsPanelProps {
   readonly asset: AssetRef;
@@ -146,6 +147,7 @@ export function EventsPanel({ asset, random = Math.random }: EventsPanelProps) {
           menu={(row) => <EventMenu row={row} onCopy={copyRow} />}
         />
       )}
+      {listed.length > 0 && <EventWaveform player={player} rows={rows} selected={selected} />}
       <span aria-live="polite" className="sr-only">
         {announcement}
       </span>
