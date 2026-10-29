@@ -6,7 +6,10 @@ use std::io::Cursor;
 
 use common::{fixture, packaged_sources};
 use ltk_hash::BinHash;
-use ltk_manager_audio::{AudioIndex, BankUnit, BinAudio, ObjectId, SourceId, media_sources};
+use ltk_manager_audio::{
+    AudioIndex, BankList, BankSite, BankUnit, BinAudio, ContextualRule, ContextualRules,
+    HolderAudio, ObjectId, SiteStep, SourceId, media_sources,
+};
 use ltk_manager_base::hashing::named;
 use ltk_meta::property::values;
 use ltk_meta::{Bin, BinObject, PropertyValueEnum};
@@ -102,9 +105,50 @@ fn skin_bin() -> Vec<u8> {
     bytes_of(&Bin::new([audio, vfx, clip], std::iter::empty::<&str>()))
 }
 
+const SPELL_BIN: &str = "data/characters/ahri/ahri.bin";
+const CAC_BIN: &str = "data/characters/ahri/ahri_multi_skins_root.bin";
+const CAC_OBJECT: u32 = 0x2222_0000;
+
 fn index() -> AudioIndex {
     let mut builder = AudioIndex::builder();
     builder.add_bin(SKIN_BIN, BinAudio::read(&skin_bin()).expect("read bin"));
+    builder.build()
+}
+
+/// An index with the skin bin, a bin with a bank list and a bin with contextual rules.
+fn full_index() -> AudioIndex {
+    let mut builder = AudioIndex::builder();
+    builder.add_bin(SKIN_BIN, BinAudio::read(&skin_bin()).expect("read bin"));
+    builder.add_bin(
+        SPELL_BIN,
+        BinAudio {
+            lists: vec![BankList {
+                paths: vec![EVENTS_BANK.to_uppercase()],
+                site: BankSite {
+                    object: 5,
+                    class: named("SpellObject").0,
+                    steps: vec![
+                        SiteStep::Field(named("mSpell").0),
+                        SiteStep::Field(named("AudioBankPaths").0),
+                    ],
+                },
+            }],
+            ..BinAudio::default()
+        },
+    );
+    builder.add_bin(
+        CAC_BIN,
+        BinAudio {
+            contextual: vec![ContextualRules {
+                object: CAC_OBJECT,
+                rules: vec![ContextualRule {
+                    name: Some("Basic 1".to_owned()),
+                    ..ContextualRule::default()
+                }],
+            }],
+            ..BinAudio::default()
+        },
+    );
     builder.build()
 }
 
@@ -112,9 +156,10 @@ fn index() -> AudioIndex {
 fn bin_audio_reads_bank_units_as_written() {
     let audio = BinAudio::read(&skin_bin()).unwrap();
 
+    let units: Vec<&BankUnit> = audio.units.iter().map(|sited| &sited.unit).collect();
     assert_eq!(
-        audio.units,
-        [BankUnit {
+        units,
+        [&BankUnit {
             name: "Ahri_Skin07_SFX".to_owned(),
             bank_path: vec![EVENTS_BANK.to_owned(), AUDIO_BANK.to_owned()],
             events: vec!["Play_sfx_Ahri_AhriQ_OnCast".to_owned()],
@@ -207,8 +252,60 @@ fn media_sources_of_event_bank_without_media_is_empty() {
 }
 
 #[test]
-fn audio_index_round_trips_through_bytes_for_its_build() {
+fn audio_index_units_naming_returns_site_and_holder() {
     let index = index();
+
+    let unit = index.units_naming(EVENTS_BANK).next().expect("a unit");
+
+    assert_eq!(
+        unit.site,
+        BankSite {
+            object: 1,
+            class: SKIN_AUDIO.0,
+            steps: vec![SiteStep::Field(BANK_UNITS.0), SiteStep::Index(0)],
+        }
+    );
+    assert_eq!(unit.holder, HolderAudio::default());
+}
+
+#[test]
+fn audio_index_lists_naming_path_match_without_case() {
+    let index = full_index();
+
+    let bins: Vec<&str> = index
+        .lists_naming(EVENTS_BANK)
+        .map(|list| list.bin.as_str())
+        .collect();
+
+    assert_eq!(bins, [SPELL_BIN]);
+    assert_eq!(index.lists_naming(AUDIO_BANK).count(), 0);
+}
+
+#[test]
+fn audio_index_contextual_returns_rules_of_object() {
+    let index = full_index();
+
+    let rules = index.contextual(CAC_OBJECT).expect("rules");
+
+    assert_eq!(rules.bin, CAC_BIN);
+    assert_eq!(rules.rules[0].name.as_deref(), Some("Basic 1"));
+    assert!(index.contextual(CAC_OBJECT + 1).is_none());
+}
+
+#[test]
+fn audio_index_from_bytes_rejects_previous_file_version() {
+    let mut bytes = index().to_bytes("16.21.1");
+
+    /* MessagePack writes the file as an array whose first item is the version, a fixint. */
+    assert_eq!(bytes[0], 0x93);
+    bytes[1] -= 1;
+
+    assert_eq!(AudioIndex::from_bytes(&bytes, "16.21.1"), None);
+}
+
+#[test]
+fn audio_index_round_trips_through_bytes_for_its_build() {
+    let index = full_index();
 
     let bytes = index.to_bytes("16.21.1");
 

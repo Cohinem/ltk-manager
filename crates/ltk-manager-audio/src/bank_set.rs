@@ -63,6 +63,44 @@ pub const EVENT_FIELDS: &[(BinHash, &[BinHash])] = &[
     ),
 ];
 
+/// The field hash of `skinAudioProperties` on `SkinCharacterDataProperties`.
+pub const SKIN_AUDIO_PROPERTIES: BinHash = named("skinAudioProperties");
+
+/// The field hash of `tagEventList` on `SkinAudioProperties`, the tags of a skin's VO events.
+pub const TAG_EVENT_LIST: BinHash = named("tagEventList");
+
+/// The field hash of `mContextualActionData` on `SkinCharacterDataProperties`, a link.
+pub const CONTEXTUAL_ACTION_LINK: BinHash = named("mContextualActionData");
+
+/// The class hash of `ContextualActionData`, the voice-over rules of a skin.
+pub const CONTEXTUAL_ACTION_DATA: BinHash = named("ContextualActionData");
+
+/// The class hash of `ContextualRule`, one rule of a `ContextualSituation`.
+pub const CONTEXTUAL_RULE: BinHash = named("ContextualRule");
+
+/// The field hash of `mRuleName` on [`CONTEXTUAL_RULE`].
+///
+/// The shipped rules carry it, and the meta class does not declare it.
+pub const RULE_NAME: BinHash = named("mRuleName");
+
+/// The field hash of `mConditions` on [`CONTEXTUAL_RULE`].
+pub const RULE_CONDITIONS: BinHash = named("mConditions");
+
+/// The field hash of `mAudioAction` on [`CONTEXTUAL_RULE`], a `ContextualActionPlayAudio`.
+pub const RULE_AUDIO_ACTION: BinHash = named("mAudioAction");
+
+/// The class hash of `ContextualConditionSpellName`.
+pub const CONDITION_SPELL_NAME: BinHash = named("ContextualConditionSpellName");
+
+/// The field hash of `mSpell` on [`CONDITION_SPELL_NAME`], the hash of a spell object path.
+pub const CONDITION_SPELL: BinHash = named("mSpell");
+
+/// Each class and field whose value is a list of bank paths without a `BankUnit`.
+pub const BANK_LISTS: &[(BinHash, BinHash)] = &[
+    (named("SpellDataResource"), named("AudioBankPaths")),
+    (named("ClientStateAudioDataProperties"), named("BankPaths")),
+];
+
 /// One `BankUnit` of a bin, as written.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct BankUnit {

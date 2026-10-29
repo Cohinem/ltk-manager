@@ -2,7 +2,7 @@
 //!
 //! "Event tree" in `docs/ux/AUDIO.md`.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io;
 
 use ltk_manager_assets::preview::AssetRef;
@@ -10,11 +10,14 @@ use ltk_wwise::hierarchy::{ObjectKind, StreamType};
 use ltk_wwise::{ObjectId, SourceId};
 use serde::Serialize;
 
-use crate::bank_set::{BankContent, BankSet, BankUnit};
+use crate::bank_set::{BANK_EVENTS, BankContent, BankSet, BankUnit, CONTEXTUAL_ACTION_DATA};
+use crate::bin_audio::{Audience, SiteStep};
+use crate::contextual::{ContextualMatch, contextual_names};
 use crate::files::{AudioFile, AudioFiles, ReadSeek};
 use crate::index::AudioIndex;
 use crate::lookup::{ActionNode, LookupError, MediaSite, PlayNode, PlayTree, SoundLookup};
 use crate::names::EventNames;
+use crate::references::{BinRow, SiteNames, bin_row, hex, ranked_units, unit_row};
 
 /// The bank that a document opened, with the game path that the bank units name it by.
 #[derive(Debug, Clone)]
@@ -43,6 +46,8 @@ pub struct EventBank {
     set: BankSet,
     names: EventNames,
     origin: BankSetOrigin,
+    contexts: HashMap<ObjectId, Vec<EventContext>>,
+    listed: HashMap<ObjectId, BinRow>,
 }
 
 impl EventBank {
@@ -52,13 +57,15 @@ impl EventBank {
     /// the game. The opened bank is the first file of the set, read from its own bytes. If no
     /// unit names it, the set falls back to the sibling convention: the same directory, the stem
     /// with `_events` replaced by `_audio`, as a `.bnk` and a `.wpk`. An event takes its name
-    /// from the first index that names its ID.
+    /// from the first index that names its ID, and else from the contextual rules of the
+    /// holders of the units, which [`contextual_names`] composes. `names` writes the rows.
     #[must_use]
     pub fn open(
         opened: OpenedBank,
         indexes: &[&AudioIndex],
         files: &dyn AudioFiles,
         locale: Option<&str>,
+        names: &dyn SiteNames,
     ) -> Self {
         let (units, origin) = bank_units(&opened.path, indexes);
         let files = WithOpened {
@@ -67,14 +74,52 @@ impl EventBank {
         };
         let set = BankSet::open(&units, &files, locale);
 
-        let mut names = EventNames::new();
-        for id in event_ids(&set) {
+        let ids: HashSet<ObjectId> = event_ids(&set).collect();
+        let mut event_names = EventNames::new();
+        for &id in &ids {
             if let Some(name) = indexes.iter().find_map(|index| index.name(id)) {
-                names.insert(name);
+                event_names.insert(name);
             }
         }
 
-        Self { set, names, origin }
+        let declared = ranked_units(&opened.path, indexes);
+        let mut contexts: HashMap<ObjectId, Vec<EventContext>> = HashMap::new();
+        for found in contextual_names(&declared, indexes, &ids, names) {
+            event_names.insert(&found.name);
+            if let Some(context) = context_of(&found, indexes, names) {
+                contexts.entry(found.event).or_default().push(context);
+            }
+        }
+
+        let mut listed = HashMap::new();
+        for &id in &ids {
+            let Some(name) = event_names.get(id) else {
+                continue;
+            };
+            let listing = declared.iter().find_map(|indexed| {
+                let at = indexed
+                    .unit
+                    .events
+                    .iter()
+                    .position(|event| event.eq_ignore_ascii_case(name))?;
+                Some(unit_row(
+                    indexed,
+                    Some(&[SiteStep::Field(BANK_EVENTS.0), SiteStep::Index(at)]),
+                    names,
+                ))
+            });
+            if let Some(row) = listing {
+                listed.insert(id, row);
+            }
+        }
+
+        Self {
+            set,
+            names: event_names,
+            origin,
+            contexts,
+            listed,
+        }
     }
 
     /// Returns the bank set: the opened bank first, then the files of its bank units.
@@ -89,33 +134,32 @@ impl EventBank {
         let lookup = SoundLookup::new(&self.set, &self.names);
         let events = event_ids(&self.set)
             .map(|id| {
-                let name = self.names.get(id).map(str::to_owned);
-                match lookup.event(id) {
-                    Ok(Some(tree)) => AudioEvent {
-                        id: id.0,
-                        name,
-                        action_count: count(tree.actions.len()),
-                        media_count: count(tree.actions.iter().map(sounds_of_action).sum()),
-                        status: status_of(&tree),
-                    },
-                    Ok(None) => AudioEvent {
-                        id: id.0,
-                        name,
-                        action_count: 0,
-                        media_count: 0,
-                        status: EventStatus::ObjectMissing,
-                    },
-                    Err(error) => AudioEvent {
-                        id: id.0,
-                        name,
-                        action_count: 0,
-                        media_count: 0,
-                        status: EventStatus::DecodeError {
+                let (action_count, media_count, status) = match lookup.event(id) {
+                    Ok(Some(tree)) => (
+                        count(tree.actions.len()),
+                        count(tree.actions.iter().map(sounds_of_action).sum()),
+                        status_of(&tree),
+                    ),
+                    Ok(None) => (0, 0, EventStatus::ObjectMissing),
+                    Err(error) => (
+                        0,
+                        0,
+                        EventStatus::DecodeError {
                             object: error.object.0,
                             bank: error.bank.clone(),
                             message: error.error.to_string(),
                         },
-                    },
+                    ),
+                };
+
+                AudioEvent {
+                    id: id.0,
+                    name: self.names.get(id).map(str::to_owned),
+                    action_count,
+                    media_count,
+                    status,
+                    contexts: self.contexts.get(&id).cloned().unwrap_or_default(),
+                    listed: self.listed.get(&id).cloned(),
                 }
             })
             .collect();
@@ -124,7 +168,8 @@ impl EventBank {
             .set
             .files()
             .iter()
-            .map(|file| SetFile {
+            .enumerate()
+            .map(|(at, file)| SetFile {
                 path: file.path().to_owned(),
                 asset: file.asset().cloned(),
                 state: match file.content() {
@@ -134,6 +179,7 @@ impl EventBank {
                         message: message.clone(),
                     },
                 },
+                opened: at == 0,
             })
             .collect();
 
@@ -487,6 +533,56 @@ pub struct AudioEvent {
     /// The number of sounds under the event's Play actions.
     pub media_count: u32,
     pub status: EventStatus,
+    /// The contextual rules that play the event.
+    pub contexts: Vec<EventContext>,
+    /// The `events[i]` row of the first ranked bank unit that lists the event's name.
+    pub listed: Option<BinRow>,
+}
+
+/// One contextual rule that plays an event, matched by a composed name.
+///
+/// The composition is observed in shipped data, so the match is an inference.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct EventContext {
+    /// The situation's name, such as `SpellCast`, or its hash if no table names it.
+    pub situation: String,
+    /// `mRuleName`, such as `Basic 1`.
+    pub rule: Option<String>,
+    pub audience: Audience,
+    /// `true` if another composition of the rule is an event of the bank too.
+    pub ambiguous: bool,
+    /// The rule row of the `ContextualActionData` object.
+    pub row: BinRow,
+}
+
+/// Returns the context of `found`, from the first index that declares its object.
+fn context_of(
+    found: &ContextualMatch,
+    indexes: &[&AudioIndex],
+    names: &dyn SiteNames,
+) -> Option<EventContext> {
+    let rules = indexes
+        .iter()
+        .find_map(|index| index.contextual(found.object))?;
+    let rule = rules.rules.get(found.rule)?;
+
+    Some(EventContext {
+        situation: names
+            .hash_name(rule.situation)
+            .unwrap_or_else(|| hex(rule.situation)),
+        rule: rule.name.clone(),
+        audience: found.audience,
+        ambiguous: found.ambiguous,
+        row: bin_row(
+            &rules.bin,
+            found.object,
+            CONTEXTUAL_ACTION_DATA.0,
+            Some(&rule.steps),
+            names,
+        ),
+    })
 }
 
 /// Whether every object and media of an event's tree resolves.
@@ -522,6 +618,8 @@ pub struct SetFile {
     /// The layer file or game chunk that holds the file, or `None` if no store holds it.
     pub asset: Option<AssetRef>,
     pub state: SetFileState,
+    /// `true` for the file that the document opened.
+    pub opened: bool,
 }
 
 /// Whether a file of a bank set was read.
