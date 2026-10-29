@@ -1,0 +1,646 @@
+//! The event bank viewer's model: the events of one opened bank, each with its play tree.
+//!
+//! "Event tree" in `docs/ux/AUDIO.md`.
+
+use std::collections::HashSet;
+use std::io;
+
+use ltk_manager_assets::preview::AssetRef;
+use ltk_wwise::hierarchy::{ObjectKind, StreamType};
+use ltk_wwise::{ObjectId, SourceId};
+use serde::Serialize;
+
+use crate::bank_set::{BankContent, BankSet, BankUnit};
+use crate::files::{AudioFile, AudioFiles, ReadSeek};
+use crate::index::AudioIndex;
+use crate::lookup::{ActionNode, LookupError, MediaSite, PlayNode, PlayTree, SoundLookup};
+use crate::names::EventNames;
+
+/// The bank that a document opened, with the game path that the bank units name it by.
+#[derive(Debug, Clone)]
+pub struct OpenedBank {
+    /// The game path of the bank. A file outside the game names itself by its file name.
+    pub path: String,
+    pub file: AudioFile<Vec<u8>>,
+}
+
+/// Which files the bank set of an opened event bank holds beside the bank.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum BankSetOrigin {
+    /// The files of every bank unit that names the bank.
+    Units,
+    /// No bank unit names the bank. The set holds the `_audio` bank and package beside it.
+    Siblings,
+    /// No bank unit names the bank, and its name has no `_events` stem. The set holds it alone.
+    Alone,
+}
+
+/// An event bank opened with its bank set, and the names of its events.
+#[derive(Debug)]
+pub struct EventBank {
+    set: BankSet,
+    names: EventNames,
+    origin: BankSetOrigin,
+}
+
+impl EventBank {
+    /// Opens `opened` with the files that its bank units name.
+    ///
+    /// The bank units come from `indexes`, the first index first: the project's own bins, then
+    /// the game. The opened bank is the first file of the set, read from its own bytes. If no
+    /// unit names it, the set falls back to the sibling convention: the same directory, the stem
+    /// with `_events` replaced by `_audio`, as a `.bnk` and a `.wpk`. An event takes its name
+    /// from the first index that names its ID.
+    #[must_use]
+    pub fn open(
+        opened: OpenedBank,
+        indexes: &[&AudioIndex],
+        files: &dyn AudioFiles,
+        locale: Option<&str>,
+    ) -> Self {
+        let (units, origin) = bank_units(&opened.path, indexes);
+        let files = WithOpened {
+            opened: &opened,
+            rest: files,
+        };
+        let set = BankSet::open(&units, &files, locale);
+
+        let mut names = EventNames::new();
+        for id in event_ids(&set) {
+            if let Some(name) = indexes.iter().find_map(|index| index.name(id)) {
+                names.insert(name);
+            }
+        }
+
+        Self { set, names, origin }
+    }
+
+    /// Returns the bank set: the opened bank first, then the files of its bank units.
+    #[must_use]
+    pub fn set(&self) -> &BankSet {
+        &self.set
+    }
+
+    /// Lists every event of the opened bank, in file order, with the status of its play tree.
+    #[must_use]
+    pub fn events(&self) -> AudioEventList {
+        let lookup = SoundLookup::new(&self.set, &self.names);
+        let events = event_ids(&self.set)
+            .map(|id| {
+                let name = self.names.get(id).map(str::to_owned);
+                match lookup.event(id) {
+                    Ok(Some(tree)) => AudioEvent {
+                        id: id.0,
+                        name,
+                        action_count: count(tree.actions.len()),
+                        media_count: count(tree.actions.iter().map(sounds_of_action).sum()),
+                        status: status_of(&tree),
+                    },
+                    Ok(None) => AudioEvent {
+                        id: id.0,
+                        name,
+                        action_count: 0,
+                        media_count: 0,
+                        status: EventStatus::ObjectMissing,
+                    },
+                    Err(error) => AudioEvent {
+                        id: id.0,
+                        name,
+                        action_count: 0,
+                        media_count: 0,
+                        status: EventStatus::DecodeError {
+                            object: error.object.0,
+                            bank: error.bank.clone(),
+                            message: error.error.to_string(),
+                        },
+                    },
+                }
+            })
+            .collect();
+
+        let files = self
+            .set
+            .files()
+            .iter()
+            .map(|file| SetFile {
+                path: file.path().to_owned(),
+                asset: file.asset().cloned(),
+                state: match file.content() {
+                    BankContent::Bank { .. } | BankContent::Package { .. } => SetFileState::Found,
+                    BankContent::Missing => SetFileState::Missing,
+                    BankContent::Failed { message } => SetFileState::Failed {
+                        message: message.clone(),
+                    },
+                },
+            })
+            .collect();
+
+        AudioEventList {
+            events,
+            files,
+            origin: self.origin,
+        }
+    }
+
+    /// Resolves the event `id` into its play tree.
+    ///
+    /// Returns `None` if the first object `id` of the set is not an event.
+    ///
+    /// # Errors
+    ///
+    /// Fails with a [`LookupError`] if an object of the tree cannot be decoded.
+    pub fn event(&self, id: ObjectId) -> Result<Option<EventTree>, LookupError> {
+        let lookup = SoundLookup::new(&self.set, &self.names);
+        let Some(tree) = lookup.event(id)? else {
+            return Ok(None);
+        };
+
+        Ok(Some(EventTree {
+            event: tree.event.0,
+            name: tree.name,
+            actions: tree
+                .actions
+                .into_iter()
+                .map(|action| self.action(action))
+                .collect(),
+        }))
+    }
+
+    fn action(&self, action: ActionNode) -> EventAction {
+        EventAction {
+            id: action.id.0,
+            class: action.class,
+            label: action.class.map(action_label),
+            target: self.action_target(action.id),
+            node: action.target.map(|node| self.node(node)),
+        }
+    }
+
+    /// Returns the object ID that the action `id` targets, the `u32` after its type.
+    fn action_target(&self, id: ObjectId) -> Option<u32> {
+        let (_, _, object) = self.set.object(id)?;
+        if object.kind() != ObjectKind::ACTION {
+            return None;
+        }
+        let bytes = object
+            .payload()
+            .get(ACTION_TARGET_OFFSET..)?
+            .first_chunk()?;
+        Some(u32::from_le_bytes(*bytes))
+    }
+
+    fn node(&self, node: PlayNode) -> EventNode {
+        let nodes = |children: Vec<PlayNode>| -> Vec<EventNode> {
+            children.into_iter().map(|child| self.node(child)).collect()
+        };
+
+        match node {
+            PlayNode::Sound {
+                id,
+                source,
+                stream,
+                media,
+            } => EventNode::Sound {
+                id: id.0,
+                source: source.0,
+                stream: SoundStream::from(stream),
+                media: self.location(media, source),
+            },
+            PlayNode::Random { id, children } => EventNode::Random {
+                id: id.0,
+                children: nodes(children),
+            },
+            PlayNode::Switch { id, children } => EventNode::Switch {
+                id: id.0,
+                children: nodes(children),
+            },
+            PlayNode::Layer { id, children } => EventNode::Layer {
+                id: id.0,
+                children: nodes(children),
+            },
+            PlayNode::Mixer { id, children } => EventNode::Mixer {
+                id: id.0,
+                children: nodes(children),
+            },
+            PlayNode::Unsupported { id, kind } => EventNode::Unsupported {
+                id: id.0,
+                object_kind: kind.0,
+                kind_name: kind.to_string(),
+                music: MUSIC_KINDS.contains(&kind),
+            },
+            PlayNode::Missing { id } => EventNode::Missing { id: id.0 },
+        }
+    }
+
+    fn location(&self, site: MediaSite, source: SourceId) -> Option<MediaLocation> {
+        let (file, container) = match site {
+            MediaSite::InBank { file } => (file, MediaContainer::Bank),
+            MediaSite::InPackage { file } => (file, MediaContainer::Package),
+            MediaSite::Missing => return None,
+        };
+        let file = &self.set.files()[file];
+
+        Some(MediaLocation {
+            asset: file.asset()?.clone(),
+            path: file.path().to_owned(),
+            source: source.0,
+            container,
+        })
+    }
+}
+
+/// Returns the bank units of the set of the bank at `path`, and where they come from.
+fn bank_units(path: &str, indexes: &[&AudioIndex]) -> (Vec<BankUnit>, BankSetOrigin) {
+    let mut units = vec![BankUnit {
+        bank_path: vec![path.to_owned()],
+        ..BankUnit::default()
+    }];
+    let mut listed = HashSet::from([path.to_ascii_lowercase()]);
+
+    for index in indexes {
+        for indexed in index.units_naming(path) {
+            let bank_path = indexed
+                .unit
+                .bank_path
+                .iter()
+                .filter(|listed_path| listed.insert(listed_path.to_ascii_lowercase()))
+                .cloned()
+                .collect();
+            units.push(BankUnit {
+                bank_path,
+                ..indexed.unit.clone()
+            });
+        }
+    }
+    if units.len() > 1 {
+        return (units, BankSetOrigin::Units);
+    }
+
+    let Some(stem) = sibling_stem(path) else {
+        return (units, BankSetOrigin::Alone);
+    };
+    units.push(BankUnit {
+        bank_path: vec![format!("{stem}.bnk"), format!("{stem}.wpk")],
+        ..BankUnit::default()
+    });
+    (units, BankSetOrigin::Siblings)
+}
+
+/// Returns the path of `path` without its extension, with the `_events` suffix of the stem
+/// replaced by `_audio`. Returns `None` if the stem has no `_events` suffix.
+fn sibling_stem(path: &str) -> Option<String> {
+    let (stem, _) = path.rsplit_once('.')?;
+    let cut = stem.len().checked_sub(EVENTS_SUFFIX.len())?;
+    let suffix = stem.get(cut..)?;
+    if !suffix.eq_ignore_ascii_case(EVENTS_SUFFIX) || stem[..cut].is_empty() {
+        return None;
+    }
+    Some(format!("{}{AUDIO_SUFFIX}", &stem[..cut]))
+}
+
+/// Returns the IDs of the events of the first file of `set`, in file order.
+fn event_ids(set: &BankSet) -> impl Iterator<Item = ObjectId> + '_ {
+    let hierarchy = match set.files().first().map(|file| file.content()) {
+        Some(BankContent::Bank { bank }) => bank.hierarchy(),
+        _ => None,
+    };
+    hierarchy
+        .into_iter()
+        .flat_map(|hierarchy| hierarchy.of_kind(ObjectKind::EVENT))
+        .map(|object| object.id())
+}
+
+/// Returns the status of `tree`: an object missing outranks a media missing.
+fn status_of(tree: &PlayTree) -> EventStatus {
+    fn walk(node: &PlayNode, missing: &mut Missing) {
+        match node {
+            PlayNode::Sound { media, .. } => {
+                missing.media |= *media == MediaSite::Missing;
+            }
+            PlayNode::Random { children, .. }
+            | PlayNode::Switch { children, .. }
+            | PlayNode::Layer { children, .. }
+            | PlayNode::Mixer { children, .. } => {
+                for child in children {
+                    walk(child, missing);
+                }
+            }
+            PlayNode::Missing { .. } => missing.object = true,
+            PlayNode::Unsupported { .. } => {}
+        }
+    }
+
+    let mut missing = Missing::default();
+    for action in &tree.actions {
+        missing.object |= action.class.is_none();
+        if let Some(node) = &action.target {
+            walk(node, &mut missing);
+        }
+    }
+
+    if missing.object {
+        EventStatus::ObjectMissing
+    } else if missing.media {
+        EventStatus::MediaMissing
+    } else {
+        EventStatus::Resolved
+    }
+}
+
+#[derive(Default)]
+struct Missing {
+    object: bool,
+    media: bool,
+}
+
+/// Returns the number of sounds under `action`.
+fn sounds_of_action(action: &ActionNode) -> usize {
+    fn sounds(node: &PlayNode) -> usize {
+        match node {
+            PlayNode::Sound { .. } => 1,
+            PlayNode::Random { children, .. }
+            | PlayNode::Switch { children, .. }
+            | PlayNode::Layer { children, .. }
+            | PlayNode::Mixer { children, .. } => children.iter().map(sounds).sum(),
+            PlayNode::Unsupported { .. } | PlayNode::Missing { .. } => 0,
+        }
+    }
+
+    action.target.as_ref().map_or(0, sounds)
+}
+
+fn count(value: usize) -> u32 {
+    u32::try_from(value).unwrap_or(u32::MAX)
+}
+
+/// Returns the name of the action class `class`, or `0x` and four hex digits for a class that
+/// the table does not name.
+#[must_use]
+pub fn action_label(class: u16) -> String {
+    ACTION_CLASSES
+        .iter()
+        .find(|(known, _)| *known == class)
+        .map_or_else(|| format!("{class:#06x}"), |(_, name)| (*name).to_owned())
+}
+
+/// The Wwise action classes, the high byte of the action type, with their names.
+const ACTION_CLASSES: &[(u16, &str)] = &[
+    (0x0100, "Stop"),
+    (0x0200, "Pause"),
+    (0x0300, "Resume"),
+    (0x0400, "Play"),
+    (0x0500, "PlayAndContinue"),
+    (0x0600, "Mute"),
+    (0x0700, "Unmute"),
+    (0x0800, "SetPitch"),
+    (0x0900, "ResetPitch"),
+    (0x0A00, "SetVolume"),
+    (0x0B00, "ResetVolume"),
+    (0x0C00, "SetBusVolume"),
+    (0x0D00, "ResetBusVolume"),
+    (0x0E00, "SetLPF"),
+    (0x0F00, "ResetLPF"),
+    (0x1000, "UseState"),
+    (0x1100, "UnuseState"),
+    (0x1200, "SetState"),
+    (0x1300, "SetGameParameter"),
+    (0x1400, "ResetGameParameter"),
+    (0x1900, "SetSwitch"),
+    (0x1A00, "BypassFX"),
+    (0x1B00, "ResetBypassFX"),
+    (0x1C00, "Break"),
+    (0x1D00, "Trigger"),
+    (0x1E00, "Seek"),
+    (0x1F00, "Release"),
+    (0x2000, "SetHPF"),
+    (0x2100, "PlayEvent"),
+    (0x2200, "ResetPlaylist"),
+    (0x3000, "ResetHPF"),
+    (0x3100, "SetFX"),
+    (0x3200, "ResetSetFX"),
+];
+
+/// The offset of the target ID in an action payload: after the object ID and the `u16` type.
+const ACTION_TARGET_OFFSET: usize = 6;
+
+/// The music object kinds, which the lookup does not play.
+const MUSIC_KINDS: [ObjectKind; 4] = [
+    ObjectKind::MUSIC_SEGMENT,
+    ObjectKind::MUSIC_TRACK,
+    ObjectKind::MUSIC_SWITCH_CONTAINER,
+    ObjectKind::MUSIC_RANDOM_SEQUENCE_CONTAINER,
+];
+
+const EVENTS_SUFFIX: &str = "_events";
+const AUDIO_SUFFIX: &str = "_audio";
+
+/// [`AudioFiles`] that answer the opened bank's path with its own bytes, and every other path
+/// through `rest`.
+struct WithOpened<'a> {
+    opened: &'a OpenedBank,
+    rest: &'a dyn AudioFiles,
+}
+
+impl AudioFiles for WithOpened<'_> {
+    fn read(&self, path: &str) -> io::Result<Option<AudioFile<Vec<u8>>>> {
+        if path.eq_ignore_ascii_case(&self.opened.path) {
+            return Ok(Some(self.opened.file.clone()));
+        }
+        self.rest.read(path)
+    }
+
+    fn open(&self, path: &str) -> io::Result<Option<AudioFile<Box<dyn ReadSeek>>>> {
+        if path.eq_ignore_ascii_case(&self.opened.path) {
+            let file = self.opened.file.clone();
+            return Ok(Some(AudioFile {
+                asset: file.asset,
+                contents: Box::new(io::Cursor::new(file.contents)) as Box<dyn ReadSeek>,
+            }));
+        }
+        self.rest.open(path)
+    }
+}
+
+/// The events of an opened event bank, and the files of its bank set.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEventList {
+    /// Every event of the opened bank, in file order.
+    pub events: Vec<AudioEvent>,
+    /// The files of the bank set, the opened bank first.
+    pub files: Vec<SetFile>,
+    pub origin: BankSetOrigin,
+}
+
+/// One event of an event bank, without its tree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct AudioEvent {
+    pub id: u32,
+    /// The name that hashes to the ID, or `None` if no index names it.
+    pub name: Option<String>,
+    pub action_count: u32,
+    /// The number of sounds under the event's Play actions.
+    pub media_count: u32,
+    pub status: EventStatus,
+}
+
+/// Whether every object and media of an event's tree resolves.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum EventStatus {
+    /// Every object and every media resolves.
+    Resolved,
+    /// A sound names a media that no file of the set holds.
+    MediaMissing,
+    /// An action or a node names an object that no bank of the set holds.
+    ObjectMissing,
+    /// An object of the tree cannot be decoded.
+    DecodeError {
+        object: u32,
+        /// The game path of the bank that holds the object.
+        bank: String,
+        message: String,
+    },
+}
+
+/// One file of the bank set of an event bank.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct SetFile {
+    pub path: String,
+    /// The layer file or game chunk that holds the file, or `None` if no store holds it.
+    pub asset: Option<AssetRef>,
+    pub state: SetFileState,
+}
+
+/// Whether a file of a bank set was read.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum SetFileState {
+    Found,
+    Missing,
+    Failed { message: String },
+}
+
+/// The play tree of one event, as the event tree draws it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct EventTree {
+    pub event: u32,
+    pub name: Option<String>,
+    pub actions: Vec<EventAction>,
+}
+
+/// One action of an event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct EventAction {
+    pub id: u32,
+    /// The class of the action, `0x0400` for Play. `None` if no bank holds the action.
+    pub class: Option<u16>,
+    /// The name of the class, or `0x` and four hex digits for a class without a name.
+    pub label: Option<String>,
+    /// The object ID that the action targets.
+    pub target: Option<u32>,
+    /// The tree under a Play action. `None` for another class, and for a target that the walk
+    /// visited before.
+    pub node: Option<EventNode>,
+}
+
+/// One object under a Play action.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum EventNode {
+    Sound {
+        id: u32,
+        source: u32,
+        stream: SoundStream,
+        /// The file that holds the media, or `None` if no file of the set holds it.
+        media: Option<MediaLocation>,
+    },
+    /// A random or sequence container: one child plays.
+    Random { id: u32, children: Vec<EventNode> },
+    /// A switch container: the first child plays.
+    Switch { id: u32, children: Vec<EventNode> },
+    /// A layer container: every child plays.
+    Layer { id: u32, children: Vec<EventNode> },
+    /// An actor-mixer: every child plays.
+    Mixer { id: u32, children: Vec<EventNode> },
+    /// An object of a kind that does not play.
+    Unsupported {
+        id: u32,
+        /// The object kind, the `HIRC` type byte.
+        object_kind: u8,
+        /// The kind's name, such as `MusicSegment`.
+        kind_name: String,
+        music: bool,
+    },
+    /// No bank of the set holds the ID.
+    Missing { id: u32 },
+}
+
+/// Where the media of a sound is stored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum SoundStream {
+    /// In the media index of a bank.
+    DataBank,
+    /// Its start in a bank, the whole media in a package.
+    Prefetch,
+    /// In a package.
+    Streaming,
+    /// A stream type that `ltk_wwise` does not name.
+    Other,
+}
+
+impl From<StreamType> for SoundStream {
+    fn from(stream: StreamType) -> Self {
+        match stream {
+            StreamType::DATA_BANK => Self::DataBank,
+            StreamType::PREFETCH => Self::Prefetch,
+            StreamType::STREAMING => Self::Streaming,
+            _ => Self::Other,
+        }
+    }
+}
+
+/// The file that holds the media of a sound, and the source ID that a preview URL reads.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub struct MediaLocation {
+    pub asset: AssetRef,
+    /// The game path of the file.
+    pub path: String,
+    pub source: u32,
+    pub container: MediaContainer,
+}
+
+/// The kind of file that holds a media.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(feature = "ts", derive(specta::Type))]
+#[serde(rename_all = "camelCase")]
+pub enum MediaContainer {
+    Bank,
+    Package,
+}

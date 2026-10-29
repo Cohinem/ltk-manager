@@ -289,6 +289,40 @@ export type AudioContainer =
 /**  One WEM media file (`.wem`). */
 "media";
 
+/**  One event of an event bank, without its tree. */
+export type AudioEvent = {
+	id: number,
+	/**  The name that hashes to the ID, or `None` if no index names it. */
+	name: string | null,
+	actionCount: number,
+	/**  The number of sounds under the event's Play actions. */
+	mediaCount: number,
+	status: EventStatus,
+};
+
+/**  The events of an opened event bank, and the files of its bank set. */
+export type AudioEventList = {
+	/**  Every event of the opened bank, in file order. */
+	events: AudioEvent[],
+	/**  The files of the bank set, the opened bank first. */
+	files: SetFile[],
+	origin: BankSetOrigin,
+};
+
+/**  The events of an event bank, and the slot of the game's audio index that named them. */
+export type AudioEventsResponse = {
+	list: AudioEventList,
+	/**  Off `ready`, the names and bank units of the game are missing from the list. */
+	index: AudioIndexStatus,
+};
+
+/**  The slot of the game's audio index, as a response reports it. */
+export type AudioIndexStatus = 
+/**  A build runs on a background thread. Names and bank units of the game are missing. */
+{ status: "building" } | { status: "ready" } | 
+/**  The last build failed. The next read after the game build changes retries it. */
+{ status: "failed"; message: string };
+
 /**  The header facts of a Wwise package, bank or WEM. */
 export type AudioInfo = {
 	container: AudioContainer,
@@ -330,6 +364,15 @@ export type BankFacts = {
 	/**  The number of events of the hierarchy, or `None` if the bank has no hierarchy. */
 	eventCount: number | null,
 };
+
+/**  Which files the bank set of an opened event bank holds beside the bank. */
+export type BankSetOrigin = 
+/**  The files of every bank unit that names the bank. */
+"units" | 
+/**  No bank unit names the bank. The set holds the `_audio` bank and package beside it. */
+"siblings" | 
+/**  No bank unit names the bank, and its name has no `_events` stem. The set holds it alone. */
+"alone";
 
 /**  The rule of section 10.2 that picked a base texture, in the order they are tried. */
 export type BaseRule = 
@@ -2017,6 +2060,22 @@ export type EnginePass =
  */
 export type ErrorKind = "IO" | "SERIALIZATION" | "MODPKG" | "LEAGUE_NOT_FOUND" | "INVALID_PATH" | "MOD_NOT_FOUND" | "VALIDATION_FAILED" | "INTERNAL_STATE" | "OTHER" | "WORKSHOP_NOT_CONFIGURED" | "PROJECT_NOT_FOUND" | "PROJECT_ALREADY_EXISTS" | "PACK_FAILED" | "FANTOME" | "WAD_ERROR" | "WAD_BUILDER_ERROR" | "PATCHER" | "LAUNCHER" | "ZIP_ERROR" | "SCHEMA_VERSION_TOO_NEW" | "WORKSHOP" | "HASHTABLE" | "PREVIEW" | "BIN_DOCUMENT" | "OVERLAY" | "UNTRUSTED_DOMAIN" | "RUNEFORGE";
 
+/**  One action of an event. */
+export type EventAction = {
+	id: number,
+	/**  The class of the action, `0x0400` for Play. `None` if no bank holds the action. */
+	class: number | null,
+	/**  The name of the class, or `0x` and four hex digits for a class without a name. */
+	label: string | null,
+	/**  The object ID that the action targets. */
+	target: number | null,
+	/**
+	 *  The tree under a Play action. `None` for another class, and for a target that the walk
+	 *  visited before.
+	 */
+	node: EventNode | null,
+};
+
 /**  What a clip event does, for the kinds a viewport plays, and nothing for the rest. */
 export type EventKind = 
 /**  `SubmeshVisibilityEventData`: submeshes shown and hidden from the start frame on. */
@@ -2090,12 +2149,53 @@ blendOut: number | null } |
 /**  Any other kind, which the viewport draws nothing for. */
 { kind: "other" };
 
+/**  One object under a Play action. */
+export type EventNode = { kind: "sound"; id: number; source: number; stream: SoundStream; 
+/**  The file that holds the media, or `None` if no file of the set holds it. */
+media: MediaLocation | null } | 
+/**  A random or sequence container: one child plays. */
+{ kind: "random"; id: number; children: EventNode[] } | 
+/**  A switch container: the first child plays. */
+{ kind: "switch"; id: number; children: EventNode[] } | 
+/**  A layer container: every child plays. */
+{ kind: "layer"; id: number; children: EventNode[] } | 
+/**  An actor-mixer: every child plays. */
+{ kind: "mixer"; id: number; children: EventNode[] } | 
+/**  An object of a kind that does not play. */
+{ kind: "unsupported"; id: number; 
+/**  The object kind, the `HIRC` type byte. */
+objectKind: number; 
+/**  The kind's name, such as `MusicSegment`. */
+kindName: string; music: boolean } | 
+/**  No bank of the set holds the ID. */
+{ kind: "missing"; id: number };
+
 /**  One pair of a particle event: the joint the system rides, and the joint it aims at. */
 export type EventSpawn = {
 	/**  `mBoneName`, and none for a pair riding the skeleton's own origin. */
 	bone: HashRef | null,
 	/**  `mTargetBoneName`, and none for a pair aiming at nothing. */
 	targetBone: HashRef | null,
+};
+
+/**  Whether every object and media of an event's tree resolves. */
+export type EventStatus = 
+/**  Every object and every media resolves. */
+{ kind: "resolved" } | 
+/**  A sound names a media that no file of the set holds. */
+{ kind: "mediaMissing" } | 
+/**  An action or a node names an object that no bank of the set holds. */
+{ kind: "objectMissing" } | 
+/**  An object of the tree cannot be decoded. */
+{ kind: "decodeError"; object: number; 
+/**  The game path of the bank that holds the object. */
+bank: string; message: string };
+
+/**  The play tree of one event, as the event tree draws it. */
+export type EventTree = {
+	event: number,
+	name: string | null,
+	actions: EventAction[],
 };
 
 /**  One line the verdict rests on. */
@@ -4777,6 +4877,9 @@ export type MaterialWarning =
  */
 { kind: "nearestPermutation"; set: string[]; unset: string[] };
 
+/**  The kind of file that holds a media. */
+export type MediaContainer = "bank" | "package";
+
 /**  What a media export writes. */
 export type MediaExport = 
 /**  The decoded media: Ogg Vorbis for Vorbis, WAV for PCM. */
@@ -4796,6 +4899,15 @@ export type MediaFormat = {
 	dataSize: number,
 	/**  The length in seconds, or `None` if the byte rate is 0. An estimate for Vorbis. */
 	durationSeconds: number | null,
+};
+
+/**  The file that holds the media of a sound, and the source ID that a preview URL reads. */
+export type MediaLocation = {
+	asset: AssetRef,
+	/**  The game path of the file. */
+	path: string,
+	source: number,
+	container: MediaContainer,
 };
 
 /**  One media of a package, a media bank or a WEM. */
@@ -7592,6 +7704,17 @@ export type SessionStarted = {
 	version: string,
 };
 
+/**  One file of the bank set of an event bank. */
+export type SetFile = {
+	path: string,
+	/**  The layer file or game chunk that holds the file, or `None` if no store holds it. */
+	asset: AssetRef | null,
+	state: SetFileState,
+};
+
+/**  Whether a file of a bank set was read. */
+export type SetFileState = { kind: "found" } | { kind: "missing" } | { kind: "failed"; message: string };
+
 /**
  *  Application settings: UI/shell preferences plus the flattened core
  *  [`Config`]. The flatten keeps `settings.json` a single document, so the
@@ -8064,6 +8187,17 @@ path: string;
 name: string; 
 /**  The socket's class as the tables name it, and its hash where none does. */
 class: string };
+
+/**  Where the media of a sound is stored. */
+export type SoundStream = 
+/**  In the media index of a bank. */
+"dataBank" | 
+/**  Its start in a bank, the whole media in a package. */
+"prefetch" | 
+/**  In a package. */
+"streaming" | 
+/**  A stream type that `ltk_wwise` does not name. */
+"other";
 
 /**  The install's named spells for one character, without a search result cap. */
 export type SpellCatalog = {

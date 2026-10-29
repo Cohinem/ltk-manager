@@ -65,6 +65,8 @@ function answer(command: string): unknown {
       return world.info;
     case commandNames.audio.readAudioMedia:
       return world.rows;
+    case commandNames.audio.readAudioEvents:
+      return { list: { events: [], files: [], origin: "units" }, index: { status: "ready" } };
     default:
       return null;
   }

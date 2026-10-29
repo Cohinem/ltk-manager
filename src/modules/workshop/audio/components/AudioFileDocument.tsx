@@ -12,7 +12,9 @@ import { DocumentFrame } from "../../shared/components/DocumentFrame";
 import { audioQueries } from "../api/queries";
 import { useMediaActions } from "../hooks/useMediaActions";
 import { useMediaPlayer } from "../hooks/useMediaPlayer";
+import { useMediaFocus } from "../state/mediaFocus";
 import { filterRows, type MediaSort, sortRows } from "../utils/mediaRows";
+import { EventsPanel } from "./EventsPanel";
 import { MediaTable } from "./MediaTable";
 
 interface AudioFileDocumentProps {
@@ -31,13 +33,23 @@ const CONTAINER_LABELS: Record<AudioContainer, () => string> = {
  * A Wwise package, bank or WEM: its header facts, the reason the client rejects it, and the
  * table of its media.
  *
- * A bank with a hierarchy adds an Events tab, which shows the event count and opens first in a
- * bank without media. Per "The audio file document" in docs/ux/AUDIO.md.
+ * A bank with a hierarchy adds an Events tab with the event tree, which opens first in a bank
+ * without media. A "Show media" request for the file switches to the Media tab. Per "The audio
+ * file document" in docs/ux/AUDIO.md.
  */
 export function AudioFileDocument({ asset, name }: AudioFileDocumentProps) {
   const info = useAssetInfo(asset);
   const audio = info.data?.kind === "audio" ? info.data : null;
   const eventCount = audio?.bank?.eventCount ?? null;
+  const focus = useMediaFocus(asset);
+  const [tab, setTab] = useState<string | null>(null);
+  const [focused, setFocused] = useState<number | null>(null);
+  const shownTab = tab ?? (audio?.mediaCount === 0 ? "events" : "media");
+
+  if (focus !== null && focus.serial !== focused) {
+    setFocused(focus.serial);
+    setTab("media");
+  }
 
   return (
     <DocumentFrame data-ui="AudioFileDocument">
@@ -49,7 +61,8 @@ export function AudioFileDocument({ asset, name }: AudioFileDocumentProps) {
       {eventCount === null && <MediaPanel asset={asset} name={name} />}
       {eventCount !== null && (
         <Tabs.Root
-          defaultValue={audio?.mediaCount === 0 ? "events" : "media"}
+          value={shownTab}
+          onValueChange={(value) => setTab(String(value))}
           className="min-h-0 flex-1"
         >
           <Tabs.List className="px-2">
@@ -59,8 +72,8 @@ export function AudioFileDocument({ asset, name }: AudioFileDocumentProps) {
           <Tabs.Panel value="media" className="flex min-h-0 flex-1 flex-col">
             <MediaPanel asset={asset} name={name} />
           </Tabs.Panel>
-          <Tabs.Panel value="events" className="px-4 py-3 text-meta text-surface-400">
-            {m.audio_events_count_description({ count: eventCount })}
+          <Tabs.Panel value="events" className="flex min-h-0 flex-1 flex-col">
+            <EventsPanel asset={asset} />
           </Tabs.Panel>
         </Tabs.Root>
       )}
@@ -153,6 +166,14 @@ function MediaPanel({ asset, name }: AudioFileDocumentProps) {
   const [filter, setFilter] = useState("");
   const [sort, setSort] = useState<MediaSort | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
+  const focus = useMediaFocus(asset);
+  const [focused, setFocused] = useState<number | null>(null);
+
+  if (focus !== null && focus.serial !== focused) {
+    setFocused(focus.serial);
+    setSelected(focus.source);
+    setFilter("");
+  }
 
   const rows = useMemo(
     () => sortRows(filterRows(media.data ?? [], filter), sort),

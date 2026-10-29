@@ -157,6 +157,8 @@ services! {
     audio("audio") {
         read_audio_media,
         export_audio_media,
+        read_audio_events,
+        read_audio_event,
     }
     preview("preview") {
         // Asset preview

@@ -18,14 +18,19 @@ ltk-manager-base = { workspace = true }
 lewton = { workspace = true }
 lru = { workspace = true }
 ltk_hash = { workspace = true }
+ltk_meta = { workspace = true }
+ltk_wad = { workspace = true }
 ltk_wwise = { workspace = true }
 parking_lot = { workspace = true }
+rmp-serde = { workspace = true }
 serde = { workspace = true }
 specta = { workspace = true, optional = true }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 ww2ogg = { workspace = true }
 
 [dev-dependencies]
 fs-err = { workspace = true }
 insta = { workspace = true }
-ltk_wad = { workspace = true }
+ltk-manager-assets = { workspace = true, features = ["test-util"] }
+tempfile = { workspace = true }

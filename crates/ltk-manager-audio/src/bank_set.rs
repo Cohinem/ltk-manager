@@ -22,8 +22,49 @@ pub const BANK_UNIT: BinHash = named("BankUnit");
 /// The field hash of `bankPath` on [`BANK_UNIT`], the list of those files.
 pub const BANK_PATH: BinHash = named("bankPath");
 
+/// The field hash of `name` on [`BANK_UNIT`].
+pub const BANK_UNIT_NAME: BinHash = named("name");
+
+/// The field hash of `events` on [`BANK_UNIT`], the event names that the unit registers.
+pub const BANK_EVENTS: BinHash = named("events");
+
+/// The field hash of `voiceOver` on [`BANK_UNIT`].
+pub const BANK_VOICE_OVER: BinHash = named("voiceOver");
+
+/// Each bin class whose string fields hold an event name, with the hashes of those fields.
+pub const EVENT_FIELDS: &[(BinHash, &[BinHash])] = &[
+    (named("SoundEventData"), &[named("mSoundName")]),
+    (
+        named("VfxSystemDefinitionData"),
+        &[
+            named("soundOnCreateDefault"),
+            named("soundPersistentDefault"),
+            named("voiceOverOnCreateDefault"),
+            named("voiceOverPersistentDefault"),
+        ],
+    ),
+    (
+        named("VfxEmitterAudio"),
+        &[named("SoundOnCreate"), named("SoundPersistent")],
+    ),
+    (named("UiComboBoxSoundEvents"), &[named("OnSelectionEvent")]),
+    (
+        named("UiElementGroupButtonSoundEvents"),
+        &[
+            named("MouseDownEvent"),
+            named("MouseDownOnInactive"),
+            named("MouseDownSelected"),
+            named("MouseUpEvent"),
+            named("MouseUpOnInactive"),
+            named("MouseUpSelected"),
+            named("RollOutEvent"),
+            named("RollOverEvent"),
+        ],
+    ),
+];
+
 /// One `BankUnit` of a bin, as written.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct BankUnit {
     pub name: String,
     /// The `bankPath` list: event banks, media banks and packages.

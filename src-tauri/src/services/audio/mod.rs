@@ -1,10 +1,14 @@
-//! The `audio` service: the media table of an audio file, the export of one media, bank sets
-//! over the sandbox and the cache of decoded media.
+//! The `audio` service: the media table of an audio file, the export of one media, the events of
+//! an event bank, the audio index, bank sets over the sandbox and the cache of decoded media.
 //!
 //! The `sound` form of the `ltk-asset` protocol reads through [`decoded_sound`].
 
+mod events;
+mod index;
 mod media;
 
+pub use events::*;
+pub use index::AudioIndexState;
 pub use media::*;
 
 use std::io::{self, Cursor};
@@ -73,10 +77,6 @@ impl AudioFiles for SandboxAudioFiles<'_> {
 /// # Errors
 ///
 /// Fails if the install's game index cannot be built.
-#[expect(
-    dead_code,
-    reason = "the event bank viewer of #952 is the first caller"
-)]
 pub(crate) fn with_audio_files<T>(
     app: &AppHandle,
     reference: &SandboxRef,

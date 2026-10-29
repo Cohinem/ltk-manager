@@ -127,3 +127,61 @@ fn exported_media_writes_original_wem_or_decoded_ogg() {
     assert_eq!(&original[..4], b"RIFF");
     assert_eq!(&decoded.unwrap()[..4], b"OggS");
 }
+
+/// Names the one chunk `0123456789abcdef` and nothing else.
+struct OneChunkName;
+
+impl ltk_manager_bin::bin_document::RowNames for OneChunkName {
+    fn for_each_entry(&self, _: &[ltk_hash::BinHash], _: &mut dyn FnMut(usize, &str)) {}
+
+    fn for_each_class(&self, _: &[ltk_hash::BinHash], _: &mut dyn FnMut(usize, &str)) {}
+
+    fn for_each_field(&self, _: &[ltk_hash::BinHash], _: &mut dyn FnMut(usize, &str)) {}
+
+    fn for_each_value(&self, _: &[ltk_hash::BinHash], _: &mut dyn FnMut(usize, &str)) {}
+
+    fn for_each_chunk(&self, hashes: &[ltk_hash::WadHash], visit: &mut dyn FnMut(usize, &str)) {
+        for (at, hash) in hashes.iter().enumerate() {
+            if hash.0 == 0x0123_4567_89ab_cdef {
+                visit(at, "assets/sounds/ahri_sfx_events.bnk");
+            }
+        }
+    }
+}
+
+fn layer_file(path: &str) -> AssetRef {
+    AssetRef::Layer {
+        project: "C:/projects/ahri".to_owned(),
+        layer: "base".to_owned(),
+        path: path.to_owned(),
+    }
+}
+
+#[test]
+fn bank_path_drops_archive_directory_of_layer_file() {
+    let asset = layer_file("Ahri.wad.client/assets/sounds/ahri_sfx_events.bnk");
+
+    assert_eq!(
+        bank_path(&asset, &OneChunkName),
+        "assets/sounds/ahri_sfx_events.bnk"
+    );
+}
+
+#[test]
+fn bank_path_names_hash_named_layer_file_from_tables() {
+    let asset = layer_file("Ahri.wad.client/0123456789abcdef.bnk");
+
+    assert_eq!(
+        bank_path(&asset, &OneChunkName),
+        "assets/sounds/ahri_sfx_events.bnk"
+    );
+}
+
+#[test]
+fn bank_path_of_loose_file_is_its_file_name() {
+    let asset = AssetRef::File {
+        path: "C:\\Downloads\\ahri_sfx_events.bnk".to_owned(),
+    };
+
+    assert_eq!(bank_path(&asset, &OneChunkName), "ahri_sfx_events.bnk");
+}

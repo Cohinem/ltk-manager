@@ -37,6 +37,11 @@ impl EventNames {
         self.names.get(&id).map(String::as_str)
     }
 
+    /// Returns every name with its ID, in no order.
+    pub fn iter(&self) -> impl Iterator<Item = (ObjectId, &str)> {
+        self.names.iter().map(|(id, name)| (*id, name.as_str()))
+    }
+
     /// Returns the number of names.
     #[must_use]
     pub fn len(&self) -> usize {

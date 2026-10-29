@@ -126,6 +126,6 @@ pub(crate) fn exported_media(
     }
 }
 
-fn preview_error(error: impl std::error::Error + Send + Sync + 'static) -> AppError {
+pub(super) fn preview_error(error: impl std::error::Error + Send + Sync + 'static) -> AppError {
     AppError::Domain(DomainError::new(ErrorKind::Preview, error))
 }

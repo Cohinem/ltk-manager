@@ -145,6 +145,7 @@ pub fn run(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     app.manage(ltk_manager_bin::bin_document::BinDocuments::default());
     let sandboxes = ltk_manager_bin::sandbox::SandboxState::default();
     app.manage(sandboxes.clone());
+    app.manage(crate::services::audio::AudioIndexState::default());
     let sounds = ltk_manager_audio::SoundCache::default();
     app.manage(sounds.clone());
     app.manage(ltk_manager_assets::hashtables::BinHashTablesState::default());

@@ -1,6 +1,13 @@
 import { PlayIcon, StopIcon } from "@phosphor-icons/react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { type KeyboardEvent, type ReactNode, useCallback, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { ContextMenu, IconButton, Table, Tooltip } from "@/components";
 import { NO_OVERSCROLL, useRemeasure, useResizeObserver, useZoomedPx } from "@/hooks";
@@ -75,6 +82,11 @@ export function MediaTable({
   useRemeasure(virtualizer, rowHeight);
 
   const selectedIndex = rows.findIndex((row) => row.sourceId === selected);
+
+  /* A selection made outside the table, such as the event tree's Show media, scrolls into view. */
+  useEffect(() => {
+    if (selectedIndex >= 0) virtualizer.scrollToIndex(selectedIndex, { align: "auto" });
+  }, [selectedIndex, virtualizer]);
 
   function selectAt(index: number) {
     const row = rows[Math.max(0, Math.min(rows.length - 1, index))];

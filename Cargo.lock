@@ -3508,12 +3508,16 @@ dependencies = [
  "ltk-manager-assets",
  "ltk-manager-base",
  "ltk_hash",
+ "ltk_meta",
  "ltk_wad",
  "ltk_wwise",
  "parking_lot",
+ "rmp-serde",
  "serde",
  "specta",
+ "tempfile",
  "thiserror 2.0.18",
+ "tracing",
  "ww2ogg",
 ]
 
