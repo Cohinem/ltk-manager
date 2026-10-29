@@ -1,5 +1,4 @@
 import {
-  CaretDownIcon,
   CaretRightIcon,
   PlayIcon,
   StopIcon,
@@ -22,9 +21,11 @@ import type {
 } from "@/lib/tauri";
 import { measureRow, twMerge } from "@/utils";
 
+import { IndentRails } from "../../shared/components/TreeRowParts";
 import { instantScroll } from "../../shared/utils/instantScroll";
 import type { EventPlayer } from "../hooks/useEventPlayer";
 import { childrenOf, type EventRow, eventLabel, objectLabel } from "../utils/eventTree";
+import { AUDIO_LIST_GROUP, audioRowClasses } from "./audioRow";
 
 interface EventTreeProps {
   readonly rows: readonly EventRow[];
@@ -48,9 +49,6 @@ const ROW_HEIGHT = 27;
 
 /** The rows a Page Up or a Page Down moves the selection by. */
 const PAGE_ROWS = 10;
-
-/** The indent of one tree level in px. */
-const INDENT = 16;
 
 /**
  * The events of an event bank, each expanding into its actions and the objects under them,
@@ -163,7 +161,10 @@ export function EventTree({
           if (event.target === event.currentTarget && selectedIndex < 0) selectAt(0);
         }}
         data-ui="EventTree"
-        className="min-h-0 flex-1 overflow-auto text-row scrollbar-md select-none focus-visible:outline-none"
+        className={twMerge(
+          AUDIO_LIST_GROUP,
+          "min-h-0 flex-1 overflow-auto text-row scrollbar-md select-none focus-visible:outline-none",
+        )}
         {...NO_OVERSCROLL}
       >
         <div className="relative w-full min-w-max" style={{ height: virtualizer.getTotalSize() }}>
@@ -246,6 +247,10 @@ function EventLine({
   onExpand,
   onToggle,
 }: EventLineProps) {
+  const expandLabel = open ? m.audio_event_collapse_action() : m.audio_event_expand_action();
+  const playLabel = playing ? m.audio_event_stop_action() : m.audio_event_play_action();
+  const PlayGlyph = playing ? StopIcon : PlayIcon;
+
   return (
     <div
       id={rowId(row.key)}
@@ -254,23 +259,24 @@ function EventLine({
       aria-expanded={row.expandable ? open : undefined}
       aria-selected={selected}
       data-ui="EventTree:row"
-      /* DS-VEIL, DS-RADIUS */
-      className={twMerge(
-        "flex h-6 items-center gap-1.5 rounded-sm pr-2 hover:bg-surface-veil-soft",
-        selected && "bg-accent-500/10",
-        playing && "bg-accent-500/15",
-      )}
-      style={{ paddingLeft: row.depth * INDENT + 4 }}
+      className={twMerge(audioRowClasses({ selected, playing }), "gap-1.5 pl-1")}
       onClick={onSelect}
       onDoubleClick={() => row.expandable && onExpand(!open)}
     >
-      <span className="flex w-4 shrink-0 justify-center text-surface-400">
+      <IndentRails depth={row.depth} />
+      <span className="flex w-4 shrink-0 justify-center">
         {row.expandable && (
           <IconButton
             size="row"
             tabIndex={-1}
-            icon={open ? <CaretDownIcon weight="bold" /> : <CaretRightIcon weight="bold" />}
-            label={open ? m.audio_event_collapse_action() : m.audio_event_expand_action()}
+            muted
+            icon={
+              <CaretRightIcon
+                weight="bold"
+                className={twMerge("transition-transform", open && "rotate-90")}
+              />
+            }
+            label={expandLabel}
             tooltip={false}
             onClick={(event) => {
               event.stopPropagation();
@@ -284,8 +290,8 @@ function EventLine({
           <IconButton
             size="row"
             tabIndex={-1}
-            icon={playing ? <StopIcon weight="fill" /> : <PlayIcon weight="fill" />}
-            label={playing ? m.audio_event_stop_action() : m.audio_event_play_action()}
+            icon={<PlayGlyph weight="fill" />}
+            label={playLabel}
             pressed={playing}
             onClick={(event) => {
               event.stopPropagation();
@@ -329,7 +335,7 @@ function EventContent({ event }: { event: AudioEvent }) {
       <span
         className={twMerge(
           "truncate font-medium",
-          event.name === null ? "text-surface-300" : "text-surface-100",
+          event.name === null ? "text-surface-400" : "text-surface-100",
         )}
       >
         {eventLabel(event)}

@@ -134,7 +134,10 @@ describe("AudioFileDocument", () => {
     ];
     renderWithProviders(<AudioFileDocument asset={ASSET} name="ahri_base_vo_audio.wpk" />);
 
-    expect(await screen.findByRole("button", { name: "Play 5" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "Play 5" })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
     expect(screen.getByText("Opus")).toBeInTheDocument();
   });
 
