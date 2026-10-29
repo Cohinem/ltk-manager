@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { MediaRow } from "@/lib/tauri";
 
-import { formatDuration, nextSort, sortRows } from "../mediaRows";
+import { codecLabel, filterRows, formatDuration, nextSort, sortRows } from "../mediaRows";
 
 function row(sourceId: number, durationSeconds: number | null): MediaRow {
   return {
@@ -54,5 +54,21 @@ describe("nextSort", () => {
     expect(first).toEqual({ key: "size", descending: true });
     expect(second).toEqual({ key: "size", descending: false });
     expect(nextSort(second, "size")).toBeNull();
+  });
+});
+
+describe("filterRows", () => {
+  it("keeps the rows whose decimal source ID contains the filter, in their order", () => {
+    const rows = [row(10322914, 1), row(10583207, 1), row(11094382, 1)];
+
+    expect(filterRows(rows, " 105 ").map((each) => each.sourceId)).toEqual([10583207]);
+    expect(filterRows(rows, "")).toBe(rows);
+  });
+});
+
+describe("codecLabel", () => {
+  it("names a Wwise codec and writes an unknown tag in hex", () => {
+    expect(codecLabel(0x3040)).toBe("Opus");
+    expect(codecLabel(0x0042)).toBe("0x0042");
   });
 });
